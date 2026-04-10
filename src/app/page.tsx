@@ -6,7 +6,7 @@ async function getContacts() {
     process.env.SUPABASE_SECRET_KEY!,
     { cookies: { getAll: () => [], setAll: () => {} } }
   )
-  const { data } = await supabase.from('test001').select('id, 姓名, 電話, 地址').order('id')
+  const { data } = await supabase.from('test001').select('*').order('id')
   return data ?? []
 }
 
