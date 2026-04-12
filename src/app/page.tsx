@@ -1,5 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 
+export const dynamic = 'force-dynamic'
+
 async function getContacts() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
