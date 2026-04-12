@@ -25,11 +25,19 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  // 刷新 session，避免過期
+  // 公開路由不需要驗證
+  const publicPaths = ['/login', '/onboarding', '/api/auth']
+  const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
+
+  if (isPublic) {
+    return supabaseResponse
+  }
+
+  // 刷新 session，避免過期（只在需要保護的路由執行）
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 未登入時保護的路由，重導到 /login
-  if (!user && !request.nextUrl.pathname.startsWith('/login')) {
+  // 未登入時重導到 /login
+  if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
