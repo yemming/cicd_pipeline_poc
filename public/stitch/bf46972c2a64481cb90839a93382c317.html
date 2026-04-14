@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>配件庫存管理 | DealerOS Ducati</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#454747",
+                        "tertiary-fixed": "#ffe08f",
+                        "inverse-surface": "#2f2e43",
+                        "outline": "#78767d",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "surface-container-low": "#f5f2ff",
+                        "on-primary-fixed-variant": "#45455b",
+                        "on-error": "#ffffff",
+                        "on-background": "#1a1a2e",
+                        "surface-bright": "#fcf8ff",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "surface-container-high": "#e8e5ff",
+                        "on-tertiary-fixed": "#241a00",
+                        "tertiary-container": "#c9a84c",
+                        "secondary": "#5d5f5f",
+                        "on-secondary-container": "#5f6161",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e2e0fc",
+                        "primary-container": "#1a1a2e",
+                        "secondary-container": "#dcdddd",
+                        "on-primary-fixed": "#1a1a2e",
+                        "surface-tint": "#5d5c74",
+                        "primary": "#00000b",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "background": "#fcf8ff",
+                        "inverse-on-surface": "#f2efff",
+                        "surface-container": "#efecff",
+                        "tertiary": "#755b00",
+                        "primary-fixed-dim": "#c6c4df",
+                        "on-tertiary-container": "#503d00",
+                        "on-surface-variant": "#47464c",
+                        "primary-fixed": "#e2e0fc",
+                        "surface-variant": "#e2e0fc",
+                        "on-secondary": "#ffffff",
+                        "on-primary-container": "#83829b",
+                        "secondary-fixed": "#e2e2e2",
+                        "surface-dim": "#dad7f3",
+                        "on-tertiary": "#ffffff",
+                        "on-surface": "#1a1a2e",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "outline-variant": "#c8c5cd",
+                        "inverse-primary": "#c6c4df",
+                        "surface": "#fcf8ff",
+                        "on-error-container": "#93000a",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "1.5rem",
+                        "2xl": "2rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fcf8ff;
+        }
+        .sidebar-brand {
+            letter-spacing: 0.2em;
+        }
+    </style>
+</head>
+<body class="text-on-background">
+<!-- Desktop SideNavBar -->
+<!-- Main Content Area -->
+<main class="min-h-screen">
+<!-- TopNavBar -->
+<!-- Page Canvas -->
+<div class="pt-24 px-8 pb-12">
+<!-- Breadcrumb -->
+<nav class="flex items-center gap-2 text-sm text-slate-500 mb-6 font-medium">
+<span>售後服務</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-primary font-semibold">配件庫存</span>
+</nav>
+<!-- Action Bar -->
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+<div>
+<h1 class="text-4xl font-extrabold font-headline tracking-tight text-primary">配件庫存管理</h1>
+<p class="text-on-primary-container mt-2">目前庫存目錄共 <span class="font-bold text-primary">3,482</span> 種配件</p>
+</div>
+<div class="flex flex-wrap items-center gap-3">
+<div class="relative min-w-[280px]">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full pl-10 pr-4 py-3 bg-surface-container-low border-none rounded-xl focus:ring-1 focus:ring-tertiary/40 focus:bg-surface-container-lowest transition-all" placeholder="搜尋料號、品名..." type="text"/>
+</div>
+<select class="px-4 py-3 bg-surface-container-low border-none rounded-xl text-sm font-medium focus:ring-1 focus:ring-tertiary/40">
+<option>所有分類</option>
+<option>保養件</option>
+<option>消耗件</option>
+<option>改裝精品</option>
+</select>
+<button class="flex items-center gap-2 px-4 py-3 bg-surface-container-low rounded-xl text-sm font-medium hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-sm">tune</span>
+<span>篩選供應商</span>
+</button>
+<div class="flex items-center gap-3 px-4 py-3 bg-surface-container-low rounded-xl">
+<span class="text-sm font-medium text-slate-600">庫存預警</span>
+<div class="w-10 h-5 bg-slate-300 rounded-full relative cursor-pointer">
+<div class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full"></div>
+</div>
+</div>
+<button class="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-primary to-primary-container text-white rounded-xl font-bold shadow-lg hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+<span>採購申請</span>
+</button>
+</div>
+</div>
+<!-- Inventory Grid -->
+<div class="bg-surface-container-lowest rounded-2xl shadow-sm overflow-hidden mb-6">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">料號</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">品名</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">分類</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">供應商</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">庫存數量</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">安全庫存</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">庫位</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">單位成本</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">庫齡</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline">狀態</th>
+<th class="px-6 py-5 text-sm font-bold text-slate-600 font-headline text-center">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-primary font-medium">44440035A</td>
+<td class="px-6 py-5 text-sm font-semibold">Ducati 性能級機油濾芯 (Panigale/Multistrada)</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">保養件</span>
+</td>
+<td class="px-6 py-5 text-sm text-slate-500">Ducati Taiwan</td>
+<td class="px-6 py-5 text-sm font-bold">128</td>
+<td class="px-6 py-5 text-sm text-slate-400">50</td>
+<td class="px-6 py-5 text-sm font-medium">A-02-14</td>
+<td class="px-6 py-5 text-sm font-mono">NT$ 450</td>
+<td class="px-6 py-5 text-sm text-slate-500">12 天</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+<span class="text-sm font-medium text-emerald-600">正常</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 2 (Low Stock) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-primary font-medium">90915-10001</td>
+<td class="px-6 py-5 text-sm font-semibold">Ducati OEM 高性能引擎冷卻液 1L</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">保養件</span>
+</td>
+<td class="px-6 py-5 text-sm text-slate-500">Ducati Taiwan</td>
+<td class="px-6 py-5 text-sm font-bold text-error">5</td>
+<td class="px-6 py-5 text-sm text-slate-400">20</td>
+<td class="px-6 py-5 text-sm font-medium">B-05-01</td>
+<td class="px-6 py-5 text-sm font-mono">NT$ 1,200</td>
+<td class="px-6 py-5 text-sm text-slate-500">45 天</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span class="text-sm font-medium text-error">庫存低</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 3 (Aging Stock) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-primary font-medium">87139-50100</td>
+<td class="px-6 py-5 text-sm font-semibold">Ducati Performance 碳纖維油箱保護貼</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">改裝精品</span>
+</td>
+<td class="px-6 py-5 text-sm text-slate-500">Ducati Taiwan</td>
+<td class="px-6 py-5 text-sm font-bold">12</td>
+<td class="px-6 py-5 text-sm text-slate-400">10</td>
+<td class="px-6 py-5 text-sm font-medium">C-11-22</td>
+<td class="px-6 py-5 text-sm font-mono">NT$ 2,800</td>
+<td class="px-6 py-5 text-sm font-bold text-[#755b00]">102 天</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-sm font-medium text-tertiary">久滯</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-primary font-medium">43512-48110</td>
+<td class="px-6 py-5 text-sm font-semibold">Brembo Oro 系列高性能前煞車碟盤 (1199/1299/V4)</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">消耗件</span>
+</td>
+<td class="px-6 py-5 text-sm text-slate-500">Brembo SpA</td>
+<td class="px-6 py-5 text-sm font-bold">24</td>
+<td class="px-6 py-5 text-sm text-slate-400">8</td>
+<td class="px-6 py-5 text-sm font-medium">H-01-05</td>
+<td class="px-6 py-5 text-sm font-mono">NT$ 8,500</td>
+<td class="px-6 py-5 text-sm text-slate-500">5 天</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+<span class="text-sm font-medium text-emerald-600">正常</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 5 (Out of stock) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-primary font-medium">08880-83525</td>
+<td class="px-6 py-5 text-sm font-semibold">Shell Advance Ultra 4T 15W-50 Ducati 專用油</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">保養件</span>
+</td>
+<td class="px-6 py-5 text-sm text-slate-500">Shell Lubricants</td>
+<td class="px-6 py-5 text-sm font-bold text-error">0</td>
+<td class="px-6 py-5 text-sm text-slate-400">100</td>
+<td class="px-6 py-5 text-sm font-medium">S-01-A</td>
+<td class="px-6 py-5 text-sm font-mono">NT$ 550</td>
+<td class="px-6 py-5 text-sm text-slate-500">2 天</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-slate-900 animate-pulse"></span>
+<span class="text-sm font-extrabold text-error">缺貨中</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-primary font-medium">81110-33A20</td>
+<td class="px-6 py-5 text-sm font-semibold">Ducati Performance LED 方向燈組</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">改裝精品</span>
+</td>
+<td class="px-6 py-5 text-sm text-slate-500">Ducati Taiwan</td>
+<td class="px-6 py-5 text-sm font-bold">2</td>
+<td class="px-6 py-5 text-sm text-slate-400">2</td>
+<td class="px-6 py-5 text-sm font-medium">G-44-09</td>
+<td class="px-6 py-5 text-sm font-mono">NT$ 6,500</td>
+<td class="px-6 py-5 text-sm text-slate-500">68 天</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+<span class="text-sm font-medium text-emerald-600">正常</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 7 -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-primary font-medium">17801-25020</td>
+<td class="px-6 py-5 text-sm font-semibold">Ducati Performance 高流量空氣濾芯 (V4 系列)</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">保養件</span>
+</td>
+<td class="px-6 py-5 text-sm text-slate-500">Ducati Taiwan</td>
+<td class="px-6 py-5 text-sm font-bold">45</td>
+<td class="px-6 py-5 text-sm text-slate-400">20</td>
+<td class="px-6 py-5 text-sm font-medium">A-03-02</td>
+<td class="px-6 py-5 text-sm font-mono">NT$ 3,250</td>
+<td class="px-6 py-5 text-sm text-slate-500">18 天</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+<span class="text-sm font-medium text-emerald-600">正常</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 8 (Aging stock) -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-primary font-medium">52119-76941</td>
+<td class="px-6 py-5 text-sm font-semibold">Ducati 專用平衡端子組 (紅/黑)</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-wider">改裝精品</span>
+</td>
+<td class="px-6 py-5 text-sm text-slate-500">Ducati Taiwan</td>
+<td class="px-6 py-5 text-sm font-bold">3</td>
+<td class="px-6 py-5 text-sm text-slate-400">2</td>
+<td class="px-6 py-5 text-sm font-medium">K-01-12</td>
+<td class="px-6 py-5 text-sm font-mono">NT$ 2,400</td>
+<td class="px-6 py-5 text-sm font-bold text-[#755b00]">156 天</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary"></span>
+<span class="text-sm font-medium text-tertiary">久滯</span>
+</div>
+</td>
+<td class="px-6 py-5 text-center">
+<button class="text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Summary Bar & Pagination -->
+<div class="flex flex-col md:flex-row items-center justify-between gap-6 px-4">
+<div class="flex flex-wrap items-center gap-8 bg-surface-container-low px-8 py-4 rounded-2xl shadow-sm">
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">庫存總額</span>
+<span class="text-lg font-extrabold font-headline text-primary">NT$ 4,235,000</span>
+</div>
+<div class="h-8 w-px bg-slate-200"></div>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">低庫存品項</span>
+<span class="text-lg font-extrabold font-headline text-tertiary">23</span>
+</div>
+<div class="h-8 w-px bg-slate-200"></div>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">缺貨品項</span>
+<span class="text-lg font-extrabold font-headline text-error">5</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low text-slate-400 hover:text-primary hover:bg-surface-container-high transition-all">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white font-bold shadow-md">1</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low text-slate-600 hover:bg-surface-container-high font-medium">2</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low text-slate-600 hover:bg-surface-container-high font-medium">3</button>
+<span class="px-2 text-slate-400">...</span>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low text-slate-600 hover:bg-surface-container-high font-medium">48</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low text-slate-400 hover:text-primary hover:bg-surface-container-high transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

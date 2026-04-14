@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>集團運營簡報 - LEXUS Premium</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed": "#ffe08f",
+                        "error-container": "#ffdad6",
+                        "error": "#ba1a1a",
+                        "on-secondary": "#ffffff",
+                        "inverse-on-surface": "#f2efff",
+                        "surface-tint": "#5d5c74",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "on-secondary-container": "#5f6161",
+                        "inverse-surface": "#2f2e43",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-variant": "#c8c5cd",
+                        "primary": "#00000b",
+                        "surface-container-low": "#f5f2ff",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#1a1a2e",
+                        "on-primary-fixed-variant": "#45455b",
+                        "primary-fixed": "#e2e0fc",
+                        "on-secondary-fixed-variant": "#454747",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#c6c4df",
+                        "surface-bright": "#fcf8ff",
+                        "tertiary": "#755b00",
+                        "on-error-container": "#93000a",
+                        "on-surface": "#1a1a2e",
+                        "primary-fixed-dim": "#c6c4df",
+                        "secondary-container": "#dcdddd",
+                        "surface-container-highest": "#e2e0fc",
+                        "surface-container-high": "#e8e5ff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "surface-dim": "#dad7f3",
+                        "secondary": "#5d5f5f",
+                        "surface-variant": "#e2e0fc",
+                        "on-primary-container": "#83829b",
+                        "tertiary-container": "#c9a84c",
+                        "surface-container": "#efecff",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "outline": "#78767d",
+                        "on-error": "#ffffff",
+                        "primary-container": "#1a1a2e",
+                        "on-surface-variant": "#47464c",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "on-tertiary-container": "#503d00",
+                        "surface": "#fcf8ff",
+                        "background": "#fcf8ff",
+                        "on-tertiary-fixed": "#241a00",
+                        "on-background": "#1a1a2e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcf8ff; }
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .glass-nav { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .gradient-primary { background: linear-gradient(135deg, #00000B 0%, #1A1A2E 100%); }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- SideNavBar Shell -->
+<!-- Main Canvas -->
+<main class="min-h-screen">
+<!-- TopNavBar Shell -->
+<!-- Content Area -->
+<div class="pt-24 pb-12 px-10 max-w-7xl mx-auto space-y-8">
+<!-- Breadcrumbs & Controls -->
+<div class="flex items-end justify-between">
+<div class="space-y-1">
+<nav class="flex items-center gap-2 text-xs text-slate-400 uppercase tracking-widest font-semibold">
+<span>集團管理</span>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span class="text-[#C9A84C]">運營簡報</span>
+</nav>
+<h2 class="text-3xl font-headline font-black text-primary tracking-tight">集團運營簡報</h2>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center bg-surface-container-low p-1.5 rounded-xl gap-2">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest rounded-lg shadow-sm border border-slate-100 cursor-pointer">
+<span class="material-symbols-outlined text-lg text-[#C9A84C]">calendar_today</span>
+<span class="font-semibold text-sm">2026年4月</span>
+</div>
+<label class="flex items-center gap-2 px-3 cursor-pointer group">
+<div class="w-10 h-5 bg-[#C9A84C] rounded-full relative flex items-center px-1">
+<div class="w-3.5 h-3.5 bg-white rounded-full translate-x-4"></div>
+</div>
+<span class="text-xs font-bold text-slate-600 group-hover:text-primary transition-colors">vs 上月</span>
+</label>
+</div>
+<div class="flex items-center bg-surface-container-low p-1.5 rounded-xl">
+<button class="px-4 py-1.5 bg-[#1A1A2E] text-white text-sm font-bold rounded-lg shadow-md">LEXUS</button>
+<button class="px-4 py-1.5 text-slate-500 text-sm font-medium hover:text-primary transition-colors">TOYOTA</button>
+</div>
+<button class="gradient-primary text-white flex items-center gap-2 px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95">
+<span class="material-symbols-outlined text-lg">picture_as_pdf</span>
+<span>匯出 PDF</span>
+</button>
+</div>
+</div>
+<!-- Row 1: KPI Cards -->
+<div class="grid grid-cols-4 gap-6">
+<!-- Delivery Progress -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-slate-50 relative overflow-hidden group">
+<div class="relative z-10">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-4">集團總交車</p>
+<div class="flex items-end justify-between">
+<div>
+<div class="text-4xl font-headline font-black text-primary">156<span class="text-lg text-slate-400 font-medium ml-1">/ 200</span></div>
+<div class="flex items-center gap-1 text-xs font-bold text-green-600 mt-2">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>↑12% vs上月</span>
+</div>
+</div>
+<div class="relative w-16 h-16 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-slate-100" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-width="6"></circle>
+<circle class="text-[#C9A84C]" cx="32" cy="32" fill="transparent" r="28" stroke="currentColor" stroke-dasharray="175.9" stroke-dashoffset="38.7" stroke-width="6"></circle>
+</svg>
+<span class="absolute text-[10px] font-black">78%</span>
+</div>
+</div>
+</div>
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-surface-container-low rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
+</div>
+<!-- Total Orders -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-slate-50 group">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-4">集團總訂單</p>
+<div class="text-4xl font-headline font-black text-primary">42<span class="text-lg text-slate-400 font-medium ml-1">張</span></div>
+<div class="flex items-center gap-1 text-xs font-bold text-green-600 mt-2">
+<span class="material-symbols-outlined text-sm">arrow_upward</span>
+<span>↑8%</span>
+</div>
+<div class="mt-6 flex gap-1 items-end h-8">
+<div class="w-full bg-slate-100 h-[60%] rounded-sm"></div>
+<div class="w-full bg-slate-100 h-[40%] rounded-sm"></div>
+<div class="w-full bg-slate-100 h-[75%] rounded-sm"></div>
+<div class="w-full bg-[#C9A84C] h-[100%] rounded-sm"></div>
+<div class="w-full bg-slate-100 h-[50%] rounded-sm"></div>
+</div>
+</div>
+<!-- Gross Profit -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-slate-50 group">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-4">集團綜合毛利</p>
+<div class="text-3xl font-headline font-black text-primary">NT$12.8M</div>
+<div class="flex items-center gap-1 text-xs font-bold text-green-600 mt-2">
+<span class="material-symbols-outlined text-sm">payments</span>
+<span>↑5%</span>
+</div>
+<div class="mt-4 pt-4 border-t border-slate-50 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+<span>年度目標達成</span>
+<span class="text-primary">64.2%</span>
+</div>
+</div>
+<!-- Turnover -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-slate-50 group">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-4">集團庫存周轉天數</p>
+<div class="text-4xl font-headline font-black text-primary">45<span class="text-lg text-slate-400 font-medium ml-1">天</span></div>
+<div class="flex items-center gap-1 text-xs font-bold text-blue-600 mt-2">
+<span class="material-symbols-outlined text-sm">update</span>
+<span>↓3天 (improved)</span>
+</div>
+<div class="mt-6 w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+<div class="bg-blue-500 h-full w-[45%]" style="width: 45%;"></div>
+</div>
+</div>
+</div>
+<!-- Row 2: Visual Analytics -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Bar Chart: Store Comparison -->
+<div class="col-span-5 bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-slate-50">
+<div class="flex justify-between items-center mb-10">
+<h3 class="text-lg font-headline font-black text-primary">門店交車數對比</h3>
+<span class="text-xs font-bold text-slate-400">單位：輛</span>
+</div>
+<div class="space-y-8">
+<!-- Taipei -->
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span class="text-primary">台北據點 (旗艦)</span>
+<span>52</span>
+</div>
+<div class="w-full bg-surface-container-low h-3 rounded-full relative overflow-hidden">
+<div class="absolute left-0 top-0 h-full bg-[#1A1A2E] rounded-full" style="width: 100%;"></div>
+</div>
+</div>
+<!-- Taichung -->
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span class="text-slate-600">台中據點</span>
+<span>38</span>
+</div>
+<div class="w-full bg-surface-container-low h-3 rounded-full relative overflow-hidden">
+<div class="absolute left-0 top-0 h-full bg-[#C9A84C] rounded-full" style="width: 73%;"></div>
+</div>
+</div>
+<!-- New Taipei -->
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span class="text-slate-600">新北據點</span>
+<span>35</span>
+</div>
+<div class="w-full bg-surface-container-low h-3 rounded-full relative overflow-hidden">
+<div class="absolute left-0 top-0 h-full bg-slate-300 rounded-full" style="width: 67%;"></div>
+</div>
+</div>
+<!-- Kaohsiung -->
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span class="text-slate-600">高雄據點</span>
+<span>31</span>
+</div>
+<div class="w-full bg-surface-container-low h-3 rounded-full relative overflow-hidden">
+<div class="absolute left-0 top-0 h-full bg-slate-300 rounded-full" style="width: 59%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Line Chart: Monthly Trends -->
+<div class="col-span-7 bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-slate-50 flex flex-col">
+<div class="flex justify-between items-center mb-8">
+<h3 class="text-lg font-headline font-black text-primary">月度趨勢</h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-blue-500"></span>
+<span class="text-[10px] font-bold text-slate-500">訂單 (Orders)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-green-500"></span>
+<span class="text-[10px] font-bold text-slate-500">交車 (Deliveries)</span>
+</div>
+</div>
+</div>
+<div class="flex-1 relative mt-4">
+<!-- Simplified Grid & "Chart" -->
+<div class="absolute inset-0 flex flex-col justify-between border-l border-b border-slate-100">
+<div class="w-full border-t border-slate-50 h-0"></div>
+<div class="w-full border-t border-slate-50 h-0"></div>
+<div class="w-full border-t border-slate-50 h-0"></div>
+<div class="w-full border-t border-slate-50 h-0"></div>
+</div>
+<!-- Visualization Placeholder -->
+<div class="absolute inset-0 flex items-end justify-around pb-2 px-6">
+<div class="flex flex-col items-center gap-1 group w-12">
+<div class="w-full space-y-0.5">
+<div class="h-20 bg-blue-100 rounded-t-sm group-hover:bg-blue-200 transition-colors"></div>
+<div class="h-16 bg-green-100 rounded-t-sm group-hover:bg-green-200 transition-colors"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">11月</span>
+</div>
+<div class="flex flex-col items-center gap-1 group w-12">
+<div class="w-full space-y-0.5">
+<div class="h-24 bg-blue-100 rounded-t-sm"></div>
+<div class="h-20 bg-green-100 rounded-t-sm"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">12月</span>
+</div>
+<div class="flex flex-col items-center gap-1 group w-12">
+<div class="w-full space-y-0.5">
+<div class="h-22 bg-blue-100 rounded-t-sm"></div>
+<div class="h-18 bg-green-100 rounded-t-sm"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">1月</span>
+</div>
+<div class="flex flex-col items-center gap-1 group w-12">
+<div class="w-full space-y-0.5">
+<div class="h-28 bg-blue-100 rounded-t-sm"></div>
+<div class="h-24 bg-green-100 rounded-t-sm"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">2月</span>
+</div>
+<div class="flex flex-col items-center gap-1 group w-12">
+<div class="w-full space-y-0.5">
+<div class="h-32 bg-blue-100 rounded-t-sm"></div>
+<div class="h-28 bg-green-100 rounded-t-sm"></div>
+</div>
+<span class="text-[10px] font-bold text-slate-400">3月</span>
+</div>
+<div class="flex flex-col items-center gap-1 group w-12">
+<div class="w-full space-y-0.5">
+<div class="h-40 bg-blue-500 rounded-t-sm"></div>
+<div class="h-32 bg-green-500 rounded-t-sm"></div>
+</div>
+<span class="text-[10px] font-bold text-primary">4月</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Row 3: Detailed Tables -->
+<div class="grid grid-cols-2 gap-6 pb-20">
+<!-- Sales Ranking Table -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-slate-50 overflow-hidden">
+<div class="p-6 border-b border-slate-50 flex items-center justify-between">
+<h3 class="text-lg font-headline font-black text-primary">車系銷售排名</h3>
+<button class="text-xs font-bold text-[#C9A84C] hover:underline transition-all">完整明細</button>
+</div>
+<table class="w-full text-left">
+<thead>
+<tr class="bg-surface-container-low text-[10px] font-black text-slate-500 uppercase tracking-widest">
+<th class="px-6 py-3">排名</th>
+<th class="px-6 py-3">車型車系</th>
+<th class="px-6 py-3">交車數</th>
+<th class="px-6 py-3 text-right">佔比 (%)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50">
+<tr class="group hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 font-black text-[#C9A84C]">01</td>
+<td class="px-6 py-4 font-bold text-primary">Lexus RX 系列</td>
+<td class="px-6 py-4 font-medium">45</td>
+<td class="px-6 py-4 text-right font-headline font-bold text-slate-600">28.8%</td>
+</tr>
+<tr class="group hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 font-black text-slate-400">02</td>
+<td class="px-6 py-4 font-bold text-primary">Lexus NX 系列</td>
+<td class="px-6 py-4 font-medium">38</td>
+<td class="px-6 py-4 text-right font-headline font-bold text-slate-600">24.4%</td>
+</tr>
+<tr class="group hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 font-black text-slate-400">03</td>
+<td class="px-6 py-4 font-bold text-primary">Lexus ES 系列</td>
+<td class="px-6 py-4 font-medium">28</td>
+<td class="px-6 py-4 text-right font-headline font-bold text-slate-600">17.9%</td>
+</tr>
+<tr class="group hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 font-black text-slate-400">04</td>
+<td class="px-6 py-4 font-bold text-primary">Lexus UX 系列</td>
+<td class="px-6 py-4 font-medium">22</td>
+<td class="px-6 py-4 text-right font-headline font-bold text-slate-600">14.1%</td>
+</tr>
+<tr class="group hover:bg-slate-50 transition-colors">
+<td class="px-6 py-4 font-black text-slate-400">05</td>
+<td class="px-6 py-4 font-bold text-primary">其他型號</td>
+<td class="px-6 py-4 font-medium">23</td>
+<td class="px-6 py-4 text-right font-headline font-bold text-slate-600">14.8%</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Inventory Alerts -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-slate-50 overflow-hidden">
+<div class="p-6 border-b border-slate-50 flex items-center justify-between">
+<h3 class="text-lg font-headline font-black text-primary">庫存預警</h3>
+<span class="flex items-center gap-1 px-2 py-0.5 bg-error-container text-error text-[10px] font-black rounded uppercase">3 高風險項</span>
+</div>
+<div class="divide-y divide-slate-50">
+<!-- Alert 1 -->
+<div class="p-6 flex items-center justify-between group">
+<div class="flex items-start gap-4">
+<div class="mt-1 w-10 h-10 rounded-full bg-error-container flex items-center justify-center text-error">
+<span class="material-symbols-outlined font-variation-settings: 'FILL' 1;">warning</span>
+</div>
+<div>
+<p class="font-bold text-primary">台北據點 RX350h 白</p>
+<p class="text-xs text-slate-500 mt-1">庫存天數已達預警上限</p>
+</div>
+</div>
+<div class="text-right">
+<span class="block font-headline font-black text-error text-xl">92天</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase">滯銷風險</span>
+</div>
+</div>
+<!-- Alert 2 -->
+<div class="p-6 flex items-center justify-between group">
+<div class="flex items-start gap-4">
+<div class="mt-1 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<div>
+<p class="font-bold text-primary">高雄據點 NX 系列</p>
+<p class="text-xs text-slate-500 mt-1">現貨庫存極低，請儘速調撥</p>
+</div>
+</div>
+<div class="text-right">
+<span class="block font-headline font-black text-amber-700 text-xl">僅剩 2台</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase">補貨提醒</span>
+</div>
+</div>
+<!-- Alert 3 -->
+<div class="p-6 flex items-center justify-between group">
+<div class="flex items-start gap-4">
+<div class="mt-1 w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined">local_shipping</span>
+</div>
+<div>
+<p class="font-bold text-primary">新北據點 ES 系列</p>
+<p class="text-xs text-slate-500 mt-1">在途新車配送資訊</p>
+</div>
+</div>
+<div class="text-right">
+<span class="block font-headline font-black text-blue-600 text-xl">在途 5台</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase">預計 4/15 到</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer info -->
+<footer class="fixed bottom-0 right-0 left-64 h-12 bg-white/60 backdrop-blur-md border-t border-slate-50 px-8 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest z-20">
+<div class="flex items-center gap-4">
+<span>上次更新: 2026/04/11 08:30</span>
+<span class="w-1 h-1 bg-slate-200 rounded-full"></span>
+<span>資料範圍: 全集團 4 門店</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">verified_user</span>
+<span>系統權限：總部經理</span>
+</div>
+</footer>
+</div>
+</main>
+</body></html>

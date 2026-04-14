@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .signature-box {
+            background-image: radial-gradient(#c8c5cd 0.5px, transparent 0.5px);
+            background-size: 10px 10px;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        h1, h2, h3, .headline {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#1a1c1c",
+                        "primary-fixed-dim": "#c6c4df",
+                        "surface-container-low": "#f5f2ff",
+                        "secondary-container": "#dcdddd",
+                        "primary": "#00000b",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#1a1a2e",
+                        "inverse-on-surface": "#f2efff",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "surface-container": "#efecff",
+                        "primary-container": "#1a1a2e",
+                        "surface-container-highest": "#e2e0fc",
+                        "on-background": "#1a1a2e",
+                        "on-primary-container": "#83829b",
+                        "tertiary-fixed": "#ffe08f",
+                        "on-tertiary-fixed": "#241a00",
+                        "on-surface-variant": "#47464c",
+                        "on-surface": "#1a1a2e",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#fcf8ff",
+                        "on-primary": "#ffffff",
+                        "tertiary": "#755b00",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#e2e0fc",
+                        "primary-fixed": "#e2e0fc",
+                        "outline": "#78767d",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#fcf8ff",
+                        "outline-variant": "#c8c5cd",
+                        "on-secondary-container": "#5f6161",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "surface-container-high": "#e8e5ff",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "tertiary-container": "#c9a84c",
+                        "secondary": "#5d5f5f",
+                        "on-tertiary-container": "#503d00",
+                        "inverse-surface": "#2f2e43",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-dim": "#dad7f3",
+                        "on-primary-fixed-variant": "#45455b",
+                        "inverse-primary": "#c6c4df",
+                        "background": "#fcf8ff",
+                        "surface-tint": "#5d5c74"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "16px",
+                        "xl": "24px",
+                        "full": "9999px"
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface selection:bg-tertiary-container/30">
+<!-- Top Navigation Bar (Shared Component: TopAppBar) -->
+<!-- Side Navigation (Shared Component: SideNavBar) -->
+<main class="pb-24 px-8 min-h-screen">
+<!-- Top Vehicle Info Section (Sticky-style header) -->
+<section class="bg-surface-container-low rounded-xl p-8 mb-8 grid grid-cols-12 gap-8 items-center">
+<div class="col-span-8 grid grid-cols-2 gap-x-12 gap-y-6">
+<div>
+<label class="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider block mb-1">車型型號 Model</label>
+<p class="text-lg font-bold text-primary font-['Manrope']">PANIGALE V4 S - 2024</p>
+</div>
+<div>
+<label class="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider block mb-1">車身號碼 VIN</label>
+<p class="text-lg font-mono font-medium text-primary tracking-wider">ZDM1D12U4LB000882</p>
+</div>
+<div>
+<label class="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider block mb-1">車牌號碼 Plate Number</label>
+<p class="text-lg font-bold text-primary">DUC-8888</p>
+</div>
+<div>
+<label class="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider block mb-1">保固開始日期 Warranty Start</label>
+<p class="text-lg font-medium text-primary">2024 / 05 / 20</p>
+</div>
+<div>
+<label class="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider block mb-1">車主姓名 Owner Name</label>
+<p class="text-lg font-bold text-primary">陳 奧 莫</p>
+</div>
+<div>
+<label class="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider block mb-1">檢查日期 Date</label>
+<p class="text-lg font-medium text-primary">2024 / 05 / 15</p>
+</div>
+</div>
+<div class="col-span-4 relative group">
+<div class="absolute -inset-1 bg-gradient-to-r from-tertiary to-tertiary-container rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+<img class="relative rounded-lg w-full h-48 object-cover shadow-2xl" data-alt="sleek modern red sport motorcycle shot in a minimal dark studio setting with cinematic rim lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtnHxg_UssWh3ikE5630HrZtXPl_ahs8g3M_qVpbB4hx33dzxkVQ_755Hf6ChcldjrnjWngjKiD25GaZ0bl4WoRc9DSHCAJnIartRSmNuJQQcZk28Ir0JudBeesG9iMHhTT96bDShh1LHbN24Ns1z_cFip5S7IodW9NZZ1xnADeG6YJGka8yIVgYWVM70EiKkN1ZDN8EviXg_Hx8wLwXhwVDs6ctXdRjxHU3bJ4rNwh05RmfbM7WpII46RJClqUQcD3wsSXf4tyOQ"/>
+</div>
+</section>
+<!-- Progress Indicator -->
+<div class="flex justify-between items-end mb-6">
+<div>
+<h3 class="headline text-2xl font-extrabold text-primary mb-1">檢查清單 Core Inspection</h3>
+<p class="text-on-surface-variant body-lg">請逐一核對並勾選完成項目</p>
+</div>
+<div class="text-right">
+<span class="text-tertiary font-bold text-3xl font-['Manrope']">12</span>
+<span class="text-on-surface-variant font-medium"> / 29 已完成</span>
+<div class="w-48 h-1.5 bg-surface-container-highest rounded-full mt-2 overflow-hidden">
+<div class="w-[41%] h-full bg-gradient-to-r from-tertiary to-tertiary-container rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Core Inspection List -->
+<div class="space-y-3 mb-12">
+<!-- Inspection Card Template -->
+<label class="block group cursor-pointer">
+<input class="hidden peer" type="checkbox"/>
+<div class="flex items-center justify-between p-6 bg-surface-container-lowest rounded-xl shadow-none hover:shadow-[0_20px_40px_rgba(26,26,46,0.04)] peer-checked:bg-tertiary/5 peer-checked:ring-1 peer-checked:ring-tertiary/20 transition-all duration-300">
+<div class="flex items-center gap-6">
+<div class="w-6 h-6 rounded-md border-2 border-outline-variant flex items-center justify-center peer-checked:bg-tertiary peer-checked:border-tertiary transition-colors">
+<span class="material-symbols-outlined text-white text-sm scale-0 peer-checked:scale-100 transition-transform">check</span>
+</div>
+<span class="text-lg font-medium text-on-surface leading-relaxed">確認車架號碼與引擎號碼與文件一致</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">info</span>
+</div>
+</label>
+<label class="block group cursor-pointer">
+<input checked="" class="hidden peer" type="checkbox"/>
+<div class="flex items-center justify-between p-6 bg-surface-container-lowest rounded-xl shadow-none hover:shadow-[0_20px_40px_rgba(26,26,46,0.04)] peer-checked:bg-tertiary/5 peer-checked:ring-1 peer-checked:ring-tertiary/20 transition-all duration-300">
+<div class="flex items-center gap-6">
+<div class="w-6 h-6 rounded-md border-2 border-outline-variant flex items-center justify-center bg-tertiary border-tertiary transition-colors">
+<span class="material-symbols-outlined text-white text-sm">check</span>
+</div>
+<span class="text-lg font-medium text-on-surface leading-relaxed">外觀烤漆損傷及刮痕檢查 (油箱、車殼)</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">info</span>
+</div>
+</label>
+<!-- Repeated items for UI density -->
+<div class="space-y-3">
+<script>
+                    const labels = [
+                        "手把開關及儀表顯示功能測試",
+                        "前後避震器漏油及作動行程檢查",
+                        "煞車油量、煞車來令片厚度檢查",
+                        "鏈條張緊度調整及潤滑狀態確認",
+                        "輪胎胎壓、胎紋深度及出廠年份核對",
+                        "引擎冷卻液面高度及管路滲漏檢查",
+                        "機油量感應器及機油等級確認",
+                        "電瓶電壓負載測試及樁頭緊固",
+                        "前後方向燈、大燈遠近光及煞車燈功能",
+                        "側腳架熄火安全感知器作動測試",
+                        "後照鏡視角調整及支架緊固",
+                        "車輛ECU診斷電腦故障碼掃描",
+                        "ABS 與 Traction Control 系統自檢確認",
+                        "排氣管防燙蓋及固定螺栓扭力確認",
+                        "隨車工具包與車主手冊齊全確認"
+                    ];
+                    labels.forEach(label => {
+                        document.write(`
+                        <label class="block group cursor-pointer">
+                            <input type="checkbox" class="hidden peer">
+                            <div class="flex items-center justify-between p-6 bg-surface-container-lowest rounded-xl shadow-none hover:shadow-[0_20px_40px_rgba(26,26,46,0.04)] peer-checked:bg-tertiary/5 peer-checked:ring-1 peer-checked:ring-tertiary/20 transition-all duration-300">
+                                <div class="flex items-center gap-6">
+                                    <div class="w-6 h-6 rounded-md border-2 border-outline-variant flex items-center justify-center peer-checked:bg-tertiary peer-checked:border-tertiary transition-colors">
+                                        <span class="material-symbols-outlined text-white text-sm scale-0 peer-checked:scale-100 transition-transform">check</span>
+                                    </div>
+                                    <span class="text-lg font-medium text-on-surface leading-relaxed">${label}</span>
+                                </div>
+                                <span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">info</span>
+                            </div>
+                        </label>
+                        `);
+                    });
+                </script>
+</div>
+</div>
+<!-- Bottom Signature Area -->
+<section class="bg-surface-container-lowest rounded-xl p-8 mb-20">
+<div class="flex flex-col md:flex-row gap-12 items-end">
+<div class="flex-1 w-full">
+<p class="text-[11px] text-on-surface-variant font-bold uppercase tracking-wider block mb-4">技術員簽署 Technician Signature</p>
+<div class="h-40 w-full signature-box rounded-lg border border-outline-variant/30 flex flex-col items-center justify-center relative overflow-hidden">
+<img class="absolute inset-0 w-full h-full object-contain mix-blend-multiply opacity-80 p-8" data-alt="elegant handwritten script signature on a clean textured paper background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvOehyvEfP7ctGCKgv6sG-LOaSIf7j6VWV1kXoicNUcePyeG01Zbc7ssLRZ4r_rd-3w4fuEHSzCOkKGLJtcuMTaF4i275ic_9IZu6oQIuC6tgLkoVBr3UWinFRMku6gEZi2m0RBMznjCEBlQO8ohnm4gZhh24Qk4sSea-M2dEyx1KU_x_6er2msJmGcqB8LzzTBKNCvxPi5td1H_OrcJ9Gl01jOhJSi0kQ_mIt-5LdDvW05DZib7HnuUqr0m5FrTsryOVvrGtz_AA"/>
+<span class="absolute bottom-4 right-6 text-on-surface-variant/40 text-xs italic">電子簽署有效日期: 2024-05-15</span>
+</div>
+<p class="mt-4 text-on-secondary-container body-lg">感謝您的辛勞！系統將自動記錄本次檢查歷程。</p>
+</div>
+<div class="w-full md:w-auto flex flex-col gap-4">
+<button class="w-full md:w-64 px-10 py-5 bg-gradient-to-br from-primary to-primary-container text-white font-bold rounded-lg shadow-lg hover:shadow-xl transform active:scale-95 transition-all flex items-center justify-center gap-3">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified</span>
+                        確認並提交檢查
+                    </button>
+<p class="text-center text-[10px] text-on-surface-variant uppercase tracking-widest">提交後內容不可修改</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Shared Component: BottomNavBar) -->
+<nav class="fixed bottom-0 left-0 w-full h-20 bg-[#FCF8FF]/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-white/20 flex justify-around items-center px-12 pb-safe z-50">
+<div class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 hover:bg-[#F5F2FF] transition-all rounded-2xl cursor-pointer">
+<span class="material-symbols-outlined">engineering</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-widest mt-1">技術員中心</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-[#1A1A2E] text-[#C9A84C] rounded-2xl px-6 py-2 cursor-pointer shadow-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-widest mt-1">進度詳情</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 hover:bg-[#F5F2FF] transition-all rounded-2xl cursor-pointer">
+<span class="material-symbols-outlined">report_problem</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-widest mt-1">異常回報</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 hover:bg-[#F5F2FF] transition-all rounded-2xl cursor-pointer">
+<span class="material-symbols-outlined">verified</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-widest mt-1">提交檢查</span>
+</div>
+</nav>
+</body></html>

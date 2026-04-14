@@ -1,0 +1,260 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .pulse-dot {
+            box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e0fc; border-radius: 10px; }
+    </style>
+
+
+<nav class="w-full h-16 bg-[#FCF8FF] border-b border-opacity-15 border-[#1A1A2E] flex justify-between items-center px-8 z-50">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-widest text-[#1A1A2E] font-headline uppercase">DUCATI DIGITAL ATELIER</span>
+<div class="h-6 w-[1px] bg-outline-variant"></div>
+<div class="flex items-center gap-4 text-on-surface-variant font-medium">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">person</span> 客戶: 王先生</span>
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">badge</span> 銷售顧問: 陳顧問</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2 border border-outline text-on-surface rounded-lg hover:bg-surface-container-low transition-all font-medium">儲存草稿</button>
+<button class="px-6 py-2 bg-gradient-to-r from-primary to-primary-container text-white rounded-lg font-medium shadow-lg flex items-center gap-2">下一步 <span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</nav>
+
+<div class="bg-surface-container-low py-6 px-12 flex justify-between items-center relative overflow-hidden">
+<div class="absolute top-1/2 left-0 w-full h-[2px] bg-outline-variant/30 -translate-y-1/2 z-0"></div>
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center border-2 border-green-500">
+<span class="material-symbols-outlined">check</span>
+</div>
+<span class="text-xs font-bold text-green-700">① 前台登記</span>
+</div>
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center border-2 border-green-500">
+<span class="material-symbols-outlined">check</span>
+</div>
+<span class="text-xs font-bold text-green-700">② 需求諮詢</span>
+</div>
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-12 h-12 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center border-4 border-surface shadow-xl ring-2 ring-tertiary-container">
+<span class="font-bold text-lg">3</span>
+</div>
+<span class="text-sm font-bold text-on-surface">③ 試駕與成交</span>
+</div>
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center border-2 border-outline-variant">
+<span class="font-bold">4</span>
+</div>
+<span class="text-xs font-medium text-on-surface-variant/60">④ 結案記錄</span>
+</div>
+</div>
+
+<main class="flex-1 overflow-y-auto px-12 py-8 space-y-8 max-w-7xl mx-auto w-full pb-32">
+<div class="flex justify-between items-end mb-4">
+<h1 class="text-3xl font-headline font-extrabold tracking-tight text-primary">客戶接待手卡 — 試駕與成交</h1>
+<p class="text-on-surface-variant text-sm italic">接待日期：2026年04月11日 14:15</p>
+</div>
+<div class="grid grid-cols-12 gap-8">
+
+<section class="col-span-8 bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10 space-y-6">
+<div class="flex items-center justify-between border-b border-surface-container pb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary">sports_motorsports</span>
+<h2 class="text-xl font-bold font-headline">1. 試乘試駕</h2>
+</div>
+<label class="inline-flex items-center cursor-pointer">
+<span class="mr-3 text-sm font-medium text-on-surface-variant">是否安排試駕？</span>
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="relative w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-tertiary-container"></div>
+</label>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase tracking-wider">車型選擇</label>
+<select class="w-full bg-surface-container-low border-none rounded-lg p-3 text-on-surface focus:ring-1 focus:ring-tertiary/40">
+<option>Ducati Panigale V4 S</option>
+<option>Ducati Multistrada V4 Pikes Peak</option>
+<option>Ducati Streetfighter V4 SP2</option>
+<option>Ducati DesertX</option>
+</select>
+</div>
+<div class="flex gap-4">
+<div class="flex-1">
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase tracking-wider">試駕機車車牌</label>
+<div class="bg-surface-container-low border-none rounded-lg p-3 font-mono font-bold text-on-surface">MOTO-8899</div>
+</div>
+<div class="flex-1">
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase tracking-wider">出發時間</label>
+<div class="bg-surface-container-low border-none rounded-lg p-3 font-medium text-on-surface">14:32</div>
+</div>
+</div>
+</div>
+<div class="bg-primary-container rounded-xl p-6 text-white flex flex-col justify-center items-center gap-4 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-red-600/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-red-600 pulse-dot"></div>
+<span class="text-[10px] tracking-[0.2em] font-bold text-red-500 uppercase">Ride in progress</span>
+</div>
+<div class="text-5xl font-extrabold font-headline tracking-tighter">00:23:45</div>
+<button class="bg-error text-white px-8 py-2 rounded-full font-bold flex items-center gap-2 hover:bg-red-700 transition-colors">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">stop</span> 結束試駕 ■
+                        </button>
+</div>
+</div>
+<div class="flex gap-3 pt-2">
+<button class="px-4 py-2 rounded-full bg-surface-container-highest text-on-surface-variant text-sm font-medium hover:bg-surface-container-high transition-colors">市區路線(15min)</button>
+<button class="px-4 py-2 rounded-full bg-surface-container-highest text-on-surface-variant text-sm font-medium hover:bg-surface-container-high transition-colors">山道彎路體驗(30min)</button>
+<button class="px-4 py-2 rounded-full border border-tertiary-container bg-tertiary-container/10 text-tertiary text-sm font-bold">自由路線</button>
+</div>
+</section>
+
+<section class="col-span-4 bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10 flex flex-col gap-6">
+<div class="flex items-center justify-between border-b border-surface-container pb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary">request_quote</span>
+<h2 class="text-xl font-bold font-headline">2. 報價紀錄</h2>
+</div>
+<input checked="" class="w-5 h-5 accent-tertiary-container" type="checkbox"/>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase">試算報價 (NTD)</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-lg p-3 pl-12 text-lg font-bold text-primary focus:ring-1 focus:ring-tertiary/40" type="text" value="1,688,000"/>
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant font-medium">$</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase">改裝配件摘要</label>
+<div class="p-3 bg-surface-container-low rounded-lg text-sm text-on-surface leading-relaxed">
+                            Akrapovič 全段鈦合金排氣管、碳纖維乾式離合器外蓋、Ducati Performance 端子鏡組。
+                        </div>
+</div>
+<div class="flex-1">
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase">報價備註</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-lg p-3 text-sm focus:ring-1 focus:ring-tertiary/40 h-20 resize-none" placeholder="輸入報價相關調整內容..."></textarea>
+</div>
+</div>
+</section>
+
+<section class="col-span-6 bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10 space-y-6">
+<div class="flex items-center justify-between border-b border-surface-container pb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary">contract</span>
+<h2 class="text-xl font-bold font-headline">3. 訂單狀態</h2>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-sm font-medium text-on-surface-variant">是否成交？</span>
+<input checked="" class="w-5 h-5 accent-tertiary-container" type="checkbox"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase">成交單號</label>
+<div class="bg-surface-container-low p-3 rounded-lg font-mono text-tertiary font-bold">DUC-20260411-012</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase">訂金金額</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg p-3 font-bold focus:ring-1 focus:ring-tertiary/40" type="text" value="100,000"/>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase">預計交車日期</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-lg p-3 text-on-surface focus:ring-1 focus:ring-tertiary/40" type="date" value="2026-05-20"/>
+</div>
+</div>
+<div class="flex items-start gap-2 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+<span class="material-symbols-outlined text-yellow-700 text-sm">warning</span>
+<p class="text-[10px] text-yellow-800 leading-tight">
+                                提醒：此為限量車款，義大利原廠船期可能變動，請務必與客戶溝通。
+                            </p>
+</div>
+</div>
+</div>
+</section>
+
+<section class="col-span-6 bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10 space-y-6">
+<div class="flex items-center justify-between border-b border-surface-container pb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary">task_alt</span>
+<h2 class="text-xl font-bold font-headline">4. 結案記錄</h2>
+</div>
+<div class="flex items-center gap-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase">離店時間</label>
+<input class="bg-surface-container-low border-none rounded-md px-2 py-1 text-sm" type="time" value="16:45"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase">客戶關鍵顧慮</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-lg p-3 text-xs focus:ring-1 focus:ring-tertiary/40 h-16 resize-none" placeholder="如：引擎熱度問題、後勤保養週期..."></textarea>
+</div>
+<div>
+<label class="block text-xs font-bold text-on-surface-variant mb-1 uppercase">後續追蹤事項</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-lg p-3 text-xs focus:ring-1 focus:ring-tertiary/40 h-16 resize-none" placeholder="如：確認改裝品到貨時間..."></textarea>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-xl p-5 space-y-4">
+<h3 class="text-xs font-black text-on-primary-container tracking-widest uppercase text-center border-b border-outline-variant/20 pb-2">今日接待總結</h3>
+<div class="grid grid-cols-2 gap-y-3 gap-x-4">
+<div class="flex items-center gap-2 text-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-green-600 text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span>已試乘</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-green-600 text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span>已報價</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-green-600 text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span>已成交</span>
+</div>
+<div class="flex items-center gap-2 text-[10px] text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>時長: 2h 15m</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[10px] text-on-surface-variant">客戶級別:</span>
+<span class="bg-error text-white px-2 py-0.5 rounded text-[10px] font-bold">A+</span>
+</div>
+<div class="flex items-center gap-1 text-[10px] text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">event</span>
+<span class="font-bold">04/15 追蹤</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-xl border-t border-outline-variant/10 px-12 py-4 flex justify-between items-center z-50">
+<button class="flex items-center gap-2 text-on-surface-variant font-bold hover:text-primary transition-colors">
+<span class="material-symbols-outlined">arrow_back</span> 上一步
+        </button>
+<div class="flex items-center gap-6">
+<div class="text-right hidden md:block">
+<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest">Current Status</p>
+<p class="text-sm font-bold text-tertiary italic">Ready for Final Submission</p>
+</div>
+<button class="bg-green-600 text-white px-10 py-4 rounded-xl font-bold flex items-center gap-3 shadow-xl hover:bg-green-700 hover:scale-[1.02] transition-all duration-300">
+                完成手卡並提交 <span class="material-symbols-outlined">check_circle</span>
+</button>
+</div>
+</footer>

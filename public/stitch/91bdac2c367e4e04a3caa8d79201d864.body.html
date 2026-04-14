@@ -1,0 +1,373 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Manrope', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+
+
+
+<main class="flex-1 flex flex-col min-h-screen">
+
+
+<div class="mt-20 p-10 flex flex-col gap-8 flex-1 overflow-y-auto no-scrollbar">
+
+<div class="flex justify-between items-end">
+<div>
+<nav class="flex text-xs text-on-surface-variant mb-2 gap-2">
+<span>管理後台</span>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span>整車管理</span>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span class="text-tertiary font-semibold">庫存查詢</span>
+</nav>
+<h2 class="text-3xl font-headline font-extrabold text-on-surface tracking-tight">整車庫存管理</h2>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 bg-surface-container-highest text-on-surface font-label text-sm font-semibold rounded-lg hover:bg-surface-container-high transition-all">
+                        批量調撥
+                    </button>
+<button class="px-6 py-2.5 bg-gradient-to-r from-primary to-primary-container text-white font-label text-sm font-semibold rounded-lg hover:shadow-lg transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">download</span>
+                        匯出庫存報表
+                    </button>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-8">
+
+<div class="col-span-9 flex flex-col gap-8">
+
+<section class="bg-surface-container-lowest p-6 rounded-xl shadow-sm grid grid-cols-4 gap-6 items-end">
+<div>
+<label class="block text-[10px] font-bold text-outline uppercase tracking-widest mb-2">車系</label>
+<select class="w-full bg-surface-container-low border-none rounded-lg text-sm focus:ring-tertiary">
+<option>全部車系</option>
+<option>ES Series</option>
+<option>RX Series</option>
+<option>NX Series</option>
+<option>UX Series</option>
+</select>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-outline uppercase tracking-widest mb-2">庫存狀態</label>
+<select class="w-full bg-surface-container-low border-none rounded-lg text-sm focus:ring-tertiary">
+<option>全部狀態</option>
+<option>在庫 (In Stock)</option>
+<option>在途 (In Transit)</option>
+<option>已鎖定 (Locked)</option>
+</select>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-outline uppercase tracking-widest mb-2">庫齡範圍</label>
+<select class="w-full bg-surface-container-low border-none rounded-lg text-sm focus:ring-tertiary">
+<option>所有庫齡</option>
+<option>&lt; 30天</option>
+<option>30-60天</option>
+<option>60-90天</option>
+<option>&gt; 90天</option>
+</select>
+</div>
+<button class="h-[42px] bg-tertiary/10 text-tertiary hover:bg-tertiary hover:text-white transition-all rounded-lg font-semibold text-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-base">filter_list</span>
+                            套用篩選
+                        </button>
+</section>
+
+<div class="grid grid-cols-4 gap-6">
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-primary">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-primary bg-primary/5 p-2 rounded-lg">directions_car</span>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">In Stock</span>
+</div>
+<p class="text-3xl font-headline font-bold text-on-surface">68 <span class="text-sm font-normal text-on-surface-variant">台</span></p>
+<p class="text-xs text-on-surface-variant mt-1">在庫車輛</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-blue-500 bg-blue-50 p-2 rounded-lg">local_shipping</span>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Transit</span>
+</div>
+<p class="text-3xl font-headline font-bold text-on-surface">23 <span class="text-sm font-normal text-on-surface-variant">台</span></p>
+<p class="text-xs text-on-surface-variant mt-1">在途車輛</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-tertiary">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-tertiary bg-tertiary/5 p-2 rounded-lg">lock</span>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Locked</span>
+</div>
+<p class="text-3xl font-headline font-bold text-on-surface">12 <span class="text-sm font-normal text-on-surface-variant">台</span></p>
+<p class="text-xs text-on-surface-variant mt-1">已鎖定</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-error">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-error bg-error/5 p-2 rounded-lg">event</span>
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Avg Age</span>
+</div>
+<p class="text-3xl font-headline font-bold text-on-surface">42 <span class="text-sm font-normal text-on-surface-variant">天</span></p>
+<p class="text-xs text-on-surface-variant mt-1">平均庫齡</p>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant/10">
+<tr>
+<th class="px-6 py-4 text-[10px] font-bold text-outline uppercase tracking-wider">VIN碼 (尾6碼)</th>
+<th class="px-6 py-4 text-[10px] font-bold text-outline uppercase tracking-wider">車系 / 車型</th>
+<th class="px-6 py-4 text-[10px] font-bold text-outline uppercase tracking-wider">外色 / 內色</th>
+<th class="px-6 py-4 text-[10px] font-bold text-outline uppercase tracking-wider">庫存狀態</th>
+<th class="px-6 py-4 text-[10px] font-bold text-outline uppercase tracking-wider text-right">建議售價 (NTD)</th>
+<th class="px-6 py-4 text-[10px] font-bold text-outline uppercase tracking-wider text-center">庫齡</th>
+<th class="px-6 py-4 text-[10px] font-bold text-outline uppercase tracking-wider">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-low">
+
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-on-surface-variant">...384291</td>
+<td class="px-6 py-5">
+<p class="text-sm font-bold text-on-surface">RX 350h</p>
+<p class="text-[11px] text-on-surface-variant">旗艦版</p>
+</td>
+<td class="px-6 py-5">
+<p class="text-xs">星辰白 / 黑內裝</p>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800">
+                                            在庫
+                                        </span>
+</td>
+<td class="px-6 py-5 text-right font-headline font-semibold text-sm">2,350,000</td>
+<td class="px-6 py-5 text-center">
+<span class="text-sm font-bold text-green-600">12天</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex gap-2 text-outline group-hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg cursor-pointer">lock_open</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">visibility</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">move_item</span>
+</div>
+</td>
+</tr>
+
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-on-surface-variant">...112903</td>
+<td class="px-6 py-5">
+<p class="text-sm font-bold text-on-surface">NX 200</p>
+<p class="text-[11px] text-on-surface-variant">豪華版</p>
+</td>
+<td class="px-6 py-5">
+<p class="text-xs">極光鈦 / 赭紅內裝</p>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+                                            已鎖定-訂單
+                                        </span>
+</td>
+<td class="px-6 py-5 text-right font-headline font-semibold text-sm">1,730,000</td>
+<td class="px-6 py-5 text-center">
+<span class="text-sm font-bold text-amber-600">45天</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex gap-2 text-outline group-hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg cursor-pointer" data-weight="fill">lock</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">visibility</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">move_item</span>
+</div>
+</td>
+</tr>
+
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-on-surface-variant">...559102</td>
+<td class="px-6 py-5">
+<p class="text-sm font-bold text-on-surface">ES 300h</p>
+<p class="text-[11px] text-on-surface-variant">尊榮版</p>
+</td>
+<td class="px-6 py-5">
+<p class="text-xs">雲河灰 / 駝色內裝</p>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                                            在途
+                                        </span>
+</td>
+<td class="px-6 py-5 text-right font-headline font-semibold text-sm">2,130,000</td>
+<td class="px-6 py-5 text-center">
+<span class="text-sm font-bold text-green-600">5天</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex gap-2 text-outline group-hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg cursor-pointer">lock_open</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">visibility</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">move_item</span>
+</div>
+</td>
+</tr>
+
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-on-surface-variant">...992384</td>
+<td class="px-6 py-5">
+<p class="text-sm font-bold text-on-surface">RX 500h</p>
+<p class="text-[11px] text-on-surface-variant">F SPORT Performance</p>
+</td>
+<td class="px-6 py-5">
+<p class="text-xs">星熠藍 / 黑內裝</p>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                            已鎖定-展車
+                                        </span>
+</td>
+<td class="px-6 py-5 text-right font-headline font-semibold text-sm">3,600,000</td>
+<td class="px-6 py-5 text-center">
+<span class="text-sm font-bold text-error">95天</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex gap-2 text-outline group-hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg cursor-pointer" data-weight="fill">lock</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">visibility</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">move_item</span>
+</div>
+</td>
+</tr>
+
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-on-surface-variant">...223118</td>
+<td class="px-6 py-5">
+<p class="text-sm font-bold text-on-surface">UX 300e</p>
+<p class="text-[11px] text-on-surface-variant">豪華版</p>
+</td>
+<td class="px-6 py-5">
+<p class="text-xs">晶鑽白 / 灰內裝</p>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800">
+                                            在庫
+                                        </span>
+</td>
+<td class="px-6 py-5 text-right font-headline font-semibold text-sm">1,690,000</td>
+<td class="px-6 py-5 text-center">
+<span class="text-sm font-bold text-amber-600">38天</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex gap-2 text-outline group-hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg cursor-pointer">lock_open</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">visibility</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">move_item</span>
+</div>
+</td>
+</tr>
+
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-5 font-mono text-sm text-on-surface-variant">...445012</td>
+<td class="px-6 py-5">
+<p class="text-sm font-bold text-on-surface">LS 500h</p>
+<p class="text-[11px] text-on-surface-variant">旗艦版</p>
+</td>
+<td class="px-6 py-5">
+<p class="text-xs">極光銀 / 黑內裝</p>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800">
+                                            在庫
+                                        </span>
+</td>
+<td class="px-6 py-5 text-right font-headline font-semibold text-sm">5,000,000</td>
+<td class="px-6 py-5 text-center">
+<span class="text-sm font-bold text-green-600">18天</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex gap-2 text-outline group-hover:text-tertiary transition-colors">
+<span class="material-symbols-outlined text-lg cursor-pointer">lock_open</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">visibility</span>
+<span class="material-symbols-outlined text-lg cursor-pointer">move_item</span>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 bg-surface-container-lowest border-t border-outline-variant/10 flex justify-between items-center px-6">
+<span class="text-xs text-on-surface-variant font-medium">顯示 1 至 6 筆，共 68 筆在庫車輛</span>
+<div class="flex gap-2">
+<button class="w-8 h-8 flex items-center justify-center rounded bg-surface-container-low text-on-surface hover:bg-tertiary hover:text-white transition-all text-sm font-bold">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-on-surface-variant hover:bg-slate-100 transition-all text-sm font-bold">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-on-surface-variant hover:bg-slate-100 transition-all text-sm font-bold">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-on-surface-variant hover:bg-slate-100 transition-all text-sm font-bold">...</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-on-surface-variant hover:bg-slate-100 transition-all text-sm font-bold">12</button>
+</div>
+</div>
+</div>
+</div>
+
+<aside class="col-span-3 space-y-8">
+
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm">
+<h3 class="text-sm font-bold text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-lg">pie_chart</span>
+                            庫齡分布概況
+                        </h3>
+<div class="relative w-48 h-48 mx-auto mb-8">
+
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 36 36">
+<circle cx="18" cy="18" fill="none" r="15.915" stroke="#E8E5FF" stroke-width="3"></circle>
+<circle cx="18" cy="18" fill="none" r="15.915" stroke="#1A1A2E" stroke-dasharray="40 60" stroke-width="4"></circle>
+<circle cx="18" cy="18" fill="none" r="15.915" stroke="#C9A84C" stroke-dasharray="35 65" stroke-dashoffset="-40" stroke-width="4"></circle>
+<circle cx="18" cy="18" fill="none" r="15.915" stroke="#5D5F5F" stroke-dasharray="18 82" stroke-dashoffset="-75" stroke-width="4"></circle>
+<circle cx="18" cy="18" fill="none" r="15.915" stroke="#BA1A1A" stroke-dasharray="7 93" stroke-dashoffset="-93" stroke-width="4"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-2xl font-headline font-bold text-on-surface">103</span>
+<span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-widest">Total Units</span>
+</div>
+</div>
+<ul class="space-y-4">
+<li class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+<span class="text-xs text-on-surface-variant">&lt; 30天</span>
+</div>
+<span class="text-xs font-bold text-on-surface">40%</span>
+</li>
+<li class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-tertiary"></div>
+<span class="text-xs text-on-surface-variant">30-60天</span>
+</div>
+<span class="text-xs font-bold text-on-surface">35%</span>
+</li>
+<li class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-secondary"></div>
+<span class="text-xs text-on-surface-variant">60-90天</span>
+</div>
+<span class="text-xs font-bold text-on-surface">18%</span>
+</li>
+<li class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-2.5 h-2.5 rounded-full bg-error"></div>
+<span class="text-xs text-on-surface-variant">&gt; 90天</span>
+</div>
+<span class="text-xs font-bold text-on-surface">7%</span>
+</li>
+</ul>
+</div>
+
+<div class="bg-gradient-to-br from-primary to-[#2A2A4E] p-8 rounded-xl shadow-lg text-white">
+<h3 class="text-sm font-bold mb-4">庫存動態提醒</h3>
+<p class="text-xs text-slate-300 leading-relaxed mb-6">當前有 <span class="text-tertiary-fixed font-bold">5 輛</span> 車輛庫齡已超過 90 天，建議優先進行促銷或展間調撥。</p>
+<button class="w-full py-3 bg-white/10 hover:bg-white/20 transition-all rounded-lg text-xs font-bold uppercase tracking-widest">查看預警明細</button>
+</div>
+
+<div class="rounded-xl overflow-hidden relative h-40">
+<img class="w-full h-full object-cover" data-alt="sleek modern lexus sedan interior details high end materials soft lighting luxury atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNw5Lj0NjnCL_Mmbdp4ICfXrj8cFBZXx_3KwxOxx2OFxkrtEFTK8ia8D4ikqRlKTJk6JokTD0p73u-UmmQyMEqJLb9rBMng3Olth0aFulyJiTx6ARDQaay-bA-BqxN7IPhUqp3zvpDoSIW_RxynBTj1UMtvL_-tcfgVROq9XIVmiDZZKc2V7s2OrIIpvcIYk87m962P839O0JgvRzB1ybnJQP6c8HxbvRPzSXc7_H72DtO-8eCXNOoFdBMTEShkCOCZ364G9V-ytI"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent flex items-end p-4">
+<p class="text-white text-[10px] font-bold tracking-widest opacity-80">EXPERIENCE AMAZING</p>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</main>

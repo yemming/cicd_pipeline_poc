@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>接待記錄 - DUCATI ATELIER</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "outline-variant": "#c8c5cd",
+                      "on-surface": "#1a1a2e",
+                      "tertiary-container": "#c9a84c",
+                      "outline": "#78767d",
+                      "surface-container-highest": "#e2e0fc",
+                      "on-secondary-container": "#5f6161",
+                      "primary-container": "#1a1a2e",
+                      "inverse-primary": "#c6c4df",
+                      "tertiary-fixed-dim": "#e6c364",
+                      "tertiary": "#755b00",
+                      "on-error-container": "#93000a",
+                      "surface-variant": "#e2e0fc",
+                      "on-secondary-fixed-variant": "#454747",
+                      "primary-fixed": "#e2e0fc",
+                      "on-tertiary-fixed-variant": "#584400",
+                      "surface-container-lowest": "#ffffff",
+                      "on-tertiary-container": "#503d00",
+                      "on-tertiary-fixed": "#241a00",
+                      "secondary-container": "#dcdddd",
+                      "surface": "#fcf8ff",
+                      "inverse-surface": "#2f2e43",
+                      "surface-container-high": "#e8e5ff",
+                      "secondary-fixed": "#e2e2e2",
+                      "tertiary-fixed": "#ffe08f",
+                      "surface-container": "#efecff",
+                      "surface-container-low": "#f5f2ff",
+                      "secondary": "#5d5f5f",
+                      "on-primary-fixed-variant": "#45455b",
+                      "surface-tint": "#5d5c74",
+                      "primary": "#00000b",
+                      "on-surface-variant": "#47464c",
+                      "on-primary-fixed": "#1a1a2e",
+                      "on-secondary-fixed": "#1a1c1c",
+                      "on-background": "#1a1a2e",
+                      "inverse-on-surface": "#f2efff",
+                      "secondary-fixed-dim": "#c6c6c7",
+                      "background": "#fcf8ff",
+                      "on-primary": "#ffffff",
+                      "on-tertiary": "#ffffff",
+                      "error-container": "#ffdad6",
+                      "primary-fixed-dim": "#c6c4df",
+                      "error": "#ba1a1a",
+                      "surface-dim": "#dad7f3",
+                      "on-primary-container": "#83829b",
+                      "on-error": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "surface-bright": "#fcf8ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "1rem",
+                      "xl": "1.5rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Manrope"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, .font-headline { font-family: 'Manrope', sans-serif; }
+        ::-webkit-scrollbar { width: 0; background: transparent; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<!-- Main Workspace -->
+<main class="flex-1 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<!-- Content Canvas -->
+<div class="px-12 py-10 max-w-7xl mx-auto w-full">
+<!-- Filters Bento Row -->
+<div class="mb-10 flex flex-wrap items-end gap-6">
+<!-- Date Picker -->
+<div class="flex-1 min-w-[280px]">
+<label class="block text-sm font-semibold mb-3 text-on-surface-variant">日期範圍</label>
+<div class="flex items-center bg-surface-container-lowest p-4 rounded-xl shadow-sm gap-3 border border-transparent focus-within:border-tertiary/40 transition-all">
+<span class="material-symbols-outlined text-tertiary">calendar_today</span>
+<span class="text-on-surface font-medium">2024/10/01 - 2024/10/31</span>
+<span class="material-symbols-outlined ml-auto text-outline">expand_more</span>
+</div>
+</div>
+<!-- Consultant Dropdown -->
+<div class="flex-1 min-w-[240px]">
+<label class="block text-sm font-semibold mb-3 text-on-surface-variant">接待顧問</label>
+<div class="flex items-center bg-surface-container-lowest p-4 rounded-xl shadow-sm gap-3 border border-transparent focus-within:border-tertiary/40 transition-all">
+<span class="material-symbols-outlined text-tertiary">person</span>
+<span class="text-on-surface font-medium">所有顧問 (12)</span>
+<span class="material-symbols-outlined ml-auto text-outline">expand_more</span>
+</div>
+</div>
+<!-- Status Chips -->
+<div class="flex-none">
+<label class="block text-sm font-semibold mb-3 text-on-surface-variant">接待狀態</label>
+<div class="flex p-1 bg-surface-container-low rounded-xl gap-1">
+<button class="px-6 py-3 rounded-lg bg-surface-container-lowest text-on-surface font-bold shadow-sm transition-all">全部</button>
+<button class="px-6 py-3 rounded-lg text-secondary hover:text-on-surface font-medium transition-all">已成交</button>
+<button class="px-6 py-3 rounded-lg text-secondary hover:text-on-surface font-medium transition-all">追蹤中</button>
+<button class="px-6 py-3 rounded-lg text-secondary hover:text-on-surface font-medium transition-all">無意願</button>
+</div>
+</div>
+</div>
+<!-- Record Table -->
+<div class="bg-surface-container-low rounded-xl p-8">
+<div class="grid grid-cols-8 px-6 pb-6 text-sm font-bold text-on-surface-variant tracking-wider uppercase">
+<div class="col-span-1">日期</div>
+<div class="col-span-1">客戶</div>
+<div class="col-span-1 text-center">到店/離店</div>
+<div class="col-span-1">接待顧問</div>
+<div class="col-span-1">諮詢車型</div>
+<div class="col-span-1">最終階段</div>
+<div class="col-span-1 text-center">成交結果</div>
+<div class="col-span-1 text-right">操作</div>
+</div>
+<div class="space-y-4">
+<!-- Row 1 -->
+<div class="grid grid-cols-8 items-center bg-surface-container-lowest p-6 rounded-lg shadow-sm hover:shadow-md transition-all group">
+<div class="col-span-1 text-on-surface font-medium">10/24</div>
+<div class="col-span-1 text-on-surface font-bold text-lg">陳志明</div>
+<div class="col-span-1 text-center">
+<span class="block text-on-surface text-sm font-medium">10:20</span>
+<span class="block text-on-secondary-container text-xs">11:45</span>
+</div>
+<div class="col-span-1 text-on-surface">張曉峰</div>
+<div class="col-span-1 text-sm font-semibold">Panigale V4</div>
+<div class="col-span-1">
+<span class="px-3 py-1 bg-surface-container-high text-primary rounded-full text-xs font-semibold">簽約中</span>
+</div>
+<div class="col-span-1 flex justify-center">
+<span class="px-4 py-1.5 bg-green-50 text-green-700 rounded-full text-xs font-bold ring-1 ring-green-100">已成交</span>
+</div>
+<div class="col-span-1 text-right">
+<button class="text-tertiary font-bold text-sm hover:underline flex items-center justify-end gap-1 ml-auto">
+<span>查看手卡</span>
+<span class="material-symbols-outlined text-sm">arrow_forward_ios</span>
+</button>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="grid grid-cols-8 items-center bg-surface-container-lowest p-6 rounded-lg shadow-sm hover:shadow-md transition-all group">
+<div class="col-span-1 text-on-surface font-medium">10/24</div>
+<div class="col-span-1 text-on-surface font-bold text-lg">王曉華</div>
+<div class="col-span-1 text-center">
+<span class="block text-on-surface text-sm font-medium">11:05</span>
+<span class="block text-on-secondary-container text-xs">12:10</span>
+</div>
+<div class="col-span-1 text-on-surface">李美玲</div>
+<div class="col-span-1 text-sm font-semibold">Multistrada V4</div>
+<div class="col-span-1">
+<span class="px-3 py-1 bg-surface-container-high text-primary rounded-full text-xs font-semibold">試駕中</span>
+</div>
+<div class="col-span-1 flex justify-center">
+<span class="px-4 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold ring-1 ring-blue-100">追蹤中</span>
+</div>
+<div class="col-span-1 text-right">
+<button class="text-tertiary font-bold text-sm hover:underline flex items-center justify-end gap-1 ml-auto">
+<span>查看手卡</span>
+<span class="material-symbols-outlined text-sm">arrow_forward_ios</span>
+</button>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="grid grid-cols-8 items-center bg-surface-container-lowest p-6 rounded-lg shadow-sm hover:shadow-md transition-all group">
+<div class="col-span-1 text-on-surface font-medium">10/23</div>
+<div class="col-span-1 text-on-surface font-bold text-lg">林建國</div>
+<div class="col-span-1 text-center">
+<span class="block text-on-surface text-sm font-medium">09:15</span>
+<span class="block text-on-secondary-container text-xs">09:50</span>
+</div>
+<div class="col-span-1 text-on-surface">張曉峰</div>
+<div class="col-span-1 text-sm font-semibold">Monster</div>
+<div class="col-span-1">
+<span class="px-3 py-1 bg-surface-container-high text-primary rounded-full text-xs font-semibold">初步賞車</span>
+</div>
+<div class="col-span-1 flex justify-center">
+<span class="px-4 py-1.5 bg-gray-100 text-gray-500 rounded-full text-xs font-bold">無意願</span>
+</div>
+<div class="col-span-1 text-right">
+<button class="text-tertiary font-bold text-sm hover:underline flex items-center justify-end gap-1 ml-auto">
+<span>查看手卡</span>
+<span class="material-symbols-outlined text-sm">arrow_forward_ios</span>
+</button>
+</div>
+</div>
+<!-- Row 4 -->
+<div class="grid grid-cols-8 items-center bg-surface-container-lowest p-6 rounded-lg shadow-sm hover:shadow-md transition-all group">
+<div class="col-span-1 text-on-surface font-medium">10/23</div>
+<div class="col-span-1 text-on-surface font-bold text-lg">黃雅惠</div>
+<div class="col-span-1 text-center">
+<span class="block text-on-surface text-sm font-medium">14:20</span>
+<span class="block text-on-secondary-container text-xs">16:30</span>
+</div>
+<div class="col-span-1 text-on-surface">何家豪</div>
+<div class="col-span-1 text-sm font-semibold">Diavel</div>
+<div class="col-span-1">
+<span class="px-3 py-1 bg-surface-container-high text-primary rounded-full text-xs font-semibold">需求訪談</span>
+</div>
+<div class="col-span-1 flex justify-center">
+<span class="px-4 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold ring-1 ring-blue-100">追蹤中</span>
+</div>
+<div class="col-span-1 text-right">
+<button class="text-tertiary font-bold text-sm hover:underline flex items-center justify-end gap-1 ml-auto">
+<span>查看手卡</span>
+<span class="material-symbols-outlined text-sm">arrow_forward_ios</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Pagination -->
+<div class="mt-8 flex justify-between items-center px-4">
+<p class="text-sm text-on-secondary-container font-medium">顯示 1-4 筆，共 142 筆記錄</p>
+<div class="flex gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-container-high text-on-surface-variant transition-all">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-[#1A1A2E] text-white font-bold">1</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-container-high text-on-surface-variant transition-all">2</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-container-high text-on-surface-variant transition-all">3</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface hover:bg-surface-container-high text-on-surface-variant transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Insights Section -->
+<div class="mt-12 grid grid-cols-3 gap-8">
+<div class="col-span-2 bg-gradient-to-br from-primary to-primary-container p-10 rounded-xl relative overflow-hidden">
+<div class="relative z-10">
+<h3 class="text-white text-2xl font-black mb-4">月度成交洞察</h3>
+<p class="text-white/60 text-sm mb-8 max-w-md">本月接待成交率上升了 12.5%，主要集中在 Panigale V4 與 Multistrada V4 系列車型。張曉峰顧問表現最為優異。</p>
+<button class="bg-tertiary text-white px-8 py-3 rounded-lg font-bold hover:scale-105 transition-all">生成分析報告</button>
+</div>
+<div class="absolute right-[-40px] bottom-[-40px] opacity-10">
+<span class="material-symbols-outlined text-[240px]" style="font-variation-settings: 'FILL' 1;">motorcycle</span>
+</div>
+</div>
+<div class="col-span-1 bg-surface-container-high p-10 rounded-xl flex flex-col justify-center text-center">
+<p class="text-on-surface-variant font-bold text-sm tracking-widest mb-2 uppercase">本月總接待</p>
+<h2 class="text-primary text-6xl font-black mb-4">842</h2>
+<p class="text-green-600 font-bold flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+15% 與上月相比</span>
+</p>
+</div>
+</div>
+</div>
+</main>
+</body></html>

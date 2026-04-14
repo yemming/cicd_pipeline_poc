@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#83829b",
+                    "on-secondary-container": "#5f6161",
+                    "surface-tint": "#5d5c74",
+                    "primary-container": "#1a1a2e",
+                    "inverse-surface": "#2f2e43",
+                    "inverse-primary": "#c6c4df",
+                    "on-tertiary-fixed": "#241a00",
+                    "surface-container-low": "#f5f2ff",
+                    "on-secondary-fixed-variant": "#454747",
+                    "surface-variant": "#e2e0fc",
+                    "primary": "#00000b",
+                    "outline-variant": "#c8c5cd",
+                    "outline": "#78767d",
+                    "primary-fixed": "#e2e0fc",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed-dim": "#e6c364",
+                    "surface-container-high": "#e8e5ff",
+                    "on-surface": "#1a1a2e",
+                    "surface-container-highest": "#e2e0fc",
+                    "surface": "#fcf8ff",
+                    "primary-fixed-dim": "#c6c4df",
+                    "on-tertiary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "tertiary-container": "#c9a84c",
+                    "secondary-fixed": "#e2e2e2",
+                    "secondary-container": "#dcdddd",
+                    "background": "#fcf8ff",
+                    "secondary-fixed-dim": "#c6c6c7",
+                    "on-secondary-fixed": "#1a1c1c",
+                    "tertiary": "#755b00",
+                    "secondary": "#5d5f5f",
+                    "on-tertiary-fixed-variant": "#584400",
+                    "on-background": "#1a1a2e",
+                    "on-error-container": "#93000a",
+                    "error-container": "#ffdad6",
+                    "inverse-on-surface": "#f2efff",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed": "#1a1a2e",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-container": "#503d00",
+                    "on-primary-fixed-variant": "#45455b",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed": "#ffe08f",
+                    "on-surface-variant": "#47464c",
+                    "surface-dim": "#dad7f3",
+                    "surface-bright": "#fcf8ff",
+                    "surface-container": "#efecff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        .glass-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .premium-gradient {
+            background: linear-gradient(135deg, #00000b 0%, #1a1a2e 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- DealerOS Application Shell Background (Blurred/Dimmed) -->
+<div class="fixed inset-0 flex overflow-hidden filter blur-md brightness-50 pointer-events-none">
+<!-- SideNavBar Component -->
+<!-- Main Content Area Mock -->
+<main class="flex-1 bg-surface-container-low p-8">
+<div class="max-w-6xl mx-auto space-y-8">
+<div class="flex justify-between items-end">
+<div>
+<h1 class="font-headline font-bold text-3xl tracking-tight text-on-surface">早安，建志</h1>
+<p class="text-on-surface-variant">這是您今日的銷售概覽</p>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-6">
+<div class="h-48 bg-surface-container-lowest rounded-xl shadow-sm"></div>
+<div class="h-48 bg-surface-container-lowest rounded-xl shadow-sm"></div>
+<div class="h-48 bg-surface-container-lowest rounded-xl shadow-sm"></div>
+</div>
+<div class="h-96 bg-surface-container-lowest rounded-xl shadow-sm"></div>
+</div>
+</main>
+</div>
+<!-- Search Overlay Backdrop -->
+<div class="fixed inset-0 bg-primary/40 glass-blur z-[60] flex items-start justify-center pt-[153px]">
+<!-- Search Modal -->
+<div class="w-full max-w-[640px] bg-surface rounded-2xl shadow-2xl overflow-hidden border border-outline-variant/20">
+<!-- Search Header -->
+<div class="px-6 py-5 border-b border-surface-container-high flex items-center gap-4 bg-surface-container-lowest">
+<span class="material-symbols-outlined text-tertiary text-2xl">search</span>
+<input autofocus="" class="flex-1 bg-transparent border-none focus:ring-0 text-xl font-body text-on-surface placeholder-on-surface-variant/40" type="text" value="王"/>
+<div class="flex items-center gap-2">
+<span class="px-2 py-1 rounded bg-surface-container-low text-[10px] font-bold text-on-surface-variant border border-outline-variant/30 uppercase tracking-tighter">Esc</span>
+</div>
+</div>
+<!-- Search Results Content -->
+<div class="max-h-[614px] overflow-y-auto custom-scrollbar">
+<!-- Section: 客戶 (3) -->
+<section class="p-4">
+<h3 class="px-3 py-2 text-xs font-bold text-tertiary tracking-widest uppercase mb-2">客戶 (3)</h3>
+<div class="space-y-1">
+<!-- Result Item -->
+<div class="group flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-container text-white flex items-center justify-center font-headline font-bold">王</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-semibold text-on-surface">王建明</span>
+<span class="px-2 py-0.5 rounded-full bg-success/10 text-[10px] font-bold text-green-700 uppercase">Grade S</span>
+</div>
+<span class="text-sm text-on-surface-variant">0912-345-678</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline opacity-0 group-hover:opacity-100 transition-opacity">subdirectory_arrow_left</span>
+</div>
+<div class="group flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center font-headline font-bold">王</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-semibold text-on-surface">王淑芬</span>
+<span class="px-2 py-0.5 rounded-full bg-blue-100 text-[10px] font-bold text-blue-700 uppercase">Grade A</span>
+</div>
+<span class="text-sm text-on-surface-variant">0933-112-233</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline opacity-0 group-hover:opacity-100 transition-opacity">subdirectory_arrow_left</span>
+</div>
+<div class="group flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-outline text-white flex items-center justify-center font-headline font-bold">王</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-semibold text-on-surface">王志豪</span>
+<span class="px-2 py-0.5 rounded-full bg-yellow-100 text-[10px] font-bold text-yellow-700 uppercase">Grade B</span>
+</div>
+<span class="text-sm text-on-surface-variant">0955-888-999</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline opacity-0 group-hover:opacity-100 transition-opacity">subdirectory_arrow_left</span>
+</div>
+</div>
+</section>
+<!-- Section: 訂單 (1) -->
+<section class="p-4 bg-surface-container-low/30">
+<h3 class="px-3 py-2 text-xs font-bold text-tertiary tracking-widest uppercase mb-2">訂單 (1)</h3>
+<div class="group flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer border border-transparent hover:border-outline-variant/30 bg-surface-container-lowest shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined">receipt_long</span>
+</div>
+<div>
+<div class="flex items-center gap-3">
+<span class="font-mono text-sm font-semibold tracking-tight text-on-surface">ORD-20260408-012</span>
+<span class="text-xs text-outline">|</span>
+<span class="font-medium text-on-surface">王建明</span>
+</div>
+<span class="text-sm text-tertiary font-medium">RX 350h <span class="text-on-surface-variant font-normal">・ 豪華版</span></span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline opacity-0 group-hover:opacity-100 transition-opacity">subdirectory_arrow_left</span>
+</div>
+</section>
+<!-- Section: 車輛 (2) -->
+<section class="p-4">
+<h3 class="px-3 py-2 text-xs font-bold text-tertiary tracking-widest uppercase mb-2">車輛 (2)</h3>
+<div class="space-y-2">
+<div class="group flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-14 h-10 rounded-lg overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover" data-alt="Side profile of a white luxury SUV in a clean minimalist studio environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBymfexng0K6MQji03nvs2tjl-v9OIYv5_lwidqEQwovXv1IozL1sY3lBmGJiAl5MZ2AlFAupOXN9bOw_rNUElMLVV1C--TvtTyS0MuE8ps0n25VHqYaQHFZ1n5QeRAHFuZITQFJD49j6_36N2-Xqmhzzvfcd0ZLGuXHWHSxj5LJewZOoKKeBu8f0vOuXgYVLyWiBGr_OrdEFy_XW2JpKDEdenusml5cxfLd81r8CUg2JyJOe4Mh6ibLr9vG3TxDWbu1OYC1EmuG_Y"/>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-semibold text-on-surface">RX 350h</span>
+<span class="text-sm text-on-surface-variant">星辰白</span>
+</div>
+<span class="flex items-center gap-1 text-[11px] font-bold text-green-600">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
+                                        在庫 (配額序號: LX-9921)
+                                    </span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline opacity-0 group-hover:opacity-100 transition-opacity">subdirectory_arrow_left</span>
+</div>
+<div class="group flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-14 h-10 rounded-lg overflow-hidden bg-surface-container-high grayscale opacity-60">
+<img class="w-full h-full object-cover" data-alt="Detail shot of metallic silver luxury car body reflecting soft ambient light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrJVJtHvW8o0LEpjND3VqnHUB0ULYOPEq_n_TVVBisuzkghlWF1A4JV4wqeeWgv1gAiabKIxwyULEV0ZgL5xLn6gtkMgeVM4XGFJ1R1OwR2R41WS5lSBNXfaFslMCw7EmYRg6RVhJAD4bvqKcWEHmbai_lRTdQ4pA8bDnklkaiN0OVxhnL6m1L_y6GgFllyStAoP4btXWYVv8hdeg54XAk5RG2tGnaz0iPi2sLRyJmDKllYXpRxCMTdwVib5TCYSYY7LZcv38B3yc"/>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-semibold text-on-surface">NX 350h</span>
+<span class="text-sm text-on-surface-variant">極光銀</span>
+</div>
+<span class="flex items-center gap-1 text-[11px] font-bold text-outline">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                                        已鎖定 (客戶預約中)
+                                    </span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline opacity-0 group-hover:opacity-100 transition-opacity">subdirectory_arrow_left</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Footer Keys Info -->
+<div class="px-6 py-3 bg-surface-container-low border-t border-surface-container-high flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-1.5">
+<span class="px-1.5 py-0.5 rounded bg-surface-container-lowest border border-outline-variant/30 text-[10px] font-bold text-on-surface-variant flex items-center">
+<span class="material-symbols-outlined text-xs">arrow_upward</span>
+</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-lowest border border-outline-variant/30 text-[10px] font-bold text-on-surface-variant flex items-center">
+<span class="material-symbols-outlined text-xs">arrow_downward</span>
+</span>
+<span class="text-[11px] font-medium text-on-surface-variant ml-0.5">選擇</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="px-1.5 py-0.5 rounded bg-surface-container-lowest border border-outline-variant/30 text-[10px] font-bold text-on-surface-variant flex items-center">
+<span class="material-symbols-outlined text-xs">keyboard_return</span>
+</span>
+<span class="text-[11px] font-medium text-on-surface-variant ml-0.5">開啟</span>
+</div>
+</div>
+<div class="text-[11px] font-medium text-on-surface-variant/60 italic">
+                    DealerOS Smart Search v2.4
+                </div>
+</div>
+</div>
+</div>
+</body></html>

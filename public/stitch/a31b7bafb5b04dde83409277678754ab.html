@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>客戶接待手卡 — 銷售顧問填寫 (DUCATI ATELIER)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline": "#78767d",
+                    "surface-variant": "#e2e0fc",
+                    "primary-fixed": "#e2e0fc",
+                    "secondary-fixed": "#e2e2e2",
+                    "on-tertiary-fixed-variant": "#584400",
+                    "outline-variant": "#c8c5cd",
+                    "on-secondary-container": "#5f6161",
+                    "surface-bright": "#fcf8ff",
+                    "on-error-container": "#93000a",
+                    "on-tertiary": "#ffffff",
+                    "tertiary": "#755b00",
+                    "on-primary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "surface-dim": "#dad7f3",
+                    "on-primary-fixed-variant": "#45455b",
+                    "on-secondary-fixed-variant": "#454747",
+                    "surface-tint": "#5d5c74",
+                    "background": "#fcf8ff",
+                    "inverse-primary": "#c6c4df",
+                    "on-error": "#ffffff",
+                    "surface-container-high": "#e8e5ff",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#c6c6c7",
+                    "inverse-surface": "#2f2e43",
+                    "tertiary-container": "#c9a84c",
+                    "secondary": "#5d5f5f",
+                    "on-tertiary-container": "#503d00",
+                    "secondary-container": "#dcdddd",
+                    "primary": "#00000b",
+                    "error": "#ba1a1a",
+                    "on-primary-fixed": "#1a1a2e",
+                    "on-secondary-fixed": "#1a1c1c",
+                    "surface-container-low": "#f5f2ff",
+                    "primary-fixed-dim": "#c6c4df",
+                    "on-tertiary-fixed": "#241a00",
+                    "on-surface-variant": "#47464c",
+                    "tertiary-fixed": "#ffe08f",
+                    "surface": "#fcf8ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface": "#1a1a2e",
+                    "primary-container": "#1a1a2e",
+                    "tertiary-fixed-dim": "#e6c364",
+                    "surface-container": "#efecff",
+                    "inverse-on-surface": "#f2efff",
+                    "on-primary-container": "#83829b",
+                    "surface-container-highest": "#e2e0fc",
+                    "on-background": "#1a1a2e"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "1rem",
+                    "xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Manrope', sans-serif; }
+        .glass-nav {
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-32">
+<!-- Top Navigation Shell -->
+<!-- Side Navigation Shell -->
+<main class="px-8 max-w-6xl mx-auto">
+<!-- Progress Stepper -->
+<div class="mb-12">
+<div class="flex justify-between items-center max-w-4xl mx-auto relative">
+<div class="absolute top-1/2 left-0 w-full h-px bg-outline-variant/30 -z-10"></div>
+<!-- Step 1 -->
+<div class="flex flex-col items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-xl" data-icon="check">check</span>
+</div>
+<span class="text-sm font-medium text-on-surface/60">前台登記</span>
+</div>
+<!-- Step 2 -->
+<div class="flex flex-col items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-primary-container text-tertiary-container flex items-center justify-center ring-4 ring-tertiary-container/20 shadow-xl">
+<span class="text-lg font-bold">2</span>
+</div>
+<span class="text-sm font-bold text-on-surface">需求諮詢</span>
+</div>
+<!-- Step 3 -->
+<div class="flex flex-col items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface/40 flex items-center justify-center">
+<span class="text-sm font-bold">3</span>
+</div>
+<span class="text-sm font-medium text-on-surface/40">洽談報價</span>
+</div>
+<!-- Step 4 -->
+<div class="flex flex-col items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-on-surface/40 flex items-center justify-center">
+<span class="text-sm font-bold">4</span>
+</div>
+<span class="text-sm font-medium text-on-surface/40">結案記錄</span>
+</div>
+</div>
+</div>
+<h1 class="text-2xl font-extrabold mb-8 text-on-surface tracking-tight">客戶接待手卡 — 銷售顧問填寫</h1>
+<div class="space-y-8">
+<!-- Section 1: 現有車輛資料 -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_20px_rgba(26,26,46,0.04)] border border-transparent">
+<h2 class="text-lg font-bold mb-8 flex items-center gap-2">
+<span class="w-1.5 h-6 bg-tertiary-container rounded-full"></span>
+                現有車輛資料
+            </h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">品牌</label>
+<select class="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all">
+<option>請選擇品牌</option>
+<option>DUCATI</option>
+<option>BMW Motorrad</option>
+<option>KTM</option>
+<option>Aprilia</option>
+<option>Honda</option>
+<option>Kawasaki</option>
+<option>Yamaha</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">車款</label>
+<input class="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all" placeholder="例如：Monster 821" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">顏色</label>
+<input class="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all" placeholder="輸入車色" type="text"/>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">排檔/變速系統</label>
+<div class="flex bg-surface-container-low p-1 rounded-lg">
+<button class="flex-1 py-2 text-sm font-medium rounded-md bg-white shadow-sm">往復式</button>
+<button class="flex-1 py-2 text-sm font-medium text-on-surface/60">快排/電子</button>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">配備等級</label>
+<div class="flex gap-2">
+<button class="px-4 py-2 bg-surface-container-high rounded-full text-sm font-medium hover:bg-tertiary-container hover:text-white transition-colors">Standard</button>
+<button class="px-4 py-2 bg-tertiary-container text-white rounded-full text-sm font-medium">S</button>
+<button class="px-4 py-2 bg-surface-container-high rounded-full text-sm font-medium hover:bg-tertiary-container hover:text-white transition-colors">SP/R</button>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">車齡</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40" type="number"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface/40 font-medium">年</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">里程</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40" type="number"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface/40 font-medium">公里</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: 初步分析 -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_20px_rgba(26,26,46,0.04)] border border-transparent">
+<h2 class="text-lg font-bold mb-8 flex items-center gap-2">
+<span class="w-1.5 h-6 bg-tertiary-container rounded-full"></span>
+                初步分析
+            </h2>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+<!-- Cards -->
+<button class="group p-6 rounded-xl bg-surface-container-low border-2 border-transparent hover:border-tertiary-container transition-all text-left">
+<span class="material-symbols-outlined text-3xl mb-4 text-tertiary-container" data-icon="star">star</span>
+<div class="font-bold text-on-surface">首購</div>
+<div class="text-xs text-on-surface/60 mt-1">首部杜卡迪</div>
+</button>
+<button class="group p-6 rounded-xl bg-primary-container border-2 border-tertiary-container transition-all text-left">
+<span class="material-symbols-outlined text-3xl mb-4 text-[#C9A84C]" data-icon="published_with_changes">published_with_changes</span>
+<div class="font-bold text-white">換購</div>
+<div class="text-xs text-[#F5F2FF]/60 mt-1">升級/汰舊</div>
+</button>
+<button class="group p-6 rounded-xl bg-surface-container-low border-2 border-transparent hover:border-tertiary-container transition-all text-left">
+<span class="material-symbols-outlined text-3xl mb-4 text-tertiary-container" data-icon="add_circle">add_circle</span>
+<div class="font-bold text-on-surface">增購</div>
+<div class="text-xs text-on-surface/60 mt-1">收藏/不同用途</div>
+</button>
+<button class="group p-6 rounded-xl bg-surface-container-low border-2 border-transparent hover:border-tertiary-container transition-all text-left">
+<span class="material-symbols-outlined text-3xl mb-4 text-tertiary-container" data-icon="repeat">repeat</span>
+<div class="font-bold text-on-surface">重購</div>
+<div class="text-xs text-on-surface/60 mt-1">品牌忠實客戶</div>
+</button>
+</div>
+<!-- Nested Section for 換購 -->
+<div class="bg-surface-container-low/50 rounded-lg p-6 flex flex-col md:flex-row gap-12 border-l-4 border-tertiary-container">
+<div class="space-y-4">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">置換時機</label>
+<div class="flex gap-3">
+<button class="px-6 py-2 bg-tertiary-container text-white rounded-full text-sm font-medium">本月內</button>
+<button class="px-6 py-2 bg-surface-container-high rounded-full text-sm font-medium hover:bg-tertiary-container/10">次月</button>
+<button class="px-6 py-2 bg-surface-container-high rounded-full text-sm font-medium hover:bg-tertiary-container/10">未定</button>
+</div>
+</div>
+<div class="space-y-4">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">現場完成估價？</label>
+<div class="flex items-center gap-4">
+<span class="text-sm text-on-surface/60">否</span>
+<button class="relative w-14 h-8 bg-tertiary-container rounded-full p-1 transition-colors">
+<div class="w-6 h-6 bg-white rounded-full ml-auto shadow-md"></div>
+</button>
+<span class="text-sm font-bold">是</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: 意向與級別 -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_20px_rgba(26,26,46,0.04)] border border-transparent">
+<h2 class="text-lg font-bold mb-8 flex items-center gap-2">
+<span class="w-1.5 h-6 bg-tertiary-container rounded-full"></span>
+                意向與級別
+            </h2>
+<div class="space-y-8">
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">意向車型</label>
+<div class="flex flex-wrap gap-2">
+<button class="px-6 py-3 border border-outline-variant/30 rounded-lg text-sm font-bold hover:border-tertiary-container hover:text-tertiary-container transition-all">Panigale V4 S</button>
+<button class="px-6 py-3 bg-primary-container text-white rounded-lg text-sm font-bold border-2 border-tertiary-container shadow-lg shadow-tertiary-container/10">Multistrada V4</button>
+<button class="px-6 py-3 border border-outline-variant/30 rounded-lg text-sm font-bold hover:border-tertiary-container hover:text-tertiary-container transition-all">Monster SP</button>
+<button class="px-6 py-3 border border-outline-variant/30 rounded-lg text-sm font-bold hover:border-tertiary-container hover:text-tertiary-container transition-all">Diavel V4</button>
+<button class="px-6 py-3 border border-outline-variant/30 rounded-lg text-sm font-bold hover:border-tertiary-container hover:text-tertiary-container transition-all">Streetfighter V4</button>
+<button class="px-6 py-3 border border-outline-variant/30 rounded-lg text-sm font-bold hover:border-tertiary-container hover:text-tertiary-container transition-all">Hypermotard 950</button>
+<button class="px-6 py-3 border border-outline-variant/30 rounded-lg text-sm font-bold hover:border-tertiary-container hover:text-tertiary-container transition-all">DesertX</button>
+<button class="px-6 py-3 border border-outline-variant/30 rounded-lg text-sm font-bold hover:border-tertiary-container hover:text-tertiary-container transition-all">Scrambler Icon</button>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">付款方式</label>
+<div class="flex gap-4">
+<button class="px-8 py-2 bg-surface-container-high rounded-full text-sm font-medium">全額現金</button>
+<button class="px-8 py-2 bg-tertiary-container text-white rounded-full text-sm font-medium">分期貸款</button>
+<button class="px-8 py-2 bg-surface-container-high rounded-full text-sm font-medium">租賃/企業</button>
+</div>
+</div>
+<div class="space-y-4">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">客戶級別</label>
+<div class="flex flex-wrap gap-4">
+<button class="w-20 h-20 rounded-xl bg-red-600 text-white flex flex-col items-center justify-center shadow-lg transform hover:scale-105 transition-transform ring-4 ring-red-600/20">
+<span class="text-2xl font-black">A</span>
+<span class="text-[10px] opacity-80">HOT</span>
+</button>
+<button class="w-20 h-20 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-md transform hover:scale-105 transition-transform">
+<span class="text-2xl font-black">B</span>
+</button>
+<button class="w-20 h-20 rounded-xl bg-yellow-400 text-on-surface flex items-center justify-center shadow-md transform hover:scale-105 transition-transform">
+<span class="text-2xl font-black">C</span>
+</button>
+<button class="w-20 h-20 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center transform hover:scale-105 transition-transform">
+<span class="text-2xl font-black">D</span>
+</button>
+<button class="w-20 h-20 rounded-xl bg-surface-container-high text-on-surface/40 flex items-center justify-center text-center leading-tight transform hover:scale-105 transition-transform px-2">
+<span class="text-xs font-bold">無評級</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Bottom Navigation Shell -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-[#FCF8FF]/80 dark:bg-[#1A1A2E]/80 backdrop-blur-md flex justify-between items-center px-12 py-6 shadow-[0_-4px_20px_rgba(26,26,46,0.04)]">
+<button class="bg-[#F5F2FF] text-[#1A1A2E] rounded-lg px-8 py-3 flex items-center gap-2 hover:opacity-90 transition-opacity active:scale-95">
+<span class="material-symbols-outlined text-sm" data-icon="arrow_back">arrow_back</span>
+<span class="font-medium text-xs">上一步</span>
+</button>
+<div class="flex gap-4">
+<button class="bg-gradient-to-br from-[#00000B] to-[#1A1A2E] text-white rounded-lg px-8 py-3 flex items-center gap-2 hover:opacity-90 transition-opacity active:scale-95">
+<span class="font-medium text-xs">下一步：試騎與報價</span>
+<span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</nav>
+</body></html>

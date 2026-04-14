@@ -1,0 +1,294 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+
+
+
+
+<main class="px-10 pb-16 min-h-screen bg-surface">
+
+<div class="mb-10">
+<div class="flex justify-between items-end mb-8">
+<div>
+<nav class="flex items-center gap-2 text-slate-400 text-sm mb-2">
+<span>訂單管理</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span>訂單詳情</span>
+</nav>
+<h3 class="text-3xl font-extrabold text-primary-container tracking-tight">訂單詳情 — ORD-20260410-007</h3>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 rounded-lg bg-surface-container-highest text-on-surface font-semibold hover:bg-surface-container-high transition-all text-sm">列印合同</button>
+<button class="px-6 py-2.5 rounded-lg bg-primary-container text-white font-semibold hover:opacity-90 transition-all text-sm shadow-lg shadow-primary-container/20">送審批</button>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest p-8 rounded-xl flex items-center justify-between relative overflow-hidden">
+<div class="absolute top-[3.25rem] left-16 right-16 h-0.5 bg-surface-container-high z-0"></div>
+<div class="absolute top-[3.25rem] left-16 w-[33%] h-0.5 bg-tertiary z-0"></div>
+
+<div class="relative z-10 flex flex-col items-center gap-3 group">
+<div class="w-10 h-10 rounded-full bg-tertiary text-white flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="text-xs font-bold text-on-surface">建立</span>
+</div>
+
+<div class="relative z-10 flex flex-col items-center gap-3 group">
+<div class="w-10 h-10 rounded-full bg-tertiary text-white flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="text-xs font-bold text-on-surface">主管審批</span>
+</div>
+
+<div class="relative z-10 flex flex-col items-center gap-3 group">
+<div class="w-10 h-10 rounded-full bg-white border-4 border-tertiary text-tertiary flex items-center justify-center shadow-lg ring-4 ring-tertiary/20">
+<span class="material-symbols-outlined text-lg">edit_document</span>
+</div>
+<span class="text-xs font-black text-tertiary">客戶簽約</span>
+</div>
+
+<div class="relative z-10 flex flex-col items-center gap-3 group">
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-slate-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-lg">payments</span>
+</div>
+<span class="text-xs font-medium text-slate-400">收款</span>
+</div>
+
+<div class="relative z-10 flex flex-col items-center gap-3 group">
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-slate-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-lg">receipt</span>
+</div>
+<span class="text-xs font-medium text-slate-400">開票</span>
+</div>
+
+<div class="relative z-10 flex flex-col items-center gap-3 group">
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-slate-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-lg">key</span>
+</div>
+<span class="text-xs font-medium text-slate-400">交車</span>
+</div>
+
+<div class="relative z-10 flex flex-col items-center gap-3 group">
+<div class="w-10 h-10 rounded-full bg-surface-container-high text-slate-400 flex items-center justify-center">
+<span class="material-symbols-outlined text-lg">verified</span>
+</div>
+<span class="text-xs font-medium text-slate-400">完成</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-8 items-start">
+
+<div class="col-span-8 space-y-8">
+
+<div class="grid grid-cols-2 gap-8">
+
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10">
+<div class="flex justify-between items-center mb-6">
+<h4 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">person</span>
+                                客戶資訊
+                            </h4>
+<span class="px-3 py-1 bg-tertiary/10 text-tertiary text-xs font-bold rounded-full">級別 B</span>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between">
+<span class="text-slate-500 text-sm">客戶姓名</span>
+<span class="text-on-surface font-semibold">王先生</span>
+</div>
+<div class="flex justify-between">
+<span class="text-slate-500 text-sm">聯絡電話</span>
+<span class="text-on-surface font-semibold tracking-wider">0912-***-456</span>
+</div>
+<div class="flex justify-between">
+<span class="text-slate-500 text-sm">到店次數</span>
+<span class="text-on-surface font-semibold">2 次</span>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10">
+<h4 class="text-lg font-bold flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-tertiary">directions_car</span>
+                            車輛資訊
+                        </h4>
+<div class="space-y-4">
+<div class="flex justify-between">
+<span class="text-slate-500 text-sm">訂購車型</span>
+<span class="text-on-surface font-semibold">DUCATI RX 350h</span>
+</div>
+<div class="flex justify-between">
+<span class="text-slate-500 text-sm">外觀車色</span>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-white border border-slate-200"></div>
+<span class="text-on-surface font-semibold">星辰白</span>
+</div>
+</div>
+<div class="flex justify-between">
+<span class="text-slate-500 text-sm">車身編號 (VIN)</span>
+<span class="text-on-surface font-semibold font-mono text-xs">JTJBZ1234567890</span>
+</div>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/10 overflow-hidden">
+<div class="p-8 border-b border-surface-container-low">
+<h4 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">payments</span>
+                            價格明細
+                        </h4>
+</div>
+<div class="p-8">
+<table class="w-full text-sm">
+<tbody class="divide-y divide-surface-container-low">
+<tr class="py-4">
+<td class="py-4 text-slate-500">車輛售價</td>
+<td class="py-4 text-right font-medium">NT$ 2,350,000</td>
+</tr>
+<tr class="py-4">
+<td class="py-4 text-slate-500">選用配備</td>
+<td class="py-4 text-right font-medium">NT$ 85,000</td>
+</tr>
+<tr class="py-4">
+<td class="py-4 text-slate-500">精品加裝</td>
+<td class="py-4 text-right font-medium">NT$ 32,000</td>
+</tr>
+<tr class="py-4">
+<td class="py-4 text-slate-500">保險費用</td>
+<td class="py-4 text-right font-medium">NT$ 28,000</td>
+</tr>
+<tr class="py-4">
+<td class="py-4 text-slate-500">牌照稅/燃料稅</td>
+<td class="py-4 text-right font-medium">NT$ 15,000</td>
+</tr>
+<tr class="py-4">
+<td class="py-4 text-slate-500">折扣/優惠</td>
+<td class="py-4 text-right font-medium text-error">- NT$ 50,000</td>
+</tr>
+</tbody>
+<tfoot>
+<tr>
+<td class="pt-8 pb-4 text-on-surface font-black text-lg">總計金額</td>
+<td class="pt-8 pb-4 text-right text-primary font-black text-2xl tracking-tight">NT$ 2,460,000</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</div>
+
+<div class="bg-surface-container-low p-8 rounded-xl border border-outline-variant/10">
+<h4 class="text-lg font-bold flex items-center gap-2 mb-6 text-primary-container">
+<span class="material-symbols-outlined text-tertiary">account_balance</span>
+                        付款方式
+                    </h4>
+<div class="grid grid-cols-3 gap-12">
+<div class="flex flex-col gap-1">
+<span class="text-slate-500 text-xs uppercase tracking-widest font-bold">付款類別</span>
+<span class="text-on-surface font-semibold text-lg">貸款 48 期</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-500 text-xs uppercase tracking-widest font-bold">首期頭期款</span>
+<span class="text-on-surface font-semibold text-lg">NT$ 810,000</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-500 text-xs uppercase tracking-widest font-bold">預估月付額</span>
+<span class="text-on-surface font-semibold text-lg">NT$ 36,458</span>
+</div>
+</div>
+</div>
+</div>
+
+<div class="col-span-4 space-y-8">
+
+<div class="bg-primary-container text-white p-8 rounded-xl shadow-2xl shadow-primary-container/30 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-tertiary/10 blur-3xl -mr-16 -mt-16 rounded-full"></div>
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-tertiary">monitoring</span>
+<h4 class="text-lg font-bold tracking-tight">毛利分析</h4>
+<span class="ml-auto text-[10px] bg-white/10 px-2 py-1 rounded border border-white/5 uppercase font-bold tracking-tighter">Manager View</span>
+</div>
+<div class="space-y-4 mb-8">
+<div class="flex justify-between items-center text-sm opacity-70">
+<span>整車毛利</span>
+<span class="font-manrope">NT$ 180,000</span>
+</div>
+<div class="flex justify-between items-center text-sm opacity-70">
+<span>金融退佣</span>
+<span class="font-manrope">NT$ 15,000</span>
+</div>
+<div class="flex justify-between items-center text-sm opacity-70">
+<span>保險退佣</span>
+<span class="font-manrope">NT$ 8,400</span>
+</div>
+<div class="flex justify-between items-center text-sm opacity-70">
+<span>精品毛利</span>
+<span class="font-manrope">NT$ 12,000</span>
+</div>
+</div>
+<div class="pt-6 border-t border-white/10">
+<div class="flex justify-between items-end">
+<span class="font-bold text-tertiary">預估總毛利</span>
+<span class="text-3xl font-black font-manrope">NT$ 215,400</span>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10">
+<h4 class="text-lg font-bold flex items-center gap-2 mb-8">
+<span class="material-symbols-outlined text-slate-400">history</span>
+                        操作紀錄
+                    </h4>
+<div class="space-y-8 relative">
+<div class="absolute left-2 top-2 bottom-2 w-px bg-surface-container-high"></div>
+
+<div class="relative pl-8 group">
+<div class="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-tertiary ring-4 ring-tertiary/10 transition-all group-hover:scale-110"></div>
+<p class="text-xs text-slate-400 mb-1">2026-04-12 14:30</p>
+<p class="text-sm font-semibold text-on-surface">生成電子合同</p>
+<p class="text-xs text-slate-500 mt-1">執行人: 王大明</p>
+</div>
+
+<div class="relative pl-8 group">
+<div class="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-slate-200 group-hover:bg-tertiary transition-all"></div>
+<p class="text-xs text-slate-400 mb-1">2026-04-11 10:15</p>
+<p class="text-sm font-semibold text-on-surface">主管審批通過</p>
+<p class="text-xs text-slate-500 mt-1">執行人: 陳總監</p>
+</div>
+
+<div class="relative pl-8 group">
+<div class="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-slate-200 group-hover:bg-tertiary transition-all"></div>
+<p class="text-xs text-slate-400 mb-1">2026-04-10 16:45</p>
+<p class="text-sm font-semibold text-on-surface">訂單建立</p>
+<p class="text-xs text-slate-500 mt-1">執行人: 王大明</p>
+</div>
+</div>
+</div>
+
+<div class="space-y-3">
+<button class="w-full py-4 bg-tertiary text-primary-container font-black rounded-xl hover:brightness-105 transition-all shadow-lg shadow-tertiary/10 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">paid</span>
+                        記錄收款
+                    </button>
+<div class="grid grid-cols-2 gap-3">
+<button class="py-3.5 bg-surface-container-high text-on-surface font-bold rounded-xl hover:bg-surface-container-highest transition-all text-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">print</span>
+                            列印合同
+                        </button>
+<button class="py-3.5 bg-surface-container-high text-on-surface font-bold rounded-xl hover:bg-surface-container-highest transition-all text-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">share</span>
+                            發送通知
+                        </button>
+</div>
+<button class="w-full py-3.5 border border-error/20 text-error font-bold rounded-xl hover:bg-error/5 transition-all text-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">cancel</span>
+                        退訂
+                    </button>
+</div>
+</div>
+</div>
+</main>

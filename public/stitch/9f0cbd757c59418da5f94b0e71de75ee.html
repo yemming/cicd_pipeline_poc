@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>電銷工作台 — BDC 外呼</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#f5f2ff",
+                        "surface": "#fcf8ff",
+                        "inverse-surface": "#2f2e43",
+                        "background": "#fcf8ff",
+                        "inverse-primary": "#c6c4df",
+                        "on-secondary-fixed-variant": "#454747",
+                        "tertiary-container": "#c9a84c",
+                        "secondary-container": "#dcdddd",
+                        "on-secondary": "#ffffff",
+                        "inverse-on-surface": "#f2efff",
+                        "surface-container-highest": "#e2e0fc",
+                        "surface-container-high": "#e8e5ff",
+                        "on-primary-container": "#83829b",
+                        "tertiary": "#755b00",
+                        "primary": "#00000b",
+                        "on-secondary-container": "#5f6161",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#ffe08f",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "surface-variant": "#e2e0fc",
+                        "on-surface-variant": "#47464c",
+                        "on-tertiary": "#ffffff",
+                        "primary-container": "#1a1a2e",
+                        "on-background": "#1a1a2e",
+                        "surface-dim": "#dad7f3",
+                        "primary-fixed": "#e2e0fc",
+                        "primary-fixed-dim": "#c6c4df",
+                        "surface-tint": "#5d5c74",
+                        "on-tertiary-container": "#503d00",
+                        "on-surface": "#1a1a2e",
+                        "surface-container": "#efecff",
+                        "on-primary-fixed": "#1a1a2e",
+                        "outline-variant": "#c8c5cd",
+                        "surface-bright": "#fcf8ff",
+                        "error": "#ba1a1a",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-primary-fixed-variant": "#45455b",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "secondary": "#5d5f5f",
+                        "outline": "#78767d",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#241a00",
+                        "on-secondary-fixed": "#1a1c1c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .glass-nav {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e0fc; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c6c4df; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface overflow-hidden">
+<!-- SideNavBar Component -->
+<!-- Main Content Area -->
+<main class="h-screen flex">
+<!-- TopNavBar Component -->
+<!-- Left Panel: Task List (30%) -->
+<section class="w-[30%] bg-surface-container-low flex flex-col border-r border-outline-variant/10">
+<div class="p-6 pb-4 flex justify-between items-center">
+<h2 class="text-lg font-bold text-primary-container font-headline">今日待撥打</h2>
+<span class="bg-primary-container text-white text-xs px-2 py-1 rounded-full">12 筆待處理</span>
+</div>
+<div class="flex-1 overflow-y-auto px-4 space-y-4 pb-8">
+<!-- Selected Card -->
+<div class="bg-surface-container-lowest border border-tertiary-container/40 p-5 rounded-xl shadow-sm relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-tertiary-container"></div>
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center space-x-2">
+<span class="text-lg font-bold text-primary-container">李小姐</span>
+<span class="w-2 h-2 rounded-full bg-error" title="Urgent"></span>
+</div>
+<span class="text-[10px] text-slate-400 font-label">2026/04/09</span>
+</div>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="bg-surface-container text-on-surface-variant text-[11px] px-2 py-0.5 rounded-full">官網預約</span>
+<span class="bg-tertiary/10 text-tertiary text-[11px] px-2 py-0.5 rounded-full">NX 350h</span>
+</div>
+<div class="flex items-center justify-between">
+<button class="p-2 rounded-full bg-surface-container hover:bg-tertiary-container hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="call">call</span>
+</button>
+<button class="px-4 py-1.5 bg-primary-container text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity">
+                            開始撥打
+                        </button>
+</div>
+</div>
+<!-- Normal Card -->
+<div class="bg-surface-container-lowest p-5 rounded-xl hover:shadow-md transition-shadow cursor-pointer">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center space-x-2">
+<span class="text-lg font-bold text-primary-container">張先生</span>
+<span class="w-2 h-2 rounded-full bg-[#C9A84C]" title="Normal"></span>
+</div>
+<span class="text-[10px] text-slate-400 font-label">2026/04/09</span>
+</div>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="bg-surface-container text-on-surface-variant text-[11px] px-2 py-0.5 rounded-full">汽車之家線索</span>
+<span class="bg-surface-container text-on-surface-variant text-[11px] px-2 py-0.5 rounded-full">RX 500h</span>
+</div>
+<div class="flex items-center justify-between">
+<button class="p-2 rounded-full bg-surface-container">
+<span class="material-symbols-outlined text-sm" data-icon="call">call</span>
+</button>
+<button class="px-4 py-1.5 bg-surface-container-highest text-primary-container text-xs font-bold rounded-lg hover:bg-slate-200 transition-colors">
+                            等待中
+                        </button>
+</div>
+</div>
+<!-- Another Card -->
+<div class="bg-surface-container-lowest p-5 rounded-xl hover:shadow-md transition-shadow cursor-pointer">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center space-x-2">
+<span class="text-lg font-bold text-primary-container">林小姐</span>
+<span class="w-2 h-2 rounded-full bg-[#C9A84C]" title="Normal"></span>
+</div>
+<span class="text-[10px] text-slate-400 font-label">2026/04/08</span>
+</div>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="bg-surface-container text-on-surface-variant text-[11px] px-2 py-0.5 rounded-full">展間留檔</span>
+<span class="bg-surface-container text-on-surface-variant text-[11px] px-2 py-0.5 rounded-full">ES 300h</span>
+</div>
+<div class="flex items-center justify-between">
+<button class="p-2 rounded-full bg-surface-container">
+<span class="material-symbols-outlined text-sm" data-icon="call">call</span>
+</button>
+<button class="px-4 py-1.5 bg-surface-container-highest text-primary-container text-xs font-bold rounded-lg hover:bg-slate-200 transition-colors">
+                            等待中
+                        </button>
+</div>
+</div>
+<!-- Extra padding/placeholder -->
+<div class="bg-surface-container-lowest/50 p-5 rounded-xl border border-dashed border-outline-variant/30 flex items-center justify-center">
+<p class="text-xs text-slate-400">載入更多客戶紀錄...</p>
+</div>
+</div>
+</section>
+<!-- Right Panel: Active Call View (70%) -->
+<section class="flex-1 bg-surface flex flex-col overflow-y-auto">
+<!-- Call Header -->
+<div class="p-8 bg-surface-container-lowest shadow-sm">
+<div class="flex justify-between items-start">
+<div class="flex space-x-6">
+<div class="w-20 h-20 rounded-2xl bg-surface-container-low flex items-center justify-center overflow-hidden border border-outline-variant/10">
+<img class="w-full h-full object-cover" data-alt="professional portrait of a young asian woman with soft natural lighting and neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAto_VZvk5EX-SH5OL0We36gU9FzTy5BWxjvhvyFI9a3SOo1Y1XZK1am2ELJGY5pfL5THQV1GQ4Qrnyik-_wLg-uB7iMdLT3DImNpyxcQ51xevs7BG42za377wcYimtQuTY3h6eU_4QyNzqj0qaaMDkvrrlx40SPl0o1NoxRD4VUAfMlDVa9CmkaX4IErwo7vqcRi9Uk2wW-Z52CJQ9pq0463hrEGpDrz7oC-h0f_uRURxbrYW86WtQljNb-GtriLvVC1y_EGdPtFs"/>
+</div>
+<div class="flex flex-col justify-center">
+<div class="flex items-center space-x-4 mb-2">
+<h1 class="text-3xl font-bold text-primary-container font-headline">李小姐</h1>
+<span class="text-lg font-manrope text-on-surface-variant">0988-***-123</span>
+</div>
+<div class="flex items-center space-x-4 text-sm text-on-surface-variant">
+<div class="flex items-center">
+<span class="material-symbols-outlined text-base mr-1" data-icon="source">source</span>
+<span>來源：官網預約</span>
+</div>
+<div class="flex items-center">
+<span class="material-symbols-outlined text-base mr-1" data-icon="directions_car">directions_car</span>
+<span>意向車型：NX 350h</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<div class="text-4xl font-headline font-extrabold text-primary-container mb-2">00:02:34</div>
+<button class="flex items-center space-x-2 px-6 py-2.5 bg-error text-white font-bold rounded-full hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined" data-icon="call_end">call_end</span>
+<span>結束通話</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Logging Form -->
+<div class="p-8 max-w-4xl mx-auto w-full">
+<div class="bg-surface-container-lowest rounded-2xl p-8 shadow-sm">
+<h3 class="text-xl font-bold text-primary-container mb-8 font-headline border-b border-slate-100 pb-4">撥打紀錄與跟進</h3>
+<form class="space-y-8">
+<!-- Group: Follow-up Result -->
+<div class="space-y-4">
+<label class="block text-sm font-bold text-primary-container">跟進結果</label>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<label class="flex flex-col items-center justify-center p-4 border border-tertiary-container/40 bg-tertiary/5 rounded-xl cursor-pointer group hover:bg-tertiary/10 transition-colors">
+<input checked="" class="hidden" name="result" type="radio"/>
+<span class="material-symbols-outlined mb-2 text-tertiary" data-icon="check_circle">check_circle</span>
+<span class="text-xs font-semibold text-tertiary">已接通-有意願</span>
+</label>
+<label class="flex flex-col items-center justify-center p-4 border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container-low transition-colors">
+<input class="hidden" name="result" type="radio"/>
+<span class="material-symbols-outlined mb-2 text-slate-400" data-icon="remove_circle_outline">remove_circle_outline</span>
+<span class="text-xs font-semibold text-slate-500">已接通-暫無意願</span>
+</label>
+<label class="flex flex-col items-center justify-center p-4 border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container-low transition-colors">
+<input class="hidden" name="result" type="radio"/>
+<span class="material-symbols-outlined mb-2 text-slate-400" data-icon="block">block</span>
+<span class="text-xs font-semibold text-slate-500">未接通</span>
+</label>
+<label class="flex flex-col items-center justify-center p-4 border border-outline-variant rounded-xl cursor-pointer hover:bg-surface-container-low transition-colors">
+<input class="hidden" name="result" type="radio"/>
+<span class="material-symbols-outlined mb-2 text-slate-400" data-icon="error_outline">error_outline</span>
+<span class="text-xs font-semibold text-slate-500">空號/錯號</span>
+</label>
+</div>
+</div>
+<!-- Two Column Info -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-2">
+<label class="block text-sm font-bold text-primary-container">預約到店日期</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-xl py-3 px-4 text-sm focus:ring-1 focus:ring-tertiary/40" type="date"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400 pointer-events-none" data-icon="calendar_today">calendar_today</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-sm font-bold text-primary-container">分配銷售顧問</label>
+<select class="w-full bg-surface-container-low border-none rounded-xl py-3 px-4 text-sm focus:ring-1 focus:ring-tertiary/40 appearance-none">
+<option>請選擇銷售顧問</option>
+<option>陳大文 (高級銷售)</option>
+<option>黃小明 (資深專家)</option>
+<option>張美玲 (客戶主任)</option>
+</select>
+</div>
+</div>
+<!-- Notes Area -->
+<div class="space-y-2">
+<label class="block text-sm font-bold text-primary-container">跟進備註</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-xl py-3 px-4 text-sm focus:ring-1 focus:ring-tertiary/40" placeholder="請輸入通話摘要、客戶需求或特殊註記..." rows="4"></textarea>
+</div>
+<!-- Next Follow-up -->
+<div class="space-y-2">
+<label class="block text-sm font-bold text-primary-container">下次跟進日期</label>
+<div class="relative w-1/2">
+<input class="w-full bg-surface-container-low border-none rounded-xl py-3 px-4 text-sm focus:ring-1 focus:ring-tertiary/40" type="date"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400 pointer-events-none" data-icon="event_repeat">event_repeat</span>
+</div>
+</div>
+</form>
+<!-- Submit Action -->
+<div class="mt-12 pt-8 border-t border-slate-100 flex justify-end">
+<button class="px-8 py-4 bg-gradient-to-br from-primary to-primary-container text-white font-bold rounded-xl shadow-lg hover:opacity-90 transition-all flex items-center space-x-3">
+<span>儲存紀錄並撥打下一位</span>
+<span class="material-symbols-outlined" data-icon="keyboard_double_arrow_right">keyboard_double_arrow_right</span>
+</button>
+</div>
+</div>
+<!-- Recent History Section (Asymmetric Detail) -->
+<div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="col-span-1 p-6 bg-surface-container-low rounded-2xl">
+<h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">歷史意向</h4>
+<ul class="space-y-3">
+<li class="flex items-center text-xs">
+<span class="w-2 h-2 rounded-full bg-tertiary mr-2"></span>
+<span class="text-primary-container font-medium">ES 250</span>
+<span class="ml-auto text-slate-400">2026/01</span>
+</li>
+<li class="flex items-center text-xs">
+<span class="w-2 h-2 rounded-full bg-tertiary mr-2"></span>
+<span class="text-primary-container font-medium">NX 350h</span>
+<span class="ml-auto text-slate-400">2026/03</span>
+</li>
+</ul>
+</div>
+<div class="col-span-2 p-6 bg-surface-container-low rounded-2xl">
+<h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">最近通話摘要</h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">
+                            客戶於上週表示對油電混合車款感興趣，主要考量空間與油耗。提到 NX 系列外型符合預期，詢問過舊換新補助方案。
+                        </p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Contextual FAB (Suppressed on this complex screen as per rules) -->
+</body></html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DUCATI Reception - 客戶接待手卡</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#e2e0fc",
+                        "secondary": "#5d5f5f",
+                        "surface-container-high": "#e8e5ff",
+                        "tertiary": "#755b00",
+                        "surface-tint": "#5d5c74",
+                        "primary-fixed-dim": "#c6c4df",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "tertiary-fixed": "#ffe08f",
+                        "surface-variant": "#e2e0fc",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#dcdddd",
+                        "on-surface-variant": "#47464c",
+                        "primary-container": "#1a1a2e",
+                        "error-container": "#ffdad6",
+                        "surface": "#fcf8ff",
+                        "inverse-surface": "#2f2e43",
+                        "tertiary-container": "#c9a84c",
+                        "surface-container": "#efecff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-background": "#1a1a2e",
+                        "primary": "#00000b",
+                        "on-primary-fixed-variant": "#45455b",
+                        "primary-fixed": "#e2e0fc",
+                        "error": "#ba1a1a",
+                        "on-tertiary-container": "#503d00",
+                        "on-tertiary": "#ffffff",
+                        "surface-bright": "#fcf8ff",
+                        "on-tertiary-fixed": "#241a00",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "inverse-primary": "#c6c4df",
+                        "on-primary-container": "#83829b",
+                        "on-secondary-container": "#5f6161",
+                        "on-secondary-fixed-variant": "#454747",
+                        "outline-variant": "#c8c5cd",
+                        "on-primary": "#ffffff",
+                        "inverse-on-surface": "#f2efff",
+                        "secondary-fixed": "#e2e2e2",
+                        "surface-dim": "#dad7f3",
+                        "on-surface": "#1a1a2e",
+                        "on-primary-fixed": "#1a1a2e",
+                        "on-error-container": "#93000a",
+                        "outline": "#78767d",
+                        "background": "#fcf8ff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-low": "#f5f2ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcf8ff; }
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-nav { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(20px); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="text-on-surface antialiased overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<!-- Side Navigation -->
+<!-- Main Content Canvas -->
+<main class="pb-32 px-8 min-h-screen bg-surface">
+<div class="max-w-5xl mx-auto">
+<!-- Header Info -->
+<div class="flex flex-col md:flex-row justify-between items-baseline mb-8 gap-4">
+<div>
+<h1 class="text-[1.75rem] font-headline font-extrabold text-on-surface tracking-tight">客戶接待手卡 — 前台登記</h1>
+<p class="text-outline text-sm mt-1">請依照流程引導，正確填寫進店客戶資訊</p>
+</div>
+<div class="flex gap-6 text-[0.75rem] font-medium bg-surface-container-low px-6 py-3 rounded-full">
+<div class="flex gap-2 items-center">
+<span class="text-outline">手卡編號:</span>
+<span class="text-on-surface font-headline">DU-20260410-024</span>
+</div>
+<div class="w-px h-4 bg-outline-variant"></div>
+<div class="flex gap-2 items-center">
+<span class="text-outline">銷售顧問:</span>
+<span class="text-tertiary font-bold italic">待分配</span>
+</div>
+</div>
+</div>
+<!-- Form Content -->
+<div class="space-y-6">
+<!-- Section 1: 到店資訊 & Profile -->
+<section class="bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-transparent">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-1.5 h-6 bg-tertiary-container rounded-full"></div>
+<h2 class="text-[1.375rem] font-headline font-bold">到店資訊</h2>
+</div>
+<div class="flex flex-col lg:flex-row gap-12">
+<!-- Form Fields (Left) -->
+<div class="flex-1 space-y-8">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-2">
+<label class="block text-xs font-bold text-outline tracking-wider uppercase">到店日期</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-0 rounded-lg px-4 py-3 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none" type="date" value="2026-04-10"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline pointer-events-none">calendar_today</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-outline tracking-wider uppercase">到店時間</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-0 rounded-lg px-4 py-3 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none" type="time" value="14:30"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline pointer-events-none">schedule</span>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<label class="block text-xs font-bold text-outline tracking-wider uppercase">感興趣車系</label>
+<div class="flex flex-wrap gap-3">
+<button class="px-6 py-2.5 rounded-full bg-primary-container text-white text-sm font-medium shadow-md">Panigale V4 S</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-all text-sm font-medium">Multistrada V4</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-all text-sm font-medium">Monster SP</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-all text-sm font-medium">Diavel V4</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-all text-sm font-medium">DesertX</button>
+</div>
+</div>
+</div>
+<!-- Quick Profile Card (Right) -->
+<div class="lg:w-72">
+<div class="bg-surface-container-low rounded-xl p-6 flex flex-col items-center text-center border border-outline-variant/30">
+<div class="relative mb-4">
+<div class="w-20 h-20 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant/40">account_circle</span>
+</div>
+<div class="absolute bottom-0 right-0 w-6 h-6 bg-tertiary-container rounded-full border-2 border-white flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-white">history</span>
+</div>
+</div>
+<div class="space-y-1 mb-4">
+<span class="text-[10px] font-bold text-outline uppercase tracking-widest">客戶大頭照</span>
+<h3 class="text-sm font-bold text-on-surface">訪客 / DUCATI 車主</h3>
+</div>
+<div class="w-full pt-4 border-t border-outline-variant/50">
+<div class="text-[10px] text-outline font-bold uppercase tracking-wider mb-1">上次進廠日期</div>
+<div class="text-sm font-headline font-bold text-tertiary">2026/02/15</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: 客戶判斷 (Decision Tree UI) -->
+<section class="bg-surface-container-lowest p-8 rounded-xl shadow-sm">
+<div class="flex items-center gap-3 mb-8">
+<div class="w-1.5 h-6 bg-tertiary-container rounded-full"></div>
+<h2 class="text-[1.375rem] font-headline font-bold">客戶判斷</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+<!-- Q1 -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-high w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold">01</span>
+<label class="text-sm font-bold text-on-surface">是否首次來店？</label>
+</div>
+<div class="flex gap-2 p-1 bg-surface-container-low rounded-xl">
+<button class="flex-1 py-3 rounded-lg bg-white shadow-sm text-on-surface font-bold text-sm transition-all">是（首次）</button>
+<button class="flex-1 py-3 rounded-lg text-outline hover:text-on-surface transition-all text-sm">否（再訪）</button>
+</div>
+<!-- Subtle Logic Placeholder -->
+<div class="pt-2">
+<p class="text-[10px] text-outline mb-2 uppercase tracking-widest font-bold opacity-50">再次進店間隔？ (若選再訪後啟用)</p>
+<div class="flex gap-2 opacity-30 pointer-events-none">
+<span class="px-3 py-1 bg-surface-container-low rounded-md text-[10px]">本月再次</span>
+<span class="px-3 py-1 bg-surface-container-low rounded-md text-[10px]">2個月內再次</span>
+</div>
+</div>
+</div>
+<!-- Q2 -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-high w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold">02</span>
+<label class="text-sm font-bold text-on-surface">是否老客戶介紹？</label>
+</div>
+<div class="flex gap-2 p-1 bg-surface-container-low rounded-xl">
+<button class="flex-1 py-3 rounded-lg text-outline hover:text-on-surface transition-all text-sm">是</button>
+<button class="flex-1 py-3 rounded-lg bg-white shadow-sm text-on-surface font-bold text-sm transition-all">否</button>
+</div>
+</div>
+<!-- Q3 -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-high w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold">03</span>
+<label class="text-sm font-bold text-on-surface">是否來電預約？</label>
+</div>
+<div class="flex gap-2 p-1 bg-surface-container-low rounded-xl">
+<button class="flex-1 py-3 rounded-lg text-outline hover:text-on-surface transition-all text-sm">是</button>
+<button class="flex-1 py-3 rounded-lg bg-white shadow-sm text-on-surface font-bold text-sm transition-all">否</button>
+</div>
+</div>
+<!-- Q4 -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-high w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold">04</span>
+<label class="text-sm font-bold text-on-surface">是否指定銷售人員？</label>
+</div>
+<div class="flex gap-2 p-1 bg-surface-container-low rounded-xl">
+<button class="flex-1 py-3 rounded-lg text-outline hover:text-on-surface transition-all text-sm">是</button>
+<button class="flex-1 py-3 rounded-lg bg-white shadow-sm text-on-surface font-bold text-sm transition-all">否</button>
+</div>
+<div class="flex items-center gap-1.5 text-tertiary">
+<span class="material-symbols-outlined text-sm">info</span>
+<span class="text-[10px] font-medium">系統將自動分配值班顧問</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: 客戶基本資料 -->
+<section class="bg-surface-container-lowest p-8 rounded-xl shadow-sm overflow-hidden relative">
+<!-- Decor Background Element -->
+<div class="absolute -right-20 -top-10 opacity-[0.08] pointer-events-none">
+<img alt="Premium Ducati Superbike Silhouette" class="w-[32rem] h-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCn7M3wmQP6dN_XqkH_HjNEjkcD6iFm9uwxt_wAEJuXEhtos1pe3ltgZdJIRLZAqD0uiLqfL-77v0KqCp_wdRTb3rPUs9ULI2Otz8iROdEgBXDa02aX6u2ifkeoRwp7O55PONWIDcka1towlOExcK25yAlBIdY3K3uVy77-xfYriWE1kkgPhnCUFLnJfC1XGndend7cT7pN6bZ06d9S7OGvRYoOuVvvLqDbKZiW0hzclf2y668BYFeMMJ5LpzlnbYQ2eqxrEqyEErU"/>
+</div>
+<div class="flex items-center gap-3 mb-8">
+<div class="w-1.5 h-6 bg-tertiary-container rounded-full"></div>
+<h2 class="text-[1.375rem] font-headline font-bold">客戶基本資料</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8 relative z-10">
+<div class="md:col-span-5 space-y-2">
+<label class="block text-xs font-bold text-outline tracking-wider uppercase">客戶姓名</label>
+<input class="w-full bg-surface-container-low border-0 rounded-lg px-4 py-3 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none" placeholder="請輸入客戶全名" type="text"/>
+</div>
+<div class="md:col-span-4 space-y-2">
+<label class="block text-xs font-bold text-outline tracking-wider uppercase">性別</label>
+<div class="flex gap-8 py-2">
+<label class="flex items-center gap-3 cursor-pointer group">
+<div class="w-5 h-5 rounded-full border-2 border-outline-variant flex items-center justify-center group-hover:border-tertiary transition-colors">
+<div class="w-2.5 h-2.5 rounded-full bg-tertiary scale-0 transition-transform"></div>
+</div>
+<span class="text-sm font-medium">男</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<div class="w-5 h-5 rounded-full border-2 border-tertiary flex items-center justify-center">
+<div class="w-2.5 h-2.5 rounded-full bg-tertiary scale-100 transition-transform"></div>
+</div>
+<span class="text-sm font-bold text-on-surface">女</span>
+</label>
+</div>
+</div>
+<div class="md:col-span-3 space-y-2">
+<label class="block text-xs font-bold text-outline tracking-wider uppercase">有無陪同</label>
+<div class="flex items-center h-10">
+<button class="relative inline-flex h-6 w-11 items-center rounded-full bg-surface-container-high transition-colors focus:outline-none">
+<span class="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
+</button>
+<span class="ml-3 text-sm text-outline">無陪同人員</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-8 relative z-10">
+<div class="md:col-span-6 space-y-2">
+<label class="block text-xs font-bold text-outline tracking-wider uppercase">手機/電話</label>
+<div class="flex gap-2">
+<div class="bg-surface-container-low rounded-lg px-4 py-3 text-outline text-sm font-bold flex items-center">+886</div>
+<input class="flex-1 bg-surface-container-low border-0 rounded-lg px-4 py-3 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none" placeholder="09XX-XXX-XXX" type="tel"/>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Main CTA Area -->
+<div class="mt-16 flex flex-col items-center">
+<button class="group relative px-12 py-5 bg-primary-container text-white rounded-full font-bold text-lg shadow-[0_20px_50px_rgba(26,26,46,0.3)] hover:shadow-[0_25px_60px_rgba(26,26,46,0.4)] hover:-translate-y-1 transition-all duration-300">
+<span class="relative z-10 flex items-center gap-4">
+                    分配銷售顧問並進入下一步
+                    <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+</span>
+<div class="absolute inset-0 bg-gradient-to-br from-primary to-primary-container rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</button>
+<p class="text-outline text-xs mt-6">點擊後將依據排班表自動指派現場銷售顧問</p>
+</div>
+</div>
+</main>
+<!-- Decorative Bottom Gradient for Depth -->
+<div class="fixed bottom-0 left-0 w-full h-32 bg-gradient-to-t from-surface to-transparent pointer-events-none z-30"></div>
+</body></html>

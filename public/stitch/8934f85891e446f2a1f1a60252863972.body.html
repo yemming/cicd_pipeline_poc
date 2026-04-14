@@ -1,0 +1,284 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+
+
+
+<main class="flex-1 min-h-screen">
+
+
+<div class="pt-24 px-12 pb-12">
+
+<div class="flex justify-between items-end mb-10">
+<div>
+<nav class="flex items-center gap-2 text-on-primary-container text-xs mb-2">
+<span>Approvals</span>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span class="text-primary font-medium">審批歷史記錄</span>
+</nav>
+<h2 class="text-4xl font-extrabold text-on-surface tracking-tight">審批歷史記錄</h2>
+</div>
+
+<div class="flex items-center gap-3">
+<div class="flex flex-col gap-1">
+<label class="text-[10px] uppercase tracking-widest text-on-primary-container font-bold ml-1">Date Range</label>
+<select class="bg-surface-container-low border-none rounded-lg text-sm px-4 py-2 text-on-surface focus:ring-tertiary/40">
+<option>最近 30 天</option>
+<option>本月</option>
+<option>自定義範圍</option>
+</select>
+</div>
+<div class="flex flex-col gap-1">
+<label class="text-[10px] uppercase tracking-widest text-on-primary-container font-bold ml-1">Type</label>
+<select class="bg-surface-container-low border-none rounded-lg text-sm px-4 py-2 text-on-surface focus:ring-tertiary/40">
+<option>所有類型</option>
+<option>訂單</option>
+<option>退款</option>
+<option>調車</option>
+<option>折扣</option>
+<option>收車</option>
+</select>
+</div>
+<div class="flex flex-col gap-1">
+<label class="text-[10px] uppercase tracking-widest text-on-primary-container font-bold ml-1">Result</label>
+<select class="bg-surface-container-low border-none rounded-lg text-sm px-4 py-2 text-on-surface focus:ring-tertiary/40">
+<option>全部結果</option>
+<option>核准</option>
+<option>駁回</option>
+</select>
+</div>
+<button class="bg-primary text-white h-10 px-6 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all self-end">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                        篩選
+                    </button>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest rounded-2xl shadow-[0_8px_40px_rgba(26,26,46,0.04)] overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-6 py-5 text-[11px] font-extrabold text-on-primary-container uppercase tracking-wider">審批編號</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-on-primary-container uppercase tracking-wider">類型</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-on-primary-container uppercase tracking-wider">發起人</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-on-primary-container uppercase tracking-wider">發起時間</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-on-primary-container uppercase tracking-wider">審議人</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-on-primary-container uppercase tracking-wider">結果</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-on-primary-container uppercase tracking-wider text-right">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+
+<tr class="group hover:bg-surface-container-low transition-colors duration-200">
+<td class="px-6 py-4 text-sm font-semibold text-primary">#APP-20230812-01</td>
+<td class="px-6 py-4 text-sm">
+<span class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium">訂單</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">陳大文</td>
+<td class="px-6 py-4 text-sm text-on-primary-container">2023-08-12 10:30</td>
+<td class="px-6 py-4 text-sm font-medium">黃主任</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    核准
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-tertiary font-bold text-xs hover:underline tracking-tight">查看詳情</button>
+</td>
+</tr>
+
+<tr class="group hover:bg-surface-container-low transition-colors duration-200">
+<td class="px-6 py-4 text-sm font-semibold text-primary">#APP-20230812-04</td>
+<td class="px-6 py-4 text-sm">
+<span class="bg-orange-50 text-orange-700 px-2 py-1 rounded text-xs font-medium">折扣</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">李小華</td>
+<td class="px-6 py-4 text-sm text-on-primary-container">2023-08-12 11:15</td>
+<td class="px-6 py-4 text-sm font-medium">林經理</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                    駁回
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-tertiary font-bold text-xs hover:underline tracking-tight">查看詳情</button>
+</td>
+</tr>
+
+<tr class="group hover:bg-surface-container-low transition-colors duration-200">
+<td class="px-6 py-4 text-sm font-semibold text-primary">#APP-20230811-92</td>
+<td class="px-6 py-4 text-sm">
+<span class="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs font-medium">調車</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">張明輝</td>
+<td class="px-6 py-4 text-sm text-on-primary-container">2023-08-11 16:45</td>
+<td class="px-6 py-4 text-sm font-medium">黃主任</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    核准
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-tertiary font-bold text-xs hover:underline tracking-tight">查看詳情</button>
+</td>
+</tr>
+
+<tr class="group hover:bg-surface-container-low transition-colors duration-200">
+<td class="px-6 py-4 text-sm font-semibold text-primary">#APP-20230811-88</td>
+<td class="px-6 py-4 text-sm">
+<span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">收車</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">王曉芳</td>
+<td class="px-6 py-4 text-sm text-on-primary-container">2023-08-11 15:20</td>
+<td class="px-6 py-4 text-sm font-medium">陳組長</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    核准
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-tertiary font-bold text-xs hover:underline tracking-tight">查看詳情</button>
+</td>
+</tr>
+
+<tr class="group hover:bg-surface-container-low transition-colors duration-200">
+<td class="px-6 py-4 text-sm font-semibold text-primary">#APP-20230811-76</td>
+<td class="px-6 py-4 text-sm">
+<span class="bg-red-50 text-red-700 px-2 py-1 rounded text-xs font-medium">退款</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">趙志強</td>
+<td class="px-6 py-4 text-sm text-on-primary-container">2023-08-11 11:05</td>
+<td class="px-6 py-4 text-sm font-medium">林經理</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    核准
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-tertiary font-bold text-xs hover:underline tracking-tight">查看詳情</button>
+</td>
+</tr>
+
+<tr class="group hover:bg-surface-container-low transition-colors duration-200">
+<td class="px-6 py-4 text-sm font-semibold text-primary">#APP-20230810-54</td>
+<td class="px-6 py-4 text-sm">
+<span class="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium">訂單</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">周杰倫</td>
+<td class="px-6 py-4 text-sm text-on-primary-container">2023-08-10 17:30</td>
+<td class="px-6 py-4 text-sm font-medium">黃主任</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                                    駁回
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-tertiary font-bold text-xs hover:underline tracking-tight">查看詳情</button>
+</td>
+</tr>
+
+<tr class="group hover:bg-surface-container-low transition-colors duration-200">
+<td class="px-6 py-4 text-sm font-semibold text-primary">#APP-20230810-12</td>
+<td class="px-6 py-4 text-sm">
+<span class="bg-orange-50 text-orange-700 px-2 py-1 rounded text-xs font-medium">折扣</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">吳美玲</td>
+<td class="px-6 py-4 text-sm text-on-primary-container">2023-08-10 09:45</td>
+<td class="px-6 py-4 text-sm font-medium">陳組長</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    核准
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-tertiary font-bold text-xs hover:underline tracking-tight">查看詳情</button>
+</td>
+</tr>
+
+<tr class="group hover:bg-surface-container-low transition-colors duration-200">
+<td class="px-6 py-4 text-sm font-semibold text-primary">#APP-20230809-88</td>
+<td class="px-6 py-4 text-sm">
+<span class="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs font-medium">調車</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">徐若瑄</td>
+<td class="px-6 py-4 text-sm text-on-primary-container">2023-08-09 14:15</td>
+<td class="px-6 py-4 text-sm font-medium">林經理</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    核准
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-tertiary font-bold text-xs hover:underline tracking-tight">查看詳情</button>
+</td>
+</tr>
+</tbody>
+</table>
+
+<div class="px-6 py-5 bg-surface-container-low/30 border-t border-surface-container flex justify-between items-center">
+<p class="text-xs text-on-primary-container">顯示 1 至 8，共 156 條記錄</p>
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant text-on-primary-container hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant text-on-primary-container hover:bg-white transition-colors text-xs font-bold">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant text-on-primary-container hover:bg-white transition-colors text-xs font-bold">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant text-on-primary-container hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+
+<div class="grid grid-cols-3 gap-6 mt-8">
+<div class="bg-surface-container-low p-6 rounded-2xl">
+<p class="text-[10px] uppercase tracking-widest text-on-primary-container font-bold mb-4">本月核准率</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-extrabold text-primary font-headline">94.2%</span>
+<span class="text-emerald-600 text-xs font-bold">↑ 2.1%</span>
+</div>
+<div class="mt-4 h-1.5 w-full bg-white rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-[94.2%] rounded-full"></div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-2xl">
+<p class="text-[10px] uppercase tracking-widest text-on-primary-container font-bold mb-4">平均處理時長</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-extrabold text-primary font-headline">4.5h</span>
+<span class="text-emerald-600 text-xs font-bold">↓ 1.2h</span>
+</div>
+<div class="mt-4 h-1.5 w-full bg-white rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[65%] rounded-full"></div>
+</div>
+</div>
+<div class="bg-[#1A1A2E] p-6 rounded-2xl text-white relative overflow-hidden">
+<div class="relative z-10">
+<p class="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-4">待處理項目</p>
+<div class="flex items-center justify-between">
+<span class="text-4xl font-extrabold font-headline">12</span>
+<span class="bg-[#C9A84C] text-[#1A1A2E] px-3 py-1 rounded text-[10px] font-black">HIGH PRIORITY</span>
+</div>
+<button class="mt-6 text-[#C9A84C] text-xs font-bold flex items-center gap-1 hover:gap-2 transition-all">
+                            立即前往
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+
+<div class="absolute -right-10 -bottom-10 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
+</div>
+</div>
+</div>
+</main>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>今日展廳客流看板 - DUCATI ATELIER</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#503d00",
+                        "surface-container-low": "#f5f2ff",
+                        "inverse-on-surface": "#f2efff",
+                        "on-background": "#1a1a2e",
+                        "surface-container": "#efecff",
+                        "surface": "#fcf8ff",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "secondary-fixed": "#e2e2e2",
+                        "outline-variant": "#c8c5cd",
+                        "on-tertiary": "#ffffff",
+                        "background": "#fcf8ff",
+                        "surface-container-high": "#e8e5ff",
+                        "on-tertiary-fixed": "#241a00",
+                        "inverse-surface": "#2f2e43",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "primary": "#00000b",
+                        "on-error": "#ffffff",
+                        "outline": "#78767d",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-secondary-container": "#5f6161",
+                        "on-secondary": "#ffffff",
+                        "primary-fixed-dim": "#c6c4df",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "tertiary-container": "#c9a84c",
+                        "primary-container": "#1a1a2e",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#e2e0fc",
+                        "tertiary-fixed": "#ffe08f",
+                        "surface-bright": "#fcf8ff",
+                        "inverse-primary": "#c6c4df",
+                        "error": "#ba1a1a",
+                        "secondary-container": "#dcdddd",
+                        "tertiary": "#755b00",
+                        "surface-variant": "#e2e0fc",
+                        "on-surface-variant": "#47464c",
+                        "secondary": "#5d5f5f",
+                        "on-primary-fixed-variant": "#45455b",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-surface": "#1a1a2e",
+                        "on-primary-container": "#83829b",
+                        "on-primary-fixed": "#1a1a2e",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "surface-dim": "#dad7f3",
+                        "surface-tint": "#5d5c74",
+                        "surface-container-highest": "#e2e0fc"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Manrope', sans-serif; }
+        .glass-nav {
+            background: rgba(252, 248, 255, 0.8);
+            backdrop-filter: blur(16px);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface flex min-h-screen overflow-hidden">
+<!-- Sidebar Navigation -->
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col h-screen overflow-y-auto">
+<!-- Top Bar -->
+<!-- Content Area -->
+<div class="px-8 py-8 space-y-8 max-w-7xl">
+<!-- KPI Section -->
+<section class="grid grid-cols-4 gap-6">
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-transparent hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant text-sm font-medium">今日總接待</span>
+<div class="bg-primary/5 p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary text-xl">person</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold text-primary brand-font">23</span>
+<span class="text-xs text-green-600 font-bold">+12%</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-transparent hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant text-sm font-medium">新增潛客</span>
+<div class="bg-tertiary/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-tertiary text-xl" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold text-primary brand-font">8</span>
+<span class="text-xs text-tertiary font-bold">+2 今日</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-transparent hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant text-sm font-medium">試駕組數</span>
+<div class="bg-primary-container/5 p-2 rounded-lg">
+<span class="material-symbols-outlined text-primary text-xl">two_wheeler</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold text-primary brand-font">5</span>
+<span class="text-xs text-on-surface-variant font-medium">預約 3</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-transparent hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="text-on-surface-variant text-sm font-medium">今日成交</span>
+<div class="bg-green-100 p-2 rounded-lg">
+<span class="material-symbols-outlined text-green-700 text-xl">check_circle</span>
+</div>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold text-primary brand-font">2</span>
+<span class="text-xs text-green-600 font-bold">達成率 65%</span>
+</div>
+</div>
+</section>
+<!-- Main Table Section -->
+<section class="bg-surface-container-lowest rounded-2xl shadow-sm overflow-hidden border border-on-surface/5">
+<div class="px-8 py-6 flex justify-between items-center bg-surface-container-low/50">
+<h2 class="text-lg font-bold text-primary tracking-tight brand-font">目前展廳內客戶</h2>
+<div class="flex gap-4">
+<div class="flex items-center px-4 py-2 bg-white rounded-full text-xs font-medium border border-outline-variant/30">
+<span class="material-symbols-outlined text-sm mr-2">filter_list</span>
+                        篩選條件
+                    </div>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-on-surface-variant text-xs font-semibold uppercase tracking-wider bg-surface-container-low/30">
+<th class="px-8 py-4">編號</th>
+<th class="px-8 py-4">客戶姓名</th>
+<th class="px-8 py-4">到店時間</th>
+<th class="px-8 py-4">接待顧問</th>
+<th class="px-8 py-4">感興趣車型</th>
+<th class="px-8 py-4">目前階段</th>
+<th class="px-8 py-4 text-right">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-on-surface/5">
+<tr class="hover:bg-surface-container-low/20 transition-colors">
+<td class="px-8 py-5 text-sm font-medium">001</td>
+<td class="px-8 py-5 font-bold">林志成</td>
+<td class="px-8 py-5 text-sm text-on-surface-variant">14:32</td>
+<td class="px-8 py-5 text-sm">王大明</td>
+<td class="px-8 py-5 text-sm font-semibold text-primary">Panigale V4 S</td>
+<td class="px-8 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-blue-100">需求諮詢</span>
+</td>
+<td class="px-8 py-5 text-right space-x-2">
+<button class="px-4 py-1.5 text-xs font-bold text-primary hover:bg-surface-container-high rounded-lg transition-colors">查看手卡</button>
+<button class="px-4 py-1.5 text-xs font-bold text-error hover:bg-error-container/50 rounded-lg transition-colors">結束接待</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/20 transition-colors">
+<td class="px-8 py-5 text-sm font-medium">002</td>
+<td class="px-8 py-5 font-bold">陳美玲</td>
+<td class="px-8 py-5 text-sm text-on-surface-variant">14:50</td>
+<td class="px-8 py-5 text-sm">李小華</td>
+<td class="px-8 py-5 text-sm font-semibold text-primary">Multistrada V4</td>
+<td class="px-8 py-5">
+<span class="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-amber-100">試駕中</span>
+</td>
+<td class="px-8 py-5 text-right space-x-2">
+<button class="px-4 py-1.5 text-xs font-bold text-primary hover:bg-surface-container-high rounded-lg transition-colors">查看手卡</button>
+<button class="px-4 py-1.5 text-xs font-bold text-error hover:bg-error-container/50 rounded-lg transition-colors">結束接待</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/20 transition-colors">
+<td class="px-8 py-5 text-sm font-medium">003</td>
+<td class="px-8 py-5 font-bold">張榮生</td>
+<td class="px-8 py-5 text-sm text-on-surface-variant">15:10</td>
+<td class="px-8 py-5 text-sm">趙雲</td>
+<td class="px-8 py-5 text-sm font-semibold text-primary">Diavel V4</td>
+<td class="px-8 py-5">
+<span class="px-3 py-1 bg-green-50 text-green-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-green-100">交易洽談</span>
+</td>
+<td class="px-8 py-5 text-right space-x-2">
+<button class="px-4 py-1.5 text-xs font-bold text-primary hover:bg-surface-container-high rounded-lg transition-colors">查看手卡</button>
+<button class="px-4 py-1.5 text-xs font-bold text-error hover:bg-error-container/50 rounded-lg transition-colors">結束接待</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/20 transition-colors">
+<td class="px-8 py-5 text-sm font-medium">004</td>
+<td class="px-8 py-5 font-bold">黃雅琪</td>
+<td class="px-8 py-5 text-sm text-on-surface-variant">15:25</td>
+<td class="px-8 py-5 text-sm">孫悟空</td>
+<td class="px-8 py-5 text-sm font-semibold text-primary">Monster SP</td>
+<td class="px-8 py-5">
+<span class="px-3 py-1 bg-gray-100 text-gray-600 text-[10px] font-black rounded-full uppercase tracking-widest border border-gray-200">等待中</span>
+</td>
+<td class="px-8 py-5 text-right space-x-2">
+<button class="px-4 py-1.5 text-xs font-bold text-primary hover:bg-surface-container-high rounded-lg transition-colors">查看手卡</button>
+<button class="px-4 py-1.5 text-xs font-bold text-error hover:bg-error-container/50 rounded-lg transition-colors">結束接待</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/20 transition-colors">
+<td class="px-8 py-5 text-sm font-medium">005</td>
+<td class="px-8 py-5 font-bold">劉德華</td>
+<td class="px-8 py-5 text-sm text-on-surface-variant">15:38</td>
+<td class="px-8 py-5 text-sm">周杰倫</td>
+<td class="px-8 py-5 text-sm font-semibold text-primary">Panigale V4 S</td>
+<td class="px-8 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-blue-100">需求諮詢</span>
+</td>
+<td class="px-8 py-5 text-right space-x-2">
+<button class="px-4 py-1.5 text-xs font-bold text-primary hover:bg-surface-container-high rounded-lg transition-colors">查看手卡</button>
+<button class="px-4 py-1.5 text-xs font-bold text-error hover:bg-error-container/50 rounded-lg transition-colors">結束接待</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Model Showcase Row (Implicit Vehicle Section) -->
+<section class="grid grid-cols-4 gap-4">
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden border border-on-surface/5 group shadow-sm">
+<img alt="Panigale V4 S" class="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfCsf2YH1-S5xecoiD8BwnSShWA8bthkw_9BF-uEgzlA_xtdCb64kbeVCfs06XLq24YqOBrUt2zpo0ZPJRoAJT2ZIehW5jEymDlVndEh35iBFP0orkCDJRJxpox7jbA0xnzUtsgwsVN10FwiUXbviXCrIVmmm-VJ17SB5vL-TcP5cgH2R-iiyE5sEQND0q3BvgKBUlhG5Ehb2pXT050wznE3hkiOEuOuzrM8LNnCYs1wIkleJKzEVED-KMceGXG8dZubxVBQLpBiA"/>
+<div class="p-3">
+<p class="text-[10px] font-bold text-tertiary uppercase">Superbike</p>
+<p class="text-sm font-bold text-primary">Panigale V4 S</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden border border-on-surface/5 group shadow-sm">
+<img alt="Multistrada V4" class="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuANnQCkcF4bds7OiX9WAoaHEaqpub-ybFKo4PnDN5KE_GoSzsYfvCQjweZ8hbKZ1kgj5oSx0keoz4BVi9-K0FBDkxwhn7Jux0-Okxdz8Y6T-_jyrfjuLeUxeM1nUWmp990Zm9NbRU6WGxnBP7EF3rHRFfXDL_o3g_WvwOY9aaKzsnwmWGVVwA5xjoXjZno4WaZ4ICpWJxwkWvlPERvENKDAoD9r2qoDRiNVaLCxzichvq-IlJoHVpAWVNJG8XjOmH1mnNlfegOlNNE"/>
+<div class="p-3">
+<p class="text-[10px] font-bold text-tertiary uppercase">Travel</p>
+<p class="text-sm font-bold text-primary">Multistrada V4</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden border border-on-surface/5 group shadow-sm">
+<img alt="Monster SP" class="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYN053kuTcQ4MzIs2fpZMbXYOY6N9IME4fp7dGJVqAvP9XKdSWXrP6VLavhsIirF151PyX8c_XoOjRwkT6fRsO2Nu5ftViGuGbwndt9D3i4BA2wq86Mx80dx1hKaUmDZnwh8Y6-kN1hQrSJS50j5ujIx95pAxeT2MqAPtR7GaA5HxzO102FeMr98oE9AU4wVeaZEjbKNYXl0m5srb7vtV5eTCmk0RV11IEHtfPM3mhJL8ep27U0ZrqwD5ZEhEis4QU8JXVK10kNS8"/>
+<div class="p-3">
+<p class="text-[10px] font-bold text-tertiary uppercase">Naked</p>
+<p class="text-sm font-bold text-primary">Monster SP</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden border border-on-surface/5 group shadow-sm">
+<img alt="Diavel V4" class="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdCZ80SrRk9O8UZDM_K0UmsFdnHWEAerCIgk6COIUC2wu4EkxW8obsdCMVLKCa0V_TJxbOX8RuT43DAoZfs2VPx0-xe_dDbs4SNSYZMtNjlsUY6c11c7s8vTLT4MUzeqqSd0hBGyMJkGjfTC1UkVFP__YBYPcOzD_J2UXWaFVycJ2rBEw5vodysVUGnidRnv8pTA6rXVqteiCVcSKvmmqrvmJ0-jL7MMZsZ6fwXinGOYVrfJ33GKk-cH3gtK_1gViuGsv1Sww-KWs"/>
+<div class="p-3">
+<p class="text-[10px] font-bold text-tertiary uppercase">Muscle</p>
+<p class="text-sm font-bold text-primary">Diavel V4</p>
+</div>
+</div>
+</section>
+</div>
+<!-- Footer Navigation -->
+<footer class="w-full py-6 mt-auto flex justify-between items-center px-12 bg-surface-container-low/80 backdrop-blur-sm border-t border-on-surface/5">
+<div class="flex gap-8">
+<a class="text-xs font-semibold tracking-wide text-on-surface-variant hover:text-tertiary transition-colors" href="#">排班表</a>
+<a class="text-xs font-semibold tracking-wide text-on-surface-variant hover:text-tertiary transition-colors" href="#">展廳流量日誌</a>
+<a class="text-xs font-semibold tracking-wide text-tertiary border-b-2 border-tertiary pb-1" href="#">KPI 儀表板</a>
+</div>
+<p class="text-[10px] text-on-surface-variant/60 tracking-widest uppercase">© 2024 DUCATI ATELIER DIGITAL. All Rights Reserved.</p>
+</footer>
+<!-- FAB -->
+<button class="fixed bottom-12 right-12 flex items-center gap-3 px-6 py-4 bg-tertiary-container text-white rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 z-50">
+<span class="material-symbols-outlined font-bold">add</span>
+<span class="font-bold tracking-wider">+ 新增接待</span>
+</button>
+</main>
+</body></html>

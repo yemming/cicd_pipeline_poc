@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CRM 電訪工作台 - LEXUS Atelier</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#e6c364",
+                        "primary-fixed-dim": "#c6c4df",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "outline-variant": "#c8c5cd",
+                        "surface": "#fcf8ff",
+                        "primary": "#00000b",
+                        "surface-bright": "#fcf8ff",
+                        "on-error-container": "#93000a",
+                        "surface-container": "#efecff",
+                        "inverse-surface": "#2f2e43",
+                        "surface-variant": "#e2e0fc",
+                        "surface-container-low": "#f5f2ff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "tertiary-container": "#c9a84c",
+                        "primary-fixed": "#e2e0fc",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#47464c",
+                        "outline": "#78767d",
+                        "tertiary": "#755b00",
+                        "surface-dim": "#dad7f3",
+                        "surface-container-high": "#e8e5ff",
+                        "background": "#fcf8ff",
+                        "error-container": "#ffdad6",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#dcdddd",
+                        "on-background": "#1a1a2e",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-tertiary-container": "#503d00",
+                        "inverse-on-surface": "#f2efff",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#1a1a2e",
+                        "secondary": "#5d5f5f",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed": "#241a00",
+                        "on-primary-fixed": "#1a1a2e",
+                        "surface-tint": "#5d5c74",
+                        "on-primary-container": "#83829b",
+                        "inverse-primary": "#c6c4df",
+                        "tertiary-fixed": "#ffe08f",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-primary-fixed-variant": "#45455b",
+                        "on-secondary-container": "#5f6161",
+                        "on-surface": "#1a1a2e",
+                        "surface-container-highest": "#e2e0fc",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "1.5rem",
+                        "2xl": "2rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcf8ff; }
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .rating-star:hover { color: #C9A84C; cursor: pointer; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e0fc; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c6c4df; }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- Sidebar Navigation Shell -->
+<!-- Main Content Canvas -->
+<main class="min-h-screen">
+<!-- Header / Shell Top Row -->
+<div class="p-8">
+<!-- Survey Type Tabs -->
+<div class="flex gap-4 mb-8">
+<button class="px-6 py-3 rounded-xl bg-primary-container text-white shadow-lg shadow-primary/10 flex items-center gap-2 border border-tertiary/20">
+<span class="material-symbols-outlined text-[1.2rem]" data-icon="person_search">person_search</span>
+<span class="font-bold">首次離店電訪 (12)</span>
+</button>
+<button class="px-6 py-3 rounded-xl bg-white text-slate-600 hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[1.2rem]" data-icon="celebration">celebration</span>
+<span class="font-medium">成交電訪 (5)</span>
+</button>
+<button class="px-6 py-3 rounded-xl bg-white text-slate-600 hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[1.2rem]" data-icon="bedtime">bedtime</span>
+<span class="font-medium">休眠電訪 (8)</span>
+</button>
+<button class="px-6 py-3 rounded-xl bg-white text-slate-600 hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[1.2rem]" data-icon="warning">warning</span>
+<span class="font-medium">準戰敗電訪 (3)</span>
+</button>
+</div>
+<!-- Two-Column Layout -->
+<div class="grid grid-cols-12 gap-8 items-start">
+<!-- Left Panel: Task List (35%) -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-2">
+<!-- Active Card -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl border-l-4 border-tertiary shadow-sm transition-all hover:shadow-md cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-lg font-bold text-[#1A1A2E]">林志誠 先生</h3>
+<div class="flex gap-2 mt-1">
+<span class="px-2 py-0.5 bg-tertiary/10 text-tertiary text-[0.65rem] font-black rounded uppercase">Grade A</span>
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant text-[0.65rem] font-medium rounded">RX 350h</span>
+</div>
+</div>
+<span class="px-3 py-1 bg-slate-100 text-slate-500 text-[0.7rem] font-bold rounded-full">待電訪</span>
+</div>
+<div class="grid grid-cols-2 gap-y-2 text-[0.75rem] text-slate-500 border-t border-slate-50 pt-4">
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">calendar_today</span> 最後到店: 2024.05.15</div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">timer</span> 已離店: 3天</div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">support_agent</span> 顧問: 李威廷</div>
+</div>
+</div>
+<!-- Inactive Card 1 -->
+<div class="bg-white/60 p-6 rounded-2xl border border-transparent transition-all hover:bg-white hover:shadow-sm cursor-pointer opacity-80">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-lg font-bold text-slate-700">王曉婷 小姐</h3>
+<div class="flex gap-2 mt-1">
+<span class="px-2 py-0.5 bg-slate-100 text-slate-400 text-[0.65rem] font-black rounded uppercase">Grade B</span>
+<span class="px-2 py-0.5 bg-slate-50 text-slate-400 text-[0.65rem] font-medium rounded">NX 200</span>
+</div>
+</div>
+<span class="px-3 py-1 bg-green-50 text-green-600 text-[0.7rem] font-bold rounded-full">已完成</span>
+</div>
+<div class="grid grid-cols-2 gap-y-2 text-[0.75rem] text-slate-400 border-t border-slate-50 pt-4">
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">calendar_today</span> 最後到店: 2024.05.14</div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">timer</span> 已離店: 4天</div>
+</div>
+</div>
+<!-- Inactive Card 2 -->
+<div class="bg-white/60 p-6 rounded-2xl border border-transparent transition-all hover:bg-white hover:shadow-sm cursor-pointer opacity-80">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-lg font-bold text-slate-700">張永康 先生</h3>
+<div class="flex gap-2 mt-1">
+<span class="px-2 py-0.5 bg-slate-100 text-slate-400 text-[0.65rem] font-black rounded uppercase">Grade C</span>
+<span class="px-2 py-0.5 bg-slate-50 text-slate-400 text-[0.65rem] font-medium rounded">ES 300h</span>
+</div>
+</div>
+<span class="px-3 py-1 bg-red-50 text-red-400 text-[0.7rem] font-bold rounded-full">無法聯繫</span>
+</div>
+<div class="grid grid-cols-2 gap-y-2 text-[0.75rem] text-slate-400 border-t border-slate-50 pt-4">
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">calendar_today</span> 最後到店: 2024.05.13</div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">timer</span> 已離店: 5天</div>
+</div>
+</div>
+<!-- Inactive Card 3 -->
+<div class="bg-white/60 p-6 rounded-2xl border border-transparent transition-all hover:bg-white hover:shadow-sm cursor-pointer opacity-80">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-lg font-bold text-slate-700">周美玲 小姐</h3>
+<div class="flex gap-2 mt-1">
+<span class="px-2 py-0.5 bg-slate-100 text-slate-400 text-[0.65rem] font-black rounded uppercase">Grade A</span>
+<span class="px-2 py-0.5 bg-slate-50 text-slate-400 text-[0.65rem] font-medium rounded">LBX</span>
+</div>
+</div>
+<span class="px-3 py-1 bg-slate-100 text-slate-500 text-[0.7rem] font-bold rounded-full">待電訪</span>
+</div>
+<div class="grid grid-cols-2 gap-y-2 text-[0.75rem] text-slate-400 border-t border-slate-50 pt-4">
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">calendar_today</span> 最後到店: 2024.05.12</div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">timer</span> 已離店: 6天</div>
+</div>
+</div>
+</div>
+<!-- Right Panel: Survey Form (65%) -->
+<div class="col-span-12 lg:col-span-8 space-y-6">
+<!-- Customer Profile Summary -->
+<div class="bg-primary-container text-white p-8 rounded-2xl flex justify-between items-center relative overflow-hidden">
+<!-- Decorative background texture -->
+<div class="absolute right-0 top-0 w-1/3 h-full bg-gradient-to-l from-white/5 to-transparent skew-x-[-20deg]"></div>
+<div class="relative z-10 flex items-center gap-6">
+<div class="w-16 h-16 rounded-full bg-surface-container-high/20 border-2 border-tertiary flex items-center justify-center text-2xl font-headline font-bold">林</div>
+<div>
+<h2 class="text-2xl font-bold">林志誠 先生</h2>
+<p class="text-slate-400 flex items-center gap-2 mt-1">
+<span class="material-symbols-outlined text-[1rem]">call</span> 0912-345-678
+                                    <span class="mx-2 opacity-30">|</span>
+<span class="px-2 py-0.5 bg-white/10 rounded text-[0.7rem]">潛在客戶 - 首次離店</span>
+</p>
+</div>
+</div>
+<div class="relative z-10 text-right">
+<div class="text-[0.75rem] text-slate-400 mb-1">感興趣車型</div>
+<div class="text-xl font-bold text-tertiary">RX 350h <span class="text-xs font-normal text-white/50">(旗艦版)</span></div>
+</div>
+</div>
+<!-- Main Form -->
+<div class="bg-surface-container-lowest p-10 rounded-2xl shadow-sm space-y-10">
+<!-- Q1 & Q2: Satisfaction -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+<div>
+<label class="block text-sm font-bold text-[#1A1A2E] mb-4">Q1: 對銷售顧問的服務態度滿意嗎？</label>
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-tertiary text-3xl cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-tertiary text-3xl cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-tertiary text-3xl cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-tertiary text-3xl cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-slate-200 text-3xl cursor-pointer">star</span>
+</div>
+</div>
+<div>
+<label class="block text-sm font-bold text-[#1A1A2E] mb-4">Q2: 對展廳環境是否滿意？</label>
+<div class="flex gap-2">
+<span class="material-symbols-outlined text-tertiary text-3xl cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-tertiary text-3xl cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-tertiary text-3xl cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-tertiary text-3xl cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-tertiary text-3xl cursor-pointer" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+</div>
+</div>
+<!-- Q3: Intent -->
+<div>
+<label class="block text-sm font-bold text-[#1A1A2E] mb-4">Q3: 是否有意願再次到店？</label>
+<div class="flex flex-wrap gap-4">
+<label class="flex items-center gap-3 px-5 py-3 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+<input class="w-4 h-4 text-tertiary focus:ring-tertiary" name="intent" type="radio"/>
+<span class="text-sm font-medium">非常願意</span>
+</label>
+<label class="flex items-center gap-3 px-5 py-3 rounded-xl border border-tertiary bg-tertiary/5 cursor-pointer group">
+<input checked="" class="w-4 h-4 text-tertiary focus:ring-tertiary" name="intent" type="radio"/>
+<span class="text-sm font-bold text-tertiary">願意</span>
+</label>
+<label class="flex items-center gap-3 px-5 py-3 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+<input class="w-4 h-4 text-tertiary focus:ring-tertiary" name="intent" type="radio"/>
+<span class="text-sm font-medium">考慮中</span>
+</label>
+<label class="flex items-center gap-3 px-5 py-3 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+<input class="w-4 h-4 text-tertiary focus:ring-tertiary" name="intent" type="radio"/>
+<span class="text-sm font-medium">不太願意</span>
+</label>
+</div>
+</div>
+<!-- Q4: Reason -->
+<div>
+<label class="block text-sm font-bold text-[#1A1A2E] mb-4">Q4: 未購買的主要原因？ <span class="text-xs font-normal text-slate-400">(可多選)</span></label>
+<div class="flex flex-wrap gap-3">
+<button class="px-4 py-2 rounded-lg bg-surface-container-low text-slate-600 text-[0.8rem] font-medium border border-transparent hover:border-tertiary/30 transition-all">價格因素</button>
+<button class="px-4 py-2 rounded-lg bg-primary-container text-white text-[0.8rem] font-medium">還在比較</button>
+<button class="px-4 py-2 rounded-lg bg-surface-container-low text-slate-600 text-[0.8rem] font-medium">等新款</button>
+<button class="px-4 py-2 rounded-lg bg-surface-container-low text-slate-600 text-[0.8rem] font-medium">服務不滿意</button>
+<button class="px-4 py-2 rounded-lg bg-surface-container-low text-slate-600 text-[0.8rem] font-medium">其他品牌</button>
+<button class="px-4 py-2 rounded-lg bg-surface-container-low text-slate-600 text-[0.8rem] font-medium">暫無需求</button>
+</div>
+</div>
+<!-- Q5: Feedback -->
+<div>
+<label class="block text-sm font-bold text-[#1A1A2E] mb-3">Q5: 其他意見</label>
+<textarea class="w-full bg-surface-container-low border-0 rounded-xl p-4 text-sm focus:ring-1 focus:ring-tertiary transition-all" placeholder="請輸入客戶回饋詳細內容..." rows="3"></textarea>
+</div>
+<!-- Result Section -->
+<div class="pt-8 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-10">
+<div>
+<label class="block text-sm font-black text-primary-container mb-4 flex items-center gap-2">
+<span class="w-1.5 h-4 bg-tertiary rounded-full"></span>
+                                    電訪結果判定
+                                </label>
+<div class="space-y-2">
+<label class="flex items-center gap-3 cursor-pointer">
+<input checked="" class="w-4 h-4 text-primary focus:ring-primary" name="result" type="radio"/>
+<span class="text-sm">維持跟進</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer">
+<input class="w-4 h-4 text-primary focus:ring-primary" name="result" type="radio"/>
+<span class="text-sm">轉為戰敗</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer">
+<input class="w-4 h-4 text-primary focus:ring-primary" name="result" type="radio"/>
+<span class="text-sm">重新分配銷售顧問</span>
+</label>
+</div>
+</div>
+<div>
+<label class="block text-sm font-black text-primary-container mb-4 flex items-center gap-2">
+<span class="w-1.5 h-4 bg-tertiary rounded-full"></span>
+                                    下次跟進日期
+                                </label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-0 rounded-xl p-4 text-sm focus:ring-1 focus:ring-tertiary cursor-pointer" type="date" value="2024-05-25"/>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">calendar_month</span>
+</div>
+</div>
+</div>
+<!-- Final Action -->
+<div class="pt-4">
+<button class="w-full h-16 bg-gradient-to-r from-primary to-primary-container text-white font-headline text-lg font-extrabold rounded-xl shadow-xl shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[0.99] transition-transform active:scale-95 group">
+                                儲存並撥打下一位
+                                <span class="material-symbols-outlined group-hover:translate-x-2 transition-transform">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

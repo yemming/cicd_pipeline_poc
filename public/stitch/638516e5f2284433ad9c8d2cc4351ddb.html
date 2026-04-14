@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>收車審批詳情 | Lexus Digital Atelier</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#dcdddd",
+                        "primary-fixed": "#e2e0fc",
+                        "primary": "#00000b",
+                        "tertiary-fixed": "#ffe08f",
+                        "primary-container": "#1a1a2e",
+                        "surface-container-low": "#f5f2ff",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-error": "#ffffff",
+                        "outline": "#78767d",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "primary-fixed-dim": "#c6c4df",
+                        "on-primary": "#ffffff",
+                        "inverse-surface": "#2f2e43",
+                        "surface-container-highest": "#e2e0fc",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#755b00",
+                        "on-tertiary-fixed": "#241a00",
+                        "on-surface": "#1a1a2e",
+                        "surface-dim": "#dad7f3",
+                        "on-secondary-container": "#5f6161",
+                        "tertiary-container": "#c9a84c",
+                        "surface": "#fcf8ff",
+                        "surface-tint": "#5d5c74",
+                        "outline-variant": "#c8c5cd",
+                        "on-primary-fixed": "#1a1a2e",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-variant": "#e2e0fc",
+                        "on-surface-variant": "#47464c",
+                        "on-background": "#1a1a2e",
+                        "secondary-fixed": "#e2e2e2",
+                        "surface-bright": "#fcf8ff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "background": "#fcf8ff",
+                        "surface-container": "#efecff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#5d5f5f",
+                        "inverse-primary": "#c6c4df",
+                        "on-tertiary-container": "#503d00",
+                        "on-error-container": "#93000a",
+                        "inverse-on-surface": "#f2efff",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#e8e5ff",
+                        "on-primary-fixed-variant": "#45455b",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #fcf8ff;
+            color: #1a1a2e;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-surface selection:bg-tertiary-container selection:text-on-tertiary-container">
+<!-- Top Navigation Bar -->
+<!-- Side Navigation Bar -->
+<!-- Main Content Area -->
+<main class="px-10 pb-12 min-h-screen">
+<!-- Header Section -->
+<header class="flex flex-col gap-4 mb-10">
+<div class="flex items-center text-label-md text-on-surface-variant gap-2 font-medium">
+<span>審批中心</span>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<span class="text-on-surface">收車審批</span>
+</div>
+<div class="flex justify-between items-end">
+<div class="space-y-1">
+<h1 class="text-3xl font-extrabold font-headline tracking-tight text-on-surface">收車審批詳情</h1>
+<p class="text-sm text-on-surface-variant">案件編號：RQ-20240502-0042</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+                        待審批
+                    </span>
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant text-on-surface hover:bg-surface-container-low transition-colors rounded-lg font-medium text-sm">
+<span class="material-symbols-outlined text-[20px]">print</span>
+                        列印報告
+                    </button>
+</div>
+</div>
+</header>
+<div class="grid grid-cols-12 gap-8">
+<!-- Left Column (Content) -->
+<div class="col-span-12 xl:col-span-8 space-y-8">
+<!-- Card 1: 車輛基本資料 -->
+<section class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden group">
+<div class="px-8 py-6 flex justify-between items-center bg-surface-container-low/50">
+<h2 class="text-lg font-bold font-headline flex items-center gap-3">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                            車輛基本資料
+                        </h2>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">info</span>
+</div>
+<div class="p-8 grid md:grid-cols-2 gap-x-12 gap-y-6">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">品牌與車型</span>
+<span class="text-xl font-bold text-on-surface">2021 LEXUS NX 200</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">車況評級</span>
+<div class="flex items-center gap-2">
+<span class="text-2xl font-black text-tertiary font-headline">B+</span>
+<span class="text-xs text-on-surface-variant">(優質中古車)</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">行駛里程</span>
+<span class="text-lg font-medium">32,450 km</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">出廠日期</span>
+<span class="text-lg font-medium">2021 / 06</span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">外觀顏色</span>
+<div class="flex items-center gap-2">
+<div class="w-4 h-4 rounded-full border border-outline-variant bg-slate-50"></div>
+<span class="text-lg font-medium">極光白 (Sonic Quartz)</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">VIN 碼</span>
+<span class="text-lg font-mono">JTJHYB...09241</span>
+</div>
+</div>
+</section>
+<!-- Card 2: 評估價格 -->
+<section class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<div class="px-8 py-6 bg-surface-container-low/50">
+<h2 class="text-lg font-bold font-headline flex items-center gap-3">
+<span class="w-1 h-5 bg-tertiary rounded-full"></span>
+                            評估價格
+                        </h2>
+</div>
+<div class="p-8">
+<div class="grid md:grid-cols-3 gap-8">
+<div class="p-6 rounded-xl bg-surface-container-low">
+<span class="text-xs font-semibold text-on-surface-variant block mb-2">市場行情參考</span>
+<span class="text-2xl font-bold font-headline tracking-tight">NT$1.1M - 1.2M</span>
+<div class="mt-4 h-1.5 w-full bg-outline-variant rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-2/3 ml-[15%]"></div>
+</div>
+</div>
+<div class="p-6 rounded-xl bg-primary-container text-white ring-4 ring-primary-container/10">
+<span class="text-xs font-semibold text-on-primary-container block mb-2">經銷商出價</span>
+<span class="text-3xl font-extrabold font-headline tracking-tighter text-[#C9A84C]">NT$1,150,000</span>
+<span class="text-[10px] text-on-primary-container mt-2 block">低於行情中位數 2%</span>
+</div>
+<div class="p-6 rounded-xl bg-surface-container-low">
+<span class="text-xs font-semibold text-on-surface-variant block mb-2">預期利潤空間</span>
+<span class="text-2xl font-bold font-headline tracking-tight text-emerald-700">+8.5%</span>
+<div class="mt-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-emerald-600 text-sm">trending_up</span>
+<span class="text-[11px] font-medium text-emerald-700">高於區域平均水平</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Card 3: 檢驗報告摘要 -->
+<section class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<div class="px-8 py-6 bg-surface-container-low/50 flex justify-between items-center">
+<h2 class="text-lg font-bold font-headline flex items-center gap-3">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                            檢驗報告摘要
+                        </h2>
+<button class="text-sm font-semibold text-tertiary flex items-center gap-1 hover:underline">
+                            查看完整報告
+                            <span class="material-symbols-outlined text-sm">open_in_new</span>
+</button>
+</div>
+<div class="p-8">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+<div class="aspect-[4/3] rounded-lg overflow-hidden relative group cursor-pointer">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="front three-quarter view of a white luxury SUV Lexus NX in a bright professional studio setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtyB2pQWXWXUAaiAM_FG504NOG9xfiM27cs4NXKIeGdZHraqK9rbmUFjDDA7PL22eez7bilHCGPO6wkJ6aO9qko27Lj0iJKDUfkapuYbrWPxic5kdDhkQ0UIjRMXWMCBPdxyviLayrGmnSx3eruW-9hFnbwYWoQoD6EWhyR2YTmHTELJ1xzPP8QjZPN3R4lRsDH7esNaTdJ1mRp16rflFpqmHy-dFxyEN48CZGHQnBNsgkUvLHbWsZddL_aIvht2Fqh3EuU4GJyuc"/>
+<div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="text-white text-xs font-bold px-2 py-1 bg-black/40 rounded">車頭視角</span>
+</div>
+</div>
+<div class="aspect-[4/3] rounded-lg overflow-hidden relative group cursor-pointer">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="interior view of a luxury car steering wheel and digital dashboard with leather detailing and warm ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVgDgwCMe5GFpRJpIcV_fo_zdIpphtgkekohFE1gOi5rH1ADNuWSqn43daqKVRNFdDUAlyt_RO7OIxJiplKk0ARbhx-djCQYwnRtLYMK7gFqP-0q6vuxLiDi64Q5hhybd_wuCaWmgYdk_AYj5R6S9MjNdpGc109COa4M45uTntwwIJM8q3U9i6nPsgCK8X2LMduDhm3D2xExAtuk68UKegj-Q0ITP4bTCa4CFF6jY89CdPuBINn5JoDkI2-Gl3vkYtvCOgchpdWz8"/>
+<div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="text-white text-xs font-bold px-2 py-1 bg-black/40 rounded">座艙細節</span>
+</div>
+</div>
+<div class="aspect-[4/3] rounded-lg overflow-hidden relative group cursor-pointer">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="close-up of a silver aluminum alloy car wheel with luxury brand logo in sharp focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6NxbRDoZN4lTMovpoTVKCvbTqwTBVTfw1TouXE2aYxntQ1gdFCFWPhJt_fTDv0izbvi9W61G6Yg-Tij4OuoTmXt6hzhSEYlW3EIBvzPp7yHNqpA0sGAf-d1pH3nsVCzV0LjNIuH4wX-Alqi2akKVwzrWFMS8-uN0BBRHEjAvUgOQNlj_oWnUeGYzzR5_I5P1fc8jboltTek60H_GVRkt-keEHnKXZv_v5YiwLLhXs5eKvb6DUiuA3O_ep754yyHryS-vBgPHf-vM"/>
+<div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="text-white text-xs font-bold px-2 py-1 bg-black/40 rounded">輪圈狀況</span>
+</div>
+</div>
+<div class="aspect-[4/3] rounded-lg overflow-hidden relative group cursor-pointer">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="rear view of a modern SUV parked in a minimalist garage with soft cinematic overhead lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdbKH4jBP90l717m9BXN5B3EKUJe-W0OHRL-I-IvnJWxzYrwfUFRkdUp94gD9RawV2dz8bCvT_eKeKiqCG73_q0MICRWOc4i0skwjZO0TnMsoeqyBr9XqVsSDlGhq2e9Vq_c3d1zdK8iwaeWtoFLzIUotpOMelK5SJ_3fIYM0uCb3LP2PCWTD5C67y4CIGf4EC-RkK5eG7nEJNZtX2K1wzXKxGfkc9maWL9qogsXUyiS8K2CXZEsKgC9rKSgT7H0pZ54BmiV8QBV4"/>
+<div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="text-white text-xs font-bold px-2 py-1 bg-black/40 rounded">車尾視角</span>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex items-start gap-4 p-4 rounded-lg bg-surface-container">
+<span class="material-symbols-outlined text-amber-600 mt-1">warning</span>
+<div>
+<p class="font-bold text-sm">輕微瑕疵備註</p>
+<p class="text-xs text-on-surface-variant leading-relaxed">右前保險桿有約 3cm 輕微刮痕，不影響行車安全。引擎室狀態良好，無滲油跡象。</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column (Sidebar Actions) -->
+<div class="col-span-12 xl:col-span-4">
+<div class="sticky top-24 space-y-6">
+<!-- 審批操作 Area -->
+<section class="bg-surface-container-lowest rounded-xl shadow-lg shadow-black/5 overflow-hidden border border-outline-variant/10">
+<div class="px-6 py-5 bg-primary-container text-white">
+<h2 class="text-base font-bold font-headline flex items-center gap-3">
+<span class="material-symbols-outlined text-[#C9A84C]" style="font-variation-settings: 'FILL' 1;">security</span>
+                                審批操作中心
+                            </h2>
+</div>
+<div class="p-6 space-y-6">
+<div class="space-y-3">
+<label class="text-xs font-bold text-on-surface-variant uppercase tracking-tighter block">審批意見</label>
+<textarea class="w-full min-h-[120px] rounded-lg bg-surface-container-low border-none focus:ring-1 focus:ring-tertiary text-sm p-4 placeholder:text-on-surface-variant/40" placeholder="請在此輸入您的審核意見或特殊說明..."></textarea>
+</div>
+<div class="space-y-2">
+<div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer border border-transparent hover:border-outline-variant">
+<input class="rounded text-tertiary focus:ring-tertiary w-5 h-5" id="check-docs" type="checkbox"/>
+<label class="text-sm font-medium cursor-pointer" for="check-docs">已確認所有證件齊全</label>
+</div>
+<div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer border border-transparent hover:border-outline-variant">
+<input class="rounded text-tertiary focus:ring-tertiary w-5 h-5" id="check-condition" type="checkbox"/>
+<label class="text-sm font-medium cursor-pointer" for="check-condition">已確認實車狀況與報告相符</label>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<button class="py-3.5 px-4 rounded-xl border-2 border-error/20 text-error font-bold text-sm hover:bg-error/5 active:scale-95 transition-all">
+                                    駁回申請
+                                </button>
+<button class="py-3.5 px-4 rounded-xl bg-gradient-to-br from-[#1A1A2E] to-[#252545] text-[#C9A84C] font-bold text-sm shadow-lg shadow-black/20 hover:brightness-110 active:scale-95 transition-all">
+                                    核准收車
+                                </button>
+</div>
+</div>
+<div class="px-6 py-4 bg-surface-container border-t border-outline-variant/10">
+<p class="text-[10px] text-on-surface-variant text-center uppercase tracking-widest font-bold">Lexus Omotenashi Digital Process</p>
+</div>
+</section>
+<!-- History / Timeline -->
+<section class="bg-surface-container-lowest rounded-xl p-6 shadow-sm">
+<h3 class="text-sm font-bold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">history</span>
+                            案件流轉日誌
+                        </h3>
+<div class="space-y-6 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-surface-container">
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-emerald-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-[10px] text-white">check</span>
+</div>
+<p class="text-xs font-bold text-on-surface">初步檢驗完成</p>
+<p class="text-[10px] text-on-surface-variant">2024/05/02 10:30 • 李大為 (技師)</p>
+</div>
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-emerald-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-[10px] text-white">check</span>
+</div>
+<p class="text-xs font-bold text-on-surface">價格評估提交</p>
+<p class="text-[10px] text-on-surface-variant">2024/05/02 14:15 • 王子凡 (專員)</p>
+</div>
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 w-4 h-4 rounded-full bg-tertiary-container ring-4 ring-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-[10px] text-white">more_horiz</span>
+</div>
+<p class="text-xs font-bold text-tertiary">等待主管審核</p>
+<p class="text-[10px] text-on-surface-variant">當前環節</p>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Tooltip for Focus (Contextual Suppression Example) -->
+<div class="fixed bottom-8 right-8 group">
+<div class="mb-4 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
+<div class="bg-primary text-white text-xs px-4 py-2 rounded-lg shadow-xl font-medium">
+                需要協助？請聯繫技術支援。
+            </div>
+</div>
+<button class="w-14 h-14 rounded-full bg-[#C9A84C] text-[#1A1A2E] shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">help_center</span>
+</button>
+</div>
+</body></html>

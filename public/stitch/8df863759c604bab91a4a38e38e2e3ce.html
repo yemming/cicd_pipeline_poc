@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline": "#78767d",
+                        "primary": "#00000b",
+                        "on-error": "#ffffff",
+                        "tertiary-container": "#c9a84c",
+                        "primary-fixed-dim": "#c6c4df",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-secondary-container": "#5f6161",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#1a1a2e",
+                        "on-primary-container": "#83829b",
+                        "on-surface": "#1a1a2e",
+                        "surface-tint": "#5d5c74",
+                        "surface-container-highest": "#e2e0fc",
+                        "surface-dim": "#dad7f3",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "secondary-container": "#dcdddd",
+                        "tertiary-fixed": "#ffe08f",
+                        "surface-bright": "#fcf8ff",
+                        "inverse-primary": "#c6c4df",
+                        "error": "#ba1a1a",
+                        "primary-fixed": "#e2e0fc",
+                        "primary-container": "#1a1a2e",
+                        "on-error-container": "#93000a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "secondary": "#5d5f5f",
+                        "on-primary-fixed-variant": "#45455b",
+                        "tertiary": "#755b00",
+                        "surface-variant": "#e2e0fc",
+                        "on-surface-variant": "#47464c",
+                        "surface-container": "#efecff",
+                        "surface": "#fcf8ff",
+                        "on-background": "#1a1a2e",
+                        "inverse-on-surface": "#f2efff",
+                        "on-tertiary-container": "#503d00",
+                        "surface-container-low": "#f5f2ff",
+                        "surface-container-high": "#e8e5ff",
+                        "on-tertiary-fixed": "#241a00",
+                        "inverse-surface": "#2f2e43",
+                        "outline-variant": "#c8c5cd",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "secondary-fixed": "#e2e2e2",
+                        "background": "#fcf8ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-nav {
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        .tonal-transition {
+            background: linear-gradient(180deg, #FCF8FF 0%, #F5F2FF 100%);
+        }
+        .gold-gradient {
+            background: linear-gradient(135deg, #C9A84C 0%, #755B00 100%);
+        }
+        .metallic-primary {
+            background: linear-gradient(135deg, #00000B 0%, #1A1A2E 100%);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- Desktop SideNavBar (Hidden on Mobile, but this is Tablet Landscape focus) -->
+<main class="min-h-screen">
+<!-- TopNavBar Component -->
+<!-- Context Bar -->
+<div class="px-12 py-4 bg-surface-container-low flex justify-between items-center border-y border-outline-variant/10">
+<div class="flex gap-10">
+<div class="flex flex-col">
+<span class="text-[10px] uppercase tracking-widest text-on-surface-variant/60 font-semibold">客戶姓名</span>
+<span class="font-semibold text-primary">王先生</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] uppercase tracking-widest text-on-surface-variant/60 font-semibold">意向車型</span>
+<span class="font-semibold text-primary">RX 350h</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] uppercase tracking-widest text-on-surface-variant/60 font-semibold">建議售價</span>
+<span class="font-semibold text-primary">NT$ 2,350,000</span>
+</div>
+</div>
+<div class="flex items-center gap-2 text-tertiary">
+<span class="material-symbols-outlined text-sm">verified_user</span>
+<span class="text-xs font-medium">尊榮購車保險顧問</span>
+</div>
+</div>
+<div class="px-12 py-10 space-y-12">
+<!-- Section 1: 保險方案推薦 -->
+<section>
+<div class="flex justify-between items-end mb-8">
+<div>
+<h2 class="font-headline text-2xl font-bold text-primary mb-2">保險方案推薦</h2>
+<p class="text-on-surface-variant text-sm">為您量身打造的專屬保障，由 Lexus 認證保險經理人精選。</p>
+</div>
+<div class="flex gap-2">
+<button class="p-2 rounded-full border border-outline-variant/30 hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="p-2 rounded-full border border-outline-variant/30 hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Card 1: 基本方案 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl border border-transparent hover:border-outline-variant/20 transition-all duration-300 group">
+<div class="flex justify-between items-start mb-6">
+<span class="px-3 py-1 bg-surface-container-low text-on-surface-variant text-[10px] font-bold rounded-full uppercase tracking-tighter">Essential</span>
+</div>
+<h3 class="text-xl font-bold mb-4 text-primary">基本方案</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed h-12">提供法規必備保障與基礎責任險，守護您的駕車基礎。</p>
+<ul class="mt-6 space-y-3 mb-10 text-sm">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-lg">check_circle</span> 強制險</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-lg">check_circle</span> 第三人責任險</li>
+</ul>
+<div class="mt-auto pt-6 border-t border-outline-variant/10">
+<div class="flex items-baseline gap-1 mb-6">
+<span class="text-sm font-medium text-on-surface-variant">NT$</span>
+<span class="text-3xl font-headline font-extrabold text-primary">12,500</span>
+</div>
+<button class="w-full py-4 rounded-lg bg-surface-container-high text-primary font-bold text-sm hover:bg-surface-container-highest transition-colors">選擇方案</button>
+</div>
+</div>
+<!-- Card 2: 標準方案 (Recommended) -->
+<div class="bg-white p-8 rounded-xl ring-2 ring-tertiary shadow-2xl shadow-tertiary/10 relative transform scale-105 z-10">
+<div class="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 gold-gradient text-white text-[10px] font-bold rounded-full uppercase tracking-widest flex items-center gap-1 shadow-lg">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                            推薦方案
+                        </div>
+<div class="flex justify-between items-start mb-6">
+<span class="px-3 py-1 bg-tertiary/10 text-tertiary text-[10px] font-bold rounded-full uppercase tracking-tighter">Premium Selection</span>
+</div>
+<h3 class="text-xl font-bold mb-4 text-primary">標準方案</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed h-12">多數車主首選，包含乙式車體險，全方位平衡保費與風險。</p>
+<ul class="mt-6 space-y-3 mb-10 text-sm">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-lg" style="font-variation-settings: 'FILL' 1;">check_circle</span> 強制險 + 第三人責任險</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-lg" style="font-variation-settings: 'FILL' 1;">check_circle</span> 車體險 (乙式)</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-lg" style="font-variation-settings: 'FILL' 1;">check_circle</span> 竊盜險</li>
+</ul>
+<div class="mt-auto pt-6 border-t border-outline-variant/10">
+<div class="flex items-baseline gap-1 mb-6">
+<span class="text-sm font-medium text-tertiary">NT$</span>
+<span class="text-3xl font-headline font-extrabold text-primary">28,000</span>
+</div>
+<button class="w-full py-4 rounded-lg gold-gradient text-white font-bold text-sm shadow-xl hover:opacity-90 transition-opacity">選擇方案</button>
+</div>
+</div>
+<!-- Card 3: 全面方案 -->
+<div class="bg-surface-container-lowest p-8 rounded-xl border border-transparent hover:border-outline-variant/20 transition-all duration-300">
+<div class="flex justify-between items-start mb-6">
+<span class="px-3 py-1 bg-surface-container-low text-on-surface-variant text-[10px] font-bold rounded-full uppercase tracking-tighter">Absolute Care</span>
+</div>
+<h3 class="text-xl font-bold mb-4 text-primary">全面方案</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed h-12">極致保障，甲式車體險結合多項附加服務，無需為意外擔憂。</p>
+<ul class="mt-6 space-y-3 mb-10 text-sm">
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-lg">check_circle</span> 標準方案全部項目</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-lg">check_circle</span> 車體險 (甲式)</li>
+<li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-lg">check_circle</span> 零件險 + 代車費用</li>
+</ul>
+<div class="mt-auto pt-6 border-t border-outline-variant/10">
+<div class="flex items-baseline gap-1 mb-6">
+<span class="text-sm font-medium text-on-surface-variant">NT$</span>
+<span class="text-3xl font-headline font-extrabold text-primary">45,000</span>
+</div>
+<button class="w-full py-4 rounded-lg bg-surface-container-high text-primary font-bold text-sm hover:bg-surface-container-highest transition-colors">選擇方案</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: 保險明細 -->
+<section class="grid grid-cols-3 gap-8">
+<div class="col-span-2 space-y-6">
+<div class="flex justify-between items-center mb-2">
+<h2 class="font-headline text-xl font-bold text-primary">保險明細</h2>
+<div class="relative">
+<select class="appearance-none bg-surface-container-low border-none rounded-lg px-4 py-2 pr-10 text-sm font-medium text-primary focus:ring-1 focus:ring-tertiary/40">
+<option>國泰產險</option>
+<option>富邦產險</option>
+<option>新光產險</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
+<th class="px-6 py-4">承保項目</th>
+<th class="px-6 py-4">保險金額 / 賠償限額</th>
+<th class="px-6 py-4 text-right">保險費 (TWD)</th>
+</tr>
+</thead>
+<tbody class="text-sm divide-y divide-outline-variant/10">
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5 font-medium text-primary">強制責任險</td>
+<td class="px-6 py-5 text-on-surface-variant">體傷 20萬 / 死亡 200萬</td>
+<td class="px-6 py-5 text-right font-semibold">1,397</td>
+</tr>
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5 font-medium text-primary">第三人責任險 - 體傷</td>
+<td class="px-6 py-5 text-on-surface-variant">每人 200萬 / 每事故 2000萬</td>
+<td class="px-6 py-5 text-right font-semibold">3,450</td>
+</tr>
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5 font-medium text-primary">第三人責任險 - 財損</td>
+<td class="px-6 py-5 text-on-surface-variant">每事故 50萬</td>
+<td class="px-6 py-5 text-right font-semibold">2,100</td>
+</tr>
+<tr class="hover:bg-surface-container-low/30 transition-colors bg-surface-container-low/10">
+<td class="px-6 py-5 font-medium text-primary flex items-center gap-2">
+                                        乙式車體損失險
+                                        <span class="material-symbols-outlined text-xs text-tertiary">info</span>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">約定價值 235萬 (免自負額)</td>
+<td class="px-6 py-5 text-right font-semibold">21,053</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="space-y-6">
+<h2 class="font-headline text-xl font-bold text-primary mb-2 opacity-0">銷售資訊</h2> <!-- Spacer alignment -->
+<!-- Internal Only Box -->
+<div class="bg-primary text-white p-6 rounded-xl shadow-lg relative overflow-hidden">
+<div class="flex items-center gap-2 mb-4 opacity-70">
+<span class="material-symbols-outlined text-sm">lock</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Internal Dealer Insight</span>
+</div>
+<h4 class="text-xs font-medium text-white/60 mb-1">預估經銷商返利</h4>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-headline font-bold text-[#C9A84C]">NT$ 8,400</span>
+<span class="text-[10px] text-white/40">估計毛利</span>
+</div>
+<!-- Subtle metallic texture effect -->
+<div class="absolute -right-4 -bottom-4 opacity-10">
+<span class="material-symbols-outlined text-8xl" style="font-variation-settings: 'wght' 200;">payments</span>
+</div>
+</div>
+<!-- Summary Card -->
+<div class="bg-surface-container-low p-6 rounded-xl space-y-4">
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">保費總計</span>
+<span class="text-primary font-bold">NT$ 28,000</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">首年優惠</span>
+<span class="text-error font-medium">- NT$ 1,500</span>
+</div>
+<div class="pt-4 border-t border-outline-variant/20">
+<div class="flex justify-between items-end">
+<span class="text-sm font-bold text-primary">應付總額</span>
+<span class="text-2xl font-headline font-extrabold text-primary">NT$ 26,500</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Sticky Bottom Actions -->
+<div class="fixed bottom-0 right-0 left-64 bg-surface/80 glass-nav px-12 py-6 flex justify-end items-center gap-4 border-t border-outline-variant/10 z-40">
+<button class="px-10 py-3 rounded-lg border border-outline text-primary font-bold text-sm hover:bg-surface-container-high transition-all active:scale-95">
+                暫存
+            </button>
+<button class="px-12 py-3 rounded-lg gold-gradient text-white font-bold text-sm shadow-xl shadow-tertiary/20 flex items-center gap-2 hover:opacity-90 transition-all active:scale-95">
+<span class="material-symbols-outlined text-lg">shopping_cart</span>
+                加入訂單
+            </button>
+</div>
+<!-- Bottom spacing for fixed nav -->
+<div class="h-24"></div>
+</main>
+</body></html>

@@ -1,0 +1,354 @@
+<style>
+        body { font-family: 'Inter', 'Public Sans', sans-serif; background-color: #FCF8FF; }
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+
+
+
+<main class="min-h-screen">
+
+<section class="p-8 space-y-8 bg-surface-section">
+
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-3xl font-headline font-extrabold tracking-tight">庫存數據實時監控</h2>
+<p class="text-slate-500 mt-1">數據更新於：2023-11-15 14:30:42</p>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 rounded-xl border-2 border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">download</span>
+                        匯出報表
+                    </button>
+<button class="px-6 py-2.5 rounded-xl bg-primary text-white font-bold hover:bg-primary-dark transition-colors shadow-lg shadow-primary/20 flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">add_circle</span>
+                        新增調車申請
+                    </button>
+</div>
+</div>
+
+<div class="grid grid-cols-5 gap-6">
+
+<div class="bg-surface-card p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+<p class="text-slate-500 text-sm font-medium mb-2 flex items-center gap-2">
+                        集團總庫存 <span class="material-symbols-outlined text-base">info</span>
+</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-headline font-bold">847</span>
+<span class="text-slate-400 text-sm">輛</span>
+</div>
+<p class="text-emerald-600 text-xs font-bold mt-4 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">trending_up</span>
+                        ↑ 12 vs 上週
+                    </p>
+</div>
+
+<div class="bg-surface-card p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+<p class="text-slate-500 text-sm font-medium mb-2">可售庫存</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-headline font-bold text-emerald-600">623</span>
+<span class="text-slate-400 text-sm">輛</span>
+</div>
+<div class="w-full bg-slate-100 h-1.5 rounded-full mt-5">
+<div class="bg-emerald-500 h-full rounded-full" style="width: 74%"></div>
+</div>
+</div>
+
+<div class="bg-surface-card p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+<p class="text-slate-500 text-sm font-medium mb-2">鎖定／預訂</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-headline font-bold text-primary">142</span>
+<span class="text-slate-400 text-sm">輛</span>
+</div>
+<div class="w-full bg-slate-100 h-1.5 rounded-full mt-5">
+<div class="bg-primary h-full rounded-full" style="width: 16%"></div>
+</div>
+</div>
+
+<div class="bg-surface-card p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+<p class="text-slate-500 text-sm font-medium mb-2">在途車輛</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-headline font-bold text-blue-500">82</span>
+<span class="text-slate-400 text-sm">輛</span>
+</div>
+<div class="w-full bg-slate-100 h-1.5 rounded-full mt-5">
+<div class="bg-blue-400 h-full rounded-full" style="width: 10%"></div>
+</div>
+</div>
+
+<div class="bg-surface-card p-6 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+<p class="text-slate-500 text-sm font-medium mb-2">平均庫齡</p>
+<div class="flex items-center gap-3">
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-headline font-bold">23</span>
+<span class="text-slate-400 text-sm">天</span>
+</div>
+<span class="material-symbols-outlined text-amber-500" data-icon="warning">warning</span>
+</div>
+<p class="text-slate-400 text-xs mt-4">預警閾值：30天</p>
+</div>
+</div>
+
+<div class="grid grid-cols-2 gap-8">
+
+<div class="bg-surface-card p-8 rounded-xl shadow-sm border border-slate-100">
+<div class="flex justify-between items-center mb-8">
+<h3 class="text-xl font-bold font-headline">各門店庫存分布</h3>
+<div class="flex gap-4 text-xs font-semibold">
+<div class="flex items-center gap-1.5">
+<div class="w-3 h-3 bg-slate-900 rounded-full"></div> <span>可售</span>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-3 h-3 bg-primary rounded-full"></div> <span>鎖定</span>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-3 h-3 bg-blue-300 rounded-full"></div> <span>在途</span>
+</div>
+</div>
+</div>
+<div class="space-y-6">
+
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold text-slate-600">
+<span>台北旗艦店</span>
+<span>245 輛</span>
+</div>
+<div class="flex h-6 w-full rounded-lg overflow-hidden">
+<div class="bg-slate-900 h-full" style="width: 70%"></div>
+<div class="bg-primary h-full" style="width: 20%"></div>
+<div class="bg-blue-300 h-full" style="width: 10%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold text-slate-600">
+<span>台中展示中心</span>
+<span>188 輛</span>
+</div>
+<div class="flex h-6 w-full rounded-lg overflow-hidden">
+<div class="bg-slate-900 h-full" style="width: 60%"></div>
+<div class="bg-primary h-full" style="width: 25%"></div>
+<div class="bg-blue-300 h-full" style="width: 15%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold text-slate-600">
+<span>高雄旗艦店</span>
+<span>156 輛</span>
+</div>
+<div class="flex h-6 w-full rounded-lg overflow-hidden">
+<div class="bg-slate-900 h-full" style="width: 65%"></div>
+<div class="bg-primary h-full" style="width: 20%"></div>
+<div class="bg-blue-300 h-full" style="width: 15%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold text-slate-600">
+<span>新竹科學店</span>
+<span>112 輛</span>
+</div>
+<div class="flex h-6 w-full rounded-lg overflow-hidden">
+<div class="bg-slate-900 h-full" style="width: 80%"></div>
+<div class="bg-primary h-full" style="width: 10%"></div>
+<div class="bg-blue-300 h-full" style="width: 10%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold text-slate-600">
+<span>桃園經國店</span>
+<span>94 輛</span>
+</div>
+<div class="flex h-6 w-full rounded-lg overflow-hidden">
+<div class="bg-slate-900 h-full" style="width: 55%"></div>
+<div class="bg-primary h-full" style="width: 30%"></div>
+<div class="bg-blue-300 h-full" style="width: 15%"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold text-slate-600">
+<span>台南中華店</span>
+<span>52 輛</span>
+</div>
+<div class="flex h-6 w-full rounded-lg overflow-hidden">
+<div class="bg-slate-900 h-full" style="width: 50%"></div>
+<div class="bg-primary h-full" style="width: 30%"></div>
+<div class="bg-blue-300 h-full" style="width: 20%"></div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-card p-8 rounded-xl shadow-sm border border-slate-100">
+<div class="flex justify-between items-center mb-8">
+<h3 class="text-xl font-bold font-headline">車型庫存矩陣</h3>
+<span class="text-slate-400 text-sm font-medium">按車型分類</span>
+</div>
+<div class="overflow-hidden border-x border-slate-50 rounded-lg">
+<table class="w-full text-left">
+<thead class="bg-slate-50">
+<tr>
+<th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">車型系列</th>
+<th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">總庫存</th>
+<th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">可售狀態</th>
+<th class="py-4 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">庫存警示</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<tr>
+<td class="py-4 px-4 font-bold text-slate-800">ES 300h</td>
+<td class="py-4 px-4 font-semibold">142</td>
+<td class="py-4 px-4"><span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">充足 (&gt;5)</span></td>
+<td class="py-4 px-4 text-emerald-500"><span class="material-symbols-outlined">check_circle</span></td>
+</tr>
+<tr>
+<td class="py-4 px-4 font-bold text-slate-800">NX 350h</td>
+<td class="py-4 px-4 font-semibold">88</td>
+<td class="py-4 px-4"><span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">充足 (&gt;5)</span></td>
+<td class="py-4 px-4 text-emerald-500"><span class="material-symbols-outlined">check_circle</span></td>
+</tr>
+<tr>
+<td class="py-4 px-4 font-bold text-slate-800">RX 500h</td>
+<td class="py-4 px-4 font-semibold">32</td>
+<td class="py-4 px-4"><span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">緊繃 (2-5)</span></td>
+<td class="py-4 px-4 text-amber-500"><span class="material-symbols-outlined">report_problem</span></td>
+</tr>
+<tr>
+<td class="py-4 px-4 font-bold text-slate-800">LX 600</td>
+<td class="py-4 px-4 font-semibold">8</td>
+<td class="py-4 px-4"><span class="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-bold">缺貨 (0-1)</span></td>
+<td class="py-4 px-4 text-rose-500"><span class="material-symbols-outlined">cancel</span></td>
+</tr>
+<tr>
+<td class="py-4 px-4 font-bold text-slate-800">UX 250h</td>
+<td class="py-4 px-4 font-semibold">56</td>
+<td class="py-4 px-4"><span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">充足 (&gt;5)</span></td>
+<td class="py-4 px-4 text-emerald-500"><span class="material-symbols-outlined">check_circle</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+<div class="grid grid-cols-2 gap-8 pb-12">
+
+<div class="bg-surface-card p-8 rounded-xl shadow-sm border border-slate-100">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-xl font-bold font-headline">待處理調車申請</h3>
+<a class="text-primary font-bold text-sm hover:underline" href="#">查看全部</a>
+</div>
+<div class="space-y-4">
+
+<div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-primary/30 transition-colors">
+<div class="flex items-center gap-4">
+<div class="h-10 w-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">local_shipping</span>
+</div>
+<div>
+<p class="text-sm font-bold">TR-20231115-01</p>
+<p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">DUCATI NX 350h / VIN: ...4922</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-center">
+<p class="text-[10px] font-bold text-slate-400">台北 → 台中</p>
+<span class="px-2 py-0.5 bg-amber-500/10 text-amber-600 rounded text-[10px] font-bold">審核中</span>
+</div>
+<span class="text-xs text-slate-400">2 小時前</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+<div class="flex items-center gap-4">
+<div class="h-10 w-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">local_shipping</span>
+</div>
+<div>
+<p class="text-sm font-bold">TR-20231115-04</p>
+<p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">DUCATI ES 300h / VIN: ...5103</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-center">
+<p class="text-[10px] font-bold text-slate-400">高雄 → 台南</p>
+<span class="px-2 py-0.5 bg-blue-500/10 text-blue-600 rounded text-[10px] font-bold">運送中</span>
+</div>
+<span class="text-xs text-slate-400">5 小時前</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+<div class="flex items-center gap-4">
+<div class="h-10 w-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">local_shipping</span>
+</div>
+<div>
+<p class="text-sm font-bold">TR-20231114-12</p>
+<p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">DUCATI RX 500h / VIN: ...2288</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="text-center">
+<p class="text-[10px] font-bold text-slate-400">新竹 → 桃園</p>
+<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 rounded text-[10px] font-bold">已入庫</span>
+</div>
+<span class="text-xs text-slate-400">昨天</span>
+</div>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-card p-8 rounded-xl shadow-sm border border-slate-100">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-xl font-bold font-headline">庫齡預警 (臨界項目)</h3>
+<span class="text-rose-500 font-bold text-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">priority_high</span>
+                            高優先級處理
+                        </span>
+</div>
+<div class="space-y-6">
+
+<div class="space-y-3">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="text-sm font-bold text-slate-800">DUCATI RX 350 - 旗艦版</h4>
+<p class="text-[10px] text-slate-400">VIN: JTJGK1BA80... | 台北旗艦店</p>
+</div>
+<div class="text-right">
+<span class="text-lg font-headline font-extrabold text-rose-600">45</span>
+<span class="text-[10px] text-slate-400 font-bold">天</span>
+</div>
+</div>
+<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+<div class="bg-rose-500 h-full" style="width: 90%"></div>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-700">發起調車</button>
+<button class="px-3 py-1 bg-white border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg hover:bg-slate-50">降價方案</button>
+<button class="px-3 py-1 bg-white border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg hover:bg-slate-50">促銷活動</button>
+</div>
+</div>
+
+<div class="space-y-3 pt-4 border-t border-slate-100">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="text-sm font-bold text-slate-800">DUCATI UX 200 - 菁英版</h4>
+<p class="text-[10px] text-slate-400">VIN: JTHBA1BH3J... | 台中展示中心</p>
+</div>
+<div class="text-right">
+<span class="text-lg font-headline font-extrabold text-amber-600">38</span>
+<span class="text-[10px] text-slate-400 font-bold">天</span>
+</div>
+</div>
+<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+<div class="bg-amber-500 h-full" style="width: 75%"></div>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-slate-900 text-white text-[10px] font-bold rounded-lg hover:bg-slate-700">發起調車</button>
+<button class="px-3 py-1 bg-white border border-slate-200 text-slate-700 text-[10px] font-bold rounded-lg hover:bg-slate-50">促銷活動</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>

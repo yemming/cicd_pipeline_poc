@@ -1,0 +1,254 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom checkbox style to match tertiary gold */
+        input[type="checkbox"]:checked {
+            background-color: #c9a84c;
+            border-color: #c9a84c;
+        }
+        input[type="checkbox"]:checked + label + div {
+            background-color: rgba(201, 168, 76, 0.08);
+        }
+        .signature-pad {
+            background-image: linear-gradient(to right, #e8e5ff 1px, transparent 1px);
+            background-size: 20px 100%;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+
+
+
+
+<main class="min-h-screen">
+<div class="max-w-6xl mx-auto px-8 py-10">
+
+<section class="bg-surface-container-low rounded-2xl p-8 mb-8 shadow-sm flex flex-wrap gap-8 items-end">
+<div class="flex-1 min-w-[200px]">
+<label class="block text-xs font-label font-semibold text-on-surface-variant mb-2 uppercase tracking-wider">車身號碼 VIN</label>
+<input class="w-full bg-surface-container-lowest border-none rounded-lg h-12 px-4 focus:ring-2 focus:ring-tertiary-container text-on-surface" placeholder="ZDM1234567890..." type="text"/>
+</div>
+<div class="flex-1 min-w-[200px]">
+<label class="block text-xs font-label font-semibold text-on-surface-variant mb-2 uppercase tracking-wider">車型 Model</label>
+<input class="w-full bg-surface-container-lowest border-none rounded-lg h-12 px-4 focus:ring-2 focus:ring-tertiary-container text-on-surface" placeholder="Panigale V4 S" type="text"/>
+</div>
+<div class="flex-1 min-w-[200px]">
+<label class="block text-xs font-label font-semibold text-on-surface-variant mb-2 uppercase tracking-wider">客戶姓名 Client</label>
+<input class="w-full bg-surface-container-lowest border-none rounded-lg h-12 px-4 focus:ring-2 focus:ring-tertiary-container text-on-surface" placeholder="陳先生 / 小姐" type="text"/>
+</div>
+<div class="flex-1 min-w-[200px]">
+<label class="block text-xs font-label font-semibold text-on-surface-variant mb-2 uppercase tracking-wider">經銷商 Dealer</label>
+<input class="w-full bg-surface-container-lowest border-none rounded-lg h-12 px-4 focus:ring-2 focus:ring-tertiary-container text-on-surface" placeholder="Ducati Taipei" type="text"/>
+</div>
+</section>
+
+<section class="bg-surface-container-high rounded-2xl p-8 mb-12 flex items-start gap-6 relative overflow-hidden">
+<div class="absolute right-0 top-0 opacity-10">
+<span class="material-symbols-outlined text-[120px]" data-icon="info">info</span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white" data-icon="description">description</span>
+</div>
+<div>
+<h2 class="font-headline font-bold text-lg mb-2 text-primary-container">交車前說明事項</h2>
+<p class="text-on-surface-variant leading-relaxed max-w-3xl">
+                        Ducati 經銷商必須確保完成檢查表上指定的所有檢查和活動。請逐項向客戶說明車輛功能、保固條款及維護週期，並於完成後勾選確認。
+                    </p>
+</div>
+</section>
+
+<div class="space-y-12">
+
+<div class="space-y-4">
+<div class="flex items-center gap-3 mb-6">
+<span class="bg-tertiary-container text-on-tertiary-container w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">A</span>
+<h3 class="font-headline font-bold text-xl">經銷商交車準備</h3>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl overflow-hidden">
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item1" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item1">1. 依照原廠規範完成 PDI (交車前檢查)</label>
+</div>
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item2" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item2">2. 確認所有召回改正(Recall)及技術通報已執行完成</label>
+</div>
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item3" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item3">3. 車輛外觀清潔、打蠟與細部美容確認</label>
+</div>
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item4" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item4">4. 確認隨車配件與工具包齊全</label>
+</div>
+</div>
+</div>
+
+<div class="space-y-4">
+<div class="flex items-center gap-3 mb-6">
+<span class="bg-tertiary-container text-on-tertiary-container w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">B</span>
+<h3 class="font-headline font-bold text-xl">為客戶進行摩托車個人化設定調整</h3>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl overflow-hidden">
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item5" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item5">5. 調整拉桿位置 (離合器、煞車) 適合客戶手感</label>
+</div>
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item6" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item6">6. 後照鏡視角調整確認</label>
+</div>
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item7" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item7">7. 懸吊系統預載基礎設定 (根據客戶體重)</label>
+</div>
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item8" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item8">8. 儀表顯示單位設定 (km/h, Celsius)</label>
+</div>
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item9" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item9">9. 騎乘模式 (Riding Modes) 個性化參數設定</label>
+</div>
+<div class="flex items-center p-5 hover:bg-surface-container-low transition-colors gap-4">
+<input class="w-6 h-6 rounded border-outline-variant text-tertiary-container focus:ring-tertiary-container" id="item10" type="checkbox"/>
+<label class="flex-1 text-on-surface font-medium cursor-pointer" for="item10">10. 藍牙通訊系統連線測試 (My Ducati App)</label>
+</div>
+</div>
+</div>
+
+<div class="space-y-4">
+<div class="flex items-center gap-3 mb-6">
+<span class="bg-tertiary-container text-on-tertiary-container w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">C</span>
+<h3 class="font-headline font-bold text-xl">為客戶說明的一般事項 (Item 11-27)</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" id="item11" type="checkbox"/>
+<label class="text-sm leading-relaxed text-on-surface-variant" for="item11">11. 啟動、熄火及 Keyless 感應鑰匙操作說明</label>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" id="item12" type="checkbox"/>
+<label class="text-sm leading-relaxed text-on-surface-variant" for="item12">12. 各式開關總成操作與燈號辨識</label>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" id="item13" type="checkbox"/>
+<label class="text-sm leading-relaxed text-on-surface-variant" for="item13">13. 電控系統 (DTC, ABS, DWC) 功能說明</label>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" id="item14" type="checkbox"/>
+<label class="text-sm leading-relaxed text-on-surface-variant" for="item14">14. 油箱開啟、加油規範與建議燃油種類</label>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" id="item15" type="checkbox"/>
+<label class="text-sm leading-relaxed text-on-surface-variant" for="item15">15. 側柱與中柱(如有)之操作安全</label>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" id="item16" type="checkbox"/>
+<label class="text-sm leading-relaxed text-on-surface-variant" for="item16">16. 輪胎胎壓確認與建議值</label>
+</div>
+
+<div class="col-span-full bg-surface-container-low p-6 rounded-2xl border border-dashed border-outline-variant text-center">
+<p class="text-on-surface-variant italic">其餘 11 項說明事項 (儀表菜單導覽、保險絲位置、工具包使用、清潔維護建議等) 已逐項說明完成</p>
+<div class="mt-4 flex justify-center gap-4">
+<button class="px-6 py-2 bg-primary-container text-white rounded-full text-sm font-medium">全選 Section C</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div class="space-y-4">
+<div class="flex items-center gap-3 mb-6">
+<span class="bg-tertiary-container text-on-tertiary-container w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">D</span>
+<h3 class="font-headline font-bold text-xl">使用注意事項</h3>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-6 space-y-4">
+<div class="flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" type="checkbox"/>
+<p class="text-sm">28. 磨合期間 (1000km) 轉速與負荷限制</p>
+</div>
+<div class="flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" type="checkbox"/>
+<p class="text-sm">29. 鏈條清潔與上油週期說明</p>
+</div>
+<div class="flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" type="checkbox"/>
+<p class="text-sm">30. 電瓶充電建議與長期停放規範</p>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex items-center gap-3 mb-6">
+<span class="bg-tertiary-container text-on-tertiary-container w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">E</span>
+<h3 class="font-headline font-bold text-xl">向客戶交車</h3>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-6 space-y-4">
+<div class="flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" type="checkbox"/>
+<p class="text-sm">34. 交付鑰匙 (主鑰匙、備用鑰匙及序號牌)</p>
+</div>
+<div class="flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" type="checkbox"/>
+<p class="text-sm">35. 交付車主手冊與維修保養紀錄簿</p>
+</div>
+<div class="flex items-start gap-4">
+<input class="mt-1 w-6 h-6 rounded border-outline-variant text-tertiary-container" type="checkbox"/>
+<p class="text-sm">36. 介紹服務部門人員與展示售後諮詢管道</p>
+</div>
+</div>
+</div>
+</div>
+
+<section class="bg-surface-container-lowest rounded-2xl p-10 mt-16 shadow-xl border-t-4 border-tertiary-container">
+<div class="mb-10 text-center">
+<h4 class="font-headline font-extrabold text-2xl text-primary-container mb-4">交車確認與承諾</h4>
+<p class="text-on-surface font-bold text-lg leading-relaxed max-w-2xl mx-auto">
+                            "摩托車交給我時狀況完好，所有電控設備及功能均已獲得清楚說明，本人已瞭解保固條件與維護週期。"
+                        </p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+<div class="space-y-4">
+<label class="block text-sm font-label font-bold text-on-surface-variant uppercase tracking-widest">銷售顧問簽署 Sales Person</label>
+<div class="h-40 bg-surface-container-low rounded-xl signature-pad flex items-center justify-center border-2 border-dashed border-outline-variant">
+<p class="text-outline text-xs italic">手寫簽名區域</p>
+</div>
+<div class="flex justify-between items-center text-xs text-on-surface-variant px-2">
+<span>日期: 2024 / 11 / 18</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors" data-icon="refresh">refresh</span>
+</div>
+</div>
+<div class="space-y-4">
+<label class="block text-sm font-label font-bold text-on-surface-variant uppercase tracking-widest">客戶簽署 Client</label>
+<div class="h-40 bg-surface-container-low rounded-xl signature-pad flex items-center justify-center border-2 border-dashed border-outline-variant">
+<p class="text-outline text-xs italic">手寫簽名區域</p>
+</div>
+<div class="flex justify-between items-center text-xs text-on-surface-variant px-2">
+<span>地點: 展示中心</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors" data-icon="refresh">refresh</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+
+<div class="flex justify-end gap-4 mt-12 pb-20">
+<button class="px-10 h-14 rounded-xl bg-surface-container-highest text-on-surface font-bold transition-all hover:bg-surface-container-high active:scale-95 duration-150 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="print">print</span>
+                    列印清單
+                </button>
+<button class="px-12 h-14 rounded-xl bg-gradient-to-br from-primary to-primary-container text-white font-bold transition-all hover:shadow-lg active:scale-95 duration-150 flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="save">save</span>
+                    儲存資料
+                </button>
+</div>
+</div>
+</main>
+
+<div class="fixed right-0 bottom-0 -z-10 opacity-5 pointer-events-none">
+<img alt="Luxury sport motorcycle detail" class="w-[600px] grayscale" data-alt="close-up of a sleek red sport motorcycle engine and carbon fiber parts with dramatic museum lighting and dark shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA656Z2m0TDGuYipmJrw6kJzZ-JLLsYzuT52S5HLqY8u_-cquL0x-rZhXODc6GxlXanGvdOuHaqvwp0HGuHqpMZ6HWnDalV2W21FpWRRVUe18KYsddEePAhkIpch-Q48lN3zbqohJ3wSIgg5dx2GR_Fux1S9-bwvJno9_eZ8nFkTzrlIx9ImPuQB28VXtXKZ9Vn52eYDw67c0S0rZDeC1aH2RwvhU_xUQlLj3AcWi1_gbokNJX4InQsbBHgalZbjpMaC52ZF9yh0cc"/>
+</div>

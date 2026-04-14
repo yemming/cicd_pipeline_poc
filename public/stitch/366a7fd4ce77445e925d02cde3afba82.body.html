@@ -1,0 +1,289 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e0fc; border-radius: 10px; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+
+
+
+
+<main class="px-8 pb-12 min-h-screen flex gap-8">
+
+<div class="w-1/3 flex flex-col gap-6">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-headline font-bold text-on-surface">角色清單</h2>
+<span class="text-xs font-medium text-slate-400">共 11 個角色</span>
+</div>
+<div class="flex-1 overflow-y-auto pr-2 space-y-4 max-h-[calc(100vh-280px)]">
+
+<div class="p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-bold text-on-surface">集團管理員</h3>
+<span class="bg-primary text-white text-[10px] px-2 py-0.5 rounded-full font-bold">系統預設</span>
+</div>
+<div class="flex items-center text-sm text-slate-500 gap-2">
+<span class="material-symbols-outlined text-base">group</span>
+<span>2 人</span>
+</div>
+</div>
+
+<div class="p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+<h3 class="font-bold text-on-surface mb-2">門店管理員（總經理）</h3>
+<div class="flex items-center text-sm text-slate-500 gap-2">
+<span class="material-symbols-outlined text-base">group</span>
+<span>4 人</span>
+</div>
+</div>
+
+<div class="p-5 rounded-xl bg-surface-container-lowest border-2 border-[#C9A84C] shadow-lg relative overflow-hidden group cursor-pointer">
+<div class="absolute top-0 right-0 p-2">
+<span class="material-symbols-outlined text-[#C9A84C]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="absolute top-0 left-0 w-1.5 h-full bg-[#C9A84C]"></div>
+<h3 class="font-bold text-on-surface mb-2">銷售主管</h3>
+<div class="flex items-center text-sm text-[#755B00] gap-2 font-medium">
+<span class="material-symbols-outlined text-base">group</span>
+<span>6 人</span>
+</div>
+</div>
+
+<div class="p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+<h3 class="font-bold text-on-surface mb-2">銷售顧問</h3>
+<div class="flex items-center text-sm text-slate-500 gap-2">
+<span class="material-symbols-outlined text-base">group</span>
+<span>18 人</span>
+</div>
+</div>
+
+<div class="p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+<h3 class="font-bold text-on-surface mb-2">前台接待</h3>
+<div class="flex items-center text-sm text-slate-500 gap-2">
+<span class="material-symbols-outlined text-base">group</span>
+<span>4 人</span>
+</div>
+</div>
+
+<div class="p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+<h3 class="font-bold text-on-surface mb-2">金融專員</h3>
+<div class="flex items-center text-sm text-slate-500 gap-2">
+<span class="material-symbols-outlined text-base">group</span>
+<span>3 人</span>
+</div>
+</div>
+
+<div class="p-5 rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer opacity-70">
+<h3 class="font-bold text-on-surface mb-2">保險專員</h3>
+<div class="flex items-center text-sm text-slate-500 gap-2">
+<span class="material-symbols-outlined text-base">group</span>
+<span>2 人</span>
+</div>
+</div>
+</div>
+<button class="w-full py-4 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 font-bold flex items-center justify-center gap-2 hover:border-[#C9A84C] hover:text-[#755B00] transition-all bg-white/40">
+<span class="material-symbols-outlined">add</span>
+<span>新增角色</span>
+</button>
+</div>
+
+<div class="w-2/3 flex flex-col bg-white rounded-3xl shadow-xl overflow-hidden border border-[#F5F2FF]">
+
+<div class="px-10 py-8 border-b border-slate-50 flex items-center justify-between bg-gradient-to-br from-white to-[#F5F2FF]">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-2xl">shield_person</span>
+</div>
+<div>
+<h2 class="text-2xl font-headline font-extrabold text-on-surface tracking-tight">銷售主管 — 權限設定</h2>
+<p class="text-sm text-slate-500">定義該角色在系統各模組的具體操作權限</p>
+</div>
+</div>
+<div class="flex items-center gap-2 px-4 py-2 bg-[#ffe08f]/30 rounded-full">
+<span class="material-symbols-outlined text-sm text-[#755B00]">info</span>
+<span class="text-xs font-bold text-[#755B00]">自定義角色</span>
+</div>
+</div>
+
+<div class="flex-1 overflow-y-auto px-10 py-6 space-y-12">
+
+<div>
+<div class="flex items-center gap-3 mb-6">
+<span class="w-1.5 h-6 bg-primary rounded-full"></span>
+<h3 class="text-lg font-bold">售前管理</h3>
+</div>
+<div class="space-y-4">
+
+<div class="grid grid-cols-12 items-center py-4 px-6 rounded-2xl bg-surface-container-low hover:bg-surface-container-lowest transition-colors">
+<div class="col-span-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">dashboard</span>
+<span class="font-bold">展廳看板</span>
+</div>
+<div class="col-span-8 flex gap-8">
+<label class="flex items-center gap-3 cursor-pointer">
+<span class="text-sm font-medium">查看</span>
+<div class="relative w-10 h-5 bg-[#C9A84C] rounded-full transition-colors">
+<div class="absolute left-5.5 top-0.5 w-4 h-4 bg-white rounded-full transition-all translate-x-5"></div>
+</div>
+</label>
+<label class="flex items-center gap-3 cursor-pointer">
+<span class="text-sm font-medium">編輯</span>
+<div class="relative w-10 h-5 bg-[#C9A84C] rounded-full transition-colors">
+<div class="absolute left-5.5 top-0.5 w-4 h-4 bg-white rounded-full transition-all translate-x-5"></div>
+</div>
+</label>
+</div>
+</div>
+
+<div class="grid grid-cols-12 items-center py-4 px-6 rounded-2xl bg-surface-container-low hover:bg-surface-container-lowest transition-colors">
+<div class="col-span-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">contactless</span>
+<span class="font-bold">電子手卡</span>
+</div>
+<div class="col-span-8 flex gap-8">
+<label class="flex items-center gap-3">
+<span class="text-sm font-medium">查看/編輯</span>
+<div class="relative w-10 h-5 bg-[#C9A84C] rounded-full">
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full translate-x-5"></div>
+</div>
+</label>
+<label class="flex items-center gap-3">
+<span class="text-sm font-medium text-slate-400">刪除</span>
+<div class="relative w-10 h-5 bg-slate-200 rounded-full">
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full"></div>
+</div>
+</label>
+</div>
+</div>
+
+<div class="grid grid-cols-12 items-center py-4 px-6 rounded-2xl bg-surface-container-low hover:bg-surface-container-lowest transition-colors">
+<div class="col-span-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">person_search</span>
+<span class="font-bold">線索管理</span>
+</div>
+<div class="col-span-8 flex gap-8">
+<label class="flex items-center gap-3">
+<span class="text-sm font-medium">查看/分配</span>
+<div class="relative w-10 h-5 bg-[#C9A84C] rounded-full">
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full translate-x-5"></div>
+</div>
+<span class="material-symbols-outlined text-[16px] text-slate-300">lock</span>
+</label>
+<label class="flex items-center gap-3">
+<span class="text-sm font-medium text-slate-400">刪除</span>
+<div class="relative w-10 h-5 bg-slate-200 rounded-full">
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full"></div>
+</div>
+</label>
+</div>
+</div>
+
+<div class="grid grid-cols-12 items-center py-4 px-6 rounded-2xl bg-surface-container-low hover:bg-surface-container-lowest transition-colors">
+<div class="col-span-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">receipt_long</span>
+<span class="font-bold">訂單中心</span>
+</div>
+<div class="col-span-8 flex gap-8">
+<label class="flex items-center gap-3">
+<span class="text-sm font-medium">審批</span>
+<div class="relative w-10 h-5 bg-[#C9A84C] rounded-full">
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full translate-x-5"></div>
+</div>
+</label>
+</div>
+</div>
+</div>
+</div>
+
+<div>
+<div class="flex items-center gap-3 mb-6">
+<span class="w-1.5 h-6 bg-primary rounded-full"></span>
+<h3 class="text-lg font-bold">交易服務</h3>
+</div>
+<div class="space-y-4">
+<div class="grid grid-cols-12 items-center py-4 px-6 rounded-2xl bg-surface-container-low">
+<div class="col-span-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">payments</span>
+<span class="font-bold">金融服務</span>
+</div>
+<div class="col-span-8 flex gap-8">
+<label class="flex items-center gap-3">
+<span class="text-sm font-medium">查看</span>
+<div class="relative w-10 h-5 bg-[#C9A84C] rounded-full">
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full translate-x-5"></div>
+</div>
+</label>
+<label class="flex items-center gap-3">
+<span class="text-sm font-medium text-slate-400">編輯</span>
+<div class="relative w-10 h-5 bg-slate-200 rounded-full">
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full"></div>
+</div>
+</label>
+</div>
+</div>
+</div>
+</div>
+
+<div>
+<div class="flex items-center gap-3 mb-6">
+<span class="w-1.5 h-6 bg-primary rounded-full"></span>
+<h3 class="text-lg font-bold">報表分析</h3>
+</div>
+<div class="space-y-4">
+<div class="grid grid-cols-12 items-center py-4 px-6 rounded-2xl bg-surface-container-low">
+<div class="col-span-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">query_stats</span>
+<span class="font-bold">銷售報表</span>
+</div>
+<div class="col-span-8 flex gap-8">
+<label class="flex items-center gap-3">
+<span class="text-sm font-medium">查看/匯出</span>
+<div class="relative w-10 h-5 bg-[#C9A84C] rounded-full">
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full translate-x-5"></div>
+</div>
+</label>
+</div>
+</div>
+</div>
+</div>
+
+<div>
+<div class="flex items-center gap-3 mb-6">
+<span class="w-1.5 h-6 bg-primary rounded-full"></span>
+<h3 class="text-lg font-bold">管理後台</h3>
+</div>
+<div class="space-y-4 opacity-70">
+<div class="grid grid-cols-12 items-center py-4 px-6 rounded-2xl border border-slate-100 bg-white">
+<div class="col-span-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-300">settings</span>
+<span class="font-bold text-slate-400">系統設定</span>
+</div>
+<div class="col-span-8 flex gap-8">
+<label class="flex items-center gap-3 cursor-not-allowed">
+<span class="text-sm font-medium text-slate-300">查看/編輯</span>
+<div class="relative w-10 h-5 bg-slate-100 rounded-full">
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-slate-200 rounded-full"></div>
+</div>
+<span class="material-symbols-outlined text-[16px] text-slate-200">lock</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="px-10 py-6 glass-panel border-t border-slate-100 flex items-center justify-end gap-4">
+<button class="px-8 py-3 rounded-xl border border-slate-200 text-slate-500 font-bold hover:bg-slate-50 transition-all text-sm">
+                    重置為預設
+                </button>
+<button class="px-10 py-3 rounded-xl bg-gradient-to-r from-primary to-primary-container text-white font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm flex items-center gap-2">
+<span>儲存權限設定</span>
+</button>
+</div>
+</div>
+</main>

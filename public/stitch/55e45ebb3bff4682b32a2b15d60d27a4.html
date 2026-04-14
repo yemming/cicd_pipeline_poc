@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>交車儀式管理 | DUCATI ATELIER</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#e2e0fc",
+                        "secondary-fixed": "#e2e2e2",
+                        "primary-fixed-dim": "#c6c4df",
+                        "inverse-primary": "#c6c4df",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed": "#e2e0fc",
+                        "tertiary-fixed": "#ffe08f",
+                        "surface": "#fcf8ff",
+                        "on-surface-variant": "#47464c",
+                        "surface-variant": "#e2e0fc",
+                        "primary-container": "#1a1a2e",
+                        "on-secondary-container": "#5f6161",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f5f2ff",
+                        "tertiary": "#755b00",
+                        "on-surface": "#1a1a2e",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "surface-tint": "#5d5c74",
+                        "secondary": "#5d5f5f",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#45455b",
+                        "on-primary-fixed": "#1a1a2e",
+                        "tertiary-container": "#c9a84c",
+                        "on-tertiary-fixed": "#241a00",
+                        "on-secondary-fixed-variant": "#454747",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-tertiary-container": "#503d00",
+                        "on-error-container": "#93000a",
+                        "surface-container": "#efecff",
+                        "primary": "#00000b",
+                        "on-background": "#1a1a2e",
+                        "inverse-on-surface": "#f2efff",
+                        "secondary-container": "#dcdddd",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e8e5ff",
+                        "background": "#fcf8ff",
+                        "outline": "#78767d",
+                        "on-primary-container": "#83829b",
+                        "surface-dim": "#dad7f3",
+                        "inverse-surface": "#2f2e43",
+                        "on-error": "#ffffff",
+                        "outline-variant": "#c8c5cd",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "on-primary": "#ffffff",
+                        "surface-bright": "#fcf8ff",
+                        "on-secondary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-layering-no-borders {
+            border: none !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e0fc;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased overflow-hidden h-screen flex">
+<!-- Predicted SideNavBar -->
+<main class="flex-1 flex flex-col min-h-screen relative">
+<!-- Predicted TopNavBar -->
+<!-- Context Bar -->
+<section class="bg-surface-container-low px-8 py-4 flex flex-wrap items-center gap-x-12 gap-y-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="person">person</span>
+<span class="text-on-surface font-semibold">客戶: 王先生</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="two_wheeler">two_wheeler</span>
+<span class="text-on-surface">車型: Panigale V4 S</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="receipt_long">receipt_long</span>
+<span class="text-on-surface">訂單: ORD-20260411-008</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-lg" data-icon="calendar_today">calendar_today</span>
+<span class="text-on-surface">交車日: 2026/04/18 14:00</span>
+</div>
+</section>
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto custom-scrollbar px-8 py-8 space-y-10 pb-32">
+<!-- Section 1: Pre-delivery -->
+<section>
+<div class="flex items-end justify-between mb-6">
+<div>
+<h2 class="font-headline text-2xl font-bold text-primary-container">Section 1 — 交車前準備</h2>
+<p class="text-on-surface-variant font-label text-sm tracking-wider mt-1">預估時程: 13:00 - 14:00</p>
+</div>
+<span class="bg-tertiary/10 text-tertiary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">Progress 80%</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="text-on-surface font-medium">PDI 新車整備檢驗</span>
+</div>
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="text-on-surface font-medium">全車外觀深層美容與烤漆塗層</span>
+</div>
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="text-on-surface font-medium">交車室佈置與精品擺放</span>
+</div>
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="text-on-surface font-medium">Ducati 專屬禮品準備</span>
+</div>
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="text-on-surface font-medium">牌照領取與安裝確認</span>
+</div>
+<div class="flex items-center gap-4 group cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl" data-icon="pending" style="font-variation-settings: 'FILL' 1;">pending</span>
+</div>
+<div class="flex flex-col">
+<span class="text-on-surface font-medium">保險文件列印與核對</span>
+<span class="text-amber-600 text-xs font-bold">Pending</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Delivery Process -->
+<section>
+<div class="flex items-end justify-between mb-6">
+<div>
+<h2 class="font-headline text-2xl font-bold text-primary-container">Section 2 — 交車流程</h2>
+<p class="text-on-surface-variant font-label text-sm tracking-wider mt-1">當前狀態: 待執行 | 預估時程: 14:00 - 15:30</p>
+</div>
+</div>
+<div class="space-y-4">
+<!-- Step 1 -->
+<div class="bg-surface-container-low rounded-xl p-6 flex gap-6 hover:bg-surface-container transition-colors">
+<div class="flex-shrink-0 flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-lg">1</div>
+<div class="w-0.5 h-full bg-outline-variant/30 my-2"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="text-lg font-bold text-primary-container">Welcome customer 迎賓禮遇</h3>
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-semibold">待執行</span>
+</div>
+<div class="mt-4 p-4 bg-surface-container-lowest rounded-lg border-l-4 border-tertiary">
+<div class="flex items-center gap-2 text-tertiary mb-1">
+<span class="material-symbols-outlined text-sm" data-icon="coffee">coffee</span>
+<span class="text-xs font-bold uppercase tracking-wider">Espresso service note</span>
+</div>
+<p class="text-on-surface text-sm">提供王先生預訂的正統義式濃縮咖啡與專屬茶點。</p>
+</div>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="bg-surface-container-low rounded-xl p-6 flex gap-6 hover:bg-surface-container transition-colors">
+<div class="flex-shrink-0 flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-lg">2</div>
+<div class="w-0.5 h-full bg-outline-variant/30 my-2"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="text-lg font-bold text-primary-container">Feature demo 功能解說</h3>
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-semibold">待執行</span>
+</div>
+<div class="mt-4 grid grid-cols-3 gap-4">
+<div class="p-3 bg-surface-container-lowest rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary" data-icon="sports_motorsports">sports_motorsports</span>
+<span class="text-sm font-medium">電控系統設定</span>
+</div>
+<div class="p-3 bg-surface-container-lowest rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary" data-icon="speed">speed</span>
+<span class="text-sm font-medium">TFT 儀表操作</span>
+</div>
+<div class="p-3 bg-surface-container-lowest rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary" data-icon="cell_tower">cell_tower</span>
+<span class="text-sm font-medium">Ducati Connect</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="bg-surface-container-low rounded-xl p-6 flex gap-6 hover:bg-surface-container transition-colors">
+<div class="flex-shrink-0 flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-lg">3</div>
+<div class="w-0.5 h-full bg-outline-variant/30 my-2"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="text-lg font-bold text-primary-container">Document signing 文件簽署</h3>
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-semibold">待執行</span>
+</div>
+<p class="mt-2 text-on-surface-variant text-sm">核對身份證件，完成規費收據、領牌登記書與保險卡交付。</p>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="bg-surface-container-low rounded-xl p-6 flex gap-6 hover:bg-surface-container transition-colors">
+<div class="flex-shrink-0 flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-lg">4</div>
+<div class="w-0.5 h-full bg-outline-variant/30 my-2"></div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-lg font-bold text-primary-container">Commemoration 慶祝留影</h3>
+<p class="text-xs text-on-surface-variant mt-1">同步上傳至 CRM 系統進行後續紀念冊製作</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-xs font-bold text-on-surface-variant">Sync to CRM</span>
+<button class="w-10 h-5 rounded-full bg-tertiary relative transition-colors">
+<div class="absolute right-0.5 top-0.5 w-4 h-4 bg-white rounded-full"></div>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+<div class="aspect-square bg-surface-container-highest rounded-lg flex flex-col items-center justify-center border-2 border-dashed border-outline-variant cursor-pointer hover:bg-surface-container-high transition-colors text-center p-2">
+<span class="material-symbols-outlined text-outline" data-icon="add_a_photo">add_a_photo</span>
+<span class="text-[10px] text-outline mt-1">車頭合影</span>
+</div>
+<div class="aspect-square bg-surface-container-high rounded-lg flex items-end p-2">
+<span class="text-[10px] text-on-surface-variant">車側合影</span>
+</div>
+<div class="aspect-square bg-surface-container-high rounded-lg flex items-end p-2">
+<span class="text-[10px] text-on-surface-variant">儀表里程</span>
+</div>
+<div class="aspect-square bg-surface-container-high rounded-lg flex items-end p-2">
+<span class="text-[10px] text-on-surface-variant">精品交接</span>
+</div>
+<div class="aspect-square bg-surface-container-high rounded-lg flex items-end p-2">
+<span class="text-[10px] text-on-surface-variant">合約簽署</span>
+</div>
+<div class="aspect-square bg-surface-container-high rounded-lg flex items-end p-2">
+<span class="text-[10px] text-on-surface-variant">自選角度</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Step 5 -->
+<div class="bg-surface-container-low rounded-xl p-6 flex gap-6 hover:bg-surface-container transition-colors">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-lg">5</div>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="text-lg font-bold text-primary-container">Farewells 鳴謝送車</h3>
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-semibold">待執行</span>
+</div>
+<div class="mt-4 flex items-center gap-4 text-sm text-on-surface-variant bg-surface-container-lowest p-3 rounded-lg">
+<span class="material-symbols-outlined text-tertiary" data-icon="event_available">event_available</span>
+<span>已排程 3 日後首週電訪追蹤與 1000 公里首保預約提醒。</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Post-delivery -->
+<section>
+<div class="mb-6">
+<h2 class="font-headline text-2xl font-bold text-primary-container">Section 3 — 交車後追蹤</h2>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="flex items-center justify-between">
+<div>
+<p class="font-bold text-on-surface">滿意度調查簡訊</p>
+<p class="text-xs text-on-surface-variant">系統自動發送 (Auto)</p>
+</div>
+<button class="w-12 h-6 rounded-full bg-tertiary relative">
+<div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+</button>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="font-bold text-on-surface">首保回廠提醒</p>
+<p class="text-xs text-on-surface-variant">滿 1000 公里或 1 個月</p>
+</div>
+<button class="w-12 h-6 rounded-full bg-tertiary relative">
+<div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+</button>
+</div>
+<div class="flex items-center justify-between">
+<div>
+<p class="font-bold text-on-surface">CSI 滿意度訪談排程</p>
+<p class="text-xs text-on-surface-variant">由經理層級執行</p>
+</div>
+<button class="w-12 h-6 rounded-full bg-outline-variant relative">
+<div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+</button>
+</div>
+</div>
+</section>
+</div>
+<!-- Bottom Bar -->
+<footer class="fixed bottom-0 left-64 right-0 h-20 bg-white/80 backdrop-blur-xl px-8 flex items-center justify-between z-50">
+<div class="flex gap-4">
+<button class="px-6 py-2.5 rounded-lg border border-outline-variant text-on-surface font-semibold hover:bg-surface-container transition-colors">
+                返回訂單
+            </button>
+<button class="px-6 py-2.5 rounded-lg border border-outline-variant text-on-surface font-semibold hover:bg-surface-container transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="print">print</span>
+                列印交車流程表
+            </button>
+</div>
+<button class="px-10 py-3 bg-gradient-to-br from-primary to-primary-container text-white font-bold rounded-lg shadow-lg hover:opacity-90 active:scale-95 transition-all">
+            標記全部完成
+        </button>
+</footer>
+</main>
+</body></html>

@@ -1,0 +1,160 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+
+
+
+
+<main class="min-h-screen">
+<div class="p-10 max-w-7xl mx-auto">
+
+<header class="mb-10">
+<nav class="flex text-on-primary-container text-sm mb-4 space-x-2 items-center">
+<span class="hover:text-primary cursor-pointer">審批中心</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-primary font-medium">折扣審批</span>
+</nav>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<h1 class="text-4xl font-extrabold text-primary tracking-tight">折扣審批詳情</h1>
+<span class="px-4 py-1.5 bg-tertiary-container/20 text-tertiary border border-tertiary/30 rounded-full text-sm font-semibold">待審批</span>
+</div>
+</div>
+</header>
+<div class="grid grid-cols-12 gap-8 items-start">
+
+<div class="col-span-12 lg:col-span-8 space-y-8">
+
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-tertiary"></div>
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-tertiary">analytics</span>
+<h2 class="text-xl font-bold text-primary">折扣摘要</h2>
+</div>
+<div class="grid grid-cols-3 gap-6 mb-10">
+<div class="space-y-2">
+<p class="text-on-primary-container text-sm font-medium">原始價格 (Original Price)</p>
+<p class="text-2xl font-bold font-headline text-primary">NT$ 3,500,000</p>
+</div>
+<div class="space-y-2">
+<p class="text-on-primary-container text-sm font-medium">申請折扣 (Applied Discount)</p>
+<div class="flex items-baseline gap-1">
+<p class="text-4xl font-extrabold font-headline text-error">6</p>
+<p class="text-xl font-bold text-error">%</p>
+</div>
+</div>
+<div class="space-y-2">
+<p class="text-on-primary-container text-sm font-medium">最終報價 (Requested Price)</p>
+<p class="text-2xl font-bold font-headline text-primary">NT$ 3,290,000</p>
+</div>
+</div>
+
+<div class="bg-error-container/40 border border-error/10 rounded-xl p-4 flex items-start gap-4">
+<span class="material-symbols-outlined text-error" style="font-variation-settings: 'FILL' 1;">warning</span>
+<div>
+<h4 class="text-error font-bold text-sm">超額折扣預警</h4>
+<p class="text-on-error-container text-sm mt-1 leading-relaxed">
+                                    此折扣請求 (6%) 已超過當前部門規定的 5% 權限閾值。批准此項需要額外的分級審查紀錄。
+                                </p>
+</div>
+</div>
+</section>
+
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex justify-between items-center mb-8">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary">description</span>
+<h2 class="text-xl font-bold text-primary">訂單關聯</h2>
+</div>
+<button class="text-tertiary hover:underline text-sm font-semibold flex items-center gap-1">
+<span>查看完整訂單</span>
+<span class="material-symbols-outlined text-xs">open_in_new</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-x-12 gap-y-8">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-4 bg-surface-container-low p-4 rounded-xl">
+<div class="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+<div>
+<p class="text-on-primary-container text-xs font-medium uppercase tracking-wider">客戶名稱</p>
+<p class="text-lg font-bold text-primary">林永祥 先生 (Chen Winston)</p>
+</div>
+</div>
+<div class="flex items-center gap-4 bg-surface-container-low p-4 rounded-xl">
+<div class="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-primary">id_card</span>
+</div>
+<div>
+<p class="text-on-primary-container text-xs font-medium uppercase tracking-wider">訂單編號</p>
+<p class="text-lg font-bold text-primary">#ORD-20241015-082</p>
+</div>
+</div>
+</div>
+<div class="relative group rounded-xl overflow-hidden shadow-lg aspect-video bg-primary-container">
+<img alt="RX 350h" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" data-alt="luxury SUV Ducati Panigale V4 S in sonic quartz white parked in a minimal concrete architectural space with elegant lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmR7R7MIJtBEonopHFvnhVD4j7bBN4z3lGXbVolMwO9XfsP61tWLDDlV9q3Cd8a0nnfa4dXY1PSqGpyvdPjQYAI_OEWe4zzMQ7ii7vBbapkstvIAKzlxgi_MhY5E7wYxX8WrkSHbZFp6tbJ3wfzsKI8FtLLo0T31saMq5mkhf_VRH843s20drxfgnUItswXCan9tcAMOMTI8HRZFVX90uswKQARku2C9s_OoUyMrzY3EZiSNyXRyrAqPwyULjQfuAepQbX9HQuABA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
+<p class="text-tertiary-fixed text-xs font-bold tracking-widest mb-1 uppercase">車型細節</p>
+<h3 class="text-white text-xl font-bold">Ducati Panigale V4 S</h3>
+<p class="text-slate-300 text-sm">極光白 | 旗艦版</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+
+<aside class="col-span-12 lg:col-span-4 sticky top-24">
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-md border border-outline-variant/10">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-tertiary">rate_review</span>
+<h2 class="text-xl font-bold text-primary">審批操作</h2>
+</div>
+<div class="mb-6">
+<label class="block text-on-primary-container text-sm font-medium mb-3">審核評語</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-xl p-4 text-primary focus:ring-1 focus:ring-tertiary/40 min-h-[160px] placeholder:text-slate-400" placeholder="請輸入審核意見或備註..."></textarea>
+</div>
+<div class="space-y-3">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-white py-4 rounded-xl font-bold text-lg transition-transform active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">check_circle</span>
+<span>核准折扣</span>
+</button>
+<button class="w-full bg-surface-container-highest text-primary py-4 rounded-xl font-bold text-lg transition-colors hover:bg-secondary-container active:scale-95 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">cancel</span>
+<span>駁回申請</span>
+</button>
+</div>
+<div class="mt-8 pt-8 border-t border-outline-variant/10">
+<h4 class="text-sm font-bold text-on-primary-container mb-4">歷史審批流程</h4>
+<div class="space-y-4">
+<div class="flex gap-4">
+<div class="flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<div class="w-0.5 h-full bg-outline-variant/30 my-1"></div>
+</div>
+<div>
+<p class="text-xs font-bold text-primary">銷售顧問 - 王小明</p>
+<p class="text-[10px] text-slate-500">2024/10/15 14:22</p>
+<p class="text-xs text-secondary mt-1">提交申請：客戶表示有多家品牌對比中</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="flex flex-col items-center">
+<div class="w-3 h-3 rounded-full bg-tertiary shadow-[0_0_8px_rgba(201,168,76,0.5)]"></div>
+</div>
+<div>
+<p class="text-xs font-bold text-primary">當前階段：經理審核</p>
+<p class="text-[10px] text-slate-500">進行中...</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</aside>
+</div>
+</div>
+</main>

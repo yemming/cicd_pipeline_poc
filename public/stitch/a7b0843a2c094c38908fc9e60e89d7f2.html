@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+
+<html lang="zh-TW"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>客戶中心 | Lexus Sales SaaS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-tint": "#5d5c74",
+                      "on-surface": "#1a1a2e",
+                      "on-secondary-fixed": "#1a1c1c",
+                      "on-primary-fixed-variant": "#45455b",
+                      "on-primary-fixed": "#1a1a2e",
+                      "secondary": "#5d5f5f",
+                      "error-container": "#ffdad6",
+                      "tertiary-container": "#c9a84c",
+                      "on-tertiary-fixed": "#241a00",
+                      "tertiary-fixed-dim": "#e6c364",
+                      "secondary-fixed-dim": "#c6c6c7",
+                      "on-secondary-fixed-variant": "#454747",
+                      "on-tertiary-container": "#503d00",
+                      "on-error-container": "#93000a",
+                      "on-tertiary": "#ffffff",
+                      "surface-container-highest": "#e2e0fc",
+                      "secondary-fixed": "#e2e2e2",
+                      "primary-fixed-dim": "#c6c4df",
+                      "inverse-primary": "#c6c4df",
+                      "tertiary-fixed": "#ffe08f",
+                      "surface": "#fcf8ff",
+                      "on-surface-variant": "#47464c",
+                      "primary-fixed": "#e2e0fc",
+                      "primary-container": "#1a1a2e",
+                      "on-secondary-container": "#5f6161",
+                      "error": "#ba1a1a",
+                      "surface-variant": "#e2e0fc",
+                      "tertiary": "#755b00",
+                      "surface-container-low": "#f5f2ff",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-high": "#e8e5ff",
+                      "background": "#fcf8ff",
+                      "outline": "#78767d",
+                      "on-primary-container": "#83829b",
+                      "surface-dim": "#dad7f3",
+                      "inverse-surface": "#2f2e43",
+                      "on-error": "#ffffff",
+                      "outline-variant": "#c8c5cd",
+                      "surface-bright": "#fcf8ff",
+                      "on-tertiary-fixed-variant": "#584400",
+                      "on-primary": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "surface-container": "#efecff",
+                      "primary": "#00000b",
+                      "on-background": "#1a1a2e",
+                      "inverse-on-surface": "#f2efff",
+                      "secondary-container": "#dcdddd"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Manrope"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-shift-no-borders {
+            box-shadow: 20px 0 50px -10px rgba(26, 26, 46, 0.05);
+        }
+        body {
+            background-color: #fcf8ff;
+            color: #1a1a2e;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-surface selection:bg-tertiary-container/30">
+<!-- SideNavBar (Execution from JSON) -->
+<!-- TopNavBar (Execution from JSON) -->
+<!-- Main Content Canvas -->
+<main class="min-h-screen bg-surface">
+<!-- Header & Breadcrumb Section -->
+<div class="px-8 pt-8 pb-4">
+<nav class="flex items-center gap-2 text-xs text-on-surface-variant mb-4">
+<span>銷售管理</span>
+<span class="material-symbols-outlined text-[10px]" data-icon="chevron_right">chevron_right</span>
+<span class="text-tertiary font-medium">客戶中心</span>
+</nav>
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-3xl font-bold font-headline text-on-surface tracking-tight">客戶中心</h2>
+<p class="text-on-surface-variant text-sm mt-1">目前共有 <span class="font-bold text-on-surface">1,247</span> 位客戶</p>
+</div>
+<div class="flex gap-3">
+<div class="relative group">
+<span class="absolute inset-y-0 left-3 flex items-center text-on-surface-variant pointer-events-none">
+<span class="material-symbols-outlined text-xl" data-icon="search">search</span>
+</span>
+<input class="bg-surface-container-low border-none rounded-xl pl-10 pr-4 py-2.5 w-64 text-sm focus:ring-2 focus:ring-tertiary-container/50 transition-all outline-none" placeholder="搜尋姓名、電話、標籤..." type="text"/>
+</div>
+<button class="flex items-center gap-2 px-4 py-2.5 bg-surface-container-highest rounded-xl text-sm font-medium hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-lg" data-icon="filter_list">filter_list</span>
+                        篩選
+                    </button>
+<button class="flex items-center gap-2 px-5 py-2.5 bg-primary-container text-white rounded-xl text-sm font-bold shadow-lg shadow-primary-container/10 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-lg" data-icon="person_add">person_add</span>
+                        新增客戶
+                    </button>
+</div>
+</div>
+</div>
+<!-- Segment Tabs -->
+<div class="px-8 mt-6">
+<div class="flex gap-1 overflow-x-auto no-scrollbar pb-2">
+<button class="px-5 py-2.5 rounded-full bg-primary-container text-white text-sm font-semibold whitespace-nowrap">全部 (1,247)</button>
+<button class="px-5 py-2.5 rounded-full hover:bg-surface-container-low text-on-surface-variant text-sm font-medium transition-colors whitespace-nowrap">A級潛客 (42)</button>
+<button class="px-5 py-2.5 rounded-full hover:bg-surface-container-low text-on-surface-variant text-sm font-medium transition-colors whitespace-nowrap">B級潛客 (156)</button>
+<button class="px-5 py-2.5 rounded-full hover:bg-surface-container-low text-on-surface-variant text-sm font-medium transition-colors whitespace-nowrap">C級潛客 (380)</button>
+<button class="px-5 py-2.5 rounded-full hover:bg-surface-container-low text-on-surface-variant text-sm font-medium transition-colors whitespace-nowrap">D級/無評級 (245)</button>
+<button class="px-5 py-2.5 rounded-full hover:bg-surface-container-low text-on-surface-variant text-sm font-medium transition-colors whitespace-nowrap">已成交車主 (312)</button>
+<button class="px-5 py-2.5 rounded-full hover:bg-surface-container-low text-on-surface-variant text-sm font-medium transition-colors whitespace-nowrap">休眠客戶 (112)</button>
+</div>
+</div>
+<!-- Data Table Container -->
+<div class="px-8 mt-6 pb-24">
+<div class="bg-surface-container-lowest rounded-2xl shadow-[0_4px_24px_rgba(26,26,46,0.04)] overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low text-on-surface-variant text-[13px] uppercase tracking-wider font-semibold">
+<tr>
+<th class="py-5 px-6 w-12 text-center">
+<input class="rounded text-tertiary border-outline-variant focus:ring-tertiary" type="checkbox"/>
+</th>
+<th class="py-5 px-4 font-label">客戶姓名</th>
+<th class="py-5 px-4 font-label">電話</th>
+<th class="py-5 px-4 font-label">客戶級別</th>
+<th class="py-5 px-4 font-label">意向車型</th>
+<th class="py-5 px-4 font-label">來源管道</th>
+<th class="py-5 px-4 font-label">最後到店</th>
+<th class="py-5 px-4 font-label">負責顧問</th>
+<th class="py-5 px-4 font-label text-center">狀態</th>
+<th class="py-5 px-6 font-label text-right">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="py-4 px-6 text-center">
+<input class="rounded text-tertiary border-outline-variant focus:ring-tertiary" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#E2E0FC] text-primary flex items-center justify-center font-bold text-xs">王</div>
+<span class="font-semibold text-on-surface">王建明</span>
+</div>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">0912-***-567</td>
+<td class="py-4 px-4">
+<span class="px-2.5 py-1 bg-red-100 text-red-700 text-[11px] font-bold rounded-md">A 級</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface font-medium">Lexus RX 350h</td>
+<td class="py-4 px-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant text-[11px] rounded-full">Facebook 官網</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">2023.11.24</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">林美惠</td>
+<td class="py-4 px-4 text-center">
+<span class="px-2.5 py-1 bg-green-100 text-green-700 text-[11px] font-bold rounded-full">追蹤中</span>
+</td>
+<td class="py-4 px-6 text-right space-x-2">
+<button class="text-on-surface-variant hover:text-tertiary"><span class="material-symbols-outlined text-lg" data-icon="edit_note">edit_note</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-lg" data-icon="more_horiz">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="py-4 px-6 text-center">
+<input class="rounded text-tertiary border-outline-variant focus:ring-tertiary" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#FFE08F] text-tertiary flex items-center justify-center font-bold text-xs">李</div>
+<span class="font-semibold text-on-surface">李淑芬</span>
+</div>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">0933-***-882</td>
+<td class="py-4 px-4">
+<span class="px-2.5 py-1 bg-orange-100 text-orange-700 text-[11px] font-bold rounded-md">B 級</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface font-medium">Lexus NX 200</td>
+<td class="py-4 px-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant text-[11px] rounded-full">轉介紹</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">2023.11.22</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">陳建州</td>
+<td class="py-4 px-4 text-center">
+<span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-[11px] font-bold rounded-full">預約中</span>
+</td>
+<td class="py-4 px-6 text-right space-x-2">
+<button class="text-on-surface-variant hover:text-tertiary"><span class="material-symbols-outlined text-lg" data-icon="edit_note">edit_note</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-lg" data-icon="more_horiz">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="py-4 px-6 text-center">
+<input class="rounded text-tertiary border-outline-variant focus:ring-tertiary" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#E8E5FF] text-primary flex items-center justify-center font-bold text-xs">張</div>
+<span class="font-semibold text-on-surface">張大偉</span>
+</div>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">0988-***-123</td>
+<td class="py-4 px-4">
+<span class="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-md">已成交</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface font-medium">Lexus ES 300h</td>
+<td class="py-4 px-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant text-[11px] rounded-full">到店自來</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">2023.10.15</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">林美惠</td>
+<td class="py-4 px-4 text-center">
+<span class="px-2.5 py-1 bg-purple-100 text-purple-700 text-[11px] font-bold rounded-full">維修保養</span>
+</td>
+<td class="py-4 px-6 text-right space-x-2">
+<button class="text-on-surface-variant hover:text-tertiary"><span class="material-symbols-outlined text-lg" data-icon="edit_note">edit_note</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-lg" data-icon="more_horiz">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="py-4 px-6 text-center">
+<input class="rounded text-tertiary border-outline-variant focus:ring-tertiary" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#DCDDDD] text-secondary flex items-center justify-center font-bold text-xs">陳</div>
+<span class="font-semibold text-on-surface">陳美玲</span>
+</div>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">0921-***-456</td>
+<td class="py-4 px-4">
+<span class="px-2.5 py-1 bg-yellow-100 text-yellow-700 text-[11px] font-bold rounded-md">C 級</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface font-medium">Lexus LBX</td>
+<td class="py-4 px-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant text-[11px] rounded-full">電話諮詢</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">2023.11.20</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">黃志偉</td>
+<td class="py-4 px-4 text-center">
+<span class="px-2.5 py-1 bg-green-100 text-green-700 text-[11px] font-bold rounded-full">追蹤中</span>
+</td>
+<td class="py-4 px-6 text-right space-x-2">
+<button class="text-on-surface-variant hover:text-tertiary"><span class="material-symbols-outlined text-lg" data-icon="edit_note">edit_note</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-lg" data-icon="more_horiz">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="py-4 px-6 text-center">
+<input class="rounded text-tertiary border-outline-variant focus:ring-tertiary" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#E2E2E2] text-on-surface flex items-center justify-center font-bold text-xs">林</div>
+<span class="font-semibold text-on-surface">林志豪</span>
+</div>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">0972-***-331</td>
+<td class="py-4 px-4">
+<span class="px-2.5 py-1 bg-red-100 text-red-700 text-[11px] font-bold rounded-md">A 級</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface font-medium">Lexus LC 500</td>
+<td class="py-4 px-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant text-[11px] rounded-full">展間自來</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">2023.11.25</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">李婉君</td>
+<td class="py-4 px-4 text-center">
+<span class="px-2.5 py-1 bg-red-100 text-red-700 text-[11px] font-bold rounded-full">高意向</span>
+</td>
+<td class="py-4 px-6 text-right space-x-2">
+<button class="text-on-surface-variant hover:text-tertiary"><span class="material-symbols-outlined text-lg" data-icon="edit_note">edit_note</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-lg" data-icon="more_horiz">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="py-4 px-6 text-center">
+<input class="rounded text-tertiary border-outline-variant focus:ring-tertiary" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#F5F2FF] text-on-surface-variant flex items-center justify-center font-bold text-xs">黃</div>
+<span class="font-semibold text-on-surface">黃雅琪</span>
+</div>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">0910-***-990</td>
+<td class="py-4 px-4">
+<span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-[11px] font-bold rounded-md">D 級</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface font-medium">Lexus UX 300e</td>
+<td class="py-4 px-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant text-[11px] rounded-full">活動講座</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">2023.11.02</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">陳建州</td>
+<td class="py-4 px-4 text-center">
+<span class="px-2.5 py-1 bg-orange-100 text-orange-700 text-[11px] font-bold rounded-full">待聯絡</span>
+</td>
+<td class="py-4 px-6 text-right space-x-2">
+<button class="text-on-surface-variant hover:text-tertiary"><span class="material-symbols-outlined text-lg" data-icon="edit_note">edit_note</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-lg" data-icon="more_horiz">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 7 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="py-4 px-6 text-center">
+<input class="rounded text-tertiary border-outline-variant focus:ring-tertiary" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#DAD7F3] text-primary flex items-center justify-center font-bold text-xs">劉</div>
+<span class="font-semibold text-on-surface">劉宗翰</span>
+</div>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">0922-***-114</td>
+<td class="py-4 px-4">
+<span class="px-2.5 py-1 bg-orange-100 text-orange-700 text-[11px] font-bold rounded-md">B 級</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface font-medium">Lexus LS 500h</td>
+<td class="py-4 px-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant text-[11px] rounded-full">線上預約</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">2023.11.23</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">林美惠</td>
+<td class="py-4 px-4 text-center">
+<span class="px-2.5 py-1 bg-green-100 text-green-700 text-[11px] font-bold rounded-full">已賞車</span>
+</td>
+<td class="py-4 px-6 text-right space-x-2">
+<button class="text-on-surface-variant hover:text-tertiary"><span class="material-symbols-outlined text-lg" data-icon="edit_note">edit_note</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-lg" data-icon="more_horiz">more_horiz</span></button>
+</td>
+</tr>
+<!-- Row 8 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group">
+<td class="py-4 px-6 text-center">
+<input class="rounded text-tertiary border-outline-variant focus:ring-tertiary" type="checkbox"/>
+</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-[#FCF8FF] border border-outline-variant text-on-surface-variant flex items-center justify-center font-bold text-xs">吳</div>
+<span class="font-semibold text-on-surface">吳佩珊</span>
+</div>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">0985-***-227</td>
+<td class="py-4 px-4">
+<span class="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-md">休眠</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface font-medium">Lexus IS 300h</td>
+<td class="py-4 px-4">
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface-variant text-[11px] rounded-full">DM 廣告</span>
+</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">2023.08.12</td>
+<td class="py-4 px-4 text-sm text-on-surface-variant">黃志偉</td>
+<td class="py-4 px-4 text-center">
+<span class="px-2.5 py-1 bg-gray-100 text-gray-500 text-[11px] font-bold rounded-full">無效</span>
+</td>
+<td class="py-4 px-6 text-right space-x-2">
+<button class="text-on-surface-variant hover:text-tertiary"><span class="material-symbols-outlined text-lg" data-icon="edit_note">edit_note</span></button>
+<button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined text-lg" data-icon="more_horiz">more_horiz</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Footer Bulk Actions & Pagination -->
+<footer class="fixed bottom-0 right-0 w-[calc(100%-16rem)] bg-white/90 backdrop-blur-md px-8 py-4 flex justify-between items-center z-40 border-t border-outline-variant/10 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 text-sm text-on-surface-variant">
+<span class="font-medium">已選取 0 筆</span>
+</div>
+<div class="h-4 w-px bg-outline-variant/30 mx-2"></div>
+<div class="flex gap-2">
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all rounded-lg">
+<span class="material-symbols-outlined text-lg" data-icon="share">share</span>
+                        批量分配
+                    </button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all rounded-lg">
+<span class="material-symbols-outlined text-lg" data-icon="label">label</span>
+                        批量標籤
+                    </button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-on-surface-variant hover:text-primary hover:bg-surface-container transition-all rounded-lg">
+<span class="material-symbols-outlined text-lg" data-icon="download">download</span>
+                        匯出
+                    </button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-1">
+<span class="text-xs text-on-surface-variant">每頁顯示</span>
+<select class="bg-transparent border-none text-xs font-bold focus:ring-0 cursor-pointer">
+<option>10</option>
+<option>20</option>
+<option>50</option>
+</select>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant">
+<span class="material-symbols-outlined text-lg" data-icon="chevron_left">chevron_left</span>
+</button>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary-container text-white text-xs font-bold">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-xs font-medium">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-xs font-medium">3</button>
+<span class="px-1 text-on-surface-variant">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-xs font-medium">125</button>
+</div>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant">
+<span class="material-symbols-outlined text-lg" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</footer>
+</main>
+</body></html>

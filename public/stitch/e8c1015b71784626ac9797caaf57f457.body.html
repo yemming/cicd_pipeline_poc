@@ -1,0 +1,204 @@
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcf8ff; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48; }
+        .glass-nav { backdrop-filter: blur(16px); background: rgba(252, 248, 255, 0.8); }
+        .luxury-gradient { background: linear-gradient(135deg, #00000b 0%, #1a1a2e 100%); }
+    </style>
+
+
+
+<main class="min-h-screen bg-surface-container-low">
+
+<div class="p-8 max-w-7xl mx-auto space-y-6">
+
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex items-center gap-2 mb-6">
+<span class="w-1.5 h-6 bg-tertiary rounded-full"></span>
+<h3 class="text-lg font-headline font-bold">舊車資訊</h3>
+</div>
+<div class="grid grid-cols-12 gap-6">
+
+<div class="col-span-3">
+<label class="block text-sm font-medium text-on-surface-variant mb-2">品牌</label>
+<select class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-tertiary-container transition-all">
+<option>Ducati</option>
+<option>Toyota</option>
+<option>Other</option>
+</select>
+</div>
+<div class="col-span-3">
+<label class="block text-sm font-medium text-on-surface-variant mb-2">車型</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-tertiary-container" placeholder="例如: NX200" type="text"/>
+</div>
+<div class="col-span-3">
+<label class="block text-sm font-medium text-on-surface-variant mb-2">年份</label>
+<select class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-tertiary-container">
+<option>2021</option>
+<option>2022</option>
+<option>2023</option>
+</select>
+</div>
+<div class="col-span-3">
+<label class="block text-sm font-medium text-on-surface-variant mb-2">顏色</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-tertiary-container" placeholder="極光鈦" type="text"/>
+</div>
+
+<div class="col-span-3">
+<label class="block text-sm font-medium text-on-surface-variant mb-2">排檔</label>
+<div class="flex bg-surface-container-low p-1 rounded-lg">
+<button class="flex-1 py-2 text-sm font-medium rounded-md hover:bg-white transition-colors">手排</button>
+<button class="flex-1 py-2 text-sm font-medium rounded-md bg-primary text-white shadow-md">自排</button>
+</div>
+</div>
+<div class="col-span-3">
+<label class="block text-sm font-medium text-on-surface-variant mb-2">里程數</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-tertiary-container" type="number" value="35000"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">公里</span>
+</div>
+</div>
+<div class="col-span-6">
+<label class="block text-sm font-medium text-on-surface-variant mb-2">車況</label>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 rounded-full border border-outline-variant hover:bg-tertiary-container/10 transition-all text-sm font-medium">優</button>
+<button class="px-6 py-2.5 rounded-full bg-tertiary-container text-on-tertiary-container font-bold text-sm shadow-sm">良</button>
+<button class="px-6 py-2.5 rounded-full border border-outline-variant hover:bg-tertiary-container/10 transition-all text-sm font-medium">普通</button>
+<button class="px-6 py-2.5 rounded-full border border-outline-variant hover:bg-tertiary-container/10 transition-all text-sm font-medium">差</button>
+</div>
+</div>
+
+<div class="col-span-12">
+<label class="block text-sm font-medium text-on-surface-variant mb-2">VIN 碼</label>
+<div class="flex gap-3">
+<input class="flex-1 bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-tertiary-container uppercase tracking-widest font-mono" placeholder="請輸入17位車身號碼" type="text"/>
+<button class="luxury-gradient text-white px-8 py-3 rounded-lg font-bold flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-sm">history</span>
+                                查詢維保紀錄
+                            </button>
+</div>
+</div>
+</div>
+</section>
+
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-6 bg-tertiary rounded-full"></span>
+<h3 class="text-lg font-headline font-bold">評估結果</h3>
+</div>
+<div class="flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-lg">
+<span class="text-sm text-on-surface-variant">市場參考價:</span>
+<span class="text-primary font-bold">NT$ 450,000 ~ 520,000</span>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-8">
+<div class="col-span-4 space-y-6">
+<div>
+<label class="block text-sm font-medium text-on-surface-variant mb-2">本店收購報價</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-on-surface-variant">NT$</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-12 pr-4 py-4 text-2xl font-bold text-tertiary focus:ring-2 focus:ring-tertiary-container" type="text" value="480,000"/>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-on-surface-variant mb-2">評估師</label>
+<select class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3">
+<option>陳大文 (專業評估員)</option>
+<option>李小明</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-on-surface-variant mb-2">車況備註</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-tertiary-container resize-none" placeholder="請輸入車況詳細說明..." rows="4"></textarea>
+</div>
+</div>
+<div class="col-span-8">
+<label class="block text-sm font-medium text-on-surface-variant mb-4">評估照片 (6)</label>
+<div class="grid grid-cols-3 gap-4">
+
+<div class="aspect-video bg-surface-container-low rounded-lg border-2 border-dashed border-outline-variant flex flex-col items-center justify-center group hover:border-tertiary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-tertiary text-3xl mb-1">photo_camera</span>
+<span class="text-xs text-on-surface-variant">車頭 (必填)</span>
+</div>
+<div class="aspect-video bg-surface-container-low rounded-lg border-2 border-dashed border-outline-variant flex flex-col items-center justify-center group hover:border-tertiary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-tertiary text-3xl mb-1">photo_camera</span>
+<span class="text-xs text-on-surface-variant">車尾</span>
+</div>
+<div class="aspect-video bg-surface-container-low rounded-lg border-2 border-dashed border-outline-variant flex flex-col items-center justify-center group hover:border-tertiary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-tertiary text-3xl mb-1">photo_camera</span>
+<span class="text-xs text-on-surface-variant">左側</span>
+</div>
+<div class="aspect-video bg-surface-container-low rounded-lg border-2 border-dashed border-outline-variant flex flex-col items-center justify-center group hover:border-tertiary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-tertiary text-3xl mb-1">photo_camera</span>
+<span class="text-xs text-on-surface-variant">右側</span>
+</div>
+<div class="aspect-video bg-surface-container-low rounded-lg border-2 border-dashed border-outline-variant flex flex-col items-center justify-center group hover:border-tertiary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-tertiary text-3xl mb-1">photo_camera</span>
+<span class="text-xs text-on-surface-variant">內裝</span>
+</div>
+<div class="aspect-video bg-surface-container-low rounded-lg border-2 border-dashed border-outline-variant flex flex-col items-center justify-center group hover:border-tertiary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-tertiary text-3xl mb-1">photo_camera</span>
+<span class="text-xs text-on-surface-variant">儀表板</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex items-center gap-2 mb-8">
+<span class="w-1.5 h-6 bg-tertiary rounded-full"></span>
+<h3 class="text-lg font-headline font-bold">置換折抵</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+<div class="space-y-2">
+<p class="text-sm text-on-surface-variant">折抵至新車訂單金額</p>
+<p class="text-3xl font-headline font-bold text-primary">NT$ 480,000</p>
+<p class="text-xs text-secondary">依評估價格 100% 抵扣</p>
+</div>
+<div class="space-y-2">
+<p class="text-sm text-on-surface-variant">客戶需再付差額</p>
+<p class="text-3xl font-headline font-bold text-error">NT$ 1,980,000</p>
+<p class="text-xs text-secondary">原車價 NT$ 2,460,000</p>
+</div>
+<div class="space-y-4">
+<label class="block text-sm font-medium text-on-surface-variant">置換時機</label>
+<div class="flex gap-2">
+<button class="px-5 py-2 rounded-full bg-primary text-white text-sm font-bold shadow-md">立即</button>
+<button class="px-5 py-2 rounded-full border border-outline-variant hover:bg-surface-container-low text-sm font-medium">次月</button>
+<button class="px-5 py-2 rounded-full border border-outline-variant hover:bg-surface-container-low text-sm font-medium">未定</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+
+<footer class="sticky bottom-0 bg-surface-container-lowest/80 backdrop-blur-md border-t border-outline-variant/10 px-8 py-6 flex justify-end gap-4 shadow-lg z-30">
+<button class="px-8 py-4 border-2 border-primary rounded-lg text-primary font-bold hover:bg-primary hover:text-white transition-all active:scale-95">
+                轉入拍賣平台
+            </button>
+<button class="px-10 py-4 luxury-gradient text-tertiary-fixed rounded-lg font-bold text-lg shadow-xl hover:shadow-2xl transition-all active:scale-95 flex items-center gap-3">
+                確認評估並回傳新車訂單
+                <span class="material-symbols-outlined">send</span>
+</button>
+</footer>
+</main>
+
+<nav class="md:hidden fixed bottom-0 left-0 right-0 glass-nav border-t border-outline-variant/20 flex justify-around py-3 z-50">
+<div class="flex flex-col items-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-[10px] mt-1">首頁</span>
+</div>
+<div class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined">calculate</span>
+<span class="text-[10px] mt-1">估價</span>
+</div>
+<div class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined">description</span>
+<span class="text-[10px] mt-1">訂單</span>
+</div>
+<div class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] mt-1">客戶</span>
+</div>
+</nav>

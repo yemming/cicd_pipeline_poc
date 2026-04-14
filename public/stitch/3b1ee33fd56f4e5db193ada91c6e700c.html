@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>退款審批詳情 | LEXUS Atelier Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#241a00",
+                      "tertiary-fixed-dim": "#e6c364",
+                      "surface-variant": "#e2e0fc",
+                      "primary": "#00000b",
+                      "on-tertiary": "#ffffff",
+                      "inverse-on-surface": "#f2efff",
+                      "on-secondary": "#ffffff",
+                      "tertiary-fixed": "#ffe08f",
+                      "on-secondary-fixed": "#1a1c1c",
+                      "surface-dim": "#dad7f3",
+                      "on-tertiary-container": "#503d00",
+                      "background": "#fcf8ff",
+                      "inverse-surface": "#2f2e43",
+                      "on-surface-variant": "#47464c",
+                      "on-primary": "#ffffff",
+                      "surface-bright": "#fcf8ff",
+                      "primary-fixed-dim": "#c6c4df",
+                      "secondary-fixed-dim": "#c6c6c7",
+                      "inverse-primary": "#c6c4df",
+                      "on-primary-fixed-variant": "#45455b",
+                      "outline-variant": "#c8c5cd",
+                      "secondary-fixed": "#e2e2e2",
+                      "surface-container-highest": "#e2e0fc",
+                      "secondary": "#5d5f5f",
+                      "surface-container-low": "#f5f2ff",
+                      "on-background": "#1a1a2e",
+                      "on-secondary-container": "#5f6161",
+                      "surface": "#fcf8ff",
+                      "error": "#ba1a1a",
+                      "surface-container": "#efecff",
+                      "on-error-container": "#93000a",
+                      "on-secondary-fixed-variant": "#454747",
+                      "surface-container-high": "#e8e5ff",
+                      "on-error": "#ffffff",
+                      "tertiary-container": "#c9a84c",
+                      "tertiary": "#755b00",
+                      "on-surface": "#1a1a2e",
+                      "outline": "#78767d",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-container": "#1a1a2e",
+                      "secondary-container": "#dcdddd",
+                      "primary-fixed": "#e2e0fc",
+                      "on-tertiary-fixed-variant": "#584400",
+                      "on-primary-fixed": "#1a1a2e",
+                      "surface-tint": "#5d5c74",
+                      "error-container": "#ffdad6",
+                      "on-error-container": "#93000a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "1rem",
+                      "xl": "1.5rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Manrope"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+      </script>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-transition {
+            background: linear-gradient(180deg, #FCF8FF 0%, #F5F2FF 100%);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FCF8FF;
+        }
+        .headline-font { font-family: 'Manrope', sans-serif; }
+      </style>
+</head>
+<body class="flex min-h-screen text-on-surface">
+<!-- SideNavBar (Desktop Shell) -->
+<div class="flex-1 lg:ml-72 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<!-- Content Area -->
+<main class="flex-1 p-8 max-w-[1400px] mx-auto w-full">
+<div class="flex flex-col lg:flex-row gap-8">
+<!-- Left Column (70%) -->
+<div class="lg:w-[70%] space-y-8">
+<!-- Card 1: 退款摘要 -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_40px_-10px_rgba(26,26,46,0.04)] relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-surface-container-low rounded-bl-full opacity-50 -mr-12 -mt-12 transition-transform group-hover:scale-110 duration-700"></div>
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-tertiary" data-icon="summarize">summarize</span>
+<h2 class="headline-font text-lg font-bold text-on-surface">退款摘要</h2>
+</div>
+<div class="grid grid-cols-2 gap-12">
+<div class="space-y-1">
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-widest">Refund Amount</p>
+<p class="text-4xl font-headline font-extrabold text-primary tracking-tighter">NT$ 50,000</p>
+</div>
+<div class="space-y-1">
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-widest">Reason</p>
+<p class="text-xl font-medium text-on-surface leading-snug">客戶貸款未通過</p>
+</div>
+</div>
+</section>
+<!-- Card 2: 原始訂單 -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_40px_-10px_rgba(26,26,46,0.04)]">
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary" data-icon="receipt_long">receipt_long</span>
+<h2 class="headline-font text-lg font-bold text-on-surface">原始訂單</h2>
+</div>
+<button class="text-tertiary text-sm font-bold flex items-center gap-1 hover:gap-2 transition-all">
+                                查看完整訂單 <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-3 gap-8">
+<div class="bg-surface-container-low p-5 rounded-lg">
+<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-[0.1em] mb-2">Order ID</p>
+<p class="text-base font-bold text-on-surface">ORD-20260401-002</p>
+</div>
+<div class="bg-surface-container-low p-5 rounded-lg">
+<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-[0.1em] mb-2">Customer</p>
+<p class="text-base font-bold text-on-surface">李小姐 <span class="text-xs font-normal text-on-surface-variant ml-2">(Ms. Li)</span></p>
+</div>
+<div class="bg-surface-container-low p-5 rounded-lg">
+<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-[0.1em] mb-2">Deposit Paid</p>
+<p class="text-base font-bold text-on-surface">NT$ 50,000</p>
+</div>
+</div>
+<div class="mt-8 flex gap-8 items-center bg-surface-container p-6 rounded-lg">
+<div class="w-32 h-20 rounded-md overflow-hidden flex-shrink-0">
+<img alt="Vehicle preview" class="w-full h-full object-cover" data-alt="front side profile of a dark navy metallic luxury sedan in a minimalist studio setting with dramatic highlights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfpznoRxfjWQsnDk9ryLkNy5EmXO0uYusNThQfuIx6rl9BOJt3UByYSqIO4rpBbT65uPrLr_gzhQZfcJbAcjc8HW3n7ZaV_x6YFlmgFijsqR_xH38TsprvN9Eh2f3DEncl2WWSEwmhdHQ0u1BgbaMBH8AQtnbY77FYaMbzj6XE5FPWFUb5N6njcSidDOGMNxdb7KtyLj3NtDTG1w1n1js5KHzg2DJWnmZm6qb_XIe7jltCu_B9bNEDWDfjR1A44XzIVc1ML_ekmEc"/>
+</div>
+<div>
+<h3 class="font-headline font-bold text-on-surface">LEXUS ES 300h</h3>
+<p class="text-sm text-on-surface-variant">尊榮版 / 極光鈦 / 黑色內裝</p>
+</div>
+</div>
+</section>
+<!-- Card 3: 退款帳戶 -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_40px_-10px_rgba(26,26,46,0.04)]">
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-tertiary" data-icon="account_balance">account_balance</span>
+<h2 class="headline-font text-lg font-bold text-on-surface">退款帳戶</h2>
+</div>
+<div class="space-y-6">
+<div class="flex justify-between items-center py-4 border-b border-outline-variant/10">
+<span class="text-sm text-on-surface-variant">銀行名稱</span>
+<span class="font-bold text-on-surface">國泰世華銀行 (013)</span>
+</div>
+<div class="flex justify-between items-center py-4 border-b border-outline-variant/10">
+<span class="text-sm text-on-surface-variant">分行名稱</span>
+<span class="font-bold text-on-surface">信義分行</span>
+</div>
+<div class="flex justify-between items-center py-4 border-b border-outline-variant/10">
+<span class="text-sm text-on-surface-variant">帳戶名稱</span>
+<span class="font-bold text-on-surface">李美玲</span>
+</div>
+<div class="flex justify-between items-center py-4">
+<span class="text-sm text-on-surface-variant">帳號</span>
+<span class="font-mono text-lg font-bold tracking-wider text-on-surface">**** **** **** 8829</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column (30%) -->
+<div class="lg:w-[30%] space-y-8">
+<!-- Card: 審批流程 -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_40px_-10px_rgba(26,26,46,0.04)]">
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-tertiary" data-icon="account_tree">account_tree</span>
+<h2 class="headline-font text-lg font-bold text-on-surface">審批流程</h2>
+</div>
+<div class="relative">
+<!-- Timeline line -->
+<div class="absolute left-4 top-2 bottom-2 w-0.5 bg-outline-variant/30"></div>
+<div class="space-y-8 relative">
+<!-- Step 1 -->
+<div class="flex gap-6 items-start">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 z-10 shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white text-sm" data-icon="check">check</span>
+</div>
+<div>
+<p class="font-bold text-on-surface text-sm">銷售顧問提交</p>
+<p class="text-xs text-on-surface-variant mt-1">2026/04/11 10:20</p>
+<p class="text-xs text-on-surface-variant mt-2 italic">"客戶貸款被拒絕，申請定金退還"</p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="flex gap-6 items-start">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 z-10 shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white text-sm" data-icon="check">check</span>
+</div>
+<div>
+<p class="font-bold text-on-surface text-sm">財務預審</p>
+<p class="text-xs text-on-surface-variant mt-1">2026/04/11 14:15</p>
+<p class="text-xs text-on-surface-variant mt-2 italic">"確認款項已入帳，資料核對無誤"</p>
+</div>
+</div>
+<!-- Step 3 (Current) -->
+<div class="flex gap-6 items-start">
+<div class="w-8 h-8 rounded-full bg-tertiary flex items-center justify-center flex-shrink-0 z-10 shadow-lg shadow-tertiary/20 ring-4 ring-tertiary/10">
+<span class="material-symbols-outlined text-primary-container text-sm" data-icon="hourglass_empty">hourglass_empty</span>
+</div>
+<div>
+<p class="font-bold text-on-surface text-sm">門店總經理審批</p>
+<p class="text-[10px] bg-tertiary/10 text-tertiary px-2 py-0.5 rounded-full inline-block mt-2 font-bold tracking-widest">進行中</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Card: 審批操作 -->
+<section class="bg-surface-container-high rounded-xl p-8 shadow-sm">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-tertiary" data-icon="rate_review">rate_review</span>
+<h2 class="headline-font text-lg font-bold text-on-surface">審批操作</h2>
+</div>
+<div class="space-y-6">
+<div>
+<label class="block text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-3">審批備註</label>
+<textarea class="w-full bg-surface-container-lowest border-none rounded-lg text-sm focus:ring-1 focus:ring-tertiary/40 placeholder:text-on-surface-variant/40" placeholder="請在此輸入審核意見..." rows="4"></textarea>
+</div>
+<div class="space-y-3">
+<button class="w-full bg-gradient-to-br from-primary to-primary-container text-white font-bold py-4 rounded-lg hover:shadow-lg hover:shadow-primary/20 active:scale-[0.98] transition-all">
+                                    核准退款
+                                </button>
+<div class="grid grid-cols-2 gap-3">
+<button class="bg-surface-container-lowest text-on-surface font-bold py-4 rounded-lg hover:bg-white active:scale-[0.98] transition-all text-sm">
+                                        駁回
+                                    </button>
+<button class="bg-surface-container-lowest text-on-surface font-bold py-4 rounded-lg hover:bg-white active:scale-[0.98] transition-all text-sm">
+                                        需補充資料
+                                    </button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- Footer Note -->
+<footer class="p-8 text-center">
+<p class="text-xs text-on-surface-variant/50 font-medium tracking-widest uppercase">Lexus Dealer Operating System © 2026 Modern Atelier Experience</p>
+</footer>
+</div>
+</body></html>

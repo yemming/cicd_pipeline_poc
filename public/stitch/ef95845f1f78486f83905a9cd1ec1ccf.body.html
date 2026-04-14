@@ -1,0 +1,302 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e2e0fc; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c8c5cd; }
+    </style>
+
+
+
+
+<main class="h-screen flex">
+
+<div class="flex-1 flex flex-col overflow-hidden">
+
+<div class="px-8 py-4 flex justify-between items-center bg-surface-bright">
+<nav class="flex items-center gap-2 text-xs text-slate-400 mb-2">
+<span>售後服務</span>
+<span class="material-symbols-outlined text-[10px]" data-icon="chevron_right">chevron_right</span>
+<span class="text-on-surface">車間管理</span>
+</nav>
+<div class="flex gap-3">
+<div class="flex items-center bg-white rounded-lg px-3 py-1.5 shadow-sm text-sm border border-slate-100">
+<span class="material-symbols-outlined text-lg mr-2 text-slate-400" data-icon="calendar_today">calendar_today</span>
+<span>2024年5月24日</span>
+</div>
+<select class="bg-white rounded-lg px-3 py-1.5 shadow-sm text-sm border border-slate-100 focus:ring-tertiary">
+<option>所有技師</option>
+<option>引擎維修組</option>
+<option>電控系統組</option>
+<option>車架懸吊組</option>
+</select>
+<select class="bg-white rounded-lg px-3 py-1.5 shadow-sm text-sm border border-slate-100 focus:ring-tertiary">
+<option>所有作業類型</option>
+<option>年度保養 (Annual Service)</option>
+<option>Desmo Service</option>
+<option>一般維修</option>
+</select>
+</div>
+</div>
+
+<div class="flex-1 p-6 overflow-x-auto">
+<div class="flex gap-6 h-full min-w-[1200px]">
+
+<div class="flex-1 flex flex-col min-w-[280px]">
+<div class="flex items-center justify-between mb-4 px-2">
+<h3 class="font-headline font-bold text-slate-500 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                            待派工 <span class="text-xs bg-slate-100 px-2 py-0.5 rounded-full">4</span>
+</h3>
+<button class="material-symbols-outlined text-slate-400" data-icon="more_horiz">more_horiz</button>
+</div>
+<div class="flex-1 space-y-4 overflow-y-auto pb-4 scrollbar-hide">
+
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm border border-transparent hover:border-tertiary-container/30 transition-all group">
+<div class="flex justify-between items-start mb-3">
+<span class="text-[10px] font-bold bg-error-container text-on-error-container px-2 py-0.5 rounded">URGENT</span>
+<span class="text-xs text-slate-400 font-mono">WO-99201</span>
+</div>
+<h4 class="font-bold text-sm mb-1">林曉明 / Panigale V4 S</h4>
+<p class="text-xs text-slate-500 mb-4">Desmo Service (2.4萬公里)</p>
+<div class="flex items-center justify-between">
+<span class="text-xs font-semibold text-tertiary flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span> 4.5h
+                                </span>
+<button class="bg-primary text-white text-[11px] px-4 py-1.5 rounded-lg group-hover:bg-tertiary transition-colors">派工</button>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm border border-transparent hover:border-tertiary-container/30 transition-all">
+<div class="flex justify-between items-start mb-3">
+<span class="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">NORMAL</span>
+<span class="text-xs text-slate-400 font-mono">WO-99205</span>
+</div>
+<h4 class="font-bold text-sm mb-1">王小華 / Monster SP</h4>
+<p class="text-xs text-slate-500 mb-4">快排系統校準</p>
+<div class="flex items-center justify-between">
+<span class="text-xs font-semibold text-tertiary flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span> 1.0h
+                                </span>
+<button class="bg-primary text-white text-[11px] px-4 py-1.5 rounded-lg transition-colors">派工</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="flex-1 flex flex-col min-w-[280px]">
+<div class="flex items-center justify-between mb-4 px-2">
+<h3 class="font-headline font-bold text-blue-600 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                            施工中 <span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">6</span>
+</h3>
+</div>
+<div class="flex-1 space-y-4 overflow-y-auto pb-4">
+
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+<div class="flex justify-between items-start mb-3">
+<span class="text-xs text-blue-600 font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-sm animate-pulse" data-icon="hourglass_top">hourglass_top</span> 01:45
+                                </span>
+<span class="text-xs text-slate-400 font-mono">WO-99180</span>
+</div>
+<h4 class="font-bold text-sm mb-1">陳建國 / Multistrada V4 Rally</h4>
+<div class="flex items-center gap-2 mb-3">
+<div class="w-6 h-6 rounded-full overflow-hidden bg-slate-100 border border-slate-200">
+<img class="w-full h-full object-cover" data-alt="professional technician in workshop uniform with expert expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCi77upe1s_lwWAG1yR6y71JWhdsMHbhvmAMrDWKEgKMcugzMyhh1s-qrLgfQ2-7MuWdnpNbeRe0esl5GT0xJWetJfJHKrIhGKE_sodR1FbpTWWIYEBGifnAZieNS6IUx7VAFecmrdpUpzoYuRL-IzGP_yKcGjiwybysEXrvHjqc0ezyZ1IdKbBR8_KsA9jC-Hqa9lhobdoxtBugvhclOm210qg05uU9jqeY2f_1S4CGpnrwLcNcRu94j2wlq85YImm432iqAaTk0A"/>
+</div>
+<span class="text-xs text-slate-600">李技師</span>
+</div>
+<div class="w-full bg-slate-100 h-1.5 rounded-full mb-2 overflow-hidden">
+<div class="bg-blue-500 h-full w-[45%]"></div>
+</div>
+<p class="text-[10px] text-slate-400">電子懸吊設定、鍊條清洗與上蠟...</p>
+</div>
+</div>
+</div>
+
+<div class="flex-1 flex flex-col min-w-[280px]">
+<div class="flex items-center justify-between mb-4 px-2">
+<h3 class="font-headline font-bold text-amber-600 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                            待檢查 <span class="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">2</span>
+</h3>
+</div>
+<div class="flex-1 space-y-4 overflow-y-auto pb-4">
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm">
+<div class="flex justify-between mb-3">
+<span class="text-xs text-amber-600 font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="check_circle">check_circle</span> 技師自檢完成
+                                </span>
+<span class="text-xs text-slate-400 font-mono">WO-99175</span>
+</div>
+<h4 class="font-bold text-sm mb-4">張大為 / Diavel V4</h4>
+<div class="relative">
+<select class="w-full text-xs py-2 pl-3 pr-8 rounded-lg bg-slate-50 border-none appearance-none focus:ring-amber-500">
+<option>指派品管...</option>
+<option>黃主長</option>
+<option>陳經理</option>
+</select>
+<span class="absolute right-2 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400 pointer-events-none" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+
+<div class="flex-1 flex flex-col min-w-[280px]">
+<div class="flex items-center justify-between mb-4 px-2">
+<h3 class="font-headline font-bold text-purple-600 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                            品管中 <span class="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">1</span>
+</h3>
+</div>
+<div class="flex-1 space-y-4 overflow-y-auto pb-4">
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm border border-purple-100">
+<div class="flex justify-between mb-3">
+<span class="text-xs text-purple-600 font-bold">檢查員：黃主長</span>
+<span class="text-xs text-slate-400 font-mono">WO-99162</span>
+</div>
+<h4 class="font-bold text-sm mb-2">周杰倫 / Streetfighter V4 SP2</h4>
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-purple-500 text-lg" data-icon="fact_check">fact_check</span>
+<span class="text-xs font-semibold">5/6 項目通過</span>
+</div>
+<button class="w-full py-2 bg-error/10 text-error text-xs font-bold rounded-lg hover:bg-error hover:text-white transition-all">
+                                返工 (Re-work)
+                            </button>
+</div>
+</div>
+</div>
+
+<div class="flex-1 flex flex-col min-w-[280px]">
+<div class="flex items-center justify-between mb-4 px-2">
+<h3 class="font-headline font-bold text-green-600 flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+                            已完工 <span class="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">3</span>
+</h3>
+</div>
+<div class="flex-1 space-y-4 overflow-y-auto pb-4">
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm">
+<div class="flex justify-between mb-3">
+<span class="text-[10px] text-slate-400">完成於 14:30</span>
+<span class="text-xs text-slate-400 font-mono">WO-99150</span>
+</div>
+<h4 class="font-bold text-sm mb-4">蔡依林 / DesertX</h4>
+<button class="w-full py-2 bg-green-600 text-white text-xs font-bold rounded-lg transition-all active:scale-95">
+                                送結算
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<aside class="w-80 bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.02)] z-30 p-6 flex flex-col">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-headline font-bold text-lg">技師狀態</h3>
+<span class="material-symbols-outlined text-slate-400 cursor-pointer" data-icon="filter_list">filter_list</span>
+</div>
+<div class="flex-1 space-y-6 overflow-y-auto pr-2">
+
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 overflow-hidden ring-2 ring-blue-500 ring-offset-2">
+<img class="w-full h-full object-cover" data-alt="professional male technician smiling friendly in industrial garage setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRCKCEofiFe22_vacSz_rsW1ahjr-0yKFU9qD3eKG6Xkx16I6AqbewSpz6LYlWZatPkcJ-15LOMOO96P_mpw2VYY9s0foZbJIaDMnKoEdmJ5PxewjUSjFzRowZEwQZj2BTW0xmDRRzUwEj3PkXzHbkaMZokVUQuXergqvNeyJfXJ0GTi3aMlcYcJU8LtdyuzaKBuZ4utN0UUDimdIBhBGbabemkAET5iOcUknOx0JYDBUH5NAwOxEVbdgX8eWY1-a3wufI4xpUss4"/>
+</div>
+<div>
+<p class="text-sm font-bold">李技師</p>
+<p class="text-[10px] text-blue-500 font-medium uppercase tracking-wider">施工中</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold">5.5 / 8h</p>
+<p class="text-[10px] text-slate-400">負荷 68%</p>
+</div>
+</div>
+<div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-[#C9A84C] w-[68%]"></div>
+</div>
+</div>
+
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 overflow-hidden ring-2 ring-transparent">
+<img class="w-full h-full object-cover" data-alt="focused asian technical expert in clean uniform" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD46gukEJDlVhIfkrqOSk9j1EB-Mo-XNIeYhSf0YrI1BTf5eh_-Apxy40ZwNlS37mP3qnlt20nXcyIYfcokAQEr-b361nqurJfpxAn9-ly3tJ4FoThBohMcpQJOMj_tghltFxGpFjIKcvQH3PEFuF6yGqcfrVdsc2o8UYXIN9wVMQq3IAruMLcDq_YH9hIymYhGHCkXQ5TCKMQpWa3vo9D2iefKk6uxVIo7AnzZahJs7M-H9JOCAmQk9VhOW_ozq3X6kuCcVTb1yus"/>
+</div>
+<div>
+<p class="text-sm font-bold">張技師</p>
+<p class="text-[10px] text-amber-500 font-medium uppercase tracking-wider">待命</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold">7.0 / 8h</p>
+<p class="text-[10px] text-slate-400">負荷 87%</p>
+</div>
+</div>
+<div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-[#C9A84C] w-[87%]"></div>
+</div>
+</div>
+
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="smiling technician looking at camera in a high end automotive service center" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_eryfKVZOZ072OFQe1FMRfW1LnV3K9J37WkggDpMHcQNUDBp6Y7blzggf3Ko_y_fcXnpdSA5iqw0KMhfd-zvLERe4eWFStqqib8pJzw_97_njZt3Uuz44sCUjvLB7Xq1ZVPZhclYJLl4klGgcjHEtCZYGRUqnVgWjNpiOWq7B8oNEvD3Ebx9MmiTb2bWKKcfAkudDVle3pcXxuZ6P4O5A_oQIZmvU68C-5zch9TB80aIl4CAPm_4rGqCLPWeNIFj3uqa2jzEp8VA"/>
+</div>
+<div>
+<p class="text-sm font-bold">王技師</p>
+<p class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">休息</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold">3.5 / 8h</p>
+<p class="text-[10px] text-slate-400">負荷 43%</p>
+</div>
+</div>
+<div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-[#C9A84C] w-[43%]"></div>
+</div>
+</div>
+
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 overflow-hidden ring-2 ring-blue-500 ring-offset-2">
+<img class="w-full h-full object-cover" data-alt="experienced male lead technician portrait with industrial blurred background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmYPIcAjQk58LX1T4FxvLO3HlEEX10ih6kYPAAq8uop91udiZANvP60bUY9EzNW8uhqTNa1mLaxuH4k7yaGOyZvatGPdwvN09HtNU06xh-DMFcOp7M2HvpGRQJExKcF-xmOm1pik4UJJIJSHAOqKSiNvyXI2-GT6uaOjuvMVXKJcXy1uo07J0ru1_Hm7T_bE0WcV7t-mgh2nVDwEb1QDrfkLrC-Ra2PUDCr8mjlzSJGi-U0SpL_ymEJhcSLMJQKYjikUNAGlwym8g"/>
+</div>
+<div>
+<p class="text-sm font-bold">陳技師</p>
+<p class="text-[10px] text-blue-500 font-medium uppercase tracking-wider">施工中</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold">4.0 / 8h</p>
+<p class="text-[10px] text-slate-400">負荷 50%</p>
+</div>
+</div>
+<div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-[#C9A84C] w-[50%]"></div>
+</div>
+</div>
+</div>
+
+<div class="mt-8 pt-6 border-t border-slate-100">
+<div class="bg-primary-container p-5 rounded-2xl text-white">
+<p class="text-xs text-slate-400 mb-1">今日總利用率</p>
+<h4 class="text-2xl font-headline font-bold text-[#C9A84C]">74.5%</h4>
+<p class="text-[10px] text-slate-400 mt-2">較昨日增長 4.2%</p>
+</div>
+</div>
+</aside>
+</main>
+
+<button class="fixed bottom-8 right-[360px] flex items-center gap-2 bg-[#C9A84C] text-primary-container font-bold px-6 py-4 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+<span>新增派工</span>
+</button>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>人員管理 - LEXUS ATELIER</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#c9a84c",
+                        "on-tertiary-fixed": "#241a00",
+                        "primary-container": "#1a1a2e",
+                        "inverse-surface": "#2f2e43",
+                        "on-surface": "#1a1a2e",
+                        "surface-container-low": "#f5f2ff",
+                        "secondary": "#5d5f5f",
+                        "tertiary": "#755b00",
+                        "primary-fixed-dim": "#c6c4df",
+                        "outline-variant": "#c8c5cd",
+                        "secondary-container": "#dcdddd",
+                        "surface-container-high": "#e8e5ff",
+                        "on-primary-fixed": "#1a1a2e",
+                        "surface-variant": "#e2e0fc",
+                        "outline": "#78767d",
+                        "on-tertiary-container": "#503d00",
+                        "surface-dim": "#dad7f3",
+                        "primary": "#00000b",
+                        "on-tertiary": "#ffffff",
+                        "background": "#fcf8ff",
+                        "surface": "#fcf8ff",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-primary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "on-background": "#1a1a2e",
+                        "error-container": "#ffdad6",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#47464c",
+                        "inverse-on-surface": "#f2efff",
+                        "inverse-primary": "#c6c4df",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#ffe08f",
+                        "surface-container-highest": "#e2e0fc",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-primary-container": "#83829b",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "primary-fixed": "#e2e0fc",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "surface-container": "#efecff",
+                        "on-primary-fixed-variant": "#45455b",
+                        "surface-bright": "#fcf8ff",
+                        "secondary-fixed": "#e2e2e2",
+                        "surface-tint": "#5d5c74",
+                        "on-secondary-container": "#5f6161"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface flex overflow-hidden">
+<!-- Shared SideNavBar -->
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-surface">
+<!-- Shared TopNavBar -->
+<!-- Scrollable Content -->
+<div class="mt-20 flex-1 overflow-auto flex">
+<!-- Table Section -->
+<div class="flex-1 p-8">
+<!-- Breadcrumbs & Stats -->
+<nav class="text-xs text-slate-400 mb-2 font-medium">
+                    管理後台 &gt; 人員管理
+                </nav>
+<div class="flex justify-between items-end mb-8">
+<div>
+<h3 class="text-3xl font-bold tracking-tight text-primary">人員管理</h3>
+<p class="text-slate-500 text-sm mt-1">共 42 位成員</p>
+</div>
+<div class="flex gap-3">
+<select class="bg-surface-container-low border-none rounded-lg text-sm px-4 py-2.5 focus:ring-1 focus:ring-[#C9A84C] outline-none">
+<option>所有部門</option>
+<option>NC新車</option>
+<option>AS售後</option>
+<option>BDC電銷</option>
+</select>
+<select class="bg-surface-container-low border-none rounded-lg text-sm px-4 py-2.5 focus:ring-1 focus:ring-[#C9A84C] outline-none">
+<option>所有角色</option>
+<option>門店管理員</option>
+<option>銷售主管</option>
+<option>一般人員</option>
+</select>
+<button class="bg-primary text-white px-6 py-2.5 rounded-lg flex items-center gap-2 text-sm font-semibold hover:brightness-125 transition-all">
+<span class="material-symbols-outlined text-lg">add</span>
+                            新增人員
+                        </button>
+</div>
+</div>
+<!-- Bento Style Data Table Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.02)] overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant uppercase text-[11px] font-bold tracking-widest">
+<th class="px-6 py-4">人員</th>
+<th class="px-6 py-4">部門</th>
+<th class="px-6 py-4">職務</th>
+<th class="px-6 py-4">角色權限</th>
+<th class="px-6 py-4">狀態</th>
+<th class="px-6 py-4">最後登入</th>
+<th class="px-6 py-4 text-right">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-low">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors group cursor-pointer">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-primary-container flex items-center justify-center text-white text-sm font-bold">王</div>
+<div>
+<div class="font-semibold text-primary">王建明</div>
+<div class="text-[11px] text-slate-400">j.wang@lexus.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-blue-50 text-blue-600 text-[11px] font-bold rounded-md">NC新車</span></td>
+<td class="px-6 py-4 text-sm text-slate-600 font-medium">銷售顧問</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-md">一般人員</span></td>
+<td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-full"><span class="h-1.5 w-1.5 bg-emerald-500 rounded-full"></span>在職</span></td>
+<td class="px-6 py-4 text-xs text-slate-400">2023/10/24 09:15</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="p-1.5 hover:bg-white rounded-lg text-slate-400 hover:text-primary transition-all"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-1.5 hover:bg-white rounded-lg text-slate-400 hover:text-error transition-all"><span class="material-symbols-outlined text-lg">block</span></button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-tertiary flex items-center justify-center text-white text-sm font-bold">李</div>
+<div>
+<div class="font-semibold text-primary">李淑芬</div>
+<div class="text-[11px] text-slate-400">s.lee@lexus.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-amber-50 text-amber-600 text-[11px] font-bold rounded-md">BDC電銷</span></td>
+<td class="px-6 py-4 text-sm text-slate-600 font-medium">服務經理</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-blue-100 text-blue-600 text-[11px] font-bold rounded-md">銷售主管</span></td>
+<td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-full"><span class="h-1.5 w-1.5 bg-emerald-500 rounded-full"></span>在職</span></td>
+<td class="px-6 py-4 text-xs text-slate-400">2023/10/24 10:42</td>
+<td class="px-6 py-4 text-right space-x-2"><button class="p-1.5 text-slate-400"><span class="material-symbols-outlined text-lg">edit</span></button></td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-white text-sm font-bold">張</div>
+<div>
+<div class="font-semibold text-primary">張大偉</div>
+<div class="text-[11px] text-slate-400">d.chang@lexus.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-md">AS售後</span></td>
+<td class="px-6 py-4 text-sm text-slate-600 font-medium">維修技師</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-md">一般人員</span></td>
+<td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-1 bg-amber-50 text-amber-600 text-[11px] font-bold rounded-full"><span class="h-1.5 w-1.5 bg-amber-500 rounded-full"></span>休假</span></td>
+<td class="px-6 py-4 text-xs text-slate-400">2023/10/22 17:30</td>
+<td class="px-6 py-4 text-right space-x-2"><button class="p-1.5 text-slate-400"><span class="material-symbols-outlined text-lg">edit</span></button></td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-indigo-900 flex items-center justify-center text-white text-sm font-bold">陳</div>
+<div>
+<div class="font-semibold text-primary">陳美玲</div>
+<div class="text-[11px] text-slate-400">m.chen@lexus.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-slate-100 text-slate-600 text-[11px] font-bold rounded-md">管理部</span></td>
+<td class="px-6 py-4 text-sm text-slate-600 font-medium">前台接待</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-md">一般人員</span></td>
+<td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-full"><span class="h-1.5 w-1.5 bg-emerald-500 rounded-full"></span>在職</span></td>
+<td class="px-6 py-4 text-xs text-slate-400">2023/10/24 08:55</td>
+<td class="px-6 py-4 text-right space-x-2"><button class="p-1.5 text-slate-400"><span class="material-symbols-outlined text-lg">edit</span></button></td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors bg-surface-container-low/10">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-[#1A1A2E] flex items-center justify-center text-white text-sm font-bold">林</div>
+<div>
+<div class="font-semibold text-primary">林志豪</div>
+<div class="text-[11px] text-slate-400">c.lin@lexus.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-slate-100 text-slate-600 text-[11px] font-bold rounded-md">管理部</span></td>
+<td class="px-6 py-4 text-sm text-slate-600 font-medium font-bold">門店經理</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-purple-100 text-purple-600 text-[11px] font-bold rounded-md">門店管理員</span></td>
+<td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-full"><span class="h-1.5 w-1.5 bg-emerald-500 rounded-full"></span>在職</span></td>
+<td class="px-6 py-4 text-xs text-slate-400">2023/10/24 08:00</td>
+<td class="px-6 py-4 text-right space-x-2"><button class="p-1.5 text-slate-400"><span class="material-symbols-outlined text-lg">edit</span></button></td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-slate-400 flex items-center justify-center text-white text-sm font-bold">黃</div>
+<div>
+<div class="font-semibold text-primary">黃雅琪</div>
+<div class="text-[11px] text-slate-400">y.huang@lexus.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-amber-50 text-amber-600 text-[11px] font-bold rounded-md">BDC電銷</span></td>
+<td class="px-6 py-4 text-sm text-slate-600 font-medium">電銷專員</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-md">一般人員</span></td>
+<td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-full"><span class="h-1.5 w-1.5 bg-emerald-500 rounded-full"></span>在職</span></td>
+<td class="px-6 py-4 text-xs text-slate-400">2023/10/23 16:15</td>
+<td class="px-6 py-4 text-right space-x-2"><button class="p-1.5 text-slate-400"><span class="material-symbols-outlined text-lg">edit</span></button></td>
+</tr>
+<!-- Row 7 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-blue-900 flex items-center justify-center text-white text-sm font-bold">劉</div>
+<div>
+<div class="font-semibold text-primary">劉宗翰</div>
+<div class="text-[11px] text-slate-400">t.liu@lexus.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-blue-50 text-blue-600 text-[11px] font-bold rounded-md">NC新車</span></td>
+<td class="px-6 py-4 text-sm text-slate-600 font-medium">金融專員</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-md">一般人員</span></td>
+<td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-full"><span class="h-1.5 w-1.5 bg-emerald-500 rounded-full"></span>在職</span></td>
+<td class="px-6 py-4 text-xs text-slate-400">2023/10/24 11:20</td>
+<td class="px-6 py-4 text-right space-x-2"><button class="p-1.5 text-slate-400"><span class="material-symbols-outlined text-lg">edit</span></button></td>
+</tr>
+<!-- Row 8 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors opacity-60">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-sm font-bold">吳</div>
+<div>
+<div class="font-semibold text-primary">吳佩珊</div>
+<div class="text-[11px] text-slate-400">p.wu@lexus.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-emerald-50 text-emerald-600 text-[11px] font-bold rounded-md">AS售後</span></td>
+<td class="px-6 py-4 text-sm text-slate-600 font-medium">配件專員</td>
+<td class="px-6 py-4"><span class="px-2 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-md">一般人員</span></td>
+<td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-full"><span class="h-1.5 w-1.5 bg-slate-400 rounded-full"></span>離職</span></td>
+<td class="px-6 py-4 text-xs text-slate-400">2023/09/30 18:00</td>
+<td class="px-6 py-4 text-right space-x-2"><button class="p-1.5 text-slate-400"><span class="material-symbols-outlined text-lg">edit</span></button></td>
+</tr>
+</tbody>
+</table>
+<!-- Pagination -->
+<div class="px-6 py-4 bg-surface-container-low/20 flex justify-between items-center">
+<span class="text-xs text-slate-500">顯示第 1 到 8 位成員，共 42 位</span>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white text-slate-400"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-md">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white text-slate-600 text-xs">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white text-slate-600 text-xs">3</button>
+<span class="w-8 h-8 flex items-center justify-center text-slate-400 text-xs">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white text-slate-600 text-xs">6</button>
+<button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white text-slate-400"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Detail Panel (Open) -->
+<div class="w-80 bg-surface-container-low border-l border-surface-variant flex flex-col p-6 animate-in slide-in-from-right duration-300">
+<div class="flex justify-between items-center mb-8">
+<h4 class="font-bold text-primary tracking-tight">成員詳細資訊</h4>
+<button class="p-1 hover:bg-surface-variant rounded-full text-slate-400"><span class="material-symbols-outlined">close</span></button>
+</div>
+<!-- Profile Card -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl shadow-sm mb-6">
+<div class="flex flex-col items-center text-center mb-6">
+<div class="h-20 w-20 rounded-full bg-primary-container flex items-center justify-center text-white text-2xl font-bold mb-4 shadow-lg ring-4 ring-white">王</div>
+<h5 class="text-xl font-bold text-primary mb-1">王建明</h5>
+<p class="text-xs text-slate-500 font-medium">員工編號: LX-0482</p>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs text-slate-400">部門</span>
+<span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">NC新車</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs text-slate-400">職務</span>
+<span class="text-xs font-semibold text-primary">銷售顧問</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs text-slate-400">角色</span>
+<span class="text-xs font-semibold text-slate-500">一般人員</span>
+</div>
+<div class="pt-4 border-t border-surface-container-low">
+<p class="text-[11px] text-slate-400 mb-1">聯絡電子郵件</p>
+<p class="text-xs font-medium text-primary break-all">j.wang@lexus.com</p>
+</div>
+</div>
+</div>
+<!-- Activity Log -->
+<div class="flex-1">
+<div class="flex justify-between items-center mb-4 px-2">
+<span class="text-xs font-bold text-primary uppercase tracking-widest">近期動態</span>
+<a class="text-[10px] font-bold text-tertiary" href="#">查看全部</a>
+</div>
+<div class="space-y-4 px-2">
+<div class="relative pl-6 pb-4">
+<div class="absolute left-0 top-1 w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-50"></div>
+<div class="absolute left-[3.5px] top-4 bottom-0 w-[1px] bg-slate-200"></div>
+<p class="text-xs font-bold text-primary mb-0.5">登入系統</p>
+<p class="text-[10px] text-slate-400">今天 09:15 AM</p>
+</div>
+<div class="relative pl-6 pb-4">
+<div class="absolute left-0 top-1 w-2 h-2 rounded-full bg-slate-300 ring-4 ring-slate-50"></div>
+<div class="absolute left-[3.5px] top-4 bottom-0 w-[1px] bg-slate-200"></div>
+<p class="text-xs font-bold text-primary mb-0.5">更新客戶車型規格 (RX 350h)</p>
+<p class="text-[10px] text-slate-400">昨天 16:42 PM</p>
+</div>
+<div class="relative pl-6">
+<div class="absolute left-0 top-1 w-2 h-2 rounded-full bg-slate-300 ring-4 ring-slate-50"></div>
+<p class="text-xs font-bold text-primary mb-0.5">提交月度銷售進度</p>
+<p class="text-[10px] text-slate-400">2023/10/22 14:00 PM</p>
+</div>
+</div>
+</div>
+<div class="mt-auto grid grid-cols-2 gap-3 pt-6 border-t border-surface-variant">
+<button class="bg-surface-container-highest text-primary text-xs font-bold py-2.5 rounded-lg hover:bg-surface-variant transition-all">重設密碼</button>
+<button class="bg-primary text-white text-xs font-bold py-2.5 rounded-lg hover:brightness-125 transition-all">編輯檔案</button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

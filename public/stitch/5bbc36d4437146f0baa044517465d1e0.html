@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DealerOS | 展廳看板</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "on-background": "#1a1a2e",
+                        "on-tertiary-fixed": "#241a00",
+                        "outline": "#78767d",
+                        "tertiary-fixed": "#ffe08f",
+                        "tertiary": "#755b00",
+                        "error": "#ba1a1a",
+                        "inverse-on-surface": "#f2efff",
+                        "surface-container-low": "#f5f2ff",
+                        "on-secondary-fixed-variant": "#454747",
+                        "surface-variant": "#e2e0fc",
+                        "primary-fixed": "#e2e0fc",
+                        "surface-bright": "#fcf8ff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "background": "#fcf8ff",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "secondary-container": "#dcdddd",
+                        "primary": "#00000b",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "outline-variant": "#c8c5cd",
+                        "on-tertiary-container": "#503d00",
+                        "on-secondary-container": "#5f6161",
+                        "on-surface-variant": "#47464c",
+                        "on-primary-fixed-variant": "#45455b",
+                        "surface-container-high": "#e8e5ff",
+                        "secondary-fixed": "#e2e2e2",
+                        "primary-container": "#1a1a2e",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#c9a84c",
+                        "on-surface": "#1a1a2e",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#5d5f5f",
+                        "on-primary-container": "#83829b",
+                        "surface-dim": "#dad7f3",
+                        "inverse-surface": "#2f2e43",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#c6c4df",
+                        "primary-fixed-dim": "#c6c4df",
+                        "surface-tint": "#5d5c74",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-highest": "#e2e0fc",
+                        "on-primary-fixed": "#1a1a2e",
+                        "surface-container": "#efecff",
+                        "surface": "#fcf8ff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .funnel-step {
+            clip-path: polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%, 10% 50%);
+        }
+        .funnel-step:first-child {
+            clip-path: polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- SideNavBar Shell -->
+<!-- Main Content Wrapper -->
+<main class="min-h-screen">
+<!-- TopNavBar Shell -->
+<!-- Dashboard Content -->
+<div class="p-8 space-y-8">
+<!-- KPI Summary Cards -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<!-- New Leads -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
+<p class="text-on-surface-variant text-sm font-label mb-2">新增線索</p>
+<div class="flex items-end justify-between">
+<span class="text-4xl font-extrabold text-primary">12</span>
+<span class="flex items-center text-success-container text-green-600 font-bold text-sm mb-1">
+<span class="material-symbols-outlined text-sm mr-1">trending_up</span>
+                            2
+                        </span>
+</div>
+</div>
+<!-- Today's Appointments -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
+<p class="text-on-surface-variant text-sm font-label mb-2">今日預約</p>
+<div class="flex items-end justify-between">
+<span class="text-4xl font-extrabold text-primary">8</span>
+<span class="flex items-center text-error font-bold text-sm mb-1">
+<span class="material-symbols-outlined text-sm mr-1">trending_down</span>
+                            1
+                        </span>
+</div>
+</div>
+<!-- Monthly Sales -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
+<div class="flex justify-between items-center mb-2">
+<p class="text-on-surface-variant text-sm font-label">本月成交</p>
+<span class="text-xs font-bold text-tertiary">40%</span>
+</div>
+<div class="flex items-end gap-2 mb-3">
+<span class="text-4xl font-extrabold text-primary">4</span>
+<span class="text-on-surface-variant mb-1 font-label">/ 10</span>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary-container to-tertiary-container" style="width: 40%"></div>
+</div>
+</div>
+<!-- Pending Tasks -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border border-outline-variant/10">
+<p class="text-on-surface-variant text-sm font-label mb-2">待處理事項</p>
+<div class="flex items-center gap-4">
+<span class="text-4xl font-extrabold text-primary">6</span>
+<span class="bg-error-container text-on-error-container text-[10px] px-2 py-0.5 rounded font-bold uppercase">Critical</span>
+</div>
+</div>
+</section>
+<!-- Middle Section: Funnel & Schedule -->
+<section class="grid grid-cols-1 lg:grid-cols-10 gap-8">
+<!-- Sales Funnel (60%) -->
+<div class="lg:col-span-6 bg-surface-container-low p-8 rounded-xl">
+<div class="flex justify-between items-center mb-10">
+<h3 class="text-xl font-bold text-primary">銷售漏斗概覽</h3>
+<button class="text-tertiary text-sm font-medium hover:underline">查看詳細分析</button>
+</div>
+<div class="flex items-stretch h-40">
+<!-- Funnel Steps -->
+<div class="flex-1 funnel-step bg-primary-container flex flex-col items-center justify-center text-white relative group cursor-help">
+<span class="text-2xl font-black mb-1">128</span>
+<span class="text-[10px] font-label opacity-70">線索</span>
+</div>
+<div class="flex-1 funnel-step bg-[#2D2D44] flex flex-col items-center justify-center text-white -ml-4 relative z-10">
+<span class="text-2xl font-black mb-1">64</span>
+<span class="text-[10px] font-label opacity-70">邀約</span>
+</div>
+<div class="flex-1 funnel-step bg-[#41415E] flex flex-col items-center justify-center text-white -ml-4 relative z-20">
+<span class="text-2xl font-black mb-1">32</span>
+<span class="text-[10px] font-label opacity-70">到店</span>
+</div>
+<div class="flex-1 funnel-step bg-[#57577A] flex flex-col items-center justify-center text-white -ml-4 relative z-30">
+<span class="text-2xl font-black mb-1">18</span>
+<span class="text-[10px] font-label opacity-70">試駕</span>
+</div>
+<div class="flex-1 funnel-step bg-tertiary-container flex flex-col items-center justify-center text-primary-container -ml-4 relative z-40">
+<span class="text-2xl font-black mb-1">4</span>
+<span class="text-[10px] font-label font-bold">成交</span>
+</div>
+</div>
+<div class="mt-8 grid grid-cols-5 gap-2 text-center">
+<div class="text-[11px] text-on-surface-variant font-medium">轉化率 50%</div>
+<div class="text-[11px] text-on-surface-variant font-medium">轉化率 50%</div>
+<div class="text-[11px] text-on-surface-variant font-medium">轉化率 56%</div>
+<div class="text-[11px] text-on-surface-variant font-medium">轉化率 22%</div>
+<div class="text-[11px] text-on-surface-variant font-medium"></div>
+</div>
+</div>
+<!-- Today's Schedule (40%) -->
+<div class="lg:col-span-4 bg-surface-container-lowest p-8 rounded-xl shadow-sm border border-outline-variant/10">
+<h3 class="text-xl font-bold text-primary mb-6">今日行程</h3>
+<div class="space-y-6">
+<!-- Appt 1 -->
+<div class="flex items-start gap-4 p-3 hover:bg-surface-container-low rounded-lg transition-colors group">
+<div class="text-center min-w-[50px]">
+<p class="text-lg font-black text-primary">10:30</p>
+<p class="text-[10px] text-on-surface-variant font-label">AM</p>
+</div>
+<div class="flex-1">
+<div class="flex justify-between">
+<h4 class="font-bold text-on-surface">王先生</h4>
+<span class="text-[10px] px-2 py-0.5 bg-tertiary-container/20 text-tertiary font-bold rounded">試駕</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1">Lexus RX 350h - 豪華版</p>
+</div>
+</div>
+<!-- Appt 2 -->
+<div class="flex items-start gap-4 p-3 hover:bg-surface-container-low rounded-lg transition-colors group">
+<div class="text-center min-w-[50px]">
+<p class="text-lg font-black text-primary">14:00</p>
+<p class="text-[10px] text-on-surface-variant font-label">PM</p>
+</div>
+<div class="flex-1">
+<div class="flex justify-between">
+<h4 class="font-bold text-on-surface">李小姐</h4>
+<span class="text-[10px] px-2 py-0.5 bg-surface-container-high text-on-surface-variant font-bold rounded">簽約</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1">Lexus NX 200 - 菁英版</p>
+</div>
+</div>
+<!-- Appt 3 -->
+<div class="flex items-start gap-4 p-3 hover:bg-surface-container-low rounded-lg transition-colors group">
+<div class="text-center min-w-[50px]">
+<p class="text-lg font-black text-primary">16:30</p>
+<p class="text-[10px] text-on-surface-variant font-label">PM</p>
+</div>
+<div class="flex-1">
+<div class="flex justify-between">
+<h4 class="font-bold text-on-surface">張先生</h4>
+<span class="text-[10px] px-2 py-0.5 bg-tertiary-container/20 text-tertiary font-bold rounded">交車</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1">Lexus ES 300h - 旗艦版</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom Section: Inventory Alerts -->
+<section>
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-xl font-bold text-primary">庫存快訊</h3>
+<div class="flex gap-2">
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+<!-- Inventory Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10 group hover:shadow-md transition-shadow">
+<div class="h-32 bg-surface-container-high relative">
+<img alt="Ducati Panigale V4 S" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="sleek modern suv car front profile in studio lighting with deep metallic paint texture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAIzx-N-mW7EhXvjk27gqAEaeNw3F-OKdpGeqFjHyxHtnsQwf9juNc4NVYAK7Ji-33ZyFL9WO7Pc9lV0Fim73S-oUbC0YehBZeO2jFA-IrwDzjDa1jNRI06TEfb3LgQUnixq3WotlqgtkU20kEjaq6wzVpD4OGm2BPDldSrNBiJd364fPukWkDqUU-boto4FI1F7pCU2Z4GUfdNHMGudKbxyl30ieWvmZ2e6UzKOm7Z1i43BXMu6pTwg5_0fgGP0zwed2hfPoJh_Dk"/>
+<span class="absolute top-2 right-2 px-2 py-1 bg-error text-white text-[10px] font-bold rounded">熱銷車型</span>
+</div>
+<div class="p-4">
+<h4 class="font-bold text-primary">Panigale V4 S</h4>
+<div class="flex justify-between items-center mt-3">
+<span class="text-xs text-on-surface-variant">在庫：2 輛</span>
+<span class="text-tertiary font-bold text-sm">現車供應</span>
+</div>
+</div>
+</div>
+<!-- Inventory Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10 group hover:shadow-md transition-shadow">
+<div class="h-32 bg-surface-container-high relative">
+<img alt="Ducati Multistrada V4 Pikes Peak" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="luxury white sedan car parked in a clean minimalist architectural environment with soft daylight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUIH05iK16OwUI5qtnJ71Zd8NOn7jr6rFIi4MC4Y0iy-24-RswpmVKHqZC7wumLNsn5SEMCc4Pnx-FSS3D0y6eZR5xgpLTSpyUCBkJr38Fa1QifdidSzr9Zzn-TFfnM29dUZebXibcV1AjhRkqqpbGOkIRVOONfTKjBddE9NK391T2y4JS7qPXeO0NJuIdUT-SB7LOPziHeL99wuOJIIpmOjJWy7ODQVgq8jPniHi7U1kqgo-H44mHkMU1ap7_iqNaJMocjmxf6Bc"/>
+<span class="absolute top-2 right-2 px-2 py-1 bg-primary-container text-white text-[10px] font-bold rounded">在庫過久</span>
+</div>
+<div class="p-4">
+<h4 class="font-bold text-primary">Multistrada V4 Pikes Peak</h4>
+<div class="flex justify-between items-center mt-3">
+<span class="text-xs text-on-surface-variant">在庫：1 輛</span>
+<span class="text-error font-bold text-sm">庫齡 &gt; 60天</span>
+</div>
+</div>
+</div>
+<!-- Inventory Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10 group hover:shadow-md transition-shadow">
+<div class="h-32 bg-surface-container-high relative">
+<img alt="Ducati Monster SP" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="compact premium suv side view showing elegant lines and designer wheels in a professional showroom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4z0eKt9jUJDLqyIQafNCfFxfCU22VJisDaru5GNzd-7-v1szYRfNULoAFOjoESky6qsXlWn8uCj0DOuWv_Er4DPjMe3GsiNjVEWYrl5coMNxT7LOQ3kS18R-lzwtjxwkQLnTQfZwZBDgbibIwxR5fC-BT-P9Q5eXisN4VIKj1s5dLBzfPQzVJxB_E_fuJ35AesHAO41YEVN0y-fiHXlywZ6tDWZv7VxFppcR0EZZOsmNH9YF3FYIfeqRxChTGDQIdUJOb20DAhzw"/>
+<span class="absolute top-2 right-2 px-2 py-1 bg-tertiary-container text-primary-container text-[10px] font-bold rounded">活動促銷</span>
+</div>
+<div class="p-4">
+<h4 class="font-bold text-primary">Monster SP</h4>
+<div class="flex justify-between items-center mt-3">
+<span class="text-xs text-on-surface-variant">在庫：5 輛</span>
+<span class="text-tertiary font-bold text-sm">低利貸款中</span>
+</div>
+</div>
+</div>
+<!-- Inventory Card 4 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10 group hover:shadow-md transition-shadow">
+<div class="h-32 bg-surface-container-high relative">
+<img alt="Ducati Diavel V4" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="close up of luxury car grill and headlight details with sharp reflections and professional bokeh" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCS9Cxa0fM6tx1hSBZlcEamHLrrD5FvxQmyb_eoL6B2sej4xTjVxJEMth-B1gFJ-tyGv_jcQbBYlbnjtVquDppcUtzvDA5WHHjEjK6NLHDWOf1-otlf5Tg6rA1_OSChTmX-Yzs9q8RkzmXswdq5CZVrOOo96WZ5p4rJIPsQRu8QlfF2w1M2BZhpv21SL3Tpd8zIUhzXHZgyUU33EZfl82qeVHsZTxHXkBnP5AvVYoulzY3NlgQCeBe-b8fYpBPoO03MhtyKVDu9eMs"/>
+</div>
+<div class="p-4">
+<h4 class="font-bold text-primary">Diavel V4</h4>
+<div class="flex justify-between items-center mt-3">
+<span class="text-xs text-on-surface-variant">在庫：1 輛</span>
+<span class="text-on-surface-variant font-bold text-sm">即將到店</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- FAB for quick action (Suppressed as per rules on dashboard, but keeping space for shell consistency if needed elsewhere) -->
+<!-- The FAB is suppressed on Dashboard screens per context rules. -->
+</body></html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-container": "#5f6161",
+                        "error-container": "#ffdad6",
+                        "primary-fixed-dim": "#c6c4df",
+                        "surface-tint": "#5d5c74",
+                        "outline-variant": "#c8c5cd",
+                        "on-primary-container": "#83829b",
+                        "on-primary-fixed": "#1a1a2e",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "outline": "#78767d",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-tertiary-fixed": "#241a00",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#1a1a2e",
+                        "surface-container-high": "#e8e5ff",
+                        "surface-variant": "#e2e0fc",
+                        "on-primary-fixed-variant": "#45455b",
+                        "tertiary": "#755b00",
+                        "surface": "#fcf8ff",
+                        "on-primary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "inverse-surface": "#2f2e43",
+                        "on-secondary-fixed-variant": "#454747",
+                        "tertiary-fixed": "#ffe08f",
+                        "surface-bright": "#fcf8ff",
+                        "inverse-on-surface": "#f2efff",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#1a1a2e",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#c9a84c",
+                        "surface-dim": "#dad7f3",
+                        "secondary": "#5d5f5f",
+                        "inverse-primary": "#c6c4df",
+                        "surface-container": "#efecff",
+                        "on-surface-variant": "#47464c",
+                        "background": "#fcf8ff",
+                        "secondary-container": "#dcdddd",
+                        "surface-container-low": "#f5f2ff",
+                        "on-surface": "#1a1a2e",
+                        "surface-container-highest": "#e2e0fc",
+                        "primary": "#00000b",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "primary-fixed": "#e2e0fc",
+                        "on-tertiary-container": "#503d00",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+        .glass-nav {
+            backdrop-filter: blur(16px);
+            background: rgba(252, 248, 255, 0.8);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex overflow-hidden">
+<!-- NavigationDrawer (Sidebar) - Locked for iPad Landscape -->
+<!-- Main Canvas -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden">
+<!-- TopAppBar -->
+<!-- Content Area: iPad Optimized Bento Grid -->
+<div class="flex-1 overflow-y-auto p-10 bg-surface">
+<div class="max-w-6xl mx-auto grid grid-cols-12 gap-8">
+<!-- Left Column: Intent & Source -->
+<div class="col-span-5 flex flex-col gap-8">
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_40px_40px_-15px_rgba(26,26,46,0.04)]">
+<div class="mb-10">
+<h2 class="font-headline text-lg font-bold mb-6 flex items-center gap-2">
+<span class="w-1.5 h-6 bg-tertiary-container rounded-full"></span>
+                                客戶判定
+                            </h2>
+<div class="grid grid-cols-2 gap-4">
+<button class="flex flex-col items-center justify-center gap-3 p-6 rounded-lg bg-surface-container-low border-2 border-transparent hover:border-tertiary-container/30 hover:bg-white transition-all group">
+<span class="material-symbols-outlined text-3xl text-primary/40 group-hover:text-tertiary-container transition-colors" data-icon="person_add">person_add</span>
+<span class="font-bold">首次來店</span>
+<span class="text-xs text-on-surface-variant">(新客)</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-3 p-6 rounded-lg bg-primary-container text-tertiary-container shadow-lg shadow-primary/20 border-2 border-tertiary-container/50">
+<span class="material-symbols-outlined text-3xl" data-icon="replay" style="font-variation-settings: 'FILL' 1;">replay</span>
+<span class="font-bold text-white">再次進店</span>
+<span class="text-xs text-white/60">(再訪)</span>
+</button>
+</div>
+</div>
+<div>
+<h2 class="font-headline text-lg font-bold mb-6 flex items-center gap-2">
+<span class="w-1.5 h-6 bg-tertiary-container rounded-full"></span>
+                                來店管道
+                            </h2>
+<div class="flex flex-wrap gap-3">
+<button class="px-6 py-3 rounded-full bg-white border border-outline-variant/30 text-on-surface-variant font-medium hover:border-tertiary-container hover:text-tertiary-container transition-all">網站預約</button>
+<button class="px-6 py-3 rounded-full bg-tertiary-container text-white font-bold shadow-md">路過進店</button>
+<button class="px-6 py-3 rounded-full bg-white border border-outline-variant/30 text-on-surface-variant font-medium hover:border-tertiary-container transition-all">電話預約</button>
+<button class="px-6 py-3 rounded-full bg-white border border-outline-variant/30 text-on-surface-variant font-medium hover:border-tertiary-container transition-all">展廳活動</button>
+<button class="px-6 py-3 rounded-full bg-white border border-outline-variant/30 text-on-surface-variant font-medium hover:border-tertiary-container transition-all">熟客介紹</button>
+<button class="px-6 py-3 rounded-full bg-white border border-outline-variant/30 text-on-surface-variant font-medium hover:border-tertiary-container transition-all">其他</button>
+</div>
+</div>
+</section>
+<!-- Decorative Branding Card -->
+<div class="relative overflow-hidden rounded-xl h-48 bg-primary-container p-8 flex flex-col justify-end">
+<div class="absolute top-0 right-0 w-full h-full opacity-30 pointer-events-none">
+<img class="w-full h-full object-cover" data-alt="Close up of a Ducati Panigale red fuel tank with carbon fiber details and premium finish" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2A8gFwSE8AFNAGYzIK3sedT9LLyTG76QP83PBsguPhtUDbD94YakQ0OUXC82JfBT26ndBuxULH_9TpFkFxbpmBbhAtXWjRdVicb2Kn0zjsNFs_O-WSS_BXmEaXRnNTBslXT6cor_AMLjAfEKlTVUbmhTZ3wwjTIUg-m1kPj6q32EMqGuCVz9nVMgqKNcuC7B5Wq_pPnblCU4Q1f59gAShOHVJuMQsrNvEUxfCccMFn5izw-W03_Kh49HxniCR7LZi7pSF7Why1Ik"/>
+</div>
+<h3 class="text-tertiary-container font-headline text-xl font-bold relative z-10">The Ducati Experience</h3>
+<p class="text-white/60 text-sm relative z-10">為每一位熱血騎士提供極致的義式工藝款待。</p>
+</div>
+</div>
+<!-- Right Column: Profiles & Selection -->
+<div class="col-span-7 flex flex-col gap-8">
+<!-- Basic Info Card -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_40px_40px_-15px_rgba(26,26,46,0.04)]">
+<h2 class="font-headline text-lg font-bold mb-6 flex items-center gap-2">
+<span class="w-1.5 h-6 bg-tertiary-container rounded-full"></span>
+                            客戶基本資料
+                        </h2>
+<div class="space-y-6">
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface/70 ml-1">姓名</label>
+<input class="w-full px-5 py-4 rounded-lg bg-surface-container-low border-none focus:ring-2 focus:ring-tertiary-container/40 transition-all text-on-surface font-medium" placeholder="請輸入姓名" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface/70 ml-1">性別</label>
+<div class="flex gap-4 p-1 bg-surface-container-low rounded-lg h-[60px]">
+<button class="flex-1 flex items-center justify-center gap-2 bg-white rounded-md shadow-sm font-bold text-primary">
+<span class="material-symbols-outlined text-xl" data-icon="male">male</span>
+                                            先生
+                                        </button>
+<button class="flex-1 flex items-center justify-center gap-2 text-on-surface-variant font-medium hover:bg-white/50 transition-colors rounded-md">
+<span class="material-symbols-outlined text-xl" data-icon="female">female</span>
+                                            女士
+                                        </button>
+</div>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-semibold text-on-surface/70 ml-1">聯絡電話</label>
+<div class="relative">
+<span class="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface/40 font-medium">+886</span>
+<input class="w-full pl-20 pr-5 py-4 rounded-lg bg-surface-container-low border-none focus:ring-2 focus:ring-tertiary-container/40 transition-all text-on-surface font-medium" placeholder="09XX-XXX-XXX" type="tel"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Consultant Assignment Card -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_40px_40px_-15px_rgba(26,26,46,0.04)]">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline text-lg font-bold flex items-center gap-2">
+<span class="w-1.5 h-6 bg-tertiary-container rounded-full"></span>
+                                銷售顧問指派
+                            </h2>
+<button class="text-tertiary font-bold text-sm hover:underline">手動選擇</button>
+</div>
+<div class="flex items-center gap-4 p-6 bg-surface-container-low rounded-xl border-l-4 border-tertiary-container">
+<div class="w-16 h-16 rounded-full overflow-hidden border-2 border-white">
+<img class="w-full h-full object-cover" data-alt="Portrait of a smiling professional male in a corporate suit" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDD4Xh3Jm75twhTyi1ffOuSdS3tdp692R7Ubq9YtbQHRdsJ-ydbhrEj0IEyeULGboPzKw7T1zWsboUpKdwcEM1aQvDYeadOMjb1nC6MiRYNGDmL2YZ6bWi7-6p5k_8cTlxYFZmDYsp51OSyCIM4RetjqntnddrLrXaJ5V9orssNGThoPoYDKlFSLcwBE3iZjM_8MbL5RH8Ij2xREIWisuIjLZ93nHZ8Qa2h5C34M_mqnx7gMNAiP6Nc03iYBDfqFI4AMVNwocZls14"/>
+</div>
+<div>
+<p class="text-xs font-bold text-tertiary uppercase tracking-wider mb-1">值班顧問 (系統自動分配)</p>
+<h4 class="text-xl font-bold text-primary">陳致遠 顧問</h4>
+<p class="text-sm text-on-surface/60">當前接待中：1 | 本月成交：8</p>
+</div>
+<div class="ml-auto">
+<span class="material-symbols-outlined text-tertiary-container text-3xl" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+</section>
+<!-- Intended Models Card -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_40px_40px_-15px_rgba(26,26,46,0.04)]">
+<h2 class="font-headline text-lg font-bold mb-6 flex items-center gap-2">
+<span class="w-1.5 h-6 bg-tertiary-container rounded-full"></span>
+                            意向重機車型
+                        </h2>
+<div class="grid grid-cols-4 gap-4">
+<div class="group cursor-pointer">
+<div class="aspect-square rounded-lg bg-surface-container-low flex items-center justify-center p-2 group-hover:bg-white border-2 border-transparent group-hover:border-tertiary-container/30 transition-all overflow-hidden relative">
+<img class="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-opacity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCeHCxTOOLDMSzsnMC0-ghcNHwpvvYnObajNwYmlnafGQE_dFQ717S1kcXNz9wTdVqtHy53NmOnyw6pakSvi4DCl5hAxPRA274s-9Ke3Z8nPYkMBDJ_RVoYr3Z-Bh1f35IAHIZvrLhYa9rlCesoHryJv8sKF7zaQgfH4Rd8IO0k93JZV6EogMJ6H0Q1hbMCmfKB9ET1hz4_jf5q_RyMq-rpb-6Fv6yN7ct3ZufLXtJIE_Y7A88BEY5vYnbSIP7DCZElafYnrKIcw-U"/>
+<span class="relative z-10 text-xl font-black text-on-surface/60 group-hover:text-tertiary-container transition-colors text-center leading-tight px-1">Panigale V4 S</span>
+</div>
+<p class="text-center mt-2 text-xs font-bold text-on-surface-variant group-hover:text-primary">Superbike</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-square rounded-lg bg-primary-container flex items-center justify-center p-2 border-2 border-tertiary-container overflow-hidden relative">
+<img class="absolute inset-0 w-full h-full object-cover opacity-30 transition-opacity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7oBKSm2ZndLEm_QvTns1G-5ryMNfemfNJAu8pFJ5UFnB_ryTU5rHSbebIvbgO_lDWqPxy2iXUSw1yAiFHD0NLRYnRWiDneXfKNev7ti53YJD9F9XcI8s8shkXecU7_Ej9bt000k9DAYCq2ClVm6frA8i6YzNg_OwPWiIre-0Uj-Lh7JjY3mtBeFk5o_zRYq32gaWtdrGByfoXDHVYczp3ab1bdvq-E6ur60L_mscISM-XGn3SCodNJ8w77ALezoI8geRkmRl5fQw"/>
+<span class="relative z-10 text-xl font-black text-tertiary-container text-center leading-tight px-1">Multistrada V4</span>
+</div>
+<p class="text-center mt-2 text-xs font-bold text-primary">Travel Adventure</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-square rounded-lg bg-surface-container-low flex items-center justify-center p-2 group-hover:bg-white border-2 border-transparent group-hover:border-tertiary-container/30 transition-all overflow-hidden relative">
+<img class="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-opacity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDQaLiC0o61RpyK8lHOKdmzE7g3UiLfj65kEHDLO_scK4seJduQ4et3gMvwYlWymfKKiKBDluT1-4jOo6it-E7VcPYWmWI1bUi3FC4aeOKk6uwWr7NBmmLsp_Kd9XGUCrYmZjLljZsnK3unhRIiFdC9el_d7oSjNQuT_8dU7a1Z2m3QNyEM2G2utMerc3ZF3ankf8R9VVKpkQojk7TciU3Hzs4YF90256cJvfvL9ELEb7Ty0rfuaWyWENNQY1G23WCdgdTOANlxxA"/>
+<span class="relative z-10 text-xl font-black text-on-surface/60 group-hover:text-tertiary-container transition-colors text-center leading-tight px-1">Monster SP</span>
+</div>
+<p class="text-center mt-2 text-xs font-bold text-on-surface-variant group-hover:text-primary">Naked Sport</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-square rounded-lg bg-surface-container-low flex items-center justify-center p-2 group-hover:bg-white border-2 border-transparent group-hover:border-tertiary-container/30 transition-all overflow-hidden relative">
+<img class="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-opacity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVaeqHzVMbpPIappsQDagY1J1sccaR0NahjVSFyG9e1KHpN1v1fiRKueUjdn-EVJpgklHc3zz0pN_yUE02pRGWmJLvMVLxMEOpR9ee2rUKtwpJm5EbnuW0ziNMYztOuGiIuhh7rlqule2UeiM5KMuPjBmHojc4Z6RI0PkKoNH77NMNfIcNOA8dRx_eTAak_3vHHZ5vgNeMZifqvXsOtep-pS-3D4kQmn8ss8bv4Eko2DXIC18XZcSZYW1qGJy7U6aGkLLknoLWMxc"/>
+<span class="relative z-10 text-xl font-black text-on-surface/60 group-hover:text-tertiary-container transition-colors text-center leading-tight px-1">Diavel V4</span>
+</div>
+<p class="text-center mt-2 text-xs font-bold text-on-surface-variant group-hover:text-primary">Mega Cruiser</p>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+<!-- Progress Indicator (Optional Subtle Feedback) -->
+<div class="px-10 py-4 bg-white/50 border-t border-surface-container-low flex justify-end items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span>
+<span class="text-xs font-bold text-on-surface/40 uppercase tracking-tighter">Required Fields Completed: 3/4</span>
+</div>
+<div class="w-48 h-1.5 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-container w-3/4 rounded-full"></div>
+</div>
+</div>
+</main>
+</body></html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>集團管理 — 數據看板</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#755b00",
+                        "error-container": "#ffdad6",
+                        "outline": "#78767d",
+                        "surface-variant": "#e2e0fc",
+                        "primary-fixed": "#e2e0fc",
+                        "surface-bright": "#fcf8ff",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "outline-variant": "#c8c5cd",
+                        "on-secondary-container": "#5f6161",
+                        "on-error": "#ffffff",
+                        "surface-container-high": "#e8e5ff",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#c9a84c",
+                        "secondary": "#5d5f5f",
+                        "on-tertiary-container": "#503d00",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "inverse-surface": "#2f2e43",
+                        "surface-dim": "#dad7f3",
+                        "on-primary-fixed-variant": "#45455b",
+                        "on-secondary-fixed-variant": "#454747",
+                        "inverse-primary": "#c6c4df",
+                        "surface-tint": "#5d5c74",
+                        "background": "#fcf8ff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "surface-container-low": "#f5f2ff",
+                        "primary-fixed-dim": "#c6c4df",
+                        "secondary-container": "#dcdddd",
+                        "primary": "#00000b",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#1a1a2e",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "surface-container": "#efecff",
+                        "inverse-on-surface": "#f2efff",
+                        "primary-container": "#1a1a2e",
+                        "surface-container-highest": "#e2e0fc",
+                        "on-background": "#1a1a2e",
+                        "on-primary-container": "#83829b",
+                        "tertiary-fixed": "#ffe08f",
+                        "on-tertiary-fixed": "#241a00",
+                        "on-surface-variant": "#47464c",
+                        "on-surface": "#1a1a2e",
+                        "surface": "#fcf8ff",
+                        "surface-container-lowest": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- SideNavBar -->
+<!-- Main Content Area -->
+<main class="min-h-screen">
+<!-- TopNavBar -->
+<!-- Page Header & Brand Selector -->
+<div class="px-8 py-8">
+<div class="flex justify-between items-end mb-8">
+<div>
+<h2 class="text-3xl font-bold font-headline text-primary mb-2">集團管理 — 數據看板</h2>
+<p class="text-on-surface-variant text-sm">數據更新至：2023年11月24日 14:30</p>
+</div>
+<div class="flex bg-surface-container-low p-1 rounded-xl shadow-inner">
+<button class="px-6 py-2 rounded-lg text-sm font-medium text-on-surface-variant hover:text-primary transition-all">全集團</button>
+<button class="px-6 py-2 rounded-lg text-sm font-bold bg-primary text-on-primary shadow-lg transition-all">LEXUS</button>
+<button class="px-6 py-2 rounded-lg text-sm font-medium text-on-surface-variant hover:text-primary transition-all">TOYOTA</button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Left Section: KPIs (8 cols) -->
+<div class="col-span-12 lg:col-span-8 space-y-6">
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex justify-between items-center mb-8">
+<h3 class="text-xl font-bold font-headline flex items-center gap-2">
+<span class="w-1 h-6 bg-tertiary-container rounded-full"></span>
+                                本月銷售概況
+                            </h3>
+<button class="text-tertiary font-semibold text-sm flex items-center gap-1">
+                                查看詳細報表 <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<!-- KPI 1 -->
+<div class="p-6 rounded-xl bg-surface-container-low flex flex-col items-center justify-center text-center">
+<p class="text-xs text-on-surface-variant font-medium mb-4 uppercase tracking-widest">交車達成率</p>
+<div class="relative w-24 h-24 mb-4">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-white/40" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-tertiary-container" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="65.3" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-lg font-bold">78%</span>
+</div>
+</div>
+<p class="text-sm font-bold text-primary">156 / 200</p>
+</div>
+<!-- KPI 2 -->
+<div class="p-6 rounded-xl bg-surface-container-low">
+<p class="text-xs text-on-surface-variant font-medium mb-2 uppercase tracking-widest">新增訂單</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-extrabold font-headline">42</span>
+<span class="text-xs text-success text-[#008542] font-bold">+12%</span>
+</div>
+<div class="mt-4 h-1 bg-white/40 rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-[65%]"></div>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="p-6 rounded-xl bg-surface-container-low">
+<p class="text-xs text-on-surface-variant font-medium mb-2 uppercase tracking-widest">銷售毛利</p>
+<div class="flex items-baseline gap-1">
+<span class="text-xs font-bold">NT$</span>
+<span class="text-2xl font-extrabold font-headline">12.8M</span>
+</div>
+<p class="text-[10px] text-on-surface-variant mt-2">較上月成長 8.4%</p>
+</div>
+<!-- KPI 4 -->
+<div class="p-6 rounded-xl bg-surface-container-low">
+<p class="text-xs text-on-surface-variant font-medium mb-2 uppercase tracking-widest">庫存周轉天數</p>
+<div class="flex items-baseline gap-2">
+<span class="text-3xl font-extrabold font-headline">45</span>
+<span class="text-xs font-medium">days</span>
+</div>
+<div class="flex gap-1 mt-4">
+<div class="h-1.5 w-full bg-primary-container rounded-full"></div>
+<div class="h-1.5 w-full bg-primary-container rounded-full"></div>
+<div class="h-1.5 w-full bg-outline-variant/30 rounded-full"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Middle Section: Bar Chart -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<h3 class="text-xl font-bold font-headline mb-8 flex items-center gap-2">
+<span class="w-1 h-6 bg-tertiary-container rounded-full"></span>
+                            門店對比排名 (本月銷售)
+                        </h3>
+<div class="space-y-6">
+<!-- Taipei -->
+<div class="space-y-2">
+<div class="flex justify-between text-sm font-medium">
+<span>台北旗艦店</span>
+<span class="font-bold">52 台</span>
+</div>
+<div class="h-3 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary-container to-primary w-[100%] rounded-full"></div>
+</div>
+</div>
+<!-- Taichung -->
+<div class="space-y-2">
+<div class="flex justify-between text-sm font-medium">
+<span>台中展示中心</span>
+<span class="font-bold">38 台</span>
+</div>
+<div class="h-3 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary-container to-primary w-[73%] rounded-full"></div>
+</div>
+</div>
+<!-- New Taipei -->
+<div class="space-y-2">
+<div class="flex justify-between text-sm font-medium">
+<span>新北中和店</span>
+<span class="font-bold">35 台</span>
+</div>
+<div class="h-3 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary-container to-primary w-[67%] rounded-full"></div>
+</div>
+</div>
+<!-- Kaohsiung -->
+<div class="space-y-2">
+<div class="flex justify-between text-sm font-medium">
+<span>高雄大順店</span>
+<span class="font-bold">31 台</span>
+</div>
+<div class="h-3 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary-container to-primary w-[60%] rounded-full"></div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Section: Sidebar Tasks (4 cols) -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<section class="bg-surface-container-high rounded-xl p-6 shadow-sm border border-white/20">
+<h3 class="text-lg font-bold font-headline mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container">pending_actions</span>
+                            待審批事項
+                        </h3>
+<div class="space-y-4">
+<!-- Task 1 -->
+<div class="p-4 bg-surface-container-lowest rounded-lg">
+<div class="flex justify-between items-start mb-2">
+<span class="px-2 py-0.5 bg-surface-variant text-[10px] font-bold rounded uppercase">訂單審核</span>
+<span class="text-[10px] text-on-surface-variant">2小時前</span>
+</div>
+<p class="text-sm font-bold mb-3">Lexus RX350 頂級版 - 王*明</p>
+<div class="flex gap-2">
+<button class="flex-1 py-1.5 bg-primary-container text-white text-xs font-bold rounded-md hover:bg-black transition-colors">核准</button>
+<button class="flex-1 py-1.5 border border-outline-variant text-xs font-bold rounded-md hover:bg-surface-container-low transition-colors">詳情</button>
+</div>
+</div>
+<!-- Task 2 -->
+<div class="p-4 bg-surface-container-lowest rounded-lg">
+<div class="flex justify-between items-start mb-2">
+<span class="px-2 py-0.5 bg-surface-variant text-[10px] font-bold rounded uppercase">調車申請</span>
+<span class="text-[10px] text-on-surface-variant">4小時前</span>
+</div>
+<p class="text-sm font-bold mb-1">台北 ➔ 高雄: Lexus NX200</p>
+<p class="text-xs text-on-surface-variant mb-3">急件：客戶預計明日賞車</p>
+<div class="flex gap-2">
+<button class="flex-1 py-1.5 bg-primary-container text-white text-xs font-bold rounded-md hover:bg-black transition-colors">核准</button>
+<button class="flex-1 py-1.5 border border-outline-variant text-xs font-bold rounded-md hover:bg-surface-container-low transition-colors">駁回</button>
+</div>
+</div>
+<!-- Task 3 -->
+<div class="p-4 bg-surface-container-lowest rounded-lg border-l-4 border-error">
+<div class="flex justify-between items-start mb-2">
+<span class="px-2 py-0.5 bg-error-container text-on-error-container text-[10px] font-bold rounded uppercase">退款處理</span>
+<span class="text-[10px] text-on-surface-variant">1天前</span>
+</div>
+<p class="text-sm font-bold mb-3">Toyota RAV4 訂金退還 - 李*美</p>
+<button class="w-full py-2 bg-error text-white text-xs font-bold rounded-md hover:bg-red-700 transition-colors">立即處理</button>
+</div>
+</div>
+</section>
+</div>
+<!-- Bottom Section: Inventory Warning (Full Width) -->
+<div class="col-span-12">
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-xl font-bold font-headline flex items-center gap-2">
+<span class="w-1 h-6 bg-error rounded-full"></span>
+                                庫存警示
+                            </h3>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 bg-error rounded-full"></span>
+<span class="text-xs font-medium">危急 (10)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 bg-tertiary-container rounded-full"></span>
+<span class="text-xs font-medium">注意 (24)</span>
+</div>
+</div>
+</div>
+<div class="overflow-hidden border border-outline-variant/10 rounded-xl">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant/20">
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">車型名稱</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">當前庫存</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">在庫天數</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">狀態警示</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">建議操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-bold text-sm">Lexus LS 500h 旗艦版</td>
+<td class="px-6 py-4 text-sm">2 台</td>
+<td class="px-6 py-4 text-sm">185 天</td>
+<td class="px-6 py-4">
+<span class="px-3 py-1 bg-error-container text-on-error-container text-[10px] font-bold rounded-full">長期庫存 (危急)</span>
+</td>
+<td class="px-6 py-4">
+<button class="text-xs font-bold text-primary underline underline-offset-4 decoration-tertiary-container">啟動特殊促銷</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-bold text-sm">Lexus NX 200 精英版</td>
+<td class="px-6 py-4 text-sm font-bold text-error">1 台</td>
+<td class="px-6 py-4 text-sm">12 天</td>
+<td class="px-6 py-4">
+<span class="px-3 py-1 bg-tertiary-container/20 text-tertiary text-[10px] font-bold rounded-full">庫存過低 (注意)</span>
+</td>
+<td class="px-6 py-4">
+<button class="text-xs font-bold text-primary underline underline-offset-4 decoration-tertiary-container">緊急調撥申請</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-bold text-sm">Lexus ES 300h 豪華版</td>
+<td class="px-6 py-4 text-sm">5 台</td>
+<td class="px-6 py-4 text-sm">92 天</td>
+<td class="px-6 py-4">
+<span class="px-3 py-1 bg-tertiary-container/20 text-tertiary text-[10px] font-bold rounded-full">庫存轉速緩慢</span>
+</td>
+<td class="px-6 py-4">
+<button class="text-xs font-bold text-primary underline underline-offset-4 decoration-tertiary-container">展間輪調規劃</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+</body></html>

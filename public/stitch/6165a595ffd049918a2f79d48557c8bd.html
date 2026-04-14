@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DealerOS - 系統設定</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed-dim": "#e6c364",
+                    "surface-tint": "#5d5c74",
+                    "on-primary-fixed": "#1a1a2e",
+                    "tertiary-container": "#c9a84c",
+                    "surface-bright": "#fcf8ff",
+                    "on-tertiary": "#ffffff",
+                    "surface-container": "#efecff",
+                    "surface-dim": "#dad7f3",
+                    "surface-container-high": "#e8e5ff",
+                    "on-secondary-fixed-variant": "#454747",
+                    "background": "#fcf8ff",
+                    "secondary": "#5d5f5f",
+                    "outline": "#78767d",
+                    "inverse-on-surface": "#f2efff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-low": "#f5f2ff",
+                    "error": "#ba1a1a",
+                    "on-error": "#ffffff",
+                    "on-background": "#1a1a2e",
+                    "tertiary": "#755b00",
+                    "secondary-fixed": "#e2e2e2",
+                    "inverse-primary": "#c6c4df",
+                    "on-primary-fixed-variant": "#45455b",
+                    "tertiary-fixed": "#ffe08f",
+                    "outline-variant": "#c8c5cd",
+                    "secondary-fixed-dim": "#c6c6c7",
+                    "primary": "#00000b",
+                    "on-surface-variant": "#47464c",
+                    "inverse-surface": "#2f2e43",
+                    "secondary-container": "#dcdddd",
+                    "on-secondary-container": "#5f6161",
+                    "surface": "#fcf8ff",
+                    "on-secondary": "#ffffff",
+                    "primary-fixed": "#e2e0fc",
+                    "error-container": "#ffdad6",
+                    "on-surface": "#1a1a2e",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-fixed-variant": "#584400",
+                    "primary-fixed-dim": "#c6c4df",
+                    "on-error-container": "#93000a",
+                    "surface-variant": "#e2e0fc",
+                    "on-secondary-fixed": "#1a1c1c",
+                    "surface-container-highest": "#e2e0fc",
+                    "primary-container": "#1a1a2e",
+                    "on-tertiary-fixed": "#241a00",
+                    "on-tertiary-container": "#503d00",
+                    "on-primary-container": "#83829b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .tonal-transition-no-border {
+        background-color: #FCF8FF;
+      }
+      .active-nav-border {
+        position: relative;
+      }
+      .active-nav-border::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: #C9A84C;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #e2e0fc;
+        border-radius: 10px;
+      }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased overflow-hidden">
+<!-- TopNavBar -->
+<!-- SideNavBar (Main Shell) -->
+<!-- Main Content Canvas -->
+<main class="h-screen flex flex-col bg-surface overflow-hidden">
+<!-- Breadcrumb & Header Area -->
+<div class="px-10 py-8 flex flex-col gap-2">
+<div class="flex items-center text-on-surface-variant text-xs font-medium tracking-wide">
+<span>管理後台</span>
+<span class="material-symbols-outlined text-sm mx-2" data-icon="chevron_right">chevron_right</span>
+<span class="text-tertiary">系統設定</span>
+</div>
+<div class="flex justify-between items-end">
+<h2 class="text-3xl font-extrabold text-primary font-headline tracking-tight">系統設定</h2>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 rounded-lg border border-outline-variant text-on-surface hover:bg-surface-container transition-all font-medium text-sm">
+                        重置為預設
+                    </button>
+<button class="px-8 py-2.5 rounded-lg bg-gradient-to-r from-primary to-primary-container text-white shadow-lg hover:shadow-xl transition-all font-bold text-sm">
+                        儲存設定
+                    </button>
+</div>
+</div>
+</div>
+<div class="flex-1 flex px-10 pb-10 gap-8 overflow-hidden">
+<!-- Settings Category Menu (Internal Sidebar) -->
+<div class="w-64 flex flex-col bg-surface-container-low rounded-2xl p-4 self-start">
+<h3 class="px-4 py-2 mb-4 text-[10px] font-black text-on-surface-variant uppercase tracking-widest opacity-60">設定類別</h3>
+<nav class="space-y-1">
+<a class="flex items-center px-4 py-3 bg-surface-container-lowest rounded-xl shadow-sm border-l-4 border-tertiary-container group" href="#">
+<span class="material-symbols-outlined mr-3 text-tertiary-container text-xl" data-icon="tune">tune</span>
+<span class="text-sm font-bold text-primary">基本設定</span>
+</a>
+<a class="flex items-center px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined mr-3 text-lg opacity-60 group-hover:opacity-100" data-icon="menu_book">menu_book</span>
+<span class="text-sm font-medium">字典管理</span>
+</a>
+<a class="flex items-center px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined mr-3 text-lg opacity-60 group-hover:opacity-100" data-icon="format_list_numbered">format_list_numbered</span>
+<span class="text-sm font-medium">業務序號</span>
+</a>
+<a class="flex items-center px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined mr-3 text-lg opacity-60 group-hover:opacity-100" data-icon="directions_car">directions_car</span>
+<span class="text-sm font-medium">車型管理</span>
+</a>
+<a class="flex items-center px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined mr-3 text-lg opacity-60 group-hover:opacity-100" data-icon="notifications_active">notifications_active</span>
+<span class="text-sm font-medium">通知設定</span>
+</a>
+<a class="flex items-center px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined mr-3 text-lg opacity-60 group-hover:opacity-100" data-icon="swap_vert">swap_vert</span>
+<span class="text-sm font-medium">數據匯入匯出</span>
+</a>
+<a class="flex items-center px-4 py-3 text-on-surface-variant hover:bg-surface-container-high rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined mr-3 text-lg opacity-60 group-hover:opacity-100" data-icon="api">api</span>
+<span class="text-sm font-medium">API 整合</span>
+</a>
+</nav>
+</div>
+<!-- Settings Content (Main Panel) -->
+<div class="flex-1 overflow-y-auto pr-4 pb-10 space-y-8">
+<!-- Section 1: 門店資訊 -->
+<section class="bg-surface-container-lowest rounded-2xl p-8 shadow-sm transition-all hover:shadow-md">
+<div class="flex items-center gap-3 mb-8">
+<div class="w-1.5 h-6 bg-tertiary-container rounded-full"></div>
+<h3 class="text-xl font-bold text-primary font-headline">門店資訊</h3>
+</div>
+<div class="grid grid-cols-2 gap-x-12 gap-y-6">
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">經銷商名稱</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container focus:bg-white transition-all" type="text" value="LEXUS 台北展示中心"/>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">經銷商代碼</label>
+<input class="w-full bg-surface-container border-none rounded-lg px-4 py-3 text-sm text-on-surface/40 cursor-not-allowed" readonly="" type="text" value="LEXUS-TPE-001"/>
+</div>
+<div class="col-span-2 space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">地址</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container focus:bg-white transition-all" type="text" value="台北市信義區松仁路100號"/>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">電話</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container focus:bg-white transition-all" type="text" value="02-2345-6789"/>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">營業時間</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container focus:bg-white transition-all" type="text" value="週一至週六 09:00-21:00 / 週日 10:00-18:00"/>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">品牌</label>
+<div class="px-4 py-3 text-sm font-bold text-tertiary bg-tertiary-fixed rounded-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">verified</span>
+                                LEXUS
+                            </div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">所屬集團</label>
+<div class="px-4 py-3 text-sm font-medium bg-surface-container rounded-lg text-on-surface-variant">和泰汽車</div>
+</div>
+</div>
+</section>
+<!-- Section 2: 業務規則 -->
+<section class="bg-surface-container-lowest rounded-2xl p-8 shadow-sm transition-all hover:shadow-md">
+<div class="flex items-center gap-3 mb-8">
+<div class="w-1.5 h-6 bg-tertiary-container rounded-full"></div>
+<h3 class="text-xl font-bold text-primary font-headline">業務規則</h3>
+</div>
+<div class="grid grid-cols-2 gap-x-12 gap-y-8">
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">手卡自動編號格式</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container transition-all pr-10">
+<option>NC-YYYYMMDD-NNN</option>
+<option>NC-NNN-YYYY</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface/40 pointer-events-none" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">訂單自動編號格式</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container transition-all pr-10">
+<option>ORD-YYYYMMDD-NNN</option>
+<option>ORD-NNN-YYYY</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface/40 pointer-events-none" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">工單自動編號格式</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container transition-all pr-10">
+<option>WO-YYYYMMDD-NNN</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface/40 pointer-events-none" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">客戶級別定義</label>
+<a class="inline-flex items-center text-sm text-tertiary font-bold hover:underline decoration-2 underline-offset-4 gap-1 pt-2" href="#">
+                                A:30天內有望成交 / B:60天內 / C:90天內 / D:暫無意願
+                                <span class="material-symbols-outlined text-xs" data-icon="open_in_new">open_in_new</span>
+</a>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">線索自動過期天數</label>
+<div class="flex items-center bg-surface-container-low rounded-lg focus-within:ring-1 focus-within:ring-tertiary-container transition-all">
+<input class="flex-1 bg-transparent border-none px-4 py-3 text-sm focus:ring-0" type="number" value="90"/>
+<span class="px-4 text-xs font-bold text-on-surface-variant border-l border-outline-variant/20">天</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">休眠客戶定義</label>
+<div class="flex items-center bg-surface-container-low rounded-lg focus-within:ring-1 focus-within:ring-tertiary-container transition-all">
+<span class="pl-4 text-xs font-medium text-on-surface-variant whitespace-nowrap">超過</span>
+<input class="flex-1 bg-transparent border-none px-2 py-3 text-sm text-center focus:ring-0 font-bold" type="number" value="180"/>
+<span class="pr-4 text-xs font-medium text-on-surface-variant whitespace-nowrap">天未聯繫</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: 顯示與地區 -->
+<section class="bg-surface-container-lowest rounded-2xl p-8 shadow-sm transition-all hover:shadow-md">
+<div class="flex items-center gap-3 mb-8">
+<div class="w-1.5 h-6 bg-tertiary-container rounded-full"></div>
+<h3 class="text-xl font-bold text-primary font-headline">顯示與地區</h3>
+</div>
+<div class="grid grid-cols-2 gap-x-12 gap-y-6">
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">語言</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container transition-all pr-10">
+<option>繁體中文</option>
+<option>English</option>
+<option>日本語</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface/40 pointer-events-none" data-icon="language">language</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">時區</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container transition-all pr-10">
+<option>Asia/Taipei (UTC+8)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface/40 pointer-events-none" data-icon="schedule">schedule</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">幣別</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container transition-all pr-10">
+<option>TWD 新台幣</option>
+<option>USD 美元</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface/40 pointer-events-none" data-icon="payments">payments</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-bold text-on-surface-variant tracking-wide">日期格式</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-low border-none rounded-lg px-4 py-3 text-sm focus:ring-1 focus:ring-tertiary-container transition-all pr-10">
+<option>YYYY/MM/DD</option>
+<option>DD/MM/YYYY</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface/40 pointer-events-none" data-icon="calendar_month">calendar_month</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom spacing for scroll visibility -->
+<div class="h-10"></div>
+</div>
+</div>
+</main>
+<!-- Glassmorphic Footer for Mobile (Hidden on Desktop) -->
+<div class="md:hidden fixed bottom-6 left-6 right-6 h-16 bg-surface/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl flex items-center justify-around px-4 z-50">
+<button class="flex flex-col items-center gap-1 text-tertiary">
+<span class="material-symbols-outlined" data-icon="settings" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="text-[10px] font-bold">設定</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant/40">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="text-[10px] font-bold">數據</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant/40">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="text-[10px] font-bold">通知</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant/40">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="text-[10px] font-bold">個人</span>
+</button>
+</div>
+</body></html>

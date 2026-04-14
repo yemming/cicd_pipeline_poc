@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#241a00",
+                    "tertiary-fixed-dim": "#e6c364",
+                    "surface-variant": "#e2e0fc",
+                    "primary": "#00000b",
+                    "on-tertiary": "#ffffff",
+                    "inverse-on-surface": "#f2efff",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed": "#ffe08f",
+                    "on-secondary-fixed": "#1a1c1c",
+                    "surface-dim": "#dad7f3",
+                    "on-tertiary-container": "#503d00",
+                    "background": "#fcf8ff",
+                    "inverse-surface": "#2f2e43",
+                    "on-surface-variant": "#47464c",
+                    "on-primary": "#ffffff",
+                    "surface-bright": "#fcf8ff",
+                    "primary-fixed-dim": "#c6c4df",
+                    "secondary-fixed-dim": "#c6c6c7",
+                    "inverse-primary": "#c6c4df",
+                    "on-primary-fixed-variant": "#45455b",
+                    "outline-variant": "#c8c5cd",
+                    "secondary-fixed": "#e2e2e2",
+                    "surface-container-highest": "#e2e0fc",
+                    "secondary": "#5d5f5f",
+                    "surface-container-low": "#f5f2ff",
+                    "on-background": "#1a1a2e",
+                    "on-secondary-container": "#5f6161",
+                    "surface": "#fcf8ff",
+                    "error": "#ba1a1a",
+                    "surface-container": "#efecff",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed-variant": "#454747",
+                    "surface-container-high": "#e8e5ff",
+                    "on-error": "#ffffff",
+                    "tertiary-container": "#c9a84c",
+                    "tertiary": "#755b00",
+                    "on-surface": "#1a1a2e",
+                    "outline": "#78767d",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-container": "#1a1a2e",
+                    "secondary-container": "#dcdddd",
+                    "primary-fixed": "#e2e0fc",
+                    "on-tertiary-fixed-variant": "#584400",
+                    "on-primary-fixed": "#1a1a2e",
+                    "surface-tint": "#5d5c74",
+                    "error-container": "#ffdad6",
+                    "on-primary-container": "#83829b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-transition {
+            background: linear-gradient(to bottom, #F5F2FF, #FCF8FF);
+        }
+        .tonal-layering {
+            background: linear-gradient(180deg, #1A1A2E 0%, #00000B 100%);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FCF8FF;
+        }
+        h1, h2, h3 {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+</head>
+<body class="flex min-h-screen">
+<!-- SideNavBar Component -->
+<div class="lg:ml-72 flex-1 flex flex-col">
+<!-- TopNavBar Component -->
+<!-- Main Content Area -->
+<main class="p-8 space-y-8">
+<!-- Header Summary Stats: Bento Style -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/10 group hover:shadow-md transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 rounded-xl bg-error-container/30 text-error">
+<span class="material-symbols-outlined" data-icon="pending">pending</span>
+</div>
+<span class="text-error text-xs font-bold bg-error/10 px-2 py-1 rounded-full">+2 今日</span>
+</div>
+<h3 class="text-outline text-sm font-medium">待處理審批</h3>
+<p class="text-4xl font-headline font-extrabold text-on-surface mt-1">8</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/10 group hover:shadow-md transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 rounded-xl bg-tertiary-container/30 text-tertiary">
+<span class="material-symbols-outlined" data-icon="update">update</span>
+</div>
+</div>
+<h3 class="text-outline text-sm font-medium">審批進行中</h3>
+<p class="text-4xl font-headline font-extrabold text-on-surface mt-1">12</p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/10 group hover:shadow-md transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-3 rounded-xl bg-primary-container/10 text-primary">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+</div>
+</div>
+<h3 class="text-outline text-sm font-medium">本月已完成</h3>
+<p class="text-4xl font-headline font-extrabold text-on-surface mt-1">45</p>
+</div>
+</section>
+<!-- Filters -->
+<section class="bg-surface-container-low p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+<div class="flex flex-wrap items-center gap-6">
+<div class="flex flex-col gap-1.5">
+<label class="text-[11px] font-bold text-outline-variant uppercase tracking-widest px-1">審批類型</label>
+<select class="bg-surface-container-lowest border-none rounded-lg text-sm px-4 py-2 focus:ring-1 focus:ring-tertiary min-w-[140px]">
+<option>全部類型</option>
+<option>訂單審批</option>
+<option>退款申請</option>
+<option>車輛移轉</option>
+<option>折扣申請</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-[11px] font-bold text-outline-variant uppercase tracking-widest px-1">發起人</label>
+<div class="relative">
+<input class="bg-surface-container-lowest border-none rounded-lg text-sm pl-4 pr-10 py-2 focus:ring-1 focus:ring-tertiary" placeholder="搜尋姓名..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-sm text-outline" data-icon="person_search">person_search</span>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-[11px] font-bold text-outline-variant uppercase tracking-widest px-1">日期範圍</label>
+<button class="bg-surface-container-lowest border-none rounded-lg text-sm px-4 py-2 flex items-center gap-3 text-on-surface">
+<span>2024/04/01 - 2024/04/11</span>
+<span class="material-symbols-outlined text-sm opacity-60" data-icon="calendar_today">calendar_today</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-3 self-end">
+<button class="px-5 py-2.5 rounded-lg text-sm font-bold bg-surface-container-highest text-on-surface hover:bg-surface-variant transition-colors">重置篩選</button>
+<button class="px-5 py-2.5 rounded-lg text-sm font-bold bg-primary text-white hover:opacity-90 transition-opacity flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+                        套用篩選
+                    </button>
+</div>
+</section>
+<!-- Data Table -->
+<section class="bg-surface-container-lowest rounded-3xl shadow-sm overflow-hidden border border-outline-variant/10">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-6 py-5 text-[11px] font-extrabold text-outline-variant uppercase tracking-widest">審批編號</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-outline-variant uppercase tracking-widest">類型</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-outline-variant uppercase tracking-widest">標題</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-outline-variant uppercase tracking-widest">當前環節</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-outline-variant uppercase tracking-widest">發起人</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-outline-variant uppercase tracking-widest">優先級</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-outline-variant uppercase tracking-widest">發起時間</th>
+<th class="px-6 py-5 text-[11px] font-extrabold text-outline-variant uppercase tracking-widest text-center">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4 font-mono text-xs font-bold text-primary">APP-20240411-001</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-600 border border-blue-100">訂單審批</span>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">訂單審批: 王先生 - RX 350h</p>
+<p class="text-[10px] text-outline mt-0.5">豪華版 | 鈦銀色 | 2024</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></div>
+<span class="text-sm font-medium text-on-surface-variant">銷售主管審批</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<img class="w-7 h-7 rounded-full object-cover" data-alt="professional portrait of a confident woman smiling in a bright office" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-ksJM50oMGQXCbwyFXK1eaUDBYc0U3mGdAmBBO-MHFpMQDS7Jk1XLdplHdZVFS85af9F-LTtVVLHuTxust-QDxQFuM8SWETQ8h-uMmZ-B0UXpogtc_H4w8w3TsnZV9iXME0qhwZlwBFjv3ceaXFhRTona-2zc1JgyT62FAt9G3A2Nvfx3nPzjGEc5_1WXyrnBq6ZYzESoy3COHkBX12haF6Hprjn69wt9-jyEX7xp-ctxvhucrvOM-_AEaQkFY2aXQiDOPaNLsXk"/>
+<span class="text-sm font-medium">林雨潔</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<span class="text-xs font-bold text-error">High</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-on-surface">2024-04-11</p>
+<p class="text-[10px] text-outline">09:45 AM</p>
+</td>
+<td class="px-6 py-4 text-center">
+<button class="px-4 py-1.5 bg-primary-container text-white text-xs font-bold rounded-lg hover:bg-primary transition-all active:scale-95">前往處理</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4 font-mono text-xs font-bold text-primary">APP-20240411-002</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-md text-[10px] font-black bg-orange-50 text-orange-600 border border-orange-100">退款申請</span>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">退款申請: 李女士 - NX 200</p>
+<p class="text-[10px] text-outline mt-0.5">預約金退還 | 個人因素</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+<span class="text-sm font-medium text-on-surface-variant">財務經理核對</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<img class="w-7 h-7 rounded-full object-cover" data-alt="close up headshot of a friendly professional man in a white shirt" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAe5sG7gGs4kBuso_nTRZfVRr-02hZ0HPkUNBtAzeZIND1aYJZ_1j2W60GbPRSZ_jCPf7OrJ5bBTrYiHKWeiWRh2-mqfeOwcgWuwCrIlWaY5SrPujgbkSkHnKCJbR304p7XEAJ6UyXUT9lr7PlzdjGdvlOOHnxYOqjahOZWRE6EwHBCEcwKvIM_LzYyZNdllRkT2FC9rgxRoyH5iQFqss-xATFFLWUZVyusJd7Tfa0NDGYyujt03G9s4u7QVr_qMtbh9MHLG9mZbQA"/>
+<span class="text-sm font-medium">陳信宏</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="text-xs font-bold text-tertiary">Medium</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-on-surface">2024-04-11</p>
+<p class="text-[10px] text-outline">10:15 AM</p>
+</td>
+<td class="px-6 py-4 text-center">
+<button class="px-4 py-1.5 bg-primary-container text-white text-xs font-bold rounded-lg hover:bg-primary transition-all active:scale-95">前往處理</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4 font-mono text-xs font-bold text-primary">APP-20240410-085</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-md text-[10px] font-black bg-purple-50 text-purple-600 border border-purple-100">車輛移轉</span>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">調車申請: 高雄分店 → 台中展示中心</p>
+<p class="text-[10px] text-outline mt-0.5">RX 450h+ | 旗艦版</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+<span class="text-sm font-medium text-on-surface-variant">總經理審批</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<img class="w-7 h-7 rounded-full object-cover" data-alt="professional businesswoman looking at camera with a slight smile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLTUJ8lN_pcmMqIiMoqlJKe3Hp6o8PtRCCxU_eGxSd5Qg1qtXnSOgGV_--lXvKSLA7blYCnhX4GuYIwa7jA6z5ZbO3W9rMsn22iogpWGz-QuTZdEH0U73Fpn9b0B8nZRDqM7yxVmoFJBlgq90zDXrXzoil7FI9T6zdkXCOzz0685t6Tbxo9podBNEAkyDmyXdm8sVJd69A2zAz2zXdWr4g2Kas_uIlFHzFDc4fsPZurB0sxsTS-KBp4eYSHTCzO038dIK5lZsfFAA"/>
+<span class="text-sm font-medium">張美玲</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<span class="text-xs font-bold text-outline">Low</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-on-surface">2024-04-10</p>
+<p class="text-[10px] text-outline">04:30 PM</p>
+</td>
+<td class="px-6 py-4 text-center">
+<button class="px-4 py-1.5 bg-primary-container text-white text-xs font-bold rounded-lg hover:bg-primary transition-all active:scale-95">前往處理</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4 font-mono text-xs font-bold text-primary">APP-20240410-079</td>
+<td class="px-6 py-4">
+<span class="px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-600 border border-blue-100">訂單審批</span>
+</td>
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">折扣申請: 企業購車方案 - LBX</p>
+<p class="text-[10px] text-outline mt-0.5">數量: 5台 | 專案折扣</p>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+<span class="text-sm font-medium text-on-surface-variant">區域銷售總監審批</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<img class="w-7 h-7 rounded-full object-cover" data-alt="modern businessman standing confidently in a luxury car showroom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEnvqhlCPi8e_lLrUsZlXVKhtZxZuwOSIXyJy5mEETCxJ18-q8sOg3KAeaZ2C5q9o3FSAGVxOI911cAsYHNk_CTX4Ws05NuabmMOWIIrE_cJLp95BNdm7c-30XiH26iaFbrt6yGNQFnrtwA6KOSAR-hoCIA7RMEbJjZW5qf_ZJg1CnWVoS455E2Lej-jmTPi3D9Z27yo_Fq2FXTcmrKpaT8kBFb9_PmA8LupuBpy_DH5KRJpQV-L-SCD1h82Jmwc4XMsqg6HxCEew"/>
+<span class="text-sm font-medium">王大維</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<span class="text-xs font-bold text-error">High</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-xs text-on-surface">2024-04-10</p>
+<p class="text-[10px] text-outline">11:00 AM</p>
+</td>
+<td class="px-6 py-4 text-center">
+<button class="px-4 py-1.5 bg-primary-container text-white text-xs font-bold rounded-lg hover:bg-primary transition-all active:scale-95">前往處理</button>
+</td>
+</tr>
+<!-- Row 5 (Partial Sample) -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4 font-mono text-xs font-bold text-primary">APP-20240409-112</td>
+<td class="px-6 py-4"><span class="px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-600 border border-blue-100">訂單審批</span></td>
+<td class="px-6 py-4"><p class="text-sm font-bold text-on-surface">訂單審批: 郭先生 - ES 300h</p></td>
+<td class="px-6 py-4"><div class="flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div><span class="text-sm font-medium">銷售經理核簽</span></div></td>
+<td class="px-6 py-4"><div class="flex items-center gap-2"><img class="w-7 h-7 rounded-full object-cover" data-alt="professional headshot of a woman with long dark hair and a warm expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDb54ZL--FbvzoMPx6ATk8HWP8oMkZ1JujsbUVM3tN0NHJe2Ogh0Mqn19bcF17Lcd7jJVJjnMEoNwpmoiro0sg7sw2bamGDE3QQqo_fFn2_E4qgwt6uViAlmCWkGS4tsKlq7tm2Mq-EXs3YbjFYyjOwJs91oQP1Z9SFKeUTvveHkr-ikHJWWk8UKeGB5QkmShaHiWVC4XxbhXsx_YrUWwzIWVpnSZbxjHp498yXdsEZhfJHOz28ccIv8zAv9hldvRf_1STJeIoMHH0"/><span>趙家穎</span></div></td>
+<td class="px-6 py-4"><div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-tertiary"></div><span class="text-xs font-bold text-tertiary">Medium</span></div></td>
+<td class="px-6 py-4"><p class="text-xs">2024-04-09</p></td>
+<td class="px-6 py-4 text-center"><button class="px-4 py-1.5 bg-primary-container text-white text-xs font-bold rounded-lg active:scale-95">前往處理</button></td>
+</tr>
+<!-- Row 6 (Partial Sample) -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4 font-mono text-xs font-bold text-primary">APP-20240409-098</td>
+<td class="px-6 py-4"><span class="px-2.5 py-1 rounded-md text-[10px] font-black bg-orange-50 text-orange-600 border border-orange-100">退款申請</span></td>
+<td class="px-6 py-4"><p class="text-sm font-bold text-on-surface">退款申請: 孫先生 - RX 500h</p></td>
+<td class="px-6 py-4"><div class="flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div><span class="text-sm font-medium">會計審查</span></div></td>
+<td class="px-6 py-4"><div class="flex items-center gap-2"><img class="w-7 h-7 rounded-full object-cover" data-alt="headshot of a smiling young professional man in a casual navy shirt" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhzFoGbQ2imu1oNjwLyc7bEJXdaY1fUKrCijXnDRucSPW0tlWngpXKF3fYCt1EYoiiU5vpm3V6emDNfXPiKeE1hkMHWzVNOgUUT0PdKDy4DJoHyMFRPUR5wKibMSmbvHZZ_viiSq5NoVv9Crylq2QRDYsHKNEKRXjUgbXfwXf--O44XsmH52Oeg887Bh0CoHdOnkCbyDsz9f83cfOAnQ5in9Qwkuv7hq-qM-kpsFXrUJcRjYERQFZ3MZ-zb7Tg7BoZsNgx9Zcgy-8"/><span>周子健</span></div></td>
+<td class="px-6 py-4"><div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-tertiary"></div><span class="text-xs font-bold text-tertiary">Medium</span></div></td>
+<td class="px-6 py-4"><p class="text-xs">2024-04-09</p></td>
+<td class="px-6 py-4 text-center"><button class="px-4 py-1.5 bg-primary-container text-white text-xs font-bold rounded-lg active:scale-95">前往處理</button></td>
+</tr>
+<!-- Row 7 (Partial Sample) -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4 font-mono text-xs font-bold text-primary">APP-20240408-044</td>
+<td class="px-6 py-4"><span class="px-2.5 py-1 rounded-md text-[10px] font-black bg-blue-50 text-blue-600 border border-blue-100">訂單審批</span></td>
+<td class="px-6 py-4"><p class="text-sm font-bold text-on-surface">特殊顏色配額申請 - LC 500</p></td>
+<td class="px-6 py-4"><div class="flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div><span class="text-sm font-medium">總代理核准</span></div></td>
+<td class="px-6 py-4"><div class="flex items-center gap-2"><img class="w-7 h-7 rounded-full object-cover" data-alt="artistic portrait of a woman in business attire with soft natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBujEOaMFgY8TlMmffmuI9CTjlpZLWI7IE5AwCjbH1yFfb3iUMn1kF9qtQmznm3XeB682YAnZCAjKpNi9ILSRWvcTWY8SZm5rElqkcXgfjm_GicR-r3amiQy822Ao1sAnJuMnb-e07OYhXHez0n3kKS4Iy2ykYSL0ecf4LD1AG8eflcwLyrg7BTgS4OKTevuRMT1eYNHSX6x46GcnffH0N7jQpaGjaU39i_5EL-ujn9wlbbwcmAUCukyROCuAGSGCPPUMRjO8fKCbI"/><span>韓湘君</span></div></td>
+<td class="px-6 py-4"><div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-error"></div><span class="text-xs font-bold text-error">High</span></div></td>
+<td class="px-6 py-4"><p class="text-xs">2024-04-08</p></td>
+<td class="px-6 py-4 text-center"><button class="px-4 py-1.5 bg-primary-container text-white text-xs font-bold rounded-lg active:scale-95">前往處理</button></td>
+</tr>
+<!-- Row 8 (Partial Sample) -->
+<tr class="hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-4 font-mono text-xs font-bold text-primary">APP-20240408-021</td>
+<td class="px-6 py-4"><span class="px-2.5 py-1 rounded-md text-[10px] font-black bg-purple-50 text-purple-600 border border-purple-100">車輛移轉</span></td>
+<td class="px-6 py-4"><p class="text-sm font-bold text-on-surface">展示車下架調撥 - RZ 450e</p></td>
+<td class="px-6 py-4"><div class="flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div><span class="text-sm font-medium">物流經理審批</span></div></td>
+<td class="px-6 py-4"><div class="flex items-center gap-2"><img class="w-7 h-7 rounded-full object-cover" data-alt="professional man in a grey sweater posing with a friendly look" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxaj4jFXmzw-rfwFD8jm8fWo_JBMabTlpkft2FGSQ6OP5X5FnROTnfBDsG893YbdlgBHWnuPQBFmuMInS_e0QEpDMnR0godzZr6Gb23J00WDa340z_cv6iYKORjYQbgnARLQ0aMwqFSsJeTpMU0-9MjJzEEAOlyIPogJskbzdzqEqtUJd1GIOBJ8iNKqr5JIuyMiNT8jvuNjIf0P_xPtg0GhWbOnfobSMiA08foHvON9ifzK3FJBWsDK4CLpXr54ACirYsFwttqV8"/><span>吳家豪</span></div></td>
+<td class="px-6 py-4"><div class="flex items-center gap-1.5"><div class="w-2 h-2 rounded-full bg-outline-variant"></div><span class="text-xs font-bold text-outline">Low</span></div></td>
+<td class="px-6 py-4"><p class="text-xs">2024-04-08</p></td>
+<td class="px-6 py-4 text-center"><button class="px-4 py-1.5 bg-primary-container text-white text-xs font-bold rounded-lg active:scale-95">前往處理</button></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-6 py-4 bg-surface-container-low/20 flex items-center justify-between">
+<p class="text-xs text-outline font-medium">顯示第 1 到 8 筆，共 65 筆審批單</p>
+<div class="flex items-center gap-1">
+<button class="p-2 rounded-lg hover:bg-surface-container-high transition-colors text-outline">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-lg bg-primary text-white text-xs font-bold">1</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-high text-xs font-bold text-on-surface">2</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-high text-xs font-bold text-on-surface">3</button>
+<span class="px-2 text-outline">...</span>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-high text-xs font-bold text-on-surface">9</button>
+<button class="p-2 rounded-lg hover:bg-surface-container-high transition-colors text-outline">
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+</div>
+</body></html>

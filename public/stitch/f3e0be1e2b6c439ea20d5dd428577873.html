@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>銷售目標達成看板 | DealerOS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#efecff",
+                        "error-container": "#ffdad6",
+                        "on-secondary": "#ffffff",
+                        "outline": "#78767d",
+                        "surface": "#fcf8ff",
+                        "on-surface": "#1a1a2e",
+                        "on-primary": "#ffffff",
+                        "secondary-container": "#dcdddd",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#5d5c74",
+                        "surface-container-highest": "#e2e0fc",
+                        "outline-variant": "#c8c5cd",
+                        "inverse-surface": "#2f2e43",
+                        "secondary": "#5d5f5f",
+                        "surface-bright": "#fcf8ff",
+                        "on-primary-fixed": "#1a1a2e",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#503d00",
+                        "primary": "#00000b",
+                        "inverse-on-surface": "#f2efff",
+                        "surface-container-low": "#f5f2ff",
+                        "surface-dim": "#dad7f3",
+                        "on-background": "#1a1a2e",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "surface-container-high": "#e8e5ff",
+                        "surface-variant": "#e2e0fc",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-secondary-container": "#5f6161",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#c6c4df",
+                        "on-tertiary-fixed": "#241a00",
+                        "tertiary": "#755b00",
+                        "primary-fixed": "#e2e0fc",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#c6c4df",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-primary-container": "#83829b",
+                        "on-primary-fixed-variant": "#45455b",
+                        "background": "#fcf8ff",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "tertiary-fixed": "#ffe08f",
+                        "primary-container": "#1a1a2e",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "tertiary-container": "#c9a84c",
+                        "on-surface-variant": "#47464c",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-glass { backdrop-filter: blur(20px); }
+        .tonal-shift { background-color: #f5f2ff; }
+        .gradient-primary { background: linear-gradient(135deg, #00000b 0%, #1a1a2e 100%); }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- SideNavBar Integration -->
+<!-- TopNavBar Integration -->
+<!-- Main Content Canvas -->
+<main class="p-10 min-h-screen">
+<!-- Breadcrumb & Header Actions -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<nav class="flex text-xs text-slate-500 gap-2 mb-2 font-medium tracking-wide">
+<span>原廠管理</span>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span class="text-[#C9A84C]">銷售達成</span>
+</nav>
+<h2 class="text-3xl font-headline font-extrabold text-primary tracking-tight">銷售目標達成看板</h2>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-surface-container-low px-4 py-2 rounded-lg gap-3">
+<span class="material-symbols-outlined text-tertiary">calendar_today</span>
+<span class="text-sm font-semibold">2026年4月</span>
+<span class="material-symbols-outlined text-slate-400">arrow_drop_down</span>
+</div>
+<div class="flex items-center gap-3 px-4 py-2 border border-outline-variant/20 rounded-lg">
+<span class="text-xs font-medium text-slate-500 italic">vs 目標</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-tertiary"></div>
+</label>
+</div>
+<button class="gradient-primary text-white px-6 py-2.5 rounded-lg flex items-center gap-2 font-bold shadow-lg shadow-primary/10 hover:scale-[1.03] transition-all">
+<span class="material-symbols-outlined text-sm">cloud_upload</span>
+                    上傳至原廠
+                </button>
+</div>
+</div>
+<!-- Row 1: KPI Gauges -->
+<div class="grid grid-cols-3 gap-6 mb-8">
+<!-- Gauge 1 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-transparent hover:border-tertiary/20 transition-all group">
+<div class="flex justify-between items-start mb-6">
+<p class="text-sm font-bold text-slate-500">零售目標達成率</p>
+<span class="px-2 py-1 bg-amber-50 text-amber-600 text-[10px] font-black rounded uppercase">Alert</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative w-24 h-24 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-surface-container-high" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-amber-500" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="70.3" stroke-width="8"></circle>
+</svg>
+<span class="absolute text-xl font-headline font-black">72%</span>
+</div>
+<div>
+<p class="text-3xl font-headline font-black text-primary">36<span class="text-lg text-slate-400 font-medium"> / 50台</span></p>
+<p class="text-xs text-slate-500 mt-1">距離目標還差 14 台，剩餘 19 天</p>
+</div>
+</div>
+</div>
+<!-- Gauge 2 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-transparent hover:border-tertiary/20 transition-all">
+<div class="flex justify-between items-start mb-6">
+<p class="text-sm font-bold text-slate-500">批售目標達成率</p>
+<span class="px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded uppercase">On Track</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative w-24 h-24 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-surface-container-high" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-emerald-500" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="37.6" stroke-width="8"></circle>
+</svg>
+<span class="absolute text-xl font-headline font-black">85%</span>
+</div>
+<div>
+<p class="text-3xl font-headline font-black text-primary">34<span class="text-lg text-slate-400 font-medium"> / 40台</span></p>
+<p class="text-xs text-emerald-600 font-medium mt-1">已達第二階梯返利門檻</p>
+</div>
+</div>
+</div>
+<!-- Gauge 3 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-transparent hover:border-tertiary/20 transition-all">
+<div class="flex justify-between items-start mb-6">
+<p class="text-sm font-bold text-slate-500">總營收目標</p>
+<span class="px-2 py-1 bg-surface-container-high text-slate-500 text-[10px] font-black rounded uppercase">Steady</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative w-24 h-24 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-surface-container-high" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-tertiary" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="80.4" stroke-width="8"></circle>
+</svg>
+<span class="absolute text-xl font-headline font-black">68%</span>
+</div>
+<div>
+<p class="text-3xl font-headline font-black text-primary">78M<span class="text-lg text-slate-400 font-medium"> / 115M</span></p>
+<p class="text-xs text-slate-500 mt-1">含金融+保險+精品收入</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Row 2: Vehicle Series Detail Table -->
+<section class="bg-surface-container-lowest rounded-xl mb-8 overflow-hidden">
+<div class="p-6 border-b border-outline-variant/10 flex justify-between items-center">
+<h3 class="text-lg font-headline font-bold text-primary">車系列細節表現</h3>
+<button class="text-tertiary text-sm font-bold flex items-center gap-1 hover:underline">
+                    查看完整報表 <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low text-[10px] uppercase tracking-widest font-black text-slate-500">
+<tr>
+<th class="px-8 py-4">車系</th>
+<th class="px-6 py-4">月目標</th>
+<th class="px-6 py-4">已零售</th>
+<th class="px-6 py-4">達成率</th>
+<th class="px-6 py-4">差距</th>
+<th class="px-6 py-4 text-center">趨勢</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-8 py-4 font-bold text-primary">RX Series</td>
+<td class="px-6 py-4 font-headline font-semibold">15</td>
+<td class="px-6 py-4 font-headline font-semibold">12</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500" style="width: 80%"></div>
+</div>
+<span class="text-xs font-bold text-emerald-600">80%</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-400">-3</td>
+<td class="px-6 py-4 text-center">
+<span class="material-symbols-outlined text-emerald-500" style="font-variation-settings: 'FILL' 1">trending_up</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-8 py-4 font-bold text-primary">NX Series</td>
+<td class="px-6 py-4 font-headline font-semibold">18</td>
+<td class="px-6 py-4 font-headline font-semibold">15</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500" style="width: 83%"></div>
+</div>
+<span class="text-xs font-bold text-emerald-600">83%</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-400">-3</td>
+<td class="px-6 py-4 text-center">
+<span class="material-symbols-outlined text-slate-400">trending_flat</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-8 py-4 font-bold text-primary">ES Series</td>
+<td class="px-6 py-4 font-headline font-semibold">10</td>
+<td class="px-6 py-4 font-headline font-semibold">6</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-error" style="width: 60%"></div>
+</div>
+<span class="text-xs font-bold text-error">60%</span>
+</div>
+</td>
+<td class="px-6 py-4 text-error font-medium">-4</td>
+<td class="px-6 py-4 text-center">
+<span class="material-symbols-outlined text-error" style="font-variation-settings: 'FILL' 1">trending_down</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-8 py-4 font-bold text-primary">UX Series</td>
+<td class="px-6 py-4 font-headline font-semibold">8</td>
+<td class="px-6 py-4 font-headline font-semibold">5</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<div class="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-amber-500" style="width: 63%"></div>
+</div>
+<span class="text-xs font-bold text-amber-600">63%</span>
+</div>
+</td>
+<td class="px-6 py-4 text-slate-400">-3</td>
+<td class="px-6 py-4 text-center">
+<span class="material-symbols-outlined text-slate-400">trending_flat</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Row 3: Visual Insights -->
+<div class="grid grid-cols-12 gap-8 mb-8">
+<!-- Combo Chart Card -->
+<div class="col-span-8 bg-surface-container-lowest p-8 rounded-xl relative overflow-hidden group">
+<div class="flex justify-between items-start mb-10">
+<div>
+<h3 class="text-lg font-headline font-bold text-primary">月度銷售趨勢</h3>
+<p class="text-xs text-slate-500 mt-1">2026年 季度累計表現</p>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 bg-primary-container rounded-sm"></span>
+<span class="text-[10px] font-bold text-slate-500 uppercase">Actual</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-0.5 bg-tertiary"></span>
+<span class="text-[10px] font-bold text-slate-500 uppercase">Target</span>
+</div>
+</div>
+</div>
+<div class="h-64 flex items-end justify-between px-4 relative">
+<!-- Grid Lines -->
+<div class="absolute inset-x-0 top-0 bottom-0 flex flex-col justify-between pointer-events-none">
+<div class="border-b border-slate-100 w-full h-0"></div>
+<div class="border-b border-slate-100 w-full h-0"></div>
+<div class="border-b border-slate-100 w-full h-0"></div>
+<div class="border-b border-slate-100 w-full h-0"></div>
+</div>
+<!-- Bars -->
+<div class="flex flex-col items-center gap-2 z-10 w-16">
+<div class="w-full bg-primary-container rounded-t-lg transition-all duration-500 group-hover:bg-primary" style="height: 140px"></div>
+<span class="text-xs font-bold text-slate-400">Jan</span>
+</div>
+<div class="flex flex-col items-center gap-2 z-10 w-16">
+<div class="w-full bg-primary-container rounded-t-lg transition-all duration-500 group-hover:bg-primary" style="height: 160px"></div>
+<span class="text-xs font-bold text-slate-400">Feb</span>
+</div>
+<div class="flex flex-col items-center gap-2 z-10 w-16">
+<div class="w-full bg-primary-container rounded-t-lg transition-all duration-500 group-hover:bg-primary" style="height: 190px"></div>
+<span class="text-xs font-bold text-slate-400">Mar</span>
+</div>
+<div class="flex flex-col items-center gap-2 z-10 w-16">
+<div class="w-full bg-[#C9A84C]/40 rounded-t-lg border-2 border-dashed border-[#C9A84C] relative overflow-hidden" style="height: 150px">
+<div class="absolute inset-0 bg-white/20"></div>
+</div>
+<span class="text-xs font-bold text-primary">Apr</span>
+</div>
+<!-- Target Line (SVG overlay) -->
+<svg class="absolute top-0 left-0 w-full h-full pointer-events-none" preserveaspectratio="none">
+<path d="M 60 120 L 180 110 L 300 100 L 420 90" fill="none" stroke="#C9A84C" stroke-dasharray="6,4" stroke-width="3"></path>
+</svg>
+</div>
+</div>
+<!-- Rebate Milestone Card -->
+<div class="col-span-4 bg-primary-container p-8 rounded-xl text-white shadow-xl flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-lg font-headline font-bold text-[#C9A84C]">返利預測</h3>
+<span class="material-symbols-outlined text-white/40">insights</span>
+</div>
+<div class="space-y-6 mb-10">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-emerald-400 text-lg" style="font-variation-settings: 'FILL' 1">check_circle</span>
+<div class="flex-1">
+<div class="flex justify-between">
+<span class="text-sm font-medium">第一階梯門檻</span>
+<span class="text-sm font-black">NT$800,000</span>
+</div>
+<div class="w-full h-1 bg-white/10 rounded-full mt-1"><div class="h-full bg-emerald-400 w-full"></div></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-amber-400 text-lg" style="font-variation-settings: 'FILL' 1">hourglass_top</span>
+<div class="flex-1">
+<div class="flex justify-between">
+<span class="text-sm font-medium">第二階梯門檻</span>
+<span class="text-sm font-black">NT$1,200,000</span>
+</div>
+<div class="w-full h-1 bg-white/10 rounded-full mt-1"><div class="h-full bg-amber-400 w-[85%]"></div></div>
+<span class="text-[10px] text-slate-400 mt-1 block">努力中，尚需 4 台達成</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-white/20 text-lg">stars</span>
+<div class="flex-1">
+<div class="flex justify-between">
+<span class="text-sm font-medium text-white/50">最終目標階梯</span>
+<span class="text-sm font-black text-white/50">NT$2,000,000</span>
+</div>
+<div class="w-full h-1 bg-white/10 rounded-full mt-1"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-white/5 rounded-lg p-4 border border-white/10">
+<p class="text-[10px] uppercase font-black text-[#C9A84C] tracking-widest mb-1">Forecast Summary</p>
+<p class="text-sm font-bold">預測達成階梯: <span class="text-[#C9A84C]">第二階梯</span></p>
+<p class="text-2xl font-headline font-black mt-1">NT$1,200,000</p>
+</div>
+</div>
+</div>
+<!-- Footer Metadata -->
+<footer class="mt-auto pt-8 border-t border-outline-variant/10 flex justify-between items-center text-[10px] font-medium text-slate-500">
+<div class="flex items-center gap-6">
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[12px]">sync</span> 上次數據同步: 2026/04/11 08:00</span>
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[12px]">history</span> 原廠系統數據更新: 每日 06:00</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="hover:text-primary cursor-pointer transition-colors">系統說明文件</span>
+<span class="hover:text-primary cursor-pointer transition-colors">隱私權政策</span>
+</div>
+</footer>
+</main>
+</body></html>

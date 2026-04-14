@@ -1,0 +1,236 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-transition {
+            background: linear-gradient(to bottom, #ffffff, transparent);
+        }
+        .glass-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f5f2ff;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e2e0fc;
+            border-radius: 10px;
+        }
+    </style>
+
+
+
+<main class="min-h-screen flex flex-col">
+
+
+<div class="mt-16 p-8 flex gap-8">
+
+<div class="flex-1 bg-white rounded-3xl overflow-hidden shadow-sm border border-outline-variant/10">
+<div class="grid grid-cols-7 border-b border-surface-container">
+<div class="p-4 bg-surface-container-low text-center font-label text-xs font-bold text-slate-400">時段 / 工位</div>
+<div class="p-4 text-center font-headline font-bold text-primary">工位 1</div>
+<div class="p-4 text-center font-headline font-bold text-primary">工位 2</div>
+<div class="p-4 text-center font-headline font-bold text-primary">工位 3</div>
+<div class="p-4 text-center font-headline font-bold text-primary">工位 4</div>
+<div class="p-4 text-center font-headline font-bold text-primary">工位 5</div>
+<div class="p-4 text-center font-headline font-bold text-primary">工位 6</div>
+</div>
+<div class="h-[calc(100vh-280px)] overflow-y-auto">
+
+<div class="grid grid-cols-7 group">
+<div class="p-4 text-center font-label text-xs font-bold text-slate-500 bg-surface-container-low/30 border-b border-surface-container h-32 flex items-center justify-center">08:00</div>
+
+<div class="p-3 border-l border-b border-surface-container relative">
+<div class="bg-white border-l-4 border-[#3B82F6] shadow-md rounded-xl p-3 h-full flex flex-col justify-between hover:scale-[1.02] transition-transform cursor-pointer">
+<div>
+<div class="flex justify-between items-start mb-2">
+<h4 class="text-sm font-bold text-primary">張先生</h4>
+<span class="text-[10px] bg-blue-50 text-[#3B82F6] px-2 py-0.5 rounded-full font-bold">一般維修</span>
+</div>
+<div class="flex items-center gap-2">
+<img alt="Panigale V4 S" class="w-10 h-7 object-cover rounded shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuQ1qWBm2toj-rPNmPECzjUKrQE4wEYIfCHzf5HLYVgEZrpSv-yV6bJHlDf4g3eZxbJG-mY34XVxQSHW7vav4sSobRhyzXJ8YE3psV9RyqVqSrHf4dwfJgFOzCcJ52dXlFlqB8ZMpqKAsJSnYbb_-gD7fSnuIzoKOu86BFn0R12yNM2QsMOlxbWgEjnBA8HxUDcKkS924lRZLJOLQe0Df1fjRX5UoWJx0UVL-c3dyf-6BDnnJPPUcz_vUkbmKfxnQ5cAsFMBfUsz8"/>
+<p class="text-[11px] text-slate-500">Panigale V4 S</p>
+</div>
+</div>
+<div class="mt-4 flex items-center justify-between">
+<span class="text-[10px] flex items-center gap-1 text-slate-400"><span class="material-symbols-outlined text-[12px]">person</span>陳技師</span>
+<span class="text-[10px] font-bold text-[#3B82F6]">施工中</span>
+</div>
+</div>
+</div>
+
+<div class="p-3 border-l border-b border-surface-container">
+<div class="bg-white border-l-4 border-green-500 shadow-sm rounded-xl p-3 h-full flex flex-col justify-between opacity-80">
+<div>
+<div class="flex justify-between items-start mb-2">
+<h4 class="text-sm font-bold text-primary">李小姐</h4>
+<span class="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold">定期保養</span>
+</div>
+<div class="flex items-center gap-2">
+<img alt="Multistrada V4" class="w-10 h-7 object-cover rounded shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtHZmISPoWYoqLTLkYNCDuJNrxfTC-mvp8Rzaxn6mmYvyFmVB8nJfHjQPn-O7mjDfEfhJ5qylB2eICt5Bc2KcwsvUUvj2L-5rIWKlIpsQvk6DbmLBo5dapXYns9y8DsWjc1U-1eAfkiIG3musMVgJd9cqNswG5WOVSLaDKb2kTRJiu4hEDOLFHF9NPlS0kLhFofIngLORNFVHcSgDYQuqH9a8-0of-2A4I5IGarM-cobl6GH3916ntZ2MN3HZdMStH-5Yps4yv27s"/>
+<p class="text-[11px] text-slate-500">Multistrada V4</p>
+</div>
+</div>
+<div class="mt-4 flex items-center justify-between">
+<span class="text-[10px] text-slate-400">王技師</span>
+<span class="text-[10px] font-bold text-green-500">已報到</span>
+</div>
+</div>
+</div>
+
+<div class="p-3 border-l border-b border-surface-container group/cell hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-200 group-hover/cell:text-primary transition-colors">add_circle</span>
+</div>
+
+<div class="p-3 border-l border-b border-surface-container">
+<div class="bg-white border-l-4 border-red-500 shadow-md rounded-xl p-3 h-full flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-2">
+<h4 class="text-sm font-bold text-primary">趙先生</h4>
+<span class="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-bold">鈑噴</span>
+</div>
+<div class="flex items-center gap-2">
+<img alt="Monster SP" class="w-10 h-7 object-cover rounded shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDen5eKDKE5end-uKhiLo-j7pDSbnVi-Hku8K5xw2y8tDUKBK27dKqhb2TlV9ahEEIFPYKJoFyq6Oh8CFjpYaOdbZxhWjEeaZCuIoE3jaizYeem7JeOc12qZhH_SLWJitmN4xY_lW-xVx9iiXR9kLPzz96oIQKmxg3kb_4yeDOH0DArc3EFRIKNvF78gbi7HiGl7bRAElIrk2_SdWbMOrsukppwgpICeRC0ddJcOuGo1D2RDARXg39Wqpu-c7KBZKco-0jPO9Mya3Y"/>
+<p class="text-[11px] text-slate-500">Monster SP</p>
+</div>
+</div>
+<div class="mt-4 flex items-center justify-between">
+<span class="text-[10px] text-slate-400">林技師</span>
+<span class="text-[10px] font-bold text-red-500">待施工</span>
+</div>
+</div>
+</div>
+
+<div class="p-3 border-l border-b border-surface-container group/cell hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-200 group-hover/cell:text-primary transition-colors">add_circle</span>
+</div>
+<div class="p-3 border-l border-b border-surface-container group/cell hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-200 group-hover/cell:text-primary transition-colors">add_circle</span>
+</div>
+</div>
+<div class="grid grid-cols-7 group">
+<div class="p-4 text-center font-label text-xs font-bold text-slate-500 bg-surface-container-low/30 border-b border-surface-container h-32 flex items-center justify-center">09:00</div>
+<div class="p-3 border-l border-b border-surface-container group/cell hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center"><span class="material-symbols-outlined text-slate-200 group-hover/cell:text-primary">add_circle</span></div>
+
+<div class="p-3 border-l border-b border-surface-container">
+<div class="bg-white border-l-4 border-slate-300 shadow-sm rounded-xl p-3 h-full flex flex-col justify-between opacity-60">
+<div>
+<div class="flex justify-between items-start mb-2">
+<h4 class="text-sm font-bold text-primary">王先生</h4>
+<span class="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-bold">快速洗車</span>
+</div>
+<div class="flex items-center gap-2">
+<img alt="Diavel V4" class="w-10 h-7 object-cover rounded shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLpWcm01UKXomAeT7GBmsmoSNMj3_r5X4YRSFtFQ0cjYAqt48o3llilyDxydkz4zgV8NoPNwSq72Lfh--69NkkNGtkEwYZzOdzV69s0jivdRCcoD09rVDdu65c9-0KXJbwHfY_XH_41MN2vG5A3yvnw9oxcn6LDt7uq6M0nhpdLw0SHfmKYM5p-_r9-3OUcrqRUZ6nPVi0Y8NdnaTNV-konaMyiWsiypWjaX03XG-xpZTW0ocoFqaK_Tmc5jnQVLN6KmNE6OGSBJQ"/>
+<p class="text-[11px] text-slate-500">Diavel V4</p>
+</div>
+</div>
+<div class="mt-4 flex items-center justify-between">
+<span class="text-[10px] text-slate-400">洗車組</span>
+<span class="text-[10px] font-bold text-slate-400">未到</span>
+</div>
+</div>
+</div>
+<div class="p-3 border-l border-b border-surface-container group/cell hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center"><span class="material-symbols-outlined text-slate-200 group-hover/cell:text-primary">add_circle</span></div>
+<div class="p-3 border-l border-b border-surface-container group/cell hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center"><span class="material-symbols-outlined text-slate-200 group-hover/cell:text-primary">add_circle</span></div>
+<div class="p-3 border-l border-b border-surface-container group/cell hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center"><span class="material-symbols-outlined text-slate-200 group-hover/cell:text-primary">add_circle</span></div>
+<div class="p-3 border-l border-b border-surface-container group/cell hover:bg-surface-container-low transition-colors cursor-pointer flex items-center justify-center"><span class="material-symbols-outlined text-slate-200 group-hover/cell:text-primary">add_circle</span></div>
+</div>
+<div class="grid grid-cols-7 group">
+<div class="p-4 text-center font-label text-xs font-bold text-slate-500 bg-surface-container-low/30 border-b border-surface-container h-32 flex items-center justify-center">10:00</div>
+<div class="col-span-6 p-3 border-l border-b border-surface-container bg-surface-container-lowest/50 flex items-center justify-center italic text-slate-400 text-xs">
+                            — 晨間整備會議時段 —
+                        </div>
+</div>
+</div>
+</div>
+
+<aside class="w-80 flex flex-col gap-6">
+<div class="bg-[#1A1A2E] text-white rounded-3xl p-6 shadow-xl relative overflow-hidden">
+
+<div class="absolute -right-10 -top-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
+<div class="relative z-10">
+<h3 class="font-headline text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-[#C9A84C]">analytics</span>
+                            今日預約總覽
+                        </h3>
+<div class="space-y-4">
+<div class="bg-white/5 rounded-2xl p-4 flex items-center justify-between border border-white/5">
+<div>
+<p class="text-slate-400 text-xs mb-1">今日預約總數</p>
+<p class="text-2xl font-headline font-extrabold text-[#C9A84C]">18 <span class="text-sm font-normal">台</span></p>
+</div>
+<span class="material-symbols-outlined text-slate-500">two_wheeler</span>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-white/5 rounded-2xl p-4 border border-white/5">
+<p class="text-slate-400 text-[10px] mb-1">已報到</p>
+<p class="text-xl font-bold text-green-400">12</p>
+</div>
+<div class="bg-white/5 rounded-2xl p-4 border border-white/5">
+<p class="text-slate-400 text-[10px] mb-1">施工中</p>
+<p class="text-xl font-bold text-blue-400">8</p>
+</div>
+<div class="bg-white/5 rounded-2xl p-4 border border-white/5">
+<p class="text-slate-400 text-[10px] mb-1">已完工</p>
+<p class="text-xl font-bold text-[#C9A84C]">4</p>
+</div>
+<div class="bg-white/5 rounded-2xl p-4 border border-white/5">
+<p class="text-slate-400 text-[10px] mb-1">未到</p>
+<p class="text-xl font-bold text-slate-400">2</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-3xl p-6 shadow-sm border border-outline-variant/10 flex-1">
+<h4 class="font-headline font-bold text-primary mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary">priority_high</span>
+                        重要通知
+                    </h4>
+<div class="space-y-4">
+<div class="flex gap-3 items-start p-3 bg-error-container/20 rounded-xl">
+<span class="material-symbols-outlined text-error text-lg mt-0.5">warning</span>
+<div>
+<p class="text-xs font-bold text-primary">零件缺件警告</p>
+<p class="text-[10px] text-on-surface-variant mt-1">預約編號 #8921 的 Monster 煞車皮目前缺貨，需重新調整維修時間。</p>
+</div>
+</div>
+<div class="flex gap-3 items-start p-3 bg-surface-container-low rounded-xl">
+<span class="material-symbols-outlined text-tertiary text-lg mt-0.5">stars</span>
+<div>
+<p class="text-xs font-bold text-primary">VIP 到訪提醒</p>
+<p class="text-[10px] text-on-surface-variant mt-1">陳董事長將於 14:00 到訪，請接待組先行準備迎賓禮包。</p>
+</div>
+</div>
+</div>
+<div class="mt-8">
+<h4 class="font-headline font-bold text-primary mb-4 text-sm">技師人力狀態</h4>
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<span class="text-[11px] text-slate-500">陳技師</span>
+<div class="w-24 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-blue-500 w-[85%]"></div>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-[11px] text-slate-500">王技師</span>
+<div class="w-24 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-blue-500 w-[40%]"></div>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-[11px] text-slate-500">林技師</span>
+<div class="w-24 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-blue-500 w-[95%]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>

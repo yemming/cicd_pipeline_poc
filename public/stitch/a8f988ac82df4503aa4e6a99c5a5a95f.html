@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#fcf8ff",
+                        "tertiary": "#755b00",
+                        "surface-container-low": "#f5f2ff",
+                        "surface-container-high": "#e8e5ff",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "inverse-primary": "#c6c4df",
+                        "inverse-surface": "#2f2e43",
+                        "inverse-on-surface": "#f2efff",
+                        "primary-container": "#1a1a2e",
+                        "surface-variant": "#e2e0fc",
+                        "on-primary-fixed-variant": "#45455b",
+                        "error-container": "#ffdad6",
+                        "outline": "#78767d",
+                        "tertiary-fixed": "#ffe08f",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#503d00",
+                        "on-secondary": "#ffffff",
+                        "surface": "#fcf8ff",
+                        "on-primary-fixed": "#1a1a2e",
+                        "surface-dim": "#dad7f3",
+                        "secondary": "#5d5f5f",
+                        "primary": "#00000b",
+                        "surface-container": "#efecff",
+                        "on-tertiary-fixed": "#241a00",
+                        "on-surface-variant": "#47464c",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-surface": "#1a1a2e",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#c6c4df",
+                        "on-secondary-container": "#5f6161",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#e2e0fc",
+                        "secondary-fixed": "#e2e2e2",
+                        "secondary-container": "#dcdddd",
+                        "on-error": "#ffffff",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "surface-container-highest": "#e2e0fc",
+                        "outline-variant": "#c8c5cd",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#c9a84c",
+                        "on-primary-container": "#83829b",
+                        "on-background": "#1a1a2e",
+                        "surface-tint": "#5d5c74",
+                        "error": "#ba1a1a",
+                        "background": "#fcf8ff",
+                        "on-tertiary-fixed-variant": "#584400"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcf8ff; }
+        .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-nav { backdrop-filter: blur(16px); background: rgba(252, 248, 255, 0.8); }
+        .card-shadow { box-shadow: 0 40px 80px -20px rgba(26, 26, 46, 0.04); }
+        .metallic-cta { background: linear-gradient(135deg, #00000b 0%, #1a1a2e 100%); }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- SideNavBar (Shared Component) -->
+<!-- Main Canvas -->
+<main class="min-h-screen pb-20">
+<!-- TopAppBar (Shared Component) -->
+<!-- Content Area -->
+<div class="pt-24 px-10 max-w-6xl mx-auto">
+<!-- Page Header & Filter Section -->
+<section class="mb-10 flex flex-col gap-6">
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-4xl font-headline font-extrabold text-primary tracking-tight">商務政策管理</h2>
+<p class="text-on-surface-variant mt-2 font-medium">即時掌握年度銷售獎勵與最新促銷方案</p>
+</div>
+<button class="metallic-cta text-white px-6 py-3 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg shadow-primary/10 hover:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined text-sm">add</span>
+                        新增政策申請
+                    </button>
+</div>
+<!-- Filters -->
+<div class="flex items-center justify-between py-2">
+<div class="flex items-center gap-3">
+<button class="px-5 py-2 rounded-full bg-primary-container text-[#C9A84C] font-bold text-sm">2026年度</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-high text-on-surface/60 font-semibold text-sm hover:bg-surface-container-highest transition-colors">2025年度</button>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl">
+<button class="px-4 py-2 text-xs font-bold text-primary">全部</button>
+<div class="w-px h-3 bg-outline-variant/30 mx-1"></div>
+<button class="px-4 py-2 text-xs font-semibold text-on-surface/60 hover:text-primary transition-colors">執行中</button>
+<button class="px-4 py-2 text-xs font-semibold text-on-surface/60 hover:text-primary transition-colors">已過期</button>
+<button class="px-4 py-2 text-xs font-semibold text-on-surface/60 hover:text-primary transition-colors">即將到期</button>
+</div>
+</div>
+</section>
+<!-- Policy Cards Grid -->
+<div class="space-y-6">
+<!-- Card 1 (Expanded) -->
+<article class="bg-surface-container-lowest rounded-xl card-shadow overflow-hidden group">
+<div class="p-8 border-l-4 border-[#C9A84C]">
+<div class="flex justify-between items-start mb-8">
+<div class="space-y-1">
+<div class="flex items-center gap-3">
+<h3 class="text-xl font-headline font-bold text-primary">2026年度零售返利政策</h3>
+<span class="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-[10px] font-bold rounded-full uppercase tracking-wider">
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span> 執行中
+                                    </span>
+</div>
+<div class="flex items-center gap-4 text-sm text-on-surface-variant font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">calendar_today</span> 2026/01/01 - 2026/12/31</span>
+<span class="flex items-center gap-1 text-tertiary"><span class="material-symbols-outlined text-sm">description</span> LEXUS-Policy-2026-001</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">download</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-lg bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">expand_less</span>
+</button>
+</div>
+</div>
+<!-- Content Grid -->
+<div class="grid grid-cols-12 gap-8">
+<!-- Left: Table Rules -->
+<div class="col-span-7">
+<h4 class="text-xs font-bold text-on-surface/40 uppercase tracking-widest mb-4">政策獎勵明細</h4>
+<div class="bg-surface-container-low rounded-lg overflow-hidden">
+<table class="w-full text-left text-sm">
+<thead>
+<tr class="text-on-surface/50 border-b border-surface-container-highest">
+<th class="px-6 py-4 font-semibold">項目</th>
+<th class="px-6 py-4 font-semibold text-right">基準/條件</th>
+<th class="px-6 py-4 font-semibold text-right">獎勵金額</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-highest">
+<tr>
+<td class="px-6 py-4 font-medium">基礎返利</td>
+<td class="px-6 py-4 text-right">不限台數</td>
+<td class="px-6 py-4 text-right text-primary font-bold">NT$ 20,000 /台</td>
+</tr>
+<tr>
+<td class="px-6 py-4 font-medium">分級達成 (Tier 1)</td>
+<td class="px-6 py-4 text-right">達 120 台</td>
+<td class="px-6 py-4 text-right text-primary font-bold">+ NT$ 5,000 /台</td>
+</tr>
+<tr>
+<td class="px-6 py-4 font-medium">分級達成 (Tier 2)</td>
+<td class="px-6 py-4 text-right">達 150 台</td>
+<td class="px-6 py-4 text-right text-primary font-bold">+ NT$ 12,000 /台</td>
+</tr>
+<tr>
+<td class="px-6 py-4 font-medium">金融保險加碼</td>
+<td class="px-6 py-4 text-right">滲透率 &gt; 65%</td>
+<td class="px-6 py-4 text-right text-[#C9A84C] font-bold">NT$ 3,000 /台</td>
+</tr>
+<tr>
+<td class="px-6 py-4 font-medium">CSI 客服滿意獎勵</td>
+<td class="px-6 py-4 text-right">評分 &gt; 9.5</td>
+<td class="px-6 py-4 text-right text-[#C9A84C] font-bold">總額 0.5%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Right: Performance -->
+<div class="col-span-5 flex flex-col gap-6">
+<h4 class="text-xs font-bold text-on-surface/40 uppercase tracking-widest mb-0">本店執行狀況</h4>
+<div class="bg-surface-container-high p-6 rounded-lg space-y-6">
+<!-- Q1 Progress -->
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span class="text-primary">Q1 零售進度</span>
+<span class="text-green-600">達標 Tier 2 ✓</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-full"></div>
+</div>
+<div class="flex justify-between text-[10px] text-on-surface/50 font-semibold">
+<span>148 / 150 台</span>
+<span>98.6% (預估核銷)</span>
+</div>
+</div>
+<!-- Q2 Progress -->
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span class="text-primary">Q2 零售進度</span>
+<span class="text-on-surface/40">進行中</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-tertiary to-tertiary-fixed w-[72%]"></div>
+</div>
+<div class="flex justify-between text-[10px] text-on-surface/50 font-semibold">
+<span>36 / 50 台</span>
+<span>目標剩餘 14 台</span>
+</div>
+</div>
+</div>
+<div class="flex gap-2 mt-auto">
+<button class="flex-1 py-3 text-xs font-bold bg-surface-container-highest rounded-lg hover:bg-surface-variant transition-colors">核銷紀錄</button>
+<button class="flex-1 py-3 text-xs font-bold bg-surface-container-highest rounded-lg hover:bg-surface-variant transition-colors">下載PDF</button>
+<button class="flex-[1.5] py-3 text-xs font-bold text-tertiary border border-tertiary/20 rounded-lg hover:bg-tertiary/5 transition-colors">查看完整政策</button>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- Card 2 (Collapsed) -->
+<article class="bg-surface-container-lowest rounded-xl card-shadow overflow-hidden p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="flex items-center gap-6">
+<div class="w-1 h-10 bg-green-500 rounded-full"></div>
+<div class="space-y-1">
+<h3 class="font-headline font-bold text-primary">2026上半年市場活動補貼</h3>
+<div class="flex items-center gap-3 text-xs font-medium text-on-surface/40">
+<span class="bg-green-50 text-green-700 px-2 py-0.5 rounded uppercase tracking-tighter">執行中</span>
+<span>2026/01/01 - 2026/06/30</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-12">
+<div class="text-right">
+<p class="text-[10px] uppercase tracking-widest text-on-surface/40 font-bold mb-1">補助限額</p>
+<p class="font-bold text-primary">NT$ 200,000 <span class="text-[10px] text-on-surface/50">/每場活動</span></p>
+</div>
+<span class="material-symbols-outlined text-on-surface/20 group-hover:text-primary transition-colors">expand_more</span>
+</div>
+</article>
+<!-- Card 3 (Collapsed) -->
+<article class="bg-surface-container-lowest rounded-xl card-shadow overflow-hidden p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="flex items-center gap-6">
+<div class="w-1 h-10 bg-green-500 rounded-full"></div>
+<div class="space-y-1">
+<h3 class="font-headline font-bold text-primary">金融貼息方案 (RX/NX限定)</h3>
+<div class="flex items-center gap-3 text-xs font-medium text-on-surface/40">
+<span class="bg-green-50 text-green-700 px-2 py-0.5 rounded uppercase tracking-tighter">執行中</span>
+<span>2026/03/01 - 2026/05/31</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-12">
+<div class="text-right">
+<p class="text-[10px] uppercase tracking-widest text-on-surface/40 font-bold mb-1">貼息成數</p>
+<p class="font-bold text-primary">1.5% <span class="text-[10px] text-on-surface/50">年利率補貼</span></p>
+</div>
+<span class="material-symbols-outlined text-on-surface/20 group-hover:text-primary transition-colors">expand_more</span>
+</div>
+</article>
+<!-- Card 4 (Collapsed) -->
+<article class="bg-surface-container-lowest rounded-xl card-shadow overflow-hidden p-6 flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group border-l-4 border-amber-400">
+<div class="flex items-center gap-6">
+<div class="w-1 h-10 bg-amber-400 rounded-full"></div>
+<div class="space-y-1">
+<h3 class="font-headline font-bold text-primary">Q2特別促銷 — ES車系加碼</h3>
+<div class="flex items-center gap-3 text-xs font-medium text-on-surface/40">
+<span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded uppercase tracking-tighter font-bold">即將到期</span>
+<span>2026/04/01 - 2026/04/30</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-12">
+<div class="text-right">
+<p class="text-[10px] uppercase tracking-widest text-amber-700 font-bold mb-1">剩餘 19 天</p>
+<p class="font-bold text-primary">NT$ 30,000 <span class="text-[10px] text-on-surface/50">/每台加碼</span></p>
+</div>
+<span class="material-symbols-outlined text-on-surface/20 group-hover:text-primary transition-colors">expand_more</span>
+</div>
+</article>
+<!-- Card 5 (Collapsed) -->
+<article class="bg-surface-container-lowest rounded-xl card-shadow overflow-hidden p-6 flex items-center justify-between opacity-60 hover:opacity-100 transition-opacity cursor-pointer group">
+<div class="flex items-center gap-6">
+<div class="w-1 h-10 bg-on-surface/20 rounded-full"></div>
+<div class="space-y-1">
+<h3 class="font-headline font-bold text-on-surface/60">2025年度年終衝刺方案</h3>
+<div class="flex items-center gap-3 text-xs font-medium text-on-surface/30">
+<span class="bg-surface-container-high text-on-surface/40 px-2 py-0.5 rounded uppercase tracking-tighter">已過期</span>
+<span>2025/11/01 - 2025/12/31</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-12">
+<div class="text-right">
+<p class="text-[10px] uppercase tracking-widest text-on-surface/30 font-bold mb-1">結案日期</p>
+<p class="font-bold text-on-surface/40">2026/01/15</p>
+</div>
+<span class="material-symbols-outlined text-on-surface/20 group-hover:text-primary transition-colors">expand_more</span>
+</div>
+</article>
+</div>
+<!-- Footer Section -->
+<footer class="mt-16 pt-8 border-t border-[#1A1A2E]/5 flex justify-between items-center text-on-surface-variant">
+<div class="flex items-center gap-3">
+<div class="w-12 h-6 bg-primary-container rounded-full relative flex items-center px-1 cursor-pointer">
+<div class="absolute right-1 w-4 h-4 bg-[#C9A84C] rounded-full"></div>
+</div>
+<span class="text-sm font-bold">新政策通知訂閱中</span>
+</div>
+<div class="flex gap-8 text-xs font-medium">
+<a class="hover:text-primary transition-colors" href="#">下載年度手冊</a>
+<a class="hover:text-primary transition-colors" href="#">常見問題</a>
+<a class="hover:text-primary transition-colors" href="#">聯繫大區經理</a>
+</div>
+</footer>
+</div>
+</main>
+</body></html>

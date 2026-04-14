@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>精品選配 — 加入訂單 | Zenith Obsidian</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#e2e0fc",
+                        "on-error": "#ffffff",
+                        "outline": "#78767d",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#efecff",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-primary-container": "#83829b",
+                        "tertiary": "#755b00",
+                        "on-primary-fixed": "#1a1a2e",
+                        "on-tertiary-container": "#503d00",
+                        "surface-container-high": "#e8e5ff",
+                        "background": "#fcf8ff",
+                        "error": "#ba1a1a",
+                        "primary-fixed": "#e2e0fc",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#ffe08f",
+                        "primary-fixed-dim": "#c6c4df",
+                        "on-surface-variant": "#47464c",
+                        "on-primary-fixed-variant": "#45455b",
+                        "surface-bright": "#fcf8ff",
+                        "on-background": "#1a1a2e",
+                        "surface-tint": "#5d5c74",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "surface-container-low": "#f5f2ff",
+                        "inverse-on-surface": "#f2efff",
+                        "tertiary-container": "#c9a84c",
+                        "tertiary-fixed-dim": "#e6c364",
+                        "outline-variant": "#c8c5cd",
+                        "surface-dim": "#dad7f3",
+                        "primary-container": "#1a1a2e",
+                        "primary": "#00000b",
+                        "secondary-container": "#dcdddd",
+                        "on-secondary": "#ffffff",
+                        "on-surface": "#1a1a2e",
+                        "on-error-container": "#93000a",
+                        "surface": "#fcf8ff",
+                        "on-secondary-container": "#5f6161",
+                        "inverse-primary": "#c6c4df",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-tertiary-fixed": "#241a00",
+                        "surface-container-highest": "#e2e0fc",
+                        "on-tertiary-fixed-variant": "#584400",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "secondary": "#5d5f5f",
+                        "inverse-surface": "#2f2e43",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-tertiary-container/30">
+<!-- TopNavBar (Shared Component) -->
+<!-- SideNavBar (Shared Component) -->
+<!-- Main Content Canvas -->
+<main class="p-8 pr-[32%] bg-surface min-h-[calc(100vh-64px)]">
+<!-- Top Context Bar (Atelier Style) -->
+<!-- Filters & Search -->
+<section class="flex flex-wrap items-center justify-between gap-6 mb-10">
+<div class="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+<button class="px-5 py-2 bg-primary text-white rounded-full text-sm font-medium whitespace-nowrap">全部</button>
+<button class="px-5 py-2 bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors rounded-full text-sm font-medium whitespace-nowrap">影音配件</button>
+<button class="px-5 py-2 bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors rounded-full text-sm font-medium whitespace-nowrap">外觀配件</button>
+<button class="px-5 py-2 bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors rounded-full text-sm font-medium whitespace-nowrap">內裝配件</button>
+<button class="px-5 py-2 bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors rounded-full text-sm font-medium whitespace-nowrap">安全配件</button>
+<button class="px-5 py-2 bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors rounded-full text-sm font-medium whitespace-nowrap">美容服務</button>
+</div>
+<div class="relative w-full max-w-xs">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none focus:ring-1 focus:ring-tertiary-container rounded-lg text-sm transition-all" placeholder="搜尋精品名稱..." type="text"/>
+</div>
+</section>
+<!-- Product Catalog Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Card 1 -->
+<div class="group bg-surface-container-lowest rounded-xl p-4 shadow-sm hover:shadow-xl hover:shadow-on-surface/5 transition-all duration-300">
+<div class="relative aspect-[4/3] rounded-lg overflow-hidden bg-surface-container mb-4">
+<img class="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" data-alt="modern dashcam mounted on a luxury car windshield with soft morning light and blurred road background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWxt_7h9JyCTIXiogs4hTepivXL2R0y7iHnEK91bDr3_b1NyPfnh-eHt_-mmI8GuiVYebG31VLJxFJcxxbXBtUaAUgmxhJWGUOsNRXv5xqdRQZUSpxjqDJry-Y_4a6VgRkrxQyIZENF1kUP3ewj2C7qaxl4P44KXch-D1SjA2rAhMYYbUb670-_WDkgxZ6rpUY-1IfoQyH_Dj1vsIfH5W68buA-6STO3cBf_5jj3JRyIVjg1g_YVMjuo-sg4ur_MLYhTp7x9jaNL8"/>
+<span class="absolute top-3 left-3 bg-tertiary-container/90 text-on-tertiary-container text-[10px] font-bold px-2 py-1 rounded uppercase tracking-tighter">影音配件</span>
+</div>
+<h3 class="font-headline font-bold text-on-surface mb-1">原廠行車記錄器</h3>
+<p class="text-tertiary text-xl font-headline font-extrabold mb-4 tracking-tight">NT$12,000</p>
+<button class="w-full py-2.5 bg-primary-container text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+                    加入訂單
+                </button>
+</div>
+<!-- Card 2 -->
+<div class="group bg-surface-container-lowest rounded-xl p-4 shadow-md border border-tertiary-container/20">
+<div class="relative aspect-[4/3] rounded-lg overflow-hidden bg-surface-container mb-4">
+<img class="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" data-alt="close up of a luxury car window showing premium dark window tint with reflective surface in an urban setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhvkDZBjYqKFphuRQ2jyHZ5SlpoBmJtO1cmt9f_ACBqOlX9c0ANvqKMVlOPkt6asoZ5QWaU8V45rXZ5S8vfUP-LVY_q1NVUoaD-4qlXWL750bMb0RnZ8T6nkxEKgebD0g4mUJBzDryhjt1jAbvvxZJlKzv7JJuz--CBJnGQZaEFptUANVSZUeYmLpHzj7BkdXy2rkgNt_Uu9w341OZjOPyEva42BIRooeTzZm4jjVHG8e2a2UY4StpHxnu5kSTkSdELwiFkPWRnIU"/>
+<div class="absolute inset-0 bg-primary/20 backdrop-blur-[2px] flex items-center justify-center">
+<span class="bg-white/90 text-primary font-bold px-4 py-1.5 rounded-full text-xs shadow-lg">已加入 ✓</span>
+</div>
+<span class="absolute top-3 left-3 bg-tertiary-container/90 text-on-tertiary-container text-[10px] font-bold px-2 py-1 rounded uppercase tracking-tighter">隔熱紙</span>
+</div>
+<h3 class="font-headline font-bold text-on-surface mb-1">全車隔熱紙 V70</h3>
+<p class="text-tertiary text-xl font-headline font-extrabold mb-4 tracking-tight">NT$18,000</p>
+<button class="w-full py-2.5 bg-surface-container-high text-on-surface-variant rounded-lg text-sm font-medium flex items-center justify-center gap-2 cursor-default">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+                    已加入
+                </button>
+</div>
+<!-- Card 3 -->
+<div class="group bg-surface-container-lowest rounded-xl p-4 shadow-sm hover:shadow-xl hover:shadow-on-surface/5 transition-all duration-300">
+<div class="relative aspect-[4/3] rounded-lg overflow-hidden bg-surface-container mb-4">
+<img class="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" data-alt="detailed close-up of a premium leather car floor mat with fine stitching in a dark luxury car interior" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnPYg2_m7WvtEpHJu8Ef6nf1f4OXXIVlgIKj77JgnJBhUlSis9RN7gQw-eXKGUYvFm95zU8r8BHJCIHx3blvTytibcM26FvLVj-AF5K01MsOWSRX0Qr2bO0npC2DcypquYXuTUMdEAhV3-Wxv7576oyWpFxJkM3Vn1-P30WXdc4z4_NRPdr4QdCCAe_nzYgCVfkNOnPsNJ0jgl_GVNuLG-d7SYN895361SjDBWWIZOxHU_H4ndgtuMsVotnUtIplOkV7MU3GPonLs"/>
+<span class="absolute top-3 left-3 bg-tertiary-container/90 text-on-tertiary-container text-[10px] font-bold px-2 py-1 rounded uppercase tracking-tighter">內裝配件</span>
+</div>
+<h3 class="font-headline font-bold text-on-surface mb-1">原廠腳踏墊(皮革)</h3>
+<p class="text-tertiary text-xl font-headline font-extrabold mb-4 tracking-tight">NT$4,500</p>
+<button class="w-full py-2.5 bg-primary-container text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+                    加入訂單
+                </button>
+</div>
+<!-- Card 4 -->
+<div class="group bg-surface-container-lowest rounded-xl p-4 shadow-sm hover:shadow-xl hover:shadow-on-surface/5 transition-all duration-300">
+<div class="relative aspect-[4/3] rounded-lg overflow-hidden bg-surface-container mb-4">
+<img class="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" data-alt="glossy reflections on a luxury cars ceramic coating finish with soft studio lighting showcasing deep paint depth" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLuicE6RY56P6ZETnEptMnHd_Z6Q8Dvh2NgS9RmsSANQhffSLx3m2XD4XuGTJy6WID_XMUf9jk1f4qHfrCt5Spy9Cx-rRM6ux4uO_xPqPyHrUke_Z9ZFAHsmzDLyiaxeCr-yGV9my6d2eTXkQd28tB6NTjPI1943sAMjOqbYk8ib9AuctS0x4zfXKltKzDnK_Yd_WpDzVaM5SgpCCAFt-BVhvU8WLMMjsyWvIZc_qHfSe8g42phvixoxkTZiEY_CIGGDCFQ5HR7Og"/>
+<span class="absolute top-3 left-3 bg-tertiary-container/90 text-on-tertiary-container text-[10px] font-bold px-2 py-1 rounded uppercase tracking-tighter">美容服務</span>
+</div>
+<h3 class="font-headline font-bold text-on-surface mb-1">車身鍍膜服務</h3>
+<p class="text-tertiary text-xl font-headline font-extrabold mb-4 tracking-tight">NT$25,000</p>
+<button class="w-full py-2.5 bg-primary-container text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+                    加入訂單
+                </button>
+</div>
+<!-- Card 5 -->
+<div class="group bg-surface-container-lowest rounded-xl p-4 shadow-sm hover:shadow-xl hover:shadow-on-surface/5 transition-all duration-300">
+<div class="relative aspect-[4/3] rounded-lg overflow-hidden bg-surface-container mb-4">
+<img class="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" data-alt="dashboard screen showing 360 degree bird eye view camera system of a luxury SUV in a parking lot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqFBqNvzFATM-HSyLSS-lD9glDLxSB47JPOzXMaMJTgYPwVoG1Z0GhGA1W6ssT4faKrul2YMNKiQjH6haoaCem0KsYxdBOV4EF9bF5XB_5BXLogk1CRz64lsdIllYwItaj79A8GZsFLC72clmyVKHopdZLXbZn1B3mh9c3jwYL1J5CNSEPPbJAD69QyUly2aV7VOF_hSmB65RNc1u9qDsDWm_XmFyWRWMMyff5721qZ9SNi8FpZKfCrPHn9S8w_iOORefY_s18HEA"/>
+<span class="absolute top-3 left-3 bg-tertiary-container/90 text-on-tertiary-container text-[10px] font-bold px-2 py-1 rounded uppercase tracking-tighter">影音配件</span>
+</div>
+<h3 class="font-headline font-bold text-on-surface mb-1">360度環景系統</h3>
+<p class="text-tertiary text-xl font-headline font-extrabold mb-4 tracking-tight">NT$35,000</p>
+<button class="w-full py-2.5 bg-primary-container text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+                    加入訂單
+                </button>
+</div>
+<!-- Card 6 -->
+<div class="group bg-surface-container-lowest rounded-xl p-4 shadow-sm hover:shadow-xl hover:shadow-on-surface/5 transition-all duration-300">
+<div class="relative aspect-[4/3] rounded-lg overflow-hidden bg-surface-container mb-4">
+<img class="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-transform duration-500" data-alt="luxury ergonomic child car seat with safety harnesses installed in a clean vehicle interior" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDI7YZ_SlqxB9K_iSmLQBQ_wEsWT_uixrViQltWkgZ_v_wyjz7bsXEah3zIE31SG6S5UyXSVu4vdkPGNH2bcpE2GPFfBa_kWjWPzPKOE2NLxOmxWGWYk5rO-HsIQYkzXWvYcrcoYk3taCxuMiu6wXLkUsszCZOgMKv6Cys3FBAqTY_ZgyuMG3puGommm-GSPlfyLfgl3XVw6dh52uRAJBOpAhNZsGvlfnSPq_ViuSSvVt49JZytCj3WmJxXPHrB_vn23ywNWE7iwws"/>
+<span class="absolute top-3 left-3 bg-tertiary-container/90 text-on-tertiary-container text-[10px] font-bold px-2 py-1 rounded uppercase tracking-tighter">安全配件</span>
+</div>
+<h3 class="font-headline font-bold text-on-surface mb-1">兒童安全座椅</h3>
+<p class="text-tertiary text-xl font-headline font-extrabold mb-4 tracking-tight">NT$8,000</p>
+<button class="w-full py-2.5 bg-primary-container text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+                    加入訂單
+                </button>
+</div>
+</section>
+</main>
+<!-- Right Sidebar (Cart Summary) -->
+</body></html>

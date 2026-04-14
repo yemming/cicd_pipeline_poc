@@ -1,0 +1,278 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .timeline-grid {
+            display: grid;
+            grid-template-columns: 140px repeat(18, minmax(80px, 1fr));
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+
+
+
+<main class="min-h-screen">
+
+<div class="pt-24 px-8 pb-8 flex flex-col gap-6">
+
+<div class="flex flex-col gap-1">
+<nav class="flex text-xs text-on-surface-variant gap-2 items-center">
+<span>銷售管理</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-on-surface font-medium">試駕排程</span>
+</nav>
+<h1 class="text-3xl font-headline font-extrabold text-primary tracking-tight">試駕排程管理</h1>
+</div>
+
+<div class="flex items-center justify-between bg-surface-container-lowest p-4 rounded-2xl shadow-sm">
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-surface-container-low rounded-lg p-1">
+<button class="p-2 hover:bg-surface rounded-md transition-colors">
+<span class="material-symbols-outlined text-sm leading-none">chevron_left</span>
+</button>
+<span class="px-4 font-semibold text-sm">2026/04/11 週五</span>
+<button class="p-2 hover:bg-surface rounded-md transition-colors">
+<span class="material-symbols-outlined text-sm leading-none">chevron_right</span>
+</button>
+</div>
+<button class="px-4 py-2 bg-surface-container-high hover:bg-surface-container-highest rounded-lg text-xs font-bold transition-all">今天</button>
+</div>
+<div class="flex bg-surface-container-low p-1 rounded-xl">
+<button class="px-6 py-2 bg-surface-container-lowest text-primary rounded-lg text-xs font-extrabold shadow-sm">日檢視</button>
+<button class="px-6 py-2 text-on-surface-variant hover:text-primary rounded-lg text-xs font-medium transition-colors">週檢視</button>
+</div>
+<button class="flex items-center gap-2 bg-gradient-to-br from-primary to-primary-container text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all active:scale-95">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+                    新增試駕預約
+                </button>
+</div>
+<div class="flex gap-6">
+
+<div class="flex-1 bg-surface-container-lowest rounded-[24px] overflow-hidden shadow-sm flex flex-col">
+
+<div class="timeline-grid border-b border-surface-container-low bg-surface-container-low/50">
+<div class="p-4 text-xs font-bold text-on-surface-variant flex items-center justify-center border-r border-surface-container-low">車輛列表</div>
+<div class="col-span-18 overflow-x-auto no-scrollbar flex">
+
+<div class="flex flex-none">
+<template x-for="h in [9,10,11,12,13,14,15,16,17,18]">
+<div class="w-[160px] flex border-r border-surface-container-low/50">
+<div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">09:00</div>
+<div class="flex-1 p-3 text-[10px] font-bold text-center">09:30</div>
+</div>
+</template>
+
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">09:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">09:30</div></div>
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">10:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">10:30</div></div>
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">11:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">11:30</div></div>
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">12:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">12:30</div></div>
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">13:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">13:30</div></div>
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">14:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">14:30</div></div>
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">15:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">15:30</div></div>
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">16:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">16:30</div></div>
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">17:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">17:30</div></div>
+<div class="w-[160px] flex border-r border-surface-container-low/50"><div class="flex-1 p-3 text-[10px] font-bold text-center border-r border-surface-container-low/20">18:00</div><div class="flex-1 p-3 text-[10px] font-bold text-center">18:30</div></div>
+</div>
+</div>
+</div>
+
+<div class="overflow-y-auto no-scrollbar max-h-[600px]">
+
+<div class="timeline-grid border-b border-surface-container-low group/row">
+<div class="p-4 border-r border-surface-container-low bg-surface-container-low/20 flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-[11px] font-extrabold">RX 350h 白</span>
+</div>
+<span class="text-[10px] text-on-surface-variant font-mono">TEST-0021</span>
+</div>
+<div class="col-span-18 relative h-20 flex bg-[linear-gradient(90deg,transparent_79px,#F5F2FF_1px)] bg-[length:80px_100%]">
+
+<div class="absolute left-[160px] w-[80px] h-14 top-3 bg-primary-container text-white rounded-xl p-2 z-10 shadow-md flex flex-col justify-center cursor-pointer hover:scale-[1.02] transition-transform">
+<p class="text-[10px] font-bold leading-tight">王先生 · 陳顧問</p>
+<p class="text-[8px] opacity-70">標準路線</p>
+</div>
+
+<div class="absolute left-0 w-full h-full flex">
+<template x-for="i in 20">
+<div class="w-[80px] h-full hover:bg-surface-container-high/30 cursor-pointer flex items-center justify-center group/cell">
+<span class="material-symbols-outlined text-transparent group-hover/cell:text-on-surface-variant/30 text-lg">add</span>
+</div>
+</template>
+</div>
+</div>
+</div>
+
+<div class="timeline-grid border-b border-surface-container-low group/row">
+<div class="p-4 border-r border-surface-container-low bg-surface-container-low/20 flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-[11px] font-extrabold">RX 350h 黑</span>
+</div>
+<span class="text-[10px] text-on-surface-variant font-mono">TEST-0022</span>
+</div>
+<div class="col-span-18 relative h-20 bg-[linear-gradient(90deg,transparent_79px,#F5F2FF_1px)] bg-[length:80px_100%]"></div>
+</div>
+
+<div class="timeline-grid border-b border-surface-container-low group/row">
+<div class="p-4 border-r border-surface-container-low bg-surface-container-low/20 flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-orange-400"></span>
+<span class="text-[11px] font-extrabold">NX 350h 白</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-[10px] text-on-surface-variant font-mono">TEST-0023</span>
+<span class="text-[8px] px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full font-bold">使用中</span>
+</div>
+</div>
+<div class="col-span-18 relative h-20 bg-[linear-gradient(90deg,transparent_79px,#F5F2FF_1px)] bg-[length:80px_100%]">
+
+<div class="absolute left-[800px] w-[120px] h-14 top-3 bg-tertiary-container text-[#1A1A2E] rounded-xl p-2 z-10 shadow-xl border-2 border-[#C9A84C] animate-pulse-slow flex flex-col justify-center cursor-pointer">
+<div class="flex justify-between items-start">
+<p class="text-[10px] font-extrabold leading-tight">李小姐 · 張顧問</p>
+<span class="text-[9px] font-mono font-bold">00:23:45</span>
+</div>
+<p class="text-[8px] font-bold mt-1 opacity-80 uppercase tracking-tighter">高速體驗模式</p>
+</div>
+</div>
+</div>
+
+<div class="timeline-grid border-b border-surface-container-low group/row">
+<div class="p-4 border-r border-surface-container-low bg-surface-container-low/20 flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-[11px] font-extrabold">ES 300h 銀</span>
+</div>
+<span class="text-[10px] text-on-surface-variant font-mono">TEST-0031</span>
+</div>
+<div class="col-span-18 relative h-20 bg-[linear-gradient(90deg,transparent_79px,#F5F2FF_1px)] bg-[length:80px_100%]">
+
+<div class="absolute left-[1040px] w-[80px] h-14 top-3 bg-slate-200 text-slate-500 rounded-xl p-2 z-10 border border-slate-300 border-dashed flex flex-col justify-center cursor-pointer hover:bg-slate-300/30 transition-colors">
+<p class="text-[10px] font-bold leading-tight">林先生 · 黃顧問</p>
+<p class="text-[8px] font-medium italic">預計</p>
+</div>
+</div>
+</div>
+
+<div class="timeline-grid border-b border-surface-container-low group/row opacity-70 grayscale">
+<div class="p-4 border-r border-surface-container-low bg-surface-container-low/20 flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-red-500"></span>
+<span class="text-[11px] font-extrabold">UX 250h 灰</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-[10px] text-on-surface-variant font-mono">TEST-0041</span>
+<span class="text-[8px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-bold">維修中</span>
+</div>
+</div>
+<div class="col-span-18 h-20 bg-slate-50/50 flex items-center justify-center">
+<p class="text-xs text-slate-400 font-medium">車輛預計 04/13 恢復使用</p>
+</div>
+</div>
+
+<div class="timeline-grid border-b border-surface-container-low group/row">
+<div class="p-4 border-r border-surface-container-low bg-surface-container-low/20 flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-[11px] font-extrabold">LM 油電 黑</span>
+</div>
+<span class="text-[10px] text-on-surface-variant font-mono">TEST-0051</span>
+</div>
+<div class="col-span-18 relative h-20 bg-[linear-gradient(90deg,transparent_79px,#F5F2FF_1px)] bg-[length:80px_100%]"></div>
+</div>
+</div>
+</div>
+
+<aside class="w-[280px] flex flex-col gap-6">
+<div class="bg-surface-container-lowest p-6 rounded-[24px] shadow-sm border-l-4 border-tertiary-container">
+<h3 class="text-sm font-headline font-extrabold mb-4">今日試駕統計</h3>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-surface-container-low p-3 rounded-xl">
+<p class="text-[10px] text-on-surface-variant font-bold mb-1">今日已排</p>
+<p class="text-2xl font-headline font-extrabold">8</p>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl">
+<p class="text-[10px] text-green-600 font-bold mb-1">已完成</p>
+<p class="text-2xl font-headline font-extrabold">5</p>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl">
+<p class="text-[10px] text-orange-500 font-bold mb-1">進行中</p>
+<p class="text-2xl font-headline font-extrabold">1</p>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl">
+<p class="text-[10px] text-blue-500 font-bold mb-1">待出發</p>
+<p class="text-2xl font-headline font-extrabold">2</p>
+</div>
+</div>
+<div class="space-y-4 pt-4 border-t border-surface-container-low">
+<div>
+<div class="flex justify-between text-[11px] mb-1">
+<span class="font-bold">試駕轉報價率</span>
+<span class="text-primary font-extrabold">75%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-primary w-3/4 rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-[11px] mb-1">
+<span class="font-bold">試駕轉成交率</span>
+<span class="text-tertiary font-extrabold">37.5%</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-container w-[37.5%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-primary text-white p-6 rounded-[24px] shadow-lg">
+<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">車輛摘要</h3>
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-xs">可用車輛</span>
+</div>
+<span class="font-bold">4</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="w-2 h-2 rounded-full bg-orange-400"></span>
+<span class="text-xs">使用中</span>
+</div>
+<span class="font-bold">1</span>
+</div>
+<div class="flex items-center justify-between pb-4 border-b border-white/10">
+<div class="flex items-center gap-3">
+<span class="w-2 h-2 rounded-full bg-red-500"></span>
+<span class="text-xs">維修中</span>
+</div>
+<span class="font-bold">1</span>
+</div>
+<a class="flex items-center justify-between pt-2 group" href="#">
+<span class="text-[11px] font-bold text-tertiary-container group-hover:text-white transition-colors">管理試駕車輛</span>
+<span class="material-symbols-outlined text-[18px] text-tertiary-container group-hover:translate-x-1 transition-transform">arrow_right_alt</span>
+</a>
+</div>
+</div>
+
+<div class="relative rounded-[24px] overflow-hidden group">
+<img class="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-700" data-alt="luxury sports car interior with leather stitching and ambient lighting in a high-end showroom atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQ6RLTLFL4DupteN6mNB8xrWvNSo4R2mDTgaUo5l8QxNrjLvVyTkGf277rRX2kk08SoQrn5Mrbd3sANk4NuSlNHdxLO2ZdbsnCLvQAaNhXo19YsFmB-7FFX1hRLT_Qt0vjpBDcnIGBbs7Bc0ZK7phIkfza66OVH5rAPWiDnj0cJSAFM2oqelR-B9l-DocIU9s7DYXZkR2o_ofcCliiONyUpF7mU6kZbfNUWbStTbgurSOvYgsHBwAH2Y4foQuHhlBpBVdSk7qWgqM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-4">
+<p class="text-[10px] text-tertiary-container font-extrabold uppercase">今日亮點</p>
+<p class="text-white font-headline font-bold">旗艦房車 LS 500h</p>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</main>
+<style>
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.9; transform: scale(0.99); }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 3s infinite ease-in-out;
+        }
+    </style>

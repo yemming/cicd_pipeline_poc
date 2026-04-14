@@ -1,0 +1,318 @@
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .display-font { font-family: 'Manrope', sans-serif; }
+        .tonal-layering { background: linear-gradient(180deg, #FCF8FF 0%, #F5F2FF 100%); }
+        .glass-effect { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        .no-border { border: none !important; }
+    </style>
+
+
+<main class="flex-1 flex flex-col min-h-screen bg-surface">
+
+<section class="p-8 flex-1">
+
+<div class="flex flex-col gap-6 mb-10">
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-3xl font-extrabold text-primary-container tracking-tight display-font">中古車庫存管理</h2>
+<p class="text-on-surface-variant mt-1">即時庫存狀況與銷售追蹤</p>
+</div>
+<div class="flex gap-3">
+<button class="bg-surface-container-high text-on-surface-variant px-5 py-2.5 rounded-lg flex items-center gap-2 font-semibold hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+                            篩選條件
+                        </button>
+<button class="bg-primary-container text-white px-6 py-2.5 rounded-lg flex items-center gap-2 font-bold shadow-lg hover:shadow-xl transition-all active:scale-95">
+<span class="material-symbols-outlined" data-icon="add_business">add_business</span>
+                            收車入庫
+                        </button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex bg-surface-container-low rounded-lg p-1">
+<select class="bg-transparent border-none text-xs font-semibold px-4 py-1.5 focus:ring-0">
+<option>品牌: 全部</option>
+<option>Ducati</option>
+<option>Toyota</option>
+</select>
+<div class="w-px h-4 bg-outline-variant/30 self-center"></div>
+<select class="bg-transparent border-none text-xs font-semibold px-4 py-1.5 focus:ring-0">
+<option>年份: 全部</option>
+</select>
+<div class="w-px h-4 bg-outline-variant/30 self-center"></div>
+<select class="bg-transparent border-none text-xs font-semibold px-4 py-1.5 focus:ring-0">
+<option>價格: 全部</option>
+</select>
+<div class="w-px h-4 bg-outline-variant/30 self-center"></div>
+<select class="bg-transparent border-none text-xs font-semibold px-4 py-1.5 focus:ring-0">
+<option>狀態: 全部</option>
+</select>
+</div>
+<div class="ml-auto flex bg-surface-container-low rounded-lg p-1">
+<button class="p-1.5 rounded bg-surface-container-lowest shadow-sm text-primary">
+<span class="material-symbols-outlined text-xl" data-icon="grid_view">grid_view</span>
+</button>
+<button class="p-1.5 rounded text-on-surface-variant/40 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="format_list_bulleted">format_list_bulleted</span>
+</button>
+</div>
+</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+<div class="bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+<div class="relative h-56 bg-surface-container-low overflow-hidden">
+<img alt="Ducati Panigale V4 S" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="front side profile of a white luxury SUV Ducati Panigale V4 S, studio lighting, clean minimal background, sharp focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD16qfVOdRmIG-PxhlZ33OS4zdHRv8kFM_teB8n8WkLHLioODVWpePJs3F00cs9cidNgvNKmiRt4Wr6SrZMVlf7NgJKsFwi5OJThMudf8P26MkpS4BaKQE2LyDD1SNgMKpDvNgPRKS82EJmSH6tmXFg43mfu1M7ZjCFUgBFfSC9wLwwyFn60mktG6uRDXlPvG3Zrgnt-c9qpvhUnkVEYxaodAfcPHpdeHAIoasog5MzALLoh4_sTER9GRKIzlXkAc1Dyhkh28oWzLU"/>
+<div class="absolute top-4 left-4">
+<span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full border border-green-200">在庫 32天</span>
+</div>
+<div class="absolute bottom-4 right-4">
+<span class="bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg">整備完成</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-xl font-bold text-primary-container">2023 DUCATI RX 350h</h3>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-tertiary transition-colors" data-icon="bookmark">bookmark</button>
+</div>
+<p class="text-sm text-on-surface-variant mb-6">白色 · 2.5萬公里 · 油電</p>
+<div class="mb-6">
+<span class="text-sm text-on-surface-variant">零售價</span>
+<div class="text-2xl font-extrabold text-primary-container display-font">NT$ 1,680,000</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-4 mb-6 grid grid-cols-2 gap-4">
+<div>
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">收購價</div>
+<div class="text-sm font-semibold">NT$ 1,450,000</div>
+</div>
+<div>
+<div class="text-[10px] text-green-600 uppercase tracking-wider mb-1">預估毛利</div>
+<div class="text-sm font-bold text-green-600">NT$ 230,000</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-highest text-primary-container py-2.5 rounded-lg text-xs font-bold hover:bg-primary-container hover:text-white transition-all">發佈至官網</button>
+<button class="flex-1 border border-outline-variant/30 text-on-surface-variant py-2.5 rounded-lg text-xs font-bold hover:bg-surface-container-high transition-all">查看詳情</button>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+<div class="relative h-56 bg-surface-container-low overflow-hidden">
+<img alt="Ducati NX" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="rear angle of a dark grey Ducati NX SUV, city street at night with cinematic lights, modern atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGGNNOWdd5B5Xr99VpdTzxCF5HEmJrLFLVmEIK_rwpJMY2wo8KlUJl-jUhsVM7Ft9I6DkSslJUuWU0EqSw-vVuQLK22yoSYfPKAs9O159L8Y-qAjfTp8og8OyJK4dWvKpQwy6oalfakcD5neXPb7oX0bKTgySfWEhU9KHAsJ0O7ejBRu6nS2nTaaZGk2eg9QiIFMkelA9pPlCmpykLS2zeccr8jGHgNtLHuaNwkrrtruh7tfeFZ-AOOjUCBPkOpSHvOgusyWgGtwk"/>
+<div class="absolute top-4 left-4">
+<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-full border border-amber-200">在庫 72天</span>
+</div>
+<div class="absolute bottom-4 right-4">
+<span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg">整備中</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-xl font-bold text-primary-container">2021 DUCATI NX 200</h3>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-tertiary transition-colors" data-icon="bookmark">bookmark</button>
+</div>
+<p class="text-sm text-on-surface-variant mb-6">極速銀 · 4.1萬公里 · 汽油</p>
+<div class="mb-6">
+<span class="text-sm text-on-surface-variant">零售價</span>
+<div class="text-2xl font-extrabold text-primary-container display-font">NT$ 1,280,000</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-4 mb-6 grid grid-cols-2 gap-4">
+<div>
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">收購價</div>
+<div class="text-sm font-semibold">NT$ 1,050,000</div>
+</div>
+<div>
+<div class="text-[10px] text-green-600 uppercase tracking-wider mb-1">預估毛利</div>
+<div class="text-sm font-bold text-green-600">NT$ 230,000</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-highest text-primary-container py-2.5 rounded-lg text-xs font-bold hover:bg-primary-container hover:text-white transition-all">發佈至官網</button>
+<button class="flex-1 border border-outline-variant/30 text-on-surface-variant py-2.5 rounded-lg text-xs font-bold hover:bg-surface-container-high transition-all">查看詳情</button>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+<div class="relative h-56 bg-surface-container-low overflow-hidden">
+<img alt="Ducati ES" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="front view of a black Ducati ES sedan, minimal luxury garage setting, overhead soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLm6Fk6gpDGTddwbWQy0XhI0sRobsgCa09_--j4PqxUVUwaNJV09VoGHRhVY8qd_7C-lnf3cAgbBjoWRDIjFdC5RJZYIZfZOtW8Q_r2OZvYx-20n-IfyevwYNovq_PT2WJlFwgvWtFl_myU8cjtR6HfhdOGaziavdngHtidY4l1KQ8CzKMQsjcsvDbkwFoMaPPNiM6ztPQ0o69IM0aeOLfYzVM5SjMfSZJvpDATsCeCTFH9JjXdwUAGFxpFbaeYhoMOGb9tTsCkcA"/>
+<div class="absolute top-4 left-4">
+<span class="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded-full border border-red-200">在庫 104天</span>
+</div>
+<div class="absolute bottom-4 right-4">
+<span class="bg-slate-400 text-white text-[10px] font-bold px-2 py-1 rounded-lg">待上架</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-xl font-bold text-primary-container">2022 DUCATI ES 300h</h3>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-tertiary transition-colors" data-icon="bookmark">bookmark</button>
+</div>
+<p class="text-sm text-on-surface-variant mb-6">星熠黑 · 1.8萬公里 · 油電</p>
+<div class="mb-6">
+<span class="text-sm text-on-surface-variant">零售價</span>
+<div class="text-2xl font-extrabold text-primary-container display-font">NT$ 1,920,000</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-4 mb-6 grid grid-cols-2 gap-4">
+<div>
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">收購價</div>
+<div class="text-sm font-semibold">NT$ 1,700,000</div>
+</div>
+<div>
+<div class="text-[10px] text-green-600 uppercase tracking-wider mb-1">預估毛利</div>
+<div class="text-sm font-bold text-green-600">NT$ 220,000</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-highest text-primary-container py-2.5 rounded-lg text-xs font-bold hover:bg-primary-container hover:text-white transition-all">發佈至官網</button>
+<button class="flex-1 border border-outline-variant/30 text-on-surface-variant py-2.5 rounded-lg text-xs font-bold hover:bg-surface-container-high transition-all">查看詳情</button>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+<div class="relative h-56 bg-surface-container-low overflow-hidden">
+<img alt="Ducati UX" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="front face of a red Ducati UX, bright showroom lighting, reflection on glossy floor" src="https://lh3.googleusercontent.com/aida-public/AB6AXuASjEAD1VHv7smVPAcAX3flyd0Xl1c9Ow5ipSiD8lodwmd0swqd2To9VfJ3FvJAridMizzskFyhVxg4JHw1Ke2YwE-OtpNrQ_1dlqNmf-CMa1j8W9GqavBcnBVkxac3N3Qxy0bD9Ngv2Rb9JBv_-jb1O41bQBIYQVk3xJwYqlBOmbBsh3OLQuKPwZHqMRsEgeGTNLkr8pi_TnVSCrzHH4hI43g7PoYK8uMbAwvXUz3sLNBD3gLKODSqgdQDszLe-HcOCglErCNkrhk"/>
+<div class="absolute top-4 left-4">
+<span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full border border-green-200">在庫 15天</span>
+</div>
+<div class="absolute bottom-4 right-4">
+<span class="bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg">整備完成</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-xl font-bold text-primary-container">2023 DUCATI UX 250h</h3>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-tertiary transition-colors" data-icon="bookmark">bookmark</button>
+</div>
+<p class="text-sm text-on-surface-variant mb-6">熾焰紅 · 0.5萬公里 · 油電</p>
+<div class="mb-6">
+<span class="text-sm text-on-surface-variant">零售價</span>
+<div class="text-2xl font-extrabold text-primary-container display-font">NT$ 1,450,000</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-4 mb-6 grid grid-cols-2 gap-4">
+<div>
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">收購價</div>
+<div class="text-sm font-semibold">NT$ 1,280,000</div>
+</div>
+<div>
+<div class="text-[10px] text-green-600 uppercase tracking-wider mb-1">預估毛利</div>
+<div class="text-sm font-bold text-green-600">NT$ 170,000</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-highest text-primary-container py-2.5 rounded-lg text-xs font-bold hover:bg-primary-container hover:text-white transition-all">發佈至官網</button>
+<button class="flex-1 border border-outline-variant/30 text-on-surface-variant py-2.5 rounded-lg text-xs font-bold hover:bg-surface-container-high transition-all">查看詳情</button>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+<div class="relative h-56 bg-surface-container-low overflow-hidden">
+<img alt="Ducati LS" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Ducati LS luxury sedan, twilight photography, sleek lines visible against soft city background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxsCl9tujPpiKFvfIRwvDKVLkDhx-LG-0PYVBfWLEbFM0ZrAPSUEuU9KlONPq85NOooTGJgLfk8y0wq9i0aW8Fm89qIywFfYHUWEye2nZN5etaHhhlLdcGd44UY_6Uj2-U0ig_qr-Cn26Q_qXClAEApyXD0lZ7pYDuu8waAlnYv6N69uE3azFD85uLYiOVyLReYpqI2keqVUEsN1W80XMixwym7ICYZ5NXMVmHPFjehOShwPXti6oa6pI2mtxnF5dkBVG8UPrsal8"/>
+<div class="absolute top-4 left-4">
+<span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-full border border-amber-200">在庫 88天</span>
+</div>
+<div class="absolute bottom-4 right-4">
+<span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg">整備中</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-xl font-bold text-primary-container">2020 DUCATI LS 500h</h3>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-tertiary transition-colors" data-icon="bookmark">bookmark</button>
+</div>
+<p class="text-sm text-on-surface-variant mb-6">鈦釉灰 · 6.2萬公里 · 油電</p>
+<div class="mb-6">
+<span class="text-sm text-on-surface-variant">零售價</span>
+<div class="text-2xl font-extrabold text-primary-container display-font">NT$ 2,850,000</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-4 mb-6 grid grid-cols-2 gap-4">
+<div>
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">收購價</div>
+<div class="text-sm font-semibold">NT$ 2,400,000</div>
+</div>
+<div>
+<div class="text-[10px] text-green-600 uppercase tracking-wider mb-1">預估毛利</div>
+<div class="text-sm font-bold text-green-600">NT$ 450,000</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-highest text-primary-container py-2.5 rounded-lg text-xs font-bold hover:bg-primary-container hover:text-white transition-all">發佈至官網</button>
+<button class="flex-1 border border-outline-variant/30 text-on-surface-variant py-2.5 rounded-lg text-xs font-bold hover:bg-surface-container-high transition-all">查看詳情</button>
+</div>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-xl transition-all duration-500 overflow-hidden group">
+<div class="relative h-56 bg-surface-container-low overflow-hidden">
+<img alt="Toyota Alphard" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="white Toyota Alphard luxury minivan, corporate setting, bright daylight, professional look" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUMmTxuN18iVBPko9BKfaUeWo_-JWJErOnAc-X5zJ2xpP-d9etqk8ngd5GVX2dnuz4OsWtJh7PAXw10YuB09-PAomNjqm1ITg4fMM5df9mAAKqK8xUiOnR0EGcX_dwC3-PJthyhs2T-QsKwWl_b4GlpLALSfO2iUXkqjR0fbOCPCw0RXglWZQVz_py43NmNlIWrUsuD5ksmyiEp0e30Gr0zuISnv6uMOMek2yELzv5rTzuPCZ8wkrYM6EpvXzWfime6wVFxICL2Xg"/>
+<div class="absolute top-4 left-4">
+<span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full border border-green-200">在庫 42天</span>
+</div>
+<div class="absolute bottom-4 right-4">
+<span class="bg-green-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg">整備完成</span>
+</div>
+</div>
+<div class="p-6">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-xl font-bold text-primary-container">2022 TOYOTA ALPHARD</h3>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-tertiary transition-colors" data-icon="bookmark">bookmark</button>
+</div>
+<p class="text-sm text-on-surface-variant mb-6">雪貂白 · 3.5萬公里 · 汽油</p>
+<div class="mb-6">
+<span class="text-sm text-on-surface-variant">零售價</span>
+<div class="text-2xl font-extrabold text-primary-container display-font">NT$ 2,680,000</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-4 mb-6 grid grid-cols-2 gap-4">
+<div>
+<div class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">收購價</div>
+<div class="text-sm font-semibold">NT$ 2,420,000</div>
+</div>
+<div>
+<div class="text-[10px] text-green-600 uppercase tracking-wider mb-1">預估毛利</div>
+<div class="text-sm font-bold text-green-600">NT$ 260,000</div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-highest text-primary-container py-2.5 rounded-lg text-xs font-bold hover:bg-primary-container hover:text-white transition-all">發佈至官網</button>
+<button class="flex-1 border border-outline-variant/30 text-on-surface-variant py-2.5 rounded-lg text-xs font-bold hover:bg-surface-container-high transition-all">查看詳情</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<footer class="h-16 bg-primary-container text-white flex items-center px-8 text-xs font-medium tracking-wide">
+<div class="flex gap-8 opacity-90">
+<div class="flex items-center gap-2">
+<span class="text-tertiary">庫存摘要:</span>
+<span>在庫 24台</span>
+</div>
+<div class="w-px h-3 bg-white/20 self-center"></div>
+<div class="flex items-center gap-2">
+<span class="text-tertiary">平均庫齡:</span>
+<span>45天</span>
+</div>
+<div class="w-px h-3 bg-white/20 self-center"></div>
+<div class="flex items-center gap-2">
+<span class="text-tertiary">庫存總值:</span>
+<span>NT$ 38.2M</span>
+</div>
+<div class="w-px h-3 bg-white/20 self-center"></div>
+<div class="flex items-center gap-2">
+<span class="text-tertiary">本月已售:</span>
+<span>8台</span>
+</div>
+</div>
+<div class="ml-auto flex items-center gap-4 opacity-60">
+<span>© 2024 The Modern Atelier</span>
+<span class="material-symbols-outlined text-sm" data-icon="cloud_done">cloud_done</span>
+</div>
+</footer>
+</main>

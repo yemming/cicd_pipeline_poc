@@ -1,0 +1,298 @@
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fcf8ff; }
+        .font-manrope { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(201, 168, 76, 0.1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+
+<div class="ml-64 flex flex-col min-h-screen">
+<main class="p-8 space-y-8 flex-1 overflow-y-auto bg-surface">
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="glass-card p-6 rounded-2xl shadow-sm border-l-4 border-[#1A1A2E]">
+<div class="flex items-center justify-between">
+<p class="text-slate-500 text-sm font-medium">有效保固車輛</p>
+<span class="material-symbols-outlined text-[#1A1A2E]/20">verified_user</span>
+</div>
+<div class="mt-2 flex items-baseline gap-2">
+<h3 class="text-3xl font-manrope font-extrabold text-[#1A1A2E]">1,247</h3>
+<span class="text-slate-400 text-sm font-medium">台</span>
+</div>
+</div>
+<div class="glass-card p-6 rounded-2xl shadow-sm border-l-4 border-amber-500">
+<div class="flex items-center justify-between">
+<p class="text-slate-500 text-sm font-medium">30天內到期</p>
+<span class="material-symbols-outlined text-amber-500">warning</span>
+</div>
+<div class="mt-2 flex items-baseline gap-2">
+<h3 class="text-3xl font-manrope font-extrabold text-amber-600">42</h3>
+<span class="text-slate-400 text-sm font-medium">台</span>
+</div>
+</div>
+<div class="glass-card p-6 rounded-2xl shadow-sm border-l-4 border-emerald-500">
+<div class="flex items-center justify-between">
+<p class="text-slate-500 text-sm font-medium">延保滲透率</p>
+<span class="material-symbols-outlined text-emerald-500">trending_up</span>
+</div>
+<div class="mt-2 flex items-baseline gap-2">
+<h3 class="text-3xl font-manrope font-extrabold text-emerald-600">38%</h3>
+<span class="text-emerald-500 text-xs font-bold bg-emerald-50 px-2 py-0.5 rounded-full">↑ 5% vs去年</span>
+</div>
+</div>
+</section>
+<section class="bg-surface-container-low p-4 rounded-2xl flex flex-wrap items-center gap-4">
+<div class="relative flex-1 min-w-[300px]">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full pl-12 pr-4 py-2.5 bg-white border-none rounded-xl text-sm focus:ring-2 ring-tertiary-container/30 transition-all placeholder:text-slate-400" placeholder="搜尋車主姓名或 VIN 碼..." type="text"/>
+</div>
+<select class="bg-white border-none rounded-xl text-sm px-4 py-2.5 pr-10 focus:ring-2 ring-tertiary-container/30 min-w-[160px] text-slate-600 font-medium">
+<option>保固類型</option>
+<option>原廠保固</option>
+<option>延長保固</option>
+<option>第三方保固</option>
+</select>
+<select class="bg-white border-none rounded-xl text-sm px-4 py-2.5 pr-10 focus:ring-2 ring-tertiary-container/30 min-w-[160px] text-slate-600 font-medium">
+<option>保固狀態</option>
+<option>有效</option>
+<option>即將到期</option>
+<option>已過期</option>
+</select>
+<button class="bg-white text-[#1A1A2E] p-2.5 rounded-xl hover:bg-slate-50 transition-colors border-none shadow-sm">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</section>
+<section class="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-100">
+<div class="overflow-x-auto no-scrollbar">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-slate-500 text-xs font-bold uppercase tracking-wider">
+<th class="px-6 py-4">車主姓名</th>
+<th class="px-6 py-4">車型 / VIN (末六碼)</th>
+<th class="px-6 py-4">保固類型</th>
+<th class="px-6 py-4">效期區間</th>
+<th class="px-6 py-4">剩餘天數</th>
+<th class="px-6 py-4">里程狀態</th>
+<th class="px-6 py-4 text-center">狀態</th>
+<th class="px-6 py-4 text-right">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50">
+
+<tr class="hover:bg-slate-50/50 transition-colors">
+<td class="px-6 py-5">
+<p class="font-semibold text-sm">林志穎</p>
+<p class="text-[10px] text-slate-400">ID: CUST-8231</p>
+</td>
+<td class="px-6 py-5">
+<p class="text-sm font-medium">NX 200</p>
+<p class="text-xs text-slate-400 font-mono">...482931</p>
+</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full border border-blue-100">原廠保固</span>
+</td>
+<td class="px-6 py-5">
+<p class="text-xs text-slate-600">2021/05/10 - 2025/05/10</p>
+</td>
+<td class="px-6 py-5">
+<span class="text-emerald-600 font-bold text-sm">412 天</span>
+</td>
+<td class="px-6 py-5">
+<div class="w-24 bg-slate-100 h-1.5 rounded-full overflow-hidden mb-1">
+<div class="bg-blue-500 h-full" style="width: 45%;"></div>
+</div>
+<p class="text-[10px] text-slate-400">45,230 / 100,000 km</p>
+</td>
+<td class="px-6 py-5 text-center">
+<span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
+<span class="text-emerald-700 text-xs font-bold">有效</span>
+</td>
+<td class="px-6 py-5 text-right space-x-1">
+<button class="p-1.5 text-slate-400 hover:text-[#1A1A2E] hover:bg-slate-100 rounded-lg"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="p-1.5 text-slate-400 hover:text-tertiary hover:bg-slate-100 rounded-lg"><span class="material-symbols-outlined text-lg">workspace_premium</span></button>
+<button class="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-lg"><span class="material-symbols-outlined text-lg">notifications_active</span></button>
+</td>
+</tr>
+
+<tr class="hover:bg-slate-50/50 transition-colors">
+<td class="px-6 py-5"><p class="font-semibold text-sm">王曉明</p></td>
+<td class="px-6 py-5"><p class="text-sm font-medium">RX 350</p><p class="text-xs text-slate-400 font-mono">...112934</p></td>
+<td class="px-6 py-5"><span class="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-full border border-purple-100">延長保固</span></td>
+<td class="px-6 py-5"><p class="text-xs text-slate-600">2020/02/14 - 2024/02/14</p></td>
+<td class="px-6 py-5"><span class="text-amber-500 font-bold text-sm">18 天</span></td>
+<td class="px-6 py-5">
+<div class="w-24 bg-slate-100 h-1.5 rounded-full overflow-hidden mb-1">
+<div class="bg-amber-500 h-full" style="width: 88%;"></div>
+</div>
+<p class="text-[10px] text-slate-400">88,122 / 100,000 km</p>
+</td>
+<td class="px-6 py-5 text-center">
+<span class="inline-block w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></span>
+<span class="text-amber-700 text-xs font-bold">即將到期</span>
+</td>
+<td class="px-6 py-5 text-right space-x-1">
+<button class="p-1.5 text-slate-400 hover:text-[#1A1A2E] rounded-lg"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="p-1.5 text-[#C9A84C] hover:bg-amber-50 rounded-lg"><span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">workspace_premium</span></button>
+<button class="p-1.5 text-slate-400 hover:text-blue-500 rounded-lg"><span class="material-symbols-outlined text-lg">notifications_active</span></button>
+</td>
+</tr>
+
+<tr class="hover:bg-slate-50/50 transition-colors">
+<td class="px-6 py-5"><p class="font-semibold text-sm">張曼玉</p></td>
+<td class="px-6 py-5"><p class="text-sm font-medium">ES 250</p><p class="text-xs text-slate-400 font-mono">...773210</p></td>
+<td class="px-6 py-5"><span class="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-bold rounded-full border border-slate-200">第三方保固</span></td>
+<td class="px-6 py-5"><p class="text-xs text-slate-600">2018/11/05 - 2023/11/05</p></td>
+<td class="px-6 py-5"><span class="text-error font-bold text-sm">已逾期</span></td>
+<td class="px-6 py-5">
+<div class="w-24 bg-slate-100 h-1.5 rounded-full overflow-hidden mb-1">
+<div class="bg-error h-full" style="width: 100%;"></div>
+</div>
+<p class="text-[10px] text-slate-400">112,050 / 100,000 km</p>
+</td>
+<td class="px-6 py-5 text-center">
+<span class="inline-block w-2 h-2 rounded-full bg-error mr-2"></span>
+<span class="text-error text-xs font-bold">已過期</span>
+</td>
+<td class="px-6 py-5 text-right space-x-1">
+<button class="p-1.5 text-slate-400 hover:text-[#1A1A2E] rounded-lg"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="p-1.5 text-slate-400 hover:text-tertiary rounded-lg"><span class="material-symbols-outlined text-lg">workspace_premium</span></button>
+<button class="p-1.5 text-slate-400 hover:text-blue-500 rounded-lg"><span class="material-symbols-outlined text-lg">notifications_active</span></button>
+</td>
+</tr>
+
+<tr class="hover:bg-slate-50/50 transition-colors">
+<td class="px-6 py-4"><p class="font-semibold text-sm">陳小春</p></td>
+<td class="px-6 py-4"><p class="text-sm font-medium">UX 250h</p></td>
+<td class="px-6 py-4"><span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full">原廠保固</span></td>
+<td class="px-6 py-4 text-xs">2022/01/10 - 2026/01/10</td>
+<td class="px-6 py-4 text-emerald-600 font-bold text-sm">658 天</td>
+<td class="px-6 py-4 text-[10px] text-slate-400">22,300 km</td>
+<td class="px-6 py-4 text-center"><span class="text-emerald-700 text-xs font-bold">有效</span></td>
+<td class="px-6 py-4 text-right"><span class="material-symbols-outlined text-slate-300">more_horiz</span></td>
+</tr>
+<tr class="hover:bg-slate-50/50 transition-colors">
+<td class="px-6 py-4"><p class="font-semibold text-sm">李大大</p></td>
+<td class="px-6 py-4"><p class="text-sm font-medium">LM 350</p></td>
+<td class="px-6 py-4"><span class="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-full">延長保固</span></td>
+<td class="px-6 py-4 text-xs">2023/08/15 - 2028/08/15</td>
+<td class="px-6 py-4 text-emerald-600 font-bold text-sm">1,234 天</td>
+<td class="px-6 py-4 text-[10px] text-slate-400">5,100 km</td>
+<td class="px-6 py-4 text-center"><span class="text-emerald-700 text-xs font-bold">有效</span></td>
+<td class="px-6 py-4 text-right"><span class="material-symbols-outlined text-slate-300">more_horiz</span></td>
+</tr>
+<tr class="hover:bg-slate-50/50 transition-colors">
+<td class="px-6 py-4"><p class="font-semibold text-sm">趙雅芝</p></td>
+<td class="px-6 py-4"><p class="text-sm font-medium">IS 300</p></td>
+<td class="px-6 py-4"><span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full">原廠保固</span></td>
+<td class="px-6 py-4 text-xs">2020/03/10 - 2024/03/10</td>
+<td class="px-6 py-4 text-amber-500 font-bold text-sm">43 天</td>
+<td class="px-6 py-4 text-[10px] text-slate-400">55,200 km</td>
+<td class="px-6 py-4 text-center"><span class="text-amber-700 text-xs font-bold">即將到期</span></td>
+<td class="px-6 py-4 text-right"><span class="material-symbols-outlined text-slate-300">more_horiz</span></td>
+</tr>
+<tr class="hover:bg-slate-50/50 transition-colors">
+<td class="px-6 py-4"><p class="font-semibold text-sm">周杰倫</p></td>
+<td class="px-6 py-4"><p class="text-sm font-medium">LC 500</p></td>
+<td class="px-6 py-4"><span class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full">原廠保固</span></td>
+<td class="px-6 py-4 text-xs">2023/12/01 - 2027/12/01</td>
+<td class="px-6 py-4 text-emerald-600 font-bold text-sm">1,342 天</td>
+<td class="px-6 py-4 text-[10px] text-slate-400">1,200 km</td>
+<td class="px-6 py-4 text-center"><span class="text-emerald-700 text-xs font-bold">有效</span></td>
+<td class="px-6 py-4 text-right"><span class="material-symbols-outlined text-slate-300">more_horiz</span></td>
+</tr>
+<tr class="hover:bg-slate-50/50 transition-colors">
+<td class="px-6 py-4"><p class="font-semibold text-sm">蔡依林</p></td>
+<td class="px-6 py-4"><p class="text-sm font-medium">LX 600</p></td>
+<td class="px-6 py-4"><span class="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-full">延長保固</span></td>
+<td class="px-6 py-4 text-xs">2021/07/20 - 2025/07/20</td>
+<td class="px-6 py-4 text-emerald-600 font-bold text-sm">480 天</td>
+<td class="px-6 py-4 text-[10px] text-slate-400">32,800 km</td>
+<td class="px-6 py-4 text-center"><span class="text-emerald-700 text-xs font-bold">有效</span></td>
+<td class="px-6 py-4 text-right"><span class="material-symbols-outlined text-slate-300">more_horiz</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 bg-surface-container-low flex items-center justify-between">
+<p class="text-xs text-slate-500 font-medium">顯示 1-8 筆，共 1,247 筆</p>
+<div class="flex gap-2">
+<button class="p-2 bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-[#1A1A2E]"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<button class="p-2 bg-white rounded-lg border border-[#C9A84C] text-[#C9A84C] font-bold text-xs px-4">1</button>
+<button class="p-2 bg-white rounded-lg border border-slate-200 text-slate-600 font-medium text-xs px-4">2</button>
+<button class="p-2 bg-white rounded-lg border border-slate-200 text-slate-600 font-medium text-xs px-4">3</button>
+<button class="p-2 bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-[#1A1A2E]"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+</section>
+<section class="bg-surface-container-high/30 p-8 rounded-3xl grid grid-cols-1 md:grid-cols-2 gap-8 border border-[#C9A84C]/10">
+<div>
+<h4 class="text-[#1A1A2E] font-manrope font-bold text-lg mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-[#C9A84C]">schedule_send</span>
+                        到期提醒排程
+                    </h4>
+<div class="space-y-6">
+<div class="flex items-center justify-between group">
+<div>
+<p class="text-sm font-bold text-[#1A1A2E]">30天前自動提醒</p>
+<p class="text-xs text-slate-500 mt-0.5">發送首波保固到期通知與延保建議</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#C9A84C]"></div>
+</label>
+</div>
+<div class="flex items-center justify-between group">
+<div>
+<p class="text-sm font-bold text-[#1A1A2E]">14天前二次提醒</p>
+<p class="text-xs text-slate-500 mt-0.5">追蹤未讀取之通知，進行二次推播</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#C9A84C]"></div>
+</label>
+</div>
+<div class="flex items-center justify-between group">
+<div>
+<p class="text-sm font-bold text-[#1A1A2E]">到期當天提醒</p>
+<p class="text-xs text-slate-500 mt-0.5">最後權益保障告知與服務預約提醒</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#C9A84C]"></div>
+</label>
+</div>
+</div>
+</div>
+<div class="bg-white/50 backdrop-blur-md rounded-2xl p-6 border border-white/50">
+<p class="text-sm font-bold text-[#1A1A2E] mb-4">提醒方式與附加內容</p>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<label class="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:shadow-sm transition-all border border-transparent peer-checked:border-[#C9A84C]">
+<input checked="" class="w-4 h-4 text-[#C9A84C] border-slate-300 rounded focus:ring-[#C9A84C]" type="checkbox"/>
+<span class="text-sm text-slate-600 font-medium">SMS 簡訊</span>
+</label>
+<label class="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:shadow-sm transition-all">
+<input checked="" class="w-4 h-4 text-[#C9A84C] border-slate-300 rounded focus:ring-[#C9A84C]" type="checkbox"/>
+<span class="text-sm text-slate-600 font-medium">Email 郵件</span>
+</label>
+<label class="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:shadow-sm transition-all">
+<input checked="" class="w-4 h-4 text-[#C9A84C] border-slate-300 rounded focus:ring-[#C9A84C]" type="checkbox"/>
+<span class="text-sm text-slate-600 font-medium">App 推播</span>
+</label>
+<label class="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:shadow-sm transition-all">
+<input checked="" class="w-4 h-4 text-[#C9A84C] border-slate-300 rounded focus:ring-[#C9A84C]" type="checkbox"/>
+<span class="text-sm text-slate-600 font-medium">銷售顧問通知</span>
+</label>
+</div>
+<div class="p-4 bg-tertiary-container/10 rounded-xl border border-[#C9A84C]/20 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#C9A84C]">price_check</span>
+<p class="text-sm font-bold text-[#755B00]">附帶延保方案報價</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-10 h-5 bg-slate-300 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#C9A84C]"></div>
+</label>
+</div>
+</div>
+</section>
+</main>
+</div>

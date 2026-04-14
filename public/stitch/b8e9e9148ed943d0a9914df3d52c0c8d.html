@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-Hant"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>訂單審批詳情 | LEXUS Atelier Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#241a00",
+                    "tertiary-fixed-dim": "#e6c364",
+                    "surface-variant": "#e2e0fc",
+                    "primary": "#00000b",
+                    "on-tertiary": "#ffffff",
+                    "inverse-on-surface": "#f2efff",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed": "#ffe08f",
+                    "on-secondary-fixed": "#1a1c1c",
+                    "surface-dim": "#dad7f3",
+                    "on-tertiary-container": "#503d00",
+                    "background": "#fcf8ff",
+                    "inverse-surface": "#2f2e43",
+                    "on-surface-variant": "#47464c",
+                    "on-primary": "#ffffff",
+                    "surface-bright": "#fcf8ff",
+                    "primary-fixed-dim": "#c6c4df",
+                    "secondary-fixed-dim": "#c6c6c7",
+                    "inverse-primary": "#c6c4df",
+                    "on-primary-fixed-variant": "#45455b",
+                    "outline-variant": "#c8c5cd",
+                    "secondary-fixed": "#e2e2e2",
+                    "surface-container-highest": "#e2e0fc",
+                    "secondary": "#5d5f5f",
+                    "surface-container-low": "#f5f2ff",
+                    "on-background": "#1a1a2e",
+                    "on-secondary-container": "#5f6161",
+                    "surface": "#fcf8ff",
+                    "error": "#ba1a1a",
+                    "surface-container": "#efecff",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed-variant": "#454747",
+                    "surface-container-high": "#e8e5ff",
+                    "on-error": "#ffffff",
+                    "tertiary-container": "#c9a84c",
+                    "tertiary": "#755b00",
+                    "on-surface": "#1a1a2e",
+                    "outline": "#78767d",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-container": "#1a1a2e",
+                    "secondary-container": "#dcdddd",
+                    "primary-fixed": "#e2e0fc",
+                    "on-tertiary-fixed-variant": "#584400",
+                    "on-primary-fixed": "#1a1a2e",
+                    "surface-tint": "#5d5c74",
+                    "error-container": "#ffdad6",
+                    "on-error-container": "#93000a",
+                    "on-primary-container": "#83829b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "1rem",
+                    "xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .tonal-transition {
+            background: linear-gradient(180deg, #FCF8FF 0%, #F5F2FF 100%);
+        }
+        .premium-gradient-btn {
+            background: linear-gradient(135deg, #00000B 0%, #1A1A2E 100%);
+        }
+    </style>
+</head>
+<body class="bg-background font-body text-on-surface antialiased">
+<!-- Sidebar Navigation Shell -->
+<!-- Main Content Area -->
+<main class="min-h-screen">
+<!-- Top App Bar -->
+<!-- Content Grid -->
+<div class="p-8 lg:p-12">
+<div class="flex flex-col lg:flex-row gap-8">
+<!-- Left Column (70%) -->
+<div class="lg:w-[70%] space-y-8">
+<!-- Card 1: 審批摘要 (Bento Style) -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex items-center gap-3 mb-8">
+<span class="material-symbols-outlined text-tertiary" data-icon="summarize">summarize</span>
+<h3 class="text-xl font-headline font-bold">審批摘要</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-surface-container-low p-6 rounded-lg border border-outline-variant/10">
+<p class="text-xs font-label text-on-surface-variant mb-2 tracking-wider">訂單總額</p>
+<p class="text-2xl font-headline font-extrabold text-primary">NT$ 3,500,000</p>
+</div>
+<div class="bg-surface-container-low p-6 rounded-lg border border-outline-variant/10">
+<p class="text-xs font-label text-on-surface-variant mb-2 tracking-wider">折扣比例</p>
+<p class="text-2xl font-headline font-extrabold text-tertiary">6%</p>
+</div>
+<div class="bg-surface-container-low p-6 rounded-lg border border-outline-variant/10">
+<p class="text-xs font-label text-on-surface-variant mb-2 tracking-wider">觸發條件</p>
+<p class="text-sm font-medium text-error font-body">金額 &gt; 300萬 或 折扣 &gt; 5%</p>
+</div>
+</div>
+</section>
+<!-- Card 2: 訂單詳情 (Asymmetric Detail View) -->
+<section class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm">
+<div class="flex flex-col md:flex-row">
+<div class="md:w-2/5 relative">
+<img alt="Lexus RX 350h Luxury SUV" class="h-full w-full object-cover" data-alt="Sleek white Lexus RX 350h parked in a minimalist modern architectural setting with soft dramatic shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVgiDwZ7NeChzvwXE05TlDN_3WKt9dHfDA5suDKw3uW_9I4oXviNoMB6Pc9JS-UWpoB2qigpPAQD5fsRnrztl0dGGph3getKTFNtSUrbQYF2BMHbUTskEp36S-c2ZF0v8mITNqJur59TsjAJWvY9DsLQPmxkPHGbSnFwJZs2tbENFMq97MWxOsGAFGFzjc39cZu5NdGOVGoRzbrwugKrQWTECclO5452X6k3JXf4AabR9tQm4aDQhr06trqVYDzjIuJLMU0QtKNRQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-primary/40 to-transparent"></div>
+<div class="absolute bottom-6 left-6 text-white">
+<p class="text-xs font-label tracking-widest opacity-80">選定車型</p>
+<h4 class="text-2xl font-headline font-black">RX 350h</h4>
+</div>
+</div>
+<div class="md:w-3/5 p-8 space-y-6">
+<div class="flex items-center justify-between border-b border-surface-container-high pb-4">
+<h3 class="text-xl font-headline font-bold">訂單詳情</h3>
+<button class="text-tertiary text-sm font-bold flex items-center gap-1">
+                                        查看完整合約 <span class="material-symbols-outlined text-sm" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-y-6">
+<div>
+<p class="text-xs text-on-surface-variant mb-1">客戶姓名</p>
+<p class="font-bold text-lg">王先生</p>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant mb-1">聯絡電話</p>
+<p class="font-medium">0912-***-456</p>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant mb-1">成交總價</p>
+<p class="font-bold text-xl text-primary">NT$ 3,290,000</p>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant mb-1">預計交車日</p>
+<p class="font-medium text-on-surface">2026-06-15</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Card 3: 附件 (Grid List) -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-lg font-headline font-bold">附件清單</h3>
+<span class="text-xs font-label text-on-surface-variant">共 2 個檔案</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-primary/5 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="description">description</span>
+</div>
+<div>
+<p class="text-sm font-bold">Scanned contract.pdf</p>
+<p class="text-xs text-on-surface-variant">4.2 MB • 已掃描合約</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary" data-icon="download">download</span>
+</div>
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-lg border border-outline-variant/10 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 bg-primary/5 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="badge">badge</span>
+</div>
+<div>
+<p class="text-sm font-bold">ID copy.jpg</p>
+<p class="text-xs text-on-surface-variant">1.8 MB • 身份證件影本</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary" data-icon="visibility">visibility</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column (30%) -->
+<div class="lg:w-[30%] space-y-8">
+<!-- Card: 審批流程 (Timeline) -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+<h3 class="text-lg font-headline font-bold mb-8">審批流程</h3>
+<div class="space-y-8 relative before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-2 before:w-[2px] before:bg-surface-container-high">
+<!-- Step 1: Completed -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[14px] text-white" data-icon="check">check</span>
+</div>
+<div>
+<p class="text-xs font-label text-on-surface-variant">2026-04-11 09:30</p>
+<p class="font-bold text-sm">銷售顧問提交</p>
+<p class="text-xs text-on-surface-variant mt-1">提交人: 陳大文</p>
+</div>
+</div>
+<!-- Step 2: Completed with comment -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[14px] text-white" data-icon="check">check</span>
+</div>
+<div>
+<p class="text-xs font-label text-on-surface-variant">2026-04-11 11:15</p>
+<p class="font-bold text-sm">銷售主管審批</p>
+<div class="mt-2 bg-surface-container-low p-3 rounded text-sm italic border-l-2 border-tertiary">
+                                        「核准，轉交總經理」— 廖主管
+                                    </div>
+</div>
+</div>
+<!-- Step 3: Current Pending -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-1 w-6 h-6 bg-tertiary-container/40 rounded-full flex items-center justify-center z-10 ring-4 ring-background">
+<div class="w-2.5 h-2.5 bg-tertiary rounded-full animate-pulse"></div>
+</div>
+<div>
+<p class="text-xs font-label text-tertiary font-bold">進行中</p>
+<p class="font-bold text-sm">總經理審批</p>
+<p class="text-xs text-on-surface-variant mt-1">目前處理人: 林總經理</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Card: 審批操作 -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-tertiary/10">
+<h3 class="text-lg font-headline font-bold mb-6">審批操作</h3>
+<div class="space-y-6">
+<div>
+<label class="block text-xs font-label text-on-surface-variant mb-2 tracking-wider">審批意見</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-lg text-sm focus:ring-1 focus:ring-tertiary/40 placeholder:text-on-surface-variant/40 resize-none p-4" placeholder="請輸入審批意見..." rows="4"></textarea>
+</div>
+<div class="space-y-3">
+<button class="w-full premium-gradient-btn text-white py-4 rounded-lg font-bold text-sm shadow-lg active:scale-[0.98] transition-all">
+                                    核准此申請
+                                </button>
+<div class="grid grid-cols-2 gap-3">
+<button class="bg-error-container text-error py-3 rounded-lg font-bold text-sm hover:bg-error hover:text-white transition-colors duration-200">
+                                        駁回
+                                    </button>
+<button class="bg-surface-container-high text-on-surface-variant py-3 rounded-lg font-bold text-sm hover:bg-surface-container-highest transition-colors duration-200">
+                                        轉交
+                                    </button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+</body></html>
