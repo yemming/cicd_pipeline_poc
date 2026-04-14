@@ -65,7 +65,7 @@ export default function LoginPage() {
             </div>
             <div className="w-12 gold-border mb-8" />
             <p className="font-display text-xl text-primary-fixed-dim tracking-[0.15em] font-light leading-relaxed">
-              Ducati 重機經銷商智慧營運平台
+              現場商務智慧營運平台
             </p>
           </div>
           <div className="relative z-10 space-y-10 max-w-sm">

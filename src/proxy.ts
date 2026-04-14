@@ -33,11 +33,13 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse
   }
 
-  // 刷新 session，避免過期（只在需要保護的路由執行）
-  const { data: { user } } = await supabase.auth.getUser()
+  // 從本地 cookie 讀取 session（不打 Supabase 網路，避免 middleware 延遲）
+  // 注意：getSession() 不驗證 JWT 簽名，僅適合 demo/內部環境；
+  // 正式生產若需要嚴格驗證，改回 getUser()。
+  const { data: { session } } = await supabase.auth.getSession()
 
   // 未登入時重導到 /login
-  if (!user) {
+  if (!session) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
