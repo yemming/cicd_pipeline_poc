@@ -7,6 +7,7 @@ import { Topbar } from "@/components/topbar";
 import { CommandPalette } from "@/components/command-palette";
 import { PageHeaderProvider } from "@/components/page-header-context";
 import { SidebarProvider, useSidebar } from "@/components/sidebar-context";
+import { useActiveModule } from "@/lib/use-active-module";
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,6 +21,8 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
 
 function Shell({ children }: { children: React.ReactNode }) {
   const { collapsed, setCollapsed, toggle } = useSidebar();
+  const activeModule = useActiveModule();
+  const onLauncher = !activeModule;
   const [searchOpen, setSearchOpen] = useState(false);
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
@@ -57,8 +60,11 @@ function Shell({ children }: { children: React.ReactNode }) {
 
       <main
         className={`mt-16 min-h-[calc(100dvh-4rem)] bg-[#F5F5F5] p-4 md:p-8 transition-[margin-left] duration-200 ${
-          collapsed ? "ml-14" : "md:ml-[296px] ml-14"
+          onLauncher || collapsed ? "ml-14" : "md:ml-[296px] ml-14"
         }`}
+        style={{
+          ["--shell-left" as string]: onLauncher || collapsed ? "3.5rem" : "18.5rem",
+        }}
       >
         {children}
       </main>

@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { modules } from "@/lib/modules";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { useProfile, getGreeting } from "@/lib/use-profile";
 
 export default function LauncherPage() {
   useSetPageHeader({ title: "DealerOS Workspace", hideSearch: false });
+  const profile = useProfile();
 
   return (
     <div className="max-w-6xl mx-auto pt-4">
@@ -20,7 +22,7 @@ export default function LauncherPage() {
             Ducati Taipei · Official Dealer
           </div>
           <h1 className="text-4xl font-extrabold font-display text-on-surface tracking-tight mb-2">
-            早安，陳顧問
+            {getGreeting()}，{profile?.name ?? "..."}
           </h1>
           <p className="text-on-surface-variant">
             選擇一個應用開始你的一天，或用{" "}

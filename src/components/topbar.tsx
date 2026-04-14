@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePageHeader } from "./page-header-context";
 import { useSidebar } from "./sidebar-context";
+import { useProfile, getInitials } from "@/lib/use-profile";
 
 interface TopbarProps {
   onOpenSearch: () => void;
@@ -10,7 +11,8 @@ interface TopbarProps {
 
 export function Topbar({ onOpenSearch }: TopbarProps) {
   const { title, tabs, breadcrumb, hideSearch } = usePageHeader();
-  const { collapsed, toggle } = useSidebar();
+  const { collapsed } = useSidebar();
+  const profile = useProfile();
 
   const today = new Date();
   const weekdays = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
@@ -27,17 +29,6 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
     >
       {/* Left: toggle + title + tabs, or breadcrumb */}
       <div className="flex items-center gap-4 md:gap-8 min-w-0">
-        <button
-          onClick={toggle}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-[#CC0000]/10 hover:text-[#CC0000] text-[#1A1A2E] transition-colors shrink-0 border border-slate-200"
-          title={collapsed ? "展開側邊欄（⌘B）" : "收合側邊欄（⌘B）"}
-          aria-label={collapsed ? "展開側邊欄" : "收合側邊欄"}
-        >
-          <span className="material-symbols-outlined text-lg">
-            {collapsed ? "menu_open" : "menu"}
-          </span>
-          <kbd className="hidden md:inline text-[10px] font-mono text-slate-400">⌘B</kbd>
-        </button>
         {title && (
           <span className="text-lg font-black text-[#1A1A2E] font-display whitespace-nowrap">
             {title}
@@ -143,9 +134,9 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
           <span className="text-sm font-medium text-slate-500 hidden lg:inline">
             {dateStr}
           </span>
-          <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden border border-slate-100 cursor-pointer hover:ring-2 hover:ring-[#CC0000] transition-all flex items-center justify-center">
-            <span className="material-symbols-outlined text-slate-500 text-sm">
-              person
+          <div className="w-8 h-8 rounded-full bg-[#1A1A2E] overflow-hidden border border-slate-100 cursor-pointer hover:ring-2 hover:ring-[#CC0000] transition-all flex items-center justify-center">
+            <span className="text-white text-[11px] font-black font-display leading-none">
+              {getInitials(profile?.name)}
             </span>
           </div>
         </div>

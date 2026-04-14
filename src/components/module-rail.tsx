@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { modules } from "@/lib/modules";
+import { useSidebar } from "./sidebar-context";
 
 export function ModuleRail() {
   const pathname = usePathname();
+  const { toggle } = useSidebar();
   const activeKey = pathname.split("/")[1] || null;
   const onLauncher = !activeKey;
 
   return (
-    <nav className="fixed left-0 top-0 h-screen w-14 bg-[#0F0F1F] flex flex-col items-center py-3 z-50 border-r border-white/5">
+    <nav className="fixed left-0 top-0 h-screen w-14 bg-[#0F0F1F] flex flex-col items-center py-3 z-[55] border-r border-white/5 overflow-hidden">
       {/* Launcher / Home */}
       <RailLink
         href="/"
@@ -32,6 +34,7 @@ export function ModuleRail() {
             active={activeKey === m.key}
             disabled={m.comingSoon}
             accent={m.accent}
+            onActiveClick={activeKey === m.key ? toggle : undefined}
           />
         ))}
       </div>
@@ -61,6 +64,7 @@ function RailLink({
   active,
   disabled,
   accent,
+  onActiveClick,
 }: {
   href?: string;
   label: string;
@@ -68,6 +72,7 @@ function RailLink({
   active?: boolean;
   disabled?: boolean;
   accent?: string;
+  onActiveClick?: () => void;
 }) {
   const base =
     "w-10 h-10 flex items-center justify-center rounded-lg transition-colors group relative";
@@ -100,6 +105,15 @@ function RailLink({
       <div className={`${base} ${state}`} aria-disabled={disabled || undefined}>
         {content}
       </div>
+    );
+  }
+
+  // 已選中的模組：點擊 toggle panel，不重新導航
+  if (active && onActiveClick) {
+    return (
+      <button onClick={onActiveClick} className={`${base} ${state}`} title={label}>
+        {content}
+      </button>
     );
   }
 

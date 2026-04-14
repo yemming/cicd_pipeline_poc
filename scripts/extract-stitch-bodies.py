@@ -65,6 +65,17 @@ SUBS: list[tuple[str, str]] = [
     (r"\bLexus\s+UX\s+250h", "Ducati Scrambler Icon"),
     (r"\bLexus\b", "Ducati"),
     (r"\bLEXUS\b", "DUCATI"),
+    # Mainland → Taiwan wording. Order matters: specific compounds must match
+    # before the bare `車間 → 維修廠` fallback.
+    (r"車間派工調度", "技師派工調度"),
+    (r"車間派工", "技師派工"),
+    (r"車間施工進度", "維修進度"),
+    (r"維修車間", "維修廠"),
+    (r"車間效率", "廠內效率"),
+    (r"車間工位", "工作站"),
+    (r"車間管理", "維修廠管理"),
+    (r"車間", "維修廠"),
+    (r"工位", "工作站"),
 ]
 
 

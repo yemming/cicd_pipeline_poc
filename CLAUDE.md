@@ -106,7 +106,7 @@ export const modules: ModuleDef[] = [
     name: "維修管理",
     icon: "build",
     accent: "#4A90E2",
-    description: "預約・工單・車間",
+    description: "預約・工單・維修廠",
     home: "/service/appointments",
     permission: "service.access",
     pages: [

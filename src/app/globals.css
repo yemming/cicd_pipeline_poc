@@ -76,6 +76,12 @@
   --radius-lg: 1rem;
 }
 
+/* ===== PagesPanel Nav Scrollbar — must stay dark regardless of stitch page CSS ===== */
+.pages-panel-nav::-webkit-scrollbar { width: 4px; }
+.pages-panel-nav::-webkit-scrollbar-track { background: transparent; }
+.pages-panel-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
+.pages-panel-nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
 /* ===== Base Styles ===== */
 
 html {
