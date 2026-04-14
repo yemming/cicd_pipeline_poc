@@ -158,32 +158,9 @@ export function PagesPanel() {
         ))}
       </nav>
 
-      {/* Footer actions */}
+      {/* Footer — dealer identity */}
       <div className="px-3 pt-2 shrink-0">
-        {/* 教學 */}
-        <Link
-          href="/onboarding"
-          className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm font-display transition-colors"
-        >
-          <span className="material-symbols-outlined text-lg">school</span>
-          <span>教學導覽</span>
-        </Link>
-
-        {/* 登出 */}
-        <form action="/api/auth/signout" method="POST">
-          <button
-            type="submit"
-            className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-white/5 text-sm font-display transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">logout</span>
-            <span>登出</span>
-          </button>
-        </form>
-
-        {/* Divider */}
-        <div className="mx-4 my-2 border-t border-white/8" />
-
-        {/* Dealer identity */}
+        <div className="mx-1 mb-2 border-t border-white/8" />
         <div className="flex items-center gap-3 px-4 py-2 rounded-lg">
           <div
             className="w-6 h-6 rounded-full flex items-center justify-center text-white flex-shrink-0"
