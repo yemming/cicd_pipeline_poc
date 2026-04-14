@@ -1,16 +1,15 @@
 "use client";
 
 import { useSetPageHeader } from "@/components/page-header-context";
-
-// Ducati model imagery — placeholder served via placehold.co (Ducati red).
-// Swap for real Ducati product photography when assets are available.
-const bikeImg = (name: string, label?: string) =>
-  `https://placehold.co/640x360/CC0000/FFFFFF/png?text=${encodeURIComponent(
-    name + (label ? " · " + label : "")
-  )}&font=source-sans-pro`;
+import { getModelById } from "@/lib/ducati-models";
 
 const funnelClip = "polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%, 10% 50%)";
 const funnelClipFirst = "polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)";
+
+const panigale = getModelById("panigale-v4-s")!;
+const multistrada = getModelById("multistrada-v4-s")!;
+const monsterSP = getModelById("monster-sp")!;
+const streetfighter = getModelById("streetfighter-v4-sp2")!;
 
 export default function ShowroomPage() {
   useSetPageHeader({
@@ -116,7 +115,7 @@ export default function ShowroomPage() {
               customer="王先生"
               kind="試駕"
               kindTone="tertiary"
-              model="Panigale V4 S - Rosso GP"
+              model="Panigale V4 S · Ducati 紅"
             />
             <Appointment
               time="14:00"
@@ -124,7 +123,7 @@ export default function ShowroomPage() {
               customer="李小姐"
               kind="簽約"
               kindTone="neutral"
-              model="Monster SP - Thrilling Black"
+              model="Monster SP · SP 塗裝"
             />
             <Appointment
               time="16:30"
@@ -132,7 +131,7 @@ export default function ShowroomPage() {
               customer="張先生"
               kind="交車"
               kindTone="tertiary"
-              model="Multistrada V4 S - Iceberg White"
+              model="Multistrada V4 S · 飛行灰"
             />
           </div>
         </div>
@@ -153,24 +152,24 @@ export default function ShowroomPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <InventoryCard
-            name="Panigale V4 S"
-            img={bikeImg("Panigale V4 S", "Rosso GP")}
+            name={panigale.name}
+            img={panigale.thumb}
             badge={{ label: "熱銷車型", bg: "bg-error", fg: "text-white" }}
             stock="在庫：2 輛"
             note="現車供應"
             noteTone="tertiary"
           />
           <InventoryCard
-            name="Multistrada V4 Pikes Peak"
-            img={bikeImg("Multistrada V4 PP", "Adventure")}
+            name={multistrada.name}
+            img={multistrada.thumb}
             badge={{ label: "在庫過久", bg: "bg-primary-container", fg: "text-white" }}
             stock="在庫：1 輛"
             note="庫齡 > 60 天"
             noteTone="error"
           />
           <InventoryCard
-            name="Monster SP"
-            img={bikeImg("Monster SP", "Naked")}
+            name={monsterSP.name}
+            img={monsterSP.thumb}
             badge={{
               label: "活動促銷",
               bg: "bg-tertiary-container",
@@ -181,8 +180,8 @@ export default function ShowroomPage() {
             noteTone="tertiary"
           />
           <InventoryCard
-            name="Diavel V4"
-            img={bikeImg("Diavel V4", "Power Cruiser")}
+            name={streetfighter.name}
+            img={streetfighter.thumb}
             stock="在庫：1 輛"
             note="即將到店"
             noteTone="neutral"
@@ -287,11 +286,11 @@ function InventoryCard({
 }) {
   return (
     <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10 group hover:shadow-md transition-shadow">
-      <div className="h-32 bg-surface-container-high relative overflow-hidden">
+      <div className="h-40 bg-gradient-to-br from-[#1A1A2E] to-[#0F0F1F] relative overflow-hidden flex items-center justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           alt={name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="max-w-[90%] max-h-[90%] object-contain group-hover:scale-105 transition-transform duration-500"
           src={img}
         />
         {badge && (

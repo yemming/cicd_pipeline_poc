@@ -6,11 +6,11 @@ export default async function Page() {
   return (
     <StitchInline
       html={html}
-      title="審批歷史"
+      title="簽核歷史"
       sprint="S1-11"
       device="desktop"
       screenId="8934f85891e446f2a1f1a60252863972"
-      breadcrumb={[{ label: "經銷商管理", href: "/admin/org" }, { label: "審批歷史" }]}
+      breadcrumb={[{ label: "簽核管理", href: "/admin/approvals" }, { label: "簽核歷史" }]}
     />
   );
 }

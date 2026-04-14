@@ -1,0 +1,702 @@
+{
+  "source": "https://ducatitaiwan.com.tw",
+  "scraped_date": "2026-04-14",
+  "brand": "Ducati",
+  "region": "Taiwan",
+  "motorcycles": [
+    {
+      "id": "panigale-v4-s",
+      "family": "Panigale",
+      "name": "Panigale V4 S",
+      "url": "https://ducatitaiwan.com.tw/bikes/PanigaleV4S",
+      "tagline": "終極方程式，隨時準備上賽道",
+      "category": "超級跑車",
+      "is_new": false,
+      "price_ntd": 1828000,
+      "engine": {
+        "type": "Desmosedici Stradale 90° V4，反向曲軸、水冷式、Desmodromic 4汽門",
+        "displacement_cc": 1103,
+        "bore_mm": 81,
+        "stroke_mm": 53.5,
+        "compression_ratio": "14.0:1",
+        "max_power_hp": 215.5,
+        "max_power_rpm": 13000,
+        "max_torque_nm": 123.6,
+        "max_torque_rpm": 9500,
+        "fuel_system": "電子燃油噴射、每缸雙噴油嘴、RbW電子油門",
+        "exhaust": "4-2-1-2系統、雙觸媒",
+        "power_modes": ["Full（極限供油）", "Low（限制150 hp）"]
+      },
+      "transmission": {
+        "gearbox": "六速",
+        "quick_shift": "DQS EVO 2進退快排系統",
+        "primary_drive_ratio": "1.80:1",
+        "gear_ratios": "1=36/15, 2=34/17, 3=33/19, 4=32/21, 5=30/22, 6=27/22",
+        "final_drive": "鏈條525；前齒盤16、後齒盤41",
+        "clutch": "液壓控制濕式多片滑動式"
+      },
+      "suspension": {
+        "front": "Öhlins NPX25/30 Ø43mm全可調氣壓前叉 + Öhlins Smart EC 2.0半主動電子系統，行程125mm",
+        "rear": "Öhlins TTX36全可調後避震 + Öhlins可調式防甩頭，鋁合金單搖臂，行程130mm"
+      },
+      "brakes": {
+        "front": "2×Ø330mm半浮動碟盤 + Brembo Monobloc Stylema®對向四活塞輻射卡鉗",
+        "rear": "Ø245mm碟盤 + 雙活塞卡鉗",
+        "abs": "Bosch彎道ABS EVO系統"
+      },
+      "wheels_tires": {
+        "front_wheel": "Marchesini三爪鍛造鋁合金 3.50",
+        "rear_wheel": "Marchesini三爪鍛造鋁合金 6.00",
+        "front_tire": "Pirelli Diablo Supercorsa SP 120/70 ZR17",
+        "rear_tire": "Pirelli Diablo Supercorsa SP 200/60 ZR17"
+      },
+      "dimensions": {
+        "dry_weight_kg": 174,
+        "wet_weight_kg": 195.5,
+        "seat_height_mm": 850,
+        "wheelbase_mm": 1469,
+        "rake_deg": 24.5,
+        "trail_mm": 100,
+        "fuel_tank_l": 17,
+        "seating": "雙座"
+      },
+      "frame": "優化剛性鑄造鋁合金主車架",
+      "electronics": {
+        "safety": ["Bosch彎道ABS EVO", "DTC EVO 3循跡系統", "DWC EVO防浮舉", "DSC側滑控制系統", "EBC EVO 2引擎煞車", "輪胎校正系統（賽道用）"],
+        "standard": ["DPL彈射起步", "DQS EVO 2進退快排", "全車LED燈+DRL晝行燈", "DES EVO電子避震系統", "5吋TFT全彩儀表", "鋰電池", "方向燈自動關閉"],
+        "optional": ["具GPS模組的DDA+套件", "DMS多媒體系統", "防盜系統", "加熱手把"],
+        "display": "5吋TFT全彩儀表，Track EVO顯示模式"
+      },
+      "riding_modes": ["Race", "Sport", "Road", "Wet"],
+      "colors": [
+        { "name": "Ducati紅", "description": "黑色輪框搭配紅色標籤；S版本專屬雙色座椅；義大利三色塗裝" }
+      ],
+      "warranty": "24個月不限里程",
+      "service_interval_km": 12000,
+      "valve_adjustment_km": 24000,
+      "fuel_consumption": {
+        "avg_km_per_l": 16,
+        "annual_liters": 281,
+        "efficiency_grade": "4級"
+      },
+      "emissions": "歐盟五期/台灣七期",
+      "accessories_url": "https://ducatitaiwan.com.tw/accessories/Panigale-V2-V4",
+      "images": {
+        "menu_thumb": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768456517.png"
+      }
+    },
+    {
+      "id": "panigale-v2-s",
+      "family": "Panigale",
+      "name": "Panigale V2 S",
+      "url": "https://ducatitaiwan.com.tw/bikes/panigalev2s",
+      "category": "超級跑車",
+      "is_new": true,
+      "price_ntd": 1128000,
+      "engine": {
+        "displacement_cc": 890,
+        "max_power_hp": 120,
+        "max_power_rpm": 10750,
+        "max_torque_nm": 93.3,
+        "max_torque_rpm": 8250
+      },
+      "dimensions": {
+        "dry_weight_kg": 176,
+        "seat_height_mm": 838
+      },
+      "colors": [
+        { "name": "Ducati紅" }
+      ],
+      "variants": [
+        { "name": "Panigale V2 S MM93 專屬塗裝", "price_ntd": 1438000 },
+        { "name": "Panigale V2 S FB63 專屬塗裝", "price_ntd": 1438000 }
+      ]
+    },
+    {
+      "id": "monster",
+      "family": "Monster",
+      "name": "Monster",
+      "url": "https://ducatitaiwan.com.tw/bikes/monster937",
+      "tagline": "為最大樂趣而製作",
+      "category": "街車（Naked）",
+      "is_new": false,
+      "price_ntd": 748000,
+      "engine": {
+        "type": "Testastretta 11° V2，90°雙缸四閥水冷式 Desmodromic",
+        "displacement_cc": 937,
+        "bore_mm": 94,
+        "stroke_mm": 67.5,
+        "compression_ratio": "13.3:1",
+        "max_power_hp": 111,
+        "max_power_rpm": 9250,
+        "max_torque_nm": 93,
+        "max_torque_rpm": 6500,
+        "fuel_system": "電子燃油噴射、Ø 53 mm 節流閥搭配 RbW 電子油門",
+        "exhaust": "2-1-2 排氣、雙含氧感知器搭配觸媒"
+      },
+      "transmission": {
+        "gearbox": "六速",
+        "primary_drive_ratio": "1.85:1",
+        "gear_ratios": "1=37/15, 2=30/17, 3=28/20, 4=26/22, 5=24/23, 6=23/24",
+        "final_drive": "鍊條傳動；前齒盤z15、後齒盤z43",
+        "clutch": "濕式多片式油壓滑動離合器"
+      },
+      "suspension": {
+        "front": "Ø 43 mm 倒立式前叉，行程 130 mm",
+        "rear": "單筒避震、預載回彈可調、鋁合金雙搖臂，行程 140 mm",
+        "frame": "鋁合金車架"
+      },
+      "brakes": {
+        "front": "2 x 320 mm 浮動式雙碟盤、Brembo Monobloc M4.32 對向四活塞輻射式卡鉗",
+        "rear": "Ø 245 mm 碟盤、雙活塞卡鉗",
+        "abs": "Bosch 彎道 ABS"
+      },
+      "wheels_tires": {
+        "front_wheel": "輕合金鑄造框 3.5 吋",
+        "rear_wheel": "輕合金鑄造框 5.5 吋",
+        "front_tire": "Pirelli Diablo Rosso III 120/70 ZR17",
+        "rear_tire": "Pirelli Diablo Rosso III 180/55 ZR17"
+      },
+      "dimensions": {
+        "dry_weight_kg": 166,
+        "wet_weight_kg": 188,
+        "seat_height_mm": 800,
+        "wheelbase_mm": 1474,
+        "rake_deg": 24,
+        "trail_mm": 93,
+        "fuel_tank_l": 14,
+        "seating": "雙座"
+      },
+      "electronics": {
+        "safety": ["騎乘模式", "動力模式", "彎道ABS", "DTC循跡系統", "DWC防浮舉"],
+        "standard": ["DQS快速排檔系統", "DPL彈射起步系統", "DRL晝行燈", "4.3吋TFT全彩儀表"],
+        "optional": ["Ducati DMS多媒體系統", "加溫手把"]
+      },
+      "colors": [
+        { "name": "冰山白", "description": "搭配專屬紅色座椅與黑輪框" },
+        { "name": "Ducati 紅", "description": "搭配黑色輪框" },
+        { "name": "消光金屬灰", "description": "搭配 GP 紅輪框" },
+        { "name": "神秘消光黑", "description": "搭配黑輪框" }
+      ],
+      "warranty": "24 個月不限里程",
+      "service_interval_km": 12000,
+      "valve_adjustment_km": 30000,
+      "fuel_consumption": {
+        "avg_km_per_l": 18.8,
+        "annual_liters": 239,
+        "efficiency_grade": "3級"
+      },
+      "emissions": "歐洲五期/台灣七期",
+      "catalog_pdf": "https://ducatitaiwan.com.tw/archive/doc/164316197854664.pdf",
+      "images": {
+        "hero": "https://ducatitaiwan.com.tw/archive/images/tw_bike/Monster-04-hero-1600x1000-v02.jpg",
+        "menu_thumb": "https://ducatitaiwan.com.tw/archive/images/tw_bike/350x190_monster.png"
+      },
+      "design_highlights": [
+        "鋁合金前車架使整體乾重僅有 166 kg，輕巧使它易操駕",
+        "窄身設計，靜止時更容易將腳放於地面",
+        "Testastretta 11° 937cc 水冷式 L 型雙缸引擎，較前代 821 增加排氣量、馬力、扭力並減少2.4kg重量"
+      ]
+    },
+    {
+      "id": "monster-sp",
+      "family": "Monster",
+      "name": "Monster SP",
+      "url": "https://ducatitaiwan.com.tw/bikes/monstersp",
+      "category": "街車（Naked）",
+      "is_new": false,
+      "price_ntd": 898000,
+      "engine": {
+        "displacement_cc": 937,
+        "max_power_hp": 111,
+        "max_torque_nm": 93
+      },
+      "dimensions": {
+        "dry_weight_kg": 166
+      }
+    },
+    {
+      "id": "streetfighter-v4-s",
+      "family": "Streetfighter",
+      "name": "Streetfighter V4 S",
+      "url": "https://ducatitaiwan.com.tw/bikes/StreetfighterV4S",
+      "tagline": "最狂野的夢想，已經實現",
+      "category": "超街車（Super Naked）",
+      "is_new": false,
+      "price_ntd": 1468000,
+      "engine": {
+        "type": "Desmosedici Stradale 90° V4，水冷式",
+        "displacement_cc": 1103,
+        "bore_mm": 81,
+        "stroke_mm": 53.5,
+        "compression_ratio": "14.0:1",
+        "max_power_hp": 208,
+        "max_power_rpm": 13000,
+        "max_torque_nm": 123,
+        "max_torque_rpm": 9500,
+        "fuel_system": "電子噴射、每缸雙噴油嘴",
+        "exhaust": "4-2-1-2系統、雙觸媒"
+      },
+      "transmission": {
+        "gearbox": "六速 + DQS EVO 2進退快排",
+        "primary_drive_ratio": "1.80:1",
+        "final_drive": "鏈條（前16齒/後41齒）",
+        "clutch": "液壓濕式多片"
+      },
+      "suspension": {
+        "front": "Öhlins NIX30 Ø43mm全可調前叉 + Öhlins Smart EC 2.0電子系統",
+        "rear": "Öhlins TTX36全可調 + 可調式防甩頭"
+      },
+      "brakes": {
+        "front": "2×Ø330mm半浮動碟盤 + Brembo Stylema四活塞輻射卡鉗",
+        "rear": "Ø245mm碟盤 + 雙活塞卡鉗",
+        "abs": "彎道ABS EVO"
+      },
+      "wheels_tires": {
+        "front_tire": "Pirelli Diablo Rosso IV Corsa 120/70 ZR17",
+        "rear_tire": "Pirelli Diablo Rosso IV Corsa 200/60 ZR17"
+      },
+      "dimensions": {
+        "dry_weight_kg": 178,
+        "wet_weight_kg": 197.5,
+        "seat_height_mm": 845,
+        "wheelbase_mm": 1488,
+        "rake_deg": 24.5,
+        "fuel_tank_l": 16.5
+      },
+      "electronics": {
+        "safety": ["彎道ABS EVO", "DTC EVO 2循跡系統", "DWC EVO防浮舉", "DSC側滑控制", "EBC EVO 2引擎煞車", "輪胎校正（賽道用）"],
+        "standard": ["DPL彈射起步", "DQS EVO 2進退快排", "DES EVO電子避震", "全LED燈組+DRL", "5吋TFT全彩儀表"],
+        "power_modes": ["Full（最大動力）", "Low（165 hp限制）"]
+      },
+      "riding_modes": ["Race", "Sport", "Road", "Wet"],
+      "aerodynamics": "雙定風翼（Ducati Corse開發），270 km/h時提供28kg下壓力",
+      "colors": [
+        { "name": "闇夜灰", "description": "黑色輪框 + 紅色標籤" },
+        { "name": "Ducati紅", "description": "黑色輪框 + 紅色標籤" }
+      ],
+      "warranty": "24個月不限里程",
+      "service_interval_km": 12000,
+      "valve_adjustment_km": 24000,
+      "fuel_consumption": {
+        "avg_km_per_l": 15.4,
+        "annual_liters": 292,
+        "efficiency_grade": "4級"
+      },
+      "emissions": "歐盟五期/台灣七期",
+      "accessories_url": "https://ducatitaiwan.com.tw/accessories/Streetfighter-V4"
+    },
+    {
+      "id": "streetfighter-v4-sp2",
+      "family": "Streetfighter",
+      "name": "Streetfighter V4 SP2",
+      "url": "https://ducatitaiwan.com.tw/bikes/StreetfighterV4SP2",
+      "tagline": "終極方程式，隨時準備上賽道",
+      "category": "超街車（Super Naked）",
+      "is_new": false,
+      "price_ntd": 1958000,
+      "engine": {
+        "displacement_cc": 1103,
+        "max_power_hp": 208,
+        "max_torque_nm": 123
+      },
+      "dimensions": {
+        "dry_weight_kg": 177
+      }
+    },
+    {
+      "id": "streetfighter-v2",
+      "family": "Streetfighter",
+      "name": "Streetfighter V2",
+      "url": "https://ducatitaiwan.com.tw/bikes/streetfighterv2",
+      "category": "街車",
+      "is_new": false,
+      "price_ntd": 1098000,
+      "engine": {
+        "displacement_cc": 955,
+        "max_power_hp": 153,
+        "max_torque_nm": 101.4
+      },
+      "dimensions": {
+        "dry_weight_kg": 178
+      },
+      "colors": [
+        { "name": "Ducati紅" },
+        { "name": "風暴綠" }
+      ]
+    },
+    {
+      "id": "streetfighter-v2-s",
+      "family": "Streetfighter",
+      "name": "Streetfighter V2 S",
+      "url": "https://ducatitaiwan.com.tw/bikes/streetfighterv2s",
+      "tagline": "THE ULTIMATE V2 FIGHTER FORMULA",
+      "category": "街車",
+      "is_new": true,
+      "launch_note": "全台正式上市",
+      "price_ntd": 998000,
+      "engine": {
+        "type": "90° V2 液冷式，四閥可變氣門正時",
+        "displacement_cc": 890,
+        "bore_mm": 96,
+        "stroke_mm": 61.5,
+        "compression_ratio": "13.1:1",
+        "max_power_hp": 120,
+        "max_power_rpm": 10750,
+        "max_torque_nm": 93.3,
+        "max_torque_rpm": 8250
+      },
+      "transmission": {
+        "gearbox": "六速 + DQS 2.0快排",
+        "primary_drive_ratio": "1.84:1",
+        "final_drive": "520鏈條（前15齒/後42齒）",
+        "clutch": "液壓濕式多片"
+      },
+      "suspension": {
+        "front": "Öhlins NIX30 43mm倒立式前叉（全可調），行程120–160mm",
+        "rear": "Öhlins單筒後避震（全可調）",
+        "frame": "單體鋁合金車架（Monocoque）"
+      },
+      "brakes": {
+        "front": "2×Ø320mm碟盤 + Brembo Monobloc M50對向四活塞卡鉗",
+        "abs": "Bosch彎道ABS"
+      },
+      "wheels_tires": {
+        "front_wheel": "17吋Y型輻鋁合金 3.50吋",
+        "rear_wheel": "17吋Y型輻鋁合金 5.50吋",
+        "front_tire": "Pirelli Diablo Rosso IV 120/70",
+        "rear_tire": "Pirelli Diablo Rosso IV 190/55"
+      },
+      "dimensions": {
+        "dry_weight_kg": 175,
+        "seat_height_mm": 838,
+        "wheelbase_mm": 1493,
+        "rake_deg": 24.1,
+        "trail_mm": 103,
+        "fuel_tank_l": 15
+      },
+      "electronics": {
+        "safety": ["彎道ABS", "DTC循跡", "DWC防浮舉", "EBC引擎煞車"],
+        "standard": ["DQS 2.0快排", "DPL彈射起步", "全LED燈+DRL", "5吋TFT全彩儀表（800×480px）", "方向燈自動關閉", "鋰電池"]
+      },
+      "colors": [
+        { "name": "Ducati紅" }
+      ],
+      "warranty": "24個月不限里程",
+      "service_interval_km": 15000,
+      "valve_adjustment_km": 30000,
+      "fuel_consumption": {
+        "avg_km_per_l": 18.3,
+        "annual_liters": 246,
+        "efficiency_grade": "4級"
+      }
+    },
+    {
+      "id": "multistrada-v4-s",
+      "family": "Multistrada",
+      "name": "Multistrada V4 S",
+      "url": "https://ducatitaiwan.com.tw/bikes/multistradav4s",
+      "tagline": "改寫旅行的規則",
+      "category": "旅行冒險車",
+      "is_new": false,
+      "price_ntd": 1658000,
+      "engine": {
+        "type": "V4 Granturismo，V4-90°，水冷式反向曲軸",
+        "displacement_cc": 1158,
+        "bore_mm": 83,
+        "stroke_mm": 53.5,
+        "compression_ratio": "14.0:1",
+        "max_power_hp": 170,
+        "max_power_rpm": 10500,
+        "max_torque_nm": 84,
+        "max_torque_rpm": 7000,
+        "fuel_system": "電子燃油噴射，Ø 46 mm節流閥搭配RbW電子油門",
+        "exhaust": "不鏽鋼消音器、雙觸媒搭配四個含氧感知器"
+      },
+      "transmission": {
+        "gearbox": "六速",
+        "primary_drive_ratio": "1.79:1",
+        "gear_ratios": "1=40/13, 2=36/16, 3=34/19, 4=31/21, 5=29/23, 6=27/25",
+        "final_drive": "鍊條；前齒盤z16、後齒盤z42",
+        "clutch": "液壓控制濕式多片滑動式"
+      },
+      "suspension": {
+        "front": "Ø50mm全可調倒立式前叉 + DSS電子避震，行程170mm",
+        "rear": "全可調後避震（DSS電子避震）+ 鋁合金雙搖臂，行程180mm"
+      },
+      "brakes": {
+        "front": "2×Ø330mm半浮動式雙碟盤 + Brembo M50 Stylema四活塞輻射卡鉗",
+        "rear": "Ø265mm單碟 + Brembo雙活塞卡鉗",
+        "abs": "彎道ABS"
+      },
+      "wheels_tires": {
+        "front_wheel": "輕合金3\"×19\"",
+        "rear_wheel": "輕合金4.50\"×17\"",
+        "front_tire": "Pirelli Scorpion Trail II 120/70 ZR19",
+        "rear_tire": "Pirelli Scorpion Trail II 170/60 ZR17"
+      },
+      "dimensions": {
+        "dry_weight_kg": 218,
+        "wet_weight_kg": 243,
+        "seat_height_mm_range": "790-810（可調式）",
+        "wheelbase_mm": 1567,
+        "rake_deg": 24.5,
+        "trail_mm": 102.5,
+        "fuel_tank_l": 22,
+        "seating": "雙人"
+      },
+      "frame": "Monocoque鋁合金車架",
+      "electronics": {
+        "safety": ["彎道ABS", "DTC循跡系統", "DWC防浮舉系統", "DBL煞車燈", "VHC斜坡起步系統", "盲區偵測系統"],
+        "standard": ["DSS電子避震系統", "最低預載系統", "DQS進退快排", "主動式定速巡航", "Hands-Free免持鑰匙", "6.5吋TFT全彩儀表+Ducati Connect+全地圖導航", "全車LED燈", "DRL晝行燈", "DCL轉彎輔助頭燈"]
+      },
+      "riding_use_cases": ["旅行", "越野", "城市", "運動"],
+      "colors": [
+        { "name": "Ducati紅", "description": "搭配亮黑輪框" },
+        { "name": "飛行灰", "description": "搭配亮黑輪框" },
+        { "name": "冰山白", "description": "搭配亮黑輪框" }
+      ],
+      "warranty": "24個月不限里程",
+      "service_interval_km": 15000,
+      "valve_adjustment_km": 60000,
+      "fuel_consumption": {
+        "avg_km_per_l": 14.8,
+        "annual_liters": 304,
+        "efficiency_grade": "5級"
+      },
+      "emissions": "歐洲五期/台灣七期",
+      "variants": [
+        { "name": "Multistrada V4 Pikes Peak", "price_ntd": 2038000 }
+      ]
+    },
+    {
+      "id": "multistrada-v2-s",
+      "family": "Multistrada",
+      "name": "Multistrada V2 S",
+      "url": "https://ducatitaiwan.com.tw/bikes/newmultistradav2s",
+      "tagline": "任由道路決定您的旅途終點",
+      "category": "旅行冒險車",
+      "is_new": true,
+      "price_ntd": 1038000,
+      "engine": {
+        "displacement_cc": 937,
+        "max_power_hp": 115.6,
+        "max_torque_nm": 92.1
+      },
+      "dimensions": {
+        "dry_weight_kg": 202
+      },
+      "colors": [
+        { "name": "Ducati紅" },
+        { "name": "風暴綠" }
+      ]
+    },
+    {
+      "id": "desertx",
+      "family": "DesertX",
+      "name": "DesertX",
+      "url": "https://ducatitaiwan.com.tw/bikes/desertx",
+      "tagline": "最狂野的夢想，已經實現",
+      "category": "越野冒險車",
+      "is_new": false,
+      "price_ntd": 1078000,
+      "engine": {
+        "type": "Ducati Testastretta 11°，水冷式L型雙缸，Desmodromic氣門",
+        "displacement_cc": 937,
+        "bore_mm": 94,
+        "stroke_mm": 67.5,
+        "compression_ratio": "13.3:1",
+        "max_power_hp": 110,
+        "max_power_rpm": 9250,
+        "max_torque_nm": 92,
+        "max_torque_rpm": 6500
+      },
+      "transmission": {
+        "gearbox": "六速",
+        "primary_drive_ratio": "1.85:1",
+        "final_drive": "鏈條；前齒盤z15、後齒盤z49",
+        "clutch": "液壓濕式多片滑動離合器"
+      },
+      "suspension": {
+        "front": "KYB Ø46mm全可調倒立式前叉，行程230mm",
+        "rear": "KYB全可調後避震（液壓遠端預載調整），行程220mm",
+        "frame": "高強度鋼管格架車架（Trellis）"
+      },
+      "brakes": {
+        "front": "2×Ø320mm浮動碟盤 + Brembo Monobloc四活塞輻射卡鉗",
+        "rear": "Ø265mm碟盤 + 雙活塞卡鉗",
+        "abs": "Bosch彎道ABS"
+      },
+      "wheels_tires": {
+        "front_wheel": "21吋輻條輪框",
+        "rear_wheel": "18吋輻條輪框",
+        "tire_type": "Pirelli Scorpion Rally STR 無內胎 M+S"
+      },
+      "dimensions": {
+        "dry_weight_kg": 202,
+        "wet_weight_kg": 223,
+        "seat_height_mm": 865,
+        "seat_height_lowered_mm": 845,
+        "wheelbase_mm": 1608,
+        "rake_deg": 27.6,
+        "trail_mm": 122,
+        "fuel_tank_l": 21,
+        "seating": "雙人"
+      },
+      "electronics": {
+        "safety": ["Bosch彎道ABS", "DTC循跡系統", "DWC防浮舉系統", "引擎煞車控制"],
+        "standard": ["DQS快排", "主動式定速巡航", "全LED燈+DRL", "USB充電埠", "鋰電池", "方向燈自動關閉", "12V電源插座", "5吋TFT全彩儀表（直立顯示，站立騎乘用）"]
+      },
+      "riding_modes": ["Enduro", "Rally（新增）", "Sport", "Touring", "Urban", "Wet"],
+      "colors": [
+        { "name": "RR22黑", "description": "靈感來自Audi RS Q e-tron Dakar設計" },
+        { "name": "消光白" }
+      ],
+      "warranty": "24個月不限里程",
+      "service_interval_km": 15000,
+      "valve_adjustment_km": 30000,
+      "fuel_consumption": {
+        "avg_km_per_l": 16.5,
+        "annual_liters": 273,
+        "efficiency_grade": "4級"
+      },
+      "emissions": "歐洲五期/台灣七期",
+      "accessories_url": "https://ducatitaiwan.com.tw/accessories/DesertX"
+    },
+    {
+      "id": "hypermotard-950",
+      "family": "Hypermotard",
+      "name": "Hypermotard 950",
+      "url": "https://ducatitaiwan.com.tw/bikes/hypermotard950",
+      "category": "超動感車",
+      "is_new": false,
+      "price_ntd": 888000,
+      "engine": {
+        "type": "Testastretta 11°；水冷式L型雙缸，Desmodromic 4閥",
+        "displacement_cc": 937,
+        "bore_mm": 94,
+        "stroke_mm": 67.5,
+        "compression_ratio": "13.1:1",
+        "max_power_hp": 114,
+        "max_power_rpm": 9000,
+        "max_torque_nm": 96,
+        "max_torque_rpm": 7250,
+        "fuel_system": "電子噴射，RbW電子油門，53mm橢圓節流閥",
+        "exhaust": "不鏽鋼全段排氣含觸媒"
+      },
+      "transmission": {
+        "gearbox": "六速",
+        "primary_drive_ratio": "1.85:1",
+        "final_drive": "鏈條；前齒盤z15、後齒盤z43",
+        "clutch": "液壓濕式多片滑動離合器"
+      },
+      "suspension": {
+        "front": "Marzocchi 45mm全可調前叉",
+        "rear": "Sachs全可調單筒避震",
+        "frame": "鋼管格架車架"
+      },
+      "brakes": {
+        "front": "2×Ø320mm浮動碟盤 + Brembo Monobloc四活塞卡鉗",
+        "rear": "Ø245mm碟盤 + 雙活塞卡鉗",
+        "abs": "Bosch彎道ABS（3段可調）"
+      },
+      "wheels_tires": {
+        "front_wheel": "三爪鋁合金 3.5吋",
+        "rear_wheel": "三爪鋁合金 5.5吋",
+        "front_tire": "Pirelli Diablo Rosso III 120/70 ZR17",
+        "rear_tire": "Pirelli Diablo Rosso III 180/55 ZR17"
+      },
+      "dimensions": {
+        "dry_weight_kg": 178,
+        "wet_weight_kg": 200,
+        "seat_height_mm": 870,
+        "wheelbase_mm": 1493,
+        "rake_deg": 25,
+        "trail_mm": 104,
+        "fuel_tank_l": 14.5
+      },
+      "electronics": {
+        "safety": ["Bosch彎道ABS（3段可調）", "DTC EVO循跡系統（6軸IMU）", "DWC防浮舉"],
+        "standard": ["動力模式", "DRL晝行燈", "DQS快排", "4.3吋TFT彩色儀表", "藍牙連接", "USB充電埠"]
+      },
+      "colors": [
+        { "name": "Ducati紅" }
+      ],
+      "fuel_consumption": {
+        "avg_km_per_l": 16.8,
+        "annual_liters": 268,
+        "efficiency_grade": "4級"
+      },
+      "emissions": "歐洲四期",
+      "warranty": "24個月不限里程",
+      "service_interval_km": 15000,
+      "valve_adjustment_km": 30000,
+      "variants": [
+        {
+          "name": "Hypermotard 950 RVE",
+          "price_ntd": 988000,
+          "suspension_front": "Marzocchi 45mm全可調",
+          "suspension_rear": "Sachs全可調",
+          "wheels": "三爪鋁合金",
+          "tires": "Pirelli Diablo Rosso III",
+          "dry_weight_kg": 178,
+          "colors": [{ "name": "RVE EVO 競技塗裝" }]
+        },
+        {
+          "name": "Hypermotard 950 SP",
+          "price_ntd": 1098000,
+          "suspension_front": "Öhlins 48mm全可調倒立式前叉",
+          "suspension_rear": "Öhlins全可調單筒",
+          "wheels": "Marchesini鍛造鋁合金輪框",
+          "tires": "Pirelli Diablo Supercorsa SP v3",
+          "dry_weight_kg": 176,
+          "seat_height_mm": 890,
+          "colors": [{ "name": "SP 競技塗裝" }],
+          "extras": ["碳纖維前土除", "皮帶護蓋", "錐形鋁合金把手"]
+        }
+      ],
+      "accessories_url": "https://ducatitaiwan.com.tw/accessories/Hypermotard"
+    },
+    {
+      "id": "hypermotard-698-mono-rve",
+      "family": "Hypermotard",
+      "name": "Hypermotard 698 Mono RVE",
+      "url": "https://ducatitaiwan.com.tw/bikes/hypermotard698monoRVE",
+      "category": "超動感車",
+      "is_new": false,
+      "price_ntd": 818000,
+      "engine": {
+        "max_power_hp": 77.5,
+        "max_torque_nm": 63
+      },
+      "dimensions": {
+        "dry_weight_kg": 151
+      },
+      "colors": [
+        { "name": "RVE 塗裝" }
+      ]
+    },
+    {
+      "id": "supersport-950-s",
+      "family": "SuperSport",
+      "name": "SuperSport 950 S",
+      "url": "https://ducatitaiwan.com.tw/bikes/supersport",
+      "category": "超級運動車",
+      "is_new": false,
+      "price_ntd": 1058000,
+      "engine": {
+        "displacement_cc": 937,
+        "max_power_hp": 110,
+        "max_torque_nm": 93
+      },
+      "dimensions": {
+        "dry_weight_kg": 184
+      },
+      "colors": [
+        { "name": "Ducati紅" },
+        { "name": "條紋白" }
+      ],
+      "accessories_url": "https://ducatitaiwan.com.tw/accessories/SuperSport"
+    }
+  ]
+}

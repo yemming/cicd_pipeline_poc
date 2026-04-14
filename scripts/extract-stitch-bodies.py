@@ -20,6 +20,7 @@ import os
 import re
 import glob
 import sys
+import zlib
 
 try:
     from bs4 import BeautifulSoup, Comment  # type: ignore
@@ -63,8 +64,34 @@ SUBS: list[tuple[str, str]] = [
     (r"\bLexus\s+LC\s+500", "Ducati Streetfighter V4 SP"),
     (r"\bLexus\s+IS\s+300h", "Ducati Hypermotard 950"),
     (r"\bLexus\s+UX\s+250h", "Ducati Scrambler Icon"),
+    # Standalone Lexus model codes that Stitch sprinkles without the brand —
+    # match the whole family range (any displacement + trim suffix) rather
+    # than a fixed list, so "RX 500h" / "UX 300e" etc. all get collapsed.
+    (r"\bRX\s+\d+[a-z]?\b", "Panigale V4 S"),
+    (r"\bNX\s+\d+[a-z]?\b", "Monster SP"),
+    (r"\bES\s+\d+[a-z]?\b", "Multistrada V4 S"),
+    (r"\bLS\s+\d+[a-z]?\b", "Diavel V4"),
+    (r"\bLC\s+\d+[a-z]?\b", "Streetfighter V4 SP2"),
+    (r"\bIS\s+\d+[a-z]?\b", "Hypermotard 950"),
+    (r"\bUX\s+\d+[a-z]?\b", "Scrambler Icon"),
+    # F SPORT is Lexus' performance trim; map to Ducati equivalent
+    (r"\bF\s+SPORT\s+Performance\b", "V4 Performance"),
+    (r"\bF\s+SPORT\b", "V4 Performance"),
+    (r"\bF\s+Sport\b", "V4 Performance"),
     (r"\bLexus\b", "Ducati"),
     (r"\bLEXUS\b", "DUCATI"),
+    (r"\blexus\b", "ducati"),
+    # Toyota brand strays from Stitch auto-generated content
+    (r"\bToyota\s+RAV4\b", "Ducati DesertX"),
+    (r"\bToyota\s+Camry\b", "Ducati Monster"),
+    (r"\bToyota\s+Corolla\b", "Ducati Scrambler"),
+    (r"\bTOYOTA\b", "DUCATI"),
+    (r"\bToyota\b", "Ducati"),
+    (r"\btoyota\b", "ducati"),
+    # Lower-case image-search query fragments that Stitch sprinkles as alt text
+    (r"lexus sedan interior", "ducati motorcycle detail"),
+    (r"lexus sedan", "ducati motorcycle"),
+    (r"lexus\.com", "ducati.tw"),
     # Mainland → Taiwan wording. Order matters: specific compounds must match
     # before the bare `車間 → 維修廠` fallback.
     (r"車間派工調度", "技師派工調度"),
@@ -131,8 +158,73 @@ def extract(src_path: str) -> tuple[str, str]:
     # Conservative 車輛 → 機車, 汽車 → 機車
     body_html = re.sub(r"(?<![一-龥])車輛(?![一-龥])", "機車", body_html)
     body_html = re.sub(r"汽車", "機車", body_html)
+    # Remnant Lexus-era body types → Ducati bike families
+    body_html = re.sub(r"房車\s+LS\s+500h", "街車 Diavel V4", body_html)
+    body_html = re.sub(r"轎車到剽悍\s*SUV", "超跑到剽悍冒險車", body_html)
+    body_html = re.sub(r"絕美豪華轎車", "義式街車旗艦", body_html)
+    body_html = re.sub(r"轎車", "街車", body_html)
+    body_html = re.sub(r"(?<![一-龥])休旅車(?![一-龥])", "冒險車", body_html)
+    body_html = re.sub(r"(?<![一-龥])房車(?![一-龥])", "街車", body_html)
+    body_html = re.sub(r"(?<![一-龥])商務車(?![一-龥])", "旅行車", body_html)
+
+    # Mainland Chinese → Traditional Taiwan wording.
+    # 審批 is the biggest one — swap to 簽核 wholesale across Stitch bodies.
+    body_html = body_html.replace("審批中心", "簽核中心")
+    body_html = body_html.replace("審批", "簽核")
+    body_html = body_html.replace("經銷商管理", "簽核管理")
+    body_html = body_html.replace("菜單", "選單")
+    body_html = body_html.replace("重置", "重設")
+    body_html = body_html.replace("登錄", "登入")
+    body_html = body_html.replace("視頻", "影片")
+    body_html = body_html.replace("信息", "訊息")
+    body_html = body_html.replace("默認", "預設")
+    body_html = body_html.replace("創建", "建立")
+    body_html = body_html.replace("新建", "新增")
+    body_html = body_html.replace("界面", "介面")
+    body_html = body_html.replace("屏幕", "螢幕")
+    body_html = body_html.replace("服務器", "伺服器")
+    body_html = body_html.replace("軟件", "軟體")
+    body_html = body_html.replace("硬件", "硬體")
+    body_html = body_html.replace("網絡", "網路")
+    body_html = body_html.replace("激活", "啟用")
+    body_html = body_html.replace("打印", "列印")
+
+    # Replace Stitch's AI-generated Lexus car images (Google CDN) with our
+    # locally downloaded Ducati photos, rotated deterministically by URL hash
+    # so different pages/cards show different bikes.
+    body_html = re.sub(
+        r"https://lh3\.googleusercontent\.com/aida-public/[^\"'\s]+",
+        _pick_bike_image,
+        body_html,
+    )
 
     return style_html, body_html
+
+
+# Pool of locally-hosted Ducati imagery for demo use (public/bikes/).
+# Mix of hero photos (large promotional shots) + menu thumbnails.
+_BIKE_IMAGES = [
+    "/bikes/hero/hero-1.jpg",
+    "/bikes/hero/hero-2.jpg",
+    "/bikes/hero/hero-3.jpg",
+    "/bikes/hero/hero-4.jpg",
+    "/bikes/hero/hero-monster.jpg",
+    "/bikes/hero/lifestyle-1.jpg",
+    "/bikes/hero/lifestyle-2.jpg",
+    "/bikes/hero/lifestyle-3.jpg",
+    "/bikes/thumbs/panigale-v4-s.png",
+    "/bikes/thumbs/streetfighter-v4-sp2.png",
+    "/bikes/thumbs/multistrada-v4-s.png",
+    "/bikes/thumbs/monster-sp.png",
+    "/bikes/thumbs/desertx.png",
+    "/bikes/thumbs/hypermotard-950-sp.png",
+]
+
+
+def _pick_bike_image(match: re.Match[str]) -> str:
+    url = match.group(0)
+    idx = zlib.crc32(url.encode("utf-8")) % len(_BIKE_IMAGES)
+    return _BIKE_IMAGES[idx]
 
 
 def main() -> int:

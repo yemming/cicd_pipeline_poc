@@ -1,0 +1,96 @@
+{
+  "source": "https://ducatitaiwan.com.tw/news/brand_news",
+  "scraped_date": "2026-04-14",
+  "news_categories": {
+    "promotion": "https://ducatitaiwan.com.tw/news/promotion",
+    "brand_activity": "https://ducatitaiwan.com.tw/news/brand_activity",
+    "brand_news": "https://ducatitaiwan.com.tw/news/brand_news",
+    "racing": "https://ducatitaiwan.com.tw/news/racing"
+  },
+  "news_items": [
+    {
+      "title": "紅色季節特惠",
+      "date": "2024-12-01",
+      "category": "優惠活動",
+      "image_url": "https://ducatitaiwan.com.tw/archive/images/tw_news/00.jpg",
+      "url": "https://ducatitaiwan.com.tw/news/RedSeasonPromotion"
+    },
+    {
+      "title": "We Ride As One 活動花絮（第二屆）",
+      "date": "2023-05-11",
+      "category": "品牌活動",
+      "image_url": "https://ducatitaiwan.com.tw/archive/images/tw_news/ss.jpg",
+      "url": "https://ducatitaiwan.com.tw/news/WeRideAsOneSecondEditionHighlights"
+    },
+    {
+      "title": "We are Ducati. We Ride As One.（第二屆預告）",
+      "date": "2023-04-21",
+      "category": "品牌活動",
+      "image_url": "https://ducatitaiwan.com.tw/archive/images/tw_news/1682070954.jpg",
+      "url": "https://ducatitaiwan.com.tw/news/WeRideAsOneSecondEdition"
+    },
+    {
+      "title": "2022 DRE Safety Academy 高雄場 活動花絮",
+      "date": "2022-12-16",
+      "category": "品牌活動",
+      "image_url": "https://ducatitaiwan.com.tw/archive/images/tw_news/DRE_SAK_2.jpg",
+      "url": "https://ducatitaiwan.com.tw/news/2022DRESafetyAcademyKaohsiung"
+    },
+    {
+      "title": "Multistrada V2 S 好禮相送優惠活動",
+      "date": "2024-04-03",
+      "category": "優惠活動",
+      "image_url": "https://ducatitaiwan.com.tw/archive/images/tw_news/MTS_V2_S_480X255.jpg",
+      "url": "https://ducatitaiwan.com.tw/news/MTS_V2_S_APRPromotion"
+    },
+    {
+      "title": "SuperSport 950 S 好禮相送優惠活動",
+      "date": "2024-04-03",
+      "category": "優惠活動",
+      "image_url": "https://ducatitaiwan.com.tw/archive/images/tw_news/SS_950_S_480x255.jpg",
+      "url": "https://ducatitaiwan.com.tw/news/SS950_S_APRPromotion"
+    }
+  ],
+  "racing_achievements": [
+    {
+      "year": 2025,
+      "championship": "MotoGP 世界冠軍",
+      "rider": "Marc Márquez",
+      "team": "Ducati",
+      "news_url": "https://www.ducati.com/ww/en/news/marc-marquez-and-ducati-are-the-2025-motogp-world-champions"
+    },
+    {
+      "year": 2025,
+      "championship": "WorldSBK 製造商冠軍（第21座）",
+      "bike": "Panigale V4 R",
+      "news_url": "https://www.ducati.com/ww/en/news/ducati-wins-its-twenty-first-worldsbk-manufacturers-title-with-the-panigale-v4-r-as-the-absolute-benchmark-in-the-category"
+    },
+    {
+      "year": 2026,
+      "note": "Ducati 以特別塗裝開啟 2026 賽季，紀念其賽車歷史",
+      "news_url": "https://www.ducati.com/ww/en/news/ducati-kicks-off-the-2026-racing-season-with-two-special-liveries-celebrating-its-racing-history"
+    }
+  ],
+  "brand_events": [
+    {
+      "name": "Ducati Riding Experience (DRE)",
+      "description": "杜卡迪官方騎乘訓練課程",
+      "url": "https://ducatitaiwan.com.tw/experience/dre/"
+    },
+    {
+      "name": "Desmo Owner Club (DOC)",
+      "description": "杜卡迪車主俱樂部",
+      "url": "https://ducatitaiwan.com.tw/desmo-owners-club/"
+    },
+    {
+      "name": "Ducati Taiwan Dream Tour",
+      "description": "杜卡迪台灣夢幻旅程",
+      "url": "https://ducatitaiwan.com.tw/experience/ducati-taiwan-dream-tour/"
+    },
+    {
+      "name": "Taiwan Ducati Week",
+      "description": "台灣杜卡迪週年慶",
+      "url": "https://ducatitaiwan.com.tw/experience/taiwan-ducati-week/"
+    }
+  ]
+}

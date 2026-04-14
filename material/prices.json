@@ -1,0 +1,78 @@
+{
+  "source": "https://ducatitaiwan.com.tw/price-list/",
+  "scraped_date": "2026-04-14",
+  "currency": "NTD",
+  "note": "建議售價，實際售價以各經銷商為準",
+  "price_list": [
+    {
+      "family": "Hypermotard",
+      "models": [
+        { "name": "Hypermotard 698 Mono RVE", "color": "RVE 塗裝", "price_ntd": 818000 },
+        { "name": "Hypermotard 950", "color": "Ducati 紅", "price_ntd": 888000 },
+        { "name": "Hypermotard 950 RVE", "color": "RVE EVO 塗裝", "price_ntd": 988000 },
+        { "name": "Hypermotard 950 SP", "color": "SP 塗裝", "price_ntd": 1098000 }
+      ]
+    },
+    {
+      "family": "Monster",
+      "models": [
+        { "name": "Monster", "color": "多色選擇", "price_ntd": 748000 },
+        { "name": "Monster SP", "color": "SP 塗裝", "price_ntd": 898000 }
+      ]
+    },
+    {
+      "family": "Streetfighter",
+      "models": [
+        { "name": "Streetfighter V2 S", "color": "Ducati 紅", "price_ntd": 998000 },
+        { "name": "Streetfighter V2", "color": "Ducati 紅、風暴綠", "price_ntd": 1098000 },
+        { "name": "Streetfighter V4 S", "color": "Ducati 紅、闇夜灰", "price_ntd": 1468000 },
+        { "name": "Streetfighter V4 SP2", "color": "SP2 塗裝", "price_ntd": 1958000 }
+      ]
+    },
+    {
+      "family": "Panigale",
+      "models": [
+        { "name": "Panigale V2 S", "color": "Ducati 紅", "price_ntd": 1128000 },
+        { "name": "Panigale V2 S MM93", "color": "MM93 專屬塗裝", "price_ntd": 1438000 },
+        { "name": "Panigale V2 S FB63", "color": "FB63 專屬塗裝", "price_ntd": 1438000 },
+        { "name": "Panigale V4 S", "color": "Ducati 紅", "price_ntd": 1828000 }
+      ]
+    },
+    {
+      "family": "Multistrada",
+      "models": [
+        { "name": "Multistrada V2 S", "color": "Ducati 紅、風暴綠", "price_ntd": 1038000 },
+        { "name": "Multistrada V4 S", "color": "Ducati 紅、飛行灰", "price_ntd": 1658000 },
+        { "name": "Multistrada V4 Pikes Peak", "color": "派克峰塗裝", "price_ntd": 2038000 }
+      ]
+    },
+    {
+      "family": "SuperSport",
+      "models": [
+        { "name": "SuperSport 950 S", "color": "Ducati 紅、條紋白", "price_ntd": 1058000 }
+      ]
+    },
+    {
+      "family": "DesertX",
+      "models": [
+        { "name": "DesertX", "color": "RR22 黑、消光白", "price_ntd": 1078000 }
+      ]
+    },
+    {
+      "family": "Scrambler",
+      "note": "Scrambler 系列為獨立品牌，另有官網 ducatitaiwan.com.tw/scrambler/",
+      "models": [
+        { "name": "Scrambler Icon Dark", "color": "消光黑", "price_ntd": 588000 },
+        { "name": "Scrambler Icon", "color": "經典黃、Ducati 紅、驚奇黑", "price_ntd": 668000 },
+        { "name": "Scrambler Full Throttle", "color": "GP 19 紅黑", "price_ntd": 738000 },
+        { "name": "Scrambler Full Throttle", "color": "復古黑", "price_ntd": 788000 },
+        { "name": "Scrambler Nightshift", "color": "銀河藍", "price_ntd": 738000 }
+      ]
+    }
+  ],
+  "price_range_summary": {
+    "entry_level": { "model": "Scrambler Icon Dark", "price_ntd": 588000 },
+    "flagship": { "model": "Multistrada V4 Pikes Peak", "price_ntd": 2038000 },
+    "most_expensive_sports": { "model": "Streetfighter V4 SP2", "price_ntd": 1958000 }
+  }
+}

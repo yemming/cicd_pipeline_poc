@@ -1,0 +1,54 @@
+{
+  "source": "https://ducatitaiwan.com.tw/dealers/",
+  "scraped_date": "2026-04-14",
+  "taiwan_distributor": {
+    "name": "碩文",
+    "role": "台灣總代理",
+    "about_url": "https://ducatitaiwan.com.tw/company/碩文"
+  },
+  "dealers": [
+    {
+      "name": "Ducati Taipei（台北直營門市）",
+      "city": "台北",
+      "address": "台北市內湖區內湖路一段91巷19號",
+      "url": "https://ducatitaiwan.com.tw/dealers/ducati_taipei",
+      "type": "直營"
+    },
+    {
+      "name": "Ducati 桃園",
+      "city": "桃園",
+      "type": "待補充"
+    },
+    {
+      "name": "Ducati 新竹",
+      "city": "新竹",
+      "type": "待補充"
+    },
+    {
+      "name": "Ducati 台中",
+      "city": "台中",
+      "type": "待補充"
+    },
+    {
+      "name": "Ducati 嘉義",
+      "city": "嘉義",
+      "type": "待補充"
+    },
+    {
+      "name": "Ducati 台南",
+      "city": "台南",
+      "type": "待補充"
+    },
+    {
+      "name": "Ducati 高雄",
+      "city": "高雄",
+      "type": "待補充"
+    }
+  ],
+  "contact": {
+    "dealer_locator": "https://ducatitaiwan.com.tw/dealers/",
+    "contact_form": "https://ducatitaiwan.com.tw/contact/",
+    "dealer_contact": "https://contact.ducati.com/tw/zh/light/contact/dealer"
+  },
+  "note": "詳細各店電話、營業時間需進入各門市頁面查詢"
+}

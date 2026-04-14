@@ -1,0 +1,200 @@
+{
+  "source": "https://ducatitaiwan.com.tw",
+  "scraped_date": "2026-04-14",
+  "navigation": {
+    "models": {
+      "label": "車款",
+      "families": {
+        "DesertX": {
+          "models": [
+            { "name": "DesertX", "url": "https://ducatitaiwan.com.tw/bikes/desertx", "specs": "110 hp / 92 Nm / 202 kg" }
+          ]
+        },
+        "Hypermotard": {
+          "models": [
+            { "name": "Hypermotard 698 Mono RVE", "url": "https://ducatitaiwan.com.tw/bikes/hypermotard698monoRVE", "specs": "77.5 hp / 63 Nm / 151 kg" },
+            { "name": "Hypermotard 950", "url": "https://ducatitaiwan.com.tw/bikes/hypermotard950", "specs": "114 hp / 96 Nm / 178 kg" },
+            { "name": "Hypermotard 950 RVE", "url": "https://ducatitaiwan.com.tw/bikes/hypermotard950", "specs": "114 hp / 96 Nm / 178 kg" },
+            { "name": "Hypermotard 950 SP", "url": "https://ducatitaiwan.com.tw/bikes/hypermotard950", "specs": "114 hp / 96 Nm / 176 kg" }
+          ]
+        },
+        "Monster": {
+          "models": [
+            { "name": "Monster", "url": "https://ducatitaiwan.com.tw/bikes/monster937", "specs": "111 hp / 93 Nm / 166 kg" },
+            { "name": "Monster SP", "url": "https://ducatitaiwan.com.tw/bikes/monstersp", "specs": "111 hp / 93 Nm / 166 kg" }
+          ]
+        },
+        "Streetfighter": {
+          "models": [
+            { "name": "Streetfighter V2", "url": "https://ducatitaiwan.com.tw/bikes/streetfighterv2", "specs": "153 hp / 101.4 Nm / 178 kg" },
+            { "name": "Streetfighter V2 S", "url": "https://ducatitaiwan.com.tw/bikes/streetfighterv2s", "specs": "120 hp / 93.3 Nm / 175 kg", "is_new": true },
+            { "name": "Streetfighter V4 S", "url": "https://ducatitaiwan.com.tw/bikes/StreetfighterV4S", "specs": "208 hp / 123 Nm / 178 kg" },
+            { "name": "Streetfighter V4 SP2", "url": "https://ducatitaiwan.com.tw/bikes/StreetfighterV4SP2", "specs": "208 hp / 123 Nm / 177 kg" }
+          ]
+        },
+        "Panigale": {
+          "models": [
+            { "name": "Panigale V2 S", "url": "https://ducatitaiwan.com.tw/bikes/panigalev2s", "specs": "120 hp / 93.3 Nm / 176 kg", "is_new": true },
+            { "name": "Panigale V4 S", "url": "https://ducatitaiwan.com.tw/bikes/PanigaleV4S", "specs": "215.5 hp / 123.6 Nm / 174 kg" }
+          ]
+        },
+        "SuperSport": {
+          "models": [
+            { "name": "SuperSport 950 S", "url": "https://ducatitaiwan.com.tw/bikes/supersport", "specs": "110 hp / 93 Nm / 184 kg" }
+          ]
+        },
+        "Multistrada": {
+          "models": [
+            { "name": "Multistrada V2 S", "url": "https://ducatitaiwan.com.tw/bikes/newmultistradav2s", "specs": "115.6 hp / 92.1 Nm / 202 kg", "is_new": true },
+            { "name": "Multistrada V4 S", "url": "https://ducatitaiwan.com.tw/bikes/multistradav4s", "specs": "170 hp / 84 Nm / 218 kg" }
+          ]
+        }
+      }
+    },
+    "accessories": {
+      "label": "裝備",
+      "modifications": {
+        "label": "改裝部品",
+        "categories": [
+          { "name": "Panigale V2-V4", "url": "https://ducatitaiwan.com.tw/accessories/Panigale-V2-V4" },
+          { "name": "Streetfighter V4", "url": "https://ducatitaiwan.com.tw/accessories/Streetfighter-V4" },
+          { "name": "Panigale 959-1299", "url": "https://ducatitaiwan.com.tw/accessories/Panigale-959-1299" },
+          { "name": "Diavel 1260", "url": "https://ducatitaiwan.com.tw/accessories/Diavel-1260" },
+          { "name": "Hypermotard", "url": "https://ducatitaiwan.com.tw/accessories/Hypermotard" },
+          { "name": "Monster", "url": "https://ducatitaiwan.com.tw/accessories/Monster" },
+          { "name": "Multistrada", "url": "https://ducatitaiwan.com.tw/accessories/Multistrada" },
+          { "name": "SuperSport", "url": "https://ducatitaiwan.com.tw/accessories/SuperSport" },
+          { "name": "DesertX", "url": "https://ducatitaiwan.com.tw/accessories/DesertX" }
+        ]
+      },
+      "apparel": {
+        "label": "一般服飾",
+        "categories": [
+          { "name": "T恤POLO衫類", "url": "https://ducatitaiwan.com.tw/apparel/t-shirts" },
+          { "name": "小帽類", "url": "https://ducatitaiwan.com.tw/apparel/caps" },
+          { "name": "夾克背心類", "url": "https://ducatitaiwan.com.tw/apparel/jackets" },
+          { "name": "長袖類", "url": "https://ducatitaiwan.com.tw/apparel/long_sleeves" },
+          { "name": "孩童類", "url": "https://ducatitaiwan.com.tw/apparel/kids" },
+          { "name": "配件背包類", "url": "https://ducatitaiwan.com.tw/apparel/bags" },
+          { "name": "配件類", "url": "https://ducatitaiwan.com.tw/apparel/accessories" }
+        ]
+      },
+      "protective_gear": {
+        "label": "防護裝備",
+        "categories": [
+          { "name": "連身皮衣類", "url": "https://ducatitaiwan.com.tw/apparel/leather_suit" },
+          { "name": "防摔皮衣類", "url": "https://ducatitaiwan.com.tw/apparel/leather_jackets" },
+          { "name": "防摔衣類", "url": "https://ducatitaiwan.com.tw/apparel/fabric_jackets" },
+          { "name": "女用防摔皮衣類", "url": "https://ducatitaiwan.com.tw/apparel/leather_jackets_women" },
+          { "name": "女用防摔衣類", "url": "https://ducatitaiwan.com.tw/apparel/fabric_jackets_women" },
+          { "name": "手套類", "url": "https://ducatitaiwan.com.tw/apparel/gloves" },
+          { "name": "騎士車靴類", "url": "https://ducatitaiwan.com.tw/apparel/boots" }
+        ]
+      }
+    },
+    "racing": {
+      "label": "賽車",
+      "motogp": {
+        "label": "MotoGP",
+        "items": [
+          { "name": "Ducati Team", "url": "https://www.ducati.com/ww/en/racing/motogp/home" },
+          { "name": "賽程表", "url": "https://www.ducati.com/ww/en/racing/motogp/calendar" },
+          { "name": "賽事新聞", "url": "https://ducatitaiwan.com.tw/racing-news/motogp" }
+        ]
+      },
+      "superbike": {
+        "label": "Superbike（WorldSBK）",
+        "items": [
+          { "name": "Aruba.it Racing-Ducati", "url": "https://www.ducati.com/ww/en/racing/superbike/home" },
+          { "name": "賽程表", "url": "https://www.ducati.com/ww/en/racing/superbike/calendar" },
+          { "name": "賽事新聞", "url": "https://ducatitaiwan.com.tw/racing-news/wsbk" }
+        ]
+      }
+    },
+    "experience": {
+      "label": "體驗",
+      "brand_events": [
+        { "name": "Ducati Riding Experience（DRE）", "url": "https://ducatitaiwan.com.tw/experience/dre/" },
+        { "name": "Desmo Owner Club（DOC）", "url": "https://ducatitaiwan.com.tw/desmo-owners-club/" },
+        { "name": "Ducati Taiwan Dream Tour", "url": "https://ducatitaiwan.com.tw/experience/ducati-taiwan-dream-tour/" },
+        { "name": "Taiwan Ducati Week", "url": "https://ducatitaiwan.com.tw/experience/taiwan-ducati-week/" }
+      ],
+      "social_media": [
+        { "name": "Ducati Taiwan Facebook", "url": "https://www.facebook.com/DUCATI.TAIWAN" },
+        { "name": "Ducati Taiwan Instagram", "url": "https://www.instagram.com/ducati.taiwan/" },
+        { "name": "Ducati Taiwan YouTube", "url": "http://www.youtube.com/c/DucatiTaiwanofficial" },
+        { "name": "Ducati LINE Official Account", "url": "https://lin.ee/iyW5eXT" }
+      ]
+    },
+    "dealers_service": {
+      "label": "經銷與服務",
+      "dealer_network": {
+        "label": "經銷商網路",
+        "items": [
+          { "name": "據點查詢", "url": "https://ducatitaiwan.com.tw/dealers/" }
+        ]
+      },
+      "service": {
+        "label": "服務",
+        "items": [
+          { "name": "Ducati 配件", "url": "https://ducatitaiwan.com.tw/service-maintenance/spare-parts" },
+          { "name": "保固", "url": "https://ducatitaiwan.com.tw/service-maintenance/warranty" },
+          { "name": "定期保養", "url": "https://ducatitaiwan.com.tw/service-maintenance/maintenance" },
+          { "name": "涉及公報車輛查詢", "url": "https://ducatitaiwan.com.tw/service-maintenance/service-recall/" },
+          { "name": "公報與召回", "url": "https://ducatitaiwan.com.tw/service-maintenance/recall-campaign" }
+        ]
+      }
+    },
+    "about": {
+      "label": "公司介紹",
+      "heritage": [
+        { "name": "Desmodromic 技術", "url": "https://ducatitaiwan.com.tw/heritage/Desmodromic" },
+        { "name": "90週年", "url": "https://ducatitaiwan.com.tw/heritage/90週年" },
+        { "name": "Ducati歷史", "url": "https://ducatitaiwan.com.tw/heritage/" }
+      ],
+      "company": [
+        { "name": "碩文（台灣總代理）", "url": "https://ducatitaiwan.com.tw/company/碩文" },
+        { "name": "人才招募", "url": "https://ducatitaiwan.com.tw/company/人才招募" }
+      ]
+    },
+    "news": {
+      "label": "最新消息",
+      "categories": [
+        { "name": "優惠活動", "url": "https://ducatitaiwan.com.tw/news/promotion" },
+        { "name": "品牌活動", "url": "https://ducatitaiwan.com.tw/news/brand_activity" },
+        { "name": "品牌新聞", "url": "https://ducatitaiwan.com.tw/news/brand_news" },
+        { "name": "賽事報導", "url": "https://ducatitaiwan.com.tw/news/racing" }
+      ]
+    }
+  },
+  "other_important_urls": {
+    "price_list": "https://ducatitaiwan.com.tw/price-list/",
+    "contact": "https://ducatitaiwan.com.tw/contact/",
+    "dealers": "https://ducatitaiwan.com.tw/dealers/",
+    "my_ducati_login": "https://my.ducati.com/ww/en/access/ducati",
+    "my_ducati_register": "https://my.ducati.com/ww/en/register/ducati",
+    "scrambler_site": "http://ducatitaiwan.com.tw/scrambler/",
+    "international_site": "https://www.ducati.com/ww/en/home",
+    "terms": "https://ducatitaiwan.com.tw/editor/terms-of-use",
+    "privacy": "https://ducatitaiwan.com.tw/editor/privacy",
+    "cookie_policy": "https://ducatitaiwan.com.tw/editor/cookie-policy"
+  },
+  "brand_info": {
+    "taiwan_distributor": "碩文",
+    "brand_color": "#CC0000",
+    "brand_color_name": "Ducati 紅",
+    "taglines": [
+      "任由道路決定您的旅途終點（Multistrada V2 S）",
+      "最狂野的夢想，已經實現（DesertX）",
+      "THE ULTIMATE V2 FIGHTER FORMULA（Streetfighter V2 S）",
+      "終極方程式，隨時準備上賽道（Streetfighter V4 SP2）",
+      "肌肉、大膽、獨特（Diavel V4）",
+      "為最大樂趣而製作（Monster）",
+      "改寫旅行的規則（Multistrada V4 S）"
+    ],
+    "racing_achievements_2025": [
+      "Marc Márquez 與 Ducati 獲得 2025 MotoGP 世界冠軍",
+      "Ducati Panigale V4 R 獲得第 21 座 WorldSBK 製造商冠軍"
+    ]
+  }
+}

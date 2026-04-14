@@ -41,3 +41,8 @@ yarn-error.log*
 next-env.d.ts
 .mcp.json
 ~$*
+
+# raw scraped image dumps (reference only; use public/bikes/ for app assets)
+/material/images/
+# user-captured screenshots sitting at repo root
+/CleanShot *.png

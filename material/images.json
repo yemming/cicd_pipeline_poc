@@ -1,0 +1,111 @@
+{
+  "source": "https://ducatitaiwan.com.tw",
+  "scraped_date": "2026-04-14",
+  "base_url": "https://ducatitaiwan.com.tw",
+  "note": "所有圖片均為官方網站圖片，版權歸 Ducati Taiwan 及 Ducati Motor Holding 所有",
+  "image_categories": {
+    "motorcycle_menu_thumbnails": {
+      "description": "導航選單中的車款縮圖（約350×190px）",
+      "base_path": "/archive/images/tw_bike/",
+      "images": [
+        { "model": "Hypermotard 698 Mono RVE", "filename": "1768456517.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768456517.png" },
+        { "model": "Hypermotard 950", "filename": "1768455813.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768455813.png" },
+        { "model": "Hypermotard 950 RVE/SP", "filename": "2.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/2.png" },
+        { "model": "Monster", "filename": "1698925482.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1698925482.png" },
+        { "model": "Monster SP", "filename": "1697102999.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1697102999.png" },
+        { "model": "SuperSport 950 S", "filename": "Thumb-menu-SS-950-S-R-MY21-v02.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/Thumb-menu-SS-950-S-R-MY21-v02.png" },
+        { "model": "Streetfighter V2 S", "filename": "1768456046.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768456046.png" },
+        { "model": "Streetfighter V2", "filename": "1768456421.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768456421.png" },
+        { "model": "Streetfighter V4 S", "filename": "1768456137.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768456137.png" },
+        { "model": "Streetfighter V4 SP2", "filename": "Model-Menu-MY23-Streetfighter-V4S-SP2.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/Model-Menu-MY23-Streetfighter-V4S-SP2.png" },
+        { "model": "Panigale V2 S", "filename": "1768457178.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768457178.png" },
+        { "model": "Panigale V4 S (1)", "filename": "1768457189.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768457189.png" },
+        { "model": "Panigale V4 S (2)", "filename": "1768457202.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768457202.png" },
+        { "model": "Monster alt", "filename": "350x190_monster.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/350x190_monster.png" },
+        { "model": "Multistrada V2 S", "filename": "1768456672.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768456672.png" },
+        { "model": "Multistrada V4 S (1)", "filename": "1672191171.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1672191171.png" },
+        { "model": "DesertX", "filename": "1768455322.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768455322.png" },
+        { "model": "DesertX alt", "filename": "1695862072.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1695862072.png" },
+        { "model": "Multistrada V4 S (menu)", "filename": "Model-Menu-MY22-Multistrada-V4-S-Gr-v05.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/Model-Menu-MY22-Multistrada-V4-S-Gr-v05.png" },
+        { "model": "Hypermotard 950 SP", "filename": "1768455505.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1768455505.png" },
+        { "model": "Unknown/New model", "filename": "1695355209.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1695355209.png" },
+        { "model": "Unknown/New model 2", "filename": "1665627973.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1665627973.png" },
+        { "model": "Unknown/New model 3", "filename": "1744960125.png", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/1744960125.png" }
+      ]
+    },
+    "homepage_hero_banners": {
+      "description": "首頁大圖輪播 Banner",
+      "base_path": "/archive/images/tw_index/",
+      "images": [
+        { "filename": "1768457501.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_index/1768457501.jpg" },
+        { "filename": "1768458779.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_index/1768458779.jpg" },
+        { "filename": "1702023363.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_index/1702023363.jpg" },
+        { "filename": "1768457646.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_index/1768457646.jpg" },
+        { "filename": "1768458260.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_index/1768458260.jpg" },
+        { "filename": "1768458621.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_index/1768458621.jpg" }
+      ]
+    },
+    "lifestyle_style_images": {
+      "description": "品牌生活風格圖片",
+      "base_path": "/archive/images/tw_style/",
+      "images": [
+        { "filename": "1768454821.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_style/1768454821.jpg" },
+        { "filename": "1768448903.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_style/1768448903.jpg" },
+        { "filename": "1665968808.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_style/1665968808.jpg" }
+      ]
+    },
+    "shortcut_icons": {
+      "description": "快捷圖示（小圖）",
+      "base_path": "/archive/images/tw_shortcut/",
+      "images": [
+        { "filename": "1685078709.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_shortcut/1685078709.jpg" },
+        { "filename": "DesertX.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_shortcut/DesertX.jpg" },
+        { "filename": "86ded67e14757679.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_shortcut/86ded67e14757679.jpg" },
+        { "filename": "746a98bcf6c90f65.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_shortcut/746a98bcf6c90f65.jpg" }
+      ]
+    },
+    "monster_detail_pages": {
+      "description": "Monster 車款詳情頁高解析度圖片",
+      "images": [
+        { "type": "hero", "filename": "Monster-04-hero-1600x1000-v02.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/Monster-04-hero-1600x1000-v02.jpg", "size": "1600x1000" },
+        { "type": "video_preview", "filename": "Monster-03-video-full-1330x748.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_bike/Monster-03-video-full-1330x748.jpg", "size": "1330x748" }
+      ],
+      "album_paths": [
+        "https://ducatitaiwan.com.tw/archive/images/tw_bike_cate1Album/20/",
+        "https://ducatitaiwan.com.tw/archive/images/tw_bike_cate2Album/20/",
+        "https://ducatitaiwan.com.tw/archive/images/tw_bike_cate3Album/20/",
+        "https://ducatitaiwan.com.tw/archive/images/tw_bike_cate4Album/20/",
+        "https://ducatitaiwan.com.tw/archive/images/tw_bike_cate5Album/20/",
+        "https://ducatitaiwan.com.tw/archive/images/tw_bike_cate6Album/20/"
+      ]
+    },
+    "news_images": {
+      "description": "最新消息頁圖片",
+      "base_path": "/archive/images/tw_news/",
+      "images": [
+        { "news": "紅色季節特惠", "filename": "00.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_news/00.jpg" },
+        { "news": "We Ride As One 活動花絮", "filename": "ss.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_news/ss.jpg" },
+        { "news": "We are Ducati. We Ride As One.", "filename": "1682070954.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_news/1682070954.jpg" },
+        { "news": "DRE Safety Academy 高雄場", "filename": "DRE_SAK_2.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_news/DRE_SAK_2.jpg" },
+        { "news": "Multistrada V2 S 好禮相送", "filename": "MTS_V2_S_480X255.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_news/MTS_V2_S_480X255.jpg" },
+        { "news": "SuperSport 950 S 好禮相送", "filename": "SS_950_S_480x255.jpg", "url": "https://ducatitaiwan.com.tw/archive/images/tw_news/SS_950_S_480x255.jpg" }
+      ]
+    }
+  },
+  "image_url_patterns": {
+    "note": "網站圖片採用時間戳記或描述性命名，以下為目錄結構規律",
+    "directories": {
+      "tw_bike": "車款圖片（縮圖與大圖）",
+      "tw_bike_cate1Album/{id}": "車款詳情相冊 - 設計與外觀",
+      "tw_bike_cate2Album/{id}": "車款詳情相冊 - 動力性能",
+      "tw_bike_cate3Album/{id}": "車款詳情相冊 - LED與細節",
+      "tw_bike_cate4Album/{id}": "車款詳情相冊 - 配色展示",
+      "tw_bike_cate5Album/{id}": "車款詳情相冊 - 視角與動態",
+      "tw_bike_cate6Album/{id}": "車款詳情相冊 - 功能細部",
+      "tw_index": "首頁輪播Banner大圖",
+      "tw_style": "生活風格品牌圖片",
+      "tw_shortcut": "快捷導覽小圖示",
+      "tw_news": "新聞與活動圖片"
+    }
+  }
+}

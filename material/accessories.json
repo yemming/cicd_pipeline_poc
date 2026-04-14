@@ -1,0 +1,77 @@
+{
+  "source": "https://ducatitaiwan.com.tw",
+  "scraped_date": "2026-04-14",
+  "note": "配件分為「改裝部品（Modifications）」與「服飾防護（Apparel & Protective Gear）」兩大類",
+  "modifications": {
+    "panigale_v2_v4": {
+      "url": "https://ducatitaiwan.com.tw/accessories/Panigale-V2-V4",
+      "total_items": 61,
+      "items": [
+        "V4車系鎂合金輪框",
+        "V2/V4車系鋁合金離合器油壺",
+        "V4車系乾式離合器套件",
+        "V4車系改裝下整流罩",
+        "V2/V4車系鋁合金前剎車油壺",
+        "V4車系腳踏後移套件",
+        "V2/V4專用後輪駐車架",
+        "V2專用排氣管飾蓋",
+        "V4車系加高燻黑風鏡+40mm",
+        "V4車系碳纖維搖背護蓋",
+        "V2車系腳踏後移套件",
+        "V2車系離合器保護蓋",
+        "V2/V4車系把手平衡端子",
+        "V2車系水箱保護網",
+        "V2車系競賽座墊+20mm",
+        "V2/V4車系碳纖維後牌照架",
+        "V2/V4車系鋁合金快拆油箱蓋",
+        "V2車系車把配重器",
+        "V2車系加高座墊+20mm",
+        "V2車系碳纖維搖背護蓋"
+      ]
+    },
+    "streetfighter_v4": {
+      "url": "https://ducatitaiwan.com.tw/accessories/Streetfighter-V4"
+    },
+    "panigale_959_1299": {
+      "url": "https://ducatitaiwan.com.tw/accessories/Panigale-959-1299"
+    },
+    "diavel_1260": {
+      "url": "https://ducatitaiwan.com.tw/accessories/Diavel-1260"
+    },
+    "hypermotard": {
+      "url": "https://ducatitaiwan.com.tw/accessories/Hypermotard"
+    },
+    "monster": {
+      "url": "https://ducatitaiwan.com.tw/accessories/Monster"
+    },
+    "multistrada": {
+      "url": "https://ducatitaiwan.com.tw/accessories/Multistrada"
+    },
+    "supersport": {
+      "url": "https://ducatitaiwan.com.tw/accessories/SuperSport"
+    },
+    "desertx": {
+      "url": "https://ducatitaiwan.com.tw/accessories/DesertX"
+    }
+  },
+  "apparel": {
+    "casual": {
+      "t_shirts_polo": { "label": "T恤POLO衫類", "url": "https://ducatitaiwan.com.tw/apparel/t-shirts" },
+      "caps": { "label": "小帽類", "url": "https://ducatitaiwan.com.tw/apparel/caps" },
+      "jackets_vests": { "label": "夾克背心類", "url": "https://ducatitaiwan.com.tw/apparel/jackets" },
+      "long_sleeves": { "label": "長袖類", "url": "https://ducatitaiwan.com.tw/apparel/long_sleeves" },
+      "kids": { "label": "孩童類", "url": "https://ducatitaiwan.com.tw/apparel/kids" },
+      "bags": { "label": "配件背包類", "url": "https://ducatitaiwan.com.tw/apparel/bags" },
+      "accessories": { "label": "配件類", "url": "https://ducatitaiwan.com.tw/apparel/accessories" }
+    },
+    "protective_gear": {
+      "leather_suit": { "label": "連身皮衣類", "url": "https://ducatitaiwan.com.tw/apparel/leather_suit" },
+      "leather_jackets": { "label": "防摔皮衣類", "url": "https://ducatitaiwan.com.tw/apparel/leather_jackets" },
+      "fabric_jackets": { "label": "防摔衣類", "url": "https://ducatitaiwan.com.tw/apparel/fabric_jackets" },
+      "leather_jackets_women": { "label": "女用防摔皮衣類", "url": "https://ducatitaiwan.com.tw/apparel/leather_jackets_women" },
+      "fabric_jackets_women": { "label": "女用防摔衣類", "url": "https://ducatitaiwan.com.tw/apparel/fabric_jackets_women" },
+      "gloves": { "label": "手套類", "url": "https://ducatitaiwan.com.tw/apparel/gloves" },
+      "boots": { "label": "騎士車靴類", "url": "https://ducatitaiwan.com.tw/apparel/boots" }
+    }
+  }
+}

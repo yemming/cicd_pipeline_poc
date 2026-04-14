@@ -173,77 +173,96 @@ export const modules: ModuleDef[] = [
   },
 
   // ────────────────────────────────────────────────────────
-  // 7. 整車庫存 (S10-1~3 + S6-7)
+  // 7. 經銷商管理 (S10-1~5 + S6-7 + S9-1)
   // ────────────────────────────────────────────────────────
   {
     key: "inventory",
-    name: "整車庫存",
+    name: "經銷商管理",
     icon: "warehouse",
     accent: "#1ABC9C",
-    description: "庫存・配額・返利",
+    description: "整車庫存・政策・行銷",
     home: "/inventory/vehicles",
     permission: "inventory.access",
     pages: [
-      { name: "整車庫存",     icon: "list_alt",        href: "/inventory/vehicles",        sprint: "S10-1", stitchScreenId: "91bdac2c367e4e04a3caa8d79201d864" },
-      { name: "配額批售",     icon: "swap_horiz",      href: "/inventory/quota",           sprint: "S10-2", stitchScreenId: "763556ef5dd64192936e49a6c305e3ce" },
-      { name: "返利結算",     icon: "monetization_on", href: "/inventory/rebate",          sprint: "S10-3", stitchScreenId: "f7e26a48756f404c8eb0f7c3b804a02a" },
-      { name: "集團庫存總覽", icon: "hub",             href: "/inventory/group-overview",  sprint: "S6-7",  stitchScreenId: "9e696ef7243d48148cc3290aa55d0d16" },
+      // 庫存與結算
+      { name: "整車庫存",     icon: "list_alt",        href: "/inventory/vehicles",        sprint: "S10-1", stitchScreenId: "91bdac2c367e4e04a3caa8d79201d864", section: "庫存與結算" },
+      { name: "配額批售",     icon: "swap_horiz",      href: "/inventory/quota",           sprint: "S10-2", stitchScreenId: "763556ef5dd64192936e49a6c305e3ce", section: "庫存與結算" },
+      { name: "返利結算",     icon: "monetization_on", href: "/inventory/rebate",          sprint: "S10-3", stitchScreenId: "f7e26a48756f404c8eb0f7c3b804a02a", section: "庫存與結算" },
+      // 行銷與政策
+      { name: "行銷活動",     icon: "campaign",        href: "/inventory/marketing",       sprint: "S9-1",  stitchScreenId: "49b04c83bfe34273b9769ec9321d6c30", section: "行銷與政策" },
+      { name: "商務政策",     icon: "policy",          href: "/inventory/policy",          sprint: "S10-4", stitchScreenId: "a8f988ac82df4503aa4e6a99c5a5a95f", section: "行銷與政策" },
+      { name: "合規稽核",     icon: "gpp_good",        href: "/inventory/compliance",      sprint: "S10-5", stitchScreenId: "fe943528afb949e0b7c2fe717a94c305", section: "行銷與政策" },
     ],
   },
 
   // ────────────────────────────────────────────────────────
-  // 8. 經銷商管理 (S1 全部 + S9-2 系統設定)
+  // 8. 簽核管理 (S1 簽核中心)
   // ────────────────────────────────────────────────────────
   {
     key: "admin",
-    name: "經銷商管理",
+    name: "簽核管理",
     icon: "admin_panel_settings",
     accent: "#34495E",
-    description: "組織・權限・審批・設定",
-    home: "/admin/org",
+    description: "簽核流程・單據審核",
+    home: "/admin/approvals",
     permission: "admin.access",
     pages: [
-      // 組織 & 權限
-      { name: "組織架構",     icon: "account_tree",    href: "/admin/org",                 sprint: "S1-1", stitchScreenId: "40cad06add0e44c6b523a54514b01b77", section: "組織與權限" },
-      { name: "人員管理",     icon: "badge",           href: "/admin/staff",               sprint: "S1-2", stitchScreenId: "ceeb6d36062b47d68789dc49700707d9", section: "組織與權限" },
-      { name: "角色權限",     icon: "key",             href: "/admin/roles",               sprint: "S1-3", stitchScreenId: "366a7fd4ce77445e925d02cde3afba82", section: "組織與權限" },
-      // 審批中心
-      { name: "審批流程設定", icon: "schema",          href: "/admin/approval-flow",       sprint: "S1-4",  stitchScreenId: "5164d2d5b68b4885ae24dd40f3b118a1", section: "審批中心" },
-      { name: "我的審批",     icon: "fact_check",      href: "/admin/approvals",           sprint: "S1-5",  stitchScreenId: "8cf3cbe6d4ef429ca1a3d88958fd5924", section: "審批中心" },
-      { name: "訂單審批",     icon: "assignment_ind",  href: "/admin/approvals/order",     sprint: "S1-6",  stitchScreenId: "b8e9e9148ed943d0a9914df3d52c0c8d", section: "審批中心" },
-      { name: "折扣審批",     icon: "local_offer",     href: "/admin/approvals/discount",  sprint: "S1-7",  stitchScreenId: "c27c74ea875a4c8987b84c4cb8035ab9", section: "審批中心" },
-      { name: "收車審批",     icon: "swap_vert",       href: "/admin/approvals/tradein",   sprint: "S1-8",  stitchScreenId: "638516e5f2284433ad9c8d2cc4351ddb", section: "審批中心" },
-      { name: "退款審批",     icon: "currency_exchange", href: "/admin/approvals/refund",  sprint: "S1-9",  stitchScreenId: "3b1ee33fd56f4e5db193ada91c6e700c", section: "審批中心" },
-      { name: "調車審批",     icon: "sync_alt",        href: "/admin/approvals/transfer",  sprint: "S1-10", stitchScreenId: "1e7d257222954e50a79e98d49173d153", section: "審批中心" },
-      { name: "審批歷史",     icon: "history",         href: "/admin/approvals/history",   sprint: "S1-11", stitchScreenId: "8934f85891e446f2a1f1a60252863972", section: "審批中心" },
-      // 設定
-      { name: "系統設定",     icon: "settings",        href: "/admin/system",              sprint: "S9-2",  stitchScreenId: "6165a595ffd049918a2f79d48557c8bd", section: "系統設定" },
+      { name: "簽核流程設定", icon: "schema",          href: "/admin/approval-flow",       sprint: "S1-4",  stitchScreenId: "5164d2d5b68b4885ae24dd40f3b118a1", section: "簽核中心" },
+      { name: "我的簽核",     icon: "fact_check",      href: "/admin/approvals",           sprint: "S1-5",  stitchScreenId: "8cf3cbe6d4ef429ca1a3d88958fd5924", section: "簽核中心" },
+      { name: "訂單簽核",     icon: "assignment_ind",  href: "/admin/approvals/order",     sprint: "S1-6",  stitchScreenId: "b8e9e9148ed943d0a9914df3d52c0c8d", section: "簽核中心" },
+      { name: "折扣簽核",     icon: "local_offer",     href: "/admin/approvals/discount",  sprint: "S1-7",  stitchScreenId: "c27c74ea875a4c8987b84c4cb8035ab9", section: "簽核中心" },
+      { name: "收車簽核",     icon: "swap_vert",       href: "/admin/approvals/tradein",   sprint: "S1-8",  stitchScreenId: "638516e5f2284433ad9c8d2cc4351ddb", section: "簽核中心" },
+      { name: "退款簽核",     icon: "currency_exchange", href: "/admin/approvals/refund",  sprint: "S1-9",  stitchScreenId: "3b1ee33fd56f4e5db193ada91c6e700c", section: "簽核中心" },
+      { name: "調車簽核",     icon: "sync_alt",        href: "/admin/approvals/transfer",  sprint: "S1-10", stitchScreenId: "1e7d257222954e50a79e98d49173d153", section: "簽核中心" },
+      { name: "簽核歷史",     icon: "history",         href: "/admin/approvals/history",   sprint: "S1-11", stitchScreenId: "8934f85891e446f2a1f1a60252863972", section: "簽核中心" },
     ],
   },
 
   // ────────────────────────────────────────────────────────
-  // 9. 集團管理 (S6 數據 + S9-1 行銷 + S10-4/5 政策)
+  // 9. 集團管理 (S6 數據)
   // ────────────────────────────────────────────────────────
   {
     key: "group",
     name: "集團管理",
     icon: "corporate_fare",
     accent: "#16A085",
-    description: "跨門店數據・行銷・政策",
+    description: "跨門店數據・報表・目標",
     home: "/group/dashboard",
     permission: "group.access",
     pages: [
-      // 集團數據
       { name: "集團看板",     icon: "space_dashboard",  href: "/group/dashboard",          sprint: "S6-2", stitchScreenId: "0f7df3e575254e96b24b084be30179c1", section: "集團數據" },
       { name: "看板 (Mobile)",icon: "stay_primary_portrait", href: "/group/dashboard-mobile", sprint: "S6-1", stitchScreenId: "1dc126f847404a23bd966f7743937945", device: "mobile", section: "集團數據" },
       { name: "集團運營簡報", icon: "slideshow",        href: "/group/briefing",           sprint: "S6-3", stitchScreenId: "76f48bf6c9484de1a2082f702761fa40", section: "集團數據" },
+      { name: "集團庫存總覽", icon: "hub",              href: "/group/group-overview",     sprint: "S6-7", stitchScreenId: "9e696ef7243d48148cc3290aa55d0d16", section: "集團數據" },
       { name: "報表中心",     icon: "bar_chart",        href: "/group/reports",            sprint: "S6-5", stitchScreenId: "608f23f9cb484af39f71c15d1af39619", section: "集團數據" },
       { name: "銷售目標",     icon: "flag",             href: "/group/sales-target",       sprint: "S6-6", stitchScreenId: "f3e0be1e2b6c439ea20d5dd428577873", section: "集團數據" },
-      // 行銷
-      { name: "行銷活動",     icon: "campaign",         href: "/group/marketing",          sprint: "S9-1", stitchScreenId: "49b04c83bfe34273b9769ec9321d6c30", section: "行銷與政策" },
-      // 廠商政策
-      { name: "商務政策",     icon: "policy",           href: "/group/policy",             sprint: "S10-4", stitchScreenId: "a8f988ac82df4503aa4e6a99c5a5a95f", section: "行銷與政策" },
-      { name: "合規稽核",     icon: "gpp_good",         href: "/group/compliance",         sprint: "S10-5", stitchScreenId: "fe943528afb949e0b7c2fe717a94c305", section: "行銷與政策" },
+    ],
+  },
+
+  // ────────────────────────────────────────────────────────
+  // 10. 系統設定 (S1 組織權限 + S9-2 系統設定)
+  // ────────────────────────────────────────────────────────
+  {
+    key: "settings",
+    name: "系統設定",
+    icon: "settings",
+    accent: "#7F8C8D",
+    description: "組織・權限・系統偏好",
+    home: "/settings/org",
+    permission: "settings.access",
+    pages: [
+      // 組織 & 權限
+      { name: "組織架構",     icon: "account_tree",    href: "/settings/org",              sprint: "S1-1", stitchScreenId: "40cad06add0e44c6b523a54514b01b77", section: "組織與權限" },
+      { name: "人員管理",     icon: "badge",           href: "/settings/staff",            sprint: "S1-2", stitchScreenId: "ceeb6d36062b47d68789dc49700707d9", section: "組織與權限" },
+      { name: "角色權限",     icon: "key",             href: "/settings/roles",            sprint: "S1-3", stitchScreenId: "366a7fd4ce77445e925d02cde3afba82", section: "組織與權限" },
+      // 系統設定
+      { name: "基本設定",     icon: "tune",            href: "/settings/general",          sprint: "S9-2", stitchScreenId: "6165a595ffd049918a2f79d48557c8bd", section: "系統設定" },
+      { name: "字典管理",     icon: "menu_book",       href: "/settings/dictionary",       section: "系統設定" },
+      { name: "業務序號",     icon: "format_list_numbered", href: "/settings/serial",      section: "系統設定" },
+      { name: "車型管理",     icon: "two_wheeler",     href: "/settings/models",           section: "系統設定" },
+      { name: "通知設定",     icon: "notifications",   href: "/settings/notifications",    section: "系統設定" },
+      { name: "數據匯入/出",  icon: "import_export",   href: "/settings/data-io",          section: "系統設定" },
+      { name: "API 整合",     icon: "hub",             href: "/settings/api",              section: "系統設定" },
     ],
   },
 ];
