@@ -42,7 +42,7 @@ export function PagesPanel() {
 
   return (
     <aside
-      className={`fixed left-14 top-0 h-screen w-60 bg-[#1A1A2E] flex flex-col py-6 z-[55] shadow-xl transition-transform duration-200 ${
+      className={`fixed left-14 top-0 h-dvh w-60 bg-[#1A1A2E] flex flex-col py-6 z-[55] shadow-xl transition-transform duration-200 ${
         collapsed ? "-translate-x-full" : "translate-x-0"
       }`}
     >
@@ -158,8 +158,32 @@ export function PagesPanel() {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="px-3 pt-2">
+      {/* Footer actions */}
+      <div className="px-3 pt-2 shrink-0">
+        {/* 教學 */}
+        <Link
+          href="/onboarding"
+          className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm font-display transition-colors"
+        >
+          <span className="material-symbols-outlined text-lg">school</span>
+          <span>教學導覽</span>
+        </Link>
+
+        {/* 登出 */}
+        <form action="/api/auth/signout" method="POST">
+          <button
+            type="submit"
+            className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-white/5 text-sm font-display transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">logout</span>
+            <span>登出</span>
+          </button>
+        </form>
+
+        {/* Divider */}
+        <div className="mx-4 my-2 border-t border-white/8" />
+
+        {/* Dealer identity */}
         <div className="flex items-center gap-3 px-4 py-2 rounded-lg">
           <div
             className="w-6 h-6 rounded-full flex items-center justify-center text-white flex-shrink-0"
@@ -168,9 +192,7 @@ export function PagesPanel() {
             <span className="material-symbols-outlined text-sm">two_wheeler</span>
           </div>
           <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-white text-xs font-bold truncate">
-              Ducati Taipei
-            </span>
+            <span className="text-white text-xs font-bold truncate">Ducati Taipei</span>
             <span className="text-gray-500 text-[10px]">Official Dealer</span>
           </div>
         </div>

@@ -12,7 +12,7 @@ export function ModuleRail() {
   const onLauncher = !activeKey;
 
   return (
-    <nav className="fixed left-0 top-0 h-screen w-14 bg-[#0F0F1F] flex flex-col items-center py-3 z-[60] border-r border-white/5 overflow-hidden">
+    <nav className="fixed left-0 top-0 h-dvh w-14 bg-[#0F0F1F] flex flex-col items-center py-3 z-[60] border-r border-white/5 overflow-hidden">
       {/* Launcher / Home */}
       <RailLink
         href="/"
