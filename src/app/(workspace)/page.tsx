@@ -6,7 +6,7 @@ import { useSetPageHeader } from "@/components/page-header-context";
 import { useProfile, getGreeting } from "@/lib/use-profile";
 
 export default function LauncherPage() {
-  useSetPageHeader({ title: "DealerOS Workspace", hideSearch: false });
+  useSetPageHeader({ hideSearch: false });
   const profile = useProfile();
 
   return (
