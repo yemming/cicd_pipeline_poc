@@ -11,7 +11,7 @@ interface TopbarProps {
 
 export function Topbar({ onOpenSearch }: TopbarProps) {
   const { title, tabs, breadcrumb, hideSearch } = usePageHeader();
-  const { collapsed } = useSidebar();
+  const { collapsed, fullHidden } = useSidebar();
   const profile = useProfile();
 
   const today = new Date();
@@ -24,7 +24,7 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
   return (
     <header
       className={`fixed top-0 right-0 h-16 z-[55] bg-white/80 backdrop-blur-md border-b border-surface-container-high flex justify-between items-center px-4 md:px-8 transition-[left] duration-200 ${
-        collapsed ? "left-14" : "md:left-[296px] left-14"
+        fullHidden ? "left-0" : collapsed ? "left-14" : "md:left-[296px] left-14"
       }`}
     >
       {/* Left: toggle + title + tabs, or breadcrumb */}
@@ -36,7 +36,7 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
         )}
 
         {hasTabs ? (
-          <nav className="flex gap-6">
+          <nav className="hidden sm:flex gap-6">
             {tabs!.map((tab) => {
               if (tab.active) {
                 return (
@@ -71,7 +71,7 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
             })}
           </nav>
         ) : hasBreadcrumb ? (
-          <nav className="flex items-center text-sm font-medium">
+          <nav className="hidden sm:flex items-center text-sm font-medium">
             {breadcrumb!.map((crumb, i) => (
               <span key={`${crumb.label}-${i}`} className="flex items-center">
                 {i > 0 && (

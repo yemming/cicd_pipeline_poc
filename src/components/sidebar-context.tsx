@@ -6,12 +6,15 @@ type SidebarCtx = {
   collapsed: boolean;
   toggle: () => void;
   setCollapsed: (v: boolean) => void;
+  fullHidden: boolean;
+  setFullHidden: (v: boolean) => void;
 };
 
 const Ctx = createContext<SidebarCtx | null>(null);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [fullHidden, setFullHidden] = useState(false);
 
   // Auto-collapse on small screens (< md = 768px) on mount, and respond to resize.
   useEffect(() => {
@@ -24,7 +27,10 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggle = useCallback(() => setCollapsed((v) => !v), []);
-  const value = useMemo(() => ({ collapsed, toggle, setCollapsed }), [collapsed, toggle]);
+  const value = useMemo(
+    () => ({ collapsed, toggle, setCollapsed, fullHidden, setFullHidden }),
+    [collapsed, toggle, fullHidden]
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -34,6 +40,8 @@ export function useSidebar(): SidebarCtx {
       collapsed: false,
       toggle: () => {},
       setCollapsed: () => {},
+      fullHidden: false,
+      setFullHidden: () => {},
     }
   );
 }

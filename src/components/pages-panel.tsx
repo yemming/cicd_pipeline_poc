@@ -147,7 +147,7 @@ export function PagesPanel() {
                     <span className="truncate flex-1">{page.name}</span>
                     {page.device && page.device !== "desktop" && (
                       <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-white/10 text-white/50 uppercase tracking-wider">
-                        {page.device === "ipad" ? "iPad" : page.device === "tablet" ? "Tab" : "Mob"}
+                        {page.device === "mobile" ? "MOB" : "TAB"}
                       </span>
                     )}
                   </Link>

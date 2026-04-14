@@ -7,18 +7,30 @@ import { useSidebar } from "./sidebar-context";
 
 export function ModuleRail() {
   const pathname = usePathname();
-  const { toggle } = useSidebar();
+  const { toggle, fullHidden, setFullHidden } = useSidebar();
   const activeKey = pathname.split("/")[1] || null;
   const onLauncher = !activeKey;
 
+  // 檢查當前頁面是否有 device 標籤（MOB / TAB）
+  const activeModule = modules.find((m) => m.key === activeKey);
+  const currentPage = activeModule?.pages.find(
+    (p) => p.href === pathname || pathname.startsWith(p.href + "/")
+  );
+  const isDevicePage = !!currentPage?.device && currentPage.device !== "desktop";
+
+  // 當 fullHidden 時，Rail 整體隱藏
+  if (fullHidden) return null;
+
   return (
     <nav className="fixed left-0 top-0 h-dvh w-14 bg-[#0F0F1F] flex flex-col items-center py-3 z-[60] border-r border-white/5 overflow-hidden">
-      {/* Launcher / Home */}
+      {/* Launcher / Home — 若在 device 頁面，改為切換全隱模式 */}
       <RailLink
-        href="/"
-        label="主地圖"
+        href={isDevicePage ? undefined : "/"}
+        label={isDevicePage ? "隱藏導航列" : "主地圖"}
         icon="apps"
         active={onLauncher}
+        onActiveClick={isDevicePage ? () => setFullHidden(true) : undefined}
+        onClick={isDevicePage ? () => setFullHidden(true) : undefined}
       />
 
       <div className="h-px w-8 bg-white/10 my-3" />
@@ -65,6 +77,7 @@ function RailLink({
   disabled,
   accent,
   onActiveClick,
+  onClick,
 }: {
   href?: string;
   label: string;
@@ -73,6 +86,7 @@ function RailLink({
   disabled?: boolean;
   accent?: string;
   onActiveClick?: () => void;
+  onClick?: () => void;
 }) {
   const base =
     "w-10 h-10 flex items-center justify-center rounded-lg transition-colors group relative";
@@ -99,6 +113,15 @@ function RailLink({
       <Tooltip>{label}</Tooltip>
     </>
   );
+
+  // 有自訂 onClick（例如 device 頁面的 apps icon）
+  if (onClick) {
+    return (
+      <button onClick={onClick} className={`${base} ${state}`} title={label}>
+        {content}
+      </button>
+    );
+  }
 
   if (!href || disabled) {
     return (
