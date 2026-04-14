@@ -76,6 +76,20 @@
   --radius-lg: 1rem;
 }
 
+/* ===== Stitch fixed bottom bar — belt-and-suspenders fallback =====
+   Primary fix: StitchInline wrapper has transform:translateZ(0) which makes it the
+   containing block for all position:fixed children (CSS spec). That forces Stitch's
+   `fixed bottom-0 left-0 w-full` footers to position within the content area.
+   This sticky rule is a secondary fallback in case a future page embeds Stitch HTML
+   outside of StitchInline (e.g. dangerouslySetInnerHTML without the wrapper transform). */
+.stitch-body .fixed.bottom-0,
+.stitch-body .fixed.bottom-0.left-0 {
+  position: sticky !important;
+  left: auto !important;
+  right: auto !important;
+  width: auto !important;
+}
+
 /* ===== PagesPanel Nav Scrollbar — must stay dark regardless of stitch page CSS ===== */
 .pages-panel-nav::-webkit-scrollbar { width: 4px; }
 .pages-panel-nav::-webkit-scrollbar-track { background: transparent; }

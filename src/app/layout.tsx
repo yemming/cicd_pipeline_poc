@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
 import "./globals.css";
+import { HideNextDevTools } from "@/components/hide-next-devtools";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-dvh bg-surface text-on-surface antialiased">
         {children}
+        <HideNextDevTools />
       </body>
     </html>
   );

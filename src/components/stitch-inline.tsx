@@ -38,7 +38,14 @@ export function StitchInline({ html, title, breadcrumb, sprint, device, screenId
   }
 
   return (
-    <div className="-m-8 bg-background text-on-surface min-h-[calc(100dvh-4rem)]">
+    // transform: translateZ(0) creates a new containing block for position:fixed children.
+    // This forces any Stitch `fixed bottom-0 left-0` footers to position relative to this
+    // wrapper (i.e. within the main content area) instead of the viewport — preventing them
+    // from bleeding under ModuleRail / PagesPanel.
+    <div
+      className="-m-8 bg-background text-on-surface min-h-[calc(100dvh-4rem)]"
+      style={{ transform: "translateZ(0)" }}
+    >
       <div
         className="stitch-body"
         dangerouslySetInnerHTML={{ __html: html }}

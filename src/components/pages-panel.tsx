@@ -42,7 +42,7 @@ export function PagesPanel() {
 
   return (
     <aside
-      className={`fixed left-14 top-0 h-screen w-60 bg-[#1A1A2E] flex flex-col py-6 z-50 shadow-xl transition-transform duration-200 ${
+      className={`fixed left-14 top-0 h-screen w-60 bg-[#1A1A2E] flex flex-col py-6 z-[55] shadow-xl transition-transform duration-200 ${
         collapsed ? "-translate-x-full" : "translate-x-0"
       }`}
     >
