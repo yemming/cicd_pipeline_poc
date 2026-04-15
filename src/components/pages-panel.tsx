@@ -1,19 +1,108 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  type MotionValue,
+} from "motion/react";
 import { useActiveModule } from "@/lib/use-active-module";
 import type { ModulePage } from "@/lib/modules";
 import { useSidebar } from "./sidebar-context";
 
+// ── Dock Row (magnification on mouse proximity) ───────────────────────────────
+
+function DockRow({
+  mouseY,
+  page,
+  isActive,
+  accent,
+}: {
+  mouseY: MotionValue<number>;
+  page: ModulePage;
+  isActive: boolean;
+  accent?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const distance = useTransform(mouseY, (val) => {
+    const bounds = ref.current?.getBoundingClientRect() ?? { y: 0, height: 0 };
+    return val - bounds.y - bounds.height / 2;
+  });
+
+  const fontSizeRaw = useTransform(distance, [-80, 0, 80], [13, 15, 13]);
+  const iconSizeRaw = useTransform(distance, [-80, 0, 80], [18, 22, 18]);
+  const pyRaw       = useTransform(distance, [-80, 0, 80], [7,  10,  7]);
+
+  const fontSize = useSpring(fontSizeRaw, { mass: 0.1, stiffness: 150, damping: 12 });
+  const iconSize = useSpring(iconSizeRaw, { mass: 0.1, stiffness: 150, damping: 12 });
+  const py       = useSpring(pyRaw,       { mass: 0.1, stiffness: 150, damping: 12 });
+
+  const baseClass = isActive
+    ? "flex items-center gap-3 px-4 rounded-lg bg-white/10 text-white border-r-2 font-display font-medium"
+    : "flex items-center gap-3 px-4 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 font-display transition-colors";
+
+  const inner = (
+    <motion.div
+      ref={ref}
+      className={baseClass}
+      style={{
+        paddingTop: py,
+        paddingBottom: py,
+        fontSize,
+        ...(isActive && accent ? { borderRightColor: accent, color: "#fff" } : {}),
+      }}
+    >
+      {page.icon && (
+        <motion.span
+          className="material-symbols-outlined leading-none shrink-0"
+          style={{
+            fontSize: iconSize,
+            color: isActive && accent ? accent : undefined,
+          }}
+        >
+          {page.icon}
+        </motion.span>
+      )}
+      <span className="truncate flex-1">{page.name}</span>
+      {page.device && page.device !== "desktop" && (
+        <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-white/10 text-white/50 uppercase tracking-wider shrink-0">
+          {page.device === "mobile" ? "MOB" : "TAB"}
+        </span>
+      )}
+    </motion.div>
+  );
+
+  if (page.comingSoon) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-600 text-sm font-display cursor-not-allowed">
+        {page.icon && (
+          <span className="material-symbols-outlined text-lg">{page.icon}</span>
+        )}
+        <span className="truncate">{page.name}</span>
+        <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-white/30 font-medium">
+          Soon
+        </span>
+      </div>
+    );
+  }
+
+  return <Link href={page.href} className="outline-none block">{inner}</Link>;
+}
+
+// ── PagesPanel ────────────────────────────────────────────────────────────────
+
 export function PagesPanel() {
   const pathname = usePathname();
   const activeModule = useActiveModule();
-  const { collapsed, toggle } = useSidebar();
+  const { collapsed } = useSidebar();
+  const mouseY = useMotionValue(Infinity);
 
-  if (!activeModule) {
-    return null;
-  }
+  if (!activeModule) return null;
 
   // Group pages by `section` while preserving registry order.
   const sections: Array<{ title: string | null; items: ModulePage[] }> = [];
@@ -27,8 +116,7 @@ export function PagesPanel() {
     }
   }
 
-  // Pick the single most-specific active page — prevents parent routes like
-  // /sales/customers from staying lit when on /sales/customers/tags.
+  // Most-specific active page
   const activeHref: string | null = (() => {
     let best: string | null = null;
     for (const p of activeModule.pages) {
@@ -46,7 +134,6 @@ export function PagesPanel() {
         collapsed ? "-translate-x-full" : "translate-x-0"
       }`}
     >
-
       {/* Module header */}
       <div className="px-5 mb-5">
         <div className="flex items-center gap-3">
@@ -78,8 +165,12 @@ export function PagesPanel() {
         </div>
       </div>
 
-      {/* Page list (grouped by section) */}
-      <nav className="flex-1 overflow-y-auto px-3 pb-2 pages-panel-nav">
+      {/* Page list — dock magnification on mouse proximity */}
+      <nav
+        className="flex-1 overflow-y-auto px-3 pb-2 pages-panel-nav"
+        onMouseMove={(e) => mouseY.set(e.pageY)}
+        onMouseLeave={() => mouseY.set(Infinity)}
+      >
         {sections.map((section, si) => (
           <div key={`${section.title ?? "default"}-${si}`} className={si > 0 ? "mt-4" : ""}>
             {section.title && (
@@ -88,61 +179,15 @@ export function PagesPanel() {
               </div>
             )}
             <div className="space-y-0.5">
-              {section.items.map((page) => {
-                const isActive = !page.comingSoon && page.href === activeHref;
-
-                if (page.comingSoon) {
-                  return (
-                    <div
-                      key={page.href}
-                      className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-600 text-sm font-display cursor-not-allowed"
-                      aria-disabled="true"
-                    >
-                      {page.icon && (
-                        <span className="material-symbols-outlined text-lg">
-                          {page.icon}
-                        </span>
-                      )}
-                      <span className="truncate">{page.name}</span>
-                      <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-white/30 font-medium">
-                        Soon
-                      </span>
-                    </div>
-                  );
-                }
-
-                return (
-                  <Link
-                    key={page.href}
-                    href={page.href}
-                    className={
-                      isActive
-                        ? "flex items-center gap-3 px-4 py-2 rounded-lg bg-white/10 text-white border-r-2 text-sm font-display font-medium transition-all"
-                        : "flex items-center gap-3 px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 text-sm font-display transition-colors"
-                    }
-                    style={
-                      isActive && activeModule.accent
-                        ? { borderRightColor: activeModule.accent, color: "#fff" }
-                        : undefined
-                    }
-                  >
-                    {page.icon && (
-                      <span
-                        className="material-symbols-outlined text-lg"
-                        style={isActive && activeModule.accent ? { color: activeModule.accent } : undefined}
-                      >
-                        {page.icon}
-                      </span>
-                    )}
-                    <span className="truncate flex-1">{page.name}</span>
-                    {page.device && page.device !== "desktop" && (
-                      <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-white/10 text-white/50 uppercase tracking-wider">
-                        {page.device === "mobile" ? "MOB" : "TAB"}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+              {section.items.map((page) => (
+                <DockRow
+                  key={page.href}
+                  mouseY={mouseY}
+                  page={page}
+                  isActive={!page.comingSoon && page.href === activeHref}
+                  accent={activeModule.accent}
+                />
+              ))}
             </div>
           </div>
         ))}
@@ -167,5 +212,3 @@ export function PagesPanel() {
     </aside>
   );
 }
-
-
