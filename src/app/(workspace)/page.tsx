@@ -1,9 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { modules } from "@/lib/modules";
 import { useSetPageHeader } from "@/components/page-header-context";
 import { useProfile, getGreeting } from "@/lib/use-profile";
+
+const ClockWidget = dynamic(() => import("@/components/clock-widget"), {
+  ssr: false,
+});
 
 export default function LauncherPage() {
   useSetPageHeader({ hideSearch: false });
@@ -11,35 +16,59 @@ export default function LauncherPage() {
 
   return (
     <div className="max-w-6xl mx-auto pt-4">
-      {/* Hero */}
-      <div className="mb-10 flex items-start justify-between gap-6">
-        <div>
-          <div className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#CC0000] mb-3">
+      {/* ─────── Editorial masthead ─────── */}
+      <section className="mb-10">
+        {/* Top strip：經銷商招牌 × 金色分隔線 × Dashboard 小標 */}
+        <div className="flex items-center gap-4 mb-4 px-1">
+          <div className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.25em] text-[#CC0000] shrink-0">
             <span
               className="inline-block w-1.5 h-1.5 rounded-full"
               style={{ backgroundColor: "#CC0000" }}
             />
             Ducati Taipei · Official Dealer
           </div>
-          <h1 className="text-4xl font-extrabold font-display text-on-surface tracking-tight mb-2">
-            {getGreeting()}，{profile?.name ?? "..."}
-          </h1>
-          <p className="text-on-surface-variant">
-            選擇一個應用開始你的一天，或用{" "}
-            <kbd className="px-1.5 py-0.5 rounded border border-slate-300 text-[11px] font-medium bg-white">
-              ⌘K
-            </kbd>{" "}
-            直接搜尋。
-          </p>
+          <div className="h-px bg-gradient-to-r from-[#C9A84C]/70 via-[#C9A84C]/30 to-transparent flex-1" />
+          <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400 shrink-0">
+            Dashboard
+          </div>
         </div>
 
-        {/* Quick stats */}
-        <div className="hidden md:flex items-stretch gap-3">
-          <StatChip label="今日接待" value="14" accent="#CC0000" icon="support_agent" />
-          <StatChip label="進行訂單" value="8" accent="#1A1A2E" icon="assignment" />
-          <StatChip label="待交車" value="3" accent="#C9A84C" icon="celebration" />
+        {/* 三等分主結構 */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.15fr)] gap-4 items-stretch">
+          {/* 1. Greeting 卡 */}
+          <div className="relative bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-7 flex flex-col justify-center overflow-hidden">
+            <span
+              className="absolute left-0 top-6 bottom-6 w-[3px] rounded-r"
+              style={{ backgroundColor: "#C9A84C" }}
+            />
+            <h1 className="text-[26px] font-extrabold font-display text-on-surface tracking-tight leading-tight mb-2 whitespace-nowrap">
+              {getGreeting()}，{profile?.name ?? "..."}
+            </h1>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              選擇一個應用開始你的一天
+              <span className="mx-1.5 text-slate-300">·</span>
+              或用{" "}
+              <kbd className="px-1 py-0.5 rounded border border-slate-300 text-[10px] font-medium bg-white">
+                ⌘K
+              </kbd>{" "}
+              直接搜尋
+            </p>
+          </div>
+
+          {/* 2. 老黃曆 + Clock */}
+          <ClockWidget />
+
+          {/* 3. Stats 卡（內含 6 格） */}
+          <div className="relative bg-white rounded-2xl border border-slate-100 shadow-sm p-2 grid grid-cols-3 grid-rows-2 gap-1.5">
+            <StatCell label="今日接待" value="14" accent="#CC0000" icon="support_agent" />
+            <StatCell label="試駕預約" value="5"  accent="#4A90E2" icon="two_wheeler" />
+            <StatCell label="待報價"   value="7"  accent="#8B5CF6" icon="request_quote" />
+            <StatCell label="進行訂單" value="8"  accent="#1A1A2E" icon="assignment" />
+            <StatCell label="待交車"   value="3"  accent="#C9A84C" icon="celebration" />
+            <StatCell label="庫存車"   value="42" accent="#0891B2" icon="inventory_2" />
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Module grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -128,7 +157,7 @@ export default function LauncherPage() {
   );
 }
 
-function StatChip({
+function StatCell({
   label,
   value,
   accent,
@@ -140,23 +169,23 @@ function StatChip({
   icon: string;
 }) {
   return (
-    <div className="flex items-center gap-3 bg-white rounded-xl border border-slate-100 px-4 py-3 shadow-sm">
-      <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center"
-        style={{ backgroundColor: `${accent}15`, color: accent }}
-      >
-        <span className="material-symbols-outlined text-lg">{icon}</span>
-      </div>
-      <div>
-        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-          {label}
+    <div className="rounded-xl px-2 py-2 flex flex-col items-center justify-center gap-1 hover:bg-slate-50/60 transition min-w-0">
+      <div className="inline-flex items-center gap-2">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `${accent}15`, color: accent }}
+        >
+          <span className="material-symbols-outlined text-lg">{icon}</span>
         </div>
         <div
-          className="text-xl font-extrabold font-display leading-tight"
+          className="text-2xl font-extrabold font-display leading-none tabular-nums"
           style={{ color: accent }}
         >
           {value}
         </div>
+      </div>
+      <div className="text-[11px] text-slate-500 font-semibold tracking-wide whitespace-nowrap">
+        {label}
       </div>
     </div>
   );

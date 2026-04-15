@@ -107,7 +107,7 @@ export const modules: ModuleDef[] = [
   {
     key: "delivery",
     name: "交車服務",
-    icon: "local_shipping",
+    icon: "local_florist",
     accent: "#C9A84C",
     description: "PDI・交車確認・交車儀式",
     home: "/delivery/ceremony",
@@ -140,11 +140,11 @@ export const modules: ModuleDef[] = [
   },
 
   // ────────────────────────────────────────────────────────
-  // 5. 中古機車 (S5 全部)
+  // 5. 中古交易 (S5 全部)
   // ────────────────────────────────────────────────────────
   {
     key: "usedcar",
-    name: "中古機車",
+    name: "中古交易",
     icon: "two_wheeler",
     accent: "#F43F5E",
     description: "置換・庫存・拍賣",
@@ -263,6 +263,30 @@ export const modules: ModuleDef[] = [
       { name: "通知設定",     icon: "notifications",   href: "/settings/notifications",    section: "系統設定" },
       { name: "數據匯入/出",  icon: "import_export",   href: "/settings/data-io",          section: "系統設定" },
       { name: "API 整合",     icon: "hub",             href: "/settings/api",              section: "系統設定" },
+    ],
+  },
+
+  // ────────────────────────────────────────────────────────
+  // 10. 工具 (通用小工具：農民曆、擇日…)
+  // ────────────────────────────────────────────────────────
+  {
+    key: "tools",
+    name: "工具",
+    icon: "widgets",
+    accent: "#F59E0B",
+    description: "農民曆・擇日・決策輔助",
+    home: "/tools/calendar",
+    pages: [
+      // 擇日 / 時序
+      { name: "農民曆",       icon: "calendar_month",   href: "/tools/calendar",         section: "擇日時序" },
+      { name: "交車良辰吉時",  icon: "event_available",  href: "/tools/delivery-timing",  section: "擇日時序" },
+      { name: "騎士氣象",     icon: "partly_cloudy_day",href: "/tools/rider-weather",    section: "擇日時序" },
+      // 決策輔助
+      { name: "資產配置分析",  icon: "analytics",        href: "/tools/wpm",              section: "決策輔助" },
+      { name: "理性護航計算機",icon: "calculate",        href: "/tools/daily-cost",       section: "決策輔助" },
+      { name: "競品降維對照", icon: "compare_arrows",   href: "/tools/rival-smash",      section: "決策輔助" },
+      // 風水 / 玄學
+      { name: "領牌風水運算器",icon: "casino",           href: "/tools/license-fengshui", section: "風水運算" },
     ],
   },
 ];

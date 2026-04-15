@@ -18,10 +18,6 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
   const activeModule = useActiveModule();
   const pathname = usePathname();
 
-  const today = new Date();
-  const weekdays = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
-  const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, "0")}/${String(today.getDate()).padStart(2, "0")} ${weekdays[today.getDay()]}`;
-
   // 找到當前頁面的 icon + name
   const currentPage = activeModule?.pages.find(
     (p) => p.href === pathname || pathname.startsWith(p.href + "/")
@@ -77,10 +73,6 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
         <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-all hidden md:flex">
           <span className="material-symbols-outlined">help_outline</span>
         </button>
-        <div className="h-6 w-px bg-slate-200 hidden md:block" />
-        <span className="text-xs font-medium text-slate-500 hidden lg:inline whitespace-nowrap">
-          {dateStr}
-        </span>
         <div className="w-8 h-8 rounded-full bg-[#1A1A2E] overflow-hidden border border-slate-100 cursor-pointer hover:ring-2 hover:ring-[#CC0000] transition-all flex items-center justify-center shrink-0">
           <span className="text-white text-[11px] font-black font-display leading-none">
             {getInitials(profile?.name)}
