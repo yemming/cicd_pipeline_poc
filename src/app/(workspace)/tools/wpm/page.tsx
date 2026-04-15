@@ -101,7 +101,7 @@ export default function WPMPage() {
             {model.name} 長期投資效益評估
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            {ghostOn ? "WPM v1.0 · 配偶說服模組已啟動" : "ERP 資本支出評估報告（CAPEX Framework）"}
+            {ghostOn ? "WPM v1.0 · 配偶說服模組已啟動" : "資本支出評估報告（CAPEX Framework）"}
           </p>
         </div>
 
