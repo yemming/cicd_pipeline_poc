@@ -204,8 +204,8 @@ export function PagesPanel() {
             <span className="material-symbols-outlined text-sm">two_wheeler</span>
           </div>
           <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-white text-xs font-bold truncate">Ducati Taipei</span>
-            <span className="text-gray-500 text-[10px]">Official Dealer</span>
+            <span className="text-white text-[10px] font-bold uppercase tracking-widest leading-tight">Ducati Taipei</span>
+            <span className="text-gray-500 text-[10px] uppercase tracking-widest leading-tight">Official Dealer</span>
           </div>
         </div>
       </div>

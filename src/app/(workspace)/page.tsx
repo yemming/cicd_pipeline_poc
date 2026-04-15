@@ -20,12 +20,18 @@ export default function LauncherPage() {
       <section className="mb-10">
         {/* Top strip：經銷商招牌 × 金色分隔線 × Dashboard 小標 */}
         <div className="flex items-center gap-4 mb-4 px-1">
-          <div className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.25em] text-[#CC0000] shrink-0">
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: "#CC0000" }}
-            />
-            Ducati Taipei · Official Dealer
+          {/* 手機：兩行；sm+：單行 */}
+          <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:gap-2">
+            <div className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.25em] text-[#CC0000]">
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: "#CC0000" }}
+              />
+              Ducati Taipei
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#CC0000]">
+              Official Dealer
+            </span>
           </div>
           <div className="h-px bg-gradient-to-r from-[#C9A84C]/70 via-[#C9A84C]/30 to-transparent flex-1" />
           <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400 shrink-0">
