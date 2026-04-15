@@ -52,6 +52,7 @@ function IconContainer({
 }: DockItem & { mouseY: MotionValue }) {
   const ref = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
+  const [tooltipY, setTooltipY] = useState(0);
 
   const distance = useTransform(mouseY, (val) => {
     const bounds = ref.current?.getBoundingClientRect() ?? { y: 0, height: 0 };
@@ -64,25 +65,32 @@ function IconContainer({
   const size     = useSpring(sizeTransform,     { mass: 0.1, stiffness: 150, damping: 12 });
   const iconSize = useSpring(iconSizeTransform, { mass: 0.1, stiffness: 150, damping: 12 });
 
+  const handleMouseEnter = () => {
+    const bounds = ref.current?.getBoundingClientRect();
+    if (bounds) setTooltipY(bounds.top + bounds.height / 2);
+    setHovered(true);
+  };
+
   const inner = (
     <motion.div
       ref={ref}
       style={{ width: size, height: size }}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setHovered(false)}
       className={cn(
         "relative flex aspect-square items-center justify-center rounded-xl transition-colors",
         active ? "bg-white/15" : "hover:bg-white/8"
       )}
     >
-      {/* Tooltip */}
+      {/* Tooltip — fixed position to escape overflow:hidden containers */}
       <AnimatePresence>
         {hovered && (
           <motion.div
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -6 }}
-            className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-[#1A1A2E] px-2.5 py-1 text-xs font-medium text-white shadow-xl z-50"
+            style={{ top: tooltipY, left: 68 }}
+            className="pointer-events-none fixed -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-700/90 backdrop-blur-sm px-2.5 py-1 text-xs font-medium text-white shadow-lg z-[200]"
           >
             {title}
           </motion.div>
