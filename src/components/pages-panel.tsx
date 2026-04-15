@@ -47,18 +47,8 @@ export function PagesPanel() {
       }`}
     >
 
-      {/* DealerOS Logo → back to launcher */}
+      {/* Module header */}
       <div className="px-5 mb-5">
-        <Link href="/" className="block mb-5 group text-center">
-          <div className="text-xl font-bold text-white tracking-widest font-display group-hover:text-white/80 transition-colors">
-            DealerOS
-          </div>
-          <div className="text-[10px] font-medium tracking-[0.25em] uppercase opacity-80 group-hover:opacity-100 transition-opacity" style={{ color: "#CC0000" }}>
-            Ducati&nbsp;Edition
-          </div>
-        </Link>
-
-        {/* Module header */}
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center"

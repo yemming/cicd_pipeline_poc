@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePageHeader } from "./page-header-context";
 import { useSidebar } from "./sidebar-context";
@@ -32,16 +33,16 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
         fullHidden ? "left-0" : (collapsed || !activeModule) ? "left-14" : "md:left-[296px] left-14"
       }`}
     >
-      {/* Left: current page label — 小標題 */}
-      <div className="w-36 md:w-48 shrink-0 flex items-center gap-2 min-w-0">
-        {currentPage?.icon && (
-          <span className="material-symbols-outlined text-base text-slate-400 shrink-0">
-            {currentPage.icon}
-          </span>
-        )}
-        <span className="text-xs font-semibold text-slate-500 truncate font-display">
-          {currentPage?.name ?? activeModule?.name ?? "Workspace"}
-        </span>
+      {/* Left: DealerOS logo → back to launcher */}
+      <div className="w-36 md:w-48 shrink-0 flex items-center min-w-0">
+        <Link href="/" className="block group text-center leading-tight">
+          <div className="text-sm font-bold text-[#1A1A2E] tracking-widest font-display group-hover:text-[#1A1A2E]/70 transition-colors">
+            DealerOS
+          </div>
+          <div className="text-[8px] font-bold tracking-[0.22em] uppercase group-hover:opacity-80 transition-opacity" style={{ color: "#CC0000" }}>
+            Ducati&nbsp;Edition
+          </div>
+        </Link>
       </div>
 
       {/* Center: Search — truly centered */}
