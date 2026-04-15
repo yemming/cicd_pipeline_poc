@@ -1,156 +1,204 @@
 "use client";
 
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  AnimatePresence,
+  MotionValue,
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from "motion/react";
+import { cn } from "@/lib/utils";
 import { modules } from "@/lib/modules";
 import { useSidebar } from "./sidebar-context";
 
+// ── Vertical Floating Dock (adapted from Aceternity UI) ─────────────────────
+
+type DockItem = {
+  title: string;
+  icon: React.ReactNode;
+  href?: string;
+  onClick?: () => void;
+  active?: boolean;
+  accent?: string;
+};
+
+function VerticalDock({ items }: { items: DockItem[] }) {
+  const mouseY = useMotionValue(Infinity);
+  return (
+    <motion.div
+      onMouseMove={(e) => mouseY.set(e.pageY)}
+      onMouseLeave={() => mouseY.set(Infinity)}
+      className="flex flex-col items-center gap-1"
+    >
+      {items.map((item) => (
+        <IconContainer mouseY={mouseY} key={item.title} {...item} />
+      ))}
+    </motion.div>
+  );
+}
+
+function IconContainer({
+  mouseY,
+  title,
+  icon,
+  href,
+  onClick,
+  active,
+  accent,
+}: DockItem & { mouseY: MotionValue }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState(false);
+
+  const distance = useTransform(mouseY, (val) => {
+    const bounds = ref.current?.getBoundingClientRect() ?? { y: 0, height: 0 };
+    return val - bounds.y - bounds.height / 2;
+  });
+
+  const sizeTransform   = useTransform(distance, [-100, 0, 100], [28, 52, 28]);
+  const iconSizeTransform = useTransform(distance, [-100, 0, 100], [14, 26, 14]);
+
+  const size     = useSpring(sizeTransform,     { mass: 0.1, stiffness: 150, damping: 12 });
+  const iconSize = useSpring(iconSizeTransform, { mass: 0.1, stiffness: 150, damping: 12 });
+
+  const inner = (
+    <motion.div
+      ref={ref}
+      style={{ width: size, height: size }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className={cn(
+        "relative flex aspect-square items-center justify-center rounded-xl transition-colors",
+        active ? "bg-white/15" : "hover:bg-white/8"
+      )}
+    >
+      {/* Tooltip */}
+      <AnimatePresence>
+        {hovered && (
+          <motion.div
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -6 }}
+            className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-[#1A1A2E] px-2.5 py-1 text-xs font-medium text-white shadow-xl z-50"
+          >
+            {title}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Active pip */}
+      {active && (
+        <span
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-l"
+          style={{ backgroundColor: accent ?? "#C9A84C" }}
+        />
+      )}
+
+      {/* Icon */}
+      <motion.div
+        style={{ width: iconSize, height: iconSize }}
+        className="flex items-center justify-center text-white"
+      >
+        {icon}
+      </motion.div>
+    </motion.div>
+  );
+
+  if (onClick)
+    return <button onClick={onClick} className="outline-none">{inner}</button>;
+  if (href)
+    return <Link href={href} className="outline-none">{inner}</Link>;
+  return inner;
+}
+
+// ── ModuleRail ───────────────────────────────────────────────────────────────
+
+function MatIcon({ name, color }: { name: string; color?: string }) {
+  return (
+    <span
+      className="material-symbols-outlined leading-none"
+      style={{ fontSize: "inherit", color: color ?? "currentColor" }}
+    >
+      {name}
+    </span>
+  );
+}
+
 export function ModuleRail() {
-  const pathname = usePathname();
+  const pathname  = usePathname();
   const { toggle, fullHidden, setFullHidden } = useSidebar();
   const activeKey = pathname.split("/")[1] || null;
   const onLauncher = !activeKey;
 
-  // 檢查當前頁面是否有 device 標籤（MOB / TAB）
   const activeModule = modules.find((m) => m.key === activeKey);
-  const currentPage = activeModule?.pages.find(
+  const currentPage  = activeModule?.pages.find(
     (p) => p.href === pathname || pathname.startsWith(p.href + "/")
   );
   const isDevicePage = !!currentPage?.device && currentPage.device !== "desktop";
 
-  // 當 fullHidden 時，Rail 整體隱藏
   if (fullHidden) return null;
 
-  return (
-    <nav className="fixed left-0 top-0 h-dvh w-14 bg-[#0F0F1F] flex flex-col items-center py-3 z-[60] border-r border-white/5 overflow-hidden">
-      {/* Launcher / Home — 若在 device 頁面，改為切換全隱模式 */}
-      <RailLink
-        href={isDevicePage ? undefined : "/"}
-        label={isDevicePage ? "隱藏導航列" : "主地圖"}
-        icon="apps"
-        active={onLauncher}
-        onActiveClick={isDevicePage ? () => setFullHidden(true) : undefined}
-        onClick={isDevicePage ? () => setFullHidden(true) : undefined}
-      />
+  const topItems: DockItem[] = [
+    {
+      title: isDevicePage ? "隱藏導航列" : "主地圖",
+      icon: <MatIcon name="apps" />,
+      href: isDevicePage ? undefined : "/",
+      onClick: isDevicePage ? () => setFullHidden(true) : undefined,
+      active: onLauncher,
+    },
+  ];
 
-      <div className="h-px w-8 bg-white/10 my-3" />
+  const moduleItems: DockItem[] = modules.map((m) => ({
+    title: m.comingSoon ? `${m.name}（即將推出）` : m.name,
+    icon: <MatIcon name={m.icon} color={activeKey === m.key ? m.accent : undefined} />,
+    href: m.comingSoon ? undefined : m.home,
+    onClick: activeKey === m.key ? toggle : undefined,
+    active: activeKey === m.key,
+    accent: m.accent,
+  }));
+
+  const bottomItems: DockItem[] = [
+    {
+      title: "新手導覽",
+      icon: <MatIcon name="school" />,
+      href: "/onboarding",
+      active: activeKey === "onboarding",
+    },
+  ];
+
+  return (
+    <nav className="fixed left-0 top-0 h-dvh w-14 bg-[#0F0F1F] flex flex-col items-center py-3 z-[60] border-r border-white/5">
+      {/* Top: Launcher */}
+      <VerticalDock items={topItems} />
+
+      <div className="h-px w-6 bg-white/10 my-2" />
 
       {/* Modules */}
-      <div className="flex flex-col items-center gap-1 flex-1 overflow-y-auto">
-        {modules.map((m) => (
-          <RailLink
-            key={m.key}
-            href={m.comingSoon ? undefined : m.home}
-            label={m.comingSoon ? `${m.name}（即將推出）` : m.name}
-            icon={m.icon}
-            active={activeKey === m.key}
-            disabled={m.comingSoon}
-            accent={m.accent}
-            onActiveClick={activeKey === m.key ? toggle : undefined}
-          />
-        ))}
+      <div className="flex-1 overflow-y-auto overflow-x-visible w-full flex flex-col items-center">
+        <VerticalDock items={moduleItems} />
       </div>
 
-      {/* Bottom actions */}
-      <div className="flex flex-col items-center gap-1 mt-2">
-        <RailLink href="/onboarding" label="新手導覽" icon="school" active={activeKey === "onboarding"} />
+      {/* Bottom */}
+      <div className="mt-2 flex flex-col items-center gap-1">
+        <VerticalDock items={bottomItems} />
+
+        {/* Logout (form, can't be in DockItem easily) */}
         <form action="/api/auth/signout" method="POST">
           <button
             type="submit"
-            className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors group relative"
+            className="w-7 h-7 flex items-center justify-center rounded-xl text-gray-400 hover:text-white hover:bg-white/8 transition-colors group relative"
             title="登出"
           >
-            <span className="material-symbols-outlined text-xl">logout</span>
-            <Tooltip>登出</Tooltip>
+            <MatIcon name="logout" />
+            <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-[#1A1A2E] px-2.5 py-1 text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50">
+              登出
+            </span>
           </button>
         </form>
       </div>
     </nav>
-  );
-}
-
-function RailLink({
-  href,
-  label,
-  icon,
-  active,
-  disabled,
-  accent,
-  onActiveClick,
-  onClick,
-}: {
-  href?: string;
-  label: string;
-  icon: string;
-  active?: boolean;
-  disabled?: boolean;
-  accent?: string;
-  onActiveClick?: () => void;
-  onClick?: () => void;
-}) {
-  const base =
-    "w-10 h-10 flex items-center justify-center rounded-lg transition-colors group relative";
-  const state = disabled
-    ? "text-gray-600 cursor-not-allowed"
-    : active
-    ? "bg-white/10 text-tertiary-container"
-    : "text-gray-400 hover:text-white hover:bg-white/5";
-
-  const content = (
-    <>
-      <span
-        className="material-symbols-outlined text-xl"
-        style={active && accent ? { color: accent } : undefined}
-      >
-        {icon}
-      </span>
-      {active && (
-        <span
-          className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-l"
-          style={{ backgroundColor: accent ?? "#C9A84C" }}
-        />
-      )}
-      <Tooltip>{label}</Tooltip>
-    </>
-  );
-
-  // 有自訂 onClick（例如 device 頁面的 apps icon）
-  if (onClick) {
-    return (
-      <button onClick={onClick} className={`${base} ${state}`} title={label}>
-        {content}
-      </button>
-    );
-  }
-
-  if (!href || disabled) {
-    return (
-      <div className={`${base} ${state}`} aria-disabled={disabled || undefined}>
-        {content}
-      </div>
-    );
-  }
-
-  // 已選中的模組：點擊 toggle panel，不重新導航
-  if (active && onActiveClick) {
-    return (
-      <button onClick={onActiveClick} className={`${base} ${state}`} title={label}>
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <Link href={href} className={`${base} ${state}`}>
-      {content}
-    </Link>
-  );
-}
-
-function Tooltip({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="pointer-events-none absolute left-full ml-3 px-2 py-1 rounded bg-[#1A1A2E] text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-50">
-      {children}
-    </span>
   );
 }
