@@ -65,7 +65,8 @@ function IconContainer({
   const size     = useSpring(sizeTransform,     { mass: 0.1, stiffness: 150, damping: 12 });
   const iconSize = useSpring(iconSizeTransform, { mass: 0.1, stiffness: 150, damping: 12 });
 
-  const handleMouseEnter = () => {
+  const handlePointerEnter = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
     const bounds = ref.current?.getBoundingClientRect();
     if (bounds) setTooltipY(bounds.top + bounds.height / 2);
     setHovered(true);
@@ -75,8 +76,8 @@ function IconContainer({
     <motion.div
       ref={ref}
       style={{ width: size, height: size }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={() => setHovered(false)}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={(e) => { if (e.pointerType !== "mouse") return; setHovered(false); }}
       className={cn(
         "relative flex aspect-square items-center justify-center rounded-xl transition-colors",
         active ? "bg-white/15" : "hover:bg-white/8"
@@ -201,7 +202,7 @@ export function ModuleRail() {
             title="登出"
           >
             <MatIcon name="logout" />
-            <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-[#1A1A2E] px-2.5 py-1 text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50">
+            <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-[#1A1A2E] px-2.5 py-1 text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50 [@media(hover:none)]:hidden">
               登出
             </span>
           </button>

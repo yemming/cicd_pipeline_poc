@@ -409,20 +409,25 @@ export default function ClockWidget({ className = "" }: { className?: string }) 
           </div>
         )}
 
-        <p className="text-xs text-on-surface-variant leading-relaxed">
-          <span className="font-bold text-emerald-700">宜</span>{" "}
-          {data.yi.length ? data.yi.join("・") : "—"}
-          <span className="mx-1.5 text-slate-300">/</span>
-          <span className="font-bold text-rose-700">忌</span>{" "}
-          {data.ji.length ? data.ji.join("・") : "—"}
-          <span
-            className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full tracking-wider ${
-              data.isGood ? "bg-emerald-50/80 text-emerald-700" : "bg-slate-100/80 text-slate-600"
-            }`}
-          >
-            {data.tianShen}日
-          </span>
-        </p>
+        <div className="text-xs text-on-surface-variant space-y-0.5">
+          <div>
+            <span className="font-bold text-emerald-700">宜</span>{" "}
+            {data.yi.length ? data.yi.join("・") : "—"}
+          </div>
+          <div>
+            <span className="font-bold text-rose-700">忌</span>{" "}
+            {data.ji.length ? data.ji.join("・") : "—"}
+          </div>
+          <div className="flex justify-end">
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full tracking-wider ${
+                data.isGood ? "bg-emerald-50/80 text-emerald-700" : "bg-slate-100/80 text-slate-600"
+              }`}
+            >
+              {data.tianShen}日
+            </span>
+          </div>
+        </div>
       </motion.div>
     </div>
   );
