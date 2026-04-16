@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -53,6 +53,7 @@ function IconContainer({
   const ref = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   const [tooltipY, setTooltipY] = useState(0);
+  const dismissTimerRef = useRef<number | null>(null);
 
   const distance = useTransform(mouseY, (val) => {
     const bounds = ref.current?.getBoundingClientRect() ?? { y: 0, height: 0 };
@@ -65,11 +66,32 @@ function IconContainer({
   const size     = useSpring(sizeTransform,     { mass: 0.1, stiffness: 150, damping: 12 });
   const iconSize = useSpring(iconSizeTransform, { mass: 0.1, stiffness: 150, damping: 12 });
 
+  useEffect(() => () => {
+    if (dismissTimerRef.current !== null) window.clearTimeout(dismissTimerRef.current);
+  }, []);
+
+  const clearDismissTimer = () => {
+    if (dismissTimerRef.current !== null) {
+      window.clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+  };
+
   const handlePointerEnter = (e: React.PointerEvent) => {
-    if (e.pointerType !== "mouse") return;
     const bounds = ref.current?.getBoundingClientRect();
     if (bounds) setTooltipY(bounds.top + bounds.height / 2);
     setHovered(true);
+    clearDismissTimer();
+    // 觸控裝置的 pointerleave 經常 fire 不到（手指抬起就離開元素），
+    // 設 auto-dismiss 避免 tooltip state stuck 殘留。滑鼠靠 pointerLeave 即時清。
+    if (e.pointerType !== "mouse") {
+      dismissTimerRef.current = window.setTimeout(() => setHovered(false), 1200);
+    }
+  };
+
+  const handlePointerLeave = () => {
+    setHovered(false);
+    clearDismissTimer();
   };
 
   const inner = (
@@ -77,7 +99,7 @@ function IconContainer({
       ref={ref}
       style={{ width: size, height: size }}
       onPointerEnter={handlePointerEnter}
-      onPointerLeave={(e) => { if (e.pointerType !== "mouse") return; setHovered(false); }}
+      onPointerLeave={handlePointerLeave}
       className={cn(
         "relative flex aspect-square items-center justify-center rounded-xl transition-colors",
         active ? "bg-white/15" : "hover:bg-white/8"
@@ -91,7 +113,7 @@ function IconContainer({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -6 }}
             style={{ top: tooltipY, left: 68 }}
-            className="pointer-events-none fixed -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-700/90 backdrop-blur-sm px-2.5 py-1 text-xs font-medium text-white shadow-lg z-[200] [@media(hover:none)]:hidden"
+            className="pointer-events-none fixed -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-700/90 backdrop-blur-sm px-2.5 py-1 text-xs font-medium text-white shadow-lg z-[200]"
           >
             {title}
           </motion.div>
