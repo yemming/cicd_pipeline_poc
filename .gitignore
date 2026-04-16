@@ -46,3 +46,6 @@ next-env.d.ts
 /material/images/
 # user-captured screenshots sitting at repo root
 /CleanShot *.png
+
+# Claude Code local session metadata (scheduled tasks, local settings)
+.claude/
