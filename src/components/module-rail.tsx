@@ -91,7 +91,7 @@ function IconContainer({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -6 }}
             style={{ top: tooltipY, left: 68 }}
-            className="pointer-events-none fixed -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-700/90 backdrop-blur-sm px-2.5 py-1 text-xs font-medium text-white shadow-lg z-[200]"
+            className="pointer-events-none fixed -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-700/90 backdrop-blur-sm px-2.5 py-1 text-xs font-medium text-white shadow-lg z-[200] [@media(hover:none)]:hidden"
           >
             {title}
           </motion.div>
