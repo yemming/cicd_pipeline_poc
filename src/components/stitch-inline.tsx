@@ -37,19 +37,25 @@ export function StitchInline({ html, title, breadcrumb, sprint, device, screenId
     return <MissingStitch title={title} sprint={sprint} device={device} screenId={screenId} />;
   }
 
+  // Stitch 原稿為桌面 viewport 設計（grid-cols-4、text-4xl 等硬編 utility），
+  // 手機 viewport 下會出現 chip 重疊／欄位壓縮。策略：手機上維持桌面寬度並開橫向捲動，
+  // 加一條 banner 提示使用者；桌面（md↑）完全維持原行為。
+  // translateZ(0) 放在 scroll 容器上，作為 position:fixed 子元素的 containing block。
   return (
-    // transform: translateZ(0) creates a new containing block for position:fixed children.
-    // This forces any Stitch `fixed bottom-0 left-0` footers to position relative to this
-    // wrapper (i.e. within the main content area) instead of the viewport — preventing them
-    // from bleeding under ModuleRail / PagesPanel.
-    <div
-      className="-m-8 bg-background text-on-surface min-h-[calc(100dvh-4rem)]"
-      style={{ transform: "translateZ(0)" }}
-    >
+    <div className="-mx-4 -my-4 md:-m-8 bg-background text-on-surface min-h-[calc(100dvh-4rem)]">
+      <div className="md:hidden px-4 py-2 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-900 flex items-center gap-1.5">
+        <span className="material-symbols-outlined text-sm leading-none">swipe</span>
+        <span>桌面原稿 · 左右滑可看完整畫面</span>
+      </div>
       <div
-        className="stitch-body"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+        className="overflow-x-auto md:overflow-x-visible"
+        style={{ transform: "translateZ(0)" }}
+      >
+        <div
+          className="stitch-body min-w-[1024px] md:min-w-0"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
     </div>
   );
 }
