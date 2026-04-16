@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -26,18 +26,58 @@ type DockItem = {
   accent?: string;
 };
 
+// 共用單一 hovered 的 context —— iOS Safari 對 touch 會 fire 假的 pointerenter
+// 但永遠不 fire pointerleave，若每個 IconContainer 各自持有 hovered state，跳頁時
+// 舊頁 tooltip 會累積在新頁（用戶看到的多個泡泡同時浮著）。
+// 把 state 提升到 VerticalDock 共享：任何時刻全 rail 只能一個 tooltip。
+type ModuleHoverState = {
+  hovered: string | null;
+  setHovered: (title: string | null) => void;
+};
+const ModuleHoverContext = createContext<ModuleHoverState | null>(null);
+
 function VerticalDock({ items }: { items: DockItem[] }) {
   const mouseY = useMotionValue(Infinity);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const pathname = usePathname();
+  const timerRef = useRef<number | null>(null);
+
+  // 跳頁時強制清掉 hovered，避免 iOS Safari 沒 fire pointerleave 造成 stuck。
+  useEffect(() => {
+    setHovered(null);
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, [pathname]);
+
+  // 觸控裝置再加 auto-dismiss 800ms 保底（滑鼠 user 繼續走 pointerleave 即時清）。
+  useEffect(() => {
+    if (hovered === null) return;
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(hover: none)").matches) return;
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => setHovered(null), 800);
+    return () => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [hovered]);
+
   return (
-    <motion.div
-      onMouseMove={(e) => mouseY.set(e.pageY)}
-      onMouseLeave={() => mouseY.set(Infinity)}
-      className="flex flex-col items-center gap-1"
-    >
-      {items.map((item) => (
-        <IconContainer mouseY={mouseY} key={item.title} {...item} />
-      ))}
-    </motion.div>
+    <ModuleHoverContext.Provider value={{ hovered, setHovered }}>
+      <motion.div
+        onMouseMove={(e) => mouseY.set(e.pageY)}
+        onMouseLeave={() => mouseY.set(Infinity)}
+        className="flex flex-col items-center gap-1"
+      >
+        {items.map((item) => (
+          <IconContainer mouseY={mouseY} key={item.title} {...item} />
+        ))}
+      </motion.div>
+    </ModuleHoverContext.Provider>
   );
 }
 
@@ -51,9 +91,9 @@ function IconContainer({
   accent,
 }: DockItem & { mouseY: MotionValue }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [hovered, setHovered] = useState(false);
+  const hoverCtx = useContext(ModuleHoverContext);
+  const isHovered = hoverCtx?.hovered === title;
   const [tooltipY, setTooltipY] = useState(0);
-  const dismissTimerRef = useRef<number | null>(null);
 
   const distance = useTransform(mouseY, (val) => {
     const bounds = ref.current?.getBoundingClientRect() ?? { y: 0, height: 0 };
@@ -66,32 +106,15 @@ function IconContainer({
   const size     = useSpring(sizeTransform,     { mass: 0.1, stiffness: 150, damping: 12 });
   const iconSize = useSpring(iconSizeTransform, { mass: 0.1, stiffness: 150, damping: 12 });
 
-  useEffect(() => () => {
-    if (dismissTimerRef.current !== null) window.clearTimeout(dismissTimerRef.current);
-  }, []);
-
-  const clearDismissTimer = () => {
-    if (dismissTimerRef.current !== null) {
-      window.clearTimeout(dismissTimerRef.current);
-      dismissTimerRef.current = null;
-    }
-  };
-
-  const handlePointerEnter = (e: React.PointerEvent) => {
+  const handlePointerEnter = () => {
     const bounds = ref.current?.getBoundingClientRect();
     if (bounds) setTooltipY(bounds.top + bounds.height / 2);
-    setHovered(true);
-    clearDismissTimer();
-    // 觸控裝置的 pointerleave 經常 fire 不到（手指抬起就離開元素），
-    // 設 auto-dismiss 避免 tooltip state stuck 殘留。滑鼠靠 pointerLeave 即時清。
-    if (e.pointerType !== "mouse") {
-      dismissTimerRef.current = window.setTimeout(() => setHovered(false), 1200);
-    }
+    hoverCtx?.setHovered(title);
   };
 
   const handlePointerLeave = () => {
-    setHovered(false);
-    clearDismissTimer();
+    // 只在 still active 時清，避免 race 把別人的 tooltip 誤清。
+    if (hoverCtx?.hovered === title) hoverCtx.setHovered(null);
   };
 
   const inner = (
@@ -107,7 +130,7 @@ function IconContainer({
     >
       {/* Tooltip — fixed position to escape overflow:hidden containers */}
       <AnimatePresence>
-        {hovered && (
+        {isHovered && (
           <motion.div
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
