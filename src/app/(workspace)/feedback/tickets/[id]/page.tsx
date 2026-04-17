@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { StatusBadge } from "@/components/feedback/status-badge";
 import { StatusActions } from "@/components/feedback/status-actions";
+import { CommentThread, type CommentItem } from "@/components/feedback/comment-thread";
+import { CanvasPanel } from "@/components/feedback/canvas-panel";
 import type { FeedbackTicket } from "@/lib/feedback";
 
 export const dynamic = "force-dynamic";
@@ -16,93 +18,125 @@ export default async function TicketDetailPage({
   const { id } = await params;
 
   const supabase = await createClient();
-  const [{ data: ticketData }, { data: canvasData }, { isAdmin }] = await Promise.all([
+  const [
+    { data: ticketData },
+    { data: canvasData },
+    { isAdmin },
+    { data: commentsRaw },
+  ] = await Promise.all([
     supabase.from("feedback_tickets").select("*").eq("id", id).maybeSingle(),
-    supabase.from("feedback_canvas_snapshots").select("updated_at").eq("ticket_id", id).maybeSingle(),
+    supabase.from("feedback_canvas_snapshots").select("snapshot").eq("ticket_id", id).maybeSingle(),
     getCurrentUserAndAdmin(),
+    supabase
+      .from("feedback_comments")
+      .select("id, body, created_at, author_id")
+      .eq("ticket_id", id)
+      .order("created_at", { ascending: true }),
   ]);
 
   if (!ticketData) notFound();
   const ticket = ticketData as FeedbackTicket;
-  const canvasUpdatedAt = (canvasData?.updated_at as string | undefined) ?? null;
+
+  const authorIds = [...new Set((commentsRaw ?? []).map((c) => c.author_id).filter(Boolean))] as string[];
+  let profileMap: Record<string, string> = {};
+  if (authorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, name")
+      .in("id", authorIds);
+    for (const p of profiles ?? []) {
+      if (p.id && p.name) profileMap[p.id] = p.name;
+    }
+  }
+
+  const comments: CommentItem[] = (commentsRaw ?? []).map((c) => ({
+    id: c.id,
+    body: c.body,
+    created_at: c.created_at,
+    author_id: c.author_id,
+    author_name: c.author_id ? (profileMap[c.author_id] ?? null) : null,
+  }));
 
   return (
-    <div className="max-w-4xl space-y-8">
-      {/* Back */}
-      <Link
-        href="/feedback/tickets"
-        className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-violet-600 transition-colors"
-      >
-        <span className="material-symbols-outlined text-base">arrow_back</span>
-        回看板
-      </Link>
+    // -m-8 undoes workspace padding so the split panel fills edge-to-edge
+    <div className="-m-8 flex h-[calc(100dvh-4rem)] overflow-hidden">
 
-      {/* Header */}
-      <div>
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-2">
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight leading-snug flex-1 min-w-0">
-            {ticket.title}
-          </h1>
-          <StatusBadge status={ticket.status} />
-        </div>
-        <div className="text-xs text-slate-400 font-mono">
-          #{ticket.id.slice(0, 8)} · 建立於 {new Date(ticket.created_at).toLocaleString("zh-TW")}
-        </div>
-      </div>
+      {/* ── Left: ticket info + comments (scrollable) ── */}
+      <div className="w-1/2 flex flex-col border-r border-[#DFE1E6] overflow-y-auto">
+        <div className="flex-1 px-8 py-6 space-y-5">
 
-      {/* Fields */}
-      <dl className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-y-4 gap-x-6 bg-white rounded-xl border border-slate-200 p-6">
-        <dt className="text-xs font-semibold text-slate-500 uppercase tracking-wider pt-0.5">網址</dt>
-        <dd className="text-sm font-mono text-slate-700 break-all">
-          {ticket.url ? (
-            ticket.url.startsWith("http") ? (
-              <a href={ticket.url} target="_blank" rel="noreferrer" className="text-violet-600 hover:underline">
-                {ticket.url}
-              </a>
-            ) : (
-              ticket.url
-            )
-          ) : (
-            <span className="text-slate-400 italic">未提供</span>
-          )}
-        </dd>
+          {/* Back */}
+          <Link
+            href="/feedback/tickets"
+            className="inline-flex items-center gap-1 text-[12px] text-[#6B778C] hover:text-[#172B4D] transition-colors"
+          >
+            <span className="material-symbols-outlined text-base">arrow_back</span>
+            回看板
+          </Link>
 
-        <dt className="text-xs font-semibold text-slate-500 uppercase tracking-wider pt-0.5">問題與建議</dt>
-        <dd className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-          {ticket.description || <span className="text-slate-400 italic">未填寫</span>}
-        </dd>
-      </dl>
-
-      {/* Status actions */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <StatusActions ticketId={ticket.id} current={ticket.status} isAdmin={isAdmin} />
-      </div>
-
-      {/* Canvas entry */}
-      <Link
-        href={`/feedback/tickets/${ticket.id}/canvas`}
-        className="group block bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl p-6 text-white shadow-sm hover:shadow-md transition-all"
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1">
-            <div className="text-[11px] font-semibold uppercase tracking-widest opacity-70 mb-1">
-              Communication Canvas
-            </div>
-            <div className="text-xl font-bold mb-1">展開溝通畫布</div>
-            <div className="text-sm opacity-90">
-              無限畫布 · 便利貼 · 手繪 · 貼圖 —— 溝通歷程與最終確定內容
-            </div>
-            {canvasUpdatedAt && (
-              <div className="text-[11px] opacity-70 mt-2">
-                上次更新：{new Date(canvasUpdatedAt).toLocaleString("zh-TW")}
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-[20px] font-bold text-[#172B4D] leading-snug mb-1">
+                {ticket.title}
+              </h1>
+              <div className="text-[11px] text-[#6B778C] font-mono">
+                #{ticket.id.slice(0, 8)}&nbsp;·&nbsp;建立於&nbsp;
+                {new Date(ticket.created_at).toLocaleString("zh-TW")}
               </div>
-            )}
+            </div>
+            <StatusBadge status={ticket.status} />
           </div>
-          <span className="material-symbols-outlined text-5xl opacity-80 group-hover:translate-x-1 transition-transform">
-            arrow_forward
-          </span>
+
+          {/* Fields */}
+          <div className="bg-white border border-[#DFE1E6] rounded-md overflow-hidden">
+            <div className="divide-y divide-[#F4F5F7]">
+              <div className="flex gap-6 px-5 py-3">
+                <dt className="text-[11px] font-bold text-[#6B778C] uppercase tracking-wide w-20 shrink-0 pt-0.5">
+                  網址
+                </dt>
+                <dd className="text-[13px] font-mono text-[#172B4D] break-all">
+                  {ticket.url ? (
+                    ticket.url.startsWith("http") ? (
+                      <a href={ticket.url} target="_blank" rel="noreferrer" className="text-[#CC0000] hover:underline">
+                        {ticket.url}
+                      </a>
+                    ) : ticket.url
+                  ) : (
+                    <span className="text-[#6B778C] italic font-sans">未提供</span>
+                  )}
+                </dd>
+              </div>
+              <div className="flex gap-6 px-5 py-3">
+                <dt className="text-[11px] font-bold text-[#6B778C] uppercase tracking-wide w-20 shrink-0 pt-0.5">
+                  問題與建議
+                </dt>
+                <dd className="text-[13px] text-[#172B4D] whitespace-pre-wrap leading-relaxed">
+                  {ticket.description || (
+                    <span className="text-[#6B778C] italic">未填寫</span>
+                  )}
+                </dd>
+              </div>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="bg-white border border-[#DFE1E6] rounded-md px-5 py-3">
+            <StatusActions ticketId={ticket.id} current={ticket.status} isAdmin={isAdmin} />
+          </div>
+
+          {/* Comment thread */}
+          <CommentThread ticketId={ticket.id} initial={comments} />
         </div>
-      </Link>
+      </div>
+
+      {/* ── Right: canvas panel ── */}
+      <div className="w-1/2 flex flex-col">
+        <CanvasPanel
+          ticketId={ticket.id}
+          initialSnapshot={canvasData?.snapshot ?? null}
+        />
+      </div>
     </div>
   );
 }

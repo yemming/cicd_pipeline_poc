@@ -68,6 +68,23 @@ export async function updateTicketStatus(ticketId: string, next: FeedbackStatus)
   revalidatePath(`/feedback/tickets/${ticketId}`);
 }
 
+export async function addComment(ticketId: string, body: string) {
+  const trimmed = body.trim();
+  if (!trimmed) throw new Error("留言不可空白");
+
+  const { userId } = await getCurrentUserAndAdmin();
+  if (!userId) redirect("/login");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("feedback_comments")
+    .insert({ ticket_id: ticketId, author_id: userId, body: trimmed });
+
+  if (error) throw new Error(`留言失敗：${error.message}`);
+
+  revalidatePath(`/feedback/tickets/${ticketId}`);
+}
+
 export async function saveCanvasSnapshot(ticketId: string, snapshot: unknown) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) throw new Error("未登入");
