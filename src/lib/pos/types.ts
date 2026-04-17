@@ -20,17 +20,19 @@ export type CartLine = {
   qty: number;
 };
 
-export type PaymentMethod = "cash" | "transfer" | "linepay";
+export type PaymentMethod = "cash" | "transfer" | "credit-card" | "linepay";
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "現金",
   transfer: "銀行轉帳",
+  "credit-card": "信用卡",
   linepay: "LINE Pay",
 };
 
 export const PAYMENT_ICON: Record<PaymentMethod, string> = {
   cash: "payments",
   transfer: "account_balance",
+  "credit-card": "credit_card",
   linepay: "qr_code_2",
 };
 

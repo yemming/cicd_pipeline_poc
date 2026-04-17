@@ -118,13 +118,13 @@ export function SaleWizard({
                 label="姓名"
                 value={customerName}
                 onChange={setCustomerName}
-                placeholder="王大明"
+                placeholder="例：王大明"
               />
               <TextField
                 label="電話"
                 value={customerPhone}
                 onChange={setCustomerPhone}
-                placeholder="0912-345-678"
+                placeholder="例：0912345678（8 碼以上）"
               />
               <div>
                 <SectionLabel>線索來源</SectionLabel>
@@ -245,14 +245,36 @@ export function SaleWizard({
 
         <div className="px-6 pb-6">
           {step < 4 ? (
-            <button
-              onClick={next}
-              disabled={(step === 1 && !step1Ok) || (step === 2 && !step2Ok) || (step === 3 && !step3Ok)}
-              className="w-full h-14 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold text-base shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              下一步
-              <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-            </button>
+            <>
+              {/* Hint when next is disabled, so user knows why */}
+              {step === 1 && !step1Ok && (
+                <p className="mb-2 text-[11px] text-center text-amber-700 bg-amber-50 rounded-lg py-2 px-3">
+                  {!customerName.trim() && !customerPhone.trim()
+                    ? "請填寫客戶姓名與電話"
+                    : !customerName.trim()
+                      ? "請填寫客戶姓名"
+                      : "電話至少 8 碼"}
+                </p>
+              )}
+              {step === 2 && !step2Ok && (
+                <p className="mb-2 text-[11px] text-center text-amber-700 bg-amber-50 rounded-lg py-2 px-3">
+                  請輸入成交價
+                </p>
+              )}
+              {step === 3 && !step3Ok && (
+                <p className="mb-2 text-[11px] text-center text-amber-700 bg-amber-50 rounded-lg py-2 px-3">
+                  訂金金額必須大於 0 且小於成交價
+                </p>
+              )}
+              <button
+                onClick={next}
+                disabled={(step === 1 && !step1Ok) || (step === 2 && !step2Ok) || (step === 3 && !step3Ok)}
+                className="w-full h-14 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold text-base shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                下一步
+                <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+              </button>
+            </>
           ) : (
             <button
               onClick={handleSubmit}

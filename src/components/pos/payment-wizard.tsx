@@ -137,7 +137,7 @@ function WizardBody({ onClose }: { onClose: () => void }) {
 }
 
 function MethodStep({ onPick }: { onPick: (m: PaymentMethod) => void }) {
-  const methods: PaymentMethod[] = ["cash", "transfer", "linepay"];
+  const methods: PaymentMethod[] = ["cash", "credit-card", "transfer", "linepay"];
   return (
     <div className="grid grid-cols-1 gap-3">
       {methods.map((m) => (
@@ -155,6 +155,7 @@ function MethodStep({ onPick }: { onPick: (m: PaymentMethod) => void }) {
             <p className="text-base font-bold text-slate-800">{PAYMENT_LABEL[m]}</p>
             <p className="text-xs text-slate-500">
               {m === "cash" && "現場收現，系統計算找零"}
+              {m === "credit-card" && "VISA / Master / JCB，刷卡機授權"}
               {m === "transfer" && "客戶銀行轉帳，輸入尾碼確認"}
               {m === "linepay" && "LINE Pay QR 掃碼付款"}
             </p>
@@ -249,6 +250,35 @@ function ConfirmStep({
           <p className="mt-3 text-xs text-slate-500 text-center">
             確認客戶已完成轉帳後，按下方按鈕。
           </p>
+        </div>
+      )}
+
+      {method === "credit-card" && (
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
+            刷卡機
+          </label>
+          <div className="p-5 bg-gradient-to-br from-slate-900 to-slate-700 text-white rounded-xl">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-white/70">
+                中國信託 聯合刷卡機
+              </span>
+              <div className="flex gap-1">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10">VISA</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10">MC</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10">JCB</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[36px] text-white/90 animate-pulse">
+                contactless
+              </span>
+              <div>
+                <p className="text-sm font-bold">請客戶感應或插卡</p>
+                <p className="text-[11px] text-white/70">授權完成後按下方按鈕</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
