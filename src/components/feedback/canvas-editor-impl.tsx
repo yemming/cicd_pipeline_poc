@@ -1,12 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Tldraw, Editor, getSnapshot, loadSnapshot } from "tldraw";
-import "tldraw/tldraw.css";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Excalidraw, getSceneVersion, restore } from "@excalidraw/excalidraw";
+import type {
+  AppState,
+  BinaryFiles,
+  ExcalidrawImperativeAPI,
+} from "@excalidraw/excalidraw/types";
+import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import "@excalidraw/excalidraw/index.css";
 import { createClient } from "@/lib/supabase/client";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+type StoredSnapshot = {
+  elements?: readonly OrderedExcalidrawElement[];
+  appState?: Partial<AppState>;
+  files?: BinaryFiles;
+};
 
 export default function CanvasEditorImpl({
   ticketId,
@@ -16,16 +28,51 @@ export default function CanvasEditorImpl({
   initialSnapshot: unknown;
 }) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const editorRef = useRef<Editor | null>(null);
+  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const saveTimer = useRef<number | null>(null);
+  const lastVersionRef = useRef<number>(-1);
+
+  // 用 Excalidraw 的 restore 幫我們過濾 / 補齊 appState，避免舊 snapshot 帶壞欄位
+  const initialData = useMemo(() => {
+    const snap = initialSnapshot as StoredSnapshot | null | undefined;
+    const hasElements = snap && Array.isArray(snap.elements) && snap.elements.length >= 0;
+    const baseAppState: Partial<AppState> = {
+      viewBackgroundColor: "#ffffff",
+      gridSize: 20, // Drop.io 那種一格一格的底
+    };
+    if (!hasElements) {
+      return { appState: baseAppState, scrollToContent: false };
+    }
+    const restored = restore(
+      {
+        elements: snap!.elements ?? [],
+        appState: { ...baseAppState, ...(snap!.appState ?? {}) },
+        files: snap!.files ?? {},
+      },
+      null,
+      null
+    );
+    return {
+      elements: restored.elements,
+      appState: restored.appState,
+      files: restored.files,
+      scrollToContent: false,
+    };
+  }, [initialSnapshot]);
 
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     setSaveStatus("saving");
     saveTimer.current = window.setTimeout(async () => {
-      const editor = editorRef.current;
-      if (!editor) return;
-      const snapshot = getSnapshot(editor.store);
+      const api = apiRef.current;
+      if (!api) return;
+      const elements = api.getSceneElements();
+      const appState = api.getAppState();
+      const files = api.getFiles();
+      // 清掉跨 session 不合理的 ephemeral 欄位
+      const { collaborators: _c, ...cleanAppState } = appState;
+      void _c;
+      const snapshot = { elements, appState: cleanAppState, files };
       const supabase = createClient();
       const { error } = await supabase
         .from("feedback_canvas_snapshots")
@@ -39,32 +86,17 @@ export default function CanvasEditorImpl({
     }, 1500);
   }, [ticketId]);
 
-  const onMount = useCallback(
-    (editor: Editor) => {
-      editorRef.current = editor;
-
-      // 開啟 dot grid（Drop.io 那種一格一格的底）
-      editor.updateInstanceState({ isGridMode: true });
-
-      // 還原既有 snapshot
-      const snap = initialSnapshot as Record<string, unknown> | null | undefined;
-      if (snap && typeof snap === "object" && Object.keys(snap).length > 0) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          loadSnapshot(editor.store, snap as any);
-        } catch (e) {
-          console.error("[feedback] loadSnapshot failed", e);
-        }
-      }
-
-      // 監聽 user-initiated 文件變更 → debounced 存檔
-      const unlisten = editor.store.listen(() => scheduleSave(), {
-        scope: "document",
-        source: "user",
-      });
-      return unlisten;
+  // Excalidraw onChange 會在滑鼠移動時觸發 — 用 scene version 判定真實變更
+  const onChange = useCallback(
+    (elements: readonly OrderedExcalidrawElement[]) => {
+      const v = getSceneVersion(elements);
+      if (v === lastVersionRef.current) return;
+      const first = lastVersionRef.current === -1;
+      lastVersionRef.current = v;
+      if (first) return; // 初次掛載不算變更
+      scheduleSave();
     },
-    [initialSnapshot, scheduleSave]
+    [scheduleSave]
   );
 
   useEffect(
@@ -93,7 +125,19 @@ export default function CanvasEditorImpl({
         <SaveIndicator status={saveStatus} />
       </header>
       <div className="flex-1 relative">
-        <Tldraw onMount={onMount} />
+        <Excalidraw
+          excalidrawAPI={(api) => {
+            apiRef.current = api;
+          }}
+          initialData={initialData}
+          onChange={onChange}
+          gridModeEnabled
+          UIOptions={{
+            canvasActions: {
+              loadScene: false, // 我們用 Supabase 持久化，不讓使用者另外載入 .excalidraw 檔干擾
+            },
+          }}
+        />
       </div>
     </div>
   );
@@ -101,10 +145,10 @@ export default function CanvasEditorImpl({
 
 function SaveIndicator({ status }: { status: SaveStatus }) {
   const cfg = {
-    idle:   { icon: "cloud",        label: "就緒",     color: "text-slate-400" },
+    idle:   { icon: "cloud",             label: "就緒",     color: "text-slate-400" },
     saving: { icon: "progress_activity", label: "儲存中…", color: "text-violet-600 animate-pulse" },
-    saved:  { icon: "cloud_done",   label: "已儲存",   color: "text-emerald-600" },
-    error:  { icon: "cloud_off",    label: "儲存失敗", color: "text-red-600" },
+    saved:  { icon: "cloud_done",        label: "已儲存",   color: "text-emerald-600" },
+    error:  { icon: "cloud_off",         label: "儲存失敗", color: "text-red-600" },
   }[status];
   return (
     <div className={`flex items-center gap-1.5 text-xs font-medium ${cfg.color}`}>

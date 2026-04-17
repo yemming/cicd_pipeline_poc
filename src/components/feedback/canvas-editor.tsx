@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-// tldraw 觸及 window/navigator，必須避免 SSR 階段載入
+// Excalidraw 觸及 window/document，必須避免 SSR 階段載入
 const CanvasEditorImpl = dynamic(() => import("./canvas-editor-impl"), {
   ssr: false,
   loading: () => (
