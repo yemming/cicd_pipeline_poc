@@ -12,7 +12,7 @@ import {
   useTransform,
 } from "motion/react";
 import { cn } from "@/lib/utils";
-import { modules } from "@/lib/modules";
+import { modules, resolveModuleFromPathname } from "@/lib/modules";
 import { useSidebar } from "./sidebar-context";
 
 // ── Vertical Floating Dock (adapted from Aceternity UI) ─────────────────────
@@ -184,10 +184,13 @@ function MatIcon({ name, color }: { name: string; color?: string }) {
 export function ModuleRail() {
   const pathname  = usePathname();
   const { toggle, fullHidden, setFullHidden } = useSidebar();
-  const activeKey = pathname.split("/")[1] || null;
-  const onLauncher = !activeKey;
+  const rawSegment = pathname.split("/")[1] || null;
+  const onLauncher = !rawSegment;
 
-  const activeModule = modules.find((m) => m.key === activeKey);
+  // resolveModuleFromPathname handles URL-segment overrides (e.g. /feedback → settings)
+  const activeModule = resolveModuleFromPathname(pathname);
+  const activeKey = activeModule?.key ?? null;
+
   const currentPage  = activeModule?.pages.find(
     (p) => p.href === pathname || pathname.startsWith(p.href + "/")
   );
