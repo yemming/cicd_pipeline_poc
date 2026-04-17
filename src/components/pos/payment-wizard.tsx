@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { formatTWD } from "@/lib/pos/format";
 import { PAYMENT_ICON, PAYMENT_LABEL, type PaymentMethod } from "@/lib/pos/types";
 import { useCart } from "./cart-context";
 
 type Step = "method" | "confirm" | "done";
 
-/** Generate a pseudo transaction ID like TX-20260417-0421 */
 function genTxId(): string {
   const now = new Date();
   const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
@@ -22,23 +21,16 @@ export function PaymentWizard({
   open: boolean;
   onClose: () => void;
 }) {
+  if (!open) return null;
+  return <WizardBody onClose={onClose} />;
+}
+
+function WizardBody({ onClose }: { onClose: () => void }) {
   const { totalAmount, totalQty, clear } = useCart();
   const [step, setStep] = useState<Step>("method");
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [cashReceived, setCashReceived] = useState<string>("");
   const [txId, setTxId] = useState<string>("");
-
-  // Reset on open/close
-  useEffect(() => {
-    if (open) {
-      setStep("method");
-      setMethod(null);
-      setCashReceived("");
-      setTxId("");
-    }
-  }, [open]);
-
-  if (!open) return null;
 
   const cashReceivedNum = parseInt(cashReceived, 10) || 0;
   const change = cashReceivedNum - totalAmount;
