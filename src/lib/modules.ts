@@ -82,8 +82,25 @@ export const modules: ModuleDef[] = [
   },
 
   // ────────────────────────────────────────────────────────
-  // 1.5 POS v2 — 規格見 POS_SA_SD_Spec_v1.0.docx（下一個 commit 蓋回來）
+  // 1.5 POS v2 — 極簡收銀 + 進銷存 + 中古車銷售（Spec v1.0 Phase 1 MVP）
+  // 設計原則：≤5 個主項，複雜流程以 Wizard 呈現
   // ────────────────────────────────────────────────────────
+  {
+    key: "pos",
+    name: "POS 收銀",
+    icon: "point_of_sale",
+    accent: "#4F46E5",
+    description: "極簡收銀・進銷存・日記帳",
+    home: "/pos",
+    permission: "pos.access",
+    pages: [
+      { name: "快速收銀",       icon: "shopping_cart_checkout", href: "/pos" },
+      { name: "中古車銷售",     icon: "two_wheeler",            href: "/pos/usedcar-sale" },
+      { name: "商品與庫存",     icon: "inventory_2",            href: "/pos/products" },
+      { name: "帳務（日記帳）", icon: "menu_book",              href: "/pos/ledger" },
+      { name: "POS 設定",       icon: "settings",               href: "/pos/settings" },
+    ],
+  },
 
   // ────────────────────────────────────────────────────────
   // 2. 維修管理 (S4 全部 + S8-3 保固)
