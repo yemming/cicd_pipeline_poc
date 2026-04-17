@@ -321,27 +321,14 @@ export const modules: ModuleDef[] = [
       { name: "通知設定",     icon: "notifications",   href: "/settings/notifications",    section: "系統設定" },
       { name: "數據匯入/出",  icon: "import_export",   href: "/settings/data-io",          section: "系統設定" },
       { name: "API 整合",     icon: "hub",             href: "/settings/api",              section: "系統設定" },
+      // 意見回饋
+      { name: "單據看板",     icon: "view_kanban",     href: "/feedback/tickets",          section: "意見回饋" },
+      { name: "新增單據",     icon: "add_comment",     href: "/feedback/tickets/new",      section: "意見回饋" },
     ],
   },
 
   // ────────────────────────────────────────────────────────
-  // 11. 意見回饋 (許願單 + Miro 畫布 · POC 溝通工具)
-  // ────────────────────────────────────────────────────────
-  {
-    key: "feedback",
-    name: "意見回饋",
-    icon: "feedback",
-    accent: "#8B5CF6",
-    description: "許願單・Bug 回報・無限畫布",
-    home: "/feedback/tickets",
-    pages: [
-      { name: "單據看板", icon: "view_kanban",  href: "/feedback/tickets",     section: "許願單" },
-      { name: "新增單據", icon: "add_comment",  href: "/feedback/tickets/new", section: "許願單" },
-    ],
-  },
-
-  // ────────────────────────────────────────────────────────
-  // 12. 工具 (通用小工具：農民曆、擇日…)
+  // 11. 工具 (通用小工具：農民曆、擇日…)
   // ────────────────────────────────────────────────────────
   {
     key: "tools",
@@ -369,10 +356,16 @@ export function getModuleByKey(key: string): ModuleDef | undefined {
   return modules.find((m) => m.key === key);
 }
 
+// pathname-to-module overrides: URL segment → module key
+const SEGMENT_MODULE_OVERRIDES: Record<string, string> = {
+  feedback: "settings",
+};
+
 export function resolveModuleFromPathname(pathname: string): ModuleDef | null {
   const seg = pathname.split("/")[1];
   if (!seg) return null;
-  return modules.find((m) => m.key === seg) ?? null;
+  const key = SEGMENT_MODULE_OVERRIDES[seg] ?? seg;
+  return modules.find((m) => m.key === key) ?? null;
 }
 
 export function findPageByHref(href: string): { module: ModuleDef; page: ModulePage } | null {

@@ -21,15 +21,14 @@ export const FEEDBACK_STATUS_LABEL: Record<FeedbackStatus, string> = {
   released: "上版",
 };
 
-// 看板欄位色調（呼應模組主色 #8B5CF6 紫系）
 export const FEEDBACK_STATUS_TONE: Record<
   FeedbackStatus,
   { bg: string; text: string; dot: string }
 > = {
-  draft:       { bg: "bg-slate-100",    text: "text-slate-700",  dot: "bg-slate-400" },
-  in_progress: { bg: "bg-violet-100",   text: "text-violet-700", dot: "bg-violet-500" },
-  review:      { bg: "bg-amber-100",    text: "text-amber-700",  dot: "bg-amber-500" },
-  released:    { bg: "bg-emerald-100",  text: "text-emerald-700",dot: "bg-emerald-500" },
+  draft:       { bg: "bg-surface-container",      text: "text-on-surface-variant", dot: "bg-outline-variant" },
+  in_progress: { bg: "bg-tertiary-fixed/50",       text: "text-tertiary",           dot: "bg-tertiary-container" },
+  review:      { bg: "bg-warning-container",       text: "text-warning",            dot: "bg-warning" },
+  released:    { bg: "bg-success-container/60",    text: "text-success",            dot: "bg-success" },
 };
 
 export type FeedbackTicket = {
