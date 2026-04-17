@@ -49,3 +49,9 @@ next-env.d.ts
 
 # Claude Code local session metadata (scheduled tasks, local settings)
 .claude/
+
+# Playwright MCP local cache
+.playwright-mcp/
+
+# Local spec/reference docs (not part of the app)
+*.docx
