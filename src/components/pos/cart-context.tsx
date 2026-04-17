@@ -4,205 +4,85 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import type {
-  Cart,
-  CheckoutMode,
-  LineItem,
-  Payment,
-} from "@/lib/pos/pos-types";
-
-const STORAGE_KEY = "pos-cart-v1";
-
-const emptyCart: Cart = {
-  mode: "vehicle",
-  lines: [],
-  fees: [],
-  payments: [],
-};
+import type { CartLine, Product } from "@/lib/pos/types";
 
 type CartCtx = {
-  cart: Cart;
-  setMode: (m: CheckoutMode) => void;
-  addLine: (line: LineItem) => void;
-  removeLine: (id: string) => void;
-  updateLine: (id: string, patch: Partial<LineItem>) => void;
-  addFee: (fee: LineItem) => void;
-  removeFee: (id: string) => void;
-  setCustomer: (id: string | undefined) => void;
-  addPayment: (p: Payment) => void;
-  clearPayments: () => void;
+  lines: CartLine[];
+  totalQty: number;
+  totalAmount: number;
+  add: (product: Product) => void;
+  inc: (productId: string) => void;
+  dec: (productId: string) => void;
+  remove: (productId: string) => void;
   clear: () => void;
-  setWarranty: (b: boolean) => void;
-  subtotal: number;
-  feeTotal: number;
-  taxableBase: number;
-  taxAmount: number;
-  total: number;
-  paid: number;
-  due: number;
 };
 
 const Ctx = createContext<CartCtx | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [cart, setCart] = useState<Cart>(() => {
-    if (typeof window === "undefined") return emptyCart;
-    try {
-      const raw = window.sessionStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch {}
-    return emptyCart;
-  });
+  const [lines, setLines] = useState<CartLine[]>([]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
-    } catch {}
-  }, [cart]);
+  const add = useCallback((product: Product) => {
+    setLines((prev) => {
+      const existing = prev.find((l) => l.product.id === product.id);
+      if (existing) {
+        if (existing.qty >= product.stockQty) return prev;
+        return prev.map((l) =>
+          l.product.id === product.id ? { ...l, qty: l.qty + 1 } : l,
+        );
+      }
+      return [...prev, { product, qty: 1 }];
+    });
+  }, []);
 
-  const setMode = useCallback(
-    (mode: CheckoutMode) =>
-      setCart((c) => ({ ...c, mode, warrantyApplied: mode === "service" ? c.warrantyApplied : undefined })),
-    [],
-  );
+  const inc = useCallback((productId: string) => {
+    setLines((prev) =>
+      prev.map((l) =>
+        l.product.id === productId && l.qty < l.product.stockQty
+          ? { ...l, qty: l.qty + 1 }
+          : l,
+      ),
+    );
+  }, []);
 
-  const addLine = useCallback(
-    (line: LineItem) =>
-      setCart((c) => {
-        const existing = c.lines.find((l) => l.refId === line.refId && l.type === line.type);
-        if (existing) {
-          return {
-            ...c,
-            lines: c.lines.map((l) =>
-              l.id === existing.id
-                ? {
-                    ...l,
-                    quantity: l.quantity + line.quantity,
-                    subtotal: l.unitPrice * (l.quantity + line.quantity),
-                  }
-                : l,
-            ),
-          };
-        }
-        return { ...c, lines: [...c.lines, line] };
-      }),
-    [],
-  );
+  const dec = useCallback((productId: string) => {
+    setLines((prev) =>
+      prev
+        .map((l) => (l.product.id === productId ? { ...l, qty: l.qty - 1 } : l))
+        .filter((l) => l.qty > 0),
+    );
+  }, []);
 
-  const removeLine = useCallback(
-    (id: string) => setCart((c) => ({ ...c, lines: c.lines.filter((l) => l.id !== id) })),
-    [],
-  );
+  const remove = useCallback((productId: string) => {
+    setLines((prev) => prev.filter((l) => l.product.id !== productId));
+  }, []);
 
-  const updateLine = useCallback(
-    (id: string, patch: Partial<LineItem>) =>
-      setCart((c) => ({
-        ...c,
-        lines: c.lines.map((l) => {
-          if (l.id !== id) return l;
-          const merged = { ...l, ...patch };
-          merged.subtotal = merged.unitPrice * merged.quantity - (merged.discount ?? 0);
-          return merged;
-        }),
-      })),
-    [],
-  );
+  const clear = useCallback(() => setLines([]), []);
 
-  const addFee = useCallback(
-    (fee: LineItem) => setCart((c) => ({ ...c, fees: [...c.fees.filter((f) => f.id !== fee.id), fee] })),
-    [],
-  );
-
-  const removeFee = useCallback(
-    (id: string) => setCart((c) => ({ ...c, fees: c.fees.filter((f) => f.id !== id) })),
-    [],
-  );
-
-  const setCustomer = useCallback(
-    (id: string | undefined) => setCart((c) => ({ ...c, customerId: id })),
-    [],
-  );
-
-  const addPayment = useCallback(
-    (p: Payment) => setCart((c) => ({ ...c, payments: [...c.payments, p] })),
-    [],
-  );
-
-  const clearPayments = useCallback(() => setCart((c) => ({ ...c, payments: [] })), []);
-
-  const setWarranty = useCallback((b: boolean) => setCart((c) => ({ ...c, warrantyApplied: b })), []);
-
-  const clear = useCallback(() => setCart(emptyCart), []);
-
-  const subtotal = useMemo(() => cart.lines.reduce((a, b) => a + b.subtotal, 0), [cart.lines]);
-  const feeTotal = useMemo(() => cart.fees.reduce((a, b) => a + b.subtotal, 0), [cart.fees]);
-  const taxableBase = useMemo(
-    () =>
-      cart.lines.filter((l) => l.taxable).reduce((a, b) => a + b.subtotal, 0) +
-      cart.fees.filter((f) => f.taxable).reduce((a, b) => a + b.subtotal, 0),
-    [cart.lines, cart.fees],
-  );
-  const taxAmount = useMemo(() => Math.round(taxableBase * 0.05), [taxableBase]);
-  const total = subtotal + feeTotal + taxAmount;
-  const paid = useMemo(() => cart.payments.reduce((a, b) => a + b.amount, 0), [cart.payments]);
-  const due = total - paid;
+  const { totalQty, totalAmount } = useMemo(() => {
+    let q = 0;
+    let a = 0;
+    for (const l of lines) {
+      q += l.qty;
+      a += l.qty * l.product.unitPrice;
+    }
+    return { totalQty: q, totalAmount: a };
+  }, [lines]);
 
   const value = useMemo(
-    () => ({
-      cart,
-      setMode,
-      addLine,
-      removeLine,
-      updateLine,
-      addFee,
-      removeFee,
-      setCustomer,
-      addPayment,
-      clearPayments,
-      clear,
-      setWarranty,
-      subtotal,
-      feeTotal,
-      taxableBase,
-      taxAmount,
-      total,
-      paid,
-      due,
-    }),
-    [
-      cart,
-      setMode,
-      addLine,
-      removeLine,
-      updateLine,
-      addFee,
-      removeFee,
-      setCustomer,
-      addPayment,
-      clearPayments,
-      clear,
-      setWarranty,
-      subtotal,
-      feeTotal,
-      taxableBase,
-      taxAmount,
-      total,
-      paid,
-      due,
-    ],
+    () => ({ lines, totalQty, totalAmount, add, inc, dec, remove, clear }),
+    [lines, totalQty, totalAmount, add, inc, dec, remove, clear],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export function useCart(): CartCtx {
+export function useCart() {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useCart must be used inside CartProvider");
+  if (!ctx) throw new Error("useCart must be used inside <CartProvider>");
   return ctx;
 }
