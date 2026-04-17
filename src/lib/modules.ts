@@ -325,7 +325,23 @@ export const modules: ModuleDef[] = [
   },
 
   // ────────────────────────────────────────────────────────
-  // 10. 工具 (通用小工具：農民曆、擇日…)
+  // 11. 意見回饋 (許願單 + Miro 畫布 · POC 溝通工具)
+  // ────────────────────────────────────────────────────────
+  {
+    key: "feedback",
+    name: "意見回饋",
+    icon: "feedback",
+    accent: "#8B5CF6",
+    description: "許願單・Bug 回報・無限畫布",
+    home: "/feedback/tickets",
+    pages: [
+      { name: "單據看板", icon: "view_kanban",  href: "/feedback/tickets",     section: "許願單" },
+      { name: "新增單據", icon: "add_comment",  href: "/feedback/tickets/new", section: "許願單" },
+    ],
+  },
+
+  // ────────────────────────────────────────────────────────
+  // 12. 工具 (通用小工具：農民曆、擇日…)
   // ────────────────────────────────────────────────────────
   {
     key: "tools",
