@@ -1,11 +1,12 @@
-import { PlaceholderPage } from "@/components/placeholder-page";
+import { UsedCarSale } from "@/components/pos/usedcar-sale";
+import { MOCK_USED_VEHICLES } from "@/lib/pos/mock-vehicles";
+import { MOCK_SALE_ORDERS } from "@/lib/pos/mock-sale-orders";
 
 export default function UsedCarSalePage() {
   return (
-    <PlaceholderPage
-      title="中古車銷售"
-      description="展廳在售車輛列表 + 建立銷售單（毛利自動計算 / 付款追蹤 / 交車確認）。"
-      icon="two_wheeler"
+    <UsedCarSale
+      initialVehicles={MOCK_USED_VEHICLES}
+      initialOrders={MOCK_SALE_ORDERS}
     />
   );
 }
