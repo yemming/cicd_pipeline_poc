@@ -82,62 +82,8 @@ export const modules: ModuleDef[] = [
   },
 
   // ────────────────────────────────────────────────────────
-  // 1.5 POS 收銀 (結帳・進銷存・報表・驚喜)
+  // 1.5 POS v2 — 規格見 POS_SA_SD_Spec_v1.0.docx（下一個 commit 蓋回來）
   // ────────────────────────────────────────────────────────
-  {
-    key: "pos",
-    name: "POS 收銀",
-    icon: "point_of_sale",
-    accent: "#4F46E5",
-    description: "結帳・進銷存・報表・驚喜",
-    home: "/pos",
-    permission: "pos.access",
-    pages: [
-      // 結帳核心
-      { name: "POS 儀表板",     icon: "dashboard",            href: "/pos",                         section: "結帳核心" },
-      { name: "結帳中心",       icon: "storefront",           href: "/pos/checkout",                section: "結帳核心" },
-      { name: "車輛銷售",       icon: "two_wheeler",          href: "/pos/checkout/vehicle",        section: "結帳核心" },
-      { name: "維修結帳",       icon: "build",                href: "/pos/checkout/service",        section: "結帳核心" },
-      { name: "精品零售",       icon: "shopping_bag",         href: "/pos/checkout/retail",         section: "結帳核心" },
-      { name: "代辦費用",       icon: "receipt_long",         href: "/pos/checkout/fees",           section: "結帳核心" },
-      { name: "客戶識別",       icon: "person_search",        href: "/pos/checkout/customer",       section: "結帳核心" },
-      { name: "付款方式",       icon: "payments",             href: "/pos/checkout/payment",        section: "結帳核心" },
-      { name: "刷卡機",         icon: "credit_card",          href: "/pos/checkout/card-swipe",     section: "結帳核心" },
-      { name: "LINE Pay",      icon: "qr_code_2",            href: "/pos/checkout/linepay",        section: "結帳核心" },
-      { name: "Apple Pay",     icon: "contactless",          href: "/pos/checkout/applepay",       section: "結帳核心" },
-      { name: "現金找零",       icon: "payments",             href: "/pos/checkout/cash",           section: "結帳核心" },
-      { name: "支票錄入",       icon: "description",          href: "/pos/checkout/check",          section: "結帳核心" },
-      { name: "混合付款",       icon: "call_split",           href: "/pos/checkout/split",          section: "結帳核心" },
-      { name: "結帳完成",       icon: "check_circle",         href: "/pos/checkout/success",        section: "結帳核心" },
-      // 單據管理
-      { name: "發票管理",       icon: "receipt",              href: "/pos/invoices",                section: "單據管理" },
-      { name: "收據管理",       icon: "article",              href: "/pos/receipts",                section: "單據管理" },
-      { name: "退貨退款",       icon: "assignment_return",    href: "/pos/returns",                 section: "單據管理" },
-      { name: "換貨",           icon: "swap_horiz",           href: "/pos/exchanges",               section: "單據管理" },
-      { name: "交易記錄",       icon: "history",              href: "/pos/transactions",            section: "單據管理" },
-      // 進銷存
-      { name: "即時庫存",       icon: "inventory_2",          href: "/pos/inventory",               section: "進銷存" },
-      { name: "收貨入庫",       icon: "move_to_inbox",        href: "/pos/inventory/receiving",     section: "進銷存" },
-      { name: "跨店調撥",       icon: "sync_alt",             href: "/pos/inventory/transfer",      section: "進銷存" },
-      { name: "跨店即時庫存",    icon: "hub",                  href: "/pos/inventory/cross-store",   section: "進銷存" },
-      { name: "庫存盤點",       icon: "fact_check",           href: "/pos/inventory/stocktake",     section: "進銷存" },
-      { name: "補貨申請",       icon: "add_box",              href: "/pos/inventory/replenish",     section: "進銷存" },
-      { name: "SKU 品項主檔",   icon: "qr_code",              href: "/pos/inventory/sku",           section: "進銷存" },
-      // 報表
-      { name: "管理報表",       icon: "bar_chart",            href: "/pos/reports/management",      section: "報表" },
-      { name: "門市報表",       icon: "storefront",           href: "/pos/reports/store",           section: "報表" },
-      { name: "銷售報表",       icon: "trending_up",          href: "/pos/reports/sales",           section: "報表" },
-      { name: "毛利報表",       icon: "monetization_on",      href: "/pos/reports/margin",          section: "報表" },
-      { name: "庫存報表",       icon: "analytics",            href: "/pos/reports/inventory",       section: "報表" },
-      { name: "員工業績",       icon: "leaderboard",          href: "/pos/reports/staff",           section: "報表" },
-      // 驚喜
-      { name: "AI 銷售助手",    icon: "smart_toy",            href: "/pos/ai-assistant",            section: "驚喜" },
-      { name: "VIP 會員中心",   icon: "workspace_premium",    href: "/pos/vip",                     section: "驚喜" },
-      { name: "保養套餐卡",     icon: "card_membership",      href: "/pos/package-cards",           section: "驚喜" },
-      { name: "錢箱管理",       icon: "savings",              href: "/pos/cash-drawer",             section: "驚喜" },
-      { name: "班別交接",       icon: "schedule",             href: "/pos/shift",                   section: "驚喜" },
-    ],
-  },
 
   // ────────────────────────────────────────────────────────
   // 2. 維修管理 (S4 全部 + S8-3 保固)
