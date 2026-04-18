@@ -1,0 +1,97 @@
+# ============================================================
+# Phase A：AI 自動編程 Workflow（手動觸發版）
+#
+# 使用方式：
+#   GitHub repo → Actions → "AI 自動編程 (Phase A)" → Run workflow
+#   填入許願單 ID、標題、需求描述 → Claude 自動實作 → 出 PR
+# ============================================================
+
+name: AI 自動編程 (Phase A)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticket_id:
+        description: "許願單 UUID（從 /feedback/tickets 詳情頁複製）"
+        required: true
+        type: string
+      ticket_title:
+        description: "許願單標題"
+        required: true
+        type: string
+      ticket_description:
+        description: "需求描述（越詳細 Claude 越準）"
+        required: false
+        type: string
+      ticket_url:
+        description: "參考連結（Stitch 畫面 / Figma / 錄影，選填）"
+        required: false
+        type: string
+
+jobs:
+  implement:
+    name: Claude 讀需求 → 實作 → 開 PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # 建立 branch / commit
+      pull-requests: write # 開 PR
+
+    steps:
+      # ── 1. 把 repo clone 下來 ──────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 完整 git history，Claude 比較看得懂 context
+
+      # ── 2. 設定 Node（讓 Claude 能跑 npm / tsc 確認沒語法錯） ──
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      # ── 3. Claude Code Action：讀需求 → 寫 code → commit ──
+      - name: Claude 實作需求
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GH_PAT }}
+          # 告訴 Claude 這次的任務
+          direct_prompt: |
+            你是 DealerOS（Ducati 重機經銷商平台）的 AI 工程師。
+
+            ## 本次需求單
+            - **ID**: ${{ inputs.ticket_id }}
+            - **標題**: ${{ inputs.ticket_title }}
+            - **描述**: ${{ inputs.ticket_description || '（無詳細描述）' }}
+            - **參考連結**: ${{ inputs.ticket_url || '（無）' }}
+
+            ## 專案背景
+            - Next.js 16 App Router + TypeScript + Tailwind CSS v4
+            - Supabase 作為資料庫與 Auth
+            - 所有業務頁面共用 dual-rail shell（ModuleRail + PagesPanel + Topbar）
+            - 模組 registry 在 `src/lib/modules.ts`，新增頁面只改這裡
+            - Supabase 專案：bykvtcptbirpxyqkfwfl
+
+            ## 你的任務
+            1. 閱讀需求單，理解要實作什麼功能
+            2. 查看相關的現有檔案（`src/` 目錄）
+            3. 實作該功能，遵守現有程式碼風格
+            4. 確保 TypeScript 沒有明顯型別錯誤
+            5. 不要修改 shell 元件（module-rail / pages-panel / topbar）
+
+            實作完成後，建立一個新 branch（命名：`feat/ticket-${{ inputs.ticket_id }}`）並 commit 你的變更。
+            PR 標題請用：`feat: ${{ inputs.ticket_title }}`
+
+      # ── 4. 確認有沒有新 PR 出現（供 log 確認用） ────────────
+      - name: 顯示結果
+        if: always()
+        run: |
+          echo "✅ 完成！請到 GitHub PR 列表確認 Claude 開的 PR："
+          echo "https://github.com/${{ github.repository }}/pulls"
+          echo ""
+          echo "許願單 ID: ${{ inputs.ticket_id }}"
+          echo "標題: ${{ inputs.ticket_title }}"

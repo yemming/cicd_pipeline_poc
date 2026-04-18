@@ -1,0 +1,73 @@
+# ============================================================
+# Phase B：AI 自動編程 Workflow（Supabase Webhook 自動觸發版）
+#
+# ⚠️ 現在還不用這個 — Phase A 手動版先跑起來再說
+#
+# 觸發條件：
+#   Supabase Database Webhook 偵測到 feedback_tickets.status 改為
+#   'in_progress' 時，呼叫 GitHub API 觸發這個 workflow
+#
+# Supabase 呼叫的 GitHub API：
+#   POST https://api.github.com/repos/yemming/cicd_pipeline_poc/dispatches
+#   Body: {
+#     "event_type": "ticket-approved",
+#     "client_payload": {
+#       "ticket_id": "...",
+#       "ticket_title": "...",
+#       "ticket_description": "...",
+#       "ticket_url": "..."
+#     }
+#   }
+# ============================================================
+
+name: AI 自動編程 (Phase B - 自動)
+
+on:
+  repository_dispatch:
+    types: [ticket-approved]  # Supabase webhook 觸發此 event type
+
+jobs:
+  implement:
+    name: Claude 讀需求 → 實作 → 開 PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: Claude 實作需求
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GH_PAT }}
+          direct_prompt: |
+            你是 DealerOS（Ducati 重機經銷商平台）的 AI 工程師。
+
+            ## 本次需求單（由 Supabase webhook 自動傳入）
+            - **ID**: ${{ github.event.client_payload.ticket_id }}
+            - **標題**: ${{ github.event.client_payload.ticket_title }}
+            - **描述**: ${{ github.event.client_payload.ticket_description || '（無詳細描述）' }}
+            - **參考連結**: ${{ github.event.client_payload.ticket_url || '（無）' }}
+
+            ## 專案背景
+            - Next.js 16 App Router + TypeScript + Tailwind CSS v4
+            - Supabase 資料庫：bykvtcptbirpxyqkfwfl
+            - 模組 registry：`src/lib/modules.ts`（新增頁面只改這裡）
+            - 不要修改 shell 元件（module-rail / pages-panel / topbar）
+
+            實作完成後建立 branch `feat/ticket-${{ github.event.client_payload.ticket_id }}` 並開 PR。
+            PR 標題：`feat: ${{ github.event.client_payload.ticket_title }}`
