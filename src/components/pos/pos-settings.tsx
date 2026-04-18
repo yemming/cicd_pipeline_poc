@@ -173,7 +173,7 @@ function ToggleRow({
       <button
         onClick={() => !disabled && onChange(!value)}
         disabled={disabled}
-        className={`relative w-12 h-7 rounded-full transition-colors ${
+        className={`relative shrink-0 w-12 h-7 rounded-full overflow-hidden transition-colors ${
           disabled
             ? "bg-slate-100 cursor-not-allowed"
             : value
@@ -183,8 +183,8 @@ function ToggleRow({
         aria-label={label}
       >
         <span
-          className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
-            value ? "translate-x-5" : "translate-x-0.5"
+          className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
+            value ? "translate-x-5" : "translate-x-0"
           }`}
         />
       </button>
