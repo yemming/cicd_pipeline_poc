@@ -1,0 +1,66 @@
+# ============================================================
+# CI：新手第一個 workflow — 每次 push / PR 自動跑 lint + build
+#
+# 為什麼存在：
+#   在 merge 進 main 之前先確認 code 沒壞。PR 頁面會出現綠勾勾 ✅
+#   或紅叉叉 ❌，一眼看出這包改動能不能上 production。
+#
+# 不需要任何 secrets，push 完就會跑。
+# ============================================================
+
+name: CI
+
+# ── 什麼時候觸發？─────────────────────────────────────────
+# 1. push 到 main：main 被動到時跑一次（通常是 merge 之後）
+# 2. pull_request：任何開到 main 的 PR，一有新 commit 就跑
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Job 1：Lint（程式碼風格檢查）─────────────────────────
+  lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 原始碼
+        uses: actions/checkout@v4
+
+      - name: 安裝 Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: npm ci（用 lockfile 安裝，比 npm install 快且穩）
+        run: npm ci --prefer-offline
+
+      - name: 跑 ESLint
+        run: npm run lint
+
+  # ── Job 2：Build（確認 Next.js 能編得出 production bundle）──
+  # 跟 lint 平行跑（不相依，兩台 VM 同時開工，快一倍）
+  build:
+    name: Next.js Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 原始碼
+        uses: actions/checkout@v4
+
+      - name: 安裝 Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: npm ci
+        run: npm ci --prefer-offline
+
+      - name: next build
+        run: npm run build
+        env:
+          # Next.js 16 build 時若需要 env，可在這裡補。
+          # 目前 public env 都在 .env（不會進 repo），build 期間不連 Supabase 也能過。
+          NEXT_TELEMETRY_DISABLED: "1"
