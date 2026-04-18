@@ -133,6 +133,7 @@ export default function CanvasPanelImpl({
           initialData={initialData}
           onChange={onChange}
           gridModeEnabled
+          langCode="zh-TW"
           UIOptions={{
             canvasActions: { loadScene: false },
           }}

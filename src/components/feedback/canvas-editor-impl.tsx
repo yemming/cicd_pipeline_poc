@@ -132,6 +132,7 @@ export default function CanvasEditorImpl({
           initialData={initialData}
           onChange={onChange}
           gridModeEnabled
+          langCode="zh-TW"
           UIOptions={{
             canvasActions: {
               loadScene: false, // 我們用 Supabase 持久化，不讓使用者另外載入 .excalidraw 檔干擾
