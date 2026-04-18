@@ -1,3 +1,6 @@
+"use client";
+
+import { useFormStatus } from "react-dom";
 import { updateTicketStatus } from "@/lib/feedback-actions";
 import {
   FEEDBACK_STATUS_LABEL,
@@ -5,6 +8,43 @@ import {
   FEEDBACK_STATUS_TONE,
   type FeedbackStatus,
 } from "@/lib/feedback";
+
+function StatusButton({
+  status,
+  isCurrent,
+}: {
+  status: FeedbackStatus;
+  isCurrent: boolean;
+}) {
+  const { pending } = useFormStatus();
+  const tone = FEEDBACK_STATUS_TONE[status];
+
+  return (
+    <button
+      type="submit"
+      disabled={isCurrent || pending}
+      aria-busy={pending}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+        isCurrent
+          ? `${tone.bg} ${tone.text} ring-1 ring-inset ring-tertiary-container/60 cursor-default`
+          : pending
+            ? `${tone.bg} ${tone.text} ring-1 ring-inset ring-outline-variant cursor-wait`
+            : `${tone.bg} ${tone.text} opacity-50 hover:opacity-100 hover:ring-1 hover:ring-inset hover:ring-outline-variant`
+      }`}
+    >
+      {pending && (
+        <span
+          className="inline-block w-3 h-3 border-2 border-current border-b-transparent border-r-transparent rounded-full animate-spin opacity-80"
+          aria-hidden
+        />
+      )}
+      {pending ? "切換中…" : FEEDBACK_STATUS_LABEL[status]}
+      {isCurrent && !pending && (
+        <span className={`inline-block w-1.5 h-1.5 rounded-full ${tone.dot} align-middle`} />
+      )}
+    </button>
+  );
+}
 
 export function StatusActions({
   ticketId,
@@ -34,23 +74,9 @@ export function StatusActions({
       </span>
       {FEEDBACK_STATUS_ORDER.map((s) => {
         const isCurrent = s === current;
-        const tone = FEEDBACK_STATUS_TONE[s];
         return (
           <form key={s} action={updateTicketStatus.bind(null, ticketId, s)}>
-            <button
-              type="submit"
-              disabled={isCurrent}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                isCurrent
-                  ? `${tone.bg} ${tone.text} ring-1 ring-inset ring-tertiary-container/60 cursor-default`
-                  : `${tone.bg} ${tone.text} opacity-50 hover:opacity-100 hover:ring-1 hover:ring-inset hover:ring-outline-variant`
-              }`}
-            >
-              {FEEDBACK_STATUS_LABEL[s]}
-              {isCurrent && (
-                <span className={`ml-1.5 inline-block w-1.5 h-1.5 rounded-full ${tone.dot} align-middle`} />
-              )}
-            </button>
+            <StatusButton status={s} isCurrent={isCurrent} />
           </form>
         );
       })}

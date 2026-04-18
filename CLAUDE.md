@@ -11,6 +11,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > ⚠️ **Ducati Pivot（2026-04-14）**：本專案原為 Lexus 汽車經銷商 demo，已全面轉為 Ducati 重機。所有「車輛」改稱「機車」，所有車型改用 Ducati 車款（Panigale V4、Monster、Multistrada V4、Diavel V4、Streetfighter V4、Scrambler、Hypermotard、DesertX）。經銷商名稱為「Ducati Taipei / Official Dealer」。
 
+## UX 互動規範（MANDATORY）
+
+### 前端寫入後端資料庫時，必須做載入動畫 + 鎖住 UI
+
+**規則**：只要是會寫入資料庫或打 server action 的互動（建立單據、送出留言、切換狀態、上傳附件、儲存畫布、更新設定…等），前端都必須：
+
+1. **顯示讀取中動畫** — 按鈕內嵌 spinner、文字換成「儲存中⋯」/「建立中⋯」/「切換中⋯」等明確的進行式
+2. **鎖住 UI** — 該區塊 `disabled` + `pointer-events-none` + 半透明，避免使用者以為沒反應而重複點擊
+3. **請求完成後**依資料屬性或 DB 回應決定下一步：
+   - **成功** → 關閉 modal / 清空表單 / toast「✓ 已儲存」/ 樂觀更新的資料落地
+   - **失敗** → 顯示明確錯誤訊息（錯誤碼 + 人話），rollback 樂觀更新，維持表單內容讓使用者修正
+
+**為什麼**：server action / Supabase round-trip 在網路差或 Auth server 有延遲時會有 ~200-500ms「看不見的黑盒時間」，沒有 UI 回饋使用者會以為系統壞了、狂點按鈕 → 重複送出、資料亂掉、體感「頓」。
+
+**標準做法**：
+- Form + server action → `useFormStatus()` 取得 `pending`
+- 自訂 async 流程 → `useTransition()` 的 `isPending`
+- 樂觀更新 → 樂觀項目標 `pending: true` + 視覺半透明 + spinner
+- 禁止：純 `<form action={serverAction}>` 不加 pending UI
+
+**參考實作**：`src/components/feedback/ticket-form.tsx`、`src/components/feedback/comment-thread.tsx`、`src/components/feedback/status-actions.tsx`
+
 ## Dev Server
 
 ```bash

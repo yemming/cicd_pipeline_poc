@@ -2,7 +2,7 @@
  * POS v2 Types — 精簡版，對應 POS_SA_SD_Spec_v1.0.docx §3
  */
 
-export type ProductCategory = "精品" | "零件" | "耗材";
+export type ProductCategory = "新車" | "精品" | "零件" | "耗材" | "服務" | "代辦費用";
 
 export type Product = {
   id: string;
@@ -85,7 +85,11 @@ export type LedgerEntryType = "income" | "expense";
 
 export type LedgerCategory =
   | "POS 銷售"
+  | "新車銷售"
   | "中古車銷售"
+  | "維修服務"
+  | "美容服務"
+  | "代辦費用"
   | "水電"
   | "薪資"
   | "雜費"

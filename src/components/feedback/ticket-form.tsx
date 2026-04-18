@@ -1,4 +1,47 @@
+"use client";
+
+import { useFormStatus } from "react-dom";
 import { createTicket } from "@/lib/feedback-actions";
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex items-center gap-2 px-5 py-2 rounded text-[14px] font-semibold bg-[#0052CC] hover:bg-[#0747A6] active:bg-[#05389E] disabled:bg-[#0747A6]/70 disabled:cursor-wait text-white transition-colors"
+    >
+      {pending && (
+        <span
+          className="inline-block w-3.5 h-3.5 border-[2px] border-white/40 border-t-white rounded-full animate-spin"
+          aria-hidden
+        />
+      )}
+      {pending ? "建立中…" : "建立草稿"}
+    </button>
+  );
+}
+
+function CancelLink({ disabled }: { disabled?: boolean }) {
+  return (
+    <a
+      href="/feedback/tickets"
+      aria-disabled={disabled}
+      className={`px-4 py-2 rounded text-[14px] font-semibold transition-colors ${
+        disabled
+          ? "text-[#A5ADBA] pointer-events-none"
+          : "text-[#42526E] hover:bg-[#DFE1E6]"
+      }`}
+    >
+      取消
+    </a>
+  );
+}
+
+function CancelWrapper() {
+  const { pending } = useFormStatus();
+  return <CancelLink disabled={pending} />;
+}
 
 export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
   return (
@@ -55,18 +98,8 @@ export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
 
       {/* Action row — Jira style */}
       <div className="flex items-center gap-3 pt-4">
-        <button
-          type="submit"
-          className="px-5 py-2 rounded text-[14px] font-semibold bg-[#0052CC] hover:bg-[#0747A6] active:bg-[#05389E] text-white transition-colors"
-        >
-          建立草稿
-        </button>
-        <a
-          href="/feedback/tickets"
-          className="px-4 py-2 rounded text-[14px] font-semibold text-[#42526E] hover:bg-[#DFE1E6] transition-colors"
-        >
-          取消
-        </a>
+        <SubmitButton />
+        <CancelWrapper />
         <span className="text-[12px] text-[#6B778C] ml-1">
           建立後狀態為「草稿」；管理者檢視後再派工
         </span>

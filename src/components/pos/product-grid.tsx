@@ -6,12 +6,15 @@ import { formatTWD } from "@/lib/pos/format";
 import { useCart } from "./cart-context";
 
 type Filter = "全部" | ProductCategory;
-const FILTERS: Filter[] = ["全部", "精品", "零件", "耗材"];
+const FILTERS: Filter[] = ["全部", "新車", "精品", "零件", "耗材", "服務", "代辦費用"];
 
 const CAT_BADGE: Record<ProductCategory, string> = {
+  新車: "bg-rose-50 text-rose-700",
   精品: "bg-violet-50 text-violet-700",
   零件: "bg-sky-50 text-sky-700",
   耗材: "bg-amber-50 text-amber-700",
+  服務: "bg-teal-50 text-teal-700",
+  代辦費用: "bg-emerald-50 text-emerald-700",
 };
 
 export function ProductGrid({ products }: { products: Product[] }) {

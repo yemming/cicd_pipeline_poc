@@ -207,8 +207,12 @@ export async function addComment(ticketId: string, fd: FormData): Promise<void> 
     const uploaded: { file_name: string; mime_type: string; size_bytes: number; storage_path: string }[] = [];
 
     for (const f of files) {
-      const safeName = f.name.replace(/[^\w.\-()\u4e00-\u9fff]/g, "_");
-      const storagePath = `${ticketId}/${comment.id}/${Date.now()}-${safeName}`;
+      // Supabase Storage 的 key 驗證不認 CJK / 全形符號，
+      // 所以 storage_path 只用 ASCII token（原檔名另存在 file_name 欄位）
+      const extMatch = f.name.match(/\.[A-Za-z0-9]{1,10}$/);
+      const ext = extMatch ? extMatch[0].toLowerCase() : "";
+      const token = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const storagePath = `${ticketId}/${comment.id}/${token}${ext}`;
       const { error: upErr } = await supabase
         .storage
         .from(FEEDBACK_ATTACHMENT_BUCKET)

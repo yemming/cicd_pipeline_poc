@@ -95,7 +95,6 @@ export const modules: ModuleDef[] = [
     permission: "pos.access",
     pages: [
       { name: "快速收銀",       icon: "shopping_cart_checkout", href: "/pos" },
-      { name: "中古車銷售",     icon: "two_wheeler",            href: "/pos/usedcar-sale" },
       { name: "商品與庫存",     icon: "inventory_2",            href: "/pos/products" },
       { name: "帳務（日記帳）", icon: "menu_book",              href: "/pos/ledger" },
       { name: "POS 設定",       icon: "settings",               href: "/pos/settings" },
@@ -175,6 +174,7 @@ export const modules: ModuleDef[] = [
       { name: "置換評估",     icon: "assessment",      href: "/usedcar/evaluation",        sprint: "S5-1", stitchScreenId: "e8c1015b71784626ac9797caaf57f457", device: "tablet" },
       { name: "中古車庫存",   icon: "inventory",       href: "/usedcar/stock",             sprint: "S5-2", stitchScreenId: "6f6ddad5a36144daa42a772607663054" },
       { name: "拍賣管理",     icon: "gavel",           href: "/usedcar/auction",           sprint: "S5-3", stitchScreenId: "cc722dbd9b5c4af29b5fe7e516db70fd" },
+      { name: "中古車銷售",   icon: "two_wheeler",     href: "/usedcar/sale" },
     ],
   },
 

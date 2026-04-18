@@ -16,6 +16,7 @@ export type CommentItem = {
   author_name: string | null;
   badge?: string;
   attachments?: FeedbackAttachment[];
+  pending?: boolean;
 };
 
 function getInitials(name: string | null | undefined): string {
@@ -152,7 +153,7 @@ export function CommentThread({
   const [files, setFiles] = useState<File[]>([]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function addFiles(picked: FileList | null) {
@@ -180,6 +181,7 @@ export function CommentThread({
   }
 
   function submit() {
+    if (isPending) return;
     const trimmed = text.trim();
     if (!trimmed && files.length === 0) return;
     setError(null);
@@ -192,6 +194,7 @@ export function CommentThread({
       author_name: "我",
       // 上傳中不顯示預覽；儲存成功後會被 revalidate 刷新帶回
       attachments: [],
+      pending: true,
     };
 
     const fd = new FormData();
@@ -203,8 +206,8 @@ export function CommentThread({
     const prevFiles = files;
     setText("");
     setFiles([]);
-    setFocused(false);
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    // 表單保持展開但整體 disabled，防止 pending 期間重複輸入/送出
+    setTimeout(() => topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
 
     startTransition(async () => {
       try {
@@ -229,12 +232,17 @@ export function CommentThread({
         )}
       </div>
 
-      {/* Comment list */}
-      <div className="space-y-0">
+      {/* Comment list — newest first */}
+      <div ref={topRef} className="space-y-0">
         {comments.length === 0 && !focused ? null : (
           <div className="divide-y divide-[#F4F5F7]">
-            {comments.map((c) => (
-              <div key={c.id} className="py-4 flex gap-3 group">
+            {[...comments].reverse().map((c) => (
+              <div
+                key={c.id}
+                className={`py-4 flex gap-3 group transition-opacity ${
+                  c.pending ? "opacity-60" : ""
+                }`}
+              >
                 <Avatar name={c.author_name} badge={c.badge} />
                 <div className="flex-1 min-w-0">
                   {/* Meta row */}
@@ -248,8 +256,14 @@ export function CommentThread({
                       </span>
                     )}
                     <span className="text-[12px] text-[#6B778C]">
-                      {formatTime(c.created_at)}
+                      {c.pending ? "傳送中…" : formatTime(c.created_at)}
                     </span>
+                    {c.pending && (
+                      <span
+                        className="inline-block w-3 h-3 border-[2px] border-[#0052CC]/30 border-t-[#0052CC] rounded-full animate-spin"
+                        aria-hidden
+                      />
+                    )}
                   </div>
                   {/* Body */}
                   {c.body && c.body !== "(附件)" && (
@@ -274,8 +288,18 @@ export function CommentThread({
             ))}
           </div>
         )}
-        <div ref={bottomRef} />
       </div>
+
+      {/* Divider between thread and new-comment form */}
+      {comments.length > 0 && (
+        <div className="mt-6 mb-4 flex items-center gap-3">
+          <div className="flex-1 h-px bg-[#DFE1E6]" />
+          <span className="text-[11px] font-semibold text-[#6B778C] uppercase tracking-wider">
+            新增留言
+          </span>
+          <div className="flex-1 h-px bg-[#DFE1E6]" />
+        </div>
+      )}
 
       {/* Add comment — Confluence style inline editor */}
       <div className="mt-4 flex gap-3">
@@ -287,18 +311,30 @@ export function CommentThread({
             <p className="text-[12px] text-[#BF2600] bg-[#FFEBE6] rounded px-3 py-2 mb-2">{error}</p>
           )}
           <div
-            className={`border rounded transition-colors ${
+            aria-busy={isPending}
+            className={`relative border rounded transition-colors ${
               focused ? "border-[#4C9AFF] shadow-[0_0_0_2px_#4C9AFF22]" : "border-[#DFE1E6]"
-            }`}
+            } ${isPending ? "opacity-70 pointer-events-none" : ""}`}
             onDragOver={(e) => {
+              if (isPending) return;
               e.preventDefault();
               setFocused(true);
             }}
             onDrop={(e) => {
+              if (isPending) return;
               e.preventDefault();
               addFiles(e.dataTransfer.files);
             }}
           >
+            {isPending && (
+              <div className="absolute top-2 right-2 z-10 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#0052CC] bg-[#DEEBFF] border border-[#B3D4FF] rounded px-2 py-1 pointer-events-auto">
+                <span
+                  className="inline-block w-3 h-3 border-[2px] border-[#0052CC]/30 border-t-[#0052CC] rounded-full animate-spin"
+                  aria-hidden
+                />
+                儲存中…
+              </div>
+            )}
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -371,8 +407,14 @@ export function CommentThread({
                   <button
                     onClick={submit}
                     disabled={(!text.trim() && files.length === 0) || isPending}
-                    className="text-[12px] font-semibold px-3 py-1.5 rounded bg-[#0052CC] hover:bg-[#0747A6] disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
+                    className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded bg-[#0052CC] hover:bg-[#0747A6] disabled:bg-[#0747A6]/70 disabled:cursor-wait text-white transition-colors"
                   >
+                    {isPending && (
+                      <span
+                        className="inline-block w-3 h-3 border-[2px] border-white/40 border-t-white rounded-full animate-spin"
+                        aria-hidden
+                      />
+                    )}
                     {isPending ? "傳送中…" : "儲存"}
                   </button>
                 </div>
