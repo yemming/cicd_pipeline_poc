@@ -89,6 +89,19 @@
 .pages-panel-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
 .pages-panel-nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
 
+/* ===== Excalidraw canvas-panel layout overrides ===== */
+/* 窄寬度時 Excalidraw 會把 menu 丟到 footer-left（左下），這裡把它拉回左上角對齊原廠 */
+.canvas-panel-root .layer-ui__wrapper__footer-left {
+  position: absolute !important;
+  top: 0.5rem !important;
+  left: 0.5rem !important;
+  bottom: auto !important;
+}
+/* 隱藏「To move canvas, hold Scroll wheel…」等 hint（和我們右下角按鈕會打架） */
+.canvas-panel-root .HintViewer {
+  display: none !important;
+}
+
 /* ===== Base Styles ===== */
 
 html {

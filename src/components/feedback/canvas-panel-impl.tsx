@@ -106,22 +106,23 @@ export default function CanvasPanelImpl({
   }[saveStatus];
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-white">
-      {/* Toolbar overlay — top-right corner */}
-      <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
-        {/* Save indicator */}
-        <div className={`flex items-center gap-1 text-[11px] font-medium px-2 py-1 bg-white/90 rounded shadow-sm border border-[#DFE1E6] ${saveCfg.cls}`}>
-          <span className="material-symbols-outlined text-[13px]">{saveCfg.icon}</span>
-          {saveCfg.label}
+    <div className="relative w-full h-full flex flex-col bg-white canvas-panel-root">
+      {/* Toolbar overlay — top-right corner, icon-only */}
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+        {/* Save indicator — icon only */}
+        <div
+          className={`flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-sm border border-[#DFE1E6] ${saveCfg.cls}`}
+          title={saveCfg.label}
+        >
+          <span className="material-symbols-outlined text-[16px]">{saveCfg.icon}</span>
         </div>
-        {/* Fullscreen button */}
+        {/* Fullscreen button — icon only */}
         <Link
           href={`/feedback/tickets/${ticketId}/canvas`}
-          className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 bg-[#1A1A2E] hover:bg-[#2d2d4e] text-[#C9A84C] rounded shadow-sm transition-colors"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 hover:bg-white text-[#42526E] hover:text-[#1A1A2E] shadow-sm border border-[#DFE1E6] transition-colors"
           title="全螢幕展開"
         >
-          <span className="material-symbols-outlined text-[14px]">open_in_full</span>
-          全螢幕
+          <span className="material-symbols-outlined text-[16px]">open_in_full</span>
         </Link>
       </div>
 
