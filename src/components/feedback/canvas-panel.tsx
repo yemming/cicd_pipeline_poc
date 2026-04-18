@@ -6,7 +6,7 @@ const CanvasPanelImpl = dynamic(() => import("./canvas-panel-impl"), {
   ssr: false,
   loading: () => (
     <div className="flex-1 flex items-center justify-center text-[#6B778C] text-sm bg-[#F4F5F7]">
-      <span className="material-symbols-outlined animate-spin mr-2 text-[#C9A84C]">
+      <span className="material-symbols-outlined animate-spin mr-2 text-[#0052CC]">
         progress_activity
       </span>
       載入畫布…

@@ -102,6 +102,20 @@
   display: none !important;
 }
 
+/* ===== Feedback Canvas — 隱藏 Library（資料庫）功能 =====
+   使用者不需要 Library 功能，只想畫圖，所以把 sidebar trigger + 已打開的 default sidebar 藏掉。
+   涵蓋嵌入版（.canvas-panel-root）與全螢幕版（.canvas-editor-root）。 */
+.canvas-panel-root .sidebar-trigger,
+.canvas-panel-root .default-sidebar,
+.canvas-panel-root [data-testid="toolbar-library"],
+.canvas-panel-root .App-toolbar__library-button,
+.canvas-editor-root .sidebar-trigger,
+.canvas-editor-root .default-sidebar,
+.canvas-editor-root [data-testid="toolbar-library"],
+.canvas-editor-root .App-toolbar__library-button {
+  display: none !important;
+}
+
 /* ===== Base Styles ===== */
 
 html {

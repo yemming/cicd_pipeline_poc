@@ -57,7 +57,7 @@ export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
       <div className="flex items-center gap-3 pt-4">
         <button
           type="submit"
-          className="px-5 py-2 rounded text-[14px] font-semibold bg-[#CC0000] hover:bg-[#AA0000] active:bg-[#880000] text-white transition-colors"
+          className="px-5 py-2 rounded text-[14px] font-semibold bg-[#0052CC] hover:bg-[#0747A6] active:bg-[#05389E] text-white transition-colors"
         >
           建立草稿
         </button>

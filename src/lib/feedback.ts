@@ -41,7 +41,24 @@ export type FeedbackTicket = {
   assignee_id: string | null;
   created_at: string;
   updated_at: string;
+  archived_at: string | null;
 };
+
+export type FeedbackAttachment = {
+  id: string;
+  comment_id: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  storage_path: string;
+  created_at: string;
+  /** Signed URL 於 server component 產生後帶給 client */
+  signed_url?: string | null;
+};
+
+export const FEEDBACK_ATTACHMENT_BUCKET = "feedback-attachments";
+export const FEEDBACK_ATTACHMENT_MAX_SIZE = 20 * 1024 * 1024; // 20MB per file
+export const FEEDBACK_ATTACHMENT_MAX_COUNT = 5;
 
 export type FeedbackCanvasSnapshot = {
   ticket_id: string;

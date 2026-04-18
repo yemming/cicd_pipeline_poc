@@ -1,7 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { addComment } from "@/lib/feedback-actions";
+import {
+  FEEDBACK_ATTACHMENT_MAX_COUNT,
+  FEEDBACK_ATTACHMENT_MAX_SIZE,
+  type FeedbackAttachment,
+} from "@/lib/feedback";
 
 export type CommentItem = {
   id: string;
@@ -9,7 +14,8 @@ export type CommentItem = {
   created_at: string;
   author_id: string | null;
   author_name: string | null;
-  badge?: string; // e.g. "Support" for admin
+  badge?: string;
+  attachments?: FeedbackAttachment[];
 };
 
 function getInitials(name: string | null | undefined): string {
@@ -32,6 +38,17 @@ function formatTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatBytes(n: number | null | undefined): string {
+  if (!n) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function isImage(mime: string | null | undefined): boolean {
+  return !!mime && mime.startsWith("image/");
 }
 
 function Avatar({ name, badge }: { name: string | null; badge?: string }) {
@@ -61,13 +78,58 @@ function LikeButton() {
       }}
       className={`inline-flex items-center gap-1 text-[12px] rounded px-2 py-1 transition-colors ${
         liked
-          ? "text-[#CC0000] bg-[#FFEBE6]"
+          ? "text-[#0052CC] bg-[#DEEBFF]"
           : "text-[#6B778C] hover:text-[#172B4D] hover:bg-[#F4F5F7]"
       }`}
     >
       <span className="material-symbols-outlined text-[14px]">thumb_up</span>
       {count > 0 ? count : "讚"}
     </button>
+  );
+}
+
+function AttachmentList({ attachments }: { attachments: FeedbackAttachment[] }) {
+  if (!attachments || attachments.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {attachments.map((a) => {
+        const url = a.signed_url ?? undefined;
+        if (isImage(a.mime_type) && url) {
+          return (
+            <a
+              key={a.id}
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="block group/att"
+              title={`${a.file_name} · ${formatBytes(a.size_bytes)}`}
+            >
+              <img
+                src={url}
+                alt={a.file_name}
+                className="max-w-[200px] max-h-[160px] rounded border border-[#DFE1E6] object-cover group-hover/att:ring-2 group-hover/att:ring-[#4C9AFF]"
+              />
+            </a>
+          );
+        }
+        return (
+          <a
+            key={a.id}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded border border-[#DFE1E6] bg-[#F4F5F7] hover:bg-white transition-colors max-w-[320px]"
+            title={a.file_name}
+          >
+            <span className="material-symbols-outlined text-[16px] text-[#6B778C]">attach_file</span>
+            <span className="text-[12px] text-[#172B4D] truncate">{a.file_name}</span>
+            {a.size_bytes != null && (
+              <span className="text-[10px] text-[#6B778C] shrink-0">{formatBytes(a.size_bytes)}</span>
+            )}
+          </a>
+        );
+      })}
+    </div>
   );
 }
 
@@ -79,37 +141,79 @@ export function CommentThread({
   initial: CommentItem[];
 }) {
   const [comments, setComments] = useState(initial);
+  // server action 跑完後 revalidatePath 會讓 page re-render 並傳新的 initial 進來，
+  // 在非 pending 時才同步，避免 optimistic update 被提早覆蓋。
+  useEffect(() => {
+    setComments(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial]);
   const [text, setText] = useState("");
   const [focused, setFocused] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function addFiles(picked: FileList | null) {
+    if (!picked) return;
+    const incoming = Array.from(picked);
+    setError(null);
+    setFiles((prev) => {
+      const combined = [...prev, ...incoming];
+      if (combined.length > FEEDBACK_ATTACHMENT_MAX_COUNT) {
+        setError(`附件最多 ${FEEDBACK_ATTACHMENT_MAX_COUNT} 個`);
+        return combined.slice(0, FEEDBACK_ATTACHMENT_MAX_COUNT);
+      }
+      const oversize = combined.find((f) => f.size > FEEDBACK_ATTACHMENT_MAX_SIZE);
+      if (oversize) {
+        setError(`「${oversize.name}」超過 ${FEEDBACK_ATTACHMENT_MAX_SIZE / 1024 / 1024}MB 上限`);
+      }
+      return combined;
+    });
+    setFocused(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeFile(idx: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   function submit() {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed && files.length === 0) return;
     setError(null);
-    setFocused(false);
 
     const optimistic: CommentItem = {
       id: `opt-${Date.now()}`,
-      body: trimmed,
+      body: trimmed || "(附件)",
       created_at: new Date().toISOString(),
       author_id: null,
       author_name: "我",
+      // 上傳中不顯示預覽；儲存成功後會被 revalidate 刷新帶回
+      attachments: [],
     };
 
+    const fd = new FormData();
+    fd.set("body", trimmed);
+    for (const f of files) fd.append("files", f);
+
     setComments((prev) => [...prev, optimistic]);
+    const prevText = text;
+    const prevFiles = files;
     setText("");
+    setFiles([]);
+    setFocused(false);
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
     startTransition(async () => {
       try {
-        await addComment(ticketId, trimmed);
+        await addComment(ticketId, fd);
       } catch (e) {
         setError(e instanceof Error ? e.message : "留言失敗");
         setComments((prev) => prev.filter((c) => c.id !== optimistic.id));
-        setText(trimmed);
+        setText(prevText);
+        setFiles(prevFiles);
         setFocused(true);
       }
     });
@@ -148,9 +252,15 @@ export function CommentThread({
                     </span>
                   </div>
                   {/* Body */}
-                  <div className="text-[14px] text-[#172B4D] leading-relaxed whitespace-pre-wrap">
-                    {c.body}
-                  </div>
+                  {c.body && c.body !== "(附件)" && (
+                    <div className="text-[14px] text-[#172B4D] leading-relaxed whitespace-pre-wrap">
+                      {c.body}
+                    </div>
+                  )}
+                  {/* Attachments */}
+                  {c.attachments && c.attachments.length > 0 && (
+                    <AttachmentList attachments={c.attachments} />
+                  )}
                   {/* Actions — show on hover */}
                   <div className="mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <LikeButton />
@@ -180,6 +290,14 @@ export function CommentThread({
             className={`border rounded transition-colors ${
               focused ? "border-[#4C9AFF] shadow-[0_0_0_2px_#4C9AFF22]" : "border-[#DFE1E6]"
             }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setFocused(true);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              addFiles(e.dataTransfer.files);
+            }}
           >
             <textarea
               value={text}
@@ -187,27 +305,73 @@ export function CommentThread({
               onFocus={() => setFocused(true)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
-                if (e.key === "Escape") { setFocused(false); setText(""); }
+                if (e.key === "Escape") { setFocused(false); setText(""); setFiles([]); }
               }}
-              placeholder="新增留言…"
+              placeholder="新增留言…（可拖曳檔案或附上文件）"
               rows={focused ? 4 : 2}
               className="w-full text-[14px] text-[#172B4D] px-3 py-2.5 resize-none focus:outline-none bg-transparent placeholder:text-[#6B778C]/60 transition-all"
               disabled={isPending}
             />
+
+            {/* Selected files preview */}
+            {files.length > 0 && (
+              <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+                {files.map((f, i) => (
+                  <span
+                    key={`${f.name}-${i}`}
+                    className="inline-flex items-center gap-1 text-[11px] text-[#172B4D] bg-[#F4F5F7] border border-[#DFE1E6] rounded px-2 py-1"
+                  >
+                    <span className="material-symbols-outlined text-[13px] text-[#6B778C]">
+                      {f.type.startsWith("image/") ? "image" : "attach_file"}
+                    </span>
+                    <span className="max-w-[180px] truncate">{f.name}</span>
+                    <span className="text-[10px] text-[#6B778C]">{formatBytes(f.size)}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="ml-0.5 text-[#6B778C] hover:text-[#BF2600]"
+                      title="移除"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">close</span>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
             {focused && (
-              <div className="flex items-center justify-between px-3 py-2 border-t border-[#DFE1E6] bg-[#F4F5F7] rounded-b">
-                <span className="text-[11px] text-[#6B778C]">⌘Enter 送出 · Esc 取消</span>
+              <div className="flex items-center justify-between px-3 py-2 border-t border-[#DFE1E6] bg-[#F4F5F7] rounded-b gap-2">
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => { setFocused(false); setText(""); }}
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isPending || files.length >= FEEDBACK_ATTACHMENT_MAX_COUNT}
+                    className="inline-flex items-center gap-1 text-[12px] text-[#6B778C] hover:text-[#172B4D] hover:bg-[#DFE1E6] rounded px-2 py-1 transition-colors disabled:opacity-40"
+                    title="附加檔案"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">attach_file</span>
+                    附件
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => addFiles(e.target.files)}
+                  />
+                  <span className="text-[11px] text-[#6B778C]">⌘Enter 送出 · Esc 取消</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { setFocused(false); setText(""); setFiles([]); }}
                     className="text-[12px] font-semibold text-[#6B778C] hover:text-[#172B4D] px-3 py-1.5 rounded hover:bg-[#DFE1E6] transition-colors"
                   >
                     取消
                   </button>
                   <button
                     onClick={submit}
-                    disabled={!text.trim() || isPending}
-                    className="text-[12px] font-semibold px-3 py-1.5 rounded bg-[#CC0000] hover:bg-[#AA0000] disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
+                    disabled={(!text.trim() && files.length === 0) || isPending}
+                    className="text-[12px] font-semibold px-3 py-1.5 rounded bg-[#0052CC] hover:bg-[#0747A6] disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
                   >
                     {isPending ? "傳送中…" : "儲存"}
                   </button>
