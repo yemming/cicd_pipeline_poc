@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -57,17 +58,17 @@ export default function LoginPage() {
           <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
             <div className="w-full h-full bg-gradient-to-br from-primary-container/20 to-transparent" />
           </div>
-          <div className="relative z-10">
+          <Link href="/" className="relative z-10 block group w-fit">
             <div className="flex items-center gap-4 mb-4">
-              <h1 className="font-display font-extrabold text-4xl tracking-tighter text-white">
+              <h1 className="font-display font-extrabold text-4xl tracking-tighter text-white group-hover:opacity-80 transition-opacity">
                 DealerOS
               </h1>
             </div>
             <div className="w-12 gold-border mb-8" />
-            <p className="font-display text-xl text-primary-fixed-dim tracking-[0.15em] font-light leading-relaxed">
+            <p className="font-display text-xl text-primary-fixed-dim tracking-[0.15em] font-light leading-relaxed group-hover:opacity-80 transition-opacity">
               現場商務智慧營運平台
             </p>
-          </div>
+          </Link>
           <div className="relative z-10 space-y-10 max-w-sm">
             <div className="flex gap-5 items-start">
               <div className="bg-white/5 p-3 rounded-xl backdrop-blur-sm border border-white/10 shrink-0">
