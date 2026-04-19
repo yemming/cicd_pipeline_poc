@@ -1,8 +1,9 @@
 import { after } from "next/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { notifications, requireNotificationAdmin } from "@/lib/notifications";
+import { notifications } from "@/lib/notifications";
 import type { EventCode } from "@/lib/notifications";
+import { ensureAdmin } from "@/lib/notifications/http";
 
 // POST /api/admin/notifications/test-send
 //
@@ -35,25 +36,8 @@ const dispatchSchema = z.object({
 const bodySchema = z.union([directSchema, dispatchSchema]);
 
 export async function POST(req: NextRequest) {
-  // Phase 3 驗收：dev 環境允許以 Bearer token 繞過 admin cookie check
-  // （等 Phase 5 後台 UI 做好，這段就刪）
-  const bypassToken = process.env.NOTIFICATION_DEV_BYPASS_TOKEN;
-  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  const isBypass =
-    process.env.NODE_ENV !== "production" &&
-    bypassToken &&
-    bearer &&
-    bearer === bypassToken;
-
-  if (!isBypass) {
-    try {
-      await requireNotificationAdmin();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      const status = msg.includes("未登入") ? 401 : 403;
-      return NextResponse.json({ error: { code: "UNAUTHORIZED", message: msg } }, { status });
-    }
-  }
+  const guard = await ensureAdmin(req);
+  if (guard) return guard;
 
   let raw: unknown;
   try {
