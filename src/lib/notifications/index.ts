@@ -41,5 +41,19 @@ export {
 
 export type { NotificationUserContext } from "./admin";
 
+export { LineChannel, GoogleChatChannel, getChannel, listChannels } from "./channels";
+export { BaseChannel, withRetry } from "./channels";
+
+export {
+  getTemplate,
+  getCodeTemplate,
+  listCodeTemplates,
+  renderDbTemplate,
+  DUCATI_RED,
+  TONE_WARNING,
+  TONE_SUCCESS,
+  TONE_INFO,
+} from "./templates";
+
 // Phase 3 會 export:
 // export { notifications, NotificationService } from "./service";
