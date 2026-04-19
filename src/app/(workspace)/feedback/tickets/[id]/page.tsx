@@ -128,11 +128,14 @@ export default async function TicketDetailPage({
                 </dt>
                 <dd className="text-[13px] font-mono text-[#172B4D] break-all">
                   {ticket.url ? (
-                    ticket.url.startsWith("http") ? (
-                      <a href={ticket.url} target="_blank" rel="noreferrer" className="text-[#0052CC] hover:underline">
-                        {ticket.url}
-                      </a>
-                    ) : ticket.url
+                    <a
+                      href={ticket.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#0052CC] hover:underline"
+                    >
+                      {ticket.url}
+                    </a>
                   ) : (
                     <span className="text-[#6B778C] italic font-sans">未提供</span>
                   )}

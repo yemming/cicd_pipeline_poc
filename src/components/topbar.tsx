@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { usePageHeader } from "./page-header-context";
 import { useSidebar } from "./sidebar-context";
 import { useProfile, getInitials } from "@/lib/use-profile";
@@ -14,6 +14,7 @@ interface TopbarProps {
 export function Topbar({ onOpenSearch }: TopbarProps) {
   const { hideSearch } = usePageHeader();
   const { collapsed, fullHidden } = useSidebar();
+  const router = useRouter();
   const profile = useProfile();
   const activeModule = useActiveModule();
   const pathname = usePathname();
@@ -66,13 +67,17 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
 
       {/* Right: Actions */}
       <div className="shrink-0 flex items-center justify-end gap-1 md:gap-3 pl-2">
-        <Link
-          href={`/feedback/tickets/new?url=${encodeURIComponent(pathname ?? "")}`}
+        <button
+          onClick={() =>
+            router.push(
+              `/feedback/tickets/new?url=${encodeURIComponent(window.location.href)}`
+            )
+          }
           className="p-2 text-violet-600 hover:bg-violet-50 rounded-full transition-all flex items-center gap-1"
           title="回報問題 / 開許願單"
         >
           <span className="material-symbols-outlined">feedback</span>
-        </Link>
+        </button>
         <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-all relative">
           <span className="material-symbols-outlined">notifications</span>
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
