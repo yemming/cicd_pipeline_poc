@@ -1,8 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import "./landing.css";
+
+const HERO_VARIANTS = [
+  <>
+    把頂尖業務的<br/>
+    <span className="accent">方法論</span>，寫進<span className="outline">流程</span>裡。
+  </>,
+  <>
+    像頂尖業務一樣<br/>
+    <span className="outline">思考</span> <span className="slash">/</span> <span className="accent">成交</span> <span className="slash">/</span> <span className="outline">交付</span>
+  </>,
+  <>
+    展場裡<br/>
+    每一個 <span className="accent">成交瞬間</span>，<br/>都有跡可循。
+  </>,
+];
 
 const PROCESS_STEPS = [
   {
@@ -40,6 +55,14 @@ const PROCESS_STEPS = [
 export default function LandingPage() {
   const [openStep, setOpenStep] = useState(0);
   const [activeTab, setActiveTab] = useState(0);
+  const [heroIndex, setHeroIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % HERO_VARIANTS.length);
+    }, 5500);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="ld-root">
@@ -77,9 +100,8 @@ export default function LandingPage() {
             <span className="live">◉ LIVE</span>
           </div>
 
-          <h1 className="hero-title">
-            把頂尖業務的<br/>
-            <span className="accent">方法論</span>，寫進<span className="outline">流程</span>裡。
+          <h1 key={heroIndex} className="hero-title hero-title-anim">
+            {HERO_VARIANTS[heroIndex]}
           </h1>
 
           <p className="hero-sub">
