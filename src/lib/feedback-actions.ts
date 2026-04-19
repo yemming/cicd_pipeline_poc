@@ -192,10 +192,11 @@ export async function addComment(ticketId: string, fd: FormData): Promise<void> 
   const supabase = await createClient();
 
   // 1. 建 comment（body 可空時寫 "(附件)" 當 placeholder 以滿足 DB check）
+  const parentId = s(fd, "parent_id") || null;
   const bodyToSave = body || "(附件)";
   const { data: comment, error: insertErr } = await supabase
     .from("feedback_comments")
-    .insert({ ticket_id: ticketId, author_id: userId, body: bodyToSave })
+    .insert({ ticket_id: ticketId, author_id: userId, body: bodyToSave, parent_id: parentId })
     .select("id")
     .single();
   if (insertErr || !comment) {

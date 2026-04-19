@@ -6,7 +6,7 @@ export default function ClosingPage() {
   useSetPageHeader({
     breadcrumb: [
       { label: "銷售管理", href: "/sales/showroom" },
-      { label: "手卡・試駕成交" },
+      { label: "手卡・第三階段" },
     ],
   });
 

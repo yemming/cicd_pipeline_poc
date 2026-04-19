@@ -6,11 +6,11 @@ export default async function Page() {
   return (
     <StitchInline
       html={html}
-      title="手卡・顧問填寫"
+      title="手卡・第二階段"
       sprint="S2-3"
       device="ipad"
       screenId="a31b7bafb5b04dde83409277678754ab"
-      breadcrumb={[{ label: "銷售管理", href: "/sales/showroom" }, { label: "手卡・顧問填寫" }]}
+      breadcrumb={[{ label: "銷售管理", href: "/sales/showroom" }, { label: "手卡・第二階段" }]}
     />
   );
 }

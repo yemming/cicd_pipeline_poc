@@ -30,7 +30,7 @@ export default async function TicketDetailPage({
     getCurrentUserAndAdmin(),
     supabase
       .from("feedback_comments")
-      .select("id, body, created_at, author_id")
+      .select("id, body, created_at, author_id, parent_id")
       .eq("ticket_id", id)
       .order("created_at", { ascending: true }),
   ]);
@@ -85,6 +85,7 @@ export default async function TicketDetailPage({
     author_id: c.author_id,
     author_name: c.author_id ? (profileMap[c.author_id] ?? null) : null,
     attachments: attachmentsByComment[c.id] ?? [],
+    parent_id: c.parent_id ?? null,
   }));
 
   return (
