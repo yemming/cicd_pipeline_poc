@@ -55,5 +55,8 @@ export {
   TONE_INFO,
 } from "./templates";
 
-// Phase 3 會 export:
-// export { notifications, NotificationService } from "./service";
+export { notifications, NotificationService } from "./service";
+export type { DispatchResult } from "./service";
+
+export { resolveRecipients, sendToRecipient } from "./dispatch";
+export type { ResolvedRecipient } from "./dispatch";
