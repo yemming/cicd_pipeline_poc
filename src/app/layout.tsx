@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Manrope } from "next/font/google";
+import { Inter, Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { HideNextDevTools } from "@/components/hide-next-devtools";
 
@@ -12,6 +12,13 @@ const inter = Inter({
 const manrope = Manrope({
   subsets: ["latin"],
   variable: "--font-manrope",
+  display: "swap",
+  preload: false,
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
   display: "swap",
   preload: false,
 });
@@ -32,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-Hant" className={`${inter.variable} ${manrope.variable}`}>
+    <html lang="zh-Hant" className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
       <head>
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link href={materialSymbolsHref} rel="stylesheet" />
