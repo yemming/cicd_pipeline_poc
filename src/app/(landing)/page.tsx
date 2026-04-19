@@ -7,7 +7,7 @@ import "./landing.css";
 const HERO_VARIANTS = [
   <>
     把頂尖業務的<br/>
-    <span className="accent">方法論</span>，寫進<span className="outline">流程</span>裡。
+    <span className="accent">方法論</span> 寫進<span className="outline">流程</span>裡
   </>,
   <>
     像頂尖業務一樣<br/>
