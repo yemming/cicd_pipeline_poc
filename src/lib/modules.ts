@@ -160,21 +160,31 @@ export const modules: ModuleDef[] = [
   },
 
   // ────────────────────────────────────────────────────────
-  // 5. 中古交易 (S5 全部)
+  // 5. 中古交易 (S5 全部 + 銷售管理子模組)
   // ────────────────────────────────────────────────────────
   {
     key: "usedcar",
     name: "中古交易",
     icon: "two_wheeler",
     accent: "#F43F5E",
-    description: "置換・庫存・拍賣",
-    home: "/usedcar/evaluation",
+    description: "置換・庫存・拍賣・銷售管理",
+    home: "/usedcar/sales-dashboard",
     permission: "usedcar.access",
     pages: [
-      { name: "置換評估",     icon: "assessment",      href: "/usedcar/evaluation",        sprint: "S5-1", stitchScreenId: "e8c1015b71784626ac9797caaf57f457", device: "tablet" },
-      { name: "中古車庫存",   icon: "inventory",       href: "/usedcar/stock",             sprint: "S5-2", stitchScreenId: "6f6ddad5a36144daa42a772607663054" },
-      { name: "拍賣管理",     icon: "gavel",           href: "/usedcar/auction",           sprint: "S5-3", stitchScreenId: "cc722dbd9b5c4af29b5fe7e516db70fd" },
-      { name: "中古車銷售",   icon: "two_wheeler",     href: "/usedcar/sale" },
+      // 車輛管理
+      { name: "置換評估",       icon: "assessment",        href: "/usedcar/evaluation",       sprint: "S5-1", stitchScreenId: "e8c1015b71784626ac9797caaf57f457", device: "tablet", section: "車輛管理" },
+      { name: "中古車庫存",     icon: "inventory",         href: "/usedcar/stock",            sprint: "S5-2", stitchScreenId: "6f6ddad5a36144daa42a772607663054", section: "車輛管理" },
+      { name: "拍賣管理",       icon: "gavel",             href: "/usedcar/auction",          sprint: "S5-3", stitchScreenId: "cc722dbd9b5c4af29b5fe7e516db70fd", section: "車輛管理" },
+      // 銷售管理（中古車專屬銷售流程）
+      { name: "中古銷售看板",   icon: "dashboard",         href: "/usedcar/sales-dashboard",  section: "銷售管理" },
+      { name: "潛客跟進表",     icon: "person_search",     href: "/usedcar/prospects",        section: "銷售管理" },
+      { name: "新增潛客",       icon: "person_add",        href: "/usedcar/prospects/new",    section: "銷售管理" },
+      { name: "線索分析",       icon: "bar_chart",         href: "/usedcar/lead-analysis",    section: "銷售管理" },
+      { name: "跟進分析",       icon: "track_changes",     href: "/usedcar/followup-analysis",section: "銷售管理" },
+      // 業務報表
+      { name: "業務數據表",     icon: "table_chart",       href: "/usedcar/ops-data",         section: "業務報表" },
+      { name: "財務報表",       icon: "receipt_long",      href: "/usedcar/finance-report",   section: "業務報表" },
+      { name: "開口率管理",     icon: "swap_horiz",        href: "/usedcar/open-rate",        section: "業務報表" },
     ],
   },
 
