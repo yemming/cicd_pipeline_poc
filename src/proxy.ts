@@ -26,7 +26,7 @@ export async function proxy(request: NextRequest) {
   )
 
   // 公開路由不需要驗證
-  const publicPaths = ['/login', '/onboarding', '/api/auth', '/api/holidays', '/api/weather', '/stitch']
+  const publicPaths = ['/login', '/onboarding', '/api/auth', '/api/holidays', '/api/weather', '/api/line', '/stitch']
   const isPublic =
     request.nextUrl.pathname === '/' ||
     publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
