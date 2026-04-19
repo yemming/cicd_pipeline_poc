@@ -32,7 +32,7 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
     >
       {/* Left: DealerOS logo → back to launcher */}
       <div className="w-36 md:w-48 shrink-0 flex items-center min-w-0">
-        <Link href="/" className="block group text-center leading-tight">
+        <Link href="/dashboard" className="block group text-center leading-tight">
           <div className="text-sm font-bold text-[#1A1A2E] tracking-widest font-display group-hover:text-[#1A1A2E]/70 transition-colors">
             DealerOS
           </div>

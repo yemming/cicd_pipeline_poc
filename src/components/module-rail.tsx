@@ -185,7 +185,7 @@ export function ModuleRail() {
   const pathname  = usePathname();
   const { toggle, fullHidden, setFullHidden } = useSidebar();
   const rawSegment = pathname.split("/")[1] || null;
-  const onLauncher = !rawSegment;
+  const onLauncher = !rawSegment || rawSegment === "dashboard";
 
   // resolveModuleFromPathname handles URL-segment overrides (e.g. /feedback → settings)
   const activeModule = resolveModuleFromPathname(pathname);
@@ -202,7 +202,7 @@ export function ModuleRail() {
     {
       title: isDevicePage ? "隱藏導航列" : "主地圖",
       icon: <MatIcon name="apps" />,
-      href: isDevicePage ? undefined : "/",
+      href: isDevicePage ? undefined : "/dashboard",
       onClick: isDevicePage ? () => setFullHidden(true) : undefined,
       active: onLauncher,
     },
