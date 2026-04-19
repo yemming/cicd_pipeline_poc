@@ -246,6 +246,13 @@ export const modules: ModuleDef[] = [
       { name: "退款簽核",     icon: "currency_exchange", href: "/admin/approvals/refund",  sprint: "S1-9",  stitchScreenId: "3b1ee33fd56f4e5db193ada91c6e700c", section: "簽核中心" },
       { name: "調車簽核",     icon: "sync_alt",        href: "/admin/approvals/transfer",  sprint: "S1-10", stitchScreenId: "1e7d257222954e50a79e98d49173d153", section: "簽核中心" },
       { name: "簽核歷史",     icon: "history",         href: "/admin/approvals/history",   sprint: "S1-11", stitchScreenId: "8934f85891e446f2a1f1a60252863972", section: "簽核中心" },
+
+      // Notification Hub（Phase 4 新增，參考 Notion IM 規格書 v1.0）
+      { name: "通知儀表板",   icon: "campaign",        href: "/admin/notifications",                section: "通知中心" },
+      { name: "訂閱管理",     icon: "subscriptions",   href: "/admin/notifications/subscriptions",  section: "通知中心" },
+      { name: "通路與目標",   icon: "group_work",      href: "/admin/notifications/targets",        section: "通知中心" },
+      { name: "模板檢視",     icon: "description",     href: "/admin/notifications/templates",      section: "通知中心" },
+      { name: "送達記錄",     icon: "receipt_long",    href: "/admin/notifications/deliveries",     section: "通知中心" },
     ],
   },
 
