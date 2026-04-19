@@ -14,7 +14,7 @@ const HERO_VARIANTS = [
     <span className="outline">思考</span> <span className="slash">/</span> <span className="accent">成交</span> <span className="slash">/</span> <span className="outline">交付</span>
   </>,
   <>
-    展場裡每一個 <span className="accent">成交瞬間</span>，<br/>都有跡可循。
+    展場裡每一個 <span className="accent">成交瞬間</span><br/>都有跡可循。
   </>,
 ];
 
