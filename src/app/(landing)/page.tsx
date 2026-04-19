@@ -356,7 +356,7 @@ export default function LandingPage() {
                   「有人走進展場」<br/>
                   到<br/>
                   「他推薦朋友再買一台」<br/>
-                  <span className="dim">中間每一步我們都幫你跑過。</span>
+                  <span className="dim">每一步我們都幫你跑過。</span>
                 </h2>
                 <p className="sec-sub">DealerOS 不是把 CRM 的框搬到展場 — 我們重新設計了 B2C 面對面交易的作業流程，把 7 個模組縫成一條閉環。</p>
               </div>
