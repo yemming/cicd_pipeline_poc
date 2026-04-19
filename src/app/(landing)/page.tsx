@@ -351,7 +351,13 @@ export default function LandingPage() {
             <div className="process">
               <div className="proc-stage">
                 <div className="kicker">一條龍流程</div>
-                <h2 className="sec-title">從「有人走進展場」<br/>到「他推薦朋友再買一台」— <span className="dim">中間每一步我們都幫你跑過。</span></h2>
+                <h2 className="sec-title" style={{fontSize:"clamp(28px,4vw,52px)"}}>
+                  從<br/>
+                  「有人走進展場」<br/>
+                  到<br/>
+                  「他推薦朋友再買一台」<br/>
+                  <span className="dim">中間每一步我們都幫你跑過。</span>
+                </h2>
                 <p className="sec-sub">DealerOS 不是把 CRM 的框搬到展場 — 我們重新設計了 B2C 面對面交易的作業流程，把 7 個模組縫成一條閉環。</p>
               </div>
               <div className="proc-steps">
