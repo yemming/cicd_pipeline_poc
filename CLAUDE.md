@@ -441,7 +441,74 @@ feedback_canvas_snapshots (
 )
 ```
 
-### 當用戶說「看第 X 張單」時，直接查 Supabase
+### 當許願單被建立 → 自動推 LINE 通知（2026-04-20 上線）
+
+`src/lib/feedback-actions.ts` 的 `createTicket()` 在 insert 成功後用 Next 16 的 `after()` 非阻塞呼叫 `notifications.dispatch({ code: 'feedback_ticket.created', ... })`，經 Notification Hub（見下一節）把通知推到**所有訂閱 `feedback_ticket.created` 事件的目標**。
+
+這是 CI/CD pipeline 的**入口訊號** — 客戶提需求 → 你手機秒收 LINE → 可以馬上決定要不要進 in_progress 啟動開發。
+
+---
+
+## 🔔 Notification Hub（IM 通知模組）
+
+DealerOS 統一的 IM 通知基礎建設。LINE + Google Chat 雙通路，Next.js 原生（不經 n8n），Next 16 `after()` 非阻塞。
+
+**接新事件的 10 分鐘流程** → 看 `src/lib/notifications/README.md`
+**架構圖 / 資料流 / 重試策略** → 看 `docs/notifications-architecture.md`
+**Schema snapshot** → 看 `docs/notifications-schema.sql`
+
+### 後台入口
+
+`/admin/notifications` 下 5 頁：
+- `/admin/notifications`               儀表板（stats + 最近失敗）
+- `/admin/notifications/subscriptions` 訂閱管理
+- `/admin/notifications/targets`       通路目標
+- `/admin/notifications/templates`     模板唯讀清單
+- `/admin/notifications/deliveries`    送達記錄（filter + 重送）
+
+進入需 `NOTIFICATION_ADMIN_EMAILS` allowlist（fallback 吃 `FEEDBACK_ADMIN_EMAILS`）。
+
+### 業務模組接點
+
+```ts
+import { after } from "next/server";
+import { notifications } from "@/lib/notifications";
+
+export async function myServerAction(fd: FormData) {
+  const result = await doBusinessLogic(fd);
+  after(async () => {
+    await notifications.dispatch({
+      code: "my_event.code",
+      payload: { /* 模板會取的欄位 */ },
+    });
+  });
+  return result;
+}
+```
+
+### 當用戶說「看最近幾筆推送」或「為什麼沒收到通知」
+
+**直接查 Supabase `notification_deliveries`**：
+
+```sql
+-- 最近 20 筆（含成功失敗）
+SELECT created_at, event_code, channel_code, target_ref, status, attempts,
+       substring(last_error from 1 for 100) as error_preview
+FROM notification_deliveries
+ORDER BY created_at DESC
+LIMIT 20;
+
+-- 只看失敗 + 錯誤細節
+SELECT created_at, event_code, channel_code, target_ref, status, last_error
+FROM notification_deliveries
+WHERE status = 'failed'
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+---
+
+### 當用戶說「看第 X 張許願單」時，直接查 Supabase
 
 **不需要用戶貼資料**。使用 `mcp__plugin_supabase_supabase__execute_sql` 工具，專案 ID 為 `bykvtcptbirpxyqkfwfl`：
 

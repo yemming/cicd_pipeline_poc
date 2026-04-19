@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
+import { notifications } from "@/lib/notifications";
 import {
   type FeedbackStatus,
   FEEDBACK_STATUS_ORDER,
@@ -27,7 +29,7 @@ export async function createTicket(fd: FormData) {
     throw new Error("標題為必填");
   }
 
-  const { userId } = await getCurrentUserAndAdmin();
+  const { userId, email } = await getCurrentUserAndAdmin();
   if (!userId) {
     redirect("/login");
   }
@@ -44,7 +46,29 @@ export async function createTicket(fd: FormData) {
   }
 
   revalidatePath("/feedback/tickets");
-  redirect(`/feedback/tickets/${data.id}`);
+
+  // Notification Hub 埋點：客戶提新許願單時推 IM 通知（非阻塞，不影響 response）
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const ticketId = data.id;
+  after(async () => {
+    try {
+      await notifications.dispatch({
+        code: "feedback_ticket.created",
+        payload: {
+          ticketId,
+          title,
+          url: url ?? "",
+          description: description ?? "",
+          createdBy: email ?? userId,
+          actionUrl: `${appUrl}/feedback/tickets/${ticketId}`,
+        },
+      });
+    } catch (e) {
+      console.error("[feedback] notification dispatch 失敗（不影響本次建單）", e);
+    }
+  });
+
+  redirect(`/feedback/tickets/${ticketId}`);
 }
 
 export async function updateTicketStatus(ticketId: string, next: FeedbackStatus) {
