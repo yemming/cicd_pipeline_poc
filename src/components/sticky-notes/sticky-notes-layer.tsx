@@ -46,8 +46,8 @@ export function StickyNotesLayer() {
     const sb = createClient();
     let cancelled = false;
     (async () => {
-      const { data: claimsRes } = await sb.auth.getClaims();
-      const uid = (claimsRes?.claims?.sub as string) ?? null;
+      const { data: { session } } = await sb.auth.getSession();
+      const uid = session?.user?.id ?? null;
       if (!cancelled) setCurrentUser(uid);
       const { data } = await sb
         .from("feedback_sticky_notes")

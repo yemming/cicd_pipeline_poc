@@ -91,8 +91,8 @@ export default function CounterPage() {
     setIsMobile(navigator.maxTouchPoints > 0);
 
     const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data }) => {
-      const user = data.user;
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const user = session?.user;
       if (!user) { setCurrentUserName("—"); return; }
       const { data: profile } = await supabase
         .from("profiles").select("name").eq("id", user.id).single();
