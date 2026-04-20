@@ -13,6 +13,7 @@ import {
 import { useActiveModule } from "@/lib/use-active-module";
 import type { ModulePage } from "@/lib/modules";
 import { useSidebar } from "./sidebar-context";
+import { useIsAdmin } from "./admin-context";
 
 // ── Dock Row (magnification on mouse proximity) ───────────────────────────────
 
@@ -100,13 +101,16 @@ export function PagesPanel() {
   const pathname = usePathname();
   const activeModule = useActiveModule();
   const { collapsed } = useSidebar();
+  const isAdmin = useIsAdmin();
   const mouseY = useMotionValue(Infinity);
 
   if (!activeModule) return null;
 
+  const visiblePages = activeModule.pages.filter((p) => !p.adminOnly || isAdmin);
+
   // Group pages by `section` while preserving registry order.
   const sections: Array<{ title: string | null; items: ModulePage[] }> = [];
-  for (const p of activeModule.pages) {
+  for (const p of visiblePages) {
     const label = p.section ?? null;
     const last = sections[sections.length - 1];
     if (last && last.title === label) {
@@ -119,7 +123,7 @@ export function PagesPanel() {
   // Most-specific active page
   const activeHref: string | null = (() => {
     let best: string | null = null;
-    for (const p of activeModule.pages) {
+    for (const p of visiblePages) {
       if (p.comingSoon) continue;
       if (pathname === p.href || pathname.startsWith(p.href + "/")) {
         if (!best || p.href.length > best.length) best = p.href;

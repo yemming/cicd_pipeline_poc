@@ -21,6 +21,8 @@ export type ModulePage = {
   sprint?: string;
   /** Device hint: desktop | tablet | ipad | mobile */
   device?: "desktop" | "tablet" | "ipad" | "mobile";
+  /** Only visible to admin users (FEEDBACK_ADMIN_EMAILS / NOTIFICATION_ADMIN_EMAILS) */
+  adminOnly?: boolean;
 };
 
 export type ModuleDef = {
@@ -177,7 +179,7 @@ export const modules: ModuleDef[] = [
       { name: "拍賣管理",       icon: "gavel",             href: "/usedcar/auction",          sprint: "S5-3", stitchScreenId: "cc722dbd9b5c4af29b5fe7e516db70fd", section: "車輛管理" },
       // 銷售管理（中古車專屬銷售流程）
       { name: "中古銷售看板",   icon: "dashboard",         href: "/usedcar/sales-dashboard",  section: "銷售管理" },
-      { name: "潛客跟進表",     icon: "person_search",     href: "/usedcar/prospects",        section: "銷售管理" },
+      { name: "潛客跟進",       icon: "person_search",     href: "/usedcar/prospects",        section: "銷售管理" },
       { name: "新增潛客",       icon: "person_add",        href: "/usedcar/prospects/new",    section: "銷售管理" },
       { name: "線索分析",       icon: "bar_chart",         href: "/usedcar/lead-analysis",    section: "銷售管理" },
       { name: "跟進分析",       icon: "track_changes",     href: "/usedcar/followup-analysis",section: "銷售管理" },
@@ -248,11 +250,11 @@ export const modules: ModuleDef[] = [
       { name: "簽核歷史",     icon: "history",         href: "/admin/approvals/history",   sprint: "S1-11", stitchScreenId: "8934f85891e446f2a1f1a60252863972", section: "簽核中心" },
 
       // Notification Hub（Phase 4 新增，參考 Notion IM 規格書 v1.0）
-      { name: "通知儀表板",   icon: "campaign",        href: "/admin/notifications",                section: "通知中心" },
-      { name: "訂閱管理",     icon: "subscriptions",   href: "/admin/notifications/subscriptions",  section: "通知中心" },
-      { name: "通路與目標",   icon: "group_work",      href: "/admin/notifications/targets",        section: "通知中心" },
-      { name: "模板檢視",     icon: "description",     href: "/admin/notifications/templates",      section: "通知中心" },
-      { name: "送達記錄",     icon: "receipt_long",    href: "/admin/notifications/deliveries",     section: "通知中心" },
+      { name: "通知儀表板",   icon: "campaign",        href: "/admin/notifications",                section: "通知中心", adminOnly: true },
+      { name: "訂閱管理",     icon: "subscriptions",   href: "/admin/notifications/subscriptions",  section: "通知中心", adminOnly: true },
+      { name: "通路與目標",   icon: "group_work",      href: "/admin/notifications/targets",        section: "通知中心", adminOnly: true },
+      { name: "模板檢視",     icon: "description",     href: "/admin/notifications/templates",      section: "通知中心", adminOnly: true },
+      { name: "送達記錄",     icon: "receipt_long",    href: "/admin/notifications/deliveries",     section: "通知中心", adminOnly: true },
     ],
   },
 
