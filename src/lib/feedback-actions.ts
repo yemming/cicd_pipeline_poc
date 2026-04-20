@@ -47,6 +47,14 @@ export async function createTicket(fd: FormData) {
 
   revalidatePath("/feedback/tickets");
 
+  // 取 profile.name 當提出人顯示名稱（fallback: email → userId）
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", userId)
+    .maybeSingle();
+  const createdByDisplay = profile?.name?.trim() || email || userId;
+
   // Notification Hub 埋點：客戶提新許願單時推 IM 通知（非阻塞，不影響 response）
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
   const ticketId = data.id;
@@ -59,7 +67,7 @@ export async function createTicket(fd: FormData) {
           title,
           url: url ?? "",
           description: description ?? "",
-          createdBy: email ?? userId,
+          createdBy: createdByDisplay,
           actionUrl: `${appUrl}/feedback/tickets/${ticketId}`,
         },
       });
