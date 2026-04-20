@@ -3,9 +3,11 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentUserAndNotificationAdmin } from "@/lib/notifications";
 import { listActiveChannels } from "@/lib/notifications/repositories/channel.repo";
 import { listTargets } from "@/lib/notifications/repositories/target.repo";
+import { listPendingCandidates } from "@/lib/notifications/repositories/candidate.repo";
 import { NotificationsPageHeader } from "../_parts/page-header";
 import { CreateTargetForm } from "./_create-form";
 import { TargetRowActions } from "./_row-actions";
+import { CandidatesSection } from "./_candidates-section";
 
 export default async function TargetsPage() {
   const ctx = await getCurrentUserAndNotificationAdmin();
@@ -19,9 +21,10 @@ export default async function TargetsPage() {
   }
 
   const supabase = createServiceClient();
-  const [channels, targets] = await Promise.all([
+  const [channels, targets, candidates] = await Promise.all([
     listActiveChannels(supabase),
     listTargets(supabase, { onlyActive: false }),
+    listPendingCandidates(supabase),
   ]);
 
   return (
@@ -37,7 +40,32 @@ export default async function TargetsPage() {
 
       <div className="mx-auto max-w-7xl px-6 py-6 space-y-8">
         <section>
-          <h3 className="text-lg font-semibold mb-3">新增目標</h3>
+          <h3 className="text-lg font-semibold mb-3">
+            新發現的對話
+            {candidates.length > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-500 text-white text-[11px] font-bold align-middle">
+                {candidates.length}
+              </span>
+            )}
+          </h3>
+          <CandidatesSection
+            candidates={candidates.map((c) => ({
+              id: c.id,
+              channel_code: c.channel_code,
+              target_type: c.target_type,
+              target_ref: c.target_ref,
+              discovered_via: c.discovered_via,
+              display_name: c.display_name,
+              source_user_id: c.source_user_id,
+              last_message_text: c.last_message_text,
+              last_seen_at: c.last_seen_at,
+              message_count: c.message_count,
+            }))}
+          />
+        </section>
+
+        <section>
+          <h3 className="text-lg font-semibold mb-3">手動新增目標</h3>
           <CreateTargetForm channels={channels.map((c) => ({ id: c.id, code: c.code, displayName: c.display_name }))} />
         </section>
 

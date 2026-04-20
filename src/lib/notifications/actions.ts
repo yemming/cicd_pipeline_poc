@@ -21,6 +21,12 @@ import {
   deleteTarget as repoDeleteTarget,
   updateTarget as repoUpdateTarget,
 } from "./repositories/target.repo";
+import {
+  dismissCandidate as repoDismissCandidate,
+  getCandidateById as repoGetCandidate,
+  markCandidatePromoted as repoMarkPromoted,
+  reviveCandidate as repoReviveCandidate,
+} from "./repositories/candidate.repo";
 
 function s(fd: FormData, key: string): string {
   const v = fd.get(key);
@@ -120,6 +126,74 @@ export async function deleteTargetAction(id: string): Promise<void> {
   await requireNotificationAdmin();
   const supabase = createServiceClient();
   await repoDeleteTarget(supabase, id);
+  revalidatePath("/admin/notifications/targets");
+}
+
+// ──────────────────────────────────────────────────────────
+// Target Candidates（webhook 自動發現的 LINE userId / groupId / roomId）
+// ──────────────────────────────────────────────────────────
+
+/**
+ * 把候選升級成正式 target：
+ *  1. 抓 candidate
+ *  2. 找對應 channel_id（一般是 "line"）
+ *  3. 在 notification_targets insert（target_type 把 room 視作 group，因 schema 只允許 user/group/webhook）
+ *  4. 標 candidate.promoted_target_id
+ */
+export async function promoteCandidateAction(fd: FormData): Promise<{ id: string }> {
+  await requireNotificationAdmin();
+  const candidateId = s(fd, "candidate_id");
+  const displayName = s(fd, "display_name");
+  if (!candidateId) throw new Error("candidate_id 必填");
+  if (!displayName) throw new Error("display_name 必填");
+
+  const supabase = createServiceClient();
+  const candidate = await repoGetCandidate(supabase, candidateId);
+  if (!candidate) throw new Error("候選不存在");
+  if (candidate.promoted_target_id) throw new Error("此候選已升級過");
+
+  // 找 channel
+  const { data: channel, error: chErr } = await supabase
+    .from("notification_channels")
+    .select("id")
+    .eq("code", candidate.channel_code)
+    .maybeSingle();
+  if (chErr) throw new Error(`查詢 channel 失敗：${chErr.message}`);
+  if (!channel) throw new Error(`找不到 channel: ${candidate.channel_code}`);
+
+  // notification_targets.target_type 只允許 user/group/webhook
+  // room 在 LINE pushMessage 等同 group，所以 fallback 成 group
+  const targetType =
+    candidate.target_type === "room" ? "group" : (candidate.target_type as "user" | "group");
+
+  const target = await repoCreateTarget(supabase, {
+    channel_id: channel.id as string,
+    target_type: targetType,
+    target_ref: candidate.target_ref,
+    display_name: displayName,
+    metadata: {
+      promoted_from_candidate: candidate.id,
+      original_target_type: candidate.target_type,
+    },
+    is_active: true,
+  });
+
+  await repoMarkPromoted(supabase, candidate.id, target.id);
+  revalidatePath("/admin/notifications/targets");
+  return { id: target.id };
+}
+
+export async function dismissCandidateAction(id: string): Promise<void> {
+  await requireNotificationAdmin();
+  const supabase = createServiceClient();
+  await repoDismissCandidate(supabase, id);
+  revalidatePath("/admin/notifications/targets");
+}
+
+export async function reviveCandidateAction(id: string): Promise<void> {
+  await requireNotificationAdmin();
+  const supabase = createServiceClient();
+  await repoReviveCandidate(supabase, id);
   revalidatePath("/admin/notifications/targets");
 }
 
