@@ -7,6 +7,7 @@ import { Topbar } from "@/components/topbar";
 import { CommandPalette } from "@/components/command-palette";
 import { PageHeaderProvider } from "@/components/page-header-context";
 import { SidebarProvider, useSidebar } from "@/components/sidebar-context";
+import { StickyNotesLayer } from "@/components/sticky-notes/sticky-notes-layer";
 import { useActiveModule } from "@/lib/use-active-module";
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
@@ -82,6 +83,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       </main>
 
       <CommandPalette open={searchOpen} onClose={closeSearch} />
+      <StickyNotesLayer />
     </>
   );
 }
