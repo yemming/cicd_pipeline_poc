@@ -17,6 +17,7 @@ import {
   deleteStickyNote,
   promoteStickyToTicket,
 } from "@/lib/sticky-notes-actions";
+import { useIsAdmin } from "@/components/admin-context";
 
 type Mode = "hidden" | "show" | "add";
 
@@ -25,6 +26,7 @@ const NOTE_H = 160;
 
 export function StickyNotesLayer() {
   const pathname = usePathname() || "/";
+  const isAdmin = useIsAdmin();
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -35,8 +37,8 @@ export function StickyNotesLayer() {
   const [showResolved, setShowResolved] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
 
-  // 不在登入頁顯示
-  const enabled = pathname !== "/login";
+  // 不在登入頁顯示；非 admin 完全隱藏
+  const enabled = pathname !== "/login" && isAdmin;
 
   // 載入當前頁的 notes + 訂當前 user id
   useEffect(() => {
