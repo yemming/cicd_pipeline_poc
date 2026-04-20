@@ -17,7 +17,7 @@ export const FEEDBACK_STATUS_ORDER: FeedbackStatus[] = [
 export const FEEDBACK_STATUS_LABEL: Record<FeedbackStatus, string> = {
   draft: "草稿",
   in_progress: "工作中",
-  review: "Review",
+  review: "檢查",
   released: "上版",
 };
 

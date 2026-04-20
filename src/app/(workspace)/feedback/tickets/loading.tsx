@@ -13,7 +13,7 @@ export default function Loading() {
 
       {/* Kanban columns */}
       <div className="grid grid-cols-4 gap-4">
-        {["草稿", "工作中", "Review", "上版"].map((label) => (
+        {["草稿", "工作中", "檢查", "上版"].map((label) => (
           <div
             key={label}
             className="min-h-[480px] bg-[#F4F5F7] rounded-lg p-3 space-y-3"
