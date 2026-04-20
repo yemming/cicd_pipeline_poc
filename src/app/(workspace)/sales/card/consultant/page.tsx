@@ -26,9 +26,11 @@ const PURCHASE_TYPES = [
 const GRADE_HINTS = [
   { cond: "購買時機「本月」或「次月」", hint: "→ 建議 A～B 級（高購買意向）", color: "text-orange-600" },
   { cond: "購買時機「季後」或「年後」", hint: "→ 建議 B～C 級（中購買意向）", color: "text-yellow-600" },
-  { cond: "客戶有提到競品車型", hint: "→ 建議提升一級（已是 A 級則不變）", color: "text-blue-600" },
+  { cond: "客戶有提到競品車型", hint: "→ 建議提升一級（已是 H 級則不變）", color: "text-blue-600" },
   { cond: "客戶未提或拒談競品", hint: "→ 建議維持或降一級（已是 D 級則不變）", color: "text-slate-500" },
   { cond: "購買時機「未定」", hint: "→ 建議 D 級", color: "text-slate-500" },
+  { cond: "完成第三階段報價環節", hint: "→ 建議提升一級（已是 H 級則不變）", color: "text-emerald-600" },
+  { cond: "未進行報價即結案", hint: "→ 建議維持或降一級（已是 D 級則不變）", color: "text-slate-400" },
 ];
 
 export default function ConsultantPage() {
@@ -221,9 +223,20 @@ export default function ConsultantPage() {
                     ))}
                   </div>
                 </div>
+                {/* 跳轉置換評估 — 先於 toggle 出現 */}
+                <div className="space-y-4">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">跳轉置換評估</label>
+                  <Link
+                    href="/usedcar/evaluation"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-md hover:bg-amber-600 active:scale-95 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-lg">swap_horiz</span>
+                    前往置換評估頁面
+                  </Link>
+                </div>
                 <div className="space-y-4">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">現場完成估價？</label>
-                  <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-4">
                     <span className={`text-sm ${!tradeInDone ? "font-bold" : "text-on-surface/60"}`}>否</span>
                     <button
                       onClick={() => setTradeInDone(!tradeInDone)}
@@ -232,16 +245,6 @@ export default function ConsultantPage() {
                       <div className={`w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-200 ${tradeInDone ? "translate-x-6" : "translate-x-0"}`} />
                     </button>
                     <span className={`text-sm ${tradeInDone ? "font-bold" : "text-on-surface/60"}`}>是</span>
-                    {/* ② 跳轉【置換評估】按鍵 */}
-                    {tradeInDone && (
-                      <Link
-                        href="/usedcar/evaluation"
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-sm font-medium hover:bg-rose-100 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-base">swap_horiz</span>
-                        跳轉【置換評估】
-                      </Link>
-                    )}
                   </div>
                 </div>
               </div>
@@ -291,37 +294,46 @@ export default function ConsultantPage() {
                 </div>
 
                 {hasCompetitor && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-l-2 border-tertiary-container/40 pl-6">
-                    <div className="space-y-2">
+                  <div className="space-y-6 border-l-2 border-tertiary-container/40 pl-6">
+                    <div className="space-y-3">
                       <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">競品品牌</label>
-                      <select
-                        value={competitorBrand}
-                        onChange={(e) => { setCompetitorBrand(e.target.value); setCompetitorModel(""); }}
-                        className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all"
-                      >
-                        <option value="">請選擇競品品牌</option>
-                        {COMPETITOR_BRANDS.map((b) => <option key={b}>{b}</option>)}
-                      </select>
+                      <div className="flex flex-wrap gap-2">
+                        {COMPETITOR_BRANDS.map((b) => (
+                          <button
+                            key={b}
+                            onClick={() => setCompetitorBrand(competitorBrand === b ? "" : b)}
+                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                              competitorBrand === b
+                                ? "bg-primary-container text-white ring-2 ring-tertiary-container/40"
+                                : "bg-surface-container-high hover:bg-tertiary-container/10"
+                            }`}
+                          >
+                            {b}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">競品車型</label>
-                      <input
-                        value={competitorModel}
-                        onChange={(e) => setCompetitorModel(e.target.value)}
-                        className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all"
-                        placeholder="輸入競品車型，例如：S 1000 RR"
-                        type="text"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">競商相關資訊</label>
-                      <input
-                        value={competitorNotes}
-                        onChange={(e) => setCompetitorNotes(e.target.value)}
-                        className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all"
-                        placeholder="競品報價、促銷方案、客戶詢問重點⋯（作為日後跟進時的參考）"
-                        type="text"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">競品車型</label>
+                        <input
+                          value={competitorModel}
+                          onChange={(e) => setCompetitorModel(e.target.value)}
+                          className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all"
+                          placeholder="手動輸入，例如：S 1000 RR"
+                          type="text"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">競商名稱</label>
+                        <input
+                          value={competitorNotes}
+                          onChange={(e) => setCompetitorNotes(e.target.value)}
+                          className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all"
+                          placeholder="手動輸入競品經銷商名稱"
+                          type="text"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -373,11 +385,11 @@ export default function ConsultantPage() {
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">客戶級別</label>
                   <div className="flex flex-wrap gap-4">
                     {[
-                      { key: "A", sub: "HOT", cls: "bg-red-600 text-white",                           onCls: "ring-4 ring-red-500/60 scale-110 shadow-xl" },
-                      { key: "B", sub: "",    cls: "bg-orange-500 text-white",                         onCls: "ring-4 ring-orange-400/60 scale-110 shadow-xl" },
-                      { key: "C", sub: "",    cls: "bg-yellow-400 text-on-surface",                    onCls: "ring-4 ring-yellow-300/80 scale-110 shadow-xl" },
+                      { key: "H", sub: "HOT", cls: "bg-red-700 text-white",                             onCls: "ring-4 ring-red-600/60 scale-110 shadow-xl" },
+                      { key: "A", sub: "",    cls: "bg-red-500 text-white",                              onCls: "ring-4 ring-red-400/60 scale-110 shadow-xl" },
+                      { key: "B", sub: "",    cls: "bg-orange-500 text-white",                           onCls: "ring-4 ring-orange-400/60 scale-110 shadow-xl" },
+                      { key: "C", sub: "",    cls: "bg-yellow-400 text-on-surface",                      onCls: "ring-4 ring-yellow-300/80 scale-110 shadow-xl" },
                       { key: "D", sub: "",    cls: "bg-secondary-container text-on-secondary-container", onCls: "ring-4 ring-slate-400/60 scale-110 shadow-xl" },
-                      { key: "無評級", sub: "", cls: "bg-surface-container-high text-on-surface/40",   onCls: "ring-4 ring-slate-300/70 scale-110 shadow-xl" },
                     ].map((g) => (
                       <button
                         key={g.key}
