@@ -44,6 +44,7 @@ function VerticalDock({ items }: { items: DockItem[] }) {
 
   // 跳頁時強制清掉 hovered，避免 iOS Safari 沒 fire pointerleave 造成 stuck。
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHovered(null);
     if (timerRef.current !== null) {
       window.clearTimeout(timerRef.current);

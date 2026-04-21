@@ -58,6 +58,7 @@ export default function DeliveryTimingPage() {
   const [sopChecked, setSopChecked] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setToday(new Date());
   }, []);
 

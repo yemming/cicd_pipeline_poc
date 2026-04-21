@@ -26,6 +26,7 @@ export default function LunarCalendar({
 
   useEffect(() => {
     const t = new Date();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setToday({ y: t.getFullYear(), m: t.getMonth() + 1, d: t.getDate() });
   }, []);
 
@@ -36,6 +37,7 @@ export default function LunarCalendar({
 
   useEffect(() => {
     if (today && year === today.y && month === today.m && !selectedKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedKey(dateKey(today.y, today.m, today.d));
     }
   }, [today, year, month, selectedKey]);

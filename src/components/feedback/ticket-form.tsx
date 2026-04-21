@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { createTicket } from "@/lib/feedback-actions";
 
@@ -24,7 +25,7 @@ function SubmitButton() {
 
 function CancelLink({ disabled }: { disabled?: boolean }) {
   return (
-    <a
+    <Link
       href="/feedback/tickets"
       aria-disabled={disabled}
       className={`px-4 py-2 rounded text-[14px] font-semibold transition-colors ${
@@ -34,7 +35,7 @@ function CancelLink({ disabled }: { disabled?: boolean }) {
       }`}
     >
       取消
-    </a>
+    </Link>
   );
 }
 

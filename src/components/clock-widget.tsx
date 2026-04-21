@@ -98,6 +98,8 @@ const RAIN_LINES = Array.from({ length: 14 }, (_, i) => ({
   dur: 0.9 + ((i * 0.13) % 0.6),
 }));
 
+const THUNDER_DELAY = 6 + Math.random() * 4;
+
 const SNOW_DOTS = Array.from({ length: 12 }, (_, i) => ({
   left: `${8 + i * 8}%`,
   delay: (i * 0.4) % 3,
@@ -132,7 +134,7 @@ function WeatherFX({ kind }: { kind: WeatherKind }) {
             transition={{
               duration: 0.9,
               repeat: Infinity,
-              repeatDelay: 6 + Math.random() * 4,
+              repeatDelay: THUNDER_DELAY,
               times: [0, 0.85, 0.88, 0.91, 0.94, 1],
             }}
             aria-hidden
@@ -214,6 +216,7 @@ export default function ClockWidget({ className = "" }: { className?: string }) 
   const [weather, setWeather] = useState<WeatherSummary | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(new Date());
     const id = setInterval(() => {
       setNow((prev) => {

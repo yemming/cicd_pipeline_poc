@@ -84,6 +84,7 @@ export default function CounterPage() {
   useEffect(() => {
     const now = new Date();
     const dateStr = toDateStr(now);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setArrival({ date: dateStr, time: toTimeStr(now), cardNo: `DU-${dateStr.replace(/-/g, "")}-001` });
     setIsMobile(navigator.maxTouchPoints > 0);
 

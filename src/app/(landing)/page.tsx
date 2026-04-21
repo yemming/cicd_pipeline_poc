@@ -202,7 +202,7 @@ export default function LandingPage() {
         {/* MANIFESTO */}
         <section>
           <div className="manifesto">
-            <div className="kicker" style={{justifyContent:"center"}}>// MANIFESTO · 為什麼我們存在</div>
+            <div className="kicker" style={{justifyContent:"center"}}>{'// MANIFESTO · 為什麼我們存在'}</div>
             <h2>
               Salesforce 是給 <span className="strike">IT 部門</span><br/>
               填表用的。DealerOS 是給<br/>
