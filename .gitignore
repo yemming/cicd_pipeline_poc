@@ -55,6 +55,13 @@ next-env.d.ts
 
 # Local spec/reference docs (not part of the app)
 *.docx
+*.xlsx
+*.xls
+*.txt
+
+# Claude Code instructions (local only, may contain internal context)
+CLAUDE.md
+AGENTS.md
 
 # Notification Hub — Phase 0 webhook 側錄（含 userId / groupId，不要 commit）
 .line-webhook.log
