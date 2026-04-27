@@ -16,10 +16,11 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [fullHidden, setFullHidden] = useState(false);
 
-  // Auto-collapse on small screens (< md = 768px) on mount, and respond to resize.
+  // Auto-collapse below desktop (< lg = 1024px) — covers mobile + tablet (含 iPad portrait).
+  // 桌面（≥1024px）展開，平板/手機收成 14px rail，仿 Lexus 客休室「窄裝置單欄優先」策略。
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 768px)");
+    const mq = window.matchMedia("(max-width: 1023px)");
     const sync = () => setCollapsed(mq.matches);
     sync();
     mq.addEventListener("change", sync);

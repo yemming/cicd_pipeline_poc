@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { HideNextDevTools } from "@/components/hide-next-devtools";
@@ -27,6 +27,14 @@ export const metadata: Metadata = {
   title: "DealerOS | Luxury Automotive Management",
   description: "經銷商營運管理平台",
   icons: { icon: "/favicon.ico" },
+};
+
+// RWD 基礎：viewport 跟著裝置寬度，初始縮放 1。
+// 不鎖 maximum-scale — dashboard 場景需要保留使用者放大數字的權利（無障礙）。
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 // Material Symbols — loaded globally so all pages can use icons

@@ -27,7 +27,7 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
   return (
     <header
       className={`fixed top-0 right-0 h-16 z-[55] bg-white/80 backdrop-blur-md border-b border-surface-container-high flex items-center px-4 md:px-6 transition-[left] duration-200 ${
-        fullHidden ? "left-0" : (collapsed || !activeModule) ? "left-14" : "md:left-[296px] left-14"
+        fullHidden ? "left-0" : (collapsed || !activeModule) ? "left-14" : "lg:left-[296px] left-14"
       }`}
     >
       {/* Left: DealerOS logo → back to launcher */}

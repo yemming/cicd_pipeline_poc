@@ -116,6 +116,24 @@
   display: none !important;
 }
 
+/* ===== RWD Helpers — 參考 Lexus 客休室「鎖 max-width 居中容器」策略 =====
+   設計目標：mobile 與 tablet (<1024px) 用單欄居中容器，desktop (≥1024px) 維持原排版。
+   用法：純表單／流程頁面在外層包 .narrow-container，shell 自動處理左右留白。 */
+
+.narrow-container {
+  width: 100%;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 桌機端展開更寬一點，仍保留居中以避免太寬數字行 */
+@media (min-width: 1024px) {
+  .narrow-container--lg {
+    max-width: 960px;
+  }
+}
+
 /* ===== Base Styles ===== */
 
 html {

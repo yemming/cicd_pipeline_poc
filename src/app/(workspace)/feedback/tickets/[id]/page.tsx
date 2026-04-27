@@ -89,12 +89,14 @@ export default async function TicketDetailPage({
   }));
 
   return (
-    // -m-8 undoes workspace padding so the split panel fills edge-to-edge
-    <div className="-m-8 flex h-[calc(100dvh-4rem)] overflow-hidden">
+    // 抵銷 workspace shell padding（p-4/md:p-6/lg:p-8）讓 split panel 貼齊邊緣
+    // 桌機（lg+）：左右 50/50 split + 滿高
+    // 平板/手機（<lg）：上下 stack，左欄正常流，右側 canvas 給固定高度
+    <div className="-m-4 md:-m-6 lg:-m-8 flex flex-col lg:flex-row lg:h-[calc(100dvh-4rem)] lg:overflow-hidden">
 
-      {/* ── Left: ticket info + comments (scrollable) ── */}
-      <div className="w-1/2 flex flex-col border-r border-[#DFE1E6] overflow-y-auto">
-        <div className="flex-1 px-8 py-6 space-y-5">
+      {/* ── Left: ticket info + comments (scrollable on desktop) ── */}
+      <div className="w-full lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-[#DFE1E6] lg:overflow-y-auto min-w-0">
+        <div className="flex-1 px-4 md:px-6 lg:px-8 py-6 space-y-5 min-w-0">
 
           {/* Back */}
           <Link
@@ -122,11 +124,11 @@ export default async function TicketDetailPage({
           {/* Fields */}
           <div className="bg-white border border-[#DFE1E6] rounded-md overflow-hidden">
             <div className="divide-y divide-[#F4F5F7]">
-              <div className="flex gap-6 px-5 py-3">
-                <dt className="text-[11px] font-bold text-[#6B778C] uppercase tracking-wide w-20 shrink-0 pt-0.5">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 px-5 py-3">
+                <dt className="text-[11px] font-bold text-[#6B778C] uppercase tracking-wide sm:w-20 shrink-0 pt-0.5">
                   網址
                 </dt>
-                <dd className="text-[13px] font-mono text-[#172B4D] break-all">
+                <dd className="text-[13px] font-mono text-[#172B4D] break-all min-w-0">
                   {ticket.url ? (
                     <a
                       href={ticket.url}
@@ -141,11 +143,11 @@ export default async function TicketDetailPage({
                   )}
                 </dd>
               </div>
-              <div className="flex gap-6 px-5 py-3">
-                <dt className="text-[11px] font-bold text-[#6B778C] uppercase tracking-wide w-20 shrink-0 pt-0.5">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 px-5 py-3">
+                <dt className="text-[11px] font-bold text-[#6B778C] uppercase tracking-wide sm:w-20 shrink-0 pt-0.5">
                   問題與建議
                 </dt>
-                <dd className="text-[13px] text-[#172B4D] whitespace-pre-wrap leading-relaxed">
+                <dd className="text-[13px] text-[#172B4D] whitespace-pre-wrap leading-relaxed min-w-0">
                   {ticket.description || (
                     <span className="text-[#6B778C] italic">未填寫</span>
                   )}
@@ -164,8 +166,9 @@ export default async function TicketDetailPage({
         </div>
       </div>
 
-      {/* ── Right: canvas panel ── */}
-      <div className="w-1/2 flex flex-col">
+      {/* ── Right: canvas panel ──
+           平板/手機給固定 70vh 避免 Excalidraw 在 0 高度容器內初始化失敗 */}
+      <div className="w-full lg:w-1/2 flex flex-col h-[70dvh] lg:h-auto min-w-0">
         <CanvasPanel
           ticketId={ticket.id}
           initialSnapshot={canvasData?.snapshot ?? null}

@@ -51,7 +51,7 @@ export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
       <div className="bg-white border border-[#DFE1E6] rounded-md overflow-hidden">
 
         {/* Title field */}
-        <div className="px-6 pt-6 pb-4 border-b border-[#F4F5F7]">
+        <div className="px-4 md:px-6 pt-6 pb-4 border-b border-[#F4F5F7]">
           <label className="block text-[12px] font-bold text-[#172B4D] uppercase tracking-wide mb-2">
             發生什麼事？
             <span className="text-[#BF2600] ml-0.5">*</span>
@@ -65,7 +65,7 @@ export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
         </div>
 
         {/* URL field */}
-        <div className="px-6 py-4 border-b border-[#F4F5F7]">
+        <div className="px-4 md:px-6 py-4 border-b border-[#F4F5F7]">
           <label className="block text-[12px] font-bold text-[#172B4D] uppercase tracking-wide mb-2">
             哪一個網址？
           </label>
@@ -81,7 +81,7 @@ export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
         </div>
 
         {/* Description field */}
-        <div className="px-6 py-4">
+        <div className="px-4 md:px-6 py-4">
           <label className="block text-[12px] font-bold text-[#172B4D] uppercase tracking-wide mb-2">
             問題是什麼？你想怎麼改？怎麼修復？
           </label>
@@ -97,11 +97,11 @@ export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
         </div>
       </div>
 
-      {/* Action row — Jira style */}
-      <div className="flex items-center gap-3 pt-4">
+      {/* Action row — Jira style；窄裝置上換行避免擠壓 */}
+      <div className="flex flex-wrap items-center gap-3 pt-4">
         <SubmitButton />
         <CancelWrapper />
-        <span className="text-[12px] text-[#6B778C] ml-1">
+        <span className="text-[12px] text-[#6B778C] ml-1 w-full sm:w-auto">
           建立後狀態為「草稿」；管理者檢視後再派工
         </span>
       </div>

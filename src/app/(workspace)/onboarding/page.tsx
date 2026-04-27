@@ -32,8 +32,8 @@ export default function OnboardingPage() {
         {/* Stepper Container */}
         <div className="relative space-y-6 mb-20">
           {/* Step 1: Completed */}
-          <div className="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-6 transition-all border border-transparent">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+          <div className="bg-surface-container-lowest p-4 md:p-6 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-6 transition-all border border-transparent">
+            <div className="w-10 md:w-12 h-10 md:h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
               <span
                 className="material-symbols-outlined text-3xl"
                 style={{ fontVariationSettings: "'FILL' 1" }}
@@ -41,24 +41,24 @@ export default function OnboardingPage() {
                 check_circle
               </span>
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-on-surface">設定門店資訊</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base md:text-lg font-bold text-on-surface">設定門店資訊</h3>
               <p className="text-sm text-on-surface-variant">
                 包含展示間地址、營業時間與品牌識別
               </p>
             </div>
-            <div className="text-green-600 font-bold bg-green-50 px-4 py-2 rounded-full text-sm">
+            <div className="text-green-600 font-bold bg-green-50 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm shrink-0">
               已完成 ✓
             </div>
           </div>
 
           {/* Step 2: Active */}
-          <div className="bg-surface-container-lowest p-6 rounded-xl flex items-center gap-6 transition-all border-2 border-tertiary shadow-lg transform scale-[1.02] z-10 relative">
-            <div className="w-12 h-12 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed font-bold text-xl font-display">
+          <div className="bg-surface-container-lowest p-4 md:p-6 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-6 transition-all border-2 border-tertiary shadow-lg transform scale-[1.02] z-10 relative">
+            <div className="w-10 md:w-12 h-10 md:h-12 rounded-full bg-tertiary-fixed flex items-center justify-center text-on-tertiary-fixed font-bold text-xl font-display shrink-0">
               2
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-on-surface">建立人員帳號</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base md:text-lg font-bold text-on-surface">建立人員帳號</h3>
               <p className="text-sm text-on-surface-variant mb-1">
                 邀請您的銷售團隊成員加入系統
               </p>
@@ -71,18 +71,18 @@ export default function OnboardingPage() {
                 </span>
               </div>
             </div>
-            <button className="bg-gradient-to-br from-primary to-primary-container text-white px-6 py-3 rounded-lg font-bold text-sm shadow-md hover:opacity-90 active:scale-95 transition-all">
+            <button className="w-full sm:w-auto bg-gradient-to-br from-primary to-primary-container text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-bold text-sm shadow-md hover:opacity-90 active:scale-95 transition-all shrink-0 whitespace-nowrap">
               開始設定 →
             </button>
           </div>
 
           {/* Step 3: Locked */}
-          <div className="bg-surface-container-low opacity-60 p-6 rounded-xl flex items-center gap-6 border border-transparent grayscale">
-            <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-outline font-bold text-xl font-display">
+          <div className="bg-surface-container-low opacity-60 p-4 md:p-6 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-6 border border-transparent grayscale">
+            <div className="w-10 md:w-12 h-10 md:h-12 rounded-full bg-surface-container-high flex items-center justify-center text-outline font-bold text-xl font-display shrink-0">
               3
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-outline">匯入車型資料</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base md:text-lg font-bold text-outline">匯入車型資料</h3>
               <p className="text-sm text-on-surface-variant">
                 上傳現有庫存與規格表 (Excel/PDF)
               </p>
@@ -91,12 +91,12 @@ export default function OnboardingPage() {
           </div>
 
           {/* Step 4: Locked */}
-          <div className="bg-surface-container-low opacity-60 p-6 rounded-xl flex items-center gap-6 border border-transparent grayscale">
-            <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-outline font-bold text-xl font-display">
+          <div className="bg-surface-container-low opacity-60 p-4 md:p-6 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-6 border border-transparent grayscale">
+            <div className="w-10 md:w-12 h-10 md:h-12 rounded-full bg-surface-container-high flex items-center justify-center text-outline font-bold text-xl font-display shrink-0">
               4
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-outline">設定金融與保險</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base md:text-lg font-bold text-outline">設定金融與保險</h3>
               <p className="text-sm text-on-surface-variant">
                 配置貸款試算與保險方案模板
               </p>
@@ -105,12 +105,12 @@ export default function OnboardingPage() {
           </div>
 
           {/* Step 5: Locked */}
-          <div className="bg-surface-container-low opacity-60 p-6 rounded-xl flex items-center gap-6 border border-transparent grayscale">
-            <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-outline font-bold text-xl font-display">
+          <div className="bg-surface-container-low opacity-60 p-4 md:p-6 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-6 border border-transparent grayscale">
+            <div className="w-10 md:w-12 h-10 md:h-12 rounded-full bg-surface-container-high flex items-center justify-center text-outline font-bold text-xl font-display shrink-0">
               5
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-outline">開始第一張手卡</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base md:text-lg font-bold text-outline">開始第一張手卡</h3>
               <p className="text-sm text-on-surface-variant">
                 完成以上設定，開始您的數位轉型之旅
               </p>

@@ -52,7 +52,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
       {!collapsed && !fullHidden && (
         <div
-          className="md:hidden fixed inset-0 bg-black/40 z-30 transition-opacity"
+          className="lg:hidden fixed inset-0 bg-black/40 z-30 transition-opacity"
           onClick={() => setCollapsed(true)}
           aria-hidden="true"
         />
@@ -69,8 +69,8 @@ function Shell({ children }: { children: React.ReactNode }) {
       )}
 
       <main
-        className={`mt-16 min-h-[calc(100dvh-4rem)] bg-[#F5F5F5] p-4 md:p-8 transition-[margin-left] duration-200 ${
-          fullHidden ? "ml-0" : onLauncher || collapsed ? "ml-14" : "md:ml-[296px] ml-14"
+        className={`mt-16 min-h-[calc(100dvh-4rem)] min-w-0 bg-[#F5F5F5] p-4 md:p-6 lg:p-8 transition-[margin-left] duration-200 ${
+          fullHidden ? "ml-0" : onLauncher || collapsed ? "ml-14" : "lg:ml-[296px] ml-14"
         }`}
         style={{
           ["--shell-left" as string]: fullHidden ? "0px" : onLauncher || collapsed ? "3.5rem" : "18.5rem",
