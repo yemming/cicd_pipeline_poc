@@ -35,7 +35,7 @@ function DockRow({
     return val - bounds.y - bounds.height / 2;
   });
 
-  const fontSizeRaw = useTransform(distance, [-80, 0, 80], [13, 15, 13]);
+  const fontSizeRaw = useTransform(distance, [-80, 0, 80], [14, 16, 14]);
   const iconSizeRaw = useTransform(distance, [-80, 0, 80], [18, 22, 18]);
   const pyRaw       = useTransform(distance, [-80, 0, 80], [7,  10,  7]);
 
@@ -71,8 +71,14 @@ function DockRow({
       )}
       <span className="truncate flex-1">{page.name}</span>
       {page.device && page.device !== "desktop" && (
-        <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-white/10 text-white/50 uppercase tracking-wider shrink-0">
-          {page.device === "mobile" ? "MOB" : "TAB"}
+        <span
+          className={`text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full ring-1 mr-1.5 shrink-0 ${
+            page.device === "mobile"
+              ? "ring-emerald-400/60 text-emerald-300"
+              : "ring-sky-400/60 text-sky-300"
+          }`}
+        >
+          {page.device === "mobile" ? "M" : "T"}
         </span>
       )}
     </motion.div>
@@ -134,7 +140,7 @@ export function PagesPanel() {
 
   return (
     <aside
-      className={`fixed left-14 top-0 h-dvh w-60 bg-[#1A1A2E] flex flex-col py-6 z-[55] shadow-xl transition-transform duration-200 ${
+      className={`fixed left-14 top-0 h-dvh w-[248px] bg-[#1A1A2E] flex flex-col py-6 z-[55] shadow-xl transition-transform duration-200 ${
         collapsed ? "-translate-x-full" : "translate-x-0"
       }`}
     >

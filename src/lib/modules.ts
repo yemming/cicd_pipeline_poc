@@ -332,6 +332,23 @@ export const modules: ModuleDef[] = [
       { name: "領牌風水運算器",icon: "casino",           href: "/tools/license-fengshui", section: "風水運算" },
     ],
   },
+
+  // ────────────────────────────────────────────────────────
+  // 12. 新功能開發區 (尚未轉譯成 React 的設計稿 HTML，iframe 預覽)
+  // ────────────────────────────────────────────────────────
+  {
+    key: "dev",
+    name: "新功能開發區",
+    icon: "science",
+    accent: "#D97706",
+    description: "尚未轉譯的設計稿預覽",
+    home: "/dev/preflight-ro-v1",
+    pages: [
+      { name: "04_預檢單+RO串接_v1", icon: "fact_check",      href: "/dev/preflight-ro-v1", device: "ipad" },
+      { name: "04_預檢單_SA環檢_v2", icon: "rule",            href: "/dev/preflight-sa-v2", device: "ipad" },
+      { name: "Ducati_售後完整工單套件_v4", icon: "folder_special", href: "/dev/aftersales-kit", device: "ipad" },
+    ],
+  },
 ];
 
 export function getModuleByKey(key: string): ModuleDef | undefined {
