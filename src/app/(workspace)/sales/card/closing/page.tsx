@@ -1,8 +1,12 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { CardStepBar } from "@/components/card-step-bar";
 
 export default function ClosingPage() {
+  const router = useRouter();
   useSetPageHeader({
     breadcrumb: [
       { label: "銷售管理", href: "/sales/showroom" },
@@ -12,50 +16,30 @@ export default function ClosingPage() {
 
   return (
     <div className="-m-4 md:-m-8 bg-[#FCF8FF] min-h-[calc(100dvh-4rem)] flex flex-col">
-      {/* ── 步驟進度列 ── */}
-      <div className="bg-[#F5F2FF] py-5 px-12 flex justify-between items-center relative overflow-hidden border-b border-[#1A1A2E]/10">
-        <div className="absolute top-1/2 left-0 w-full h-[2px] bg-[#1A1A2E]/10 -translate-y-1/2 z-0" />
-
-        {/* Step 1 */}
-        <div className="relative z-10 flex flex-col items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center border-2 border-green-500">
-            <span className="material-symbols-outlined text-lg">check</span>
-          </div>
-          <span className="text-xs font-bold text-green-700">① 前台登記</span>
-        </div>
-
-        {/* Step 2 */}
-        <div className="relative z-10 flex flex-col items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center border-2 border-green-500">
-            <span className="material-symbols-outlined text-lg">check</span>
-          </div>
-          <span className="text-xs font-bold text-green-700">② 需求諮詢</span>
-        </div>
-
-        {/* Step 3 — active */}
-        <div className="relative z-10 flex flex-col items-center gap-2">
-          <div className="w-12 h-12 rounded-full bg-[#C9A84C] text-white flex items-center justify-center border-4 border-white shadow-xl ring-2 ring-[#C9A84C]">
-            <span className="font-bold text-lg">3</span>
-          </div>
-          <span className="text-sm font-bold text-[#1A1A2E]">③ 試駕與成交</span>
-        </div>
-
-        {/* Step 4 */}
-        <div className="relative z-10 flex flex-col items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-[#E2E0FC] text-[#47464C] flex items-center justify-center border-2 border-[#C6C4DF]">
-            <span className="font-bold">4</span>
-          </div>
-          <span className="text-xs font-medium text-[#47464C]/60">④ 結案記錄</span>
-        </div>
-      </div>
+      <CardStepBar currentStep={3} />
 
       {/* ── 主要內容 ── */}
-      <main className="flex-1 px-12 py-8 max-w-7xl mx-auto w-full">
-        <div className="flex justify-between items-end mb-6">
-          <h1 className="text-3xl font-extrabold tracking-tight text-[#00000b]">
-            客戶接待手卡 — 試駕與成交
-          </h1>
-          <p className="text-[#47464C] text-sm italic">接待日期：2026年04月11日 14:15</p>
+      <main className="flex-1 py-8 px-6">
+        <div className="max-w-5xl mx-auto">
+        {/* ── 頁首 ── */}
+        <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-3">
+          <div>
+            <h1 className="text-2xl font-display font-extrabold text-on-surface tracking-tight">
+              客戶接待手卡 — 第三階段
+            </h1>
+            <p className="text-outline text-sm mt-0.5">接待三步法 ‧ 步驟三：試駕體驗與成交確認</p>
+          </div>
+          <div className="flex gap-5 text-[0.75rem] font-medium bg-surface-container-low px-5 py-2.5 rounded-full shrink-0">
+            <div className="flex gap-2 items-center">
+              <span className="text-outline">手卡編號:</span>
+              <span className="text-on-surface font-display">DU-20260501-001</span>
+            </div>
+            <div className="w-px h-4 bg-outline-variant self-center" />
+            <div className="flex gap-2 items-center">
+              <span className="text-outline">接待人員:</span>
+              <span className="text-on-surface font-bold">林佳蓉</span>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-12 gap-6">
@@ -265,20 +249,24 @@ export default function ClosingPage() {
             </div>
           </section>
         </div>
+        </div>
       </main>
 
       {/* ── Footer 操作列（非 fixed，跟著 layout 走）── */}
       <footer className="sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-[#1A1A2E]/10 px-12 py-4 flex justify-between items-center mt-8">
-        <button className="flex items-center gap-2 text-[#47464C] font-bold hover:text-[#00000b] transition-colors">
+        <Link href="/sales/card/consultant" className="flex items-center gap-2 text-[#47464C] font-bold hover:text-[#00000b] transition-colors">
           <span className="material-symbols-outlined">arrow_back</span> 上一步
-        </button>
+        </Link>
         <div className="flex items-center gap-6">
           <div className="text-right hidden md:block">
             <p className="text-[10px] text-[#47464C] font-bold uppercase tracking-widest">Current Status</p>
             <p className="text-sm font-bold text-[#755b00] italic">Ready for Final Submission</p>
           </div>
-          <button className="bg-green-600 text-white px-10 py-4 rounded-xl font-bold flex items-center gap-3 shadow-xl hover:bg-green-700 hover:scale-[1.02] transition-all duration-300">
-            完成手卡並提交 <span className="material-symbols-outlined">check_circle</span>
+          <button
+            onClick={() => router.push('/sales/card/record')}
+            className="bg-green-600 text-white px-10 py-4 rounded-xl font-bold flex items-center gap-3 shadow-xl hover:bg-green-700 hover:scale-[1.02] transition-all duration-300"
+          >
+            完成手卡並前往結案 <span className="material-symbols-outlined">arrow_forward</span>
           </button>
         </div>
       </footer>

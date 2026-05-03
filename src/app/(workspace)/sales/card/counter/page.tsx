@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { CardStepBar } from "@/components/card-step-bar";
 import { createClient } from "@/lib/supabase/client";
 
 const STAFF_LIST = [
@@ -41,6 +43,7 @@ function toTimeStr(d: Date) { return `${pad(d.getHours())}:${pad(d.getMinutes())
 type ArrivalState = { date: string; time: string; cardNo: string };
 
 export default function CounterPage() {
+  const router = useRouter();
   useSetPageHeader({
     breadcrumb: [
       { label: "銷售管理", href: "/sales/showroom" },
@@ -121,6 +124,7 @@ export default function CounterPage() {
 
   return (
     <div className="-m-4 md:-m-8 bg-[#FCF8FF] min-h-[calc(100dvh-4rem)] flex flex-col">
+      <CardStepBar currentStep={1} />
       <main className="flex-1 pb-28 px-6">
         <div className="max-w-5xl mx-auto">
 
@@ -512,20 +516,22 @@ export default function CounterPage() {
             </section>
           </div>
 
-          {/* ── CTA ── */}
-          <div className="mt-10 flex flex-col items-center">
-            <button className="group relative px-10 py-4 bg-primary-container text-white rounded-full font-bold text-base shadow-[0_16px_40px_rgba(26,26,46,0.3)] hover:shadow-[0_20px_50px_rgba(26,26,46,0.4)] hover:-translate-y-1 transition-all duration-300">
-              <span className="relative z-10 flex items-center gap-3">
-                暫存分配接待並進入下一步
-                <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-br from-primary to-primary-container rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-            <p className="text-outline text-xs mt-4">點擊後將暫存本次接待資料並依排班表指派銷售顧問</p>
-          </div>
         </div>
       </main>
-      <div className="fixed bottom-0 left-0 w-full h-24 bg-gradient-to-t from-surface to-transparent pointer-events-none z-30" />
+      <footer className="sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-[#1A1A2E]/10 px-12 py-4 flex justify-between items-center">
+        <button
+          disabled
+          className="flex items-center gap-2 text-[#47464C]/30 font-bold cursor-not-allowed"
+        >
+          <span className="material-symbols-outlined">arrow_back</span> 上一步
+        </button>
+        <button
+          onClick={() => router.push('/sales/card/consultant')}
+          className="bg-gradient-to-br from-[#00000B] to-[#1A1A2E] text-white px-10 py-4 rounded-xl font-bold flex items-center gap-3 shadow-xl hover:opacity-90 active:scale-95 transition-all duration-300"
+        >
+          下一步：需求諮詢 <span className="material-symbols-outlined">arrow_forward</span>
+        </button>
+      </footer>
     </div>
   );
 }

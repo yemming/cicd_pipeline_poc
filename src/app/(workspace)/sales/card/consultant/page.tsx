@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { CardStepBar } from "@/components/card-step-bar";
 
 const PURCHASE_TIMINGS = ["本月", "次月", "季後", "年後", "未定"] as const;
 
@@ -59,45 +60,30 @@ export default function ConsultantPage() {
 
   return (
     <div className="-m-4 md:-m-8 bg-[#FCF8FF] min-h-[calc(100dvh-4rem)] flex flex-col">
-      <main className="flex-1 pb-32 px-8">
+      <CardStepBar currentStep={2} />
+      <main className="flex-1 pb-8 px-8">
         <div className="max-w-5xl mx-auto pt-8">
 
-          {/* 進度指示器 */}
-          <div className="mb-12">
-            <div className="flex justify-between items-center max-w-4xl mx-auto relative">
-              <div className="absolute top-1/2 left-0 w-full h-px bg-outline-variant/30 -z-10" />
-              {[
-                { label: "前台登記", done: true },
-                { label: "需求諮詢", current: true },
-                { label: "洽談報價", done: false },
-                { label: "結案記錄", done: false },
-              ].map((step, i) => (
-                <div key={i} className="flex flex-col items-center gap-3">
-                  {step.done ? (
-                    <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg">
-                      <span className="material-symbols-outlined text-xl">check</span>
-                    </div>
-                  ) : step.current ? (
-                    <div className="w-12 h-12 rounded-full bg-primary-container text-tertiary-container flex items-center justify-center ring-4 ring-tertiary-container/20 shadow-xl">
-                      <span className="text-lg font-bold">{i + 1}</span>
-                    </div>
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-surface-container-high text-on-surface/40 flex items-center justify-center">
-                      <span className="text-sm font-bold">{i + 1}</span>
-                    </div>
-                  )}
-                  <span className={`text-sm ${step.current ? "font-bold text-on-surface" : "font-medium text-on-surface/60"}`}>
-                    {step.label}
-                  </span>
-                </div>
-              ))}
+          {/* ── 頁首 ── */}
+          <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-3">
+            <div>
+              <h1 className="text-2xl font-display font-extrabold text-on-surface tracking-tight">
+                客戶接待手卡 — 第二階段
+              </h1>
+              <p className="text-outline text-sm mt-0.5">接待三步法 ‧ 步驟二：需求諮詢與客戶評級</p>
+            </div>
+            <div className="flex gap-5 text-[0.75rem] font-medium bg-surface-container-low px-5 py-2.5 rounded-full shrink-0">
+              <div className="flex gap-2 items-center">
+                <span className="text-outline">手卡編號:</span>
+                <span className="text-on-surface font-display">DU-20260501-001</span>
+              </div>
+              <div className="w-px h-4 bg-outline-variant self-center" />
+              <div className="flex gap-2 items-center">
+                <span className="text-outline">接待人員:</span>
+                <span className="text-on-surface font-bold">林佳蓉</span>
+              </div>
             </div>
           </div>
-
-          {/* ① 標題：銷售顧問填寫 → 接待銷售填寫 */}
-          <h1 className="text-2xl font-extrabold mb-8 text-on-surface tracking-tight">
-            客戶接待手卡 — 接待銷售填寫
-          </h1>
 
           <div className="space-y-8">
 
@@ -404,6 +390,17 @@ export default function ConsultantPage() {
                     ))}
                   </div>
 
+                  {/* A 級即時提示 */}
+                  {grade === "A" && (
+                    <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3">
+                      <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">warning</span>
+                      <div>
+                        <p className="text-sm font-bold text-amber-800">建議降為 B 級</p>
+                        <p className="text-xs text-amber-700 mt-0.5">A 級代表「明確購買意向，尚需試駕確認」。若尚未安排試駕，建議先評為 B 級，試駕後視情況再提升。</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* ⑤ 級別判斷提示說明 */}
                   <div className="bg-surface-container-low rounded-lg p-4 space-y-2">
                     <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-1">
@@ -428,23 +425,20 @@ export default function ConsultantPage() {
         </div>
       </main>
 
-      {/* ③ 底部導覽（③ pb-32 in main 確保不遮擋，此 nav 維持原設計） */}
-      <nav className="fixed bottom-0 left-0 w-full z-50 bg-[#FCF8FF]/80 backdrop-blur-md flex justify-between items-center px-12 py-6 shadow-[0_-4px_20px_rgba(26,26,46,0.04)]">
+      <footer className="sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-[#1A1A2E]/10 px-12 py-4 flex justify-between items-center mt-8">
         <Link
           href="/sales/card/counter"
-          className="bg-[#F5F2FF] text-[#1A1A2E] rounded-lg px-8 py-3 flex items-center gap-2 hover:opacity-90 transition-opacity active:scale-95"
+          className="flex items-center gap-2 text-[#47464C] font-bold hover:text-[#00000b] transition-colors"
         >
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
-          <span className="font-medium text-xs">上一步</span>
+          <span className="material-symbols-outlined">arrow_back</span> 上一步
         </Link>
         <Link
           href="/sales/card/closing"
-          className="bg-gradient-to-br from-[#00000B] to-[#1A1A2E] text-white rounded-lg px-8 py-3 flex items-center gap-2 hover:opacity-90 transition-opacity active:scale-95"
+          className="bg-gradient-to-br from-[#00000B] to-[#1A1A2E] text-white px-10 py-4 rounded-xl font-bold flex items-center gap-3 shadow-xl hover:opacity-90 active:scale-95 transition-all duration-300"
         >
-          <span className="font-medium text-xs">下一步：試騎與報價</span>
-          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          下一步：試騎與報價 <span className="material-symbols-outlined">arrow_forward</span>
         </Link>
-      </nav>
+      </footer>
     </div>
   );
 }
