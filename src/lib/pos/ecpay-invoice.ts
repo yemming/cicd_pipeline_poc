@@ -2,6 +2,7 @@
 // Guide: ~/.claude/skills/ecpay/guides/04-invoice-b2c.md
 // Test account: MerchantID 2000132 / ejCk326UnaZWKisg / q9jcZX8Ib9LM8wYk
 import crypto from "crypto";
+import { getCurrentBrand } from "@/lib/brands/current";
 
 const STAGE_URL = "https://einvoice-stage.ecpay.com.tw";
 const PROD_URL = "https://einvoice.ecpay.com.tw";
@@ -82,7 +83,7 @@ export async function issueInvoice(input: IssueInvoiceInput): Promise<IssueInvoi
     CarrierNum:          input.carrierNum ?? "",
     TaxType:             "1",
     SalesAmount:         input.totalAmount,
-    InvoiceRemark:       input.remark ?? "Ducati Taipei POS",
+    InvoiceRemark:       input.remark ?? getCurrentBrand().ecpayDefaults.invoiceRemark,
     Items: input.items.map((item, i) => ({
       ItemSeq:      i + 1,
       ItemName:     item.name.slice(0, 100),

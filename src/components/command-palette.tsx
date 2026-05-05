@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { allPages } from "@/lib/modules";
+import { useNav } from "./nav-provider";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -14,8 +14,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const { allPages } = useNav();
 
-  const items = useMemo(() => allPages(), []);
+  const items = useMemo(() => allPages(), [allPages]);
 
   const filtered = query
     ? items.filter((item) => {

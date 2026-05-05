@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { notifications } from "@/lib/notifications";
+import { getBrandKey } from "@/lib/brands/current";
 import {
   type FeedbackStatus,
   FEEDBACK_STATUS_ORDER,
@@ -35,9 +36,10 @@ export async function createTicket(fd: FormData) {
   }
 
   const supabase = await createClient();
+  const brandId = getBrandKey();
   const { data, error } = await supabase
     .from("feedback_tickets")
-    .insert({ title, url, description, created_by: userId, status: "draft" })
+    .insert({ title, url, description, created_by: userId, status: "draft", brand_id: brandId })
     .select("id")
     .single();
 
@@ -222,13 +224,14 @@ export async function addComment(ticketId: string, fd: FormData): Promise<void> 
   if (!userId) redirect("/login");
 
   const supabase = await createClient();
+  const brandId = getBrandKey();
 
   // 1. 建 comment（body 可空時寫 "(附件)" 當 placeholder 以滿足 DB check）
   const parentId = s(fd, "parent_id") || null;
   const bodyToSave = body || "(附件)";
   const { data: comment, error: insertErr } = await supabase
     .from("feedback_comments")
-    .insert({ ticket_id: ticketId, author_id: userId, body: bodyToSave, parent_id: parentId })
+    .insert({ ticket_id: ticketId, author_id: userId, body: bodyToSave, parent_id: parentId, brand_id: brandId })
     .select("id")
     .single();
   if (insertErr || !comment) {
@@ -268,7 +271,7 @@ export async function addComment(ticketId: string, fd: FormData): Promise<void> 
 
     const { error: attErr } = await supabase
       .from("feedback_comment_attachments")
-      .insert(uploaded.map((u) => ({ ...u, comment_id: comment.id, uploader_id: userId })));
+      .insert(uploaded.map((u) => ({ ...u, comment_id: comment.id, uploader_id: userId, brand_id: brandId })));
 
     if (attErr) {
       // rollback：把剛上傳的檔案從 storage 清掉 + 刪 comment
@@ -288,7 +291,7 @@ export async function saveCanvasSnapshot(ticketId: string, snapshot: unknown) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("feedback_canvas_snapshots")
-    .upsert({ ticket_id: ticketId, snapshot });
+    .upsert({ ticket_id: ticketId, snapshot, brand_id: getBrandKey() });
 
   if (error) throw new Error(`存檔失敗：${error.message}`);
 }

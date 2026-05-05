@@ -26,6 +26,9 @@ export type ModulePage = {
 };
 
 export type ModuleDef = {
+  /** DB-driven nav 用 nav_nodes.id（uuid，唯一）；
+   *  舊版寫死 modules 為 undefined，回退用 `key` 當識別 */
+  id?: string;
   key: string;
   name: string;
   icon: string;

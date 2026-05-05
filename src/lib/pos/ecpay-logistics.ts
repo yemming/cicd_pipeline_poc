@@ -44,11 +44,13 @@ const MERCHANT_ID = process.env.ECPAY_LOGISTICS_MERCHANT_ID ?? "2000132";
 const HASH_KEY    = process.env.ECPAY_LOGISTICS_HASH_KEY    ?? "5294y06JbISpM5x9";
 const HASH_IV     = process.env.ECPAY_LOGISTICS_HASH_IV     ?? "v77hoKGq4kWxNNIS";
 
-// 門市寄件預設（Ducati Taipei）
-const SENDER_NAME     = process.env.ECPAY_SENDER_NAME     ?? "杜卡迪台北";
-const SENDER_PHONE    = process.env.ECPAY_SENDER_PHONE    ?? "0227122211";
-const SENDER_ZIP      = process.env.ECPAY_SENDER_ZIP      ?? "10491";
-const SENDER_ADDRESS  = process.env.ECPAY_SENDER_ADDRESS  ?? "台北市中山區中山北路二段100號";
+// 門市寄件預設：fallback 由 brand config 提供，env var 仍可 override
+import { getCurrentBrand } from "@/lib/brands/current";
+const _brandSender = getCurrentBrand().ecpayDefaults;
+const SENDER_NAME     = process.env.ECPAY_SENDER_NAME     ?? _brandSender.senderName;
+const SENDER_PHONE    = process.env.ECPAY_SENDER_PHONE    ?? _brandSender.senderPhone;
+const SENDER_ZIP      = process.env.ECPAY_SENDER_ZIP      ?? _brandSender.senderZip;
+const SENDER_ADDRESS  = process.env.ECPAY_SENDER_ADDRESS  ?? _brandSender.senderAddress;
 
 // ─────────────────────────────────────────────────────────────
 // 工具

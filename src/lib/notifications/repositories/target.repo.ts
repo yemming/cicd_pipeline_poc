@@ -4,6 +4,7 @@ import type {
   NotificationTargetRow,
   TargetType,
 } from "../types";
+import { getBrandKey } from "@/lib/brands/current";
 
 const TABLE = "notification_targets";
 
@@ -14,6 +15,7 @@ export async function listTargets(
   let q = supabase
     .from(TABLE)
     .select("*, channel:notification_channels!inner(code)")
+    .eq("brand_id", getBrandKey())
     .order("created_at", { ascending: false });
   if (opts.onlyActive !== false) q = q.eq("is_active", true);
   if (opts.channelCode) q = q.eq("channel.code", opts.channelCode);
@@ -63,6 +65,7 @@ export async function createTarget(
       display_name: input.display_name,
       metadata: input.metadata ?? {},
       is_active: input.is_active ?? true,
+      brand_id: getBrandKey(),
     })
     .select("*")
     .single();

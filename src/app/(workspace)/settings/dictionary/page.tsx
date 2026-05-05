@@ -27,7 +27,7 @@ export default function Page() {
       <MockCard
         title="業務字典清單"
         action={
-          <button className="h-9 px-4 rounded-lg bg-[#CC0000] text-white text-sm font-medium hover:bg-[#a80000] flex items-center gap-1">
+          <button className="h-9 px-4 rounded-lg bg-[color:var(--color-brand-primary)] text-white text-sm font-medium hover:bg-[color:var(--color-brand-primary-dark)] flex items-center gap-1">
             <span className="material-symbols-outlined text-base">add</span>
             新增字典
           </button>
@@ -37,14 +37,14 @@ export default function Page() {
           {dicts.map((d) => (
             <div
               key={d.key}
-              className="rounded-xl border border-outline-variant/20 p-5 hover:border-[#CC0000]/40 hover:shadow-sm transition-all cursor-pointer bg-white"
+              className="rounded-xl border border-outline-variant/20 p-5 hover:border-[color:var(--color-brand-primary)]/40 hover:shadow-sm transition-all cursor-pointer bg-white"
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="font-bold text-on-surface font-display">{d.label}</div>
                   <div className="text-[11px] text-on-surface-variant font-mono">{d.key}</div>
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[#CC0000]/10 text-[#CC0000] font-semibold">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[color:var(--color-brand-primary)]/10 text-[color:var(--color-brand-primary)] font-semibold">
                   {d.count} 項
                 </span>
               </div>

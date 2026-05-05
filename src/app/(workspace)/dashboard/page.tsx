@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { modules } from "@/lib/modules";
+import { useNav } from "@/components/nav-provider";
 import { useSetPageHeader } from "@/components/page-header-context";
 import { useProfile, getGreeting } from "@/lib/use-profile";
 
@@ -13,6 +13,7 @@ const ClockWidget = dynamic(() => import("@/components/clock-widget"), {
 export default function LauncherPage() {
   useSetPageHeader({ hideSearch: false });
   const profile = useProfile();
+  const { modules } = useNav();
 
   return (
     <div className="max-w-6xl mx-auto pt-4">

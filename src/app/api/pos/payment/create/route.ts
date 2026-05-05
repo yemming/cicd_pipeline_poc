@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildAioParams, buildCheckoutUrl } from "@/lib/pos/ecpay-aio";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getBrandKey, getCurrentBrand } from "@/lib/brands/current";
 
 function genTradeNo(): string {
   const d    = new Date();
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     merchantTradeNo,
     totalAmount:   body.totalAmount,
     itemName:      body.itemName,
-    tradeDesc:     body.tradeDesc || "Ducati Taipei POS",
+    tradeDesc:     body.tradeDesc || `${getCurrentBrand().displayName} POS`,
     choosePayment: "LINEPAY",
     returnUrl:     `${appUrl}/api/pos/payment/return`,
   });
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
     amount:            body.totalAmount,
     item_name:         body.itemName,
     status:            "pending",
+    brand_id:          getBrandKey(),
   });
 
   return NextResponse.json({

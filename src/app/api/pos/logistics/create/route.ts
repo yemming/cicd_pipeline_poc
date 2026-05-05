@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createShipment } from "@/lib/pos/ecpay-logistics";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getBrandKey } from "@/lib/brands/current";
 
 function genLogisticsTradeNo(): string {
   const d    = new Date();
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
     receiver_zip:        receiverZipCode,
     goods_name:          goodsName,
     goods_amount:        goodsAmount,
+    brand_id:            getBrandKey(),
   });
 
   if (!result.success) {

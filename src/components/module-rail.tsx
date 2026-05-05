@@ -12,7 +12,7 @@ import {
   useTransform,
 } from "motion/react";
 import { cn } from "@/lib/utils";
-import { modules, resolveModuleFromPathname } from "@/lib/modules";
+import { useNav } from "./nav-provider";
 import { useSidebar } from "./sidebar-context";
 
 // ── Vertical Floating Dock (adapted from Aceternity UI) ─────────────────────
@@ -185,11 +185,14 @@ function MatIcon({ name, color }: { name: string; color?: string }) {
 export function ModuleRail() {
   const pathname  = usePathname();
   const { toggle, fullHidden, setFullHidden } = useSidebar();
+  const { modules, resolveModuleFromPathname } = useNav();
   const rawSegment = pathname.split("/")[1] || null;
   const onLauncher = !rawSegment || rawSegment === "dashboard";
 
   // resolveModuleFromPathname handles URL-segment overrides (e.g. /feedback → settings)
   const activeModule = resolveModuleFromPathname(pathname);
+  // 用 id（uuid，DB-driven 唯一）優先；舊 hardcoded 才 fallback 到 key
+  const activeIdent = activeModule ? (activeModule.id ?? activeModule.key) : null;
   const activeKey = activeModule?.key ?? null;
 
   const currentPage  = activeModule?.pages.find(
@@ -209,14 +212,18 @@ export function ModuleRail() {
     },
   ];
 
-  const moduleItems: DockItem[] = modules.map((m) => ({
-    title: m.comingSoon ? `${m.name}（即將推出）` : m.name,
-    icon: <MatIcon name={m.icon} color={activeKey === m.key ? m.accent : undefined} />,
-    href: m.comingSoon ? undefined : m.home,
-    onClick: activeKey === m.key ? toggle : undefined,
-    active: activeKey === m.key,
-    accent: m.accent,
-  }));
+  const moduleItems: DockItem[] = modules.map((m) => {
+    const ident = m.id ?? m.key;
+    const isActive = activeIdent !== null && activeIdent === ident;
+    return {
+      title: m.comingSoon ? `${m.name}（即將推出）` : m.name,
+      icon: <MatIcon name={m.icon} color={isActive ? m.accent : undefined} />,
+      href: m.comingSoon ? undefined : m.home,
+      onClick: isActive ? toggle : undefined,
+      active: isActive,
+      accent: m.accent,
+    };
+  });
 
   const bottomItems: DockItem[] = [
     {

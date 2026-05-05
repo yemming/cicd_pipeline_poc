@@ -5,6 +5,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { createClient } from "@/lib/supabase/server";
 import { issueInvoice, type InvoiceCarrierType } from "./ecpay-invoice";
 import type { PaymentMethod, Product, ProductCategory } from "./types";
+import { getBrandKey } from "@/lib/brands/current";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -74,6 +75,7 @@ export async function completeSale(input: CompleteSaleInput): Promise<CompleteSa
   } catch { /* ignore */ }
 
   const merchantTradeNo = genMerchantTradeNo();
+  const brandId = getBrandKey();
 
   // 1. 建立交易主表
   const { data: tx, error: txErr } = await db
@@ -92,6 +94,7 @@ export async function completeSale(input: CompleteSaleInput): Promise<CompleteSa
       carrier_code:      input.carrierCode ?? null,
       tax_id:            input.taxId ?? null,
       ecpay_status:      "pending",
+      brand_id:          brandId,
     })
     .select("id")
     .single();
@@ -110,6 +113,7 @@ export async function completeSale(input: CompleteSaleInput): Promise<CompleteSa
       qty:            l.qty,
       unit_price:     l.unitPrice,
       subtotal:       l.qty * l.unitPrice,
+      brand_id:       brandId,
     })),
   );
 
@@ -131,6 +135,7 @@ export async function completeSale(input: CompleteSaleInput): Promise<CompleteSa
     description:    `POS ${merchantTradeNo}（${input.lines.map((l) => l.name).slice(0, 3).join("、")}${input.lines.length > 3 ? "…" : ""}）`,
     ref_id:         tx.id,
     created_by:     staffId,
+    brand_id:       brandId,
   });
 
   // 5. 呼叫 ECPay 開立 B2C 電子發票
@@ -190,6 +195,7 @@ export async function getProducts(): Promise<Product[]> {
   const { data, error } = await db
     .from("pos_products")
     .select("id, sku, name, category, unit_price, stock_qty, low_stock_at, barcode")
+    .eq("brand_id", getBrandKey())
     .eq("is_active", true)
     .order("category")
     .order("name");

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { HideNextDevTools } from "@/components/hide-next-devtools";
+import { getCurrentBrand } from "@/lib/brands/current";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -46,8 +47,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const brand = getCurrentBrand();
+  const brandStyle = {
+    "--color-brand-primary": brand.primaryColor,
+    "--color-brand-primary-dark": brand.primaryColorDark,
+  } as React.CSSProperties;
+
   return (
-    <html lang="zh-Hant" className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
+    <html
+      lang="zh-Hant"
+      className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
+      style={brandStyle}
+      data-brand={brand.key}
+    >
       <head>
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link href={materialSymbolsHref} rel="stylesheet" />

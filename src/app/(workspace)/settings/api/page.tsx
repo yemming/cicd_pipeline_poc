@@ -1,9 +1,12 @@
 "use client";
 
 import { MockShell, MockCard, MockToggle } from "../_mock/mock-shell";
+import { getCurrentBrand } from "@/lib/brands/current";
+
+const brand = getCurrentBrand();
 
 const integrations = [
-  { name: "Ducati HQ DMS",     desc: "總部保固 / 車型主檔同步",          status: "已連線",   color: "green",  icon: "two_wheeler" },
+  { name: brand.hqDmsLabel,    desc: "總部保固 / 車型主檔同步",          status: "已連線",   color: "green",  icon: "two_wheeler" },
   { name: "玉山銀行金流",       desc: "分期 / 刷卡授權",                 status: "已連線",   color: "green",  icon: "account_balance" },
   { name: "富邦產險 API",       desc: "強制 / 任意險試算・投保",         status: "已連線",   color: "green",  icon: "verified_user" },
   { name: "LINE Notify",       desc: "推播顧問 / 客戶群組通知",          status: "已連線",   color: "green",  icon: "chat" },
@@ -43,8 +46,8 @@ export default function Page() {
               key={i.name}
               className="rounded-xl border border-outline-variant/20 p-4 bg-white flex items-center gap-4"
             >
-              <span className="w-10 h-10 rounded-lg bg-[#CC0000]/10 flex items-center justify-center flex-shrink-0">
-                <span className="material-symbols-outlined text-[#CC0000]">{i.icon}</span>
+              <span className="w-10 h-10 rounded-lg bg-[color:var(--color-brand-primary)]/10 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-[color:var(--color-brand-primary)]">{i.icon}</span>
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
@@ -64,7 +67,7 @@ export default function Page() {
       <MockCard
         title="API 金鑰"
         action={
-          <button className="h-9 px-4 rounded-lg bg-[#CC0000] text-white text-sm font-medium hover:bg-[#a80000] flex items-center gap-1">
+          <button className="h-9 px-4 rounded-lg bg-[color:var(--color-brand-primary)] text-white text-sm font-medium hover:bg-[color:var(--color-brand-primary-dark)] flex items-center gap-1">
             <span className="material-symbols-outlined text-base">key</span>
             建立金鑰
           </button>
@@ -90,7 +93,7 @@ export default function Page() {
                   <td className="py-3 px-2 text-xs text-on-surface-variant">{t.lastUsed}</td>
                   <td className="py-3 px-2 text-right space-x-3">
                     <button className="text-xs text-on-surface-variant hover:underline">輪替</button>
-                    <button className="text-xs text-[#CC0000] hover:underline">撤銷</button>
+                    <button className="text-xs text-[color:var(--color-brand-primary)] hover:underline">撤銷</button>
                   </td>
                 </tr>
               ))}
@@ -103,7 +106,7 @@ export default function Page() {
         <div className="rounded-xl border border-outline-variant/20 p-5 bg-white">
           <div className="flex items-center justify-between mb-2">
             <div className="font-mono text-xs text-on-surface">
-              POST&nbsp; https://api.dealeros.ducati.tw/webhooks/<span className="text-[#CC0000]">order.created</span>
+              POST&nbsp; https://{brand.webhookHost}/webhooks/<span className="text-[color:var(--color-brand-primary)]">order.created</span>
             </div>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-semibold">● Active</span>
           </div>

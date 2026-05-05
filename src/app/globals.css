@@ -76,6 +76,14 @@
   --radius-lg: 1rem;
 }
 
+/* ===== Brand color tokens =====
+   實際值由 root layout 在 <html style> inline 注入（依 BRAND_KEY env 切換）。
+   下面這組是 fallback，如果 layout 沒注入也會走 Ducati 紅。 */
+:root {
+  --color-brand-primary: #CC0000;
+  --color-brand-primary-dark: #A80000;
+}
+
 /* ===== Stitch fixed elements — contained by StitchInline transform =====
    StitchInline wrapper has transform:translateZ(0) which makes it the containing
    block for all position:fixed children (CSS spec). Stitch's `fixed bottom-0 left-0`
