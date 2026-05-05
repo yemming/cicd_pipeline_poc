@@ -256,30 +256,19 @@ export async function moveNavNode(id: string, direction: "up" | "down"): Promise
 // ──────────────────────────────────────────────────────────
 
 /**
- * 把使用者的 HTML 檔抽出 body innerHTML（保留 <head> 內 <style>），
- * 移除 <script>，存到 Supabase Storage。
- * 不做 strip-stitch-chrome — 假設使用者上傳的就是「乾淨的單頁 HTML」。
+ * 使用者的 HTML 會被丟進 iframe srcdoc 渲染（CSS 與外殼完全隔離），
+ * 所以這裡只需做「資安最小清理」：
+ *   - 拿掉外連 <link>（避免拉外站 CSS）
+ *   - 拿掉 <meta http-equiv="refresh">（避免被劫持轉址）
+ *   - 拿掉 <iframe> 內嵌（避免 nested iframe 載入外站）
+ * 保留：<style> + 全部 inline <script>（iframe sandbox 會關掉 same-origin，
+ * 攔住 JS 對外打 API；互動性如 tab 切換、計算機都能用）。
  */
 function processUploadedHtml(html: string): string {
-  // 1. 抽 <head> 內的 <style> blocks
-  const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
-  let styles = "";
-  if (headMatch) {
-    const styleBlocks = headMatch[1].match(/<style[^>]*>[\s\S]*?<\/style>/gi);
-    if (styleBlocks) styles = styleBlocks.join("\n");
-  }
-
-  // 2. 抽 body innerHTML（沒 body tag 就把整份當 fragment）
-  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  const bodyInner = bodyMatch ? bodyMatch[1] : html;
-
-  // 3. 拿掉 <script> 與外連 <link> / <meta>（安全 + 避免污染主 app）
-  const safe = bodyInner
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
+  return html
     .replace(/<link\b[^>]*>/gi, "")
-    .replace(/<meta\b[^>]*>/gi, "");
-
-  return styles + "\n" + safe;
+    .replace(/<meta\s+http-equiv=["']?refresh["']?[^>]*>/gi, "")
+    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "");
 }
 
 export async function uploadHtmlForNode(nodeId: string, fd: FormData): Promise<void> {
@@ -312,7 +301,7 @@ export async function uploadHtmlForNode(nodeId: string, fd: FormData): Promise<v
   const { error: uploadErr } = await supabase.storage
     .from(NAV_HTML_BUCKET)
     .upload(storagePath, processed, {
-      contentType: "text/html; charset=utf-8",
+      contentType: "text/html",
       upsert: true,
     });
   if (uploadErr) throw new Error(`上傳失敗：${uploadErr.message}`);

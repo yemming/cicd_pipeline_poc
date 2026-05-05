@@ -1,15 +1,10 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { parseAdminEmails, isAdminEmail } from "@/lib/feedback";
+import { isAdmin, listAdmins } from "@/lib/admins";
 
-// Notification Hub admin 判斷
-// 復用 feedback 模組的 parseAdminEmails / isAdminEmail helper（它們是純函式）
-// env 讀取策略：優先 NOTIFICATION_ADMIN_EMAILS，fallback 吃 FEEDBACK_ADMIN_EMAILS
-// （部署時只設一個即可，不會雙重維護）
-
-function getAdminEmailsRaw(): string | undefined {
-  return process.env.NOTIFICATION_ADMIN_EMAILS ?? process.env.FEEDBACK_ADMIN_EMAILS;
-}
+// Notification Hub admin 判斷 — 與 feedback 共用同一份 DB 名單（app_admins 表）
+// 過去 NOTIFICATION_ADMIN_EMAILS / FEEDBACK_ADMIN_EMAILS 兩條 env 都收掉，
+// 統一由 /admin/admins 後台管理。env 仍是 bootstrap fallback（見 src/lib/admins.ts）。
 
 export interface NotificationUserContext {
   userId: string | null;
@@ -38,7 +33,7 @@ export const getCurrentUserAndNotificationAdmin = cache(
     return {
       userId,
       email: emailStr,
-      isAdmin: isAdminEmail(emailStr, getAdminEmailsRaw()),
+      isAdmin: await isAdmin(emailStr),
     };
   },
 );
@@ -59,6 +54,7 @@ export async function requireNotificationAdmin(): Promise<NotificationUserContex
 }
 
 /** 列出所有 admin email（供後台 UI 顯示 / debug）*/
-export function listAdminEmails(): string[] {
-  return parseAdminEmails(getAdminEmailsRaw());
+export async function listAdminEmails(): Promise<string[]> {
+  const set = await listAdmins();
+  return Array.from(set).sort();
 }

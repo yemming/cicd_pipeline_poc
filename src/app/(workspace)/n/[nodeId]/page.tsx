@@ -12,7 +12,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getBrandKey } from "@/lib/brands/current";
-import { StitchInline } from "@/components/stitch-inline";
+import { UserHtmlFrame } from "@/components/user-html-frame";
 import { PlaceholderPage } from "@/components/placeholder-page";
 
 type NavNode = {
@@ -88,14 +88,21 @@ export default async function NavNodePage({
         return <PlaceholderPage title={node.name} description="尚未上傳 HTML" />;
       }
       const html = await loadHtmlBody(node.html_storage_path);
+      if (html === null) {
+        return <PlaceholderPage title={node.name} description="HTML 載入失敗" />;
+      }
+      // 兼容兩種儲存格式：
+      //   舊版（已被 strip 過）：<style>...</style>\n<body innerHTML 片段>
+      //   新版（保留完整 HTML）：完整 <!DOCTYPE html>...</html>
+      // 沒有 <html> 開頭就幫它包一份完整 doc
+      const doc = /<html[\s>]/i.test(html)
+        ? html
+        : `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_top"></head><body>${html}</body></html>`;
       return (
-        <StitchInline
-          html={html}
+        <UserHtmlFrame
+          html={doc}
           title={node.name}
           breadcrumb={[{ label: node.name }]}
-          sprint={node.sprint ?? undefined}
-          device={node.device ?? undefined}
-          screenId={node.stitch_screen_id ?? undefined}
         />
       );
     }

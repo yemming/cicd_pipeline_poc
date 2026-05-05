@@ -3,10 +3,10 @@ import "server-only";
 import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/lib/feedback";
+import { isAdmin } from "@/lib/admins";
 
 /**
- * Server-side：取得目前登入者 + 是否為 feedback admin。
+ * Server-side：取得目前登入者 + 是否為 admin。
  *
  * 使用 Supabase `getClaims()`（2025 年官方推薦）：
  *   - 專案啟用非對稱 JWT 簽章後，會在本地驗證簽章（~1ms），不打 Auth server
@@ -14,8 +14,8 @@ import { isAdminEmail } from "@/lib/feedback";
  *
  * React `cache()` 包起來：同一個 request 內多次呼叫只會實際做一次。
  *
- * admin 判斷：依 `FEEDBACK_ADMIN_EMAILS` 環境變數（逗號分隔 email）。
- * 最終把關仍建議走 RLS（DB 層），app 層這個檢查是 UX 層（提前擋、給清楚錯誤）。
+ * admin 判斷：DB 層 `app_admins` 表（取代 FEEDBACK_ADMIN_EMAILS env）。
+ * env 仍保留為 bootstrap fallback，詳見 src/lib/admins.ts。
  */
 export const getCurrentUserAndAdmin = cache(
   async (): Promise<{
@@ -40,7 +40,7 @@ export const getCurrentUserAndAdmin = cache(
     return {
       userId,
       email,
-      isAdmin: isAdminEmail(email, process.env.FEEDBACK_ADMIN_EMAILS),
+      isAdmin: await isAdmin(email),
     };
   },
 );
