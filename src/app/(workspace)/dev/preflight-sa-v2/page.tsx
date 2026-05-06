@@ -5,7 +5,7 @@ export default function PreflightSaV2Page() {
     <DevHtmlViewer
       file="preflight-sa-v2.html"
       title="04_預檢單_SA環檢_v2"
-      device="ipad"
+      device="tablet"
       sourcePath="docs/04_預檢單_SA環檢_v2.html"
     />
   );

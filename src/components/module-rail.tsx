@@ -125,8 +125,8 @@ function IconContainer({
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
       className={cn(
-        "relative flex aspect-square items-center justify-center rounded-xl transition-colors",
-        active ? "bg-white/15" : "hover:bg-white/8"
+        "relative flex aspect-square items-center justify-center rounded-xl transition-colors module-rail-icon",
+        active ? "module-rail-icon-active" : ""
       )}
     >
       {/* Tooltip — fixed position to escape overflow:hidden containers */}
@@ -148,14 +148,14 @@ function IconContainer({
       {active && (
         <span
           className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-l"
-          style={{ backgroundColor: accent ?? "#C9A84C" }}
+          style={{ backgroundColor: accent ?? "var(--color-brand-accent)" }}
         />
       )}
 
       {/* Icon */}
       <motion.div
-        style={{ width: iconSize, height: iconSize }}
-        className="flex items-center justify-center text-white"
+        style={{ width: iconSize, height: iconSize, color: "var(--sidebar-text)" }}
+        className="flex items-center justify-center"
       >
         {icon}
       </motion.div>
@@ -198,7 +198,7 @@ export function ModuleRail() {
   const currentPage  = activeModule?.pages.find(
     (p) => p.href === pathname || pathname.startsWith(p.href + "/")
   );
-  const isDevicePage = !!currentPage?.device && currentPage.device !== "desktop";
+  const isDevicePage = currentPage?.device === "tablet" || currentPage?.device === "mobile";
 
   if (fullHidden) return null;
 
@@ -235,11 +235,17 @@ export function ModuleRail() {
   ];
 
   return (
-    <nav className="fixed left-0 top-0 h-dvh w-14 bg-[#0F0F1F] flex flex-col items-center py-3 z-[60] border-r border-white/5">
+    <nav
+      className="fixed left-0 top-0 h-dvh w-14 flex flex-col items-center py-3 z-[60] border-r"
+      style={{
+        backgroundColor: "var(--sidebar-rail-bg)",
+        borderColor: "var(--sidebar-divider)",
+      }}
+    >
       {/* Top: Launcher */}
       <VerticalDock items={topItems} />
 
-      <div className="h-px w-6 bg-white/10 my-2" />
+      <div className="h-px w-6 my-2" style={{ backgroundColor: "var(--sidebar-divider)" }} />
 
       {/* Modules */}
       <div className="flex-1 overflow-y-auto overflow-x-visible w-full flex flex-col items-center">
@@ -254,11 +260,15 @@ export function ModuleRail() {
         <form action="/api/auth/signout" method="POST">
           <button
             type="submit"
-            className="w-7 h-7 flex items-center justify-center rounded-xl text-gray-400 hover:text-white hover:bg-white/8 transition-colors group relative"
+            className="module-rail-logout w-7 h-7 flex items-center justify-center rounded-xl transition-colors group relative"
+            style={{ color: "var(--sidebar-text-muted)" }}
             title="登出"
           >
             <MatIcon name="logout" />
-            <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg bg-[#1A1A2E] px-2.5 py-1 text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50 [@media(hover:none)]:hidden">
+            <span
+              className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity shadow-xl z-50 [@media(hover:none)]:hidden"
+              style={{ backgroundColor: "var(--sidebar-panel-bg)", color: "var(--sidebar-text)" }}
+            >
               登出
             </span>
           </button>

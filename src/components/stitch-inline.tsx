@@ -10,7 +10,7 @@ interface StitchInlineProps {
   title: string;
   breadcrumb?: TopbarBreadcrumb[];
   sprint?: string;
-  device?: "desktop" | "tablet" | "ipad" | "mobile";
+  device?: "tablet" | "mobile";
   screenId?: string;
 }
 

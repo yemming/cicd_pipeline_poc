@@ -8,7 +8,6 @@ export default async function Page() {
       html={html}
       title="合規稽核"
       sprint="S10-5"
-      device="desktop"
       screenId="fe943528afb949e0b7c2fe717a94c305"
       breadcrumb={[{ label: "經銷商管理", href: "/inventory/vehicles" }, { label: "合規稽核" }]}
     />

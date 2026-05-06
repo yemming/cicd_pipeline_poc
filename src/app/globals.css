@@ -91,11 +91,24 @@
    is exactly what we want. No override needed — removing sticky hack that caused
    the nav to float mid-page when content was shorter than the viewport. */
 
-/* ===== PagesPanel Nav Scrollbar — must stay dark regardless of stitch page CSS ===== */
+/* ===== PagesPanel Nav Scrollbar — 跟 sidebar 主題色走 ===== */
 .pages-panel-nav::-webkit-scrollbar { width: 4px; }
 .pages-panel-nav::-webkit-scrollbar-track { background: transparent; }
-.pages-panel-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
-.pages-panel-nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+.pages-panel-nav::-webkit-scrollbar-thumb {
+  background: var(--sidebar-divider, rgba(255,255,255,0.12));
+  border-radius: 10px;
+}
+.pages-panel-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--sidebar-hover, rgba(255,255,255,0.22));
+}
+
+/* PagesPanel row hover — 用 sidebar 主題的 hover bg（Tailwind 沒法 hover-set CSS var 的 bg） */
+.pages-panel-row-hover:hover { background-color: var(--sidebar-hover); }
+
+/* ModuleRail icon container — hover/active bg + logout hover 都吃 sidebar 主題 */
+.module-rail-icon:hover { background-color: var(--sidebar-hover); }
+.module-rail-icon-active { background-color: var(--sidebar-active); }
+.module-rail-logout:hover { background-color: var(--sidebar-hover); color: var(--sidebar-text); }
 
 /* ===== Excalidraw canvas-panel layout overrides ===== */
 /* 窄寬度時 Excalidraw 會把 menu 丟到 footer-left（左下），這裡把它拉回左上角對齊原廠 */

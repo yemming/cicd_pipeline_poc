@@ -8,7 +8,6 @@ export default async function Page() {
       html={html}
       title="退款簽核"
       sprint="S1-9"
-      device="desktop"
       screenId="3b1ee33fd56f4e5db193ada91c6e700c"
       breadcrumb={[{ label: "簽核管理", href: "/admin/approvals" }, { label: "退款簽核" }]}
     />

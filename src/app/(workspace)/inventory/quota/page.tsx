@@ -8,7 +8,6 @@ export default async function Page() {
       html={html}
       title="配額批售"
       sprint="S10-2"
-      device="desktop"
       screenId="763556ef5dd64192936e49a6c305e3ce"
       breadcrumb={[{ label: "整車庫存", href: "/inventory/vehicles" }, { label: "配額批售" }]}
     />

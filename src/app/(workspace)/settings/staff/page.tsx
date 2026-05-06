@@ -8,7 +8,6 @@ export default async function Page() {
       html={html}
       title="人員管理"
       sprint="S1-2"
-      device="desktop"
       screenId="ceeb6d36062b47d68789dc49700707d9"
       breadcrumb={[{ label: "系統設定", href: "/settings/org" }, { label: "人員管理" }]}
     />

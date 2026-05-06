@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getBrandKey, getCurrentBrand } from "@/lib/brands/current";
+import { loadBrandAppearance } from "@/lib/brands/appearance";
 import { NavEditor, type NavNodeRow } from "./_components/nav-editor";
+import { AppearanceEditor } from "./_components/appearance-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +28,17 @@ export default async function NavAdminPage() {
   const brand = getCurrentBrand();
 
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("nav_nodes")
-    .select(
-      "id, brand_id, parent_id, level, sort_order, name, icon, accent, description, module_key, permission, home, page_kind, href, html_storage_path, stitch_screen_id, sprint, device, is_admin_only, coming_soon, is_active, updated_at",
-    )
-    .eq("brand_id", brandKey)
-    .order("level")
-    .order("sort_order");
+  const [{ data, error }, appearance] = await Promise.all([
+    supabase
+      .from("nav_nodes")
+      .select(
+        "id, brand_id, parent_id, level, sort_order, name, icon, accent, description, module_key, permission, home, page_kind, href, html_storage_path, stitch_screen_id, sprint, device, is_admin_only, coming_soon, is_active, updated_at",
+      )
+      .eq("brand_id", brandKey)
+      .order("level")
+      .order("sort_order"),
+    loadBrandAppearance(brandKey),
+  ]);
 
   if (error) {
     return (
@@ -48,5 +53,20 @@ export default async function NavAdminPage() {
 
   const rows = (data ?? []) as NavNodeRow[];
 
-  return <NavEditor initialRows={rows} brandKey={brandKey} brandName={brand.displayName} />;
+  return (
+    <div className="max-w-7xl mx-auto p-4 md:p-6">
+      <AppearanceEditor
+        brandKey={brandKey}
+        brandName={brand.displayName}
+        initial={{
+          dashboard_tagline: appearance.dashboard_tagline,
+          footer_badge_url: appearance.footer_badge_url,
+          sidebar_theme: appearance.sidebar_theme,
+          brand_palette: appearance.brand_palette,
+          custom_palette: appearance.custom_palette,
+        }}
+      />
+      <NavEditor initialRows={rows} brandKey={brandKey} brandName={brand.displayName} />
+    </div>
+  );
 }

@@ -8,7 +8,6 @@ export default async function Page() {
       html={html}
       title="集團運營簡報"
       sprint="S6-3"
-      device="desktop"
       screenId="76f48bf6c9484de1a2082f702761fa40"
       breadcrumb={[{ label: "集團管理", href: "/group/dashboard" }, { label: "集團運營簡報" }]}
     />

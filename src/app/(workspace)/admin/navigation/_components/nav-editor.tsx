@@ -94,7 +94,7 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6">
+    <>
       <header className="mb-6">
         <h1 className="text-2xl font-bold font-display">目錄管理</h1>
         <p className="text-sm text-on-surface-variant mt-1">
@@ -111,6 +111,15 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
             </h2>
             <NewModuleButton brandKey={brandKey} />
           </div>
+          <p className="text-[11px] text-on-surface-variant mb-3 leading-relaxed">
+            滑到任一節點，右側會出現
+            <span className="inline-flex items-center mx-1 align-middle text-[color:var(--color-brand-primary)]">
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>
+            </span>
+            / ↑ / ↓ / 🗑 按鈕。
+            <span className="font-semibold">「+」</span>
+            可在該節點下加子項：模組底下可開頁面或區段、區段底下開頁面。
+          </p>
 
           {tree.length === 0 ? (
             <div className="py-12 text-center text-sm text-on-surface-variant">
@@ -144,7 +153,7 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
           )}
         </section>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -294,8 +303,47 @@ function NodeActions({ node }: { node: NavNodeRow }) {
     });
   };
 
+  // 只有模組(1) / 區段(2) 能加子項；頁面(3) 是 leaf
+  const canAddChild = node.level < 3;
+
+  const handleAddChild = guardedAction(async () => {
+    let childLevel: 2 | 3;
+    if (node.level === 1) {
+      const ans = prompt(
+        `在模組「${node.name}」下面要建什麼？\n\n  輸入 page = 頁面（最常用）\n  輸入 section = 可分組但不可點的區段`,
+        "page",
+      );
+      if (!ans) throw new Error("已取消");
+      const t = ans.trim().toLowerCase();
+      if (t === "section" || t === "s" || t === "2") childLevel = 2;
+      else if (t === "page" || t === "p" || t === "3") childLevel = 3;
+      else throw new Error(`不認識 '${ans}'，請輸入 page 或 section`);
+    } else {
+      childLevel = 3;
+    }
+
+    const promptText = childLevel === 2 ? "新區段名稱（例：客戶與分析）" : "新頁面名稱：";
+    const name = prompt(promptText);
+    if (!name) throw new Error("已取消");
+
+    const fd = new FormData();
+    fd.set("level", String(childLevel));
+    fd.set("parent_id", node.id);
+    fd.set("name", name);
+    fd.set("icon", childLevel === 3 ? "label" : "");
+    if (childLevel === 3) fd.set("page_kind", "placeholder");
+    await createNavNode(fd);
+  });
+
   return (
     <div className={`flex items-center gap-0.5 ${pending ? "opacity-50 pointer-events-none" : ""}`}>
+      {canAddChild && (
+        <IconBtn
+          icon="add"
+          title={node.level === 1 ? "在此模組下新增頁面 / 區段" : "在此區段下新增頁面"}
+          onClick={handleAddChild}
+        />
+      )}
       <IconBtn
         icon="arrow_upward"
         title="上移"
@@ -490,7 +538,7 @@ function NodeForm({ node }: { node: NavNodeRow }) {
         )}
       </div>
 
-      <form onSubmit={handleSave} className="space-y-4">
+      <form id="nav-node-form" onSubmit={handleSave} className="space-y-4">
         <Field label="名稱" required>
           <input
             name="name"
@@ -572,18 +620,19 @@ function NodeForm({ node }: { node: NavNodeRow }) {
                   className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest font-mono text-sm"
                 />
               </Field>
-              <Field label="裝置提示">
+              <Field label="裝置版型">
                 <select
                   name="device"
                   defaultValue={node.device ?? ""}
                   className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest"
                 >
-                  <option value="">不指定</option>
-                  <option value="desktop">desktop</option>
-                  <option value="tablet">tablet</option>
-                  <option value="ipad">ipad</option>
-                  <option value="mobile">mobile</option>
+                  <option value="">Normal（一般網頁）</option>
+                  <option value="tablet">Tablet（T） — 自動隱藏 sidebar</option>
+                  <option value="mobile">Mobile（M） — 自動隱藏 sidebar</option>
                 </select>
+                <p className="text-[10px] text-on-surface-variant mt-1 leading-relaxed">
+                  Tablet / Mobile 進入時會自動全螢幕（隱藏左側兩欄導航），且在頁面清單會顯示 T / M 角標提醒設計師此頁要做窄版視覺。
+                </p>
               </Field>
             </div>
 
@@ -602,17 +651,6 @@ function NodeForm({ node }: { node: NavNodeRow }) {
           <CheckBox name="is_active" defaultChecked={node.is_active}>
             啟用（取消勾選則隱藏不刪除）
           </CheckBox>
-        </div>
-
-        <div className="pt-2">
-          <button
-            type="submit"
-            disabled={pending}
-            className="px-5 py-2 rounded-lg bg-[color:var(--color-brand-primary)] text-white font-medium hover:bg-[color:var(--color-brand-primary-dark)] disabled:opacity-60 flex items-center gap-2"
-          >
-            {pending && <Spinner />}
-            {pending ? "儲存中…" : "儲存變更"}
-          </button>
         </div>
       </form>
 
@@ -647,6 +685,19 @@ function NodeForm({ node }: { node: NavNodeRow }) {
           </form>
         </div>
       )}
+
+      {/* 儲存變更：放整個編輯面板最下方。靠 form="nav-node-form" 跟主表單關聯，HTML 上傳區永遠在它上面 */}
+      <div className="pt-4 mt-4 border-t border-outline-variant/30">
+        <button
+          type="submit"
+          form="nav-node-form"
+          disabled={pending}
+          className="w-full px-5 py-2.5 rounded-lg bg-[color:var(--color-brand-primary)] text-white font-medium hover:bg-[color:var(--color-brand-primary-dark)] disabled:opacity-60 flex items-center justify-center gap-2"
+        >
+          {pending && <Spinner />}
+          {pending ? "儲存中…" : "儲存變更"}
+        </button>
+      </div>
     </div>
   );
 }

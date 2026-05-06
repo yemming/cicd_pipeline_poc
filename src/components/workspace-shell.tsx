@@ -26,6 +26,10 @@ function Shell({ children }: { children: React.ReactNode }) {
   const onLauncher = !activeModule;
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // T/M 頁面只負責顯示 T/M 角標 + ModuleRail 左上「點點」變成隱藏鍵；
+  // 不主動 setFullHidden — 直接縮起來視覺上太突兀，使用者進來看不到內容上下文。
+  // 由使用者自行決定要不要點左上 apps 圖示把整個導航收掉。
+
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
 

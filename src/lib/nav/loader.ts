@@ -29,7 +29,7 @@ type NavNodeRow = {
   html_storage_path: string | null;
   stitch_screen_id: string | null;
   sprint: string | null;
-  device: "desktop" | "tablet" | "ipad" | "mobile" | null;
+  device: "tablet" | "mobile" | null;
   is_admin_only: boolean;
   coming_soon: boolean;
   is_active: boolean;

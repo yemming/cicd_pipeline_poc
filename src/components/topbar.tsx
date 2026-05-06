@@ -1,9 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { usePageHeader } from "./page-header-context";
 import { useSidebar } from "./sidebar-context";
+import { useAppearance } from "./appearance-context";
 import { useProfile, getInitials } from "@/lib/use-profile";
 import { useActiveModule } from "@/lib/use-active-module";
 import { getCurrentBrand } from "@/lib/brands/current";
@@ -20,11 +22,13 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
   const activeModule = useActiveModule();
   const pathname = usePathname();
   const brand = getCurrentBrand();
+  const { footerBadgeUrl } = useAppearance();
 
   // 找到當前頁面的 icon + name
   const currentPage = activeModule?.pages.find(
     (p) => p.href === pathname || pathname.startsWith(p.href + "/")
   );
+  void currentPage;
 
   return (
     <header
@@ -32,15 +36,31 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
         fullHidden ? "left-0" : (collapsed || !activeModule) ? "left-14" : "lg:left-[304px] left-14"
       }`}
     >
-      {/* Left: DealerOS logo → back to launcher */}
-      <div className="w-36 md:w-48 shrink-0 flex items-center min-w-0">
-        <Link href="/dashboard" className="block group text-center leading-tight">
-          <div className="text-sm font-bold text-[#1A1A2E] tracking-widest font-display group-hover:text-[#1A1A2E]/70 transition-colors">
-            DealerOS
-          </div>
-          <div className="text-[8px] font-bold tracking-[0.22em] uppercase group-hover:opacity-80 transition-opacity" style={{ color: "var(--color-brand-primary)" }}>
-            {brand.shortName.replace(/ /g, " ")}
-          </div>
+      {/* Left: 客戶品牌主形象 → 沒上傳就 fallback 到 DealerOS 字標。回 /dashboard。 */}
+      <div className="w-36 md:w-48 shrink-0 flex items-center min-w-0 px-1">
+        <Link href="/dashboard" className="block group leading-tight w-full">
+          {footerBadgeUrl ? (
+            <Image
+              src={footerBadgeUrl}
+              alt={brand.displayName}
+              width={240}
+              height={56}
+              unoptimized
+              className="max-h-12 w-auto max-w-full object-contain group-hover:opacity-80 transition-opacity"
+            />
+          ) : (
+            <div className="text-center">
+              <div className="text-sm font-bold text-[#1A1A2E] tracking-widest font-display group-hover:text-[#1A1A2E]/70 transition-colors">
+                DealerOS
+              </div>
+              <div
+                className="text-[8px] font-bold tracking-[0.22em] uppercase group-hover:opacity-80 transition-opacity"
+                style={{ color: "var(--color-brand-primary)" }}
+              >
+                {brand.shortName}
+              </div>
+            </div>
+          )}
         </Link>
       </div>
 

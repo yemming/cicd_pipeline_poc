@@ -8,7 +8,7 @@ export default async function Page() {
       html={html}
       title="接待報價單"
       sprint="S3-9"
-      device="ipad"
+      device="tablet"
       screenId="f2f2139ca6274ad9bb4fa4d9ec0fb775"
       breadcrumb={[{ label: "銷售管理", href: "/sales/showroom" }, { label: "接待報價單" }]}
     />

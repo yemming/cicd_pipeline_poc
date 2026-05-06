@@ -17,6 +17,11 @@ import { getBrandKey } from "@/lib/brands/current";
 
 const NAV_HTML_BUCKET = "nav-html";
 
+function validDevice(raw: string | null): "tablet" | "mobile" | null {
+  if (raw === "tablet" || raw === "mobile") return raw;
+  return null; // 包含 "" / "desktop" / "ipad" 或非法值 → Normal
+}
+
 async function requireAdmin() {
   const { userId, isAdmin } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -45,6 +50,12 @@ function fields(fd: FormData) {
 function refreshAll() {
   // nav 樹由 (workspace)/layout 載入；改了之後整個 layout subtree 都要重 render
   revalidatePath("/", "layout");
+}
+
+/** HTML 上傳專用 — 只 bust 該 nav 動態路徑，不 revalidate 整個 layout（avoid 把 nav tree + appearance 整套重撈）。 */
+function refreshUploadedHtml(nodeId: string) {
+  // /n/[id] 是放 static HTML 的 catch-all 路由，重新驗證確保訪客拿到新檔
+  revalidatePath(`/n/${nodeId}`);
 }
 
 // ──────────────────────────────────────────────────────────
@@ -109,7 +120,7 @@ export async function createNavNode(fd: FormData): Promise<{ id: string }> {
     insert.href = s("href");
     insert.stitch_screen_id = s("stitch_screen_id");
     insert.sprint = s("sprint");
-    insert.device = s("device");
+    insert.device = validDevice(s("device"));
     insert.is_admin_only = b("is_admin_only");
     insert.coming_soon = b("coming_soon");
   }
@@ -167,7 +178,7 @@ export async function updateNavNode(id: string, fd: FormData): Promise<void> {
     if (fd.has("href")) patch.href = s("href");
     if (fd.has("stitch_screen_id")) patch.stitch_screen_id = s("stitch_screen_id");
     if (fd.has("sprint")) patch.sprint = s("sprint");
-    if (fd.has("device")) patch.device = s("device");
+    if (fd.has("device")) patch.device = validDevice(s("device"));
     if (fd.has("is_admin_only")) patch.is_admin_only = b("is_admin_only");
     if (fd.has("coming_soon")) patch.coming_soon = b("coming_soon");
   }
@@ -318,5 +329,8 @@ export async function uploadHtmlForNode(nodeId: string, fd: FormData): Promise<v
     .eq("id", nodeId);
   if (updateErr) throw new Error(`更新節點失敗：${updateErr.message}`);
 
-  refreshAll();
+  // 不再 revalidate 整個 layout — 只 bust /n/[id] 那條動態路由的 cache。
+  // layout 全 bust 會把 nav tree + appearance 整套重撈，dev mode 加上 force-dynamic
+  // 會卡好幾秒 spinner；HTML 上傳只動到該頁的內容，不需要全 layout 重渲。
+  refreshUploadedHtml(nodeId);
 }

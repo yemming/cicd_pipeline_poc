@@ -12,6 +12,7 @@ import {
 } from "motion/react";
 import { useActiveModule } from "@/lib/use-active-module";
 import type { ModulePage } from "@/lib/modules";
+import { getCurrentBrand } from "@/lib/brands/current";
 import { useSidebar } from "./sidebar-context";
 import { useIsAdmin } from "./admin-context";
 
@@ -43,9 +44,10 @@ function DockRow({
   const iconSize = useSpring(iconSizeRaw, { mass: 0.1, stiffness: 150, damping: 12 });
   const py       = useSpring(pyRaw,       { mass: 0.1, stiffness: 150, damping: 12 });
 
+  // 主題切換：active / hover bg 與 text 走 CSS var；hover 用 group-hover 配 :hover bg fallback
   const baseClass = isActive
-    ? "flex items-center gap-3 px-4 rounded-lg bg-white/10 text-white border-r-2 font-display font-medium"
-    : "flex items-center gap-3 px-4 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 font-display transition-colors";
+    ? "flex items-center gap-3 px-4 rounded-lg border-r-2 font-display font-medium text-[color:var(--sidebar-text)]"
+    : "flex items-center gap-3 px-4 rounded-lg text-[color:var(--sidebar-text-muted)] hover:text-[color:var(--sidebar-text)] font-display transition-colors pages-panel-row-hover";
 
   const inner = (
     <motion.div
@@ -55,7 +57,8 @@ function DockRow({
         paddingTop: py,
         paddingBottom: py,
         fontSize,
-        ...(isActive && accent ? { borderRightColor: accent, color: "#fff" } : {}),
+        backgroundColor: isActive ? "var(--sidebar-active)" : undefined,
+        ...(isActive && accent ? { borderRightColor: accent } : {}),
       }}
     >
       {page.icon && (
@@ -70,7 +73,7 @@ function DockRow({
         </motion.span>
       )}
       <span className="truncate flex-1">{page.name}</span>
-      {page.device && page.device !== "desktop" && (
+      {page.device && (
         <span
           className={`text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full ring-1 mr-1.5 shrink-0 ${
             page.device === "mobile"
@@ -86,12 +89,14 @@ function DockRow({
 
   if (page.comingSoon) {
     return (
-      <div className="flex items-center gap-3 px-4 py-2 rounded-lg text-gray-600 text-sm font-display cursor-not-allowed">
+      <div
+        className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-display cursor-not-allowed opacity-50 text-[color:var(--sidebar-text-muted)]"
+      >
         {page.icon && (
           <span className="material-symbols-outlined text-lg">{page.icon}</span>
         )}
         <span className="truncate">{page.name}</span>
-        <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-white/30 font-medium">
+        <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded font-medium bg-[color:var(--sidebar-hover)] text-[color:var(--sidebar-text-muted)]">
           Soon
         </span>
       </div>
@@ -108,6 +113,7 @@ export function PagesPanel() {
   const activeModule = useActiveModule();
   const { collapsed } = useSidebar();
   const isAdmin = useIsAdmin();
+  const brand = getCurrentBrand();
   const mouseY = useMotionValue(Infinity);
 
   if (!activeModule) return null;
@@ -140,9 +146,10 @@ export function PagesPanel() {
 
   return (
     <aside
-      className={`fixed left-14 top-0 h-dvh w-[248px] bg-[#1A1A2E] flex flex-col py-6 z-[55] shadow-xl transition-transform duration-200 ${
+      className={`fixed left-14 top-0 h-dvh w-[248px] flex flex-col py-6 z-[55] shadow-xl transition-transform duration-200 ${
         collapsed ? "-translate-x-full" : "translate-x-0"
       }`}
+      style={{ backgroundColor: "var(--sidebar-panel-bg)" }}
     >
       {/* Module header */}
       <div className="px-5 mb-5">
@@ -152,22 +159,28 @@ export function PagesPanel() {
             style={{
               backgroundColor: activeModule.accent
                 ? `${activeModule.accent}22`
-                : "rgba(204,0,0,0.15)",
+                : "color-mix(in srgb, var(--color-brand-primary) 15%, transparent)",
             }}
           >
             <span
               className="material-symbols-outlined text-xl"
-              style={{ color: activeModule.accent ?? "#CC0000" }}
+              style={{ color: activeModule.accent ?? "var(--color-brand-primary)" }}
             >
               {activeModule.icon}
             </span>
           </div>
           <div className="min-w-0">
-            <div className="text-white font-display font-bold text-base tracking-tight truncate">
+            <div
+              className="font-display font-bold text-base tracking-tight truncate"
+              style={{ color: "var(--sidebar-text)" }}
+            >
               {activeModule.name}
             </div>
             {activeModule.description && (
-              <div className="text-white/40 text-[10px] truncate">
+              <div
+                className="text-[10px] truncate opacity-70"
+                style={{ color: "var(--sidebar-text-muted)" }}
+              >
                 {activeModule.description}
               </div>
             )}
@@ -184,7 +197,10 @@ export function PagesPanel() {
         {sections.map((section, si) => (
           <div key={`${section.title ?? "default"}-${si}`} className={si > 0 ? "mt-4" : ""}>
             {section.title && (
-              <div className="px-4 mb-1 text-[9px] uppercase tracking-[0.15em] text-white/25 font-bold">
+              <div
+                className="px-4 mb-1 text-[9px] uppercase tracking-[0.15em] font-bold opacity-60"
+                style={{ color: "var(--sidebar-text-muted)" }}
+              >
                 {section.title}
               </div>
             )}
@@ -203,21 +219,29 @@ export function PagesPanel() {
         ))}
       </nav>
 
-      {/* Footer — dealer identity */}
+      {/* Footer — DealerOS 版本宣言（客戶 logo 已搬到 topbar 主位） */}
       <div className="px-3 pt-2 shrink-0">
-        <div className="mx-1 mb-2 border-t border-white/8" />
-        <div className="flex items-center gap-3 px-4 py-2 rounded-lg">
+        <div
+          className="mx-1 mb-2 border-t"
+          style={{ borderColor: "var(--sidebar-divider)" }}
+        />
+        <Link
+          href="/dashboard"
+          className="block leading-tight text-center py-3 hover:opacity-80 transition-opacity"
+        >
           <div
-            className="w-6 h-6 rounded-full flex items-center justify-center text-white flex-shrink-0"
-            style={{ backgroundColor: "#CC0000" }}
+            className="text-sm font-bold tracking-widest font-display"
+            style={{ color: "var(--sidebar-text)" }}
           >
-            <span className="material-symbols-outlined text-sm">two_wheeler</span>
+            DealerOS
           </div>
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-white text-[10px] font-bold uppercase tracking-widest leading-tight">Ducati Taipei</span>
-            <span className="text-gray-500 text-[10px] uppercase tracking-widest leading-tight">Official Dealer</span>
+          <div
+            className="text-[8px] font-bold tracking-[0.22em] uppercase mt-0.5"
+            style={{ color: "var(--color-brand-primary)" }}
+          >
+            {brand.shortName}
           </div>
-        </div>
+        </Link>
       </div>
     </aside>
   );
