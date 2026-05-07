@@ -94,8 +94,8 @@
 <div class="qf"><label>呆滯天數</label><select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>全部（90天+）</option><option>90–180天</option><option>180–365天</option><option>365天以上</option></select></div>
 <div class="qf"><label>ABC分類</label><select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>全部</option><option>A 類</option><option>B 類</option><option>C 類</option></select></div>
 <div class="qf"><label>門店</label><select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>全部門店</option><option>台北直營店</option><option>台中直營店</option></select></div>
-<div class="qf"><label style="opacity:0;">_</label><button class="btn btn-navy">查詢</button></div>
-<div class="qf" style="margin-left:auto;"><label style="opacity:0;">_</label><button class="btn btn-ghost">匯出</button></div>
+<div class="qf"><label style="opacity:0;">_</label><button class="btn btn-navy" onclick="alert('查詢')">查詢</button></div>
+<div class="qf" style="margin-left:auto;"><label style="opacity:0;">_</label><button class="btn btn-ghost" onclick="alert('匯出清單')">匯出</button></div>
 </div>
 </div>
 <div class="tw">
@@ -103,10 +103,10 @@
 <div class="ts"><table>
 <thead><tr><th>料號</th><th>品名</th><th>分類</th><th>庫存量</th><th>庫存成本</th><th>呆滯天數</th><th>呆滯原因</th><th>建議處置</th></tr></thead>
 <tbody>
-<tr><td class="mono">61810131A</td><td>前煞車碟盤 848</td><td><span class="b b-gry">C</span></td><td class="mono c">12</td><td class="mono" style="text-align:right;">NT$86,400</td><td class="mono c" style="color:var(--red);font-weight:600;">412天</td><td>停產車型</td><td><button class="btn btn-red btn-sm">申請報廢</button></td></tr>
-<tr><td class="mono">24520141A</td><td>空濾盒總成 696</td><td><span class="b b-gry">C</span></td><td class="mono c">8</td><td class="mono" style="text-align:right;">NT$32,800</td><td class="mono c" style="color:var(--red);font-weight:600;">387天</td><td>停產車型</td><td><button class="btn btn-red btn-sm">申請報廢</button></td></tr>
-<tr><td class="mono">82910541B</td><td>儀表板線組 M1100</td><td><span class="b b-gry">C</span></td><td class="mono c">6</td><td class="mono" style="text-align:right;">NT$54,600</td><td class="mono c" style="color:var(--amber);font-weight:600;">245天</td><td>規格改版</td><td><button class="btn btn-ghost btn-sm">移促銷倉</button></td></tr>
-<tr><td class="mono">45810271C</td><td>後扶手套件（白）</td><td><span style="font-size:11px;padding:2px 6px;border-radius:7px;font-weight:500;background:var(--amb-l);color:var(--amber);">B</span></td><td class="mono c">20</td><td class="mono" style="text-align:right;">NT$43,200</td><td class="mono c" style="color:var(--amber);">198天</td><td>採購過量</td><td><button class="btn btn-ghost btn-sm">跨店調撥</button></td></tr>
+<tr><td class="mono">61810131A</td><td>前煞車碟盤 848</td><td><span class="b b-gry">C</span></td><td class="mono c">12</td><td class="mono" style="text-align:right;">NT$86,400</td><td class="mono c" style="color:var(--red);font-weight:600;">412天</td><td>停產車型</td><td><button class="btn btn-red btn-sm" onclick="alert('申請報廢')">申請報廢</button></td></tr>
+<tr><td class="mono">24520141A</td><td>空濾盒總成 696</td><td><span class="b b-gry">C</span></td><td class="mono c">8</td><td class="mono" style="text-align:right;">NT$32,800</td><td class="mono c" style="color:var(--red);font-weight:600;">387天</td><td>停產車型</td><td><button class="btn btn-red btn-sm" onclick="alert('申請報廢')">申請報廢</button></td></tr>
+<tr><td class="mono">82910541B</td><td>儀表板線組 M1100</td><td><span class="b b-gry">C</span></td><td class="mono c">6</td><td class="mono" style="text-align:right;">NT$54,600</td><td class="mono c" style="color:var(--amber);font-weight:600;">245天</td><td>規格改版</td><td><button class="btn btn-ghost btn-sm" onclick="alert('移轉促銷')">移促銷倉</button></td></tr>
+<tr><td class="mono">45810271C</td><td>後扶手套件（白）</td><td><span style="font-size:11px;padding:2px 6px;border-radius:7px;font-weight:500;background:var(--amb-l);color:var(--amber);">B</span></td><td class="mono c">20</td><td class="mono" style="text-align:right;">NT$43,200</td><td class="mono c" style="color:var(--amber);">198天</td><td>採購過量</td><td><button class="btn btn-ghost btn-sm" onclick="alert('跨店調撥')">跨店調撥</button></td></tr>
 <tr><td class="mono">73620481A</td><td>車殼固定螺絲組</td><td><span class="b b-gry">C</span></td><td class="mono c">150</td><td class="mono" style="text-align:right;">NT$9,000</td><td class="mono c">143天</td><td>採購過量</td><td><button class="btn btn-ghost btn-sm">觀察</button></td></tr>
 </tbody></table></div>
 </div>

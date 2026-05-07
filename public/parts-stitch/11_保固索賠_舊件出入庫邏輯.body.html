@@ -94,12 +94,12 @@
 </div>
 </div>
 <div class="tw">
-<div class="card-head" style="background:var(--white);"><span class="card-title">📋 舊件在途狀態查詢</span><div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm">匯出</button><button class="btn btn-navy btn-sm">批次處理</button></div></div>
+<div class="card-head" style="background:var(--white);"><span class="card-title">📋 舊件在途狀態查詢</span><div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="alert('匯出')">匯出</button><button class="btn btn-navy btn-sm" onclick="alert('批次')">批次處理</button></div></div>
 <div class="ts"><table>
 <thead><tr><th>舊件條碼</th><th>品名/料號</th><th>RO工單</th><th>入庫日</th><th>損壞等級</th><th>目前狀態</th><th>操作</th></tr></thead>
 <tbody>
 <tr><td class="mono">WR-26-RO2341-001</td><td>煞車卡鉗總成<br/><span style="font-size:11px;color:var(--g400);">69140391A</span></td><td class="mono">RO-2026-2341</td><td>2026/05/02</td><td><span class="b b-pend">🟡 明顯損壞</span></td><td><span class="b b-navy">等待核准</span></td><td><button class="btn btn-ghost btn-sm">詳情</button></td></tr>
-<tr><td class="mono">WR-26-RO2287-001</td><td>節氣門總成<br/><span style="font-size:11px;color:var(--g400);">28240141B</span></td><td class="mono">RO-2026-2287</td><td>2026/04/28</td><td><span class="b b-red">🔴 嚴重毀損</span></td><td><span class="b b-done">核准-待寄回</span></td><td><button class="btn btn-teal btn-sm">列印標籤</button></td></tr>
+<tr><td class="mono">WR-26-RO2287-001</td><td>節氣門總成<br/><span style="font-size:11px;color:var(--g400);">28240141B</span></td><td class="mono">RO-2026-2287</td><td>2026/04/28</td><td><span class="b b-red">🔴 嚴重毀損</span></td><td><span class="b b-done">核准-待寄回</span></td><td><button class="btn btn-teal btn-sm" onclick="alert('列印標籤')">列印標籤</button></td></tr>
 <tr><td class="mono">WR-26-RO2201-003</td><td>ECU電腦<br/><span style="font-size:11px;color:var(--g400);">38510131A</span></td><td class="mono">RO-2026-2201</td><td>2026/04/19</td><td><span class="b b-pend">🟡 明顯損壞</span></td><td><span class="b b-gry">已寄出</span></td><td><button class="btn btn-ghost btn-sm">追蹤</button></td></tr>
 <tr><td class="mono">WR-26-RO2180-001</td><td>離合器片組<br/><span style="font-size:11px;color:var(--g400);">19020231C</span></td><td class="mono">RO-2026-2180</td><td>2026/04/15</td><td><span class="b b-gry">⬛ 已燒毀</span></td><td><span class="b b-done">銷毀完成</span></td><td><button class="btn btn-ghost btn-sm">查看憑證</button></td></tr>
 </tbody></table></div>

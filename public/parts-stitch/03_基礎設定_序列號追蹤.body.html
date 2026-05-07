@@ -53,7 +53,7 @@
 <div class="ph"><h1>序列號/批號追蹤設定</h1><span class="ph-tag">3.5</span><span class="ph-sub">設定哪些備件需要序列號追蹤・追蹤規則與查詢</span></div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
 <div class="card">
-<div class="card-head"><span class="card-title">追蹤規則設定</span><button class="btn btn-navy btn-sm">儲存</button></div>
+<div class="card-head"><span class="card-title">追蹤規則設定</span><button class="btn btn-navy btn-sm" onclick="alert('已儲存追蹤設定')">儲存</button></div>
 <div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px;">
 <div style="padding:10px 12px;background:var(--red-l);border-radius:6px;border:1px solid #F5AEAD;">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div style="font-size:12.5px;font-weight:600;color:var(--red);">A類商品（必要）</div><label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input checked="" disabled="" type="checkbox"/> 強制序列號</label></div>
@@ -74,13 +74,20 @@
 <div style="padding:12px 16px;">
 <div class="qrow" style="margin-bottom:12px;">
 <div class="qf"><label>輸入序列號</label><input placeholder="掃描或輸入序列號..." style="width:200px;font-family:var(--mono);" type="text"/></div>
-<button class="btn btn-navy" style="align-self:flex-end;">查詢</button>
+<button class="btn btn-navy" onclick="alert('序列號 SN-2024-ECU-00312 查詢結果：
+
+商品：ECU V4S
+入庫：2024/08/15 採購入庫 PO-20240815-003
+目前位置：台北直營店 主零件倉 A-01
+狀態：庫存中
+
+出庫紀錄：無（尚未出庫）')" style="align-self:flex-end;">查詢</button>
 </div>
 <div style="background:var(--g50);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--g400);text-align:center;">輸入序列號後顯示完整軌跡記錄</div>
 <div style="margin-top:10px;"><div style="font-size:11px;color:var(--g400);margin-bottom:6px;font-weight:600;">最近追蹤紀錄</div>
 <div style="display:flex;flex-direction:column;gap:4px;">
-<div style="padding:6px 8px;background:var(--white);border:1px solid var(--g100);border-radius:5px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;"><span class="mono">SN-2024-ECU-00312</span><span style="color:var(--g400);">ECU V4S · 庫存中</span></div>
-<div style="padding:6px 8px;background:var(--white);border:1px solid var(--g100);border-radius:5px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;"><span class="mono">SN-2025-BRK-00891</span><span style="color:var(--teal);">煞車來令片 · 已出庫</span></div>
+<div onclick="alert('查看完整追蹤記錄')" style="padding:6px 8px;background:var(--white);border:1px solid var(--g100);border-radius:5px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;"><span class="mono">SN-2024-ECU-00312</span><span style="color:var(--g400);">ECU V4S · 庫存中</span></div>
+<div onclick="alert('查看完整追蹤記錄')" style="padding:6px 8px;background:var(--white);border:1px solid var(--g100);border-radius:5px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;"><span class="mono">SN-2025-BRK-00891</span><span style="color:var(--teal);">煞車來令片 · 已出庫</span></div>
 </div>
 </div>
 </div>

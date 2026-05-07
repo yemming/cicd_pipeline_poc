@@ -60,13 +60,17 @@
 <div class="qf"><label>內售單號</label><input placeholder="IS-XXXXX..." style="width:160px;" type="text"/></div>
 <div class="qbtns"><button class="btn btn-navy">查詢</button></div>
 </div></div>
-<div class="tbar"><span class="tbar-info">共 <b>4</b> 筆內售入庫單</span><button class="btn btn-teal btn-sm" style="margin-left:auto;">＋ 新增</button></div>
+<div class="tbar"><span class="tbar-info">共 <b>4</b> 筆內售入庫單</span><button class="btn btn-teal btn-sm" onclick="alert('新增內售入庫單')" style="margin-left:auto;">＋ 新增</button></div>
 <div class="tw"><div class="ts"><table>
 <thead><tr><th>內售單號</th><th>來源門店</th><th>目的倉庫</th><th>商品數</th><th>件數</th><th>內售總金額</th><th>建立時間</th><th>狀態</th><th>操作</th></tr></thead>
 <tbody>
-<tr style="background:#EDF7F3;"><td class="mono">IS-20260506-002</td><td>台中直營店</td><td>主零件倉</td><td class="mono c">3</td><td class="mono c">8</td><td class="mono">NT$ 12,400</td><td class="mono">今日 10:15</td><td><span class="b b-pend">待入庫</span></td><td><button class="btn btn-teal btn-sm">入庫 →</button></td></tr>
-<tr><td class="mono">IS-20260504-001</td><td>高雄經銷商</td><td>主零件倉</td><td class="mono c">2</td><td class="mono c">4</td><td class="mono">NT$ 5,960</td><td class="mono">05/04 14:30</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
-<tr><td class="mono">IS-20260428-003</td><td>台中直營店</td><td>主零件倉</td><td class="mono c">5</td><td class="mono c">15</td><td class="mono">NT$ 28,750</td><td class="mono">04/28</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
+<tr style="background:#EDF7F3;"><td class="mono">IS-20260506-002</td><td>台中直營店</td><td>主零件倉</td><td class="mono c">3</td><td class="mono c">8</td><td class="mono">NT$ 12,400</td><td class="mono">今日 10:15</td><td><span class="b b-pend">待入庫</span></td><td><button class="btn btn-teal btn-sm" onclick="alert('✅ 內售入庫完成！
+
+入庫單號：IN-IS-20260506-002
+3種備件共8件已入庫至主零件倉
+庫存已更新')">入庫 →</button></td></tr>
+<tr><td class="mono">IS-20260504-001</td><td>高雄經銷商</td><td>主零件倉</td><td class="mono c">2</td><td class="mono c">4</td><td class="mono">NT$ 5,960</td><td class="mono">05/04 14:30</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm" onclick="alert('查看入庫明細')">查看</button></td></tr>
+<tr><td class="mono">IS-20260428-003</td><td>台中直營店</td><td>主零件倉</td><td class="mono c">5</td><td class="mono c">15</td><td class="mono">NT$ 28,750</td><td class="mono">04/28</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm" onclick="alert('查看入庫明細')">查看</button></td></tr>
 </tbody></table></div></div>
 
 </div>

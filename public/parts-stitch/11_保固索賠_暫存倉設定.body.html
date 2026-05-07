@@ -56,12 +56,12 @@
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
 <div class="card">
-<div class="card-head"><span class="card-title">🏗 暫存倉列表</span><button class="btn btn-teal btn-sm">＋ 新增暫存倉</button></div>
+<div class="card-head"><span class="card-title">🏗 暫存倉列表</span><button class="btn btn-teal btn-sm" onclick="alert('新增暫存倉')">＋ 新增暫存倉</button></div>
 <div style="padding:10px 0;">
 <div style="padding:8px 16px;border-bottom:1px solid var(--g100);">
 <div style="display:flex;justify-content:space-between;align-items:center;">
 <div><div style="font-size:13px;font-weight:600;">台北直營-保固暫存倉</div><div style="font-size:11px;color:var(--g400);margin-top:2px;">所屬門店：台北直營店 ｜ 庫位：8格</div></div>
-<div style="display:flex;align-items:center;gap:6px;"><span class="b b-done">啟用</span><button class="btn btn-ghost btn-sm">編輯</button></div>
+<div style="display:flex;align-items:center;gap:6px;"><span class="b b-done">啟用</span><button class="btn btn-ghost btn-sm" onclick="alert('編輯')">編輯</button></div>
 </div>
 <div style="margin-top:6px;display:flex;gap:8px;">
 <span style="font-size:11px;color:var(--g600);">📦 目前存放：<b>6件</b></span>
@@ -71,7 +71,7 @@
 <div style="padding:8px 16px;border-bottom:1px solid var(--g100);">
 <div style="display:flex;justify-content:space-between;align-items:center;">
 <div><div style="font-size:13px;font-weight:600;">台中直營-保固暫存倉</div><div style="font-size:11px;color:var(--g400);margin-top:2px;">所屬門店：台中直營店 ｜ 庫位：6格</div></div>
-<div style="display:flex;align-items:center;gap:6px;"><span class="b b-done">啟用</span><button class="btn btn-ghost btn-sm">編輯</button></div>
+<div style="display:flex;align-items:center;gap:6px;"><span class="b b-done">啟用</span><button class="btn btn-ghost btn-sm" onclick="alert('編輯')">編輯</button></div>
 </div>
 <div style="margin-top:6px;display:flex;gap:8px;">
 <span style="font-size:11px;color:var(--g600);">📦 目前存放：<b>3件</b></span>
@@ -81,7 +81,7 @@
 <div style="padding:8px 16px;">
 <div style="display:flex;justify-content:space-between;align-items:center;">
 <div><div style="font-size:13px;font-weight:600;">高雄-保固暫存倉</div><div style="font-size:11px;color:var(--g400);margin-top:2px;">所屬門店：高雄經銷商 ｜ 庫位：4格</div></div>
-<div style="display:flex;align-items:center;gap:6px;"><span class="b b-done">啟用</span><button class="btn btn-ghost btn-sm">編輯</button></div>
+<div style="display:flex;align-items:center;gap:6px;"><span class="b b-done">啟用</span><button class="btn btn-ghost btn-sm" onclick="alert('編輯')">編輯</button></div>
 </div>
 <div style="margin-top:6px;display:flex;gap:8px;">
 <span style="font-size:11px;color:var(--g600);">📦 目前存放：<b>1件</b></span>
@@ -123,7 +123,7 @@
 </select>
 </div>
 <div style="display:flex;gap:8px;margin-top:4px;">
-<button class="btn btn-navy">儲存設定</button>
+<button class="btn btn-navy" onclick="alert('儲存設定')">儲存設定</button>
 <button class="btn btn-ghost">取消</button>
 </div>
 </div>
@@ -135,7 +135,7 @@
 <thead><tr><th>舊件條碼</th><th>品名</th><th>損壞等級</th><th>入庫日</th><th>存放天數</th><th>索賠狀態</th><th>操作</th></tr></thead>
 <tbody>
 <tr><td class="mono">WR-26-RO2341-001</td><td>煞車卡鉗總成</td><td><span class="b b-pend">🟡 明顯損壞</span></td><td>2026/05/02</td><td class="mono c">5</td><td><span class="b b-navy">等待核准</span></td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
-<tr><td class="mono">WR-26-RO2287-001</td><td>節氣門總成</td><td><span class="b b-red">🔴 嚴重毀損</span></td><td>2026/04/28</td><td class="mono c">9</td><td><span class="b b-done">核准-待寄回</span></td><td><button class="btn btn-teal btn-sm">出庫</button></td></tr>
+<tr><td class="mono">WR-26-RO2287-001</td><td>節氣門總成</td><td><span class="b b-red">🔴 嚴重毀損</span></td><td>2026/04/28</td><td class="mono c">9</td><td><span class="b b-done">核准-待寄回</span></td><td><button class="btn btn-teal btn-sm" onclick="alert('出庫')">出庫</button></td></tr>
 <tr><td class="mono">WR-26-RO2140-002</td><td>前叉總成</td><td><span class="b b-pend">🟡 明顯損壞</span></td><td>2026/03/08</td><td class="mono c" style="color:var(--amber);font-weight:600;">60</td><td><span class="b b-pend">審核中</span></td><td><button class="btn btn-ghost btn-sm">催促</button></td></tr>
 <tr><td class="mono">WR-26-RO2090-001</td><td>後輪ABS感知器</td><td><span class="b b-gry">🟢 輕微磨損</span></td><td>2026/02/15</td><td class="mono c" style="color:var(--red);font-weight:600;">80</td><td><span class="b b-red">逾期未結</span></td><td><button class="btn btn-red btn-sm">處理</button></td></tr>
 </tbody></table></div>

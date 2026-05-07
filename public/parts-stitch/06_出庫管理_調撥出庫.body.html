@@ -65,20 +65,20 @@
 <div class="qf"><label>來源門店</label><select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>全部</option><option>台北直營店</option><option>台中直營店</option><option>高雄經銷商</option></select></div>
 <div class="qf"><label>目的門店</label><select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>全部</option><option>台北直營店</option><option>台中直營店</option><option>高雄經銷商</option></select></div>
 <div class="qf"><label>狀態</label><select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>全部</option><option>待出庫</option><option>在途中</option><option>已完成</option></select></div>
-<div class="qf"><label style="opacity:0;">_</label><button class="btn btn-navy">查詢</button></div>
-<div class="qf" style="margin-left:auto;"><label style="opacity:0;">_</label><button class="btn btn-teal">＋ 新增調撥</button></div>
+<div class="qf"><label style="opacity:0;">_</label><button class="btn btn-navy" onclick="alert('查詢')">查詢</button></div>
+<div class="qf" style="margin-left:auto;"><label style="opacity:0;">_</label><button class="btn btn-teal" onclick="alert('新增調撥出庫單')">＋ 新增調撥</button></div>
 </div>
 </div>
 <div class="tw">
-<div class="card-head" style="background:var(--white);"><span class="card-title">📋 調撥出庫記錄</span><div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="go('/parts/operations/transfers-in-transit')">查看在途狀態</button><button class="btn btn-ghost btn-sm">匯出</button></div></div>
+<div class="card-head" style="background:var(--white);"><span class="card-title">📋 調撥出庫記錄</span><div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="go('/parts/operations/transfers-in-transit')">查看在途狀態</button><button class="btn btn-ghost btn-sm" onclick="alert('匯出')">匯出</button></div></div>
 <div class="ts"><table>
 <thead><tr><th>調撥單號</th><th>來源門店</th><th>目的門店</th><th>品名/料號</th><th>數量</th><th>出庫日</th><th>狀態</th><th>操作</th></tr></thead>
 <tbody>
 <tr><td class="mono">TRF-2026-0234</td><td>台北直營店</td><td>高雄經銷商</td><td>機油濾芯 Panigale<br/><span style="font-size:11px;color:var(--g400);">67620871B</span></td><td class="mono c">10</td><td>2026/05/06</td><td><span class="b b-pend">在途中</span></td><td><button class="btn btn-ghost btn-sm" onclick="go('/parts/operations/transfers-in-transit')">追蹤</button></td></tr>
 <tr><td class="mono">TRF-2026-0233</td><td>台中直營店</td><td>台北直營店</td><td>煞車卡鉗總成<br/><span style="font-size:11px;color:var(--g400);">69140391A</span></td><td class="mono c">2</td><td>2026/05/05</td><td><span class="b b-pend">在途中</span></td><td><button class="btn btn-ghost btn-sm" onclick="go('/parts/operations/transfers-in-transit')">追蹤</button></td></tr>
-<tr><td class="mono">TRF-2026-0229</td><td>台北直營店</td><td>台中直營店</td><td>離合器片組<br/><span style="font-size:11px;color:var(--g400);">19020231C</span></td><td class="mono c">5</td><td>2026/05/02</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm">憑證</button></td></tr>
-<tr><td class="mono">TRF-2026-0228</td><td>高雄經銷商</td><td>台北直營店</td><td>節氣門總成<br/><span style="font-size:11px;color:var(--g400);">28240141B</span></td><td class="mono c">1</td><td>2026/04/30</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm">憑證</button></td></tr>
-<tr><td class="mono">TRF-2026-0231</td><td>台北直營店</td><td>高雄經銷商</td><td>空氣濾芯<br/><span style="font-size:11px;color:var(--g400);">24611461A</span></td><td class="mono c">8</td><td>—</td><td><span class="b b-navy">待出庫</span></td><td><button class="btn btn-teal btn-sm">執行出庫</button></td></tr>
+<tr><td class="mono">TRF-2026-0229</td><td>台北直營店</td><td>台中直營店</td><td>離合器片組<br/><span style="font-size:11px;color:var(--g400);">19020231C</span></td><td class="mono c">5</td><td>2026/05/02</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm" onclick="alert('查看憑證')">憑證</button></td></tr>
+<tr><td class="mono">TRF-2026-0228</td><td>高雄經銷商</td><td>台北直營店</td><td>節氣門總成<br/><span style="font-size:11px;color:var(--g400);">28240141B</span></td><td class="mono c">1</td><td>2026/04/30</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm" onclick="alert('查看憑證')">憑證</button></td></tr>
+<tr><td class="mono">TRF-2026-0231</td><td>台北直營店</td><td>高雄經銷商</td><td>空氣濾芯<br/><span style="font-size:11px;color:var(--g400);">24611461A</span></td><td class="mono c">8</td><td>—</td><td><span class="b b-navy">待出庫</span></td><td><button class="btn btn-teal btn-sm" onclick="alert('執行出庫')">執行出庫</button></td></tr>
 </tbody></table></div>
 </div>
 <div style="margin-top:12px;display:flex;gap:8px;">

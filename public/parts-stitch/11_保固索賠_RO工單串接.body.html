@@ -61,7 +61,7 @@
 <div style="font-size:11px;font-weight:600;color:var(--g400);letter-spacing:0.5px;">DMS 系統連線</div>
 <div style="padding:10px 12px;border-radius:6px;background:var(--green-l);border:1px solid #B5D4B0;display:flex;justify-content:space-between;align-items:center;">
 <div><div style="font-size:12px;font-weight:600;color:var(--green);">✅ Ducati DMS 已連線</div><div style="font-size:11px;color:var(--g600);margin-top:2px;">API 端點：dms.ducati-tw.com:8443</div></div>
-<button class="btn btn-ghost btn-sm">測試連線</button>
+<button class="btn btn-ghost btn-sm" onclick="alert('測試連線')">測試連線</button>
 </div>
 <div style="font-size:11px;font-weight:600;color:var(--g400);letter-spacing:0.5px;">同步欄位設定</div>
 <div style="display:flex;flex-direction:column;gap:5px;">
@@ -108,18 +108,18 @@
 <input style="width:60px;height:28px;border:1px solid var(--g200);border-radius:5px;padding:0 8px;font-size:12px;text-align:center;" type="number" value="30"/>
 <span style="font-size:12px;">天，通知服務顧問</span>
 </div>
-<button class="btn btn-navy" style="margin-top:4px;">儲存設定</button>
+<button class="btn btn-navy" onclick="alert('儲存串接設定')" style="margin-top:4px;">儲存設定</button>
 </div>
 </div>
 </div>
 <div class="tw">
-<div class="card-head" style="background:var(--white);"><span class="card-title">📋 近期RO工單-保固串接記錄</span><button class="btn btn-ghost btn-sm">查看全部</button></div>
+<div class="card-head" style="background:var(--white);"><span class="card-title">📋 近期RO工單-保固串接記錄</span><button class="btn btn-ghost btn-sm" onclick="alert('查看全部')">查看全部</button></div>
 <div class="ts"><table>
 <thead><tr><th>RO工單號</th><th>VIN/車型</th><th>保固類型</th><th>串接狀態</th><th>出庫單</th><th>索賠單</th><th>操作</th></tr></thead>
 <tbody>
 <tr><td class="mono">RO-2026-2341</td><td>1ZVBP8CFXE5307641<br/><span style="font-size:11px;color:var(--g400);">Panigale V4S</span></td><td><span class="b b-navy">原廠保固</span></td><td><span class="b b-done">✅ 同步完成</span></td><td class="mono">OUT-26-2341</td><td class="mono">CLM-2026-0089</td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
 <tr><td class="mono">RO-2026-2287</td><td>1ZVBP8CFXE5298812<br/><span style="font-size:11px;color:var(--g400);">Multistrada V4</span></td><td><span class="b b-teal">延伸保固</span></td><td><span class="b b-done">✅ 同步完成</span></td><td class="mono">OUT-26-2287</td><td class="mono">CLM-2026-0081</td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
-<tr><td class="mono">RO-2026-2390</td><td>1ZVBP8CFXE5312001<br/><span style="font-size:11px;color:var(--g400);">Monster SP</span></td><td><span class="b b-gry">判斷中</span></td><td><span class="b b-pend">⏳ 等待VIN驗證</span></td><td>—</td><td>—</td><td><button class="btn btn-teal btn-sm">手動驗證</button></td></tr>
+<tr><td class="mono">RO-2026-2390</td><td>1ZVBP8CFXE5312001<br/><span style="font-size:11px;color:var(--g400);">Monster SP</span></td><td><span class="b b-gry">判斷中</span></td><td><span class="b b-pend">⏳ 等待VIN驗證</span></td><td>—</td><td>—</td><td><button class="btn btn-teal btn-sm" onclick="alert('手動觸發驗證')">手動驗證</button></td></tr>
 <tr><td class="mono">RO-2026-2355</td><td>1ZVBP8CFXE5308774<br/><span style="font-size:11px;color:var(--g400);">Streetfighter V2</span></td><td><span class="b b-red">不符保固</span></td><td><span class="b b-gry">改走客付出庫</span></td><td class="mono">OUT-26-2355</td><td>—</td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
 </tbody></table></div>
 </div>

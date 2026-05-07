@@ -279,8 +279,10 @@ def extract_one(src_path: str, dst_dir: str) -> str | None:
             tag.decompose()
         container = body
 
-    # 處理 inline event handler:保留 location.href / go() 跳轉,刪 alert/closePanel 等 demo only
-    # 同時把 'NN_xxx.html' 改寫成 /parts URL
+    # 處理 inline event handler:
+    # - 保留 location.href / go() 跳轉 + rewrite .html 為 /parts URL
+    # - 保留 alert(...)(讓 demo button 至少有提示)
+    # - 其他自定 helper(closePanel / openPO / addItem 等)→ 改用 alert 提示「demo only」
     for el in container.find_all(True):
         for attr in list(el.attrs):
             if not attr.startswith("on"):
@@ -289,12 +291,22 @@ def extract_one(src_path: str, dst_dir: str) -> str | None:
             if not isinstance(value, str):
                 del el[attr]
                 continue
-            # 真正會導航的:含 location.href 或 go(...)
+            value = value.strip()
             has_navigation = ("location.href" in value) or re.search(r"\bgo\s*\(", value)
             if has_navigation:
                 el[attr] = rewrite_html_links(value)
-            else:
-                del el[attr]
+                continue
+            # alert(...) 直接保留,瀏覽器原生支援
+            if re.match(r"^\s*alert\s*\(", value):
+                el[attr] = value
+                continue
+            # 含 alert 但前後有其他語句:抽 alert 出來保留
+            alert_match = re.search(r"alert\s*\(([^)]*)\)", value)
+            if alert_match:
+                el[attr] = f"alert({alert_match.group(1)})"
+                continue
+            # 純自定 helper(closePanel / openItem / addRow 等)— 刪掉避免 console error
+            del el[attr]
     for script in container.find_all("script"):
         script.decompose()
     main_html = "".join(str(c) for c in container.contents)

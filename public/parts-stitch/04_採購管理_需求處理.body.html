@@ -59,8 +59,8 @@
 <div class="qf"><label>門店</label><select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>全部門店</option><option>台北直營店</option><option>台中直營店</option><option>高雄經銷商</option></select></div>
 <div class="qf"><label>狀態</label><select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>全部</option><option>待審核</option><option>已核准</option><option>已轉採購單</option><option>已拒絕</option></select></div>
 <div class="qf"><label>日期</label><input style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);" type="date" value="2026-05-07"/></div>
-<div class="qf"><label style="opacity:0;">_</label><button class="btn btn-navy">查詢</button></div>
-<div class="qf" style="margin-left:auto;"><label style="opacity:0;">_</label><button class="btn btn-teal">＋ 新增需求</button></div>
+<div class="qf"><label style="opacity:0;">_</label><button class="btn btn-navy" onclick="alert('查詢')">查詢</button></div>
+<div class="qf" style="margin-left:auto;"><label style="opacity:0;">_</label><button class="btn btn-teal" onclick="alert('新增需求單')">＋ 新增需求</button></div>
 </div>
 </div>
 <div class="tw">
@@ -68,10 +68,10 @@
 <div class="ts"><table>
 <thead><tr><th>需求單號</th><th>提出門店</th><th>料號/品名</th><th>需求數量</th><th>需求日期</th><th>狀態</th><th>備註</th><th>操作</th></tr></thead>
 <tbody>
-<tr><td class="mono">REQ-2026-0089</td><td>台北直營店</td><td>機油濾芯 Panigale<br/><span style="font-size:11px;color:var(--g400);">67620871B</span></td><td class="mono c">20</td><td>2026/05/06</td><td><span class="b b-pend">待審核</span></td><td>庫存低於安全水位</td><td><div style="display:flex;gap:4px;"><button class="btn btn-teal btn-sm" onclick="go('/parts/purchase/orders')">核准→建單</button><button class="btn btn-red btn-sm">拒絕</button></div></td></tr>
-<tr><td class="mono">REQ-2026-0088</td><td>台中直營店</td><td>煞車來令片前<br/><span style="font-size:11px;color:var(--g400);">61810391A</span></td><td class="mono c">10</td><td>2026/05/05</td><td><span class="b b-pend">待審核</span></td><td>促銷活動備料</td><td><div style="display:flex;gap:4px;"><button class="btn btn-teal btn-sm" onclick="go('/parts/purchase/orders')">核准→建單</button><button class="btn btn-red btn-sm">拒絕</button></div></td></tr>
+<tr><td class="mono">REQ-2026-0089</td><td>台北直營店</td><td>機油濾芯 Panigale<br/><span style="font-size:11px;color:var(--g400);">67620871B</span></td><td class="mono c">20</td><td>2026/05/06</td><td><span class="b b-pend">待審核</span></td><td>庫存低於安全水位</td><td><div style="display:flex;gap:4px;"><button class="btn btn-teal btn-sm" onclick="go('/parts/purchase/orders')">核准→建單</button><button class="btn btn-red btn-sm" onclick="alert('拒絕需求')">拒絕</button></div></td></tr>
+<tr><td class="mono">REQ-2026-0088</td><td>台中直營店</td><td>煞車來令片前<br/><span style="font-size:11px;color:var(--g400);">61810391A</span></td><td class="mono c">10</td><td>2026/05/05</td><td><span class="b b-pend">待審核</span></td><td>促銷活動備料</td><td><div style="display:flex;gap:4px;"><button class="btn btn-teal btn-sm" onclick="go('/parts/purchase/orders')">核准→建單</button><button class="btn btn-red btn-sm" onclick="alert('拒絕需求')">拒絕</button></div></td></tr>
 <tr><td class="mono">REQ-2026-0085</td><td>台北直營店</td><td>節氣門總成<br/><span style="font-size:11px;color:var(--g400);">28240141B</span></td><td class="mono c">2</td><td>2026/05/03</td><td><span class="b b-done">已轉採購單</span></td><td>緊急補料</td><td><button class="btn btn-ghost btn-sm" onclick="go('/parts/purchase/orders')">查看採購單</button></td></tr>
-<tr><td class="mono">REQ-2026-0081</td><td>高雄經銷商</td><td>空氣濾芯<br/><span style="font-size:11px;color:var(--g400);">24611461A</span></td><td class="mono c">5</td><td>2026/04/28</td><td><span class="b b-red">已拒絕</span></td><td>庫存充足，不需補貨</td><td><button class="btn btn-ghost btn-sm">詳情</button></td></tr>
+<tr><td class="mono">REQ-2026-0081</td><td>高雄經銷商</td><td>空氣濾芯<br/><span style="font-size:11px;color:var(--g400);">24611461A</span></td><td class="mono c">5</td><td>2026/04/28</td><td><span class="b b-red">已拒絕</span></td><td>庫存充足，不需補貨</td><td><button class="btn btn-ghost btn-sm" onclick="alert('查看詳情')">詳情</button></td></tr>
 </tbody></table></div>
 </div>
 <div class="card" style="margin-top:14px;">
@@ -82,8 +82,8 @@
 <div class="qf"><label>需求數量</label><input style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);" type="number" value="1"/></div>
 <div class="qf"><label>需求原因</label><select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>庫存低於安全水位</option><option>緊急備料</option><option>活動促銷備料</option><option>其他</option></select></div>
 <div style="grid-column:1/-1;display:flex;gap:8px;">
-<button class="btn btn-navy">送出需求</button>
-<button class="btn btn-ghost">取消</button>
+<button class="btn btn-navy" onclick="alert('送出需求單')">送出需求</button>
+<button class="btn btn-ghost" onclick="alert('取消')">取消</button>
 </div>
 </div>
 </div>

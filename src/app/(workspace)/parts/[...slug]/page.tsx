@@ -85,10 +85,10 @@ const PARTS_PAGE_META: Record<string, PartsMeta> = {
 export default async function PartsCatchAllPage({
   params,
 }: {
-  params: Promise<{ slug?: string[] }>;
+  params: Promise<{ slug: string[] }>;
 }) {
-  const slug = (await params).slug ?? [];
-  const path = "/parts" + (slug.length ? "/" + slug.join("/") : "");
+  const slug = (await params).slug;
+  const path = "/parts/" + slug.join("/");
   const meta = PARTS_PAGE_META[path] ?? {
     name: "庫存管理",
     group: "庫存管理",

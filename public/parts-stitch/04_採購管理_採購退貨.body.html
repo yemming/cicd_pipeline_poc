@@ -61,9 +61,9 @@
 <div class="tw"><div class="ts"><table>
 <thead><tr><th>退貨單號</th><th>原採購單號</th><th>供應商</th><th>退貨原因</th><th>退貨件數</th><th>退貨金額</th><th>申請時間</th><th>狀態</th><th>操作</th></tr></thead>
 <tbody>
-<tr style="background:#FFF9F0;"><td class="mono">RT-20260506-003</td><td class="mono" style="color:var(--blue);">PO-20260504-018</td><td>Ducati 原廠</td><td>規格不符</td><td class="mono c">3</td><td class="mono">NT$ 15,120</td><td class="mono">今日 09:30</td><td><span class="b b-pend">待審核</span></td><td><button class="btn btn-ghost btn-sm">審核</button></td></tr>
-<tr><td class="mono">RT-20260503-001</td><td class="mono" style="color:var(--blue);">PO-20260501-008</td><td>Motul Taiwan</td><td>品質問題</td><td class="mono c">6</td><td class="mono">NT$ 2,880</td><td class="mono">05/03 14:20</td><td><span class="b b-navy">退貨中</span></td><td><button class="btn btn-ghost btn-sm">物流</button></td></tr>
-<tr><td class="mono">RT-20260428-002</td><td class="mono" style="color:var(--blue);">PO-20260425-011</td><td>零件世界</td><td>數量多送</td><td class="mono c">2</td><td class="mono">NT$ 24,300</td><td class="mono">04/28 11:00</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
+<tr style="background:#FFF9F0;"><td class="mono">RT-20260506-003</td><td class="mono" style="color:var(--blue);">PO-20260504-018</td><td>Ducati 原廠</td><td>規格不符</td><td class="mono c">3</td><td class="mono">NT$ 15,120</td><td class="mono">今日 09:30</td><td><span class="b b-pend">待審核</span></td><td><button class="btn btn-ghost btn-sm" onclick="alert('審核退貨申請')">審核</button></td></tr>
+<tr><td class="mono">RT-20260503-001</td><td class="mono" style="color:var(--blue);">PO-20260501-008</td><td>Motul Taiwan</td><td>品質問題</td><td class="mono c">6</td><td class="mono">NT$ 2,880</td><td class="mono">05/03 14:20</td><td><span class="b b-navy">退貨中</span></td><td><button class="btn btn-ghost btn-sm" onclick="alert('查看物流狀態')">物流</button></td></tr>
+<tr><td class="mono">RT-20260428-002</td><td class="mono" style="color:var(--blue);">PO-20260425-011</td><td>零件世界</td><td>數量多送</td><td class="mono c">2</td><td class="mono">NT$ 24,300</td><td class="mono">04/28 11:00</td><td><span class="b b-done">已完成</span></td><td><button class="btn btn-ghost btn-sm" onclick="alert('查看退貨完成紀錄')">查看</button></td></tr>
 </tbody></table></div></div>
 <div class="overlay" id="ov">
 <div class="panel">
@@ -77,7 +77,10 @@
 <div style="display:flex;align-items:center;gap:8px;"><input type="checkbox"/><span>DUC-OIL-002 — 機油濾清器 × 5</span></div>
 </div></div>
 <div class="qf"><label>退貨說明</label><textarea placeholder="請說明退貨原因與詳細情況..." style="width:100%;height:72px;border:1px solid var(--g200);border-radius:5px;padding:8px 10px;font-family:var(--font);font-size:13px;outline:none;resize:none;"></textarea></div>
-<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;"><button class="btn btn-ghost">取消</button><button class="btn btn-navy">送出申請</button></div>
+<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;"><button class="btn btn-ghost">取消</button><button class="btn btn-navy" onclick="alert('✅ 退貨申請已送出！
+
+申請單號：RT-20260506-004
+庫存回沖將於審核通過後自動執行');closePanel()">送出申請</button></div>
 </div></div></div>
 <style>.overlay{display:none;position:fixed;inset:0;background:rgba(15,30,50,0.45);z-index:300;align-items:flex-start;justify-content:flex-end;}.overlay.show{display:flex;}.panel{background:var(--white);width:460px;height:calc(100vh - var(--hh));margin-top:var(--hh);border-left:1px solid var(--g100);overflow-y:auto;animation:slideIn 0.18s ease;}@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}.p-head{background:var(--navy);padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;}.p-back{background:rgba(255,255,255,0.12);border:none;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;font-family:var(--font);}.p-head-title{font-size:14px;font-weight:600;color:#fff;}.p-head-sub{font-size:12px;color:rgba(255,255,255,0.65);}</style>
 
