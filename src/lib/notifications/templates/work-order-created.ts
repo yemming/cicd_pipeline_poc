@@ -1,5 +1,5 @@
 import type { TemplateDefinition } from "../types";
-import { buildGoogleCard, buildLineFlex, DUCATI_RED, s } from "./kits";
+import { buildGoogleCard, buildLineFlex, s } from "./kits";
 
 // 事件：維修工單建立（service 模組）
 // payload 建議欄位：
@@ -19,7 +19,6 @@ export const workOrderCreatedLine: TemplateDefinition = {
     buildLineFlex({
       emoji: "🔧",
       title: `新工單 ${s(p, "orderNo")}`,
-      headerColor: DUCATI_RED,
       fields: [
         { label: "客戶", value: s(p, "customer") },
         { label: "機車", value: s(p, "vehicle") },

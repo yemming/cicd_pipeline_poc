@@ -1,0 +1,121 @@
+<style>:root {--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-red {background:var(--red-l);color:var(--red);border:1px solid #F5AEAD;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;}
+.pd .b-done {background:var(--green-l);color:var(--green);}
+.pd .b-pend {background:var(--amb-l);color:var(--amber);}
+.pd .b-navy {background:#EBF3FF;color:var(--navy);}
+.pd .b-teal {background:var(--teal-l);color:var(--teal);}
+.pd .b-gry {background:var(--gray-l);color:var(--gray);}
+.pd .b-red {background:var(--red-l);color:var(--red);}
+.pd .card {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);}
+.pd .card-head {padding:11px 16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}
+.pd .card-title {font-size:13px;font-weight:600;}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:14px;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;}
+.pd thead th {padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);background:var(--g50);border-bottom:1px solid var(--g100);white-space:nowrap;}
+.pd tbody tr {border-bottom:1px solid var(--g100);}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 12px;font-size:12.5px;}
+.pd td.mono {font-family:var(--mono);font-size:12px;}
+.pd td.c, .pd th.c {text-align:center;}
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;}
+.pd .qf select:focus, .pd .qf input:focus {border-color:var(--blue);}
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.pd .tbar-info {font-size:12px;color:var(--g400);}
+.pd .tbar-info b {color:var(--g800);}
+</style>
+<div class="pd">
+
+<div class="ph"><h1>ABC分類定義與機制</h1><span class="ph-tag">12.1</span><span class="ph-sub">A/B/C分類門檻設定 · 盤點頻率 · 安全庫存規則</span></div>
+<div style="background:var(--blue-l);border:1px solid #B5D4F4;border-radius:var(--r);padding:10px 16px;margin-bottom:14px;font-size:12px;color:var(--navy);">
+📊 ABC分類依照零件的銷售貢獻度與周轉率自動歸類，驅動補貨優先順序、安全庫存水位與盤點頻率設定。
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
+<div class="card">
+<div style="padding:14px 16px;">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="width:14px;height:14px;border-radius:3px;background:#185FA5;display:inline-block;"></span><span style="font-size:13px;font-weight:700;color:var(--navy);">A 類 — 高價值</span></div>
+<div style="font-size:11px;color:var(--g600);line-height:1.6;margin-bottom:10px;">累計銷售額佔比前 <b>80%</b>，為核心零件，須嚴格管控庫存水位，不得斷貨。</div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">銷售額佔比門檻</span><input style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;text-align:right;font-family:var(--font);" type="text" value="≥ 累計 80%"/></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">盤點頻率</span><select style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;font-family:var(--font);"><option>每月1次</option><option>每週1次</option><option>每季1次</option></select></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">安全庫存（天）</span><input style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;text-align:right;font-family:var(--font);" type="number" value="30"/></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">缺貨告警優先級</span><select style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;font-family:var(--font);"><option>🔴 緊急</option><option>🟡 普通</option></select></div>
+</div>
+<div style="margin-top:10px;padding:6px 8px;border-radius:5px;background:var(--blue-l);font-size:11px;color:var(--blue);">目前 A 類：<b>142</b> 料號 / 佔總SKU <b>18%</b></div>
+</div>
+</div>
+<div class="card">
+<div style="padding:14px 16px;">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="width:14px;height:14px;border-radius:3px;background:#EF9F27;display:inline-block;"></span><span style="font-size:13px;font-weight:700;color:var(--amber);">B 類 — 中價值</span></div>
+<div style="font-size:11px;color:var(--g600);line-height:1.6;margin-bottom:10px;">累計銷售額佔比 <b>80–95%</b>，中等周轉速度，定期補貨即可，容許短暫缺貨。</div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">銷售額佔比門檻</span><input style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;text-align:right;font-family:var(--font);" type="text" value="80%~95%"/></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">盤點頻率</span><select style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;font-family:var(--font);"><option>每季1次</option><option>每月1次</option><option>每半年1次</option></select></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">安全庫存（天）</span><input style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;text-align:right;font-family:var(--font);" type="number" value="14"/></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">缺貨告警優先級</span><select style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;font-family:var(--font);"><option>🟡 普通</option><option>🔴 緊急</option></select></div>
+</div>
+<div style="margin-top:10px;padding:6px 8px;border-radius:5px;background:var(--amb-l);font-size:11px;color:var(--amber);">目前 B 類：<b>213</b> 料號 / 佔總SKU <b>27%</b></div>
+</div>
+</div>
+<div class="card">
+<div style="padding:14px 16px;">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="width:14px;height:14px;border-radius:3px;background:var(--g400);display:inline-block;"></span><span style="font-size:13px;font-weight:700;color:var(--g600);">C 類 — 低價值</span></div>
+<div style="font-size:11px;color:var(--g600);line-height:1.6;margin-bottom:10px;">累計銷售額佔比後 <b>5%</b>，低頻周轉，以按需採購為主，避免呆滯積壓。</div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">銷售額佔比門檻</span><input style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;text-align:right;font-family:var(--font);" type="text" value="其餘 5%"/></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">盤點頻率</span><select style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;font-family:var(--font);"><option>每半年1次</option><option>每年1次</option><option>每季1次</option></select></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">安全庫存（天）</span><input style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;text-align:right;font-family:var(--font);" type="number" value="7"/></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--g400);">缺貨告警優先級</span><select style="width:110px;height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:11.5px;font-family:var(--font);"><option>⚪ 低</option><option>🟡 普通</option></select></div>
+</div>
+<div style="margin-top:10px;padding:6px 8px;border-radius:5px;background:var(--gray-l);font-size:11px;color:var(--g600);">目前 C 類：<b>434</b> 料號 / 佔總SKU <b>55%</b></div>
+</div>
+</div>
+</div>
+<div class="card" style="margin-bottom:14px;">
+<div class="card-head"><span class="card-title">⚙️ 分類重算機制</span></div>
+<div style="padding:12px 16px;display:flex;gap:24px;flex-wrap:wrap;">
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="font-size:11px;font-weight:600;color:var(--g400);">計算週期</div>
+<select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>每月1日 00:00 自動重算</option><option>每季重算一次</option><option>手動觸發</option></select>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="font-size:11px;font-weight:600;color:var(--g400);">計算基準期間</div>
+<select style="height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;font-family:var(--font);"><option>近 12 個月銷售資料</option><option>近 6 個月</option><option>近 24 個月</option></select>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="font-size:11px;font-weight:600;color:var(--g400);">新品緩衝期</div>
+<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;">上架未滿</span><input style="width:50px;height:28px;border:1px solid var(--g200);border-radius:5px;padding:0 6px;font-size:12px;text-align:center;" type="number" value="3"/><span style="font-size:12px;">個月，歸入 B 類</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-left:auto;">
+<div style="font-size:11px;font-weight:600;color:var(--g400);">上次重算</div>
+<div style="font-size:12px;color:var(--g600);">2026/05/01 00:03 · 共 789 料號</div>
+<button class="btn btn-navy btn-sm">立即重算</button>
+</div>
+</div>
+</div>
+
+</div>

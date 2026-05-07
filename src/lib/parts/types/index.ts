@@ -1,0 +1,103 @@
+/**
+ * Parts 模組 Domain Types — 從 Supabase autogen 的 Database['public']['Tables']
+ * re-export 並給語意化命名，讓業務 code 不用記 row/insert/update 三層結構。
+ *
+ * 規則：
+ *   - Row 別名 = 表名單數駝峰（Item, Supplier, StockItem...）
+ *   - Insert / Update 加後綴（ItemInsert, ItemUpdate）
+ *   - 業務常用 enum / status 字面型別放這裡（避免散落）
+ */
+
+import type { Database } from "@/lib/database.types";
+
+type Row<T extends keyof Database["public"]["Tables"]> =
+  Database["public"]["Tables"][T]["Row"];
+type Insert<T extends keyof Database["public"]["Tables"]> =
+  Database["public"]["Tables"][T]["Insert"];
+type Update<T extends keyof Database["public"]["Tables"]> =
+  Database["public"]["Tables"][T]["Update"];
+
+// ──────────────────────────────────────────────────────────
+// 主檔
+// ──────────────────────────────────────────────────────────
+export type Organization = Row<"organizations">;
+export type Warehouse = Row<"warehouses">;
+export type WarehouseZone = Row<"warehouse_zones">;
+export type WarehouseBin = Row<"warehouse_bins">;
+export type Account = Row<"accounts">;
+export type Supplier = Row<"suppliers">;
+export type SupplierContract = Row<"supplier_contracts">;
+export type Customer = Row<"customers">;
+export type MotorcycleModel = Row<"motorcycle_models">;
+export type Item = Row<"items">;
+export type ItemSku = Row<"item_skus">;
+export type ItemStorePrice = Row<"item_store_prices">;
+export type ItemMotorcycleCompatibility = Row<"item_motorcycle_compatibility">;
+export type DocumentNumberRule = Row<"document_number_rules">;
+
+// ──────────────────────────────────────────────────────────
+// 交易
+// ──────────────────────────────────────────────────────────
+export type PurchaseRequisition = Row<"purchase_requisitions">;
+export type PurchaseRequisitionLine = Row<"purchase_requisition_lines">;
+export type PurchaseOrder = Row<"purchase_orders">;
+export type PurchaseOrderLine = Row<"purchase_order_lines">;
+export type PurchaseReturn = Row<"purchase_returns">;
+export type PurchaseReturnLine = Row<"purchase_return_lines">;
+export type StockReceipt = Row<"stock_receipts">;
+export type StockReceiptLine = Row<"stock_receipt_lines">;
+export type StockIssue = Row<"stock_issues">;
+export type StockIssueLine = Row<"stock_issue_lines">;
+export type StockTransfer = Row<"stock_transfers">;
+export type StockTransferLine = Row<"stock_transfer_lines">;
+export type StockItem = Row<"stock_items">;
+export type ConsignmentStock = Row<"consignment_stocks">;
+
+// ──────────────────────────────────────────────────────────
+// Insert / Update（建單時用）
+// ──────────────────────────────────────────────────────────
+export type ItemInsert = Insert<"items">;
+export type ItemUpdate = Update<"items">;
+export type PurchaseOrderInsert = Insert<"purchase_orders">;
+export type PurchaseOrderLineInsert = Insert<"purchase_order_lines">;
+export type StockReceiptInsert = Insert<"stock_receipts">;
+export type StockReceiptLineInsert = Insert<"stock_receipt_lines">;
+export type StockIssueInsert = Insert<"stock_issues">;
+export type StockIssueLineInsert = Insert<"stock_issue_lines">;
+export type StockTransferInsert = Insert<"stock_transfers">;
+export type StockItemInsert = Insert<"stock_items">;
+
+// ──────────────────────────────────────────────────────────
+// 業務狀態字面型別
+// ──────────────────────────────────────────────────────────
+export type StockItemStatus =
+  | "available"
+  | "reserved"
+  | "frozen"
+  | "in_transit"
+  | "consigned"
+  | "scrapped";
+
+export type PurchaseOrderStatus =
+  | "draft"
+  | "pending"
+  | "approved"
+  | "partial_received"
+  | "received"
+  | "closed"
+  | "cancelled";
+
+export type ReceiptKind =
+  | "po_grn"
+  | "transfer_in"
+  | "internal_sale"
+  | "return_in"
+  | "exception_in";
+
+export type IssueKind =
+  | "repair_pick"
+  | "internal_sale"
+  | "transfer_out"
+  | "exception_out";
+
+export type ItemControlType = "serial" | "lot" | "qty";

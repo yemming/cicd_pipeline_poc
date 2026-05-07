@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createServiceClient } from "@/lib/supabase/service";
 import { DEFAULT_SIDEBAR_THEME_KEY } from "./sidebar-themes";
 import { DEFAULT_BRAND_PALETTE_KEY, isValidHex } from "./brand-palettes";
+import { DEFAULT_SHELL_LAYOUT_KEY, type ShellLayoutKey } from "./shell-layouts";
 import { getCurrentBrand } from "./current";
 
 export type BrandAppearance = {
@@ -13,6 +14,8 @@ export type BrandAppearance = {
   sidebar_theme: string;
   brand_palette: string;
   custom_palette: { primary?: string; accent?: string } | null;
+  shell_layout: ShellLayoutKey;
+  shell_options: Record<string, unknown>;
   updated_at: string | null;
 };
 
@@ -25,7 +28,7 @@ export const loadBrandAppearance = cache(async (brandKey: string): Promise<Brand
   const { data } = await supabase
     .from("brand_appearance")
     .select(
-      "brand_id, dashboard_tagline, footer_badge_url, footer_badge_path, sidebar_theme, brand_palette, custom_palette, updated_at",
+      "brand_id, dashboard_tagline, footer_badge_url, footer_badge_path, sidebar_theme, brand_palette, custom_palette, shell_layout, shell_options, updated_at",
     )
     .eq("brand_id", brandKey)
     .maybeSingle();
@@ -39,6 +42,8 @@ export const loadBrandAppearance = cache(async (brandKey: string): Promise<Brand
       sidebar_theme: data.sidebar_theme || DEFAULT_SIDEBAR_THEME_KEY,
       brand_palette: data.brand_palette || DEFAULT_BRAND_PALETTE_KEY,
       custom_palette: sanitizeCustomPalette(data.custom_palette),
+      shell_layout: sanitizeShellLayout(data.shell_layout),
+      shell_options: sanitizeShellOptions(data.shell_options),
       updated_at: data.updated_at,
     };
   }
@@ -51,6 +56,8 @@ export const loadBrandAppearance = cache(async (brandKey: string): Promise<Brand
     sidebar_theme: DEFAULT_SIDEBAR_THEME_KEY,
     brand_palette: DEFAULT_BRAND_PALETTE_KEY,
     custom_palette: null,
+    shell_layout: DEFAULT_SHELL_LAYOUT_KEY,
+    shell_options: {},
     updated_at: null,
   };
 });
@@ -67,4 +74,14 @@ function sanitizeCustomPalette(raw: unknown): { primary?: string; accent?: strin
   if (typeof obj.primary === "string" && isValidHex(obj.primary)) out.primary = obj.primary;
   if (typeof obj.accent === "string" && isValidHex(obj.accent)) out.accent = obj.accent;
   return out.primary || out.accent ? out : null;
+}
+
+function sanitizeShellLayout(raw: unknown): ShellLayoutKey {
+  if (raw === "classic-dual-rail" || raw === "modern-single-sidebar") return raw;
+  return DEFAULT_SHELL_LAYOUT_KEY;
+}
+
+function sanitizeShellOptions(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as Record<string, unknown>;
 }

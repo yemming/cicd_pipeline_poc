@@ -1,10 +1,18 @@
 // 共用模板工具
-// Ducati 紅 #CC0000 為主色；Google Chat 用近似色
+// Header 主色預設取當前 brand 的 primaryColor（透過 BRAND_KEY env）。
+// 既有 templates 仍可用 DUCATI_RED 顯式指定（向後相容）。
+
+import { getCurrentBrand } from "@/lib/brands/current";
 
 export const DUCATI_RED = "#CC0000";
 export const TONE_WARNING = "#F59E0B";
 export const TONE_SUCCESS = "#16A34A";
 export const TONE_INFO = "#2563EB";
+
+/** 當前 brand 的主色（LINE Flex / Google Card header 用） */
+export function getBrandHeaderColor(): string {
+  return getCurrentBrand().primaryColor;
+}
 
 export interface FlexCardSpec {
   emoji: string;
@@ -19,7 +27,7 @@ export interface FlexCardSpec {
 
 export function buildLineFlex(spec: FlexCardSpec) {
   const alt = spec.altText ?? `${spec.emoji} ${spec.title}`;
-  const headerColor = spec.headerColor ?? DUCATI_RED;
+  const headerColor = spec.headerColor ?? getBrandHeaderColor();
 
   return {
     type: "flex",

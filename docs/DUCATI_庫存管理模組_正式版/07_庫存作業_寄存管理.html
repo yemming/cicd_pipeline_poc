@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DUCATI 庫存管理系統｜寄存管理</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');:root{--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.hdr{position:fixed;top:0;left:0;right:0;height:var(--hh);background:var(--navy);display:flex;align-items:center;padding:0 20px;gap:14px;z-index:200;border-bottom:1px solid rgba(255,255,255,0.07);}
+.hdr-logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdr-div{width:1px;height:20px;background:rgba(255,255,255,0.2);}
+.hdr-title{font-size:13px;color:rgba(255,255,255,0.6);}
+.hdr-title b{color:rgba(255,255,255,0.9);font-weight:500;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.hdr-store{font-size:12px;color:rgba(255,255,255,0.55);}
+.hdr-store b{color:#5BC4A8;font-weight:500;}
+.hdr-sa{font-size:12px;color:rgba(255,255,255,0.55);}
+.hdr-sa b{color:rgba(255,255,255,0.85);font-weight:500;}
+.hdr-bell{width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;position:relative;}
+.hdr-bell .bd{position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#E24B4A;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;}
+.hdr-av{width:28px;height:28px;border-radius:6px;background:var(--teal);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;}
+.sidebar{position:fixed;left:0;top:var(--hh);bottom:0;width:var(--sw);background:var(--white);border-right:1px solid var(--g100);overflow-y:auto;z-index:100;}
+.sidebar::-webkit-scrollbar{width:3px;}
+.sidebar::-webkit-scrollbar-thumb{background:var(--g200);border-radius:2px;}
+.ng{padding:14px 14px 4px;}
+.ngl{font-size:10px;font-weight:600;letter-spacing:0.9px;text-transform:uppercase;color:var(--g400);display:flex;align-items:center;gap:6px;padding:0 2px;}
+.nd{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.d-blue{background:var(--navy);}.d-purple{background:#7F77DD;}.d-amber{background:#EF9F27;}.d-coral{background:#D85A30;}.d-gray{background:var(--g400);}
+.ni{margin:1px 8px;padding:7px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--g600);transition:all 0.12s;}
+.ni:hover{background:var(--g50);color:var(--g800);}
+.ni.parent{font-weight:500;color:var(--g800);}
+.ni.section-active{background:#F0FAF6;color:var(--teal);font-weight:500;}
+.nico{font-size:13px;width:18px;text-align:center;flex-shrink:0;}
+.narr{font-size:9px;color:var(--g400);margin-left:auto;transition:transform 0.15s;}
+.ni.open .narr{transform:rotate(90deg);}
+.nbadge{margin-left:auto;font-size:10px;font-family:var(--mono);background:var(--red-l);color:var(--red);padding:1px 5px;border-radius:8px;font-weight:500;}
+.nbadge.warn{background:var(--amb-l);color:var(--amber);}
+.nbadge.new{background:var(--teal-l);color:var(--teal);}
+.nsub{overflow:hidden;max-height:0;transition:max-height 0.2s ease;}
+.nsub.open{max-height:400px;}
+.nsi{margin:1px 8px 1px 28px;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--g400);transition:all 0.12s;display:flex;align-items:center;gap:6px;}
+.nsi:hover{background:var(--g50);color:var(--g800);}
+.nsi.active{color:var(--blue);background:#F0F6FF;font-weight:500;}
+.nsep{height:1px;background:var(--g100);margin:8px 14px;}
+.main{margin-left:var(--sw);margin-top:var(--hh);padding:20px 22px;}
+.ph{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.ph h1{font-size:16px;font-weight:600;}
+.ph-tag{font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.ph-sub{font-size:12px;color:var(--g400);}
+
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.scard{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;}
+.scard-label{font-size:11px;color:var(--g400);margin-bottom:4px;}
+.scard-val{font-size:20px;font-weight:600;font-family:var(--mono);}
+.scard-sub{font-size:11px;color:var(--g400);margin-top:2px;}
+.sv-blue{color:var(--navy);}
+.sv-amber{color:var(--amber);}
+.sv-red{color:var(--red);}
+.sv-teal{color:var(--teal);}
+.qp{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:13px 16px;margin-bottom:12px;}
+.qrow{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.qf{display:flex;flex-direction:column;gap:3px;}
+.qf label{font-size:11px;color:var(--g400);font-weight:500;}
+.qf select,.qf input{height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;transition:border-color 0.12s;}
+.qf select:focus,.qf input:focus{border-color:var(--blue);}
+.qf.w160 input{width:160px;}.qf.w130 select,.qf.w130 input{width:130px;}.qf.w110 select{width:110px;}
+.qbtns{display:flex;gap:6px;margin-left:auto;}
+.btn{padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.btn-navy{background:var(--navy);color:#fff;}.btn-navy:hover{background:var(--navy2);}
+.btn-ghost{background:var(--white);color:var(--g600);border:1px solid var(--g200);}.btn-ghost:hover{border-color:var(--g400);color:var(--g800);}
+.btn-teal{background:var(--teal);color:#fff;}.btn-teal:hover{background:#0A5440;}
+.btn-amber{background:var(--amber);color:#fff;}.btn-amber:hover{background:#6B3D08;}
+.btn-sm{padding:0 10px;height:26px;font-size:11.5px;}
+.pills{display:flex;gap:5px;}
+.pill{padding:3px 9px;border-radius:14px;font-size:11.5px;cursor:pointer;border:1px solid var(--g200);color:var(--g600);background:var(--white);transition:all 0.1s;}
+.p-active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.p-exp{background:var(--red-l);color:var(--red);border-color:#FAB4B4;}
+.p-near{background:var(--amb-l);color:var(--amber);border-color:#FAC775;}
+.p-ok{background:var(--green-l);color:var(--green);border-color:#C0DD97;}
+.tbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.tw{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+.ts{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:950px;}
+thead tr{background:var(--g50);}
+thead th{padding:8px 11px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);white-space:nowrap;border-bottom:1px solid var(--g100);}
+th.c,td.c{text-align:center;}
+tbody tr{border-bottom:1px solid var(--g100);cursor:pointer;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover td{background:var(--g50);}
+tbody td{padding:8px 11px;font-size:12.5px;white-space:nowrap;}
+td.mono{font-family:var(--mono);font-size:11.5px;}
+.b{display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;gap:3px;}
+.b-ok{background:var(--green-l);color:var(--green);}
+.b-exp{background:var(--red-l);color:var(--red);}
+.b-near{background:var(--amb-l);color:var(--amber);}
+.b-navy{background:#EBF3FF;color:var(--navy);}
+.b-gray{background:var(--gray-l);color:var(--gray);}
+
+.due-bar{width:80px;height:5px;background:var(--g100);border-radius:3px;overflow:hidden;display:inline-block;margin-right:4px;vertical-align:middle;}
+.due-fill{height:100%;border-radius:3px;}
+.df-ok{background:var(--teal);}
+.df-near{background:#EF9F27;}
+.df-exp{background:var(--red);}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(15,30,50,0.45);z-index:300;align-items:flex-start;justify-content:flex-end;}
+.overlay.show{display:flex;}
+.panel{background:var(--white);width:580px;height:calc(100vh - var(--hh));margin-top:var(--hh);border-left:1px solid var(--g100);display:flex;flex-direction:column;animation:sI 0.18s ease;overflow:hidden;}
+@keyframes sI{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+.p-head{background:var(--navy);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-shrink:0;}
+.p-back{background:rgba(255,255,255,0.12);border:none;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;font-family:var(--font);}
+.p-back:hover{background:rgba(255,255,255,0.2);}
+.p-head-title{font-size:14px;font-weight:600;color:#fff;}
+.p-head-sub{font-size:12px;color:rgba(255,255,255,0.65);}
+.p-head-right{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.p-body{flex:1;overflow-y:auto;padding:18px 20px;}
+.p-body::-webkit-scrollbar{width:3px;}
+.p-body::-webkit-scrollbar-thumb{background:var(--g200);}
+.p-footer{padding:12px 20px;border-top:1px solid var(--g100);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;background:var(--white);}
+.fsec{margin-bottom:16px;}
+.fsec-title{font-size:11px;font-weight:600;color:var(--g400);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.fsec-title::after{content:'';flex:1;height:1px;background:var(--g100);}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.ff{display:flex;flex-direction:column;gap:4px;}
+.ff.full{grid-column:1/-1;}
+.ff label{font-size:11px;color:var(--g400);font-weight:500;}
+.ff select,.ff input,.ff textarea{border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;height:30px;}
+.ff textarea{height:56px;padding:8px 10px;resize:none;}
+.req{color:var(--red);}
+.info-box{background:var(--g50);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.if{display:flex;flex-direction:column;gap:2px;}
+.if label{font-size:10.5px;color:var(--g400);}
+.if span{font-size:13px;font-weight:500;}
+.if span.mono{font-family:var(--mono);font-size:12px;}
+.history{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+.hist-row{display:flex;gap:10px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--g100);}
+.hist-row:last-child{border-bottom:none;}
+.hist-time{font-family:var(--mono);color:var(--g400);white-space:nowrap;}
+.hist-action{flex:1;color:var(--g600);}
+.hist-qty{font-family:var(--mono);font-weight:600;white-space:nowrap;}
+.exp-warn{background:var(--red-l);border:1px solid #FAB4B4;border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--red);display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.near-warn{background:var(--amb-l);border:1px solid #FAC775;border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+</style>
+</head>
+<body>
+<header class="hdr"><div class="hdr-logo">DUCATI</div><div class="hdr-div"></div><div class="hdr-title">庫存作業　<b>寄存管理</b></div><div class="hdr-right"><div class="hdr-store">門店：<b>台北直營店</b></div><div class="hdr-sa">倉管：<b>蔡零件</b>　2026/05/06　09:30</div><div class="hdr-bell">🔔<span class="bd">3</span></div><div class="hdr-av">蔡</div></div>
+</header>
+<aside class="sidebar"><div class="ng"><div class="ngl"><span class="nd d-blue"></span>基礎設定</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">🏛</span>組織與權限<span class="narr">▶</span></div><div class="nsub"><div class="nsi">組織三層架構</div><div class="nsi">採購權限規則</div><div class="nsi">商品管理權限</div><div class="nsi">盤點回傳規則</div><div class="nsi">管控類型定義</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">🏗</span>倉庫管理<span class="narr">▶</span></div><div class="nsub"><div class="nsi">倉儲四層架構</div><div class="nsi">倉庫 / 庫區 / 庫位 / 擺放</div><div class="nsi">供應商資訊</div><div class="nsi">採購合約</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">📦</span>商品管理<span class="narr">▶</span></div><div class="nsub"><div class="nsi">基礎資料</div><div class="nsi">商品資訊（多維度料號）</div><div class="nsi">門市定價</div><div class="nsi">適配設定（料-車/年份）</div><div class="nsi">序列號 / 批號追蹤 <span class="nbadge new">新</span></div></div><div class="nsep"></div><div class="ng"><div class="ngl"><span class="nd d-purple"></span>進出庫流程</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">🛒</span>採購管理<span class="narr">▶</span></div><div class="nsub"><div class="nsi">採購流程鏈路</div><div class="nsi">日常補貨計畫</div><div class="nsi" onclick="go('04_採購管理_需求處理.html')">需求處理 <span class="nbadge">3</span></div><div class="nsi" onclick="go('04_採購管理_商品採購.html')">商品採購</div><div class="nsi">採購退貨</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">📥</span>入庫管理<span class="narr">▶</span></div><div class="nsub"><div class="nsi" onclick="go('05_入庫管理_採購入庫.html')">採購入庫（含原廠到貨匯入）</div><div class="nsi" onclick="go('05_入庫管理_調撥入庫.html')">調撥入庫</div><div class="nsi">內售入庫</div><div class="nsi">領料退貨入庫</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">📤</span>出庫管理<span class="narr">▶</span></div><div class="nsub"><div class="nsi" onclick="go('06_出庫管理_維修領料.html')">維修領料（RO工單串接）</div><div class="nsi" onclick="go('06_出庫管理_調撥出庫.html')">調撥出庫</div><div class="nsi">內售出庫</div></div><div class="ni"><span class="nico">🔍</span>庫存查詢<span class="nbadge warn">7</span></div><div class="ni parent open section-active" onclick="tog(this)"><span class="nico">⚙️</span>庫存作業<span class="narr">▶</span></div><div class="nsub open"><div class="nsi" onclick="go('07_庫存作業_例外出入庫.html')">例外出入庫</div><div class="nsi active">寄存管理</div><div class="nsi" onclick="go('07_庫存作業_備件庫存調整.html')">備件庫存調整</div><div class="nsi" onclick="go('07_庫存作業_入庫查詢.html')">入庫查詢</div><div class="nsi" onclick="go('07_庫存作業_調撥在途查詢.html')">調撥在途查詢</div></div><div class="nsep"></div><div class="ng"><div class="ngl"><span class="nd d-amber"></span>盤點與告警</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">📋</span>盤點管理<span class="narr">▶</span></div><div class="nsub"><div class="nsi" onclick="go('08_盤點管理_盤點計畫.html')">盤點計畫</div><div class="nsi" onclick="go('08_盤點管理_盤點處理.html')">盤點處理（條碼掃描）</div><div class="nsi" onclick="go('08_盤點管理_報損報溢.html')">報損報溢</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">⚡</span>預警告警<span class="narr">▶</span></div><div class="nsub"><div class="nsi" onclick="go('10_預警告警_庫存水位設定.html')">庫存水位設定</div><div class="nsi">告警類型與規則</div><div class="nsi" onclick="go('07_庫存管理_商品庫存查詢_v2.html')">告警儀表板</div><div class="nsi">工單增項閉環</div><div class="nsi" onclick="go('10_預警告警_告警階層設定.html')">告警階層設定</div></div><div class="nsep"></div><div class="ng"><div class="ngl"><span class="nd d-coral"></span>保固與分析</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">🔧</span>保固索賠舊件<span class="nbadge warn">2</span><span class="narr">▶</span></div><div class="nsub"><div class="nsi">索賠流程說明</div><div class="nsi">舊件出入庫邏輯</div><div class="nsi">暫存倉設定</div><div class="nsi" onclick="go('11_保固索賠_舊件管理.html')">舊件管理介面</div><div class="nsi">與RO工單串接</div><div class="nsi">索賠費用回收</div></div><div class="ni parent" onclick="tog(this)"><span class="nico">📊</span>ABC分類 / 分析報表<span class="narr">▶</span></div><div class="nsub"><div class="nsi">ABC 分類定義與機制</div><div class="nsi">報表：庫存周轉率</div><div class="nsi">報表：呆滯庫存佔比</div><div class="nsi" onclick="go('12_分析報表_ABC分類.html')">報表：即時缺貨率</div><div class="nsi">報表：ABC 結構圖</div></div><div class="nsep"></div><div style="padding:8px 14px 16px"><div class="ngl" style="margin-bottom:4px"><span class="nd d-gray"></span>附錄</div><div class="nsi" style="margin-left:0">介面設計共用規則（A～H）</div></div>
+</aside>
+<main class="main"><div class="ph"><h1>寄存管理</h1><span class="ph-tag">7.3</span><span class="ph-sub">供應商寄存備件管理 · 追蹤寄存期限 · 確認後轉為正式庫存</span></div><div class="stat-row"><div class="scard"><div class="scard-label">寄存中品項</div><div class="scard-val sv-blue">23</div><div class="scard-sub">共 4 家供應商</div></div><div class="scard"><div class="scard-label">即將到期（≤7天）</div><div class="scard-val sv-amber">5</div><div class="scard-sub">需儘速確認或退還</div></div><div class="scard"><div class="scard-label">已過期未處理</div><div class="scard-val sv-red">2</div><div class="scard-sub">請立即處理</div></div><div class="scard"><div class="scard-label">本月已轉入正式庫存</div><div class="scard-val sv-teal">38</div><div class="scard-sub">件 / 共 NT$ 42,600</div></div></div><div class="qp"><div class="qrow"><div class="qf w130"><label>供應商</label><select><option>全部</option><option>Ducati 原廠</option><option>Motul Taiwan</option><option>零件世界</option><option>台灣原廠零件</option></select></div><div class="qf w110"><label>寄存狀態</label><select><option>全部</option><option>寄存中</option><option>已確認轉入</option><option>已退還</option></select></div><div class="qf w130"><label>到期日</label><input type="text" placeholder="2026/05/01–05/31"></div><div class="qf w160"><label>備件代碼 / 商品名稱</label><input type="text" placeholder="輸入查詢..."></div><div class="qbtns"><button class="btn btn-navy">查詢</button><button class="btn btn-ghost">重置</button></div></div></div><div class="tbar"><div class="pills"><div class="pill p-active">全部（23）</div><div class="pill">寄存中（16）</div><div class="pill p-exp">已過期（2）</div><div class="pill p-near">即將到期（5）</div><div class="pill p-ok">已確認（38）</div></div><div style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-teal" onclick="openNew()">＋ 登錄寄存品項</button><button class="btn btn-ghost btn-sm">匯出清單</button></div></div><div class="tw"><div class="ts"><table><thead><tr><th>寄存單號</th><th>供應商</th><th>備件代碼</th><th>商品名稱</th><th class="c">寄存數量</th><th class="c">剩餘數量</th><th>寄存倉 / 庫位</th><th>寄存期限</th><th>剩餘天數</th><th>寄存狀態</th><th>操作</th></tr></thead><tbody><tr style="background:#FEF5F5" onclick="openDetail('CON-2026-0312')"><td class="mono"><span style="color:var(--blue);font-weight:500">CON-2026-0312</span></td><td>零件世界</td><td class="mono">DUC-TIRE-F01</td><td>前輪胎 PIRELLI DIABLO</td><td class="c mono">4</td><td class="c mono">4</td><td class="mono">寄存倉 / Z-01-01</td><td class="mono">2026/05/01</td><td><span style="font-family:var(--mono);font-size:12px;color:var(--red);font-weight:600">-5 天</span></td><td><span class="b b-exp">🔴 已過期</span></td><td><button class="btn btn-teal btn-sm" onclick="event.stopPropagation();confirmIn('CON-2026-0312')">確認轉入</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">退還</button></td></tr><tr style="background:#FFF9F0" onclick="openDetail('CON-2026-0401')"><td class="mono"><span style="color:var(--blue);font-weight:500">CON-2026-0401</span></td><td>Motul Taiwan</td><td class="mono">MOT-OIL-15W50</td><td>Motul 機油 15W-50 1L</td><td class="c mono">24</td><td class="c mono">24</td><td class="mono">寄存倉 / Z-02-03</td><td class="mono">2026/05/10</td><td><div class="due-bar"><div class="due-fill df-near" style="width:28%"></div></div><span style="font-family:var(--mono);font-size:12px;color:var(--amber);font-weight:600">4 天</span></td><td><span class="b b-near">🟠 即將到期</span></td><td><button class="btn btn-teal btn-sm" onclick="event.stopPropagation();confirmIn('CON-2026-0401')">確認轉入</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">退還</button></td></tr><tr onclick="openDetail('CON-2026-0425')"><td class="mono"><span style="color:var(--blue);font-weight:500">CON-2026-0425</span></td><td>Ducati 原廠</td><td class="mono">DUC-CHAIN-007</td><td>O型鏈條 520 DRZ</td><td class="c mono">10</td><td class="c mono">10</td><td class="mono">寄存倉 / Z-03-01</td><td class="mono">2026/06/25</td><td><div class="due-bar"><div class="due-fill df-ok" style="width:78%"></div></div><span style="font-family:var(--mono);font-size:12px;color:var(--teal);font-weight:600">50 天</span></td><td><span class="b b-ok">✅ 寄存中</span></td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();confirmIn('CON-2026-0425')">確認轉入</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">退還</button></td></tr><tr onclick="openDetail('CON-2026-0430')"><td class="mono"><span style="color:var(--blue);font-weight:500">CON-2026-0430</span></td><td>台灣原廠零件</td><td class="mono">DUC-SPARK-001</td><td>火星塞 NGK Iridium（4支裝）</td><td class="c mono">6</td><td class="c mono">6</td><td class="mono">寄存倉 / Z-01-04</td><td class="mono">2026/07/30</td><td><div class="due-bar"><div class="due-fill df-ok" style="width:88%"></div></div><span style="font-family:var(--mono);font-size:12px;color:var(--teal);font-weight:600">85 天</span></td><td><span class="b b-ok">✅ 寄存中</span></td><td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">確認轉入</button><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">退還</button></td></tr><tr style="opacity:0.7"><td class="mono"><span style="color:var(--blue);font-weight:500">CON-2026-0305</span></td><td>Motul Taiwan</td><td class="mono">MOT-BRAKE-DOT4</td><td>Motul 煞車油 DOT4</td><td class="c mono">12</td><td class="c mono">0</td><td class="mono">主零件倉 / B-02-02</td><td class="mono">2026/04/30</td><td><span style="font-family:var(--mono);font-size:12px;color:var(--g400)">—</span></td><td><span class="b" style="background:#EBF3FF;color:var(--navy)">📦 已轉入</span></td><td><button class="btn btn-ghost btn-sm">查看記錄</button></td></tr></tbody></table></div></div>
+</main>
+<div class="overlay" id="newPanel" onclick="closeBg(event,'newPanel')"><div class="panel" onclick="event.stopPropagation()"><div class="p-head"><button class="p-back" onclick="closePanel('newPanel')">← 返回</button><div><div class="p-head-title">登錄寄存品項</div><div class="p-head-sub">登錄後進入寄存倉，到期或確認採購後轉正式庫存</div></div></div><div class="p-body"><div class="fsec"><div class="fsec-title">寄存來源</div><div class="fgrid"><div class="ff"><label>供應商 <span class="req">*</span></label><select><option>Ducati 原廠</option><option>Motul Taiwan</option><option>零件世界</option><option>台灣原廠零件</option></select></div><div class="ff"><label>寄存倉庫 <span class="req">*</span></label><select><option>寄存倉（Z區）</option><option>主零件倉（寄存區）</option></select></div><div class="ff"><label>寄存開始日期 <span class="req">*</span></label><input type="text" value="2026/05/06"></div><div class="ff"><label>寄存到期日 <span class="req">*</span></label><input type="text" placeholder="2026/07/06"></div><div class="ff full"><label>供應商寄存單號 / 備注</label><input type="text" placeholder="選填：供應商提供的單據號碼"></div></div></div><div class="fsec"><div class="fsec-title">品項清單</div><div style="display:flex;flex-direction:column;gap:8px" id="conItems"><div style="display:grid;grid-template-columns:1fr 70px 90px 26px;gap:8px;align-items:center;padding:6px 10px;background:var(--g50);border:1px solid var(--g100);border-radius:5px;"><div style="font-size:11px;font-weight:600;color:var(--g600)">備件代碼 / 商品名稱</div><div style="font-size:11px;font-weight:600;color:var(--g600);text-align:center">數量</div><div style="font-size:11px;font-weight:600;color:var(--g600)">指定庫位</div><div></div></div><div style="display:grid;grid-template-columns:1fr 70px 90px 26px;gap:8px;align-items:center;padding:4px 0;"><div><input type="text" placeholder="備件代碼..." style="width:100%;height:28px;border:1px solid var(--g200);border-radius:4px;padding:0 8px;font-family:var(--mono);font-size:12px;outline:none;"></div><div><input type="number" value="1" min="1" style="width:100%;height:28px;border:1.5px solid var(--blue);border-radius:4px;text-align:center;font-family:var(--mono);font-size:12px;outline:none;padding:0 4px;"></div><div><input type="text" placeholder="Z-0x-0x" style="width:100%;height:28px;border:1px solid var(--g200);border-radius:4px;padding:0 8px;font-family:var(--mono);font-size:12px;outline:none;"></div><button style="width:22px;height:22px;border-radius:4px;border:1px solid var(--g200);background:transparent;color:var(--g400);cursor:pointer;font-size:14px;">×</button></div></div><button class="btn btn-ghost btn-sm" style="margin-top:8px">＋ 新增品項</button></div><div style="background:#F0F7FD;border:1px solid #B5D4F4;border-radius:var(--r);padding:12px 16px;"><div style="font-size:11px;font-weight:600;color:var(--blue);margin-bottom:6px;">ℹ️ 寄存規則說明</div><div style="font-size:12px;color:var(--g600);line-height:1.7;">
+ • 寄存品項<b>不計入</b>可用庫存，不觸發庫存水位告警<br>
+ • 到期前 7 天系統自動發送提醒通知<br>
+ • 「確認轉入」後正式計入庫存，依當時時間點建立入庫記錄<br>
+ • 「退還」後庫存不變，記錄保留 90 天
+ </div></div></div><div class="p-footer"><button class="btn btn-ghost" onclick="closePanel('newPanel')">取消</button><button class="btn btn-navy" onclick="alert('✅ 寄存登錄完成！\n\n寄存單號：CON-2026-0506\n品項已進入寄存倉，系統將於到期前 7 天自動發送提醒。');closePanel('newPanel')">確認登錄</button></div></div>
+</div>
+<div class="overlay" id="detailPanel" onclick="closeBg(event,'detailPanel')"><div class="panel" onclick="event.stopPropagation()"><div class="p-head"><button class="p-back" onclick="closePanel('detailPanel')">← 返回</button><div><div class="p-head-title">寄存品項詳情</div><div class="p-head-sub" id="detailNo">CON-2026-0312</div></div><div class="p-head-right"><span class="b b-exp">🔴 已過期</span></div></div><div class="p-body"><div class="exp-warn"><span>🔴</span><span>此寄存品項已<b>逾期 5 天</b>，請儘速決定「確認轉入正式庫存」或「退還給供應商」。</span></div><div class="fsec"><div class="fsec-title">寄存資訊</div><div class="info-grid"><div class="if"><label>寄存單號</label><span class="mono">CON-2026-0312</span></div><div class="if"><label>供應商</label><span>零件世界股份有限公司</span></div><div class="if"><label>寄存倉 / 庫位</label><span class="mono">寄存倉 / Z-01-01</span></div><div class="if"><label>寄存開始</label><span class="mono">2026/03/12</span></div><div class="if"><label>寄存到期</label><span class="mono" style="color:var(--red)">2026/05/01</span></div><div class="if"><label>登錄人</label><span>蔡零件</span></div></div></div><div class="fsec"><div class="fsec-title">品項明細</div><div style="border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;"><div style="display:grid;grid-template-columns:1fr 80px 80px;gap:0;background:var(--g50);padding:7px 12px;font-size:11px;font-weight:600;color:var(--g600);"><span>備件代碼 / 商品名稱</span><span style="text-align:center">寄存數量</span><span style="text-align:center">剩餘數量</span></div><div style="display:grid;grid-template-columns:1fr 80px 80px;gap:0;padding:9px 12px;border-top:1px solid var(--g100);"><div><div style="font-family:var(--mono);font-size:11.5px;color:var(--blue)">DUC-TIRE-F01</div><div style="font-size:11.5px;color:var(--g600);margin-top:1px">前輪胎 PIRELLI DIABLO</div></div><div style="text-align:center;font-family:var(--mono);font-weight:600">4</div><div style="text-align:center;font-family:var(--mono);font-weight:600">4</div></div></div></div><div class="fsec"><div class="fsec-title">操作記錄</div><div class="history"><div class="hist-row"><span class="hist-time">2026/03/12</span><span class="hist-action">蔡零件 登錄寄存，進入 寄存倉 Z-01-01</span><span class="hist-qty" style="color:var(--teal)">+4</span></div><div class="hist-row"><span class="hist-time">2026/04/24</span><span class="hist-action">系統發送到期提醒</span><span class="hist-qty" style="color:var(--g400)">—</span></div><div class="hist-row"><span class="hist-time">2026/05/01</span><span class="hist-action">系統標記逾期並通知倉管及主管</span><span class="hist-qty" style="color:var(--red)">逾期</span></div></div></div><div style="background:var(--g50);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;"><div style="font-size:11px;font-weight:600;color:var(--g600);margin-bottom:8px;">選擇處理方式</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><button class="btn btn-teal" onclick="confirmIn('CON-2026-0312');closePanel('detailPanel')">📦 確認轉入正式庫存</button><button class="btn btn-amber" onclick="alert('退還操作：已通知供應商安排取件。寄存記錄保留 90 天。');closePanel('detailPanel')">↩ 退還給供應商</button></div><div style="font-size:11px;color:var(--g400);margin-top:8px">轉入後將以今日時間點建立入庫記錄，請確認入庫單價正確。</div></div></div><div class="p-footer"><button class="btn btn-ghost" onclick="closePanel('detailPanel')">關閉</button></div></div>
+</div>
+<script>
+function go(u){location.href=u;}
+function tog(el){const s=el.nextElementSibling;if(!s)return;s.classList.toggle('open');el.classList.toggle('open');}
+function openNew(){document.getElementById('newPanel').classList.add('show');document.body.style.overflow='hidden';}
+function openDetail(no){document.getElementById('detailNo').textContent=no;document.getElementById('detailPanel').classList.add('show');document.body.style.overflow='hidden';}
+function closePanel(id){document.getElementById(id).classList.remove('show');document.body.style.overflow='';}
+function closeBg(e,id){if(e.target===document.getElementById(id))closePanel(id);}
+function confirmIn(no){alert('✅ 確認轉入！\n\n寄存單號：'+no+'\n品項已轉入正式庫存，庫存即時更新。\n\n入庫記錄：IN-'+no.replace('CON-','')+'\n請確認入庫單價後完成記帳。');}
+</script>
+</body>
+</html>

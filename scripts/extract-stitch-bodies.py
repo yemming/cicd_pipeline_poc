@@ -10,7 +10,9 @@ even for screens that were originally car-themed in Stitch.
 Safe to re-run any time. Idempotent.
 
 Usage:
-    python3 scripts/extract-stitch-bodies.py
+    python3 scripts/extract-stitch-bodies.py                       # default: public/stitch/
+    python3 scripts/extract-stitch-bodies.py public/parts-stitch/  # custom dir
+    python3 scripts/extract-stitch-bodies.py public/parts-stitch/ --no-pivot  # skip Lexus→Ducati subs
 
 Upstream:  scripts/strip-stitch-chrome.py (run this first)
 Downstream: src/components/stitch-inline.tsx
@@ -106,7 +108,7 @@ SUBS: list[tuple[str, str]] = [
 ]
 
 
-def extract(src_path: str) -> tuple[str, str]:
+def extract(src_path: str, apply_pivot: bool = True) -> tuple[str, str]:
     with open(src_path, encoding="utf-8") as f:
         src = f.read()
     soup = BeautifulSoup(src, "html.parser")
@@ -152,42 +154,43 @@ def extract(src_path: str) -> tuple[str, str]:
 
     body_html = "".join(str(c) for c in body.children)
 
-    for pat, repl in SUBS:
-        body_html = re.sub(pat, repl, body_html)
+    if apply_pivot:
+        for pat, repl in SUBS:
+            body_html = re.sub(pat, repl, body_html)
 
-    # Conservative 車輛 → 機車, 汽車 → 機車
-    body_html = re.sub(r"(?<![一-龥])車輛(?![一-龥])", "機車", body_html)
-    body_html = re.sub(r"汽車", "機車", body_html)
-    # Remnant Lexus-era body types → Ducati bike families
-    body_html = re.sub(r"房車\s+LS\s+500h", "街車 Diavel V4", body_html)
-    body_html = re.sub(r"轎車到剽悍\s*SUV", "超跑到剽悍冒險車", body_html)
-    body_html = re.sub(r"絕美豪華轎車", "義式街車旗艦", body_html)
-    body_html = re.sub(r"轎車", "街車", body_html)
-    body_html = re.sub(r"(?<![一-龥])休旅車(?![一-龥])", "冒險車", body_html)
-    body_html = re.sub(r"(?<![一-龥])房車(?![一-龥])", "街車", body_html)
-    body_html = re.sub(r"(?<![一-龥])商務車(?![一-龥])", "旅行車", body_html)
+        # Conservative 車輛 → 機車, 汽車 → 機車
+        body_html = re.sub(r"(?<![一-龥])車輛(?![一-龥])", "機車", body_html)
+        body_html = re.sub(r"汽車", "機車", body_html)
+        # Remnant Lexus-era body types → Ducati bike families
+        body_html = re.sub(r"房車\s+LS\s+500h", "街車 Diavel V4", body_html)
+        body_html = re.sub(r"轎車到剽悍\s*SUV", "超跑到剽悍冒險車", body_html)
+        body_html = re.sub(r"絕美豪華轎車", "義式街車旗艦", body_html)
+        body_html = re.sub(r"轎車", "街車", body_html)
+        body_html = re.sub(r"(?<![一-龥])休旅車(?![一-龥])", "冒險車", body_html)
+        body_html = re.sub(r"(?<![一-龥])房車(?![一-龥])", "街車", body_html)
+        body_html = re.sub(r"(?<![一-龥])商務車(?![一-龥])", "旅行車", body_html)
 
-    # Mainland Chinese → Traditional Taiwan wording.
-    # 審批 is the biggest one — swap to 簽核 wholesale across Stitch bodies.
-    body_html = body_html.replace("審批中心", "簽核中心")
-    body_html = body_html.replace("審批", "簽核")
-    body_html = body_html.replace("經銷商管理", "簽核管理")
-    body_html = body_html.replace("菜單", "選單")
-    body_html = body_html.replace("重置", "重設")
-    body_html = body_html.replace("登錄", "登入")
-    body_html = body_html.replace("視頻", "影片")
-    body_html = body_html.replace("信息", "訊息")
-    body_html = body_html.replace("默認", "預設")
-    body_html = body_html.replace("創建", "建立")
-    body_html = body_html.replace("新建", "新增")
-    body_html = body_html.replace("界面", "介面")
-    body_html = body_html.replace("屏幕", "螢幕")
-    body_html = body_html.replace("服務器", "伺服器")
-    body_html = body_html.replace("軟件", "軟體")
-    body_html = body_html.replace("硬件", "硬體")
-    body_html = body_html.replace("網絡", "網路")
-    body_html = body_html.replace("激活", "啟用")
-    body_html = body_html.replace("打印", "列印")
+        # Mainland Chinese → Traditional Taiwan wording.
+        # 審批 is the biggest one — swap to 簽核 wholesale across Stitch bodies.
+        body_html = body_html.replace("審批中心", "簽核中心")
+        body_html = body_html.replace("審批", "簽核")
+        body_html = body_html.replace("經銷商管理", "簽核管理")
+        body_html = body_html.replace("菜單", "選單")
+        body_html = body_html.replace("重置", "重設")
+        body_html = body_html.replace("登錄", "登入")
+        body_html = body_html.replace("視頻", "影片")
+        body_html = body_html.replace("信息", "訊息")
+        body_html = body_html.replace("默認", "預設")
+        body_html = body_html.replace("創建", "建立")
+        body_html = body_html.replace("新建", "新增")
+        body_html = body_html.replace("界面", "介面")
+        body_html = body_html.replace("屏幕", "螢幕")
+        body_html = body_html.replace("服務器", "伺服器")
+        body_html = body_html.replace("軟件", "軟體")
+        body_html = body_html.replace("硬件", "硬體")
+        body_html = body_html.replace("網絡", "網路")
+        body_html = body_html.replace("激活", "啟用")
+        body_html = body_html.replace("打印", "列印")
 
     # Replace Stitch's AI-generated Lexus car images (Google CDN) with our
     # locally downloaded Ducati photos, rotated deterministically by URL hash
@@ -228,19 +231,24 @@ def _pick_bike_image(match: re.Match[str]) -> str:
 
 
 def main() -> int:
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = [a for a in sys.argv[1:] if a.startswith("--")]
+    target = os.path.abspath(args[0]) if args else ROOT
+    apply_pivot = "--no-pivot" not in flags
+
     src_files = [
         f
-        for f in sorted(glob.glob(os.path.join(ROOT, "*.html")))
+        for f in sorted(glob.glob(os.path.join(target, "*.html")))
         if not f.endswith(".body.html")
     ]
     if not src_files:
-        print(f"No source HTML files in {ROOT}")
+        print(f"No source HTML files in {target}")
         return 1
     count = 0
     for fp in src_files:
-        style_html, body_html = extract(fp)
+        style_html, body_html = extract(fp, apply_pivot=apply_pivot)
         sid = os.path.basename(fp).replace(".html", "")
-        out_path = os.path.join(ROOT, f"{sid}.body.html")
+        out_path = os.path.join(target, f"{sid}.body.html")
         content = style_html + body_html
         # Idempotence: skip write if unchanged
         if os.path.exists(out_path):
@@ -250,7 +258,7 @@ def main() -> int:
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(content)
         count += 1
-    print(f"Wrote/updated {count} body files in {ROOT}")
+    print(f"Wrote/updated {count} body files in {target} (pivot={apply_pivot})")
     return 0
 
 

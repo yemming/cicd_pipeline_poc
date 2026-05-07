@@ -26,6 +26,8 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
           sidebarThemeKey={appearance.sidebar_theme}
           brandPaletteKey={appearance.brand_palette}
           customPalette={appearance.custom_palette}
+          shellLayoutKey={appearance.shell_layout}
+          shellOptions={appearance.shell_options}
         >
           <WorkspaceShell>{children}</WorkspaceShell>
         </AppearanceProvider>

@@ -1,0 +1,94 @@
+<style>:root {--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-red {background:var(--red-l);color:var(--red);border:1px solid #F5AEAD;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;}
+.pd .b-done {background:var(--green-l);color:var(--green);}
+.pd .b-pend {background:var(--amb-l);color:var(--amber);}
+.pd .b-navy {background:#EBF3FF;color:var(--navy);}
+.pd .b-teal {background:var(--teal-l);color:var(--teal);}
+.pd .b-gry {background:var(--gray-l);color:var(--gray);}
+.pd .b-red {background:var(--red-l);color:var(--red);}
+.pd .card {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);}
+.pd .card-head {padding:11px 16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}
+.pd .card-title {font-size:13px;font-weight:600;}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:14px;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;}
+.pd thead th {padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);background:var(--g50);border-bottom:1px solid var(--g100);white-space:nowrap;}
+.pd tbody tr {border-bottom:1px solid var(--g100);}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 12px;font-size:12.5px;}
+.pd td.mono {font-family:var(--mono);font-size:12px;}
+.pd td.c, .pd th.c {text-align:center;}
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;}
+.pd .qf select:focus, .pd .qf input:focus {border-color:var(--blue);}
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.pd .tbar-info {font-size:12px;color:var(--g400);}
+.pd .tbar-info b {color:var(--g800);}
+</style>
+<div class="pd">
+
+<div class="ph"><h1>商品資訊（多維度料號）</h1><span class="ph-tag">3.2</span><span class="ph-sub">管理備件的多維度屬性：原廠料號、替代料號、條碼、規格</span></div>
+<div style="background:var(--blue-l);border:1px solid #B5D4F4;border-radius:var(--r);padding:10px 16px;margin-bottom:14px;font-size:12px;color:var(--navy);">
+📌 每件備件可設定多個料號維度：<b>原廠料號（DMS）</b>、<b>內部料號</b>、<b>替代料號</b>、<b>EAN條碼</b>，系統均可相互查詢對應。
+</div>
+<div style="display:flex;gap:14px;align-items:flex-start;">
+<div style="flex:1;">
+<div class="qp" style="margin-bottom:10px;"><div class="qrow">
+<div class="qf"><label>查詢維度</label><select style="width:130px;"><option>原廠料號（DMS）</option><option>內部料號</option><option>替代料號</option><option>條碼掃描</option></select></div>
+<div class="qf"><label>料號 / 條碼</label><input placeholder="輸入任意料號格式..." style="width:220px;" type="text"/></div>
+<div class="qbtns"><button class="btn btn-navy">查詢</button></div>
+</div></div>
+<div class="card">
+<div class="card-head"><span class="card-title">前煞車來令片 PANIGALE V4 — 料號詳情</span><button class="btn btn-ghost btn-sm">編輯</button></div>
+<div style="padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+<div style="display:flex;flex-direction:column;gap:8px;">
+<div><div style="font-size:11px;color:var(--g400);margin-bottom:3px;">原廠料號（DMS）</div><div style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--navy);">61340051A</div></div>
+<div><div style="font-size:11px;color:var(--g400);margin-bottom:3px;">內部料號</div><div style="font-family:var(--mono);font-size:13px;">BRK-V4-F-001</div></div>
+<div><div style="font-size:11px;color:var(--g400);margin-bottom:3px;">替代料號 1（Brembo原廠）</div><div style="font-family:var(--mono);font-size:13px;">07BB3798</div></div>
+<div><div style="font-size:11px;color:var(--g400);margin-bottom:3px;">替代料號 2（副廠相容）</div><div style="font-family:var(--mono);font-size:13px;color:var(--g400);">EBC-FA630HH</div><div style="font-size:11px;color:var(--amber);">⚠ 副廠件，需主管確認</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px;">
+<div><div style="font-size:11px;color:var(--g400);margin-bottom:3px;">EAN 條碼</div><div style="font-family:var(--mono);font-size:13px;">8051663404126</div></div>
+<div><div style="font-size:11px;color:var(--g400);margin-bottom:3px;">規格描述</div><div style="font-size:13px;">4活塞Brembo卡鉗用・前輪碟煞系統</div></div>
+<div><div style="font-size:11px;color:var(--g400);margin-bottom:3px;">包裝單位</div><div style="font-size:13px;">1組（左右各1片）</div></div>
+<div><div style="font-size:11px;color:var(--g400);margin-bottom:3px;">重量 / 體積</div><div style="font-size:13px;font-family:var(--mono);">0.38 kg / 15×8×3 cm</div></div>
+</div>
+</div>
+</div>
+</div>
+<div style="width:200px;flex-shrink:0;">
+<div class="card">
+<div style="padding:8px 12px;background:var(--g50);border-bottom:1px solid var(--g100);font-size:12px;font-weight:600;color:var(--g600);">最近查詢紀錄</div>
+<div style="padding:8px 0;">
+<div style="padding:6px 12px;font-size:11.5px;cursor:pointer;border-bottom:1px solid var(--g100);">61340051A<div style="font-size:10px;color:var(--g400);">前煞車來令片</div></div>
+<div style="padding:6px 12px;font-size:11.5px;cursor:pointer;border-bottom:1px solid var(--g100);">DUC-OIL-002<div style="font-size:10px;color:var(--g400);">機油濾清器</div></div>
+<div style="padding:6px 12px;font-size:11.5px;cursor:pointer;">DUC-ENG-021<div style="font-size:10px;color:var(--g400);">ECU V4S</div></div>
+</div>
+</div>
+</div>
+</div>
+
+</div>

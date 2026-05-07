@@ -1,0 +1,394 @@
+<style>:root {
+  --navy:#1A3A5C; --navy2:#0F2A45; --teal:#0F6E56; --teal-l:#E8F5F0;
+  --red:#CC0000;  --red-l:#FDECEA; --amber:#854F0B; --amb-l:#FDF3E3;
+  --blue:#185FA5; --blue-l:#EAF4FB; --gray:#6B6A68; --gray-l:#F2F2F2;
+  --green:#3B6D11; --green-l:#EAF3DE;
+  --g50:#F8F7F4; --g100:#EEECE6; --g200:#D5D3CB; --g400:#9A9890;
+  --g600:#5A5955; --g800:#2C2C2A; --white:#FFFFFF;
+  --font:'Noto Sans TC',sans-serif; --mono:'DM Mono',monospace;
+  --hh:52px; --sw:220px; --r:8px;
+}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+/* ── HEADER ── */
+/* ── SIDEBAR ── */
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+/* ── MAIN ── */
+/* ── PAGE HEAD ── */
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+/* ── 流程說明橫幅 ── */
+.pd .flow-banner {background:var(--g50);border:1px solid var(--g100);border-radius:var(--r);
+  padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:0;}
+.pd .flow-step {display:flex;align-items:center;gap:6px;font-size:12px;color:var(--g600);padding:0 12px;}
+.pd .flow-step.active {color:var(--teal);font-weight:600;}
+.pd .flow-step.done {color:var(--g400);}
+.pd .flow-dot {width:22px;height:22px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;}
+.pd .flow-dot.active {background:var(--teal);color:#fff;}
+.pd .flow-dot.done {background:var(--green-l);color:var(--green);}
+.pd .flow-dot.pend {background:var(--g100);color:var(--g400);}
+.pd .flow-arrow {color:var(--g200);font-size:14px;flex-shrink:0;}
+/* 原廠到貨匯入 banner */
+.pd .oem-banner {background:#EEF6FF;border:1px solid #AAC9F0;border-radius:var(--r);
+  padding:10px 16px;margin-bottom:14px;font-size:12px;color:var(--navy);
+  display:flex;align-items:center;gap:10px;justify-content:space-between;}
+.pd .oem-banner-left {display:flex;align-items:center;gap:8px;}
+.pd .oem-tag {background:var(--navy);color:#fff;font-size:10px;padding:1px 6px;
+  border-radius:4px;font-weight:600;letter-spacing:0.5px;white-space:nowrap;}
+/* ── 查詢面板 ── */
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:13px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qrow+.qrow {margin-top:10px;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;
+  padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);
+  font-family:var(--font);outline:none;transition:border-color 0.12s;}
+.pd .qf select:focus, .pd .qf input:focus {border-color:var(--blue);}
+.pd .qf.w160 input {width:160px;}
+.pd .qf.w130 select {width:130px;}
+.pd .qf.w110 select {width:110px;}
+.pd .qf.w100 select {width:100px;}
+.pd .qbtns {display:flex;gap:6px;margin-left:auto;}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;
+  font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);color:var(--g800);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-teal:hover {background:#0A5440;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+/* 入庫狀態 pills */
+.pd .pills {display:flex;gap:5px;}
+.pd .pill {padding:3px 9px;border-radius:14px;font-size:11.5px;cursor:pointer;
+  border:1px solid var(--g200);color:var(--g600);background:var(--white);transition:all 0.1s;}
+.pd .pill:hover {border-color:var(--g400);}
+.pd .pill.all.on {background:var(--navy);color:#fff;border-color:var(--navy);}
+.pd .pill.pend.on {background:var(--amb-l);color:var(--amber);border-color:#FAC775;}
+.pd .pill.part.on {background:var(--blue-l);color:var(--blue);border-color:#B5D4F4;}
+.pd .pill.done.on {background:var(--green-l);color:var(--green);border-color:#C0DD97;}
+/* ── 採購單列表 ── */
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.pd .tbar-info {font-size:12px;color:var(--g400);}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;min-width:920px;}
+.pd thead tr {background:var(--g50);}
+.pd thead th {padding:8px 11px;text-align:left;font-size:11px;font-weight:600;
+  color:var(--g600);white-space:nowrap;border-bottom:1px solid var(--g100);}
+.pd th.c, .pd td.c {text-align:center;}
+.pd tbody tr {border-bottom:1px solid var(--g100);transition:background 0.1s;cursor:pointer;}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 11px;font-size:12.5px;color:var(--g800);white-space:nowrap;}
+.pd td.mono {font-family:var(--mono);font-size:11.5px;}
+.pd .po-link {color:var(--blue);font-weight:500;font-family:var(--mono);font-size:12px;
+  text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
+.pd .po-link:hover {color:var(--navy);}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;
+  font-size:11px;font-weight:500;white-space:nowrap;}
+.pd .b-pend {background:var(--amb-l);color:var(--amber);}
+.pd .b-part {background:var(--blue-l);color:var(--blue);}
+.pd .b-done {background:var(--green-l);color:var(--green);}
+.pd .b-navy {background:#EBF3FF;color:var(--navy);}
+.pd .b-gry {background:var(--gray-l);color:var(--gray);}
+.pd .b-teal {background:var(--teal-l);color:var(--teal);}
+/* 進度條 */
+.pd .prog-wrap {display:flex;align-items:center;gap:6px;}
+.pd .prog-bar {width:70px;height:6px;background:var(--g100);border-radius:3px;overflow:hidden;}
+.pd .prog-fill {height:100%;border-radius:3px;background:var(--teal);}
+.pd .prog-fill.warn {background:#EF9F27;}
+.pd .prog-text {font-family:var(--mono);font-size:11px;color:var(--g600);white-space:nowrap;}
+/* ── 入庫操作面板（滑入） ── */
+.pd .overlay {display:none;position:fixed;inset:0;background:rgba(15,30,50,0.45);z-index:300;
+  align-items:flex-start;justify-content:center;padding-top:var(--hh);overflow-y:auto;}
+.pd .overlay.show {display:flex;}
+.pd .panel {background:var(--white);width:calc(100% - var(--sw) - 48px);
+  margin-left:var(--sw);min-height:calc(100vh - var(--hh));
+  border-left:1px solid var(--g100);animation:slideIn 0.18s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+/* 面板 header */
+.pd .p-head {background:var(--navy);padding:14px 20px;display:flex;align-items:center;
+  gap:14px;position:sticky;top:0;z-index:10;}
+.pd .p-back {background:rgba(255,255,255,0.12);border:none;color:#fff;padding:5px 10px;
+  border-radius:5px;font-size:12px;cursor:pointer;font-family:var(--font);}
+.pd .p-back:hover {background:rgba(255,255,255,0.2);}
+.pd .p-head-title {font-size:14px;font-weight:600;color:#fff;}
+.pd .p-head-sub {font-size:12px;color:rgba(255,255,255,0.65);font-family:var(--mono);}
+.pd .p-head-right {margin-left:auto;display:flex;gap:8px;align-items:center;}
+/* 採購單資訊卡 */
+.pd .po-card {margin:16px 20px;background:var(--g50);border:1px solid var(--g100);
+  border-radius:var(--r);padding:14px 18px;}
+.pd .po-card-grid {display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px;}
+.pd .po-field label {font-size:10.5px;color:var(--g400);display:block;margin-bottom:3px;}
+.pd .po-field span {font-size:13px;font-weight:500;color:var(--g800);}
+.pd .po-field span.mono {font-family:var(--mono);font-size:12px;}
+.pd .po-field span.auto {background:#EEF6FF;color:var(--navy);font-size:10px;
+  padding:1px 5px;border-radius:3px;font-weight:600;}
+.pd .po-progress {display:flex;align-items:center;gap:16px;padding-top:10px;
+  border-top:1px solid var(--g100);}
+.pd .po-prog-item {display:flex;flex-direction:column;gap:3px;}
+.pd .po-prog-item label {font-size:10.5px;color:var(--g400);}
+.pd .po-prog-num {font-family:var(--mono);font-size:18px;font-weight:600;}
+.pd .po-prog-num.total {color:var(--g800);}
+.pd .po-prog-num.done {color:var(--teal);}
+.pd .po-prog-num.remain {color:var(--amber);}
+.pd .po-big-bar {flex:1;height:8px;background:var(--g100);border-radius:4px;overflow:hidden;}
+.pd .po-big-fill {height:100%;border-radius:4px;background:var(--teal);}
+/* 入庫明細表格 */
+.pd .p-tbar {padding:10px 20px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--g100);background:var(--white);
+  position:sticky;top:52px;z-index:9;}
+.pd .p-tbar-info {font-size:12px;color:var(--g400);}
+.pd .p-tbar-info b {color:var(--g800);}
+.pd .p-tbar-right {margin-left:auto;display:flex;gap:7px;}
+.pd .detail-wrap {padding:0 20px 20px;}
+.pd .dt-section {margin-top:14px;}
+.pd .dt-sec-title {font-size:11px;font-weight:600;color:var(--g400);letter-spacing:0.5px;
+  text-transform:uppercase;padding:8px 0 6px;display:flex;align-items:center;gap:8px;}
+.pd .dt-sec-title::after {content:'';flex:1;height:1px;background:var(--g100);}
+.pd table.dt {width:100%;border-collapse:collapse;border:1px solid var(--g100);
+  border-radius:var(--r);overflow:hidden;}
+.pd table.dt thead th {padding:8px 12px;font-size:11px;font-weight:600;color:var(--g600);
+  background:var(--g50);border-bottom:1px solid var(--g100);text-align:left;white-space:nowrap;}
+.pd table.dt tbody td {padding:9px 12px;font-size:12.5px;border-bottom:1px solid var(--g100);white-space:nowrap;}
+.pd table.dt tbody tr:last-child td {border-bottom:none;}
+.pd table.dt tbody tr:hover td {background:var(--g50);}
+.pd table.dt td.mono {font-family:var(--mono);font-size:12px;}
+.pd table.dt td.c {text-align:center;}
+/* 數量輸入 */
+.pd .qty-wrap {display:flex;align-items:center;gap:6px;}
+.pd .qty-in {width:70px;height:28px;border:1.5px solid var(--blue);border-radius:5px;
+  text-align:center;font-family:var(--mono);font-size:13px;font-weight:500;
+  color:var(--navy);outline:none;padding:0 4px;transition:border-color 0.12s;}
+.pd .qty-in:focus {border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,58,92,0.1);}
+.pd .qty-in.done {border-color:var(--g200);background:var(--g50);color:var(--g400);}
+.pd .qty-of {font-size:11px;color:var(--g400);white-space:nowrap;}
+/* 序列號欄位（需序列號追蹤的零件） */
+.pd .sn-input {width:140px;height:26px;border:1px solid #AAC9F0;border-radius:4px;
+  padding:0 8px;font-family:var(--mono);font-size:11.5px;color:var(--navy);
+  background:#EEF6FF;outline:none;}
+.pd .sn-input:focus {border-color:var(--blue);}
+.pd .sn-tag {font-size:10px;background:#EEF6FF;color:var(--navy);padding:1px 5px;
+  border-radius:3px;font-weight:600;}
+/* 入庫確認狀態 */
+.pd tr.confirmed td {background:var(--green-l)!important;color:var(--green);}
+.pd tr.confirmed .qty-in {border-color:var(--green-l);background:var(--green-l);color:var(--green);}
+/* 注意提示 */
+.pd .notice {margin:14px 0;background:var(--amb-l);border:1px solid #FAC775;
+  border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--amber);
+  display:flex;align-items:flex-start;gap:8px;}
+.pd .notice b {font-weight:600;}
+/* 底部 footer */
+.pd .p-footer {position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--g100);
+  padding:12px 20px;display:flex;align-items:center;gap:12px;z-index:10;}
+.pd .p-footer-left {font-size:12px;color:var(--g600);}
+.pd .p-footer-left b {color:var(--g800);}
+.pd .p-footer-right {margin-left:auto;display:flex;gap:8px;}
+.pd .confirm-note {font-size:11px;color:var(--g400);}
+</style>
+<div class="pd">
+
+ 頁面標題 
+<div class="ph">
+<h1>採購入庫</h1>
+<span class="ph-tag">5.1</span>
+<span class="ph-sub">依採購單執行入庫 · 支援部分入庫 · 入庫後庫存即時更新</span>
+</div>
+ 流程步驟說明 
+<div class="flow-banner">
+<div class="flow-step done">
+<div class="flow-dot done">✓</div>需求處理
+    </div>
+<div class="flow-arrow">›</div>
+<div class="flow-step done">
+<div class="flow-dot done">✓</div>商品採購（建立採購單）
+    </div>
+<div class="flow-arrow">›</div>
+<div class="flow-step active">
+<div class="flow-dot active">3</div>採購入庫（當前步驟）
+    </div>
+<div class="flow-arrow">›</div>
+<div class="flow-step">
+<div class="flow-dot pend">4</div>庫存更新 / 告警解除
+    </div>
+</div>
+ 原廠到貨匯入快速入口 
+<div class="oem-banner">
+<div class="oem-banner-left">
+<span class="oem-tag">原廠到貨</span>
+<span>針對 Ducati 原廠（DMS 系統）的到貨，可直接匯入無需先建採購單。所有零件以<b>原廠件編碼</b>匯入，請確認資訊正確後再執行。</span>
+</div>
+<button class="btn btn-navy btn-sm">原廠到貨匯入 →</button>
+</div>
+ ── 查詢區塊 ── 
+<div class="qp">
+<div class="qrow" style="margin-bottom:10px">
+<div class="qf w110"><label>銷售區域</label>
+<select><option>台灣北區</option><option>台灣中區</option><option>台灣南區</option></select>
+</div>
+<div class="qf w130"><label>門店</label>
+<select><option>台北直營店</option><option>台中直營店</option><option>高雄經銷商</option></select>
+</div>
+<div class="qf w130"><label>倉庫</label>
+<select><option>全部倉庫</option><option>主零件倉</option><option>寄存倉</option></select>
+</div>
+<div class="qf w130"><label>供應商</label>
+<select><option>全部</option><option>Ducati 原廠</option><option>Motul Taiwan</option><option>零件世界</option></select>
+</div>
+<div class="qf w110"><label>採購類型</label>
+<select><option>全部</option><option>臨時採購</option><option>計畫採購</option></select>
+</div>
+<div class="qf w160"><label>採購單號 / 外部採購單號</label>
+<input placeholder="輸入採購單號..." type="text"/>
+</div>
+<div class="qbtns">
+<button class="btn btn-navy">查詢</button>
+<button class="btn btn-ghost">重置</button>
+</div>
+</div>
+<div class="qrow" style="align-items:center;gap:6px">
+<span style="font-size:11px;color:var(--g400);font-weight:500;white-space:nowrap">入庫狀態：</span>
+<div class="pills">
+<div class="pill all on">全部（12）</div>
+<div class="pill pend">待入庫（5）</div>
+<div class="pill part">部分入庫（3）</div>
+<div class="pill done">已入庫（4）</div>
+</div>
+</div>
+</div>
+ ── 採購單列表 ── 
+<div class="tbar">
+<span class="tbar-info">共 12 筆採購單</span>
+<div style="margin-left:auto;display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm">匯出</button>
+</div>
+</div>
+<div class="tw">
+<div class="ts">
+<table>
+<thead>
+<tr>
+<th>採購單號</th>
+<th>外部採購單號</th>
+<th>採購類型</th>
+<th>供應商</th>
+<th>倉庫</th>
+<th class="c">採購總數</th>
+<th class="c">已入庫</th>
+<th>入庫進度</th>
+<th>入庫狀態</th>
+<th>建單時間</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody>
+<!-- 待入庫 - 缺料補貨（高亮） -->
+<tr style="background:#FFF9F0">
+<td><span class="po-link">PO-20260505-003</span></td>
+<td class="mono" style="color:var(--g400)">—</td>
+<td><span class="b b-pend">緊急採購</span></td>
+<td>零件世界股份有限公司</td>
+<td>主零件倉</td>
+<td class="c mono">6</td>
+<td class="c mono">0</td>
+<td>
+<div class="prog-wrap">
+<div class="prog-bar"><div class="prog-fill warn" style="width:0%"></div></div>
+<span class="prog-text">0 / 6</span>
+</div>
+</td>
+<td><span class="b b-pend">⏳ 待入庫</span></td>
+<td class="mono">今日 09:20</td>
+<td><button class="btn btn-teal btn-sm">入庫 →</button></td>
+</tr>
+<!-- 待入庫 - 計畫採購 -->
+<tr>
+<td><span class="po-link">PO-20260504-018</span></td>
+<td class="mono">DMS-2026-04-881</td>
+<td><span class="b b-navy">計畫採購</span></td>
+<td>Ducati 原廠（義大利）</td>
+<td>主零件倉</td>
+<td class="c mono">24</td>
+<td class="c mono">0</td>
+<td>
+<div class="prog-wrap">
+<div class="prog-bar"><div class="prog-fill" style="width:0%"></div></div>
+<span class="prog-text">0 / 24</span>
+</div>
+</td>
+<td><span class="b b-pend">⏳ 待入庫</span></td>
+<td class="mono">昨日 16:30</td>
+<td><button class="btn btn-teal btn-sm">入庫 →</button></td>
+</tr>
+<!-- 部分入庫 -->
+<tr>
+<td><span class="po-link">PO-20260503-012</span></td>
+<td class="mono">DMS-2026-04-774</td>
+<td><span class="b b-navy">計畫採購</span></td>
+<td>Ducati 原廠（義大利）</td>
+<td>主零件倉</td>
+<td class="c mono">18</td>
+<td class="c mono">12</td>
+<td>
+<div class="prog-wrap">
+<div class="prog-bar"><div class="prog-fill" style="width:67%"></div></div>
+<span class="prog-text">12 / 18</span>
+</div>
+</td>
+<td><span class="b b-part">📦 部分入庫</span></td>
+<td class="mono">2026/05/03</td>
+<td><button class="btn btn-ghost btn-sm">繼續入庫</button></td>
+</tr>
+<!-- 部分入庫 2 -->
+<tr>
+<td><span class="po-link">PO-20260501-008</span></td>
+<td class="mono" style="color:var(--g400)">—</td>
+<td><span class="b" style="background:var(--teal-l);color:var(--teal)">臨時採購</span></td>
+<td>Motul Taiwan</td>
+<td>主零件倉</td>
+<td class="c mono">30</td>
+<td class="c mono">20</td>
+<td>
+<div class="prog-wrap">
+<div class="prog-bar"><div class="prog-fill" style="width:67%"></div></div>
+<span class="prog-text">20 / 30</span>
+</div>
+</td>
+<td><span class="b b-part">📦 部分入庫</span></td>
+<td class="mono">2026/05/01</td>
+<td><button class="btn btn-ghost btn-sm">繼續入庫</button></td>
+</tr>
+<!-- 已入庫 -->
+<tr style="opacity:0.65">
+<td><span class="po-link">PO-20260429-005</span></td>
+<td class="mono">DMS-2026-04-601</td>
+<td><span class="b b-navy">計畫採購</span></td>
+<td>Ducati 原廠（義大利）</td>
+<td>主零件倉</td>
+<td class="c mono">12</td>
+<td class="c mono">12</td>
+<td>
+<div class="prog-wrap">
+<div class="prog-bar"><div class="prog-fill" style="width:100%"></div></div>
+<span class="prog-text" style="color:var(--teal)">12 / 12</span>
+</div>
+</td>
+<td><span class="b b-done">✅ 已入庫</span></td>
+<td class="mono">2026/04/29</td>
+<td><button class="btn btn-ghost btn-sm">查看</button></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+</div>

@@ -1,0 +1,322 @@
+<style>:root {
+  --navy:#1A3A5C; --navy2:#0F2A45; --teal:#0F6E56; --teal-l:#E8F5F0;
+  --red:#CC0000;  --red-l:#FDECEA; --amber:#854F0B; --amb-l:#FDF3E3;
+  --blue:#185FA5; --blue-l:#EAF4FB; --gray:#6B6A68; --gray-l:#F2F2F2;
+  --green:#3B6D11; --green-l:#EAF3DE;
+  --g50:#F8F7F4; --g100:#EEECE6; --g200:#D5D3CB; --g400:#9A9890;
+  --g600:#5A5955; --g800:#2C2C2A; --white:#FFFFFF;
+  --font:'Noto Sans TC',sans-serif; --mono:'DM Mono',monospace;
+  --hh:52px; --sw:220px; --r:8px;
+}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+/* ── HEADER ── */
+/* ── SIDEBAR ── */
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+/* ── MAIN ── */
+/* ── PAGE HEAD ── */
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+/* ── RO串接提示橫幅 ── */
+.pd .ro-banner {background:#EEF6FF;border:1px solid #AAC9F0;border-radius:var(--r);
+  padding:9px 14px;margin-bottom:14px;font-size:12px;color:var(--navy);
+  display:flex;align-items:center;gap:8px;}
+.pd .ro-banner b {font-weight:600;}
+.pd .ro-banner .ro-tag {background:var(--navy);color:#fff;font-size:10px;
+  padding:1px 6px;border-radius:4px;font-weight:600;letter-spacing:0.5px;}
+/* ── 查詢面板 ── */
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:13px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qrow+.qrow {margin-top:10px;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;
+  padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);
+  font-family:var(--font);outline:none;transition:border-color 0.12s;}
+.pd .qf select:focus, .pd .qf input:focus {border-color:var(--blue);}
+.pd .qf.w160 input {width:160px;}
+.pd .qf.w120 select {width:120px;}
+.pd .qf.w100 select {width:100px;}
+.pd .qbtns {display:flex;gap:6px;margin-left:auto;}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;
+  font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);color:var(--g800);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-teal:hover {background:#0A5440;}
+.pd .btn-red {background:var(--red);color:#fff;}
+.pd .btn-red:hover {background:#AA0000;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+/* 領料狀態 pills */
+.pd .pills {display:flex;gap:5px;}
+.pd .pill {padding:3px 9px;border-radius:14px;font-size:11.5px;cursor:pointer;
+  border:1px solid var(--g200);color:var(--g600);background:var(--white);transition:all 0.1s;}
+.pd .pill:hover {border-color:var(--g400);}
+.pd .pill.all.on {background:var(--navy);color:#fff;border-color:var(--navy);}
+.pd .pill.pend.on {background:var(--amb-l);color:var(--amber);border-color:#FAC775;}
+.pd .pill.part.on {background:var(--blue-l);color:var(--blue);border-color:#B5D4F4;}
+.pd .pill.done.on {background:var(--green-l);color:var(--green);border-color:#C0DD97;}
+/* ── 工單列表 ── */
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.pd .tbar-info {font-size:12px;color:var(--g400);}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;min-width:900px;}
+.pd thead tr {background:var(--g50);}
+.pd thead th {padding:8px 11px;text-align:left;font-size:11px;font-weight:600;
+  color:var(--g600);white-space:nowrap;border-bottom:1px solid var(--g100);}
+.pd th.c, .pd td.c {text-align:center;}
+.pd tbody tr {border-bottom:1px solid var(--g100);transition:background 0.1s;}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 11px;font-size:12.5px;color:var(--g800);white-space:nowrap;}
+.pd td.mono {font-family:var(--mono);font-size:11.5px;}
+.pd .wo-link {color:var(--blue);cursor:pointer;font-weight:500;font-family:var(--mono);
+  font-size:12px;text-decoration:underline;text-underline-offset:2px;}
+.pd .wo-link:hover {color:var(--navy);}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;
+  font-size:11px;font-weight:500;white-space:nowrap;}
+.pd .b-pend {background:var(--amb-l);color:var(--amber);}
+.pd .b-part {background:var(--blue-l);color:var(--blue);}
+.pd .b-done {background:var(--green-l);color:var(--green);}
+.pd .b-red {background:var(--red-l);color:#A32D2D;}
+.pd .b-gry {background:var(--gray-l);color:var(--gray);}
+.pd .b-navy {background:#EBF3FF;color:var(--navy);}
+/* ── 發料頁面（彈出層） ── */
+.pd .issue-overlay {display:none;position:fixed;inset:0;background:rgba(15,30,50,0.45);z-index:300;
+  align-items:flex-start;justify-content:center;padding-top:var(--hh);overflow-y:auto;}
+.pd .issue-overlay.show {display:flex;}
+.pd .issue-panel {background:var(--white);width:calc(100% - var(--sw) - 48px);
+  margin-left:var(--sw);min-height:calc(100vh - var(--hh));
+  border-left:1px solid var(--g100);animation:slideIn 0.2s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+/* 發料 header */
+.pd .ip-head {background:var(--navy);padding:14px 20px;display:flex;align-items:center;gap:14px;
+  position:sticky;top:0;z-index:10;}
+.pd .ip-back {background:rgba(255,255,255,0.12);border:none;color:#fff;padding:5px 10px;
+  border-radius:5px;font-size:12px;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:5px;}
+.pd .ip-back:hover {background:rgba(255,255,255,0.2);}
+.pd .ip-title {font-size:14px;font-weight:600;color:#fff;}
+.pd .ip-wo {font-family:var(--mono);font-size:12px;color:rgba(255,255,255,0.7);}
+.pd .ip-status {margin-left:auto;}
+/* 車輛資訊卡 */
+.pd .car-card {margin:16px 20px;background:var(--g50);border:1px solid var(--g100);
+  border-radius:var(--r);padding:14px 18px;display:grid;
+  grid-template-columns:repeat(4,1fr);gap:10px;}
+.pd .cc-field label {font-size:10.5px;color:var(--g400);display:block;margin-bottom:3px;}
+.pd .cc-field span {font-size:13px;font-weight:500;color:var(--g800);}
+.pd .cc-field span.mono {font-family:var(--mono);font-size:12px;}
+.pd .cc-field span.auto {background:#EEF6FF;color:var(--navy);font-size:11px;
+  padding:1px 6px;border-radius:3px;font-weight:600;}
+/* 發料工具列 */
+.pd .ip-tbar {padding:10px 20px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--g100);background:var(--white);
+  position:sticky;top:52px;z-index:9;}
+.pd .ip-search {flex:1;max-width:240px;height:30px;border:1px solid var(--g200);
+  border-radius:5px;padding:0 10px;font-size:12.5px;font-family:var(--font);outline:none;}
+.pd .ip-search:focus {border-color:var(--blue);}
+.pd .ip-tbar-right {margin-left:auto;display:flex;gap:8px;align-items:center;}
+.pd .ip-summary {font-size:12px;color:var(--g400);}
+.pd .ip-summary b {color:var(--g800);}
+/* 發料明細表格 */
+.pd .issue-table-wrap {padding:0 20px 20px;}
+.pd .it-section {margin-top:14px;}
+.pd .it-sec-title {font-size:11px;font-weight:600;color:var(--g400);letter-spacing:0.5px;
+  text-transform:uppercase;padding:8px 0 6px;display:flex;align-items:center;gap:8px;}
+.pd .it-sec-title::after {content:'';flex:1;height:1px;background:var(--g100);}
+.pd table.it {width:100%;border-collapse:collapse;border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+.pd table.it thead th {padding:8px 12px;font-size:11px;font-weight:600;color:var(--g600);
+  background:var(--g50);border-bottom:1px solid var(--g100);text-align:left;white-space:nowrap;}
+.pd table.it tbody td {padding:9px 12px;font-size:12.5px;border-bottom:1px solid var(--g100);white-space:nowrap;}
+.pd table.it tbody tr:last-child td {border-bottom:none;}
+.pd table.it tbody tr:hover td {background:var(--g50);}
+.pd table.it td.mono {font-family:var(--mono);font-size:12px;}
+.pd table.it td.c {text-align:center;}
+/* 數量輸入 */
+.pd .qty-input {width:64px;height:28px;border:1.5px solid var(--blue);border-radius:5px;
+  text-align:center;font-family:var(--mono);font-size:13px;font-weight:500;
+  color:var(--navy);outline:none;padding:0 4px;}
+.pd .qty-input:focus {border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,58,92,0.1);}
+.pd .qty-readonly {width:64px;height:28px;border:1px solid var(--g200);border-radius:5px;
+  text-align:center;font-family:var(--mono);font-size:13px;color:var(--g400);
+  background:var(--g50);padding:0 4px;}
+/* 行動按鈕群 */
+.pd .row-acts {display:flex;gap:5px;}
+.pd .ra {padding:2px 7px;border-radius:4px;border:1px solid var(--g200);
+  background:var(--white);font-size:11px;cursor:pointer;color:var(--g600);font-family:var(--font);}
+.pd .ra:hover {border-color:var(--g400);color:var(--g800);}
+.pd .ra.adj {border-color:#AAC9F0;color:var(--blue);background:var(--blue-l);}
+.pd .ra.stor {border-color:#A8D5C2;color:var(--teal);background:var(--teal-l);}
+.pd .ra.out {border-color:var(--navy);color:var(--navy);background:#EBF3FF;}
+/* 已出庫狀態行 */
+.pd tr.issued td {color:var(--g400);}
+.pd tr.issued .qty-readonly {border-color:var(--g100);}
+/* 工時項目行 */
+.pd tr.labor td {background:#FAFAF8;}
+.pd tr.labor td:first-child {border-left:3px solid var(--g200);}
+/* 底部操作列 */
+.pd .ip-footer {position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--g100);
+  padding:12px 20px;display:flex;align-items:center;gap:12px;z-index:10;}
+.pd .ip-footer-left {font-size:12px;color:var(--g600);}
+.pd .ip-footer-left b {color:var(--g800);}
+.pd .ip-footer-right {margin-left:auto;display:flex;gap:8px;}
+.pd .confirm-note {font-size:11px;color:var(--g400);display:flex;align-items:center;gap:5px;}
+.pd .confirm-note::before {content:'⚠️';font-size:12px;}
+</style>
+<div class="pd">
+
+ 頁面標題 
+<div class="ph">
+<h1>維修領料</h1>
+<span class="ph-tag">6.1</span>
+<span class="ph-sub">依 RO 工單查詢 · 倉管執行正式出庫 · 出庫後自動觸發庫存告警檢查</span>
+</div>
+ RO 串接提示 
+<div class="ro-banner">
+<span class="ro-tag">RO 串接</span>
+<span>本頁對應 RO 工單 <b>C 步驟「領料單」</b>。技師持工單至零件庫房領料後，倉管在此執行正式出庫，出庫數量即時反映至庫存，並自動觸發補貨告警檢查。</span>
+</div>
+ ── 查詢區塊 ── 
+<div class="qp">
+<div class="qrow" style="margin-bottom:10px">
+<div class="qf w120"><label>工單建立日期</label>
+<select><option>今日</option><option>近3天</option><option>近7天</option><option>自訂</option></select>
+</div>
+<div class="qf w120"><label>工單業務類型</label>
+<select><option>全部</option><option>一般維修</option><option>保固維修</option><option>事故車</option></select>
+</div>
+<div class="qf w120"><label>維修狀態</label>
+<select><option>全部</option><option>施工中</option><option>待施工</option><option>完工</option></select>
+</div>
+<div class="qf w100"><label>交車狀態</label>
+<select><option>全部</option><option>未交車</option><option>已交車</option></select>
+</div>
+<div class="qf w160"><label>工單號 / 車牌 / 客戶姓名</label>
+<input placeholder="輸入關鍵字..." type="text"/>
+</div>
+<div class="qbtns">
+<button class="btn btn-navy">查詢</button>
+<button class="btn btn-ghost">重置</button>
+</div>
+</div>
+<div class="qrow" style="align-items:center;gap:6px">
+<span style="font-size:11px;color:var(--g400);font-weight:500;white-space:nowrap">領料狀態：</span>
+<div class="pills">
+<div class="pill all on">全部（18）</div>
+<div class="pill pend">待領料（8）</div>
+<div class="pill part">部分領料（3）</div>
+<div class="pill done">已領料（7）</div>
+</div>
+</div>
+</div>
+ ── 工單列表 ── 
+<div class="tbar">
+<span class="tbar-info">共 18 筆工單</span>
+<div style="margin-left:auto;display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm">匯出</button>
+</div>
+</div>
+<div class="tw">
+<div class="ts">
+<table>
+<thead>
+<tr>
+<th>工單號</th>
+<th>業務類型</th>
+<th>車牌</th>
+<th>車型</th>
+<th>客戶姓名</th>
+<th>接待 SA</th>
+<th>維修狀態</th>
+<th>交車狀態</th>
+<th class="c">零件總項</th>
+<th class="c">已出庫</th>
+<th>領料狀態</th>
+<th>建立時間</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody>
+<!-- 待領料（工單待料 - 特殊提示） -->
+<tr style="background:#FFFDE7">
+<td><span class="wo-link">RO-20260505-003</span></td>
+<td><span class="b b-red">保固維修</span></td>
+<td class="mono">ABR-1234</td>
+<td>PANIGALE V4 S 2022</td>
+<td>林大明</td><td>魏呈宇</td>
+<td><span class="b b-navy">施工中</span></td>
+<td><span class="b b-gry">未交車</span></td>
+<td class="c">5</td><td class="c">0</td>
+<td><span class="b b-pend">⚠️ 待領料</span></td>
+<td class="mono">09:15</td>
+<td><button class="btn btn-teal btn-sm">發料 →</button></td>
+</tr>
+<!-- 待領料 -->
+<tr>
+<td><span class="wo-link">RO-20260505-007</span></td>
+<td><span class="b b-navy">一般維修</span></td>
+<td class="mono">XYZ-5566</td>
+<td>Monster 937 2023</td>
+<td>張美玲</td><td>魏呈宇</td>
+<td><span class="b b-navy">施工中</span></td>
+<td><span class="b b-gry">未交車</span></td>
+<td class="c">3</td><td class="c">0</td>
+<td><span class="b b-pend">待領料</span></td>
+<td class="mono">09:48</td>
+<td><button class="btn btn-teal btn-sm">發料 →</button></td>
+</tr>
+<!-- 部分領料 -->
+<tr>
+<td><span class="wo-link">RO-20260505-002</span></td>
+<td><span class="b b-navy">一般維修</span></td>
+<td class="mono">DEF-9988</td>
+<td>Multistrada V4 2021</td>
+<td>王小明</td><td>魏呈宇</td>
+<td><span class="b b-navy">施工中</span></td>
+<td><span class="b b-gry">未交車</span></td>
+<td class="c">6</td><td class="c">4</td>
+<td><span class="b b-part">部分領料</span></td>
+<td class="mono">08:30</td>
+<td><button class="btn btn-ghost btn-sm">繼續發料</button></td>
+</tr>
+<!-- 已領料 -->
+<tr style="opacity:0.7">
+<td><span class="wo-link">RO-20260504-015</span></td>
+<td><span class="b b-navy">一般維修</span></td>
+<td class="mono">GHI-3322</td>
+<td>Scrambler Icon 2022</td>
+<td>陳美麗</td><td>魏呈宇</td>
+<td><span class="b b-navy">施工中</span></td>
+<td><span class="b b-gry">未交車</span></td>
+<td class="c">4</td><td class="c">4</td>
+<td><span class="b b-done">已領料</span></td>
+<td class="mono">昨日 14:20</td>
+<td><button class="btn btn-ghost btn-sm">查看</button></td>
+</tr>
+<tr style="opacity:0.7">
+<td><span class="wo-link">RO-20260504-011</span></td>
+<td><span class="b b-navy">一般維修</span></td>
+<td class="mono">JKL-7744</td>
+<td>PANIGALE V2 2023</td>
+<td>黃志遠</td><td>魏呈宇</td>
+<td><span class="b" style="background:#EAF3DE;color:#3B6D11">完工</span></td>
+<td><span class="b b-gry">未交車</span></td>
+<td class="c">2</td><td class="c">2</td>
+<td><span class="b b-done">已領料</span></td>
+<td class="mono">昨日 11:05</td>
+<td><button class="btn btn-ghost btn-sm">查看</button></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+</div>

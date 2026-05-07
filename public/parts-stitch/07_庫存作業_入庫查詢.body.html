@@ -1,0 +1,187 @@
+<style>:root {--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+.pd .stat-row {display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.pd .sc {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:10px 14px;}
+.pd .sc-label {font-size:11px;color:var(--g400);margin-bottom:3px;}
+.pd .sc-val {font-size:18px;font-weight:600;font-family:var(--mono);}
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:13px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qrow+.qrow {margin-top:10px;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;}
+.pd .qf.w160 input {width:160px;}
+.pd .qf.w140 select, .pd .qf.w140 input {width:140px;}
+.pd .qf.w120 select {width:120px;}
+.pd .qf.w110 select {width:110px;}
+.pd .qbtns {display:flex;gap:6px;margin-left:auto;}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;min-width:1050px;}
+.pd thead tr {background:var(--g50);}
+.pd thead th {padding:8px 11px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);white-space:nowrap;border-bottom:1px solid var(--g100);}
+.pd th.c, .pd td.c {text-align:center;}
+.pd th.r, .pd td.r {text-align:right;}
+.pd tbody tr {border-bottom:1px solid var(--g100);cursor:pointer;}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 11px;font-size:12.5px;white-space:nowrap;}
+.pd td.mono {font-family:var(--mono);font-size:11.5px;}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;}
+.pd .b-pur {background:#EBF3FF;color:var(--navy);}
+.pd .b-trn {background:var(--blue-l);color:var(--blue);}
+.pd .b-ret {background:var(--teal-l);color:var(--teal);}
+.pd .b-exc {background:var(--amb-l);color:var(--amber);}
+.pd .b-oem {background:#E8E6F8;color:#5048A6;}
+/* expand row */
+.pd .exp-row {display:none;background:#F8F7FC;}
+.pd .exp-row.show {display:table-row;}
+.pd .exp-inner {padding:10px 16px 14px 40px;}
+.pd .dt-mini {width:100%;border-collapse:collapse;font-size:12px;}
+.pd .dt-mini th {padding:5px 10px;font-size:10.5px;font-weight:600;color:var(--g400);background:var(--g50);border-bottom:1px solid var(--g100);}
+.pd .dt-mini td {padding:5px 10px;border-bottom:1px solid var(--g100);color:var(--g800);}
+.pd .dt-mini tr:last-child td {border-bottom:none;}
+.pd .dt-mini td.mono {font-family:var(--mono);font-size:11px;}
+</style>
+<div class="pd">
+
+<div class="ph">
+<h1>入庫查詢</h1>
+<span class="ph-tag">7.6</span>
+<span class="ph-sub">跨類型入庫記錄彙整查詢 · 可展開查看品項明細 · 支援匯出</span>
+</div>
+ 統計 
+<div class="stat-row">
+<div class="sc"><div class="sc-label">本月入庫單數</div><div class="sc-val" style="color:var(--navy)">47</div></div>
+<div class="sc"><div class="sc-label">本月入庫件數</div><div class="sc-val" style="color:var(--teal)">312</div></div>
+<div class="sc"><div class="sc-label">本月入庫金額</div><div class="sc-val" style="color:var(--navy);font-size:15px">NT$ 186,400</div></div>
+<div class="sc"><div class="sc-label">採購入庫</div><div class="sc-val" style="color:var(--blue)">28</div></div>
+<div class="sc"><div class="sc-label">調撥 / 例外 / 其他</div><div class="sc-val" style="color:var(--gray)">19</div></div>
+</div>
+ 查詢 
+<div class="qp">
+<div class="qrow">
+<div class="qf w120"><label>入庫類型</label>
+<select><option>全部</option><option>採購入庫</option><option>原廠到貨匯入</option><option>調撥入庫</option><option>內售入庫</option><option>領料退貨</option><option>例外入庫</option></select></div>
+<div class="qf w120"><label>供應商 / 來源</label>
+<select><option>全部</option><option>Ducati 原廠</option><option>Motul Taiwan</option><option>零件世界</option><option>內部調撥</option></select></div>
+<div class="qf w110"><label>倉庫</label>
+<select><option>全部</option><option>主零件倉</option><option>寄存倉</option></select></div>
+<div class="qf w140"><label>日期區間</label><input placeholder="2026/05/01–05/06" type="text"/></div>
+<div class="qf w160"><label>入庫單號 / 備件代碼</label><input placeholder="輸入查詢..." type="text"/></div>
+<div class="qbtns">
+<button class="btn btn-navy">查詢</button>
+<button class="btn btn-ghost">重置</button>
+</div>
+</div>
+</div>
+<div class="tbar">
+<span style="font-size:12px;color:var(--g400)">共 47 筆入庫記錄</span>
+<div style="margin-left:auto;display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm">匯出 Excel</button>
+<button class="btn btn-ghost btn-sm">列印</button>
+</div>
+</div>
+<div class="tw"><div class="ts">
+<table>
+<thead><tr>
+<th style="width:28px"></th>
+<th>入庫單號</th><th>入庫類型</th><th>來源單號</th><th>供應商 / 來源</th>
+<th>入庫倉庫</th><th class="c">品項數</th><th class="c">總件數</th>
+<th class="r">入庫金額（含稅）</th><th>操作人</th><th>入庫時間</th>
+</tr></thead>
+<tbody id="tbody">
+<tr>
+<td class="c" id="r1" style="color:var(--g400);font-size:12px">▶</td>
+<td class="mono"><span style="color:var(--blue);font-weight:500">IN-20260506-007</span></td>
+<td><span class="b b-pur">採購入庫</span></td>
+<td class="mono" style="color:var(--blue)">PO-20260505-003</td>
+<td>零件世界</td><td>主零件倉</td>
+<td class="c mono">2</td><td class="c mono">6</td>
+<td class="r mono">NT$ 6,699</td><td>蔡零件</td><td class="mono">今日 09:22</td>
+</tr>
+<tr class="exp-row" id="e1"><td colspan="11">
+<div class="exp-inner">
+<table class="dt-mini"><thead><tr><th>備件代碼</th><th>商品名稱</th><th>庫位</th><th style="text-align:center">數量</th><th style="text-align:right">單價（含稅）</th><th style="text-align:right">小計</th></tr></thead>
+<tbody>
+<tr><td class="mono">DUC-OIL-002</td><td>機油濾清器</td><td class="mono">B-01-01</td><td style="text-align:center">1</td><td style="text-align:right;font-family:var(--mono)">NT$ 399</td><td style="text-align:right;font-family:var(--mono)">NT$ 399</td></tr>
+<tr><td class="mono">61340051A</td><td>前煞車來令片 V4</td><td class="mono">A-02-03</td><td style="text-align:center">5</td><td style="text-align:right;font-family:var(--mono)">NT$ 1,260</td><td style="text-align:right;font-family:var(--mono)">NT$ 6,300</td></tr>
+</tbody></table>
+</div>
+</td></tr>
+<tr>
+<td class="c" id="r2" style="color:var(--g400);font-size:12px">▶</td>
+<td class="mono"><span style="color:var(--blue);font-weight:500">IN-20260506-006</span></td>
+<td><span class="b b-exc">例外入庫</span></td>
+<td class="mono" style="color:var(--amber)">EX-20260505-008</td>
+<td style="color:var(--g400)">（系統調整）</td><td>主零件倉</td>
+<td class="c mono">1</td><td class="c mono">6</td>
+<td class="r mono">NT$ 0</td><td>王倉儲</td><td class="mono">昨日 16:40</td>
+</tr>
+<tr class="exp-row" id="e2"><td colspan="11">
+<div class="exp-inner">
+<table class="dt-mini"><thead><tr><th>備件代碼</th><th>商品名稱</th><th>庫位</th><th style="text-align:center">數量</th><th>調整原因</th></tr></thead>
+<tbody><tr><td class="mono">DUC-SPARK-001</td><td>火星塞 NGK Iridium</td><td class="mono">D-01-01</td><td style="text-align:center">6</td><td>盤盈補錄</td></tr></tbody></table>
+</div>
+</td></tr>
+<tr>
+<td class="c" id="r3" style="color:var(--g400);font-size:12px">▶</td>
+<td class="mono"><span style="color:var(--blue);font-weight:500">IN-20260505-012</span></td>
+<td><span class="b b-oem">原廠匯入</span></td>
+<td class="mono" style="color:#5048A6">DMS-2026-04-881</td>
+<td>Ducati 原廠（義大利）</td><td>主零件倉</td>
+<td class="c mono">8</td><td class="c mono">24</td>
+<td class="r mono">NT$ 38,640</td><td>蔡零件</td><td class="mono">2026/05/05</td>
+</tr>
+<tr class="exp-row" id="e3"><td colspan="11">
+<div class="exp-inner">
+<table class="dt-mini"><thead><tr><th>備件代碼</th><th>商品名稱</th><th>庫位</th><th style="text-align:center">數量</th><th style="text-align:right">單價（含稅）</th></tr></thead>
+<tbody>
+<tr><td class="mono">DUC-CHAIN-007</td><td>O型鏈條 520 DRZ</td><td class="mono">C-03-02</td><td style="text-align:center">6</td><td style="text-align:right;font-family:var(--mono)">NT$ 893</td></tr>
+<tr><td class="mono">DUC-FILTER-AIR</td><td>空氣濾清器 V4</td><td class="mono">B-03-01</td><td style="text-align:center">4</td><td style="text-align:right;font-family:var(--mono)">NT$ 1,260</td></tr>
+<tr><td class="mono">DUC-CLUTCH-001</td><td>離合器片組 V4S</td><td class="mono">A-05-02</td><td style="text-align:center">3</td><td style="text-align:right;font-family:var(--mono)">NT$ 4,830</td></tr>
+<tr><td colspan="5" style="color:var(--g400);font-style:italic">…另 5 項備件（共 11 件）</td></tr>
+</tbody></table>
+</div>
+</td></tr>
+<tr>
+<td class="c" id="r4" style="color:var(--g400);font-size:12px">▶</td>
+<td class="mono"><span style="color:var(--blue);font-weight:500">IN-20260504-009</span></td>
+<td><span class="b b-trn">調撥入庫</span></td>
+<td class="mono" style="color:var(--blue)">TRF-20260504-003</td>
+<td>台中直營店（調出）</td><td>主零件倉</td>
+<td class="c mono">3</td><td class="c mono">15</td>
+<td class="r mono">NT$ 0</td><td>蔡零件</td><td class="mono">2026/05/04</td>
+</tr>
+<tr class="exp-row" id="e4"><td colspan="11">
+<div class="exp-inner">
+<table class="dt-mini"><thead><tr><th>備件代碼</th><th>商品名稱</th><th>庫位</th><th style="text-align:center">數量</th></tr></thead>
+<tbody>
+<tr><td class="mono">MOT-OIL-15W50</td><td>Motul 機油 15W-50 1L</td><td class="mono">B-02-01</td><td style="text-align:center">10</td></tr>
+<tr><td class="mono">MOT-BRAKE-DOT4</td><td>Motul 煞車油 DOT4</td><td class="mono">B-02-02</td><td style="text-align:center">4</td></tr>
+<tr><td class="mono">DUC-SPARK-001</td><td>火星塞 NGK Iridium</td><td class="mono">D-01-01</td><td style="text-align:center">1</td></tr>
+</tbody></table>
+</div>
+</td></tr>
+</tbody>
+</table>
+</div></div>
+
+</div>

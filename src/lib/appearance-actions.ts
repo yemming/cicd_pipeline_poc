@@ -16,6 +16,12 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { getBrandKey } from "@/lib/brands/current";
 import { SIDEBAR_THEMES } from "@/lib/brands/sidebar-themes";
 import { BRAND_PALETTES, isValidHex } from "@/lib/brands/brand-palettes";
+import {
+  SHELL_LAYOUTS,
+  getShellLayout,
+  isSidebarThemeCompatibleWithShell,
+  type ShellLayoutKey,
+} from "@/lib/brands/shell-layouts";
 
 const BRAND_ASSETS_BUCKET = "brand-assets";
 
@@ -38,7 +44,12 @@ async function ensureRow(brandId: string) {
   );
 }
 
-export async function updateBrandAppearance(fd: FormData): Promise<void> {
+export type UpdateAppearanceResult = {
+  /** 因為切到不相容的 shell 而被自動降級的 sidebar theme key（toast 提示用） */
+  autoSwitchedSidebarTheme: string | null;
+};
+
+export async function updateBrandAppearance(fd: FormData): Promise<UpdateAppearanceResult> {
   const userId = await requireAdmin();
   const brandId = getBrandKey();
   await ensureRow(brandId);
@@ -48,6 +59,7 @@ export async function updateBrandAppearance(fd: FormData): Promise<void> {
   const paletteKey = (fd.get("brand_palette") ?? "").toString().trim();
   const customPrimary = (fd.get("custom_primary") ?? "").toString().trim();
   const customAccent = (fd.get("custom_accent") ?? "").toString().trim();
+  const shellLayoutKey = (fd.get("shell_layout") ?? "").toString().trim();
 
   if (themeKey && !SIDEBAR_THEMES.some((t) => t.key === themeKey)) {
     throw new Error(`不認識的 sidebar 主題：${themeKey}`);
@@ -64,6 +76,9 @@ export async function updateBrandAppearance(fd: FormData): Promise<void> {
       throw new Error("自訂主顏色需要兩個合法 #RRGGBB hex 值");
     }
   }
+  if (shellLayoutKey && !SHELL_LAYOUTS.some((s) => s.key === shellLayoutKey)) {
+    throw new Error(`不認識的 shell layout：${shellLayoutKey}`);
+  }
 
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -71,13 +86,33 @@ export async function updateBrandAppearance(fd: FormData): Promise<void> {
   };
   // 空字串 → null（表示 fallback 到預設）
   patch.dashboard_tagline = tagline === "" ? null : tagline;
-  if (themeKey) patch.sidebar_theme = themeKey;
   if (paletteKey) patch.brand_palette = paletteKey;
   if (paletteKey === "custom") {
     patch.custom_palette = { primary: customPrimary, accent: customAccent };
   } else if (paletteKey) {
     // 切換回 preset 時清掉 custom，避免下次切回 custom 看到舊值困惑
     patch.custom_palette = null;
+  }
+
+  // shell layout 驗證 + 軟白名單自動降級（plan §3.5 / §A.3）
+  // 若使用者切到的 shell 跟當前 sidebar theme 不相容，自動把 theme 降級到第一個白名單值
+  let autoSwitched: string | null = null;
+  if (shellLayoutKey) {
+    patch.shell_layout = shellLayoutKey;
+    const targetShell = getShellLayout(shellLayoutKey);
+    const effectiveTheme = themeKey || (await currentSidebarTheme(brandId));
+    if (effectiveTheme && !isSidebarThemeCompatibleWithShell(effectiveTheme, targetShell)) {
+      const fallback =
+        targetShell.compatibleSidebarThemes === "all"
+          ? effectiveTheme
+          : targetShell.compatibleSidebarThemes[0] ?? "quartz-light";
+      patch.sidebar_theme = fallback;
+      autoSwitched = fallback;
+    } else if (themeKey) {
+      patch.sidebar_theme = themeKey;
+    }
+  } else if (themeKey) {
+    patch.sidebar_theme = themeKey;
   }
 
   const supabase = createServiceClient();
@@ -88,7 +123,21 @@ export async function updateBrandAppearance(fd: FormData): Promise<void> {
   if (error) throw new Error(`儲存失敗：${error.message}`);
 
   refreshAll();
+  return { autoSwitchedSidebarTheme: autoSwitched };
 }
+
+async function currentSidebarTheme(brandId: string): Promise<string | null> {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("brand_appearance")
+    .select("sidebar_theme")
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  return data?.sidebar_theme ?? null;
+}
+
+// keep ShellLayoutKey accessible to TS strict mode（避免未使用報錯）
+export type { ShellLayoutKey };
 
 const ALLOWED_BADGE_MIME = new Set([
   "image/png",

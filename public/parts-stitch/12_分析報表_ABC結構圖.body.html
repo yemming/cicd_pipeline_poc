@@ -1,0 +1,175 @@
+<style>:root {--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-red {background:var(--red-l);color:var(--red);border:1px solid #F5AEAD;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;}
+.pd .b-done {background:var(--green-l);color:var(--green);}
+.pd .b-pend {background:var(--amb-l);color:var(--amber);}
+.pd .b-navy {background:#EBF3FF;color:var(--navy);}
+.pd .b-teal {background:var(--teal-l);color:var(--teal);}
+.pd .b-gry {background:var(--gray-l);color:var(--gray);}
+.pd .b-red {background:var(--red-l);color:var(--red);}
+.pd .card {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);}
+.pd .card-head {padding:11px 16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}
+.pd .card-title {font-size:13px;font-weight:600;}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:14px;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;}
+.pd thead th {padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);background:var(--g50);border-bottom:1px solid var(--g100);white-space:nowrap;}
+.pd tbody tr {border-bottom:1px solid var(--g100);}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 12px;font-size:12.5px;}
+.pd td.mono {font-family:var(--mono);font-size:12px;}
+.pd td.c, .pd th.c {text-align:center;}
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;}
+.pd .qf select:focus, .pd .qf input:focus {border-color:var(--blue);}
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.pd .tbar-info {font-size:12px;color:var(--g400);}
+.pd .tbar-info b {color:var(--g800);}
+.pd .bar-wrap {display:flex;align-items:flex-end;gap:3px;height:120px;}
+.pd .bar-col {display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+.pd .bar {width:100%;border-radius:3px 3px 0 0;}
+.pd .bar-lbl {font-size:10px;color:var(--g400);}
+.pd .bar-val {font-size:10px;font-weight:600;}
+.pd .abc-donut {position:relative;width:130px;height:130px;}
+.pd .abc-ring {width:130px;height:130px;border-radius:50%;}
+.pd .abc-legend {display:flex;flex-direction:column;gap:6px;}
+.pd .abc-legend-item {display:flex;align-items:center;gap:8px;font-size:12px;}
+.pd .abc-dot {width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+</style>
+<div class="pd">
+
+<div class="ph"><h1>報表：ABC結構圖</h1><span class="ph-tag">12.5</span><span class="ph-sub">帕雷托曲線 · 銷售額圓環 · 月度結構變化 · 分類異動記錄</span></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+<div style="background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 14px;border-left:3px solid var(--navy);"><div style="font-size:11px;color:var(--g400);">A類 · 料號數 / 銷售額佔比</div><div style="font-size:18px;font-weight:700;color:var(--navy);margin:4px 0;">142 料號 · 80.1%</div><div style="font-size:11px;color:var(--g400);">佔總SKU 18% → 貢獻銷售額 80%</div></div>
+<div style="background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 14px;border-left:3px solid var(--amber);"><div style="font-size:11px;color:var(--g400);">B類 · 料號數 / 銷售額佔比</div><div style="font-size:18px;font-weight:700;color:var(--amber);margin:4px 0;">213 料號 · 14.9%</div><div style="font-size:11px;color:var(--g400);">佔總SKU 27% → 貢獻銷售額 15%</div></div>
+<div style="background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 14px;border-left:3px solid var(--g400);"><div style="font-size:11px;color:var(--g400);">C類 · 料號數 / 銷售額佔比</div><div style="font-size:18px;font-weight:700;color:var(--g600);margin:4px 0;">434 料號 · 5.0%</div><div style="font-size:11px;color:var(--g400);">佔總SKU 55% → 貢獻銷售額 5%</div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+<div class="card">
+<div class="card-head"><span class="card-title">📊 帕雷托曲線（料號佔比 vs 銷售額佔比）</span></div>
+<div style="padding:14px 16px;">
+<div style="position:relative;height:150px;border-left:1px solid var(--g200);border-bottom:1px solid var(--g200);margin-bottom:6px;">
+<div style="position:absolute;bottom:0;left:0;right:0;height:100%;display:flex;align-items:flex-end;">
+<svg height="100%" preserveaspectratio="none" viewbox="0 0 400 150" width="100%">
+<defs><lineargradient id="grad" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#185FA5" stop-opacity="0.15"></stop><stop offset="100%" stop-color="#185FA5" stop-opacity="0"></stop></lineargradient></defs>
+<path d="M0,150 C40,50 120,10 180,5 C240,2 280,2 400,0 L400,150 Z" fill="url(#grad)"></path>
+<path d="M0,150 C40,50 120,10 180,5 C240,2 280,2 400,0" fill="none" stroke="#185FA5" stroke-width="2.5"></path>
+<path d="M0,150 L400,0" fill="none" stroke="var(--g200)" stroke-dasharray="4,3" stroke-width="1"></path>
+<line stroke="var(--navy)" stroke-dasharray="3,3" stroke-width="1" x1="72" x2="72" y1="0" y2="150"></line>
+<line stroke="var(--amber)" stroke-dasharray="3,3" stroke-width="1" x1="180" x2="180" y1="0" y2="150"></line>
+<circle cx="72" cy="30" fill="var(--navy)" r="3"></circle>
+<circle cx="180" cy="82" fill="var(--amber)" r="3"></circle>
+<text fill="var(--navy)" font-size="9" x="74" y="26">A: 18%→80%</text>
+<text fill="var(--amber)" font-size="9" x="182" y="78">B: 45%→95%</text>
+</svg>
+</div>
+<div style="position:absolute;bottom:-18px;left:0;right:0;display:flex;justify-content:space-between;font-size:10px;color:var(--g400);"><span>0%</span><span>料號累計佔比→</span><span>100%</span></div>
+</div>
+<div style="margin-top:22px;display:flex;gap:12px;font-size:11px;">
+<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:2px;background:var(--navy);display:inline-block;"></span>帕雷托曲線</span>
+<span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:1px;background:var(--g400);display:inline-block;border-top:1px dashed var(--g400);"></span>均勻分佈線</span>
+</div>
+</div>
+</div>
+<div class="card">
+<div class="card-head"><span class="card-title">🥧 銷售額結構（圓環圖示意）</span></div>
+<div style="padding:14px 16px;display:flex;align-items:center;gap:20px;">
+<div style="position:relative;width:120px;height:120px;flex-shrink:0;">
+<svg height="120" viewbox="0 0 42 42" width="120">
+<circle cx="21" cy="21" fill="transparent" r="15.9" stroke="#185FA5" stroke-dasharray="80.1 19.9" stroke-dashoffset="25" stroke-width="10" transform="rotate(-90 21 21)"></circle>
+<circle cx="21" cy="21" fill="transparent" r="15.9" stroke="#EF9F27" stroke-dasharray="14.9 85.1" stroke-dashoffset="-55.1" stroke-width="10" transform="rotate(-90 21 21)"></circle>
+<circle cx="21" cy="21" fill="transparent" r="15.9" stroke="#9A9890" stroke-dasharray="5 95" stroke-dashoffset="-70" stroke-width="10" transform="rotate(-90 21 21)"></circle>
+<circle cx="21" cy="21" fill="white" r="10"></circle>
+<text fill="var(--g800)" font-size="5" font-weight="600" text-anchor="middle" x="21" y="23">789料號</text>
+</svg>
+</div>
+<div class="abc-legend">
+<div class="abc-legend-item"><span class="abc-dot" style="background:#185FA5;"></span><div><div style="font-weight:600;">A 類 80.1%</div><div style="font-size:11px;color:var(--g400);">NT$5,807,200</div></div></div>
+<div class="abc-legend-item"><span class="abc-dot" style="background:#EF9F27;"></span><div><div style="font-weight:600;">B 類 14.9%</div><div style="font-size:11px;color:var(--g400);">NT$1,080,800</div></div></div>
+<div class="abc-legend-item"><span class="abc-dot" style="background:#9A9890;"></span><div><div style="font-weight:600;">C 類 5.0%</div><div style="font-size:11px;color:var(--g400);">NT$362,500</div></div></div>
+<div style="font-size:11px;color:var(--g400);margin-top:4px;">總計：NT$7,250,500</div>
+</div>
+</div>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+<div class="card">
+<div class="card-head"><span class="card-title">📈 月度ABC結構變化（近6個月）</span></div>
+<div style="padding:14px 16px;">
+<div style="display:flex;align-items:flex-end;gap:4px;height:100px;margin-bottom:8px;">
+<div style="display:flex;flex-direction:column;gap:0;flex:1;height:100%;">
+<div 80.1"="" style="background:#185FA5;opacity:0.7;"></div>
+<div style="flex:1.5;background:#EF9F27;opacity:0.8;"></div>
+<div style="flex:0.5;background:var(--g300);"></div>
+<div style="font-size:10px;color:var(--g400);text-align:center;margin-top:4px;">12月</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:0;flex:1;height:100%;">
+<div style="flex:5;background:#185FA5;opacity:0.75;"></div>
+<div style="flex:1.5;background:#EF9F27;opacity:0.8;"></div>
+<div style="flex:0.5;background:var(--g300);"></div>
+<div style="font-size:10px;color:var(--g400);text-align:center;margin-top:4px;">1月</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:0;flex:1;height:100%;">
+<div style="flex:5.1;background:#185FA5;opacity:0.8;"></div>
+<div style="flex:1.4;background:#EF9F27;opacity:0.8;"></div>
+<div style="flex:0.5;background:var(--g300);"></div>
+<div style="font-size:10px;color:var(--g400);text-align:center;margin-top:4px;">2月</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:0;flex:1;height:100%;">
+<div style="flex:5.2;background:#185FA5;opacity:0.85;"></div>
+<div style="flex:1.4;background:#EF9F27;opacity:0.8;"></div>
+<div style="flex:0.4;background:var(--g300);"></div>
+<div style="font-size:10px;color:var(--g400);text-align:center;margin-top:4px;">3月</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:0;flex:1;height:100%;">
+<div style="flex:5.2;background:#185FA5;opacity:0.9;"></div>
+<div style="flex:1.3;background:#EF9F27;opacity:0.8;"></div>
+<div style="flex:0.5;background:var(--g300);"></div>
+<div style="font-size:10px;color:var(--g400);text-align:center;margin-top:4px;">4月</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:0;flex:1;height:100%;">
+<div style="flex:5.34;background:#185FA5;"></div>
+<div style="flex:1;background:#EF9F27;"></div>
+<div style="flex:0.33;background:var(--g400);"></div>
+<div style="font-size:10px;color:var(--g400);text-align:center;margin-top:4px;">5月</div>
+</div>
+</div>
+<div style="display:flex;gap:12px;font-size:11px;"><span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#185FA5;display:inline-block;"></span>A類</span><span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#EF9F27;display:inline-block;"></span>B類</span><span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:var(--g400);display:inline-block;"></span>C類</span></div>
+</div>
+</div>
+<div class="card">
+<div class="card-head"><span class="card-title">🔄 本月分類變動記錄</span><span class="tbar-info"><b>12</b> 件變動</span></div>
+<div class="ts"><table>
+<thead><tr><th>料號</th><th>品名</th><th>原分類</th><th>新分類</th><th>變動原因</th></tr></thead>
+<tbody>
+<tr><td class="mono">67620871B</td><td>機油濾芯 Pan</td><td><span style="font-size:11px;padding:2px 6px;border-radius:7px;font-weight:500;background:var(--amb-l);color:var(--amber);">B</span></td><td><span style="font-size:11px;padding:2px 6px;border-radius:7px;font-weight:500;background:#EBF3FF;color:var(--navy);">A</span></td><td style="font-size:11px;color:var(--green);">▲ 銷量提升</td></tr>
+<tr><td class="mono">61810141A</td><td>前煞車皮舊款</td><td><span style="font-size:11px;padding:2px 6px;border-radius:7px;font-weight:500;background:var(--amb-l);color:var(--amber);">B</span></td><td><span class="b b-gry">C</span></td><td style="font-size:11px;color:var(--red);">▼ 銷量下降</td></tr>
+<tr><td class="mono">45810271C</td><td>後扶手套件白</td><td><span style="font-size:11px;padding:2px 6px;border-radius:7px;font-weight:500;background:#EBF3FF;color:var(--navy);">A</span></td><td><span style="font-size:11px;padding:2px 6px;border-radius:7px;font-weight:500;background:var(--amb-l);color:var(--amber);">B</span></td><td style="font-size:11px;color:var(--red);">▼ 促銷結束</td></tr>
+</tbody></table></div>
+</div>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:14px;"><button class="btn btn-ghost" onclick="go('/parts/analytics/turnover')">→ 庫存周轉率</button><button class="btn btn-ghost" onclick="go('/parts/analytics/stale')">→ 呆滯庫存佔比</button><button class="btn btn-ghost" onclick="go('/parts/analytics/abc-settings')">→ ABC分類設定</button></div>
+
+</div>

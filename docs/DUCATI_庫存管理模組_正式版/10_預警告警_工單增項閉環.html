@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>DUCATI — 工單增項閉環</title><style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');:root{--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}.hdr{position:fixed;top:0;left:0;right:0;height:var(--hh);background:var(--navy);display:flex;align-items:center;padding:0 20px;gap:14px;z-index:200;border-bottom:1px solid rgba(255,255,255,0.07);}.hdr-logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}.hdr-div{width:1px;height:20px;background:rgba(255,255,255,0.2);}.hdr-title{font-size:13px;color:rgba(255,255,255,0.6);}.hdr-title b{color:rgba(255,255,255,0.9);font-weight:500;}.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}.hdr-store{font-size:12px;color:rgba(255,255,255,0.55);}.hdr-store b{color:#5BC4A8;font-weight:500;}.hdr-sa{font-size:12px;color:rgba(255,255,255,0.55);}.hdr-sa b{color:rgba(255,255,255,0.85);font-weight:500;}.hdr-bell{width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;position:relative;}.hdr-bell .bd{position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#E24B4A;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;}.hdr-av{width:28px;height:28px;border-radius:6px;background:var(--teal);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;}.sidebar{position:fixed;left:0;top:var(--hh);bottom:0;width:var(--sw);background:var(--white);border-right:1px solid var(--g100);overflow-y:auto;z-index:100;}.sidebar::-webkit-scrollbar{width:3px;}.sidebar::-webkit-scrollbar-thumb{background:var(--g200);border-radius:2px;}.ng{padding:14px 14px 4px;}.ngl{font-size:10px;font-weight:600;letter-spacing:0.9px;text-transform:uppercase;color:var(--g400);display:flex;align-items:center;gap:6px;padding:0 2px;}.nd{width:5px;height:5px;border-radius:50%;flex-shrink:0;}.d-blue{background:var(--navy);}.d-purple{background:#7F77DD;}.d-amber{background:#EF9F27;}.d-coral{background:#D85A30;}.d-gray{background:var(--g400);}.ni{margin:1px 8px;padding:7px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--g600);transition:all 0.12s;}.ni:hover{background:var(--g50);color:var(--g800);}.ni.parent{font-weight:500;color:var(--g800);}.ni.section-active{background:#F0FAF6;color:var(--teal);font-weight:500;}.nico{font-size:13px;width:18px;text-align:center;flex-shrink:0;}.narr{font-size:9px;color:var(--g400);margin-left:auto;transition:transform 0.15s;}.ni.open .narr{transform:rotate(90deg);}.nbadge{margin-left:auto;font-size:10px;font-family:var(--mono);background:var(--red-l);color:var(--red);padding:1px 5px;border-radius:8px;font-weight:500;}.nbadge.warn{background:var(--amb-l);color:var(--amber);}.nbadge.new{background:var(--teal-l);color:var(--teal);}.nsub{overflow:hidden;max-height:0;transition:max-height 0.2s ease;}.nsub.open{max-height:500px;}.nsi{margin:1px 8px 1px 28px;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--g400);transition:all 0.12s;display:flex;align-items:center;gap:6px;}.nsi:hover{background:var(--g50);color:var(--g800);}.nsi.active{color:var(--blue);background:#F0F6FF;font-weight:500;}.nsep{height:1px;background:var(--g100);margin:8px 14px;}.main{margin-left:var(--sw);margin-top:var(--hh);padding:20px 22px;}.ph{display:flex;align-items:center;gap:10px;margin-bottom:16px;}.ph h1{font-size:16px;font-weight:600;}.ph-tag{font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}.ph-sub{font-size:12px;color:var(--g400);}.btn{padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}.btn-navy{background:var(--navy);color:#fff;}.btn-navy:hover{background:var(--navy2);}.btn-ghost{background:var(--white);color:var(--g600);border:1px solid var(--g200);}.btn-ghost:hover{border-color:var(--g400);}.btn-teal{background:var(--teal);color:#fff;}.btn-red{background:var(--red-l);color:var(--red);border:1px solid #F5AEAD;}.btn-sm{padding:0 10px;height:26px;font-size:11.5px;}.b{display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;}.b-done{background:var(--green-l);color:var(--green);}.b-pend{background:var(--amb-l);color:var(--amber);}.b-navy{background:#EBF3FF;color:var(--navy);}.b-teal{background:var(--teal-l);color:var(--teal);}.b-gry{background:var(--gray-l);color:var(--gray);}.b-red{background:var(--red-l);color:var(--red);}.card{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);}.card-head{padding:11px 16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}.card-title{font-size:13px;font-weight:600;}.tw{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:14px;}.ts{overflow-x:auto;}table{width:100%;border-collapse:collapse;}thead th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);background:var(--g50);border-bottom:1px solid var(--g100);white-space:nowrap;}tbody tr{border-bottom:1px solid var(--g100);}tbody tr:last-child{border-bottom:none;}tbody tr:hover td{background:var(--g50);}tbody td{padding:8px 12px;font-size:12.5px;}td.mono{font-family:var(--mono);font-size:12px;}td.c,th.c{text-align:center;}.qp{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;}.qrow{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}.qf{display:flex;flex-direction:column;gap:3px;}.qf label{font-size:11px;color:var(--g400);font-weight:500;}.qf select,.qf input{height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;}.qf select:focus,.qf input:focus{border-color:var(--blue);}.tbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;}.tbar-info{font-size:12px;color:var(--g400);}.tbar-info b{color:var(--g800);}</style></head>
+<body><header class="hdr">
+<div class="hdr-logo">DUCATI</div><div class="hdr-div"></div>
+<div class="hdr-title">預警告警 <b>工單增項閉環</b></div>
+<div class="hdr-right">
+<div class="hdr-store">門店：<b>台北直營店</b></div>
+<div class="hdr-sa">管理者：<b>系統管理員</b> 2026/05/06</div>
+<div class="hdr-bell">🔔<span class="bd">3</span></div>
+<div class="hdr-av">管</div>
+</div>
+</header><aside class="sidebar">
+<div class="ng"><div class="ngl"><span class="nd d-blue"></span>基礎設定</div></div>
+<div class="ni parent " onclick="tog(this)"><span class="nico">🏛</span>組織與權限<span class="narr">▶</span></div>
+<div class="nsub ">
+<div class="nsi " onclick="go('01_基礎設定_組織三層架構.html')">組織三層架構</div>
+<div class="nsi " onclick="go('01_基礎設定_採購權限規則.html')">採購權限規則</div>
+<div class="nsi " onclick="go('01_基礎設定_商品管理權限.html')">商品管理權限</div>
+<div class="nsi " onclick="go('01_基礎設定_盤點回傳規則.html')">盤點回傳規則</div>
+<div class="nsi " onclick="go('01_基礎設定_管控類型定義.html')">管控類型定義</div>
+</div>
+<div class="ni parent " onclick="tog(this)"><span class="nico">🏗</span>倉庫管理<span class="narr">▶</span></div>
+<div class="nsub ">
+<div class="nsi " onclick="go('02_基礎設定_倉儲四層架構.html')">倉儲四層架構</div>
+<div class="nsi " onclick="go('02_基礎設定_倉庫庫區庫位設定.html')">倉庫/庫區/庫位/擺放</div>
+<div class="nsi " onclick="go('02_基礎設定_供應商資訊.html')">供應商資訊</div>
+<div class="nsi " onclick="go('02_基礎設定_採購合約.html')">採購合約</div>
+</div>
+<div class="ni parent " onclick="tog(this)"><span class="nico">📦</span>商品管理<span class="narr">▶</span></div>
+<div class="nsub ">
+<div class="nsi " onclick="go('03_基礎設定_商品基礎資料.html')">基礎資料</div>
+<div class="nsi " onclick="go('03_基礎設定_商品資訊.html')">商品資訊（多維度料號）</div>
+<div class="nsi " onclick="go('03_基礎設定_門市定價.html')">門市定價</div>
+<div class="nsi " onclick="go('03_基礎設定_適配設定.html')">適配設定（料-車/年份）</div>
+<div class="nsi " onclick="go('03_基礎設定_序列號追蹤.html')">序列號/批號追蹤</div>
+</div>
+<div class="nsep"></div>
+<div class="ng"><div class="ngl"><span class="nd d-purple"></span>進出庫流程</div></div>
+<div class="ni parent" onclick="tog(this)"><span class="nico">🛒</span>採購管理<span class="narr">▶</span></div>
+<div class="nsub">
+<div class="nsi" onclick="go('04_採購流程鏈路說明.html')">採購流程鏈路</div>
+<div class="nsi" onclick="go('04_採購管理_需求處理.html')">需求處理 <span class="nbadge">3</span></div>
+<div class="nsi" onclick="go('04_採購管理_商品採購.html')">商品採購</div>
+<div class="nsi" onclick="go('04_採購管理_採購退貨.html')">採購退貨</div>
+</div>
+<div class="ni parent" onclick="tog(this)"><span class="nico">📥</span>入庫管理<span class="narr">▶</span></div>
+<div class="nsub">
+<div class="nsi" onclick="go('05_入庫管理_採購入庫.html')">採購入庫</div>
+<div class="nsi" onclick="go('05_入庫管理_調撥入庫.html')">調撥入庫</div>
+<div class="nsi" onclick="go('05_入庫管理_內售入庫.html')">內售入庫</div>
+<div class="nsi" onclick="go('05_入庫管理_領料退貨入庫.html')">領料退貨入庫</div>
+</div>
+<div class="ni parent" onclick="tog(this)"><span class="nico">📤</span>出庫管理<span class="narr">▶</span></div>
+<div class="nsub">
+<div class="nsi" onclick="go('06_出庫管理_維修領料.html')">維修領料（RO工單串接）</div>
+<div class="nsi" onclick="go('06_出庫管理_調撥出庫.html')">調撥出庫</div>
+<div class="nsi" onclick="go('06_出庫管理_內售出庫.html')">內售出庫</div>
+</div>
+<div class="ni" onclick="go('07_庫存管理_商品庫存查詢_v2.html')"><span class="nico">🔍</span>庫存查詢<span class="nbadge warn">7</span></div>
+<div class="ni parent" onclick="tog(this)"><span class="nico">⚙️</span>庫存作業<span class="narr">▶</span></div>
+<div class="nsub">
+<div class="nsi" onclick="go('07_庫存作業_例外出入庫.html')">例外出入庫</div>
+<div class="nsi" onclick="go('07_庫存作業_寄存管理.html')">寄存管理</div>
+<div class="nsi" onclick="go('07_庫存作業_庫存盤點作業.html')">庫存盤點作業</div>
+<div class="nsi" onclick="go('07_庫存作業_備件庫存調整.html')">備件庫存調整</div>
+<div class="nsi" onclick="go('07_庫存作業_入庫查詢.html')">入庫查詢</div>
+<div class="nsi" onclick="go('07_庫存作業_調撥在途查詢.html')">調撥在途查詢</div>
+</div>
+<div class="nsep"></div>
+<div class="ng"><div class="ngl"><span class="nd d-amber"></span>盤點與告警</div></div>
+<div class="ni parent" onclick="tog(this)"><span class="nico">📋</span>盤點管理<span class="narr">▶</span></div>
+<div class="nsub">
+<div class="nsi" onclick="go('08_盤點管理_盤點計畫.html')">盤點計畫</div>
+<div class="nsi" onclick="go('08_盤點管理_盤點處理.html')">盤點處理（條碼掃描）</div>
+<div class="nsi" onclick="go('08_盤點管理_報損報溢.html')">報損報溢</div>
+</div>
+<div class="ni parent" onclick="tog(this)"><span class="nico">⚡</span>預警告警<span class="narr">▶</span></div>
+<div class="nsub">
+<div class="nsi" onclick="go('10_預警告警_庫存水位設定.html')">庫存水位設定</div>
+<div class="nsi" onclick="go('10_預警告警_告警類型與規則.html')">告警類型與規則</div>
+<div class="nsi" onclick="go('07_庫存管理_商品庫存查詢_v2.html')">告警儀表板</div>
+<div class="nsi" onclick="go('10_預警告警_工單增項閉環.html')">工單增項閉環</div>
+<div class="nsi" onclick="go('10_預警告警_告警階層設定.html')">告警階層設定</div>
+</div>
+<div class="nsep"></div>
+<div class="ng"><div class="ngl"><span class="nd d-coral"></span>保固與分析</div></div>
+<div class="ni parent" onclick="tog(this)"><span class="nico">🔧</span>保固索賠舊件<span class="nbadge warn">2</span><span class="narr">▶</span></div>
+<div class="nsub">
+<div class="nsi" onclick="go('11_保固索賠_索賠流程說明.html')">索賠流程說明</div>
+<div class="nsi" onclick="go('11_保固索賠_舊件出入庫邏輯.html')">舊件出入庫邏輯設定</div>
+<div class="nsi" onclick="go('11_保固索賠_暫存倉設定.html')">暫存倉設定</div>
+<div class="nsi" onclick="go('11_保固索賠_舊件管理.html')">舊件管理介面</div>
+<div class="nsi" onclick="go('11_保固索賠_RO工單串接.html')">與RO工單串接設定</div>
+<div class="nsi" onclick="go('11_保固索賠_費用回收.html')">索賠費用回收追蹤</div>
+</div>
+<div class="ni parent" onclick="tog(this)"><span class="nico">📊</span>ABC分類/分析報表<span class="narr">▶</span></div>
+<div class="nsub">
+<div class="nsi" onclick="go('12_分析報表_ABC分類設定.html')">ABC分類定義與機制</div>
+<div class="nsi" onclick="go('12_分析報表_庫存周轉率.html')">報表：庫存周轉率</div>
+<div class="nsi" onclick="go('12_分析報表_呆滯庫存.html')">報表：呆滯庫存佔比</div>
+<div class="nsi" onclick="go('12_分析報表_ABC分類.html')">報表：即時缺貨率</div>
+<div class="nsi" onclick="go('12_分析報表_ABC結構圖.html')">報表：ABC結構圖</div>
+</div>
+<div class="nsep"></div>
+<div style="padding:8px 14px 16px"><div class="ngl" style="margin-bottom:4px"><span class="nd d-gray"></span>附錄</div>
+<div class="nsi" style="margin-left:0" onclick="go('00_庫存管理模組_導覽總覽.html')">模組導覽總覽</div>
+</div>
+</aside><main class="main">
+<div class="ph"><h1>工單增項閉環</h1><span class="ph-tag">10.4</span><span class="ph-sub">維修工單缺料後的自動補貨觸發・待料解除・SA 通知完整閉環</span></div>
+<div style="background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:14px 18px;margin-bottom:14px;">
+<div style="font-size:13px;font-weight:600;margin-bottom:12px;">🔄 工單缺料完整閉環流程</div>
+<div style="display:flex;align-items:center;gap:0;overflow-x:auto;">
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px;min-width:90px;">
+<div style="width:40px;height:40px;background:var(--red-l);border:2px solid var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;">🔧</div>
+<div style="font-size:11px;font-weight:600;color:var(--red);text-align:center;">SA 領料</div>
+<div style="font-size:10px;color:var(--g400);text-align:center;">工單出庫<br>庫存不足</div>
+</div>
+<div style="color:var(--g300);font-size:20px;padding:0 4px;margin-bottom:16px;">→</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px;min-width:90px;">
+<div style="width:40px;height:40px;background:var(--red-l);border:2px solid var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;">⚡</div>
+<div style="font-size:11px;font-weight:600;color:var(--red);text-align:center;">缺料告警</div>
+<div style="font-size:10px;color:var(--g400);text-align:center;">工單進入<br>「待料」狀態</div>
+</div>
+<div style="color:var(--g300);font-size:20px;padding:0 4px;margin-bottom:16px;">→</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px;min-width:90px;">
+<div style="width:40px;height:40px;background:var(--amb-l);border:2px solid var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;">📋</div>
+<div style="font-size:11px;font-weight:600;color:var(--amber);text-align:center;">自動建需求</div>
+<div style="font-size:10px;color:var(--g400);text-align:center;">系統自動建立<br>緊急補貨需求</div>
+</div>
+<div style="color:var(--g300);font-size:20px;padding:0 4px;margin-bottom:16px;">→</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px;min-width:90px;">
+<div style="width:40px;height:40px;background:var(--blue-l);border:2px solid var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;">🛒</div>
+<div style="font-size:11px;font-weight:600;color:var(--blue);text-align:center;">採購審核</div>
+<div style="font-size:10px;color:var(--g400);text-align:center;">主管審核<br>緊急採購單</div>
+</div>
+<div style="color:var(--g300);font-size:20px;padding:0 4px;margin-bottom:16px;">→</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px;min-width:90px;">
+<div style="width:40px;height:40px;background:var(--teal-l);border:2px solid var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;">📥</div>
+<div style="font-size:11px;font-weight:600;color:var(--teal);text-align:center;">備件到庫</div>
+<div style="font-size:10px;color:var(--g400);text-align:center;">採購入庫<br>庫存更新</div>
+</div>
+<div style="color:var(--g300);font-size:20px;padding:0 4px;margin-bottom:16px;">→</div>
+<div style="display:flex;flex-direction:column;align-items:center;gap:5px;min-width:90px;">
+<div style="width:40px;height:40px;background:var(--green-l);border:2px solid var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;">✅</div>
+<div style="font-size:11px;font-weight:600;color:var(--green);text-align:center;">自動解除</div>
+<div style="font-size:10px;color:var(--g400);text-align:center;">待料解除<br>SA LINE通知</div>
+</div>
+</div>
+</div>
+<div class="tbar"><span class="tbar-info">目前待料工單（<b style="color:var(--red);">3</b> 筆）</span><button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="go('07_庫存管理_商品庫存查詢_v2.html')">告警儀表板</button></div>
+<div class="tw"><div class="ts"><table>
+<thead><tr><th>工單號</th><th>缺料備件</th><th>SA 人員</th><th>待料原因</th><th>補貨單號</th><th>預計到貨</th><th>待料天數</th><th>狀態</th><th>操作</th></tr></thead>
+<tbody>
+<tr style="background:#FFF9F0;">
+<td class="mono" style="color:var(--blue);">RO-20260506-003</td><td>機油濾清器 × 1<br><span style="font-size:11px;color:var(--g400);">前煞車來令片 × 1</span></td><td>魏呈宇</td><td>庫存不足</td><td class="mono" style="color:var(--teal);">PO-20260506-012</td><td class="mono" style="color:var(--amber);">今日 17:00</td><td class="mono" style="color:var(--red);">1天</td><td><span class="b b-pend">待料中</span></td>
+<td><button class="btn btn-teal btn-sm" onclick="alert('✅ 備件已到庫！
+
+工單 RO-20260506-003「待料」狀態已自動解除
+SA 魏呈宇已收到 LINE 通知
+可繼續維修作業')">到庫解除</button></td></tr>
+<tr><td class="mono" style="color:var(--blue);">RO-20260505-018</td><td>前叉彈簧組 × 1</td><td>陳服務</td><td>庫存歸零</td><td class="mono" style="color:var(--teal);">PO-20260505-009</td><td class="mono">05/08</td><td class="mono" style="color:var(--amber);">2天</td><td><span class="b b-pend">待料中</span></td>
+<td><button class="btn btn-ghost btn-sm" onclick="alert('查看採購進度')">追蹤</button></td></tr>
+<tr><td class="mono" style="color:var(--blue);">RO-20260503-044</td><td>ECU V4S × 1</td><td>李技師</td><td>A類備件缺貨</td><td class="mono" style="color:var(--teal);">PO-20260504-018</td><td class="mono">05/10</td><td class="mono" style="color:var(--red);">3天</td><td><span class="b b-red">逾期待料</span></td>
+<td><button class="btn btn-ghost btn-sm" onclick="alert('催促採購進度')">催單</button></td></tr>
+</tbody></table></div></div>
+</main><script>
+function go(u){location.href=u;}
+function tog(el){const s=el.nextElementSibling;if(!s)return;s.classList.toggle('open');el.classList.toggle('open');}
+</script></body>
+</html>

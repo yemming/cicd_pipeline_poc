@@ -8,7 +8,8 @@ doll" of two sidebars stacked side-by-side.
 Safe to re-run any time. Idempotent.
 
 Usage:
-    python3 scripts/strip-stitch-chrome.py
+    python3 scripts/strip-stitch-chrome.py                  # default: public/stitch/
+    python3 scripts/strip-stitch-chrome.py public/parts-stitch/  # custom dir
 
 Rules:
   - REMOVE any <aside|nav|div> that is positioned fixed + anchored to the left +
@@ -111,15 +112,16 @@ def strip_file(fp: str) -> bool:
 
 
 def main() -> int:
-    files = sorted(glob.glob(os.path.join(ROOT, "*.html")))
+    target = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
+    files = sorted(glob.glob(os.path.join(target, "*.html")))
     if not files:
-        print(f"No HTML files in {ROOT}")
+        print(f"No HTML files in {target}")
         return 1
     modified = 0
     for fp in files:
         if strip_file(fp):
             modified += 1
-    print(f"Stripped chrome from {modified}/{len(files)} Stitch HTML files in {ROOT}")
+    print(f"Stripped chrome from {modified}/{len(files)} Stitch HTML files in {target}")
     return 0
 
 

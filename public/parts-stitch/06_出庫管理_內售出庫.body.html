@@ -1,0 +1,82 @@
+<style>:root {--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-red {background:var(--red-l);color:var(--red);border:1px solid #F5AEAD;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;}
+.pd .b-done {background:var(--green-l);color:var(--green);}
+.pd .b-pend {background:var(--amb-l);color:var(--amber);}
+.pd .b-navy {background:#EBF3FF;color:var(--navy);}
+.pd .b-teal {background:var(--teal-l);color:var(--teal);}
+.pd .b-gry {background:var(--gray-l);color:var(--gray);}
+.pd .b-red {background:var(--red-l);color:var(--red);}
+.pd .card {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);}
+.pd .card-head {padding:11px 16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}
+.pd .card-title {font-size:13px;font-weight:600;}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:14px;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;}
+.pd thead th {padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);background:var(--g50);border-bottom:1px solid var(--g100);white-space:nowrap;}
+.pd tbody tr {border-bottom:1px solid var(--g100);}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 12px;font-size:12.5px;}
+.pd td.mono {font-family:var(--mono);font-size:12px;}
+.pd td.c, .pd th.c {text-align:center;}
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;}
+.pd .qf select:focus, .pd .qf input:focus {border-color:var(--blue);}
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.pd .tbar-info {font-size:12px;color:var(--g400);}
+.pd .tbar-info b {color:var(--g800);}
+</style>
+<div class="pd">
+
+<div class="ph"><h1>內售出庫</h1><span class="ph-tag">6.3</span><span class="ph-sub">將備件以內部售價出售給其他門店・搭配內售入庫（5.3）完成閉環</span></div>
+<div style="background:var(--blue-l);border:1px solid #B5D4F4;border-radius:var(--r);padding:10px 16px;margin-bottom:14px;font-size:12px;color:var(--navy);display:flex;gap:10px;align-items:center;">
+🔄 <span>內售出庫是指：本門店將<b>多餘備件轉售給其他門店</b>，以內部轉讓價格計算。出庫後庫存立即扣減，對方門店執行 5.3 內售入庫後完成閉環。</span>
+</div>
+<div class="tbar"><span class="tbar-info">本月內售出庫記錄</span><div style="margin-left:auto;display:flex;gap:6px;"><button class="btn btn-ghost btn-sm">匯出</button><button class="btn btn-teal btn-sm">＋ 建立內售出庫單</button></div></div>
+<div class="tw"><div class="ts"><table>
+<thead><tr><th>內售單號</th><th>目的門店</th><th>商品數</th><th>件數</th><th>內售金額</th><th>建立人</th><th>出庫時間</th><th>狀態</th><th>操作</th></tr></thead>
+<tbody>
+<tr><td class="mono">IS-20260506-003</td><td>高雄經銷商</td><td class="mono c">4</td><td class="mono c">10</td><td class="mono">NT$ 18,600</td><td>蔡零件</td><td class="mono">今日 10:00</td><td><span class="b b-teal">已出庫</span></td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
+<tr><td class="mono">IS-20260501-001</td><td>台中直營店</td><td class="mono c">2</td><td class="mono c">6</td><td class="mono">NT$ 8,760</td><td>蔡零件</td><td class="mono">05/01 14:00</td><td><span class="b b-teal">已出庫</span></td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
+<tr><td class="mono">IS-20260428-002</td><td>桃園經銷商</td><td class="mono c">3</td><td class="mono c">9</td><td class="mono">NT$ 12,870</td><td>蔡零件</td><td class="mono">04/28 09:30</td><td><span class="b b-teal">已出庫</span></td><td><button class="btn btn-ghost btn-sm">查看</button></td></tr>
+</tbody></table></div></div>
+<div class="overlay" id="ov2">
+<div class="panel">
+<div class="p-head"><button class="p-back">← 返回</button><div><div class="p-head-title">建立內售出庫單</div><div class="p-head-sub">選擇目的門店與備件，出庫後通知對方入庫</div></div></div>
+<div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+<div class="qf"><label>目的門店</label><select style="width:100%;height:32px;border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-family:var(--font);font-size:13px;outline:none;"><option>台中直營店</option><option>高雄經銷商</option><option>桃園經銷商</option></select></div>
+<div class="qf"><label>內售備件清單</label>
+<div style="background:var(--g50);border:1px solid var(--g100);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
+<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;"><input checked="" type="checkbox"/><span style="flex:1;">DUC-OIL-M10 Motul 7100</span><input style="width:54px;height:26px;border:1px solid var(--g200);border-radius:4px;text-align:center;font-family:var(--mono);font-size:12px;outline:none;" type="number" value="12"/><span style="font-size:11px;color:var(--g400);">瓶</span></div>
+<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;"><input checked="" type="checkbox"/><span style="flex:1;">DUC-CHN-003 傳動鏈條</span><input style="width:54px;height:26px;border:1px solid var(--g200);border-radius:4px;text-align:center;font-family:var(--mono);font-size:12px;outline:none;" type="number" value="3"/><span style="font-size:11px;color:var(--g400);">條</span></div>
+<button class="btn btn-ghost btn-sm" style="align-self:flex-start;">＋ 新增備件</button>
+</div></div>
+<div class="qf"><label>內售單價基準</label><select style="width:100%;height:32px;border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-family:var(--font);font-size:13px;outline:none;"><option>標準成本 × 1.05（預設）</option><option>建議售價 × 0.85</option><option>自訂單價</option></select></div>
+<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost">取消</button><button class="btn btn-navy">確認出庫</button></div>
+</div></div></div>
+<style>.overlay{display:none;position:fixed;inset:0;background:rgba(15,30,50,0.45);z-index:300;align-items:flex-start;justify-content:flex-end;}.overlay.show{display:flex;}.panel{background:var(--white);width:460px;height:calc(100vh - var(--hh));margin-top:var(--hh);border-left:1px solid var(--g100);overflow-y:auto;animation:slideIn 0.18s ease;}@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}.p-head{background:var(--navy);padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;}.p-back{background:rgba(255,255,255,0.12);border:none;color:#fff;padding:5px 10px;border-radius:5px;font-size:12px;cursor:pointer;font-family:var(--font);}.p-head-title{font-size:14px;font-weight:600;color:#fff;}.p-head-sub{font-size:12px;color:rgba(255,255,255,0.65);}</style>
+
+
+</div>

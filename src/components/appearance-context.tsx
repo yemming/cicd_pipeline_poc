@@ -11,6 +11,12 @@ import {
   resolveBrandColors,
   type ResolvedBrandColors,
 } from "@/lib/brands/brand-palettes";
+import {
+  type ShellLayout,
+  type ShellLayoutKey,
+  getShellLayout,
+  shellLayoutToCssVars,
+} from "@/lib/brands/shell-layouts";
 
 export type AppearanceValue = {
   dashboardTagline: string;
@@ -20,6 +26,9 @@ export type AppearanceValue = {
   brandPaletteKey: string;
   customPalette: { primary?: string; accent?: string } | null;
   brandColors: ResolvedBrandColors;
+  shellLayoutKey: ShellLayoutKey;
+  shellLayout: ShellLayout;
+  shellOptions: Record<string, unknown>;
 };
 
 const AppearanceContext = createContext<AppearanceValue | null>(null);
@@ -30,6 +39,8 @@ export function AppearanceProvider({
   sidebarThemeKey,
   brandPaletteKey,
   customPalette,
+  shellLayoutKey,
+  shellOptions,
   children,
 }: {
   dashboardTagline: string;
@@ -37,11 +48,14 @@ export function AppearanceProvider({
   sidebarThemeKey: string;
   brandPaletteKey: string;
   customPalette: { primary?: string; accent?: string } | null;
+  shellLayoutKey: string;
+  shellOptions: Record<string, unknown>;
   children: React.ReactNode;
 }) {
   const value = useMemo<AppearanceValue>(() => {
     const theme = getSidebarTheme(sidebarThemeKey);
     const brandColors = resolveBrandColors(brandPaletteKey, customPalette);
+    const layout = getShellLayout(shellLayoutKey);
     return {
       dashboardTagline,
       footerBadgeUrl,
@@ -50,13 +64,25 @@ export function AppearanceProvider({
       brandPaletteKey,
       customPalette,
       brandColors,
+      shellLayoutKey: layout.key,
+      shellLayout: layout,
+      shellOptions,
     };
-  }, [dashboardTagline, footerBadgeUrl, sidebarThemeKey, brandPaletteKey, customPalette]);
+  }, [
+    dashboardTagline,
+    footerBadgeUrl,
+    sidebarThemeKey,
+    brandPaletteKey,
+    customPalette,
+    shellLayoutKey,
+    shellOptions,
+  ]);
 
-  // 把 sidebar theme + brand palette 的 CSS 變數一併塞到外層 div
+  // 把 sidebar theme + brand palette + shell layout 三組 CSS var 一併塞到外層 div
   const cssVars = {
     ...themeToCssVars(value.sidebarTheme),
     ...paletteCssVars(value.brandColors),
+    ...shellLayoutToCssVars(value.shellLayout),
   } as React.CSSProperties;
 
   return (

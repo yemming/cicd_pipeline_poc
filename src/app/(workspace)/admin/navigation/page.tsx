@@ -64,6 +64,7 @@ export default async function NavAdminPage() {
           sidebar_theme: appearance.sidebar_theme,
           brand_palette: appearance.brand_palette,
           custom_palette: appearance.custom_palette,
+          shell_layout: appearance.shell_layout,
         }}
       />
       <NavEditor initialRows={rows} brandKey={brandKey} brandName={brand.displayName} />

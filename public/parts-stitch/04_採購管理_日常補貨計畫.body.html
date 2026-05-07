@@ -1,0 +1,88 @@
+<style>:root {--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-red {background:var(--red-l);color:var(--red);border:1px solid #F5AEAD;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;}
+.pd .b-done {background:var(--green-l);color:var(--green);}
+.pd .b-pend {background:var(--amb-l);color:var(--amber);}
+.pd .b-navy {background:#EBF3FF;color:var(--navy);}
+.pd .b-teal {background:var(--teal-l);color:var(--teal);}
+.pd .b-gry {background:var(--gray-l);color:var(--gray);}
+.pd .b-red {background:var(--red-l);color:var(--red);}
+.pd .card {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);}
+.pd .card-head {padding:11px 16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}
+.pd .card-title {font-size:13px;font-weight:600;}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:14px;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;}
+.pd thead th {padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);background:var(--g50);border-bottom:1px solid var(--g100);white-space:nowrap;}
+.pd tbody tr {border-bottom:1px solid var(--g100);}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 12px;font-size:12.5px;}
+.pd td.mono {font-family:var(--mono);font-size:12px;}
+.pd td.c, .pd th.c {text-align:center;}
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;}
+.pd .qf select:focus, .pd .qf input:focus {border-color:var(--blue);}
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.pd .tbar-info {font-size:12px;color:var(--g400);}
+.pd .tbar-info b {color:var(--g800);}
+</style>
+<div class="pd">
+
+<div class="ph"><h1>日常補貨計畫</h1><span class="ph-tag">4.2</span><span class="ph-sub">設定自動補貨計畫・依庫存水位自動產生採購建議清單</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+<div class="card" style="padding:12px 16px;"><div style="font-size:11px;color:var(--g400);">本週補貨建議</div><div style="font-size:24px;font-weight:600;font-family:var(--mono);color:var(--amber);margin:4px 0;">18</div><div style="font-size:11px;color:var(--g400);">項備件待補貨</div></div>
+<div class="card" style="padding:12px 16px;"><div style="font-size:11px;color:var(--g400);">已排程採購</div><div style="font-size:24px;font-weight:600;font-family:var(--mono);color:var(--blue);margin:4px 0;">7</div><div style="font-size:11px;color:var(--g400);">項已建立採購單</div></div>
+<div class="card" style="padding:12px 16px;"><div style="font-size:11px;color:var(--g400);">本月預估採購金額</div><div style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--navy);margin:4px 0;">128K</div><div style="font-size:11px;color:var(--g400);">NT$ 128,400</div></div>
+<div class="card" style="padding:12px 16px;"><div style="font-size:11px;color:var(--g400);">計畫補貨頻率</div><div style="font-size:24px;font-weight:600;font-family:var(--mono);color:var(--teal);margin:4px 0;">週一</div><div style="font-size:11px;color:var(--g400);">每週自動計算</div></div>
+</div>
+<div style="display:flex;gap:14px;align-items:flex-start;">
+<div style="flex:1;">
+<div class="tbar"><span class="tbar-info">本週補貨建議清單（<b>18</b> 項）</span><div style="margin-left:auto;display:flex;gap:6px;"><button class="btn btn-ghost btn-sm">全部忽略</button><button class="btn btn-navy btn-sm">一鍵建立採購單</button></div></div>
+<div class="tw"><div class="ts"><table>
+<thead><tr><th><input type="checkbox"/></th><th>備件代碼</th><th>商品名稱</th><th>目前庫存</th><th>再訂購點</th><th>建議補貨量</th><th>建議供應商</th><th>預估金額</th><th>優先度</th></tr></thead>
+<tbody>
+<tr style="background:#FFF9F0;"><td><input checked="" class="rc" type="checkbox"/></td><td class="mono">DUC-OIL-002</td><td>機油濾清器</td><td class="mono c" style="color:var(--red);font-weight:600;">2</td><td class="mono c">10</td><td class="mono c">20</td><td>零件世界</td><td class="mono">NT$ 7,980</td><td><span class="b b-red">緊急</span></td></tr>
+<tr><td><input checked="" class="rc" type="checkbox"/></td><td class="mono">61340051A</td><td>前煞車來令片 V4</td><td class="mono c" style="color:var(--amber);">4</td><td class="mono c">8</td><td class="mono c">12</td><td>Ducati原廠</td><td class="mono">NT$ 15,120</td><td><span class="b b-pend">一般</span></td></tr>
+<tr><td><input checked="" class="rc" type="checkbox"/></td><td class="mono">DUC-CHN-003</td><td>傳動鏈條 520 DID</td><td class="mono c" style="color:var(--amber);">3</td><td class="mono c">6</td><td class="mono c">10</td><td>零件世界</td><td class="mono">NT$ 14,800</td><td><span class="b b-pend">一般</span></td></tr>
+<tr><td><input class="rc" type="checkbox"/></td><td class="mono">DUC-OIL-M10</td><td>Motul 7100 10W40</td><td class="mono c">8</td><td class="mono c">12</td><td class="mono c">24</td><td>Motul Taiwan</td><td class="mono">NT$ 11,520</td><td><span class="b b-gry">低</span></td></tr>
+<tr><td><input class="rc" type="checkbox"/></td><td class="mono">DUC-BRK-018</td><td>後煞車碟盤 MONSTER</td><td class="mono c">2</td><td class="mono c">4</td><td class="mono c">6</td><td>Ducati原廠</td><td class="mono">NT$ 22,800</td><td><span class="b b-pend">一般</span></td></tr>
+</tbody></table></div></div>
+</div>
+<div style="width:190px;flex-shrink:0;">
+<div class="card" style="margin-bottom:10px;">
+<div style="padding:8px 12px;background:var(--g50);border-bottom:1px solid var(--g100);font-size:12px;font-weight:600;color:var(--g600);">補貨計畫設定</div>
+<div style="padding:12px;display:flex;flex-direction:column;gap:8px;">
+<div class="qf"><label>執行頻率</label><select style="width:100%;"><option>每週一</option><option>每兩週</option><option>每月一日</option><option>手動觸發</option></select></div>
+<div class="qf"><label>提前天數</label><select style="width:100%;"><option>7天</option><option>14天</option><option>30天</option></select></div>
+<div class="qf"><label>自動建採購單</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0;"><input type="checkbox"/> 緊急項目自動建單</label>
+</div>
+<button class="btn btn-navy btn-sm" style="width:100%;">儲存設定</button>
+</div>
+</div>
+</div>
+</div>
+
+</div>

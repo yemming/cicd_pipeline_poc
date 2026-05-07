@@ -1,0 +1,230 @@
+<style>:root {--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+/* 兩欄佈局 */
+.pd .layout {display:grid;grid-template-columns:420px 1fr;gap:14px;align-items:flex-start;}
+/* 查詢+調整左欄 */
+.pd .left-col {display:flex;flex-direction:column;gap:12px;}
+.pd .card {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+.pd .card-head {padding:10px 16px;background:var(--g50);border-bottom:1px solid var(--g100);display:flex;align-items:center;gap:8px;}
+.pd .card-title {font-size:13px;font-weight:600;color:var(--g800);}
+.pd .card-body {padding:14px 16px;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
+.pd .qf:last-child {margin-bottom:0;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;transition:border-color 0.12s;width:100%;}
+.pd .qf select:focus, .pd .qf input:focus {border-color:var(--blue);}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);color:var(--g800);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-teal:hover {background:#0A5440;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+.pd .btn-full {width:100%;}
+/* 備件資訊卡 */
+.pd .part-found {background:var(--g50);border:1px solid var(--g100);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;}
+.pd .part-code {font-family:var(--mono);font-size:13px;color:var(--blue);font-weight:600;}
+.pd .part-name {font-size:13px;font-weight:500;color:var(--g800);margin:2px 0;}
+.pd .part-meta {font-size:11.5px;color:var(--g400);}
+/* 庫存數字顯示 */
+.pd .stock-grid {display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0;}
+.pd .sg {background:var(--white);border:1px solid var(--g100);border-radius:6px;padding:8px 10px;text-align:center;}
+.pd .sg-label {font-size:10px;color:var(--g400);margin-bottom:3px;}
+.pd .sg-val {font-family:var(--mono);font-size:18px;font-weight:600;}
+.pd .sv-total {color:var(--g800);}
+.pd .sv-avail {color:var(--teal);}
+.pd .sv-hold {color:var(--amber);}
+/* 調整區 */
+.pd .adj-type {display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.pd .at-btn {padding:8px 12px;border:2px solid var(--g200);border-radius:6px;cursor:pointer;text-align:center;transition:all 0.15s;background:var(--white);}
+.pd .at-btn:hover {border-color:var(--g400);}
+.pd .at-btn.sel-add {border-color:var(--teal);background:var(--teal-l);}
+.pd .at-btn.sel-sub {border-color:var(--red);background:var(--red-l);}
+.pd .at-name {font-size:13px;font-weight:600;}
+.pd .at-btn.sel-add .at-name {color:var(--teal);}
+.pd .at-btn.sel-sub .at-name {color:var(--red);}
+.pd .at-desc {font-size:11px;color:var(--g400);margin-top:2px;}
+.pd .adj-input-row {display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.pd .adj-label {font-size:11px;color:var(--g400);white-space:nowrap;}
+.pd .big-qty {width:100px;height:40px;border:2px solid var(--blue);border-radius:6px;text-align:center;font-family:var(--mono);font-size:18px;font-weight:600;color:var(--navy);outline:none;padding:0;}
+.pd .big-qty:focus {border-color:var(--navy);}
+.pd .after-stock {font-size:13px;color:var(--g600);}
+.pd .after-val {font-family:var(--mono);font-size:16px;font-weight:600;}
+.pd .after-add {color:var(--teal);}
+.pd .after-sub {color:var(--red);}
+/* 右欄：歷史日誌 */
+.pd .log-list {display:flex;flex-direction:column;gap:0;}
+.pd .log-row {padding:9px 16px;border-bottom:1px solid var(--g100);display:grid;grid-template-columns:110px 1fr 70px 80px 60px;gap:8px;align-items:center;font-size:12px;}
+.pd .log-row:last-child {border-bottom:none;}
+.pd .log-row:hover {background:var(--g50);}
+.pd .log-time {font-family:var(--mono);color:var(--g400);font-size:11px;}
+.pd .log-item {color:var(--g800);}
+.pd .log-code {font-family:var(--mono);font-size:11.5px;color:var(--blue);}
+.pd .log-qty {font-family:var(--mono);font-weight:600;text-align:right;}
+.pd .log-plus {color:var(--teal);}
+.pd .log-minus {color:var(--red);}
+.pd .log-user {color:var(--g400);}
+.pd .log-reason {color:var(--g400);font-size:11px;}
+.pd .log-head {padding:7px 16px;background:var(--g50);border-bottom:1px solid var(--g100);display:grid;grid-template-columns:110px 1fr 70px 80px 60px;gap:8px;font-size:11px;font-weight:600;color:var(--g600);}
+.pd .notice {background:var(--amb-l);border:1px solid #FAC775;border-radius:var(--r);padding:9px 12px;font-size:12px;color:var(--amber);display:flex;align-items:center;gap:7px;margin-bottom:10px;}
+</style>
+<div class="pd">
+
+<div class="ph">
+<h1>備件庫存調整</h1>
+<span class="ph-tag">7.5</span>
+<span class="ph-sub">手動調整單一備件庫存數量 · 須填寫原因 · 全程記錄調整日誌</span>
+</div>
+<div class="layout">
+<!-- 左欄：查詢+調整 -->
+<div class="left-col">
+<!-- 備件查詢 -->
+<div class="card">
+<div class="card-head"><div class="card-title">🔍 查詢備件</div></div>
+<div class="card-body">
+<div class="qf">
+<label>備件代碼 / 商品名稱</label>
+<div style="display:flex;gap:6px">
+<input id="searchInput" placeholder="輸入代碼或名稱..." type="text" value="DUC-OIL-002"/>
+<button class="btn btn-navy">查詢</button>
+</div>
+</div>
+<div class="qf">
+<label>倉庫</label>
+<select><option>主零件倉</option><option>寄存倉</option></select>
+</div>
+</div>
+</div>
+<!-- 備件資訊（查詢後顯示） -->
+<div class="card" id="partCard">
+<div class="card-head">
+<div class="card-title">📦 備件資訊</div>
+<span style="margin-left:auto;font-size:11px;color:var(--g400)">主零件倉</span>
+</div>
+<div class="card-body">
+<div class="part-found">
+<div class="part-code">DUC-OIL-002</div>
+<div class="part-name">機油濾清器</div>
+<div class="part-meta">庫位：B-01-01　　ABC 分類：A類</div>
+</div>
+<div class="stock-grid">
+<div class="sg"><div class="sg-label">總庫存</div><div class="sg-val sv-total" id="totalStock">12</div></div>
+<div class="sg"><div class="sg-label">可用庫存</div><div class="sg-val sv-avail" id="availStock">10</div></div>
+<div class="sg"><div class="sg-label">佔用（未出庫）</div><div class="sg-val sv-hold">2</div></div>
+</div>
+<div style="font-size:11.5px;color:var(--g400);margin-bottom:12px;">
+            最小庫存：<b style="color:var(--g800)">5</b>　　再訂購點：<b style="color:var(--g800)">8</b>　　最大庫存：<b style="color:var(--g800)">30</b>
+</div>
+<!-- 調整類型 -->
+<div style="font-size:11px;color:var(--g400);font-weight:500;margin-bottom:6px;">調整方向</div>
+<div class="adj-type">
+<div class="at-btn sel-add" id="atAdd">
+<div class="at-name">＋ 增加庫存</div>
+<div class="at-desc">盤盈、退回、更正</div>
+</div>
+<div class="at-btn" id="atSub">
+<div class="at-name">－ 減少庫存</div>
+<div class="at-desc">盤虧、報廢、更正</div>
+</div>
+</div>
+<!-- 調整數量 -->
+<div class="adj-input-row">
+<div class="adj-label">調整數量</div>
+<input class="big-qty" id="adjQty" min="1" type="number" value="2"/>
+<div style="display:flex;flex-direction:column;gap:2px">
+<div class="adj-label">調整後庫存</div>
+<div class="after-val after-add" id="afterVal">14</div>
+</div>
+</div>
+<div class="qf" style="margin-bottom:10px">
+<label>調整原因 <span style="color:var(--red)">*</span></label>
+<select><option>盤點更正（盤盈）</option><option>盤點更正（盤虧）</option><option>資料輸入錯誤更正</option><option>退貨入庫（非採購）</option><option>報廢損耗</option><option>其他</option></select>
+</div>
+<div class="qf" style="margin-bottom:12px">
+<label>補充說明（選填）</label>
+<input placeholder="例：盤點發現多 2 件，更正系統庫存" type="text"/>
+</div>
+<div class="notice"><span>⚠️</span><span>調整後庫存立即更新，無法撤銷，請確認數量無誤。</span></div>
+<button class="btn btn-navy btn-full">確認調整</button>
+</div>
+</div>
+</div>
+<!-- 右欄：調整日誌 -->
+<div class="card">
+<div class="card-head">
+<div class="card-title">📋 調整日誌</div>
+<div style="margin-left:auto;display:flex;gap:6px">
+<select style="height:26px;border:1px solid var(--g200);border-radius:4px;padding:0 8px;font-size:12px;font-family:var(--font);outline:none;color:var(--g800)">
+<option>全部備件</option><option>DUC-OIL-002</option></select>
+<button class="btn btn-ghost btn-sm">匯出</button>
+</div>
+</div>
+<div class="log-head">
+<span>時間</span><span>備件</span><span style="text-align:right">調整量</span><span>調整原因</span><span>操作人</span>
+</div>
+<div class="log-list">
+<div class="log-row">
+<span class="log-time">今日 09:15</span>
+<div><div class="log-code">DUC-OIL-002</div><div style="font-size:11px;color:var(--g400)">機油濾清器</div></div>
+<span class="log-qty log-plus">+3</span>
+<span class="log-reason">盤點更正（盤盈）</span>
+<span class="log-user">蔡零件</span>
+</div>
+<div class="log-row">
+<span class="log-time">昨日 16:40</span>
+<div><div class="log-code">61340051A</div><div style="font-size:11px;color:var(--g400)">前煞車來令片 V4</div></div>
+<span class="log-qty log-minus">-1</span>
+<span class="log-reason">報廢損耗</span>
+<span class="log-user">王倉儲</span>
+</div>
+<div class="log-row">
+<span class="log-time">2026/05/04</span>
+<div><div class="log-code">DUC-SPARK-001</div><div style="font-size:11px;color:var(--g400)">火星塞 NGK Iridium</div></div>
+<span class="log-qty log-plus">+6</span>
+<span class="log-reason">資料輸入錯誤更正</span>
+<span class="log-user">蔡零件</span>
+</div>
+<div class="log-row">
+<span class="log-time">2026/05/03</span>
+<div><div class="log-code">MOT-OIL-15W50</div><div style="font-size:11px;color:var(--g400)">Motul 機油 15W-50</div></div>
+<span class="log-qty log-minus">-2</span>
+<span class="log-reason">盤點更正（盤虧）</span>
+<span class="log-user">蔡零件</span>
+</div>
+<div class="log-row">
+<span class="log-time">2026/05/02</span>
+<div><div class="log-code">DUC-CHAIN-007</div><div style="font-size:11px;color:var(--g400)">O型鏈條 520 DRZ</div></div>
+<span class="log-qty log-plus">+5</span>
+<span class="log-reason">退貨入庫（非採購）</span>
+<span class="log-user">王倉儲</span>
+</div>
+<div class="log-row">
+<span class="log-time">2026/04/30</span>
+<div><div class="log-code">DUC-OIL-002</div><div style="font-size:11px;color:var(--g400)">機油濾清器</div></div>
+<span class="log-qty log-minus">-4</span>
+<span class="log-reason">報廢損耗（過期）</span>
+<span class="log-user">蔡零件</span>
+</div>
+<div class="log-row">
+<span class="log-time">2026/04/28</span>
+<div><div class="log-code">MOT-BRAKE-DOT4</div><div style="font-size:11px;color:var(--g400)">Motul 煞車油 DOT4</div></div>
+<span class="log-qty log-plus">+12</span>
+<span class="log-reason">資料輸入錯誤更正</span>
+<span class="log-user">陳主管</span>
+</div>
+</div>
+</div>
+</div>
+
+</div>

@@ -1,5 +1,5 @@
 import type { TemplateDefinition } from "../types";
-import { buildGoogleCard, buildLineFlex, DUCATI_RED, s } from "./kits";
+import { buildGoogleCard, buildLineFlex, s } from "./kits";
 
 // 事件：服務需求（預約）建立
 // payload：requestNo / customer / vehicle / scheduledAt / note / actionUrl
@@ -14,7 +14,6 @@ export const serviceRequestCreatedLine: TemplateDefinition = {
     buildLineFlex({
       emoji: "📅",
       title: `新服務預約 ${s(p, "requestNo")}`,
-      headerColor: DUCATI_RED,
       fields: [
         { label: "客戶", value: s(p, "customer") },
         { label: "機車", value: s(p, "vehicle") },

@@ -1,0 +1,449 @@
+<style>:root {
+  --navy: #1A3A5C;
+  --blue: #185FA5;
+  --blue-light: #378ADD;
+  --blue-bg: #EBF3FF;
+  --blue-bg2: #EEF6FF;
+
+  --g50:  #FAFAF9;
+  --g100: #F5F5F4;
+  --g200: #EEECE6;
+  --g300: #D8D6CF;
+  --g400: #9A9890;
+  --g500: #6B6A68;
+  --g600: #4A4945;
+  --g700: #2E2D2A;
+  --g800: #1A1917;
+
+  --red: #E24B4A; --red-bg: #FEF5F5; --red-badge: #FDECEA; --red-text: #CC0000;
+  --orange: #EF9F27; --orange-bg: #FFF9F0; --orange-badge: #FDF3E3; --orange-text: #854F0B;
+  --yellow-bg: #FFFDE7; --yellow-text: #5C4500;
+  --green: #0F6E56; --green-bg: #E8F5F0; --green-text: #0F6E56;
+  --purple: #7F77DD; --purple-light: #F0EEFF;
+
+  --sidebar-w: 220px;
+  --header-h: 52px;
+  --font: 'Noto Sans TC', sans-serif;
+  --mono: 'DM Mono', 'Courier New', monospace;
+}
+.pd * { box-sizing: border-box; margin: 0; padding: 0; }
+.pd { font-family: var(--font); font-size: 13px; color: var(--g700); background: var(--g50); min-height: 100vh; }
+/* HEADER */
+/* SIDEBAR */
+/* MAIN */
+/* FLOW BANNER */
+.pd .flow-banner { background:#fff; border-bottom:1px solid var(--g200); padding:10px 24px; display:flex; align-items:center; gap:0; }
+.pd .flow-step { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--g400); }
+.pd .flow-step .step-num { width:20px; height:20px; border-radius:50%; background:var(--g200); color:var(--g500); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.pd .flow-step.done { color:var(--g500); }
+.pd .flow-step.done .step-num { background:var(--green-bg); color:var(--green); }
+.pd .flow-step.active { color:var(--blue); font-weight:600; }
+.pd .flow-step.active .step-num { background:var(--blue); color:#fff; }
+.pd .flow-arrow { margin:0 8px; color:var(--g300); font-size:12px; }
+/* PAGE TITLE */
+.pd .page-title-area { padding:20px 24px 0; display:flex; align-items:baseline; gap:10px; }
+.pd .page-title-area h1 { font-size:20px; font-weight:700; color:var(--g800); letter-spacing:-.3px; }
+.pd .func-badge { background:var(--g100); color:var(--g500); font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; }
+.pd .page-subtitle { font-size:12px; color:var(--g400); margin-top:3px; padding:0 24px 16px; }
+/* DRAFT NOTICE */
+.pd .draft-notice {
+  margin: 0 24px 14px;
+  background: var(--blue-bg2);
+  border: 1px solid #AAC9F0;
+  border-left: 4px solid var(--blue);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: var(--blue);
+}
+.pd .draft-notice strong { font-weight: 700; }
+/* PILLS */
+.pd .pills { display:flex; gap:4px; padding:0 24px 10px; }
+.pd .pill { height:28px; padding:0 12px; border-radius:14px; font-size:12px; font-weight:500; cursor:pointer; border:1px solid var(--g200); background:#fff; color:var(--g500); display:inline-flex; align-items:center; gap:5px; transition:all .12s; }
+.pd .pill:hover { border-color:var(--blue); color:var(--blue); }
+.pd .pill.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+.pd .pill .pill-count { background:rgba(255,255,255,.25); font-size:10px; padding:0 5px; border-radius:8px; font-weight:700; }
+.pd .pill:not(.active) .pill-count { background:var(--g100); color:var(--g600); }
+/* TOOLBAR */
+.pd .toolbar { display:flex; align-items:center; gap:10px; padding:0 24px 10px; }
+.pd .toolbar-count { font-size:12px; color:var(--g500); }
+.pd .toolbar-count strong { color:var(--g700); }
+.pd .toolbar-right { margin-left:auto; display:flex; gap:8px; }
+/* QUERY BLOCK */
+.pd .query-block { margin:0 24px 12px; background:#fff; border:1px solid var(--g200); border-radius:8px; padding:14px 16px; }
+.pd .query-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+.pd .query-field { display:flex; flex-direction:column; gap:4px; min-width:130px; }
+.pd .query-field label { font-size:11px; font-weight:600; color:var(--g500); }
+.pd .query-field input, .pd .query-field select { height:32px; border:1px solid var(--g200); border-radius:5px; padding:0 10px; font-size:12px; color:var(--g700); background:#fff; font-family:var(--font); outline:none; transition:border-color .15s; }
+.pd .query-field input:focus, .pd .query-field select:focus { border-color:var(--blue); }
+.pd .query-field.wide { min-width:200px; flex:1; }
+.pd .query-btns { display:flex; gap:8px; align-items:flex-end; margin-left:auto; }
+/* BTN */
+.pd .btn { height:32px; padding:0 14px; border-radius:5px; font-size:12px; font-weight:600; font-family:var(--font); cursor:pointer; border:none; display:inline-flex; align-items:center; gap:6px; transition:all .15s; white-space:nowrap; }
+.pd .btn-primary { background:var(--blue); color:#fff; }
+.pd .btn-primary:hover { background:var(--navy); }
+.pd .btn-secondary { background:#fff; color:var(--g600); border:1px solid var(--g200); }
+.pd .btn-secondary:hover { background:var(--g50); color:var(--g800); }
+.pd .btn-success { background:var(--green); color:#fff; }
+.pd .btn-success:hover { background:#0b5a45; }
+.pd .btn-warning { background:var(--orange); color:#fff; }
+.pd .btn-warning:hover { background:#d48a1c; }
+.pd .btn-danger { background:#fff; color:var(--red-text); border:1px solid #F7C1C1; }
+.pd .btn-danger:hover { background:var(--red-bg); }
+.pd .btn-ghost { background:transparent; color:var(--g500); border:1px solid var(--g200); }
+.pd .btn-ghost:hover { background:var(--g50); color:var(--g700); }
+.pd .btn-sm { height:26px; padding:0 10px; font-size:11px; }
+.pd .btn-lg { height:38px; padding:0 20px; font-size:13px; }
+.pd .btn:disabled { opacity:.45; cursor:not-allowed; }
+/* TABLE */
+.pd .table-wrap { margin:0 24px; background:#fff; border:1px solid var(--g200); border-radius:8px; overflow:hidden; }
+.pd table { width:100%; border-collapse:collapse; }
+.pd thead th { padding:9px 10px; background:var(--g50); border-bottom:1px solid var(--g200); font-size:11px; font-weight:600; color:var(--g500); text-align:left; white-space:nowrap; }
+.pd thead th:first-child { padding-left:14px; }
+.pd tbody tr { border-bottom:1px solid var(--g200); cursor:pointer; transition:background .1s; }
+.pd tbody tr:last-child { border-bottom:none; }
+.pd tbody tr:hover { background:#F8F7F4; }
+.pd tbody tr.row-draft { background:#FFFDE7; }
+.pd tbody tr.row-draft:hover { background:#FFF8D0; }
+.pd td { padding:9px 10px; font-size:12px; color:var(--g700); vertical-align:middle; }
+.pd td:first-child { padding-left:14px; }
+.pd input[type="checkbox"] { accent-color:var(--blue); cursor:pointer; }
+.pd .mono { font-family:var(--mono); font-size:11px; color:var(--g600); }
+.pd .link-text { color:var(--blue); cursor:pointer; font-weight:600; }
+.pd .link-text:hover { text-decoration:underline; }
+/* BADGE */
+.pd .badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; white-space:nowrap; }
+.pd .badge-draft { background:#FEF9C3; color:#5C4500; }
+.pd .badge-submitted { background:#DBEAFE; color:#1D4ED8; }
+.pd .badge-pending { background:#FDF3E3; color:#854F0B; }
+.pd .badge-complete { background:var(--green-bg); color:var(--green-text); }
+.pd .badge-void { background:var(--g100); color:var(--g500); }
+.pd .badge-red { background:#FDECEA; color:#CC0000; }
+.pd .badge-green { background:var(--green-bg); color:var(--green-text); }
+.pd .badge-blue { background:#DBEAFE; color:#1D4ED8; }
+.pd .badge-orange { background:#FDF3E3; color:#854F0B; }
+.pd .badge-gray { background:var(--g100); color:var(--g500); }
+/* PO EDIT PANEL (full-page form) */
+.pd .po-panel-overlay { position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:200; opacity:0; pointer-events:none; transition:opacity .25s; }
+.pd .po-panel-overlay.visible { opacity:1; pointer-events:auto; }
+.pd .po-panel { position:fixed; top:0; right:0; bottom:0; width:780px; max-width:95vw; background:#fff; box-shadow:-4px 0 24px rgba(0,0,0,.14); z-index:201; display:flex; flex-direction:column; transform:translateX(100%); transition:transform .28s cubic-bezier(.32,0,.24,1); }
+.pd .po-panel.open { transform:translateX(0); }
+.pd .po-panel-header { padding:14px 20px; border-bottom:1px solid var(--g200); display:flex; align-items:center; gap:10px; flex-shrink:0; background:var(--g50); }
+.pd .po-panel-title { font-size:16px; font-weight:700; color:var(--g800); }
+.pd .po-panel-close { margin-left:auto; width:28px; height:28px; border-radius:50%; border:none; background:var(--g200); color:var(--g500); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.pd .po-panel-close:hover { background:var(--g300); color:var(--g700); }
+.pd .po-panel-body { flex:1; overflow-y:auto; padding:0; }
+.pd .po-panel-body::-webkit-scrollbar { width:4px; }
+.pd .po-panel-body::-webkit-scrollbar-thumb { background:var(--g200); border-radius:2px; }
+.pd .po-panel-footer { padding:14px 20px; border-top:1px solid var(--g200); display:flex; gap:10px; align-items:center; background:var(--g50); flex-shrink:0; }
+/* PO form sections */
+.pd .po-section { padding:20px 24px; border-bottom:1px solid var(--g200); }
+.pd .po-section:last-child { border-bottom:none; }
+.pd .po-section-title { font-size:11px; font-weight:700; color:var(--g500); text-transform:uppercase; letter-spacing:.6px; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.pd .po-section-title::after { content:''; flex:1; height:1px; background:var(--g200); }
+.pd .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 20px; }
+.pd .form-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px 20px; }
+.pd .form-group { display:flex; flex-direction:column; gap:4px; }
+.pd .form-group label { font-size:11px; font-weight:600; color:var(--g500); }
+.pd .form-group label .req { color:var(--red); }
+.pd .form-group input, .pd .form-group select, .pd .form-group textarea { border:1px solid var(--g200); border-radius:6px; padding:7px 10px; font-size:12px; color:var(--g700); font-family:var(--font); outline:none; transition:border-color .15s; }
+.pd .form-group input:focus, .pd .form-group select:focus, .pd .form-group textarea:focus { border-color:var(--blue); }
+.pd .form-group .auto-field { background:var(--blue-bg2); color:var(--blue); border-color:#AAC9F0; cursor:not-allowed; }
+.pd .form-group .auto-label { font-size:10px; color:var(--blue-light); margin-top:2px; }
+.pd .form-group.span2 { grid-column:span 2; }
+/* Source demand strip */
+.pd .source-strip { background:var(--blue-bg2); border:1px solid #AAC9F0; border-radius:6px; padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--blue); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.pd .source-strip strong { font-weight:700; }
+.pd .source-tag-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+.pd .source-tag { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; }
+.pd .st-red { background:#FDECEA; color:#CC0000; }
+.pd .st-orange { background:#FDF3E3; color:#854F0B; }
+.pd .st-blue { background:#DBEAFE; color:#1D4ED8; }
+/* Detail table for line items */
+.pd .detail-table-wrap { border:1px solid var(--g200); border-radius:6px; overflow:hidden; margin-top:2px; }
+.pd .detail-table { width:100%; border-collapse:collapse; }
+.pd .detail-table th { padding:8px 10px; background:var(--g50); border-bottom:1px solid var(--g200); font-size:11px; font-weight:600; color:var(--g500); text-align:left; white-space:nowrap; }
+.pd .detail-table td { padding:8px 10px; border-bottom:1px solid var(--g200); font-size:12px; color:var(--g700); vertical-align:middle; }
+.pd .detail-table tr:last-child td { border-bottom:none; }
+.pd .detail-table input[type="number"], .pd .detail-table input[type="text"] { width:80px; height:28px; border:1px solid var(--g200); border-radius:4px; padding:0 8px; font-size:12px; text-align:right; font-family:var(--font); outline:none; transition:border-color .15s; }
+.pd .detail-table input:focus { border-color:var(--blue); }
+.pd .detail-table .row-urgent-bg { background:#FFF9F0; }
+.pd .del-btn { width:22px; height:22px; border-radius:50%; border:none; background:var(--g100); color:var(--g400); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all .12s; }
+.pd .del-btn:hover { background:var(--red-badge); color:var(--red-text); }
+/* Summary bar */
+.pd .po-summary { display:flex; gap:0; border-top:1px solid var(--g200); background:var(--g50); }
+.pd .summary-item { flex:1; padding:12px 16px; border-right:1px solid var(--g200); }
+.pd .summary-item:last-child { border-right:none; }
+.pd .summary-item .s-label { font-size:10px; font-weight:600; color:var(--g400); text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+.pd .summary-item .s-value { font-size:18px; font-weight:700; color:var(--g800); }
+.pd .summary-item .s-value.green { color:var(--green); }
+.pd .summary-item .s-value.orange { color:var(--orange-text); }
+/* Status chip */
+.pd .status-chip { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:3px 10px; border-radius:12px; }
+/* Progress bar */
+.pd .progress-bar { width:100%; height:5px; background:var(--g200); border-radius:3px; overflow:hidden; margin-top:4px; }
+.pd .progress-fill { height:100%; border-radius:3px; background:var(--orange); transition:width .3s; }
+.pd .progress-fill.done { background:var(--green); }
+/* Prepay modal */
+.pd .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:300; display:none; align-items:center; justify-content:center; }
+.pd .modal-overlay.visible { display:flex; }
+.pd .modal { background:#fff; border-radius:10px; width:440px; max-width:95vw; box-shadow:0 20px 60px rgba(0,0,0,.2); overflow:hidden; }
+.pd .modal-header { padding:16px 20px; border-bottom:1px solid var(--g200); display:flex; align-items:center; gap:10px; }
+.pd .modal-title { font-size:15px; font-weight:700; color:var(--g800); }
+.pd .modal-close { margin-left:auto; width:26px; height:26px; border-radius:50%; border:none; background:var(--g100); color:var(--g500); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; }
+.pd .modal-body { padding:20px; }
+.pd .modal-footer { padding:14px 20px; border-top:1px solid var(--g200); display:flex; gap:8px; justify-content:flex-end; background:var(--g50); }
+.pd .info-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--g200); font-size:13px; }
+.pd .info-row:last-child { border-bottom:none; }
+.pd .info-row .label { color:var(--g500); }
+.pd .info-row .value { font-weight:600; color:var(--g800); }
+/* Toast */
+.pd .toast-container { position:fixed; bottom:24px; right:24px; z-index:500; display:flex; flex-direction:column; gap:8px; }
+.pd .toast { background:var(--g800); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,.2); animation:slideUp .25s ease; max-width:340px; display:flex; align-items:center; gap:8px; }
+.pd .toast.success { background:var(--green); }
+.pd .toast.warning { background:var(--orange); }
+.pd .toast.error { background:var(--red-text); }
+@keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.pd .bottom-space { height:32px; }
+/* Void confirm line */
+.pd .void-row { background:#FDECEA; border-top:2px solid var(--red); }
+</style>
+<div class="pd">
+
+ Flow banner 
+<div class="flow-banner">
+<div class="flow-step done"><div class="step-num">✓</div><span>觸發 / 計畫</span></div>
+<span class="flow-arrow">→</span>
+<div class="flow-step done"><div class="step-num">✓</div><span>需求處理</span></div>
+<span class="flow-arrow">→</span>
+<div class="flow-step active"><div class="step-num">3</div><span>商品採購 ★</span></div>
+<span class="flow-arrow">→</span>
+<div class="flow-step"><div class="step-num">4</div><span>採購入庫</span></div>
+<span class="flow-arrow">→</span>
+<div class="flow-step"><div class="step-num">5</div><span>庫存更新</span></div>
+</div>
+ Draft notice (simulating arriving from 4.2) 
+<div style="height:16px"></div>
+<div class="draft-notice">
+<span style="font-size:16px;">📋</span>
+<div>
+      從<strong>需求處理（4.2）</strong>帶入 <strong>2 張草稿</strong>採購單，請完善後提交供應商。草稿可隨時修改，提交後進入「待收貨」狀態。
+    </div>
+<button class="btn btn-sm" style="background:#185FA5;color:#fff;margin-left:auto;">查看草稿 →</button>
+</div>
+ Page title 
+<div class="page-title-area">
+<h1>商品採購</h1>
+<span class="func-badge">4.3</span>
+</div>
+<div class="page-subtitle">建立與管理採購單，完善草稿後提交供應商，提交後進入入庫流程（5.1）</div>
+ Query Block 
+<div class="query-block">
+<div class="query-row">
+<div class="query-field">
+<label>銷售區域</label>
+<select><option>台北大區</option><option>全部</option></select>
+</div>
+<div class="query-field">
+<label>門店</label>
+<select><option>台北直營店</option><option>全部</option></select>
+</div>
+<div class="query-field">
+<label>供應商</label>
+<select><option>全部供應商</option><option>Ducati 原廠（義大利）</option><option>台灣摩托配件有限公司</option><option>Motul 台灣代理</option></select>
+</div>
+<div class="query-field">
+<label>採購類型</label>
+<select><option>全部</option><option>臨時採購</option><option>計畫採購</option></select>
+</div>
+<div class="query-field wide">
+<label>採購單號 / 外部單號</label>
+<input placeholder="輸入採購單號或外部 DMS 單號" type="text"/>
+</div>
+<div class="query-btns">
+<button class="btn btn-secondary">重置</button>
+<button class="btn btn-primary">🔍 查詢</button>
+</div>
+</div>
+</div>
+ Pills 
+<div class="pills">
+<div class="pill active">全部 <span class="pill-count">8</span></div>
+<div class="pill">📝 草稿 <span class="pill-count">2</span></div>
+<div class="pill">📤 待收貨 <span class="pill-count">3</span></div>
+<div class="pill">📦 部分入庫 <span class="pill-count">2</span></div>
+<div class="pill">✅ 入庫完成 <span class="pill-count">1</span></div>
+</div>
+ Toolbar 
+<div class="toolbar">
+<div class="toolbar-count">共 <strong>8</strong> 張採購單</div>
+<div class="toolbar-right">
+<button class="btn btn-secondary btn-sm">匯出清單</button>
+<button class="btn btn-primary">＋ 新增採購單</button>
+</div>
+</div>
+ Table 
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>採購單號</th>
+<th>來源需求單</th>
+<th>供應商</th>
+<th>採購類型</th>
+<th>收貨倉庫</th>
+<th>明細數</th>
+<th>採購總數</th>
+<th>含稅總金額</th>
+<th>預計到貨</th>
+<th>入庫進度</th>
+<th>狀態</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody>
+<!-- 草稿 1 — 來自需求處理（工單待料緊急） -->
+<tr class="row-draft">
+<td><span class="link-text mono">PO20260505-001</span><br/><span style="font-size:10px;color:var(--orange-text);">📋 草稿</span></td>
+<td><span class="link-text" style="font-size:11px;">REQ-20260505-001</span><br/><span class="source-tag st-red" style="font-size:10px;">🔴 工單待料</span></td>
+<td style="font-size:11px;">Ducati 原廠（義大利）</td>
+<td><span class="badge badge-orange">臨時採購</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="text-align:center;">2</td>
+<td style="text-align:center;">3</td>
+<td style="font-weight:700;">—</td>
+<td style="font-size:11px;">待確認</td>
+<td>—</td>
+<td><span class="badge badge-draft">草稿</span></td>
+<td>
+<button class="btn btn-sm btn-primary">完善並提交</button>
+</td>
+</tr>
+<!-- 草稿 2 -->
+<tr class="row-draft">
+<td><span class="link-text mono">PO20260505-002</span><br/><span style="font-size:10px;color:var(--orange-text);">📋 草稿</span></td>
+<td><span class="link-text" style="font-size:11px;">REQ-20260504-014</span><br/><span class="source-tag st-orange" style="font-size:10px;">🟠 低庫存</span></td>
+<td style="font-size:11px;">Motul 台灣代理</td>
+<td><span class="badge badge-gray">計畫採購</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="text-align:center;">3</td>
+<td style="text-align:center;">34</td>
+<td style="font-weight:700;">—</td>
+<td style="font-size:11px;">待確認</td>
+<td>—</td>
+<td><span class="badge badge-draft">草稿</span></td>
+<td>
+<button class="btn btn-sm btn-primary">完善並提交</button>
+</td>
+</tr>
+<!-- 待收貨 -->
+<tr>
+<td><span class="link-text mono">PO20260503-008</span></td>
+<td><span class="link-text" style="font-size:11px;">REQ-20260502-007</span><br/><span class="source-tag st-blue" style="font-size:10px;">📋 補貨計畫</span></td>
+<td style="font-size:11px;">Ducati 原廠（義大利）</td>
+<td><span class="badge badge-gray">計畫採購</span></td>
+<td style="font-size:11px;">原廠件倉</td>
+<td style="text-align:center;">5</td>
+<td style="text-align:center;">18</td>
+<td style="font-weight:700;color:var(--green);">NT$ 42,680</td>
+<td style="font-size:11px;">2026/05/10</td>
+<td>
+<div style="font-size:10px;color:var(--g500);">0 / 18 件</div>
+<div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+</td>
+<td><span class="badge badge-submitted">待收貨</span></td>
+<td><button class="btn btn-sm btn-secondary">查看</button></td>
+</tr>
+<tr>
+<td><span class="link-text mono">PO20260502-006</span></td>
+<td><span style="font-size:11px;color:var(--g400);">—（臨時採購）</span></td>
+<td style="font-size:11px;">台灣摩托配件有限公司</td>
+<td><span class="badge badge-orange">臨時採購</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="text-align:center;">4</td>
+<td style="text-align:center;">12</td>
+<td style="font-weight:700;color:var(--green);">NT$ 28,400</td>
+<td style="font-size:11px;">2026/05/08</td>
+<td>
+<div style="font-size:10px;color:var(--g500);">0 / 12 件</div>
+<div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+</td>
+<td><span class="badge badge-submitted">待收貨</span></td>
+<td><button class="btn btn-sm btn-secondary">查看</button></td>
+</tr>
+<tr>
+<td><span class="link-text mono">PO20260430-005</span></td>
+<td><span style="font-size:11px;color:var(--g400);">—（臨時採購）</span></td>
+<td style="font-size:11px;">Motul 台灣代理</td>
+<td><span class="badge badge-orange">臨時採購</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="text-align:center;">2</td>
+<td style="text-align:center;">24</td>
+<td style="font-weight:700;color:var(--green);">NT$ 19,200</td>
+<td style="font-size:11px;">2026/05/06</td>
+<td>
+<div style="font-size:10px;color:var(--g500);">0 / 24 件</div>
+<div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+</td>
+<td><span class="badge badge-submitted">待收貨</span></td>
+<td><button class="btn btn-sm btn-secondary">查看</button></td>
+</tr>
+<!-- 部分入庫 -->
+<tr>
+<td><span class="link-text mono">PO20260428-004</span></td>
+<td><span style="font-size:11px;color:var(--g400);">—（計畫採購）</span></td>
+<td style="font-size:11px;">Ducati 原廠（義大利）</td>
+<td><span class="badge badge-gray">計畫採購</span></td>
+<td style="font-size:11px;">原廠件倉</td>
+<td style="text-align:center;">6</td>
+<td style="text-align:center;">20</td>
+<td style="font-weight:700;color:var(--green);">NT$ 87,500</td>
+<td style="font-size:11px;">2026/05/03</td>
+<td>
+<div style="font-size:10px;color:var(--orange-text);">12 / 20 件</div>
+<div class="progress-bar"><div class="progress-fill" style="width:60%"></div></div>
+</td>
+<td><span class="badge badge-pending">部分入庫</span></td>
+<td><button class="btn btn-sm btn-secondary">查看</button></td>
+</tr>
+<tr>
+<td><span class="link-text mono">PO20260427-003</span></td>
+<td><span style="font-size:11px;color:var(--g400);">—（計畫採購）</span></td>
+<td style="font-size:11px;">台灣摩托配件有限公司</td>
+<td><span class="badge badge-gray">計畫採購</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="text-align:center;">3</td>
+<td style="text-align:center;">9</td>
+<td style="font-weight:700;color:var(--green);">NT$ 14,300</td>
+<td style="font-size:11px;">2026/04/30</td>
+<td>
+<div style="font-size:10px;color:var(--orange-text);">6 / 9 件</div>
+<div class="progress-bar"><div class="progress-fill" style="width:67%"></div></div>
+</td>
+<td><span class="badge badge-pending">部分入庫</span></td>
+<td><button class="btn btn-sm btn-secondary">查看</button></td>
+</tr>
+<!-- 入庫完成 -->
+<tr style="opacity:.7;">
+<td><span class="link-text mono">PO20260425-001</span></td>
+<td><span style="font-size:11px;color:var(--g400);">—（計畫採購）</span></td>
+<td style="font-size:11px;">Motul 台灣代理</td>
+<td><span class="badge badge-gray">計畫採購</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="text-align:center;">4</td>
+<td style="text-align:center;">48</td>
+<td style="font-weight:700;color:var(--green);">NT$ 38,400</td>
+<td style="font-size:11px;">2026/04/28</td>
+<td>
+<div style="font-size:10px;color:var(--green);">48 / 48 件 ✓</div>
+<div class="progress-bar"><div class="progress-fill done" style="width:100%"></div></div>
+</td>
+<td><span class="badge badge-complete">入庫完成</span></td>
+<td><button class="btn btn-sm btn-ghost">查看</button></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bottom-space"></div>
+
+</div>

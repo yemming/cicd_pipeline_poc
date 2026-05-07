@@ -1,90 +1,68 @@
 "use client";
 
+/**
+ * WorkspaceShell — `(workspace)` route group 共用的根殼。
+ *
+ * 三件事：
+ *   1. PageHeaderProvider + SidebarProvider 包外層，讓兩種 shell variant 共用 context
+ *   2. 全域 overlay（CommandPalette / StickyNotesLayer）+ ⌘K / ⌘B 鍵盤監聽
+ *   3. ShellRouter 從 useAppearance() 取 shellLayoutKey 派發 SHELL_REGISTRY 變體
+ *
+ * 切換 shell variant 時用 `key={shellLayoutKey}` 強制 unmount，
+ * 避免 CSS var 殘留 / sidebar 內部 state 漏到不同 layout。
+ */
+
 import { useCallback, useEffect, useState } from "react";
-import { ModuleRail } from "@/components/module-rail";
-import { PagesPanel } from "@/components/pages-panel";
-import { Topbar } from "@/components/topbar";
 import { CommandPalette } from "@/components/command-palette";
 import { PageHeaderProvider } from "@/components/page-header-context";
 import { SidebarProvider, useSidebar } from "@/components/sidebar-context";
 import { StickyNotesLayer } from "@/components/sticky-notes/sticky-notes-layer";
-import { useActiveModule } from "@/lib/use-active-module";
+import { useAppearance } from "@/components/appearance-context";
+import { SearchContext } from "@/components/search-context";
+import { SHELL_REGISTRY } from "@/components/shells";
 
 export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   return (
     <PageHeaderProvider>
       <SidebarProvider>
-        <Shell>{children}</Shell>
+        <ShellRouter>{children}</ShellRouter>
       </SidebarProvider>
     </PageHeaderProvider>
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
-  const { collapsed, setCollapsed, toggle, fullHidden, setFullHidden } = useSidebar();
-  const activeModule = useActiveModule();
-  const onLauncher = !activeModule;
+function ShellRouter({ children }: { children: React.ReactNode }) {
+  const { shellLayoutKey } = useAppearance();
+  const { toggle: toggleSidebar } = useSidebar();
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // T/M 頁面只負責顯示 T/M 角標 + ModuleRail 左上「點點」變成隱藏鍵；
-  // 不主動 setFullHidden — 直接縮起來視覺上太突兀，使用者進來看不到內容上下文。
-  // 由使用者自行決定要不要點左上 apps 圖示把整個導航收掉。
-
   const openSearch = useCallback(() => setSearchOpen(true), []);
+  const toggleSearch = useCallback(() => setSearchOpen((prev) => !prev), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setSearchOpen((prev) => !prev);
+        toggleSearch();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "b") {
         e.preventDefault();
-        toggle();
+        toggleSidebar();
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggle]);
+  }, [toggleSidebar, toggleSearch]);
+
+  const Component = SHELL_REGISTRY[shellLayoutKey];
 
   return (
-    <>
-      {!fullHidden && <ModuleRail />}
-      {!fullHidden && <PagesPanel />}
-      <Topbar onOpenSearch={openSearch} />
-
-      {!collapsed && !fullHidden && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/40 z-30 transition-opacity"
-          onClick={() => setCollapsed(true)}
-          aria-hidden="true"
-        />
-      )}
-
-      {fullHidden && (
-        <button
-          onClick={() => setFullHidden(false)}
-          className="fixed top-3 -left-5 z-[70] w-10 h-10 flex items-center justify-center rounded-full bg-white/60 backdrop-blur-sm border border-black/8 text-black/30 hover:text-black/60 hover:-left-2 transition-all shadow-sm"
-          title="顯示導航列"
-        >
-          <span className="material-symbols-outlined text-xl">apps</span>
-        </button>
-      )}
-
-      <main
-        className={`mt-16 min-h-[calc(100dvh-4rem)] min-w-0 bg-[#F5F5F5] p-4 md:p-6 lg:p-8 transition-[margin-left] duration-200 ${
-          fullHidden ? "ml-0" : onLauncher || collapsed ? "ml-14" : "lg:ml-[304px] ml-14"
-        }`}
-        style={{
-          ["--shell-left" as string]: fullHidden ? "0px" : onLauncher || collapsed ? "3.5rem" : "19rem",
-        }}
-      >
-        {children}
-      </main>
-
+    <SearchContext.Provider value={{ open: openSearch, toggle: toggleSearch }}>
+      {/* key 強制 unmount/mount — 切 shell 不會殘留 CSS var 或 sidebar 內部 state */}
+      <Component key={shellLayoutKey}>{children}</Component>
       <CommandPalette open={searchOpen} onClose={closeSearch} />
       <StickyNotesLayer />
-    </>
+    </SearchContext.Provider>
   );
 }

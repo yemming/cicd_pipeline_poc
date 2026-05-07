@@ -1,0 +1,266 @@
+<style>:root {
+  --navy:#1A3A5C;--blue:#185FA5;--blue-light:#378ADD;--blue-bg:#EBF3FF;--blue-bg2:#EEF6FF;
+  --g50:#FAFAF9;--g100:#F5F5F4;--g200:#EEECE6;--g400:#9A9890;--g500:#6B6A68;--g600:#4A4945;--g700:#2E2D2A;--g800:#1A1917;
+  --red:#E24B4A;--red-bg:#FEF5F5;--red-badge:#FDECEA;--red-text:#CC0000;
+  --orange:#EF9F27;--orange-bg:#FFF9F0;--orange-text:#854F0B;
+  --green:#0F6E56;--green-bg:#E8F5F0;--green-text:#0F6E56;
+  --amber:#EF9F27;--amber-bg:#FFF9F0;
+  --purple:#7F77DD;--purple-light:#F0EEFF;
+  --sidebar-w:220px;--header-h:52px;
+  --font:'Noto Sans TC',sans-serif;--mono:'DM Mono','Courier New',monospace;
+}
+.pd * {box-sizing:border-box;margin:0;padding:0;}
+.pd {font-family:var(--font);font-size:13px;color:var(--g700);background:var(--g50);min-height:100vh;}
+.pd .hd {width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 12px;}
+.pd .hbc {display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.65);}
+.pd .hbc .cur {color:#fff;font-weight:600;}
+.pd .hbc .sep {opacity:.4;}
+.pd .hr {margin-left:auto;display:flex;align-items:center;gap:14px;}
+.pd .huser {display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;font-size:11px;color:rgba(255,255,255,.7);}
+.pd .huser strong {color:#fff;font-size:12px;}
+.pd .hbell {position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,.75);font-size:16px;}
+.pd .hbell .badge {position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px;}
+.pd .hav {width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.pd .ns {padding:12px 0 4px;}
+.pd .nsl {display:flex;align-items:center;gap:6px;padding:0 12px 6px;font-size:10px;font-weight:600;color:var(--g400);letter-spacing:.9px;text-transform:uppercase;}
+.pd .sd {height:1px;background:var(--g200);margin:4px 12px;}
+.pd .flow {background:#fff;border-bottom:1px solid var(--g200);padding:10px 24px;display:flex;align-items:center;}
+.pd .fs {display:flex;align-items:center;gap:8px;font-size:12px;color:var(--g400);}
+.pd .fs .sn {width:20px;height:20px;border-radius:50%;background:var(--g200);color:var(--g500);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.pd .fs.done {color:var(--g500);}
+.pd .fs.done .sn {background:var(--green-bg);color:var(--green);}
+.pd .fs.active {color:var(--amber);font-weight:600;}
+.pd .fs.active .sn {background:var(--amber);color:#fff;}
+.pd .fs.dim {color:var(--g300);}
+.pd .fs.dim .sn {background:var(--g100);color:var(--g300);}
+.pd .fa {margin:0 8px;color:var(--g300);font-size:12px;}
+.pd .role-notice {margin:16px 24px 0;background:#F5F3FF;border:1px solid #C4B5FD;border-left:4px solid var(--purple);border-radius:6px;padding:10px 14px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#5B21B6;}
+.pd .pta {padding:16px 24px 0;display:flex;align-items:baseline;gap:10px;}
+.pd .pta h1 {font-size:20px;font-weight:700;color:var(--g800);letter-spacing:-.3px;}
+.pd .fb {background:var(--g100);color:var(--g500);font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;}
+.pd .psub {font-size:12px;color:var(--g400);padding:3px 24px 14px;}
+.pd .qb {margin:0 24px 12px;background:#fff;border:1px solid var(--g200);border-radius:8px;padding:14px 16px;}
+.pd .qr {display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.pd .qf {display:flex;flex-direction:column;gap:4px;min-width:130px;}
+.pd .qf label {font-size:11px;font-weight:600;color:var(--g500);}
+.pd .qf input, .pd .qf select {height:32px;border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-size:12px;color:var(--g700);background:#fff;font-family:var(--font);outline:none;transition:border-color .15s;}
+.pd .qf input:focus, .pd .qf select:focus {border-color:var(--blue);}
+.pd .qbtns {display:flex;gap:8px;align-items:flex-end;margin-left:auto;}
+.pd .btn {height:32px;padding:0 14px;border-radius:5px;font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;}
+.pd .bp {background:var(--blue);color:#fff;}
+.pd .bp:hover {background:var(--navy);}
+.pd .bs {background:#fff;color:var(--g600);border:1px solid var(--g200);}
+.pd .bs:hover {background:var(--g50);}
+.pd .ba {background:var(--amber);color:#fff;}
+.pd .ba:hover {background:#d48a1c;}
+.pd .bsuc {background:var(--green);color:#fff;}
+.pd .bsuc:hover {background:#0b5a45;}
+.pd .bsm {height:26px;padding:0 10px;font-size:11px;}
+.pd .blg {height:38px;padding:0 20px;font-size:13px;}
+.pd .tb {display:flex;align-items:center;gap:10px;padding:0 24px 10px;}
+.pd .tc {font-size:12px;color:var(--g500);}
+.pd .tc strong {color:var(--g700);}
+.pd .tr_ {margin-left:auto;display:flex;gap:8px;}
+.pd .tw {margin:0 24px;background:#fff;border:1px solid var(--g200);border-radius:8px;overflow:hidden;}
+.pd table {width:100%;border-collapse:collapse;}
+.pd thead th {padding:9px 10px;background:var(--g50);border-bottom:1px solid var(--g200);font-size:11px;font-weight:600;color:var(--g500);text-align:left;white-space:nowrap;}
+.pd thead th:first-child {padding-left:14px;}
+.pd tbody tr {border-bottom:1px solid var(--g200);cursor:pointer;transition:background .1s;}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover {background:#F8F7F4;}
+.pd tbody tr.done-row {opacity:.65;}
+.pd td {padding:9px 10px;font-size:12px;color:var(--g700);vertical-align:middle;}
+.pd td:first-child {padding-left:14px;}
+.pd .mono {font-family:var(--mono);font-size:11px;color:var(--g600);}
+.pd .lnk {color:var(--blue);cursor:pointer;font-weight:600;}
+.pd .lnk:hover {text-decoration:underline;}
+.pd .badge {display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap;}
+.pd .b-draft {background:#FEF9C3;color:#5C4500;}
+.pd .b-review {background:#EDE9FE;color:#5B21B6;}
+.pd .b-done {background:var(--green-bg);color:var(--green-text);}
+.pd .b-reject {background:var(--red-badge);color:var(--red-text);}
+/* SIDE PANEL */
+.pd .ov {position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s;}
+.pd .ov.vis {opacity:1;pointer-events:auto;}
+.pd .sp {position:fixed;top:0;right:0;bottom:0;width:640px;max-width:96vw;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.13);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.32,0,.24,1);}
+.pd .sp.open {transform:translateX(0);}
+.pd .sph {padding:14px 20px;border-bottom:1px solid var(--g200);display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--g50);}
+.pd .spt {font-size:16px;font-weight:700;color:var(--g800);}
+.pd .spc {margin-left:auto;width:28px;height:28px;border-radius:50%;border:none;background:var(--g200);color:var(--g500);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.pd .spc:hover {background:var(--g300);}
+.pd .spb {flex:1;overflow-y:auto;}
+.pd .spb::-webkit-scrollbar {width:4px;}
+.pd .spb::-webkit-scrollbar-thumb {background:var(--g200);border-radius:2px;}
+.pd .spf {padding:14px 20px;border-top:1px solid var(--g200);display:flex;gap:10px;align-items:center;background:var(--g50);flex-shrink:0;}
+.pd .sec {padding:18px 20px;border-bottom:1px solid var(--g200);}
+.pd .sec:last-child {border-bottom:none;}
+.pd .stitle {font-size:11px;font-weight:700;color:var(--g500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.pd .stitle::after {content:'';flex:1;height:1px;background:var(--g200);}
+.pd .ig {display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;}
+.pd .ii label {font-size:10px;font-weight:600;color:var(--g400);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:2px;}
+.pd .ii .v {font-size:13px;color:var(--g700);}
+.pd .ii .v.strong {font-weight:700;color:var(--g800);}
+.pd .astrip {border-radius:6px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;font-size:12px;}
+.pd .as-blue {background:var(--blue-bg2);border:1px solid #AAC9F0;color:var(--blue);}
+.pd .as-red {background:var(--red-bg);border:1px solid #F7C1C1;color:var(--red-text);}
+.pd .as-green {background:var(--green-bg);border:1px solid #A8D5C2;color:var(--green-text);}
+.pd .as-purple {background:#F5F3FF;border:1px solid #C4B5FD;color:#5B21B6;}
+.pd .asi {font-size:15px;flex-shrink:0;margin-top:1px;}
+/* DETAIL ITEMS TABLE */
+.pd .dtw {border:1px solid var(--g200);border-radius:6px;overflow:hidden;}
+.pd .dt {width:100%;border-collapse:collapse;}
+.pd .dt th {padding:8px 10px;background:var(--g50);border-bottom:1px solid var(--g200);font-size:10px;font-weight:600;color:var(--g500);text-align:left;white-space:nowrap;}
+.pd .dt td {padding:9px 10px;border-bottom:1px solid var(--g200);font-size:12px;vertical-align:middle;}
+.pd .dt tr:last-child td {border-bottom:none;}
+.pd .loss-row {background:var(--red-bg);}
+.pd .gain-row {background:var(--green-bg);}
+.pd .loss-badge {background:var(--red-badge);color:var(--red-text);font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:inline-flex;}
+.pd .gain-badge {background:var(--green-bg);color:var(--green-text);font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:inline-flex;}
+/* SUM BAR */
+.pd .sumbar {display:flex;background:var(--g50);border-top:1px solid var(--g200);}
+.pd .si {flex:1;padding:11px 16px;border-right:1px solid var(--g200);}
+.pd .si:last-child {border-right:none;}
+.pd .sl {font-size:10px;font-weight:600;color:var(--g400);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+.pd .sv {font-size:16px;font-weight:700;color:var(--g800);}
+.pd .sv.red {color:var(--red-text);}
+.pd .sv.green {color:var(--green-text);}
+/* MODAL */
+.pd .mo {position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;display:none;align-items:center;justify-content:center;}
+.pd .mo.vis {display:flex;}
+.pd .modal {background:#fff;border-radius:10px;width:500px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;}
+.pd .mh {padding:16px 20px;border-bottom:1px solid var(--g200);display:flex;align-items:center;gap:10px;}
+.pd .mt {font-size:15px;font-weight:700;color:var(--g800);}
+.pd .mc_ {margin-left:auto;width:26px;height:26px;border-radius:50%;border:none;background:var(--g100);color:var(--g500);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.pd .mb_ {padding:20px;}
+.pd .mf {padding:14px 20px;border-top:1px solid var(--g200);display:flex;gap:8px;justify-content:flex-end;background:var(--g50);}
+.pd .fg {margin-bottom:12px;}
+.pd .fg label {display:block;font-size:11px;font-weight:600;color:var(--g500);margin-bottom:4px;}
+.pd .fg label .req {color:var(--red);}
+.pd .fg input, .pd .fg select, .pd .fg textarea {width:100%;border:1px solid var(--g200);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--g700);font-family:var(--font);outline:none;transition:border-color .15s;}
+.pd .fg input:focus, .pd .fg select:focus, .pd .fg textarea:focus {border-color:var(--blue);}
+.pd .fg .auto {background:var(--blue-bg2);color:var(--blue);border-color:#AAC9F0;cursor:not-allowed;}
+.pd .fg2 {display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;}
+.pd .toast-c {position:fixed;bottom:24px;right:24px;z-index:500;display:flex;flex-direction:column;gap:8px;}
+.pd .toast {background:var(--g800);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:su .25s ease;max-width:360px;display:flex;align-items:center;gap:8px;}
+.pd .toast.success {background:var(--green);}
+.pd .toast.warning {background:var(--amber);}
+.pd .toast.error {background:var(--red-text);}
+@keyframes su{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.pd .bs-sp {height:32px;}
+</style>
+<div class="pd">
+
+<div class="flow">
+<div class="fs done"><div class="sn">✓</div><span>盤點計畫</span></div><span class="fa">→</span>
+<div class="fs done"><div class="sn">✓</div><span>盤點處理</span></div><span class="fa">→</span>
+<div class="fs done"><div class="sn">✓</div><span>系統計算差異</span></div><span class="fa">→</span>
+<div class="fs active"><div class="sn">4</div><span>報損報溢（財務審批）★</span></div>
+</div>
+ Role notice 
+<div class="role-notice">
+<span style="font-size:17px;flex-shrink:0;">👤</span>
+<div>
+<strong>財務主管專屬功能</strong>：報損報溢由財務主管確認後提交審批，審批通過後庫存帳面數量正式調整。本功能與「備件庫存調整」不同，僅用於盤點差異的正式結案。<br/>
+<span style="margin-top:3px;display:block;font-size:11px;">目前登入身份：<span style="background:#EDE9FE;color:#5B21B6;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;">財務主管｜陳主管</span></span>
+</div>
+</div>
+<div class="pta"><h1>報損報溢</h1><span class="fb">8.3</span></div>
+<div class="psub">盤點完成後，財務主管對差異品項執行正式損溢調整，審批通過後庫存帳面正式更新</div>
+<div class="qb">
+<div class="qr">
+<div class="qf"><label>倉庫</label><select><option>全部倉庫</option><option>主零件倉</option><option>原廠件倉</option></select></div>
+<div class="qf"><label>審批狀態</label><select><option>全部</option><option>草稿</option><option>待審批</option><option>審批通過</option><option>駁回</option></select></div>
+<div class="qf"><label>來源盤點單</label><input placeholder="INV-" type="text"/></div>
+<div class="qf" style="min-width:150px;"><label>日期範圍</label><input type="month" value="2026-05"/></div>
+<div class="qbtns">
+<button class="btn bs">重置</button>
+<button class="btn bp">🔍 查詢</button>
+</div>
+</div>
+</div>
+<div class="tb">
+<div class="tc">共 <strong>4</strong> 張報損報溢單</div>
+<div class="tr_">
+<button class="btn bs bsm">匯出報表</button>
+</div>
+</div>
+<div class="tw">
+<table>
+<thead>
+<tr>
+<th>報損報溢單號</th>
+<th>來源盤點單</th>
+<th>倉庫</th>
+<th>盤點日期</th>
+<th>報損品項</th>
+<th>報溢品項</th>
+<th>報損金額影響</th>
+<th>報溢金額影響</th>
+<th>狀態</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody>
+<!-- 草稿（剛從盤點處理帶過來） -->
+<tr style="background:var(--amber-bg);">
+<td><span class="lnk mono">LG-20260505-001</span><div style="font-size:10px;color:var(--orange-text);margin-top:2px;">📋 草稿</div></td>
+<td><span class="lnk" style="font-size:11px;">INV-20260501-001</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="font-size:11px;">2026/05/01</td>
+<td style="text-align:center;color:var(--red-text);font-weight:700;">2</td>
+<td style="text-align:center;color:var(--green-text);font-weight:700;">1</td>
+<td style="color:var(--red-text);font-weight:600;">- NT$ 1,740</td>
+<td style="color:var(--green-text);font-weight:600;">+ NT$ 2,800</td>
+<td><span class="badge b-draft">草稿</span></td>
+<td><button class="btn ba bsm">完善並提交</button></td>
+</tr>
+<!-- 待審批 -->
+<tr>
+<td><span class="lnk mono">LG-20260401-001</span></td>
+<td><span class="lnk" style="font-size:11px;">INV-20260401-002</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="font-size:11px;">2026/04/01</td>
+<td style="text-align:center;color:var(--red-text);font-weight:700;">1</td>
+<td style="text-align:center;color:var(--g400);">0</td>
+<td style="color:var(--red-text);font-weight:600;">- NT$ 640</td>
+<td style="color:var(--g400);">—</td>
+<td><span class="badge b-review">待審批</span></td>
+<td>
+<div style="display:flex;gap:4px;">
+<button class="btn bsm" style="background:var(--red-badge);color:var(--red-text);border:1px solid #F7C1C1;">駁回</button>
+<button class="btn bsuc bsm">✅ 審批通過</button>
+</div>
+</td>
+</tr>
+<!-- 審批通過 -->
+<tr class="done-row">
+<td><span class="lnk mono">LG-20260301-001</span></td>
+<td><span class="lnk" style="font-size:11px;">INV-20260301-001</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="font-size:11px;">2026/03/01</td>
+<td style="text-align:center;color:var(--red-text);font-weight:700;">1</td>
+<td style="text-align:center;color:var(--green-text);font-weight:700;">1</td>
+<td style="color:var(--red-text);">- NT$ 320</td>
+<td style="color:var(--green-text);">+ NT$ 580</td>
+<td><span class="badge b-done">審批通過</span></td>
+<td><button class="btn bs bsm">查看</button></td>
+</tr>
+<!-- 無差異（完成但無報損報溢） -->
+<tr class="done-row">
+<td><span style="font-size:11px;color:var(--g400);">—（無差異）</span></td>
+<td><span class="lnk" style="font-size:11px;">INV-20260401-001</span></td>
+<td style="font-size:11px;">主零件倉</td>
+<td style="font-size:11px;">2026/04/01</td>
+<td style="text-align:center;color:var(--g400);">0</td>
+<td style="text-align:center;color:var(--g400);">0</td>
+<td style="color:var(--g400);">—</td>
+<td style="color:var(--g400);">—</td>
+<td><span class="badge b-done">無差異完成</span></td>
+<td><button class="btn bs bsm">查看盤點</button></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bs-sp"></div>
+
+</div>

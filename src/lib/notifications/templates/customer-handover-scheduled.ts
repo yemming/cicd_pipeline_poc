@@ -1,5 +1,5 @@
 import type { TemplateDefinition } from "../types";
-import { buildGoogleCard, buildLineFlex, DUCATI_RED, s } from "./kits";
+import { buildGoogleCard, buildLineFlex, s } from "./kits";
 
 // 事件：客戶交車時段已排定
 // payload：customer / model / scheduledAt / staff / actionUrl
@@ -15,7 +15,6 @@ export const customerHandoverScheduledLine: TemplateDefinition = {
       emoji: "🏁",
       title: `交車已排定 · ${s(p, "customer")}`,
       subtitle: s(p, "scheduledAt"),
-      headerColor: DUCATI_RED,
       fields: [
         { label: "機車", value: s(p, "model") },
         { label: "負責同仁", value: s(p, "staff") },

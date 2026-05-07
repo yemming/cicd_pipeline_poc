@@ -1,0 +1,86 @@
+<style>:root {--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-red {background:var(--red-l);color:var(--red);border:1px solid #F5AEAD;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;}
+.pd .b-done {background:var(--green-l);color:var(--green);}
+.pd .b-pend {background:var(--amb-l);color:var(--amber);}
+.pd .b-navy {background:#EBF3FF;color:var(--navy);}
+.pd .b-teal {background:var(--teal-l);color:var(--teal);}
+.pd .b-gry {background:var(--gray-l);color:var(--gray);}
+.pd .b-red {background:var(--red-l);color:var(--red);}
+.pd .card {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);}
+.pd .card-head {padding:11px 16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;}
+.pd .card-title {font-size:13px;font-weight:600;}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:14px;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;}
+.pd thead th {padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);background:var(--g50);border-bottom:1px solid var(--g100);white-space:nowrap;}
+.pd tbody tr {border-bottom:1px solid var(--g100);}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 12px;font-size:12.5px;}
+.pd td.mono {font-family:var(--mono);font-size:12px;}
+.pd td.c, .pd th.c {text-align:center;}
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:12px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;}
+.pd .qf select:focus, .pd .qf input:focus {border-color:var(--blue);}
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.pd .tbar-info {font-size:12px;color:var(--g400);}
+.pd .tbar-info b {color:var(--g800);}
+</style>
+<div class="pd">
+
+<div class="ph"><h1>盤點回傳規則</h1><span class="ph-tag">1.4</span><span class="ph-sub">設定盤點差異的審核流程與自動回傳規則</span></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+<div class="card">
+<div class="card-head"><span class="card-title">差異容許區間設定</span><button class="btn btn-navy btn-sm">儲存</button></div>
+<div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+<div class="qf"><label>A類商品（高價）差異容許率</label><input style="width:100%;height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-family:var(--mono);outline:none;" type="text" value="0%"/></div>
+<div class="qf"><label>B類商品（中價）差異容許率</label><input style="width:100%;height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-family:var(--mono);outline:none;" type="text" value="2%"/></div>
+<div class="qf"><label>C類商品（耗材）差異容許率</label><input style="width:100%;height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-family:var(--mono);outline:none;" type="text" value="5%"/></div>
+<div style="padding:10px;background:var(--amb-l);border-radius:6px;font-size:12px;color:var(--amber);">⚠ 超過容許率的差異項目將進入審核流程，不會自動回傳</div>
+</div>
+</div>
+<div class="card">
+<div class="card-head"><span class="card-title">審核流程設定</span></div>
+<div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+<div style="padding:10px 12px;background:var(--g50);border-radius:6px;border:1px solid var(--g100);">
+<div style="font-size:12px;font-weight:600;margin-bottom:4px;">差異在容許率內</div>
+<div style="font-size:12px;color:var(--g600);">直接回傳系統，庫存自動調整，無需審核</div>
+<div style="margin-top:6px;"><span class="b b-teal">自動回傳</span></div>
+</div>
+<div style="padding:10px 12px;background:var(--amb-l);border-radius:6px;border:1px solid #FAC775;">
+<div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:4px;">差異超過容許率</div>
+<div style="font-size:12px;color:var(--g600);">進入門店主管審核流程，審核通過後回傳</div>
+<div style="margin-top:6px;"><span class="b b-pend">等待審核</span></div>
+</div>
+<div style="padding:10px 12px;background:var(--red-l);border-radius:6px;border:1px solid #F5AEAD;">
+<div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:4px;">A類商品任何差異</div>
+<div style="font-size:12px;color:var(--g600);">必須經區域主管審核，並附上差異說明</div>
+<div style="margin-top:6px;"><span class="b b-red">強制審核</span></div>
+</div>
+</div>
+</div>
+</div>
+
+</div>

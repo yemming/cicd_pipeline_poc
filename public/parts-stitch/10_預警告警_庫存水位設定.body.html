@@ -1,0 +1,275 @@
+<style>:root {--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+.pd * {margin:0;padding:0;box-sizing:border-box;}
+.pd {font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.pd .d-blue {background:var(--navy);}
+.pd .d-purple {background:#7F77DD;}
+.pd .d-amber {background:#EF9F27;}
+.pd .d-coral {background:#D85A30;}
+.pd .d-gray {background:var(--g400);}
+.pd .ph {display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.pd .ph h1 {font-size:16px;font-weight:600;}
+.pd .ph-tag {font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.pd .ph-sub {font-size:12px;color:var(--g400);}
+/* Tab 切換 */
+.pd .tab-bar {display:flex;gap:0;border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;background:var(--white);margin-bottom:14px;width:fit-content;}
+.pd .tab {padding:8px 20px;font-size:12.5px;cursor:pointer;color:var(--g600);border-right:1px solid var(--g100);transition:all 0.12s;}
+.pd .tab:last-child {border-right:none;}
+.pd .tab.act {background:var(--navy);color:#fff;font-weight:500;}
+.pd .tab:hover:not(.act) {background:var(--g50);}
+.pd .qp {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:13px 16px;margin-bottom:12px;}
+.pd .qrow {display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.pd .qf {display:flex;flex-direction:column;gap:3px;}
+.pd .qf label {font-size:11px;color:var(--g400);font-weight:500;}
+.pd .qf select, .pd .qf input {height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;}
+.pd .qf.w160 input {width:160px;}
+.pd .qf.w130 select {width:130px;}
+.pd .qf.w110 select {width:110px;}
+.pd .qbtns {display:flex;gap:6px;margin-left:auto;}
+.pd .btn {padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.pd .btn-navy {background:var(--navy);color:#fff;}
+.pd .btn-navy:hover {background:var(--navy2);}
+.pd .btn-ghost {background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.pd .btn-ghost:hover {border-color:var(--g400);}
+.pd .btn-teal {background:var(--teal);color:#fff;}
+.pd .btn-teal:hover {background:#0A5440;}
+.pd .btn-sm {padding:0 10px;height:26px;font-size:11.5px;}
+.pd .tbar {display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.pd .tw {background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+.pd .ts {overflow-x:auto;}
+.pd table {width:100%;border-collapse:collapse;min-width:900px;}
+.pd thead tr {background:var(--g50);}
+.pd thead th {padding:8px 11px;text-align:left;font-size:11px;font-weight:600;color:var(--g600);white-space:nowrap;border-bottom:1px solid var(--g100);}
+.pd th.c, .pd td.c {text-align:center;}
+.pd tbody tr {border-bottom:1px solid var(--g100);}
+.pd tbody tr:last-child {border-bottom:none;}
+.pd tbody tr:hover td {background:var(--g50);}
+.pd tbody td {padding:8px 11px;font-size:12.5px;white-space:nowrap;}
+.pd td.mono {font-family:var(--mono);font-size:11.5px;}
+.pd .b {display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;font-size:11px;font-weight:500;white-space:nowrap;gap:3px;}
+.pd .b-ok {background:var(--green-l);color:var(--green);}
+.pd .b-low {background:var(--red-l);color:var(--red);}
+.pd .b-warn {background:var(--amb-l);color:var(--amber);}
+.pd .b-navy {background:#EBF3FF;color:var(--navy);}
+/* 水位視覺化 */
+.pd .level-bar {display:flex;align-items:center;gap:6px;}
+.pd .lb-wrap {width:100px;height:8px;background:var(--g100);border-radius:4px;overflow:hidden;position:relative;}
+.pd .lb-min {position:absolute;height:100%;background:#FAB4B4;border-radius:4px 0 0 4px;}
+.pd .lb-now {position:absolute;height:100%;background:var(--teal);border-radius:4px;}
+.pd .lb-reorder {position:absolute;top:-2px;width:2px;height:12px;background:var(--amber);border-radius:1px;}
+.pd .lb-max {position:absolute;right:0;height:100%;width:3px;background:var(--navy);border-radius:0 4px 4px 0;}
+.pd .lb-val {font-family:var(--mono);font-size:12px;font-weight:600;}
+/* 可編輯欄位 */
+.pd .edit-cell {display:flex;align-items:center;gap:4px;}
+.pd .num-in {width:54px;height:24px;border:1.5px solid var(--blue);border-radius:4px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--navy);outline:none;padding:0;}
+.pd .save-btn {padding:2px 6px;font-size:11px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;border-radius:4px;background:var(--teal);color:#fff;}
+/* 說明框 */
+.pd .rule-box {background:#F0F7FD;border:1px solid #B5D4F4;border-radius:var(--r);padding:12px 16px;margin-bottom:14px;font-size:12px;color:var(--g800);}
+.pd .rule-box-title {font-size:11px;font-weight:600;color:var(--blue);margin-bottom:6px;}
+.pd .rule-grid {display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.pd .rf {display:flex;flex-direction:column;gap:3px;}
+.pd .rf label {font-size:10.5px;color:var(--g400);}
+.pd .rf span {font-size:12.5px;font-weight:500;}
+</style>
+<div class="pd">
+
+<div class="ph">
+<h1>庫存水位設定</h1>
+<span class="ph-tag">10.1–10.3</span>
+<span class="ph-sub">設定最小庫存、再訂購點、最大庫存，觸發自動補貨需求與告警</span>
+</div>
+ Tab 切換 
+<div class="tab-bar">
+<div class="tab act" id="tab1">📋 水位設定列表</div>
+<div class="tab" id="tab2">⚠️ 目前低於水位（7）</div>
+<div class="tab" id="tab3">📊 水位設定規則說明</div>
+</div>
+ Tab 1 內容 
+<div id="t1">
+<div class="rule-box">
+<div class="rule-box-title">💡 三個水位說明</div>
+<div class="rule-grid">
+<div class="rf"><label>🔴 最小庫存（Min）</label><span>低於此值自動產生補貨需求</span></div>
+<div class="rf"><label>🟠 再訂購點（Reorder）</label><span>低於此值觸發採購提醒告警</span></div>
+<div class="rf"><label>🔵 最大庫存（Max）</label><span>超過此值觸發庫存過多告警</span></div>
+</div>
+</div>
+<div class="qp">
+<div class="qrow">
+<div class="qf w130"><label>ABC 分類</label>
+<select><option>全部</option><option>A 類（高頻）</option><option>B 類（中頻）</option><option>C 類（低頻）</option></select></div>
+<div class="qf w110"><label>倉庫</label>
+<select><option>全部</option><option>主零件倉</option></select></div>
+<div class="qf w110"><label>水位狀態</label>
+<select><option>全部</option><option>正常</option><option>低於最小</option><option>低於再訂購點</option></select></div>
+<div class="qf w160"><label>備件代碼 / 商品名稱</label><input placeholder="輸入查詢..." type="text"/></div>
+<div class="qbtns">
+<button class="btn btn-navy">查詢</button>
+<button class="btn btn-ghost">重置</button>
+</div>
+</div>
+</div>
+<div class="tbar">
+<span style="font-size:12px;color:var(--g400)">共 186 項備件</span>
+<div style="margin-left:auto;display:flex;gap:6px">
+<button class="btn btn-ghost btn-sm">批次匯入水位設定</button>
+<button class="btn btn-ghost btn-sm">匯出 Excel</button>
+</div>
+</div>
+<div class="tw"><div class="ts">
+<table>
+<thead><tr>
+<th>備件代碼</th><th>商品名稱</th><th>ABC</th><th>倉庫</th>
+<th class="c">目前庫存</th><th>庫存水位視覺化</th>
+<th class="c">最小庫存</th><th class="c">再訂購點</th><th class="c">最大庫存</th>
+<th>水位狀態</th><th>操作</th>
+</tr></thead>
+<tbody>
+<!-- 低於最小庫存 -->
+<tr style="background:#FEF5F5">
+<td class="mono">DUC-OIL-002</td><td>機油濾清器</td>
+<td><span class="b b-navy">A</span></td><td>主零件倉</td>
+<td class="c mono" style="color:var(--red);font-weight:600">3</td>
+<td>
+<div class="level-bar">
+<div class="lb-wrap">
+<div class="lb-min" style="width:16%"></div>
+<div class="lb-now" style="width:10%;background:var(--red)"></div>
+<div class="lb-reorder" style="left:26%"></div>
+</div>
+<span class="lb-val" style="color:var(--red)">3/30</span>
+</div>
+</td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="5"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="8"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="30"/><button class="save-btn">儲存</button></div></td>
+<td><span class="b b-low">🔴 低於最小</span></td>
+<td><button class="btn btn-ghost btn-sm">查看告警</button></td>
+</tr>
+<!-- 低於再訂購點 -->
+<tr style="background:#FFF9F0">
+<td class="mono">61340051A</td><td>前煞車來令片 V4</td>
+<td><span class="b b-navy">A</span></td><td>主零件倉</td>
+<td class="c mono" style="color:var(--amber);font-weight:600">7</td>
+<td>
+<div class="level-bar">
+<div class="lb-wrap">
+<div class="lb-min" style="width:10%"></div>
+<div class="lb-now" style="width:23%;background:var(--amber)"></div>
+<div class="lb-reorder" style="left:33%"></div>
+</div>
+<span class="lb-val" style="color:var(--amber)">7/30</span>
+</div>
+</td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="3"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="10"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="30"/><button class="save-btn">儲存</button></div></td>
+<td><span class="b b-warn">🟠 低於再訂購</span></td>
+<td><button class="btn btn-ghost btn-sm">查看告警</button></td>
+</tr>
+<!-- 正常 -->
+<tr>
+<td class="mono">MOT-OIL-15W50</td><td>Motul 機油 15W-50 1L</td>
+<td><span class="b" style="background:var(--teal-l);color:var(--teal)">B</span></td><td>主零件倉</td>
+<td class="c mono">24</td>
+<td>
+<div class="level-bar">
+<div class="lb-wrap">
+<div class="lb-min" style="width:10%"></div>
+<div class="lb-now" style="width:60%"></div>
+<div class="lb-reorder" style="left:30%"></div>
+</div>
+<span class="lb-val" style="color:var(--teal)">24/40</span>
+</div>
+</td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="4"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="12"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="40"/><button class="save-btn">儲存</button></div></td>
+<td><span class="b b-ok">✅ 正常</span></td>
+<td><button class="btn btn-ghost btn-sm">查看告警</button></td>
+</tr>
+<tr>
+<td class="mono">DUC-SPARK-001</td><td>火星塞 NGK Iridium</td>
+<td><span class="b b-navy">A</span></td><td>主零件倉</td>
+<td class="c mono">18</td>
+<td>
+<div class="level-bar">
+<div class="lb-wrap">
+<div class="lb-min" style="width:13%"></div>
+<div class="lb-now" style="width:60%"></div>
+<div class="lb-reorder" style="left:33%"></div>
+</div>
+<span class="lb-val" style="color:var(--teal)">18/30</span>
+</div>
+</td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="4"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="10"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="30"/><button class="save-btn">儲存</button></div></td>
+<td><span class="b b-ok">✅ 正常</span></td>
+<td><button class="btn btn-ghost btn-sm">查看告警</button></td>
+</tr>
+<tr>
+<td class="mono">DUC-CHAIN-007</td><td>O型鏈條 520 DRZ</td>
+<td><span class="b" style="background:var(--teal-l);color:var(--teal)">B</span></td><td>主零件倉</td>
+<td class="c mono">12</td>
+<td>
+<div class="level-bar">
+<div class="lb-wrap">
+<div class="lb-min" style="width:6%"></div>
+<div class="lb-now" style="width:48%"></div>
+<div class="lb-reorder" style="left:20%"></div>
+</div>
+<span class="lb-val" style="color:var(--teal)">12/25</span>
+</div>
+</td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="2"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="5"/><button class="save-btn">儲存</button></div></td>
+<td class="c"><div class="edit-cell"><input class="num-in" type="number" value="25"/><button class="save-btn">儲存</button></div></td>
+<td><span class="b b-ok">✅ 正常</span></td>
+<td><button class="btn btn-ghost btn-sm">查看告警</button></td>
+</tr>
+</tbody>
+</table>
+</div></div>
+</div>
+ Tab 2 低於水位清單 
+<div id="t2" style="display:none">
+<div style="background:var(--red-l);border:1px solid #FAB4B4;border-radius:var(--r);padding:12px 16px;margin-bottom:14px;font-size:12px;color:var(--red)">
+      🔴 目前有 <b>3 項</b>備件低於最小庫存（已自動產生補貨需求）；<b>4 項</b>低於再訂購點（已觸發告警）。
+    </div>
+<div class="tw"><div class="ts">
+<table>
+<thead><tr><th>備件代碼</th><th>商品名稱</th><th class="c">目前庫存</th><th class="c">最小庫存</th><th class="c">再訂購點</th><th>狀態</th><th>補貨需求</th><th>最後更新</th></tr></thead>
+<tbody>
+<tr style="background:#FEF5F5"><td class="mono">DUC-OIL-002</td><td>機油濾清器</td><td class="c mono" style="color:var(--red);font-weight:600">3</td><td class="c mono">5</td><td class="c mono">8</td><td><span class="b b-low">🔴 低於最小</span></td><td><span style="color:var(--blue);font-size:12px">REQ-2026-0506-001 已建立</span></td><td class="mono">今日 09:00</td></tr>
+<tr style="background:#FEF5F5"><td class="mono">DUC-TIRE-F01</td><td>前輪胎 PIRELLI DIABLO</td><td class="c mono" style="color:var(--red);font-weight:600">0</td><td class="c mono">2</td><td class="c mono">4</td><td><span class="b b-low">🔴 低於最小</span></td><td><span style="color:var(--blue);font-size:12px">REQ-2026-0506-002 已建立</span></td><td class="mono">今日 08:30</td></tr>
+<tr style="background:#FFF9F0"><td class="mono">61340051A</td><td>前煞車來令片 V4</td><td class="c mono" style="color:var(--amber);font-weight:600">7</td><td class="c mono">3</td><td class="c mono">10</td><td><span class="b b-warn">🟠 低於再訂購</span></td><td style="color:var(--g400);font-size:12px">—</td><td class="mono">今日 08:00</td></tr>
+</tbody>
+</table>
+</div></div>
+</div>
+ Tab 3 規則說明 
+<div id="t3" style="display:none">
+<div class="tw" style="padding:20px 24px">
+<div style="font-size:14px;font-weight:600;margin-bottom:12px">庫存水位設定規則說明</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:12.5px;color:var(--g600);line-height:1.8">
+<div>
+<div style="font-weight:600;color:var(--g800);margin-bottom:6px">🔴 最小庫存（Min Stock）</div>
+          當可用庫存降至最小庫存時，系統<b>自動產生補貨需求單</b>，通知相關採購人員。最小庫存應設定為「備貨期間最低消耗量」，確保補貨途中仍有足夠庫存維持作業。
+        </div>
+<div>
+<div style="font-weight:600;color:var(--g800);margin-bottom:6px">🟠 再訂購點（Reorder Point）</div>
+          當可用庫存降至再訂購點時，系統觸發<b>告警通知</b>（推播至負責人及主管），並在告警儀表板顯示。再訂購點應高於最小庫存，通常設定為「前置時間 × 平均日消耗量 + 安全庫存」。
+        </div>
+<div>
+<div style="font-weight:600;color:var(--g800);margin-bottom:6px">🔵 最大庫存（Max Stock）</div>
+          當庫存<b>超過最大庫存</b>時，系統觸發「庫存過多」告警，防止資金積壓與呆料風險。最大庫存通常依倉儲空間與季節性需求設定。
+        </div>
+<div>
+<div style="font-weight:600;color:var(--g800);margin-bottom:6px">📊 建議設定參考（A類備件）</div>
+          依 ABC 分類建議：A 類備件應設較高最小庫存（避免缺料影響維修）；C 類備件可設較低最小庫存（減少呆料）。可使用「批次匯入」功能一次更新多項備件水位設定。
+        </div>
+</div>
+</div>
+</div>
+
+</div>
