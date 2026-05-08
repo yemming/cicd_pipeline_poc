@@ -44,6 +44,21 @@ export type EmployeeCertificationUpdate = Update<"employee_certifications">;
 
 export type EmploymentStatus = "active" | "on_leave" | "terminated" | "retired";
 
+export type CustomerVehicle = Row<"customer_vehicles">;
+export type CustomerVehicleInsert = Insert<"customer_vehicles">;
+export type CustomerVehicleUpdate = Update<"customer_vehicles">;
+export type CustomerContact = Row<"customer_contacts">;
+export type CustomerContactInsert = Insert<"customer_contacts">;
+export type CustomerContactUpdate = Update<"customer_contacts">;
+
+export type VehicleAcquiredFrom = "new" | "transfer" | "used" | "import" | "other";
+export type CustomerContactRole =
+  | "primary"
+  | "emergency"
+  | "family"
+  | "secretary"
+  | "other";
+
 // ──────────────────────────────────────────────────────────
 // 交易
 // ──────────────────────────────────────────────────────────

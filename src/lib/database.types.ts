@@ -524,6 +524,180 @@ export type Database = {
           },
         ]
       }
+      customer_contacts: {
+        Row: {
+          brand_id: string
+          created_at: string
+          customer_id: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          relation: string | null
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          customer_id: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          relation?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          customer_id?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          relation?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_contacts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_vehicles: {
+        Row: {
+          acquired_from: string
+          brand_id: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          current_mileage: number | null
+          customer_id: string
+          engine_no: string | null
+          external_id: string | null
+          external_source: string
+          id: string
+          insurance_company: string | null
+          insurance_policy_no: string | null
+          insurance_until: string | null
+          is_active: boolean
+          last_service_date: string | null
+          last_service_mileage: number | null
+          license_plate: string | null
+          manufactured_year: number | null
+          model_id: string | null
+          next_service_due_date: string | null
+          next_service_due_mileage: number | null
+          notes: string | null
+          preferred_technician_id: string | null
+          purchase_amount: number | null
+          purchase_date: string | null
+          synced_at: string | null
+          updated_at: string
+          vin: string | null
+          warranty_until: string | null
+        }
+        Insert: {
+          acquired_from?: string
+          brand_id: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_mileage?: number | null
+          customer_id: string
+          engine_no?: string | null
+          external_id?: string | null
+          external_source?: string
+          id?: string
+          insurance_company?: string | null
+          insurance_policy_no?: string | null
+          insurance_until?: string | null
+          is_active?: boolean
+          last_service_date?: string | null
+          last_service_mileage?: number | null
+          license_plate?: string | null
+          manufactured_year?: number | null
+          model_id?: string | null
+          next_service_due_date?: string | null
+          next_service_due_mileage?: number | null
+          notes?: string | null
+          preferred_technician_id?: string | null
+          purchase_amount?: number | null
+          purchase_date?: string | null
+          synced_at?: string | null
+          updated_at?: string
+          vin?: string | null
+          warranty_until?: string | null
+        }
+        Update: {
+          acquired_from?: string
+          brand_id?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_mileage?: number | null
+          customer_id?: string
+          engine_no?: string | null
+          external_id?: string | null
+          external_source?: string
+          id?: string
+          insurance_company?: string | null
+          insurance_policy_no?: string | null
+          insurance_until?: string | null
+          is_active?: boolean
+          last_service_date?: string | null
+          last_service_mileage?: number | null
+          license_plate?: string | null
+          manufactured_year?: number | null
+          model_id?: string | null
+          next_service_due_date?: string | null
+          next_service_due_mileage?: number | null
+          notes?: string | null
+          preferred_technician_id?: string | null
+          purchase_amount?: number | null
+          purchase_date?: string | null
+          synced_at?: string | null
+          updated_at?: string
+          vin?: string | null
+          warranty_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_vehicles_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_vehicles_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "motorcycle_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_vehicles_preferred_technician_id_fkey"
+            columns: ["preferred_technician_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null

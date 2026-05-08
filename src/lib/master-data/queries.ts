@@ -17,6 +17,8 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   Account,
   Customer,
+  CustomerContact,
+  CustomerVehicle,
   Department,
   DocumentNumberRule,
   Employee,
@@ -293,6 +295,67 @@ export async function getEmployeeById(id: string): Promise<Employee | null> {
     .maybeSingle();
   if (error) throw new Error(`getEmployeeById: ${error.message}`);
   return data;
+}
+
+// ──────────────────────────────────────────────────────────
+// 客戶車輛 / 聯絡人（Wave 1.3）
+// ──────────────────────────────────────────────────────────
+
+export async function listCustomerVehicles(opts?: {
+  customerId?: string;
+  search?: string;
+  activeOnly?: boolean;
+  limit?: number;
+}): Promise<CustomerVehicle[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("customer_vehicles")
+    .select("*")
+    .order("updated_at", { ascending: false });
+  if (opts?.activeOnly !== false) q = q.eq("is_active", true);
+  if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
+  if (opts?.search) {
+    const s = opts.search.trim();
+    q = q.or(
+      `license_plate.ilike.%${s}%,vin.ilike.%${s}%,engine_no.ilike.%${s}%`
+    );
+  }
+  q = q.limit(opts?.limit ?? 100);
+  const { data, error } = await q;
+  if (error) throw new Error(`listCustomerVehicles: ${error.message}`);
+  return data ?? [];
+}
+
+export async function getCustomerVehicleById(
+  id: string,
+): Promise<CustomerVehicle | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("customer_vehicles")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getCustomerVehicleById: ${error.message}`);
+  return data;
+}
+
+export async function listCustomerContacts(opts?: {
+  customerId?: string;
+  role?: string;
+  activeOnly?: boolean;
+}): Promise<CustomerContact[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("customer_contacts")
+    .select("*")
+    .order("role")
+    .order("name");
+  if (opts?.activeOnly !== false) q = q.eq("is_active", true);
+  if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
+  if (opts?.role) q = q.eq("role", opts.role);
+  const { data, error } = await q;
+  if (error) throw new Error(`listCustomerContacts: ${error.message}`);
+  return data ?? [];
 }
 
 // ──────────────────────────────────────────────────────────
