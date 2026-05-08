@@ -610,6 +610,7 @@ export type Database = {
           external_source: string
           id: string
           is_active: boolean
+          manager_employee_id: string | null
           name: string
           parent_id: string | null
           synced_at: string | null
@@ -623,6 +624,7 @@ export type Database = {
           external_source?: string
           id?: string
           is_active?: boolean
+          manager_employee_id?: string | null
           name: string
           parent_id?: string | null
           synced_at?: string | null
@@ -636,12 +638,20 @@ export type Database = {
           external_source?: string
           id?: string
           is_active?: boolean
+          manager_employee_id?: string | null
           name?: string
           parent_id?: string | null
           synced_at?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "departments_manager_employee_id_fkey"
+            columns: ["manager_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "departments_parent_id_fkey"
             columns: ["parent_id"]
@@ -2169,6 +2179,7 @@ export type Database = {
       organizations: {
         Row: {
           address: string | null
+          bank_account: string | null
           brand_id: string
           code: string
           created_at: string
@@ -2183,13 +2194,16 @@ export type Database = {
           notes: string | null
           parent_id: string | null
           phone: string | null
+          responsible_person: string | null
           short_name: string | null
           synced_at: string | null
+          tax_id: string | null
           type: string
           updated_at: string
         }
         Insert: {
           address?: string | null
+          bank_account?: string | null
           brand_id?: string
           code: string
           created_at?: string
@@ -2204,13 +2218,16 @@ export type Database = {
           notes?: string | null
           parent_id?: string | null
           phone?: string | null
+          responsible_person?: string | null
           short_name?: string | null
           synced_at?: string | null
+          tax_id?: string | null
           type: string
           updated_at?: string
         }
         Update: {
           address?: string | null
+          bank_account?: string | null
           brand_id?: string
           code?: string
           created_at?: string
@@ -2225,8 +2242,10 @@ export type Database = {
           notes?: string | null
           parent_id?: string | null
           phone?: string | null
+          responsible_person?: string | null
           short_name?: string | null
           synced_at?: string | null
+          tax_id?: string | null
           type?: string
           updated_at?: string
         }
