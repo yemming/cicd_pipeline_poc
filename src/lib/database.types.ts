@@ -693,6 +693,145 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_certifications: {
+        Row: {
+          brand_id: string
+          cert_name: string | null
+          cert_type: string
+          created_at: string
+          employee_id: string
+          expires_at: string | null
+          external_id: string | null
+          external_source: string
+          id: string
+          issued_at: string | null
+          issuer: string | null
+          notes: string | null
+          synced_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          cert_name?: string | null
+          cert_type: string
+          created_at?: string
+          employee_id: string
+          expires_at?: string | null
+          external_id?: string | null
+          external_source?: string
+          id?: string
+          issued_at?: string | null
+          issuer?: string | null
+          notes?: string | null
+          synced_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          cert_name?: string | null
+          cert_type?: string
+          created_at?: string
+          employee_id?: string
+          expires_at?: string | null
+          external_id?: string | null
+          external_source?: string
+          id?: string
+          issued_at?: string | null
+          issuer?: string | null
+          notes?: string | null
+          synced_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_certifications_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          dept_id: string | null
+          email: string | null
+          emp_code: string
+          employment_status: string
+          external_id: string | null
+          external_source: string
+          hire_date: string | null
+          id: string
+          is_active: boolean
+          leave_date: string | null
+          name: string
+          notes: string | null
+          pay_rate: number | null
+          phone: string | null
+          position: string | null
+          synced_at: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          dept_id?: string | null
+          email?: string | null
+          emp_code: string
+          employment_status?: string
+          external_id?: string | null
+          external_source?: string
+          hire_date?: string | null
+          id?: string
+          is_active?: boolean
+          leave_date?: string | null
+          name: string
+          notes?: string | null
+          pay_rate?: number | null
+          phone?: string | null
+          position?: string | null
+          synced_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          dept_id?: string | null
+          email?: string | null
+          emp_code?: string
+          employment_status?: string
+          external_id?: string | null
+          external_source?: string
+          hire_date?: string | null
+          id?: string
+          is_active?: boolean
+          leave_date?: string | null
+          name?: string
+          notes?: string | null
+          pay_rate?: number | null
+          phone?: string | null
+          position?: string | null
+          synced_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_dept_id_fkey"
+            columns: ["dept_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedback_canvas_snapshots: {
         Row: {
           brand_id: string
@@ -1547,12 +1686,14 @@ export type Database = {
       nav_nodes: {
         Row: {
           accent: string | null
+          badge: string | null
           brand_id: string
           coming_soon: boolean
           created_at: string
           created_by: string | null
           description: string | null
           device: string | null
+          emoji: string | null
           home: string | null
           href: string | null
           html_storage_path: string | null
@@ -1566,6 +1707,8 @@ export type Database = {
           page_kind: string | null
           parent_id: string | null
           permission: string | null
+          section_group: string | null
+          section_group_color: string | null
           sort_order: number
           sprint: string | null
           stitch_screen_id: string | null
@@ -1573,12 +1716,14 @@ export type Database = {
         }
         Insert: {
           accent?: string | null
+          badge?: string | null
           brand_id: string
           coming_soon?: boolean
           created_at?: string
           created_by?: string | null
           description?: string | null
           device?: string | null
+          emoji?: string | null
           home?: string | null
           href?: string | null
           html_storage_path?: string | null
@@ -1592,6 +1737,8 @@ export type Database = {
           page_kind?: string | null
           parent_id?: string | null
           permission?: string | null
+          section_group?: string | null
+          section_group_color?: string | null
           sort_order?: number
           sprint?: string | null
           stitch_screen_id?: string | null
@@ -1599,12 +1746,14 @@ export type Database = {
         }
         Update: {
           accent?: string | null
+          badge?: string | null
           brand_id?: string
           coming_soon?: boolean
           created_at?: string
           created_by?: string | null
           description?: string | null
           device?: string | null
+          emoji?: string | null
           home?: string | null
           href?: string | null
           html_storage_path?: string | null
@@ -1618,6 +1767,8 @@ export type Database = {
           page_kind?: string | null
           parent_id?: string | null
           permission?: string | null
+          section_group?: string | null
+          section_group_color?: string | null
           sort_order?: number
           sprint?: string | null
           stitch_screen_id?: string | null

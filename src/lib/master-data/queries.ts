@@ -17,7 +17,9 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   Account,
   Customer,
+  Department,
   DocumentNumberRule,
+  Employee,
   Item,
   MotorcycleModel,
   Organization,
@@ -235,6 +237,62 @@ export async function listAccounts(opts?: { acctType?: string }): Promise<Accoun
   const { data, error } = await q;
   if (error) throw new Error(`listAccounts: ${error.message}`);
   return data ?? [];
+}
+
+// ──────────────────────────────────────────────────────────
+// 員工 / 部門
+// ──────────────────────────────────────────────────────────
+
+export async function listDepartments(opts?: { search?: string }): Promise<Department[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("departments")
+    .select("*")
+    .eq("is_active", true)
+    .order("code");
+  if (opts?.search) {
+    const s = opts.search.trim();
+    q = q.or(`code.ilike.%${s}%,name.ilike.%${s}%`);
+  }
+  const { data, error } = await q;
+  if (error) throw new Error(`listDepartments: ${error.message}`);
+  return data ?? [];
+}
+
+export async function listEmployees(opts?: {
+  search?: string;
+  deptId?: string;
+  status?: "active" | "on_leave" | "terminated" | "retired";
+  limit?: number;
+}): Promise<Employee[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("employees")
+    .select("*")
+    .order("emp_code");
+  if (opts?.deptId) q = q.eq("dept_id", opts.deptId);
+  if (opts?.status) q = q.eq("employment_status", opts.status);
+  if (opts?.search) {
+    const s = opts.search.trim();
+    q = q.or(
+      `emp_code.ilike.%${s}%,name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`
+    );
+  }
+  q = q.limit(opts?.limit ?? 100);
+  const { data, error } = await q;
+  if (error) throw new Error(`listEmployees: ${error.message}`);
+  return data ?? [];
+}
+
+export async function getEmployeeById(id: string): Promise<Employee | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("employees")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getEmployeeById: ${error.message}`);
+  return data;
 }
 
 // ──────────────────────────────────────────────────────────

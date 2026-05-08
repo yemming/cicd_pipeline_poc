@@ -34,6 +34,15 @@ export type ItemSku = Row<"item_skus">;
 export type ItemStorePrice = Row<"item_store_prices">;
 export type ItemMotorcycleCompatibility = Row<"item_motorcycle_compatibility">;
 export type DocumentNumberRule = Row<"document_number_rules">;
+export type Department = Row<"departments">;
+export type Employee = Row<"employees">;
+export type EmployeeCertification = Row<"employee_certifications">;
+export type EmployeeInsert = Insert<"employees">;
+export type EmployeeUpdate = Update<"employees">;
+export type EmployeeCertificationInsert = Insert<"employee_certifications">;
+export type EmployeeCertificationUpdate = Update<"employee_certifications">;
+
+export type EmploymentStatus = "active" | "on_leave" | "terminated" | "retired";
 
 // ──────────────────────────────────────────────────────────
 // 交易
