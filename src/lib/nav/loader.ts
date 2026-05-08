@@ -9,7 +9,7 @@
 import "server-only";
 import { cache } from "react";
 import { createServiceClient } from "@/lib/supabase/service";
-import type { ModuleDef, ModulePage } from "@/lib/modules";
+import type { ModuleDef, ModulePage, ParentGroup, SectionGroup } from "@/lib/modules";
 
 type NavNodeRow = {
   id: string;
@@ -33,6 +33,10 @@ type NavNodeRow = {
   is_admin_only: boolean;
   coming_soon: boolean;
   is_active: boolean;
+  emoji: string | null;
+  section_group: string | null;
+  section_group_color: string | null;
+  badge: string | null;
 };
 
 function rowToPage(row: NavNodeRow, sectionName: string | undefined): ModulePage {
@@ -52,6 +56,7 @@ function rowToPage(row: NavNodeRow, sectionName: string | undefined): ModulePage
   if (row.sprint) page.sprint = row.sprint;
   if (row.device) page.device = row.device;
   if (row.is_admin_only) page.adminOnly = true;
+  if (row.badge) page.badge = row.badge;
   return page;
 }
 
@@ -62,13 +67,63 @@ function buildModuleDef(
   const directChildren = childrenByParent.get(modRow.id) ?? [];
   const pages: ModulePage[] = [];
 
+  // 第一輪：判斷此 module 是否使用樣板的三層樹（section header → parent group → leaf）
+  // 只要有任一 L2 wrapper 就走樹狀模式（不一定要設 section_group），讓 admin 加新 L2
+  // 不必先想好 section 分區也能立刻顯示為可收折節點。
+  let useSections = false;
+  for (const child of directChildren) {
+    if (child.level === 2) {
+      useSections = true;
+      break;
+    }
+  }
+
+  const sectionsMap = new Map<string, SectionGroup>();
+
   for (const child of directChildren) {
     if (child.level === 3) {
+      // module 直掛 page（legacy fallback，不走 section_group）
       pages.push(rowToPage(child, undefined));
     } else if (child.level === 2) {
       const grandchildren = childrenByParent.get(child.id) ?? [];
+      const childPages: ModulePage[] = [];
       for (const gc of grandchildren) {
-        if (gc.level === 3) pages.push(rowToPage(gc, child.name));
+        if (gc.level === 3) {
+          // sections 模式不寫 section 字串（樹狀結構自身已有 section title）
+          // 舊模式 fallback：把 level=2 name 當 section 字串塞進 page
+          const sectionName = useSections ? undefined : child.name;
+          const p = rowToPage(gc, sectionName);
+          pages.push(p);
+          childPages.push(p);
+        }
+      }
+
+      if (useSections) {
+        const sgName = child.section_group ?? "(其他)";
+        const sgColor = child.section_group_color ?? undefined;
+        let sec = sectionsMap.get(sgName);
+        if (!sec) {
+          sec = { title: sgName, parents: [] };
+          if (sgColor) sec.color = sgColor;
+          sectionsMap.set(sgName, sec);
+        }
+        const parent: ParentGroup = {
+          name: child.name,
+          children: childPages,
+        };
+        if (child.emoji) parent.emoji = child.emoji;
+        if (child.badge) parent.badge = child.badge;
+
+        // direct-link parent（自己有 href、無 children）— 樣板「庫存查詢」「模組導覽總覽」
+        if (child.page_kind === "react_route" && child.href && childPages.length === 0) {
+          parent.href = child.href;
+          // 同步加進 flat pages（供 PagesPanel/CommandPalette 看見）
+          const dl: ModulePage = { name: child.name, href: child.href };
+          if (child.icon) dl.icon = child.icon;
+          if (child.badge) dl.badge = child.badge;
+          pages.push(dl);
+        }
+        sec.parents.push(parent);
       }
     }
   }
@@ -81,6 +136,7 @@ function buildModuleDef(
     home: modRow.home ?? (pages[0]?.href ?? "/dashboard"),
     pages,
   };
+  if (useSections) def.sections = Array.from(sectionsMap.values());
   if (modRow.accent) def.accent = modRow.accent;
   if (modRow.description) def.description = modRow.description;
   if (modRow.permission) def.permission = modRow.permission;
