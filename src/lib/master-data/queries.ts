@@ -44,14 +44,16 @@ export async function listCustomers(opts?: {
   search?: string;
   type?: string;
   limit?: number;
+  activeOnly?: boolean;
 }): Promise<Customer[]> {
   const supabase = await createClient();
   let q = supabase
     .from("customers")
     .select("*")
     .eq("brand_id", getBrandKey())
-    .eq("is_active", true)
     .order("name");
+  // 預設只回啟用中，admin 列表頁傳 activeOnly: false 看全部
+  if (opts?.activeOnly !== false) q = q.eq("is_active", true);
   if (opts?.type) q = q.eq("type", opts.type);
   if (opts?.search) {
     const s = opts.search.trim();

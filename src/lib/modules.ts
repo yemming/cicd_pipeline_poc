@@ -313,7 +313,7 @@ export const modules: ModuleDef[] = [
       // ─── List（主檔基本資料） ───────────────────────
       { name: "員工主檔",       icon: "badge",         href: "/admin/master-data/employees",          section: "List 主檔" },
       { name: "客戶車輛",       icon: "two_wheeler",   href: "/admin/master-data/vehicles",           section: "List 主檔" },
-      { name: "客戶資料",       icon: "person",        href: "/admin/master-data/customers",          section: "List 主檔", comingSoon: true },
+      { name: "客戶資料",       icon: "person",        href: "/admin/master-data/customers",          section: "List 主檔" },
       { name: "客戶聯絡人",     icon: "contacts",      href: "/admin/master-data/customer-contacts", section: "List 主檔", comingSoon: true },
       { name: "部門組織",       icon: "account_tree",  href: "/admin/master-data/departments",        section: "List 主檔", comingSoon: true },
       { name: "供應商",         icon: "business",      href: "/admin/master-data/suppliers",          section: "List 主檔", comingSoon: true },
