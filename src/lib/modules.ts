@@ -314,15 +314,15 @@ export const modules: ModuleDef[] = [
       { name: "員工主檔",       icon: "badge",         href: "/admin/master-data/employees",          section: "List 主檔" },
       { name: "客戶車輛",       icon: "two_wheeler",   href: "/admin/master-data/vehicles",           section: "List 主檔" },
       { name: "客戶資料",       icon: "person",        href: "/admin/master-data/customers",          section: "List 主檔" },
-      { name: "客戶聯絡人",     icon: "contacts",      href: "/admin/master-data/customer-contacts", section: "List 主檔", comingSoon: true },
-      { name: "部門組織",       icon: "account_tree",  href: "/admin/master-data/departments",        section: "List 主檔", comingSoon: true },
-      { name: "供應商",         icon: "business",      href: "/admin/master-data/suppliers",          section: "List 主檔", comingSoon: true },
+      { name: "客戶聯絡人",     icon: "contacts",      href: "/admin/master-data/customer-contacts", section: "List 主檔" },
+      { name: "部門組織",       icon: "account_tree",  href: "/admin/master-data/departments",        section: "List 主檔" },
+      { name: "供應商",         icon: "business",      href: "/admin/master-data/suppliers",          section: "List 主檔" },
       { name: "料號商品",       icon: "inventory_2",   href: "/admin/master-data/items",              section: "List 主檔", comingSoon: true },
 
       // ─── Transaction（交易紀錄） ────────────────────
       { name: "維修預約",       icon: "event_available", href: "/admin/master-data/appointments",     section: "Transaction 交易" },
       { name: "維修工單",       icon: "build",         href: "/admin/master-data/work-orders",        section: "Transaction 交易" },
-      { name: "PI / PDI 檢驗",  icon: "fact_check",    href: "/admin/master-data/inspections",        section: "Transaction 交易", comingSoon: true },
+      { name: "PI / PDI 檢驗",  icon: "fact_check",    href: "/admin/master-data/inspections",        section: "Transaction 交易" },
       { name: "保固索賠",       icon: "verified",      href: "/admin/master-data/warranty-claims",    section: "Transaction 交易", comingSoon: true },
 
       // ─── Report（報表） ─────────────────────────────

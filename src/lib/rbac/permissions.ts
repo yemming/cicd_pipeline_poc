@@ -59,6 +59,8 @@ export const PERMISSIONS = {
   APPOINTMENT_EDIT: "service.appointment.edit",
   PI_EXECUTE: "service.pi.execute",
   PDI_EXECUTE: "service.pdi.execute",
+  INSPECTION_VIEW: "service.inspection.view",
+  INSPECTION_EDIT: "service.inspection.edit",
   RO_VIEW: "service.ro.view",
   RO_CREATE: "service.ro.create",
   RO_DISPATCH: "service.ro.dispatch",

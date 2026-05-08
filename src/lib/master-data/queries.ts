@@ -24,6 +24,7 @@ import type {
   Department,
   DocumentNumberRule,
   Employee,
+  InspectionFinding,
   InspectionRecord,
   Item,
   MotorcycleModel,
@@ -84,14 +85,15 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
 export async function listSuppliers(opts?: {
   search?: string;
   type?: string;
+  activeOnly?: boolean;
 }): Promise<Supplier[]> {
   const supabase = await createClient();
   let q = supabase
     .from("suppliers")
     .select("*")
     .eq("brand_id", getBrandKey())
-    .eq("is_active", true)
     .order("code");
+  if (opts?.activeOnly !== false) q = q.eq("is_active", true);
   if (opts?.type) q = q.eq("type", opts.type);
   if (opts?.search) {
     const s = opts.search.trim();
@@ -285,14 +287,17 @@ export async function listAccounts(opts?: { acctType?: string }): Promise<Accoun
 // 員工 / 部門
 // ──────────────────────────────────────────────────────────
 
-export async function listDepartments(opts?: { search?: string }): Promise<Department[]> {
+export async function listDepartments(opts?: {
+  search?: string;
+  activeOnly?: boolean;
+}): Promise<Department[]> {
   const supabase = await createClient();
   let q = supabase
     .from("departments")
     .select("*")
     .eq("brand_id", getBrandKey())
-    .eq("is_active", true)
     .order("code");
+  if (opts?.activeOnly !== false) q = q.eq("is_active", true);
   if (opts?.search) {
     const s = opts.search.trim();
     q = q.or(`code.ilike.%${s}%,name.ilike.%${s}%`);
@@ -300,6 +305,18 @@ export async function listDepartments(opts?: { search?: string }): Promise<Depar
   const { data, error } = await q;
   if (error) throw new Error(`listDepartments: ${error.message}`);
   return data ?? [];
+}
+
+export async function getDepartmentById(id: string): Promise<Department | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("departments")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getDepartmentById: ${error.message}`);
+  return data;
 }
 
 export async function listEmployees(opts?: {
@@ -404,6 +421,20 @@ export async function listCustomerContacts(opts?: {
   return data ?? [];
 }
 
+export async function getCustomerContactById(
+  id: string,
+): Promise<CustomerContact | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("customer_contacts")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getCustomerContactById: ${error.message}`);
+  return data;
+}
+
 // ──────────────────────────────────────────────────────────
 // Service / 維修（Wave 2.0）
 // ──────────────────────────────────────────────────────────
@@ -498,6 +529,35 @@ export async function listInspectionRecords(opts?: {
   q = q.limit(opts?.limit ?? 100);
   const { data, error } = await q;
   if (error) throw new Error(`listInspectionRecords: ${error.message}`);
+  return data ?? [];
+}
+
+export async function getInspectionRecordById(
+  id: string,
+): Promise<InspectionRecord | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("inspection_records")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getInspectionRecordById: ${error.message}`);
+  return data;
+}
+
+export async function listInspectionFindings(
+  inspectionId: string,
+): Promise<InspectionFinding[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("inspection_findings")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .eq("inspection_id", inspectionId)
+    .order("category")
+    .order("item_label");
+  if (error) throw new Error(`listInspectionFindings: ${error.message}`);
   return data ?? [];
 }
 
