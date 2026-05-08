@@ -23,6 +23,34 @@ export type ModulePage = {
   device?: "tablet" | "mobile";
   /** Only visible to admin users (FEEDBACK_ADMIN_EMAILS / NOTIFICATION_ADMIN_EMAILS) */
   adminOnly?: boolean;
+  /** 小數字徽章（如「3」表示 3 筆待處理） */
+  badge?: string;
+};
+
+/**
+ * 樣板 sidebar 的「可摺疊 parent group」— 對應 nav_nodes level=2。
+ * 有 children 就是 expandable group；有 href 沒 children 就是 direct link。
+ */
+export type ParentGroup = {
+  name: string;
+  /** Material Symbol 名（如 'point_of_sale'），優先級高於 emoji */
+  icon?: string;
+  emoji?: string;
+  badge?: string;
+  /** Direct-link parent（樣板的「庫存查詢」「模組導覽總覽」），有 href 就跳轉而非摺疊 */
+  href?: string;
+  children: ModulePage[];
+};
+
+/**
+ * 樣板 sidebar 的「section 分組標題」— 對應 nav_nodes.section_group。
+ * 帶彩色圓點 + 大寫 label，下面掛 multiple parents。
+ */
+export type SectionGroup = {
+  title: string;
+  /** 'blue' | 'purple' | 'amber' | 'coral' | 'gray' 或 hex */
+  color?: string;
+  parents: ParentGroup[];
 };
 
 export type ModuleDef = {
@@ -35,7 +63,10 @@ export type ModuleDef = {
   accent?: string;
   description?: string;
   home: string;
+  /** 扁平 page list — PagesPanel / CommandPalette / 全文搜尋用 */
   pages: ModulePage[];
+  /** 三層樹（section → parent → page）— 樣板版 ModernSidebar 用；無此欄則 fallback 到 pages */
+  sections?: SectionGroup[];
   permission?: string;
   comingSoon?: boolean;
 };
@@ -266,7 +297,44 @@ export const modules: ModuleDef[] = [
   },
 
   // ────────────────────────────────────────────────────────
-  // 9. 集團管理 (S6 數據)
+  // 9. 基本資料設定（Wave 1-2 落地的 master-data + transaction admin CRUD）
+  //    分三層 section：List（主檔）/ Transaction（交易）/ Report（報表）
+  //    對應 ERP 經典資料分類；comingSoon 標示尚未做 admin 頁但 schema 已有
+  // ────────────────────────────────────────────────────────
+  {
+    key: "master-data",
+    name: "基本資料設定",
+    icon: "tune",
+    accent: "#7C3AED",
+    description: "主檔・交易・報表 — 系統基本資料與營運紀錄",
+    home: "/admin/master-data/employees",
+    permission: "admin.access",
+    pages: [
+      // ─── List（主檔基本資料） ───────────────────────
+      { name: "員工主檔",       icon: "badge",         href: "/admin/master-data/employees",          section: "List 主檔" },
+      { name: "客戶車輛",       icon: "two_wheeler",   href: "/admin/master-data/vehicles",           section: "List 主檔" },
+      { name: "客戶資料",       icon: "person",        href: "/admin/master-data/customers",          section: "List 主檔", comingSoon: true },
+      { name: "客戶聯絡人",     icon: "contacts",      href: "/admin/master-data/customer-contacts", section: "List 主檔", comingSoon: true },
+      { name: "部門組織",       icon: "account_tree",  href: "/admin/master-data/departments",        section: "List 主檔", comingSoon: true },
+      { name: "供應商",         icon: "business",      href: "/admin/master-data/suppliers",          section: "List 主檔", comingSoon: true },
+      { name: "料號商品",       icon: "inventory_2",   href: "/admin/master-data/items",              section: "List 主檔", comingSoon: true },
+
+      // ─── Transaction（交易紀錄） ────────────────────
+      { name: "維修預約",       icon: "event_available", href: "/admin/master-data/appointments",     section: "Transaction 交易" },
+      { name: "維修工單",       icon: "build",         href: "/admin/master-data/work-orders",        section: "Transaction 交易" },
+      { name: "PI / PDI 檢驗",  icon: "fact_check",    href: "/admin/master-data/inspections",        section: "Transaction 交易", comingSoon: true },
+      { name: "保固索賠",       icon: "verified",      href: "/admin/master-data/warranty-claims",    section: "Transaction 交易", comingSoon: true },
+
+      // ─── Report（報表） ─────────────────────────────
+      { name: "員工 / 部門報表", icon: "groups",        href: "/admin/master-data/reports/staffing",   section: "Report 報表", comingSoon: true },
+      { name: "工單統計",        icon: "query_stats",   href: "/admin/master-data/reports/work-orders", section: "Report 報表", comingSoon: true },
+      { name: "保養回廠率",      icon: "trending_up",   href: "/admin/master-data/reports/return-rate", section: "Report 報表", comingSoon: true },
+      { name: "車輛保固到期",    icon: "schedule",      href: "/admin/master-data/reports/warranty-due", section: "Report 報表", comingSoon: true },
+    ],
+  },
+
+  // ────────────────────────────────────────────────────────
+  // 10. 集團管理 (S6 數據)
   // ────────────────────────────────────────────────────────
   {
     key: "group",
