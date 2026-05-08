@@ -149,9 +149,6 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
             style={{ borderColor: "var(--color-brand-primary)" }}
           />
         </button>
-        <button className="p-1.5 md:p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all hidden lg:flex">
-          <span className="material-symbols-outlined text-[20px] md:text-[22px]">help_outline</span>
-        </button>
         <div
           className="w-7 h-7 md:w-8 md:h-8 rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/50 transition-all flex items-center justify-center shrink-0"
           style={{ backgroundColor: "#0F6E56" }}
