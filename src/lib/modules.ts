@@ -323,7 +323,7 @@ export const modules: ModuleDef[] = [
       { name: "維修預約",       icon: "event_available", href: "/admin/master-data/appointments",     section: "Transaction 交易" },
       { name: "維修工單",       icon: "build",         href: "/admin/master-data/work-orders",        section: "Transaction 交易" },
       { name: "PI / PDI 檢驗",  icon: "fact_check",    href: "/admin/master-data/inspections",        section: "Transaction 交易" },
-      { name: "保固索賠",       icon: "verified",      href: "/admin/master-data/warranty-claims",    section: "Transaction 交易", comingSoon: true },
+      { name: "保固索賠",       icon: "verified",      href: "/admin/master-data/warranty-claims",    section: "Transaction 交易" },
 
       // ─── Report（報表） ─────────────────────────────
       { name: "員工 / 部門報表", icon: "groups",        href: "/admin/master-data/reports/staffing",   section: "Report 報表", comingSoon: true },

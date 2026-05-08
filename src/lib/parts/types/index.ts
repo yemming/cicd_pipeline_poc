@@ -74,6 +74,25 @@ export type InspectionRecord = Row<"inspection_records">;
 export type InspectionRecordInsert = Insert<"inspection_records">;
 export type InspectionFinding = Row<"inspection_findings">;
 export type InspectionFindingInsert = Insert<"inspection_findings">;
+export type WarrantyClaim = Row<"warranty_claims">;
+export type WarrantyClaimInsert = Insert<"warranty_claims">;
+export type WarrantyClaimLine = Row<"warranty_claim_lines">;
+export type WarrantyClaimLineInsert = Insert<"warranty_claim_lines">;
+export type WarrantyClaimType =
+  | "oem_warranty"
+  | "extended_warranty"
+  | "tsb"
+  | "pdi"
+  | "goodwill";
+export type WarrantyClaimStatus =
+  | "draft"
+  | "submitted"
+  | "under_review"
+  | "approved"
+  | "partial_approved"
+  | "rejected"
+  | "received"
+  | "cancelled";
 
 export type AppointmentStatus =
   | "booked"

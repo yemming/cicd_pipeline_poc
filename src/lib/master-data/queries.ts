@@ -27,6 +27,8 @@ import type {
   InspectionFinding,
   InspectionRecord,
   Item,
+  WarrantyClaim,
+  WarrantyClaimLine,
   MotorcycleModel,
   Organization,
   ServiceAppointment,
@@ -544,6 +546,61 @@ export async function getInspectionRecordById(
     .maybeSingle();
   if (error) throw new Error(`getInspectionRecordById: ${error.message}`);
   return data;
+}
+
+// ──────────────────────────────────────────────────────────
+// 保固索賠（Wave 2.x）
+// ──────────────────────────────────────────────────────────
+
+export async function listWarrantyClaims(opts?: {
+  status?: string;
+  claimType?: string;
+  customerId?: string;
+  roId?: string;
+  limit?: number;
+}): Promise<WarrantyClaim[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("warranty_claims")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .order("claim_date", { ascending: false });
+  if (opts?.status) q = q.eq("status", opts.status);
+  if (opts?.claimType) q = q.eq("claim_type", opts.claimType);
+  if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
+  if (opts?.roId) q = q.eq("ro_id", opts.roId);
+  q = q.limit(opts?.limit ?? 200);
+  const { data, error } = await q;
+  if (error) throw new Error(`listWarrantyClaims: ${error.message}`);
+  return data ?? [];
+}
+
+export async function getWarrantyClaimById(
+  id: string,
+): Promise<WarrantyClaim | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("warranty_claims")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getWarrantyClaimById: ${error.message}`);
+  return data;
+}
+
+export async function listWarrantyClaimLines(
+  claimId: string,
+): Promise<WarrantyClaimLine[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("warranty_claim_lines")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .eq("cl_id", claimId)
+    .order("line_no");
+  if (error) throw new Error(`listWarrantyClaimLines: ${error.message}`);
+  return data ?? [];
 }
 
 export async function listInspectionFindings(

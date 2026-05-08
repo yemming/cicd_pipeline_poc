@@ -49,6 +49,13 @@ export default async function EditAppointmentPage({
   }
 
   const canEdit = await hasPermission(PERMISSIONS.APPOINTMENT_EDIT);
+  const canCreateRO = await hasPermission(PERMISSIONS.RO_CREATE);
+
+  const newRoUrl =
+    `/admin/master-data/work-orders/new` +
+    `?customer=${appointment.customer_id}` +
+    `&vehicle=${appointment.vehicle_id}` +
+    `&appointment=${appointment.id}`;
 
   return (
     <main className="px-6 py-6 max-w-[1100px] space-y-5">
@@ -60,14 +67,26 @@ export default async function EditAppointmentPage({
         <span className="text-[#172B4D]">{appointment.appt_no}</span>
       </nav>
 
-      <header className="space-y-1">
-        <h1 className="text-[20px] font-bold text-[#172B4D]">
-          編輯預約 ・ {appointment.appt_no}
-        </h1>
-        <p className="text-[13px] text-[#6B778C]">
-          建立於 {new Date(appointment.created_at).toLocaleString("zh-TW")} ・
-          最近更新 {new Date(appointment.updated_at).toLocaleString("zh-TW")}
-        </p>
+      <header className="flex items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-[20px] font-bold text-[#172B4D]">
+            編輯預約 ・ {appointment.appt_no}
+          </h1>
+          <p className="text-[13px] text-[#6B778C]">
+            建立於 {new Date(appointment.created_at).toLocaleString("zh-TW")} ・
+            最近更新 {new Date(appointment.updated_at).toLocaleString("zh-TW")}
+          </p>
+        </div>
+        {canCreateRO && (
+          <Link
+            href={newRoUrl}
+            className="inline-flex items-center gap-1 px-4 py-2 bg-[#0052CC] hover:bg-[#0747A6] text-white text-[14px] font-semibold rounded"
+            title="開新工單，預填此預約的客戶 / 車輛 / 關聯預約"
+          >
+            <span className="material-symbols-outlined text-[18px]">build</span>
+            建立工單
+          </Link>
+        )}
       </header>
 
       <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
