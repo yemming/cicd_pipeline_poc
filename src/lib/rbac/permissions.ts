@@ -24,6 +24,20 @@ export const PERMISSIONS = {
   VEHICLE_VIEW: "master.vehicle.view",
   VEHICLE_EDIT: "master.vehicle.edit",
 
+  // ─── Parts / 設定 ──────────────────────────────
+  PARTS_PURCHASE_PERMISSION_VIEW: "parts.purchase_permission.view",
+  PARTS_PURCHASE_PERMISSION_EDIT: "parts.purchase_permission.edit",
+  PARTS_ITEM_PERMISSION_VIEW: "parts.item_permission.view",
+  PARTS_ITEM_PERMISSION_EDIT: "parts.item_permission.edit",
+  PARTS_COUNT_RULE_VIEW: "parts.count_rule.view",
+  PARTS_COUNT_RULE_EDIT: "parts.count_rule.edit",
+  PARTS_CONTROL_TYPE_VIEW: "parts.control_type.view",
+  PARTS_CONTROL_TYPE_EDIT: "parts.control_type.edit",
+  PARTS_SERIAL_RULE_VIEW: "parts.serial_rule.view",
+  PARTS_SERIAL_RULE_EDIT: "parts.serial_rule.edit",
+  PARTS_WAREHOUSE_ARCH_VIEW: "parts.warehouse_arch.view",
+  PARTS_WAREHOUSE_ARCH_EDIT: "parts.warehouse_arch.edit",
+
   // ─── Parts / WMS 採購 ──────────────────────────
   PR_VIEW: "parts.pr.view",
   PR_CREATE: "parts.pr.create",

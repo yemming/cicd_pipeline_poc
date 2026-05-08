@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "started_at": "2026-05-08T18:00:00+08:00",
+  "policy": {
+    "on_failure": "skip",
+    "max_pages": 3,
+    "additive_only": true
+  },
+  "queue": [
+    {
+      "slug": "control-types",
+      "page_path": "/parts/setup/control-types",
+      "title": "管控類型定義",
+      "stitch_html": "01_基礎設定_管控類型定義",
+      "tag": "1.5",
+      "status": "pending",
+      "schema_hint": "parts_control_types (class_code A/B/C lookup, fresh table)",
+      "smoke_keywords": ["A 類", "B 類", "C 類", "管控類型定義"]
+    },
+    {
+      "slug": "serial",
+      "page_path": "/parts/setup/serial",
+      "title": "序列號追蹤",
+      "stitch_html": "03_基礎設定_序列號追蹤",
+      "tag": "3.5",
+      "status": "pending",
+      "schema_hint": "parts_serial_tracking_rules (per-class rules, fresh table)",
+      "smoke_keywords": ["序列號", "追蹤規則"]
+    },
+    {
+      "slug": "warehouse-arch",
+      "page_path": "/parts/setup/warehouse-arch",
+      "title": "倉儲四層架構",
+      "stitch_html": "02_基礎設定_倉儲四層架構",
+      "tag": "2.1",
+      "status": "pending",
+      "schema_hint": "parts_warehouse_layer_meta (4 rows for layer descriptions, fresh table) + read existing warehouses/zones/bins for summary",
+      "smoke_keywords": ["第一層", "第二層", "第三層", "第四層", "倉儲四層架構"]
+    }
+  ]
+}
