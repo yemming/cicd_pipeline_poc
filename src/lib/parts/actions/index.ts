@@ -1059,6 +1059,143 @@ export async function cancelTransfer(
 }
 
 // ──────────────────────────────────────────────────────────
+// W3 領料退貨入庫 — 從 stock_issue_lines 部分退回入庫
+// ──────────────────────────────────────────────────────────
+
+export type ReturnIssueLinesInput = {
+  issue_id: string;
+  notes?: string;
+  lines: Array<{
+    line_id: string;
+    qty_returned: number;
+  }>;
+};
+
+/**
+ * 領料退貨入庫：把 stock_issue_lines 部分退回庫存（建 stock_receipt 紀錄 + available 行）。
+ * 與 cancelIssue 不同：cancel 是整單取消還原，這個是部分退（如師傅領 4 件用 3 件退 1 件）。
+ */
+export async function returnIssueLines(
+  input: ReturnIssueLinesInput,
+): Promise<ActionResult<{ receipt_id: string; gr_no: string; total_qty: number }>> {
+  if (!input?.issue_id) return { ok: false, error: "缺 issue_id" };
+  if (!input.lines?.length) return { ok: false, error: "至少需要一筆退貨明細" };
+  for (const l of input.lines) {
+    if (!l.line_id) return { ok: false, error: "明細缺 line_id" };
+    if (!(l.qty_returned > 0)) return { ok: false, error: "明細數量需 > 0" };
+  }
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  // 1. 撈 issue + lines
+  const { data: issue, error: issueErr } = await supabase
+    .from("stock_issues")
+    .select("id, gi_no, status, warehouse_id")
+    .eq("id", input.issue_id)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (issueErr || !issue) return { ok: false, error: `找不到領料單：${issueErr?.message ?? "no row"}` };
+  if (issue.status !== "completed") {
+    return { ok: false, error: `領料單狀態 ${issue.status} 不可退貨（需 completed）` };
+  }
+
+  const lineIds = input.lines.map((l) => l.line_id);
+  const { data: issueLines, error: linesErr } = await supabase
+    .from("stock_issue_lines")
+    .select("id, item_id, bin_id, qty_issued, unit_cost, serial_no, batch_no")
+    .in("id", lineIds)
+    .eq("brand_id", brandId);
+  if (linesErr || !issueLines) return { ok: false, error: `撈領料明細失敗：${linesErr?.message ?? ""}` };
+  const issueLineMap = new Map(issueLines.map((l) => [l.id, l]));
+
+  // 2. 預檢：退貨數不可超過原領料數
+  for (const l of input.lines) {
+    const il = issueLineMap.get(l.line_id);
+    if (!il) return { ok: false, error: `領料明細 ${l.line_id.slice(0, 8)} 不存在` };
+    if (l.qty_returned > Number(il.qty_issued)) {
+      return { ok: false, error: `退貨數 ${l.qty_returned} 超過領料數 ${il.qty_issued}` };
+    }
+  }
+
+  // 3. 產 GR 號
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+  const { data: lastGr } = await supabase
+    .from("stock_receipts")
+    .select("gr_no")
+    .eq("brand_id", brandId)
+    .like("gr_no", `GR${dateStr}-%`)
+    .order("gr_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let seq = 1;
+  if (lastGr?.gr_no) {
+    const m = lastGr.gr_no.match(/-(\d+)$/);
+    if (m) seq = parseInt(m[1], 10) + 1;
+  }
+  const gr_no = `GR${dateStr}-${String(seq).padStart(3, "0")}`;
+
+  const totalQty = input.lines.reduce((s, l) => s + l.qty_returned, 0);
+  const totalAmount = input.lines.reduce((s, l) => {
+    const il = issueLineMap.get(l.line_id)!;
+    return s + l.qty_returned * Number(il.unit_cost ?? 0);
+  }, 0);
+
+  // 4. INSERT stock_receipts (type='ro_return')
+  const { data: gr, error: grErr } = await supabase
+    .from("stock_receipts")
+    .insert({
+      brand_id: brandId,
+      gr_no,
+      type: "ro_return",
+      warehouse_id: issue.warehouse_id,
+      receipt_date: today.toISOString().slice(0, 10),
+      qty_received_total: totalQty,
+      amount_total: Math.round(totalAmount * 100) / 100,
+      source_doc_id: issue.id,
+      source_doc_type: "stock_issue",
+      status: "completed",
+      posted_at: new Date().toISOString(),
+      notes: input.notes ?? `領料 ${issue.gi_no} 部分退貨入庫`,
+    })
+    .select("id")
+    .single();
+  if (grErr) return { ok: false, error: `建立退貨入庫單失敗：${grErr.message}` };
+
+  // 5. 建新的 available stock_items 還原
+  const newStocks = input.lines.map((l) => {
+    const il = issueLineMap.get(l.line_id)!;
+    return {
+      brand_id: brandId,
+      item_id: il.item_id,
+      warehouse_id: issue.warehouse_id,
+      bin_id: il.bin_id,
+      qty: l.qty_returned,
+      unit_cost: il.unit_cost ?? 0,
+      status: "available",
+      serial_no: il.serial_no,
+      batch_no: il.batch_no,
+      notes: `領料 ${issue.gi_no} 退貨還原（GR ${gr_no}）`,
+    };
+  });
+  const { error: stockErr } = await supabase.from("stock_items").insert(newStocks);
+  if (stockErr) {
+    // GR 已建但 stock 失敗 — 回收
+    await supabase.from("stock_receipts").delete().eq("id", gr.id);
+    return { ok: false, error: `還原庫存失敗：${stockErr.message}` };
+  }
+
+  revalidatePath("/parts/issue/repair-pick");
+  revalidatePath("/parts/receipt/return-in");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { receipt_id: gr.id, gr_no, total_qty: totalQty } };
+}
+
+// ──────────────────────────────────────────────────────────
 // W4-W6 stub(後續 sprint 實作)
 //
 // 規則:這些 server action 永遠 return ok:false,UI 收到後顯示「下版開放」提示。
