@@ -1196,7 +1196,381 @@ export async function returnIssueLines(
 }
 
 // ──────────────────────────────────────────────────────────
-// W4-W6 stub(後續 sprint 實作)
+// W4 盤點 — 計畫 / 啟動 / 提交 / 核准 4 動作閉環
+// ──────────────────────────────────────────────────────────
+
+export type CreateCountPlanInput = {
+  plan_name: string;
+  warehouse_id: string;
+  plan_type?: "cycle" | "full" | "spot" | "abc_a" | "abc_b" | "abc_c";
+  abc_filter?: "A" | "B" | "C" | "all";
+  notes?: string;
+};
+
+export async function createCountPlanAction(
+  input: CreateCountPlanInput,
+): Promise<ActionResult<{ plan_id: string }>> {
+  if (!input.plan_name?.trim()) return { ok: false, error: "計畫名稱必填" };
+  if (!input.warehouse_id) return { ok: false, error: "倉庫必選" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  const { data, error } = await supabase
+    .from("inventory_count_plans")
+    .insert({
+      brand_id: brandId,
+      plan_name: input.plan_name.trim(),
+      warehouse_id: input.warehouse_id,
+      plan_type: input.plan_type ?? "cycle",
+      abc_filter: input.abc_filter ?? null,
+      notes: input.notes ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: `建計畫失敗：${error.message}` };
+
+  revalidatePath("/parts/count/plans");
+  return { ok: true, data: { plan_id: data.id } };
+}
+
+export type StartCountSessionInput = {
+  warehouse_id: string;
+  plan_id?: string;
+  count_date?: string;
+  abc_class_filter?: "A" | "B" | "C";
+};
+
+/**
+ * 啟動盤點 session：拍當下 stock_items 做為 qty_system 快照，建 inventory_counts + lines。
+ * status='counting'，等使用者填 qty_first。
+ */
+export async function startCountSessionAction(
+  input: StartCountSessionInput,
+): Promise<ActionResult<{ ct_id: string; ct_no: string; total_lines: number }>> {
+  if (!input.warehouse_id) return { ok: false, error: "倉庫必選" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  // 1. 拍 snapshot：當下倉內 status='available' 的 stock_items
+  const { data: stocks, error: stockErr } = await supabase
+    .from("stock_items")
+    .select("item_id, bin_id, qty, unit_cost")
+    .eq("brand_id", brandId)
+    .eq("warehouse_id", input.warehouse_id)
+    .eq("status", "available")
+    .gt("qty", 0);
+  if (stockErr) return { ok: false, error: `拍庫存快照失敗：${stockErr.message}` };
+
+  // 聚合：同 item + bin 合併 qty
+  const aggregated = new Map<string, { item_id: string; bin_id: string | null; qty: number; unit_cost: number }>();
+  for (const s of stocks ?? []) {
+    const key = `${s.item_id}::${s.bin_id ?? "_"}`;
+    const cur = aggregated.get(key);
+    if (cur) {
+      cur.qty += Number(s.qty);
+    } else {
+      aggregated.set(key, {
+        item_id: s.item_id,
+        bin_id: s.bin_id,
+        qty: Number(s.qty),
+        unit_cost: Number(s.unit_cost ?? 0),
+      });
+    }
+  }
+  const snapshotLines = Array.from(aggregated.values());
+
+  // 2. 產 ct_no = CT{YYYYMMDD}-{NNN}
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+  const { data: lastCt } = await supabase
+    .from("inventory_counts")
+    .select("ct_no")
+    .eq("brand_id", brandId)
+    .like("ct_no", `CT${dateStr}-%`)
+    .order("ct_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let seq = 1;
+  if (lastCt?.ct_no) {
+    const m = lastCt.ct_no.match(/-(\d+)$/);
+    if (m) seq = parseInt(m[1], 10) + 1;
+  }
+  const ct_no = `CT${dateStr}-${String(seq).padStart(3, "0")}`;
+
+  // 3. INSERT inventory_counts
+  const { data: ct, error: ctErr } = await supabase
+    .from("inventory_counts")
+    .insert({
+      brand_id: brandId,
+      ct_no,
+      plan_id: input.plan_id ?? null,
+      warehouse_id: input.warehouse_id,
+      count_date: input.count_date ?? today.toISOString().slice(0, 10),
+      status: "counting",
+      total_lines: snapshotLines.length,
+    })
+    .select("id")
+    .single();
+  if (ctErr) return { ok: false, error: `建盤點 session 失敗：${ctErr.message}` };
+
+  // 4. INSERT count_lines（qty_system 帶入）
+  if (snapshotLines.length > 0) {
+    const rows = snapshotLines.map((l, idx) => ({
+      brand_id: brandId,
+      ct_id: ct.id,
+      line_no: idx + 1,
+      item_id: l.item_id,
+      bin_id: l.bin_id,
+      qty_system: l.qty,
+      unit_cost: l.unit_cost,
+      status: "pending",
+    }));
+    const { error: linesErr } = await supabase.from("inventory_count_lines").insert(rows);
+    if (linesErr) {
+      await supabase.from("inventory_counts").delete().eq("id", ct.id);
+      return { ok: false, error: `建盤點明細失敗：${linesErr.message}` };
+    }
+  }
+
+  revalidatePath("/parts/count/sessions");
+  return { ok: true, data: { ct_id: ct.id, ct_no, total_lines: snapshotLines.length } };
+}
+
+export type SubmitCountSessionInput = {
+  ct_id: string;
+  lines: Array<{
+    line_id: string;
+    qty_final: number;
+  }>;
+  notes?: string;
+};
+
+/**
+ * 提交盤點：把 user 填的實盤數寫進 qty_final，計算 variance + variance_amount。
+ * 先放 status='pending_approval'，等 approveCountAdjustment 完整 post。
+ */
+export async function submitCountSessionAction(
+  input: SubmitCountSessionInput,
+): Promise<ActionResult<{ ct_id: string; variance_lines: number; variance_amount: number }>> {
+  if (!input.ct_id) return { ok: false, error: "缺 ct_id" };
+  if (!input.lines?.length) return { ok: false, error: "至少需要一筆盤點數" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  const { data: ct, error: ctErr } = await supabase
+    .from("inventory_counts")
+    .select("id, ct_no, status")
+    .eq("id", input.ct_id)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (ctErr || !ct) return { ok: false, error: `找不到盤點單：${ctErr?.message ?? "no row"}` };
+  if (!["counting", "first_done", "second_done"].includes(ct.status)) {
+    return { ok: false, error: `狀態 ${ct.status} 不可提交（需 counting/first_done/second_done）` };
+  }
+
+  // 撈所有 lines 取得 qty_system + unit_cost
+  const { data: existingLines, error: existErr } = await supabase
+    .from("inventory_count_lines")
+    .select("id, qty_system, unit_cost")
+    .eq("ct_id", input.ct_id);
+  if (existErr || !existingLines) return { ok: false, error: `撈盤點明細失敗：${existErr?.message ?? ""}` };
+  const lineMap = new Map(existingLines.map((l) => [l.id, l]));
+
+  let totalVarianceAmount = 0;
+  let varianceLines = 0;
+  for (const l of input.lines) {
+    const existing = lineMap.get(l.line_id);
+    if (!existing) continue;
+    const qtySys = Number(existing.qty_system);
+    const cost = Number(existing.unit_cost ?? 0);
+    const variance = l.qty_final - qtySys;
+    const varianceAmount = Math.round(variance * cost * 100) / 100;
+    if (variance !== 0) {
+      varianceLines++;
+      totalVarianceAmount += varianceAmount;
+    }
+    await supabase
+      .from("inventory_count_lines")
+      .update({
+        qty_first_count: l.qty_final,
+        qty_final: l.qty_final,
+        variance,
+        variance_amount: varianceAmount,
+        status: variance === 0 ? "reconciled" : "first_done",
+      })
+      .eq("id", l.line_id);
+  }
+
+  await supabase
+    .from("inventory_counts")
+    .update({
+      status: "pending_approval",
+      variance_lines: varianceLines,
+      variance_amount: Math.round(totalVarianceAmount * 100) / 100,
+      notes: input.notes ?? null,
+    })
+    .eq("id", input.ct_id);
+
+  revalidatePath("/parts/count/sessions");
+  revalidatePath("/parts/count/adjustments");
+  return {
+    ok: true,
+    data: {
+      ct_id: input.ct_id,
+      variance_lines: varianceLines,
+      variance_amount: Math.round(totalVarianceAmount * 100) / 100,
+    },
+  };
+}
+
+/**
+ * 核准盤點：把有 variance 的 line 轉成 inventory_adjustments + 修 stock_items.qty。
+ * inventory_counts.status='completed'。
+ */
+export async function approveCountAdjustmentAction(
+  ctId: string,
+): Promise<ActionResult<{ ct_id: string; adj_no: string | null; adjusted_lines: number }>> {
+  if (!ctId) return { ok: false, error: "缺 ctId" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  const { data: ct, error: ctErr } = await supabase
+    .from("inventory_counts")
+    .select("id, ct_no, status, warehouse_id, variance_lines, variance_amount")
+    .eq("id", ctId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (ctErr || !ct) return { ok: false, error: `找不到盤點單：${ctErr?.message ?? "no row"}` };
+  if (ct.status !== "pending_approval") {
+    return { ok: false, error: `狀態 ${ct.status} 不可核准（需 pending_approval）` };
+  }
+
+  // 撈有 variance 的 lines
+  const { data: varianceLines, error: lineErr } = await supabase
+    .from("inventory_count_lines")
+    .select("id, item_id, bin_id, qty_system, qty_final, variance, variance_amount, unit_cost")
+    .eq("ct_id", ctId)
+    .neq("variance", 0);
+  if (lineErr) return { ok: false, error: `撈差異明細失敗：${lineErr.message}` };
+
+  let adjNo: string | null = null;
+  if (varianceLines && varianceLines.length > 0) {
+    // 產 adj_no
+    const today = new Date();
+    const dateStr =
+      today.getFullYear().toString() +
+      String(today.getMonth() + 1).padStart(2, "0") +
+      String(today.getDate()).padStart(2, "0");
+    const { data: lastAdj } = await supabase
+      .from("inventory_adjustments")
+      .select("adj_no")
+      .eq("brand_id", brandId)
+      .like("adj_no", `ADJ${dateStr}-%`)
+      .order("adj_no", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    let seq = 1;
+    if (lastAdj?.adj_no) {
+      const m = lastAdj.adj_no.match(/-(\d+)$/);
+      if (m) seq = parseInt(m[1], 10) + 1;
+    }
+    adjNo = `ADJ${dateStr}-${String(seq).padStart(3, "0")}`;
+
+    const totalAmount = Number(ct.variance_amount);
+    const type = totalAmount >= 0 ? "gain" : "loss";
+
+    const { error: adjErr } = await supabase
+      .from("inventory_adjustments")
+      .insert({
+        brand_id: brandId,
+        adj_no: adjNo,
+        ct_id: ct.id,
+        warehouse_id: ct.warehouse_id,
+        type,
+        reason: `盤點 ${ct.ct_no} 差異報損報溢`,
+        total_amount: totalAmount,
+        status: "posted",
+        approved_at: new Date().toISOString(),
+        posted_at: new Date().toISOString(),
+      });
+    if (adjErr) return { ok: false, error: `建調整單失敗：${adjErr.message}` };
+
+    // 對每個差異 line 調 stock_items
+    for (const l of varianceLines) {
+      // 找該 item + bin 在該倉的 stock_items（FIFO 取一個 row 增減 qty）
+      let q = supabase
+        .from("stock_items")
+        .select("id, qty")
+        .eq("brand_id", brandId)
+        .eq("warehouse_id", ct.warehouse_id)
+        .eq("item_id", l.item_id)
+        .eq("status", "available");
+      if (l.bin_id) q = q.eq("bin_id", l.bin_id);
+      else q = q.is("bin_id", null);
+      const { data: existing } = await q.order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+      const variance = Number(l.variance);
+      if (existing) {
+        const newQty = Math.max(0, Number(existing.qty) + variance);
+        await supabase
+          .from("stock_items")
+          .update({
+            qty: Math.round(newQty * 100) / 100,
+            last_movement_at: new Date().toISOString(),
+            notes: `盤點調整 ${ct.ct_no} ${variance >= 0 ? "+" : ""}${variance}`,
+          })
+          .eq("id", existing.id);
+      } else if (variance > 0) {
+        // 庫存無此 row 但盤多 → 建新 available 行
+        await supabase.from("stock_items").insert({
+          brand_id: brandId,
+          item_id: l.item_id,
+          warehouse_id: ct.warehouse_id,
+          bin_id: l.bin_id,
+          qty: variance,
+          unit_cost: Number(l.unit_cost ?? 0),
+          status: "available",
+          notes: `盤點報溢新增 ${ct.ct_no}`,
+        });
+      }
+
+      await supabase
+        .from("inventory_count_lines")
+        .update({ status: "adjusted" })
+        .eq("id", l.id);
+    }
+  }
+
+  await supabase
+    .from("inventory_counts")
+    .update({
+      status: "completed",
+      approved_at: new Date().toISOString(),
+    })
+    .eq("id", ctId);
+
+  revalidatePath("/parts/count/sessions");
+  revalidatePath("/parts/count/adjustments");
+  revalidatePath("/parts/operations/balance");
+  return {
+    ok: true,
+    data: {
+      ct_id: ctId,
+      adj_no: adjNo,
+      adjusted_lines: varianceLines?.length ?? 0,
+    },
+  };
+}
+
+// ──────────────────────────────────────────────────────────
+// W5-W6 stub(後續 sprint 實作)
 //
 // 規則:這些 server action 永遠 return ok:false,UI 收到後顯示「下版開放」提示。
 // 新增業務寫入功能時,保留 STUB_REGISTRY 的 key 但把對應 named export 改成真實作。
@@ -1210,11 +1584,7 @@ const STUB_REGISTRY = {
   "receipt.internal-sale": { sprint: "W3", feature: "內售入庫" },
   "receipt.return-in":     { sprint: "W3", feature: "領料退貨入庫" },
 
-  // W4 盤點
-  "count.create-plan":         { sprint: "W4", feature: "建立盤點計畫" },
-  "count.start-session":       { sprint: "W4", feature: "啟動盤點處理" },
-  "count.submit":              { sprint: "W4", feature: "提交盤點結果" },
-  "count.approve-adjustment":  { sprint: "W4", feature: "核準報損報溢" },
+  // W4 盤點（已升級為真實作）
 
   // W5 庫存作業
   "stock.adjust":          { sprint: "W5", feature: "備件庫存調整" },
@@ -1245,8 +1615,4 @@ export async function runStubAction(key: StubActionKey): Promise<ActionResult> {
 
 // ── 命名 stub:供有具體語義場景呼叫,實作時直接替換 body ──
 export async function issueForInternalSale(): Promise<ActionResult> { return runStubAction("issue.internal-sale"); }
-export async function createCountPlan():      Promise<ActionResult> { return runStubAction("count.create-plan"); }
-export async function startCountSession():    Promise<ActionResult> { return runStubAction("count.start-session"); }
-export async function submitCountSession():   Promise<ActionResult> { return runStubAction("count.submit"); }
-export async function approveAdjustment():    Promise<ActionResult> { return runStubAction("count.approve-adjustment"); }
 export async function adjustStock():          Promise<ActionResult> { return runStubAction("stock.adjust"); }
