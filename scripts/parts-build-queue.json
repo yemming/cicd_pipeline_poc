@@ -1,41 +1,53 @@
 {
-  "version": 1,
-  "started_at": "2026-05-08T18:00:00+08:00",
+  "version": 2,
+  "started_at": "2026-05-08T19:30:00+08:00",
   "policy": {
     "on_failure": "skip",
-    "max_pages": 3,
-    "additive_only": true
+    "max_pages": 30,
+    "additive_only": false,
+    "note": "v2 放開 additive_only — Wave D/E 會 CRUD 既有 master data 表的 row（但不改 schema）"
+  },
+  "waves": {
+    "A_fresh_schema": "全新業務領域 → 新表 + RLS（最安全、推薦先跑）",
+    "B_readonly": "純讀現有資料、不寫 → 0 schema 風險",
+    "C_hybrid": "讀現有 + singleton/規則新表",
+    "D_master_crud": "對既有 master data 表做 row CRUD（不改 schema，比照 org 那種模式）",
+    "E_business_flow": "完整業務單據（最複雜，建議只做表頭 list + 詳情，不做整套 wizard）"
   },
   "queue": [
-    {
-      "slug": "control-types",
-      "page_path": "/parts/setup/control-types",
-      "title": "管控類型定義",
-      "stitch_html": "01_基礎設定_管控類型定義",
-      "tag": "1.5",
-      "status": "pending",
-      "schema_hint": "parts_control_types (class_code A/B/C lookup, fresh table)",
-      "smoke_keywords": ["A 類", "B 類", "C 類", "管控類型定義"]
-    },
-    {
-      "slug": "serial",
-      "page_path": "/parts/setup/serial",
-      "title": "序列號追蹤",
-      "stitch_html": "03_基礎設定_序列號追蹤",
-      "tag": "3.5",
-      "status": "pending",
-      "schema_hint": "parts_serial_tracking_rules (per-class rules, fresh table)",
-      "smoke_keywords": ["序列號", "追蹤規則"]
-    },
-    {
-      "slug": "warehouse-arch",
-      "page_path": "/parts/setup/warehouse-arch",
-      "title": "倉儲四層架構",
-      "stitch_html": "02_基礎設定_倉儲四層架構",
-      "tag": "2.1",
-      "status": "pending",
-      "schema_hint": "parts_warehouse_layer_meta (4 rows for layer descriptions, fresh table) + read existing warehouses/zones/bins for summary",
-      "smoke_keywords": ["第一層", "第二層", "第三層", "第四層", "倉儲四層架構"]
-    }
+    { "slug": "alerts/escalation", "page_path": "/parts/alerts/escalation", "title": "告警階層設定", "stitch_html": "10_預警告警_告警階層設定", "wave": "A", "status": "pending", "schema_hint": "alert_escalation_rules + alert_escalation_recipients (per alert_type × tier × recipient × channel)", "smoke_keywords": ["告警階層設定", "缺料告警", "一級告警", "二級告警"] },
+    { "slug": "alerts/work-order-loop", "page_path": "/parts/alerts/work-order-loop", "title": "工單增項閉環", "stitch_html": "10_預警告警_工單增項閉環", "wave": "A", "status": "pending", "schema_hint": "alert_workorder_loop_config singleton-per-brand", "smoke_keywords": ["工單增項閉環"] },
+    { "slug": "warranty/ro-link", "page_path": "/parts/warranty/ro-link", "title": "RO 工單串接", "stitch_html": "11_保固索賠_RO工單串接", "wave": "A", "status": "pending", "schema_hint": "warranty_ro_link_rules", "smoke_keywords": ["RO", "工單串接"] },
+    { "slug": "warranty/used-parts-flow", "page_path": "/parts/warranty/used-parts-flow", "title": "舊件出入庫邏輯", "stitch_html": "11_保固索賠_舊件出入庫邏輯", "wave": "A", "status": "pending", "schema_hint": "warranty_used_parts_flow_steps", "smoke_keywords": ["舊件出入庫"] },
+    { "slug": "warranty/cost-recovery", "page_path": "/parts/warranty/cost-recovery", "title": "費用回收", "stitch_html": "11_保固索賠_費用回收", "wave": "A", "status": "pending", "schema_hint": "warranty_cost_recovery_rules", "smoke_keywords": ["費用回收"] },
+    { "slug": "overview/flow", "page_path": "/parts/overview/flow", "title": "流程關係圖", "stitch_html": "00_模組功能流程關係圖", "wave": "A", "status": "pending", "schema_hint": "純資訊頁，可能不需 schema（或極小 parts_module_flow_meta）", "smoke_keywords": ["流程關係圖"] },
+    { "slug": "purchase/flow", "page_path": "/parts/purchase/flow", "title": "採購流程說明", "stitch_html": "04_採購流程鏈路說明", "wave": "A", "status": "pending", "schema_hint": "純資訊頁", "smoke_keywords": ["採購流程"] },
+    { "slug": "warranty/flow", "page_path": "/parts/warranty/flow", "title": "索賠流程說明", "stitch_html": "11_保固索賠_索賠流程說明", "wave": "A", "status": "pending", "schema_hint": "純資訊頁", "smoke_keywords": ["索賠流程"] },
+
+    { "slug": "operations/balance", "page_path": "/parts/operations/balance", "title": "庫存查詢", "stitch_html": "07_庫存管理_商品庫存查詢_v2", "wave": "B", "status": "pending", "schema_hint": "READ-ONLY: stock_items + items + warehouses join", "smoke_keywords": ["庫存查詢"] },
+    { "slug": "operations/receipts-history", "page_path": "/parts/operations/receipts-history", "title": "入庫查詢", "stitch_html": "07_庫存作業_入庫查詢", "wave": "B", "status": "pending", "schema_hint": "READ-ONLY: stock_receipts + lines", "smoke_keywords": ["入庫查詢"] },
+    { "slug": "analytics/stale", "page_path": "/parts/analytics/stale", "title": "呆滯庫存", "stitch_html": "12_分析報表_呆滯庫存", "wave": "B", "status": "pending", "schema_hint": "READ-ONLY: stock_items.last_movement_at", "smoke_keywords": ["呆滯庫存"] },
+    { "slug": "analytics/turnover", "page_path": "/parts/analytics/turnover", "title": "庫存周轉率", "stitch_html": "12_分析報表_庫存周轉率", "wave": "B", "status": "pending", "schema_hint": "READ-ONLY: 聚合 stock_issues + stock_receipts", "smoke_keywords": ["周轉率"] },
+
+    { "slug": "operations/count-ops", "page_path": "/parts/operations/count-ops", "title": "庫存盤點作業", "stitch_html": "07_庫存作業_庫存盤點作業", "wave": "C", "status": "pending", "schema_hint": "READ inventory_counts/lines（已存在），唯讀 view", "smoke_keywords": ["庫存盤點作業"] },
+    { "slug": "analytics/abc-structure", "page_path": "/parts/analytics/abc-structure", "title": "ABC 結構圖", "stitch_html": "12_分析報表_ABC結構圖", "wave": "C", "status": "pending", "schema_hint": "READ abc_classification_results 視覺化", "smoke_keywords": ["ABC", "結構"] },
+    { "slug": "analytics/abc-settings", "page_path": "/parts/analytics/abc-settings", "title": "ABC 分類設定", "stitch_html": "12_分析報表_ABC分類設定", "wave": "C", "status": "pending", "schema_hint": "abc_classification_config 既有表，singleton update（已 1 row）", "smoke_keywords": ["ABC 分類設定"] },
+    { "slug": "purchase/replenishment", "page_path": "/parts/purchase/replenishment", "title": "日常補貨計畫", "stitch_html": "04_採購管理_日常補貨計畫", "wave": "C", "status": "pending", "schema_hint": "READ stock_thresholds + items；可能新表 replenishment_plans", "smoke_keywords": ["補貨計畫"] },
+    { "slug": "warranty/staging-warehouse", "page_path": "/parts/warranty/staging-warehouse", "title": "暫存倉設定", "stitch_html": "11_保固索賠_暫存倉設定", "wave": "C", "status": "pending", "schema_hint": "READ warehouses where type='warranty'；可能新表 warranty_staging_rules", "smoke_keywords": ["暫存倉設定"] },
+
+    { "slug": "setup/suppliers", "page_path": "/parts/setup/suppliers", "title": "供應商資訊", "stitch_html": "02_基礎設定_供應商資訊", "wave": "D", "status": "pending", "schema_hint": "EXISTING TABLE suppliers (11 rows)；CRUD row（不改 schema）", "smoke_keywords": ["供應商"] },
+    { "slug": "setup/contracts", "page_path": "/parts/setup/contracts", "title": "採購合約", "stitch_html": "02_基礎設定_採購合約", "wave": "D", "status": "pending", "schema_hint": "EXISTING TABLE supplier_contracts (0 rows)；CRUD row", "smoke_keywords": ["採購合約"] },
+    { "slug": "setup/items", "page_path": "/parts/setup/items", "title": "商品基礎資料", "stitch_html": "03_基礎設定_商品基礎資料", "wave": "D", "status": "pending", "schema_hint": "EXISTING TABLE items (60 rows)；CRUD row", "smoke_keywords": ["商品", "基礎資料"] },
+    { "slug": "setup/items-info", "page_path": "/parts/setup/items-info", "title": "商品資訊", "stitch_html": "03_基礎設定_商品資訊", "wave": "D", "status": "pending", "schema_hint": "EXISTING TABLES items + item_skus；唯讀 view 較安全", "smoke_keywords": ["商品資訊"] },
+    { "slug": "setup/compatibility", "page_path": "/parts/setup/compatibility", "title": "適配設定", "stitch_html": "03_基礎設定_適配設定", "wave": "D", "status": "pending", "schema_hint": "EXISTING TABLE item_motorcycle_compatibility (188 rows)；CRUD row", "smoke_keywords": ["適配設定"] },
+    { "slug": "setup/pricing", "page_path": "/parts/setup/pricing", "title": "門市定價", "stitch_html": "03_基礎設定_門市定價", "wave": "D", "status": "pending", "schema_hint": "EXISTING TABLE item_store_prices (48 rows)；CRUD row", "smoke_keywords": ["門市定價"] },
+    { "slug": "setup/warehouse-bins", "page_path": "/parts/setup/warehouse-bins", "title": "倉庫庫區庫位", "stitch_html": "02_基礎設定_倉庫庫區庫位設定", "wave": "D", "status": "pending", "schema_hint": "EXISTING TABLES warehouses/zones/bins/slots；CRUD row（複雜，可能要 mark blocked）", "smoke_keywords": ["倉庫", "庫區", "庫位"] },
+    { "slug": "purchase/requisitions", "page_path": "/parts/purchase/requisitions", "title": "需求處理", "stitch_html": "04_採購管理_需求處理", "wave": "D", "status": "pending", "schema_hint": "EXISTING TABLES purchase_requisitions/lines (0 rows)；list + 詳情，不做完整 wizard", "smoke_keywords": ["需求處理"] },
+
+    { "slug": "purchase/orders", "page_path": "/parts/purchase/orders", "title": "商品採購", "stitch_html": "04_採購管理_商品採購", "wave": "E", "status": "pending", "schema_hint": "EXISTING purchase_orders/lines (0 rows)；list + 詳情", "smoke_keywords": ["商品採購"] },
+    { "slug": "purchase/returns", "page_path": "/parts/purchase/returns", "title": "採購退貨", "stitch_html": "04_採購管理_採購退貨", "wave": "E", "status": "pending", "schema_hint": "EXISTING purchase_returns/lines；list + 詳情", "smoke_keywords": ["採購退貨"] },
+    { "slug": "receipt/po-grn", "page_path": "/parts/receipt/po-grn", "title": "採購入庫", "stitch_html": "05_入庫管理_採購入庫", "wave": "E", "status": "pending", "schema_hint": "EXISTING stock_receipts/lines；list + 詳情", "smoke_keywords": ["採購入庫"] },
+    { "slug": "receipt/internal-sale", "page_path": "/parts/receipt/internal-sale", "title": "內售入庫", "stitch_html": "05_入庫管理_內售入庫", "wave": "E", "status": "pending", "schema_hint": "需要新業務 flow，可能要新表 internal_sale_receipts", "smoke_keywords": ["內售入庫"] },
+    { "slug": "issue/internal-sale", "page_path": "/parts/issue/internal-sale", "title": "內售出庫", "stitch_html": "06_出庫管理_內售出庫", "wave": "E", "status": "pending", "schema_hint": "需要新業務 flow，可能要新表 internal_sale_issues", "smoke_keywords": ["內售出庫"] }
   ]
 }
