@@ -92,7 +92,9 @@ export async function seedNavTreeFromStaticModules(brandId: string): Promise<See
         pageSort = 0; // 每個新 section 內 page 重新排序
       }
 
-      // 插入 page (level=3)，預設 page_kind=react_route（既有 ducati seed 全是現有路由）
+      // comingSoon page 走 placeholder：catch-all /n/{id} 接到 PlaceholderPage，
+      // 避免 react_route 直奔不存在的 href 造成 404。
+      const isComingSoon = page.comingSoon ?? false;
       const { error: pageErr } = await supabase
         .from("nav_nodes")
         .insert({
@@ -102,13 +104,13 @@ export async function seedNavTreeFromStaticModules(brandId: string): Promise<See
           sort_order: pageSort++,
           name: page.name,
           icon: page.icon ?? null,
-          page_kind: "react_route",
-          href: page.href,
+          page_kind: isComingSoon ? "placeholder" : "react_route",
+          href: isComingSoon ? null : page.href,
           stitch_screen_id: page.stitchScreenId ?? null,
           sprint: page.sprint ?? null,
           device: page.device ?? null,
           is_admin_only: page.adminOnly ?? false,
-          coming_soon: page.comingSoon ?? false,
+          coming_soon: isComingSoon,
         });
       if (pageErr) {
         throw new Error(`插入 page ${page.name} 失敗：${pageErr.message}`);
