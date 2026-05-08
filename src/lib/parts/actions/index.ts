@@ -1956,7 +1956,294 @@ export async function registerConsignmentAction(
 }
 
 // ──────────────────────────────────────────────────────────
-// W6 stub(後續 sprint 實作)
+// W6 預警 / 保固 / 分析
+// ──────────────────────────────────────────────────────────
+
+export type UpsertStockThresholdInput = {
+  warehouse_id: string;
+  item_id: string;
+  min_stock: number;
+  reorder_point: number;
+  max_stock?: number;
+  abc_class?: "A" | "B" | "C";
+  alert_priority?: "low" | "medium" | "high" | "critical";
+};
+
+export async function upsertStockThresholdAction(
+  input: UpsertStockThresholdInput,
+): Promise<ActionResult<{ id: string }>> {
+  if (!input.warehouse_id || !input.item_id) return { ok: false, error: "倉庫 / 料件必選" };
+  if (input.min_stock < 0 || input.reorder_point < 0) return { ok: false, error: "min/reorder 不可為負" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  const { data, error } = await supabase
+    .from("stock_thresholds")
+    .upsert(
+      {
+        brand_id: brandId,
+        warehouse_id: input.warehouse_id,
+        item_id: input.item_id,
+        min_stock: input.min_stock,
+        reorder_point: input.reorder_point,
+        max_stock: input.max_stock ?? null,
+        abc_class: input.abc_class ?? null,
+        alert_priority: input.alert_priority ?? "medium",
+        is_active: true,
+      },
+      { onConflict: "warehouse_id,item_id" },
+    )
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: `寫水位失敗：${error.message}` };
+
+  revalidatePath("/parts/alerts/thresholds");
+  return { ok: true, data: { id: data.id } };
+}
+
+export type CreateAlertRuleInput = {
+  code: string;
+  name: string;
+  alert_type:
+    | "stock_level"
+    | "ro_shortage"
+    | "transfer_overdue"
+    | "consignment_expire"
+    | "dead_stock"
+    | "warranty_expire"
+    | "custom";
+  severity?: "low" | "medium" | "high" | "critical";
+  auto_action?: "notify" | "create_requisition" | "create_transfer" | "none";
+  cooldown_minutes?: number;
+  notes?: string;
+};
+
+export async function createAlertRuleAction(
+  input: CreateAlertRuleInput,
+): Promise<ActionResult<{ id: string }>> {
+  if (!input.code?.trim() || !input.name?.trim()) return { ok: false, error: "code / name 必填" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  const { data, error } = await supabase
+    .from("alert_rules")
+    .insert({
+      brand_id: brandId,
+      code: input.code.trim(),
+      name: input.name.trim(),
+      alert_type: input.alert_type,
+      severity: input.severity ?? "medium",
+      auto_action: input.auto_action ?? "notify",
+      cooldown_minutes: input.cooldown_minutes ?? 60,
+      notes: input.notes ?? null,
+      is_enabled: true,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: `建告警規則失敗：${error.message}` };
+
+  revalidatePath("/parts/alerts/rules");
+  return { ok: true, data: { id: data.id } };
+}
+
+export type RegisterOldPartInput = {
+  wc_no: string;
+  ro_id?: string;
+  cl_id?: string;
+  item_id: string;
+  serial_no?: string;
+  vin?: string;
+  warehouse_id?: string;
+  bin_id?: string;
+  expiry_date?: string;
+  disposal_action?:
+    | "return_oem"
+    | "return_agent"
+    | "destroy_onsite"
+    | "recycle"
+    | "retain"
+    | "pending";
+  notes?: string;
+};
+
+export async function registerOldPartAction(
+  input: RegisterOldPartInput,
+): Promise<ActionResult<{ id: string }>> {
+  if (!input.wc_no?.trim()) return { ok: false, error: "wc_no 必填" };
+  if (!input.item_id) return { ok: false, error: "料件必選" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  const { data, error } = await supabase
+    .from("old_parts")
+    .insert({
+      brand_id: brandId,
+      wc_no: input.wc_no.trim(),
+      ro_id: input.ro_id ?? null,
+      cl_id: input.cl_id ?? null,
+      item_id: input.item_id,
+      serial_no: input.serial_no ?? null,
+      vin: input.vin ?? null,
+      warehouse_id: input.warehouse_id ?? null,
+      bin_id: input.bin_id ?? null,
+      expiry_date: input.expiry_date ?? null,
+      disposal_action: input.disposal_action ?? "pending",
+      status: "in_storage",
+      notes: input.notes ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: `登記舊件失敗：${error.message}` };
+
+  revalidatePath("/parts/warranty/used-parts");
+  return { ok: true, data: { id: data.id } };
+}
+
+/**
+ * 重跑 ABC：以最近 12 個月 stock_issues 出貨總額排序料件，
+ * cum_pct ≤ thresholdA → A，≤ thresholdB → B，其他 C。
+ * 寫到 abc_classification_results（每料一行，無 warehouse 維度）。
+ */
+export async function recalcAbcAction(): Promise<
+  ActionResult<{ items_classified: number; a_count: number; b_count: number; c_count: number }>
+> {
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  // 1. 撈 config（取 threshold）
+  const { data: config } = await supabase
+    .from("abc_classification_config")
+    .select("threshold_a_pct, threshold_b_pct, rolling_period_months")
+    .eq("brand_id", brandId)
+    .eq("is_active", true)
+    .maybeSingle();
+  const thresholdA = Number(config?.threshold_a_pct ?? 80);
+  const thresholdB = Number(config?.threshold_b_pct ?? 95);
+  const months = Number(config?.rolling_period_months ?? 12);
+
+  // 2. 撈最近 N 個月 stock_issue_lines + 對應 issue.posted_at
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - months);
+  const { data: issues } = await supabase
+    .from("stock_issues")
+    .select("id, posted_at")
+    .eq("brand_id", brandId)
+    .eq("status", "completed")
+    .gte("posted_at", cutoff.toISOString());
+  const issueIds = (issues ?? []).map((i) => i.id);
+  let lines: Array<{ item_id: string; qty_issued: number; line_amount: number }> = [];
+  if (issueIds.length > 0) {
+    const { data, error } = await supabase
+      .from("stock_issue_lines")
+      .select("item_id, qty_issued, line_amount")
+      .eq("brand_id", brandId)
+      .in("gi_id", issueIds);
+    if (error) return { ok: false, error: `撈出貨明細失敗：${error.message}` };
+    lines = data ?? [];
+  }
+
+  // 3. 聚合 by item
+  const byItem = new Map<string, { qty: number; amount: number }>();
+  for (const l of lines) {
+    const cur = byItem.get(l.item_id) ?? { qty: 0, amount: 0 };
+    cur.qty += Number(l.qty_issued);
+    cur.amount += Number(l.line_amount ?? 0);
+    byItem.set(l.item_id, cur);
+  }
+
+  // 4. 補上「沒出過」的 active items（class='C'）
+  const { data: allItems } = await supabase
+    .from("items")
+    .select("id")
+    .eq("brand_id", brandId)
+    .eq("is_active", true);
+  for (const it of allItems ?? []) {
+    if (!byItem.has(it.id)) byItem.set(it.id, { qty: 0, amount: 0 });
+  }
+
+  // 5. 排序 + 分類
+  const totalAmount = Array.from(byItem.values()).reduce((s, v) => s + v.amount, 0);
+  const ranked = Array.from(byItem.entries())
+    .map(([item_id, v]) => ({ item_id, qty: v.qty, amount: v.amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  let cumAmount = 0;
+  const classified = ranked.map((r, idx) => {
+    cumAmount += r.amount;
+    const cumPct = totalAmount > 0 ? (cumAmount / totalAmount) * 100 : 0;
+    let abc: "A" | "B" | "C" = "C";
+    if (totalAmount === 0) abc = "C";
+    else if (cumPct <= thresholdA) abc = "A";
+    else if (cumPct <= thresholdB) abc = "B";
+    return {
+      item_id: r.item_id,
+      output_qty_12m: r.qty,
+      output_amount_12m: r.amount,
+      rank_in_brand: idx + 1,
+      cum_pct: Math.round(cumPct * 100) / 100,
+      abc_class: abc,
+    };
+  });
+
+  // 6. 撈 prev class 並 upsert（抓 prev 才能寫到 prev_class）
+  const { data: prevResults } = await supabase
+    .from("abc_classification_results")
+    .select("item_id, abc_class")
+    .eq("brand_id", brandId)
+    .is("warehouse_id", null);
+  const prevMap = new Map((prevResults ?? []).map((p) => [p.item_id, p.abc_class]));
+
+  // 7. 清舊 + 寫新（沒有 unique 約束，先 delete 再 insert 比較簡單）
+  await supabase
+    .from("abc_classification_results")
+    .delete()
+    .eq("brand_id", brandId)
+    .is("warehouse_id", null);
+
+  if (classified.length > 0) {
+    const rows = classified.map((c) => ({
+      brand_id: brandId,
+      item_id: c.item_id,
+      warehouse_id: null,
+      abc_class: c.abc_class,
+      output_qty_12m: c.output_qty_12m,
+      output_amount_12m: c.output_amount_12m,
+      rank_in_brand: c.rank_in_brand,
+      cum_pct: c.cum_pct,
+      prev_class: prevMap.get(c.item_id) ?? null,
+      recalc_at: new Date().toISOString(),
+    }));
+    const { error: insErr } = await supabase.from("abc_classification_results").insert(rows);
+    if (insErr) return { ok: false, error: `寫 ABC 結果失敗：${insErr.message}` };
+  }
+
+  // 8. 更新 config.last_recalc_at
+  await supabase
+    .from("abc_classification_config")
+    .update({ last_recalc_at: new Date().toISOString() })
+    .eq("brand_id", brandId);
+
+  const aCount = classified.filter((c) => c.abc_class === "A").length;
+  const bCount = classified.filter((c) => c.abc_class === "B").length;
+  const cCount = classified.filter((c) => c.abc_class === "C").length;
+
+  revalidatePath("/parts/analytics/abc");
+  return {
+    ok: true,
+    data: {
+      items_classified: classified.length,
+      a_count: aCount,
+      b_count: bCount,
+      c_count: cCount,
+    },
+  };
+}
+
+// ──────────────────────────────────────────────────────────
+// 剩餘 stub
 //
 // 規則:這些 server action 永遠 return ok:false,UI 收到後顯示「下版開放」提示。
 // 新增業務寫入功能時,保留 STUB_REGISTRY 的 key 但把對應 named export 改成真實作。
@@ -1974,12 +2261,8 @@ const STUB_REGISTRY = {
 
   // W5 庫存作業（已升級為真實作）
 
-  // W6 預警 / 保固 / 分析
-  "alerts.threshold":      { sprint: "W6", feature: "庫存水位設定" },
-  "alerts.rule":           { sprint: "W6", feature: "新增告警規則" },
-  "warranty.used-part":    { sprint: "W6", feature: "舊件登記入庫" },
+  // W6（threshold/rule/used-part/abc 已升級為真實作）
   "warranty.cost-recovery":{ sprint: "W6", feature: "費用回收申請" },
-  "analytics.abc-recalc":  { sprint: "W6", feature: "重跑 ABC 分類" },
 } as const;
 
 export type StubActionKey = keyof typeof STUB_REGISTRY;
