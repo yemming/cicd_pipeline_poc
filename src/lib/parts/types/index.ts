@@ -60,6 +60,48 @@ export type CustomerContactRole =
   | "other";
 
 // ──────────────────────────────────────────────────────────
+// Service / 維修（Wave 2.0）
+// ──────────────────────────────────────────────────────────
+export type ServiceAppointment = Row<"service_appointments">;
+export type ServiceAppointmentInsert = Insert<"service_appointments">;
+export type ServiceAppointmentUpdate = Update<"service_appointments">;
+export type WorkOrder = Row<"work_orders">;
+export type WorkOrderInsert = Insert<"work_orders">;
+export type WorkOrderUpdate = Update<"work_orders">;
+export type WorkOrderItem = Row<"work_order_items">;
+export type WorkOrderItemInsert = Insert<"work_order_items">;
+export type InspectionRecord = Row<"inspection_records">;
+export type InspectionRecordInsert = Insert<"inspection_records">;
+export type InspectionFinding = Row<"inspection_findings">;
+export type InspectionFindingInsert = Insert<"inspection_findings">;
+
+export type AppointmentStatus =
+  | "booked"
+  | "checked_in"
+  | "in_progress"
+  | "done"
+  | "cancelled"
+  | "no_show";
+export type ServiceType =
+  | "general"
+  | "scheduled_maintenance"
+  | "repair"
+  | "pdi"
+  | "other";
+export type WorkOrderStatus =
+  | "draft"
+  | "dispatched"
+  | "in_progress"
+  | "qc"
+  | "done"
+  | "closed"
+  | "cancelled";
+export type WorkOrderItemKind = "parts" | "labor" | "external" | "discount";
+export type InspectionKind = "PI" | "PDI";
+export type InspectionOverallStatus = "pending" | "pass" | "fail" | "conditional";
+export type FindingStatus = "ok" | "needs_attention" | "critical" | "na";
+
+// ──────────────────────────────────────────────────────────
 // 交易
 // ──────────────────────────────────────────────────────────
 export type PurchaseRequisition = Row<"purchase_requisitions">;

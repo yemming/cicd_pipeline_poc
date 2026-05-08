@@ -24,13 +24,16 @@ import type {
   Department,
   DocumentNumberRule,
   Employee,
+  InspectionRecord,
   Item,
   MotorcycleModel,
   Organization,
+  ServiceAppointment,
   Supplier,
   Warehouse,
   WarehouseBin,
   WarehouseZone,
+  WorkOrder,
 } from "@/lib/parts/types";
 
 // ──────────────────────────────────────────────────────────
@@ -396,6 +399,103 @@ export async function listCustomerContacts(opts?: {
   if (opts?.role) q = q.eq("role", opts.role);
   const { data, error } = await q;
   if (error) throw new Error(`listCustomerContacts: ${error.message}`);
+  return data ?? [];
+}
+
+// ──────────────────────────────────────────────────────────
+// Service / 維修（Wave 2.0）
+// ──────────────────────────────────────────────────────────
+
+export async function listServiceAppointments(opts?: {
+  status?: string;
+  customerId?: string;
+  vehicleId?: string;
+  fromDate?: string;
+  toDate?: string;
+  limit?: number;
+}): Promise<ServiceAppointment[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("service_appointments")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .order("scheduled_at", { ascending: false });
+  if (opts?.status) q = q.eq("status", opts.status);
+  if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
+  if (opts?.vehicleId) q = q.eq("vehicle_id", opts.vehicleId);
+  if (opts?.fromDate) q = q.gte("scheduled_at", opts.fromDate);
+  if (opts?.toDate) q = q.lte("scheduled_at", opts.toDate);
+  q = q.limit(opts?.limit ?? 200);
+  const { data, error } = await q;
+  if (error) throw new Error(`listServiceAppointments: ${error.message}`);
+  return data ?? [];
+}
+
+export async function getServiceAppointmentById(
+  id: string,
+): Promise<ServiceAppointment | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("service_appointments")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getServiceAppointmentById: ${error.message}`);
+  return data;
+}
+
+export async function listWorkOrders(opts?: {
+  status?: string;
+  customerId?: string;
+  vehicleId?: string;
+  limit?: number;
+}): Promise<WorkOrder[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("work_orders")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .order("opened_at", { ascending: false });
+  if (opts?.status) q = q.eq("status", opts.status);
+  if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
+  if (opts?.vehicleId) q = q.eq("vehicle_id", opts.vehicleId);
+  q = q.limit(opts?.limit ?? 200);
+  const { data, error } = await q;
+  if (error) throw new Error(`listWorkOrders: ${error.message}`);
+  return data ?? [];
+}
+
+export async function getWorkOrderById(id: string): Promise<WorkOrder | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("work_orders")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getWorkOrderById: ${error.message}`);
+  return data;
+}
+
+export async function listInspectionRecords(opts?: {
+  vehicleId?: string;
+  workOrderId?: string;
+  kind?: "PI" | "PDI";
+  limit?: number;
+}): Promise<InspectionRecord[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("inspection_records")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .order("inspected_at", { ascending: false });
+  if (opts?.vehicleId) q = q.eq("vehicle_id", opts.vehicleId);
+  if (opts?.workOrderId) q = q.eq("work_order_id", opts.workOrderId);
+  if (opts?.kind) q = q.eq("kind", opts.kind);
+  q = q.limit(opts?.limit ?? 100);
+  const { data, error } = await q;
+  if (error) throw new Error(`listInspectionRecords: ${error.message}`);
   return data ?? [];
 }
 

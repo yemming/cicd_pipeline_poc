@@ -1232,6 +1232,139 @@ export type Database = {
         }
         Relationships: []
       }
+      inspection_findings: {
+        Row: {
+          brand_id: string
+          category: string
+          created_at: string
+          id: string
+          inspection_id: string
+          item_label: string
+          measurement: string | null
+          notes: string | null
+          photo_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          category: string
+          created_at?: string
+          id?: string
+          inspection_id: string
+          item_label: string
+          measurement?: string | null
+          notes?: string | null
+          photo_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          inspection_id?: string
+          item_label?: string
+          measurement?: string | null
+          notes?: string | null
+          photo_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_findings_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_records: {
+        Row: {
+          appointment_id: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          customer_signature_url: string | null
+          id: string
+          inspected_at: string
+          inspector_id: string | null
+          kind: string
+          mileage_at_inspection: number | null
+          notes: string | null
+          overall_status: string
+          updated_at: string
+          vehicle_id: string
+          work_order_id: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          customer_signature_url?: string | null
+          id?: string
+          inspected_at?: string
+          inspector_id?: string | null
+          kind: string
+          mileage_at_inspection?: number | null
+          notes?: string | null
+          overall_status?: string
+          updated_at?: string
+          vehicle_id: string
+          work_order_id?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          customer_signature_url?: string | null
+          id?: string
+          inspected_at?: string
+          inspector_id?: string | null
+          kind?: string
+          mileage_at_inspection?: number | null
+          notes?: string | null
+          overall_status?: string
+          updated_at?: string
+          vehicle_id?: string
+          work_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_records_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "service_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_records_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_records_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "customer_vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_records_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_adjustments: {
         Row: {
           adj_no: string
@@ -3311,6 +3444,101 @@ export type Database = {
           },
         ]
       }
+      service_appointments: {
+        Row: {
+          advisor_id: string | null
+          appt_no: string
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          duration_minutes: number
+          external_id: string | null
+          external_source: string
+          id: string
+          mileage_at_appointment: number | null
+          notes: string | null
+          scheduled_at: string
+          service_type: string
+          status: string
+          synced_at: string | null
+          updated_at: string
+          vehicle_id: string | null
+          work_order_id: string | null
+        }
+        Insert: {
+          advisor_id?: string | null
+          appt_no: string
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          duration_minutes?: number
+          external_id?: string | null
+          external_source?: string
+          id?: string
+          mileage_at_appointment?: number | null
+          notes?: string | null
+          scheduled_at: string
+          service_type?: string
+          status?: string
+          synced_at?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+          work_order_id?: string | null
+        }
+        Update: {
+          advisor_id?: string | null
+          appt_no?: string
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          duration_minutes?: number
+          external_id?: string | null
+          external_source?: string
+          id?: string
+          mileage_at_appointment?: number | null
+          notes?: string | null
+          scheduled_at?: string
+          service_type?: string
+          status?: string
+          synced_at?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+          work_order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_appointments_advisor_id_fkey"
+            columns: ["advisor_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_appointments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_appointments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "customer_vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_appointments_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_issue_lines: {
         Row: {
           batch_no: string | null
@@ -4565,6 +4793,230 @@ export type Database = {
             columns: ["motorcycle_model_id"]
             isOneToOne: false
             referencedRelation: "motorcycle_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_ro_id_fkey"
+            columns: ["ro_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_order_items: {
+        Row: {
+          amount: number
+          brand_id: string
+          created_at: string
+          description: string
+          id: string
+          is_warranty: boolean
+          item_id: string | null
+          kind: string
+          labor_code: string | null
+          labor_minutes: number | null
+          line_no: number
+          notes: string | null
+          qty: number
+          technician_id: string | null
+          unit_price: number
+          updated_at: string
+          work_order_id: string
+        }
+        Insert: {
+          amount?: number
+          brand_id: string
+          created_at?: string
+          description: string
+          id?: string
+          is_warranty?: boolean
+          item_id?: string | null
+          kind: string
+          labor_code?: string | null
+          labor_minutes?: number | null
+          line_no: number
+          notes?: string | null
+          qty?: number
+          technician_id?: string | null
+          unit_price?: number
+          updated_at?: string
+          work_order_id: string
+        }
+        Update: {
+          amount?: number
+          brand_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_warranty?: boolean
+          item_id?: string | null
+          kind?: string
+          labor_code?: string | null
+          labor_minutes?: number | null
+          line_no?: number
+          notes?: string | null
+          qty?: number
+          technician_id?: string | null
+          unit_price?: number
+          updated_at?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_items_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_items_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_orders: {
+        Row: {
+          advisor_id: string | null
+          appointment_id: string | null
+          brand_id: string
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          customer_complaint: string | null
+          customer_id: string
+          diagnosis: string | null
+          discount_amount: number
+          dispatched_at: string | null
+          external_amount: number
+          external_id: string | null
+          external_source: string
+          id: string
+          labor_amount: number
+          lead_technician_id: string | null
+          mileage_in: number | null
+          mileage_out: number | null
+          notes: string | null
+          opened_at: string
+          parts_amount: number
+          qc_at: string | null
+          ro_no: string
+          status: string
+          synced_at: string | null
+          total_amount: number
+          updated_at: string
+          vehicle_id: string
+          work_summary: string | null
+        }
+        Insert: {
+          advisor_id?: string | null
+          appointment_id?: string | null
+          brand_id: string
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_complaint?: string | null
+          customer_id: string
+          diagnosis?: string | null
+          discount_amount?: number
+          dispatched_at?: string | null
+          external_amount?: number
+          external_id?: string | null
+          external_source?: string
+          id?: string
+          labor_amount?: number
+          lead_technician_id?: string | null
+          mileage_in?: number | null
+          mileage_out?: number | null
+          notes?: string | null
+          opened_at?: string
+          parts_amount?: number
+          qc_at?: string | null
+          ro_no: string
+          status?: string
+          synced_at?: string | null
+          total_amount?: number
+          updated_at?: string
+          vehicle_id: string
+          work_summary?: string | null
+        }
+        Update: {
+          advisor_id?: string | null
+          appointment_id?: string | null
+          brand_id?: string
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_complaint?: string | null
+          customer_id?: string
+          diagnosis?: string | null
+          discount_amount?: number
+          dispatched_at?: string | null
+          external_amount?: number
+          external_id?: string | null
+          external_source?: string
+          id?: string
+          labor_amount?: number
+          lead_technician_id?: string | null
+          mileage_in?: number | null
+          mileage_out?: number | null
+          notes?: string | null
+          opened_at?: string
+          parts_amount?: number
+          qc_at?: string | null
+          ro_no?: string
+          status?: string
+          synced_at?: string | null
+          total_amount?: number
+          updated_at?: string
+          vehicle_id?: string
+          work_summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_orders_advisor_id_fkey"
+            columns: ["advisor_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "service_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_lead_technician_id_fkey"
+            columns: ["lead_technician_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "customer_vehicles"
             referencedColumns: ["id"]
           },
         ]
