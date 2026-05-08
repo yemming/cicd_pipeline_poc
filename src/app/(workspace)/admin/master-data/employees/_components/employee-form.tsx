@@ -1,8 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { useActionState } from "react";
 
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
 import { SubmitButton } from "@/components/forms/submit-button";
+import {
+  EMPTY_EMPLOYEE_FORM_STATE,
+  type EmployeeFormState,
+} from "@/lib/master-data/employee-form-types";
 import type { Department, Employee } from "@/lib/parts/types";
 
 const STATUS_OPTIONS = [
@@ -12,6 +19,11 @@ const STATUS_OPTIONS = [
   { value: "retired", label: "退休" },
 ];
 
+type Action = (
+  prev: EmployeeFormState,
+  fd: FormData,
+) => Promise<EmployeeFormState>;
+
 export function EmployeeForm({
   mode,
   action,
@@ -19,16 +31,36 @@ export function EmployeeForm({
   departments,
 }: {
   mode: "create" | "edit";
-  action: (fd: FormData) => Promise<void>;
+  action: Action;
   employee?: Employee | null;
   departments: Department[];
 }) {
+  const [state, formAction] = useActionState<EmployeeFormState, FormData>(
+    action,
+    EMPTY_EMPLOYEE_FORM_STATE,
+  );
+
   const submitIdle = mode === "create" ? "建立員工" : "儲存變更";
   const submitPending = mode === "create" ? "建立中…" : "儲存中…";
+  const fieldErr = state.fieldErrors ?? {};
 
   return (
-    <form action={action} className="space-y-5">
+    <form action={formAction} className="space-y-5">
       {employee && <input type="hidden" name="id" value={employee.id} />}
+
+      {state.error && (
+        <div
+          role="alert"
+          className="rounded-md border border-[#FFBDAD] bg-[#FFEBE6] px-4 py-3 text-[13px] text-[#BF2600]"
+        >
+          <strong className="font-semibold">{state.error}</strong>
+          {state.fieldErrors && Object.keys(state.fieldErrors).length > 0 && (
+            <span className="ml-2 text-[12px] text-[#BF2600]/80">
+              請查看下方紅字欄位
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <FormField
@@ -38,6 +70,7 @@ export function EmployeeForm({
           defaultValue={employee?.emp_code ?? ""}
           placeholder="例：D-EMP-001"
           hint="同 brand 內唯一"
+          error={fieldErr.emp_code}
         />
         <FormField
           name="name"
@@ -45,6 +78,7 @@ export function EmployeeForm({
           required
           defaultValue={employee?.name ?? ""}
           placeholder="例：陳大維"
+          error={fieldErr.name}
         />
         <FormField
           name="email"
@@ -52,6 +86,7 @@ export function EmployeeForm({
           type="email"
           defaultValue={employee?.email ?? ""}
           placeholder="example@brand.tw"
+          error={fieldErr.email}
         />
         <FormField
           name="phone"
@@ -59,6 +94,7 @@ export function EmployeeForm({
           type="tel"
           defaultValue={employee?.phone ?? ""}
           placeholder="0912-345-678"
+          error={fieldErr.phone}
         />
         <SelectField
           name="dept_id"
@@ -69,24 +105,28 @@ export function EmployeeForm({
             label: d.name,
             hint: d.code,
           }))}
+          error={fieldErr.dept_id}
         />
         <FormField
           name="position"
           label="職稱"
           defaultValue={employee?.position ?? ""}
           placeholder="例：資深技師"
+          error={fieldErr.position}
         />
         <FormField
           name="hire_date"
           label="到職日"
           type="date"
           defaultValue={employee?.hire_date ?? ""}
+          error={fieldErr.hire_date}
         />
         <FormField
           name="leave_date"
           label="離職日"
           type="date"
           defaultValue={employee?.leave_date ?? ""}
+          error={fieldErr.leave_date}
         />
         <FormField
           name="pay_rate"
@@ -96,6 +136,7 @@ export function EmployeeForm({
           defaultValue={employee?.pay_rate ?? ""}
           placeholder="0.00"
           hint="非必填；可作工時計算用"
+          error={fieldErr.pay_rate}
         />
         <SelectField
           name="employment_status"
@@ -103,6 +144,7 @@ export function EmployeeForm({
           required
           defaultValue={employee?.employment_status ?? "active"}
           options={STATUS_OPTIONS}
+          error={fieldErr.employment_status}
         />
       </div>
 
