@@ -2,12 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { usePageHeader } from "./page-header-context";
-import { useSidebar } from "./sidebar-context";
 import { useAppearance } from "./appearance-context";
 import { useProfile, getInitials } from "@/lib/use-profile";
-import { useActiveModule } from "@/lib/use-active-module";
 import { getCurrentBrand } from "@/lib/brands/current";
 
 interface TopbarProps {
@@ -15,100 +13,150 @@ interface TopbarProps {
 }
 
 export function Topbar({ onOpenSearch }: TopbarProps) {
-  const { hideSearch } = usePageHeader();
-  const { collapsed, fullHidden } = useSidebar();
-  const router = useRouter();
+  const { hideSearch, breadcrumb } = usePageHeader();
   const profile = useProfile();
-  const activeModule = useActiveModule();
-  const pathname = usePathname();
   const brand = getCurrentBrand();
   const { footerBadgeUrl } = useAppearance();
 
-  // 找到當前頁面的 icon + name
-  const currentPage = activeModule?.pages.find(
-    (p) => p.href === pathname || pathname.startsWith(p.href + "/")
-  );
-  void currentPage;
+  // 內容捲動時把 topbar 變半透明 + 加 backdrop blur，讓底下內容能透出來
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
 
   return (
     <header
-      className={`fixed top-0 right-0 h-16 z-[55] bg-white/80 backdrop-blur-md border-b border-surface-container-high flex items-center px-4 md:px-6 transition-[left] duration-200 ${
-        fullHidden ? "left-0" : (collapsed || !activeModule) ? "left-14" : "lg:left-[304px] left-14"
+      className={`fixed top-0 left-0 right-0 h-[52px] z-[60] flex items-center px-4 md:px-6 border-b border-white/10 transition-[background-color,backdrop-filter] duration-200 ${
+        scrolled ? "backdrop-blur-md shadow-sm" : ""
       }`}
+      style={{
+        // 主色綁定 brand_palette；捲動時用 color-mix 推半透明 + blur 讓底下內容透出
+        backgroundColor: scrolled
+          ? "color-mix(in srgb, var(--color-brand-primary) 78%, transparent)"
+          : "var(--color-brand-primary)",
+      }}
     >
-      {/* Left: 客戶品牌主形象 → 沒上傳就 fallback 到 DealerOS 字標。回 /dashboard。 */}
-      <div className="w-36 md:w-48 shrink-0 flex items-center min-w-0 px-1">
-        <Link href="/dashboard" className="block group leading-tight w-full">
-          {footerBadgeUrl ? (
-            <Image
-              src={footerBadgeUrl}
-              alt={brand.displayName}
-              width={240}
-              height={56}
-              unoptimized
-              className="max-h-12 w-auto max-w-full object-contain group-hover:opacity-80 transition-opacity"
-            />
-          ) : (
-            <div className="text-center">
-              <div className="text-sm font-bold text-[#1A1A2E] tracking-widest font-display group-hover:text-[#1A1A2E]/70 transition-colors">
-                DealerOS
+      {/* Left segment（吃滿剩餘空間）：logo + breadcrumb */}
+      <div className="flex-1 flex items-center min-w-0 gap-2 md:gap-3">
+        {/* Logo：max-h-9 (36px) 對齊 52px topbar */}
+        <div className="w-24 md:w-32 lg:w-40 shrink-0 flex items-center min-w-0 px-1">
+          <Link href="/dashboard" className="block group leading-tight w-full">
+            {footerBadgeUrl ? (
+              <Image
+                src={footerBadgeUrl}
+                alt={brand.displayName}
+                width={240}
+                height={56}
+                unoptimized
+                className="max-h-9 w-auto max-w-full object-contain group-hover:opacity-80 transition-opacity brightness-0 invert"
+              />
+            ) : (
+              <div className="text-center">
+                <div className="text-sm font-bold text-white tracking-widest font-display group-hover:text-white/80 transition-colors">
+                  DealerOS
+                </div>
+                <div className="text-[8px] font-bold tracking-[0.22em] uppercase group-hover:opacity-80 transition-opacity text-white/60">
+                  {brand.shortName}
+                </div>
               </div>
-              <div
-                className="text-[8px] font-bold tracking-[0.22em] uppercase group-hover:opacity-80 transition-opacity"
-                style={{ color: "var(--color-brand-primary)" }}
-              >
-                {brand.shortName}
-              </div>
-            </div>
-          )}
-        </Link>
+            )}
+          </Link>
+        </div>
+
+        {/* Breadcrumb：對齊右側 metadata 字級 text-[10.5px]；最後一項白、前面 70% 透明 */}
+        {breadcrumb && breadcrumb.length > 0 && (
+          <nav className="hidden md:flex items-center gap-1.5 min-w-0 text-[10.5px] leading-tight">
+            {breadcrumb.map((b, i) => {
+              const isLast = i === breadcrumb.length - 1;
+              return (
+                <span key={`${i}-${b.label}`} className="flex items-center gap-1.5 min-w-0">
+                  {i > 0 && (
+                    <span className="text-white/40 select-none shrink-0">›</span>
+                  )}
+                  {b.href && !isLast ? (
+                    <Link
+                      href={b.href}
+                      className="text-white/70 hover:text-white transition-colors truncate"
+                    >
+                      {b.label}
+                    </Link>
+                  ) : (
+                    <span
+                      className={`truncate ${
+                        isLast ? "text-white font-medium" : "text-white/70"
+                      }`}
+                    >
+                      {b.label}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
+          </nav>
+        )}
       </div>
 
-      {/* Center: Search — truly centered */}
+      {/* Center segment：寬度 ≥ 1400px 才出現 Global Search Bar；窄於此右側「品牌/門店」會被擠到折行，所以整段藏起來（右側放大鏡 icon 為唯一入口） */}
       {!hideSearch && (
-        <div className="flex-1 flex justify-center px-4">
-          <div className="relative group w-full max-w-md">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg group-focus-within:text-[var(--color-brand-primary)]">
+        <div className="hidden min-[1400px]:flex shrink-0 justify-center px-3 min-[1400px]:w-[380px] 2xl:w-[460px]">
+          <div className="relative group w-full">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-white/50 text-lg group-focus-within:text-white">
               search
             </span>
             <input
               onClick={onOpenSearch}
               readOnly
-              className="w-full pl-10 pr-16 py-2 bg-surface-container-low border-none rounded-full text-sm focus:ring-1 focus:ring-[color:var(--color-brand-primary)]/40 transition-all placeholder:text-slate-400 cursor-pointer"
+              className="w-full pl-10 pr-3 lg:pr-16 py-2 bg-white/10 border border-white/10 rounded-full text-sm text-white placeholder-white/50 focus:ring-1 focus:ring-white/40 focus:bg-white/15 transition-all cursor-pointer"
               placeholder={brand.searchPlaceholder}
               type="text"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex gap-1">
-              <kbd className="px-1.5 py-0.5 rounded border border-slate-200 text-[10px] text-slate-400 font-sans">⌘</kbd>
-              <kbd className="px-1.5 py-0.5 rounded border border-slate-200 text-[10px] text-slate-400 font-sans">K</kbd>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:flex gap-1">
+              <kbd className="px-1.5 py-0.5 rounded border border-white/20 text-[10px] text-white/60 font-sans">⌘</kbd>
+              <kbd className="px-1.5 py-0.5 rounded border border-white/20 text-[10px] text-white/60 font-sans">K</kbd>
             </div>
           </div>
         </div>
       )}
-      {hideSearch && <div className="flex-1" />}
 
-      {/* Right: Actions */}
-      <div className="shrink-0 flex items-center justify-end gap-1 md:gap-3 pl-2">
-        <button
-          onClick={() =>
-            router.push(
-              `/feedback/tickets/new?url=${encodeURIComponent(window.location.href)}`
-            )
-          }
-          className="p-2 text-violet-600 hover:bg-violet-50 rounded-full transition-all flex items-center gap-1"
-          title="回報問題 / 開許願單"
+      {/* Right segment：metadata + actions（含 search icon，無論寬度都保留，行動裝置時為唯一入口） */}
+      <div className="flex-1 flex items-center justify-end gap-0.5 md:gap-2 pl-1 md:pl-2 min-w-0">
+        {/* 品牌 / 門店 一條橫排，slash 分隔。whitespace-nowrap + shrink-0 避免被中央 search 擠到折行 */}
+        <div className="hidden md:flex items-center leading-tight text-[10.5px] text-white font-medium whitespace-nowrap shrink-0">
+          <span>{brand.displayName}</span>
+          <span className="mx-1.5 text-white/40">/</span>
+          <span>台北直營店</span>
+        </div>
+        {/* 淡白 vertical divider —— 把 metadata 與右側互動 icons 視覺分群 */}
+        <div className="hidden md:block w-px h-7 bg-white/20 mx-1" />
+        {/* Global search：純 icon，點開 CommandPalette */}
+        {!hideSearch && (
+          <button
+            onClick={onOpenSearch}
+            className="p-1.5 md:p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all"
+            title={brand.searchPlaceholder}
+          >
+            <span className="material-symbols-outlined text-[20px] md:text-[22px]">search</span>
+          </button>
+        )}
+        <button className="p-1.5 md:p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all relative">
+          <span className="material-symbols-outlined text-[20px] md:text-[22px]">notifications</span>
+          <span
+            className="absolute top-1.5 right-1.5 md:top-2 md:right-2 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-400 rounded-full border-2"
+            style={{ borderColor: "var(--color-brand-primary)" }}
+          />
+        </button>
+        <button className="p-1.5 md:p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all hidden lg:flex">
+          <span className="material-symbols-outlined text-[20px] md:text-[22px]">help_outline</span>
+        </button>
+        <div
+          className="w-7 h-7 md:w-8 md:h-8 rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/50 transition-all flex items-center justify-center shrink-0"
+          style={{ backgroundColor: "#0F6E56" }}
         >
-          <span className="material-symbols-outlined">feedback</span>
-        </button>
-        <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-all relative">
-          <span className="material-symbols-outlined">notifications</span>
-          <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-        </button>
-        <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-all hidden md:flex">
-          <span className="material-symbols-outlined">help_outline</span>
-        </button>
-        <div className="w-8 h-8 rounded-full bg-[#1A1A2E] overflow-hidden border border-slate-100 cursor-pointer hover:ring-2 hover:ring-[color:var(--color-brand-primary)] transition-all flex items-center justify-center shrink-0">
-          <span className="text-white text-[11px] font-black font-display leading-none">
+          <span className="text-white text-[10px] md:text-[11px] font-black font-display leading-none">
             {getInitials(profile?.name)}
           </span>
         </div>

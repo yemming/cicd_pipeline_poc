@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useSetPageHeader } from "./page-header-context";
 import type { TopbarBreadcrumb } from "./page-header-context";
 
@@ -22,6 +23,18 @@ export function PartsInline({ html, title, breadcrumb, fileName }: PartsInlinePr
   useSetPageHeader({
     breadcrumb: breadcrumb ?? [{ label: title }],
   });
+
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.go = (u: string) => { if (u) window.location.href = u; };
+    const noop = () => {};
+    w.openPanel = noop;
+    w.closePanel = noop;
+    w.toggleNav = noop;
+    w.openPO = noop;
+    w.openItem = noop;
+    w.openOrder = noop;
+  }, []);
 
   if (html === null) {
     return (
@@ -50,16 +63,6 @@ export function PartsInline({ html, title, breadcrumb, fileName }: PartsInlinePr
         <span className="material-symbols-outlined text-sm leading-none">swipe</span>
         <span>桌面原稿 · 左右滑可看完整畫面</span>
       </div>
-      {/* inline 設計稿內 onclick 需要這些 helpers — 不存在會 throw */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            window.go = (u) => { if (u) window.location.href = u; };
-            window.openPanel = window.closePanel = window.toggleNav = () => {};
-            window.openPO = window.openItem = window.openOrder = (id) => {};
-          `,
-        }}
-      />
       <div className="overflow-x-auto">
         <div
           className="min-w-[1100px]"

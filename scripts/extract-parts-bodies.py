@@ -113,7 +113,9 @@ CHROME_SELECTOR_PATTERNS = [
     r"^\.sidebar::",
     r"^\.header\b",
     r"^\.header-",
-    r"^\.main\b",  # design 自帶 sidebar offset,跟 modern shell 衝突
+    # 嚴格只比對 `.main` 本身(不含 .main-flow-row 之類的 design class);
+    # \b 在 n→- 之間算 word boundary,會誤觸,所以改用 negative lookahead。
+    r"^\.main(?![-\w])",  # design 自帶 sidebar offset,跟 modern shell 衝突
     r"^\.nav-section\b",
     r"^\.nav-section-",
     r"^\.nav-item\b",
@@ -276,6 +278,19 @@ def extract_one(src_path: str, dst_dir: str) -> str | None:
             return None
         body = soup.body
         for tag in body.find_all(["header", "aside"]):
+            tag.decompose()
+        # 部分頁面用 <div class="hdr"> / <div class="sidebar"> 取代 <header>/<aside>;
+        # 用 class 再掃一次避免它們殘留(會跟 modern shell 重複出現品牌列、左側 nav)。
+        # 收集再刪,避免 iterator 中途 decompose 造成下次迭代 yield 已 detached 的節點。
+        CHROME_CLASSES = {"hdr", "sidebar", "header", "sb"}
+        to_remove = []
+        for tag in body.find_all(True):
+            if not hasattr(tag, "get"):
+                continue
+            classes = tag.get("class") or []
+            if any(c in CHROME_CLASSES for c in classes):
+                to_remove.append(tag)
+        for tag in to_remove:
             tag.decompose()
         container = body
 
