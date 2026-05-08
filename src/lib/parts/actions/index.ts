@@ -1570,7 +1570,393 @@ export async function approveCountAdjustmentAction(
 }
 
 // ──────────────────────────────────────────────────────────
-// W5-W6 stub(後續 sprint 實作)
+// W5 庫存作業 — 手動調整 / 例外出入庫 / 寄存登記
+// ──────────────────────────────────────────────────────────
+
+export type AdjustStockManualInput = {
+  warehouse_id: string;
+  reason: string;
+  type?: "loss" | "gain" | "manual";
+  lines: Array<{
+    item_id: string;
+    bin_id?: string;
+    qty_diff: number;
+    unit_cost?: number;
+    notes?: string;
+  }>;
+};
+
+/**
+ * 備件手動調整：直接增減 stock_items.qty + 建 inventory_adjustments(type=manual) 紀錄。
+ */
+export async function adjustStockManualAction(
+  input: AdjustStockManualInput,
+): Promise<ActionResult<{ adj_id: string; adj_no: string }>> {
+  if (!input.warehouse_id) return { ok: false, error: "倉庫必選" };
+  if (!input.reason?.trim()) return { ok: false, error: "原因必填" };
+  if (!input.lines?.length) return { ok: false, error: "至少需要一筆調整明細" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  // 產 adj_no
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+  const { data: lastAdj } = await supabase
+    .from("inventory_adjustments")
+    .select("adj_no")
+    .eq("brand_id", brandId)
+    .like("adj_no", `ADJ${dateStr}-%`)
+    .order("adj_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let seq = 1;
+  if (lastAdj?.adj_no) {
+    const m = lastAdj.adj_no.match(/-(\d+)$/);
+    if (m) seq = parseInt(m[1], 10) + 1;
+  }
+  const adj_no = `ADJ${dateStr}-${String(seq).padStart(3, "0")}`;
+
+  // 計 totals
+  const totalAmount = input.lines.reduce(
+    (s, l) => s + l.qty_diff * (l.unit_cost ?? 0),
+    0,
+  );
+  const type =
+    input.type ?? (totalAmount >= 0 ? "gain" : totalAmount < 0 ? "loss" : "manual");
+
+  const { data: adj, error: adjErr } = await supabase
+    .from("inventory_adjustments")
+    .insert({
+      brand_id: brandId,
+      adj_no,
+      warehouse_id: input.warehouse_id,
+      type,
+      reason: input.reason.trim(),
+      total_amount: Math.round(totalAmount * 100) / 100,
+      status: "posted",
+      approved_at: new Date().toISOString(),
+      posted_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+  if (adjErr) return { ok: false, error: `建調整單失敗：${adjErr.message}` };
+
+  // 對每行調 stock_items
+  for (const l of input.lines) {
+    let q = supabase
+      .from("stock_items")
+      .select("id, qty")
+      .eq("brand_id", brandId)
+      .eq("warehouse_id", input.warehouse_id)
+      .eq("item_id", l.item_id)
+      .eq("status", "available");
+    if (l.bin_id) q = q.eq("bin_id", l.bin_id);
+    const { data: existing } = await q.order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+    if (existing) {
+      const newQty = Math.max(0, Number(existing.qty) + l.qty_diff);
+      await supabase
+        .from("stock_items")
+        .update({
+          qty: Math.round(newQty * 100) / 100,
+          last_movement_at: new Date().toISOString(),
+          notes: `${adj_no}：${l.notes ?? input.reason}`,
+        })
+        .eq("id", existing.id);
+    } else if (l.qty_diff > 0) {
+      await supabase.from("stock_items").insert({
+        brand_id: brandId,
+        item_id: l.item_id,
+        warehouse_id: input.warehouse_id,
+        bin_id: l.bin_id,
+        qty: l.qty_diff,
+        unit_cost: l.unit_cost ?? 0,
+        status: "available",
+        notes: `${adj_no}：${l.notes ?? input.reason}`,
+      });
+    }
+  }
+
+  revalidatePath("/parts/operations/adjust");
+  revalidatePath("/parts/operations/balance");
+  revalidatePath("/parts/count/adjustments");
+  return { ok: true, data: { adj_id: adj.id, adj_no } };
+}
+
+export type ExceptionMoveInput = {
+  direction: "in" | "out";
+  warehouse_id: string;
+  reason: string;
+  lines: Array<{
+    item_id: string;
+    bin_id?: string;
+    qty: number;
+    unit_cost?: number;
+  }>;
+};
+
+/**
+ * 例外出入庫：不走 PO/RO，直接增減庫存（建 stock_receipts type=exception 或 stock_issues type=exception）。
+ */
+export async function exceptionMoveAction(
+  input: ExceptionMoveInput,
+): Promise<ActionResult<{ doc_no: string }>> {
+  if (!input.warehouse_id) return { ok: false, error: "倉庫必選" };
+  if (!input.reason?.trim()) return { ok: false, error: "原因必填" };
+  if (!input.lines?.length) return { ok: false, error: "至少需要一筆明細" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+
+  if (input.direction === "in") {
+    // exception in：建 stock_receipts + 新 stock_items 行
+    const { data: lastGr } = await supabase
+      .from("stock_receipts")
+      .select("gr_no").eq("brand_id", brandId)
+      .like("gr_no", `GR${dateStr}-%`).order("gr_no", { ascending: false })
+      .limit(1).maybeSingle();
+    let seq = 1;
+    if (lastGr?.gr_no) {
+      const m = lastGr.gr_no.match(/-(\d+)$/);
+      if (m) seq = parseInt(m[1], 10) + 1;
+    }
+    const gr_no = `GR${dateStr}-${String(seq).padStart(3, "0")}`;
+
+    const totalQty = input.lines.reduce((s, l) => s + l.qty, 0);
+    const totalAmount = input.lines.reduce((s, l) => s + l.qty * (l.unit_cost ?? 0), 0);
+
+    const { error: grErr } = await supabase.from("stock_receipts").insert({
+      brand_id: brandId,
+      gr_no,
+      type: "exception",
+      warehouse_id: input.warehouse_id,
+      receipt_date: today.toISOString().slice(0, 10),
+      qty_received_total: totalQty,
+      amount_total: Math.round(totalAmount * 100) / 100,
+      status: "completed",
+      posted_at: new Date().toISOString(),
+      notes: `例外入庫：${input.reason}`,
+    });
+    if (grErr) return { ok: false, error: `建例外入庫單失敗：${grErr.message}` };
+
+    const newStocks = input.lines.map((l) => ({
+      brand_id: brandId,
+      item_id: l.item_id,
+      warehouse_id: input.warehouse_id,
+      bin_id: l.bin_id,
+      qty: l.qty,
+      unit_cost: l.unit_cost ?? 0,
+      status: "available",
+      notes: `例外入庫 ${gr_no}：${input.reason}`,
+    }));
+    await supabase.from("stock_items").insert(newStocks);
+
+    revalidatePath("/parts/operations/exceptions");
+    revalidatePath("/parts/operations/balance");
+    return { ok: true, data: { doc_no: gr_no } };
+  } else {
+    // exception out：建 stock_issues + 扣 stock_items
+    // 先預檢
+    for (const l of input.lines) {
+      let q = supabase
+        .from("stock_items")
+        .select("id, qty")
+        .eq("brand_id", brandId)
+        .eq("warehouse_id", input.warehouse_id)
+        .eq("item_id", l.item_id)
+        .eq("status", "available");
+      if (l.bin_id) q = q.eq("bin_id", l.bin_id);
+      const { data: rows } = await q;
+      const total = (rows ?? []).reduce((s, r) => s + Number(r.qty), 0);
+      if (total < l.qty) {
+        return { ok: false, error: `料件 ${l.item_id.slice(0, 8)} 庫存不足（有 ${total} 需 ${l.qty}）` };
+      }
+    }
+
+    const { data: lastIss } = await supabase
+      .from("stock_issues")
+      .select("gi_no").eq("brand_id", brandId)
+      .like("gi_no", `ISS${dateStr}-%`).order("gi_no", { ascending: false })
+      .limit(1).maybeSingle();
+    let seq = 1;
+    if (lastIss?.gi_no) {
+      const m = lastIss.gi_no.match(/-(\d+)$/);
+      if (m) seq = parseInt(m[1], 10) + 1;
+    }
+    const gi_no = `ISS${dateStr}-${String(seq).padStart(3, "0")}`;
+
+    const totalQty = input.lines.reduce((s, l) => s + l.qty, 0);
+    const totalAmount = input.lines.reduce((s, l) => s + l.qty * (l.unit_cost ?? 0), 0);
+
+    const { data: issue, error: issueErr } = await supabase
+      .from("stock_issues")
+      .insert({
+        brand_id: brandId,
+        gi_no,
+        type: "exception",
+        warehouse_id: input.warehouse_id,
+        issue_date: today.toISOString().slice(0, 10),
+        status: "completed",
+        qty_issued_total: totalQty,
+        amount_total: Math.round(totalAmount * 100) / 100,
+        notes: `例外出庫：${input.reason}`,
+        posted_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    if (issueErr) return { ok: false, error: `建例外出庫單失敗：${issueErr.message}` };
+
+    // 扣庫存（FIFO）
+    const linesToInsert: Array<Record<string, unknown>> = [];
+    let lineCounter = 1;
+    for (const l of input.lines) {
+      let q = supabase
+        .from("stock_items")
+        .select("id, qty, unit_cost, bin_id, serial_no, batch_no")
+        .eq("brand_id", brandId)
+        .eq("warehouse_id", input.warehouse_id)
+        .eq("item_id", l.item_id)
+        .eq("status", "available")
+        .gt("qty", 0);
+      if (l.bin_id) q = q.eq("bin_id", l.bin_id);
+      const { data: rows } = await q.order("created_at", { ascending: true });
+      let remaining = l.qty;
+      for (const r of rows ?? []) {
+        if (remaining <= 0) break;
+        const take = Math.min(Number(r.qty), remaining);
+        const cost = Number(r.unit_cost ?? 0);
+        linesToInsert.push({
+          brand_id: brandId,
+          gi_id: issue.id,
+          line_no: lineCounter++,
+          item_id: l.item_id,
+          bin_id: r.bin_id,
+          qty_issued: take,
+          uom: "個",
+          unit_cost: cost,
+          unit_price: cost,
+          line_amount: Math.round(take * cost * 100) / 100,
+        });
+        const newQty = Number(r.qty) - take;
+        await supabase
+          .from("stock_items")
+          .update({
+            qty: Math.max(0, Math.round(newQty * 100) / 100),
+            last_movement_at: new Date().toISOString(),
+            ...(newQty <= 0 ? { status: "issued" } : {}),
+          })
+          .eq("id", r.id);
+        remaining -= take;
+      }
+    }
+    if (linesToInsert.length > 0) {
+      await supabase.from("stock_issue_lines").insert(linesToInsert);
+    }
+
+    revalidatePath("/parts/operations/exceptions");
+    revalidatePath("/parts/operations/balance");
+    return { ok: true, data: { doc_no: gi_no } };
+  }
+}
+
+export type RegisterConsignmentInput = {
+  supplier_id: string;
+  item_id: string;
+  warehouse_id: string;
+  bin_id?: string;
+  initial_qty: number;
+  unit_cost?: number;
+  start_date: string;
+  end_date: string;
+  notes?: string;
+};
+
+/**
+ * 寄存登記：建 consignment_stocks 行 + 同步建 stock_items 行 status='consignment'。
+ */
+export async function registerConsignmentAction(
+  input: RegisterConsignmentInput,
+): Promise<ActionResult<{ con_id: string; con_no: string }>> {
+  if (!input.supplier_id) return { ok: false, error: "供應商必選" };
+  if (!input.item_id) return { ok: false, error: "料件必選" };
+  if (!input.warehouse_id) return { ok: false, error: "倉庫必選" };
+  if (!(input.initial_qty > 0)) return { ok: false, error: "數量需 > 0" };
+  if (!input.start_date || !input.end_date) return { ok: false, error: "起迄日必填" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  // 產 con_no
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+  const { data: lastCon } = await supabase
+    .from("consignment_stocks")
+    .select("con_no")
+    .eq("brand_id", brandId)
+    .like("con_no", `CON${dateStr}-%`)
+    .order("con_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let seq = 1;
+  if (lastCon?.con_no) {
+    const m = lastCon.con_no.match(/-(\d+)$/);
+    if (m) seq = parseInt(m[1], 10) + 1;
+  }
+  const con_no = `CON${dateStr}-${String(seq).padStart(3, "0")}`;
+
+  const { data: con, error: conErr } = await supabase
+    .from("consignment_stocks")
+    .insert({
+      brand_id: brandId,
+      con_no,
+      supplier_id: input.supplier_id,
+      item_id: input.item_id,
+      warehouse_id: input.warehouse_id,
+      bin_id: input.bin_id ?? null,
+      initial_qty: input.initial_qty,
+      remaining_qty: input.initial_qty,
+      unit_cost: input.unit_cost ?? null,
+      start_date: input.start_date,
+      end_date: input.end_date,
+      status: "active",
+      notes: input.notes ?? null,
+    })
+    .select("id")
+    .single();
+  if (conErr) return { ok: false, error: `建寄存單失敗：${conErr.message}` };
+
+  // 同步 stock_items 行（status='consignment'）
+  await supabase.from("stock_items").insert({
+    brand_id: brandId,
+    item_id: input.item_id,
+    warehouse_id: input.warehouse_id,
+    bin_id: input.bin_id ?? null,
+    qty: input.initial_qty,
+    unit_cost: input.unit_cost ?? 0,
+    status: "consignment",
+    notes: `寄存 ${con_no}`,
+  });
+
+  revalidatePath("/parts/operations/consignment");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { con_id: con.id, con_no } };
+}
+
+// ──────────────────────────────────────────────────────────
+// W6 stub(後續 sprint 實作)
 //
 // 規則:這些 server action 永遠 return ok:false,UI 收到後顯示「下版開放」提示。
 // 新增業務寫入功能時,保留 STUB_REGISTRY 的 key 但把對應 named export 改成真實作。
@@ -1586,10 +1972,7 @@ const STUB_REGISTRY = {
 
   // W4 盤點（已升級為真實作）
 
-  // W5 庫存作業
-  "stock.adjust":          { sprint: "W5", feature: "備件庫存調整" },
-  "stock.exception-move":  { sprint: "W5", feature: "例外出入庫" },
-  "stock.consignment":     { sprint: "W5", feature: "寄存登記" },
+  // W5 庫存作業（已升級為真實作）
 
   // W6 預警 / 保固 / 分析
   "alerts.threshold":      { sprint: "W6", feature: "庫存水位設定" },
@@ -1615,4 +1998,3 @@ export async function runStubAction(key: StubActionKey): Promise<ActionResult> {
 
 // ── 命名 stub:供有具體語義場景呼叫,實作時直接替換 body ──
 export async function issueForInternalSale(): Promise<ActionResult> { return runStubAction("issue.internal-sale"); }
-export async function adjustStock():          Promise<ActionResult> { return runStubAction("stock.adjust"); }
