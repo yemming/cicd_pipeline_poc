@@ -286,7 +286,7 @@ export async function receiveStock(
     .from("stock_receipts")
     .insert({
       gr_no,
-      type: "po_grn",
+      type: "purchase",
       warehouse_id: po.warehouse_id,
       vendor_id: po.vendor_id,
       receipt_date: input.receipt_date ?? today.toISOString().slice(0, 10),
@@ -295,7 +295,7 @@ export async function receiveStock(
       amount_total: totalAmount,
       source_doc_id: po.id,
       source_doc_type: "purchase_order",
-      status: "posted",
+      status: "completed",
       posted_at: new Date().toISOString(),
     })
     .select("id")
@@ -655,7 +655,411 @@ export async function cancelIssue(
 }
 
 // ──────────────────────────────────────────────────────────
-// W2-W6 stub(後續 sprint 實作)
+// W3 調撥 — A 倉開單出庫 → 在途 → B 倉收貨入庫
+// ──────────────────────────────────────────────────────────
+
+export type CreateTransferInput = {
+  source_warehouse_id: string;
+  target_warehouse_id: string;
+  transfer_type?: string;
+  reason?: string;
+  notes?: string;
+  expected_arrival_date?: string;
+  logistics_provider?: string;
+  logistics_tracking_no?: string;
+  lines: Array<{
+    item_id: string;
+    qty_requested: number;
+    source_bin_id?: string;
+    target_bin_id?: string;
+  }>;
+};
+
+const TRANSFER_TYPES = ["inter_store", "intra_store", "warranty_to_temp", "consignment_to_main"] as const;
+
+/**
+ * 建立並出庫調撥單：source 倉扣 stock_items.qty，建相同數量的 in_transit 行掛 target 倉。
+ * status='in_transit' / shipped_at=now / shipped_by=user。
+ */
+export async function createAndShipTransfer(
+  input: CreateTransferInput,
+): Promise<ActionResult<{ transfer_id: string; tr_no: string }>> {
+  if (!input?.source_warehouse_id) return { ok: false, error: "缺 source_warehouse_id" };
+  if (!input?.target_warehouse_id) return { ok: false, error: "缺 target_warehouse_id" };
+  if (input.source_warehouse_id === input.target_warehouse_id) {
+    return { ok: false, error: "來源倉與目的倉不可相同" };
+  }
+  if (!input.lines?.length) return { ok: false, error: "至少需要一筆調撥明細" };
+  for (const l of input.lines) {
+    if (!l.item_id) return { ok: false, error: "明細缺料件" };
+    if (!(l.qty_requested > 0)) return { ok: false, error: "明細數量需 > 0" };
+  }
+  const transferType = input.transfer_type ?? "inter_store";
+  if (!(TRANSFER_TYPES as readonly string[]).includes(transferType)) {
+    return { ok: false, error: `不支援的 transfer_type: ${transferType}` };
+  }
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  // 1. 預檢配置：對每個 line 撈來源倉庫存（FIFO），算配置
+  type Allocation = {
+    line_no: number;
+    item_id: string;
+    qty_requested: number;
+    target_bin_id: string | null;
+    picks: Array<{ stock_id: string; bin_id: string | null; qty: number; unit_cost: number; serial_no: string | null; batch_no: string | null }>;
+  };
+  const allocations: Allocation[] = [];
+  for (let i = 0; i < input.lines.length; i++) {
+    const line = input.lines[i];
+    const { data: stocks, error: stockErr } = await supabase
+      .from("stock_items")
+      .select("id, qty, bin_id, unit_cost, serial_no, batch_no, created_at")
+      .eq("brand_id", brandId)
+      .eq("warehouse_id", input.source_warehouse_id)
+      .eq("item_id", line.item_id)
+      .eq("status", "available")
+      .gt("qty", 0)
+      .order("created_at", { ascending: true });
+    if (stockErr) return { ok: false, error: `撈來源庫存失敗：${stockErr.message}` };
+
+    let remaining = line.qty_requested;
+    const picks: Allocation["picks"] = [];
+    for (const s of stocks ?? []) {
+      if (remaining <= 0) break;
+      if (line.source_bin_id && s.bin_id !== line.source_bin_id) continue;
+      const take = Math.min(Number(s.qty), remaining);
+      picks.push({
+        stock_id: s.id,
+        bin_id: s.bin_id,
+        qty: take,
+        unit_cost: Number(s.unit_cost ?? 0),
+        serial_no: s.serial_no,
+        batch_no: s.batch_no,
+      });
+      remaining -= take;
+    }
+    if (remaining > 0) {
+      return { ok: false, error: `料件 ${line.item_id.slice(0, 8)} 來源倉庫存不足（缺 ${remaining}）` };
+    }
+    allocations.push({
+      line_no: i + 1,
+      item_id: line.item_id,
+      qty_requested: line.qty_requested,
+      target_bin_id: line.target_bin_id ?? null,
+      picks,
+    });
+  }
+
+  // 2. 產 tr_no=TR{YYYYMMDD}-{NNN}
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+  const { data: lastTr } = await supabase
+    .from("stock_transfers")
+    .select("tr_no")
+    .eq("brand_id", brandId)
+    .like("tr_no", `TR${dateStr}-%`)
+    .order("tr_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let seq = 1;
+  if (lastTr?.tr_no) {
+    const m = lastTr.tr_no.match(/-(\d+)$/);
+    if (m) seq = parseInt(m[1], 10) + 1;
+  }
+  const tr_no = `TR${dateStr}-${String(seq).padStart(3, "0")}`;
+
+  // 3. 計算 totals
+  const qtyTotal = allocations.reduce((s, a) => s + a.qty_requested, 0);
+
+  // 4. Insert stock_transfers 主檔
+  const { data: tr, error: trErr } = await supabase
+    .from("stock_transfers")
+    .insert({
+      brand_id: brandId,
+      tr_no,
+      source_warehouse_id: input.source_warehouse_id,
+      target_warehouse_id: input.target_warehouse_id,
+      transfer_type: transferType,
+      reason: input.reason ?? null,
+      status: "in_transit",
+      ship_date: today.toISOString().slice(0, 10),
+      expected_arrival_date: input.expected_arrival_date ?? null,
+      qty_requested_total: qtyTotal,
+      qty_shipped_total: qtyTotal,
+      qty_received_total: 0,
+      logistics_provider: input.logistics_provider ?? null,
+      logistics_tracking_no: input.logistics_tracking_no ?? null,
+      notes: input.notes ?? null,
+      shipped_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+  if (trErr) return { ok: false, error: `建立調撥單失敗：${trErr.message}` };
+
+  // 5. Insert lines
+  const linesToInsert = allocations.map((a) => {
+    const totalCost = a.picks.reduce((s, p) => s + p.qty * p.unit_cost, 0);
+    const avgCost = a.qty_requested > 0 ? totalCost / a.qty_requested : 0;
+    return {
+      brand_id: brandId,
+      tr_id: tr.id,
+      line_no: a.line_no,
+      item_id: a.item_id,
+      source_bin_id: a.picks[0]?.bin_id ?? null,
+      target_bin_id: a.target_bin_id,
+      qty_requested: a.qty_requested,
+      qty_shipped: a.qty_requested,
+      qty_received: 0,
+      uom: "個",
+      unit_cost: avgCost,
+    };
+  });
+  const { data: trLines, error: linesErr } = await supabase
+    .from("stock_transfer_lines")
+    .insert(linesToInsert)
+    .select("id, item_id, qty_requested, unit_cost, target_bin_id");
+  if (linesErr || !trLines) {
+    await supabase.from("stock_transfers").delete().eq("id", tr.id);
+    return { ok: false, error: `建立調撥明細失敗：${linesErr?.message ?? ""}` };
+  }
+
+  // 6. 扣 source stock_items.qty + 建 in_transit 新行（掛 target_warehouse）
+  const trLineByItem = new Map(trLines.map((l) => [l.item_id, l]));
+  for (const alloc of allocations) {
+    // 扣源
+    for (const pick of alloc.picks) {
+      const { data: cur } = await supabase
+        .from("stock_items")
+        .select("qty")
+        .eq("id", pick.stock_id)
+        .single();
+      const newQty = Number(cur?.qty ?? 0) - pick.qty;
+      const update: Record<string, unknown> = {
+        qty: Math.max(0, Math.round(newQty * 100) / 100),
+        last_movement_at: new Date().toISOString(),
+      };
+      if (newQty <= 0) update.status = "issued";
+      await supabase.from("stock_items").update(update).eq("id", pick.stock_id);
+    }
+    // 建 in_transit（依然依 picks 一行一行建，保持 unit_cost / serial / batch 細粒度）
+    const trLine = trLineByItem.get(alloc.item_id);
+    const inTransitRows = alloc.picks.map((p) => ({
+      brand_id: brandId,
+      item_id: alloc.item_id,
+      warehouse_id: input.target_warehouse_id,
+      bin_id: alloc.target_bin_id,
+      qty: p.qty,
+      status: "in_transit",
+      unit_cost: p.unit_cost,
+      serial_no: p.serial_no,
+      batch_no: p.batch_no,
+      source_transfer_line_id: trLine?.id ?? null,
+      notes: `調撥 ${tr_no} 在途`,
+    }));
+    const { error: itrErr } = await supabase.from("stock_items").insert(inTransitRows);
+    if (itrErr) {
+      return { ok: false, error: `建在途庫存失敗：${itrErr.message}` };
+    }
+  }
+
+  revalidatePath("/parts/issue/transfer-out");
+  revalidatePath("/parts/receipt/transfer-in");
+  revalidatePath("/parts/operations/transfers-in-transit");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { transfer_id: tr.id, tr_no } };
+}
+
+/**
+ * 收貨入庫：把該調撥單對應的 stock_items（status='in_transit', source_transfer_line_id 對應）
+ * 翻成 'available'。同時建 stock_receipts 紀錄；更新 stock_transfers.status='received'。
+ */
+export async function receiveTransferAction(
+  transferId: string,
+): Promise<ActionResult<{ transfer_id: string; gr_no: string }>> {
+  if (!transferId) return { ok: false, error: "缺 transferId" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  // 1. 撈調撥單 + lines
+  const { data: tr, error: trErr } = await supabase
+    .from("stock_transfers")
+    .select("id, tr_no, status, source_warehouse_id, target_warehouse_id, qty_shipped_total")
+    .eq("id", transferId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (trErr || !tr) return { ok: false, error: `找不到調撥單：${trErr?.message ?? "no row"}` };
+  if (tr.status === "received" || tr.status === "closed") {
+    return { ok: false, error: "此調撥單已收貨" };
+  }
+  if (tr.status !== "in_transit") {
+    return { ok: false, error: `狀態 ${tr.status} 不可收貨（需 in_transit）` };
+  }
+
+  const { data: trLines, error: linesErr } = await supabase
+    .from("stock_transfer_lines")
+    .select("id, item_id, qty_shipped, target_bin_id, unit_cost")
+    .eq("tr_id", transferId);
+  if (linesErr || !trLines) return { ok: false, error: `撈調撥明細失敗：${linesErr?.message ?? ""}` };
+
+  // 2. 翻 in_transit → available（依 source_transfer_line_id 過濾）
+  const lineIds = trLines.map((l) => l.id);
+  const { data: inTransitRows } = await supabase
+    .from("stock_items")
+    .select("id, qty")
+    .eq("brand_id", brandId)
+    .in("source_transfer_line_id", lineIds)
+    .eq("status", "in_transit");
+
+  const totalReceived = (inTransitRows ?? []).reduce((s, r) => s + Number(r.qty), 0);
+
+  for (const r of inTransitRows ?? []) {
+    await supabase
+      .from("stock_items")
+      .update({
+        status: "available",
+        last_movement_at: new Date().toISOString(),
+      })
+      .eq("id", r.id);
+  }
+
+  // 3. 產 GR 號 GR{YYYYMMDD}-{NNN}（type='transfer_in'）
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+  const { data: lastGr } = await supabase
+    .from("stock_receipts")
+    .select("gr_no")
+    .eq("brand_id", brandId)
+    .like("gr_no", `GR${dateStr}-%`)
+    .order("gr_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let seq = 1;
+  if (lastGr?.gr_no) {
+    const m = lastGr.gr_no.match(/-(\d+)$/);
+    if (m) seq = parseInt(m[1], 10) + 1;
+  }
+  const gr_no = `GR${dateStr}-${String(seq).padStart(3, "0")}`;
+
+  // 4. 建 stock_receipts (type='transfer_in', source=stock_transfer)
+  const totalAmount = trLines.reduce(
+    (s, l) => s + Number(l.qty_shipped) * Number(l.unit_cost ?? 0),
+    0,
+  );
+  const { error: grErr } = await supabase.from("stock_receipts").insert({
+    brand_id: brandId,
+    gr_no,
+    type: "transfer",
+    warehouse_id: tr.target_warehouse_id,
+    receipt_date: today.toISOString().slice(0, 10),
+    qty_received_total: totalReceived,
+    amount_total: Math.round(totalAmount * 100) / 100,
+    source_doc_id: tr.id,
+    source_doc_type: "stock_transfer",
+    status: "completed",
+    posted_at: new Date().toISOString(),
+    notes: `調撥 ${tr.tr_no} 入庫`,
+  });
+  if (grErr) return { ok: false, error: `建立收貨單失敗：${grErr.message}` };
+
+  // 5. 更新 stock_transfers
+  await supabase
+    .from("stock_transfers")
+    .update({
+      status: "received",
+      qty_received_total: totalReceived,
+      actual_arrival_date: today.toISOString().slice(0, 10),
+      received_at: new Date().toISOString(),
+    })
+    .eq("id", transferId);
+
+  // 6. 更新 lines qty_received
+  for (const l of trLines) {
+    await supabase
+      .from("stock_transfer_lines")
+      .update({ qty_received: l.qty_shipped })
+      .eq("id", l.id);
+  }
+
+  revalidatePath("/parts/issue/transfer-out");
+  revalidatePath("/parts/receipt/transfer-in");
+  revalidatePath("/parts/operations/transfers-in-transit");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { transfer_id: transferId, gr_no } };
+}
+
+/**
+ * 取消調撥單（僅 in_transit 狀態可取消）：把 in_transit 庫存搬回 source 倉設為 available。
+ */
+export async function cancelTransfer(
+  transferId: string,
+): Promise<ActionResult<{ transfer_id: string }>> {
+  if (!transferId) return { ok: false, error: "缺 transferId" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  const { data: tr, error: trErr } = await supabase
+    .from("stock_transfers")
+    .select("id, tr_no, status, source_warehouse_id")
+    .eq("id", transferId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (trErr || !tr) return { ok: false, error: `找不到調撥單：${trErr?.message ?? "no row"}` };
+  if (tr.status === "cancelled") return { ok: false, error: "此調撥單已取消" };
+  if (tr.status === "received" || tr.status === "closed") {
+    return { ok: false, error: "已收貨的調撥單請走報損補單，不可直接取消" };
+  }
+
+  const { data: trLines } = await supabase
+    .from("stock_transfer_lines")
+    .select("id")
+    .eq("tr_id", transferId);
+  const lineIds = (trLines ?? []).map((l) => l.id);
+
+  // 把 in_transit 庫存搬回 source 倉、status='available'
+  if (lineIds.length > 0) {
+    const { data: inTransit } = await supabase
+      .from("stock_items")
+      .select("id")
+      .eq("brand_id", brandId)
+      .in("source_transfer_line_id", lineIds)
+      .eq("status", "in_transit");
+    for (const r of inTransit ?? []) {
+      await supabase
+        .from("stock_items")
+        .update({
+          status: "available",
+          warehouse_id: tr.source_warehouse_id,
+          last_movement_at: new Date().toISOString(),
+          notes: `調撥 ${tr.tr_no} 取消還原`,
+        })
+        .eq("id", r.id);
+    }
+  }
+
+  await supabase
+    .from("stock_transfers")
+    .update({ status: "cancelled" })
+    .eq("id", transferId);
+
+  revalidatePath("/parts/issue/transfer-out");
+  revalidatePath("/parts/receipt/transfer-in");
+  revalidatePath("/parts/operations/transfers-in-transit");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { transfer_id: transferId } };
+}
+
+// ──────────────────────────────────────────────────────────
+// W4-W6 stub(後續 sprint 實作)
 //
 // 規則:這些 server action 永遠 return ok:false,UI 收到後顯示「下版開放」提示。
 // 新增業務寫入功能時,保留 STUB_REGISTRY 的 key 但把對應 named export 改成真實作。
@@ -663,11 +1067,9 @@ export async function cancelIssue(
 
 const STUB_REGISTRY = {
   // W2 出庫（issue.repair / issue.cancel 已升級為真實作）
-  "issue.transfer-out":    { sprint: "W3", feature: "調撥開單(出庫)" },
   "issue.internal-sale":   { sprint: "W2", feature: "內售開單(整合 POS)" },
 
-  // W3 入庫
-  "receipt.transfer-in":   { sprint: "W3", feature: "調撥入庫" },
+  // W3 入庫（transfer-out / transfer-in 已升級為真實作）
   "receipt.internal-sale": { sprint: "W3", feature: "內售入庫" },
   "receipt.return-in":     { sprint: "W3", feature: "領料退貨入庫" },
 
@@ -706,8 +1108,6 @@ export async function runStubAction(key: StubActionKey): Promise<ActionResult> {
 
 // ── 命名 stub:供有具體語義場景呼叫,實作時直接替換 body ──
 export async function issueForInternalSale(): Promise<ActionResult> { return runStubAction("issue.internal-sale"); }
-export async function createTransfer():       Promise<ActionResult> { return runStubAction("issue.transfer-out"); }
-export async function receiveTransfer():      Promise<ActionResult> { return runStubAction("receipt.transfer-in"); }
 export async function createCountPlan():      Promise<ActionResult> { return runStubAction("count.create-plan"); }
 export async function startCountSession():    Promise<ActionResult> { return runStubAction("count.start-session"); }
 export async function submitCountSession():   Promise<ActionResult> { return runStubAction("count.submit"); }
