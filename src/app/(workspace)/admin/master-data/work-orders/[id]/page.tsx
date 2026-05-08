@@ -15,9 +15,34 @@ import { updateWorkOrderAction } from "@/lib/master-data/workorder-actions";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import type { WorkOrderItem } from "@/lib/parts/types";
+import type { Warehouse, WorkOrderItem } from "@/lib/parts/types";
 
+import { IssuePickButton } from "../_components/issue-pick-button";
 import { WorkOrderForm } from "../_components/work-order-form";
+
+async function getWarehouses(): Promise<Warehouse[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("warehouses")
+    .select("*")
+    .eq("brand_id", getBrandKey())
+    .eq("is_active", true)
+    .order("code");
+  if (error) throw new Error(`getWarehouses: ${error.message}`);
+  return data ?? [];
+}
+
+async function getIssuesForRo(roId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("stock_issues")
+    .select("id, gi_no, status, qty_issued_total, amount_total, warehouse_id, issue_date")
+    .eq("brand_id", getBrandKey())
+    .eq("ro_id", roId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`getIssuesForRo: ${error.message}`);
+  return data ?? [];
+}
 
 export const dynamic = "force-dynamic";
 
@@ -60,8 +85,13 @@ export default async function EditWorkOrderPage({
   ]);
   if (!workOrder) notFound();
 
-  const initialItems = await getItems(id);
+  const [initialItems, warehouses, issues] = await Promise.all([
+    getItems(id),
+    getWarehouses(),
+    getIssuesForRo(id),
+  ]);
   const canEdit = await hasPermission(PERMISSIONS.RO_CREATE);
+  const canIssue = await hasPermission(PERMISSIONS.ISSUE_CREATE);
 
   return (
     <main className="px-6 py-6 max-w-[1280px] space-y-5">
@@ -101,6 +131,16 @@ export default async function EditWorkOrderPage({
           <p className="text-[14px] text-[#6B778C]">僅可檢視；沒有編輯權限</p>
         )}
       </section>
+
+      {canIssue && (
+        <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
+          <IssuePickButton
+            workOrderId={workOrder.id}
+            warehouses={warehouses}
+            existingIssues={issues}
+          />
+        </section>
+      )}
     </main>
   );
 }

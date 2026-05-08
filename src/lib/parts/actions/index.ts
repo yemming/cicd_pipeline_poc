@@ -10,6 +10,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import type { ItemInsert } from "../types";
 
@@ -378,25 +379,337 @@ export async function receiveStock(
 }
 
 // ──────────────────────────────────────────────────────────
-// W2-W6 stub(後續 sprint 實作)
+// W2 出庫 — RO 工單一鍵領料
 // ──────────────────────────────────────────────────────────
 
-export async function issueForRepair(): Promise<ActionResult> {
-  return { ok: false, error: "issueForRepair: 待 W2 實作" };
+export type IssueForRepairInput = {
+  work_order_id: string;
+  warehouse_id: string;
+  notes?: string;
+};
+
+/**
+ * RO 工單一鍵領料：把 work_order_items 中 kind='parts' 的料件從庫存扣帳，
+ * 建立 stock_issues 單（type='ro_picking'）+ lines，並把 stock_items qty 扣減。
+ *
+ * 規則：
+ *  - 同 brand_id 過濾（getBrandKey）
+ *  - 庫存依 created_at FIFO 配置
+ *  - 任一料件庫存不足則整批 abort（不部分扣帳）
+ *  - 預檢通過後才寫入；失敗 rollback 主檔
+ *  - 預設一張 RO 一張領料單；重複呼叫不擋（業務上可能補領）
+ */
+export async function issueForRepair(
+  input: IssueForRepairInput,
+): Promise<ActionResult<{ issue_id: string; gi_no: string }>> {
+  if (!input?.work_order_id) return { ok: false, error: "缺 work_order_id" };
+  if (!input?.warehouse_id) return { ok: false, error: "缺 warehouse_id" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  // 1. 撈 work order
+  const { data: wo, error: woErr } = await supabase
+    .from("work_orders")
+    .select("id, ro_no, brand_id, customer_id, status")
+    .eq("id", input.work_order_id)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (woErr || !wo) return { ok: false, error: `找不到工單：${woErr?.message ?? "no row"}` };
+  if (!["draft", "dispatched", "in_progress", "qc"].includes(wo.status)) {
+    return { ok: false, error: `工單狀態 ${wo.status} 不可領料（需 draft/dispatched/in_progress/qc）` };
+  }
+
+  // 2. 撈 work_order_items kind='parts' 且 item_id NOT NULL
+  const { data: woItems, error: woItemsErr } = await supabase
+    .from("work_order_items")
+    .select("id, item_id, qty, description")
+    .eq("work_order_id", wo.id)
+    .eq("kind", "parts")
+    .not("item_id", "is", null);
+  if (woItemsErr) return { ok: false, error: `撈工單明細失敗：${woItemsErr.message}` };
+  if (!woItems || woItems.length === 0) {
+    return { ok: false, error: "此工單沒有料件項目（kind='parts' 且綁定 item_id）" };
+  }
+
+  // 3. 對每個 parts item 撈可用庫存（FIFO），預先計算配置
+  type Allocation = {
+    line_no: number;
+    item_id: string;
+    qty_needed: number;
+    description: string;
+    picks: Array<{ stock_id: string; bin_id: string | null; qty: number; unit_cost: number; serial_no: string | null; batch_no: string | null }>;
+  };
+  const allocations: Allocation[] = [];
+  for (let i = 0; i < woItems.length; i++) {
+    const it = woItems[i];
+    const qtyNeeded = Number(it.qty);
+    if (!Number.isFinite(qtyNeeded) || qtyNeeded <= 0) continue;
+
+    const { data: stocks, error: stockErr } = await supabase
+      .from("stock_items")
+      .select("id, qty, bin_id, unit_cost, serial_no, batch_no, created_at")
+      .eq("brand_id", brandId)
+      .eq("warehouse_id", input.warehouse_id)
+      .eq("item_id", it.item_id!)
+      .eq("status", "available")
+      .gt("qty", 0)
+      .order("created_at", { ascending: true });
+    if (stockErr) return { ok: false, error: `撈庫存失敗：${stockErr.message}` };
+
+    let remaining = qtyNeeded;
+    const picks: Allocation["picks"] = [];
+    for (const s of stocks ?? []) {
+      if (remaining <= 0) break;
+      const take = Math.min(Number(s.qty), remaining);
+      picks.push({
+        stock_id: s.id,
+        bin_id: s.bin_id,
+        qty: take,
+        unit_cost: Number(s.unit_cost ?? 0),
+        serial_no: s.serial_no,
+        batch_no: s.batch_no,
+      });
+      remaining -= take;
+    }
+    if (remaining > 0) {
+      return {
+        ok: false,
+        error: `料件「${it.description}」庫存不足（缺 ${remaining}）`,
+      };
+    }
+    allocations.push({
+      line_no: i + 1,
+      item_id: it.item_id!,
+      qty_needed: qtyNeeded,
+      description: it.description,
+      picks,
+    });
+  }
+
+  if (allocations.length === 0) {
+    return { ok: false, error: "工單沒有需要領料的項目（qty>0 且綁定 item_id）" };
+  }
+
+  // 4. 產 gi_no = ISS{YYYYMMDD}-{NNN}
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+  const { data: lastIss } = await supabase
+    .from("stock_issues")
+    .select("gi_no")
+    .eq("brand_id", brandId)
+    .like("gi_no", `ISS${dateStr}-%`)
+    .order("gi_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let seq = 1;
+  if (lastIss?.gi_no) {
+    const m = lastIss.gi_no.match(/-(\d+)$/);
+    if (m) seq = parseInt(m[1], 10) + 1;
+  }
+  const gi_no = `ISS${dateStr}-${String(seq).padStart(3, "0")}`;
+
+  // 5. 計算 totals
+  const qtyTotal = allocations.reduce((s, a) => s + a.qty_needed, 0);
+  const amountTotal = allocations.reduce((s, a) => {
+    return s + a.picks.reduce((ss, p) => ss + p.qty * p.unit_cost, 0);
+  }, 0);
+
+  // 6. Insert stock_issues 主檔
+  const { data: issue, error: issueErr } = await supabase
+    .from("stock_issues")
+    .insert({
+      brand_id: brandId,
+      gi_no,
+      type: "ro_picking",
+      source_doc_type: "work_order",
+      source_doc_id: wo.id,
+      ro_id: wo.id,
+      customer_id: wo.customer_id,
+      warehouse_id: input.warehouse_id,
+      issue_date: today.toISOString().slice(0, 10),
+      status: "completed",
+      qty_issued_total: qtyTotal,
+      amount_total: Math.round(amountTotal * 100) / 100,
+      notes: input.notes ?? `RO ${wo.ro_no} 一鍵領料`,
+      posted_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+  if (issueErr) return { ok: false, error: `建立領料單失敗：${issueErr.message}` };
+
+  // 7. Insert stock_issue_lines（每個 allocation 對每個 pick 一行）
+  const linesToInsert: Array<Record<string, unknown>> = [];
+  let lineCounter = 1;
+  for (const alloc of allocations) {
+    for (const pick of alloc.picks) {
+      const lineAmount = Math.round(pick.qty * pick.unit_cost * 100) / 100;
+      linesToInsert.push({
+        brand_id: brandId,
+        gi_id: issue.id,
+        line_no: lineCounter++,
+        item_id: alloc.item_id,
+        bin_id: pick.bin_id,
+        qty_issued: pick.qty,
+        uom: "個",
+        unit_cost: pick.unit_cost,
+        unit_price: pick.unit_cost,
+        line_amount: lineAmount,
+        serial_no: pick.serial_no,
+        batch_no: pick.batch_no,
+      });
+    }
+  }
+  const { error: linesErr } = await supabase
+    .from("stock_issue_lines")
+    .insert(linesToInsert);
+  if (linesErr) {
+    await supabase.from("stock_issues").delete().eq("id", issue.id);
+    return { ok: false, error: `建立領料明細失敗：${linesErr.message}` };
+  }
+
+  // 8. 扣 stock_items qty
+  for (const alloc of allocations) {
+    for (const pick of alloc.picks) {
+      const { data: cur } = await supabase
+        .from("stock_items")
+        .select("qty")
+        .eq("id", pick.stock_id)
+        .single();
+      const newQty = Number(cur?.qty ?? 0) - pick.qty;
+      const update: Record<string, unknown> = {
+        qty: Math.max(0, Math.round(newQty * 100) / 100),
+        last_movement_at: new Date().toISOString(),
+      };
+      if (newQty <= 0) update.status = "issued";
+      await supabase.from("stock_items").update(update).eq("id", pick.stock_id);
+    }
+  }
+
+  revalidatePath("/parts/issue/repair-pick");
+  revalidatePath("/parts/operations/balance");
+  revalidatePath(`/admin/master-data/work-orders/${wo.id}`);
+  return { ok: true, data: { issue_id: issue.id, gi_no } };
 }
 
-export async function issueForInternalSale(): Promise<ActionResult> {
-  return { ok: false, error: "issueForInternalSale: 待 W2 實作" };
+/**
+ * 取消領料單：把 stock_issue 標 cancelled，並建新的 available stock_items 行還原庫存。
+ * （source attribution 簡化：不還回原 row，建新 row）
+ */
+export async function cancelIssue(
+  issueId: string,
+): Promise<ActionResult<{ issue_id: string }>> {
+  if (!issueId) return { ok: false, error: "缺 issueId" };
+
+  const supabase = await createClient();
+  const brandId = getBrandKey();
+
+  const { data: issue, error: issueErr } = await supabase
+    .from("stock_issues")
+    .select("id, gi_no, status, warehouse_id, brand_id")
+    .eq("id", issueId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (issueErr || !issue) return { ok: false, error: `找不到領料單：${issueErr?.message ?? "no row"}` };
+  if (issue.status === "cancelled") {
+    return { ok: false, error: "此領料單已取消" };
+  }
+
+  const { data: lines, error: linesErr } = await supabase
+    .from("stock_issue_lines")
+    .select("id, item_id, bin_id, qty_issued, unit_cost, serial_no, batch_no")
+    .eq("gi_id", issueId);
+  if (linesErr) return { ok: false, error: `撈領料明細失敗：${linesErr.message}` };
+
+  // 建新的 available stock_items 還原
+  if (lines && lines.length > 0) {
+    const newStocks = lines.map((l) => ({
+      brand_id: brandId,
+      item_id: l.item_id,
+      warehouse_id: issue.warehouse_id,
+      bin_id: l.bin_id,
+      qty: l.qty_issued,
+      unit_cost: l.unit_cost ?? 0,
+      status: "available",
+      serial_no: l.serial_no,
+      batch_no: l.batch_no,
+      notes: `領料單 ${issue.gi_no} 取消還原`,
+    }));
+    const { error: insertErr } = await supabase
+      .from("stock_items")
+      .insert(newStocks);
+    if (insertErr) return { ok: false, error: `還原庫存失敗：${insertErr.message}` };
+  }
+
+  await supabase
+    .from("stock_issues")
+    .update({ status: "cancelled" })
+    .eq("id", issueId);
+
+  revalidatePath("/parts/issue/repair-pick");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { issue_id: issueId } };
 }
 
-export async function createTransfer(): Promise<ActionResult> {
-  return { ok: false, error: "createTransfer: 待 W3 實作" };
+// ──────────────────────────────────────────────────────────
+// W2-W6 stub(後續 sprint 實作)
+//
+// 規則:這些 server action 永遠 return ok:false,UI 收到後顯示「下版開放」提示。
+// 新增業務寫入功能時,保留 STUB_REGISTRY 的 key 但把對應 named export 改成真實作。
+// ──────────────────────────────────────────────────────────
+
+const STUB_REGISTRY = {
+  // W2 出庫（issue.repair / issue.cancel 已升級為真實作）
+  "issue.transfer-out":    { sprint: "W3", feature: "調撥開單(出庫)" },
+  "issue.internal-sale":   { sprint: "W2", feature: "內售開單(整合 POS)" },
+
+  // W3 入庫
+  "receipt.transfer-in":   { sprint: "W3", feature: "調撥入庫" },
+  "receipt.internal-sale": { sprint: "W3", feature: "內售入庫" },
+  "receipt.return-in":     { sprint: "W3", feature: "領料退貨入庫" },
+
+  // W4 盤點
+  "count.create-plan":         { sprint: "W4", feature: "建立盤點計畫" },
+  "count.start-session":       { sprint: "W4", feature: "啟動盤點處理" },
+  "count.submit":              { sprint: "W4", feature: "提交盤點結果" },
+  "count.approve-adjustment":  { sprint: "W4", feature: "核準報損報溢" },
+
+  // W5 庫存作業
+  "stock.adjust":          { sprint: "W5", feature: "備件庫存調整" },
+  "stock.exception-move":  { sprint: "W5", feature: "例外出入庫" },
+  "stock.consignment":     { sprint: "W5", feature: "寄存登記" },
+
+  // W6 預警 / 保固 / 分析
+  "alerts.threshold":      { sprint: "W6", feature: "庫存水位設定" },
+  "alerts.rule":           { sprint: "W6", feature: "新增告警規則" },
+  "warranty.used-part":    { sprint: "W6", feature: "舊件登記入庫" },
+  "warranty.cost-recovery":{ sprint: "W6", feature: "費用回收申請" },
+  "analytics.abc-recalc":  { sprint: "W6", feature: "重跑 ABC 分類" },
+} as const;
+
+export type StubActionKey = keyof typeof STUB_REGISTRY;
+
+/** 共用 stub:固定 return「下版開放 — XX 將於 WX sprint 開放」。 */
+export async function runStubAction(key: StubActionKey): Promise<ActionResult> {
+  const meta = STUB_REGISTRY[key];
+  if (!meta) return { ok: false, error: `未知 stub action key: ${key}` };
+  // 故意延遲 200ms 讓 UI 的 spinner 看得到
+  await new Promise((r) => setTimeout(r, 200));
+  return {
+    ok: false,
+    error: `下版開放 — ${meta.feature} 將於 ${meta.sprint} sprint 開放編輯`,
+  };
 }
 
-export async function receiveTransfer(): Promise<ActionResult> {
-  return { ok: false, error: "receiveTransfer: 待 W3 實作" };
-}
-
-export async function submitCountSession(): Promise<ActionResult> {
-  return { ok: false, error: "submitCountSession: 待 W3 實作" };
-}
+// ── 命名 stub:供有具體語義場景呼叫,實作時直接替換 body ──
+export async function issueForInternalSale(): Promise<ActionResult> { return runStubAction("issue.internal-sale"); }
+export async function createTransfer():       Promise<ActionResult> { return runStubAction("issue.transfer-out"); }
+export async function receiveTransfer():      Promise<ActionResult> { return runStubAction("receipt.transfer-in"); }
+export async function createCountPlan():      Promise<ActionResult> { return runStubAction("count.create-plan"); }
+export async function startCountSession():    Promise<ActionResult> { return runStubAction("count.start-session"); }
+export async function submitCountSession():   Promise<ActionResult> { return runStubAction("count.submit"); }
+export async function approveAdjustment():    Promise<ActionResult> { return runStubAction("count.approve-adjustment"); }
+export async function adjustStock():          Promise<ActionResult> { return runStubAction("stock.adjust"); }
