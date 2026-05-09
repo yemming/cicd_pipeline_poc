@@ -50,7 +50,7 @@ async function getOrgData(): Promise<{
   const supabase = await createClient();
   const brand = getBrandKey();
 
-  const [regionsRes, storesRes, warehousesRes, binCountsRes] = await Promise.all([
+  const [regionsRes, storesRes, warehousesRes] = await Promise.all([
     supabase
       .from("organizations")
       .select("id, code, name, notes, is_active")
@@ -68,25 +68,29 @@ async function getOrgData(): Promise<{
       .select("id, code, name, type, org_id, address, notes, is_active")
       .eq("brand_id", brand)
       .order("code"),
-    supabase
-      .from("warehouse_bins")
-      .select("warehouse_id")
-      .eq("brand_id", brand),
   ]);
 
   if (regionsRes.error) throw new Error(`regions: ${regionsRes.error.message}`);
   if (storesRes.error) throw new Error(`stores: ${storesRes.error.message}`);
   if (warehousesRes.error) throw new Error(`warehouses: ${warehousesRes.error.message}`);
-  if (binCountsRes.error) throw new Error(`bin_counts: ${binCountsRes.error.message}`);
 
-  const binCountByWarehouse = new Map<string, number>();
-  for (const row of binCountsRes.data ?? []) {
-    const wid = row.warehouse_id as string | null;
-    if (!wid) continue;
-    binCountByWarehouse.set(wid, (binCountByWarehouse.get(wid) ?? 0) + 1);
-  }
+  // 改用 head:true count，避免把整張 warehouse_bins 全撈回 Node。
+  // 每個 warehouse 一個 count query 平行跑；傳輸量從「N 列 bin」降到「N 個數字」。
+  const warehouseRows = warehousesRes.data ?? [];
+  const binCountEntries = await Promise.all(
+    warehouseRows.map(async (w) => {
+      const { count, error } = await supabase
+        .from("warehouse_bins")
+        .select("*", { count: "exact", head: true })
+        .eq("brand_id", brand)
+        .eq("warehouse_id", w.id);
+      if (error) throw new Error(`bin_count[${w.code}]: ${error.message}`);
+      return [w.id, count ?? 0] as const;
+    }),
+  );
+  const binCountByWarehouse = new Map(binCountEntries);
 
-  const warehouses: WarehouseRow[] = (warehousesRes.data ?? []).map((w) => ({
+  const warehouses: WarehouseRow[] = warehouseRows.map((w) => ({
     ...w,
     bin_count: binCountByWarehouse.get(w.id) ?? 0,
   }));
