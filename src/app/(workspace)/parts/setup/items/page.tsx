@@ -10,34 +10,98 @@ import { ItemsBoard, type ItemRow, type SupplierOption } from "./_components/ite
 
 export const dynamic = "force-dynamic";
 
-async function loadData() {
+export type ItemFilters = {
+  category: string;
+  control: string;
+  status: string;
+  q: string;
+};
+
+async function loadData(filters: ItemFilters) {
   const supabase = await createClient();
   const brand = getBrandKey();
-  const [iRes, sRes] = await Promise.all([
-    supabase
-      .from("items")
-      .select(
-        "id, code, name, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, is_active",
-      )
-      .eq("brand_id", brand)
-      .order("code")
-      .limit(200),
+
+  let q = supabase
+    .from("items")
+    .select(
+      "id, code, name, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, image_url, is_active",
+    )
+    .eq("brand_id", brand);
+
+  if (filters.category && filters.category !== "all") q = q.eq("category", filters.category);
+  if (filters.control && filters.control !== "all") q = q.eq("control_type", filters.control);
+  if (filters.status === "active") q = q.eq("is_active", true);
+  if (filters.status === "inactive") q = q.eq("is_active", false);
+  if (filters.q.trim()) {
+    const t = filters.q.trim().replace(/[%,]/g, "");
+    q = q.or(`code.ilike.%${t}%,name.ilike.%${t}%`);
+  }
+
+  const [iRes, sRes, compatRes, totalRes, dictRes] = await Promise.all([
+    q.order("code").limit(500),
     supabase
       .from("suppliers")
       .select("id, code, name")
       .eq("brand_id", brand)
       .eq("is_active", true)
       .order("code"),
+    supabase
+      .from("item_motorcycle_compatibility")
+      .select("item_id")
+      .eq("brand_id", brand),
+    supabase
+      .from("items")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brand),
+    supabase
+      .from("parts_dictionary")
+      .select("kind, code, label, accent_color, sort_order, is_active")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("sort_order"),
   ]);
+
   if (iRes.error) throw new Error(`items: ${iRes.error.message}`);
   if (sRes.error) throw new Error(`suppliers: ${sRes.error.message}`);
+  if (compatRes.error) throw new Error(`compat: ${compatRes.error.message}`);
+  if (dictRes.error) throw new Error(`parts_dictionary: ${dictRes.error.message}`);
+
+  const fitMap = new Map<string, number>();
+  for (const c of compatRes.data ?? []) {
+    fitMap.set(c.item_id as string, (fitMap.get(c.item_id as string) ?? 0) + 1);
+  }
+  const rows: ItemRow[] = ((iRes.data ?? []) as unknown as ItemRow[]).map((r) => ({
+    ...r,
+    fit_count: fitMap.get(r.id) ?? 0,
+  }));
+
+  const dictRows = (dictRes.data ?? []) as unknown as Array<{
+    kind: string;
+    code: string;
+    label: string;
+    accent_color: string | null;
+  }>;
+  const categories = dictRows.filter((d) => d.kind === "category").map((d) => d.code);
+  const uoms = dictRows.filter((d) => d.kind === "uom").map((d) => d.code);
+  const controlLevels = dictRows
+    .filter((d) => d.kind === "control_level")
+    .map((d) => ({ code: d.code, label: d.label, accent: d.accent_color }));
+
   return {
-    rows: (iRes.data ?? []) as unknown as ItemRow[],
+    rows,
     suppliers: (sRes.data ?? []) as unknown as SupplierOption[],
+    totalCount: totalRes.count ?? 0,
+    categories,
+    uoms,
+    controlLevels,
   };
 }
 
-export default async function ItemsPage() {
+export default async function ItemsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
   if (!(await hasPermission(PERMISSIONS.ITEM_VIEW))) {
@@ -48,6 +112,26 @@ export default async function ItemsPage() {
     );
   }
   const canEdit = await hasPermission(PERMISSIONS.ITEM_EDIT);
-  const { rows, suppliers } = await loadData();
-  return <ItemsBoard rows={rows} suppliers={suppliers} canEdit={canEdit} />;
+  const sp = await searchParams;
+  const filters: ItemFilters = {
+    category: sp.category ?? "all",
+    control: sp.control ?? "all",
+    status: sp.status ?? "all",
+    q: sp.q ?? "",
+  };
+  const autoOpenCreate = sp.new === "1";
+  const { rows, suppliers, totalCount, categories, uoms, controlLevels } = await loadData(filters);
+  return (
+    <ItemsBoard
+      rows={rows}
+      suppliers={suppliers}
+      canEdit={canEdit}
+      totalCount={totalCount}
+      categories={categories}
+      uoms={uoms}
+      controlLevels={controlLevels}
+      filters={filters}
+      autoOpenCreate={autoOpenCreate}
+    />
+  );
 }

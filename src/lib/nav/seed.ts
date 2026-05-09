@@ -108,7 +108,6 @@ export async function seedNavTreeFromStaticModules(brandId: string): Promise<See
           href: isComingSoon ? null : page.href,
           stitch_screen_id: page.stitchScreenId ?? null,
           sprint: page.sprint ?? null,
-          device: page.device ?? null,
           is_admin_only: page.adminOnly ?? false,
           coming_soon: isComingSoon,
         });

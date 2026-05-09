@@ -11,12 +11,6 @@ import {
   type BrandPalette,
 } from "@/lib/brands/brand-palettes";
 import {
-  SHELL_LAYOUTS,
-  isSidebarThemeCompatibleWithShell,
-  type ShellLayout,
-  type ShellLayoutKey,
-} from "@/lib/brands/shell-layouts";
-import {
   removeBrandBadge,
   updateBrandAppearance,
   uploadBrandBadge,
@@ -32,7 +26,6 @@ export type AppearanceProps = {
     sidebar_theme: string;
     brand_palette: string;
     custom_palette: { primary?: string; accent?: string } | null;
-    shell_layout: ShellLayoutKey;
   };
 };
 
@@ -45,7 +38,6 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
   const [tagline, setTagline] = useState(initial.dashboard_tagline);
   const [themeKey, setThemeKey] = useState(initial.sidebar_theme);
   const [paletteKey, setPaletteKey] = useState(initial.brand_palette);
-  const [shellLayoutKey, setShellLayoutKey] = useState<ShellLayoutKey>(initial.shell_layout);
   const [customPrimary, setCustomPrimary] = useState(
     initial.custom_palette?.primary ?? "#CC0000",
   );
@@ -54,7 +46,6 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
   );
   const [badgeUrl, setBadgeUrl] = useState(initial.footer_badge_url);
 
-  const currentShell = SHELL_LAYOUTS.find((s) => s.key === shellLayoutKey) ?? SHELL_LAYOUTS[0];
   // 選好原檔後丟給 cropper modal；modal confirm 後才真上傳
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
@@ -70,7 +61,6 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
     tagline !== initial.dashboard_tagline ||
     themeKey !== initial.sidebar_theme ||
     paletteKey !== initial.brand_palette ||
-    shellLayoutKey !== initial.shell_layout ||
     customDirty;
 
   const customValid =
@@ -85,23 +75,13 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
     fd.set("dashboard_tagline", tagline);
     fd.set("sidebar_theme", themeKey);
     fd.set("brand_palette", paletteKey);
-    fd.set("shell_layout", shellLayoutKey);
     if (paletteKey === "custom") {
       fd.set("custom_primary", customPrimary);
       fd.set("custom_accent", customAccent);
     }
     startSave(async () => {
       try {
-        const result = await updateBrandAppearance(fd);
-        if (result.autoSwitchedSidebarTheme) {
-          // 軟白名單自動降級 — 同步本地 state 並提示使用者
-          setThemeKey(result.autoSwitchedSidebarTheme);
-          alert(
-            `「${currentShell.name}」版型不適合目前的 sidebar 主題，已自動切到「${
-              SIDEBAR_THEMES.find((t) => t.key === result.autoSwitchedSidebarTheme)?.name ?? result.autoSwitchedSidebarTheme
-            }」`,
-          );
-        }
+        await updateBrandAppearance(fd);
         router.refresh();
       } catch (err) {
         alert(err instanceof Error ? err.message : String(err));
@@ -189,42 +169,18 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
 
           <div>
             <span className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-              版型樣式（{SHELL_LAYOUTS.length} 套）
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              {SHELL_LAYOUTS.map((s) => (
-                <ShellSwatch
-                  key={s.key}
-                  layout={s}
-                  selected={shellLayoutKey === s.key}
-                  onSelect={() => setShellLayoutKey(s.key)}
-                  disabled={busy}
-                />
-              ))}
-            </div>
-            <p className="text-[10px] text-on-surface-variant mt-1.5 leading-relaxed">
-              切換後整個 brand 的所有頁面殼會跟著換。深色 sidebar 主題在「單欄現代」可能對比不佳，儲存時會自動降級到相容的淺色主題。
-            </p>
-          </div>
-
-          <div>
-            <span className="block text-xs font-semibold text-on-surface-variant mb-1.5">
               Sidebar 佈景主題（{SIDEBAR_THEMES.length} 套）
             </span>
             <div className="grid grid-cols-3 gap-2">
-              {SIDEBAR_THEMES.map((t) => {
-                const compatible = isSidebarThemeCompatibleWithShell(t.key, currentShell);
-                return (
-                  <ThemeSwatch
-                    key={t.key}
-                    theme={t}
-                    selected={themeKey === t.key}
-                    onSelect={() => setThemeKey(t.key)}
-                    disabled={busy}
-                    incompatible={!compatible}
-                  />
-                );
-              })}
+              {SIDEBAR_THEMES.map((t) => (
+                <ThemeSwatch
+                  key={t.key}
+                  theme={t}
+                  selected={themeKey === t.key}
+                  onSelect={() => setThemeKey(t.key)}
+                  disabled={busy}
+                />
+              ))}
             </div>
           </div>
 
@@ -361,29 +317,23 @@ function ThemeSwatch({
   selected,
   onSelect,
   disabled,
-  incompatible,
 }: {
   theme: SidebarTheme;
   selected: boolean;
   onSelect: () => void;
   disabled: boolean;
-  incompatible?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
       disabled={disabled}
-      title={
-        incompatible
-          ? `${theme.description}\n⚠️ 此主題在當前版型可能對比不佳`
-          : theme.description
-      }
+      title={theme.description}
       className={`group relative rounded-lg overflow-hidden border-2 transition-all text-left disabled:opacity-60 ${
         selected
           ? "border-[color:var(--color-brand-primary)] ring-2 ring-[color:var(--color-brand-primary)]/30"
           : "border-transparent hover:border-outline-variant"
-      } ${incompatible ? "opacity-55" : ""}`}
+      }`}
     >
       <div className="flex h-12 w-full">
         <div className="w-[28%]" style={{ backgroundColor: theme.rail }} />
@@ -392,85 +342,8 @@ function ThemeSwatch({
           <div className="h-1 w-1/2 rounded-full" style={{ backgroundColor: theme.textMuted }} />
         </div>
       </div>
-      <div className="px-2 py-1.5 bg-white flex items-center gap-1">
-        <div className="text-[11px] font-bold truncate flex-1">{theme.name}</div>
-        {incompatible && (
-          <span className="material-symbols-outlined text-amber-600 text-[12px] shrink-0">
-            warning
-          </span>
-        )}
-      </div>
-      {selected && <SelectedDot />}
-    </button>
-  );
-}
-
-// ──────────────────────────────────────────────────────────
-// Shell layout swatch — 雙 layout 預覽卡（純 CSS mock，無截圖）
-// ──────────────────────────────────────────────────────────
-function ShellSwatch({
-  layout,
-  selected,
-  onSelect,
-  disabled,
-}: {
-  layout: ShellLayout;
-  selected: boolean;
-  onSelect: () => void;
-  disabled: boolean;
-}) {
-  const isModern = layout.key === "modern-single-sidebar";
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={disabled}
-      title={layout.description}
-      className={`group relative rounded-lg overflow-hidden border-2 transition-all text-left disabled:opacity-60 ${
-        selected
-          ? "border-[color:var(--color-brand-primary)] ring-2 ring-[color:var(--color-brand-primary)]/30"
-          : "border-transparent hover:border-outline-variant"
-      }`}
-    >
-      <div className="relative w-full h-16 bg-[#F8F7F4] overflow-hidden">
-        {isModern ? (
-          <>
-            {/* navy topbar */}
-            <div className="absolute top-0 left-0 right-0 h-3" style={{ backgroundColor: "#1A3A5C" }} />
-            {/* white sidebar */}
-            <div className="absolute left-0 top-3 bottom-0 w-1/3 bg-white border-r border-[#EEECE6] flex flex-col items-stretch justify-start pt-1.5 px-1 gap-1">
-              <div className="h-1 w-3/4 bg-[#5A5955] opacity-50 rounded" />
-              <div className="h-1 w-2/3 bg-[#5A5955] opacity-30 rounded" />
-              <div className="h-1 w-3/4 bg-[#0F6E56] opacity-60 rounded" />
-            </div>
-            {/* main */}
-            <div className="absolute left-1/3 top-3 right-0 bottom-0 px-1.5 pt-1.5 flex flex-col gap-1">
-              <div className="h-1 w-1/2 bg-[#9A9890] rounded" />
-              <div className="h-1.5 w-full bg-white border border-[#EEECE6] rounded" />
-            </div>
-          </>
-        ) : (
-          <>
-            {/* white topbar */}
-            <div className="absolute top-0 left-0 right-0 h-3 bg-white border-b border-[#EEECE6]" />
-            {/* dark module rail */}
-            <div className="absolute left-0 top-3 bottom-0 w-2 bg-[#0F0F1F]" />
-            {/* pages panel */}
-            <div className="absolute left-2 top-3 bottom-0 w-[28%] bg-[#1A1A2E] flex flex-col items-stretch justify-start pt-1 px-1 gap-1">
-              <div className="h-1 w-3/4 bg-white opacity-60 rounded" />
-              <div className="h-1 w-2/3 bg-white opacity-30 rounded" />
-            </div>
-            {/* main */}
-            <div className="absolute left-[calc(28%+0.5rem)] top-3 right-0 bottom-0 px-1.5 pt-1.5 flex flex-col gap-1">
-              <div className="h-1 w-1/2 bg-[#9A9890] rounded" />
-              <div className="h-1.5 w-full bg-white border border-[#EEECE6] rounded" />
-            </div>
-          </>
-        )}
-      </div>
       <div className="px-2 py-1.5 bg-white">
-        <div className="text-[11px] font-bold truncate">{layout.name}</div>
-        <div className="text-[10px] text-on-surface-variant truncate">{layout.description.split(" — ")[0]}</div>
+        <div className="text-[11px] font-bold truncate">{theme.name}</div>
       </div>
       {selected && <SelectedDot />}
     </button>

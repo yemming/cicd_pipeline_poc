@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "./page-header-context";
 import type { TopbarBreadcrumb } from "./page-header-context";
 
@@ -29,9 +31,39 @@ interface StitchInlineProps {
  *   3) Or replace this page.tsx with a hand-written Faithful Clone (see /sales/showroom)
  */
 export function StitchInline({ html, title, breadcrumb, sprint, device, screenId }: StitchInlineProps) {
+  const router = useRouter();
   useSetPageHeader({
     breadcrumb: breadcrumb ?? [{ label: title }],
   });
+
+  // Stitch HTML 大量使用 onclick="go('/some/path')"（Stitch 原稿自帶的 inline navigation helper）。
+  // 這裡把它接上 Next 的 router，所有 stitch 頁面的 click-to-navigate 自動可用。
+  // 同時攔 a[href^="/"] 的點擊，避免一切外部 navigation 退化成 full page reload。
+  useEffect(() => {
+    type WindowWithGo = Window & { go?: (path: string) => void };
+    const w = window as WindowWithGo;
+    const prevGo = w.go;
+    w.go = (path: string) => {
+      if (typeof path === "string" && path.length > 0) router.push(path);
+    };
+
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const a = target.closest("a") as HTMLAnchorElement | null;
+      if (!a) return;
+      const href = a.getAttribute("href");
+      if (!href || !href.startsWith("/") || a.target === "_blank") return;
+      e.preventDefault();
+      router.push(href);
+    };
+    document.addEventListener("click", onClick);
+
+    return () => {
+      w.go = prevGo;
+      document.removeEventListener("click", onClick);
+    };
+  }, [router]);
 
   if (html === null) {
     return <MissingStitch title={title} sprint={sprint} device={device} screenId={screenId} />;

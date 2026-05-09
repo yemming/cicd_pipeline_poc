@@ -25,7 +25,6 @@ type NavNode = {
   html_storage_path: string | null;
   stitch_screen_id: string | null;
   sprint: string | null;
-  device: "desktop" | "tablet" | "ipad" | "mobile" | null;
   is_active: boolean;
 };
 

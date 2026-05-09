@@ -1,66 +1,61 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import type { CustomerFormState } from "./customer-form-types";
 
-const CUSTOMER_TYPES = ["individual", "corporate"] as const;
-type CustomerType = (typeof CUSTOMER_TYPES)[number];
+export type ActionResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
 
-function pickType(raw: FormDataEntryValue | null): CustomerType {
-  const v = String(raw ?? "individual");
-  return (CUSTOMER_TYPES as readonly string[]).includes(v)
-    ? (v as CustomerType)
-    : "individual";
+export type CustomerInput = {
+  code?: string;                          // 留空 → 自動產生 C00001 / C00002...
+  name: string;
+  type: "individual" | "corporate";
+  tax_id?: string | null;
+  national_id?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  birthday?: string | null;
+  source_module?: string | null;
+  gl_receivable_account_id?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+};
+
+function trim(v: string | null | undefined): string | null {
+  if (v == null) return null;
+  const t = v.trim();
+  return t === "" ? null : t;
 }
 
-function strOrNull(raw: FormDataEntryValue | null): string | null {
-  const v = String(raw ?? "").trim();
-  return v.length === 0 ? null : v;
-}
-
-function dateOrNull(raw: FormDataEntryValue | null): string | null {
-  const v = String(raw ?? "").trim();
-  return v.length === 0 ? null : v;
-}
-
-function mapDbError(error: { code?: string; message: string }): CustomerFormState {
-  if (error.code === "23505" && error.message.includes("customers_brand_id_code_key")) {
-    return {
-      error: "客戶代碼重複",
-      fieldErrors: { code: "此客戶代碼已存在，請改一個或留空自動產生" },
-    };
+function mapDbError(error: { code?: string; message: string }): string {
+  if (error.code === "23505") {
+    if (error.message.includes("customers_brand_id_code_key")) return "客戶代碼已存在";
+    if (error.message.includes("customers_national_id_uniq")) return "身分證號已存在";
+    return "資料重複（unique constraint）";
   }
   if (error.code === "23503" && error.message.includes("gl_receivable_account_id")) {
-    return {
-      error: "應收帳款科目不存在",
-      fieldErrors: { gl_receivable_account_id: "請重新選擇科目" },
-    };
+    return "應收帳款科目不存在";
   }
-  return { error: `儲存失敗：${error.message}` };
+  return `儲存失敗：${error.message}`;
 }
 
-/**
- * 自動產生 code — 抓同 brand 內最大的 C\d+ 流水號 + 1，padded 到 5 位。
- * 若沒有任何匹配的舊資料，從 C00001 開始。
- */
 async function genCustomerCode(): Promise<string> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("customers")
     .select("code")
     .eq("brand_id", getBrandKey())
     .ilike("code", "C%")
     .order("code", { ascending: false })
     .limit(50);
-  if (error || !data) return `C${"00001"}`;
   let max = 0;
-  for (const row of data) {
+  for (const row of data ?? []) {
     const m = /^C(\d+)$/.exec(row.code);
     if (m) {
       const n = parseInt(m[1], 10);
@@ -70,82 +65,116 @@ async function genCustomerCode(): Promise<string> {
   return `C${String(max + 1).padStart(5, "0")}`;
 }
 
-function pickPayload(fd: FormData) {
+function payloadFromInput(input: CustomerInput) {
   return {
-    name: String(fd.get("name") ?? "").trim(),
-    type: pickType(fd.get("type")),
-    tax_id: strOrNull(fd.get("tax_id")),
-    phone: strOrNull(fd.get("phone")),
-    email: strOrNull(fd.get("email")),
-    address: strOrNull(fd.get("address")),
-    birthday: dateOrNull(fd.get("birthday")),
-    source_module: strOrNull(fd.get("source_module")),
-    gl_receivable_account_id: strOrNull(fd.get("gl_receivable_account_id")),
-    notes: strOrNull(fd.get("notes")),
+    name: input.name.trim(),
+    type: input.type,
+    tax_id: trim(input.tax_id ?? null),
+    national_id: trim(input.national_id ?? null),
+    phone: trim(input.phone ?? null),
+    email: trim(input.email ?? null),
+    address: trim(input.address ?? null),
+    birthday: trim(input.birthday ?? null),
+    source_module: trim(input.source_module ?? null),
+    gl_receivable_account_id: trim(input.gl_receivable_account_id ?? null),
+    notes: trim(input.notes ?? null),
   };
 }
 
 export async function createCustomerAction(
-  _prevState: CustomerFormState,
-  fd: FormData,
-): Promise<CustomerFormState> {
+  input: CustomerInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const ctx = await getCurrentUserContext();
-  if (!ctx.userId) redirect("/login");
+  if (!ctx.userId) return { ok: false, error: "未登入" };
 
-  const payload = pickPayload(fd);
-  const codeRaw = String(fd.get("code") ?? "").trim();
-  const fieldErrors: CustomerFormState["fieldErrors"] = {};
-  if (!payload.name) fieldErrors.name = "必填";
-  if (Object.keys(fieldErrors).length > 0) {
-    return { error: "請補齊必填欄位", fieldErrors };
-  }
+  if (!input.name?.trim()) return { ok: false, error: "客戶名稱必填" };
 
-  const code = codeRaw.length > 0 ? codeRaw : await genCustomerCode();
+  const code = input.code?.trim() || (await genCustomerCode());
 
   const supabase = await createClient();
-  const { error } = await supabase.from("customers").insert({
-    brand_id: getBrandKey(),
-    code,
-    ...payload,
-    created_by: ctx.userId,
-  });
-  if (error) return mapDbError(error);
+  const { data, error } = await supabase
+    .from("customers")
+    .insert({
+      brand_id: getBrandKey(),
+      code,
+      ...payloadFromInput(input),
+      is_active: input.is_active ?? true,
+      created_by: ctx.userId,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { ok: false, error: mapDbError(error) };
 
   revalidatePath("/admin/master-data/customers");
-  redirect("/admin/master-data/customers");
+  return { ok: true, data: { id: data.id } };
 }
 
 export async function updateCustomerAction(
-  _prevState: CustomerFormState,
-  fd: FormData,
-): Promise<CustomerFormState> {
+  id: string,
+  input: CustomerInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
-
-  const id = String(fd.get("id") ?? "").trim();
-  if (!id) return { error: "缺少 customer id" };
-
-  const payload = pickPayload(fd);
-  const code = String(fd.get("code") ?? "").trim();
-  const fieldErrors: CustomerFormState["fieldErrors"] = {};
-  if (!code) fieldErrors.code = "必填";
-  if (!payload.name) fieldErrors.name = "必填";
-  if (Object.keys(fieldErrors).length > 0) {
-    return { error: "請補齊必填欄位", fieldErrors };
-  }
+  if (!id) return { ok: false, error: "缺少 customer id" };
+  if (!input.name?.trim()) return { ok: false, error: "客戶名稱必填" };
+  if (!input.code?.trim()) return { ok: false, error: "客戶代碼必填" };
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("customers")
     .update({
-      code,
-      ...payload,
-      is_active: fd.get("is_active") === "on",
+      code: input.code.trim(),
+      ...payloadFromInput(input),
+      ...(input.is_active === undefined ? {} : { is_active: input.is_active }),
     })
-    .eq("id", id);
-  if (error) return mapDbError(error);
+    .eq("id", id)
+    .eq("brand_id", getBrandKey());
+
+  if (error) return { ok: false, error: mapDbError(error) };
 
   revalidatePath("/admin/master-data/customers");
   revalidatePath(`/admin/master-data/customers/${id}`);
-  redirect("/admin/master-data/customers");
+  return { ok: true, data: { id } };
+}
+
+export async function setCustomerActiveAction(
+  id: string,
+  next: boolean,
+): Promise<ActionResult<null>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("customers")
+    .update({ is_active: next })
+    .eq("id", id)
+    .eq("brand_id", getBrandKey());
+  if (error) return { ok: false, error: mapDbError(error) };
+  revalidatePath("/admin/master-data/customers");
+  revalidatePath(`/admin/master-data/customers/${id}`);
+  return { ok: true, data: null };
+}
+
+export async function deleteCustomerAction(
+  id: string,
+): Promise<ActionResult<null>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("customers")
+    .delete()
+    .eq("id", id)
+    .eq("brand_id", getBrandKey());
+  if (error) {
+    // FK violation：客戶被工單 / 預約 / 車輛引用，不能 hard delete，引導改用停用
+    if (error.code === "23503") {
+      return {
+        ok: false,
+        error: "此客戶被工單／預約／車輛引用，無法刪除。建議改用「停用」保留歷史。",
+      };
+    }
+    return { ok: false, error: mapDbError(error) };
+  }
+  revalidatePath("/admin/master-data/customers");
+  return { ok: true, data: null };
 }

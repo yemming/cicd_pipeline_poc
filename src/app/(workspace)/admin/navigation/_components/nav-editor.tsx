@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
 import {
@@ -10,6 +10,14 @@ import {
   updateNavNode,
   uploadHtmlForNode,
 } from "@/lib/nav-actions";
+
+// ── Draft / 批次儲存設計 ────────────────────────────────────────────────
+// 讓使用者一次改完整個目錄樹（toggle 啟用、改名稱、調 href、改 icon...）再
+// 一次按「儲存全部變更」。所有變更先進 client-side `drafts`，切換 row 不會掉，
+// tree row + right panel 都讀 `rows ∪ drafts` 的 merged view。
+// 為什麼不做樂觀鎖（OCC）？這頁 admin 級操作 + 多人併發改同一筆機率近零，
+// 暫不增加 version_number/etag 機制，等真的踩到再加。
+type NavDraft = Partial<NavNodeRow>;
 
 // 常用 Material Symbols 快選池 — 涵蓋經銷商常見業務場景
 const COMMON_ICONS = [
@@ -40,6 +48,22 @@ const COMMON_ACCENTS = [
   "#4F46E5", "#9B59B6", "#34495E", "#22C55E",
 ];
 
+// 常用 emoji 池 — 經銷商 / 庫存 / 業務場景優先（呼應 parts 既有 emoji）
+const COMMON_EMOJIS = [
+  "🏛️", "🏗️", "🏭", "🏢", "🏪", "🏠", "🚀", "🎯",
+  "📦", "📥", "📤", "📋", "📊", "📈", "📉", "📌",
+  "🛒", "💼", "💰", "💳", "💵", "🧾", "🗂️", "📁",
+  "🚗", "🏍️", "🚛", "🛠️", "🔧", "🔨", "⚙️", "🔩",
+  "🔍", "🔎", "📞", "📧", "💬", "📢", "📣", "🔔",
+  "⚡", "⭐", "✨", "🎉", "✅", "❌", "⚠️", "🚨",
+  "👤", "👥", "🧑‍💼", "🧑‍💻", "🤝", "💡", "🎨", "🎁",
+];
+
+// 偵測是 Material Symbol 名稱（純小寫英數底線）還是 emoji（任何包含非 ASCII 的字串）
+function isMaterialSymbolName(s: string): boolean {
+  return /^[a-z0-9_]+$/.test(s);
+}
+
 export type NavNodeRow = {
   id: string;
   brand_id: string;
@@ -48,6 +72,7 @@ export type NavNodeRow = {
   sort_order: number;
   name: string;
   icon: string | null;
+  emoji: string | null;
   accent: string | null;
   description: string | null;
   module_key: string | null;
@@ -58,7 +83,6 @@ export type NavNodeRow = {
   html_storage_path: string | null;
   stitch_screen_id: string | null;
   sprint: string | null;
-  device: "desktop" | "tablet" | "ipad" | "mobile" | null;
   is_admin_only: boolean;
   coming_soon: boolean;
   is_active: boolean;
@@ -76,12 +100,50 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
     breadcrumb: [{ label: "目錄管理" }],
   });
 
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [savingAll, startSaveAll] = useTransition();
+  const [addChildTarget, setAddChildTarget] = useState<NavNodeRow | null>(null);
 
-  const tree = useMemo(() => buildTree(initialRows), [initialRows]);
+  const requestAddChild = useCallback((node: NavNodeRow) => {
+    setAddChildTarget(node);
+  }, []);
+
+  // 後端最新 row 狀態（隨 server props 重生）+ client-side 暫存變更（drafts）。
+  // 注意 useEffect 故意不清 drafts — router.refresh 帶回新 initialRows 時，
+  // 使用者尚未儲存的 drafts 還是要保留。drafts 在儲存成功時才清。
+  const [rows, setRows] = useState<NavNodeRow[]>(initialRows);
+  useEffect(() => {
+    setRows(initialRows);
+  }, [initialRows]);
+
+  const [drafts, setDrafts] = useState<Record<string, NavDraft>>({});
+
+  const setDraft = useCallback((id: string, patch: NavDraft) => {
+    setDrafts((prev) => {
+      const cur = prev[id] ?? {};
+      const merged = { ...cur, ...patch };
+      // 若 draft 已被改回原始值，可考慮 GC；不過 saveAll 會 noop 帶過，先不過早優化。
+      return { ...prev, [id]: merged };
+    });
+  }, []);
+
+  const discardAll = () => {
+    if (Object.keys(drafts).length === 0) return;
+    if (!confirm(`捨棄 ${Object.keys(drafts).length} 筆未儲存變更？此動作無法復原。`)) return;
+    setDrafts({});
+  };
+
+  // 把 rows + drafts 疊起來給 tree 和右側面板看，一致性靠 merged 來保證
+  const merged = useMemo(
+    () => rows.map((r) => (drafts[r.id] ? { ...r, ...drafts[r.id] } : r)),
+    [rows, drafts],
+  );
+
+  const tree = useMemo(() => buildTree(merged), [merged]);
   const selected = selectedId
-    ? initialRows.find((r) => r.id === selectedId) ?? null
+    ? merged.find((r) => r.id === selectedId) ?? null
     : null;
 
   const toggleExpanded = (id: string) => {
@@ -93,13 +155,87 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
     });
   };
 
+  const dirtyCount = Object.keys(drafts).length;
+
+  const handleSaveAll = () => {
+    if (dirtyCount === 0) return;
+    startSaveAll(async () => {
+      const ids = Object.keys(drafts);
+      const failures: Array<{ id: string; name: string; msg: string }> = [];
+      for (const id of ids) {
+        const orig = rows.find((r) => r.id === id);
+        if (!orig) continue;
+        const m = { ...orig, ...drafts[id] };
+        const fd = buildUpdateFormData(m);
+        try {
+          await updateNavNode(id, fd);
+        } catch (err) {
+          failures.push({
+            id,
+            name: m.name,
+            msg: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      // 成功的 row 套到 rows、清掉 draft；失敗的留著讓使用者重試
+      const failedIds = new Set(failures.map((f) => f.id));
+      setRows((prev) =>
+        prev.map((r) => {
+          if (failedIds.has(r.id)) return r;
+          return drafts[r.id] ? { ...r, ...drafts[r.id] } : r;
+        }),
+      );
+      setDrafts((prev) => {
+        const next: Record<string, NavDraft> = {};
+        for (const fid of failedIds) {
+          if (prev[fid]) next[fid] = prev[fid];
+        }
+        return next;
+      });
+      if (failures.length > 0) {
+        alert(
+          `部分節點儲存失敗（共 ${failures.length} 筆，已留在草稿）：\n` +
+            failures.map((f) => `• ${f.name}: ${f.msg}`).join("\n"),
+        );
+      }
+      router.refresh();
+    });
+  };
+
   return (
     <>
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold font-display">目錄管理</h1>
-        <p className="text-sm text-on-surface-variant mt-1">
-          編輯 {brandName} 的左側功能目錄。改動會立刻反映到所有使用者的 ModuleRail / PagesPanel。
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold font-display">目錄管理</h1>
+          <p className="text-sm text-on-surface-variant mt-1">
+            編輯 {brandName} 的左側功能目錄。儲存後會立刻反映到所有使用者的 ModuleRail / PagesPanel。
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {dirtyCount > 0 && (
+            <button
+              type="button"
+              onClick={discardAll}
+              disabled={savingAll}
+              className="px-3 py-2 rounded-lg text-sm border border-outline-variant/40 hover:bg-surface-container-low disabled:opacity-50"
+            >
+              捨棄變更
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={dirtyCount === 0 || savingAll}
+            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+              dirtyCount > 0
+                ? "bg-[color:var(--color-brand-primary)] text-white hover:bg-[color:var(--color-brand-primary-dark)]"
+                : "bg-surface-container text-on-surface-variant cursor-not-allowed"
+            } ${savingAll ? "opacity-70 pointer-events-none" : ""}`}
+          >
+            {savingAll && <Spinner />}
+            {savingAll ? "儲存中…" : dirtyCount > 0 ? `儲存 ${dirtyCount} 筆變更` : "已是最新"}
+          </button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-6">
@@ -118,7 +254,7 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
             </span>
             / ↑ / ↓ / 🗑 按鈕。
             <span className="font-semibold">「+」</span>
-            可在該節點下加子項：模組底下可開頁面或區段、區段底下開頁面。
+            可在該節點下加子項；左邊的開關可以暫存啟用 / 停用，最後再一次儲存。
           </p>
 
           {tree.length === 0 ? (
@@ -134,8 +270,12 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
                   node={node}
                   expanded={expanded}
                   selectedId={selectedId}
+                  isDirty={!!drafts[node.id]}
+                  dirtyMap={drafts}
                   onSelect={setSelectedId}
                   onToggleExpanded={toggleExpanded}
+                  onDraft={setDraft}
+                  onRequestAddChild={requestAddChild}
                 />
               ))}
             </ul>
@@ -145,7 +285,13 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
         {/* Edit Panel */}
         <section className="bg-white rounded-2xl border border-outline-variant/30 p-5">
           {selected ? (
-            <NodeForm key={selected.id} node={selected} />
+            <NodeForm
+              key={selected.id}
+              node={selected}
+              isDirty={!!drafts[selected.id]}
+              onDraft={(patch) => setDraft(selected.id, patch)}
+              onRequestAddChild={requestAddChild}
+            />
           ) : (
             <div className="py-12 text-center text-sm text-on-surface-variant">
               點左邊任一節點來編輯。
@@ -153,8 +299,51 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
           )}
         </section>
       </div>
+
+      {addChildTarget && (
+        <AddChildDialog
+          parent={addChildTarget}
+          onClose={() => setAddChildTarget(null)}
+          onCreated={() => {
+            setAddChildTarget(null);
+            // L2 / L3 都要展開 parent 才看得到剛建的 child
+            setExpanded((s) => {
+              if (s.has(addChildTarget.id)) return s;
+              const next = new Set(s);
+              next.add(addChildTarget.id);
+              return next;
+            });
+            router.refresh();
+          }}
+        />
+      )}
     </>
   );
+}
+
+// 把 merged row 攤成 server action 接收的 FormData。對應 updateNavNode 的讀法。
+function buildUpdateFormData(m: NavNodeRow): FormData {
+  const fd = new FormData();
+  fd.set("level", String(m.level));
+  fd.set("name", m.name);
+  fd.set("icon", m.icon ?? "");
+  fd.set("emoji", m.emoji ?? "");
+  fd.set("accent", m.accent ?? "");
+  fd.set("description", m.description ?? "");
+  fd.set("is_active", m.is_active ? "true" : "false");
+  if (m.level === 1) {
+    fd.set("module_key", m.module_key ?? "");
+    fd.set("permission", m.permission ?? "");
+    fd.set("home", m.home ?? "");
+  }
+  if (m.level === 3) {
+    if (m.page_kind) fd.set("page_kind", m.page_kind);
+    fd.set("href", m.href ?? "");
+    fd.set("sprint", m.sprint ?? "");
+    fd.set("is_admin_only", m.is_admin_only ? "true" : "false");
+    fd.set("coming_soon", m.coming_soon ? "true" : "false");
+  }
+  return fd;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -190,26 +379,39 @@ function TreeNode({
   node,
   expanded,
   selectedId,
+  isDirty,
+  dirtyMap,
   onSelect,
   onToggleExpanded,
+  onDraft,
+  onRequestAddChild,
 }: {
   node: TreeNodeData;
   expanded: Set<string>;
   selectedId: string | null;
+  isDirty: boolean;
+  dirtyMap: Record<string, NavDraft>;
   onSelect: (id: string) => void;
   onToggleExpanded: (id: string) => void;
+  onDraft: (id: string, patch: NavDraft) => void;
+  onRequestAddChild: (node: NavNodeRow) => void;
 }) {
   const isExpanded = expanded.has(node.id);
   const isSelected = selectedId === node.id;
   const hasChildren = node.children.length > 0;
   const indent = (node.level - 1) * 18;
 
+  // dirty 行底淡黃 + 一個小黃點，未儲存的列一眼就看到
+  const baseRowCls = isSelected
+    ? "bg-[color:var(--color-brand-primary)]/10 ring-1 ring-[color:var(--color-brand-primary)]/30"
+    : isDirty
+    ? "bg-amber-50/60 hover:bg-amber-50"
+    : "hover:bg-surface-container-low";
+
   return (
     <li>
       <div
-        className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer ${
-          isSelected ? "bg-[color:var(--color-brand-primary)]/10 ring-1 ring-[color:var(--color-brand-primary)]/30" : "hover:bg-surface-container-low"
-        }`}
+        className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer ${baseRowCls}`}
         style={{ paddingLeft: 8 + indent }}
         onClick={() => onSelect(node.id)}
       >
@@ -229,14 +431,16 @@ function TreeNode({
           <span className="w-5" />
         )}
 
-        {node.icon && (
+        {node.icon ? (
           <span
             className="material-symbols-outlined text-[18px]"
             style={{ color: node.accent ?? undefined }}
           >
             {node.icon}
           </span>
-        )}
+        ) : node.emoji ? (
+          <span className="text-[16px] leading-none w-[18px] text-center">{node.emoji}</span>
+        ) : null}
         <span className={`flex-1 text-sm truncate ${node.is_active ? "" : "opacity-40 line-through"}`}>
           {node.name}
         </span>
@@ -247,7 +451,17 @@ function TreeNode({
           </span>
         )}
 
-        <NodeActions node={node} />
+        {isDirty && (
+          <span
+            className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-200 text-amber-900"
+            title="此節點有未儲存變更"
+          >
+            未儲存
+          </span>
+        )}
+
+        <ActiveToggle node={node} onDraft={onDraft} />
+        <NodeActions node={node} onRequestAddChild={onRequestAddChild} />
       </div>
 
       {hasChildren && isExpanded && (
@@ -258,8 +472,12 @@ function TreeNode({
               node={c}
               expanded={expanded}
               selectedId={selectedId}
+              isDirty={!!dirtyMap[c.id]}
+              dirtyMap={dirtyMap}
               onSelect={onSelect}
               onToggleExpanded={onToggleExpanded}
+              onDraft={onDraft}
+              onRequestAddChild={onRequestAddChild}
             />
           ))}
         </ul>
@@ -287,7 +505,221 @@ function pageKindLabel(kind: NavNodeRow["page_kind"]): string {
 // Node row actions (move / delete / add child)
 // ──────────────────────────────────────────────────────────
 
-function NodeActions({ node }: { node: NavNodeRow }) {
+// 新增子項 dialog — 取代原本的 window.prompt，避免使用者要打 'page' / 'section'
+// 才能新增。Module 下可選頁面 / 區段；區段底下固定建頁面（不再問）。
+function AddChildDialog({
+  parent,
+  onClose,
+  onCreated,
+}: {
+  parent: NavNodeRow;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  // L1 module 下可選 2/3，L2 section 底下強制 3
+  const canChooseKind = parent.level === 1;
+  const [childLevel, setChildLevel] = useState<2 | 3>(canChooseKind ? 3 : 3);
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // dialog 打開時自動 focus 名稱欄位
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("名稱必填");
+      inputRef.current?.focus();
+      return;
+    }
+    setError(null);
+
+    startTransition(async () => {
+      try {
+        const fd = new FormData();
+        fd.set("level", String(childLevel));
+        fd.set("parent_id", parent.id);
+        fd.set("name", trimmed);
+        fd.set("icon", childLevel === 3 ? "label" : "");
+        if (childLevel === 3) fd.set("page_kind", "placeholder");
+        await createNavNode(fd);
+        onCreated();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    });
+  };
+
+  // ESC 關閉
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !pending) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, pending]);
+
+  const levelLabelText = parent.level === 1 ? "模組" : "區段";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div>
+            <h3 className="text-lg font-bold font-display">
+              在{levelLabelText}「{parent.name}」下新增…
+            </h3>
+            <p className="text-xs text-on-surface-variant mt-1">
+              {canChooseKind
+                ? "選擇要建立的子項類型，再輸入名稱。"
+                : "區段底下只能建頁面。輸入名稱建立。"}
+            </p>
+          </div>
+
+          {canChooseKind && (
+            <div className="space-y-2">
+              <KindRadio
+                checked={childLevel === 3}
+                onChange={() => setChildLevel(3)}
+                title="頁面（最常用）"
+                desc="可點擊跳轉的三階項目。指向 React 路由、靜態 HTML、iframe 或佔位頁。"
+              />
+              <KindRadio
+                checked={childLevel === 2}
+                onChange={() => setChildLevel(2)}
+                title="區段"
+                desc="可分組但本身不可點的二階目錄。底下再放頁面。"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+              名稱
+              <span className="text-error ml-0.5">*</span>
+            </label>
+            <input
+              ref={inputRef}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (error) setError(null);
+              }}
+              placeholder={
+                childLevel === 2
+                  ? "例：客戶與分析"
+                  : parent.level === 1
+                  ? "例：展廳看板"
+                  : "新頁面名稱"
+              }
+              className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest"
+            />
+            {error && (
+              <p className="mt-1.5 text-xs text-error">{error}</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={pending}
+              className="px-4 py-2 rounded-lg text-sm border border-outline-variant/40 hover:bg-surface-container-low disabled:opacity-50"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="px-5 py-2 rounded-lg text-sm font-medium bg-[color:var(--color-brand-primary)] text-white hover:bg-[color:var(--color-brand-primary-dark)] disabled:opacity-60 flex items-center gap-2"
+            >
+              {pending && <Spinner />}
+              {pending ? "建立中…" : "建立"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function KindRadio({
+  checked,
+  onChange,
+  title,
+  desc,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <label
+      className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+        checked
+          ? "border-[color:var(--color-brand-primary)] bg-[color:var(--color-brand-primary)]/5"
+          : "border-outline-variant/40 hover:bg-surface-container-low"
+      }`}
+    >
+      <input
+        type="radio"
+        checked={checked}
+        onChange={onChange}
+        className="mt-0.5 w-4 h-4"
+      />
+      <div className="flex-1">
+        <div className="text-sm font-medium">{title}</div>
+        <div className="text-[11px] text-on-surface-variant mt-0.5 leading-relaxed">{desc}</div>
+      </div>
+    </label>
+  );
+}
+
+// Inline 啟用 / 停用 toggle — 按一下寫進 draft，跟其他變更一起等使用者按
+// header 的「儲存全部變更」才 flush 到 DB。
+function ActiveToggle({
+  node,
+  onDraft,
+}: {
+  node: NavNodeRow;
+  onDraft: (id: string, patch: NavDraft) => void;
+}) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDraft(node.id, { is_active: !node.is_active });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      title={node.is_active ? "點此暫存停用（要按上方「儲存」才會生效）" : "點此暫存啟用"}
+      className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${
+        node.is_active
+          ? "text-emerald-600 hover:bg-emerald-50"
+          : "text-on-surface-variant/50 hover:bg-surface-container hover:text-on-surface-variant"
+      }`}
+    >
+      <span className="material-symbols-outlined text-[18px]">
+        {node.is_active ? "toggle_on" : "toggle_off"}
+      </span>
+    </button>
+  );
+}
+
+function NodeActions({
+  node,
+  onRequestAddChild,
+}: {
+  node: NavNodeRow;
+  onRequestAddChild: (node: NavNodeRow) => void;
+}) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -306,34 +738,10 @@ function NodeActions({ node }: { node: NavNodeRow }) {
   // 只有模組(1) / 區段(2) 能加子項；頁面(3) 是 leaf
   const canAddChild = node.level < 3;
 
-  const handleAddChild = guardedAction(async () => {
-    let childLevel: 2 | 3;
-    if (node.level === 1) {
-      const ans = prompt(
-        `在模組「${node.name}」下面要建什麼？\n\n  輸入 page = 頁面（最常用）\n  輸入 section = 可分組但不可點的區段`,
-        "page",
-      );
-      if (!ans) throw new Error("已取消");
-      const t = ans.trim().toLowerCase();
-      if (t === "section" || t === "s" || t === "2") childLevel = 2;
-      else if (t === "page" || t === "p" || t === "3") childLevel = 3;
-      else throw new Error(`不認識 '${ans}'，請輸入 page 或 section`);
-    } else {
-      childLevel = 3;
-    }
-
-    const promptText = childLevel === 2 ? "新區段名稱（例：客戶與分析）" : "新頁面名稱：";
-    const name = prompt(promptText);
-    if (!name) throw new Error("已取消");
-
-    const fd = new FormData();
-    fd.set("level", String(childLevel));
-    fd.set("parent_id", node.id);
-    fd.set("name", name);
-    fd.set("icon", childLevel === 3 ? "label" : "");
-    if (childLevel === 3) fd.set("page_kind", "placeholder");
-    await createNavNode(fd);
-  });
+  const handleAddChild = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onRequestAddChild(node);
+  };
 
   return (
     <div className={`flex items-center gap-0.5 ${pending ? "opacity-50 pointer-events-none" : ""}`}>
@@ -434,73 +842,26 @@ function slugify(s: string): string {
 // Edit Form
 // ──────────────────────────────────────────────────────────
 
-function NodeForm({ node }: { node: NavNodeRow }) {
-  const [pending, startTransition] = useTransition();
+function NodeForm({
+  node,
+  isDirty,
+  onDraft,
+  onRequestAddChild,
+}: {
+  node: NavNodeRow;
+  isDirty: boolean;
+  onDraft: (patch: NavDraft) => void;
+  onRequestAddChild: (node: NavNodeRow) => void;
+}) {
   const [uploadPending, startUpload] = useTransition();
   const router = useRouter();
 
-  const [pageKind, setPageKind] = useState(node.page_kind ?? "placeholder");
-  const [icon, setIcon] = useState(node.icon ?? "");
-  const [accent, setAccent] = useState(node.accent ?? "");
+  // node 已是 merged（rows ∪ drafts），所以表單欄位直接讀 node 的當前值即可。
+  // 任一欄位 onChange 就丟一筆 patch 進 draft；切換 row 也不會掉。
+  const pageKind = node.page_kind ?? "placeholder";
+  const setPageKind = (v: NavNodeRow["page_kind"]) => onDraft({ page_kind: v });
 
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    startTransition(async () => {
-      try {
-        await updateNavNode(node.id, fd);
-        router.refresh();
-      } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
-      }
-    });
-  };
-
-  const handleAddChild = (forceChildLevel?: 2 | 3) => {
-    // Module（level 1）下面可以選：建 section（level 2）or 直接建 page（level 3）
-    // Section（level 2）下面只能建 page（level 3）
-    let childLevel: 2 | 3;
-    if (forceChildLevel) {
-      childLevel = forceChildLevel;
-    } else if (node.level === 1) {
-      const ans = prompt(
-        "在「" + node.name + "」下面要建什麼？\n  輸入 'section' = 建立可分組但不可點的二階目錄\n  輸入 'page' = 建立可點到頁面的三階項目（最常用）",
-        "page",
-      );
-      if (!ans) return;
-      const trimmed = ans.trim().toLowerCase();
-      if (trimmed === "section" || trimmed === "s" || trimmed === "2") childLevel = 2;
-      else if (trimmed === "page" || trimmed === "p" || trimmed === "3") childLevel = 3;
-      else {
-        alert("不認識 '" + ans + "'，請輸入 page 或 section");
-        return;
-      }
-    } else {
-      childLevel = 3;
-    }
-
-    const name = prompt(
-      childLevel === 2 ? "新區段名稱（例：客戶與分析）" : "新頁面名稱：",
-    );
-    if (!name) return;
-
-    startTransition(async () => {
-      try {
-        const fd = new FormData();
-        fd.set("level", String(childLevel));
-        fd.set("parent_id", node.id);
-        fd.set("name", name);
-        fd.set("icon", childLevel === 3 ? "label" : "");
-        if (childLevel === 3) {
-          fd.set("page_kind", "placeholder");
-        }
-        await createNavNode(fd);
-        router.refresh();
-      } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
-      }
-    });
-  };
+  const handleAddChild = () => onRequestAddChild(node);
 
   const handleHtmlUpload = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -518,19 +879,26 @@ function NodeForm({ node }: { node: NavNodeRow }) {
   };
 
   return (
-    <div className={`space-y-5 ${pending || uploadPending ? "opacity-60 pointer-events-none" : ""}`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-on-surface-variant">
-            Level {node.level} · {levelLabel(node.level)}
+    <div className={`space-y-5 ${uploadPending ? "opacity-60 pointer-events-none" : ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <div className="text-[10px] uppercase tracking-wider text-on-surface-variant">
+              Level {node.level} · {levelLabel(node.level)}
+            </div>
+            {isDirty && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-200 text-amber-900">
+                未儲存
+              </span>
+            )}
           </div>
-          <h2 className="text-lg font-bold font-display">{node.name}</h2>
+          <h2 className="text-lg font-bold font-display truncate">{node.name}</h2>
         </div>
         {node.level < 3 && (
           <button
             type="button"
             onClick={() => handleAddChild()}
-            className="text-xs px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-low flex items-center gap-1"
+            className="text-xs px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-low flex items-center gap-1 shrink-0"
           >
             <span className="material-symbols-outlined text-base">add</span>
             新增子項
@@ -538,46 +906,55 @@ function NodeForm({ node }: { node: NavNodeRow }) {
         )}
       </div>
 
-      <form id="nav-node-form" onSubmit={handleSave} className="space-y-4">
+      <div className="space-y-4">
         <Field label="名稱" required>
           <input
-            name="name"
-            defaultValue={node.name}
+            value={node.name}
+            onChange={(e) => onDraft({ name: e.target.value })}
             required
             className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest"
           />
         </Field>
 
         <Field label="Icon">
-          <IconPicker value={icon} onChange={setIcon} />
-          <input type="hidden" name="icon" value={icon} />
+          <IconPicker
+            value={node.icon ?? node.emoji ?? ""}
+            onChange={(v) => {
+              if (!v) {
+                onDraft({ icon: null, emoji: null });
+              } else if (isMaterialSymbolName(v)) {
+                onDraft({ icon: v, emoji: null });
+              } else {
+                onDraft({ icon: null, emoji: v });
+              }
+            }}
+          />
         </Field>
 
         {node.level === 1 && (
           <>
             <Field label="主色">
-              <ColorPicker value={accent} onChange={setAccent} />
-              <input type="hidden" name="accent" value={accent} />
+              <ColorPicker value={node.accent ?? ""} onChange={(v) => onDraft({ accent: v || null })} />
             </Field>
             <Field label="描述">
               <input
-                name="description"
-                defaultValue={node.description ?? ""}
+                value={node.description ?? ""}
+                onChange={(e) => onDraft({ description: e.target.value || null })}
                 className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest"
               />
             </Field>
             <Field label="Module Key">
               <input
-                name="module_key"
-                defaultValue={node.module_key ?? ""}
+                value={node.module_key ?? ""}
+                onChange={(e) => onDraft({ module_key: e.target.value || null })}
                 placeholder="例：sales, service"
                 className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest font-mono"
               />
             </Field>
             <Field label="模組首頁路徑">
               <input
-                name="home"
-                defaultValue={node.home ?? ""}
+                value={node.home ?? ""}
+                onChange={(e) => onDraft({ home: e.target.value || null })}
                 placeholder="/sales/showroom"
                 className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest font-mono"
               />
@@ -589,9 +966,8 @@ function NodeForm({ node }: { node: NavNodeRow }) {
           <>
             <Field label="頁面型態">
               <select
-                name="page_kind"
                 value={pageKind}
-                onChange={(e) => setPageKind(e.target.value as typeof pageKind)}
+                onChange={(e) => setPageKind(e.target.value as NavNodeRow["page_kind"])}
                 className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest"
               >
                 <option value="react_route">React 路由（指向已存在的頁面）</option>
@@ -604,55 +980,48 @@ function NodeForm({ node }: { node: NavNodeRow }) {
             {(pageKind === "react_route" || pageKind === "iframe") && (
               <Field label={pageKind === "iframe" ? "外部 URL" : "路由路徑"}>
                 <input
-                  name="href"
-                  defaultValue={node.href ?? ""}
+                  value={node.href ?? ""}
+                  onChange={(e) => onDraft({ href: e.target.value || null })}
                   placeholder={pageKind === "iframe" ? "https://..." : "/sales/showroom"}
                   className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest font-mono"
                 />
               </Field>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Sprint 標籤">
-                <input
-                  name="sprint"
-                  defaultValue={node.sprint ?? ""}
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest font-mono text-sm"
-                />
-              </Field>
-              <Field label="裝置版型">
-                <select
-                  name="device"
-                  defaultValue={node.device ?? ""}
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest"
-                >
-                  <option value="">Normal（一般網頁）</option>
-                  <option value="tablet">Tablet（T） — 自動隱藏 sidebar</option>
-                  <option value="mobile">Mobile（M） — 自動隱藏 sidebar</option>
-                </select>
-                <p className="text-[10px] text-on-surface-variant mt-1 leading-relaxed">
-                  Tablet / Mobile 進入時會自動全螢幕（隱藏左側兩欄導航），且在頁面清單會顯示 T / M 角標提醒設計師此頁要做窄版視覺。
-                </p>
-              </Field>
-            </div>
+            <Field label="Sprint 標籤">
+              <input
+                value={node.sprint ?? ""}
+                onChange={(e) => onDraft({ sprint: e.target.value || null })}
+                className="w-full px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest font-mono text-sm"
+              />
+            </Field>
 
             <div className="flex flex-wrap gap-4">
-              <CheckBox name="is_admin_only" defaultChecked={node.is_admin_only}>
+              <ControlledCheckBox
+                checked={node.is_admin_only}
+                onChange={(v) => onDraft({ is_admin_only: v })}
+              >
                 Admin Only
-              </CheckBox>
-              <CheckBox name="coming_soon" defaultChecked={node.coming_soon}>
+              </ControlledCheckBox>
+              <ControlledCheckBox
+                checked={node.coming_soon}
+                onChange={(v) => onDraft({ coming_soon: v })}
+              >
                 標記「即將推出」
-              </CheckBox>
+              </ControlledCheckBox>
             </div>
           </>
         )}
 
         <div className="flex flex-wrap gap-4 pt-2">
-          <CheckBox name="is_active" defaultChecked={node.is_active}>
+          <ControlledCheckBox
+            checked={node.is_active}
+            onChange={(v) => onDraft({ is_active: v })}
+          >
             啟用（取消勾選則隱藏不刪除）
-          </CheckBox>
+          </ControlledCheckBox>
         </div>
-      </form>
+      </div>
 
       {node.level === 3 && pageKind === "static_html" && (
         <div className="mt-6 pt-5 border-t border-outline-variant/30">
@@ -686,19 +1055,31 @@ function NodeForm({ node }: { node: NavNodeRow }) {
         </div>
       )}
 
-      {/* 儲存變更：放整個編輯面板最下方。靠 form="nav-node-form" 跟主表單關聯，HTML 上傳區永遠在它上面 */}
-      <div className="pt-4 mt-4 border-t border-outline-variant/30">
-        <button
-          type="submit"
-          form="nav-node-form"
-          disabled={pending}
-          className="w-full px-5 py-2.5 rounded-lg bg-[color:var(--color-brand-primary)] text-white font-medium hover:bg-[color:var(--color-brand-primary-dark)] disabled:opacity-60 flex items-center justify-center gap-2"
-        >
-          {pending && <Spinner />}
-          {pending ? "儲存中…" : "儲存變更"}
-        </button>
-      </div>
+      {/* 沒有「儲存變更」按鈕了 — 全頁變更靠 header 的「儲存全部變更」一次寫回。 */}
     </div>
+  );
+}
+
+// 配 controlled state 的 checkbox。NodeForm 全 controlled 之後不需要 hidden 把戲了。
+function ControlledCheckBox({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="w-4 h-4 rounded border-outline-variant"
+      />
+      <span>{children}</span>
+    </label>
   );
 }
 
@@ -726,28 +1107,6 @@ function Field({
   );
 }
 
-function CheckBox({
-  name,
-  defaultChecked,
-  children,
-}: {
-  name: string;
-  defaultChecked: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-      <input
-        type="checkbox"
-        name={name}
-        defaultChecked={defaultChecked}
-        value="true"
-        className="w-4 h-4 rounded border-outline-variant"
-      />
-      <span>{children}</span>
-    </label>
-  );
-}
 
 function Spinner() {
   return (
@@ -762,8 +1121,12 @@ function Spinner() {
 }
 
 // ──────────────────────────────────────────────────────────
-// Icon Picker：文字輸入 + 常用快選 + 搜尋過濾
-// 完整 Material Symbols 有上千個，所以只放常用 + 允許自由輸入
+// Icon Picker：圖示 + 表情符號雙模式
+//
+// 一個輸入框、自動偵測：
+//   - 純小寫英數底線（dashboard / point_of_sale）→ Material Symbol → 寫進 row.icon
+//   - 其他（emoji 像 🏛️ 🏗️）→ 寫進 row.emoji
+// 兩欄是 DB 既有設計，loader 看 icon 沒有就回退 emoji，所以這邊不混存。
 // ──────────────────────────────────────────────────────────
 function IconPicker({
   value,
@@ -773,6 +1136,10 @@ function IconPicker({
   onChange: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // 預設 tab：value 是 emoji 就開到 emoji 頁、其他都先給 Material
+  const [tab, setTab] = useState<"symbol" | "emoji">(
+    value && !isMaterialSymbolName(value) ? "emoji" : "symbol",
+  );
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => {
     if (!search.trim()) return COMMON_ICONS;
@@ -780,17 +1147,29 @@ function IconPicker({
     return COMMON_ICONS.filter((i) => i.includes(q));
   }, [search]);
 
+  const valueIsEmoji = !!value && !isMaterialSymbolName(value);
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg border border-outline-variant/40 bg-surface-container-lowest">
-          <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 22 }}>
-            {value || "help_outline"}
-          </span>
+          {valueIsEmoji ? (
+            <span className="text-[22px] leading-none w-[22px] text-center shrink-0">{value}</span>
+          ) : (
+            <span className="material-symbols-outlined text-on-surface-variant shrink-0" style={{ fontSize: 22 }}>
+              {value || "help_outline"}
+            </span>
+          )}
           <input
             value={value}
-            onChange={(e) => onChange(e.target.value.trim())}
-            placeholder="例：dashboard"
+            onChange={(e) => {
+              // emoji 不要 trim 掉 zero-width joiner / variation selector
+              const v = isMaterialSymbolName(e.target.value.trim())
+                ? e.target.value.trim()
+                : e.target.value;
+              onChange(v);
+            }}
+            placeholder="例：dashboard 或貼 emoji 🏛️"
             className="flex-1 bg-transparent outline-none font-mono text-sm"
           />
         </div>
@@ -806,55 +1185,118 @@ function IconPicker({
 
       {open && (
         <div className="rounded-lg border border-outline-variant/30 p-3 bg-surface-container-lowest">
-          <input
-            type="text"
-            placeholder="搜尋圖示..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full mb-3 px-3 py-1.5 rounded border border-outline-variant/40 bg-white text-sm"
-          />
-          <div className="grid grid-cols-8 gap-1.5 max-h-60 overflow-y-auto">
-            {filtered.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => {
-                  onChange(name);
-                  setOpen(false);
-                }}
-                title={name}
-                className={`aspect-square flex items-center justify-center rounded border ${
-                  value === name
-                    ? "border-[color:var(--color-brand-primary)] bg-[color:var(--color-brand-primary)]/10"
-                    : "border-outline-variant/30 hover:bg-surface-container"
-                }`}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 22 }}>
-                  {name}
-                </span>
-              </button>
-            ))}
+          <div className="flex gap-1 mb-3">
+            <TabBtn active={tab === "symbol"} onClick={() => setTab("symbol")}>
+              Material 圖示
+            </TabBtn>
+            <TabBtn active={tab === "emoji"} onClick={() => setTab("emoji")}>
+              表情符號 Emoji
+            </TabBtn>
           </div>
-          {filtered.length === 0 && (
-            <p className="text-xs text-on-surface-variant py-4 text-center">
-              快選池沒這個。直接在上面輸入框打 Material Symbols 名稱即可。
-            </p>
+
+          {tab === "symbol" ? (
+            <>
+              <input
+                type="text"
+                placeholder="搜尋圖示..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full mb-3 px-3 py-1.5 rounded border border-outline-variant/40 bg-white text-sm"
+              />
+              <div className="grid grid-cols-8 gap-1.5 max-h-60 overflow-y-auto">
+                {filtered.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => {
+                      onChange(name);
+                      setOpen(false);
+                    }}
+                    title={name}
+                    className={`aspect-square flex items-center justify-center rounded border ${
+                      value === name
+                        ? "border-[color:var(--color-brand-primary)] bg-[color:var(--color-brand-primary)]/10"
+                        : "border-outline-variant/30 hover:bg-surface-container"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 22 }}>
+                      {name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {filtered.length === 0 && (
+                <p className="text-xs text-on-surface-variant py-4 text-center">
+                  快選池沒這個。直接在上面輸入框打 Material Symbols 名稱即可。
+                </p>
+              )}
+              <p className="text-[11px] text-on-surface-variant mt-3 leading-relaxed">
+                找不到想要的？看完整清單：
+                <a
+                  href="https://fonts.google.com/icons"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline ml-1"
+                >
+                  Material Symbols
+                </a>
+                （複製 icon 名稱貼到上面輸入框）
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-8 gap-1.5 max-h-60 overflow-y-auto">
+                {COMMON_EMOJIS.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => {
+                      onChange(e);
+                      setOpen(false);
+                    }}
+                    title={e}
+                    className={`aspect-square flex items-center justify-center rounded border text-[22px] leading-none ${
+                      value === e
+                        ? "border-[color:var(--color-brand-primary)] bg-[color:var(--color-brand-primary)]/10"
+                        : "border-outline-variant/30 hover:bg-surface-container"
+                    }`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-on-surface-variant mt-3 leading-relaxed">
+                想要其他 emoji？直接複製貼到上面輸入框（macOS：⌃⌘Space 開 emoji 鍵盤）。
+              </p>
+            </>
           )}
-          <p className="text-[11px] text-on-surface-variant mt-3 leading-relaxed">
-            找不到想要的？看完整清單：
-            <a
-              href="https://fonts.google.com/icons"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline ml-1"
-            >
-              Material Symbols
-            </a>
-            （複製 icon 名稱貼到上面輸入框）
-          </p>
         </div>
       )}
     </div>
+  );
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+        active
+          ? "bg-[color:var(--color-brand-primary)] text-white"
+          : "bg-white border border-outline-variant/40 hover:bg-surface-container"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

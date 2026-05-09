@@ -36,7 +36,7 @@ export const BRAND_PALETTES: BrandPalette[] = [
     key: "royal-azure",
     name: "皇家蔚藍",
     description: "深藍 × 純白 — 海軍質感、跨歐系車",
-    primary: "#002C9B",
+    primary: "#1A3A5C",
     accent: "#FFFFFF",
   },
   {

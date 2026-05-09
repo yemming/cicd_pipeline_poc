@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 type SidebarCtx = {
   collapsed: boolean;
@@ -12,20 +12,11 @@ type SidebarCtx = {
 
 const Ctx = createContext<SidebarCtx | null>(null);
 
+// 不做螢幕尺寸自動 collapse — 主功能表是核心 UI，永遠顯示。要隱藏走顯式互動：
+// 點 active module icon 收/展 PagesPanel；點左下 chevron 進 fullHidden（縮成球）。
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [fullHidden, setFullHidden] = useState(false);
-
-  // Auto-collapse below desktop (< lg = 1024px) — covers mobile + tablet (含 iPad portrait).
-  // 桌面（≥1024px）展開，平板/手機收成 14px rail，仿 Lexus 客休室「窄裝置單欄優先」策略。
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 1023px)");
-    const sync = () => setCollapsed(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
 
   const toggle = useCallback(() => setCollapsed((v) => !v), []);
   const value = useMemo(

@@ -105,6 +105,14 @@
 /* PagesPanel row hover — 用 sidebar 主題的 hover bg（Tailwind 沒法 hover-set CSS var 的 bg） */
 .pages-panel-row-hover:hover { background-color: var(--sidebar-hover); }
 
+/* SectionedTree (parent / leaf) row 共用：hover 套 sidebar-hover、active 套 sidebar-active。
+   hover 跟 active 不能直接寫 Tailwind 的 hover:bg-[color:var(...)] 因為 CSS var fallback 在
+   pseudo-class 裡有些 build 會跑掉，這裡用普通 class 最穩。 */
+.sidebar-row { background-color: transparent; }
+.sidebar-row:hover { background-color: var(--sidebar-hover); color: var(--sidebar-text); }
+.sidebar-row-active,
+.sidebar-row-active:hover { background-color: var(--sidebar-active); color: var(--sidebar-text); }
+
 /* ModuleRail icon container — hover/active bg + logout hover 都吃 sidebar 主題 */
 .module-rail-icon:hover { background-color: var(--sidebar-hover); }
 .module-rail-icon-active { background-color: var(--sidebar-active); }

@@ -18,7 +18,7 @@ import { useSearchControls } from "@/components/search-context";
 import { useActiveModule } from "@/lib/use-active-module";
 
 export function ClassicShell({ children }: { children: React.ReactNode }) {
-  const { collapsed, setCollapsed, fullHidden, setFullHidden } = useSidebar();
+  const { collapsed, fullHidden, setFullHidden } = useSidebar();
   const activeModule = useActiveModule();
   const onLauncher = !activeModule;
   const { open: openSearch } = useSearchControls();
@@ -29,30 +29,27 @@ export function ClassicShell({ children }: { children: React.ReactNode }) {
       {!fullHidden && <PagesPanel />}
       <Topbar onOpenSearch={openSearch} />
 
-      {!collapsed && !fullHidden && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/40 z-30 transition-opacity"
-          onClick={() => setCollapsed(true)}
-          aria-hidden="true"
-        />
-      )}
-
+      {/* fullHidden 時整條 nav 都收掉，左緣只剩這個低調小 tab（仿 Excel sheet 標籤，
+          貼齊左邊、右側圓角、中間小三角貼飾）。按一下回復導航。 */}
       {fullHidden && (
         <button
           onClick={() => setFullHidden(false)}
-          className="fixed top-3 -left-5 z-[70] w-10 h-10 flex items-center justify-center rounded-full bg-white/60 backdrop-blur-sm border border-black/8 text-black/30 hover:text-black/60 hover:-left-2 transition-all shadow-sm"
+          className="fixed top-1/2 -translate-y-1/2 left-0 z-[70] w-3.5 h-7 rounded-r-md bg-black/15 hover:bg-black/35 flex items-center justify-center transition-colors"
           title="顯示導航列"
+          aria-label="顯示導航列"
         >
-          <span className="material-symbols-outlined text-xl">apps</span>
+          <span className="material-symbols-outlined text-[12px] text-white leading-none -mr-0.5">
+            chevron_right
+          </span>
         </button>
       )}
 
       <main
-        className={`mt-16 min-h-[calc(100dvh-4rem)] min-w-0 bg-[#F5F5F5] p-4 md:p-6 lg:p-8 transition-[margin-left] duration-200 ${
-          fullHidden ? "ml-0" : onLauncher || collapsed ? "ml-14" : "lg:ml-[304px] ml-14"
+        className={`mt-[52px] min-h-[calc(100dvh-52px)] min-w-0 bg-[#F5F5F5] p-4 md:p-6 lg:p-8 transition-[margin-left] duration-200 ${
+          fullHidden ? "ml-0" : onLauncher || collapsed ? "ml-11" : "ml-[244px]"
         }`}
         style={{
-          ["--shell-left" as string]: fullHidden ? "0px" : onLauncher || collapsed ? "3.5rem" : "19rem",
+          ["--shell-left" as string]: fullHidden ? "0px" : onLauncher || collapsed ? "2.75rem" : "15.25rem",
         }}
       >
         {children}

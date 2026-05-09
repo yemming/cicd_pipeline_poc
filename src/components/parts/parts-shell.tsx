@@ -32,7 +32,7 @@ export function PartsShell({
   useSetPageHeader({ breadcrumb });
 
   return (
-    <div className="-m-5 md:-m-6 min-h-[calc(100dvh-var(--shell-topbar-h,52px))] bg-[#FAFAF9]">
+    <div className="-m-4 md:-m-6 lg:-m-8 min-h-[calc(100dvh-var(--shell-topbar-h,52px))] bg-[#FAFAF9]">
       {flowSteps && flowSteps.length > 0 && (
         <div className="bg-white border-b border-[#EEECE6] px-6 py-2.5 flex items-center gap-1 text-[12px] overflow-x-auto">
           {flowSteps.map((step, i) => (

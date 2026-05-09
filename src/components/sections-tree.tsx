@@ -1,18 +1,64 @@
 "use client";
 
 /**
- * 樣板 sidebar 的「三層樹」渲染共用元件 — section header → parent group → child page。
+ * Sidebar 三層樹渲染共用元件 — section header → parent group → child page。
+ * PagesPanel 在有 sections 時用這個；沒 sections 時 fallback 到 dock magnification。
  *
- * 兩個 shell 都吃這個：
- *   - ModernSidebar / ModernNavItem：active module 內部
- *   - ClassicShell PagesPanel：當前 module 內容
- *
- * 樣式對應 `docs/DUCATI_庫存管理模組_正式版/01_*.html` 的 `.ng / .ngl / .ni.parent / .nsi`。
+ * 視覺：所有顏色都讀 sidebar theme CSS 變數（見 src/lib/brands/sidebar-themes.ts），
+ * 9 套 theme 切換時會跟著變色。**禁止寫 hardcoded 顏色**，否則 theme 會在這層斷掉。
  */
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
 import type { ModulePage, ParentGroup, SectionGroup } from "@/lib/modules";
+
+// Material Symbol icon 渲染器：active 用 sidebar-text，inactive 用 sidebar-text-muted；
+// 任何 theme 切換都跟著走。
+function NodeIcon({
+  icon,
+  emoji,
+  size = 16,
+  active = false,
+}: {
+  icon?: string;
+  emoji?: string;
+  size?: number;
+  active?: boolean;
+}) {
+  if (icon) {
+    return (
+      <span
+        className="material-symbols-outlined leading-none shrink-0 transition-colors"
+        style={{
+          fontSize: `${size}px`,
+          width: `${size + 4}px`,
+          textAlign: "center",
+          color: active ? "var(--sidebar-text)" : "var(--sidebar-text-muted)",
+        }}
+      >
+        {icon}
+      </span>
+    );
+  }
+  if (emoji) {
+    return (
+      <span
+        className="leading-none shrink-0 text-center"
+        style={{ fontSize: `${size - 2}px`, width: `${size + 4}px` }}
+      >
+        {emoji}
+      </span>
+    );
+  }
+  return null;
+}
+
+// motion preset：輕量 hover 互動（淡淡 lift + scale），給人「活潑但不浮誇」的感覺
+const rowMotion = {
+  whileHover: { x: 2, transition: { type: "spring" as const, stiffness: 380, damping: 26 } },
+  whileTap: { scale: 0.98 },
+};
 
 export function SectionedTree({
   sections,
@@ -29,7 +75,10 @@ export function SectionedTree({
         return (
           <div key={`${sec.title}-${si}`}>
             {showHeader && (
-              <div className="px-3.5 pt-3 pb-1 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.09em] uppercase text-[#9A9890]">
+              <div
+                className="px-3.5 pt-3 pb-1 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.09em] uppercase"
+                style={{ color: "var(--sidebar-text-muted)" }}
+              >
                 <span
                   className="w-[5px] h-[5px] rounded-full shrink-0"
                   style={{ background: sectionColor(sec.color) }}
@@ -80,20 +129,18 @@ function ParentGroupItem({
 
   if (isDirectLink) {
     return (
-      <Link
-        href={parent.href!}
-        className={`mx-2 my-px flex items-center gap-2 px-2.5 py-[7px] rounded-md text-[12.5px] transition-colors ${
-          selfActive
-            ? "bg-[#F0FAF6] text-[#0F6E56] font-medium"
-            : "text-[#2C2C2A] hover:bg-[#F8F7F4]"
-        }`}
-      >
-        {parent.emoji && (
-          <span className="text-[13px] w-[18px] text-center shrink-0">{parent.emoji}</span>
-        )}
-        <span className="truncate flex-1">{parent.name}</span>
-        {parent.badge && <Badge tone="warn">{parent.badge}</Badge>}
-      </Link>
+      <motion.div {...rowMotion}>
+        <Link
+          href={parent.href!}
+          className={`mx-2 my-px flex items-center gap-2 px-2.5 py-[7px] rounded-md text-[12.5px] font-medium transition-colors sidebar-row ${
+            selfActive ? "sidebar-row-active" : ""
+          }`}
+          style={{ color: "var(--sidebar-text)" }}
+        >
+          <NodeIcon icon={parent.icon} emoji={parent.emoji} size={18} active={selfActive} />
+          <span className="truncate flex-1">{parent.name}</span>
+        </Link>
+      </motion.div>
     );
   }
 
@@ -101,29 +148,28 @@ function ParentGroupItem({
 
   return (
     <div>
-      <button
+      <motion.button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`mx-2 my-px w-[calc(100%-1rem)] flex items-center gap-2 px-2.5 py-[7px] rounded-md text-[12.5px] transition-colors ${
-          sectionActive
-            ? "bg-[#F0FAF6] text-[#0F6E56] font-medium"
-            : "text-[#2C2C2A] hover:bg-[#F8F7F4]"
+        whileHover={{ x: 2, transition: { type: "spring", stiffness: 380, damping: 26 } }}
+        whileTap={{ scale: 0.98 }}
+        className={`mx-2 my-px w-[calc(100%-1rem)] flex items-center gap-2 px-2.5 py-[7px] rounded-md text-[12.5px] font-medium transition-colors sidebar-row ${
+          sectionActive ? "sidebar-row-active" : ""
         }`}
+        style={{ color: "var(--sidebar-text)" }}
       >
-        {parent.emoji && (
-          <span className="text-[13px] w-[18px] text-center shrink-0">{parent.emoji}</span>
-        )}
+        <NodeIcon icon={parent.icon} emoji={parent.emoji} size={18} active={sectionActive} />
         <span className="truncate flex-1 text-left">{parent.name}</span>
-        {parent.badge && <Badge tone="warn">{parent.badge}</Badge>}
-        <span
-          className={`text-[9px] text-[#9A9890] transition-transform ${
-            open ? "rotate-90" : ""
-          }`}
+        <motion.span
+          animate={{ rotate: open ? 90 : 0 }}
+          transition={{ type: "spring", stiffness: 380, damping: 28 }}
+          className="text-[9px] inline-block"
+          style={{ color: "var(--sidebar-text-muted)" }}
         >
           ▶
-        </span>
-      </button>
+        </motion.span>
+      </motion.button>
 
       <div
         className={`overflow-hidden transition-[max-height] duration-200 ${
@@ -134,9 +180,10 @@ function ParentGroupItem({
           <NestedChild
             key={c.href}
             page={c}
-            isActive={
-              activePageHref === c.href || activePageHref?.startsWith(c.href + "/") === true
-            }
+            // 子頁 active 判定走 strict equality;activePageHref 在 PagesPanel
+            // 那層已經挑好「most specific match」(最長 href 優先),這裡若再做
+            // startsWith 會把 /pos 的「快速收銀」在 /pos/settings 時也誤判 active。
+            isActive={activePageHref === c.href}
           />
         ))}
       </div>
@@ -146,39 +193,18 @@ function ParentGroupItem({
 
 function NestedChild({ page, isActive }: { page: ModulePage; isActive: boolean }) {
   return (
-    <Link
-      href={page.href}
-      className={`flex items-center gap-1.5 ml-7 mr-2 my-px px-2.5 py-[5px] rounded text-[12px] transition-colors ${
-        isActive
-          ? "bg-[#F0F6FF] text-[#185FA5] font-medium"
-          : "text-[#9A9890] hover:bg-[#F8F7F4] hover:text-[#2C2C2A]"
-      }`}
-    >
-      <span className="truncate flex-1">{page.name}</span>
-      {page.badge && <Badge tone="danger">{page.badge}</Badge>}
-    </Link>
-  );
-}
-
-function Badge({
-  children,
-  tone,
-}: {
-  children: React.ReactNode;
-  tone: "danger" | "warn" | "new";
-}) {
-  const cls =
-    tone === "danger"
-      ? "bg-[#FDECEA] text-[#CC0000]"
-      : tone === "warn"
-        ? "bg-[#FDF3E3] text-[#854F0B]"
-        : "bg-[#E8F5F0] text-[#0F6E56]";
-  return (
-    <span
-      className={`text-[10px] font-mono font-medium px-1.5 py-px rounded-lg leading-none ${cls}`}
-    >
-      {children}
-    </span>
+    <motion.div {...rowMotion}>
+      <Link
+        href={page.href}
+        className={`flex items-center gap-1.5 ml-7 mr-2 my-px px-2.5 py-[5px] rounded text-[12px] transition-colors sidebar-row ${
+          isActive ? "sidebar-row-active font-medium" : ""
+        }`}
+        style={{ color: isActive ? "var(--sidebar-text)" : "var(--sidebar-text-muted)" }}
+      >
+        <NodeIcon icon={page.icon} size={15} active={isActive} />
+        <span className="truncate flex-1">{page.name}</span>
+      </Link>
+    </motion.div>
   );
 }
 

@@ -1,28 +1,99 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import {
-  getCustomerById,
-  listAccounts,
-  listCustomerContacts,
-  listCustomerVehicles,
-} from "@/lib/master-data/queries";
-import { updateCustomerAction } from "@/lib/master-data/customer-actions";
+import { getBrandKey } from "@/lib/brands/current";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
-import { CustomerForm } from "../_components/customer-form";
+import {
+  CustomerDetailView,
+  type DetailCustomer,
+  type ContactRow,
+  type VehicleRow,
+  type WorkOrderRow,
+  type ModelRef,
+  type AccountRef,
+} from "./_components/customer-detail-view";
 
 export const dynamic = "force-dynamic";
 
-export default async function EditCustomerPage({
+async function loadDetail(id: string) {
+  const supabase = await createClient();
+  const brand = getBrandKey();
+
+  const { data: customer, error: cErr } = await supabase
+    .from("customers")
+    .select(
+      "id, code, name, type, tax_id, national_id, phone, email, address, birthday, source_module, gl_receivable_account_id, notes, is_active, created_at, updated_at, external_source, external_id",
+    )
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .single();
+  if (cErr || !customer) return null;
+
+  const [contactsRes, vehiclesRes, workOrdersRes, accountsRes] = await Promise.all([
+    supabase
+      .from("customer_contacts")
+      .select("id, name, role, relation, phone, email, is_active")
+      .eq("brand_id", brand)
+      .eq("customer_id", id)
+      .order("created_at"),
+    supabase
+      .from("customer_vehicles")
+      .select(
+        "id, license_plate, vin, engine_no, color, current_mileage, last_service_date, next_service_due_date, warranty_until, is_active, model_id",
+      )
+      .eq("brand_id", brand)
+      .eq("customer_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("work_orders")
+      .select("id, ro_no, status, opened_at, closed_at, parts_amount, labor_amount, total_amount")
+      .eq("brand_id", brand)
+      .eq("customer_id", id)
+      .order("opened_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("accounts")
+      .select("id, acct_code, acct_name")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("acct_code"),
+  ]);
+
+  const contacts = (contactsRes.data ?? []) as unknown as ContactRow[];
+  const vehicles = (vehiclesRes.data ?? []) as unknown as VehicleRow[];
+  const workOrders = (workOrdersRes.data ?? []) as unknown as WorkOrderRow[];
+  const accounts = (accountsRes.data ?? []) as unknown as AccountRef[];
+
+  let models: ModelRef[] = [];
+  const modelIds = Array.from(
+    new Set(vehicles.map((v) => v.model_id).filter((x): x is string => Boolean(x))),
+  );
+  if (modelIds.length > 0) {
+    const { data: mData } = await supabase
+      .from("motorcycle_models")
+      .select("id, display_name")
+      .in("id", modelIds);
+    models = (mData ?? []) as unknown as ModelRef[];
+  }
+
+  return {
+    customer: customer as unknown as DetailCustomer,
+    contacts,
+    vehicles,
+    workOrders,
+    models,
+    accounts,
+  };
+}
+
+export default async function CustomerDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
-
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
   if (!(await hasPermission(PERMISSIONS.CUSTOMER_VIEW))) {
@@ -33,166 +104,11 @@ export default async function EditCustomerPage({
     );
   }
 
-  const [customer, accounts] = await Promise.all([
-    getCustomerById(id),
-    listAccounts({ acctType: "asset" }),
-  ]);
-  if (!customer) notFound();
-
-  // 編輯頁帶出該客戶名下的機車數量，提示 admin 別亂停用會影響什麼
-  const [vehicles, contacts] = await Promise.all([
-    listCustomerVehicles({
-      customerId: customer.id,
-      activeOnly: false,
-      limit: 50,
-    }),
-    listCustomerContacts({
-      customerId: customer.id,
-      activeOnly: false,
-    }),
-  ]);
+  const { id } = await params;
+  const data = await loadDetail(id);
+  if (!data) notFound();
 
   const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
 
-  return (
-    <main className="px-6 py-6 max-w-[1100px] space-y-5">
-      <nav className="text-[13px] text-[#6B778C]">
-        <Link href="/admin/master-data/customers" className="hover:text-[#172B4D]">
-          客戶資料
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-[#172B4D]">
-          {customer.code} ・ {customer.name}
-        </span>
-      </nav>
-
-      <header className="space-y-1">
-        <h1 className="text-[20px] font-bold text-[#172B4D]">
-          編輯客戶 ・ {customer.name}
-        </h1>
-        <p className="text-[13px] text-[#6B778C]">
-          建立於{" "}
-          {new Date(customer.created_at).toLocaleString("zh-TW", {
-            timeZone: "Asia/Taipei",
-          })}{" "}
-          ・ 最近更新{" "}
-          {new Date(customer.updated_at).toLocaleString("zh-TW", {
-            timeZone: "Asia/Taipei",
-          })}
-          {vehicles.length > 0 && (
-            <span className="ml-2 text-[#0747A6]">
-              ・ 名下 {vehicles.length} 輛機車
-            </span>
-          )}
-        </p>
-      </header>
-
-      <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
-        {canEdit ? (
-          <CustomerForm
-            mode="edit"
-            action={updateCustomerAction}
-            customer={customer}
-            accounts={accounts}
-          />
-        ) : (
-          <p className="text-[14px] text-[#6B778C]">僅可檢視；沒有編輯權限</p>
-        )}
-      </section>
-
-      <section className="bg-white border border-[#DFE1E6] rounded-md">
-        <header className="flex items-center justify-between px-5 py-3 border-b border-[#DFE1E6]">
-          <div className="space-y-0.5">
-            <h2 className="text-[14px] font-bold text-[#172B4D]">客戶聯絡人</h2>
-            <p className="text-[12px] text-[#6B778C]">
-              共 {contacts.length} 筆 ・ 通常 primary 一筆但不強制
-            </p>
-          </div>
-          {canEdit && (
-            <Link
-              href={`/admin/master-data/customers/${customer.id}/contacts/new`}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#0052CC] hover:bg-[#0747A6] text-white text-[13px] font-semibold rounded"
-            >
-              <span className="material-symbols-outlined text-[16px]">add</span>
-              新增聯絡人
-            </Link>
-          )}
-        </header>
-        {contacts.length === 0 ? (
-          <p className="px-5 py-6 text-[13px] text-[#6B778C]">
-            尚無聯絡人 — 點右上角「新增聯絡人」開始
-          </p>
-        ) : (
-          <table className="w-full text-[13px]">
-            <thead className="bg-[#F4F5F7] text-[#42526E]">
-              <tr>
-                <th className="text-left px-5 py-2 font-semibold w-[120px]">角色</th>
-                <th className="text-left px-5 py-2 font-semibold w-[140px]">姓名</th>
-                <th className="text-left px-5 py-2 font-semibold w-[140px]">電話</th>
-                <th className="text-left px-5 py-2 font-semibold">Email</th>
-                <th className="text-left px-5 py-2 font-semibold w-[110px]">關係</th>
-                <th className="text-left px-5 py-2 font-semibold w-[80px]">狀態</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contacts.map((c) => {
-                const roleLabel: Record<string, string> = {
-                  primary: "主要聯絡人",
-                  emergency: "緊急聯絡人",
-                  family: "家屬",
-                  secretary: "秘書 / 助理",
-                  other: "其他",
-                };
-                const roleColor: Record<string, string> = {
-                  primary: "bg-[#DEEBFF] text-[#0747A6]",
-                  emergency: "bg-[#FFEBE6] text-[#BF2600]",
-                  family: "bg-[#E3FCEF] text-[#006644]",
-                  secretary: "bg-[#EAE6FF] text-[#403294]",
-                  other: "bg-[#DFE1E6] text-[#42526E]",
-                };
-                return (
-                  <tr
-                    key={c.id}
-                    className="border-t border-[#DFE1E6] hover:bg-[#F4F5F7] cursor-pointer"
-                  >
-                    <td className="px-5 py-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium ${roleColor[c.role] ?? roleColor.other}`}
-                      >
-                        {roleLabel[c.role] ?? c.role}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 font-medium">
-                      <Link
-                        href={`/admin/master-data/customers/${customer.id}/contacts/${c.id}`}
-                        className="hover:text-[#0052CC]"
-                      >
-                        {c.name}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3 font-mono text-[12px]">
-                      {c.phone ?? <span className="text-[#6B778C]">—</span>}
-                    </td>
-                    <td className="px-5 py-3 text-[12px]">
-                      {c.email ?? <span className="text-[#6B778C]">—</span>}
-                    </td>
-                    <td className="px-5 py-3 text-[12px]">
-                      {c.relation ?? <span className="text-[#6B778C]">—</span>}
-                    </td>
-                    <td className="px-5 py-3">
-                      {c.is_active ? (
-                        <span className="text-[11px] text-[#006644]">●&nbsp;啟用</span>
-                      ) : (
-                        <span className="text-[11px] text-[#6B778C]">○&nbsp;停用</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </section>
-    </main>
-  );
+  return <CustomerDetailView {...data} canEdit={canEdit} />;
 }

@@ -27,7 +27,7 @@ export async function proxy(request: NextRequest) {
 
   // 公開路由不需要驗證
   // /api/admin/notifications/*：route handler 自己做 admin 檢查（含 dev bypass token），不走 cookie middleware
-  const publicPaths = ['/login', '/onboarding', '/api/auth', '/api/holidays', '/api/weather', '/api/line', '/api/admin/notifications', '/stitch', '/parts-stitch']
+  const publicPaths = ['/login', '/api/auth', '/api/holidays', '/api/weather', '/api/line', '/api/admin/notifications', '/stitch', '/parts-stitch']
   const isPublic =
     request.nextUrl.pathname === '/' ||
     publicPaths.some(p => request.nextUrl.pathname.startsWith(p))

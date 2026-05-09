@@ -32,7 +32,7 @@ export default async function NavAdminPage() {
     supabase
       .from("nav_nodes")
       .select(
-        "id, brand_id, parent_id, level, sort_order, name, icon, accent, description, module_key, permission, home, page_kind, href, html_storage_path, stitch_screen_id, sprint, device, is_admin_only, coming_soon, is_active, updated_at",
+        "id, brand_id, parent_id, level, sort_order, name, icon, emoji, accent, description, module_key, permission, home, page_kind, href, html_storage_path, stitch_screen_id, sprint, is_admin_only, coming_soon, is_active, updated_at",
       )
       .eq("brand_id", brandKey)
       .order("level")
@@ -64,7 +64,6 @@ export default async function NavAdminPage() {
           sidebar_theme: appearance.sidebar_theme,
           brand_palette: appearance.brand_palette,
           custom_palette: appearance.custom_palette,
-          shell_layout: appearance.shell_layout,
         }}
       />
       <NavEditor initialRows={rows} brandKey={brandKey} brandName={brand.displayName} />

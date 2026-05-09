@@ -76,8 +76,8 @@ function sanitizeCustomPalette(raw: unknown): { primary?: string; accent?: strin
   return out.primary || out.accent ? out : null;
 }
 
-function sanitizeShellLayout(raw: unknown): ShellLayoutKey {
-  if (raw === "classic-dual-rail" || raw === "modern-single-sidebar") return raw;
+function sanitizeShellLayout(_raw: unknown): ShellLayoutKey {
+  // 全站收斂為單一 shell — 不論 DB 紀錄什麼舊值一律回 default
   return DEFAULT_SHELL_LAYOUT_KEY;
 }
 

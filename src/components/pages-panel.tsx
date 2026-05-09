@@ -15,6 +15,7 @@ import type { ModulePage } from "@/lib/modules";
 import { getCurrentBrand } from "@/lib/brands/current";
 import { useSidebar } from "./sidebar-context";
 import { useIsAdmin } from "./admin-context";
+import { SectionedTree } from "./sections-tree";
 
 // ── Dock Row (magnification on mouse proximity) ───────────────────────────────
 
@@ -73,17 +74,6 @@ function DockRow({
         </motion.span>
       )}
       <span className="truncate flex-1">{page.name}</span>
-      {page.device && (
-        <span
-          className={`text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full ring-1 mr-1.5 shrink-0 ${
-            page.device === "mobile"
-              ? "ring-emerald-400/60 text-emerald-300"
-              : "ring-sky-400/60 text-sky-300"
-          }`}
-        >
-          {page.device === "mobile" ? "M" : "T"}
-        </span>
-      )}
     </motion.div>
   );
 
@@ -120,19 +110,25 @@ export function PagesPanel() {
 
   const visiblePages = activeModule.pages.filter((p) => !p.adminOnly || isAdmin);
 
-  // Group pages by `section` while preserving registry order.
+  // 樣板三層樹模式 — module.sections 由 nav loader 從 nav_nodes.section_group 產生
+  const treeSections = activeModule.sections;
+  const useTree = Array.isArray(treeSections) && treeSections.length > 0;
+
+  // Group pages by `section` while preserving registry order.（dock fallback 用）
   const sections: Array<{ title: string | null; items: ModulePage[] }> = [];
-  for (const p of visiblePages) {
-    const label = p.section ?? null;
-    const last = sections[sections.length - 1];
-    if (last && last.title === label) {
-      last.items.push(p);
-    } else {
-      sections.push({ title: label, items: [p] });
+  if (!useTree) {
+    for (const p of visiblePages) {
+      const label = p.section ?? null;
+      const last = sections[sections.length - 1];
+      if (last && last.title === label) {
+        last.items.push(p);
+      } else {
+        sections.push({ title: label, items: [p] });
+      }
     }
   }
 
-  // Most-specific active page
+  // Most-specific active page — 兩個模式都用得到
   const activeHref: string | null = (() => {
     let best: string | null = null;
     for (const p of visiblePages) {
@@ -146,97 +142,67 @@ export function PagesPanel() {
 
   return (
     <aside
-      className={`fixed left-14 top-0 h-dvh w-[248px] flex flex-col py-6 z-[55] shadow-xl transition-transform duration-200 ${
-        collapsed ? "-translate-x-full" : "translate-x-0"
+      className={`fixed left-11 top-[52px] h-[calc(100dvh-52px)] w-[200px] flex flex-col pt-3 pb-1 z-[55] shadow-xl transition-[transform,opacity,visibility] duration-200 ${
+        collapsed
+          ? "-translate-x-[244px] opacity-0 invisible pointer-events-none"
+          : "translate-x-0 opacity-100 visible"
       }`}
       style={{ backgroundColor: "var(--sidebar-panel-bg)" }}
     >
-      {/* Module header */}
-      <div className="px-5 mb-5">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{
-              backgroundColor: activeModule.accent
-                ? `${activeModule.accent}22`
-                : "color-mix(in srgb, var(--color-brand-primary) 15%, transparent)",
-            }}
-          >
-            <span
-              className="material-symbols-outlined text-xl"
-              style={{ color: activeModule.accent ?? "var(--color-brand-primary)" }}
-            >
-              {activeModule.icon}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <div
-              className="font-display font-bold text-base tracking-tight truncate"
-              style={{ color: "var(--sidebar-text)" }}
-            >
-              {activeModule.name}
-            </div>
-            {activeModule.description && (
-              <div
-                className="text-[10px] truncate opacity-70"
-                style={{ color: "var(--sidebar-text-muted)" }}
-              >
-                {activeModule.description}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Page list — dock magnification on mouse proximity */}
-      <nav
-        className="flex-1 overflow-y-auto px-3 pb-2 pages-panel-nav"
-        onMouseMove={(e) => mouseY.set(e.pageY)}
-        onMouseLeave={() => mouseY.set(Infinity)}
-      >
-        {sections.map((section, si) => (
-          <div key={`${section.title ?? "default"}-${si}`} className={si > 0 ? "mt-4" : ""}>
-            {section.title && (
-              <div
-                className="px-4 mb-1 text-[9px] uppercase tracking-[0.15em] font-bold opacity-60"
-                style={{ color: "var(--sidebar-text-muted)" }}
-              >
-                {section.title}
+      {/* Page list — 樣板樹狀（有 sections）或 dock magnification（fallback）。
+         注意不要在 nav 上再加 bg-* — sidebar wrapper 已套 var(--sidebar-panel-bg)，
+         往下一律繼承同一個 theme 色，9 套 sidebar theme 才會在每一階都生效。 */}
+      {useTree ? (
+        <nav className="flex-1 overflow-y-auto pb-2 pages-panel-nav">
+          <SectionedTree sections={treeSections!} activePageHref={activeHref} />
+        </nav>
+      ) : (
+        <nav
+          className="flex-1 overflow-y-auto px-3 pb-2 pages-panel-nav"
+          onMouseMove={(e) => mouseY.set(e.pageY)}
+          onMouseLeave={() => mouseY.set(Infinity)}
+        >
+          {sections.map((section, si) => (
+            <div key={`${section.title ?? "default"}-${si}`} className={si > 0 ? "mt-4" : ""}>
+              {section.title && (
+                <div
+                  className="px-4 mb-1 text-[9px] uppercase tracking-[0.15em] font-bold opacity-60"
+                  style={{ color: "var(--sidebar-text-muted)" }}
+                >
+                  {section.title}
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map((page) => (
+                  <DockRow
+                    key={page.href}
+                    mouseY={mouseY}
+                    page={page}
+                    isActive={!page.comingSoon && page.href === activeHref}
+                    accent={activeModule.accent}
+                  />
+                ))}
               </div>
-            )}
-            <div className="space-y-0.5">
-              {section.items.map((page) => (
-                <DockRow
-                  key={page.href}
-                  mouseY={mouseY}
-                  page={page}
-                  isActive={!page.comingSoon && page.href === activeHref}
-                  accent={activeModule.accent}
-                />
-              ))}
             </div>
-          </div>
-        ))}
-      </nav>
+          ))}
+        </nav>
+      )}
 
-      {/* Footer — DealerOS 版本宣言（客戶 logo 已搬到 topbar 主位） */}
-      <div className="px-3 pt-2 shrink-0">
-        <div
-          className="mx-1 mb-2 border-t"
-          style={{ borderColor: "var(--sidebar-divider)" }}
-        />
+      {/* Footer — DealerOS 版本宣言：兩行緊貼、極簡 */}
+      <div className="px-3 shrink-0">
         <Link
           href="/dashboard"
-          className="block leading-tight text-center py-3 hover:opacity-80 transition-opacity"
+          className="block text-center py-0 leading-[1.15] hover:opacity-70 transition-opacity"
         >
           <div
-            className="text-sm font-bold tracking-widest font-display"
-            style={{ color: "var(--sidebar-text)" }}
+            className="text-[8px] font-medium tracking-[0.18em] uppercase font-display"
+            style={{ color: "var(--sidebar-text-muted)" }}
           >
             DealerOS
           </div>
           <div
-            className="text-[8px] font-bold tracking-[0.22em] uppercase mt-0.5"
+            className="text-[8px] font-medium tracking-[0.18em] uppercase"
             style={{ color: "var(--color-brand-primary)" }}
           >
             {brand.shortName}

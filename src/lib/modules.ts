@@ -19,8 +19,6 @@ export type ModulePage = {
   section?: string;
   /** Sprint code from DealerOS_畫面總表_Stitch_Mapping.xlsx (e.g. "S2-1") */
   sprint?: string;
-  /** Device hint: 'tablet' | 'mobile'，未填表示 Normal（一般網頁） */
-  device?: "tablet" | "mobile";
   /** Only visible to admin users (FEEDBACK_ADMIN_EMAILS / NOTIFICATION_ADMIN_EMAILS) */
   adminOnly?: boolean;
   /** 小數字徽章（如「3」表示 3 筆待處理） */
@@ -88,12 +86,12 @@ export const modules: ModuleDef[] = [
     pages: [
       // 展廳 & 接待
       { name: "展廳看板",     icon: "dashboard",       href: "/sales/showroom",            sprint: "S2-1", stitchScreenId: "5bbc36d4437146f0baa044517465d1e0", section: "展廳接待" },
-      { name: "新增接待",     icon: "person_add",      href: "/sales/reception/new",       sprint: "S2-1", stitchScreenId: "99fce611466a4a649ef25a9e3b1a18b4", device: "tablet", section: "展廳接待" },
-      { name: "接待記錄",     icon: "receipt_long",    href: "/sales/reception/records",   sprint: "S2-2", stitchScreenId: "f822233c2bba46cc922f40a25c68f4c1", device: "tablet", section: "展廳接待" },
+      { name: "新增接待",     icon: "person_add",      href: "/sales/reception/new",       sprint: "S2-1", stitchScreenId: "99fce611466a4a649ef25a9e3b1a18b4", section: "展廳接待" },
+      { name: "接待記錄",     icon: "receipt_long",    href: "/sales/reception/records",   sprint: "S2-2", stitchScreenId: "f822233c2bba46cc922f40a25c68f4c1", section: "展廳接待" },
       // 電子手卡三段
-      { name: "手卡・第一階段", icon: "description",   href: "/sales/card/counter",        sprint: "S2-2", stitchScreenId: "48b9a52cdecb43df8f3742ce7772e57a", device: "tablet", section: "電子手卡" },
-      { name: "手卡・第二階段", icon: "edit_note",     href: "/sales/card/consultant",     sprint: "S2-3", stitchScreenId: "a31b7bafb5b04dde83409277678754ab", device: "tablet", section: "電子手卡" },
-      { name: "手卡・第三階段", icon: "handshake",     href: "/sales/card/closing",        sprint: "S2-4", stitchScreenId: "83860fd7c7e5450883fa05481790cab2", device: "tablet", section: "電子手卡" },
+      { name: "手卡・第一階段", icon: "description",   href: "/sales/card/counter",        sprint: "S2-2", stitchScreenId: "48b9a52cdecb43df8f3742ce7772e57a", section: "電子手卡" },
+      { name: "手卡・第二階段", icon: "edit_note",     href: "/sales/card/consultant",     sprint: "S2-3", stitchScreenId: "a31b7bafb5b04dde83409277678754ab", section: "電子手卡" },
+      { name: "手卡・第三階段", icon: "handshake",     href: "/sales/card/closing",        sprint: "S2-4", stitchScreenId: "83860fd7c7e5450883fa05481790cab2", section: "電子手卡" },
       // 客戶 & 分析
       { name: "客戶中心",     icon: "group",           href: "/sales/customers",           sprint: "S2-7", stitchScreenId: "a7b0843a2c094c38908fc9e60e89d7f2", section: "客戶與分析" },
       { name: "客戶標籤",     icon: "sell",            href: "/sales/customers/tags",      sprint: "S2-5", stitchScreenId: "89f1d788c965410daca3bcae02c7ba6e", section: "客戶與分析" },
@@ -106,12 +104,12 @@ export const modules: ModuleDef[] = [
       { name: "試駕排程",     icon: "drive_eta",       href: "/sales/testdrive",           sprint: "S7-1", stitchScreenId: "a2d1439fc4b4454f805d7560bc22a0d7", section: "試駕管理" },
       // 交易流程
       { name: "訂單中心",     icon: "assignment",      href: "/sales/orders",              sprint: "S3-5", stitchScreenId: "3fc682ca14fb4e6492217377a97aa732", section: "交易流程" },
-      { name: "接待報價單",   icon: "request_quote",   href: "/sales/quote",               sprint: "S3-9", stitchScreenId: "f2f2139ca6274ad9bb4fa4d9ec0fb775", device: "tablet", section: "交易流程" },
-      { name: "金融服務",     icon: "payments",        href: "/sales/finance",             sprint: "S3-3", stitchScreenId: "99a04d77b6eb4dc0abee06254039be18", device: "tablet", section: "交易流程" },
-      { name: "保險服務",     icon: "verified_user",   href: "/sales/insurance",           sprint: "S3-4", stitchScreenId: "8df863759c604bab91a4a38e38e2e3ce", device: "tablet", section: "交易流程" },
-      { name: "精品選配",     icon: "featured_video",  href: "/sales/accessories",         sprint: "S3-7", stitchScreenId: "cb56d0d2424f425e943d240e06d0c26c", device: "tablet", section: "交易流程" },
+      { name: "接待報價單",   icon: "request_quote",   href: "/sales/quote",               sprint: "S3-9", stitchScreenId: "f2f2139ca6274ad9bb4fa4d9ec0fb775", section: "交易流程" },
+      { name: "金融服務",     icon: "payments",        href: "/sales/finance",             sprint: "S3-3", stitchScreenId: "99a04d77b6eb4dc0abee06254039be18", section: "交易流程" },
+      { name: "保險服務",     icon: "verified_user",   href: "/sales/insurance",           sprint: "S3-4", stitchScreenId: "8df863759c604bab91a4a38e38e2e3ce", section: "交易流程" },
+      { name: "精品選配",     icon: "featured_video",  href: "/sales/accessories",         sprint: "S3-7", stitchScreenId: "cb56d0d2424f425e943d240e06d0c26c", section: "交易流程" },
       // Mobile App
-      { name: "顧問 App",     icon: "smartphone",      href: "/sales/sc-app",              sprint: "S3-8", stitchScreenId: "c67e7324cd3e4f62a0fc9b0fbbdce5dc", device: "mobile", section: "行動工具" },
+      { name: "顧問 App",     icon: "smartphone",      href: "/sales/sc-app",              sprint: "S3-8", stitchScreenId: "c67e7324cd3e4f62a0fc9b0fbbdce5dc", section: "行動工具" },
       // 車型資訊（bonus）
       { name: "車型資訊",     icon: "two_wheeler",     href: "/sales/models",              sprint: "—",    stitchScreenId: "6a4a5093d497482fb532650d25589829", section: "行動工具" },
     ],
@@ -151,8 +149,8 @@ export const modules: ModuleDef[] = [
     pages: [
       { name: "預約看板",     icon: "calendar_today",  href: "/service/appointments",   stitchScreenId: "1575f27a2ada4bb8bb7d2f21894790cb" },
       { name: "接待預檢",     icon: "fact_check",      href: "/service/pi" },
-      { name: "PDI 作業",     icon: "verified",        href: "/service/pdi",            device: "tablet" },
-      { name: "維修工單",     icon: "construction",    href: "/service/workorders",     device: "tablet" },
+      { name: "PDI 作業",     icon: "verified",        href: "/service/pdi" },
+      { name: "維修工單",     icon: "construction",    href: "/service/workorders" },
       { name: "技師派工",     icon: "garage",          href: "/service/workshop",       stitchScreenId: "ef95845f1f78486f83905a9cd1ec1ccf" },
       { name: "竣工複檢",     icon: "task_alt",        href: "/service/inspection" },
       { name: "增項管理",     icon: "add_task",        href: "/service/dropoff" },
@@ -173,12 +171,12 @@ export const modules: ModuleDef[] = [
     home: "/delivery/ceremony",
     permission: "delivery.access",
     pages: [
-      { name: "交車儀式",     icon: "celebration",     href: "/delivery/ceremony",         sprint: "S7-7", stitchScreenId: "55e45ebb3bff4682b32a2b15d60d27a4", device: "tablet" },
-      { name: "PDI 檢查表",   icon: "fact_check",      href: "/delivery/pdi",              sprint: "S7-2", stitchScreenId: "867edbe750124ece91cb5a2afbe38761", device: "tablet" },
-      { name: "PDI 配件安裝", icon: "settings_suggest",href: "/delivery/pdi-accessories",  sprint: "S7-3", stitchScreenId: "e323677e9e2e4cb190022f1fa09a502c", device: "tablet" },
-      { name: "交車確認 (上)",icon: "assignment_turned_in", href: "/delivery/confirm-1",   sprint: "S7-4", stitchScreenId: "292c6069abfe41b69ffc41e90ed2878b", device: "tablet" },
-      { name: "交車確認 (下)",icon: "task_alt",        href: "/delivery/confirm-2",        sprint: "S7-5", stitchScreenId: "6e86c72665d44820b2b770bbde15591f", device: "tablet" },
-      { name: "保固條款簽署", icon: "draw",            href: "/delivery/warranty-sign",    sprint: "S7-6", stitchScreenId: "431a61ec63f54721a786bfc969d718f3", device: "tablet" },
+      { name: "交車儀式",     icon: "celebration",     href: "/delivery/ceremony",         sprint: "S7-7", stitchScreenId: "55e45ebb3bff4682b32a2b15d60d27a4" },
+      { name: "PDI 檢查表",   icon: "fact_check",      href: "/delivery/pdi",              sprint: "S7-2", stitchScreenId: "867edbe750124ece91cb5a2afbe38761" },
+      { name: "PDI 配件安裝", icon: "settings_suggest",href: "/delivery/pdi-accessories",  sprint: "S7-3", stitchScreenId: "e323677e9e2e4cb190022f1fa09a502c" },
+      { name: "交車確認 (上)",icon: "assignment_turned_in", href: "/delivery/confirm-1",   sprint: "S7-4", stitchScreenId: "292c6069abfe41b69ffc41e90ed2878b" },
+      { name: "交車確認 (下)",icon: "task_alt",        href: "/delivery/confirm-2",        sprint: "S7-5", stitchScreenId: "6e86c72665d44820b2b770bbde15591f" },
+      { name: "保固條款簽署", icon: "draw",            href: "/delivery/warranty-sign",    sprint: "S7-6", stitchScreenId: "431a61ec63f54721a786bfc969d718f3" },
     ],
   },
 
@@ -212,7 +210,7 @@ export const modules: ModuleDef[] = [
     permission: "usedcar.access",
     pages: [
       // 車輛管理
-      { name: "置換評估",       icon: "assessment",        href: "/usedcar/evaluation",       sprint: "S5-1", stitchScreenId: "e8c1015b71784626ac9797caaf57f457", device: "tablet", section: "車輛管理" },
+      { name: "置換評估",       icon: "assessment",        href: "/usedcar/evaluation",       sprint: "S5-1", stitchScreenId: "e8c1015b71784626ac9797caaf57f457", section: "車輛管理" },
       { name: "中古車庫存",     icon: "inventory",         href: "/usedcar/stock",            sprint: "S5-2", stitchScreenId: "6f6ddad5a36144daa42a772607663054", section: "車輛管理" },
       { name: "拍賣管理",       icon: "gavel",             href: "/usedcar/auction",          sprint: "S5-3", stitchScreenId: "cc722dbd9b5c4af29b5fe7e516db70fd", section: "車輛管理" },
       // 銷售管理（中古車專屬銷售流程）
@@ -347,7 +345,7 @@ export const modules: ModuleDef[] = [
     pages: [
       { name: "集團運營簡報", icon: "slideshow",        href: "/group/briefing",           sprint: "S6-3", stitchScreenId: "76f48bf6c9484de1a2082f702761fa40", section: "集團數據" },
       { name: "集團看板",     icon: "space_dashboard",  href: "/group/dashboard",          sprint: "S6-2", stitchScreenId: "0f7df3e575254e96b24b084be30179c1", section: "集團數據" },
-      { name: "看板 (Mobile)",icon: "stay_primary_portrait", href: "/group/dashboard-mobile", sprint: "S6-1", stitchScreenId: "1dc126f847404a23bd966f7743937945", device: "mobile", section: "集團數據" },
+      { name: "看板 (Mobile)",icon: "stay_primary_portrait", href: "/group/dashboard-mobile", sprint: "S6-1", stitchScreenId: "1dc126f847404a23bd966f7743937945", section: "集團數據" },
       { name: "集團庫存總覽", icon: "hub",              href: "/group/group-overview",     sprint: "S6-7", stitchScreenId: "9e696ef7243d48148cc3290aa55d0d16", section: "集團數據" },
       { name: "報表中心",     icon: "bar_chart",        href: "/group/reports",            sprint: "S6-5", stitchScreenId: "608f23f9cb484af39f71c15d1af39619", section: "集團數據" },
       { name: "銷售目標",     icon: "flag",             href: "/group/sales-target",       sprint: "S6-6", stitchScreenId: "f3e0be1e2b6c439ea20d5dd428577873", section: "集團數據" },
@@ -419,10 +417,10 @@ export const modules: ModuleDef[] = [
     description: "尚未轉譯的設計稿預覽",
     home: "/dev/demo-dashboard",
     pages: [
-      { name: "Demo Dashboard（資料層連通）", icon: "dashboard",       href: "/dev/demo-dashboard",  device: "tablet" },
-      { name: "04_預檢單+RO串接_v1",          icon: "fact_check",      href: "/dev/preflight-ro-v1", device: "tablet" },
-      { name: "04_預檢單_SA環檢_v2",          icon: "rule",            href: "/dev/preflight-sa-v2", device: "tablet" },
-      { name: "Ducati_售後完整工單套件_v4",   icon: "folder_special",  href: "/dev/aftersales-kit",  device: "tablet" },
+      { name: "Demo Dashboard（資料層連通）", icon: "dashboard",       href: "/dev/demo-dashboard" },
+      { name: "04_預檢單+RO串接_v1",          icon: "fact_check",      href: "/dev/preflight-ro-v1" },
+      { name: "04_預檢單_SA環檢_v2",          icon: "rule",            href: "/dev/preflight-sa-v2" },
+      { name: "Ducati_售後完整工單套件_v4",   icon: "folder_special",  href: "/dev/aftersales-kit" },
     ],
   },
 ];

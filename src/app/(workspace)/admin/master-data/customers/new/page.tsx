@@ -1,15 +1,43 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { listAccounts } from "@/lib/master-data/queries";
-import { createCustomerAction } from "@/lib/master-data/customer-actions";
+import { getBrandKey } from "@/lib/brands/current";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
-import { CustomerForm } from "../_components/customer-form";
+import {
+  CustomerDetailView,
+  type DetailCustomer,
+  type AccountRef,
+} from "../[id]/_components/customer-detail-view";
 
 export const dynamic = "force-dynamic";
+
+// /customers/new 直接 reuse detail view，走 forceCreating 模式：
+// 標題顯示「（未命名客戶）」、CRUD pill 顯示 [取消 / 建立並開啟]、Tabs 隱藏。
+const PLACEHOLDER_ID = "00000000-0000-0000-0000-000000000000";
+
+const placeholderCustomer: DetailCustomer = {
+  id: PLACEHOLDER_ID,
+  code: "",
+  name: "",
+  type: "individual",
+  tax_id: null,
+  national_id: null,
+  phone: null,
+  email: null,
+  address: null,
+  birthday: null,
+  source_module: null,
+  gl_receivable_account_id: null,
+  notes: null,
+  is_active: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  external_source: null,
+  external_id: null,
+};
 
 export default async function NewCustomerPage() {
   const { userId } = await getCurrentUserAndAdmin();
@@ -22,32 +50,26 @@ export default async function NewCustomerPage() {
     );
   }
 
-  const accounts = await listAccounts({ acctType: "asset" });
+  const supabase = await createClient();
+  const brand = getBrandKey();
+  const { data: accountsData } = await supabase
+    .from("accounts")
+    .select("id, acct_code, acct_name")
+    .eq("brand_id", brand)
+    .eq("is_active", true)
+    .order("acct_code");
+  const accounts = (accountsData ?? []) as unknown as AccountRef[];
 
   return (
-    <main className="px-6 py-6 max-w-[1100px] space-y-5">
-      <nav className="text-[13px] text-[#6B778C]">
-        <Link href="/admin/master-data/customers" className="hover:text-[#172B4D]">
-          客戶資料
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-[#172B4D]">新增客戶</span>
-      </nav>
-
-      <header className="space-y-1">
-        <h1 className="text-[20px] font-bold text-[#172B4D]">新增客戶</h1>
-        <p className="text-[13px] text-[#6B778C]">
-          客戶名稱與類型必填；其餘欄位非必填，可日後補完
-        </p>
-      </header>
-
-      <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
-        <CustomerForm
-          mode="create"
-          action={createCustomerAction}
-          accounts={accounts}
-        />
-      </section>
-    </main>
+    <CustomerDetailView
+      customer={placeholderCustomer}
+      contacts={[]}
+      vehicles={[]}
+      workOrders={[]}
+      models={[]}
+      accounts={accounts}
+      canEdit={true}
+      forceCreating={true}
+    />
   );
 }

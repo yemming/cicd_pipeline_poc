@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -129,20 +130,29 @@ function IconContainer({
         active ? "module-rail-icon-active" : ""
       )}
     >
-      {/* Tooltip — fixed position to escape overflow:hidden containers */}
-      <AnimatePresence>
-        {isHovered && (
-          <motion.div
-            initial={{ opacity: 0, x: -6 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -6 }}
-            style={{ top: tooltipY, left: 68 }}
-            className="pointer-events-none fixed -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-700/90 backdrop-blur-sm px-2.5 py-1 text-xs font-medium text-white shadow-lg z-[200]"
-          >
-            {title}
-          </motion.div>
+      {/* Tooltip — 用 portal render 到 body，跳出 ModuleRail 的 z-[55] stacking
+            context（否則 PagesPanel 同 z-[55] 蓋掉，z-[200] 在 nav 內部 cap 失效） */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {isHovered && (
+              <motion.div
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -6 }}
+                style={{ top: tooltipY, left: 56 }}
+                className="pointer-events-none fixed -translate-y-1/2 whitespace-nowrap rounded-lg bg-slate-800/95 backdrop-blur-sm px-2.5 py-1 text-xs font-medium text-white shadow-xl z-[9999]"
+              >
+                {title}
+                {/* 左指向小三角，補 Mac 風格氣泡感 */}
+                <span
+                  className="absolute right-full top-1/2 -translate-y-1/2 border-y-[5px] border-r-[5px] border-y-transparent border-r-slate-800/95"
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
 
       {/* Active pip */}
       {active && (
@@ -186,67 +196,52 @@ export function ModuleRail() {
   const pathname  = usePathname();
   const { toggle, fullHidden, setFullHidden } = useSidebar();
   const { modules, resolveModuleFromPathname } = useNav();
-  const rawSegment = pathname.split("/")[1] || null;
-  const onLauncher = !rawSegment || rawSegment === "dashboard";
 
   // resolveModuleFromPathname handles URL-segment overrides (e.g. /feedback → settings)
   const activeModule = resolveModuleFromPathname(pathname);
   // 用 id（uuid，DB-driven 唯一）優先；舊 hardcoded 才 fallback 到 key
   const activeIdent = activeModule ? (activeModule.id ?? activeModule.key) : null;
-  const activeKey = activeModule?.key ?? null;
-
-  const currentPage  = activeModule?.pages.find(
-    (p) => p.href === pathname || pathname.startsWith(p.href + "/")
-  );
-  const isDevicePage = currentPage?.device === "tablet" || currentPage?.device === "mobile";
 
   if (fullHidden) return null;
 
-  const topItems: DockItem[] = [
-    {
-      title: isDevicePage ? "隱藏導航列" : "主地圖",
-      icon: <MatIcon name="apps" />,
-      href: isDevicePage ? undefined : "/dashboard",
-      onClick: isDevicePage ? () => setFullHidden(true) : undefined,
-      active: onLauncher,
-    },
-  ];
+  // 主地圖入口已經跟 topbar 左上的 Logo 重複，rail 上不再放，避免認知壓力。
 
+  // 點擊行為：
+  //   - active module icon → toggle PagesPanel（收 / 展），不 navigate
+  //   - non-active module icon → navigate 到該 module home
+  //   - comingSoon → 不可點
   const moduleItems: DockItem[] = modules.map((m) => {
     const ident = m.id ?? m.key;
     const isActive = activeIdent !== null && activeIdent === ident;
+    const isToggle = isActive && !m.comingSoon;
     return {
       title: m.comingSoon ? `${m.name}（即將推出）` : m.name,
       icon: <MatIcon name={m.icon} color={isActive ? m.accent : undefined} />,
-      href: m.comingSoon ? undefined : m.home,
-      onClick: isActive ? toggle : undefined,
+      href: isToggle ? undefined : (m.comingSoon ? undefined : m.home),
+      onClick: isToggle ? toggle : undefined,
       active: isActive,
       accent: m.accent,
     };
   });
 
+  // 左下 chevron — 把整條 navigation 縮成左邊小球（fullHidden）。
+  // PagesPanel 收/展請點 active module icon。
   const bottomItems: DockItem[] = [
     {
-      title: "新手導覽",
-      icon: <MatIcon name="school" />,
-      href: "/onboarding",
-      active: activeKey === "onboarding",
+      title: "隱藏導航列",
+      icon: <MatIcon name="chevron_left" />,
+      onClick: () => setFullHidden(true),
     },
   ];
 
   return (
     <nav
-      className="fixed left-0 top-0 h-dvh w-14 flex flex-col items-center py-3 z-[60] border-r"
+      className="fixed left-0 top-[52px] h-[calc(100dvh-52px)] w-11 flex flex-col items-center py-3 z-[55] border-r"
       style={{
         backgroundColor: "var(--sidebar-rail-bg)",
         borderColor: "var(--sidebar-divider)",
       }}
     >
-      {/* Top: Launcher */}
-      <VerticalDock items={topItems} />
-
-      <div className="h-px w-6 my-2" style={{ backgroundColor: "var(--sidebar-divider)" }} />
-
       {/* Modules */}
       <div className="flex-1 overflow-y-auto overflow-x-visible w-full flex flex-col items-center">
         <VerticalDock items={moduleItems} />

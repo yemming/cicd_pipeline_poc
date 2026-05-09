@@ -1,19 +1,24 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  bulkImportItemsAction,
   createItemAction,
+  deleteItemAction,
   setItemActiveAction,
   updateItemAction,
   type ItemInput,
 } from "@/lib/parts-setup/item-actions";
 
+
 export type ItemRow = {
   id: string;
   code: string;
   name: string;
+  spec_description: string | null;
   category: string | null;
   control_type: string | null;
   base_uom: string | null;
@@ -22,228 +27,745 @@ export type ItemRow = {
   warranty_months: number | null;
   shelf_life_months: number | null;
   default_supplier_id: string | null;
+  serial_tracking_required: boolean;
+  batch_tracking_required: boolean;
+  image_url: string | null;
   is_active: boolean;
+  fit_count: number;
 };
 
 export type SupplierOption = { id: string; code: string; name: string };
 
+export type ControlLevelOption = {
+  code: string;
+  label: string;
+  accent: string | null;
+};
+
+export type ItemFilters = {
+  category: string;
+  control: string;
+  status: string;
+  q: string;
+};
+
 type Banner = { ok: boolean; msg: string } | null;
+
+type FormMode = { kind: "closed" } | { kind: "create" } | { kind: "edit"; id: string };
+
+function accentChipClass(accent: string | null | undefined): string {
+  switch (accent) {
+    case "red":
+      return "bg-[#FDECEA] text-[#CC0000]";
+    case "amber":
+      return "bg-[#FDF3E3] text-[#854F0B]";
+    case "teal":
+      return "bg-[#E8F5F0] text-[#0F6E56]";
+    case "blue":
+      return "bg-[#EAF4FB] text-[#185FA5]";
+    case "navy":
+      return "bg-[#EBF3FF] text-[#1A3A5C]";
+    case "gray":
+      return "bg-[#F2F2F2] text-[#6B6A68]";
+    default:
+      return "bg-[#F2F2F2] text-[#6B6A68]";
+  }
+}
+
+function fmtNT(n: number | null): string {
+  if (n == null) return "—";
+  return `NT$ ${Number(n).toLocaleString("en-US")}`;
+}
+
+function csvEscape(s: string): string {
+  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+function parseTSV(text: string): ItemInput[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const header = lines[0].split(/\t|,/).map((h) => h.trim());
+  const idx = (k: string) => header.findIndex((h) => h === k);
+  const colCode = idx("料號") >= 0 ? idx("料號") : idx("code");
+  const colName = idx("名稱") >= 0 ? idx("名稱") : idx("name");
+  const colCat = idx("品類") >= 0 ? idx("品類") : idx("category");
+  const colCtrl = idx("管控") >= 0 ? idx("管控") : idx("control_type");
+  const colUom = idx("單位") >= 0 ? idx("單位") : idx("base_uom");
+  const colCost = idx("標準成本") >= 0 ? idx("標準成本") : idx("standard_cost");
+  const colPrice =
+    idx("建議售價") >= 0 ? idx("建議售價") : idx("suggested_price");
+  const colSpec = idx("規格") >= 0 ? idx("規格") : idx("spec_description");
+  const out: ItemInput[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i].split(/\t|,/).map((c) => c.trim());
+    const code = colCode >= 0 ? cells[colCode] : cells[0];
+    const name = colName >= 0 ? cells[colName] : cells[1];
+    if (!code || !name) continue;
+    out.push({
+      code,
+      name,
+      category: colCat >= 0 ? cells[colCat] : undefined,
+      control_type: colCtrl >= 0 ? cells[colCtrl] : undefined,
+      base_uom: colUom >= 0 ? cells[colUom] : undefined,
+      standard_cost: colCost >= 0 && cells[colCost] ? Number(cells[colCost]) : null,
+      suggested_price:
+        colPrice >= 0 && cells[colPrice] ? Number(cells[colPrice]) : null,
+      spec_description: colSpec >= 0 ? cells[colSpec] : undefined,
+    });
+  }
+  return out;
+}
+
+const blankInput = (uom: string): ItemInput => ({
+  code: "",
+  name: "",
+  spec_description: "",
+  category: "",
+  control_type: "",
+  base_uom: uom,
+  standard_cost: null,
+  suggested_price: null,
+  default_supplier_id: null,
+  serial_tracking_required: false,
+  batch_tracking_required: false,
+  is_active: true,
+});
+
+const fromRow = (r: ItemRow): ItemInput => ({
+  code: r.code,
+  name: r.name,
+  spec_description: r.spec_description ?? "",
+  category: r.category ?? "",
+  control_type: r.control_type ?? "",
+  base_uom: r.base_uom ?? "個",
+  standard_cost: r.standard_cost,
+  suggested_price: r.suggested_price,
+  default_supplier_id: r.default_supplier_id,
+  serial_tracking_required: r.serial_tracking_required,
+  batch_tracking_required: r.batch_tracking_required,
+  is_active: r.is_active,
+});
 
 export function ItemsBoard({
   rows,
   suppliers,
   canEdit,
+  totalCount,
+  categories,
+  uoms,
+  controlLevels,
+  filters,
+  autoOpenCreate = false,
 }: {
   rows: ItemRow[];
   suppliers: SupplierOption[];
   canEdit: boolean;
+  totalCount: number;
+  categories: string[];
+  uoms: string[];
+  controlLevels: ControlLevelOption[];
+  filters: ItemFilters;
+  autoOpenCreate?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [draft, setDraft] = useState<ItemInput>({ code: "", name: "", base_uom: "PCS" });
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<ItemRow | null>(null);
-  const [filter, setFilter] = useState("");
+
+  // Unified form state — used for both 新增 and 編輯
+  const [formMode, setFormMode] = useState<FormMode>({ kind: "closed" });
+  const [formDraft, setFormDraft] = useState<ItemInput>(blankInput("個"));
+
+  // Auto-open create modal when arriving with ?new=1 (from detail page 新增 button),
+  // then strip the param so refresh doesn't keep re-opening it.
+  useEffect(() => {
+    if (autoOpenCreate && formMode.kind === "closed") {
+      setFormDraft(blankInput(uoms[0] ?? "個"));
+      setFormMode({ kind: "create" });
+      router.replace("/parts/setup/items");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenCreate]);
+
+  // Bulk import
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
+
+  // Filters (local until 查詢)
+  const [fCategory, setFCategory] = useState(filters.category);
+  const [fControl, setFControl] = useState(filters.control);
+  const [fStatus, setFStatus] = useState(filters.status);
+  const [fQ, setFQ] = useState(filters.q);
 
   const supplierMap = useMemo(
     () => new Map(suppliers.map((s) => [s.id, s])),
     [suppliers],
   );
-
-  const filteredRows = useMemo(() => {
-    if (!filter) return rows;
-    const f = filter.toLowerCase();
-    return rows.filter(
-      (r) =>
-        r.code.toLowerCase().includes(f) ||
-        r.name.toLowerCase().includes(f) ||
-        (r.category ?? "").toLowerCase().includes(f),
-    );
-  }, [rows, filter]);
+  const allCategories = useMemo(() => categories, [categories]);
+  const allUoms = useMemo(() => (uoms.length ? uoms : ["個"]), [uoms]);
+  const controlAccentMap = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const c of controlLevels) m.set(c.code, c.accent);
+    return m;
+  }, [controlLevels]);
 
   const showBanner = (b: Banner) => {
     setBanner(b);
     if (b?.ok) setTimeout(() => setBanner(null), 2200);
   };
 
-  const create = () => {
-    startTransition(async () => {
-      const res = await createItemAction(draft);
-      if (res.ok) {
-        showBanner({ ok: true, msg: "✓ 已新增料號" });
-        setDraft({ code: "", name: "", base_uom: "PCS" });
-        setShowCreate(false);
-        router.refresh();
-      } else showBanner({ ok: false, msg: res.error });
+  // Filter handlers
+  const submitFilters = () => {
+    const params = new URLSearchParams();
+    if (fCategory !== "all") params.set("category", fCategory);
+    if (fControl !== "all") params.set("control", fControl);
+    if (fStatus !== "all") params.set("status", fStatus);
+    if (fQ.trim()) params.set("q", fQ.trim());
+    const qs = params.toString();
+    startTransition(() => {
+      router.push(qs ? `/parts/setup/items?${qs}` : "/parts/setup/items");
     });
   };
+  const resetFilters = () => {
+    setFCategory("all");
+    setFControl("all");
+    setFStatus("all");
+    setFQ("");
+    startTransition(() => router.push("/parts/setup/items"));
+  };
 
-  const saveEdit = () => {
-    if (!editId || !editDraft) return;
+  // CRUD handlers — single submit, branches on mode
+  const openCreate = () => {
+    setFormDraft(blankInput(allUoms[0] ?? "個"));
+    setFormMode({ kind: "create" });
+  };
+  const openEdit = (r: ItemRow) => {
+    setFormDraft(fromRow(r));
+    setFormMode({ kind: "edit", id: r.id });
+  };
+  const closeForm = () => setFormMode({ kind: "closed" });
+
+  const submitForm = () => {
     startTransition(async () => {
-      const res = await updateItemAction(editId, {
-        code: editDraft.code,
-        name: editDraft.name,
-        category: editDraft.category ?? "",
-        control_type: editDraft.control_type ?? "",
-        base_uom: editDraft.base_uom ?? "PCS",
-        standard_cost: editDraft.standard_cost,
-        suggested_price: editDraft.suggested_price,
-        warranty_months: editDraft.warranty_months,
-        shelf_life_months: editDraft.shelf_life_months,
-        default_supplier_id: editDraft.default_supplier_id,
-        is_active: editDraft.is_active,
-      });
+      const res =
+        formMode.kind === "edit"
+          ? await updateItemAction(formMode.id, formDraft)
+          : formMode.kind === "create"
+            ? await createItemAction(formDraft)
+            : null;
+      if (!res) return;
       if (res.ok) {
-        showBanner({ ok: true, msg: "✓ 已儲存" });
-        setEditId(null);
-        setEditDraft(null);
+        showBanner({
+          ok: true,
+          msg: formMode.kind === "edit" ? "✓ 已儲存變更" : "✓ 已新增料號",
+        });
+        closeForm();
         router.refresh();
-      } else showBanner({ ok: false, msg: res.error });
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
     });
   };
 
   const toggleActive = (id: string, next: boolean) => {
     startTransition(async () => {
       const res = await setItemActiveAction(id, next);
-      if (res.ok) router.refresh();
-      else showBanner({ ok: false, msg: res.error });
+      if (res.ok) {
+        showBanner({ ok: true, msg: next ? "✓ 已啟用" : "✓ 已停用" });
+        router.refresh();
+      } else showBanner({ ok: false, msg: res.error });
+    });
+  };
+
+  const deleteItem = (r: ItemRow) => {
+    if (
+      !confirm(
+        `確定刪除「${r.code} ${r.name}」？此動作會永久移除商品主檔，且僅在無庫存批次/適配/工單引用時才會成功。\n（一般情況建議改用「停用」保留歷史。）`,
+      )
+    )
+      return;
+    startTransition(async () => {
+      const res = await deleteItemAction(r.id);
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已刪除料號" });
+        router.refresh();
+      } else showBanner({ ok: false, msg: res.error });
+    });
+  };
+
+  const exportCsv = () => {
+    const header = [
+      "料號",
+      "名稱",
+      "規格",
+      "品類",
+      "管控",
+      "單位",
+      "標準成本",
+      "建議售價",
+      "適用車型數",
+      "啟用",
+    ];
+    const lines = [header.join(",")];
+    for (const r of rows) {
+      lines.push(
+        [
+          r.code,
+          r.name,
+          r.spec_description ?? "",
+          r.category ?? "",
+          r.control_type ?? "",
+          r.base_uom ?? "",
+          r.standard_cost ?? "",
+          r.suggested_price ?? "",
+          r.fit_count,
+          r.is_active ? "啟用" : "停用",
+        ]
+          .map((v) => csvEscape(String(v)))
+          .join(","),
+      );
+    }
+    const blob = new Blob(["﻿" + lines.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `items-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const runImport = () => {
+    const parsed = parseTSV(importText);
+    if (!parsed.length) {
+      showBanner({
+        ok: false,
+        msg: "解析失敗：請貼上含表頭的 TSV/CSV（料號 / 名稱 必填）",
+      });
+      return;
+    }
+    startTransition(async () => {
+      const res = await bulkImportItemsAction(parsed);
+      if (res.ok) {
+        showBanner({
+          ok: true,
+          msg: `✓ 匯入完成：成功 ${res.data.inserted} 筆 / 略過 ${res.data.skipped} 筆${
+            res.data.errors.length
+              ? `（${res.data.errors.slice(0, 3).join("；")}…）`
+              : ""
+          }`,
+        });
+        setImportText("");
+        setShowImport(false);
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
     });
   };
 
   const lockedClass = isPending ? "pointer-events-none opacity-60" : "";
-  const inputClass = "h-7 border border-[#DADADA] rounded px-2 text-[12px] w-full";
+  const inputClass =
+    "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5]";
+  const labelClass = "text-[11px] text-[#9A9890] font-medium";
 
   return (
-    <main className="px-6 py-6 space-y-4">
-      <header className="flex items-center gap-3">
-        <h1 className="text-[20px] font-semibold">商品基礎資料</h1>
-        <span className="px-2 py-0.5 text-[11px] rounded bg-[#1A3A5C] text-white">
-          03.1
-        </span>
-        <span className="text-[12.5px] text-[#6B6B6B]">
-          {`共 ${rows.length} 筆 · 顯示 ${filteredRows.length}`}
-        </span>
-        <input
-          placeholder="搜尋料號 / 名稱 / 類別"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="h-7 border border-[#DADADA] rounded px-2 text-[12px] ml-auto w-[260px]"
-        />
-        <button
-          type="button"
-          disabled={!canEdit}
-          onClick={() => setShowCreate(!showCreate)}
-          className="px-3 py-1.5 text-[12.5px] rounded bg-[#0F6E56] text-white disabled:opacity-50"
-        >
-          ＋ 新增料號
-        </button>
+    <main className="px-6 py-5 space-y-3">
+      {/* Page Header */}
+      <header className="flex items-center gap-2.5">
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">基礎資料（商品主檔）</h1>
+        <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">3.1</span>
+        <span className="text-[12px] text-[#9A9890]">備件商品主檔管理・新增、修改、停用備件資料</span>
       </header>
 
       {banner ? (
         <div
           className={`px-3 py-2 rounded text-[13px] ${
-            banner.ok
-              ? "bg-[#EAF3DE] text-[#3B6D11]"
-              : "bg-[#FDECEA] text-[#CC0000]"
+            banner.ok ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#FDECEA] text-[#CC0000]"
           }`}
         >
           {banner.msg}
         </div>
       ) : null}
 
-      {showCreate ? (
-        <section className={`rounded-md border border-[#0F6E56] bg-[#F5FCF8] p-4 ${lockedClass}`}>
-          <h2 className="font-semibold text-[13px] mb-3">新增料號</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <input placeholder="料號*" value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} className={inputClass} />
-            <input placeholder="名稱*" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className={inputClass} />
-            <input placeholder="類別" value={draft.category ?? ""} onChange={(e) => setDraft({ ...draft, category: e.target.value })} className={inputClass} />
-            <input placeholder="管控類型 A/B/C" value={draft.control_type ?? ""} onChange={(e) => setDraft({ ...draft, control_type: e.target.value })} className={inputClass} />
-            <input placeholder="UOM" value={draft.base_uom ?? "PCS"} onChange={(e) => setDraft({ ...draft, base_uom: e.target.value })} className={inputClass} />
-            <input type="number" placeholder="標準成本" value={draft.standard_cost ?? ""} onChange={(e) => setDraft({ ...draft, standard_cost: e.target.value ? Number(e.target.value) : null })} className={inputClass} />
-            <input type="number" placeholder="建議售價" value={draft.suggested_price ?? ""} onChange={(e) => setDraft({ ...draft, suggested_price: e.target.value ? Number(e.target.value) : null })} className={inputClass} />
+      {/* Filter Bar */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
+        <div className="flex gap-2 items-end flex-wrap">
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>品類</label>
+            <select value={fCategory} onChange={(e) => setFCategory(e.target.value)} className={`${inputClass} w-[110px]`}>
+              <option value="all">全部</option>
+              {allCategories.map((c) => (<option key={c} value={c}>{c}</option>))}
+            </select>
           </div>
-          <div className="mt-3 flex gap-2">
-            <button type="button" onClick={create} className="px-3 py-1.5 rounded bg-[#0F6E56] text-white text-[12.5px]">建立</button>
-            <button type="button" onClick={() => setShowCreate(false)} className="px-3 py-1.5 rounded border border-[#DADADA] text-[12.5px]">取消</button>
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>管控類型</label>
+            <select value={fControl} onChange={(e) => setFControl(e.target.value)} className={`${inputClass} w-[90px]`}>
+              <option value="all">全部</option>
+              {controlLevels.map((c) => (<option key={c.code} value={c.code}>{c.label}</option>))}
+            </select>
           </div>
-        </section>
-      ) : null}
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>狀態</label>
+            <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={`${inputClass} w-[90px]`}>
+              <option value="all">全部</option>
+              <option value="active">啟用</option>
+              <option value="inactive">停用</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>料號 / 品名</label>
+            <input
+              type="text"
+              value={fQ}
+              onChange={(e) => setFQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitFilters()}
+              placeholder="輸入料號或品名..."
+              className={`${inputClass} w-[200px]`}
+            />
+          </div>
+          <div className="flex gap-2 ml-auto">
+            <button type="button" onClick={submitFilters} disabled={isPending} className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60">
+              {isPending ? "查詢中…" : "查詢"}
+            </button>
+            <button type="button" onClick={resetFilters} className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]">
+              重置
+            </button>
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={openCreate}
+              className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+            >
+              ＋ 新增商品
+            </button>
+          </div>
+        </div>
+      </section>
 
-      <section className={`rounded-md border border-[#E1E1E1] bg-white ${lockedClass}`}>
+      {/* Toolbar */}
+      <div className="flex items-center gap-2">
+        <span className="text-[12px] text-[#9A9890]">
+          共 <b className="text-[#2C2C2A]">{totalCount.toLocaleString("en-US")}</b> 筆備件主檔
+          （顯示 <b className="text-[#2C2C2A]">{rows.length}</b> 筆）
+        </span>
+        <div className="ml-auto flex gap-1.5">
+          <Link href="/parts/setup/dictionaries" className="h-[26px] inline-flex items-center px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]">
+            管理下拉選單
+          </Link>
+          <button type="button" onClick={exportCsv} className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]">
+            匯出
+          </button>
+          <button type="button" disabled={!canEdit} onClick={() => setShowImport(true)} className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50">
+            批次匯入
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <section className={`bg-white border border-[#EEECE6] rounded-lg overflow-hidden ${lockedClass}`}>
         <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px]">
-            <thead className="bg-[#F4F4F4] text-[#444]">
+          <table className="w-full border-collapse">
+            <thead>
               <tr>
-                <th className="px-3 py-2 text-left">料號</th>
-                <th className="px-3 py-2 text-left">名稱</th>
-                <th className="px-3 py-2 text-left">類別</th>
-                <th className="px-3 py-2 text-left">管控</th>
-                <th className="px-3 py-2 text-left">UOM</th>
-                <th className="px-3 py-2 text-right">標準成本</th>
-                <th className="px-3 py-2 text-right">建議售價</th>
-                <th className="px-3 py-2 text-left">預設供應商</th>
-                <th className="px-3 py-2 text-left">啟用</th>
-                <th className="px-3 py-2 text-left">操作</th>
+                <th className="px-2 py-2 text-center text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] w-[44px]">圖</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">備件代碼</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">商品名稱</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">品類</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">管控</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">單位</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">標準成本</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">建議售價</th>
+                <th className="px-3 py-2 text-center text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">適用車型數</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">狀態</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">操作</th>
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((r) => (
-                <tr key={r.id} className={editId === r.id ? "bg-[#FFFBEA]" : ""}>
-                  {editId === r.id && editDraft ? (
-                    <>
-                      <td className="px-3 py-2"><input value={editDraft.code} onChange={(e) => setEditDraft({ ...editDraft, code: e.target.value })} className={inputClass} /></td>
-                      <td className="px-3 py-2"><input value={editDraft.name} onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })} className={inputClass} /></td>
-                      <td className="px-3 py-2"><input value={editDraft.category ?? ""} onChange={(e) => setEditDraft({ ...editDraft, category: e.target.value })} className={inputClass} /></td>
-                      <td className="px-3 py-2"><input value={editDraft.control_type ?? ""} onChange={(e) => setEditDraft({ ...editDraft, control_type: e.target.value })} className={inputClass} /></td>
-                      <td className="px-3 py-2"><input value={editDraft.base_uom ?? "PCS"} onChange={(e) => setEditDraft({ ...editDraft, base_uom: e.target.value })} className={inputClass} /></td>
-                      <td className="px-3 py-2"><input type="number" value={editDraft.standard_cost ?? ""} onChange={(e) => setEditDraft({ ...editDraft, standard_cost: e.target.value ? Number(e.target.value) : null })} className={inputClass} /></td>
-                      <td className="px-3 py-2"><input type="number" value={editDraft.suggested_price ?? ""} onChange={(e) => setEditDraft({ ...editDraft, suggested_price: e.target.value ? Number(e.target.value) : null })} className={inputClass} /></td>
-                      <td className="px-3 py-2">
-                        <select value={editDraft.default_supplier_id ?? ""} onChange={(e) => setEditDraft({ ...editDraft, default_supplier_id: e.target.value || null })} className={inputClass}>
-                          <option value="">—</option>
-                          {suppliers.map((s) => (<option key={s.id} value={s.id}>{`${s.code} ${s.name}`}</option>))}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2"><input type="checkbox" checked={editDraft.is_active} onChange={(e) => setEditDraft({ ...editDraft, is_active: e.target.checked })} /></td>
-                      <td className="px-3 py-2 space-x-1">
-                        <button type="button" onClick={saveEdit} className="px-2 py-1 rounded bg-[#0F6E56] text-white text-[11.5px]">儲存</button>
-                        <button type="button" onClick={() => { setEditId(null); setEditDraft(null); }} className="px-2 py-1 rounded border border-[#DADADA] text-[11.5px]">取消</button>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-3 py-2 font-mono">{r.code}</td>
-                      <td className="px-3 py-2">{r.name}</td>
-                      <td className="px-3 py-2">{r.category ?? "—"}</td>
-                      <td className="px-3 py-2">{r.control_type ?? "—"}</td>
-                      <td className="px-3 py-2">{r.base_uom ?? "PCS"}</td>
-                      <td className="px-3 py-2 text-right font-mono">{r.standard_cost ? Number(r.standard_cost).toLocaleString("en-US") : "—"}</td>
-                      <td className="px-3 py-2 text-right font-mono">{r.suggested_price ? Number(r.suggested_price).toLocaleString("en-US") : "—"}</td>
-                      <td className="px-3 py-2 text-[11.5px]">{r.default_supplier_id ? supplierMap.get(r.default_supplier_id)?.name ?? "—" : "—"}</td>
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-0.5 rounded text-[11px] ${r.is_active ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#F0F0F0] text-[#444]"}`}>
-                          {r.is_active ? "啟用" : "停用"}
+              {rows.map((r) => {
+                const subtitle = r.serial_tracking_required
+                  ? "序列號追蹤"
+                  : r.batch_tracking_required
+                    ? "批號追蹤"
+                    : r.spec_description ?? null;
+                return (
+                  <tr key={r.id} className="border-b border-[#EEECE6] last:border-b-0 hover:bg-[#F8F7F4]">
+                    <td className="px-2 py-2 align-middle">
+                      <ItemThumb url={r.image_url} alt={r.name} />
+                    </td>
+                    <td className="px-3 py-2 font-mono text-[12px]">
+                      <Link href={`/parts/setup/items/${r.id}`} className="text-[#185FA5] hover:underline">
+                        {r.code}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Link href={`/parts/setup/items/${r.id}`} className="font-semibold text-[12.5px] text-[#185FA5] hover:underline">
+                        {r.name}
+                      </Link>
+                      {subtitle ? (<div className="text-[11px] text-[#9A9890] mt-0.5">{subtitle}</div>) : null}
+                    </td>
+                    <td className="px-3 py-2 text-[12.5px]">{r.category ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      {r.control_type ? (
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${accentChipClass(controlAccentMap.get(r.control_type) ?? null)}`}>
+                          {`${r.control_type}類`}
                         </span>
-                      </td>
-                      <td className="px-3 py-2 space-x-1">
-                        <button type="button" disabled={!canEdit} onClick={() => { setEditId(r.id); setEditDraft({ ...r }); }} className="px-2 py-1 rounded border border-[#DADADA] text-[11.5px] disabled:opacity-50">編輯</button>
-                        <button type="button" disabled={!canEdit} onClick={() => toggleActive(r.id, !r.is_active)} className="px-2 py-1 rounded border border-[#DADADA] text-[11.5px] disabled:opacity-50">{r.is_active ? "停用" : "啟用"}</button>
-                      </td>
-                    </>
-                  )}
+                      ) : (<span className="text-[#9A9890] text-[12px]">—</span>)}
+                    </td>
+                    <td className="px-3 py-2 text-[12.5px]">{r.base_uom ?? "—"}</td>
+                    <td className="px-3 py-2 font-mono text-[12px] text-[#2C2C2A]">{fmtNT(r.standard_cost)}</td>
+                    <td className="px-3 py-2 font-mono text-[12px] text-[#2C2C2A]">{fmtNT(r.suggested_price)}</td>
+                    <td className="px-3 py-2 text-center font-mono text-[12px] text-[#2C2C2A]">{r.fit_count}</td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${r.is_active ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#F2F2F2] text-[#6B6A68]"}`}>
+                        {r.is_active ? "啟用" : "停用"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 space-x-1 whitespace-nowrap">
+                      <button type="button" disabled={!canEdit} onClick={() => openEdit(r)} className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50">編輯</button>
+                      <button type="button" disabled={!canEdit} onClick={() => toggleActive(r.id, !r.is_active)} className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50">{r.is_active ? "停用" : "啟用"}</button>
+                      <button type="button" disabled={!canEdit} onClick={() => deleteItem(r)} className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50">刪除</button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="px-3 py-10 text-center text-[#9A9890] text-[12.5px]">
+                    {filters.q || filters.category !== "all" || filters.control !== "all" || filters.status !== "all"
+                      ? "無符合條件的料號，請調整篩選條件"
+                      : "尚無料號資料"}
+                  </td>
                 </tr>
-              ))}
-              {filteredRows.length === 0 ? (
-                <tr><td colSpan={10} className="px-3 py-6 text-center text-[#888]">無料號資料</td></tr>
               ) : null}
             </tbody>
           </table>
         </div>
       </section>
+
+      {/* Unified Create/Edit Modal */}
+      {formMode.kind !== "closed" ? (
+        <Modal
+          title={formMode.kind === "edit" ? "編輯商品主檔" : "新增商品"}
+          onClose={closeForm}
+        >
+          <div className={`grid grid-cols-2 gap-3 ${lockedClass}`}>
+            <Field label="料號 *">
+              <input
+                value={formDraft.code}
+                onChange={(e) => setFormDraft({ ...formDraft, code: e.target.value })}
+                className={inputClass}
+                placeholder="例：DUC-OIL-002"
+                disabled={formMode.kind === "edit" && !canEdit}
+              />
+            </Field>
+            <Field label="名稱 *">
+              <input
+                value={formDraft.name}
+                onChange={(e) => setFormDraft({ ...formDraft, name: e.target.value })}
+                className={inputClass}
+                placeholder="例：機油濾清器"
+              />
+            </Field>
+            <Field label="規格說明" full>
+              <input
+                value={formDraft.spec_description ?? ""}
+                onChange={(e) => setFormDraft({ ...formDraft, spec_description: e.target.value })}
+                className={inputClass}
+                placeholder="例：適用全系列"
+              />
+            </Field>
+            <Field label="品類">
+              <select value={formDraft.category ?? ""} onChange={(e) => setFormDraft({ ...formDraft, category: e.target.value })} className={inputClass}>
+                <option value="">—</option>
+                {allCategories.map((c) => (<option key={c} value={c}>{c}</option>))}
+              </select>
+            </Field>
+            <Field label="管控類型">
+              <select value={formDraft.control_type ?? ""} onChange={(e) => setFormDraft({ ...formDraft, control_type: e.target.value })} className={inputClass}>
+                <option value="">—</option>
+                {controlLevels.map((c) => (<option key={c.code} value={c.code}>{c.label}</option>))}
+              </select>
+            </Field>
+            <Field label="單位">
+              <select value={formDraft.base_uom ?? "個"} onChange={(e) => setFormDraft({ ...formDraft, base_uom: e.target.value })} className={inputClass}>
+                {allUoms.map((u) => (<option key={u} value={u}>{u}</option>))}
+              </select>
+            </Field>
+            <Field label="預設供應商">
+              <select value={formDraft.default_supplier_id ?? ""} onChange={(e) => setFormDraft({ ...formDraft, default_supplier_id: e.target.value || null })} className={inputClass}>
+                <option value="">—</option>
+                {suppliers.map((s) => (<option key={s.id} value={s.id}>{`${s.code} ${s.name}`}</option>))}
+              </select>
+            </Field>
+            <Field label="標準成本 (NT$)">
+              <input type="number" value={formDraft.standard_cost ?? ""} onChange={(e) => setFormDraft({ ...formDraft, standard_cost: e.target.value ? Number(e.target.value) : null })} className={inputClass} />
+            </Field>
+            <Field label="建議售價 (NT$)">
+              <input type="number" value={formDraft.suggested_price ?? ""} onChange={(e) => setFormDraft({ ...formDraft, suggested_price: e.target.value ? Number(e.target.value) : null })} className={inputClass} />
+            </Field>
+            <Field label="追蹤模式" full>
+              <div className="flex gap-4 text-[12.5px]">
+                <label className="inline-flex items-center gap-1.5">
+                  <input type="checkbox" checked={formDraft.serial_tracking_required ?? false} onChange={(e) => setFormDraft({ ...formDraft, serial_tracking_required: e.target.checked })} />
+                  序列號追蹤
+                </label>
+                <label className="inline-flex items-center gap-1.5">
+                  <input type="checkbox" checked={formDraft.batch_tracking_required ?? false} onChange={(e) => setFormDraft({ ...formDraft, batch_tracking_required: e.target.checked })} />
+                  批號追蹤
+                </label>
+                <label className="inline-flex items-center gap-1.5 ml-auto">
+                  <input type="checkbox" checked={formDraft.is_active ?? true} onChange={(e) => setFormDraft({ ...formDraft, is_active: e.target.checked })} />
+                  啟用
+                </label>
+              </div>
+            </Field>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            {formMode.kind === "edit" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const r = rows.find((x) => x.id === formMode.id);
+                  if (!r) return;
+                  closeForm();
+                  deleteItem(r);
+                }}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] disabled:opacity-60 mr-auto"
+              >
+                刪除此商品
+              </button>
+            ) : null}
+            <button type="button" onClick={closeForm} className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955]">取消</button>
+            <button
+              type="button"
+              onClick={submitForm}
+              disabled={isPending}
+              className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#0F6E56] text-white disabled:opacity-60"
+            >
+              {isPending
+                ? formMode.kind === "edit"
+                  ? "儲存中…"
+                  : "建立中…"
+                : formMode.kind === "edit"
+                  ? "儲存變更"
+                  : "建立"}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {/* Bulk Import Modal */}
+      {showImport ? (
+        <Modal title="批次匯入商品主檔" onClose={() => setShowImport(false)}>
+          <div className={`space-y-3 ${lockedClass}`}>
+            <p className="text-[12px] text-[#5A5955] leading-relaxed">
+              貼上 Excel / Google Sheet 內容（Tab 分隔）或 CSV，第一列須為表頭。支援欄位：
+              <span className="font-mono text-[11.5px] text-[#185FA5]">料號</span>、
+              <span className="font-mono text-[11.5px] text-[#185FA5]">名稱</span>、
+              <span className="font-mono text-[11.5px]">品類</span>、
+              <span className="font-mono text-[11.5px]">管控</span>、
+              <span className="font-mono text-[11.5px]">單位</span>、
+              <span className="font-mono text-[11.5px]">標準成本</span>、
+              <span className="font-mono text-[11.5px]">建議售價</span>、
+              <span className="font-mono text-[11.5px]">規格</span>。料號重複會自動略過。
+            </p>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              rows={12}
+              className="w-full border border-[#D5D3CB] rounded p-2 font-mono text-[12px] outline-none focus:border-[#185FA5]"
+              placeholder={`料號\t名稱\t品類\t管控\t單位\t標準成本\t建議售價\nDUC-NEW-001\t測試件\t耗材\tC\t個\t100\t180`}
+            />
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setShowImport(false)} className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955]">取消</button>
+            <button
+              type="button"
+              onClick={runImport}
+              disabled={isPending || !importText.trim()}
+              className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#1A3A5C] text-white disabled:opacity-60"
+            >
+              {isPending ? "匯入中…" : "開始匯入"}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
     </main>
+  );
+
+  // Helper kept here so `supplierMap` doesn't dangle (kept exported in render via supplierMap usage above if needed)
+  // — referenced previously via subtitle/preview, retained for future inline display.
+  void supplierMap;
+}
+
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-[#EEECE6] flex items-center">
+          <h2 className="text-[14px] font-semibold text-[#2C2C2A]">{title}</h2>
+          <button type="button" onClick={onClose} className="ml-auto w-7 h-7 rounded hover:bg-[#F8F7F4] text-[#9A9890] text-[18px] leading-none">×</button>
+        </div>
+        <div className="px-5 py-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
+  return (
+    <div className={`flex flex-col gap-1 ${full ? "col-span-2" : ""}`}>
+      <label className="text-[11px] text-[#9A9890] font-medium">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function ItemThumb({ url, alt }: { url: string | null; alt: string }) {
+  if (!url) {
+    return (
+      <div className="w-[36px] h-[36px] rounded-md border border-dashed border-[#D5D3CB] bg-[#F8F7F4] flex items-center justify-center text-[#B8B6AE]">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <path d="M21 15l-5-5L5 21" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <div className="relative group inline-block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={alt}
+        className="w-[36px] h-[36px] rounded-md object-cover border border-[#EEECE6] bg-white"
+      />
+      {/* Hover-zoom popover */}
+      <div
+        className="invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-100 pointer-events-none absolute z-50 left-[44px] top-1/2 -translate-y-1/2 bg-white border border-[#D5D3CB] rounded-lg shadow-xl p-1.5"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={alt}
+          className="w-[200px] h-[200px] object-contain rounded"
+        />
+        <div className="text-[11px] text-[#5A5955] mt-1 px-1 truncate max-w-[200px]">{alt}</div>
+      </div>
+    </div>
   );
 }

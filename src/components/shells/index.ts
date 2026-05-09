@@ -1,26 +1,19 @@
 /**
- * Shell registry — 由 brand_appearance.shell_layout 決定當前 brand 用哪一套。
+ * Shell registry — 全站統一使用 ClassicShell（dual-rail + navy topbar）。
  *
- * 加新 variant 流程：
- *   1. SHELL_LAYOUTS（src/lib/brands/shell-layouts.ts）加 key
- *   2. 在 src/components/shells/<variant>/ 建一份 <ComponentName>.tsx
- *   3. 進這份註冊表 import + 寫進 SHELL_REGISTRY
- *
- * Type assertion 確保 key 對齊 ShellLayoutKey enum，少一個就 tsc fail。
+ * 2026-05 設計收斂後不再支援多 variant，但 SHELL_REGISTRY 形式保留，
+ * workspace-shell.tsx 維持以 useAppearance().shellLayoutKey 派發的程式結構。
  */
 
 import type { ComponentType } from "react";
 import type { ShellLayoutKey } from "@/lib/brands/shell-layouts";
 import { ClassicShell } from "./classic/classic-shell";
-import { ModernShell } from "./modern/modern-shell";
 
 export const SHELL_REGISTRY: Record<
   ShellLayoutKey,
   ComponentType<{ children: React.ReactNode }>
 > = {
   "classic-dual-rail": ClassicShell,
-  "modern-single-sidebar": ModernShell,
 };
 
 export { ClassicShell } from "./classic/classic-shell";
-export { ModernShell } from "./modern/modern-shell";

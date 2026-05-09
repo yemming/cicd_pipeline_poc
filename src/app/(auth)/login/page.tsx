@@ -285,15 +285,6 @@ export default function LoginPage() {
             </div>
             <footer className="mt-12 text-center space-y-3">
               <p className="text-sm text-outline">
-                首次使用？{" "}
-                <a
-                  className="text-tertiary font-semibold hover:text-on-surface transition-colors border-b border-tertiary/30"
-                  href="/onboarding"
-                >
-                  新手導覽
-                </a>
-              </p>
-              <p className="text-sm text-outline">
                 需要協助？{" "}
                 <a
                   className="text-on-surface font-semibold hover:text-tertiary transition-colors border-b border-outline-variant"

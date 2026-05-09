@@ -17,9 +17,10 @@ import { getBrandKey } from "@/lib/brands/current";
 
 const NAV_HTML_BUCKET = "nav-html";
 
-function validDevice(raw: string | null): "tablet" | "mobile" | null {
-  if (raw === "tablet" || raw === "mobile") return raw;
-  return null; // 包含 "" / "desktop" / "ipad" 或非法值 → Normal
+function normalizeHref(raw: string | null): string | null {
+  if (!raw) return raw;
+  if (raw.length > 1 && raw.endsWith("/")) return raw.replace(/\/+$/, "");
+  return raw;
 }
 
 async function requireAdmin() {
@@ -100,6 +101,7 @@ export async function createNavNode(fd: FormData): Promise<{ id: string }> {
     sort_order: nextSort,
     name,
     icon: s("icon"),
+    emoji: s("emoji"),
     accent: s("accent"),
     description: s("description"),
     created_by: userId,
@@ -117,10 +119,9 @@ export async function createNavNode(fd: FormData): Promise<{ id: string }> {
       throw new Error("page_kind 不合法");
     }
     insert.page_kind = pageKind;
-    insert.href = s("href");
+    insert.href = normalizeHref(s("href"));
     insert.stitch_screen_id = s("stitch_screen_id");
     insert.sprint = s("sprint");
-    insert.device = validDevice(s("device"));
     insert.is_admin_only = b("is_admin_only");
     insert.coming_soon = b("coming_soon");
   }
@@ -140,34 +141,34 @@ export async function updateNavNode(id: string, fd: FormData): Promise<void> {
   await requireAdmin();
   const { s, n, b } = fields(fd);
 
-  const supabase = createServiceClient();
+  // level 由 client 帶上來，避免多打一次 DB 拿同一筆 row。安全性靠 UPDATE 的 WHERE：
+  // .eq("brand_id", brand).eq("level", level) — client 亂改 level 會讓 0 row affected 進而 throw。
+  const levelRaw = fd.get("level");
+  const level = typeof levelRaw === "string" ? Number(levelRaw) : NaN;
+  if (level !== 1 && level !== 2 && level !== 3) {
+    throw new Error("level 不合法");
+  }
 
-  // 取出 level 才知道要更新哪些欄位
-  const { data: existing, error: readErr } = await supabase
-    .from("nav_nodes")
-    .select("level, brand_id")
-    .eq("id", id)
-    .maybeSingle();
-  if (readErr) throw new Error(`讀取失敗：${readErr.message}`);
-  if (!existing) throw new Error("節點不存在");
-  if (existing.brand_id !== getBrandKey()) throw new Error("不能跨品牌操作");
-
+  // is_active 一定讀得到（CheckBox 元件會額外送 hidden=false 當 fallback，所以
+  // 不管勾或不勾 fd 都會有這個 key）。早期版本用 fd.has() 守衛，但因為標準
+  // checkbox 不勾就不送，等於只能開不能關 — 這就是「儲存沒反應」的元凶。
   const patch: Record<string, unknown> = {
     name: s("name"),
     icon: s("icon"),
+    emoji: s("emoji"),
     accent: s("accent"),
     description: s("description"),
-    is_active: fd.has("is_active") ? b("is_active") : undefined,
+    is_active: b("is_active"),
     sort_order: n("sort_order") ?? undefined,
   };
 
-  if (existing.level === 1) {
+  if (level === 1) {
     patch.module_key = s("module_key");
     patch.permission = s("permission");
     patch.home = s("home");
   }
 
-  if (existing.level === 3) {
+  if (level === 3) {
     const pageKind = s("page_kind");
     if (pageKind) {
       if (!["static_html", "react_route", "iframe", "placeholder"].includes(pageKind)) {
@@ -175,12 +176,11 @@ export async function updateNavNode(id: string, fd: FormData): Promise<void> {
       }
       patch.page_kind = pageKind;
     }
-    if (fd.has("href")) patch.href = s("href");
+    if (fd.has("href")) patch.href = normalizeHref(s("href"));
     if (fd.has("stitch_screen_id")) patch.stitch_screen_id = s("stitch_screen_id");
     if (fd.has("sprint")) patch.sprint = s("sprint");
-    if (fd.has("device")) patch.device = validDevice(s("device"));
-    if (fd.has("is_admin_only")) patch.is_admin_only = b("is_admin_only");
-    if (fd.has("coming_soon")) patch.coming_soon = b("coming_soon");
+    patch.is_admin_only = b("is_admin_only");
+    patch.coming_soon = b("coming_soon");
   }
 
   // 過濾 undefined（避免不小心把欄位清掉）
@@ -188,8 +188,17 @@ export async function updateNavNode(id: string, fd: FormData): Promise<void> {
     Object.entries(patch).filter(([, v]) => v !== undefined),
   );
 
-  const { error } = await supabase.from("nav_nodes").update(cleaned).eq("id", id);
+  const supabase = createServiceClient();
+  const { data: updated, error } = await supabase
+    .from("nav_nodes")
+    .update(cleaned)
+    .eq("id", id)
+    .eq("brand_id", getBrandKey())
+    .eq("level", level)
+    .select("id")
+    .maybeSingle();
   if (error) throw new Error(`更新失敗：${error.message}`);
+  if (!updated) throw new Error("節點不存在或不能跨品牌操作");
 
   refreshAll();
 }
@@ -239,25 +248,41 @@ export async function moveNavNode(id: string, direction: "up" | "down"): Promise
   if (error || !me) throw new Error("節點不存在");
   if (me.brand_id !== getBrandKey()) throw new Error("不能跨品牌操作");
 
-  // 找同 parent 同 level 的相鄰節點（只跟同類兄弟交換）
-  let q = supabase
+  // 載入完整同層 sibling 清單（同 brand / 同 level / 同 parent）
+  let siblingsQ = supabase
     .from("nav_nodes")
     .select("id, sort_order")
     .eq("brand_id", me.brand_id)
-    .eq("level", me.level)
-    .order("sort_order", { ascending: direction !== "up" })
-    .limit(1);
-  q = direction === "up"
-    ? q.lt("sort_order", me.sort_order)
-    : q.gt("sort_order", me.sort_order);
-  q = me.parent_id ? q.eq("parent_id", me.parent_id) : q.is("parent_id", null);
+    .eq("level", me.level);
+  siblingsQ = me.parent_id
+    ? siblingsQ.eq("parent_id", me.parent_id)
+    : siblingsQ.is("parent_id", null);
+  const { data: siblings, error: sibErr } = await siblingsQ;
+  if (sibErr || !siblings) throw new Error("載入兄弟節點失敗");
 
-  const { data: neighbor } = await q.maybeSingle();
-  if (!neighbor) return; // 已經在邊界
+  // 穩定排序：sort_order 主鍵、id 次鍵（避免 tie 時隨機）
+  const ordered = [...siblings].sort((a, b) => {
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
 
-  // 兩兩交換 sort_order
-  await supabase.from("nav_nodes").update({ sort_order: neighbor.sort_order }).eq("id", me.id);
-  await supabase.from("nav_nodes").update({ sort_order: me.sort_order }).eq("id", neighbor.id);
+  const idx = ordered.findIndex((n) => n.id === me.id);
+  if (idx < 0) return;
+  const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (targetIdx < 0 || targetIdx >= ordered.length) return; // 邊界
+
+  // in-array swap
+  [ordered[idx], ordered[targetIdx]] = [ordered[targetIdx], ordered[idx]];
+
+  // 整批重新編號 0..N-1（同時消滅 tie，未來不會再出狀況）
+  // 只 update 真的有改的 row 以節省 round-trip
+  await Promise.all(
+    ordered.map((n, i) =>
+      n.sort_order === i
+        ? Promise.resolve()
+        : supabase.from("nav_nodes").update({ sort_order: i }).eq("id", n.id),
+    ),
+  );
 
   refreshAll();
 }

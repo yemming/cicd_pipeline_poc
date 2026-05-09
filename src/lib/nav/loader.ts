@@ -29,7 +29,6 @@ type NavNodeRow = {
   html_storage_path: string | null;
   stitch_screen_id: string | null;
   sprint: string | null;
-  device: "tablet" | "mobile" | null;
   is_admin_only: boolean;
   coming_soon: boolean;
   is_active: boolean;
@@ -39,11 +38,18 @@ type NavNodeRow = {
   badge: string | null;
 };
 
+function normalizeHref(raw: string): string {
+  // Next.js 預設會把瀏覽器 URL 的末尾斜線拿掉；DB 若不小心存了 "/foo/" 會讓
+  // resolver 跟 PagesPanel 比對失敗（活生生案例：/admin/navigation/ → sidebar 不見）。
+  if (raw.length > 1 && raw.endsWith("/")) return raw.replace(/\/+$/, "");
+  return raw;
+}
+
 function rowToPage(row: NavNodeRow, sectionName: string | undefined): ModulePage {
   // page_kind=react_route 沿用 row.href；其他 kind 一律導到 catch-all /n/{id}
   const href =
     row.page_kind === "react_route" && row.href
-      ? row.href
+      ? normalizeHref(row.href)
       : `/n/${row.id}`;
   const page: ModulePage = {
     name: row.name,
@@ -54,7 +60,6 @@ function rowToPage(row: NavNodeRow, sectionName: string | undefined): ModulePage
   if (row.stitch_screen_id) page.stitchScreenId = row.stitch_screen_id;
   if (sectionName) page.section = sectionName;
   if (row.sprint) page.sprint = row.sprint;
-  if (row.device) page.device = row.device;
   if (row.is_admin_only) page.adminOnly = true;
   if (row.badge) page.badge = row.badge;
   return page;
@@ -111,14 +116,16 @@ function buildModuleDef(
           name: child.name,
           children: childPages,
         };
+        if (child.icon) parent.icon = child.icon;
         if (child.emoji) parent.emoji = child.emoji;
         if (child.badge) parent.badge = child.badge;
 
         // direct-link parent（自己有 href、無 children）— 樣板「庫存查詢」「模組導覽總覽」
         if (child.page_kind === "react_route" && child.href && childPages.length === 0) {
-          parent.href = child.href;
+          const dlHref = normalizeHref(child.href);
+          parent.href = dlHref;
           // 同步加進 flat pages（供 PagesPanel/CommandPalette 看見）
-          const dl: ModulePage = { name: child.name, href: child.href };
+          const dl: ModulePage = { name: child.name, href: dlHref };
           if (child.icon) dl.icon = child.icon;
           if (child.badge) dl.badge = child.badge;
           pages.push(dl);

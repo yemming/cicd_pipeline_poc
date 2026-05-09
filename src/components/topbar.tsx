@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePageHeader } from "./page-header-context";
 import { useAppearance } from "./appearance-context";
+import { TopbarSearch } from "./topbar-search";
 import { useProfile, getInitials } from "@/lib/use-profile";
 import { getCurrentBrand } from "@/lib/brands/current";
 
@@ -100,25 +101,11 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
         )}
       </div>
 
-      {/* Center segment：寬度 ≥ 1400px 才出現 Global Search Bar；窄於此右側「品牌/門店」會被擠到折行，所以整段藏起來（右側放大鏡 icon 為唯一入口） */}
+      {/* Center segment：寬度 ≥ 1400px 才出現 inline 全域搜尋（dropdown 在 input 下方就地展開，不再彈 overlay）。
+          窄於 1400px 整段藏起、改用右側放大鏡 icon → CommandPalette overlay。 */}
       {!hideSearch && (
         <div className="hidden min-[1400px]:flex shrink-0 justify-center px-3 min-[1400px]:w-[380px] 2xl:w-[460px]">
-          <div className="relative group w-full">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-white/50 text-lg group-focus-within:text-white">
-              search
-            </span>
-            <input
-              onClick={onOpenSearch}
-              readOnly
-              className="w-full pl-10 pr-3 lg:pr-16 py-2 bg-white/10 border border-white/10 rounded-full text-sm text-white placeholder-white/50 focus:ring-1 focus:ring-white/40 focus:bg-white/15 transition-all cursor-pointer"
-              placeholder={brand.searchPlaceholder}
-              type="text"
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:flex gap-1">
-              <kbd className="px-1.5 py-0.5 rounded border border-white/20 text-[10px] text-white/60 font-sans">⌘</kbd>
-              <kbd className="px-1.5 py-0.5 rounded border border-white/20 text-[10px] text-white/60 font-sans">K</kbd>
-            </div>
-          </div>
+          <TopbarSearch placeholder={brand.searchPlaceholder} />
         </div>
       )}
 

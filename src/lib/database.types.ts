@@ -2503,6 +2503,7 @@ export type Database = {
           phone: string | null
           responsible_person: string | null
           short_name: string | null
+          store_type: string | null
           synced_at: string | null
           tax_id: string | null
           type: string
@@ -2527,6 +2528,7 @@ export type Database = {
           phone?: string | null
           responsible_person?: string | null
           short_name?: string | null
+          store_type?: string | null
           synced_at?: string | null
           tax_id?: string | null
           type: string
@@ -2551,6 +2553,7 @@ export type Database = {
           phone?: string | null
           responsible_person?: string | null
           short_name?: string | null
+          store_type?: string | null
           synced_at?: string | null
           tax_id?: string | null
           type?: string
