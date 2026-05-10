@@ -8235,6 +8235,200 @@ export type Database = {
         Args: { p_product_id: string; p_qty: number }
         Returns: undefined
       }
+      procurement_approve_return: {
+        Args: { p_rt_id: string }
+        Returns: {
+          amount_total: number
+          approved_at: string | null
+          approved_by: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          external_id: string | null
+          external_source: string
+          gl_posted: boolean
+          gl_posted_at: string | null
+          id: string
+          logistics_provider: string | null
+          logistics_tracking_no: string | null
+          metadata: Json | null
+          notes: string | null
+          po_id: string | null
+          qty_return_total: number
+          refund_amount: number | null
+          return_date: string
+          return_reason: string
+          rt_no: string
+          status: string
+          synced_at: string | null
+          updated_at: string
+          vendor_id: string
+          warehouse_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "purchase_returns"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      procurement_cancel_return: {
+        Args: { p_reason: string; p_rt_id: string }
+        Returns: {
+          amount_total: number
+          approved_at: string | null
+          approved_by: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          external_id: string | null
+          external_source: string
+          gl_posted: boolean
+          gl_posted_at: string | null
+          id: string
+          logistics_provider: string | null
+          logistics_tracking_no: string | null
+          metadata: Json | null
+          notes: string | null
+          po_id: string | null
+          qty_return_total: number
+          refund_amount: number | null
+          return_date: string
+          return_reason: string
+          rt_no: string
+          status: string
+          synced_at: string | null
+          updated_at: string
+          vendor_id: string
+          warehouse_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "purchase_returns"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      procurement_complete_return: {
+        Args: { p_refund_amount?: number; p_rt_id: string }
+        Returns: {
+          amount_total: number
+          approved_at: string | null
+          approved_by: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          external_id: string | null
+          external_source: string
+          gl_posted: boolean
+          gl_posted_at: string | null
+          id: string
+          logistics_provider: string | null
+          logistics_tracking_no: string | null
+          metadata: Json | null
+          notes: string | null
+          po_id: string | null
+          qty_return_total: number
+          refund_amount: number | null
+          return_date: string
+          return_reason: string
+          rt_no: string
+          status: string
+          synced_at: string | null
+          updated_at: string
+          vendor_id: string
+          warehouse_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "purchase_returns"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      procurement_create_return: {
+        Args: {
+          p_brand_id: string
+          p_lines: Json
+          p_notes: string
+          p_po_id: string
+          p_return_reason: string
+          p_warehouse_id: string
+        }
+        Returns: {
+          amount_total: number
+          approved_at: string | null
+          approved_by: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          external_id: string | null
+          external_source: string
+          gl_posted: boolean
+          gl_posted_at: string | null
+          id: string
+          logistics_provider: string | null
+          logistics_tracking_no: string | null
+          metadata: Json | null
+          notes: string | null
+          po_id: string | null
+          qty_return_total: number
+          refund_amount: number | null
+          return_date: string
+          return_reason: string
+          rt_no: string
+          status: string
+          synced_at: string | null
+          updated_at: string
+          vendor_id: string
+          warehouse_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "purchase_returns"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      procurement_next_gi_no: { Args: { p_brand_id: string }; Returns: string }
+      procurement_next_rt_no: { Args: { p_brand_id: string }; Returns: string }
+      procurement_ship_return: {
+        Args: { p_provider: string; p_rt_id: string; p_tracking_no: string }
+        Returns: {
+          amount_total: number
+          approved_at: string | null
+          approved_by: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          external_id: string | null
+          external_source: string
+          gl_posted: boolean
+          gl_posted_at: string | null
+          id: string
+          logistics_provider: string | null
+          logistics_tracking_no: string | null
+          metadata: Json | null
+          notes: string | null
+          po_id: string | null
+          qty_return_total: number
+          refund_amount: number | null
+          return_date: string
+          return_reason: string
+          rt_no: string
+          status: string
+          synced_at: string | null
+          updated_at: string
+          vendor_id: string
+          warehouse_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "purchase_returns"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       user_has_brand: { Args: { p_brand: string }; Returns: boolean }

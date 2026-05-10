@@ -79,3 +79,6 @@ AGENTS.md
 
 # 開發過程的截圖（驗證 / debug artifact）—— 別 commit 到 repo root
 /*.png
+
+# Chrome MCP 端對端測試截圖（驗證 artifact）
+/.claude-test-screenshots/
