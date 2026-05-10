@@ -695,7 +695,7 @@ export function CoaBoard({
                 <th className="text-left font-medium py-2 px-3 w-[80px]">入帳</th>
                 <th className="text-left font-medium py-2 px-3 w-[140px]">必填維度</th>
                 <th className="text-left font-medium py-2 px-3 w-[70px]">狀態</th>
-                <th className="text-right font-medium py-2 px-3 w-[110px]">操作</th>
+                <th className="text-right font-medium py-2 px-3 w-[160px]">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -768,18 +768,18 @@ export function CoaBoard({
                     )}
                   </td>
                   <td className="py-2 px-3 text-right">
-                    <div className="inline-flex gap-1">
+                    <div className="inline-flex gap-1.5 whitespace-nowrap">
                       <button
                         onClick={() => openEdit(r)}
                         disabled={isPending}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
                       >
                         編輯
                       </button>
                       <button
                         onClick={() => toggleActive(r)}
                         disabled={isPending || r.is_locked}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
                         title={r.is_locked ? "L1-L3 鎖定" : ""}
                       >
                         {r.is_active ? "停用" : "啟用"}
@@ -787,7 +787,7 @@ export function CoaBoard({
                       <button
                         onClick={() => onDeleteRow(r)}
                         disabled={isPending || r.is_locked || r.is_system_default}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-40"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-40"
                         title={r.is_locked ? "L1-L3 鎖定" : r.is_system_default ? "系統預設不可刪" : ""}
                       >
                         刪除
