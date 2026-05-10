@@ -335,7 +335,7 @@ export function DimensionsBoard({
                 <th className="text-left font-medium py-2 px-3 w-[100px]">Script ID</th>
                 <th className="text-left font-medium py-2 px-3 w-[80px]">來源</th>
                 <th className="text-left font-medium py-2 px-3 w-[70px]">狀態</th>
-                <th className="text-right font-medium py-2 px-3 w-[140px]">操作</th>
+                <th className="text-right font-medium py-2 px-3 w-[210px]">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -393,11 +393,11 @@ export function DimensionsBoard({
                     )}
                   </td>
                   <td className="py-2 px-3 text-right">
-                    <div className="flex gap-1.5 justify-end">
+                    <div className="flex gap-1.5 justify-end whitespace-nowrap">
                       <button
                         onClick={() => openLookup(r)}
                         disabled={isPending}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
                         title="反查：哪些科目要求此維度"
                       >
                         反查
@@ -405,21 +405,21 @@ export function DimensionsBoard({
                       <button
                         onClick={() => openEdit(r)}
                         disabled={isPending}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
                       >
                         編輯
                       </button>
                       <button
                         onClick={() => toggleActive(r)}
                         disabled={isPending || (r.is_system_default && r.is_active)}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
                       >
                         {r.is_active ? "停用" : "啟用"}
                       </button>
                       <button
                         onClick={() => removeRow(r)}
                         disabled={isPending || r.is_system_default}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-40"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-40"
                       >
                         刪除
                       </button>
