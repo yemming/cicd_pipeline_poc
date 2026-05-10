@@ -51,7 +51,9 @@ next-env.d.ts
 /*-screenshot.png
 
 # Claude Code local session metadata (scheduled tasks, local settings)
-.claude/
+# 預設整個 .claude/ 不 commit；.claude/skills/ 例外（共享 skill 視為專案資產）
+.claude/*
+!.claude/skills/
 
 # Playwright MCP local cache
 .playwright-mcp/
@@ -62,8 +64,8 @@ next-env.d.ts
 *.xls
 *.txt
 
-# Claude Code instructions (local only, may contain internal context)
-CLAUDE.md
+# Claude Code instructions — CLAUDE.md 改成共享（架構規矩 / design pattern 視為專案資產）
+# AGENTS.md 維持本機（可能含環境特定 context）
 AGENTS.md
 
 # Notification Hub — Phase 0 webhook 側錄（含 userId / groupId，不要 commit）
@@ -74,3 +76,6 @@ AGENTS.md
 /playwright-report/
 /test-results/
 .claude/handoffs/*.md
+
+# 開發過程的截圖（驗證 / debug artifact）—— 別 commit 到 repo root
+/*.png

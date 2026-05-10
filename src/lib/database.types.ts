@@ -24,6 +24,7 @@ export type Database = {
           id: string
           is_active: boolean
           last_recalc_at: string | null
+          metadata: Json | null
           new_item_default_class: string
           new_item_grace_months: number
           notes: string | null
@@ -45,6 +46,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_recalc_at?: string | null
+          metadata?: Json | null
           new_item_default_class?: string
           new_item_grace_months?: number
           notes?: string | null
@@ -66,6 +68,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_recalc_at?: string | null
+          metadata?: Json | null
           new_item_default_class?: string
           new_item_grace_months?: number
           notes?: string | null
@@ -88,6 +91,7 @@ export type Database = {
           cum_pct: number | null
           id: string
           item_id: string
+          metadata: Json | null
           output_amount_12m: number
           output_qty_12m: number
           prev_class: string | null
@@ -103,6 +107,7 @@ export type Database = {
           cum_pct?: number | null
           id?: string
           item_id: string
+          metadata?: Json | null
           output_amount_12m?: number
           output_qty_12m?: number
           prev_class?: string | null
@@ -118,6 +123,7 @@ export type Database = {
           cum_pct?: number | null
           id?: string
           item_id?: string
+          metadata?: Json | null
           output_amount_12m?: number
           output_qty_12m?: number
           prev_class?: string | null
@@ -150,6 +156,7 @@ export type Database = {
           brand_id: string
           created_at: string
           id: string
+          metadata: Json | null
           notes: string | null
           notified_at: string | null
           notified_via: string[]
@@ -169,6 +176,7 @@ export type Database = {
           brand_id?: string
           created_at?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           notified_at?: string | null
           notified_via?: string[]
@@ -188,6 +196,7 @@ export type Database = {
           brand_id?: string
           created_at?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           notified_at?: string | null
           notified_via?: string[]
@@ -222,6 +231,7 @@ export type Database = {
           created_by: string | null
           id: string
           is_enabled: boolean
+          metadata: Json | null
           name: string
           notes: string | null
           notify_channels: string[]
@@ -239,6 +249,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_enabled?: boolean
+          metadata?: Json | null
           name: string
           notes?: string | null
           notify_channels?: string[]
@@ -256,6 +267,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_enabled?: boolean
+          metadata?: Json | null
           name?: string
           notes?: string | null
           notify_channels?: string[]
@@ -414,6 +426,7 @@ export type Database = {
           l4_code: string | null
           l5_code: string | null
           level: Database["public"]["Enums"]["coa_level"]
+          metadata: Json | null
           moea_code: string | null
           moea_name_zh: string | null
           name_en: string | null
@@ -455,6 +468,7 @@ export type Database = {
           l4_code?: string | null
           l5_code?: string | null
           level: Database["public"]["Enums"]["coa_level"]
+          metadata?: Json | null
           moea_code?: string | null
           moea_name_zh?: string | null
           name_en?: string | null
@@ -496,6 +510,7 @@ export type Database = {
           l4_code?: string | null
           l5_code?: string | null
           level?: Database["public"]["Enums"]["coa_level"]
+          metadata?: Json | null
           moea_code?: string | null
           moea_name_zh?: string | null
           name_en?: string | null
@@ -533,6 +548,7 @@ export type Database = {
           external_source: string
           id: string
           is_active: boolean
+          metadata: Json | null
           name: string
           synced_at: string | null
           type: string | null
@@ -546,6 +562,7 @@ export type Database = {
           external_source?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name: string
           synced_at?: string | null
           type?: string | null
@@ -559,6 +576,7 @@ export type Database = {
           external_source?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name?: string
           synced_at?: string | null
           type?: string | null
@@ -673,6 +691,7 @@ export type Database = {
           id: string
           initial_qty: number
           item_id: string
+          metadata: Json | null
           notes: string | null
           remaining_qty: number
           start_date: string
@@ -694,6 +713,7 @@ export type Database = {
           id?: string
           initial_qty: number
           item_id: string
+          metadata?: Json | null
           notes?: string | null
           remaining_qty: number
           start_date: string
@@ -715,6 +735,7 @@ export type Database = {
           id?: string
           initial_qty?: number
           item_id?: string
+          metadata?: Json | null
           notes?: string | null
           remaining_qty?: number
           start_date?: string
@@ -767,6 +788,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          metadata: Json | null
           panel_color: string
           rule_code: string
           rule_name: string
@@ -782,6 +804,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           panel_color?: string
           rule_code: string
           rule_name: string
@@ -797,6 +820,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           panel_color?: string
           rule_code?: string
           rule_name?: string
@@ -808,6 +832,7 @@ export type Database = {
       count_tolerance_config: {
         Row: {
           brand_id: string
+          metadata: Json | null
           notes: string | null
           tolerance_a_pct: number
           tolerance_b_pct: number
@@ -818,6 +843,7 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          metadata?: Json | null
           notes?: string | null
           tolerance_a_pct?: number
           tolerance_b_pct?: number
@@ -828,6 +854,7 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          metadata?: Json | null
           notes?: string | null
           tolerance_a_pct?: number
           tolerance_b_pct?: number
@@ -846,6 +873,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          metadata: Json | null
           name: string
           notes: string | null
           phone: string | null
@@ -860,6 +888,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -874,6 +903,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -912,6 +942,7 @@ export type Database = {
           last_service_mileage: number | null
           license_plate: string | null
           manufactured_year: number | null
+          metadata: Json | null
           model_id: string | null
           next_service_due_date: string | null
           next_service_due_mileage: number | null
@@ -944,6 +975,7 @@ export type Database = {
           last_service_mileage?: number | null
           license_plate?: string | null
           manufactured_year?: number | null
+          metadata?: Json | null
           model_id?: string | null
           next_service_due_date?: string | null
           next_service_due_mileage?: number | null
@@ -976,6 +1008,7 @@ export type Database = {
           last_service_mileage?: number | null
           license_plate?: string | null
           manufactured_year?: number | null
+          metadata?: Json | null
           model_id?: string | null
           next_service_due_date?: string | null
           next_service_due_mileage?: number | null
@@ -1020,15 +1053,20 @@ export type Database = {
           code: string
           created_at: string
           created_by: string | null
+          credit_limit: number | null
+          customer_type: string | null
+          default_tax_code_id: string | null
           email: string | null
           external_id: string | null
           external_source: string
           gl_receivable_coa_id: string | null
           id: string
           is_active: boolean
+          metadata: Json | null
           name: string
           national_id: string | null
           notes: string | null
+          payment_terms_days: number | null
           phone: string | null
           source_module: string | null
           synced_at: string | null
@@ -1043,15 +1081,20 @@ export type Database = {
           code: string
           created_at?: string
           created_by?: string | null
+          credit_limit?: number | null
+          customer_type?: string | null
+          default_tax_code_id?: string | null
           email?: string | null
           external_id?: string | null
           external_source?: string
           gl_receivable_coa_id?: string | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name: string
           national_id?: string | null
           notes?: string | null
+          payment_terms_days?: number | null
           phone?: string | null
           source_module?: string | null
           synced_at?: string | null
@@ -1066,15 +1109,20 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string | null
+          credit_limit?: number | null
+          customer_type?: string | null
+          default_tax_code_id?: string | null
           email?: string | null
           external_id?: string | null
           external_source?: string
           gl_receivable_coa_id?: string | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name?: string
           national_id?: string | null
           notes?: string | null
+          payment_terms_days?: number | null
           phone?: string | null
           source_module?: string | null
           synced_at?: string | null
@@ -1083,6 +1131,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "customers_default_tax_code_id_fkey"
+            columns: ["default_tax_code_id"]
+            isOneToOne: false
+            referencedRelation: "tax_codes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "customers_gl_receivable_coa_id_fkey"
             columns: ["gl_receivable_coa_id"]
@@ -1102,6 +1157,7 @@ export type Database = {
           id: string
           is_active: boolean
           manager_employee_id: string | null
+          metadata: Json | null
           name: string
           netsuite_department_id: string | null
           netsuite_synced_at: string | null
@@ -1118,6 +1174,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           manager_employee_id?: string | null
+          metadata?: Json | null
           name: string
           netsuite_department_id?: string | null
           netsuite_synced_at?: string | null
@@ -1134,6 +1191,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           manager_employee_id?: string | null
+          metadata?: Json | null
           name?: string
           netsuite_department_id?: string | null
           netsuite_synced_at?: string | null
@@ -1166,6 +1224,7 @@ export type Database = {
           doc_type: string
           id: string
           last_reset_at: string | null
+          metadata: Json | null
           notes: string | null
           pattern: string
           prefix: string
@@ -1179,6 +1238,7 @@ export type Database = {
           doc_type: string
           id?: string
           last_reset_at?: string | null
+          metadata?: Json | null
           notes?: string | null
           pattern?: string
           prefix: string
@@ -1192,10 +1252,261 @@ export type Database = {
           doc_type?: string
           id?: string
           last_reset_at?: string | null
+          metadata?: Json | null
           notes?: string | null
           pattern?: string
           prefix?: string
           reset_period?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      einvoice_allowances: {
+        Row: {
+          brand_id: string
+          created_at: string
+          ecpay_allowance_no: string | null
+          ecpay_error_msg: string | null
+          einvoice_id: string
+          id: string
+          is_online: boolean
+          issued_at: string | null
+          issued_by: string | null
+          items: Json
+          metadata: Json | null
+          notify_method: string | null
+          notify_target: string | null
+          reason: string | null
+          status: string
+          tax_amount: number
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          ecpay_allowance_no?: string | null
+          ecpay_error_msg?: string | null
+          einvoice_id: string
+          id?: string
+          is_online?: boolean
+          issued_at?: string | null
+          issued_by?: string | null
+          items?: Json
+          metadata?: Json | null
+          notify_method?: string | null
+          notify_target?: string | null
+          reason?: string | null
+          status?: string
+          tax_amount?: number
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          ecpay_allowance_no?: string | null
+          ecpay_error_msg?: string | null
+          einvoice_id?: string
+          id?: string
+          is_online?: boolean
+          issued_at?: string | null
+          issued_by?: string | null
+          items?: Json
+          metadata?: Json | null
+          notify_method?: string | null
+          notify_target?: string | null
+          reason?: string | null
+          status?: string
+          tax_amount?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "einvoice_allowances_einvoice_id_fkey"
+            columns: ["einvoice_id"]
+            isOneToOne: false
+            referencedRelation: "einvoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      einvoice_number_pools: {
+        Row: {
+          brand_id: string
+          created_at: string
+          end_no: number
+          id: string
+          is_active: boolean
+          metadata: Json | null
+          period: string
+          prefix: string
+          start_no: number
+          synced_at: string | null
+          used_count: number
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          end_no: number
+          id?: string
+          is_active?: boolean
+          metadata?: Json | null
+          period: string
+          prefix: string
+          start_no: number
+          synced_at?: string | null
+          used_count?: number
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          end_no?: number
+          id?: string
+          is_active?: boolean
+          metadata?: Json | null
+          period?: string
+          prefix?: string
+          start_no?: number
+          synced_at?: string | null
+          used_count?: number
+        }
+        Relationships: []
+      }
+      einvoice_voids: {
+        Row: {
+          brand_id: string
+          created_at: string
+          einvoice_id: string
+          id: string
+          metadata: Json | null
+          reason: string
+          voided_at: string
+          voided_by: string | null
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          einvoice_id: string
+          id?: string
+          metadata?: Json | null
+          reason: string
+          voided_at?: string
+          voided_by?: string | null
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          einvoice_id?: string
+          id?: string
+          metadata?: Json | null
+          reason?: string
+          voided_at?: string
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "einvoice_voids_einvoice_id_fkey"
+            columns: ["einvoice_id"]
+            isOneToOne: false
+            referencedRelation: "einvoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      einvoices: {
+        Row: {
+          brand_id: string
+          buyer_address: string | null
+          buyer_email: string | null
+          buyer_name: string | null
+          buyer_phone: string | null
+          carrier_code: string | null
+          carrier_type: string | null
+          created_at: string
+          donation_code: string | null
+          ecpay_error_msg: string | null
+          ecpay_invoice_date: string | null
+          ecpay_invoice_no: string | null
+          ecpay_random_number: string | null
+          ecpay_status: string
+          id: string
+          invoice_type: string
+          issued_at: string | null
+          issued_by: string | null
+          items: Json
+          metadata: Json | null
+          remark: string | null
+          source_id: string | null
+          source_module: string
+          source_ref: string | null
+          tax_amount: number
+          tax_id: string | null
+          tax_type: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          buyer_address?: string | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          carrier_code?: string | null
+          carrier_type?: string | null
+          created_at?: string
+          donation_code?: string | null
+          ecpay_error_msg?: string | null
+          ecpay_invoice_date?: string | null
+          ecpay_invoice_no?: string | null
+          ecpay_random_number?: string | null
+          ecpay_status?: string
+          id?: string
+          invoice_type: string
+          issued_at?: string | null
+          issued_by?: string | null
+          items?: Json
+          metadata?: Json | null
+          remark?: string | null
+          source_id?: string | null
+          source_module: string
+          source_ref?: string | null
+          tax_amount?: number
+          tax_id?: string | null
+          tax_type?: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          buyer_address?: string | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
+          carrier_code?: string | null
+          carrier_type?: string | null
+          created_at?: string
+          donation_code?: string | null
+          ecpay_error_msg?: string | null
+          ecpay_invoice_date?: string | null
+          ecpay_invoice_no?: string | null
+          ecpay_random_number?: string | null
+          ecpay_status?: string
+          id?: string
+          invoice_type?: string
+          issued_at?: string | null
+          issued_by?: string | null
+          items?: Json
+          metadata?: Json | null
+          remark?: string | null
+          source_id?: string | null
+          source_module?: string
+          source_ref?: string | null
+          tax_amount?: number
+          tax_id?: string | null
+          tax_type?: string
+          total_amount?: number
           updated_at?: string
         }
         Relationships: []
@@ -1213,6 +1524,7 @@ export type Database = {
           id: string
           issued_at: string | null
           issuer: string | null
+          metadata: Json | null
           notes: string | null
           synced_at: string | null
           updated_at: string
@@ -1229,6 +1541,7 @@ export type Database = {
           id?: string
           issued_at?: string | null
           issuer?: string | null
+          metadata?: Json | null
           notes?: string | null
           synced_at?: string | null
           updated_at?: string
@@ -1245,6 +1558,7 @@ export type Database = {
           id?: string
           issued_at?: string | null
           issuer?: string | null
+          metadata?: Json | null
           notes?: string | null
           synced_at?: string | null
           updated_at?: string
@@ -1274,6 +1588,7 @@ export type Database = {
           id: string
           is_active: boolean
           leave_date: string | null
+          metadata: Json | null
           name: string
           national_id: string | null
           notes: string | null
@@ -1298,6 +1613,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           leave_date?: string | null
+          metadata?: Json | null
           name: string
           national_id?: string | null
           notes?: string | null
@@ -1322,6 +1638,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           leave_date?: string | null
+          metadata?: Json | null
           name?: string
           national_id?: string | null
           notes?: string | null
@@ -1345,18 +1662,21 @@ export type Database = {
       feedback_canvas_snapshots: {
         Row: {
           brand_id: string
+          metadata: Json | null
           snapshot: Json
           ticket_id: string
           updated_at: string
         }
         Insert: {
           brand_id?: string
+          metadata?: Json | null
           snapshot?: Json
           ticket_id: string
           updated_at?: string
         }
         Update: {
           brand_id?: string
+          metadata?: Json | null
           snapshot?: Json
           ticket_id?: string
           updated_at?: string
@@ -1378,6 +1698,7 @@ export type Database = {
           created_at: string
           file_name: string
           id: string
+          metadata: Json | null
           mime_type: string | null
           size_bytes: number | null
           storage_path: string
@@ -1389,6 +1710,7 @@ export type Database = {
           created_at?: string
           file_name: string
           id?: string
+          metadata?: Json | null
           mime_type?: string | null
           size_bytes?: number | null
           storage_path: string
@@ -1400,6 +1722,7 @@ export type Database = {
           created_at?: string
           file_name?: string
           id?: string
+          metadata?: Json | null
           mime_type?: string | null
           size_bytes?: number | null
           storage_path?: string
@@ -1422,6 +1745,7 @@ export type Database = {
           brand_id: string
           created_at: string
           id: string
+          metadata: Json | null
           parent_id: string | null
           ticket_id: string
         }
@@ -1431,6 +1755,7 @@ export type Database = {
           brand_id?: string
           created_at?: string
           id?: string
+          metadata?: Json | null
           parent_id?: string | null
           ticket_id: string
         }
@@ -1440,6 +1765,7 @@ export type Database = {
           brand_id?: string
           created_at?: string
           id?: string
+          metadata?: Json | null
           parent_id?: string | null
           ticket_id?: string
         }
@@ -1469,6 +1795,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          metadata: Json | null
           status: Database["public"]["Enums"]["feedback_status"]
           title: string
           updated_at: string
@@ -1482,6 +1809,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          metadata?: Json | null
           status?: Database["public"]["Enums"]["feedback_status"]
           title: string
           updated_at?: string
@@ -1495,6 +1823,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          metadata?: Json | null
           status?: Database["public"]["Enums"]["feedback_status"]
           title?: string
           updated_at?: string
@@ -1661,6 +1990,7 @@ export type Database = {
           inspection_id: string
           item_label: string
           measurement: string | null
+          metadata: Json | null
           notes: string | null
           photo_url: string | null
           status: string
@@ -1674,6 +2004,7 @@ export type Database = {
           inspection_id: string
           item_label: string
           measurement?: string | null
+          metadata?: Json | null
           notes?: string | null
           photo_url?: string | null
           status?: string
@@ -1687,6 +2018,7 @@ export type Database = {
           inspection_id?: string
           item_label?: string
           measurement?: string | null
+          metadata?: Json | null
           notes?: string | null
           photo_url?: string | null
           status?: string
@@ -1713,6 +2045,7 @@ export type Database = {
           inspected_at: string
           inspector_id: string | null
           kind: string
+          metadata: Json | null
           mileage_at_inspection: number | null
           notes: string | null
           overall_status: string
@@ -1730,6 +2063,7 @@ export type Database = {
           inspected_at?: string
           inspector_id?: string | null
           kind: string
+          metadata?: Json | null
           mileage_at_inspection?: number | null
           notes?: string | null
           overall_status?: string
@@ -1747,6 +2081,7 @@ export type Database = {
           inspected_at?: string
           inspector_id?: string | null
           kind?: string
+          metadata?: Json | null
           mileage_at_inspection?: number | null
           notes?: string | null
           overall_status?: string
@@ -1797,6 +2132,7 @@ export type Database = {
           gl_posted: boolean
           gl_posted_at: string | null
           id: string
+          metadata: Json | null
           notes: string | null
           posted_at: string | null
           reason: string
@@ -1817,6 +2153,7 @@ export type Database = {
           gl_posted?: boolean
           gl_posted_at?: string | null
           id?: string
+          metadata?: Json | null
           notes?: string | null
           posted_at?: string | null
           reason: string
@@ -1837,6 +2174,7 @@ export type Database = {
           gl_posted?: boolean
           gl_posted_at?: string | null
           id?: string
+          metadata?: Json | null
           notes?: string | null
           posted_at?: string | null
           reason?: string
@@ -1872,6 +2210,7 @@ export type Database = {
           id: string
           item_id: string
           line_no: number
+          metadata: Json | null
           notes: string | null
           qty_final: number | null
           qty_first_count: number | null
@@ -1891,6 +2230,7 @@ export type Database = {
           id?: string
           item_id: string
           line_no: number
+          metadata?: Json | null
           notes?: string | null
           qty_final?: number | null
           qty_first_count?: number | null
@@ -1910,6 +2250,7 @@ export type Database = {
           id?: string
           item_id?: string
           line_no?: number
+          metadata?: Json | null
           notes?: string | null
           qty_final?: number | null
           qty_first_count?: number | null
@@ -1954,6 +2295,7 @@ export type Database = {
           id: string
           is_active: boolean
           last_run_at: string | null
+          metadata: Json | null
           next_run_at: string | null
           notes: string | null
           plan_name: string
@@ -1970,6 +2312,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_run_at?: string | null
+          metadata?: Json | null
           next_run_at?: string | null
           notes?: string | null
           plan_name: string
@@ -1986,6 +2329,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_run_at?: string | null
+          metadata?: Json | null
           next_run_at?: string | null
           notes?: string | null
           plan_name?: string
@@ -2016,6 +2360,7 @@ export type Database = {
           first_counter_id: string | null
           freeze_warehouse: boolean
           id: string
+          metadata: Json | null
           notes: string | null
           plan_id: string | null
           second_counter_id: string | null
@@ -2037,6 +2382,7 @@ export type Database = {
           first_counter_id?: string | null
           freeze_warehouse?: boolean
           id?: string
+          metadata?: Json | null
           notes?: string | null
           plan_id?: string | null
           second_counter_id?: string | null
@@ -2058,6 +2404,7 @@ export type Database = {
           first_counter_id?: string | null
           freeze_warehouse?: boolean
           id?: string
+          metadata?: Json | null
           notes?: string | null
           plan_id?: string | null
           second_counter_id?: string | null
@@ -2097,6 +2444,7 @@ export type Database = {
           group_sort_order: number
           id: string
           is_active: boolean
+          metadata: Json | null
           sort_order: number
           updated_at: string
         }
@@ -2111,6 +2459,7 @@ export type Database = {
           group_sort_order?: number
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           sort_order?: number
           updated_at?: string
         }
@@ -2125,6 +2474,7 @@ export type Database = {
           group_sort_order?: number
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           sort_order?: number
           updated_at?: string
         }
@@ -2135,6 +2485,7 @@ export type Database = {
           brand_id: string
           feature_id: string
           granted: boolean
+          metadata: Json | null
           role_id: string
           updated_at: string
         }
@@ -2142,6 +2493,7 @@ export type Database = {
           brand_id: string
           feature_id: string
           granted?: boolean
+          metadata?: Json | null
           role_id: string
           updated_at?: string
         }
@@ -2149,6 +2501,7 @@ export type Database = {
           brand_id?: string
           feature_id?: string
           granted?: boolean
+          metadata?: Json | null
           role_id?: string
           updated_at?: string
         }
@@ -2175,6 +2528,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          metadata: Json | null
           role_code: string
           role_name: string
           sort_order: number
@@ -2185,6 +2539,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           role_code: string
           role_name: string
           sort_order?: number
@@ -2195,6 +2550,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           role_code?: string
           role_name?: string
           sort_order?: number
@@ -2209,6 +2565,7 @@ export type Database = {
           id: string
           is_primary: boolean
           item_id: string
+          metadata: Json | null
           notes: string | null
           sku_code: string
           sku_type: string
@@ -2222,6 +2579,7 @@ export type Database = {
           id?: string
           is_primary?: boolean
           item_id: string
+          metadata?: Json | null
           notes?: string | null
           sku_code: string
           sku_type: string
@@ -2235,6 +2593,7 @@ export type Database = {
           id?: string
           is_primary?: boolean
           item_id?: string
+          metadata?: Json | null
           notes?: string | null
           sku_code?: string
           sku_type?: string
@@ -2266,6 +2625,7 @@ export type Database = {
           id: string
           is_active: boolean
           item_id: string
+          metadata: Json | null
           notes: string | null
           org_id: string
           price: number
@@ -2280,6 +2640,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           item_id: string
+          metadata?: Json | null
           notes?: string | null
           org_id: string
           price: number
@@ -2294,6 +2655,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           item_id?: string
+          metadata?: Json | null
           notes?: string | null
           org_id?: string
           price?: number
@@ -2326,6 +2688,7 @@ export type Database = {
           id: string
           is_verified: boolean
           item_id: string
+          metadata: Json | null
           notes: string | null
           updated_at: string
           vehicle_model_id: string
@@ -2338,6 +2701,7 @@ export type Database = {
           id?: string
           is_verified?: boolean
           item_id: string
+          metadata?: Json | null
           notes?: string | null
           updated_at?: string
           vehicle_model_id: string
@@ -2350,6 +2714,7 @@ export type Database = {
           id?: string
           is_verified?: boolean
           item_id?: string
+          metadata?: Json | null
           notes?: string | null
           updated_at?: string
           vehicle_model_id?: string
@@ -2385,15 +2750,18 @@ export type Database = {
           created_by: string | null
           default_lead_time_days: number | null
           default_supplier_id: string | null
+          default_tax_code_id: string | null
           external_id: string | null
           external_source: string
           gl_cogs_coa_id: string | null
+          gl_expense_coa_id: string | null
           gl_inventory_coa_id: string | null
           gl_revenue_coa_id: string | null
           id: string
           image_display_height: number
           image_url: string | null
           is_active: boolean
+          metadata: Json | null
           name: string
           name_en: string | null
           serial_tracking_required: boolean
@@ -2418,15 +2786,18 @@ export type Database = {
           created_by?: string | null
           default_lead_time_days?: number | null
           default_supplier_id?: string | null
+          default_tax_code_id?: string | null
           external_id?: string | null
           external_source?: string
           gl_cogs_coa_id?: string | null
+          gl_expense_coa_id?: string | null
           gl_inventory_coa_id?: string | null
           gl_revenue_coa_id?: string | null
           id?: string
           image_display_height?: number
           image_url?: string | null
           is_active?: boolean
+          metadata?: Json | null
           name: string
           name_en?: string | null
           serial_tracking_required?: boolean
@@ -2451,15 +2822,18 @@ export type Database = {
           created_by?: string | null
           default_lead_time_days?: number | null
           default_supplier_id?: string | null
+          default_tax_code_id?: string | null
           external_id?: string | null
           external_source?: string
           gl_cogs_coa_id?: string | null
+          gl_expense_coa_id?: string | null
           gl_inventory_coa_id?: string | null
           gl_revenue_coa_id?: string | null
           id?: string
           image_display_height?: number
           image_url?: string | null
           is_active?: boolean
+          metadata?: Json | null
           name?: string
           name_en?: string | null
           serial_tracking_required?: boolean
@@ -2482,8 +2856,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "items_default_tax_code_id_fkey"
+            columns: ["default_tax_code_id"]
+            isOneToOne: false
+            referencedRelation: "tax_codes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "items_gl_cogs_coa_id_fkey"
             columns: ["gl_cogs_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_gl_expense_coa_id_fkey"
+            columns: ["gl_expense_coa_id"]
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
             referencedColumns: ["id"]
@@ -2512,6 +2900,7 @@ export type Database = {
           entry_date: string
           entry_no: string
           id: string
+          metadata: Json | null
           netsuite_journal_id: string | null
           netsuite_synced_at: string | null
           posted_at: string | null
@@ -2528,6 +2917,7 @@ export type Database = {
           entry_date: string
           entry_no: string
           id?: string
+          metadata?: Json | null
           netsuite_journal_id?: string | null
           netsuite_synced_at?: string | null
           posted_at?: string | null
@@ -2544,6 +2934,7 @@ export type Database = {
           entry_date?: string
           entry_no?: string
           id?: string
+          metadata?: Json | null
           netsuite_journal_id?: string | null
           netsuite_synced_at?: string | null
           posted_at?: string | null
@@ -2574,6 +2965,7 @@ export type Database = {
           entry_id: string
           id: string
           line_no: number
+          metadata: Json | null
         }
         Insert: {
           coa_id: string
@@ -2585,6 +2977,7 @@ export type Database = {
           entry_id: string
           id?: string
           line_no: number
+          metadata?: Json | null
         }
         Update: {
           coa_id?: string
@@ -2596,6 +2989,7 @@ export type Database = {
           entry_id?: string
           id?: string
           line_no?: number
+          metadata?: Json | null
         }
         Relationships: [
           {
@@ -3061,6 +3455,7 @@ export type Database = {
           expiry_date: string | null
           id: string
           item_id: string
+          metadata: Json | null
           notes: string | null
           ro_id: string | null
           serial_no: string | null
@@ -3083,6 +3478,7 @@ export type Database = {
           expiry_date?: string | null
           id?: string
           item_id: string
+          metadata?: Json | null
           notes?: string | null
           ro_id?: string | null
           serial_no?: string | null
@@ -3105,6 +3501,7 @@ export type Database = {
           expiry_date?: string | null
           id?: string
           item_id?: string
+          metadata?: Json | null
           notes?: string | null
           ro_id?: string | null
           serial_no?: string | null
@@ -3160,6 +3557,7 @@ export type Database = {
           is_active: boolean
           level: number
           manager_user_id: string | null
+          metadata: Json | null
           name: string
           netsuite_location_id: string | null
           netsuite_synced_at: string | null
@@ -3188,6 +3586,7 @@ export type Database = {
           is_active?: boolean
           level: number
           manager_user_id?: string | null
+          metadata?: Json | null
           name: string
           netsuite_location_id?: string | null
           netsuite_synced_at?: string | null
@@ -3216,6 +3615,7 @@ export type Database = {
           is_active?: boolean
           level?: number
           manager_user_id?: string | null
+          metadata?: Json | null
           name?: string
           netsuite_location_id?: string | null
           netsuite_synced_at?: string | null
@@ -3268,6 +3668,7 @@ export type Database = {
           delay_minutes: number
           id: string
           is_active: boolean
+          metadata: Json | null
           recipient_label: string | null
           sort_order: number
           tier: number
@@ -3288,6 +3689,7 @@ export type Database = {
           delay_minutes?: number
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           recipient_label?: string | null
           sort_order?: number
           tier: number
@@ -3308,6 +3710,7 @@ export type Database = {
           delay_minutes?: number
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           recipient_label?: string | null
           sort_order?: number
           tier?: number
@@ -3328,6 +3731,7 @@ export type Database = {
           display_name: string
           id: string
           is_active: boolean
+          metadata: Json | null
           role_label: string | null
           sort_order: number
           updated_at: string
@@ -3342,6 +3746,7 @@ export type Database = {
           display_name: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           role_label?: string | null
           sort_order?: number
           updated_at?: string
@@ -3356,6 +3761,7 @@ export type Database = {
           display_name?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           role_label?: string | null
           sort_order?: number
           updated_at?: string
@@ -3375,6 +3781,7 @@ export type Database = {
           is_active: boolean
           issue_review_color: string
           issue_review_label: string | null
+          metadata: Json | null
           price_basis: string | null
           serial_tracking_color: string
           serial_tracking_label: string | null
@@ -3394,6 +3801,7 @@ export type Database = {
           is_active?: boolean
           issue_review_color?: string
           issue_review_label?: string | null
+          metadata?: Json | null
           price_basis?: string | null
           serial_tracking_color?: string
           serial_tracking_label?: string | null
@@ -3413,6 +3821,7 @@ export type Database = {
           is_active?: boolean
           issue_review_color?: string
           issue_review_label?: string | null
+          metadata?: Json | null
           price_basis?: string | null
           serial_tracking_color?: string
           serial_tracking_label?: string | null
@@ -3433,6 +3842,7 @@ export type Database = {
           is_active: boolean
           kind: string
           label: string
+          metadata: Json | null
           sort_order: number
           updated_at: string
         }
@@ -3446,6 +3856,7 @@ export type Database = {
           is_active?: boolean
           kind: string
           label: string
+          metadata?: Json | null
           sort_order?: number
           updated_at?: string
         }
@@ -3459,6 +3870,7 @@ export type Database = {
           is_active?: boolean
           kind?: string
           label?: string
+          metadata?: Json | null
           sort_order?: number
           updated_at?: string
         }
@@ -3473,6 +3885,7 @@ export type Database = {
           doc_no: string
           id: string
           issue_date: string | null
+          metadata: Json | null
           notes: string | null
           qty_total: number
           sort_order: number
@@ -3488,6 +3901,7 @@ export type Database = {
           doc_no: string
           id?: string
           issue_date?: string | null
+          metadata?: Json | null
           notes?: string | null
           qty_total?: number
           sort_order?: number
@@ -3503,6 +3917,7 @@ export type Database = {
           doc_no?: string
           id?: string
           issue_date?: string | null
+          metadata?: Json | null
           notes?: string | null
           qty_total?: number
           sort_order?: number
@@ -3519,6 +3934,7 @@ export type Database = {
           created_at: string
           doc_no: string
           id: string
+          metadata: Json | null
           notes: string | null
           qty_total: number
           receipt_date: string | null
@@ -3534,6 +3950,7 @@ export type Database = {
           created_at?: string
           doc_no: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           qty_total?: number
           receipt_date?: string | null
@@ -3549,6 +3966,7 @@ export type Database = {
           created_at?: string
           doc_no?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           qty_total?: number
           receipt_date?: string | null
@@ -3570,6 +3988,7 @@ export type Database = {
           is_active: boolean
           is_locked: boolean
           is_required: boolean
+          metadata: Json | null
           panel_color: string
           rule_label: string
           sort_order: number
@@ -3584,6 +4003,7 @@ export type Database = {
           is_active?: boolean
           is_locked?: boolean
           is_required?: boolean
+          metadata?: Json | null
           panel_color?: string
           rule_label: string
           sort_order?: number
@@ -3598,6 +4018,7 @@ export type Database = {
           is_active?: boolean
           is_locked?: boolean
           is_required?: boolean
+          metadata?: Json | null
           panel_color?: string
           rule_label?: string
           sort_order?: number
@@ -3619,6 +4040,7 @@ export type Database = {
           layer_index: number
           layer_name: string
           layer_title: string
+          metadata: Json | null
           updated_at: string
         }
         Insert: {
@@ -3634,6 +4056,7 @@ export type Database = {
           layer_index: number
           layer_name: string
           layer_title: string
+          metadata?: Json | null
           updated_at?: string
         }
         Update: {
@@ -3649,6 +4072,7 @@ export type Database = {
           layer_index?: number
           layer_name?: string
           layer_title?: string
+          metadata?: Json | null
           updated_at?: string
         }
         Relationships: []
@@ -3664,6 +4088,7 @@ export type Database = {
           hours_label: string | null
           id: string
           item_label: string
+          metadata: Json | null
           ro_no: string | null
           sort_order: number
           status: string
@@ -3681,6 +4106,7 @@ export type Database = {
           hours_label?: string | null
           id?: string
           item_label: string
+          metadata?: Json | null
           ro_no?: string | null
           sort_order?: number
           status?: string
@@ -3698,6 +4124,7 @@ export type Database = {
           hours_label?: string | null
           id?: string
           item_label?: string
+          metadata?: Json | null
           ro_no?: string | null
           sort_order?: number
           status?: string
@@ -3713,6 +4140,7 @@ export type Database = {
           auto_settle_cost: boolean
           brand_id: string
           created_at: string
+          metadata: Json | null
           monthly_report_auto: boolean
           monthly_report_to_manager: boolean
           remind_7_days_before: boolean
@@ -3724,6 +4152,7 @@ export type Database = {
           auto_settle_cost?: boolean
           brand_id: string
           created_at?: string
+          metadata?: Json | null
           monthly_report_auto?: boolean
           monthly_report_to_manager?: boolean
           remind_7_days_before?: boolean
@@ -3735,6 +4164,7 @@ export type Database = {
           auto_settle_cost?: boolean
           brand_id?: string
           created_at?: string
+          metadata?: Json | null
           monthly_report_auto?: boolean
           monthly_report_to_manager?: boolean
           remind_7_days_before?: boolean
@@ -3752,6 +4182,7 @@ export type Database = {
           dms_label: string | null
           expiry_alert_days: number
           fallback_action: string
+          metadata: Json | null
           sync_estimate: boolean
           sync_frequency: string
           sync_ro_to_issue: boolean
@@ -3768,6 +4199,7 @@ export type Database = {
           dms_label?: string | null
           expiry_alert_days?: number
           fallback_action?: string
+          metadata?: Json | null
           sync_estimate?: boolean
           sync_frequency?: string
           sync_ro_to_issue?: boolean
@@ -3784,6 +4216,7 @@ export type Database = {
           dms_label?: string | null
           expiry_alert_days?: number
           fallback_action?: string
+          metadata?: Json | null
           sync_estimate?: boolean
           sync_frequency?: string
           sync_ro_to_issue?: boolean
@@ -3800,6 +4233,7 @@ export type Database = {
           claim_no: string | null
           created_at: string
           id: string
+          metadata: Json | null
           model: string | null
           out_no: string | null
           ro_no: string
@@ -3815,6 +4249,7 @@ export type Database = {
           claim_no?: string | null
           created_at?: string
           id?: string
+          metadata?: Json | null
           model?: string | null
           out_no?: string | null
           ro_no: string
@@ -3830,6 +4265,7 @@ export type Database = {
           claim_no?: string | null
           created_at?: string
           id?: string
+          metadata?: Json | null
           model?: string | null
           out_no?: string | null
           ro_no?: string
@@ -3853,6 +4289,7 @@ export type Database = {
           exclude_from_alerts: boolean
           exclude_from_count: boolean
           isolate_from_sellable: boolean
+          metadata: Json | null
           updated_at: string
         }
         Insert: {
@@ -3865,6 +4302,7 @@ export type Database = {
           exclude_from_alerts?: boolean
           exclude_from_count?: boolean
           isolate_from_sellable?: boolean
+          metadata?: Json | null
           updated_at?: string
         }
         Update: {
@@ -3877,6 +4315,7 @@ export type Database = {
           exclude_from_alerts?: boolean
           exclude_from_count?: boolean
           isolate_from_sellable?: boolean
+          metadata?: Json | null
           updated_at?: string
         }
         Relationships: []
@@ -3888,6 +4327,7 @@ export type Database = {
           brand_id: string
           created_at: string
           inbound_warehouse: string
+          metadata: Json | null
           trigger_auto_barcode: boolean
           trigger_auto_reserve: boolean
           trigger_manual_no_serial: boolean
@@ -3901,6 +4341,7 @@ export type Database = {
           brand_id: string
           created_at?: string
           inbound_warehouse?: string
+          metadata?: Json | null
           trigger_auto_barcode?: boolean
           trigger_auto_reserve?: boolean
           trigger_manual_no_serial?: boolean
@@ -3914,6 +4355,7 @@ export type Database = {
           brand_id?: string
           created_at?: string
           inbound_warehouse?: string
+          metadata?: Json | null
           trigger_auto_barcode?: boolean
           trigger_auto_reserve?: boolean
           trigger_manual_no_serial?: boolean
@@ -3934,6 +4376,7 @@ export type Database = {
           inbound_date: string | null
           item_code: string | null
           item_name: string
+          metadata: Json | null
           ro_no: string | null
           sort_order: number
           status: string
@@ -3950,6 +4393,7 @@ export type Database = {
           inbound_date?: string | null
           item_code?: string | null
           item_name: string
+          metadata?: Json | null
           ro_no?: string | null
           sort_order?: number
           status?: string
@@ -3966,6 +4410,7 @@ export type Database = {
           inbound_date?: string | null
           item_code?: string | null
           item_name?: string
+          metadata?: Json | null
           ro_no?: string | null
           sort_order?: number
           status?: string
@@ -3982,6 +4427,7 @@ export type Database = {
           eta_label: string | null
           id: string
           is_overdue: boolean
+          metadata: Json | null
           missing_parts: string
           po_no: string | null
           ro_no: string
@@ -3998,6 +4444,7 @@ export type Database = {
           eta_label?: string | null
           id?: string
           is_overdue?: boolean
+          metadata?: Json | null
           missing_parts: string
           po_no?: string | null
           ro_no: string
@@ -4014,6 +4461,7 @@ export type Database = {
           eta_label?: string | null
           id?: string
           is_overdue?: boolean
+          metadata?: Json | null
           missing_parts?: string
           po_no?: string | null
           ro_no?: string
@@ -4059,6 +4507,7 @@ export type Database = {
           date: string
           description: string
           id: string
+          metadata: Json | null
           payment_method: string | null
           ref_id: string | null
           type: string
@@ -4072,6 +4521,7 @@ export type Database = {
           date?: string
           description: string
           id?: string
+          metadata?: Json | null
           payment_method?: string | null
           ref_id?: string | null
           type: string
@@ -4085,6 +4535,7 @@ export type Database = {
           date?: string
           description?: string
           id?: string
+          metadata?: Json | null
           payment_method?: string | null
           ref_id?: string | null
           type?: string
@@ -4101,6 +4552,7 @@ export type Database = {
           form_params: Json
           item_name: string
           merchant_trade_no: string
+          metadata: Json | null
           paid_at: string | null
           status: string
         }
@@ -4113,6 +4565,7 @@ export type Database = {
           form_params: Json
           item_name: string
           merchant_trade_no: string
+          metadata?: Json | null
           paid_at?: string | null
           status?: string
         }
@@ -4125,6 +4578,7 @@ export type Database = {
           form_params?: Json
           item_name?: string
           merchant_trade_no?: string
+          metadata?: Json | null
           paid_at?: string | null
           status?: string
         }
@@ -4139,6 +4593,7 @@ export type Database = {
           id: string
           is_active: boolean
           low_stock_at: number
+          metadata: Json | null
           name: string
           sku: string
           stock_qty: number
@@ -4153,6 +4608,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           low_stock_at?: number
+          metadata?: Json | null
           name: string
           sku: string
           stock_qty?: number
@@ -4167,6 +4623,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           low_stock_at?: number
+          metadata?: Json | null
           name?: string
           sku?: string
           stock_qty?: number
@@ -4188,6 +4645,7 @@ export type Database = {
           logistics_sub_type: string
           logistics_type: string
           merchant_trade_no: string
+          metadata: Json | null
           receiver_address: string | null
           receiver_name: string
           receiver_phone: string
@@ -4207,6 +4665,7 @@ export type Database = {
           logistics_sub_type: string
           logistics_type: string
           merchant_trade_no: string
+          metadata?: Json | null
           receiver_address?: string | null
           receiver_name: string
           receiver_phone: string
@@ -4226,6 +4685,7 @@ export type Database = {
           logistics_sub_type?: string
           logistics_type?: string
           merchant_trade_no?: string
+          metadata?: Json | null
           receiver_address?: string | null
           receiver_name?: string
           receiver_phone?: string
@@ -4240,6 +4700,7 @@ export type Database = {
           brand_id: string
           created_at: string
           id: string
+          metadata: Json | null
           product_id: string | null
           product_name: string
           product_sku: string
@@ -4252,6 +4713,7 @@ export type Database = {
           brand_id?: string
           created_at?: string
           id?: string
+          metadata?: Json | null
           product_id?: string | null
           product_name: string
           product_sku: string
@@ -4264,6 +4726,7 @@ export type Database = {
           brand_id?: string
           created_at?: string
           id?: string
+          metadata?: Json | null
           product_id?: string | null
           product_name?: string
           product_sku?: string
@@ -4300,9 +4763,11 @@ export type Database = {
           ecpay_invoice_no: string | null
           ecpay_random_number: string | null
           ecpay_status: string
+          einvoice_id: string | null
           id: string
           invoice_type: string
           merchant_trade_no: string
+          metadata: Json | null
           payment_method: string
           staff_id: string | null
           staff_name: string
@@ -4319,9 +4784,11 @@ export type Database = {
           ecpay_invoice_no?: string | null
           ecpay_random_number?: string | null
           ecpay_status?: string
+          einvoice_id?: string | null
           id?: string
           invoice_type?: string
           merchant_trade_no: string
+          metadata?: Json | null
           payment_method: string
           staff_id?: string | null
           staff_name?: string
@@ -4338,16 +4805,26 @@ export type Database = {
           ecpay_invoice_no?: string | null
           ecpay_random_number?: string | null
           ecpay_status?: string
+          einvoice_id?: string | null
           id?: string
           invoice_type?: string
           merchant_trade_no?: string
+          metadata?: Json | null
           payment_method?: string
           staff_id?: string | null
           staff_name?: string
           tax_id?: string | null
           total_amount?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pos_transactions_einvoice_id_fkey"
+            columns: ["einvoice_id"]
+            isOneToOne: false
+            referencedRelation: "einvoices"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profile_brands: {
         Row: {
@@ -4372,18 +4849,42 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
+          avatar_path: string | null
+          avatar_url: string | null
+          default_brand_id: string | null
+          default_landing_path: string | null
           id: string
           name: string | null
+          preferred_custom_palette: Json | null
+          preferred_palette_key: string | null
+          preferred_sidebar_theme_key: string | null
           updated_at: string | null
         }
         Insert: {
+          address?: string | null
+          avatar_path?: string | null
+          avatar_url?: string | null
+          default_brand_id?: string | null
+          default_landing_path?: string | null
           id: string
           name?: string | null
+          preferred_custom_palette?: Json | null
+          preferred_palette_key?: string | null
+          preferred_sidebar_theme_key?: string | null
           updated_at?: string | null
         }
         Update: {
+          address?: string | null
+          avatar_path?: string | null
+          avatar_url?: string | null
+          default_brand_id?: string | null
+          default_landing_path?: string | null
           id?: string
           name?: string | null
+          preferred_custom_palette?: Json | null
+          preferred_palette_key?: string | null
+          preferred_sidebar_theme_key?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -4399,6 +4900,7 @@ export type Database = {
           flow_type: string
           id: string
           is_active: boolean
+          metadata: Json | null
           sort_order: number
           steps: Json
           updated_at: string
@@ -4413,6 +4915,7 @@ export type Database = {
           flow_type: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           sort_order?: number
           steps?: Json
           updated_at?: string
@@ -4427,6 +4930,7 @@ export type Database = {
           flow_type?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           sort_order?: number
           steps?: Json
           updated_at?: string
@@ -4444,6 +4948,7 @@ export type Database = {
           line_amount_tax: number
           line_amount_total: number
           line_no: number
+          metadata: Json | null
           notes: string | null
           po_id: string
           qty_ordered: number
@@ -4466,6 +4971,7 @@ export type Database = {
           line_amount_tax?: number
           line_amount_total: number
           line_no: number
+          metadata?: Json | null
           notes?: string | null
           po_id: string
           qty_ordered: number
@@ -4488,6 +4994,7 @@ export type Database = {
           line_amount_tax?: number
           line_amount_total?: number
           line_no?: number
+          metadata?: Json | null
           notes?: string | null
           po_id?: string
           qty_ordered?: number
@@ -4543,6 +5050,7 @@ export type Database = {
           gl_posted: boolean
           gl_posted_at: string | null
           id: string
+          metadata: Json | null
           notes: string | null
           org_id: string | null
           paid_amount: number
@@ -4577,6 +5085,7 @@ export type Database = {
           gl_posted?: boolean
           gl_posted_at?: string | null
           id?: string
+          metadata?: Json | null
           notes?: string | null
           org_id?: string | null
           paid_amount?: number
@@ -4611,6 +5120,7 @@ export type Database = {
           gl_posted?: boolean
           gl_posted_at?: string | null
           id?: string
+          metadata?: Json | null
           notes?: string | null
           org_id?: string | null
           paid_amount?: number
@@ -4664,6 +5174,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          metadata: Json | null
           monthly_limit: number | null
           notes: string | null
           requires_approval: boolean
@@ -4679,6 +5190,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           monthly_limit?: number | null
           notes?: string | null
           requires_approval?: boolean
@@ -4694,6 +5206,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           monthly_limit?: number | null
           notes?: string | null
           requires_approval?: boolean
@@ -4722,6 +5235,7 @@ export type Database = {
           id: string
           item_id: string
           line_no: number
+          metadata: Json | null
           notes: string | null
           qty_converted: number
           qty_required: number
@@ -4736,6 +5250,7 @@ export type Database = {
           id?: string
           item_id: string
           line_no: number
+          metadata?: Json | null
           notes?: string | null
           qty_converted?: number
           qty_required: number
@@ -4750,6 +5265,7 @@ export type Database = {
           id?: string
           item_id?: string
           line_no?: number
+          metadata?: Json | null
           notes?: string | null
           qty_converted?: number
           qty_required?: number
@@ -4784,6 +5300,7 @@ export type Database = {
           external_id: string | null
           external_source: string
           id: string
+          metadata: Json | null
           notes: string | null
           org_id: string | null
           req_no: string
@@ -4804,6 +5321,7 @@ export type Database = {
           external_id?: string | null
           external_source?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           org_id?: string | null
           req_no: string
@@ -4824,6 +5342,7 @@ export type Database = {
           external_id?: string | null
           external_source?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           org_id?: string | null
           req_no?: string
@@ -4860,6 +5379,7 @@ export type Database = {
           item_id: string
           line_amount: number
           line_no: number
+          metadata: Json | null
           notes: string | null
           po_line_id: string | null
           qty_return: number
@@ -4875,6 +5395,7 @@ export type Database = {
           item_id: string
           line_amount: number
           line_no: number
+          metadata?: Json | null
           notes?: string | null
           po_line_id?: string | null
           qty_return: number
@@ -4890,6 +5411,7 @@ export type Database = {
           item_id?: string
           line_amount?: number
           line_no?: number
+          metadata?: Json | null
           notes?: string | null
           po_line_id?: string | null
           qty_return?: number
@@ -4937,6 +5459,7 @@ export type Database = {
           id: string
           logistics_provider: string | null
           logistics_tracking_no: string | null
+          metadata: Json | null
           notes: string | null
           po_id: string | null
           qty_return_total: number
@@ -4964,6 +5487,7 @@ export type Database = {
           id?: string
           logistics_provider?: string | null
           logistics_tracking_no?: string | null
+          metadata?: Json | null
           notes?: string | null
           po_id?: string | null
           qty_return_total?: number
@@ -4991,6 +5515,7 @@ export type Database = {
           id?: string
           logistics_provider?: string | null
           logistics_tracking_no?: string | null
+          metadata?: Json | null
           notes?: string | null
           po_id?: string | null
           qty_return_total?: number
@@ -5038,6 +5563,7 @@ export type Database = {
           id: string
           include_forecast: boolean
           is_active: boolean
+          metadata: Json | null
           notes: string | null
           updated_at: string
           warehouse_id: string | null
@@ -5051,6 +5577,7 @@ export type Database = {
           id?: string
           include_forecast?: boolean
           is_active?: boolean
+          metadata?: Json | null
           notes?: string | null
           updated_at?: string
           warehouse_id?: string | null
@@ -5064,6 +5591,7 @@ export type Database = {
           id?: string
           include_forecast?: boolean
           is_active?: boolean
+          metadata?: Json | null
           notes?: string | null
           updated_at?: string
           warehouse_id?: string | null
@@ -5091,6 +5619,7 @@ export type Database = {
           item_id: string
           latest_order_date: string | null
           lead_time_days: number | null
+          metadata: Json | null
           net_demand_qty: number
           notes: string | null
           on_hand_qty: number
@@ -5119,6 +5648,7 @@ export type Database = {
           item_id: string
           latest_order_date?: string | null
           lead_time_days?: number | null
+          metadata?: Json | null
           net_demand_qty?: number
           notes?: string | null
           on_hand_qty?: number
@@ -5147,6 +5677,7 @@ export type Database = {
           item_id?: string
           latest_order_date?: string | null
           lead_time_days?: number | null
+          metadata?: Json | null
           net_demand_qty?: number
           notes?: string | null
           on_hand_qty?: number
@@ -5207,6 +5738,7 @@ export type Database = {
           created_at: string
           horizon_days: number
           id: string
+          metadata: Json | null
           notes: string | null
           policy_id: string | null
           status: string
@@ -5222,6 +5754,7 @@ export type Database = {
           created_at?: string
           horizon_days: number
           id?: string
+          metadata?: Json | null
           notes?: string | null
           policy_id?: string | null
           status?: string
@@ -5237,6 +5770,7 @@ export type Database = {
           created_at?: string
           horizon_days?: number
           id?: string
+          metadata?: Json | null
           notes?: string | null
           policy_id?: string | null
           status?: string
@@ -5333,6 +5867,7 @@ export type Database = {
           external_id: string | null
           external_source: string
           id: string
+          metadata: Json | null
           mileage_at_appointment: number | null
           notes: string | null
           scheduled_at: string
@@ -5354,6 +5889,7 @@ export type Database = {
           external_id?: string | null
           external_source?: string
           id?: string
+          metadata?: Json | null
           mileage_at_appointment?: number | null
           notes?: string | null
           scheduled_at: string
@@ -5375,6 +5911,7 @@ export type Database = {
           external_id?: string | null
           external_source?: string
           id?: string
+          metadata?: Json | null
           mileage_at_appointment?: number | null
           notes?: string | null
           scheduled_at?: string
@@ -5427,6 +5964,7 @@ export type Database = {
           item_id: string
           line_amount: number | null
           line_no: number
+          metadata: Json | null
           notes: string | null
           qty_issued: number
           serial_no: string | null
@@ -5445,6 +5983,7 @@ export type Database = {
           item_id: string
           line_amount?: number | null
           line_no: number
+          metadata?: Json | null
           notes?: string | null
           qty_issued: number
           serial_no?: string | null
@@ -5463,6 +6002,7 @@ export type Database = {
           item_id?: string
           line_amount?: number | null
           line_no?: number
+          metadata?: Json | null
           notes?: string | null
           qty_issued?: number
           serial_no?: string | null
@@ -5509,6 +6049,7 @@ export type Database = {
           gl_posted_at: string | null
           id: string
           issue_date: string
+          metadata: Json | null
           notes: string | null
           posted_at: string | null
           posted_by: string | null
@@ -5535,6 +6076,7 @@ export type Database = {
           gl_posted_at?: string | null
           id?: string
           issue_date?: string
+          metadata?: Json | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
@@ -5561,6 +6103,7 @@ export type Database = {
           gl_posted_at?: string | null
           id?: string
           issue_date?: string
+          metadata?: Json | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
@@ -5602,6 +6145,7 @@ export type Database = {
           id: string
           item_id: string
           last_movement_at: string
+          metadata: Json | null
           notes: string | null
           qty: number
           reserved_for_doc_id: string | null
@@ -5627,6 +6171,7 @@ export type Database = {
           id?: string
           item_id: string
           last_movement_at?: string
+          metadata?: Json | null
           notes?: string | null
           qty?: number
           reserved_for_doc_id?: string | null
@@ -5652,6 +6197,7 @@ export type Database = {
           id?: string
           item_id?: string
           last_movement_at?: string
+          metadata?: Json | null
           notes?: string | null
           qty?: number
           reserved_for_doc_id?: string | null
@@ -5716,6 +6262,7 @@ export type Database = {
           item_id: string
           line_amount: number
           line_no: number
+          metadata: Json | null
           notes: string | null
           qty_received: number
           serial_required: boolean
@@ -5737,6 +6284,7 @@ export type Database = {
           item_id: string
           line_amount: number
           line_no: number
+          metadata?: Json | null
           notes?: string | null
           qty_received: number
           serial_required?: boolean
@@ -5758,6 +6306,7 @@ export type Database = {
           item_id?: string
           line_amount?: number
           line_no?: number
+          metadata?: Json | null
           notes?: string | null
           qty_received?: number
           serial_required?: boolean
@@ -5806,6 +6355,7 @@ export type Database = {
           gl_posted_at: string | null
           gr_no: string
           id: string
+          metadata: Json | null
           notes: string | null
           posted_at: string | null
           posted_by: string | null
@@ -5832,6 +6382,7 @@ export type Database = {
           gl_posted_at?: string | null
           gr_no: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
@@ -5858,6 +6409,7 @@ export type Database = {
           gl_posted_at?: string | null
           gr_no?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           posted_at?: string | null
           posted_by?: string | null
@@ -5906,6 +6458,7 @@ export type Database = {
           is_active: boolean
           item_id: string
           max_stock: number | null
+          metadata: Json | null
           min_stock: number
           reorder_point: number
           safety_stock: number
@@ -5921,6 +6474,7 @@ export type Database = {
           is_active?: boolean
           item_id: string
           max_stock?: number | null
+          metadata?: Json | null
           min_stock?: number
           reorder_point?: number
           safety_stock?: number
@@ -5936,6 +6490,7 @@ export type Database = {
           is_active?: boolean
           item_id?: string
           max_stock?: number | null
+          metadata?: Json | null
           min_stock?: number
           reorder_point?: number
           safety_stock?: number
@@ -5966,6 +6521,7 @@ export type Database = {
           id: string
           item_id: string
           line_no: number
+          metadata: Json | null
           notes: string | null
           qty_received: number
           qty_requested: number
@@ -5983,6 +6539,7 @@ export type Database = {
           id?: string
           item_id: string
           line_no: number
+          metadata?: Json | null
           notes?: string | null
           qty_received?: number
           qty_requested: number
@@ -6000,6 +6557,7 @@ export type Database = {
           id?: string
           item_id?: string
           line_no?: number
+          metadata?: Json | null
           notes?: string | null
           qty_received?: number
           qty_requested?: number
@@ -6054,6 +6612,7 @@ export type Database = {
           id: string
           logistics_provider: string | null
           logistics_tracking_no: string | null
+          metadata: Json | null
           notes: string | null
           qty_received_total: number
           qty_requested_total: number
@@ -6083,6 +6642,7 @@ export type Database = {
           id?: string
           logistics_provider?: string | null
           logistics_tracking_no?: string | null
+          metadata?: Json | null
           notes?: string | null
           qty_received_total?: number
           qty_requested_total?: number
@@ -6112,6 +6672,7 @@ export type Database = {
           id?: string
           logistics_provider?: string | null
           logistics_tracking_no?: string | null
+          metadata?: Json | null
           notes?: string | null
           qty_received_total?: number
           qty_requested_total?: number
@@ -6189,6 +6750,7 @@ export type Database = {
           is_active: boolean
           is_root: boolean
           legal_name: string
+          metadata: Json | null
           netsuite_external_id: string | null
           netsuite_subsidiary_id: string | null
           notes: string | null
@@ -6212,6 +6774,7 @@ export type Database = {
           is_active?: boolean
           is_root?: boolean
           legal_name: string
+          metadata?: Json | null
           netsuite_external_id?: string | null
           netsuite_subsidiary_id?: string | null
           notes?: string | null
@@ -6235,6 +6798,7 @@ export type Database = {
           is_active?: boolean
           is_root?: boolean
           legal_name?: string
+          metadata?: Json | null
           netsuite_external_id?: string | null
           netsuite_subsidiary_id?: string | null
           notes?: string | null
@@ -6273,6 +6837,7 @@ export type Database = {
           effective_from: string
           effective_to: string | null
           id: string
+          metadata: Json | null
           min_order_amount: number | null
           notes: string | null
           payment_terms: string | null
@@ -6288,6 +6853,7 @@ export type Database = {
           effective_from: string
           effective_to?: string | null
           id?: string
+          metadata?: Json | null
           min_order_amount?: number | null
           notes?: string | null
           payment_terms?: string | null
@@ -6303,6 +6869,7 @@ export type Database = {
           effective_from?: string
           effective_to?: string | null
           id?: string
+          metadata?: Json | null
           min_order_amount?: number | null
           notes?: string | null
           payment_terms?: string | null
@@ -6330,6 +6897,7 @@ export type Database = {
           is_primary: boolean
           item_id: string
           lead_time_days: number
+          metadata: Json | null
           min_order_qty: number
           notes: string | null
           order_multiple: number
@@ -6348,6 +6916,7 @@ export type Database = {
           is_primary?: boolean
           item_id: string
           lead_time_days?: number
+          metadata?: Json | null
           min_order_qty?: number
           notes?: string | null
           order_multiple?: number
@@ -6366,6 +6935,7 @@ export type Database = {
           is_primary?: boolean
           item_id?: string
           lead_time_days?: number
+          metadata?: Json | null
           min_order_qty?: number
           notes?: string | null
           order_multiple?: number
@@ -6400,21 +6970,28 @@ export type Database = {
           created_at: string
           created_by: string | null
           default_currency: string
+          default_expense_coa_id: string | null
+          default_tax_code_id: string | null
           email: string | null
           external_id: string | null
           external_source: string
           gl_payable_coa_id: string | null
           id: string
           is_active: boolean
+          is_withholding_required: boolean | null
+          metadata: Json | null
           name: string
           notes: string | null
           payment_terms: string | null
+          payment_terms_days: number | null
           phone: string | null
           primary_contact: string | null
+          supplier_type: string | null
           synced_at: string | null
           tax_id: string | null
           type: string
           updated_at: string
+          withholding_tax_code_id: string | null
         }
         Insert: {
           address?: string | null
@@ -6423,21 +7000,28 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_currency?: string
+          default_expense_coa_id?: string | null
+          default_tax_code_id?: string | null
           email?: string | null
           external_id?: string | null
           external_source?: string
           gl_payable_coa_id?: string | null
           id?: string
           is_active?: boolean
+          is_withholding_required?: boolean | null
+          metadata?: Json | null
           name: string
           notes?: string | null
           payment_terms?: string | null
+          payment_terms_days?: number | null
           phone?: string | null
           primary_contact?: string | null
+          supplier_type?: string | null
           synced_at?: string | null
           tax_id?: string | null
           type?: string
           updated_at?: string
+          withholding_tax_code_id?: string | null
         }
         Update: {
           address?: string | null
@@ -6446,26 +7030,301 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_currency?: string
+          default_expense_coa_id?: string | null
+          default_tax_code_id?: string | null
           email?: string | null
           external_id?: string | null
           external_source?: string
           gl_payable_coa_id?: string | null
           id?: string
           is_active?: boolean
+          is_withholding_required?: boolean | null
+          metadata?: Json | null
           name?: string
           notes?: string | null
           payment_terms?: string | null
+          payment_terms_days?: number | null
           phone?: string | null
           primary_contact?: string | null
+          supplier_type?: string | null
           synced_at?: string | null
           tax_id?: string | null
           type?: string
           updated_at?: string
+          withholding_tax_code_id?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "suppliers_default_expense_coa_id_fkey"
+            columns: ["default_expense_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_default_tax_code_id_fkey"
+            columns: ["default_tax_code_id"]
+            isOneToOne: false
+            referencedRelation: "tax_codes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "suppliers_gl_payable_coa_id_fkey"
             columns: ["gl_payable_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_withholding_tax_code_id_fkey"
+            columns: ["withholding_tax_code_id"]
+            isOneToOne: false
+            referencedRelation: "tax_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_accounting_settings: {
+        Row: {
+          base_currency: string
+          created_at: string
+          current_year_pl_coa_id: string | null
+          default_ap_coa_id: string | null
+          default_ar_coa_id: string | null
+          default_bank_coa_id: string | null
+          default_cash_coa_id: string | null
+          default_credit_card_coa_id: string | null
+          fiscal_year_start_month: number
+          fx_gain_coa_id: string | null
+          fx_loss_coa_id: string | null
+          input_vat_default_coa_id: string | null
+          metadata: Json | null
+          output_vat_default_coa_id: string | null
+          retained_earnings_coa_id: string | null
+          rounding_diff_gain_coa_id: string | null
+          rounding_diff_loss_coa_id: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          vat_filing_period: string
+          withholding_10_coa_id: string | null
+          withholding_20_coa_id: string | null
+          withholding_5_coa_id: string | null
+        }
+        Insert: {
+          base_currency?: string
+          created_at?: string
+          current_year_pl_coa_id?: string | null
+          default_ap_coa_id?: string | null
+          default_ar_coa_id?: string | null
+          default_bank_coa_id?: string | null
+          default_cash_coa_id?: string | null
+          default_credit_card_coa_id?: string | null
+          fiscal_year_start_month?: number
+          fx_gain_coa_id?: string | null
+          fx_loss_coa_id?: string | null
+          input_vat_default_coa_id?: string | null
+          metadata?: Json | null
+          output_vat_default_coa_id?: string | null
+          retained_earnings_coa_id?: string | null
+          rounding_diff_gain_coa_id?: string | null
+          rounding_diff_loss_coa_id?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          vat_filing_period?: string
+          withholding_10_coa_id?: string | null
+          withholding_20_coa_id?: string | null
+          withholding_5_coa_id?: string | null
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          current_year_pl_coa_id?: string | null
+          default_ap_coa_id?: string | null
+          default_ar_coa_id?: string | null
+          default_bank_coa_id?: string | null
+          default_cash_coa_id?: string | null
+          default_credit_card_coa_id?: string | null
+          fiscal_year_start_month?: number
+          fx_gain_coa_id?: string | null
+          fx_loss_coa_id?: string | null
+          input_vat_default_coa_id?: string | null
+          metadata?: Json | null
+          output_vat_default_coa_id?: string | null
+          retained_earnings_coa_id?: string | null
+          rounding_diff_gain_coa_id?: string | null
+          rounding_diff_loss_coa_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          vat_filing_period?: string
+          withholding_10_coa_id?: string | null
+          withholding_20_coa_id?: string | null
+          withholding_5_coa_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_accounting_settings_current_year_pl_coa_id_fkey"
+            columns: ["current_year_pl_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_default_ap_coa_id_fkey"
+            columns: ["default_ap_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_default_ar_coa_id_fkey"
+            columns: ["default_ar_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_default_bank_coa_id_fkey"
+            columns: ["default_bank_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_default_cash_coa_id_fkey"
+            columns: ["default_cash_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_default_credit_card_coa_id_fkey"
+            columns: ["default_credit_card_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_fx_gain_coa_id_fkey"
+            columns: ["fx_gain_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_fx_loss_coa_id_fkey"
+            columns: ["fx_loss_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_input_vat_default_coa_id_fkey"
+            columns: ["input_vat_default_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_output_vat_default_coa_id_fkey"
+            columns: ["output_vat_default_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_retained_earnings_coa_id_fkey"
+            columns: ["retained_earnings_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_rounding_diff_gain_coa_id_fkey"
+            columns: ["rounding_diff_gain_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_rounding_diff_loss_coa_id_fkey"
+            columns: ["rounding_diff_loss_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_withholding_10_coa_id_fkey"
+            columns: ["withholding_10_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_withholding_20_coa_id_fkey"
+            columns: ["withholding_20_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_accounting_settings_withholding_5_coa_id_fkey"
+            columns: ["withholding_5_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_codes: {
+        Row: {
+          coa_id: string | null
+          created_at: string
+          description: string | null
+          direction: string
+          id: string
+          is_active: boolean
+          is_system_default: boolean
+          name_zh_tw: string
+          rate: number
+          tax_code: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          coa_id?: string | null
+          created_at?: string
+          description?: string | null
+          direction: string
+          id?: string
+          is_active?: boolean
+          is_system_default?: boolean
+          name_zh_tw: string
+          rate: number
+          tax_code: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          coa_id?: string | null
+          created_at?: string
+          description?: string | null
+          direction?: string
+          id?: string
+          is_active?: boolean
+          is_system_default?: boolean
+          name_zh_tw?: string
+          rate?: number
+          tax_code?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_codes_coa_id_fkey"
+            columns: ["coa_id"]
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
             referencedColumns: ["id"]
@@ -6520,15 +7379,22 @@ export type Database = {
         Row: {
           brand_id: string
           created_at: string
+          default_tax_code_id: string | null
           display_name: string
           engine_cc: number | null
           engine_kw: number | null
+          gl_cogs_coa_id: string | null
+          gl_inventory_coa_id: string | null
+          gl_revenue_coa_id: string | null
           id: string
           is_active: boolean
+          metadata: Json | null
           model_name: string
+          msrp: number | null
           netsuite_segment_value_id: string | null
           netsuite_synced_at: string | null
           series: string
+          standard_cost: number | null
           updated_at: string
           vehicle_type: Database["public"]["Enums"]["vehicle_type"]
           year_end: number | null
@@ -6537,15 +7403,22 @@ export type Database = {
         Insert: {
           brand_id?: string
           created_at?: string
+          default_tax_code_id?: string | null
           display_name: string
           engine_cc?: number | null
           engine_kw?: number | null
+          gl_cogs_coa_id?: string | null
+          gl_inventory_coa_id?: string | null
+          gl_revenue_coa_id?: string | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           model_name: string
+          msrp?: number | null
           netsuite_segment_value_id?: string | null
           netsuite_synced_at?: string | null
           series: string
+          standard_cost?: number | null
           updated_at?: string
           vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
           year_end?: number | null
@@ -6554,21 +7427,57 @@ export type Database = {
         Update: {
           brand_id?: string
           created_at?: string
+          default_tax_code_id?: string | null
           display_name?: string
           engine_cc?: number | null
           engine_kw?: number | null
+          gl_cogs_coa_id?: string | null
+          gl_inventory_coa_id?: string | null
+          gl_revenue_coa_id?: string | null
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           model_name?: string
+          msrp?: number | null
           netsuite_segment_value_id?: string | null
           netsuite_synced_at?: string | null
           series?: string
+          standard_cost?: number | null
           updated_at?: string
           vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
           year_end?: number | null
           year_start?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_models_default_tax_code_id_fkey"
+            columns: ["default_tax_code_id"]
+            isOneToOne: false
+            referencedRelation: "tax_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_models_gl_cogs_coa_id_fkey"
+            columns: ["gl_cogs_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_models_gl_inventory_coa_id_fkey"
+            columns: ["gl_inventory_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_models_gl_revenue_coa_id_fkey"
+            columns: ["gl_revenue_coa_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       warehouse_bins: {
         Row: {
@@ -6578,6 +7487,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          metadata: Json | null
           name: string | null
           updated_at: string
           warehouse_id: string
@@ -6590,6 +7500,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name?: string | null
           updated_at?: string
           warehouse_id: string
@@ -6602,6 +7513,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name?: string | null
           updated_at?: string
           warehouse_id?: string
@@ -6633,6 +7545,7 @@ export type Database = {
           created_at: string
           id: string
           is_occupied: boolean
+          metadata: Json | null
           position: string | null
           updated_at: string
           warehouse_id: string
@@ -6645,6 +7558,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_occupied?: boolean
+          metadata?: Json | null
           position?: string | null
           updated_at?: string
           warehouse_id: string
@@ -6657,6 +7571,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_occupied?: boolean
+          metadata?: Json | null
           position?: string | null
           updated_at?: string
           warehouse_id?: string
@@ -6686,6 +7601,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          metadata: Json | null
           name: string
           notes: string | null
           updated_at: string
@@ -6698,6 +7614,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name: string
           notes?: string | null
           updated_at?: string
@@ -6710,6 +7627,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name?: string
           notes?: string | null
           updated_at?: string
@@ -6735,6 +7653,7 @@ export type Database = {
           external_source: string
           id: string
           is_active: boolean
+          metadata: Json | null
           name: string
           notes: string | null
           org_id: string | null
@@ -6751,6 +7670,7 @@ export type Database = {
           external_source?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name: string
           notes?: string | null
           org_id?: string | null
@@ -6767,6 +7687,7 @@ export type Database = {
           external_source?: string
           id?: string
           is_active?: boolean
+          metadata?: Json | null
           name?: string
           notes?: string | null
           org_id?: string | null
@@ -6795,6 +7716,7 @@ export type Database = {
           item_id: string
           labor_cost: number
           line_no: number
+          metadata: Json | null
           notes: string | null
           old_part_id: string | null
           parts_cost: number
@@ -6812,6 +7734,7 @@ export type Database = {
           item_id: string
           labor_cost?: number
           line_no: number
+          metadata?: Json | null
           notes?: string | null
           old_part_id?: string | null
           parts_cost?: number
@@ -6829,6 +7752,7 @@ export type Database = {
           item_id?: string
           labor_cost?: number
           line_no?: number
+          metadata?: Json | null
           notes?: string | null
           old_part_id?: string | null
           parts_cost?: number
@@ -6873,6 +7797,7 @@ export type Database = {
           gl_posted_at: string | null
           id: string
           labor_cost: number
+          metadata: Json | null
           notes: string | null
           oem_reference_no: string | null
           parts_cost: number
@@ -6904,6 +7829,7 @@ export type Database = {
           gl_posted_at?: string | null
           id?: string
           labor_cost?: number
+          metadata?: Json | null
           notes?: string | null
           oem_reference_no?: string | null
           parts_cost?: number
@@ -6935,6 +7861,7 @@ export type Database = {
           gl_posted_at?: string | null
           id?: string
           labor_cost?: number
+          metadata?: Json | null
           notes?: string | null
           oem_reference_no?: string | null
           parts_cost?: number
@@ -6984,6 +7911,7 @@ export type Database = {
           labor_code: string | null
           labor_minutes: number | null
           line_no: number
+          metadata: Json | null
           notes: string | null
           qty: number
           qty_allocated: number
@@ -7004,6 +7932,7 @@ export type Database = {
           labor_code?: string | null
           labor_minutes?: number | null
           line_no: number
+          metadata?: Json | null
           notes?: string | null
           qty?: number
           qty_allocated?: number
@@ -7024,6 +7953,7 @@ export type Database = {
           labor_code?: string | null
           labor_minutes?: number | null
           line_no?: number
+          metadata?: Json | null
           notes?: string | null
           qty?: number
           qty_allocated?: number
@@ -7075,6 +8005,7 @@ export type Database = {
           id: string
           labor_amount: number
           lead_technician_id: string | null
+          metadata: Json | null
           mileage_in: number | null
           mileage_out: number | null
           notes: string | null
@@ -7107,6 +8038,7 @@ export type Database = {
           id?: string
           labor_amount?: number
           lead_technician_id?: string | null
+          metadata?: Json | null
           mileage_in?: number | null
           mileage_out?: number | null
           notes?: string | null
@@ -7139,6 +8071,7 @@ export type Database = {
           id?: string
           labor_amount?: number
           lead_technician_id?: string | null
+          metadata?: Json | null
           mileage_in?: number | null
           mileage_out?: number | null
           notes?: string | null
