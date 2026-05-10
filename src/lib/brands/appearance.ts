@@ -85,3 +85,59 @@ function sanitizeShellOptions(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   return raw as Record<string, unknown>;
 }
+
+// ──────────────────────────────────────────────────────────
+// 個人 override（user 等級）
+// ──────────────────────────────────────────────────────────
+
+export type UserAppearanceOverride = {
+  preferred_palette_key: string | null;
+  preferred_custom_palette: { primary?: string; accent?: string } | null;
+  preferred_sidebar_theme_key: string | null;
+};
+
+export const loadUserAppearanceOverride = cache(
+  async (userId: string): Promise<UserAppearanceOverride | null> => {
+    const supabase = createServiceClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select(
+        "preferred_palette_key, preferred_custom_palette, preferred_sidebar_theme_key",
+      )
+      .eq("id", userId)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      preferred_palette_key: data.preferred_palette_key ?? null,
+      preferred_custom_palette: sanitizeCustomPalette(
+        data.preferred_custom_palette,
+      ),
+      preferred_sidebar_theme_key: data.preferred_sidebar_theme_key ?? null,
+    };
+  },
+);
+
+/**
+ * 把 brand 預設與個人 override merge — user 設過的就用 user 的，否則 fallback brand。
+ * custom_palette 的來源跟著最終 palette_key 走（誰提供 custom 就用誰的 hex）。
+ */
+export function mergeUserAppearance(
+  brand: BrandAppearance,
+  user: UserAppearanceOverride | null,
+): BrandAppearance {
+  if (!user) return brand;
+
+  const sidebar_theme =
+    user.preferred_sidebar_theme_key ?? brand.sidebar_theme;
+  const brand_palette = user.preferred_palette_key ?? brand.brand_palette;
+
+  let custom_palette: { primary?: string; accent?: string } | null = null;
+  if (brand_palette === "custom") {
+    custom_palette =
+      user.preferred_palette_key === "custom"
+        ? user.preferred_custom_palette
+        : brand.custom_palette;
+  }
+
+  return { ...brand, sidebar_theme, brand_palette, custom_palette };
+}

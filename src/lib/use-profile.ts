@@ -5,6 +5,7 @@ import { createClient } from "./supabase/client";
 
 interface Profile {
   name: string | null;
+  avatar_url: string | null;
 }
 
 export function useProfile() {
@@ -17,7 +18,7 @@ export function useProfile() {
       if (!user) return;
       supabase
         .from("profiles")
-        .select("name")
+        .select("name, avatar_url")
         .eq("id", user.id)
         .single()
         .then(({ data }) => {

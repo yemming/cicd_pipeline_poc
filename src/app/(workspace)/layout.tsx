@@ -4,7 +4,11 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { NavProvider } from "@/components/nav-provider";
 import { AppearanceProvider } from "@/components/appearance-context";
 import { loadNavTree } from "@/lib/nav/loader";
-import { loadBrandAppearance } from "@/lib/brands/appearance";
+import {
+  loadBrandAppearance,
+  loadUserAppearanceOverride,
+  mergeUserAppearance,
+} from "@/lib/brands/appearance";
 import {
   getActiveScope,
   getAccessibleScopes,
@@ -15,13 +19,15 @@ import { ScopeProvider } from "@/lib/scope/scope-context";
 export const dynamic = "force-dynamic";
 
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
-  const { isAdmin } = await getCurrentUserAndAdmin();
+  const { userId, isAdmin } = await getCurrentUserAndAdmin();
   const scope = await getActiveScope();
   const accessible = await getAccessibleScopes();
-  const [modules, appearance] = await Promise.all([
+  const [modules, brandAppearance, userOverride] = await Promise.all([
     loadNavTree(scope.brand_id),
     loadBrandAppearance(scope.brand_id),
+    userId ? loadUserAppearanceOverride(userId) : Promise.resolve(null),
   ]);
+  const appearance = mergeUserAppearance(brandAppearance, userOverride);
 
   const accessibleStores = (accessible.storesByBrand[scope.brand_id] ?? []).map(
     (s) => ({ id: s.id, name: s.name, short_name: s.short_name }),

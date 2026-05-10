@@ -137,14 +137,27 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
             style={{ borderColor: "var(--color-brand-primary)" }}
           />
         </button>
-        <div
-          className="w-7 h-7 md:w-8 md:h-8 rounded-full overflow-hidden cursor-pointer hover:ring-2 hover:ring-white/50 transition-all flex items-center justify-center shrink-0"
-          style={{ backgroundColor: "#0F6E56" }}
+        <Link
+          href="/me/profile"
+          title={profile?.name ? `${profile.name} — 個人設定` : "個人設定"}
+          className="w-7 h-7 md:w-8 md:h-8 rounded-full overflow-hidden hover:ring-2 hover:ring-white/50 transition-all flex items-center justify-center shrink-0"
+          style={{ backgroundColor: profile?.avatar_url ? undefined : "#0F6E56" }}
         >
-          <span className="text-white text-[10px] md:text-[11px] font-black font-display leading-none">
-            {getInitials(profile?.name)}
-          </span>
-        </div>
+          {profile?.avatar_url ? (
+            <Image
+              src={profile.avatar_url}
+              alt={profile.name ?? "個人設定"}
+              width={32}
+              height={32}
+              unoptimized
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-white text-[10px] md:text-[11px] font-black font-display leading-none">
+              {getInitials(profile?.name)}
+            </span>
+          )}
+        </Link>
       </div>
     </header>
   );
