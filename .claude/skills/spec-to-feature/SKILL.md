@@ -16,6 +16,7 @@ DealerOS 把新頁面規格落地的標準工作流。每收到一份新頁面�
 - 用戶貼截圖 + 描述「我要這頁」
 - 用戶純文字「新功能：採購退貨單，狀態有待審核 / 退貨中 / 完成⋯⋯」/「幫我做一頁 XXX」
 - 用戶說「照 spec-to-feature 走」/「跑一次 skill」
+- 用戶說「把 nav_node `<uuid>` 做成 design pattern」/「把目錄管理裡的『<頁面名稱>』做成 design pattern」（從 `nav_nodes` 表 + Supabase Storage 撈 HTML 啟動，見階段 1 input adapter）
 
 ❌ 不觸發：
 
@@ -29,13 +30,27 @@ DealerOS 把新頁面規格落地的標準工作流。每收到一份新頁面�
 
 ### 階段 1：結構分析（自動，不問用戶）
 
-**輸入**：HTML / 截圖 / Stitch URL / 文字描述
+**輸入**：HTML / 截圖 / Stitch URL / 文字描述 / **nav_node ID 或頁面名稱**
 
 **動作**：
 
-1. 如果是 URL，先 fetch（用 Read 直接讀 file:// 或 WebFetch fetch http(s)://；Stitch HTML 通常是 file://）
-2. 如果是截圖，描述其元素
-3. 抽出以下結構（記憶體中，先別寫檔）：
+1. **如果是 nav_node 輸入**（用戶給 nav_node UUID 或目錄管理裡的頁面名稱）：
+   - 用 `mcp__plugin_supabase_supabase__execute_sql` 查 nav_nodes：
+     ```sql
+     SELECT id, brand_id, name, html_storage_path, parent_id, level, page_kind
+     FROM nav_nodes
+     WHERE id = '<uuid>'                         -- 用 ID 精確查
+        OR (name ILIKE '%<keyword>%'             -- 或用名稱模糊查
+            AND page_kind = 'static_html'
+            AND html_storage_path IS NOT NULL);
+     ```
+   - 如果名稱模糊查命中多筆（雙 brand 各一筆）→ 用 `AskUserQuestion` 問處理哪個 brand（或兩個都做、共用同一個新路由）
+   - 用 Supabase Storage API 從 bucket `nav-html` 下載 `html_storage_path` 指向的檔案（路徑格式 `{brand_id}/{nodeId}.body.html`）
+   - 把下載到的 HTML 當成標準輸入餵進下方第 2 步以後的分析流程
+   - **重要**：把處理中的 `nav_node id`（雙 brand 兩個 ID）記下來，階段 4 落地完要 UPDATE 切成 `react_route`
+2. 如果是 URL，先 fetch（用 Read 直接讀 file:// 或 WebFetch fetch http(s)://；Stitch HTML 通常是 file://）
+3. 如果是截圖，描述其元素
+4. 抽出以下結構（記憶體中，先別寫檔）：
 
 ```
 entities:
@@ -61,7 +76,7 @@ implied_pages:
     route: <建議路徑>
 ```
 
-4. 同時讀 `references/architecture.md`、`references/field-classification.md`、`references/side-effect-checklist.md` 三份 reference 校準分析
+5. 同時讀 `references/architecture.md`、`references/field-classification.md`、`references/side-effect-checklist.md` 三份 reference 校準分析
 
 **不產出檔案**，只在記憶體中組好結構，等階段 2 才寫到 docs/proposals/。
 
@@ -198,7 +213,18 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 2. **Type 重新生成**：用 `mcp__plugin_supabase_supabase__generate_typescript_types`，覆寫 `src/lib/database.types.ts`
 3. **Domain Helper**：建 `src/domain/<module>.ts`，每個函式最簡單實作（Day 1 預設 supabase 直連）
 4. **頁面**：拷貝範本（參考 references/page-templates.md 列出的 canonical），改業務欄位 + filter；UI 只 import `@/domain/*`、**不准** import `@/lib/supabase/*`
-5. **nav_nodes**：用 `mcp__plugin_supabase_supabase__execute_sql` INSERT 雙 brand
+5. **nav_nodes**：用 `mcp__plugin_supabase_supabase__execute_sql`
+   - **a. 一般情況（HTML / URL / 文字描述輸入）**：INSERT 雙 brand 新節點
+   - **b. nav_node 輸入情況**（階段 1 記下的雙 brand ID）：對既有節點做 UPDATE 切換型態：
+     ```sql
+     UPDATE nav_nodes
+        SET page_kind = 'react_route',
+            href      = '/<新路由>'
+      WHERE id IN ('<ducati-node-id>', '<indian-node-id>');
+     -- html_storage_path 保留當歷史檔，不刪
+     -- 退路：失敗時回滾「SET page_kind='static_html', href=NULL」即可恢復原 HTML 渲染
+     ```
+     落地完打開 sidebar 該節點 chip 應該從 HTML 變成 REACT、點擊進新頁面、不再 hit `/n/[nodeId]` 的 iframe 渲染
 6. **驗 build**：`npx tsc --noEmit`、`npx eslint <touched-paths>` — 0 errors 才算落地完成
 
 每步完成 update 對應 task。
