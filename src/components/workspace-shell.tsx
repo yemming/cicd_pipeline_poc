@@ -5,7 +5,7 @@
  *
  * 三件事：
  *   1. PageHeaderProvider + SidebarProvider 包外層，讓兩種 shell variant 共用 context
- *   2. 全域 overlay（CommandPalette / StickyNotesLayer）+ ⌘K / ⌘B 鍵盤監聽
+ *   2. 全域 CommandPalette overlay + ⌘K / ⌘B 鍵盤監聽
  *   3. ShellRouter 從 useAppearance() 取 shellLayoutKey 派發 SHELL_REGISTRY 變體
  *
  * 切換 shell variant 時用 `key={shellLayoutKey}` 強制 unmount，
@@ -16,7 +16,6 @@ import { useCallback, useEffect, useState } from "react";
 import { CommandPalette } from "@/components/command-palette";
 import { PageHeaderProvider } from "@/components/page-header-context";
 import { SidebarProvider, useSidebar } from "@/components/sidebar-context";
-import { StickyNotesLayer } from "@/components/sticky-notes/sticky-notes-layer";
 import { useAppearance } from "@/components/appearance-context";
 import { SearchContext } from "@/components/search-context";
 import { SHELL_REGISTRY } from "@/components/shells";
@@ -62,7 +61,6 @@ function ShellRouter({ children }: { children: React.ReactNode }) {
       {/* key 強制 unmount/mount — 切 shell 不會殘留 CSS var 或 sidebar 內部 state */}
       <Component key={shellLayoutKey}>{children}</Component>
       <CommandPalette open={searchOpen} onClose={closeSearch} />
-      <StickyNotesLayer />
     </SearchContext.Provider>
   );
 }

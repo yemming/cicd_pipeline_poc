@@ -4,7 +4,7 @@
  * Classic dual-rail shell — Ducati 原本的殼。
  *
  * 從 src/components/workspace-shell.tsx 的 Shell function 抽出；
- * 全域 overlay (CommandPalette / StickyNotesLayer) 跟鍵盤監聽搬到 WorkspaceShell，
+ * 全域 CommandPalette overlay 跟鍵盤監聽搬到 WorkspaceShell，
  * shell 內部只負責 sidebar / topbar / main 三件事。
  *
  * 由 SHELL_REGISTRY 在 brand_appearance.shell_layout = 'classic-dual-rail' 時派發。

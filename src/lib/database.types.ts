@@ -1460,62 +1460,6 @@ export type Database = {
           },
         ]
       }
-      feedback_sticky_notes: {
-        Row: {
-          body: string
-          brand_id: string
-          color: string
-          created_at: string
-          created_by: string | null
-          id: string
-          page_path: string
-          page_title: string | null
-          resolved_at: string | null
-          ticket_id: string | null
-          updated_at: string
-          x_px: number
-          y_px: number
-        }
-        Insert: {
-          body?: string
-          brand_id?: string
-          color?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          page_path: string
-          page_title?: string | null
-          resolved_at?: string | null
-          ticket_id?: string | null
-          updated_at?: string
-          x_px?: number
-          y_px?: number
-        }
-        Update: {
-          body?: string
-          brand_id?: string
-          color?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          page_path?: string
-          page_title?: string | null
-          resolved_at?: string | null
-          ticket_id?: string | null
-          updated_at?: string
-          x_px?: number
-          y_px?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feedback_sticky_notes_ticket_id_fkey"
-            columns: ["ticket_id"]
-            isOneToOne: false
-            referencedRelation: "feedback_tickets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       feedback_tickets: {
         Row: {
           archived_at: string | null
