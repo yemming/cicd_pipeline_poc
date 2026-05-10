@@ -33,7 +33,7 @@ export default async function EditSupplierPage({
 
   const [supplier, accounts] = await Promise.all([
     getSupplierById(id),
-    listAccounts({ acctType: "liability" }),
+    listAccounts({ l1Category: "LIABILITY" }),
   ]);
   if (!supplier) notFound();
 

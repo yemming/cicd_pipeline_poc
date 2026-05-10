@@ -12,7 +12,7 @@ import {
 export type CompatRow = {
   id: string;
   item_id: string;
-  motorcycle_model_id: string;
+  vehicle_model_id: string;
   year_start: number | null;
   year_end: number | null;
   notes: string | null;
@@ -49,7 +49,7 @@ export function CompatBoard({
   const [filter, setFilter] = useState("");
   const [draft, setDraft] = useState({
     item_id: "",
-    motorcycle_model_id: "",
+    vehicle_model_id: "",
     year_start: "",
     year_end: "",
     notes: "",
@@ -64,7 +64,7 @@ export function CompatBoard({
     const f = filter.toLowerCase();
     return rows.filter((r) => {
       const it = itemMap.get(r.item_id);
-      const mod = modelMap.get(r.motorcycle_model_id);
+      const mod = modelMap.get(r.vehicle_model_id);
       return (
         (it?.code ?? "").toLowerCase().includes(f) ||
         (it?.name ?? "").toLowerCase().includes(f) ||
@@ -82,7 +82,7 @@ export function CompatBoard({
     startTransition(async () => {
       const res = await createCompatAction({
         item_id: draft.item_id,
-        motorcycle_model_id: draft.motorcycle_model_id,
+        vehicle_model_id: draft.vehicle_model_id,
         year_start: draft.year_start ? Number(draft.year_start) : null,
         year_end: draft.year_end ? Number(draft.year_end) : null,
         notes: draft.notes,
@@ -92,7 +92,7 @@ export function CompatBoard({
         showBanner({ ok: true, msg: "✓ 已新增適配規則" });
         setDraft({
           item_id: "",
-          motorcycle_model_id: "",
+          vehicle_model_id: "",
           year_start: "",
           year_end: "",
           notes: "",
@@ -181,8 +181,8 @@ export function CompatBoard({
               ))}
             </select>
             <select
-              value={draft.motorcycle_model_id}
-              onChange={(e) => setDraft({ ...draft, motorcycle_model_id: e.target.value })}
+              value={draft.vehicle_model_id}
+              onChange={(e) => setDraft({ ...draft, vehicle_model_id: e.target.value })}
               className={inputClass}
             >
               <option value="">選擇車型*</option>
@@ -257,7 +257,7 @@ export function CompatBoard({
             <tbody>
               {filteredRows.slice(0, 200).map((r) => {
                 const it = itemMap.get(r.item_id);
-                const m = modelMap.get(r.motorcycle_model_id);
+                const m = modelMap.get(r.vehicle_model_id);
                 return (
                   <tr key={r.id}>
                     <td className="px-3 py-2 font-mono">{it?.code ?? "—"}</td>

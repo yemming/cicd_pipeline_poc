@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   EscalationBoard,
   type EscalationRule,
@@ -19,7 +19,7 @@ async function loadData(): Promise<{
   receivers: Receiver[];
 }> {
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const [rulesRes, recvRes] = await Promise.all([
     supabase
       .from("parts_alert_escalation_rules")

@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -18,7 +18,7 @@ export async function updateStagingRulesAction(
 ): Promise<ActionResult<{ brand_id: string }>> {
   await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const { error } = await supabase
     .from("parts_warranty_staging_rules")
     .update(patch)

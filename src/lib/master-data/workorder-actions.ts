@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
   WorkOrderFormState,
   WorkOrderItemDraft,
@@ -168,7 +168,7 @@ export async function createWorkOrderAction(
   const { data: wo, error } = await supabase
     .from("work_orders")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       ...payload,
       parts_amount: partsAmount,
       labor_amount: laborAmount,
@@ -182,8 +182,9 @@ export async function createWorkOrderAction(
   if (error) return mapDbError(error);
 
   if (items.length > 0) {
+    const _brandId = (await getActiveScope()).brand_id;
     const rows = items.map((it) => ({
-      brand_id: getBrandKey(),
+      brand_id: _brandId,
       work_order_id: wo.id,
       line_no: it.line_no,
       kind: it.kind,
@@ -255,8 +256,9 @@ export async function updateWorkOrderAction(
   await supabase.from("work_order_items").delete().eq("work_order_id", id);
 
   if (items.length > 0) {
+    const _brandId = (await getActiveScope()).brand_id;
     const rows = items.map((it) => ({
-      brand_id: getBrandKey(),
+      brand_id: _brandId,
       work_order_id: id,
       line_no: it.line_no,
       kind: it.kind,

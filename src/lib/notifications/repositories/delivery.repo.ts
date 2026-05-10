@@ -1,12 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
   ChannelCode,
   DeliveryStatus,
   EventCode,
   NotificationDeliveryRow,
 } from "../types";
-import { getBrandKey } from "@/lib/brands/current";
-
 const TABLE = "notification_deliveries";
 
 export interface CreatePendingDeliveryInput {
@@ -28,7 +27,7 @@ export async function createPendingDelivery(
       ...input,
       status: "pending" as DeliveryStatus,
       attempts: 0,
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
     })
     .select("*")
     .single();
@@ -101,7 +100,7 @@ export async function listDeliveries(
   supabase: SupabaseClient,
   filter: ListDeliveriesFilter = {},
 ): Promise<NotificationDeliveryRow[]> {
-  let q = supabase.from(TABLE).select("*").eq("brand_id", getBrandKey());
+  let q = supabase.from(TABLE).select("*").eq("brand_id", (await getActiveScope()).brand_id);
   if (filter.eventCode) q = q.eq("event_code", filter.eventCode);
   if (filter.channelCode) q = q.eq("channel_code", filter.channelCode);
   if (filter.status) q = q.eq("status", filter.status);
@@ -128,7 +127,7 @@ export async function countDeliveriesByStatus(
   const { data, error } = await supabase
     .from(TABLE)
     .select("status")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .gte("created_at", since);
   if (error) throw new Error(`countDeliveriesByStatus 失敗：${error.message}`);
 

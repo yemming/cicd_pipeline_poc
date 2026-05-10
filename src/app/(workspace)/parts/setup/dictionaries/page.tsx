@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -9,11 +8,12 @@ import type { DictionaryRow } from "@/lib/parts-setup/dictionary-actions";
 
 import { DictionariesBoard } from "./_components/dictionaries-board";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 async function loadData() {
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const { data, error } = await supabase
     .from("parts_dictionary")
     .select(

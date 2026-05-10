@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { listItems } from "@/lib/master-data/queries";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -11,6 +10,7 @@ import type { Warehouse } from "@/lib/parts/types";
 
 import { RegisterOldPartForm } from "./_components/register-old-part-form";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -38,7 +38,7 @@ async function getOldParts() {
   const { data, error } = await supabase
     .from("old_parts")
     .select("id, wc_no, item_id, serial_no, vin, warehouse_id, entry_date, expiry_date, disposal_action, status")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("created_at", { ascending: false }).limit(100);
   if (error) throw new Error(`getOldParts: ${error.message}`);
   return data ?? [];
@@ -48,7 +48,7 @@ async function getWarehouses(): Promise<Warehouse[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("warehouses").select("*")
-    .eq("brand_id", getBrandKey()).eq("is_active", true).order("code");
+    .eq("brand_id", (await getActiveScope()).brand_id).eq("is_active", true).order("code");
   if (error) throw new Error(`getWarehouses: ${error.message}`);
   return data ?? [];
 }

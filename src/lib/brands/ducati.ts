@@ -7,7 +7,7 @@ export const ducatiBrand: BrandConfig = {
   loginTitle: "Ducati 重機經銷商智慧營運平台",
   primaryColor: "#CC0000",
   primaryColorDark: "#A80000",
-  searchPlaceholder: "搜尋客戶、訂單、機車...",
+  searchPlaceholder: "搜尋客戶、訂單、車輛...",
   hqDmsLabel: "Ducati HQ DMS",
   webhookHost: "api.dealeros.ducati.tw",
   ecpayDefaults: {

@@ -10,7 +10,7 @@ export default async function Page() {
       sprint="S5-1"
       device="tablet"
       screenId="e8c1015b71784626ac9797caaf57f457"
-      breadcrumb={[{ label: "中古機車", href: "/usedcar/evaluation" }, { label: "置換評估" }]}
+      breadcrumb={[{ label: "中古車輛", href: "/usedcar/evaluation" }, { label: "置換評估" }]}
     />
   );
 }

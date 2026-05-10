@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   CustomerDetailView,
   type DetailCustomer,
@@ -30,7 +30,7 @@ const placeholderCustomer: DetailCustomer = {
   address: null,
   birthday: null,
   source_module: null,
-  gl_receivable_account_id: null,
+  gl_receivable_coa_id: null,
   notes: null,
   is_active: true,
   created_at: new Date().toISOString(),
@@ -51,13 +51,12 @@ export default async function NewCustomerPage() {
   }
 
   const supabase = await createClient();
-  const brand = getBrandKey();
   const { data: accountsData } = await supabase
-    .from("accounts")
-    .select("id, acct_code, acct_name")
-    .eq("brand_id", brand)
+    .from("chart_of_accounts")
+    .select("id, account_code, name_zh_tw")
     .eq("is_active", true)
-    .order("acct_code");
+    .eq("is_postable", true)
+    .order("account_code");
   const accounts = (accountsData ?? []) as unknown as AccountRef[];
 
   return (

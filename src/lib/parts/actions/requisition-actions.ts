@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS, type PermissionCode } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -49,7 +49,7 @@ async function genReqNo(): Promise<string> {
   const { data } = await supabase
     .from("purchase_requisitions")
     .select("req_no")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .ilike("req_no", `${prefix}%`)
     .order("req_no", { ascending: false })
     .limit(50);
@@ -75,7 +75,7 @@ export async function createRequisitionAction(
   if (!input.qty_required || input.qty_required <= 0) return { ok: false, error: "需求數量需大於 0" };
 
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const req_no = await genReqNo();
 
   // master
@@ -124,7 +124,7 @@ export async function updateRequisitionAction(
   if (!input.qty_required || input.qty_required <= 0) return { ok: false, error: "需求數量需大於 0" };
 
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   const { error: reqErr } = await supabase
     .from("purchase_requisitions")
@@ -188,7 +188,7 @@ async function setStatus(
     .from("purchase_requisitions")
     .update(patch)
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `狀態更新失敗：${error.message}` };
   revalidatePath("/parts/purchase/requisitions");
   revalidatePath(`/parts/purchase/requisitions/${id}`);
@@ -198,7 +198,7 @@ async function setStatus(
 export async function deleteRequisitionAction(id: string): Promise<ActionResult<null>> {
   await requirePermission(PERMISSIONS.PR_CREATE);
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   // 先刪 lines、再刪 master（避免 FK 衝突）
   await supabase.from("purchase_requisition_lines").delete().eq("brand_id", brand).eq("req_id", id);
   const { error } = await supabase

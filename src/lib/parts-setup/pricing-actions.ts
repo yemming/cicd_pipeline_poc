@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -26,7 +26,7 @@ export async function upsertPriceAction(
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.ITEM_EDIT);
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   if (input.id) {
     const { error } = await supabase
       .from("item_store_prices")
@@ -70,7 +70,7 @@ export async function deletePriceAction(
     .from("item_store_prices")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `刪除失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };

@@ -2,12 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -46,7 +46,7 @@ async function getRoIssues(): Promise<IssueWithRo[]> {
     .select(
       "id, gi_no, status, qty_issued_total, amount_total, warehouse_id, ro_id, customer_id, issue_date, created_at",
     )
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("type", "ro_picking")
     .order("created_at", { ascending: false })
     .limit(100);

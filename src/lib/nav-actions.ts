@@ -13,8 +13,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { getBrandKey } from "@/lib/brands/current";
-
+import { getActiveScope } from "@/lib/scope/active-scope";
 const NAV_HTML_BUCKET = "nav-html";
 
 function normalizeHref(raw: string | null): string | null {
@@ -83,7 +82,7 @@ export async function createNavNode(fd: FormData): Promise<{ id: string }> {
     const siblingsQuery = supabase
       .from("nav_nodes")
       .select("sort_order")
-      .eq("brand_id", getBrandKey())
+      .eq("brand_id", (await getActiveScope()).brand_id)
       .eq("level", level)
       .order("sort_order", { ascending: false })
       .limit(1);
@@ -95,7 +94,7 @@ export async function createNavNode(fd: FormData): Promise<{ id: string }> {
   }
 
   const insert: Record<string, unknown> = {
-    brand_id: getBrandKey(),
+    brand_id: (await getActiveScope()).brand_id,
     parent_id: parentId,
     level,
     sort_order: nextSort,
@@ -193,7 +192,7 @@ export async function updateNavNode(id: string, fd: FormData): Promise<void> {
     .from("nav_nodes")
     .update(cleaned)
     .eq("id", id)
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("level", level)
     .select("id")
     .maybeSingle();
@@ -215,7 +214,8 @@ export async function deleteNavNode(id: string): Promise<void> {
     .or(`id.eq.${id},parent_id.eq.${id}`); // 一階子節點；DB cascade 會處理更深的
 
   if (subtree && subtree.length > 0) {
-    const wrongBrand = subtree.find((r) => r.brand_id !== getBrandKey());
+    const _brandId = (await getActiveScope()).brand_id;
+    const wrongBrand = subtree.find((r) => r.brand_id !== _brandId);
     if (wrongBrand) throw new Error("不能跨品牌操作");
     const paths = subtree
       .map((r) => r.html_storage_path)
@@ -246,7 +246,7 @@ export async function moveNavNode(id: string, direction: "up" | "down"): Promise
     .eq("id", id)
     .maybeSingle();
   if (error || !me) throw new Error("節點不存在");
-  if (me.brand_id !== getBrandKey()) throw new Error("不能跨品牌操作");
+  if (me.brand_id !== (await getActiveScope()).brand_id) throw new Error("不能跨品牌操作");
 
   // 載入完整同層 sibling 清單（同 brand / 同 level / 同 parent）
   let siblingsQ = supabase
@@ -329,7 +329,7 @@ export async function uploadHtmlForNode(nodeId: string, fd: FormData): Promise<v
     .eq("id", nodeId)
     .maybeSingle();
   if (readErr || !node) throw new Error("節點不存在");
-  if (node.brand_id !== getBrandKey()) throw new Error("不能跨品牌操作");
+  if (node.brand_id !== (await getActiveScope()).brand_id) throw new Error("不能跨品牌操作");
 
   // 檔名：{brand}/{nodeId}.body.html — 同節點 re-upload 會覆蓋舊檔
   const storagePath = `${node.brand_id}/${nodeId}.body.html`;

@@ -112,7 +112,7 @@ const companyTags: TagGroup[] = [
   },
 ];
 
-const customTags = ["醫師", "重視操駕性能", "收藏愛好者", "賽道常客", "有兩輛以上機車"];
+const customTags = ["醫師", "重視操駕性能", "收藏愛好者", "賽道常客", "有兩輛以上車輛"];
 
 export default function CustomerTagsPage() {
   useSetPageHeader({
@@ -182,7 +182,7 @@ export default function CustomerTagsPage() {
                 className="w-full h-36 object-cover rounded-xl"
               />
               <p className="text-[10px] mt-1.5 text-center text-slate-400">
-                感興趣車款：Panigale V4
+                感興趣車型：Panigale V4
               </p>
             </div>
           </div>

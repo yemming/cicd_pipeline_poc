@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import type { VehicleFormState } from "./vehicle-form-types";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 const ACQUIRED_FROM = ["new", "transfer", "used", "import", "other"] as const;
 type AcquiredFrom = (typeof ACQUIRED_FROM)[number];
 
@@ -102,7 +102,7 @@ export async function createVehicleAction(
 
   const supabase = await createClient();
   const { error } = await supabase.from("customer_vehicles").insert({
-    brand_id: getBrandKey(),
+    brand_id: (await getActiveScope()).brand_id,
     ...payload,
     created_by: ctx.userId,
   });

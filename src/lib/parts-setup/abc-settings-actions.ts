@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -18,7 +18,7 @@ export async function updateAbcSettingsAction(
 ): Promise<ActionResult<{ brand_id: string }>> {
   await requirePermission(PERMISSIONS.PARTS_CONTROL_TYPE_EDIT);
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const { data: existing } = await supabase
     .from("abc_classification_config")
     .select("id")

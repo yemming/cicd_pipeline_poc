@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -29,7 +29,7 @@ export async function updateRoLinkConfigAction(
 ): Promise<ActionResult<{ brand_id: string }>> {
   await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const upd: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(patch)) {
     if (v !== undefined) upd[k] = v;
@@ -55,7 +55,7 @@ export async function verifyRoLinkRecordAction(
     .from("parts_warranty_ro_link_records")
     .update({ sync_status: "done", sync_status_label: "✅ 同步完成" })
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `驗證失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };

@@ -24,7 +24,7 @@ const employees: DealerDB["employees"] = [
   { id: "emp-008", code: "T099", name: "張志明", role: "qa_lead",        email: "qa@ducati.tw",     active: true },
 ];
 
-// ===== 車款 =====
+// ===== 車型 =====
 const vehicle_models: DealerDB["vehicle_models"] = [
   { id: "vm-001", family: "PANIGALE",      name: "Panigale V4",       year_from: 2025, year_to: 2025, displacement_cc: 1103 },
   { id: "vm-002", family: "PANIGALE",      name: "Panigale V2",       year_from: 2025, year_to: 2025, displacement_cc: 890  },
@@ -38,7 +38,7 @@ const vehicle_models: DealerDB["vehicle_models"] = [
   { id: "vm-010", family: "SCRAMBLER",     name: "Scrambler 800",     year_from: 2023, year_to: 2025, displacement_cc: 803  },
 ];
 
-// ===== 保養工時表（Sheet 7 抽精選車款） =====
+// ===== 保養工時表（Sheet 7 抽精選車型） =====
 const service_schedules: DealerDB["service_schedules"] = [
   // Panigale V4
   { id: "ss-001", model_id: "vm-001", item_type: "first_oil_1000",     lu: 15, period_km: 1000,   period_months: null },
@@ -70,7 +70,7 @@ const inspection_items: DealerDB["inspection_items"] = [
   { id: "ii-11", position: "把手/離合器/煞車拉桿",              category: "appearance",  display_order: 11 },
   { id: "ii-12", position: "引擎機油（目視油尺/滲漏）",          category: "engine",      display_order: 12 },
   { id: "ii-13", position: "油箱/油位",                          category: "fluid",       display_order: 13 },
-  { id: "ii-14", position: "冷卻液（適用車款）",                category: "fluid",       display_order: 14 },
+  { id: "ii-14", position: "冷卻液（適用車型）",                category: "fluid",       display_order: 14 },
   { id: "ii-15", position: "車架/排氣管（滲漏/損傷）",          category: "frame",       display_order: 15 },
   { id: "ii-16", position: "電瓶外觀（腐蝕/固定）",              category: "electrical",  display_order: 16 },
 ];

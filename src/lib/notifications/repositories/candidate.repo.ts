@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getBrandKey } from "@/lib/brands/current";
-
+import { getActiveScope } from "@/lib/scope/active-scope";
 const TABLE = "notification_target_candidates";
 
 export type CandidateTargetType = "user" | "group" | "room";
@@ -83,7 +82,7 @@ export async function upsertCandidate(
       source_user_id: input.source_user_id ?? null,
       display_name: input.display_name ?? null,
       last_message_text: input.last_message_text ?? null,
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
     })
     .select("*")
     .single();
@@ -96,7 +95,7 @@ export async function listPendingCandidates(supabase: SupabaseClient): Promise<C
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .is("promoted_target_id", null)
     .is("dismissed_at", null)
     .order("last_seen_at", { ascending: false });

@@ -108,7 +108,7 @@ export default function ConsultantPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">車款</label>
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">車型</label>
                   <input className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all" placeholder="例如：Monster 821" type="text" />
                 </div>
                 <div className="space-y-2">

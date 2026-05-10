@@ -81,7 +81,7 @@ const TASKS = [
 const CUSTOMER_TOOLS = [
   {
     icon: "compare",
-    label: "車款比較",
+    label: "車型比較",
     desc: "並排對比規格",
     href: "/sales/inventory",
     color: "#CC0000",

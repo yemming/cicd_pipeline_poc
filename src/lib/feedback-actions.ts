@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { notifications } from "@/lib/notifications";
-import { getBrandKey } from "@/lib/brands/current";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   type FeedbackStatus,
   FEEDBACK_STATUS_ORDER,
@@ -36,7 +36,7 @@ export async function createTicket(fd: FormData) {
   }
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
   const { data, error } = await supabase
     .from("feedback_tickets")
     .insert({ title, url, description, created_by: userId, status: "draft", brand_id: brandId })
@@ -224,7 +224,7 @@ export async function addComment(ticketId: string, fd: FormData): Promise<void> 
   if (!userId) redirect("/login");
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 1. 建 comment（body 可空時寫 "(附件)" 當 placeholder 以滿足 DB check）
   const parentId = s(fd, "parent_id") || null;
@@ -291,7 +291,7 @@ export async function saveCanvasSnapshot(ticketId: string, snapshot: unknown) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("feedback_canvas_snapshots")
-    .upsert({ ticket_id: ticketId, snapshot, brand_id: getBrandKey() });
+    .upsert({ ticket_id: ticketId, snapshot, brand_id: (await getActiveScope()).brand_id });
 
   if (error) throw new Error(`存檔失敗：${error.message}`);
 }

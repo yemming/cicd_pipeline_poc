@@ -38,9 +38,9 @@ export type DetailItem = {
   created_at: string;
   updated_at: string;
   synced_at: string | null;
-  gl_inventory_account_id: string | null;
-  gl_cogs_account_id: string | null;
-  gl_revenue_account_id: string | null;
+  gl_inventory_coa_id: string | null;
+  gl_cogs_coa_id: string | null;
+  gl_revenue_coa_id: string | null;
   external_source: string | null;
   external_id: string | null;
   weight_kg: number | null;
@@ -63,7 +63,7 @@ export type StockLot = {
 
 export type WarehouseRef = { id: string; code: string; name: string };
 export type FitmentRow = {
-  motorcycle_model_id: string;
+  vehicle_model_id: string;
   year_start: number | null;
   year_end: number | null;
   is_verified: boolean;
@@ -632,7 +632,7 @@ export function ItemDetailView({
                   panelTitle="新增供應商"
                   fields={[
                     { key: "code", label: "代碼", required: true, placeholder: "例：SUP-NEW-001" },
-                    { key: "name", label: "供應商名稱", required: true, placeholder: "例：金門機車零件商行" },
+                    { key: "name", label: "供應商名稱", required: true, placeholder: "例：金門車輛零件商行" },
                   ]}
                   onCreate={async (d) => {
                     const res = await createSupplierAction({
@@ -1022,11 +1022,11 @@ export function ItemDetailView({
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {fitments.map((f, i) => {
-                    const m = modelMap.get(f.motorcycle_model_id);
+                    const m = modelMap.get(f.vehicle_model_id);
                     const yr = f.year_start && f.year_end ? `${f.year_start}-${f.year_end}` : f.year_start ? `${f.year_start}+` : "";
                     return (
                       <span key={i} className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${f.is_verified ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#FDF3E3] text-[#854F0B]"}`}>
-                        {m?.name ?? f.motorcycle_model_id.slice(0, 8)}{yr ? ` ${yr}` : ""}
+                        {m?.name ?? f.vehicle_model_id.slice(0, 8)}{yr ? ` ${yr}` : ""}
                       </span>
                     );
                   })}
@@ -1063,9 +1063,9 @@ export function ItemDetailView({
             ))}
             {sectionCard("總帳會計科目", (
               <>
-                <Kv label="存貨科目" value={item.gl_inventory_account_id ? <span className="font-mono text-[11px]">{item.gl_inventory_account_id.slice(0, 12)}…</span> : "—"} />
-                <Kv label="銷售成本科目" value={item.gl_cogs_account_id ? <span className="font-mono text-[11px]">{item.gl_cogs_account_id.slice(0, 12)}…</span> : "—"} />
-                <Kv label="收入認列科目" value={item.gl_revenue_account_id ? <span className="font-mono text-[11px]">{item.gl_revenue_account_id.slice(0, 12)}…</span> : "—"} />
+                <Kv label="存貨科目" value={item.gl_inventory_coa_id ? <span className="font-mono text-[11px]">{item.gl_inventory_coa_id.slice(0, 12)}…</span> : "—"} />
+                <Kv label="銷售成本科目" value={item.gl_cogs_coa_id ? <span className="font-mono text-[11px]">{item.gl_cogs_coa_id.slice(0, 12)}…</span> : "—"} />
+                <Kv label="收入認列科目" value={item.gl_revenue_coa_id ? <span className="font-mono text-[11px]">{item.gl_revenue_coa_id.slice(0, 12)}…</span> : "—"} />
                 <Kv label="重量（公斤）" value={item.weight_kg != null ? Number(item.weight_kg).toLocaleString("en-US") : "—"} small />
                 <Kv label="體積（立方公分）" value={item.volume_cm3 != null ? Number(item.volume_cm3).toLocaleString("en-US") : "—"} small />
               </>

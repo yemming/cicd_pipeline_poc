@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import {
   listCustomers,
   listEmployees,
-  listMotorcycleModels,
+  listVehicleModels,
 } from "@/lib/master-data/queries";
 import { createVehicleAction } from "@/lib/master-data/vehicle-actions";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -28,7 +28,7 @@ export default async function NewVehiclePage() {
 
   const [customers, models, technicians] = await Promise.all([
     listCustomers({ limit: 500 }),
-    listMotorcycleModels(),
+    listVehicleModels(),
     listEmployees({ status: "active", limit: 200 }),
   ]);
 

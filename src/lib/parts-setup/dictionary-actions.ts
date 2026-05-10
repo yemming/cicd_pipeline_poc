@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type DictionaryKind = "category" | "control_level" | "uom";
 
 export type DictionaryRow = {
@@ -54,7 +54,7 @@ export async function createDictionaryAction(
   const { data, error } = await supabase
     .from("parts_dictionary")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       kind: input.kind,
       code: input.code.trim(),
       label: input.label.trim(),
@@ -97,7 +97,7 @@ export async function updateDictionaryAction(
     .from("parts_dictionary")
     .update(upd)
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) {
     if (error.code === "23505") return { ok: false, error: "此代碼已存在" };
     return { ok: false, error: `儲存失敗：${error.message}` };
@@ -117,7 +117,7 @@ export async function setDictionaryActiveAction(
     .from("parts_dictionary")
     .update({ is_active })
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   revalidatePath(ITEMS_PATH);
@@ -129,7 +129,7 @@ export async function deleteDictionaryAction(
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.ITEM_EDIT);
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   // Reference check: don't delete a code that's still in use on items
   const { data: row, error: rowErr } = await supabase
@@ -189,7 +189,7 @@ export async function reorderDictionaryAction(
   await requirePermission(PERMISSIONS.ITEM_EDIT);
   if (!updates.length) return { ok: true, data: { updated: 0 } };
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   let updated = 0;
   for (const u of updates) {
     const { error } = await supabase

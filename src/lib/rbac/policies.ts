@@ -7,162 +7,86 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { PERMISSIONS, type PermissionCode } from "./permissions";
 
 /**
- * RBAC 中介層 — 在 roles/permissions/user_roles 三張表落地之前的 stub。
+ * RBAC — DB-driven 版本（NetSuite-style）。
  *
- * 目前實作：
- *   1. App admin（app_admins 表）→ 自動擁有所有權限
- *   2. profile_brands.role 對應到 ROLE_PERMS 常數查表
+ * 設計：
+ *   1. App admin（app_admins 表）→ 自動擁有所有 permission
+ *   2. 一般使用者：
+ *        - user_assignments 取得其 (role_id × scope) 列表
+ *        - role_permissions 取得每個 role 的 permission codes
+ *        - 聯集即為其全部權限
+ *   3. brand 隔離由 RLS 處理（暫保留舊 user_has_brand-based policy，
+ *      最終 cutover 時換成 user_has_permission）；本層只算「有沒有這項權限」。
  *
- * Wave 1 完成後：把 ROLE_PERMS 換成從 DB 讀 role_permissions table，介面不變。
- *
- * 用法：
- *   await requirePermission(PERMISSIONS.PO_CREATE);  // throw if 沒權限
- *   if (await hasPermission(PERMISSIONS.PO_APPROVE)) { ... }
+ * 介面相容性：`hasPermission()` / `requirePermission()` 簽名不變，
+ * 全站 600+ call site 不需要動。
  */
 
 const ALL: PermissionCode[] = Object.values(PERMISSIONS);
-
-// 角色 → 權限映射。Wave 1 之前的 hard-coded fallback。
-// role 來自 profile_brands.role（單一 text 欄）。
-const ROLE_PERMS: Record<string, PermissionCode[]> = {
-  // 老闆 / 店長：全開
-  owner: ALL,
-  manager: ALL,
-
-  // 採購主管
-  purchaser: [
-    PERMISSIONS.SUPPLIER_VIEW,
-    PERMISSIONS.SUPPLIER_EDIT,
-    PERMISSIONS.ITEM_VIEW,
-    PERMISSIONS.PR_VIEW,
-    PERMISSIONS.PR_CREATE,
-    PERMISSIONS.PR_APPROVE,
-    PERMISSIONS.PO_VIEW,
-    PERMISSIONS.PO_CREATE,
-    PERMISSIONS.PO_APPROVE,
-    PERMISSIONS.PO_RETURN,
-    PERMISSIONS.RECEIPT_VIEW,
-    PERMISSIONS.ALERT_VIEW,
-    PERMISSIONS.PARTS_PURCHASE_PERMISSION_VIEW,
-    PERMISSIONS.PARTS_ITEM_PERMISSION_VIEW,
-    PERMISSIONS.PARTS_COUNT_RULE_VIEW,
-    PERMISSIONS.PARTS_CONTROL_TYPE_VIEW,
-    PERMISSIONS.PARTS_SERIAL_RULE_VIEW,
-    PERMISSIONS.PARTS_WAREHOUSE_ARCH_VIEW,
-  ],
-
-  // 倉管
-  warehouse: [
-    PERMISSIONS.ITEM_VIEW,
-    PERMISSIONS.WAREHOUSE_VIEW,
-    PERMISSIONS.RECEIPT_VIEW,
-    PERMISSIONS.RECEIPT_CREATE,
-    PERMISSIONS.ISSUE_VIEW,
-    PERMISSIONS.ISSUE_CREATE,
-    PERMISSIONS.TRANSFER_VIEW,
-    PERMISSIONS.TRANSFER_CREATE,
-    PERMISSIONS.COUNT_VIEW,
-    PERMISSIONS.COUNT_EXECUTE,
-    PERMISSIONS.COUNT_ADJUST,
-    PERMISSIONS.EXCEPTION_OPS,
-    PERMISSIONS.CONSIGNMENT_OPS,
-    PERMISSIONS.USEDPART_OPS,
-    PERMISSIONS.ALERT_VIEW,
-    PERMISSIONS.PARTS_COUNT_RULE_VIEW,
-    PERMISSIONS.PARTS_CONTROL_TYPE_VIEW,
-    PERMISSIONS.PARTS_SERIAL_RULE_VIEW,
-    PERMISSIONS.PARTS_WAREHOUSE_ARCH_VIEW,
-  ],
-
-  // 服務顧問 SA
-  service_advisor: [
-    PERMISSIONS.CUSTOMER_VIEW,
-    PERMISSIONS.CUSTOMER_EDIT,
-    PERMISSIONS.VEHICLE_VIEW,
-    PERMISSIONS.VEHICLE_EDIT,
-    PERMISSIONS.APPOINTMENT_VIEW,
-    PERMISSIONS.APPOINTMENT_EDIT,
-    PERMISSIONS.PI_EXECUTE,
-    PERMISSIONS.RO_VIEW,
-    PERMISSIONS.RO_CREATE,
-    PERMISSIONS.RO_DISPATCH,
-    PERMISSIONS.RO_CLOSE,
-    PERMISSIONS.WARRANTY_VIEW,
-    PERMISSIONS.WARRANTY_SUBMIT,
-  ],
-
-  // 技師
-  technician: [
-    PERMISSIONS.RO_VIEW,
-    PERMISSIONS.PI_EXECUTE,
-    PERMISSIONS.PDI_EXECUTE,
-    PERMISSIONS.ITEM_VIEW,
-    PERMISSIONS.ISSUE_CREATE, // 領料
-  ],
-
-  // 預設只讀
-  viewer: [
-    PERMISSIONS.EMPLOYEE_VIEW,
-    PERMISSIONS.CUSTOMER_VIEW,
-    PERMISSIONS.SUPPLIER_VIEW,
-    PERMISSIONS.ITEM_VIEW,
-    PERMISSIONS.ORG_VIEW,
-    PERMISSIONS.WAREHOUSE_VIEW,
-    PERMISSIONS.VEHICLE_VIEW,
-    PERMISSIONS.RO_VIEW,
-    PERMISSIONS.PR_VIEW,
-    PERMISSIONS.PO_VIEW,
-    PERMISSIONS.RECEIPT_VIEW,
-    PERMISSIONS.ISSUE_VIEW,
-    PERMISSIONS.TRANSFER_VIEW,
-    PERMISSIONS.COUNT_VIEW,
-    PERMISSIONS.ALERT_VIEW,
-    PERMISSIONS.WARRANTY_VIEW,
-    PERMISSIONS.APPOINTMENT_VIEW,
-    PERMISSIONS.PARTS_PURCHASE_PERMISSION_VIEW,
-    PERMISSIONS.PARTS_ITEM_PERMISSION_VIEW,
-    PERMISSIONS.PARTS_COUNT_RULE_VIEW,
-    PERMISSIONS.PARTS_CONTROL_TYPE_VIEW,
-    PERMISSIONS.PARTS_SERIAL_RULE_VIEW,
-    PERMISSIONS.PARTS_WAREHOUSE_ARCH_VIEW,
-  ],
-};
 
 export const getCurrentUserContext = cache(
   async (): Promise<{
     userId: string | null;
     email: string | null;
     isAdmin: boolean;
-    roles: { brand_id: string; role: string }[];
+    /** 使用者所有 active assignments；scope 等於可作用的範圍 */
+    assignments: {
+      role_id: string;
+      scope_type: "group" | "brand" | "store";
+      scope_id: string;
+    }[];
   }> => {
     const base = await getCurrentUserAndAdmin();
-    if (!base.userId) return { ...base, roles: [] };
+    if (!base.userId) return { ...base, assignments: [] };
 
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from("profile_brands")
-      .select("brand_id,role")
+      .from("user_assignments")
+      .select("role_id, scope_type, scope_id, expires_at")
       .eq("user_id", base.userId);
 
     if (error) {
-      console.error("[rbac] load profile_brands failed:", error.message);
-      return { ...base, roles: [] };
+      console.error("[rbac] load user_assignments failed:", error.message);
+      return { ...base, assignments: [] };
     }
-    return { ...base, roles: data ?? [] };
+
+    const now = Date.now();
+    const active = (data ?? [])
+      .filter((a) => !a.expires_at || new Date(a.expires_at).getTime() > now)
+      .map((a) => ({
+        role_id: a.role_id,
+        scope_type: a.scope_type as "group" | "brand" | "store",
+        scope_id: a.scope_id,
+      }));
+
+    return { ...base, assignments: active };
   },
 );
 
 /**
- * 計算使用者擁有的全部 permission code（聯集所有 brand 的 role）。
- * brand 隔離由 RLS 處理；這裡只算「有沒有權限這件事」。
+ * 撈使用者全部 permission code（聯集所有 assignment 的 role_permissions）。
+ * brand / store 隔離由 RLS 處理；這裡只算「能不能做這件事」。
  */
 export const getUserPermissions = cache(async (): Promise<Set<PermissionCode>> => {
   const ctx = await getCurrentUserContext();
   if (ctx.isAdmin) return new Set(ALL);
+  if (ctx.assignments.length === 0) return new Set();
+
+  const roleIds = Array.from(new Set(ctx.assignments.map((a) => a.role_id)));
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("role_permissions")
+    .select("permission_code")
+    .in("role_id", roleIds);
+
+  if (error) {
+    console.error("[rbac] load role_permissions failed:", error.message);
+    return new Set();
+  }
+
   const out = new Set<PermissionCode>();
-  for (const r of ctx.roles) {
-    const grants = ROLE_PERMS[r.role] ?? [];
-    for (const p of grants) out.add(p);
+  for (const row of data ?? []) {
+    out.add(row.permission_code as PermissionCode);
   }
   return out;
 });
@@ -176,4 +100,38 @@ export async function requirePermission(code: PermissionCode): Promise<void> {
   if (!(await hasPermission(code))) {
     throw new Error(`權限不足：需要 ${code}`);
   }
+}
+
+/**
+ * 取得使用者於某 scope 是否擁有特定 permission（細粒度檢查）。
+ * 一般 server action 用 hasPermission(code) 即可；此 helper 給之後 admin UI 用。
+ */
+export async function hasPermissionInScope(
+  code: PermissionCode,
+  scope: { type: "group" | "brand" | "store"; id: string },
+): Promise<boolean> {
+  const ctx = await getCurrentUserContext();
+  if (ctx.isAdmin) return true;
+  if (ctx.assignments.length === 0) return false;
+
+  const roleIdsInScope = ctx.assignments
+    .filter((a) => {
+      if (a.scope_type === scope.type && a.scope_id === scope.id) return true;
+      // group scope 涵蓋 brand / store；brand scope 涵蓋 store。
+      // 此處保守：精確比對；之後若需要 scope 繼承，由 SQL function 處理。
+      return false;
+    })
+    .map((a) => a.role_id);
+
+  if (roleIdsInScope.length === 0) return false;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("role_permissions")
+    .select("permission_code")
+    .in("role_id", roleIdsInScope)
+    .eq("permission_code", code)
+    .limit(1);
+
+  return (data?.length ?? 0) > 0;
 }

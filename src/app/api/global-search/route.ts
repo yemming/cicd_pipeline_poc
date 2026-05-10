@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getBrandKey } from "@/lib/brands/current";
-
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 export type GlobalSearchHit = {
@@ -23,7 +22,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   // RLS 已經靠 user_has_brand() 把跨 brand 擋掉，這裡再 eq("brand_id") 一次當保險（也讓 query plan 走 brand_type index）
   const { data, error } = await supabase

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
@@ -14,6 +13,7 @@ import {
 } from "./_components/session-actions";
 import { StartSessionForm } from "./_components/start-session-form";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -43,7 +43,7 @@ async function getSessions() {
     .select(
       "id, ct_no, plan_id, warehouse_id, count_date, status, total_lines, variance_lines, variance_amount, created_at",
     )
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw new Error(`getSessions: ${error.message}`);
@@ -56,7 +56,7 @@ async function getLinesForSessions(ctIds: string[]) {
   const { data, error } = await supabase
     .from("inventory_count_lines")
     .select("id, ct_id, item_id, qty_system, qty_final")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .in("ct_id", ctIds);
   if (error) throw new Error(`getLinesForSessions: ${error.message}`);
   return data ?? [];
@@ -67,7 +67,7 @@ async function getWarehouses(): Promise<Warehouse[]> {
   const { data, error } = await supabase
     .from("warehouses")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (error) throw new Error(`getWarehouses: ${error.message}`);
@@ -79,7 +79,7 @@ async function getPlans() {
   const { data, error } = await supabase
     .from("inventory_count_plans")
     .select("id, plan_name, warehouse_id")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true);
   if (error) throw new Error(`getPlans: ${error.message}`);
   return data ?? [];

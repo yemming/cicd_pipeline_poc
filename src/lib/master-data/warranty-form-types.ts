@@ -9,7 +9,7 @@ export type WarrantyFieldKey =
   | "ro_id"
   | "vin"
   | "customer_id"
-  | "motorcycle_model_id"
+  | "vehicle_model_id"
   | "status"
   | "applied_amount"
   | "approved_amount"

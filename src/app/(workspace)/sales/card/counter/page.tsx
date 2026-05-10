@@ -18,7 +18,7 @@ const BIKES = [
 
 const DUCATI_MODELS = [
   "Panigale V4", "Multistrada V4", "Monster", "Diavel V4",
-  "DesertX", "Scrambler", "Streetfighter V4", "Hypermotard", "SuperSport", "其他車款",
+  "DesertX", "Scrambler", "Streetfighter V4", "Hypermotard", "SuperSport", "其他車型",
 ];
 
 const VISIT_PURPOSES = [
@@ -342,7 +342,7 @@ export default function CounterPage() {
                     </div>
                     {isDucatiOwner ? (
                       <div className="space-y-2">
-                        <div className="text-xs font-bold text-outline/70 uppercase tracking-wider">目前 DUCATI 車款</div>
+                        <div className="text-xs font-bold text-outline/70 uppercase tracking-wider">目前 DUCATI 車型</div>
                         <div className="flex flex-wrap gap-1.5">
                           {DUCATI_MODELS.map(m => (
                             <button
@@ -352,10 +352,10 @@ export default function CounterPage() {
                             >{m}</button>
                           ))}
                         </div>
-                        {ducatiModel === "其他車款" && (
+                        {ducatiModel === "其他車型" && (
                           <input
                             className="w-full max-w-sm bg-surface-container border-0 rounded-lg px-3 py-2 text-on-surface focus:ring-1 focus:ring-red-200 outline-none text-sm"
-                            placeholder="請輸入車款名稱..."
+                            placeholder="請輸入車型名稱..."
                             type="text"
                             value={ducatiModelOther}
                             onChange={e => setDucatiModelOther(e.target.value)}
@@ -363,7 +363,7 @@ export default function CounterPage() {
                         )}
                       </div>
                     ) : (
-                      <div className="text-sm text-outline">撥開後可選擇目前車款</div>
+                      <div className="text-sm text-outline">撥開後可選擇目前車型</div>
                     )}
                   </div>
                 </div>

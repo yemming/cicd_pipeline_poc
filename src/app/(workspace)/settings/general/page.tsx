@@ -46,7 +46,7 @@ export default function Page() {
             <MockSelect value="DUCATI" options={["DUCATI", "DUCATI Scrambler"]} />
           </Field>
           <Field label="所屬集團">
-            <MockInput defaultValue="和泰機車" />
+            <MockInput defaultValue="和泰車輛" />
           </Field>
           <Field label="官方網站">
             <MockInput defaultValue="https://ducati.tw" />

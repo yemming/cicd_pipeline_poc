@@ -105,7 +105,7 @@ export default function WPMPage() {
           </p>
         </div>
 
-        {/* 車款選擇 + 年限 */}
+        {/* 車型選擇 + 年限 */}
         <div className="flex flex-wrap gap-2 items-center">
           <select
             value={modelId}

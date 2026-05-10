@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -8,6 +7,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 import { SuppliersBoard, type SupplierRow } from "./_components/suppliers-board";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 async function loadData(): Promise<SupplierRow[]> {
@@ -17,7 +17,7 @@ async function loadData(): Promise<SupplierRow[]> {
     .select(
       "id, code, name, type, primary_contact, phone, email, address, tax_id, payment_terms, default_currency, notes, is_active",
     )
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("code");
   if (error) throw new Error(`suppliers: ${error.message}`);
   return (data ?? []) as unknown as SupplierRow[];

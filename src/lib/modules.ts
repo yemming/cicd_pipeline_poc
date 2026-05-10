@@ -316,6 +316,9 @@ export const modules: ModuleDef[] = [
       { name: "部門組織",       icon: "account_tree",  href: "/admin/master-data/departments",        section: "List 主檔" },
       { name: "供應商",         icon: "business",      href: "/admin/master-data/suppliers",          section: "List 主檔" },
       { name: "料號商品",       icon: "inventory_2",   href: "/admin/master-data/items",              section: "List 主檔", comingSoon: true },
+      { name: "供應商定價",     icon: "price_change",  href: "/admin/master-data/supplier-pricing",    section: "List 主檔" },
+      { name: "料號前置時間",   icon: "schedule_send", href: "/admin/master-data/item-lead-times",     section: "List 主檔" },
+      { name: "補貨計畫設定",   icon: "tune",          href: "/admin/master-data/replenishment-policies", section: "List 主檔" },
 
       // ─── Transaction（交易紀錄） ────────────────────
       { name: "維修預約",       icon: "event_available", href: "/admin/master-data/appointments",     section: "Transaction 交易" },
@@ -353,7 +356,25 @@ export const modules: ModuleDef[] = [
   },
 
   // ────────────────────────────────────────────────────────
-  // 10. 系統設定 (S1 組織權限 + S9-2 系統設定)
+  // 11. 會計財務設定 (COA v2.0 + GL Dimensions + NetSuite Mapping)
+  // ────────────────────────────────────────────────────────
+  {
+    key: "accounting",
+    name: "會計財務設定",
+    icon: "account_balance",
+    accent: "#7E5A00",
+    description: "會計科目表・統計科目表・NetSuite Mapping",
+    home: "/admin/accounting/coa",
+    permission: "accounting.access",
+    pages: [
+      { name: "會計科目表",  icon: "account_balance",  href: "/admin/accounting/coa",              section: "會計設定" },
+      { name: "統計科目表",  icon: "category",         href: "/admin/accounting/dimensions",       section: "會計設定" },
+      { name: "Mapping 表",  icon: "swap_horiz",       href: "/admin/accounting/netsuite-mapping", section: "會計設定" },
+    ],
+  },
+
+  // ────────────────────────────────────────────────────────
+  // 12. 系統設定 (S1 組織權限 + S9-2 系統設定)
   // ────────────────────────────────────────────────────────
   {
     key: "settings",

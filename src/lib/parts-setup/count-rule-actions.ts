@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -57,7 +57,7 @@ export async function upsertToleranceAction(
   if (c === null) return { ok: false, error: "C 類容許率需為 0–100 之數字" };
 
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const { error } = await supabase.from("count_tolerance_config").upsert(
     {
       brand_id: brand,
@@ -116,7 +116,7 @@ export async function createReviewRuleAction(
   const { data, error } = await supabase
     .from("count_review_rules")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       rule_code: trim(input.rule_code).toLowerCase(),
       rule_name: trim(input.rule_name),
       description: nullable(input.description),
@@ -169,7 +169,7 @@ export async function updateReviewRuleAction(
     .from("count_review_rules")
     .update(patch)
     .eq("id", id)
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .select("id")
     .single();
 
@@ -193,7 +193,7 @@ export async function deleteReviewRuleAction(
     .from("count_review_rules")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `刪除規則失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };

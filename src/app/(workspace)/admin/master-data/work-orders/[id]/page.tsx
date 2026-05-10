@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { getBrandKey } from "@/lib/brands/current";
 import {
   getWorkOrderById,
   listCustomers,
@@ -20,12 +19,13 @@ import type { Warehouse, WorkOrderItem } from "@/lib/parts/types";
 import { IssuePickButton } from "../_components/issue-pick-button";
 import { WorkOrderForm } from "../_components/work-order-form";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 async function getWarehouses(): Promise<Warehouse[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("warehouses")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (error) throw new Error(`getWarehouses: ${error.message}`);
@@ -37,7 +37,7 @@ async function getIssuesForRo(roId: string) {
   const { data, error } = await supabase
     .from("stock_issues")
     .select("id, gi_no, status, qty_issued_total, amount_total, warehouse_id, issue_date")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("ro_id", roId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`getIssuesForRo: ${error.message}`);
@@ -51,7 +51,7 @@ async function getItems(workOrderId: string): Promise<WorkOrderItem[]> {
   const { data, error } = await supabase
     .from("work_order_items")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("work_order_id", workOrderId)
     .order("line_no");
   if (error) throw new Error(`getItems: ${error.message}`);

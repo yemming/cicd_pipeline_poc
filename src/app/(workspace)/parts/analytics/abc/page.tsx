@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { listItems } from "@/lib/master-data/queries";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -10,6 +9,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
 import { RecalcButton } from "./_components/recalc-button";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 const CLASS_COLOR: Record<string, string> = {
@@ -23,7 +23,7 @@ async function getResults() {
   const { data, error } = await supabase
     .from("abc_classification_results")
     .select("id, item_id, abc_class, output_amount_12m, output_qty_12m, rank_in_brand, cum_pct, prev_class, recalc_at")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .is("warehouse_id", null)
     .order("rank_in_brand", { ascending: true });
   if (error) throw new Error(`getResults: ${error.message}`);
@@ -35,7 +35,7 @@ async function getConfig() {
   const { data } = await supabase
     .from("abc_classification_config")
     .select("threshold_a_pct, threshold_b_pct, rolling_period_months, last_recalc_at")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .maybeSingle();
   return data;

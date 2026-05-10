@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import type { EmployeeFormState } from "./employee-form-types";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 const EMPLOYMENT_STATUSES = ["active", "on_leave", "terminated", "retired"] as const;
 type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
 
@@ -70,7 +70,7 @@ export async function createEmployeeAction(
 
   const supabase = await createClient();
   const { error } = await supabase.from("employees").insert({
-    brand_id: getBrandKey(),
+    brand_id: (await getActiveScope()).brand_id,
     emp_code: empCode,
     name,
     email: strOrNull(fd.get("email")),

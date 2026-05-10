@@ -1,20 +1,8 @@
 "use client";
 
 import { MockShell, MockCard, MockToggle } from "../_mock/mock-shell";
-import { getCurrentBrand } from "@/lib/brands/current";
-
-const brand = getCurrentBrand();
-
-const integrations = [
-  { name: brand.hqDmsLabel,    desc: "總部保固 / 車型主檔同步",          status: "已連線",   color: "green",  icon: "two_wheeler" },
-  { name: "玉山銀行金流",       desc: "分期 / 刷卡授權",                 status: "已連線",   color: "green",  icon: "account_balance" },
-  { name: "富邦產險 API",       desc: "強制 / 任意險試算・投保",         status: "已連線",   color: "green",  icon: "verified_user" },
-  { name: "LINE Notify",       desc: "推播顧問 / 客戶群組通知",          status: "已連線",   color: "green",  icon: "chat" },
-  { name: "Google Maps",       desc: "客戶地址解析 / 試乘路線",          status: "已連線",   color: "green",  icon: "map" },
-  { name: "Meta Lead Ads",     desc: "FB / IG 線索自動進站",             status: "待重新授權", color: "amber", icon: "search" },
-  { name: "電子發票 (綠界)",    desc: "開立 B2B / B2C 發票",             status: "已連線",   color: "green",  icon: "receipt" },
-  { name: "Zeabur Webhook",    desc: "部署通知到 #dealeros-ops",         status: "未啟用",   color: "gray",   icon: "webhook" },
-];
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 const tokens = [
   { name: "顧問 App (iOS/Android)", prefix: "sk_live_xxx…a3f2", created: "2026/01/12", lastUsed: "2026/04/14 08:12" },
@@ -29,6 +17,17 @@ const statusClass: Record<string, string> = {
 };
 
 export default function Page() {
+  const brand = brandConfigs[useActiveBrand()];
+  const integrations = [
+    { name: brand.hqDmsLabel,    desc: "總部保固 / 車型主檔同步",          status: "已連線",   color: "green",  icon: "two_wheeler" },
+    { name: "玉山銀行金流",       desc: "分期 / 刷卡授權",                 status: "已連線",   color: "green",  icon: "account_balance" },
+    { name: "富邦產險 API",       desc: "強制 / 任意險試算・投保",         status: "已連線",   color: "green",  icon: "verified_user" },
+    { name: "LINE Notify",       desc: "推播顧問 / 客戶群組通知",          status: "已連線",   color: "green",  icon: "chat" },
+    { name: "Google Maps",       desc: "客戶地址解析 / 試乘路線",          status: "已連線",   color: "green",  icon: "map" },
+    { name: "Meta Lead Ads",     desc: "FB / IG 線索自動進站",             status: "待重新授權", color: "amber", icon: "search" },
+    { name: "電子發票 (綠界)",    desc: "開立 B2B / B2C 發票",             status: "已連線",   color: "green",  icon: "receipt" },
+    { name: "Zeabur Webhook",    desc: "部署通知到 #dealeros-ops",         status: "未啟用",   color: "gray",   icon: "webhook" },
+  ];
   return (
     <MockShell
       title="API 整合"

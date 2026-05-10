@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildAioParams, buildCheckoutUrl } from "@/lib/pos/ecpay-aio";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getBrandKey, getCurrentBrand } from "@/lib/brands/current";
+import { getCurrentBrand } from "@/lib/brands/current";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 function genTradeNo(): string {
   const d    = new Date();
   const ymd  = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     amount:            body.totalAmount,
     item_name:         body.itemName,
     status:            "pending",
-    brand_id:          getBrandKey(),
+    brand_id:          (await getActiveScope()).brand_id,
   });
 
   return NextResponse.json({

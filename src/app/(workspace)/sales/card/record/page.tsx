@@ -212,7 +212,7 @@ export default function RecordPage() {
                 </div>
                 <div className="px-6 py-4 grid grid-cols-2 gap-x-8">
                   <div>
-                    <InfoRow label="目前車款"  value={SUMMARY.needs.ownedBike} />
+                    <InfoRow label="目前車型"  value={SUMMARY.needs.ownedBike} />
                     <InfoRow label="車齡／里程" value={`${SUMMARY.needs.ownedAge} · ${SUMMARY.needs.ownedMileage}`} />
                     <InfoRow label="購買類型"  value={SUMMARY.needs.purchaseType} />
                     <InfoRow label="購買時機"  value={SUMMARY.needs.purchaseTiming} />
@@ -243,7 +243,7 @@ export default function RecordPage() {
                 <div className="px-6 py-4 grid grid-cols-2 gap-x-8">
                   <div>
                     <InfoRow label="是否試駕"  value={SUMMARY.closing.testDrive ? "✓ 有試駕" : "未試駕"} />
-                    <InfoRow label="試駕車款"  value={SUMMARY.closing.testDriveModel} />
+                    <InfoRow label="試駕車型"  value={SUMMARY.closing.testDriveModel} />
                     <InfoRow label="試駕路線"  value={SUMMARY.closing.testDriveRoute} />
                     <InfoRow label="試駕時長"  value={SUMMARY.closing.testDriveDuration} />
                   </div>
@@ -284,7 +284,7 @@ export default function RecordPage() {
                 <h3 className="text-white/70 text-xs font-bold uppercase tracking-widest">本次成交概覽</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-white/60 text-sm">車款</span>
+                    <span className="text-white/60 text-sm">車型</span>
                     <span className="text-white font-bold text-sm">{SUMMARY.closing.testDriveModel}</span>
                   </div>
                   <div className="flex justify-between items-center">

@@ -5,8 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { STICKY_COLORS, type StickyColor, normalizePagePath } from "@/lib/sticky-notes";
-import { getBrandKey } from "@/lib/brands/current";
-
+import { getActiveScope } from "@/lib/scope/active-scope";
 function isColor(v: unknown): v is StickyColor {
   return typeof v === "string" && (STICKY_COLORS as readonly string[]).includes(v);
 }
@@ -36,7 +35,7 @@ export async function createStickyNote(input: {
       body: input.body ?? "",
       color,
       created_by: userId,
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
     })
     .select("*")
     .single();
@@ -135,7 +134,7 @@ export async function promoteStickyToTicket(id: string): Promise<{ ticketId: str
       description,
       created_by: userId,
       status: "draft",
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
     })
     .select("id")
     .single();

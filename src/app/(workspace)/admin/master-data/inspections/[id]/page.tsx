@@ -53,7 +53,7 @@ export default async function EditInspectionPage({
 
   const findings = await listInspectionFindings(inspection.id);
 
-  // 確保現任機車在 dropdown
+  // 確保現任車輛在 dropdown
   const vehicle = await getCustomerVehicleById(inspection.vehicle_id);
   if (vehicle && !vehicles.find((v) => v.id === vehicle.id)) {
     vehicles.unshift(vehicle);

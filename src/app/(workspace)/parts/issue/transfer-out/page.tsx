@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { listItems } from "@/lib/master-data/queries";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -13,6 +12,7 @@ import type { Warehouse } from "@/lib/parts/types";
 import { CancelTransferButton } from "./_components/cancel-transfer-button";
 import { NewTransferForm } from "./_components/new-transfer-form";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -42,7 +42,7 @@ async function getWarehouses(): Promise<Warehouse[]> {
   const { data, error } = await supabase
     .from("warehouses")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (error) throw new Error(`getWarehouses: ${error.message}`);
@@ -70,7 +70,7 @@ async function getTransfers(): Promise<TransferRow[]> {
     .select(
       "id, tr_no, status, source_warehouse_id, target_warehouse_id, qty_shipped_total, qty_received_total, ship_date, expected_arrival_date, actual_arrival_date, reason",
     )
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) throw new Error(`getTransfers: ${error.message}`);

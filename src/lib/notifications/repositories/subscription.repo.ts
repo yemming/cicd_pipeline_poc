@@ -1,12 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
   ChannelCode,
   EventCode,
   NotificationSubscriptionRow,
   NotificationTargetRow,
 } from "../types";
-import { getBrandKey } from "@/lib/brands/current";
-
 const TABLE = "notification_subscriptions";
 
 /** 解析後的訂閱（已 join target + channel，供 dispatch 使用）*/
@@ -26,7 +25,7 @@ export async function listActiveByEvent(
 ): Promise<ResolvedSubscription[]> {
   // dispatch 多半走 service role（bypass RLS），所以這裡明確帶 brand_id 過濾，
   // 確保 Ducati 觸發的事件不會推到 Indian 的訂閱者，反之亦然。
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
   const { data, error } = await supabase
     .from(TABLE)
     .select(
@@ -83,7 +82,7 @@ export async function listAllSubscriptions(
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`listAllSubscriptions 失敗：${error.message}`);
   return (data ?? []) as NotificationSubscriptionRow[];
@@ -109,7 +108,7 @@ export async function createSubscription(
       template_code: input.template_code ?? null,
       filter_rules: input.filter_rules ?? {},
       is_active: input.is_active ?? true,
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
     })
     .select("*")
     .single();

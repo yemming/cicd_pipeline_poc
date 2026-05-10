@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { listItems } from "@/lib/master-data/queries";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -11,6 +10,7 @@ import type { Warehouse } from "@/lib/parts/types";
 
 import { AdjustForm } from "./_components/adjust-form";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 async function getManualAdjustments() {
@@ -18,7 +18,7 @@ async function getManualAdjustments() {
   const { data, error } = await supabase
     .from("inventory_adjustments")
     .select("id, adj_no, warehouse_id, type, reason, total_amount, status, posted_at")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .is("ct_id", null)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -31,7 +31,7 @@ async function getWarehouses(): Promise<Warehouse[]> {
   const { data, error } = await supabase
     .from("warehouses")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (error) throw new Error(`getWarehouses: ${error.message}`);

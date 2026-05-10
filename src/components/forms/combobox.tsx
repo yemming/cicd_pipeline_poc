@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { SelectOption } from "./select-field";
 
 /**
- * Combobox：可搜尋的下拉。給 items / customers / 機車車型這類有上百筆主檔的場景。
+ * Combobox：可搜尋的下拉。給 items / customers / 車輛車型這類有上百筆主檔的場景。
  *
  * 用法：
  *   <Combobox name="item_id" label="料號" required

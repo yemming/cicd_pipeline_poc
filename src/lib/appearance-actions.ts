@@ -13,10 +13,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { getBrandKey } from "@/lib/brands/current";
 import { SIDEBAR_THEMES } from "@/lib/brands/sidebar-themes";
 import { BRAND_PALETTES, isValidHex } from "@/lib/brands/brand-palettes";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 const BRAND_ASSETS_BUCKET = "brand-assets";
 
 async function requireAdmin() {
@@ -40,7 +40,7 @@ async function ensureRow(brandId: string) {
 
 export async function updateBrandAppearance(fd: FormData): Promise<void> {
   const userId = await requireAdmin();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
   await ensureRow(brandId);
 
   const tagline = (fd.get("dashboard_tagline") ?? "").toString().trim();
@@ -100,7 +100,7 @@ const ALLOWED_BADGE_MIME = new Set([
 
 export async function uploadBrandBadge(fd: FormData): Promise<{ url: string }> {
   const userId = await requireAdmin();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
   await ensureRow(brandId);
 
   const file = fd.get("file");
@@ -162,7 +162,7 @@ export async function uploadBrandBadge(fd: FormData): Promise<{ url: string }> {
 
 export async function removeBrandBadge(): Promise<void> {
   const userId = await requireAdmin();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const supabase = createServiceClient();
   const { data: row } = await supabase

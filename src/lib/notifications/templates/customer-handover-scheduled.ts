@@ -16,7 +16,7 @@ export const customerHandoverScheduledLine: TemplateDefinition = {
       title: `交車已排定 · ${s(p, "customer")}`,
       subtitle: s(p, "scheduledAt"),
       fields: [
-        { label: "機車", value: s(p, "model") },
+        { label: "車輛", value: s(p, "model") },
         { label: "負責同仁", value: s(p, "staff") },
       ],
       actionLabel: "查看交車檔",
@@ -36,7 +36,7 @@ export const customerHandoverScheduledGoogleChat: TemplateDefinition = {
       title: `交車已排定 · ${s(p, "customer")}`,
       subtitle: s(p, "scheduledAt"),
       fields: [
-        { label: "機車", value: s(p, "model") },
+        { label: "車輛", value: s(p, "model") },
         { label: "負責同仁", value: s(p, "staff") },
       ],
       actionLabel: "查看交車檔",

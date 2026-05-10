@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   CostRecoveryBoard,
   type Claim,
@@ -19,7 +19,7 @@ async function loadData(): Promise<{
   claims: Claim[];
 }> {
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const [cfgRes, clRes] = await Promise.all([
     supabase
       .from("parts_warranty_cost_recovery_config")

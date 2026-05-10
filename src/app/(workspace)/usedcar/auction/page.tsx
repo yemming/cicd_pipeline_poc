@@ -9,7 +9,7 @@ export default async function Page() {
       title="拍賣管理"
       sprint="S5-3"
       screenId="cc722dbd9b5c4af29b5fe7e516db70fd"
-      breadcrumb={[{ label: "中古機車", href: "/usedcar/evaluation" }, { label: "拍賣管理" }]}
+      breadcrumb={[{ label: "中古車輛", href: "/usedcar/evaluation" }, { label: "拍賣管理" }]}
     />
   );
 }

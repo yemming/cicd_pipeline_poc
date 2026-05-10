@@ -222,7 +222,7 @@ export default function AccessoriesPage() {
 
           <div className="mt-4 border-t border-white/5 pt-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 px-3 py-2">
-              相容車款
+              相容車型
             </p>
             {["V4", "V2", "Monster", "Multistrada", "DesertX", "全系列"].map((m) => (
               <button

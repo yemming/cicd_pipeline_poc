@@ -22,7 +22,7 @@ export default async function NewSupplierPage() {
     );
   }
 
-  const accounts = await listAccounts({ acctType: "liability" });
+  const accounts = await listAccounts({ l1Category: "LIABILITY" });
 
   return (
     <main className="px-6 py-6 max-w-[1100px] space-y-5">

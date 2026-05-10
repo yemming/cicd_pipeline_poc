@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createShipment } from "@/lib/pos/ecpay-logistics";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getBrandKey } from "@/lib/brands/current";
-
+import { getActiveScope } from "@/lib/scope/active-scope";
 function genLogisticsTradeNo(): string {
   const d    = new Date();
   const ymd  = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
@@ -59,7 +58,7 @@ export async function POST(req: NextRequest) {
     receiver_zip:        receiverZipCode,
     goods_name:          goodsName,
     goods_amount:        goodsAmount,
-    brand_id:            getBrandKey(),
+    brand_id:            (await getActiveScope()).brand_id,
   });
 
   if (!result.success) {

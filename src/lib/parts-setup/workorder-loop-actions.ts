@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -23,7 +23,7 @@ export async function resolveLoopEntryAction(
     .from("parts_workorder_loop_entries")
     .update({ status: "resolved", is_overdue: false })
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `解除失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
@@ -39,7 +39,7 @@ export async function escalateLoopEntryAction(
     .from("parts_workorder_loop_entries")
     .update({ status: "escalated", is_overdue: true })
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `催單失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };

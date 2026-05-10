@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { listItems } from "@/lib/master-data/queries";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -11,6 +10,7 @@ import type { Warehouse } from "@/lib/parts/types";
 
 import { ThresholdForm } from "./_components/threshold-form";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 async function getThresholds() {
@@ -18,7 +18,7 @@ async function getThresholds() {
   const { data, error } = await supabase
     .from("stock_thresholds")
     .select("id, warehouse_id, item_id, min_stock, reorder_point, max_stock, abc_class, alert_priority, is_active")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("created_at", { ascending: false }).limit(200);
   if (error) throw new Error(`getThresholds: ${error.message}`);
   return data ?? [];
@@ -28,7 +28,7 @@ async function getWarehouses(): Promise<Warehouse[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("warehouses").select("*")
-    .eq("brand_id", getBrandKey()).eq("is_active", true).order("code");
+    .eq("brand_id", (await getActiveScope()).brand_id).eq("is_active", true).order("code");
   if (error) throw new Error(`getWarehouses: ${error.message}`);
   return data ?? [];
 }

@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 type CountRow = {
@@ -35,7 +35,7 @@ async function loadData(): Promise<CountRow[]> {
     .select(
       "id, ct_no, warehouse_id, count_date, status, total_lines, variance_lines, variance_amount, approved_at",
     )
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("count_date", { ascending: false })
     .limit(50);
   if (error) throw new Error(`counts: ${error.message}`);

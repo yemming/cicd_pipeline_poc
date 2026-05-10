@@ -5,7 +5,7 @@ import {
   getWarrantyClaimById,
   listCustomers,
   listItems,
-  listMotorcycleModels,
+  listVehicleModels,
   listWarrantyClaimLines,
   listWorkOrders,
 } from "@/lib/master-data/queries";
@@ -38,7 +38,7 @@ export default async function EditWarrantyClaimPage({
   const [claim, customers, models, workOrders, items] = await Promise.all([
     getWarrantyClaimById(id),
     listCustomers({ activeOnly: false, limit: 1000 }),
-    listMotorcycleModels(),
+    listVehicleModels(),
     listWorkOrders({ limit: 500 }),
     listItems({ limit: 500 }),
   ]);

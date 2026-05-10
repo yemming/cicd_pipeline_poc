@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
   WarrantyFormState,
   WarrantyLineDraft,
@@ -92,10 +92,10 @@ function mapDbError(error: { code?: string; message: string }): WarrantyFormStat
     if (error.message.includes("customer_id")) {
       return { error: "客戶不存在", fieldErrors: { customer_id: "請重新選擇" } };
     }
-    if (error.message.includes("motorcycle_model_id")) {
+    if (error.message.includes("vehicle_model_id")) {
       return {
         error: "車型不存在",
-        fieldErrors: { motorcycle_model_id: "請重新選擇" },
+        fieldErrors: { vehicle_model_id: "請重新選擇" },
       };
     }
     if (error.message.includes("item_id")) {
@@ -155,7 +155,7 @@ function pickPayload(fd: FormData) {
     ro_id: strOrNull(fd.get("ro_id")),
     vin: strOrNull(fd.get("vin")),
     customer_id: strOrNull(fd.get("customer_id")),
-    motorcycle_model_id: strOrNull(fd.get("motorcycle_model_id")),
+    vehicle_model_id: strOrNull(fd.get("vehicle_model_id")),
     status: pickStatus(fd.get("status")),
     applied_amount: numOrZero(fd.get("applied_amount")),
     approved_amount: numOrNull(fd.get("approved_amount")),
@@ -209,7 +209,7 @@ export async function createWarrantyClaimAction(
   const { data: cl, error } = await supabase
     .from("warranty_claims")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       ...payload,
       created_by: ctx.userId,
     })
@@ -218,8 +218,9 @@ export async function createWarrantyClaimAction(
   if (error) return mapDbError(error);
 
   if (lines.length > 0) {
+    const _brandId = (await getActiveScope()).brand_id;
     const rows = lines.map((l) => ({
-      brand_id: getBrandKey(),
+      brand_id: _brandId,
       cl_id: cl.id,
       line_no: l.line_no,
       item_id: l.item_id,
@@ -275,8 +276,9 @@ export async function updateWarrantyClaimAction(
   // Lines 全刪重建
   await supabase.from("warranty_claim_lines").delete().eq("cl_id", id);
   if (lines.length > 0) {
+    const _brandId = (await getActiveScope()).brand_id;
     const rows = lines.map((l) => ({
-      brand_id: getBrandKey(),
+      brand_id: _brandId,
       cl_id: id,
       line_no: l.line_no,
       item_id: l.item_id,

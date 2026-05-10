@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -64,7 +64,7 @@ export async function createRuleAction(
   const { data, error } = await supabase
     .from("purchase_permission_rules")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       role_code: trim(input.role_code).toLowerCase(),
       role_name: trim(input.role_name),
       store_id: nullable(input.store_id ?? null),
@@ -118,7 +118,7 @@ export async function updateRuleAction(
     .from("purchase_permission_rules")
     .update(patch)
     .eq("id", id)
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .select("id")
     .single();
 
@@ -144,7 +144,7 @@ export async function deleteRuleAction(
     .from("purchase_permission_rules")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
 
   if (error) return { ok: false, error: `刪除規則失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
@@ -166,7 +166,7 @@ export async function bulkUpdateRulesAction(
     return { ok: false, error: "沒有要儲存的變更" };
 
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   let updated = 0;
   for (const p of patches) {
     if (!p.id) continue;
@@ -230,7 +230,7 @@ export async function createFlowAction(
   const { data, error } = await supabase
     .from("purchase_approval_flows")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       flow_type: trim(input.flow_type).toLowerCase(),
       flow_name: trim(input.flow_name),
       description: nullable(input.description),
@@ -284,7 +284,7 @@ export async function updateFlowAction(
     .from("purchase_approval_flows")
     .update(patch)
     .eq("id", id)
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .select("id")
     .single();
 
@@ -310,7 +310,7 @@ export async function deleteFlowAction(
     .from("purchase_approval_flows")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
 
   if (error) return { ok: false, error: `刪除流程失敗：${error.message}` };
   revalidatePath(PAGE_PATH);

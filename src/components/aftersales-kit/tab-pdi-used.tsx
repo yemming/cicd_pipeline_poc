@@ -28,7 +28,7 @@ const SECTIONS = [
     { no: 14, name: "空氣濾清器檢查/更換",          cpo: "✅", dpo: "✅", po: "□" },
     { no: 15, name: "火星塞檢查/更換（依里程）",    cpo: "✅", dpo: "□", po: "□" },
     { no: 16, name: "煞車油更換（依車齡/使用狀況）",cpo: "✅", dpo: "□", po: "□" },
-    { no: 17, name: "冷卻液更換（適用水冷車款）",   cpo: "✅", dpo: "□", po: "□" },
+    { no: 17, name: "冷卻液更換（適用水冷車型）",   cpo: "✅", dpo: "□", po: "□" },
   ]},
   { title: "電子系統", items: [
     { no: 19, name: "電瓶電壓及充電狀態檢查",      cpo: "✅", dpo: "✅", po: "✅" },
@@ -78,7 +78,7 @@ export function TabPDIUsed() {
       <SectionHeader number="2" tone="green" title="車輛 / 作業資料" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <FormField label="認證等級" />
-        <FormField label="車型/車款" />
+        <FormField label="車型/車型" />
         <FormField label="VIN 號碼" />
         <FormField label="車牌號碼" />
         <FormField label="里程數" />

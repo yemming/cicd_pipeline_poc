@@ -6,7 +6,7 @@ import {
   getCustomerVehicleById,
   listCustomers,
   listEmployees,
-  listMotorcycleModels,
+  listVehicleModels,
 } from "@/lib/master-data/queries";
 import { updateVehicleAction } from "@/lib/master-data/vehicle-actions";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -37,7 +37,7 @@ export default async function EditVehiclePage({
   const [vehicle, customers, models, technicians] = await Promise.all([
     getCustomerVehicleById(id),
     listCustomers({ limit: 500 }),
-    listMotorcycleModels(),
+    listVehicleModels(),
     listEmployees({ status: "active", limit: 200 }),
   ]);
   if (!vehicle) notFound();

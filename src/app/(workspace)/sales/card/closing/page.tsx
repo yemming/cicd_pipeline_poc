@@ -70,7 +70,7 @@ export default function ClosingPage() {
                 </div>
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <label className="block text-xs font-bold text-[#47464C] mb-1 uppercase tracking-wider">試駕機車車牌</label>
+                    <label className="block text-xs font-bold text-[#47464C] mb-1 uppercase tracking-wider">試駕車輛車牌</label>
                     <div className="bg-[#F5F2FF] rounded-lg p-3 font-mono font-bold text-[#1A1A2E]">MOTO-8899</div>
                   </div>
                   <div className="flex-1">
@@ -177,7 +177,7 @@ export default function ClosingPage() {
                 <div className="flex items-start gap-2 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
                   <span className="material-symbols-outlined text-yellow-700 text-sm mt-0.5">warning</span>
                   <p className="text-[10px] text-yellow-800 leading-tight">
-                    提醒：此為限量車款，義大利原廠船期可能變動，請務必與客戶溝通。
+                    提醒：此為限量車型，義大利原廠船期可能變動，請務必與客戶溝通。
                   </p>
                 </div>
               </div>

@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -8,6 +7,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 import { LabelPrint } from "./_components/label-print";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 export default async function ItemLabelPage({
@@ -23,7 +23,7 @@ export default async function ItemLabelPage({
 
   const { id } = await params;
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const { data, error } = await supabase
     .from("items")
     .select("code, name, spec_description, category, control_type, base_uom, suggested_price, default_supplier_id, suppliers:default_supplier_id ( name )")

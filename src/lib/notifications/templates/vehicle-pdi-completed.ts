@@ -1,7 +1,7 @@
 import type { TemplateDefinition } from "../types";
 import { buildGoogleCard, buildLineFlex, s, TONE_SUCCESS } from "./kits";
 
-// 事件：機車 PDI（Pre-Delivery Inspection）完成
+// 事件：車輛 PDI（Pre-Delivery Inspection）完成
 // payload：vehicleVin / model / customer / technician / actionUrl
 
 export const vehiclePdiCompletedLine: TemplateDefinition = {

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
@@ -10,6 +9,7 @@ import type { Warehouse } from "@/lib/parts/types";
 
 import { ReceiveTransferButton } from "./_components/receive-transfer-button";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -44,7 +44,7 @@ async function getInboundTransfers(): Promise<Array<{
     .select(
       "id, tr_no, status, source_warehouse_id, target_warehouse_id, qty_shipped_total, qty_received_total, ship_date, expected_arrival_date, reason",
     )
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .in("status", ["in_transit", "partial", "received"])
     .order("ship_date", { ascending: false })
     .limit(100);
@@ -57,7 +57,7 @@ async function getWarehouses(): Promise<Warehouse[]> {
   const { data, error } = await supabase
     .from("warehouses")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (error) throw new Error(`getWarehouses: ${error.message}`);

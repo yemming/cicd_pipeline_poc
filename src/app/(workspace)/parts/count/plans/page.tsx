@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
@@ -10,6 +9,7 @@ import type { Warehouse } from "@/lib/parts/types";
 
 import { NewPlanForm } from "./_components/new-plan-form";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -26,7 +26,7 @@ async function getPlans() {
   const { data, error } = await supabase
     .from("inventory_count_plans")
     .select("id, plan_name, warehouse_id, plan_type, abc_filter, is_active, last_run_at, created_at")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`getPlans: ${error.message}`);
   return data ?? [];
@@ -37,7 +37,7 @@ async function getWarehouses(): Promise<Warehouse[]> {
   const { data, error } = await supabase
     .from("warehouses")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (error) throw new Error(`getWarehouses: ${error.message}`);

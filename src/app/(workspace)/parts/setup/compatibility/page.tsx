@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   CompatBoard,
   type CompatRow,
@@ -17,11 +17,11 @@ export const dynamic = "force-dynamic";
 
 async function loadData() {
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const [cRes, iRes, mRes] = await Promise.all([
     supabase
-      .from("item_motorcycle_compatibility")
-      .select("id, item_id, motorcycle_model_id, year_start, year_end, notes, is_verified")
+      .from("item_vehicle_compatibility")
+      .select("id, item_id, vehicle_model_id, year_start, year_end, notes, is_verified")
       .eq("brand_id", brand),
     supabase
       .from("items")
@@ -30,7 +30,7 @@ async function loadData() {
       .eq("is_active", true)
       .order("code"),
     supabase
-      .from("motorcycle_models")
+      .from("vehicle_models")
       .select("id, series, model_name, display_name, year_start, year_end")
       .eq("brand_id", brand)
       .order("model_name"),

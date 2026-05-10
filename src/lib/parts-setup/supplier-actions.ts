@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -42,7 +42,7 @@ export async function createSupplierAction(
   const { data, error } = await supabase
     .from("suppliers")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       code: trim(input.code).toUpperCase(),
       name: trim(input.name),
       type: nullable(input.type),
@@ -92,7 +92,7 @@ export async function updateSupplierAction(
     .from("suppliers")
     .update(upd)
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `儲存失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
@@ -107,7 +107,7 @@ export async function deleteSupplierAction(
     .from("suppliers")
     .update({ is_active: false })
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `停用失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };

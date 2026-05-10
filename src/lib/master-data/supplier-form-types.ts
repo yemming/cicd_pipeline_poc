@@ -13,7 +13,7 @@ export type SupplierFieldKey =
   | "address"
   | "payment_terms"
   | "default_currency"
-  | "gl_payable_account_id"
+  | "gl_payable_coa_id"
   | "notes";
 
 export type SupplierFormState = {

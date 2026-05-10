@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import type { DepartmentFormState } from "./department-form-types";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 function strOrNull(raw: FormDataEntryValue | null): string | null {
   const v = String(raw ?? "").trim();
   return v.length === 0 ? null : v;
@@ -68,7 +68,7 @@ export async function createDepartmentAction(
 
   const supabase = await createClient();
   const { error } = await supabase.from("departments").insert({
-    brand_id: getBrandKey(),
+    brand_id: (await getActiveScope()).brand_id,
     ...payload,
   });
   if (error) return mapDbError(error);

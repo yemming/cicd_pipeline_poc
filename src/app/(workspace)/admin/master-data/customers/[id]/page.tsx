@@ -1,11 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   CustomerDetailView,
   type DetailCustomer,
@@ -20,12 +20,12 @@ export const dynamic = "force-dynamic";
 
 async function loadDetail(id: string) {
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   const { data: customer, error: cErr } = await supabase
     .from("customers")
     .select(
-      "id, code, name, type, tax_id, national_id, phone, email, address, birthday, source_module, gl_receivable_account_id, notes, is_active, created_at, updated_at, external_source, external_id",
+      "id, code, name, type, tax_id, national_id, phone, email, address, birthday, source_module, gl_receivable_coa_id, notes, is_active, created_at, updated_at, external_source, external_id",
     )
     .eq("id", id)
     .eq("brand_id", brand)
@@ -55,11 +55,11 @@ async function loadDetail(id: string) {
       .order("opened_at", { ascending: false })
       .limit(100),
     supabase
-      .from("accounts")
-      .select("id, acct_code, acct_name")
-      .eq("brand_id", brand)
+      .from("chart_of_accounts")
+      .select("id, account_code, name_zh_tw")
       .eq("is_active", true)
-      .order("acct_code"),
+      .eq("is_postable", true)
+      .order("account_code"),
   ]);
 
   const contacts = (contactsRes.data ?? []) as unknown as ContactRow[];
@@ -73,7 +73,7 @@ async function loadDetail(id: string) {
   );
   if (modelIds.length > 0) {
     const { data: mData } = await supabase
-      .from("motorcycle_models")
+      .from("vehicle_models")
       .select("id, display_name")
       .in("id", modelIds);
     models = (mData ?? []) as unknown as ModelRef[];

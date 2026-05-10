@@ -3,10 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
   InspectionFindingDraft,
   InspectionFormState,
@@ -134,7 +134,7 @@ export async function createInspectionAction(
 
   const supabase = await createClient();
   const insertData: Record<string, unknown> = {
-    brand_id: getBrandKey(),
+    brand_id: (await getActiveScope()).brand_id,
     ...payload,
     created_by: ctx.userId,
   };
@@ -148,8 +148,9 @@ export async function createInspectionAction(
   if (error) return mapDbError(error);
 
   if (findings.length > 0) {
+    const _brandId = (await getActiveScope()).brand_id;
     const rows = findings.map((f) => ({
-      brand_id: getBrandKey(),
+      brand_id: _brandId,
       inspection_id: rec.id,
       category: f.category,
       item_label: f.item_label,
@@ -203,8 +204,9 @@ export async function updateInspectionAction(
   await supabase.from("inspection_findings").delete().eq("inspection_id", id);
 
   if (findings.length > 0) {
+    const _brandId = (await getActiveScope()).brand_id;
     const rows = findings.map((f) => ({
-      brand_id: getBrandKey(),
+      brand_id: _brandId,
       inspection_id: id,
       category: f.category,
       item_label: f.item_label,

@@ -16,7 +16,7 @@ interface TopbarSearchProps {
  * 顶部 inline 搜尋：點 input 直接輸入、結果以 dropdown 浮在 input 下方。
  * 不再彈 overlay。Overlay 留給右側放大鏡 icon / ⌘K 觸發。
  */
-export function TopbarSearch({ placeholder = "搜尋客戶、訂單、機車...", showShortcut = true }: TopbarSearchProps) {
+export function TopbarSearch({ placeholder = "搜尋客戶、訂單、車輛...", showShortcut = true }: TopbarSearchProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);

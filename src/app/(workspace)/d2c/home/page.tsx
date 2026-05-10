@@ -104,7 +104,7 @@ export default function D2CHomePage() {
             className="hidden md:flex items-center"
             style={{ gap: "2.5rem", fontFamily: "Manrope, 'Noto Sans TC', sans-serif", fontWeight: 800, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em" }}
           >
-            <a href="#" style={{ color: "#dc2626", borderBottom: "2px solid #dc2626", paddingBottom: "0.25rem" }}>車系車款</a>
+            <a href="#" style={{ color: "#dc2626", borderBottom: "2px solid #dc2626", paddingBottom: "0.25rem" }}>車系車型</a>
             <a href="#" className="d2c-nav-link" style={{ color: "rgba(255,255,255,0.8)" }}>賽道競技</a>
             <a href="#" className="d2c-nav-link" style={{ color: "rgba(255,255,255,0.8)" }}>SCRAMBLER</a>
             <a href="#" className="d2c-nav-link" style={{ color: "rgba(255,255,255,0.8)" }}>精品服飾</a>

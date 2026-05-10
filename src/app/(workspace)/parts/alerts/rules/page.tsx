@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
@@ -9,6 +8,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
 import { RuleForm } from "./_components/rule-form";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -23,7 +23,7 @@ async function getRules() {
   const { data, error } = await supabase
     .from("alert_rules")
     .select("id, code, name, alert_type, severity, auto_action, cooldown_minutes, is_enabled, created_at")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`getRules: ${error.message}`);
   return data ?? [];

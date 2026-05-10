@@ -162,7 +162,7 @@ export function InspectionForm({
           />
           <Combobox
             name="vehicle_id"
-            label="檢驗機車"
+            label="檢驗車輛"
             required
             placeholder="搜尋車牌 / VIN…"
             defaultValue={inspection?.vehicle_id ?? ""}

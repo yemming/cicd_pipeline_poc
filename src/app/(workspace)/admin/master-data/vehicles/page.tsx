@@ -5,7 +5,7 @@ import { DataTable } from "@/components/forms/data-table";
 import {
   listCustomers,
   listCustomerVehicles,
-  listMotorcycleModels,
+  listVehicleModels,
 } from "@/lib/master-data/queries";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
@@ -28,7 +28,7 @@ export default async function VehiclesAdminPage() {
   const [vehicles, customers, models] = await Promise.all([
     listCustomerVehicles({ activeOnly: false, limit: 200 }),
     listCustomers({ limit: 500 }),
-    listMotorcycleModels(),
+    listVehicleModels(),
   ]);
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const modelById = new Map(models.map((m) => [m.id, m]));

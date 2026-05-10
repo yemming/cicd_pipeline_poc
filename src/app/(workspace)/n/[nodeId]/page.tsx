@@ -11,10 +11,10 @@
 
 import { notFound, redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getBrandKey } from "@/lib/brands/current";
 import { UserHtmlFrame } from "@/components/user-html-frame";
 import { PlaceholderPage } from "@/components/placeholder-page";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 type NavNode = {
   id: string;
   brand_id: string;
@@ -54,7 +54,7 @@ export default async function NavNodePage({
       "id, brand_id, level, name, page_kind, href, html_storage_path, stitch_screen_id, sprint, device, is_active",
     )
     .eq("id", nodeId)
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .maybeSingle();
 
   if (error || !data || !data.is_active) {

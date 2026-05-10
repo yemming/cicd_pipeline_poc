@@ -16,7 +16,7 @@ import {
 import type {
   Customer,
   Item,
-  MotorcycleModel,
+  VehicleModel,
   WarrantyClaim,
   WarrantyClaimLine,
   WorkOrder,
@@ -63,7 +63,7 @@ export function WarrantyForm({
   claim?: WarrantyClaim | null;
   initialLines?: WarrantyClaimLine[];
   customers: Customer[];
-  models: MotorcycleModel[];
+  models: VehicleModel[];
   workOrders: WorkOrder[];
   items: Item[];
 }) {
@@ -232,16 +232,16 @@ export function WarrantyForm({
             error={fe.customer_id}
           />
           <Combobox
-            name="motorcycle_model_id"
+            name="vehicle_model_id"
             label="車型"
             placeholder="搜尋車系…"
-            defaultValue={claim?.motorcycle_model_id ?? ""}
+            defaultValue={claim?.vehicle_model_id ?? ""}
             options={models.map((m) => ({
               value: m.id,
               label: m.display_name,
               hint: m.series,
             }))}
-            error={fe.motorcycle_model_id}
+            error={fe.vehicle_model_id}
           />
           <FormField
             name="vin"

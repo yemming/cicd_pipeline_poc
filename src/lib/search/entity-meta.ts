@@ -6,7 +6,7 @@ export const ENTITY_META: Record<
 > = {
   customer: { label: "客戶", icon: "person", color: "#1A3A5C" },
   customer_contact: { label: "聯絡人", icon: "contact_mail", color: "#185FA5" },
-  customer_vehicle: { label: "機車", icon: "two_wheeler", color: "#0F6E56" },
+  customer_vehicle: { label: "車輛", icon: "two_wheeler", color: "#0F6E56" },
   employee: { label: "員工", icon: "badge", color: "#854F0B" },
   supplier: { label: "供應商", icon: "local_shipping", color: "#6B4FA0" },
   item: { label: "商品", icon: "inventory_2", color: "#3B6D11" },

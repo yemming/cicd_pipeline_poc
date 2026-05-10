@@ -90,7 +90,7 @@ export default async function InspectionsAdminPage() {
           },
           {
             key: "vehicle",
-            header: "機車",
+            header: "車輛",
             width: "180px",
             cell: (r) => {
               const v = vehicleById.get(r.vehicle_id);

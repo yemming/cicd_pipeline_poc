@@ -152,16 +152,25 @@ function buildModuleDef(
 
 /**
  * 載入指定 brand 的 nav tree。React.cache 以同一 request 內共用結果。
+ *
+ * Brand-level module ACL：`brand_modules.enabled = false` 的 module 整個剃掉，
+ * 包含其所有 level=2 / level=3 後代。沒設定 row 預設 enabled=true（向後相容）。
  */
 export const loadNavTree = cache(async (brandKey: string): Promise<ModuleDef[]> => {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("nav_nodes")
-    .select("*")
-    .eq("brand_id", brandKey)
-    .eq("is_active", true)
-    .order("level")
-    .order("sort_order");
+  const [{ data, error }, { data: modulesAcl }] = await Promise.all([
+    supabase
+      .from("nav_nodes")
+      .select("*")
+      .eq("brand_id", brandKey)
+      .eq("is_active", true)
+      .order("level")
+      .order("sort_order"),
+    supabase
+      .from("brand_modules")
+      .select("module_key, enabled")
+      .eq("brand_id", brandKey),
+  ]);
 
   if (error) {
     console.error("[nav/loader] 載入失敗", error);
@@ -171,10 +180,19 @@ export const loadNavTree = cache(async (brandKey: string): Promise<ModuleDef[]> 
   const rows = (data ?? []) as NavNodeRow[];
   if (rows.length === 0) return [];
 
+  // brand_modules: enabled=false 的 module_key 列為 disabled
+  const disabledModules = new Set<string>(
+    (modulesAcl ?? [])
+      .filter((m) => m.enabled === false)
+      .map((m) => m.module_key as string),
+  );
+
   const childrenByParent = new Map<string, NavNodeRow[]>();
   const modules: NavNodeRow[] = [];
   for (const row of rows) {
     if (row.level === 1) {
+      // 該 brand 將此 module 關閉 → 整個剃掉
+      if (row.module_key && disabledModules.has(row.module_key)) continue;
       modules.push(row);
     } else if (row.parent_id) {
       const arr = childrenByParent.get(row.parent_id) ?? [];

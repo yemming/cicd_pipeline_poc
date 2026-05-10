@@ -46,8 +46,8 @@ const ROWS: Row[] = [
   ["",                "Streetfighter V4",     "25",    "1:30(15LU)", "30min(5LU)",  "2:00(20LU) 每12,000km",             "50LU/每24,000km", "5:00(50LU) / 5:30(55LU)", "7h:00(70LU)", "36min(6LU) 每24個月", "1h:30(15LU) 每36個月",  "—",                       "每36個月", ""],
   ["SCRAMBLER",       "Scrambler 800 (第一段)","23→25","1:00(10LU)", "30min(5LU)",  "1h:12(12LU) 每12,000km",            "30LU/每12,000km", "3:00(30LU) / 3:30(35LU)", "4h:12(42LU)", "36min(6LU) 每24個月", "1h:12(12LU) 每36個月",  "30min(5LU) 每30,000km",   "每36個月", ""],
   ["",                "Scrambler 800 (第二段)","23→25","",            "",            "4:00(40LU) 每24,000km",             "40LU/每24,000km", "",                         "",            "",                    "",                       "",                        "",        ""],
-  ["HYPERMOTARD (Desmo)","Hypermotard 950",   "19→25", "1:00(10LU)", "1h:12(12LU)", "1h:12(12LU) 每15,000km",            "37LU/每30,000km", "3:42(37LU)",               "4h:48(48LU)", "36min(6LU) 每24個月", "1h:12(12LU) 每45,000km", "1:00(10LU) 每30,000km",   "每24個月", "Desmo 車款"],
-  ["SCRAMBLER (Desmo)","Scrambler 1100",      "18→25", "1:00(10LU)", "1h:12(12LU)", "3:36(36LU) 每12,000km / 4:54(49LU) 每24,000km","36LU/12,000km / 49LU/24,000km","3:36(36LU) / 4:54(49LU)","—","36min(6LU) 每36個月","1h:12(12LU) 每45,000km","42min(7LU) 每24,000km","每36個月","Desmo 車款"],
+  ["HYPERMOTARD (Desmo)","Hypermotard 950",   "19→25", "1:00(10LU)", "1h:12(12LU)", "1h:12(12LU) 每15,000km",            "37LU/每30,000km", "3:42(37LU)",               "4h:48(48LU)", "36min(6LU) 每24個月", "1h:12(12LU) 每45,000km", "1:00(10LU) 每30,000km",   "每24個月", "Desmo 車型"],
+  ["SCRAMBLER (Desmo)","Scrambler 1100",      "18→25", "1:00(10LU)", "1h:12(12LU)", "3:36(36LU) 每12,000km / 4:54(49LU) 每24,000km","36LU/12,000km / 49LU/24,000km","3:36(36LU) / 4:54(49LU)","—","36min(6LU) 每36個月","1h:12(12LU) 每45,000km","42min(7LU) 每24,000km","每36個月","Desmo 車型"],
 ].map((r) => ({
   series: r[0], model: r[1], year: r[2],
   firstService: r[3], yearlyCheck: r[4], oilService: r[5],
@@ -104,7 +104,7 @@ export function TabServiceSchedule() {
           type="search"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="🔍 搜尋車款 / 車系…"
+          placeholder="🔍 搜尋車型 / 車系…"
           className="px-3 py-2 text-[12.5px] border border-slate-200 rounded-lg w-56 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none"
         />
       </div>

@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -42,7 +42,7 @@ export async function updateEscalationRuleAction(
       ...(patch.channel_email !== undefined && { channel_email: patch.channel_email }),
     })
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `儲存階層失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
@@ -67,7 +67,7 @@ export async function createReceiverAction(
   const { data, error } = await supabase
     .from("parts_alert_receivers")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       display_name: name,
       role_label: input.role_label?.trim() || null,
       avatar_color: input.avatar_color || "navy",
@@ -104,7 +104,7 @@ export async function updateReceiverAction(
     .from("parts_alert_receivers")
     .update(upd)
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `儲存失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
@@ -119,7 +119,7 @@ export async function deleteReceiverAction(
     .from("parts_alert_receivers")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `刪除失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };

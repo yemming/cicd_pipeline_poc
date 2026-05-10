@@ -1,11 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   ItemDetailView,
   type DetailItem,
@@ -24,12 +24,12 @@ export const dynamic = "force-dynamic";
 
 async function loadDetail(id: string) {
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   const { data: item, error: itemErr } = await supabase
     .from("items")
     .select(
-      "id, code, name, name_en, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, is_active, created_at, updated_at, synced_at, gl_inventory_account_id, gl_cogs_account_id, gl_revenue_account_id, external_source, external_id, weight_kg, volume_cm3, image_url, image_display_height",
+      "id, code, name, name_en, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, is_active, created_at, updated_at, synced_at, gl_inventory_coa_id, gl_cogs_coa_id, gl_revenue_coa_id, external_source, external_id, weight_kg, volume_cm3, image_url, image_display_height",
     )
     .eq("id", id)
     .eq("brand_id", brand)
@@ -62,8 +62,8 @@ async function loadDetail(id: string) {
       .select("id, code, name")
       .eq("brand_id", brand),
     supabase
-      .from("item_motorcycle_compatibility")
-      .select("motorcycle_model_id, year_start, year_end, is_verified")
+      .from("item_vehicle_compatibility")
+      .select("vehicle_model_id, year_start, year_end, is_verified")
       .eq("brand_id", brand)
       .eq("item_id", id),
     detail.default_supplier_id
@@ -121,10 +121,10 @@ async function loadDetail(id: string) {
   const storePrices = (storeRes.data ?? []) as unknown as StorePriceRow[];
 
   let models: ModelRef[] = [];
-  const modelIds = Array.from(new Set(fitments.map((f) => f.motorcycle_model_id)));
+  const modelIds = Array.from(new Set(fitments.map((f) => f.vehicle_model_id)));
   if (modelIds.length > 0) {
     const { data: mData } = await supabase
-      .from("motorcycle_models")
+      .from("vehicle_models")
       .select("id, name")
       .in("id", modelIds);
     models = (mData ?? []) as unknown as ModelRef[];

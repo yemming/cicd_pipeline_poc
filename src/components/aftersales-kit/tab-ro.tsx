@@ -55,7 +55,7 @@ export function TabRO() {
         <FormField label="行駛里程" />
       </div>
 
-      <SectionHeader number="3" tone="orange" title="機車狀況檢查" />
+      <SectionHeader number="3" tone="orange" title="車輛狀況檢查" />
       <div className="border border-slate-200 rounded-md overflow-hidden">
         <table className="w-full text-[12.5px]">
           <thead className="bg-slate-50 text-slate-600">

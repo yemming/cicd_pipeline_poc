@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
@@ -9,6 +8,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
 import { ReturnIssueDialog } from "./_components/return-issue-dialog";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 type IssueRow = {
@@ -27,7 +27,7 @@ async function getCompletedIssues(): Promise<IssueRow[]> {
   const { data, error } = await supabase
     .from("stock_issues")
     .select("id, gi_no, status, warehouse_id, ro_id, qty_issued_total, amount_total, issue_date")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("status", "completed")
     .order("created_at", { ascending: false })
     .limit(50);
@@ -41,7 +41,7 @@ async function getIssueLines(issueIds: string[]) {
   const { data, error } = await supabase
     .from("stock_issue_lines")
     .select("id, gi_id, item_id, qty_issued, unit_cost")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .in("gi_id", issueIds);
   if (error) throw new Error(`getIssueLines: ${error.message}`);
   return data ?? [];

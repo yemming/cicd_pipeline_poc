@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -8,6 +7,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 import { ItemsBoard, type ItemRow, type SupplierOption } from "./_components/items-board";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 export type ItemFilters = {
@@ -19,7 +19,7 @@ export type ItemFilters = {
 
 async function loadData(filters: ItemFilters) {
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   let q = supabase
     .from("items")
@@ -46,7 +46,7 @@ async function loadData(filters: ItemFilters) {
       .eq("is_active", true)
       .order("code"),
     supabase
-      .from("item_motorcycle_compatibility")
+      .from("item_vehicle_compatibility")
       .select("item_id")
       .eq("brand_id", brand),
     supabase

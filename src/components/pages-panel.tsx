@@ -12,7 +12,8 @@ import {
 } from "motion/react";
 import { useActiveModule } from "@/lib/use-active-module";
 import type { ModulePage } from "@/lib/modules";
-import { getCurrentBrand } from "@/lib/brands/current";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 import { useSidebar } from "./sidebar-context";
 import { useIsAdmin } from "./admin-context";
 import { SectionedTree } from "./sections-tree";
@@ -103,7 +104,7 @@ export function PagesPanel() {
   const activeModule = useActiveModule();
   const { collapsed } = useSidebar();
   const isAdmin = useIsAdmin();
-  const brand = getCurrentBrand();
+  const brand = brandConfigs[useActiveBrand()];
   const mouseY = useMotionValue(Infinity);
 
   if (!activeModule) return null;

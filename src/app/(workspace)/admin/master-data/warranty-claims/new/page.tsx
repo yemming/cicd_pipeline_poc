@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import {
   listCustomers,
   listItems,
-  listMotorcycleModels,
+  listVehicleModels,
   listWorkOrders,
 } from "@/lib/master-data/queries";
 import { createWarrantyClaimAction } from "@/lib/master-data/warranty-actions";
@@ -29,7 +29,7 @@ export default async function NewWarrantyClaimPage() {
 
   const [customers, models, workOrders, items] = await Promise.all([
     listCustomers({ limit: 500 }),
-    listMotorcycleModels(),
+    listVehicleModels(),
     listWorkOrders({ limit: 500 }),
     listItems({ limit: 500 }),
   ]);

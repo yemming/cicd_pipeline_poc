@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -55,7 +55,7 @@ export async function createSerialRuleAction(
   const { data, error } = await supabase
     .from("parts_serial_tracking_rules")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       class_code: trim(input.class_code).toUpperCase(),
       rule_label: trim(input.rule_label),
       is_required: input.is_required ?? false,
@@ -106,7 +106,7 @@ export async function updateSerialRuleAction(
     .from("parts_serial_tracking_rules")
     .update(patch)
     .eq("id", id)
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .select("id")
     .single();
 
@@ -130,7 +130,7 @@ export async function deleteSerialRuleAction(
     .from("parts_serial_tracking_rules")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `刪除規則失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
@@ -168,7 +168,7 @@ export async function lookupSerialAction(
       "serial_no, qty, status, warranty_start, warranty_end, last_movement_at, " +
         "warehouses(name), warehouse_bins(code), items(name, code)",
     )
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .ilike("serial_no", `%${sn}%`)
     .limit(20);
 

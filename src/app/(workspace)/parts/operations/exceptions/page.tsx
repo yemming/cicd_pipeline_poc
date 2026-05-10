@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { DataTable } from "@/components/forms/data-table";
-import { getBrandKey } from "@/lib/brands/current";
 import { listItems } from "@/lib/master-data/queries";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -11,15 +10,16 @@ import type { Warehouse } from "@/lib/parts/types";
 
 import { ExceptionForm } from "./_components/exception-form";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 async function getExceptionDocs() {
   const supabase = await createClient();
   const [recv, iss] = await Promise.all([
     supabase.from("stock_receipts").select("id, gr_no, warehouse_id, qty_received_total, amount_total, status, posted_at, notes")
-      .eq("brand_id", getBrandKey()).eq("type", "exception").order("created_at", { ascending: false }).limit(50),
+      .eq("brand_id", (await getActiveScope()).brand_id).eq("type", "exception").order("created_at", { ascending: false }).limit(50),
     supabase.from("stock_issues").select("id, gi_no, warehouse_id, qty_issued_total, amount_total, status, posted_at, notes")
-      .eq("brand_id", getBrandKey()).eq("type", "exception").order("created_at", { ascending: false }).limit(50),
+      .eq("brand_id", (await getActiveScope()).brand_id).eq("type", "exception").order("created_at", { ascending: false }).limit(50),
   ]);
   const rows = [
     ...(recv.data ?? []).map((r) => ({ ...r, doc_no: r.gr_no, direction: "in" as const, qty: r.qty_received_total })),
@@ -32,7 +32,7 @@ async function getWarehouses(): Promise<Warehouse[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("warehouses").select("*")
-    .eq("brand_id", getBrandKey()).eq("is_active", true).order("code");
+    .eq("brand_id", (await getActiveScope()).brand_id).eq("is_active", true).order("code");
   if (error) throw new Error(`getWarehouses: ${error.message}`);
   return data ?? [];
 }

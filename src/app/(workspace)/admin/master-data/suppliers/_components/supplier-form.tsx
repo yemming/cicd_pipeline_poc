@@ -171,17 +171,17 @@ export function SupplierForm({
           />
           <div className="col-span-2">
             <Combobox
-              name="gl_payable_account_id"
+              name="gl_payable_coa_id"
               label="應付帳款科目"
               placeholder="搜尋科目代碼 / 名稱…"
-              defaultValue={supplier?.gl_payable_account_id ?? ""}
+              defaultValue={supplier?.gl_payable_coa_id ?? ""}
               options={accounts.map((a) => ({
                 value: a.id,
-                label: a.acct_name,
-                hint: [a.acct_no, a.acct_type].filter(Boolean).join(" · "),
+                label: a.name_zh_tw,
+                hint: [a.account_code, a.l1_category].filter(Boolean).join(" · "),
               }))}
               hint="非必填；接 NetSuite 對帳時用"
-              error={fe.gl_payable_account_id}
+              error={fe.gl_payable_coa_id}
             />
           </div>
         </div>

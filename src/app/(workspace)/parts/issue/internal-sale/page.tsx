@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 type Doc = {
@@ -37,7 +37,7 @@ async function loadData() {
   const { data, error } = await supabase
     .from("parts_internal_sale_issues")
     .select("id, doc_no, customer_label, warehouse_label, issue_date, status, qty_total, amount_total, notes")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("sort_order");
   if (error) throw new Error(`isi: ${error.message}`);
   return ((data ?? []) as unknown as Doc[]).map((d) => ({

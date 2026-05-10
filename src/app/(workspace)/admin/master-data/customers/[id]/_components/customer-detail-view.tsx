@@ -24,7 +24,7 @@ export type DetailCustomer = {
   address: string | null;
   birthday: string | null;
   source_module: string | null;
-  gl_receivable_account_id: string | null;
+  gl_receivable_coa_id: string | null;
   notes: string | null;
   is_active: boolean;
   created_at: string;
@@ -70,7 +70,7 @@ export type WorkOrderRow = {
   total_amount: number;
 };
 
-export type AccountRef = { id: string; acct_code: string; acct_name: string };
+export type AccountRef = { id: string; account_code: string; name_zh_tw: string };
 
 type Banner = { ok: boolean; msg: string } | null;
 type TabKey = "contacts" | "vehicles" | "workorders" | "accounting";
@@ -136,7 +136,7 @@ export function CustomerDetailView({
     address: c.address ?? "",
     birthday: c.birthday ?? "",
     source_module: c.source_module ?? "",
-    gl_receivable_account_id: c.gl_receivable_account_id ?? "",
+    gl_receivable_coa_id: c.gl_receivable_coa_id ?? "",
     notes: c.notes ?? "",
     is_active: c.is_active,
   });
@@ -152,7 +152,7 @@ export function CustomerDetailView({
     address: "",
     birthday: "",
     source_module: "",
-    gl_receivable_account_id: "",
+    gl_receivable_coa_id: "",
     notes: "",
     is_active: true,
   });
@@ -251,8 +251,8 @@ export function CustomerDetailView({
 
   const modelMap = useMemo(() => new Map(models.map((m) => [m.id, m])), [models]);
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
-  const account = customer.gl_receivable_account_id
-    ? accountMap.get(customer.gl_receivable_account_id) ?? null
+  const account = customer.gl_receivable_coa_id
+    ? accountMap.get(customer.gl_receivable_coa_id) ?? null
     : null;
 
   const inputClass = "h-[28px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5] w-full";
@@ -509,14 +509,14 @@ export function CustomerDetailView({
             label="應收帳款科目"
             value={
               showInputs ? (
-                <select value={formDraft.gl_receivable_account_id ?? ""} onChange={(e) => setFormDraft({ ...formDraft, gl_receivable_account_id: e.target.value })} className={inputClass}>
+                <select value={formDraft.gl_receivable_coa_id ?? ""} onChange={(e) => setFormDraft({ ...formDraft, gl_receivable_coa_id: e.target.value })} className={inputClass}>
                   <option value="">— 不指定 —</option>
                   {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.acct_code} {a.acct_name}</option>
+                    <option key={a.id} value={a.id}>{a.account_code} {a.name_zh_tw}</option>
                   ))}
                 </select>
               ) : account ? (
-                <span><span className="font-mono">{account.acct_code}</span> ・ {account.acct_name}</span>
+                <span><span className="font-mono">{account.account_code}</span> ・ {account.name_zh_tw}</span>
               ) : "—"
             }
           />
@@ -699,7 +699,7 @@ export function CustomerDetailView({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {sectionCard("會計設定", (
                   <>
-                    <Kv label="應收帳款科目" value={account ? <span><span className="font-mono">{account.acct_code}</span> ・ {account.acct_name}</span> : "—"} />
+                    <Kv label="應收帳款科目" value={account ? <span><span className="font-mono">{account.account_code}</span> ・ {account.name_zh_tw}</span> : "—"} />
                     <Kv label="統編" value={customer.tax_id ? <span className="font-mono">{customer.tax_id}</span> : "—"} />
                     <Kv label="客戶類型" value={customer.type === "corporate" ? "公司（B2B 開立發票）" : "個人（B2C / 載具）"} small />
                   </>

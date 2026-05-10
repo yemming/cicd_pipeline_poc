@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import {
   listCustomers,
   listItems,
-  listMotorcycleModels,
+  listVehicleModels,
   listOrganizations,
 } from "@/lib/master-data/queries";
 import { getCurrentUserContext, getUserPermissions } from "@/lib/rbac/policies";
@@ -31,7 +31,7 @@ export default async function FormSandboxPage() {
   const [customers, items, models, orgs, ctx, perms] = await Promise.all([
     listCustomers({ limit: 25 }),
     listItems({ limit: 30 }),
-    listMotorcycleModels(),
+    listVehicleModels(),
     listOrganizations(),
     getCurrentUserContext(),
     getUserPermissions(),
@@ -59,10 +59,12 @@ export default async function FormSandboxPage() {
             {ctx.isAdmin ? "✓" : "—"}
           </div>
           <div className="col-span-2">
-            <span className="text-[#6B778C]">Roles: </span>
-            {ctx.roles.length === 0
+            <span className="text-[#6B778C]">Assignments: </span>
+            {ctx.assignments.length === 0
               ? "—"
-              : ctx.roles.map((r) => `${r.brand_id}/${r.role}`).join(", ")}
+              : ctx.assignments
+                  .map((a) => `${a.role_id}@${a.scope_type}:${a.scope_id}`)
+                  .join(", ")}
           </div>
           <div className="col-span-2">
             <span className="text-[#6B778C]">Permissions ({perms.size}): </span>
@@ -92,7 +94,7 @@ export default async function FormSandboxPage() {
           />
           <SelectField
             name="model_id"
-            label="機車車型"
+            label="車輛車型"
             options={models.map((m) => ({
               value: m.id,
               label: m.display_name,

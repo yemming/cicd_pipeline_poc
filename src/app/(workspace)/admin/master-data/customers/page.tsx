@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -8,6 +7,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 import { CustomersBoard, type CustomerRow, type CustomerFilters } from "./_components/customers-board";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 async function loadData(filters: CustomerFilters): Promise<{
@@ -15,7 +15,7 @@ async function loadData(filters: CustomerFilters): Promise<{
   totalCount: number;
 }> {
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   let q = supabase
     .from("customers")

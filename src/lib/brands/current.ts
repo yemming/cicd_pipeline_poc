@@ -4,14 +4,12 @@ import type { BrandConfig, BrandKey } from "./types";
 const DEFAULT_BRAND: BrandKey = "ducati";
 
 /**
- * 解析當前部署的品牌 key。
+ * @deprecated server code 改用 `getActiveScope()` from `@/lib/scope/active-scope`，
+ * 它會吃 cookie + user_assignments 算當前使用者作用中的 brand；env 只當 fallback。
  *
- * 設計：兩份獨立部署（Zeabur service per brand），同 codebase 用 env 切換。
- * 同時支援 server 與 client：
- *   - server: 讀 process.env.BRAND_KEY（優先）
- *   - client: 讀 process.env.NEXT_PUBLIC_BRAND_KEY（build-time inline）
- *
- * 兩個 env 都未設時 fallback 'ducati'，確保現有單品牌 demo 行為不變。
+ * 此 function 仍保留：
+ *   - client 端 build-time 取 NEXT_PUBLIC_BRAND_KEY 用
+ *   - 沒登入 / 無 cookie 的最後 fallback
  */
 export function getBrandKey(): BrandKey {
   const raw =
@@ -22,6 +20,7 @@ export function getBrandKey(): BrandKey {
   return DEFAULT_BRAND;
 }
 
+/** @deprecated client component 改用 `useActiveBrand()` from `@/lib/scope/scope-context`。 */
 export function getCurrentBrand(): BrandConfig {
   return brands[getBrandKey()];
 }

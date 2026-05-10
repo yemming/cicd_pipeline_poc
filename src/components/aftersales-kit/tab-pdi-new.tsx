@@ -3,7 +3,7 @@
 import { CheckItem, FormField, NoticeBar, SectionHeader } from "./atoms";
 
 const ITEMS = [
-  "閱讀技術公報 SRV-SRB-19-041 車款介紹",
+  "閱讀技術公報 SRV-SRB-19-041 車型介紹",
   "目視檢查運輸包裝完整性（如果適用）",
   "移除運輸包裝（如果適用）",
   "目視檢查車輛完整性",
@@ -41,7 +41,7 @@ export function TabPDINew() {
 
       <SectionHeader number="1" tone="amber" title="車輛 / 作業資料" />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <FormField label="機型/車款" />
+        <FormField label="機型/車型" />
         <FormField label="VIN 號碼" />
         <FormField label="車牌號碼" />
         <FormField label="保固啟動日" />

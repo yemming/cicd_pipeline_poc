@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -22,7 +22,7 @@ export type CustomerInput = {
   address?: string | null;
   birthday?: string | null;
   source_module?: string | null;
-  gl_receivable_account_id?: string | null;
+  gl_receivable_coa_id?: string | null;
   notes?: string | null;
   is_active?: boolean;
 };
@@ -39,7 +39,7 @@ function mapDbError(error: { code?: string; message: string }): string {
     if (error.message.includes("customers_national_id_uniq")) return "身分證號已存在";
     return "資料重複（unique constraint）";
   }
-  if (error.code === "23503" && error.message.includes("gl_receivable_account_id")) {
+  if (error.code === "23503" && error.message.includes("gl_receivable_coa_id")) {
     return "應收帳款科目不存在";
   }
   return `儲存失敗：${error.message}`;
@@ -50,7 +50,7 @@ async function genCustomerCode(): Promise<string> {
   const { data } = await supabase
     .from("customers")
     .select("code")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .ilike("code", "C%")
     .order("code", { ascending: false })
     .limit(50);
@@ -76,7 +76,7 @@ function payloadFromInput(input: CustomerInput) {
     address: trim(input.address ?? null),
     birthday: trim(input.birthday ?? null),
     source_module: trim(input.source_module ?? null),
-    gl_receivable_account_id: trim(input.gl_receivable_account_id ?? null),
+    gl_receivable_coa_id: trim(input.gl_receivable_coa_id ?? null),
     notes: trim(input.notes ?? null),
   };
 }
@@ -96,7 +96,7 @@ export async function createCustomerAction(
   const { data, error } = await supabase
     .from("customers")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       code,
       ...payloadFromInput(input),
       is_active: input.is_active ?? true,
@@ -129,7 +129,7 @@ export async function updateCustomerAction(
       ...(input.is_active === undefined ? {} : { is_active: input.is_active }),
     })
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
 
   if (error) return { ok: false, error: mapDbError(error) };
 
@@ -148,7 +148,7 @@ export async function setCustomerActiveAction(
     .from("customers")
     .update({ is_active: next })
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: mapDbError(error) };
   revalidatePath("/admin/master-data/customers");
   revalidatePath(`/admin/master-data/customers/${id}`);
@@ -164,7 +164,7 @@ export async function deleteCustomerAction(
     .from("customers")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) {
     // FK violation：客戶被工單 / 預約 / 車輛引用，不能 hard delete，引導改用停用
     if (error.code === "23503") {

@@ -47,7 +47,7 @@ export default async function NewInspectionPage() {
       <header className="space-y-1">
         <h1 className="text-[20px] font-bold text-[#172B4D]">新增檢驗紀錄</h1>
         <p className="text-[13px] text-[#6B778C]">
-          選擇機車、填基本資料、加檢驗項目；可日後再追加細節
+          選擇車輛、填基本資料、加檢驗項目；可日後再追加細節
         </p>
       </header>
 

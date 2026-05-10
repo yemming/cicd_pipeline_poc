@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import type { CustomerContactFormState } from "./customer-contact-form-types";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 const CONTACT_ROLES = [
   "primary",
   "emergency",
@@ -66,7 +66,7 @@ export async function createCustomerContactAction(
 
   const supabase = await createClient();
   const { error } = await supabase.from("customer_contacts").insert({
-    brand_id: getBrandKey(),
+    brand_id: (await getActiveScope()).brand_id,
     customer_id: customerId,
     ...payload,
   });

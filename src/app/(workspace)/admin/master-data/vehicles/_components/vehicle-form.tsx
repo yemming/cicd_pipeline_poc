@@ -15,7 +15,7 @@ import type {
   Customer,
   CustomerVehicle,
   Employee,
-  MotorcycleModel,
+  VehicleModel,
 } from "@/lib/parts/types";
 
 const ACQUIRED_FROM_OPTIONS = [
@@ -43,7 +43,7 @@ export function VehicleForm({
   action: Action;
   vehicle?: CustomerVehicle | null;
   customers: Customer[];
-  models: MotorcycleModel[];
+  models: VehicleModel[];
   technicians: Employee[];
 }) {
   const [state, formAction] = useActionState<VehicleFormState, FormData>(

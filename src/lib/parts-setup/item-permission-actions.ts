@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -43,7 +43,7 @@ export async function createRoleAction(
   const { data, error } = await supabase
     .from("item_permission_roles")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       role_code: trim(input.role_code).toLowerCase(),
       role_name: trim(input.role_name),
       sort_order: input.sort_order ?? 99,
@@ -81,7 +81,7 @@ export async function updateRoleAction(
     .from("item_permission_roles")
     .update(patch)
     .eq("id", id)
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .select("id")
     .single();
 
@@ -105,7 +105,7 @@ export async function deleteRoleAction(
     .from("item_permission_roles")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `刪除角色失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
@@ -139,7 +139,7 @@ export async function createFeatureAction(
   const { data, error } = await supabase
     .from("item_permission_features")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       group_code: trim(input.group_code).toLowerCase(),
       group_name: trim(input.group_name),
       group_sort_order: input.group_sort_order ?? 99,
@@ -190,7 +190,7 @@ export async function updateFeatureAction(
     .from("item_permission_features")
     .update(patch)
     .eq("id", id)
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .select("id")
     .single();
 
@@ -214,7 +214,7 @@ export async function deleteFeatureAction(
     .from("item_permission_features")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `刪除功能失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
@@ -238,7 +238,7 @@ export async function bulkSaveGrantsAction(
     return { ok: false, error: "沒有要儲存的變更" };
 
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const rows = patches
     .filter((p) => p.feature_id && p.role_id)
     .map((p) => ({

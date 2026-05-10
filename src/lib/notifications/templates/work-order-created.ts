@@ -21,7 +21,7 @@ export const workOrderCreatedLine: TemplateDefinition = {
       title: `新工單 ${s(p, "orderNo")}`,
       fields: [
         { label: "客戶", value: s(p, "customer") },
-        { label: "機車", value: s(p, "vehicle") },
+        { label: "車輛", value: s(p, "vehicle") },
         { label: "建立時間", value: new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" }) },
       ],
       actionLabel: "查看工單",
@@ -41,7 +41,7 @@ export const workOrderCreatedGoogleChat: TemplateDefinition = {
       title: `新工單 ${s(p, "orderNo")}`,
       fields: [
         { label: "客戶", value: s(p, "customer") },
-        { label: "機車", value: s(p, "vehicle") },
+        { label: "車輛", value: s(p, "vehicle") },
         { label: "建立時間", value: new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" }) },
       ],
       actionLabel: "查看工單",

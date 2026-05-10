@@ -219,7 +219,7 @@ export default function CrmPage() {
                   Q4. 影響您購車決策的主要因素？（可複選）
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {["車款外觀", "性能規格", "品牌聲譽", "價格/貸款方案", "試駕感受", "售後服務"].map(
+                  {["車型外觀", "性能規格", "品牌聲譽", "價格/貸款方案", "試駕感受", "售後服務"].map(
                     (opt, i) => (
                       <button
                         key={opt}

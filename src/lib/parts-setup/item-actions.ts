@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -41,7 +41,7 @@ export async function createItemAction(
   const { data, error } = await supabase
     .from("items")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       code: input.code.trim().toUpperCase(),
       name: input.name.trim(),
       spec_description: input.spec_description?.trim() || null,
@@ -88,7 +88,7 @@ export async function updateItemAction(
     .from("items")
     .update(upd)
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `儲存失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
@@ -100,7 +100,7 @@ export async function bulkImportItemsAction(
   await requirePermission(PERMISSIONS.ITEM_EDIT);
   if (!rows.length) return { ok: false, error: "未提供任何資料" };
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
   const errors: string[] = [];
   let inserted = 0;
   let skipped = 0;
@@ -169,7 +169,7 @@ export async function uploadItemImageAction(
   }
 
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   // Confirm item belongs to this brand and load existing image_url for cleanup
   const { data: existing, error: existingErr } = await supabase
@@ -226,7 +226,7 @@ export async function removeItemImageAction(
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.ITEM_EDIT);
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   const { data: row } = await supabase
     .from("items")
@@ -271,7 +271,7 @@ export async function setItemImageHeightAction(
     .from("items")
     .update({ image_display_height: h })
     .eq("id", itemId)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
   revalidatePath(`${PAGE_PATH}/${itemId}`);
   return { ok: true, data: { id: itemId, height: h } };
@@ -283,7 +283,7 @@ export async function deleteItemAction(
   await requirePermission(PERMISSIONS.ITEM_EDIT);
   if (!id) return { ok: false, error: "缺少 id" };
   const supabase = await createClient();
-  const brand = getBrandKey();
+  const brand = (await getActiveScope()).brand_id;
 
   // Reference checks: don't allow hard-delete if anything still points to it
   const [stockRes, fitRes, woRes] = await Promise.all([
@@ -293,7 +293,7 @@ export async function deleteItemAction(
       .eq("brand_id", brand)
       .eq("item_id", id),
     supabase
-      .from("item_motorcycle_compatibility")
+      .from("item_vehicle_compatibility")
       .select("id", { count: "exact", head: true })
       .eq("brand_id", brand)
       .eq("item_id", id),
@@ -335,7 +335,7 @@ export async function setItemActiveAction(
     .from("items")
     .update({ is_active })
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };

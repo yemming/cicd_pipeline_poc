@@ -150,7 +150,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                 setSelectedIndex(0);
               }}
               onKeyDown={handleKeyDown}
-              placeholder="搜尋客戶、訂單、發票、機車、頁面..."
+              placeholder="搜尋客戶、訂單、發票、車輛、頁面..."
               className="flex-1 bg-transparent text-on-surface text-sm placeholder:text-outline outline-none"
             />
             {dbLoading ? (

@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import type { AppointmentFormState } from "./appointment-form-types";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 const STATUSES = ["booked", "checked_in", "in_progress", "done", "cancelled", "no_show"] as const;
 type Status = (typeof STATUSES)[number];
 
@@ -123,7 +123,7 @@ export async function createAppointmentAction(
 
   const supabase = await createClient();
   const { error } = await supabase.from("service_appointments").insert({
-    brand_id: getBrandKey(),
+    brand_id: (await getActiveScope()).brand_id,
     ...payload,
     created_by: ctx.userId,
   });

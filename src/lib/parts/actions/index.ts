@@ -10,10 +10,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import type { ItemInsert } from "../types";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -406,7 +406,7 @@ export async function issueForRepair(
   if (!input?.warehouse_id) return { ok: false, error: "缺 warehouse_id" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 1. 撈 work order
   const { data: wo, error: woErr } = await supabase
@@ -605,7 +605,7 @@ export async function cancelIssue(
   if (!issueId) return { ok: false, error: "缺 issueId" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const { data: issue, error: issueErr } = await supabase
     .from("stock_issues")
@@ -700,7 +700,7 @@ export async function createAndShipTransfer(
   }
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 1. 預檢配置：對每個 line 撈來源倉庫存（FIFO），算配置
   type Allocation = {
@@ -884,7 +884,7 @@ export async function receiveTransferAction(
   if (!transferId) return { ok: false, error: "缺 transferId" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 1. 撈調撥單 + lines
   const { data: tr, error: trErr } = await supabase
@@ -1005,7 +1005,7 @@ export async function cancelTransfer(
   if (!transferId) return { ok: false, error: "缺 transferId" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const { data: tr, error: trErr } = await supabase
     .from("stock_transfers")
@@ -1086,7 +1086,7 @@ export async function returnIssueLines(
   }
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 1. 撈 issue + lines
   const { data: issue, error: issueErr } = await supabase
@@ -1214,7 +1214,7 @@ export async function createCountPlanAction(
   if (!input.warehouse_id) return { ok: false, error: "倉庫必選" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const { data, error } = await supabase
     .from("inventory_count_plans")
@@ -1251,7 +1251,7 @@ export async function startCountSessionAction(
   if (!input.warehouse_id) return { ok: false, error: "倉庫必選" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 1. 拍 snapshot：當下倉內 status='available' 的 stock_items
   const { data: stocks, error: stockErr } = await supabase
@@ -1361,7 +1361,7 @@ export async function submitCountSessionAction(
   if (!input.lines?.length) return { ok: false, error: "至少需要一筆盤點數" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const { data: ct, error: ctErr } = await supabase
     .from("inventory_counts")
@@ -1439,7 +1439,7 @@ export async function approveCountAdjustmentAction(
   if (!ctId) return { ok: false, error: "缺 ctId" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const { data: ct, error: ctErr } = await supabase
     .from("inventory_counts")
@@ -1597,7 +1597,7 @@ export async function adjustStockManualAction(
   if (!input.lines?.length) return { ok: false, error: "至少需要一筆調整明細" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 產 adj_no
   const today = new Date();
@@ -1710,7 +1710,7 @@ export async function exceptionMoveAction(
   if (!input.lines?.length) return { ok: false, error: "至少需要一筆明細" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const today = new Date();
   const dateStr =
@@ -1894,7 +1894,7 @@ export async function registerConsignmentAction(
   if (!input.start_date || !input.end_date) return { ok: false, error: "起迄日必填" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 產 con_no
   const today = new Date();
@@ -1976,7 +1976,7 @@ export async function upsertStockThresholdAction(
   if (input.min_stock < 0 || input.reorder_point < 0) return { ok: false, error: "min/reorder 不可為負" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const { data, error } = await supabase
     .from("stock_thresholds")
@@ -2025,7 +2025,7 @@ export async function createAlertRuleAction(
   if (!input.code?.trim() || !input.name?.trim()) return { ok: false, error: "code / name 必填" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const { data, error } = await supabase
     .from("alert_rules")
@@ -2075,7 +2075,7 @@ export async function registerOldPartAction(
   if (!input.item_id) return { ok: false, error: "料件必選" };
 
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   const { data, error } = await supabase
     .from("old_parts")
@@ -2111,7 +2111,7 @@ export async function recalcAbcAction(): Promise<
   ActionResult<{ items_classified: number; a_count: number; b_count: number; c_count: number }>
 > {
   const supabase = await createClient();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 1. 撈 config（取 threshold）
   const { data: config } = await supabase

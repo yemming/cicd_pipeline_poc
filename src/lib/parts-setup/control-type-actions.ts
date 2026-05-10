@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -70,7 +70,7 @@ export async function createControlTypeAction(
   const { data, error } = await supabase
     .from("parts_control_types")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       class_code: trim(input.class_code).toUpperCase(),
       class_name: trim(input.class_name),
       price_basis: nullable(input.price_basis),
@@ -137,7 +137,7 @@ export async function updateControlTypeAction(
     .from("parts_control_types")
     .update(patch)
     .eq("id", id)
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .select("id")
     .single();
 
@@ -161,7 +161,7 @@ export async function deleteControlTypeAction(
     .from("parts_control_types")
     .delete()
     .eq("id", id)
-    .eq("brand_id", getBrandKey());
+    .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `刪除類別失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };

@@ -16,7 +16,7 @@ export const serviceRequestCreatedLine: TemplateDefinition = {
       title: `新服務預約 ${s(p, "requestNo")}`,
       fields: [
         { label: "客戶", value: s(p, "customer") },
-        { label: "機車", value: s(p, "vehicle") },
+        { label: "車輛", value: s(p, "vehicle") },
         { label: "預約時間", value: s(p, "scheduledAt") },
         { label: "備註", value: s(p, "note") },
       ],
@@ -37,7 +37,7 @@ export const serviceRequestCreatedGoogleChat: TemplateDefinition = {
       title: `新服務預約 ${s(p, "requestNo")}`,
       fields: [
         { label: "客戶", value: s(p, "customer") },
-        { label: "機車", value: s(p, "vehicle") },
+        { label: "車輛", value: s(p, "vehicle") },
         { label: "預約時間", value: s(p, "scheduledAt") },
         { label: "備註", value: s(p, "note") },
       ],

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -8,6 +7,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 import { AbcSettingsBoard, type AbcConfig } from "./_components/abc-settings-board";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 async function loadConfig(): Promise<AbcConfig | null> {
@@ -17,7 +17,7 @@ async function loadConfig(): Promise<AbcConfig | null> {
     .select(
       "id, brand_id, recalc_trigger, rolling_period_months, threshold_a_pct, threshold_b_pct, count_freq_a_days, count_freq_b_days, count_freq_c_days, safety_stock_days_a, safety_stock_days_b, safety_stock_days_c, new_item_default_class, new_item_grace_months, last_recalc_at, is_active",
     )
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .maybeSingle();
   if (error) throw new Error(`abc-config: ${error.message}`);
   return (data ?? null) as unknown as AbcConfig | null;

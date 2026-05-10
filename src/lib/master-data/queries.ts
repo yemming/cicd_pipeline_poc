@@ -7,14 +7,13 @@
  *
  * 規則：
  *   - 一律用 createClient（吃 RLS）— 但 RLS 是 user 維度，雙 brand 帳號會穿透；
- *     deployment 鎖死的 brand 由 getBrandKey() 強制過濾，不仰賴 RLS。
- *   - 所有 list* / get* 都帶 .eq("brand_id", getBrandKey()) — 冗餘但安全。
+ *     deployment 鎖死的 brand 由 (await getActiveScope()).brand_id 強制過濾，不仰賴 RLS。
+ *   - 所有 list* / get* 都帶 .eq("brand_id", (await getActiveScope()).brand_id) — 冗餘但安全。
  *   - 預設只回 is_active = true（要含停用版另寫 *Including*）
  *   - 大型表（items / customer_vehicles）必帶 limit / search 條件，禁止 SELECT 全表
  */
 
 import "server-only";
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import type {
   Account,
@@ -29,7 +28,7 @@ import type {
   Item,
   WarrantyClaim,
   WarrantyClaimLine,
-  MotorcycleModel,
+  VehicleModel,
   Organization,
   ServiceAppointment,
   Supplier,
@@ -38,7 +37,10 @@ import type {
   WarehouseZone,
   WorkOrder,
 } from "@/lib/parts/types";
+import type { SupplierPricingRow } from "./supplier-pricing-form-types";
+import type { ReplenishmentPolicyRow } from "./replenishment-policy-form-types";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 // ──────────────────────────────────────────────────────────
 // 客戶
 // ──────────────────────────────────────────────────────────
@@ -53,7 +55,7 @@ export async function listCustomers(opts?: {
   let q = supabase
     .from("customers")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("name");
   // 預設只回啟用中，admin 列表頁傳 activeOnly: false 看全部
   if (opts?.activeOnly !== false) q = q.eq("is_active", true);
@@ -73,7 +75,7 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
   const { data, error } = await supabase
     .from("customers")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getCustomerById: ${error.message}`);
@@ -93,7 +95,7 @@ export async function listSuppliers(opts?: {
   let q = supabase
     .from("suppliers")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("code");
   if (opts?.activeOnly !== false) q = q.eq("is_active", true);
   if (opts?.type) q = q.eq("type", opts.type);
@@ -111,7 +113,7 @@ export async function getSupplierById(id: string): Promise<Supplier | null> {
   const { data, error } = await supabase
     .from("suppliers")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getSupplierById: ${error.message}`);
@@ -132,7 +134,7 @@ export async function listItems(opts?: {
   let q = supabase
     .from("items")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (opts?.category) q = q.eq("category", opts.category);
@@ -152,7 +154,7 @@ export async function getItemById(id: string): Promise<Item | null> {
   const { data, error } = await supabase
     .from("items")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getItemById: ${error.message}`);
@@ -160,18 +162,18 @@ export async function getItemById(id: string): Promise<Item | null> {
 }
 
 // ──────────────────────────────────────────────────────────
-// 機車車型
+// 車輛車型
 // ──────────────────────────────────────────────────────────
 
-export async function listMotorcycleModels(opts?: {
+export async function listVehicleModels(opts?: {
   series?: string;
   search?: string;
-}): Promise<MotorcycleModel[]> {
+}): Promise<VehicleModel[]> {
   const supabase = await createClient();
   let q = supabase
-    .from("motorcycle_models")
+    .from("vehicle_models")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("series")
     .order("model_name");
@@ -181,7 +183,7 @@ export async function listMotorcycleModels(opts?: {
     q = q.or(`display_name.ilike.%${s}%,model_name.ilike.%${s}%,series.ilike.%${s}%`);
   }
   const { data, error } = await q;
-  if (error) throw new Error(`listMotorcycleModels: ${error.message}`);
+  if (error) throw new Error(`listVehicleModels: ${error.message}`);
   return data ?? [];
 }
 
@@ -194,7 +196,7 @@ export async function listOrganizations(opts?: { type?: string }): Promise<Organ
   let q = supabase
     .from("organizations")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("level")
     .order("code");
@@ -209,7 +211,7 @@ export async function getOrganizationById(id: string): Promise<Organization | nu
   const { data, error } = await supabase
     .from("organizations")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getOrganizationById: ${error.message}`);
@@ -225,11 +227,96 @@ export async function listWarehouses(): Promise<Warehouse[]> {
   const { data, error } = await supabase
     .from("warehouses")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (error) throw new Error(`listWarehouses: ${error.message}`);
   return data ?? [];
+}
+
+// ──────────────────────────────────────────────────────────
+// Supplier × Item pricing（MRP 採購參數）
+// ──────────────────────────────────────────────────────────
+
+export async function listSupplierPricing(opts?: {
+  supplierId?: string;
+  itemId?: string;
+  activeOnly?: boolean;
+  limit?: number;
+}): Promise<SupplierPricingRow[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("supplier_item_pricing")
+    .select("*")
+    .eq("brand_id", (await getActiveScope()).brand_id)
+    .order("updated_at", { ascending: false });
+  if (opts?.activeOnly !== false) q = q.eq("is_active", true);
+  if (opts?.supplierId) q = q.eq("supplier_id", opts.supplierId);
+  if (opts?.itemId) q = q.eq("item_id", opts.itemId);
+  q = q.limit(opts?.limit ?? 200);
+  const { data, error } = await q;
+  if (error) throw new Error(`listSupplierPricing: ${error.message}`);
+  return (data ?? []) as unknown as SupplierPricingRow[];
+}
+
+export async function getSupplierPricingById(
+  id: string,
+): Promise<SupplierPricingRow | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("supplier_item_pricing")
+    .select("*")
+    .eq("brand_id", (await getActiveScope()).brand_id)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getSupplierPricingById: ${error.message}`);
+  return data as unknown as SupplierPricingRow | null;
+}
+
+// ──────────────────────────────────────────────────────────
+// Replenishment policies（補貨計畫設定）
+// ──────────────────────────────────────────────────────────
+
+export async function listReplenishmentPolicies(): Promise<ReplenishmentPolicyRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("replenishment_policies")
+    .select("*")
+    .eq("brand_id", (await getActiveScope()).brand_id)
+    .order("warehouse_id", { ascending: true, nullsFirst: true });
+  if (error) throw new Error(`listReplenishmentPolicies: ${error.message}`);
+  return (data ?? []) as unknown as ReplenishmentPolicyRow[];
+}
+
+export async function getReplenishmentPolicyById(
+  id: string,
+): Promise<ReplenishmentPolicyRow | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("replenishment_policies")
+    .select("*")
+    .eq("brand_id", (await getActiveScope()).brand_id)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getReplenishmentPolicyById: ${error.message}`);
+  return data as unknown as ReplenishmentPolicyRow | null;
+}
+
+export async function getActiveReplenishmentPolicy(
+  warehouseId: string | null,
+): Promise<ReplenishmentPolicyRow | null> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("replenishment_policies")
+    .select("*")
+    .eq("brand_id", (await getActiveScope()).brand_id)
+    .eq("is_active", true)
+    .limit(1);
+  if (warehouseId) q = q.eq("warehouse_id", warehouseId);
+  else q = q.is("warehouse_id", null);
+  const { data, error } = await q.maybeSingle();
+  if (error) throw new Error(`getActiveReplenishmentPolicy: ${error.message}`);
+  return data as unknown as ReplenishmentPolicyRow | null;
 }
 
 export async function listWarehouseZones(warehouseId?: string): Promise<WarehouseZone[]> {
@@ -237,7 +324,7 @@ export async function listWarehouseZones(warehouseId?: string): Promise<Warehous
   let q = supabase
     .from("warehouse_zones")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (warehouseId) q = q.eq("warehouse_id", warehouseId);
@@ -255,7 +342,7 @@ export async function listWarehouseBins(opts?: {
   let q = supabase
     .from("warehouse_bins")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("code");
   if (opts?.warehouseId) q = q.eq("warehouse_id", opts.warehouseId);
@@ -271,15 +358,15 @@ export async function listWarehouseBins(opts?: {
 // 帳務
 // ──────────────────────────────────────────────────────────
 
-export async function listAccounts(opts?: { acctType?: string }): Promise<Account[]> {
+export async function listAccounts(opts?: { l1Category?: string }): Promise<Account[]> {
   const supabase = await createClient();
   let q = supabase
-    .from("accounts")
+    .from("chart_of_accounts")
     .select("*")
-    .eq("brand_id", getBrandKey())
-    .eq("is_inactive", false)
-    .order("acct_no");
-  if (opts?.acctType) q = q.eq("acct_type", opts.acctType);
+    .eq("is_active", true)
+    .eq("is_postable", true)
+    .order("account_code");
+  if (opts?.l1Category) q = q.eq("l1_category", opts.l1Category);
   const { data, error } = await q;
   if (error) throw new Error(`listAccounts: ${error.message}`);
   return data ?? [];
@@ -297,7 +384,7 @@ export async function listDepartments(opts?: {
   let q = supabase
     .from("departments")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("code");
   if (opts?.activeOnly !== false) q = q.eq("is_active", true);
   if (opts?.search) {
@@ -314,7 +401,7 @@ export async function getDepartmentById(id: string): Promise<Department | null> 
   const { data, error } = await supabase
     .from("departments")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getDepartmentById: ${error.message}`);
@@ -331,7 +418,7 @@ export async function listEmployees(opts?: {
   let q = supabase
     .from("employees")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("emp_code");
   if (opts?.deptId) q = q.eq("dept_id", opts.deptId);
   if (opts?.status) q = q.eq("employment_status", opts.status);
@@ -352,7 +439,7 @@ export async function getEmployeeById(id: string): Promise<Employee | null> {
   const { data, error } = await supabase
     .from("employees")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getEmployeeById: ${error.message}`);
@@ -373,7 +460,7 @@ export async function listCustomerVehicles(opts?: {
   let q = supabase
     .from("customer_vehicles")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("updated_at", { ascending: false });
   if (opts?.activeOnly !== false) q = q.eq("is_active", true);
   if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
@@ -396,7 +483,7 @@ export async function getCustomerVehicleById(
   const { data, error } = await supabase
     .from("customer_vehicles")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getCustomerVehicleById: ${error.message}`);
@@ -412,7 +499,7 @@ export async function listCustomerContacts(opts?: {
   let q = supabase
     .from("customer_contacts")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("role")
     .order("name");
   if (opts?.activeOnly !== false) q = q.eq("is_active", true);
@@ -430,7 +517,7 @@ export async function getCustomerContactById(
   const { data, error } = await supabase
     .from("customer_contacts")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getCustomerContactById: ${error.message}`);
@@ -453,7 +540,7 @@ export async function listServiceAppointments(opts?: {
   let q = supabase
     .from("service_appointments")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("scheduled_at", { ascending: false });
   if (opts?.status) q = q.eq("status", opts.status);
   if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
@@ -473,7 +560,7 @@ export async function getServiceAppointmentById(
   const { data, error } = await supabase
     .from("service_appointments")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getServiceAppointmentById: ${error.message}`);
@@ -490,7 +577,7 @@ export async function listWorkOrders(opts?: {
   let q = supabase
     .from("work_orders")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("opened_at", { ascending: false });
   if (opts?.status) q = q.eq("status", opts.status);
   if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
@@ -506,7 +593,7 @@ export async function getWorkOrderById(id: string): Promise<WorkOrder | null> {
   const { data, error } = await supabase
     .from("work_orders")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getWorkOrderById: ${error.message}`);
@@ -523,7 +610,7 @@ export async function listInspectionRecords(opts?: {
   let q = supabase
     .from("inspection_records")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("inspected_at", { ascending: false });
   if (opts?.vehicleId) q = q.eq("vehicle_id", opts.vehicleId);
   if (opts?.workOrderId) q = q.eq("work_order_id", opts.workOrderId);
@@ -541,7 +628,7 @@ export async function getInspectionRecordById(
   const { data, error } = await supabase
     .from("inspection_records")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getInspectionRecordById: ${error.message}`);
@@ -563,7 +650,7 @@ export async function listWarrantyClaims(opts?: {
   let q = supabase
     .from("warranty_claims")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("claim_date", { ascending: false });
   if (opts?.status) q = q.eq("status", opts.status);
   if (opts?.claimType) q = q.eq("claim_type", opts.claimType);
@@ -582,7 +669,7 @@ export async function getWarrantyClaimById(
   const { data, error } = await supabase
     .from("warranty_claims")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`getWarrantyClaimById: ${error.message}`);
@@ -596,7 +683,7 @@ export async function listWarrantyClaimLines(
   const { data, error } = await supabase
     .from("warranty_claim_lines")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("cl_id", claimId)
     .order("line_no");
   if (error) throw new Error(`listWarrantyClaimLines: ${error.message}`);
@@ -610,7 +697,7 @@ export async function listInspectionFindings(
   const { data, error } = await supabase
     .from("inspection_findings")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("inspection_id", inspectionId)
     .order("category")
     .order("item_label");
@@ -627,7 +714,7 @@ export async function listDocumentNumberRules(): Promise<DocumentNumberRule[]> {
   const { data, error } = await supabase
     .from("document_number_rules")
     .select("*")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .order("doc_type");
   if (error) throw new Error(`listDocumentNumberRules: ${error.message}`);
   return data ?? [];
@@ -651,7 +738,7 @@ export async function listClassifications(type?: string): Promise<Classification
   let q = supabase
     .from("classifications")
     .select("id,brand_id,type,code,name,is_active")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("type")
     .order("code");

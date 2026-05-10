@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import type { SupplierFormState } from "./supplier-form-types";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 const SUPPLIER_TYPES = ["oem", "agent", "consumable", "services", "other"] as const;
 type SupplierType = (typeof SUPPLIER_TYPES)[number];
 
@@ -31,10 +31,10 @@ function mapDbError(error: { code?: string; message: string }): SupplierFormStat
       fieldErrors: { code: "此代碼已存在，請改一個或留空自動產生" },
     };
   }
-  if (error.code === "23503" && error.message.includes("gl_payable_account_id")) {
+  if (error.code === "23503" && error.message.includes("gl_payable_coa_id")) {
     return {
       error: "應付帳款科目不存在",
-      fieldErrors: { gl_payable_account_id: "請重新選擇科目" },
+      fieldErrors: { gl_payable_coa_id: "請重新選擇科目" },
     };
   }
   return { error: `儲存失敗：${error.message}` };
@@ -45,7 +45,7 @@ async function genSupplierCode(): Promise<string> {
   const { data, error } = await supabase
     .from("suppliers")
     .select("code")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .ilike("code", "S%")
     .order("code", { ascending: false })
     .limit(50);
@@ -72,7 +72,7 @@ function pickPayload(fd: FormData) {
     address: strOrNull(fd.get("address")),
     payment_terms: strOrNull(fd.get("payment_terms")),
     default_currency: strOrNull(fd.get("default_currency")) ?? "TWD",
-    gl_payable_account_id: strOrNull(fd.get("gl_payable_account_id")),
+    gl_payable_coa_id: strOrNull(fd.get("gl_payable_coa_id")),
     notes: strOrNull(fd.get("notes")),
   };
 }
@@ -97,7 +97,7 @@ export async function createSupplierAction(
 
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").insert({
-    brand_id: getBrandKey(),
+    brand_id: (await getActiveScope()).brand_id,
     code,
     ...payload,
     created_by: ctx.userId,

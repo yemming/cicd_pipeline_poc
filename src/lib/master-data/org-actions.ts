@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getBrandKey } from "@/lib/brands/current";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
+import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -59,7 +59,7 @@ export async function createRegionAction(
   const { data, error } = await supabase
     .from("organizations")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       type: "region",
       level: 1,
       parent_id: null,
@@ -139,7 +139,7 @@ export async function createStoreAction(
   const { data, error } = await supabase
     .from("organizations")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       type: "store",
       level: 2,
       parent_id: trim(input.parent_id),
@@ -226,7 +226,7 @@ export async function createWarehouseAction(
   const { data, error } = await supabase
     .from("warehouses")
     .insert({
-      brand_id: getBrandKey(),
+      brand_id: (await getActiveScope()).brand_id,
       org_id: trim(input.org_id),
       code: trim(input.code),
       name: trim(input.name),
