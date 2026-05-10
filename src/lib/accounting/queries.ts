@@ -117,17 +117,27 @@ export type CoaFilters = {
   status?: string;    // 'all' | 'active' | 'inactive'
 };
 
-export async function listChartOfAccounts(filters: CoaFilters = {}): Promise<{
+export const COA_PAGE_SIZE_DEFAULT = 50;
+
+export async function listChartOfAccounts(
+  filters: CoaFilters = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<{
   rows: CoaRow[];
   totalCount: number;
 }> {
   const sb = createServiceClient();
   const tenant = await getDefaultTenantUuid();
+  const page = Math.max(1, options.page ?? 1);
+  const pageSize = Math.max(1, options.pageSize ?? COA_PAGE_SIZE_DEFAULT);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
   let q = sb
     .from("chart_of_accounts")
     .select(
       "id, tenant_id, account_code, parent_code, parent_id, level, depth, l1_code, l2_code, l3_code, l4_code, l5_code, name_zh_tw, name_en, display_indent_name, l1_category, dealer_category, tax_treatment, moea_code, moea_name_zh, is_postable, normal_balance, is_active, is_locked, is_system_default, required_dimensions, ai_tags, benchmark_enabled, description, display_order, netsuite_account_internal_id, netsuite_account_number, netsuite_sync_status",
+      { count: "exact" },
     )
     .eq("tenant_id", tenant);
 
@@ -140,22 +150,33 @@ export async function listChartOfAccounts(filters: CoaFilters = {}): Promise<{
   if (filters.status === "inactive") q = q.eq("is_active", false);
   if (filters.q?.trim()) {
     const t = filters.q.trim().replace(/[%,]/g, "");
-    q = q.or(`account_code.ilike.%${t}%,name_zh_tw.ilike.%${t}%,moea_name_zh.ilike.%${t}%`);
+    q = q.or(
+      `account_code.ilike.%${t}%,name_zh_tw.ilike.%${t}%,moea_name_zh.ilike.%${t}%`,
+    );
   }
 
-  const [listRes, countRes] = await Promise.all([
-    q.order("account_code").limit(2000),
-    sb
-      .from("chart_of_accounts")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenant),
-  ]);
-  if (listRes.error) throw new Error(`coa: ${listRes.error.message}`);
+  const { data, count, error } = await q.order("account_code").range(from, to);
+  if (error) throw new Error(`coa: ${error.message}`);
 
   return {
-    rows: (listRes.data ?? []) as unknown as CoaRow[],
-    totalCount: countRes.count ?? 0,
+    rows: (data ?? []) as unknown as CoaRow[],
+    totalCount: count ?? 0,
   };
+}
+
+export async function getChartOfAccountById(id: string): Promise<CoaRow | null> {
+  const sb = createServiceClient();
+  const tenant = await getDefaultTenantUuid();
+  const { data, error } = await sb
+    .from("chart_of_accounts")
+    .select(
+      "id, tenant_id, account_code, parent_code, parent_id, level, depth, l1_code, l2_code, l3_code, l4_code, l5_code, name_zh_tw, name_en, display_indent_name, l1_category, dealer_category, tax_treatment, moea_code, moea_name_zh, is_postable, normal_balance, is_active, is_locked, is_system_default, required_dimensions, ai_tags, benchmark_enabled, description, display_order, netsuite_account_internal_id, netsuite_account_number, netsuite_sync_status",
+    )
+    .eq("tenant_id", tenant)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getChartOfAccountById: ${error.message}`);
+  return (data ?? null) as unknown as CoaRow | null;
 }
 
 export type DimensionFilters = {
@@ -164,6 +185,22 @@ export type DimensionFilters = {
   segment?: string;   // 'all' | 'native' | 'custom'
   status?: string;    // 'all' | 'active' | 'inactive'
 };
+
+export async function getDimensionById(id: string): Promise<DimensionRow | null> {
+  const sb = createServiceClient();
+  const tenant = await getDefaultTenantUuid();
+  // listGlDimensions 同時撈 tenant + SENTINEL（系統預設）；detail 必須對齊，否則 29 個系統維度 detail 全部「找不到」
+  const { data, error } = await sb
+    .from("gl_dimensions")
+    .select(
+      "id, tenant_id, dimension_code, dimension_name, description, reference_table, reference_value_column, is_required_globally, is_active, is_system_default, display_order, netsuite_segment_type, netsuite_segment_script_id",
+    )
+    .in("tenant_id", [tenant, SENTINEL_TENANT])
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`getDimensionById: ${error.message}`);
+  return (data ?? null) as unknown as DimensionRow | null;
+}
 
 export async function listGlDimensions(filters: DimensionFilters = {}): Promise<{
   rows: DimensionRow[];

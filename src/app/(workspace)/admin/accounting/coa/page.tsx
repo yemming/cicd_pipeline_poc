@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { listChartOfAccounts, type CoaFilters } from "@/lib/accounting/queries";
+import {
+  COA_PAGE_SIZE_DEFAULT,
+  listChartOfAccounts,
+  type CoaFilters,
+} from "@/lib/accounting/queries";
 
 import { CoaBoard } from "./_components/coa-board";
 
@@ -32,7 +36,19 @@ export default async function CoaPage({
     status: sp.status ?? "all",
   };
 
-  const { rows, totalCount } = await listChartOfAccounts(filters);
+  const pageRaw = Number(sp.page);
+  const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
+  const pageSize = COA_PAGE_SIZE_DEFAULT;
 
-  return <CoaBoard rows={rows} totalCount={totalCount} filters={filters} />;
+  const { rows, totalCount } = await listChartOfAccounts(filters, { page, pageSize });
+
+  return (
+    <CoaBoard
+      rows={rows}
+      totalCount={totalCount}
+      filters={filters}
+      page={page}
+      pageSize={pageSize}
+    />
+  );
 }

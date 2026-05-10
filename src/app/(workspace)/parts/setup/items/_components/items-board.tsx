@@ -12,6 +12,7 @@ import {
   updateItemAction,
   type ItemInput,
 } from "@/lib/parts-setup/item-actions";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 
 export type ItemRow = {
@@ -372,6 +373,149 @@ export function ItemsBoard({
     "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5]";
   const labelClass = "text-[11px] text-[#9A9890] font-medium";
 
+  const columns: DataGridColumn<ItemRow>[] = [
+    {
+      id: "image_url",
+      header: "圖",
+      width: 44,
+      sortable: false,
+      hideable: false,
+      cell: (r) => <ItemThumb url={r.image_url} alt={r.name} />,
+      exportValue: (r) => r.image_url ?? "",
+    },
+    {
+      id: "code",
+      header: "備件代碼",
+      width: 130,
+      cell: (r) => (
+        <Link
+          href={`/parts/setup/items/${r.id}`}
+          className="font-mono text-[12px] text-[#185FA5] hover:underline"
+        >
+          {r.code}
+        </Link>
+      ),
+      exportValue: (r) => r.code,
+      sortValue: (r) => r.code,
+    },
+    {
+      id: "name",
+      header: "商品名稱",
+      cell: (r) => {
+        const subtitle = r.serial_tracking_required
+          ? "序列號追蹤"
+          : r.batch_tracking_required
+            ? "批號追蹤"
+            : r.spec_description ?? null;
+        return (
+          <div>
+            <Link
+              href={`/parts/setup/items/${r.id}`}
+              className="font-semibold text-[12.5px] text-[#185FA5] hover:underline"
+            >
+              {r.name}
+            </Link>
+            {subtitle ? (
+              <div className="text-[11px] text-[#9A9890] mt-0.5">{subtitle}</div>
+            ) : null}
+          </div>
+        );
+      },
+      exportValue: (r) => r.name,
+      sortValue: (r) => r.name,
+    },
+    {
+      id: "category",
+      header: "品類",
+      width: 110,
+      cell: (r) => <span className="text-[12.5px]">{r.category ?? "—"}</span>,
+      exportValue: (r) => r.category ?? "",
+      sortValue: (r) => r.category ?? "",
+    },
+    {
+      id: "control_type",
+      header: "管控",
+      width: 80,
+      cell: (r) =>
+        r.control_type ? (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${accentChipClass(
+              controlAccentMap.get(r.control_type) ?? null,
+            )}`}
+          >
+            {`${r.control_type}類`}
+          </span>
+        ) : (
+          <span className="text-[#9A9890] text-[12px]">—</span>
+        ),
+      exportValue: (r) => r.control_type ?? "",
+      sortValue: (r) => r.control_type ?? "",
+    },
+    {
+      id: "base_uom",
+      header: "單位",
+      width: 70,
+      cell: (r) => <span className="text-[12.5px]">{r.base_uom ?? "—"}</span>,
+      exportValue: (r) => r.base_uom ?? "",
+      sortValue: (r) => r.base_uom ?? "",
+    },
+    {
+      id: "standard_cost",
+      header: "標準成本",
+      width: 120,
+      align: "right",
+      cell: (r) => (
+        <span className="font-mono text-[12px] text-[#2C2C2A]">
+          {fmtNT(r.standard_cost)}
+        </span>
+      ),
+      exportValue: (r) => r.standard_cost ?? null,
+      sortValue: (r) => r.standard_cost ?? null,
+    },
+    {
+      id: "suggested_price",
+      header: "建議售價",
+      width: 120,
+      align: "right",
+      cell: (r) => (
+        <span className="font-mono text-[12px] text-[#2C2C2A]">
+          {fmtNT(r.suggested_price)}
+        </span>
+      ),
+      exportValue: (r) => r.suggested_price ?? null,
+      sortValue: (r) => r.suggested_price ?? null,
+    },
+    {
+      id: "fit_count",
+      header: "適用車型數",
+      width: 100,
+      align: "right",
+      cell: (r) => (
+        <span className="font-mono text-[12px] text-[#2C2C2A]">{r.fit_count}</span>
+      ),
+      exportValue: (r) => r.fit_count,
+      sortValue: (r) => r.fit_count,
+    },
+    {
+      id: "is_active",
+      header: "狀態",
+      width: 80,
+      cell: (r) => (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap ${
+            r.is_active
+              ? "bg-[#EAF3DE] text-[#3B6D11]"
+              : "bg-[#F2F2F2] text-[#6B6A68]"
+          }`}
+        >
+          {r.is_active ? "啟用" : "停用"}
+        </span>
+      ),
+      exportValue: (r) => (r.is_active ? "啟用" : "停用"),
+      sortValue: (r) => r.is_active,
+    },
+  ];
+
   return (
     <main className="px-6 py-5 space-y-3">
       {/* Page Header */}
@@ -466,85 +610,48 @@ export function ItemsBoard({
       </div>
 
       {/* Table */}
-      <section className={`bg-white border border-[#EEECE6] rounded-lg overflow-hidden ${lockedClass}`}>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="px-2 py-2 text-center text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] w-[44px]">圖</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">備件代碼</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">商品名稱</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">品類</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">管控</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">單位</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">標準成本</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">建議售價</th>
-                <th className="px-3 py-2 text-center text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">適用車型數</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">狀態</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const subtitle = r.serial_tracking_required
-                  ? "序列號追蹤"
-                  : r.batch_tracking_required
-                    ? "批號追蹤"
-                    : r.spec_description ?? null;
-                return (
-                  <tr key={r.id} className="border-b border-[#EEECE6] last:border-b-0 hover:bg-[#F8F7F4]">
-                    <td className="px-2 py-2 align-middle">
-                      <ItemThumb url={r.image_url} alt={r.name} />
-                    </td>
-                    <td className="px-3 py-2 font-mono text-[12px]">
-                      <Link href={`/parts/setup/items/${r.id}`} className="text-[#185FA5] hover:underline">
-                        {r.code}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2">
-                      <Link href={`/parts/setup/items/${r.id}`} className="font-semibold text-[12.5px] text-[#185FA5] hover:underline">
-                        {r.name}
-                      </Link>
-                      {subtitle ? (<div className="text-[11px] text-[#9A9890] mt-0.5">{subtitle}</div>) : null}
-                    </td>
-                    <td className="px-3 py-2 text-[12.5px]">{r.category ?? "—"}</td>
-                    <td className="px-3 py-2">
-                      {r.control_type ? (
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${accentChipClass(controlAccentMap.get(r.control_type) ?? null)}`}>
-                          {`${r.control_type}類`}
-                        </span>
-                      ) : (<span className="text-[#9A9890] text-[12px]">—</span>)}
-                    </td>
-                    <td className="px-3 py-2 text-[12.5px]">{r.base_uom ?? "—"}</td>
-                    <td className="px-3 py-2 font-mono text-[12px] text-[#2C2C2A]">{fmtNT(r.standard_cost)}</td>
-                    <td className="px-3 py-2 font-mono text-[12px] text-[#2C2C2A]">{fmtNT(r.suggested_price)}</td>
-                    <td className="px-3 py-2 text-center font-mono text-[12px] text-[#2C2C2A]">{r.fit_count}</td>
-                    <td className="px-3 py-2">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${r.is_active ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#F2F2F2] text-[#6B6A68]"}`}>
-                        {r.is_active ? "啟用" : "停用"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 space-x-1 whitespace-nowrap">
-                      <button type="button" disabled={!canEdit} onClick={() => openEdit(r)} className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50">編輯</button>
-                      <button type="button" disabled={!canEdit} onClick={() => toggleActive(r.id, !r.is_active)} className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50">{r.is_active ? "停用" : "啟用"}</button>
-                      <button type="button" disabled={!canEdit} onClick={() => deleteItem(r)} className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50">刪除</button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="px-3 py-10 text-center text-[#9A9890] text-[12.5px]">
-                    {filters.q || filters.category !== "all" || filters.control !== "all" || filters.status !== "all"
-                      ? "無符合條件的料號，請調整篩選條件"
-                      : "尚無料號資料"}
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <DataGrid
+        columns={columns}
+        data={rows}
+        rowKey={(r) => r.id}
+        persistKey="parts/setup/items"
+        exportFileName={`items-${new Date().toISOString().slice(0, 10)}`}
+        disabled={isPending}
+        emptyMessage={
+          filters.q || filters.category !== "all" || filters.control !== "all" || filters.status !== "all"
+            ? "無符合條件的料號，請調整篩選條件"
+            : "尚無料號資料"
+        }
+        rowActionsWidth={180}
+        rowActions={(r) => (
+          <>
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => openEdit(r)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              編輯
+            </button>
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => toggleActive(r.id, !r.is_active)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              {r.is_active ? "停用" : "啟用"}
+            </button>
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => deleteItem(r)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+            >
+              刪除
+            </button>
+          </>
+        )}
+      />
 
       {/* Unified Create/Edit Modal */}
       {formMode.kind !== "closed" ? (
