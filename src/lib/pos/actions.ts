@@ -3,10 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/service";
 import { createClient } from "@/lib/supabase/server";
-import { issueInvoice, type InvoiceCarrierType } from "./ecpay-invoice";
+import { issueB2CInvoice, type InvoiceCarrierType } from "@/lib/einvoice/ecpay-client";
 import type { PaymentMethod, Product, ProductCategory } from "./types";
-import { getBrandKey } from "@/lib/brands/current";
-
+import { getActiveScope } from "@/lib/scope/active-scope";
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
@@ -75,7 +74,7 @@ export async function completeSale(input: CompleteSaleInput): Promise<CompleteSa
   } catch { /* ignore */ }
 
   const merchantTradeNo = genMerchantTradeNo();
-  const brandId = getBrandKey();
+  const brandId = (await getActiveScope()).brand_id;
 
   // 1. 建立交易主表
   const { data: tx, error: txErr } = await db
@@ -142,7 +141,7 @@ export async function completeSale(input: CompleteSaleInput): Promise<CompleteSa
   const carrierType: InvoiceCarrierType =
     input.invoiceType === "carrier" ? "3" : "";
 
-  const invoiceResult = await issueInvoice({
+  const invoiceResult = await issueB2CInvoice({
     relateNumber:       genRelateNumber(),
     totalAmount:        input.totalAmount,
     items:              input.lines.map((l) => ({
@@ -158,13 +157,52 @@ export async function completeSale(input: CompleteSaleInput): Promise<CompleteSa
 
   const ecpayStatus = invoiceResult.success ? "issued" : "failed";
 
-  // 6. 把發票結果回寫進交易紀錄
+  // 6. 把發票結果回寫進交易紀錄（舊欄位）+ 寫入 einvoices 主檔
   await db.from("pos_transactions").update({
-    ecpay_invoice_no:    invoiceResult.success ? invoiceResult.invoiceNo    : null,
-    ecpay_invoice_date:  invoiceResult.success ? invoiceResult.invoiceDate  : null,
-    ecpay_random_number: invoiceResult.success ? invoiceResult.randomNumber : null,
+    ecpay_invoice_no:    invoiceResult.success ? invoiceResult.data.invoiceNo    : null,
+    ecpay_invoice_date:  invoiceResult.success ? invoiceResult.data.invoiceDate  : null,
+    ecpay_random_number: invoiceResult.success ? invoiceResult.data.randomNumber : null,
     ecpay_status:        ecpayStatus,
   }).eq("id", tx.id);
+
+  // 6b. 同步寫進 einvoices 主檔（POS = source_module）並 link 回 pos_transactions
+  const invoiceTypeMap: Record<string, "b2c_personal" | "b2c_carrier" | "b2c_taxid"> = {
+    personal: "b2c_personal",
+    carrier:  "b2c_carrier",
+    taxid:    "b2c_taxid",
+  };
+
+  const { data: einv } = await db.from("einvoices").insert({
+    brand_id:            brandId,
+    source_module:       "pos",
+    source_id:           tx.id,
+    source_ref:          merchantTradeNo,
+    ecpay_invoice_no:    invoiceResult.success ? invoiceResult.data.invoiceNo : null,
+    ecpay_invoice_date:  invoiceResult.success
+      ? invoiceResult.data.invoiceDate.slice(0, 10)
+      : null,
+    ecpay_random_number: invoiceResult.success ? invoiceResult.data.randomNumber : null,
+    ecpay_status:        ecpayStatus,
+    ecpay_error_msg:     invoiceResult.success ? null : invoiceResult.error,
+    invoice_type:        invoiceTypeMap[input.invoiceType] ?? "b2c_personal",
+    carrier_type:        input.invoiceType === "carrier" ? "3" : "",
+    carrier_code:        input.invoiceType === "carrier" ? input.carrierCode ?? null : null,
+    tax_id:              input.invoiceType === "taxid"   ? input.taxId        ?? null : null,
+    total_amount:        input.totalAmount,
+    tax_amount:          Math.round(input.totalAmount * 5 / 105),
+    items: input.lines.map((l) => ({
+      name:      l.name,
+      qty:       l.qty,
+      unitPrice: l.unitPrice,
+      amount:    l.qty * l.unitPrice,
+    })),
+    issued_at:           ecpayStatus === "issued" ? new Date().toISOString() : null,
+    issued_by:           staffId,
+  }).select("id").single();
+
+  if (einv?.id) {
+    await db.from("pos_transactions").update({ einvoice_id: einv.id }).eq("id", tx.id);
+  }
 
   revalidatePath("/pos/ledger");
 
@@ -174,9 +212,9 @@ export async function completeSale(input: CompleteSaleInput): Promise<CompleteSa
   if (invoiceResult.success) {
     return {
       txId,
-      invoiceNo:    invoiceResult.invoiceNo,
-      invoiceDate:  invoiceResult.invoiceDate,
-      randomNumber: invoiceResult.randomNumber,
+      invoiceNo:    invoiceResult.data.invoiceNo,
+      invoiceDate:  invoiceResult.data.invoiceDate,
+      randomNumber: invoiceResult.data.randomNumber,
       ecpayStatus:  "issued",
     };
   }
@@ -195,7 +233,7 @@ export async function getProducts(): Promise<Product[]> {
   const { data, error } = await db
     .from("pos_products")
     .select("id, sku, name, category, unit_price, stock_qty, low_stock_at, barcode")
-    .eq("brand_id", getBrandKey())
+    .eq("brand_id", (await getActiveScope()).brand_id)
     .eq("is_active", true)
     .order("category")
     .order("name");

@@ -47,6 +47,13 @@ export const PERMISSIONS = {
   PO_APPROVE: "parts.po.approve",
   PO_RETURN: "parts.po.return",
 
+  // ─── MRP / 補貨計畫參數 ─────────────────────────
+  SUPPLIER_PRICING_VIEW: "master.supplier_pricing.view",
+  SUPPLIER_PRICING_EDIT: "master.supplier_pricing.edit",
+  REPLENISHMENT_POLICY_VIEW: "master.replenishment_policy.view",
+  REPLENISHMENT_POLICY_EDIT: "master.replenishment_policy.edit",
+  REPLENISHMENT_RUN: "parts.replenishment.run",
+
   // ─── 出入庫 ────────────────────────────────────
   RECEIPT_VIEW: "parts.receipt.view",
   RECEIPT_CREATE: "parts.receipt.create",
@@ -82,6 +89,13 @@ export const PERMISSIONS = {
   RO_APPROVE: "service.ro.approve",
   WARRANTY_VIEW: "service.warranty.view",
   WARRANTY_SUBMIT: "service.warranty.submit",
+
+  // ─── 電子發票 ───────────────────────────────────
+  EINVOICE_VIEW: "einvoice.view",
+  EINVOICE_EDIT: "einvoice.edit",
+  EINVOICE_VOID: "einvoice.void",
+  EINVOICE_ALLOWANCE: "einvoice.allowance",
+  EINVOICE_SETTINGS: "einvoice.settings",
 
   // ─── Admin ─────────────────────────────────────
   ADMIN_NAV: "admin.nav.edit",
