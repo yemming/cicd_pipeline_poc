@@ -138,15 +138,21 @@ export function PricingBoard({
       width: 130,
       align: "right",
       cell: (r) => {
-        const cls =
-          r.pricing_type === "promo"
+        const noPriceRow = !r.price_id;
+        const cls = noPriceRow
+          ? "text-[#9A9890] italic"
+          : r.pricing_type === "promo"
             ? "text-[#854F0B] bg-[#FDF3E3]"
             : r.pricing_type === "store_custom"
               ? "text-[#1A3A5C] bg-[#EBF3FF]"
               : "text-[#2C2C2A]";
         return (
-          <span className={`font-mono text-[12px] px-1.5 py-0.5 rounded ${cls}`}>
+          <span
+            className={`font-mono text-[12px] px-1.5 py-0.5 rounded ${cls}`}
+            title={noPriceRow ? "顯示建議售價作為 fallback（此門店尚未建立定價紀錄、無法編輯或切促銷）" : undefined}
+          >
             {fmtMoney(r.store_price)}
+            {noPriceRow ? " *" : ""}
           </span>
         );
       },
@@ -223,8 +229,10 @@ export function PricingBoard({
 
       {banner ? (
         <div
-          className={`px-3 py-2 rounded text-[13px] ${
-            banner.ok ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#FDECEA] text-[#CC0000]"
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
+            banner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
           }`}
         >
           {banner.msg}
@@ -298,16 +306,24 @@ export function PricingBoard({
         rowActions={(r) => {
           const isPromo = r.pricing_type === "promo";
           const isRowPending = pendingRows.has(r.id);
-          const disabled = !canEdit || isRowPending;
+          const noPriceRow = !r.price_id;
+          const disabled = !canEdit || isRowPending || noPriceRow;
           const baseClass = isPromo
             ? "bg-[#FDF3E3] border border-[#F5D9A0] text-[#854F0B] hover:bg-[#fbe9c8]"
             : "bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]";
+          const tooltip = !canEdit
+            ? "沒有權限"
+            : noPriceRow
+              ? "尚未建立此門店定價紀錄、無法切促銷（請聯絡管理員初始化）"
+              : isPromo
+                ? "結束促銷（自動還原為建議售價）"
+                : "切成促銷";
           return (
             <button
               type="button"
               disabled={disabled}
               onClick={() => handlePromoToggle(r)}
-              title={canEdit ? (isPromo ? "結束促銷（自動還原為建議售價）" : "切成促銷") : "沒有權限"}
+              title={tooltip}
               className={`h-[26px] px-2.5 rounded text-[11.5px] disabled:opacity-50 ${
                 disabled ? "cursor-not-allowed" : "cursor-pointer"
               } ${baseClass}`}
