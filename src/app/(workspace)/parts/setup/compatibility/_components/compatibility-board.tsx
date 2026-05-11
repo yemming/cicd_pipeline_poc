@@ -405,8 +405,8 @@ export function CompatibilityBoard({
               <select
                 value={formDraft.item_id}
                 onChange={(e) => setFormDraft({ ...formDraft, item_id: e.target.value })}
-                className={`${inputClass} mt-1 w-full`}
-                size={6}
+                className="border border-[#D5D3CB] rounded px-2 py-1 text-[12.5px] bg-white outline-none focus:border-[#185FA5] mt-1 w-full"
+                size={8}
                 data-testid="form-item-select"
               >
                 {filteredItems.length === 0 ? (
