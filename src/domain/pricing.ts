@@ -91,12 +91,15 @@ export async function listPricing(filter: {
 
   return (items ?? []).map((it) => {
     const p = priceByItem.get(it.id);
+    // DB pricing_type ∈ {'default','custom','promotion'}，map 到 UI 的 promo/store_custom/default
+    const dbType = p?.pricing_type ?? null;
     const isPromo =
-      p?.pricing_type === "promo" ||
+      dbType === "promotion" ||
+      dbType === "promo" ||
       (p?.promo_end_date && new Date(p.promo_end_date) > new Date());
     const pricing_type: PricingRow["pricing_type"] = isPromo
       ? "promo"
-      : p?.pricing_type === "store_custom" || (p && p.price !== null)
+      : dbType === "custom" || dbType === "store_custom"
         ? "store_custom"
         : "default";
     const effectivePrice = p?.price ?? it.suggested_price ?? null;

@@ -3,6 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  endPromoPricingAction,
+  setPriceAsPromoAction,
+  updatePriceOnlyAction,
+} from "@/lib/parts-setup/pricing-actions";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import type { PricingRow, StoreOption } from "@/domain/pricing";
 
@@ -11,6 +16,8 @@ const TYPE_LABEL: Record<PricingRow["pricing_type"], { label: string; chip: stri
   store_custom: { label: "門店自訂", chip: "bg-[#EBF3FF] text-[#1A3A5C]" },
   promo: { label: "促銷中", chip: "bg-[#FDF3E3] text-[#854F0B]" },
 };
+
+type Banner = { ok: boolean; msg: string } | null;
 
 function fmtMoney(n: number | null): string {
   if (n === null) return "—";
@@ -35,6 +42,13 @@ export function PricingBoard({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [q, setQ] = useState(initialQ);
+  const [banner, setBanner] = useState<Banner>(null);
+  const [pendingRows, setPendingRows] = useState<Set<string>>(new Set());
+
+  const showBanner = (b: Banner) => {
+    setBanner(b);
+    if (b?.ok) setTimeout(() => setBanner(null), 2200);
+  };
 
   function applyFilter(storeId?: string) {
     const params = new URLSearchParams();
@@ -44,6 +58,42 @@ export function PricingBoard({
     startTransition(() => {
       router.push(`/parts/setup/pricing${params.toString() ? "?" + params.toString() : ""}`);
     });
+  }
+
+  async function handlePromoToggle(r: PricingRow) {
+    if (!r.price_id) {
+      showBanner({
+        ok: false,
+        msg: "此商品尚未建立門店定價（請先 inline 編輯一次售價以建立紀錄）",
+      });
+      return;
+    }
+    setPendingRows((prev) => {
+      const n = new Set(prev);
+      n.add(r.id);
+      return n;
+    });
+    try {
+      const isPromo = r.pricing_type === "promo";
+      const res = isPromo
+        ? await endPromoPricingAction(r.price_id)
+        : await setPriceAsPromoAction(r.price_id);
+      if (res.ok) {
+        showBanner({
+          ok: true,
+          msg: isPromo ? "✓ 已結束促銷" : "✓ 已切成促銷",
+        });
+        startTransition(() => router.refresh());
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    } finally {
+      setPendingRows((prev) => {
+        const n = new Set(prev);
+        n.delete(r.id);
+        return n;
+      });
+    }
   }
 
   const columns: DataGridColumn<PricingRow>[] = [
@@ -85,7 +135,7 @@ export function PricingBoard({
     {
       id: "store_price",
       header: `${activeStoreName ?? "門市"}價`,
-      width: 110,
+      width: 130,
       align: "right",
       cell: (r) => {
         const cls =
@@ -102,6 +152,32 @@ export function PricingBoard({
       },
       exportValue: (r) => (r.store_price ?? 0).toString(),
       sortValue: (r) => r.store_price ?? 0,
+      editable: canEdit
+        ? {
+            type: "text",
+            getValue: (r) => (r.store_price === null ? "" : String(r.store_price)),
+            onSave: async (r, value) => {
+              if (!r.price_id) {
+                return {
+                  ok: false,
+                  error: "此商品尚未建立門店定價紀錄、無法直接編輯（請聯絡管理員初始化）",
+                };
+              }
+              const trimmed = value.trim();
+              if (!trimmed) return { ok: false, error: "價格不可為空" };
+              const num = Number(trimmed.replace(/[^\d.-]/g, ""));
+              if (!Number.isFinite(num) || num <= 0) {
+                return { ok: false, error: "價格必須是大於 0 的數字" };
+              }
+              const res = await updatePriceOnlyAction(r.price_id, num);
+              if (res.ok) {
+                showBanner({ ok: true, msg: "✓ 已更新門市售價" });
+                startTransition(() => router.refresh());
+              }
+              return res;
+            },
+          }
+        : undefined,
     },
     {
       id: "margin",
@@ -144,6 +220,16 @@ export function PricingBoard({
           設定各門店備件售價・支援門店差異定價與促銷規則
         </span>
       </header>
+
+      {banner ? (
+        <div
+          className={`px-3 py-2 rounded text-[13px] ${
+            banner.ok ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#FDECEA] text-[#CC0000]"
+          }`}
+        >
+          {banner.msg}
+        </div>
+      ) : null}
 
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">
@@ -209,16 +295,27 @@ export function PricingBoard({
         emptyMessage="尚無商品 / 定價資料"
         disabled={isPending}
         rowActionsWidth={100}
-        rowActions={(r) => (
-          <button
-            type="button"
-            disabled={!canEdit}
-            title={canEdit ? "Phase 2 開放" : "沒有權限"}
-            className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] disabled:opacity-50 cursor-not-allowed"
-          >
-            {r.pricing_type === "promo" ? "結束促銷" : "促銷"}
-          </button>
-        )}
+        rowActions={(r) => {
+          const isPromo = r.pricing_type === "promo";
+          const isRowPending = pendingRows.has(r.id);
+          const disabled = !canEdit || isRowPending;
+          const baseClass = isPromo
+            ? "bg-[#FDF3E3] border border-[#F5D9A0] text-[#854F0B] hover:bg-[#fbe9c8]"
+            : "bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]";
+          return (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => handlePromoToggle(r)}
+              title={canEdit ? (isPromo ? "結束促銷（自動還原為建議售價）" : "切成促銷") : "沒有權限"}
+              className={`h-[26px] px-2.5 rounded text-[11.5px] disabled:opacity-50 ${
+                disabled ? "cursor-not-allowed" : "cursor-pointer"
+              } ${baseClass}`}
+            >
+              {isRowPending ? "處理中⋯" : isPromo ? "結束促銷" : "促銷"}
+            </button>
+          );
+        }}
       />
     </main>
   );
