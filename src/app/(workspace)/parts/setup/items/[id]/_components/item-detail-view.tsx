@@ -13,6 +13,10 @@ import {
 } from "@/lib/parts-setup/item-actions";
 import { createDictionaryAction } from "@/lib/parts-setup/dictionary-actions";
 import { createSupplierAction } from "@/lib/parts-setup/supplier-actions";
+import {
+  updateItemGlAccountAction,
+  type GlField,
+} from "@/lib/parts-setup/item-gl-actions";
 import { QuickAddSelect } from "@/components/quick-add-select";
 
 import { ItemImageUploader } from "./item-image-uploader";
@@ -20,6 +24,13 @@ import { PrintLabelModal } from "./print-label-modal";
 import { SalesStorePricesTable } from "./sales-store-prices-table";
 import type { ItemStorePriceWithStore } from "@/domain/pricing";
 // ↑ type-only import：domain/pricing.ts 是 "use server"，type 不會進 client bundle
+import { CoaInlineSelect, type CoaOption } from "./coa-inline-select";
+
+export type ItemGlAccountRef = {
+  id: string;
+  account_code: string;
+  name_zh_tw: string;
+};
 
 export type DetailItem = {
   id: string;
@@ -178,6 +189,8 @@ export function ItemDetailView({
   storePrices: storePricesProp,
   storePricesWithStores = [],
   orgs,
+  glAccounts: glAccountsProp,
+  accountOptions,
   canEdit,
 }: {
   item: DetailItem;
@@ -194,6 +207,12 @@ export function ItemDetailView({
   storePrices: StorePriceRow[];
   storePricesWithStores?: ItemStorePriceWithStore[];
   orgs: OrgRef[];
+  glAccounts: {
+    inventory: ItemGlAccountRef | null;
+    cogs: ItemGlAccountRef | null;
+    revenue: ItemGlAccountRef | null;
+  };
+  accountOptions: CoaOption[];
   canEdit: boolean;
 }) {
   const router = useRouter();
@@ -258,6 +277,39 @@ export function ItemDetailView({
   const showBanner = (b: Banner) => {
     setBanner(b);
     if (b?.ok) setTimeout(() => setBanner(null), 2200);
+  };
+
+  // GL accounts: 樂觀更新 + 單欄 pending 鎖
+  const [glAccounts, setGlAccounts] = useState(glAccountsProp);
+  const [glPending, setGlPending] = useState<GlField | null>(null);
+
+  const handleGlChange = async (field: GlField, coaId: string | null) => {
+    const prev = glAccounts[field];
+    // 樂觀更新：先把目標換成新值（從 accountOptions 找）；失敗會 rollback
+    const next: ItemGlAccountRef | null = coaId
+      ? accountOptions.find((o) => o.id === coaId) ?? null
+      : null;
+    setGlAccounts((s) => ({ ...s, [field]: next }));
+    setGlPending(field);
+    try {
+      const res = await updateItemGlAccountAction(item.id, field, coaId);
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已更新會計科目" });
+        router.refresh();
+      } else {
+        // rollback
+        setGlAccounts((s) => ({ ...s, [field]: prev }));
+        showBanner({ ok: false, msg: res.error });
+      }
+    } catch (err) {
+      setGlAccounts((s) => ({ ...s, [field]: prev }));
+      showBanner({
+        ok: false,
+        msg: `更新失敗：${err instanceof Error ? err.message : String(err)}`,
+      });
+    } finally {
+      setGlPending(null);
+    }
   };
 
   const save = () => {
@@ -1044,9 +1096,42 @@ export function ItemDetailView({
             ))}
             {sectionCard("總帳會計科目", (
               <>
-                <Kv label="存貨科目" value={item.gl_inventory_coa_id ? <span className="font-mono text-[11px]">{item.gl_inventory_coa_id.slice(0, 12)}…</span> : "—"} />
-                <Kv label="銷售成本科目" value={item.gl_cogs_coa_id ? <span className="font-mono text-[11px]">{item.gl_cogs_coa_id.slice(0, 12)}…</span> : "—"} />
-                <Kv label="收入認列科目" value={item.gl_revenue_coa_id ? <span className="font-mono text-[11px]">{item.gl_revenue_coa_id.slice(0, 12)}…</span> : "—"} />
+                <Kv
+                  label="存貨科目"
+                  value={
+                    <CoaInlineSelect
+                      current={glAccounts.inventory}
+                      options={accountOptions}
+                      editable={canEdit}
+                      pending={glPending === "inventory"}
+                      onChange={(coaId) => handleGlChange("inventory", coaId)}
+                    />
+                  }
+                />
+                <Kv
+                  label="銷售成本科目"
+                  value={
+                    <CoaInlineSelect
+                      current={glAccounts.cogs}
+                      options={accountOptions}
+                      editable={canEdit}
+                      pending={glPending === "cogs"}
+                      onChange={(coaId) => handleGlChange("cogs", coaId)}
+                    />
+                  }
+                />
+                <Kv
+                  label="收入認列科目"
+                  value={
+                    <CoaInlineSelect
+                      current={glAccounts.revenue}
+                      options={accountOptions}
+                      editable={canEdit}
+                      pending={glPending === "revenue"}
+                      onChange={(coaId) => handleGlChange("revenue", coaId)}
+                    />
+                  }
+                />
                 <Kv label="重量（公斤）" value={item.weight_kg != null ? Number(item.weight_kg).toLocaleString("en-US") : "—"} small />
                 <Kv label="體積（立方公分）" value={item.volume_cm3 != null ? Number(item.volume_cm3).toLocaleString("en-US") : "—"} small />
               </>

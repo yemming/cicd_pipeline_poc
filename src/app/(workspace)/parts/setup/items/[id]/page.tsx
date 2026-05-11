@@ -8,6 +8,10 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { listItemStorePrices } from "@/domain/pricing";
 import {
+  listPostableAccountsForItem,
+  getItemGlAccounts,
+} from "@/domain/items";
+import {
   ItemDetailView,
   type DetailItem,
   type StockLot,
@@ -107,6 +111,16 @@ async function loadDetail(id: string) {
   ]);
 
   const storePricesWithStores = await listItemStorePrices(id);
+
+  const [glAccounts, accountOptions] = await Promise.all([
+    getItemGlAccounts({
+      gl_inventory_coa_id: detail.gl_inventory_coa_id,
+      gl_cogs_coa_id: detail.gl_cogs_coa_id,
+      gl_revenue_coa_id: detail.gl_revenue_coa_id,
+    }),
+    listPostableAccountsForItem(),
+  ]);
+
   const stocks = (stockRes.data ?? []) as unknown as StockLot[];
   const warehouses = (whRes.data ?? []) as unknown as WarehouseRef[];
   const fitments = (fitRes.data ?? []) as unknown as FitmentRow[];
@@ -153,6 +167,8 @@ async function loadDetail(id: string) {
     storePrices,
     storePricesWithStores,
     orgs,
+    glAccounts,
+    accountOptions,
   };
 }
 

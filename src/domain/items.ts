@@ -89,3 +89,92 @@ export async function getItemsInfoPageData(query: {
   ]);
   return { result, searched: !!query.q, canEdit };
 }
+
+/**
+ * GL 科目（Chart of Accounts）下拉選項——只回 leaf-level 可入帳且啟用的。
+ * 用於 items 詳情頁「會計」tab 的 inline select。
+ *
+ * 注意：chart_of_accounts 用 tenant_id（groups.tenant_uuid），不是 brand_id；
+ * brand 是行銷虛軸，COA 屬於法人/集團層的 master data。
+ */
+export type CoaAccountOption = {
+  id: string;
+  account_code: string;
+  name_zh_tw: string;
+};
+
+export async function listPostableAccountsForItem(): Promise<CoaAccountOption[]> {
+  const supabase = await createClient();
+
+  // 撈 default tenant uuid（同 src/lib/accounting/queries.ts#getDefaultTenantUuid）
+  const { data: g, error: gErr } = await supabase
+    .from("groups")
+    .select("tenant_uuid")
+    .eq("id", "default")
+    .single();
+  if (gErr || !g) return [];
+  const tenant = g.tenant_uuid as string;
+
+  const { data, error } = await supabase
+    .from("chart_of_accounts")
+    .select("id, account_code, name_zh_tw")
+    .eq("tenant_id", tenant)
+    .eq("is_postable", true)
+    .eq("is_active", true)
+    .order("account_code", { ascending: true });
+  if (error) return [];
+  return (data ?? []) as CoaAccountOption[];
+}
+
+export type ItemGlAccount = {
+  id: string;
+  account_code: string;
+  name_zh_tw: string;
+};
+
+/**
+ * 撈 item 三個 GL FK 對應的 (code, name) 顯示資料。
+ * 若某欄為 null 則對應 key 為 null。
+ */
+export async function getItemGlAccounts(item: {
+  gl_inventory_coa_id: string | null;
+  gl_cogs_coa_id: string | null;
+  gl_revenue_coa_id: string | null;
+}): Promise<{
+  inventory: ItemGlAccount | null;
+  cogs: ItemGlAccount | null;
+  revenue: ItemGlAccount | null;
+}> {
+  const ids = [
+    item.gl_inventory_coa_id,
+    item.gl_cogs_coa_id,
+    item.gl_revenue_coa_id,
+  ].filter((x): x is string => !!x);
+
+  if (ids.length === 0) {
+    return { inventory: null, cogs: null, revenue: null };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("chart_of_accounts")
+    .select("id, account_code, name_zh_tw")
+    .in("id", ids);
+  if (error) return { inventory: null, cogs: null, revenue: null };
+
+  const map = new Map(
+    (data ?? []).map((c) => [
+      c.id as string,
+      {
+        id: c.id as string,
+        account_code: c.account_code as string,
+        name_zh_tw: c.name_zh_tw as string,
+      },
+    ]),
+  );
+  return {
+    inventory: item.gl_inventory_coa_id ? map.get(item.gl_inventory_coa_id) ?? null : null,
+    cogs: item.gl_cogs_coa_id ? map.get(item.gl_cogs_coa_id) ?? null : null,
+    revenue: item.gl_revenue_coa_id ? map.get(item.gl_revenue_coa_id) ?? null : null,
+  };
+}
