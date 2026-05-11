@@ -17,6 +17,9 @@ import { QuickAddSelect } from "@/components/quick-add-select";
 
 import { ItemImageUploader } from "./item-image-uploader";
 import { PrintLabelModal } from "./print-label-modal";
+import { SalesStorePricesTable } from "./sales-store-prices-table";
+import type { ItemStorePriceWithStore } from "@/domain/pricing";
+// ↑ type-only import：domain/pricing.ts 是 "use server"，type 不會進 client bundle
 
 export type DetailItem = {
   id: string;
@@ -173,6 +176,7 @@ export function ItemDetailView({
   controlLevels,
   woLines: woLinesProp,
   storePrices: storePricesProp,
+  storePricesWithStores = [],
   orgs,
   canEdit,
 }: {
@@ -188,6 +192,7 @@ export function ItemDetailView({
   controlLevels: ControlLevelOption[];
   woLines: WorkOrderLine[];
   storePrices: StorePriceRow[];
+  storePricesWithStores?: ItemStorePriceWithStore[];
   orgs: OrgRef[];
   canEdit: boolean;
 }) {
@@ -960,17 +965,9 @@ export function ItemDetailView({
 
         {activeTab === "sales" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {sectionCard("售價設定", (
-              <>
-                <Kv
-                  label="建議售價"
-                  value={
-                    showInputs ? (
-                      <input type="number" value={formDraft.suggested_price ?? ""} onChange={(e) => setFormDraft({ ...formDraft, suggested_price: e.target.value ? Number(e.target.value) : null })} className={inputClass} />
-                    ) : fmtNT(item.suggested_price)
-                  }
-                  mono={!showInputs}
-                />
+            {sectionCard("建議售價（全品牌基準）", (
+              <div className="space-y-2">
+                <Kv label="建議售價" value={fmtNT(item.suggested_price)} mono />
                 <Kv
                   label="預估毛利 vs 標準成本"
                   value={
@@ -981,39 +978,23 @@ export function ItemDetailView({
                   mono
                 />
                 <Kv label="保固月數" value={item.warranty_months ? `${item.warranty_months} 個月` : "—"} small />
-              </>
+                <p className="text-[11px] text-[#9A9890] pt-1">
+                  此為跨門店的基準售價。要修改請到上方「基本資料」區編輯。
+                </p>
+              </div>
             ))}
-            {sectionCard(`門市定價（${storePrices.length}）`, (
-              storePrices.length === 0 ? (
-                <div className="text-[12px] text-[#9A9890] py-2">尚未設定門市定價</div>
+            {sectionCard("門市差異定價", (
+              creating ? (
+                <div className="text-[12px] text-[#9A9890] py-2">
+                  建立後將跳轉到該商品的詳情頁，可進一步維護門市差異定價。
+                </div>
               ) : (
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="text-[11px] text-[#9A9890]">
-                      <th className="text-left font-medium py-1">門市</th>
-                      <th className="text-left font-medium py-1">類型</th>
-                      <th className="text-right font-medium py-1">售價</th>
-                      <th className="text-left font-medium py-1">狀態</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {storePrices.map((p) => (
-                      <tr key={p.id} className="border-t border-[#F8F7F4]">
-                        <td className="py-1.5">
-                          <div className="font-mono text-[11.5px]">{orgMap.get(p.org_id)?.code ?? p.org_id.slice(0, 8)}</div>
-                          <div className="text-[11px] text-[#9A9890]">{orgMap.get(p.org_id)?.name ?? "—"}</div>
-                        </td>
-                        <td className="py-1.5 text-[11.5px]">{p.pricing_type ?? "—"}</td>
-                        <td className="py-1.5 text-right font-mono">{fmtNT(Number(p.price))}</td>
-                        <td className="py-1.5 text-[11px]">
-                          <span className={`inline-flex items-center px-1.5 rounded-md text-[10.5px] ${p.is_active ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#F2F2F2] text-[#6B6A68]"}`}>
-                            {p.is_active ? "啟用" : "停用"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <SalesStorePricesTable
+                  itemId={item.id}
+                  rows={storePricesWithStores}
+                  suggestedPrice={item.suggested_price}
+                  canEdit={canEdit}
+                />
               )
             ))}
             {sectionCard(`適配車型（${fitments.length}）`, (

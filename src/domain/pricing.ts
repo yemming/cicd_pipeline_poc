@@ -118,6 +118,83 @@ export async function listPricing(filter: {
   });
 }
 
+/**
+ * 給 items/[id] 銷售 tab 用：撈該 item 在「該品牌所有 active 門店」的 price 列表。
+ * 沒實體 row 的店也會回一筆（price_id=null、pricing_type='default'），caller 可決定 fallback 顯示。
+ */
+export type ItemStorePriceWithStore = {
+  price_id: string | null;
+  store_id: string;
+  store_code: string;
+  store_name: string;
+  price: number | null;
+  pricing_type: "default" | "custom" | "promo";
+  promo_end_date: string | null;
+};
+
+export async function listItemStorePrices(
+  item_id: string,
+): Promise<ItemStorePriceWithStore[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const [storesRes, pricesRes] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("id, code, name")
+      .eq("brand_id", scope.brand_id)
+      .eq("type", "store")
+      .eq("is_active", true)
+      .order("code"),
+    supabase
+      .from("item_store_prices")
+      .select("id, org_id, price, pricing_type, promo_end_date")
+      .eq("brand_id", scope.brand_id)
+      .eq("item_id", item_id),
+  ]);
+  if (storesRes.error) throw storesRes.error;
+  if (pricesRes.error) throw pricesRes.error;
+
+  const stores = (storesRes.data ?? []) as Array<{
+    id: string;
+    code: string;
+    name: string;
+  }>;
+  const prices = (pricesRes.data ?? []) as Array<{
+    id: string;
+    org_id: string;
+    price: number;
+    pricing_type: string | null;
+    promo_end_date: string | null;
+  }>;
+
+  const priceByOrg = new Map<string, (typeof prices)[number]>();
+  for (const p of prices) priceByOrg.set(p.org_id, p);
+
+  return stores.map((s) => {
+    const p = priceByOrg.get(s.id);
+    const dbType = p?.pricing_type ?? null;
+    const isPromo =
+      dbType === "promotion" ||
+      dbType === "promo" ||
+      (p?.promo_end_date && new Date(p.promo_end_date) > new Date());
+    const ui_type: ItemStorePriceWithStore["pricing_type"] = isPromo
+      ? "promo"
+      : dbType === "custom" || dbType === "store_custom"
+        ? "custom"
+        : "default";
+    return {
+      price_id: p?.id ?? null,
+      store_id: s.id,
+      store_code: s.code,
+      store_name: s.name,
+      price: p?.price ?? null,
+      pricing_type: ui_type,
+      promo_end_date: p?.promo_end_date ?? null,
+    };
+  });
+}
+
 export async function getPricingPageData(filter: {
   store_id?: string;
   q?: string;

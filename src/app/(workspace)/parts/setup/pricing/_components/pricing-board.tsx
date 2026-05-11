@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  createStorePriceAction,
   endPromoPricingAction,
   setPriceAsPromoAction,
   updatePriceOnlyAction,
@@ -64,7 +65,7 @@ export function PricingBoard({
     if (!r.price_id) {
       showBanner({
         ok: false,
-        msg: "此商品尚未建立門店定價（請先 inline 編輯一次售價以建立紀錄）",
+        msg: "請先在「門市售價」欄填一次價格建立紀錄、再切促銷",
       });
       return;
     }
@@ -138,21 +139,26 @@ export function PricingBoard({
       width: 130,
       align: "right",
       cell: (r) => {
-        const noPriceRow = !r.price_id;
-        const cls = noPriceRow
-          ? "text-[#9A9890] italic"
-          : r.pricing_type === "promo"
+        // fallback row（沒實體 price_id）→ 顯示建議售價 + `*` + 灰斜體
+        if (!r.price_id) {
+          return (
+            <span
+              className="font-mono text-[12px] italic text-[#9A9890]"
+              title="顯示建議售價（此門店尚未建立定價、點擊可建立）"
+            >
+              {fmtMoney(r.store_price)} *
+            </span>
+          );
+        }
+        const cls =
+          r.pricing_type === "promo"
             ? "text-[#854F0B] bg-[#FDF3E3]"
             : r.pricing_type === "store_custom"
               ? "text-[#1A3A5C] bg-[#EBF3FF]"
               : "text-[#2C2C2A]";
         return (
-          <span
-            className={`font-mono text-[12px] px-1.5 py-0.5 rounded ${cls}`}
-            title={noPriceRow ? "顯示建議售價作為 fallback（此門店尚未建立定價紀錄、無法編輯或切促銷）" : undefined}
-          >
+          <span className={`font-mono text-[12px] px-1.5 py-0.5 rounded ${cls}`}>
             {fmtMoney(r.store_price)}
-            {noPriceRow ? " *" : ""}
           </span>
         );
       },
@@ -163,18 +169,32 @@ export function PricingBoard({
             type: "text",
             getValue: (r) => (r.store_price === null ? "" : String(r.store_price)),
             onSave: async (r, value) => {
-              if (!r.price_id) {
-                return {
-                  ok: false,
-                  error: "此商品尚未建立門店定價紀錄、無法直接編輯（請聯絡管理員初始化）",
-                };
-              }
               const trimmed = value.trim();
               if (!trimmed) return { ok: false, error: "價格不可為空" };
               const num = Number(trimmed.replace(/[^\d.-]/g, ""));
               if (!Number.isFinite(num) || num <= 0) {
                 return { ok: false, error: "價格必須是大於 0 的數字" };
               }
+
+              // fallback row（該店尚未建立定價）→ INSERT
+              if (!r.price_id) {
+                if (!activeStoreId) {
+                  return { ok: false, error: "請先選擇門店" };
+                }
+                const res = await createStorePriceAction({
+                  item_id: r.id,
+                  org_id: activeStoreId,
+                  price: num,
+                  // pricing_type 走 default 'custom'
+                });
+                if (res.ok) {
+                  showBanner({ ok: true, msg: "✓ 已建立此門店定價" });
+                  startTransition(() => router.refresh());
+                }
+                return res;
+              }
+
+              // 既有 row → UPDATE
               const res = await updatePriceOnlyAction(r.price_id, num);
               if (res.ok) {
                 showBanner({ ok: true, msg: "✓ 已更新門市售價" });
@@ -314,7 +334,7 @@ export function PricingBoard({
           const tooltip = !canEdit
             ? "沒有權限"
             : noPriceRow
-              ? "尚未建立此門店定價紀錄、無法切促銷（請聯絡管理員初始化）"
+              ? "請先在「門市售價」欄填一次價格建立紀錄、再切促銷"
               : isPromo
                 ? "結束促銷（自動還原為建議售價）"
                 : "切成促銷";

@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { listItemStorePrices } from "@/domain/pricing";
 import {
   ItemDetailView,
   type DetailItem,
@@ -105,6 +106,7 @@ async function loadDetail(id: string) {
       .eq("brand_id", brand),
   ]);
 
+  const storePricesWithStores = await listItemStorePrices(id);
   const stocks = (stockRes.data ?? []) as unknown as StockLot[];
   const warehouses = (whRes.data ?? []) as unknown as WarehouseRef[];
   const fitments = (fitRes.data ?? []) as unknown as FitmentRow[];
@@ -149,6 +151,7 @@ async function loadDetail(id: string) {
     controlLevels,
     woLines,
     storePrices,
+    storePricesWithStores,
     orgs,
   };
 }
