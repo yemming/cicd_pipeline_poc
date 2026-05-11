@@ -38,7 +38,6 @@ export default async function NewWorkOrderPage({
   // 從預約轉過來的預填：customer / vehicle / appointment 三個 query params 由 appointment edit 頁帶過來
   let prefill: Partial<WorkOrder> | null = null;
   if (sp.customer || sp.vehicle || sp.appointment) {
-    let mileageIn: number | null = null;
     if (sp.appointment) {
       // 嘗試讀預約的 customer/vehicle 補完欠缺的欄位
       const appt = await getServiceAppointmentById(sp.appointment);

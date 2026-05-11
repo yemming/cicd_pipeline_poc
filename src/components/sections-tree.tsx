@@ -9,7 +9,7 @@
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import type { ModulePage, ParentGroup, SectionGroup } from "@/lib/modules";
 
@@ -122,10 +122,13 @@ function ParentGroupItem({
   }, [parent.children, activePageHref]);
 
   // 預設：含 active child 才展開；後續 active 變動時自動展開（但不強制收回手動展的）
+  // 用 prev-state 比對在 render 階段觸發 setOpen，避免 useEffect 內 setState 的 cascading render
   const [open, setOpen] = useState<boolean>(hasActiveChild);
-  useEffect(() => {
+  const [prevHasActiveChild, setPrevHasActiveChild] = useState(hasActiveChild);
+  if (hasActiveChild !== prevHasActiveChild) {
+    setPrevHasActiveChild(hasActiveChild);
     if (hasActiveChild) setOpen(true);
-  }, [hasActiveChild]);
+  }
 
   if (isDirectLink) {
     return (
