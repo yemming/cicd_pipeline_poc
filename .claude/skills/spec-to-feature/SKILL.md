@@ -1,6 +1,6 @@
 ---
 name: spec-to-feature
-description: 把 Stitch HTML / Figma 截圖 / 文字描述的新功能規格，照 DealerOS 的 Domain Helper + Typed Core + JSONB Metadata 架構自動拆解、提案、落地、驗證。觸發語：「把這個頁面照我們架構做」、「新功能：xxx 請用 design pattern + Helper 實現」、用戶拖入 Stitch HTML 檔案、貼 Stitch / Figma URL。5 階段流程：結構分析 → 架構提案 → 拍板 → 落地 → 驗證 checklist。落地前必須由用戶 review 提案，禁止跳過階段 3。
+description: 把 Stitch HTML / Figma 截圖 / 文字描述的新功能規格，照 DealerOS 的 Domain Helper + Typed Core + JSONB Metadata 架構自動拆解、提案、落地、驗證。觸發語：「把這個頁面照我們架構做」、「新功能：xxx 請用 design pattern + Helper 實現」、用戶拖入 Stitch HTML 檔案、貼 Stitch / Figma URL。5 階段流程：結構分析 → 架構提案 → 拍板 → 落地 → 驗證 checklist。落地前必須由用戶 review 提案，禁止跳過階段 3。**自動偵測 `docs/proposals/feature-{slug}-phase1.md`：有就接手不重分析（大模組批次跑過 Phase 1 的情境），沒有就跑單頁 SA/SD 分析**。也支援批次模式（只跑 Phase 1，給大模組先盤架構用）。
 ---
 
 # spec-to-feature
@@ -24,6 +24,53 @@ DealerOS 把新頁面規格落地的標準工作流。每收到一份新頁面�
 - 用戶要修現有頁面的 bug / 微調樣式（這走 design pattern SOP，不過 skill）
 - 用戶在討論架構 / 規格，還沒明確要動工
 
+## 兩條入口（決定要不要跑 Stage 1）
+
+skill 啟動時**必須先掃** `docs/proposals/feature-*-phase1.md`，依結果走不同路：
+
+### 入口 A — 有 phase1.md（大模組批次盤過 Phase 1）
+
+```
+有 docs/proposals/feature-{slug}-phase1.md 對應到當前輸入
+  ↓
+信任 phase1.md 當作 Stage 1 已完成的結論（entity / action / kpi / schema 草案 / 跨頁關係 / open questions）
+  ↓
+跳過 Stage 1，直接進 Stage 2（把 phase1.md 升級成完整 feature-{slug}.md 提案）
+```
+
+判斷「有對應」的依據（任一命中即可）：
+1. phase1.md 內文 grep 是否引用當前輸入的 HTML 檔名 / nav_node id / URL
+2. phase1.md 檔名 slug 跟用戶描述匹配（例如「人車檔案」→ `feature-aftersales-customers-vehicles-phase1.md`）
+3. 用戶直接點名（「用 feature-aftersales-checkout-phase1.md 的分析往下做」）
+
+**新鮮度檢查**：比對 HTML mtime vs phase1.md mtime — HTML 比較新就提示「規格 HTML 在 phase1.md 之後改過，要不要重跑 Stage 1？」，否則信任 phase1.md。
+
+### 入口 B — 沒有 phase1.md（單一功能 / 新模組第一筆）
+
+照原本 5 階段流程跑，Stage 1 從零做結構分析（SA/SD）。
+
+⚠️ **無腦使用原則**：用戶無論是「新模組進來」還是「加一兩個功能」都用同一條 skill 觸發，**入口判斷由 skill 自動完成**，用戶不需要記是哪條路。
+
+## 批次模式（只跑 Phase 1，給大模組先盤架構用）
+
+當用戶要把整個大模組（10+ 頁）「先搬進系統、先盤結構」時，用「只跑 Phase 1」的批次模式 — 產出一批 phase1.md，後續單頁正式 spec-to-feature 時走入口 A 接手。
+
+**觸發語**：
+- 「整個 X 模組跑 spec-to-feature 的 phase 1」
+- 「把這個資料夾的所有 HTML 都做 phase 1 分析」
+- 「先做結構分析，先不要落地」
+
+**流程**：
+- 對每支 HTML 開一個 sub-agent，**只跑 Stage 1**
+- 破例把 Stage 1 結構寫到 `docs/proposals/feature-{slug}-phase1.md`（原本 SKILL 規定 Stage 1 不產檔，這個模式破例）
+- Stage 1 內容包含：entity / action / kpi / implied_schema / implied_pages + 跟兄弟頁的關係摘要 + 待 Stage 3 拍板的 open questions
+- **不要進 Stage 2-5**（用戶之後挑單頁時，skill 走入口 A 接手）
+
+**好處**：
+- 一輪掃完知道整個模組的跨頁架構共識（例如「04 SA + 04 RO 共表」「06 拆表」），單頁時不會局部最優
+- phase1.md 並行可寫，不阻塞主線
+- 用戶可分批挑頁進 Stage 2-5，每次 spec-to-feature 都自動 reuse 已盤好的結論
+
 ## 5 階段流程
 
 不可跳階段、不可合併。每個階段結束有明確產出。
@@ -31,6 +78,14 @@ DealerOS 把新頁面規格落地的標準工作流。每收到一份新頁面�
 ### 階段 1：結構分析（自動，不問用戶）
 
 **輸入**：HTML / 截圖 / Stitch URL / 文字描述 / **nav_node ID 或頁面名稱**
+
+**第 0 步（強制先做）：掃 phase1.md**
+
+```bash
+ls docs/proposals/feature-*-phase1.md 2>/dev/null
+```
+
+如果有對應檔案 → 走上方「入口 A」，本階段直接結束、跳 Stage 2。如果沒有 → 走「入口 B」，繼續下方第 1 步以下流程。
 
 **動作**：
 
@@ -85,7 +140,11 @@ implied_pages:
 **動作**：
 
 1. 開檔 `docs/proposals/feature-{slug}.md`，slug 從 URL / 檔名 / 用戶描述抽
-2. 用以下 template 填內容：
+2. **若從入口 A 接手**：把 phase1.md 內容當已完成的 Stage 1 結論，直接擴充成完整提案 —
+   - phase1.md 已有：結構摘要、entity / action / kpi、schema 草案、跨頁關係、open questions
+   - Stage 2 要補上：§3 Domain Helper API 簽名、§5 頁面骨架表（路徑 + 範本對應）、§6 nav_nodes SQL、§7 Critical Files 清單、§8 Verification checklist
+   - **phase1.md 保留為歷史檔不刪** — 跨頁架構決策對兄弟頁未來提案也有參考價值
+3. 用以下 template 填內容：
 
 ```markdown
 # 提案：<功能名>
@@ -229,19 +288,73 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 
 每步完成 update 對應 task。
 
-### 階段 5：驗證 checklist
+### 階段 5：驗證 + 清孤兒
 
-落地後向用戶輸出 checklist（從提案的「8. Verification」拷出來、加實際操作步驟），讓用戶手測。**不要替用戶宣告完成**，等他驗。
+**5.1 驗證**
+
+落地後向用戶輸出 checklist（從提案的「8. Verification」拷出來、加實際操作步驟）。Skill 自己用 Chrome MCP 跑一次互動主流程（建立 / 編輯 / 儲存 / 刪除）+ 查 DB 確認落地，不要替用戶宣告完成、等他點頭。
+
+**5.2 清孤兒（強制）— Chrome MCP 驗證通過後立刻執行，不拖到下次 session**
+
+「升級既有頁面」這種情境下，新版會把舊版 code + DB 表晾在一邊。MCP 驗證通過 = 新版確認可用 → **必須主動掃孤兒、列清單給用戶點頭、執行刪除**。
+
+**掃孤兒 SOP**：
+
+1. 0 callers 的舊 server action 檔：
+   ```bash
+   for f in src/lib/<舊路徑>/<舊檔>.ts; do
+     callers=$(grep -rln "$(basename $f .ts)" src/ --include="*.ts" --include="*.tsx" | grep -v "$f" | wc -l)
+     echo "$f → $callers callers"
+   done
+   ```
+
+2. 0 reference 的舊 DB 表（page.tsx / domain helper 是否還 SELECT）：
+   ```bash
+   grep -rn "from('<舊表名>')" src/ || echo "0 references"
+   ```
+
+3. **分類列清單給用戶 review**（先報告、不直接刪）：
+
+   | 類別 | 是孤兒？ | 處理 |
+   |---|---|---|
+   | HTML 設計稿（`docs/...html`） | ❌ 不是 | 設計來源資產，留著當提案 reference |
+   | 新 page 目錄 / 路由 | ❌ 不是 | 重寫的就是它本身 |
+   | 舊 server action 檔（0 callers） | ✅ 是 | 可 `rm` |
+   | 舊 DB 表（0 reference） | ✅ 是 | 可 `DROP TABLE` |
+   | nav_node 從 `static_html` 升 `react_route` 後的 `html_storage_path` 檔 | ❌ 不是 | 保留當歷史檔（skill 階段 4 規定） |
+
+4. **等用戶點頭**才執行（DROP TABLE 不可逆、CLAUDE.md §安全邊界必須先確認）。執行：
+   - 檔案：`rm src/lib/<舊路徑>/<舊檔>.ts`
+   - DB 表（按 FK 順序、子表先刪）：
+     ```sql
+     DROP TABLE IF EXISTS <child_table>;
+     DROP TABLE IF EXISTS <parent_table>;
+     ```
+
+5. 刪完跑 `npx tsc --noEmit` + `npx eslint <touched>` 確認沒爛 import / 殘留 type 引用、回報結果
+
+**不刪清單（白名單）**：
+- HTML 設計稿（`docs/DUCATI_*/`、`docs/proposals/*.md`）
+- 新 page 的 directory / route
+- 跨模組 shared helper（其他模組還在 import）
+- nav_node 的 `html_storage_path` 指向的舊 HTML（升級後要保留當歷史檔，跟孤兒不同）
 
 ## 紀律 / 禁區
 
 - ❌ 跳階段 3 直接落地（即使你「覺得」自己懂用戶意圖）
 - ❌ UI 直接 `import { createClient } from '@/lib/supabase/...'`
 - ❌ 規則類各開一張表（採購權限 / 盤點 / 告警階層 都走 `business_rules`）
+- ❌ 看到「為 role 設定能 / 不能 boolean 授權」的設定頁不要直接走 `business_rules`。先檢查 `permissions` 表 + `PERMISSIONS` 常數，能對映 RBAC 就走 RBAC SSOT 或同步雙寫；`business_rules` 只接「量化規則 / workflow / 業務參數」這類非 boolean 設定。
+  判斷三步：
+  1. boolean「能 / 不能」？ → RBAC 候選，去 `permissions` 找對應 code、缺就 INSERT 補
+  2. 量化值（金額、數量、閾值）？ → `business_rules`
+  3. workflow / 流程描述？ → `business_rules`
 - ❌ 為了 future-proof 全部欄位 typed（變動中的丟 jsonb）
 - ❌ 寫 zod schema（POC 階段不寫；type 靠 supabase generate）
 - ❌ 在落地前修改既有 server actions（除非用戶明確要求）
 - ❌ 不雙 brand 補 nav_nodes（會至少一個品牌看不到入口）
+- ❌ 在 `"use server"` module（如 `src/domain/*.ts` server helper）裡 export 非 async value（陣列、物件、type alias 不算）。Next 16 會跑 `Runtime Error: A "use server" file can only export async functions`。**新建 domain helper 同時建 `*.constants.ts` 放常數**（type alias OK 留 helper 檔，但 const / array / object 一律拆檔）。已踩雷三次（procurement / rules / rbac），是反覆失分點。
+- ❌ MCP 驗證通過後不清孤兒（必須當下盤點、列清單、刪掉；拖到下次 session = 累積債）
 
 ## References
 

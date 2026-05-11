@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>DUCATI 售後預檢單 v2</title>
+<style>
+:root{
+  --red:#CC0000;--dark:#1A1A1A;--white:#FFFFFF;
+  --g50:#F5F5F4;--g100:#E8E7E4;--g200:#D1D0CE;--g400:#999;--g500:#6B6A68;--g700:#3A3A38;
+  --green:#0F6E56;--green-bg:#E1F5EE;--green-bd:#1D9E75;
+  --amber:#854F0B;--amber-bg:#FAEEDA;--amber-bd:#BA7517;
+  --red-bg:#FCEBEB;--blue:#185FA5;--blue-bg:#E6F1FB;
+  --font:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  --r:10px;--r-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#EDECEB;font-family:var(--font);font-size:14px;color:var(--dark)}
+.app{display:flex;flex-direction:column;height:100vh;max-width:1024px;margin:0 auto;background:var(--white);box-shadow:0 0 30px rgba(0,0,0,0.12)}
+
+.hdr{background:var(--red);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.hdr-logo{font-size:17px;font-weight:700;letter-spacing:2px;margin-right:12px}
+.hdr-title{font-size:13px;opacity:0.9}
+.hdr-meta{text-align:right;font-size:11px;opacity:0.85;line-height:1.7}
+
+.tabs{display:flex;background:var(--g50);border-bottom:1px solid var(--g100);flex-shrink:0;overflow-x:auto}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:10px 16px;font-size:12px;font-weight:500;cursor:pointer;border-bottom:3px solid transparent;color:var(--g500);white-space:nowrap;user-select:none;transition:all 0.15s;display:flex;align-items:center;gap:5px}
+.tab.active{color:var(--red);border-bottom-color:var(--red);background:var(--white)}
+.tab.done{color:var(--green)}
+.tab-num{width:18px;height:18px;border-radius:50%;background:var(--g200);color:var(--g700);font-size:10px;text-align:center;line-height:18px;flex-shrink:0;font-weight:600}
+.tab.active .tab-num{background:var(--red);color:#fff}
+.tab.done .tab-num{background:var(--green);color:#fff}
+
+.content{flex:1;overflow-y:auto;padding:12px;background:var(--g50)}
+.panel{display:none}
+.panel.active{display:block}
+
+.card{background:var(--white);border:0.5px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.card-hdr{padding:9px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.card-hdr.red{background:var(--red);color:#fff}
+.card-hdr.dark{background:var(--dark);color:#fff}
+.card-hdr.blue{background:var(--blue);color:#fff}
+.card-hdr.green{background:var(--green);color:#fff}
+.card-hdr.amber{background:var(--amber);color:#fff}
+.card-body{padding:12px 14px}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.field{display:flex;flex-direction:column;gap:3px}
+.field label{font-size:11px;color:var(--g500);font-weight:500}
+.field input,.field select{height:36px;padding:0 10px;border:0.5px solid var(--g200);border-radius:var(--r-sm);font-size:12px;color:var(--dark);background:var(--g50);width:100%}
+.field input:focus{outline:none;border-color:var(--red);background:#fff}
+.field textarea{padding:8px 10px;border:0.5px solid var(--g200);border-radius:var(--r-sm);font-size:12px;color:var(--dark);background:var(--g50);resize:none;width:100%}
+
+.moto-wrap{position:relative;background:var(--g50);border-radius:8px;overflow:hidden;margin-bottom:8px;border:0.5px solid var(--g100)}
+.moto-lbl{font-size:11px;color:var(--g500);margin-bottom:4px;font-weight:500}
+.dot{position:absolute;width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,0.85);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;transform:translate(-50%,-50%);z-index:10;transition:transform 0.12s}
+.dot:active{transform:translate(-50%,-50%) scale(0.88)}
+.dot.ok{background:var(--green-bd)}
+.dot.warn{background:var(--amber-bd)}
+.dot.bad{background:var(--red);animation:blink 1.8s infinite}
+.dot.empty{background:rgba(120,120,120,0.35);border-color:rgba(255,255,255,0.5)}
+@keyframes blink{0%,100%{box-shadow:0 0 0 0 rgba(204,0,0,0.45)}60%{box-shadow:0 0 0 7px rgba(204,0,0,0)}}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--g500)}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+
+.chk-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--g100)}
+.chk-row:last-child{border-bottom:none}
+.chk-label{flex:1;font-size:12px}
+.chk-btns{display:flex;gap:4px;flex-shrink:0}
+.cbtn{min-width:46px;height:32px;padding:0 10px;border-radius:var(--r-sm);border:0.5px solid var(--g200);font-size:11px;cursor:pointer;background:#fff;color:var(--g500);font-weight:500}
+.cbtn.ok{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.cbtn.warn{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}
+.cbtn.bad{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+
+.purpose-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.pchk{padding:10px 8px;border:0.5px solid var(--g200);border-radius:var(--r-sm);cursor:pointer;font-size:12px;text-align:center;background:#fff;transition:all 0.15s;user-select:none;line-height:1.5}
+.pchk.sel{border-color:var(--blue);background:var(--blue-bg);color:var(--blue);font-weight:500}
+.pchk.sel-warn{border-color:var(--amber-bd);background:var(--amber-bg);color:var(--amber);font-weight:500}
+
+.warranty-alert{background:var(--amber-bg);border:0.5px solid var(--amber-bd);border-radius:8px;padding:10px 14px;margin-top:8px;font-size:12px;color:#412402;line-height:1.8}
+.warranty-alert strong{color:var(--amber)}
+
+.ask-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--g100)}
+.ask-row:last-child{border-bottom:none}
+.ask-q{flex:1;font-size:12px}
+.ask-btns{display:flex;gap:4px}
+.abtn{height:30px;padding:0 12px;border-radius:var(--r-sm);border:0.5px solid var(--g200);font-size:11px;cursor:pointer;background:#fff;color:var(--g500)}
+.abtn.yes{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.abtn.no{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.abtn.na{background:var(--g50);color:var(--g500)}
+
+.tech-sec-hdr{padding:6px 10px;font-size:11px;font-weight:700;color:#fff;border-radius:var(--r-sm);margin-bottom:4px;margin-top:10px}
+.cat-engine{background:#854F0B}
+.cat-brake{background:#CC0000}
+.cat-tire{background:#185FA5}
+.cat-elec{background:#534AB7}
+.cat-chassis{background:#2C2C2C}
+.tech-row{display:flex;align-items:flex-start;gap:8px;padding:8px;border:0.5px solid var(--g100);border-radius:var(--r-sm);margin-bottom:4px;background:#fff}
+.tech-left{flex:1}
+.tech-title{font-size:12px;font-weight:500;margin-bottom:2px}
+.tech-diag{font-size:11px;color:var(--g500)}
+.tech-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.saf-badge{font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600}
+.saf-1{background:var(--red-bg);color:var(--red)}
+.saf-2{background:var(--amber-bg);color:var(--amber)}
+.saf-3{background:var(--green-bg);color:var(--green)}
+.dec-btns{display:flex;gap:3px}
+.dbtn{height:26px;padding:0 9px;border-radius:4px;border:0.5px solid var(--g200);font-size:10px;cursor:pointer;background:#fff;color:var(--g500)}
+.dbtn.agree{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.dbtn.defer{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}
+.dbtn.reject{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+
+.qsec-title{font-size:12px;font-weight:600;color:var(--g500);margin-bottom:6px;padding-bottom:4px;border-bottom:0.5px solid var(--g100);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.q-hdr{display:grid;grid-template-columns:1fr 55px 80px 80px 80px;gap:6px;padding:6px 8px;background:var(--dark);border-radius:var(--r-sm) var(--r-sm) 0 0;font-size:11px;font-weight:600;color:#fff}
+.q-row{display:grid;grid-template-columns:1fr 55px 80px 80px 80px;gap:6px;padding:7px 8px;font-size:12px;border-bottom:0.5px solid var(--g100);align-items:center}
+.q-row:nth-child(odd){background:var(--g50)}
+.q-row.tech-agreed{background:var(--green-bg)}
+.q-row.tech-defer{background:var(--amber-bg)}
+.q-row.tech-reject{opacity:0.4;text-decoration:line-through}
+.qc{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.qc.r{text-align:right}
+.qc.c{text-align:center}
+
+.add-row{display:flex;gap:6px;margin-top:8px;padding:8px;border:1px dashed var(--g200);border-radius:6px;background:#fff;align-items:center;flex-wrap:wrap}
+.add-row input{flex:1;min-width:100px;height:32px;padding:0 8px;border:0.5px solid var(--g200);border-radius:4px;font-size:12px;background:var(--g50)}
+.add-row input.sm{flex:none;width:62px}
+.add-row button{height:32px;padding:0 14px;border:none;border-radius:4px;background:var(--blue);color:#fff;font-size:12px;cursor:pointer;white-space:nowrap}
+
+.total-bar{background:var(--dark);border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:10px}
+.t-items{display:flex;gap:20px;flex-wrap:wrap}
+.t-item label{font-size:10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px}
+.t-item span{font-size:13px;font-weight:600;color:#fff}
+.t-main label{font-size:11px;color:rgba(255,255,255,0.7);display:block;text-align:right}
+.t-main span{font-size:22px;font-weight:700;color:#FF6B6B}
+
+.loop-hint{background:var(--red-bg);border:0.5px solid #F09595;border-radius:6px;padding:9px 12px;font-size:11px;color:var(--red);line-height:1.7;margin-top:8px}
+
+.sig-box{border:1.5px dashed var(--g200);border-radius:8px;height:78px;display:flex;align-items:center;justify-content:center;color:var(--g400);font-size:12px;cursor:pointer;background:var(--g50);margin-top:8px}
+.sig-box.signed{background:#fff;border-style:solid;border-color:var(--green-bd);color:var(--green)}
+
+.prog-wrap{padding:7px 14px;background:#fff;border-top:0.5px solid var(--g100);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.prog-bar{flex:1;height:3px;background:var(--g200);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--red);border-radius:2px;transition:width 0.35s}
+.prog-text{font-size:11px;color:var(--g500);white-space:nowrap}
+.footer{padding:10px 14px;background:#fff;border-top:0.5px solid var(--g100);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.btn{height:40px;padding:0 20px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s}
+.btn:active{transform:scale(0.97)}
+.btn-red{background:var(--red);color:#fff}
+.btn-outline{background:transparent;border:0.5px solid var(--g200);color:var(--dark)}
+.btn-group{display:flex;gap:8px;align-items:center}
+.hint{font-size:11px;color:var(--g500)}
+.divider{height:0.5px;background:var(--g100);margin:12px 0}
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;margin-right:4px}
+.tag-sa{background:var(--blue)}
+.tag-tech{background:var(--amber)}
+.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-ok{background:var(--green-bg);color:var(--green)}
+.badge-warn{background:var(--amber-bg);color:var(--amber)}
+.badge-bad{background:var(--red-bg);color:var(--red)}
+.ctag-wrap{margin-top:14px;border:1px solid #C4BEF0;border-radius:8px;overflow:hidden;background:#fff;width:100%;}.ctag-bar{padding:8px 14px;background:#F0EFFE;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}.ctag-bar-left{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#26215C;flex:1;min-width:0;}.ctag-bar-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}.ctag-toggle-btn{font-size:11px;padding:2px 9px;border-radius:5px;background:#534AB7;color:#fff;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;}.ctag-role-badge{font-size:10px;padding:1px 7px;border-radius:5px;background:#E8E4FB;color:#534AB7;font-weight:500;}.ctag-summary{display:flex;flex-wrap:wrap;gap:4px;align-items:center;flex:1;min-width:0;overflow:hidden;}.ctag-body{padding:12px 14px;border-top:1px solid #E0D9F7;}.ctag-legend{display:flex;gap:10px;flex-wrap:wrap;padding:6px 10px;background:#FAF9F7;border-radius:6px;border:1px solid #EEECE6;margin-bottom:10px;font-size:10.5px;color:#888;}.ctag-legend span{display:flex;align-items:center;gap:3px;}.ctag-sw{width:9px;height:9px;border-radius:2px;display:inline-block;}.ctag-section-lbl{font-size:10.5px;color:#999;font-weight:500;letter-spacing:.3px;margin-bottom:6px;margin-top:8px;}.ctag-section-lbl:first-child{margin-top:0;}.ctag-row{display:flex;flex-wrap:wrap;gap:5px;min-height:26px;}.ctag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px 3px 8px;border-radius:16px;font-size:11.5px;font-weight:500;white-space:nowrap;}.ctag-red{background:#FDECEA;border:1px solid #F5AEAD;color:#7A1010;}.ctag-yellow{background:#FDF3E3;border:1px solid #F0C97E;color:#6B3A00;}.ctag-green{background:#E5F5EE;border:1px solid #80CCA8;color:#084D30;}.ctag-blue{background:#EAF4FB;border:1px solid #85B7EB;color:#0C3E70;}.ctag-src{font-size:10px;opacity:.6;}.ctag-lock{font-size:10px;opacity:.45;}.ctag-del{background:none;border:none;cursor:pointer;font-size:12px;color:#aaa;padding:0 0 0 2px;line-height:1;}.ctag-del:hover{color:#CC0000;}.preset-row{display:flex;flex-wrap:wrap;gap:5px;}.preset-tag{border-radius:14px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:inherit;transition:opacity .1s;}.preset-tag:hover{opacity:.7;}.preset-red{background:#FDECEA;color:#7A1010;border:1px solid #F5AEAD;}.preset-yellow{background:#FDF3E3;color:#6B3A00;border:1px solid #F0C97E;}.preset-green{background:#E5F5EE;color:#084D30;border:1px solid #80CCA8;}.preset-blue{background:#EAF4FB;color:#0C3E70;border:1px solid #85B7EB;}.ctag-add-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px;}.ctag-add-row select,.ctag-add-row input{height:30px;border:1px solid #D1D0CE;border-radius:5px;padding:0 8px;font-size:12px;font-family:inherit;background:#fff;}.ctag-add-row input{flex:1;min-width:130px;}.ctag-add-btn{height:30px;padding:0 13px;background:#534AB7;color:#fff;border:none;border-radius:5px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;}.ctag-hint{font-size:10.5px;color:#aaa;margin-top:4px;}</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="hdr-logo">DUCATI</div>
+      <div>
+        <div class="hdr-title">售後預檢單 SA Pre-Inspection　v2</div>
+        <div style="font-size:11px;opacity:0.75;margin-top:1px">PI-20260427-003</div>
+      </div>
+    </div>
+    <div class="hdr-meta">
+      <span>SA：魏呈宇</span>
+      <span>2026/04/27　09:42</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="0"><span class="tab-num">1</span>環車檢查</div>
+    <div class="tab" data-tab="1"><span class="tab-num">2</span>來意詢問</div>
+    <div class="tab" data-tab="2"><span class="tab-num">3</span>技師深入檢查</div>
+    <div class="tab" data-tab="3"><span class="tab-num">4</span>報價</div>
+    <div class="tab" data-tab="4"><span class="tab-num">5</span>確認簽名</div>
+  </div>
+
+  <div class="content">
+
+    <!-- TAB 1：環車檢查 -->
+    <div class="panel active" id="panel0">
+      <div class="card">
+        <div class="card-hdr dark">車輛與客戶基本資料</div>
+        <div class="card-body">
+          <div class="fields">
+            <div class="field"><label>車主姓名</label><input value="鄭宗勳"/></div>
+            <div class="field"><label>聯絡電話</label><input value="0960-771-318"/></div>
+            <div class="field"><label>進廠日期</label><input type="date" value="2026-04-27"/></div>
+            <div class="field"><label>車型</label><input value="PANIGALE V2"/></div>
+            <div class="field"><label>車牌號碼</label><input value="LGX-8096"/></div>
+            <div class="field"><label>進廠里程 (km)</label><input value="3,250"/></div>
+          </div>
+          <div style="margin-top:10px;padding:8px 12px;background:var(--green-bg);border:0.5px solid var(--green-bd);border-radius:6px;display:flex;gap:20px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--green)">🛡 保固狀態：<strong>有效</strong></span>
+            <span style="font-size:11px;color:var(--green)">啟動日：2025/11/18</span>
+            <span style="font-size:11px;color:var(--green)">到期日：2027/11/18</span>
+            <span style="font-size:11px;color:var(--green)">里程：無限制 (NORM)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-hdr red">環車損傷標記　點擊標記點循環切換</div>
+          <div class="card-body">
+            <div class="moto-lbl">側面圖 Side View</div>
+            <div class="moto-wrap" style="height:152px">
+              <svg viewBox="0 0 420 145" width="100%" height="145">
+                <circle cx="325" cy="112" r="27" fill="none" stroke="#999" stroke-width="7"/>
+                <circle cx="325" cy="112" r="13" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+                <circle cx="95"  cy="112" r="27" fill="none" stroke="#999" stroke-width="7"/>
+                <circle cx="95"  cy="112" r="13" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+                <path d="M95 88 L145 60 L270 58 L325 88" fill="none" stroke="#888" stroke-width="4" stroke-linecap="round"/>
+                <line x1="95" y1="88" x2="130" y2="62" stroke="#888" stroke-width="5" stroke-linecap="round"/>
+                <path d="M130 62 Q155 38 200 34 Q240 30 270 38 L285 60 Q290 75 285 88 L145 88 Z" fill="#D8D8D8" stroke="#BBBBBB" stroke-width="1.5"/>
+                <path d="M80 88 Q72 72 88 58 Q108 44 135 46 L145 88 Z" fill="#CACACA" stroke="#BBBBBB" stroke-width="1.5"/>
+                <path d="M285 88 L340 88 Q355 78 345 62 Q330 44 300 42 Q285 40 285 60 Z" fill="#CACACA" stroke="#BBBBBB" stroke-width="1.5"/>
+                <path d="M172 36 Q210 26 258 34 L260 50 Q220 42 170 50 Z" fill="#C8C8C8" stroke="#AAA" stroke-width="1"/>
+                <path d="M185 38 Q222 28 270 36 L270 44 Q222 36 185 46 Z" fill="#444" stroke="#333" stroke-width="1"/>
+                <path d="M278 100 Q305 108 332 103" stroke="#999" stroke-width="6" fill="none" stroke-linecap="round"/>
+                <path d="M130 60 Q138 46 150 48" stroke="#999" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+                <rect x="122" y="38" width="13" height="9" rx="2" fill="#C8C8C8" stroke="#AAA"/>
+                <ellipse cx="76" cy="73" rx="7" ry="9" fill="#EEEEBB" stroke="#CCC"/>
+                <rect x="341" y="65" width="11" height="9" rx="1.5" fill="#FFB0B0" stroke="#DDD"/>
+                <path d="M145 118 Q230 124 325 116" stroke="#AAA" stroke-width="2.5" fill="none" stroke-dasharray="4,3"/>
+              </svg>
+              <div class="dot bad"   style="left:21%;top:62%" data-label="左整流罩"></div>
+              <div class="dot ok"    style="left:50%;top:32%" data-label="油箱/車身"></div>
+              <div class="dot warn"  style="left:78%;top:62%" data-label="車尾"></div>
+              <div class="dot ok"    style="left:23%;top:88%" data-label="前輪"></div>
+              <div class="dot warn"  style="left:77%;top:88%" data-label="後輪"></div>
+              <div class="dot ok"    style="left:38%;top:56%" data-label="前叉"></div>
+              <div class="dot empty" style="left:64%;top:52%" data-label="坐墊區"></div>
+            </div>
+
+            <div class="moto-lbl" style="margin-top:6px">鳥瞰圖 Top View</div>
+            <div class="moto-wrap" style="height:85px">
+              <svg viewBox="0 0 420 78" width="100%" height="78">
+                <ellipse cx="210" cy="39" rx="118" ry="20" fill="#D8D8D8" stroke="#BBBBBB" stroke-width="1.5"/>
+                <ellipse cx="96"  cy="39" rx="11" ry="21" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+                <ellipse cx="324" cy="39" rx="11" ry="21" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+                <line x1="96" y1="39" x2="324" y2="39" stroke="#CCC" stroke-width="1" stroke-dasharray="5,4"/>
+                <line x1="128" y1="16" x2="128" y2="62" stroke="#999" stroke-width="5.5" stroke-linecap="round"/>
+                <ellipse cx="200" cy="39" rx="38" ry="17" fill="#CACACA" stroke="#AAA"/>
+                <ellipse cx="262" cy="39" rx="43" ry="13" fill="#555" stroke="#444"/>
+                <rect x="112" y="12" width="18" height="9" rx="2" fill="#C8C8C8" stroke="#AAA"/>
+                <rect x="112" y="57" width="18" height="9" rx="2" fill="#C8C8C8" stroke="#AAA"/>
+              </svg>
+              <div class="dot ok"    style="left:30%;top:28%" data-label="左前車身"></div>
+              <div class="dot ok"    style="left:30%;top:72%" data-label="右前車身"></div>
+              <div class="dot warn"  style="left:65%;top:28%" data-label="左後車身"></div>
+              <div class="dot empty" style="left:65%;top:72%" data-label="右後車身"></div>
+            </div>
+
+            <div class="legend">
+              <div class="leg"><div class="leg-dot" style="background:var(--green-bd)"></div>正常</div>
+              <div class="leg"><div class="leg-dot" style="background:var(--amber-bd)"></div>注意</div>
+              <div class="leg"><div class="leg-dot" style="background:var(--red)"></div>損傷</div>
+              <div class="leg"><div class="leg-dot" style="background:rgba(120,120,120,0.4)"></div>未標記</div>
+            </div>
+            <div id="dot-log" style="margin-top:8px;font-size:11px;color:var(--g500);min-height:16px"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hdr red">環檢項目　逐一確認</div>
+          <div class="card-body">
+            <div id="check-list"></div>
+            <div class="field" style="margin-top:10px">
+              <label>SA 環檢備註</label>
+              <textarea style="height:58px" placeholder="記錄現有損傷...">左整流罩約5cm刮傷，車主確認進廠前已存在。</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2：來意詢問 -->
+    <div class="panel" id="panel1">
+      <div class="card">
+        <div class="card-hdr blue">來廠目的（可複選）</div>
+        <div class="card-body">
+          <div class="purpose-grid" id="purpose-grid"></div>
+          <div id="warranty-notice" style="display:none">
+            <div class="warranty-alert">
+              <strong>⚠️ SA 注意事項（記錄為主，勿自行判斷）</strong><br>
+              • <strong>疑似保固問題</strong>：請如實記錄車主描述，待技師診斷後由<strong>售後主管</strong>確認是否符合保固範圍，確認後方可進入正式索賠流程。<br>
+              • <strong>公報召回</strong>：技師檢查時請透過 NDCS 確認是否有待執行公報，相關費用由原廠撥付，須售後主管審批後方可開立。<br>
+              <span style="color:var(--g500);font-size:11px">以上均須進入正式工單(RO)後由售後主管簽核審批，預檢單階段僅做記錄。</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr blue">車主描述問題（SA 如實記錄原話）</div>
+        <div class="card-body">
+          <div class="field">
+            <label>車主原話（請勿加入 SA 主觀判斷或診斷結論）</label>
+            <textarea style="height:72px" placeholder="例：引擎在低速時有抖動，大約從上週開始...">引擎在低速 1000rpm 時有輕微抖動感，騎了約 200km 後出現，感覺跟以前不一樣。</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr blue">SA 主動詢問（第一次商機挖掘）</div>
+        <div class="card-body">
+          <div id="ask-list"></div>
+        </div>
+
+      <!-- ══ 客戶標籤（全寬・預設收合）══ -->
+      <div class="ctag-wrap" id="ctag-wrap">
+        <div class="ctag-bar" onclick="ctagToggle()">
+          <div class="ctag-bar-left">
+            🏷 客戶標籤
+            <div class="ctag-summary" id="ctag-summary"><span class="ctag ctag-red" style="font-size:10.5px;padding:2px 7px;">🔴 情緒敏感型</span><span class="ctag ctag-yellow" style="font-size:10.5px;padding:2px 7px;">🟡 喜歡詳細說明</span><span class="ctag ctag-green" style="font-size:10.5px;padding:2px 7px;">🟢 習慣等候取車</span><span style="font-size:10.5px;color:#999;">+2 個</span></div>
+          </div>
+          <div class="ctag-bar-right">
+            <span class="ctag-role-badge">SA 接待中</span>
+            <button class="ctag-toggle-btn" id="ctag-toggle-btn">展開 ▾</button>
+          </div>
+        </div>
+        <div class="ctag-body" id="ctag-body" style="display:none;">
+          <div class="ctag-legend">
+            <span>圖例：</span>
+            <span><span class="ctag-sw" style="background:#FDECEA;border:1px solid #F5AEAD;"></span>🔴 注意（高風險）</span>
+            <span><span class="ctag-sw" style="background:#FDF3E3;border:1px solid #F0C97E;"></span>🟡 偏好習慣</span>
+            <span><span class="ctag-sw" style="background:#E5F5EE;border:1px solid #80CCA8;"></span>🟢 服務備忘</span>
+            <span><span class="ctag-sw" style="background:#EAF4FB;border:1px solid #85B7EB;"></span>🔵 費用/溝通</span>
+            <span><span class="ctag-sw" style="background:#F1EFE8;border:1px solid #B4B2A9;"></span>🔒 主管設定・不可移除</span>
+          </div>
+          <div class="ctag-section-lbl">目前標籤</div>
+          <div class="ctag-row" id="ctag-display">
+            <span class="ctag ctag-red" title="售後主管設定・不可移除">🔴 情緒敏感型<span class="ctag-src">・售後主管</span><span class="ctag-lock">🔒</span></span>
+            <span class="ctag ctag-red" title="售後主管設定・不可移除">🔴 需主管陪同報價<span class="ctag-src">・售後主管</span><span class="ctag-lock">🔒</span></span>
+            <span class="ctag ctag-yellow" title="銷售添加">🟡 喜歡詳細說明<span class="ctag-src">・銷售</span><button class="ctag-del" onclick="ctagDel(this)">×</button></span>
+            <span class="ctag ctag-yellow" title="銷售添加">🟡 對改裝配件有興趣<span class="ctag-src">・銷售</span><button class="ctag-del" onclick="ctagDel(this)">×</button></span>
+            <span class="ctag ctag-green" title="售後添加">🟢 習慣等候取車<span class="ctag-src">・售後</span><button class="ctag-del" onclick="ctagDel(this)">×</button></span>
+            <span class="ctag ctag-blue" title="售後添加">🔵 對費用透明度在意<span class="ctag-src">・售後</span><button class="ctag-del" onclick="ctagDel(this)">×</button></span>
+          </div>
+          <div class="ctag-section-lbl" style="margin-top:10px;">從主管預設清單選用</div>
+          <div class="preset-row">
+            <button class="preset-tag preset-red" onclick="ctagAddPreset(this,'red','🔴')">🔴 容易焦慮等待</button>
+            <button class="preset-tag preset-red" onclick="ctagAddPreset(this,'red','🔴')">🔴 價格敏感</button>
+            <button class="preset-tag preset-red" onclick="ctagAddPreset(this,'red','🔴')">🔴 曾有客訴紀錄</button>
+            <button class="preset-tag preset-yellow" onclick="ctagAddPreset(this,'yellow','🟡')">🟡 Line 溝通優先</button>
+            <button class="preset-tag preset-yellow" onclick="ctagAddPreset(this,'yellow','🟡')">🟡 假日才方便到店</button>
+            <button class="preset-tag preset-yellow" onclick="ctagAddPreset(this,'yellow','🟡')">🟡 喜歡先了解再決定</button>
+            <button class="preset-tag preset-green" onclick="ctagAddPreset(this,'green','🟢')">🟢 需要代步車</button>
+            <button class="preset-tag preset-green" onclick="ctagAddPreset(this,'green','🟢')">🟢 有攜帶寵物習慣</button>
+            <button class="preset-tag preset-blue" onclick="ctagAddPreset(this,'blue','🔵')">🔵 需要詳細報價單</button>
+            <button class="preset-tag preset-blue" onclick="ctagAddPreset(this,'blue','🔵')">🔵 刷卡付款偏好</button>
+          </div>
+          <div class="ctag-section-lbl" style="margin-top:10px;">自訂新增標籤</div>
+          <div class="ctag-add-row">
+            <select id="ctag-color"><option value="red">🔴 注意事項</option><option value="yellow" selected>🟡 偏好習慣</option><option value="green">🟢 服務備忘</option><option value="blue">🔵 費用/溝通</option></select>
+            <input id="ctag-text" type="text" placeholder="輸入標籤內容（20字以內）" maxlength="20" onkeydown="if(event.key==='Enter')ctagAdd()">
+            <button class="ctag-add-btn" onclick="ctagAdd()">＋ 新增</button>
+          </div>
+          <div class="ctag-hint">* 自訂標籤由本人添加，本人可移除；主管設定標籤（🔒）不可移除</div>
+        </div>
+      </div>
+      <!-- ══ 客戶標籤 end ══ -->
+
+      </div>
+    </div>
+
+    <!-- TAB 3：技師深入檢查 -->
+    <div class="panel" id="panel2">
+      <div style="background:var(--amber-bg);border:0.5px solid var(--amber-bd);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#412402;line-height:1.6">
+        車輛已進入車間，技師執行深入檢查（第二次商機挖掘）。<br>
+        完成後 SA 切換至 <strong>Tab 4 報價</strong> 彙整，可隨時切回此頁查看診斷詳情。
+      </div>
+      <div class="card">
+        <div class="card-hdr dark">技師深入檢查結果　安全等級 × 車主決定</div>
+        <div class="card-body" id="tech-content"></div>
+      </div>
+      <div id="loop-t3"></div>
+    </div>
+
+    <!-- TAB 4：報價 -->
+    <div class="panel" id="panel3">
+      <div class="card">
+        <div class="card-hdr green">報價單　SA 可隨時編輯｜切換 Tab 3 查看技師診斷</div>
+        <div class="card-body">
+
+          <div class="qsec-title">
+            <span class="tag tag-sa">SA</span>環檢＋來意報價項目
+          </div>
+          <div class="q-hdr">
+            <div class="qc">服務項目</div><div class="qc c">LU</div>
+            <div class="qc r">工時費</div><div class="qc r">零件費</div><div class="qc r">小計</div>
+          </div>
+          <div id="sa-rows"></div>
+          <div class="add-row">
+            <input id="add-name" placeholder="新增服務項目名稱"/>
+            <input id="add-lu" class="sm" placeholder="LU" type="number" min="0"/>
+            <input id="add-parts" class="sm" placeholder="零件費" type="number" min="0"/>
+            <button onclick="addSaItem()">+ 新增</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="qsec-title">
+            <span class="tag tag-tech">技師</span>深入檢查增項
+            <span class="hint">← 點 Tab 3 可隨時查看技師診斷詳情</span>
+          </div>
+          <div class="q-hdr">
+            <div class="qc">增項名稱</div><div class="qc c">LU</div>
+            <div class="qc r">工時費</div><div class="qc r">零件費</div><div class="qc r">車主決定</div>
+          </div>
+          <div id="tech-rows"></div>
+
+          <div class="divider"></div>
+
+          <div class="total-bar">
+            <div class="t-items">
+              <div class="t-item"><label>工時費小計</label><span id="t-labor">NT$0</span></div>
+              <div class="t-item"><label>零件費小計</label><span id="t-parts">NT$0</span></div>
+              <div class="t-item"><label>稅額 (5%)</label><span id="t-tax">NT$0</span></div>
+            </div>
+            <div class="t-main">
+              <label>預估總費用（含稅）</label>
+              <span id="t-total">NT$0</span>
+            </div>
+          </div>
+          <div class="hint" style="margin-top:6px">LU × 6分鐘 × NT$1,650/小時 = 工時費｜車主口頭確認後進入簽名頁</div>
+        </div>
+      </div>
+      <div id="loop-t4"></div>
+    </div>
+
+    <!-- TAB 5：確認簽名 -->
+    <div class="panel" id="panel4">
+      <div class="card">
+        <div class="card-hdr dark">確認說明</div>
+        <div class="card-body" style="font-size:12px;line-height:1.8;color:var(--g700)">
+          本人確認以上環檢結果、來廠需求及預估報價，同意本店依確認項目進行作業。車輛現有損傷已如實記錄，進廠後新增損傷由本店負責。確認後系統將自動轉錄至正式工單(RO)。
+        </div>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-hdr dark">SA 確認簽名</div>
+          <div class="card-body">
+            <div class="hint">本次預檢由本人執行並彙整報價</div>
+            <div class="sig-box">請在此處簽名</div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--g500)">
+              <span>SA：魏呈宇</span><span>2026/04/27</span>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr red">車主確認簽名（第一次）</div>
+          <div class="card-body">
+            <div class="hint">本人確認車況交接無誤，授權本店依確認項目執行維修</div>
+            <div class="sig-box" id="cust-sig" onclick="signCust()">請車主在此簽名</div>
+            <div style="margin-top:8px">
+              <div class="hint" style="margin-bottom:4px">若車主不在場，請上傳 Line／簡訊截圖代替簽名</div>
+              <div style="border:0.5px dashed var(--g200);border-radius:6px;height:34px;display:flex;align-items:center;justify-content:center;color:var(--g400);font-size:11px;cursor:pointer">
+                + 上傳截圖
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px">
+        <button class="btn btn-red" style="height:44px;font-size:14px;padding:0 28px"
+          onclick="alert('✅ 已確認！系統自動轉錄至正式工單(RO)。')">
+          確認並轉入正式工單 RO →
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="prog-wrap">
+    <div class="prog-bar"><div class="prog-fill" id="prog" style="width:20%"></div></div>
+    <div class="prog-text" id="prog-text">第 1 步　環車檢查</div>
+  </div>
+
+  <div class="footer">
+    <div class="btn-group">
+      <button class="btn btn-outline" id="btn-prev" style="display:none" onclick="prevTab()">← 上一步</button>
+    </div>
+    <div class="btn-group">
+      <span style="font-size:11px;color:var(--g500)" id="foot-status">環檢進度：0 / 8 項</span>
+      <button class="btn btn-red" id="btn-next" onclick="nextTab()">下一步：來意詢問 →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var cur=0;
+var TABS=['環車檢查','來意詢問','技師深入檢查','報價','確認簽名'];
+var PROG=[20,40,60,80,100];
+var LU_RATE=165;
+
+// Dots
+function initDots(){
+  document.querySelectorAll('.dot').forEach(function(d){
+    var s=d.classList.contains('ok')?'ok':d.classList.contains('warn')?'warn':d.classList.contains('bad')?'bad':'empty';
+    d.dataset.s=s; refreshDot(d);
+    d.addEventListener('click',function(){
+      var nx={empty:'ok',ok:'warn',warn:'bad',bad:'empty'};
+      d.dataset.s=nx[d.dataset.s]; refreshDot(d); updateDotLog();
+    });
+  });
+}
+function refreshDot(d){
+  var s=d.dataset.s;
+  d.className='dot '+(s==='empty'?'empty':s);
+  d.textContent=s==='ok'?'✓':(s==='warn'||s==='bad'?'!':'');
+}
+function updateDotLog(){
+  var items=[];
+  document.querySelectorAll('.dot').forEach(function(d){
+    if((d.dataset.s==='bad'||d.dataset.s==='warn')&&d.dataset.label)
+      items.push('<span class="badge badge-'+(d.dataset.s==='bad'?'bad':'warn')+'" style="margin-right:3px">'+d.dataset.label+'</span>');
+  });
+  document.getElementById('dot-log').innerHTML=items.length?'已標記：'+items.join(''):'';
+}
+
+// Checks
+var checks=[
+  {l:'車身外觀（刮傷/凹痕/龜裂）',s:-1},
+  {l:'前後燈光功能（頭/尾/方向燈）',s:0},
+  {l:'後照鏡（完整/鬆動）',s:0},
+  {l:'前輪胎（胎紋/胎壁/胎壓）',s:1},
+  {l:'後輪胎（胎紋/胎壁/胎壓）',s:1},
+  {l:'前煞車來令片（目視厚度）',s:0},
+  {l:'後煞車來令片（目視厚度）',s:0},
+  {l:'鏈條（鬆緊/潤滑/磨耗）',s:0},
+];
+function renderChecks(){
+  var done=0;
+  document.getElementById('check-list').innerHTML=checks.map(function(c,i){
+    if(c.s>=0)done++;
+    return '<div class="chk-row"><span class="chk-label">'+c.l+'</span><div class="chk-btns">'
+      +'<button class="cbtn'+(c.s===0?' ok':'')+'" onclick="setChk('+i+',0)">正常</button>'
+      +'<button class="cbtn'+(c.s===1?' warn':'')+'" onclick="setChk('+i+',1)">注意</button>'
+      +'<button class="cbtn'+(c.s===2?' bad':'')+'" onclick="setChk('+i+',2)">損傷</button>'
+      +'</div></div>';
+  }).join('');
+  if(cur===0){var el=document.getElementById('foot-status');if(el)el.textContent='環檢進度：'+done+' / '+checks.length+' 項';}
+}
+function setChk(i,s){checks[i].s=s;renderChecks();}
+
+// Purposes
+var purposes=[
+  {l:'定期保養',w:false},{l:'里程保養',w:false},{l:'Desmo 保養',w:false},{l:'故障維修',w:false},
+  {l:'改裝安裝',w:false},{l:'⚠️ 疑似保固問題',w:true},{l:'📢 公報召回通知',w:true},{l:'其他',w:false},
+];
+var selP=new Set([0]);
+function renderPurpose(){
+  document.getElementById('purpose-grid').innerHTML=purposes.map(function(p,i){
+    var sel=selP.has(i);
+    return '<div class="pchk'+(sel?(p.w?' sel-warn':' sel'):'')+'" onclick="toggleP('+i+')">'+p.l+'</div>';
+  }).join('');
+  var hasW=[5,6].some(function(i){return selP.has(i);});
+  document.getElementById('warranty-notice').style.display=hasW?'':'none';
+}
+function toggleP(i){if(selP.has(i))selP.delete(i);else selP.add(i);renderPurpose();}
+
+// Asks
+var asks=[
+  '上次保養時間／里程為何？',
+  '是否有任何異常聲響？（何時／何種情況）',
+  '操控上是否有任何異常感覺？',
+  '煞車感覺是否正常？（偏軟／偏硬／偏移）',
+  '燈光及電子系統是否正常？',
+  '是否有任何滲漏（油／水）？',
+  '是否有想加裝的改裝配件？',
+  '是否有其他需要評估的項目？',
+];
+var askS={};
+function renderAsks(){
+  document.getElementById('ask-list').innerHTML=asks.map(function(q,i){
+    var s=askS[i]||'';
+    return '<div class="ask-row"><span class="ask-q">'+q+'</span><div class="ask-btns">'
+      +'<button class="abtn'+(s==='yes'?' yes':'')+'" onclick="setAsk('+i+',\'yes\')">有／是</button>'
+      +'<button class="abtn'+(s==='no'?' no':'')+'" onclick="setAsk('+i+',\'no\')">無／否</button>'
+      +'<button class="abtn'+(s==='na'?' na':'')+'" onclick="setAsk('+i+',\'na\')">暫略</button>'
+      +'</div></div>';
+  }).join('');
+}
+function setAsk(i,v){askS[i]=v;renderAsks();}
+
+// Tech
+var tech=[
+  {cat:'engine',cl:'cat-engine',cl2:'引擎系統',title:'引擎機油狀況',diag:'建議更換（顏色偏黑）',safety:2,state:'none',lu:5,parts:800},
+  {cat:'engine',cl:'cat-engine',cl2:'引擎系統',title:'空氣濾清器',diag:'正常',safety:3,state:'agree',lu:3,parts:0},
+  {cat:'engine',cl:'cat-engine',cl2:'引擎系統',title:'DDS 2.0 故障碼掃描',diag:'故障碼 P0300（引擎失火）',safety:1,state:'none',lu:5,parts:0},
+  {cat:'brake', cl:'cat-brake', cl2:'煞車系統',title:'前煞車來令片 2.8mm',diag:'建議更換（≤3mm需換）',safety:2,state:'none',lu:8,parts:1200},
+  {cat:'brake', cl:'cat-brake', cl2:'煞車系統',title:'後煞車來令片 4.2mm',diag:'正常',safety:3,state:'agree',lu:0,parts:0},
+  {cat:'tire',  cl:'cat-tire',  cl2:'輪胎系統',title:'後輪胎胎紋 2.1mm',diag:'建議近期更換（≤2mm需換）',safety:2,state:'defer',lu:10,parts:6500},
+  {cat:'elec',  cl:'cat-elec', cl2:'電氣系統',title:'電瓶電壓 12.3V',diag:'偏低，建議更換',safety:2,state:'none',lu:3,parts:2800},
+  {cat:'chassis',cl:'cat-chassis',cl2:'車架傳動',title:'鏈條張力／潤滑',diag:'需調整',safety:2,state:'none',lu:4,parts:0},
+];
+var catOrder=['engine','brake','tire','elec','chassis'];
+var safLabel={1:'🔴 立即必修',2:'🟡 近期建議',3:'🟢 一般建議'};
+var safCls={1:'saf-1',2:'saf-2',3:'saf-3'};
+function renderTech(){
+  var html='';
+  catOrder.forEach(function(cat){
+    var items=tech.filter(function(t){return t.cat===cat;});
+    if(!items.length)return;
+    html+='<div class="tech-sec-hdr '+items[0].cl+'">'+items[0].cl2+'</div>';
+    items.forEach(function(t){
+      var i=tech.indexOf(t);
+      html+='<div class="tech-row">'
+        +'<div class="tech-left"><div class="tech-title">'+t.title+'</div>'
+        +'<div class="tech-diag">技師診斷：'+t.diag+'</div></div>'
+        +'<div class="tech-right">'
+        +'<span class="saf-badge '+safCls[t.safety]+'">'+safLabel[t.safety]+'</span>'
+        +'<div class="dec-btns">'
+        +'<button class="dbtn'+(t.state==='agree'?' agree':'')+'" onclick="setTech('+i+',\'agree\')">✓ 同意</button>'
+        +'<button class="dbtn'+(t.state==='defer'?' defer':'')+'" onclick="setTech('+i+',\'defer\')">⏸ 暫緩</button>'
+        +'<button class="dbtn'+(t.state==='reject'?' reject':'')+'" onclick="setTech('+i+',\'reject\')">✕ 拒絕</button>'
+        +'</div></div></div>';
+    });
+  });
+  document.getElementById('tech-content').innerHTML=html;
+  renderLoopHint();
+  renderQuote();
+}
+function setTech(i,v){tech[i].state=v;renderTech();}
+function renderLoopHint(){
+  var def=tech.filter(function(t){return t.state==='defer'||t.state==='reject';});
+  var safe1=def.some(function(t){return t.safety===1;});
+  var html='';
+  if(def.length){
+    html='<div class="loop-hint">★ <strong>增項閉環提醒：</strong>共 '+def.length
+      +' 個項目被暫緩或拒絕，系統將自動建立失銷追蹤案件。'
+      +' <strong>D+3</strong> SA 第一次溫馨提醒；<strong>D+10</strong> SA 二次聯繫（售後主管知悉）。'
+      +(safe1?' <strong>⚠️ 含🔴立即必修項目，售後主管須親自介入！</strong>':'')+'</div>';
+  }
+  ['loop-t3','loop-t4'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML=html;});
+}
+
+// SA Items
+var saItems=[
+  {name:'定期保養（機油＋機油濾芯）',lu:10,parts:800},
+  {name:'年度保養檢查',lu:5,parts:0},
+];
+function addSaItem(){
+  var name=document.getElementById('add-name').value.trim();
+  var lu=parseFloat(document.getElementById('add-lu').value)||0;
+  var parts=parseFloat(document.getElementById('add-parts').value)||0;
+  if(!name)return;
+  saItems.push({name:name,lu:lu,parts:parts});
+  document.getElementById('add-name').value='';
+  document.getElementById('add-lu').value='';
+  document.getElementById('add-parts').value='';
+  renderQuote();
+}
+
+// Quote
+function renderQuote(){
+  var saHtml=saItems.map(function(item){
+    var labor=Math.round(item.lu*LU_RATE);
+    return '<div class="q-row"><div class="qc">'+item.name+'</div>'
+      +'<div class="qc c">'+item.lu+'</div>'
+      +'<div class="qc r">'+labor.toLocaleString()+'</div>'
+      +'<div class="qc r">'+(item.parts?item.parts.toLocaleString():'-')+'</div>'
+      +'<div class="qc r">'+(labor+item.parts).toLocaleString()+'</div></div>';
+  }).join('');
+  document.getElementById('sa-rows').innerHTML=saHtml||'<div style="padding:10px;text-align:center;color:var(--g400);font-size:12px">尚無項目，請從下方新增</div>';
+
+  var decMap={agree:'<span class="badge badge-ok">✓ 同意</span>',defer:'<span class="badge badge-warn">⏸ 暫緩</span>',reject:'<span class="badge" style="background:var(--g100);color:var(--g500)">✕ 拒絕</span>'};
+  var techHtml=tech.map(function(t){
+    if(t.state==='none')return '';
+    var labor=Math.round(t.lu*LU_RATE);
+    var cls='q-row tech-'+(t.state==='agree'?'agreed':t.state==='defer'?'defer':'reject');
+    return '<div class="'+cls+'"><div class="qc">'+t.title+'</div>'
+      +'<div class="qc c">'+t.lu+'</div>'
+      +'<div class="qc r">'+labor.toLocaleString()+'</div>'
+      +'<div class="qc r">'+(t.parts?t.parts.toLocaleString():'-')+'</div>'
+      +'<div class="qc r">'+decMap[t.state]+'</div></div>';
+  }).join('');
+  document.getElementById('tech-rows').innerHTML=techHtml||'<div style="padding:10px;text-align:center;color:var(--g400);font-size:12px">技師完成檢查後，已決定項目將自動顯示於此</div>';
+
+  var tl=0,tp=0;
+  saItems.forEach(function(i){tl+=Math.round(i.lu*LU_RATE);tp+=i.parts;});
+  tech.forEach(function(t){if(t.state==='agree'){tl+=Math.round(t.lu*LU_RATE);tp+=t.parts;}});
+  var tax=Math.round((tl+tp)*0.05),total=tl+tp+tax;
+  document.getElementById('t-labor').textContent='NT$'+tl.toLocaleString();
+  document.getElementById('t-parts').textContent='NT$'+tp.toLocaleString();
+  document.getElementById('t-tax').textContent='NT$'+tax.toLocaleString();
+  document.getElementById('t-total').textContent='NT$'+total.toLocaleString();
+}
+
+function signCust(){
+  var el=document.getElementById('cust-sig');
+  el.innerHTML='<span style="font-size:22px;font-family:cursive;color:var(--dark)">鄭宗勳</span>';
+  el.classList.add('signed');
+}
+
+// Tab switch
+function switchTab(n){
+  if(n<0||n>=5)return;
+  document.querySelectorAll('.panel').forEach(function(p,i){p.classList.toggle('active',i===n);});
+  document.querySelectorAll('.tab').forEach(function(t,i){
+    t.classList.toggle('active',i===n);
+    if(i<n)t.classList.add('done');else t.classList.remove('done');
+  });
+  document.getElementById('prog').style.width=PROG[n]+'%';
+  document.getElementById('prog-text').textContent='第 '+(n+1)+' 步　'+TABS[n];
+  document.getElementById('btn-prev').style.display=n>0?'':'none';
+  var nb=document.getElementById('btn-next');
+  nb.textContent=n===4?'確認轉入 RO →':'下一步：'+TABS[n+1]+' →';
+  var fs=document.getElementById('foot-status');
+  if(n===0){var done=checks.filter(function(c){return c.s>=0;}).length;fs.textContent='環檢進度：'+done+' / '+checks.length+' 項';}
+  else if(n===3){fs.textContent='可切換 Tab 3 查看技師診斷詳情';}
+  else fs.textContent='';
+  cur=n;
+}
+function nextTab(){switchTab(cur+1);}
+function prevTab(){switchTab(cur-1);}
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click',function(){switchTab(+t.dataset.tab);});
+});
+
+// Init
+initDots(); updateDotLog();
+renderChecks(); renderPurpose(); renderAsks();
+renderTech(); renderQuote();
+
+function ctagToggle(){
+  var body=document.getElementById('ctag-body');
+  var btn=document.getElementById('ctag-toggle-btn');
+  var sum=document.getElementById('ctag-summary');
+  var open=body.style.display==='none';
+  body.style.display=open?'block':'none';
+  btn.textContent=open?'收合 ▴':'展開 ▾';
+  sum.style.display=open?'none':'flex';
+}
+function ctagDel(btn){if(confirm('確認移除此標籤？')){btn.closest('.ctag').remove();ctagRefreshSummary();}}
+function ctagAddPreset(btn,color,emoji){
+  var lbl=btn.textContent.replace(emoji,'').trim();
+  var tag=document.createElement('span');
+  tag.className='ctag ctag-'+color;
+  tag.innerHTML=emoji+' '+lbl+'<span class="ctag-src">・售後</span><button class="ctag-del" onclick="ctagDel(this)">×</button>';
+  document.getElementById('ctag-display').appendChild(tag);
+  ctagRefreshSummary();
+}
+function ctagAdd(){
+  var txt=document.getElementById('ctag-text').value.trim();
+  var color=document.getElementById('ctag-color').value;
+  var em={red:'🔴',yellow:'🟡',green:'🟢',blue:'🔵'};
+  if(!txt){alert('請輸入標籤內容');return;}
+  var tag=document.createElement('span');
+  tag.className='ctag ctag-'+color;
+  tag.innerHTML=em[color]+' '+txt+'<span class="ctag-src">・售後</span><button class="ctag-del" onclick="ctagDel(this)">×</button>';
+  document.getElementById('ctag-display').appendChild(tag);
+  document.getElementById('ctag-text').value='';
+  ctagRefreshSummary();
+}
+function ctagRefreshSummary(){
+  var tags=document.querySelectorAll('#ctag-display .ctag');
+  var sum=document.getElementById('ctag-summary');
+  var html='';
+  var max=3;
+  tags.forEach(function(t,i){
+    if(i<max){
+      var txt=t.childNodes[0].textContent.trim();
+      var cls=t.className.replace('ctag ','').trim();
+      html+='<span class="ctag '+cls+'" style="font-size:10.5px;padding:2px 7px;">'+txt+'</span>';
+    }
+  });
+  if(tags.length>max)html+='<span style="font-size:10.5px;color:#999;">+'+(tags.length-max)+' 個</span>';
+  sum.innerHTML=html;
+}
+</script>
+</body>
+</html>

@@ -10,6 +10,8 @@
  */
 
 import { notFound, redirect } from "next/navigation";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { createServiceClient } from "@/lib/supabase/service";
 import { UserHtmlFrame } from "@/components/user-html-frame";
 import { PlaceholderPage } from "@/components/placeholder-page";
@@ -31,6 +33,21 @@ type NavNode = {
 const HTML_BUCKET = "nav-html";
 
 async function loadHtmlBody(storagePath: string): Promise<string | null> {
+  // 支援 `file:` 前綴 → 從專案根目錄 fs-read（給 docs/ 內的原始規格 HTML 用，免上傳 Storage）
+  if (storagePath.startsWith("file:")) {
+    const rel = storagePath.slice("file:".length);
+    // 安全：禁止跳出專案根、禁止絕對路徑
+    if (rel.startsWith("/") || rel.includes("..")) {
+      console.warn("[nav/n] file: 路徑非法", rel);
+      return null;
+    }
+    try {
+      return await fs.readFile(path.join(process.cwd(), rel), "utf8");
+    } catch (e) {
+      console.warn("[nav/n] file: fs-read 失敗", rel, (e as Error).message);
+      return null;
+    }
+  }
   const supabase = createServiceClient();
   const { data, error } = await supabase.storage.from(HTML_BUCKET).download(storagePath);
   if (error || !data) {

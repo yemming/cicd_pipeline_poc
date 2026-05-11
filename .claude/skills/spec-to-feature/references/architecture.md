@@ -83,6 +83,20 @@ CREATE TABLE <entity> (
 
 ### 3. 規則類用 `business_rules` 一張打天下
 
+> ⚠️ **先區分 RBAC 還是業務規則**：看到「為 role 設定能 / 不能 boolean 授權」的設定頁不要直接走 `business_rules`。先檢查 `permissions` 表 + `PERMISSIONS` 常數，能對映 RBAC 就走 RBAC SSOT 或同步雙寫；`business_rules` 只接「量化規則 / workflow / 業務參數」這類非 boolean 設定。
+
+| 設定類型 | 走的 SSOT |
+|---|---|
+| boolean 授權（角色能 / 不能做某事） | RBAC `role_permissions`（`/admin/navigation?tab=permissions` 顯示的那個） |
+| 量化規則（金額、數量、閾值） | `business_rules` |
+| workflow / 流程描述 | `business_rules` |
+| 同時是授權又是業務規則 | 兩處同步雙寫、`src/domain/rbac.ts` facade 統合（範例：`/parts/setup/item-permissions`） |
+
+**判斷三步**（看到 HTML / 截圖 / 文字描述時）：
+1. boolean「能 / 不能」？ → RBAC 候選，去 `permissions` 找對應 code、缺就 INSERT 補
+2. 量化值（金額、數量、閾值）？ → `business_rules`
+3. workflow / 流程描述？ → `business_rules`
+
 採購權限規則 / 盤點回傳規則 / 告警階層 / ABC 分類… 全用同一張表 + 不同 `rule_kind` + `config jsonb`：
 
 ```sql

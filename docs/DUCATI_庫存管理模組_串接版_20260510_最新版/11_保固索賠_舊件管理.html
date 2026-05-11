@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>保固索賠｜舊件管理 — DUCATI 庫存管理</title>
+<style>:root{--navy:#1A3A5C;--blue:#185FA5;--blue-light:#378ADD;--blue-bg:#EBF3FF;--blue-bg2:#EEF6FF;--g50:#FAFAF9;--g100:#F5F5F4;--g200:#EEECE6;--g400:#9A9890;--g500:#6B6A68;--g600:#4A4945;--g700:#2E2D2A;--g800:#1A1917;--red:#E24B4A;--red-bg:#FEF5F5;--red-badge:#FDECEA;--red-text:#CC0000;--orange:#EF9F27;--orange-bg:#FFF9F0;--orange-text:#854F0B;--green:#0F6E56;--green-bg:#E8F5F0;--green-text:#0F6E56;--coral:#D85A30;--coral-light:#FEF0EB;--purple:#7F77DD;--purple-light:#F0EEFF;--sidebar-w:220px;--header-h:52px;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono','Courier New',monospace}*{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--font);font-size:13px;color:var(--g700);background:var(--g50);min-height:100vh}.header{position:fixed;top:0;left:0;right:0;height:var(--header-h);background:var(--navy);display:flex;align-items:center;padding:0 16px;z-index:100}.header-logo{font-size:15px;font-weight:700;letter-spacing:2px;color:#fff}.hd{width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 12px}.hbc{display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.65)}.hbc .cur{color:#fff;font-weight:600}.hbc .sep{opacity:.4}.hr{margin-left:auto;display:flex;align-items:center;gap:14px}.huser{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;font-size:11px;color:rgba(255,255,255,.7)}.huser strong{color:#fff;font-size:12px}.hbell{position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,.75);font-size:16px}.hbell .badge{position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px}.hav{width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer}.sidebar{position:fixed;top:var(--header-h);left:0;bottom:0;width:var(--sidebar-w);background:#fff;border-right:1px solid var(--g200);overflow-y:auto;z-index:90}.sidebar::-webkit-scrollbar{width:4px}.sidebar::-webkit-scrollbar-thumb{background:var(--g200);border-radius:2px}.ns{padding:12px 0 4px}.nsl{display:flex;align-items:center;gap:6px;padding:0 12px 6px;font-size:10px;font-weight:600;color:var(--g400);letter-spacing:.9px;text-transform:uppercase}.dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}.dot-blue{background:#1A3A5C}.dot-purple{background:#7F77DD}.dot-amber{background:#EF9F27}.dot-coral{background:#D85A30}.dot-gray{background:#9A9890}.ni{display:flex;align-items:center;gap:8px;padding:0 12px;height:34px;cursor:pointer;font-size:13px;color:var(--g600);user-select:none;transition:background .12s}.ni:hover{background:var(--g50);color:var(--g800)}.ni.parent{font-weight:500;color:var(--g800)}.ni.parent .arrow{margin-left:auto;font-size:10px;color:var(--g400);transition:transform .2s}.ni.parent.open .arrow{transform:rotate(90deg)}.ni.sa{background:var(--coral-light)}.ni .ico{font-size:15px;width:18px;text-align:center}.nsub{display:none}.nsub.open{display:block}.nsi{display:flex;align-items:center;gap:8px;padding:0 12px 0 38px;height:30px;cursor:pointer;font-size:12px;color:var(--g500);transition:background .12s}.nsi:hover{background:var(--g50);color:var(--g800)}.nsi.active{color:var(--blue);background:#F0F6FF;font-weight:500}.nbadge{margin-left:auto;font-size:10px;font-weight:600;padding:1px 5px;border-radius:8px}.nb-r{background:#FDECEA;color:#CC0000}.sd{height:1px;background:var(--g200);margin:4px 12px}.main{margin-left:var(--sidebar-w);margin-top:var(--header-h);min-height:calc(100vh - var(--header-h))}.alert-banner{margin:16px 24px 0;background:var(--red-bg);border:1px solid #F7C1C1;border-left:4px solid var(--red);border-radius:6px;padding:10px 14px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--red-text)}.ab-icon{font-size:17px;flex-shrink:0}.ab-list{display:flex;flex-direction:column;gap:3px;margin-top:5px}.ab-item{display:flex;align-items:center;gap:8px;padding:3px 8px;background:rgba(204,0,0,.06);border-radius:4px;font-size:11px}.ab-lnk{color:var(--red-text);font-weight:700;cursor:pointer;text-decoration:underline}.stats-strip{display:flex;margin:14px 24px 0;gap:10px}.stat-card{flex:1;background:#fff;border:1px solid var(--g200);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:10px}.stat-card .sc-num{font-size:24px;font-weight:700}.stat-card .sc-label{font-size:11px;color:var(--g500)}.sc-red{border-top:3px solid var(--red)}.sc-red .sc-num{color:var(--red-text)}.sc-orange{border-top:3px solid var(--orange)}.sc-orange .sc-num{color:var(--orange-text)}.sc-green{border-top:3px solid var(--green)}.sc-green .sc-num{color:var(--green-text)}.sc-blue{border-top:3px solid var(--blue)}.sc-blue .sc-num{color:var(--blue)}.sc-gray{border-top:3px solid var(--g400)}.sc-gray .sc-num{color:var(--g500)}.pta{padding:16px 24px 0;display:flex;align-items:baseline;gap:10px}.pta h1{font-size:20px;font-weight:700;color:var(--g800);letter-spacing:-.3px}.fb{background:var(--g100);color:var(--g500);font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px}.psub{font-size:12px;color:var(--g400);padding:3px 24px 14px}.qb{margin:0 24px 12px;background:#fff;border:1px solid var(--g200);border-radius:8px;padding:14px 16px}.qr{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}.qf{display:flex;flex-direction:column;gap:4px;min-width:130px}.qf label{font-size:11px;font-weight:600;color:var(--g500)}.qf input,.qf select{height:32px;border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-size:12px;color:var(--g700);background:#fff;font-family:var(--font);outline:none;transition:border-color .15s}.qf input:focus,.qf select:focus{border-color:var(--blue)}.qbtns{display:flex;gap:8px;align-items:flex-end;margin-left:auto}.btn{height:32px;padding:0 14px;border-radius:5px;font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}.bp{background:var(--blue);color:#fff}.bp:hover{background:var(--navy)}.bs{background:#fff;color:var(--g600);border:1px solid var(--g200)}.bs:hover{background:var(--g50)}.bsuc{background:var(--green);color:#fff}.bsuc:hover{background:#0b5a45}.bd{background:var(--red-badge);color:var(--red-text);border:1px solid #F7C1C1}.bd:hover{background:var(--red-bg)}.bcoral{background:var(--coral-light);color:var(--coral);border:1px solid #f5c2a8}.bcoral:hover{background:#fde0d3}.bsm{height:26px;padding:0 10px;font-size:11px}.blg{height:38px;padding:0 20px;font-size:13px}.pills{display:flex;gap:4px;padding:0 24px 10px}.pill{height:28px;padding:0 12px;border-radius:14px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--g200);background:#fff;color:var(--g500);display:inline-flex;align-items:center;gap:5px;transition:all .12s}.pill:hover{border-color:var(--blue);color:var(--blue)}.pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}.pill .pc{background:rgba(255,255,255,.25);font-size:10px;padding:0 5px;border-radius:8px;font-weight:700}.pill:not(.active) .pc{background:var(--g100);color:var(--g600)}.tb{display:flex;align-items:center;gap:10px;padding:0 24px 10px}.tc{font-size:12px;color:var(--g500)}.tc strong{color:var(--g700)}.tr_{margin-left:auto;display:flex;gap:8px}.tw{margin:0 24px;background:#fff;border:1px solid var(--g200);border-radius:8px;overflow:hidden}table{width:100%;border-collapse:collapse}thead th{padding:9px 10px;background:var(--g50);border-bottom:1px solid var(--g200);font-size:11px;font-weight:600;color:var(--g500);text-align:left;white-space:nowrap}thead th:first-child{padding-left:14px}tbody tr{border-bottom:1px solid var(--g200);cursor:pointer;transition:background .1s}tbody tr:last-child{border-bottom:none}tbody tr:hover{background:#F8F7F4}tbody tr.row-overdue{background:var(--red-bg)}tbody tr.row-overdue:hover{background:var(--red-badge)}tbody tr.row-warn{background:var(--orange-bg)}tbody tr.row-warn:hover{background:#FDF3E3}tbody tr.row-done{opacity:.6}td{padding:9px 10px;font-size:12px;color:var(--g700);vertical-align:middle}td:first-child{padding-left:14px}input[type=checkbox]{accent-color:var(--blue);cursor:pointer}.mono{font-family:var(--mono);font-size:11px;color:var(--g600)}.lnk{color:var(--blue);cursor:pointer;font-weight:600}.lnk:hover{text-decoration:underline}.badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap}.b-ok{background:var(--green-bg);color:var(--green-text)}.b-warn{background:#FDF3E3;color:#854F0B}.b-overdue{background:var(--red-badge);color:var(--red-text)}.b-sent{background:#DBEAFE;color:#1D4ED8}.b-destroyed{background:var(--g100);color:var(--g500)}.days-chip{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}.dc-ok{background:var(--green-bg);color:var(--green-text)}.dc-warn{background:#FDF3E3;color:#854F0B}.dc-overdue{background:var(--red-badge);color:var(--red-text)}.dc-done{background:var(--g100);color:var(--g400)}.ov{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s}.ov.vis{opacity:1;pointer-events:auto}.sp{position:fixed;top:0;right:0;bottom:0;width:620px;max-width:96vw;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.13);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.32,0,.24,1)}.sp.open{transform:translateX(0)}.sph{padding:14px 20px;border-bottom:1px solid var(--g200);display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--g50)}.spt{font-size:16px;font-weight:700;color:var(--g800)}.spc{margin-left:auto;width:28px;height:28px;border-radius:50%;border:none;background:var(--g200);color:var(--g500);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px}.spc:hover{background:#D8D6CF}.spb{flex:1;overflow-y:auto}.spb::-webkit-scrollbar{width:4px}.spb::-webkit-scrollbar-thumb{background:var(--g200);border-radius:2px}.spf{padding:14px 20px;border-top:1px solid var(--g200);display:flex;gap:10px;align-items:center;background:var(--g50);flex-shrink:0}.sec{padding:18px 20px;border-bottom:1px solid var(--g200)}.sec:last-child{border-bottom:none}.stitle{font-size:11px;font-weight:700;color:var(--g500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;display:flex;align-items:center;gap:8px}.stitle::after{content:'';flex:1;height:1px;background:var(--g200)}.ig{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px}.ii label{font-size:10px;font-weight:600;color:var(--g400);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:2px}.ii .v{font-size:13px;color:var(--g700)}.ii .v.strong{font-weight:700;color:var(--g800)}.astrip{border-radius:6px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;font-size:12px}.as-red{background:var(--red-bg);border:1px solid #F7C1C1;color:var(--red-text)}.as-orange{background:var(--orange-bg);border:1px solid #FDDBA5;color:var(--orange-text)}.as-blue{background:var(--blue-bg2);border:1px solid #AAC9F0;color:var(--blue)}.as-green{background:var(--green-bg);border:1px solid #A8D5C2;color:var(--green-text)}.as-coral{background:var(--coral-light);border:1px solid #f5c2a8;color:var(--coral)}.asi{font-size:15px;flex-shrink:0;margin-top:1px}.claim-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--g200);font-size:12px}.claim-row:last-child{border-bottom:none}.cl-label{color:var(--g500)}.cl-val{font-weight:600;color:var(--g800)}.mo{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;display:none;align-items:center;justify-content:center}.mo.vis{display:flex}.modal{background:#fff;border-radius:10px;width:520px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden}.mh{padding:16px 20px;border-bottom:1px solid var(--g200);display:flex;align-items:center;gap:10px}.mt{font-size:15px;font-weight:700;color:var(--g800)}.mc_{margin-left:auto;width:26px;height:26px;border-radius:50%;border:none;background:var(--g100);color:var(--g500);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px}.mb_{padding:20px}.mf{padding:14px 20px;border-top:1px solid var(--g200);display:flex;gap:8px;justify-content:flex-end;background:var(--g50)}.fg{margin-bottom:12px}.fg label{display:block;font-size:11px;font-weight:600;color:var(--g500);margin-bottom:4px}.fg label .req{color:var(--red)}.fg input,.fg select,.fg textarea{width:100%;border:1px solid var(--g200);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--g700);font-family:var(--font);outline:none;transition:border-color .15s}.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--blue)}.fg .auto{background:var(--blue-bg2);color:var(--blue);border-color:#AAC9F0;cursor:not-allowed}.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}.toast-c{position:fixed;bottom:24px;right:24px;z-index:500;display:flex;flex-direction:column;gap:8px}.toast{background:var(--g800);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:su .25s ease;max-width:360px;display:flex;align-items:center;gap:8px}.toast.success{background:var(--green)}.toast.warning{background:var(--orange)}.toast.error{background:var(--red-text)}@keyframes su{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}.bs-sp{height:32px}</style>
+</head>
+<body>
+<header class="header">
+  <span class="header-logo">DUCATI</span><div class="hd"></div>
+  <div class="hbc"><span>庫存管理</span><span class="sep">›</span><span>保固索賠舊件</span><span class="sep">›</span><span class="cur">舊件管理</span></div>
+  <div class="hr">
+    <span style="font-size:12px;color:rgba(255,255,255,.7);">台北直營店</span>
+    <div class="huser"><strong>蔡零件</strong><span id="dt">2026/05/05 14:00</span></div>
+    <div class="hbell">🔔<div class="badge">5</div></div>
+    <div class="hav">蔡</div>
+  </div>
+</header>
+
+<aside class="sidebar">
+  <div class="ns"><div class="nsl"><span class="dot dot-blue"></span>基礎設定</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🏛</span>組織與權限<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">組織三層架構</div><div class="nsi">採購權限</div><div class="nsi">商品管理權限</div><div class="nsi">盤點回傳</div><div class="nsi">管控類型</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🏗</span>倉庫管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">倉儲四層架構</div><div class="nsi">倉庫．庫區．庫位．擺放</div><div class="nsi">供應商資訊</div><div class="nsi">採購合約</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📦</span>商品管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">基礎資料</div><div class="nsi">商品資訊（多維度料號）</div><div class="nsi">門市定價</div><div class="nsi">適配設定</div><div class="nsi">序列號追蹤</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-purple"></span>進出庫流程</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🛒</span>採購管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">採購流程鏈路</div><div class="nsi">日常補貨計畫</div><div class="nsi" onclick="window.location.href='04_採購管理_需求處理.html'" title="前往需求處理">需求處理</div><div class="nsi" onclick="window.location.href='04_採購管理_商品採購.html'" title="前往商品採購">商品採購</div><div class="nsi">採購退貨</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📥</span>入庫管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi" onclick="window.location.href='05_入庫管理_採購入庫.html'" title="前往採購入庫（含原廠到貨匯入）">採購入庫（含原廠到貨匯入）</div><div class="nsi" onclick="window.location.href='05_入庫管理_調撥入庫.html'" title="前往調撥入庫">調撥入庫</div><div class="nsi">內售入庫</div><div class="nsi">領料退貨入庫</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📤</span>出庫管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi" onclick="window.location.href='06_出庫管理_維修領料.html'" title="前往維修領料（RO工單串接）">維修領料（RO工單串接）</div><div class="nsi" onclick="window.location.href='06_出庫管理_調撥出庫.html'" title="前往調撥出庫">調撥出庫</div><div class="nsi">內售出庫</div></div>
+    <div class="ni" onclick="window.location.href='07_庫存管理_商品庫存查詢_v2.html'" style="color:var(--blue);font-weight:500;"><span class="ico">🔍</span>庫存查詢</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">⚙️</span>庫存作業<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">例外出入庫</div><div class="nsi">寄存管理</div><div class="nsi">備件庫存調整</div><div class="nsi">入庫查詢</div><div class="nsi">調撥在途查詢</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-amber"></span>盤點與告警</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📋</span>盤點管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi" onclick="window.location.href='08_盤點管理_盤點計畫.html'" title="前往盤點計畫">盤點計畫</div><div class="nsi" onclick="window.location.href='08_盤點管理_盤點處理.html'" title="前往盤點處理（條碼掃描）">盤點處理（條碼掃描）</div><div class="nsi" onclick="window.location.href='08_盤點管理_報損報溢.html'" title="前往報損報溢">報損報溢</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">⚡</span>預警告警<span class="arrow">▶</span><span class="nbadge nb-r">3</span></div>
+    <div class="nsub"><div class="nsi">庫存水位設定</div><div class="nsi">告警類型與規則</div><div class="nsi" onclick="window.location.href='07_庫存管理_商品庫存查詢_v2.html'" title="前往告警儀表板">告警儀表板<span class="nbadge nb-r" style="margin-left:4px;">3</span></div><div class="nsi">工單增項閉環</div><div class="nsi">告警階層</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-coral"></span>保固與分析</div>
+    <div class="ni parent sa open" onclick="tN(this)"><span class="ico">🔧</span>保固索賠舊件<span class="arrow" style="transform:rotate(90deg)">▶</span></div>
+    <div class="nsub open">
+      <div class="nsi">索賠流程</div>
+      <div class="nsi">舊件出入庫</div>
+      <div class="nsi">暫存倉設定</div>
+      <div class="nsi active" onclick="window.location.href='11_保固索賠_舊件管理.html'" title="前往管理介面">管理介面</div>
+      <div class="nsi">RO串接</div>
+      <div class="nsi">費用回收</div>
+    </div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📊</span>ABC分類 / 分析報表<span class="arrow">▶</span></div>
+    <div class="nsub"><div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往ABC定義與機制">ABC定義與機制</div><div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往周轉率報表">周轉率報表</div><div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往呆滯佔比">呆滯佔比</div><div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往缺貨率">缺貨率</div><div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往ABC結構圖">ABC結構圖</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-gray"></span>附錄</div><div class="ni"><span class="ico">📎</span>介面設計共用規則</div></div>
+</aside>
+
+<main class="main">
+  <!-- Alert Banner -->
+  <div class="alert-banner">
+    <span class="ab-icon">🔴</span>
+    <div style="flex:1;">
+      <strong>保固舊件保管期限告警</strong>：以下舊件已逾期或即將到期，請依規定執行銷毀或寄回原廠
+      <div class="ab-list">
+        <div class="ab-item"><span class="days-chip dc-overdue">已逾期 5 天</span><span class="ab-lnk" onclick="openSP('WC-20260203-001')">WC-20260203-001</span><span style="color:var(--red-text);">排氣管總成 PANIGALE V2 2025</span></div>
+        <div class="ab-item"><span class="days-chip dc-warn">剩餘 3 天</span><span class="ab-lnk" onclick="openSP('WC-20260207-001')">WC-20260207-001</span><span>前煞車總泵 PANIGALE V4</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-strip">
+    <div class="stat-card sc-red"><div><div class="sc-num">1</div><div class="sc-label">🔴 已逾期</div></div></div>
+    <div class="stat-card sc-orange"><div><div class="sc-num">2</div><div class="sc-label">🟠 即將到期（≤7天）</div></div></div>
+    <div class="stat-card sc-green"><div><div class="sc-num">5</div><div class="sc-label">🟢 保管中（正常）</div></div></div>
+    <div class="stat-card sc-blue"><div><div class="sc-num">3</div><div class="sc-label">🔵 已寄回原廠</div></div></div>
+    <div class="stat-card sc-gray"><div><div class="sc-num">8</div><div class="sc-label">⚫ 已銷毀</div></div></div>
+  </div>
+
+  <div class="pta"><h1>保固索賠舊件管理</h1><span class="fb">11.4</span></div>
+  <div class="psub">保固維修拆下的舊件不計入可用庫存，在此獨立管理保管期限與後續處置（銷毀 / 寄回原廠）</div>
+
+  <div class="qb">
+    <div class="qr">
+      <div class="qf"><label>處置狀態</label><select><option>全部</option><option>保管中</option><option>即將到期</option><option>已逾期</option><option>已寄回原廠</option><option>已銷毀</option></select></div>
+      <div class="qf"><label>索賠單號</label><input type="text" placeholder="WC-"></div>
+      <div class="qf"><label>關聯 RO 工單號</label><input type="text" placeholder="RO-"></div>
+      <div class="qf" style="min-width:160px;"><label>零件名稱 / 料號</label><input type="text" placeholder="備件代碼或商品名稱"></div>
+      <div class="qf"><label>保管到期日（起）</label><input type="date"></div>
+      <div class="qbtns">
+        <button class="btn bs">重置</button>
+        <button class="btn bp">🔍 查詢</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pills">
+    <div class="pill active" onclick="setPill(this)">全部 <span class="pc">19</span></div>
+    <div class="pill" onclick="setPill(this)">🔴 逾期 <span class="pc">1</span></div>
+    <div class="pill" onclick="setPill(this)">🟠 即將到期 <span class="pc">2</span></div>
+    <div class="pill" onclick="setPill(this)">🟢 保管中 <span class="pc">5</span></div>
+    <div class="pill" onclick="setPill(this)">🔵 已寄回 <span class="pc">3</span></div>
+    <div class="pill" onclick="setPill(this)">⚫ 已銷毀 <span class="pc">8</span></div>
+  </div>
+
+  <div class="tb">
+    <div class="tc">共 <strong>19</strong> 筆保固舊件</div>
+    <div class="tr_">
+      <button class="btn bs bsm" onclick="batchMark('return')">🔵 標記寄回</button>
+      <button class="btn bs bsm" onclick="batchMark('destroy')">⚫ 標記銷毀</button>
+      <button class="btn bp" onclick="openInbound()">＋ 新增入庫</button>
+    </div>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="chk-all" onchange="toggleAll(this)"></th>
+          <th>索賠件編號</th>
+          <th>零件名稱 / 備件代碼</th>
+          <th>序列號</th>
+          <th>關聯 RO 工單</th>
+          <th>入庫日期</th>
+          <th>保管到期日</th>
+          <th>剩餘天數</th>
+          <th>原廠處置指示</th>
+          <th>處置狀態</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 已逾期 -->
+        <tr class="row-overdue" onclick="openSP('WC-20260203-001')">
+          <td><input type="checkbox" onclick="e=>e.stopPropagation()"></td>
+          <td><span class="lnk mono">WC-20260203-001</span></td>
+          <td><div style="font-weight:500;">排氣管總成 PANIGALE V2 2025</div><div class="mono">45110451A</div></td>
+          <td class="mono" style="font-size:10px;">EXH-2025-00412</td>
+          <td><span class="lnk">RO-20260112-005</span></td>
+          <td style="font-size:11px;">2026/02/03</td>
+          <td style="font-size:11px;color:var(--red-text);font-weight:700;">2026/05/04</td>
+          <td><span class="days-chip dc-overdue">已逾期 5 天</span></td>
+          <td style="font-size:11px;">原地保管後銷毀</td>
+          <td><span class="badge b-overdue">🔴 已逾期</span></td>
+          <td><button class="btn bd bsm" onclick="quickDestroy('WC-20260203-001');event.stopPropagation()">立即銷毀</button></td>
+        </tr>
+        <!-- 即將到期 1 -->
+        <tr class="row-warn" onclick="openSP('WC-20260207-001')">
+          <td><input type="checkbox" onclick="e=>e.stopPropagation()"></td>
+          <td><span class="lnk mono">WC-20260207-001</span></td>
+          <td><div style="font-weight:500;">前煞車總泵 PANIGALE V4</div><div class="mono">62440411A</div></td>
+          <td class="mono" style="font-size:10px;">BRK-2026-00071</td>
+          <td><span class="lnk">RO-20260115-018</span></td>
+          <td style="font-size:11px;">2026/02/07</td>
+          <td style="font-size:11px;color:var(--orange-text);font-weight:700;">2026/05/08</td>
+          <td><span class="days-chip dc-warn">剩餘 3 天</span></td>
+          <td style="font-size:11px;">原地保管後銷毀</td>
+          <td><span class="badge b-warn">🟠 即將到期</span></td>
+          <td><button class="btn bd bsm" onclick="quickDestroy('WC-20260207-001');event.stopPropagation()">標記銷毀</button></td>
+        </tr>
+        <!-- 即將到期 2 -->
+        <tr class="row-warn" onclick="openSP('WC-20260210-001')">
+          <td><input type="checkbox" onclick="e=>e.stopPropagation()"></td>
+          <td><span class="lnk mono">WC-20260210-001</span></td>
+          <td><div style="font-weight:500;">後避震器總成 MULTISTRADA</div><div class="mono">67340321A</div></td>
+          <td class="mono" style="font-size:10px;">SHK-2026-00033</td>
+          <td><span class="lnk">RO-20260120-009</span></td>
+          <td style="font-size:11px;">2026/02/10</td>
+          <td style="font-size:11px;color:var(--orange-text);font-weight:700;">2026/05/11</td>
+          <td><span class="days-chip dc-warn">剩餘 6 天</span></td>
+          <td style="font-size:11px;">寄回台灣總代理</td>
+          <td><span class="badge b-warn">🟠 即將到期</span></td>
+          <td><button class="btn bcoral bsm" onclick="quickReturn('WC-20260210-001');event.stopPropagation()">標記寄回</button></td>
+        </tr>
+        <!-- 保管中 -->
+        <tr onclick="openSP('WC-20260315-001')">
+          <td><input type="checkbox" onclick="e=>e.stopPropagation()"></td>
+          <td><span class="lnk mono">WC-20260315-001</span></td>
+          <td><div style="font-weight:500;">DTC 電控模組 V4 系列</div><div class="mono">28642121A</div></td>
+          <td class="mono" style="font-size:10px;">ECU-2026-00015</td>
+          <td><span class="lnk">RO-20260225-031</span></td>
+          <td style="font-size:11px;">2026/03/15</td>
+          <td style="font-size:11px;">2026/06/13</td>
+          <td><span class="days-chip dc-ok">剩餘 39 天</span></td>
+          <td style="font-size:11px;">寄回義大利原廠</td>
+          <td><span class="badge b-ok">🟢 保管中</span></td>
+          <td>
+            <div style="display:flex;gap:3px;">
+              <button class="btn bcoral bsm" onclick="quickReturn('WC-20260315-001');event.stopPropagation()">寄回</button>
+              <button class="btn bs bsm" onclick="openSP('WC-20260315-001');event.stopPropagation()">查看</button>
+            </div>
+          </td>
+        </tr>
+        <tr onclick="openSP('WC-20260401-001')">
+          <td><input type="checkbox" onclick="e=>e.stopPropagation()"></td>
+          <td><span class="lnk mono">WC-20260401-001</span></td>
+          <td><div style="font-weight:500;">引擎缸頭 MONSTER 937</div><div class="mono">78010121A</div></td>
+          <td class="mono" style="font-size:10px;">ENG-2026-00008</td>
+          <td><span class="lnk">RO-20260310-012</span></td>
+          <td style="font-size:11px;">2026/04/01</td>
+          <td style="font-size:11px;">2026/06/30</td>
+          <td><span class="days-chip dc-ok">剩餘 56 天</span></td>
+          <td style="font-size:11px;">原地保管後銷毀</td>
+          <td><span class="badge b-ok">🟢 保管中</span></td>
+          <td><button class="btn bs bsm" onclick="openSP('WC-20260401-001');event.stopPropagation()">查看</button></td>
+        </tr>
+        <!-- 已寄回 -->
+        <tr class="row-done" onclick="openSP('WC-20260115-001')">
+          <td><input type="checkbox" onclick="e=>e.stopPropagation()"></td>
+          <td><span class="lnk mono">WC-20260115-001</span></td>
+          <td><div style="font-weight:500;">Öhlins 前叉總成</div><div class="mono">67840201A</div></td>
+          <td class="mono" style="font-size:10px;">OHL-2025-10931</td>
+          <td><span class="lnk">RO-20251228-042</span></td>
+          <td style="font-size:11px;">2026/01/15</td>
+          <td style="font-size:11px;">2026/04/15</td>
+          <td><span class="days-chip dc-done">已處置</span></td>
+          <td style="font-size:11px;">寄回義大利原廠</td>
+          <td><span class="badge b-sent">🔵 已寄回原廠</span></td>
+          <td><button class="btn bs bsm" onclick="openSP('WC-20260115-001');event.stopPropagation()">查看</button></td>
+        </tr>
+        <!-- 已銷毀 -->
+        <tr class="row-done" onclick="()=>{}">
+          <td><input type="checkbox" onclick="e=>e.stopPropagation()"></td>
+          <td><span class="mono" style="color:var(--g400);">WC-20251201-003</span></td>
+          <td><div style="color:var(--g500);">後煞車卡鉗 PANIGALE V2</div><div class="mono" style="color:var(--g400);">61340091A</div></td>
+          <td class="mono" style="font-size:10px;color:var(--g400);">—</td>
+          <td style="color:var(--g400);font-size:11px;">RO-20251110-021</td>
+          <td style="font-size:11px;color:var(--g400);">2025/12/01</td>
+          <td style="font-size:11px;color:var(--g400);">2026/03/01</td>
+          <td><span class="days-chip dc-done">已銷毀</span></td>
+          <td style="font-size:11px;color:var(--g400);">原地保管後銷毀</td>
+          <td><span class="badge b-destroyed">⚫ 已銷毀</span></td>
+          <td><button class="btn bs bsm" onclick="event.stopPropagation()">查看</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="bs-sp"></div>
+</main>
+
+<!-- SIDE PANEL -->
+<div class="ov" id="ov" onclick="closeSP()"></div>
+<div class="sp" id="sp">
+  <div class="sph">
+    <span style="font-size:20px;" id="sp-ico">🔧</span>
+    <div>
+      <div class="spt" id="sp-t">索賠舊件明細</div>
+      <div style="font-size:11px;color:var(--g400);" id="sp-s">—</div>
+    </div>
+    <div id="sp-badge" style="margin-left:12px;"></div>
+    <button class="spc" onclick="closeSP()">✕</button>
+  </div>
+  <div class="spb" id="sp-body"></div>
+  <div class="spf">
+    <button class="btn bs" onclick="closeSP()">關閉</button>
+    <div style="margin-left:auto;display:flex;gap:8px;" id="sp-acts"></div>
+  </div>
+</div>
+
+<!-- INBOUND MODAL -->
+<div class="mo" id="inbound-modal">
+  <div class="modal">
+    <div class="mh"><span style="font-size:18px;">📥</span><span class="mt">保固舊件入庫登記</span><button class="mc_" onclick="closeM('inbound-modal')">✕</button></div>
+    <div class="mb_">
+      <div class="astrip as-coral" style="margin-bottom:14px;">
+        <span class="asi">🔧</span>
+        <div>舊件入庫後<strong>不計入商品可用庫存</strong>，存放於保固索賠暫存倉，不觸發補貨告警，有獨立的保管期限管理。</div>
+      </div>
+      <div class="fg"><label>索賠件編號</label><input class="auto" value="WC-20260505-001（系統自動產生）" readonly></div>
+      <div class="fg"><label>關聯 RO 工單號 <span class="req">*</span></label><input type="text" id="ro-ref" placeholder="RO-20260505-XXX" oninput="autoFillPart()"></div>
+      <div class="fg2">
+        <div class="fg"><label>零件名稱</label><input class="auto" id="part-name" value="（由 RO 工單自動帶入）" readonly></div>
+        <div class="fg"><label>備件代碼</label><input class="auto" id="part-code" value="（由 RO 工單自動帶入）" readonly></div>
+      </div>
+      <div class="fg"><label>Ducati 索賠單號 <span class="req">*</span></label><input type="text" placeholder="向 Ducati 提交保固索賠的官方單號"></div>
+      <div class="fg"><label>舊件序列號 <span class="req">*</span><span style="font-weight:400;color:var(--g400);margin-left:4px;">（需序列號追蹤零件必填）</span></label><input type="text" placeholder="掃描或輸入舊件序列號"></div>
+      <div class="fg2">
+        <div class="fg"><label>入庫日期 <span class="req">*</span></label><input type="date" value="2026-05-05" onchange="calcExpiry()"></div>
+        <div class="fg"><label>保管期限（天） <span class="req">*</span></label><input type="number" value="90" id="keep-days" onchange="calcExpiry()"></div>
+        <div class="fg"><label>保管到期日</label><input class="auto" value="2026/08/03（自動計算）" id="expiry-date" readonly></div>
+        <div class="fg"><label>原廠處置指示 <span class="req">*</span></label><select><option>原地保管後銷毀</option><option>寄回台灣總代理</option><option>寄回義大利原廠</option></select></div>
+      </div>
+      <div class="fg"><label>相關 TSB 編號</label><input type="text" placeholder="例：SRV-TSB-26-002（選填）"></div>
+      <div class="fg"><label>零件外觀與缺陷描述</label><textarea style="width:100%;border:1px solid var(--g200);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--g700);font-family:var(--font);height:60px;resize:none;outline:none;" placeholder="記錄拆下時的外觀狀況與缺陷（選填）…"></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="closeM('inbound-modal')">取消</button>
+      <button class="btn bp blg" onclick="submitInbound()">✅ 確認入庫登記</button>
+    </div>
+  </div>
+</div>
+
+<!-- MARK DESTROY MODAL -->
+<div class="mo" id="destroy-modal">
+  <div class="modal">
+    <div class="mh"><span style="font-size:18px;">⚫</span><span class="mt">標記銷毀</span><button class="mc_" onclick="closeM('destroy-modal')">✕</button></div>
+    <div class="mb_">
+      <div class="astrip as-red" style="margin-bottom:14px;"><span class="asi">⚠️</span><div>銷毀後無法復原，請確認已依原廠 TSB 規定完成銷毀作業。</div></div>
+      <div class="fg"><label>銷毀日期 <span class="req">*</span></label><input type="date" value="2026-05-05"></div>
+      <div class="fg"><label>執行人 <span class="req">*</span></label><select><option>蔡零件</option><option>王倉管</option></select></div>
+      <div class="fg"><label>銷毀方式說明</label><textarea style="width:100%;border:1px solid var(--g200);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--g700);font-family:var(--font);height:60px;resize:none;outline:none;" placeholder="例：依 SRV-TSB-26-002 規定，拆解後依廢棄物規範處理…"></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="closeM('destroy-modal')">取消</button>
+      <button class="btn bd blg" onclick="doDestroy()">⚫ 確認標記銷毀</button>
+    </div>
+  </div>
+</div>
+
+<!-- MARK RETURN MODAL -->
+<div class="mo" id="return-modal">
+  <div class="modal">
+    <div class="mh"><span style="font-size:18px;">🔵</span><span class="mt">標記寄回原廠</span><button class="mc_" onclick="closeM('return-modal')">✕</button></div>
+    <div class="mb_">
+      <div class="fg"><label>寄出日期 <span class="req">*</span></label><input type="date" value="2026-05-05"></div>
+      <div class="fg"><label>收件方</label><select><option>台灣 DUCATI 總代理</option><option>義大利 Ducati 原廠</option></select></div>
+      <div class="fg"><label>快遞單號 <span class="req">*</span></label><input type="text" placeholder="例：SF1234567890"></div>
+      <div class="fg"><label>執行人</label><select><option>蔡零件</option><option>王倉管</option></select></div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="closeM('return-modal')">取消</button>
+      <button class="btn bcoral blg" onclick="doReturn()">🔵 確認標記寄回</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-c" id="tc"></div>
+<script>
+let pendingId = null;
+const items = {
+  'WC-20260203-001':{ no:'WC-20260203-001', name:'排氣管總成 PANIGALE V2 2025', code:'45110451A', seq:'EXH-2025-00412', ro:'RO-20260112-005', inDate:'2026/02/03', expiry:'2026/05/04', days:-5, directive:'原地保管後銷毀', tsb:'SRV-TSB-26-002', claim:'DCI-20260112-001', status:'overdue', claimStatus:'已提交待審', claimParts:8500, claimLabor:3200, claimTotal:11700, approved:null },
+  'WC-20260207-001':{ no:'WC-20260207-001', name:'前煞車總泵 PANIGALE V4', code:'62440411A', seq:'BRK-2026-00071', ro:'RO-20260115-018', inDate:'2026/02/07', expiry:'2026/05/08', days:3, directive:'原地保管後銷毀', tsb:'—', claim:'DCI-20260115-002', status:'warn', claimStatus:'已核准', claimParts:4800, claimLabor:2400, claimTotal:7200, approved:7200 },
+  'WC-20260210-001':{ no:'WC-20260210-001', name:'後避震器總成 MULTISTRADA', code:'67340321A', seq:'SHK-2026-00033', ro:'RO-20260120-009', inDate:'2026/02/10', expiry:'2026/05/11', days:6, directive:'寄回台灣總代理', tsb:'—', claim:'DCI-20260120-003', status:'warn', claimStatus:'待提交', claimParts:12000, claimLabor:4800, claimTotal:16800, approved:null },
+  'WC-20260315-001':{ no:'WC-20260315-001', name:'DTC 電控模組 V4 系列', code:'28642121A', seq:'ECU-2026-00015', ro:'RO-20260225-031', inDate:'2026/03/15', expiry:'2026/06/13', days:39, directive:'寄回義大利原廠', tsb:'—', claim:'DCI-20260225-004', status:'ok', claimStatus:'待提交', claimParts:28000, claimLabor:6000, claimTotal:34000, approved:null },
+  'WC-20260401-001':{ no:'WC-20260401-001', name:'引擎缸頭 MONSTER 937', code:'78010121A', seq:'ENG-2026-00008', ro:'RO-20260310-012', inDate:'2026/04/01', expiry:'2026/06/30', days:56, directive:'原地保管後銷毀', tsb:'—', claim:'DCI-20260310-005', status:'ok', claimStatus:'已撥款', claimParts:18000, claimLabor:5600, claimTotal:23600, approved:23600 },
+  'WC-20260115-001':{ no:'WC-20260115-001', name:'Öhlins 前叉總成', code:'67840201A', seq:'OHL-2025-10931', ro:'RO-20251228-042', inDate:'2026/01/15', expiry:'2026/04/15', days:0, directive:'寄回義大利原廠', tsb:'—', claim:'DCI-20251228-006', status:'sent', claimStatus:'已撥款', claimParts:35000, claimLabor:9600, claimTotal:44600, approved:44600 },
+};
+
+function openSP(id) {
+  const d = items[id];
+  if(!d) return;
+  document.getElementById('sp-ico').textContent = {ok:'🟢',warn:'🟠',overdue:'🔴',sent:'🔵',destroyed:'⚫'}[d.status]||'🔧';
+  document.getElementById('sp-t').textContent = d.name;
+  document.getElementById('sp-s').textContent = `索賠件編號：${d.no}`;
+  const bMap={ok:'b-ok',warn:'b-warn',overdue:'b-overdue',sent:'b-sent',destroyed:'b-destroyed'};
+  const bLabel={ok:'🟢 保管中（正常）',warn:'🟠 即將到期',overdue:'🔴 已逾期',sent:'🔵 已寄回原廠',destroyed:'⚫ 已銷毀'};
+  document.getElementById('sp-badge').innerHTML=`<span class="badge ${bMap[d.status]}">${bLabel[d.status]}</span>`;
+
+  let acts='';
+  if(d.status==='ok'||d.status==='warn'||d.status==='overdue'){
+    acts=`<button class="btn bcoral" onclick="quickReturn('${id}')">🔵 標記寄回</button>
+          <button class="btn bd" onclick="quickDestroy('${id}')">⚫ 標記銷毀</button>`;
+  }
+  document.getElementById('sp-acts').innerHTML=acts;
+
+  let strip='';
+  if(d.status==='overdue') strip=`<div class="astrip as-red"><span class="asi">🔴</span><div><strong>保管期限已逾期 ${Math.abs(d.days)} 天！</strong>請立即依原廠指示執行銷毀或寄回，否則可能影響索賠資格。</div></div>`;
+  else if(d.status==='warn') strip=`<div class="astrip as-orange"><span class="asi">⚠️</span><div>保管期限剩餘 <strong>${d.days} 天</strong>，請盡快安排${d.directive.includes('銷毀')?'銷毀作業':'寄回原廠'}。</div></div>`;
+  else if(d.status==='sent') strip=`<div class="astrip as-blue"><span class="asi">🔵</span><div>已寄回原廠，待原廠確認收件並處理索賠審核。</div></div>`;
+
+  const claimColor={待提交:'b-warn',已提交待審:'b-blue',已核准:null,已撥款:'b-ok',被拒絕:'b-overdue'};
+  const claimBadge=`<span class="badge ${claimColor[d.claimStatus]||'b-gray'}">${d.claimStatus}</span>`;
+
+  document.getElementById('sp-body').innerHTML=`
+  <div class="sec">
+    <div class="stitle">舊件資訊</div>
+    ${strip}
+    <div class="ig">
+      <div class="ii"><label>索賠件編號</label><div class="v mono">${d.no}</div></div>
+      <div class="ii"><label>備件代碼</label><div class="v mono">${d.code}</div></div>
+      <div class="ii"><label>舊件序列號</label><div class="v mono">${d.seq||'—'}</div></div>
+      <div class="ii"><label>關聯 RO 工單</label><div class="v"><span class="lnk">${d.ro}</span></div></div>
+      <div class="ii"><label>Ducati 索賠單號</label><div class="v mono">${d.claim}</div></div>
+      <div class="ii"><label>TSB 編號</label><div class="v">${d.tsb}</div></div>
+      <div class="ii"><label>入庫日期</label><div class="v">${d.inDate}</div></div>
+      <div class="ii"><label>保管到期日</label><div class="v ${d.status==='overdue'?'strong':''}" style="color:${d.status==='overdue'?'var(--red-text)':d.status==='warn'?'var(--orange-text)':'inherit'}">${d.expiry}</div></div>
+      <div class="ii"><label>原廠處置指示</label><div class="v">${d.directive}</div></div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="stitle">索賠費用回收</div>
+    <div style="background:#fff;border:1px solid var(--g200);border-radius:6px;padding:12px;">
+      <div class="claim-row"><span class="cl-label">索賠狀態</span><span class="cl-val">${claimBadge}</span></div>
+      <div class="claim-row"><span class="cl-label">索賠零件費用</span><span class="cl-val">NT$ ${d.claimParts.toLocaleString()}</span></div>
+      <div class="claim-row"><span class="cl-label">索賠工時費用</span><span class="cl-val">NT$ ${d.claimLabor.toLocaleString()}</span></div>
+      <div class="claim-row"><span class="cl-label">申請總金額</span><span class="cl-val strong">NT$ ${d.claimTotal.toLocaleString()}</span></div>
+      <div class="claim-row"><span class="cl-label">Ducati 核准金額</span><span class="cl-val" style="color:${d.approved?'var(--green-text)':'var(--g400)'}">${d.approved?'NT$ '+d.approved.toLocaleString():'待審核'}</span></div>
+      ${d.approved&&d.approved<d.claimTotal?`<div class="claim-row"><span class="cl-label">差異說明</span><span class="cl-val" style="color:var(--orange-text);">核准金額低於申請，待確認</span></div>`:''}
+    </div>
+  </div>`;
+
+  document.getElementById('ov').classList.add('vis');
+  document.getElementById('sp').classList.add('open');
+}
+function closeSP(){ document.getElementById('ov').classList.remove('vis'); document.getElementById('sp').classList.remove('open'); }
+function openInbound(){ document.getElementById('inbound-modal').classList.add('vis'); }
+function quickDestroy(id){ pendingId=id; closeM('return-modal'); closeSP(); document.getElementById('destroy-modal').classList.add('vis'); }
+function quickReturn(id){ pendingId=id; closeM('destroy-modal'); closeSP(); document.getElementById('return-modal').classList.add('vis'); }
+function batchMark(type){ const chks=document.querySelectorAll('tbody input[type=checkbox]:checked'); if(!chks.length){showToast('請先勾選要處理的舊件','warning');return;} if(type==='destroy') document.getElementById('destroy-modal').classList.add('vis'); else document.getElementById('return-modal').classList.add('vis'); }
+function doDestroy(){ closeM('destroy-modal'); showToast('✅ 已標記銷毀，銷毀記錄已建立','success'); }
+function doReturn(){ closeM('return-modal'); showToast('✅ 已標記寄回原廠，追蹤記錄已建立','success'); }
+function submitInbound(){ closeM('inbound-modal'); showToast('✅ 舊件入庫登記完成，保管期限提醒已設定','success'); }
+function autoFillPart(){ const v=document.getElementById('ro-ref').value; if(v.length>8){ document.getElementById('part-name').value='前煞車來令片 PANIGALE V4（系統帶出）'; document.getElementById('part-code').value='61340051A'; } }
+function calcExpiry(){ const d=new Date(); d.setDate(d.getDate()+parseInt(document.getElementById('keep-days').value||90)); const p=n=>String(n).padStart(2,'0'); document.getElementById('expiry-date').value=`${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}（自動計算）`; }
+function openM(id){ document.getElementById(id).classList.add('vis'); }
+function closeM(id){ document.getElementById(id).classList.remove('vis'); }
+function toggleAll(cb){ document.querySelectorAll('tbody input[type=checkbox]').forEach(c=>c.checked=cb.checked); }
+function setPill(el){ document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active')); el.classList.add('active'); }
+function tN(el){ const s=el.nextElementSibling; if(!s||!s.classList.contains('nsub'))return; s.classList.toggle('open'); el.classList.toggle('open'); }
+function showToast(msg,type=''){ const c=document.getElementById('tc'),t=document.createElement('div'); t.className=`toast ${type}`; t.textContent=msg; c.appendChild(t); setTimeout(()=>t.remove(),4000); }
+function updateDT(){ const n=new Date(),p=x=>String(x).padStart(2,'0'); document.getElementById('dt').textContent=`${n.getFullYear()}/${p(n.getMonth()+1)}/${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`; }
+setInterval(updateDT,60000); updateDT();
+</script>
+</body>
+</html>

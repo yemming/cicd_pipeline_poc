@@ -82,3 +82,6 @@ AGENTS.md
 
 # Chrome MCP 端對端測試截圖（驗證 artifact）
 /.claude-test-screenshots/
+
+# ERD 抽 schema 用的 scratch（Python script + 中介 JSON）
+/tmp_erd/

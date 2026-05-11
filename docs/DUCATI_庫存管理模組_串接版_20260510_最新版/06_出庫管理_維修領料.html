@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DUCATI 庫存管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+:root {
+  --navy:#1A3A5C; --navy2:#0F2A45; --teal:#0F6E56; --teal-l:#E8F5F0;
+  --red:#CC0000;  --red-l:#FDECEA; --amber:#854F0B; --amb-l:#FDF3E3;
+  --blue:#185FA5; --blue-l:#EAF4FB; --gray:#6B6A68; --gray-l:#F2F2F2;
+  --green:#3B6D11; --green-l:#EAF3DE;
+  --g50:#F8F7F4; --g100:#EEECE6; --g200:#D5D3CB; --g400:#9A9890;
+  --g600:#5A5955; --g800:#2C2C2A; --white:#FFFFFF;
+  --font:'Noto Sans TC',sans-serif; --mono:'DM Mono',monospace;
+  --hh:52px; --sw:220px; --r:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+
+/* ── HEADER ── */
+.hdr{position:fixed;top:0;left:0;right:0;height:var(--hh);background:var(--navy);
+  display:flex;align-items:center;padding:0 20px;gap:14px;z-index:200;
+  border-bottom:1px solid rgba(255,255,255,0.07);}
+.hdr-logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdr-div{width:1px;height:20px;background:rgba(255,255,255,0.2);}
+.hdr-title{font-size:13px;color:rgba(255,255,255,0.6);}
+.hdr-title b{color:rgba(255,255,255,0.9);font-weight:500;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.hdr-store{font-size:12px;color:rgba(255,255,255,0.55);}
+.hdr-store b{color:#5BC4A8;font-weight:500;}
+.hdr-sa{font-size:12px;color:rgba(255,255,255,0.55);}
+.hdr-sa b{color:rgba(255,255,255,0.85);font-weight:500;}
+.hdr-bell{width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,0.08);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;position:relative;}
+.hdr-bell .bd{position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-radius:50%;
+  background:#E24B4A;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);}
+.hdr-av{width:28px;height:28px;border-radius:6px;background:var(--teal);
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;}
+
+/* ── SIDEBAR ── */
+.sidebar{position:fixed;left:0;top:var(--hh);bottom:0;width:var(--sw);
+  background:var(--white);border-right:1px solid var(--g100);overflow-y:auto;z-index:100;}
+.sidebar::-webkit-scrollbar{width:3px;}
+.sidebar::-webkit-scrollbar-thumb{background:var(--g200);border-radius:2px;}
+.ng{padding:14px 14px 4px;}
+.ngl{font-size:10px;font-weight:600;letter-spacing:0.9px;text-transform:uppercase;
+  color:var(--g400);display:flex;align-items:center;gap:6px;padding:0 2px;}
+.nd{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.d-blue{background:var(--navy);} .d-purple{background:#7F77DD;}
+.d-amber{background:#EF9F27;} .d-coral{background:#D85A30;} .d-gray{background:var(--g400);}
+.ni{margin:1px 8px;padding:7px 10px;border-radius:6px;cursor:pointer;
+  display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--g600);transition:all 0.12s;}
+.ni:hover{background:var(--g50);color:var(--g800);}
+.ni.active{background:#EBF3FF;color:var(--blue);font-weight:500;}
+.ni.parent{font-weight:500;color:var(--g800);}
+.ni.parent:hover{background:var(--g50);}
+.ni.section-active{background:#FFF4EC;color:var(--amber);font-weight:500;}
+.nico{font-size:13px;width:18px;text-align:center;flex-shrink:0;}
+.narr{font-size:9px;color:var(--g400);margin-left:auto;transition:transform 0.15s;}
+.ni.open .narr{transform:rotate(90deg);}
+.nbadge{margin-left:auto;font-size:10px;font-family:var(--mono);
+  background:var(--red-l);color:var(--red);padding:1px 5px;border-radius:8px;font-weight:500;}
+.nbadge.warn{background:var(--amb-l);color:var(--amber);}
+.nbadge.new{background:var(--teal-l);color:var(--teal);}
+.nsub{overflow:hidden;max-height:0;transition:max-height 0.2s ease;}
+.nsub.open{max-height:400px;}
+.nsi{margin:1px 8px 1px 28px;padding:5px 10px;border-radius:5px;cursor:pointer;
+  font-size:12px;color:var(--g400);transition:all 0.12s;display:flex;align-items:center;gap:6px;}
+.nsi:hover{background:var(--g50);color:var(--g800);}
+.nsi.active{color:var(--blue);background:#F0F6FF;font-weight:500;}
+.nsep{height:1px;background:var(--g100);margin:8px 14px;}
+
+/* ── MAIN ── */
+.main{margin-left:var(--sw);margin-top:var(--hh);padding:20px 22px;}
+
+/* ── PAGE HEAD ── */
+.ph{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.ph h1{font-size:16px;font-weight:600;}
+.ph-tag{font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.ph-sub{font-size:12px;color:var(--g400);}
+
+/* ── RO串接提示橫幅 ── */
+.ro-banner{background:#EEF6FF;border:1px solid #AAC9F0;border-radius:var(--r);
+  padding:9px 14px;margin-bottom:14px;font-size:12px;color:var(--navy);
+  display:flex;align-items:center;gap:8px;}
+.ro-banner b{font-weight:600;}
+.ro-banner .ro-tag{background:var(--navy);color:#fff;font-size:10px;
+  padding:1px 6px;border-radius:4px;font-weight:600;letter-spacing:0.5px;}
+
+/* ── 查詢面板 ── */
+.qp{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);padding:13px 16px;margin-bottom:12px;}
+.qrow{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;}
+.qrow+.qrow{margin-top:10px;}
+.qf{display:flex;flex-direction:column;gap:3px;}
+.qf label{font-size:11px;color:var(--g400);font-weight:500;}
+.qf select,.qf input{height:30px;border:1px solid var(--g200);border-radius:5px;
+  padding:0 9px;font-size:12.5px;color:var(--g800);background:var(--white);
+  font-family:var(--font);outline:none;transition:border-color 0.12s;}
+.qf select:focus,.qf input:focus{border-color:var(--blue);}
+.qf.w160 input{width:160px;} .qf.w120 select{width:120px;} .qf.w100 select{width:100px;}
+.qbtns{display:flex;gap:6px;margin-left:auto;}
+.btn{padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;
+  font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.btn-navy{background:var(--navy);color:#fff;} .btn-navy:hover{background:var(--navy2);}
+.btn-ghost{background:var(--white);color:var(--g600);border:1px solid var(--g200);}
+.btn-ghost:hover{border-color:var(--g400);color:var(--g800);}
+.btn-teal{background:var(--teal);color:#fff;} .btn-teal:hover{background:#0A5440;}
+.btn-red{background:var(--red);color:#fff;} .btn-red:hover{background:#AA0000;}
+.btn-sm{padding:0 10px;height:26px;font-size:11.5px;}
+
+/* 領料狀態 pills */
+.pills{display:flex;gap:5px;}
+.pill{padding:3px 9px;border-radius:14px;font-size:11.5px;cursor:pointer;
+  border:1px solid var(--g200);color:var(--g600);background:var(--white);transition:all 0.1s;}
+.pill:hover{border-color:var(--g400);}
+.pill.all.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+.pill.pend.on{background:var(--amb-l);color:var(--amber);border-color:#FAC775;}
+.pill.part.on{background:var(--blue-l);color:var(--blue);border-color:#B5D4F4;}
+.pill.done.on{background:var(--green-l);color:var(--green);border-color:#C0DD97;}
+
+/* ── 工單列表 ── */
+.tbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.tbar-info{font-size:12px;color:var(--g400);}
+.tw{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+.ts{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:900px;}
+thead tr{background:var(--g50);}
+thead th{padding:8px 11px;text-align:left;font-size:11px;font-weight:600;
+  color:var(--g600);white-space:nowrap;border-bottom:1px solid var(--g100);}
+th.c,td.c{text-align:center;}
+tbody tr{border-bottom:1px solid var(--g100);transition:background 0.1s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover td{background:var(--g50);}
+tbody td{padding:8px 11px;font-size:12.5px;color:var(--g800);white-space:nowrap;}
+td.mono{font-family:var(--mono);font-size:11.5px;}
+.wo-link{color:var(--blue);cursor:pointer;font-weight:500;font-family:var(--mono);
+  font-size:12px;text-decoration:underline;text-underline-offset:2px;}
+.wo-link:hover{color:var(--navy);}
+.b{display:inline-flex;align-items:center;padding:2px 6px;border-radius:7px;
+  font-size:11px;font-weight:500;white-space:nowrap;}
+.b-pend{background:var(--amb-l);color:var(--amber);}
+.b-part{background:var(--blue-l);color:var(--blue);}
+.b-done{background:var(--green-l);color:var(--green);}
+.b-red{background:var(--red-l);color:#A32D2D;}
+.b-gry{background:var(--gray-l);color:var(--gray);}
+.b-navy{background:#EBF3FF;color:var(--navy);}
+
+/* ── 發料頁面（彈出層） ── */
+.issue-overlay{display:none;position:fixed;inset:0;background:rgba(15,30,50,0.45);z-index:300;
+  align-items:flex-start;justify-content:center;padding-top:var(--hh);overflow-y:auto;}
+.issue-overlay.show{display:flex;}
+.issue-panel{background:var(--white);width:calc(100% - var(--sw) - 48px);
+  margin-left:var(--sw);min-height:calc(100vh - var(--hh));
+  border-left:1px solid var(--g100);animation:slideIn 0.2s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* 發料 header */
+.ip-head{background:var(--navy);padding:14px 20px;display:flex;align-items:center;gap:14px;
+  position:sticky;top:0;z-index:10;}
+.ip-back{background:rgba(255,255,255,0.12);border:none;color:#fff;padding:5px 10px;
+  border-radius:5px;font-size:12px;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:5px;}
+.ip-back:hover{background:rgba(255,255,255,0.2);}
+.ip-title{font-size:14px;font-weight:600;color:#fff;}
+.ip-wo{font-family:var(--mono);font-size:12px;color:rgba(255,255,255,0.7);}
+.ip-status{margin-left:auto;}
+
+/* 車輛資訊卡 */
+.car-card{margin:16px 20px;background:var(--g50);border:1px solid var(--g100);
+  border-radius:var(--r);padding:14px 18px;display:grid;
+  grid-template-columns:repeat(4,1fr);gap:10px;}
+.cc-field label{font-size:10.5px;color:var(--g400);display:block;margin-bottom:3px;}
+.cc-field span{font-size:13px;font-weight:500;color:var(--g800);}
+.cc-field span.mono{font-family:var(--mono);font-size:12px;}
+.cc-field span.auto{background:#EEF6FF;color:var(--navy);font-size:11px;
+  padding:1px 6px;border-radius:3px;font-weight:600;}
+
+/* 發料工具列 */
+.ip-tbar{padding:10px 20px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--g100);background:var(--white);
+  position:sticky;top:52px;z-index:9;}
+.ip-search{flex:1;max-width:240px;height:30px;border:1px solid var(--g200);
+  border-radius:5px;padding:0 10px;font-size:12.5px;font-family:var(--font);outline:none;}
+.ip-search:focus{border-color:var(--blue);}
+.ip-tbar-right{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.ip-summary{font-size:12px;color:var(--g400);}
+.ip-summary b{color:var(--g800);}
+
+/* 發料明細表格 */
+.issue-table-wrap{padding:0 20px 20px;}
+.it-section{margin-top:14px;}
+.it-sec-title{font-size:11px;font-weight:600;color:var(--g400);letter-spacing:0.5px;
+  text-transform:uppercase;padding:8px 0 6px;display:flex;align-items:center;gap:8px;}
+.it-sec-title::after{content:'';flex:1;height:1px;background:var(--g100);}
+table.it{width:100%;border-collapse:collapse;border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+table.it thead th{padding:8px 12px;font-size:11px;font-weight:600;color:var(--g600);
+  background:var(--g50);border-bottom:1px solid var(--g100);text-align:left;white-space:nowrap;}
+table.it tbody td{padding:9px 12px;font-size:12.5px;border-bottom:1px solid var(--g100);white-space:nowrap;}
+table.it tbody tr:last-child td{border-bottom:none;}
+table.it tbody tr:hover td{background:var(--g50);}
+table.it td.mono{font-family:var(--mono);font-size:12px;}
+table.it td.c{text-align:center;}
+
+/* 數量輸入 */
+.qty-input{width:64px;height:28px;border:1.5px solid var(--blue);border-radius:5px;
+  text-align:center;font-family:var(--mono);font-size:13px;font-weight:500;
+  color:var(--navy);outline:none;padding:0 4px;}
+.qty-input:focus{border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,58,92,0.1);}
+.qty-readonly{width:64px;height:28px;border:1px solid var(--g200);border-radius:5px;
+  text-align:center;font-family:var(--mono);font-size:13px;color:var(--g400);
+  background:var(--g50);padding:0 4px;}
+
+/* 行動按鈕群 */
+.row-acts{display:flex;gap:5px;}
+.ra{padding:2px 7px;border-radius:4px;border:1px solid var(--g200);
+  background:var(--white);font-size:11px;cursor:pointer;color:var(--g600);font-family:var(--font);}
+.ra:hover{border-color:var(--g400);color:var(--g800);}
+.ra.adj{border-color:#AAC9F0;color:var(--blue);background:var(--blue-l);}
+.ra.stor{border-color:#A8D5C2;color:var(--teal);background:var(--teal-l);}
+.ra.out{border-color:var(--navy);color:var(--navy);background:#EBF3FF;}
+
+/* 已出庫狀態行 */
+tr.issued td{color:var(--g400);}
+tr.issued .qty-readonly{border-color:var(--g100);}
+
+/* 工時項目行 */
+tr.labor td{background:#FAFAF8;}
+tr.labor td:first-child{border-left:3px solid var(--g200);}
+
+/* 底部操作列 */
+.ip-footer{position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--g100);
+  padding:12px 20px;display:flex;align-items:center;gap:12px;z-index:10;}
+.ip-footer-left{font-size:12px;color:var(--g600);}
+.ip-footer-left b{color:var(--g800);}
+.ip-footer-right{margin-left:auto;display:flex;gap:8px;}
+.confirm-note{font-size:11px;color:var(--g400);display:flex;align-items:center;gap:5px;}
+.confirm-note::before{content:'⚠️';font-size:12px;}
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<header class="hdr">
+  <div class="hdr-logo">DUCATI</div>
+  <div class="hdr-div"></div>
+  <div class="hdr-title">出庫管理　<b>維修領料</b></div>
+  <div class="hdr-right">
+    <div class="hdr-store">門店：<b>台北直營店</b></div>
+    <div class="hdr-sa">SA：<b>蔡零件</b>　2026/05/05　10:32</div>
+    <div class="hdr-bell">🔔<span class="bd">5</span></div>
+    <div class="hdr-av">蔡</div>
+  </div>
+</header>
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="ng">
+    <div class="ngl"><span class="nd d-blue"></span>基礎設定</div>
+  </div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">🏛</span>組織與權限<span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi">組織三層架構</div>
+    <div class="nsi">採購權限規則</div>
+    <div class="nsi">商品管理權限</div>
+    <div class="nsi">盤點回傳規則</div>
+    <div class="nsi">管控類型定義</div>
+  </div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">🏗</span>倉庫管理<span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi">倉儲四層架構</div>
+    <div class="nsi">倉庫 / 庫區 / 庫位 / 擺放</div>
+    <div class="nsi">供應商資訊</div>
+    <div class="nsi">採購合約</div>
+  </div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">📦</span>商品管理<span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi">基礎資料</div>
+    <div class="nsi">商品資訊（多維度料號）</div>
+    <div class="nsi">門市定價</div>
+    <div class="nsi">適配設定（料-車/年份）</div>
+    <div class="nsi" style="color:var(--teal)">序列號 / 批號追蹤 <span class="nbadge new">新</span></div>
+  </div>
+  <div class="nsep"></div>
+  <div class="ng">
+    <div class="ngl"><span class="nd d-purple"></span>進出庫流程</div>
+  </div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">🛒</span>採購管理<span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi">採購流程鏈路</div>
+    <div class="nsi">日常補貨計畫</div>
+    <div class="nsi" onclick="window.location.href='04_採購管理_需求處理.html'" style="cursor:pointer">需求處理 <span class="nbadge">3</span></div>
+    <div class="nsi" onclick="window.location.href='04_採購管理_商品採購.html'" style="cursor:pointer">商品採購</div>
+    <div class="nsi">採購退貨</div>
+  </div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">📥</span>入庫管理<span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi" onclick="window.location.href='05_入庫管理_採購入庫.html'" style="cursor:pointer">採購入庫（含原廠到貨匯入）</div>
+    <div class="nsi" onclick="window.location.href='05_入庫管理_調撥入庫.html'" style="cursor:pointer">調撥入庫</div>
+    <div class="nsi">內售入庫</div>
+    <div class="nsi">領料退貨入庫</div>
+  </div>
+  <div class="ni parent open section-active" onclick="tog(this)"><span class="nico">📤</span>出庫管理<span class="narr">▶</span></div>
+  <div class="nsub open">
+    <div class="nsi active" onclick="window.location.href='06_出庫管理_維修領料.html'" style="cursor:pointer">維修領料（RO工單串接）</div>
+    <div class="nsi" onclick="window.location.href='06_出庫管理_調撥出庫.html'" style="cursor:pointer">調撥出庫</div>
+    <div class="nsi">內售出庫</div>
+  </div>
+  <div class="ni"><span class="nico">🔍</span>庫存查詢<span class="nbadge warn">7</span></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">⚙️</span>庫存作業<span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi">例外出入庫</div>
+    <div class="nsi">寄存管理</div>
+    <div class="nsi">備件庫存調整</div>
+    <div class="nsi">入庫查詢</div>
+    <div class="nsi">調撥在途查詢</div>
+  </div>
+  <div class="nsep"></div>
+  <div class="ng">
+    <div class="ngl"><span class="nd d-amber"></span>盤點與告警</div>
+  </div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">📋</span>盤點管理<span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi" onclick="window.location.href='08_盤點管理_盤點計畫.html'" style="cursor:pointer">盤點計畫</div>
+    <div class="nsi" onclick="window.location.href='08_盤點管理_盤點處理.html'" style="cursor:pointer">盤點處理（條碼掃描）</div>
+    <div class="nsi" onclick="window.location.href='08_盤點管理_報損報溢.html'" style="cursor:pointer">報損報溢</div>
+  </div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">⚡</span>預警告警<span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi">庫存水位設定</div>
+    <div class="nsi">告警類型與規則</div>
+    <div class="nsi" onclick="window.location.href='07_庫存管理_商品庫存查詢_v2.html'" style="cursor:pointer">告警儀表板</div>
+    <div class="nsi">工單增項閉環</div>
+    <div class="nsi">告警階層設定</div>
+  </div>
+  <div class="nsep"></div>
+  <div class="ng">
+    <div class="ngl"><span class="nd d-coral"></span>保固與分析</div>
+  </div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">🔧</span>保固索賠舊件<span class="nbadge warn">2</span><span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi">索賠流程說明</div>
+    <div class="nsi">舊件出入庫邏輯</div>
+    <div class="nsi">暫存倉設定</div>
+    <div class="nsi" onclick="window.location.href='11_保固索賠_舊件管理.html'" style="cursor:pointer">舊件管理介面</div>
+    <div class="nsi">與RO工單串接</div>
+    <div class="nsi">索賠費用回收</div>
+  </div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">📊</span>ABC分類 / 分析報表<span class="narr">▶</span></div>
+  <div class="nsub">
+    <div class="nsi">ABC 分類定義與機制</div>
+    <div class="nsi">報表：庫存周轉率</div>
+    <div class="nsi">報表：呆滯庫存佔比</div>
+    <div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" style="cursor:pointer">報表：即時缺貨率</div>
+    <div class="nsi">報表：ABC 結構圖</div>
+  </div>
+  <div class="nsep"></div>
+  <div style="padding:8px 14px 16px">
+    <div class="ngl" style="margin-bottom:4px"><span class="nd d-gray"></span>附錄</div>
+    <div class="nsi" style="margin-left:0">介面設計共用規則（A～H）</div>
+  </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+
+  <!-- 頁面標題 -->
+  <div class="ph">
+    <h1>維修領料</h1>
+    <span class="ph-tag">6.1</span>
+    <span class="ph-sub">依 RO 工單查詢 · 倉管執行正式出庫 · 出庫後自動觸發庫存告警檢查</span>
+  </div>
+
+  <!-- RO 串接提示 -->
+  <div class="ro-banner">
+    <span class="ro-tag">RO 串接</span>
+    <span>本頁對應 RO 工單 <b>C 步驟「領料單」</b>。技師持工單至零件庫房領料後，倉管在此執行正式出庫，出庫數量即時反映至庫存，並自動觸發補貨告警檢查。</span>
+  </div>
+
+  <!-- ── 查詢區塊 ── -->
+  <div class="qp">
+    <div class="qrow" style="margin-bottom:10px">
+      <div class="qf w120"><label>工單建立日期</label>
+        <select><option>今日</option><option>近3天</option><option>近7天</option><option>自訂</option></select>
+      </div>
+      <div class="qf w120"><label>工單業務類型</label>
+        <select><option>全部</option><option>一般維修</option><option>保固維修</option><option>事故車</option></select>
+      </div>
+      <div class="qf w120"><label>維修狀態</label>
+        <select><option>全部</option><option>施工中</option><option>待施工</option><option>完工</option></select>
+      </div>
+      <div class="qf w100"><label>交車狀態</label>
+        <select><option>全部</option><option>未交車</option><option>已交車</option></select>
+      </div>
+      <div class="qf w160"><label>工單號 / 車牌 / 客戶姓名</label>
+        <input type="text" placeholder="輸入關鍵字...">
+      </div>
+      <div class="qbtns">
+        <button class="btn btn-navy">查詢</button>
+        <button class="btn btn-ghost">重置</button>
+      </div>
+    </div>
+    <div class="qrow" style="align-items:center;gap:6px">
+      <span style="font-size:11px;color:var(--g400);font-weight:500;white-space:nowrap">領料狀態：</span>
+      <div class="pills">
+        <div class="pill all on" onclick="filterPill(this,'all')">全部（18）</div>
+        <div class="pill pend"   onclick="filterPill(this,'pend')">待領料（8）</div>
+        <div class="pill part"   onclick="filterPill(this,'part')">部分領料（3）</div>
+        <div class="pill done"   onclick="filterPill(this,'done')">已領料（7）</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 工單列表 ── -->
+  <div class="tbar">
+    <span class="tbar-info">共 18 筆工單</span>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="btn btn-ghost btn-sm">匯出</button>
+    </div>
+  </div>
+
+  <div class="tw">
+    <div class="ts">
+      <table>
+        <thead>
+          <tr>
+            <th>工單號</th>
+            <th>業務類型</th>
+            <th>車牌</th>
+            <th>車型</th>
+            <th>客戶姓名</th>
+            <th>接待 SA</th>
+            <th>維修狀態</th>
+            <th>交車狀態</th>
+            <th class="c">零件總項</th>
+            <th class="c">已出庫</th>
+            <th>領料狀態</th>
+            <th>建立時間</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- 待領料（工單待料 - 特殊提示） -->
+          <tr style="background:#FFFDE7">
+            <td><span class="wo-link" onclick="openIssue('RO-20260505-003')">RO-20260505-003</span></td>
+            <td><span class="b b-red">保固維修</span></td>
+            <td class="mono">ABR-1234</td>
+            <td>PANIGALE V4 S 2022</td>
+            <td>林大明</td><td>魏呈宇</td>
+            <td><span class="b b-navy">施工中</span></td>
+            <td><span class="b b-gry">未交車</span></td>
+            <td class="c">5</td><td class="c">0</td>
+            <td><span class="b b-pend">⚠️ 待領料</span></td>
+            <td class="mono">09:15</td>
+            <td><button class="btn btn-teal btn-sm" onclick="openIssue('RO-20260505-003')">發料 →</button></td>
+          </tr>
+          <!-- 待領料 -->
+          <tr>
+            <td><span class="wo-link" onclick="openIssue('RO-20260505-007')">RO-20260505-007</span></td>
+            <td><span class="b b-navy">一般維修</span></td>
+            <td class="mono">XYZ-5566</td>
+            <td>Monster 937 2023</td>
+            <td>張美玲</td><td>魏呈宇</td>
+            <td><span class="b b-navy">施工中</span></td>
+            <td><span class="b b-gry">未交車</span></td>
+            <td class="c">3</td><td class="c">0</td>
+            <td><span class="b b-pend">待領料</span></td>
+            <td class="mono">09:48</td>
+            <td><button class="btn btn-teal btn-sm" onclick="openIssue('RO-20260505-007')">發料 →</button></td>
+          </tr>
+          <!-- 部分領料 -->
+          <tr>
+            <td><span class="wo-link" onclick="openIssue('RO-20260505-002')">RO-20260505-002</span></td>
+            <td><span class="b b-navy">一般維修</span></td>
+            <td class="mono">DEF-9988</td>
+            <td>Multistrada V4 2021</td>
+            <td>王小明</td><td>魏呈宇</td>
+            <td><span class="b b-navy">施工中</span></td>
+            <td><span class="b b-gry">未交車</span></td>
+            <td class="c">6</td><td class="c">4</td>
+            <td><span class="b b-part">部分領料</span></td>
+            <td class="mono">08:30</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="openIssue('RO-20260505-002')">繼續發料</button></td>
+          </tr>
+          <!-- 已領料 -->
+          <tr style="opacity:0.7">
+            <td><span class="wo-link" onclick="openIssue('RO-20260504-015')">RO-20260504-015</span></td>
+            <td><span class="b b-navy">一般維修</span></td>
+            <td class="mono">GHI-3322</td>
+            <td>Scrambler Icon 2022</td>
+            <td>陳美麗</td><td>魏呈宇</td>
+            <td><span class="b b-navy">施工中</span></td>
+            <td><span class="b b-gry">未交車</span></td>
+            <td class="c">4</td><td class="c">4</td>
+            <td><span class="b b-done">已領料</span></td>
+            <td class="mono">昨日 14:20</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="openIssue('RO-20260504-015')">查看</button></td>
+          </tr>
+          <tr style="opacity:0.7">
+            <td><span class="wo-link">RO-20260504-011</span></td>
+            <td><span class="b b-navy">一般維修</span></td>
+            <td class="mono">JKL-7744</td>
+            <td>PANIGALE V2 2023</td>
+            <td>黃志遠</td><td>魏呈宇</td>
+            <td><span class="b" style="background:#EAF3DE;color:#3B6D11">完工</span></td>
+            <td><span class="b b-gry">未交車</span></td>
+            <td class="c">2</td><td class="c">2</td>
+            <td><span class="b b-done">已領料</span></td>
+            <td class="mono">昨日 11:05</td>
+            <td><button class="btn btn-ghost btn-sm">查看</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- ══ 發料頁面（右側滑入） ══ -->
+<div class="issue-overlay" id="issueOverlay" onclick="closeIfBg(event)">
+  <div class="issue-panel" onclick="event.stopPropagation()">
+
+    <!-- 發料 Header -->
+    <div class="ip-head">
+      <button class="ip-back" onclick="closeIssue()">← 返回列表</button>
+      <div>
+        <div class="ip-title">維修領料發料</div>
+        <div class="ip-wo" id="ipWoNum">RO-20260505-003</div>
+      </div>
+      <div class="ip-status">
+        <span class="b b-pend" id="ipStatus">待領料</span>
+      </div>
+    </div>
+
+    <!-- 車輛資訊 -->
+    <div class="car-card">
+      <div class="cc-field">
+        <label>工單號</label>
+        <span class="mono" id="ipWoNum2">RO-20260505-003</span>
+      </div>
+      <div class="cc-field">
+        <label>車牌號碼</label>
+        <span class="mono">ABR-1234</span>
+      </div>
+      <div class="cc-field">
+        <label>車型</label>
+        <span>PANIGALE V4 S 2022</span>
+      </div>
+      <div class="cc-field">
+        <label>車架號 VIN</label>
+        <span class="mono" style="font-size:11px">ZDM14BKW7NB047823</span>
+      </div>
+      <div class="cc-field">
+        <label>客戶姓名</label>
+        <span>林大明</span>
+      </div>
+      <div class="cc-field">
+        <label>業務類型</label>
+        <span><span class="b b-red">保固維修</span></span>
+      </div>
+      <div class="cc-field">
+        <label>負責技師</label>
+        <span>陳建明 <span class="auto">自動帶入</span></span>
+      </div>
+      <div class="cc-field">
+        <label>工單狀態</label>
+        <span><span class="b b-navy">施工中</span></span>
+      </div>
+    </div>
+
+    <!-- 發料工具列 -->
+    <div class="ip-tbar">
+      <input class="ip-search" type="text" placeholder="搜尋零件名稱或料號...">
+      <div class="ip-tbar-right">
+        <div class="ip-summary">共 <b>5</b> 項零件　已出庫 <b>0</b> 項　待出庫 <b>4</b> 項　工時項目 <b>1</b> 項</div>
+        <button class="btn btn-ghost btn-sm">列印發料單</button>
+      </div>
+    </div>
+
+    <!-- 發料明細 -->
+    <div class="issue-table-wrap">
+
+      <!-- 零件項目 -->
+      <div class="it-section">
+        <div class="it-sec-title">零件項目</div>
+        <table class="it">
+          <thead>
+            <tr>
+              <th>服務項目</th>
+              <th>零件名稱</th>
+              <th>備件代碼</th>
+              <th>倉庫 / 庫位</th>
+              <th style="text-align:center">工單數量</th>
+              <th style="text-align:center">可用庫存</th>
+              <th style="text-align:center">本次出庫數</th>
+              <th>庫存狀態</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 正常可出庫 -->
+            <tr>
+              <td style="color:var(--g400);font-size:12px">定期保養</td>
+              <td>引擎機油 Motul 5W-40</td>
+              <td class="mono">DUC-OIL-001</td>
+              <td class="mono">主零件倉 / B-01-02</td>
+              <td class="c">3</td>
+              <td class="c"><span style="color:var(--amber);font-weight:500;font-family:var(--mono)">8</span></td>
+              <td class="c"><input class="qty-input" type="number" value="3" min="0" max="8"></td>
+              <td><span class="b" style="background:var(--amb-l);color:var(--amber)">🟠 低庫存</span></td>
+              <td>
+                <div class="row-acts">
+                  <button class="ra adj" title="零件調整">調整</button>
+                  <button class="ra out">出庫</button>
+                </div>
+              </td>
+            </tr>
+            <!-- 正常 -->
+            <tr>
+              <td style="color:var(--g400);font-size:12px">定期保養</td>
+              <td>機油濾清器</td>
+              <td class="mono">DUC-OIL-002</td>
+              <td class="mono" style="color:var(--red)">主零件倉 / B-01-01</td>
+              <td class="c">1</td>
+              <td class="c"><span style="color:var(--red);font-weight:500;font-family:var(--mono)">0</span></td>
+              <td class="c"><input class="qty-input" type="number" value="0" min="0" max="0" style="border-color:var(--red);color:var(--red)"></td>
+              <td><span class="b b-red">🔴 缺料</span></td>
+              <td>
+                <div class="row-acts">
+                  <button class="ra" style="border-color:var(--red);color:var(--red);background:var(--red-l)" onclick="alert('已通知採購：機油濾清器缺料，已建立緊急補貨需求')">補貨需求</button>
+                </div>
+              </td>
+            </tr>
+            <!-- 保固維修零件 -->
+            <tr style="background:#FEF9FF">
+              <td style="color:var(--g400);font-size:12px">保固更換</td>
+              <td>
+                排氣管總成（無補強板）
+                <span style="display:block;font-size:10.5px;color:var(--amber);margin-top:2px">⚠️ 保固件：拆下舊件須入保固暫存倉</span>
+              </td>
+              <td class="mono">45210221A</td>
+              <td class="mono">主零件倉 / F-01-01</td>
+              <td class="c">1</td>
+              <td class="c"><span style="font-weight:500;font-family:var(--mono)">2</span></td>
+              <td class="c"><input class="qty-input" type="number" value="1" min="0" max="2"></td>
+              <td><span class="b b-done">✅ 正常</span></td>
+              <td>
+                <div class="row-acts">
+                  <button class="ra adj">調整</button>
+                  <button class="ra stor" onclick="alert('提示：此為保固件，出庫後請記得將舊件送入保固暫存倉並登記索賠單號')">寄存</button>
+                  <button class="ra out">出庫</button>
+                </div>
+              </td>
+            </tr>
+            <!-- 前煞車來令片 - 缺料但部分可出 -->
+            <tr>
+              <td style="color:var(--g400);font-size:12px">保固更換</td>
+              <td>前煞車來令片</td>
+              <td class="mono">61340051A</td>
+              <td class="mono" style="color:var(--red)">主零件倉 / A-02-03</td>
+              <td class="c">2</td>
+              <td class="c"><span style="color:var(--red);font-weight:500;font-family:var(--mono)">1</span></td>
+              <td class="c"><input class="qty-input" type="number" value="1" min="0" max="1" style="border-color:var(--amber);color:var(--amber)"></td>
+              <td><span class="b b-red">🔴 缺料</span></td>
+              <td>
+                <div class="row-acts">
+                  <button class="ra adj">調整</button>
+                  <button class="ra out">部分出庫</button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- 已出庫行 -->
+            <tr class="issued">
+              <td style="color:var(--g400);font-size:12px">定期保養</td>
+              <td style="color:var(--g400)">煞車油 DOT 4 500ml <span class="b b-done" style="font-size:10px">✅ 已出庫</span></td>
+              <td class="mono" style="color:var(--g400)">38010061A</td>
+              <td class="mono" style="color:var(--g400)">主零件倉 / B-02-01</td>
+              <td class="c" style="color:var(--g400)">1</td>
+              <td class="c" style="color:var(--g400)">—</td>
+              <td class="c"><input class="qty-readonly" readonly value="1"></td>
+              <td><span class="b b-done">✅ 已出庫</span></td>
+              <td style="color:var(--g400);font-size:12px">10:08 出庫</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 工時項目 -->
+      <div class="it-section">
+        <div class="it-sec-title">工時項目（無需領料）</div>
+        <table class="it">
+          <thead>
+            <tr>
+              <th>服務項目</th>
+              <th>項目說明</th>
+              <th>工時</th>
+              <th>備註</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="labor">
+              <td style="color:var(--g400);font-size:12px">年度保養</td>
+              <td>年度保養檢查（含各部位螺絲扭力確認）</td>
+              <td class="mono">1.5h</td>
+              <td style="color:var(--g400);font-size:12px">工時項目，無領料需求</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 缺料警示 -->
+      <div style="margin-top:14px;background:var(--red-l);border:1px solid #F7C1C1;
+        border-radius:var(--r);padding:12px 16px;">
+        <div style="font-size:12px;font-weight:600;color:#A32D2D;margin-bottom:8px">
+          🔴 缺料警示｜以下零件庫存不足，已自動建立補貨需求
+        </div>
+        <div style="font-size:12px;color:var(--g600);display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="b b-red">缺料</span>
+            <span><b>機油濾清器</b>（DUC-OIL-002）：需要 1 個，現有庫存 0 個</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--g400)">→ 補貨需求已建立（需求單 REQ-20260505-008）</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="b" style="background:var(--amb-l);color:var(--amber)">部分</span>
+            <span><b>前煞車來令片</b>（61340051A）：需要 2 組，現有庫存 1 組，可先出 1 組</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--g400)">→ 補貨需求已建立（需求單 REQ-20260505-009）</span>
+          </div>
+
+        <!-- ★ 跨模組串接：通知售後工單增項閉環 -->
+        <div style="margin-top:10px;padding:10px 12px;background:#fff;border:1.5px solid #AFA9EC;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#26215C;">🔗 通知售後工單 · 觸發增項閉環</div>
+            <div style="font-size:11px;color:#534AB7;margin-top:2px;">缺料項目已記錄，可通知售後 SA 更新工單狀態，並啟動 D+3/D+10 追蹤提醒</div>
+          </div>
+          <button style="padding:0 14px;height:30px;border-radius:6px;background:#534AB7;color:#fff;border:none;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;font-family:inherit;" onclick="window.open('05_增項閉環_完整子模組.html','_blank')">→ 開啟增項閉環管理</button>
+        </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 底部操作列 -->
+    <div class="ip-footer">
+      <div class="ip-footer-left">
+        可出庫：<b>3 項</b>　缺料：<b>1 項</b>　部分出庫：<b>1 項</b>
+      </div>
+      <div class="confirm-note">出庫後庫存即時更新，低於再訂購點將自動觸發補貨需求</div>
+      <div class="ip-footer-right">
+        <button class="btn btn-ghost" onclick="closeIssue()">返回列表</button>
+        <button class="btn btn-ghost">列印發料單</button>
+        <button class="btn btn-teal" onclick="alert('已出庫：引擎機油×3、排氣管總成×1、前煞車來令片×1（部分）\n庫存已更新，補貨需求已自動建立')">
+          確認出庫（可出庫項目）
+        </button>
+        <button class="btn btn-navy" onclick="alert('全部出庫確認，出庫單 OUT-20260505-003 已產生')">
+          全部出庫
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function tog(el) {
+  const sub = el.nextElementSibling;
+  if (!sub) return;
+  sub.classList.toggle('open');
+  el.classList.toggle('open');
+}
+
+function filterPill(el, type) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function openIssue(woNum) {
+  document.getElementById('ipWoNum').textContent = woNum;
+  document.getElementById('ipWoNum2').textContent = woNum;
+  document.getElementById('issueOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeIssue() {
+  document.getElementById('issueOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function closeIfBg(e) {
+  if (e.target === document.getElementById('issueOverlay')) closeIssue();
+}
+</script>
+</body>
+</html>

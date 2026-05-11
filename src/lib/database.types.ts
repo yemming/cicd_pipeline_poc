@@ -402,6 +402,79 @@ export type Database = {
         }
         Relationships: []
       }
+      business_rules: {
+        Row: {
+          brand_id: string
+          config: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          metadata: Json
+          rule_kind: string
+          scope_role_code: string | null
+          scope_store_id: string | null
+          scope_subsidiary_id: string | null
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          brand_id: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          rule_kind: string
+          scope_role_code?: string | null
+          scope_store_id?: string | null
+          scope_subsidiary_id?: string | null
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          brand_id?: string
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          rule_kind?: string
+          scope_role_code?: string | null
+          scope_store_id?: string | null
+          scope_subsidiary_id?: string | null
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_rules_scope_role_code_fkey"
+            columns: ["scope_role_code"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_rules_scope_store_id_fkey"
+            columns: ["scope_store_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_rules_scope_subsidiary_id_fkey"
+            columns: ["scope_subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           account_code: string
@@ -777,93 +850,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      count_review_rules: {
-        Row: {
-          action: string | null
-          badge_color: string
-          badge_label: string
-          brand_id: string
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          metadata: Json | null
-          panel_color: string
-          rule_code: string
-          rule_name: string
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          action?: string | null
-          badge_color?: string
-          badge_label: string
-          brand_id: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          panel_color?: string
-          rule_code: string
-          rule_name: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          action?: string | null
-          badge_color?: string
-          badge_label?: string
-          brand_id?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          panel_color?: string
-          rule_code?: string
-          rule_name?: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      count_tolerance_config: {
-        Row: {
-          brand_id: string
-          metadata: Json | null
-          notes: string | null
-          tolerance_a_pct: number
-          tolerance_b_pct: number
-          tolerance_c_pct: number
-          updated_at: string
-          updated_by: string | null
-          warning_text: string | null
-        }
-        Insert: {
-          brand_id: string
-          metadata?: Json | null
-          notes?: string | null
-          tolerance_a_pct?: number
-          tolerance_b_pct?: number
-          tolerance_c_pct?: number
-          updated_at?: string
-          updated_by?: string | null
-          warning_text?: string | null
-        }
-        Update: {
-          brand_id?: string
-          metadata?: Json | null
-          notes?: string | null
-          tolerance_a_pct?: number
-          tolerance_b_pct?: number
-          tolerance_c_pct?: number
-          updated_at?: string
-          updated_by?: string | null
-          warning_text?: string | null
-        }
-        Relationships: []
       }
       customer_contacts: {
         Row: {
@@ -2432,132 +2418,6 @@ export type Database = {
           },
         ]
       }
-      item_permission_features: {
-        Row: {
-          brand_id: string
-          created_at: string
-          description: string | null
-          feature_code: string
-          feature_name: string
-          group_code: string
-          group_name: string
-          group_sort_order: number
-          id: string
-          is_active: boolean
-          metadata: Json | null
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          brand_id: string
-          created_at?: string
-          description?: string | null
-          feature_code: string
-          feature_name: string
-          group_code: string
-          group_name: string
-          group_sort_order?: number
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          brand_id?: string
-          created_at?: string
-          description?: string | null
-          feature_code?: string
-          feature_name?: string
-          group_code?: string
-          group_name?: string
-          group_sort_order?: number
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      item_permission_grants: {
-        Row: {
-          brand_id: string
-          feature_id: string
-          granted: boolean
-          metadata: Json | null
-          role_id: string
-          updated_at: string
-        }
-        Insert: {
-          brand_id: string
-          feature_id: string
-          granted?: boolean
-          metadata?: Json | null
-          role_id: string
-          updated_at?: string
-        }
-        Update: {
-          brand_id?: string
-          feature_id?: string
-          granted?: boolean
-          metadata?: Json | null
-          role_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "item_permission_grants_feature_id_fkey"
-            columns: ["feature_id"]
-            isOneToOne: false
-            referencedRelation: "item_permission_features"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "item_permission_grants_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "item_permission_roles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      item_permission_roles: {
-        Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          is_active: boolean
-          metadata: Json | null
-          role_code: string
-          role_name: string
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          role_code: string
-          role_name: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          role_code?: string
-          role_name?: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       item_skus: {
         Row: {
           brand_id: string
@@ -3768,69 +3628,6 @@ export type Database = {
         }
         Relationships: []
       }
-      parts_control_types: {
-        Row: {
-          accent_color: string
-          brand_id: string
-          class_code: string
-          class_name: string
-          count_frequency: string | null
-          created_at: string
-          example_text: string | null
-          id: string
-          is_active: boolean
-          issue_review_color: string
-          issue_review_label: string | null
-          metadata: Json | null
-          price_basis: string | null
-          serial_tracking_color: string
-          serial_tracking_label: string | null
-          sort_order: number
-          tolerance_pct: number | null
-          updated_at: string
-        }
-        Insert: {
-          accent_color?: string
-          brand_id: string
-          class_code: string
-          class_name: string
-          count_frequency?: string | null
-          created_at?: string
-          example_text?: string | null
-          id?: string
-          is_active?: boolean
-          issue_review_color?: string
-          issue_review_label?: string | null
-          metadata?: Json | null
-          price_basis?: string | null
-          serial_tracking_color?: string
-          serial_tracking_label?: string | null
-          sort_order?: number
-          tolerance_pct?: number | null
-          updated_at?: string
-        }
-        Update: {
-          accent_color?: string
-          brand_id?: string
-          class_code?: string
-          class_name?: string
-          count_frequency?: string | null
-          created_at?: string
-          example_text?: string | null
-          id?: string
-          is_active?: boolean
-          issue_review_color?: string
-          issue_review_label?: string | null
-          metadata?: Json | null
-          price_basis?: string | null
-          serial_tracking_color?: string
-          serial_tracking_label?: string | null
-          sort_order?: number
-          tolerance_pct?: number | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       parts_dictionary: {
         Row: {
           accent_color: string | null
@@ -3975,105 +3772,6 @@ export type Database = {
           status?: string
           updated_at?: string
           warehouse_label?: string | null
-        }
-        Relationships: []
-      }
-      parts_serial_tracking_rules: {
-        Row: {
-          brand_id: string
-          class_code: string
-          created_at: string
-          description: string | null
-          id: string
-          is_active: boolean
-          is_locked: boolean
-          is_required: boolean
-          metadata: Json | null
-          panel_color: string
-          rule_label: string
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          brand_id: string
-          class_code: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_locked?: boolean
-          is_required?: boolean
-          metadata?: Json | null
-          panel_color?: string
-          rule_label: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          brand_id?: string
-          class_code?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_active?: boolean
-          is_locked?: boolean
-          is_required?: boolean
-          metadata?: Json | null
-          panel_color?: string
-          rule_label?: string
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      parts_warehouse_layer_meta: {
-        Row: {
-          accent_color: string
-          badge_color: string
-          badge_text: string | null
-          brand_id: string
-          created_at: string
-          description: string | null
-          icon: string | null
-          id: string
-          is_active: boolean
-          layer_index: number
-          layer_name: string
-          layer_title: string
-          metadata: Json | null
-          updated_at: string
-        }
-        Insert: {
-          accent_color?: string
-          badge_color?: string
-          badge_text?: string | null
-          brand_id: string
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean
-          layer_index: number
-          layer_name: string
-          layer_title: string
-          metadata?: Json | null
-          updated_at?: string
-        }
-        Update: {
-          accent_color?: string
-          badge_color?: string
-          badge_text?: string | null
-          brand_id?: string
-          created_at?: string
-          description?: string | null
-          icon?: string | null
-          id?: string
-          is_active?: boolean
-          layer_index?: number
-          layer_name?: string
-          layer_title?: string
-          metadata?: Json | null
-          updated_at?: string
         }
         Relationships: []
       }
@@ -4889,54 +4587,6 @@ export type Database = {
         }
         Relationships: []
       }
-      purchase_approval_flows: {
-        Row: {
-          brand_id: string
-          color_tag: string
-          created_at: string
-          description: string | null
-          emoji: string | null
-          flow_name: string
-          flow_type: string
-          id: string
-          is_active: boolean
-          metadata: Json | null
-          sort_order: number
-          steps: Json
-          updated_at: string
-        }
-        Insert: {
-          brand_id: string
-          color_tag?: string
-          created_at?: string
-          description?: string | null
-          emoji?: string | null
-          flow_name: string
-          flow_type: string
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          sort_order?: number
-          steps?: Json
-          updated_at?: string
-        }
-        Update: {
-          brand_id?: string
-          color_tag?: string
-          created_at?: string
-          description?: string | null
-          emoji?: string | null
-          flow_name?: string
-          flow_type?: string
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          sort_order?: number
-          steps?: Json
-          updated_at?: string
-        }
-        Relationships: []
-      }
       purchase_order_lines: {
         Row: {
           batch_required: boolean
@@ -5164,65 +4814,6 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      purchase_permission_rules: {
-        Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          is_active: boolean
-          metadata: Json | null
-          monthly_limit: number | null
-          notes: string | null
-          requires_approval: boolean
-          role_code: string
-          role_name: string
-          single_limit: number | null
-          sort_order: number
-          store_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          monthly_limit?: number | null
-          notes?: string | null
-          requires_approval?: boolean
-          role_code: string
-          role_name: string
-          single_limit?: number | null
-          sort_order?: number
-          store_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          metadata?: Json | null
-          monthly_limit?: number | null
-          notes?: string | null
-          requires_approval?: boolean
-          role_code?: string
-          role_name?: string
-          single_limit?: number | null
-          sort_order?: number
-          store_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "purchase_permission_rules_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -8231,6 +7822,14 @@ export type Database = {
         }
         Returns: string
       }
+      org_soft_delete_region: {
+        Args: { p_region_id: string }
+        Returns: undefined
+      }
+      org_soft_delete_store: {
+        Args: { p_store_id: string }
+        Returns: undefined
+      }
       pos_decrement_stock: {
         Args: { p_product_id: string; p_qty: number }
         Returns: undefined
@@ -8432,6 +8031,10 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       user_has_brand: { Args: { p_brand: string }; Returns: boolean }
+      warehouse_soft_delete_zone: {
+        Args: { p_zone_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       coa_l1_category:

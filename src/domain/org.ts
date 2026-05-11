@@ -34,12 +34,7 @@ export type Result<T> =
   | { ok: false; error: string };
 
 // 影響的路徑（任何寫入都 revalidate 這些）
-const REVALIDATE_PATHS = [
-  "/parts/setup/regions",
-  "/parts/setup/stores",
-  "/parts/setup/warehouses",
-  "/parts/setup/org",
-];
+const REVALIDATE_PATHS = ["/parts/setup/org"];
 function revalidateAll() {
   for (const p of REVALIDATE_PATHS) revalidatePath(p);
 }
@@ -251,17 +246,7 @@ export async function deleteRegion(id: string): Promise<Result<{ id: string }>> 
   if (!id) return { ok: false, error: "缺少區域 id" };
 
   const supabase = await createClient();
-  // 先檢查是否還有子 store
-  const { count, error: cntErr } = await supabase
-    .from("organizations")
-    .select("id", { count: "exact", head: true })
-    .eq("parent_id", id)
-    .eq("type", "store");
-  if (cntErr) return { ok: false, error: cntErr.message };
-  if ((count ?? 0) > 0) {
-    return { ok: false, error: `此區域底下還有 ${count} 個門店，請先移除門店或改掛其他區域` };
-  }
-  const { error } = await supabase.from("organizations").delete().eq("id", id).eq("type", "region");
+  const { error } = await supabase.rpc("org_soft_delete_region", { p_region_id: id });
   if (error) return { ok: false, error: mapDbError(error, "刪除區域失敗") };
   revalidateAll();
   return { ok: true, data: { id } };
@@ -443,15 +428,7 @@ export async function deleteStore(id: string): Promise<Result<{ id: string }>> {
   if (!id) return { ok: false, error: "缺少門店 id" };
 
   const supabase = await createClient();
-  const { count, error: cntErr } = await supabase
-    .from("warehouses")
-    .select("id", { count: "exact", head: true })
-    .eq("org_id", id);
-  if (cntErr) return { ok: false, error: cntErr.message };
-  if ((count ?? 0) > 0) {
-    return { ok: false, error: `此門店底下還有 ${count} 個倉庫，請先處理倉庫` };
-  }
-  const { error } = await supabase.from("organizations").delete().eq("id", id).eq("type", "store");
+  const { error } = await supabase.rpc("org_soft_delete_store", { p_store_id: id });
   if (error) return { ok: false, error: mapDbError(error, "刪除門店失敗") };
   revalidateAll();
   return { ok: true, data: { id } };
