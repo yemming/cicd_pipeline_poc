@@ -278,7 +278,7 @@ export function CompatibilityBoard({
 
       {banner ? (
         <div
-          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-[100] ${
             banner.ok
               ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
               : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
@@ -566,7 +566,7 @@ function Modal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4"
       onClick={onClose}
     >
       <div
