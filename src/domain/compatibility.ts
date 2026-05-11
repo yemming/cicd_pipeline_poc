@@ -23,6 +23,30 @@ export type CompatWithModel = CompatRow & {
 
 export type SeriesOption = { series: string; count: number };
 
+export type ItemOption = {
+  id: string;
+  code: string;
+  name: string;
+  image_url: string | null;
+};
+
+export type ModelOption = {
+  id: string;
+  series: string;
+  model_name: string;
+  display_name: string;
+};
+
+export type LookupItemRow = {
+  compat_id: string;
+  item_id: string;
+  item_code: string;
+  item_name: string;
+  item_image_url: string | null;
+  is_verified: boolean;
+  notes: string | null;
+};
+
 export async function listSeries(): Promise<SeriesOption[]> {
   const supabase = await createClient();
   const scope = await getActiveScope();
@@ -78,6 +102,88 @@ export async function listCompatBySeries(series: string): Promise<CompatWithMode
     .filter((c) => c.series === series);
 }
 
+export async function listItemsForCompatibility(): Promise<ItemOption[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, code, name, image_url")
+    .eq("brand_id", scope.brand_id)
+    .eq("is_active", true)
+    .order("code");
+  if (error) throw error;
+  return (data ?? []) as ItemOption[];
+}
+
+export async function listAllModels(): Promise<ModelOption[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("vehicle_models")
+    .select("id, series, model_name, display_name")
+    .eq("brand_id", scope.brand_id)
+    .eq("is_active", true)
+    .order("series")
+    .order("model_name");
+  if (error) throw error;
+  return (data ?? []) as ModelOption[];
+}
+
+export async function lookupItemsByModelYear(
+  vehicle_model_id: string,
+  year: number,
+): Promise<LookupItemRow[]> {
+  if (!vehicle_model_id || !Number.isFinite(year)) return [];
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 取該車型 + 年份落在 [year_start, year_end] 區間內（null 視為開放）的 compat
+  const { data: compat, error: cErr } = await supabase
+    .from("item_vehicle_compatibility")
+    .select("id, item_id, is_verified, notes, year_start, year_end")
+    .eq("brand_id", scope.brand_id)
+    .eq("vehicle_model_id", vehicle_model_id);
+  if (cErr) throw cErr;
+
+  const filtered = (compat ?? []).filter((c) => {
+    if (c.year_start != null && year < c.year_start) return false;
+    if (c.year_end != null && year > c.year_end) return false;
+    return true;
+  });
+  if (filtered.length === 0) return [];
+
+  const itemIds = Array.from(new Set(filtered.map((c) => c.item_id)));
+  const { data: items, error: iErr } = await supabase
+    .from("items")
+    .select("id, code, name, image_url, is_active")
+    .eq("brand_id", scope.brand_id)
+    .in("id", itemIds);
+  if (iErr) throw iErr;
+
+  const itemMap = new Map(
+    (items ?? [])
+      .filter((i) => i.is_active)
+      .map((i) => [i.id, i] as const),
+  );
+
+  return filtered
+    .map((c) => {
+      const it = itemMap.get(c.item_id);
+      if (!it) return null;
+      return {
+        compat_id: c.id,
+        item_id: c.item_id,
+        item_code: it.code,
+        item_name: it.name,
+        item_image_url: it.image_url,
+        is_verified: c.is_verified,
+        notes: c.notes,
+      } as LookupItemRow;
+    })
+    .filter((r): r is LookupItemRow => r !== null)
+    .sort((a, b) => a.item_code.localeCompare(b.item_code));
+}
+
 export async function getCompatibilityPageData(filter: {
   series?: string;
 }): Promise<{
@@ -85,12 +191,16 @@ export async function getCompatibilityPageData(filter: {
   activeSeries: string | null;
   rows: CompatWithModel[];
   canEdit: boolean;
+  items: ItemOption[];
+  models: ModelOption[];
 }> {
   const seriesList = await listSeries();
   const activeSeries = filter.series ?? seriesList[0]?.series ?? null;
-  const [rows, canEdit] = await Promise.all([
+  const [rows, canEdit, items, models] = await Promise.all([
     activeSeries ? listCompatBySeries(activeSeries) : Promise.resolve([] as CompatWithModel[]),
     hasPermission(PERMISSIONS.ITEM_EDIT),
+    listItemsForCompatibility(),
+    listAllModels(),
   ]);
-  return { seriesList, activeSeries, rows, canEdit };
+  return { seriesList, activeSeries, rows, canEdit, items, models };
 }

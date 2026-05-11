@@ -34,6 +34,8 @@ export default async function CompatibilityPage({
       activeSeries={data.activeSeries}
       rows={data.rows}
       canEdit={data.canEdit}
+      items={data.items}
+      models={data.models}
     />
   );
 }

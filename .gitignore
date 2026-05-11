@@ -58,6 +58,10 @@ next-env.d.ts
 # Playwright MCP local cache
 .playwright-mcp/
 
+# Playwright headless CLI artifacts（pw-login.mjs 產出的 storageState + ad-hoc 截圖）
+/scripts/.pw-state.json
+/scripts/pw-*.png
+
 # Local spec/reference docs (not part of the app)
 *.docx
 *.xlsx
