@@ -24,14 +24,34 @@ export type BadgeCropperModalProps = {
   onConfirm: (croppedFile: File) => void;
   /** 上傳中狀態，按鈕禁用 */
   pending?: boolean;
+  /** Modal 標題；預設「調整 Badge 圖檔」 */
+  title?: string;
+  /** Modal 副標；預設「拖曳移動、滑鼠滾輪縮放、選擇比例 — 直到右側預覽看起來對。」 */
+  description?: string;
+  /** 預設裁切比例；預設 4（=4:1 寬 banner）。傳 1 = 方形，傳 undefined = 自由比例 */
+  defaultRatio?: number | undefined;
+  /** 預覽區標題；預設「Topbar 左上預覽（白底模擬）」 */
+  previewLabel?: string;
+  /** 預覽區比例 hint；預設「建議用 4:1 — Topbar 左上 logo 區可用空間約 192×56，比例對才不會留白或被切。」 */
+  ratioHint?: string;
 };
 
-export function BadgeCropperModal({ file, onCancel, onConfirm, pending }: BadgeCropperModalProps) {
+export function BadgeCropperModal({
+  file,
+  onCancel,
+  onConfirm,
+  pending,
+  title = "調整 Badge 圖檔",
+  description = "拖曳移動、滑鼠滾輪縮放、選擇比例 — 直到右側預覽看起來對。",
+  defaultRatio = DEFAULT_RATIO,
+  previewLabel = "Topbar 左上預覽（白底模擬）",
+  ratioHint = "建議用 4:1 — Topbar 左上 logo 區可用空間約 192×56，比例對才不會留白或被切。",
+}: BadgeCropperModalProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
-  const [aspect, setAspect] = useState<number | undefined>(DEFAULT_RATIO);
+  const [aspect, setAspect] = useState<number | undefined>(defaultRatio);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [working, setWorking] = useState(false);
 
@@ -86,10 +106,10 @@ export function BadgeCropperModal({ file, onCancel, onConfirm, pending }: BadgeC
           <div>
             <h3 className="text-base font-bold font-display flex items-center gap-2">
               <span className="material-symbols-outlined text-[20px] text-[color:var(--color-brand-primary)]">crop</span>
-              調整 Badge 圖檔
+              {title}
             </h3>
             <p className="text-[11px] text-on-surface-variant mt-0.5">
-              拖曳移動、滑鼠滾輪縮放、選擇比例 — 直到右側預覽看起來對。
+              {description}
             </p>
           </div>
           <button
@@ -187,12 +207,12 @@ export function BadgeCropperModal({ file, onCancel, onConfirm, pending }: BadgeC
               ))}
             </div>
             <p className="text-[10px] text-on-surface-variant mt-1.5">
-              建議用 4:1 — Topbar 左上 logo 區可用空間約 192×56，比例對才不會留白或被切。
+              {ratioHint}
             </p>
           </div>
 
           {/* Preview — 模擬深色 sidebar 底部 */}
-          <PreviewBox imageUrl={imageUrl} crop={croppedAreaPixels} rotation={rotation} />
+          <PreviewBox imageUrl={imageUrl} crop={croppedAreaPixels} rotation={rotation} label={previewLabel} />
         </div>
 
         {/* Footer */}
@@ -227,10 +247,12 @@ function PreviewBox({
   imageUrl,
   crop,
   rotation,
+  label,
 }: {
   imageUrl: string;
   crop: Area | null;
   rotation: number;
+  label: string;
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -257,7 +279,7 @@ function PreviewBox({
   return (
     <div>
       <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-        Topbar 左上預覽（白底模擬）
+        {label}
       </label>
       <div className="w-full max-w-[192px] bg-white border border-outline-variant/30 rounded-lg p-2 mx-auto">
         <div className="flex items-center justify-center min-h-12">

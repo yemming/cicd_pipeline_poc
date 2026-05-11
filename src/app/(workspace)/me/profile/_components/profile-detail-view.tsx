@@ -15,6 +15,7 @@ import {
 } from "@/lib/profile-actions";
 import type { BrandPalette } from "@/lib/brands/brand-palettes";
 import type { SidebarTheme } from "@/lib/brands/sidebar-themes";
+import { BadgeCropperModal } from "@/app/(workspace)/admin/navigation/_components/badge-cropper-modal";
 
 export type ProfileRow = {
   id: string;
@@ -218,6 +219,7 @@ function AvatarUploader({
   const fileRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [previewBust, setPreviewBust] = useState(0);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const trigger = () => fileRef.current?.click();
 
@@ -229,14 +231,22 @@ function AvatarUploader({
       e.target.value = "";
       return;
     }
-    const fd = new FormData();
-    fd.append("file", f);
+    setPendingFile(f);
     e.target.value = "";
+  };
 
+  const onCropCancel = () => {
+    if (!isPending) setPendingFile(null);
+  };
+
+  const onCropConfirm = (cropped: File) => {
+    const fd = new FormData();
+    fd.append("file", cropped);
     startTransition(async () => {
       const res = await uploadAvatarAction(fd);
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 已更新大頭貼" });
+        setPendingFile(null);
         setPreviewBust(Date.now());
         router.refresh();
       } else {
@@ -323,6 +333,18 @@ function AvatarUploader({
           </div>
         ) : null}
       </div>
+
+      <BadgeCropperModal
+        file={pendingFile}
+        pending={isPending}
+        onCancel={onCropCancel}
+        onConfirm={onCropConfirm}
+        title="調整大頭貼"
+        description="拖曳移動、滑鼠滾輪縮放、選擇比例 — 大頭貼建議用 1:1 方形，最不會被切。"
+        defaultRatio={1}
+        previewLabel="大頭貼預覽"
+        ratioHint="大頭貼會以方形顯示在頂部右上角，建議用 1:1 方形比例。"
+      />
     </div>
   );
 }

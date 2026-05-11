@@ -5,6 +5,7 @@ import Image from "next/image";
 
 import { updateBrandAppearance, uploadBrandBadge, removeBrandBadge } from "@/lib/appearance-actions";
 import { setBrandModuleEnabledAction } from "@/lib/rbac/admin-actions";
+import { BadgeCropperModal } from "./badge-cropper-modal";
 
 type BrandRow = { id: string; name: string };
 type ModuleEntry = { key: string; name: string };
@@ -32,6 +33,7 @@ export function BrandConfigEditor({
   const [pending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   // brand_modules in-memory（optimistic）
   const [matrix, setMatrix] = useState<Record<string, boolean>>(() => {
@@ -60,13 +62,26 @@ export function BrandConfigEditor({
     });
   };
 
-  const onUpload = (file: File) => {
+  const onPickFile = (file: File) => {
+    setPendingFile(file);
+  };
+
+  const onCropCancel = () => {
+    if (!pending) {
+      setPendingFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const onCropConfirm = (cropped: File) => {
     startTransition(async () => {
       const fd = new FormData();
-      fd.set("file", file);
+      fd.set("file", cropped);
       try {
         const res = await uploadBrandBadge(fd);
         setBadge(res.url);
+        setPendingFile(null);
+        if (fileRef.current) fileRef.current.value = "";
         flash(true, "✓ Logo 已上傳");
       } catch (e) {
         flash(false, `上傳失敗：${(e as Error).message}`);
@@ -147,11 +162,11 @@ export function BrandConfigEditor({
             <input
               ref={fileRef}
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+              accept="image/png,image/jpeg,image/webp,image/gif"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) onUpload(f);
+                if (f) onPickFile(f);
               }}
             />
             <div className="flex gap-1.5">
@@ -174,7 +189,7 @@ export function BrandConfigEditor({
                 </button>
               )}
             </div>
-            <p className="text-[10.5px] text-[#9A9890]">PNG/JPG/WebP/SVG ≤ 5MB</p>
+            <p className="text-[10.5px] text-[#9A9890]">PNG / JPG / WebP / GIF ≤ 5MB；選檔後會跳出裁切視窗，可拖曳、縮放、旋轉、選比例（建議 4:1）。</p>
           </div>
 
           {/* Tagline */}
@@ -272,6 +287,18 @@ export function BrandConfigEditor({
           </table>
         </div>
       </section>
+
+      <BadgeCropperModal
+        file={pendingFile}
+        pending={pending}
+        onCancel={onCropCancel}
+        onConfirm={onCropConfirm}
+        title="調整品牌 Logo"
+        description="拖曳移動、滑鼠滾輪縮放、選擇比例 — Logo 會貼在深色 Topbar 與 Sidebar 上，建議用 4:1 寬 banner。"
+        defaultRatio={4}
+        previewLabel="Topbar 預覽（白底模擬）"
+        ratioHint="Topbar 左上 logo 區可用空間約 192×56，4:1 比例最不會留白或被切。"
+      />
     </div>
   );
 }
