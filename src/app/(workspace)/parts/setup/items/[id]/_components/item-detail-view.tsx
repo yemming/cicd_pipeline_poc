@@ -11,7 +11,7 @@ import {
   updateItemAction,
   type ItemInput,
 } from "@/lib/parts-setup/item-actions";
-import { createDictionaryAction } from "@/lib/parts-setup/dictionary-actions";
+import { addDictionary } from "@/domain/dictionaries";
 import { createSupplierAction } from "@/lib/parts-setup/supplier-actions";
 import {
   updateItemGlAccountAction,
@@ -22,6 +22,7 @@ import { QuickAddSelect } from "@/components/quick-add-select";
 import { ItemImageUploader } from "./item-image-uploader";
 import { PrintLabelModal } from "./print-label-modal";
 import { SalesStorePricesTable } from "./sales-store-prices-table";
+import { StockLotsSection } from "./stock-lots-section";
 import type { ItemStorePriceWithStore } from "@/domain/pricing";
 // ↑ type-only import：domain/pricing.ts 是 "use server"，type 不會進 client bundle
 import { CoaInlineSelect, type CoaOption } from "./coa-inline-select";
@@ -64,6 +65,7 @@ export type DetailItem = {
 };
 
 export type StockLot = {
+  id: string;
   warehouse_id: string;
   qty: number;
   unit_cost: number;
@@ -73,6 +75,7 @@ export type StockLot = {
   last_movement_at: string;
   warranty_start: string | null;
   warranty_end: string | null;
+  notes: string | null;
 };
 
 export type WarehouseRef = { id: string; code: string; name: string };
@@ -726,7 +729,7 @@ export function ItemDetailView({
                   onCreate={async (d) => {
                     const v = d.label.trim();
                     if (!v) return { ok: false, error: "單位名稱必填" };
-                    const res = await createDictionaryAction({
+                    const res = await addDictionary({
                       kind: "uom",
                       code: v,
                       label: v,
@@ -781,7 +784,7 @@ export function ItemDetailView({
                   onCreate={async (d) => {
                     const v = d.label.trim();
                     if (!v) return { ok: false, error: "品類名稱必填" };
-                    const res = await createDictionaryAction({ kind: "category", code: v, label: v, sort_order: 99, is_active: true });
+                    const res = await addDictionary({ kind: "category", code: v, label: v, sort_order: 99, is_active: true });
                     if (res.ok) return { ok: true, value: v, label: v };
                     return { ok: false, error: res.error };
                   }}
@@ -809,7 +812,7 @@ export function ItemDetailView({
                     const code = d.code.trim();
                     const label = d.label.trim();
                     if (!code || !label) return { ok: false, error: "代碼與顯示名稱必填" };
-                    const res = await createDictionaryAction({ kind: "control_level", code, label, sort_order: 99, is_active: true });
+                    const res = await addDictionary({ kind: "control_level", code, label, sort_order: 99, is_active: true });
                     if (res.ok) return { ok: true, value: code, label };
                     return { ok: false, error: res.error };
                   }}
@@ -985,32 +988,15 @@ export function ItemDetailView({
               )
             ))}
             {sectionCard(`序批號追蹤（${traceableLots.length}）`, (
-              !item.serial_tracking_required && !item.batch_tracking_required ? (
-                <div className="text-[12px] text-[#9A9890] py-2">未開啟序列號/批號追蹤</div>
-              ) : traceableLots.length === 0 ? (
-                <div className="text-[12px] text-[#9A9890] py-2">尚無序批號紀錄</div>
-              ) : (
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="text-[11px] text-[#9A9890]">
-                      <th className="text-left font-medium py-1">序列/批號</th>
-                      <th className="text-left font-medium py-1">倉庫</th>
-                      <th className="text-right font-medium py-1">數量</th>
-                      <th className="text-left font-medium py-1">保固迄</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {traceableLots.map((s, i) => (
-                      <tr key={i} className="border-t border-[#F8F7F4]">
-                        <td className="py-1.5 font-mono text-[11px]">{s.serial_no ?? s.batch_no ?? "—"}</td>
-                        <td className="py-1.5 text-[11.5px]">{whMap.get(s.warehouse_id)?.code ?? "—"}</td>
-                        <td className="py-1.5 text-right font-mono">{Number(s.qty).toLocaleString("en-US")}</td>
-                        <td className="py-1.5 text-[11px]">{fmtDate(s.warranty_end)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )
+              <StockLotsSection
+                itemId={item.id}
+                itemName={item.name ?? item.code}
+                serialRequired={item.serial_tracking_required}
+                batchRequired={item.batch_tracking_required}
+                lots={traceableLots}
+                warehouses={warehouses}
+                canEdit={canEdit}
+              />
             ))}
           </div>
         ) : null}

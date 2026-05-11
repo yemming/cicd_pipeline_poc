@@ -103,6 +103,7 @@ export function ReturnsBoard({
   const [showCreate, setShowCreate] = useState(autoOpenCreate);
   const [shipForId, setShipForId] = useState<string | null>(null);
   const [completeForId, setCompleteForId] = useState<string | null>(null);
+  const [deleteFor, setDeleteFor] = useState<{ id: string; rt_no: string } | null>(null);
 
   const [q, setQ] = useState(filter.q);
   const [status, setStatus] = useState(filter.status);
@@ -151,14 +152,20 @@ export function ReturnsBoard({
   }
 
   function handleDelete(id: string, rt_no: string) {
-    if (!confirm(`確定要刪除 ${rt_no}？此動作不可逆。`)) return;
+    setDeleteFor({ id, rt_no });
+  }
+  function confirmDelete() {
+    if (!deleteFor) return;
+    const { id, rt_no } = deleteFor;
     startTransition(async () => {
       const res = await deletePurchaseReturn(id);
       if (res.ok) {
         showBanner(true, `✓ ${rt_no} 已刪除`);
+        setDeleteFor(null);
         router.refresh();
       } else {
         showBanner(false, `刪除失敗：${res.error}`);
+        setDeleteFor(null);
       }
     });
   }
@@ -551,10 +558,42 @@ export function ReturnsBoard({
         />
       )}
 
+      {/* Delete confirm Modal */}
+      {deleteFor && (
+        <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[400px]">
+            <header className="px-4 py-3 border-b border-[#EEECE6]">
+              <h3 className="text-[14px] font-semibold text-[#CC0000]">確認刪除退貨單</h3>
+            </header>
+            <div className="px-4 py-3 text-[12.5px] text-[#2C2C2A]">
+              確定要刪除 <b className="font-mono">{deleteFor.rt_no}</b>？此動作無法復原。
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteFor(null)}
+                disabled={pending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={pending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-60"
+              >
+                {pending ? "刪除中⋯" : "確認刪除"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
       {/* Banner */}
       {banner && (
         <div
-          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-[110] ${
             banner.ok
               ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
               : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"

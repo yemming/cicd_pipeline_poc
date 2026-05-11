@@ -1,12 +1,21 @@
 "use server";
 
+/**
+ * Domain Helper — Replenishment（日常補貨計畫，§4.2）
+ *
+ * 取代 src/lib/parts/replenishment-actions.ts（2026-05-11 升級）
+ * 提案：docs/proposals/feature-purchase-replenishment-2026-05-11.md
+ *
+ * 純遷移：函式名與內部邏輯維持原樣，僅將檔案位置由 lib/parts 移至 domain/。
+ */
+
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-
 import { getActiveScope } from "@/lib/scope/active-scope";
+
 export type RunReplenishmentResult =
   | { ok: true; runId: string; lines: number; amount: number }
   | { ok: false; error: string };

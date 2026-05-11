@@ -21,6 +21,6 @@ export default async function SerialPage() {
     );
   }
 
-  const { rules } = await getSerialTrackingPageData();
-  return <SerialBoard rules={rules} />;
+  const { rules, canEdit } = await getSerialTrackingPageData();
+  return <SerialBoard rules={rules} canEdit={canEdit} />;
 }

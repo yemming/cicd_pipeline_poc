@@ -5,14 +5,14 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  approveRequisitionAction,
-  convertRequisitionAction,
-  createRequisitionAction,
-  deleteRequisitionAction,
-  rejectRequisitionAction,
-  updateRequisitionAction,
+  approveRequisition,
+  convertRequisition,
+  createRequisition,
+  deleteRequisition,
+  rejectRequisition,
+  updateRequisition,
   type RequisitionInput,
-} from "@/lib/parts/actions/requisition-actions";
+} from "@/domain/requisitions";
 
 export type DetailRequisition = {
   id: string;
@@ -82,6 +82,16 @@ export function RequisitionDetailView({
   const [banner, setBanner] = useState<Banner>(null);
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(forceCreating);
+  const [confirmModal, setConfirmModal] = useState<
+    | null
+    | {
+        title: string;
+        message: React.ReactNode;
+        confirmLabel: string;
+        confirmTone: "danger" | "primary" | "success";
+        onConfirm: () => void;
+      }
+  >(null);
 
   // 第一條 line 是 demo 用主行（spec 也只有單行）
   const firstLine: LineRow | null = linesProp[0] ?? null;
@@ -131,7 +141,7 @@ export function RequisitionDetailView({
 
   const save = () => {
     startTransition(async () => {
-      const res = await updateRequisitionAction(requisition.id, draft);
+      const res = await updateRequisition(requisition.id, draft);
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 已儲存變更" });
         setEditing(false);
@@ -153,7 +163,7 @@ export function RequisitionDetailView({
   };
   const submitCreate = () => {
     startTransition(async () => {
-      const res = await createRequisitionAction(createDraft);
+      const res = await createRequisition(createDraft);
       if (res.ok) {
         showBanner({ ok: true, msg: `✓ 已建立 ${res.data.req_no}，跳轉到新需求單` });
         setCreating(false);
@@ -167,7 +177,7 @@ export function RequisitionDetailView({
 
   const approve = () => {
     startTransition(async () => {
-      const res = await approveRequisitionAction(requisition.id);
+      const res = await approveRequisition(requisition.id);
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 已核准，可轉採購單" });
         router.refresh();
@@ -175,33 +185,75 @@ export function RequisitionDetailView({
     });
   };
   const reject = () => {
-    if (!confirm(`確定拒絕「${requisition.req_no}」？`)) return;
-    startTransition(async () => {
-      const res = await rejectRequisitionAction(requisition.id);
-      if (res.ok) {
-        showBanner({ ok: true, msg: "✓ 已拒絕" });
-        router.refresh();
-      } else showBanner({ ok: false, msg: res.error });
+    setConfirmModal({
+      title: "確認拒絕",
+      message: (
+        <>
+          確定拒絕「<b>{requisition.req_no}</b>」？此動作會將狀態切為「已拒絕」，後續不可再核准或轉採購單。
+        </>
+      ),
+      confirmLabel: "確認拒絕",
+      confirmTone: "danger",
+      onConfirm: () => {
+        setConfirmModal(null);
+        startTransition(async () => {
+          const res = await rejectRequisition(requisition.id);
+          if (res.ok) {
+            showBanner({ ok: true, msg: "✓ 已拒絕" });
+            router.refresh();
+          } else showBanner({ ok: false, msg: res.error });
+        });
+      },
     });
   };
   const convert = () => {
-    if (!confirm(`「${requisition.req_no}」轉採購單？\n（demo 階段：僅切換狀態為「已轉採購單」，未實際建立 PO）`)) return;
-    startTransition(async () => {
-      const res = await convertRequisitionAction(requisition.id);
-      if (res.ok) {
-        showBanner({ ok: true, msg: "✓ 已轉採購單（demo）" });
-        router.refresh();
-      } else showBanner({ ok: false, msg: res.error });
+    setConfirmModal({
+      title: "確認轉採購單",
+      message: (
+        <>
+          「<b>{requisition.req_no}</b>」轉採購單？
+          <div className="text-[11px] text-[#9A9890] mt-1">
+            demo 階段：僅切換狀態為「已轉採購單」，未實際建立 PO。
+          </div>
+        </>
+      ),
+      confirmLabel: "確認轉採購單",
+      confirmTone: "primary",
+      onConfirm: () => {
+        setConfirmModal(null);
+        startTransition(async () => {
+          const res = await convertRequisition(requisition.id);
+          if (res.ok) {
+            showBanner({ ok: true, msg: "✓ 已轉採購單（demo）" });
+            router.refresh();
+          } else showBanner({ ok: false, msg: res.error });
+        });
+      },
     });
   };
   const remove = () => {
-    if (!confirm(`確定刪除「${requisition.req_no}」？此動作會移除單頭與明細，不可復原。`)) return;
-    startTransition(async () => {
-      const res = await deleteRequisitionAction(requisition.id);
-      if (res.ok) {
-        router.push("/parts/purchase/requisitions");
-        router.refresh();
-      } else showBanner({ ok: false, msg: res.error });
+    setConfirmModal({
+      title: "確認刪除",
+      message: (
+        <>
+          確定刪除「<b>{requisition.req_no}</b>」？
+          <div className="text-[11px] text-[#9A9890] mt-1">
+            此動作會移除單頭與明細，不可復原。
+          </div>
+        </>
+      ),
+      confirmLabel: "確認刪除",
+      confirmTone: "danger",
+      onConfirm: () => {
+        setConfirmModal(null);
+        startTransition(async () => {
+          const res = await deleteRequisition(requisition.id);
+          if (res.ok) {
+            router.push("/parts/purchase/requisitions");
+            router.refresh();
+          } else showBanner({ ok: false, msg: res.error });
+        });
+      },
     });
   };
 
@@ -503,6 +555,43 @@ export function RequisitionDetailView({
           <Kv label="核准時間" value={fmtDateTime(requisition.approved_at)} mono small />
         </div>
       )) : null}
+
+      {confirmModal ? (
+        <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[400px]">
+            <header className="px-4 py-3 border-b border-[#EEECE6]">
+              <h3 className={`text-[14px] font-semibold ${confirmModal.confirmTone === "danger" ? "text-[#CC0000]" : "text-[#2C2C2A]"}`}>
+                {confirmModal.title}
+              </h3>
+            </header>
+            <div className="px-4 py-3 text-[12.5px] text-[#2C2C2A]">{confirmModal.message}</div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmModal.onConfirm}
+                disabled={isPending}
+                className={`h-[30px] px-3.5 rounded text-[12.5px] font-medium disabled:opacity-60 ${
+                  confirmModal.confirmTone === "danger"
+                    ? "bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
+                    : confirmModal.confirmTone === "success"
+                      ? "bg-[#0F6E56] text-white hover:bg-[#0a5742]"
+                      : "bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+                }`}
+              >
+                {confirmModal.confirmLabel}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

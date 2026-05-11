@@ -47,6 +47,7 @@
     "eslint-config-next": "16.2.3",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.4",
+    "playwright": "^1.59.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -5,14 +5,15 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  createDictionaryAction,
-  deleteDictionaryAction,
-  setDictionaryActiveAction,
-  updateDictionaryAction,
+  addDictionary,
+  updateDictionary,
+  setDictionaryActive,
+  deleteDictionary,
   type DictionaryInput,
   type DictionaryKind,
   type DictionaryRow,
-} from "@/lib/parts-setup/dictionary-actions";
+} from "@/domain/dictionaries";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -51,26 +52,10 @@ function accentClass(c: string | null): string {
   }
 }
 
-export function DictionariesBoard({
-  rows,
-  canEdit,
-}: {
-  rows: DictionaryRow[];
-  canEdit: boolean;
-}) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [banner, setBanner] = useState<Banner>(null);
-  const [activeKind, setActiveKind] = useState<DictionaryKind>("category");
+const TAB_LABEL = Object.fromEntries(TABS.map((t) => [t.kind, t.label]));
 
-  // Unified panel state — used for both 新增 and 編輯
-  type PanelMode =
-    | { kind: "closed" }
-    | { kind: "create" }
-    | { kind: "edit"; id: string };
-  const [panel, setPanel] = useState<PanelMode>({ kind: "closed" });
-
-  const blankDraft = (k: DictionaryKind): DictionaryInput => ({
+function blankDraft(k: DictionaryKind): DictionaryInput {
+  return {
     kind: k,
     code: "",
     label: "",
@@ -78,8 +63,27 @@ export function DictionariesBoard({
     accent_color: "",
     sort_order: 0,
     is_active: true,
-  });
-  const [draft, setDraft] = useState<DictionaryInput>(blankDraft(activeKind));
+  };
+}
+
+export function DictionariesBoard({
+  rows,
+  canEdit,
+  referenceCounts,
+}: {
+  rows: DictionaryRow[];
+  canEdit: boolean;
+  referenceCounts: Record<string, number>;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [banner, setBanner] = useState<Banner>(null);
+  const [activeKind, setActiveKind] = useState<DictionaryKind>("category");
+  const [modalMode, setModalMode] = useState<
+    { kind: "closed" } | { kind: "create" } | { kind: "edit"; id: string }
+  >({ kind: "closed" });
+  const [draft, setDraft] = useState<DictionaryInput>(() => blankDraft("category"));
+  const [confirmDeleteId, setConfirmDeleteId] = useState<{ id: string; label: string } | null>(null);
 
   const grouped = useMemo(() => {
     const m = new Map<DictionaryKind, DictionaryRow[]>();
@@ -93,23 +97,23 @@ export function DictionariesBoard({
 
   const visibleRows = grouped.get(activeKind) ?? [];
 
-  const showBanner = (b: Banner) => {
+  function flash(b: Banner) {
     setBanner(b);
     if (b?.ok) setTimeout(() => setBanner(null), 2200);
-  };
+  }
 
-  const switchTab = (k: DictionaryKind) => {
+  function switchTab(k: DictionaryKind) {
     setActiveKind(k);
-    setPanel({ kind: "closed" });
+    setModalMode({ kind: "closed" });
     setDraft(blankDraft(k));
-  };
+  }
 
-  const openCreate = () => {
+  function openCreate() {
     setDraft(blankDraft(activeKind));
-    setPanel({ kind: "create" });
-  };
+    setModalMode({ kind: "create" });
+  }
 
-  const openEdit = (r: DictionaryRow) => {
+  function openEdit(r: DictionaryRow) {
     setDraft({
       kind: r.kind,
       code: r.code,
@@ -119,16 +123,14 @@ export function DictionariesBoard({
       sort_order: r.sort_order,
       is_active: r.is_active,
     });
-    setPanel({ kind: "edit", id: r.id });
-  };
+    setModalMode({ kind: "edit", id: r.id });
+  }
 
-  const closePanel = () => setPanel({ kind: "closed" });
-
-  const submit = () => {
+  function handleSubmit() {
     startTransition(async () => {
       const res =
-        panel.kind === "edit"
-          ? await updateDictionaryAction(panel.id, {
+        modalMode.kind === "edit"
+          ? await updateDictionary(modalMode.id, {
               code: draft.code,
               label: draft.label,
               description: draft.description ?? "",
@@ -136,49 +138,166 @@ export function DictionariesBoard({
               sort_order: draft.sort_order,
               is_active: draft.is_active,
             })
-          : panel.kind === "create"
-            ? await createDictionaryAction({ ...draft, kind: activeKind })
+          : modalMode.kind === "create"
+            ? await addDictionary({ ...draft, kind: activeKind })
             : null;
       if (!res) return;
       if (res.ok) {
-        showBanner({
+        flash({
           ok: true,
-          msg: panel.kind === "edit" ? "✓ 已儲存變更" : "✓ 已新增",
+          msg: modalMode.kind === "edit" ? "✓ 已儲存變更" : "✓ 已新增",
         });
-        closePanel();
+        setModalMode({ kind: "closed" });
         setDraft(blankDraft(activeKind));
         router.refresh();
       } else {
-        showBanner({ ok: false, msg: res.error });
+        flash({ ok: false, msg: res.error });
       }
     });
-  };
+  }
 
-  const toggleActive = (id: string, next: boolean) => {
+  function toggleActive(id: string, next: boolean) {
     startTransition(async () => {
-      const res = await setDictionaryActiveAction(id, next);
-      if (res.ok) router.refresh();
-      else showBanner({ ok: false, msg: res.error });
-    });
-  };
-
-  const deleteOne = (id: string, label: string) => {
-    if (!confirm(`確定刪除「${label}」？此動作無法還原。`)) return;
-    startTransition(async () => {
-      const res = await deleteDictionaryAction(id);
+      const res = await setDictionaryActive(id, next);
       if (res.ok) {
-        showBanner({ ok: true, msg: "✓ 已刪除" });
-        if (panel.kind === "edit" && panel.id === id) closePanel();
+        flash({ ok: true, msg: next ? "✓ 已啟用" : "✓ 已停用" });
         router.refresh();
-      } else showBanner({ ok: false, msg: res.error });
+      } else {
+        flash({ ok: false, msg: res.error });
+      }
     });
-  };
+  }
 
-  const lockedClass = isPending ? "pointer-events-none opacity-60" : "";
+  function confirmDelete() {
+    if (!confirmDeleteId) return;
+    const id = confirmDeleteId.id;
+    startTransition(async () => {
+      const res = await deleteDictionary(id);
+      if (res.ok) {
+        flash({ ok: true, msg: "✓ 已刪除" });
+        setConfirmDeleteId(null);
+        if (modalMode.kind === "edit" && modalMode.id === id) setModalMode({ kind: "closed" });
+        router.refresh();
+      } else {
+        flash({ ok: false, msg: res.error });
+        setConfirmDeleteId(null);
+      }
+    });
+  }
+
   const inputClass =
-    "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5]";
+    "h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5] disabled:bg-[#F8F7F4]";
   const labelClass = "text-[11px] text-[#9A9890] font-medium";
   const tabHint = TABS.find((t) => t.kind === activeKind)?.hint ?? "";
+
+  const columns: DataGridColumn<DictionaryRow>[] = useMemo(
+    () => [
+      {
+        id: "code",
+        header: "代碼",
+        width: 140,
+        hideable: false,
+        cell: (r) => <span className="font-mono text-[12px]">{r.code}</span>,
+        exportValue: (r) => r.code,
+        sortValue: (r) => r.code,
+      },
+      {
+        id: "label",
+        header: "顯示名稱",
+        width: 220,
+        cell: (r) => (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[12px] font-medium ${accentClass(
+              r.accent_color,
+            )}`}
+          >
+            {r.label}
+          </span>
+        ),
+        exportValue: (r) => r.label,
+        sortValue: (r) => r.label,
+        editable: canEdit
+          ? {
+              type: "text",
+              getValue: (r) => r.label,
+              onSave: async (r, value) => {
+                const v = value.trim();
+                if (!v) return { ok: false, error: "顯示名稱不可為空" };
+                const res = await updateDictionary(r.id, { label: v });
+                if (res.ok) {
+                  flash({ ok: true, msg: "✓ 已更新" });
+                  router.refresh();
+                }
+                return res;
+              },
+            }
+          : undefined,
+      },
+      {
+        id: "description",
+        header: "說明",
+        cell: (r) => (
+          <span className="text-[12px] text-[#5A5955]">{r.description || "—"}</span>
+        ),
+        exportValue: (r) => r.description ?? "",
+        sortValue: (r) => r.description ?? "",
+        editable: canEdit
+          ? {
+              type: "textarea",
+              getValue: (r) => r.description ?? "",
+              onSave: async (r, value) => {
+                const res = await updateDictionary(r.id, { description: value });
+                if (res.ok) {
+                  flash({ ok: true, msg: "✓ 已更新" });
+                  router.refresh();
+                }
+                return res;
+              },
+            }
+          : undefined,
+      },
+      {
+        id: "sort_order",
+        header: "排序",
+        width: 80,
+        align: "right",
+        defaultHidden: true,
+        cell: (r) => <span className="font-mono text-[12px] text-[#5A5955]">{r.sort_order}</span>,
+        exportValue: (r) => r.sort_order,
+        sortValue: (r) => r.sort_order,
+      },
+      {
+        id: "accent_color",
+        header: "顏色",
+        width: 80,
+        defaultHidden: true,
+        sortable: false,
+        cell: (r) => (
+          <span className="text-[11px] text-[#9A9890]">{r.accent_color || "—"}</span>
+        ),
+        exportValue: (r) => r.accent_color ?? "",
+      },
+      {
+        id: "is_active",
+        header: "狀態",
+        width: 90,
+        cell: (r) => (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap ${
+              r.is_active
+                ? "bg-[#EAF3DE] text-[#3B6D11]"
+                : "bg-[#F2F2F2] text-[#6B6A68]"
+            }`}
+          >
+            {r.is_active ? "啟用" : "停用"}
+          </span>
+        ),
+        exportValue: (r) => (r.is_active ? "啟用" : "停用"),
+        sortValue: (r) => (r.is_active ? 1 : 0),
+      },
+    ],
+    [canEdit, router],
+  );
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -197,16 +316,6 @@ export function DictionariesBoard({
           ← 回商品主檔
         </Link>
       </header>
-
-      {banner ? (
-        <div
-          className={`px-3 py-2 rounded text-[13px] ${
-            banner.ok ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#FDECEA] text-[#CC0000]"
-          }`}
-        >
-          {banner.msg}
-        </div>
-      ) : null}
 
       {/* Tabs */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
@@ -240,168 +349,59 @@ export function DictionariesBoard({
 
         <div className="px-4 py-3 flex items-center gap-2 text-[12px] text-[#9A9890] border-b border-[#EEECE6]">
           <span>{tabHint}</span>
+          <span className="text-[#5A5955]">
+            共 <b className="text-[#2C2C2A]">{visibleRows.length}</b> 筆
+          </span>
           <button
             type="button"
-            disabled={!canEdit}
+            disabled={!canEdit || isPending}
             onClick={openCreate}
             className="ml-auto h-[28px] px-3 rounded text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
           >
-            ＋ 新增{TABS.find((t) => t.kind === activeKind)?.label}
+            ＋ 新增{TAB_LABEL[activeKind]}
           </button>
         </div>
 
-        {/* Unified Create / Edit panel */}
-        {panel.kind !== "closed" ? (
-          <div className={`px-4 py-3 bg-[#FDF8EC] border-b border-[#EEECE6] ${lockedClass}`}>
-            <div className="text-[11.5px] font-medium text-[#854F0B] mb-2">
-              {panel.kind === "edit"
-                ? `編輯：${draft.code || "—"}`
-                : `新增${TABS.find((t) => t.kind === activeKind)?.label}`}
-            </div>
-            <div className="grid grid-cols-12 gap-2 items-end">
-              <Field cols={2} label="代碼 *">
-                <input
-                  value={draft.code}
-                  onChange={(e) => setDraft({ ...draft, code: e.target.value })}
-                  className={inputClass}
-                  placeholder={activeKind === "control_level" ? "A / B / C" : ""}
-                />
-              </Field>
-              <Field cols={3} label="顯示名稱 *">
-                <input
-                  value={draft.label}
-                  onChange={(e) => setDraft({ ...draft, label: e.target.value })}
-                  className={inputClass}
-                />
-              </Field>
-              <Field cols={3} label="說明">
-                <input
-                  value={draft.description ?? ""}
-                  onChange={(e) =>
-                    setDraft({ ...draft, description: e.target.value })
-                  }
-                  className={inputClass}
-                />
-              </Field>
-              <Field cols={1} label="排序">
-                <input
-                  type="number"
-                  value={draft.sort_order ?? 0}
-                  onChange={(e) =>
-                    setDraft({ ...draft, sort_order: Number(e.target.value) || 0 })
-                  }
-                  className={inputClass}
-                />
-              </Field>
-              <Field cols={1} label="顏色">
-                <select
-                  value={draft.accent_color ?? ""}
-                  onChange={(e) =>
-                    setDraft({ ...draft, accent_color: e.target.value })
-                  }
-                  className={inputClass}
-                >
-                  {ACCENT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <div className="col-span-2 flex items-center gap-1.5 justify-end">
-                {panel.kind === "edit" ? (
-                  <label className="inline-flex items-center gap-1.5 text-[11.5px] mr-auto">
-                    <input
-                      type="checkbox"
-                      checked={draft.is_active ?? true}
-                      onChange={(e) =>
-                        setDraft({ ...draft, is_active: e.target.checked })
-                      }
-                    />
-                    啟用
-                  </label>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={submit}
-                  disabled={isPending}
-                  className="h-[30px] px-3 rounded text-[12px] bg-[#0F6E56] text-white disabled:opacity-60"
-                >
-                  {isPending
-                    ? panel.kind === "edit"
-                      ? "儲存中…"
-                      : "建立中…"
-                    : panel.kind === "edit"
-                      ? "儲存變更"
-                      : "建立"}
-                </button>
-                <button
-                  type="button"
-                  onClick={closePanel}
-                  className="h-[30px] px-3 rounded text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955]"
-                >
-                  取消
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Table */}
-        <div className={`overflow-x-auto ${lockedClass}`}>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] w-[110px]">代碼</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">顯示名稱</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">說明</th>
-                <th className="px-3 py-2 text-center text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] w-[70px]">排序</th>
-                <th className="px-3 py-2 text-center text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] w-[80px]">顏色</th>
-                <th className="px-3 py-2 text-center text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] w-[80px]">狀態</th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] w-[200px]">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.map((r) => {
-                const editing = panel.kind === "edit" && panel.id === r.id;
-                return (
-                  <tr
-                    key={r.id}
-                    className={`border-b border-[#EEECE6] last:border-b-0 ${
-                      editing ? "bg-[#FFFBEA]" : "hover:bg-[#F8F7F4]"
-                    }`}
-                  >
-                    <td className="px-3 py-2 font-mono text-[12px]">{r.code}</td>
-                    <td className="px-3 py-2">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[12px] font-medium ${accentClass(r.accent_color)}`}>
-                        {r.label}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-[12px] text-[#5A5955]">{r.description || "—"}</td>
-                    <td className="px-3 py-2 text-center font-mono text-[12px] text-[#5A5955]">{r.sort_order}</td>
-                    <td className="px-3 py-2 text-center text-[11px] text-[#9A9890]">{r.accent_color || "—"}</td>
-                    <td className="px-3 py-2 text-center">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${r.is_active ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#F2F2F2] text-[#6B6A68]"}`}>
-                        {r.is_active ? "啟用" : "停用"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 space-x-1 whitespace-nowrap">
-                      <button type="button" disabled={!canEdit} onClick={() => openEdit(r)} className="h-[26px] px-2.5 rounded bg-white border border-[#D5D3CB] text-[11.5px] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50">編輯</button>
-                      <button type="button" disabled={!canEdit} onClick={() => toggleActive(r.id, !r.is_active)} className="h-[26px] px-2.5 rounded bg-white border border-[#D5D3CB] text-[11.5px] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50">{r.is_active ? "停用" : "啟用"}</button>
-                      <button type="button" disabled={!canEdit} onClick={() => deleteOne(r.id, r.label)} className="h-[26px] px-2.5 rounded bg-[#FDECEA] border border-[#F5AEAD] text-[11.5px] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50">刪除</button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {visibleRows.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-3 py-10 text-center text-[#9A9890] text-[12.5px]">
-                    尚無項目，按右上角「新增」開始建立
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+        <div className="px-3 pt-3 pb-3">
+          <DataGrid
+            columns={columns}
+            data={visibleRows}
+            rowKey={(r) => r.id}
+            persistKey={`parts/setup/dictionaries/${activeKind}`}
+            exportFileName={`dictionaries-${activeKind}`}
+            emptyMessage="尚無項目，按右上角「新增」開始建立"
+            disabled={isPending}
+            rowActionsWidth={210}
+            rowActions={
+              canEdit
+                ? (r) => (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(r)}
+                        className="h-[26px] px-2.5 rounded bg-white border border-[#D5D3CB] text-[11.5px] text-[#5A5955] hover:border-[#9A9890]"
+                      >
+                        編輯
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleActive(r.id, !r.is_active)}
+                        className="h-[26px] px-2.5 rounded bg-white border border-[#D5D3CB] text-[11.5px] text-[#5A5955] hover:border-[#9A9890]"
+                      >
+                        {r.is_active ? "停用" : "啟用"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId({ id: r.id, label: r.label })}
+                        className="h-[26px] px-2.5 rounded bg-[#FDECEA] border border-[#F5AEAD] text-[11.5px] text-[#CC0000] hover:bg-[#fbdcd9]"
+                      >
+                        刪除
+                      </button>
+                    </>
+                  )
+                : undefined
+            }
+          />
         </div>
       </section>
 
@@ -415,32 +415,182 @@ export function DictionariesBoard({
           頁面設定；本頁僅維護下拉顯示用的代碼與標籤。
         </p>
       ) : null}
+
+      {/* Create / Edit Modal */}
+      {modalMode.kind !== "closed" ? (
+        <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[600px] max-h-[90vh] overflow-auto">
+            <header className="px-4 py-3 border-b border-[#EEECE6] flex items-center justify-between">
+              <h3 className="text-[14px] font-semibold text-[#2C2C2A]">
+                {modalMode.kind === "edit"
+                  ? `編輯${TAB_LABEL[activeKind]}：${draft.code || "—"}`
+                  : `新增${TAB_LABEL[activeKind]}`}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setModalMode({ kind: "closed" })}
+                className="text-[#9A9890] hover:text-[#5A5955] text-[18px] leading-none"
+              >
+                ×
+              </button>
+            </header>
+            <div className="px-4 py-3 grid grid-cols-12 gap-3">
+              <div className="col-span-4">
+                <label className={labelClass}>代碼 *</label>
+                {(() => {
+                  const editingId = modalMode.kind === "edit" ? modalMode.id : null;
+                  const refCount = editingId ? referenceCounts[editingId] ?? 0 : 0;
+                  const codeLocked = editingId !== null && refCount > 0;
+                  return (
+                    <>
+                      <input
+                        value={draft.code}
+                        onChange={(e) => setDraft({ ...draft, code: e.target.value })}
+                        className={inputClass + " font-mono"}
+                        placeholder={activeKind === "control_level" ? "A / B / C" : ""}
+                        disabled={codeLocked}
+                        title={codeLocked ? `被 ${refCount} 筆商品引用，不可改代碼` : undefined}
+                      />
+                      {codeLocked ? (
+                        <div className="text-[10.5px] text-[#854F0B] mt-0.5">
+                          🔒 已被 {refCount} 筆商品使用、不可改代碼
+                        </div>
+                      ) : editingId ? (
+                        <div className="text-[10.5px] text-[#9A9890] mt-0.5">
+                          無商品引用、可改代碼
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })()}
+              </div>
+              <div className="col-span-8">
+                <label className={labelClass}>顯示名稱 *</label>
+                <input
+                  value={draft.label}
+                  onChange={(e) => setDraft({ ...draft, label: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div className="col-span-12">
+                <label className={labelClass}>說明</label>
+                <input
+                  value={draft.description ?? ""}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div className="col-span-3">
+                <label className={labelClass}>排序</label>
+                <input
+                  type="number"
+                  value={draft.sort_order ?? 0}
+                  onChange={(e) => setDraft({ ...draft, sort_order: Number(e.target.value) || 0 })}
+                  className={inputClass + " font-mono"}
+                />
+              </div>
+              <div className="col-span-3">
+                <label className={labelClass}>顏色</label>
+                <select
+                  value={draft.accent_color ?? ""}
+                  onChange={(e) => setDraft({ ...draft, accent_color: e.target.value })}
+                  className={inputClass}
+                >
+                  {ACCENT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {modalMode.kind === "edit" ? (
+                <div className="col-span-6 flex items-end">
+                  <label className="inline-flex items-center gap-1.5 text-[12px]">
+                    <input
+                      type="checkbox"
+                      checked={draft.is_active ?? true}
+                      onChange={(e) => setDraft({ ...draft, is_active: e.target.checked })}
+                    />
+                    啟用
+                  </label>
+                </div>
+              ) : null}
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setModalMode({ kind: "closed" })}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
+              >
+                {isPending
+                  ? modalMode.kind === "edit"
+                    ? "儲存中⋯"
+                    : "建立中⋯"
+                  : modalMode.kind === "edit"
+                    ? "儲存變更"
+                    : "建立"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Delete confirm Modal */}
+      {confirmDeleteId ? (
+        <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[400px]">
+            <header className="px-4 py-3 border-b border-[#EEECE6]">
+              <h3 className="text-[14px] font-semibold text-[#CC0000]">確認刪除</h3>
+            </header>
+            <div className="px-4 py-3 text-[12.5px] text-[#2C2C2A]">
+              確定要刪除「<b>{confirmDeleteId.label}</b>」？此動作無法還原。
+              <div className="text-[11px] text-[#9A9890] mt-1">
+                如該項目仍被商品引用，系統會擋下並提示。
+              </div>
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteId(null)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-60"
+              >
+                {isPending ? "刪除中⋯" : "確認刪除"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Banner fixed bottom-right */}
+      {banner ? (
+        <div
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-[110] ${
+            banner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          }`}
+        >
+          {banner.msg}
+        </div>
+      ) : null}
     </main>
-  );
-}
-
-const COL_SPAN: Record<number, string> = {
-  1: "col-span-1",
-  2: "col-span-2",
-  3: "col-span-3",
-  4: "col-span-4",
-  5: "col-span-5",
-  6: "col-span-6",
-};
-
-function Field({
-  label,
-  children,
-  cols,
-}: {
-  label: string;
-  children: React.ReactNode;
-  cols: number;
-}) {
-  return (
-    <div className={`flex flex-col gap-1 ${COL_SPAN[cols] ?? "col-span-2"}`}>
-      <label className="text-[11px] text-[#9A9890] font-medium">{label}</label>
-      {children}
-    </div>
   );
 }

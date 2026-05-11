@@ -1,25 +1,57 @@
 "use client";
 
 import { useTransition } from "react";
-import { approvePurchaseOrder, cancelPurchaseOrder } from "@/lib/parts/actions";
+import { approvePurchaseOrder, cancelPurchaseOrder } from "@/domain/orders";
 
-export function PORowActions({ poId, status }: { poId: string; status: string }) {
+export type PoActionResult = { ok: boolean; msg: string };
+
+export function PORowActions({
+  poId,
+  status,
+  onResult,
+  onApproveAsk,
+  onCancelAsk,
+}: {
+  poId: string;
+  status: string;
+  /** 完成後回報 board 顯示 banner（成功 / 失敗都呼叫） */
+  onResult?: (r: PoActionResult) => void;
+  /** 由 board 顯示 confirm modal；不傳就直接執行 */
+  onApproveAsk?: (run: () => void) => void;
+  onCancelAsk?: (run: () => void) => void;
+}) {
   const [isPending, startTransition] = useTransition();
 
-  const handleApprove = () => {
-    if (!confirm("確定審核這張採購單嗎?審核後即可進入入庫流程。")) return;
+  const runApprove = () => {
     startTransition(async () => {
       const result = await approvePurchaseOrder(poId);
-      if (!result.ok) alert("審核失敗:" + result.error);
+      onResult?.(
+        result.ok
+          ? { ok: true, msg: "✓ 已審核" }
+          : { ok: false, msg: "審核失敗：" + result.error },
+      );
     });
   };
 
-  const handleCancel = () => {
-    if (!confirm("確定取消這張採購單嗎?此動作無法還原。")) return;
+  const runCancel = () => {
     startTransition(async () => {
       const result = await cancelPurchaseOrder(poId);
-      if (!result.ok) alert("取消失敗:" + result.error);
+      onResult?.(
+        result.ok
+          ? { ok: true, msg: "✓ 已取消" }
+          : { ok: false, msg: "取消失敗：" + result.error },
+      );
     });
+  };
+
+  const handleApprove = () => {
+    if (onApproveAsk) onApproveAsk(runApprove);
+    else runApprove();
+  };
+
+  const handleCancel = () => {
+    if (onCancelAsk) onCancelAsk(runCancel);
+    else runCancel();
   };
 
   if (status === "pending") {
@@ -29,7 +61,7 @@ export function PORowActions({ poId, status }: { poId: string; status: string })
           type="button"
           onClick={handleApprove}
           disabled={isPending}
-          className="h-7 px-2.5 bg-[#185FA5] hover:bg-[#1A3A5C] text-white text-[11px] font-medium rounded disabled:opacity-60 inline-flex items-center gap-1"
+          className="h-[26px] px-2.5 rounded text-[11.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50 inline-flex items-center gap-1"
         >
           {isPending && (
             <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -40,7 +72,7 @@ export function PORowActions({ poId, status }: { poId: string; status: string })
           type="button"
           onClick={handleCancel}
           disabled={isPending}
-          className="h-7 px-2 text-[11px] text-[#CC0000] hover:bg-[#FDECEA] rounded disabled:opacity-60"
+          className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
         >
           取消
         </button>
@@ -51,8 +83,8 @@ export function PORowActions({ poId, status }: { poId: string; status: string })
   if (status === "approved" || status === "partial_received") {
     return (
       <a
-        href={`/parts/receipt/po-grn?po=${poId}`}
-        className="inline-flex items-center h-7 px-2.5 bg-[#0F6E56] hover:bg-[#0a513f] text-white text-[11px] font-medium rounded"
+        href={`/parts/receipt/po-grn/new?po=${poId}`}
+        className="inline-flex items-center h-[26px] px-2.5 rounded bg-[#1A3A5C] hover:bg-[#0F2A45] text-white text-[11.5px] font-medium"
       >
         去入庫 →
       </a>

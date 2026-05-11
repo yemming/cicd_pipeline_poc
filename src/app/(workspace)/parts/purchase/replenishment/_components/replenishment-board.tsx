@@ -9,7 +9,7 @@ import {
   ignoreReplenishmentLines,
   runReplenishment,
   updateSuggestedQty,
-} from "@/lib/parts/replenishment-actions";
+} from "@/domain/replenishment";
 
 export type ReplenishLine = {
   id: string;

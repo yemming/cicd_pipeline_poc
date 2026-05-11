@@ -8,6 +8,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { ItemsBoard, type ItemRow, type SupplierOption } from "./_components/items-board";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { listDictionaries } from "@/domain/dictionaries";
 export const dynamic = "force-dynamic";
 
 export type ItemFilters = {
@@ -37,7 +38,7 @@ async function loadData(filters: ItemFilters) {
     q = q.or(`code.ilike.%${t}%,name.ilike.%${t}%`);
   }
 
-  const [iRes, sRes, compatRes, totalRes, dictRes] = await Promise.all([
+  const [iRes, sRes, compatRes, totalRes, dictRows] = await Promise.all([
     q.order("code").limit(500),
     supabase
       .from("suppliers")
@@ -53,18 +54,12 @@ async function loadData(filters: ItemFilters) {
       .from("items")
       .select("id", { count: "exact", head: true })
       .eq("brand_id", brand),
-    supabase
-      .from("parts_dictionary")
-      .select("kind, code, label, accent_color, sort_order, is_active")
-      .eq("brand_id", brand)
-      .eq("is_active", true)
-      .order("sort_order"),
+    listDictionaries(),
   ]);
 
   if (iRes.error) throw new Error(`items: ${iRes.error.message}`);
   if (sRes.error) throw new Error(`suppliers: ${sRes.error.message}`);
   if (compatRes.error) throw new Error(`compat: ${compatRes.error.message}`);
-  if (dictRes.error) throw new Error(`parts_dictionary: ${dictRes.error.message}`);
 
   const fitMap = new Map<string, number>();
   for (const c of compatRes.data ?? []) {
@@ -75,15 +70,10 @@ async function loadData(filters: ItemFilters) {
     fit_count: fitMap.get(r.id) ?? 0,
   }));
 
-  const dictRows = (dictRes.data ?? []) as unknown as Array<{
-    kind: string;
-    code: string;
-    label: string;
-    accent_color: string | null;
-  }>;
-  const categories = dictRows.filter((d) => d.kind === "category").map((d) => d.code);
-  const uoms = dictRows.filter((d) => d.kind === "uom").map((d) => d.code);
-  const controlLevels = dictRows
+  const activeDict = dictRows.filter((d) => d.is_active);
+  const categories = activeDict.filter((d) => d.kind === "category").map((d) => d.code);
+  const uoms = activeDict.filter((d) => d.kind === "uom").map((d) => d.code);
+  const controlLevels = activeDict
     .filter((d) => d.kind === "control_level")
     .map((d) => ({ code: d.code, label: d.label, accent: d.accent_color }));
 

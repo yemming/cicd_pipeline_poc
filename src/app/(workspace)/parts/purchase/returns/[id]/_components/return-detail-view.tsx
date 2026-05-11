@@ -97,6 +97,9 @@ export function ReturnDetailView({
   const [pending, startTransition] = useTransition();
   const [showShip, setShowShip] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [tab, setTab] = useState<"lines" | "history">("lines");
 
   // edit form state（Phase 1 只允許改 reason / notes）
@@ -137,12 +140,20 @@ export function ReturnDetailView({
   }
 
   function doCancel() {
-    const reason = prompt(`作廢 ${detail.rt_no} 的原因？`);
-    if (!reason) return;
+    setCancelReason("");
+    setShowCancelModal(true);
+  }
+  function confirmCancel() {
+    const trimmed = cancelReason.trim();
+    if (!trimmed) {
+      showBanner(false, "請填寫作廢原因");
+      return;
+    }
     startTransition(async () => {
-      const res = await cancelPurchaseReturn(detail.id, reason);
+      const res = await cancelPurchaseReturn(detail.id, trimmed);
       if (res.ok) {
         showBanner(true, "✓ 已作廢");
+        setShowCancelModal(false);
         router.refresh();
       } else {
         showBanner(false, `作廢失敗：${res.error}`);
@@ -151,14 +162,18 @@ export function ReturnDetailView({
   }
 
   function doDelete() {
-    if (!confirm(`確定刪除退貨單 ${detail.rt_no}？此動作不可逆。`)) return;
+    setShowDeleteModal(true);
+  }
+  function confirmDelete() {
     startTransition(async () => {
       const res = await deletePurchaseReturn(detail.id);
       if (res.ok) {
         showBanner(true, "✓ 已刪除");
+        setShowDeleteModal(false);
         router.push("/parts/purchase/returns");
       } else {
         showBanner(false, `刪除失敗：${res.error}`);
+        setShowDeleteModal(false);
       }
     });
   }
@@ -501,6 +516,82 @@ export function ReturnDetailView({
           }}
           onError={(msg) => showBanner(false, `標完成失敗：${msg}`)}
         />
+      )}
+
+      {/* Cancel Modal (作廢、要填原因) */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[450px]">
+            <header className="px-4 py-3 border-b border-[#EEECE6]">
+              <h3 className="text-[14px] font-semibold text-[#854F0B]">
+                作廢退貨單 {detail.rt_no}
+              </h3>
+            </header>
+            <div className="px-4 py-3 space-y-2">
+              <label className="text-[11px] text-[#9A9890] font-medium">
+                作廢原因 *
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={3}
+                placeholder="請填寫作廢原因（必填）..."
+                className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none resize-none"
+                autoFocus
+              />
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(false)}
+                disabled={pending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmCancel}
+                disabled={pending || !cancelReason.trim()}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#FDF3E3] border border-[#FAC775] text-[#854F0B] hover:bg-[#fbe9c4] disabled:opacity-60"
+              >
+                {pending ? "作廢中⋯" : "確認作廢"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirm Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[400px]">
+            <header className="px-4 py-3 border-b border-[#EEECE6]">
+              <h3 className="text-[14px] font-semibold text-[#CC0000]">確認刪除退貨單</h3>
+            </header>
+            <div className="px-4 py-3 text-[12.5px] text-[#2C2C2A]">
+              確定要刪除 <b className="font-mono">{detail.rt_no}</b>？此動作無法復原。
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={pending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={pending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-60"
+              >
+                {pending ? "刪除中⋯" : "確認刪除"}
+              </button>
+            </footer>
+          </div>
+        </div>
       )}
 
       {/* Banner */}

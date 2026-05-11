@@ -11,6 +11,7 @@ import {
   listPostableAccountsForItem,
   getItemGlAccounts,
 } from "@/domain/items";
+import { listDictionaries } from "@/domain/dictionaries";
 import {
   ItemDetailView,
   type DetailItem,
@@ -47,7 +48,7 @@ async function loadDetail(id: string) {
     whRes,
     fitRes,
     supRes,
-    dictRes,
+    dictRows,
     allSupRes,
     woRes,
     storeRes,
@@ -56,7 +57,7 @@ async function loadDetail(id: string) {
     supabase
       .from("stock_items")
       .select(
-        "warehouse_id, qty, unit_cost, serial_no, batch_no, status, last_movement_at, warranty_start, warranty_end",
+        "id, warehouse_id, qty, unit_cost, serial_no, batch_no, status, last_movement_at, warranty_start, warranty_end, notes",
       )
       .eq("brand_id", brand)
       .eq("item_id", id)
@@ -78,11 +79,7 @@ async function loadDetail(id: string) {
           .eq("id", detail.default_supplier_id)
           .single()
       : Promise.resolve({ data: null, error: null }),
-    supabase
-      .from("parts_dictionary")
-      .select("kind, code, label, accent_color")
-      .eq("brand_id", brand)
-      .eq("is_active", true),
+    listDictionaries(),
     supabase
       .from("suppliers")
       .select("id, code, name")
@@ -126,12 +123,7 @@ async function loadDetail(id: string) {
   const fitments = (fitRes.data ?? []) as unknown as FitmentRow[];
   const supplier = (supRes.data ?? null) as unknown as SupplierRef | null;
   const allSuppliers = (allSupRes.data ?? []) as unknown as SupplierRef[];
-  const dictRows = (dictRes.data ?? []) as unknown as Array<{
-    kind: string;
-    code: string;
-    label: string;
-    accent_color: string | null;
-  }>;
+  const activeDict = dictRows.filter((d) => d.is_active);
   const orgs = (orgRes.data ?? []) as unknown as OrgRef[];
   const woLines = (woRes.data ?? []) as unknown as WorkOrderLine[];
   const storePrices = (storeRes.data ?? []) as unknown as StorePriceRow[];
@@ -146,9 +138,9 @@ async function loadDetail(id: string) {
     models = (mData ?? []) as unknown as ModelRef[];
   }
 
-  const categories = dictRows.filter((d) => d.kind === "category").map((d) => d.code);
-  const uoms = dictRows.filter((d) => d.kind === "uom").map((d) => d.code);
-  const controlLevels: ControlLevelOption[] = dictRows
+  const categories = activeDict.filter((d) => d.kind === "category").map((d) => d.code);
+  const uoms = activeDict.filter((d) => d.kind === "uom").map((d) => d.code);
+  const controlLevels: ControlLevelOption[] = activeDict
     .filter((d) => d.kind === "control_level")
     .map((d) => ({ code: d.code, label: d.label, accent: d.accent_color }));
 

@@ -415,11 +415,61 @@ export async function getAlertEscalationPageData(): Promise<{
 // ──────────────────────────────────────────────────────────────────────────
 // serial_tracking helpers（序列號追蹤）
 
+const SERIAL_TRACKING_REVALIDATE = ["/parts/setup/serial"];
+
 export async function getSerialTrackingPageData(): Promise<{
   rules: BusinessRuleRow[];
+  canEdit: boolean;
 }> {
-  const rules = await listRulesByKind("serial_tracking");
-  return { rules };
+  const [rules, canEdit] = await Promise.all([
+    listRulesByKind("serial_tracking"),
+    hasPermission(PERMISSIONS.PARTS_SERIAL_RULE_EDIT),
+  ]);
+  return { rules, canEdit };
+}
+
+export type SerialTrackingRuleInput = {
+  /** 必填 — A/B/C 三類是 domain enum、不允許 INSERT/DELETE，只 UPDATE 既有 row */
+  id: string;
+  config: SerialTrackingConfig;
+};
+
+/**
+ * 一次性儲存序列號追蹤規則。
+ *
+ * 紀律：
+ *  - 只 UPDATE，不 INSERT/DELETE（A/B/C 是 domain enum、由 seed 固定 6 筆）
+ *  - 不連動 items.serial_tracking_required（Stage 3 Q1 拍板：規則只是宣告層）
+ *  - 不寫 audit log、不推通知（Stage 3 Q4 拍板）
+ */
+export async function saveSerialTrackingRules(
+  inputs: SerialTrackingRuleInput[],
+): Promise<Result<{ saved: number }>> {
+  await requirePermission(PERMISSIONS.PARTS_SERIAL_RULE_EDIT);
+
+  const supabase = await createClient();
+  const { userId } = await getCurrentUserAndAdmin();
+
+  for (const input of inputs) {
+    if (!input.id) {
+      return { ok: false, error: "缺少規則 id，無法更新" };
+    }
+    if (input.config.item_class === "A" && input.config.required !== true) {
+      return { ok: false, error: "A 類商品必須強制序列號，不可關閉" };
+    }
+    const { error } = await supabase
+      .from("business_rules")
+      .update({
+        config: input.config as unknown as Database["public"]["Tables"]["business_rules"]["Update"]["config"],
+        updated_by: userId ?? null,
+      })
+      .eq("id", input.id)
+      .eq("rule_kind", "serial_tracking");
+    if (error) return { ok: false, error: mapDbError(error, "更新序列號規則失敗") };
+  }
+
+  for (const p of SERIAL_TRACKING_REVALIDATE) revalidatePath(p);
+  return { ok: true, data: { saved: inputs.length } };
 }
 
 // ──────────────────────────────────────────────────────────────────────────

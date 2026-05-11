@@ -1,19 +1,46 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import type { RequisitionWithLines } from "@/domain/requisitions";
+import {
+  approveRequisition,
+  convertRequisition,
+  rejectRequisition,
+  type RequisitionWithLines,
+} from "@/domain/requisitions";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+
+type Banner = { ok: boolean; msg: string } | null;
+type ConfirmTone = "danger" | "primary" | "success";
+type ConfirmState =
+  | null
+  | {
+      title: string;
+      message: React.ReactNode;
+      confirmLabel: string;
+      confirmTone: ConfirmTone;
+      onConfirm: () => void;
+    };
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
-  draft: { label: "草稿", chip: "bg-[#F2F2F2] text-[#6B6A68]" },
-  pending: { label: "待審核", chip: "bg-[#FDF3E3] text-[#854F0B]" },
-  approved: { label: "已核准", chip: "bg-[#EAF3DE] text-[#3B6D11]" },
+  draft:     { label: "草稿",       chip: "bg-[#F2F2F2] text-[#6B6A68]" },
+  submitted: { label: "待審核",     chip: "bg-[#FDF3E3] text-[#854F0B]" },
+  pending:   { label: "待審核",     chip: "bg-[#FDF3E3] text-[#854F0B]" },
+  approved:  { label: "已核准",     chip: "bg-[#EAF3DE] text-[#3B6D11]" },
   converted: { label: "已轉採購單", chip: "bg-[#E8F5F0] text-[#0F6E56]" },
-  rejected: { label: "已拒絕", chip: "bg-[#FDECEA] text-[#CC0000]" },
-  cancelled: { label: "已取消", chip: "bg-[#F2F2F2] text-[#6B6A68]" },
+  rejected:  { label: "已拒絕",     chip: "bg-[#FDECEA] text-[#CC0000]" },
+  cancelled: { label: "已拒絕",     chip: "bg-[#FDECEA] text-[#CC0000]" },
 };
+
+const STATUS_OPTIONS = [
+  { value: "", label: "全部" },
+  { value: "submitted", label: "待審核" },
+  { value: "approved", label: "已核准" },
+  { value: "converted", label: "已轉採購單" },
+  { value: "cancelled", label: "已拒絕" },
+];
 
 function formatDate(d: string | null): string {
   return d ? d.replace(/-/g, "/") : "—";
@@ -31,6 +58,13 @@ export function RequisitionsBoard({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState(initialStatus);
+  const [banner, setBanner] = useState<Banner>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmState>(null);
+
+  function flash(b: Banner) {
+    setBanner(b);
+    if (b?.ok) setTimeout(() => setBanner(null), 2200);
+  }
 
   function applyFilter() {
     const params = new URLSearchParams();
@@ -39,6 +73,183 @@ export function RequisitionsBoard({
       router.push(`/parts/purchase/requisitions${params.toString() ? "?" + params : ""}`),
     );
   }
+
+  function resetFilter() {
+    setStatus("");
+    startTransition(() => router.push("/parts/purchase/requisitions"));
+  }
+
+  function doApprove(r: RequisitionWithLines) {
+    setConfirmModal({
+      title: "確認核准",
+      message: (
+        <>
+          確認核准「<b>{r.req_no}</b>」？核准後即可轉為正式採購單。
+        </>
+      ),
+      confirmLabel: "確認核准",
+      confirmTone: "success",
+      onConfirm: () => {
+        setConfirmModal(null);
+        startTransition(async () => {
+          const res = await approveRequisition(r.id);
+          if (res.ok) {
+            flash({ ok: true, msg: "✓ 已核准" });
+            router.refresh();
+          } else flash({ ok: false, msg: res.error });
+        });
+      },
+    });
+  }
+
+  function doReject(r: RequisitionWithLines) {
+    setConfirmModal({
+      title: "確認拒絕",
+      message: (
+        <>
+          確定拒絕「<b>{r.req_no}</b>」？此動作會將狀態切為「已拒絕」、後續不可再核准或轉採購單。
+        </>
+      ),
+      confirmLabel: "確認拒絕",
+      confirmTone: "danger",
+      onConfirm: () => {
+        setConfirmModal(null);
+        startTransition(async () => {
+          const res = await rejectRequisition(r.id);
+          if (res.ok) {
+            flash({ ok: true, msg: "✓ 已拒絕" });
+            router.refresh();
+          } else flash({ ok: false, msg: res.error });
+        });
+      },
+    });
+  }
+
+  function doConvert(r: RequisitionWithLines) {
+    setConfirmModal({
+      title: "確認轉採購單",
+      message: (
+        <>
+          「<b>{r.req_no}</b>」轉採購單？
+          <div className="text-[11px] text-[#9A9890] mt-1">
+            demo 階段：僅切換狀態為「已轉採購單」，未實際建立 PO。
+          </div>
+        </>
+      ),
+      confirmLabel: "確認轉採購單",
+      confirmTone: "primary",
+      onConfirm: () => {
+        setConfirmModal(null);
+        startTransition(async () => {
+          const res = await convertRequisition(r.id);
+          if (res.ok) {
+            flash({ ok: true, msg: "✓ 已轉採購單（demo）" });
+            router.refresh();
+          } else flash({ ok: false, msg: res.error });
+        });
+      },
+    });
+  }
+
+  const columns: DataGridColumn<RequisitionWithLines>[] = useMemo(
+    () => [
+      {
+        id: "req_no",
+        header: "需求單號",
+        width: 140,
+        hideable: false,
+        cell: (r) => (
+          <span className="font-mono font-semibold text-[12px] text-[#1A3A5C]">
+            {r.req_no ?? "—"}
+          </span>
+        ),
+        exportValue: (r) => r.req_no ?? "",
+        sortValue: (r) => r.req_no ?? "",
+      },
+      {
+        id: "store_name",
+        header: "提出門店",
+        width: 160,
+        cell: (r) => <span className="text-[12.5px]">{r.store_name ?? "—"}</span>,
+        exportValue: (r) => r.store_name ?? "",
+        sortValue: (r) => r.store_name ?? "",
+      },
+      {
+        id: "item",
+        header: "料號 / 品名",
+        width: 240,
+        sortable: false,
+        cell: (r) =>
+          r.first_item ? (
+            <div>
+              <div className="text-[12.5px]">{r.first_item.name}</div>
+              <div className="font-mono text-[11px] text-[#9A9890]">{r.first_item.code}</div>
+              {r.line_count > 1 ? (
+                <span className="inline-block mt-0.5 text-[10px] text-[#9A9890]">
+                  +{r.line_count - 1} 項
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <span className="text-[12.5px] text-[#9A9890]">—</span>
+          ),
+        exportValue: (r) =>
+          r.first_item ? `${r.first_item.code} ${r.first_item.name}` : "",
+      },
+      {
+        id: "qty",
+        header: "需求數量",
+        width: 100,
+        align: "right",
+        cell: (r) => (
+          <span className="font-mono text-[12px]">
+            {r.first_item ? r.first_item.qty.toLocaleString("en-US") : "—"}
+          </span>
+        ),
+        exportValue: (r) => r.first_item?.qty ?? 0,
+        sortValue: (r) => r.first_item?.qty ?? 0,
+      },
+      {
+        id: "required_date",
+        header: "需求日期",
+        width: 120,
+        cell: (r) => (
+          <span className="font-mono text-[12px]">{formatDate(r.required_date)}</span>
+        ),
+        exportValue: (r) => r.required_date ?? "",
+        sortValue: (r) => r.required_date ?? "",
+      },
+      {
+        id: "status",
+        header: "狀態",
+        width: 110,
+        hideable: false,
+        cell: (r) => {
+          const def = STATUS_LABEL[r.status ?? "submitted"] ?? STATUS_LABEL.submitted;
+          return (
+            <span
+              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${def.chip}`}
+            >
+              {def.label}
+            </span>
+          );
+        },
+        exportValue: (r) =>
+          (STATUS_LABEL[r.status ?? "submitted"] ?? STATUS_LABEL.submitted).label,
+        sortValue: (r) => r.status ?? "",
+      },
+      {
+        id: "notes",
+        header: "備註",
+        cell: (r) => (
+          <span className="text-[12px] text-[#5A5955]">{r.notes || "—"}</span>
+        ),
+        exportValue: (r) => r.notes ?? "",
+        sortValue: (r) => r.notes ?? "",
+      },
+    ],
+    [],
+  );
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -63,11 +274,11 @@ export function RequisitionsBoard({
               onChange={(e) => setStatus(e.target.value)}
               className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
             >
-              <option value="">全部</option>
-              <option value="pending">待審核</option>
-              <option value="approved">已核准</option>
-              <option value="converted">已轉採購單</option>
-              <option value="rejected">已拒絕</option>
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex gap-2 ml-auto">
@@ -79,9 +290,17 @@ export function RequisitionsBoard({
             >
               {isPending ? "查詢中⋯" : "查詢"}
             </button>
+            <button
+              type="button"
+              onClick={resetFilter}
+              disabled={isPending}
+              className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              重置
+            </button>
             <Link
               href="/parts/purchase/requisitions/new"
-              className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] inline-flex items-center"
+              className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] inline-flex items-center disabled:opacity-50"
             >
               ＋ 新增需求
             </Link>
@@ -95,84 +314,124 @@ export function RequisitionsBoard({
         </span>
       </div>
 
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-[#F8F7F4]">
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">需求單號</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">提出門店</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">料號 / 品名</th>
-                <th className="px-3 py-2 text-center text-[11px] text-[#9A9890] font-semibold">需求數量</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">需求日期</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">狀態</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">備註</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold w-[120px]">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-3 py-10 text-center text-[12px] text-[#9A9890]">
-                    沒有符合條件的需求單
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r) => {
-                  const status = r.status ?? "pending";
-                  const def = STATUS_LABEL[status] ?? STATUS_LABEL.pending;
-                  return (
-                    <tr key={r.id} className="border-t border-[#EEECE6]">
-                      <td className="px-3 py-2 font-mono text-[12px] text-[#1A3A5C] font-semibold">
-                        {r.req_no ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 text-[12.5px]">{r.store_name ?? "—"}</td>
-                      <td className="px-3 py-2 text-[12.5px]">
-                        {r.first_item ? (
-                          <>
-                            <div>{r.first_item.name}</div>
-                            <div className="font-mono text-[11px] text-[#9A9890]">
-                              {r.first_item.code}
-                            </div>
-                          </>
-                        ) : (
-                          "—"
-                        )}
-                        {r.line_count > 1 && (
-                          <span className="ml-1 text-[10px] text-[#9A9890]">
-                            +{r.line_count - 1}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-center font-mono text-[12px]">
-                        {r.first_item?.qty ?? 0}
-                      </td>
-                      <td className="px-3 py-2 font-mono text-[12px]">{formatDate(r.required_date)}</td>
-                      <td className="px-3 py-2">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${def.chip}`}>
-                          {def.label}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-[12px] text-[#5A5955]">{r.notes ?? "—"}</td>
-                      <td className="px-3 py-2">
-                        <Link
-                          href={`/parts/purchase/requisitions/${r.id}`}
-                          className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] inline-flex items-center hover:border-[#9A9890]"
-                        >
-                          詳細
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+      <DataGrid
+        columns={columns}
+        data={rows}
+        rowKey={(r) => r.id}
+        persistKey="parts/purchase/requisitions"
+        exportFileName="requisitions"
+        emptyMessage="沒有符合條件的需求單"
+        disabled={isPending}
+        rowActionsWidth={canEdit ? 320 : 90}
+        rowActions={(r) => {
+          const st = r.status ?? "submitted";
+          const isPendingStatus = st === "submitted" || st === "pending";
+          const isApproved = st === "approved";
+          return (
+            <>
+              <Link
+                href={`/parts/purchase/requisitions/${r.id}`}
+                className="h-[26px] px-2.5 rounded bg-white border border-[#D5D3CB] text-[11.5px] text-[#5A5955] inline-flex items-center hover:border-[#9A9890]"
+              >
+                詳細
+              </Link>
+              {canEdit && isPendingStatus ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => doApprove(r)}
+                    disabled={isPending}
+                    className="h-[26px] px-2.5 rounded text-[11.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                  >
+                    核准
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => doReject(r)}
+                    disabled={isPending}
+                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+                  >
+                    拒絕
+                  </button>
+                </>
+              ) : null}
+              {canEdit && isApproved ? (
+                <button
+                  type="button"
+                  onClick={() => doConvert(r)}
+                  disabled={isPending}
+                  className="h-[26px] px-2.5 rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+                >
+                  轉採購單
+                </button>
+              ) : null}
+            </>
+          );
+        }}
+      />
+
+      {!canEdit ? (
+        <div className="text-[11px] text-[#9A9890]">
+          💡 你目前沒有審核權限（PR_APPROVE），僅能檢視
         </div>
-      </section>
-      {!canEdit && (
-        <div className="text-[11px] text-[#9A9890]">💡 你目前沒有審核權限（PR_APPROVE），僅能檢視</div>
-      )}
+      ) : null}
+
+      {/* Confirm Modal */}
+      {confirmModal ? (
+        <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-[420px]">
+            <header className="px-4 py-3 border-b border-[#EEECE6]">
+              <h3
+                className={`text-[14px] font-semibold ${
+                  confirmModal.confirmTone === "danger" ? "text-[#CC0000]" : "text-[#2C2C2A]"
+                }`}
+              >
+                {confirmModal.title}
+              </h3>
+            </header>
+            <div className="px-4 py-3 text-[12.5px] text-[#2C2C2A]">
+              {confirmModal.message}
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmModal.onConfirm}
+                disabled={isPending}
+                className={`h-[30px] px-3.5 rounded text-[12.5px] font-medium disabled:opacity-60 ${
+                  confirmModal.confirmTone === "danger"
+                    ? "bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
+                    : confirmModal.confirmTone === "success"
+                      ? "bg-[#0F6E56] text-white hover:bg-[#0a5742]"
+                      : "bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+                }`}
+              >
+                {confirmModal.confirmLabel}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Banner fixed bottom-right */}
+      {banner ? (
+        <div
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-[110] ${
+            banner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          }`}
+        >
+          {banner.msg}
+        </div>
+      ) : null}
     </main>
   );
 }

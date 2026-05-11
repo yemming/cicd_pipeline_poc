@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { receiveStock } from "@/lib/parts/actions";
+import { receiveStock } from "@/domain/receipts";
 
 type Line = {
   id: string;
