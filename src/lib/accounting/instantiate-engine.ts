@@ -68,6 +68,10 @@ export async function instantiateTransaction(
   const validation = validateAndDefaults(ctxNorm, required);
   if (!validation.ok) return validation;
 
+  // 3b. normalize ctx — 自動補 SUBSIDIARY 軸（chain: warehouse → org → subsidiary）
+  // POC 階段寫死 chain。未來要 generic 化再擴成 DSL（Option B）。
+  await normalizeSubsidiaryChain(sb, ctxNorm);
+
   // 4. batch fetch masters used by coa_resolver
   const masters = await fetchMasters(sb, template, ctxNorm);
   if (!masters.ok) return masters;
@@ -283,6 +287,58 @@ function validateAndDefaults(
   }
 
   return { ok: true };
+}
+
+// ============================================================
+// SUBSIDIARY 軸 chain resolver（Option C — 寫死 chain fallback）
+// ============================================================
+
+/**
+ * 自動補 ctx.subsidiary_id（若 caller 沒帶）：
+ *   - 優先吃 ctx.store_id（一跳 organizations.subsidiary_id）
+ *   - 退而吃 ctx.warehouse_id（兩跳 warehouses.org_id → organizations.subsidiary_id）
+ *     順手把 ctx.store_id 也補上（org = store）
+ *
+ * 查不到不算失敗；若 template dim_sources 真的需要 SUBSIDIARY 才會在 DB trigger 階段被擋。
+ */
+async function normalizeSubsidiaryChain(
+  sb: ReturnType<typeof createServiceClient>,
+  ctx: Record<string, unknown>,
+): Promise<void> {
+  if (typeof ctx.subsidiary_id === "string" && ctx.subsidiary_id) return;
+
+  // 一跳：store_id → org.subsidiary_id
+  if (typeof ctx.store_id === "string" && ctx.store_id) {
+    const { data } = await sb
+      .from("organizations")
+      .select("subsidiary_id")
+      .eq("id", ctx.store_id)
+      .maybeSingle();
+    if (data?.subsidiary_id) {
+      ctx.subsidiary_id = data.subsidiary_id;
+      return;
+    }
+  }
+
+  // 兩跳：warehouse_id → warehouses.org_id → org.subsidiary_id
+  if (typeof ctx.warehouse_id === "string" && ctx.warehouse_id) {
+    const { data: wh } = await sb
+      .from("warehouses")
+      .select("org_id")
+      .eq("id", ctx.warehouse_id)
+      .maybeSingle();
+    if (wh?.org_id) {
+      const { data: org } = await sb
+        .from("organizations")
+        .select("subsidiary_id")
+        .eq("id", wh.org_id)
+        .maybeSingle();
+      if (org?.subsidiary_id) {
+        ctx.subsidiary_id = org.subsidiary_id;
+        if (!ctx.store_id) ctx.store_id = wh.org_id;
+      }
+    }
+  }
 }
 
 // ============================================================

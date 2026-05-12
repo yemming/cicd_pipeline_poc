@@ -15,11 +15,13 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
 
 import type { Database } from "@/lib/database.types";
 
@@ -726,7 +728,7 @@ async function persistPick(args: {
       brand_id: brandId,
       gi_no,
       type,
-      status: "posted",
+      status: "completed",
       warehouse_id: warehouseId,
       customer_id: customerId,
       ro_id: roId,
@@ -1003,7 +1005,7 @@ export async function createInternalSale(
   const scope = await getActiveScope();
   const { data: { user } } = await supabase.auth.getUser();
 
-  return persistPick({
+  const persistRes = await persistPick({
     supabase,
     brandId: scope.brand_id,
     userId: user?.id ?? null,
@@ -1018,4 +1020,67 @@ export async function createInternalSale(
     lineNotes: input.lines.map((l, i) => ({ line_no: i + 1, notes: l.line_notes ?? null })),
     linePrices: input.lines.map((l, i) => ({ line_no: i + 1, unit_price: Number(l.unit_price) })),
   });
+
+  // 自動產會計分錄（PARTS_RETAIL_SALE）— 非阻塞、autoPost 直接 posted
+  // POC 階段限制：整單聚合成一張 entry，item_id 取第一筆代表（多 item 拆分屬 engine v2）
+  // SUBSIDIARY 軸由 engine normalizeSubsidiaryChain 自動從 warehouse_id 兩跳補
+  if (persistRes.ok) {
+    const giNo = persistRes.data.gi_no;
+    const firstLine = previewRes.data.lines[0];
+    const netAmount =
+      Math.round(
+        input.lines.reduce((s, l) => s + l.qty_needed * l.unit_price, 0) * 100,
+      ) / 100;
+    const taxAmount = Math.round(netAmount * 0.05 * 100) / 100;
+    const costAmount =
+      Math.round(
+        previewRes.data.lines.reduce(
+          (s, l) => s + l.picks.reduce((sp, p) => sp + p.qty * p.unit_cost, 0),
+          0,
+        ) * 100,
+      ) / 100;
+    if (firstLine && netAmount > 0 && costAmount > 0) {
+      // 補 ctx 給 retail sale 用的 BRAND / DEPT / BANK 三軸
+      // POC: 零售一律屬「零配件部」(PRT)；現金 BANK 用 CASH literal
+      const brandId = scope.brand_id;
+      const supabaseForDept = supabase;
+      const { data: deptRow } = await supabaseForDept
+        .from("departments")
+        .select("id")
+        .eq("brand_id", brandId)
+        .eq("code", "PRT")
+        .eq("is_active", true)
+        .maybeSingle();
+      after(async () => {
+        const res = await instantiateTransaction(
+          TX_TYPES.PARTS_RETAIL_SALE,
+          {
+            item_id: firstLine.item_id,
+            customer_id: input.customer_id ?? null,
+            warehouse_id: input.warehouse_id,
+            net_amount: netAmount,
+            tax_amount: taxAmount,
+            cost_amount: costAmount,
+            brand_id: brandId,
+            dept_id: deptRow?.id ?? null,
+            bank_id: "CASH",
+          },
+          { autoPost: true },
+        );
+        if (!res.ok) {
+          console.error("[accounting] PARTS_RETAIL_SALE 自動過帳失敗", {
+            gi_no: giNo,
+            error: res.error,
+          });
+        } else {
+          console.log("[accounting] PARTS_RETAIL_SALE 已自動過帳（posted）", {
+            gi_no: giNo,
+            journal_entry: res.data,
+          });
+        }
+      });
+    }
+  }
+
+  return persistRes;
 }

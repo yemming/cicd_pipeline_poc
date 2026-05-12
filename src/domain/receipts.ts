@@ -214,10 +214,12 @@ export async function receiveStock(
   // 7. 產生 stock_items(每張 GR line 對應 1+ 條 stock_item)
   // 量產(qty 類):一條 row qty=qty_received
   // 序列號類:展開為 N 條 qty=1 — 但目前 input 沒帶序列號明細,先一條合計
+  const scope = await getActiveScope();
   const inputLineByPoLineId = new Map(input.lines.map((l) => [l.po_line_id, l]));
   const stockItems = grLines.map((grLine, idx) => {
     const inputLine = input.lines[idx];
     return {
+      brand_id: scope.brand_id,
       item_id: grLine.item_id,
       warehouse_id: po.warehouse_id,
       bin_id: grLine.bin_id,
@@ -269,12 +271,10 @@ export async function receiveStock(
 
   void inputLineByPoLineId; // 防 unused warning
 
-  // 10. 自動產會計分錄（PARTS_PURCHASE）— 非阻塞、產 draft entry 等人工 review
+  // 10. 自動產會計分錄（PARTS_PURCHASE）— 非阻塞、autoPost 直接 posted
   // POC 階段限制：
   //   - 整單聚合成一張 entry，item_id 取第一筆代表（多 item 拆細分錄屬 engine v2）
-  //   - 用 autoPost:false → 保持 draft，原因：COA L5 的 required_dimensions 含 SUBSIDIARY，
-  //     但 ctx 還沒 SUBSIDIARY 模型（multi-subsidiary 整合屬下一輪業務工程）。
-  //     SUBSIDIARY 軸補齊 + master rebinding 後改回 autoPost:true。
+  //   - SUBSIDIARY 軸由 engine normalizeSubsidiaryChain 自動從 warehouse_id 兩跳補
   const receiptDate = input.receipt_date ?? today.toISOString().slice(0, 10);
   const firstGrLine = grLinesWithAmount[0];
   if (firstGrLine && po.vendor_id) {
@@ -290,15 +290,15 @@ export async function receiveStock(
           tax_amount: taxAmount,
           warehouse_id: po.warehouse_id,
         },
-        { autoPost: false, entryDate: receiptDate },
+        { autoPost: true, entryDate: receiptDate },
       );
       if (!res.ok) {
-        console.error("[accounting] PARTS_PURCHASE 產 draft 失敗", {
+        console.error("[accounting] PARTS_PURCHASE 自動過帳失敗", {
           gr_no,
           error: res.error,
         });
       } else {
-        console.log("[accounting] PARTS_PURCHASE 已產 draft（待人工 review）", {
+        console.log("[accounting] PARTS_PURCHASE 已自動過帳（posted）", {
           gr_no,
           journal_entry: res.data,
         });
