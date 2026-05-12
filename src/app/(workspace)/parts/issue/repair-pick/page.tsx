@@ -5,14 +5,14 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getIssuesPageData } from "@/domain/issues";
 
-import { IssuesBoard } from "../internal-sale/_components/issues-board";
+import { RepairPickBoard } from "./_components/repair-pick-board";
 
 export const dynamic = "force-dynamic";
 
 export default async function RepairPickPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; warehouse_id?: string }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -20,28 +20,27 @@ export default async function RepairPickPage({
   if (!(await hasPermission(PERMISSIONS.ISSUE_VIEW))) {
     return (
       <main className="px-6 py-6">
-        <p className="text-[14px] text-[#CC0000]">沒有檢視出庫單的權限</p>
+        <p className="text-[14px] text-[#CC0000]">沒有檢視領料單的權限</p>
       </main>
     );
   }
 
   const sp = await searchParams;
-  const { rows, canEdit } = await getIssuesPageData({
+  const { rows, canEdit, warehouses } = await getIssuesPageData({
     type: "repair_pick",
     status: sp.status || undefined,
     q: sp.q || undefined,
+    warehouse_id: sp.warehouse_id || undefined,
   });
 
   return (
-    <IssuesBoard
-      title="維修領料（RO 工單串接）"
-      tag="6.1"
-      subtitle="維修工單派工後從庫存領出料件"
+    <RepairPickBoard
       rows={rows}
       canEdit={canEdit}
+      warehouses={warehouses}
       initialStatus={sp.status ?? ""}
       initialQ={sp.q ?? ""}
-      basePath="/parts/issue/repair-pick"
+      initialWarehouse={sp.warehouse_id ?? ""}
     />
   );
 }

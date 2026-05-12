@@ -3,13 +3,17 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { listTransfers } from "@/domain/transfers";
+import { getTransferOutPageData } from "@/domain/transfers";
 
 import { TransferOutBoard } from "./_components/transfer-out-board";
 
 export const dynamic = "force-dynamic";
 
-export default async function TransferOutPage() {
+export default async function TransferOutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; q?: string; source_warehouse_id?: string }>;
+}) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
 
@@ -21,9 +25,21 @@ export default async function TransferOutPage() {
     );
   }
 
-  // 出貨方視角：只看 status in (draft, in_transit, partial)
-  const rows = await listTransfers({ status_in: ["draft", "in_transit", "partial"] });
-  const canEdit = await hasPermission(PERMISSIONS.TRANSFER_CREATE);
+  const sp = await searchParams;
+  const { rows, canEdit, warehouses } = await getTransferOutPageData({
+    status: sp.status || undefined,
+    q: sp.q || undefined,
+    source_warehouse_id: sp.source_warehouse_id || undefined,
+  });
 
-  return <TransferOutBoard rows={rows} canEdit={canEdit} />;
+  return (
+    <TransferOutBoard
+      rows={rows}
+      canEdit={canEdit}
+      warehouses={warehouses}
+      initialStatus={sp.status ?? ""}
+      initialQ={sp.q ?? ""}
+      initialSourceWarehouse={sp.source_warehouse_id ?? ""}
+    />
+  );
 }

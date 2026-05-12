@@ -5652,6 +5652,9 @@ export type Database = {
           synced_at: string | null
           type: string
           updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
           warehouse_id: string
         }
         Insert: {
@@ -5679,6 +5682,9 @@ export type Database = {
           synced_at?: string | null
           type: string
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           warehouse_id: string
         }
         Update: {
@@ -5706,6 +5712,9 @@ export type Database = {
           synced_at?: string | null
           type?: string
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           warehouse_id?: string
         }
         Relationships: [

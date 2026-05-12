@@ -5,14 +5,14 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getIssuesPageData } from "@/domain/issues";
 
-import { IssuesBoard } from "./_components/issues-board";
+import { InternalSaleBoard } from "./_components/internal-sale-board";
 
 export const dynamic = "force-dynamic";
 
 export default async function InternalSaleIssuePage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; warehouse_id?: string }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -20,28 +20,27 @@ export default async function InternalSaleIssuePage({
   if (!(await hasPermission(PERMISSIONS.ISSUE_VIEW))) {
     return (
       <main className="px-6 py-6">
-        <p className="text-[14px] text-[#CC0000]">沒有檢視出庫單的權限</p>
+        <p className="text-[14px] text-[#CC0000]">沒有檢視內售出貨的權限</p>
       </main>
     );
   }
 
   const sp = await searchParams;
-  const { rows, canEdit } = await getIssuesPageData({
+  const { rows, canEdit, warehouses } = await getIssuesPageData({
     type: "internal_sale",
     status: sp.status || undefined,
     q: sp.q || undefined,
+    warehouse_id: sp.warehouse_id || undefined,
   });
 
   return (
-    <IssuesBoard
-      title="內售出庫"
-      tag="6.3"
-      subtitle="員工 / 內部試乘 / 維修等內銷用途的備件出庫"
+    <InternalSaleBoard
       rows={rows}
       canEdit={canEdit}
+      warehouses={warehouses}
       initialStatus={sp.status ?? ""}
       initialQ={sp.q ?? ""}
-      basePath="/parts/issue/internal-sale"
+      initialWarehouse={sp.warehouse_id ?? ""}
     />
   );
 }

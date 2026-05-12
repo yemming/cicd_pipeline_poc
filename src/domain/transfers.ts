@@ -35,7 +35,10 @@ export type TransferListRow = StockTransferRow & {
 
 export async function listTransfers(filter: {
   status_in?: string[];
+  status?: string;
   q?: string;
+  source_warehouse_id?: string;
+  target_warehouse_id?: string;
 } = {}): Promise<TransferListRow[]> {
   const supabase = await createClient();
   const scope = await getActiveScope();
@@ -45,8 +48,12 @@ export async function listTransfers(filter: {
     .select("*")
     .eq("brand_id", scope.brand_id)
     .order("ship_date", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(200);
   if (filter.status_in?.length) q = q.in("status", filter.status_in);
+  if (filter.status) q = q.eq("status", filter.status);
+  if (filter.source_warehouse_id) q = q.eq("source_warehouse_id", filter.source_warehouse_id);
+  if (filter.target_warehouse_id) q = q.eq("target_warehouse_id", filter.target_warehouse_id);
   if (filter.q) q = q.ilike("tr_no", `%${filter.q}%`);
 
   const { data: ts, error } = await q;
@@ -82,6 +89,481 @@ export async function getTransferInPageData(): Promise<{
     hasPermission(PERMISSIONS.RECEIPT_CREATE),
   ]);
   return { rows, canEdit };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Transfer-Out（出貨方視角）— list + form + preview + mutations
+// ─────────────────────────────────────────────────────────────
+
+export async function getTransferOutPageData(filter: {
+  status?: string;
+  q?: string;
+  source_warehouse_id?: string;
+} = {}): Promise<{
+  rows: TransferListRow[];
+  canEdit: boolean;
+  warehouses: Array<{ id: string; code: string | null; name: string }>;
+}> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const [rows, canEdit, whRes] = await Promise.all([
+    listTransfers(filter),
+    hasPermission(PERMISSIONS.TRANSFER_CREATE),
+    supabase
+      .from("warehouses")
+      .select("id, code, name")
+      .eq("brand_id", scope.brand_id)
+      .eq("is_active", true)
+      .order("code"),
+  ]);
+
+  return {
+    rows,
+    canEdit,
+    warehouses: (whRes.data ?? []) as Array<{ id: string; code: string | null; name: string }>,
+  };
+}
+
+export type NewTransferFormData = {
+  warehouses: Array<{ id: string; code: string | null; name: string }>;
+  items: Array<{ id: string; code: string; name: string; base_uom: string | null }>;
+};
+
+export async function getNewTransferFormData(): Promise<NewTransferFormData> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const [whRes, itemRes] = await Promise.all([
+    supabase
+      .from("warehouses")
+      .select("id, code, name")
+      .eq("brand_id", scope.brand_id)
+      .eq("is_active", true)
+      .order("code"),
+    supabase
+      .from("items")
+      .select("id, code, name, base_uom")
+      .eq("brand_id", scope.brand_id)
+      .eq("is_active", true)
+      .order("code")
+      .limit(500),
+  ]);
+  return {
+    warehouses: (whRes.data ?? []) as NewTransferFormData["warehouses"],
+    items: (itemRes.data ?? []) as NewTransferFormData["items"],
+  };
+}
+
+export type TransferPreviewLine = {
+  line_no: number;
+  item_id: string;
+  item_code: string | null;
+  item_name: string;
+  qty_requested: number;
+  qty_available: number;
+  shortage: number;
+  picks: Array<{
+    stock_id: string;
+    bin_id: string | null;
+    bin_label: string | null;
+    qty: number;
+    unit_cost: number;
+    serial_no: string | null;
+    batch_no: string | null;
+  }>;
+};
+
+export type TransferPreview = {
+  source_warehouse_id: string;
+  target_warehouse_id: string;
+  lines: TransferPreviewLine[];
+  can_post: boolean;
+  qty_total: number;
+  amount_total: number;
+};
+
+export async function previewTransfer(input: {
+  source_warehouse_id: string;
+  target_warehouse_id: string;
+  lines: Array<{ item_id: string; qty_requested: number; source_bin_id?: string | null }>;
+}): Promise<Result<TransferPreview>> {
+  if (!input.source_warehouse_id) return { ok: false, error: "缺來源倉" };
+  if (!input.target_warehouse_id) return { ok: false, error: "缺目標倉" };
+  if (input.source_warehouse_id === input.target_warehouse_id) {
+    return { ok: false, error: "來源倉與目標倉不可相同" };
+  }
+  if (!input.lines?.length) return { ok: false, error: "請至少加一筆料件" };
+  for (const l of input.lines) {
+    if (!l.item_id) return { ok: false, error: "明細缺料件" };
+    if (!(l.qty_requested > 0)) return { ok: false, error: "明細數量需 > 0" };
+  }
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 撈料件名
+  const itemIds = Array.from(new Set(input.lines.map((l) => l.item_id)));
+  const { data: itemRows } = await supabase
+    .from("items")
+    .select("id, code, name")
+    .in("id", itemIds);
+  const itemMap = new Map(
+    (itemRows ?? []).map((it) => [it.id, { code: it.code, name: it.name }] as const),
+  );
+
+  const previewLines: TransferPreviewLine[] = [];
+  let qty_total = 0;
+  let amount_total = 0;
+  let can_post = true;
+
+  for (let i = 0; i < input.lines.length; i++) {
+    const l = input.lines[i];
+    let stocksQuery = supabase
+      .from("stock_items")
+      .select("id, qty, bin_id, unit_cost, serial_no, batch_no, created_at")
+      .eq("brand_id", scope.brand_id)
+      .eq("warehouse_id", input.source_warehouse_id)
+      .eq("item_id", l.item_id)
+      .eq("status", "available")
+      .gt("qty", 0)
+      .order("created_at", { ascending: true });
+    if (l.source_bin_id) stocksQuery = stocksQuery.eq("bin_id", l.source_bin_id);
+    const { data: stocks, error: stockErr } = await stocksQuery;
+    if (stockErr) return { ok: false, error: stockErr.message };
+
+    let remaining = l.qty_requested;
+    let qty_available = 0;
+    const picks: TransferPreviewLine["picks"] = [];
+    for (const s of stocks ?? []) {
+      qty_available += Number(s.qty);
+      if (remaining <= 0) continue;
+      const take = Math.min(Number(s.qty), remaining);
+      picks.push({
+        stock_id: s.id,
+        bin_id: s.bin_id,
+        bin_label: null,
+        qty: take,
+        unit_cost: Number(s.unit_cost ?? 0),
+        serial_no: s.serial_no,
+        batch_no: s.batch_no,
+      });
+      remaining -= take;
+    }
+
+    const shortage = Math.max(0, remaining);
+    if (shortage > 0) can_post = false;
+
+    qty_total += l.qty_requested - remaining;
+    amount_total += picks.reduce((s, p) => s + p.qty * p.unit_cost, 0);
+
+    previewLines.push({
+      line_no: i + 1,
+      item_id: l.item_id,
+      item_code: itemMap.get(l.item_id)?.code ?? null,
+      item_name: itemMap.get(l.item_id)?.name ?? "(unknown)",
+      qty_requested: l.qty_requested,
+      qty_available,
+      shortage,
+      picks,
+    });
+  }
+
+  // bin labels
+  const binIds = Array.from(
+    new Set(previewLines.flatMap((l) => l.picks.map((p) => p.bin_id)).filter((x): x is string => !!x)),
+  );
+  if (binIds.length) {
+    const { data: bins } = await supabase
+      .from("warehouse_bins")
+      .select("id, code, name")
+      .in("id", binIds);
+    const binMap = new Map((bins ?? []).map((b) => [b.id, b.code ?? b.name] as const));
+    for (const l of previewLines) {
+      for (const p of l.picks) {
+        if (p.bin_id) p.bin_label = binMap.get(p.bin_id) ?? null;
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      source_warehouse_id: input.source_warehouse_id,
+      target_warehouse_id: input.target_warehouse_id,
+      lines: previewLines,
+      can_post,
+      qty_total: Math.round(qty_total * 100) / 100,
+      amount_total: Math.round(amount_total * 100) / 100,
+    },
+  };
+}
+
+const TRANSFER_TYPES_VALID = [
+  "inter_store",
+  "intra_store",
+  "warranty_to_temp",
+  "consignment_to_main",
+];
+
+export type CreateTransferInput = {
+  source_warehouse_id: string;
+  target_warehouse_id: string;
+  transfer_type?: string;
+  reason?: string;
+  notes?: string;
+  expected_arrival_date?: string;
+  logistics_provider?: string;
+  logistics_tracking_no?: string;
+  lines: Array<{
+    item_id: string;
+    qty_requested: number;
+    source_bin_id?: string;
+    target_bin_id?: string;
+    line_notes?: string | null;
+  }>;
+};
+
+export async function createTransfer(
+  input: CreateTransferInput,
+): Promise<Result<{ id: string; tr_no: string }>> {
+  if (!(await hasPermission(PERMISSIONS.TRANSFER_CREATE))) {
+    return { ok: false, error: "沒有建立調撥單的權限" };
+  }
+  if (input.source_warehouse_id === input.target_warehouse_id) {
+    return { ok: false, error: "來源倉與目標倉不可相同" };
+  }
+  const transferType = input.transfer_type ?? "inter_store";
+  if (!TRANSFER_TYPES_VALID.includes(transferType)) {
+    return { ok: false, error: `不支援的 transfer_type: ${transferType}` };
+  }
+
+  // 預檢
+  const previewRes = await previewTransfer({
+    source_warehouse_id: input.source_warehouse_id,
+    target_warehouse_id: input.target_warehouse_id,
+    lines: input.lines.map((l) => ({
+      item_id: l.item_id,
+      qty_requested: l.qty_requested,
+      source_bin_id: l.source_bin_id ?? null,
+    })),
+  });
+  if (!previewRes.ok) return previewRes;
+  if (!previewRes.data.can_post) {
+    return { ok: false, error: "庫存不足，無法出貨（請看預覽紅色提示）" };
+  }
+  const preview = previewRes.data;
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const brandId = scope.brand_id;
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // 產 tr_no
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+  const { data: lastTr } = await supabase
+    .from("stock_transfers")
+    .select("tr_no")
+    .eq("brand_id", brandId)
+    .like("tr_no", `TR${dateStr}-%`)
+    .order("tr_no", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let seq = 1;
+  if (lastTr?.tr_no) {
+    const m = lastTr.tr_no.match(/-(\d+)$/);
+    if (m) seq = parseInt(m[1], 10) + 1;
+  }
+  const tr_no = `TR${dateStr}-${String(seq).padStart(3, "0")}`;
+
+  const qtyTotal = input.lines.reduce((s, l) => s + l.qty_requested, 0);
+
+  // Insert stock_transfers
+  const { data: tr, error: trErr } = await supabase
+    .from("stock_transfers")
+    .insert({
+      brand_id: brandId,
+      tr_no,
+      source_warehouse_id: input.source_warehouse_id,
+      target_warehouse_id: input.target_warehouse_id,
+      transfer_type: transferType,
+      reason: input.reason ?? null,
+      status: "in_transit",
+      ship_date: today.toISOString().slice(0, 10),
+      expected_arrival_date: input.expected_arrival_date ?? null,
+      qty_requested_total: qtyTotal,
+      qty_shipped_total: qtyTotal,
+      qty_received_total: 0,
+      logistics_provider: input.logistics_provider ?? null,
+      logistics_tracking_no: input.logistics_tracking_no ?? null,
+      notes: input.notes ?? null,
+      shipped_at: new Date().toISOString(),
+      shipped_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (trErr) return { ok: false, error: `建立調撥單失敗：${trErr.message}` };
+
+  // Insert stock_transfer_lines（line_no 對齊 preview）
+  const linesByLineNo = new Map(preview.lines.map((l) => [l.line_no, l]));
+  const inputByLineNo = new Map(input.lines.map((l, i) => [i + 1, l]));
+  const linesToInsert = preview.lines.map((pl) => {
+    const ipt = inputByLineNo.get(pl.line_no);
+    const totalCost = pl.picks.reduce((s, p) => s + p.qty * p.unit_cost, 0);
+    const avgCost = pl.qty_requested > 0 ? totalCost / pl.qty_requested : 0;
+    return {
+      brand_id: brandId,
+      tr_id: tr.id,
+      line_no: pl.line_no,
+      item_id: pl.item_id,
+      source_bin_id: pl.picks[0]?.bin_id ?? null,
+      target_bin_id: ipt?.target_bin_id ?? null,
+      qty_requested: pl.qty_requested,
+      qty_shipped: pl.qty_requested,
+      qty_received: 0,
+      uom: "PCS",
+      unit_cost: avgCost,
+      notes: ipt?.line_notes ?? null,
+    };
+  });
+  const { data: trLines, error: linesErr } = await supabase
+    .from("stock_transfer_lines")
+    .insert(linesToInsert)
+    .select("id, item_id, line_no, target_bin_id");
+  if (linesErr || !trLines) {
+    await supabase.from("stock_transfers").delete().eq("id", tr.id);
+    return { ok: false, error: `建立調撥明細失敗：${linesErr?.message ?? ""}` };
+  }
+  const trLineByLineNo = new Map(trLines.map((l) => [l.line_no, l]));
+
+  // 扣源 stock_items + 建目標倉 in_transit
+  for (const pl of preview.lines) {
+    for (const pick of pl.picks) {
+      const { data: cur } = await supabase
+        .from("stock_items")
+        .select("qty")
+        .eq("id", pick.stock_id)
+        .single();
+      const newQty = Number(cur?.qty ?? 0) - pick.qty;
+      const update: Record<string, unknown> = {
+        qty: Math.max(0, Math.round(newQty * 100) / 100),
+        last_movement_at: new Date().toISOString(),
+      };
+      if (newQty <= 0) update.status = "issued";
+      await supabase.from("stock_items").update(update).eq("id", pick.stock_id);
+    }
+    const trLine = trLineByLineNo.get(pl.line_no);
+    const inTransitRows = pl.picks.map((p) => ({
+      brand_id: brandId,
+      item_id: pl.item_id,
+      warehouse_id: input.target_warehouse_id,
+      bin_id: trLine?.target_bin_id ?? null,
+      qty: p.qty,
+      status: "in_transit",
+      unit_cost: p.unit_cost,
+      serial_no: p.serial_no,
+      batch_no: p.batch_no,
+      source_transfer_line_id: trLine?.id ?? null,
+      notes: `調撥 ${tr_no} 在途`,
+    }));
+    const { error: itrErr } = await supabase.from("stock_items").insert(inTransitRows);
+    if (itrErr) {
+      return { ok: false, error: `建在途庫存失敗：${itrErr.message}` };
+    }
+  }
+
+  // line_notes（avoid unused-var warning by referencing in linesToInsert above）
+  void linesByLineNo;
+
+  revalidatePath("/parts/issue/transfer-out");
+  revalidatePath("/parts/receipt/transfer-in");
+  revalidatePath("/parts/operations/transfers-in-transit");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { id: tr.id, tr_no } };
+}
+
+/**
+ * 取消調撥單：僅 status ∈ {draft, in_transit, partial} 可取消。
+ * 邏輯：撈 in_transit stock_items → 翻 available + warehouse_id 改回源倉。
+ * 寫 voided_at / voided_by / void_reason（與 voidTransfer 對齊）。
+ */
+export async function cancelTransfer(
+  id: string,
+  reason: string,
+): Promise<Result<{ id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.TRANSFER_CREATE))) {
+    return { ok: false, error: "沒有取消調撥單的權限" };
+  }
+  const trimmed = reason.trim();
+  if (!trimmed) return { ok: false, error: "請填寫取消原因" };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: tr, error: trErr } = await supabase
+    .from("stock_transfers")
+    .select("id, tr_no, status, source_warehouse_id")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (trErr) return { ok: false, error: trErr.message };
+  if (!tr) return { ok: false, error: "找不到調撥單" };
+  if (tr.status === "cancelled") return { ok: false, error: "此調撥單已取消" };
+  if (!["draft", "in_transit", "partial"].includes(tr.status)) {
+    return {
+      ok: false,
+      error: `狀態 ${tr.status} 不可取消（已收貨單請至 transfer-in 走作廢）`,
+    };
+  }
+
+  const { data: trLines } = await supabase
+    .from("stock_transfer_lines")
+    .select("id")
+    .eq("tr_id", id);
+  const lineIds = (trLines ?? []).map((l) => l.id);
+
+  // 把 in_transit 庫存搬回源倉、status='available'
+  if (lineIds.length > 0) {
+    const { data: inTransit } = await supabase
+      .from("stock_items")
+      .select("id")
+      .eq("brand_id", scope.brand_id)
+      .in("source_transfer_line_id", lineIds)
+      .eq("status", "in_transit");
+    for (const r of inTransit ?? []) {
+      await supabase
+        .from("stock_items")
+        .update({
+          status: "available",
+          warehouse_id: tr.source_warehouse_id,
+          last_movement_at: new Date().toISOString(),
+          notes: `調撥 ${tr.tr_no} 取消還原`,
+        })
+        .eq("id", r.id);
+    }
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error: cancelErr } = await supabase
+    .from("stock_transfers")
+    .update({
+      status: "cancelled",
+      voided_at: new Date().toISOString(),
+      voided_by: user?.id ?? null,
+      void_reason: trimmed,
+    })
+    .eq("id", id);
+  if (cancelErr) return { ok: false, error: `取消失敗:${cancelErr.message}` };
+
+  revalidatePath("/parts/issue/transfer-out");
+  revalidatePath(`/parts/issue/transfer-out/${id}`);
+  revalidatePath("/parts/receipt/transfer-in");
+  revalidatePath("/parts/operations/transfers-in-transit");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { id } };
 }
 
 // ─────────────────────────────────────────────────────────────

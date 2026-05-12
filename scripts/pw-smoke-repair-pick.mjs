@@ -1,0 +1,104 @@
+#!/usr/bin/env node
+/**
+ * Smoke — /parts/issue/repair-pick 三個路由 + detail chain（若 list 有 row）
+ *
+ * Usage:
+ *   node scripts/pw-login.mjs --ensure
+ *   node scripts/pw-smoke-repair-pick.mjs
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import url from "node:url";
+import { chromium } from "playwright";
+
+const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+const STATE_FILE = path.join(__dirname, ".pw-state.json");
+const BASE = process.env.APP_BASE_URL || "http://localhost:3000";
+const NAV_TIMEOUT = Number(process.env.SMOKE_NAV_TIMEOUT_MS ?? 90_000);
+
+const SERVER_ERROR_PATTERNS = ["Application error", "Internal Server Error", "PGRST"];
+
+const FLAT = [
+  "/parts/issue/repair-pick",
+  "/parts/issue/repair-pick/new",
+];
+
+const log = (...m) => console.error("[smoke]", ...m);
+
+async function checkOnce(page, urlPath) {
+  const resp = await page.goto(`${BASE}${urlPath}`, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT });
+  const status = resp?.status() ?? 0;
+  const finalUrl = page.url();
+  if (status >= 400) return { ok: false, urlPath, reason: `status=${status}` };
+  if (finalUrl.includes("/login")) return { ok: false, urlPath, reason: "redirected to /login" };
+  const body = await page.locator("body").innerText().catch(() => "");
+  for (const pat of SERVER_ERROR_PATTERNS) {
+    if (body.includes(pat)) {
+      return { ok: false, urlPath, reason: `body contains "${pat}"`, excerpt: body.slice(0, 200) };
+    }
+  }
+  return { ok: true, urlPath, status };
+}
+
+async function check(page, urlPath) {
+  try {
+    return await checkOnce(page, urlPath);
+  } catch (e) {
+    const msg = e?.message || String(e);
+    if (msg.includes("Timeout")) {
+      await new Promise((r) => setTimeout(r, 2_000));
+      try {
+        return await checkOnce(page, urlPath);
+      } catch (e2) {
+        return { ok: false, urlPath, reason: `timeout x2: ${e2.message}` };
+      }
+    }
+    return { ok: false, urlPath, reason: msg };
+  }
+}
+
+async function main() {
+  if (!fs.existsSync(STATE_FILE)) {
+    log("missing .pw-state.json — run scripts/pw-login.mjs --ensure first");
+    process.exit(2);
+  }
+  const browser = await chromium.launch({ headless: true });
+  const ctx = await browser.newContext({ storageState: STATE_FILE });
+  const page = await ctx.newPage();
+
+  const results = [];
+  for (const u of FLAT) {
+    const r = await check(page, u);
+    log(r.ok ? `✓ ${u}` : `✗ ${u} — ${r.reason}`);
+    results.push(r);
+  }
+
+  // detail chain — try to find one /[id] from list
+  try {
+    await page.goto(`${BASE}/parts/issue/repair-pick`, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT });
+    const hrefs = await page
+      .locator('a[href^="/parts/issue/repair-pick/"]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute("href")).filter(Boolean));
+    const detail = hrefs.find((h) => /^\/parts\/issue\/repair-pick\/[0-9a-f-]{36}$/.test(h));
+    if (detail) {
+      const r = await check(page, detail);
+      log(r.ok ? `✓ ${detail} (detail)` : `✗ ${detail} — ${r.reason}`);
+      results.push(r);
+    } else {
+      log(`⊘ /parts/issue/repair-pick/[id] — list 空、跳過`);
+    }
+  } catch (e) {
+    log(`⊘ detail chain skipped: ${e.message}`);
+  }
+
+  await browser.close();
+  const failed = results.filter((r) => !r.ok);
+  console.log(JSON.stringify({ total: results.length, passed: results.length - failed.length, failed: failed.length, details: results }, null, 2));
+  process.exit(failed.length === 0 ? 0 : 1);
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(2);
+});
