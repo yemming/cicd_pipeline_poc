@@ -4,6 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getStockBalancePageData } from "@/domain/stock";
+import { BALANCE_PAGE_SIZE_DEFAULT } from "@/domain/stock.constants";
 
 import { StockBalanceBoard } from "./_components/stock-balance-board";
 
@@ -12,7 +13,14 @@ export const dynamic = "force-dynamic";
 export default async function StockBalancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    warehouse?: string;
+    control?: string;
+    status?: string;
+    include_zero?: string;
+    page?: string;
+  }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -26,7 +34,31 @@ export default async function StockBalancePage({
   }
 
   const sp = await searchParams;
-  const { rows } = await getStockBalancePageData({ q: sp.q || undefined });
+  const page = Math.max(1, Number(sp.page) || 1);
+  const pageSize = BALANCE_PAGE_SIZE_DEFAULT;
+  const { rows, totalCount, warehouses } = await getStockBalancePageData(
+    {
+      q: sp.q || undefined,
+      warehouse_id: sp.warehouse || undefined,
+      control_type: sp.control || undefined,
+      status: sp.status || undefined,
+      include_zero: sp.include_zero === "1",
+    },
+    { page, pageSize },
+  );
 
-  return <StockBalanceBoard rows={rows} initialQ={sp.q ?? ""} />;
+  return (
+    <StockBalanceBoard
+      rows={rows}
+      totalCount={totalCount}
+      warehouses={warehouses}
+      page={page}
+      pageSize={pageSize}
+      initialQ={sp.q ?? ""}
+      initialWarehouse={sp.warehouse ?? ""}
+      initialControl={sp.control ?? ""}
+      initialStatus={sp.status ?? ""}
+      initialIncludeZero={sp.include_zero === "1"}
+    />
+  );
 }

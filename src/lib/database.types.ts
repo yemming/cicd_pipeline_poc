@@ -2106,6 +2106,79 @@ export type Database = {
           },
         ]
       }
+      inventory_adjustment_lines: {
+        Row: {
+          adj_id: string
+          batch_no: string | null
+          bin_id: string | null
+          brand_id: string
+          created_at: string | null
+          id: string
+          item_id: string
+          line_amount: number
+          line_no: number
+          metadata: Json | null
+          notes: string | null
+          qty_delta: number
+          serial_no: string | null
+          unit_cost: number
+        }
+        Insert: {
+          adj_id: string
+          batch_no?: string | null
+          bin_id?: string | null
+          brand_id: string
+          created_at?: string | null
+          id?: string
+          item_id: string
+          line_amount?: number
+          line_no: number
+          metadata?: Json | null
+          notes?: string | null
+          qty_delta: number
+          serial_no?: string | null
+          unit_cost?: number
+        }
+        Update: {
+          adj_id?: string
+          batch_no?: string | null
+          bin_id?: string | null
+          brand_id?: string
+          created_at?: string | null
+          id?: string
+          item_id?: string
+          line_amount?: number
+          line_no?: number
+          metadata?: Json | null
+          notes?: string | null
+          qty_delta?: number
+          serial_no?: string | null
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_adjustment_lines_adj_id_fkey"
+            columns: ["adj_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_adjustment_lines_bin_id_fkey"
+            columns: ["bin_id"]
+            isOneToOne: false
+            referencedRelation: "warehouse_bins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_adjustment_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_adjustments: {
         Row: {
           adj_no: string

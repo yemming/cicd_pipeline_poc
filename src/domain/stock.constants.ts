@@ -1,0 +1,1 @@
+export const BALANCE_PAGE_SIZE_DEFAULT = 50;

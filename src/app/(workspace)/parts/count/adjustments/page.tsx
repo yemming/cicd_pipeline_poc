@@ -4,6 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getExceptionsPageData } from "@/domain/adjustments";
+import { EXCEPTIONS_PAGE_SIZE_DEFAULT } from "@/domain/adjustments.constants";
 
 import { ExceptionsBoard } from "../../operations/exceptions/_components/exceptions-board";
 
@@ -12,7 +13,13 @@ export const dynamic = "force-dynamic";
 export default async function CountAdjustmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{
+    type?: string;
+    status?: string;
+    warehouse?: string;
+    q?: string;
+    page?: string;
+  }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -26,16 +33,29 @@ export default async function CountAdjustmentsPage({
   }
 
   const sp = await searchParams;
-  const { rows, canEdit } = await getExceptionsPageData({
-    status: sp.status || undefined,
-    q: sp.q || undefined,
-  });
+  const page = Math.max(1, Number(sp.page) || 1);
+  const pageSize = EXCEPTIONS_PAGE_SIZE_DEFAULT;
+  const { rows, totalCount, canEdit, warehouses } = await getExceptionsPageData(
+    {
+      type: sp.type || undefined,
+      status: sp.status || undefined,
+      warehouse_id: sp.warehouse || undefined,
+      q: sp.q || undefined,
+    },
+    { page, pageSize },
+  );
 
   return (
     <ExceptionsBoard
       rows={rows}
+      totalCount={totalCount}
       canEdit={canEdit}
+      warehouses={warehouses}
+      page={page}
+      pageSize={pageSize}
+      initialType={sp.type ?? ""}
       initialStatus={sp.status ?? ""}
+      initialWarehouse={sp.warehouse ?? ""}
       initialQ={sp.q ?? ""}
     />
   );

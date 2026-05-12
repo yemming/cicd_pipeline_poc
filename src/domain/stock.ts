@@ -13,6 +13,7 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
 import type { Database } from "@/lib/database.types";
+import { BALANCE_PAGE_SIZE_DEFAULT } from "./stock.constants";
 
 type Tables = Database["public"]["Tables"];
 export type StockItemRow = Tables["stock_items"]["Row"];
@@ -32,29 +33,37 @@ export type StockBalanceRow = {
   item_id: string;
   item_code: string;
   item_name: string;
+  control_type: string | null;
   warehouse_id: string | null;
   warehouse_name: string | null;
   on_hand_qty: number;
   status_breakdown: Record<string, number>;
 };
 
-export async function listStockBalance(filter: {
-  q?: string;
-  warehouse_id?: string;
-} = {}): Promise<StockBalanceRow[]> {
+export async function listStockBalance(
+  filter: {
+    q?: string;
+    warehouse_id?: string;
+    control_type?: string;
+    status?: string;
+    include_zero?: boolean;
+  } = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<{ rows: StockBalanceRow[]; totalCount: number }> {
   const supabase = await createClient();
   const scope = await getActiveScope();
 
-  // 撈 stock_items
+  // 撈 stock_items（先 aggregate 再 paginate；POC 階段可接受）
   let q = supabase
     .from("stock_items")
     .select("item_id, warehouse_id, qty, status")
     .eq("brand_id", scope.brand_id)
-    .limit(2000);
+    .limit(50_000);
   if (filter.warehouse_id) q = q.eq("warehouse_id", filter.warehouse_id);
+  if (filter.status) q = q.eq("status", filter.status);
   const { data: stocks, error: sErr } = await q;
   if (sErr) throw sErr;
-  if (!stocks || stocks.length === 0) return [];
+  if (!stocks || stocks.length === 0) return { rows: [], totalCount: 0 };
 
   // group by (item_id, warehouse_id)
   const grouped = new Map<string, { qty: number; statuses: Record<string, number> }>();
@@ -73,7 +82,7 @@ export async function listStockBalance(filter: {
 
   const [iRes, wRes] = await Promise.all([
     itemIds.length > 0
-      ? supabase.from("items").select("id, code, name").in("id", itemIds)
+      ? supabase.from("items").select("id, code, name, control_type").in("id", itemIds)
       : Promise.resolve({ data: [], error: null }),
     warehouseIds.length > 0
       ? supabase.from("warehouses").select("id, name").in("id", warehouseIds)
@@ -81,7 +90,12 @@ export async function listStockBalance(filter: {
   ]);
   if (iRes.error) throw iRes.error;
   if (wRes.error) throw wRes.error;
-  const iMap = new Map((iRes.data ?? []).map((i) => [i.id, { code: i.code ?? "", name: i.name ?? "" }]));
+  const iMap = new Map(
+    (iRes.data ?? []).map((i) => [
+      i.id,
+      { code: i.code ?? "", name: i.name ?? "", control_type: i.control_type ?? null },
+    ]),
+  );
   const wMap = new Map((wRes.data ?? []).map((w) => [w.id, w.name]));
 
   let rows: StockBalanceRow[] = [];
@@ -92,11 +106,21 @@ export async function listStockBalance(filter: {
       item_id: itemId,
       item_code: item?.code ?? "",
       item_name: item?.name ?? "",
+      control_type: item?.control_type ?? null,
       warehouse_id: whId || null,
       warehouse_name: whId ? wMap.get(whId) ?? null : null,
       on_hand_qty: val.qty,
       status_breakdown: val.statuses,
     });
+  }
+
+  // 預設過濾 qty <= 0（Stage 3 Q3 拍板）
+  if (!filter.include_zero) {
+    rows = rows.filter((r) => r.on_hand_qty > 0);
+  }
+
+  if (filter.control_type) {
+    rows = rows.filter((r) => r.control_type === filter.control_type);
   }
 
   if (filter.q) {
@@ -106,20 +130,50 @@ export async function listStockBalance(filter: {
     );
   }
   rows.sort((a, b) => (a.item_code < b.item_code ? -1 : 1));
-  return rows;
+
+  const totalCount = rows.length;
+  const page = Math.max(1, options.page ?? 1);
+  const pageSize = Math.max(1, options.pageSize ?? BALANCE_PAGE_SIZE_DEFAULT);
+  const from = (page - 1) * pageSize;
+  const paged = rows.slice(from, from + pageSize);
+  return { rows: paged, totalCount };
 }
 
-export async function getStockBalancePageData(filter: {
-  q?: string;
-} = {}): Promise<{
+export async function getStockBalancePageData(
+  filter: {
+    q?: string;
+    warehouse_id?: string;
+    control_type?: string;
+    status?: string;
+    include_zero?: boolean;
+  } = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<{
   rows: StockBalanceRow[];
+  totalCount: number;
   canEdit: boolean;
+  warehouses: Array<{ id: string; code: string | null; name: string }>;
 }> {
-  const [rows, canEdit] = await Promise.all([
-    listStockBalance({ q: filter.q }),
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const [aggRes, canEdit, whRes] = await Promise.all([
+    listStockBalance(filter, options),
     hasPermission(PERMISSIONS.RECEIPT_VIEW),
+    supabase
+      .from("warehouses")
+      .select("id, code, name")
+      .eq("brand_id", scope.brand_id)
+      .eq("is_active", true)
+      .order("code", { ascending: true }),
   ]);
-  return { rows, canEdit };
+  if (whRes.error) throw whRes.error;
+  return {
+    rows: aggRes.rows,
+    totalCount: aggRes.totalCount,
+    canEdit,
+    warehouses: (whRes.data ?? []).map((w) => ({ id: w.id, code: w.code, name: w.name ?? "" })),
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
