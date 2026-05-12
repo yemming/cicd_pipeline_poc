@@ -8,11 +8,13 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
 
 import type { Database } from "@/lib/database.types";
 
@@ -266,6 +268,43 @@ export async function receiveStock(
     .eq("id", po.id);
 
   void inputLineByPoLineId; // 防 unused warning
+
+  // 10. 自動產會計分錄（PARTS_PURCHASE）— 非阻塞、產 draft entry 等人工 review
+  // POC 階段限制：
+  //   - 整單聚合成一張 entry，item_id 取第一筆代表（多 item 拆細分錄屬 engine v2）
+  //   - 用 autoPost:false → 保持 draft，原因：COA L5 的 required_dimensions 含 SUBSIDIARY，
+  //     但 ctx 還沒 SUBSIDIARY 模型（multi-subsidiary 整合屬下一輪業務工程）。
+  //     SUBSIDIARY 軸補齊 + master rebinding 後改回 autoPost:true。
+  const receiptDate = input.receipt_date ?? today.toISOString().slice(0, 10);
+  const firstGrLine = grLinesWithAmount[0];
+  if (firstGrLine && po.vendor_id) {
+    const netAmount = Math.round(totalAmount * 100) / 100;
+    const taxAmount = Math.round(netAmount * 0.05 * 100) / 100;
+    after(async () => {
+      const res = await instantiateTransaction(
+        TX_TYPES.PARTS_PURCHASE,
+        {
+          supplier_id: po.vendor_id,
+          item_id: firstGrLine.item_id,
+          net_amount: netAmount,
+          tax_amount: taxAmount,
+          warehouse_id: po.warehouse_id,
+        },
+        { autoPost: false, entryDate: receiptDate },
+      );
+      if (!res.ok) {
+        console.error("[accounting] PARTS_PURCHASE 產 draft 失敗", {
+          gr_no,
+          error: res.error,
+        });
+      } else {
+        console.log("[accounting] PARTS_PURCHASE 已產 draft（待人工 review）", {
+          gr_no,
+          journal_entry: res.data,
+        });
+      }
+    });
+  }
 
   revalidatePath("/parts/purchase/orders");
   revalidatePath("/parts/receipt/po-grn");

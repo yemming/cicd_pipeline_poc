@@ -15,6 +15,7 @@ import { addDictionary } from "@/domain/dictionaries";
 import { createSupplierAction } from "@/lib/parts-setup/supplier-actions";
 import {
   updateItemGlAccountAction,
+  updateItemTaxCodeAction,
   type GlField,
 } from "@/lib/parts-setup/item-gl-actions";
 import { QuickAddSelect } from "@/components/quick-add-select";
@@ -31,6 +32,14 @@ export type ItemGlAccountRef = {
   id: string;
   account_code: string;
   name_zh_tw: string;
+};
+
+export type TaxCodeRef = {
+  id: string;
+  tax_code: string;
+  name_zh_tw: string;
+  rate: number;
+  direction: string;
 };
 
 export type DetailItem = {
@@ -56,6 +65,8 @@ export type DetailItem = {
   gl_inventory_coa_id: string | null;
   gl_cogs_coa_id: string | null;
   gl_revenue_coa_id: string | null;
+  gl_expense_coa_id: string | null;
+  default_tax_code_id: string | null;
   external_source: string | null;
   external_id: string | null;
   weight_kg: number | null;
@@ -194,6 +205,8 @@ export function ItemDetailView({
   orgs,
   glAccounts: glAccountsProp,
   accountOptions,
+  taxCode: taxCodeProp,
+  taxCodeOptions,
   canEdit,
 }: {
   item: DetailItem;
@@ -214,8 +227,11 @@ export function ItemDetailView({
     inventory: ItemGlAccountRef | null;
     cogs: ItemGlAccountRef | null;
     revenue: ItemGlAccountRef | null;
+    expense: ItemGlAccountRef | null;
   };
   accountOptions: CoaOption[];
+  taxCode: TaxCodeRef | null;
+  taxCodeOptions: TaxCodeRef[];
   canEdit: boolean;
 }) {
   const router = useRouter();
@@ -312,6 +328,35 @@ export function ItemDetailView({
       });
     } finally {
       setGlPending(null);
+    }
+  };
+
+  // Default tax code: 樂觀更新 + pending 鎖
+  const [taxCode, setTaxCode] = useState<TaxCodeRef | null>(taxCodeProp);
+  const [taxCodePending, setTaxCodePending] = useState(false);
+
+  const handleTaxCodeChange = async (taxCodeId: string | null) => {
+    const prev = taxCode;
+    const next = taxCodeId ? taxCodeOptions.find((t) => t.id === taxCodeId) ?? null : null;
+    setTaxCode(next);
+    setTaxCodePending(true);
+    try {
+      const res = await updateItemTaxCodeAction(item.id, taxCodeId);
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已更新預設稅碼" });
+        router.refresh();
+      } else {
+        setTaxCode(prev);
+        showBanner({ ok: false, msg: res.error });
+      }
+    } catch (err) {
+      setTaxCode(prev);
+      showBanner({
+        ok: false,
+        msg: `更新失敗：${err instanceof Error ? err.message : String(err)}`,
+      });
+    } finally {
+      setTaxCodePending(false);
     }
   };
 
@@ -1116,6 +1161,40 @@ export function ItemDetailView({
                       pending={glPending === "revenue"}
                       onChange={(coaId) => handleGlChange("revenue", coaId)}
                     />
+                  }
+                />
+                <Kv
+                  label="費用科目"
+                  value={
+                    <CoaInlineSelect
+                      current={glAccounts.expense}
+                      options={accountOptions}
+                      editable={canEdit}
+                      pending={glPending === "expense"}
+                      onChange={(coaId) => handleGlChange("expense", coaId)}
+                    />
+                  }
+                />
+                <Kv
+                  label="預設稅碼"
+                  value={
+                    taxCodePending ? (
+                      <span className="text-[12.5px] text-[#9A9890]">儲存中⋯</span>
+                    ) : (
+                      <select
+                        value={taxCode?.id ?? ""}
+                        disabled={!canEdit || taxCodePending}
+                        onChange={(e) => handleTaxCodeChange(e.target.value || null)}
+                        className="h-[28px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white focus:border-[#185FA5] outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <option value="">— 未設定 —</option>
+                        {taxCodeOptions.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.tax_code}（{t.name_zh_tw}）
+                          </option>
+                        ))}
+                      </select>
+                    )
                   }
                 />
                 <Kv label="重量（公斤）" value={item.weight_kg != null ? Number(item.weight_kg).toLocaleString("en-US") : "—"} small />

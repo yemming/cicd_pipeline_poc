@@ -317,14 +317,75 @@ export async function update<X>(id, patch): Promise<...>
 
 ⚠️ [需確認] 項目必須階段 3 跟用戶確認。
 
-## 5. 頁面骨架
+## 5. 會計事件分析（MANDATORY）
+
+> 任何業務動作只要會產生資金 / 庫存 / 收入 / 費用 / AR / AP 變動，**都是會計事件**。
+> 透過 `instantiateTransaction(typeCode, ctx)` 接到會計 engine（`src/domain/transactions.ts`），
+> **不要在業務模組內 hardcode 分錄邏輯**。完整 spec 見 `docs/proposals/accounting-relations-architecture.md`。
+
+**本功能會產生的會計事件**：<N> 個
+
+| # | 業務動作 | 對應 transaction_type code | 狀態 | cash_flow_section | 觸發位置 |
+|---|---|---|---|---|---|
+| 1 | <例：採購收料成立> | `PARTS_PURCHASE` | ✅ 已 seed | operating | `src/lib/parts/receipt-actions.ts → completeGrnAction()` 結尾 `after()` |
+| 2 | <例：賣零件結帳> | `PARTS_RETAIL_SALE` | ✅ 已 seed | operating | `src/lib/pos/checkout-actions.ts → submitSaleAction()` 結尾 `after()` |
+| 3 | <例：交車尾款收款> | 🆕 `VEHICLE_FINAL_PAYMENT` | 待新增 | operating | `src/lib/sales/delivery-actions.ts → confirmDeliveryAction()` |
+
+**目前已 seed 的 transaction_types**（query `transaction_types` 表確認最新清單）：
+- `PARTS_PURCHASE`（採購進零件）· `PARTS_RETAIL_SALE`（POS 賣零件）
+- `PAYMENT_RECEIPT_BANK`（收銀行匯款沖 AR）· `VENDOR_PAYMENT_BANK`（付供應商沖 AP）
+
+**每個 🆕 待新增 type 必須附**（如有）：
+
+```yaml
+code: VEHICLE_FINAL_PAYMENT
+name_zh_tw: 交車尾款收款
+category: sales            # sales|purchase|service|finance|admin|closing|adjustment
+cash_flow_section: operating
+required_inputs:
+  customer_id: { type: uuid, lookup_table: customers, required: true }
+  vehicle_id:  { type: uuid, lookup_table: customer_vehicles, required: true }
+  amount:      { type: numeric, min: 0, required: true }
+gl_template:
+  lines:
+    - { line_no: 1, side: D, coa_resolver: {type: system_default, source: default_bank_coa_id}, amount_formula: amount, ... }
+    - { line_no: 2, side: C, coa_resolver: {type: master_field, source: 'customers.gl_receivable_coa_id', lookup_via: 'ctx.customer_id'}, amount_formula: amount, ... }
+```
+
+**對主檔的 coa binding 影響**：
+- 依賴：`<table>.<column>`（若這欄目前空 / 不可信，要先補主檔 UI binding）
+- 是否需新增 dim：是 → 加進 `gl_dimensions`；否 → 用既有
+- 是否新表：是 → propose schema；否 → reuse
+
+**接點寫法**（業務 action 結尾）：
+
+```ts
+import { after } from "next/server";
+import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
+
+// ... business logic 完成、entry/db commit 之後
+after(async () => {
+  const res = await instantiateTransaction(TX_TYPES.PARTS_PURCHASE, {
+    supplier_id, item_id, net_amount, tax_amount, warehouse_id, store_id,
+  }, { autoPost: true, userId });
+  if (!res.ok) console.error("[accounting] auto-post 失敗：", res.error);
+});
+```
+
+**不需要會計事件的場景（明確列出）**：
+- <例：刪除 draft 採購單 — draft 階段沒過帳，無事件>
+- <例：純設定變更 — supplier 改地址、無資金流>
+
+如果這個功能**沒有任何會計事件**，本 section 寫「無 — 本功能屬於純資料維護 / 純查詢、不產生資金流」即可（仍要寫，避免下次又被問）。
+
+## 6. 頁面骨架
 
 | 頁面 | 路徑 | 類型 | 範本 |
 |---|---|---|---|
 | <name> | /xxx | List View | parts/setup/items/_components/items-board.tsx |
 | <name> | /xxx/[id] | Page View | parts/setup/items/[id]/_components/item-detail-view.tsx |
 
-## 6. nav_nodes（雙 brand）
+## 7. nav_nodes（雙 brand）
 
 \`\`\`sql
 INSERT INTO nav_nodes (brand_id, parent_id, level, sort_order, name, icon, href, page_kind, is_active, coming_soon)
@@ -334,7 +395,7 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 
 建議擺位：`<group>` / `<parent>` 群組底下、緊接 <鄰居>
 
-## 7. Critical Files
+## 8. Critical Files
 
 | 動作 | 路徑 |
 |---|---|
@@ -342,15 +403,16 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 | 新增 | src/app/(workspace)/.../page.tsx |
 | ... | ... |
 
-## 8. Verification（落地完手測）
+## 9. Verification（落地完手測）
 
 1. <SSOT 一致性驗證點>
 2. <跨模組共讀驗證>
 3. <jsonb metadata 機制驗證>
 4. tsc --noEmit / eslint
 5. 手測 list filter / inline modal CRUD / detail / 切 tab
+6. **會計事件驗證**（若 section 5 列了事件）：跑一次業務動作 → 查 `journal_entries` / `journal_entry_lines` 有沒有自動產出對應分錄、借貸平衡、period 為 OPEN、cash_flow_section 填對
 
-## 9. 開放問題（階段 3 拍板）
+## 10. 開放問題（階段 3 拍板）
 
 - [ ] <typed/jsonb 邊緣案例>
 - [ ] <副作用 [需確認] 項目>

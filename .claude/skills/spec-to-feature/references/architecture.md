@@ -180,3 +180,47 @@ POC 階段純靠紀律、不加 lint guard。階段 4 落地時：`grep -r "from
 - Server component（page.tsx）讀資料時透過 domain helper 的 list* function → ✅ 推薦
 - Server component page.tsx 偷偷直連 supabase 讀資料 → ❌ 應走 `@/domain/*`
 - Client component button onClick 直接 `supabase.from(...).insert(...)` → ❌ 必須走 `@/domain/*`
+
+## 第四件套：會計事件 engine（業務 → 自動分錄）
+
+從 2026-05-12 起新增。任何業務動作只要會產生資金 / 庫存 / 收入 / 費用 / AR / AP 變動，**都是會計事件**，要透過 engine 接到 journal_entries。
+
+### 接點
+
+```
+業務模組 server action（POS 結帳 / 採購收料 / 銷售交車⋯）
+       │ 結尾用 next/server 的 after() 非阻塞呼叫
+       ▼
+@/domain/transactions.ts  ← facade（UI 用、不是 endpoint）
+       │
+       ▼
+@/lib/accounting/instantiate-engine.ts  ← 解 gl_template、resolve coa、產分錄
+       │
+       ▼
+journal_entries + journal_entry_lines (status='draft' 或 'posted')
+```
+
+### 設計原則
+
+- **業務模組不認 COA**：只認 `instantiateTransaction(typeCode, ctx)` 一個 function
+- **改科目對映只動主檔欄位** — items.gl_revenue_coa_id / vehicle_models.gl_cogs_coa_id 等；業務 code 不動
+- **新增業務動作 = 新增 transaction_type seed**：跟業務 schema 一起 review、一起 落地
+
+### Phase 2 提案必填 section
+
+每份 `feature-{slug}.md` 提案的「5. 會計事件分析」必須列：
+
+1. 本功能會產生哪些會計事件（N 個）
+2. 對應的 `transaction_type` code（已 seed 或待新增）
+3. ctx 需要哪些欄位
+4. 觸發位置（哪個 server action 結尾接 `after()`）
+5. cash_flow_section（operating / investing / financing）
+
+若沒有任何會計事件，明寫「無 — 純資料維護 / 純查詢」。
+
+### Reference docs
+
+- `docs/proposals/accounting-relations-architecture.md` — 4 層架構、22 個 type 的設計藍圖
+- `src/domain/transactions.ts` — facade + 已 seed 的 TX_TYPES const
+- `src/lib/accounting/instantiate-engine.ts` — engine 實作
+- DB tables：`transaction_types` / `tax_codes` / `system_accounting_settings` / `accounting_periods`

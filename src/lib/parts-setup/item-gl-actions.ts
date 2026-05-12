@@ -11,12 +11,13 @@ export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-export type GlField = "inventory" | "cogs" | "revenue";
+export type GlField = "inventory" | "cogs" | "revenue" | "expense";
 
 const FIELD_TO_COLUMN: Record<GlField, string> = {
   inventory: "gl_inventory_coa_id",
   cogs: "gl_cogs_coa_id",
   revenue: "gl_revenue_coa_id",
+  expense: "gl_expense_coa_id",
 };
 
 export async function updateItemGlAccountAction(
@@ -63,6 +64,48 @@ export async function updateItemGlAccountAction(
   const { error } = await supabase
     .from("items")
     .update({ [column]: coaId })
+    .eq("id", itemId)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `儲存失敗：${error.message}` };
+
+  revalidatePath(`/parts/setup/items/${itemId}`);
+  revalidatePath(`/parts/setup/items`);
+  return { ok: true, data: { id: itemId } };
+}
+
+export async function updateItemTaxCodeAction(
+  itemId: string,
+  taxCodeId: string | null,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.ITEM_EDIT);
+  if (!itemId) return { ok: false, error: "缺少商品 id" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data: item, error: itemErr } = await supabase
+    .from("items")
+    .select("id")
+    .eq("id", itemId)
+    .eq("brand_id", brand)
+    .single();
+  if (itemErr || !item) {
+    return { ok: false, error: "找不到該商品（或不在當前品牌）" };
+  }
+
+  if (taxCodeId) {
+    const { data: tc, error: tcErr } = await supabase
+      .from("tax_codes")
+      .select("id, is_active")
+      .eq("id", taxCodeId)
+      .single();
+    if (tcErr || !tc) return { ok: false, error: "找不到指定稅碼" };
+    if (!tc.is_active) return { ok: false, error: "此稅碼已停用、無法綁定" };
+  }
+
+  const { error } = await supabase
+    .from("items")
+    .update({ default_tax_code_id: taxCodeId })
     .eq("id", itemId)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `儲存失敗：${error.message}` };

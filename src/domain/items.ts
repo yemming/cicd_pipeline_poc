@@ -140,19 +140,22 @@ export async function getItemGlAccounts(item: {
   gl_inventory_coa_id: string | null;
   gl_cogs_coa_id: string | null;
   gl_revenue_coa_id: string | null;
+  gl_expense_coa_id: string | null;
 }): Promise<{
   inventory: ItemGlAccount | null;
   cogs: ItemGlAccount | null;
   revenue: ItemGlAccount | null;
+  expense: ItemGlAccount | null;
 }> {
   const ids = [
     item.gl_inventory_coa_id,
     item.gl_cogs_coa_id,
     item.gl_revenue_coa_id,
+    item.gl_expense_coa_id,
   ].filter((x): x is string => !!x);
 
   if (ids.length === 0) {
-    return { inventory: null, cogs: null, revenue: null };
+    return { inventory: null, cogs: null, revenue: null, expense: null };
   }
 
   const supabase = await createClient();
@@ -160,7 +163,7 @@ export async function getItemGlAccounts(item: {
     .from("chart_of_accounts")
     .select("id, account_code, name_zh_tw")
     .in("id", ids);
-  if (error) return { inventory: null, cogs: null, revenue: null };
+  if (error) return { inventory: null, cogs: null, revenue: null, expense: null };
 
   const map = new Map(
     (data ?? []).map((c) => [
@@ -176,7 +179,33 @@ export async function getItemGlAccounts(item: {
     inventory: item.gl_inventory_coa_id ? map.get(item.gl_inventory_coa_id) ?? null : null,
     cogs: item.gl_cogs_coa_id ? map.get(item.gl_cogs_coa_id) ?? null : null,
     revenue: item.gl_revenue_coa_id ? map.get(item.gl_revenue_coa_id) ?? null : null,
+    expense: item.gl_expense_coa_id ? map.get(item.gl_expense_coa_id) ?? null : null,
   };
+}
+
+export type TaxCodeOption = {
+  id: string;
+  tax_code: string;
+  name_zh_tw: string;
+  rate: number;
+  direction: string;
+};
+
+export async function listTaxCodes(): Promise<TaxCodeOption[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tax_codes")
+    .select("id, tax_code, name_zh_tw, rate, direction")
+    .eq("is_active", true)
+    .order("tax_code");
+  if (error) return [];
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    tax_code: r.tax_code as string,
+    name_zh_tw: r.name_zh_tw as string,
+    rate: Number(r.rate),
+    direction: r.direction as string,
+  }));
 }
 
 /**
@@ -362,6 +391,8 @@ export interface ItemDetailPageData {
   orgs: OrgRef[];
   glAccounts: Awaited<ReturnType<typeof getItemGlAccounts>>;
   accountOptions: Awaited<ReturnType<typeof listPostableAccountsForItem>>;
+  taxCode: TaxCodeOption | null;
+  taxCodeOptions: TaxCodeOption[];
 }
 
 export async function getItemDetailPageData(id: string): Promise<ItemDetailPageData | null> {
@@ -371,7 +402,7 @@ export async function getItemDetailPageData(id: string): Promise<ItemDetailPageD
   const { data: item, error: itemErr } = await supabase
     .from("items")
     .select(
-      "id, code, name, name_en, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, is_active, created_at, updated_at, synced_at, gl_inventory_coa_id, gl_cogs_coa_id, gl_revenue_coa_id, external_source, external_id, weight_kg, volume_cm3, image_url, image_display_height",
+      "id, code, name, name_en, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, is_active, created_at, updated_at, synced_at, gl_inventory_coa_id, gl_cogs_coa_id, gl_revenue_coa_id, gl_expense_coa_id, default_tax_code_id, external_source, external_id, weight_kg, volume_cm3, image_url, image_display_height",
     )
     .eq("id", id)
     .eq("brand_id", brand)
@@ -441,14 +472,19 @@ export async function getItemDetailPageData(id: string): Promise<ItemDetailPageD
 
   const storePricesWithStores = await listItemStorePrices(id);
 
-  const [glAccounts, accountOptions] = await Promise.all([
+  const [glAccounts, accountOptions, taxCodeOptions] = await Promise.all([
     getItemGlAccounts({
       gl_inventory_coa_id: detail.gl_inventory_coa_id,
       gl_cogs_coa_id: detail.gl_cogs_coa_id,
       gl_revenue_coa_id: detail.gl_revenue_coa_id,
+      gl_expense_coa_id: detail.gl_expense_coa_id,
     }),
     listPostableAccountsForItem(),
+    listTaxCodes(),
   ]);
+  const taxCode = detail.default_tax_code_id
+    ? taxCodeOptions.find((t) => t.id === detail.default_tax_code_id) ?? null
+    : null;
 
   const stocks = (stockRes.data ?? []) as unknown as StockLot[];
   const warehouses = (whRes.data ?? []) as unknown as WarehouseRef[];
@@ -493,6 +529,8 @@ export async function getItemDetailPageData(id: string): Promise<ItemDetailPageD
     orgs,
     glAccounts,
     accountOptions,
+    taxCode,
+    taxCodeOptions,
   };
 }
 
