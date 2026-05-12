@@ -1,24 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { listInventoryCounts } from "@/domain/count";
 
-import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
-
-type CountRow = {
-  id: string;
-  ct_no: string | null;
-  warehouse_id: string | null;
-  count_date: string | null;
-  status: string | null;
-  total_lines: number | null;
-  variance_lines: number | null;
-  variance_amount: number | null;
-  approved_at: string | null;
-};
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-[#F0F0F0] text-[#444]",
@@ -27,20 +14,6 @@ const STATUS_BADGE: Record<string, string> = {
   approved: "bg-[#EAF3DE] text-[#3B6D11]",
   void: "bg-[#FDECEA] text-[#CC0000]",
 };
-
-async function loadData(): Promise<CountRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("inventory_counts")
-    .select(
-      "id, ct_no, warehouse_id, count_date, status, total_lines, variance_lines, variance_amount, approved_at",
-    )
-    .eq("brand_id", (await getActiveScope()).brand_id)
-    .order("count_date", { ascending: false })
-    .limit(50);
-  if (error) throw new Error(`counts: ${error.message}`);
-  return (data ?? []) as unknown as CountRow[];
-}
 
 export default async function CountOpsPage() {
   const { userId } = await getCurrentUserAndAdmin();
@@ -52,7 +25,7 @@ export default async function CountOpsPage() {
       </main>
     );
   }
-  const rows = await loadData();
+  const rows = await listInventoryCounts();
   const totalLines = rows.reduce((s, r) => s + Number(r.total_lines ?? 0), 0);
   const totalVar = rows.reduce((s, r) => s + Number(r.variance_lines ?? 0), 0);
   const totalAmount = rows.reduce((s, r) => s + Number(r.variance_amount ?? 0), 0);

@@ -8,6 +8,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **DealerOS for Ducati Taiwan** — 杜卡迪（Ducati）重機經銷商營運管理平台。基於 Next.js 16 App Router，設計稿全部在 Stitch 上完成。
 
+## 開發測試資料規範（MANDATORY）
+
+**所有開發 / demo / 測試資料一律塞在 `brand_id='indian'` 底下，不要亂放到 ducati。**
+
+**為什麼**：Ming 平常在瀏覽器登入測試的帳號是 Indian brand（dev session scope 也是 Indian）。如果 demo 資料塞 Ducati、Ming 切過去截圖會看到空畫面、誤以為功能壞掉，雙方對不齊浪費 round-trip。
+
+**怎麼做**：
+- 造 demo / fixture 前先 `SELECT brand_id, count(*) FROM <table> WHERE ...` 確認，要塞的 row 一律帶 `brand_id='indian'`
+- 撈相依資料（warehouse_id / item_id / supplier_id 等）也要用 Indian 的 FK
+- Ducati seed 資料是業務範例（Ming Taipei 真實情境），保留別動
+- 若需要兩 brand 都示範（例如 sidebar 入口、跨 brand 規範），明說「雙 brand 各塞一筆」再做
+
+**例外**：Ming 主動指定「在 Ducati 做」才用 Ducati。預設一律 Indian。
+
 ## UX 互動規範（MANDATORY）
 
 ### 前端寫入後端資料庫時，必須做載入動畫 + 鎖住 UI
@@ -194,11 +208,27 @@ CREATE TABLE <entity> (
 
 **3. 規則類用 `business_rules` 一張打天下**：採購權限規則 / 盤點回傳規則 / 告警階層 / ABC 分類 全用同一張表 + `rule_kind` + `config jsonb`。詳見 `.claude/skills/spec-to-feature/references/architecture.md`。
 
-### 唯一紀律
+### 唯一紀律（天條 — 無例外）
 
-> **UI / page / component / hook 禁止 `import { createClient } from '@/lib/supabase/...'`。所有讀寫只透過 `@/domain/*` helper。**
+> **任何 UI / page / component / hook 都禁止 `import { createClient } from '@/lib/supabase/...'`。所有讀寫只透過 `@/domain/*` helper。**
+
+**包含但不限於**：
+- `/parts/*`（進銷存模組）
+- `/admin/*`（即使是「ERP 核心模組」、即使是後台 admin 工具，**沒有例外**）
+- `/sales/*` / `/service/*` / `/inventory/*` / `/usedcar/*` / `/delivery/*` / `/group/*` 等業務頁
+- `feedback/*` / `einvoice/*` / `csi/*` / `tools/*` / `pos/*` 等 workspace 頁
+- Server component 撈下拉資料、Client component 觸發 mutation、`new/page.tsx` 撈 form 候選清單 — 一律走 helper
+
+**為什麼 admin 沒例外**：admin / ERP 核心反而是改 schema 最頻繁的地方（加欄位、改業務規則、推 LINE / 寫 audit）— helper 抽象的收益**更大**、不是更小。第一版直接 supabase 看似省事，等加第二個業務副作用時 N 個 page 都要追改。
 
 POC 階段純靠紀律、不加 lint guard。Domain helper 內部自己 import supabase 是 OK 的（那是它的工作）。
+
+**落地必跑 audit**（commit 前）：
+
+```bash
+grep -rn "@/lib/supabase" "src/app/(workspace)" src/components 2>/dev/null
+# 預期：0 hit。出現任一行就立刻包進對應的 @/domain/* helper、UI 改 import。
+```
 
 ### 既有 server actions 處置
 

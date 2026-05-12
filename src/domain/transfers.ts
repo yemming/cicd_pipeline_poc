@@ -211,3 +211,304 @@ export async function receiveTransfer(
   revalidatePath("/parts/operations/balance");
   return { ok: true, data: { transfer_id: transferId, gr_no } };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Detail / Update / Void
+// ─────────────────────────────────────────────────────────────
+
+export type StockTransferDetailLine = {
+  id: string;
+  line_no: number;
+  item_id: string;
+  item_code: string | null;
+  item_name: string | null;
+  qty_requested: number;
+  qty_shipped: number;
+  qty_received: number;
+  uom: string;
+  unit_cost: number;
+  source_bin_id: string | null;
+  source_bin_label: string | null;
+  target_bin_id: string | null;
+  target_bin_label: string | null;
+  notes: string | null;
+};
+
+export type StockTransferDetail = StockTransferRow & {
+  source_warehouse_name: string | null;
+  target_warehouse_name: string | null;
+  shipped_by_name: string | null;
+  received_by_name: string | null;
+  voided_by_name: string | null;
+  lines: StockTransferDetailLine[];
+};
+
+export async function getTransferById(
+  id: string,
+): Promise<StockTransferDetail | null> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: t, error } = await supabase
+    .from("stock_transfers")
+    .select("*")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!t) return null;
+
+  // 名字 joins
+  const [srcW, tgtW, shipUser, recvUser, voidUser] = await Promise.all([
+    t.source_warehouse_id
+      ? supabase.from("warehouses").select("name").eq("id", t.source_warehouse_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    t.target_warehouse_id
+      ? supabase.from("warehouses").select("name").eq("id", t.target_warehouse_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    t.shipped_by
+      ? supabase.from("profiles").select("display_name").eq("id", t.shipped_by).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    t.received_by
+      ? supabase.from("profiles").select("display_name").eq("id", t.received_by).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    t.voided_by
+      ? supabase.from("profiles").select("display_name").eq("id", t.voided_by).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+  ]);
+
+  // lines + item / bins joins
+  const { data: rawLines, error: lineErr } = await supabase
+    .from("stock_transfer_lines")
+    .select(
+      "id, line_no, item_id, qty_requested, qty_shipped, qty_received, uom, unit_cost, source_bin_id, target_bin_id, notes",
+    )
+    .eq("tr_id", id)
+    .order("line_no", { ascending: true });
+  if (lineErr) throw lineErr;
+
+  const itemIds = Array.from(new Set((rawLines ?? []).map((l) => l.item_id)));
+  const binIds = Array.from(
+    new Set(
+      (rawLines ?? [])
+        .flatMap((l) => [l.source_bin_id, l.target_bin_id])
+        .filter((x): x is string => !!x),
+    ),
+  );
+  const [itemsRes, binsRes] = await Promise.all([
+    itemIds.length
+      ? supabase.from("items").select("id, code, name").in("id", itemIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    binIds.length
+      ? supabase.from("warehouse_bins").select("id, code").in("id", binIds)
+      : Promise.resolve({ data: [], error: null } as const),
+  ]);
+  const itemMap = new Map(
+    (itemsRes.data ?? []).map((it) => [it.id, { code: it.code, name: it.name }]),
+  );
+  const binMap = new Map((binsRes.data ?? []).map((b) => [b.id, b.code]));
+
+  const lines: StockTransferDetailLine[] = (rawLines ?? []).map((l) => ({
+    id: l.id,
+    line_no: l.line_no,
+    item_id: l.item_id,
+    item_code: itemMap.get(l.item_id)?.code ?? null,
+    item_name: itemMap.get(l.item_id)?.name ?? null,
+    qty_requested: Number(l.qty_requested ?? 0),
+    qty_shipped: Number(l.qty_shipped ?? 0),
+    qty_received: Number(l.qty_received ?? 0),
+    uom: l.uom,
+    unit_cost: Number(l.unit_cost ?? 0),
+    source_bin_id: l.source_bin_id,
+    source_bin_label: l.source_bin_id ? binMap.get(l.source_bin_id) ?? null : null,
+    target_bin_id: l.target_bin_id,
+    target_bin_label: l.target_bin_id ? binMap.get(l.target_bin_id) ?? null : null,
+    notes: l.notes,
+  }));
+
+  return {
+    ...t,
+    source_warehouse_name: srcW.data?.name ?? null,
+    target_warehouse_name: tgtW.data?.name ?? null,
+    shipped_by_name: shipUser.data?.display_name ?? null,
+    received_by_name: recvUser.data?.display_name ?? null,
+    voided_by_name: voidUser.data?.display_name ?? null,
+    lines,
+  };
+}
+
+export type UpdateTransferInput = {
+  notes?: string | null;
+  reason?: string | null;
+  expected_arrival_date?: string | null;
+  logistics_provider?: string | null;
+  logistics_tracking_no?: string | null;
+  line_notes?: Array<{ id: string; notes: string | null }>;
+};
+
+/**
+ * 更新調撥單 — 限定不影響庫存帳的欄位
+ */
+export async function updateTransfer(
+  id: string,
+  patch: UpdateTransferInput,
+): Promise<Result<{ id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.RECEIPT_CREATE))) {
+    return { ok: false, error: "沒有編輯調撥單的權限" };
+  }
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: current, error: curErr } = await supabase
+    .from("stock_transfers")
+    .select("status")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (curErr) return { ok: false, error: curErr.message };
+  if (!current) return { ok: false, error: "找不到調撥單" };
+  if (current.status === "cancelled") {
+    return { ok: false, error: "已作廢的調撥單不可修改" };
+  }
+
+  const headerPatch: Record<string, unknown> = {};
+  if (patch.notes !== undefined) headerPatch.notes = patch.notes;
+  if (patch.reason !== undefined) headerPatch.reason = patch.reason;
+  if (patch.expected_arrival_date !== undefined) headerPatch.expected_arrival_date = patch.expected_arrival_date;
+  if (patch.logistics_provider !== undefined) headerPatch.logistics_provider = patch.logistics_provider;
+  if (patch.logistics_tracking_no !== undefined) headerPatch.logistics_tracking_no = patch.logistics_tracking_no;
+
+  if (Object.keys(headerPatch).length > 0) {
+    const { error: upErr } = await supabase
+      .from("stock_transfers")
+      .update(headerPatch)
+      .eq("id", id);
+    if (upErr) return { ok: false, error: upErr.message };
+  }
+
+  if (patch.line_notes && patch.line_notes.length > 0) {
+    for (const ln of patch.line_notes) {
+      const { error: lnErr } = await supabase
+        .from("stock_transfer_lines")
+        .update({ notes: ln.notes })
+        .eq("id", ln.id)
+        .eq("tr_id", id);
+      if (lnErr) return { ok: false, error: `明細備註更新失敗:${lnErr.message}` };
+    }
+  }
+
+  revalidatePath("/parts/receipt/transfer-in");
+  revalidatePath(`/parts/receipt/transfer-in/${id}`);
+  return { ok: true, data: { id } };
+}
+
+/**
+ * 作廢調撥單 — 僅 status='received' 可作廢
+ * 反向：刪 target wh stock_items + 刪派生 stock_receipts + 還原 lines.qty_received=0
+ * 守門：任一 stock_item 已被消耗 → 阻擋
+ */
+export async function voidTransfer(
+  id: string,
+  reason: string,
+): Promise<Result<{ id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.RECEIPT_CREATE))) {
+    return { ok: false, error: "沒有作廢調撥單的權限" };
+  }
+  const trimmed = reason.trim();
+  if (!trimmed) return { ok: false, error: "請填寫作廢原因" };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 1. 撈調撥單
+  const { data: tr, error: trErr } = await supabase
+    .from("stock_transfers")
+    .select("id, status")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (trErr) return { ok: false, error: trErr.message };
+  if (!tr) return { ok: false, error: "找不到調撥單" };
+  if (tr.status === "cancelled") return { ok: false, error: "此調撥單已作廢" };
+  if (tr.status !== "received") {
+    return {
+      ok: false,
+      error: `狀態 ${tr.status} 不可作廢（僅已收貨可作廢；在途調撥請至 transfer-out 取消）`,
+    };
+  }
+
+  // 2. 撈 lines
+  const { data: lines, error: lineErr } = await supabase
+    .from("stock_transfer_lines")
+    .select("id")
+    .eq("tr_id", id);
+  if (lineErr) return { ok: false, error: lineErr.message };
+  if (!lines || lines.length === 0) {
+    return { ok: false, error: "此調撥單無明細，無法作廢" };
+  }
+
+  // 3. 守門：stock_items 都還 available
+  const lineIds = lines.map((l) => l.id);
+  const { data: stockItems, error: siErr } = await supabase
+    .from("stock_items")
+    .select("id, status")
+    .in("source_transfer_line_id", lineIds);
+  if (siErr) return { ok: false, error: siErr.message };
+  const consumed = (stockItems ?? []).filter((s) => s.status !== "available");
+  if (consumed.length > 0) {
+    return {
+      ok: false,
+      error: `${consumed.length} 筆庫存已被消耗（出貨／領料／再調撥），不可作廢；請先處理後續單據`,
+    };
+  }
+
+  // 4. 刪 stock_items
+  if (stockItems && stockItems.length > 0) {
+    const { error: delErr } = await supabase
+      .from("stock_items")
+      .delete()
+      .in(
+        "id",
+        stockItems.map((s) => s.id),
+      );
+    if (delErr) return { ok: false, error: `庫存沖回失敗:${delErr.message}` };
+  }
+
+  // 5. 刪派生的 stock_receipts row（type='transfer'）
+  await supabase
+    .from("stock_receipts")
+    .delete()
+    .eq("source_doc_id", id)
+    .eq("source_doc_type", "stock_transfer");
+
+  // 6. 還原 lines.qty_received
+  await supabase
+    .from("stock_transfer_lines")
+    .update({ qty_received: 0 })
+    .eq("tr_id", id);
+
+  // 7. 標記 transfer 為 cancelled
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error: voidErr } = await supabase
+    .from("stock_transfers")
+    .update({
+      status: "cancelled",
+      qty_received_total: 0,
+      received_at: null,
+      received_by: null,
+      actual_arrival_date: null,
+      voided_at: new Date().toISOString(),
+      voided_by: user?.id ?? null,
+      void_reason: trimmed,
+    })
+    .eq("id", id);
+  if (voidErr) return { ok: false, error: `標記作廢失敗:${voidErr.message}` };
+
+  revalidatePath("/parts/issue/transfer-out");
+  revalidatePath("/parts/receipt/transfer-in");
+  revalidatePath(`/parts/receipt/transfer-in/${id}`);
+  revalidatePath("/parts/operations/transfers-in-transit");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { id } };
+}

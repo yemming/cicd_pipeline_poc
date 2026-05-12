@@ -1,13 +1,12 @@
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
+import { listItemsWithLeadTime } from "@/domain/items";
 
-import { ItemLeadTimesBoard, type LeadTimeRow } from "./_components/item-lead-times-board";
+import { ItemLeadTimesBoard } from "./_components/item-lead-times-board";
 
-import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 export default async function ItemLeadTimesPage() {
@@ -22,41 +21,7 @@ export default async function ItemLeadTimesPage() {
   }
   const canEdit = await hasPermission(PERMISSIONS.ITEM_EDIT);
 
-  const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
-  const [itemsRes, supRes] = await Promise.all([
-    supabase
-      .from("items")
-      .select("id, code, name, category, default_supplier_id, default_lead_time_days, is_active")
-      .eq("brand_id", brand)
-      .eq("is_active", true)
-      .order("code")
-      .limit(500),
-    supabase
-      .from("suppliers")
-      .select("id, name")
-      .eq("brand_id", brand),
-  ]);
-  if (itemsRes.error) throw new Error(itemsRes.error.message);
-  if (supRes.error) throw new Error(supRes.error.message);
-
-  const supMap = new Map(((supRes.data ?? []) as { id: string; name: string }[]).map((s) => [s.id, s.name]));
-  const rows: LeadTimeRow[] = ((itemsRes.data ?? []) as Array<{
-    id: string;
-    code: string;
-    name: string;
-    category: string | null;
-    default_supplier_id: string | null;
-    default_lead_time_days: number | null;
-  }>).map((r) => ({
-    id: r.id,
-    code: r.code,
-    name: r.name,
-    category: r.category,
-    default_supplier_name: r.default_supplier_id ? supMap.get(r.default_supplier_id) ?? null : null,
-    default_lead_time_days: r.default_lead_time_days,
-  }));
-
+  const rows = await listItemsWithLeadTime();
   const filledCount = rows.filter((r) => r.default_lead_time_days !== null).length;
 
   return (

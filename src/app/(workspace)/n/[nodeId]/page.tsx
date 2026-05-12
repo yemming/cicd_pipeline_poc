@@ -10,52 +10,9 @@
  */
 
 import { notFound, redirect } from "next/navigation";
-import fs from "node:fs/promises";
-import path from "node:path";
-import { createServiceClient } from "@/lib/supabase/service";
+import { resolveNavNode, downloadNavHtml } from "@/domain/navigation";
 import { UserHtmlFrame } from "@/components/user-html-frame";
 import { PlaceholderPage } from "@/components/placeholder-page";
-
-import { getActiveScope } from "@/lib/scope/active-scope";
-type NavNode = {
-  id: string;
-  brand_id: string;
-  level: number;
-  name: string;
-  page_kind: "static_html" | "react_route" | "iframe" | "placeholder" | null;
-  href: string | null;
-  html_storage_path: string | null;
-  stitch_screen_id: string | null;
-  sprint: string | null;
-  is_active: boolean;
-};
-
-const HTML_BUCKET = "nav-html";
-
-async function loadHtmlBody(storagePath: string): Promise<string | null> {
-  // 支援 `file:` 前綴 → 從專案根目錄 fs-read（給 docs/ 內的原始規格 HTML 用，免上傳 Storage）
-  if (storagePath.startsWith("file:")) {
-    const rel = storagePath.slice("file:".length);
-    // 安全：禁止跳出專案根、禁止絕對路徑
-    if (rel.startsWith("/") || rel.includes("..")) {
-      console.warn("[nav/n] file: 路徑非法", rel);
-      return null;
-    }
-    try {
-      return await fs.readFile(path.join(process.cwd(), rel), "utf8");
-    } catch (e) {
-      console.warn("[nav/n] file: fs-read 失敗", rel, (e as Error).message);
-      return null;
-    }
-  }
-  const supabase = createServiceClient();
-  const { data, error } = await supabase.storage.from(HTML_BUCKET).download(storagePath);
-  if (error || !data) {
-    console.warn("[nav/n] storage download 失敗", storagePath, error?.message);
-    return null;
-  }
-  return await data.text();
-}
 
 export default async function NavNodePage({
   params,
@@ -64,24 +21,9 @@ export default async function NavNodePage({
 }) {
   const { nodeId } = await params;
 
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("nav_nodes")
-    .select(
-      "id, brand_id, level, name, page_kind, href, html_storage_path, stitch_screen_id, sprint, device, is_active",
-    )
-    .eq("id", nodeId)
-    .eq("brand_id", (await getActiveScope()).brand_id)
-    .maybeSingle();
-
-  if (error || !data || !data.is_active) {
-    notFound();
-  }
-
-  const node = data as NavNode;
-  if (node.level !== 3) {
-    notFound();
-  }
+  const node = await resolveNavNode(nodeId);
+  if (!node || !node.is_active) notFound();
+  if (node.level !== 3) notFound();
 
   switch (node.page_kind) {
     case "react_route":
@@ -103,7 +45,7 @@ export default async function NavNodePage({
       if (!node.html_storage_path) {
         return <PlaceholderPage title={node.name} description="尚未上傳 HTML" />;
       }
-      const html = await loadHtmlBody(node.html_storage_path);
+      const html = await downloadNavHtml(node.html_storage_path);
       if (html === null) {
         return <PlaceholderPage title={node.name} description="HTML 載入失敗" />;
       }

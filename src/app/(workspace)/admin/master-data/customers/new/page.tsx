@@ -1,15 +1,13 @@
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { listPostableAccounts } from "@/domain/accounting";
 
-import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   CustomerDetailView,
   type DetailCustomer,
-  type AccountRef,
 } from "../[id]/_components/customer-detail-view";
 
 export const dynamic = "force-dynamic";
@@ -50,14 +48,7 @@ export default async function NewCustomerPage() {
     );
   }
 
-  const supabase = await createClient();
-  const { data: accountsData } = await supabase
-    .from("chart_of_accounts")
-    .select("id, account_code, name_zh_tw")
-    .eq("is_active", true)
-    .eq("is_postable", true)
-    .order("account_code");
-  const accounts = (accountsData ?? []) as unknown as AccountRef[];
+  const accounts = await listPostableAccounts();
 
   return (
     <CustomerDetailView

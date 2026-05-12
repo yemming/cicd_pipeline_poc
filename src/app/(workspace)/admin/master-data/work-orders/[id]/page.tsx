@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import {
   getWorkOrderById,
   listCustomers,
@@ -14,49 +13,16 @@ import { updateWorkOrderAction } from "@/lib/master-data/workorder-actions";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import type { Warehouse, WorkOrderItem } from "@/lib/parts/types";
+import {
+  listActiveWarehouses,
+  listIssuesForWorkOrder,
+  listWorkOrderItems,
+} from "@/domain/work-orders";
 
 import { IssuePickButton } from "../_components/issue-pick-button";
 import { WorkOrderForm } from "../_components/work-order-form";
 
-import { getActiveScope } from "@/lib/scope/active-scope";
-async function getWarehouses(): Promise<Warehouse[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("warehouses")
-    .select("*")
-    .eq("brand_id", (await getActiveScope()).brand_id)
-    .eq("is_active", true)
-    .order("code");
-  if (error) throw new Error(`getWarehouses: ${error.message}`);
-  return data ?? [];
-}
-
-async function getIssuesForRo(roId: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("stock_issues")
-    .select("id, gi_no, status, qty_issued_total, amount_total, warehouse_id, issue_date")
-    .eq("brand_id", (await getActiveScope()).brand_id)
-    .eq("ro_id", roId)
-    .order("created_at", { ascending: false });
-  if (error) throw new Error(`getIssuesForRo: ${error.message}`);
-  return data ?? [];
-}
-
 export const dynamic = "force-dynamic";
-
-async function getItems(workOrderId: string): Promise<WorkOrderItem[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("work_order_items")
-    .select("*")
-    .eq("brand_id", (await getActiveScope()).brand_id)
-    .eq("work_order_id", workOrderId)
-    .order("line_no");
-  if (error) throw new Error(`getItems: ${error.message}`);
-  return data ?? [];
-}
 
 export default async function EditWorkOrderPage({
   params,
@@ -86,9 +52,9 @@ export default async function EditWorkOrderPage({
   if (!workOrder) notFound();
 
   const [initialItems, warehouses, issues] = await Promise.all([
-    getItems(id),
-    getWarehouses(),
-    getIssuesForRo(id),
+    listWorkOrderItems(id),
+    listActiveWarehouses(),
+    listIssuesForWorkOrder(id),
   ]);
   const canEdit = await hasPermission(PERMISSIONS.RO_CREATE);
   const canIssue = await hasPermission(PERMISSIONS.ISSUE_CREATE);

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { createServiceClient } from "@/lib/supabase/service";
+import { getGroupsBoardData } from "@/domain/org-admin";
 
 import { OrgTabs } from "../_components/org-tabs";
 import { GroupsBoard } from "./_components/groups-board";
@@ -9,30 +8,16 @@ import { GroupsBoard } from "./_components/groups-board";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const { isAdmin } = await getCurrentUserAndAdmin();
-  if (!isAdmin) redirect("/dashboard");
-
-  const sb = createServiceClient();
-  const [{ data: groups }, { data: orgsAgg }, { data: gbAgg }] = await Promise.all([
-    sb.from("groups").select("id, name, short_name, created_at").order("id"),
-    sb.from("organizations").select("group_id"),
-    sb.from("group_brands").select("group_id"),
-  ]);
-
-  const orgCount = new Map<string, number>();
-  for (const o of orgsAgg ?? []) {
-    if (o.group_id) orgCount.set(o.group_id, (orgCount.get(o.group_id) ?? 0) + 1);
+  let data: Awaited<ReturnType<typeof getGroupsBoardData>>;
+  try {
+    data = await getGroupsBoardData();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "UNAUTHENTICATED") redirect("/login");
+    if (msg.startsWith("FORBIDDEN")) redirect("/dashboard");
+    throw err;
   }
-  const brandCount = new Map<string, number>();
-  for (const g of gbAgg ?? []) {
-    brandCount.set(g.group_id, (brandCount.get(g.group_id) ?? 0) + 1);
-  }
-
-  const rows = (groups ?? []).map((g) => ({
-    ...g,
-    org_count: orgCount.get(g.id) ?? 0,
-    brand_count: brandCount.get(g.id) ?? 0,
-  }));
+  const { rows } = data;
 
   return (
     <main className="px-6 py-5 space-y-3">

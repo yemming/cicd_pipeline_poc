@@ -1,13 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { getItemLabelData } from "@/domain/items";
 
 import { LabelPrint } from "./_components/label-print";
 
-import { getActiveScope } from "@/lib/scope/active-scope";
 export const dynamic = "force-dynamic";
 
 export default async function ItemLabelPage({
@@ -22,25 +21,8 @@ export default async function ItemLabelPage({
   }
 
   const { id } = await params;
-  const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
-  const { data, error } = await supabase
-    .from("items")
-    .select("code, name, spec_description, category, control_type, base_uom, suggested_price, default_supplier_id, suppliers:default_supplier_id ( name )")
-    .eq("id", id)
-    .eq("brand_id", brand)
-    .single();
-  if (error || !data) notFound();
-  const item = data as unknown as {
-    code: string;
-    name: string;
-    spec_description: string | null;
-    category: string | null;
-    control_type: string | null;
-    base_uom: string | null;
-    suggested_price: number | null;
-    suppliers: { name: string } | null;
-  };
+  const item = await getItemLabelData(id);
+  if (!item) notFound();
 
   return <LabelPrint item={item} />;
 }

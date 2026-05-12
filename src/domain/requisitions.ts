@@ -345,3 +345,109 @@ export async function deleteRequisition(id: string): Promise<Result<null>> {
   revalidatePath("/parts/purchase/requisitions");
   return { ok: true, data: null };
 }
+
+// ─────────────────────────── Requisition new page（/parts/purchase/requisitions/new） ───────────────────────────
+
+import type {
+  DetailRequisition,
+  LineRow,
+  ItemRef,
+  OrgRef,
+} from "@/app/(workspace)/parts/purchase/requisitions/[id]/_components/requisition-detail-view";
+
+export interface RequisitionsNewPageData {
+  items: ItemRef[];
+  orgs: OrgRef[];
+}
+
+export async function getRequisitionsNewPageData(): Promise<RequisitionsNewPageData> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const [orgsRes, itemsRes] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("id, code, name")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("code"),
+    supabase
+      .from("items")
+      .select("id, code, name")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("code")
+      .limit(500),
+  ]);
+  return {
+    items: (itemsRes.data ?? []) as unknown as ItemRef[],
+    orgs: (orgsRes.data ?? []) as unknown as OrgRef[],
+  };
+}
+
+// ─────────────────────────── Requisition detail page（/parts/purchase/requisitions/[id]） ───────────────────────────
+
+export interface RequisitionDetailPageData {
+  requisition: DetailRequisition;
+  lines: LineRow[];
+  items: ItemRef[];
+  orgs: OrgRef[];
+}
+
+export async function getRequisitionDetailPageData(
+  id: string,
+): Promise<RequisitionDetailPageData | null> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data: req, error: reqErr } = await supabase
+    .from("purchase_requisitions")
+    .select(
+      "id, req_no, org_id, status, required_date, notes, source, approved_at, created_at, updated_at",
+    )
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .single();
+  if (reqErr || !req) return null;
+
+  const [linesRes, orgsRes] = await Promise.all([
+    supabase
+      .from("purchase_requisition_lines")
+      .select("id, line_no, item_id, qty_required, uom, expected_date, notes")
+      .eq("brand_id", brand)
+      .eq("req_id", id)
+      .order("line_no"),
+    supabase
+      .from("organizations")
+      .select("id, code, name")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("code"),
+  ]);
+
+  const lines = (linesRes.data ?? []) as unknown as LineRow[];
+  const itemIds = Array.from(new Set(lines.map((l) => l.item_id)));
+  const linkedItems: ItemRef[] = itemIds.length
+    ? ((
+        await supabase.from("items").select("id, code, name").in("id", itemIds)
+      ).data ?? []) as unknown as ItemRef[]
+    : [];
+
+  const { data: allItemsData } = await supabase
+    .from("items")
+    .select("id, code, name")
+    .eq("brand_id", brand)
+    .eq("is_active", true)
+    .order("code")
+    .limit(500);
+  const allItems = (allItemsData ?? []) as unknown as ItemRef[];
+
+  const itemMap = new Map(allItems.map((i) => [i.id, i]));
+  for (const it of linkedItems) if (!itemMap.has(it.id)) itemMap.set(it.id, it);
+
+  return {
+    requisition: req as unknown as DetailRequisition,
+    lines,
+    items: Array.from(itemMap.values()),
+    orgs: (orgsRes.data ?? []) as unknown as OrgRef[],
+  };
+}

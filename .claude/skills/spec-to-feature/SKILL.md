@@ -17,16 +17,20 @@ DealerOS 把新頁面規格落地的標準工作流。每收到一份新頁面�
 - 用戶純文字「新功能：採購退貨單，狀態有待審核 / 退貨中 / 完成⋯⋯」/「幫我做一頁 XXX」
 - 用戶說「照 spec-to-feature 走」/「跑一次 skill」
 - 用戶說「把 nav_node `<uuid>` 做成 design pattern」/「把目錄管理裡的『<頁面名稱>』做成 design pattern」（從 `nav_nodes` 表 + Supabase Storage 撈 HTML 啟動，見階段 1 input adapter）
+- **Refactor mode**：用戶說「把 /xxx 改寫成 Helper 架構」/「audit + refactor /xxx 的 Supabase 直連」/「清這頁的 Helper 違規」/「這頁有沒有符合 Helper 規範」+ 要動工的字眼（見下方「入口 C — Refactor mode」）
 
 ❌ 不觸發：
 
 - 用戶只是問「這頁長怎樣」/「這頁的資料結構是什麼」（純解釋、沒要建）
 - 用戶要修現有頁面的 bug / 微調樣式（這走 design pattern SOP，不過 skill）
 - 用戶在討論架構 / 規格，還沒明確要動工
+- 用戶只是要「audit 一下有沒有違規」純查不改 — 直接跑 `grep -rn "@/lib/supabase"` 回報即可，不過 skill
 
-## 兩條入口（決定要不要跑 Stage 1）
+## 三條入口（決定走哪條路）
 
-skill 啟動時**必須先掃** `docs/proposals/feature-*-phase1.md`，依結果走不同路：
+skill 啟動時**必須先判斷**：用戶意圖是「建/補做新頁面」（A/B）還是「refactor 既有頁面到 Helper 架構」（C）。若是後者，**跳過 5 階段流程**、走 Refactor 4 步流程。
+
+否則掃 `docs/proposals/feature-*-phase1.md`，依結果走 A 或 B：
 
 ### 入口 A — 有 phase1.md（大模組批次盤過 Phase 1）
 
@@ -49,7 +53,113 @@ skill 啟動時**必須先掃** `docs/proposals/feature-*-phase1.md`，依結果
 
 照原本 5 階段流程跑，Stage 1 從零做結構分析（SA/SD）。
 
-⚠️ **無腦使用原則**：用戶無論是「新模組進來」還是「加一兩個功能」都用同一條 skill 觸發，**入口判斷由 skill 自動完成**，用戶不需要記是哪條路。
+### 入口 C — Refactor mode（既有頁面違規、改寫到 Helper 架構）
+
+當用戶請求對應「**已寫好的頁面有 Supabase 直連、要清乾淨**」的情境：
+
+**典型輸入**：
+- 「把 /admin/master-data/customers 改寫成 Helper 架構」
+- 「audit + refactor /xxx 頁面的 Supabase 直連」
+- 「清這頁的 Helper 違規」/「這頁不符合天條、幫我修」
+- 「跑 audit、把違規清掉」
+
+**走 Refactor 4 步流程**（不走 5 階段、不寫新 spec、不做 SA/SD）：
+
+#### Step 1 — Audit（自動，不問用戶）
+
+```bash
+# 1a) 列出該路徑下所有 supabase 直連點
+grep -rn "@/lib/supabase" <target_dir>
+
+# 1b) 看現有 domain helper 涵蓋了什麼（是否有對應 module 可 append）
+ls src/domain/
+
+# 1c) 跑一次該頁的 tsc + eslint 確保起點乾淨
+npx tsc --noEmit
+```
+
+對每個違規處記：
+- 檔案 + 行號
+- supabase 操作類型（read query / mutation / RPC / auth.getUser 等）
+- 涉及的 table 名稱
+- 預期歸屬的 domain helper（既有 module append vs 新建 module）
+
+#### Step 2 — Refactor 提案（寫 markdown、給用戶 review）
+
+開檔 `docs/proposals/refactor-{slug}-{yyyy-mm-dd}.md`，內容：
+
+```markdown
+# Refactor — <頁面/模組名稱> 改 Helper 架構
+
+**日期**：YYYY-MM-DD
+**範圍**：<target_dir>
+**違規數**：N 處 supabase 直連
+
+## 1. Audit 結果
+
+| 檔案 | 行 | 操作 | 表 | 歸屬 helper |
+|---|---|---|---|---|
+| ... | ... | SELECT | suppliers | src/domain/suppliers.ts（append） |
+| ... | ... | INSERT | customer_contacts | src/domain/customers.ts（新建 fn）|
+
+## 2. 改寫計畫
+
+### A. 既有 helper append
+- `src/domain/<X>.ts` + `getXxx()` / `listXxx()` …
+
+### B. 新建 helper（若需要）
+- 檔案 / 函式簽名 / 內部實作策略
+
+### C. UI 改 import
+- 列出每個檔的 before/after import 對照
+
+## 3. 風險
+
+- 是否動到 server actions（既有 `src/lib/parts/actions/*` 等）
+- 是否動到 RBAC（auth.getUser / hasPermission）
+- 是否動到 revalidatePath 邏輯
+- 是否有跨模組 shared query 被影響
+
+## 4. 不動
+
+- 不刪既有 server actions（spec-to-feature 規定）
+- 不改 DB schema（refactor 不涉及）
+- 不動 nav_nodes
+- 不改視覺 / 業務邏輯（純 layer 替換）
+
+## 5. 驗證
+
+- tsc / eslint 0 errors
+- grep -rn "@/lib/supabase" <target> = 0 hit
+- Chrome MCP 跑一輪互動主流程確保沒退化
+```
+
+寫完告訴用戶「提案存在 docs/proposals/refactor-<slug>-<date>.md，請 review」。
+
+#### Step 3 — 拍板（用 AskUserQuestion）
+
+只問 1-2 題、聚焦真有歧義的決策（不要泛問）：
+
+- 「新增的 helper 命名 / 路徑 OK 嗎？」（若提案有新建 module）
+- 「auth.getUser 等 RBAC 邏輯保留在 page level 還是搬進 helper？」
+- 「該動既有 server actions 嗎？」（若提案發現 server action 跟 helper 重複）
+
+若 audit 結果單純（只是 append 既有 helper、UI 改 import），可跳問題、直接告訴用戶「沒歧義、直接落地」。
+
+#### Step 4 — 落地（沿用階段 4 SOP 的 §3-6）
+
+1. **Domain Helper**：append / 新建 `src/domain/<module>.ts`，從 page.tsx 拷貝邏輯，包成 async function、加 brand scope、加 try/catch
+2. **UI 改 import**：把 `import { createClient } from '@/lib/supabase/...'` 全砍、改 import 對應的 `@/domain/*` helper
+3. **Server component 改寫**：原本「createClient + supabase.from(...).select(...)」改成「await getXxxData()」
+4. **驗證**：
+   - `npx tsc --noEmit` 0 errors
+   - `npx eslint <touched-paths>` 0 errors
+   - `grep -rn "@/lib/supabase" <target_dir>` **必須 0 hit**
+   - Chrome MCP 跑互動主流程
+
+⚠️ **不在 refactor 任務中順手做別的事**：不改視覺、不加欄位、不改業務邏輯、不擴功能。「等比例替換 layer」是唯一目標。要動視覺/業務邏輯走另一輪正常 5 階段。
+
+⚠️ **無腦使用原則**：用戶無論是「新模組進來」、「加一兩個功能」、「改寫既有違規頁面」都用同一條 skill 觸發，**入口判斷由 skill 自動完成**，用戶不需要記是哪條路。
 
 ## 批次模式（只跑 Phase 1，給大模組先盤架構用）
 
@@ -271,7 +381,7 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 1. **DB 先動**：用 `mcp__plugin_supabase_supabase__apply_migration` 建表 + RLS（含 brand-aware policy；參考 memory 的「多品牌 Schema Pattern」 — 4 條 user_has_brand() RLS）
 2. **Type 重新生成**：用 `mcp__plugin_supabase_supabase__generate_typescript_types`，覆寫 `src/lib/database.types.ts`
 3. **Domain Helper**：建 `src/domain/<module>.ts`，每個函式最簡單實作（Day 1 預設 supabase 直連）
-4. **頁面**：拷貝範本（參考 references/page-templates.md 列出的 canonical），改業務欄位 + filter；UI 只 import `@/domain/*`、**不准** import `@/lib/supabase/*`
+4. **頁面**：拷貝範本（參考 references/page-templates.md 列出的 canonical），改業務欄位 + filter；UI 只 import `@/domain/*`、**不准** import `@/lib/supabase/*`。**包含 `/admin/*` 在內、無例外** — 即使是「ERP 核心模組」、即使只是撈下拉資料、即使是 server component。撈 form 候選清單（suppliers / warehouses / items 等）也要包進 domain helper（例：`getNewPOFormData()`）。
 5. **nav_nodes**：用 `mcp__plugin_supabase_supabase__execute_sql`
    - **a. 一般情況（HTML / URL / 文字描述輸入）**：INSERT 雙 brand 新節點
    - **b. nav_node 輸入情況**（階段 1 記下的雙 brand ID）：對既有節點做 UPDATE 切換型態：
@@ -293,6 +403,14 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 **5.1 驗證**
 
 落地後向用戶輸出 checklist（從提案的「8. Verification」拷出來、加實際操作步驟）。Skill 自己用 Chrome MCP 跑一次互動主流程（建立 / 編輯 / 儲存 / 刪除）+ 查 DB 確認落地，不要替用戶宣告完成、等他點頭。
+
+**Helper 架構 audit（強制、無例外）**：
+
+```bash
+grep -rn "@/lib/supabase" "src/app/(workspace)" src/components 2>/dev/null
+```
+
+**預期 0 hit**。出現任一行就回階段 4：把該 supabase 呼叫包進 `src/domain/<module>.ts`、UI 改 import `@/domain/*`、tsc + eslint 跑過、然後**才**進 Chrome MCP 驗證。包含 `/admin/*` 在內、沒有「核心模組例外」的說法。
 
 **5.2 清孤兒（強制）— Chrome MCP 驗證通過後立刻執行，不拖到下次 session**
 
@@ -342,7 +460,7 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 ## 紀律 / 禁區
 
 - ❌ 跳階段 3 直接落地（即使你「覺得」自己懂用戶意圖）
-- ❌ UI 直接 `import { createClient } from '@/lib/supabase/...'`
+- ❌ UI 直接 `import { createClient } from '@/lib/supabase/...'` — **天條、無例外、包含 /admin/* 在內**（admin / ERP 核心模組更要走 helper，不是更可以例外）。階段 4 完成、階段 5 驗證前必跑 `grep -rn "@/lib/supabase" "src/app/(workspace)"` 確認 0 hit；有任一行就回階段 4 把它包進 domain helper、UI 改 import 後再進階段 5。
 - ❌ 規則類各開一張表（採購權限 / 盤點 / 告警階層 都走 `business_rules`）
 - ❌ 看到「為 role 設定能 / 不能 boolean 授權」的設定頁不要直接走 `business_rules`。先檢查 `permissions` 表 + `PERMISSIONS` 常數，能對映 RBAC 就走 RBAC SSOT 或同步雙寫；`business_rules` 只接「量化規則 / workflow / 業務參數」這類非 boolean 設定。
   判斷三步：

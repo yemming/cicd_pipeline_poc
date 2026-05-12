@@ -1,34 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createServiceClient } from "@/lib/supabase/service";
-import { getCurrentUserAndNotificationAdmin } from "@/lib/notifications";
-import {
-  countDeliveriesByStatus,
-  listDeliveries,
-} from "@/lib/notifications/repositories/delivery.repo";
+import { getNotificationDashboardData } from "@/domain/notifications";
 import { NotificationsPageHeader } from "./_parts/page-header";
 import { DeliveryStatusBadge } from "./_parts/delivery-status-badge";
 
 export default async function NotificationsDashboardPage() {
-  const ctx = await getCurrentUserAndNotificationAdmin();
-  if (!ctx.userId) redirect("/login");
-  if (!ctx.isAdmin) {
-    return <AdminForbidden email={ctx.email} />;
+  let data: Awaited<ReturnType<typeof getNotificationDashboardData>>;
+  try {
+    data = await getNotificationDashboardData();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "UNAUTHENTICATED") redirect("/login");
+    if (msg.startsWith("FORBIDDEN")) return <AdminForbidden />;
+    throw err;
   }
-
-  const supabase = createServiceClient();
-
-  // server component 每個 request 重新執行，Date.now() 是預期行為
-  // eslint-disable-next-line react-hooks/purity
-  const now = Date.now();
-  const since7d = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const since24h = new Date(now - 24 * 60 * 60 * 1000).toISOString();
-  const [stats7d, stats24h, recentFailed, recent] = await Promise.all([
-    countDeliveriesByStatus(supabase, since7d),
-    countDeliveriesByStatus(supabase, since24h),
-    listDeliveries(supabase, { status: "failed", limit: 10 }),
-    listDeliveries(supabase, { limit: 10 }),
-  ]);
+  const { stats7d, stats24h, recentFailed, recent } = data;
 
   const total7d = stats7d.sent + stats7d.failed + stats7d.pending + stats7d.retrying;
   const total24h = stats24h.sent + stats24h.failed + stats24h.pending + stats24h.retrying;
@@ -215,15 +201,14 @@ function maskRef(ref: string): string {
   return `${ref.slice(0, 12)}…${ref.slice(-4)}`;
 }
 
-function AdminForbidden({ email }: { email: string | null }) {
+function AdminForbidden() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
       <div className="max-w-md rounded-xl border border-outline-variant bg-surface-container p-8 text-center">
         <div className="text-4xl mb-3">🚫</div>
         <h2 className="text-xl font-semibold mb-2">無 Notification 管理權限</h2>
         <p className="text-sm text-on-surface-variant">
-          目前登入為 <span className="font-mono">{email ?? "unknown"}</span>，不在 admin allowlist。
-          請聯絡管理員把你的 email 加進 <code className="text-xs">NOTIFICATION_ADMIN_EMAILS</code>。
+          請聯絡管理員把你的 email 加進 admin allowlist。
         </p>
       </div>
     </div>

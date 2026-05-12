@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createServiceClient } from "@/lib/supabase/service";
-import { getCurrentUserAndNotificationAdmin } from "@/lib/notifications";
-import { listDeliveries } from "@/lib/notifications/repositories/delivery.repo";
-import type { ChannelCode, DeliveryStatus, EventCode } from "@/lib/notifications";
+import {
+  listNotificationDeliveriesForAdmin,
+  type ChannelCode,
+  type DeliveryStatus,
+  type EventCode,
+} from "@/domain/notifications";
 import { NotificationsPageHeader } from "../_parts/page-header";
 import { DeliveryStatusBadge } from "../_parts/delivery-status-badge";
 import { RetryButton } from "./_retry-button";
@@ -22,28 +24,31 @@ export default async function DeliveriesPage({
 }) {
   const sp = await searchParams;
 
-  const ctx = await getCurrentUserAndNotificationAdmin();
-  if (!ctx.userId) redirect("/login");
-  if (!ctx.isAdmin) {
-    return (
-      <div className="p-8 text-center text-on-surface-variant">
-        無管理權限（登入為 {ctx.email ?? "unknown"}）
-      </div>
-    );
-  }
-
   const eventCode = (sp.event as EventCode | undefined) || undefined;
   const channelCode = (sp.channel as ChannelCode | undefined) || undefined;
   const status = (sp.status as DeliveryStatus | undefined) || undefined;
   const limit = Math.min(200, Number(sp.limit ?? 50));
 
-  const supabase = createServiceClient();
-  const rows = await listDeliveries(supabase, {
-    eventCode,
-    channelCode,
-    status,
-    limit,
-  });
+  let rows: Awaited<ReturnType<typeof listNotificationDeliveriesForAdmin>>;
+  try {
+    rows = await listNotificationDeliveriesForAdmin({
+      eventCode,
+      channelCode,
+      status,
+      limit,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "UNAUTHENTICATED") redirect("/login");
+    if (msg.startsWith("FORBIDDEN")) {
+      return (
+        <div className="p-8 text-center text-on-surface-variant">
+          無管理權限
+        </div>
+      );
+    }
+    throw err;
+  }
 
   return (
     <div className="min-h-screen bg-surface">

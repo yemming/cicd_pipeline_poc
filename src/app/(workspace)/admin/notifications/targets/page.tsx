@@ -1,31 +1,25 @@
 import { redirect } from "next/navigation";
-import { createServiceClient } from "@/lib/supabase/service";
-import { getCurrentUserAndNotificationAdmin } from "@/lib/notifications";
-import { listActiveChannels } from "@/lib/notifications/repositories/channel.repo";
-import { listTargets } from "@/lib/notifications/repositories/target.repo";
-import { listPendingCandidates } from "@/lib/notifications/repositories/candidate.repo";
+import { getNotificationTargetsBoardData } from "@/domain/notifications";
 import { NotificationsPageHeader } from "../_parts/page-header";
 import { CreateTargetForm } from "./_create-form";
 import { TargetRowActions } from "./_row-actions";
 import { CandidatesSection } from "./_candidates-section";
 
 export default async function TargetsPage() {
-  const ctx = await getCurrentUserAndNotificationAdmin();
-  if (!ctx.userId) redirect("/login");
-  if (!ctx.isAdmin) {
-    return (
-      <div className="p-8 text-center text-on-surface-variant">
-        無管理權限（登入為 {ctx.email ?? "unknown"}）
-      </div>
-    );
+  let data: Awaited<ReturnType<typeof getNotificationTargetsBoardData>>;
+  try {
+    data = await getNotificationTargetsBoardData();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "UNAUTHENTICATED") redirect("/login");
+    if (msg.startsWith("FORBIDDEN")) {
+      return (
+        <div className="p-8 text-center text-on-surface-variant">無管理權限</div>
+      );
+    }
+    throw err;
   }
-
-  const supabase = createServiceClient();
-  const [channels, targets, candidates] = await Promise.all([
-    listActiveChannels(supabase),
-    listTargets(supabase, { onlyActive: false }),
-    listPendingCandidates(supabase),
-  ]);
+  const { channels, targets, candidates } = data;
 
   return (
     <div className="min-h-screen bg-surface">

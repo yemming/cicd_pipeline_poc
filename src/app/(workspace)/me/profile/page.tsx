@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { createClient } from "@/lib/supabase/server";
+import { getMyProfileRow } from "@/domain/users";
 import { BRAND_PALETTES } from "@/lib/brands/brand-palettes";
 import { SIDEBAR_THEMES } from "@/lib/brands/sidebar-themes";
 import { brands as brandConfigs } from "@/lib/brands/registry";
@@ -15,15 +15,8 @@ export default async function MeProfilePage() {
   const { userId, email } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
 
-  const supabase = await createClient();
-  const [{ data: profileRow }, accessible] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "id, name, address, avatar_url, avatar_path, preferred_palette_key, preferred_custom_palette, preferred_sidebar_theme_key, default_landing_path, default_brand_id, updated_at",
-      )
-      .eq("id", userId)
-      .maybeSingle(),
+  const [profileRow, accessible] = await Promise.all([
+    getMyProfileRow(userId),
     getAccessibleScopes(),
   ]);
 

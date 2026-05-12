@@ -1075,3 +1075,21 @@ export async function getAbcStructurePageData(): Promise<AbcStructurePageData> {
     period_compare: { current, prev },
   };
 }
+
+// ─────────────────────────── ABC settings page（/parts/analytics/abc-settings） ───────────────────────────
+
+import type { AbcConfig } from "@/app/(workspace)/parts/analytics/abc-settings/_components/abc-settings-board";
+
+export async function getAbcSettingsPageData(): Promise<AbcConfig | null> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("abc_classification_config")
+    .select(
+      "id, brand_id, recalc_trigger, rolling_period_months, threshold_a_pct, threshold_b_pct, count_freq_a_days, count_freq_b_days, count_freq_c_days, safety_stock_days_a, safety_stock_days_b, safety_stock_days_c, new_item_default_class, new_item_grace_months, last_recalc_at, is_active",
+    )
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (error) throw new Error(`abc-config: ${error.message}`);
+  return (data ?? null) as unknown as AbcConfig | null;
+}

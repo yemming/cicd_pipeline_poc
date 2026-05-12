@@ -1,26 +1,13 @@
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getActiveScope } from "@/lib/scope/active-scope";
+import { getEinvoiceNumberPoolsPageData } from "@/domain/einvoice";
 
 import { SyncPoolsButton } from "./_components/sync-pools-button";
 
 export const dynamic = "force-dynamic";
-
-type PoolRow = {
-  id: string;
-  period: string;
-  prefix: string;
-  start_no: number;
-  end_no: number;
-  used_count: number;
-  is_active: boolean;
-  synced_at: string | null;
-  created_at: string;
-};
 
 export default async function NumberPoolsPage() {
   const { userId } = await getCurrentUserAndAdmin();
@@ -34,18 +21,7 @@ export default async function NumberPoolsPage() {
   }
 
   const canSync = await hasPermission(PERMISSIONS.EINVOICE_SETTINGS);
-  const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
-
-  const { data, error } = await supabase
-    .from("einvoice_number_pools")
-    .select("id, period, prefix, start_no, end_no, used_count, is_active, synced_at, created_at")
-    .eq("brand_id", brand)
-    .order("period", { ascending: false })
-    .order("prefix");
-
-  if (error) throw new Error(`einvoice_number_pools: ${error.message}`);
-  const rows = (data ?? []) as PoolRow[];
+  const rows = await getEinvoiceNumberPoolsPageData();
 
   return (
     <main className="px-6 py-5 space-y-3">

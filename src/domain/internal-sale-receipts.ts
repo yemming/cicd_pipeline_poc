@@ -52,3 +52,38 @@ export async function getInternalSaleReceiptsPageData(): Promise<{
   const totalAmount = rows.reduce((s, r) => s + r.amount_total, 0);
   return { rows, totalQty, totalAmount };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Detail (readonly)
+// ─────────────────────────────────────────────────────────────
+
+export type InternalSaleReceiptDetail = InternalSaleReceiptRow & {
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export async function getInternalSaleReceiptById(
+  id: string,
+): Promise<InternalSaleReceiptDetail | null> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data, error } = await supabase
+    .from("parts_internal_sale_receipts")
+    .select(
+      "id, doc_no, source_label, warehouse_label, receipt_date, status, qty_total, amount_total, notes, created_at, updated_at",
+    )
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+
+  if (error) throw new Error(`internal-sale-receipt: ${error.message}`);
+  if (!data) return null;
+
+  const row = data as unknown as InternalSaleReceiptDetail;
+  return {
+    ...row,
+    qty_total: Number(row.qty_total),
+    amount_total: Number(row.amount_total),
+  };
+}

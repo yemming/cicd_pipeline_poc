@@ -1,16 +1,13 @@
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { getRequisitionsNewPageData } from "@/domain/requisitions";
 
-import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   RequisitionDetailView,
   type DetailRequisition,
-  type ItemRef,
-  type OrgRef,
 } from "../[id]/_components/requisition-detail-view";
 
 export const dynamic = "force-dynamic";
@@ -41,30 +38,14 @@ export default async function NewRequisitionPage() {
     );
   }
 
-  const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
-  const [orgsRes, itemsRes] = await Promise.all([
-    supabase
-      .from("organizations")
-      .select("id, code, name")
-      .eq("brand_id", brand)
-      .eq("is_active", true)
-      .order("code"),
-    supabase
-      .from("items")
-      .select("id, code, name")
-      .eq("brand_id", brand)
-      .eq("is_active", true)
-      .order("code")
-      .limit(500),
-  ]);
+  const { items, orgs } = await getRequisitionsNewPageData();
 
   return (
     <RequisitionDetailView
       requisition={placeholder}
       lines={[]}
-      items={(itemsRes.data ?? []) as unknown as ItemRef[]}
-      orgs={(orgsRes.data ?? []) as unknown as OrgRef[]}
+      items={items}
+      orgs={orgs}
       canEdit={true}
       canApprove={false}
       forceCreating={true}

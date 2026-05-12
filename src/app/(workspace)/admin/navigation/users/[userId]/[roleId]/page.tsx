@@ -1,9 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
-import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { createServiceClient } from "@/lib/supabase/service";
+import { getUserAssignmentDetail } from "@/domain/navigation-admin";
 
-import { loadScopeOptions } from "../../_lib/load-scope-options";
 import { AssignmentDetailView } from "./_components/assignment-detail-view";
 
 export const dynamic = "force-dynamic";
@@ -13,37 +11,23 @@ export default async function Page({
 }: {
   params: Promise<{ userId: string; roleId: string }>;
 }) {
-  const { isAdmin } = await getCurrentUserAndAdmin();
-  if (!isAdmin) redirect("/admin/navigation");
-
   const { userId, roleId } = await params;
-  const sb = createServiceClient();
 
-  const [{ data: assignments }, { data: role }, options] = await Promise.all([
-    sb
-      .from("user_assignments")
-      .select("id, scope_type, scope_id, granted_at, notes")
-      .eq("user_id", userId)
-      .eq("role_id", roleId)
-      .order("granted_at", { ascending: false }),
-    sb.from("roles").select("id, name, description").eq("id", roleId).maybeSingle(),
-    loadScopeOptions(),
-  ]);
+  let detail: Awaited<ReturnType<typeof getUserAssignmentDetail>>;
+  try {
+    detail = await getUserAssignmentDetail(userId, roleId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "UNAUTHENTICATED") redirect("/login");
+    if (msg.startsWith("FORBIDDEN")) redirect("/admin/navigation");
+    throw err;
+  }
 
+  const { assignments, role, email, options } = detail;
   if (!role) notFound();
   if (!assignments || assignments.length === 0) {
     // 沒任何作用域 = 該 (user, role) 不存在 → 回列表
     redirect("/admin/navigation?tab=users");
-  }
-
-  // user email
-  let email: string | null = null;
-  const { data: users } = await sb.auth.admin.listUsers({ perPage: 200 });
-  for (const u of users?.users ?? []) {
-    if (u.id === userId && u.email) {
-      email = u.email;
-      break;
-    }
   }
 
   const granted = {

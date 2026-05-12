@@ -178,3 +178,348 @@ export async function getItemGlAccounts(item: {
     revenue: item.gl_revenue_coa_id ? map.get(item.gl_revenue_coa_id) ?? null : null,
   };
 }
+
+/**
+ * 料號預設前置時間頁 (/admin/master-data/item-lead-times) 用的列表 helper：
+ * 撈啟用中料號 + 拼上預設供應商名稱，欄位精簡到 UI 需要的子集。
+ */
+export type LeadTimeRow = {
+  id: string;
+  code: string;
+  name: string;
+  category: string | null;
+  default_supplier_name: string | null;
+  default_lead_time_days: number | null;
+};
+
+export async function listItemsWithLeadTime(): Promise<LeadTimeRow[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const [itemsRes, supRes] = await Promise.all([
+    supabase
+      .from("items")
+      .select(
+        "id, code, name, category, default_supplier_id, default_lead_time_days, is_active",
+      )
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("code")
+      .limit(500),
+    supabase
+      .from("suppliers")
+      .select("id, name")
+      .eq("brand_id", brand),
+  ]);
+  if (itemsRes.error) throw new Error(`listItemsWithLeadTime/items: ${itemsRes.error.message}`);
+  if (supRes.error) throw new Error(`listItemsWithLeadTime/suppliers: ${supRes.error.message}`);
+
+  const supMap = new Map(
+    ((supRes.data ?? []) as { id: string; name: string }[]).map((s) => [s.id, s.name]),
+  );
+  return ((itemsRes.data ?? []) as Array<{
+    id: string;
+    code: string;
+    name: string;
+    category: string | null;
+    default_supplier_id: string | null;
+    default_lead_time_days: number | null;
+  }>).map((r) => ({
+    id: r.id,
+    code: r.code,
+    name: r.name,
+    category: r.category,
+    default_supplier_name: r.default_supplier_id
+      ? supMap.get(r.default_supplier_id) ?? null
+      : null,
+    default_lead_time_days: r.default_lead_time_days,
+  }));
+}
+
+// ─────────────────────────── Items list page（/parts/setup/items） ───────────────────────────
+
+import type {
+  ItemRow as ItemsBoardRow,
+  SupplierOption,
+} from "@/app/(workspace)/parts/setup/items/_components/items-board";
+import { listDictionaries } from "@/domain/dictionaries";
+
+export type ItemFilters = {
+  category: string;
+  control: string;
+  status: string;
+  q: string;
+};
+
+export interface ItemsListPageData {
+  rows: ItemsBoardRow[];
+  suppliers: SupplierOption[];
+  totalCount: number;
+  categories: string[];
+  uoms: string[];
+  controlLevels: Array<{ code: string; label: string; accent: string | null }>;
+}
+
+export async function getItemsListPageData(filters: ItemFilters): Promise<ItemsListPageData> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  let q = supabase
+    .from("items")
+    .select(
+      "id, code, name, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, image_url, is_active",
+    )
+    .eq("brand_id", brand);
+
+  if (filters.category && filters.category !== "all") q = q.eq("category", filters.category);
+  if (filters.control && filters.control !== "all") q = q.eq("control_type", filters.control);
+  if (filters.status === "active") q = q.eq("is_active", true);
+  if (filters.status === "inactive") q = q.eq("is_active", false);
+  if (filters.q.trim()) {
+    const t = filters.q.trim().replace(/[%,]/g, "");
+    q = q.or(`code.ilike.%${t}%,name.ilike.%${t}%`);
+  }
+
+  const [iRes, sRes, compatRes, totalRes, dictRows] = await Promise.all([
+    q.order("code").limit(500),
+    supabase
+      .from("suppliers")
+      .select("id, code, name")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("code"),
+    supabase
+      .from("item_vehicle_compatibility")
+      .select("item_id")
+      .eq("brand_id", brand),
+    supabase
+      .from("items")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brand),
+    listDictionaries(),
+  ]);
+
+  if (iRes.error) throw new Error(`items: ${iRes.error.message}`);
+  if (sRes.error) throw new Error(`suppliers: ${sRes.error.message}`);
+  if (compatRes.error) throw new Error(`compat: ${compatRes.error.message}`);
+
+  const fitMap = new Map<string, number>();
+  for (const c of compatRes.data ?? []) {
+    fitMap.set(c.item_id as string, (fitMap.get(c.item_id as string) ?? 0) + 1);
+  }
+  const rows: ItemsBoardRow[] = ((iRes.data ?? []) as unknown as ItemsBoardRow[]).map((r) => ({
+    ...r,
+    fit_count: fitMap.get(r.id) ?? 0,
+  }));
+
+  const activeDict = dictRows.filter((d) => d.is_active);
+  const categories = activeDict.filter((d) => d.kind === "category").map((d) => d.code);
+  const uoms = activeDict.filter((d) => d.kind === "uom").map((d) => d.code);
+  const controlLevels = activeDict
+    .filter((d) => d.kind === "control_level")
+    .map((d) => ({ code: d.code, label: d.label, accent: d.accent_color }));
+
+  return {
+    rows,
+    suppliers: (sRes.data ?? []) as unknown as SupplierOption[],
+    totalCount: totalRes.count ?? 0,
+    categories,
+    uoms,
+    controlLevels,
+  };
+}
+
+// ─────────────────────────── Item detail page（/parts/setup/items/[id]） ───────────────────────────
+
+import type {
+  DetailItem,
+  StockLot,
+  WarehouseRef,
+  FitmentRow,
+  ModelRef,
+  SupplierRef,
+  ControlLevelOption,
+  WorkOrderLine,
+  StorePriceRow,
+  OrgRef,
+} from "@/app/(workspace)/parts/setup/items/[id]/_components/item-detail-view";
+import { listItemStorePrices } from "@/domain/pricing";
+
+export interface ItemDetailPageData {
+  item: DetailItem;
+  stocks: StockLot[];
+  warehouses: WarehouseRef[];
+  fitments: FitmentRow[];
+  supplier: SupplierRef | null;
+  allSuppliers: SupplierRef[];
+  models: ModelRef[];
+  categories: string[];
+  uoms: string[];
+  controlLevels: ControlLevelOption[];
+  woLines: WorkOrderLine[];
+  storePrices: StorePriceRow[];
+  storePricesWithStores: Awaited<ReturnType<typeof listItemStorePrices>>;
+  orgs: OrgRef[];
+  glAccounts: Awaited<ReturnType<typeof getItemGlAccounts>>;
+  accountOptions: Awaited<ReturnType<typeof listPostableAccountsForItem>>;
+}
+
+export async function getItemDetailPageData(id: string): Promise<ItemDetailPageData | null> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data: item, error: itemErr } = await supabase
+    .from("items")
+    .select(
+      "id, code, name, name_en, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, is_active, created_at, updated_at, synced_at, gl_inventory_coa_id, gl_cogs_coa_id, gl_revenue_coa_id, external_source, external_id, weight_kg, volume_cm3, image_url, image_display_height",
+    )
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .single();
+  if (itemErr || !item) return null;
+  const detail = item as unknown as DetailItem;
+
+  const [
+    stockRes,
+    whRes,
+    fitRes,
+    supRes,
+    dictRows,
+    allSupRes,
+    woRes,
+    storeRes,
+    orgRes,
+  ] = await Promise.all([
+    supabase
+      .from("stock_items")
+      .select(
+        "id, warehouse_id, qty, unit_cost, serial_no, batch_no, status, last_movement_at, warranty_start, warranty_end, notes",
+      )
+      .eq("brand_id", brand)
+      .eq("item_id", id)
+      .order("last_movement_at", { ascending: false })
+      .limit(200),
+    supabase.from("warehouses").select("id, code, name").eq("brand_id", brand),
+    supabase
+      .from("item_vehicle_compatibility")
+      .select("vehicle_model_id, year_start, year_end, is_verified")
+      .eq("brand_id", brand)
+      .eq("item_id", id),
+    detail.default_supplier_id
+      ? supabase
+          .from("suppliers")
+          .select("id, code, name")
+          .eq("id", detail.default_supplier_id)
+          .single()
+      : Promise.resolve({ data: null, error: null }),
+    listDictionaries(),
+    supabase
+      .from("suppliers")
+      .select("id, code, name")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("code"),
+    supabase
+      .from("work_order_items")
+      .select(
+        "id, work_order_id, line_no, kind, qty, unit_price, amount, is_warranty, created_at, work_orders ( ro_no, status, opened_at )",
+      )
+      .eq("brand_id", brand)
+      .eq("item_id", id)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("item_store_prices")
+      .select(
+        "id, org_id, price, pricing_type, is_active, promo_start_date, promo_end_date, notes",
+      )
+      .eq("brand_id", brand)
+      .eq("item_id", id)
+      .order("price", { ascending: false }),
+    supabase.from("organizations").select("id, code, name, type").eq("brand_id", brand),
+  ]);
+
+  const storePricesWithStores = await listItemStorePrices(id);
+
+  const [glAccounts, accountOptions] = await Promise.all([
+    getItemGlAccounts({
+      gl_inventory_coa_id: detail.gl_inventory_coa_id,
+      gl_cogs_coa_id: detail.gl_cogs_coa_id,
+      gl_revenue_coa_id: detail.gl_revenue_coa_id,
+    }),
+    listPostableAccountsForItem(),
+  ]);
+
+  const stocks = (stockRes.data ?? []) as unknown as StockLot[];
+  const warehouses = (whRes.data ?? []) as unknown as WarehouseRef[];
+  const fitments = (fitRes.data ?? []) as unknown as FitmentRow[];
+  const supplier = (supRes.data ?? null) as unknown as SupplierRef | null;
+  const allSuppliers = (allSupRes.data ?? []) as unknown as SupplierRef[];
+  const activeDict = dictRows.filter((d) => d.is_active);
+  const orgs = (orgRes.data ?? []) as unknown as OrgRef[];
+  const woLines = (woRes.data ?? []) as unknown as WorkOrderLine[];
+  const storePrices = (storeRes.data ?? []) as unknown as StorePriceRow[];
+
+  let models: ModelRef[] = [];
+  const modelIds = Array.from(new Set(fitments.map((f) => f.vehicle_model_id)));
+  if (modelIds.length > 0) {
+    const { data: mData } = await supabase
+      .from("vehicle_models")
+      .select("id, name")
+      .in("id", modelIds);
+    models = (mData ?? []) as unknown as ModelRef[];
+  }
+
+  const categories = activeDict.filter((d) => d.kind === "category").map((d) => d.code);
+  const uoms = activeDict.filter((d) => d.kind === "uom").map((d) => d.code);
+  const controlLevels: ControlLevelOption[] = activeDict
+    .filter((d) => d.kind === "control_level")
+    .map((d) => ({ code: d.code, label: d.label, accent: d.accent_color }));
+
+  return {
+    item: detail,
+    stocks,
+    warehouses,
+    fitments,
+    supplier,
+    allSuppliers,
+    models,
+    categories,
+    uoms,
+    controlLevels,
+    woLines,
+    storePrices,
+    storePricesWithStores,
+    orgs,
+    glAccounts,
+    accountOptions,
+  };
+}
+
+// ─────────────────────────── Item label page（/parts/setup/items/[id]/label） ───────────────────────────
+
+export interface ItemLabelData {
+  code: string;
+  name: string;
+  spec_description: string | null;
+  category: string | null;
+  control_type: string | null;
+  base_uom: string | null;
+  suggested_price: number | null;
+  suppliers: { name: string } | null;
+}
+
+export async function getItemLabelData(id: string): Promise<ItemLabelData | null> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("items")
+    .select(
+      "code, name, spec_description, category, control_type, base_uom, suggested_price, default_supplier_id, suppliers:default_supplier_id ( name )",
+    )
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .single();
+  if (error || !data) return null;
+  return data as unknown as ItemLabelData;
+}

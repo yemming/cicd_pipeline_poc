@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getActiveScope } from "@/lib/scope/active-scope";
+import { getEinvoiceAllowancesPageData } from "@/domain/einvoice";
 
 export const dynamic = "force-dynamic";
 
@@ -21,19 +20,6 @@ const STATUS_LABEL: Record<string, string> = {
   failed:  "失敗",
   invalid: "已作廢",
   pending: "待處理",
-};
-
-type AllowanceListRow = {
-  id: string;
-  einvoice_id: string;
-  ecpay_allowance_no: string | null;
-  total_amount: number;
-  status: string;
-  reason: string | null;
-  ecpay_error_msg: string | null;
-  notify_method: string | null;
-  created_at: string;
-  einvoice: { ecpay_invoice_no: string | null } | null;
 };
 
 export default async function AllowancesPage({
@@ -56,22 +42,7 @@ export default async function AllowancesPage({
   const dateFrom = sp.dateFrom ?? "";
   const dateTo   = sp.dateTo ?? "";
 
-  const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
-
-  let q = supabase
-    .from("einvoice_allowances")
-    .select("id, einvoice_id, ecpay_allowance_no, total_amount, status, reason, ecpay_error_msg, notify_method, created_at, einvoice:einvoices(ecpay_invoice_no)")
-    .eq("brand_id", brand);
-
-  if (status !== "all") q = q.eq("status", status);
-  if (dateFrom)         q = q.gte("created_at", dateFrom);
-  if (dateTo)           q = q.lte("created_at", `${dateTo}T23:59:59`);
-
-  const { data, error } = await q.order("created_at", { ascending: false }).limit(500);
-  if (error) throw new Error(`einvoice_allowances: ${error.message}`);
-
-  const rows = (data ?? []) as unknown as AllowanceListRow[];
+  const rows = await getEinvoiceAllowancesPageData({ status, dateFrom, dateTo });
 
   return (
     <main className="px-6 py-5 space-y-3">

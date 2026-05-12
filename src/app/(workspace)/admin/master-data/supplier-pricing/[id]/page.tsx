@@ -1,43 +1,14 @@
 import { notFound, redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getSupplierPricingById } from "@/lib/master-data/queries";
+import { listSupplierPricingLookups } from "@/domain/supplier-pricing";
 
-import { getActiveScope } from "@/lib/scope/active-scope";
-import {
-  SupplierPricingDetailView,
-  type ItemRef,
-  type SupplierRef,
-} from "./_components/supplier-pricing-detail-view";
+import { SupplierPricingDetailView } from "./_components/supplier-pricing-detail-view";
 
 export const dynamic = "force-dynamic";
-
-async function loadLookups() {
-  const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
-  const [sRes, iRes] = await Promise.all([
-    supabase
-      .from("suppliers")
-      .select("id, code, name")
-      .eq("brand_id", brand)
-      .order("code"),
-    supabase
-      .from("items")
-      .select("id, code, name, category, base_uom")
-      .eq("brand_id", brand)
-      .order("code")
-      .limit(1000),
-  ]);
-  if (sRes.error) throw new Error(`suppliers: ${sRes.error.message}`);
-  if (iRes.error) throw new Error(`items: ${iRes.error.message}`);
-  return {
-    suppliers: (sRes.data ?? []) as unknown as SupplierRef[],
-    items: (iRes.data ?? []) as unknown as ItemRef[],
-  };
-}
 
 export default async function SupplierPricingDetailPage({
   params,
@@ -55,12 +26,12 @@ export default async function SupplierPricingDetailPage({
     );
   }
 
-  const [pricing, lookups] = await Promise.all([
+  const [pricing, lookups, canEdit] = await Promise.all([
     getSupplierPricingById(id),
-    loadLookups(),
+    listSupplierPricingLookups({ activeOnly: false, itemLimit: 1000 }),
+    hasPermission(PERMISSIONS.SUPPLIER_PRICING_EDIT),
   ]);
   if (!pricing) notFound();
-  const canEdit = await hasPermission(PERMISSIONS.SUPPLIER_PRICING_EDIT);
 
   return (
     <SupplierPricingDetailView

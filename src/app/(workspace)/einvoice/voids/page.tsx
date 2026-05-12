@@ -1,22 +1,12 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getActiveScope } from "@/lib/scope/active-scope";
+import { getEinvoiceVoidsPageData } from "@/domain/einvoice";
 
 export const dynamic = "force-dynamic";
-
-type VoidListRow = {
-  id: string;
-  einvoice_id: string;
-  reason: string;
-  voided_at: string;
-  voided_by: string | null;
-  einvoice: { ecpay_invoice_no: string | null; total_amount: number; invoice_type: string } | null;
-};
 
 export default async function VoidsPage({
   searchParams,
@@ -37,21 +27,7 @@ export default async function VoidsPage({
   const dateFrom = sp.dateFrom ?? "";
   const dateTo   = sp.dateTo ?? "";
 
-  const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
-
-  let q = supabase
-    .from("einvoice_voids")
-    .select("id, einvoice_id, reason, voided_at, voided_by, einvoice:einvoices(ecpay_invoice_no, total_amount, invoice_type)")
-    .eq("brand_id", brand);
-
-  if (dateFrom) q = q.gte("voided_at", dateFrom);
-  if (dateTo)   q = q.lte("voided_at", `${dateTo}T23:59:59`);
-
-  const { data, error } = await q.order("voided_at", { ascending: false }).limit(500);
-  if (error) throw new Error(`einvoice_voids: ${error.message}`);
-
-  const rows = (data ?? []) as unknown as VoidListRow[];
+  const rows = await getEinvoiceVoidsPageData({ dateFrom, dateTo });
 
   return (
     <main className="px-6 py-5 space-y-3">

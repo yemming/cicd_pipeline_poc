@@ -10,7 +10,8 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
-import { createClient } from "@/lib/supabase/client";
+import { saveFeedbackCanvasSnapshot } from "@/domain/feedback-canvas";
+import type { Json } from "@/lib/database.types";
 
 type SaveStatus = "saved" | "dirty" | "saving" | "error";
 
@@ -69,12 +70,9 @@ export default function CanvasEditorImpl({
     const { collaborators: _c, ...cleanAppState } = appState;
     void _c;
     const snapshot = { elements, appState: cleanAppState, files };
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("feedback_canvas_snapshots")
-      .upsert({ ticket_id: ticketId, snapshot });
-    if (error) {
-      console.error("[feedback] save failed", error);
+    const res = await saveFeedbackCanvasSnapshot(ticketId, snapshot as unknown as Json);
+    if (!res.ok) {
+      console.error("[feedback] save failed", res.error);
       setStatus("error");
     } else {
       setStatus("saved");

@@ -110,3 +110,32 @@ export async function getCountSessionsPageData(filter: {
   ]);
   return { rows, canEdit };
 }
+
+// ─────────────────────────── Count ops page（/parts/operations/count-ops） ───────────────────────────
+
+export interface InventoryCountRow {
+  id: string;
+  ct_no: string | null;
+  warehouse_id: string | null;
+  count_date: string | null;
+  status: string | null;
+  total_lines: number | null;
+  variance_lines: number | null;
+  variance_amount: number | null;
+  approved_at: string | null;
+}
+
+export async function listInventoryCounts(): Promise<InventoryCountRow[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("inventory_counts")
+    .select(
+      "id, ct_no, warehouse_id, count_date, status, total_lines, variance_lines, variance_amount, approved_at",
+    )
+    .eq("brand_id", brand)
+    .order("count_date", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(`inventory_counts: ${error.message}`);
+  return (data ?? []) as unknown as InventoryCountRow[];
+}

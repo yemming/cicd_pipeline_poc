@@ -27,7 +27,7 @@ export default async function ReturnInPage({
 
   const sp = await searchParams;
   const { rows, canEdit } = await getReceiptsPageData({
-    type: "material_return",
+    type: "ro_return",
     status: sp.status || undefined,
     q: sp.q || undefined,
   });

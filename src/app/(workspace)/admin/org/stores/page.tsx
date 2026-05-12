@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { createServiceClient } from "@/lib/supabase/service";
+import { getStoresBoardData } from "@/domain/org-admin";
 
 import { OrgTabs } from "../_components/org-tabs";
 import { StoresBoard } from "./_components/stores-board";
@@ -9,34 +8,16 @@ import { StoresBoard } from "./_components/stores-board";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const { isAdmin } = await getCurrentUserAndAdmin();
-  if (!isAdmin) redirect("/dashboard");
-
-  const sb = createServiceClient();
-  const [{ data: orgs }, { data: brands }, { data: groups }, { data: storeBrands }] =
-    await Promise.all([
-      sb
-        .from("organizations")
-        .select("id, brand_id, group_id, parent_id, type, level, code, name, short_name, is_active, created_at")
-        .order("brand_id")
-        .order("level")
-        .order("code"),
-      sb.from("brands").select("id, name").order("id"),
-      sb.from("groups").select("id, name").order("id"),
-      sb.from("store_brands").select("store_id, brand_id"),
-    ]);
-
-  const brandsForStore = new Map<string, string[]>();
-  for (const r of storeBrands ?? []) {
-    const list = brandsForStore.get(r.store_id) ?? [];
-    list.push(r.brand_id);
-    brandsForStore.set(r.store_id, list);
+  let data: Awaited<ReturnType<typeof getStoresBoardData>>;
+  try {
+    data = await getStoresBoardData();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "UNAUTHENTICATED") redirect("/login");
+    if (msg.startsWith("FORBIDDEN")) redirect("/dashboard");
+    throw err;
   }
-
-  const rows = (orgs ?? []).map((o) => ({
-    ...o,
-    brand_ids: brandsForStore.get(o.id) ?? [],
-  }));
+  const { rows, brands, groups } = data;
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -53,7 +34,7 @@ export default async function Page() {
       <OrgTabs />
 
       <div className="bg-white border border-[#EEECE6] border-t-0 rounded-b-lg p-4 space-y-3">
-        <StoresBoard rows={rows} brands={brands ?? []} groups={groups ?? []} />
+        <StoresBoard rows={rows} brands={brands} groups={groups} />
       </div>
     </main>
   );

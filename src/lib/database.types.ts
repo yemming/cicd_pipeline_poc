@@ -5959,6 +5959,9 @@ export type Database = {
           type: string
           updated_at: string
           vendor_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
           warehouse_id: string
         }
         Insert: {
@@ -5986,6 +5989,9 @@ export type Database = {
           type: string
           updated_at?: string
           vendor_id?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           warehouse_id: string
         }
         Update: {
@@ -6013,6 +6019,9 @@ export type Database = {
           type?: string
           updated_at?: string
           vendor_id?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
           warehouse_id?: string
         }
         Relationships: [
@@ -6221,6 +6230,9 @@ export type Database = {
           tr_no: string
           transfer_type: string
           updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           actual_arrival_date?: string | null
@@ -6251,6 +6263,9 @@ export type Database = {
           tr_no: string
           transfer_type?: string
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           actual_arrival_date?: string | null
@@ -6281,6 +6296,9 @@ export type Database = {
           tr_no?: string
           transfer_type?: string
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -8030,6 +8048,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      supplier_soft_delete: {
+        Args: { p_supplier_id: string }
+        Returns: undefined
+      }
       user_has_brand: { Args: { p_brand: string }; Returns: boolean }
       warehouse_soft_delete_zone: {
         Args: { p_zone_id: string }

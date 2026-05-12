@@ -1,9 +1,5 @@
 import { redirect } from "next/navigation";
-import { createServiceClient } from "@/lib/supabase/service";
-import { getCurrentUserAndNotificationAdmin } from "@/lib/notifications";
-import { listAllSubscriptions } from "@/lib/notifications/repositories/subscription.repo";
-import { listTargets } from "@/lib/notifications/repositories/target.repo";
-import { listCodeTemplates } from "@/lib/notifications/templates";
+import { getNotificationSubscriptionsBoardData } from "@/domain/notifications";
 import { NotificationsPageHeader } from "../_parts/page-header";
 import { CreateSubscriptionForm } from "./_create-form";
 import { SubscriptionRowActions } from "./_row-actions";
@@ -18,22 +14,20 @@ const EVENT_CODES = [
 ] as const;
 
 export default async function SubscriptionsPage() {
-  const ctx = await getCurrentUserAndNotificationAdmin();
-  if (!ctx.userId) redirect("/login");
-  if (!ctx.isAdmin) {
-    return (
-      <div className="p-8 text-center text-on-surface-variant">
-        無管理權限（登入為 {ctx.email ?? "unknown"}）
-      </div>
-    );
+  let data: Awaited<ReturnType<typeof getNotificationSubscriptionsBoardData>>;
+  try {
+    data = await getNotificationSubscriptionsBoardData();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "UNAUTHENTICATED") redirect("/login");
+    if (msg.startsWith("FORBIDDEN")) {
+      return (
+        <div className="p-8 text-center text-on-surface-variant">無管理權限</div>
+      );
+    }
+    throw err;
   }
-
-  const supabase = createServiceClient();
-  const [subs, targets] = await Promise.all([
-    listAllSubscriptions(supabase),
-    listTargets(supabase, { onlyActive: false }),
-  ]);
-  const templates = listCodeTemplates();
+  const { subscriptions: subs, targets, codeTemplates: templates } = data;
 
   // 建一個 target_id → target 的 map 方便列表顯示
   const targetMap = new Map(targets.map((t) => [t.id, t]));

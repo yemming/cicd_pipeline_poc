@@ -1,15 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import Link from "next/link";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import type { StockReceiptListRow } from "@/domain/receipts";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
-  draft: { label: "草稿", chip: "bg-[#FEF9C3] text-[#5C4500]" },
-  posted: { label: "已過帳", chip: "bg-[#EAF3DE] text-[#3B6D11]" },
+  draft:     { label: "草稿",   chip: "bg-[#F2F2F2] text-[#6B6A68]" },
+  completed: { label: "已過帳", chip: "bg-[#EAF3DE] text-[#3B6D11]" },
+  posted:    { label: "已過帳", chip: "bg-[#EAF3DE] text-[#3B6D11]" },
   cancelled: { label: "已取消", chip: "bg-[#FDECEA] text-[#CC0000]" },
 };
+
+const STATUS_OPTIONS = [
+  { value: "", label: "全部" },
+  { value: "draft", label: "草稿" },
+  { value: "completed", label: "已過帳" },
+  { value: "cancelled", label: "已取消" },
+];
+
+function fmtMoney(n: number | null | undefined): string {
+  if (n === null || n === undefined) return "—";
+  return `NT$ ${Number(n).toLocaleString("en-US")}`;
+}
 
 function fmtDate(d: string | null): string {
   return d ? d.replace(/-/g, "/") : "—";
@@ -40,6 +55,95 @@ export function ReturnInBoard({
     );
   }
 
+  function resetFilter() {
+    setStatus("");
+    setQ("");
+    startTransition(() => router.push("/parts/receipt/return-in"));
+  }
+
+  const columns: DataGridColumn<StockReceiptListRow>[] = useMemo(
+    () => [
+      {
+        id: "gr_no",
+        header: "入庫單號",
+        width: 150,
+        hideable: false,
+        cell: (r) => (
+          <Link
+            href={`/parts/receipt/return-in/${r.id}`}
+            className="font-mono font-semibold text-[12px] text-[#1A3A5C] hover:underline"
+          >
+            {r.gr_no ?? "—"}
+          </Link>
+        ),
+        exportValue: (r) => r.gr_no ?? "",
+        sortValue: (r) => r.gr_no ?? "",
+      },
+      {
+        id: "warehouse_name",
+        header: "入庫倉",
+        width: 140,
+        cell: (r) => <span className="text-[12.5px]">{r.warehouse_name ?? "—"}</span>,
+        exportValue: (r) => r.warehouse_name ?? "",
+        sortValue: (r) => r.warehouse_name ?? "",
+      },
+      {
+        id: "receipt_date",
+        header: "入庫日期",
+        width: 110,
+        cell: (r) => <span className="font-mono text-[12px]">{fmtDate(r.receipt_date)}</span>,
+        exportValue: (r) => r.receipt_date ?? "",
+        sortValue: (r) => r.receipt_date ?? "",
+      },
+      {
+        id: "qty_received_total",
+        header: "入庫總數",
+        width: 100,
+        align: "right",
+        cell: (r) => (
+          <span className="font-mono text-[12px]">{r.qty_received_total ?? 0}</span>
+        ),
+        exportValue: (r) => r.qty_received_total ?? 0,
+        sortValue: (r) => r.qty_received_total ?? 0,
+      },
+      {
+        id: "amount_total",
+        header: "入庫金額",
+        width: 130,
+        align: "right",
+        cell: (r) => <span className="font-mono text-[12px]">{fmtMoney(r.amount_total)}</span>,
+        exportValue: (r) => r.amount_total ?? 0,
+        sortValue: (r) => r.amount_total ?? 0,
+      },
+      {
+        id: "status",
+        header: "狀態",
+        width: 100,
+        hideable: false,
+        cell: (r) => {
+          const def = STATUS_LABEL[r.status ?? ""] ?? STATUS_LABEL.draft;
+          return (
+            <span
+              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${def.chip}`}
+            >
+              {def.label}
+            </span>
+          );
+        },
+        exportValue: (r) => (STATUS_LABEL[r.status ?? ""] ?? STATUS_LABEL.draft).label,
+        sortValue: (r) => r.status ?? "",
+      },
+      {
+        id: "notes",
+        header: "備註",
+        cell: (r) => <span className="text-[12px] text-[#5A5955]">{r.notes ?? "—"}</span>,
+        exportValue: (r) => r.notes ?? "",
+        sortValue: (r) => r.notes ?? "",
+      },
+    ],
+    [],
+  );
+
   return (
     <main className="px-6 py-5 space-y-3">
       <header className="flex items-center gap-2.5">
@@ -59,10 +163,11 @@ export function ReturnInBoard({
               onChange={(e) => setStatus(e.target.value)}
               className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
             >
-              <option value="">全部</option>
-              <option value="draft">草稿</option>
-              <option value="posted">已過帳</option>
-              <option value="cancelled">已取消</option>
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex flex-col gap-1">
@@ -87,7 +192,15 @@ export function ReturnInBoard({
             </button>
             <button
               type="button"
-              disabled={!canEdit}
+              onClick={resetFilter}
+              disabled={isPending}
+              className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              重置
+            </button>
+            <button
+              type="button"
+              disabled
               title={canEdit ? "Phase 2 開放" : "沒有權限"}
               className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white opacity-60 cursor-not-allowed"
             >
@@ -103,53 +216,15 @@ export function ReturnInBoard({
         </span>
       </div>
 
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-[#F8F7F4]">
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">入庫單號</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">入庫倉</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">入庫日期</th>
-                <th className="px-3 py-2 text-right text-[11px] text-[#9A9890] font-semibold">入庫總數</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">狀態</th>
-                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">備註</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-10 text-center text-[12px] text-[#9A9890]">
-                    沒有符合條件的領料退貨入庫
-                  </td>
-                </tr>
-              ) : (
-                rows.map((r) => {
-                  const def = STATUS_LABEL[r.status ?? ""] ?? STATUS_LABEL.draft;
-                  return (
-                    <tr key={r.id} className="border-t border-[#EEECE6] hover:bg-[#F8F7F4]">
-                      <td className="px-3 py-2 font-mono text-[12px] text-[#1A3A5C] font-semibold">
-                        {r.gr_no ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 text-[12.5px]">{r.warehouse_name ?? "—"}</td>
-                      <td className="px-3 py-2 font-mono text-[12px]">{fmtDate(r.receipt_date)}</td>
-                      <td className="px-3 py-2 text-right font-mono text-[12px]">
-                        {r.qty_received_total ?? 0}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${def.chip}`}>
-                          {def.label}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-[12px] text-[#5A5955]">{r.notes ?? "—"}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <DataGrid
+        columns={columns}
+        data={rows}
+        rowKey={(r) => r.id}
+        persistKey="parts/receipt/return-in"
+        exportFileName="return-in-receipts"
+        emptyMessage="沒有符合條件的領料退貨入庫"
+        disabled={isPending}
+      />
     </main>
   );
 }

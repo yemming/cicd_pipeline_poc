@@ -1,26 +1,22 @@
 import { redirect } from "next/navigation";
-import { createServiceClient } from "@/lib/supabase/service";
-import { getCurrentUserAndNotificationAdmin } from "@/lib/notifications";
-import { listCodeTemplates } from "@/lib/notifications/templates";
-import { listTemplates } from "@/lib/notifications/repositories/template.repo";
+import { getNotificationTemplatesBoardData } from "@/domain/notifications";
 import { NotificationsPageHeader } from "../_parts/page-header";
 
 export default async function TemplatesPage() {
-  const ctx = await getCurrentUserAndNotificationAdmin();
-  if (!ctx.userId) redirect("/login");
-  if (!ctx.isAdmin) {
-    return (
-      <div className="p-8 text-center text-on-surface-variant">
-        無管理權限（登入為 {ctx.email ?? "unknown"}）
-      </div>
-    );
+  let data: Awaited<ReturnType<typeof getNotificationTemplatesBoardData>>;
+  try {
+    data = await getNotificationTemplatesBoardData();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "UNAUTHENTICATED") redirect("/login");
+    if (msg.startsWith("FORBIDDEN")) {
+      return (
+        <div className="p-8 text-center text-on-surface-variant">無管理權限</div>
+      );
+    }
+    throw err;
   }
-
-  const supabase = createServiceClient();
-  const [codeTpls, dbTpls] = await Promise.all([
-    Promise.resolve(listCodeTemplates()),
-    listTemplates(supabase),
-  ]);
+  const { codeTemplates: codeTpls, dbTemplates: dbTpls } = data;
 
   const dbByCode = new Map(dbTpls.map((t) => [t.code, t]));
 

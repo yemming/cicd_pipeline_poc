@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getActiveScope } from "@/lib/scope/active-scope";
+import { getNewPOFormData } from "@/domain/orders";
 
 import { NewPOForm } from "./_components/new-po-form";
 
@@ -21,35 +20,13 @@ export default async function NewPurchaseOrderPage() {
     );
   }
 
-  const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
-  const [supRes, whRes, itemRes] = await Promise.all([
-    supabase
-      .from("suppliers")
-      .select("id, code, name")
-      .eq("brand_id", brand)
-      .eq("is_active", true)
-      .order("code"),
-    supabase
-      .from("warehouses")
-      .select("id, code, name")
-      .eq("brand_id", brand)
-      .eq("is_active", true)
-      .order("code"),
-    supabase
-      .from("items")
-      .select("id, code, name, base_uom")
-      .eq("brand_id", brand)
-      .eq("is_active", true)
-      .order("code")
-      .limit(500),
-  ]);
+  const { suppliers, warehouses, items } = await getNewPOFormData();
 
   return (
     <NewPOForm
-      suppliers={supRes.data ?? []}
-      warehouses={whRes.data ?? []}
-      items={itemRes.data ?? []}
+      suppliers={suppliers}
+      warehouses={warehouses}
+      items={items}
     />
   );
 }

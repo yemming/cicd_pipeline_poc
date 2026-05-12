@@ -273,3 +273,506 @@ export async function receiveStock(
   revalidatePath("/parts/operations/receipts-history");
   return { ok: true, data: { receipt_id: gr.id, gr_no } };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Detail / Update / Void
+// ─────────────────────────────────────────────────────────────
+
+export type StockReceiptDetailLine = {
+  id: string;
+  line_no: number;
+  item_id: string;
+  item_code: string | null;
+  item_name: string | null;
+  qty_received: number;
+  uom: string;
+  unit_cost: number;
+  line_amount: number;
+  bin_id: string | null;
+  bin_label: string | null;
+  notes: string | null;
+};
+
+export type StockReceiptDetail = StockReceiptRow & {
+  vendor_name: string | null;
+  warehouse_name: string | null;
+  source_po_no: string | null;
+  source_gi_no: string | null;
+  source_tr_no: string | null;
+  posted_by_name: string | null;
+  voided_by_name: string | null;
+  lines: StockReceiptDetailLine[];
+};
+
+export async function getReceiptById(
+  id: string,
+): Promise<StockReceiptDetail | null> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: r, error } = await supabase
+    .from("stock_receipts")
+    .select("*")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!r) return null;
+
+  // join 來源單號（依 source_doc_type 分流）
+  let source_po_no: string | null = null;
+  let source_gi_no: string | null = null;
+  let source_tr_no: string | null = null;
+  if (r.source_doc_id && r.source_doc_type) {
+    if (r.source_doc_type === "purchase_order") {
+      const { data: po } = await supabase
+        .from("purchase_orders")
+        .select("po_no")
+        .eq("id", r.source_doc_id)
+        .maybeSingle();
+      source_po_no = po?.po_no ?? null;
+    } else if (r.source_doc_type === "stock_issue") {
+      const { data: gi } = await supabase
+        .from("stock_issues")
+        .select("gi_no")
+        .eq("id", r.source_doc_id)
+        .maybeSingle();
+      source_gi_no = gi?.gi_no ?? null;
+    } else if (r.source_doc_type === "stock_transfer") {
+      const { data: tr } = await supabase
+        .from("stock_transfers")
+        .select("tr_no")
+        .eq("id", r.source_doc_id)
+        .maybeSingle();
+      source_tr_no = tr?.tr_no ?? null;
+    }
+  }
+
+  // vendor / warehouse / posted_by / voided_by 名字
+  const [vRes, wRes, postRes, voidRes] = await Promise.all([
+    r.vendor_id
+      ? supabase.from("suppliers").select("name").eq("id", r.vendor_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    r.warehouse_id
+      ? supabase.from("warehouses").select("name").eq("id", r.warehouse_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    r.posted_by
+      ? supabase.from("profiles").select("display_name").eq("id", r.posted_by).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    r.voided_by
+      ? supabase.from("profiles").select("display_name").eq("id", r.voided_by).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+  ]);
+
+  // lines + item + bin join
+  const { data: rawLines, error: lineErr } = await supabase
+    .from("stock_receipt_lines")
+    .select(
+      "id, line_no, item_id, qty_received, uom, unit_cost, line_amount, bin_id, notes",
+    )
+    .eq("gr_id", id)
+    .order("line_no", { ascending: true });
+  if (lineErr) throw lineErr;
+
+  const itemIds = Array.from(new Set((rawLines ?? []).map((l) => l.item_id)));
+  const binIds = Array.from(
+    new Set(
+      (rawLines ?? [])
+        .map((l) => l.bin_id)
+        .filter((x): x is string => !!x),
+    ),
+  );
+  const [itemsRes, binsRes] = await Promise.all([
+    itemIds.length
+      ? supabase.from("items").select("id, code, name").in("id", itemIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    binIds.length
+      ? supabase.from("warehouse_bins").select("id, code").in("id", binIds)
+      : Promise.resolve({ data: [], error: null } as const),
+  ]);
+  const itemMap = new Map(
+    (itemsRes.data ?? []).map((it) => [it.id, { code: it.code, name: it.name }]),
+  );
+  const binMap = new Map((binsRes.data ?? []).map((b) => [b.id, b.code]));
+
+  const lines: StockReceiptDetailLine[] = (rawLines ?? []).map((l) => ({
+    id: l.id,
+    line_no: l.line_no,
+    item_id: l.item_id,
+    item_code: itemMap.get(l.item_id)?.code ?? null,
+    item_name: itemMap.get(l.item_id)?.name ?? null,
+    qty_received: Number(l.qty_received ?? 0),
+    uom: l.uom,
+    unit_cost: Number(l.unit_cost ?? 0),
+    line_amount: Number(l.line_amount ?? 0),
+    bin_id: l.bin_id,
+    bin_label: l.bin_id ? binMap.get(l.bin_id) ?? null : null,
+    notes: l.notes,
+  }));
+
+  return {
+    ...r,
+    vendor_name: vRes.data?.name ?? null,
+    warehouse_name: wRes.data?.name ?? null,
+    source_po_no,
+    source_gi_no,
+    source_tr_no,
+    posted_by_name: postRes.data?.display_name ?? null,
+    voided_by_name: voidRes.data?.display_name ?? null,
+    lines,
+  };
+}
+
+export type UpdateReceiptInput = {
+  notes?: string | null;
+  receipt_date?: string;
+  line_notes?: Array<{ id: string; notes: string | null }>;
+};
+
+/**
+ * 更新入庫單 — 受限欄位：notes / receipt_date / 明細行 notes
+ * 過帳後不允許改 qty / unit_cost / item / warehouse / vendor
+ */
+export async function updateReceipt(
+  id: string,
+  patch: UpdateReceiptInput,
+): Promise<Result<{ id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.RECEIPT_CREATE))) {
+    return { ok: false, error: "沒有編輯入庫單的權限" };
+  }
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 守門：cancelled 狀態不可改
+  const { data: current, error: curErr } = await supabase
+    .from("stock_receipts")
+    .select("status")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (curErr) return { ok: false, error: curErr.message };
+  if (!current) return { ok: false, error: "找不到入庫單" };
+  if (current.status === "cancelled") {
+    return { ok: false, error: "已作廢的入庫單不可修改" };
+  }
+
+  const headerPatch: Record<string, unknown> = {};
+  if (patch.notes !== undefined) headerPatch.notes = patch.notes;
+  if (patch.receipt_date !== undefined) headerPatch.receipt_date = patch.receipt_date;
+
+  if (Object.keys(headerPatch).length > 0) {
+    const { error: upErr } = await supabase
+      .from("stock_receipts")
+      .update(headerPatch)
+      .eq("id", id);
+    if (upErr) return { ok: false, error: upErr.message };
+  }
+
+  if (patch.line_notes && patch.line_notes.length > 0) {
+    for (const ln of patch.line_notes) {
+      const { error: lnErr } = await supabase
+        .from("stock_receipt_lines")
+        .update({ notes: ln.notes })
+        .eq("id", ln.id)
+        .eq("gr_id", id);
+      if (lnErr) return { ok: false, error: `明細備註更新失敗:${lnErr.message}` };
+    }
+  }
+
+  revalidatePath("/parts/receipt/po-grn");
+  revalidatePath(`/parts/receipt/po-grn/${id}`);
+  return { ok: true, data: { id } };
+}
+
+/**
+ * 作廢入庫單 — 反向沖回 stock_items + 還原 PO line qty_received + 還原 PO 狀態
+ * 守門：任一 stock_item.status != 'available'（已被消耗）→ 阻擋
+ */
+export async function voidReceipt(
+  id: string,
+  reason: string,
+): Promise<Result<{ id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.RECEIPT_CREATE))) {
+    return { ok: false, error: "沒有作廢入庫單的權限" };
+  }
+  const trimmed = reason.trim();
+  if (!trimmed) return { ok: false, error: "請填寫作廢原因" };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 1. 撈入庫單 + lines
+  const { data: gr, error: grErr } = await supabase
+    .from("stock_receipts")
+    .select("id, status, source_doc_id, source_doc_type")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (grErr) return { ok: false, error: grErr.message };
+  if (!gr) return { ok: false, error: "找不到入庫單" };
+  if (gr.status === "cancelled") return { ok: false, error: "此入庫單已作廢" };
+  if (gr.status !== "completed" && gr.status !== "posted") {
+    return { ok: false, error: `狀態 ${gr.status} 不可作廢` };
+  }
+
+  const { data: lines, error: lineErr } = await supabase
+    .from("stock_receipt_lines")
+    .select("id, source_line_id, source_line_type, qty_received")
+    .eq("gr_id", id);
+  if (lineErr) return { ok: false, error: lineErr.message };
+  if (!lines || lines.length === 0) {
+    return { ok: false, error: "此入庫單無明細，無法作廢" };
+  }
+
+  // 2. 守門：檢查 stock_items 是否都還 available
+  const lineIds = lines.map((l) => l.id);
+  const { data: stockItems, error: siErr } = await supabase
+    .from("stock_items")
+    .select("id, status, source_receipt_line_id")
+    .in("source_receipt_line_id", lineIds);
+  if (siErr) return { ok: false, error: siErr.message };
+  const consumed = (stockItems ?? []).filter((s) => s.status !== "available");
+  if (consumed.length > 0) {
+    return {
+      ok: false,
+      error: `${consumed.length} 筆庫存已被消耗（出貨／調撥／領料），不可作廢；請先處理後續單據`,
+    };
+  }
+
+  // 3. 刪 stock_items
+  if (stockItems && stockItems.length > 0) {
+    const { error: delErr } = await supabase
+      .from("stock_items")
+      .delete()
+      .in(
+        "id",
+        stockItems.map((s) => s.id),
+      );
+    if (delErr) return { ok: false, error: `庫存沖回失敗:${delErr.message}` };
+  }
+
+  // 4. 還原 PO line qty_received
+  const poLineMap = new Map<string, number>();
+  for (const l of lines) {
+    if (l.source_line_type === "po_line" && l.source_line_id) {
+      poLineMap.set(
+        l.source_line_id,
+        (poLineMap.get(l.source_line_id) ?? 0) + Number(l.qty_received ?? 0),
+      );
+    }
+  }
+  if (poLineMap.size > 0) {
+    const poLineIds = Array.from(poLineMap.keys());
+    const { data: poLineRows } = await supabase
+      .from("purchase_order_lines")
+      .select("id, qty_received")
+      .in("id", poLineIds);
+    for (const row of poLineRows ?? []) {
+      const subtract = poLineMap.get(row.id) ?? 0;
+      const next = Math.max(0, Number(row.qty_received ?? 0) - subtract);
+      await supabase
+        .from("purchase_order_lines")
+        .update({ qty_received: next })
+        .eq("id", row.id);
+    }
+  }
+
+  // 5. 還原 PO 整單狀態
+  if (gr.source_doc_type === "purchase_order" && gr.source_doc_id) {
+    const { data: allPoLines } = await supabase
+      .from("purchase_order_lines")
+      .select("qty_ordered, qty_received")
+      .eq("po_id", gr.source_doc_id);
+    const totalOrdered = (allPoLines ?? []).reduce(
+      (s, l) => s + Number(l.qty_ordered ?? 0),
+      0,
+    );
+    const totalReceived = (allPoLines ?? []).reduce(
+      (s, l) => s + Number(l.qty_received ?? 0),
+      0,
+    );
+    const pct = totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0;
+    const newStatus = pct >= 100 ? "received" : pct > 0 ? "partial_received" : "approved";
+    await supabase
+      .from("purchase_orders")
+      .update({
+        qty_received_total: totalReceived,
+        receipt_progress_pct: pct,
+        status: newStatus,
+        ...(newStatus !== "received" ? { closed_at: null } : {}),
+      })
+      .eq("id", gr.source_doc_id);
+  }
+
+  // 6. 標記入庫單為 cancelled
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error: voidErr } = await supabase
+    .from("stock_receipts")
+    .update({
+      status: "cancelled",
+      voided_at: new Date().toISOString(),
+      voided_by: user?.id ?? null,
+      void_reason: trimmed,
+    })
+    .eq("id", id);
+  if (voidErr) return { ok: false, error: `標記作廢失敗:${voidErr.message}` };
+
+  revalidatePath("/parts/purchase/orders");
+  revalidatePath("/parts/receipt/po-grn");
+  revalidatePath(`/parts/receipt/po-grn/${id}`);
+  revalidatePath("/parts/operations/balance");
+  revalidatePath("/parts/operations/receipts-history");
+  return { ok: true, data: { id } };
+}
+
+// ─────────────────────────── PO GRN new page（/parts/receipt/po-grn/new） ───────────────────────────
+
+export interface PoCandidate {
+  id: string;
+  po_no: string;
+  status: string;
+  vendor_name: string | null;
+  warehouse_name: string | null;
+  qty_ordered_total: number;
+  qty_received_total: number;
+}
+
+export interface PoGrnDetail {
+  po: {
+    id: string;
+    po_no: string;
+    warehouse_id: string;
+    vendor_name: string | null;
+    warehouse_name: string | null;
+  };
+  lines: Array<{
+    id: string;
+    line_no: number;
+    item_id: string;
+    qty_ordered: number;
+    qty_received: number;
+    unit_price: number;
+    item_code: string;
+    item_name: string;
+  }>;
+  bins: Array<{ id: string; code: string; name: string | null }>;
+}
+
+export type PoGrnNewPageData =
+  | { mode: "chooser"; candidates: PoCandidate[] }
+  | { mode: "detail"; detail: PoGrnDetail }
+  | { mode: "detail"; detail: null };
+
+export async function getPoGrnNewPageData(poId?: string): Promise<PoGrnNewPageData> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  if (!poId) {
+    const { data, error } = await supabase
+      .from("purchase_orders")
+      .select(
+        "id, po_no, status, vendor_id, warehouse_id, qty_ordered_total, qty_received_total, suppliers ( name ), warehouses ( name )",
+      )
+      .eq("brand_id", brand)
+      .in("status", ["approved", "partial_received"])
+      .order("po_date", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(`po candidates: ${error.message}`);
+    const candidates = ((data ?? []) as unknown as Array<{
+      id: string;
+      po_no: string;
+      status: string;
+      qty_ordered_total: number;
+      qty_received_total: number;
+      suppliers: { name: string | null } | null;
+      warehouses: { name: string | null } | null;
+    }>).map((r) => ({
+      id: r.id,
+      po_no: r.po_no,
+      status: r.status,
+      qty_ordered_total: Number(r.qty_ordered_total ?? 0),
+      qty_received_total: Number(r.qty_received_total ?? 0),
+      vendor_name: r.suppliers?.name ?? null,
+      warehouse_name: r.warehouses?.name ?? null,
+    }));
+    return { mode: "chooser", candidates };
+  }
+
+  // poId 模式：撈單張 PO 的細節 + bins
+  const { data: po, error: poErr } = await supabase
+    .from("purchase_orders")
+    .select(
+      "id, po_no, status, vendor_id, warehouse_id, suppliers ( name ), warehouses ( name )",
+    )
+    .eq("brand_id", brand)
+    .eq("id", poId)
+    .single();
+  if (poErr || !po) return { mode: "detail", detail: null };
+
+  const [linesRes, binsRes] = await Promise.all([
+    supabase
+      .from("purchase_order_lines")
+      .select(
+        "id, line_no, item_id, qty_ordered, qty_received, unit_price, items ( code, name )",
+      )
+      .eq("brand_id", brand)
+      .eq("po_id", poId)
+      .order("line_no"),
+    supabase
+      .from("warehouse_bins")
+      .select("id, code, name")
+      .eq("brand_id", brand)
+      .eq(
+        "warehouse_id",
+        (po as unknown as { warehouse_id: string }).warehouse_id,
+      )
+      .order("code"),
+  ]);
+  if (linesRes.error) throw new Error(`lines: ${linesRes.error.message}`);
+
+  const lines = (linesRes.data ?? []).map((l) => {
+    const meta = l as unknown as {
+      id: string;
+      line_no: number;
+      item_id: string;
+      qty_ordered: number;
+      qty_received: number;
+      unit_price: number;
+      items: { code: string | null; name: string | null } | null;
+    };
+    return {
+      id: meta.id,
+      line_no: meta.line_no,
+      item_id: meta.item_id,
+      qty_ordered: Number(meta.qty_ordered),
+      qty_received: Number(meta.qty_received),
+      unit_price: Number(meta.unit_price),
+      item_code: meta.items?.code ?? "",
+      item_name: meta.items?.name ?? "",
+    };
+  });
+
+  const headerRow = po as unknown as {
+    id: string;
+    po_no: string;
+    warehouse_id: string;
+    suppliers: { name: string | null } | null;
+    warehouses: { name: string | null } | null;
+  };
+
+  return {
+    mode: "detail",
+    detail: {
+      po: {
+        id: headerRow.id,
+        po_no: headerRow.po_no,
+        warehouse_id: headerRow.warehouse_id,
+        vendor_name: headerRow.suppliers?.name ?? null,
+        warehouse_name: headerRow.warehouses?.name ?? null,
+      },
+      lines,
+      bins: (binsRes.data ?? []) as Array<{ id: string; code: string; name: string | null }>,
+    },
+  };
+}

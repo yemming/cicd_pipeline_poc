@@ -7,7 +7,7 @@ export const indianBrand: BrandConfig = {
   loginTitle: "Indian Motorcycle 經銷商智慧營運平台",
   primaryColor: "#C8102E",
   primaryColorDark: "#9C0C24",
-  searchPlaceholder: "搜尋客戶、訂單、機車...",
+  searchPlaceholder: "搜尋客戶、供應商、物料、單據...",
   hqDmsLabel: "Indian HQ DMS",
   webhookHost: "api.dealeros.indian.tw",
   ecpayDefaults: {

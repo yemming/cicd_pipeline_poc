@@ -30,6 +30,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# dev server runtime artifacts（npm run dev 產生）
+/dev.log
+/dev.pid
+
+# supabase types generation leftover
+/src/lib/*.ts.new
+
 # env files (can opt-in for committing if needed)
 .env*
 

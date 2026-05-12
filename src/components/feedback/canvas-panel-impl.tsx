@@ -10,7 +10,8 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import "@excalidraw/excalidraw/index.css";
-import { createClient } from "@/lib/supabase/client";
+import { saveFeedbackCanvasSnapshot } from "@/domain/feedback-canvas";
+import type { Json } from "@/lib/database.types";
 
 type SaveStatus = "saved" | "dirty" | "saving" | "error";
 
@@ -69,11 +70,8 @@ export default function CanvasPanelImpl({
     const { collaborators: _c, ...cleanAppState } = appState;
     void _c;
     const snapshot = { elements, appState: cleanAppState, files };
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("feedback_canvas_snapshots")
-      .upsert({ ticket_id: ticketId, snapshot });
-    setStatus(error ? "error" : "saved");
+    const res = await saveFeedbackCanvasSnapshot(ticketId, snapshot as unknown as Json);
+    setStatus(res.ok ? "saved" : "error");
   }, [ticketId]);
 
   // Cmd/Ctrl+S 存檔；在 capture 階段攔截，蓋掉 Excalidraw 自帶的「另存 .excalidraw」與瀏覽器存網頁

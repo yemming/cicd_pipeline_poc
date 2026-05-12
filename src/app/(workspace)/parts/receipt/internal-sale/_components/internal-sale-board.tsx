@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo } from "react";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
@@ -34,7 +35,12 @@ export function InternalSaleBoard({
         width: 140,
         hideable: false,
         cell: (r) => (
-          <span className="font-mono font-semibold text-[#1A3A5C]">{r.doc_no}</span>
+          <Link
+            href={`/parts/receipt/internal-sale/${r.id}`}
+            className="font-mono font-semibold text-[#1A3A5C] hover:underline"
+          >
+            {r.doc_no}
+          </Link>
         ),
         exportValue: (r) => r.doc_no,
         sortValue: (r) => r.doc_no,

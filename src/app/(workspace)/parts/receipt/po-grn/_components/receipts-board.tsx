@@ -72,9 +72,12 @@ export function ReceiptsBoard({
         width: 150,
         hideable: false,
         cell: (r) => (
-          <span className="font-mono font-semibold text-[12px] text-[#1A3A5C]">
+          <Link
+            href={`/parts/receipt/po-grn/${r.id}`}
+            className="font-mono font-semibold text-[12px] text-[#1A3A5C] hover:underline"
+          >
             {r.gr_no ?? "—"}
-          </span>
+          </Link>
         ),
         exportValue: (r) => r.gr_no ?? "",
         sortValue: (r) => r.gr_no ?? "",

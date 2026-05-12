@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
 import { CardStepBar } from "@/components/card-step-bar";
-import { createClient } from "@/lib/supabase/client";
+import { getCurrentUserProfile } from "@/domain/users";
 
 const STAFF_LIST = [
   "陳建志", "林佳蓉", "王俊傑", "黃雅婷", "劉明宏", "張惠如",
@@ -91,13 +91,9 @@ export default function CounterPage() {
     setArrival({ date: dateStr, time: toTimeStr(now), cardNo: `DU-${dateStr.replace(/-/g, "")}-001` });
     setIsMobile(navigator.maxTouchPoints > 0);
 
-    const supabase = createClient();
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const user = session?.user;
-      if (!user) { setCurrentUserName("—"); return; }
-      const { data: profile } = await supabase
-        .from("profiles").select("name").eq("id", user.id).single();
-      const name = profile?.name ?? user.email ?? "—";
+    getCurrentUserProfile().then((profile) => {
+      if (!profile) { setCurrentUserName("—"); return; }
+      const name = profile.name ?? profile.email ?? "—";
       setCurrentUserName(name);
       setReceptionStaff(STAFF_LIST.find(s => s === name) ?? "");
     });

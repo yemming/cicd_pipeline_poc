@@ -252,5 +252,245 @@ export async function cancelPurchaseOrder(
     .eq("id", poId);
   if (error) return { ok: false, error: `取消失敗:${error.message}` };
   revalidatePath("/parts/purchase/orders");
+  revalidatePath(`/parts/purchase/orders/${poId}`);
   return { ok: true, data: null };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Detail / Update
+// ─────────────────────────────────────────────────────────────
+
+export type PurchaseOrderDetailLine = {
+  id: string;
+  line_no: number;
+  item_id: string;
+  item_code: string | null;
+  item_name: string | null;
+  item_uom: string | null;
+  qty_ordered: number;
+  qty_received: number;
+  qty_returned: number;
+  unit_price: number;
+  tax_rate: number;
+  line_amount_pretax: number;
+  line_amount_tax: number;
+  line_amount_total: number;
+  notes: string | null;
+};
+
+export type PurchaseOrderReceiptRef = {
+  id: string;
+  gr_no: string;
+  receipt_date: string | null;
+  qty_received_total: number;
+  amount_total: number;
+  status: string;
+};
+
+export type PurchaseOrderDetail = PurchaseOrderRow & {
+  vendor_name: string | null;
+  vendor_code: string | null;
+  warehouse_name: string | null;
+  warehouse_code: string | null;
+  created_by_name: string | null;
+  approved_by_name: string | null;
+  source_req_no: string | null;
+  lines: PurchaseOrderDetailLine[];
+  receipts: PurchaseOrderReceiptRef[];
+};
+
+export async function getPurchaseOrderById(
+  id: string,
+): Promise<PurchaseOrderDetail | null> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: po, error } = await supabase
+    .from("purchase_orders")
+    .select("*")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!po) return null;
+
+  const [vRes, wRes, creatorRes, approverRes, reqRes] = await Promise.all([
+    po.vendor_id
+      ? supabase.from("suppliers").select("name, code").eq("id", po.vendor_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    po.warehouse_id
+      ? supabase.from("warehouses").select("name, code").eq("id", po.warehouse_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    po.created_by
+      ? supabase.from("profiles").select("display_name").eq("id", po.created_by).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    po.approved_by
+      ? supabase.from("profiles").select("display_name").eq("id", po.approved_by).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+    po.source_req_id
+      ? supabase.from("purchase_requisitions").select("req_no").eq("id", po.source_req_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null } as const),
+  ]);
+
+  const { data: rawLines, error: lineErr } = await supabase
+    .from("purchase_order_lines")
+    .select(
+      "id, line_no, item_id, qty_ordered, qty_received, qty_returned, unit_price, tax_rate, line_amount_pretax, line_amount_tax, line_amount_total, uom, notes",
+    )
+    .eq("po_id", id)
+    .order("line_no", { ascending: true });
+  if (lineErr) throw lineErr;
+
+  const itemIds = Array.from(new Set((rawLines ?? []).map((l) => l.item_id)));
+  const itemsRes = itemIds.length
+    ? await supabase.from("items").select("id, code, name, base_uom").in("id", itemIds)
+    : { data: [], error: null };
+  const itemMap = new Map(
+    (itemsRes.data ?? []).map((it) => [it.id, { code: it.code, name: it.name, base_uom: it.base_uom }]),
+  );
+
+  const lines: PurchaseOrderDetailLine[] = (rawLines ?? []).map((l) => ({
+    id: l.id,
+    line_no: l.line_no,
+    item_id: l.item_id,
+    item_code: itemMap.get(l.item_id)?.code ?? null,
+    item_name: itemMap.get(l.item_id)?.name ?? null,
+    item_uom: l.uom ?? itemMap.get(l.item_id)?.base_uom ?? null,
+    qty_ordered: Number(l.qty_ordered ?? 0),
+    qty_received: Number(l.qty_received ?? 0),
+    qty_returned: Number(l.qty_returned ?? 0),
+    unit_price: Number(l.unit_price ?? 0),
+    tax_rate: Number(l.tax_rate ?? 0),
+    line_amount_pretax: Number(l.line_amount_pretax ?? 0),
+    line_amount_tax: Number(l.line_amount_tax ?? 0),
+    line_amount_total: Number(l.line_amount_total ?? 0),
+    notes: l.notes,
+  }));
+
+  const { data: rawReceipts } = await supabase
+    .from("stock_receipts")
+    .select("id, gr_no, receipt_date, qty_received_total, amount_total, status")
+    .eq("source_doc_id", id)
+    .eq("source_doc_type", "purchase_order")
+    .order("receipt_date", { ascending: false });
+
+  const receipts: PurchaseOrderReceiptRef[] = (rawReceipts ?? []).map((r) => ({
+    id: r.id,
+    gr_no: r.gr_no,
+    receipt_date: r.receipt_date,
+    qty_received_total: Number(r.qty_received_total ?? 0),
+    amount_total: Number(r.amount_total ?? 0),
+    status: r.status,
+  }));
+
+  return {
+    ...po,
+    vendor_name: vRes.data?.name ?? null,
+    vendor_code: vRes.data?.code ?? null,
+    warehouse_name: wRes.data?.name ?? null,
+    warehouse_code: wRes.data?.code ?? null,
+    created_by_name: creatorRes.data?.display_name ?? null,
+    approved_by_name: approverRes.data?.display_name ?? null,
+    source_req_no: reqRes.data?.req_no ?? null,
+    lines,
+    receipts,
+  };
+}
+
+// 建單表單需要的下拉資料
+export type NewPOFormPick = { id: string; code: string; name: string };
+export type NewPOFormItemPick = NewPOFormPick & { base_uom: string | null };
+
+export async function getNewPOFormData(): Promise<{
+  suppliers: NewPOFormPick[];
+  warehouses: NewPOFormPick[];
+  items: NewPOFormItemPick[];
+}> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const [supRes, whRes, itemRes] = await Promise.all([
+    supabase
+      .from("suppliers")
+      .select("id, code, name")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("code"),
+    supabase
+      .from("warehouses")
+      .select("id, code, name")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("code"),
+    supabase
+      .from("items")
+      .select("id, code, name, base_uom")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("code")
+      .limit(500),
+  ]);
+  return {
+    suppliers: (supRes.data ?? []) as NewPOFormPick[],
+    warehouses: (whRes.data ?? []) as NewPOFormPick[],
+    items: (itemRes.data ?? []) as NewPOFormItemPick[],
+  };
+}
+
+export type UpdatePurchaseOrderInput = {
+  notes?: string | null;
+  eta_date?: string | null;
+  purchase_type?: string;
+  line_notes?: Array<{ id: string; notes: string | null }>;
+};
+
+/**
+ * 更新採購單 — 受限欄位：notes / eta_date / purchase_type / line notes
+ * received / cancelled 狀態不可改
+ */
+export async function updatePurchaseOrder(
+  id: string,
+  patch: UpdatePurchaseOrderInput,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: current, error: curErr } = await supabase
+    .from("purchase_orders")
+    .select("status")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (curErr) return { ok: false, error: curErr.message };
+  if (!current) return { ok: false, error: "找不到採購單" };
+  if (current.status === "cancelled" || current.status === "received") {
+    return { ok: false, error: `狀態 ${current.status} 不可修改` };
+  }
+
+  const headerPatch: Record<string, unknown> = {};
+  if (patch.notes !== undefined) headerPatch.notes = patch.notes;
+  if (patch.eta_date !== undefined) headerPatch.eta_date = patch.eta_date;
+  if (patch.purchase_type !== undefined) headerPatch.purchase_type = patch.purchase_type;
+
+  if (Object.keys(headerPatch).length > 0) {
+    const { error: upErr } = await supabase
+      .from("purchase_orders")
+      .update(headerPatch)
+      .eq("id", id);
+    if (upErr) return { ok: false, error: upErr.message };
+  }
+
+  if (patch.line_notes && patch.line_notes.length > 0) {
+    for (const ln of patch.line_notes) {
+      const { error: lnErr } = await supabase
+        .from("purchase_order_lines")
+        .update({ notes: ln.notes })
+        .eq("id", ln.id)
+        .eq("po_id", id);
+      if (lnErr) return { ok: false, error: `明細備註更新失敗:${lnErr.message}` };
+    }
+  }
+
+  revalidatePath("/parts/purchase/orders");
+  revalidatePath(`/parts/purchase/orders/${id}`);
+  return { ok: true, data: { id } };
 }

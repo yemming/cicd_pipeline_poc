@@ -7,13 +7,23 @@ import { useRouter } from "next/navigation";
 import { createPurchaseOrder } from "@/domain/orders";
 
 type Pick = { id: string; name: string; code: string };
-type ItemPick = Pick & { base_uom?: string };
+type ItemPick = Pick & { base_uom: string | null };
 
 type Line = {
   item_id: string;
   qty_ordered: number;
   unit_price: number;
 };
+
+const PURCHASE_TYPE_LABEL: Record<string, string> = {
+  planned:     "計畫採購",
+  replenish:   "補貨採購",
+  emergency:   "緊急採購",
+  promotional: "促銷採購",
+};
+
+const inputClass =
+  "h-[30px] w-full px-2 border border-[#D5D3CB] rounded text-[12.5px] focus:border-[#185FA5] outline-none disabled:bg-[#F8F7F4]";
 
 export function NewPOForm({
   suppliers,
@@ -56,7 +66,7 @@ export function NewPOForm({
         return;
       }
       setBanner({ ok: true, msg: `✓ 已建立 ${result.data.po_no}` });
-      setTimeout(() => router.push("/parts/purchase/orders"), 600);
+      setTimeout(() => router.push(`/parts/purchase/orders/${result.data.id}`), 600);
     });
   }
 
@@ -65,14 +75,16 @@ export function NewPOForm({
     0,
   );
   const tax = Math.round(subtotal * 0.05 * 100) / 100;
+  const total = subtotal + tax;
 
-  const inputClass =
-    "h-[30px] w-full px-2 border border-[#D5D3CB] rounded text-[12.5px] focus:border-[#185FA5] outline-none disabled:bg-[#F8F7F4]";
-  const labelClass = "block text-[11px] text-[#9A9890] font-medium mb-1";
+  const vendorPick = suppliers.find((s) => s.id === vendorId);
+  const warehousePick = warehouses.find((w) => w.id === warehouseId);
+  const lineCount = lines.length;
+  const totalQty = lines.reduce((s, l) => s + Number(l.qty_ordered), 0);
 
   return (
     <main className={`px-6 py-5 space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
-      {/* Breadcrumb + 模式 badge */}
+      {/* 1. Breadcrumb + CRUD pill bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2 text-[12px] text-[#9A9890]">
           <Link href="/parts/purchase/orders" className="hover:text-[#185FA5]">
@@ -80,7 +92,7 @@ export function NewPOForm({
           </Link>
           <span>›</span>
           <span className="text-[#5A5955]">新增採購單</span>
-          <span className="ml-1 px-2 py-0.5 text-[11px] rounded-md bg-[#FDF3E3] text-[#854F0B] font-medium">
+          <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
             建立模式
           </span>
         </div>
@@ -94,7 +106,7 @@ export function NewPOForm({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isPending}
+            disabled={isPending || !vendorId || !warehouseId || lines.length === 0}
             className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm disabled:opacity-60"
           >
             {isPending ? "建立中⋯" : "建立採購單"}
@@ -102,14 +114,54 @@ export function NewPOForm({
         </div>
       </div>
 
-      {/* 基本資料 */}
+      {/* 2. Title Card（建立模式 placeholder） */}
+      <header className="bg-white border border-[#EEECE6] rounded-lg p-4">
+        <div className="flex items-stretch gap-4">
+          <div className="flex-1 min-w-0 flex flex-col gap-2">
+            <div>
+              <div className="text-[11px] tracking-wider text-[#9A9890]">商品採購單</div>
+              <h1 className="text-[18px] font-semibold text-[#9A9890] leading-tight italic">
+                （未命名 PO）
+              </h1>
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap text-[12px]">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
+                  尚未建立
+                </span>
+                {vendorPick ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5]">
+                    {vendorPick.name}
+                  </span>
+                ) : null}
+                {warehousePick ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EEF4FB] text-[#185FA5]">
+                    收貨 {warehousePick.name}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <div className="shrink-0 w-[280px] h-[120px] bg-[#F8F7F4] border-2 border-dashed border-[#D5D3CB] rounded-lg flex flex-col items-center justify-center gap-1 px-3">
+            <div className="text-[11px] text-[#9A9890]">預估含稅金額</div>
+            <div className="text-[20px] font-semibold text-[#1A3A5C] font-mono">
+              NT$ {total.toLocaleString("en-US")}
+            </div>
+            <div className="text-[11px] text-[#9A9890]">
+              共 {lineCount} 筆 / {totalQty} 件
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* 3. ▼ 基本資料 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-          <h2 className="text-[13px] font-semibold text-[#2C2C2A]">▼ 基本資料</h2>
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 基本資料</span>
         </header>
-        <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+        <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
           <div>
-            <label className={labelClass}>供應商 *</label>
+            <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+              供應商 <span className="text-[#CC0000]">*</span>
+            </label>
             <select
               value={vendorId}
               onChange={(e) => setVendorId(e.target.value)}
@@ -124,7 +176,9 @@ export function NewPOForm({
             </select>
           </div>
           <div>
-            <label className={labelClass}>收貨倉庫 *</label>
+            <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+              收貨倉庫 <span className="text-[#CC0000]">*</span>
+            </label>
             <select
               value={warehouseId}
               onChange={(e) => setWarehouseId(e.target.value)}
@@ -139,19 +193,21 @@ export function NewPOForm({
             </select>
           </div>
           <div>
-            <label className={labelClass}>採購類型</label>
+            <label className="text-[11px] text-[#9A9890] font-medium block mb-1">採購類型</label>
             <select
               value={purchaseType}
               onChange={(e) => setPurchaseType(e.target.value)}
               className={inputClass}
             >
-              <option value="planned">計畫採購</option>
-              <option value="ad_hoc">臨時採購</option>
-              <option value="urgent">緊急採購</option>
+              {Object.entries(PURCHASE_TYPE_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <label className={labelClass}>預計到貨日</label>
+            <label className="text-[11px] text-[#9A9890] font-medium block mb-1">預計到貨日</label>
             <input
               type="date"
               value={etaDate}
@@ -162,10 +218,10 @@ export function NewPOForm({
         </div>
       </section>
 
-      {/* 採購明細 */}
+      {/* 4. ▼ 採購明細 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold text-[#2C2C2A]">▼ 採購明細</h2>
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 採購明細</span>
           <button
             type="button"
             onClick={() =>
@@ -179,98 +235,126 @@ export function NewPOForm({
             ＋ 加一行
           </button>
         </header>
-        <div className="px-4 py-3">
-          <div className="grid grid-cols-12 gap-2 items-center text-[11px] text-[#9A9890] font-medium mb-1.5">
-            <div className="col-span-6">商品</div>
-            <div className="col-span-2 text-right">數量</div>
-            <div className="col-span-3 text-right">單價</div>
-            <div className="col-span-1"></div>
-          </div>
-          <div className="space-y-1.5">
-            {lines.map((line, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                <select
-                  value={line.item_id}
-                  onChange={(e) =>
-                    setLines((prev) =>
-                      prev.map((l, i) =>
-                        i === idx ? { ...l, item_id: e.target.value } : l,
-                      ),
-                    )
-                  }
-                  className={inputClass + " col-span-6"}
-                >
-                  {items.length === 0 ? <option value="">尚無商品</option> : null}
-                  {items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.code} · {item.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min={1}
-                  value={line.qty_ordered}
-                  onChange={(e) =>
-                    setLines((prev) =>
-                      prev.map((l, i) =>
-                        i === idx ? { ...l, qty_ordered: Number(e.target.value) || 0 } : l,
-                      ),
-                    )
-                  }
-                  className={inputClass + " col-span-2 text-right font-mono"}
-                />
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={line.unit_price}
-                  onChange={(e) =>
-                    setLines((prev) =>
-                      prev.map((l, i) =>
-                        i === idx ? { ...l, unit_price: Number(e.target.value) || 0 } : l,
-                      ),
-                    )
-                  }
-                  className={inputClass + " col-span-3 text-right font-mono"}
-                />
-                <button
-                  type="button"
-                  disabled={lines.length === 1}
-                  onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
-                  className="col-span-1 h-[30px] text-[#CC0000] hover:text-[#7d0000] disabled:text-[#D5D3CB] text-[16px]"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 pt-3 border-t border-[#EEECE6] grid grid-cols-3 gap-2 text-[12px]">
-            <div className="text-[#9A9890]">
-              未稅 NT$ <span className="font-mono text-[#2C2C2A]">{subtotal.toLocaleString("en-US")}</span>
-            </div>
-            <div className="text-[#9A9890]">
-              稅 (5%) NT$ <span className="font-mono text-[#2C2C2A]">{tax.toLocaleString("en-US")}</span>
-            </div>
-            <div className="text-right text-[#0F6E56] font-semibold">
-              含稅 NT$ {(subtotal + tax).toLocaleString("en-US")}
-            </div>
-          </div>
+        <div className="px-4 py-3 overflow-x-auto">
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              <tr className="border-b border-[#EEECE6] bg-[#F8F7F4]">
+                <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[50px]">行號</th>
+                <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium">品項</th>
+                <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[70px]">單位</th>
+                <th className="text-right px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[110px]">數量</th>
+                <th className="text-right px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[130px]">單價</th>
+                <th className="text-right px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[130px]">未稅金額</th>
+                <th className="text-center px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[50px]"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((line, idx) => {
+                const item = items.find((i) => i.id === line.item_id);
+                const lineTotal = Number(line.qty_ordered) * Number(line.unit_price);
+                return (
+                  <tr key={idx} className="border-b border-[#EEECE6]">
+                    <td className="px-2 py-2 font-mono text-[#9A9890]">{idx + 1}</td>
+                    <td className="px-2 py-2">
+                      <select
+                        value={line.item_id}
+                        onChange={(e) =>
+                          setLines((prev) =>
+                            prev.map((l, i) =>
+                              i === idx ? { ...l, item_id: e.target.value } : l,
+                            ),
+                          )
+                        }
+                        className={inputClass}
+                      >
+                        {items.length === 0 ? <option value="">尚無商品</option> : null}
+                        {items.map((it) => (
+                          <option key={it.id} value={it.id}>
+                            {it.code} · {it.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-2 text-[#5A5955]">{item?.base_uom ?? "—"}</td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        min={1}
+                        value={line.qty_ordered}
+                        onChange={(e) =>
+                          setLines((prev) =>
+                            prev.map((l, i) =>
+                              i === idx ? { ...l, qty_ordered: Number(e.target.value) || 0 } : l,
+                            ),
+                          )
+                        }
+                        className={inputClass + " text-right font-mono"}
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={line.unit_price}
+                        onChange={(e) =>
+                          setLines((prev) =>
+                            prev.map((l, i) =>
+                              i === idx ? { ...l, unit_price: Number(e.target.value) || 0 } : l,
+                            ),
+                          )
+                        }
+                        className={inputClass + " text-right font-mono"}
+                      />
+                    </td>
+                    <td className="px-2 py-2 text-right font-mono text-[#2C2C2A]">
+                      {lineTotal.toLocaleString("en-US")}
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <button
+                        type="button"
+                        disabled={lines.length === 1}
+                        onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
+                        className="h-[26px] w-[26px] text-[#CC0000] hover:bg-[#FDECEA] disabled:text-[#D5D3CB] disabled:hover:bg-transparent text-[16px] rounded"
+                        title="移除"
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </section>
 
-      {/* 備註 */}
+      {/* 5. ▼ 金額 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-          <h2 className="text-[13px] font-semibold text-[#2C2C2A]">▼ 備註</h2>
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 金額</span>
+        </header>
+        <div className="px-4 py-4 grid grid-cols-3 gap-x-6 gap-y-3">
+          <Kv label="未稅" value={<span className="font-mono">NT$ {subtotal.toLocaleString("en-US")}</span>} />
+          <Kv label="稅 (5%)" value={<span className="font-mono">NT$ {tax.toLocaleString("en-US")}</span>} />
+          <Kv
+            label="含稅"
+            value={<span className="font-mono font-semibold text-[#0F6E56]">NT$ {total.toLocaleString("en-US")}</span>}
+          />
+        </div>
+      </section>
+
+      {/* 6. ▼ 備註 */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 備註</span>
         </header>
         <div className="px-4 py-3">
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="（選填）"
+            placeholder="（選填）例如：附 PI、客戶指定品⋯"
             className="w-full px-2 py-1.5 border border-[#D5D3CB] rounded text-[12.5px] focus:border-[#185FA5] outline-none resize-none"
           />
         </div>
@@ -289,5 +373,20 @@ export function NewPOForm({
         </div>
       ) : null}
     </main>
+  );
+}
+
+function Kv({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5 min-w-0">
+      <div className="text-[11px] text-[#9A9890] font-medium">{label}</div>
+      <div className="text-[12.5px] text-[#2C2C2A] truncate">{value}</div>
+    </div>
   );
 }
