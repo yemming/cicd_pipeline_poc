@@ -5,12 +5,14 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
+import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
 
 import type { Database } from "@/lib/database.types";
 import { EXCEPTIONS_PAGE_SIZE_DEFAULT } from "./adjustments.constants";
@@ -233,7 +235,7 @@ export async function getNewAdjustmentFormData(): Promise<NewAdjustmentFormData>
 }
 
 export type CreateAdjustmentInput = {
-  type: "exception_in" | "exception_out" | "damage" | "manual" | "other";
+  type: "exception_in" | "exception_out" | "damage" | "manual" | "other" | "loss" | "gain";
   warehouse_id: string;
   reason: string;
   notes?: string | null;
@@ -418,6 +420,43 @@ export async function createAdjustment(
     }
   }
   await supabase.from("inventory_adjustment_lines").insert(linePayloads);
+
+  // 會計事件：依 input.type / net qty_delta 方向 map 進 STOCK_ADJUSTMENT_GAIN/LOSS engine
+  //   manual 跳過（adjustStockManualAction 走自己的 path）
+  //   POC v1：取 lines[0] 代表整單（沿用 PARTS_PURCHASE 慣例）、跨品類精算屬 engine v2
+  if (input.type !== "manual" && input.lines.length > 0) {
+    const netQtyDelta = input.lines.reduce((s, l) => s + l.qty_delta, 0);
+    const direction: "GAIN" | "LOSS" | "SKIP" = (() => {
+      if (input.type === "exception_in" || input.type === "gain") return "GAIN";
+      if (input.type === "exception_out" || input.type === "damage" || input.type === "loss") return "LOSS";
+      // type === 'other' → 看 net 正負
+      if (netQtyDelta > 0) return "GAIN";
+      if (netQtyDelta < 0) return "LOSS";
+      return "SKIP";
+    })();
+    if (direction !== "SKIP") {
+      const txCode = direction === "GAIN" ? TX_TYPES.STOCK_ADJUSTMENT_GAIN : TX_TYPES.STOCK_ADJUSTMENT_LOSS;
+      const firstLine = input.lines[0];
+      const netAmount = Math.round(totalAmount * 100) / 100;
+      const adjNo = adj.adj_no;
+      after(async () => {
+        const res = await instantiateTransaction(
+          txCode,
+          {
+            item_id: firstLine.item_id,
+            warehouse_id: input.warehouse_id,
+            net_amount: netAmount,
+          },
+          { autoPost: true, entryDate: new Date().toISOString().slice(0, 10) },
+        );
+        if (!res.ok) {
+          console.error(`[accounting] ${txCode} 自動過帳失敗`, { adj_no: adjNo, error: res.error });
+        } else {
+          console.log(`[accounting] ${txCode} 已自動過帳（posted）`, { adj_no: adjNo, journal_entry: res.data });
+        }
+      });
+    }
+  }
 
   revalidatePath("/parts/operations/exceptions");
   revalidatePath("/parts/operations/balance");
