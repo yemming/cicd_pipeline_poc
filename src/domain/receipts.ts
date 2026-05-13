@@ -783,6 +783,131 @@ export async function payReceipt(
   return { ok: true, data: { receipt_id: gr.id } };
 }
 
+// ─────────────────────────────────────────────────────────────
+//  退回供應商：標 metadata.return + after() 非阻塞觸發 PARTS_RETURN_TO_SUPPLIER
+//  POC v1：未結款才能退；不動 stock_items（業務面 v2 再做）
+// ─────────────────────────────────────────────────────────────
+
+export type ReturnReceiptInput = {
+  receipt_id: string;
+  reason?: string;
+  net_amount?: number;       // 預設 receipt.amount_total
+  tax_amount?: number;       // 預設 net × 0.05
+};
+
+export async function returnReceipt(
+  input: ReturnReceiptInput,
+): Promise<Result<{ receipt_id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.RECEIPT_CREATE))) {
+    return { ok: false, error: "沒有退貨的權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: gr, error: grErr } = await supabase
+    .from("stock_receipts")
+    .select(
+      "id, gr_no, status, vendor_id, warehouse_id, amount_total, metadata, source_doc_type, source_doc_id",
+    )
+    .eq("id", input.receipt_id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (grErr) return { ok: false, error: grErr.message };
+  if (!gr) return { ok: false, error: "找不到入庫單" };
+  if (gr.status !== "completed" && gr.status !== "posted") {
+    return { ok: false, error: `狀態 ${gr.status} 不可退貨` };
+  }
+  if (!gr.vendor_id) return { ok: false, error: "此入庫單沒有供應商，無法退貨" };
+  const meta = (gr.metadata ?? {}) as Record<string, unknown>;
+  const payment = (meta.payment ?? {}) as Record<string, unknown>;
+  if (payment.status === "paid") {
+    return { ok: false, error: "已結款的入庫單不可直接退貨（請走退款流程）" };
+  }
+  const returnMeta = (meta.return ?? {}) as Record<string, unknown>;
+  if (returnMeta.status === "returned") {
+    return { ok: false, error: "此入庫單已退回供應商" };
+  }
+
+  const { data: firstLine, error: lineErr } = await supabase
+    .from("stock_receipt_lines")
+    .select("item_id")
+    .eq("gr_id", gr.id)
+    .order("line_no", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (lineErr) return { ok: false, error: lineErr.message };
+  if (!firstLine) return { ok: false, error: "此入庫單無明細" };
+
+  let storeId: string | null = null;
+  if (gr.warehouse_id) {
+    const { data: wh } = await supabase
+      .from("warehouses")
+      .select("org_id")
+      .eq("id", gr.warehouse_id)
+      .maybeSingle();
+    storeId = wh?.org_id ?? null;
+  }
+
+  // net / tax：跟 PARTS_PURCHASE 對稱，amount_total 是未稅
+  const netAmount =
+    typeof input.net_amount === "number"
+      ? Math.round(input.net_amount * 100) / 100
+      : Math.round(Number(gr.amount_total ?? 0) * 100) / 100;
+  const taxAmount =
+    typeof input.tax_amount === "number"
+      ? Math.round(input.tax_amount * 100) / 100
+      : Math.round(netAmount * 0.05 * 100) / 100;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const nextMeta = {
+    ...meta,
+    return: {
+      status: "returned",
+      returned_at: new Date().toISOString(),
+      returned_by: user?.id ?? null,
+      reason: input.reason?.trim() ?? null,
+      net_amount: netAmount,
+      tax_amount: taxAmount,
+    },
+  };
+  const { error: updErr } = await supabase
+    .from("stock_receipts")
+    .update({ metadata: nextMeta })
+    .eq("id", gr.id);
+  if (updErr) return { ok: false, error: `標記退貨失敗：${updErr.message}` };
+
+  after(async () => {
+    const res = await instantiateTransaction(
+      TX_TYPES.PARTS_RETURN_TO_SUPPLIER,
+      {
+        supplier_id: gr.vendor_id,
+        item_id: firstLine.item_id,
+        warehouse_id: gr.warehouse_id,
+        store_id: storeId,
+        net_amount: netAmount,
+        tax_amount: taxAmount,
+      },
+      { autoPost: true, entryDate: today, userId: user?.id },
+    );
+    if (!res.ok) {
+      console.error("[accounting] PARTS_RETURN_TO_SUPPLIER 自動過帳失敗", {
+        gr_no: gr.gr_no,
+        error: res.error,
+      });
+    } else {
+      console.log("[accounting] PARTS_RETURN_TO_SUPPLIER 已自動過帳（posted）", {
+        gr_no: gr.gr_no,
+        journal_entry: res.data,
+      });
+    }
+  });
+
+  revalidatePath("/parts/receipt/po-grn");
+  revalidatePath(`/parts/receipt/po-grn/${gr.id}`);
+  return { ok: true, data: { receipt_id: gr.id } };
+}
+
 // ─────────────────────────── PO GRN new page（/parts/receipt/po-grn/new） ───────────────────────────
 
 export interface PoCandidate {

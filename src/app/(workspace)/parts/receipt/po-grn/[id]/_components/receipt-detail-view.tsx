@@ -8,7 +8,7 @@ import type {
   StockReceiptDetail,
   StockReceiptDetailLine,
 } from "@/domain/receipts";
-import { payReceipt, updateReceipt, voidReceipt } from "@/domain/receipts";
+import { payReceipt, returnReceipt, updateReceipt, voidReceipt } from "@/domain/receipts";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit";
@@ -63,6 +63,8 @@ export function ReceiptDetailView({
   const isCancelled = receipt.status === "cancelled";
   const payment = (receipt.metadata as { payment?: { status?: string } } | null)?.payment ?? null;
   const isPaid = payment?.status === "paid";
+  const returnMeta = (receipt.metadata as { return?: { status?: string } } | null)?.return ?? null;
+  const isReturned = returnMeta?.status === "returned";
 
   function showBanner(b: Banner, autoCloseMs?: number) {
     setBanner(b);
@@ -130,6 +132,19 @@ export function ReceiptDetailView({
         router.refresh();
       } else {
         showBanner({ ok: false, msg: `結款失敗：${res.error}` });
+      }
+    });
+  }
+
+  function confirmReturn() {
+    if (!window.confirm("確認退回供應商？將自動產生沖銷分錄（C 庫存 / C 進項稅 / D 應付）並 posted。")) return;
+    startTransition(async () => {
+      const res = await returnReceipt({ receipt_id: receipt.id });
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已退回供應商（自動產分錄）" }, 2200);
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: `退回失敗：${res.error}` });
       }
     });
   }
@@ -203,10 +218,18 @@ export function ReceiptDetailView({
               <button
                 type="button"
                 onClick={confirmPay}
-                disabled={!canEdit || isCancelled || isPaid || isPending}
+                disabled={!canEdit || isCancelled || isPaid || isReturned || isPending}
                 className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm disabled:opacity-50"
               >
                 {isPending ? "結款中⋯" : isPaid ? "已結款" : "結款"}
+              </button>
+              <button
+                type="button"
+                onClick={confirmReturn}
+                disabled={!canEdit || isCancelled || isPaid || isReturned || isPending}
+                className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#FDF3E3] border border-[#F5C97A] text-[#854F0B] hover:bg-[#fbe9c5] shadow-sm disabled:opacity-50"
+              >
+                {isPending ? "退貨中⋯" : isReturned ? "已退回" : "↩ 退回供應商"}
               </button>
               <button
                 type="button"
