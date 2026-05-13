@@ -665,6 +665,124 @@ export async function voidReceipt(
   return { ok: true, data: { id } };
 }
 
+// ─────────────────────────────────────────────────────────────
+// Pay supplier — 沖 PARTS_PURCHASE 產生的 AP
+// ─────────────────────────────────────────────────────────────
+
+export type PayReceiptInput = {
+  receipt_id: string;
+  bank_id?: string;        // 預設 'BANK-MAIN'
+  amount?: number;         // 預設用 receipt.amount_total（含稅）
+};
+
+export async function payReceipt(
+  input: PayReceiptInput,
+): Promise<Result<{ receipt_id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.RECEIPT_CREATE))) {
+    return { ok: false, error: "沒有結款的權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: gr, error: grErr } = await supabase
+    .from("stock_receipts")
+    .select(
+      "id, gr_no, status, vendor_id, warehouse_id, amount_total, metadata, source_doc_type, source_doc_id",
+    )
+    .eq("id", input.receipt_id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (grErr) return { ok: false, error: grErr.message };
+  if (!gr) return { ok: false, error: "找不到入庫單" };
+  if (gr.status !== "completed" && gr.status !== "posted") {
+    return { ok: false, error: `狀態 ${gr.status} 不可結款` };
+  }
+  if (!gr.vendor_id) return { ok: false, error: "此入庫單沒有供應商，無法結款" };
+  const meta = (gr.metadata ?? {}) as Record<string, unknown>;
+  const payment = (meta.payment ?? {}) as Record<string, unknown>;
+  if (payment.status === "paid") {
+    return { ok: false, error: "此入庫單已結款" };
+  }
+
+  // 取第一條 line 當代表（同 PARTS_PURCHASE 的 POC 假設：單 line GRN）
+  const { data: firstLine, error: lineErr } = await supabase
+    .from("stock_receipt_lines")
+    .select("item_id")
+    .eq("gr_id", gr.id)
+    .order("line_no", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (lineErr) return { ok: false, error: lineErr.message };
+  if (!firstLine) return { ok: false, error: "此入庫單無明細" };
+
+  // store_id：從 warehouse 推（與 engine chain resolver 一致），補 ctx 也方便
+  let storeId: string | null = null;
+  if (gr.warehouse_id) {
+    const { data: wh } = await supabase
+      .from("warehouses")
+      .select("org_id")
+      .eq("id", gr.warehouse_id)
+      .maybeSingle();
+    storeId = wh?.org_id ?? null;
+  }
+
+  // 含稅金額；PARTS_PURCHASE 的 AP 是 net + tax，本筆付款一次清掉
+  // input.amount 視為含稅；fallback 用 amount_total（未稅） × 1.05
+  const amount =
+    typeof input.amount === "number"
+      ? Math.round(input.amount * 100) / 100
+      : Math.round(Number(gr.amount_total ?? 0) * 1.05 * 100) / 100;
+  const bankId = input.bank_id ?? "BANK-MAIN";
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const nextMeta = {
+    ...meta,
+    payment: {
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      paid_by: user?.id ?? null,
+      bank_id: bankId,
+      amount,
+    },
+  };
+  const { error: updErr } = await supabase
+    .from("stock_receipts")
+    .update({ metadata: nextMeta })
+    .eq("id", gr.id);
+  if (updErr) return { ok: false, error: `標記付款失敗：${updErr.message}` };
+
+  after(async () => {
+    const res = await instantiateTransaction(
+      TX_TYPES.VENDOR_PAYMENT_BANK,
+      {
+        supplier_id: gr.vendor_id,
+        item_id: firstLine.item_id,
+        warehouse_id: gr.warehouse_id,
+        store_id: storeId,
+        bank_id: bankId,
+        amount,
+      },
+      { autoPost: true, entryDate: today, userId: user?.id },
+    );
+    if (!res.ok) {
+      console.error("[accounting] VENDOR_PAYMENT_BANK 自動過帳失敗", {
+        gr_no: gr.gr_no,
+        error: res.error,
+      });
+    } else {
+      console.log("[accounting] VENDOR_PAYMENT_BANK 已自動過帳（posted）", {
+        gr_no: gr.gr_no,
+        journal_entry: res.data,
+      });
+    }
+  });
+
+  revalidatePath("/parts/receipt/po-grn");
+  revalidatePath(`/parts/receipt/po-grn/${gr.id}`);
+  return { ok: true, data: { receipt_id: gr.id } };
+}
+
 // ─────────────────────────── PO GRN new page（/parts/receipt/po-grn/new） ───────────────────────────
 
 export interface PoCandidate {

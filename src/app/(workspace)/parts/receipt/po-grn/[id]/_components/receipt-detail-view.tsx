@@ -8,7 +8,7 @@ import type {
   StockReceiptDetail,
   StockReceiptDetailLine,
 } from "@/domain/receipts";
-import { updateReceipt, voidReceipt } from "@/domain/receipts";
+import { payReceipt, updateReceipt, voidReceipt } from "@/domain/receipts";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit";
@@ -61,6 +61,8 @@ export function ReceiptDetailView({
 
   const statusDef = STATUS_LABEL[receipt.status ?? ""] ?? STATUS_LABEL.completed;
   const isCancelled = receipt.status === "cancelled";
+  const payment = (receipt.metadata as { payment?: { status?: string } } | null)?.payment ?? null;
+  const isPaid = payment?.status === "paid";
 
   function showBanner(b: Banner, autoCloseMs?: number) {
     setBanner(b);
@@ -115,6 +117,19 @@ export function ReceiptDetailView({
         router.refresh();
       } else {
         showBanner({ ok: false, msg: `儲存失敗：${res.error}` });
+      }
+    });
+  }
+
+  function confirmPay() {
+    if (!window.confirm("確認結款？將自動產生會計分錄並 posted。")) return;
+    startTransition(async () => {
+      const res = await payReceipt({ receipt_id: receipt.id });
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已結款（自動產分錄）" }, 2200);
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: `結款失敗：${res.error}` });
       }
     });
   }
@@ -184,6 +199,14 @@ export function ReceiptDetailView({
                 className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] shadow-sm disabled:opacity-50"
               >
                 修改
+              </button>
+              <button
+                type="button"
+                onClick={confirmPay}
+                disabled={!canEdit || isCancelled || isPaid || isPending}
+                className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm disabled:opacity-50"
+              >
+                {isPending ? "結款中⋯" : isPaid ? "已結款" : "結款"}
               </button>
               <button
                 type="button"
