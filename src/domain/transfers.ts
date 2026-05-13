@@ -652,20 +652,24 @@ export async function receiveTransfer(
     (s, l) => s + Number(l.qty_shipped) * Number(l.unit_cost ?? 0),
     0,
   );
-  const { error: grErr } = await supabase.from("stock_receipts").insert({
-    brand_id: brandId,
-    gr_no,
-    type: "transfer",
-    warehouse_id: tr.target_warehouse_id,
-    receipt_date: today.toISOString().slice(0, 10),
-    qty_received_total: totalReceived,
-    amount_total: Math.round(totalAmount * 100) / 100,
-    source_doc_id: tr.id,
-    source_doc_type: "stock_transfer",
-    status: "completed",
-    posted_at: new Date().toISOString(),
-    notes: `調撥 ${tr.tr_no} 入庫`,
-  });
+  const { data: gr, error: grErr } = await supabase
+    .from("stock_receipts")
+    .insert({
+      brand_id: brandId,
+      gr_no,
+      type: "transfer",
+      warehouse_id: tr.target_warehouse_id,
+      receipt_date: today.toISOString().slice(0, 10),
+      qty_received_total: totalReceived,
+      amount_total: Math.round(totalAmount * 100) / 100,
+      source_doc_id: tr.id,
+      source_doc_type: "stock_transfer",
+      status: "completed",
+      posted_at: new Date().toISOString(),
+      notes: `調撥 ${tr.tr_no} 入庫`,
+    })
+    .select("id")
+    .single();
   if (grErr) return { ok: false, error: `建立收貨單失敗：${grErr.message}` };
 
   // 5. 更新 stock_transfers
@@ -685,6 +689,43 @@ export async function receiveTransfer(
       .from("stock_transfer_lines")
       .update({ qty_received: l.qty_shipped })
       .eq("id", l.id);
+  }
+
+  // 7. 會計事件處理（PARTS_INTERNAL_TRANSFER）
+  //   - 同 subsidiary：純庫存內部移動、GAAP 不產 JE、直接 gl_posted=true 收尾
+  //   - 跨 subsidiary：需走 INTER_COMPANY_TRANSFER（未實作）、保留 gl_posted=false 等未來補
+  const [{ data: srcWh }, { data: tgtWh }] = await Promise.all([
+    supabase.from("warehouses").select("org_id").eq("id", tr.source_warehouse_id).maybeSingle(),
+    supabase.from("warehouses").select("org_id").eq("id", tr.target_warehouse_id).maybeSingle(),
+  ]);
+  const [{ data: srcOrg }, { data: tgtOrg }] = await Promise.all([
+    srcWh?.org_id
+      ? supabase.from("organizations").select("subsidiary_id").eq("id", srcWh.org_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    tgtWh?.org_id
+      ? supabase.from("organizations").select("subsidiary_id").eq("id", tgtWh.org_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const srcSub = srcOrg?.subsidiary_id ?? null;
+  const tgtSub = tgtOrg?.subsidiary_id ?? null;
+  const sameSubsidiary = srcSub != null && tgtSub != null && srcSub === tgtSub;
+  if (sameSubsidiary) {
+    await supabase
+      .from("stock_receipts")
+      .update({ gl_posted: true, gl_posted_at: new Date().toISOString() })
+      .eq("id", gr.id);
+    console.log("[accounting] PARTS_INTERNAL_TRANSFER same-subsidiary、skip JE", {
+      tr_no: tr.tr_no,
+      gr_no,
+      subsidiary_id: srcSub,
+    });
+  } else {
+    console.warn("[accounting] PARTS_INTERNAL_TRANSFER cross-subsidiary detected — 需走 INTER_COMPANY_TRANSFER（未實作）", {
+      tr_no: tr.tr_no,
+      gr_no,
+      src_subsidiary: srcSub,
+      tgt_subsidiary: tgtSub,
+    });
   }
 
   revalidatePath("/parts/issue/transfer-out");
