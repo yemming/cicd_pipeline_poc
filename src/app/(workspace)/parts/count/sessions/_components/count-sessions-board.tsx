@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import type { CountSessionListRow } from "@/domain/count";
+import { ApproveCountButton } from "./session-actions";
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
   draft: { label: "草稿", chip: "bg-[#FEF9C3] text-[#5C4500]" },
@@ -108,12 +109,13 @@ export function CountSessionsBoard({
                 <th className="px-3 py-2 text-right text-[11px] text-[#9A9890] font-semibold">差異金額</th>
                 <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">狀態</th>
                 <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">凍結倉庫</th>
+                <th className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-semibold">操作</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-10 text-center text-[12px] text-[#9A9890]">
+                  <td colSpan={8} className="px-3 py-10 text-center text-[12px] text-[#9A9890]">
                     沒有符合條件的盤點
                   </td>
                 </tr>
@@ -141,6 +143,13 @@ export function CountSessionsBoard({
                       <td className="px-3 py-2 text-[12px]">
                         {r.freeze_warehouse ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDECEA] text-[#CC0000]">凍結中</span>
+                        ) : (
+                          <span className="text-[#9A9890]">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-[12px]">
+                        {r.status === "pending_approval" && canEdit ? (
+                          <ApproveCountButton ctId={r.id} ctNo={r.ct_no ?? r.id} />
                         ) : (
                           <span className="text-[#9A9890]">—</span>
                         )}

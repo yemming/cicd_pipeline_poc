@@ -9,11 +9,13 @@
 
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ItemInsert } from "../types";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -1099,6 +1101,43 @@ export async function approveCountAdjustmentAction(
     })
     .eq("id", ctId);
 
+  if (varianceLines && varianceLines.length > 0 && adjNo) {
+    const totalAmount = Number(ct.variance_amount);
+    const txType =
+      totalAmount > 0
+        ? TX_TYPES.STOCK_ADJUSTMENT_GAIN
+        : totalAmount < 0
+          ? TX_TYPES.STOCK_ADJUSTMENT_LOSS
+          : null;
+    if (txType) {
+      const firstLine = varianceLines[0];
+      after(async () => {
+        const res = await instantiateTransaction(
+          txType,
+          {
+            item_id: firstLine.item_id,
+            warehouse_id: ct.warehouse_id,
+            net_amount: Math.abs(totalAmount),
+          },
+          { autoPost: true },
+        );
+        if (!res.ok) {
+          console.error("[accounting] STOCK_ADJUSTMENT 自動過帳失敗", {
+            adj_no: adjNo,
+            tx_type: txType,
+            error: res.error,
+          });
+        } else {
+          console.log("[accounting] STOCK_ADJUSTMENT 已自動過帳（posted）", {
+            adj_no: adjNo,
+            tx_type: txType,
+            journal_entry: res.data,
+          });
+        }
+      });
+    }
+  }
+
   revalidatePath("/parts/count/sessions");
   revalidatePath("/parts/count/adjustments");
   revalidatePath("/parts/operations/balance");
@@ -1222,6 +1261,41 @@ export async function adjustStockManualAction(
         notes: `${adj_no}：${l.notes ?? input.reason}`,
       });
     }
+  }
+
+  const txType =
+    type === "gain"
+      ? TX_TYPES.STOCK_ADJUSTMENT_GAIN
+      : type === "loss"
+        ? TX_TYPES.STOCK_ADJUSTMENT_LOSS
+        : null;
+  if (txType && input.lines[0]) {
+    const firstLine = input.lines[0];
+    const netAmount = Math.abs(Math.round(totalAmount * 100) / 100);
+    after(async () => {
+      const res = await instantiateTransaction(
+        txType,
+        {
+          item_id: firstLine.item_id,
+          warehouse_id: input.warehouse_id,
+          net_amount: netAmount,
+        },
+        { autoPost: true },
+      );
+      if (!res.ok) {
+        console.error("[accounting] STOCK_ADJUSTMENT 自動過帳失敗（manual）", {
+          adj_no,
+          tx_type: txType,
+          error: res.error,
+        });
+      } else {
+        console.log("[accounting] STOCK_ADJUSTMENT 已自動過帳（posted, manual）", {
+          adj_no,
+          tx_type: txType,
+          journal_entry: res.data,
+        });
+      }
+    });
   }
 
   revalidatePath("/parts/operations/adjust");
