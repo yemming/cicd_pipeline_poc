@@ -346,7 +346,15 @@ async function normalizeSubsidiaryChain(
 // ============================================================
 
 type MasterRow = Record<string, unknown> & { id: string };
-type MasterCache = Record<string /* table */, Map<string /* id */, MasterRow>>;
+type MasterCache = {
+  byTable: Record<string /* table */, Map<string /* id */, MasterRow>>;
+  coaByCode: Map<string /* account_code */, string /* coa_id */>;
+};
+
+function collectFixedCoaCodes(resolver: CoaResolver, out: Set<string>): void {
+  if (resolver.type === "fixed_coa") out.add(resolver.source);
+  if (resolver.fallback) collectFixedCoaCodes(resolver.fallback, out);
+}
 
 async function fetchMasters(
   sb: ReturnType<typeof createServiceClient>,
@@ -355,40 +363,46 @@ async function fetchMasters(
 ): Promise<{ ok: true; data: MasterCache } | { ok: false; error: string }> {
   // 收集每個 (table, column) 需要的 ids
   const needs: Record<string, { columns: Set<string>; ids: Set<string> }> = {};
+  const fixedCodes = new Set<string>();
   for (const line of template.lines) {
+    collectFixedCoaCodes(line.coa_resolver, fixedCodes);
     if (line.coa_resolver.type === "master_field") {
       const [table, column] = line.coa_resolver.source.split(".");
       const idField = line.coa_resolver.lookup_via.replace(/^ctx\./, "");
       const id = ctx[idField];
-      if (!id || typeof id !== "string") {
-        // lookup_via 是 optional 場景（fallback 會 cover）；先 skip、resolveCoa 階段再 fail-fast
-        continue;
-      }
+      if (!id || typeof id !== "string") continue;
       if (!needs[table]) needs[table] = { columns: new Set(), ids: new Set() };
       needs[table].columns.add(column);
       needs[table].ids.add(id);
     }
   }
 
-  const cache: MasterCache = {};
+  const byTable: MasterCache["byTable"] = {};
   for (const [table, { columns, ids }] of Object.entries(needs)) {
     const colList = ["id", ...columns];
-    // name 欄位順手撈、給 description_template 用（不在的話 select 會 error、但這幾張主檔都有 name 或 model_name）
-    // → 為穩定起見只撈 PK + 需要的 coa 欄位，name 之類延後 enhance
     const { data, error } = await sb
       .from(table)
       .select(colList.join(","))
       .in("id", Array.from(ids));
-    if (error) {
-      return { ok: false, error: `撈 master ${table} 失敗：${error.message}` };
-    }
+    if (error) return { ok: false, error: `撈 master ${table} 失敗：${error.message}` };
     const map = new Map<string, MasterRow>();
-    for (const row of (data as unknown as MasterRow[]) ?? []) {
-      map.set(row.id, row);
-    }
-    cache[table] = map;
+    for (const row of (data as unknown as MasterRow[]) ?? []) map.set(row.id, row);
+    byTable[table] = map;
   }
-  return { ok: true, data: cache };
+
+  const coaByCode = new Map<string, string>();
+  if (fixedCodes.size > 0) {
+    const { data, error } = await sb
+      .from("chart_of_accounts")
+      .select("id, account_code")
+      .in("account_code", Array.from(fixedCodes));
+    if (error) return { ok: false, error: `撈 fixed_coa account_code 失敗：${error.message}` };
+    for (const row of (data as Array<{ id: string; account_code: string }>) ?? []) {
+      coaByCode.set(row.account_code, row.id);
+    }
+  }
+
+  return { ok: true, data: { byTable, coaByCode } };
 }
 
 // ============================================================
@@ -408,22 +422,24 @@ function resolveCoa(
     const idField = resolver.lookup_via.replace(/^ctx\./, "");
     const id = ctx[idField];
     if (typeof id === "string") {
-      const row = masters[table]?.get(id);
+      const row = masters.byTable[table]?.get(id);
       coaId = (row?.[column] as string | null | undefined) ?? null;
     }
   } else if (resolver.type === "system_default") {
     coaId = (sys[resolver.source] as string | null | undefined) ?? null;
   } else if (resolver.type === "tax_code_coa") {
-    // tax_codes is not pre-fetched; resolved at runtime. For POC, lookup synchronously fails — 預留
     return {
       ok: false,
       error: `tax_code_coa resolver 尚未實作（template 用了 source="${resolver.source}"）`,
     };
   } else if (resolver.type === "fixed_coa") {
-    return {
-      ok: false,
-      error: `fixed_coa resolver 尚未實作（需 account_code → id lookup，template source="${resolver.source}"）`,
-    };
+    coaId = masters.coaByCode.get(resolver.source) ?? null;
+    if (!coaId && !resolver.fallback) {
+      return {
+        ok: false,
+        error: `fixed_coa account_code="${resolver.source}" 在 chart_of_accounts 中找不到`,
+      };
+    }
   }
 
   if (coaId) return { ok: true, coaId };
