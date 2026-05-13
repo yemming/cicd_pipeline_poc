@@ -11,7 +11,7 @@
  *  - pickForWorkOrder：RO 一鍵領料（建單 + lines + 扣 stock_items）
  *  - pickAdHoc：手動領料（不綁 RO）
  *  - updateIssue：限定欄位編輯（notes / line.notes）
- *  - voidIssue：作廢（守門 status='posted'、還原 stock_items、寫 voided_*）
+ *  - voidIssue：作廢（守門 status='completed'、還原 stock_items、寫 voided_*）
  */
 
 import { revalidatePath } from "next/cache";
@@ -310,7 +310,7 @@ export async function getRepairPickFormData(): Promise<RepairPickFormData> {
       .select("ro_id")
       .eq("brand_id", scope.brand_id)
       .eq("type", "repair_pick")
-      .eq("status", "posted"),
+      .eq("status", "completed"),
   ]);
 
   const woIds = (woRes.data ?? []).map((w) => w.id);
@@ -874,8 +874,8 @@ export async function voidIssue(
     .maybeSingle();
   if (issueErr) return { ok: false, error: issueErr.message };
   if (!issue) return { ok: false, error: "找不到領料單" };
-  if (issue.status !== "posted") {
-    return { ok: false, error: `狀態 ${issue.status} 不可作廢（需 posted）` };
+  if (issue.status !== "completed") {
+    return { ok: false, error: `狀態 ${issue.status} 不可作廢（需 completed）` };
   }
 
   const { data: lines, error: linesErr } = await supabase
