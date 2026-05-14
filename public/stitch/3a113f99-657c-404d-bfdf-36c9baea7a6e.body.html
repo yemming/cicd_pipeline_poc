@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS06 中古車評估鑑價 v2 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--blue:#185FA5;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--navy:#1A3A5C;--gray:#9A9890;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-red{background:rgba(200,0,26,.8);border-color:transparent;}
+.hbtn-red:hover{background:var(--red);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.tab-bar{background:#fff;border-bottom:2px solid #EEECE6;display:flex;position:sticky;top:52px;z-index:90;overflow-x:auto;}
+.tab-btn{flex-shrink:0;padding:11px 14px;font-size:12px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;}
+.tab-btn.active{color:var(--navy);font-weight:700;border-bottom-color:var(--red);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+.main{max-width:1100px;margin:0 auto;padding:16px 20px 60px;}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.panel-hdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-left{display:flex;align-items:center;gap:10px;}
+.picon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-blue{background:var(--blue-bg);}.pi-red{background:var(--red-bg);}.pi-teal{background:var(--teal-bg);}.pi-amber{background:var(--amber-bg);}.pi-dark{background:#E8EDF2;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:14px 16px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;}
+.ff{grid-column:1/-1;}
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.req{color:var(--red);font-size:11px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;}
+.fi:focus{border-color:var(--blue-bd);}
+.fs{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.mono{font-family:'DM Mono',monospace;font-weight:600;}
+.scan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.scan-box{border:1.5px dashed #D5D3CB;border-radius:8px;padding:12px 8px;text-align:center;background:#FAFAF8;cursor:pointer;transition:all .15s;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;position:relative;}
+.scan-box:hover{border-color:var(--blue-bd);background:var(--blue-bg);}
+.scan-box.done{border-style:solid;border-color:var(--teal-bd);background:var(--teal-bg);}
+.scan-icon{font-size:20px;}
+.scan-label{font-size:11.5px;font-weight:600;color:#4A4A48;}
+.scan-sub{font-size:10px;color:var(--gray);}
+.scan-tag{position:absolute;top:5px;right:5px;font-size:10px;background:var(--teal);color:#fff;padding:1px 5px;border-radius:3px;}
+.moto-wrap{position:relative;width:100%;margin-bottom:6px;}
+.moto-wrap svg{display:block;width:100%;}
+.dot{position:absolute;width:16px;height:16px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);cursor:pointer;transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,.25);}
+.dot.ok{background:#0F6E56;}.dot.warn{background:#F0A500;}.dot.bad{background:#C8001A;}.dot.empty{background:rgba(120,120,120,.35);}
+.dot:hover{transform:translate(-50%,-50%) scale(1.35);}
+.moto-lbl{font-size:10.5px;font-weight:700;color:var(--gray);letter-spacing:.4px;margin-bottom:4px;text-transform:uppercase;}
+.dot-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gray);}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.paint-row{display:grid;grid-template-columns:1fr 72px 80px 1fr;gap:6px;align-items:center;padding:6px 10px;border-radius:6px;border:1px solid #EEECE6;background:#FAFAF8;font-size:12px;}
+.paint-zone{font-weight:600;}
+.pt-inp{width:100%;padding:4px 6px;border-radius:5px;border:1px solid #D5D3CB;font-family:'DM Mono',monospace;font-size:12px;text-align:center;background:#fff;}
+.paint-status{display:flex;gap:3px;justify-content:center;}
+.ps-btn{width:22px;height:22px;border-radius:4px;border:none;cursor:pointer;font-size:10px;transition:all .15s;}
+.ps-ok{background:#E1F5EE;color:#0F6E56;}.ps-warn{background:#FDF3E3;color:#F0A500;}.ps-bad{background:#FDECEA;color:#C8001A;}.ps-active-ok{background:#0F6E56;color:#fff;}.ps-active-warn{background:#F0A500;color:#fff;}.ps-active-bad{background:#C8001A;color:#fff;}
+.chk-item{display:flex;align-items:flex-start;gap:8px;padding:6px 10px;border-radius:6px;border:1px solid #EEECE6;background:#fff;transition:all .15s;}
+.chk-item.ok{background:var(--teal-bg);border-color:var(--teal-bd);}
+.chk-item.warn{background:var(--amber-bg);border-color:var(--amber-bd);}
+.chk-item.bad{background:var(--red-bg);border-color:var(--red-bd);}
+.chk-cb{display:flex;gap:3px;flex-shrink:0;}
+.chk-btn{width:21px;height:21px;border-radius:4px;border:1px solid #D5D3CB;background:#fff;cursor:pointer;font-size:10px;font-weight:700;transition:all .15s;}
+.chk-btn:hover{border-color:var(--navy);}
+.chk-text{font-size:12px;flex:1;line-height:1.55;padding-top:2px;}
+.chk-note{display:none;margin-top:4px;width:100%;padding:4px 7px;border-radius:5px;border:1px solid #D5D3CB;font-size:11.5px;font-family:'Noto Sans TC',sans-serif;background:#fff;}
+.chk-item.warn .chk-note,.chk-item.bad .chk-note{display:block;}
+.cat-hdr{font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.4px;padding:6px 10px 3px;background:#F4F3F0;border-radius:5px;margin-top:6px;text-transform:uppercase;}
+.chk-grid{display:flex;flex-direction:column;gap:3px;}
+.tire-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.tire-box{border:1px solid #EEECE6;border-radius:8px;padding:12px;background:#FAFAF8;}
+.tire-title{font-size:12px;font-weight:700;margin-bottom:8px;color:var(--navy);}
+.tire-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;}
+.tire-lbl{width:76px;color:var(--gray);flex-shrink:0;}
+.tire-inp{flex:1;padding:4px 8px;border-radius:5px;border:1px solid #D5D3CB;font-family:'DM Mono',monospace;font-size:12px;background:#fff;text-align:center;}
+.ts{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.ts-ok{background:var(--teal-bg);}.ts-warn{background:var(--amber-bg);}.ts-bad{background:var(--red-bg);}
+.calc-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.calc-table th{font-size:11px;font-weight:600;color:var(--gray);padding:7px 10px;border-bottom:2px solid #EEECE6;text-align:left;background:#FAFAF8;}
+.calc-table td{padding:8px 10px;border-bottom:1px solid #F4F3F0;vertical-align:middle;}
+.calc-input{width:100%;padding:5px 8px;border-radius:5px;border:1px solid #D5D3CB;font-family:'DM Mono',monospace;font-size:12.5px;text-align:right;background:#fff;outline:none;}
+.calc-input:focus{border-color:var(--blue-bd);}
+.calc-result{font-family:'DM Mono',monospace;font-weight:700;text-align:right;}
+.calc-cat{background:#F4F3F0;font-size:11px;font-weight:700;color:var(--gray);padding:5px 10px;letter-spacing:.3px;}
+.result-box{background:var(--navy);border-radius:9px;padding:16px 20px;margin-top:12px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.rb-item{text-align:center;}
+.rb-label{font-size:10.5px;opacity:.65;margin-bottom:3px;}
+.rb-val{font-size:15px;font-weight:700;font-family:'DM Mono',monospace;}
+.rb-red{color:#FF8080;}.rb-teal{color:#5DCAA5;}
+.rg-label{font-size:11px;opacity:.7;margin-bottom:4px;text-align:right;}
+.rg-val{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;}
+.grade-row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:6px;}
+.grade-chip{padding:8px 4px;text-align:center;border-radius:7px;border:1.5px solid #EEECE6;cursor:pointer;transition:all .15s;}
+.grade-chip:hover{border-color:var(--navy);}
+.grade-chip.sel{border-color:var(--navy);background:var(--blue-bg);}
+.g-score{font-size:15px;font-weight:700;font-family:'DM Mono',monospace;}
+.g-label{font-size:10px;color:var(--gray);margin-top:2px;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:14px 0 7px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}.b-amber{background:var(--amber-bg);color:var(--amber);}.b-gray{background:#F1EFE8;color:var(--gray);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:320px;line-height:1.5;}
+.toast.show{transform:translateY(0);opacity:1;}
+.divider{height:1px;background:#EEECE6;margin:12px 0;}
+.mb12{margin-bottom:12px;}
+.flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.prog-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.prog-bar{flex:1;height:7px;background:#EEECE6;border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--teal),#5DCAA5);border-radius:4px;transition:width .3s;}
+.prog-pct{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;color:var(--teal);white-space:nowrap;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售模組 <b>RS06 中古車評估鑑價</b></div>
+  <div class="ver-badge">v2</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS00_銷售模組_導覽總覽_v2.html')">← RS 總覽</button>
+    <button class="hbtn" onclick="go('RS01_電子手卡_v8.html')">電子手卡</button>
+    <button class="hbtn hbtn-red" onclick="go('RS04_賞車報價與成交訂單_v1.html')">→ 前往報價 RS04</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" id="tb0" onclick="swTab(0,this)">📋 基本資料 &amp; 證件掃描</button>
+  <button class="tab-btn" id="tb1" onclick="swTab(1,this)">🎨 外觀漆面評估</button>
+  <button class="tab-btn" id="tb2" onclick="swTab(2,this)">🔩 車身骨架結構</button>
+  <button class="tab-btn" id="tb3" onclick="swTab(3,this)">⚙️ 機械底盤系統</button>
+  <button class="tab-btn" id="tb4" onclick="swTab(4,this)">💰 收購定價核算</button>
+</div>
+
+<div class="main">
+
+<!-- TAB 0 -->
+<div class="tab-pane active" id="pane-0">
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-blue">🏍️</div><div><div class="panel-title">中古車基本資訊</div><div class="panel-sub">評估前核對車輛識別資料</div></div></div>
+      <span class="badge b-gray" id="eval-no">評估單號：EV-20260510-001</span>
+    </div>
+    <div class="panel-body">
+      <div class="fg3 mb12">
+        <div><div class="fl">廠牌 <span class="req">*</span></div><input type="text" class="fi" value="DUCATI"></div>
+        <div><div class="fl">車款型號 <span class="req">*</span></div>
+          <select class="fs"><option>— 選擇車款 —</option><option selected>Panigale V2（2021）</option><option>Panigale V4 S</option><option>Monster SP</option><option>Streetfighter V4</option><option>Multistrada V4 S</option><option>DesertX Rally</option><option>Hypermotard 698 RVE</option></select>
+        </div>
+        <div><div class="fl">出廠年份 <span class="req">*</span></div><input type="text" class="fi" value="2021"></div>
+        <div><div class="fl">車身號碼（VIN）<span class="req">*</span></div><input type="text" class="fi mono" placeholder="ZDM...（17碼）"></div>
+        <div><div class="fl">引擎號碼 <span class="req">*</span></div><input type="text" class="fi mono" placeholder="引擎號碼"></div>
+        <div><div class="fl">目前牌照號碼</div><input type="text" class="fi" placeholder="例：ABC-1234"></div>
+        <div><div class="fl">當前里程 <span class="req">*</span></div><input type="text" class="fi mono" placeholder="例：35,000 km"></div>
+        <div><div class="fl">車身顏色</div><input type="text" class="fi" placeholder="例：Ducati Red"></div>
+        <div><div class="fl">排氣量</div>
+          <select class="fs"><option>955 cc（≥500cc）</option><option>950 cc</option><option>821 cc</option><option>698 cc</option><option>499 cc（＜500cc）</option></select>
+        </div>
+        <div><div class="fl">行照有效期限</div><input type="date" class="fi"></div>
+        <div><div class="fl">保險到期日</div><input type="date" class="fi"></div>
+        <div><div class="fl">評估師</div><input type="text" class="fi" value="陳志明 RS"></div>
+      </div>
+      <div class="sec-title">整體車況快速評級</div>
+      <div class="fg2">
+        <div><div class="fl">車況等級</div>
+          <div class="grade-row">
+            <div class="grade-chip sel" onclick="selG(this)"><div class="g-score" style="color:var(--red);">S</div><div class="g-label">CPO認證</div></div>
+            <div class="grade-chip" onclick="selG(this)"><div class="g-score" style="color:var(--blue);">A</div><div class="g-label">優良</div></div>
+            <div class="grade-chip" onclick="selG(this)"><div class="g-score" style="color:var(--teal);">B</div><div class="g-label">良好</div></div>
+            <div class="grade-chip" onclick="selG(this)"><div class="g-score" style="color:var(--amber);">C</div><div class="g-label">普通</div></div>
+            <div class="grade-chip" onclick="selG(this)"><div class="g-score" style="color:var(--gray);">D</div><div class="g-label">整備中</div></div>
+          </div>
+        </div>
+        <div><div class="fl">快速備注</div><textarea class="fi" style="height:70px;resize:none;" placeholder="快速記錄明顯缺陷或特殊狀況..."></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-amber">📷</div><div><div class="panel-title">車輛證件掃描存檔</div><div class="panel-sub">使用平板相機拍攝各項證件 · 存入評估紀錄備查 · 供日後買賣合約及過戶手續使用</div></div></div>
+      <span class="badge b-gray" id="scan-cnt">0 / 8 已掃描</span>
+    </div>
+    <div class="panel-body">
+      <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:7px;padding:8px 14px;margin-bottom:12px;font-size:12px;color:var(--amber);">
+        📷 <b>操作說明：</b>點擊方格啟動平板相機拍攝，照片自動存入本評估紀錄備查。所有文件均需與行照核對一致，VIN 號碼為鑑定真偽的最重要依據。
+      </div>
+      <!-- 台灣中古重機過戶所需文件（依監理站規定） -->
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px;">
+        <div style="background:var(--teal-bg);border:1px solid var(--teal-bd);border-radius:7px;padding:8px 12px;font-size:11.5px;">
+          <div style="font-weight:700;color:var(--teal);margin-bottom:4px;">✅ 過戶必備文件</div>
+          <div style="color:#4A4A48;line-height:1.8;">
+            ① 行照正本<br>
+            ② 賣方身分證正本（雙證件）<br>
+            ③ 買方身分證正本（雙證件）<br>
+            ④ 強制責任險保單（有效期 30 日以上）<br>
+            ⑤ 過戶登記申請書（監理站現場填寫）<br>
+            ⑥ 新舊車主印章
+          </div>
+        </div>
+        <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:7px;padding:8px 12px;font-size:11.5px;">
+          <div style="font-weight:700;color:var(--amber);margin-bottom:4px;">⚠️ 特殊狀況額外文件</div>
+          <div style="color:#4A4A48;line-height:1.8;">
+            出廠 5 年以上 → 臨時檢驗合格證<br>
+            有貸款設定 → 清償證明 + 塗銷動保設定<br>
+            有違規/欠稅 → 繳清收據（2個月內）<br>
+            非本人辦理 → 委託書 + 代辦人身分證<br>
+            強制險不足30日 → 新車主名義重新投保
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:8px;">📷 掃描存檔（點擊方格啟動相機）</div>
+      <div class="scan-grid" id="scan-grid">
+        <div class="scan-box" id="sc0" onclick="doScan(0,'行照正本')"><div class="scan-icon">📋</div><div class="scan-label">行照正本</div><div class="scan-sub">確認車牌/VIN/車型一致</div></div>
+        <div class="scan-box" id="sc1" onclick="doScan(1,'賣方身分證')"><div class="scan-icon">🆔</div><div class="scan-label">賣方身分證</div><div class="scan-sub">正面 + 背面（雙證件）</div></div>
+        <div class="scan-box" id="sc2" onclick="doScan(2,'買方身分證')"><div class="scan-icon">🆔</div><div class="scan-label">買方身分證</div><div class="scan-sub">正面 + 背面（雙證件）</div></div>
+        <div class="scan-box" id="sc3" onclick="doScan(3,'強制責任險保單')"><div class="scan-icon">🛡️</div><div class="scan-label">強制責任險保單</div><div class="scan-sub">有效期需 30 日以上</div></div>
+        <div class="scan-box" id="sc4" onclick="doScan(4,'臨時檢驗合格證')"><div class="scan-icon">✅</div><div class="scan-label">臨時檢驗合格證</div><div class="scan-sub">出廠 5 年以上車輛必備</div></div>
+        <div class="scan-box" id="sc5" onclick="doScan(5,'保養手冊/維修紀錄')"><div class="scan-icon">📖</div><div class="scan-label">保養手冊/維修紀錄</div><div class="scan-sub">評估保養完整性</div></div>
+        <div class="scan-box" id="sc6" onclick="doScan(6,'VIN車身號碼特寫')"><div class="scan-icon">🔢</div><div class="scan-label">VIN 車身號碼特寫</div><div class="scan-sub">車架實體號碼，需與行照一致</div></div>
+        <div class="scan-box" id="sc7" onclick="doScan(7,'儀表板里程數')"><div class="scan-icon">📊</div><div class="scan-label">里程數特寫</div><div class="scan-sub">通電後儀表板截圖</div></div>
+      </div>
+      <div class="sec-title">過戶前必要查詢</div>
+      <div class="fg3">
+        <div><div class="fl">交通違規罰款</div>
+          <div style="display:flex;gap:6px;">
+            <select class="fs" style="flex:1;"><option>未查詢</option><option>無未繳罰款 ✅</option><option>有未繳罰款 ⚠️（需先繳清）</option></select>
+            <button class="btn btn-ghost btn-sm" onclick="showToast('🔍 開啟監理服務網罰款查詢...')">查詢</button>
+          </div>
+        </div>
+        <div><div class="fl">貸款 / 動產擔保設定</div>
+          <select class="fs"><option>未查詢</option><option>無設定（可直接過戶）✅</option><option>有設定，已清償塗銷 ✅</option><option>有設定，尚未清償 ❌（需先辦塗銷）</option></select>
+        </div>
+        <div><div class="fl">出廠年份 / 驗車狀態</div>
+          <select class="fs"><option>出廠未滿 5 年（免驗車）</option><option>出廠 5 年以上，4 個月內已驗車 ✅</option><option>出廠 5 年以上，需臨時驗車 ⚠️</option></select>
+        </div>
+        <div><div class="fl">牌照稅 / 燃料稅</div>
+          <select class="fs"><option>未查詢</option><option>已繳清 ✅</option><option>有積欠 ⚠️（需先清繳）</option></select>
+        </div>
+        <div><div class="fl">強制責任險剩餘天數</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="text" class="fi" placeholder="例：45 天" style="flex:1;">
+            <span style="font-size:11px;color:var(--gray);white-space:nowrap;">≥30天可移轉</span>
+          </div>
+        </div>
+        <div><div class="fl">過戶規費說明</div>
+          <div style="background:#F4F3F0;border-radius:6px;padding:7px 10px;font-size:11.5px;color:#5A5955;line-height:1.7;">
+            過戶費 NT$150 + 當年剩餘牌照稅 + 燃料稅
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="showToast('💾 基本資料已儲存')">💾 儲存</button>
+    <button class="btn btn-primary" onclick="swTab(1,document.getElementById('tb1'))">外觀漆面評估 →</button>
+  </div>
+</div>
+
+<!-- TAB 1 外觀 -->
+<div class="tab-pane" id="pane-1">
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-red">🎨</div><div><div class="panel-title">外觀損傷標記圖</div><div class="panel-sub">點擊標記點循環：正常 → 注意 → 損傷 → 未標記</div></div></div>
+      <div class="dot-legend" style="margin:0;">
+        <div class="leg"><div class="leg-dot" style="background:#0F6E56;"></div>正常</div>
+        <div class="leg"><div class="leg-dot" style="background:#F0A500;"></div>注意</div>
+        <div class="leg"><div class="leg-dot" style="background:#C8001A;"></div>損傷</div>
+        <div class="leg"><div class="leg-dot" style="background:rgba(120,120,120,.35);"></div>未標</div>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="moto-lbl">側面圖 Side View</div>
+      <div class="moto-wrap" style="height:152px;">
+        <svg viewBox="0 0 420 145" width="100%" height="145">
+          <circle cx="325" cy="112" r="27" fill="none" stroke="#999" stroke-width="7"/>
+          <circle cx="325" cy="112" r="13" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+          <circle cx="95"  cy="112" r="27" fill="none" stroke="#999" stroke-width="7"/>
+          <circle cx="95"  cy="112" r="13" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+          <path d="M95 88 L145 60 L270 58 L325 88" fill="none" stroke="#888" stroke-width="4" stroke-linecap="round"/>
+          <line x1="95" y1="88" x2="130" y2="62" stroke="#888" stroke-width="5" stroke-linecap="round"/>
+          <path d="M130 62 Q155 38 200 34 Q240 30 270 38 L285 60 Q290 75 285 88 L145 88 Z" fill="#D8D8D8" stroke="#BBB" stroke-width="1.5"/>
+          <path d="M80 88 Q72 72 88 58 Q108 44 135 46 L145 88 Z" fill="#CACACA" stroke="#BBB" stroke-width="1.5"/>
+          <path d="M285 88 L340 88 Q355 78 345 62 Q330 44 300 42 Q285 40 285 60 Z" fill="#CACACA" stroke="#BBB" stroke-width="1.5"/>
+          <path d="M172 36 Q210 26 258 34 L260 50 Q220 42 170 50 Z" fill="#C8C8C8" stroke="#AAA" stroke-width="1"/>
+          <path d="M185 38 Q222 28 270 36 L270 44 Q222 36 185 46 Z" fill="#444" stroke="#333" stroke-width="1"/>
+          <path d="M278 100 Q305 108 332 103" stroke="#999" stroke-width="6" fill="none" stroke-linecap="round"/>
+          <path d="M130 60 Q138 46 150 48" stroke="#999" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+          <rect x="122" y="38" width="13" height="9" rx="2" fill="#C8C8C8" stroke="#AAA"/>
+          <ellipse cx="76" cy="73" rx="7" ry="9" fill="#EEEEBB" stroke="#CCC"/>
+          <rect x="341" y="65" width="11" height="9" rx="1.5" fill="#FFB0B0" stroke="#DDD"/>
+          <path d="M145 118 Q230 124 325 116" stroke="#AAA" stroke-width="2.5" fill="none" stroke-dasharray="4,3"/>
+          <ellipse cx="175" cy="96" rx="18" ry="12" fill="#BEBEBE" stroke="#999" stroke-width="1.5"/>
+          <path d="M285 95 Q310 90 335 95 Q345 100 340 108" stroke="#888" stroke-width="5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="dot empty" style="left:21%;top:62%;" data-label="左整流罩" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:36%;top:42%;" data-label="油箱車身" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:52%;top:45%;" data-label="座墊尾段" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:78%;top:58%;" data-label="車尾整流罩" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:23%;top:88%;" data-label="前輪前叉" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:77%;top:88%;" data-label="後輪後搖臂" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:38%;top:70%;" data-label="引擎本體" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:74%;top:76%;" data-label="排氣管" onclick="cycDot(this)"></div>
+      </div>
+      <div class="moto-lbl" style="margin-top:10px;">鳥瞰圖 Top View</div>
+      <div class="moto-wrap" style="height:88px;">
+        <svg viewBox="0 0 420 78" width="100%" height="78">
+          <ellipse cx="210" cy="39" rx="118" ry="20" fill="#D8D8D8" stroke="#BBB" stroke-width="1.5"/>
+          <ellipse cx="96"  cy="39" rx="11" ry="21" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+          <ellipse cx="324" cy="39" rx="11" ry="21" fill="#C0C0C0" stroke="#999" stroke-width="2"/>
+          <line x1="96" y1="39" x2="324" y2="39" stroke="#CCC" stroke-width="1" stroke-dasharray="5,4"/>
+          <line x1="128" y1="16" x2="128" y2="62" stroke="#999" stroke-width="5.5" stroke-linecap="round"/>
+          <ellipse cx="200" cy="39" rx="38" ry="17" fill="#CACACA" stroke="#AAA"/>
+          <ellipse cx="262" cy="39" rx="43" ry="13" fill="#555" stroke="#444"/>
+          <rect x="112" y="12" width="18" height="9" rx="2" fill="#C8C8C8" stroke="#AAA"/>
+          <rect x="112" y="57" width="18" height="9" rx="2" fill="#C8C8C8" stroke="#AAA"/>
+        </svg>
+        <div class="dot empty" style="left:30%;top:28%;" data-label="左前車身" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:30%;top:72%;" data-label="右前車身" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:65%;top:28%;" data-label="左後車身" onclick="cycDot(this)"></div>
+        <div class="dot empty" style="left:65%;top:72%;" data-label="右後車身" onclick="cycDot(this)"></div>
+      </div>
+      <div id="dot-log" style="margin-top:6px;font-size:11.5px;color:var(--gray);min-height:16px;"></div>
+    </div>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-red">📏</div><div><div class="panel-title">漆面量化記錄（漆膜測厚儀）</div><div class="panel-sub">原廠漆 80–150 μm · 補漆 150–200 μm · 重噴 ＞200 μm</div></div></div>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('📏 原廠漆：80-150μm · 輕微補修：150-200μm · 明顯補漆：>200μm · 全板重噴：>250μm')">μm 說明</button>
+    </div>
+    <div class="panel-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="paint-zones"></div>
+    </div>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-blue">🔍</div><div><div class="panel-title">燈具、玻璃與儀表板</div></div></div></div>
+    <div class="panel-body"><div class="chk-grid" id="glass-list"></div></div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="swTab(0,document.getElementById('tb0'))">← 返回</button>
+    <button class="btn btn-primary" onclick="swTab(2,document.getElementById('tb2'))">車身骨架 →</button>
+  </div>
+</div>
+
+<!-- TAB 2 骨架 -->
+<div class="tab-pane" id="pane-2">
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-red">🔩</div><div><div class="panel-title">車身骨架結構檢查</div><div class="panel-sub">判斷焊接方式（點焊=原廠/CO2焊=已更換）· 封膠狀態 · 溃縮區變形</div></div></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="prog-bar" style="width:100px;"><div class="prog-fill" id="frame-bar" style="width:0%;"></div></div>
+        <span class="prog-pct" id="frame-pct">0%</span>
+      </div>
+    </div>
+    <div class="panel-body"><div class="chk-grid" id="frame-list"></div></div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="swTab(1,document.getElementById('tb1'))">← 返回</button>
+    <button class="btn btn-primary" onclick="swTab(3,document.getElementById('tb3'))">機械底盤 →</button>
+  </div>
+</div>
+
+<!-- TAB 3 機械 -->
+<div class="tab-pane" id="pane-3">
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-dark">⚙️</div><div><div class="panel-title">機械底盤系統檢查</div><div class="panel-sub">靜態目視 + 動態路試</div></div></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="prog-bar" style="width:100px;"><div class="prog-fill" id="mech-bar" style="width:0%;"></div></div>
+        <span class="prog-pct" id="mech-pct">0%</span>
+      </div>
+    </div>
+    <div class="panel-body"><div class="chk-grid" id="mech-list"></div></div>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-amber">🔵</div><div><div class="panel-title">輪胎量化記錄</div><div class="panel-sub">使用花紋深度尺 · 法定最低 1.6 mm · 建議更換 ≤ 3 mm</div></div></div></div>
+    <div class="panel-body">
+      <div class="tire-grid">
+        <div class="tire-box">
+          <div class="tire-title">🔵 前輪</div>
+          <div class="tire-row"><span class="tire-lbl">花紋深度</span><input type="text" class="tire-inp" placeholder="mm" oninput="evalTire(this,'tsFront')"><div class="ts ts-ok" id="tsFront" style="background:#F1EFE8;color:#9A9890;">?</div></div>
+          <div class="tire-row"><span class="tire-lbl">胎壓</span><input type="text" class="tire-inp" placeholder="bar"><div style="font-size:11px;color:var(--gray);">標準 2.5</div></div>
+          <div class="tire-row"><span class="tire-lbl">磨損類型</span><select class="fs" style="flex:1;font-size:12px;"><option>均勻（正常）</option><option>中央磨損（氣壓過高）</option><option>邊緣磨損（氣壓過低）</option><option>單側磨損（定位異常）</option><option>鋸齒磨損（懸吊問題）</option></select></div>
+          <div class="tire-row"><span class="tire-lbl">品牌</span><input type="text" class="tire-inp" placeholder="Pirelli / Michelin"></div>
+        </div>
+        <div class="tire-box">
+          <div class="tire-title">🔵 後輪</div>
+          <div class="tire-row"><span class="tire-lbl">花紋深度</span><input type="text" class="tire-inp" placeholder="mm" oninput="evalTire(this,'tsRear')"><div class="ts ts-ok" id="tsRear" style="background:#F1EFE8;color:#9A9890;">?</div></div>
+          <div class="tire-row"><span class="tire-lbl">胎壓</span><input type="text" class="tire-inp" placeholder="bar"><div style="font-size:11px;color:var(--gray);">標準 2.5</div></div>
+          <div class="tire-row"><span class="tire-lbl">磨損類型</span><select class="fs" style="flex:1;font-size:12px;"><option>均勻（正常）</option><option>中央磨損（氣壓過高）</option><option>邊緣磨損（氣壓過低）</option><option>單側磨損（定位異常）</option><option>鋸齒磨損（懸吊問題）</option></select></div>
+          <div class="tire-row"><span class="tire-lbl">品牌</span><input type="text" class="tire-inp" placeholder="Pirelli / Michelin"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="swTab(2,document.getElementById('tb2'))">← 返回</button>
+    <button class="btn btn-primary" onclick="swTab(4,document.getElementById('tb4'))">收購定價核算 →</button>
+  </div>
+</div>
+
+<!-- TAB 4 定價 -->
+<div class="tab-pane" id="pane-4">
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-teal">💰</div><div><div class="panel-title">收購定價核算</div><div class="panel-sub">市場行情 − 整備成本 − 利潤 ＝ 建議收購報價</div></div></div></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="calc-table">
+        <thead><tr><th style="width:40%;">項目說明</th><th style="width:22%;text-align:right;">金額（NT$）</th><th style="width:16%;text-align:right;">計算結果</th><th>備注</th></tr></thead>
+        <tbody>
+          <tr class="calc-cat"><td colspan="4">A　市場行情參考</td></tr>
+          <tr><td>當地市場同款中古車銷售行情（含稅）</td><td><input class="calc-input" id="p-market" type="text" placeholder="0" oninput="calc()"></td><td class="calc-result" style="color:var(--gray);">網路查詢</td><td><input class="calc-input" type="text" placeholder="參考來源"></td></tr>
+          <tr><td>同款新車原廠建議售價（MSRP）</td><td><input class="calc-input" id="p-msrp" type="text" placeholder="0" oninput="calc()"></td><td class="calc-result" style="color:var(--gray);">原廠定價</td><td></td></tr>
+          <tr class="calc-cat"><td colspan="4">B　整備成本估算</td></tr>
+          <tr><td>機械維修費用</td><td><input class="calc-input" id="p-repair" type="text" placeholder="0" oninput="calc()"></td><td class="calc-result id="f-repair" style="color:var(--red);">0</td><td><input class="calc-input" type="text" placeholder="維修項目說明"></td></tr>
+          <tr><td>外觀翻新/漆面整備</td><td><input class="calc-input" id="p-paint" type="text" placeholder="0" oninput="calc()"></td><td class="calc-result" id="f-paint" style="color:var(--red);">0</td><td><input class="calc-input" type="text" placeholder="補漆/拋光"></td></tr>
+          <tr><td>輪胎更換費用</td><td><input class="calc-input" id="p-tire" type="text" placeholder="0" oninput="calc()"></td><td class="calc-result" id="f-tire" style="color:var(--red);">0</td><td><input class="calc-input" type="text" placeholder="前後輪胎"></td></tr>
+          <tr><td>保固/商譽成本預留</td><td><input class="calc-input" id="p-warranty" type="text" placeholder="0" oninput="calc()"></td><td class="calc-result" id="f-warranty" style="color:var(--red);">0</td><td><input class="calc-input" type="text" placeholder="建議 1–2%"></td></tr>
+          <tr><td>代辦過戶/行政費用</td><td><input class="calc-input" id="p-admin" type="text" value="5000" oninput="calc()"></td><td class="calc-result" id="f-admin" style="color:var(--red);">5,000</td><td><input class="calc-input" type="text" placeholder="監理站費用"></td></tr>
+          <tr class="calc-cat"><td colspan="4">C　銷售費用與利潤</td></tr>
+          <tr><td>銷售相關成本（佣金，建議 1.5%）</td><td><input class="calc-input" id="p-comm" type="text" placeholder="0" oninput="calc()"></td><td class="calc-result" id="f-comm" style="color:var(--red);">0</td><td></td></tr>
+          <tr><td>計畫銷售利潤（建議 4–6%）</td><td><input class="calc-input" id="p-profit" type="text" placeholder="0" oninput="calc()"></td><td class="calc-result" id="f-profit" style="color:var(--red);">0</td><td></td></tr>
+          <tr class="calc-cat"><td colspan="4">D　置換溢價核算（以舊換新時）</td></tr>
+          <tr><td>新車成交價格（折扣後，來自 RS04）</td><td><input class="calc-input" id="p-new" type="text" placeholder="0" oninput="calc()"></td><td class="calc-result" style="color:var(--gray);">來自 RS04</td><td></td></tr>
+          <tr style="background:var(--teal-bg);"><td style="font-weight:700;">建議收購報價</td><td colspan="2" style="text-align:right;"><span class="calc-result" id="p-suggested" style="font-size:16px;color:var(--navy);">NT$ 0</span></td><td><input class="calc-input" type="text" placeholder="評估師可手動修正"></td></tr>
+        </tbody>
+      </table>
+      <div class="result-box">
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+          <div class="rb-item"><div class="rb-label">整備成本合計</div><div class="rb-val rb-red" id="total-cost">0</div></div>
+          <div class="rb-item"><div class="rb-label">新舊車差價</div><div class="rb-val" id="total-diff">—</div></div>
+          <div class="rb-item"><div class="rb-label">置換溢價</div><div class="rb-val rb-teal" id="total-prem">—</div></div>
+        </div>
+        <div><div class="rg-label">建議收購報價</div><div class="rg-val" id="grand-price">NT$ 0</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-teal">✅</div><div><div class="panel-title">評估結論與建議</div></div></div></div>
+    <div class="panel-body">
+      <div class="fg2 mb12">
+        <div><div class="fl">最終評級</div>
+          <div class="grade-row">
+            <div class="grade-chip" onclick="selG(this)"><div class="g-score" style="color:var(--red);">S</div><div class="g-label">CPO認證</div></div>
+            <div class="grade-chip" onclick="selG(this)"><div class="g-score" style="color:var(--blue);">A</div><div class="g-label">優良</div></div>
+            <div class="grade-chip sel" onclick="selG(this)"><div class="g-score" style="color:var(--teal);">B</div><div class="g-label">良好</div></div>
+            <div class="grade-chip" onclick="selG(this)"><div class="g-score" style="color:var(--amber);">C</div><div class="g-label">普通</div></div>
+            <div class="grade-chip" onclick="selG(this)"><div class="g-score" style="color:var(--gray);">D</div><div class="g-label">整備中</div></div>
+          </div>
+        </div>
+        <div><div class="fl">收購決策</div>
+          <select class="fs"><option>建議收購（正常流程）</option><option>建議收購（條件：整備後重評）</option><option>謹慎收購（需主管核准）</option><option>不建議收購（風險過高）</option></select>
+        </div>
+        <div class="ff"><div class="fl">評估師結論說明</div><textarea class="fi" style="height:70px;resize:none;" placeholder="整體車況說明、主要缺陷、建議整備項目、市場行情分析..."></textarea></div>
+      </div>
+      <div class="flex-end">
+        <button class="btn btn-ghost" onclick="showToast('🖨️ 評估報告 PDF 預覽')">🖨️ 列印評估報告</button>
+        <button class="btn btn-ghost" onclick="showToast('💾 評估單 EV-20260510-001 已儲存')">💾 儲存評估單</button>
+        <button class="btn btn-teal" onclick="go('RS04_賞車報價與成交訂單_v1.html')">→ 帶入 RS04 報價單</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+function swTab(n,el){document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});el.classList.add('active');document.getElementById('pane-'+n).classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}
+function selG(el){el.closest('.grade-row').querySelectorAll('.grade-chip').forEach(function(c){c.classList.remove('sel');});el.classList.add('sel');}
+var scanDone=[];
+function doScan(i,label){if(scanDone.indexOf(i)>-1){showToast('📷 '+label+'：已掃描，點擊可重新拍攝');return;}scanDone.push(i);var el=document.getElementById('sc'+i);el.classList.add('done');el.innerHTML='<div class="scan-tag">✅ 已存檔</div><div class="scan-icon">✅</div><div class="scan-label">'+label+'</div><div class="scan-sub">'+new Date().toLocaleDateString('zh-TW')+'</div>';document.getElementById('scan-cnt').textContent=scanDone.length+' / 8 已掃描';showToast('📷 '+label+' 已拍攝存檔');}
+var dotStates=['empty','ok','warn','bad'];
+function cycDot(el){var cur=dotStates.findIndex(function(s){return el.classList.contains(s);});var next=(cur+1)%dotStates.length;dotStates.forEach(function(s){el.classList.remove(s);});el.classList.add(dotStates[next]);var lbl=['未標記','✅ 正常','⚠️ 注意','❌ 損傷'];if(dotStates[next]!=='empty')document.getElementById('dot-log').textContent='📍 '+el.getAttribute('data-label')+' → '+lbl[next];}
+var paintZones=['前土除','前叉/儀表','左整流罩（前）','右整流罩（前）','油箱蓋','油箱（左）','油箱（右）','左整流罩（後）','右整流罩（後）','尾段整流罩','排氣管護蓋','座墊總成'];
+function buildPaint(){var h='';paintZones.forEach(function(z,i){var id='pz'+i;h+='<div class="paint-row" id="'+id+'"><div class="paint-zone">'+z+'</div><input type="text" class="pt-inp" placeholder="μm" title="漆膜厚度" oninput="evalPaint(this,\''+id+'\')"><div class="paint-status"><button class="ps-btn ps-ok" onclick="setPaint(\''+id+'\',0,this)" title="正常">✓</button><button class="ps-btn ps-warn" onclick="setPaint(\''+id+'\',1,this)" title="注意">⚠</button><button class="ps-btn ps-bad" onclick="setPaint(\''+id+'\',2,this)" title="補漆">✗</button></div><input type="text" class="fi" style="padding:4px 7px;font-size:11.5px;" placeholder="備注..."></div>';});document.getElementById('paint-zones').innerHTML=h;}
+function evalPaint(inp,id){var v=parseInt(inp.value)||0;if(!v)return;if(v<=150)setPaint(id,0,null);else if(v<=200)setPaint(id,1,null);else setPaint(id,2,null);}
+function setPaint(id,idx,btn){var row=document.getElementById(id);var btns=row.querySelectorAll('.ps-btn');var cls=[['ps-ok','ps-active-ok'],['ps-warn','ps-active-warn'],['ps-bad','ps-active-bad']];btns.forEach(function(b,i){b.className='ps-btn '+cls[i][0];});btns[idx].className='ps-btn '+cls[idx][1];}
+var glassItems=['儀表板液晶顯示正常（無故障燈、無像素死點）','前燈（LED）左右亮度一致，無進水霧化','後燈及方向燈運作正常','後視鏡完整無裂損（如有安裝）','風鏡完整無裂紋（如有安裝）','護手包覆完整無龜裂老化'];
+function buildGlass(){var h='';glassItems.forEach(function(t,i){var id='gi'+i;h+='<div class="chk-item" id="'+id+'"><div class="chk-cb"><button class="chk-btn" onclick="chkItem(\''+id+'\',\'ok\')" style="color:#0F6E56;">✓</button><button class="chk-btn" onclick="chkItem(\''+id+'\',\'warn\')" style="color:#F0A500;">⚠</button><button class="chk-btn" onclick="chkItem(\''+id+'\',\'bad\')" style="color:#C8001A;">✗</button></div><div class="chk-text">'+t+'</div><input class="chk-note" type="text" placeholder="說明..."></div>';});document.getElementById('glass-list').innerHTML=h;}
+var frameCats=[{c:'前段骨架',items:['前車架頭管無彎曲變形（目視確認）','前叉上下三角台螺絲無轉動/鬆動痕跡','車架前端無明顯衝擊溃縮痕跡','前土除固定螺絲狀態正常','燈座/儀表固定點無異常']},{c:'中段骨架',items:['主車架管件無裂紋或補焊痕跡','引擎固定吊架螺絲無鬆動','油箱固定座無銹蝕或變形','車架中段無明顯側向變形']},{c:'後段骨架',items:['後搖臂軸心螺絲（後輪軸）230 Nm 扭力點無異常','後搖臂軸承無異常間隙或鏽蝕','後子車架（尾架）焊接完整無裂紋','後搖臂無彎曲，左右對稱']},{c:'事故記錄判斷',items:['車身號碼（VIN）字跡清晰無改刻痕跡','引擎號碼字跡清晰無改刻','車架主要焊接點未見非原廠再焊接','車身各部件間隙均勻（前後輪/引擎/整流罩）','封膠連續性正常（非原廠封膠形狀不均勻）']}];
+var mechCats=[{c:'引擎系統',items:['冷啟動順利，無異常聲音','怠速穩定不忽高忽低','機油液面正常（油尺確認）','機油顏色正常（無乳化、無黑泥）','冷卻液液面正常，無渗漏','引擎本體無滲漏機油痕跡','故障燈（Check Engine）無亮起']},{c:'傳動系統',items:['鏈條張力正常無過度鬆弛','鏈盤齒形磨耗在允許範圍','各檔位換檔順暢（路試確認）','離合器作動正常無打滑','後輪驅動無異常振動']},{c:'煞車系統',items:['前煞車碟盤厚度正常（無明顯磨耗溝）','後煞車碟盤厚度正常','前煞車拉桿手感正常','ABS 指示燈行駛後正常熄滅','煞車液液面在正常範圍','煞車管路無裂縫或油漬']},{c:'懸吊系統',items:['前叉無滲漏避震油痕跡','前叉作動順暢（手壓測試）','後避震器無滲漏，壓縮回彈正常','行駛過不平路面無異常雜音','車身左右高度均等']},{c:'電氣系統',items:['電瓶電壓正常（靜態 12.6V 以上）','充電系統正常（運轉時 13.5–14.5V）','所有燈具功能正常','儀表板指示燈功能正常','行車電腦無儲存故障碼']}];
+var frameTot=0,mechTot=0,frameDone=0,mechDone=0;
+function buildFrame(){var h='';frameCats.forEach(function(cat){h+='<div class="cat-hdr">'+cat.c+'</div>';cat.items.forEach(function(t){var id='f_'+Math.random().toString(36).substr(2,6);frameTot++;h+='<div class="chk-item" id="'+id+'"><div class="chk-cb"><button class="chk-btn" onclick="chkFrame(\''+id+'\',\'ok\')" style="color:#0F6E56;">✓</button><button class="chk-btn" onclick="chkFrame(\''+id+'\',\'warn\')" style="color:#F0A500;">⚠</button><button class="chk-btn" onclick="chkFrame(\''+id+'\',\'bad\')" style="color:#C8001A;">✗</button></div><div class="chk-text">'+t+'</div><input class="chk-note" type="text" placeholder="說明異常..."></div>';});});document.getElementById('frame-list').innerHTML=h;}
+function buildMech(){var h='';mechCats.forEach(function(cat){h+='<div class="cat-hdr">'+cat.c+'</div>';cat.items.forEach(function(t){var id='m_'+Math.random().toString(36).substr(2,6);mechTot++;h+='<div class="chk-item" id="'+id+'"><div class="chk-cb"><button class="chk-btn" onclick="chkMech(\''+id+'\',\'ok\')" style="color:#0F6E56;">✓</button><button class="chk-btn" onclick="chkMech(\''+id+'\',\'warn\')" style="color:#F0A500;">⚠</button><button class="chk-btn" onclick="chkMech(\''+id+'\',\'bad\')" style="color:#C8001A;">✗</button></div><div class="chk-text">'+t+'</div><input class="chk-note" type="text" placeholder="說明異常..."></div>';});});document.getElementById('mech-list').innerHTML=h;}
+function chkItem(id,s){var el=document.getElementById(id);el.className='chk-item '+s;}
+function chkFrame(id,s){var el=document.getElementById(id);if(!el.dataset.done){el.dataset.done='1';frameDone++;var pct=Math.round(frameDone/frameTot*100);document.getElementById('frame-bar').style.width=pct+'%';document.getElementById('frame-pct').textContent=pct+'%';}el.className='chk-item '+s;}
+function chkMech(id,s){var el=document.getElementById(id);if(!el.dataset.done){el.dataset.done='1';mechDone++;var pct=Math.round(mechDone/mechTot*100);document.getElementById('mech-bar').style.width=pct+'%';document.getElementById('mech-pct').textContent=pct+'%';}el.className='chk-item '+s;}
+function evalTire(inp,tsId){var v=parseFloat(inp.value)||0;var el=document.getElementById(tsId);el.className='ts';el.style.background='';el.style.color='';if(!v){el.textContent='?';el.style.background='#F1EFE8';el.style.color='#9A9890';return;}if(v>3){el.classList.add('ts-ok');el.textContent='✓';}else if(v>1.6){el.classList.add('ts-warn');el.textContent='⚠';}else{el.classList.add('ts-bad');el.textContent='✗';}}
+function n(id){var el=document.getElementById(id);return el?parseInt((el.value||'0').replace(/[^\d]/g,''))||0:0;}
+function s(id,v){var el=document.getElementById(id);if(el)el.textContent=v.toLocaleString();}
+function calc(){var market=n('p-market'),repair=n('p-repair'),paint=n('p-paint'),tire=n('p-tire'),warranty=n('p-warranty'),admin=n('p-admin'),comm=n('p-comm'),profit=n('p-profit'),newCar=n('p-new');var cost=repair+paint+tire+warranty+admin+comm+profit;var suggested=market-cost;var diff=newCar>0?newCar-suggested:0;s('f-repair',repair);s('f-paint',paint);s('f-tire',tire);s('f-warranty',warranty);s('f-admin',admin);s('f-comm',comm);s('f-profit',profit);s('total-cost',cost);document.getElementById('p-suggested').textContent='NT$ '+suggested.toLocaleString();document.getElementById('total-diff').textContent=diff>0?diff.toLocaleString():'—';document.getElementById('total-prem').textContent=diff>0?(diff-cost).toLocaleString():'—';document.getElementById('grand-price').textContent='NT$ '+suggested.toLocaleString();}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
+window.onload=function(){buildPaint();buildGlass();buildFrame();buildMech();calc();};
+</script>
+</body>
+</html>
