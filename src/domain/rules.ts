@@ -396,20 +396,537 @@ export async function saveItemPermissionRules(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// alert_rule helpers（告警類型與規則）
+// alert_rule helpers（告警類型與規則）— Design pattern List + Detail
+// ──────────────────────────────────────────────────────────────────────────
 
-export async function getAlertRulesPageData(): Promise<{
-  rules: BusinessRuleRow[];
-}> {
-  const rules = await listRulesByKind("alert_rule");
-  return { rules };
+const ALERT_RULES_REVALIDATE = ["/parts/alerts/rules"];
+
+export type AlertRuleFilter = {
+  q?: string;
+  priority?: string;
+  tone?: string;
+  is_active?: boolean;
+};
+
+export async function listAlertRules(
+  filter: AlertRuleFilter = {},
+): Promise<BusinessRuleRow[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  let q = supabase
+    .from("business_rules")
+    .select("*")
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_rule")
+    .order("sort_order", { ascending: true })
+    .limit(500);
+  if (filter.is_active !== undefined) q = q.eq("is_active", filter.is_active);
+  const { data, error } = await q;
+  if (error) throw error;
+  let rows = data ?? [];
+  if (filter.priority) {
+    rows = rows.filter((r) => {
+      const cfg = (r.config ?? {}) as Partial<AlertRuleConfig>;
+      return cfg.priority === filter.priority;
+    });
+  }
+  if (filter.tone) {
+    rows = rows.filter((r) => {
+      const cfg = (r.config ?? {}) as Partial<AlertRuleConfig>;
+      return cfg.tone === filter.tone;
+    });
+  }
+  if (filter.q) {
+    const ql = filter.q.toLowerCase();
+    rows = rows.filter((r) => {
+      const cfg = (r.config ?? {}) as Partial<AlertRuleConfig>;
+      return (
+        (cfg.code ?? "").toLowerCase().includes(ql) ||
+        (cfg.label ?? "").toLowerCase().includes(ql)
+      );
+    });
+  }
+  return rows;
 }
 
-export async function getAlertEscalationPageData(): Promise<{
+export async function getAlertRulesPageData(
+  filter: AlertRuleFilter = {},
+): Promise<{
   rules: BusinessRuleRow[];
+  canEdit: boolean;
 }> {
-  const rules = await listRulesByKind("alert_escalation");
-  return { rules };
+  const [rules, canEdit] = await Promise.all([
+    listAlertRules(filter),
+    hasPermission(PERMISSIONS.ALERT_CONFIG),
+  ]);
+  return { rules, canEdit };
+}
+
+export async function getAlertRuleById(
+  id: string,
+): Promise<{ row: BusinessRuleRow; canEdit: boolean } | null> {
+  if (!id) return null;
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("business_rules")
+    .select("*")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_rule")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const canEdit = await hasPermission(PERMISSIONS.ALERT_CONFIG);
+  return { row: data, canEdit };
+}
+
+export type AlertRuleInput = {
+  code: string;
+  label: string;
+  description: string;
+  priority: "critical" | "high" | "normal" | "low";
+  tone: "red" | "amber" | "navy" | "neutral";
+  channels: string[];
+  sort_order?: number;
+};
+
+function validateAlertRuleInput(input: AlertRuleInput): string | null {
+  if (!input.code?.trim()) return "code 必填";
+  if (!input.label?.trim()) return "名稱必填";
+  if (!["critical", "high", "normal", "low"].includes(input.priority)) {
+    return "priority 不合法";
+  }
+  if (!["red", "amber", "navy", "neutral"].includes(input.tone)) {
+    return "tone 不合法";
+  }
+  return null;
+}
+
+export async function createAlertRuleAction(
+  input: AlertRuleInput,
+): Promise<Result<{ id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.ALERT_CONFIG))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const err = validateAlertRuleInput(input);
+  if (err) return { ok: false, error: err };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { userId } = await getCurrentUserAndAdmin();
+
+  // 同 brand 不允許同 code 重複
+  const dup = await supabase
+    .from("business_rules")
+    .select("id")
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_rule")
+    .contains("config", { code: input.code.trim() })
+    .maybeSingle();
+  if (dup.data?.id) return { ok: false, error: `code「${input.code}」已存在` };
+
+  const config: AlertRuleConfig = {
+    code: input.code.trim(),
+    label: input.label.trim(),
+    description: input.description?.trim() ?? "",
+    priority: input.priority,
+    tone: input.tone,
+    channels: input.channels ?? [],
+  };
+
+  const { data, error } = await supabase
+    .from("business_rules")
+    .insert({
+      brand_id: scope.brand_id,
+      rule_kind: "alert_rule",
+      scope_role_code: null,
+      scope_store_id: null,
+      config: config as unknown as Database["public"]["Tables"]["business_rules"]["Insert"]["config"],
+      sort_order: input.sort_order ?? 99,
+      is_active: true,
+      created_by: userId ?? null,
+      updated_by: userId ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: mapDbError(error, "新增告警規則失敗") };
+  for (const p of ALERT_RULES_REVALIDATE) revalidatePath(p);
+  return { ok: true, data: { id: data.id } };
+}
+
+export async function updateAlertRuleAction(
+  id: string,
+  patch: Partial<AlertRuleInput>,
+): Promise<Result<{ id: string }>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  if (!(await hasPermission(PERMISSIONS.ALERT_CONFIG))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { userId } = await getCurrentUserAndAdmin();
+
+  // 撈現況
+  const cur = await supabase
+    .from("business_rules")
+    .select("config")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_rule")
+    .maybeSingle();
+  if (cur.error) return { ok: false, error: mapDbError(cur.error, "讀取現況失敗") };
+  if (!cur.data) return { ok: false, error: "規則不存在" };
+
+  const currentCfg = (cur.data.config ?? {}) as Partial<AlertRuleConfig>;
+  const next: AlertRuleConfig = {
+    code: (patch.code ?? currentCfg.code ?? "").trim(),
+    label: (patch.label ?? currentCfg.label ?? "").trim(),
+    description: (patch.description ?? currentCfg.description ?? "").trim(),
+    priority: (patch.priority ?? currentCfg.priority ?? "normal") as AlertRuleConfig["priority"],
+    tone: (patch.tone ?? currentCfg.tone ?? "neutral") as AlertRuleConfig["tone"],
+    channels: patch.channels ?? currentCfg.channels ?? [],
+  };
+
+  const err = validateAlertRuleInput({
+    code: next.code,
+    label: next.label,
+    description: next.description,
+    priority: next.priority,
+    tone: next.tone,
+    channels: next.channels,
+  });
+  if (err) return { ok: false, error: err };
+
+  // 若 code 改了、檢查不重複
+  if (next.code !== currentCfg.code) {
+    const dup = await supabase
+      .from("business_rules")
+      .select("id")
+      .eq("brand_id", scope.brand_id)
+      .eq("rule_kind", "alert_rule")
+      .neq("id", id)
+      .contains("config", { code: next.code })
+      .maybeSingle();
+    if (dup.data?.id) return { ok: false, error: `code「${next.code}」已存在` };
+  }
+
+  const updates: Record<string, unknown> = {
+    config: next as unknown as Database["public"]["Tables"]["business_rules"]["Update"]["config"],
+    updated_by: userId ?? null,
+  };
+  if (patch.sort_order !== undefined) updates.sort_order = patch.sort_order;
+
+  const { error } = await supabase
+    .from("business_rules")
+    .update(updates)
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: mapDbError(error, "更新告警規則失敗") };
+  for (const p of ALERT_RULES_REVALIDATE) revalidatePath(p);
+  revalidatePath(`/parts/alerts/rules/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function setAlertRuleActiveAction(
+  id: string,
+  active: boolean,
+): Promise<Result<{ id: string }>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  if (!(await hasPermission(PERMISSIONS.ALERT_CONFIG))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("business_rules")
+    .update({ is_active: active })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_rule");
+  if (error) return { ok: false, error: mapDbError(error, "切換啟用狀態失敗") };
+  for (const p of ALERT_RULES_REVALIDATE) revalidatePath(p);
+  revalidatePath(`/parts/alerts/rules/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function deleteAlertRuleAction(
+  id: string,
+): Promise<Result<{ id: string }>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  if (!(await hasPermission(PERMISSIONS.ALERT_CONFIG))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("business_rules")
+    .delete()
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_rule");
+  if (error) return { ok: false, error: mapDbError(error, "刪除告警規則失敗") };
+  for (const p of ALERT_RULES_REVALIDATE) revalidatePath(p);
+  return { ok: true, data: { id } };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// alert_escalation helpers（告警階層 / 升級規則）— Design pattern List + Detail
+// ──────────────────────────────────────────────────────────────────────────
+
+const ALERT_ESCALATION_REVALIDATE = ["/parts/alerts/escalation"];
+
+export type AlertEscalationFilter = {
+  q?: string;
+  level?: number;
+  is_active?: boolean;
+};
+
+export async function listAlertEscalations(
+  filter: AlertEscalationFilter = {},
+): Promise<BusinessRuleRow[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  let q = supabase
+    .from("business_rules")
+    .select("*")
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_escalation")
+    .order("sort_order", { ascending: true })
+    .limit(500);
+  if (filter.is_active !== undefined) q = q.eq("is_active", filter.is_active);
+  const { data, error } = await q;
+  if (error) throw error;
+  let rows = data ?? [];
+  if (filter.level !== undefined && !Number.isNaN(filter.level)) {
+    rows = rows.filter((r) => {
+      const cfg = (r.config ?? {}) as Partial<AlertEscalationConfig>;
+      return cfg.level === filter.level;
+    });
+  }
+  if (filter.q) {
+    const ql = filter.q.toLowerCase();
+    rows = rows.filter((r) => {
+      const cfg = (r.config ?? {}) as Partial<AlertEscalationConfig>;
+      return (cfg.label ?? "").toLowerCase().includes(ql);
+    });
+  }
+  return rows;
+}
+
+export async function getAlertEscalationPageData(
+  filter: AlertEscalationFilter = {},
+): Promise<{
+  rules: BusinessRuleRow[];
+  canEdit: boolean;
+}> {
+  const [rules, canEdit] = await Promise.all([
+    listAlertEscalations(filter),
+    hasPermission(PERMISSIONS.ALERT_CONFIG),
+  ]);
+  return { rules, canEdit };
+}
+
+export async function getAlertEscalationById(
+  id: string,
+): Promise<{ row: BusinessRuleRow; canEdit: boolean } | null> {
+  if (!id) return null;
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("business_rules")
+    .select("*")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_escalation")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const canEdit = await hasPermission(PERMISSIONS.ALERT_CONFIG);
+  return { row: data, canEdit };
+}
+
+export type AlertEscalationInput = {
+  level: number;
+  label: string;
+  timeout_min: number;
+  recipients: string[];
+  channels: string[];
+  sort_order?: number;
+};
+
+function validateAlertEscalationInput(input: AlertEscalationInput): string | null {
+  if (!input.label?.trim()) return "名稱必填";
+  if (!Number.isFinite(input.level) || input.level < 1) return "層級必須為正整數";
+  if (!Number.isFinite(input.timeout_min) || input.timeout_min < 0) {
+    return "升級延遲必須為 0 或正整數分鐘";
+  }
+  if (!Array.isArray(input.recipients) || input.recipients.length === 0) {
+    return "通知對象至少選一項";
+  }
+  if (!Array.isArray(input.channels) || input.channels.length === 0) {
+    return "通知通道至少選一項";
+  }
+  return null;
+}
+
+export async function createAlertEscalationAction(
+  input: AlertEscalationInput,
+): Promise<Result<{ id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.ALERT_CONFIG))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const err = validateAlertEscalationInput(input);
+  if (err) return { ok: false, error: err };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { userId } = await getCurrentUserAndAdmin();
+
+  // 同 brand 內 level 不可重複
+  const dup = await supabase
+    .from("business_rules")
+    .select("id")
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_escalation")
+    .contains("config", { level: input.level })
+    .maybeSingle();
+  if (dup.data?.id) return { ok: false, error: `層級 L${input.level} 已存在` };
+
+  const config: AlertEscalationConfig = {
+    level: input.level,
+    label: input.label.trim(),
+    timeout_min: input.timeout_min,
+    recipients: input.recipients,
+    channels: input.channels,
+  };
+
+  const { data, error } = await supabase
+    .from("business_rules")
+    .insert({
+      brand_id: scope.brand_id,
+      rule_kind: "alert_escalation",
+      scope_role_code: null,
+      scope_store_id: null,
+      config: config as unknown as Database["public"]["Tables"]["business_rules"]["Insert"]["config"],
+      sort_order: input.sort_order ?? input.level,
+      is_active: true,
+      created_by: userId ?? null,
+      updated_by: userId ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: mapDbError(error, "新增告警階層失敗") };
+  for (const p of ALERT_ESCALATION_REVALIDATE) revalidatePath(p);
+  return { ok: true, data: { id: data.id } };
+}
+
+export async function updateAlertEscalationAction(
+  id: string,
+  patch: Partial<AlertEscalationInput>,
+): Promise<Result<{ id: string }>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  if (!(await hasPermission(PERMISSIONS.ALERT_CONFIG))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { userId } = await getCurrentUserAndAdmin();
+
+  const cur = await supabase
+    .from("business_rules")
+    .select("config")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_escalation")
+    .maybeSingle();
+  if (cur.error) return { ok: false, error: mapDbError(cur.error, "讀取現況失敗") };
+  if (!cur.data) return { ok: false, error: "規則不存在" };
+
+  const currentCfg = (cur.data.config ?? {}) as Partial<AlertEscalationConfig>;
+  const next: AlertEscalationConfig = {
+    level: patch.level ?? currentCfg.level ?? 1,
+    label: (patch.label ?? currentCfg.label ?? "").trim(),
+    timeout_min: patch.timeout_min ?? currentCfg.timeout_min ?? 0,
+    recipients: patch.recipients ?? currentCfg.recipients ?? [],
+    channels: patch.channels ?? currentCfg.channels ?? [],
+  };
+
+  const err = validateAlertEscalationInput(next);
+  if (err) return { ok: false, error: err };
+
+  // level 改了 → 不可跟其他 row 撞
+  if (next.level !== currentCfg.level) {
+    const dup = await supabase
+      .from("business_rules")
+      .select("id")
+      .eq("brand_id", scope.brand_id)
+      .eq("rule_kind", "alert_escalation")
+      .neq("id", id)
+      .contains("config", { level: next.level })
+      .maybeSingle();
+    if (dup.data?.id) return { ok: false, error: `層級 L${next.level} 已存在` };
+  }
+
+  const updates: Record<string, unknown> = {
+    config: next as unknown as Database["public"]["Tables"]["business_rules"]["Update"]["config"],
+    updated_by: userId ?? null,
+  };
+  if (patch.sort_order !== undefined) updates.sort_order = patch.sort_order;
+
+  const { error } = await supabase
+    .from("business_rules")
+    .update(updates)
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: mapDbError(error, "更新告警階層失敗") };
+  for (const p of ALERT_ESCALATION_REVALIDATE) revalidatePath(p);
+  revalidatePath(`/parts/alerts/escalation/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function setAlertEscalationActiveAction(
+  id: string,
+  active: boolean,
+): Promise<Result<{ id: string }>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  if (!(await hasPermission(PERMISSIONS.ALERT_CONFIG))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("business_rules")
+    .update({ is_active: active })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_escalation");
+  if (error) return { ok: false, error: mapDbError(error, "切換啟用狀態失敗") };
+  for (const p of ALERT_ESCALATION_REVALIDATE) revalidatePath(p);
+  revalidatePath(`/parts/alerts/escalation/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function deleteAlertEscalationAction(
+  id: string,
+): Promise<Result<{ id: string }>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  if (!(await hasPermission(PERMISSIONS.ALERT_CONFIG))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("business_rules")
+    .delete()
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "alert_escalation");
+  if (error) return { ok: false, error: mapDbError(error, "刪除告警階層失敗") };
+  for (const p of ALERT_ESCALATION_REVALIDATE) revalidatePath(p);
+  return { ok: true, data: { id } };
 }
 
 // ──────────────────────────────────────────────────────────────────────────

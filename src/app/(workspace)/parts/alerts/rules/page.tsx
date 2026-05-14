@@ -9,7 +9,16 @@ import { AlertRulesBoard } from "./_components/alert-rules-board";
 
 export const dynamic = "force-dynamic";
 
-export default async function AlertRulesPage() {
+export default async function AlertRulesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{
+    q?: string;
+    priority?: string;
+    tone?: string;
+    is_active?: string;
+  }>;
+}) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
 
@@ -21,6 +30,25 @@ export default async function AlertRulesPage() {
     );
   }
 
-  const { rules } = await getAlertRulesPageData();
-  return <AlertRulesBoard rules={rules} />;
+  const sp = (await searchParams) ?? {};
+  const filter = {
+    q: sp.q || undefined,
+    priority: sp.priority || undefined,
+    tone: sp.tone || undefined,
+    is_active:
+      sp.is_active === "true" ? true : sp.is_active === "false" ? false : undefined,
+  };
+
+  const { rules, canEdit } = await getAlertRulesPageData(filter);
+
+  return (
+    <AlertRulesBoard
+      rules={rules}
+      canEdit={canEdit}
+      initialQ={sp.q ?? ""}
+      initialPriority={sp.priority ?? ""}
+      initialTone={sp.tone ?? ""}
+      initialIsActive={sp.is_active ?? ""}
+    />
+  );
 }

@@ -1236,3 +1236,634 @@ export async function markClaimPaid(
   revalidatePath(COST_RECOVERY_PATH);
   return { ok: true, data: { id } };
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// 11.1 索賠流程說明（flow config / steps / claim types / timing rules）
+// ────────────────────────────────────────────────────────────────────────────
+
+const FLOW_PATH = "/parts/warranty/flow";
+
+export type FlowConfigRow = Tables["parts_warranty_flow_config"]["Row"];
+export type FlowStepRow = Tables["parts_warranty_flow_steps"]["Row"];
+export type ClaimTypeRow = Tables["parts_warranty_claim_types"]["Row"];
+export type TimingRuleRow = Tables["parts_warranty_timing_rules"]["Row"];
+
+export type TimingRuleWithType = TimingRuleRow & {
+  claim_type_code: string;
+  claim_type_label: string;
+};
+
+async function ensureFlowConfig(brand: string): Promise<FlowConfigRow> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("parts_warranty_flow_config")
+    .select("*")
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (error) throw error;
+  if (data) return data;
+  const ins = await supabase
+    .from("parts_warranty_flow_config")
+    .insert({ brand_id: brand })
+    .select("*")
+    .single();
+  if (ins.error) throw ins.error;
+  return ins.data;
+}
+
+export async function getWarrantyFlowPageData(): Promise<{
+  config: FlowConfigRow;
+  steps: FlowStepRow[];
+  claimTypes: ClaimTypeRow[];
+  timingRules: TimingRuleWithType[];
+  canEdit: boolean;
+}> {
+  const brand = (await getActiveScope()).brand_id;
+  const config = await ensureFlowConfig(brand);
+
+  const supabase = await createClient();
+  const [stepsRes, typesRes, timingRes] = await Promise.all([
+    supabase
+      .from("parts_warranty_flow_steps")
+      .select("*")
+      .eq("brand_id", brand)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("parts_warranty_claim_types")
+      .select("*")
+      .eq("brand_id", brand)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("parts_warranty_timing_rules")
+      .select("*")
+      .eq("brand_id", brand),
+  ]);
+  if (stepsRes.error) throw stepsRes.error;
+  if (typesRes.error) throw typesRes.error;
+  if (timingRes.error) throw timingRes.error;
+
+  const typeMap = new Map<string, ClaimTypeRow>();
+  for (const t of typesRes.data ?? []) typeMap.set(t.id, t);
+
+  const timingRules: TimingRuleWithType[] = (timingRes.data ?? []).map((tr) => {
+    const tp = typeMap.get(tr.claim_type_id);
+    return {
+      ...tr,
+      claim_type_code: tp?.code ?? "—",
+      claim_type_label: tp?.label ?? "—",
+    };
+  });
+  // 依 claim_type sort_order 排序
+  timingRules.sort((a, b) => {
+    const ta = typeMap.get(a.claim_type_id);
+    const tb = typeMap.get(b.claim_type_id);
+    return (ta?.sort_order ?? 0) - (tb?.sort_order ?? 0);
+  });
+
+  const canEdit = await hasPermission(PERMISSIONS.WARRANTY_SUBMIT);
+
+  return {
+    config,
+    steps: (stepsRes.data ?? []) as FlowStepRow[],
+    claimTypes: (typesRes.data ?? []) as ClaimTypeRow[],
+    timingRules,
+    canEdit,
+  };
+}
+
+// ── Config（Banner）──
+export type FlowConfigPatch = {
+  banner_text?: string;
+  banner_enabled?: boolean;
+};
+
+export async function updateWarrantyFlowConfig(
+  patch: FlowConfigPatch,
+): Promise<ActionResult<{ brand_id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  await ensureFlowConfig(brand);
+  const supabase = await createClient();
+  const safe: Record<string, unknown> = {};
+  if (patch.banner_text !== undefined) safe.banner_text = patch.banner_text;
+  if (patch.banner_enabled !== undefined)
+    safe.banner_enabled = patch.banner_enabled;
+  if (Object.keys(safe).length === 0)
+    return { ok: false, error: "沒有可更新的欄位" };
+  safe.updated_at = new Date().toISOString();
+  const { error } = await supabase
+    .from("parts_warranty_flow_config")
+    .update(safe)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `儲存失敗：${error.message}` };
+  revalidatePath(FLOW_PATH);
+  return { ok: true, data: { brand_id: brand } };
+}
+
+// ── Steps ──
+export type FlowStepInput = {
+  step_no: number;
+  title: string;
+  description: string;
+  is_terminal: boolean;
+};
+
+export async function createFlowStep(
+  input: FlowStepInput,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const title = input.title.trim();
+  if (!title) return { ok: false, error: "步驟標題不可為空" };
+  if (!Number.isInteger(input.step_no) || input.step_no <= 0)
+    return { ok: false, error: "步驟編號需為正整數" };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("parts_warranty_flow_steps")
+    .insert({
+      brand_id: brand,
+      step_no: input.step_no,
+      title,
+      description: input.description.trim(),
+      is_terminal: input.is_terminal,
+      sort_order: input.step_no,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    if (error.code === "23505")
+      return { ok: false, error: "步驟編號已存在" };
+    return { ok: false, error: `建立失敗：${error.message}` };
+  }
+  revalidatePath(FLOW_PATH);
+  return { ok: true, data: { id: data.id } };
+}
+
+export async function updateFlowStep(
+  id: string,
+  patch: Partial<FlowStepInput> & { is_active?: boolean },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const safe: Record<string, unknown> = {};
+  if (patch.title !== undefined) {
+    const t = patch.title.trim();
+    if (!t) return { ok: false, error: "步驟標題不可為空" };
+    safe.title = t;
+  }
+  if (patch.description !== undefined)
+    safe.description = patch.description.trim();
+  if (patch.is_terminal !== undefined) safe.is_terminal = patch.is_terminal;
+  if (patch.is_active !== undefined) safe.is_active = patch.is_active;
+  if (patch.step_no !== undefined) {
+    if (!Number.isInteger(patch.step_no) || patch.step_no <= 0)
+      return { ok: false, error: "步驟編號需為正整數" };
+    safe.step_no = patch.step_no;
+    safe.sort_order = patch.step_no;
+  }
+  if (Object.keys(safe).length === 0)
+    return { ok: false, error: "沒有可更新的欄位" };
+  safe.updated_at = new Date().toISOString();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("parts_warranty_flow_steps")
+    .update(safe)
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) {
+    if (error.code === "23505")
+      return { ok: false, error: "步驟編號已存在" };
+    return { ok: false, error: `更新失敗：${error.message}` };
+  }
+  revalidatePath(FLOW_PATH);
+  return { ok: true, data: { id } };
+}
+
+export async function deleteFlowStep(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("parts_warranty_flow_steps")
+    .delete()
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `刪除失敗：${error.message}` };
+  revalidatePath(FLOW_PATH);
+  return { ok: true, data: { id } };
+}
+
+// ── Claim Types ──
+export type ClaimTypeInput = {
+  code: string;
+  label: string;
+  icon: string;
+  description: string;
+  accent: string;
+};
+
+export async function createClaimType(
+  input: ClaimTypeInput,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const code = input.code.trim().toUpperCase();
+  const label = input.label.trim();
+  if (!code) return { ok: false, error: "代碼不可為空" };
+  if (!label) return { ok: false, error: "名稱不可為空" };
+  const supabase = await createClient();
+  // 找最大 sort_order
+  const { data: maxRow } = await supabase
+    .from("parts_warranty_claim_types")
+    .select("sort_order")
+    .eq("brand_id", brand)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = (maxRow?.sort_order ?? 0) + 1;
+  const { data, error } = await supabase
+    .from("parts_warranty_claim_types")
+    .insert({
+      brand_id: brand,
+      code,
+      label,
+      icon: input.icon.trim() || "🛡",
+      description: input.description.trim(),
+      accent: input.accent.trim() || "navy",
+      sort_order: nextOrder,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    if (error.code === "23505")
+      return { ok: false, error: "類型代碼已存在" };
+    return { ok: false, error: `建立失敗：${error.message}` };
+  }
+  revalidatePath(FLOW_PATH);
+  return { ok: true, data: { id: data.id } };
+}
+
+export async function updateClaimType(
+  id: string,
+  patch: Partial<ClaimTypeInput> & { is_active?: boolean },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const safe: Record<string, unknown> = {};
+  if (patch.code !== undefined) {
+    const c = patch.code.trim().toUpperCase();
+    if (!c) return { ok: false, error: "代碼不可為空" };
+    safe.code = c;
+  }
+  if (patch.label !== undefined) {
+    const l = patch.label.trim();
+    if (!l) return { ok: false, error: "名稱不可為空" };
+    safe.label = l;
+  }
+  if (patch.icon !== undefined) safe.icon = patch.icon.trim() || "🛡";
+  if (patch.description !== undefined)
+    safe.description = patch.description.trim();
+  if (patch.accent !== undefined) safe.accent = patch.accent.trim() || "navy";
+  if (patch.is_active !== undefined) safe.is_active = patch.is_active;
+  if (Object.keys(safe).length === 0)
+    return { ok: false, error: "沒有可更新的欄位" };
+  safe.updated_at = new Date().toISOString();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("parts_warranty_claim_types")
+    .update(safe)
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) {
+    if (error.code === "23505")
+      return { ok: false, error: "類型代碼已存在" };
+    return { ok: false, error: `更新失敗：${error.message}` };
+  }
+  revalidatePath(FLOW_PATH);
+  return { ok: true, data: { id } };
+}
+
+export async function deleteClaimType(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("parts_warranty_claim_types")
+    .delete()
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `刪除失敗：${error.message}` };
+  revalidatePath(FLOW_PATH);
+  return { ok: true, data: { id } };
+}
+
+// ── Timing Rules ──
+export type TimingRuleInput = {
+  claim_type_id: string;
+  apply_window: string;
+  storage_rule: string;
+  close_goal_days: number;
+};
+
+export async function upsertTimingRule(
+  input: TimingRuleInput,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  if (!input.claim_type_id) return { ok: false, error: "索賠類型必選" };
+  if (!Number.isInteger(input.close_goal_days) || input.close_goal_days < 0)
+    return { ok: false, error: "結案目標天數需為非負整數" };
+  const supabase = await createClient();
+  const existing = await supabase
+    .from("parts_warranty_timing_rules")
+    .select("id")
+    .eq("brand_id", brand)
+    .eq("claim_type_id", input.claim_type_id)
+    .maybeSingle();
+  if (existing.error) return { ok: false, error: existing.error.message };
+
+  if (existing.data) {
+    const { error } = await supabase
+      .from("parts_warranty_timing_rules")
+      .update({
+        apply_window: input.apply_window.trim(),
+        storage_rule: input.storage_rule.trim(),
+        close_goal_days: input.close_goal_days,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.data.id)
+      .eq("brand_id", brand);
+    if (error) return { ok: false, error: `更新失敗：${error.message}` };
+    revalidatePath(FLOW_PATH);
+    return { ok: true, data: { id: existing.data.id } };
+  }
+  const { data, error } = await supabase
+    .from("parts_warranty_timing_rules")
+    .insert({
+      brand_id: brand,
+      claim_type_id: input.claim_type_id,
+      apply_window: input.apply_window.trim(),
+      storage_rule: input.storage_rule.trim(),
+      close_goal_days: input.close_goal_days,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: `建立失敗：${error.message}` };
+  revalidatePath(FLOW_PATH);
+  return { ok: true, data: { id: data.id } };
+}
+
+export async function deleteTimingRule(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("parts_warranty_timing_rules")
+    .delete()
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `刪除失敗：${error.message}` };
+  revalidatePath(FLOW_PATH);
+  return { ok: true, data: { id } };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 11.2 舊件出入庫邏輯設定（used-parts-flow）
+//   - config 表：parts_warranty_used_parts_config（雙 brand 各 1 筆）
+//   - items 表：parts_warranty_used_parts_items（在途追蹤）
+// ────────────────────────────────────────────────────────────────────────────
+
+const USED_PARTS_FLOW_PATH = "/parts/warranty/used-parts-flow";
+
+export type UsedPartsConfigRow =
+  Tables["parts_warranty_used_parts_config"]["Row"];
+export type UsedPartItemRow =
+  Tables["parts_warranty_used_parts_items"]["Row"];
+
+export type UsedPartsConfigPatch = {
+  trigger_auto_reserve?: boolean;
+  trigger_scan_inbound?: boolean;
+  trigger_manual_no_serial?: boolean;
+  trigger_require_photo?: boolean;
+  trigger_auto_barcode?: boolean;
+  inbound_warehouse?: string;
+  auto_update_claim?: boolean;
+  auto_link_cost_recovery?: boolean;
+};
+
+export type UsedPartItemInput = {
+  barcode: string;
+  item_name: string;
+  item_code?: string | null;
+  ro_no?: string | null;
+  inbound_date?: string | null;
+  damage_level: string;
+  damage_label?: string | null;
+};
+
+async function ensureUsedPartsConfig(
+  brand: string,
+): Promise<UsedPartsConfigRow> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("parts_warranty_used_parts_config")
+    .select("*")
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (error) throw error;
+  if (data) return data;
+  const ins = await supabase
+    .from("parts_warranty_used_parts_config")
+    .insert({ brand_id: brand })
+    .select("*")
+    .single();
+  if (ins.error) throw ins.error;
+  return ins.data;
+}
+
+export async function getUsedPartsFlowPageData(): Promise<{
+  config: UsedPartsConfigRow;
+  items: UsedPartItemRow[];
+  canEdit: boolean;
+}> {
+  const brand = (await getActiveScope()).brand_id;
+  const config = await ensureUsedPartsConfig(brand);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("parts_warranty_used_parts_items")
+    .select("*")
+    .eq("brand_id", brand)
+    .order("inbound_date", { ascending: false, nullsFirst: false })
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  const canEdit = await hasPermission(PERMISSIONS.WARRANTY_SUBMIT);
+  return {
+    config,
+    items: (data ?? []) as UsedPartItemRow[],
+    canEdit,
+  };
+}
+
+export async function updateUsedPartsFlowConfig(
+  patch: UsedPartsConfigPatch,
+): Promise<ActionResult<{ brand_id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  await ensureUsedPartsConfig(brand);
+  const supabase = await createClient();
+  const allowed: (keyof UsedPartsConfigPatch)[] = [
+    "trigger_auto_reserve",
+    "trigger_scan_inbound",
+    "trigger_manual_no_serial",
+    "trigger_require_photo",
+    "trigger_auto_barcode",
+    "inbound_warehouse",
+    "auto_update_claim",
+    "auto_link_cost_recovery",
+  ];
+  const safe: Record<string, unknown> = {};
+  for (const k of allowed) {
+    if (k in patch) safe[k as string] = patch[k];
+  }
+  if (Object.keys(safe).length === 0)
+    return { ok: false, error: "沒有可更新的欄位" };
+  safe.updated_at = new Date().toISOString();
+  const { error } = await supabase
+    .from("parts_warranty_used_parts_config")
+    .update(safe)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `儲存失敗：${error.message}` };
+  revalidatePath(USED_PARTS_FLOW_PATH);
+  return { ok: true, data: { brand_id: brand } };
+}
+
+export async function createUsedPartItem(
+  input: UsedPartItemInput,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const barcode = input.barcode.trim();
+  const item_name = input.item_name.trim();
+  if (!barcode) return { ok: false, error: "舊件條碼不可為空" };
+  if (!item_name) return { ok: false, error: "品名不可為空" };
+  const supabase = await createClient();
+  const { data: maxRow } = await supabase
+    .from("parts_warranty_used_parts_items")
+    .select("sort_order")
+    .eq("brand_id", brand)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextOrder = (maxRow?.sort_order ?? 0) + 1;
+  const { data, error } = await supabase
+    .from("parts_warranty_used_parts_items")
+    .insert({
+      brand_id: brand,
+      barcode,
+      item_name,
+      item_code: input.item_code?.trim() || null,
+      ro_no: input.ro_no?.trim() || null,
+      inbound_date: input.inbound_date || null,
+      damage_level: input.damage_level,
+      damage_label: input.damage_label?.trim() || null,
+      status: "awaiting",
+      status_label: "待原廠核准",
+      sort_order: nextOrder,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    if (error.code === "23505")
+      return { ok: false, error: "舊件條碼已存在" };
+    return { ok: false, error: `建立失敗：${error.message}` };
+  }
+  revalidatePath(USED_PARTS_FLOW_PATH);
+  return { ok: true, data: { id: data.id } };
+}
+
+export async function updateUsedPartItem(
+  id: string,
+  patch: Partial<UsedPartItemInput>,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const safe: Record<string, unknown> = {};
+  if (patch.barcode !== undefined) {
+    const b = patch.barcode.trim();
+    if (!b) return { ok: false, error: "舊件條碼不可為空" };
+    safe.barcode = b;
+  }
+  if (patch.item_name !== undefined) {
+    const n = patch.item_name.trim();
+    if (!n) return { ok: false, error: "品名不可為空" };
+    safe.item_name = n;
+  }
+  if (patch.item_code !== undefined)
+    safe.item_code = patch.item_code?.trim() || null;
+  if (patch.ro_no !== undefined) safe.ro_no = patch.ro_no?.trim() || null;
+  if (patch.inbound_date !== undefined) safe.inbound_date = patch.inbound_date;
+  if (patch.damage_level !== undefined) safe.damage_level = patch.damage_level;
+  if (patch.damage_label !== undefined)
+    safe.damage_label = patch.damage_label?.trim() || null;
+  if (Object.keys(safe).length === 0)
+    return { ok: false, error: "沒有可更新的欄位" };
+  safe.updated_at = new Date().toISOString();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("parts_warranty_used_parts_items")
+    .update(safe)
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) {
+    if (error.code === "23505")
+      return { ok: false, error: "舊件條碼已存在" };
+    return { ok: false, error: `更新失敗：${error.message}` };
+  }
+  revalidatePath(USED_PARTS_FLOW_PATH);
+  return { ok: true, data: { id } };
+}
+
+export async function setUsedPartItemStatus(
+  id: string,
+  status: string,
+  status_label: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("parts_warranty_used_parts_items")
+    .update({
+      status,
+      status_label,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `更新失敗：${error.message}` };
+  revalidatePath(USED_PARTS_FLOW_PATH);
+  return { ok: true, data: { id } };
+}
+
+export async function deleteUsedPartItem(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  const brand = (await getActiveScope()).brand_id;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("parts_warranty_used_parts_items")
+    .delete()
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `刪除失敗：${error.message}` };
+  revalidatePath(USED_PARTS_FLOW_PATH);
+  return { ok: true, data: { id } };
+}

@@ -80,6 +80,71 @@ export async function listTransfers(filter: {
   }));
 }
 
+/**
+ * Paged variant — 給 transfers-in-transit / 未來其他需分頁的查詢用。
+ * 不破壞性升級：原 `listTransfers()` 保留，這支獨立。
+ */
+export async function listTransfersPaged(
+  filter: {
+    status_in?: string[];
+    status?: string;
+    q?: string;
+    source_warehouse_id?: string;
+    target_warehouse_id?: string;
+    date_from?: string;
+    date_to?: string;
+  } = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<{ rows: TransferListRow[]; totalCount: number }> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const page = Math.max(1, options.page ?? 1);
+  const pageSize = Math.max(1, options.pageSize ?? 50);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let q = supabase
+    .from("stock_transfers")
+    .select("*", { count: "exact" })
+    .eq("brand_id", scope.brand_id)
+    .order("ship_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+  if (filter.status_in?.length) q = q.in("status", filter.status_in);
+  if (filter.status) q = q.eq("status", filter.status);
+  if (filter.source_warehouse_id) q = q.eq("source_warehouse_id", filter.source_warehouse_id);
+  if (filter.target_warehouse_id) q = q.eq("target_warehouse_id", filter.target_warehouse_id);
+  if (filter.q) q = q.ilike("tr_no", `%${filter.q}%`);
+  if (filter.date_from) q = q.gte("ship_date", filter.date_from);
+  if (filter.date_to) q = q.lte("ship_date", filter.date_to);
+
+  const { data: ts, count, error } = await q;
+  if (error) throw error;
+  if (!ts || ts.length === 0) return { rows: [], totalCount: count ?? 0 };
+
+  const wIds = Array.from(
+    new Set(
+      ts
+        .flatMap((t) => [t.source_warehouse_id, t.target_warehouse_id])
+        .filter((x): x is string => !!x),
+    ),
+  );
+  const wRes = wIds.length > 0
+    ? await supabase.from("warehouses").select("id, name").in("id", wIds)
+    : { data: [], error: null };
+  if (wRes.error) throw wRes.error;
+  const wMap = new Map((wRes.data ?? []).map((w) => [w.id, w.name]));
+
+  return {
+    rows: ts.map((t) => ({
+      ...t,
+      source_warehouse_name: t.source_warehouse_id ? wMap.get(t.source_warehouse_id) ?? null : null,
+      target_warehouse_name: t.target_warehouse_id ? wMap.get(t.target_warehouse_id) ?? null : null,
+    })),
+    totalCount: count ?? 0,
+  };
+}
+
 export async function getTransferInPageData(): Promise<{
   rows: TransferListRow[];
   canEdit: boolean;

@@ -62,6 +62,16 @@ export function ExceptionsBoard({
   initialStatus,
   initialWarehouse,
   initialQ,
+  basePath = "/parts/operations/exceptions",
+  title = "例外出入庫",
+  caption = "非標準流程的庫存調整：例外進出 / 損耗 / 手動調整",
+  sprint = "7.1",
+  allowedTypes,
+  newHref = "/parts/operations/exceptions/new",
+  detailHrefBase = "/parts/operations/exceptions",
+  persistKey = "parts/operations/exceptions",
+  noPermissionHint = "💡 你目前沒有例外調整權限（parts.exception.ops），僅能檢視",
+  emptyMessage = "沒有符合條件的調整單",
 }: {
   rows: AdjustmentListRow[];
   totalCount: number;
@@ -73,6 +83,26 @@ export function ExceptionsBoard({
   initialStatus: string;
   initialWarehouse: string;
   initialQ: string;
+  /** Base URL for filter / pagination router.push (default: exceptions list) */
+  basePath?: string;
+  /** Page header title */
+  title?: string;
+  /** Page header sub-caption */
+  caption?: string;
+  /** Sprint chip text */
+  sprint?: string;
+  /** Restrict type filter dropdown to these values; undefined = all types */
+  allowedTypes?: string[];
+  /** Href for the "+ 新增" button */
+  newHref?: string;
+  /** Base href for the row "詳細" link (id appended) */
+  detailHrefBase?: string;
+  /** DataGrid column visibility persistence key */
+  persistKey?: string;
+  /** Footer hint when canEdit is false */
+  noPermissionHint?: string;
+  /** Empty state message */
+  emptyMessage?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -101,7 +131,7 @@ export function ExceptionsBoard({
     if (q) p.set("q", q);
     if (override.page && override.page > 1) p.set("page", String(override.page));
     const qs = p.toString();
-    return qs ? `/parts/operations/exceptions?${qs}` : "/parts/operations/exceptions";
+    return qs ? `${basePath}?${qs}` : basePath;
   };
 
   const submitFilters = () => startTransition(() => router.push(buildHref({ page: 1 })));
@@ -110,7 +140,7 @@ export function ExceptionsBoard({
     setFStatus("");
     setFWh("");
     setFQ("");
-    startTransition(() => router.push("/parts/operations/exceptions"));
+    startTransition(() => router.push(basePath));
   };
   const goToPage = (next: number) => startTransition(() => router.push(buildHref({ page: next })));
 
@@ -139,6 +169,12 @@ export function ExceptionsBoard({
     [rows],
   );
 
+  const visibleTypeOptions = useMemo(() => {
+    if (!allowedTypes || allowedTypes.length === 0) return TYPE_OPTIONS;
+    const allowSet = new Set(allowedTypes);
+    return TYPE_OPTIONS.filter((o) => o.value === "" || allowSet.has(o.value));
+  }, [allowedTypes]);
+
   const columns: DataGridColumn<AdjustmentListRow>[] = useMemo(
     () => [
       {
@@ -148,7 +184,7 @@ export function ExceptionsBoard({
         hideable: false,
         cell: (r) => (
           <Link
-            href={`/parts/operations/exceptions/${r.id}`}
+            href={`${detailHrefBase}/${r.id}`}
             className="font-mono font-semibold text-[12px] text-[#1A3A5C] hover:underline"
           >
             {r.adj_no ?? "—"}
@@ -231,18 +267,18 @@ export function ExceptionsBoard({
         sortValue: (r) => r.status ?? "",
       },
     ],
-    [],
+    [detailHrefBase],
   );
 
   return (
     <main className={`px-6 py-5 space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
       <header className="flex items-center gap-2.5">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">例外出入庫</h1>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">{title}</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          7.1
+          {sprint}
         </span>
         <span className="text-[12px] text-[#9A9890]">
-          非標準流程的庫存調整：例外進出 / 損耗 / 手動調整
+          {caption}
         </span>
       </header>
 
@@ -256,7 +292,7 @@ export function ExceptionsBoard({
               onChange={(e) => setFType(e.target.value)}
               className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
             >
-              {TYPE_OPTIONS.map((o) => (
+              {visibleTypeOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
@@ -322,7 +358,7 @@ export function ExceptionsBoard({
               重置
             </button>
             <Link
-              href="/parts/operations/exceptions/new"
+              href={newHref}
               className={`h-[30px] px-3 rounded text-[12.5px] font-medium inline-flex items-center ${
                 canEdit
                   ? "bg-[#0F6E56] text-white hover:bg-[#0a5742]"
@@ -348,9 +384,9 @@ export function ExceptionsBoard({
         columns={columns}
         data={rows}
         rowKey={(r) => r.id}
-        persistKey="parts/operations/exceptions"
+        persistKey={persistKey}
         exportFileName="inventory-adjustments"
-        emptyMessage="沒有符合條件的調整單"
+        emptyMessage={emptyMessage}
         disabled={isPending}
         pagination={{
           page,
@@ -362,7 +398,7 @@ export function ExceptionsBoard({
         rowActions={(r) => (
           <>
             <Link
-              href={`/parts/operations/exceptions/${r.id}`}
+              href={`${detailHrefBase}/${r.id}`}
               className="h-[26px] px-2.5 rounded bg-white border border-[#D5D3CB] text-[11.5px] text-[#5A5955] inline-flex items-center hover:border-[#9A9890]"
             >
               詳細
@@ -385,7 +421,7 @@ export function ExceptionsBoard({
 
       {!canEdit ? (
         <div className="text-[11px] text-[#9A9890]">
-          💡 你目前沒有例外調整權限（parts.exception.ops），僅能檢視
+          {noPermissionHint}
         </div>
       ) : null}
 

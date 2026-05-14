@@ -149,6 +149,54 @@ export type Database = {
           },
         ]
       }
+      accounting_periods: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          end_date: string
+          fiscal_year: number
+          id: string
+          metadata: Json
+          period_number: number
+          period_type: string
+          start_date: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          end_date: string
+          fiscal_year: number
+          id?: string
+          metadata?: Json
+          period_number: number
+          period_type: string
+          start_date: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          end_date?: string
+          fiscal_year?: number
+          id?: string
+          metadata?: Json
+          period_number?: number
+          period_type?: string
+          start_date?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       alert_events: {
         Row: {
           acked_at: string | null
@@ -2413,6 +2461,7 @@ export type Database = {
           approver_id: string | null
           brand_id: string
           count_date: string
+          count_type: string
           created_at: string
           created_by: string | null
           ct_no: string
@@ -2435,6 +2484,7 @@ export type Database = {
           approver_id?: string | null
           brand_id?: string
           count_date?: string
+          count_type?: string
           created_at?: string
           created_by?: string | null
           ct_no: string
@@ -2457,6 +2507,7 @@ export type Database = {
           approver_id?: string | null
           brand_id?: string
           count_date?: string
+          count_type?: string
           created_at?: string
           created_by?: string | null
           ct_no?: string
@@ -2827,6 +2878,7 @@ export type Database = {
       }
       journal_entries: {
         Row: {
+          cash_flow_section: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -2836,14 +2888,17 @@ export type Database = {
           metadata: Json | null
           netsuite_journal_id: string | null
           netsuite_synced_at: string | null
+          period_id: string | null
           posted_at: string | null
           posted_by: string | null
           reversed_by_entry_id: string | null
           status: string
           tenant_id: string
+          transaction_type_id: string | null
           updated_at: string
         }
         Insert: {
+          cash_flow_section?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -2853,14 +2908,17 @@ export type Database = {
           metadata?: Json | null
           netsuite_journal_id?: string | null
           netsuite_synced_at?: string | null
+          period_id?: string | null
           posted_at?: string | null
           posted_by?: string | null
           reversed_by_entry_id?: string | null
           status?: string
           tenant_id: string
+          transaction_type_id?: string | null
           updated_at?: string
         }
         Update: {
+          cash_flow_section?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -2870,19 +2928,35 @@ export type Database = {
           metadata?: Json | null
           netsuite_journal_id?: string | null
           netsuite_synced_at?: string | null
+          period_id?: string | null
           posted_at?: string | null
           posted_by?: string | null
           reversed_by_entry_id?: string | null
           status?: string
           tenant_id?: string
+          transaction_type_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "journal_entries_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_periods"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "journal_entries_reversed_by_entry_id_fkey"
             columns: ["reversed_by_entry_id"]
             isOneToOne: false
             referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_entries_transaction_type_id_fkey"
+            columns: ["transaction_type_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_types"
             referencedColumns: ["id"]
           },
         ]
@@ -3848,6 +3922,51 @@ export type Database = {
         }
         Relationships: []
       }
+      parts_warranty_claim_types: {
+        Row: {
+          accent: string
+          brand_id: string
+          code: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          is_active: boolean
+          label: string
+          metadata: Json
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          brand_id: string
+          code: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          metadata?: Json
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          brand_id?: string
+          code?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          metadata?: Json
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       parts_warranty_claims: {
         Row: {
           apply_amount: number
@@ -3940,6 +4059,75 @@ export type Database = {
           monthly_report_to_manager?: boolean
           remind_7_days_before?: boolean
           sync_finance_system?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      parts_warranty_flow_config: {
+        Row: {
+          banner_enabled: boolean
+          banner_text: string
+          brand_id: string
+          created_at: string
+          metadata: Json
+          updated_at: string
+        }
+        Insert: {
+          banner_enabled?: boolean
+          banner_text?: string
+          brand_id: string
+          created_at?: string
+          metadata?: Json
+          updated_at?: string
+        }
+        Update: {
+          banner_enabled?: boolean
+          banner_text?: string
+          brand_id?: string
+          created_at?: string
+          metadata?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      parts_warranty_flow_steps: {
+        Row: {
+          brand_id: string
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          is_terminal: boolean
+          metadata: Json
+          sort_order: number
+          step_no: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          is_terminal?: boolean
+          metadata?: Json
+          sort_order?: number
+          step_no: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          is_terminal?: boolean
+          metadata?: Json
+          sort_order?: number
+          step_no?: number
+          title?: string
           updated_at?: string
         }
         Relationships: []
@@ -4090,6 +4278,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      parts_warranty_timing_rules: {
+        Row: {
+          apply_window: string
+          brand_id: string
+          claim_type_id: string
+          close_goal_days: number
+          created_at: string
+          id: string
+          is_active: boolean
+          metadata: Json
+          storage_rule: string
+          updated_at: string
+        }
+        Insert: {
+          apply_window?: string
+          brand_id: string
+          claim_type_id: string
+          close_goal_days?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          storage_rule?: string
+          updated_at?: string
+        }
+        Update: {
+          apply_window?: string
+          brand_id?: string
+          claim_type_id?: string
+          close_goal_days?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          storage_rule?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parts_warranty_timing_rules_claim_type_id_fkey"
+            columns: ["claim_type_id"]
+            isOneToOne: true
+            referencedRelation: "parts_warranty_claim_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       parts_warranty_used_parts_config: {
         Row: {
@@ -5812,6 +6047,7 @@ export type Database = {
           batch_no: string | null
           bin_id: string | null
           brand_id: string
+          consignment_id: string | null
           created_at: string
           external_id: string | null
           external_source: string
@@ -5838,6 +6074,7 @@ export type Database = {
           batch_no?: string | null
           bin_id?: string | null
           brand_id?: string
+          consignment_id?: string | null
           created_at?: string
           external_id?: string | null
           external_source?: string
@@ -5864,6 +6101,7 @@ export type Database = {
           batch_no?: string | null
           bin_id?: string | null
           brand_id?: string
+          consignment_id?: string | null
           created_at?: string
           external_id?: string | null
           external_source?: string
@@ -5895,6 +6133,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "stock_items_consignment_id_fkey"
+            columns: ["consignment_id"]
+            isOneToOne: false
+            referencedRelation: "consignment_stocks"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "stock_items_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
@@ -5917,6 +6162,66 @@ export type Database = {
           },
           {
             foreignKeyName: "stock_items_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_movements: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          direction: string
+          id: string
+          item_id: string
+          metadata: Json | null
+          qty: number
+          reason: string
+          source_id: string | null
+          source_table: string
+          warehouse_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          direction: string
+          id?: string
+          item_id: string
+          metadata?: Json | null
+          qty: number
+          reason: string
+          source_id?: string | null
+          source_table: string
+          warehouse_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          direction?: string
+          id?: string
+          item_id?: string
+          metadata?: Json | null
+          qty?: number
+          reason?: string
+          source_id?: string | null
+          source_table?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
@@ -7021,6 +7326,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      transaction_types: {
+        Row: {
+          cash_flow_section: string | null
+          category: string
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          display_order: number
+          example_ctx: Json | null
+          gl_template: Json
+          id: string
+          is_active: boolean
+          is_system_default: boolean
+          metadata: Json
+          name_zh_tw: string
+          required_inputs: Json
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cash_flow_section?: string | null
+          category: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_order?: number
+          example_ctx?: Json | null
+          gl_template: Json
+          id?: string
+          is_active?: boolean
+          is_system_default?: boolean
+          metadata?: Json
+          name_zh_tw: string
+          required_inputs?: Json
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cash_flow_section?: string | null
+          category?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_order?: number
+          example_ctx?: Json | null
+          gl_template?: Json
+          id?: string
+          is_active?: boolean
+          is_system_default?: boolean
+          metadata?: Json
+          name_zh_tw?: string
+          required_inputs?: Json
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       user_assignments: {
         Row: {
@@ -8341,4 +8709,3 @@ export const Constants = {
     },
   },
 } as const
-

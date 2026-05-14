@@ -9,7 +9,15 @@ import { CountPlansBoard } from "./_components/count-plans-board";
 
 export const dynamic = "force-dynamic";
 
-export default async function CountPlansPage() {
+export default async function CountPlansPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    is_active?: string;
+    q?: string;
+    warehouse_id?: string;
+  }>;
+}) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
 
@@ -21,6 +29,24 @@ export default async function CountPlansPage() {
     );
   }
 
-  const { rows, canEdit } = await getCountPlansPageData();
-  return <CountPlansBoard rows={rows} canEdit={canEdit} />;
+  const sp = await searchParams;
+  const isActive =
+    sp.is_active === "true" ? true : sp.is_active === "false" ? false : undefined;
+
+  const { rows, warehouses, canEdit } = await getCountPlansPageData({
+    is_active: isActive,
+    q: sp.q || undefined,
+    warehouse_id: sp.warehouse_id || undefined,
+  });
+
+  return (
+    <CountPlansBoard
+      rows={rows}
+      warehouses={warehouses}
+      canEdit={canEdit}
+      initialIsActive={sp.is_active ?? ""}
+      initialQ={sp.q ?? ""}
+      initialWarehouseId={sp.warehouse_id ?? ""}
+    />
+  );
 }

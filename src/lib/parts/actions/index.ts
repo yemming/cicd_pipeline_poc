@@ -784,6 +784,9 @@ export type StartCountSessionInput = {
   plan_id?: string;
   count_date?: string;
   abc_class_filter?: "A" | "B" | "C";
+  count_type?: string;
+  freeze_warehouse?: boolean;
+  notes?: string;
 };
 
 /**
@@ -857,6 +860,9 @@ export async function startCountSessionAction(
       warehouse_id: input.warehouse_id,
       count_date: input.count_date ?? today.toISOString().slice(0, 10),
       status: "counting",
+      count_type: input.count_type ?? "manual",
+      freeze_warehouse: input.freeze_warehouse ?? false,
+      notes: input.notes ?? null,
       total_lines: snapshotLines.length,
     })
     .select("id")

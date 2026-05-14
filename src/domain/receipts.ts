@@ -15,6 +15,7 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
+import { RECEIPTS_PAGE_SIZE_DEFAULT } from "@/domain/receipts.constants";
 
 import type { Database } from "@/lib/database.types";
 
@@ -34,27 +35,47 @@ export type StockReceiptListRow = StockReceiptRow & {
   warehouse_name: string | null;
 };
 
-export async function listReceipts(filter: {
+export type ListReceiptsFilter = {
   type?: string;
   status?: string;
   q?: string;
-} = {}): Promise<StockReceiptListRow[]> {
+  date_from?: string;
+  date_to?: string;
+};
+
+export type ListReceiptsResult = {
+  rows: StockReceiptListRow[];
+  totalCount: number;
+};
+
+export async function listReceipts(
+  filter: ListReceiptsFilter = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<ListReceiptsResult> {
   const supabase = await createClient();
   const scope = await getActiveScope();
 
+  const page = Math.max(1, options.page ?? 1);
+  const pageSize = Math.max(1, options.pageSize ?? RECEIPTS_PAGE_SIZE_DEFAULT);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   let q = supabase
     .from("stock_receipts")
-    .select("*")
+    .select("*", { count: "exact" })
     .eq("brand_id", scope.brand_id)
     .order("receipt_date", { ascending: false })
-    .limit(200);
+    .order("gr_no", { ascending: false });
   if (filter.type) q = q.eq("type", filter.type);
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.q) q = q.ilike("gr_no", `%${filter.q}%`);
+  if (filter.date_from) q = q.gte("receipt_date", filter.date_from);
+  if (filter.date_to) q = q.lte("receipt_date", filter.date_to);
+  q = q.range(from, to);
 
-  const { data: rs, error } = await q;
+  const { data: rs, error, count } = await q;
   if (error) throw error;
-  if (!rs || rs.length === 0) return [];
+  if (!rs || rs.length === 0) return { rows: [], totalCount: count ?? 0 };
 
   const vIds = Array.from(new Set(rs.map((r) => r.vendor_id).filter((x): x is string => !!x)));
   const wIds = Array.from(new Set(rs.map((r) => r.warehouse_id).filter((x): x is string => !!x)));
@@ -72,26 +93,27 @@ export async function listReceipts(filter: {
   const vMap = new Map((vRes.data ?? []).map((v) => [v.id, v.name]));
   const wMap = new Map((wRes.data ?? []).map((w) => [w.id, w.name]));
 
-  return rs.map((r) => ({
+  const rows = rs.map((r) => ({
     ...r,
     vendor_name: r.vendor_id ? vMap.get(r.vendor_id) ?? null : null,
     warehouse_name: r.warehouse_id ? wMap.get(r.warehouse_id) ?? null : null,
   }));
+  return { rows, totalCount: count ?? rows.length };
 }
 
-export async function getReceiptsPageData(filter: {
-  type?: string;
-  status?: string;
-  q?: string;
-} = {}): Promise<{
+export async function getReceiptsPageData(
+  filter: ListReceiptsFilter = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<{
   rows: StockReceiptListRow[];
+  totalCount: number;
   canEdit: boolean;
 }> {
-  const [rows, canEdit] = await Promise.all([
-    listReceipts(filter),
+  const [{ rows, totalCount }, canEdit] = await Promise.all([
+    listReceipts(filter, options),
     hasPermission(PERMISSIONS.RECEIPT_CREATE),
   ]);
-  return { rows, canEdit };
+  return { rows, totalCount, canEdit };
 }
 
 // ─────────────────────────────────────────────────────────────

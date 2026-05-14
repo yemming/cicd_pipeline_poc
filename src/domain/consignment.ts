@@ -3,25 +3,31 @@
 /**
  * Domain Helper — Consignment Stocks（寄存管理）
  *
- * 規格：docs/DUCATI_庫存管理模組_串接版_20260510_最新版/07_庫存作業_寄存管理.html
+ * 規格：docs/proposals/feature-operations-consignment-2026-05-13.md
  *
- * 三件套：
+ * Queries：
  *   - listConsignments(filter)            → 列表（join supplier/item/warehouse）
  *   - getConsignmentStats()               → 4 個 KPI 卡
+ *   - getConsignmentLookup()              → 下拉資料
  *   - getConsignmentPageData(filter)      → list + stats + canEdit + lookups
+ *   - getConsignmentById(id)              → Detail page（單筆 + stock_items + events）
+ *   - getNewConsignmentFormData()         → /new 表單下拉
  *
- * 三個寫入 action：
- *   - registerConsignmentAction(input)    → 登錄寄存
- *   - transferConsignmentInAction(id)     → 確認轉入正式庫存（移 stock_items.status 從 'consignment' → 'available'）
- *   - returnConsignmentAction(id, reason) → 退還給供應商（軟性結案，stock_items 行刪除）
+ * Actions：
+ *   - registerConsignmentAction(input)    → 登錄寄存（同步建 stock_items + 寫 audit）
+ *   - transferConsignmentInAction(id)     → 確認轉入正式庫存（PARTS_PURCHASE 自動過帳 + audit）
+ *   - returnConsignmentAction(id, reason) → 退還給供應商（刪 stock_items + audit）
  */
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
+import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
 
 import type { Database, Json } from "@/lib/database.types";
 
@@ -33,23 +39,53 @@ export type ConsignmentListRow = ConsignmentRow & {
   item_code: string | null;
   item_name: string | null;
   warehouse_name: string | null;
-  days_remaining: number; // 規格的 "剩餘天數"；負數 = 已過期
-  due_bucket: "expired" | "near" | "ok" | "done"; // 規格 4 種 pill 色
+  days_remaining: number;
+  due_bucket: "expired" | "near" | "ok" | "done";
 };
 
 export type ConsignmentStats = {
-  active_count: number; // 寄存中品項
-  active_suppliers: number; // 共 N 家供應商
-  near_due_count: number; // 即將到期（≤7 天）
-  expired_count: number; // 已過期未處理
-  transferred_this_month_count: number; // 本月已轉入正式庫存（件數）
-  transferred_this_month_amount: number; // 本月已轉入金額
+  active_count: number;
+  active_suppliers: number;
+  near_due_count: number;
+  expired_count: number;
+  transferred_this_month_count: number;
+  transferred_this_month_amount: number;
 };
 
 export type ConsignmentLookup = {
   suppliers: { id: string; name: string }[];
   warehouses: { id: string; code: string; name: string }[];
   items: { id: string; code: string | null; name: string }[];
+};
+
+export type ConsignmentStockItemRow = {
+  id: string;
+  qty: number;
+  unit_cost: number | null;
+  status: string;
+  bin_id: string | null;
+  serial_no: string | null;
+  batch_no: string | null;
+  last_movement_at: string | null;
+  notes: string | null;
+};
+
+export type ConsignmentMovementRow = {
+  id: string;
+  direction: "in" | "out";
+  qty: number;
+  reason: string;
+  source_table: string;
+  source_id: string | null;
+  created_at: string;
+  created_by: string | null;
+  metadata: Json | null;
+};
+
+export type ConsignmentDetail = {
+  con: ConsignmentListRow;
+  stockItems: ConsignmentStockItemRow[];
+  events: ConsignmentMovementRow[];
 };
 
 export type ActionResult<T = unknown> =
@@ -159,7 +195,6 @@ export async function listConsignments(
     };
   });
 
-  // 客戶端 filter：bucket pill / 關鍵字（跨 con_no/item_code/item_name）
   if (filter.bucket && filter.bucket !== "all") {
     if (filter.bucket === "active") {
       rows = rows.filter((r) => r.status === "active");
@@ -195,7 +230,6 @@ export async function getConsignmentStats(): Promise<ConsignmentStats> {
     .toISOString()
     .slice(0, 10);
 
-  // 寄存中 + 4 家供應商
   const { data: actives } = await supabase
     .from("consignment_stocks")
     .select("supplier_id, end_date")
@@ -211,7 +245,6 @@ export async function getConsignmentStats(): Promise<ConsignmentStats> {
   ).length;
   const expired_count = activeRows.filter((r) => r.end_date < todayIso).length;
 
-  // 本月轉入：transferred_at >= monthStart 且 status in transferred/partial
   const { data: transferred } = await supabase
     .from("consignment_stocks")
     .select("transferred_qty, unit_cost, transferred_at")
@@ -305,6 +338,113 @@ export async function getConsignmentPageData(
   return { rows, stats, lookup, canEdit };
 }
 
+/**
+ * /new 表單只需要 lookup（reuse getConsignmentLookup）
+ */
+export async function getNewConsignmentFormData(): Promise<ConsignmentLookup> {
+  return getConsignmentLookup();
+}
+
+/**
+ * Detail page 用：撈單筆 + 對應 stock_items（FK join）+ stock_movements audit trail
+ */
+export async function getConsignmentById(
+  id: string,
+): Promise<ConsignmentDetail | null> {
+  if (!id) return null;
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: con, error: cErr } = await supabase
+    .from("consignment_stocks")
+    .select("*")
+    .eq("brand_id", scope.brand_id)
+    .eq("id", id)
+    .maybeSingle();
+  if (cErr || !con) return null;
+
+  // 補 supplier / item / warehouse 名稱 + bucket
+  const [sRes, iRes, wRes] = await Promise.all([
+    con.supplier_id
+      ? supabase
+          .from("suppliers")
+          .select("name")
+          .eq("id", con.supplier_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    con.item_id
+      ? supabase
+          .from("items")
+          .select("code, name")
+          .eq("id", con.item_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    con.warehouse_id
+      ? supabase
+          .from("warehouses")
+          .select("name")
+          .eq("id", con.warehouse_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  const { days_remaining, due_bucket } = bucketFor(con, new Date());
+  const conRow: ConsignmentListRow = {
+    ...con,
+    supplier_name: sRes.data?.name ?? null,
+    item_code: iRes.data?.code ?? null,
+    item_name: iRes.data?.name ?? null,
+    warehouse_name: wRes.data?.name ?? null,
+    days_remaining,
+    due_bucket,
+  };
+
+  // stock_items via FK
+  const { data: siData } = await supabase
+    .from("stock_items")
+    .select(
+      "id, qty, unit_cost, status, bin_id, serial_no, batch_no, last_movement_at, notes",
+    )
+    .eq("brand_id", scope.brand_id)
+    .eq("consignment_id", id);
+
+  const stockItems: ConsignmentStockItemRow[] = (siData ?? []).map((s) => ({
+    id: s.id,
+    qty: Number(s.qty ?? 0),
+    unit_cost: s.unit_cost == null ? null : Number(s.unit_cost),
+    status: s.status,
+    bin_id: s.bin_id,
+    serial_no: s.serial_no,
+    batch_no: s.batch_no,
+    last_movement_at: s.last_movement_at,
+    notes: s.notes,
+  }));
+
+  // stock_movements audit
+  const { data: mvData } = await supabase
+    .from("stock_movements")
+    .select(
+      "id, direction, qty, reason, source_table, source_id, created_at, created_by, metadata",
+    )
+    .eq("brand_id", scope.brand_id)
+    .eq("source_table", "consignment_stocks")
+    .eq("source_id", id)
+    .order("created_at", { ascending: false });
+
+  const events: ConsignmentMovementRow[] = (mvData ?? []).map((m) => ({
+    id: m.id,
+    direction: m.direction as "in" | "out",
+    qty: Number(m.qty ?? 0),
+    reason: m.reason,
+    source_table: m.source_table,
+    source_id: m.source_id,
+    created_at: m.created_at,
+    created_by: m.created_by,
+    metadata: m.metadata,
+  }));
+
+  return { con: conRow, stockItems, events };
+}
+
 // ────────────────────────────────────────────────────────────
 // Actions
 // ────────────────────────────────────────────────────────────
@@ -315,7 +455,7 @@ export type RegisterConsignmentInput = {
   warehouse_id: string;
   bin_id?: string | null;
   initial_qty: number;
-  unit_cost?: number;
+  unit_cost: number; // Q6=a：改必填
   start_date: string;
   end_date: string;
   notes?: string;
@@ -331,6 +471,7 @@ export async function registerConsignmentAction(
   if (!input.item_id) return { ok: false, error: "料件必選" };
   if (!input.warehouse_id) return { ok: false, error: "倉庫必選" };
   if (!(input.initial_qty > 0)) return { ok: false, error: "數量需 > 0" };
+  if (!(input.unit_cost > 0)) return { ok: false, error: "單價需 > 0" };
   if (!input.start_date || !input.end_date)
     return { ok: false, error: "起迄日必填" };
   if (input.end_date < input.start_date)
@@ -338,6 +479,7 @@ export async function registerConsignmentAction(
 
   const supabase = await createClient();
   const brandId = (await getActiveScope()).brand_id;
+  const { userId } = await getCurrentUserAndAdmin();
 
   // 產 con_no
   const today = new Date();
@@ -371,7 +513,7 @@ export async function registerConsignmentAction(
       bin_id: input.bin_id ?? null,
       initial_qty: input.initial_qty,
       remaining_qty: input.initial_qty,
-      unit_cost: input.unit_cost ?? null,
+      unit_cost: input.unit_cost,
       start_date: input.start_date,
       end_date: input.end_date,
       status: "active",
@@ -385,20 +527,28 @@ export async function registerConsignmentAction(
     return { ok: false, error: `建寄存單失敗：${conErr.message}` };
   }
 
-  // 同步 stock_items（status='consignment'，不計入可用庫存）
-  await supabase.from("stock_items").insert({
+  // 同步 stock_items（status='consignment'、consignment_id FK）
+  const { error: siErr } = await supabase.from("stock_items").insert({
     brand_id: brandId,
     item_id: input.item_id,
     warehouse_id: input.warehouse_id,
     bin_id: input.bin_id ?? null,
     qty: input.initial_qty,
-    unit_cost: input.unit_cost ?? 0,
+    unit_cost: input.unit_cost,
     status: "consignment",
+    consignment_id: con.id,
     notes: `寄存 ${con_no}`,
   });
+  if (siErr) {
+    return { ok: false, error: `建寄存品庫存行失敗：${siErr.message}` };
+  }
 
   revalidatePath("/parts/operations/consignment");
   revalidatePath("/parts/operations/balance");
+
+  // 視需要將來補 audit；register 不算庫存異動（提案 §4 已說明）
+  void userId; // unused
+
   return { ok: true, data: { con_id: con.id, con_no } };
 }
 
@@ -412,6 +562,7 @@ export async function transferConsignmentInAction(
 
   const supabase = await createClient();
   const brandId = (await getActiveScope()).brand_id;
+  const { userId } = await getCurrentUserAndAdmin();
 
   const { data: con, error: rErr } = await supabase
     .from("consignment_stocks")
@@ -427,17 +578,16 @@ export async function transferConsignmentInAction(
   const remain = Number(con.remaining_qty ?? 0);
   if (!(remain > 0)) return { ok: false, error: "剩餘數量為 0，無法轉入" };
 
-  // 1) 把對應的 stock_items 行從 'consignment' → 'available'
-  await supabase
+  // 1) 把對應的 stock_items 行從 'consignment' → 'available'（用 FK）
+  const { error: siErr } = await supabase
     .from("stock_items")
     .update({ status: "available", notes: `轉入自寄存 ${con.con_no}` })
     .eq("brand_id", brandId)
-    .eq("item_id", con.item_id)
-    .eq("warehouse_id", con.warehouse_id)
-    .eq("status", "consignment")
-    .ilike("notes", `寄存 ${con.con_no}%`);
+    .eq("consignment_id", con.id)
+    .eq("status", "consignment");
+  if (siErr) return { ok: false, error: `更新 stock_items 失敗：${siErr.message}` };
 
-  // 2) 更新 consignment_stocks：transferred_qty += remain、remaining=0、status='transferred'
+  // 2) 更新 consignment_stocks
   const { error: uErr } = await supabase
     .from("consignment_stocks")
     .update({
@@ -449,8 +599,61 @@ export async function transferConsignmentInAction(
     .eq("id", id);
   if (uErr) return { ok: false, error: `更新寄存單失敗：${uErr.message}` };
 
+  // 3) audit：寫 stock_movements（direction='in'，寄存轉購視為一筆進倉動作）
+  await supabase.from("stock_movements").insert({
+    brand_id: brandId,
+    item_id: con.item_id,
+    warehouse_id: con.warehouse_id,
+    direction: "in",
+    qty: remain,
+    reason: "寄存轉購",
+    source_table: "consignment_stocks",
+    source_id: con.id,
+    created_by: userId ?? null,
+    metadata: { con_no: con.con_no } as unknown as Json,
+  });
+
   revalidatePath("/parts/operations/consignment");
   revalidatePath("/parts/operations/balance");
+  revalidatePath(`/parts/operations/consignment/${id}`);
+
+  // 4) 接會計 engine（PARTS_PURCHASE，autoPost、tax=0 — Q3.b=b1）
+  const unitCost = Number(con.unit_cost ?? 0);
+  const netAmount = unitCost * remain;
+  if (netAmount > 0 && con.supplier_id && con.item_id) {
+    after(async () => {
+      const res = await instantiateTransaction(
+        TX_TYPES.PARTS_PURCHASE,
+        {
+          supplier_id: con.supplier_id as string,
+          item_id: con.item_id as string,
+          net_amount: netAmount,
+          tax_amount: 0, // Q3.b=b1：寄存轉購時供應商另開發票才處理稅
+          warehouse_id: con.warehouse_id,
+          store_id: null,
+        },
+        { autoPost: true, userId: userId ?? undefined },
+      );
+      if (!res.ok) {
+        console.error("[accounting] 寄存轉購 PARTS_PURCHASE 過帳失敗", {
+          con_no: con.con_no,
+          error: res.error,
+        });
+      } else {
+        console.log("[accounting] 寄存轉購 PARTS_PURCHASE 已過帳（posted）", {
+          con_no: con.con_no,
+          journal_entry: res.data,
+        });
+      }
+    });
+  } else {
+    console.warn("[accounting] 寄存轉購跳過過帳（無單價或缺供應商/料件）", {
+      con_no: con.con_no,
+      unitCost,
+      remain,
+    });
+  }
+
   return { ok: true, data: { id } };
 }
 
@@ -465,6 +668,7 @@ export async function returnConsignmentAction(
 
   const supabase = await createClient();
   const brandId = (await getActiveScope()).brand_id;
+  const { userId } = await getCurrentUserAndAdmin();
 
   const { data: con, error: rErr } = await supabase
     .from("consignment_stocks")
@@ -477,15 +681,16 @@ export async function returnConsignmentAction(
     return { ok: false, error: `此寄存單已 ${con.status}，不可重複處理` };
   }
 
-  // 1) 刪掉相應的 stock_items 行（寄存品退還，倉內庫存物理消失）
-  await supabase
+  const remain = Number(con.remaining_qty ?? 0);
+
+  // 1) 刪掉相應的 stock_items 行（依 FK）
+  const { error: siErr } = await supabase
     .from("stock_items")
     .delete()
     .eq("brand_id", brandId)
-    .eq("item_id", con.item_id)
-    .eq("warehouse_id", con.warehouse_id)
-    .eq("status", "consignment")
-    .ilike("notes", `寄存 ${con.con_no}%`);
+    .eq("consignment_id", con.id)
+    .eq("status", "consignment");
+  if (siErr) return { ok: false, error: `刪除 stock_items 失敗：${siErr.message}` };
 
   // 2) 更新 consignment_stocks：remaining=0、status='returned'、metadata.return_reason
   const meta: Record<string, unknown> = {
@@ -504,7 +709,24 @@ export async function returnConsignmentAction(
     .eq("id", id);
   if (uErr) return { ok: false, error: `更新寄存單失敗：${uErr.message}` };
 
+  // 3) audit：寫 stock_movements（direction='out'，退還寄存）
+  if (remain > 0 && con.item_id && con.warehouse_id) {
+    await supabase.from("stock_movements").insert({
+      brand_id: brandId,
+      item_id: con.item_id,
+      warehouse_id: con.warehouse_id,
+      direction: "out",
+      qty: remain,
+      reason: reason && reason.trim() ? `退還寄存：${reason.trim()}` : "退還寄存",
+      source_table: "consignment_stocks",
+      source_id: con.id,
+      created_by: userId ?? null,
+      metadata: { con_no: con.con_no } as unknown as Json,
+    });
+  }
+
   revalidatePath("/parts/operations/consignment");
   revalidatePath("/parts/operations/balance");
+  revalidatePath(`/parts/operations/consignment/${id}`);
   return { ok: true, data: { id } };
 }

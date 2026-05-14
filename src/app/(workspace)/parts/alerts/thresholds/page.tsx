@@ -12,7 +12,13 @@ export const dynamic = "force-dynamic";
 export default async function ThresholdsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ abc_class?: string; q?: string }>;
+  searchParams: Promise<{
+    abc_class?: string;
+    q?: string;
+    warehouse_id?: string;
+    priority?: string;
+    is_active?: string;
+  }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -26,17 +32,27 @@ export default async function ThresholdsPage({
   }
 
   const sp = await searchParams;
-  const { rows, canEdit } = await getThresholdsPageData({
+  const isActiveFilter =
+    sp.is_active === "true" ? true : sp.is_active === "false" ? false : undefined;
+
+  const { rows, warehouses, canEdit } = await getThresholdsPageData({
     abc_class: sp.abc_class || undefined,
     q: sp.q || undefined,
+    warehouse_id: sp.warehouse_id || undefined,
+    priority: sp.priority || undefined,
+    is_active: isActiveFilter,
   });
 
   return (
     <ThresholdsBoard
       rows={rows}
+      warehouses={warehouses}
       canEdit={canEdit}
       initialAbc={sp.abc_class ?? ""}
       initialQ={sp.q ?? ""}
+      initialWarehouseId={sp.warehouse_id ?? ""}
+      initialPriority={sp.priority ?? ""}
+      initialIsActive={sp.is_active ?? ""}
     />
   );
 }

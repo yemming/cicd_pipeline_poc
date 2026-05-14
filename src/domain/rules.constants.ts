@@ -4,6 +4,76 @@
  * 不能放在 src/domain/rules.ts，因為該檔是 "use server" — 只能 export async function。
  */
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Alert Rules (rule_kind='alert_rule') chip palette + options
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const ALERT_RULE_PRIORITY_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "critical", label: "緊急" },
+  { value: "high", label: "高" },
+  { value: "normal", label: "一般" },
+  { value: "low", label: "低" },
+];
+
+export const ALERT_RULE_PRIORITY_CHIP: Record<
+  string,
+  { label: string; chip: string }
+> = {
+  critical: { label: "緊急", chip: "bg-[#FDECEA] text-[#CC0000]" },
+  high: { label: "高", chip: "bg-[#FDF3E3] text-[#854F0B]" },
+  normal: { label: "一般", chip: "bg-[#EBF3FF] text-[#1A3A5C]" },
+  low: { label: "低", chip: "bg-[#F2F2F2] text-[#6B6A68]" },
+};
+
+export const ALERT_RULE_TONE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "red", label: "紅 critical" },
+  { value: "amber", label: "黃 warning" },
+  { value: "navy", label: "藍 info" },
+  { value: "neutral", label: "灰 neutral" },
+];
+
+export const ALERT_RULE_TONE_CHIP: Record<string, { label: string; chip: string }> = {
+  red: { label: "紅", chip: "bg-[#FDECEA] text-[#CC0000]" },
+  amber: { label: "黃", chip: "bg-[#FDF3E3] text-[#854F0B]" },
+  navy: { label: "藍", chip: "bg-[#EBF3FF] text-[#1A3A5C]" },
+  neutral: { label: "灰", chip: "bg-[#F2F2F2] text-[#6B6A68]" },
+};
+
+export const ALERT_RULE_CHANNEL_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "line", label: "LINE" },
+  { value: "email", label: "Email" },
+  { value: "dashboard", label: "Dashboard" },
+  { value: "sms", label: "SMS" },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Alert Escalation (rule_kind='alert_escalation') chip palette + options
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const ALERT_ESCALATION_RECIPIENT_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "sa", label: "SA 服務顧問" },
+  { value: "manager", label: "店長" },
+  { value: "purchaser", label: "採購主管" },
+  { value: "owner", label: "老闆" },
+  { value: "warehouse", label: "倉管" },
+];
+
+export const ALERT_ESCALATION_RECIPIENT_LABEL: Record<string, string> =
+  Object.fromEntries(ALERT_ESCALATION_RECIPIENT_OPTIONS.map((o) => [o.value, o.label]));
+
+export const ALERT_ESCALATION_CHANNEL_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "dashboard", label: "Dashboard" },
+  { value: "line", label: "LINE" },
+  { value: "email", label: "Email" },
+  { value: "sms", label: "SMS" },
+];
+
+export const ALERT_ESCALATION_LEVEL_CHIP: Record<number, { chip: string; label: string }> = {
+  1: { chip: "bg-[#EBF3FF] text-[#1A3A5C]", label: "L1" },
+  2: { chip: "bg-[#FDF3E3] text-[#854F0B]", label: "L2" },
+  3: { chip: "bg-[#FDECEA] text-[#CC0000]", label: "L3" },
+};
+
 export const ITEM_PERMISSION_CAPABILITIES: Array<{
   key: string;
   label: string;

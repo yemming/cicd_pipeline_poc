@@ -4,6 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { listReceipts } from "@/domain/receipts";
+import { RECEIPTS_PAGE_SIZE_DEFAULT } from "@/domain/receipts.constants";
 
 import { ReceiptsHistoryBoard } from "./_components/receipts-history-board";
 
@@ -12,7 +13,14 @@ export const dynamic = "force-dynamic";
 export default async function ReceiptsHistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; q?: string }>;
+  searchParams: Promise<{
+    type?: string;
+    status?: string;
+    q?: string;
+    date_from?: string;
+    date_to?: string;
+    page?: string;
+  }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -26,16 +34,31 @@ export default async function ReceiptsHistoryPage({
   }
 
   const sp = await searchParams;
-  const rows = await listReceipts({
-    type: sp.type || undefined,
-    q: sp.q || undefined,
-  });
+  const page = Math.max(1, Number(sp.page ?? 1) || 1);
+  const pageSize = RECEIPTS_PAGE_SIZE_DEFAULT;
+
+  const { rows, totalCount } = await listReceipts(
+    {
+      type: sp.type || undefined,
+      status: sp.status || undefined,
+      q: sp.q || undefined,
+      date_from: sp.date_from || undefined,
+      date_to: sp.date_to || undefined,
+    },
+    { page, pageSize },
+  );
 
   return (
     <ReceiptsHistoryBoard
       rows={rows}
+      totalCount={totalCount}
+      page={page}
+      pageSize={pageSize}
       initialType={sp.type ?? ""}
+      initialStatus={sp.status ?? ""}
       initialQ={sp.q ?? ""}
+      initialDateFrom={sp.date_from ?? ""}
+      initialDateTo={sp.date_to ?? ""}
     />
   );
 }

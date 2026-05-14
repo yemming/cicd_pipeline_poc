@@ -37,7 +37,7 @@ function mapDbError(error: { code?: string; message: string }, fallback: string)
 
 export async function listAdjustments(
   filter: {
-    type?: string;
+    type?: string | string[];
     status?: string;
     warehouse_id?: string;
     q?: string;
@@ -57,7 +57,13 @@ export async function listAdjustments(
     .select("*", { count: "exact" })
     .eq("brand_id", scope.brand_id)
     .order("created_at", { ascending: false });
-  if (filter.type) q = q.eq("type", filter.type);
+  if (filter.type) {
+    if (Array.isArray(filter.type)) {
+      if (filter.type.length > 0) q = q.in("type", filter.type);
+    } else {
+      q = q.eq("type", filter.type);
+    }
+  }
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.warehouse_id) q = q.eq("warehouse_id", filter.warehouse_id);
   if (filter.q) q = q.ilike("adj_no", `%${filter.q}%`);
@@ -84,7 +90,7 @@ export async function listAdjustments(
 
 export async function getExceptionsPageData(
   filter: {
-    type?: string;
+    type?: string | string[];
     status?: string;
     warehouse_id?: string;
     q?: string;

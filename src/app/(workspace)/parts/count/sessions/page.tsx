@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function CountSessionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; warehouse_id?: string; q?: string }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -26,11 +26,20 @@ export default async function CountSessionsPage({
   }
 
   const sp = await searchParams;
-  const { rows, canEdit } = await getCountSessionsPageData({
+  const { rows, warehouses, canEdit } = await getCountSessionsPageData({
     status: sp.status || undefined,
+    warehouse_id: sp.warehouse_id || undefined,
+    q: sp.q || undefined,
   });
 
   return (
-    <CountSessionsBoard rows={rows} canEdit={canEdit} initialStatus={sp.status ?? ""} />
+    <CountSessionsBoard
+      rows={rows}
+      warehouses={warehouses}
+      canEdit={canEdit}
+      initialStatus={sp.status ?? ""}
+      initialWarehouseId={sp.warehouse_id ?? ""}
+      initialQ={sp.q ?? ""}
+    />
   );
 }

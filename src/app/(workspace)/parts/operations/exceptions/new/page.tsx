@@ -9,7 +9,11 @@ import { NewExceptionForm } from "./_components/new-exception-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewExceptionPage() {
+export default async function NewExceptionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
   if (!(await hasPermission(PERMISSIONS.EXCEPTION_OPS))) {
@@ -19,6 +23,7 @@ export default async function NewExceptionPage() {
       </main>
     );
   }
+  const sp = await searchParams;
   const data = await getNewAdjustmentFormData();
-  return <NewExceptionForm data={data} />;
+  return <NewExceptionForm data={data} initialType={sp.type} />;
 }

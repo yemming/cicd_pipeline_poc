@@ -32,12 +32,24 @@ function emptyLine(): FormLine {
 
 type Banner = { ok: boolean; msg: string } | null;
 
-export function NewExceptionForm({ data }: { data: NewAdjustmentFormData }) {
+const VALID_TYPES: AdjType[] = ["exception_in", "exception_out", "damage", "manual", "other"];
+
+export function NewExceptionForm({
+  data,
+  initialType,
+}: {
+  data: NewAdjustmentFormData;
+  initialType?: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
 
-  const [type, setType] = useState<AdjType>("exception_in");
+  const seedType: AdjType =
+    initialType && (VALID_TYPES as string[]).includes(initialType)
+      ? (initialType as AdjType)
+      : "exception_in";
+  const [type, setType] = useState<AdjType>(seedType);
   const [warehouseId, setWarehouseId] = useState(data.warehouses[0]?.id ?? "");
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");

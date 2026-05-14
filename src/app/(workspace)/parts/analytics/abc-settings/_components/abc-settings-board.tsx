@@ -55,7 +55,7 @@ export function AbcSettingsBoard({
   const c: AbcConfig = config ?? {
     id: null,
     brand_id: "",
-    recalc_trigger: "monthly",
+    recalc_trigger: "monthly_first",
     rolling_period_months: 12,
     threshold_a_pct: 70,
     threshold_b_pct: 90,
@@ -146,13 +146,12 @@ export function AbcSettingsBoard({
               <span>重算觸發</span>
               <select
                 disabled={!canEdit}
-                value={c.recalc_trigger ?? "monthly"}
+                value={c.recalc_trigger ?? "monthly_first"}
                 onChange={(e) => update({ recalc_trigger: e.target.value })}
                 className="h-8 border border-[#DADADA] rounded px-2"
               >
                 <option value="manual">手動</option>
-                <option value="weekly">每週</option>
-                <option value="monthly">每月</option>
+                <option value="monthly_first">每月 1 號</option>
                 <option value="quarterly">每季</option>
               </select>
             </label>
