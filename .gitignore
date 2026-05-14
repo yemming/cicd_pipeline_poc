@@ -96,3 +96,6 @@ AGENTS.md
 
 # ERD 抽 schema 用的 scratch（Python script + 中介 JSON）
 /tmp_erd/
+
+# Smoke / debug 截圖工件（pw-smoke-*.mjs 會寫到 tmp/，數十 MB、別 commit）
+/tmp/
