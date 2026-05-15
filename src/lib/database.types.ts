@@ -346,6 +346,114 @@ export type Database = {
         }
         Relationships: []
       }
+      appointments: {
+        Row: {
+          appointment_date: string
+          appointment_time: string
+          arrived_at: string | null
+          assigned_technician_id: string | null
+          brand_id: string
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_id: string | null
+          estimated_hours: number | null
+          id: string
+          metadata: Json | null
+          notes: string | null
+          service_subtype: string | null
+          service_type: string
+          started_at: string | null
+          status: string
+          store_id: string | null
+          subsidiary_id: string | null
+          updated_at: string | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          appointment_date: string
+          appointment_time: string
+          arrived_at?: string | null
+          assigned_technician_id?: string | null
+          brand_id: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string | null
+          estimated_hours?: number | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          service_subtype?: string | null
+          service_type: string
+          started_at?: string | null
+          status?: string
+          store_id?: string | null
+          subsidiary_id?: string | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          appointment_date?: string
+          appointment_time?: string
+          arrived_at?: string | null
+          assigned_technician_id?: string | null
+          brand_id?: string
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string | null
+          estimated_hours?: number | null
+          id?: string
+          metadata?: Json | null
+          notes?: string | null
+          service_subtype?: string | null
+          service_type?: string
+          started_at?: string | null
+          status?: string
+          store_id?: string | null
+          subsidiary_id?: string | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_assigned_technician_id_fkey"
+            columns: ["assigned_technician_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "customer_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_appearance: {
         Row: {
           brand_id: string
@@ -519,6 +627,81 @@ export type Database = {
             columns: ["scope_subsidiary_id"]
             isOneToOne: false
             referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_tasks: {
+        Row: {
+          answers: Json
+          assignee_id: string | null
+          attempt_count: number
+          brand_id: string
+          call_result: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          kind: string
+          last_attempt_at: string | null
+          metadata: Json
+          notes: string | null
+          scheduled_at: string | null
+          status: string
+          survey_template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          assignee_id?: string | null
+          attempt_count?: number
+          brand_id: string
+          call_result?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          id?: string
+          kind: string
+          last_attempt_at?: string | null
+          metadata?: Json
+          notes?: string | null
+          scheduled_at?: string | null
+          status?: string
+          survey_template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          assignee_id?: string | null
+          attempt_count?: number
+          brand_id?: string
+          call_result?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          id?: string
+          kind?: string
+          last_attempt_at?: string | null
+          metadata?: Json
+          notes?: string | null
+          scheduled_at?: string | null
+          status?: string
+          survey_template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_tasks_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_tasks_survey_template_id_fkey"
+            columns: ["survey_template_id"]
+            isOneToOne: false
+            referencedRelation: "survey_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -954,6 +1137,96 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      customer_personal_tags: {
+        Row: {
+          brand_id: string
+          color: string
+          created_at: string
+          id: string
+          is_active: boolean
+          metadata: Json
+          name: string
+          note: string | null
+          owner_id: string
+          updated_at: string
+          use_count: number
+        }
+        Insert: {
+          brand_id: string
+          color: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name: string
+          note?: string | null
+          owner_id: string
+          updated_at?: string
+          use_count?: number
+        }
+        Update: {
+          brand_id?: string
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name?: string
+          note?: string | null
+          owner_id?: string
+          updated_at?: string
+          use_count?: number
+        }
+        Relationships: []
+      }
+      customer_tags: {
+        Row: {
+          brand_id: string
+          code: string | null
+          color: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          emoji: string | null
+          id: string
+          is_active: boolean
+          label: string
+          metadata: Json
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          code?: string | null
+          color: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          emoji?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          metadata?: Json
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          code?: string | null
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          emoji?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          metadata?: Json
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       customer_vehicles: {
         Row: {
@@ -3264,6 +3537,7 @@ export type Database = {
           filter_rules: Json
           id: string
           is_active: boolean
+          module: string
           target_id: string
           template_code: string | null
           updated_at: string
@@ -3275,6 +3549,7 @@ export type Database = {
           filter_rules?: Json
           id?: string
           is_active?: boolean
+          module?: string
           target_id: string
           template_code?: string | null
           updated_at?: string
@@ -3286,6 +3561,7 @@ export type Database = {
           filter_rules?: Json
           id?: string
           is_active?: boolean
+          module?: string
           target_id?: string
           template_code?: string | null
           updated_at?: string
@@ -3447,6 +3723,86 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      nps_responses: {
+        Row: {
+          brand_id: string
+          call_task_id: string | null
+          category: string | null
+          comment: string | null
+          created_at: string
+          customer_id: string | null
+          id: string
+          kind: string
+          metadata: Json
+          responded_at: string
+          sales_person: string | null
+          score: number
+          store_id: string | null
+          survey_template_id: string | null
+        }
+        Insert: {
+          brand_id: string
+          call_task_id?: string | null
+          category?: string | null
+          comment?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          kind: string
+          metadata?: Json
+          responded_at?: string
+          sales_person?: string | null
+          score: number
+          store_id?: string | null
+          survey_template_id?: string | null
+        }
+        Update: {
+          brand_id?: string
+          call_task_id?: string | null
+          category?: string | null
+          comment?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          kind?: string
+          metadata?: Json
+          responded_at?: string
+          sales_person?: string | null
+          score?: number
+          store_id?: string | null
+          survey_template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nps_responses_call_task_id_fkey"
+            columns: ["call_task_id"]
+            isOneToOne: false
+            referencedRelation: "call_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_responses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_responses_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nps_responses_survey_template_id_fkey"
+            columns: ["survey_template_id"]
+            isOneToOne: false
+            referencedRelation: "survey_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       old_parts: {
         Row: {
@@ -5807,6 +6163,107 @@ export type Database = {
           },
         ]
       }
+      sales_leads: {
+        Row: {
+          assignee_id: string | null
+          brand_id: string
+          code: string
+          competitor_brand: string | null
+          converted_customer_id: string | null
+          created_at: string
+          created_by: string | null
+          dormancy_status: string
+          email: string | null
+          follow_date: string | null
+          habc: string
+          id: string
+          intent_model: string | null
+          is_active: boolean
+          kind: string
+          last_revive_at: string | null
+          last_visit_at: string | null
+          lost_at: string | null
+          lost_reason: string | null
+          metadata: Json | null
+          name: string
+          next_revive_at: string | null
+          note: string | null
+          phone: string | null
+          revive_attempt_count: number
+          rs_name: string | null
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          brand_id: string
+          code: string
+          competitor_brand?: string | null
+          converted_customer_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dormancy_status?: string
+          email?: string | null
+          follow_date?: string | null
+          habc: string
+          id?: string
+          intent_model?: string | null
+          is_active?: boolean
+          kind?: string
+          last_revive_at?: string | null
+          last_visit_at?: string | null
+          lost_at?: string | null
+          lost_reason?: string | null
+          metadata?: Json | null
+          name: string
+          next_revive_at?: string | null
+          note?: string | null
+          phone?: string | null
+          revive_attempt_count?: number
+          rs_name?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          brand_id?: string
+          code?: string
+          competitor_brand?: string | null
+          converted_customer_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dormancy_status?: string
+          email?: string | null
+          follow_date?: string | null
+          habc?: string
+          id?: string
+          intent_model?: string | null
+          is_active?: boolean
+          kind?: string
+          last_revive_at?: string | null
+          last_visit_at?: string | null
+          lost_at?: string | null
+          lost_reason?: string | null
+          metadata?: Json | null
+          name?: string
+          next_revive_at?: string | null
+          note?: string | null
+          phone?: string | null
+          revive_attempt_count?: number
+          rs_name?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_leads_converted_customer_id_fkey"
+            columns: ["converted_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_appointments: {
         Row: {
           advisor_id: string | null
@@ -7132,6 +7589,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      survey_templates: {
+        Row: {
+          brand_id: string
+          code: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          metadata: Json
+          name: string
+          questions: Json
+          target_segment: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          metadata?: Json
+          name: string
+          questions?: Json
+          target_segment?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          metadata?: Json
+          name?: string
+          questions?: Json
+          target_segment?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       system_accounting_settings: {
         Row: {

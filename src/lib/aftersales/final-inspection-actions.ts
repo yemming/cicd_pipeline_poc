@@ -1,0 +1,345 @@
+"use server";
+
+/**
+ * Server actions — final_inspections
+ *
+ * Spec：06_竣工複檢_v1.html (5-step wizard)
+ *  - createFromRoAction：從 RO 建立複檢（預載 line_results）
+ *  - updateLineResultsAction（step1）
+ *  - updateTestDriveAction（step2）
+ *  - updateCleaningAction（step3）
+ *  - signAction / clearSignAction（step4）
+ *  - addNotificationAction（step5）
+ *  - updateNextServiceAction（step5）
+ *  - completeAction（最終：複檢通過 → RO 推進到「待結帳」）
+ *  - rejectAction（退回技師重修 → RO 改「維修中」）
+ *  - deleteAction
+ */
+
+import { revalidatePath } from "next/cache";
+
+import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { getActiveScope } from "@/lib/scope/active-scope";
+
+import {
+  buildInitialLineResults,
+  hasAnyFail,
+  isLineResultsAllPassed,
+  type CheckState,
+  type Cleaning,
+  type LineResult,
+  type NextService,
+  type NotificationLog,
+  type NotifyMethod,
+  type TestDrive,
+} from "@/domain/final-inspections.constants";
+
+export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
+
+const PAGE = "/parts/aftersales/final-inspections";
+
+function pad(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+function todayInTaipei(): { yymmdd: string; iso: string } {
+  const d = new Date();
+  const tz = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+  const y = tz.getFullYear();
+  const m = pad(tz.getMonth() + 1);
+  const day = pad(tz.getDate());
+  return { yymmdd: `${String(y).slice(2)}${m}${day}`, iso: `${y}-${m}-${day}` };
+}
+
+async function nextSequenceFor(brand: string, yymmdd: string): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("final_inspections")
+    .select("inspection_no")
+    .eq("brand_id", brand)
+    .like("inspection_no", `FI-${yymmdd}-%`);
+  if (error) throw error;
+  const max = ((data ?? []) as { inspection_no: string }[])
+    .map((r) => parseInt(r.inspection_no.split("-").pop() ?? "0", 10))
+    .reduce((a, b) => Math.max(a, b), 0);
+  return max + 1;
+}
+
+export async function createFromRoAction(
+  ro_id: string,
+  inspector?: { name?: string; role?: string },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data: ro, error: roErr } = await supabase
+    .from("repair_orders")
+    .select("id, brand_id, ro_code, status, mileage_in, sa_id")
+    .eq("id", ro_id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (roErr || !ro) return { ok: false, error: "找不到工單" };
+
+  const { data: existed } = await supabase
+    .from("final_inspections")
+    .select("id")
+    .eq("repair_order_id", ro_id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (existed) return { ok: false, error: "此工單已建立竣工複檢，請直接開啟" };
+
+  const { data: lines, error: lineErr } = await supabase
+    .from("repair_order_lines")
+    .select("id, line_no, kind, labor_name, part_name, labor_note")
+    .eq("repair_order_id", ro_id)
+    .order("line_no", { ascending: true });
+  if (lineErr) return { ok: false, error: "撈取維修項目失敗" };
+
+  const initial = buildInitialLineResults(
+    (lines ?? []) as Array<{
+      id: string;
+      line_no: number;
+      kind: string;
+      labor_name: string | null;
+      part_name: string | null;
+      labor_note: string | null;
+    }>,
+  );
+
+  const { yymmdd } = todayInTaipei();
+  const seq = await nextSequenceFor(brand, yymmdd);
+  const inspection_no = `FI-${yymmdd}-${String(seq).padStart(3, "0")}`;
+
+  const { data: ins, error: insErr } = await supabase
+    .from("final_inspections")
+    .insert({
+      brand_id: brand,
+      repair_order_id: ro_id,
+      inspection_no,
+      status: "in_progress",
+      inspector_name: inspector?.name ?? null,
+      inspector_role: inspector?.role ?? null,
+      line_results: initial,
+      test_drive: { km_before: ro.mileage_in ?? null, items: [] },
+      cleaning: { items: [] },
+      notifications: [],
+      next_service: {},
+    })
+    .select("id")
+    .single();
+  if (insErr || !ins) return { ok: false, error: insErr?.message ?? "建立失敗" };
+
+  revalidatePath(PAGE);
+  revalidatePath(`${PAGE}/${ins.id}`);
+  return { ok: true, data: { id: ins.id } };
+}
+
+async function loadById(id: string) {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("final_inspections")
+    .select("*")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (error || !data) return { ok: false as const, error: "找不到複檢單" };
+  return { ok: true as const, brand, row: data };
+}
+
+export async function updateLineResultsAction(
+  id: string,
+  patch: { line_results: LineResult[]; issue_note?: string | null },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("final_inspections")
+    .update({
+      line_results: patch.line_results,
+      issue_note: patch.issue_note ?? null,
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function updateTestDriveAction(
+  id: string,
+  patch: TestDrive,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const supabase = await createClient();
+  const { error } = await supabase.from("final_inspections").update({ test_drive: patch }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function updateCleaningAction(
+  id: string,
+  patch: Cleaning,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const supabase = await createClient();
+  const { error } = await supabase.from("final_inspections").update({ cleaning: patch }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function signAction(
+  id: string,
+  payload: { signature_text: string; inspector_name?: string; inspector_role?: string; signoff_note?: string },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const lineResults = Array.isArray(ctx.row.line_results) ? (ctx.row.line_results as LineResult[]) : [];
+  if (!isLineResultsAllPassed(lineResults)) {
+    return { ok: false, error: "尚有維修項目未通過複檢，無法簽核" };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("final_inspections")
+    .update({
+      signed_at: new Date().toISOString(),
+      signature_text: payload.signature_text,
+      inspector_name: payload.inspector_name ?? ctx.row.inspector_name,
+      inspector_role: payload.inspector_role ?? ctx.row.inspector_role,
+      signoff_note: payload.signoff_note ?? null,
+      status: "passed",
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  revalidatePath(PAGE);
+  return { ok: true, data: { id } };
+}
+
+export async function clearSignAction(id: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("final_inspections")
+    .update({
+      signed_at: null,
+      signature_text: null,
+      signoff_note: null,
+      status: "in_progress",
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function addNotificationAction(
+  id: string,
+  payload: { method: NotifyMethod; note?: string | null },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const list: NotificationLog[] = Array.isArray(ctx.row.notifications)
+    ? (ctx.row.notifications as NotificationLog[])
+    : [];
+  const newList = [
+    ...list,
+    { method: payload.method, sent_at: new Date().toISOString(), note: payload.note ?? null },
+  ];
+  const supabase = await createClient();
+  const { error } = await supabase.from("final_inspections").update({ notifications: newList }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function updateNextServiceAction(
+  id: string,
+  patch: NextService,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const supabase = await createClient();
+  const { error } = await supabase.from("final_inspections").update({ next_service: patch }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function completeAction(id: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (!ctx.row.signed_at) return { ok: false, error: "請先完成電子簽名再關閉複檢" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("final_inspections")
+    .update({ status: "completed", closed_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  // 推進 RO 狀態到「待結帳」
+  await supabase
+    .from("repair_orders")
+    .update({ status: "待結帳" })
+    .eq("id", ctx.row.repair_order_id)
+    .eq("brand_id", ctx.brand);
+  revalidatePath(`${PAGE}/${id}`);
+  revalidatePath(PAGE);
+  revalidatePath("/parts/aftersales/repair-orders");
+  return { ok: true, data: { id } };
+}
+
+export async function rejectAction(
+  id: string,
+  reason?: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const lineResults = Array.isArray(ctx.row.line_results) ? (ctx.row.line_results as LineResult[]) : [];
+  if (!hasAnyFail(lineResults) && !reason) {
+    return { ok: false, error: "尚未標記異常項目，請先在 step1 點異常或填寫退回原因" };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("final_inspections")
+    .update({ status: "rejected", issue_note: reason ?? ctx.row.issue_note ?? "退回技師重修" })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  // RO 退回維修中
+  await supabase
+    .from("repair_orders")
+    .update({ status: "維修中" })
+    .eq("id", ctx.row.repair_order_id)
+    .eq("brand_id", ctx.brand);
+  revalidatePath(`${PAGE}/${id}`);
+  revalidatePath(PAGE);
+  return { ok: true, data: { id } };
+}
+
+export async function deleteAction(id: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const supabase = await createClient();
+  const { error } = await supabase.from("final_inspections").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(PAGE);
+  return { ok: true, data: { id } };
+}
+
+export type { CheckState };

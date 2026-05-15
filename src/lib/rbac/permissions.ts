@@ -99,6 +99,10 @@ export const PERMISSIONS = {
   RO_APPROVE: "service.ro.approve",
   WARRANTY_VIEW: "service.warranty.view",
   WARRANTY_SUBMIT: "service.warranty.submit",
+  AFTERSALES_DISCOUNT_VIEW: "service.aftersales_discount.view",
+  AFTERSALES_DISCOUNT_EDIT: "service.aftersales_discount.edit",
+  AFTERSALES_PERMISSION_VIEW: "service.aftersales_permission.view",
+  AFTERSALES_PERMISSION_EDIT: "service.aftersales_permission.edit",
 
   // ─── 電子發票 ───────────────────────────────────
   EINVOICE_VIEW: "einvoice.view",

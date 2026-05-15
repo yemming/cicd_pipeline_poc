@@ -1,0 +1,345 @@
+"use server";
+
+/**
+ * Server actions — ro_checkouts
+ *
+ * Spec：08_結帳收款.html (4-step wizard)
+ *  - createFromRoAction：從 RO 建立結帳（自動帶 fee_summary）
+ *  - confirmFeesAction（step1）
+ *  - applyDiscountAction（step1：折扣）
+ *  - signAction / clearSignAction（step2）
+ *  - confirmPaymentAction（step3：method + invoice）
+ *  - completeAction（step4：關 RO）
+ *  - markReceiptPrintedAction
+ *  - deleteAction
+ */
+
+import { revalidatePath } from "next/cache";
+
+import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { getActiveScope } from "@/lib/scope/active-scope";
+
+import {
+  applyDiscount,
+  buildCheckoutNo,
+  buildFeeSummary,
+  type CustomerSignature,
+  type FeeSummary,
+  type Invoice,
+  type Payment,
+  type PaymentMethod,
+  type InvoiceKind,
+} from "@/domain/ro-checkouts.constants";
+import { loadFeeSourceForRo } from "@/domain/ro-checkouts";
+
+export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
+
+const PAGE = "/parts/aftersales/checkout";
+
+function pad(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+function todayInTaipei(): { yymmdd: string; iso: string } {
+  const d = new Date();
+  const tz = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+  const y = tz.getFullYear();
+  const m = pad(tz.getMonth() + 1);
+  const day = pad(tz.getDate());
+  return { yymmdd: `${String(y).slice(2)}${m}${day}`, iso: `${y}-${m}-${day}` };
+}
+
+async function nextSequenceFor(brand: string, yymmdd: string): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ro_checkouts")
+    .select("checkout_no")
+    .eq("brand_id", brand)
+    .like("checkout_no", `CK-${yymmdd}-%`);
+  if (error) throw error;
+  const max = ((data ?? []) as { checkout_no: string }[])
+    .map((r) => parseInt(r.checkout_no.split("-").pop() ?? "0", 10))
+    .reduce((a, b) => Math.max(a, b), 0);
+  return max + 1;
+}
+
+async function loadById(id: string) {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("ro_checkouts")
+    .select("*")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (error || !data) return { ok: false as const, error: "找不到結帳單" };
+  return { ok: true as const, brand, row: data };
+}
+
+/* ──────────────── create ──────────────── */
+
+export async function createFromRoAction(roId: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data: ro, error: roErr } = await supabase
+    .from("repair_orders")
+    .select("id, brand_id, ro_code, status")
+    .eq("id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (roErr || !ro) return { ok: false, error: "找不到工單" };
+
+  const { data: existed } = await supabase
+    .from("ro_checkouts")
+    .select("id")
+    .eq("repair_order_id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (existed) return { ok: false, error: "此工單已建立結帳單，請直接開啟" };
+
+  const { lines, addons } = await loadFeeSourceForRo(roId);
+  const feeSummary = buildFeeSummary(lines, addons);
+
+  const { yymmdd } = todayInTaipei();
+  const seq = await nextSequenceFor(brand, yymmdd);
+  const checkout_no = buildCheckoutNo(yymmdd, seq);
+
+  const { data: ck, error: ckErr } = await supabase
+    .from("ro_checkouts")
+    .insert({
+      brand_id: brand,
+      repair_order_id: roId,
+      checkout_no,
+      status: "in_progress",
+      fee_summary: feeSummary,
+      customer_signature: {},
+      payment: {},
+      invoice: {},
+    })
+    .select("id")
+    .single();
+  if (ckErr || !ck) return { ok: false, error: ckErr?.message ?? "建立失敗" };
+
+  revalidatePath(PAGE);
+  revalidatePath(`${PAGE}/${ck.id}`);
+  return { ok: true, data: { id: ck.id } };
+}
+
+/* ──────────────── step 1: 費用 ──────────────── */
+
+export async function refreshFeeSummaryAction(id: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (ctx.row.status !== "in_progress") return { ok: false, error: "已超過費用確認階段，無法重新計算" };
+
+  const { lines, addons } = await loadFeeSourceForRo(ctx.row.repair_order_id);
+  const fresh = buildFeeSummary(lines, addons);
+  const previous = (ctx.row.fee_summary ?? {}) as FeeSummary;
+  const merged = applyDiscount(fresh, previous.discount_pct ?? 0);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({ fee_summary: merged, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function applyDiscountAction(
+  id: string,
+  pct: number,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (ctx.row.status !== "in_progress") return { ok: false, error: "已二簽後不可改折扣" };
+  const summary = (ctx.row.fee_summary ?? {}) as FeeSummary;
+  const next = applyDiscount(summary, pct);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({ fee_summary: next, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function confirmFeesAction(id: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const summary = (ctx.row.fee_summary ?? {}) as FeeSummary;
+  if (!summary.payable && summary.payable !== 0) {
+    return { ok: false, error: "費用尚未計算，請先重新計算費用" };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({
+      fee_summary: { ...summary, customer_no_dispute: true },
+      fees_confirmed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+/* ──────────────── step 2: 簽名 ──────────────── */
+
+export async function signAction(
+  id: string,
+  payload: { signature_text: string; customer_name?: string },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (!ctx.row.fees_confirmed_at) {
+    return { ok: false, error: "請先在 step1 確認費用明細" };
+  }
+  const sig: CustomerSignature = {
+    signature_text: payload.signature_text,
+    customer_name: payload.customer_name,
+    signed_at: new Date().toISOString(),
+  };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({
+      customer_signature: sig,
+      status: "signed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  revalidatePath(PAGE);
+  return { ok: true, data: { id } };
+}
+
+export async function clearSignAction(id: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (ctx.row.status !== "signed") return { ok: false, error: "已收款後不可清除簽名" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({
+      customer_signature: {},
+      status: "in_progress",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+/* ──────────────── step 3: 收款 + 發票 ──────────────── */
+
+export async function confirmPaymentAction(
+  id: string,
+  payload: {
+    payment_method: PaymentMethod;
+    invoice_kind: InvoiceKind;
+    invoice_tax_id?: string;
+    invoice_carrier?: string;
+  },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (ctx.row.status !== "signed") {
+    return { ok: false, error: "請先完成車主第二次簽名" };
+  }
+  if (payload.invoice_kind === "company" && !payload.invoice_tax_id?.trim()) {
+    return { ok: false, error: "公司戶發票必須填寫統一編號" };
+  }
+  const summary = (ctx.row.fee_summary ?? {}) as FeeSummary;
+  const payment: Payment = {
+    method: payload.payment_method,
+    paid_at: new Date().toISOString(),
+    amount: summary.payable ?? 0,
+  };
+  const invoice: Invoice = {
+    kind: payload.invoice_kind,
+    tax_id: payload.invoice_tax_id?.trim() || undefined,
+    carrier: payload.invoice_carrier?.trim() || undefined,
+    invoice_no: `EI-${Date.now().toString().slice(-10)}`,
+    issued_at: new Date().toISOString(),
+  };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({
+      payment,
+      invoice,
+      status: "paid",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  revalidatePath(PAGE);
+  return { ok: true, data: { id } };
+}
+
+/* ──────────────── step 4: 關單 ──────────────── */
+
+export async function completeAction(id: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (ctx.row.status !== "paid") return { ok: false, error: "請先完成收款再關單" };
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({ status: "completed", closed_at: now, updated_at: now })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  await supabase
+    .from("repair_orders")
+    .update({ status: "已結案", closed_at: now })
+    .eq("id", ctx.row.repair_order_id)
+    .eq("brand_id", ctx.brand);
+  revalidatePath(`${PAGE}/${id}`);
+  revalidatePath(PAGE);
+  revalidatePath("/parts/aftersales/repair-orders");
+  return { ok: true, data: { id } };
+}
+
+export async function markReceiptPrintedAction(id: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({ receipt_printed_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function deleteAction(id: string): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (ctx.row.status === "completed") return { ok: false, error: "已關單的結帳單不可刪除" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("ro_checkouts").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(PAGE);
+  return { ok: true, data: { id } };
+}

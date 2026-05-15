@@ -1,0 +1,181 @@
+"use server";
+
+/**
+ * Domain Helper — Aftersales 取車通知設定
+ *
+ * 單張 business_rules row（per brand），rule_kind='aftersales_pickup_notify_template'，
+ * config jsonb 儲存 LINE / SMS 範本 + 預設通知方式。
+ *
+ * 對應頁面：/parts/aftersales/settings/pickup-notify
+ * 設計稿：docs/DUCATI_售後工單模組_完整且含串接庫存版_20260510_最新版/11_取車通知設定.html
+ */
+
+import { revalidatePath } from "next/cache";
+
+import { createClient } from "@/lib/supabase/server";
+import { getActiveScope } from "@/lib/scope/active-scope";
+
+const RULE_KIND = "aftersales_pickup_notify_template";
+const REVALIDATE_PATH = "/parts/aftersales/settings/pickup-notify";
+
+export type Result<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+export type PickupNotifyChannels = {
+  line: boolean;
+  sms: boolean;
+  phone: boolean;
+};
+
+export type PickupNotifyConfig = {
+  line_template: string;
+  sms_template: string;
+  default_channels: PickupNotifyChannels;
+};
+
+export type PickupNotifySettings = {
+  id: string | null; // null = 該 brand 尚未建立過 row（會在第一次儲存時 insert）
+  config: PickupNotifyConfig;
+  updated_at: string | null;
+};
+
+const DEFAULT_LINE_TEMPLATE = `親愛的 {車主姓名} 您好，
+您的 {車型} ({車牌}) 維修作業已完成，
+請您方便時前來取車。
+
+DUCATI 台北直營店 敬上`;
+
+const DEFAULT_SMS_TEMPLATE = `{車主姓名} 您好，您的{車型}({車牌})已完修，請取車。DUCATI台北`;
+
+const DEFAULTS: PickupNotifyConfig = {
+  line_template: DEFAULT_LINE_TEMPLATE,
+  sms_template: DEFAULT_SMS_TEMPLATE,
+  default_channels: { line: true, sms: false, phone: false },
+};
+
+function mapDbError(error: { code?: string; message: string }, fallback: string): string {
+  if (error.code === "23505") return "資料衝突：取車通知設定已存在";
+  if (error.code === "23514") return `欄位驗證失敗：${error.message}`;
+  return `${fallback}：${error.message}`;
+}
+
+function normalizeConfig(raw: unknown): PickupNotifyConfig {
+  const r = (raw ?? {}) as Partial<PickupNotifyConfig>;
+  const ch = (r.default_channels ?? {}) as Partial<PickupNotifyChannels>;
+  return {
+    line_template:
+      typeof r.line_template === "string" && r.line_template.trim()
+        ? r.line_template
+        : DEFAULTS.line_template,
+    sms_template:
+      typeof r.sms_template === "string" && r.sms_template.trim()
+        ? r.sms_template
+        : DEFAULTS.sms_template,
+    default_channels: {
+      line: typeof ch.line === "boolean" ? ch.line : DEFAULTS.default_channels.line,
+      sms: typeof ch.sms === "boolean" ? ch.sms : DEFAULTS.default_channels.sms,
+      phone: typeof ch.phone === "boolean" ? ch.phone : DEFAULTS.default_channels.phone,
+    },
+  };
+}
+
+export async function getPickupNotifySettings(): Promise<PickupNotifySettings> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data, error } = await supabase
+    .from("business_rules")
+    .select("id, config, updated_at")
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", RULE_KIND)
+    .is("scope_store_id", null)
+    .is("scope_subsidiary_id", null)
+    .maybeSingle();
+
+  if (error && error.code !== "PGRST116") throw error;
+
+  if (!data) {
+    return {
+      id: null,
+      config: { ...DEFAULTS, default_channels: { ...DEFAULTS.default_channels } },
+      updated_at: null,
+    };
+  }
+
+  return {
+    id: data.id,
+    config: normalizeConfig(data.config),
+    updated_at: data.updated_at ?? null,
+  };
+}
+
+export type PickupNotifyInput = {
+  line_template: string;
+  sms_template: string;
+  default_channels: PickupNotifyChannels;
+};
+
+export async function updatePickupNotifySettings(
+  input: PickupNotifyInput,
+): Promise<Result<{ id: string }>> {
+  const lineT = (input.line_template ?? "").trim();
+  const smsT = (input.sms_template ?? "").trim();
+  if (!lineT) return { ok: false, error: "LINE 通知範本不可空白" };
+  if (!smsT) return { ok: false, error: "簡訊通知範本不可空白" };
+  if (lineT.length > 600) return { ok: false, error: "LINE 範本不可超過 600 字" };
+  if (smsT.length > 70) return { ok: false, error: "簡訊範本不可超過 70 字（單則 SMS 上限）" };
+
+  const ch = input.default_channels ?? { line: false, sms: false, phone: false };
+  if (!ch.line && !ch.sms && !ch.phone) {
+    return { ok: false, error: "請至少勾選一種預設通知方式" };
+  }
+
+  const config: PickupNotifyConfig = {
+    line_template: lineT,
+    sms_template: smsT,
+    default_channels: {
+      line: !!ch.line,
+      sms: !!ch.sms,
+      phone: !!ch.phone,
+    },
+  };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 先查現有 row
+  const { data: existing } = await supabase
+    .from("business_rules")
+    .select("id")
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", RULE_KIND)
+    .is("scope_store_id", null)
+    .is("scope_subsidiary_id", null)
+    .maybeSingle();
+
+  if (existing?.id) {
+    const { error } = await supabase
+      .from("business_rules")
+      .update({ config, is_active: true })
+      .eq("id", existing.id);
+    if (error) return { ok: false, error: mapDbError(error, "儲存失敗") };
+    revalidatePath(REVALIDATE_PATH);
+    return { ok: true, data: { id: existing.id } };
+  }
+
+  const { data, error } = await supabase
+    .from("business_rules")
+    .insert({
+      brand_id: scope.brand_id,
+      rule_kind: RULE_KIND,
+      config,
+      is_active: true,
+      sort_order: 0,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: mapDbError(error, "建立失敗") };
+  revalidatePath(REVALIDATE_PATH);
+  return { ok: true, data: { id: data.id } };
+}

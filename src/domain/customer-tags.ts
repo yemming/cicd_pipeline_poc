@@ -72,9 +72,12 @@ export type PersonalTagInput = {
   note?: string | null;
 };
 
-const REVALIDATE_PATH = "/sales/settings/customer-tags";
+const REVALIDATE_PATHS = [
+  "/sales/settings/customer-tags",
+  "/parts/aftersales/management/customer-tags",
+];
 function revalidateAll() {
-  revalidatePath(REVALIDATE_PATH);
+  for (const p of REVALIDATE_PATHS) revalidatePath(p);
 }
 
 function mapDbError(error: { code?: string; message: string }, fallback: string): string {
@@ -356,4 +359,134 @@ export async function listUsageStat(): Promise<
     })),
   ];
   return combined.sort((a, b) => b.usage - a.usage).slice(0, 15);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 主管端 — 官方標籤 CRUD（售後主管工作檯 → 客群標籤）
+// ──────────────────────────────────────────────────────────────────────────
+
+export type OfficialTagInput = {
+  label: string;
+  color: TagColor;
+  description?: string | null;
+};
+
+/** 含 inactive；主管頁要看到全部、能切啟用狀態 */
+export async function listAllOfficialTags(): Promise<OfficialTag[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("customer_tags")
+    .select("id, brand_id, code, label, color, emoji, description, is_active, sort_order")
+    .eq("brand_id", scope.brand_id)
+    .order("color")
+    .order("sort_order");
+  if (error) throw error;
+  return ((data ?? []) as Array<Omit<OfficialTag, "usage">>).map((r) => ({
+    ...r,
+    color: r.color as TagColor,
+    usage: 0,
+  }));
+}
+
+export async function createOfficialTag(
+  input: OfficialTagInput,
+): Promise<Result<{ id: string }>> {
+  const label = (input.label ?? "").trim();
+  if (!label) return { ok: false, error: "標籤文字不可空白" };
+  if (label.length > 20) return { ok: false, error: "標籤文字最多 20 字" };
+  if (!isValidColor(input.color)) return { ok: false, error: "顏色分類不合法" };
+
+  const { supabase, user } = await requireUser();
+  const scope = await getActiveScope();
+
+  // 算下一個 sort_order：同色目前最大 +1
+  const { data: maxRow } = await supabase
+    .from("customer_tags")
+    .select("sort_order")
+    .eq("brand_id", scope.brand_id)
+    .eq("color", input.color)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSort = (maxRow?.sort_order ?? 0) + 1;
+
+  const { data, error } = await supabase
+    .from("customer_tags")
+    .insert({
+      brand_id: scope.brand_id,
+      label,
+      color: input.color,
+      emoji: TAG_COLOR_EMOJI[input.color],
+      description: input.description?.trim() || null,
+      sort_order: nextSort,
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: mapDbError(error, "新增失敗") };
+  revalidateAll();
+  return { ok: true, data: { id: data.id } };
+}
+
+export async function updateOfficialTag(
+  id: string,
+  patch: { label?: string; color?: TagColor; description?: string | null },
+): Promise<Result<{ id: string }>> {
+  const update: Record<string, unknown> = {};
+  if (patch.label !== undefined) {
+    const v = patch.label.trim();
+    if (!v) return { ok: false, error: "標籤文字不可空白" };
+    if (v.length > 20) return { ok: false, error: "標籤文字最多 20 字" };
+    update.label = v;
+  }
+  if (patch.color !== undefined) {
+    if (!isValidColor(patch.color)) return { ok: false, error: "顏色分類不合法" };
+    update.color = patch.color;
+    update.emoji = TAG_COLOR_EMOJI[patch.color];
+  }
+  if (patch.description !== undefined) update.description = patch.description?.trim() || null;
+  if (Object.keys(update).length === 0) return { ok: true, data: { id } };
+  update.updated_at = new Date().toISOString();
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("customer_tags")
+    .update(update)
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: mapDbError(error, "更新失敗") };
+  revalidateAll();
+  return { ok: true, data: { id } };
+}
+
+export async function setOfficialTagActive(
+  id: string,
+  active: boolean,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("customer_tags")
+    .update({ is_active: active, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: mapDbError(error, "切換狀態失敗") };
+  revalidateAll();
+  return { ok: true, data: { id } };
+}
+
+export async function deleteOfficialTag(id: string): Promise<Result<{ id: string }>> {
+  // 硬刪：HTML 設計稿就是直接 splice。已使用客戶不影響（assignments 表尚未建）。
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("customer_tags")
+    .delete()
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: mapDbError(error, "刪除失敗") };
+  revalidateAll();
+  return { ok: true, data: { id } };
 }

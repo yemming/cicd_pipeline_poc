@@ -44,6 +44,86 @@ export async function resolveNavNode(nodeId: string): Promise<NavNode | null> {
 
 const HTML_BUCKET = "nav-html";
 
+/**
+ * 售後修護模組進度 — 給 /parts/aftersales flow-diagram landing 用。
+ *
+ * 撈當前 brand 底下「售後修護」grandparent 子樹下所有 level=3 節點，
+ * 按 page_kind 計數產出 KPI + node href→status map（讓 page.tsx 渲染狀態 chip）。
+ *
+ * 「剩餘 Sessions」「庫存串接點」是 PM 估算值、非 DB 計算 → hardcode。
+ */
+export type AftersalesModuleProgress = {
+  completed_count: number;
+  pending_count: number;
+  inventory_link_count: number;
+  planned_sessions: string;
+  /** key = href；value = page_kind（'missing' = 該 href 在 nav_nodes 找不到） */
+  node_status: Record<string, NonNullable<NavNode["page_kind"]> | "missing">;
+};
+
+const AFTERSALES_ROOT_NAME = "售後修護";
+
+export async function getAftersalesModuleProgress(): Promise<AftersalesModuleProgress> {
+  const supabase = createServiceClient();
+  const brand_id = (await getActiveScope()).brand_id;
+
+  // 找 grandparent（level=1, name='售後修護'）
+  const { data: rootRow } = await supabase
+    .from("nav_nodes")
+    .select("id")
+    .eq("brand_id", brand_id)
+    .eq("level", 1)
+    .eq("name", AFTERSALES_ROOT_NAME)
+    .maybeSingle();
+
+  const fallback: AftersalesModuleProgress = {
+    completed_count: 0,
+    pending_count: 0,
+    inventory_link_count: 4,
+    planned_sessions: "2~3",
+    node_status: {},
+  };
+
+  if (!rootRow?.id) return fallback;
+
+  // 撈所有 level=2 直接子節點 id
+  const { data: l2Rows } = await supabase
+    .from("nav_nodes")
+    .select("id")
+    .eq("brand_id", brand_id)
+    .eq("parent_id", rootRow.id);
+
+  const l2Ids = (l2Rows ?? []).map((r) => r.id);
+  if (l2Ids.length === 0) return fallback;
+
+  // 撈所有 level=3 葉節點
+  const { data: leafRows } = await supabase
+    .from("nav_nodes")
+    .select("href, page_kind")
+    .eq("brand_id", brand_id)
+    .in("parent_id", l2Ids)
+    .eq("is_active", true);
+
+  const leaves = leafRows ?? [];
+  let completed = 0;
+  let pending = 0;
+  const nodeStatus: AftersalesModuleProgress["node_status"] = {};
+
+  for (const row of leaves) {
+    if (row.page_kind === "react_route") completed++;
+    else pending++;
+    if (row.href) nodeStatus[row.href] = row.page_kind ?? "placeholder";
+  }
+
+  return {
+    completed_count: completed,
+    pending_count: pending,
+    inventory_link_count: 4,
+    planned_sessions: "2~3",
+    node_status: nodeStatus,
+  };
+}
+
 export async function downloadNavHtml(storagePath: string): Promise<string | null> {
   // 支援 `file:` 前綴 → 從專案根目錄 fs-read（給 docs/ 內的原始規格 HTML 用，免上傳 Storage）
   if (storagePath.startsWith("file:")) {
