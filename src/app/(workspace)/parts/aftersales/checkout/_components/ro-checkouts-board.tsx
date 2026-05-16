@@ -207,12 +207,24 @@ export function RoCheckoutsBoard({ rows, candidates, filter, canEdit }: Props) {
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">結帳收款</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          售後 · Step 8
+          售後 · 8.1
         </span>
         <span className="text-[12px] text-[#9A9890]">
-          竣工複檢通過後的 4 步驟結帳：費用確認 → 車主二簽 → 收款・發票 → RO 關單
+          竣工複檢通過後的 4 步驟結帳：費用確認 → 車主第二次簽名 → 收款方式・發票 → RO 關單
         </span>
       </header>
+
+      <section className="rounded-lg border border-[#85B7EB] bg-[#EAF4FB] px-4 py-3 text-[12.5px] text-[#0C3E70] leading-7">
+        <div className="font-semibold text-[#1A3A5C] mb-1">
+          💳 結帳收款 — RO 工單金流終點站
+        </div>
+        <div>
+          1️⃣ 費用明細 SA 與車主當面核對（含追加項目／VIP 折扣／主管授權折扣）
+          ・ 2️⃣ 車主第二次電子簽名（含 4 項聲明、防竄改時間戳）
+          ・ 3️⃣ 收款方式（信用卡／現金／行動支付／銀行轉帳）＋ 發票（電子／載具／統編／捐贈）
+          ・ 4️⃣ RO 關單，電子發票自動開立，存檔 36 個月
+        </div>
+      </section>
 
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">

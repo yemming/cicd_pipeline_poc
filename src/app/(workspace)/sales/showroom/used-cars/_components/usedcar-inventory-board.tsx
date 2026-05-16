@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
 import type { UsedCarInventoryData } from "@/domain/sales-usedcar-inventory";
@@ -34,7 +35,7 @@ const GRADE_BADGE: Record<UsedCarGrade, string> = {
   D: "bg-[#9A9890] text-white",
 };
 
-type ViewMode = "card" | "list";
+type DisplayMode = "card" | "list";
 type Banner = { ok: boolean; msg: string } | null;
 
 function marginRate(margin: number, price: number): number {
@@ -54,13 +55,29 @@ function daysToneClass(days: number): string {
   return "text-[#0F6E56]";
 }
 
-export default function UsedCarInventoryBoard({ data }: { data: UsedCarInventoryData }) {
+/**
+ * 視角差異（A9 RS03B 共用）：
+ * - `dealer`（預設）：銷售模組底下，掛 `/sales/showroom/used-cars`，breadcrumb 走「展廳接待」
+ * - `usedcar`：中古車輛模組底下，掛 `/usedcar/stock`，breadcrumb 走「中古車輛」
+ *
+ * Day 1 兩視角資料同源（USED_CAR_INVENTORY_UNITS）。
+ */
+export type UsedCarInventoryViewMode = "dealer" | "usedcar";
+
+export default function UsedCarInventoryBoard({
+  data,
+  viewMode = "dealer",
+}: {
+  data: UsedCarInventoryData;
+  viewMode?: UsedCarInventoryViewMode;
+}) {
+  const isUsedcarModule = viewMode === "usedcar";
+
   useSetPageHeader({
     title: "中古車庫存看板",
-    breadcrumb: [
-      { label: "展廳接待" },
-      { label: "中古車庫存" },
-    ],
+    breadcrumb: isUsedcarModule
+      ? [{ label: "中古車輛" }, { label: "中古車庫存" }]
+      : [{ label: "展廳接待" }, { label: "中古車庫存" }],
     hideSearch: true,
   });
 
@@ -68,7 +85,7 @@ export default function UsedCarInventoryBoard({ data }: { data: UsedCarInventory
   const [status, setStatus] = useState<string>("");
   const [kmRange, setKmRange] = useState<string>("");
   const [query, setQuery] = useState<string>("");
-  const [viewMode, setViewMode] = useState<ViewMode>("card");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("card");
   const [banner, setBanner] = useState<Banner>(null);
 
   useEffect(() => {
@@ -98,17 +115,61 @@ export default function UsedCarInventoryBoard({ data }: { data: UsedCarInventory
   }
 
   return (
-    <main className="px-6 py-5 space-y-3">
+    <main
+      className="px-6 py-5 space-y-3"
+      data-view-mode={viewMode}
+      data-testid={`usedcar-inventory-${viewMode}`}
+    >
       {/* Page Header */}
       <header className="flex items-center gap-2.5 flex-wrap">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">中古車庫存看板</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          銷售模組 / RS03B
+          {isUsedcarModule ? "中古車輛 / RS03B" : "銷售模組 / RS03B"}
         </span>
+        {isUsedcarModule && (
+          <span
+            className="px-2 py-0.5 text-[11px] rounded-full bg-[#FDF3E3] text-[#854F0B] font-medium"
+            data-testid="usedcar-perspective-chip"
+          >
+            中古車輛
+          </span>
+        )}
+        {isUsedcarModule && (
+          <span
+            className="px-2 py-0.5 text-[11px] rounded-full bg-[#F0EFFE] text-[#534AB7] font-semibold"
+            data-testid="star6-marker-chip"
+          >
+            ★6
+          </span>
+        )}
         <span className="text-[12px] text-[#9A9890]">
           等級、整備、保留與在庫天數 — 看板統一管理中古車庫存與報價接續
         </span>
       </header>
+
+      {/* ★6 跨模組 banner — 中古車庫存 ↔ 備件庫存查詢（D5.1） */}
+      {isUsedcarModule && (
+        <section
+          className="bg-[#F0EFFE] border border-[#C4BEF0] rounded-lg px-4 py-2.5 flex items-center gap-3 flex-wrap"
+          data-testid="star6-cross-module-banner"
+        >
+          <span className="text-[11px] text-[#534AB7] font-semibold">
+            ★6 跨模組
+          </span>
+          <span className="text-[12px] text-[#26215C]">
+            本頁是<strong>中古車銷售視角</strong>（等級、整備、保留、在庫天數）；
+            備件庫存查詢從<strong>零件視角</strong>看 stock_items 即時水位，同源不同切面。
+          </span>
+          <div className="ml-auto flex gap-1.5 flex-wrap">
+            <Link
+              href="/parts/operations/balance"
+              className="h-[26px] px-3 rounded-full text-[11.5px] inline-flex items-center bg-[#534AB7] text-white hover:bg-[#3F3793] font-medium"
+            >
+              → 備件庫存查詢
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* KPI */}
       <section
@@ -186,11 +247,11 @@ export default function UsedCarInventoryBoard({ data }: { data: UsedCarInventory
             <button
               className={
                 "h-[28px] px-3 rounded text-[12px] border transition " +
-                (viewMode === "card"
+                (displayMode === "card"
                   ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
                   : "bg-white text-[#5A5955] border-[#D5D3CB] hover:border-[#9A9890]")
               }
-              onClick={() => setViewMode("card")}
+              onClick={() => setDisplayMode("card")}
               data-testid="view-toggle-card"
             >
               ⊞ 卡片
@@ -198,11 +259,11 @@ export default function UsedCarInventoryBoard({ data }: { data: UsedCarInventory
             <button
               className={
                 "h-[28px] px-3 rounded text-[12px] border transition " +
-                (viewMode === "list"
+                (displayMode === "list"
                   ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
                   : "bg-white text-[#5A5955] border-[#D5D3CB] hover:border-[#9A9890]")
               }
-              onClick={() => setViewMode("list")}
+              onClick={() => setDisplayMode("list")}
               data-testid="view-toggle-list"
             >
               ≡ 列表
@@ -219,7 +280,7 @@ export default function UsedCarInventoryBoard({ data }: { data: UsedCarInventory
       </div>
 
       {/* Card / List */}
-      {viewMode === "card" ? (
+      {displayMode === "card" ? (
         <CardGrid units={filtered} onAction={showToast} />
       ) : (
         <ListView units={filtered} onAction={showToast} />

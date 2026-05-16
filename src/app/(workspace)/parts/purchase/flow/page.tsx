@@ -5,36 +5,36 @@ export const dynamic = "force-static";
 const FLOW_STEPS = [
   {
     icon: "⚡",
-    label: "庫存告警觸發",
-    sub: "水位低於再訂購點",
+    label: "庫存告警\n觸發",
+    sub: "水位低於\n再訂購點",
     href: "/parts/operations/balance",
     accent: { bg: "bg-[#FDECEA]", border: "border-[#CC0000]", text: "text-[#CC0000]" },
   },
   {
     icon: "📋",
-    label: "需求處理 4.3",
-    sub: "確認需求 / 建立申請",
+    label: "需求處理\n4.3",
+    sub: "確認需求\n建立申請",
     href: "/parts/purchase/requisitions",
     accent: { bg: "bg-[#FDF3E3]", border: "border-[#854F0B]", text: "text-[#854F0B]" },
   },
   {
     icon: "🛒",
-    label: "商品採購 4.4",
-    sub: "建立採購單 / 供應商確認",
+    label: "商品採購\n4.4",
+    sub: "建立採購單\n供應商確認",
     href: "/parts/purchase/orders",
     accent: { bg: "bg-[#EAF4FB]", border: "border-[#185FA5]", text: "text-[#185FA5]" },
   },
   {
     icon: "📥",
-    label: "採購入庫 5.1",
-    sub: "驗收到貨 / 庫存更新",
+    label: "採購入庫\n5.1",
+    sub: "驗收到貨\n庫存更新",
     href: "/parts/receipt/po-grn",
     accent: { bg: "bg-[#E8F5F0]", border: "border-[#0F6E56]", text: "text-[#0F6E56]" },
   },
   {
     icon: "✅",
-    label: "庫存更新 / 告警解除",
-    sub: "自動回補 / SA 通知",
+    label: "庫存更新\n告警解除",
+    sub: "自動回補\nSA 通知",
     href: "/parts/operations/balance",
     accent: { bg: "bg-[#EAF3DE]", border: "border-[#3B6D11]", text: "text-[#3B6D11]" },
   },
@@ -92,17 +92,19 @@ export default function PurchaseFlowPage() {
             <div key={step.label} className="flex items-center">
               <Link
                 href={step.href}
-                className="flex flex-col items-center gap-1.5 min-w-[100px] hover:opacity-80"
+                className="flex flex-col items-center gap-1.5 min-w-[90px] hover:opacity-80"
               >
                 <div
                   className={`w-11 h-11 rounded-[10px] border-2 flex items-center justify-center text-[20px] ${step.accent.bg} ${step.accent.border}`}
                 >
                   {step.icon}
                 </div>
-                <div className={`text-[11.5px] font-semibold text-center ${step.accent.text}`}>
+                <div
+                  className={`text-[11.5px] font-semibold text-center leading-tight whitespace-pre-line ${step.accent.text}`}
+                >
                   {step.label}
                 </div>
-                <div className="text-[10px] text-[#9A9890] text-center leading-tight">
+                <div className="text-[10px] text-[#9A9890] text-center leading-tight whitespace-pre-line">
                   {step.sub}
                 </div>
               </Link>

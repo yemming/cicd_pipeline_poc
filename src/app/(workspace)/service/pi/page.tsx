@@ -108,7 +108,7 @@ const TECH_DECISION_BTNS = [
 ];
 
 // ── Tab 定義 ──────────────────────────────────────────────
-const TABS = ["環車檢查", "來意詢問", "車間檢查", "報價彙整", "確認簽名"];
+const TABS = ["環車檢查", "來意詢問", "技師深入檢查", "報價", "確認簽名"];
 
 // ── 刪除 SA 項目 Modal ────────────────────────────────────
 function DeleteModal({
@@ -334,7 +334,7 @@ export default function PIPage() {
         <div className="bg-white rounded-xl border border-neutral-200 p-5">
           <h3 className="font-semibold text-neutral-700 text-sm mb-4 flex items-center gap-2">
             <span className="material-symbols-outlined text-base text-[#CC0000]">quiz</span>
-            SA 主動詢問清單
+            SA 主動詢問清單（第一次商機挖掘）
           </h3>
           <div className="space-y-3">
             {Object.keys(pi.saAsks).map((q) => {
@@ -499,12 +499,33 @@ export default function PIPage() {
     );
   }
 
-  // ── Tab 3：報價彙整 ───────────────────────────────────
+  // ── Tab 3：報價 ───────────────────────────────────────
   function renderTab3() {
     const deletedItems = pi.saItems.filter((s) => s.deleted);
+    const hasRejectedHigh = pi.techItems.some(
+      (t) => t.decision === "rejected" && t.safetyLevel === "critical"
+    );
+    const subtotalForChip = subtotal;
 
     return (
       <div className="space-y-5">
+        {/* v2 報價狀態提示 chip */}
+        <div className="flex flex-wrap items-center gap-2">
+          {hasRejectedHigh && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+              🔴 需主管陪同報價（含安全等級 1 拒絕項）
+            </span>
+          )}
+          {subtotalForChip >= 30000 && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              🔵 需要詳細報價單（小計 ≥ NT$30,000）
+            </span>
+          )}
+          <span className="text-xs text-neutral-500 ml-auto">
+            SA 可隨時編輯｜切換 Tab 3 查看技師診斷
+          </span>
+        </div>
+
         {/* SA 預載項目 */}
         <div className="bg-white rounded-xl border border-neutral-200 p-5">
           <h3 className="font-semibold text-neutral-700 text-sm mb-4 flex items-center gap-2">
@@ -635,11 +656,17 @@ export default function PIPage() {
 
     return (
       <div className="space-y-5">
+        {/* v2 簽核審批提示 */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-800 leading-relaxed">
+          <span className="material-symbols-outlined text-amber-600 text-sm align-middle mr-1">info</span>
+          以上均須進入正式工單（RO）後由售後主管簽核審批，預檢單階段僅做記錄。
+        </div>
+
         {/* SA 簽名 */}
         <div className="bg-white rounded-xl border border-neutral-200 p-5">
           <h3 className="font-semibold text-neutral-700 text-sm mb-4 flex items-center gap-2">
             <span className="material-symbols-outlined text-base text-[#CC0000]">draw</span>
-            SA 手寫簽名（林志遠）
+            SA 確認簽名（林志遠）
           </h3>
           {saSignImg ? (
             <div className="space-y-2">
@@ -717,7 +744,7 @@ export default function PIPage() {
         <div className={`bg-white rounded-xl border border-neutral-200 p-5 transition-opacity ${!pi.saSigned ? "opacity-50 pointer-events-none" : ""}`}>
           <h3 className="font-semibold text-neutral-700 text-sm mb-1 flex items-center gap-2">
             <span className="material-symbols-outlined text-base text-[#CC0000]">person</span>
-            車主手寫簽名（{pi.customer.name}）
+            車主確認簽名（第一次｜{pi.customer.name}）
           </h3>
           {!pi.saSigned && (
             <p className="text-xs text-neutral-400 mb-3">

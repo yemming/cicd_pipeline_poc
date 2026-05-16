@@ -255,7 +255,7 @@ export function WorkorderLoopBoard({
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">工單增項閉環</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          10.4
+          10.4 ★3
         </span>
         <span className="text-[12px] text-[#9A9890]">
           維修工單缺料後的自動補貨觸發 / 待料解除 / SA 通知完整閉環

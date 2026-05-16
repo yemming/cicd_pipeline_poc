@@ -1,444 +1,422 @@
 "use client";
 
+/**
+ * 電子手卡 v8 — consultant（意向諮詢 / 第二階段）
+ *
+ * 規格：RS01_電子手卡_v8.html · STEP 3-5
+ *   - STEP 3：購買時機 × HABC 系統輔助建議（用 suggestHabc helper）
+ *   - STEP 4：試乘試駕跳轉（RS02）+ 試駕回寫展示
+ *   - STEP 5：中古車鑑價跳轉（RS06）+ 回寫展示
+ *
+ * HABC 算法走 @/domain/handcard-suggestions · suggestHabc()
+ */
+
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+
 import { useSetPageHeader } from "@/components/page-header-context";
 import { CardStepBar } from "@/components/card-step-bar";
+import { HandcardV8SubBar } from "@/components/handcard/handcard-v8-sub-bar";
+import { HandcardPreviewModal } from "@/components/handcard/handcard-preview-modal";
+import {
+  INTENT_OPTIONS,
+  TIMING_OPTIONS,
+  TRIAL_STATUS_OPTIONS,
+  suggestHabc,
+  type HabcGrade,
+  type HandcardIntent,
+  type HandcardTiming,
+  type HandcardTrialStatus,
+} from "@/domain/handcard-suggestions";
+import { useHandcard } from "@/lib/handcard-store";
 
-const PURCHASE_TIMINGS = ["本月", "次月", "季後", "年後", "未定"] as const;
-
-const COMPETITOR_BRANDS = [
-  "BMW Motorrad", "KTM", "Aprilia", "Honda", "Kawasaki",
-  "Yamaha", "Triumph", "Harley-Davidson", "Royal Enfield", "其他",
-];
-
-const DUCATI_MODELS = [
-  "Panigale V4 S", "Multistrada V4", "Monster SP", "Diavel V4",
-  "Streetfighter V4", "Hypermotard 950", "DesertX", "Scrambler Icon",
-];
-
-const PURCHASE_TYPES = [
-  { key: "首購", icon: "star", sub: "首部杜卡迪" },
-  { key: "換購", icon: "published_with_changes", sub: "升級/汰舊" },
-  { key: "增購", icon: "add_circle", sub: "收藏/不同用途" },
-  { key: "重購", icon: "repeat", sub: "品牌忠實客戶" },
-] as const;
-
-const GRADE_HINTS = [
-  { cond: "購買時機「本月」或「次月」", hint: "→ 建議 A～B 級（高購買意向）", color: "text-orange-600" },
-  { cond: "購買時機「季後」或「年後」", hint: "→ 建議 B～C 級（中購買意向）", color: "text-yellow-600" },
-  { cond: "客戶有提到競品車型", hint: "→ 建議提升一級（已是 H 級則不變）", color: "text-blue-600" },
-  { cond: "客戶未提或拒談競品", hint: "→ 建議維持或降一級（已是 D 級則不變）", color: "text-slate-500" },
-  { cond: "購買時機「未定」", hint: "→ 建議 D 級", color: "text-slate-500" },
-  { cond: "完成第三階段報價環節", hint: "→ 建議提升一級（已是 H 級則不變）", color: "text-emerald-600" },
-  { cond: "未進行報價即結案", hint: "→ 建議維持或降一級（已是 D 級則不變）", color: "text-slate-400" },
-];
+const GRADE_COLORS: Record<HabcGrade, { bg: string; text: string }> = {
+  H: { bg: "#FDECEA", text: "#CC0000" },
+  A: { bg: "#FDF3E3", text: "#854F0B" },
+  B: { bg: "#EAF4FB", text: "#185FA5" },
+  C: { bg: "#F2F2F2", text: "#6B6A68" },
+};
 
 export default function ConsultantPage() {
+  const router = useRouter();
+  const { state, patch } = useHandcard();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [mockingTrial, setMockingTrial] = useState(false);
+  const [mockingEval, setMockingEval] = useState(false);
+
   useSetPageHeader({
     breadcrumb: [
       { label: "銷售管理", href: "/sales/showroom" },
-      { label: "手卡・第二階段" },
+      { label: "電子手卡 v8 · consultant" },
     ],
   });
 
-  const [transmission, setTransmission] = useState("往復式");
-  const [equipLevel, setEquipLevel] = useState("S");
-  const [purchaseType, setPurchaseType] = useState("換購");
-  const [tradeInTiming, setTradeInTiming] = useState("本月內");
-  const [tradeInDone, setTradeInDone] = useState(true);
-  const [intendedModel, setIntendedModel] = useState("Multistrada V4");
-  const [paymentMethod, setPaymentMethod] = useState("分期貸款");
-  const [grade, setGrade] = useState("A");
+  const systemSuggestion = useMemo(
+    () =>
+      suggestHabc({
+        timing: state.timing,
+        intent: state.intent,
+        trialStatus: state.trialStatus,
+      }),
+    [state.timing, state.intent, state.trialStatus],
+  );
 
-  // ④ 新增欄位
-  const [purchaseTiming, setPurchaseTiming] = useState("");
-  const [hasCompetitor, setHasCompetitor] = useState<boolean | null>(null);
-  const [competitorBrand, setCompetitorBrand] = useState("");
-  const [competitorModel, setCompetitorModel] = useState("");
-  const [competitorNotes, setCompetitorNotes] = useState("");
+  // 若尚未手動覆蓋，把系統建議落地到 store
+  const effectiveGrade: HabcGrade | null = state.habcManualOverride
+    ? state.habcGrade
+    : (systemSuggestion?.grade ?? null);
+
+  const setTiming = (t: HandcardTiming) => {
+    patch({
+      timing: state.timing === t ? null : t,
+      habcManualOverride: false,
+    });
+  };
+
+  const setIntent = (i: HandcardIntent) => {
+    patch({
+      intent: state.intent === i ? null : i,
+      habcManualOverride: false,
+    });
+  };
+
+  const setTrialStatus = (t: HandcardTrialStatus) => {
+    patch({ trialStatus: t, habcManualOverride: false });
+  };
+
+  const overrideGrade = (g: HabcGrade) => {
+    patch({ habcGrade: g, habcManualOverride: true });
+  };
+
+  // STEP 4：模擬「跳 RS02 完成試駕」回寫
+  const mockTrialReturn = async () => {
+    setMockingTrial(true);
+    await new Promise((r) => setTimeout(r, 600));
+    patch({
+      rs02WriteBack: {
+        bike: state.intendedModels[0] ?? "Panigale V4",
+        startTime: "14:45",
+        duration: "25 分鐘",
+        feedback: "非常滿意",
+      },
+      trialStatus: "done-today",
+      goldenMomentSeen: false,
+    });
+    setMockingTrial(false);
+  };
+
+  // STEP 5：模擬「跳 RS06 完成鑑價」回寫
+  const mockEvaluationReturn = async () => {
+    setMockingEval(true);
+    await new Promise((r) => setTimeout(r, 600));
+    patch({
+      rs06WriteBack: {
+        plate: "ABC-1234",
+        estimatedPrice: 380000,
+        note: "里程偏高，建議報價區間 36-40 萬",
+      },
+    });
+    setMockingEval(false);
+  };
 
   return (
-    <div className="-m-4 md:-m-8 bg-[#FCF8FF] min-h-[calc(100dvh-4rem)] flex flex-col">
+    <div className="-m-4 md:-m-8 bg-[#F8F7F4] min-h-[calc(100dvh-4rem)] flex flex-col">
       <CardStepBar currentStep={2} />
-      <main className="flex-1 pb-8 px-8">
-        <div className="max-w-5xl mx-auto pt-8">
+      <HandcardV8SubBar currentStage={3} />
 
-          {/* ── 頁首 ── */}
-          <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-3">
-            <div>
-              <h1 className="text-2xl font-display font-extrabold text-on-surface tracking-tight">
-                客戶接待手卡 — 第二階段
-              </h1>
-              <p className="text-outline text-sm mt-0.5">接待三步法 ‧ 步驟二：需求諮詢與客戶評級</p>
+      <main className="flex-1 pb-28">
+        <div className="max-w-5xl mx-auto px-6 py-5 space-y-3">
+          <header className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
+              客戶接待手卡 v8 — 第二階段（意向諮詢）
+            </h1>
+            <span
+              className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium"
+              data-testid="handcard-sprint-chip"
+            >
+              銷售 · RS01-v8
+            </span>
+            <span className="text-[12px] text-[#9A9890]">
+              購買時機 × HABC × 試駕 / 鑑價跳轉
+            </span>
+            <button
+              onClick={() => setPreviewOpen(true)}
+              className="ml-auto h-[30px] px-3 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              👁 預覽手卡
+            </button>
+          </header>
+
+          {/* STEP 3 — 購買時機 × HABC */}
+          <section
+            className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"
+            data-testid="handcard-step-3"
+          >
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">
+                ▼ STEP 3 · 購買時機 × HABC 系統輔助建議
+              </span>
+              <span className="ml-auto px-1.5 py-0.5 text-[11px] rounded-md bg-[#EAF4FB] text-[#185FA5]">
+                Step 3
+              </span>
+            </header>
+            <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="text-[11px] text-[#9A9890] font-medium mb-2">購買時機</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {TIMING_OPTIONS.map((t) => {
+                    const active = state.timing === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        onClick={() => setTiming(t.key)}
+                        data-testid={`timing-${t.key}`}
+                        className={`p-2.5 rounded-lg border-2 text-left transition-all ${
+                          active
+                            ? "border-[#1A3A5C] bg-[#EAF4FB]"
+                            : "border-[#EEECE6] bg-white hover:border-[#9A9890]"
+                        }`}
+                      >
+                        <div className="text-[12.5px] font-semibold text-[#2C2C2A]">
+                          {t.emoji} {t.title}
+                        </div>
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">{t.sub}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] text-[#9A9890] font-medium mb-2">意向強度評估</div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {INTENT_OPTIONS.map((i) => {
+                    const active = state.intent === i.key;
+                    return (
+                      <button
+                        key={i.key}
+                        onClick={() => setIntent(i.key)}
+                        data-testid={`intent-${i.key}`}
+                        className={`px-2.5 py-1.5 rounded-md text-[11.5px] font-medium border-2 transition-all min-w-[58px] text-center ${
+                          active
+                            ? "border-[#1A3A5C] bg-[#EAF4FB] text-[#1A3A5C]"
+                            : "border-[#EEECE6] bg-white text-[#5A5955] hover:border-[#9A9890]"
+                        }`}
+                      >
+                        <div className="text-base">{i.emoji}</div>
+                        <div>{i.label}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-[11px] text-[#9A9890] font-medium mt-3 mb-1.5">
+                  試駕狀態
+                </div>
+                <select
+                  value={state.trialStatus}
+                  onChange={(e) => setTrialStatus(e.target.value as HandcardTrialStatus)}
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white w-full focus:border-[#185FA5] outline-none"
+                >
+                  {TRIAL_STATUS_OPTIONS.map((o) => (
+                    <option key={o.key} value={o.key}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="flex gap-5 text-[0.75rem] font-medium bg-surface-container-low px-5 py-2.5 rounded-full shrink-0">
-              <div className="flex gap-2 items-center">
-                <span className="text-outline">手卡編號:</span>
-                <span className="text-on-surface font-display">DU-20260501-001</span>
-              </div>
-              <div className="w-px h-4 bg-outline-variant self-center" />
-              <div className="flex gap-2 items-center">
-                <span className="text-outline">接待人員:</span>
-                <span className="text-on-surface font-bold">林佳蓉</span>
-              </div>
-            </div>
-          </div>
 
-          <div className="space-y-8">
-
-            {/* ── 現有車輛資料 ── */}
-            <section className="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_20px_rgba(26,26,46,0.04)] border border-transparent">
-              <h2 className="text-lg font-bold mb-8 flex items-center gap-2">
-                <span className="w-1.5 h-6 bg-tertiary-container rounded-full" />
-                現有車輛資料
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">品牌</label>
-                  <select className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all">
-                    <option>請選擇品牌</option>
-                    <option>DUCATI</option>
-                    <option>BMW Motorrad</option>
-                    <option>KTM</option>
-                    <option>Aprilia</option>
-                    <option>Honda</option>
-                    <option>Kawasaki</option>
-                    <option>Yamaha</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">車型</label>
-                  <input className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all" placeholder="例如：Monster 821" type="text" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">顏色</label>
-                  <input className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all" placeholder="輸入車色" type="text" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">排檔/變速系統</label>
-                  <div className="flex bg-surface-container-low p-1 rounded-lg">
-                    {["往復式", "快排/電子"].map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setTransmission(t)}
-                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                          transmission === t ? "bg-white shadow-sm text-on-surface" : "text-on-surface/60 hover:text-on-surface"
-                        }`}
+            {/* HABC 系統建議 / placeholder */}
+            <div className="px-4 pb-4">
+              {systemSuggestion ? (
+                <div
+                  className="rounded-lg border-2 px-3 py-3 flex items-start gap-3"
+                  style={{
+                    borderColor: GRADE_COLORS[systemSuggestion.grade].text,
+                    backgroundColor: GRADE_COLORS[systemSuggestion.grade].bg,
+                  }}
+                  data-testid="habc-suggest-block"
+                >
+                  <div className="text-2xl shrink-0">🤖</div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-md text-[16px] font-bold"
+                        style={{
+                          backgroundColor: GRADE_COLORS[systemSuggestion.grade].text,
+                          color: "white",
+                        }}
+                        data-testid="habc-grade-badge"
                       >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">配備等級</label>
-                  <div className="flex gap-2">
-                    {["Standard", "S", "SP/R"].map((lv) => (
-                      <button
-                        key={lv}
-                        onClick={() => setEquipLevel(lv)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                          equipLevel === lv ? "bg-tertiary-container text-white" : "bg-surface-container-high hover:bg-tertiary-container hover:text-white"
-                        }`}
-                      >
-                        {lv}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">車齡</label>
-                  <div className="flex items-center gap-2 bg-surface-container-low rounded-lg px-4 py-3 focus-within:ring-1 focus-within:ring-tertiary-container/40">
-                    <input className="flex-1 bg-transparent border-0 outline-none text-sm min-w-0" type="text" inputMode="numeric" placeholder="0" />
-                    <span className="text-on-surface/40 font-medium text-sm shrink-0">年</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">里程</label>
-                  <div className="flex items-center gap-2 bg-surface-container-low rounded-lg px-4 py-3 focus-within:ring-1 focus-within:ring-tertiary-container/40">
-                    <input className="flex-1 bg-transparent border-0 outline-none text-sm min-w-0" type="text" inputMode="numeric" placeholder="0" />
-                    <span className="text-on-surface/40 font-medium text-sm shrink-0">公里</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* ── 初步分析 ── */}
-            <section className="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_20px_rgba(26,26,46,0.04)] border border-transparent">
-              <h2 className="text-lg font-bold mb-8 flex items-center gap-2">
-                <span className="w-1.5 h-6 bg-tertiary-container rounded-full" />
-                初步分析
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-                {PURCHASE_TYPES.map((pt) => (
-                  <button
-                    key={pt.key}
-                    onClick={() => setPurchaseType(pt.key)}
-                    className={`group p-6 rounded-xl border-2 transition-all text-left ${
-                      purchaseType === pt.key
-                        ? "bg-primary-container border-tertiary-container"
-                        : "bg-surface-container-low border-transparent hover:border-tertiary-container"
-                    }`}
-                  >
-                    <span className={`material-symbols-outlined text-3xl mb-4 ${purchaseType === pt.key ? "text-[#C9A84C]" : "text-tertiary-container"}`}>
-                      {pt.icon}
-                    </span>
-                    <div className={`font-bold ${purchaseType === pt.key ? "text-white" : "text-on-surface"}`}>{pt.key}</div>
-                    <div className={`text-xs mt-1 ${purchaseType === pt.key ? "text-[#F5F2FF]/60" : "text-on-surface/60"}`}>{pt.sub}</div>
-                  </button>
-                ))}
-              </div>
-
-              <div className="bg-surface-container-low/50 rounded-lg p-6 flex flex-col md:flex-row gap-10 border-l-4 border-tertiary-container">
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">置換時機</label>
-                  <div className="flex gap-3">
-                    {["本月內", "次月", "未定"].map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setTradeInTiming(t)}
-                        className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
-                          tradeInTiming === t ? "bg-tertiary-container text-white" : "bg-surface-container-high hover:bg-tertiary-container/10"
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {/* 跳轉置換評估 — 先於 toggle 出現 */}
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">跳轉置換評估</label>
-                  <Link
-                    href="/usedcar/evaluation"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-md hover:bg-amber-600 active:scale-95 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-lg">swap_horiz</span>
-                    前往置換評估頁面
-                  </Link>
-                </div>
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">現場完成估價？</label>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-sm ${!tradeInDone ? "font-bold" : "text-on-surface/60"}`}>否</span>
-                    <button
-                      onClick={() => setTradeInDone(!tradeInDone)}
-                      className={`relative w-14 h-8 rounded-full p-1 transition-colors ${tradeInDone ? "bg-tertiary-container" : "bg-surface-container-high"}`}
-                    >
-                      <div className={`w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-200 ${tradeInDone ? "translate-x-6" : "translate-x-0"}`} />
-                    </button>
-                    <span className={`text-sm ${tradeInDone ? "font-bold" : "text-on-surface/60"}`}>是</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* ── ④ 購買時機與競品資訊（新增）── */}
-            <section className="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_20px_rgba(26,26,46,0.04)] border border-transparent">
-              <h2 className="text-lg font-bold mb-8 flex items-center gap-2">
-                <span className="w-1.5 h-6 bg-tertiary-container rounded-full" />
-                購買時機與競品資訊
-              </h2>
-              <div className="space-y-8">
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">購買時機</label>
-                  <div className="flex flex-wrap gap-3">
-                    {PURCHASE_TIMINGS.map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setPurchaseTiming(purchaseTiming === t ? "" : t)}
-                        className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all ${
-                          purchaseTiming === t
-                            ? "bg-primary-container text-white ring-2 ring-tertiary-container/40"
-                            : "bg-surface-container-high hover:bg-tertiary-container/10"
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">有無考慮競品車型？</label>
-                  <div className="flex gap-3">
-                    {([true, false] as const).map((v) => (
-                      <button
-                        key={String(v)}
-                        onClick={() => setHasCompetitor(v)}
-                        className={`px-8 py-2 rounded-full text-sm font-medium transition-all ${
-                          hasCompetitor === v ? "bg-primary-container text-white" : "bg-surface-container-high hover:bg-tertiary-container/10"
-                        }`}
-                      >
-                        {v ? "是" : "否"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {hasCompetitor && (
-                  <div className="space-y-6 border-l-2 border-tertiary-container/40 pl-6">
-                    <div className="space-y-3">
-                      <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">競品品牌</label>
-                      <div className="flex flex-wrap gap-2">
-                        {COMPETITOR_BRANDS.map((b) => (
+                        {systemSuggestion.grade}
+                      </span>
+                      <span className="text-[11.5px] text-[#5A5955] font-medium">
+                        系統建議 — 依購買時機 × 試駕狀態
+                        {state.habcManualOverride && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded bg-white border border-[#D5D3CB] text-[10.5px]">
+                            RS 已覆蓋為 {effectiveGrade}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="text-[12px] text-[#2C2C2A] leading-relaxed">
+                      {systemSuggestion.reason}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] text-[#9A9890]">RS 確認或手動覆蓋：</span>
+                      {(["H", "A", "B", "C"] as const).map((g) => {
+                        const active = effectiveGrade === g;
+                        return (
                           <button
-                            key={b}
-                            onClick={() => setCompetitorBrand(competitorBrand === b ? "" : b)}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                              competitorBrand === b
-                                ? "bg-primary-container text-white ring-2 ring-tertiary-container/40"
-                                : "bg-surface-container-high hover:bg-tertiary-container/10"
+                            key={g}
+                            onClick={() => overrideGrade(g)}
+                            data-testid={`habc-override-${g}`}
+                            className={`w-8 h-8 rounded-md text-[13px] font-bold border-2 ${
+                              active
+                                ? "border-[#1A3A5C] bg-white text-[#1A3A5C]"
+                                : "border-[#EEECE6] bg-white text-[#5A5955] hover:border-[#9A9890]"
                             }`}
                           >
-                            {b}
+                            {g}
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">競品車型</label>
-                        <input
-                          value={competitorModel}
-                          onChange={(e) => setCompetitorModel(e.target.value)}
-                          className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all"
-                          placeholder="手動輸入，例如：S 1000 RR"
-                          type="text"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">競商名稱</label>
-                        <input
-                          value={competitorNotes}
-                          onChange={(e) => setCompetitorNotes(e.target.value)}
-                          className="w-full bg-surface-container-low border-0 rounded-lg py-3 px-4 focus:ring-1 focus:ring-tertiary-container/40 transition-all"
-                          placeholder="手動輸入競品經銷商名稱"
-                          type="text"
-                        />
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
-                )}
+                </div>
+              ) : (
+                <div className="p-2.5 bg-[#F8F7F4] border border-dashed border-[#D5D3CB] rounded-md text-[12px] text-[#9A9890] text-center">
+                  ↑ 選擇購買時機後，系統將自動推算 HABC 建議級別
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* STEP 4 — 試乘試駕跳轉 RS02 */}
+          <section
+            className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"
+            data-testid="handcard-step-4"
+          >
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">
+                ▼ STEP 4 · 試乘試駕（跳轉 RS02 + 回寫）
+              </span>
+              <span className="ml-auto px-1.5 py-0.5 text-[11px] rounded-md bg-[#EAF4FB] text-[#185FA5]">
+                Step 4
+              </span>
+            </header>
+            <div className="px-4 py-4 space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Link
+                  href="/sales/showroom/test-ride"
+                  className="inline-flex items-center gap-2 h-[34px] px-4 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742]"
+                >
+                  🏁 前往試乘試駕 RS02
+                </Link>
+                <button
+                  onClick={mockTrialReturn}
+                  disabled={mockingTrial}
+                  data-testid="handcard-mock-trial"
+                  className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
+                >
+                  {mockingTrial ? "回寫中⋯" : "模擬完成試駕回寫（demo）"}
+                </button>
+                <span className="text-[11.5px] text-[#9A9890]">
+                  ⚡ 黃金時刻：試駕結束後立即開立報價單，把握客戶熱情最高峰
+                </span>
               </div>
-            </section>
 
-            {/* ── 意向與級別 ── */}
-            <section className="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_20px_rgba(26,26,46,0.04)] border border-transparent">
-              <h2 className="text-lg font-bold mb-8 flex items-center gap-2">
-                <span className="w-1.5 h-6 bg-tertiary-container rounded-full" />
-                意向與級別
-              </h2>
-              <div className="space-y-8">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">意向車型</label>
-                  <div className="flex flex-wrap gap-2">
-                    {DUCATI_MODELS.map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => setIntendedModel(m)}
-                        className={`px-6 py-3 rounded-lg text-sm font-bold border-2 transition-all ${
-                          intendedModel === m
-                            ? "bg-primary-container text-white border-tertiary-container shadow-lg shadow-tertiary-container/10"
-                            : "border-outline-variant/30 hover:border-tertiary-container hover:text-tertiary-container"
-                        }`}
-                      >
-                        {m}
-                      </button>
-                    ))}
+              {state.rs02WriteBack && (
+                <div
+                  className="bg-[#EAF3DE] border border-[#C5DC9F] rounded-lg px-3 py-3 text-[12.5px] text-[#3B6D11]"
+                  data-testid="handcard-rs02-result"
+                >
+                  <div className="font-semibold mb-1.5">
+                    🏁 試駕回寫結果（唯讀，由 RS02 寫入）
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11.5px]">
+                    <div><b>試駕車款：</b>{state.rs02WriteBack.bike}</div>
+                    <div><b>試駕時間：</b>{state.rs02WriteBack.startTime}</div>
+                    <div><b>時長：</b>{state.rs02WriteBack.duration}</div>
+                    <div><b>客戶反應：</b>{state.rs02WriteBack.feedback}</div>
+                  </div>
+                  <div className="text-[10.5px] mt-1.5 opacity-70">
+                    ← 資料來源：RS02_試乘試駕 · demo 寫入
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">付款方式</label>
-                  <div className="flex gap-4">
-                    {["全額現金", "分期貸款", "租賃/企業"].map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setPaymentMethod(p)}
-                        className={`px-8 py-2 rounded-full text-sm font-medium transition-colors ${
-                          paymentMethod === p ? "bg-tertiary-container text-white" : "bg-surface-container-high hover:bg-tertiary-container/10"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">客戶級別</label>
-                  <div className="flex flex-wrap gap-4">
-                    {[
-                      { key: "H", sub: "HOT", cls: "bg-red-700 text-white",                             onCls: "ring-4 ring-red-600/60 scale-110 shadow-xl" },
-                      { key: "A", sub: "",    cls: "bg-red-500 text-white",                              onCls: "ring-4 ring-red-400/60 scale-110 shadow-xl" },
-                      { key: "B", sub: "",    cls: "bg-orange-500 text-white",                           onCls: "ring-4 ring-orange-400/60 scale-110 shadow-xl" },
-                      { key: "C", sub: "",    cls: "bg-yellow-400 text-on-surface",                      onCls: "ring-4 ring-yellow-300/80 scale-110 shadow-xl" },
-                      { key: "D", sub: "",    cls: "bg-secondary-container text-on-secondary-container", onCls: "ring-4 ring-slate-400/60 scale-110 shadow-xl" },
-                    ].map((g) => (
-                      <button
-                        key={g.key}
-                        onClick={() => setGrade(g.key)}
-                        className={`w-20 h-20 rounded-xl ${g.cls} flex flex-col items-center justify-center shadow-md transition-all duration-200 px-2 ${
-                          grade === g.key ? g.onCls : "hover:scale-105"
-                        }`}
-                      >
-                        <span className="text-2xl font-black leading-none">{g.key}</span>
-                        {g.sub && <span className="text-[10px] opacity-80 mt-0.5">{g.sub}</span>}
-                      </button>
-                    ))}
-                  </div>
+              )}
+            </div>
+          </section>
 
-                  {/* A 級即時提示 */}
-                  {grade === "A" && (
-                    <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3">
-                      <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5">warning</span>
-                      <div>
-                        <p className="text-sm font-bold text-amber-800">建議降為 B 級</p>
-                        <p className="text-xs text-amber-700 mt-0.5">A 級代表「明確購買意向，尚需試駕確認」。若尚未安排試駕，建議先評為 B 級，試駕後視情況再提升。</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ⑤ 級別判斷提示說明 */}
-                  <div className="bg-surface-container-low rounded-lg p-4 space-y-2">
-                    <div className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm text-tertiary-container">info</span>
-                      級別判斷參考
-                    </div>
-                    {GRADE_HINTS.map((h, i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs">
-                        <span className="text-on-surface/30 mt-0.5 shrink-0">•</span>
-                        <span>
-                          <span className="font-medium text-on-surface/80">{h.cond}</span>
-                          <span className={`ml-1 font-bold ${h.color}`}>{h.hint}</span>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+          {/* STEP 5 — 中古車鑑價跳轉 RS06 */}
+          <section
+            className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"
+            data-testid="handcard-step-5"
+          >
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">
+                ▼ STEP 5 · 中古車評估鑑價（跳轉 RS06 + 回寫）
+              </span>
+              <span className="ml-auto px-1.5 py-0.5 text-[11px] rounded-md bg-[#EAF4FB] text-[#185FA5]">
+                Step 5
+              </span>
+            </header>
+            <div className="px-4 py-4 space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Link
+                  href="/usedcar/evaluation"
+                  className="inline-flex items-center gap-2 h-[34px] px-4 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+                >
+                  💰 前往中古車鑑價 RS06
+                </Link>
+                <button
+                  onClick={mockEvaluationReturn}
+                  disabled={mockingEval}
+                  data-testid="handcard-mock-eval"
+                  className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
+                >
+                  {mockingEval ? "回寫中⋯" : "模擬完成鑑價回寫（demo）"}
+                </button>
+                <span className="text-[11.5px] text-[#9A9890]">
+                  鑑價完成後將回寫至此卡，可作為換購折抵試算
+                </span>
               </div>
-            </section>
 
-          </div>
+              {state.rs06WriteBack && (
+                <div
+                  className="bg-[#FDF3E3] border border-[#F5D6A8] rounded-lg px-3 py-3 text-[12.5px] text-[#854F0B]"
+                  data-testid="handcard-rs06-result"
+                >
+                  <div className="font-semibold mb-1.5">
+                    💰 鑑價回寫結果（唯讀，由 RS06 寫入）
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11.5px]">
+                    <div><b>車牌：</b>{state.rs06WriteBack.plate}</div>
+                    <div><b>估價：</b>NT$ {state.rs06WriteBack.estimatedPrice.toLocaleString()}</div>
+                    <div className="md:col-span-1"><b>備註：</b>{state.rs06WriteBack.note}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
       </main>
 
-      <footer className="sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-[#1A1A2E]/10 px-12 py-4 flex justify-between items-center mt-8">
+      <footer className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-[#EEECE6] px-12 py-3 flex justify-between items-center">
         <Link
           href="/sales/card/counter"
-          className="flex items-center gap-2 text-[#47464C] font-bold hover:text-[#00000b] transition-colors"
+          className="h-[30px] px-3.5 inline-flex items-center rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
         >
-          <span className="material-symbols-outlined">arrow_back</span> 上一步
+          ← 上一步
         </Link>
-        <Link
-          href="/sales/card/closing"
-          className="bg-gradient-to-br from-[#00000B] to-[#1A1A2E] text-white px-10 py-4 rounded-xl font-bold flex items-center gap-3 shadow-xl hover:opacity-90 active:scale-95 transition-all duration-300"
+        <button
+          onClick={() => router.push("/sales/card/closing")}
+          className="h-[34px] px-5 rounded-full text-[12.5px] font-semibold bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+          data-testid="handcard-consultant-next"
         >
-          下一步：試騎與報價 <span className="material-symbols-outlined">arrow_forward</span>
-        </Link>
+          下一步：試駕報價 →
+        </button>
       </footer>
+
+      <HandcardPreviewModal open={previewOpen} onClose={() => setPreviewOpen(false)} />
     </div>
   );
 }

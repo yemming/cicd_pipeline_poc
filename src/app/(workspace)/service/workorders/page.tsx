@@ -313,6 +313,11 @@ export default function WorkordersPage() {
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5">
             <h3 className="font-semibold text-neutral-800 mb-3">已同意維修項目</h3>
+            {agreedItems.some((it) => it.safetyLevel === "critical") && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700 font-medium mb-3">
+                ⚠️ 含 🔴 立即必修項目，售後主管須親自介入！
+              </div>
+            )}
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-700 mb-4">
               此項目不可更改，若車主現場要求刪除請至 Tab C 領料單操作
             </div>
@@ -454,8 +459,11 @@ export default function WorkordersPage() {
       {activeTab === 2 && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700">
-              技師憑 RO 工單編號（{ro.roNo}）至零件庫房領料，領取後在出庫單簽名確認
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700 space-y-1">
+              <p className="font-medium">🔵 領料流程說明</p>
+              <p className="text-xs text-blue-600 leading-relaxed">
+                依據本工單維修項目，技師持 RO 工單號（{ro.roNo}）前往零件庫房領料。零件專員確認出庫後簽名，技師確認領取後簽名，數據自動回傳至本工單。
+              </p>
             </div>
           </div>
 
@@ -530,6 +538,12 @@ export default function WorkordersPage() {
       {/* ── Tab D：電子打卡 ── */}
       {activeTab === 3 && (
         <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 leading-relaxed">
+            <p className="font-medium mb-1">⚠️ 電子打卡強制規定（2024 年起）</p>
+            <p className="text-xs text-amber-700">
+              所有保固維修作業必須使用防竄改電子系統記錄開始 / 結束時間，稽核時若缺少打卡記錄，工時費將被追回。
+            </p>
+          </div>
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-100">
               <h3 className="font-semibold text-neutral-800">工項打卡記錄</h3>
@@ -619,6 +633,12 @@ export default function WorkordersPage() {
       {activeTab === 4 && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700 mb-4 leading-relaxed">
+              <p className="font-medium mb-1">🛡️ 竣工複檢說明</p>
+              <p className="text-xs text-blue-600">
+                技師完成施工並打卡後，由具有授權資格的人員（售後主管或資深技師）執行竣工複檢，確認所有維修項目符合品質標準後方可通知車主取車。
+              </p>
+            </div>
             <div className="bg-neutral-50 border border-neutral-200 rounded-lg px-4 py-3 text-sm text-neutral-600 mb-4">
               此環節移至「竣工複檢」頁面由主管或資深技師執行
             </div>

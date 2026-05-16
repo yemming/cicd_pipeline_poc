@@ -40,6 +40,12 @@ type Props = {
   efficiency: { rows: BayEfficiencyRow[]; totals: BayEfficiencyRow };
   dailyHours: number;
   canEdit: boolean;
+  /** 可選：覆蓋頁面 H1（C13a 主管視角用） */
+  titleOverride?: string;
+  /** 可選：覆蓋 sprint chip 字（預設「售後管理 / Live」） */
+  sprintLabel?: string;
+  /** 可選：覆蓋副標 caption */
+  captionOverride?: string;
 };
 
 type Banner = { ok: boolean; msg: string } | null;
@@ -62,6 +68,9 @@ export function BaysDashboard({
   efficiency,
   dailyHours,
   canEdit,
+  titleOverride,
+  sprintLabel,
+  captionOverride,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -99,12 +108,14 @@ export function BaysDashboard({
     <main className={`px-6 py-5 space-y-3 ${isPending ? "opacity-95" : ""}`}>
       {/* ── Page Header ────────────────────────── */}
       <header className="flex items-center gap-2.5">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">工位看板</h1>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
+          {titleOverride ?? "工位看板"}
+        </h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          售後管理 / Live
+          {sprintLabel ?? "售後管理 / Live"}
         </span>
         <span className="text-[12px] text-[#9A9890]">
-          車間工位即時狀態、計時、使用率
+          {captionOverride ?? "車間工位即時狀態、計時、使用率"}
         </span>
       </header>
 

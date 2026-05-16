@@ -324,14 +324,14 @@ export function PickupNotificationsBoard({ rows, stats, filter, canEdit }: Props
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">取車通知</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          Sprint S5
+          售後 · 11
         </span>
         <span className="text-[12px] text-[#9A9890]">
-          竣工複檢已通過 → SA 手動點發送 Line / 簡訊通知車主取車
+          竣工複檢通過 → SA 緩衝後手動發送 Line / 簡訊通知車主取車
         </span>
       </header>
 
-      {/* Info banner */}
+      {/* Info banner — v2 規格緩衝機制說明 */}
       <div className="bg-[#E6F1FB] border border-[#4A90D9] rounded-lg px-4 py-2.5 text-[12.5px] text-[#185FA5]">
         📱 SA 手動確認後才會發送通知，系統不會自動推播。確認按鈕設計為「緩衝機制」，讓 SA 在車輛準備妥當後再通知車主。
       </div>

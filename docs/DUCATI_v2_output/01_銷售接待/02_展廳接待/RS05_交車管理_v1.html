@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS05 交車管理 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-teal{background:rgba(15,110,86,.8);border-color:transparent;}
+.hbtn-teal:hover{background:#0F6E56;}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.step-bar{background:#fff;border-bottom:1px solid #EEECE6;display:flex;position:sticky;top:52px;z-index:90;}
+.step-item{flex:1;padding:11px 6px;text-align:center;font-size:11.5px;font-weight:500;color:#9A9890;border-right:1px solid #EEECE6;cursor:pointer;transition:all .15s;}
+.step-item:last-child{border-right:none;}
+.step-item.active{background:#1A3A5C;color:#fff;font-weight:700;}
+.step-item.done{background:#E1F5EE;color:#0F6E56;font-weight:600;}
+.step-num{font-family:'DM Mono',monospace;font-size:10px;display:block;margin-bottom:2px;opacity:.7;}
+.step-pane{display:none;}
+.step-pane.active{display:block;}
+.main{max-width:1100px;margin:0 auto;padding:18px 24px 56px;}
+.info-card{background:#1A3A5C;border-radius:10px;padding:13px 20px;margin-bottom:14px;color:#fff;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.ic-item{text-align:center;min-width:80px;}
+.ic-label{font-size:10px;opacity:.6;margin-bottom:2px;}
+.ic-val{font-size:13px;font-weight:600;}
+.ic-div{width:1px;height:32px;background:rgba(255,255,255,.2);flex-shrink:0;}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.panel-hdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.panel-left{display:flex;align-items:center;gap:10px;}
+.picon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-blue{background:#EAF4FB;}.pi-red{background:#FDECEA;}.pi-teal{background:#E1F5EE;}.pi-amber{background:#FDF3E3;}.pi-dark{background:#E8EDF2;}.pi-green{background:#EAF3DE;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:#9A9890;margin-top:1px;}
+.panel-body{padding:14px 16px;}
+.pdi-card{border:2px solid #C8001A;border-radius:10px;padding:16px 18px;background:#FDECEA;margin-bottom:12px;}
+.pdi-title{font-size:14px;font-weight:700;color:#7A1010;margin-bottom:5px;}
+.pdi-desc{font-size:12px;color:#5A1010;line-height:1.7;margin-bottom:12px;}
+.pdi-meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.pdi-chip{background:#fff;border:1px solid #F5AEAD;border-radius:6px;padding:5px 11px;font-size:12px;}
+.pdi-chip b{color:#C8001A;font-family:'DM Mono',monospace;}
+.progress-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.prog-bar{flex:1;height:7px;background:#EEECE6;border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,#0F6E56,#5DCAA5);border-radius:4px;transition:width .3s;}
+.prog-pct{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;color:#0F6E56;white-space:nowrap;}
+.checklist{display:flex;flex-direction:column;gap:3px;}
+.check-item{display:flex;align-items:flex-start;gap:9px;padding:7px 10px;border-radius:6px;border:1px solid #EEECE6;background:#fff;cursor:pointer;transition:all .15s;}
+.check-item:hover{border-color:#85B7EB;background:#F0F7FF;}
+.check-item.checked{background:#E1F5EE;border-color:#5DCAA5;}
+.check-cb{width:17px;height:17px;border-radius:4px;border:2px solid #D5D3CB;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:10px;transition:all .15s;}
+.check-item.checked .check-cb{background:#0F6E56;border-color:#0F6E56;color:#fff;}
+.check-num{font-family:'DM Mono',monospace;font-size:10.5px;color:#9A9890;flex-shrink:0;min-width:22px;margin-top:2px;}
+.check-text{font-size:12.5px;flex:1;line-height:1.5;}
+.check-cat{font-size:10px;font-weight:700;color:#fff;padding:1px 6px;border-radius:4px;margin-left:auto;flex-shrink:0;}
+.cc-a{background:#185FA5;}.cc-b{background:#0F6E56;}.cc-c{background:#854F0B;}.cc-d{background:#534AB7;}
+.cat-divider{font-size:11px;font-weight:700;color:#5A5955;padding:6px 10px 3px;background:#F4F3F0;border-radius:5px;margin-top:6px;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#9A9890;margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.req{color:#C8001A;font-size:11px;}
+.form-input{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.form-input:focus{border-color:#85B7EB;}
+.form-select{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.form-full{grid-column:1/-1;}
+.warranty-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.wi{background:#EAF4FB;border:1px solid #85B7EB;border-radius:7px;padding:9px 12px;}
+.wi-label{font-size:10.5px;color:#185FA5;font-weight:600;margin-bottom:2px;}
+.wi-val{font-size:13px;font-weight:700;color:#0C3E70;}
+.wi-sub{font-size:11px;color:#5A5955;margin-top:1px;}
+.excl-list{display:flex;flex-direction:column;gap:4px;}
+.excl-item{display:flex;gap:7px;font-size:11.5px;color:#5A5955;padding:5px 8px;border-radius:5px;background:#FAFAF8;border:1px solid #EEECE6;line-height:1.5;}
+.excl-dot{color:#C8001A;flex-shrink:0;}
+.sign-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;}
+.sign-box{border:1.5px dashed #D5D3CB;border-radius:8px;padding:13px;text-align:center;background:#FAFAF8;min-height:82px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;transition:all .15s;}
+.sign-box:hover{border-color:#85B7EB;background:#EAF4FB;}
+.sign-box.signed{border-style:solid;border-color:#0F6E56;background:#E1F5EE;}
+.sign-icon{font-size:20px;}
+.sign-label{font-size:12px;font-weight:600;color:#4A4A48;}
+.sign-sub{font-size:10.5px;color:#9A9890;}
+.complete-card{background:linear-gradient(135deg,#085041,#0F6E56);border-radius:12px;padding:22px;color:#fff;text-align:center;margin-bottom:14px;}
+.compl-title{font-size:20px;font-weight:700;margin-bottom:6px;}
+.compl-sub{font-size:12.5px;opacity:.85;margin-bottom:14px;line-height:1.7;}
+.trigger-box{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:11px 16px;margin-bottom:14px;font-size:12px;text-align:left;line-height:1.8;}
+.trigger-box b{color:#5DCAA5;}
+.compl-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.ca-btn{padding:9px 20px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:none;transition:all .15s;}
+.ca-white{background:#fff;color:#085041;}
+.ca-white:hover{background:#E1F5EE;}
+.ca-outline{background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.35);}
+.ca-outline:hover{background:rgba(255,255,255,.25);}
+.doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.doc-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:7px;border:1px solid #EEECE6;background:#FAFAF8;font-size:12.5px;}
+.doc-icon{font-size:18px;flex-shrink:0;}
+.doc-info{flex:1;}
+.doc-name{font-weight:600;}
+.doc-sub{font-size:11px;color:#9A9890;margin-top:1px;}
+.doc-tag{font-size:10.5px;padding:1px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0;}
+.dt-req{background:#FDECEA;color:#C8001A;}
+.dt-no{background:#F1EFE8;color:#9A9890;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}.b-gray{background:#F1EFE8;color:#5A5955;}.b-red{background:#FDECEA;color:#C8001A;}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;white-space:nowrap;}
+.btn-teal{background:#0F6E56;border-color:#0F6E56;color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:320px;line-height:1.5;}
+.toast.show{transform:translateY(0);opacity:1;}
+.divider{height:1px;background:#EEECE6;margin:12px 0;}
+.mb12{margin-bottom:12px;}
+.flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.flex-between{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售模組 <b>RS05 交車管理</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS00_銷售模組_導覽總覽_v2.html')">← RS 總覽</button>
+    <button class="hbtn" onclick="go('RS04_賞車報價與成交訂單_v1.html')">← RS04 訂單</button>
+    <button class="hbtn hbtn-teal" onclick="go('CRM03A_銷售電訪工作台_v1.html')">CRM03A D+3 →</button>
+  </div>
+</header>
+
+<div class="step-bar">
+  <div class="step-item active" id="s1" onclick="gS(1)"><span class="step-num">STEP 1</span>PDI 整備觸發</div>
+  <div class="step-item" id="s2" onclick="gS(2)"><span class="step-num">STEP 2</span>交車確認表（36項）</div>
+  <div class="step-item" id="s3" onclick="gS(3)"><span class="step-num">STEP 3</span>保固條款登記</div>
+  <div class="step-item" id="s4" onclick="gS(4)"><span class="step-num">STEP 4</span>完成交車 · 觸發 D+3</div>
+</div>
+
+<div class="main">
+<div class="info-card">
+  <div class="ic-item"><div class="ic-label">客戶姓名</div><div class="ic-val">王大明</div></div>
+  <div class="ic-div"></div>
+  <div class="ic-item"><div class="ic-label">訂購車款</div><div class="ic-val">Panigale V4 S</div></div>
+  <div class="ic-div"></div>
+  <div class="ic-item"><div class="ic-label">車身顏色</div><div class="ic-val">Ducati Red</div></div>
+  <div class="ic-div"></div>
+  <div class="ic-item"><div class="ic-label">合約編號</div><div class="ic-val" style="font-family:'DM Mono',monospace;font-size:12px;">NC-20260510-001</div></div>
+  <div class="ic-div"></div>
+  <div class="ic-item"><div class="ic-label">銷售顧問</div><div class="ic-val">陳志明 RS</div></div>
+  <div class="ic-div"></div>
+  <div class="ic-item"><div class="ic-label">預定交車日</div><div class="ic-val">2026-06-01</div></div>
+</div>
+
+<!-- STEP 1 PDI -->
+<div class="step-pane active" id="pane-1">
+  <div class="pdi-card">
+    <div class="pdi-title">🔧 觸發 PDI 整備工單（必做）</div>
+    <div class="pdi-desc">交車前須由售後技師完成 PDI（Pre-Delivery Inspection）29 項整備檢查。本觸發建立內部工單（前綴碼 PD-IN），費用由銷售部門結算，車主不須付費。PDI 完成後方可進行交車。</div>
+    <div class="pdi-meta">
+      <div class="pdi-chip">工單前綴碼：<b>PD-IN</b></div>
+      <div class="pdi-chip">付款性質：<b>內部結算</b>（銷售→售後）</div>
+      <div class="pdi-chip">PDI 項目：<b>29 項</b></div>
+      <div class="pdi-chip">預計工時：<b>2–3 小時</b></div>
+    </div>
+    <div id="pdi-btn-area">
+      <button class="btn btn-primary" onclick="triggerPDI()" style="margin-right:8px;">🔧 建立 PDI 工單並通知 SA</button>
+      <button class="btn btn-ghost" onclick="showToast('🔍 PDI-IN-260601-001 狀態：進行中（15/29）')">🔍 查詢進度</button>
+    </div>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="panel-left"><div class="picon pi-red">🔧</div><div><div class="panel-title">PDI 檢查清單（29項）</div><div class="panel-sub">技師執行 · RS 確認結果</div></div></div>
+      <span class="badge b-gray" id="pdi-cnt">0 / 29</span>
+    </div>
+    <div class="panel-body">
+      <div class="progress-row"><span style="font-size:11.5px;font-weight:600;white-space:nowrap;">PDI 進度</span><div class="prog-bar"><div class="prog-fill" id="pdi-bar" style="width:0%;"></div></div><span class="prog-pct" id="pdi-pct">0%</span></div>
+      <div class="checklist" id="pdi-list"></div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost btn-sm" onclick="chkAll('pdi')">✅ 全部完成（測試）</button>
+    <button class="btn btn-teal" onclick="gS(2)">PDI 完成 → 交車確認表 →</button>
+  </div>
+</div>
+
+<!-- STEP 2 交車確認表 -->
+<div class="step-pane" id="pane-2">
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="panel-left"><div class="picon pi-teal">✅</div><div><div class="panel-title">客戶交車確認表（36項）</div><div class="panel-sub">DUCATI Check List — BIKE DELIVERY TO CUSTOMER · 逐項點交完成後請客戶簽名</div></div></div>
+      <span class="badge b-teal" id="del-cnt">0 / 36</span>
+    </div>
+    <div class="panel-body">
+      <div class="progress-row"><span style="font-size:11.5px;font-weight:600;white-space:nowrap;">交車進度</span><div class="prog-bar"><div class="prog-fill" id="del-bar" style="width:0%;"></div></div><span class="prog-pct" id="del-pct">0%</span></div>
+      <div class="checklist" id="del-list"></div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost btn-sm" onclick="chkAll('del')">✅ 全部完成（測試）</button>
+    <button class="btn btn-ghost" onclick="gS(1)">← 返回 PDI</button>
+    <button class="btn btn-teal" onclick="gS(3)">交車確認完成 → 保固條款 →</button>
+  </div>
+</div>
+
+<!-- STEP 3 保固條款 -->
+<div class="step-pane" id="pane-3">
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="panel-left"><div class="picon pi-blue">📜</div><div><div class="panel-title">保固條款登記表</div><div class="panel-sub">DUCATI Warranty Terms — 交車登記表 · 交車時由銷售人員口語宣讀並解說條款</div></div></div></div>
+    <div class="panel-body">
+      <div class="sec-title">一、客戶資料</div>
+      <div class="form-grid mb12">
+        <div><div class="form-label">姓名（Last Name）<span class="req">*</span></div><input type="text" class="form-input" placeholder="王"></div>
+        <div><div class="form-label">名（First Name）<span class="req">*</span></div><input type="text" class="form-input" placeholder="大明"></div>
+        <div><div class="form-label">手機號碼 <span class="req">*</span></div><input type="text" class="form-input" placeholder="0912-345-678"></div>
+        <div><div class="form-label">出生年月日</div><input type="date" class="form-input"></div>
+        <div><div class="form-label">電子郵件</div><input type="text" class="form-input" placeholder="email@example.com"></div>
+        <div><div class="form-label">通訊地址</div><input type="text" class="form-input" placeholder="縣市/鄉鎮/路街/號"></div>
+      </div>
+      <div class="sec-title">二、車輛資料</div>
+      <div class="form-grid mb12">
+        <div><div class="form-label">經銷商</div><input type="text" class="form-input" value="DUCATI 台北授權經銷商" readonly style="background:#F4F3F0;"></div>
+        <div><div class="form-label">車型 <span class="req">*</span></div><input type="text" class="form-input" value="Panigale V4 S" readonly style="background:#F4F3F0;"></div>
+        <div><div class="form-label">車牌號碼</div><input type="text" class="form-input" placeholder="辦牌後填入"></div>
+        <div><div class="form-label">掛牌日</div><input type="date" class="form-input"></div>
+        <div class="form-full"><div class="form-label">車身號碼（VIN）<span class="req">*</span></div><input type="text" class="form-input" placeholder="ZDM...（17碼）"></div>
+        <div><div class="form-label">保固條款收件日</div><input type="date" class="form-input" value="2026-06-01"></div>
+        <div><div class="form-label">保固啟動日 <span class="req">*</span></div><input type="date" class="form-input" value="2026-06-01"></div>
+      </div>
+      <div class="sec-title">三、保固期限</div>
+      <div class="warranty-grid">
+        <div class="wi"><div class="wi-label">整車保固（台灣碩文版）</div><div class="wi-val">2 年不限里程</div><div class="wi-sub">自保固啟動日起</div></div>
+        <div class="wi"><div class="wi-label">零件保固（原廠非消耗品）</div><div class="wi-val">24 個月</div><div class="wi-sub">授權經銷商購買安裝起算</div></div>
+        <div class="wi"><div class="wi-label">一般保固（≥500cc 公路）</div><div class="wi-val">24 個月不限里程</div><div class="wi-sub">Panigale V4 S 適用</div></div>
+        <div class="wi"><div class="wi-label">Desmo 服務（≥500cc）</div><div class="wi-val">24 個月 或 40,000 km</div><div class="wi-sub">以先到為準</div></div>
+      </div>
+      <div class="sec-title">保固不適用情況</div>
+      <div class="excl-list">
+        <div class="excl-item"><span class="excl-dot">●</span>用於任何運動競賽的機車</div>
+        <div class="excl-item"><span class="excl-dot">●</span>用於租賃服務的機車</div>
+        <div class="excl-item"><span class="excl-dot">●</span>正常使用自然耗損零件（輪胎、傳動零件、正時皮帶、煞車、離合器等）</div>
+        <div class="excl-item"><span class="excl-dot">●</span>因氧化、環境因素、非正常使用、未定期保養所導致的故障與瑕疵</div>
+        <div class="excl-item"><span class="excl-dot">●</span>在非 DUCATI 官方授權經銷商進行的維修保養</div>
+        <div class="excl-item"><span class="excl-dot">●</span>使用未經 DUCATI 原廠核准之零件或改裝部品</div>
+        <div class="excl-item"><span class="excl-dot">●</span>未遵守車主手冊使用建議，或未參加召回活動</div>
+      </div>
+      <div class="sec-title">四、交車確認事項</div>
+      <div class="checklist mb12">
+        <div class="check-item" onclick="tgl(this)"><div class="check-cb"></div><div class="check-text">已向客戶說明保固條款內容及範圍</div></div>
+        <div class="check-item" onclick="tgl(this)"><div class="check-cb"></div><div class="check-text">已向客戶說明購買契約相關細節，並提供全套文件</div></div>
+        <div class="check-item" onclick="tgl(this)"><div class="check-cb"></div><div class="check-text">已依廠家規定說明定期保養計劃（里程保養 / 時間保養）</div></div>
+        <div class="check-item" onclick="tgl(this)"><div class="check-cb"></div><div class="check-text">已帶領客戶填寫保固相關表格</div></div>
+        <div class="check-item" onclick="tgl(this)"><div class="check-cb"></div><div class="check-text">已說明 www.ducati.com 網站及授權經銷商售後服務資訊</div></div>
+      </div>
+      <div class="sec-title">五、隱私權同意</div>
+      <div style="background:#FAFAF8;border:1px solid #EEECE6;border-radius:7px;padding:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;"><input type="checkbox">同意接受廣告 / 促銷資訊</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;"><input type="checkbox">同意接受市場調查</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;"><input type="checkbox">同意接受個人化服務</label>
+      </div>
+      <div class="sec-title">六、三方簽署</div>
+      <div class="sign-grid-3">
+        <div class="sign-box" id="sgn-t" onclick="doSign('sgn-t','技師')"><div class="sign-icon">🔧</div><div class="sign-label">技師簽名</div><div class="sign-sub">交車前準備已完成</div></div>
+        <div class="sign-box" id="sgn-r" onclick="doSign('sgn-r','銷售顧問')"><div class="sign-icon">📝</div><div class="sign-label">銷售顧問（RS）簽名</div><div class="sign-sub">交車說明完成</div></div>
+        <div class="sign-box" id="sgn-c" onclick="doSign('sgn-c','客戶')"><div class="sign-icon">✍️</div><div class="sign-label">客戶簽名</div><div class="sign-sub">已閱讀並了解保固條款</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="gS(2)">← 返回交車確認表</button>
+    <button class="btn btn-ghost" onclick="showToast('🖨️ 保固條款書 PDF 已開啟')">🖨️ 列印保固條款書</button>
+    <button class="btn btn-teal" onclick="gS(4)">保固簽署完成 → 完成交車 →</button>
+  </div>
+</div>
+
+<!-- STEP 4 完成交車 -->
+<div class="step-pane" id="pane-4">
+  <div class="complete-card">
+    <div class="compl-title">🎉 恭喜！交車完成</div>
+    <div class="compl-sub">王大明 的 Panigale V4 S 已完成所有交車程序<br>確認後系統將自動觸發以下動作</div>
+    <div class="trigger-box">
+      <b>✅ 自動觸發項目：</b><br>
+      1 · 於 <b>CRM03A 電訪工作台</b> 建立 D+3 滿意度回訪任務（2026-06-04）<br>
+      2 · 更新客戶狀態為「已成交 — 已交車」<br>
+      3 · RS_M1 銷售漏斗「完成交車」層計數 +1<br>
+      4 · 保固條款書存檔（存留 4 年）<br>
+      5 · 交車確認表存檔（存留 4 年）
+    </div>
+    <div class="compl-actions">
+      <button class="ca-btn ca-white" onclick="confirmDelivery()">✅ 確認完成交車</button>
+      <button class="ca-btn ca-outline" onclick="showToast('🖨️ 交車文件套印中...')">🖨️ 列印交車文件</button>
+      <button class="ca-btn ca-outline" onclick="go('CRM03A_銷售電訪工作台_v1.html')">📞 前往 CRM03A 電訪工作台</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hdr"><div class="panel-left"><div class="picon pi-green">📦</div><div><div class="panel-title">隨車文件點交清單</div><div class="panel-sub">交車時應一併交付車主的文件與物件</div></div></div></div>
+    <div class="panel-body">
+      <div class="doc-grid">
+        <div class="doc-item"><span class="doc-icon">📋</span><div class="doc-info"><div class="doc-name">PDI 檢查表（副本）</div><div class="doc-sub">技師完成並簽名</div></div><span class="doc-tag dt-req">RS 需簽</span></div>
+        <div class="doc-item"><span class="doc-icon">📜</span><div class="doc-info"><div class="doc-name">保固條款書（車主聯-紅）</div><div class="doc-sub">RS + 客戶均需簽名</div></div><span class="doc-tag dt-req">雙方需簽</span></div>
+        <div class="doc-item"><span class="doc-icon">✅</span><div class="doc-info"><div class="doc-name">交車確認表（副本）</div><div class="doc-sub">RS + 客戶均需簽名</div></div><span class="doc-tag dt-req">雙方需簽</span></div>
+        <div class="doc-item"><span class="doc-icon">📖</span><div class="doc-info"><div class="doc-name">車主手冊 / 隨車配件箱</div><div class="doc-sub">原廠提供</div></div><span class="doc-tag dt-no">無需簽名</span></div>
+        <div class="doc-item"><span class="doc-icon">🪪</span><div class="doc-info"><div class="doc-name">行照 / 保險卡</div><div class="doc-sub">辦牌後交付</div></div><span class="doc-tag dt-no">無需簽名</span></div>
+        <div class="doc-item"><span class="doc-icon">🗝️</span><div class="doc-info"><div class="doc-name">車鑰匙（正副鑰匙）</div><div class="doc-sub">主動鑰匙 + 備用鑰匙</div></div><span class="doc-tag dt-no">當面點交</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+function go(url){window.location.href=url;}
+var doneS=[];
+function gS(n){
+  [1,2,3,4].forEach(function(i){
+    var s=document.getElementById('s'+i),p=document.getElementById('pane-'+i);
+    s.classList.remove('active','done');p.classList.remove('active');
+    if(doneS.indexOf(i)>-1)s.classList.add('done');
+  });
+  document.getElementById('s'+n).classList.add('active');
+  document.getElementById('pane-'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+var pdiItems=['閱讀技術公報 SRV-SRB-19-041 車款介紹','目視檢查運輸包裝完整性（如適用）','移除運輸包裝（如適用）','目視檢查車輛完整性','檢查所有配件完整性（參閱配件箱零件清單）','移除車輪保護裝置','移除左右反光片上的束帶','安裝把手平衡端子','安裝後視鏡及貼上提醒標籤','啟動電瓶並安裝於車輛','檢查最終傳動鏈條張力','檢查胎壓 前/後 2.5 bar','檢查煞車機離合器油（若有需要請補充）','檢查引擎機油液面高度，必要時補充','檢查鑰匙功能和龍頭鎖（左右）是否作動正常','檢查燈光、方向燈、喇叭和控制開關；調整進遠燈高度；龍頭左右轉向檢查','檢查儀錶板日期時間，設定符合台灣計量單位（Km、°C）','檢查引擎停止開關、側腳柱開關和離合器拉桿開關操作','檢查前後輪軸固定扭力 前-63 Nm；後-230 Nm','檢查前後煞車卡鉗固定螺栓扭力 前-45 Nm；後-25 Nm','添加汽油直到預備油量燈熄滅（4.5公升）','透過 NDCS 檢查是否有技術公報或召回需要執行','透過 DDS 2.0 檢查 ECU 是否有故障碼與軟體升級（Global Scan）','根據客戶訂單安裝 Ducati Performance 配件並確認操作正常','最終檢查和道路測試（確認安全裝置和散熱風扇作動）','清潔車輛','車輛保固啟動申請與文件填寫','向車主說明定期保養計劃，依交車確認表實際教學車輛功能操作','提供車主隨車文件、配件箱和保養手冊'];
+var delItems=[{t:'確保「交車前檢查清單 PDI」已完成並簽名存檔',c:'a'},{t:'確認摩托車符合購買合約要求：型號/配件/外觀',c:'a'},{t:'確認車身號碼和車牌與行照是否一致',c:'a'},{t:'確認燃料已加滿至儀表板指示燈熄滅（至少 5 公升）',c:'a'},{t:'駕駛和乘客座高調整（組裝/拆卸操作）',c:'a'},{t:'擋風鏡高度調整',c:'a'},{t:'儀錶板傾角調整',c:'a'},{t:'後視鏡調整',c:'a'},{t:'煞車和離合器拉桿調整',c:'a'},{t:'後避震器 SAG 調整',c:'a'},{t:'鑰匙和鎖的功能，含備用鑰匙說明',c:'b'},{t:'機械或電子油箱蓋的功能',c:'b'},{t:'側邊或中央駐車架的功能',c:'b'},{t:'電源插座、USB 接頭、充電插座說明',c:'b'},{t:'側邊旅行箱和尾箱安裝/拆卸和使用注意事項',c:'b'},{t:'把手開關說明',c:'b'},{t:'儀錶板說明（設定選單、PIN CODE、駕駛模式等）',c:'b'},{t:'駕駛/乘客加熱坐墊和加溫握把說明（如有）',c:'b'},{t:'駕駛輔助系統：ABS、DTC、DWC、DSC、DPL、VHC 說明',c:'b'},{t:'機械或電子懸吊說明（預載調整）',c:'b'},{t:'Ducati 進退快排系統（DQS）說明',c:'b'},{t:'定速巡航控制（CC）、主動巡航控制（ACC）和盲區偵測（BSD）說明',c:'b'},{t:'藍芽多媒體整合配對智慧手機或藍芽對講機',c:'b'},{t:'Ducati Connect、Sygic GPS、XLink 應用程式說明',c:'b'},{t:'下載並講解 MyDucati 應用程式（車庫/定期維護/新消息）',c:'b'},{t:'摩托車定期保養計劃說明（里程保養/時間保養，登錄 Ducati 官網）',c:'b'},{t:'介紹維修廠以及服務顧問',c:'b'},{t:'引擎磨合：前 1,000 km 引擎轉速操作說明',c:'c'},{t:'鋰電池低溫啟動步驟（如車輛配備鋰電池）',c:'c'},{t:'傳動鏈條的清潔、張力值檢查及潤滑步驟',c:'c'},{t:'車輛清潔說明；避免腐蝕性產品或高壓水柱設備',c:'c'},{t:'定期胎壓檢查及使用原廠輪胎尺寸的重要性',c:'c'},{t:'引擎機油、冷卻液以及煞車/離合器液位檢查說明',c:'c'},{t:'啟動摩托車保固',c:'d'},{t:'介紹可加購的延長保服務',c:'d'},{t:'交付車輛領牌文件、車主手冊、隨車配件箱及正確填寫保固書',c:'d'}];
+var catName={a:'A. 經銷商交車準備',b:'B. 向客戶說明一般事項',c:'C. 使用注意事項',d:'D. 向客戶交車'};
+var pdiChk=[],delChk=[];
+function buildPDI(){var h='';pdiItems.forEach(function(t,i){h+='<div class="check-item" id="pi'+i+'" onclick="chk(\'pi\','+i+')"><div class="check-cb"></div><span class="check-num">'+(i+1)+'</span><div class="check-text">'+t+'</div></div>';});document.getElementById('pdi-list').innerHTML=h;}
+function buildDel(){var h='',last='';delItems.forEach(function(item,i){if(item.c!==last){h+='<div class="cat-divider">'+catName[item.c]+'</div>';last=item.c;}h+='<div class="check-item" id="di'+i+'" onclick="chk(\'di\','+i+')"><div class="check-cb"></div><span class="check-num">'+(i+1)+'</span><div class="check-text">'+item.t+'</div><span class="check-cat cc-'+item.c+'">'+item.c.toUpperCase()+'</span></div>';});document.getElementById('del-list').innerHTML=h;}
+function chk(pfx,i){var el=document.getElementById(pfx+i),arr=pfx==='pi'?pdiChk:delChk,idx=arr.indexOf(i);if(idx>-1){arr.splice(idx,1);el.classList.remove('checked');el.querySelector('.check-cb').textContent='';}else{arr.push(i);el.classList.add('checked');el.querySelector('.check-cb').textContent='✓';}updProg(pfx);}
+function updProg(pfx){var arr=pfx==='pi'?pdiChk:delChk,tot=pfx==='pi'?pdiItems.length:delItems.length,pct=Math.round(arr.length/tot*100);if(pfx==='pi'){document.getElementById('pdi-cnt').textContent=arr.length+' / '+tot;document.getElementById('pdi-bar').style.width=pct+'%';document.getElementById('pdi-pct').textContent=pct+'%';}else{document.getElementById('del-cnt').textContent=arr.length+' / '+tot;document.getElementById('del-bar').style.width=pct+'%';document.getElementById('del-pct').textContent=pct+'%';}}
+function chkAll(pfx){var tot=pfx==='pdi'?pdiItems.length:delItems.length,p=pfx==='pdi'?'pi':'di',arr=pfx==='pdi'?pdiChk:delChk;for(var i=0;i<tot;i++){if(arr.indexOf(i)<0)chk(p,i);}}
+function tgl(el){el.classList.toggle('checked');el.querySelector('.check-cb').textContent=el.classList.contains('checked')?'✓':'';}
+function triggerPDI(){document.getElementById('pdi-btn-area').innerHTML='<div style="background:#E1F5EE;border:1px solid #5DCAA5;border-radius:7px;padding:10px 14px;font-size:12.5px;color:#085041;"><b>✅ PDI 工單已建立</b>　工單號：PD-IN-260601-001 · 已通知技師張建國 · 預計完成：3 小時</div>';showToast('🔧 PDI 工單 PD-IN-260601-001 已建立 · SA 已收到通知');}
+function doSign(id,role){var el=document.getElementById(id);el.classList.add('signed');el.innerHTML='<div class="sign-icon">✅</div><div class="sign-label">'+role+'已簽名</div><div class="sign-sub">'+new Date().toLocaleDateString('zh-TW')+'</div>';showToast('✅ '+role+'電子簽名已完成');}
+function confirmDelivery(){doneS=[1,2,3,4];[1,2,3,4].forEach(function(i){document.getElementById('s'+i).classList.remove('active');document.getElementById('s'+i).classList.add('done');});showToast('🎉 交車完成！D+3 回訪任務已排程 CRM03A · 2026-06-04');}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
+window.onload=function(){buildPDI();buildDel();};
+</script>
+</body>
+</html>

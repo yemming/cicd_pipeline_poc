@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM00 客服管理模組 導覽總覽 v2 — DUCATI 管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.upd-badge{background:rgba(200,0,26,.7);color:#fff;padding:3px 9px;border-radius:5px;font-size:10px;font-weight:700;}
+.main{max-width:1200px;margin:0 auto;padding:22px 24px 48px;}
+.hero{background:linear-gradient(135deg,#0D2B47,#1A3A5C 45%,#0C4A3A);border-radius:12px;padding:26px 30px;margin-bottom:18px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;overflow:hidden;}
+.hero h1{font-size:20px;font-weight:700;margin-bottom:6px;}
+.hero p{font-size:12.5px;opacity:.8;line-height:1.75;max-width:560px;}
+.hstats{display:flex;gap:10px;flex-wrap:wrap;}
+.hstat{text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:9px 18px;}
+.hstat-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.hstat-l{font-size:10px;opacity:.65;margin-top:4px;}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
+.kpi-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;}
+.kpi-l{font-size:10.5px;color:#9A9890;margin-bottom:3px;}
+.kpi-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.kn-blue{color:#185FA5;}.kn-teal{color:#0F6E56;}.kn-amber{color:#D4820A;}.kn-purple{color:#534AB7;}
+.kpi-sub{font-size:10.5px;color:#9A9890;}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #EEECE6;margin-bottom:20px;}
+.tab-btn{padding:9px 20px;font-size:13px;font-weight:500;color:#7A7A78;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;font-family:'Noto Sans TC',sans-serif;background:none;border-top:none;border-left:none;border-right:none;}
+.tab-btn.active{color:#1A3A5C;font-weight:700;border-bottom-color:#1A3A5C;}
+.tab-pane{display:none;}.tab-pane.active{display:block;}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.panel-hdr{padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.panel-icon{font-size:14px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#E8EDF2;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:#9A9890;margin-top:1px;}
+.panel-body{padding:14px 16px;}
+.module-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.module-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.module-card{border-radius:9px;padding:13px 14px;border:1.5px solid;cursor:pointer;transition:all .15s;position:relative;}
+.module-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.1);transform:translateY(-1px);}
+.mc-blue{background:#EAF4FB;border-color:#85B7EB;}
+.mc-teal{background:#E1F5EE;border-color:#5DCAA5;}
+.mc-dark{background:#E8EDF2;border-color:#8FAABB;}
+.mc-code{font-size:10px;font-family:'DM Mono',monospace;font-weight:600;margin-bottom:5px;opacity:.7;}
+.mc-name{font-size:13px;font-weight:700;margin-bottom:4px;line-height:1.3;}
+.mc-desc{font-size:11px;line-height:1.5;opacity:.75;}
+.mc-file{font-size:9.5px;font-family:'DM Mono',monospace;margin-top:7px;padding:2px 6px;border-radius:4px;display:inline-block;background:rgba(255,255,255,.5);}
+.mc-ver{position:absolute;top:10px;right:10px;font-size:9.5px;font-family:'DM Mono',monospace;font-weight:700;background:rgba(255,255,255,.6);padding:1px 6px;border-radius:4px;}
+.mc-upd{position:absolute;top:10px;right:10px;font-size:9px;font-weight:700;background:#C8001A;color:#fff;padding:1px 6px;border-radius:4px;}
+.layer-title{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.layer-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.conn-table{width:100%;border-collapse:collapse;}
+.conn-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:7px 12px;border-bottom:2px solid #EEECE6;text-align:left;white-space:nowrap;background:#FAFAF8;}
+.conn-table td{padding:9px 12px;border-bottom:1px solid #F4F3F0;font-size:12px;vertical-align:middle;}
+.conn-table tr:last-child td{border-bottom:none;}
+.conn-table tr:hover td{background:#FAFAF8;}
+.conn-from{font-weight:600;font-family:'DM Mono',monospace;font-size:11.5px;color:#534AB7;}
+.conn-arrow{color:#C8001A;font-size:14px;font-weight:700;padding:0 4px;}
+.conn-to{font-family:'DM Mono',monospace;font-size:11.5px;color:#185FA5;}
+.conn-status{font-size:10.5px;padding:1px 7px;border-radius:4px;white-space:nowrap;}
+.cs-live{background:#E1F5EE;color:#0F6E56;}
+.cs-p2{background:#F1EFE8;color:#5A5955;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-done{background:#EAF3DE;color:#3B6D11;}
+.b-upd{background:#FDECEA;color:#C8001A;}
+.b-blue{background:#EAF4FB;color:#185FA5;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}
+.b-gray{background:#F1EFE8;color:#5A5955;}
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;">
+  <button onclick="go('RS00_銷售模組_導覽總覽_v4.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">← RS 銷售模組</button>
+  <button onclick="go('CRM07_店長綜合報表_v2.html')" style="padding:5px 14px;background:#0D2438;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">🏬 店長報表</button>
+</div>
+<header>
+  <div class="logo">DUCATI</div><div class="hdiv"></div>
+  <div class="htitle">客服管理模組 <b>CRM00 導覽總覽</b></div>
+  <div class="ver-badge">v2</div>
+  <div class="upd-badge">B 系列全數完成</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS00_銷售模組_導覽總覽_v4.html')">← RS 銷售模組</button>
+    <button class="hbtn" onclick="go('CRM07_店長綜合報表_v2.html')">🏬 店長報表</button>
+  </div>
+</header>
+<div class="main">
+  <div class="hero">
+    <div>
+      <h1>🎧 DUCATI CRM 客服管理模組</h1>
+      <p>覆蓋銷售（RS）× 售後（SA）兩條線的客戶關係管理：電訪問卷設計、電訪任務工作台、休眠流失激活、NPS 滿意度看板、推播通知、店長跨部門綜合報表。RS05 交車後自動觸發 SA 側 CRM01B 建檔，形成完整客戶生命週期閉環。</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n">15</div><div class="hstat-l">CRM 模組總數</div></div>
+      <div class="hstat"><div class="hstat-n">7</div><div class="hstat-l">銷售側 A 系列</div></div>
+      <div class="hstat"><div class="hstat-n">6</div><div class="hstat-l">售後側 B 系列</div></div>
+      <div class="hstat"><div class="hstat-n">✅</div><div class="hstat-l">全數完成</div></div>
+    </div>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-l">銷售側（A 系列）</div><div class="kpi-n kn-blue">7</div><div class="kpi-sub">CRM00/01A/02A/03A/04A/05A/06A</div></div>
+    <div class="kpi-card"><div class="kpi-l">售後側（B 系列）</div><div class="kpi-n kn-teal">6</div><div class="kpi-sub">CRM01B/02B/03B/04B/05B/06B ✅</div></div>
+    <div class="kpi-card"><div class="kpi-l">店長跨部門報表</div><div class="kpi-n kn-purple">1</div><div class="kpi-sub">CRM07 v2 · SA 真實數據已納入</div></div>
+    <div class="kpi-card"><div class="kpi-l">跨部門串接點</div><div class="kpi-n kn-amber">13</div><div class="kpi-sub">RS05→CRM01B 為核心觸發鏈</div></div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab(0,this)">📋 模組總覽</button>
+    <button class="tab-btn" onclick="switchTab(1,this)">🔗 串接關係</button>
+    <button class="tab-btn" onclick="switchTab(2,this)">📁 檔案清單</button>
+  </div>
+
+  <!-- Tab 0 -->
+  <div class="tab-pane active" id="tab-0">
+    <div class="panel">
+      <div class="panel-hdr"><div class="panel-icon" style="background:#EAF4FB;">🔵</div><div><div class="panel-title">銷售側 CRM 模組（A 系列）</div><div class="panel-sub">對應 RS 銷售顧問 · 潛客建檔 → HABC 追蹤 → 電訪 → NPS → 推播</div></div></div>
+      <div class="panel-body">
+        <div class="layer-title">客戶基盤 × 問卷設定</div>
+        <div class="module-grid" style="margin-bottom:12px;">
+          <div class="mc-blue module-card" onclick="go('CRM01A_銷售客戶基盤_v2.html')">
+            <div class="mc-upd">v2 升版</div><div class="mc-code">CRM01A</div><div class="mc-name">銷售客戶基盤</div>
+            <div class="mc-desc">HABC 分級 · 列表/看板雙視圖 · SA 唯讀標籤（P-08 新增）</div>
+            <div class="mc-file">CRM01A_銷售客戶基盤_v2.html</div>
+          </div>
+          <div class="mc-blue module-card" onclick="go('CRM02A_銷售電訪問卷設定_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM02A</div><div class="mc-name">銷售電訪問卷設定</div>
+            <div class="mc-desc">問卷題目管理 · 題型 CRUD · 版本控制 · 適用對象設定</div>
+            <div class="mc-file">CRM02A_銷售電訪問卷設定_v1.html</div>
+          </div>
+        </div>
+        <div class="layer-title">電訪工作台 × 休眠追蹤</div>
+        <div class="module-grid" style="margin-bottom:12px;">
+          <div class="mc-blue module-card" onclick="go('CRM03A_銷售電訪工作台_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM03A</div><div class="mc-name">銷售電訪工作台</div>
+            <div class="mc-desc">D+3/D+7 排程 · 話術提示 · 通話記錄 · 逾期警示</div>
+            <div class="mc-file">CRM03A_銷售電訪工作台_v1.html</div>
+          </div>
+          <div class="mc-blue module-card" onclick="go('CRM04A_銷售休眠戰敗管理_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM04A</div><div class="mc-name">銷售休眠戰敗管理</div>
+            <div class="mc-desc">休眠分層 · 戰敗原因分析 · 競品流向 · 再接觸排程</div>
+            <div class="mc-file">CRM04A_銷售休眠戰敗管理_v1.html</div>
+          </div>
+        </div>
+        <div class="layer-title">滿意度 × 推播</div>
+        <div class="module-grid">
+          <div class="mc-blue module-card" onclick="go('CRM05A_NPS看板_銷售_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM05A</div><div class="mc-name">NPS 看板（銷售）</div>
+            <div class="mc-desc">月度 NPS · 推薦/被動/批評分布 · 各面向評分 · 批評者追蹤</div>
+            <div class="mc-file">CRM05A_NPS看板_銷售_v1.html</div>
+          </div>
+          <div class="mc-blue module-card" onclick="go('CRM06A_銷售推播通知管理_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM06A</div><div class="mc-name">銷售推播通知管理</div>
+            <div class="mc-desc">LINE/SMS 範本管理 · 客群篩選 · 排程發送 · 開啟率追蹤</div>
+            <div class="mc-file">CRM06A_銷售推播通知管理_v1.html</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="border-color:#5DCAA5;">
+      <div class="panel-hdr" style="background:linear-gradient(90deg,#0C5A46,#0F6E56);color:#fff;">
+        <div class="panel-icon" style="background:rgba(255,255,255,.15);">🟢</div>
+        <div><div class="panel-title" style="color:#fff;">售後側 CRM 模組（B 系列）</div><div class="panel-sub" style="color:rgba(255,255,255,.7);">對應 SA 服務顧問 · RS05 交車自動觸發 · P-08 隔離 · 自動化推播</div></div>
+        <div style="margin-left:auto;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:5px;font-size:10.5px;font-weight:700;">✅ 全 6 支完成</div>
+      </div>
+      <div class="panel-body">
+        <div style="background:#E1F5EE;border:1px solid #A8DFC9;border-radius:7px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:#0F6E56;">
+          🔗 <b>RS05 串接：</b>交車完成 → CRM01B 自動建檔 → CRM03B D+3 電訪 → CRM05B NPS → CRM07 店長報表。依 P-08，RS 與 SA 資料隔離，唯共享客戶標籤（雙側各唯讀）。
+        </div>
+        <div class="layer-title" style="color:#0F6E56;">客戶基盤 × 問卷設定</div>
+        <div class="module-grid" style="margin-bottom:12px;">
+          <div class="mc-teal module-card" onclick="go('CRM01B_售後客戶基盤_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM01B</div><div class="mc-name">售後客戶基盤</div>
+            <div class="mc-desc">逾期回廠追蹤 · 智慧快篩（自訂條件）· 保固/Desmo 提醒 · RS 標籤唯讀</div>
+            <div class="mc-file">CRM01B_售後客戶基盤_v1.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('CRM02B_售後電訪問卷設定_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM02B</div><div class="mc-name">售後電訪問卷設定</div>
+            <div class="mc-desc">D+3/保養/保固/Desmo 問卷 · SA 話術腳本 · 問卷預覽功能</div>
+            <div class="mc-file">CRM02B_售後電訪問卷設定_v1.html</div>
+          </div>
+        </div>
+        <div class="layer-title" style="color:#0F6E56;">電訪工作台 × 休眠流失</div>
+        <div class="module-grid" style="margin-bottom:12px;">
+          <div class="mc-teal module-card" onclick="go('CRM03B_售後電訪工作台_v1.html')">
+            <div class="mc-upd">串接 RS05</div><div class="mc-code">CRM03B</div><div class="mc-name">售後電訪工作台</div>
+            <div class="mc-desc">D+3/回廠/保固/Desmo 5 種類型 · 工單 RO 資訊條 · NPS 快評</div>
+            <div class="mc-file">CRM03B_售後電訪工作台_v1.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('CRM04B_售後休眠流失管理_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM04B</div><div class="mc-name">售後休眠流失管理</div>
+            <div class="mc-desc">逾期未回廠分層 · 流失原因分析 · 低 NPS 追蹤 · 喚醒計畫排程</div>
+            <div class="mc-file">CRM04B_售後休眠流失管理_v1.html</div>
+          </div>
+        </div>
+        <div class="layer-title" style="color:#0F6E56;">NPS 看板 × 推播通知</div>
+        <div class="module-grid">
+          <div class="mc-teal module-card" onclick="go('CRM05B_NPS看板_售後_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM05B</div><div class="mc-name">NPS 看板（售後）</div>
+            <div class="mc-desc">SA 個人 NPS · 服務類型拆分 · 面向評分趨勢箭頭 · 批評者追蹤</div>
+            <div class="mc-file">CRM05B_NPS看板_售後_v1.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('CRM06B_售後推播通知管理_v1.html')">
+            <div class="mc-ver">v1</div><div class="mc-code">CRM06B</div><div class="mc-name">售後推播通知管理</div>
+            <div class="mc-desc">自動化 6 條規則 · 維修竣工通知（95%開啟）· Desmo/保固/生日提醒</div>
+            <div class="mc-file">CRM06B_售後推播通知管理_v1.html</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="border-color:#8FAABB;">
+      <div class="panel-hdr" style="background:linear-gradient(90deg,#0D2438,#1A3A5C);color:#fff;">
+        <div class="panel-icon" style="background:rgba(255,255,255,.15);">🏬</div>
+        <div><div class="panel-title" style="color:#fff;">店長跨部門報表</div><div class="panel-sub" style="color:rgba(255,255,255,.7);">唯讀視角 · RS+SA 雙側數據彙整</div></div>
+        <div style="margin-left:auto;background:rgba(200,0,26,.6);color:#fff;padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;">v2 SA 真實數據</div>
+      </div>
+      <div class="panel-body">
+        <div class="module-grid-2">
+          <div class="mc-dark module-card" onclick="go('CRM07_店長綜合報表_v2.html')">
+            <div class="mc-upd">v2 升版</div><div class="mc-code">CRM07</div><div class="mc-name">店長跨部門綜合報表</div>
+            <div class="mc-desc">RS+SA NPS 雙軸趨勢 · SA 真實數據 · 逾期預警清單 · SA/RS 人員效率排行 · 跨部門標籤概覽</div>
+            <div class="mc-file">CRM07_店長綜合報表_v2.html</div>
+          </div>
+          <div class="mc-dark module-card" onclick="showToast('目前已在 CRM00 導覽總覽（本頁）')">
+            <div class="mc-upd">v2 本頁</div><div class="mc-code">CRM00</div><div class="mc-name">CRM 模組導覽總覽</div>
+            <div class="mc-desc">RS A 系列 × SA B 系列全模組入口 · 串接關係明細 · 完整檔案清單</div>
+            <div class="mc-file">CRM00_客服管理模組_導覽總覽_v2.html</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 1 -->
+  <div class="tab-pane" id="tab-1">
+    <div class="panel">
+      <div class="panel-hdr"><div class="panel-icon">🔗</div><div><div class="panel-title">跨模組串接關係明細</div><div class="panel-sub">CRM ↔ RS 銷售 / SA 售後 · 共 13 個設計串接點</div></div></div>
+      <div class="panel-body" style="padding:0;">
+        <table class="conn-table">
+          <thead><tr><th>來源</th><th></th><th>目標</th><th>說明</th><th>狀態</th></tr></thead>
+          <tbody>
+            <tr style="background:#EAF4FB;"><td class="conn-from">RS01 電子手卡</td><td class="conn-arrow">→</td><td class="conn-to">CRM01A</td><td>儲存後同步建立潛客記錄，排程 D+3/D+7 電訪</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#EAF4FB;"><td class="conn-from">CRM01A</td><td class="conn-arrow">→</td><td class="conn-to">CRM03A</td><td>建立潛客後排程電訪任務</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#EAF4FB;"><td class="conn-from">CRM02A 問卷</td><td class="conn-arrow">→</td><td class="conn-to">CRM03A</td><td>啟用版問卷自動套用至電訪工作台話術</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#EAF4FB;"><td class="conn-from">CRM03A 電訪完成</td><td class="conn-arrow">→</td><td class="conn-to">CRM04A</td><td>失敗超過閾值 → 轉入休眠戰敗管理</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#EAF4FB;"><td class="conn-from">CRM03A 通話記錄</td><td class="conn-arrow">→</td><td class="conn-to">CRM05A NPS</td><td>電訪 NPS 評分同步至看板</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#EAF4FB;"><td class="conn-from">CRM04A 休眠</td><td class="conn-arrow">→</td><td class="conn-to">CRM06A 推播</td><td>休眠激活觸發 LINE 喚醒推播</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#E1F5EE;"><td class="conn-from" style="color:#0F6E56;">RS05 交車完成</td><td class="conn-arrow">→</td><td class="conn-to" style="color:#0F6E56;">CRM01B</td><td>自動建立售後客戶記錄，PDI 工單觸發，排程 D+3 電訪</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#E1F5EE;"><td class="conn-from" style="color:#0F6E56;">CRM02B 問卷</td><td class="conn-arrow">→</td><td class="conn-to" style="color:#0F6E56;">CRM03B</td><td>SA 問卷（含話術腳本）套用至電訪工作台</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#E1F5EE;"><td class="conn-from" style="color:#0F6E56;">CRM03B D+3 完成</td><td class="conn-arrow">→</td><td class="conn-to" style="color:#0F6E56;">CRM05B NPS</td><td>電訪 NPS 評分同步至售後 NPS 看板</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#E1F5EE;"><td class="conn-from" style="color:#0F6E56;">CRM04B 逾期 30 天</td><td class="conn-arrow">→</td><td class="conn-to" style="color:#0F6E56;">CRM06B 推播</td><td>自動觸發保養提醒推播</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr style="background:#E1F5EE;"><td class="conn-from" style="color:#0F6E56;">SA 工單竣工</td><td class="conn-arrow">→</td><td class="conn-to" style="color:#0F6E56;">CRM06B 推播</td><td>工單關閉後自動發送取車通知（開啟率 95%）</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">CRM05A/05B NPS</td><td class="conn-arrow">→</td><td class="conn-to">CRM07 報表</td><td>RS+SA 雙側 NPS 數據彙整，呈現雙軸趨勢對比</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">CRM01A RS標籤</td><td class="conn-arrow">↔</td><td class="conn-to">CRM01B SA標籤</td><td>P-08 共享：雙側各唯讀對方標籤，不可修改</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS_EX1 續保完成</td><td class="conn-arrow">→</td><td class="conn-to">CRM01A</td><td>續保資訊回寫客戶基盤</td><td><span class="conn-status cs-p2">Phase 2</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2 -->
+  <div class="tab-pane" id="tab-2">
+    <div class="panel">
+      <div class="panel-hdr"><div class="panel-icon">📁</div><div><div class="panel-title">CRM 全系列完整檔案清單</div><div class="panel-sub">v2 現行版本 · 15 個模組 · 去重後最終版</div></div></div>
+      <div class="panel-body" style="padding:0;">
+        <table class="conn-table">
+          <thead><tr><th>代碼</th><th>最終檔名</th><th>版本</th><th>狀態</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr style="background:#F4F3F0;"><td colspan="5" style="padding:6px 12px;font-size:10.5px;font-weight:700;color:#5A5955;letter-spacing:.4px;">── 共用 ──</td></tr>
+            <tr><td class="conn-from">CRM00</td><td>CRM00_客服管理模組_導覽總覽_v2.html</td><td><span class="badge b-upd">v2 ↑</span></td><td><span class="badge b-done">✅</span></td><td>本頁 · B 系列全數更新</td></tr>
+            <tr><td class="conn-from">CRM07</td><td>CRM07_店長綜合報表_v2.html</td><td><span class="badge b-upd">v2 ↑</span></td><td><span class="badge b-done">✅</span></td><td>SA 真實數據 · 雙軸 NPS 趨勢</td></tr>
+            <tr style="background:#EAF4FB;"><td colspan="5" style="padding:6px 12px;font-size:10.5px;font-weight:700;color:#185FA5;letter-spacing:.4px;">── 銷售側 A 系列 ──</td></tr>
+            <tr><td class="conn-from">CRM01A</td><td>CRM01A_銷售客戶基盤_v2.html</td><td><span class="badge b-upd">v2 ↑</span></td><td><span class="badge b-done">✅</span></td><td>補入 SA 唯讀標籤（P-08）</td></tr>
+            <tr><td class="conn-from">CRM02A</td><td>CRM02A_銷售電訪問卷設定_v1.html</td><td><span class="badge b-blue">v1</span></td><td><span class="badge b-done">✅</span></td><td>問卷管理 / 題型 / 版本控制</td></tr>
+            <tr><td class="conn-from">CRM03A</td><td>CRM03A_銷售電訪工作台_v1.html</td><td><span class="badge b-blue">v1</span></td><td><span class="badge b-done">✅</span></td><td>D+3/D+7 / 話術 / 通話記錄</td></tr>
+            <tr><td class="conn-from">CRM04A</td><td>CRM04A_銷售休眠戰敗管理_v1.html</td><td><span class="badge b-blue">v1</span></td><td><span class="badge b-done">✅</span></td><td>休眠分層 / 戰敗分析 / 再接觸</td></tr>
+            <tr><td class="conn-from">CRM05A</td><td>CRM05A_NPS看板_銷售_v1.html</td><td><span class="badge b-blue">v1</span></td><td><span class="badge b-done">✅</span></td><td>月度 NPS / 面向評分 / 批評者</td></tr>
+            <tr><td class="conn-from">CRM06A</td><td>CRM06A_銷售推播通知管理_v1.html</td><td><span class="badge b-blue">v1</span></td><td><span class="badge b-done">✅</span></td><td>LINE/SMS / 排程發送 / 成效</td></tr>
+            <tr style="background:#E1F5EE;"><td colspan="5" style="padding:6px 12px;font-size:10.5px;font-weight:700;color:#0F6E56;letter-spacing:.4px;">── 售後側 B 系列 · 全新建立 ──</td></tr>
+            <tr><td class="conn-from" style="color:#0F6E56;">CRM01B</td><td>CRM01B_售後客戶基盤_v1.html</td><td><span class="badge b-teal">v1 ✨</span></td><td><span class="badge b-done">✅</span></td><td>逾期追蹤 / 智慧快篩 / 共享標籤</td></tr>
+            <tr><td class="conn-from" style="color:#0F6E56;">CRM02B</td><td>CRM02B_售後電訪問卷設定_v1.html</td><td><span class="badge b-teal">v1 ✨</span></td><td><span class="badge b-done">✅</span></td><td>SA 話術腳本 / 問卷預覽</td></tr>
+            <tr><td class="conn-from" style="color:#0F6E56;">CRM03B</td><td>CRM03B_售後電訪工作台_v1.html</td><td><span class="badge b-teal">v1 ✨</span></td><td><span class="badge b-done">✅</span></td><td>5 種電訪類型 / RO 資訊條</td></tr>
+            <tr><td class="conn-from" style="color:#0F6E56;">CRM04B</td><td>CRM04B_售後休眠流失管理_v1.html</td><td><span class="badge b-teal">v1 ✨</span></td><td><span class="badge b-done">✅</span></td><td>逾期 3 Tab / 低NPS / 喚醒排程</td></tr>
+            <tr><td class="conn-from" style="color:#0F6E56;">CRM05B</td><td>CRM05B_NPS看板_售後_v1.html</td><td><span class="badge b-teal">v1 ✨</span></td><td><span class="badge b-done">✅</span></td><td>SA 個人 NPS / 服務類型拆分</td></tr>
+            <tr><td class="conn-from" style="color:#0F6E56;">CRM06B</td><td>CRM06B_售後推播通知管理_v1.html</td><td><span class="badge b-teal">v1 ✨</span></td><td><span class="badge b-done">✅</span></td><td>自動化 6 條規則 / 進廠轉換率</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="_sys_toast_"></div>
+<script>
+function go(url){window.location.href=url;}
+function switchTab(i,el){
+  document.querySelectorAll('.tab-btn').forEach(function(b,idx){b.classList.toggle('active',idx===i);});
+  document.querySelectorAll('.tab-pane').forEach(function(p,idx){p.classList.toggle('active',idx===i);});
+}
+function showToast(msg,dur){
+  var t=document.getElementById('_sys_toast_');
+  t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);
+}
+</script>
+</body>
+</html>

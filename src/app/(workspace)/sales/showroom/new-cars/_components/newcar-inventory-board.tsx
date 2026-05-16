@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
 import type { NewCarInventoryData } from "@/domain/sales-newcar-inventory";
@@ -19,17 +20,55 @@ const STATUS_CHIP: Record<NewCarStatus, string> = {
   "已售出": "bg-[#FDECEA] text-[#C8001A] border border-[#F5AEAD]",
 };
 
-type ViewMode = "card" | "list";
+type DisplayMode = "card" | "list";
 
 type Banner = { ok: boolean; msg: string } | null;
 
-export default function NewCarInventoryBoard({ data }: { data: NewCarInventoryData }) {
+/**
+ * 視角差異：
+ * - `dealer`（預設）：經銷商視角，掛 `/sales/showroom/new-cars`（銷售模組底下）。
+ * - `rs`：銷售接待（Showroom Staff）視角，掛 `/sales/showroom/stock`，對應 RS03A_v1。
+ * - `inventory`：庫管視角，掛 `/inventory/vehicles`（庫存管理模組底下）。Day 1 與 dealer
+ *   同源資料，差異只在 page header（標題用「整車庫存」、breadcrumb 走庫管模組、無 RS chip）。
+ *   未來想加「進貨/在途/退倉」之類庫管專屬欄位再內部加分支即可。
+ *
+ * Day 1 三視角資料源同源（NEW_CAR_INVENTORY_UNITS），差異僅在 page header / sprint chip / caption。
+ * 未來 RS 視角會收斂到「自己門店」+ 「客戶配車狀態」欄位，屆時 helper 內依 viewMode 切 query；
+ * UI 層的差異點抽在這個 prop 後面，新增欄位 / 操作鍵時就地擴充即可。
+ */
+export type NewCarInventoryViewMode = "dealer" | "rs" | "inventory";
+
+export default function NewCarInventoryBoard({
+  data,
+  viewMode = "dealer",
+}: {
+  data: NewCarInventoryData;
+  viewMode?: NewCarInventoryViewMode;
+}) {
+  const isRs = viewMode === "rs";
+  const isInventory = viewMode === "inventory";
+
   useSetPageHeader({
-    title: "新車庫存看板",
-    breadcrumb: [
-      { label: "展廳接待" },
-      { label: "新車庫存" },
-    ],
+    title: isRs
+      ? "新車庫存看板（RS 視角）"
+      : isInventory
+        ? "整車庫存"
+        : "新車庫存看板",
+    breadcrumb: isRs
+      ? [
+          { label: "銷售接待" },
+          { label: "展廳接待" },
+          { label: "新車庫存（RS 視角）" },
+        ]
+      : isInventory
+        ? [
+            { label: "庫存管理" },
+            { label: "整車庫存" },
+          ]
+        : [
+            { label: "展廳接待" },
+            { label: "新車庫存" },
+          ],
     hideSearch: true,
   });
 
@@ -37,7 +76,7 @@ export default function NewCarInventoryBoard({ data }: { data: NewCarInventoryDa
   const [status, setStatus] = useState<string>("");
   const [color, setColor] = useState<string>("");
   const [query, setQuery] = useState<string>("");
-  const [viewMode, setViewMode] = useState<ViewMode>("card");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("card");
   const [banner, setBanner] = useState<Banner>(null);
 
   useEffect(() => {
@@ -67,17 +106,75 @@ export default function NewCarInventoryBoard({ data }: { data: NewCarInventoryDa
   }
 
   return (
-    <main className="px-6 py-5 space-y-3">
+    <main className="px-6 py-5 space-y-3" data-view-mode={viewMode} data-testid={`newcar-inventory-${viewMode}`}>
       {/* Page Header */}
       <header className="flex items-center gap-2.5 flex-wrap">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">新車庫存看板</h1>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
+          {isRs
+            ? "新車庫存看板（RS 視角）"
+            : isInventory
+              ? "整車庫存"
+              : "新車庫存看板"}
+        </h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          銷售模組 / RS03A
+          {isInventory ? "庫存管理 / RS03A" : "銷售模組 / RS03A"}
         </span>
+        {isRs && (
+          <span
+            className="px-2 py-0.5 text-[11px] rounded-full bg-[#E1F5EE] text-[#0F6E56] font-medium"
+            data-testid="rs-perspective-chip"
+          >
+            RS 視角
+          </span>
+        )}
+        {isInventory && (
+          <span
+            className="px-2 py-0.5 text-[11px] rounded-full bg-[#FDF3E3] text-[#854F0B] font-medium"
+            data-testid="inventory-perspective-chip"
+          >
+            庫管視角
+          </span>
+        )}
+        {(isRs || isInventory) && (
+          <span
+            className="px-2 py-0.5 text-[11px] rounded-full bg-[#F0EFFE] text-[#534AB7] font-semibold"
+            data-testid="star6-marker-chip"
+          >
+            ★6
+          </span>
+        )}
         <span className="text-[12px] text-[#9A9890]">
-          現車、保留、訂車中、本月已售 — 看板統一管理新車庫存與報價接續
+          {isRs
+            ? "本店可推薦庫存 — 現車、保留、訂車中與本月已售，銷售接待第一現場使用"
+            : isInventory
+              ? "整車庫存盤點 — 現車、保留、訂車中、本月已售，庫管端日常追蹤"
+              : "現車、保留、訂車中、本月已售 — 看板統一管理新車庫存與報價接續"}
         </span>
       </header>
+
+      {/* ★6 跨模組 banner — 整車 / 展間庫存 ↔ 備件庫存查詢（D5.1） */}
+      {(isRs || isInventory) && (
+        <section
+          className="bg-[#F0EFFE] border border-[#C4BEF0] rounded-lg px-4 py-2.5 flex items-center gap-3 flex-wrap"
+          data-testid="star6-cross-module-banner"
+        >
+          <span className="text-[11px] text-[#534AB7] font-semibold">
+            ★6 跨模組
+          </span>
+          <span className="text-[12px] text-[#26215C]">
+            本頁是<strong>銷售視角</strong>（整車 / 展間配額與配車狀態）；
+            備件庫存查詢從<strong>零件視角</strong>看 stock_items 即時水位，同源不同切面。
+          </span>
+          <div className="ml-auto flex gap-1.5 flex-wrap">
+            <Link
+              href="/parts/operations/balance"
+              className="h-[26px] px-3 rounded-full text-[11.5px] inline-flex items-center bg-[#534AB7] text-white hover:bg-[#3F3793] font-medium"
+            >
+              → 備件庫存查詢
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* KPI */}
       <section
@@ -155,11 +252,11 @@ export default function NewCarInventoryBoard({ data }: { data: NewCarInventoryDa
             <button
               className={
                 "h-[28px] px-3 rounded text-[12px] border transition " +
-                (viewMode === "card"
+                (displayMode === "card"
                   ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
                   : "bg-white text-[#5A5955] border-[#D5D3CB] hover:border-[#9A9890]")
               }
-              onClick={() => setViewMode("card")}
+              onClick={() => setDisplayMode("card")}
               data-testid="view-toggle-card"
             >
               ⊞ 卡片
@@ -167,11 +264,11 @@ export default function NewCarInventoryBoard({ data }: { data: NewCarInventoryDa
             <button
               className={
                 "h-[28px] px-3 rounded text-[12px] border transition " +
-                (viewMode === "list"
+                (displayMode === "list"
                   ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
                   : "bg-white text-[#5A5955] border-[#D5D3CB] hover:border-[#9A9890]")
               }
-              onClick={() => setViewMode("list")}
+              onClick={() => setDisplayMode("list")}
               data-testid="view-toggle-list"
             >
               ≡ 列表
@@ -188,7 +285,7 @@ export default function NewCarInventoryBoard({ data }: { data: NewCarInventoryDa
       </div>
 
       {/* Card / List */}
-      {viewMode === "card" ? (
+      {displayMode === "card" ? (
         <CardGrid units={filtered} onAction={showToast} />
       ) : (
         <ListView units={filtered} onAction={showToast} />

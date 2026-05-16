@@ -65,6 +65,67 @@ export const ABC_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "all", label: "全部" },
 ];
 
+/**
+ * 報損報溢單 (LG-*) 狀態 chip — 視角不同於 COUNT_STATUS_CHIP。
+ * draft = first_done / second_done（剛從盤點處理產出、未送審）
+ * review = pending_approval（待財務審批）
+ * done = completed（審批通過、帳面已調整）
+ * reject = cancelled（駁回）
+ */
+export const LG_STATUS_CHIP: Record<
+  string,
+  { label: string; chip: string }
+> = {
+  draft: { label: "草稿", chip: "bg-[#FEF9C3] text-[#5C4500]" },
+  review: { label: "待審批", chip: "bg-[#EDE9FE] text-[#5B21B6]" },
+  done: { label: "審批通過", chip: "bg-[#E8F5F0] text-[#0F6E56]" },
+  reject: { label: "駁回", chip: "bg-[#FDECEA] text-[#CC0000]" },
+};
+
+export const LG_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "", label: "全部（草稿 / 待審批 / 審批通過 / 駁回）" },
+  { value: "draft", label: "草稿" },
+  { value: "review", label: "待審批" },
+  { value: "done", label: "審批通過" },
+  { value: "reject", label: "駁回" },
+];
+
+/**
+ * DB count status → LG status
+ */
+export function dbStatusToLgStatus(dbStatus: string | null | undefined): string {
+  switch (dbStatus) {
+    case "first_done":
+    case "second_done":
+      return "draft";
+    case "pending_approval":
+      return "review";
+    case "completed":
+      return "done";
+    case "cancelled":
+      return "reject";
+    default:
+      return dbStatus ?? "";
+  }
+}
+
+/**
+ * 由 ct_no + count_date 衍生 LG 單號（純展示、不落 DB）
+ * 範例：CT20260514-001 + 2026-05-14 → LG-20260514-001
+ */
+export function buildLgNo(ctNo: string | null | undefined, countDate: string | null | undefined): string {
+  if (!ctNo) return "—";
+  // CT20260514-001 → LG-20260514-001（同 seq）
+  const m = ctNo.match(/^CT(\d{8})-?(\d+)?$/);
+  if (m) {
+    const seq = m[2] ?? "001";
+    return `LG-${m[1]}-${seq.padStart(3, "0")}`;
+  }
+  // fallback：日期前綴 + seq
+  const dt = (countDate ?? "").replace(/-/g, "");
+  return dt ? `LG-${dt}-${ctNo.slice(-3)}` : `LG-${ctNo}`;
+}
+
 export const COUNT_ACTIVE_STATUSES = ["counting", "first_done", "second_done"] as const;
 
 export function isCountActive(status: string): boolean {

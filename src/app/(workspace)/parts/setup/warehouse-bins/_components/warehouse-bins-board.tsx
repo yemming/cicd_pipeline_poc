@@ -100,23 +100,30 @@ export function WarehouseBinsBoard({
 
   return (
     <main className="px-6 py-5 space-y-3">
-      <header className="flex items-center gap-2.5">
+      <header className="flex items-center gap-2.5 flex-wrap">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
-          倉庫 / 庫區 / 庫位 / 擺放設定
+          倉庫/庫區/庫位/擺放設定
         </h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          2.2
+          庫存 · 2.2
         </span>
         <span className="text-[12px] text-[#9A9890]">
           設定四層倉儲結構的實際位置與編碼規則
         </span>
+        <Link
+          href="/parts/setup/warehouse-arch"
+          className="ml-auto text-[12px] text-[#185FA5] hover:underline"
+        >
+          ← 倉儲四層架構
+        </Link>
       </header>
 
       <div className="flex gap-3 items-start">
         {/* 左：倉庫選擇 */}
         <aside className="w-[200px] flex-shrink-0 bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-[#F8F7F4] border-b border-[#EEECE6] text-[12px] font-semibold text-[#5A5955]">
-            倉庫選擇
+          <div className="px-3 py-2 bg-[#F8F7F4] border-b border-[#EEECE6] flex items-center gap-1.5">
+            <span className="text-[12px] font-semibold text-[#5A5955]">倉庫選擇</span>
+            <span className="ml-auto text-[10.5px] text-[#9A9890] font-mono">{warehouses.length}</span>
           </div>
           {warehouses.length === 0 ? (
             <div className="px-3 py-6 text-[12px] text-[#9A9890] text-center">

@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM02A 銷售電訪問卷設定 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-primary{background:rgba(24,95,165,.75);border-color:transparent;}
+.hbtn-primary:hover{background:rgba(24,95,165,.95);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+
+/* Layout */
+.layout{display:flex;min-height:calc(100vh - 52px);}
+.sidenav{width:220px;flex-shrink:0;background:#fff;border-right:1px solid #EEECE6;padding:14px 0;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto;}
+.nav-section{padding:0 12px;margin-bottom:6px;}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;padding:8px 6px 4px;}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 8px;border-radius:7px;cursor:pointer;transition:background .12s;color:#4A4A48;font-size:12px;margin-bottom:2px;}
+.nav-item:hover{background:#F4F3F0;}
+.nav-item.active{background:#EAF4FB;color:#185FA5;font-weight:600;}
+.nav-left{display:flex;align-items:center;gap:7px;}
+.nav-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.nav-count{font-size:11px;font-family:'DM Mono',monospace;font-weight:600;padding:1px 6px;border-radius:4px;background:#F1EFE8;color:#5A5955;}
+.nav-divider{height:1px;background:#EEECE6;margin:8px 12px;}
+.main{flex:1;padding:18px 22px 48px;}
+
+/* Panel */
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.panel-hdr{padding:11px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.panel-left{display:flex;align-items:center;gap:10px;}
+.picon{font-size:14px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pi-blue{background:#EAF4FB;}.pi-teal{background:#E1F5EE;}.pi-amber{background:#FDF3E3;}.pi-red{background:#FDECEA;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:#9A9890;margin-top:1px;}
+.panel-body{padding:14px 16px;}
+
+/* 問卷列表 */
+.survey-list{display:flex;flex-direction:column;gap:8px;}
+.survey-card{background:#FAFAF8;border:1px solid #EEECE6;border-radius:9px;padding:13px 15px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s;}
+.survey-card:hover{border-color:#B4B2A9;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.survey-card.active-ver{border-color:#0F6E56;background:#F5FDF9;}
+.survey-card.draft{border-color:#F0C97E;background:#FFFAF0;}
+.sc-icon{font-size:20px;flex-shrink:0;}
+.sc-info{flex:1;}
+.sc-name{font-size:13px;font-weight:700;margin-bottom:3px;}
+.sc-meta{font-size:11.5px;color:#7A7A78;display:flex;gap:10px;flex-wrap:wrap;}
+.sc-actions{display:flex;gap:6px;flex-shrink:0;}
+.sc-btn{padding:4px 11px;border-radius:5px;font-size:11.5px;border:1px solid;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.scb-blue{background:#EAF4FB;border-color:#85B7EB;color:#185FA5;}
+.scb-blue:hover{background:#D5EBF9;}
+.scb-teal{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}
+.scb-gray{background:#F1EFE8;border-color:#D5D3CB;color:#5A5955;}
+.scb-gray:hover{background:#E8E7E0;}
+.scb-red{background:#FDECEA;border-color:#F5AEAD;color:#C8001A;}
+
+/* 問題編輯器 */
+.question-list{display:flex;flex-direction:column;gap:8px;}
+.question-item{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;}
+.question-item.dragging{opacity:.5;}
+.q-drag{cursor:grab;color:#C8C7C4;font-size:16px;padding-top:2px;flex-shrink:0;}
+.q-num{font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:#9A9890;flex-shrink:0;width:22px;text-align:right;padding-top:2px;}
+.q-body{flex:1;}
+.q-text{font-size:12.5px;font-weight:600;color:#2C2C2A;margin-bottom:4px;}
+.q-type-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;padding:1px 7px;border-radius:4px;}
+.qt-single{background:#EAF4FB;color:#185FA5;}
+.qt-multi{background:#EEEDFE;color:#534AB7;}
+.qt-scale{background:#E1F5EE;color:#0F6E56;}
+.qt-text{background:#FDF3E3;color:#854F0B;}
+.q-options{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;}
+.q-opt{font-size:11px;background:#F4F3F0;border:1px solid #EEECE6;border-radius:4px;padding:2px 8px;color:#5A5955;}
+.q-actions{display:flex;gap:4px;flex-shrink:0;}
+.qa-btn{padding:3px 8px;border-radius:5px;font-size:11px;border:1px solid #D5D3CB;background:#fff;cursor:pointer;color:#5A5955;transition:all .12s;}
+.qa-btn:hover{background:#F4F3F0;}
+.qa-btn.del:hover{background:#FDECEA;border-color:#F5AEAD;color:#C8001A;}
+
+/* 新增題型選擇 */
+.type-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+.type-card{border-radius:8px;padding:11px 13px;border:1.5px solid #EEECE6;background:#FAFAF8;cursor:pointer;transition:all .15s;text-align:center;}
+.type-card:hover{border-color:#85B7EB;background:#EAF4FB;}
+.type-card.selected{border-color:#185FA5;background:#EAF4FB;}
+.tc-icon{font-size:20px;margin-bottom:4px;}
+.tc-name{font-size:12px;font-weight:600;margin-bottom:2px;}
+.tc-desc{font-size:10.5px;color:#9A9890;}
+
+/* 版本卡片 */
+.ver-list{display:flex;flex-direction:column;gap:6px;}
+.ver-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:7px;background:#F8F7F4;border:1px solid #EEECE6;font-size:12px;}
+.ver-num{font-family:'DM Mono',monospace;font-weight:700;color:#1A3A5C;flex-shrink:0;}
+.ver-date{color:#9A9890;flex:1;}
+.ver-status{flex-shrink:0;}
+
+/* 適用對象 */
+.target-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.target-chip{border-radius:7px;padding:9px 11px;border:1.5px solid #EEECE6;background:#FAFAF8;cursor:pointer;transition:all .15s;text-align:center;}
+.target-chip:hover{border-color:#B4B2A9;}
+.target-chip.sel{border-color:#185FA5;background:#EAF4FB;}
+.target-chip.sel .tc-name{color:#0C3E70;}
+
+/* Form */
+.form-row{margin-bottom:12px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.form-input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;transition:border .15s;background:#fff;}
+.form-input:focus{border-color:#85B7EB;}
+.form-select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.form-textarea{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;resize:vertical;min-height:64px;background:#fff;}
+.form-hint{font-size:11px;color:#9A9890;margin-top:3px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}
+.b-amber{background:#FDF3E3;color:#854F0B;}
+.b-blue{background:#EAF4FB;color:#185FA5;}
+.b-gray{background:#F1EFE8;color:#5A5955;}
+.b-red{background:#FDECEA;color:#C8001A;}
+
+/* Btn */
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-teal{background:#0F6E56;border-color:#0F6E56;color:#fff;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:520px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-lg{width:640px;}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;padding:2px 6px;}
+.modal-body{padding:20px;max-height:65vh;overflow-y:auto;}
+.modal-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:300px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.divider{height:1px;background:#EEECE6;margin:12px 0;}
+.mb14{margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">客服管理 <b>CRM02A 銷售電訪問卷設定</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')">← CRM 總覽</button>
+    <button class="hbtn" onclick="go('CRM03A_銷售電訪工作台_v1.html')">電訪工作台 →</button>
+    <button class="hbtn hbtn-primary" onclick="openModal('modal-new-survey')">＋ 新增問卷</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- Sidenav -->
+  <div class="sidenav">
+    <div class="nav-section">
+      <div class="nav-label">問卷管理</div>
+      <div class="nav-item active" id="nav-all" onclick="setNav('all',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#1A3A5C;"></div>全部問卷</div>
+        <div class="nav-count">3</div>
+      </div>
+      <div class="nav-item" id="nav-active" onclick="setNav('active',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#0F6E56;"></div>啟用中</div>
+        <div class="nav-count" style="background:#E1F5EE;color:#0F6E56;">1</div>
+      </div>
+      <div class="nav-item" id="nav-draft" onclick="setNav('draft',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#F0C97E;"></div>草稿</div>
+        <div class="nav-count" style="background:#FDF3E3;color:#854F0B;">1</div>
+      </div>
+      <div class="nav-item" id="nav-archived" onclick="setNav('archived',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#9A9890;"></div>已封存</div>
+        <div class="nav-count">1</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">適用時機</div>
+      <div class="nav-item" onclick="showToast('篩選：到店後追蹤')">
+        <div class="nav-left"><div class="nav-dot" style="background:#185FA5;"></div>到店後追蹤</div>
+      </div>
+      <div class="nav-item" onclick="showToast('篩選：成交後回訪')">
+        <div class="nav-left"><div class="nav-dot" style="background:#0F6E56;"></div>成交後回訪</div>
+      </div>
+      <div class="nav-item" onclick="showToast('篩選：未成交分析')">
+        <div class="nav-left"><div class="nav-dot" style="background:#C8001A;"></div>未成交分析</div>
+      </div>
+      <div class="nav-item" onclick="showToast('篩選：休眠激活')">
+        <div class="nav-left"><div class="nav-dot" style="background:#854F0B;"></div>休眠激活</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">快速工具</div>
+      <div class="nav-item" onclick="go('CRM03A_銷售電訪工作台_v1.html')">
+        <div class="nav-left"><div class="nav-dot" style="background:#534AB7;"></div>電訪工作台</div>
+      </div>
+      <div class="nav-item" onclick="go('CRM04A_銷售休眠戰敗管理_v1.html')">
+        <div class="nav-left"><div class="nav-dot" style="background:#C8001A;"></div>休眠戰敗管理</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- 問卷清單 -->
+    <div class="panel mb14">
+      <div class="panel-hdr">
+        <div class="panel-left">
+          <div class="picon pi-blue">📋</div>
+          <div><div class="panel-title">電訪問卷清單</div><div class="panel-sub">問卷版本控制 · 啟用中的版本自動套用至 CRM03A 電訪工作台</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="badge b-teal">啟用中版本套用至 CRM03A</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="survey-list" id="survey-list">
+
+          <!-- 問卷 1：啟用中 -->
+          <div class="survey-card active-ver" onclick="openSurveyEditor(1)">
+            <div class="sc-icon">📋</div>
+            <div class="sc-info">
+              <div class="sc-name">標準銷售追蹤問卷 v3</div>
+              <div class="sc-meta">
+                <span>適用：到店後 D+3 / D+7 追蹤</span>
+                <span>題數：8 題</span>
+                <span>上次修改：2026-05-01</span>
+              </div>
+            </div>
+            <div class="sc-actions">
+              <span class="badge b-teal">✅ 啟用中</span>
+              <button class="sc-btn scb-blue" onclick="event.stopPropagation();openSurveyEditor(1)">編輯題目</button>
+              <button class="sc-btn scb-gray" onclick="event.stopPropagation();openModal('modal-version')">版本記錄</button>
+            </div>
+          </div>
+
+          <!-- 問卷 2：草稿 -->
+          <div class="survey-card draft" onclick="openSurveyEditor(2)">
+            <div class="sc-icon">✏️</div>
+            <div class="sc-info">
+              <div class="sc-name">未成交原因深度問卷 v1（草稿）</div>
+              <div class="sc-meta">
+                <span>適用：未成交（戰敗）後 14 天內</span>
+                <span>題數：6 題</span>
+                <span>建立：2026-05-08</span>
+              </div>
+            </div>
+            <div class="sc-actions">
+              <span class="badge b-amber">草稿</span>
+              <button class="sc-btn scb-blue" onclick="event.stopPropagation();openSurveyEditor(2)">編輯題目</button>
+              <button class="sc-btn scb-teal" onclick="event.stopPropagation();activateSurvey(2)">設為啟用</button>
+            </div>
+          </div>
+
+          <!-- 問卷 3：封存 -->
+          <div class="survey-card" style="opacity:.7;" onclick="showToast('已封存問卷，唯讀模式')">
+            <div class="sc-icon">📦</div>
+            <div class="sc-info">
+              <div class="sc-name">標準銷售追蹤問卷 v2（封存）</div>
+              <div class="sc-meta">
+                <span>適用：到店後追蹤</span>
+                <span>題數：6 題</span>
+                <span>封存日期：2026-05-01</span>
+              </div>
+            </div>
+            <div class="sc-actions">
+              <span class="badge b-gray">已封存</span>
+              <button class="sc-btn scb-gray" onclick="event.stopPropagation();showToast('唯讀模式 · 無法編輯封存問卷')">查看</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 問卷題目編輯器（展開顯示） -->
+    <div class="panel mb14" id="survey-editor" style="display:none;">
+      <div class="panel-hdr">
+        <div class="panel-left">
+          <div class="picon pi-blue">✏️</div>
+          <div><div class="panel-title" id="editor-title">標準銷售追蹤問卷 v3</div><div class="panel-sub">拖曳調整題序 · 點擊題目編輯內容</div></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="closeEditor()">收起</button>
+          <button class="btn btn-ghost btn-sm" onclick="openModal('modal-add-question')">＋ 新增題目</button>
+          <button class="btn btn-primary btn-sm" onclick="saveSurvey()">💾 儲存問卷</button>
+        </div>
+      </div>
+      <div class="panel-body">
+
+        <!-- 問卷設定列 -->
+        <div class="two-col mb14">
+          <div class="form-row" style="margin-bottom:0;">
+            <div class="form-label">問卷名稱</div>
+            <input type="text" class="form-input" id="survey-name" value="標準銷售追蹤問卷 v3">
+          </div>
+          <div class="form-row" style="margin-bottom:0;">
+            <div class="form-label">適用時機</div>
+            <select class="form-select" id="survey-timing">
+              <option selected>到店後 D+3 / D+7 追蹤</option>
+              <option>成交後 3 日回訪</option>
+              <option>未成交（戰敗）分析</option>
+              <option>休眠激活再邀約</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 適用對象 -->
+        <div class="form-row mb14">
+          <div class="form-label">適用 HABC 對象</div>
+          <div class="target-grid">
+            <div class="target-chip sel" onclick="this.classList.toggle('sel')"><div class="tc-icon">🔴</div><div class="tc-name">H 熱潛客</div></div>
+            <div class="target-chip sel" onclick="this.classList.toggle('sel')"><div class="tc-icon">🟡</div><div class="tc-name">A 積極跟進</div></div>
+            <div class="target-chip sel" onclick="this.classList.toggle('sel')"><div class="tc-icon">🔵</div><div class="tc-name">B 培養中</div></div>
+            <div class="target-chip" onclick="this.classList.toggle('sel')"><div class="tc-icon">⬜</div><div class="tc-name">C 長期維護</div></div>
+            <div class="target-chip" onclick="this.classList.toggle('sel')"><div class="tc-icon">❌</div><div class="tc-name">未成交</div></div>
+            <div class="target-chip" onclick="this.classList.toggle('sel')"><div class="tc-icon">💤</div><div class="tc-name">休眠客戶</div></div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- 題目列表 -->
+        <div class="question-list" id="question-list">
+          <!-- JS 渲染 -->
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal: 新增問卷 -->
+<div class="overlay" id="modal-new-survey" onclick="closeModalOverlay(event,'modal-new-survey')">
+  <div class="modal">
+    <div class="modal-hdr"><div class="modal-title">＋ 新增問卷</div><button class="modal-close" onclick="closeModal('modal-new-survey')">×</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-label">問卷名稱 <span style="color:#C8001A;">*</span></div>
+        <input type="text" class="form-input" id="new-survey-name" placeholder="例：成交後回訪問卷 v1">
+      </div>
+      <div class="form-row">
+        <div class="form-label">適用時機</div>
+        <select class="form-select" id="new-survey-timing">
+          <option>到店後 D+3 / D+7 追蹤</option>
+          <option>成交後 3 日回訪</option>
+          <option>未成交（戰敗）分析</option>
+          <option>休眠激活再邀約</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-label">建立方式</div>
+        <div style="display:flex;gap:10px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;"><input type="radio" name="create-mode" value="blank" checked> 從空白建立</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;"><input type="radio" name="create-mode" value="copy"> 複製現有問卷</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new-survey')">取消</button>
+      <button class="btn btn-primary" onclick="createSurvey()">✅ 建立問卷</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: 新增題目 -->
+<div class="overlay" id="modal-add-question" onclick="closeModalOverlay(event,'modal-add-question')">
+  <div class="modal modal-lg">
+    <div class="modal-hdr"><div class="modal-title">＋ 新增題目</div><button class="modal-close" onclick="closeModal('modal-add-question')">×</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-label">題型選擇</div>
+        <div class="type-grid">
+          <div class="type-card selected" id="qt-single" onclick="selectQType('single',this)">
+            <div class="tc-icon">🔘</div>
+            <div class="tc-name">單選題</div>
+            <div class="tc-desc">從選項中選一個</div>
+          </div>
+          <div class="type-card" id="qt-multi" onclick="selectQType('multi',this)">
+            <div class="tc-icon">☑️</div>
+            <div class="tc-name">複選題</div>
+            <div class="tc-desc">可選多個選項</div>
+          </div>
+          <div class="type-card" id="qt-scale" onclick="selectQType('scale',this)">
+            <div class="tc-icon">⭐</div>
+            <div class="tc-name">評分題（1–10）</div>
+            <div class="tc-desc">NPS / 滿意度評分</div>
+          </div>
+          <div class="type-card" id="qt-text" onclick="selectQType('text',this)">
+            <div class="tc-icon">📝</div>
+            <div class="tc-name">開放式文字</div>
+            <div class="tc-desc">客戶自由填寫</div>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">題目內容 <span style="color:#C8001A;">*</span></div>
+        <textarea class="form-textarea" id="new-q-text" placeholder="例：請問您上次到訪後，對我們的服務整體滿意度如何？"></textarea>
+      </div>
+      <div class="form-row" id="options-row">
+        <div class="form-label">選項設定</div>
+        <div id="options-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+          <div style="display:flex;gap:6px;"><input type="text" class="form-input" placeholder="選項 1" style="flex:1;"><button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()">✕</button></div>
+          <div style="display:flex;gap:6px;"><input type="text" class="form-input" placeholder="選項 2" style="flex:1;"><button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()">✕</button></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="addOptionRow()">＋ 新增選項</button>
+      </div>
+      <div class="form-row">
+        <div class="form-label">必填</div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;">
+          <input type="checkbox" id="new-q-required" checked> 此題為必填
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-question')">取消</button>
+      <button class="btn btn-primary" onclick="addQuestion()">✅ 新增此題</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: 版本記錄 -->
+<div class="overlay" id="modal-version" onclick="closeModalOverlay(event,'modal-version')">
+  <div class="modal">
+    <div class="modal-hdr"><div class="modal-title">📋 問卷版本記錄</div><button class="modal-close" onclick="closeModal('modal-version')">×</button></div>
+    <div class="modal-body">
+      <div class="ver-list">
+        <div class="ver-item"><span class="ver-num">v3</span><span class="ver-date">2026-05-01 — 新增「意向強度」評分題，調整選項順序</span><span class="ver-status"><span class="badge b-teal">啟用中</span></span></div>
+        <div class="ver-item"><span class="ver-num">v2</span><span class="ver-date">2026-04-10 — 將開放式題改為選項題，提升填答率</span><span class="ver-status"><span class="badge b-gray">封存</span></span></div>
+        <div class="ver-item"><span class="ver-num">v1</span><span class="ver-date">2026-03-01 — 初始版本，6 題</span><span class="ver-status"><span class="badge b-gray">封存</span></span></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-version')">關閉</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function go(url){ window.location.href = url; }
+
+var questions = [
+  {id:1, text:'請問您上次到訪後，整體服務滿意度如何？', type:'scale', required:true, options:[]},
+  {id:2, text:'您對哪款 DUCATI 車型最感興趣？', type:'single', required:true, options:['Panigale V4','Streetfighter V4','Monster SP','Multistrada V4','Diavel V4','其他']},
+  {id:3, text:'目前購車計畫的時程？', type:'single', required:true, options:['1 個月內','3 個月內','半年內','超過半年','暫無計畫']},
+  {id:4, text:'影響您購車決定的主要因素（可複選）', type:'multi', required:false, options:['價格','品牌形象','操控性能','外觀設計','服務品質','親友推薦']},
+  {id:5, text:'有無需要我們提供額外資訊或安排試駕？', type:'single', required:false, options:['需要安排試駕','需要更多資料','需要報價','目前不需要']},
+  {id:6, text:'您是從哪裡得知 DUCATI 台北展示中心？', type:'single', required:false, options:['FB/IG 社群','車展活動','朋友介紹','騎士節','其他']},
+  {id:7, text:'本次接待過程中，有什麼特別印象深刻或建議改進的地方？', type:'text', required:false, options:[]},
+  {id:8, text:'您願意將 DUCATI 推薦給朋友的可能性（0–10 分）？', type:'scale', required:true, options:[]}
+];
+
+var typeLabels = {single:'單選', multi:'複選', scale:'評分 1–10', text:'開放式文字'};
+var typeCls    = {single:'qt-single', multi:'qt-multi', scale:'qt-scale', text:'qt-text'};
+var currentSurveyId = null;
+var selectedQType = 'single';
+
+function renderQuestions() {
+  var html = questions.map(function(q, i) {
+    var optsHtml = q.options.length ?
+      '<div class="q-options">' + q.options.map(function(o){ return '<span class="q-opt">' + o + '</span>'; }).join('') + '</div>' : '';
+    return '<div class="question-item">' +
+      '<div class="q-drag">⠿</div>' +
+      '<div class="q-num">Q' + (i+1) + '</div>' +
+      '<div class="q-body">' +
+        '<div class="q-text">' + q.text + (q.required ? ' <span style="color:#C8001A;font-size:11px;">*</span>' : '') + '</div>' +
+        '<span class="q-type-badge ' + typeCls[q.type] + '">' + typeLabels[q.type] + '</span>' +
+        optsHtml +
+      '</div>' +
+      '<div class="q-actions">' +
+        '<button class="qa-btn" onclick="editQuestion(' + q.id + ')">✎ 編輯</button>' +
+        '<button class="qa-btn del" onclick="deleteQuestion(' + q.id + ')">✕</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('question-list').innerHTML = html;
+}
+
+function openSurveyEditor(id) {
+  currentSurveyId = id;
+  var names = {1:'標準銷售追蹤問卷 v3', 2:'未成交原因深度問卷 v1（草稿）'};
+  document.getElementById('editor-title').textContent = names[id] || '問卷編輯';
+  document.getElementById('survey-editor').style.display = 'block';
+  renderQuestions();
+  document.getElementById('survey-editor').scrollIntoView({behavior:'smooth'});
+}
+
+function closeEditor() {
+  document.getElementById('survey-editor').style.display = 'none';
+  currentSurveyId = null;
+}
+
+function selectQType(type, card) {
+  selectedQType = type;
+  document.querySelectorAll('.type-card').forEach(function(c){ c.classList.remove('selected'); });
+  card.classList.add('selected');
+  document.getElementById('options-row').style.display = (type === 'scale' || type === 'text') ? 'none' : 'block';
+}
+
+function addOptionRow() {
+  var list = document.getElementById('options-list');
+  var n = list.children.length + 1;
+  var div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;';
+  div.innerHTML = '<input type="text" class="form-input" placeholder="選項 ' + n + '" style="flex:1;"><button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()">✕</button>';
+  list.appendChild(div);
+}
+
+function addQuestion() {
+  var text = document.getElementById('new-q-text').value.trim();
+  if (!text) { showToast('請填寫題目內容'); return; }
+  var opts = [];
+  if (selectedQType === 'single' || selectedQType === 'multi') {
+    document.querySelectorAll('#options-list input').forEach(function(inp){
+      if (inp.value.trim()) opts.push(inp.value.trim());
+    });
+  }
+  questions.push({
+    id: Date.now(), text: text, type: selectedQType,
+    required: document.getElementById('new-q-required').checked, options: opts
+  });
+  closeModal('modal-add-question');
+  renderQuestions();
+  showToast('✅ 已新增題目');
+}
+
+function editQuestion(id) {
+  showToast('編輯題目 Q' + (questions.findIndex(function(q){ return q.id===id; })+1) + '（Modal 展開）');
+}
+
+function deleteQuestion(id) {
+  if (!confirm('確定刪除此題？')) return;
+  questions = questions.filter(function(q){ return q.id !== id; });
+  renderQuestions();
+  showToast('已刪除題目');
+}
+
+function saveSurvey() {
+  showToast('✅ 問卷已儲存 · 自動同步至 CRM03A 電訪工作台');
+}
+
+function activateSurvey(id) {
+  showToast('✅ 已設為啟用版本 · CRM03A 電訪工作台將使用此問卷');
+}
+
+function createSurvey() {
+  var name = document.getElementById('new-survey-name').value.trim();
+  if (!name) { showToast('請填寫問卷名稱'); return; }
+  closeModal('modal-new-survey');
+  showToast('✅ 已建立問卷：' + name + ' · 請開始新增題目');
+}
+
+function setNav(type, el) {
+  document.querySelectorAll('.sidenav .nav-item').forEach(function(n){ n.classList.remove('active'); });
+  el.classList.add('active');
+}
+
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function closeModalOverlay(e,id){ if(e.target===document.getElementById(id)) closeModal(id); }
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show');},2700);
+}
+</script>
+</body>
+</html>

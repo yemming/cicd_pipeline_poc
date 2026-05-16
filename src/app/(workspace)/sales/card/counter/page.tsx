@@ -1,533 +1,442 @@
 "use client";
 
+/**
+ * 電子手卡 v8 — counter（接待 / 第一階段）
+ *
+ * 規格：docs/DUCATI_v2_output/01_銷售接待/02_展廳接待/RS01_電子手卡_v8.html
+ * 提案：docs/proposals/feature-handcard-v8.md（Ming 已核四題建議答案）
+ *
+ * 落在這頁的 v8 sub-step：
+ *   - STEP 0：來客身份選擇（4 卡）
+ *   - STEP 1：基本接待資訊（到店 / RS / 客戶資料）
+ *   - STEP 2：意向車款（多選）
+ *
+ * 跨頁 state：via <HandcardProvider>（src/lib/handcard-store.tsx）
+ */
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
 import { useSetPageHeader } from "@/components/page-header-context";
 import { CardStepBar } from "@/components/card-step-bar";
+import { HandcardV8SubBar } from "@/components/handcard/handcard-v8-sub-bar";
+import { HandcardPreviewModal } from "@/components/handcard/handcard-preview-modal";
 import { getCurrentUserProfile } from "@/domain/users";
+import {
+  IDENTITY_LABELS,
+  type HandcardIdentity,
+} from "@/domain/handcard-suggestions";
+import { useHandcard } from "@/lib/handcard-store";
 
-const STAFF_LIST = [
-  "陳建志", "林佳蓉", "王俊傑", "黃雅婷", "劉明宏", "張惠如",
-];
+const STAFF_LIST = ["陳建志", "林佳蓉", "王俊傑", "黃雅婷", "劉明宏", "張惠如"];
 
 const BIKES = [
-  "Panigale V4 S", "Panigale V4 R", "Multistrada V4",
-  "Multistrada V4 Pikes Peak", "Monster SP", "Diavel V4",
-  "DesertX", "Scrambler", "Streetfighter V4", "Hypermotard",
+  "Panigale V4 S",
+  "Panigale V4 R",
+  "Multistrada V4",
+  "Multistrada V4 Pikes Peak",
+  "Monster SP",
+  "Diavel V4",
+  "DesertX",
+  "Scrambler",
+  "Streetfighter V4",
+  "Hypermotard",
 ];
 
-const DUCATI_MODELS = [
-  "Panigale V4", "Multistrada V4", "Monster", "Diavel V4",
-  "DesertX", "Scrambler", "Streetfighter V4", "Hypermotard", "SuperSport", "其他車型",
+const IDENTITY_CARDS: Array<{
+  key: HandcardIdentity;
+  icon: string;
+  hint: string;
+}> = [
+  { key: "new", icon: "🆕", hint: "從未到訪，無歷史記錄" },
+  { key: "revisit", icon: "🔄", hint: "曾建檔，自動帶出上次資訊" },
+  { key: "owner", icon: "🏍️", hint: "現有 DUCATI 車主回廠或洽換新車" },
+  { key: "switcher", icon: "🔀", hint: "其他品牌車主考慮換購" },
 ];
 
-const VISIT_PURPOSES = [
-  "購車諮詢", "詢價報價",
-  "預約維修保養", "取件 / 交車", "配件精品選購", "其他",
-];
-
-const VISIT_CHANNELS: { label: string; freeText?: boolean; placeholder?: string }[] = [
-  { label: "路過 / 自訪" },
-  { label: "網路搜尋" },
-  { label: "社群媒體 (IG / FB)" },
-  { label: "老客戶介紹", freeText: true, placeholder: "介紹人姓名" },
-  { label: "電話預約" },
-  { label: "活動 / 展覽", freeText: true, placeholder: "活動名稱" },
-  { label: "其他", freeText: true, placeholder: "請說明來店管道" },
-];
-
-function pad(n: number) { return String(n).padStart(2, "0"); }
-function toDateStr(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
-function toTimeStr(d: Date) { return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-
-type ArrivalState = { date: string; time: string; cardNo: string };
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+function toDateStr(d: Date) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function toTimeStr(d: Date) {
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export default function CounterPage() {
   const router = useRouter();
+  const { state, patch, hydrated } = useHandcard();
+
   useSetPageHeader({
     breadcrumb: [
       { label: "銷售管理", href: "/sales/showroom" },
-      { label: "手卡・第一階段" },
+      { label: "電子手卡 v8 · counter" },
     ],
   });
 
-  // ── 到店登記 ──
-  const [arrival, setArrival] = useState<ArrivalState>({ date: "", time: "", cardNo: "—" });
+  // 本地 UI state（非跨頁）
+  const [arrivalDate, setArrivalDate] = useState("");
+  const [arrivalTime, setArrivalTime] = useState("");
   const [timeConfirmed, setTimeConfirmed] = useState(false);
-  const [currentUserName, setCurrentUserName] = useState("載入中...");
-  const [receptionStaff, setReceptionStaff] = useState("");
-  const [visitChannel, setVisitChannel] = useState("");
-  const [visitChannelExtra, setVisitChannelExtra] = useState("");
-
-  // ── 訪客識別 ──
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [hasCompanion, setHasCompanion] = useState(false);
-  const [isDucatiOwner, setIsDucatiOwner] = useState(false);
-  const [ducatiModel, setDucatiModel] = useState("");
-  const [ducatiModelOther, setDucatiModelOther] = useState("");
 
-  // ── 客戶判斷 ──
-  const [isFirstVisit, setIsFirstVisit] = useState(true);
-  const [visitInterval, setVisitInterval] = useState("");
-  const [isReferral, setIsReferral] = useState(false);
-  const [referralName, setReferralName] = useState("");
-  const [isAppointment, setIsAppointment] = useState(false);
-  const [isDesignated, setIsDesignated] = useState(false);
-  const [designatedStaff, setDesignatedStaff] = useState("");
-
-  // ── 來意探詢 ──
-  const [selectedBikes, setSelectedBikes] = useState<string[]>([]);
-  const [visitPurposes, setVisitPurposes] = useState<string[]>([]);
-
-  // ── 客戶基本資料 ──
-  const [gender, setGender] = useState<"male" | "female" | null>(null);
-
+  // 初始化：日期 / RS / cardNo（只在 store 還沒帶過時）
   useEffect(() => {
     const now = new Date();
-    const dateStr = toDateStr(now);
+    const today = toDateStr(now);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setArrival({ date: dateStr, time: toTimeStr(now), cardNo: `DU-${dateStr.replace(/-/g, "")}-001` });
-    setIsMobile(navigator.maxTouchPoints > 0);
+    setArrivalDate(today);
+     
+    setArrivalTime(toTimeStr(now));
 
-    getCurrentUserProfile().then((profile) => {
-      if (!profile) { setCurrentUserName("—"); return; }
-      const name = profile.name ?? profile.email ?? "—";
-      setCurrentUserName(name);
-      setReceptionStaff(STAFF_LIST.find(s => s === name) ?? "");
-    });
-  }, []);
+    if (!hydrated) return;
+    if (!state.cardNo) {
+      patch({ cardNo: `DU-${today.replace(/-/g, "")}-001` });
+    }
+    if (!state.receptionStaff) {
+      getCurrentUserProfile().then((profile) => {
+        const name = profile?.name ?? profile?.email ?? "";
+        const matched = STAFF_LIST.find((s) => s === name) ?? STAFF_LIST[1];
+        patch({ receptionStaff: matched });
+      });
+    }
+  }, [hydrated, state.cardNo, state.receptionStaff, patch]);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const setIdentity = (key: HandcardIdentity) => {
+    patch({ identity: key });
+  };
+
+  const toggleBike = (bike: string) => {
+    const next = state.intendedModels.includes(bike)
+      ? state.intendedModels.filter((b) => b !== bike)
+      : [...state.intendedModels, bike];
+    patch({ intendedModels: next });
+  };
+
+  const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => setAvatarUrl(ev.target?.result as string);
+    reader.onload = (ev) => setAvatarUrl(ev.target?.result as string);
     reader.readAsDataURL(file);
   };
 
-  const toggleBike = (bike: string) =>
-    setSelectedBikes(prev => prev.includes(bike) ? prev.filter(b => b !== bike) : [...prev, bike]);
-
-  const togglePurpose = (p: string) =>
-    setVisitPurposes(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
-
-  const setArrivalDate = (date: string) => setArrival(a => ({ ...a, date }));
-  const setArrivalTime = (time: string) => setArrival(a => ({ ...a, time }));
-
-  const channelConfig = VISIT_CHANNELS.find(c => c.label === visitChannel);
-
   return (
-    <div className="-m-4 md:-m-8 bg-[#FCF8FF] min-h-[calc(100dvh-4rem)] flex flex-col">
+    <div className="-m-4 md:-m-8 bg-[#F8F7F4] min-h-[calc(100dvh-4rem)] flex flex-col">
       <CardStepBar currentStep={1} />
-      <main className="flex-1 pb-28 px-6">
-        <div className="max-w-5xl mx-auto">
+      <HandcardV8SubBar currentStage={1} />
 
-          {/* ── 頁首 ── */}
-          <div className="flex flex-col md:flex-row justify-between items-baseline mb-5 gap-3 pt-5">
-            <div>
-              <h1 className="text-2xl font-display font-extrabold text-on-surface tracking-tight">
-                客戶接待手卡 — 第一階段
-              </h1>
-              <p className="text-outline text-sm mt-0.5">接待三步法 ‧ 步驟一：探詢來意及識別訪客</p>
+      <main className="flex-1 pb-28">
+        <div className="max-w-5xl mx-auto px-6 py-5 space-y-3">
+          {/* Page Header */}
+          <header className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
+              客戶接待手卡 v8 — 第一階段（接待）
+            </h1>
+            <span
+              className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium"
+              data-testid="handcard-sprint-chip"
+            >
+              銷售 · RS01-v8
+            </span>
+            <span className="text-[12px] text-[#9A9890]">
+              身份判定 → 接待建檔 → 意向車款
+            </span>
+            <button
+              onClick={() => setPreviewOpen(true)}
+              className="ml-auto h-[30px] px-3 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              👁 預覽手卡
+            </button>
+          </header>
+
+          {/* STEP 0 — 來客身份 */}
+          <section
+            className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"
+            data-testid="handcard-step-identity"
+          >
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">
+                ▼ STEP 0 · 來客身份確認
+              </span>
+              <span className="ml-auto px-1.5 py-0.5 text-[11px] rounded-md bg-[#FDECEA] text-[#CC0000]">
+                必填
+              </span>
+            </header>
+            <div className="px-4 py-4">
+              <div className="text-[11px] text-[#9A9890] mb-2">
+                請選擇來客身份類型（決定後續表單邏輯，可在儲存前修改）
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
+                {IDENTITY_CARDS.map((c) => {
+                  const active = state.identity === c.key;
+                  return (
+                    <button
+                      key={c.key}
+                      onClick={() => setIdentity(c.key)}
+                      data-testid={`identity-card-${c.key}`}
+                      className={`text-left p-3 rounded-lg border-2 transition-all ${
+                        active
+                          ? "border-[#1A3A5C] bg-[#EAF4FB] shadow-sm"
+                          : "border-[#EEECE6] bg-white hover:border-[#9A9890]"
+                      }`}
+                    >
+                      <div className="text-2xl mb-1.5">{c.icon}</div>
+                      <div className="text-[13px] font-semibold text-[#2C2C2A]">
+                        {IDENTITY_LABELS[c.key]}
+                      </div>
+                      <div className="text-[11px] text-[#9A9890] mt-1 leading-relaxed">
+                        {c.hint}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex gap-5 text-[0.75rem] font-medium bg-surface-container-low px-5 py-2.5 rounded-full">
-              <div className="flex gap-2 items-center">
-                <span className="text-outline">手卡編號:</span>
-                <span className="text-on-surface font-display">{arrival.cardNo}</span>
-              </div>
-              <div className="w-px h-4 bg-outline-variant" />
-              <div className="flex gap-2 items-center">
-                <span className="text-outline">接待人員:</span>
-                <span className="text-on-surface font-bold">{currentUserName}</span>
-              </div>
-            </div>
-          </div>
+          </section>
 
-          <div className="space-y-4">
-
-            {/* ══ Section 1：到店登記 ══ */}
-            <section className="bg-surface-container-lowest p-5 rounded-xl shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-1.5 h-5 bg-tertiary-container rounded-full" />
-                <h2 className="text-lg font-display font-bold">到店登記</h2>
+          {/* STEP 0.5 — 身份特殊區塊（demo mock） */}
+          {state.identity === "revisit" && (
+            <section
+              className="bg-[#FDF3E3] border border-[#F5D6A8] rounded-lg px-4 py-3 text-[12.5px] text-[#854F0B]"
+              data-testid="handcard-revisit-history"
+            >
+              <div className="font-semibold mb-1">🔄 潛客再訪記錄 — 自動帶入上次資訊</div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 text-[11.5px]">
+                <div><b>上次到訪：</b>2026-04-22（18 天前）</div>
+                <div><b>接待 RS：</b>林佳蓉（同一人）</div>
+                <div><b>當時 HABC：</b>B 級潛客</div>
+                <div><b>意向車款：</b>Panigale V4</div>
+                <div><b>上次進展：</b>已試乘、未報價</div>
+                <div className="text-[#CC0000]"><b>黃金時刻：</b>⚠ 未把握，本次須主動報價</div>
               </div>
+            </section>
+          )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-outline tracking-wider uppercase">到店日期</label>
-                  <div className="relative">
-                    <input
-                      className={`w-full bg-surface-container-low border-0 rounded-lg px-4 py-2.5 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none ${timeConfirmed ? "opacity-60 cursor-not-allowed" : ""}`}
-                      type="date"
-                      value={arrival.date}
-                      onChange={e => setArrivalDate(e.target.value)}
-                      disabled={timeConfirmed}
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline pointer-events-none text-sm">calendar_today</span>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-outline tracking-wider uppercase">到店時間</label>
-                  <div className="relative">
-                    <input
-                      className={`w-full bg-surface-container-low border-0 rounded-lg px-4 py-2.5 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none ${timeConfirmed ? "opacity-60 cursor-not-allowed" : ""}`}
-                      type="time"
-                      value={arrival.time}
-                      onChange={e => setArrivalTime(e.target.value)}
-                      disabled={timeConfirmed}
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline pointer-events-none text-sm">schedule</span>
-                  </div>
-                </div>
+          {state.identity === "owner" && (
+            <section
+              className="bg-[#EAF4FB] border border-[#B6D7EB] rounded-lg px-4 py-3 text-[12.5px] text-[#185FA5]"
+              data-testid="handcard-owner-block"
+            >
+              <div className="font-semibold mb-1">🏍️ DUCATI 老車主車輛資料 — 自動帶出</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-[11.5px]">
+                <div><b>VIN：</b>ZDM****19</div>
+                <div><b>車型：</b>Monster 821</div>
+                <div><b>年份：</b>2021</div>
+                <div><b>保險到期：</b>2026-07-15</div>
               </div>
+            </section>
+          )}
 
-              <div className="mb-4">
+          {state.identity === "switcher" && (
+            <section
+              className="bg-[#EAF3DE] border border-[#C5DC9F] rounded-lg px-4 py-3 text-[12.5px] text-[#3B6D11]"
+              data-testid="handcard-switcher-block"
+            >
+              <div className="font-semibold mb-1">🔀 他牌換購資訊 — 請填寫現有車輛</div>
+              <div className="text-[11.5px] mt-1">
+                現有品牌 / 排氣量 / 換購原因將在 STEP 8 競品區塊統一記錄。
+              </div>
+            </section>
+          )}
+
+          {/* STEP 1 — 基本接待資訊 */}
+          <section
+            className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"
+            data-testid="handcard-step-1"
+          >
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">
+                ▼ STEP 1 · 基本接待資訊
+              </span>
+              <span className="ml-auto px-1.5 py-0.5 text-[11px] rounded-md bg-[#EAF4FB] text-[#185FA5]">
+                Step 1
+              </span>
+            </header>
+            <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+              <Field label="到店日期">
+                <input
+                  type="date"
+                  value={arrivalDate}
+                  disabled={timeConfirmed}
+                  onChange={(e) => setArrivalDate(e.target.value)}
+                  className={inputClass(timeConfirmed)}
+                />
+              </Field>
+              <Field label="到店時間">
+                <input
+                  type="time"
+                  value={arrivalTime}
+                  disabled={timeConfirmed}
+                  onChange={(e) => setArrivalTime(e.target.value)}
+                  className={inputClass(timeConfirmed)}
+                />
+              </Field>
+              <Field label="到店確認">
                 {!timeConfirmed ? (
                   <button
                     onClick={() => setTimeConfirmed(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-tertiary-container text-white rounded-full text-sm font-bold hover:opacity-90 transition-opacity"
+                    className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
                   >
-                    <span className="material-symbols-outlined text-sm">check_circle</span>
-                    確認到店時間
+                    ✓ 確認到店時間
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2 text-green-700 text-sm font-bold">
-                    <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                    已確認 — {arrival.date} {arrival.time}
-                    <button onClick={() => setTimeConfirmed(false)} className="ml-2 text-outline text-xs underline font-normal hover:text-on-surface transition-colors">修改</button>
+                  <div className="flex items-center gap-2 text-[12px] text-[#3B6D11]">
+                    <span>已確認 — {arrivalDate} {arrivalTime}</span>
+                    <button
+                      onClick={() => setTimeConfirmed(false)}
+                      className="text-[11px] text-[#9A9890] underline"
+                    >
+                      修改
+                    </button>
                   </div>
                 )}
-              </div>
+              </Field>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-outline tracking-wider uppercase">接待人員</label>
-                  <select
-                    className="w-full bg-surface-container-low border-0 rounded-lg px-4 py-2.5 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none"
-                    value={receptionStaff}
-                    onChange={e => setReceptionStaff(e.target.value)}
-                  >
-                    <option value="">請選擇接待人員...</option>
-                    {STAFF_LIST.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-outline leading-relaxed">若訪客指定接待人員，可在此切換至指定人員</p>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-outline tracking-wider uppercase">來店管道</label>
-                  <select
-                    className="w-full bg-surface-container-low border-0 rounded-lg px-4 py-2.5 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none"
-                    value={visitChannel}
-                    onChange={e => { setVisitChannel(e.target.value); setVisitChannelExtra(""); }}
-                  >
-                    <option value="">請選擇...</option>
-                    {VISIT_CHANNELS.map(c => <option key={c.label} value={c.label}>{c.label}</option>)}
-                  </select>
-                  {channelConfig?.freeText && (
-                    <input
-                      className="w-full bg-surface-container-low border-0 rounded-lg px-4 py-2.5 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none"
-                      placeholder={channelConfig.placeholder}
-                      type="text"
-                      value={visitChannelExtra}
-                      onChange={e => setVisitChannelExtra(e.target.value)}
-                    />
+              <Field label="接待人員">
+                <select
+                  value={state.receptionStaff}
+                  onChange={(e) => patch({ receptionStaff: e.target.value })}
+                  className={inputClass(false)}
+                >
+                  <option value="">請選擇接待人員...</option>
+                  {STAFF_LIST.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="客戶姓名">
+                <input
+                  type="text"
+                  placeholder="請輸入客戶全名"
+                  value={state.customerName}
+                  onChange={(e) => patch({ customerName: e.target.value })}
+                  className={inputClass(false)}
+                />
+              </Field>
+              <Field label="手機">
+                <input
+                  type="tel"
+                  placeholder="09XX-XXX-XXX"
+                  value={state.customerPhone}
+                  onChange={(e) => patch({ customerPhone: e.target.value })}
+                  className={inputClass(false)}
+                />
+              </Field>
+
+              <div className="md:col-span-3 flex items-start gap-4 pt-2">
+                <div className="w-20 h-20 shrink-0 border-2 border-dashed border-[#D5D3CB] rounded-lg bg-[#F8F7F4] overflow-hidden flex items-center justify-center">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="客戶照片" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-[10px] text-[#9A9890]">客戶照片</span>
                   )}
                 </div>
-              </div>
-            </section>
-
-            {/* ══ Section 2：來意探詢 ══ */}
-            <section className="bg-surface-container-lowest p-5 rounded-xl shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-1.5 h-5 bg-tertiary-container rounded-full" />
-                <h2 className="text-lg font-display font-bold">來意探詢</h2>
-              </div>
-
-              <div className="space-y-3 mb-4">
-                <label className="block text-xs font-bold text-outline tracking-wider uppercase">感興趣車系（可多選）</label>
-                <div className="flex flex-wrap gap-2">
-                  {BIKES.map(bike => (
-                    <button key={bike} onClick={() => toggleBike(bike)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedBikes.includes(bike) ? "bg-primary-container text-white shadow-md" : "bg-surface-container-low text-on-surface hover:bg-surface-container-high"}`}>{bike}</button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="block text-xs font-bold text-outline tracking-wider uppercase">來訪目的（可多選）</label>
-                <div className="flex flex-wrap gap-2">
-                  {VISIT_PURPOSES.map(p => (
-                    <button key={p} onClick={() => togglePurpose(p)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${visitPurposes.includes(p) ? "bg-tertiary-container text-white shadow-md" : "bg-surface-container-low text-on-surface hover:bg-surface-container-high"}`}>{p}</button>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* ══ Section 3：訪客識別 ══ */}
-            <section className="bg-surface-container-lowest p-5 rounded-xl shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-1.5 h-5 bg-tertiary-container rounded-full" />
-                <h2 className="text-lg font-display font-bold">訪客識別</h2>
-              </div>
-              <div className="flex flex-col md:flex-row gap-6 items-start">
-
-                {/* 大頭照 + 拍照 / 上傳 */}
-                <div className="shrink-0 md:w-36">
+                <div>
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
-                    {...(isMobile ? { capture: "user" as const } : {})}
-                    onChange={handleAvatarChange}
+                    onChange={handleAvatar}
                     className="sr-only"
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="relative w-full aspect-square rounded-2xl overflow-hidden bg-surface-container-low border-2 border-dashed border-outline-variant/60 hover:border-tertiary-container transition-colors group"
+                    className="h-[26px] px-2.5 rounded text-[11.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
                   >
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt="客戶照片" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full gap-2 text-outline p-3">
-                        <span className="material-symbols-outlined text-4xl">account_circle</span>
-                        <span className="text-xs font-bold tracking-wide text-center">
-                          {isMobile ? "點擊拍照" : "點擊上傳照片"}
-                        </span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="material-symbols-outlined text-white text-3xl">
-                        {isMobile ? "photo_camera" : "upload"}
-                      </span>
-                    </div>
+                    上傳照片
                   </button>
-                </div>
-
-                {/* 識別資訊 */}
-                <div className="flex-1 space-y-4">
-                  {/* 來店狀態 + 有無陪同 */}
-                  <div className="bg-surface-container-low rounded-xl p-4 border border-outline-variant/30">
-                    <div className="text-[10px] font-bold text-outline uppercase tracking-widest mb-2">來店狀態</div>
-                    <div className={`text-lg font-bold ${isFirstVisit ? "text-tertiary" : "text-on-surface"}`}>
-                      {isFirstVisit ? "首次來店" : "再次來店"}
-                    </div>
-                    <p className="text-[9px] text-outline/60 mt-1">依 Q01「是否首次來店」自動判斷</p>
-                    <div className="mt-3 pt-3 border-t border-outline-variant/20 flex items-center gap-3">
-                      <button
-                        onClick={() => setHasCompanion(v => !v)}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${hasCompanion ? "bg-tertiary-container" : "bg-surface-container-high"}`}
-                      >
-                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${hasCompanion ? "translate-x-4" : "translate-x-0.5"}`} />
-                      </button>
-                      <span className="text-sm text-on-surface font-medium">{hasCompanion ? "有陪同人員" : "無陪同人員"}</span>
-                    </div>
-                  </div>
-
-                  {/* DUCATI 車主判斷 */}
-                  <div className="bg-surface-container-low rounded-xl p-4 border border-outline-variant/30">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-[10px] font-bold text-outline uppercase tracking-widest">是否 DUCATI 車主？</div>
-                      <button
-                        onClick={() => { setIsDucatiOwner(v => !v); if (isDucatiOwner) { setDucatiModel(""); setDucatiModelOther(""); } }}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${isDucatiOwner ? "bg-red-600" : "bg-surface-container-high"}`}
-                      >
-                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${isDucatiOwner ? "translate-x-4" : "translate-x-0.5"}`} />
-                      </button>
-                    </div>
-                    {isDucatiOwner ? (
-                      <div className="space-y-2">
-                        <div className="text-xs font-bold text-outline/70 uppercase tracking-wider">目前 DUCATI 車型</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {DUCATI_MODELS.map(m => (
-                            <button
-                              key={m}
-                              onClick={() => setDucatiModel(ducatiModel === m ? "" : m)}
-                              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${ducatiModel === m ? "bg-red-700 text-white shadow-sm" : "bg-surface-container text-on-surface hover:bg-surface-container-high"}`}
-                            >{m}</button>
-                          ))}
-                        </div>
-                        {ducatiModel === "其他車型" && (
-                          <input
-                            className="w-full max-w-sm bg-surface-container border-0 rounded-lg px-3 py-2 text-on-surface focus:ring-1 focus:ring-red-200 outline-none text-sm"
-                            placeholder="請輸入車型名稱..."
-                            type="text"
-                            value={ducatiModelOther}
-                            onChange={e => setDucatiModelOther(e.target.value)}
-                          />
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-outline">撥開後可選擇目前車型</div>
-                    )}
-                  </div>
+                  <p className="text-[11px] text-[#9A9890] mt-1.5">
+                    可在到店後拍照記錄（純前端 demo，未存入 DB）
+                  </p>
                 </div>
               </div>
-            </section>
+            </div>
+          </section>
 
-            {/* ══ Section 4：客戶判斷 ══ */}
-            <section className="bg-surface-container-lowest p-5 rounded-xl shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-1.5 h-5 bg-tertiary-container rounded-full" />
-                <h2 className="text-lg font-display font-bold">客戶判斷</h2>
+          {/* STEP 2 — 意向車款（多選） */}
+          <section
+            className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"
+            data-testid="handcard-step-2"
+          >
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">
+                ▼ STEP 2 · 意向車款（多選）
+              </span>
+              <span className="ml-auto px-1.5 py-0.5 text-[11px] rounded-md bg-[#EAF4FB] text-[#185FA5]">
+                Step 2
+              </span>
+            </header>
+            <div className="px-4 py-4">
+              <div className="text-[11px] text-[#9A9890] mb-2">
+                客戶提及 / 詢問的車款，越多越能精準推薦
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
-
-                {/* Q01 */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-surface-container-high w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold">01</span>
-                    <label className="text-sm font-bold text-on-surface">是否首次來店？</label>
-                  </div>
-                  <div className="flex gap-2 p-1 bg-surface-container-low rounded-xl">
-                    <button onClick={() => setIsFirstVisit(true)} className={`flex-1 py-2.5 rounded-lg text-sm transition-all ${isFirstVisit ? "bg-white shadow-sm text-on-surface font-bold" : "text-outline hover:text-on-surface"}`}>是（首次）</button>
-                    <button onClick={() => setIsFirstVisit(false)} className={`flex-1 py-2.5 rounded-lg text-sm transition-all ${!isFirstVisit ? "bg-white shadow-sm text-on-surface font-bold" : "text-outline hover:text-on-surface"}`}>否（再訪）</button>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-outline mb-1.5 uppercase tracking-widest font-bold opacity-50">再次進店間隔？（選再訪後啟用）</p>
-                    <div className={`flex gap-2 transition-opacity ${isFirstVisit ? "opacity-30 pointer-events-none" : "opacity-100"}`}>
-                      {["本月再次", "2個月內再次"].map(v => (
-                        <button key={v} onClick={() => setVisitInterval(visitInterval === v ? "" : v)} className={`px-3 py-1 rounded-md text-[10px] transition-all ${visitInterval === v ? "bg-tertiary-container text-white" : "bg-surface-container-low"}`}>{v}</button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Q02 */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-surface-container-high w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold">02</span>
-                    <label className="text-sm font-bold text-on-surface">是否老客戶介紹？</label>
-                  </div>
-                  <div className="flex gap-2 p-1 bg-surface-container-low rounded-xl">
-                    <button onClick={() => setIsReferral(true)} className={`flex-1 py-2.5 rounded-lg text-sm transition-all ${isReferral ? "bg-white shadow-sm text-on-surface font-bold" : "text-outline hover:text-on-surface"}`}>是</button>
-                    <button onClick={() => { setIsReferral(false); setReferralName(""); }} className={`flex-1 py-2.5 rounded-lg text-sm transition-all ${!isReferral ? "bg-white shadow-sm text-on-surface font-bold" : "text-outline hover:text-on-surface"}`}>否</button>
-                  </div>
-                  {isReferral && (
-                    <input
-                      className="w-full bg-surface-container-low border-0 rounded-lg px-4 py-2.5 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none text-sm"
-                      placeholder="請輸入介紹人姓名"
-                      type="text"
-                      value={referralName}
-                      onChange={e => setReferralName(e.target.value)}
-                    />
-                  )}
-                </div>
-
-                {/* Q03 */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-surface-container-high w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold">03</span>
-                    <label className="text-sm font-bold text-on-surface">是否來電預約？</label>
-                  </div>
-                  <div className="flex gap-2 p-1 bg-surface-container-low rounded-xl">
-                    <button onClick={() => setIsAppointment(true)} className={`flex-1 py-2.5 rounded-lg text-sm transition-all ${isAppointment ? "bg-white shadow-sm text-on-surface font-bold" : "text-outline hover:text-on-surface"}`}>是</button>
-                    <button onClick={() => setIsAppointment(false)} className={`flex-1 py-2.5 rounded-lg text-sm transition-all ${!isAppointment ? "bg-white shadow-sm text-on-surface font-bold" : "text-outline hover:text-on-surface"}`}>否</button>
-                  </div>
-                </div>
-
-                {/* Q04 */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-surface-container-high w-6 h-6 flex items-center justify-center rounded-full text-[10px] font-bold">04</span>
-                    <label className="text-sm font-bold text-on-surface">是否指定銷售人員？</label>
-                  </div>
-                  <div className="flex gap-2 p-1 bg-surface-container-low rounded-xl">
-                    <button onClick={() => setIsDesignated(true)} className={`flex-1 py-2.5 rounded-lg text-sm transition-all ${isDesignated ? "bg-white shadow-sm text-on-surface font-bold" : "text-outline hover:text-on-surface"}`}>是</button>
-                    <button onClick={() => { setIsDesignated(false); setDesignatedStaff(""); }} className={`flex-1 py-2.5 rounded-lg text-sm transition-all ${!isDesignated ? "bg-white shadow-sm text-on-surface font-bold" : "text-outline hover:text-on-surface"}`}>否</button>
-                  </div>
-                  {isDesignated ? (
-                    <select
-                      className="w-full bg-surface-container-low border-0 rounded-lg px-4 py-2.5 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none text-sm"
-                      value={designatedStaff}
-                      onChange={e => setDesignatedStaff(e.target.value)}
+              <div className="flex flex-wrap gap-1.5">
+                {BIKES.map((b) => {
+                  const active = state.intendedModels.includes(b);
+                  return (
+                    <button
+                      key={b}
+                      onClick={() => toggleBike(b)}
+                      data-testid={`bike-${b.replace(/\s+/g, "-")}`}
+                      className={`h-[30px] px-3 rounded-full text-[12px] font-medium transition-all ${
+                        active
+                          ? "bg-[#1A3A5C] text-white"
+                          : "bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                      }`}
                     >
-                      <option value="">請選擇指定銷售人員...</option>
-                      {STAFF_LIST.map(s => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-tertiary">
-                      <span className="material-symbols-outlined text-sm">info</span>
-                      <span className="text-[10px] font-medium">系統將自動分配值班顧問</span>
-                    </div>
-                  )}
-                </div>
+                      {b}
+                    </button>
+                  );
+                })}
               </div>
-            </section>
-
-            {/* ══ Section 5：客戶基本資料 ══ */}
-            <section className="bg-surface-container-lowest p-5 rounded-xl shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-1.5 h-5 bg-tertiary-container rounded-full" />
-                <h2 className="text-lg font-display font-bold">客戶基本資料</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* 左欄：姓名、電話、性別 */}
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-outline tracking-wider uppercase">客戶姓名</label>
-                    <input
-                      className="w-full bg-surface-container-low border-0 rounded-lg px-4 py-2.5 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none"
-                      placeholder="請輸入客戶全名"
-                      type="text"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-outline tracking-wider uppercase">手機 / 電話</label>
-                    <div className="flex gap-2">
-                      <div className="bg-surface-container-low rounded-lg px-4 py-2.5 text-outline text-sm font-bold flex items-center">+886</div>
-                      <input
-                        className="flex-1 bg-surface-container-low border-0 rounded-lg px-4 py-2.5 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none"
-                        placeholder="09XX-XXX-XXX"
-                        type="tel"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-outline tracking-wider uppercase">性別</label>
-                    <div className="flex gap-8 py-1">
-                      {(["male", "female"] as const).map((g, i) => (
-                        <label key={g} className="flex items-center gap-3 cursor-pointer group" onClick={() => setGender(g)}>
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${gender === g ? "border-tertiary" : "border-outline-variant group-hover:border-tertiary"}`}>
-                            <div className={`w-2.5 h-2.5 rounded-full bg-tertiary transition-transform ${gender === g ? "scale-100" : "scale-0"}`} />
-                          </div>
-                          <span className={`text-sm ${gender === g ? "font-bold text-on-surface" : "font-medium"}`}>{["男", "女"][i]}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
+              {state.intendedModels.length > 0 && (
+                <div className="mt-3 text-[11.5px] text-[#185FA5]">
+                  已選 <b>{state.intendedModels.length}</b> 款 · 將同步到第二階段意向分析
                 </div>
-                {/* 右欄：備註 */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-outline tracking-wider uppercase">備註</label>
-                  <textarea
-                    className="w-full h-[calc(100%-2rem)] min-h-[120px] bg-surface-container-low border-0 rounded-lg px-4 py-3 text-on-surface focus:ring-1 focus:ring-tertiary-container/40 transition-all outline-none resize-none text-sm leading-relaxed"
-                    placeholder="關於此客戶的任何補充說明（偏好、過往互動、特殊需求⋯）"
-                  />
-                </div>
-              </div>
-            </section>
-          </div>
-
+              )}
+            </div>
+          </section>
         </div>
       </main>
-      <footer className="sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-[#1A1A2E]/10 px-12 py-4 flex justify-between items-center">
+
+      <footer className="sticky bottom-0 bg-white/95 backdrop-blur-md border-t border-[#EEECE6] px-12 py-3 flex justify-between items-center">
         <button
           disabled
-          className="flex items-center gap-2 text-[#47464C]/30 font-bold cursor-not-allowed"
+          className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#9A9890] cursor-not-allowed"
         >
-          <span className="material-symbols-outlined">arrow_back</span> 上一步
+          ← 上一步
         </button>
         <button
-          onClick={() => router.push('/sales/card/consultant')}
-          className="bg-gradient-to-br from-[#00000B] to-[#1A1A2E] text-white px-10 py-4 rounded-xl font-bold flex items-center gap-3 shadow-xl hover:opacity-90 active:scale-95 transition-all duration-300"
+          onClick={() => router.push("/sales/card/consultant")}
+          disabled={!state.identity}
+          className="h-[34px] px-5 rounded-full text-[12.5px] font-semibold bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50 disabled:cursor-not-allowed"
+          data-testid="handcard-counter-next"
         >
-          下一步：需求諮詢 <span className="material-symbols-outlined">arrow_forward</span>
+          下一步：意向諮詢 →
         </button>
       </footer>
+
+      <HandcardPreviewModal open={previewOpen} onClose={() => setPreviewOpen(false)} />
     </div>
   );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[11px] text-[#9A9890] font-medium">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function inputClass(locked: boolean) {
+  return `h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none ${
+    locked ? "opacity-60 cursor-not-allowed bg-[#F8F7F4]" : "bg-white"
+  }`;
 }

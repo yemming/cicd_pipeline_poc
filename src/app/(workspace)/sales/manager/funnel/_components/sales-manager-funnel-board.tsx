@@ -43,10 +43,19 @@ function statusFor(actual: number, target: number) {
   return                              { tone: "alert" as const, color: "#C8001A", bg: "#FDECEA", border: "#F5AEAD", label: `落後 ${target - actual}%` };
 }
 
-export default function SalesManagerFunnelBoard({ data }: { data: SalesManagerFunnelData }) {
+export interface SalesManagerFunnelBoardProps {
+  data: SalesManagerFunnelData;
+  /** 可覆寫 page header（route 變體用） — 不傳時走預設「主管工作台 / 銷售漏斗」 */
+  pageHeader?: {
+    title?: string;
+    breadcrumb?: { label: string; href?: string }[];
+  };
+}
+
+export default function SalesManagerFunnelBoard({ data, pageHeader }: SalesManagerFunnelBoardProps) {
   useSetPageHeader({
-    title: "RS_M1 銷售漏斗看板",
-    breadcrumb: [{ label: "主管工作台" }, { label: "銷售漏斗" }],
+    title: pageHeader?.title ?? "RS_M1 銷售漏斗看板",
+    breadcrumb: pageHeader?.breadcrumb ?? [{ label: "主管工作台" }, { label: "銷售漏斗" }],
     hideSearch: true,
   });
 

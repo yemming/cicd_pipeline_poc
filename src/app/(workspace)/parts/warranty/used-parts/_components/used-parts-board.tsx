@@ -421,17 +421,38 @@ export function UsedPartsBoard({
       </section>
 
       {/* Header */}
-      <header className="flex items-center gap-2.5 pt-1">
+      <header className="flex items-center gap-2.5 pt-1 flex-wrap">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
           保固索賠舊件管理
         </h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          11.4
+          11.4 ★4
         </span>
         <span className="text-[12px] text-[#9A9890]">
           保固維修拆下的舊件不計入可用庫存，獨立管理保管期限與處置（銷毀 / 寄回原廠）
         </span>
       </header>
+
+      {/* ★4 反向跨模組 e2e banner — 保固舊件管理 ↔ 竣工複檢（C8） */}
+      <div className="rounded-xl border border-[#BA7517] bg-[#FAEEDA] px-4 py-3 text-[12px] text-[#854F0B] leading-relaxed">
+        <p className="font-semibold mb-1">
+          🛡️ ★4 跨模組串接：保固舊件管理 ↔ 竣工複檢（C8）
+        </p>
+        <p>
+          竣工複檢標記為
+          <span className="mx-1 inline-flex items-center px-1.5 py-0.5 rounded-md bg-white border border-[#BA7517] text-[#854F0B] font-mono text-[11px]">
+            ✕ 異常
+          </span>
+          且屬於原廠保固範圍的舊件，會自動於本頁建立保管紀錄（依 Ducati SRV-SRB-26-014 規定）。請至
+          <a
+            href="/service/inspection"
+            className="mx-1 text-[#185FA5] underline font-medium hover:text-[#0F2A45]"
+          >
+            竣工複檢
+          </a>
+          頁查詢觸發來源 RO 工單；此處承接後續保管期限追蹤、寄回原廠或銷毀流程。
+        </p>
+      </div>
 
       {/* Filter Bar */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">

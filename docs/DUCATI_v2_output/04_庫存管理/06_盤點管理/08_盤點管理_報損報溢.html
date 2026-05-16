@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>盤點管理｜報損報溢 — DUCATI 庫存管理</title>
+<style>
+:root{
+  --navy:#1A3A5C;--blue:#185FA5;--blue-light:#378ADD;--blue-bg:#EBF3FF;--blue-bg2:#EEF6FF;
+  --g50:#FAFAF9;--g100:#F5F5F4;--g200:#EEECE6;--g400:#9A9890;--g500:#6B6A68;--g600:#4A4945;--g700:#2E2D2A;--g800:#1A1917;
+  --red:#E24B4A;--red-bg:#FEF5F5;--red-badge:#FDECEA;--red-text:#CC0000;
+  --orange:#EF9F27;--orange-bg:#FFF9F0;--orange-text:#854F0B;
+  --green:#0F6E56;--green-bg:#E8F5F0;--green-text:#0F6E56;
+  --amber:#EF9F27;--amber-bg:#FFF9F0;
+  --purple:#7F77DD;--purple-light:#F0EEFF;
+  --sidebar-w:220px;--header-h:52px;
+  --font:'Noto Sans TC',sans-serif;--mono:'DM Mono','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);font-size:13px;color:var(--g700);background:var(--g50);min-height:100vh;}
+.header{position:fixed;top:0;left:0;right:0;height:var(--header-h);background:var(--navy);display:flex;align-items:center;padding:0 16px;z-index:100;}
+.header-logo{font-size:15px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hd{width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 12px;}
+.hbc{display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.65);}
+.hbc .cur{color:#fff;font-weight:600;}.hbc .sep{opacity:.4;}
+.hr{margin-left:auto;display:flex;align-items:center;gap:14px;}
+.huser{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;font-size:11px;color:rgba(255,255,255,.7);}
+.huser strong{color:#fff;font-size:12px;}
+.hbell{position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,.75);font-size:16px;}
+.hbell .badge{position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px;}
+.hav{width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.sidebar{position:fixed;top:var(--header-h);left:0;bottom:0;width:var(--sidebar-w);background:#fff;border-right:1px solid var(--g200);overflow-y:auto;z-index:90;}
+.sidebar::-webkit-scrollbar{width:4px;}.sidebar::-webkit-scrollbar-thumb{background:var(--g200);border-radius:2px;}
+.ns{padding:12px 0 4px;}.nsl{display:flex;align-items:center;gap:6px;padding:0 12px 6px;font-size:10px;font-weight:600;color:var(--g400);letter-spacing:.9px;text-transform:uppercase;}
+.dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.dot-blue{background:#1A3A5C;}.dot-purple{background:#7F77DD;}.dot-amber{background:#EF9F27;}.dot-coral{background:#D85A30;}.dot-gray{background:#9A9890;}
+.ni{display:flex;align-items:center;gap:8px;padding:0 12px;height:34px;cursor:pointer;font-size:13px;color:var(--g600);user-select:none;transition:background .12s;}
+.ni:hover{background:var(--g50);color:var(--g800);}
+.ni.parent{font-weight:500;color:var(--g800);}
+.ni.parent .arrow{margin-left:auto;font-size:10px;color:var(--g400);transition:transform .2s;}
+.ni.parent.open .arrow{transform:rotate(90deg);}
+.ni.sa{background:var(--amber-bg);}
+.ni .ico{font-size:15px;width:18px;text-align:center;}
+.nsub{display:none;}.nsub.open{display:block;}
+.nsi{display:flex;align-items:center;gap:8px;padding:0 12px 0 38px;height:30px;cursor:pointer;font-size:12px;color:var(--g500);transition:background .12s;}
+.nsi:hover{background:var(--g50);color:var(--g800);}
+.nsi.active{color:var(--blue);background:#F0F6FF;font-weight:500;}
+.nbadge{margin-left:auto;font-size:10px;font-weight:600;padding:1px 5px;border-radius:8px;}
+.nb-r{background:#FDECEA;color:#CC0000;}
+.sd{height:1px;background:var(--g200);margin:4px 12px;}
+.main{margin-left:var(--sidebar-w);margin-top:var(--header-h);min-height:calc(100vh - var(--header-h));}
+.flow{background:#fff;border-bottom:1px solid var(--g200);padding:10px 24px;display:flex;align-items:center;}
+.fs{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--g400);}
+.fs .sn{width:20px;height:20px;border-radius:50%;background:var(--g200);color:var(--g500);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.fs.done{color:var(--g500);}.fs.done .sn{background:var(--green-bg);color:var(--green);}
+.fs.active{color:var(--amber);font-weight:600;}.fs.active .sn{background:var(--amber);color:#fff;}
+.fs.dim{color:var(--g300);}.fs.dim .sn{background:var(--g100);color:var(--g300);}
+.fa{margin:0 8px;color:var(--g300);font-size:12px;}
+.role-notice{margin:16px 24px 0;background:#F5F3FF;border:1px solid #C4B5FD;border-left:4px solid var(--purple);border-radius:6px;padding:10px 14px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#5B21B6;}
+.pta{padding:16px 24px 0;display:flex;align-items:baseline;gap:10px;}
+.pta h1{font-size:20px;font-weight:700;color:var(--g800);letter-spacing:-.3px;}
+.fb{background:var(--g100);color:var(--g500);font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;}
+.psub{font-size:12px;color:var(--g400);padding:3px 24px 14px;}
+.qb{margin:0 24px 12px;background:#fff;border:1px solid var(--g200);border-radius:8px;padding:14px 16px;}
+.qr{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.qf{display:flex;flex-direction:column;gap:4px;min-width:130px;}
+.qf label{font-size:11px;font-weight:600;color:var(--g500);}
+.qf input,.qf select{height:32px;border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-size:12px;color:var(--g700);background:#fff;font-family:var(--font);outline:none;transition:border-color .15s;}
+.qf input:focus,.qf select:focus{border-color:var(--blue);}
+.qbtns{display:flex;gap:8px;align-items:flex-end;margin-left:auto;}
+.btn{height:32px;padding:0 14px;border-radius:5px;font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;}
+.bp{background:var(--blue);color:#fff;}.bp:hover{background:var(--navy);}
+.bs{background:#fff;color:var(--g600);border:1px solid var(--g200);}.bs:hover{background:var(--g50);}
+.ba{background:var(--amber);color:#fff;}.ba:hover{background:#d48a1c;}
+.bsuc{background:var(--green);color:#fff;}.bsuc:hover{background:#0b5a45;}
+.bsm{height:26px;padding:0 10px;font-size:11px;}
+.blg{height:38px;padding:0 20px;font-size:13px;}
+.tb{display:flex;align-items:center;gap:10px;padding:0 24px 10px;}
+.tc{font-size:12px;color:var(--g500);}.tc strong{color:var(--g700);}
+.tr_{margin-left:auto;display:flex;gap:8px;}
+.tw{margin:0 24px;background:#fff;border:1px solid var(--g200);border-radius:8px;overflow:hidden;}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:9px 10px;background:var(--g50);border-bottom:1px solid var(--g200);font-size:11px;font-weight:600;color:var(--g500);text-align:left;white-space:nowrap;}
+thead th:first-child{padding-left:14px;}
+tbody tr{border-bottom:1px solid var(--g200);cursor:pointer;transition:background .1s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:#F8F7F4;}
+tbody tr.done-row{opacity:.65;}
+td{padding:9px 10px;font-size:12px;color:var(--g700);vertical-align:middle;}
+td:first-child{padding-left:14px;}
+.mono{font-family:var(--mono);font-size:11px;color:var(--g600);}
+.lnk{color:var(--blue);cursor:pointer;font-weight:600;}
+.lnk:hover{text-decoration:underline;}
+.badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px;white-space:nowrap;}
+.b-draft{background:#FEF9C3;color:#5C4500;}
+.b-review{background:#EDE9FE;color:#5B21B6;}
+.b-done{background:var(--green-bg);color:var(--green-text);}
+.b-reject{background:var(--red-badge);color:var(--red-text);}
+/* SIDE PANEL */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s;}
+.ov.vis{opacity:1;pointer-events:auto;}
+.sp{position:fixed;top:0;right:0;bottom:0;width:640px;max-width:96vw;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.13);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.32,0,.24,1);}
+.sp.open{transform:translateX(0);}
+.sph{padding:14px 20px;border-bottom:1px solid var(--g200);display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--g50);}
+.spt{font-size:16px;font-weight:700;color:var(--g800);}
+.spc{margin-left:auto;width:28px;height:28px;border-radius:50%;border:none;background:var(--g200);color:var(--g500);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.spc:hover{background:var(--g300);}
+.spb{flex:1;overflow-y:auto;}
+.spb::-webkit-scrollbar{width:4px;}.spb::-webkit-scrollbar-thumb{background:var(--g200);border-radius:2px;}
+.spf{padding:14px 20px;border-top:1px solid var(--g200);display:flex;gap:10px;align-items:center;background:var(--g50);flex-shrink:0;}
+.sec{padding:18px 20px;border-bottom:1px solid var(--g200);}
+.sec:last-child{border-bottom:none;}
+.stitle{font-size:11px;font-weight:700;color:var(--g500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.stitle::after{content:'';flex:1;height:1px;background:var(--g200);}
+.ig{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;}
+.ii label{font-size:10px;font-weight:600;color:var(--g400);text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:2px;}
+.ii .v{font-size:13px;color:var(--g700);}
+.ii .v.strong{font-weight:700;color:var(--g800);}
+.astrip{border-radius:6px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;font-size:12px;}
+.as-blue{background:var(--blue-bg2);border:1px solid #AAC9F0;color:var(--blue);}
+.as-red{background:var(--red-bg);border:1px solid #F7C1C1;color:var(--red-text);}
+.as-green{background:var(--green-bg);border:1px solid #A8D5C2;color:var(--green-text);}
+.as-purple{background:#F5F3FF;border:1px solid #C4B5FD;color:#5B21B6;}
+.asi{font-size:15px;flex-shrink:0;margin-top:1px;}
+/* DETAIL ITEMS TABLE */
+.dtw{border:1px solid var(--g200);border-radius:6px;overflow:hidden;}
+.dt{width:100%;border-collapse:collapse;}
+.dt th{padding:8px 10px;background:var(--g50);border-bottom:1px solid var(--g200);font-size:10px;font-weight:600;color:var(--g500);text-align:left;white-space:nowrap;}
+.dt td{padding:9px 10px;border-bottom:1px solid var(--g200);font-size:12px;vertical-align:middle;}
+.dt tr:last-child td{border-bottom:none;}
+.loss-row{background:var(--red-bg);}
+.gain-row{background:var(--green-bg);}
+.loss-badge{background:var(--red-badge);color:var(--red-text);font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:inline-flex;}
+.gain-badge{background:var(--green-bg);color:var(--green-text);font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:inline-flex;}
+/* SUM BAR */
+.sumbar{display:flex;background:var(--g50);border-top:1px solid var(--g200);}
+.si{flex:1;padding:11px 16px;border-right:1px solid var(--g200);}
+.si:last-child{border-right:none;}
+.sl{font-size:10px;font-weight:600;color:var(--g400);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+.sv{font-size:16px;font-weight:700;color:var(--g800);}
+.sv.red{color:var(--red-text);}
+.sv.green{color:var(--green-text);}
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;display:none;align-items:center;justify-content:center;}
+.mo.vis{display:flex;}
+.modal{background:#fff;border-radius:10px;width:500px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;}
+.mh{padding:16px 20px;border-bottom:1px solid var(--g200);display:flex;align-items:center;gap:10px;}
+.mt{font-size:15px;font-weight:700;color:var(--g800);}
+.mc_{margin-left:auto;width:26px;height:26px;border-radius:50%;border:none;background:var(--g100);color:var(--g500);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.mb_{padding:20px;}
+.mf{padding:14px 20px;border-top:1px solid var(--g200);display:flex;gap:8px;justify-content:flex-end;background:var(--g50);}
+.fg{margin-bottom:12px;}
+.fg label{display:block;font-size:11px;font-weight:600;color:var(--g500);margin-bottom:4px;}
+.fg label .req{color:var(--red);}
+.fg input,.fg select,.fg textarea{width:100%;border:1px solid var(--g200);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--g700);font-family:var(--font);outline:none;transition:border-color .15s;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--blue);}
+.fg .auto{background:var(--blue-bg2);color:var(--blue);border-color:#AAC9F0;cursor:not-allowed;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;}
+.toast-c{position:fixed;bottom:24px;right:24px;z-index:500;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--g800);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:su .25s ease;max-width:360px;display:flex;align-items:center;gap:8px;}
+.toast.success{background:var(--green);}
+.toast.warning{background:var(--amber);}
+.toast.error{background:var(--red-text);}
+@keyframes su{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.bs-sp{height:32px;}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;"><button onclick="go('00_庫存管理模組_導覽總覽.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">← 庫存導覽</button></div>
+<header class="header">
+  <span class="header-logo">DUCATI</span><div class="hd"></div>
+  <div class="hbc"><span>庫存管理</span><span class="sep">›</span><span>盤點管理</span><span class="sep">›</span><span class="cur">報損報溢</span></div>
+  <div class="hr">
+    <span style="font-size:12px;color:rgba(255,255,255,.7);">台北直營店</span>
+    <div class="huser"><strong>陳主管（財務）</strong><span id="dt">2026/05/05 11:30</span></div>
+    <div class="hbell">🔔<div class="badge">3</div></div>
+    <div class="hav">陳</div>
+  </div>
+</header>
+
+<aside class="sidebar">
+  <div class="ns"><div class="nsl"><span class="dot dot-blue"></span>基礎設定</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🏛</span>組織與權限<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">組織三層架構</div><div class="nsi">採購權限</div><div class="nsi">商品管理權限</div><div class="nsi">盤點回傳</div><div class="nsi">管控類型</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🏗</span>倉庫管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">倉儲四層架構</div><div class="nsi">倉庫．庫區．庫位．擺放</div><div class="nsi">供應商資訊</div><div class="nsi">採購合約</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📦</span>商品管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">基礎資料</div><div class="nsi">商品資訊（多維度料號）</div><div class="nsi">門市定價</div><div class="nsi">適配設定</div><div class="nsi">序列號追蹤</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-purple"></span>進出庫流程</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🛒</span>採購管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">採購流程鏈路</div><div class="nsi">日常補貨計畫</div><div class="nsi">需求處理</div><div class="nsi">商品採購</div><div class="nsi">採購退貨</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📥</span>入庫管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">採購入庫（含原廠到貨匯入）</div><div class="nsi">調撥入庫</div><div class="nsi">內售入庫</div><div class="nsi">領料退貨入庫</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📤</span>出庫管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">維修領料（RO工單串接）</div><div class="nsi">調撥出庫</div><div class="nsi">內售出庫</div></div>
+    <div class="ni" style="color:var(--blue);font-weight:500;"><span class="ico">🔍</span>庫存查詢</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">⚙️</span>庫存作業<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">例外出入庫</div><div class="nsi">寄存管理</div><div class="nsi">備件庫存調整</div><div class="nsi">入庫查詢</div><div class="nsi">調撥在途查詢</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-amber"></span>盤點與告警</div>
+    <div class="ni parent sa open" onclick="tN(this)"><span class="ico">📋</span>盤點管理<span class="arrow" style="transform:rotate(90deg)">▶</span></div>
+    <div class="nsub open">
+      <div class="nsi">盤點計畫</div>
+      <div class="nsi">盤點處理（條碼掃描）</div>
+      <div class="nsi active">報損報溢</div>
+    </div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">⚡</span>預警告警<span class="arrow">▶</span><span class="nbadge nb-r">3</span></div>
+    <div class="nsub"><div class="nsi">庫存水位設定</div><div class="nsi">告警類型與規則</div><div class="nsi">告警儀表板<span class="nbadge nb-r" style="margin-left:4px;">3</span></div><div class="nsi">工單增項閉環</div><div class="nsi">告警階層</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-coral"></span>保固與分析</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🔧</span>保固索賠舊件<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">索賠流程</div><div class="nsi">舊件出入庫</div><div class="nsi">暫存倉設定</div><div class="nsi">管理介面</div><div class="nsi">RO串接</div><div class="nsi">費用回收</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📊</span>ABC分類 / 分析報表<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">ABC定義與機制</div><div class="nsi">周轉率報表</div><div class="nsi">呆滯佔比</div><div class="nsi">缺貨率</div><div class="nsi">ABC結構圖</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-gray"></span>附錄</div><div class="ni"><span class="ico">📎</span>介面設計共用規則</div></div>
+</aside>
+
+<main class="main">
+  <div class="flow">
+    <div class="fs done"><div class="sn">✓</div><span>盤點計畫</span></div><span class="fa">→</span>
+    <div class="fs done"><div class="sn">✓</div><span>盤點處理</span></div><span class="fa">→</span>
+    <div class="fs done"><div class="sn">✓</div><span>系統計算差異</span></div><span class="fa">→</span>
+    <div class="fs active"><div class="sn">4</div><span>報損報溢（財務審批）★</span></div>
+  </div>
+
+  <!-- Role notice -->
+  <div class="role-notice">
+    <span style="font-size:17px;flex-shrink:0;">👤</span>
+    <div>
+      <strong>財務主管專屬功能</strong>：報損報溢由財務主管確認後提交審批，審批通過後庫存帳面數量正式調整。本功能與「備件庫存調整」不同，僅用於盤點差異的正式結案。<br>
+      <span style="margin-top:3px;display:block;font-size:11px;">目前登入身份：<span style="background:#EDE9FE;color:#5B21B6;font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;">財務主管｜陳主管</span></span>
+    </div>
+  </div>
+
+  <div class="pta"><h1>報損報溢</h1><span class="fb">8.3</span></div>
+  <div class="psub">盤點完成後，財務主管對差異品項執行正式損溢調整，審批通過後庫存帳面正式更新</div>
+
+  <div class="qb">
+    <div class="qr">
+      <div class="qf"><label>倉庫</label><select><option>全部倉庫</option><option>主零件倉</option><option>原廠件倉</option></select></div>
+      <div class="qf"><label>審批狀態</label><select><option>全部</option><option>草稿</option><option>待審批</option><option>審批通過</option><option>駁回</option></select></div>
+      <div class="qf"><label>來源盤點單</label><input type="text" placeholder="INV-"></div>
+      <div class="qf" style="min-width:150px;"><label>日期範圍</label><input type="month" value="2026-05"></div>
+      <div class="qbtns">
+        <button class="btn bs">重置</button>
+        <button class="btn bp">🔍 查詢</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tb">
+    <div class="tc">共 <strong>4</strong> 張報損報溢單</div>
+    <div class="tr_">
+      <button class="btn bs bsm">匯出報表</button>
+    </div>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>報損報溢單號</th>
+          <th>來源盤點單</th>
+          <th>倉庫</th>
+          <th>盤點日期</th>
+          <th>報損品項</th>
+          <th>報溢品項</th>
+          <th>報損金額影響</th>
+          <th>報溢金額影響</th>
+          <th>狀態</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 草稿（剛從盤點處理帶過來） -->
+        <tr onclick="openSP('LG-20260505-001')" style="background:var(--amber-bg);">
+          <td><span class="lnk mono">LG-20260505-001</span><div style="font-size:10px;color:var(--orange-text);margin-top:2px;">📋 草稿</div></td>
+          <td><span class="lnk" style="font-size:11px;">INV-20260501-001</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="font-size:11px;">2026/05/01</td>
+          <td style="text-align:center;color:var(--red-text);font-weight:700;">2</td>
+          <td style="text-align:center;color:var(--green-text);font-weight:700;">1</td>
+          <td style="color:var(--red-text);font-weight:600;">- NT$ 1,740</td>
+          <td style="color:var(--green-text);font-weight:600;">+ NT$ 2,800</td>
+          <td><span class="badge b-draft">草稿</span></td>
+          <td><button class="btn ba bsm" onclick="openSP('LG-20260505-001');event.stopPropagation()">完善並提交</button></td>
+        </tr>
+        <!-- 待審批 -->
+        <tr onclick="openSP('LG-20260401-001')">
+          <td><span class="lnk mono">LG-20260401-001</span></td>
+          <td><span class="lnk" style="font-size:11px;">INV-20260401-002</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="font-size:11px;">2026/04/01</td>
+          <td style="text-align:center;color:var(--red-text);font-weight:700;">1</td>
+          <td style="text-align:center;color:var(--g400);">0</td>
+          <td style="color:var(--red-text);font-weight:600;">- NT$ 640</td>
+          <td style="color:var(--g400);">—</td>
+          <td><span class="badge b-review">待審批</span></td>
+          <td>
+            <div style="display:flex;gap:4px;">
+              <button class="btn bsm" style="background:var(--red-badge);color:var(--red-text);border:1px solid #F7C1C1;" onclick="rejectSP('LG-20260401-001');event.stopPropagation()">駁回</button>
+              <button class="btn bsuc bsm" onclick="approveSP('LG-20260401-001');event.stopPropagation()">✅ 審批通過</button>
+            </div>
+          </td>
+        </tr>
+        <!-- 審批通過 -->
+        <tr class="done-row" onclick="openSP('LG-20260301-001')">
+          <td><span class="lnk mono">LG-20260301-001</span></td>
+          <td><span class="lnk" style="font-size:11px;">INV-20260301-001</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="font-size:11px;">2026/03/01</td>
+          <td style="text-align:center;color:var(--red-text);font-weight:700;">1</td>
+          <td style="text-align:center;color:var(--green-text);font-weight:700;">1</td>
+          <td style="color:var(--red-text);">- NT$ 320</td>
+          <td style="color:var(--green-text);">+ NT$ 580</td>
+          <td><span class="badge b-done">審批通過</span></td>
+          <td><button class="btn bs bsm" onclick="openSP('LG-20260301-001');event.stopPropagation()">查看</button></td>
+        </tr>
+        <!-- 無差異（完成但無報損報溢） -->
+        <tr class="done-row" onclick="()=>{}">
+          <td><span style="font-size:11px;color:var(--g400);">—（無差異）</span></td>
+          <td><span class="lnk" style="font-size:11px;">INV-20260401-001</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="font-size:11px;">2026/04/01</td>
+          <td style="text-align:center;color:var(--g400);">0</td>
+          <td style="text-align:center;color:var(--g400);">0</td>
+          <td style="color:var(--g400);">—</td>
+          <td style="color:var(--g400);">—</td>
+          <td><span class="badge b-done">無差異完成</span></td>
+          <td><button class="btn bs bsm" onclick="event.stopPropagation()">查看盤點</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="bs-sp"></div>
+</main>
+
+<!-- SIDE PANEL -->
+<div class="ov" id="ov" onclick="closeSP()"></div>
+<div class="sp" id="sp">
+  <div class="sph">
+    <span style="font-size:20px;" id="sp-ico">📊</span>
+    <div>
+      <div class="spt" id="sp-t">報損報溢明細</div>
+      <div style="font-size:11px;color:var(--g400);" id="sp-s">—</div>
+    </div>
+    <div id="sp-badge" style="margin-left:12px;"></div>
+    <button class="spc" onclick="closeSP()">✕</button>
+  </div>
+  <div class="spb" id="sp-body"></div>
+  <div class="sumbar" id="sp-sum">
+    <div class="si"><div class="sl">報損品項</div><div class="sv red" id="s-loss">—</div></div>
+    <div class="si"><div class="sl">報損金額影響</div><div class="sv red" id="s-loss-amt">—</div></div>
+    <div class="si"><div class="sl">報溢品項</div><div class="sv green" id="s-gain">—</div></div>
+    <div class="si"><div class="sl">報溢金額影響</div><div class="sv green" id="s-gain-amt">—</div></div>
+  </div>
+  <div class="spf">
+    <button class="btn bs" onclick="closeSP()">關閉</button>
+    <div style="margin-left:auto;display:flex;gap:8px;" id="sp-acts"></div>
+  </div>
+</div>
+
+<!-- ADD ITEM MODAL -->
+<div class="mo" id="add-modal">
+  <div class="modal">
+    <div class="mh"><span style="font-size:18px;">＋</span><span class="mt">新增明細</span><button class="mc_" onclick="closeM('add-modal')">✕</button></div>
+    <div class="mb_">
+      <div class="fg">
+        <label>商品（備件代碼 / 商品名稱） <span class="req">*</span></label>
+        <input type="text" placeholder="例：MOT5W40-1L  或  Motul 引擎機油…" id="item-search">
+      </div>
+      <div class="fg2">
+        <div class="fg">
+          <label>成本計算類型</label>
+          <input class="auto" value="平均（系統帶出）" readonly>
+        </div>
+        <div class="fg">
+          <label>報損報溢類型 <span class="req">*</span></label>
+          <select id="loss-gain-type" onchange="toggleCostField()">
+            <option>報損（帳面減少）</option>
+            <option>報溢（帳面增加）</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>系統帳面數量</label>
+          <input class="auto" value="24（系統現有）" readonly>
+        </div>
+        <div class="fg">
+          <label>調整值（差異數量） <span class="req">*</span></label>
+          <input type="number" min="1" placeholder="填差異數量（正數）" id="adj-qty">
+        </div>
+      </div>
+      <div class="fg" id="cost-field" style="display:none;">
+        <label>成本（含稅） <span class="req">*</span><span style="font-weight:400;color:var(--g400);margin-left:4px;">（計件成本類型必填）</span></label>
+        <input type="number" min="0" placeholder="每件成本含稅金額">
+      </div>
+      <div class="fg">
+        <label>調整原因 <span class="req">*</span></label>
+        <textarea style="width:100%;border:1px solid var(--g200);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--g700);font-family:var(--font);height:60px;resize:none;outline:none;" placeholder="例：實盤少 2 個，原因待查 / 實際多 1 個，可能入庫數量誤填…"></textarea>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="closeM('add-modal')">取消</button>
+      <button class="btn bp blg" onclick="addItem()">新增明細</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-c" id="tc"></div>
+
+<script>
+let currentSPId = null;
+
+const lgData = {
+  'LG-20260505-001': {
+    no:'LG-20260505-001', inv:'INV-20260501-001', wh:'主零件倉', date:'2026/05/01', status:'draft',
+    items:[
+      { code:'MOT5W40-1L', name:'Motul 引擎機油 5W-40 1L', sys:24, actual:22, type:'報損', delta:-2, unit:'瓶', cost:580, reason:'實盤少 2 瓶，原因待查（可能為出庫漏記）' },
+      { code:'61340051A',  name:'前煞車來令片 PANIGALE V4',  sys:5,  actual:4,  type:'報損', delta:-1, unit:'組', cost:1600, reason:'實盤少 1 組，推測為出庫紀錄遺漏' },
+      { code:'49610131A',  name:'傳動鏈條 STREETFIGHTER V4', sys:4,  actual:5,  type:'報溢', delta:+1, unit:'條', cost:2800, reason:'實盤多 1 條，可能為上月入庫數量填錯' },
+    ]
+  },
+  'LG-20260401-001': {
+    no:'LG-20260401-001', inv:'INV-20260401-002', wh:'主零件倉', date:'2026/04/01', status:'review',
+    items:[
+      { code:'44710161A', name:'機油濾芯 PANIGALE 系列', sys:10, actual:9, type:'報損', delta:-1, unit:'個', cost:640, reason:'盤點確認少 1 個，原因不明，待主管確認' },
+    ]
+  },
+  'LG-20260301-001': {
+    no:'LG-20260301-001', inv:'INV-20260301-001', wh:'主零件倉', date:'2026/03/01', status:'done',
+    items:[
+      { code:'MOT5W40-1L', name:'Motul 引擎機油 5W-40 1L', sys:20, actual:19, type:'報損', delta:-1, unit:'瓶', cost:580, reason:'盤點少 1 瓶，推測出庫漏記' },
+      { code:'65010091A',  name:'後煞車碟盤 PANIGALE V4 S', sys:3,  actual:4,  type:'報溢', delta:+1, unit:'件', cost:8500, reason:'盤點多 1 件，確認為前期入庫漏登記，補正' },
+    ]
+  },
+};
+
+function openSP(id) {
+  currentSPId = id;
+  const d = lgData[id];
+  if (!d) return;
+
+  const icons = { draft:'📝', review:'🔍', done:'✅' };
+  const badgeMap = { draft:'b-draft', review:'b-review', done:'b-done' };
+  const badgeLabel = { draft:'草稿', review:'待審批', done:'審批通過' };
+
+  document.getElementById('sp-ico').textContent = icons[d.status] || '📊';
+  document.getElementById('sp-t').textContent = d.no;
+  document.getElementById('sp-s').textContent = `來源盤點單：${d.inv}｜倉庫：${d.wh}｜盤點日期：${d.date}`;
+  document.getElementById('sp-badge').innerHTML = `<span class="badge ${badgeMap[d.status]}">${badgeLabel[d.status]}</span>`;
+
+  const loss = d.items.filter(i=>i.type==='報損');
+  const gain = d.items.filter(i=>i.type==='報溢');
+  const lossAmt = loss.reduce((a,b)=>a+Math.abs(b.delta)*b.cost,0);
+  const gainAmt = gain.reduce((a,b)=>a+Math.abs(b.delta)*b.cost,0);
+
+  document.getElementById('s-loss').textContent = loss.length + ' 項';
+  document.getElementById('s-loss-amt').textContent = lossAmt ? `- NT$ ${lossAmt.toLocaleString()}` : '—';
+  document.getElementById('s-gain').textContent = gain.length + ' 項';
+  document.getElementById('s-gain-amt').textContent = gainAmt ? `+ NT$ ${gainAmt.toLocaleString()}` : '—';
+
+  // Actions
+  let acts = '';
+  if (d.status === 'draft') {
+    acts = `<button class="btn bp" onclick="openM('add-modal')">＋ 新增明細</button>
+            <button class="btn bsuc blg" onclick="submitLG()">📤 提交審批</button>`;
+  } else if (d.status === 'review') {
+    acts = `<button class="btn" style="background:var(--red-badge);color:var(--red-text);border:1px solid #F7C1C1;" onclick="rejectSP('${id}')">駁回</button>
+            <button class="btn bsuc blg" onclick="approveSP('${id}')">✅ 審批通過</button>`;
+  }
+  document.getElementById('sp-acts').innerHTML = acts;
+
+  // Body
+  let html = `<div class="sec">
+    <div class="stitle">報損報溢明細</div>`;
+
+  if (d.status === 'draft') {
+    html += `<div class="astrip as-blue" style="margin-bottom:12px;">
+      <span class="asi">ℹ️</span>
+      <div>此單由系統自動從盤點單 <strong>${d.inv}</strong> 建立草稿，請確認各項差異後點選「提交審批」，審批通過後庫存帳面正式調整。</div>
+    </div>`;
+  }
+  if (d.status === 'done') {
+    html += `<div class="astrip as-green" style="margin-bottom:12px;">
+      <span class="asi">✅</span>
+      <div>審批已通過，庫存帳面已正式調整，此單為唯讀模式。</div>
+    </div>`;
+  }
+  if (d.status === 'review') {
+    html += `<div class="astrip as-purple" style="margin-bottom:12px;">
+      <span class="asi">🔍</span>
+      <div>此單待主管審批，審批通過後庫存帳面正式調整，駁回後退回草稿供修改。</div>
+    </div>`;
+  }
+
+  const rows = d.items.map((it, i) => {
+    const isLoss = it.type === '報損';
+    return `<tr class="${isLoss?'loss-row':'gain-row'}">
+      <td>${i+1}</td>
+      <td class="mono">${it.code}</td>
+      <td style="font-weight:500;">${it.name}</td>
+      <td style="text-align:center;">${it.sys}</td>
+      <td style="text-align:center;font-weight:700;">${it.actual}</td>
+      <td style="text-align:center;">
+        ${isLoss
+          ? `<span class="loss-badge">報損 ${it.delta}</span>`
+          : `<span class="gain-badge">報溢 +${it.delta}</span>`}
+      </td>
+      <td style="text-align:right;font-weight:600;color:${isLoss?'var(--red-text)':'var(--green-text)'};">
+        ${isLoss ? `- NT$ ${(Math.abs(it.delta)*it.cost).toLocaleString()}` : `+ NT$ ${(it.delta*it.cost).toLocaleString()}`}
+      </td>
+      <td style="font-size:11px;color:var(--g500);">${it.reason}</td>
+      ${d.status==='draft' ? `<td><button class="del-btn" style="width:22px;height:22px;border-radius:50%;border:none;background:var(--g100);color:var(--g400);cursor:pointer;font-size:14px;" onclick="showToast('已移除此明細','')">✕</button></td>` : '<td></td>'}
+    </tr>`;
+  }).join('');
+
+  html += `<div class="dtw"><table class="dt">
+    <thead><tr><th>#</th><th>備件代碼</th><th>商品名稱</th><th style="text-align:center;">帳面數量</th><th style="text-align:center;">實盤數量</th><th style="text-align:center;">類型 / 差異</th><th style="text-align:right;">金額影響</th><th>調整原因</th>${d.status==='draft'?'<th></th>':''}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+
+  if (d.status === 'draft') {
+    html += `<div style="margin-top:10px;">
+      <button class="btn bs bsm" onclick="openM('add-modal')">＋ 新增明細</button>
+    </div>`;
+  }
+
+  html += `</div>`;
+  document.getElementById('sp-body').innerHTML = html;
+
+  document.getElementById('ov').classList.add('vis');
+  document.getElementById('sp').classList.add('open');
+}
+
+function closeSP() {
+  document.getElementById('ov').classList.remove('vis');
+  document.getElementById('sp').classList.remove('open');
+}
+
+function submitLG() {
+  closeSP();
+  showToast('✅ 報損報溢單已提交審批，財務主管將審核', 'success');
+}
+
+function approveSP(id) {
+  closeSP();
+  showToast('✅ 審批通過，庫存帳面數量已正式調整', 'success');
+}
+
+function rejectSP(id) {
+  closeSP();
+  showToast('報損報溢單已駁回，請修改後重新提交', 'warning');
+}
+
+function addItem() {
+  const qty = document.getElementById('adj-qty').value;
+  if (!qty) { showToast('請填寫差異數量', 'error'); return; }
+  closeM('add-modal');
+  showToast('✅ 明細已新增', 'success');
+}
+
+function toggleCostField() {
+  // Only show for 計件，預設平均不需要
+}
+
+function openM(id) { document.getElementById(id).classList.add('vis'); }
+function closeM(id) { document.getElementById(id).classList.remove('vis'); }
+function tN(el) { const s=el.nextElementSibling; if(!s||!s.classList.contains('nsub'))return; s.classList.toggle('open'); el.classList.toggle('open'); }
+function showToast(msg, type='') { const c=document.getElementById('tc'),t=document.createElement('div'); t.className=`toast ${type}`; t.textContent=msg; c.appendChild(t); setTimeout(()=>t.remove(),4000); }
+function updateDT() { const n=new Date(),p=x=>String(x).padStart(2,'0'); document.getElementById('dt').textContent=`${n.getFullYear()}/${p(n.getMonth()+1)}/${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`; }
+setInterval(updateDT,60000); updateDT();
+</script>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

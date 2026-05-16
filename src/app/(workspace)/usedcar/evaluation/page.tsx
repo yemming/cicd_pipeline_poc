@@ -1,16 +1,1926 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+"use client";
 
-export default async function Page() {
-  const html = await loadStitchBody("3a113f99-657c-404d-bfdf-36c9baea7a6e");
+/**
+ * 中古車評估鑑價 v2 — RS06 5-tab 評估單
+ *
+ * 規格：docs/DUCATI_v2_output/01_銷售接待/02_展廳接待/RS06_中古車評估鑑價_v2.html
+ *
+ * 5 個 tab：
+ *   - TAB 0：基本資料 & 證件掃描
+ *   - TAB 1：外觀漆面評估（損傷點 + 漆膜厚度 + 燈具玻璃）
+ *   - TAB 2：車身骨架結構檢查（OK/警告/損傷 三態 checklist + 進度條）
+ *   - TAB 3：機械底盤系統（OK/警告/損傷 三態 + 進度條 + 輪胎量化）
+ *   - TAB 4：收購定價核算（4 段 A/B/C/D 計算表 + 評估結論）
+ *
+ * 跨頁 state：N/A（單頁 wizard，純 useState）
+ * 後端：mock 為主，未接 DB（A12-v2 只做 UI/UX，後續再接 usedcar_evaluations 表）
+ */
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { useSetPageHeader } from "@/components/page-header-context";
+
+// ============================================================
+// 常數
+// ============================================================
+
+const BIKE_MODELS = [
+  "— 選擇車款 —",
+  "Panigale V2（2021）",
+  "Panigale V4 S",
+  "Monster SP",
+  "Streetfighter V4",
+  "Multistrada V4 S",
+  "DesertX Rally",
+  "Hypermotard 698 RVE",
+];
+
+const DISPLACEMENTS = [
+  "955 cc（≥500cc）",
+  "950 cc",
+  "821 cc",
+  "698 cc",
+  "499 cc（＜500cc）",
+];
+
+const GRADE_OPTIONS = [
+  { key: "S", label: "CPO認證", color: "#C8001A" },
+  { key: "A", label: "優良", color: "#185FA5" },
+  { key: "B", label: "良好", color: "#0F6E56" },
+  { key: "C", label: "普通", color: "#854F0B" },
+  { key: "D", label: "整備中", color: "#9A9890" },
+] as const;
+
+type GradeKey = (typeof GRADE_OPTIONS)[number]["key"];
+
+const TAB_DEFS = [
+  { num: 0, label: "📋 基本資料 & 證件掃描" },
+  { num: 1, label: "🎨 外觀漆面評估" },
+  { num: 2, label: "🔩 車身骨架結構" },
+  { num: 3, label: "⚙️ 機械底盤系統" },
+  { num: 4, label: "💰 收購定價核算" },
+];
+
+const SCAN_DOCS: Array<{ id: number; icon: string; label: string; sub: string }> = [
+  { id: 0, icon: "📋", label: "行照正本", sub: "確認車牌/VIN/車型一致" },
+  { id: 1, icon: "🆔", label: "賣方身分證", sub: "正面 + 背面（雙證件）" },
+  { id: 2, icon: "🆔", label: "買方身分證", sub: "正面 + 背面（雙證件）" },
+  { id: 3, icon: "🛡️", label: "強制責任險保單", sub: "有效期需 30 日以上" },
+  { id: 4, icon: "✅", label: "臨時檢驗合格證", sub: "出廠 5 年以上車輛必備" },
+  { id: 5, icon: "📖", label: "保養手冊/維修紀錄", sub: "評估保養完整性" },
+  { id: 6, icon: "🔢", label: "VIN 車身號碼特寫", sub: "車架實體號碼，需與行照一致" },
+  { id: 7, icon: "📊", label: "里程數特寫", sub: "通電後儀表板截圖" },
+];
+
+const FINE_QUERY_OPTIONS = ["未查詢", "無未繳罰款 ✅", "有未繳罰款 ⚠️（需先繳清）"];
+const LIEN_OPTIONS = [
+  "未查詢",
+  "無設定（可直接過戶）✅",
+  "有設定，已清償塗銷 ✅",
+  "有設定，尚未清償 ❌（需先辦塗銷）",
+];
+const INSPECT_OPTIONS = [
+  "出廠未滿 5 年（免驗車）",
+  "出廠 5 年以上，4 個月內已驗車 ✅",
+  "出廠 5 年以上，需臨時驗車 ⚠️",
+];
+const TAX_OPTIONS = ["未查詢", "已繳清 ✅", "有積欠 ⚠️（需先清繳）"];
+
+const DOT_STATES = ["empty", "ok", "warn", "bad"] as const;
+type DotState = (typeof DOT_STATES)[number];
+
+const SIDE_DOTS: Array<{ id: string; left: string; top: string; label: string }> = [
+  { id: "s0", left: "21%", top: "62%", label: "左整流罩" },
+  { id: "s1", left: "36%", top: "42%", label: "油箱車身" },
+  { id: "s2", left: "52%", top: "45%", label: "座墊尾段" },
+  { id: "s3", left: "78%", top: "58%", label: "車尾整流罩" },
+  { id: "s4", left: "23%", top: "88%", label: "前輪前叉" },
+  { id: "s5", left: "77%", top: "88%", label: "後輪後搖臂" },
+  { id: "s6", left: "38%", top: "70%", label: "引擎本體" },
+  { id: "s7", left: "74%", top: "76%", label: "排氣管" },
+];
+
+const TOP_DOTS: Array<{ id: string; left: string; top: string; label: string }> = [
+  { id: "t0", left: "30%", top: "28%", label: "左前車身" },
+  { id: "t1", left: "30%", top: "72%", label: "右前車身" },
+  { id: "t2", left: "65%", top: "28%", label: "左後車身" },
+  { id: "t3", left: "65%", top: "72%", label: "右後車身" },
+];
+
+const PAINT_ZONES = [
+  "前土除",
+  "前叉/儀表",
+  "左整流罩（前）",
+  "右整流罩（前）",
+  "油箱蓋",
+  "油箱（左）",
+  "油箱（右）",
+  "左整流罩（後）",
+  "右整流罩（後）",
+  "尾段整流罩",
+  "排氣管護蓋",
+  "座墊總成",
+];
+
+type CheckState = "none" | "ok" | "warn" | "bad";
+
+const GLASS_ITEMS = [
+  "儀表板液晶顯示正常（無故障燈、無像素死點）",
+  "前燈（LED）左右亮度一致，無進水霧化",
+  "後燈及方向燈運作正常",
+  "後視鏡完整無裂損（如有安裝）",
+  "風鏡完整無裂紋（如有安裝）",
+  "護手包覆完整無龜裂老化",
+];
+
+const FRAME_CATS: Array<{ cat: string; items: string[] }> = [
+  {
+    cat: "前段骨架",
+    items: [
+      "前車架頭管無彎曲變形（目視確認）",
+      "前叉上下三角台螺絲無轉動/鬆動痕跡",
+      "車架前端無明顯衝擊溃縮痕跡",
+      "前土除固定螺絲狀態正常",
+      "燈座/儀表固定點無異常",
+    ],
+  },
+  {
+    cat: "中段骨架",
+    items: [
+      "主車架管件無裂紋或補焊痕跡",
+      "引擎固定吊架螺絲無鬆動",
+      "油箱固定座無銹蝕或變形",
+      "車架中段無明顯側向變形",
+    ],
+  },
+  {
+    cat: "後段骨架",
+    items: [
+      "後搖臂軸心螺絲（後輪軸）230 Nm 扭力點無異常",
+      "後搖臂軸承無異常間隙或鏽蝕",
+      "後子車架（尾架）焊接完整無裂紋",
+      "後搖臂無彎曲，左右對稱",
+    ],
+  },
+  {
+    cat: "事故記錄判斷",
+    items: [
+      "車身號碼（VIN）字跡清晰無改刻痕跡",
+      "引擎號碼字跡清晰無改刻",
+      "車架主要焊接點未見非原廠再焊接",
+      "車身各部件間隙均勻（前後輪/引擎/整流罩）",
+      "封膠連續性正常（非原廠封膠形狀不均勻）",
+    ],
+  },
+];
+
+const MECH_CATS: Array<{ cat: string; items: string[] }> = [
+  {
+    cat: "引擎系統",
+    items: [
+      "冷啟動順利，無異常聲音",
+      "怠速穩定不忽高忽低",
+      "機油液面正常（油尺確認）",
+      "機油顏色正常（無乳化、無黑泥）",
+      "冷卻液液面正常，無渗漏",
+      "引擎本體無滲漏機油痕跡",
+      "故障燈（Check Engine）無亮起",
+    ],
+  },
+  {
+    cat: "傳動系統",
+    items: [
+      "鏈條張力正常無過度鬆弛",
+      "鏈盤齒形磨耗在允許範圍",
+      "各檔位換檔順暢（路試確認）",
+      "離合器作動正常無打滑",
+      "後輪驅動無異常振動",
+    ],
+  },
+  {
+    cat: "煞車系統",
+    items: [
+      "前煞車碟盤厚度正常（無明顯磨耗溝）",
+      "後煞車碟盤厚度正常",
+      "前煞車拉桿手感正常",
+      "ABS 指示燈行駛後正常熄滅",
+      "煞車液液面在正常範圍",
+      "煞車管路無裂縫或油漬",
+    ],
+  },
+  {
+    cat: "懸吊系統",
+    items: [
+      "前叉無滲漏避震油痕跡",
+      "前叉作動順暢（手壓測試）",
+      "後避震器無滲漏，壓縮回彈正常",
+      "行駛過不平路面無異常雜音",
+      "車身左右高度均等",
+    ],
+  },
+  {
+    cat: "電氣系統",
+    items: [
+      "電瓶電壓正常（靜態 12.6V 以上）",
+      "充電系統正常（運轉時 13.5–14.5V）",
+      "所有燈具功能正常",
+      "儀表板指示燈功能正常",
+      "行車電腦無儲存故障碼",
+    ],
+  },
+];
+
+const TIRE_WEAR_OPTIONS = [
+  "均勻（正常）",
+  "中央磨損（氣壓過高）",
+  "邊緣磨損（氣壓過低）",
+  "單側磨損（定位異常）",
+  "鋸齒磨損（懸吊問題）",
+];
+
+const PURCHASE_DECISIONS = [
+  "建議收購（正常流程）",
+  "建議收購（條件：整備後重評）",
+  "謹慎收購（需主管核准）",
+  "不建議收購（風險過高）",
+];
+
+function n(v: string) {
+  return parseInt(v.replace(/[^\d]/g, ""), 10) || 0;
+}
+
+function fmt(v: number) {
+  return v.toLocaleString();
+}
+
+// ============================================================
+// 主元件
+// ============================================================
+
+export default function UsedCarEvaluationPage() {
+  const router = useRouter();
+
+  useSetPageHeader({
+    breadcrumb: [
+      { label: "中古車輛", href: "/usedcar/sales-dashboard" },
+      { label: "中古車評估鑑價" },
+    ],
+  });
+
+  const [tab, setTab] = useState<0 | 1 | 2 | 3 | 4>(0);
+
+  // TAB 0 基本資料
+  const [brand, setBrand] = useState("DUCATI");
+  const [model, setModel] = useState("Panigale V2（2021）");
+  const [year, setYear] = useState("2021");
+  const [vin, setVin] = useState("");
+  const [engineNo, setEngineNo] = useState("");
+  const [plate, setPlate] = useState("");
+  const [mileage, setMileage] = useState("");
+  const [color, setColor] = useState("");
+  const [displacement, setDisplacement] = useState(DISPLACEMENTS[0]);
+  const [licenseExpire, setLicenseExpire] = useState("");
+  const [insuranceExpire, setInsuranceExpire] = useState("");
+  const [appraiser, setAppraiser] = useState("陳志明 RS");
+  const [quickGrade, setQuickGrade] = useState<GradeKey>("S");
+  const [quickNote, setQuickNote] = useState("");
+
+  // TAB 0 證件掃描
+  const [scanned, setScanned] = useState<number[]>([]);
+  const [scanDates, setScanDates] = useState<Record<number, string>>({});
+  const [fineQuery, setFineQuery] = useState(FINE_QUERY_OPTIONS[0]);
+  const [lien, setLien] = useState(LIEN_OPTIONS[0]);
+  const [inspect, setInspect] = useState(INSPECT_OPTIONS[0]);
+  const [tax, setTax] = useState(TAX_OPTIONS[0]);
+  const [insuranceRemain, setInsuranceRemain] = useState("");
+
+  // TAB 1 外觀損傷點
+  const [sideDots, setSideDots] = useState<Record<string, DotState>>(() => {
+    const o: Record<string, DotState> = {};
+    for (const d of SIDE_DOTS) o[d.id] = "empty";
+    return o;
+  });
+  const [topDots, setTopDots] = useState<Record<string, DotState>>(() => {
+    const o: Record<string, DotState> = {};
+    for (const d of TOP_DOTS) o[d.id] = "empty";
+    return o;
+  });
+  const [dotLog, setDotLog] = useState("");
+
+  // TAB 1 漆膜
+  const [paintUm, setPaintUm] = useState<Record<number, string>>({});
+  const [paintState, setPaintState] = useState<Record<number, 0 | 1 | 2 | undefined>>({});
+
+  // TAB 1 燈具/玻璃
+  const [glassChecks, setGlassChecks] = useState<Record<number, CheckState>>(() => {
+    const o: Record<number, CheckState> = {};
+    for (let i = 0; i < GLASS_ITEMS.length; i += 1) o[i] = "none";
+    return o;
+  });
+
+  // TAB 2 骨架
+  const [frameChecks, setFrameChecks] = useState<Record<string, CheckState>>({});
+
+  // TAB 3 機械
+  const [mechChecks, setMechChecks] = useState<Record<string, CheckState>>({});
+
+  // TAB 3 輪胎
+  const [tireFrontMm, setTireFrontMm] = useState("");
+  const [tireRearMm, setTireRearMm] = useState("");
+  const [tireFrontPsi, setTireFrontPsi] = useState("");
+  const [tireRearPsi, setTireRearPsi] = useState("");
+  const [tireFrontWear, setTireFrontWear] = useState(TIRE_WEAR_OPTIONS[0]);
+  const [tireRearWear, setTireRearWear] = useState(TIRE_WEAR_OPTIONS[0]);
+  const [tireFrontBrand, setTireFrontBrand] = useState("");
+  const [tireRearBrand, setTireRearBrand] = useState("");
+
+  // TAB 4 定價
+  const [pMarket, setPMarket] = useState("");
+  const [pMsrp, setPMsrp] = useState("");
+  const [pRepair, setPRepair] = useState("");
+  const [pPaint, setPPaint] = useState("");
+  const [pTire, setPTire] = useState("");
+  const [pWarranty, setPWarranty] = useState("");
+  const [pAdmin, setPAdmin] = useState("5000");
+  const [pComm, setPComm] = useState("");
+  const [pProfit, setPProfit] = useState("");
+  const [pNew, setPNew] = useState("");
+  const [finalGrade, setFinalGrade] = useState<GradeKey>("B");
+  const [decision, setDecision] = useState(PURCHASE_DECISIONS[0]);
+  const [conclusion, setConclusion] = useState("");
+
+  // toast
+  const [toast, setToast] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2800);
+  };
+
+  // 評估單號（每次掛載 generate）
+  const evalNo = useMemo(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `EV-${y}${m}${dd}-001`;
+  }, []);
+
+  // ============================================================
+  // Derived
+  // ============================================================
+
+  const frameTotal = useMemo(
+    () => FRAME_CATS.reduce((acc, c) => acc + c.items.length, 0),
+    [],
+  );
+  const frameDone = useMemo(
+    () => Object.values(frameChecks).filter((v) => v !== "none").length,
+    [frameChecks],
+  );
+  const framePct = Math.round((frameDone / Math.max(frameTotal, 1)) * 100);
+
+  const mechTotal = useMemo(
+    () => MECH_CATS.reduce((acc, c) => acc + c.items.length, 0),
+    [],
+  );
+  const mechDone = useMemo(
+    () => Object.values(mechChecks).filter((v) => v !== "none").length,
+    [mechChecks],
+  );
+  const mechPct = Math.round((mechDone / Math.max(mechTotal, 1)) * 100);
+
+  const tireFrontTs = useMemo(() => evalTireMm(tireFrontMm), [tireFrontMm]);
+  const tireRearTs = useMemo(() => evalTireMm(tireRearMm), [tireRearMm]);
+
+  const calcResult = useMemo(() => {
+    const market = n(pMarket);
+    const repair = n(pRepair);
+    const paint = n(pPaint);
+    const tire = n(pTire);
+    const warranty = n(pWarranty);
+    const admin = n(pAdmin);
+    const comm = n(pComm);
+    const profit = n(pProfit);
+    const newCar = n(pNew);
+    const cost = repair + paint + tire + warranty + admin + comm + profit;
+    const suggested = market - cost;
+    const diff = newCar > 0 ? newCar - suggested : 0;
+    const premium = diff > 0 ? diff - cost : 0;
+    return { market, repair, paint, tire, warranty, admin, comm, profit, newCar, cost, suggested, diff, premium };
+  }, [pMarket, pRepair, pPaint, pTire, pWarranty, pAdmin, pComm, pProfit, pNew]);
+
+  // ============================================================
+  // Handlers
+  // ============================================================
+
+  function goTab(n: 0 | 1 | 2 | 3 | 4) {
+    setTab(n);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function doScan(id: number, label: string) {
+    if (scanned.includes(id)) {
+      showToast(`📷 ${label}：已掃描，點擊可重新拍攝`);
+      return;
+    }
+    setScanned((prev) => [...prev, id]);
+    setScanDates((prev) => ({ ...prev, [id]: new Date().toLocaleDateString("zh-TW") }));
+    showToast(`📷 ${label} 已拍攝存檔`);
+  }
+
+  function cycleDot(group: "side" | "top", id: string, label: string) {
+    const cur = group === "side" ? sideDots[id] : topDots[id];
+    const idx = DOT_STATES.indexOf(cur);
+    const next = DOT_STATES[(idx + 1) % DOT_STATES.length];
+    const setter = group === "side" ? setSideDots : setTopDots;
+    setter((prev) => ({ ...prev, [id]: next }));
+    if (next !== "empty") {
+      const lblMap: Record<DotState, string> = {
+        empty: "未標記",
+        ok: "✅ 正常",
+        warn: "⚠️ 注意",
+        bad: "❌ 損傷",
+      };
+      setDotLog(`📍 ${label} → ${lblMap[next]}`);
+    } else {
+      setDotLog("");
+    }
+  }
+
+  function setPaintZone(idx: number, state: 0 | 1 | 2) {
+    setPaintState((prev) => ({ ...prev, [idx]: state }));
+  }
+
+  function setPaintUmValue(idx: number, v: string) {
+    setPaintUm((prev) => ({ ...prev, [idx]: v }));
+    const num = parseInt(v, 10) || 0;
+    if (!num) return;
+    if (num <= 150) setPaintZone(idx, 0);
+    else if (num <= 200) setPaintZone(idx, 1);
+    else setPaintZone(idx, 2);
+  }
+
+  function setGlass(idx: number, state: CheckState) {
+    setGlassChecks((prev) => ({ ...prev, [idx]: state }));
+  }
+
+  function setFrameItem(id: string, state: CheckState) {
+    setFrameChecks((prev) => ({ ...prev, [id]: state }));
+  }
+
+  function setMechItem(id: string, state: CheckState) {
+    setMechChecks((prev) => ({ ...prev, [id]: state }));
+  }
+
+  // ============================================================
+  // Render
+  // ============================================================
+
   return (
-    <StitchInline
-      html={html}
-      title="置換評估"
-      sprint="S5-1"
-      device="tablet"
-      screenId="3a113f99-657c-404d-bfdf-36c9baea7a6e"
-      breadcrumb={[{ label: "中古車輛", href: "/usedcar/evaluation" }, { label: "置換評估" }]}
+    <div className="-m-4 md:-m-8 bg-[#F8F7F4] min-h-[calc(100dvh-4rem)] flex flex-col">
+      <main className="flex-1 pb-20">
+        <div className="max-w-[1100px] mx-auto px-6 py-5 space-y-3">
+          {/* Page Header */}
+          <header
+            className="flex items-center gap-2.5 flex-wrap"
+            data-testid="evaluation-page-header"
+          >
+            <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
+              中古車評估鑑價 — 5 階段評估
+            </h1>
+            <span
+              className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium"
+              data-testid="evaluation-sprint-chip"
+            >
+              銷售 · RS06-v2
+            </span>
+            <span className="text-[12px] text-[#9A9890]">
+              基本資料 → 外觀 → 骨架 → 機械 → 定價
+            </span>
+            <span
+              className="ml-auto px-2 py-0.5 rounded-md text-[11px] bg-[#F2F2F2] text-[#6B6A68] font-mono"
+              data-testid="evaluation-no"
+            >
+              {evalNo}
+            </span>
+          </header>
+
+          {/* Tab Bar */}
+          <div
+            className="flex bg-white border border-[#EEECE6] rounded-lg overflow-x-auto"
+            data-testid="evaluation-tab-bar"
+          >
+            {TAB_DEFS.map((t, idx) => {
+              const active = t.num === tab;
+              return (
+                <button
+                  key={t.num}
+                  type="button"
+                  onClick={() => goTab(t.num as 0 | 1 | 2 | 3 | 4)}
+                  data-testid={`evaluation-tab-${t.num}`}
+                  className={`flex-1 min-w-[140px] px-3 py-2.5 text-center text-[12px] whitespace-nowrap transition-colors ${
+                    idx < TAB_DEFS.length - 1 ? "border-r border-[#EEECE6]" : ""
+                  } ${
+                    active
+                      ? "bg-[#1A3A5C] text-white font-bold"
+                      : "text-[#9A9890] font-medium hover:bg-[#F4F3F0]"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* TAB 0 — 基本資料 */}
+          {tab === 0 && (
+            <section data-testid="evaluation-pane-0" className="space-y-3">
+              <SectionCard
+                icon="🏍️"
+                iconBg="bg-[#EAF4FB]"
+                title="中古車基本資訊"
+                subtitle="評估前核對車輛識別資料"
+                trailing={
+                  <span className="px-2 py-0.5 rounded text-[11px] bg-[#F2F2F2] text-[#6B6A68]">
+                    評估單號：{evalNo}
+                  </span>
+                }
+              >
+                <Grid cols={3}>
+                  <Field label="廠牌" required>
+                    <input className={inputCls} value={brand} onChange={(e) => setBrand(e.target.value)} />
+                  </Field>
+                  <Field label="車款型號" required>
+                    <select
+                      className={inputCls}
+                      value={model}
+                      onChange={(e) => setModel(e.target.value)}
+                      data-testid="evaluation-model-select"
+                    >
+                      {BIKE_MODELS.map((m) => (
+                        <option key={m}>{m}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="出廠年份" required>
+                    <input className={inputCls} value={year} onChange={(e) => setYear(e.target.value)} />
+                  </Field>
+                  <Field label="車身號碼（VIN）" required>
+                    <input
+                      className={`${inputCls} font-mono`}
+                      placeholder="ZDM...（17碼）"
+                      value={vin}
+                      onChange={(e) => setVin(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="引擎號碼" required>
+                    <input
+                      className={`${inputCls} font-mono`}
+                      placeholder="引擎號碼"
+                      value={engineNo}
+                      onChange={(e) => setEngineNo(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="目前牌照號碼">
+                    <input
+                      className={inputCls}
+                      placeholder="例：ABC-1234"
+                      value={plate}
+                      onChange={(e) => setPlate(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="當前里程" required>
+                    <input
+                      className={`${inputCls} font-mono`}
+                      placeholder="例：35,000 km"
+                      value={mileage}
+                      onChange={(e) => setMileage(e.target.value)}
+                      data-testid="evaluation-mileage"
+                    />
+                  </Field>
+                  <Field label="車身顏色">
+                    <input
+                      className={inputCls}
+                      placeholder="例：Ducati Red"
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="排氣量">
+                    <select
+                      className={inputCls}
+                      value={displacement}
+                      onChange={(e) => setDisplacement(e.target.value)}
+                    >
+                      {DISPLACEMENTS.map((d) => (
+                        <option key={d}>{d}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="行照有效期限">
+                    <input
+                      type="date"
+                      className={inputCls}
+                      value={licenseExpire}
+                      onChange={(e) => setLicenseExpire(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="保險到期日">
+                    <input
+                      type="date"
+                      className={inputCls}
+                      value={insuranceExpire}
+                      onChange={(e) => setInsuranceExpire(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="評估師">
+                    <input
+                      className={inputCls}
+                      value={appraiser}
+                      onChange={(e) => setAppraiser(e.target.value)}
+                    />
+                  </Field>
+                </Grid>
+
+                <SecTitle>整體車況快速評級</SecTitle>
+                <Grid cols={2}>
+                  <Field label="車況等級">
+                    <GradeRow
+                      value={quickGrade}
+                      onChange={setQuickGrade}
+                      testIdPrefix="evaluation-quick-grade"
+                    />
+                  </Field>
+                  <Field label="快速備注">
+                    <textarea
+                      className={`${inputCls} h-[70px] resize-none`}
+                      placeholder="快速記錄明顯缺陷或特殊狀況..."
+                      value={quickNote}
+                      onChange={(e) => setQuickNote(e.target.value)}
+                    />
+                  </Field>
+                </Grid>
+              </SectionCard>
+
+              <SectionCard
+                icon="📷"
+                iconBg="bg-[#FDF3E3]"
+                title="車輛證件掃描存檔"
+                subtitle="使用平板相機拍攝各項證件 · 存入評估紀錄備查 · 供日後買賣合約及過戶手續使用"
+                trailing={
+                  <span
+                    className="px-2 py-0.5 rounded text-[11px] bg-[#F2F2F2] text-[#6B6A68]"
+                    data-testid="evaluation-scan-count"
+                  >
+                    {scanned.length} / 8 已掃描
+                  </span>
+                }
+              >
+                <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded-md px-3.5 py-2 mb-3 text-[12px] text-[#854F0B]">
+                  📷 <b>操作說明：</b>
+                  點擊方格啟動平板相機拍攝，照片自動存入本評估紀錄備查。所有文件均需與行照核對一致，VIN 號碼為鑑定真偽的最重要依據。
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
+                  <div className="bg-[#E1F5EE] border border-[#5DCAA5] rounded-md px-3 py-2 text-[11.5px]">
+                    <div className="font-bold text-[#0F6E56] mb-1">✅ 過戶必備文件</div>
+                    <div className="text-[#4A4A48] leading-relaxed">
+                      ① 行照正本<br />
+                      ② 賣方身分證正本（雙證件）<br />
+                      ③ 買方身分證正本（雙證件）<br />
+                      ④ 強制責任險保單（有效期 30 日以上）<br />
+                      ⑤ 過戶登記申請書（監理站現場填寫）<br />
+                      ⑥ 新舊車主印章
+                    </div>
+                  </div>
+                  <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded-md px-3 py-2 text-[11.5px]">
+                    <div className="font-bold text-[#854F0B] mb-1">⚠️ 特殊狀況額外文件</div>
+                    <div className="text-[#4A4A48] leading-relaxed">
+                      出廠 5 年以上 → 臨時檢驗合格證<br />
+                      有貸款設定 → 清償證明 + 塗銷動保設定<br />
+                      有違規/欠稅 → 繳清收據（2 個月內）<br />
+                      非本人辦理 → 委託書 + 代辦人身分證<br />
+                      強制險不足 30 日 → 新車主名義重新投保
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-[12px] font-semibold text-[#4A4A48] mb-2">
+                  📷 掃描存檔（點擊方格啟動相機）
+                </div>
+                <div
+                  className="grid grid-cols-2 md:grid-cols-4 gap-2.5"
+                  data-testid="evaluation-scan-grid"
+                >
+                  {SCAN_DOCS.map((d) => {
+                    const done = scanned.includes(d.id);
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => doScan(d.id, d.label)}
+                        data-testid={`evaluation-scan-${d.id}`}
+                        className={`relative flex flex-col items-center justify-center gap-1 min-h-[90px] p-3 rounded-lg border-[1.5px] transition-colors ${
+                          done
+                            ? "border-solid border-[#5DCAA5] bg-[#E1F5EE]"
+                            : "border-dashed border-[#D5D3CB] bg-[#FAFAF8] hover:border-[#85B7EB] hover:bg-[#EAF4FB]"
+                        }`}
+                      >
+                        {done && (
+                          <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] bg-[#0F6E56] text-white">
+                            ✅ 已存檔
+                          </span>
+                        )}
+                        <div className="text-[20px]">{done ? "✅" : d.icon}</div>
+                        <div className="text-[11.5px] font-semibold text-[#4A4A48]">
+                          {d.label}
+                        </div>
+                        <div className="text-[10px] text-[#9A9890]">
+                          {done ? scanDates[d.id] : d.sub}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <SecTitle>過戶前必要查詢</SecTitle>
+                <Grid cols={3}>
+                  <Field label="交通違規罰款">
+                    <div className="flex gap-1.5">
+                      <select
+                        className={`${inputCls} flex-1`}
+                        value={fineQuery}
+                        onChange={(e) => setFineQuery(e.target.value)}
+                      >
+                        {FINE_QUERY_OPTIONS.map((o) => (
+                          <option key={o}>{o}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => showToast("🔍 開啟監理服務網罰款查詢...")}
+                        className={`${btnGhost} h-[30px] px-3 text-[11.5px]`}
+                      >
+                        查詢
+                      </button>
+                    </div>
+                  </Field>
+                  <Field label="貸款 / 動產擔保設定">
+                    <select
+                      className={inputCls}
+                      value={lien}
+                      onChange={(e) => setLien(e.target.value)}
+                    >
+                      {LIEN_OPTIONS.map((o) => (
+                        <option key={o}>{o}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="出廠年份 / 驗車狀態">
+                    <select
+                      className={inputCls}
+                      value={inspect}
+                      onChange={(e) => setInspect(e.target.value)}
+                    >
+                      {INSPECT_OPTIONS.map((o) => (
+                        <option key={o}>{o}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="牌照稅 / 燃料稅">
+                    <select
+                      className={inputCls}
+                      value={tax}
+                      onChange={(e) => setTax(e.target.value)}
+                    >
+                      {TAX_OPTIONS.map((o) => (
+                        <option key={o}>{o}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="強制責任險剩餘天數">
+                    <div className="flex gap-1.5 items-center">
+                      <input
+                        className={`${inputCls} flex-1`}
+                        placeholder="例：45 天"
+                        value={insuranceRemain}
+                        onChange={(e) => setInsuranceRemain(e.target.value)}
+                      />
+                      <span className="text-[11px] text-[#9A9890] whitespace-nowrap">
+                        ≥30天可移轉
+                      </span>
+                    </div>
+                  </Field>
+                  <Field label="過戶規費說明">
+                    <div className="bg-[#F4F3F0] rounded-md px-2.5 py-1.5 text-[11.5px] text-[#5A5955] leading-relaxed">
+                      過戶費 NT$150 + 當年剩餘牌照稅 + 燃料稅
+                    </div>
+                  </Field>
+                </Grid>
+              </SectionCard>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => showToast("💾 基本資料已儲存")}
+                  className={btnGhost}
+                  data-testid="evaluation-save-tab0"
+                >
+                  💾 儲存
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goTab(1)}
+                  className={btnPrimary}
+                  data-testid="evaluation-next-0"
+                >
+                  外觀漆面評估 →
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* TAB 1 — 外觀漆面 */}
+          {tab === 1 && (
+            <section data-testid="evaluation-pane-1" className="space-y-3">
+              <SectionCard
+                icon="🎨"
+                iconBg="bg-[#FDECEA]"
+                title="外觀損傷標記圖"
+                subtitle="點擊標記點循環：正常 → 注意 → 損傷 → 未標記"
+                trailing={
+                  <div className="flex gap-3 flex-wrap text-[11px] text-[#9A9890]">
+                    <LegDot color="#0F6E56" label="正常" />
+                    <LegDot color="#F0A500" label="注意" />
+                    <LegDot color="#C8001A" label="損傷" />
+                    <LegDot color="rgba(120,120,120,.35)" label="未標" />
+                  </div>
+                }
+              >
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] mb-1">
+                  側面圖 Side View
+                </div>
+                <div className="relative w-full h-[152px] mb-2" data-testid="evaluation-dots-side">
+                  <SideBikeSvg />
+                  {SIDE_DOTS.map((d) => (
+                    <DotMark
+                      key={d.id}
+                      state={sideDots[d.id]}
+                      style={{ left: d.left, top: d.top }}
+                      label={d.label}
+                      onClick={() => cycleDot("side", d.id, d.label)}
+                      testid={`evaluation-side-dot-${d.id}`}
+                    />
+                  ))}
+                </div>
+
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] mb-1 mt-2.5">
+                  鳥瞰圖 Top View
+                </div>
+                <div className="relative w-full h-[88px]" data-testid="evaluation-dots-top">
+                  <TopBikeSvg />
+                  {TOP_DOTS.map((d) => (
+                    <DotMark
+                      key={d.id}
+                      state={topDots[d.id]}
+                      style={{ left: d.left, top: d.top }}
+                      label={d.label}
+                      onClick={() => cycleDot("top", d.id, d.label)}
+                      testid={`evaluation-top-dot-${d.id}`}
+                    />
+                  ))}
+                </div>
+
+                <div
+                  className="mt-1.5 text-[11.5px] text-[#9A9890] min-h-[18px]"
+                  data-testid="evaluation-dot-log"
+                >
+                  {dotLog}
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                icon="📏"
+                iconBg="bg-[#FDECEA]"
+                title="漆面量化記錄（漆膜測厚儀）"
+                subtitle="原廠漆 80–150 μm · 補漆 150–200 μm · 重噴 ＞200 μm"
+                trailing={
+                  <button
+                    type="button"
+                    onClick={() =>
+                      showToast(
+                        "📏 原廠漆：80-150μm · 輕微補修：150-200μm · 明顯補漆：>200μm · 全板重噴：>250μm",
+                      )
+                    }
+                    className={`${btnGhost} h-[28px] px-3 text-[11.5px]`}
+                  >
+                    μm 說明
+                  </button>
+                }
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {PAINT_ZONES.map((z, idx) => {
+                    const st = paintState[idx];
+                    return (
+                      <div
+                        key={z}
+                        className="grid grid-cols-[1fr_72px_84px_1fr] gap-1.5 items-center px-2.5 py-1.5 rounded-md border border-[#EEECE6] bg-[#FAFAF8] text-[12px]"
+                        data-testid={`evaluation-paint-zone-${idx}`}
+                      >
+                        <div className="font-semibold">{z}</div>
+                        <input
+                          className="w-full px-1.5 py-1 rounded-md border border-[#D5D3CB] font-mono text-[12px] text-center bg-white"
+                          placeholder="μm"
+                          value={paintUm[idx] ?? ""}
+                          onChange={(e) => setPaintUmValue(idx, e.target.value)}
+                          data-testid={`evaluation-paint-um-${idx}`}
+                        />
+                        <div className="flex gap-0.5 justify-center">
+                          {(
+                            [
+                              { v: 0 as const, label: "✓", bg: "bg-[#E1F5EE]", text: "text-[#0F6E56]", active: "bg-[#0F6E56] text-white" },
+                              { v: 1 as const, label: "⚠", bg: "bg-[#FDF3E3]", text: "text-[#F0A500]", active: "bg-[#F0A500] text-white" },
+                              { v: 2 as const, label: "✗", bg: "bg-[#FDECEA]", text: "text-[#C8001A]", active: "bg-[#C8001A] text-white" },
+                            ] as const
+                          ).map((o) => {
+                            const sel = st === o.v;
+                            return (
+                              <button
+                                key={o.v}
+                                type="button"
+                                onClick={() => setPaintZone(idx, o.v)}
+                                className={`w-6 h-6 rounded text-[10px] transition-colors ${
+                                  sel ? o.active : `${o.bg} ${o.text}`
+                                }`}
+                                aria-label={o.label}
+                              >
+                                {o.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <input
+                          className="w-full px-1.5 py-1 rounded-md border border-[#D5D3CB] text-[11.5px] bg-white"
+                          placeholder="備注..."
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                icon="🔍"
+                iconBg="bg-[#EAF4FB]"
+                title="燈具、玻璃與儀表板"
+              >
+                <div className="flex flex-col gap-1">
+                  {GLASS_ITEMS.map((t, i) => (
+                    <CheckItem
+                      key={i}
+                      label={t}
+                      state={glassChecks[i]}
+                      onChange={(s) => setGlass(i, s)}
+                      testid={`evaluation-glass-${i}`}
+                    />
+                  ))}
+                </div>
+              </SectionCard>
+
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => goTab(0)} className={btnGhost}>
+                  ← 返回
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goTab(2)}
+                  className={btnPrimary}
+                  data-testid="evaluation-next-1"
+                >
+                  車身骨架 →
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* TAB 2 — 車身骨架 */}
+          {tab === 2 && (
+            <section data-testid="evaluation-pane-2" className="space-y-3">
+              <SectionCard
+                icon="🔩"
+                iconBg="bg-[#FDECEA]"
+                title="車身骨架結構檢查"
+                subtitle="判斷焊接方式（點焊=原廠/CO2焊=已更換）· 封膠狀態 · 溃縮區變形"
+                trailing={
+                  <div className="flex items-center gap-2">
+                    <div className="w-[100px] h-[7px] bg-[#EEECE6] rounded overflow-hidden">
+                      <div
+                        className="h-full rounded transition-[width] duration-300"
+                        style={{
+                          width: `${framePct}%`,
+                          background: "linear-gradient(90deg, #0F6E56, #5DCAA5)",
+                        }}
+                        data-testid="evaluation-frame-bar"
+                      />
+                    </div>
+                    <span
+                      className="text-[12px] font-bold font-mono text-[#0F6E56] whitespace-nowrap"
+                      data-testid="evaluation-frame-pct"
+                    >
+                      {framePct}%
+                    </span>
+                  </div>
+                }
+              >
+                {FRAME_CATS.map((cat) => (
+                  <div key={cat.cat} className="mb-1">
+                    <div className="text-[11px] font-bold text-[#9A9890] tracking-wider uppercase bg-[#F4F3F0] rounded px-2.5 py-1.5 mt-2 mb-1">
+                      {cat.cat}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {cat.items.map((t, i) => {
+                        const id = `${cat.cat}-${i}`;
+                        return (
+                          <CheckItem
+                            key={id}
+                            label={t}
+                            state={frameChecks[id] ?? "none"}
+                            onChange={(s) => setFrameItem(id, s)}
+                            testid={`evaluation-frame-${slug(id)}`}
+                            threeState
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </SectionCard>
+
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => goTab(1)} className={btnGhost}>
+                  ← 返回
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const allOk: Record<string, CheckState> = {};
+                    FRAME_CATS.forEach((cat, ci) => {
+                      cat.items.forEach((_, i) => {
+                        allOk[`${cat.cat}-${i}`] = "ok";
+                      });
+                      void ci;
+                    });
+                    setFrameChecks(allOk);
+                  }}
+                  className={`${btnGhost} h-[28px] px-3 text-[12px]`}
+                  data-testid="evaluation-frame-check-all"
+                >
+                  ✅ 全部 OK（測試）
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goTab(3)}
+                  className={btnPrimary}
+                  data-testid="evaluation-next-2"
+                >
+                  機械底盤 →
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* TAB 3 — 機械底盤 */}
+          {tab === 3 && (
+            <section data-testid="evaluation-pane-3" className="space-y-3">
+              <SectionCard
+                icon="⚙️"
+                iconBg="bg-[#E8EDF2]"
+                title="機械底盤系統檢查"
+                subtitle="靜態目視 + 動態路試"
+                trailing={
+                  <div className="flex items-center gap-2">
+                    <div className="w-[100px] h-[7px] bg-[#EEECE6] rounded overflow-hidden">
+                      <div
+                        className="h-full rounded transition-[width] duration-300"
+                        style={{
+                          width: `${mechPct}%`,
+                          background: "linear-gradient(90deg, #0F6E56, #5DCAA5)",
+                        }}
+                        data-testid="evaluation-mech-bar"
+                      />
+                    </div>
+                    <span
+                      className="text-[12px] font-bold font-mono text-[#0F6E56] whitespace-nowrap"
+                      data-testid="evaluation-mech-pct"
+                    >
+                      {mechPct}%
+                    </span>
+                  </div>
+                }
+              >
+                {MECH_CATS.map((cat) => (
+                  <div key={cat.cat} className="mb-1">
+                    <div className="text-[11px] font-bold text-[#9A9890] tracking-wider uppercase bg-[#F4F3F0] rounded px-2.5 py-1.5 mt-2 mb-1">
+                      {cat.cat}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {cat.items.map((t, i) => {
+                        const id = `${cat.cat}-${i}`;
+                        return (
+                          <CheckItem
+                            key={id}
+                            label={t}
+                            state={mechChecks[id] ?? "none"}
+                            onChange={(s) => setMechItem(id, s)}
+                            testid={`evaluation-mech-${slug(id)}`}
+                            threeState
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </SectionCard>
+
+              <SectionCard
+                icon="🔵"
+                iconBg="bg-[#FDF3E3]"
+                title="輪胎量化記錄"
+                subtitle="使用花紋深度尺 · 法定最低 1.6 mm · 建議更換 ≤ 3 mm"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  <TireBox
+                    label="🔵 前輪"
+                    mm={tireFrontMm}
+                    onMm={setTireFrontMm}
+                    psi={tireFrontPsi}
+                    onPsi={setTireFrontPsi}
+                    wear={tireFrontWear}
+                    onWear={setTireFrontWear}
+                    brand={tireFrontBrand}
+                    onBrand={setTireFrontBrand}
+                    ts={tireFrontTs}
+                    side="front"
+                  />
+                  <TireBox
+                    label="🔵 後輪"
+                    mm={tireRearMm}
+                    onMm={setTireRearMm}
+                    psi={tireRearPsi}
+                    onPsi={setTireRearPsi}
+                    wear={tireRearWear}
+                    onWear={setTireRearWear}
+                    brand={tireRearBrand}
+                    onBrand={setTireRearBrand}
+                    ts={tireRearTs}
+                    side="rear"
+                  />
+                </div>
+              </SectionCard>
+
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => goTab(2)} className={btnGhost}>
+                  ← 返回
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goTab(4)}
+                  className={btnPrimary}
+                  data-testid="evaluation-next-3"
+                >
+                  收購定價核算 →
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* TAB 4 — 收購定價 */}
+          {tab === 4 && (
+            <section data-testid="evaluation-pane-4" className="space-y-3">
+              <SectionCard
+                icon="💰"
+                iconBg="bg-[#E1F5EE]"
+                title="收購定價核算"
+                subtitle="市場行情 − 整備成本 − 利潤 ＝ 建議收購報價"
+                noPad
+              >
+                <table className="w-full border-collapse text-[12.5px]" data-testid="evaluation-calc-table">
+                  <thead>
+                    <tr className="bg-[#FAFAF8]">
+                      <th className="text-left text-[11px] font-semibold text-[#9A9890] px-2.5 py-2 border-b-2 border-[#EEECE6]" style={{ width: "40%" }}>
+                        項目說明
+                      </th>
+                      <th className="text-right text-[11px] font-semibold text-[#9A9890] px-2.5 py-2 border-b-2 border-[#EEECE6]" style={{ width: "22%" }}>
+                        金額（NT$）
+                      </th>
+                      <th className="text-right text-[11px] font-semibold text-[#9A9890] px-2.5 py-2 border-b-2 border-[#EEECE6]" style={{ width: "16%" }}>
+                        計算結果
+                      </th>
+                      <th className="text-left text-[11px] font-semibold text-[#9A9890] px-2.5 py-2 border-b-2 border-[#EEECE6]">
+                        備注
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <CatRow label="A　市場行情參考" />
+                    <CalcRow
+                      label="當地市場同款中古車銷售行情（含稅）"
+                      value={pMarket}
+                      onChange={setPMarket}
+                      result={null}
+                      resultColor="#9A9890"
+                      resultLabel="網路查詢"
+                      note="參考來源"
+                      testid="evaluation-calc-market"
+                    />
+                    <CalcRow
+                      label="同款新車原廠建議售價（MSRP）"
+                      value={pMsrp}
+                      onChange={setPMsrp}
+                      result={null}
+                      resultColor="#9A9890"
+                      resultLabel="原廠定價"
+                      note=""
+                    />
+                    <CatRow label="B　整備成本估算" />
+                    <CalcRow
+                      label="機械維修費用"
+                      value={pRepair}
+                      onChange={setPRepair}
+                      result={calcResult.repair}
+                      resultColor="#C8001A"
+                      note="維修項目說明"
+                      testid="evaluation-calc-repair"
+                    />
+                    <CalcRow
+                      label="外觀翻新/漆面整備"
+                      value={pPaint}
+                      onChange={setPPaint}
+                      result={calcResult.paint}
+                      resultColor="#C8001A"
+                      note="補漆/拋光"
+                    />
+                    <CalcRow
+                      label="輪胎更換費用"
+                      value={pTire}
+                      onChange={setPTire}
+                      result={calcResult.tire}
+                      resultColor="#C8001A"
+                      note="前後輪胎"
+                    />
+                    <CalcRow
+                      label="保固/商譽成本預留"
+                      value={pWarranty}
+                      onChange={setPWarranty}
+                      result={calcResult.warranty}
+                      resultColor="#C8001A"
+                      note="建議 1–2%"
+                    />
+                    <CalcRow
+                      label="代辦過戶/行政費用"
+                      value={pAdmin}
+                      onChange={setPAdmin}
+                      result={calcResult.admin}
+                      resultColor="#C8001A"
+                      note="監理站費用"
+                    />
+                    <CatRow label="C　銷售費用與利潤" />
+                    <CalcRow
+                      label="銷售相關成本（佣金，建議 1.5%）"
+                      value={pComm}
+                      onChange={setPComm}
+                      result={calcResult.comm}
+                      resultColor="#C8001A"
+                      note=""
+                    />
+                    <CalcRow
+                      label="計畫銷售利潤（建議 4–6%）"
+                      value={pProfit}
+                      onChange={setPProfit}
+                      result={calcResult.profit}
+                      resultColor="#C8001A"
+                      note=""
+                    />
+                    <CatRow label="D　置換溢價核算（以舊換新時）" />
+                    <CalcRow
+                      label="新車成交價格（折扣後，來自 RS04）"
+                      value={pNew}
+                      onChange={setPNew}
+                      result={null}
+                      resultColor="#9A9890"
+                      resultLabel="來自 RS04"
+                      note=""
+                    />
+                    <tr className="bg-[#E1F5EE]">
+                      <td className="px-2.5 py-2 font-bold border-b border-[#F4F3F0]">
+                        建議收購報價
+                      </td>
+                      <td
+                        colSpan={2}
+                        className="px-2.5 py-2 text-right border-b border-[#F4F3F0]"
+                      >
+                        <span
+                          className="font-mono font-bold text-[16px] text-[#1A3A5C]"
+                          data-testid="evaluation-suggested"
+                        >
+                          NT$ {fmt(calcResult.suggested)}
+                        </span>
+                      </td>
+                      <td className="px-2.5 py-2 border-b border-[#F4F3F0]">
+                        <input
+                          className="w-full px-1.5 py-1 rounded-md border border-[#D5D3CB] font-mono text-[12.5px] text-right bg-white"
+                          placeholder="評估師可手動修正"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div
+                  className="bg-[#1A3A5C] rounded-b-md px-5 py-4 text-white flex items-center justify-between gap-3 flex-wrap"
+                  data-testid="evaluation-result-box"
+                >
+                  <div className="flex gap-5 flex-wrap">
+                    <div className="text-center">
+                      <div className="text-[10.5px] opacity-65 mb-0.5">整備成本合計</div>
+                      <div
+                        className="text-[15px] font-bold font-mono text-[#FF8080]"
+                        data-testid="evaluation-total-cost"
+                      >
+                        {fmt(calcResult.cost)}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[10.5px] opacity-65 mb-0.5">新舊車差價</div>
+                      <div className="text-[15px] font-bold font-mono">
+                        {calcResult.diff > 0 ? fmt(calcResult.diff) : "—"}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[10.5px] opacity-65 mb-0.5">置換溢價</div>
+                      <div className="text-[15px] font-bold font-mono text-[#5DCAA5]">
+                        {calcResult.diff > 0 ? fmt(calcResult.premium) : "—"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[11px] opacity-70 mb-1">建議收購報價</div>
+                    <div
+                      className="text-[24px] font-bold font-mono"
+                      data-testid="evaluation-grand-price"
+                    >
+                      NT$ {fmt(calcResult.suggested)}
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                icon="✅"
+                iconBg="bg-[#E1F5EE]"
+                title="評估結論與建議"
+              >
+                <Grid cols={2}>
+                  <Field label="最終評級">
+                    <GradeRow
+                      value={finalGrade}
+                      onChange={setFinalGrade}
+                      testIdPrefix="evaluation-final-grade"
+                    />
+                  </Field>
+                  <Field label="收購決策">
+                    <select
+                      className={inputCls}
+                      value={decision}
+                      onChange={(e) => setDecision(e.target.value)}
+                      data-testid="evaluation-decision"
+                    >
+                      {PURCHASE_DECISIONS.map((d) => (
+                        <option key={d}>{d}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </Grid>
+                <Field label="評估師結論說明">
+                  <textarea
+                    className={`${inputCls} h-[72px] resize-none`}
+                    placeholder="整體車況說明、主要缺陷、建議整備項目、市場行情分析..."
+                    value={conclusion}
+                    onChange={(e) => setConclusion(e.target.value)}
+                  />
+                </Field>
+
+                <div className="flex justify-end gap-2 flex-wrap mt-2">
+                  <button
+                    type="button"
+                    onClick={() => showToast("🖨️ 評估報告 PDF 預覽")}
+                    className={btnGhost}
+                  >
+                    🖨️ 列印評估報告
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => showToast(`💾 評估單 ${evalNo} 已儲存`)}
+                    className={btnGhost}
+                    data-testid="evaluation-save-final"
+                  >
+                    💾 儲存評估單
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/sales/quote")}
+                    className={btnTeal}
+                    data-testid="evaluation-to-rs04"
+                  >
+                    → 帶入 RS04 報價單
+                  </button>
+                </div>
+              </SectionCard>
+
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => goTab(3)} className={btnGhost}>
+                  ← 返回
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      </main>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          className="fixed bottom-6 right-6 px-4 py-2 rounded-lg shadow-lg text-[12.5px] z-50 bg-[#1A3A5C] text-white max-w-[320px] leading-relaxed"
+          data-testid="evaluation-toast"
+        >
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Helper components
+// ============================================================
+
+const inputCls =
+  "w-full px-2.5 py-1.5 rounded-md border border-[#D5D3CB] text-[12.5px] outline-none focus:border-[#85B7EB] bg-white";
+
+const btnPrimary =
+  "h-[30px] px-4 rounded-md text-[12.5px] font-semibold bg-[#1A3A5C] text-white hover:bg-[#0F2A45] transition-colors";
+const btnTeal =
+  "h-[30px] px-4 rounded-md text-[12.5px] font-semibold bg-[#0F6E56] text-white hover:bg-[#0a5742] transition-colors";
+const btnGhost =
+  "h-[30px] px-4 rounded-md text-[12.5px] font-semibold bg-white border border-[#D5D3CB] text-[#4A4A48] hover:bg-[#F4F3F0] transition-colors";
+
+function SectionCard({
+  icon,
+  iconBg,
+  title,
+  subtitle,
+  trailing,
+  noPad,
+  children,
+}: {
+  icon: string;
+  iconBg: string;
+  title: string;
+  subtitle?: string;
+  trailing?: React.ReactNode;
+  noPad?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#FAFAF8] flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className={`w-7 h-7 rounded-md flex items-center justify-center text-[13px] flex-shrink-0 ${iconBg}`}
+          >
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-[#2C2C2A]">{title}</div>
+            {subtitle && (
+              <div className="text-[11px] text-[#9A9890] mt-0.5 leading-tight">
+                {subtitle}
+              </div>
+            )}
+          </div>
+        </div>
+        {trailing}
+      </header>
+      <div className={noPad ? "" : "px-4 py-3.5"}>{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1 mb-2.5">
+      <label className="text-[11.5px] font-semibold text-[#4A4A48]">
+        {label} {required && <span className="text-[#C8001A] text-[11px]">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function Grid({ cols, children }: { cols: 2 | 3; children: React.ReactNode }) {
+  return (
+    <div
+      className={`grid gap-x-4 gap-y-0 ${
+        cols === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-3"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SecTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 text-[10.5px] font-bold tracking-wider uppercase text-[#9A9890] mt-3.5 mb-2">
+      <span>{children}</span>
+      <span className="flex-1 h-px bg-[#EEECE6]" />
+    </div>
+  );
+}
+
+function GradeRow({
+  value,
+  onChange,
+  testIdPrefix,
+}: {
+  value: GradeKey;
+  onChange: (g: GradeKey) => void;
+  testIdPrefix: string;
+}) {
+  return (
+    <div className="grid grid-cols-5 gap-1.5">
+      {GRADE_OPTIONS.map((g) => {
+        const sel = g.key === value;
+        return (
+          <button
+            key={g.key}
+            type="button"
+            onClick={() => onChange(g.key)}
+            data-testid={`${testIdPrefix}-${g.key}`}
+            className={`px-1 py-1.5 text-center rounded-md border-[1.5px] transition-colors ${
+              sel
+                ? "border-[#1A3A5C] bg-[#EAF4FB]"
+                : "border-[#EEECE6] hover:border-[#1A3A5C]"
+            }`}
+          >
+            <div className="text-[15px] font-bold font-mono" style={{ color: g.color }}>
+              {g.key}
+            </div>
+            <div className="text-[10px] text-[#9A9890] mt-0.5">{g.label}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function LegDot({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+      {label}
+    </div>
+  );
+}
+
+function DotMark({
+  state,
+  style,
+  label,
+  onClick,
+  testid,
+}: {
+  state: DotState;
+  style: React.CSSProperties;
+  label: string;
+  onClick: () => void;
+  testid: string;
+}) {
+  const bg =
+    state === "ok"
+      ? "#0F6E56"
+      : state === "warn"
+        ? "#F0A500"
+        : state === "bad"
+          ? "#C8001A"
+          : "rgba(120,120,120,.35)";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testid}
+      data-state={state}
+      title={label}
+      className="absolute w-4 h-4 rounded-full border-2 border-white shadow cursor-pointer transition-transform hover:scale-125"
+      style={{ ...style, transform: "translate(-50%, -50%)", background: bg }}
+      aria-label={label}
     />
+  );
+}
+
+function CheckItem({
+  label,
+  state,
+  onChange,
+  testid,
+  threeState,
+}: {
+  label: string;
+  state: CheckState;
+  onChange: (s: CheckState) => void;
+  testid: string;
+  threeState?: boolean;
+}) {
+  const itemCls =
+    state === "ok"
+      ? "bg-[#E1F5EE] border-[#5DCAA5]"
+      : state === "warn"
+        ? "bg-[#FDF3E3] border-[#F0C97E]"
+        : state === "bad"
+          ? "bg-[#FDECEA] border-[#F5AEAD]"
+          : "bg-white border-[#EEECE6] hover:border-[#85B7EB]";
+  return (
+    <div
+      className={`flex items-start gap-2 px-2.5 py-1.5 rounded-md border transition-colors ${itemCls}`}
+      data-testid={testid}
+    >
+      <div className="flex gap-0.5 flex-shrink-0">
+        <button
+          type="button"
+          onClick={() => onChange("ok")}
+          className={`w-[21px] h-[21px] rounded text-[10px] font-bold transition-colors ${
+            state === "ok"
+              ? "bg-[#0F6E56] border-[#0F6E56] text-white border"
+              : "bg-white border border-[#D5D3CB] text-[#0F6E56] hover:border-[#1A3A5C]"
+          }`}
+          aria-label="OK"
+          data-testid={`${testid}-ok`}
+        >
+          ✓
+        </button>
+        {threeState && (
+          <button
+            type="button"
+            onClick={() => onChange("warn")}
+            className={`w-[21px] h-[21px] rounded text-[10px] font-bold transition-colors ${
+              state === "warn"
+                ? "bg-[#F0A500] border-[#F0A500] text-white border"
+                : "bg-white border border-[#D5D3CB] text-[#F0A500] hover:border-[#1A3A5C]"
+            }`}
+            aria-label="WARN"
+            data-testid={`${testid}-warn`}
+          >
+            ⚠
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onChange("bad")}
+          className={`w-[21px] h-[21px] rounded text-[10px] font-bold transition-colors ${
+            state === "bad"
+              ? "bg-[#C8001A] border-[#C8001A] text-white border"
+              : "bg-white border border-[#D5D3CB] text-[#C8001A] hover:border-[#1A3A5C]"
+          }`}
+          aria-label="BAD"
+          data-testid={`${testid}-bad`}
+        >
+          ✗
+        </button>
+      </div>
+      <div className="text-[12px] leading-relaxed flex-1 pt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function TireBox({
+  label,
+  mm,
+  onMm,
+  psi,
+  onPsi,
+  wear,
+  onWear,
+  brand,
+  onBrand,
+  ts,
+  side,
+}: {
+  label: string;
+  mm: string;
+  onMm: (v: string) => void;
+  psi: string;
+  onPsi: (v: string) => void;
+  wear: string;
+  onWear: (v: string) => void;
+  brand: string;
+  onBrand: (v: string) => void;
+  ts: { state: "ok" | "warn" | "bad" | "none"; mark: string };
+  side: "front" | "rear";
+}) {
+  const tsBg =
+    ts.state === "ok"
+      ? "bg-[#E1F5EE]"
+      : ts.state === "warn"
+        ? "bg-[#FDF3E3]"
+        : ts.state === "bad"
+          ? "bg-[#FDECEA]"
+          : "bg-[#F1EFE8]";
+  const tsColor =
+    ts.state === "ok"
+      ? "text-[#0F6E56]"
+      : ts.state === "warn"
+        ? "text-[#F0A500]"
+        : ts.state === "bad"
+          ? "text-[#C8001A]"
+          : "text-[#9A9890]";
+  return (
+    <div className="border border-[#EEECE6] rounded-md p-3 bg-[#FAFAF8]">
+      <div className="text-[12px] font-bold mb-2 text-[#1A3A5C]">{label}</div>
+      <TireRow lbl="花紋深度">
+        <input
+          className="flex-1 px-2 py-1 rounded-md border border-[#D5D3CB] font-mono text-[12px] text-center bg-white"
+          placeholder="mm"
+          value={mm}
+          onChange={(e) => onMm(e.target.value)}
+          data-testid={`evaluation-tire-${side}-mm`}
+        />
+        <div
+          className={`w-[26px] h-[26px] rounded-md flex items-center justify-center text-[12px] flex-shrink-0 ${tsBg} ${tsColor}`}
+          data-testid={`evaluation-tire-${side}-ts`}
+        >
+          {ts.mark}
+        </div>
+      </TireRow>
+      <TireRow lbl="胎壓">
+        <input
+          className="flex-1 px-2 py-1 rounded-md border border-[#D5D3CB] font-mono text-[12px] text-center bg-white"
+          placeholder="bar"
+          value={psi}
+          onChange={(e) => onPsi(e.target.value)}
+        />
+        <span className="text-[11px] text-[#9A9890] whitespace-nowrap">標準 2.5</span>
+      </TireRow>
+      <TireRow lbl="磨損類型">
+        <select
+          className="flex-1 px-2 py-1 rounded-md border border-[#D5D3CB] text-[12px] bg-white"
+          value={wear}
+          onChange={(e) => onWear(e.target.value)}
+        >
+          {TIRE_WEAR_OPTIONS.map((o) => (
+            <option key={o}>{o}</option>
+          ))}
+        </select>
+      </TireRow>
+      <TireRow lbl="品牌">
+        <input
+          className="flex-1 px-2 py-1 rounded-md border border-[#D5D3CB] text-[12px] bg-white"
+          placeholder="Pirelli / Michelin"
+          value={brand}
+          onChange={(e) => onBrand(e.target.value)}
+        />
+      </TireRow>
+    </div>
+  );
+}
+
+function TireRow({ lbl, children }: { lbl: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 mb-1.5 text-[12px]">
+      <span className="w-[76px] text-[#9A9890] flex-shrink-0">{lbl}</span>
+      {children}
+    </div>
+  );
+}
+
+function CatRow({ label }: { label: string }) {
+  return (
+    <tr className="bg-[#F4F3F0]">
+      <td
+        colSpan={4}
+        className="px-2.5 py-1.5 text-[11px] font-bold text-[#9A9890] tracking-wider"
+      >
+        {label}
+      </td>
+    </tr>
+  );
+}
+
+function CalcRow({
+  label,
+  value,
+  onChange,
+  result,
+  resultColor,
+  resultLabel,
+  note,
+  testid,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  result: number | null;
+  resultColor: string;
+  resultLabel?: string;
+  note: string;
+  testid?: string;
+}) {
+  return (
+    <tr>
+      <td className="px-2.5 py-1.5 border-b border-[#F4F3F0]">{label}</td>
+      <td className="px-2.5 py-1.5 border-b border-[#F4F3F0]">
+        <input
+          className="w-full px-1.5 py-1 rounded-md border border-[#D5D3CB] font-mono text-[12.5px] text-right bg-white"
+          placeholder="0"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          data-testid={testid}
+        />
+      </td>
+      <td
+        className="px-2.5 py-1.5 text-right font-mono font-bold border-b border-[#F4F3F0]"
+        style={{ color: resultColor }}
+      >
+        {result == null ? resultLabel ?? "" : fmt(result)}
+      </td>
+      <td className="px-2.5 py-1.5 border-b border-[#F4F3F0]">
+        <input
+          className="w-full px-1.5 py-1 rounded-md border border-[#D5D3CB] text-[12.5px] bg-white"
+          placeholder={note}
+        />
+      </td>
+    </tr>
+  );
+}
+
+function evalTireMm(v: string): {
+  state: "ok" | "warn" | "bad" | "none";
+  mark: string;
+} {
+  const num = parseFloat(v);
+  if (!num || Number.isNaN(num)) return { state: "none", mark: "?" };
+  if (num > 3) return { state: "ok", mark: "✓" };
+  if (num > 1.6) return { state: "warn", mark: "⚠" };
+  return { state: "bad", mark: "✗" };
+}
+
+function slug(s: string) {
+  return s.replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase();
+}
+
+// ============================================================
+// Inline SVG（簡化版機車輪廓，純裝飾）
+// ============================================================
+
+function SideBikeSvg() {
+  return (
+    <svg viewBox="0 0 420 145" width="100%" height="145" preserveAspectRatio="none" className="block">
+      <circle cx="325" cy="112" r="27" fill="none" stroke="#999" strokeWidth="7" />
+      <circle cx="325" cy="112" r="13" fill="#C0C0C0" stroke="#999" strokeWidth="2" />
+      <circle cx="95" cy="112" r="27" fill="none" stroke="#999" strokeWidth="7" />
+      <circle cx="95" cy="112" r="13" fill="#C0C0C0" stroke="#999" strokeWidth="2" />
+      <path d="M95 88 L145 60 L270 58 L325 88" fill="none" stroke="#888" strokeWidth="4" strokeLinecap="round" />
+      <line x1="95" y1="88" x2="130" y2="62" stroke="#888" strokeWidth="5" strokeLinecap="round" />
+      <path d="M130 62 Q155 38 200 34 Q240 30 270 38 L285 60 Q290 75 285 88 L145 88 Z" fill="#D8D8D8" stroke="#BBB" strokeWidth="1.5" />
+      <path d="M80 88 Q72 72 88 58 Q108 44 135 46 L145 88 Z" fill="#CACACA" stroke="#BBB" strokeWidth="1.5" />
+      <path d="M285 88 L340 88 Q355 78 345 62 Q330 44 300 42 Q285 40 285 60 Z" fill="#CACACA" stroke="#BBB" strokeWidth="1.5" />
+      <path d="M172 36 Q210 26 258 34 L260 50 Q220 42 170 50 Z" fill="#C8C8C8" stroke="#AAA" strokeWidth="1" />
+      <path d="M185 38 Q222 28 270 36 L270 44 Q222 36 185 46 Z" fill="#444" stroke="#333" strokeWidth="1" />
+      <ellipse cx="175" cy="96" rx="18" ry="12" fill="#BEBEBE" stroke="#999" strokeWidth="1.5" />
+      <path d="M285 95 Q310 90 335 95 Q345 100 340 108" stroke="#888" strokeWidth="5" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TopBikeSvg() {
+  return (
+    <svg viewBox="0 0 420 78" width="100%" height="78" preserveAspectRatio="none" className="block">
+      <ellipse cx="210" cy="39" rx="118" ry="20" fill="#D8D8D8" stroke="#BBB" strokeWidth="1.5" />
+      <ellipse cx="96" cy="39" rx="11" ry="21" fill="#C0C0C0" stroke="#999" strokeWidth="2" />
+      <ellipse cx="324" cy="39" rx="11" ry="21" fill="#C0C0C0" stroke="#999" strokeWidth="2" />
+      <line x1="96" y1="39" x2="324" y2="39" stroke="#CCC" strokeWidth="1" strokeDasharray="5,4" />
+      <line x1="128" y1="16" x2="128" y2="62" stroke="#999" strokeWidth="5.5" strokeLinecap="round" />
+      <ellipse cx="200" cy="39" rx="38" ry="17" fill="#CACACA" stroke="#AAA" />
+      <ellipse cx="262" cy="39" rx="43" ry="13" fill="#555" stroke="#444" />
+    </svg>
   );
 }

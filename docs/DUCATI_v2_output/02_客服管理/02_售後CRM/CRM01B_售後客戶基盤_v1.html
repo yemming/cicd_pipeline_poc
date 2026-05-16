@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM01B 售後客戶基盤 — DUCATI 售後管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+
+/* ── Header ── */
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-red{background:rgba(200,0,26,.75);border-color:transparent;}
+.hbtn-red:hover{background:rgba(200,0,26,.95);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.sa-badge{background:rgba(15,110,86,.6);border:1px solid rgba(15,110,86,.8);color:#fff;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:600;letter-spacing:.5px;}
+
+/* ── Sub bar ── */
+.sub-bar{background:#fff;border-bottom:1px solid #EEECE6;padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.search-box{display:flex;align-items:center;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;background:#fff;}
+.search-box input{padding:6px 12px;border:none;outline:none;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;width:210px;}
+.search-box button{padding:6px 12px;border:none;background:#F1EFE8;color:#5A5955;cursor:pointer;font-size:12px;}
+.filter-select{padding:5px 10px;border:1px solid #D5D3CB;border-radius:6px;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;background:#fff;outline:none;cursor:pointer;}
+.sub-divider{width:1px;height:18px;background:#EEECE6;}
+
+/* 快篩條件列 */
+.preset-bar{background:#F4F3F0;border-bottom:1px solid #EEECE6;padding:6px 24px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;position:sticky;top:104px;z-index:89;}
+.preset-label{font-size:10.5px;font-weight:600;color:#9A9890;letter-spacing:.4px;white-space:nowrap;}
+.preset-btn{padding:4px 12px;border-radius:20px;font-size:11.5px;border:1px solid #D5D3CB;background:#fff;color:#4A4A48;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .12s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.preset-btn:hover{border-color:#85B7EB;background:#EAF4FB;color:#185FA5;}
+.preset-btn.active{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.preset-btn.urgent-preset.active{background:#C8001A;border-color:#C8001A;color:#fff;}
+.preset-manage{padding:4px 10px;border-radius:20px;font-size:11px;border:1px dashed #B4B2A9;background:transparent;color:#9A9890;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .12s;margin-left:4px;}
+.preset-manage:hover{border-color:#1A3A5C;color:#1A3A5C;}
+
+/* ── Layout ── */
+.layout{display:flex;min-height:calc(100vh - 156px);}
+
+/* ── Sidenav ── */
+.sidenav{width:192px;flex-shrink:0;background:#fff;border-right:1px solid #EEECE6;padding:14px 0;position:sticky;top:156px;height:calc(100vh - 156px);overflow-y:auto;}
+.nav-section{padding:0 12px;margin-bottom:6px;}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;padding:8px 6px 4px;}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 8px;border-radius:7px;cursor:pointer;transition:background .12s;color:#4A4A48;font-size:12px;margin-bottom:2px;}
+.nav-item:hover{background:#F4F3F0;}
+.nav-item.active{background:#E1F5EE;color:#0F6E56;font-weight:600;}
+.nav-left{display:flex;align-items:center;gap:7px;}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.nd-all{background:#1A3A5C;}.nd-new{background:#0F6E56;}.nd-warn{background:#C8001A;}.nd-amber{background:#D4820A;}.nd-blue{background:#185FA5;}.nd-gray{background:#9A9890;}
+.nav-count{font-size:11px;font-family:'DM Mono',monospace;font-weight:600;background:#F1EFE8;padding:1px 6px;border-radius:4px;color:#5A5955;}
+.nav-item.active .nav-count{background:rgba(15,110,86,.15);color:#0F6E56;}
+.nav-divider{height:1px;background:#EEECE6;margin:8px 12px;}
+
+/* ── Main ── */
+.main{flex:1;padding:16px 20px;overflow:hidden;}
+
+/* ── 統計卡片 ── */
+.stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.stat-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;}
+.stat-card.sa-new{border-left:3px solid #0F6E56;}
+.stat-card.sa-warn{border-left:3px solid #C8001A;}
+.stat-card.sa-amber{border-left:3px solid #D4820A;}
+.stat-card.sa-blue{border-left:3px solid #185FA5;}
+.stat-card.total{border-left:3px solid #1A3A5C;}
+.stat-label{font-size:10.5px;color:#9A9890;margin-bottom:3px;}
+.stat-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:3px;}
+.sn-total{color:#1A3A5C;}.sn-new{color:#0F6E56;}.sn-warn{color:#C8001A;}.sn-amber{color:#D4820A;}.sn-blue{color:#185FA5;}
+.stat-sub{font-size:10.5px;color:#9A9890;}
+
+/* ── 客戶卡片 ── */
+.cust-list{display:flex;flex-direction:column;gap:8px;}
+.cust-card{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:13px 15px;cursor:pointer;transition:all .15s;display:flex;align-items:stretch;gap:14px;}
+.cust-card:hover{border-color:#B4B2A9;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.cust-card.status-warn{border-left:3px solid #C8001A;}
+.cust-card.status-amber{border-left:3px solid #D4820A;}
+.cust-card.status-ok{border-left:3px solid #0F6E56;}
+.cust-card.status-blue{border-left:3px solid #185FA5;}
+
+/* 左側：回廠狀態徽章 */
+.cust-status-icon{width:40px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:2px;flex-shrink:0;}
+.status-circle{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.sc-warn{background:#FDECEA;}.sc-amber{background:#FDF3E3;}.sc-ok{background:#E1F5EE;}.sc-blue{background:#EAF4FB;}
+.days-label{font-size:9px;color:#9A9890;margin-top:4px;text-align:center;line-height:1.3;font-family:'DM Mono',monospace;}
+
+/* 中間：主資訊 */
+.cust-main{flex:1;min-width:0;}
+.cust-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;}
+.cust-name{font-size:14px;font-weight:700;color:#2C2C2A;}
+.cust-phone{font-size:12px;font-family:'DM Mono',monospace;color:#7A7A78;}
+.shared-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:#F4F3F0;border:1px solid #D5D3CB;color:#9A9890;font-weight:500;}
+.cust-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px;}
+.ctag{display:inline-flex;align-items:center;padding:1px 7px;border-radius:10px;font-size:10.5px;font-weight:500;}
+.ctag-red{background:#FDECEA;color:#C8001A;}.ctag-amber{background:#FDF3E3;color:#D4820A;}.ctag-green{background:#E1F5EE;color:#0F6E56;}.ctag-blue{background:#EAF4FB;color:#185FA5;}
+.cust-mid{display:grid;grid-template-columns:repeat(4,auto);gap:6px 18px;margin-bottom:5px;align-items:center;}
+.cust-info-item{font-size:11.5px;color:#5A5955;display:flex;align-items:center;gap:4px;white-space:nowrap;}
+.cust-info-item b{color:#2C2C2A;font-weight:600;}
+.info-warn{color:#C8001A;}
+.info-amber{color:#D4820A;}
+.cust-note{font-size:11.5px;color:#7A7A78;line-height:1.5;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* 右側：動作區 */
+.cust-actions{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;flex-shrink:0;gap:8px;}
+.return-badge{font-size:10.5px;padding:3px 8px;border-radius:5px;font-weight:600;white-space:nowrap;}
+.rb-overdue{background:#FDECEA;color:#C8001A;border:1px solid #F5AEAD;}
+.rb-soon{background:#FDF3E3;color:#D4820A;border:1px solid #F0C97E;}
+.rb-ok{background:#E1F5EE;color:#0F6E56;border:1px solid #5DCAA5;}
+.rb-new{background:#EAF4FB;color:#185FA5;border:1px solid #85B7EB;}
+.next-return{font-size:10px;color:#9A9890;text-align:right;}
+.cust-btn-row{display:flex;gap:5px;}
+.cust-btn{padding:4px 10px;border-radius:5px;font-size:11px;border:1px solid;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.cb-teal{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}.cb-teal:hover{background:#C8EEE0;}
+.cb-blue{background:#EAF4FB;border-color:#85B7EB;color:#185FA5;}.cb-blue:hover{background:#D5EBF9;}
+.cb-gray{background:#F1EFE8;border-color:#D5D3CB;color:#5A5955;}.cb-gray:hover{background:#E8E7E0;}
+
+/* ── Detail 側邊抽屜 ── */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:150;display:none;}
+.drawer-overlay.show{display:block;}
+.drawer{position:fixed;right:0;top:0;bottom:0;width:520px;max-width:95vw;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.14);z-index:151;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s;}
+.drawer.show{transform:translateX(0);}
+.drawer-hdr{padding:16px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.drawer-title{font-size:15px;font-weight:700;}
+.drawer-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;padding:2px 6px;}
+.drawer-tabs{display:flex;border-bottom:1px solid #EEECE6;flex-shrink:0;}
+.drawer-tab{padding:9px 16px;font-size:12px;cursor:pointer;color:#7A7A78;border-bottom:2px solid transparent;transition:all .15s;font-family:'Noto Sans TC',sans-serif;}
+.drawer-tab.active{color:#0F6E56;border-bottom-color:#0F6E56;font-weight:600;}
+.drawer-body{flex:1;overflow-y:auto;padding:16px 20px;}
+.drawer-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;gap:8px;flex-shrink:0;}
+.drawer-section{margin-bottom:18px;}
+.ds-title{font-size:10.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#9A9890;margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+.ds-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.info-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.info-item{background:#F8F7F4;border:1px solid #EEECE6;border-radius:7px;padding:9px 11px;}
+.info-item.warn{background:#FDECEA;border-color:#F5AEAD;}
+.info-item.amber{background:#FDF3E3;border-color:#F0C97E;}
+.info-item.ok{background:#E1F5EE;border-color:#A8DFC9;}
+.ii-label{font-size:10px;color:#9A9890;margin-bottom:3px;}
+.ii-val{font-size:12.5px;font-weight:600;color:#2C2C2A;}
+.ii-val.warn{color:#C8001A;}.ii-val.amber{color:#D4820A;}.ii-val.ok{color:#0F6E56;}
+
+/* RO 歷史 */
+.ro-list{display:flex;flex-direction:column;gap:6px;}
+.ro-item{background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:10px 12px;}
+.ro-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+.ro-no{font-family:'DM Mono',monospace;font-size:11.5px;font-weight:600;color:#1A3A5C;}
+.ro-date{font-size:10.5px;color:#9A9890;}
+.ro-amount{font-size:12.5px;font-weight:700;color:#2C2C2A;}
+.ro-items{font-size:11.5px;color:#5A5955;line-height:1.5;}
+.ro-tags{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;}
+.ro-tag{font-size:10px;padding:1px 6px;border-radius:4px;background:#EAF4FB;color:#185FA5;}
+
+/* 共享客戶標籤區塊 */
+.shared-info-box{background:#F8F7F4;border:1px solid #D5D3CB;border-radius:8px;padding:10px 13px;margin-bottom:12px;}
+.sib-title{font-size:10.5px;color:#9A9890;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.sib-lock{font-size:10px;padding:1px 5px;border-radius:4px;background:#EEECE6;color:#9A9890;}
+.sib-tags{display:flex;gap:5px;flex-wrap:wrap;}
+
+/* 篩選條件設定 Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:560px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;line-height:1;padding:2px 6px;}
+.modal-body{padding:20px;max-height:65vh;overflow-y:auto;}
+.modal-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+.form-row{margin-bottom:13px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:5px;display:flex;align-items:center;gap:5px;}
+.form-req{color:#C8001A;}
+.form-input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;transition:border .15s;background:#fff;}
+.form-input:focus{border-color:#5DCAA5;}
+.form-select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.form-hint{font-size:11px;color:#9A9890;margin-top:3px;}
+.two-col-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#0F6E56;border-color:#0F6E56;color:#fff;}.btn-primary:hover{background:#0C5A46;}
+.btn-navy{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}.btn-navy:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+.btn-danger{background:#FDECEA;border-color:#F5AEAD;color:#C8001A;}.btn-danger:hover{background:#F9D7D6;}
+
+/* 已存篩選條件管理列表 */
+.preset-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;}
+.preset-row{display:flex;align-items:center;gap:10px;background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:10px 12px;}
+.preset-row-icon{font-size:16px;flex-shrink:0;}
+.preset-row-info{flex:1;min-width:0;}
+.preset-row-name{font-size:12.5px;font-weight:600;color:#2C2C2A;margin-bottom:2px;}
+.preset-row-desc{font-size:11px;color:#7A7A78;}
+.preset-row-actions{display:flex;gap:5px;flex-shrink:0;}
+
+/* 新增篩選條件表單 */
+.new-preset-form{background:#EAF4FB;border:1px solid #85B7EB;border-radius:9px;padding:14px;}
+.nf-title{font-size:12px;font-weight:600;color:#185FA5;margin-bottom:12px;}
+.condition-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.condition-select{padding:6px 9px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;background:#fff;color:#2C2C2A;outline:none;flex:1;}
+.condition-input{padding:6px 9px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;background:#fff;color:#2C2C2A;outline:none;flex:1;}
+.add-condition-btn{padding:5px 11px;border-radius:5px;font-size:11.5px;border:1px dashed #85B7EB;background:transparent;color:#185FA5;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .12s;}
+.add-condition-btn:hover{background:#EAF4FB;}
+
+/* 客戶來源 badge */
+.source-badge{font-size:9.5px;padding:1px 6px;border-radius:4px;font-weight:500;}
+.sb-rs05{background:#E1F5EE;color:#0F6E56;}
+.sb-walk{background:#EAF4FB;color:#185FA5;}
+.sb-sa{background:#F4F3F0;color:#5A5955;}
+
+/* Toast */
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+
+.divider{height:1px;background:#EEECE6;margin:10px 0;}
+.mb12{margin-bottom:12px;}
+.result-count{margin-left:auto;font-size:11px;color:#9A9890;}
+</style>
+</head>
+<body>
+
+<!-- ── 頁首快速導航 ── -->
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;">
+  <button onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">← CRM 導覽</button>
+  <button onclick="go('CRM03B_售後電訪工作台_v1.html')" style="padding:5px 14px;background:#0F6E56;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">CRM03B 電訪工作台 →</button>
+</div>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">售後 CRM <b>CRM01B 售後客戶基盤</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="sa-badge">SA 售後專用</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')">← CRM 導覽</button>
+    <button class="hbtn" onclick="go('CRM03B_售後電訪工作台_v1.html')">📞 電訪工作台</button>
+    <button class="hbtn hbtn-red" onclick="openModal('modal-new')">＋ 新增客戶</button>
+  </div>
+</header>
+
+<!-- ── Sub Bar ── -->
+<div class="sub-bar">
+  <div class="search-box">
+    <input type="text" id="search-input" placeholder="搜尋姓名 / 電話 / 車牌 / VIN..." oninput="filterCustomers()">
+    <button onclick="filterCustomers()">🔍</button>
+  </div>
+  <select class="filter-select" id="filter-sa" onchange="filterCustomers()">
+    <option value="all">全體 SA</option>
+    <option value="許明志">許明志</option>
+    <option value="林雅婷">林雅婷</option>
+    <option value="陳建宏">陳建宏</option>
+  </select>
+  <select class="filter-select" id="filter-status" onchange="filterCustomers()">
+    <option value="all">所有回廠狀態</option>
+    <option value="warn">🔴 逾期未回廠</option>
+    <option value="amber">🟡 即將到期</option>
+    <option value="ok">🟢 正常</option>
+    <option value="blue">🔵 新客戶</option>
+  </select>
+  <select class="filter-select" id="filter-source" onchange="filterCustomers()">
+    <option value="all">所有來源</option>
+    <option value="RS05">RS05 交車同步</option>
+    <option value="walk">自行進廠</option>
+    <option value="sa">SA 自建</option>
+  </select>
+  <div class="sub-divider"></div>
+  <span class="result-count" id="result-count">共 9 筆</span>
+</div>
+
+<!-- ── 智慧篩選條件列 ── -->
+<div class="preset-bar">
+  <span class="preset-label">快篩：</span>
+  <button class="preset-btn" id="preset-all" onclick="applyPreset('all',this)">全部客戶</button>
+  <button class="preset-btn urgent-preset" id="preset-overdue" onclick="applyPreset('overdue',this)">🔴 逾期未回廠</button>
+  <button class="preset-btn" id="preset-soon" onclick="applyPreset('soon',this)">⏰ 30天內到期保養</button>
+  <button class="preset-btn" id="preset-warranty" onclick="applyPreset('warranty',this)">🛡️ 保固即將到期</button>
+  <button class="preset-btn" id="preset-desmo" onclick="applyPreset('desmo',this)">⚙️ Desmo 到期提醒</button>
+  <button class="preset-btn" id="preset-highval" onclick="applyPreset('highval',this)">💰 高消費客戶</button>
+  <button class="preset-btn" id="preset-rs05" onclick="applyPreset('rs05',this)">🔗 RS05 交車同步</button>
+  <button class="preset-manage" onclick="openModal('modal-preset')">⚙️ 管理篩選條件</button>
+</div>
+
+<!-- ── Layout ── -->
+<div class="layout">
+
+  <!-- ── Sidenav ── -->
+  <div class="sidenav">
+    <div class="nav-section">
+      <div class="nav-label">回廠狀態</div>
+      <div class="nav-item active" id="nav-all" onclick="setNav('all',this)">
+        <div class="nav-left"><div class="nav-dot nd-all"></div>全部客戶</div>
+        <div class="nav-count" id="cnt-all">9</div>
+      </div>
+      <div class="nav-item" id="nav-warn" onclick="setNav('warn',this)">
+        <div class="nav-left"><div class="nav-dot nd-warn"></div>逾期未回廠</div>
+        <div class="nav-count" id="cnt-warn" style="background:#FDECEA;color:#C8001A;">3</div>
+      </div>
+      <div class="nav-item" id="nav-amber" onclick="setNav('amber',this)">
+        <div class="nav-left"><div class="nav-dot nd-amber"></div>即將到期</div>
+        <div class="nav-count" id="cnt-amber" style="background:#FDF3E3;color:#D4820A;">2</div>
+      </div>
+      <div class="nav-item" id="nav-ok" onclick="setNav('ok',this)">
+        <div class="nav-left"><div class="nav-dot nd-new"></div>正常</div>
+        <div class="nav-count" id="cnt-ok">3</div>
+      </div>
+      <div class="nav-item" id="nav-blue" onclick="setNav('blue',this)">
+        <div class="nav-left"><div class="nav-dot nd-blue"></div>新客戶</div>
+        <div class="nav-count" id="cnt-blue" style="background:#EAF4FB;color:#185FA5;">1</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">保固 / 保險</div>
+      <div class="nav-item" onclick="applyPreset('warranty',document.getElementById('preset-warranty'))">
+        <div class="nav-left"><div class="nav-dot nd-warn"></div>保固即將到期</div>
+        <div class="nav-count">2</div>
+      </div>
+      <div class="nav-item" onclick="applyPreset('desmo',document.getElementById('preset-desmo'))">
+        <div class="nav-left"><div class="nav-dot nd-amber"></div>Desmo 到期提醒</div>
+        <div class="nav-count">2</div>
+      </div>
+      <div class="nav-item" onclick="showToast('篩選：強制險 30 天內到期')">
+        <div class="nav-left"><div class="nav-dot nd-blue"></div>強制險即將到期</div>
+        <div class="nav-count">1</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">快速工具</div>
+      <div class="nav-item" onclick="go('CRM03B_售後電訪工作台_v1.html')">
+        <div class="nav-left"><div class="nav-dot" style="background:#534AB7;"></div>售後電訪工作台</div>
+      </div>
+      <div class="nav-item" onclick="showToast('→ 跳轉 SA 售後工單系統')">
+        <div class="nav-left"><div class="nav-dot nd-new"></div>售後工單系統</div>
+      </div>
+      <div class="nav-item" onclick="showToast('→ 跳轉 CRM05B NPS 看板')">
+        <div class="nav-left"><div class="nav-dot nd-blue"></div>NPS 滿意度看板</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main ── -->
+  <div class="main">
+
+    <!-- 統計列 -->
+    <div class="stat-row mb12">
+      <div class="stat-card total">
+        <div class="stat-label">售後客戶總數</div>
+        <div class="stat-n sn-total">9</div>
+        <div class="stat-sub">本月新增 2 位</div>
+      </div>
+      <div class="stat-card sa-warn">
+        <div class="stat-label">逾期未回廠</div>
+        <div class="stat-n sn-warn">3</div>
+        <div class="stat-sub">需立即聯繫</div>
+      </div>
+      <div class="stat-card sa-amber">
+        <div class="stat-label">30天內到期保養</div>
+        <div class="stat-n sn-amber">2</div>
+        <div class="stat-sub">建議主動提醒</div>
+      </div>
+      <div class="stat-card sa-new">
+        <div class="stat-label">本月進廠台次</div>
+        <div class="stat-n sn-new">11</div>
+        <div class="stat-sub">平均消費 NT$8,240</div>
+      </div>
+      <div class="stat-card sa-blue">
+        <div class="stat-label">RS05 交車同步</div>
+        <div class="stat-n sn-blue">5</div>
+        <div class="stat-sub">已完成 D+3 回訪 4 件</div>
+      </div>
+    </div>
+
+    <!-- 客戶列表 -->
+    <div class="cust-list" id="cust-list-body"></div>
+
+  </div>
+</div>
+
+<!-- ── 客戶詳情抽屜 ── -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="detail-drawer">
+  <div class="drawer-hdr">
+    <div class="drawer-title" id="drawer-cust-name">客戶詳情</div>
+    <button class="drawer-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-tabs">
+    <div class="drawer-tab active" onclick="switchTab('tab-info',this)">📋 基本資料</div>
+    <div class="drawer-tab" onclick="switchTab('tab-vehicle',this)">🏍️ 車輛 &amp; 保固</div>
+    <div class="drawer-tab" onclick="switchTab('tab-ro',this)">🔧 工單歷史</div>
+    <div class="drawer-tab" onclick="switchTab('tab-crm',this)">📞 CRM 記錄</div>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+  <div class="drawer-footer">
+    <button class="btn btn-ghost btn-sm" onclick="closeDrawer()">關閉</button>
+    <button class="btn btn-ghost btn-sm" onclick="showToast('→ 跳轉 SA 售後工單：建立新 RO')">📝 新開工單</button>
+    <button class="btn btn-primary btn-sm" onclick="go('CRM03B_售後電訪工作台_v1.html')">📞 安排電訪</button>
+    <button class="btn btn-navy btn-sm" onclick="showToast('✅ 已儲存備忘更新')">儲存</button>
+  </div>
+</div>
+
+<!-- ── Modal：新增客戶 ── -->
+<div class="overlay" id="modal-new" onclick="closeModalOverlay(event,'modal-new')">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">＋ 新增售後客戶</div>
+      <button class="modal-close" onclick="closeModal('modal-new')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#E1F5EE;border:1px solid #A8DFC9;border-radius:8px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:#0F6E56;">
+        💡 若客戶已由 <b>RS05 交車管理</b>同步，系統會自動建檔，無需重複新增。請先以電話搜尋確認。
+      </div>
+      <div class="two-col-form">
+        <div class="form-row">
+          <div class="form-label">客戶姓名 <span class="form-req">*</span></div>
+          <input type="text" class="form-input" placeholder="例：陳大明">
+        </div>
+        <div class="form-row">
+          <div class="form-label">聯絡電話 <span class="form-req">*</span></div>
+          <input type="tel" class="form-input" placeholder="0912-345-678">
+        </div>
+        <div class="form-row">
+          <div class="form-label">車牌號碼 <span class="form-req">*</span></div>
+          <input type="text" class="form-input" placeholder="例：ABC-1234">
+        </div>
+        <div class="form-row">
+          <div class="form-label">車款</div>
+          <select class="form-select">
+            <option value="">— 請選擇 —</option>
+            <option>Panigale V4 S</option>
+            <option>Streetfighter V4</option>
+            <option>Monster SP</option>
+            <option>Multistrada V4 S</option>
+            <option>Diavel V4</option>
+            <option>Scrambler Icon</option>
+            <option>SuperSport S</option>
+            <option>Hypermotard 698</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">VIN 車身號碼</div>
+          <input type="text" class="form-input" placeholder="ZDM...（17碼）" style="font-family:'DM Mono',monospace;">
+        </div>
+        <div class="form-row">
+          <div class="form-label">出廠年份</div>
+          <select class="form-select">
+            <option>2025</option><option>2024</option><option>2023</option><option>2022</option><option>2021</option><option>2020</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">目前里程（km）</div>
+          <input type="number" class="form-input" placeholder="例：12500">
+        </div>
+        <div class="form-row">
+          <div class="form-label">保養週期</div>
+          <select class="form-select">
+            <option>每 10,000 km</option>
+            <option>每 15,000 km</option>
+            <option>每年一次</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">保固到期日</div>
+          <input type="date" class="form-input">
+        </div>
+        <div class="form-row">
+          <div class="form-label">強制險到期日</div>
+          <input type="date" class="form-input">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">客戶來源</div>
+        <select class="form-select">
+          <option value="walk">自行進廠</option>
+          <option value="RS05">RS05 交車同步</option>
+          <option value="sa">SA 自建</option>
+          <option value="referral">客戶介紹</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-label">負責 SA</div>
+        <select class="form-select">
+          <option>許明志</option><option>林雅婷</option><option>陳建宏</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-label">備忘</div>
+        <textarea class="form-input" rows="2" placeholder="例：喜歡預約第一個時段、對噪音敏感..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new')">取消</button>
+      <button class="btn btn-primary" onclick="showToast('✅ 客戶已建檔！');closeModal('modal-new')">建立客戶資料</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal：管理篩選條件 ── -->
+<div class="overlay" id="modal-preset" onclick="closeModalOverlay(event,'modal-preset')">
+  <div class="modal" style="width:600px;">
+    <div class="modal-hdr">
+      <div class="modal-title">⚙️ 管理快篩條件</div>
+      <button class="modal-close" onclick="closeModal('modal-preset')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#5A5955;margin-bottom:14px;">快篩條件由 SA 自由設定，儲存後顯示於篩選列。以下為目前條件清單：</div>
+
+      <!-- 已存條件 -->
+      <div class="preset-list">
+        <div class="preset-row">
+          <div class="preset-row-icon">🔴</div>
+          <div class="preset-row-info">
+            <div class="preset-row-name">逾期未回廠</div>
+            <div class="preset-row-desc">下次建議回廠日 已超過今天 ＋ 回廠狀態 = 逾期</div>
+          </div>
+          <div class="preset-row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showToast('🔒 系統預設條件，不可刪除')">預設</button>
+          </div>
+        </div>
+        <div class="preset-row">
+          <div class="preset-row-icon">⏰</div>
+          <div class="preset-row-info">
+            <div class="preset-row-name">30天內到期保養</div>
+            <div class="preset-row-desc">下次建議回廠日 ≤ 今天 +30 天</div>
+          </div>
+          <div class="preset-row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showToast('編輯「30天內到期保養」條件')">編輯</button>
+            <button class="btn btn-danger btn-sm" onclick="showToast('已刪除「30天內到期保養」')">刪除</button>
+          </div>
+        </div>
+        <div class="preset-row">
+          <div class="preset-row-icon">🛡️</div>
+          <div class="preset-row-info">
+            <div class="preset-row-name">保固即將到期</div>
+            <div class="preset-row-desc">新車保固到期日 ≤ 今天 +60 天</div>
+          </div>
+          <div class="preset-row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showToast('編輯「保固即將到期」條件')">編輯</button>
+            <button class="btn btn-danger btn-sm" onclick="showToast('已刪除「保固即將到期」')">刪除</button>
+          </div>
+        </div>
+        <div class="preset-row">
+          <div class="preset-row-icon">⚙️</div>
+          <div class="preset-row-info">
+            <div class="preset-row-name">Desmo 到期提醒</div>
+            <div class="preset-row-desc">Desmo Service 到期日 ≤ 今天 +45 天</div>
+          </div>
+          <div class="preset-row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showToast('編輯「Desmo 到期提醒」條件')">編輯</button>
+            <button class="btn btn-danger btn-sm" onclick="showToast('已刪除「Desmo 到期提醒」')">刪除</button>
+          </div>
+        </div>
+        <div class="preset-row">
+          <div class="preset-row-icon">💰</div>
+          <div class="preset-row-info">
+            <div class="preset-row-name">高消費客戶</div>
+            <div class="preset-row-desc">歷史消費總額 ≥ NT$30,000</div>
+          </div>
+          <div class="preset-row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showToast('編輯「高消費客戶」條件')">編輯</button>
+            <button class="btn btn-danger btn-sm" onclick="showToast('已刪除「高消費客戶」')">刪除</button>
+          </div>
+        </div>
+        <div class="preset-row">
+          <div class="preset-row-icon">🔗</div>
+          <div class="preset-row-info">
+            <div class="preset-row-name">RS05 交車同步</div>
+            <div class="preset-row-desc">客戶來源 = RS05 交車同步</div>
+          </div>
+          <div class="preset-row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showToast('🔒 系統預設條件，不可刪除')">預設</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 新增條件表單 -->
+      <div class="new-preset-form">
+        <div class="nf-title">＋ 新增自訂篩選條件</div>
+        <div class="form-row">
+          <div class="form-label">條件名稱 <span class="form-req">*</span></div>
+          <input type="text" class="form-input" id="new-preset-name" placeholder="例：半年未進廠的高里程客戶">
+        </div>
+        <div class="form-label" style="margin-bottom:8px;">篩選邏輯（可多條件組合）</div>
+        <div id="condition-rows">
+          <div class="condition-row">
+            <select class="condition-select">
+              <option>下次回廠日</option>
+              <option>上次進廠日</option>
+              <option>目前里程</option>
+              <option>歷史消費總額</option>
+              <option>保固到期日</option>
+              <option>Desmo 到期日</option>
+              <option>強制險到期日</option>
+              <option>NPS 分數</option>
+              <option>客戶來源</option>
+              <option>負責 SA</option>
+            </select>
+            <select class="condition-select" style="max-width:110px;">
+              <option>≤ 今天 +</option>
+              <option>≥ 今天 +</option>
+              <option>已超過今天</option>
+              <option>等於</option>
+            </select>
+            <input type="text" class="condition-input" placeholder="天數 / 數值" style="max-width:100px;">
+          </div>
+        </div>
+        <button class="add-condition-btn" onclick="addConditionRow()">＋ 新增條件</button>
+        <div class="form-hint" style="margin-top:8px;">多條件預設為「AND」邏輯（同時符合才顯示）</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-preset')">關閉</button>
+      <button class="btn btn-primary" onclick="saveNewPreset()">儲存新條件</button>
+    </div>
+  </div>
+</div>
+
+<div id="_sys_toast_"></div>
+
+<script>
+// ── 樣本資料 ──
+const customers = [
+  {
+    id:1, name:'陳志豪', phone:'0912-345-678', plate:'ABC-1234',
+    bike:'Panigale V4 S', year:2023, mileage:18500, sa:'許明志',
+    source:'RS05', status:'warn', nps:72,
+    lastVisit:'2025-10-15', nextVisit:'2026-03-15', overdueDays:57,
+    warrantyEnd:'2026-05-30', desmoEnd:'2026-08-01',
+    insurance:'2026-09-15', totalSpend:68500,
+    tags:[{c:'ctag-red',t:'⚠️ 高里程'},{c:'ctag-green',t:'✅ Desmo 完成'}],
+    sharedTags:[{c:'ctag-blue',t:'🔵 VIP客戶'}],
+    note:'偏好週六上午預約，對維修時間敏感',
+    ros:[
+      {no:'RO-2025-0892',date:'2025-10-15',amount:'NT$12,800',items:'大保養、前輪輪胎更換、剎車皮更換',tags:['大保養','輪胎']},
+      {no:'RO-2025-0654',date:'2025-07-08',amount:'NT$4,500',items:'機油更換、空濾、火星塞',tags:['定期保養']},
+      {no:'RO-2025-0312',date:'2025-03-22',amount:'NT$28,000',items:'Desmo Service 皮帶更換',tags:['Desmo','皮帶']},
+    ],
+    crm:[
+      {type:'D+3',date:'2026-02-12',result:'滿意，NPS 9分',sa:'林雅婷'},
+      {type:'保固提醒',date:'2026-04-20',result:'已排定 5/28 進廠確認',sa:'許明志'},
+    ]
+  },
+  {
+    id:2, name:'林美珍', phone:'0922-111-222', plate:'XYZ-5678',
+    bike:'Multistrada V4 S', year:2024, mileage:9200, sa:'林雅婷',
+    source:'RS05', status:'ok', nps:85,
+    lastVisit:'2026-03-20', nextVisit:'2026-09-20', overdueDays:0,
+    warrantyEnd:'2027-01-15', desmoEnd:'2028-03-20',
+    insurance:'2026-11-30', totalSpend:32400,
+    tags:[{c:'ctag-green',t:'✅ 正常追蹤'},{c:'ctag-blue',t:'🔵 ADV偏好'}],
+    sharedTags:[{c:'ctag-yellow',t:'🟡 試過V4'}],
+    note:'長途旅行愛好者，對胎壓監控很在意',
+    ros:[
+      {no:'RO-2026-0312',date:'2026-03-20',amount:'NT$7,200',items:'第一次 10,000km 保養、鏈條調整',tags:['定期保養']},
+      {no:'RO-2025-0980',date:'2025-11-05',amount:'NT$3,800',items:'機油更換、空濾',tags:['定期保養']},
+    ],
+    crm:[
+      {type:'D+3',date:'2025-08-28',result:'非常滿意，NPS 10分',sa:'林雅婷'},
+    ]
+  },
+  {
+    id:3, name:'張偉強', phone:'0933-987-654', plate:'DEF-9012',
+    bike:'Monster SP', year:2022, mileage:26800, sa:'陳建宏',
+    source:'walk', status:'warn', nps:60,
+    lastVisit:'2025-09-10', nextVisit:'2026-01-10', overdueDays:121,
+    warrantyEnd:'2025-12-31', desmoEnd:'2026-06-10',
+    insurance:'2026-08-20', totalSpend:95200,
+    tags:[{c:'ctag-red',t:'⚠️ 逾期未回廠'},{c:'ctag-red',t:'⚠️ 保固已過期'}],
+    sharedTags:[],
+    note:'曾反映等待時間過長，需優先處理',
+    ros:[
+      {no:'RO-2025-0789',date:'2025-09-10',amount:'NT$15,600',items:'大保養、避震器調整、前後輪胎',tags:['大保養','輪胎']},
+      {no:'RO-2025-0501',date:'2025-05-18',amount:'NT$6,200',items:'機油、空濾、剎車液',tags:['定期保養']},
+      {no:'RO-2024-0987',date:'2024-11-25',amount:'NT$35,000',items:'Desmo Service、燃油系統清洗',tags:['Desmo','燃油']},
+    ],
+    crm:[
+      {type:'逾期提醒',date:'2026-02-15',result:'無接通，留言未回',sa:'陳建宏'},
+      {type:'逾期提醒',date:'2026-03-01',result:'接通，表示近期較忙',sa:'陳建宏'},
+    ]
+  },
+  {
+    id:4, name:'王淑芬', phone:'0966-456-789', plate:'GHI-3456',
+    bike:'Scrambler Icon', year:2023, mileage:11200, sa:'許明志',
+    source:'RS05', status:'amber', nps:78,
+    lastVisit:'2025-12-05', nextVisit:'2026-06-05', overdueDays:0,
+    warrantyEnd:'2026-12-05', desmoEnd:null,
+    insurance:'2026-07-10', totalSpend:18900,
+    tags:[{c:'ctag-amber',t:'⏰ 保養即將到期'},{c:'ctag-green',t:'✅ 好溝通'}],
+    sharedTags:[{c:'ctag-yellow',t:'🟡 騎士節出席'}],
+    note:'',
+    ros:[
+      {no:'RO-2025-1102',date:'2025-12-05',amount:'NT$5,400',items:'機油更換、空濾、鏈條油',tags:['定期保養']},
+      {no:'RO-2025-0811',date:'2025-08-22',amount:'NT$3,200',items:'機油更換',tags:['定期保養']},
+    ],
+    crm:[
+      {type:'D+3',date:'2025-07-18',result:'滿意，推薦朋友詢問',sa:'許明志'},
+    ]
+  },
+  {
+    id:5, name:'黃俊傑', phone:'0977-234-567', plate:'JKL-7890',
+    bike:'Streetfighter V4', year:2024, mileage:5800, sa:'林雅婷',
+    source:'RS05', status:'blue', nps:null,
+    lastVisit:'2026-04-10', nextVisit:'2026-10-10', overdueDays:0,
+    warrantyEnd:'2027-03-25', desmoEnd:'2028-04-10',
+    insurance:'2026-12-15', totalSpend:7200,
+    tags:[{c:'ctag-blue',t:'🔵 新交車'}],
+    sharedTags:[{c:'ctag-yellow',t:'🟡 Panigale 意向'}],
+    note:'交車 D+3 電訪待安排',
+    ros:[
+      {no:'RO-2026-0410',date:'2026-04-10',amount:'NT$7,200',items:'PDI 整備出廠（PD-IN 內部工單）',tags:['PDI','新車整備']},
+    ],
+    crm:[]
+  },
+  {
+    id:6, name:'蔡雅玲', phone:'0988-111-333', plate:'MNO-2468',
+    bike:'Diavel V4', year:2022, mileage:31500, sa:'陳建宏',
+    source:'walk', status:'warn', nps:55,
+    lastVisit:'2025-08-30', nextVisit:'2025-12-30', overdueDays:133,
+    warrantyEnd:'2025-06-30', desmoEnd:'2026-05-15',
+    insurance:'2026-06-28', totalSpend:128500,
+    tags:[{c:'ctag-red',t:'⚠️ 嚴重逾期'},{c:'ctag-red',t:'⚠️ 保固已過期'},{c:'ctag-amber',t:'⏰ Desmo 到期中'}],
+    sharedTags:[],
+    note:'歷史消費最高，但半年多未回廠，需主管介入聯繫',
+    ros:[
+      {no:'RO-2025-0712',date:'2025-08-30',amount:'NT$22,000',items:'Desmo Service、換輪胎 x2、煞車皮',tags:['Desmo','輪胎']},
+      {no:'RO-2025-0388',date:'2025-04-12',amount:'NT$8,500',items:'大保養、懸吊調整',tags:['大保養']},
+      {no:'RO-2024-1200',date:'2024-12-20',amount:'NT$42,000',items:'碳纖維套件安裝、貼膜',tags:['改裝','貼膜']},
+    ],
+    crm:[
+      {type:'逾期提醒',date:'2026-01-10',result:'無接通 x3',sa:'陳建宏'},
+      {type:'主管介入',date:'2026-03-05',result:'進行中',sa:'店長'},
+    ]
+  },
+  {
+    id:7, name:'許文龍', phone:'0911-654-321', plate:'PQR-1357',
+    bike:'SuperSport S', year:2023, mileage:14800, sa:'許明志',
+    source:'walk', status:'ok', nps:90,
+    lastVisit:'2026-03-01', nextVisit:'2026-09-01', overdueDays:0,
+    warrantyEnd:'2026-11-20', desmoEnd:'2027-03-01',
+    insurance:'2026-10-05', totalSpend:51300,
+    tags:[{c:'ctag-green',t:'✅ 準時回廠'},{c:'ctag-blue',t:'🔵 Track Day 常客'}],
+    sharedTags:[{c:'ctag-blue',t:'🔵 VIP客戶'}],
+    note:'DRE 學員，對車況非常講究',
+    ros:[
+      {no:'RO-2026-0301',date:'2026-03-01',amount:'NT$9,800',items:'大保養、賽道版剎車皮、煞車液更換',tags:['大保養','賽道']},
+      {no:'RO-2025-0900',date:'2025-09-18',amount:'NT$12,500',items:'輪胎更換（前後）、輪圈清洗',tags:['輪胎']},
+    ],
+    crm:[
+      {type:'D+3',date:'2025-07-05',result:'NPS 10分，推薦指數極高',sa:'許明志'},
+    ]
+  },
+  {
+    id:8, name:'陳怡君', phone:'0955-888-999', plate:'STU-8024',
+    bike:'Hypermotard 698', year:2025, mileage:3200, sa:'林雅婷',
+    source:'RS05', status:'ok', nps:88,
+    lastVisit:'2026-04-25', nextVisit:'2026-10-25', overdueDays:0,
+    warrantyEnd:'2028-02-10', desmoEnd:'2028-04-25',
+    insurance:'2026-11-18', totalSpend:5800,
+    tags:[{c:'ctag-blue',t:'🔵 新客戶'},{c:'ctag-green',t:'✅ 非常積極'}],
+    sharedTags:[{c:'ctag-yellow',t:'🟡 女騎士社群'}],
+    note:'',
+    ros:[
+      {no:'RO-2026-0425',date:'2026-04-25',amount:'NT$5,800',items:'2,000km 初次保養、鏈條潤滑',tags:['定期保養']},
+    ],
+    crm:[
+      {type:'D+3',date:'2026-03-15',result:'NPS 9分，很滿意交車體驗',sa:'林雅婷'},
+    ]
+  },
+  {
+    id:9, name:'葉建國', phone:'0944-777-666', plate:'VWX-6802',
+    bike:'Panigale V4 S', year:2021, mileage:38900, sa:'陳建宏',
+    source:'walk', status:'amber', nps:70,
+    lastVisit:'2026-02-14', nextVisit:'2026-06-14', overdueDays:0,
+    warrantyEnd:'2024-11-30', desmoEnd:'2026-05-20',
+    insurance:'2026-07-22', totalSpend:183000,
+    tags:[{c:'ctag-amber',t:'⏰ Desmo 10天後到期'},{c:'ctag-red',t:'⚠️ 保固已過期'},{c:'ctag-blue',t:'🔵 高里程'}],
+    sharedTags:[],
+    note:'Desmo 皮帶更換緊急，需本週內聯繫',
+    ros:[
+      {no:'RO-2026-0214',date:'2026-02-14',amount:'NT$11,200',items:'大保養、前叉油更換',tags:['大保養']},
+      {no:'RO-2025-0850',date:'2025-10-08',amount:'NT$38,500',items:'Desmo Service 皮帶更換、離合器片',tags:['Desmo']},
+    ],
+    crm:[
+      {type:'Desmo提醒',date:'2026-05-01',result:'已通知，表示本週安排',sa:'陳建宏'},
+    ]
+  },
+];
+
+// ── 渲染 ──
+let currentNav = 'all', currentPreset = null;
+
+function statusConfig(s){
+  const m = {
+    warn:{icon:'🔴',cls:'sc-warn',cardCls:'status-warn',badge:'rb-overdue',text:'逾期未回廠'},
+    amber:{icon:'🟡',cls:'sc-amber',cardCls:'status-amber',badge:'rb-soon',text:'即將到期'},
+    ok:{icon:'🟢',cls:'sc-ok',cardCls:'status-ok',badge:'rb-ok',text:'正常追蹤'},
+    blue:{icon:'🔵',cls:'sc-blue',cardCls:'status-blue',badge:'rb-new',text:'新客戶'},
+  };
+  return m[s] || m.ok;
+}
+
+function renderList(data){
+  const body = document.getElementById('cust-list-body');
+  if(!data.length){body.innerHTML='<div style="text-align:center;padding:40px;color:#9A9890;">沒有符合條件的客戶</div>';return;}
+  document.getElementById('result-count').textContent = '共 '+data.length+' 筆';
+  body.innerHTML = data.map(c=>{
+    const sc = statusConfig(c.status);
+    const daysLabel = c.status==='warn'
+      ? `逾期\n${c.overdueDays}天`
+      : c.status==='amber' ? '即將\n到期'
+      : c.status==='blue' ? '新客\n建立' : '正常';
+    const sourceBadge = c.source==='RS05'
+      ? '<span class="source-badge sb-rs05">RS05 同步</span>'
+      : c.source==='walk' ? '<span class="source-badge sb-walk">自行進廠</span>'
+      : '<span class="source-badge sb-sa">SA 建立</span>';
+    const desmoInfo = c.desmoEnd
+      ? `<span class="cust-info-item">⚙️ Desmo <b>${c.desmoEnd}</b></span>`
+      : '';
+    const overdueBadge = c.status==='warn'
+      ? `<span class="ctag ctag-red">逾期 ${c.overdueDays} 天</span>` : '';
+
+    return `<div class="cust-card ${sc.cardCls}" onclick="openDrawer(${c.id})">
+      <div class="cust-status-icon">
+        <div class="status-circle ${sc.cls}" style="font-size:18px;">${sc.icon}</div>
+        <div class="days-label">${daysLabel}</div>
+      </div>
+      <div class="cust-main">
+        <div class="cust-top">
+          <span class="cust-name">${c.name}</span>
+          <span class="cust-phone">${c.phone}</span>
+          <span class="shared-badge">🔗 共享 ID</span>
+          ${sourceBadge}
+          ${overdueBadge}
+        </div>
+        <div class="cust-tags">${c.tags.map(t=>`<span class="ctag ${t.c}">${t.t}</span>`).join('')}</div>
+        <div class="cust-mid">
+          <span class="cust-info-item">🏍️ <b>${c.bike}</b> ${c.year}</span>
+          <span class="cust-info-item">🔢 <b>${c.mileage.toLocaleString()} km</b></span>
+          <span class="cust-info-item">📅 下次回廠 <b class="${c.status==='warn'?'info-warn':c.status==='amber'?'info-amber':''}">${c.nextVisit}</b></span>
+          <span class="cust-info-item">💰 累計 <b>NT$${c.totalSpend.toLocaleString()}</b></span>
+          <span class="cust-info-item">🛡️ 保固 <b>${c.warrantyEnd}</b></span>
+          ${desmoInfo}
+          <span class="cust-info-item">👤 SA <b>${c.sa}</b></span>
+          ${c.nps!==null?`<span class="cust-info-item">⭐ NPS <b>${c.nps}</b></span>`:''}
+        </div>
+        ${c.note?`<div class="cust-note">📝 ${c.note}</div>`:''}
+      </div>
+      <div class="cust-actions">
+        <div>
+          <div class="return-badge ${sc.badge}">${sc.text}</div>
+          <div class="next-return" style="margin-top:4px;">下次：${c.nextVisit}</div>
+        </div>
+        <div class="cust-btn-row">
+          <button class="cust-btn cb-teal" onclick="event.stopPropagation();showToast('→ 安排電訪：'+${JSON.stringify(c.name)})">📞 電訪</button>
+          <button class="cust-btn cb-blue" onclick="event.stopPropagation();showToast('→ 新開工單：RO 給 '+${JSON.stringify(c.name)})">🔧 工單</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function getFiltered(){
+  let data = [...customers];
+  const nav = currentNav;
+  if(nav!=='all') data = data.filter(c=>c.status===nav);
+
+  const q = document.getElementById('search-input').value.toLowerCase();
+  if(q) data = data.filter(c=>
+    c.name.includes(q)||c.phone.includes(q)||c.plate.toLowerCase().includes(q)||c.bike.includes(q)
+  );
+  const sa = document.getElementById('filter-sa').value;
+  if(sa!=='all') data = data.filter(c=>c.sa===sa);
+  const st = document.getElementById('filter-status').value;
+  if(st!=='all') data = data.filter(c=>c.status===st);
+  const src = document.getElementById('filter-source').value;
+  if(src!=='all') data = data.filter(c=>c.source===src);
+  return data;
+}
+
+function filterCustomers(){ renderList(getFiltered()); }
+
+function setNav(v,el){
+  currentNav=v; currentPreset=null;
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.preset-btn').forEach(x=>x.classList.remove('active'));
+  filterCustomers();
+}
+
+function applyPreset(p,el){
+  currentPreset=p; currentNav='all';
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  document.getElementById('nav-all').classList.add('active');
+  document.querySelectorAll('.preset-btn').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+
+  let data = [...customers];
+  if(p==='all'){ renderList(data); return; }
+  if(p==='overdue') data = data.filter(c=>c.status==='warn');
+  else if(p==='soon') data = data.filter(c=>c.status==='amber');
+  else if(p==='warranty') data = data.filter(c=>new Date(c.warrantyEnd) <= new Date(Date.now()+60*86400000));
+  else if(p==='desmo') data = data.filter(c=>c.desmoEnd && new Date(c.desmoEnd) <= new Date(Date.now()+45*86400000));
+  else if(p==='highval') data = data.filter(c=>c.totalSpend>=30000);
+  else if(p==='rs05') data = data.filter(c=>c.source==='RS05');
+  document.getElementById('result-count').textContent = '共 '+data.length+' 筆';
+  const body = document.getElementById('cust-list-body');
+  if(!data.length){body.innerHTML='<div style="text-align:center;padding:40px;color:#9A9890;">沒有符合條件的客戶</div>';return;}
+  renderList(data);
+}
+
+// ── 抽屜 ──
+let currentTab = 'tab-info';
+function openDrawer(id){
+  const c = customers.find(x=>x.id===id);
+  document.getElementById('drawer-cust-name').textContent = c.name + '　' + c.plate;
+  renderDrawerTab(c, 'tab-info');
+  document.getElementById('drawer-overlay').classList.add('show');
+  document.getElementById('detail-drawer').classList.add('show');
+  // reset tabs
+  document.querySelectorAll('.drawer-tab').forEach((t,i)=>{t.classList.remove('active');if(i===0)t.classList.add('active');});
+  document.querySelectorAll('.drawer-tab').forEach(t=>{
+    t.onclick = function(){ switchTabForCustomer(this.textContent.includes('基本')?'tab-info':this.textContent.includes('車輛')?'tab-vehicle':this.textContent.includes('工單')?'tab-ro':'tab-crm', this, c); };
+  });
+  currentTab='tab-info';
+}
+
+function renderDrawerTab(c,tab){
+  const sc = statusConfig(c.status);
+  const body = document.getElementById('drawer-body');
+  if(tab==='tab-info'){
+    body.innerHTML = `
+      ${c.sharedTags.length?`<div class="shared-info-box">
+        <div class="sib-title">🔗 RS 銷售側共享標籤 <span class="sib-lock">唯讀</span></div>
+        <div class="sib-tags">${c.sharedTags.map(t=>`<span class="ctag ${t.c}">${t.t}</span>`).join('')}</div>
+      </div>`:''}
+      <div class="drawer-section">
+        <div class="ds-title">基本資料</div>
+        <div class="info-grid">
+          <div class="info-item"><div class="ii-label">客戶姓名</div><div class="ii-val">${c.name}</div></div>
+          <div class="info-item"><div class="ii-label">聯絡電話</div><div class="ii-val" style="font-family:'DM Mono',monospace;">${c.phone}</div></div>
+          <div class="info-item"><div class="ii-label">負責 SA</div><div class="ii-val">${c.sa}</div></div>
+          <div class="info-item"><div class="ii-label">客戶來源</div><div class="ii-val">${c.source==='RS05'?'RS05 交車同步':c.source==='walk'?'自行進廠':'SA 自建'}</div></div>
+          <div class="info-item"><div class="ii-label">NPS 分數</div><div class="ii-val ${c.nps>=80?'ok':c.nps>=60?'':'warn'}">${c.nps!==null?c.nps+'分':'尚未評分'}</div></div>
+          <div class="info-item"><div class="ii-label">累計消費</div><div class="ii-val">NT$${c.totalSpend.toLocaleString()}</div></div>
+        </div>
+      </div>
+      <div class="drawer-section">
+        <div class="ds-title">SA 服務標籤</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">${c.tags.map(t=>`<span class="ctag ${t.c}">${t.t}</span>`).join('')}</div>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('開啟標籤編輯器')">＋ 新增服務備忘標籤</button>
+      </div>
+      <div class="drawer-section">
+        <div class="ds-title">備忘事項</div>
+        <textarea class="form-input" rows="3">${c.note||''}</textarea>
+        <div class="form-hint">儲存後更新至客戶基盤</div>
+      </div>`;
+  } else if(tab==='tab-vehicle'){
+    const warnWarranty = new Date(c.warrantyEnd) < new Date();
+    const warnDesmo = c.desmoEnd && new Date(c.desmoEnd) <= new Date(Date.now()+45*86400000);
+    body.innerHTML = `
+      <div class="drawer-section">
+        <div class="ds-title">車輛資訊</div>
+        <div class="info-grid-3">
+          <div class="info-item"><div class="ii-label">車款</div><div class="ii-val">${c.bike}</div></div>
+          <div class="info-item"><div class="ii-label">出廠年份</div><div class="ii-val">${c.year}</div></div>
+          <div class="info-item"><div class="ii-label">車牌號碼</div><div class="ii-val" style="font-family:'DM Mono',monospace;">${c.plate}</div></div>
+          <div class="info-item"><div class="ii-label">目前里程</div><div class="ii-val">${c.mileage.toLocaleString()} km</div></div>
+          <div class="info-item"><div class="ii-label">上次進廠</div><div class="ii-val">${c.lastVisit}</div></div>
+          <div class="info-item"><div class="ii-label">下次建議回廠</div><div class="ii-val ${c.status==='warn'?'warn':c.status==='amber'?'amber':''}">${c.nextVisit}</div></div>
+        </div>
+      </div>
+      <div class="drawer-section">
+        <div class="ds-title">保固 &amp; Desmo</div>
+        <div class="info-grid">
+          <div class="info-item ${warnWarranty?'warn':''}">
+            <div class="ii-label">新車保固到期</div>
+            <div class="ii-val ${warnWarranty?'warn':''}">${c.warrantyEnd} ${warnWarranty?'⚠️ 已過期':''}</div>
+          </div>
+          <div class="info-item ${warnDesmo?'amber':''}">
+            <div class="ii-label">Desmo Service 到期</div>
+            <div class="ii-val ${warnDesmo?'amber':''}">${c.desmoEnd||'—'} ${warnDesmo?'⚠️ 即將到期':''}</div>
+          </div>
+        </div>
+      </div>
+      <div class="drawer-section">
+        <div class="ds-title">保險資訊</div>
+        <div class="info-grid">
+          <div class="info-item"><div class="ii-label">強制責任險到期</div><div class="ii-val">${c.insurance}</div></div>
+          <div class="info-item"><div class="ii-label">商業險狀態</div><div class="ii-val" style="color:#9A9890;">未登錄</div></div>
+        </div>
+      </div>`;
+  } else if(tab==='tab-ro'){
+    body.innerHTML = `
+      <div class="drawer-section">
+        <div class="ds-title">歷史工單（共 ${c.ros.length} 筆）</div>
+        <div class="ro-list">${c.ros.map(r=>`
+          <div class="ro-item">
+            <div class="ro-hdr">
+              <span class="ro-no">${r.no}</span>
+              <span class="ro-date">${r.date}</span>
+              <span class="ro-amount">${r.amount}</span>
+            </div>
+            <div class="ro-items">${r.items}</div>
+            <div class="ro-tags">${r.tags.map(t=>`<span class="ro-tag">${t}</span>`).join('')}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  } else {
+    body.innerHTML = `
+      <div class="drawer-section">
+        <div class="ds-title">CRM 電訪記錄（共 ${c.crm.length} 筆）</div>
+        ${c.crm.length?`<div style="display:flex;flex-direction:column;gap:8px;">${c.crm.map(r=>`
+          <div style="background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:10px 12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+              <span style="font-size:12px;font-weight:600;color:#1A3A5C;">${r.type}</span>
+              <span style="font-size:10.5px;color:#9A9890;font-family:'DM Mono',monospace;">${r.date}</span>
+            </div>
+            <div style="font-size:12px;color:#4A4A48;">${r.result}</div>
+            <div style="font-size:10.5px;color:#9A9890;margin-top:4px;">執行：${r.sa}</div>
+          </div>`).join('')}</div>`
+        :'<div style="text-align:center;padding:20px;color:#9A9890;">尚無電訪記錄</div>'}
+        <div style="margin-top:10px;">
+          <button class="btn btn-primary btn-sm" onclick="go('CRM03B_售後電訪工作台_v1.html')">＋ 建立新電訪任務</button>
+        </div>
+      </div>`;
+  }
+}
+
+function switchTabForCustomer(tab,el,c){
+  document.querySelectorAll('.drawer-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderDrawerTab(c,tab);
+}
+
+function switchTab(tab,el){
+  document.querySelectorAll('.drawer-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function closeDrawer(){
+  document.getElementById('drawer-overlay').classList.remove('show');
+  document.getElementById('detail-drawer').classList.remove('show');
+}
+
+// ── Modal ──
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function closeModalOverlay(e,id){ if(e.target===document.getElementById(id)) closeModal(id); }
+
+// ── 新增篩選條件 ──
+function addConditionRow(){
+  const container = document.getElementById('condition-rows');
+  const row = document.createElement('div');
+  row.className='condition-row';
+  row.innerHTML=`
+    <select class="condition-select">
+      <option>下次回廠日</option><option>上次進廠日</option><option>目前里程</option>
+      <option>歷史消費總額</option><option>保固到期日</option><option>Desmo 到期日</option>
+      <option>強制險到期日</option><option>NPS 分數</option><option>客戶來源</option><option>負責 SA</option>
+    </select>
+    <select class="condition-select" style="max-width:110px;">
+      <option>≤ 今天 +</option><option>≥ 今天 +</option><option>已超過今天</option><option>等於</option>
+    </select>
+    <input type="text" class="condition-input" placeholder="天數 / 數值" style="max-width:100px;">
+    <button onclick="this.parentElement.remove()" style="border:none;background:none;color:#C8001A;cursor:pointer;font-size:16px;">×</button>`;
+  container.appendChild(row);
+}
+
+function saveNewPreset(){
+  const name = document.getElementById('new-preset-name').value.trim();
+  if(!name){ showToast('請輸入條件名稱'); return; }
+  showToast('✅ 已儲存篩選條件：「'+name+'」\n已加入快篩列');
+  closeModal('modal-preset');
+  document.getElementById('new-preset-name').value='';
+}
+
+// ── Toast & go ──
+function showToast(msg,dur){
+  var t=document.getElementById('_sys_toast_');
+  t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);
+}
+function go(url){ window.location.href=url; }
+
+// ── 初始渲染 ──
+renderList(customers);
+document.getElementById('preset-all').classList.add('active');
+</script>
+</body>
+</html>

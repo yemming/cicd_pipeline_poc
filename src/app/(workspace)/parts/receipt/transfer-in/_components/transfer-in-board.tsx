@@ -136,12 +136,25 @@ export function TransferInBoard({
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">調撥入庫</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          5.2
+          5.2 ★3
         </span>
         <span className="text-[12px] text-[#9A9890]">
           接收來自其他倉庫的調撥單、確認到貨
         </span>
       </header>
+
+      {/* ★3 串接提示 — 反向呼應工單增項閉環 */}
+      <div className="bg-[#EEEDFE] border border-[#AFA9EC] rounded-md px-4 py-2.5 text-[12px] text-[#26215C] flex items-center justify-between gap-2.5 flex-wrap">
+        <div>
+          🔗 此頁面與「工單增項閉環」串接 — 待料工單觸發倉間調撥 → 備件入庫後自動解除待料 → SA LINE 通知
+        </div>
+        <Link
+          href="/parts/alerts/work-order-loop"
+          className="h-[28px] px-3 inline-flex items-center rounded text-[11.5px] font-medium bg-[#534AB7] text-white hover:bg-[#3F379B]"
+        >
+          → 工單增項閉環
+        </Link>
+      </div>
 
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">

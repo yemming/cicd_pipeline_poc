@@ -207,13 +207,88 @@ export function StockBalanceBoard({
 
   return (
     <main className="px-6 py-5 space-y-3">
-      <header className="flex items-center gap-2.5">
+      <header className="flex items-center gap-2.5 flex-wrap">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">商品庫存查詢</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          7.0
+          庫存 · 7.1
         </span>
-        <span className="text-[12px] text-[#9A9890]">即時 stock_items 庫存彙整</span>
+        <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#F0EFFE] text-[#534AB7] font-semibold">
+          ★6
+        </span>
+        <span className="text-[12px] text-[#9A9890]">
+          即時庫存 · 帳面庫存 vs 可用庫存 · 告警整合
+        </span>
       </header>
+
+      {/* ★6 跨模組 banner — 備件庫存 ↔ 銷售展間 / 整車庫存 / 中古車庫存 */}
+      <section className="bg-[#F0EFFE] border border-[#C4BEF0] rounded-lg px-4 py-2.5 flex items-center gap-3 flex-wrap">
+        <span className="text-[11px] text-[#534AB7] font-semibold">★6 跨模組</span>
+        <span className="text-[12px] text-[#26215C]">
+          本頁是<strong>備件 / 零件視角</strong>（stock_items 即時水位）；
+          銷售看板從<strong>銷售視角</strong>看整車與展間配額，兩者同源不同切面。
+        </span>
+        <div className="ml-auto flex gap-1.5 flex-wrap">
+          <Link
+            href="/sales/showroom/stock"
+            className="h-[26px] px-3 rounded-full text-[11.5px] inline-flex items-center bg-[#534AB7] text-white hover:bg-[#3F3793] font-medium"
+          >
+            → 展間庫存
+          </Link>
+          <Link
+            href="/inventory/vehicles"
+            className="h-[26px] px-3 rounded-full text-[11.5px] inline-flex items-center bg-white border border-[#C4BEF0] text-[#534AB7] hover:bg-[#F5F4FE] font-medium"
+          >
+            → 整車庫存
+          </Link>
+          <Link
+            href="/usedcar/stock"
+            className="h-[26px] px-3 rounded-full text-[11.5px] inline-flex items-center bg-white border border-[#C4BEF0] text-[#534AB7] hover:bg-[#F5F4FE] font-medium"
+          >
+            → 中古車庫存
+          </Link>
+        </div>
+      </section>
+
+      {/* 庫存告警快覽（v2 規格 10.4 視覺骨架；數值化告警待 7.2 sprint 接 alert engine） */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <div className="text-[11px] font-semibold tracking-wider text-[#9A9890] uppercase">
+            ⚡ 庫存告警快覽（10.4）
+          </div>
+          <div className="text-[11px] text-[#9A9890]">
+            告警規則尚未啟用 ·
+            <span className="ml-1 px-1.5 py-0.5 rounded bg-[#FDF3E3] text-[#854F0B]">
+              待 7.2 sprint
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {[
+            { label: "缺料告警", color: "#E24B4A", bg: "#FDECEA" },
+            { label: "低庫存預警", color: "#EF9F27", bg: "#FDF3E3" },
+            { label: "工單待料", color: "#F59E0B", bg: "#FFFDE7" },
+            { label: "超儲警示", color: "#378ADD", bg: "#EAF4FB" },
+            { label: "呆滯料", color: "#6B6A68", bg: "#F2F2F2" },
+          ].map((a) => (
+            <div
+              key={a.label}
+              className="bg-white border border-[#EEECE6] rounded-lg px-3 py-2 relative overflow-hidden"
+              style={{ borderTop: `3px solid ${a.color}` }}
+            >
+              <div className="text-[10.5px] text-[#9A9890] mb-0.5">{a.label}</div>
+              <div className="text-[20px] font-semibold font-mono" style={{ color: a.color }}>
+                —
+              </div>
+              <div
+                className="inline-block mt-1 text-[10.5px] px-1.5 py-0.5 rounded"
+                style={{ background: a.bg, color: a.color }}
+              >
+                待規則
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* KPI */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">

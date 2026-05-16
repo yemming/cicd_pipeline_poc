@@ -44,9 +44,13 @@ function toFormRow(rule: BusinessRuleRow): FormRow {
 export function SerialBoard({
   rules,
   canEdit,
+  sprintLabel = "Phase 2",
+  caption = "設定哪些備件需要序列號追蹤・序列號軌跡查詢",
 }: {
   rules: BusinessRuleRow[];
   canEdit: boolean;
+  sprintLabel?: string;
+  caption?: string;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<FormRow[]>(() => rules.map(toFormRow));
@@ -82,11 +86,9 @@ export function SerialBoard({
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">序列號 / 批號追蹤設定</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          Phase 2
+          {sprintLabel}
         </span>
-        <span className="text-[12px] text-[#9A9890]">
-          設定哪些備件需要序列號追蹤・序列號軌跡查詢
-        </span>
+        <span className="text-[12px] text-[#9A9890]">{caption}</span>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

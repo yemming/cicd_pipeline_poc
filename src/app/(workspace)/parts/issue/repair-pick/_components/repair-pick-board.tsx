@@ -218,14 +218,36 @@ export function RepairPickBoard({
   return (
     <main className={`px-6 py-5 space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
       <header className="flex items-center gap-2.5">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">維修領料</h1>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">維修領料（RO 工單串接）</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          6.1
+          6.1 ★1
         </span>
         <span className="text-[12px] text-[#9A9890]">
-          維修工單派工後從庫存領出料件（RO 一鍵 / ad-hoc 手動）
+          依 RO 工單查詢 · 倉管執行正式出庫 · 出庫後自動觸發庫存告警檢查
         </span>
       </header>
+
+      {/* v2 RO 串接說明 banner */}
+      <section className="bg-[#EAF4FB] border border-[#85B7EB] rounded-lg px-4 py-2.5 text-[12px] text-[#185FA5] leading-relaxed">
+        <p className="font-medium">🔗 與 RO 工單串接 · 觸發增項閉環</p>
+        <p className="text-[11.5px] text-[#0C3E70] mt-0.5">
+          技師持 RO 工單至零件庫房領料後，倉管在此執行正式出庫，出庫數量即時反映至庫存並自動觸發補貨告警檢查。缺料項目可通知售後 SA 啟動 D+3 / D+10 追蹤提醒。
+        </p>
+      </section>
+
+      {/* v2 狀態 KPI pill row */}
+      <section className="flex flex-wrap gap-2 text-[12px]">
+        {[
+          { label: "已過帳", count: rows.filter((r) => r.status === "posted").length, chip: "bg-[#EAF3DE] text-[#3B6D11] border-[#80CCA8]" },
+          { label: "已作廢", count: rows.filter((r) => r.status === "cancelled").length, chip: "bg-[#FDECEA] text-[#CC0000] border-[#F5AEAD]" },
+          { label: "草稿", count: rows.filter((r) => r.status === "draft").length, chip: "bg-[#F2F2F2] text-[#6B6A68] border-[#D5D3CB]" },
+        ].map((s) => (
+          <span key={s.label} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11.5px] ${s.chip}`}>
+            <b className="font-mono">{s.count}</b>
+            <span>{s.label}</span>
+          </span>
+        ))}
+      </section>
 
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS03B 中古車庫存看板 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--navy:#1A3A5C;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-teal{background:rgba(15,110,86,.8);border-color:transparent;}
+.hbtn-teal:hover{background:var(--teal);}
+.hbtn-red{background:rgba(200,0,26,.8);border-color:transparent;}
+.hbtn-red:hover{background:var(--red);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.main{max-width:1100px;margin:0 auto;padding:16px 20px 60px;}
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.kpi{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;}
+.kpi-l{font-size:11px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.kn-teal{color:var(--teal);}.kn-amber{color:var(--amber);}.kn-navy{color:var(--navy);}.kn-red{color:var(--red);}.kn-purple{color:var(--purple);}
+.kpi-s{font-size:10.5px;color:var(--gray);}
+.filter-bar{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.fb-label{font-size:11.5px;font-weight:600;color:#5A5955;flex-shrink:0;}
+.fb-sel{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;background:#fff;}
+.fb-inp{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;outline:none;background:#fff;width:150px;}
+.fb-inp:focus,.fb-sel:focus{border-color:var(--blue-bd);}
+.fb-right{margin-left:auto;display:flex;gap:8px;}
+.view-toggle{display:flex;gap:4px;}
+.vt-btn{padding:5px 12px;border-radius:5px;border:1px solid #D5D3CB;background:#F4F3F0;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.vt-btn.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.car-card{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;transition:.2s;cursor:pointer;}
+.car-card:hover{border-color:var(--blue-bd);box-shadow:0 4px 16px rgba(26,58,92,.1);}
+.car-img{height:110px;display:flex;align-items:center;justify-content:center;position:relative;}
+.car-img-icon{font-size:40px;opacity:.55;}
+.grade-badge{position:absolute;top:8px;left:8px;font-size:12px;font-weight:700;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.gs{background:#7A1010;color:#fff;}.ga{background:#185FA5;color:#fff;}.gb{background:var(--teal);color:#fff;}.gc{background:var(--amber);color:#fff;}.gd{background:var(--gray);color:#fff;}
+.status-tag{position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;}
+.st-avail{background:var(--teal-bg);color:var(--teal);}
+.st-hold{background:var(--amber-bg);color:var(--amber);}
+.st-prep{background:var(--purple-bg);color:var(--purple);}
+.st-sold{background:#FDECEA;color:var(--red);}
+.car-body{padding:10px 12px;}
+.car-model{font-size:13px;font-weight:700;margin-bottom:2px;}
+.car-sub{font-size:11px;color:var(--gray);margin-bottom:6px;}
+.car-meta{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;}
+.cm-row{display:flex;justify-content:space-between;font-size:11.5px;}
+.cm-lbl{color:var(--gray);}
+.cm-val{font-weight:600;font-family:'DM Mono',monospace;}
+.car-prices{margin-bottom:8px;}
+.cp-sell{font-size:15px;font-weight:700;color:var(--navy);font-family:'DM Mono',monospace;}
+.cp-cost{font-size:11px;color:var(--gray);margin-top:1px;}
+.car-actions{display:flex;gap:6px;}
+.ca-btn{flex:1;padding:5px 0;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid;text-align:center;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.ca-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.ca-primary:hover{background:#142E4A;}
+.ca-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.ca-teal:hover{background:#085041;}
+.ca-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.ca-ghost:hover{background:#F4F3F0;}
+.list-view{display:none;}
+.list-view.active{display:flex;flex-direction:column;gap:6px;}
+.card-grid.active{display:grid;}
+.list-row{background:#fff;border:1px solid #EEECE6;border-radius:8px;display:grid;grid-template-columns:24px 180px 60px 80px 90px 80px 120px 120px 1fr auto;gap:10px;align-items:center;padding:9px 14px;transition:.15s;cursor:pointer;font-size:12px;}
+.list-row:hover{border-color:var(--blue-bd);}
+.list-row.hdr{background:#FAFAF8;font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.3px;text-transform:uppercase;cursor:default;}
+.list-row.hdr:hover{border-color:#EEECE6;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-purple{background:var(--purple-bg);color:var(--purple);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:320px;line-height:1.5;}
+.toast.show{transform:translateY(0);opacity:1;}
+.margin-chip{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;display:inline-block;}
+.mc-ok{background:var(--teal-bg);color:var(--teal);}
+.mc-warn{background:var(--amber-bg);color:var(--amber);}
+.mc-bad{background:#FDECEA;color:var(--red);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售模組 <b>RS03B 中古車庫存看板</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS00_銷售模組_導覽總覽_v2.html')">← RS 總覽</button>
+    <button class="hbtn" onclick="go('RS03A_新車庫存看板_v1.html')">← 新車庫存</button>
+    <button class="hbtn hbtn-teal" onclick="go('RS06_中古車評估鑑價_v2.html')">新增評估 RS06</button>
+    <button class="hbtn hbtn-red" onclick="go('RS04_賞車報價與成交訂單_v1.html')">開立報價 →</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-l">在庫可售</div><div class="kpi-n kn-teal">6</div><div class="kpi-s">整備完成，可交車</div></div>
+    <div class="kpi"><div class="kpi-l">整備中</div><div class="kpi-n kn-purple">3</div><div class="kpi-s">維修/美容進行中</div></div>
+    <div class="kpi"><div class="kpi-l">已保留</div><div class="kpi-n kn-amber">2</div><div class="kpi-s">客戶指定保留</div></div>
+    <div class="kpi"><div class="kpi-l">平均在庫天</div><div class="kpi-n kn-navy">28</div><div class="kpi-s">目標 ≤ 45 天</div></div>
+    <div class="kpi"><div class="kpi-l">本月已售</div><div class="kpi-n kn-red">2</div><div class="kpi-s">2026年05月</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="fb-label">篩選：</span>
+    <select class="fb-sel" id="f-grade" onchange="renderCards()">
+      <option value="">全部等級</option>
+      <option value="S">S — CPO 認證</option>
+      <option value="A">A — 優良</option>
+      <option value="B">B — 良好</option>
+      <option value="C">C — 普通</option>
+    </select>
+    <select class="fb-sel" id="f-status" onchange="renderCards()">
+      <option value="">全部狀態</option>
+      <option value="在庫可售">在庫可售</option>
+      <option value="整備中">整備中</option>
+      <option value="已保留">已保留</option>
+    </select>
+    <select class="fb-sel" id="f-km" onchange="renderCards()">
+      <option value="">全部里程</option>
+      <option value="1">10,000 km 以下</option>
+      <option value="2">10,001 — 30,000 km</option>
+      <option value="3">30,001 km 以上</option>
+    </select>
+    <input type="text" class="fb-inp" placeholder="搜尋車款..." id="f-search" oninput="renderCards()">
+    <div class="fb-right">
+      <div class="view-toggle">
+        <button class="vt-btn active" id="vt-card" onclick="setView('card')">⊞ 卡片</button>
+        <button class="vt-btn" id="vt-list" onclick="setView('list')">≡ 列表</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-grid active" id="card-view"></div>
+  <div class="list-view" id="list-view"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+
+var usedInventory=[
+  {id:'U001',model:'Panigale V2',year:2021,km:35000,color:'紅',grade:'A',cost:320000,price:428000,status:'在庫可售',days:18,vin:'ZDM98765',img:'#1A3A5C',margin:33500,note:''},
+  {id:'U002',model:'Monster SP',year:2022,km:12500,color:'黑',grade:'S',cost:480000,price:588000,status:'在庫可售',days:7,vin:'ZDM87654',img:'#222',margin:72000,note:'CPO認證，附延長保固'},
+  {id:'U003',model:'Streetfighter V4',year:2020,km:42000,color:'灰',grade:'B',cost:580000,price:728000,status:'整備中',days:35,vin:'ZDM76543',img:'#888',margin:85000,note:'引擎大保養進行中'},
+  {id:'U004',model:'Multistrada V4 S',year:2021,km:28000,color:'紅',grade:'A',cost:620000,price:798000,status:'已保留',days:22,vin:'ZDM65432',img:'#C8001A',margin:96000,note:'林先生保留至 5/30'},
+  {id:'U005',model:'Hypermotard 821',year:2019,km:55000,color:'白',grade:'C',cost:165000,price:228000,status:'在庫可售',days:52,vin:'ZDM54321',img:'#F0EEE8',margin:22000,note:'輪胎已更換'},
+  {id:'U006',model:'Panigale V4',year:2020,km:18000,color:'黑',grade:'A',cost:820000,price:988000,status:'在庫可售',days:14,vin:'ZDM43210',img:'#333',margin:88000,note:''},
+  {id:'U007',model:'Monster 821',year:2018,km:68000,color:'紅',grade:'C',cost:148000,price:198000,status:'整備中',days:41,vin:'ZDM32109',img:'#C8001A',margin:15000,note:'外觀整備中，漆面修復'},
+  {id:'U008',model:'Diavel 1260',year:2020,km:22000,color:'黑',grade:'B',cost:568000,price:728000,status:'在庫可售',days:29,vin:'ZDM21098',img:'#222',margin:82000,note:''},
+  {id:'U009',model:'DesertX',year:2023,km:8500,color:'白',grade:'S',cost:588000,price:728000,status:'在庫可售',days:5,vin:'ZDM10987',img:'#F0EEE8',margin:88000,note:'幾乎全新，原廠保固尚有 8 個月'},
+  {id:'U010',model:'Scrambler 1100',year:2020,km:31000,color:'黃',grade:'B',cost:318000,price:418000,status:'整備中',days:19,vin:'ZDM09876',img:'#D4A017',margin:42000,note:''},
+  {id:'U011',model:'Panigale V2',year:2023,km:6800,color:'白',grade:'S',cost:568000,price:698000,status:'已保留',days:8,vin:'ZDM99001',img:'#F0EEE8',margin:82000,note:'張小姐保留'},
+];
+
+var gradeClass={S:'gs',A:'ga',B:'gb',C:'gc',D:'gd'};
+var statusMap={'在庫可售':'st-avail','整備中':'st-prep','已保留':'st-hold','已售出':'st-sold'};
+
+function filtered(){
+  var g=document.getElementById('f-grade').value;
+  var st=document.getElementById('f-status').value;
+  var km=document.getElementById('f-km').value;
+  var q=document.getElementById('f-search').value.toLowerCase();
+  return usedInventory.filter(function(it){
+    var kmOk=!km||(km==='1'&&it.km<=10000)||(km==='2'&&it.km>10000&&it.km<=30000)||(km==='3'&&it.km>30000);
+    return (!g||it.grade===g)&&(!st||it.status===st)&&kmOk&&(!q||it.model.toLowerCase().includes(q));
+  });
+}
+
+function marginChip(m,p){
+  var r=Math.round(m/p*100);
+  var cls=r>=15?'mc-ok':r>=8?'mc-warn':'mc-bad';
+  return '<span class="margin-chip '+cls+'">利潤 '+r+'%</span>';
+}
+
+function setView(v){
+  document.getElementById('vt-card').classList.toggle('active',v==='card');
+  document.getElementById('vt-list').classList.toggle('active',v==='list');
+  document.getElementById('card-view').classList.toggle('active',v==='card');
+  document.getElementById('list-view').classList.toggle('active',v==='list');
+}
+
+function renderCards(){
+  var list=filtered();
+  var gc=document.getElementById('card-view');
+  var gl=document.getElementById('list-view');
+
+  gc.innerHTML=list.map(function(it){
+    var sc=statusMap[it.status]||'st-avail';
+    var bg='linear-gradient(135deg,'+it.img+' 0%,'+it.img+'99 100%)';
+    return '<div class="car-card" onclick="showDetail(\''+it.id+'\')">'
+      +'<div class="car-img" style="background:'+bg+';">'
+      +'<div class="car-img-icon">🏍️</div>'
+      +'<div class="grade-badge '+gradeClass[it.grade]+'">'+it.grade+'</div>'
+      +'<div class="status-tag '+sc+'">'+it.status+'</div>'
+      +'</div>'
+      +'<div class="car-body">'
+      +'<div class="car-model">'+it.model+'</div>'
+      +'<div class="car-sub">'+it.year+'年　'+it.color+'</div>'
+      +'<div class="car-meta">'
+      +'<div class="cm-row"><span class="cm-lbl">里程</span><span class="cm-val">'+it.km.toLocaleString()+' km</span></div>'
+      +'<div class="cm-row"><span class="cm-lbl">收購成本</span><span class="cm-val">NT$ '+it.cost.toLocaleString()+'</span></div>'
+      +'<div class="cm-row"><span class="cm-lbl">在庫天數</span><span class="cm-val" style="color:'+(it.days>45?'var(--red)':it.days>30?'var(--amber)':'var(--teal)')+';">'+it.days+' 天</span></div>'
+      +'</div>'
+      +'<div class="car-prices">'
+      +'<div class="cp-sell">NT$ '+it.price.toLocaleString()+'</div>'
+      +'<div class="cp-cost">'+marginChip(it.margin,it.price)+'</div>'
+      +'</div>'
+      +(it.note?'<div style="font-size:10.5px;color:var(--amber);margin-bottom:6px;">📌 '+it.note+'</div>':'')
+      +'<div class="car-actions">'
+      +'<button class="ca-btn ca-ghost" onclick="event.stopPropagation();go(\'RS06_中古車評估鑑價_v2.html\')">評估</button>'
+      +'<button class="ca-btn ca-teal" onclick="event.stopPropagation();go(\'RS04_賞車報價與成交訂單_v1.html\')">報價</button>'
+      +'</div>'
+      +'</div></div>';
+  }).join('');
+
+  gl.innerHTML='<div class="list-row hdr"><div>等</div><div>車款</div><div>年份</div><div>里程</div><div>在庫天</div><div>成本</div><div>售價</div><div>利潤</div><div>狀態</div><div></div></div>'
+    +list.map(function(it){
+      var sc=statusMap[it.status]||'st-avail';
+      var r=Math.round(it.margin/it.price*100);
+      return '<div class="list-row" onclick="showDetail(\''+it.id+'\')">'
+        +'<div><span class="grade-badge '+gradeClass[it.grade]+'" style="width:20px;height:20px;font-size:10px;">'+it.grade+'</span></div>'
+        +'<div style="font-weight:600;">'+it.model+'</div>'
+        +'<div>'+it.year+'</div>'
+        +'<div style="font-family:DM Mono,monospace;">'+it.km.toLocaleString()+'</div>'
+        +'<div style="font-weight:700;color:'+(it.days>45?'var(--red)':it.days>30?'var(--amber)':'var(--teal)')+';">'+it.days+'天</div>'
+        +'<div style="font-family:DM Mono,monospace;font-size:11.5px;">'+it.cost.toLocaleString()+'</div>'
+        +'<div style="font-family:DM Mono,monospace;font-weight:700;">'+it.price.toLocaleString()+'</div>'
+        +'<div><span class="margin-chip '+(r>=15?'mc-ok':r>=8?'mc-warn':'mc-bad')+'">'+r+'%</span></div>'
+        +'<div><span class="badge '+(it.status==='在庫可售'?'b-teal':it.status==='整備中'?'b-purple':it.status==='已保留'?'b-amber':'b-gray')+'" style="font-size:10px;">'+it.status+'</span></div>'
+        +'<div><button class="btn btn-primary btn-sm" onclick="event.stopPropagation();go(\'RS04_賞車報價與成交訂單_v1.html\')">報價</button></div>'
+        +'</div>';
+    }).join('');
+}
+
+function showDetail(id){
+  var it=usedInventory.find(function(x){return x.id===id;});
+  if(!it)return;
+  showToast('🏍️ '+it.model+' '+it.year+'年 '+it.km.toLocaleString()+'km — NT$ '+it.price.toLocaleString());
+}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
+window.onload=function(){renderCards();};
+</script>
+</body>
+</html>

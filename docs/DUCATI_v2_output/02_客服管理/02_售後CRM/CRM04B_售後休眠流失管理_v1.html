@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM04B 售後休眠流失管理 — DUCATI 售後管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --red:#C8001A;--navy:#1A3A5C;--teal:#0F6E56;
+  --amber:#D4820A;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --blue:#185FA5;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;
+  --gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;
+}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-teal{background:rgba(15,110,86,.75);border-color:transparent;}
+.hbtn-teal:hover{background:rgba(15,110,86,.95);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.sa-badge{background:rgba(15,110,86,.6);border:1px solid rgba(15,110,86,.8);color:#fff;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:600;letter-spacing:.5px;}
+
+/* Tab bar */
+.tab-bar{background:#fff;border-bottom:2px solid #EEECE6;display:flex;position:sticky;top:52px;z-index:90;}
+.tab-btn{flex:1;padding:11px 8px;font-size:12.5px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:.15s;text-align:center;background:none;border-top:none;border-left:none;border-right:none;font-family:'Noto Sans TC',sans-serif;}
+.tab-btn.active{color:var(--navy);font-weight:700;border-bottom-color:var(--teal);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+.main{max-width:1120px;margin:0 auto;padding:16px 20px 60px;}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;}
+.kpi-l{font-size:11px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.kn-navy{color:var(--navy);}.kn-red{color:var(--red);}.kn-amber{color:var(--amber);}.kn-teal{color:var(--teal);}
+.kpi-s{font-size:10.5px;color:var(--gray);}
+.kpi-s b{color:var(--teal);}
+.kpi.border-red{border-left:3px solid var(--red);}
+.kpi.border-amber{border-left:3px solid var(--amber);}
+.kpi.border-teal{border-left:3px solid var(--teal);}
+.kpi.border-navy{border-left:3px solid var(--navy);}
+
+/* Panel */
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.ph{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-l{display:flex;align-items:center;gap:10px;}
+.pi{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-r{background:#FDECEA;}.pi-t{background:var(--teal-bg);}.pi-a{background:var(--amber-bg);}.pi-b{background:var(--blue-bg);}.pi-p{background:var(--purple-bg);}
+.pt{font-size:13px;font-weight:600;}
+.ps{font-size:11px;color:var(--gray);margin-top:1px;}
+.pb{padding:14px 16px;}
+
+/* 篩選列 */
+.filter-bar{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:11px 16px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.fb-s{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;outline:none;background:#fff;cursor:pointer;}
+.fb-s:focus{border-color:var(--teal-bd);}
+.fb-inp{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;outline:none;background:#fff;width:160px;}
+.fb-r{margin-left:auto;}
+
+/* 客戶列表表頭 */
+.list-hdr{display:grid;grid-template-columns:1fr 100px 120px 120px 100px 100px auto;gap:10px;align-items:center;padding:8px 14px;background:#FAFAF8;border:1px solid #EEECE6;border-radius:8px;font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.3px;text-transform:uppercase;margin-bottom:5px;}
+.cust-row{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 14px;display:grid;grid-template-columns:1fr 100px 120px 120px 100px 100px auto;gap:10px;align-items:center;transition:.15s;cursor:pointer;margin-bottom:5px;}
+.cust-row:hover{border-color:var(--teal-bd);box-shadow:0 2px 8px rgba(15,110,86,.08);}
+.cust-row.risk-critical{border-left:3px solid var(--red);}
+.cust-row.risk-high{border-left:3px solid var(--amber);}
+.cust-row.risk-mid{border-left:3px solid #185FA5;}
+.cr-name{font-weight:600;font-size:13px;}
+.cr-sub{font-size:11px;color:var(--gray);margin-top:2px;}
+
+/* 休眠徽章 */
+.sleep-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;}
+.sb-90{background:#4A1010;color:#FFB0B0;}
+.sb-60{background:#FDECEA;color:var(--red);}
+.sb-30{background:var(--amber-bg);color:var(--amber);}
+.sb-low{background:var(--blue-bg);color:var(--blue);}
+
+/* 流失風險徽章 */
+.risk-badge{display:inline-flex;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:700;}
+.rb-critical{background:#4A1010;color:#FFB0B0;}
+.rb-high{background:#FDECEA;color:var(--red);}
+.rb-mid{background:var(--amber-bg);color:var(--amber);}
+.rb-low{background:var(--teal-bg);color:var(--teal);}
+
+/* 流失原因標籤 */
+.reason-tag{display:inline-flex;padding:2px 7px;border-radius:5px;font-size:10.5px;font-weight:600;}
+.rt-maint{background:var(--amber-bg);color:var(--amber);}
+.rt-nps{background:#FDECEA;color:var(--red);}
+.rt-warranty{background:var(--teal-bg);color:var(--teal);}
+.rt-desmo{background:var(--blue-bg);color:var(--blue);}
+.rt-silent{background:#F1EFE8;color:var(--gray);}
+.rt-other{background:var(--purple-bg);color:var(--purple);}
+
+/* 長條圖 */
+.bar-chart{display:flex;flex-direction:column;gap:8px;}
+.bc-row{display:flex;align-items:center;gap:10px;}
+.bc-label{width:150px;font-size:12px;flex-shrink:0;text-align:right;color:#4A4A48;}
+.bc-bar-wrap{flex:1;height:22px;background:#F4F3F0;border-radius:4px;overflow:hidden;}
+.bc-bar{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:700;color:#fff;transition:width .6s ease;}
+.bc-pct{width:40px;font-size:12px;font-weight:700;font-family:'DM Mono',monospace;color:var(--navy);}
+.bc-cnt{width:28px;font-size:11px;color:var(--gray);text-align:right;}
+
+/* 喚醒計畫 */
+.plan-box{border:1.5px solid var(--amber-bd);border-radius:8px;padding:12px 14px;background:var(--amber-bg);margin-bottom:10px;}
+.plan-title{font-size:12.5px;font-weight:700;color:var(--amber);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.plan-step{width:18px;height:18px;border-radius:50%;background:var(--amber);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.plan-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(212,130,10,.2);line-height:1.5;}
+.plan-item:last-child{border-bottom:none;}
+
+/* 再接觸列 */
+.recontact-row{display:grid;grid-template-columns:1fr 120px 100px 80px 130px auto;gap:10px;align-items:center;padding:10px 13px;border:1px solid #EEECE6;border-radius:8px;background:#fff;transition:.15s;margin-bottom:5px;}
+.recontact-row:hover{box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.recontact-row.urgent{border-color:#F5AEAD;background:#FDECEA;}
+
+/* 雙欄表格 */
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-red{background:#FDECEA;color:var(--red);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-blue{background:var(--blue-bg);color:var(--blue);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-purple{background:var(--purple-bg);color:var(--purple);}
+.b-navy{background:#E8ECF2;color:var(--navy);}
+
+/* Btn */
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;white-space:nowrap;}
+.btn-primary{background:var(--teal);border-color:var(--teal);color:#fff;}.btn-primary:hover{background:#0C5A46;}
+.btn-navy{background:var(--navy);border-color:var(--navy);color:#fff;}.btn-navy:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-xs{padding:3px 8px;font-size:11px;border-radius:5px;}
+.btn-danger{background:#FDECEA;border-color:#F5AEAD;color:var(--red);}
+
+/* 二欄 form */
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;}
+.fi:focus{border-color:var(--teal-bd);}
+.fs{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.fe{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;}
+.mb12{margin-bottom:12px;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.alert-box{border-radius:8px;padding:11px 14px;margin-bottom:12px;font-size:12.5px;line-height:1.6;}
+.ab-amber{background:var(--amber-bg);border:1px solid var(--amber-bd);color:var(--amber);}
+.ab-red{background:#FDECEA;border:1px solid #F5AEAD;color:var(--red);}
+.ab-teal{background:var(--teal-bg);border:1px solid var(--teal-bd);color:var(--teal);}
+
+/* Toast */
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+</head>
+<body>
+
+<!-- 頁首快速導航 -->
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;">
+  <button onclick="go('CRM03B_售後電訪工作台_v1.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">← CRM03B 電訪工作台</button>
+  <button onclick="go('CRM05B_NPS看板_售後_v1.html')" style="padding:5px 14px;background:#0F6E56;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">CRM05B NPS 看板 →</button>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">售後 CRM <b>CRM04B 售後休眠流失管理</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="sa-badge">SA 售後專用</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')">← CRM 總覽</button>
+    <button class="hbtn" onclick="go('CRM03B_售後電訪工作台_v1.html')">電訪工作台</button>
+    <button class="hbtn hbtn-teal" onclick="go('CRM05B_NPS看板_售後_v1.html')">NPS 看板 →</button>
+  </div>
+</header>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tb0" onclick="swTab(0,this)">💤 Tab 1　逾期未回廠管理</button>
+  <button class="tab-btn" id="tb1" onclick="swTab(1,this)">📊 Tab 2　流失風險分析</button>
+  <button class="tab-btn" id="tb2" onclick="swTab(2,this)">🔄 Tab 3　喚醒再接觸排程</button>
+</div>
+
+<div class="main">
+
+<!-- ════ TAB 1：逾期未回廠管理 ════ -->
+<div class="tab-pane active" id="pane-0">
+
+  <div class="kpi-row">
+    <div class="kpi border-navy">
+      <div class="kpi-l">逾期未回廠總數</div>
+      <div class="kpi-n kn-navy">14</div>
+      <div class="kpi-s">全部逾期客戶</div>
+    </div>
+    <div class="kpi border-amber">
+      <div class="kpi-l">30–60 天逾期</div>
+      <div class="kpi-n kn-amber">5</div>
+      <div class="kpi-s">早期流失，喚醒機率高</div>
+    </div>
+    <div class="kpi border-red">
+      <div class="kpi-l">60–120 天逾期</div>
+      <div class="kpi-n kn-red">6</div>
+      <div class="kpi-s">需積極聯繫</div>
+    </div>
+    <div class="kpi border-red">
+      <div class="kpi-l">120 天以上（嚴重）</div>
+      <div class="kpi-n kn-red" style="font-size:20px;">3</div>
+      <div class="kpi-s">高流失風險，需主管介入</div>
+    </div>
+  </div>
+
+  <!-- 篩選 -->
+  <div class="filter-bar">
+    <select class="fb-s" id="sl-days" onchange="renderSleep()">
+      <option value="">全部逾期天數</option>
+      <option value="30">30–60 天</option>
+      <option value="60">60–120 天</option>
+      <option value="120">120 天以上</option>
+    </select>
+    <select class="fb-s" id="sl-risk" onchange="renderSleep()">
+      <option value="">所有風險等級</option>
+      <option value="critical">🔴 極高風險</option>
+      <option value="high">🟠 高風險</option>
+      <option value="mid">🟡 中風險</option>
+    </select>
+    <select class="fb-s" id="sl-sa" onchange="renderSleep()">
+      <option value="">全體 SA</option>
+      <option value="許明志">許明志</option>
+      <option value="林雅婷">林雅婷</option>
+      <option value="陳建宏">陳建宏</option>
+    </select>
+    <input type="text" class="fb-inp" placeholder="搜尋客戶姓名 / 車牌..." id="sl-q" oninput="renderSleep()">
+    <div class="fb-r">
+      <button class="btn btn-ghost btn-sm" onclick="showToast('📥 匯出逾期名單 CSV')">匯出名單</button>
+    </div>
+  </div>
+
+  <div class="list-hdr">
+    <div>客戶 / 車輛</div>
+    <div>SA</div>
+    <div>上次進廠</div>
+    <div>下次建議回廠</div>
+    <div>逾期天數</div>
+    <div>流失風險</div>
+    <div></div>
+  </div>
+  <div id="sleep-list"></div>
+</div>
+
+<!-- ════ TAB 2：流失風險分析 ════ -->
+<div class="tab-pane" id="pane-1">
+
+  <div class="kpi-row">
+    <div class="kpi border-red">
+      <div class="kpi-l">本月新增流失風險</div>
+      <div class="kpi-n kn-red">8</div>
+      <div class="kpi-s">2026年05月</div>
+    </div>
+    <div class="kpi border-amber">
+      <div class="kpi-l">低 NPS（≤6）客戶</div>
+      <div class="kpi-n kn-amber">4</div>
+      <div class="kpi-s">需優先主動關懷</div>
+    </div>
+    <div class="kpi border-navy">
+      <div class="kpi-l">主要流失原因</div>
+      <div class="kpi-n kn-navy" style="font-size:16px;">逾期保養</div>
+      <div class="kpi-s">佔 42%</div>
+    </div>
+    <div class="kpi border-teal">
+      <div class="kpi-l">本月喚醒成功</div>
+      <div class="kpi-n kn-teal">3</div>
+      <div class="kpi-s">已重新預約進廠</div>
+    </div>
+  </div>
+
+  <div class="fg2 mb12">
+
+    <!-- 流失原因分佈 -->
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-l"><div class="pi pi-r">📊</div><div><div class="pt">流失風險原因分佈</div><div class="ps">本季累計（含逾期 + NPS 分析）</div></div></div>
+      </div>
+      <div class="pb">
+        <div class="bar-chart">
+          <div class="bc-row"><span class="bc-label">逾期未回廠（超過保養週期）</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:72%;background:#D4820A;">14件</div></div><span class="bc-pct">42%</span></div>
+          <div class="bc-row"><span class="bc-label">低 NPS（≤6 分）</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:35%;background:#C8001A;">7件</div></div><span class="bc-pct">21%</span></div>
+          <div class="bc-row"><span class="bc-label">保固到期未處理</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:25%;background:#185FA5;">5件</div></div><span class="bc-pct">15%</span></div>
+          <div class="bc-row"><span class="bc-label">Desmo 超期未更換</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:20%;background:#534AB7;">4件</div></div><span class="bc-pct">12%</span></div>
+          <div class="bc-row"><span class="bc-label">電訪多次未接通</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:13%;background:#888;">3件</div></div><span class="bc-pct">9%</span></div>
+          <div class="bc-row"><span class="bc-label">其他</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:4%;background:#AAA;">1件</div></div><span class="bc-pct">1%</span></div>
+        </div>
+        <div style="margin-top:13px;background:#F4F3F0;border-radius:7px;padding:10px 12px;font-size:12px;color:#5A5955;">
+          💡 <b>分析建議：</b>逾期保養為主因，建議將 CRM03B 的回廠提醒電訪週期縮短為「逾期 30 天」即啟動，避免惡化至 90+ 天。
+        </div>
+      </div>
+    </div>
+
+    <!-- NPS 低分客戶分析 -->
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-l"><div class="pi pi-r">⭐</div><div><div class="pt">低 NPS 客戶追蹤</div><div class="ps">NPS ≤ 6 分，流失風險較高</div></div></div>
+        <span class="badge b-red">4 位需關懷</span>
+      </div>
+      <div class="pb">
+        <div style="display:flex;flex-direction:column;gap:7px;" id="low-nps-list"></div>
+        <div style="margin-top:12px;">
+          <div class="alert-box ab-teal">
+            💡 <b>低 NPS 處理原則：</b>SA 主管於 NPS ≤6 分的 3 個工作天內主動致電，了解不滿原因並提供補救措施（免費複檢、加送保養項目等）。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 月度趨勢（簡化版） -->
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-l"><div class="pi pi-a">📅</div><div><div class="pt">近 6 個月逾期趨勢</div><div class="ps">逾期未回廠客戶月度變化</div></div></div>
+    </div>
+    <div class="pb">
+      <div style="display:flex;align-items:flex-end;gap:16px;height:100px;padding:8px 0;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+          <div style="flex:1;display:flex;align-items:flex-end;">
+            <div style="width:32px;background:#D4820A;border-radius:4px 4px 0 0;height:55%;opacity:.7;"></div>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray);">11月</div><div style="font-size:11px;font-weight:700;font-family:'DM Mono',monospace;">8</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+          <div style="flex:1;display:flex;align-items:flex-end;">
+            <div style="width:32px;background:#D4820A;border-radius:4px 4px 0 0;height:65%;opacity:.75;"></div>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray);">12月</div><div style="font-size:11px;font-weight:700;font-family:'DM Mono',monospace;">10</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+          <div style="flex:1;display:flex;align-items:flex-end;">
+            <div style="width:32px;background:#C8001A;border-radius:4px 4px 0 0;height:85%;"></div>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray);">1月</div><div style="font-size:11px;font-weight:700;font-family:'DM Mono',monospace;">13</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+          <div style="flex:1;display:flex;align-items:flex-end;">
+            <div style="width:32px;background:#C8001A;border-radius:4px 4px 0 0;height:100%;"></div>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray);">2月</div><div style="font-size:11px;font-weight:700;font-family:'DM Mono',monospace;">16</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+          <div style="flex:1;display:flex;align-items:flex-end;">
+            <div style="width:32px;background:#D4820A;border-radius:4px 4px 0 0;height:72%;"></div>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray);">3月</div><div style="font-size:11px;font-weight:700;font-family:'DM Mono',monospace;">11</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+          <div style="flex:1;display:flex;align-items:flex-end;">
+            <div style="width:32px;background:#D4820A;border-radius:4px 4px 0 0;height:58%;opacity:.9;"></div>
+          </div>
+          <div style="font-size:10.5px;color:var(--gray);">4月</div><div style="font-size:11px;font-weight:700;font-family:'DM Mono',monospace;">9</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+          <div style="flex:1;display:flex;align-items:flex-end;">
+            <div style="width:32px;background:var(--teal);border-radius:4px 4px 0 0;height:45%;"></div>
+          </div>
+          <div style="font-size:10.5px;color:var(--teal);font-weight:700;">5月↓</div><div style="font-size:11px;font-weight:700;font-family:'DM Mono',monospace;color:var(--teal);">7</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px;text-align:center;">5月逾期數較上月減少 2 件 ↓ 趨勢改善中</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════ TAB 3：喚醒再接觸排程 ════ -->
+<div class="tab-pane" id="pane-2">
+
+  <div class="alert-box ab-amber mb12">
+    ⚡ <b>SA 側喚醒原則：</b>逾期 30 天 → CRM03B 自動建立回廠提醒電訪任務；逾期 60 天 → SA 主動電話關懷；逾期 90 天 → 主管介入確認後執行最後接觸；逾期 120 天以上 → 標記「長期休眠」，轉入存檔管理，不再主動推送。
+  </div>
+
+  <!-- 本週待再接觸 -->
+  <div class="panel mb12">
+    <div class="ph">
+      <div class="ph-l"><div class="pi pi-a">📅</div><div><div class="pt">本週待再接觸清單</div><div class="ps">系統依逾期天數自動排程，urgent 優先</div></div></div>
+      <span class="badge b-red">7 件待處理</span>
+    </div>
+    <div class="pb" id="recontact-list"></div>
+  </div>
+
+  <!-- 喚醒計畫模板 -->
+  <div class="panel mb12">
+    <div class="ph">
+      <div class="ph-l"><div class="pi pi-t">📋</div><div><div class="pt">SA 喚醒計畫模板</div><div class="ps">依逾期階段自動建議接觸方式</div></div></div>
+    </div>
+    <div class="pb">
+      <div class="plan-box">
+        <div class="plan-title">⏰ 30–60 天逾期：主動提醒階段</div>
+        <div class="plan-item"><div class="plan-step">1</div><div>CRM03B <b>自動建立回廠提醒電訪任務</b>，SA 依建議話術聯繫</div></div>
+        <div class="plan-item"><div class="plan-step">2</div><div>發送 <b>LINE / SMS 保養提醒</b>（由 CRM06B 推播通知管理設定）</div></div>
+        <div class="plan-item"><div class="plan-step">3</div><div>若客戶有回應 → <b>協助預約進廠時間</b>，任務完成</div></div>
+      </div>
+      <div class="plan-box" style="border-color:#F5AEAD;background:#FDECEA;">
+        <div class="plan-title" style="color:var(--red);">🔴 60–120 天逾期：積極介入階段</div>
+        <div class="plan-item"><div class="plan-step" style="background:var(--red);">1</div><div>SA <b>電話主動關懷</b>，詢問未回廠原因（時間 / 費用 / 不滿意）</div></div>
+        <div class="plan-item"><div class="plan-step" style="background:var(--red);">2</div><div>若有服務不滿 → <b>主管介入處理</b>，提供補救方案</div></div>
+        <div class="plan-item"><div class="plan-step" style="background:var(--red);">3</div><div>若有費用顧慮 → 推薦<b>保養套餐優惠</b>或分期付款方案</div></div>
+        <div class="plan-item"><div class="plan-step" style="background:var(--red);">4</div><div>若有 Desmo / 保固到期 → <b>強調風險</b>，協助緊急預約</div></div>
+      </div>
+      <div class="plan-box" style="border-color:#9A9890;background:#F4F3F0;">
+        <div class="plan-title" style="color:#5A5955;">⬜ 120 天以上：最後接觸 / 存檔</div>
+        <div class="plan-item"><div class="plan-step" style="background:#9A9890;">1</div><div>主管確認後執行<b>最後一次接觸</b></div></div>
+        <div class="plan-item"><div class="plan-step" style="background:#9A9890;">2</div><div>若無回應 → 標記<b>「長期休眠」存檔</b>，停止主動推送</div></div>
+        <div class="plan-item"><div class="plan-step" style="background:#9A9890;">3</div><div>每季由店長檢視長期休眠名單，評估是否重新啟動</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 手動新增再接觸任務 -->
+  <div class="panel">
+    <div class="ph"><div class="ph-l"><div class="pi pi-t">➕</div><div><div class="pt">手動新增再接觸任務</div></div></div></div>
+    <div class="pb">
+      <div class="fg2">
+        <div><div class="fl">客戶姓名 / 車牌</div><input type="text" class="fi" placeholder="搜尋或輸入客戶名稱"></div>
+        <div><div class="fl">接觸方式</div>
+          <select class="fs">
+            <option>📞 電話關懷</option>
+            <option>📱 LINE / SMS 推播</option>
+            <option>📧 E-mail</option>
+            <option>🎟️ 活動邀請（騎士節 / DRE）</option>
+            <option>🔧 免費車況健檢邀請</option>
+            <option>🛡️ 保固到期通知</option>
+            <option>⚙️ Desmo 到期提醒</option>
+          </select>
+        </div>
+        <div><div class="fl">預定接觸日期</div><input type="date" class="fi" value="2026-05-15"></div>
+        <div><div class="fl">負責 SA</div>
+          <select class="fs"><option>許明志</option><option>林雅婷</option><option>陳建宏</option></select>
+        </div>
+        <div style="grid-column:1/-1;">
+          <div class="fl">接觸切入點 / 備注</div>
+          <textarea class="fi" style="height:64px;resize:none;" placeholder="例：客戶 Desmo 皮帶已超期 2 個月，上次電訪表示近期較忙，請再次提醒引擎損傷風險並協助預約..."></textarea>
+        </div>
+      </div>
+      <div class="fe">
+        <button class="btn btn-ghost">取消</button>
+        <button class="btn btn-primary" onclick="showToast('✅ 再接觸任務已排程\n已加入 CRM03B 電訪工作台')">確認排程</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div id="_sys_toast_"></div>
+
+<script>
+function go(url){ window.location.href=url; }
+
+function swTab(n,el){
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.remove('active'); });
+  el.classList.add('active');
+  document.getElementById('pane-'+n).classList.add('active');
+}
+
+// ── 逾期客戶資料 ──
+var sleepData = [
+  {name:'蔡雅玲', plate:'MNO-2468', bike:'Diavel V4', sa:'陳建宏',
+   lastVisit:'2025-08-30', nextVisit:'2025-12-30', overdue:133,
+   risk:'critical', reasons:['rt-silent','rt-maint'], nps:55},
+  {name:'張偉強', plate:'DEF-9012', bike:'Monster SP', sa:'陳建宏',
+   lastVisit:'2025-09-10', nextVisit:'2026-01-10', overdue:121,
+   risk:'critical', reasons:['rt-maint'], nps:60},
+  {name:'葉建國', plate:'VWX-6802', bike:'Panigale V4 S', sa:'陳建宏',
+   lastVisit:'2026-02-14', nextVisit:'2026-06-14', overdue:0,
+   risk:'high', reasons:['rt-desmo'], nps:70},
+  {name:'陳志豪', plate:'ABC-1234', bike:'Panigale V4 S', sa:'許明志',
+   lastVisit:'2025-10-15', nextVisit:'2026-03-15', overdue:57,
+   risk:'high', reasons:['rt-maint','rt-warranty'], nps:72},
+  {name:'王淑芬', plate:'GHI-3456', bike:'Scrambler Icon', sa:'許明志',
+   lastVisit:'2025-12-05', nextVisit:'2026-06-05', overdue:0,
+   risk:'mid', reasons:['rt-maint'], nps:78},
+  {name:'李大成', plate:'RST-4567', bike:'Streetfighter V4', sa:'林雅婷',
+   lastVisit:'2025-11-20', nextVisit:'2026-03-20', overdue:51,
+   risk:'high', reasons:['rt-maint','rt-nps'], nps:5},
+  {name:'周美麗', plate:'UVW-8901', bike:'Multistrada V4', sa:'林雅婷',
+   lastVisit:'2025-07-15', nextVisit:'2025-11-15', overdue:177,
+   risk:'critical', reasons:['rt-silent','rt-maint'], nps:null},
+  {name:'吳俊豪', plate:'XYZ-2345', bike:'Monster SP', sa:'許明志',
+   lastVisit:'2026-01-10', nextVisit:'2026-04-10', overdue:31,
+   risk:'mid', reasons:['rt-maint'], nps:80},
+];
+
+var riskConfig = {
+  critical:{cls:'risk-critical',badge:'rb-critical',label:'🔴 極高'},
+  high:{cls:'risk-high',badge:'rb-high',label:'🟠 高'},
+  mid:{cls:'risk-mid',badge:'rb-mid',label:'🟡 中'},
+};
+
+var reasonConfig = {
+  'rt-maint':{cls:'rt-maint',label:'逾期保養'},
+  'rt-nps':{cls:'rt-nps',label:'低 NPS'},
+  'rt-warranty':{cls:'rt-warranty',label:'保固到期'},
+  'rt-desmo':{cls:'rt-desmo',label:'Desmo 超期'},
+  'rt-silent':{cls:'rt-silent',label:'多次未接通'},
+};
+
+function getOverdueBadge(overdue){
+  if(overdue>=120) return '<span class="sleep-badge sb-90">'+overdue+'天（嚴重）</span>';
+  if(overdue>=60)  return '<span class="sleep-badge sb-60">'+overdue+'天</span>';
+  if(overdue>=30)  return '<span class="sleep-badge sb-30">'+overdue+'天</span>';
+  if(overdue>0)    return '<span class="sleep-badge sb-low">'+overdue+'天</span>';
+  return '<span class="badge b-teal">未逾期</span>';
+}
+
+function renderSleep(){
+  var d  = document.getElementById('sl-days').value;
+  var r  = document.getElementById('sl-risk').value;
+  var sa = document.getElementById('sl-sa').value;
+  var q  = document.getElementById('sl-q').value.toLowerCase();
+
+  var list = sleepData.filter(function(it){
+    var dok = !d
+      || (d==='30'  && it.overdue>=30  && it.overdue<60)
+      || (d==='60'  && it.overdue>=60  && it.overdue<120)
+      || (d==='120' && it.overdue>=120);
+    return dok
+      && (!r  || it.risk===r)
+      && (!sa || it.sa===sa)
+      && (!q  || it.name.includes(q) || it.plate.toLowerCase().includes(q));
+  });
+
+  var rc = riskConfig;
+  document.getElementById('sleep-list').innerHTML = list.length
+    ? list.map(function(it){
+        var cfg = rc[it.risk] || rc.mid;
+        var reasonsHtml = it.reasons.map(function(r){
+          var rc2 = reasonConfig[r] || {cls:'rt-other',label:r};
+          return '<span class="reason-tag '+rc2.cls+'">'+rc2.label+'</span>';
+        }).join(' ');
+        return '<div class="cust-row '+cfg.cls+'" onclick="showToast(\'👤 '+it.name+' → 跳轉 CRM01B 客戶基盤\')">'
+          +'<div><div class="cr-name">'+it.name+'</div><div class="cr-sub">'+it.plate+' · '+it.bike+'</div><div style="margin-top:4px;">'+reasonsHtml+'</div></div>'
+          +'<div style="font-size:12.5px;">'+it.sa+'</div>'
+          +'<div style="font-size:12px;font-family:\'DM Mono\',monospace;">'+it.lastVisit+'</div>'
+          +'<div style="font-size:12px;color:'+(it.overdue>0?'var(--red)':'var(--teal)')+';">'+it.nextVisit+'</div>'
+          +'<div>'+getOverdueBadge(it.overdue)+'</div>'
+          +'<div><span class="risk-badge '+cfg.badge+'">'+cfg.label+'</span></div>'
+          +'<div style="display:flex;gap:4px;">'
+          +'<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();go(\'CRM03B_售後電訪工作台_v1.html\')">電訪</button>'
+          +'<button class="btn btn-primary btn-xs" onclick="event.stopPropagation();swTab(2,document.getElementById(\'tb2\'))">排程</button>'
+          +'</div></div>';
+      }).join('')
+    : '<div style="text-align:center;padding:32px;color:var(--gray);">此條件無符合客戶</div>';
+}
+
+// ── 低 NPS 客戶 ──
+var lowNpsData = [
+  {name:'李大成', plate:'RST-4567', bike:'Streetfighter V4', nps:5, sa:'林雅婷', issue:'等待時間過長，表示等了近 4 小時'},
+  {name:'張偉強', plate:'DEF-9012', bike:'Monster SP', nps:6, sa:'陳建宏', issue:'覺得費用偏高，未充分說明項目'},
+  {name:'蔡雅玲', plate:'MNO-2468', bike:'Diavel V4', nps:5, sa:'陳建宏', issue:'多次電訪未接通，無法了解原因'},
+  {name:'陳志豪', plate:'ABC-1234', bike:'Panigale V4 S', nps:6, sa:'許明志', issue:'希望保養前能提供更詳細的估價單'},
+];
+
+function renderLowNps(){
+  var el = document.getElementById('low-nps-list');
+  if(!el) return;
+  el.innerHTML = lowNpsData.map(function(it){
+    var color = it.nps<=5 ? 'var(--red)' : 'var(--amber)';
+    return '<div style="background:#FAFAF8;border:1px solid #EEECE6;border-radius:8px;padding:10px 12px;display:flex;gap:12px;align-items:flex-start;">'
+      +'<div style="width:38px;height:38px;border-radius:8px;background:#FDECEA;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;font-family:\'DM Mono\',monospace;color:'+color+';flex-shrink:0;">'+it.nps+'</div>'
+      +'<div style="flex:1;">'
+        +'<div style="font-size:13px;font-weight:700;margin-bottom:2px;">'+it.name+'  <span style="font-size:11px;color:var(--gray);">'+it.plate+' · '+it.bike+'</span></div>'
+        +'<div style="font-size:12px;color:#5A5955;margin-bottom:5px;">📝 '+it.issue+'</div>'
+        +'<div style="font-size:11.5px;color:var(--gray);">負責 SA：'+it.sa+'</div>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">'
+        +'<button class="btn btn-primary btn-xs" onclick="showToast(\'→ 安排主管關懷電訪：'+it.name+'\')">主管關懷</button>'
+        +'<button class="btn btn-ghost btn-xs" onclick="showToast(\'→ 記錄補救措施\')">記錄補救</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+// ── 再接觸排程 ──
+var recontactData = [
+  {name:'周美麗', overdue:177, way:'電話關懷', date:'2026-05-11', sa:'林雅婷', note:'最後接觸，主管確認後執行', urgent:true},
+  {name:'蔡雅玲', overdue:133, way:'電話關懷', date:'2026-05-11', sa:'陳建宏', note:'主管介入中，確認接觸狀態', urgent:true},
+  {name:'張偉強', overdue:121, way:'電話關懷', date:'2026-05-12', sa:'陳建宏', note:'詢問 Desmo 到期安排意願', urgent:false},
+  {name:'李大成', overdue:51, way:'LINE 推播', date:'2026-05-12', sa:'林雅婷', note:'低 NPS 關懷，詢問上次體驗', urgent:false},
+  {name:'陳志豪', overdue:57, way:'電話關懷', date:'2026-05-13', sa:'許明志', note:'保固到期前回廠檢查提醒', urgent:false},
+  {name:'吳俊豪', overdue:31, way:'LINE 推播', date:'2026-05-14', sa:'許明志', note:'保養到期提醒，附優惠方案', urgent:false},
+  {name:'王淑芬', overdue:0, way:'SMS 提醒', date:'2026-05-15', sa:'許明志', note:'30天後到期預防性提醒', urgent:false},
+];
+
+var wayBadge = {
+  '電話關懷':'b-navy','LINE 推播':'b-teal','LINE / SMS 推播':'b-teal',
+  'SMS 提醒':'b-blue','E-mail':'b-gray','活動邀請':'b-purple'
+};
+
+function buildRecontact(){
+  var el = document.getElementById('recontact-list');
+  if(!el) return;
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:0;">'
+    + recontactData.map(function(it){
+        var bdg = wayBadge[it.way] || 'b-gray';
+        return '<div class="recontact-row'+(it.urgent?' urgent':'')+'">'
+          +'<div><div style="font-weight:600;">'+(it.urgent?'🔴 ':'')+it.name+'</div><div style="font-size:11px;color:var(--gray);">逾期 '+it.overdue+' 天</div></div>'
+          +'<div><span class="badge '+bdg+'">'+it.way+'</span></div>'
+          +'<div style="font-size:12px;font-family:\'DM Mono\',monospace;">'+it.date+'</div>'
+          +'<div style="font-size:12.5px;">'+it.sa+'</div>'
+          +'<div style="font-size:11.5px;color:var(--gray);">'+it.note+'</div>'
+          +'<div style="display:flex;gap:4px;">'
+          +'<button class="btn btn-primary btn-xs" onclick="showToast(\'✅ '+it.name+' 接觸完成\\n已記錄至 CRM01B\')">完成</button>'
+          +'<button class="btn btn-ghost btn-xs" onclick="showToast(\'📅 '+it.name+' 已改期\')">改期</button>'
+          +'</div>'
+          +'</div>';
+      }).join('')
+    + '</div>';
+}
+
+function showToast(msg,dur){
+  var t=document.getElementById('_sys_toast_');
+  t.textContent=msg; t.style.transform='translateY(0)'; t.style.opacity='1';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(function(){ t.style.transform='translateY(80px)'; t.style.opacity='0'; }, dur||2800);
+}
+
+window.onload = function(){
+  renderSleep();
+  renderLowNps();
+  buildRecontact();
+};
+</script>
+</body>
+</html>

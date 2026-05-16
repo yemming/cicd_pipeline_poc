@@ -27,6 +27,12 @@ export type StaffFilters = {
   auth: string;
 };
 
+export type StaffBoardPageHeader = {
+  title: string;
+  caption: string;
+  sprintChip: string;
+};
+
 type Banner = { ok: boolean; msg: string } | null;
 
 export function StaffBoard({
@@ -37,6 +43,13 @@ export function StaffBoard({
   departments,
   filters,
   canEdit,
+  basePath = "/parts/aftersales/management/staff",
+  pageHeader = {
+    title: "員工名冊",
+    caption:
+      "僅限售後服務部門。職級設定影響竣工複檢授權、折扣權限與系統功能存取。",
+    sprintChip: "售後管理",
+  },
 }: {
   rows: AftersalesStaffRow[];
   totalCount: number;
@@ -45,6 +58,8 @@ export function StaffBoard({
   departments: AftersalesDepartmentOption[];
   filters: StaffFilters;
   canEdit: boolean;
+  basePath?: string;
+  pageHeader?: StaffBoardPageHeader;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -72,9 +87,7 @@ export function StaffBoard({
       params.set("page", String(overrides.page));
     startTransition(() => {
       router.push(
-        `/parts/aftersales/management/staff${
-          params.toString() ? "?" + params : ""
-        }`,
+        `${basePath}${params.toString() ? "?" + params : ""}`,
       );
     });
   };
@@ -86,7 +99,7 @@ export function StaffBoard({
     setFAuth("all");
     setFQ("");
     startTransition(() => {
-      router.push("/parts/aftersales/management/staff");
+      router.push(basePath);
     });
   };
 
@@ -299,13 +312,13 @@ export function StaffBoard({
   return (
     <main className="px-6 py-5 space-y-3">
       <header className="flex items-center gap-2.5">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">員工名冊</h1>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
+          {pageHeader.title}
+        </h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          售後管理
+          {pageHeader.sprintChip}
         </span>
-        <span className="text-[12px] text-[#9A9890]">
-          僅限售後服務部門。職級設定影響竣工複檢授權、折扣權限與系統功能存取。
-        </span>
+        <span className="text-[12px] text-[#9A9890]">{pageHeader.caption}</span>
       </header>
 
       {/* Filter Bar */}

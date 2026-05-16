@@ -676,3 +676,57 @@ export async function cancelCountSessionAction(
 
   return { ok: true, data: { id } };
 }
+
+/**
+ * 報損報溢審核 list 視角（/parts/count/loss-overflow）
+ *
+ * 跟 adjustments 用同一批 inventory_counts row，但呈現「正式損溢單 LG-*」
+ * 的審批狀態維度：draft / review / done / reject 四態。
+ * 過濾規則同 adjustments — 僅 variance_lines > 0 的差異 session。
+ */
+export async function getCountLossOverflowPageData(filter: {
+  status?: string;
+  q?: string;
+  warehouse_id?: string;
+} = {}): Promise<{
+  rows: CountSessionListRow[];
+  warehouses: { id: string; name: string; code: string }[];
+  canEdit: boolean;
+}> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 反向 mapping：LG status → DB status
+  // draft = first_done / second_done; review = pending_approval;
+  // done = completed; reject = cancelled
+  const lgToDb: Record<string, string[]> = {
+    draft: ["first_done", "second_done"],
+    review: ["pending_approval"],
+    done: ["completed"],
+    reject: ["cancelled"],
+  };
+
+  const [rows, canEdit, whRes] = await Promise.all([
+    listCountSessions({ q: filter.q, warehouse_id: filter.warehouse_id }),
+    hasPermission(PERMISSIONS.COUNT_ADJUST),
+    supabase
+      .from("warehouses")
+      .select("id, name, code")
+      .eq("brand_id", scope.brand_id)
+      .eq("is_active", true)
+      .order("code"),
+  ]);
+
+  // 預設聚焦四態（draft / review / done / reject 對映的所有 DB status）
+  const allLgStatuses = ["first_done", "second_done", "pending_approval", "completed", "cancelled"];
+  const filteredByStatus = filter.status && lgToDb[filter.status]
+    ? rows.filter((r) => lgToDb[filter.status!].includes(r.status ?? ""))
+    : rows.filter((r) => allLgStatuses.includes(r.status ?? ""));
+
+  // 報損報溢頁只看有差異的單；無差異的不出現
+  const filteredByVariance = filteredByStatus.filter(
+    (r) => Number(r.variance_lines ?? 0) > 0,
+  );
+
+  return { rows: filteredByVariance, warehouses: whRes.data ?? [], canEdit };
+}

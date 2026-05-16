@@ -25,18 +25,32 @@ import type {
 
 type Banner = { ok: boolean; msg: string } | null;
 
+export type AppointmentsBoardPageHeader = {
+  title: string;
+  breadcrumb: { label: string; href?: string }[];
+  sprintChip?: string;
+};
+
 export function AppointmentsBoard({
   data,
   filters,
   canEdit,
+  basePath = "/parts/aftersales/appointments",
+  pageHeader = {
+    title: "預約管理看板",
+    breadcrumb: [{ label: "售後工單" }, { label: "預約管理看板" }],
+    sprintChip: "售後 Phase 1",
+  },
 }: {
   data: AppointmentsListPageData;
   filters: AppointmentListFilters;
   canEdit: boolean;
+  basePath?: string;
+  pageHeader?: AppointmentsBoardPageHeader;
 }) {
   useSetPageHeader({
-    title: "預約管理看板",
-    breadcrumb: [{ label: "售後工單" }, { label: "預約管理看板" }],
+    title: pageHeader.title,
+    breadcrumb: pageHeader.breadcrumb,
   });
 
   const router = useRouter();
@@ -58,7 +72,7 @@ export function AppointmentsBoard({
     if (next.technician_id && next.technician_id !== "all")
       params.set("technician_id", next.technician_id);
     startTransition(() => {
-      router.push(`/parts/aftersales/appointments?${params.toString()}`);
+      router.push(`${basePath}?${params.toString()}`);
     });
   };
 
@@ -184,10 +198,12 @@ export function AppointmentsBoard({
     <main className="px-6 py-5 space-y-3">
       {/* 1. Page Header */}
       <header className="flex items-center gap-2.5">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">預約管理看板</h1>
-        <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          售後 Phase 1
-        </span>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">{pageHeader.title}</h1>
+        {pageHeader.sprintChip && (
+          <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
+            {pageHeader.sprintChip}
+          </span>
+        )}
         <span className="text-[12px] text-[#9A9890]">{sprintCaption || "整條售後 pipeline 的入口"}</span>
       </header>
 

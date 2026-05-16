@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM04A 銷售休眠與戰敗管理 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--navy:#1A3A5C;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-red{background:rgba(200,0,26,.8);border-color:transparent;}
+.hbtn-red:hover{background:var(--red);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.tab-bar{background:#fff;border-bottom:2px solid #EEECE6;display:flex;position:sticky;top:52px;z-index:90;}
+.tab-btn{flex:1;padding:11px 8px;font-size:12.5px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:.15s;text-align:center;background:none;border-top:none;border-left:none;border-right:none;font-family:'Noto Sans TC',sans-serif;}
+.tab-btn.active{color:var(--navy);font-weight:700;border-bottom-color:var(--red);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+.main{max-width:1100px;margin:0 auto;padding:16px 20px 60px;}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;}
+.kpi-l{font-size:11px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.kn-navy{color:var(--navy);}.kn-red{color:var(--red);}.kn-amber{color:var(--amber);}.kn-teal{color:var(--teal);}
+.kpi-s{font-size:10.5px;color:var(--gray);}
+.kpi-s b{color:var(--teal);}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.ph{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-l{display:flex;align-items:center;gap:10px;}
+.pi{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-b{background:var(--blue-bg);}.pi-r{background:#FDECEA;}.pi-t{background:var(--teal-bg);}.pi-a{background:var(--amber-bg);}.pi-p{background:var(--purple-bg);}
+.pt{font-size:13px;font-weight:600;}
+.ps{font-size:11px;color:var(--gray);margin-top:1px;}
+.pb{padding:14px 16px;}
+/* 篩選 */
+.filter-bar{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:11px 16px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.fb-s{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;outline:none;background:#fff;}
+.fb-s:focus{border-color:var(--blue-bd);}
+.fb-inp{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;outline:none;background:#fff;width:160px;}
+.fb-r{margin-left:auto;}
+/* 客戶列表 */
+.cust-list{display:flex;flex-direction:column;gap:6px;}
+.cust-row{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:12px 14px;display:grid;grid-template-columns:1fr 120px 100px 110px 120px auto;gap:12px;align-items:center;transition:.15s;cursor:pointer;}
+.cust-row:hover{border-color:var(--blue-bd);box-shadow:0 2px 8px rgba(26,58,92,.08);}
+.cust-row.hdr{background:#FAFAF8;font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.3px;text-transform:uppercase;cursor:default;}
+.cust-row.hdr:hover{border-color:#EEECE6;box-shadow:none;}
+.cr-name{font-weight:600;font-size:13px;}
+.cr-model{font-size:11.5px;color:var(--gray);margin-top:2px;}
+.sleep-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;}
+.sb-30{background:#FDF3E3;color:#854F0B;}
+.sb-60{background:#FDECEA;color:#C8001A;}
+.sb-90{background:#4A1010;color:#FFB0B0;}
+.reason-tag{display:inline-flex;padding:2px 7px;border-radius:5px;font-size:10.5px;font-weight:600;background:#F1EFE8;color:#5A5955;}
+/* 徽章 */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}.b-red{background:#FDECEA;color:var(--red);}.b-amber{background:var(--amber-bg);color:var(--amber);}.b-gray{background:#F1EFE8;color:var(--gray);}.b-purple{background:var(--purple-bg);color:var(--purple);}
+/* 戰敗分析圖 */
+.bar-chart{display:flex;flex-direction:column;gap:8px;}
+.bc-row{display:flex;align-items:center;gap:10px;}
+.bc-label{width:140px;font-size:12px;flex-shrink:0;text-align:right;}
+.bc-bar-wrap{flex:1;height:22px;background:#F4F3F0;border-radius:4px;overflow:hidden;}
+.bc-bar{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:700;color:#fff;transition:width .5s;}
+.bc-pct{width:40px;font-size:12px;font-weight:700;font-family:'DM Mono',monospace;color:var(--navy);}
+.bc-cnt{width:30px;font-size:11px;color:var(--gray);text-align:right;}
+/* 按鈕 */
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-xs{padding:3px 8px;font-size:11px;border-radius:5px;}
+/* 喚醒計畫 */
+.plan-box{border:1.5px solid var(--amber-bd);border-radius:8px;padding:12px 14px;background:var(--amber-bg);margin-bottom:10px;}
+.plan-title{font-size:12.5px;font-weight:700;color:var(--amber);margin-bottom:8px;}
+.plan-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px solid rgba(240,201,126,.3);}
+.plan-item:last-child{border-bottom:none;}
+.plan-step{width:18px;height:18px;border-radius:50%;background:var(--amber);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;}
+.fi:focus{border-color:var(--blue-bd);}
+.fs{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.mb12{margin-bottom:12px;}
+.fe{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:14px 0 7px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:320px;line-height:1.5;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">CRM 銷售側 <b>CRM04A 休眠客戶 &amp; 戰敗管理</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')">← CRM 總覽</button>
+    <button class="hbtn" onclick="go('CRM03A_銷售電訪工作台_v1.html')">電訪工作台</button>
+    <button class="hbtn hbtn-red" onclick="go('CRM05A_NPS看板_銷售_v1.html')">NPS 看板 →</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" id="tb0" onclick="swTab(0,this)">💤 Tab 1　休眠客戶管理</button>
+  <button class="tab-btn" id="tb1" onclick="swTab(1,this)">❌ Tab 2　戰敗原因分析</button>
+  <button class="tab-btn" id="tb2" onclick="swTab(2,this)">🔄 Tab 3　再接觸排程</button>
+</div>
+
+<div class="main">
+
+<!-- TAB 1 休眠客戶 -->
+<div class="tab-pane active" id="pane-0">
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-l">休眠總數</div><div class="kpi-n kn-navy">24</div><div class="kpi-s">超過 60 天未互動</div></div>
+    <div class="kpi"><div class="kpi-l">30–60 天</div><div class="kpi-n kn-amber">8</div><div class="kpi-s">早期休眠，喚醒機率較高</div></div>
+    <div class="kpi"><div class="kpi-l">60–90 天</div><div class="kpi-n kn-red">10</div><div class="kpi-s">需主動出擊</div></div>
+    <div class="kpi"><div class="kpi-l">90 天以上</div><div class="kpi-n kn-red" style="font-size:20px;">6</div><div class="kpi-s">高流失風險，建議活動喚醒</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <select class="fb-s" id="sl-days" onchange="renderSleep()">
+      <option value="">全部休眠天數</option>
+      <option value="30">30–60 天</option>
+      <option value="60">60–90 天</option>
+      <option value="90">90 天以上</option>
+    </select>
+    <select class="fb-s" id="sl-habc" onchange="renderSleep()">
+      <option value="">全部 HABC</option>
+      <option value="H">H 級（本月成交）</option>
+      <option value="A">A 級（30天內）</option>
+      <option value="B">B 級（3個月內）</option>
+      <option value="C">C 級（觀望）</option>
+    </select>
+    <select class="fb-s" id="sl-rs" onchange="renderSleep()">
+      <option value="">全部 RS</option>
+      <option value="陳志明">陳志明</option>
+      <option value="林雅婷">林雅婷</option>
+      <option value="王建宏">王建宏</option>
+    </select>
+    <input type="text" class="fb-inp" placeholder="搜尋客戶..." id="sl-q" oninput="renderSleep()">
+    <div class="fb-r"><button class="btn btn-ghost btn-sm" onclick="showToast('📥 匯出休眠名單 CSV')">匯出名單</button></div>
+  </div>
+
+  <div class="cust-row hdr">
+    <div>客戶</div><div>最後互動</div><div>HABC</div><div>休眠天數</div><div>負責 RS</div><div></div>
+  </div>
+  <div id="sleep-list"></div>
+</div>
+
+<!-- TAB 2 戰敗分析 -->
+<div class="tab-pane" id="pane-1">
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-l">本月戰敗</div><div class="kpi-n kn-red">11</div><div class="kpi-s">2026年05月</div></div>
+    <div class="kpi"><div class="kpi-l">本季戰敗</div><div class="kpi-n kn-red">34</div><div class="kpi-s">Q2 2026</div></div>
+    <div class="kpi"><div class="kpi-l">最高戰敗原因</div><div class="kpi-n kn-amber" style="font-size:16px;">價格</div><div class="kpi-s">佔 38%</div></div>
+    <div class="kpi"><div class="kpi-l">最高競品</div><div class="kpi-n kn-navy" style="font-size:16px;">BMW</div><div class="kpi-s">佔 24%</div></div>
+  </div>
+
+  <div class="fg2 mb12">
+    <div class="panel">
+      <div class="ph"><div class="ph-l"><div class="pi pi-r">📊</div><div><div class="pt">戰敗原因分佈</div><div class="ps">本季累計</div></div></div></div>
+      <div class="pb">
+        <div class="bar-chart">
+          <div class="bc-row"><span class="bc-label">價格偏高</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:68%;background:#C8001A;">13件</div></div><span class="bc-pct">38%</span></div>
+          <div class="bc-row"><span class="bc-label">購車計畫延後</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:40%;background:#E07000;">8件</div></div><span class="bc-pct">22%</span></div>
+          <div class="bc-row"><span class="bc-label">流失至競品</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:35%;background:#185FA5;">7件</div></div><span class="bc-pct">20%</span></div>
+          <div class="bc-row"><span class="bc-label">家人反對</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:18%;background:#7A6500;">4件</div></div><span class="bc-pct">11%</span></div>
+          <div class="bc-row"><span class="bc-label">喜好改變（轉車型）</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:12%;background:#888;">2件</div></div><span class="bc-pct">6%</span></div>
+          <div class="bc-row"><span class="bc-label">其他</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:6%;background:#AAA;">1件</div></div><span class="bc-pct">3%</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><div class="ph-l"><div class="pi pi-b">🏍️</div><div><div class="pt">競品流向分佈</div><div class="ps">流失至競品的 7 件</div></div></div></div>
+      <div class="pb">
+        <div class="bar-chart">
+          <div class="bc-row"><span class="bc-label">BMW Motorrad</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:55%;background:#1A1A1A;">BMW</div></div><span class="bc-pct">43%</span></div>
+          <div class="bc-row"><span class="bc-label">Aprilia</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:30%;background:#C8001A;">APR</div></div><span class="bc-pct">29%</span></div>
+          <div class="bc-row"><span class="bc-label">Triumph</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:20%;background:#0F3D8C;">TRI</div></div><span class="bc-pct">14%</span></div>
+          <div class="bc-row"><span class="bc-label">KTM</span><div class="bc-bar-wrap"><div class="bc-bar" style="width:15%;background:#E05000;">KTM</div></div><span class="bc-pct">14%</span></div>
+        </div>
+        <div style="margin-top:12px;background:#F4F3F0;border-radius:7px;padding:10px 12px;font-size:12px;color:#5A5955;">
+          💡 <b>分析建議：</b>BMW 流失主因多為「騎乘姿勢舒適性」，可強化 Monster/Multistrada 試駕體驗對比。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 戰敗記錄明細 -->
+  <div class="panel">
+    <div class="ph"><div class="ph-l"><div class="pi pi-r">📋</div><div><div class="pt">戰敗記錄明細</div><div class="ps">本月 11 件</div></div></div>
+      <div style="display:flex;gap:8px;">
+        <select class="fb-s" style="font-size:12px;" id="def-filter" onchange="renderDefeated()">
+          <option value="">全部原因</option>
+          <option value="價格">價格偏高</option>
+          <option value="延後">購車計畫延後</option>
+          <option value="競品">流失至競品</option>
+        </select>
+      </div>
+    </div>
+    <div class="pb" id="defeated-list"></div>
+  </div>
+</div>
+
+<!-- TAB 3 再接觸排程 -->
+<div class="tab-pane" id="pane-2">
+  <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:var(--amber);">
+    ⚡ <b>再接觸原則：</b>休眠 30 天 → 活動邀請簡訊；60 天 → RS 電話關懷；90 天以上 → 主管確認後發起最後接觸，若無回應轉為「長期休眠」存檔。
+  </div>
+
+  <!-- 本週待接觸 -->
+  <div class="panel mb12">
+    <div class="ph"><div class="ph-l"><div class="pi pi-a">📅</div><div><div class="pt">本週待再接觸清單</div><div class="ps">系統自動排程，依休眠天數優先</div></div></div><span class="badge b-amber">8 件待處理</span></div>
+    <div class="pb" id="recontact-list"></div>
+  </div>
+
+  <!-- 新增再接觸任務 -->
+  <div class="panel mb12">
+    <div class="ph"><div class="ph-l"><div class="pi pi-t">➕</div><div><div class="pt">手動新增再接觸任務</div></div></div></div>
+    <div class="pb">
+      <div class="fg2">
+        <div><div class="fl">客戶姓名</div><input type="text" class="fi" placeholder="搜尋或輸入客戶名稱"></div>
+        <div><div class="fl">接觸方式</div>
+          <select class="fs"><option>📞 電話關懷</option><option>📱 LINE 訊息</option><option>📧 E-mail</option><option>🎟️ 活動邀請（Track Day / DRE）</option><option>🏍️ 新車款發表邀請</option></select>
+        </div>
+        <div><div class="fl">預定日期</div><input type="date" class="fi" value="2026-05-15"></div>
+        <div><div class="fl">負責 RS</div>
+          <select class="fs"><option>陳志明</option><option>林雅婷</option><option>王建宏</option></select>
+        </div>
+        <div style="grid-column:1/-1;"><div class="fl">接觸備注 / 切入點</div><textarea class="fi" style="height:60px;resize:none;" placeholder="例：客戶曾對 Panigale V4 S 感興趣但考量價格，可借力新年式發表引導..."></textarea></div>
+      </div>
+      <div class="fe">
+        <button class="btn btn-ghost">取消</button>
+        <button class="btn btn-primary" onclick="showToast('✅ 再接觸任務已排程')">確認排程</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+function swTab(n,el){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  el.classList.add('active');
+  document.getElementById('pane-'+n).classList.add('active');
+}
+
+var sleepData=[
+  {name:'許雅雯',model:'Panigale V4 S',lastContact:'2026-03-01',habc:'H',days:70,rs:'陳志明'},
+  {name:'趙明凱',model:'Monster SP',lastContact:'2026-02-15',habc:'A',days:84,rs:'林雅婷'},
+  {name:'吳建志',model:'Streetfighter V4',lastContact:'2026-03-20',habc:'B',days:51,rs:'陳志明'},
+  {name:'蔡琳琳',model:'Multistrada V4 S',lastContact:'2026-01-30',habc:'C',days:100,rs:'王建宏'},
+  {name:'林宇宸',model:'DesertX Rally',lastContact:'2026-03-10',habc:'A',days:61,rs:'林雅婷'},
+  {name:'黃怡婷',model:'Panigale V2',lastContact:'2026-04-01',habc:'B',days:39,rs:'陳志明'},
+  {name:'陳俊傑',model:'Hypermotard 698',lastContact:'2026-01-20',habc:'A',days:110,rs:'王建宏'},
+  {name:'劉冠廷',model:'Diavel V4',lastContact:'2026-03-25',habc:'C',days:46,rs:'林雅婷'},
+];
+
+function sleepdayClass(d){return d>=90?'sb-90':d>=60?'sb-60':'sb-30';}
+function sleepdayLabel(d){return d>=90?d+'天（高危）':d>=60?d+'天':d+'天';}
+function habcColor(h){return h==='H'?'var(--red)':h==='A'?'var(--amber)':h==='B'?'var(--teal)':'var(--gray)';}
+
+function renderSleep(){
+  var d=document.getElementById('sl-days').value;
+  var h=document.getElementById('sl-habc').value;
+  var rs=document.getElementById('sl-rs').value;
+  var q=document.getElementById('sl-q').value.toLowerCase();
+  var list=sleepData.filter(function(it){
+    var dok=!d||(d==='30'&&it.days>=30&&it.days<60)||(d==='60'&&it.days>=60&&it.days<90)||(d==='90'&&it.days>=90);
+    return dok&&(!h||it.habc===h)&&(!rs||it.rs===rs)&&(!q||it.name.includes(q));
+  });
+  document.getElementById('sleep-list').innerHTML=list.map(function(it){
+    return '<div class="cust-row" onclick="showToast(\'👤 '+it.name+' → 前往電子手卡\')">'
+      +'<div><div class="cr-name">'+it.name+'</div><div class="cr-model">意向：'+it.model+'</div></div>'
+      +'<div style="font-size:12px;color:var(--gray);">'+it.lastContact+'</div>'
+      +'<div><span style="font-size:13px;font-weight:700;color:'+habcColor(it.habc)+';">'+it.habc+'</span></div>'
+      +'<div><span class="sleep-badge '+sleepdayClass(it.days)+'">'+sleepdayLabel(it.days)+'</span></div>'
+      +'<div style="font-size:12.5px;">'+it.rs+'</div>'
+      +'<div style="display:flex;gap:4px;">'
+      +'<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();go(\'CRM03A_銷售電訪工作台_v1.html\')">電訪</button>'
+      +'<button class="btn btn-primary btn-xs" onclick="event.stopPropagation();swTab(2,document.getElementById(\'tb2\'))">排程</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+var defeatedData=[
+  {name:'方柏翰',model:'Panigale V4 S',date:'2026-05-08',reason:'價格偏高',rival:'—',rs:'陳志明'},
+  {name:'邱怡君',model:'Monster SP',date:'2026-05-06',reason:'流失至競品',rival:'BMW S1000R',rs:'林雅婷'},
+  {name:'鄭育安',model:'Streetfighter V4',date:'2026-05-03',reason:'購車計畫延後',rival:'—',rs:'王建宏'},
+  {name:'徐芳榮',model:'Multistrada V4 S',date:'2026-05-01',reason:'價格偏高',rival:'—',rs:'陳志明'},
+  {name:'盧昱廷',model:'DesertX Rally',date:'2026-04-28',reason:'流失至競品',rival:'KTM 890 Adventure',rs:'林雅婷'},
+];
+
+function renderDefeated(){
+  var f=document.getElementById('def-filter').value;
+  var list=defeatedData.filter(function(it){return !f||it.reason.includes(f);});
+  document.getElementById('defeated-list').innerHTML=
+    '<div style="display:flex;flex-direction:column;gap:5px;">'
+    +list.map(function(it){
+      return '<div style="display:grid;grid-template-columns:1fr 120px 120px 80px auto;gap:12px;align-items:center;padding:9px 12px;border:1px solid #EEECE6;border-radius:7px;background:#FAFAF8;cursor:pointer;transition:.15s;" onmouseover="this.style.borderColor=\'var(--blue-bd)\'" onmouseout="this.style.borderColor=\'#EEECE6\'">'
+        +'<div><div style="font-weight:600;">'+it.name+'</div><div style="font-size:11px;color:var(--gray);">'+it.model+'</div></div>'
+        +'<div style="font-size:12px;">'+it.date+'</div>'
+        +'<div><span class="badge '+(it.reason.includes('競品')?'b-red':it.reason.includes('延後')?'b-amber':'b-gray')+'">'+it.reason+'</span></div>'
+        +'<div style="font-size:11.5px;color:var(--gray);">'+(it.rival!=='—'?it.rival:'—')+'</div>'
+        +'<div><button class="btn btn-ghost btn-xs" onclick="showToast(\'🔄 '+it.name+' 加入再接觸排程\')">再接觸</button></div>'
+        +'</div>';
+    }).join('')+'</div>';
+}
+
+var recontactData=[
+  {name:'許雅雯',days:70,way:'活動邀請',date:'2026-05-12',rs:'陳志明',note:'Track Day 邀請'},
+  {name:'趙明凱',days:84,way:'電話關懷',date:'2026-05-13',rs:'林雅婷',note:'了解換車計畫'},
+  {name:'陳俊傑',days:110,way:'電話關懷',date:'2026-05-11',rs:'王建宏',note:'最後接觸，主管確認後執行'},
+  {name:'蔡琳琳',days:100,way:'LINE 訊息',date:'2026-05-14',rs:'王建宏',note:'節慶關懷'},
+  {name:'林宇宸',days:61,way:'電話關懷',date:'2026-05-15',rs:'林雅婷',note:'新款 DesertX 到場'},
+  {name:'盧昱廷',days:12,way:'LINE 訊息',date:'2026-05-13',rs:'林雅婷',note:'戰敗後追蹤'},
+];
+
+function buildRecontact(){
+  document.getElementById('recontact-list').innerHTML=
+    '<div style="display:flex;flex-direction:column;gap:5px;">'
+    +recontactData.map(function(it){
+      var urgent=it.days>=90;
+      return '<div style="display:grid;grid-template-columns:1fr 110px 100px 80px 120px auto;gap:12px;align-items:center;padding:9px 12px;border:1.5px solid '+(urgent?'var(--red-bd,#F5AEAD)':'#EEECE6')+';border-radius:7px;background:'+(urgent?'#FDECEA':'#fff')+';transition:.15s;" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(26,58,92,.08)\'" onmouseout="this.style.boxShadow=\'none\'">'
+        +'<div><div style="font-weight:600;">'+(urgent?'🔴 ':'')+it.name+'</div><div style="font-size:11px;color:var(--gray);">休眠 '+it.days+' 天</div></div>'
+        +'<div><span class="badge '+(it.way.includes('電話')?'b-navy':it.way.includes('活動')?'b-purple':'b-gray')+'" style="font-size:10px;">'+it.way+'</span></div>'
+        +'<div style="font-size:12px;font-family:DM Mono,monospace;">'+it.date+'</div>'
+        +'<div style="font-size:12px;">'+it.rs+'</div>'
+        +'<div style="font-size:11.5px;color:var(--gray);">'+it.note+'</div>'
+        +'<div style="display:flex;gap:4px;">'
+        +'<button class="btn btn-teal btn-xs" onclick="showToast(\'✅ '+it.name+' 接觸完成\')">完成</button>'
+        +'<button class="btn btn-ghost btn-xs" onclick="showToast(\'📅 '+it.name+' 改期\')">改期</button>'
+        +'</div></div>';
+    }).join('')+'</div>';
+}
+
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
+window.onload=function(){renderSleep();renderDefeated();buildRecontact();};
+</script>
+</body>
+</html>

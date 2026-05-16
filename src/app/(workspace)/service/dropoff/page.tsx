@@ -158,9 +158,23 @@ export default function DropoffPage() {
         className="rounded-xl px-5 py-4"
         style={{ backgroundColor: "#1A3A5C" }}
       >
-        <h1 className="text-white font-bold text-lg">增項管理</h1>
+        <h1 className="text-white font-bold text-lg">增項管理（追加項目記錄）</h1>
         <p className="text-white text-xs opacity-70 mt-0.5">
           落地追蹤 · SA 績效 · 技師發現率 · 庫存分析
+        </p>
+      </div>
+
+      {/* v2 流程說明 banner */}
+      <div className="bg-green-50 border border-green-300 rounded-lg px-4 py-2.5 text-sm text-green-800 flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-xs sm:text-sm">
+          🔗 車主同意時：庫存自動預留備料 ｜ 拒絕時：觸發增項閉環追蹤（D+3 / D+10）
+        </span>
+        <span className="text-[11px] text-green-700">★2 跨模組 e2e 串接 → 備件預留</span>
+      </div>
+      <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-2.5 text-xs text-amber-800 leading-relaxed">
+        <p className="font-medium">⚠️ 技師在維修過程中發現額外問題，需要車主確認是否同意追加</p>
+        <p className="text-[11px] text-amber-700 mt-0.5">
+          確認方式：📞 電話口頭確認 / 👤 現場本人確認 / 💬 Line 文字確認 — 任一即可建立追加記錄
         </p>
       </div>
 

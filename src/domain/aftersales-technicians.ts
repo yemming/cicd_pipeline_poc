@@ -138,3 +138,119 @@ export async function computeDispatchTotals(): Promise<DispatchTotals> {
     technician_count: count,
   };
 }
+
+/* ──────────────── 集團 Dashboard — 售後人效彙整 (C13b) ──────────────── */
+
+/** 單筆技師人效排行（NADA 三指標 by tech） */
+export type TechnicianEfficiencyRankRow = {
+  id: string;
+  code: string;
+  name: string;
+  grade: string | null;
+  avatar_color: string | null;
+  status: TechStatus;
+  jobs_total: number;
+  jobs_done: number;
+  sold_hours: number;
+  actual_hours: number;
+  available_hours: number;
+  efficiency: number;   // sold ÷ actual × 100 — 目標 ≥ 125%
+  productivity: number; // sold ÷ available × 100 — 目標 85-87.5%
+  utilization: number;  // actual ÷ available × 100 — 目標 ≥ 80%
+};
+
+export type TechnicianEfficiencyKpis = {
+  technician_count: number;
+  working: number;
+  jobs_total: number;
+  jobs_done: number;
+  jobs_in_progress: number;
+  avg_efficiency: number;
+  avg_productivity: number;
+  avg_utilization: number;
+  /** 達 NADA 效率目標 (≥125%) 的人數 */
+  eff_on_target_count: number;
+  /** 達 NADA 利用率目標 (≥80%) 的人數 */
+  util_on_target_count: number;
+  total_sold_hours: number;
+  total_actual_hours: number;
+  total_available_hours: number;
+};
+
+/**
+ * 集團看板 — 售後人效統計
+ * 一次回 KPI + 全員排行（依效率 desc）。
+ * read-only：不做寫入，純從現有 dispatch 主表的當前快照算。
+ */
+export async function getTechnicianEfficiencySummary(options?: {
+  topN?: number;
+}): Promise<{
+  kpis: TechnicianEfficiencyKpis;
+  ranking: TechnicianEfficiencyRankRow[];
+}> {
+  const list = await listAftersalesTechnicians();
+  const active = list.filter((t) => t.is_active);
+
+  const ranking: TechnicianEfficiencyRankRow[] = active.map((t) => {
+    const sold_hours = Math.round((t.sold_minutes / 60) * 10) / 10;
+    const actual_hours = Math.round((t.actual_minutes / 60) * 10) / 10;
+    const available_hours = Math.round((t.available_minutes / 60) * 10) / 10;
+    return {
+      id: t.id,
+      code: t.code,
+      name: t.name,
+      grade: t.grade,
+      avatar_color: t.avatar_color,
+      status: t.status,
+      jobs_total: t.jobs_total,
+      jobs_done: t.jobs_done,
+      sold_hours,
+      actual_hours,
+      available_hours,
+      efficiency: computeEfficiency(t.sold_minutes, t.actual_minutes),
+      productivity: computeProductivity(t.sold_minutes, t.available_minutes),
+      utilization: computeUtilization(t.actual_minutes, t.available_minutes),
+    };
+  });
+
+  // 預設依效率排序
+  ranking.sort((a, b) => b.efficiency - a.efficiency);
+  const topN = options?.topN;
+  const sliced = topN && topN > 0 ? ranking.slice(0, topN) : ranking;
+
+  // KPI 彙整（用全集計算，slice 只影響 ranking 顯示）
+  let jobs_total = 0;
+  let jobs_done = 0;
+  let sold_min = 0;
+  let actual_min = 0;
+  let avail_min = 0;
+  let working = 0;
+  let eff_on = 0;
+  let util_on = 0;
+  for (const r of ranking) {
+    jobs_total += r.jobs_total;
+    jobs_done += r.jobs_done;
+    sold_min += r.sold_hours * 60;
+    actual_min += r.actual_hours * 60;
+    avail_min += r.available_hours * 60;
+    if (r.status === "working") working += 1;
+    if (r.efficiency >= 125) eff_on += 1;
+    if (r.utilization >= 80) util_on += 1;
+  }
+  const kpis: TechnicianEfficiencyKpis = {
+    technician_count: ranking.length,
+    working,
+    jobs_total,
+    jobs_done,
+    jobs_in_progress: Math.max(0, jobs_total - jobs_done),
+    avg_efficiency: computeEfficiency(sold_min, actual_min),
+    avg_productivity: computeProductivity(sold_min, avail_min),
+    avg_utilization: computeUtilization(actual_min, avail_min),
+    eff_on_target_count: eff_on,
+    util_on_target_count: util_on,
+    total_sold_hours: Math.round((sold_min / 60) * 10) / 10,
+    total_actual_hours: Math.round((actual_min / 60) * 10) / 10,
+    total_available_hours: Math.round((avail_min / 60) * 10) / 10,
+  };
+  return { kpis, ranking: sliced };
+}

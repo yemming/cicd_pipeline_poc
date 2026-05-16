@@ -1,10 +1,7 @@
 "use client";
 
 import { useSetPageHeader } from "@/components/page-header-context";
-import {
-  useServiceDemo,
-  SAFETY_LABEL,
-} from "@/lib/service-demo/context";
+import { useServiceDemo } from "@/lib/service-demo/context";
 
 // ── 複檢項目定義 ─────────────────────────────────────────────
 const CHECK_SECTIONS = [
@@ -82,6 +79,7 @@ const STEPS = [
 
 export default function InspectionPage() {
   useSetPageHeader({
+    title: "竣工複檢",
     breadcrumb: [{ label: "維修管理" }, { label: "竣工複檢" }],
     hideSearch: true,
   });
@@ -106,6 +104,32 @@ export default function InspectionPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-4 pb-24">
+      {/* Sprint chip 列（含 ★4 跨模組 e2e marker） */}
+      <header className="flex items-center gap-2.5 flex-wrap">
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">竣工複檢</h1>
+        <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
+          8.1 ★4
+        </span>
+        <span className="text-[12px] text-[#9A9890]">
+          逐項複檢 / 試車 / 清潔 / 簽核 / 取車通知 5 步流程
+        </span>
+      </header>
+
+      {/* ★4 跨模組 e2e banner — 竣工複檢 ↔ 保固舊件管理 */}
+      <div className="rounded-xl border border-[#BA7517] bg-[#FAEEDA] px-4 py-3 text-[12px] text-[#854F0B] leading-relaxed">
+        <p className="font-semibold mb-1">
+          🛡️ ★4 跨模組串接：竣工複檢 ↔ 保固舊件管理（D7.2）
+        </p>
+        <p>
+          若複檢過程發現拆換下來的舊件屬於 <strong>保固範圍</strong>（如電瓶 / 大燈總成 / ECU），請按
+          <span className="mx-1 inline-flex items-center px-1.5 py-0.5 rounded-md bg-white border border-[#BA7517] text-[#854F0B] font-mono text-[11px]">
+            ✕ 異常
+          </span>
+          標記後，於右下「複檢結論備註」註明保固單號，系統將自動觸發
+          <strong className="mx-1">保固舊件回收流程</strong>（依 Ducati SRV-SRB-26-014 規定，原廠保固件須回繳）。
+        </p>
+      </div>
+
       {/* Header bar */}
       <div
         className="rounded-xl px-5 py-4 flex items-center justify-between"
@@ -281,9 +305,8 @@ export default function InspectionPage() {
                 <input
                   type="number"
                   value={insp.testAfterMileage}
-                  onChange={(e) => {
-                    // 直接 dispatch 不需要 action（設計中無此 action，用 local state 示意即可）
-                    // 這裡示意性更新；實際 UX 已在 context 預設 8215
+                  onChange={() => {
+                    // demo: context 預設 8215，這裡僅佔位避免 React readonly 警告
                   }}
                   className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#CC0000]/30"
                   placeholder="8215"
@@ -455,8 +478,40 @@ export default function InspectionPage() {
           </div>
 
           {/* 簽名區 */}
-          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5">
-            <h3 className="font-semibold text-neutral-800 mb-3">複檢簽核</h3>
+          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5 space-y-3">
+            <h3 className="font-semibold text-neutral-800">複檢簽核　電子簽名</h3>
+
+            {/* 簽核授權 info card（v1 規格：複檢人員 / 職級 / 授權 / RO 系統帶出） */}
+            <div className="bg-[#E6F1FB] border border-[#4A90D9] rounded-lg px-4 py-3">
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-[12px]">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-[#185FA5] font-semibold uppercase tracking-wider">複檢人員</span>
+                  <span className="font-semibold text-[#1A3A5C]">陳建明</span>
+                  <span className="text-[9px] bg-[#1A3A5C] text-white px-1.5 py-0.5 rounded inline-block w-fit">系統帶出</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-[#185FA5] font-semibold uppercase tracking-wider">職級</span>
+                  <span className="font-semibold text-[#1A3A5C]">資深技師</span>
+                  <span className="text-[9px] bg-[#1A3A5C] text-white px-1.5 py-0.5 rounded inline-block w-fit">人員名冊</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-[#185FA5] font-semibold uppercase tracking-wider">簽核授權</span>
+                  <span className="font-semibold text-green-700">✅ 竣工複檢</span>
+                  <span className="text-[9px] bg-[#1A3A5C] text-white px-1.5 py-0.5 rounded inline-block w-fit">已授權</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-[#185FA5] font-semibold uppercase tracking-wider">RO 工單</span>
+                  <span className="font-semibold text-[#1A3A5C] font-mono">RO-20260730-001</span>
+                  <span className="text-[9px] bg-[#1A3A5C] text-white px-1.5 py-0.5 rounded inline-block w-fit">自動帶入</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-neutral-500">
+              請完成電子簽名，確認本工單維修品質符合 Ducati 原廠標準。
+              <span className="ml-1 text-neutral-400">依 Ducati SRV-SRB-26-014，數位簽名具法律效力且防竄改。</span>
+            </p>
+
             {insp.signed ? (
               <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
                 <span className="text-green-500 text-2xl">✓</span>
@@ -477,6 +532,18 @@ export default function InspectionPage() {
                 </button>
               </div>
             )}
+
+            {/* 複檢結論備註（v1 規格新增；★4 保固舊件追蹤註記欄） */}
+            <div className="pt-1">
+              <label className="text-[11px] text-neutral-500 mb-1 block font-medium">
+                複檢結論備註（選填，含保固舊件單號）
+              </label>
+              <textarea
+                rows={2}
+                className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#CC0000]/30"
+                placeholder="例：本工單所有維修項目均已完成，品質符合 Ducati 原廠標準；舊件 BAT-2026-0042（保固電瓶）已建檔回收..."
+              />
+            </div>
           </div>
         </div>
       )}

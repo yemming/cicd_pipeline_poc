@@ -40,15 +40,27 @@ function pad(n: number): string {
   return n < 10 ? "0" + n : String(n);
 }
 
+export type RoNumberingPageHeader = {
+  title?: string;
+  caption?: string;
+  sprintChip?: string;
+};
+
 export function RoNumberingBoard({
   p1Rows,
   p2Rows,
   canEdit,
+  pageHeader,
 }: {
   p1Rows: PrefixP1Row[];
   p2Rows: PrefixP2Row[];
   canEdit: boolean;
+  pageHeader?: RoNumberingPageHeader;
 }) {
+  const h1Text = pageHeader?.title ?? "工單編號規則";
+  const captionText =
+    pageHeader?.caption ?? "維護 P1 業務類型 + P2 付款性質前綴碼，組合產生工單編號";
+  const sprintText = pageHeader?.sprintChip ?? "售後管理";
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
@@ -311,13 +323,11 @@ export function RoNumberingBoard({
     <main className="px-6 py-5 space-y-3">
       {/* Page header */}
       <header className="flex items-center gap-2.5">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">工單編號規則</h1>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">{h1Text}</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          售後管理
+          {sprintText}
         </span>
-        <span className="text-[12px] text-[#9A9890]">
-          維護 P1 業務類型 + P2 付款性質前綴碼，組合產生工單編號
-        </span>
+        <span className="text-[12px] text-[#9A9890]">{captionText}</span>
       </header>
 
       {/* 警告提示 */}

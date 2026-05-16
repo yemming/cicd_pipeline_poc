@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS_EX1 保險招攬工作台 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-amber{background:rgba(180,110,0,.75);border-color:transparent;}
+.hbtn-amber:hover{background:rgba(180,110,0,.95);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+
+/* Sub bar */
+.sub-bar{background:#fff;border-bottom:1px solid #EEECE6;padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.tab-pills{display:flex;gap:0;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;}
+.tab-pill{padding:5px 15px;font-size:12px;cursor:pointer;border-right:1px solid #D5D3CB;color:#7A7A78;background:#fff;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.tab-pill:last-child{border-right:none;}
+.tab-pill.active{background:#1A3A5C;color:#fff;}
+.filter-select{padding:5px 10px;border:1px solid #D5D3CB;border-radius:6px;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;background:#fff;outline:none;cursor:pointer;}
+.sub-divider{width:1px;height:18px;background:#EEECE6;}
+
+/* Layout */
+.layout{display:flex;min-height:calc(100vh - 104px);}
+
+/* Sidenav */
+.sidenav{width:188px;flex-shrink:0;background:#fff;border-right:1px solid #EEECE6;padding:14px 0;position:sticky;top:104px;height:calc(100vh - 104px);overflow-y:auto;}
+.nav-section{padding:0 12px;margin-bottom:6px;}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;padding:8px 6px 4px;}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 8px;border-radius:7px;cursor:pointer;transition:background .12s;color:#4A4A48;font-size:12px;margin-bottom:2px;}
+.nav-item:hover{background:#F4F3F0;}
+.nav-item.active{background:#FDF3E3;color:#854F0B;font-weight:600;}
+.nav-left{display:flex;align-items:center;gap:7px;}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.nav-count{font-size:11px;font-family:'DM Mono',monospace;font-weight:600;padding:1px 6px;border-radius:4px;}
+.nc-red{background:#FDECEA;color:#C8001A;}
+.nc-amber{background:#FDF3E3;color:#854F0B;}
+.nc-teal{background:#E1F5EE;color:#0F6E56;}
+.nc-gray{background:#F1EFE8;color:#5A5955;}
+.nav-divider{height:1px;background:#EEECE6;margin:8px 12px;}
+
+/* Main */
+.main{flex:1;padding:16px 20px 48px;}
+
+/* KPI 摘要 */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.kpi-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;}
+.kpi-card.warn{border-left:3px solid #F0C97E;}
+.kpi-card.good{border-left:3px solid #0F6E56;}
+.kpi-card.alert{border-left:3px solid #C8001A;}
+.kpi-card.blue{border-left:3px solid #185FA5;}
+.kpi-card.dark{border-left:3px solid #1A3A5C;}
+.kpi-l{font-size:10.5px;color:#9A9890;margin-bottom:3px;}
+.kpi-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:3px;}
+.kn-amber{color:#854F0B;} .kn-teal{color:#0F6E56;} .kn-red{color:#C8001A;} .kn-blue{color:#185FA5;} .kn-dark{color:#1A3A5C;}
+.kpi-sub{font-size:10.5px;color:#9A9890;}
+.kpi-bar{height:4px;background:#EEECE6;border-radius:2px;margin-top:7px;overflow:hidden;}
+.kpi-fill{height:100%;border-radius:2px;}
+.fill-amber{background:#F0C97E;} .fill-teal{background:#0F6E56;} .fill-red{background:#C8001A;} .fill-blue{background:#185FA5;}
+
+/* 到期提醒卡 */
+.ins-list{display:flex;flex-direction:column;gap:8px;}
+.ins-card{background:#fff;border:1px solid #EEECE6;border-radius:9px;overflow:hidden;transition:box-shadow .15s;}
+.ins-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.07);}
+.ins-card.urgent{border-left:3px solid #C8001A;}
+.ins-card.soon{border-left:3px solid #F0C97E;}
+.ins-card.far{border-left:3px solid #185FA5;}
+.ins-card.done-ins{border-left:3px solid #0F6E56;opacity:.8;}
+
+.ic-hdr{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;}
+.ic-days-box{width:46px;height:46px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;}
+.idb-urgent{background:#FDECEA;}
+.idb-soon{background:#FDF3E3;}
+.idb-far{background:#EAF4FB;}
+.idb-done{background:#E1F5EE;}
+.ic-days-n{font-size:17px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.idn-urgent{color:#C8001A;} .idn-soon{color:#854F0B;} .idn-far{color:#185FA5;} .idn-done{color:#0F6E56;}
+.ic-days-l{font-size:9px;color:#9A9890;margin-top:1px;}
+
+.ic-info{flex:1;min-width:0;}
+.ic-top{display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap;}
+.ic-name{font-size:13px;font-weight:700;}
+.ic-plate{font-size:11.5px;font-family:'DM Mono',monospace;color:#7A7A78;background:#F1EFE8;padding:1px 7px;border-radius:4px;}
+.ic-bike{font-size:11.5px;color:#5A5955;}
+.ic-mid{display:flex;gap:12px;font-size:11.5px;color:#7A7A78;flex-wrap:wrap;align-items:center;}
+.ic-rs{font-weight:600;color:#5A5955;}
+
+.ic-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;}
+.ins-type-badge{font-size:10.5px;padding:3px 9px;border-radius:5px;font-weight:600;white-space:nowrap;}
+.itb-new{background:#E1F5EE;color:#0F6E56;border:1px solid #5DCAA5;}
+.itb-renew{background:#EAF4FB;color:#185FA5;border:1px solid #85B7EB;}
+.itb-break{background:#FDF3E3;color:#854F0B;border:1px solid #F0C97E;}
+.itb-out{background:#EEEDFE;color:#534AB7;border:1px solid #AFA9EC;}
+.itb-nopol{background:#FDECEA;color:#C8001A;border:1px solid #F5AEAD;}
+.expiry-badge{font-size:10.5px;padding:3px 9px;border-radius:5px;font-weight:600;white-space:nowrap;}
+.eb-urgent{background:#FDECEA;color:#C8001A;border:1px solid #F5AEAD;}
+.eb-soon{background:#FDF3E3;color:#854F0B;border:1px solid #F0C97E;}
+.eb-far{background:#EAF4FB;color:#185FA5;border:1px solid #85B7EB;}
+.eb-done{background:#E1F5EE;color:#0F6E56;border:1px solid #5DCAA5;}
+.ic-action-btns{display:flex;gap:5px;}
+.iab{padding:4px 10px;border-radius:5px;font-size:11px;border:1px solid;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.iab-amber{background:#FDF3E3;border-color:#F0C97E;color:#854F0B;}
+.iab-amber:hover{background:#FAE8C4;}
+.iab-teal{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}
+.iab-teal:hover{background:#C8EEE0;}
+.iab-gray{background:#F1EFE8;border-color:#D5D3CB;color:#5A5955;}
+
+/* 展開內容 */
+.ic-body{display:none;border-top:1px solid #F4F3F0;padding:14px 16px;background:#FAFAF8;}
+.ic-body.open{display:block;}
+.detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+.dg-item{background:#fff;border:1px solid #EEECE6;border-radius:7px;padding:9px 11px;}
+.dg-l{font-size:10px;color:#9A9890;margin-bottom:3px;}
+.dg-v{font-size:12.5px;font-weight:600;color:#2C2C2A;}
+
+/* 保險項目勾選（上年保障內容）*/
+.cov-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.cov-chip{padding:4px 10px;border-radius:5px;font-size:11.5px;border:1px solid;cursor:default;}
+.cov-yes{background:#E1F5EE;border-color:#5DCAA5;color:#085041;}
+.cov-no{background:#F1EFE8;border-color:#D5D3CB;color:#9A9890;text-decoration:line-through;}
+
+/* 話術區塊 */
+.script-box{background:#1A3A5C;border-radius:8px;padding:12px 15px;margin-bottom:12px;color:#fff;}
+.script-tag-label{font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;opacity:.55;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.script-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:2px 8px;font-size:10.5px;color:rgba(255,255,255,.85);cursor:pointer;}
+.script-btn.active{background:rgba(255,255,255,.25);}
+.script-text{font-size:12.5px;line-height:1.8;opacity:.92;}
+
+/* 通話記錄表單 */
+.call-form{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:13px 14px;}
+.cf-title{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:10px;}
+.result-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+.ri-btn{padding:5px 12px;border-radius:6px;border:1px solid #D5D3CB;background:#fff;font-size:11.5px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;color:#5A5955;transition:all .12s;}
+.ri-btn:hover{border-color:#B4B2A9;background:#F4F3F0;}
+.ri-btn.sel-0{border-color:#0F6E56;background:#E1F5EE;color:#0F6E56;font-weight:600;}
+.ri-btn.sel-1{border-color:#185FA5;background:#EAF4FB;color:#185FA5;font-weight:600;}
+.ri-btn.sel-2{border-color:#9A9890;background:#F1EFE8;color:#5A5955;font-weight:600;}
+.ri-btn.sel-3{border-color:#F0C97E;background:#FDF3E3;color:#854F0B;font-weight:600;}
+.ri-btn.sel-4{border-color:#C8001A;background:#FDECEA;color:#C8001A;font-weight:600;}
+.ri-btn.sel-5{border-color:#534AB7;background:#EEEDFE;color:#534AB7;font-weight:600;}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.form-input{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;transition:border .15s;background:#fff;}
+.form-input:focus{border-color:#85B7EB;}
+.form-select{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;background:#fff;}
+.form-textarea{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;resize:vertical;min-height:56px;background:#fff;}
+.form-textarea:focus{border-color:#85B7EB;}
+.save-row{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #EEECE6;}
+
+/* 歷史電訪 */
+.call-history{margin-bottom:12px;}
+.ch-title{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;margin-bottom:7px;}
+.ch-item{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #F4F3F0;font-size:12px;}
+.ch-item:last-child{border-bottom:none;}
+.ch-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.ch-time{font-size:10.5px;color:#9A9890;white-space:nowrap;font-family:'DM Mono',monospace;margin-top:1px;}
+.ch-text{flex:1;color:#4A4A48;line-height:1.5;}
+
+/* 新件交車招攬 Tab */
+.new-table{width:100%;border-collapse:collapse;}
+.new-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:7px 12px;border-bottom:2px solid #EEECE6;text-align:left;white-space:nowrap;}
+.new-table td{padding:9px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.new-table tr:last-child td{border-bottom:none;}
+.new-table tr:hover td{background:#FAFAF8;}
+
+/* 業績 Tab */
+.perf-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.perf-box{background:#fff;border:1px solid #EEECE6;border-radius:10px;padding:14px 16px;}
+.pb-title{font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;margin-bottom:10px;}
+.pb-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F4F3F0;font-size:12.5px;}
+.pb-row:last-child{border-bottom:none;}
+.pb-key{color:#5A5955;}
+.pb-val{font-family:'DM Mono',monospace;font-weight:600;}
+.pb-teal{color:#0F6E56;} .pb-amber{color:#854F0B;} .pb-blue{color:#185FA5;}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:540px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;padding:2px 6px;}
+.modal-body{padding:20px;max-height:64vh;overflow-y:auto;}
+.modal-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+.form-row-m{margin-bottom:12px;}
+.form-hint{font-size:11px;color:#9A9890;margin-top:3px;}
+.two-col-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* Buttons */
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-teal{background:#0F6E56;border-color:#0F6E56;color:#fff;}
+.btn-amber{background:#FDF3E3;border-color:#F0C97E;color:#854F0B;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}
+.b-amber{background:#FDF3E3;color:#854F0B;}
+.b-red{background:#FDECEA;color:#C8001A;}
+.b-gray{background:#F1EFE8;color:#5A5955;}
+.b-blue{background:#EAF4FB;color:#185FA5;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:300px;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+.mb14{margin-bottom:14px;}
+.layer-title{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.layer-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">衍生業務 <b>RS_EX1 保險招攬工作台</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="showToast('← 返回 RS00 導覽總覽')">← 總覽</button>
+    <button class="hbtn" onclick="showToast('→ RS_M3 主管設定 Tab5 保險設定')">⚙️ 保險參數</button>
+    <button class="hbtn hbtn-amber" onclick="openModal('modal-new')">＋ 新增保險件</button>
+  </div>
+</header>
+
+<!-- Sub bar -->
+<div class="sub-bar">
+  <div class="tab-pills">
+    <div class="tab-pill active" id="tp-renew" onclick="setTab('renew',this)">🔔 續保到期提醒</div>
+    <div class="tab-pill" id="tp-new" onclick="setTab('new',this)">🆕 新車交車招攬</div>
+    <div class="tab-pill" id="tp-perf" onclick="setTab('perf',this)">📊 業績總覽</div>
+  </div>
+  <div class="sub-divider"></div>
+  <select class="filter-select" id="filter-rs" onchange="renderMain()">
+    <option value="all">全體 RS</option>
+    <option value="林佳蓉">林佳蓉</option>
+    <option value="陳雅惠">陳雅惠</option>
+    <option value="張志明">張志明</option>
+    <option value="王俊傑">王俊傑</option>
+  </select>
+  <select class="filter-select" id="filter-urgency" onchange="renderMain()">
+    <option value="all">所有到期狀態</option>
+    <option value="urgent">🔴 30 天內</option>
+    <option value="soon">🟡 31–90 天</option>
+    <option value="far">🔵 91–180 天</option>
+    <option value="done">✅ 已續保</option>
+  </select>
+  <div style="margin-left:auto;font-size:11px;color:#9A9890;" id="result-label">共 7 筆</div>
+</div>
+
+<div class="layout">
+
+  <!-- Sidenav -->
+  <div class="sidenav">
+    <div class="nav-section">
+      <div class="nav-label">到期狀態</div>
+      <div class="nav-item active" id="nav-all" onclick="setUrgency('all',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#1A3A5C;"></div>全部</div>
+        <div class="nav-count nc-gray" id="cnt-all">7</div>
+      </div>
+      <div class="nav-item" id="nav-urgent" onclick="setUrgency('urgent',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#C8001A;"></div>🔴 30 天內</div>
+        <div class="nav-count nc-red" id="cnt-urgent">2</div>
+      </div>
+      <div class="nav-item" id="nav-soon" onclick="setUrgency('soon',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#F0C97E;"></div>🟡 31–90 天</div>
+        <div class="nav-count nc-amber" id="cnt-soon">3</div>
+      </div>
+      <div class="nav-item" id="nav-far" onclick="setUrgency('far',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#185FA5;"></div>🔵 91–180 天</div>
+        <div class="nav-count nc-teal" id="cnt-far">2</div>
+      </div>
+      <div class="nav-item" id="nav-done" onclick="setUrgency('done',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#0F6E56;"></div>✅ 已續保</div>
+        <div class="nav-count nc-teal" id="cnt-done">3</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">本月業績</div>
+      <div class="nav-item" style="cursor:default;">
+        <div style="font-size:11px;color:#5A5955;">已完成件數</div>
+        <div class="nav-count nc-teal">3 件</div>
+      </div>
+      <div class="nav-item" style="cursor:default;">
+        <div style="font-size:11px;color:#5A5955;">佣金收入</div>
+        <div class="nav-count nc-amber" style="font-size:10px;">$12,600</div>
+      </div>
+      <div class="nav-item" style="cursor:default;">
+        <div style="font-size:11px;color:#5A5955;">續保率</div>
+        <div class="nav-count nc-teal">60%</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">待跟進清單</div>
+      <div class="nav-item" onclick="showToast('篩選：需再次電訪')">
+        <div class="nav-left"><div class="nav-dot" style="background:#F0C97E;"></div>需再次電訪</div>
+        <div class="nav-count nc-amber">3</div>
+      </div>
+      <div class="nav-item" onclick="showToast('篩選：上報主管')">
+        <div class="nav-left"><div class="nav-dot" style="background:#C8001A;"></div>上報主管</div>
+        <div class="nav-count nc-red">1</div>
+      </div>
+      <div class="nav-item" onclick="showToast('篩選：更正資訊')">
+        <div class="nav-left"><div class="nav-dot" style="background:#9A9890;"></div>更正資訊</div>
+        <div class="nav-count nc-gray">1</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">快速連結</div>
+      <div class="nav-item" onclick="showToast('→ CRM01A 客戶基盤')">
+        <div class="nav-left"><div class="nav-dot" style="background:#0F6E56;"></div>客戶基盤</div>
+      </div>
+      <div class="nav-item" onclick="showToast('→ RS_M3 保險參數設定')">
+        <div class="nav-left"><div class="nav-dot" style="background:#534AB7;"></div>保險參數設定</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- KPI -->
+    <div class="kpi-row mb14">
+      <div class="kpi-card warn">
+        <div class="kpi-l">本月待處理</div>
+        <div class="kpi-n kn-amber">7</div>
+        <div class="kpi-sub">續保 5 + 新件 2</div>
+      </div>
+      <div class="kpi-card alert">
+        <div class="kpi-l">30 天內到期</div>
+        <div class="kpi-n kn-red">2</div>
+        <div class="kpi-sub">優先電訪</div>
+        <div class="kpi-bar"><div class="kpi-fill fill-red" style="width:29%;"></div></div>
+      </div>
+      <div class="kpi-card good">
+        <div class="kpi-l">已完成件數</div>
+        <div class="kpi-n kn-teal">3</div>
+        <div class="kpi-sub">續保率 60%（目標 70%）</div>
+        <div class="kpi-bar"><div class="kpi-fill fill-teal" style="width:60%;"></div></div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-l">本月佣金收入</div>
+        <div class="kpi-n kn-blue" style="font-size:18px;">$12,600</div>
+        <div class="kpi-sub">目標 $20,000</div>
+        <div class="kpi-bar"><div class="kpi-fill fill-blue" style="width:63%;"></div></div>
+      </div>
+      <div class="kpi-card dark">
+        <div class="kpi-l">年度累計佣金</div>
+        <div class="kpi-n kn-dark" style="font-size:18px;">$58,400</div>
+        <div class="kpi-sub">前 5 月合計</div>
+      </div>
+    </div>
+
+    <!-- Tab 內容 -->
+    <div id="tab-renew-content"><div class="ins-list" id="ins-list"></div></div>
+    <div id="tab-new-content" style="display:none;"></div>
+    <div id="tab-perf-content" style="display:none;"></div>
+
+  </div>
+</div>
+
+<!-- Modal 新增保險件 -->
+<div class="overlay" id="modal-new" onclick="closeModalOverlay(event,'modal-new')">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">＋ 新增保險招攬件</div>
+      <button class="modal-close" onclick="closeModal('modal-new')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="two-col-form">
+        <div class="form-row-m">
+          <div class="form-label">客戶姓名 <span style="color:#C8001A;">*</span></div>
+          <input type="text" class="form-input" id="new-name" placeholder="例：王大明">
+        </div>
+        <div class="form-row-m">
+          <div class="form-label">聯絡電話 <span style="color:#C8001A;">*</span></div>
+          <input type="tel" class="form-input" id="new-phone" placeholder="0912-345-678">
+        </div>
+        <div class="form-row-m">
+          <div class="form-label">車牌號碼</div>
+          <input type="text" class="form-input" id="new-plate" placeholder="例：ABC-1234">
+        </div>
+        <div class="form-row-m">
+          <div class="form-label">車款</div>
+          <select class="form-select" id="new-bike">
+            <option value="">— 請選擇 —</option>
+            <option>Panigale V4</option>
+            <option>Panigale V2</option>
+            <option>Streetfighter V4</option>
+            <option>Streetfighter V2</option>
+            <option>Monster SP</option>
+            <option>Multistrada V4</option>
+            <option>Diavel V4</option>
+            <option>Scrambler</option>
+          </select>
+        </div>
+        <div class="form-row-m">
+          <div class="form-label">保險到期日 <span style="color:#C8001A;">*</span></div>
+          <input type="date" class="form-input" id="new-expiry">
+        </div>
+        <div class="form-row-m">
+          <div class="form-label">續保類型</div>
+          <select class="form-select" id="new-type">
+            <option>新轉續</option>
+            <option>續轉續</option>
+            <option>斷轉續</option>
+            <option>外轉續</option>
+            <option>在修未投保</option>
+          </select>
+        </div>
+        <div class="form-row-m">
+          <div class="form-label">原保公司</div>
+          <select class="form-select" id="new-co">
+            <option>富邦產險</option>
+            <option>國泰世紀產險</option>
+            <option>新光產險</option>
+            <option>泰安產險</option>
+            <option>明台產險</option>
+            <option>兆豐產險</option>
+            <option>其他</option>
+          </select>
+        </div>
+        <div class="form-row-m">
+          <div class="form-label">負責 RS</div>
+          <select class="form-select" id="new-rs">
+            <option>林佳蓉</option>
+            <option>陳雅惠</option>
+            <option>張志明</option>
+            <option>王俊傑</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-m">
+        <div class="form-label">備註</div>
+        <textarea class="form-textarea" id="new-note" placeholder="客戶特殊情況、上次溝通重點..."></textarea>
+        <div class="form-hint">儲存後系統依到期日自動計算提醒優先序</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new')">取消</button>
+      <button class="btn btn-primary" onclick="addInsCase()">✅ 建立保險件</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 參數（讀取自 RS_M3 Tab5 保險設定，此處為預設值）──
+var INS_PARAMS = {
+  urgentDays: 30,
+  warnDays: 90,
+  callGap: 7,
+  maxCalls: 3,
+  targetRate: 70,
+  targetRev: 20000
+};
+
+// 話術模板（由 RS_M3 主管設定，RS 唯讀）
+var SCRIPTS = [
+  {tag:'A', title:'開場白（調研破冰）',
+   text:'○○先生／小姐您好，我是 DUCATI 台北展示中心的○○，現在方便占您一分鐘時間嗎？我們發現您的愛車保險即將到期，想確認您是否已經安排續保了呢？'},
+  {tag:'B', title:'尚未續保 → VIP 方案介紹',
+   text:'我們目前有 VIP 續保專屬服務，可享優惠保費，還附贈原廠保養禮券。讓我為您介紹一下方案內容，您看可以嗎？'},
+  {tag:'C', title:'已在他處續保 → 詢問流失原因',
+   text:'感謝您告訴我！請問您是在哪裡續保的呢？能否分享一下選擇他們的主要原因？（記錄後詢問明年預約）'},
+  {tag:'D', title:'感謝致意 → 預約明年',
+   text:'非常感謝您今天接受訪問！遺憾這次未能及時服務，明年同一時間我再聯繫您安排續保，這樣可以嗎？有任何需要歡迎隨時 LINE 我。'}
+];
+
+// 電訪結果選項（由 RS_M3 設定）
+var CALL_RESULTS = ['電訪成功','客忙，再聯繫','無法接通','錯誤號碼','LINE 留言','拒絕電訪'];
+
+// 流失去向（由 RS_M3 設定）
+var LOST_REASONS = ['電銷直接投保','親友介紹投保','自行至保險公司','抱怨，不考慮','其他原因'];
+
+// ── 保險件資料 ──
+var insCases = [
+  {id:1, name:'王大明', phone:'0912-345-678', plate:'ABC-1234', bike:'Panigale V4',
+   expiry:'2026-05-25', daysLeft:15, urgency:'urgent', type:'新轉續', co:'富邦產險',
+   rs:'林佳蓉', status:'pending', callCount:1,
+   coverages:{強制:'YES',商業:'YES',車損:'YES',不計免賠:'YES',第三人:'YES',竊盜:'NO',刮痕:'YES',玻璃:'NO'},
+   history:[
+     {dot:'ch-dot-blue',time:'05-03',text:'第 1 次電訪：電訪成功，客戶表示還在考慮方案'},
+     {dot:'ch-dot-amber',time:'05-07',text:'排程 05-15 第 2 次電訪（到期前 10 天）'}
+   ],
+   note:'客戶上次有詢問分期保費選項，建議準備富邦 12 期方案報價。',
+   result:'', nextDate:'', lost:'', expanded:false},
+  {id:2, name:'陳美玲', phone:'0928-456-789', plate:'XYZ-5678', bike:'Monster SP',
+   expiry:'2026-05-18', daysLeft:8, urgency:'urgent', type:'續轉續', co:'國泰世紀產險',
+   rs:'陳雅惠', status:'escalate', callCount:3,
+   coverages:{強制:'YES',商業:'YES',車損:'YES',不計免賠:'NO',第三人:'YES',竊盜:'NO',刮痕:'NO',玻璃:'NO'},
+   history:[
+     {dot:'ch-dot-blue',time:'04-20',text:'第 1 次電訪：客忙，再聯繫'},
+     {dot:'ch-dot-blue',time:'04-28',text:'第 2 次電訪：無法接通'},
+     {dot:'ch-dot-blue',time:'05-06',text:'第 3 次電訪：無法接通，已達最多電訪次數'}
+   ],
+   note:'已達 3 次電訪上限，需升報主管協助。',
+   result:'', nextDate:'', lost:'', expanded:false},
+  {id:3, name:'李文彬', phone:'0955-567-890', plate:'DEF-9012', bike:'Streetfighter V4',
+   expiry:'2026-07-15', daysLeft:66, urgency:'soon', type:'外轉續', co:'新光產險',
+   rs:'張志明', status:'contacted', callCount:1,
+   coverages:{強制:'YES',商業:'YES',車損:'YES',不計免賠:'YES',第三人:'YES',竊盜:'YES',刮痕:'NO',玻璃:'YES'},
+   history:[
+     {dot:'ch-dot-blue',time:'05-01',text:'第 1 次電訪：電訪成功，客戶說 6 月底前決定'},
+     {dot:'ch-dot-amber',time:'05-01',text:'排程 06-15 第 2 次電訪'}
+   ],
+   note:'客戶上次在他處投保，這次想回本店。已傳送報價單至 LINE。',
+   result:'', nextDate:'2026-06-15', lost:'', expanded:false},
+  {id:4, name:'林宗翰', phone:'0966-678-901', plate:'GHI-3456', bike:'Multistrada V4',
+   expiry:'2026-07-30', daysLeft:81, urgency:'soon', type:'續轉續', co:'富邦產險',
+   rs:'林佳蓉', status:'pending', callCount:0,
+   coverages:{強制:'YES',商業:'YES',車損:'YES',不計免賠:'YES',第三人:'YES',竊盜:'YES',刮痕:'YES',玻璃:'YES'},
+   history:[
+     {dot:'ch-dot-amber',time:'05-10',text:'系統自動排程，尚未電訪'}
+   ],
+   note:'老車主，保險一直在本店續，話術用 D 段感謝維護關係即可。',
+   result:'', nextDate:'', lost:'', expanded:false},
+  {id:5, name:'黃俊豪', phone:'0977-789-012', plate:'JKL-7890', bike:'Diavel V4',
+   expiry:'2026-08-20', daysLeft:102, urgency:'soon', type:'新轉續', co:'泰安產險',
+   rs:'王俊傑', status:'pending', callCount:0,
+   coverages:{強制:'YES',商業:'NO',車損:'NO',不計免賠:'NO',第三人:'YES',竊盜:'NO',刮痕:'NO',玻璃:'NO'},
+   history:[{dot:'ch-dot-amber',time:'05-10',text:'系統自動排程，尚未電訪'}],
+   note:'新車交車時購買最基本保險，有機會加購商業險與車損險。',
+   result:'', nextDate:'', lost:'', expanded:false},
+  {id:6, name:'張雅婷', phone:'0988-890-123', plate:'MNO-1234', bike:'Scrambler',
+   expiry:'2026-11-10', daysLeft:184, urgency:'far', type:'新轉續', co:'明台產險',
+   rs:'陳雅惠', status:'pending', callCount:0,
+   coverages:{強制:'YES',商業:'YES',車損:'YES',不計免賠:'YES',第三人:'YES',竊盜:'NO',刮痕:'NO',玻璃:'NO'},
+   history:[{dot:'ch-dot-amber',time:'05-10',text:'90 天提醒期未到，暫不電訪'}],
+   note:'', result:'', nextDate:'', lost:'', expanded:false},
+  {id:7, name:'吳建國', phone:'0919-901-234', plate:'PQR-5678', bike:'Panigale V2',
+   expiry:'2026-12-05', daysLeft:209, urgency:'far', type:'斷轉續', co:'其他',
+   rs:'張志明', status:'pending', callCount:0,
+   coverages:{強制:'YES',商業:'NO',車損:'NO',不計免賠:'NO',第三人:'NO',竊盜:'NO',刮痕:'NO',玻璃:'NO'},
+   history:[{dot:'ch-dot-amber',time:'05-10',text:'90 天提醒期未到，暫不電訪'}],
+   note:'上次在他處投保，有機會在提醒期到來時吸引回本店。', result:'', nextDate:'', lost:'', expanded:false}
+];
+
+// 已續保（完成）件
+var doneCases = [
+  {id:101, name:'蔡明哲', phone:'0933-012-345', plate:'STU-9012', bike:'Streetfighter V2',
+   expiry:'2026-05-05', daysLeft:0, urgency:'done', type:'續轉續', co:'富邦產險',
+   rs:'林佳蓉', status:'done', callCount:2,
+   coverages:{強制:'YES',商業:'YES',車損:'YES',不計免賠:'YES',第三人:'YES',竊盜:'NO',刮痕:'NO',玻璃:'NO'},
+   history:[
+     {dot:'ch-dot-blue',time:'04-10',text:'第 1 次電訪：電訪成功'},
+     {dot:'ch-dot-teal',time:'04-15',text:'已成交出單，富邦產險，保費 $22,500'}
+   ],
+   note:'', result:'已成交出單', nextDate:'', lost:'', expanded:false}
+];
+
+var currentTab = 'renew';
+var currentUrgency = 'all';
+
+// ── Tab 切換 ──
+function setTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-pill').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  document.getElementById('tab-renew-content').style.display = tab === 'renew' ? 'block' : 'none';
+  document.getElementById('tab-new-content').style.display = tab === 'new' ? 'block' : 'none';
+  document.getElementById('tab-perf-content').style.display = tab === 'perf' ? 'block' : 'none';
+  if (tab === 'new') renderNewTab();
+  if (tab === 'perf') renderPerfTab();
+}
+
+function setUrgency(u, el) {
+  currentUrgency = u;
+  document.querySelectorAll('.sidenav .nav-item').forEach(function(n){n.classList.remove('active');});
+  el.classList.add('active');
+  renderMain();
+}
+
+// ── 主列表渲染 ──
+function getAllCases() {
+  var all = insCases.concat(doneCases);
+  var rs = document.getElementById('filter-rs').value;
+  var urg = document.getElementById('filter-urgency').value;
+  var cu = currentUrgency !== 'all' ? currentUrgency : urg;
+  return all.filter(function(c) {
+    var mRs = rs === 'all' || c.rs === rs;
+    var mU = cu === 'all' || c.urgency === cu;
+    return mRs && mU;
+  });
+}
+
+function renderMain() {
+  updateCounts();
+  if (currentTab !== 'renew') return;
+  var data = getAllCases();
+  document.getElementById('result-label').textContent = '共 ' + data.length + ' 筆';
+  var order = {urgent:0, soon:1, far:2, done:3};
+  data.sort(function(a,b){ return (order[a.urgency]||0) - (order[b.urgency]||0) || a.daysLeft - b.daysLeft; });
+  document.getElementById('ins-list').innerHTML = data.map(function(c){ return renderCard(c); }).join('');
+}
+
+function renderCard(c) {
+  var urgCls = {urgent:'urgent',soon:'soon',far:'far',done:'done-ins'}[c.urgency] || 'far';
+  var boxCls = {urgent:'idb-urgent',soon:'idb-soon',far:'idb-far',done:'idb-done'}[c.urgency];
+  var nCls   = {urgent:'idn-urgent',soon:'idn-soon',far:'idn-far',done:'idn-done'}[c.urgency];
+  var ebCls  = {urgent:'eb-urgent',soon:'eb-soon',far:'eb-far',done:'eb-done'}[c.urgency];
+  var ebLbl  = {urgent:'🔴 緊急',soon:'🟡 注意',far:'🔵 排程中',done:'✅ 已續保'}[c.urgency];
+  var typMap = {新轉續:'itb-new',續轉續:'itb-renew',斷轉續:'itb-break',外轉續:'itb-out','在修未投保':'itb-nopol'};
+  var typCls = typMap[c.type] || 'itb-renew';
+
+  var covHtml = Object.keys(c.coverages).map(function(k){
+    return '<span class="cov-chip ' + (c.coverages[k]==='YES'?'cov-yes':'cov-no') + '">' + k + '</span>';
+  }).join('');
+
+  var histHtml = c.history.map(function(h){
+    return '<div class="ch-item"><div class="ch-dot ' + h.dot + '"></div>' +
+      '<div class="ch-time">' + h.time + '</div>' +
+      '<div class="ch-text">' + h.text + '</div></div>';
+  }).join('');
+
+  var scriptBtns = SCRIPTS.map(function(s,i){
+    return '<button class="script-btn" id="sbtn-' + c.id + '-' + i + '" onclick="showScript(' + c.id + ',' + i + ')">' + s.tag + '</button>';
+  }).join(' ');
+
+  var isDone = c.urgency === 'done';
+  var isEscalate = c.status === 'escalate';
+
+  var resultBtns = CALL_RESULTS.map(function(r, i){
+    return '<button class="ri-btn' + (c.result===r?' sel-'+i:'') + '" onclick="setCallResult(' + c.id + ',\'' + r + '\',' + i + ')">' + r + '</button>';
+  }).join('');
+
+  var doneBlock = isDone ?
+    '<div style="background:#E1F5EE;border:1px solid #5DCAA5;border-radius:7px;padding:10px 13px;margin-bottom:10px;font-size:12px;color:#085041;">✅ 已完成 — ' + (c.result||'已成交出單') + (c.note ? '<br><span style="color:#5A5955;">' + c.note + '</span>' : '') + '</div>' : '';
+
+  var escBlock = isEscalate ?
+    '<div style="background:#FDECEA;border:1px solid #F5AEAD;border-radius:7px;padding:10px 13px;margin-bottom:10px;font-size:12px;color:#7A1010;">🚨 已達電訪上限（' + INS_PARAMS.maxCalls + ' 次），系統自動升報主管。請主管直接聯繫客戶或調整策略。</div>' : '';
+
+  var formHtml = (!isDone && !isEscalate) ?
+    '<div class="call-form">' +
+      '<div class="cf-title">記錄本次電訪結果</div>' +
+      '<div class="result-row">' + resultBtns + '</div>' +
+      '<div class="form-row-2">' +
+        '<div><div class="form-label">下次電訪日期</div><input type="date" class="form-input" id="nxt-' + c.id + '" value="' + (c.nextDate||'') + '"></div>' +
+        '<div><div class="form-label">流失去向（已在他處續保）</div>' +
+          '<select class="form-select" id="lost-' + c.id + '"><option value="">— 無 —</option>' +
+          LOST_REASONS.map(function(r){ return '<option' + (c.lost===r?' selected':'') + '>' + r + '</option>'; }).join('') +
+          '</select></div>' +
+        '<div style="grid-column:1/-1;"><div class="form-label">電訪備註</div>' +
+          '<textarea class="form-textarea" id="note-' + c.id + '" placeholder="記錄客戶反應、承諾事項、後續行動...">' + (c.note||'') + '</textarea></div>' +
+        '<div><div class="form-label">報價狀態</div>' +
+          '<select class="form-select" id="quote-' + c.id + '">' +
+          ['— 無 —','LINE 報價','現場報價','Email 報價','已成交並出單'].map(function(q){ return '<option>' + q + '</option>'; }).join('') +
+          '</select></div>' +
+        '<div><div class="form-label">出單公司（成交時填）</div>' +
+          '<select class="form-select" id="co-' + c.id + '">' +
+          ['— 無 —','富邦產險','國泰世紀產險','新光產險','泰安產險','明台產險','兆豐產險','其他'].map(function(co){ return '<option>' + co + '</option>'; }).join('') +
+          '</select></div>' +
+      '</div>' +
+      '<div class="save-row">' +
+        '<button class="btn btn-ghost btn-sm" onclick="skipCase(' + c.id + ')">略過（本次不跟進）</button>' +
+        '<button class="btn btn-primary btn-sm" onclick="saveCall(' + c.id + ')">💾 儲存電訪記錄</button>' +
+      '</div>' +
+    '</div>' : '';
+
+  return '<div class="ins-card ' + urgCls + '" id="icard-' + c.id + '">' +
+    '<div class="ic-hdr" onclick="toggleCard(' + c.id + ')">' +
+      '<div class="ic-days-box ' + boxCls + '">' +
+        '<div class="ic-days-n ' + nCls + '">' + (c.urgency==='done' ? '✅' : c.daysLeft) + '</div>' +
+        '<div class="ic-days-l">' + (c.urgency==='done' ? '已續保' : '天後到期') + '</div>' +
+      '</div>' +
+      '<div class="ic-info">' +
+        '<div class="ic-top">' +
+          '<span class="ic-name">' + c.name + '</span>' +
+          '<span class="ic-plate">' + c.plate + '</span>' +
+          '<span class="ic-bike">🏍️ ' + c.bike + '</span>' +
+        '</div>' +
+        '<div class="ic-mid">' +
+          '<span class="ic-rs">👤 ' + c.rs + '</span>' +
+          '<span>到期：' + c.expiry + '</span>' +
+          '<span>電訪 ' + c.callCount + ' 次</span>' +
+          '<span>原保：' + c.co + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ic-right">' +
+        '<div style="display:flex;gap:5px;">' +
+          '<span class="ins-type-badge ' + typCls + '">' + c.type + '</span>' +
+          '<span class="expiry-badge ' + ebCls + '">' + ebLbl + '</span>' +
+        '</div>' +
+        '<div class="ic-action-btns">' +
+          (!isDone && !isEscalate ? '<button class="iab iab-amber" onclick="event.stopPropagation();toggleCard(' + c.id + ')">📞 電訪記錄</button>' : '') +
+          '<button class="iab iab-gray" onclick="event.stopPropagation();showToast(\'→ CRM01A 客戶詳情\')">詳情</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="ic-body' + (c.expanded?' open':'') + '" id="ibody-' + c.id + '">' +
+      doneBlock + escBlock +
+      '<div class="detail-grid" style="margin-bottom:10px;">' +
+        '<div class="dg-item"><div class="dg-l">保險到期</div><div class="dg-v">' + c.expiry + '</div></div>' +
+        '<div class="dg-item"><div class="dg-l">續保類型</div><div class="dg-v">' + c.type + '</div></div>' +
+        '<div class="dg-item"><div class="dg-l">原保公司</div><div class="dg-v">' + c.co + '</div></div>' +
+        '<div class="dg-item"><div class="dg-l">電訪次數</div><div class="dg-v">' + c.callCount + ' / ' + INS_PARAMS.maxCalls + ' 次</div></div>' +
+      '</div>' +
+      '<div style="margin-bottom:8px;"><div style="font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;margin-bottom:6px;">上年保障項目</div>' +
+        '<div class="cov-grid">' + covHtml + '</div>' +
+      '</div>' +
+      '<div class="script-box" id="script-box-' + c.id + '">' +
+        '<div class="script-tag-label">話術模板（主管設定 · RS 唯讀）' + scriptBtns + '</div>' +
+        '<div class="script-text" id="script-text-' + c.id + '">' + SCRIPTS[0].text + '</div>' +
+      '</div>' +
+      '<div class="call-history"><div class="ch-title">歷史電訪記錄</div>' + histHtml + '</div>' +
+      formHtml +
+    '</div>' +
+  '</div>';
+}
+
+function toggleCard(id) {
+  var c = findCase(id);
+  if (!c) return;
+  c.expanded = !c.expanded;
+  var body = document.getElementById('ibody-' + id);
+  if (body) body.className = 'ic-body' + (c.expanded ? ' open' : '');
+}
+
+function showScript(caseId, scriptIdx) {
+  document.getElementById('script-text-' + caseId).textContent = SCRIPTS[scriptIdx].text;
+  SCRIPTS.forEach(function(s, i) {
+    var btn = document.getElementById('sbtn-' + caseId + '-' + i);
+    if (btn) btn.className = 'script-btn' + (i === scriptIdx ? ' active' : '');
+  });
+}
+
+function setCallResult(id, result, idx) {
+  var c = findCase(id);
+  if (c) { c.result = result; renderMain(); }
+}
+
+function saveCall(id) {
+  var c = findCase(id);
+  if (!c || !c.result) { showToast('請先選擇電訪結果'); return; }
+  var noteEl = document.getElementById('note-' + id);
+  var nxtEl  = document.getElementById('nxt-' + id);
+  var lostEl = document.getElementById('lost-' + id);
+  var quoteEl= document.getElementById('quote-' + id);
+  if (noteEl) c.note = noteEl.value;
+  if (nxtEl)  c.nextDate = nxtEl.value;
+  if (lostEl) c.lost = lostEl.value;
+  c.callCount++;
+  c.history.push({dot:'ch-dot-teal', time:'05-10', text:'電訪記錄：' + c.result + (c.note ? ' — ' + c.note.substring(0,30) : '')});
+  if (quoteEl && quoteEl.value === '已成交並出單') {
+    c.urgency = 'done'; c.status = 'done'; c.result = '已成交並出單';
+    showToast('✅ 已成交出單！恭喜完成保險招攬！');
+  } else if (c.callCount >= INS_PARAMS.maxCalls && c.urgency !== 'done') {
+    c.status = 'escalate';
+    showToast('⚠ 已達電訪上限，自動升報主管');
+  } else {
+    showToast('✅ 電訪記錄已儲存' + (c.nextDate ? ' · 下次 ' + c.nextDate : ''));
+  }
+  c.expanded = false;
+  renderMain();
+}
+
+function skipCase(id) {
+  var c = findCase(id);
+  if (c) { c.expanded = false; showToast('已略過，請記得安排下次追蹤'); renderMain(); }
+}
+
+function findCase(id) {
+  return insCases.find(function(c){return c.id===id;}) || doneCases.find(function(c){return c.id===id;});
+}
+
+// ── 新車交車招攬 Tab ──
+var newDeliveries = [
+  {name:'王大明', bike:'Panigale V4', delivDate:'2026-05-10', plate:'ABC-1234', rs:'林佳蓉', insStatus:'已投強制險', note:'建議加購商業險與車損險'},
+  {name:'陳美玲', bike:'Monster SP',  delivDate:'2026-05-08', plate:'XYZ-5678', rs:'陳雅惠', insStatus:'全險已投',   note:'已完成，無需追蹤'},
+  {name:'黃俊豪', bike:'Diavel V4',   delivDate:'2026-04-28', plate:'JKL-7890', rs:'王俊傑', insStatus:'僅強制險',  note:'已電訪提醒加購，客戶考慮中'}
+];
+function renderNewTab() {
+  var html = '<div style="background:#EAF4FB;border:1px solid #85B7EB;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0C3E70;line-height:1.7;">' +
+    '🆕 <b>新車交車招攬</b>：交車後 3 日內主動確認保險投保狀況，協助加購商業險與車損險，同時建立保險到期提醒。' +
+  '</div>' +
+  '<table class="new-table"><thead><tr><th>客戶姓名</th><th>車款</th><th>交車日期</th><th>車牌</th><th>負責 RS</th><th>保險狀態</th><th>備註</th><th>操作</th></tr></thead><tbody>' +
+  newDeliveries.map(function(d) {
+    var isCovOk = d.insStatus === '全險已投';
+    return '<tr>' +
+      '<td style="font-weight:600;">' + d.name + '</td>' +
+      '<td>' + d.bike + '</td>' +
+      '<td style="font-family:DM Mono,monospace;font-size:12px;">' + d.delivDate + '</td>' +
+      '<td style="font-family:DM Mono,monospace;background:#F1EFE8;padding:2px 7px;border-radius:4px;font-size:12px;">' + d.plate + '</td>' +
+      '<td>' + d.rs + '</td>' +
+      '<td><span class="badge ' + (isCovOk ? 'b-teal' : 'b-amber') + '">' + d.insStatus + '</span></td>' +
+      '<td style="font-size:11.5px;color:#7A7A78;">' + d.note + '</td>' +
+      '<td><button class="btn btn-ghost btn-sm" onclick="showToast(\'→ 建立保險提醒件\')" style="font-size:11px;">建立提醒</button></td>' +
+    '</tr>';
+  }).join('') +
+  '</tbody></table>';
+  document.getElementById('tab-new-content').innerHTML = html;
+}
+
+// ── 業績 Tab ──
+function renderPerfTab() {
+  var html =
+    '<div class="perf-row">' +
+      '<div class="perf-box">' +
+        '<div class="pb-title">本月業績摘要</div>' +
+        ['總件數:7件','已完成:3 件','進行中:4 件','成交率:43%（目標 70%）','佣金收入:$12,600','佣金目標:$20,000','達成率:63%'].map(function(r){
+          var p = r.split(':'); var isGood = r.includes('43%') ? false : r.includes('%');
+          return '<div class="pb-row"><span class="pb-key">' + p[0] + '</span><span class="pb-val ' + (r.includes('$12,600')||r.includes('3 件')?'pb-amber':r.includes('63%')?'pb-amber':'pb-blue') + '">' + p[1] + '</span></div>';
+        }).join('') +
+      '</div>' +
+      '<div class="perf-box">' +
+        '<div class="pb-title">RS 個人業績</div>' +
+        [{name:'林佳蓉',done:1,rev:4200},{name:'陳雅惠',done:1,rev:3800},{name:'張志明',done:1,rev:4600},{name:'王俊傑',done:0,rev:0}].map(function(r){
+          return '<div class="pb-row"><span class="pb-key">👤 ' + r.name + '</span><span class="pb-val ' + (r.done>0?'pb-teal':'pb-key') + '">' + r.done + ' 件　$' + r.rev.toLocaleString() + '</span></div>';
+        }).join('') +
+      '</div>' +
+      '<div class="perf-box">' +
+        '<div class="pb-title">流失原因分析</div>' +
+        ['電銷直接投保:2 件','親友介紹投保:1 件','其他原因:0 件','無法接通（待跟進）:2 件'].map(function(r){
+          var p = r.split(':');
+          return '<div class="pb-row"><span class="pb-key">' + p[0] + '</span><span class="pb-val pb-amber">' + p[1] + '</span></div>';
+        }).join('') +
+      '</div>' +
+      '<div class="perf-box">' +
+        '<div class="pb-title">年度累計</div>' +
+        ['1 月:$8,400','2 月:$7,200','3 月:$14,800','4 月:$15,400','5 月（進行中）:$12,600','合計:$58,400'].map(function(r){
+          var p = r.split(':');
+          return '<div class="pb-row"><span class="pb-key">' + p[0] + '</span><span class="pb-val pb-blue">' + p[1] + '</span></div>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+  document.getElementById('tab-perf-content').innerHTML = html;
+}
+
+// ── 新增保險件 ──
+function addInsCase() {
+  var name = document.getElementById('new-name').value.trim();
+  var phone = document.getElementById('new-phone').value.trim();
+  var expiry = document.getElementById('new-expiry').value;
+  if (!name || !phone || !expiry) { showToast('請填寫姓名、電話及到期日'); return; }
+  var today = new Date('2026-05-10');
+  var exp = new Date(expiry);
+  var days = Math.round((exp - today) / 86400000);
+  var urgency = days <= 30 ? 'urgent' : days <= 90 ? 'soon' : 'far';
+  var newCase = {
+    id: insCases.length + 101, name: name, phone: phone,
+    plate: document.getElementById('new-plate').value || '—',
+    bike: document.getElementById('new-bike').value || '未填',
+    expiry: expiry, daysLeft: days, urgency: urgency,
+    type: document.getElementById('new-type').value,
+    co: document.getElementById('new-co').value,
+    rs: document.getElementById('new-rs').value,
+    status:'pending', callCount:0,
+    coverages:{強制:'YES',商業:'NO',車損:'NO',不計免賠:'NO',第三人:'YES',竊盜:'NO',刮痕:'NO',玻璃:'NO'},
+    history:[{dot:'ch-dot-amber',time:'05-10',text:'手動新增保險件'}],
+    note: document.getElementById('new-note').value,
+    result:'', nextDate:'', lost:'', expanded:false
+  };
+  insCases.push(newCase);
+  closeModal('modal-new');
+  updateCounts();
+  renderMain();
+  showToast('✅ 已建立保險件：' + name + ' · 到期 ' + expiry);
+}
+
+function updateCounts() {
+  var all = insCases.concat(doneCases);
+  var cnt = {all:all.length, urgent:0, soon:0, far:0, done:0};
+  all.forEach(function(c){ cnt[c.urgency] = (cnt[c.urgency]||0) + 1; });
+  Object.keys(cnt).forEach(function(k){
+    var el = document.getElementById('cnt-' + k);
+    if (el) el.textContent = cnt[k];
+  });
+}
+
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function closeModalOverlay(e,id){if(e.target===document.getElementById(id))closeModal(id);}
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(function(){t.classList.remove('show');},2700);
+}
+
+// init
+updateCounts();
+renderMain();
+</script>
+</body>
+</html>

@@ -254,6 +254,11 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
             <div className="text-[12.5px]">{data.ro.sa_name}</div>
           </div>
         ) : null}
+        {data.final_inspection_status === "completed" ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11] whitespace-nowrap">
+            竣工複檢 ✅ 通過
+          </span>
+        ) : null}
         <div className="ml-auto flex items-center gap-2">
           <span
             className={`inline-flex items-center px-2 py-1 rounded-md text-[11.5px] ${STATUS_CHIP[data.status]}`}
@@ -819,6 +824,14 @@ function Step4({
             <>
               <br />
               結案時間：{fmtDateTime(closedAt)}
+            </>
+          ) : null}
+          {isClosed ? (
+            <>
+              <br />
+              <span className="text-[#0F6E56]">
+                電子發票已開立，RO 存檔 36 個月
+              </span>
             </>
           ) : null}
         </div>

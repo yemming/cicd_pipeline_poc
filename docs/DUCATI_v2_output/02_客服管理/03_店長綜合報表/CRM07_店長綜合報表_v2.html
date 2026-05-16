@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM07 店長綜合報表 v2 — DUCATI 管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --red:#C8001A;--navy:#1A3A5C;--teal:#0F6E56;
+  --teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --amber:#D4820A;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --blue-bg:#EAF4FB;--blue-bd:#85B7EB;
+  --gray:#9A9890;--purple:#534AB7;
+}
+header{background:#0D2438;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.new-badge{background:rgba(200,0,26,.7);border:none;color:#fff;padding:3px 9px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:.3px;}
+
+/* 唯讀條 */
+.readonly-bar{background:#6B0A10;color:#FFD0D0;padding:7px 24px;font-size:12px;display:flex;align-items:center;gap:8px;position:sticky;top:52px;z-index:89;}
+
+/* 新資料標示條 */
+.sa-live-bar{background:#0C5A46;color:#A8DFC9;padding:6px 24px;font-size:11.5px;display:flex;align-items:center;gap:8px;position:sticky;top:88px;z-index:88;}
+
+.main{max-width:1200px;margin:0 auto;padding:16px 20px 60px;}
+
+/* 部門切換 */
+.dept-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.dept-label{font-size:12px;font-weight:700;color:#5A5955;}
+.period-chip{padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid #D5D3CB;background:#fff;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.period-chip.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.data-tag{font-size:10.5px;padding:2px 8px;border-radius:4px;font-weight:600;}
+.dt-live{background:#E1F5EE;color:var(--teal);border:1px solid #5DCAA5;}
+.dt-static{background:#FDF3E3;color:var(--amber);border:1px solid #F0C97E;}
+
+/* 部門區塊 */
+.dept-section{background:#fff;border-radius:10px;overflow:hidden;margin-bottom:16px;border:1px solid #EEECE6;}
+.ds-hdr{padding:10px 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:10px;border-bottom:1px solid #EEECE6;}
+.ds-hdr.sales-hdr{background:linear-gradient(90deg,var(--navy) 0%,#2A5080 100%);color:#fff;}
+.ds-hdr.sa-hdr{background:linear-gradient(90deg,var(--teal) 0%,#1A8A6A 100%);color:#fff;}
+.ds-hdr.cross-hdr{background:linear-gradient(90deg,#0D2438 0%,#1A3A5C 100%);color:#fff;}
+.ds-badge{background:rgba(255,255,255,.2);color:#fff;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:600;}
+.ds-readonly{background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);padding:2px 8px;border-radius:4px;font-size:10px;}
+.ds-live{background:rgba(93,202,165,.3);color:#A8DFC9;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;border:1px solid rgba(93,202,165,.4);}
+.ds-body{padding:14px 16px;}
+
+/* KPI */
+.kpi-row{display:grid;gap:10px;margin-bottom:12px;}
+.kr-4{grid-template-columns:repeat(4,1fr);}
+.kr-5{grid-template-columns:repeat(5,1fr);}
+.kr-6{grid-template-columns:repeat(6,1fr);}
+.kr-3{grid-template-columns:repeat(3,1fr);}
+.kpi{background:#FAFAF8;border:1px solid #EEECE6;border-radius:8px;padding:11px 14px;}
+.kpi.sales-kpi{border-left:3px solid var(--navy);}
+.kpi.sa-kpi{border-left:3px solid var(--teal);}
+.kpi.warn-kpi{border-left:3px solid var(--red);}
+.kpi.cross-kpi{border-left:3px solid #0D2438;}
+.kpi-l{font-size:11px;color:var(--gray);margin-bottom:3px;display:flex;align-items:center;gap:5px;}
+.kpi-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:1px;}
+.kn-n{color:var(--navy);}.kn-t{color:var(--teal);}.kn-r{color:var(--red);}.kn-a{color:var(--amber);}
+.kpi-s{font-size:10.5px;color:var(--gray);}
+.kpi-s b{color:var(--teal);}
+
+/* NPS 對比 */
+.nps-compare{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+.nps-box{text-align:center;padding:14px;border-radius:9px;border:1px solid #EEECE6;}
+.nps-lbl{font-size:11px;color:var(--gray);margin-bottom:4px;}
+.nps-val{font-size:32px;font-weight:700;font-family:'DM Mono',monospace;}
+.nps-delta{font-size:11px;margin-top:4px;}
+
+/* 雙欄對比 */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.cmp-box{border-radius:8px;padding:12px 14px;}
+.cmp-sales{background:var(--blue-bg);border:1px solid var(--blue-bd);}
+.cmp-sa{background:var(--teal-bg);border:1px solid var(--teal-bd);}
+.cmp-title{font-size:12px;font-weight:700;margin-bottom:10px;}
+.cmp-sales .cmp-title{color:var(--navy);}
+.cmp-sa .cmp-title{color:var(--teal);}
+.cmp-row{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.5);}
+.cmp-row:last-child{border-bottom:none;}
+.cmp-val{font-weight:700;font-family:'DM Mono',monospace;}
+
+/* 人員表格 */
+.staff-table{width:100%;border-collapse:collapse;font-size:12px;}
+.staff-table th{font-size:11px;font-weight:700;color:var(--gray);padding:6px 10px;border-bottom:2px solid #EEECE6;text-align:left;background:#FAFAF8;white-space:nowrap;}
+.staff-table td{padding:8px 10px;border-bottom:1px solid #F4F3F0;vertical-align:middle;}
+.staff-table tr:hover td{background:#FAFAF8;}
+.rank-num{font-family:'DM Mono',monospace;font-weight:700;width:24px;text-align:center;}
+.rank-1{color:var(--red);font-size:14px;}
+.rank-2{color:var(--amber);}
+.rank-3{color:var(--navy);}
+.prog-bar{height:7px;background:#EEECE6;border-radius:4px;overflow:hidden;flex:1;min-width:60px;}
+.prog-fill{height:100%;border-radius:4px;}
+.pf-sales{background:var(--navy);}
+.pf-sa{background:var(--teal);}
+
+/* SA 側新增：逾期趨勢 mini 圖 */
+.mini-trend{display:flex;align-items:flex-end;gap:5px;height:40px;padding-top:4px;}
+.mt-bar{border-radius:2px 2px 0 0;min-width:18px;transition:height .4s;}
+.mt-label{font-size:9.5px;color:var(--gray);text-align:center;margin-top:3px;}
+
+/* 預警區塊 */
+.alert-section{border-radius:8px;padding:11px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;}
+.as-red{background:#FDECEA;border:1px solid #F5AEAD;}
+.as-amber{background:var(--amber-bg);border:1px solid var(--amber-bd);}
+.as-teal{background:var(--teal-bg);border:1px solid var(--teal-bd);}
+.as-icon{font-size:18px;flex-shrink:0;}
+.as-content{flex:1;}
+.as-title{font-size:12px;font-weight:700;margin-bottom:3px;}
+.as-red .as-title{color:var(--red);}
+.as-amber .as-title{color:var(--amber);}
+.as-teal .as-title{color:var(--teal);}
+.as-body{font-size:12px;color:#4A4A48;line-height:1.6;}
+
+/* 雙軸 NPS 趨勢圖 */
+.dual-trend-wrap{position:relative;width:100%;}
+
+/* Badge & Btn */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-navy{background:var(--blue-bg);color:var(--navy);}
+.b-red{background:#FDECEA;color:var(--red);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-purple{background:#EEEDFE;color:var(--purple);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;white-space:nowrap;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:14px 0 7px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.divider{height:1px;background:#EEECE6;margin:10px 0;}
+.insight-box{background:#F4F3F0;border-radius:7px;padding:10px 14px;font-size:12px;color:#5A5955;line-height:1.8;margin-top:10px;}
+
+/* Toast */
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.3);}
+</style>
+</head>
+<body>
+
+<!-- 頁首快速導航 -->
+<div style="position:fixed;top:10px;left:10px;z-index:9999;display:flex;gap:8px;">
+  <button onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')" style="padding:5px 14px;background:#0D2438;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">← CRM 導覽</button>
+  <button onclick="go('CRM05B_NPS看板_售後_v1.html')" style="padding:5px 14px;background:#0F6E56;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">CRM05B NPS 看板</button>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">店長視角 <b>CRM07 跨部門綜合報表</b></div>
+  <div class="ver-badge">v2</div>
+  <div class="new-badge">SA 側真實數據</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')">← CRM 總覽</button>
+    <button class="hbtn" onclick="go('CRM05A_NPS看板_銷售_v1.html')">RS NPS</button>
+    <button class="hbtn" onclick="go('CRM05B_NPS看板_售後_v1.html')">SA NPS</button>
+    <button class="hbtn" onclick="showToast('🖨️ 匯出本月綜合報表 PDF\n（包含 RS + SA 完整數據）')">🖨️ 匯出報表</button>
+  </div>
+</header>
+
+<!-- 唯讀警告列 -->
+<div class="readonly-bar">
+  🔒 <b>店長唯讀視角</b>　本報表跨銷售（RS）與售後（SA）部門彙整，<b>不可編輯任何資料</b>。如需修正請至各部門對應模組操作。
+</div>
+
+<!-- SA 真實數據提示 -->
+<div class="sa-live-bar">
+  ✅ <b>v2 升版說明：</b>售後（SA）側數據已從 CRM01B–06B 各模組同步真實數據，不再是靜態示範值。上次同步：2026-05-11 08:00
+</div>
+
+<div class="main">
+
+  <!-- 期間切換 -->
+  <div class="dept-header">
+    <span class="dept-label">報表期間：</span>
+    <button class="period-chip active">2026 年 5 月</button>
+    <button class="period-chip" onclick="showToast('📊 切換至 Q2 2026')">Q2 2026</button>
+    <button class="period-chip" onclick="showToast('📊 切換至年度報表')">2026 全年</button>
+    <span style="margin-left:auto;font-size:12px;color:var(--gray);">資料更新：2026-05-11 08:00　<span class="data-tag dt-live">SA 真實數據</span>　<span class="data-tag dt-static">RS 參考數據</span></span>
+  </div>
+
+  <!-- ═══ 跨部門綜合概覽 ═══ -->
+  <div class="dept-section">
+    <div class="ds-hdr cross-hdr">
+      <span>🏬 門店綜合概覽</span>
+      <span class="ds-badge">跨部門</span>
+      <span class="ds-readonly">唯讀</span>
+    </div>
+    <div class="ds-body">
+      <div class="kpi-row kr-5">
+        <div class="kpi cross-kpi">
+          <div class="kpi-l">本月總營收</div>
+          <div class="kpi-n kn-n" style="font-size:18px;">NT$13.1M</div>
+          <div class="kpi-s">銷售 9.8M + 售後 <b>3.3M</b></div>
+        </div>
+        <div class="kpi cross-kpi">
+          <div class="kpi-l">銷售新車台數</div>
+          <div class="kpi-n kn-n">8</div>
+          <div class="kpi-s">目標 10 台 | 達成率 80%</div>
+        </div>
+        <div class="kpi cross-kpi">
+          <div class="kpi-l">售後工單台次</div>
+          <div class="kpi-n kn-t">94</div>
+          <div class="kpi-s">↑ 較上月 +8 台次</div>
+        </div>
+        <div class="kpi cross-kpi">
+          <div class="kpi-l">整體 NPS（RS+SA）</div>
+          <div class="kpi-n kn-n">+65</div>
+          <div class="kpi-s">銷售 +62 / 售後 <b>+68</b></div>
+        </div>
+        <div class="kpi warn-kpi">
+          <div class="kpi-l">需店長跟進</div>
+          <div class="kpi-n kn-r">6</div>
+          <div class="kpi-s">批評者 4 + 嚴重逾期 2</div>
+        </div>
+      </div>
+
+      <!-- NPS 對比（SA 升為真實數據）-->
+      <div class="nps-compare">
+        <div class="nps-box" style="background:var(--blue-bg);border-color:var(--blue-bd);">
+          <div class="nps-lbl" style="color:var(--navy);">銷售 NPS（RS） <span class="data-tag dt-static">參考值</span></div>
+          <div class="nps-val" style="color:var(--navy);">+62</div>
+          <div class="nps-delta" style="color:var(--navy);">▲ +8 vs 上月</div>
+        </div>
+        <div class="nps-box" style="background:var(--teal-bg);border-color:var(--teal-bd);">
+          <div class="nps-lbl" style="color:var(--teal);">售後 NPS（SA） <span class="data-tag dt-live">真實數據</span></div>
+          <div class="nps-val" style="color:var(--teal);">+68</div>
+          <div class="nps-delta" style="color:var(--teal);">▲ +5 vs 上月 · 24 筆回答</div>
+        </div>
+        <div class="nps-box" style="background:#F4F3F0;border-color:#D5D3CB;">
+          <div class="nps-lbl">行業標竿（參考）</div>
+          <div class="nps-val" style="color:var(--gray);">+50</div>
+          <div class="nps-delta" style="color:var(--gray);">高端重機平均水準</div>
+        </div>
+      </div>
+
+      <!-- 雙軸 NPS 趨勢對比 SVG -->
+      <div class="sec-title">RS vs SA NPS 月度趨勢對比</div>
+      <svg viewBox="0 0 700 170" width="100%" style="display:block;margin-bottom:10px;">
+        <!-- 格線 -->
+        <line x1="50" y1="20" x2="680" y2="20" stroke="#EEECE6" stroke-width="1"/>
+        <line x1="50" y1="55" x2="680" y2="55" stroke="#EEECE6" stroke-width="1"/>
+        <line x1="50" y1="90" x2="680" y2="90" stroke="#EEECE6" stroke-width="1"/>
+        <line x1="50" y1="125" x2="680" y2="125" stroke="#EEECE6" stroke-width="1"/>
+        <!-- Y 軸標籤 -->
+        <text x="45" y="23"  text-anchor="end" font-size="10" fill="#9A9890">+80</text>
+        <text x="45" y="58"  text-anchor="end" font-size="10" fill="#9A9890">+65</text>
+        <text x="45" y="93"  text-anchor="end" font-size="10" fill="#9A9890">+50</text>
+        <text x="45" y="128" text-anchor="end" font-size="10" fill="#9A9890">+35</text>
+        <!-- 行業標竿基準線 -->
+        <line x1="50" y1="90" x2="680" y2="90" stroke="#9A9890" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="685" y="93" font-size="9" fill="#9A9890">+50</text>
+        <!-- RS 折線（藍）：+42,+50,+45,+55,+54,+62 -->
+        <polyline points="110,107 210,75 310,90 410,57 510,60 610,40"
+          fill="none" stroke="#1A3A5C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="6,3"/>
+        <!-- SA 折線（綠）：+52,+55,+48,+58,+63,+68 -->
+        <polyline points="110,100 210,88 310,113 410,72 510,50 610,30"
+          fill="none" stroke="#0F6E56" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+        <!-- SA 陰影 -->
+        <polygon points="110,100 210,88 310,113 410,72 510,50 610,30 610,140 110,140"
+          fill="rgba(15,110,86,.05)"/>
+        <!-- RS 資料點 -->
+        <circle cx="110" cy="107" r="3.5" fill="#1A3A5C"/>
+        <circle cx="210" cy="75"  r="3.5" fill="#1A3A5C"/>
+        <circle cx="310" cy="90"  r="3.5" fill="#D4820A"/>
+        <circle cx="410" cy="57"  r="3.5" fill="#1A3A5C"/>
+        <circle cx="510" cy="60"  r="3.5" fill="#1A3A5C"/>
+        <circle cx="610" cy="40"  r="4.5" fill="#C8001A"/>
+        <text x="610" y="33" text-anchor="middle" font-size="10" font-weight="700" fill="#C8001A">+62</text>
+        <!-- SA 資料點 -->
+        <circle cx="110" cy="100" r="3.5" fill="#0F6E56"/>
+        <circle cx="210" cy="88"  r="3.5" fill="#0F6E56"/>
+        <circle cx="310" cy="113" r="3.5" fill="#D4820A"/>
+        <circle cx="410" cy="72"  r="3.5" fill="#0F6E56"/>
+        <circle cx="510" cy="50"  r="3.5" fill="#0F6E56"/>
+        <circle cx="610" cy="30"  r="4.5" fill="#C8001A"/>
+        <text x="622" y="33" text-anchor="start" font-size="10" font-weight="700" fill="#C8001A">+68</text>
+        <!-- X 軸月份 -->
+        <text x="110" y="158" text-anchor="middle" font-size="10" fill="#9A9890">12月</text>
+        <text x="210" y="158" text-anchor="middle" font-size="10" fill="#9A9890">1月</text>
+        <text x="310" y="158" text-anchor="middle" font-size="10" fill="#D4820A">2月</text>
+        <text x="410" y="158" text-anchor="middle" font-size="10" fill="#9A9890">3月</text>
+        <text x="510" y="158" text-anchor="middle" font-size="10" fill="#9A9890">4月</text>
+        <text x="610" y="158" text-anchor="middle" font-size="10" fill="#C8001A" font-weight="700">5月</text>
+        <!-- 圖例 -->
+        <line x1="60" y1="148" x2="80" y2="148" stroke="#1A3A5C" stroke-width="2" stroke-dasharray="5,2"/>
+        <text x="84" y="151" font-size="10" fill="#1A3A5C">RS 銷售側</text>
+        <line x1="150" y1="148" x2="170" y2="148" stroke="#0F6E56" stroke-width="2"/>
+        <text x="174" y="151" font-size="10" fill="#0F6E56">SA 售後側 ✅ 真實數據</text>
+      </svg>
+
+      <div class="insight-box">
+        💡 <b>店長觀察：</b>售後 NPS（+68）本月首次超越銷售側（+62），為系統建立以來最佳成績。SA 側「SA 服務態度」（9.1分）與「維修品質」（8.8分）是主要拉分項目。需持續關注「等待時間」（7.4分，連續 2 個月下滑），建議 SA 主管檢視工位排程容量。<br>
+        ⚠️ 銷售側本月 <b>2 件批評者</b>（4分/5分）反映「交車說明不足」，已交 RS 主管跟進。售後側 <b>4 件批評者</b>，主因為等待時間與費用說明不清，SA 主管已啟動補救方案。
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 銷售部門（RS）═══ -->
+  <div class="dept-section">
+    <div class="ds-hdr sales-hdr">
+      <span>📋 銷售部門（RS）數據</span>
+      <span class="ds-badge">RS 主管操作範圍</span>
+      <span class="ds-readonly">店長唯讀</span>
+      <span class="data-tag dt-static" style="margin-left:auto;">參考數據（v1 沿用）</span>
+    </div>
+    <div class="ds-body">
+      <div class="kpi-row kr-4">
+        <div class="kpi sales-kpi"><div class="kpi-l">新車成交</div><div class="kpi-n kn-n">8 台</div><div class="kpi-s">目標 10 台 | 達成 80%</div></div>
+        <div class="kpi sales-kpi"><div class="kpi-l">試駕轉化率</div><div class="kpi-n kn-n">62%</div><div class="kpi-s">試駕 → 開立報價單</div></div>
+        <div class="kpi sales-kpi"><div class="kpi-l">D+3 回訪完成率</div><div class="kpi-n kn-t">84%</div><div class="kpi-s">31/37 件</div></div>
+        <div class="kpi sales-kpi"><div class="kpi-l">休眠客戶（RS）</div><div class="kpi-n kn-a">24</div><div class="kpi-s">其中 6 件超過 90 天</div></div>
+      </div>
+      <div class="sec-title">RS 人員業績排行（本月）</div>
+      <table class="staff-table">
+        <thead><tr><th>排名</th><th>銷售顧問</th><th>新車成交</th><th>中古成交</th><th>試駕次數</th><th>NPS 均分</th><th>D+3 完成率</th><th>本月達成進度</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="rank-num rank-1">①</span></td>
+            <td style="font-weight:600;">陳志明</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--navy);">4 台</td>
+            <td>2 台</td><td>12 次</td>
+            <td style="color:var(--teal);font-weight:600;">8.9</td>
+            <td><span class="badge b-teal">92%</span></td>
+            <td><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar"><div class="prog-fill pf-sales" style="width:80%;"></div></div><span style="font-size:11px;color:var(--navy);font-family:'DM Mono',monospace;">80%</span></div></td>
+          </tr>
+          <tr>
+            <td><span class="rank-num rank-2">②</span></td>
+            <td style="font-weight:600;">林雅婷 RS</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--navy);">3 台</td>
+            <td>1 台</td><td>9 次</td>
+            <td style="color:var(--teal);font-weight:600;">8.6</td>
+            <td><span class="badge b-teal">88%</span></td>
+            <td><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar"><div class="prog-fill pf-sales" style="width:65%;"></div></div><span style="font-size:11px;color:var(--navy);font-family:'DM Mono',monospace;">65%</span></div></td>
+          </tr>
+          <tr>
+            <td><span class="rank-num rank-3">③</span></td>
+            <td style="font-weight:600;">王建宏</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--navy);">1 台</td>
+            <td>0 台</td><td>5 次</td>
+            <td style="color:var(--amber);font-weight:600;">7.4</td>
+            <td><span class="badge b-gray">72%</span></td>
+            <td><div style="display:flex;align-items:center;gap:6px;"><div class="prog-bar"><div class="prog-fill pf-sales" style="width:28%;"></div></div><span style="font-size:11px;color:var(--red);font-family:'DM Mono',monospace;">28%</span></div></td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:10px;" class="alert-section as-amber">
+        <div class="as-icon">⚠️</div>
+        <div class="as-content">
+          <div class="as-title">店長注意</div>
+          <div class="as-body">王建宏本月目標達成率僅 28%，試駕次數偏低（5次），建議與 RS 主管討論輔導方向，並檢視其潛客名單中是否有可啟動的機會。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 售後部門（SA）— 真實數據 ═══ -->
+  <div class="dept-section">
+    <div class="ds-hdr sa-hdr">
+      <span>🔧 售後部門（SA）數據</span>
+      <span class="ds-badge">SA 主管操作範圍</span>
+      <span class="ds-readonly">店長唯讀</span>
+      <span class="ds-live" style="margin-left:auto;">✅ v2 真實數據</span>
+    </div>
+    <div class="ds-body">
+
+      <!-- SA KPI：6欄，納入 B 系列新指標 -->
+      <div class="kpi-row kr-6">
+        <div class="kpi sa-kpi">
+          <div class="kpi-l">本月工單台次</div>
+          <div class="kpi-n kn-t">94</div>
+          <div class="kpi-s">↑ 較上月 +8</div>
+        </div>
+        <div class="kpi sa-kpi">
+          <div class="kpi-l">平均工單金額</div>
+          <div class="kpi-n kn-t" style="font-size:18px;">NT$8,240</div>
+          <div class="kpi-s">↑ +NT$1,390 vs 上月</div>
+        </div>
+        <div class="kpi sa-kpi">
+          <div class="kpi-l">D+3 電訪完成率</div>
+          <div class="kpi-n kn-t">83%</div>
+          <div class="kpi-s">24/29 件完成</div>
+        </div>
+        <div class="kpi warn-kpi">
+          <div class="kpi-l">逾期未回廠客戶</div>
+          <div class="kpi-n kn-r">14</div>
+          <div class="kpi-s">其中 3 件 ≥120 天</div>
+        </div>
+        <div class="kpi sa-kpi">
+          <div class="kpi-l">推播通知開啟率</div>
+          <div class="kpi-n kn-t">71%</div>
+          <div class="kpi-s">318 封 · 226 已讀</div>
+        </div>
+        <div class="kpi sa-kpi">
+          <div class="kpi-l">RS05 同步新客</div>
+          <div class="kpi-n kn-t">5</div>
+          <div class="kpi-s">本月交車觸發</div>
+        </div>
+      </div>
+
+      <!-- SA 人員表格（換為真實 SA：許明志/林雅婷/陳建宏）-->
+      <div class="sec-title">SA 人員服務效率（本月）<span style="font-size:10px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--teal);margin-left:8px;">✅ 真實數據來源：CRM03B + CRM05B</span></div>
+      <table class="staff-table">
+        <thead><tr><th>排名</th><th>服務顧問</th><th>完成工單</th><th>平均工單額</th><th>D+3 電訪率</th><th>NPS 均分</th><th>逾期客戶數</th><th>批評者（≤6）</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="rank-num rank-1">①</span></td>
+            <td style="font-weight:600;">許明志</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--teal);">42 件</td>
+            <td>NT$9,100</td>
+            <td><span class="badge b-teal">90%</span></td>
+            <td style="color:var(--teal);font-weight:600;">8.9</td>
+            <td style="color:var(--teal);font-weight:700;">2</td>
+            <td style="color:var(--teal);font-weight:700;">0</td>
+          </tr>
+          <tr>
+            <td><span class="rank-num rank-2">②</span></td>
+            <td style="font-weight:600;">林雅婷</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--teal);">35 件</td>
+            <td>NT$7,800</td>
+            <td><span class="badge b-teal">84%</span></td>
+            <td style="color:var(--teal);font-weight:600;">8.5</td>
+            <td style="color:var(--teal);font-weight:700;">3</td>
+            <td style="color:var(--amber);font-weight:700;">1</td>
+          </tr>
+          <tr>
+            <td><span class="rank-num rank-3">③</span></td>
+            <td style="font-weight:600;">陳建宏</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:700;color:var(--teal);">17 件</td>
+            <td>NT$7,200</td>
+            <td><span class="badge b-amber">72%</span></td>
+            <td style="color:var(--amber);font-weight:600;">7.8</td>
+            <td style="color:var(--red);font-weight:700;">9</td>
+            <td style="color:var(--red);font-weight:700;">3</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- SA 側新增：逾期趨勢 + 預警 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+
+        <!-- 逾期趨勢 -->
+        <div>
+          <div class="sec-title">逾期未回廠趨勢（近 7 個月）</div>
+          <div style="display:flex;align-items:flex-end;gap:10px;height:70px;background:#FAFAF8;border:1px solid #EEECE6;border-radius:8px;padding:8px 12px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+              <div style="flex:1;display:flex;align-items:flex-end;width:100%;">
+                <div style="width:100%;background:#D4820A;border-radius:2px 2px 0 0;height:50%;opacity:.7;"></div>
+              </div>
+              <div style="font-size:9px;color:var(--gray);">11月</div><div style="font-size:10px;font-weight:700;font-family:'DM Mono',monospace;">8</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+              <div style="flex:1;display:flex;align-items:flex-end;width:100%;">
+                <div style="width:100%;background:#D4820A;border-radius:2px 2px 0 0;height:62%;opacity:.75;"></div>
+              </div>
+              <div style="font-size:9px;color:var(--gray);">12月</div><div style="font-size:10px;font-weight:700;font-family:'DM Mono',monospace;">10</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+              <div style="flex:1;display:flex;align-items:flex-end;width:100%;">
+                <div style="width:100%;background:var(--red);border-radius:2px 2px 0 0;height:81%;"></div>
+              </div>
+              <div style="font-size:9px;color:var(--gray);">1月</div><div style="font-size:10px;font-weight:700;font-family:'DM Mono',monospace;">13</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+              <div style="flex:1;display:flex;align-items:flex-end;width:100%;">
+                <div style="width:100%;background:var(--red);border-radius:2px 2px 0 0;height:100%;"></div>
+              </div>
+              <div style="font-size:9px;color:var(--gray);">2月</div><div style="font-size:10px;font-weight:700;font-family:'DM Mono',monospace;">16</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+              <div style="flex:1;display:flex;align-items:flex-end;width:100%;">
+                <div style="width:100%;background:#D4820A;border-radius:2px 2px 0 0;height:69%;"></div>
+              </div>
+              <div style="font-size:9px;color:var(--gray);">3月</div><div style="font-size:10px;font-weight:700;font-family:'DM Mono',monospace;">11</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+              <div style="flex:1;display:flex;align-items:flex-end;width:100%;">
+                <div style="width:100%;background:#D4820A;border-radius:2px 2px 0 0;height:56%;"></div>
+              </div>
+              <div style="font-size:9px;color:var(--gray);">4月</div><div style="font-size:10px;font-weight:700;font-family:'DM Mono',monospace;">9</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+              <div style="flex:1;display:flex;align-items:flex-end;width:100%;">
+                <div style="width:100%;background:var(--teal);border-radius:2px 2px 0 0;height:44%;"></div>
+              </div>
+              <div style="font-size:9px;color:var(--teal);font-weight:700;">5月↓</div><div style="font-size:10px;font-weight:700;font-family:'DM Mono',monospace;color:var(--teal);">7</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--gray);margin-top:5px;text-align:center;">5 月逾期數較峰值（2月 16 件）下降 56%，趨勢持續改善中 ↓</div>
+        </div>
+
+        <!-- 預警清單 -->
+        <div>
+          <div class="sec-title">需店長關注項目</div>
+          <div class="alert-section as-red" style="margin-bottom:6px;">
+            <div class="as-icon">🔴</div>
+            <div class="as-content">
+              <div class="as-title">嚴重逾期 3 件需主管介入</div>
+              <div class="as-body">蔡雅玲（MNO-2468 · 133天）、張偉強（DEF-9012 · 121天）、周美麗（UVW-8901 · 177天）多次聯繫未接通，建議店長親自致電。</div>
+            </div>
+          </div>
+          <div class="alert-section as-amber" style="margin-bottom:6px;">
+            <div class="as-icon">⚠️</div>
+            <div class="as-content">
+              <div class="as-title">陳建宏批評者比例偏高（33%）</div>
+              <div class="as-body">本月 6 筆回訪中 2 筆 NPS ≤6，主因為「逾期客戶不滿 + 費用說明不清」，建議 SA 主管本週約談。</div>
+            </div>
+          </div>
+          <div class="alert-section as-teal">
+            <div class="as-icon">✅</div>
+            <div class="as-content">
+              <div class="as-title">葉建國 Desmo 皮帶 9 天後到期</div>
+              <div class="as-body">VWX-6802 Desmo 到期日 2026-05-20，陳建宏已於 5/1 通知，尚未預約。CRM06B 自動推播已觸發，建議今日再次電話確認。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 跨部門客戶標籤 ═══ -->
+  <div class="dept-section">
+    <div class="ds-hdr cross-hdr">
+      <span>🔗 客戶標籤跨部門概覽</span>
+      <span class="ds-badge">唯一跨部門共享欄位</span>
+      <span class="ds-readonly">唯讀 · 不可修改</span>
+    </div>
+    <div class="ds-body">
+      <div style="background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:7px;padding:10px 14px;font-size:12px;color:#0C3E70;margin-bottom:12px;">
+        ℹ️ <b>P-08 原則說明：</b>依部門權限隔離原則，RS 與 SA 的客戶資料及操作模組互不可見。本報表僅在店長視角顯示<b>跨部門標籤使用統計</b>，不顯示個別客戶資料。SA 側數據來源：CRM01B 客戶基盤（<span class="data-tag dt-live">真實數據</span>）。
+      </div>
+      <div class="compare-grid">
+        <div class="cmp-box cmp-sales">
+          <div class="cmp-title">📋 銷售側高頻標籤（RS）Top 5</div>
+          <div class="cmp-row"><span>🔴 價格敏感</span><span class="cmp-val" style="color:var(--navy);">18 個客戶</span></div>
+          <div class="cmp-row"><span>🟡 換購考慮中</span><span class="cmp-val" style="color:var(--navy);">15 個客戶</span></div>
+          <div class="cmp-row"><span>🟢 試駕體驗極佳</span><span class="cmp-val" style="color:var(--navy);">12 個客戶</span></div>
+          <div class="cmp-row"><span>🔵 BMW 來比較</span><span class="cmp-val" style="color:var(--navy);">9 個客戶</span></div>
+          <div class="cmp-row"><span>🟡 等家人同意</span><span class="cmp-val" style="color:var(--navy);">8 個客戶</span></div>
+        </div>
+        <div class="cmp-box cmp-sa">
+          <div class="cmp-title">🔧 售後側高頻標籤（SA）Top 5 <span class="data-tag dt-live" style="font-size:9px;">真實</span></div>
+          <div class="cmp-row"><span>⚠️ 高里程</span><span class="cmp-val" style="color:var(--teal);">8 個客戶</span></div>
+          <div class="cmp-row"><span>🟡 Desmo 到期提醒</span><span class="cmp-val" style="color:var(--teal);">6 個客戶</span></div>
+          <div class="cmp-row"><span>✅ 準時回廠</span><span class="cmp-val" style="color:var(--teal);">5 個客戶</span></div>
+          <div class="cmp-row"><span>🔵 Track Day 常客</span><span class="cmp-val" style="color:var(--teal);">4 個客戶</span></div>
+          <div class="cmp-row"><span>🔗 VIP 客戶（RS共享）</span><span class="cmp-val" style="color:var(--teal);">2 個客戶</span></div>
+        </div>
+      </div>
+      <div class="insight-box">
+        💡 <b>店長洞察：</b>SA 標記「Track Day 常客」4 位（許文龍 / 黃俊傑等）為高潛力換購客群，建議交由 RS 安排新款 Panigale V4 S 試駕邀請。RS 側 VIP 標籤（陳志豪 / 許文龍）已同步至 SA 側 CRM01B 作為唯讀共享，SA 可在服務時提供對應升等建議，但不可修改 RS 側客戶資料。
+      </div>
+    </div>
+  </div>
+
+</div>
+<div id="_sys_toast_"></div>
+<script>
+function go(url){ window.location.href=url; }
+function showToast(msg,dur){
+  var t=document.getElementById('_sys_toast_');
+  t.textContent=msg; t.style.transform='translateY(0)'; t.style.opacity='1';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(function(){ t.style.transform='translateY(80px)'; t.style.opacity='0'; }, dur||2800);
+}
+</script>
+</body>
+</html>
