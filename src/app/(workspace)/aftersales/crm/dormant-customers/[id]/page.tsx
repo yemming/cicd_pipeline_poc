@@ -1,44 +1,13 @@
 /**
- * 休眠流失管理（售後）Detail Page
- * Thin re-export：reuse sales 版 DormantLeadDetailView，basePath 指 aftersales。
+ * Legacy redirect — 舊路徑 /aftersales/crm/dormant-customers/[id] 已搬到 /crm/aftersales/dormant-customers/[id]。
  */
-
-import { notFound, redirect } from "next/navigation";
-
-import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { hasPermission } from "@/lib/rbac/policies";
-import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getDormantLeadById } from "@/domain/sales-dormant-leads";
-
-import { DormantLeadDetailView } from "../../../../sales/crm/dormant-leads/[id]/_components/dormant-lead-detail-view";
-
-export const dynamic = "force-dynamic";
-
-const BASE_PATH = "/aftersales/crm/dormant-customers";
+import { redirect } from "next/navigation";
 
 export default async function Page({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { userId } = await getCurrentUserAndAdmin();
-  if (!userId) redirect("/login");
-  if (!(await hasPermission(PERMISSIONS.CUSTOMER_VIEW))) {
-    return (
-      <main className="px-6 py-6">
-        <p className="text-[14px] text-[#BF2600]">沒有檢視流失客戶的權限</p>
-      </main>
-    );
-  }
-  const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
   const { id } = await params;
-  const lead = await getDormantLeadById(id);
-  if (!lead) notFound();
-  return (
-    <DormantLeadDetailView
-      lead={lead}
-      canEdit={canEdit}
-      basePath={BASE_PATH}
-    />
-  );
+  redirect(`/crm/aftersales/dormant-customers/${id}`);
 }
