@@ -7,7 +7,6 @@ import { useMemo, useState, useTransition } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
 import {
   DECISION_LABEL,
-  DEFAULT_CHECKS,
   PURPOSES,
   SAFETY_CHIP,
   SAFETY_LABEL,
@@ -28,6 +27,7 @@ import {
   type TechSafety,
 } from "@/domain/pre-inspections.constants";
 import type { PreInspectionListRow } from "@/domain/pre-inspections";
+import type { EnvCheckItem } from "@/domain/env-check-items";
 import {
   cancelAction,
   deleteAction,
@@ -46,6 +46,8 @@ type Banner = { ok: boolean; msg: string } | null;
 type Props = {
   data: PreInspectionListRow;
   canEdit: boolean;
+  /** 環檢項目清單（由 page server component 從 business_rules 撈、只給啟用中的） */
+  envCheckItems: EnvCheckItem[];
 };
 
 function pad(n: number) {
@@ -57,7 +59,12 @@ function fmtDateTime(iso: string | null): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function PreInspectionWizard({ data, canEdit }: Props) {
+export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
+  // 把 setting page 維護的環檢項目轉成 wizard 用的 CheckRow 預設值（state=-1=未檢）
+  const defaultChecks: CheckRow[] = useMemo(
+    () => envCheckItems.map((it) => ({ label: it.label, state: -1 })),
+    [envCheckItems],
+  );
   useSetPageHeader({
     title: `預檢單 ${data.pi_no}`,
     breadcrumb: [
@@ -77,13 +84,13 @@ export function PreInspectionWizard({ data, canEdit }: Props) {
   // local state — initialised from server snapshot
   const initialChecks: CheckRow[] = useMemo(() => {
     const m = data.metadata?.checks ?? [];
-    if (m.length === 0) return DEFAULT_CHECKS.map((c) => ({ ...c }));
+    if (m.length === 0) return defaultChecks.map((c) => ({ ...c }));
     // 對齊 default 順序：取 default label，state 對得上就用，否則 -1
-    return DEFAULT_CHECKS.map((d) => {
+    return defaultChecks.map((d) => {
       const found = m.find((c) => c.label === d.label);
       return found ? { ...found } : { ...d };
     });
-  }, [data.metadata?.checks]);
+  }, [data.metadata?.checks, defaultChecks]);
   const [checks, setChecks] = useState<CheckRow[]>(initialChecks);
   const [saRemark, setSaRemark] = useState<string>(data.metadata?.sa_remark ?? "");
 

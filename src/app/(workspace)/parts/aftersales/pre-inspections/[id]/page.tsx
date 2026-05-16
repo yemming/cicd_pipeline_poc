@@ -4,6 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getPreInspectionById } from "@/domain/pre-inspections";
+import { listEnvCheckItems } from "@/domain/env-check-items";
 
 import { PreInspectionWizard } from "../_components/pre-inspection-wizard";
 
@@ -25,7 +26,12 @@ export default async function PreInspectionDetailPage({
   }
   const canEdit = await hasPermission(PERMISSIONS.RO_CREATE);
   const { id } = await params;
-  const data = await getPreInspectionById(id);
+  const [data, envCheckItems] = await Promise.all([
+    getPreInspectionById(id),
+    listEnvCheckItems({ activeOnly: true }),
+  ]);
   if (!data) return notFound();
-  return <PreInspectionWizard data={data} canEdit={canEdit} />;
+  return (
+    <PreInspectionWizard data={data} canEdit={canEdit} envCheckItems={envCheckItems} />
+  );
 }

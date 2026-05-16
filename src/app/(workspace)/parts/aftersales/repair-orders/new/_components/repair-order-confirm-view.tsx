@@ -31,8 +31,9 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
   });
 
   const router = useRouter();
-  const [p1, setP1] = useState<PrefixP1>("MN");
-  const [p2, setP2] = useState<PrefixP2>("CP");
+  // 拍板紀錄 §11 Q4 option A：PI 勾「疑似保固 / 公報召回」→ 預設 P1=WC（保固索賠）
+  const [p1, setP1] = useState<PrefixP1>(draft.has_warranty_concern ? "WC" : "MN");
+  const [p2, setP2] = useState<PrefixP2>(draft.has_warranty_concern ? "WR" : "CP");
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -103,6 +104,15 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
           </Link>
         </div>
       </div>
+
+      {/* PI 勾「疑似保固 / 公報召回」→ amber 提示（Q4 option A） */}
+      {draft.has_warranty_concern && (
+        <div className="rounded-lg px-4 py-2.5 text-[12.5px] bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B]">
+          ⚠️ 預檢單勾了「疑似保固問題 / 公報召回通知」、已預設工單類型為
+          <b className="font-mono mx-1">WC</b>（保固索賠）+
+          <b className="font-mono mx-1">WR</b>（保固）。若實際為自費或其他類型、SA 可手動改下面 P1/P2。
+        </div>
+      )}
 
       {/* RO ID 預覽卡 */}
       <header className="bg-[#1A3A5C] text-white rounded-lg p-4 flex items-center justify-between">

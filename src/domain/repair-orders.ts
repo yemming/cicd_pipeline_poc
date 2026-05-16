@@ -61,6 +61,8 @@ export type RepairOrderListFilters = {
   q?: string;
   date_from?: string;
   date_to?: string;
+  sa_id?: string;
+  business_month?: string;
 };
 
 /** 預檢摘要（gate confirm 頁的「由預檢單帶入」段）— 因 pre_inspections 表尚未落地，
@@ -83,6 +85,8 @@ export type RoDraft = {
   store_id: string | null;
   subsidiary_id: string | null;
   warranty: { is_valid: boolean; expires_at: string | null; mileage_limit: string };
+  /** PI 是否勾「疑似保固問題」/「公報召回通知」— 用來把 RO P1 預設成 WC（拍板紀錄 §11 Q4 option A） */
+  has_warranty_concern: boolean;
   estimated_subtotal: number;
   estimated_labor_units: number;
   preview_items: { label: string; lu: number; amount: number }[];
@@ -119,6 +123,13 @@ export async function listRepairOrders(
   if (filters.date_from) query = query.gte("issue_date", filters.date_from);
   if (filters.date_to) query = query.lte("issue_date", filters.date_to);
   if (filters.q && filters.q.trim()) query = query.ilike("ro_code", `%${filters.q.trim()}%`);
+  if (filters.sa_id && filters.sa_id !== "all") query = query.eq("sa_id", filters.sa_id);
+  if (filters.business_month && /^\d{4}-\d{2}$/.test(filters.business_month)) {
+    const [yy, mm] = filters.business_month.split("-").map(Number);
+    const from = `${yy}-${String(mm).padStart(2, "0")}-01`;
+    const next = mm === 12 ? `${yy + 1}-01-01` : `${yy}-${String(mm + 1).padStart(2, "0")}-01`;
+    query = query.gte("issue_date", from).lt("issue_date", next);
+  }
 
   const { data, error } = await query;
   if (error) throw error;
@@ -152,13 +163,13 @@ async function joinRepairOrderRows(
     vehicleIds.length
       ? supabase
           .from("customer_vehicles")
-          .select("id, license_plate, vehicle_models(name)")
+          .select("id, license_plate, vehicle_models(display_name)")
           .in("id", vehicleIds)
       : Promise.resolve({
           data: [] as {
             id: string;
             license_plate: string;
-            vehicle_models: { name?: string } | { name?: string }[] | null;
+            vehicle_models: { display_name?: string } | { display_name?: string }[] | null;
           }[],
         }),
     saIds.length
@@ -175,10 +186,10 @@ async function joinRepairOrderRows(
     ((vehRes.data ?? []) as Array<{
       id: string;
       license_plate: string;
-      vehicle_models: { name?: string } | { name?: string }[] | null;
+      vehicle_models: { display_name?: string } | { display_name?: string }[] | null;
     }>).map((v) => {
       const m = Array.isArray(v.vehicle_models) ? v.vehicle_models[0] : v.vehicle_models;
-      return [v.id, { license_plate: v.license_plate, model_name: m?.name ?? null }] as const;
+      return [v.id, { license_plate: v.license_plate, model_name: m?.display_name ?? null }] as const;
     }),
   );
   const saMap = new Map(
@@ -244,8 +255,9 @@ export async function getRoDraftFromAppointment(
       ? supabase
           .from("customer_vehicles")
           .select(
-            "id, license_plate, current_mileage, warranty_until, model_id, vehicle_models(name)",
+            "id, license_plate, current_mileage, warranty_until, model_id, vehicle_models(display_name)",
           )
+          // NOTE: vehicle_models column is `display_name`, not `name`. helper join 修正於 ro-search 落地。
           .eq("id", a.vehicle_id as string)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -258,14 +270,14 @@ export async function getRoDraftFromAppointment(
         license_plate: string;
         current_mileage: number | null;
         warranty_until: string | null;
-        vehicle_models: { name?: string } | { name?: string }[] | null;
+        vehicle_models: { display_name?: string } | { display_name?: string }[] | null;
       }
     | null;
 
   const vehicleModelName = vehRaw
     ? Array.isArray(vehRaw.vehicle_models)
-      ? vehRaw.vehicle_models[0]?.name ?? null
-      : vehRaw.vehicle_models?.name ?? null
+      ? vehRaw.vehicle_models[0]?.display_name ?? null
+      : vehRaw.vehicle_models?.display_name ?? null
     : null;
 
   // 預估金額：取 appointment.estimated_hours × 單位 LU 工資 + 標準保養零件估
@@ -291,8 +303,21 @@ export async function getRoDraftFromAppointment(
     ? new Date(vehRaw.warranty_until) > new Date()
     : false;
 
+  // 從 appointment 反查 PI、抓 metadata.purposes 看有沒有勾「疑似保固」(idx 5) / 「公報召回」(idx 6)
+  const { data: piRow } = await supabase
+    .from("pre_inspections")
+    .select("metadata")
+    .eq("appointment_id", appointmentId)
+    .eq("brand_id", brand)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const piPurposes =
+    (piRow?.metadata as { purposes?: number[] } | null)?.purposes ?? [];
+  const hasWarrantyConcern = piPurposes.includes(5) || piPurposes.includes(6);
+
   return {
-    source: "appointment",
+    source: piRow ? "pre_inspection" : "appointment",
     source_id: appointmentId,
     customer: cust,
     vehicle: vehRaw
@@ -315,6 +340,7 @@ export async function getRoDraftFromAppointment(
       expires_at: vehRaw?.warranty_until ?? null,
       mileage_limit: "NORM",
     },
+    has_warranty_concern: hasWarrantyConcern,
     estimated_subtotal: estTotal,
     estimated_labor_units: lu,
     preview_items: previewItems,
@@ -356,6 +382,145 @@ export async function getRepairOrdersListPageData(
     prefixP1Defs: PREFIX_P1_DEFS,
     prefixP2Defs: PREFIX_P2_DEFS,
   };
+}
+
+// ----- Aftersales · 工單查詢頁（售後 · 10）-----
+
+export type RoSearchSaOption = { id: string; name: string };
+
+export type RoSearchKpi = {
+  monthRoCount: number;
+  monthRoCountDeltaVsLast: number;
+  inProgressCount: number;
+  inProgressTodayCount: number;
+  monthRevenueCustomerPay: number;
+  avgRoAmount: number;
+};
+
+export type RoSearchPageData = {
+  rows: RepairOrderListRow[];
+  totalCount: number;
+  saOptions: RoSearchSaOption[];
+  kpi: RoSearchKpi;
+};
+
+/** 取得售後工單查詢頁的 SA 下拉候選（同 brand 內部 SA / 員工） */
+export async function listRoSearchSaOptions(): Promise<RoSearchSaOption[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 1) 蒐集 brand 內 RO 出現過的 sa_id
+  const { data: ros } = await supabase
+    .from("repair_orders")
+    .select("sa_id")
+    .eq("brand_id", brand)
+    .not("sa_id", "is", null)
+    .limit(2000);
+  const saIds = Array.from(
+    new Set((ros ?? []).map((r) => (r as { sa_id: string | null }).sa_id).filter(Boolean) as string[]),
+  );
+  if (saIds.length === 0) return [];
+  const { data: emps } = await supabase
+    .from("employees")
+    .select("id, name")
+    .in("id", saIds);
+  return ((emps ?? []) as { id: string; name: string }[]).map((e) => ({
+    id: e.id,
+    name: e.name,
+  }));
+}
+
+/** 取得售後工單查詢頁的 KPI 摘要（依 business_month / filters 範圍計算） */
+export async function getRoSearchKpi(filters: RepairOrderListFilters): Promise<RoSearchKpi> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 月份範圍：filter 給就用，否則用台北今日所在月
+  let month = filters.business_month;
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    const today = todayIsoDate();
+    month = today.slice(0, 7);
+  }
+  const [yy, mm] = month.split("-").map(Number);
+  const monthFrom = `${yy}-${String(mm).padStart(2, "0")}-01`;
+  const monthTo =
+    mm === 12 ? `${yy + 1}-01-01` : `${yy}-${String(mm + 1).padStart(2, "0")}-01`;
+  const lastMonthFrom =
+    mm === 1
+      ? `${yy - 1}-12-01`
+      : `${yy}-${String(mm - 1).padStart(2, "0")}-01`;
+  const lastMonthTo = monthFrom;
+
+  // 並行：本月 / 上月 / 進行中
+  const [thisM, lastM, inProg] = await Promise.all([
+    supabase
+      .from("repair_orders")
+      .select("id, prefix_p2, estimated_subtotal", { count: "exact" })
+      .eq("brand_id", brand)
+      .gte("issue_date", monthFrom)
+      .lt("issue_date", monthTo),
+    supabase
+      .from("repair_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brand)
+      .gte("issue_date", lastMonthFrom)
+      .lt("issue_date", lastMonthTo),
+    supabase
+      .from("repair_orders")
+      .select("id, issue_date", { count: "exact" })
+      .eq("brand_id", brand)
+      .in("status", ["進行中", "維修中", "待結帳"]),
+  ]);
+
+  const thisRows = (thisM.data ?? []) as {
+    id: string;
+    prefix_p2: string;
+    estimated_subtotal: number | null;
+  }[];
+  const monthRoCount = thisM.count ?? thisRows.length;
+  const monthRoCountDeltaVsLast = monthRoCount - (lastM.count ?? 0);
+
+  // 客付產值：prefix_p2 = CP（保固 WR / 免費 FR 不計）
+  const monthRevenueCustomerPay = thisRows
+    .filter((r) => r.prefix_p2 === "CP")
+    .reduce((s, r) => s + Number(r.estimated_subtotal ?? 0), 0);
+
+  const avgRoAmount =
+    monthRoCount > 0
+      ? Math.round(
+          thisRows.reduce((s, r) => s + Number(r.estimated_subtotal ?? 0), 0) / monthRoCount,
+        )
+      : 0;
+
+  const inProgRows = (inProg.data ?? []) as { id: string; issue_date: string }[];
+  const today = todayIsoDate();
+  return {
+    monthRoCount,
+    monthRoCountDeltaVsLast,
+    inProgressCount: inProg.count ?? inProgRows.length,
+    inProgressTodayCount: inProgRows.filter((r) => r.issue_date === today).length,
+    monthRevenueCustomerPay,
+    avgRoAmount,
+  };
+}
+
+export async function getRoSearchPageData(
+  filters: RepairOrderListFilters,
+): Promise<RoSearchPageData> {
+  // 查詢頁預設帶台北當月，避免空狀態
+  const effectiveFilters: RepairOrderListFilters = {
+    ...filters,
+    business_month:
+      filters.business_month && /^\d{4}-\d{2}$/.test(filters.business_month)
+        ? filters.business_month
+        : todayIsoDate().slice(0, 7),
+  };
+  const [rows, saOptions, kpi] = await Promise.all([
+    listRepairOrders(effectiveFilters),
+    listRoSearchSaOptions(),
+    getRoSearchKpi(effectiveFilters),
+  ]);
+  return { rows, totalCount: rows.length, saOptions, kpi };
 }
 
 /** 內部用：取下一個流水號（同 brand × date × p1 × p2 的當日流水） */

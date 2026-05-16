@@ -12,6 +12,16 @@ import {
 import { RO_STATUS_OPTIONS } from "@/domain/repair-orders.constants";
 import type { RepairOrderListRow } from "@/domain/repair-orders";
 
+// 純算數格式化 Asia/Taipei wall-clock（避開 toLocaleString 在 Node ICU / browser ICU
+// 對 dayPeriod / narrow nbsp 不一致造成的 SSR / CSR hydration mismatch）
+function fmtTaipeiDateTime(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const d = new Date(t + 8 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
 function statusBadge(status: string): string {
   switch (status) {
     case "進行中":
@@ -276,7 +286,7 @@ export function RepairOrderDetailView({
                 : "免簽"
             }
           />
-          <Kv label="開單時間" value={ro.opened_at ? new Date(ro.opened_at).toLocaleString("zh-TW") : null} />
+          <Kv label="開單時間" value={ro.opened_at ? fmtTaipeiDateTime(ro.opened_at) : null} />
         </div>
       </section>
 
@@ -300,7 +310,7 @@ export function RepairOrderDetailView({
             }
           />
           <Kv label="來源預檢單" value={ro.pre_inspection_id ? ro.pre_inspection_id.slice(0, 8) + "…" : null} />
-          <Kv label="關單時間" value={ro.closed_at ? new Date(ro.closed_at).toLocaleString("zh-TW") : null} />
+          <Kv label="關單時間" value={ro.closed_at ? fmtTaipeiDateTime(ro.closed_at) : null} />
         </div>
       </section>
 

@@ -691,16 +691,40 @@ Templates 新增（首例）:
 
 ---
 
-## 11. 開放問題（Phase 3 拍板）
+## 11. 拍板紀錄（2026-05-16 Ming 對齊完畢）
 
-1. **失銷追蹤推播時機**：tech_findings 被 reject 且 safety_level=1 時，是否立即推 LINE 給售後主管？還是 D+3 才提醒？
-2. **車主簽名替代**：上傳 Line/簡訊截圖代簽，是 SA 自己決定就 confirm，還是要主管覆核才放行？
-3. **PI immutable 邊界**：confirm 後是否容許「補登」窗口（如車主臨時要加項）？還是一律走「取消 PI 重開」？
-4. **保固告警與 RO 索賠的連動**：Tab 2 勾「疑似保固 / 公報召回」，RO 開立時是否自動帶到「保固索賠類型」候選勾選？
-5. **環檢項目 8 項是否要做成 master-data setting page**：未來主管要新增「儀表 / 啟動器」是改 lookup table、還是改 code？
-6. **`purposes` 是 typed text[] 還是 typed 子表**：複選 cardinality 平均 1-3，但如果未來「每個目的還要存何時加的 / 由誰加」就需要子表 — 用戶要不要先預埋？
-7. **`warranty_snapshot` 升 typed 邊界**：哪 3 個 sub-key 最先升 typed？（is_valid / expires_at / type 三選 0/1/2/3）
-8. **取消 PI 是否要主管簽核**：客戶反悔 vs SA 寫錯重開，能否一律允許 SA 自取消？
+> 8 題均已拍板。之後動工依本節答案執行、不再回頭問。
+
+| # | 議題 | 決議 | 落地方向 |
+|---|---|---|---|
+| 1 | 失銷追蹤推播時機 | **D+3 提醒** | 寫 `pre_inspection_tech_findings.next_alert_at = decided_at + 3 days`；每日 cron 撈 `decision='reject' AND safety_level=1 AND next_alert_at <= now() AND alerted_at IS NULL`，推 LINE 給售後主管後寫 `alerted_at`。Notification Hub 已就緒、補新 event code `tech_finding.reject_alert`。 |
+| 2 | 簽名替代覆核 | **主管覆核後放行** | 新 PI status：`pending_supervisor_review`。`signPreInspection(party='customer', proof_url=...)` 完成後 PI 進此狀態，僅 supervisor 能 `confirmPreInspection`（policy 層擋）。LINE 推主管「車主未在場、待覆核」。 |
+| 3 | PI immutable 邊界 | **主管可解鎖補登** | 新 action `unlockPreInspection(pi_id, reason)`，僅 supervisor 可呼叫；UPDATE status='draft' + 寫 audit log（`pre_inspection_audit_events`）。再次 confirm 時走原流程。所有 unlock 事件 audit 永久保留、不可刪。 |
+| 4 | 保固 → RO 索賠連動 | **自動勾 RO 索賠類型候選** | RO 開立頁讀 `pre_inspections.has_warranty_concern` 與 `warranty_snapshot.type`；若 true，預勾「保固索賠」checkbox + 帶入 type、SA 可手動取消。提示語：「PI 勾了疑似保固、已預選索賠類型，可取消」。 |
+| 5 | 環檢 8 項 lookup | **主管 setting page**（動 lookup table） | 新 `business_rules.rule_kind='env_check_items'`，config jsonb 存 array of `{code, label, sort_order, is_active}`。新 setting page `/parts/aftersales/management/env-check-items`（inline edit / 啟停）。Wizard 改從 helper `listEnvCheckItems()` 讀、不再 hardcode `DEFAULT_CHECKS`。 |
+| 6 | purposes shape | **typed 子表 `pre_inspection_purposes`** | 新表：`id / pre_inspection_id FK / purpose_code / added_by / added_at / note`。`pre_inspections.purposes text[]` 改為 deprecated（保留欄位但不寫、3 個 release 後砍）。Wizard 改用 `addPurpose / removePurpose`。 |
+| 7 | warranty_snapshot promote | **升 `is_valid + expires_at + type`** | ALTER pre_inspections：ADD `warranty_is_valid boolean`、`warranty_expires_at date`、`warranty_type text`。Backfill from `warranty_snapshot` jsonb。`warranty_snapshot` 仍保留（剩 `start_at / mileage_limit / claim_history` 等次要欄位）。RLS / index 加在 `warranty_is_valid + brand_id`、給「本月在保 PI」報表用。 |
+| 8 | 取消 PI 簽核 | **主管簽核（進 pending_cancel）** | 新 status `pending_cancel`。`cancelPreInspection(pi_id, reason)` 改成「請求取消」、UPDATE status='pending_cancel'，推 LINE 給主管；主管 `approveCancellation` → cancelled、`rejectCancellation` → 原 status。所有取消事件寫 audit。 |
+
+### 落地優先序（拍板後規劃）
+
+**Wave A — 低成本立刻落（< 2 hr）**：
+- Q4：保固聯動（RO 頁 +1 useEffect、條件預勾 checkbox + amber 提示）
+- Q5：env-check items 走 business_rules + 補小 setting page（4 顆按鈕：新增 / 改 label / 改順序 / 啟停）
+
+**Wave B — 流程改動（每項 2-4 hr）**：
+- Q2：`pending_supervisor_review` status + supervisor approve UI + LINE 推送
+- Q3：`unlockPreInspection` action + audit table + supervisor unlock button
+- Q8：`pending_cancel` status + 主管 approve / reject UI + LINE 推送
+
+**Wave C — Schema 改 + 既有 row 遷移（4-8 hr）**：
+- Q6：建 `pre_inspection_purposes` 子表 + 遷移既有 `purposes text[]` 資料 + UI 改 helper
+- Q7：ALTER + backfill from jsonb + RLS / index + 改 wizard 寫入點
+
+**Wave D — Cron 工程（4-6 hr）**：
+- Q1：tech_findings 加 `next_alert_at + alerted_at` 欄位 + scheduled job + Notification Hub event code
+
+> 上面 4 wave 加總 ~16-24 hr 工程。Ming 拍板後分次落、不要一輪全推（policy 改 + schema migration + cron 起風險太集中）。
 
 ---
 

@@ -23,6 +23,23 @@ import {
 
 type Banner = { ok: boolean; msg: string } | null;
 
+// 純算數格式化 Asia/Taipei wall-clock（避開 toLocaleString 在 Node ICU / browser ICU
+// 對 dayPeriod / narrow nbsp 不一致造成的 SSR / CSR hydration mismatch）
+function fmtTaipeiMonthDayTime(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const d = new Date(t + 8 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+function fmtTaipeiDateTime(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const d = new Date(t + 8 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
 const decisionLabel: Record<string, string> = {
   pending: "待確認",
   agreed: "車主同意",
@@ -271,15 +288,10 @@ export function AddonsBoard({
         width: 130,
         cell: (r) => (
           <span className="text-[11.5px] text-[#5A5955]">
-            {new Date(r.proposed_at).toLocaleString("zh-TW", {
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {fmtTaipeiMonthDayTime(r.proposed_at)}
           </span>
         ),
-        exportValue: (r) => new Date(r.proposed_at).toLocaleString("zh-TW"),
+        exportValue: (r) => fmtTaipeiDateTime(r.proposed_at),
         sortValue: (r) => new Date(r.proposed_at).getTime(),
       },
     ],

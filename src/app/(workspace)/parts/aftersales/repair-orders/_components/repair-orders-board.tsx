@@ -21,6 +21,21 @@ const labelClass = "text-[11px] text-[#9A9890] font-medium";
 const inputClass =
   "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none bg-white";
 
+// 純算數格式化 Asia/Taipei wall-clock（避開 toLocaleString 在 Node ICU / browser ICU
+// 對 dayPeriod / narrow nbsp 不一致造成的 SSR / CSR hydration mismatch）
+function fmtTaipeiMonthDayTime(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  // Asia/Taipei 為 UTC+8（無 DST）
+  const d = new Date(t + 8 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const mm = pad(d.getUTCMonth() + 1);
+  const dd = pad(d.getUTCDate());
+  const hh = pad(d.getUTCHours());
+  const mi = pad(d.getUTCMinutes());
+  return `${mm}/${dd} ${hh}:${mi}`;
+}
+
 function statusChipClass(status: string): string {
   switch (status) {
     case "進行中":
@@ -232,13 +247,7 @@ export function RepairOrdersBoard({
         cell: (r) =>
           r.opened_at ? (
             <span className="text-[12px] text-[#5A5955]">
-              {new Date(r.opened_at).toLocaleString("zh-TW", {
-                timeZone: "Asia/Taipei",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {fmtTaipeiMonthDayTime(r.opened_at)}
             </span>
           ) : (
             <span className="text-[#9A9890]">—</span>
