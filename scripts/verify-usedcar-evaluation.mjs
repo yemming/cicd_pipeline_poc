@@ -284,6 +284,40 @@ if (!totalCost.includes('25,000')) {
   observed.push(`TAB 4 total-cost = ${totalCost.trim()}`);
 }
 
+// BDN #11 — D 段殘值試算驗證
+// 殘值 = 收購價 − 整備預估費（B 段合計 = repair 20000 + admin 5000 = 25000）
+// suggested = market 300000 − cost 25000 = 275000
+// residual = suggested 275000 − refurbCost 25000 = 250000
+const residual = await page
+  .locator('[data-testid="evaluation-residual"]')
+  .innerText();
+if (!residual.includes('250,000')) {
+  failures.push(
+    `TAB 4 residual wrong: "${residual}" (expected 250,000 = suggested 275000 − refurbCost 25000)`,
+  );
+} else {
+  observed.push(`TAB 4 D-tier residual = ${residual.trim()}`);
+}
+
+// BDN #11 截圖：定位到 TAB 4 result-box
+await page
+  .locator('[data-testid="evaluation-result-box"]')
+  .scrollIntoViewIfNeeded();
+await page.waitForTimeout(180);
+await page.screenshot({
+  path: 'tmp/bdn11-pricing-tier-d.png',
+  fullPage: false,
+  clip: await page
+    .locator('[data-testid="evaluation-result-box"]')
+    .boundingBox()
+    .then((b) =>
+      b
+        ? { x: Math.max(0, b.x - 8), y: Math.max(0, b.y - 8), width: b.width + 16, height: b.height + 16 }
+        : undefined,
+    ),
+});
+console.error('    BDN#11 screenshot: tmp/bdn11-pricing-tier-d.png');
+
 // 儲存
 await page.locator('[data-testid="evaluation-save-final"]').click();
 await page.waitForTimeout(200);

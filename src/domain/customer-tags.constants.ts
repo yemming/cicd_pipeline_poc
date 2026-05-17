@@ -21,8 +21,8 @@ export const TAG_COLOR_LABEL: Record<TagColor, string> = {
   blue: "談判協商",
 };
 
-/** 每筆客戶最多可貼個人自訂標籤數 — HTML hard-code、業務規則簡單，存常數即可 */
-export const PERSONAL_TAG_LIMIT = 5;
+/** 每位 RS 個人自訂標籤「字典」條目上限 — 不是每客戶貼標數（assignments 表落地後另立常數） */
+export const PERSONAL_TAG_LIMIT = 20;
 
 /** 主管觀察視角的 trend 閾值 — total_use >= HOT_THRESHOLD 視為「高頻使用」、>= RISING 視為「上升中」 */
 export const TREND_HOT_THRESHOLD = 10;

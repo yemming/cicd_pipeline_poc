@@ -5,7 +5,7 @@
  * - 4 個 tab：標籤庫總覽 / 我的自訂標籤 / 使用統計 / 主管觀察視角
  * - 左 sidenav：顏色 filter (5) + 來源 filter (2)
  * - 標籤庫總覽顯示官方（🔒 唯讀）+ 我的自訂（可編輯/刪除）
- * - 個人標籤上限 5 個（PERSONAL_TAG_LIMIT）
+ * - 個人標籤字典上限 PERSONAL_TAG_LIMIT 個（每位 RS）
  *
  * 規格：docs/proposals/feature-sales-customer-tags.md
  */
@@ -410,7 +410,7 @@ export default function CustomerTagsView({ data }: { data: PageData }) {
                 className="w-full h-[34px] px-3 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] outline-none"
               />
               <div className="text-[11px] text-[#9A9890] mt-1">
-                最多 20 字 · 每筆客戶資料最多貼 {PERSONAL_TAG_LIMIT} 個自訂標籤
+                最多 20 字 · 每位 RS 字典上限 {PERSONAL_TAG_LIMIT} 個自訂標籤
               </div>
             </Field>
             <Field label="標籤顏色分類" required>
@@ -571,7 +571,7 @@ function LibTab({
     <div className="space-y-3">
       <InfoBanner tone="blue">
         <b>標籤庫說明：</b>官方標籤由主管在「售後 12」統一設定，RS
-        只能使用，不能修改或刪除（🔒）。 自訂標籤由 RS 個人自由新增，每筆客戶資料最多貼{" "}
+        只能使用，不能修改或刪除（🔒）。 自訂標籤由 RS 個人自由新增，每位 RS 字典上限{" "}
         <b>{PERSONAL_TAG_LIMIT} 個自訂標籤</b>。
         主管可在「主管觀察視角」Tab 瀏覽全店自訂標籤的使用趨勢。
       </InfoBanner>
@@ -734,26 +734,26 @@ function CustomTab({
   const limitCls =
     used >= PERSONAL_TAG_LIMIT
       ? "bg-[#FDECEA] border-[#F5AEAD] text-[#C8001A]"
-      : used >= 4
+      : used >= PERSONAL_TAG_LIMIT - 4
       ? "bg-[#FDF3E3] border-[#F0C97E] text-[#854F0B]"
       : "bg-[#F8F7F4] border-[#EEECE6] text-[#5A5955]";
 
   return (
     <div className="space-y-3">
       <InfoBanner tone="green">
-        <b>自訂標籤說明：</b>您可以自由新增個人自訂標籤，無需審核，立即可用。 每筆客戶資料最多貼{" "}
+        <b>自訂標籤說明：</b>您可以自由新增個人自訂標籤，無需審核，立即可用。 每位 RS 字典上限{" "}
         <b>{PERSONAL_TAG_LIMIT} 個自訂標籤</b>（官方標籤不限）。
         主管可在觀察視角看到全店自訂標籤的使用情況，但不干預您的使用。
       </InfoBanner>
 
       <div className={`flex items-center gap-3 px-3 py-2 rounded-md border text-[12px] ${limitCls}`}>
-        <div className="flex gap-1">
-          {Array.from({ length: PERSONAL_TAG_LIMIT }).map((_, i) => (
-            <div
-              key={i}
-              className={`w-2.5 h-2.5 rounded-full ${i < used ? "bg-[#1A3A5C]" : "bg-[#EEECE6]"}`}
-            />
-          ))}
+        <div className="w-[200px] h-[6px] rounded-full bg-[#EEECE6] overflow-hidden shrink-0">
+          <div
+            className={`h-full rounded-full ${
+              used >= PERSONAL_TAG_LIMIT - 4 ? "bg-[#854F0B]" : "bg-[#1A3A5C]"
+            }`}
+            style={{ width: `${Math.min(100, (used / PERSONAL_TAG_LIMIT) * 100)}%` }}
+          />
         </div>
         <span>
           每筆客戶資料可貼自訂標籤：

@@ -17,7 +17,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 
@@ -260,6 +260,7 @@ function fmt(v: number) {
 
 export default function UsedCarEvaluationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useSetPageHeader({
     breadcrumb: [
@@ -271,6 +272,16 @@ export default function UsedCarEvaluationPage() {
   const [tab, setTab] = useState<0 | 1 | 2 | 3 | 4>(0);
 
   // TAB 0 基本資料
+  // BDN #15 · 從 RS01 電子手卡跳轉過來時 pre-fill 客戶姓名
+  //   URL pattern：/usedcar/evaluation?from_handcard=1&customer_name=XXX
+  //   handcard 沒蒐集車牌欄位，所以只 pre-fill 姓名；plate 留給 RS 用行照 OCR 填
+  //   lazy init 一次即可、不用 useEffect（避免 react-hooks/set-state-in-effect）
+  const [sellerName, setSellerName] = useState(() => {
+    if (searchParams.get("from_handcard")) {
+      return searchParams.get("customer_name")?.trim() ?? "";
+    }
+    return "";
+  });
   const [brand, setBrand] = useState("DUCATI");
   const [model, setModel] = useState("Panigale V2（2021）");
   const [year, setYear] = useState("2021");
@@ -289,6 +300,9 @@ export default function UsedCarEvaluationPage() {
   // TAB 0 證件掃描
   const [scanned, setScanned] = useState<number[]>([]);
   const [scanDates, setScanDates] = useState<Record<number, string>>({});
+  // TAB 0 OCR 結果（demo 階段：點掃描格上的「Demo OCR」按鈕灌入；後續輪次接真 OCR API）
+  const [ocrVin, setOcrVin] = useState("");
+  const [ocrEngineNo, setOcrEngineNo] = useState("");
   const [fineQuery, setFineQuery] = useState(FINE_QUERY_OPTIONS[0]);
   const [lien, setLien] = useState(LIEN_OPTIONS[0]);
   const [inspect, setInspect] = useState(INSPECT_OPTIONS[0]);
@@ -407,7 +421,11 @@ export default function UsedCarEvaluationPage() {
     const suggested = market - cost;
     const diff = newCar > 0 ? newCar - suggested : 0;
     const premium = diff > 0 ? diff - cost : 0;
-    return { market, repair, paint, tire, warranty, admin, comm, profit, newCar, cost, suggested, diff, premium };
+    // D 段補強：殘值 = 收購價 − 整備預估費（BDN #11）
+    // 整備預估費 = B 段 5 欄合計（不含 C 段銷售費用與利潤）
+    const refurbCost = repair + paint + tire + warranty + admin;
+    const residual = suggested - refurbCost;
+    return { market, repair, paint, tire, warranty, admin, comm, profit, newCar, cost, suggested, diff, premium, refurbCost, residual };
   }, [pMarket, pRepair, pPaint, pTire, pWarranty, pAdmin, pComm, pProfit, pNew]);
 
   // ============================================================
@@ -430,6 +448,34 @@ export default function UsedCarEvaluationPage() {
     setScanDates((prev) => ({ ...prev, [id]: new Date().toLocaleDateString("zh-TW") }));
     showToast(`📷 ${label} 已拍攝存檔`);
   }
+
+  // ───────── Demo OCR：模擬從證件圖片識別出 VIN / 引擎號 ─────────
+  // BDN #12（2026-05-16）— 真 OCR API 後續輪次再接；目前提供假值以演示比對 banner
+  function demoOcrFill(id: number) {
+    // id=0 行照 → 同時 OCR 出 VIN + 引擎號；id=6 VIN 特寫 → 只 OCR 出 VIN
+    const fakeVin = "ZDM14BWW7MB123456";
+    const fakeEngine = "ZDM1218 0012345";
+    if (id === 0) {
+      setOcrVin(fakeVin);
+      setOcrEngineNo(fakeEngine);
+      showToast("🔍 行照 OCR 完成：VIN + 引擎號已抓取");
+    } else if (id === 6) {
+      setOcrVin(fakeVin);
+      showToast("🔍 VIN 特寫 OCR 完成：車身號碼已抓取");
+    }
+  }
+
+  // ───────── VIN / 引擎號一致性驗證（純前端字串比對）─────────
+  const vinVerify = useMemo(() => {
+    const normalize = (s: string) => s.toUpperCase().replace(/[\s\-_]/g, "");
+    const vinMismatch =
+      vin.trim() !== "" && ocrVin.trim() !== "" && normalize(vin) !== normalize(ocrVin);
+    const engineMismatch =
+      engineNo.trim() !== "" &&
+      ocrEngineNo.trim() !== "" &&
+      normalize(engineNo) !== normalize(ocrEngineNo);
+    return { vinMismatch, engineMismatch, hasAny: vinMismatch || engineMismatch };
+  }, [vin, ocrVin, engineNo, ocrEngineNo]);
 
   function cycleDot(group: "side" | "top", id: string, label: string) {
     const cur = group === "side" ? sideDots[id] : topDots[id];
@@ -457,9 +503,17 @@ export default function UsedCarEvaluationPage() {
   function setPaintUmValue(idx: number, v: string) {
     setPaintUm((prev) => ({ ...prev, [idx]: v }));
     const num = parseInt(v, 10) || 0;
-    if (!num) return;
-    if (num <= 150) setPaintZone(idx, 0);
-    else if (num <= 200) setPaintZone(idx, 1);
+    if (!num) {
+      setPaintState((prev) => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+      return;
+    }
+    // BDN #10 門檻：≤80 正常 · 80-120 注意 · >120 補漆
+    if (num <= 80) setPaintZone(idx, 0);
+    else if (num <= 120) setPaintZone(idx, 1);
     else setPaintZone(idx, 2);
   }
 
@@ -550,6 +604,15 @@ export default function UsedCarEvaluationPage() {
                 }
               >
                 <Grid cols={3}>
+                  <Field label="客戶姓名（賣方）">
+                    <input
+                      className={inputCls}
+                      placeholder="例：陳大文"
+                      value={sellerName}
+                      onChange={(e) => setSellerName(e.target.value)}
+                      data-testid="evaluation-seller-name"
+                    />
+                  </Field>
                   <Field label="廠牌" required>
                     <input className={inputCls} value={brand} onChange={(e) => setBrand(e.target.value)} />
                   </Field>
@@ -716,6 +779,7 @@ export default function UsedCarEvaluationPage() {
                 >
                   {SCAN_DOCS.map((d) => {
                     const done = scanned.includes(d.id);
+                    const supportsOcr = d.id === 0 || d.id === 6;
                     return (
                       <button
                         key={d.id}
@@ -740,10 +804,62 @@ export default function UsedCarEvaluationPage() {
                         <div className="text-[10px] text-[#9A9890]">
                           {done ? scanDates[d.id] : d.sub}
                         </div>
+                        {supportsOcr && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            data-testid={`evaluation-demo-ocr-${d.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              demoOcrFill(d.id);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                demoOcrFill(d.id);
+                              }
+                            }}
+                            className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] bg-[#185FA5] text-white cursor-pointer hover:bg-[#0F4577]"
+                          >
+                            Demo OCR
+                          </span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
+
+                {vinVerify.hasAny && (
+                  <div
+                    data-testid="evaluation-vin-mismatch-banner"
+                    className="mt-3 px-3.5 py-2.5 rounded-md border bg-[#FDF3E3] border-[#F0C97E] text-[#854F0B] text-[12px]"
+                  >
+                    <div className="font-bold mb-1">
+                      ⚠️ 行照識別結果與基本資料不一致，請核對
+                    </div>
+                    {vinVerify.vinMismatch && (
+                      <div
+                        className="leading-relaxed"
+                        data-testid="evaluation-vin-mismatch-detail-vin"
+                      >
+                        車身號碼（VIN）— 行照 OCR：
+                        <b className="font-mono">{ocrVin}</b> · 基本資料：
+                        <b className="font-mono">{vin}</b>
+                      </div>
+                    )}
+                    {vinVerify.engineMismatch && (
+                      <div
+                        className="leading-relaxed"
+                        data-testid="evaluation-vin-mismatch-detail-engine"
+                      >
+                        引擎號碼 — 行照 OCR：
+                        <b className="font-mono">{ocrEngineNo}</b> · 基本資料：
+                        <b className="font-mono">{engineNo}</b>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <SecTitle>過戶前必要查詢</SecTitle>
                 <Grid cols={3}>
@@ -905,13 +1021,13 @@ export default function UsedCarEvaluationPage() {
                 icon="📏"
                 iconBg="bg-[#FDECEA]"
                 title="漆面量化記錄（漆膜測厚儀）"
-                subtitle="原廠漆 80–150 μm · 補漆 150–200 μm · 重噴 ＞200 μm"
+                subtitle="≤80μm 正常 · 80-120μm 注意 · >120μm 補漆"
                 trailing={
                   <button
                     type="button"
                     onClick={() =>
                       showToast(
-                        "📏 原廠漆：80-150μm · 輕微補修：150-200μm · 明顯補漆：>200μm · 全板重噴：>250μm",
+                        "📏 ≤80μm：正常（原廠漆） · 80-120μm：注意（疑似補漆） · >120μm：補漆（明顯補漆/重噴）",
                       )
                     }
                     className={`${btnGhost} h-[28px] px-3 text-[11.5px]`}
@@ -923,10 +1039,19 @@ export default function UsedCarEvaluationPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {PAINT_ZONES.map((z, idx) => {
                     const st = paintState[idx];
+                    // BDN #10 三態 chip：依 paintState 對應「正常 / 注意 / 補漆」
+                    const chipMeta =
+                      st === 0
+                        ? { label: "正常", cls: "bg-[#EAF3DE] text-[#3B6D11]" }
+                        : st === 1
+                          ? { label: "注意", cls: "bg-[#FDF3E3] text-[#854F0B]" }
+                          : st === 2
+                            ? { label: "補漆", cls: "bg-[#FDECEA] text-[#CC0000]" }
+                            : null;
                     return (
                       <div
                         key={z}
-                        className="grid grid-cols-[1fr_72px_84px_1fr] gap-1.5 items-center px-2.5 py-1.5 rounded-md border border-[#EEECE6] bg-[#FAFAF8] text-[12px]"
+                        className="grid grid-cols-[1fr_72px_84px_56px_1fr] gap-1.5 items-center px-2.5 py-1.5 rounded-md border border-[#EEECE6] bg-[#FAFAF8] text-[12px]"
                         data-testid={`evaluation-paint-zone-${idx}`}
                       >
                         <div className="font-semibold">{z}</div>
@@ -960,6 +1085,18 @@ export default function UsedCarEvaluationPage() {
                               </button>
                             );
                           })}
+                        </div>
+                        <div className="flex justify-center">
+                          {chipMeta ? (
+                            <span
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap ${chipMeta.cls}`}
+                              data-testid={`evaluation-paint-chip-${idx}`}
+                            >
+                              {chipMeta.label}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-[#9A9890]">—</span>
+                          )}
                         </div>
                         <input
                           className="w-full px-1.5 py-1 rounded-md border border-[#D5D3CB] text-[11.5px] bg-white"
@@ -1362,6 +1499,20 @@ export default function UsedCarEvaluationPage() {
                       <div className="text-[10.5px] opacity-65 mb-0.5">置換溢價</div>
                       <div className="text-[15px] font-bold font-mono text-[#5DCAA5]">
                         {calcResult.diff > 0 ? fmt(calcResult.premium) : "—"}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div
+                        className="text-[10.5px] opacity-65 mb-0.5"
+                        title="殘值 = 收購價 − 整備預估費（B 段合計）"
+                      >
+                        殘值（收購 − 整備）
+                      </div>
+                      <div
+                        className="text-[15px] font-bold font-mono text-[#FFD37E]"
+                        data-testid="evaluation-residual"
+                      >
+                        {fmt(calcResult.residual)}
                       </div>
                     </div>
                   </div>

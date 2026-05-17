@@ -111,6 +111,11 @@ export const PERMISSIONS = {
   EINVOICE_ALLOWANCE: "einvoice.allowance",
   EINVOICE_SETTINGS: "einvoice.settings",
 
+  // ─── 銷售訂單 ───────────────────────────────────
+  SALES_ORDER_VIEW: "sales.order.view",
+  SALES_ORDER_EDIT: "sales.order.edit",
+  SALES_ORDER_CANCEL: "sales.order.cancel",
+
   // ─── Admin ─────────────────────────────────────
   ADMIN_NAV: "admin.nav.edit",
   ADMIN_APPEARANCE: "admin.appearance.edit",

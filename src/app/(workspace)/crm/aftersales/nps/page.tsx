@@ -17,7 +17,7 @@ import { NpsDashboardView } from "@/app/(workspace)/crm/sales/nps/_components/np
 
 export const dynamic = "force-dynamic";
 
-const VALID_RANGES: RangeKey[] = ["7d", "30d", "90d", "all"];
+const VALID_RANGES: RangeKey[] = ["6m", "12m"];
 
 export default async function Page({
   searchParams,
@@ -36,7 +36,7 @@ export default async function Page({
   const sp = await searchParams;
   const rangeRaw = sp.range as RangeKey | undefined;
   const range: RangeKey =
-    rangeRaw && VALID_RANGES.includes(rangeRaw) ? rangeRaw : "90d";
+    rangeRaw && VALID_RANGES.includes(rangeRaw) ? rangeRaw : "6m";
   const filters: NpsFilters = { range, kind: "aftersales" };
   const dashboard = await getSalesNpsDashboard(filters);
   return (
@@ -46,8 +46,9 @@ export default async function Page({
       rangeLabel={RANGE_LABEL[range]}
       basePath="/crm/aftersales/nps"
       title="售後 NPS 看板"
-      sprintTag="CRM10"
-      caption="售後維修滿意度淨推薦值（NPS）分析・趨勢／分組／批評者留言"
+      sprintTag="CRM05B"
+      caption="售後維修滿意度淨推薦值（NPS）分析・SA 表現／面向評分／批評者追蹤"
+      kind="aftersales"
     />
   );
 }

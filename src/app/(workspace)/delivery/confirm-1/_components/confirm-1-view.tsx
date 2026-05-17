@@ -1,13 +1,36 @@
 "use client";
 
+import { useTransition } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { useDelivery } from "@/lib/delivery-store";
+import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
 
-export function Confirm1View() {
+export function Confirm1View({ deliveryId }: { deliveryId?: string }) {
   const { state, patch } = useDelivery();
+  const [, startTransition] = useTransition();
 
   const inputCls =
     "w-full h-[32px] px-2.5 rounded border border-[#D5D3CB] text-[12.5px] text-[#2C2C2A] focus:border-[#185FA5] focus:outline-none";
+
+  function handleNext() {
+    if (!state.confirmedOrder) patch({ confirmedOrder: true });
+    if (deliveryId) {
+      startTransition(async () => {
+        await updateDeliveryStepAction(deliveryId, "confirm1", {
+          customer_name: state.customerName,
+          customer_phone: state.customerPhone,
+          customer_email: state.customerEmail,
+          customer_address: state.customerAddress,
+          vehicle_model_name: state.vehicleModel,
+          vehicle_color: state.vehicleColor,
+          vin: state.vin,
+          rs_name: state.rsName,
+          scheduled_delivery_date: state.deliveryDate,
+          confirmedOrder: true,
+        }, "pdi_in_progress");
+      });
+    }
+  }
 
   return (
     <DeliveryFrame
@@ -16,9 +39,7 @@ export function Confirm1View() {
       nextLabel={
         state.confirmedOrder ? "已覆核 → PDI 整備 →" : "完成覆核 → PDI 整備 →"
       }
-      onNext={() => {
-        if (!state.confirmedOrder) patch({ confirmedOrder: true });
-      }}
+      onNext={handleNext}
     >
       <section
         className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"

@@ -17,7 +17,7 @@
  */
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
@@ -55,6 +55,8 @@ export function DeliveryFrame({
   onNext,
 }: DeliveryFrameProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const deliveryId = searchParams.get("deliveryId");
   const { state, hydrated } = useDelivery();
   const meta = STEP_TITLES[stepId];
   const sprint = DELIVERY_STEPS.find((s) => s.id === stepId)?.sprint ?? "";
@@ -62,7 +64,7 @@ export function DeliveryFrame({
   useSetPageHeader({
     title: meta.title,
     breadcrumb: [
-      { label: "交車服務", href: "/delivery/confirm-1" },
+      { label: "交車管理", href: "/sales/delivery" },
       { label: meta.title },
     ],
   });
@@ -70,13 +72,19 @@ export function DeliveryFrame({
   const prev = DELIVERY_STEPS.find((s) => s.id === stepId - 1);
   const next = DELIVERY_STEPS.find((s) => s.id === stepId + 1);
 
+  // 若有 deliveryId，導航時帶上 query param
+  function stepHref(href: string) {
+    if (!deliveryId) return href;
+    return `${href}?deliveryId=${deliveryId}`;
+  }
+
   const handleNext = async () => {
     if (nextDisabled) return;
     if (onNext) {
       const r = await onNext();
       if (r === false) return;
     }
-    if (next) router.push(next.href);
+    if (next) router.push(stepHref(next.href));
   };
 
   // 滾到頂（切 step 時）
@@ -121,7 +129,7 @@ export function DeliveryFrame({
           return (
             <Link
               key={s.id}
-              href={s.href}
+              href={stepHref(s.href)}
               data-testid={`delivery-step-link-${s.id}`}
               className={`flex-1 px-2 py-2.5 text-center text-[11.5px] font-medium transition-colors ${
                 i < DELIVERY_STEPS.length - 1
@@ -185,7 +193,7 @@ export function DeliveryFrame({
       >
         {prev && (
           <Link
-            href={prev.href}
+            href={stepHref(prev.href)}
             data-testid="delivery-prev-btn"
             className="h-[30px] inline-flex items-center px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
           >

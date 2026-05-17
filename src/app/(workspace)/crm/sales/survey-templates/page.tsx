@@ -3,11 +3,11 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import {
-  getSurveyTemplateListPageData,
-  type SurveyKind,
-  type SurveyTemplateFilters,
-} from "@/domain/sales-survey-templates";
+import { getSurveyTemplateListPageData } from "@/domain/sales-survey-templates";
+import type {
+  SurveyKind,
+  SurveyTemplateFilters,
+} from "@/domain/sales-survey-templates.constants";
 
 import { SurveyTemplatesBoard } from "./_components/survey-templates-board";
 
@@ -33,12 +33,15 @@ export default async function Page({
   const filters: SurveyTemplateFilters = {
     kind,
     status: sp.status ?? "all",
+    meta_status: sp.meta_status ?? "all",
+    timing: sp.timing ?? "all",
     q: sp.q ?? "",
   };
-  const { rows, totalCount } = await getSurveyTemplateListPageData(filters);
+  const { rows, kpi, totalCount } = await getSurveyTemplateListPageData(filters);
   return (
     <SurveyTemplatesBoard
       rows={rows}
+      kpi={kpi}
       totalCount={totalCount}
       canEdit={canEdit}
       filters={filters}

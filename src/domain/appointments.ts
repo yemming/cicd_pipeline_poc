@@ -11,77 +11,31 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
 
-import type { Database } from "@/lib/database.types";
 import { TECH_LOAD_MAX } from "./appointments.constants";
+import type {
+  AppointmentRow,
+  AppointmentListRow,
+  AppointmentListFilters,
+  DailyKpis,
+  ScheduleItem,
+  ScheduleSlot,
+  TechnicianLoad,
+  AppointmentLookups,
+  AppointmentsListPageData,
+} from "./appointments.constants";
 
-type Tables = Database["public"]["Tables"];
-export type AppointmentRow = Tables["appointments"]["Row"];
-
-export type AppointmentListRow = AppointmentRow & {
-  customer_name: string | null;
-  customer_phone: string | null;
-  vehicle_license_plate: string | null;
-  vehicle_model_name: string | null;
-  technician_name: string | null;
-};
-
-export type AppointmentListFilters = {
-  date?: string; // YYYY-MM-DD; default = today
-  status?: string;
-  service_type?: string;
-  technician_id?: string;
-  q?: string;
-};
-
-export type DailyKpis = {
-  total: number;
-  arrived: number;
-  waiting: number;
-  waiting_overdue: number;
-  in_progress: number;
-  in_progress_avg_hours: number;
-  completed: number;
-  pending_pickup: number;
-};
-
-export type ScheduleItem = {
-  customer_name: string | null;
-  service_label: string;
-  technician_short: string | null;
-  status: string;
-};
-export type ScheduleSlot = {
-  bucket: string; // e.g. "09:00–10:00"
-  items: ScheduleItem[];
-};
-
-export type TechnicianLoad = {
-  id: string;
-  name: string;
-  load: number;
-  max: number;
-  status: string;
-};
-
-export type AppointmentLookups = {
-  customers: { id: string; name: string; phone: string | null }[];
-  vehicles: {
-    id: string;
-    customer_id: string;
-    license_plate: string;
-    model_name: string | null;
-  }[];
-  technicians: { id: string; name: string }[];
-};
-
-export type AppointmentsListPageData = {
-  rows: AppointmentListRow[];
-  totalCount: number;
-  kpis: DailyKpis;
-  schedule: ScheduleSlot[];
-  techLoad: TechnicianLoad[];
-  lookups: AppointmentLookups;
-};
+// ── Re-export types from .constants.ts（server-side caller 仍可 import from "@/domain/appointments"）──
+export type {
+  AppointmentRow,
+  AppointmentListRow,
+  AppointmentListFilters,
+  DailyKpis,
+  ScheduleItem,
+  ScheduleSlot,
+  TechnicianLoad,
+  AppointmentLookups,
+  AppointmentsListPageData,
+} from "./appointments.constants";
 
 function todayIsoDate(): string {
   // Asia/Taipei 為標準（per global instruction）

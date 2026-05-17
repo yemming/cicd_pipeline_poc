@@ -95,7 +95,7 @@ export async function listPickupCandidates(
     new Set((ros ?? []).map((r) => r.vehicle_id).filter(Boolean) as string[]),
   );
 
-  const [{ data: custs }, { data: vehs }] = await Promise.all([
+  const [{ data: custs }, { data: vehRaw }] = await Promise.all([
     customerIds.length
       ? supabase
           .from("customers")
@@ -104,13 +104,32 @@ export async function listPickupCandidates(
       : Promise.resolve({ data: [] as Array<{ id: string; name: string; phone: string | null; metadata: Record<string, unknown> | null }> }),
     vehicleIds.length
       ? supabase
-          .from("vehicles")
-          .select("id, license_plate, model_name")
+          .from("customer_vehicles")
+          .select("id, license_plate, model_id")
           .in("id", vehicleIds)
-      : Promise.resolve({ data: [] as Array<{ id: string; license_plate: string | null; model_name: string | null }> }),
+      : Promise.resolve({ data: [] as Array<{ id: string; license_plate: string | null; model_id: string | null }> }),
   ]);
   const cMap = new Map((custs ?? []).map((c) => [c.id, c]));
-  const vMap = new Map((vehs ?? []).map((v) => [v.id, v]));
+
+  // 用 model_id 批次查 vehicle_models 取 model_name
+  const modelIds = Array.from(
+    new Set((vehRaw ?? []).map((v) => v.model_id).filter(Boolean) as string[]),
+  );
+  const { data: models } = modelIds.length
+    ? await supabase.from("vehicle_models").select("id, model_name").in("id", modelIds)
+    : { data: [] as Array<{ id: string; model_name: string | null }> };
+  const modelMap = new Map((models ?? []).map((m) => [m.id, m.model_name]));
+
+  const vMap = new Map(
+    (vehRaw ?? []).map((v) => [
+      v.id,
+      {
+        id: v.id,
+        license_plate: v.license_plate,
+        model_name: v.model_id ? (modelMap.get(v.model_id) ?? null) : null,
+      },
+    ]),
+  );
   const roMap = new Map((ros ?? []).map((r) => [r.id, r]));
 
   const out: PickupListRow[] = [];

@@ -121,6 +121,25 @@ export const SIGNATURE_DEFS: { role: SignatureRole; icon: string; label: string;
   { role: "customer", icon: "✍️", label: "客戶簽名", sub: "已閱讀並了解保固條款" },
 ];
 
+// RS05 文件交付段 — 8 項勾選清單（BDN #8）
+export type HandoverDocItem = {
+  id: string;
+  icon: string;
+  label: string;
+  hint?: string;
+};
+
+export const HANDOVER_DOC_ITEMS: HandoverDocItem[] = [
+  { id: "license_plate", icon: "🪪", label: "行照 / 牌照", hint: "辦牌後交付" },
+  { id: "compulsory_ins", icon: "📋", label: "強制險保單", hint: "保險公司核發" },
+  { id: "warranty_card", icon: "📜", label: "保固卡", hint: "Ducati 原廠" },
+  { id: "service_manual", icon: "📖", label: "維修手冊", hint: "車主使用手冊" },
+  { id: "keys", icon: "🗝️", label: "車鑰匙（含備用）", hint: "依數量點交" },
+  { id: "tool_kit", icon: "🔧", label: "隨車工具包", hint: "原廠配件" },
+  { id: "charger_or_tool", icon: "⚡", label: "充電器 / 隨車工具", hint: "電車充電器 or 油車隨車工具" },
+  { id: "id_copy", icon: "🆔", label: "客戶證件影本", hint: "辦牌存檔" },
+];
+
 export const HANDOVER_DOCS = [
   { icon: "📋", name: "PDI 檢查表（副本）", sub: "技師完成並簽名", tag: "RS 需簽", tagTone: "req" as const },
   { icon: "📜", name: "保固條款書（車主聯-紅）", sub: "RS + 客戶均需簽名", tag: "雙方需簽", tagTone: "req" as const },

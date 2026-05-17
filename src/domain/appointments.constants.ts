@@ -1,9 +1,86 @@
 /**
- * Constants for the aftersales appointments module.
+ * Constants & types for the aftersales appointments module.
  *
  * 拆獨立 .constants.ts 是為了避開 Next 16 的 `"use server" file can only export
  * async functions` 限制（domain helper 是 server file，不能 export 非 async 值）。
+ * Row types 放這裡讓 client component 可安全 import。
  */
+
+import type { Database } from "@/lib/database.types";
+
+type Tables = Database["public"]["Tables"];
+
+// ─────────────────────────────────────────────────────────────
+// Row types（client-safe — 純資料結構，無 supabase 呼叫）
+// ─────────────────────────────────────────────────────────────
+
+export type AppointmentRow = Tables["appointments"]["Row"];
+
+export type AppointmentListRow = AppointmentRow & {
+  customer_name: string | null;
+  customer_phone: string | null;
+  vehicle_license_plate: string | null;
+  vehicle_model_name: string | null;
+  technician_name: string | null;
+};
+
+export type AppointmentListFilters = {
+  date?: string; // YYYY-MM-DD; default = today
+  status?: string;
+  service_type?: string;
+  technician_id?: string;
+  q?: string;
+};
+
+export type DailyKpis = {
+  total: number;
+  arrived: number;
+  waiting: number;
+  waiting_overdue: number;
+  in_progress: number;
+  in_progress_avg_hours: number;
+  completed: number;
+  pending_pickup: number;
+};
+
+export type ScheduleItem = {
+  customer_name: string | null;
+  service_label: string;
+  technician_short: string | null;
+  status: string;
+};
+export type ScheduleSlot = {
+  bucket: string; // e.g. "09:00–10:00"
+  items: ScheduleItem[];
+};
+
+export type TechnicianLoad = {
+  id: string;
+  name: string;
+  load: number;
+  max: number;
+  status: string;
+};
+
+export type AppointmentLookups = {
+  customers: { id: string; name: string; phone: string | null }[];
+  vehicles: {
+    id: string;
+    customer_id: string;
+    license_plate: string;
+    model_name: string | null;
+  }[];
+  technicians: { id: string; name: string }[];
+};
+
+export type AppointmentsListPageData = {
+  rows: AppointmentListRow[];
+  totalCount: number;
+  kpis: DailyKpis;
+  schedule: ScheduleSlot[];
+  techLoad: TechnicianLoad[];
+  lookups: AppointmentLookups;
+};
 
 export const APPOINTMENT_STATUSES = [
   "待到廠",

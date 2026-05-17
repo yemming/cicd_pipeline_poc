@@ -1,11 +1,14 @@
 "use client";
 
+import { useTransition } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { DELIVERY_DOCS } from "@/components/delivery/delivery-constants";
 import { useDelivery } from "@/lib/delivery-store";
+import { completeDeliveryAction } from "@/lib/delivery/delivery-actions";
 
-export function CeremonyView() {
+export function CeremonyView({ deliveryId }: { deliveryId?: string }) {
   const { state, confirmDelivery, reset } = useDelivery();
+  const [isPending, startTransition] = useTransition();
 
   return (
     <DeliveryFrame stepId={6} stepDone={state.delivered} nextLabel="完成交車">
@@ -43,12 +46,21 @@ export function CeremonyView() {
         <div className="flex flex-wrap justify-center gap-2">
           <button
             type="button"
-            onClick={confirmDelivery}
-            disabled={state.delivered}
+            disabled={state.delivered || isPending}
             data-testid="ceremony-confirm-btn"
+            onClick={() => {
+              confirmDelivery();
+              if (deliveryId) {
+                startTransition(async () => {
+                  await completeDeliveryAction(deliveryId, {
+                    delivered_at: new Date().toISOString(),
+                  });
+                });
+              }
+            }}
             className="px-5 py-2 rounded text-[12.5px] font-semibold bg-white text-[#085041] hover:bg-[#E1F5EE] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {state.delivered ? "✅ 已完成交車" : "✅ 確認完成交車"}
+            {isPending ? "儲存中⋯" : state.delivered ? "✅ 已完成交車" : "✅ 確認完成交車"}
           </button>
           <button
             type="button"

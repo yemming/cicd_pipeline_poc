@@ -1,16 +1,30 @@
 "use client";
 
+import { useTransition } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { PDI_ITEMS } from "@/components/delivery/delivery-constants";
 import { useDelivery } from "@/lib/delivery-store";
+import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
 
-export function PdiView() {
+export function PdiView({ deliveryId }: { deliveryId?: string }) {
   const { state, togglePdi, togglePdiAll, triggerPdiWorkOrder } = useDelivery();
+  const [, startTransition] = useTransition();
   const total = PDI_ITEMS.length;
   const done = state.pdiChecked.length;
   const pct = Math.round((done / total) * 100);
   const allIdx = PDI_ITEMS.map((_, i) => i);
   const stepDone = done === total;
+
+  function handleNext() {
+    if (deliveryId) {
+      startTransition(async () => {
+        await updateDeliveryStepAction(deliveryId, "pdi", {
+          pdi_checklist: state.pdiChecked,
+          pdi_work_order_no: state.pdiWorkOrderNo ?? undefined,
+        }, stepDone ? "pdi_complete" : "pdi_in_progress");
+      });
+    }
+  }
 
   return (
     <DeliveryFrame
@@ -20,6 +34,7 @@ export function PdiView() {
       nextLabel={
         stepDone ? "PDI 完成 → 配件安裝 →" : "PDI 整備中 → 配件安裝 →"
       }
+      onNext={handleNext}
     >
       <section
         className="bg-[#FDECEA] border-2 border-[#C8001A] rounded-lg p-4"

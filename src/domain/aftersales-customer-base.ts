@@ -21,6 +21,18 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
   AftersalesCustomerBaseFilters,
   AftersalesServiceStatus,
+  AftersalesCustomerTraffic,
+  AftersalesCustomerCrmRow,
+  AftersalesCustomerCrmKpi,
+  AftersalesCustomerCrmFilters,
+} from "./aftersales-customer-base.constants";
+
+// Re-export 給既有 caller 用（page.tsx 過去從這支 import 這些 type）
+export type {
+  AftersalesCustomerCrmRow,
+  AftersalesCustomerCrmKpi,
+  AftersalesCustomerCrmFilters,
+  AftersalesCustomerTraffic,
 } from "./aftersales-customer-base.constants";
 
 export type AftersalesCustomerBaseRow = {
@@ -372,3 +384,404 @@ export async function getAftersalesCustomerDetail(
     models,
   };
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// CRM Board view（v2 design pattern：KPI 列 + sidebar + quick filter + 卡片 list）
+// 第四輪 BDN Batch 1 Step 1（CRM01B 售後客戶基盤）落地新增。
+//
+// Types 定義已搬到 aftersales-customer-base.constants.ts（client-safe）；
+// 本檔只保留 server-side query 邏輯。
+// ──────────────────────────────────────────────────────────────────────────
+
+const THIRTY_DAYS_MS = 1000 * 60 * 60 * 24 * 30;
+const NINETY_DAYS_MS_NEW = 1000 * 60 * 60 * 24 * 90;
+const SIXTY_DAYS_WARRANTY_MS = 1000 * 60 * 60 * 24 * 60;
+
+function deriveTraffic(
+  nextDue: string | null,
+  desmoDue: string | null,
+  createdAt: string,
+  lastVisit: string | null,
+  now: number,
+): AftersalesCustomerTraffic {
+  // 紅：任一到期日已過
+  if (nextDue && new Date(nextDue).getTime() < now) return "red";
+  if (desmoDue && new Date(desmoDue).getTime() < now) return "red";
+  // 黃：30 天內到期
+  if (nextDue) {
+    const d = new Date(nextDue).getTime();
+    if (d - now <= THIRTY_DAYS_MS) return "amber";
+  }
+  if (desmoDue) {
+    const d = new Date(desmoDue).getTime();
+    if (d - now <= THIRTY_DAYS_MS) return "amber";
+  }
+  // 新客戶（90 天內建檔且尚未進廠）也算綠（無風險）
+  if (!lastVisit) {
+    const created = new Date(createdAt).getTime();
+    if (now - created <= NINETY_DAYS_MS_NEW) return "green";
+  }
+  return "green";
+}
+
+function deriveSourceBadge(
+  sourceModule: string | null,
+): { badge: "rs05" | "walk" | "sa"; label: string } {
+  if (sourceModule === "sales") return { badge: "rs05", label: "RS05 同步" };
+  if (sourceModule === "aftersales") return { badge: "walk", label: "自行進廠" };
+  return { badge: "sa", label: "SA 自建" };
+}
+
+function daysFromNow(d: string | null, now: number): number | null {
+  if (!d) return null;
+  return Math.round((new Date(d).getTime() - now) / 86400000);
+}
+
+export async function listAftersalesCustomersForCrmBoard(
+  filters: AftersalesCustomerCrmFilters,
+): Promise<{
+  rows: AftersalesCustomerCrmRow[];
+  kpi: AftersalesCustomerCrmKpi;
+  totalCount: number;
+}> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  let q = supabase
+    .from("customers")
+    .select(
+      "id, code, name, type, phone, email, is_active, source_module, assigned_sa_user_id, created_at",
+    )
+    .eq("brand_id", brand);
+
+  if (filters.q.trim()) {
+    const t = filters.q.trim().replace(/[%,]/g, "");
+    q = q.or(`code.ilike.%${t}%,name.ilike.%${t}%,phone.ilike.%${t}%`);
+  }
+
+  const [listRes, totalRes] = await Promise.all([
+    q.order("code").limit(500),
+    supabase
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brand),
+  ]);
+  if (listRes.error)
+    throw new Error(`aftersales crm list: ${listRes.error.message}`);
+
+  const customers = (listRes.data ?? []) as Array<{
+    id: string;
+    code: string;
+    name: string;
+    type: "individual" | "corporate";
+    phone: string | null;
+    email: string | null;
+    is_active: boolean;
+    source_module: string | null;
+    assigned_sa_user_id: string | null;
+    created_at: string;
+  }>;
+
+  if (customers.length === 0) {
+    return {
+      rows: [],
+      kpi: {
+        total: totalRes.count ?? 0,
+        overdue: 0,
+        due_soon: 0,
+        this_month_visits: 0,
+        rs05_synced: 0,
+      },
+      totalCount: totalRes.count ?? 0,
+    };
+  }
+
+  const ids = customers.map((c) => c.id);
+  const saIds = Array.from(
+    new Set(
+      customers
+        .map((c) => c.assigned_sa_user_id)
+        .filter((x): x is string => Boolean(x)),
+    ),
+  );
+
+  const [vehRes, woRes, saRes] = await Promise.all([
+    supabase
+      .from("customer_vehicles")
+      .select(
+        "id, customer_id, license_plate, current_mileage, manufactured_year, model_id, next_service_due_date, desmo_service_due_date, warranty_until, is_active, created_at",
+      )
+      .eq("brand_id", brand)
+      .in("customer_id", ids)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("work_orders")
+      .select("customer_id, ro_no, opened_at")
+      .eq("brand_id", brand)
+      .in("customer_id", ids)
+      .order("opened_at", { ascending: false }),
+    saIds.length > 0
+      ? supabase
+          .from("employees")
+          .select("user_id, name")
+          .in("user_id", saIds)
+      : Promise.resolve({ data: [] as Array<{ user_id: string; name: string }> }),
+  ]);
+
+  // SA name map
+  const saNameByUserId = new Map<string, string>();
+  for (const e of (saRes.data ?? []) as Array<{ user_id: string; name: string }>) {
+    saNameByUserId.set(e.user_id, e.name);
+  }
+
+  // 主車輛 + 聚合
+  const firstVehicleByCustomer = new Map<
+    string,
+    {
+      license_plate: string | null;
+      mileage: number | null;
+      year: number | null;
+      model_id: string | null;
+      desmo_due: string | null;
+      warranty_until: string | null;
+    }
+  >();
+  const vehicleCount = new Map<string, number>();
+  const minNextDueByCustomer = new Map<string, string>();
+  const minDesmoByCustomer = new Map<string, string>();
+  const modelIdSet = new Set<string>();
+
+  for (const v of (vehRes.data ?? []) as Array<{
+    customer_id: string;
+    license_plate: string | null;
+    current_mileage: number | string | null;
+    manufactured_year: number | null;
+    model_id: string | null;
+    next_service_due_date: string | null;
+    desmo_service_due_date: string | null;
+    warranty_until: string | null;
+  }>) {
+    vehicleCount.set(v.customer_id, (vehicleCount.get(v.customer_id) ?? 0) + 1);
+    if (!firstVehicleByCustomer.has(v.customer_id)) {
+      firstVehicleByCustomer.set(v.customer_id, {
+        license_plate: v.license_plate,
+        mileage:
+          v.current_mileage == null
+            ? null
+            : typeof v.current_mileage === "string"
+              ? Number(v.current_mileage)
+              : v.current_mileage,
+        year: v.manufactured_year,
+        model_id: v.model_id,
+        desmo_due: v.desmo_service_due_date,
+        warranty_until: v.warranty_until,
+      });
+    }
+    if (v.next_service_due_date) {
+      const prev = minNextDueByCustomer.get(v.customer_id);
+      if (!prev || v.next_service_due_date < prev)
+        minNextDueByCustomer.set(v.customer_id, v.next_service_due_date);
+    }
+    if (v.desmo_service_due_date) {
+      const prev = minDesmoByCustomer.get(v.customer_id);
+      if (!prev || v.desmo_service_due_date < prev)
+        minDesmoByCustomer.set(v.customer_id, v.desmo_service_due_date);
+    }
+    if (v.model_id) modelIdSet.add(v.model_id);
+  }
+
+  // 工單聚合
+  const visitCount = new Map<string, number>();
+  const lastVisitByCustomer = new Map<
+    string,
+    { opened_at: string; ro_no: string }
+  >();
+  for (const w of (woRes.data ?? []) as Array<{
+    customer_id: string;
+    ro_no: string;
+    opened_at: string;
+  }>) {
+    visitCount.set(w.customer_id, (visitCount.get(w.customer_id) ?? 0) + 1);
+    if (!lastVisitByCustomer.has(w.customer_id))
+      lastVisitByCustomer.set(w.customer_id, {
+        opened_at: w.opened_at,
+        ro_no: w.ro_no,
+      });
+  }
+
+  // 撈 model 顯示名
+  let modelNameById = new Map<string, string>();
+  if (modelIdSet.size > 0) {
+    const { data: mData } = await supabase
+      .from("vehicle_models")
+      .select("id, display_name")
+      .in("id", Array.from(modelIdSet));
+    modelNameById = new Map(
+      ((mData ?? []) as Array<{ id: string; display_name: string }>).map(
+        (m) => [m.id, m.display_name],
+      ),
+    );
+  }
+
+  const now = Date.now();
+  const monthStart = new Date(
+    new Date(now).getFullYear(),
+    new Date(now).getMonth(),
+    1,
+  ).getTime();
+
+  let rows: AftersalesCustomerCrmRow[] = customers.map((c) => {
+    const primary = firstVehicleByCustomer.get(c.id) ?? null;
+    const lastVisit = lastVisitByCustomer.get(c.id) ?? null;
+    const nextDue = minNextDueByCustomer.get(c.id) ?? null;
+    const desmoDue = minDesmoByCustomer.get(c.id) ?? null;
+    const warranty = primary?.warranty_until ?? null;
+    const traffic = deriveTraffic(
+      nextDue,
+      desmoDue,
+      c.created_at,
+      lastVisit?.opened_at ?? null,
+      now,
+    );
+    const status = deriveServiceStatus(lastVisit?.opened_at ?? null, nextDue, now);
+    const src = deriveSourceBadge(c.source_module);
+
+    return {
+      id: c.id,
+      code: c.code,
+      name: c.name,
+      type: c.type,
+      phone: c.phone,
+      email: c.email,
+      is_active: c.is_active,
+      primary_license_plate: primary?.license_plate ?? null,
+      primary_mileage: primary?.mileage ?? null,
+      vehicle_count: vehicleCount.get(c.id) ?? 0,
+      visit_count: visitCount.get(c.id) ?? 0,
+      last_visit_at: lastVisit?.opened_at ?? null,
+      last_ro_no: lastVisit?.ro_no ?? null,
+      next_due_date: nextDue,
+      traffic,
+      service_status: status,
+      days_until_next_due: daysFromNow(nextDue, now),
+      days_until_desmo: daysFromNow(desmoDue, now),
+      desmo_due_date: desmoDue,
+      warranty_until: warranty,
+      warranty_days_left: daysFromNow(warranty, now),
+      source_module: c.source_module,
+      source_label: src.label,
+      source_badge: src.badge,
+      assigned_sa_name: c.assigned_sa_user_id
+        ? (saNameByUserId.get(c.assigned_sa_user_id) ?? null)
+        : null,
+      primary_model_name: primary?.model_id
+        ? (modelNameById.get(primary.model_id) ?? null)
+        : null,
+      primary_year: primary?.year ?? null,
+    };
+  });
+
+  // ── 篩選 ──
+  if (filters.q.trim()) {
+    const t = filters.q.trim().toUpperCase();
+    rows = rows.filter(
+      (r) =>
+        r.code.toUpperCase().includes(t) ||
+        r.name.toUpperCase().includes(t) ||
+        (r.phone ?? "").toUpperCase().includes(t) ||
+        (r.primary_license_plate ?? "").toUpperCase().includes(t),
+    );
+  }
+  if (filters.source !== "all") {
+    rows = rows.filter((r) => r.source_badge === filters.source);
+  }
+  if (filters.status !== "all") {
+    if (filters.status === "new") {
+      // new = 沒進廠且建檔 90 天內
+      rows = rows.filter(
+        (r) =>
+          !r.last_visit_at &&
+          customers.find((c) => c.id === r.id) &&
+          Date.now() -
+            new Date(
+              customers.find((c) => c.id === r.id)!.created_at,
+            ).getTime() <=
+            NINETY_DAYS_MS_NEW,
+      );
+    } else {
+      rows = rows.filter((r) => r.service_status === filters.status);
+    }
+  }
+  if (filters.quick !== "all") {
+    rows = rows.filter((r) => {
+      switch (filters.quick) {
+        case "overdue":
+          return r.traffic === "red";
+        case "due_soon":
+          return (
+            r.days_until_next_due != null &&
+            r.days_until_next_due >= 0 &&
+            r.days_until_next_due <= 30
+          );
+        case "warranty_soon":
+          return (
+            r.warranty_days_left != null &&
+            r.warranty_days_left >= 0 &&
+            r.warranty_days_left <= 60
+          );
+        case "desmo_soon":
+          return (
+            r.days_until_desmo != null && r.days_until_desmo <= 30
+          );
+        case "high_spend":
+          return r.visit_count >= 3; // demo 簡化
+        case "rs05":
+          return r.source_badge === "rs05";
+        default:
+          return true;
+      }
+    });
+  }
+
+  // ── KPI（基於全集 customers + work_orders，不被 client filter 影響）──
+  const allDerived = customers.map((c) => {
+    const lastVisit = lastVisitByCustomer.get(c.id) ?? null;
+    const nextDue = minNextDueByCustomer.get(c.id) ?? null;
+    const desmoDue = minDesmoByCustomer.get(c.id) ?? null;
+    return {
+      traffic: deriveTraffic(
+        nextDue,
+        desmoDue,
+        c.created_at,
+        lastVisit?.opened_at ?? null,
+        now,
+      ),
+      next_due_days: daysFromNow(nextDue, now),
+      desmo_days: daysFromNow(desmoDue, now),
+      source_module: c.source_module,
+      last_visit_at: lastVisit?.opened_at ?? null,
+    };
+  });
+
+  const thisMonthVisits = (woRes.data ?? []).filter(
+    (w) => new Date(w.opened_at).getTime() >= monthStart,
+  ).length;
+
+  const kpi: AftersalesCustomerCrmKpi = {
+    total: totalRes.count ?? 0,
+    overdue: allDerived.filter((d) => d.traffic === "red").length,
+    due_soon: allDerived.filter(
+      (d) =>
+        (d.next_due_days != null && d.next_due_days >= 0 && d.next_due_days <= 30) ||
+        (d.desmo_days != null && d.desmo_days >= 0 && d.desmo_days <= 30),
+    ).length,
+    this_month_visits: thisMonthVisits,
+    rs05_synced: allDerived.filter((d) => d.source_module === "sales").length,
+  };
+
+  // warranty / soon counts 用於 sidebar 顯示
+  return { rows, kpi, totalCount: totalRes.count ?? 0 };
+}
+
+void SIXTY_DAYS_WARRANTY_MS; // 保留 const for future use（warranty banner 60d 規則）

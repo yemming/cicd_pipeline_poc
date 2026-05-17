@@ -1,0 +1,113 @@
+'use server';
+
+import {
+  createDelivery,
+  updateDelivery,
+  updateDeliveryStep,
+  setDeliveryStatus,
+  deleteDelivery,
+  type DeliveryInput,
+  type DeliveryStepPayload,
+} from '@/lib/deliveries';
+import type { DeliveryStatus, DeliveryStepName } from '@/lib/deliveries.constants';
+
+export type ActionResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+/** 生成交車單號：DLV-YYYYMM-XXXX */
+function genDeliveryNo(): string {
+  const now = new Date();
+  const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const seq = String(Math.floor(Math.random() * 9000) + 1000);
+  return `DLV-${ym}-${seq}`;
+}
+
+export async function createDeliveryAction(
+  input: Omit<DeliveryInput, 'delivery_no'>,
+): Promise<ActionResult<{ id: string; delivery_no: string }>> {
+  try {
+    const delivery_no = genDeliveryNo();
+    const row = await createDelivery({ ...input, delivery_no });
+    return { ok: true, data: { id: row.id, delivery_no: row.delivery_no } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `建立交車單失敗：${msg}` };
+  }
+}
+
+export async function updateDeliveryAction(
+  id: string,
+  patch: Partial<DeliveryInput>,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const row = await updateDelivery(id, patch);
+    return { ok: true, data: { id: row.id } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `更新交車單失敗：${msg}` };
+  }
+}
+
+/**
+ * 更新 wizard 某個 step 的欄位，同時記錄 step_completion timestamp。
+ * wizard 子頁的「下一步」按鈕呼叫這個。
+ */
+export async function updateDeliveryStepAction(
+  deliveryId: string,
+  step: DeliveryStepName,
+  payload: DeliveryStepPayload,
+  newStatus?: DeliveryStatus,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const row = await updateDeliveryStep(deliveryId, step, payload, newStatus);
+    return { ok: true, data: { id: row.id } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `儲存步驟失敗（${step}）：${msg}` };
+  }
+}
+
+export async function setDeliveryStatusAction(
+  id: string,
+  status: DeliveryStatus,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const row = await setDeliveryStatus(id, status);
+    return { ok: true, data: { id: row.id } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `變更狀態失敗：${msg}` };
+  }
+}
+
+/** 最後一步——完成交車，status → 'delivered' */
+export async function completeDeliveryAction(
+  deliveryId: string,
+  payload: Pick<DeliveryStepPayload,
+    | 'delivered_at'
+    | 'ceremony_photos'
+    | 'handover_docs_checklist'
+    | 'keys_count'
+    | 'keys_delivered_at'
+    | 'customer_doc_signature'
+  >,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const row = await updateDeliveryStep(deliveryId, 'ceremony', payload, 'delivered');
+    return { ok: true, data: { id: row.id } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `完成交車失敗：${msg}` };
+  }
+}
+
+export async function deleteDeliveryAction(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    await deleteDelivery(id);
+    return { ok: true, data: { id } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `刪除失敗：${msg}` };
+  }
+}

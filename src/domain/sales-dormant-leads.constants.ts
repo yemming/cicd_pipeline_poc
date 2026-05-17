@@ -154,3 +154,129 @@ export function dormancyBucket(days: number | null): {
   if (days <= 90) return { label: "61-90 天", hint: "建議活動再邀" };
   return { label: "> 90 天", hint: "成本高，評估保留" };
 }
+
+/** 戰敗原因 / 流失原因 chip 色（CRM04A / CRM04B 6 色對齊 spec） */
+export const LOST_REASON_BAR_COLOR: Record<LostReason, string> = {
+  price: "#C8001A", // 紅
+  postponed: "#D4820A", // 橘
+  competitor: "#185FA5", // 藍
+  family_objection: "#7A6500", // 橄欖
+  model_preference_changed: "#888888", // 灰
+  no_response: "#534AB7", // 紫
+  wrong_target: "#0F6E56", // 綠
+  financial: "#534AB7", // 紫
+  other: "#AAAAAA", // 淺灰
+};
+
+/** 流失原因 tag（pill）色票 — 售後 spec 對齊 */
+export const LOST_REASON_TAG_BADGE: Record<
+  LostReason,
+  { bg: string; fg: string }
+> = {
+  postponed: { bg: "#FDF3E3", fg: "#854F0B" }, // 逾期保養 / 延後
+  no_response: { bg: "#FDECEA", fg: "#C8001A" }, // 失聯 / 多次未接通
+  wrong_target: { bg: "#E1F5EE", fg: "#0F6E56" }, // 保固到期 / 地點不便
+  competitor: { bg: "#185FA5", fg: "#FFFFFF" }, // 流失至競品
+  family_objection: { bg: "#EAF4FB", fg: "#185FA5" }, // 家人反對 / Desmo
+  model_preference_changed: { bg: "#F1EFE8", fg: "#5A5955" }, // 喜好改變
+  price: { bg: "#FDECEA", fg: "#C8001A" }, // 價格
+  financial: { bg: "#EEEDFE", fg: "#534AB7" }, // 財務 / 車輛閒置
+  other: { bg: "#EEEDFE", fg: "#534AB7" }, // 其他
+};
+
+/** 競品 → 分析建議文案 map（Tab 2 callout 動態文字） */
+export const COMPETITOR_INSIGHT: Record<string, string> = {
+  "BMW Motorrad": "BMW 流失主因多為「騎乘姿勢舒適性」，可強化 Monster/Multistrada 試駕體驗對比",
+  "BMW S1000R": "BMW S1000R 流失多因「騎乘姿勢舒適性」，可強化 Streetfighter 對比體驗",
+  "KTM 890 Adventure": "KTM 流失多因「越野規格」訴求，建議補強 DesertX Rally 試駕場域",
+  "Aprilia Tuono V4": "Aprilia 流失多因「動力反應」訴求，可凸顯 Streetfighter V4 規格優勢",
+  Triumph: "Triumph 流失多因「品牌情感」訴求，建議引導參與 DRE 體驗活動",
+};
+
+export function competitorInsight(brand: string | null): string {
+  if (!brand) return "";
+  return (
+    COMPETITOR_INSIGHT[brand] ??
+    `${brand} 流失多因品牌偏好，可加強原廠車主社群活動曝光`
+  );
+}
+
+/** 喚醒計畫 plan box（Tab 3，3 色 stage） */
+export type WakeupPlanStage = {
+  key: "early" | "mid" | "late";
+  title: string;
+  /** plan-box border / bg 色票 */
+  color: { bg: string; bd: string; fg: string; stepBg: string };
+  steps: string[];
+};
+
+export function wakeupPlanStages(kind: DormantLeadKind): WakeupPlanStage[] {
+  if (kind === "aftersales") {
+    return [
+      {
+        key: "early",
+        title: "⏰ 30-60 天逾期：主動提醒階段",
+        color: { bg: "#FDF3E3", bd: "#F0C97E", fg: "#854F0B", stepBg: "#D4820A" },
+        steps: [
+          "CRM03B 自動建立回廠提醒電訪任務，SA 依建議話術聯繫",
+          "發送 LINE / SMS 保養提醒（由 CRM06B 推播通知管理設定）",
+          "若客戶有回應 → 協助預約進廠時間，任務完成",
+        ],
+      },
+      {
+        key: "mid",
+        title: "🔴 60-120 天逾期：積極介入階段",
+        color: { bg: "#FDECEA", bd: "#F5AEAD", fg: "#C8001A", stepBg: "#C8001A" },
+        steps: [
+          "SA 電話主動關懷，詢問未回廠原因（時間 / 費用 / 不滿意）",
+          "若有服務不滿 → 主管介入處理，提供補救方案",
+          "若有費用顧慮 → 推薦保養套餐優惠或分期付款方案",
+          "若有 Desmo / 保固到期 → 強調風險，協助緊急預約",
+        ],
+      },
+      {
+        key: "late",
+        title: "⬜ 120 天以上：最後接觸 / 存檔",
+        color: { bg: "#F4F3F0", bd: "#9A9890", fg: "#5A5955", stepBg: "#9A9890" },
+        steps: [
+          "主管確認後執行最後一次接觸",
+          "若無回應 → 標記「長期休眠」存檔，停止主動推送",
+          "每季由店長檢視長期休眠名單，評估是否重新啟動",
+        ],
+      },
+    ];
+  }
+  return [
+    {
+      key: "early",
+      title: "⏰ 30-60 天休眠：活動邀請階段",
+      color: { bg: "#FDF3E3", bd: "#F0C97E", fg: "#854F0B", stepBg: "#D4820A" },
+      steps: [
+        "發送 Track Day / DRE 試駕活動邀請簡訊",
+        "LINE 推播本月優惠 / 新車款資訊",
+        "若客戶有回應 → 安排 RS 電訪深入交流",
+      ],
+    },
+    {
+      key: "mid",
+      title: "🔴 60-90 天休眠：RS 電話關懷",
+      color: { bg: "#FDECEA", bd: "#F5AEAD", fg: "#C8001A", stepBg: "#C8001A" },
+      steps: [
+        "RS 主動致電，詢問購車意願現況與顧慮",
+        "若費用顧慮 → 提供分期 / 金融專案",
+        "若意向改變 → 推薦其他車型試駕",
+        "主管追蹤接觸結果",
+      ],
+    },
+    {
+      key: "late",
+      title: "⬜ 90 天以上：最後接觸 / 存檔",
+      color: { bg: "#F4F3F0", bd: "#9A9890", fg: "#5A5955", stepBg: "#9A9890" },
+      steps: [
+        "主管確認後執行最後一次接觸",
+        "若無回應 → 標記長期休眠，存檔不再主動推送",
+        "每季店長檢視評估重新啟動可能性",
+      ],
+    },
+  ];
+}

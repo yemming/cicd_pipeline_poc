@@ -33,7 +33,15 @@ export type InsCase = {
   result?: string;
   nextDate?: string;
   lost?: string;
+  /**
+   * BDN #14：流失原因 ROOT CAUSE 編碼（對應 sales_dictionary.code, kind='insurance_lost_reason'）
+   * 與 `lost`（流失去向）正交：去向回答「跑去哪」、root cause 回答「為什麼」
+   */
+  lostReasonCode?: string;
 };
+
+/** BDN #14：流失原因 dropdown 的 option 形狀（從 sales_dictionary 撈來傳進 board） */
+export type LostReasonOption = { code: string; label: string };
 
 export const INS_PARAMS = {
   urgentDays: 30,

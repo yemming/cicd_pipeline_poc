@@ -21,6 +21,7 @@ import {
   type InsCase,
   type InsType,
   type InsUrgency,
+  type LostReasonOption,
 } from "./insurance.constants";
 
 type TabKey = "renew" | "new" | "perf";
@@ -79,7 +80,12 @@ const EXP_BADGE: Record<InsUrgency, { cls: string; label: (d: number) => string 
   done: { cls: "bg-[#E1F5EE] text-[#0F6E56] border-[#5DCAA5]", label: () => "已續保" },
 };
 
-export default function InsuranceBoard() {
+type Props = {
+  /** BDN #14：流失原因（ROOT CAUSE）字典；由 page.tsx 從 sales_dictionary 撈傳進來 */
+  lostReasons?: LostReasonOption[];
+};
+
+export default function InsuranceBoard({ lostReasons = [] }: Props = {}) {
   useSetPageHeader({
     title: "RS_EX1 保險招攬工作台",
     breadcrumb: [
@@ -102,7 +108,18 @@ export default function InsuranceBoard() {
 
   // form per card
   const [formState, setFormState] = useState<
-    Record<number, { result?: string; nextDate?: string; lost?: string; note?: string; quote?: string; co?: string }>
+    Record<
+      number,
+      {
+        result?: string;
+        nextDate?: string;
+        lost?: string;
+        lostReasonCode?: string;
+        note?: string;
+        quote?: string;
+        co?: string;
+      }
+    >
   >({});
 
   // modal
@@ -154,7 +171,18 @@ export default function InsuranceBoard() {
     });
   }
 
-  function updateForm(id: number, patch: Partial<{ result: string; nextDate: string; lost: string; note: string; quote: string; co: string }>) {
+  function updateForm(
+    id: number,
+    patch: Partial<{
+      result: string;
+      nextDate: string;
+      lost: string;
+      lostReasonCode: string;
+      note: string;
+      quote: string;
+      co: string;
+    }>,
+  ) {
     setFormState((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }
 
@@ -177,6 +205,7 @@ export default function InsuranceBoard() {
           note: f.note ?? c.note,
           nextDate: f.nextDate ?? c.nextDate,
           lost: f.lost ?? c.lost,
+          lostReasonCode: f.lostReasonCode ?? c.lostReasonCode,
           result: f.result,
           urgency: closed ? "done" : c.urgency,
           status: closed ? "done" : reachedMax ? "escalate" : c.status,
@@ -536,6 +565,23 @@ export default function InsuranceBoard() {
                                     ))}
                                   </select>
                                 </div>
+                                {/* BDN #14：流失原因 ROOT CAUSE 編碼 — 與「流失去向」正交、回答「為什麼流失」 */}
+                                <div className="col-span-2" data-testid="lost-reason-root-cause">
+                                  <div className={labelCls}>流失原因（ROOT CAUSE）</div>
+                                  <select
+                                    className={selectCls}
+                                    value={f.lostReasonCode ?? c.lostReasonCode ?? ""}
+                                    onChange={(e) => updateForm(c.id, { lostReasonCode: e.target.value })}
+                                    data-testid="lost-reason-select"
+                                  >
+                                    <option value="">— 未編碼 —</option>
+                                    {lostReasons.map((r) => (
+                                      <option key={r.code} value={r.code}>
+                                        {r.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
                                 <div className="col-span-2">
                                   <div className={labelCls}>電訪備註</div>
                                   <textarea
@@ -653,6 +699,22 @@ export default function InsuranceBoard() {
                 ].map(([k, v, _c]) => (
                   <PerfRow key={k} k={k} v={v} cls={_c} />
                 ))}
+                {/* BDN #21：達成率 progress bar + 預測線 */}
+                <div className="mt-3 pt-3 border-t border-[#F4F3F0] flex flex-col gap-3">
+                  <ProgressBarWithForecast
+                    label="件數達成率"
+                    actual={3}
+                    target={5}
+                    unit="件"
+                  />
+                  <ProgressBarWithForecast
+                    label="佣金達成率"
+                    actual={12600}
+                    target={20000}
+                    unit="$"
+                    isCurrency
+                  />
+                </div>
               </PerfBox>
               <PerfBox title="RS 個人業績">
                 {PERF_RS_ROWS.map((r) => (
@@ -660,9 +722,15 @@ export default function InsuranceBoard() {
                 ))}
               </PerfBox>
               <PerfBox title="流失原因分析">
-                {PERF_LOST_REASONS.map((r) => (
-                  <PerfRow key={r.label} k={r.label} v={`${r.count} 件`} cls="pb-amber" />
-                ))}
+                {/* BDN #14：當字典已載入則動態群聚 cases，否則 fallback 到 hardcoded demo 數字 */}
+                {lostReasons.length > 0
+                  ? lostReasons.map((r) => {
+                      const count = cases.filter((c) => c.lostReasonCode === r.code).length;
+                      return <PerfRow key={r.code} k={r.label} v={`${count} 件`} cls="pb-amber" />;
+                    })
+                  : PERF_LOST_REASONS.map((r) => (
+                      <PerfRow key={r.label} k={r.label} v={`${r.count} 件`} cls="pb-amber" />
+                    ))}
               </PerfBox>
               <PerfBox title="年度累計">
                 {PERF_YEAR_TOTALS.map((r) => (
@@ -860,6 +928,90 @@ function PerfRow({ k, v, cls }: { k: string; v: string; cls?: string }) {
     <div className="flex justify-between py-1.5 border-b border-[#F4F3F0] last:border-b-0 text-[12.5px]">
       <span className="text-[#5A5955]">{k}</span>
       <span className={`font-mono font-semibold ${c}`}>{v}</span>
+    </div>
+  );
+}
+
+/**
+ * BDN #21：本月業績達成率 progress bar + 月底預測線
+ * - 顏色閾值：≥80% 綠 / 50–80% 黃 / <50% 紅
+ * - 預測：actual * (daysInMonth / daysPassed)，daysPassed >= 3 才顯示（避免月初基數太小）
+ * - 預測線以虛線 marker 疊在 bar 上，超過 100% 截斷在 100% 並標 🎯+
+ */
+function ProgressBarWithForecast({
+  label,
+  actual,
+  target,
+  unit,
+  isCurrency,
+}: {
+  label: string;
+  actual: number;
+  target: number;
+  unit: string;
+  isCurrency?: boolean;
+}) {
+  const now = new Date();
+  const daysPassed = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const showForecast = daysPassed >= 3;
+  const rawPct = target > 0 ? (actual / target) * 100 : 0;
+  const pct = Math.min(100, Math.max(0, rawPct));
+  const predicted = showForecast ? actual * (daysInMonth / daysPassed) : 0;
+  const predictedRawPct = target > 0 ? (predicted / target) * 100 : 0;
+  const predictedPct = Math.min(100, Math.max(0, predictedRawPct));
+  const overshoot = predictedRawPct > 100;
+  const color = rawPct >= 80 ? "#0F6E56" : rawPct >= 50 ? "#F0C97E" : "#C8001A";
+  const fmt = (n: number) =>
+    isCurrency
+      ? `$${Math.round(n).toLocaleString()}`
+      : `${Math.round(n).toLocaleString()} ${unit}`;
+  return (
+    <div data-testid="progress-bar-with-forecast">
+      <div className="flex justify-between items-baseline mb-1 text-[11.5px]">
+        <span className="font-semibold text-[#4A4A48]">{label}</span>
+        <span className="text-[#5A5955]">
+          實際 <span className="font-mono font-semibold" style={{ color }}>{fmt(actual)}</span>
+          {" / "}
+          目標 <span className="font-mono text-[#5A5955]">{fmt(target)}</span>
+          <span className="ml-1.5 font-mono font-semibold" style={{ color }}>
+            （{Math.round(rawPct)}%）
+          </span>
+        </span>
+      </div>
+      <div className="relative w-full h-[12px] rounded-full bg-[#EEECE6] overflow-visible">
+        <div
+          className="h-full rounded-full transition-[width]"
+          style={{ width: `${pct}%`, background: color }}
+        />
+        {showForecast && (
+          <>
+            {/* 預測線 marker：垂直虛線從 bar 上方延伸到下方 */}
+            <div
+              className="absolute -top-1 h-[20px] border-l-2 border-dashed border-[#5A5955]"
+              style={{ left: `calc(${predictedPct}% - 1px)` }}
+              title={`預估月底 ${fmt(predicted)}`}
+            />
+          </>
+        )}
+      </div>
+      {showForecast ? (
+        <div className="flex justify-between items-baseline mt-1 text-[10.5px] text-[#7A7A78]">
+          <span>已過 {daysPassed} / 共 {daysInMonth} 天</span>
+          <span>
+            預估月底{" "}
+            <span className="font-mono font-semibold text-[#4A4A48]">
+              {fmt(predicted)}
+              {overshoot && " 🎯+"}
+            </span>
+            <span className="ml-1">（{Math.round(predictedRawPct)}%）</span>
+          </span>
+        </div>
+      ) : (
+        <div className="mt-1 text-[10.5px] text-[#9A9890]">
+          已過 {daysPassed} / 共 {daysInMonth} 天 · 月初資料尚少、暫不顯示預測
+        </div>
+      )}
     </div>
   );
 }

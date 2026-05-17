@@ -226,7 +226,7 @@ function DictSection({
                   <th className="text-[10.5px] font-semibold uppercase tracking-wider text-[#9A9890] py-1.5 px-2 border-b-2 border-[#EEECE6] w-[60px]">排序</th>
                   <th className="text-[10.5px] font-semibold uppercase tracking-wider text-[#9A9890] py-1.5 px-2 border-b-2 border-[#EEECE6]">選項名稱</th>
                   <th className="text-[10.5px] font-semibold uppercase tracking-wider text-[#9A9890] py-1.5 px-2 border-b-2 border-[#EEECE6]">說明備註</th>
-                  <th className="text-[10.5px] font-semibold uppercase tracking-wider text-[#9A9890] py-1.5 px-2 border-b-2 border-[#EEECE6] w-[70px]">類型</th>
+                  <th className="text-[10.5px] font-semibold uppercase tracking-wider text-[#9A9890] py-1.5 px-2 border-b-2 border-[#EEECE6] w-[80px] whitespace-nowrap">類型</th>
                   <th className="text-[10.5px] font-semibold uppercase tracking-wider text-[#9A9890] py-1.5 px-2 border-b-2 border-[#EEECE6] w-[64px] text-center">狀態</th>
                   <th className="text-[10.5px] font-semibold uppercase tracking-wider text-[#9A9890] py-1.5 px-2 border-b-2 border-[#EEECE6] w-[210px] text-right">操作</th>
                 </tr>
@@ -356,9 +356,9 @@ function DictRow({
       </td>
       <td className="py-1.5 px-2">
         {row.is_system ? (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#F1EFE8] text-[#5A5955] border border-[#D5D3CB]">系統預設</span>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#F1EFE8] text-[#5A5955] border border-[#D5D3CB] whitespace-nowrap">系統預設</span>
         ) : (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#EAF3DE] text-[#3B6D11] border border-[#B5D4B0]">自訂</span>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#EAF3DE] text-[#3B6D11] border border-[#B5D4B0] whitespace-nowrap">自訂</span>
         )}
       </td>
       <td className="py-1.5 px-2 text-center">

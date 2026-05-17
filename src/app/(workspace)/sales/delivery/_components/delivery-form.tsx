@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { SignatureCanvas } from "@/components/signature-canvas";
 import {
   DELIVERY_CATEGORY_TITLES,
   DELIVERY_ITEMS,
   DLV_STEPS,
   HANDOVER_DOCS,
+  HANDOVER_DOC_ITEMS,
   PDI_ITEMS,
   SIGNATURE_DEFS,
   WARRANTY_CONFIRM_ITEMS,
@@ -63,11 +65,18 @@ export default function DeliveryForm() {
   // 完成交車
   const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
 
-  const [toast, setToast] = useState<string | null>(null);
+  // RS05 文件交付段（8 項 + 鑰匙數 + 簽名 + 交付日）
+  const [docChecked, setDocChecked] = useState<Set<string>>(new Set());
+  const [keysCount, setKeysCount] = useState(2);
+  const [docSignature, setDocSignature] = useState<string | null>(null);
+  const [docDeliveredAt, setDocDeliveredAt] = useState("");
+
+  type ToastVariant = "info" | "error";
+  const [toast, setToast] = useState<{ msg: string; variant: ToastVariant } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function showToast(msg: string) {
-    setToast(msg);
+  function showToast(msg: string, variant: ToastVariant = "info") {
+    setToast({ msg, variant });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 2800);
   }
@@ -109,6 +118,29 @@ export default function DeliveryForm() {
     });
   }
 
+  function toggleDoc(id: string) {
+    setDocChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleDocSigned(dataUrl: string) {
+    setDocSignature(dataUrl);
+    if (!docDeliveredAt) {
+      // 自動帶今日，使用者可改
+      const today = new Date().toISOString().slice(0, 10);
+      setDocDeliveredAt(today);
+    }
+    showToast("✅ 客戶簽收已完成");
+  }
+
+  function clearDocSignature() {
+    setDocSignature(null);
+  }
+
   function checkAllPdi() {
     const all = new Set<number>();
     PDI_ITEMS.forEach((_, i) => all.add(i));
@@ -132,7 +164,20 @@ export default function DeliveryForm() {
     showToast(`✅ ${label}電子簽名已完成`);
   }
 
+  function validateSignatures(): string[] {
+    const missing: string[] = [];
+    if (!signatures.customer) missing.push("客戶簽名");
+    if (!signatures.rs) missing.push("RS 簽名");
+    if (!signatures.tech) missing.push("技師簽名");
+    return missing;
+  }
+
   function confirmDelivery() {
+    const missing = validateSignatures();
+    if (missing.length > 0) {
+      showToast(`⚠️ 尚有簽名未完成：${missing.join(" / ")}`, "error");
+      return;
+    }
     setDeliveryConfirmed(true);
     setDoneSteps(new Set([1, 2, 3, 4]));
     showToast("🎉 交車完成！D+3 回訪任務已排程 CRM03A · 2026-06-04");
@@ -152,6 +197,12 @@ export default function DeliveryForm() {
   const deliveryCount = deliveryChecked.size;
   const deliveryTotal = DELIVERY_ITEMS.length;
   const deliveryPct = Math.round((deliveryCount / deliveryTotal) * 100);
+
+  const docCount = docChecked.size;
+  const docTotal = HANDOVER_DOC_ITEMS.length;
+  const docMinRequired = 6; // 寬鬆校驗：8 項至少勾 6 項
+  const docHandoverComplete =
+    docCount >= docMinRequired && !!docSignature && !!docDeliveredAt;
 
   const deliveryGrouped = useMemo(() => {
     const groups: { cat: string; title: string; items: typeof DELIVERY_ITEMS }[] = [];
@@ -581,6 +632,156 @@ export default function DeliveryForm() {
             </div>
           </div>
 
+          {/* RS05 文件交付段 — 8 項勾選 + 鑰匙數 + 客戶簽收 */}
+          <Panel
+            icon="📋"
+            iconBg="bg-[#EAF4FB]"
+            title="隨車文件點交清單（8 項）"
+            sub="逐項勾選 · 點交鑰匙數量 · 客戶簽收"
+            badge={`${docCount} / ${docTotal}`}
+            badgeId="dlv-doc-cnt"
+            badgeTone={docCount >= docMinRequired ? "teal" : "gray"}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+              {HANDOVER_DOC_ITEMS.map((d, idx) => {
+                const checked = docChecked.has(d.id);
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => toggleDoc(d.id)}
+                    data-test-id={`dlv-doc-${d.id}`}
+                    data-checked={checked ? "1" : "0"}
+                    className={`flex items-start gap-2.5 px-3 py-2 rounded-md border text-left transition ${
+                      checked
+                        ? "bg-[#E1F5EE] border-[#5DCAA5]"
+                        : "bg-white border-[#EEECE6] hover:border-[#85B7EB] hover:bg-[#F0F7FF]"
+                    }`}
+                  >
+                    <div
+                      className={`w-[18px] h-[18px] rounded border-2 shrink-0 flex items-center justify-center text-[10px] mt-px ${
+                        checked ? "bg-[#0F6E56] border-[#0F6E56] text-white" : "border-[#D5D3CB]"
+                      }`}
+                    >
+                      {checked ? "✓" : ""}
+                    </div>
+                    <span className="text-[18px] shrink-0 leading-none">{d.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12.5px] font-semibold text-[#2C2C2A] leading-[1.4]">
+                        {d.label}
+                        {d.id === "keys" && (
+                          <span className="ml-1.5 font-mono text-[11.5px] text-[#185FA5]">×{keysCount}</span>
+                        )}
+                      </div>
+                      {d.hint && (
+                        <div className="text-[10.5px] text-[#9A9890] mt-px leading-[1.4]">{d.hint}</div>
+                      )}
+                    </div>
+                    <span className="font-mono text-[10.5px] text-[#9A9890] shrink-0 mt-0.5">{idx + 1}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 鑰匙數量 + 交付日期 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3.5">
+              <Field label="🗝️ 鑰匙數量">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setKeysCount((n) => Math.max(1, n - 1))}
+                    disabled={keysCount <= 1}
+                    data-test-id="dlv-doc-keys-dec"
+                    className="w-7 h-7 rounded-md border border-[#D5D3CB] bg-white text-[14px] font-bold text-[#4A4A48] hover:bg-[#F4F3F0] disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={keysCount}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isNaN(n)) setKeysCount(Math.min(10, Math.max(1, n)));
+                    }}
+                    data-test-id="dlv-doc-keys-input"
+                    className={`${fiClass} w-20 text-center font-mono`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setKeysCount((n) => Math.min(10, n + 1))}
+                    disabled={keysCount >= 10}
+                    data-test-id="dlv-doc-keys-inc"
+                    className="w-7 h-7 rounded-md border border-[#D5D3CB] bg-white text-[14px] font-bold text-[#4A4A48] hover:bg-[#F4F3F0] disabled:opacity-40"
+                  >
+                    ＋
+                  </button>
+                  <span className="text-[11px] text-[#9A9890]">把（1–10）</span>
+                </div>
+              </Field>
+              <Field label="📅 交付日期" required>
+                <input
+                  type="date"
+                  className={fiClass}
+                  value={docDeliveredAt}
+                  onChange={(e) => setDocDeliveredAt(e.target.value)}
+                  data-test-id="dlv-doc-delivered-at"
+                />
+              </Field>
+            </div>
+
+            {/* 客戶簽收 */}
+            <SectionTitle>客戶簽收</SectionTitle>
+            {docSignature ? (
+              <div
+                className="border-2 border-[#0F6E56] bg-[#E1F5EE] rounded-md p-3 flex items-center gap-3"
+                data-test-id="dlv-doc-signed"
+              >
+                <div className="text-[24px] shrink-0">✅</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] font-semibold text-[#085041]">客戶簽收完成</div>
+                  <div className="text-[11px] text-[#5A5955] mt-px">
+                    交付日 {docDeliveredAt || "—"} · 鑰匙 {keysCount} 把
+                  </div>
+                </div>
+                <img
+                  src={docSignature}
+                  alt="客戶簽名"
+                  className="h-14 max-w-[180px] object-contain bg-white rounded border border-[#5DCAA5]"
+                />
+                <button
+                  type="button"
+                  onClick={clearDocSignature}
+                  data-test-id="dlv-doc-clear-sig"
+                  className="text-[11px] text-[#5A5955] hover:text-[#C8001A] px-2 py-1 rounded border border-[#D5D3CB] hover:border-[#C8001A] bg-white"
+                >
+                  重簽
+                </button>
+              </div>
+            ) : (
+              <div data-test-id="dlv-doc-sig-pad">
+                <SignatureCanvas onSigned={handleDocSigned} />
+              </div>
+            )}
+
+            {/* 完成狀態 hint */}
+            <div
+              className={`mt-3 px-3 py-2 rounded-md text-[11.5px] border ${
+                docHandoverComplete
+                  ? "bg-[#E1F5EE] border-[#5DCAA5] text-[#085041]"
+                  : "bg-[#FAFAF8] border-[#EEECE6] text-[#5A5955]"
+              }`}
+              data-test-id="dlv-doc-status"
+            >
+              {docHandoverComplete
+                ? `✅ 文件交付完成（${docCount}/${docTotal} 項已勾選、客戶已簽收）`
+                : `⏳ 進度：${docCount}/${docTotal} 項勾選${
+                    docCount < docMinRequired ? `（至少需 ${docMinRequired} 項）` : ""
+                  }${docDeliveredAt ? "" : "、缺交付日期"}${docSignature ? "" : "、缺客戶簽收"}`}
+            </div>
+          </Panel>
+
           <Panel icon="📦" iconBg="bg-[#EAF3DE]" title="隨車文件點交清單" sub="交車時應一併交付車主的文件與物件">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {HANDOVER_DOCS.map((d) => (
@@ -616,10 +817,15 @@ export default function DeliveryForm() {
       {/* Toast */}
       {toast && (
         <div
-          className="fixed bottom-6 right-6 bg-[#1A3A5C] text-white px-4 py-2.5 rounded-md text-[12.5px] z-50 shadow-lg leading-[1.5] max-w-[320px]"
+          className={`fixed bottom-6 right-6 px-4 py-2.5 rounded-md text-[12.5px] z-50 shadow-lg leading-[1.5] max-w-[320px] ${
+            toast.variant === "error"
+              ? "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+              : "bg-[#1A3A5C] text-white"
+          }`}
           data-test-id="dlv-toast"
+          data-test-variant={toast.variant}
         >
-          {toast}
+          {toast.msg}
         </div>
       )}
     </main>

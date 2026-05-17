@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import type { SurveyKind } from "@/domain/sales-survey-templates";
+import type { SurveyKind } from "@/domain/sales-survey-templates.constants";
 
 import { SurveyTemplateDetailView } from "../[id]/_components/survey-template-detail-view";
 

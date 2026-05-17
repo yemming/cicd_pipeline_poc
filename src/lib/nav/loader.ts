@@ -39,10 +39,17 @@ type NavNodeRow = {
 };
 
 function normalizeHref(raw: string): string {
-  // Next.js 預設會把瀏覽器 URL 的末尾斜線拿掉；DB 若不小心存了 "/foo/" 會讓
-  // resolver 跟 PagesPanel 比對失敗（活生生案例：/admin/navigation/ → sidebar 不見）。
-  if (raw.length > 1 && raw.endsWith("/")) return raw.replace(/\/+$/, "");
-  return raw;
+  // 1. 砍掉 query string / hash — usePathname() 只回 pathname，若 DB 存
+  //    "/crm/sales/survey-templates?kind=sales" 會讓 resolveModuleFromPathname
+  //    跟 PagesPanel 的 activeHref 都比對失敗，導致 ParentGroup 全部收合。
+  //    page-level default param 用 searchParams 解，nav href 只該存 pathname。
+  let h = raw;
+  const qIdx = h.search(/[?#]/);
+  if (qIdx >= 0) h = h.slice(0, qIdx);
+  // 2. Next.js 預設會把瀏覽器 URL 的末尾斜線拿掉；DB 若不小心存了 "/foo/" 會讓
+  //    resolver 跟 PagesPanel 比對失敗（活生生案例：/admin/navigation/ → sidebar 不見）。
+  if (h.length > 1 && h.endsWith("/")) h = h.replace(/\/+$/, "");
+  return h;
 }
 
 function rowToPage(row: NavNodeRow, sectionName: string | undefined): ModulePage {

@@ -1,12 +1,9 @@
 /**
- * Domain Helper — 電訪工作檯（/sales/crm/call-tasks）
+ * Domain Helper — 電訪工作檯（/crm/sales/call-tasks / /crm/aftersales/call-tasks）
  *
- * 角色：銷售（成交追蹤）/ 售後（保養回訪）兩條業務線共用同一張 call_tasks 表。
- *   - kind = 'sales' | 'aftersales'；預設給銷售側用，未來售後頁面（1d7161d0）可 reuse。
- *   - 任務 = 客戶 × 問卷模板 × 預定撥打時間，業務人員上班開工作檯逐筆撥打、填答、結案。
- *   - questions 來自 survey_templates.questions（jsonb）；answers 用同一份 schema 對應 q.id → 答案。
- *
- * 寫入走 src/lib/sales/call-tasks-actions.ts。
+ * - 銷售（成交追蹤）/ 售後（保養回訪）共用 call_tasks 表，用 `kind` 區分。
+ * - v2（CRM03A/B spec）：支援日期導覽 + tab pills（call_type） + KPI 卡 + 卡片視圖。
+ * - 寫入走 src/lib/sales/call-tasks-actions.ts。
  */
 
 import "server-only";
@@ -18,14 +15,26 @@ import type {
   SurveyQuestion,
 } from "@/domain/sales-survey-templates";
 
-// 業務 type / display constants 拆到 client-safe 檔（避免 client bundle 拉到 server-only）
+// 業務 type / display constants 拆到 client-safe 檔
 export type {
   CallTaskStatus,
   CallTaskResult,
+  CallTaskType,
+  CallTaskDerivedStatus,
+  CallTaskBoardRow,
+  CallTaskBoardKpi,
+  CallTaskBoardFilters,
+  CallTaskWorkOrderInfo,
 } from "@/domain/sales-call-tasks.constants";
 import type {
   CallTaskStatus,
   CallTaskResult,
+  CallTaskType,
+  CallTaskBoardRow,
+  CallTaskBoardKpi,
+  CallTaskBoardFilters,
+  CallTaskDerivedStatus,
+  CallTaskWorkOrderInfo,
 } from "@/domain/sales-call-tasks.constants";
 
 export type CallTaskRow = {
@@ -56,11 +65,8 @@ export type CallTaskRow = {
 
 export type CallTaskFilters = {
   kind: SurveyKind;
-  /** all | pending | in_progress | completed | skipped */
   status: string;
-  /** all | mine（指派給我）| unassigned（尚未指派） */
   assignee: string;
-  /** 7d | 30d | all */
   range: string;
   q: string;
 };
@@ -88,6 +94,7 @@ type RawRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  call_type?: string | null;
   customer: { code: string | null; name: string | null; phone: string | null } | null;
   survey_template: { code: string | null; name: string | null } | null;
 };
@@ -126,7 +133,7 @@ function shapeRow(r: RawRow): CallTaskRow {
 }
 
 const SELECT_FIELDS =
-  "id, brand_id, kind, customer_id, survey_template_id, assignee_id, scheduled_at, status, call_result, attempt_count, last_attempt_at, answers, notes, metadata, created_by, created_at, updated_at, customer:customers!call_tasks_customer_id_fkey ( code, name, phone ), survey_template:survey_templates!call_tasks_survey_template_id_fkey ( code, name )";
+  "id, brand_id, kind, customer_id, survey_template_id, assignee_id, scheduled_at, status, call_result, attempt_count, last_attempt_at, answers, notes, metadata, created_by, created_at, updated_at, call_type, customer:customers!call_tasks_customer_id_fkey ( code, name, phone ), survey_template:survey_templates!call_tasks_survey_template_id_fkey ( code, name )";
 
 export async function getCallTaskListPageData(
   filters: CallTaskFilters,
@@ -177,6 +184,278 @@ export async function getCallTaskListPageData(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// v2 board data — 日期導覽 + tab pills + KPI 卡 + 卡片視圖
+// ──────────────────────────────────────────────────────────────────────────
+
+function readStr(meta: Record<string, unknown>, key: string): string | null {
+  const v = meta[key];
+  return typeof v === "string" && v.trim() !== "" ? v : null;
+}
+
+function derivedStatus(
+  status: CallTaskStatus,
+  scheduledAt: string | null,
+  todayIso: string,
+): CallTaskDerivedStatus {
+  if (status === "completed") return "done";
+  if (status === "skipped") return "skipped";
+  if (!scheduledAt) return "scheduled";
+  const day = scheduledAt.slice(0, 10);
+  if (day < todayIso) return "overdue";
+  if (day === todayIso) return "today";
+  return "scheduled";
+}
+
+function todayIsoTaipei(): string {
+  // Asia/Taipei = UTC+8
+  const now = new Date();
+  const taipei = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  return taipei.toISOString().slice(0, 10);
+}
+
+function readNum(meta: Record<string, unknown>, key: string): number | null {
+  const v = meta[key];
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v)))
+    return Number(v);
+  return null;
+}
+
+function shapeBoardRow(
+  r: RawRow,
+  todayIso: string,
+  workOrderById: Map<string, CallTaskWorkOrderInfo>,
+): CallTaskBoardRow {
+  const meta =
+    r.metadata && typeof r.metadata === "object"
+      ? (r.metadata as Record<string, unknown>)
+      : {};
+  const woId =
+    typeof meta["work_order_id"] === "string"
+      ? (meta["work_order_id"] as string)
+      : null;
+  const wo = woId ? (workOrderById.get(woId) ?? null) : null;
+  return {
+    id: r.id,
+    brand_id: r.brand_id,
+    kind: r.kind as SurveyKind,
+    call_type: (r.call_type as CallTaskType | null) ?? null,
+    customer_id: r.customer_id,
+    customer_code: r.customer?.code ?? null,
+    customer_name: r.customer?.name ?? null,
+    customer_phone: r.customer?.phone ?? null,
+    survey_template_id: r.survey_template_id,
+    survey_code: r.survey_template?.code ?? null,
+    survey_name: r.survey_template?.name ?? null,
+    assignee_id: r.assignee_id,
+    rs_name: readStr(meta, "rs_name"),
+    scheduled_at: r.scheduled_at,
+    status: r.status as CallTaskStatus,
+    derived_status: derivedStatus(
+      r.status as CallTaskStatus,
+      r.scheduled_at,
+      todayIso,
+    ),
+    call_result: (r.call_result as CallTaskResult | null) ?? null,
+    attempt_count: r.attempt_count,
+    last_attempt_at: r.last_attempt_at,
+    notes: r.notes,
+    goal: readStr(meta, "goal"),
+    competitor_brand: readStr(meta, "competitor_brand"),
+    next_followup_date: readStr(meta, "next_followup_date"),
+    nps_score: readNum(meta, "nps_score"),
+    metadata: meta,
+    work_order: wo,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
+export type CallTaskBoardData = {
+  rows: CallTaskBoardRow[];
+  /** KPI 永遠相對 today、不被選取日污染 */
+  kpi: CallTaskBoardKpi;
+  /** call_type 分組 count（給 sidebar / tab badge 用） */
+  by_call_type: Record<string, number>;
+  /** 選取日的總筆數 */
+  date_total: number;
+};
+
+export async function getCallTaskBoardData(
+  filters: CallTaskBoardFilters,
+  currentUserId: string | null,
+): Promise<CallTaskBoardData> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const today = todayIsoTaipei();
+  const selectedDate = filters.date || today;
+
+  // 撈整個 kind 的最近 60 天資料一次（給卡片 list + KPI + counts 共用）
+  // — 量級 < 500 row、避免 N+1 query
+  const fromDate = new Date(`${selectedDate}T00:00:00+08:00`);
+  fromDate.setDate(fromDate.getDate() - 14);
+  const toDate = new Date(`${selectedDate}T00:00:00+08:00`);
+  toDate.setDate(toDate.getDate() + 30);
+
+  const baseQuery = supabase
+    .from("call_tasks")
+    .select(SELECT_FIELDS)
+    .eq("brand_id", brand)
+    .eq("kind", filters.kind)
+    .order("scheduled_at", { ascending: true, nullsFirst: false })
+    .limit(1000);
+
+  const { data, error } = await baseQuery;
+  if (error) throw new Error(`call-tasks board: ${error.message}`);
+
+  const rawRows = (data ?? []) as unknown as RawRow[];
+
+  // ── 售後專屬：批撈 work_orders（aftersales 才查、sales 不打網路） ──
+  const workOrderById = new Map<string, CallTaskWorkOrderInfo>();
+  if (filters.kind === "aftersales") {
+    const woIds = Array.from(
+      new Set(
+        rawRows
+          .map((r) => {
+            const meta =
+              r.metadata && typeof r.metadata === "object"
+                ? (r.metadata as Record<string, unknown>)
+                : {};
+            const v = meta["work_order_id"];
+            return typeof v === "string" ? v : null;
+          })
+          .filter((v): v is string => !!v),
+      ),
+    );
+    if (woIds.length > 0) {
+      const { data: woRows } = await supabase
+        .from("work_orders")
+        .select(
+          "id, ro_no, opened_at, closed_at, mileage_in, total_amount, status",
+        )
+        .eq("brand_id", brand)
+        .in("id", woIds);
+      for (const wo of (woRows ?? []) as Array<{
+        id: string;
+        ro_no: string;
+        opened_at: string | null;
+        closed_at: string | null;
+        mileage_in: string | number | null;
+        total_amount: string | number | null;
+        status: string | null;
+      }>) {
+        workOrderById.set(wo.id, {
+          id: wo.id,
+          ro_no: wo.ro_no,
+          opened_at: wo.opened_at,
+          closed_at: wo.closed_at,
+          mileage_in:
+            wo.mileage_in == null
+              ? null
+              : typeof wo.mileage_in === "string"
+                ? Number(wo.mileage_in)
+                : wo.mileage_in,
+          total_amount:
+            wo.total_amount == null
+              ? null
+              : typeof wo.total_amount === "string"
+                ? Number(wo.total_amount)
+                : wo.total_amount,
+          status: wo.status,
+        });
+      }
+    }
+  }
+
+  const allRows = rawRows.map((r) => shapeBoardRow(r, today, workOrderById));
+
+  // ── 售後專屬：本月 NPS 均分（responded_at >= 月初） ──
+  let npsAvg: number | null = null;
+  let npsCount = 0;
+  if (filters.kind === "aftersales") {
+    const monthStart = today.slice(0, 7) + "-01T00:00:00+08:00";
+    const { data: npsRows } = await supabase
+      .from("nps_responses")
+      .select("score")
+      .eq("brand_id", brand)
+      .eq("kind", "aftersales")
+      .gte("responded_at", monthStart);
+    const scores = ((npsRows ?? []) as Array<{ score: number | null }>)
+      .map((r) => r.score)
+      .filter((s): s is number => typeof s === "number");
+    npsCount = scores.length;
+    if (scores.length > 0) {
+      npsAvg =
+        Math.round(
+          (scores.reduce((a, b) => a + b, 0) / scores.length) * 10,
+        ) / 10;
+    }
+  }
+
+  // ── KPI（相對 today，與選取日無關） ──
+  const kpi: CallTaskBoardKpi = {
+    total: allRows.length,
+    overdue: allRows.filter((r) => r.derived_status === "overdue").length,
+    today: allRows.filter((r) => r.derived_status === "today").length,
+    done_today: allRows.filter(
+      (r) =>
+        r.derived_status === "done" &&
+        (r.last_attempt_at ?? r.updated_at).slice(0, 10) === today,
+    ).length,
+    scheduled: allRows.filter((r) => r.derived_status === "scheduled").length,
+    nps_monthly_avg: npsAvg,
+    nps_monthly_count: npsCount,
+  };
+
+  // ── call_type 分組（選取日 + 全部時段都算入） ──
+  const by_call_type: Record<string, number> = {};
+  for (const r of allRows) {
+    const key = r.call_type ?? "custom";
+    by_call_type[key] = (by_call_type[key] ?? 0) + 1;
+  }
+
+  // ── 套用 filter 篩 rows ──
+  let rows = allRows;
+
+  // 日期：只顯示「選取日當天 + overdue（任何日子）」
+  rows = rows.filter((r) => {
+    if (r.derived_status === "overdue") return true; // overdue 永遠顯示
+    if (!r.scheduled_at) return false;
+    return r.scheduled_at.slice(0, 10) === selectedDate;
+  });
+
+  const dateTotal = rows.length;
+
+  if (filters.status !== "all") {
+    rows = rows.filter((r) => r.derived_status === filters.status);
+  }
+  if (filters.call_type !== "all") {
+    rows = rows.filter((r) => r.call_type === filters.call_type);
+  }
+  if (filters.assignee === "mine" && currentUserId) {
+    rows = rows.filter((r) => r.assignee_id === currentUserId);
+  } else if (filters.assignee === "unassigned") {
+    rows = rows.filter((r) => r.assignee_id == null);
+  }
+
+  // overdue 排最前面、其次照 scheduled_at 升序
+  rows.sort((a, b) => {
+    if (a.derived_status === "overdue" && b.derived_status !== "overdue")
+      return -1;
+    if (b.derived_status === "overdue" && a.derived_status !== "overdue")
+      return 1;
+    return (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? "");
+  });
+
+  return {
+    rows,
+    kpi,
+    by_call_type,
+    date_total: dateTotal,
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Detail
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -187,7 +466,7 @@ export type CallTaskDetail = CallTaskRow & {
 };
 
 const DETAIL_SELECT_FIELDS =
-  "id, brand_id, kind, customer_id, survey_template_id, assignee_id, scheduled_at, status, call_result, attempt_count, last_attempt_at, answers, notes, metadata, created_by, created_at, updated_at, customer:customers!call_tasks_customer_id_fkey ( code, name, phone, email, type ), survey_template:survey_templates!call_tasks_survey_template_id_fkey ( code, name, questions )";
+  "id, brand_id, kind, customer_id, survey_template_id, assignee_id, scheduled_at, status, call_result, attempt_count, last_attempt_at, answers, notes, metadata, created_by, created_at, updated_at, call_type, customer:customers!call_tasks_customer_id_fkey ( code, name, phone, email, type ), survey_template:survey_templates!call_tasks_survey_template_id_fkey ( code, name, questions )";
 
 export async function getCallTaskDetail(
   id: string,
@@ -292,4 +571,58 @@ export async function getCallTaskLookups(kind: SurveyKind): Promise<{
   };
 }
 
-// Display constants 已移到 sales-call-tasks.constants.ts（client-safe）。
+/** 撈某客戶最近 N 筆 call_tasks（給卡片展開區的「歷史接觸記錄」用） */
+export type CallTaskHistoryEntry = {
+  id: string;
+  date: string;
+  call_type: CallTaskType | null;
+  status: CallTaskStatus;
+  call_result: CallTaskResult | null;
+  notes: string | null;
+};
+
+export async function getCallTaskHistoryByCustomerIds(
+  customerIds: string[],
+  excludeTaskIds: string[] = [],
+  limit = 5,
+): Promise<Record<string, CallTaskHistoryEntry[]>> {
+  if (customerIds.length === 0) return {};
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("call_tasks")
+    .select(
+      "id, customer_id, call_type, status, call_result, notes, last_attempt_at, scheduled_at, updated_at",
+    )
+    .eq("brand_id", brand)
+    .in("customer_id", customerIds)
+    .order("updated_at", { ascending: false })
+    .limit(customerIds.length * (limit + 2));
+  if (error) return {};
+
+  const out: Record<string, CallTaskHistoryEntry[]> = {};
+  for (const r of (data ?? []) as Array<{
+    id: string;
+    customer_id: string;
+    call_type: string | null;
+    status: string;
+    call_result: string | null;
+    notes: string | null;
+    last_attempt_at: string | null;
+    scheduled_at: string | null;
+    updated_at: string;
+  }>) {
+    if (excludeTaskIds.includes(r.id)) continue;
+    const list = (out[r.customer_id] ??= []);
+    if (list.length >= limit) continue;
+    list.push({
+      id: r.id,
+      date: (r.last_attempt_at ?? r.scheduled_at ?? r.updated_at).slice(0, 10),
+      call_type: (r.call_type as CallTaskType | null) ?? null,
+      status: r.status as CallTaskStatus,
+      call_result: (r.call_result as CallTaskResult | null) ?? null,
+      notes: r.notes,
+    });
+  }
+  return out;
+}

@@ -240,7 +240,7 @@ export function AppointmentsBoard({
           <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
             <span className="text-[13px] font-semibold text-[#2C2C2A]">📅 今日排程（{today}）</span>
             <Link
-              href={`/parts/aftersales/appointments/new${today ? `?date=${today}` : ""}`}
+              href={`${basePath}/new${today ? `?date=${today}` : ""}`}
               className="h-[26px] px-3 inline-flex items-center rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
             >
               ＋ 新增預約
@@ -390,7 +390,7 @@ export function AppointmentsBoard({
             </button>
             {canEdit && (
               <Link
-                href={`/parts/aftersales/appointments/new${today ? `?date=${today}` : ""}`}
+                href={`${basePath}/new${today ? `?date=${today}` : ""}`}
                 className="h-[30px] px-3 inline-flex items-center rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742]"
               >
                 ＋ 新增預約
@@ -438,7 +438,7 @@ export function AppointmentsBoard({
               預檢
             </button>
             <Link
-              href={`/parts/aftersales/appointments/${r.id}`}
+              href={`${basePath}/${r.id}`}
               className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
             >
               編輯

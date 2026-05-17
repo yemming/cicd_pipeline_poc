@@ -76,16 +76,32 @@ async function loadRoMeta(roIds: string[]): Promise<Map<string, RoMeta>> {
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     vehicleIds.length
       ? supabase
-          .from("vehicles")
-          .select("id, license_plate, model_name")
+          .from("customer_vehicles")
+          .select("id, license_plate, model_id")
           .in("id", vehicleIds)
       : Promise.resolve({
-          data: [] as { id: string; license_plate: string | null; model_name: string | null }[],
+          data: [] as { id: string; license_plate: string | null; model_id: string | null }[],
         }),
   ]);
   const cMap = new Map((custs.data ?? []).map((c) => [c.id, c.name]));
+
+  // 用 model_id 批次查 vehicle_models 取 model_name
+  const modelIds = Array.from(
+    new Set((vehs.data ?? []).map((v) => v.model_id).filter(Boolean) as string[]),
+  );
+  const { data: models } = modelIds.length
+    ? await supabase.from("vehicle_models").select("id, model_name").in("id", modelIds)
+    : { data: [] as { id: string; model_name: string | null }[] };
+  const modelMap = new Map((models ?? []).map((m) => [m.id, m.model_name]));
+
   const vMap = new Map(
-    (vehs.data ?? []).map((v) => [v.id, { license_plate: v.license_plate, model_name: v.model_name }]),
+    (vehs.data ?? []).map((v) => [
+      v.id,
+      {
+        license_plate: v.license_plate,
+        model_name: v.model_id ? (modelMap.get(v.model_id) ?? null) : null,
+      },
+    ]),
   );
   for (const r of ros ?? []) {
     const v = r.vehicle_id ? vMap.get(r.vehicle_id) : undefined;

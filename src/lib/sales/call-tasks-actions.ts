@@ -30,12 +30,14 @@ export type CallTaskInput = {
   survey_template_id?: string | null;
   assignee_id?: string | null;
   scheduled_at?: string | null;
+  call_type?: string | null;
   status?: CallTaskStatus;
   call_result?: CallTaskResult | null;
   attempt_count?: number;
   last_attempt_at?: string | null;
   answers?: Record<string, unknown>;
   notes?: string | null;
+  metadata?: Record<string, unknown>;
 };
 
 /**
@@ -97,6 +99,8 @@ function payloadFromInput(input: CallTaskInput, isCreate: boolean) {
   if (input.last_attempt_at !== undefined)
     base.last_attempt_at = trim(input.last_attempt_at ?? null);
   if (input.answers !== undefined) base.answers = input.answers;
+  if (input.call_type !== undefined) base.call_type = input.call_type ?? null;
+  if (input.metadata !== undefined) base.metadata = input.metadata;
   if (isCreate) {
     if (base.status === undefined) base.status = "pending";
     if (base.attempt_count === undefined) base.attempt_count = 0;
@@ -182,6 +186,188 @@ export async function startCallTaskAction(
   if (error) return { ok: false, error: mapDbError(error) };
   revalidateAll(listPaths(row.kind as SurveyKind));
   revalidateAll(detailPaths(id));
+  return { ok: true, data: { id } };
+}
+
+/**
+ * 工作台「💾 儲存通話記錄」— 一次寫入 result + next_followup_date +
+ * competitor_brand + notes，狀態自動推進 completed / skipped。
+ *
+ * CRM03A/B spec § save-call-row：result + 下次跟進日 + 競品 + 備註。
+ */
+export async function recordCallResultAction(
+  id: string,
+  patch: {
+    result: CallTaskResult;
+    nextDate?: string | null;
+    competitor?: string | null;
+    note?: string | null;
+    /** 售後 D+3 / NPS 訪談用：0–10 分，省略時不寫入 */
+    npsScore?: number | null;
+  },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
+  if (!id) return { ok: false, error: "缺少 task id" };
+  if (!patch.result) return { ok: false, error: "請選擇通話結果" };
+  if (
+    patch.npsScore != null &&
+    (!Number.isInteger(patch.npsScore) ||
+      patch.npsScore < 0 ||
+      patch.npsScore > 10)
+  )
+    return { ok: false, error: "NPS 分數必須在 0–10 之間的整數" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data: row } = await supabase
+    .from("call_tasks")
+    .select("id, kind, customer_id, survey_template_id, attempt_count, metadata")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "找不到任務" };
+
+  // 結果 → 狀態映射：refused 結案 → skipped；其他 → completed（接通 / 改期都算結案這通）
+  const status: CallTaskStatus =
+    patch.result === "refused" ? "skipped" : "completed";
+
+  const meta: Record<string, unknown> = {
+    ...(row.metadata && typeof row.metadata === "object"
+      ? (row.metadata as Record<string, unknown>)
+      : {}),
+  };
+  if (patch.nextDate !== undefined) {
+    if (patch.nextDate) meta.next_followup_date = patch.nextDate;
+    else delete meta.next_followup_date;
+  }
+  if (patch.competitor !== undefined) {
+    if (patch.competitor) meta.competitor_brand = patch.competitor;
+    else delete meta.competitor_brand;
+  }
+  if (patch.npsScore !== undefined) {
+    if (patch.npsScore != null) meta.nps_score = patch.npsScore;
+    else delete meta.nps_score;
+  }
+
+  const { error } = await supabase
+    .from("call_tasks")
+    .update({
+      status,
+      call_result: patch.result,
+      attempt_count: (row.attempt_count ?? 0) + 1,
+      last_attempt_at: new Date().toISOString(),
+      notes: trim(patch.note ?? null),
+      metadata: meta,
+    })
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: mapDbError(error) };
+
+  // 售後 D+3 / NPS 任務 + 有寫 score → 同步 insert nps_responses（call_task_id 連結）
+  // 失敗不擋主流程（已 update 成功），只 log。
+  if (
+    row.kind === "aftersales" &&
+    patch.result === "answered" &&
+    patch.npsScore != null
+  ) {
+    const category =
+      patch.npsScore >= 9
+        ? "promoter"
+        : patch.npsScore >= 7
+          ? "passive"
+          : "detractor";
+    const { error: npsErr } = await supabase.from("nps_responses").insert({
+      brand_id: brand,
+      kind: "aftersales",
+      customer_id: row.customer_id,
+      call_task_id: id,
+      survey_template_id: row.survey_template_id,
+      score: patch.npsScore,
+      category,
+      comment: trim(patch.note ?? null),
+      responded_at: new Date().toISOString(),
+    });
+    if (npsErr) {
+      console.warn(
+        `[recordCallResultAction] nps_responses insert 失敗（不擋主流程）: ${npsErr.message}`,
+      );
+    }
+  }
+
+  revalidateAll(listPaths(row.kind as SurveyKind));
+  revalidateAll(detailPaths(id));
+  return { ok: true, data: { id } };
+}
+
+/**
+ * 工作台「📅 改期」— 純改 scheduled_at，狀態維持 pending。
+ */
+export async function rescheduleCallTaskAction(
+  id: string,
+  newDate: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
+  if (!id) return { ok: false, error: "缺少 task id" };
+  if (!newDate) return { ok: false, error: "請選擇新的撥打時間" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data: row } = await supabase
+    .from("call_tasks")
+    .select("id, kind")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "找不到任務" };
+
+  // 接受 YYYY-MM-DD 或完整 ISO；YYYY-MM-DD 自動補 09:00 Taipei
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(newDate)
+    ? `${newDate}T09:00:00+08:00`
+    : newDate;
+
+  const { error } = await supabase
+    .from("call_tasks")
+    .update({
+      scheduled_at: iso,
+      status: "pending",
+    })
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: mapDbError(error) };
+
+  revalidateAll(listPaths(row.kind as SurveyKind));
+  revalidateAll(detailPaths(id));
+  return { ok: true, data: { id } };
+}
+
+/**
+ * 工作台「略過今日」— 維持 pending、scheduled_at 推遲一天。
+ */
+export async function skipCallTaskTodayAction(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data: row } = await supabase
+    .from("call_tasks")
+    .select("id, kind, scheduled_at")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "找不到任務" };
+
+  const base = row.scheduled_at ? new Date(row.scheduled_at) : new Date();
+  base.setDate(base.getDate() + 1);
+
+  const { error } = await supabase
+    .from("call_tasks")
+    .update({ scheduled_at: base.toISOString() })
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: mapDbError(error) };
+
+  revalidateAll(listPaths(row.kind as SurveyKind));
   return { ok: true, data: { id } };
 }
 

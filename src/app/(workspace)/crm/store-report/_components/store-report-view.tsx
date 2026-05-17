@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
 
 import { type StoreOverviewRangeKey } from "@/domain/store-overview.constants";
-import type { StoreOverviewData } from "@/domain/store-overview";
+import type { StoreOverviewData, DimensionInsight } from "@/domain/store-overview";
 
 /**
  * CRM07 店長綜合報表 v2
@@ -65,7 +65,7 @@ export function StoreReportView({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const { kpi, npsByKind, npsBenchmark, npsTrend, topTags, saStaffRanking, alerts } = data;
+  const { kpi, npsByKind, npsBenchmark, npsTrend, topTags, saStaffRanking, alerts, overdueTrend, dimensionInsights, pushOpenRate } = data;
 
   const salesNps = npsByKind.find((n) => n.kind === "sales");
   const saNps = npsByKind.find((n) => n.kind === "aftersales");
@@ -119,17 +119,35 @@ export function StoreReportView({
   const alertsAmber = alerts.filter((a) => a.level === "amber");
   const alertsTeal = alerts.filter((a) => a.level === "teal");
 
-  // 逾期趨勢假 bar（demo：7 個月，未來可從 helper 撈真實）
-  const overdueBars = [
-    { month: "11月", count: 8, color: "#D4820A", opacity: 0.7 },
-    { month: "12月", count: 10, color: "#D4820A", opacity: 0.75 },
-    { month: "1月", count: 13, color: "#CC0000", opacity: 1 },
-    { month: "2月", count: 16, color: "#CC0000", opacity: 1 },
-    { month: "3月", count: 11, color: "#D4820A", opacity: 1 },
-    { month: "4月", count: 9, color: "#D4820A", opacity: 1 },
-    { month: "5月", count: 7, color: "#0F6E56", opacity: 1, hilite: true },
-  ];
-  const maxOverdue = Math.max(...overdueBars.map((b) => b.count));
+  // CRM07：逾期未回廠 7 個月趨勢 — 接 getStoreOverview() helper 真實計算（vehicles.next_service_due_date）
+  const overdueBars = useMemo(() => {
+    const maxCount = Math.max(1, ...overdueTrend.map((b) => b.count));
+    return overdueTrend.map((b, i) => {
+      const isLast = i === overdueTrend.length - 1;
+      const ratio = b.count / maxCount;
+      // 顏色：最高峰紅、次高黃、最低或最新月綠（hilite）
+      let color = "#D4820A";
+      if (ratio >= 0.85) color = "#CC0000";
+      if (isLast) color = "#0F6E56";
+      return {
+        month: b.label,
+        count: b.count,
+        color,
+        opacity: 1,
+        hilite: isLast,
+      };
+    });
+  }, [overdueTrend]);
+  const maxOverdue = Math.max(1, ...overdueBars.map((b) => b.count));
+  const overdueLastTwo = overdueBars.slice(-2);
+  const overdueChange =
+    overdueLastTwo.length === 2 && overdueLastTwo[0].count > 0
+      ? Math.round(
+          ((overdueLastTwo[1].count - overdueLastTwo[0].count) /
+            overdueLastTwo[0].count) *
+            100,
+        )
+      : 0;
 
   return (
     <main
@@ -357,13 +375,31 @@ export function StoreReportView({
         headerStyle="sa"
         rightTag={{ text: "✅ v2 真實數據", tone: "live" }}
       >
+        {/* CRM07：6 顆 KPI（spec 5 + Ming 拍板加 推播通知開啟率 + 14 天內到期 並列） */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-2.5 mb-3">
           <Kpi accent="sa" label="本月工單台次" value={fmtCount(kpi.workOrderCount)} sub={`期間內 work_orders 總數`} valueColor="#0F6E56" />
           <Kpi accent="sa" label="平均工單金額" value={fmtMoney(kpi.workOrderAvgAmount)} sub={`本期均單`} valueColor="#0F6E56" valueSize="lg" />
-          <Kpi accent="sa" label="D+3 電訪完成率" value="83%" sub="demo · 待 call_tasks 串接" valueColor="#0F6E56" />
-          <Kpi accent="warn" label="逾期未回廠客戶" value={fmtCount(data.serviceKpi.overdueCount)} sub={`其中 3 件 ≥120 天（demo）`} valueColor="#CC0000" />
-          <Kpi accent="sa" label="14 天內到期" value={fmtCount(data.serviceKpi.upcomingDueCount)} sub="保養 / Desmo / 保固到期" valueColor="#0F6E56" />
-          <Kpi accent="sa" label="批評者數" value={fmtCount(saNps?.detractor ?? 0)} sub={`${saNps?.total ?? 0} 筆中 NPS ≤6`} valueColor="#0F6E56" />
+          <Kpi
+            accent="sa"
+            label="D+3 電訪完成率"
+            value={`${saStaffRanking.length > 0
+              ? Math.round(
+                  saStaffRanking.reduce((s, r) => s + r.d3FollowupRate, 0) /
+                    saStaffRanking.length,
+                )
+              : 0}%`}
+            sub={`SA 平均（${saStaffRanking.length} 位）`}
+            valueColor="#0F6E56"
+          />
+          <Kpi accent="warn" label="逾期未回廠客戶" value={fmtCount(data.serviceKpi.overdueCount)} sub="next_service_due_date 已過期" valueColor="#CC0000" />
+          <Kpi
+            accent="sa"
+            label="📨 推播通知開啟率"
+            value={`${pushOpenRate.open_rate}%`}
+            sub={`期間發送 ${pushOpenRate.total_sent} · 已讀 ${pushOpenRate.total_read}`}
+            valueColor="#0F6E56"
+          />
+          <Kpi accent="sa" label="⚠️ 14 天內到期" value={fmtCount(data.serviceKpi.upcomingDueCount)} sub="保養 / Desmo / 保固到期" valueColor="#0F6E56" />
         </div>
 
         <SectionTitle>
@@ -373,7 +409,7 @@ export function StoreReportView({
           </span>
         </SectionTitle>
         <StaffTable
-          headers={["排名", "服務顧問", "完成工單", "平均工單額", "NPS 均分", "批評者數"]}
+          headers={["排名", "服務顧問", "完成工單", "平均工單額", "NPS 均分", "批評者數", "D+3 電訪率", "逾期客戶數"]}
           rows={
             saStaffRanking.length > 0
               ? saStaffRanking.slice(0, 5).map((s) => ({
@@ -384,10 +420,14 @@ export function StoreReportView({
                     fmtMoney(s.avgAmount),
                     s.npsAvg.toFixed(1),
                     s.detractorCount.toString(),
+                    `${s.d3FollowupRate}%`,
+                    s.overdueCustomerCount > 0
+                      ? `${s.overdueCustomerCount} 位`
+                      : "0 位",
                   ],
                 }))
               : [
-                  { rank: 1, cells: ["（無資料）", "—", "—", "—", "—"] },
+                  { rank: 1, cells: ["（無資料）", "—", "—", "—", "—", "—", "—"] },
                 ]
           }
         />
@@ -395,7 +435,7 @@ export function StoreReportView({
         {/* 逾期趨勢 + 預警 list */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
           <div>
-            <SectionTitle>逾期未回廠趨勢（近 7 個月 · demo）</SectionTitle>
+            <SectionTitle>逾期未回廠趨勢（近 7 個月 · 真實資料）</SectionTitle>
             <div className="flex items-end gap-2.5 h-[70px] bg-[#FAFAF8] border border-[#EEECE6] rounded-lg px-3 py-2">
               {overdueBars.map((b) => (
                 <div key={b.month} className="flex flex-col items-center gap-0.5 flex-1">
@@ -420,7 +460,22 @@ export function StoreReportView({
               ))}
             </div>
             <div className="text-[11px] text-[#9A9890] mt-1.5 text-center">
-              5 月逾期數較峰值（2 月 16 件）下降 56%，趨勢持續改善中 ↓
+              {overdueBars.length > 0 ? (
+                <>
+                  {overdueBars[overdueBars.length - 1].month} 共{" "}
+                  <b className="text-[#0F6E56]">{overdueBars[overdueBars.length - 1].count}</b> 件
+                  {overdueChange !== 0 && (
+                    <>
+                      ・較上月{overdueChange > 0 ? "↑" : "↓"}{" "}
+                      <span className={overdueChange > 0 ? "text-[#CC0000]" : "text-[#0F6E56]"}>
+                        {Math.abs(overdueChange)}%
+                      </span>
+                    </>
+                  )}
+                </>
+              ) : (
+                "尚無趨勢資料"
+              )}
             </div>
           </div>
 
@@ -445,6 +500,17 @@ export function StoreReportView({
             </div>
           </div>
         </div>
+      </DeptSection>
+
+      {/* ═══ 維度洞察 — aspect_scores 各面向均分 ═══ */}
+      <DeptSection
+        title="📊 售後維度洞察（SA 多面向評分）"
+        badge="aspect_scores 平均"
+        readonly
+        headerStyle="sa"
+        rightTag={{ text: "✅ v2 真實數據", tone: "live" }}
+      >
+        <DimensionInsights insights={dimensionInsights} />
       </DeptSection>
 
       {/* ═══ 跨部門客戶標籤 ═══ */}
@@ -730,6 +796,76 @@ function Alert({ level, title, body }: { level: "red" | "amber" | "teal"; title:
         <div className="text-[12px] text-[#4A4A48] leading-relaxed">{body}</div>
       </div>
     </div>
+  );
+}
+
+function DimensionInsights({ insights }: { insights: DimensionInsight[] }) {
+  const hasData = insights.some((i) => i.total > 0);
+  if (!hasData) {
+    return (
+      <div className="text-[12px] text-[#9A9890] py-3">
+        期間內尚無 aspect_scores 資料（請至 CRM05B NPS 模組填寫多面向問卷）
+      </div>
+    );
+  }
+  // 排名（從高到低）— 找出強項 / 弱項
+  const ranked = [...insights]
+    .filter((i) => i.total > 0)
+    .sort((a, b) => b.avgScore - a.avgScore);
+  const strongest = ranked[0];
+  const weakest = ranked[ranked.length - 1];
+
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+        {insights.map((i) => {
+          const pct = Math.max(0, Math.min(100, (i.avgScore / 10) * 100));
+          const color =
+            i.avgScore >= 9
+              ? "#0F6E56"
+              : i.avgScore >= 8
+                ? "#185FA5"
+                : i.avgScore >= 7
+                  ? "#854F0B"
+                  : "#CC0000";
+          return (
+            <div
+              key={i.key}
+              className="bg-[#FAFAF8] border border-[#EEECE6] rounded-lg px-3.5 py-2.5"
+              style={{ borderLeftWidth: "3px", borderLeftColor: color }}
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="text-[14px]">{i.emoji}</span>
+                <span className="text-[12px] font-medium text-[#2C2C2A] flex-1">
+                  {i.label}
+                </span>
+                <span className="font-mono font-bold text-[14px]" style={{ color }}>
+                  {i.total > 0 ? i.avgScore.toFixed(1) : "—"}
+                </span>
+                <span className="text-[10px] text-[#9A9890]">/ 10</span>
+              </div>
+              <div className="h-[6px] bg-[#EEECE6] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${pct}%`, background: color }}
+                />
+              </div>
+              <div className="text-[10.5px] text-[#9A9890] mt-1">
+                樣本 {i.total} 筆
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {strongest && weakest && (
+        <InsightBox>
+          💡 <b>店長洞察：</b>本期表現最強面向為「{strongest.emoji} {strongest.label}」（
+          {strongest.avgScore.toFixed(1)} 分），可作為品牌服務亮點宣傳；表現相對弱的是「
+          {weakest.emoji} {weakest.label}」（{weakest.avgScore.toFixed(1)} 分），建議 SA
+          主管針對該面向召開週會檢討改善方案。
+        </InsightBox>
+      )}
+    </>
   );
 }
 

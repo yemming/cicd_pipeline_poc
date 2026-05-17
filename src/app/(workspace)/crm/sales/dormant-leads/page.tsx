@@ -8,6 +8,10 @@ import {
   getDormantLeadStats,
   type DormantLeadFilters,
 } from "@/domain/sales-dormant-leads";
+import {
+  countRecontactPending,
+  listRecontactTasks,
+} from "@/domain/sales-recontact";
 
 import { DormantLeadsBoard } from "./_components/dormant-leads-board";
 
@@ -36,9 +40,11 @@ export default async function Page({
     q: sp.q ?? "",
     kind: "sales",
   };
-  const [rows, stats] = await Promise.all([
+  const [rows, stats, recontactRows, recontactPending] = await Promise.all([
     getDormantLeads(filters),
     getDormantLeadStats("sales"),
+    listRecontactTasks({ kind: "sales" }),
+    countRecontactPending("sales"),
   ]);
   return (
     <DormantLeadsBoard
@@ -47,6 +53,8 @@ export default async function Page({
       canEdit={canEdit}
       filters={filters}
       stats={stats}
+      recontactRows={recontactRows}
+      recontactPending={recontactPending}
       basePath="/crm/sales/dormant-leads"
       kind="sales"
     />

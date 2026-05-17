@@ -1,14 +1,28 @@
 "use client";
 
+import { useTransition } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { PDI_ACCESSORIES } from "@/components/delivery/delivery-constants";
 import { useDelivery } from "@/lib/delivery-store";
+import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
 
-export function PdiAccessoriesView() {
+export function PdiAccessoriesView({ deliveryId }: { deliveryId?: string }) {
   const { state, toggleAccessory, patch } = useDelivery();
+  const [, startTransition] = useTransition();
   const total = PDI_ACCESSORIES.length;
   const done = state.accessoriesChecked.length;
   const stepDone = done > 0;
+
+  function handleNext() {
+    if (deliveryId) {
+      startTransition(async () => {
+        await updateDeliveryStepAction(deliveryId, "accessories", {
+          accessories_list: state.accessoriesChecked,
+          accessories_note: state.accessoriesNote,
+        }, "accessories_complete");
+      });
+    }
+  }
 
   return (
     <DeliveryFrame
@@ -20,6 +34,7 @@ export function PdiAccessoriesView() {
           : "標記配件安裝完成 → 交車確認表 →"
       }
       nextDisabled={done === 0}
+      onNext={handleNext}
     >
       <section
         className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"

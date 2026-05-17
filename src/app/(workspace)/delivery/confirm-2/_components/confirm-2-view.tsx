@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import {
   DELIVERY_ITEMS,
@@ -8,6 +9,7 @@ import {
   type DeliveryItemCat,
 } from "@/components/delivery/delivery-constants";
 import { useDelivery } from "@/lib/delivery-store";
+import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
 
 const CAT_PILL: Record<DeliveryItemCat, string> = {
   a: "bg-[#185FA5]",
@@ -16,14 +18,25 @@ const CAT_PILL: Record<DeliveryItemCat, string> = {
   d: "bg-[#534AB7]",
 };
 
-export function Confirm2View() {
+export function Confirm2View({ deliveryId }: { deliveryId?: string }) {
   const { state, toggleDelivery, toggleDeliveryAll } = useDelivery();
+  const [, startTransition] = useTransition();
   const total = DELIVERY_ITEMS.length;
   const done = state.deliveryChecked.length;
   const pct = Math.round((done / total) * 100);
   const allIdx = DELIVERY_ITEMS.map((_, i) => i);
   const stepDone = done === total;
   const rows = DELIVERY_ITEM_ROWS;
+
+  function handleNext() {
+    if (deliveryId) {
+      startTransition(async () => {
+        await updateDeliveryStepAction(deliveryId, "confirm2", {
+          delivery_checklist: state.deliveryChecked,
+        }, stepDone ? "delivery_confirmed" : undefined);
+      });
+    }
+  }
 
   return (
     <DeliveryFrame
@@ -34,6 +47,7 @@ export function Confirm2View() {
           ? "交車確認完成 → 保固條款 →"
           : "確認表進行中 → 保固條款 →"
       }
+      onNext={handleNext}
     >
       <section
         className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"

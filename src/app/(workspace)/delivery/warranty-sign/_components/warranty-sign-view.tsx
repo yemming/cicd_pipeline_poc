@@ -1,8 +1,10 @@
 "use client";
 
+import { useTransition } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { WARRANTY_CHECKLIST_ITEMS } from "@/components/delivery/delivery-constants";
 import { useDelivery, type SignatureRole } from "@/lib/delivery-store";
+import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
 
 const EXCLUSIONS = [
   "用於任何運動競賽的機車",
@@ -37,7 +39,7 @@ const WARRANTY_TERMS = [
   },
 ];
 
-export function WarrantySignView() {
+export function WarrantySignView({ deliveryId }: { deliveryId?: string }) {
   const {
     state,
     patch,
@@ -45,6 +47,7 @@ export function WarrantySignView() {
     setConsent,
     toggleWarrantyItem,
   } = useDelivery();
+  const [, startTransition] = useTransition();
 
   const allSigned =
     !!state.signatures.technician &&
@@ -56,12 +59,31 @@ export function WarrantySignView() {
   const inputCls =
     "w-full h-[32px] px-2.5 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] focus:outline-none";
 
+  function handleNext() {
+    if (deliveryId) {
+      startTransition(async () => {
+        await updateDeliveryStepAction(deliveryId, "warranty", {
+          plate_no: state.plateNo,
+          plate_date: state.plateDate || undefined,
+          warranty_receive_date: state.warrantyReceiveDate || undefined,
+          warranty_start_date: state.warrantyStartDate || undefined,
+          warranty_consents: state.warrantyConsents,
+          warranty_checklist: state.warrantyChecklist,
+          sig_technician: state.signatures.technician,
+          sig_rs: state.signatures.rs,
+          sig_customer: state.signatures.customer,
+        }, "warranty_signed");
+      });
+    }
+  }
+
   return (
     <DeliveryFrame
       stepId={5}
       stepDone={stepDone}
       nextLabel="保固簽署完成 → 完成交車 →"
       nextDisabled={!allSigned}
+      onNext={handleNext}
     >
       <section
         className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"

@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { upsertCustomer360, type HandcardSnapshot } from "@/domain/crm-sync";
 
 type IdentityType = "new" | "revisit" | "owner" | "switcher";
 type IntentLevel = 1 | 2 | 3 | 4 | 5;
@@ -155,6 +157,8 @@ function calcHABC(timing: string, trialStatus: string): { grade: HABCGrade; reas
 }
 
 export default function HandcardForm() {
+  const router = useRouter();
+
   useSetPageHeader({
     title: "RS01 電子手卡",
     breadcrumb: [
@@ -188,6 +192,28 @@ export default function HandcardForm() {
 
   const habcSuggest = useMemo(() => calcHABC(buyTiming, trialStatus), [buyTiming, trialStatus]);
   const habcCurrent = habcOverride ?? habcSuggest.grade;
+
+  // BDN #17 · 黃金時刻 30 分倒數（試駕結束後觸發）
+  const [testRideEndAt, setTestRideEndAt] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!testRideEndAt) return;
+    const id = setInterval(() => setNowTick(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, [testRideEndAt]);
+
+  const goldenMoment = useMemo(() => {
+    if (!testRideEndAt) return { state: "hidden" as const };
+    const endMs = new Date(testRideEndAt).getTime();
+    if (Number.isNaN(endMs)) return { state: "hidden" as const };
+    const elapsedMin = Math.max(0, Math.floor((nowTick - endMs) / 60000));
+    const remainMin = 30 - elapsedMin;
+    if (remainMin > 0) {
+      return { state: "active" as const, remainMin };
+    }
+    return { state: "expired" as const, elapsedMin };
+  }, [testRideEndAt, nowTick]);
 
   // 7. 報價追蹤
   const [quoteStatus, setQuoteStatus] = useState("none");
@@ -226,6 +252,67 @@ export default function HandcardForm() {
 
   const identitySelected = IDENTITY_OPTIONS.find((o) => o.key === identity);
 
+  // BDN #16 · CRM01A 同步：onSave 後把 handcard snapshot 寫進 customer.metadata
+  const [isSyncing, startSync] = useTransition();
+  const [banner, setBanner] = useState<
+    | null
+    | { kind: "ok" | "demo" | "warn"; msg: string }
+  >(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    if (banner.kind === "warn") return; // warn 要使用者點掉、不自動消
+    const t = setTimeout(() => setBanner(null), 2200);
+    return () => clearTimeout(t);
+  }, [banner]);
+
+  const handleSubmit = () => {
+    if (!identity || !customerName.trim()) {
+      setBanner({ kind: "warn", msg: "⚠️ 請至少選擇來客身份並填寫客戶姓名" });
+      return;
+    }
+    const snapshot: HandcardSnapshot = {
+      at: new Date().toISOString(),
+      identity: identity ?? undefined,
+      customer_name: customerName.trim() || undefined,
+      customer_phone: customerPhone.trim() || undefined,
+      lead_source: leadSource || undefined,
+      intent_model: intentModel || undefined,
+      intent_year: intentYear || undefined,
+      intent_color: intentColor || undefined,
+      buy_timing: buyTiming || undefined,
+      trial_status: trialStatus || undefined,
+      habc_grade: buyTiming ? habcCurrent : undefined,
+      intent_level: intentLevel ?? undefined,
+      quote_status: quoteStatus || undefined,
+      quote_amount: quoteAmount || undefined,
+      follow_date: followDate || undefined,
+      follow_method: followMethod || undefined,
+      tags: selectedTags.map((t) => t.label),
+      visit_note: visitNote || undefined,
+      need_note: needNote || undefined,
+      competitor_1: competitor1 || undefined,
+      competitor_2: competitor2 || undefined,
+      visit_result: visitResult || undefined,
+      lost_reason: lostReason || undefined,
+    };
+    startSync(async () => {
+      try {
+        const res = await upsertCustomer360(snapshot);
+        if (res.ok && res.mode === "db") {
+          setBanner({ kind: "ok", msg: "✓ 已同步至 CRM 360" });
+        } else if (res.ok && res.mode === "demo") {
+          setBanner({ kind: "demo", msg: "✓ 已同步（demo mode）" });
+        } else {
+          setBanner({ kind: "warn", msg: `⚠️ CRM 同步失敗（demo 階段）：${res.error}` });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setBanner({ kind: "warn", msg: `⚠️ CRM 同步失敗（demo 階段）：${msg}` });
+      }
+    });
+  };
+
   return (
     <main className="px-6 py-5 space-y-3 max-w-[1100px] mx-auto">
       {/* Page Header */}
@@ -234,11 +321,21 @@ export default function HandcardForm() {
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">v8</span>
         <span className="text-[12px] text-[#9A9890]">展廳接待主表單 · 8 個 step · 跨頁串接 RS02 / RS06 / CRM03A</span>
         <div className="ml-auto flex items-center gap-1.5">
-          <button className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]">
+          <button
+            type="button"
+            disabled={isSyncing}
+            className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
+          >
             暫存草稿
           </button>
-          <button className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742]">
-            儲存並送出
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSyncing}
+            data-testid="handcard-submit-top"
+            className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isSyncing ? "同步中⋯" : "儲存並送出"}
           </button>
         </div>
       </header>
@@ -333,6 +430,7 @@ export default function HandcardForm() {
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="王先生 / 林小姐"
               className={inputCls()}
+              data-testid="handcard-customer-name"
             />
           </div>
           <div>
@@ -516,24 +614,102 @@ export default function HandcardForm() {
           <span className="text-[13px] font-semibold text-[#2C2C2A]">Step 5 · 試乘試駕</span>
           <span className="ml-auto text-[11px] text-[#9A9890]">跳轉 RS02 · 完成後唯讀回寫</span>
         </header>
-        <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <button
-            type="button"
-            className="rounded-lg border-2 border-[#0F6E56] bg-[#E1F5EE] hover:bg-[#D2EEDF] p-3 flex items-center gap-3 text-left transition-colors"
-          >
-            <div className="text-[22px]">🏁</div>
-            <div className="flex-1">
-              <div className="text-[12.5px] font-semibold text-[#085041]">前往試乘試駕 RS02</div>
-              <div className="text-[11px] text-[#0F6E56] opacity-80">記錄試駕車款、時間、里程、客戶反應</div>
+        <div className="px-4 py-3 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              type="button"
+              className="rounded-lg border-2 border-[#0F6E56] bg-[#E1F5EE] hover:bg-[#D2EEDF] p-3 flex items-center gap-3 text-left transition-colors"
+            >
+              <div className="text-[22px]">🏁</div>
+              <div className="flex-1">
+                <div className="text-[12.5px] font-semibold text-[#085041]">前往試乘試駕 RS02</div>
+                <div className="text-[11px] text-[#0F6E56] opacity-80">記錄試駕車款、時間、里程、客戶反應</div>
+              </div>
+              <span className="px-2 py-0.5 text-[10.5px] rounded-full bg-white border border-[#5DCAA5] text-[#0F6E56]">
+                待執行
+              </span>
+              <div className="text-[#5DCAA5]">›</div>
+            </button>
+            <div className="text-[11.5px] text-[#9A9890] leading-relaxed py-2">
+              ⚡ <b className="text-[#2C2C2A]">黃金時刻提示</b>：試駕結束後立即開立報價單，把握客戶熱情最高峰。完成後系統將自動顯示「立即報價」提示。
             </div>
-            <span className="px-2 py-0.5 text-[10.5px] rounded-full bg-white border border-[#5DCAA5] text-[#0F6E56]">
-              待執行
-            </span>
-            <div className="text-[#5DCAA5]">›</div>
-          </button>
-          <div className="text-[11.5px] text-[#9A9890] leading-relaxed py-2">
-            ⚡ <b className="text-[#2C2C2A]">黃金時刻提示</b>：試駕結束後立即開立報價單，把握客戶熱情最高峰。完成後系統將自動顯示「立即報價」提示。
           </div>
+
+          {/* BDN #17 · 試駕結束 trigger + 黃金時刻倒數 banner */}
+          <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-dashed border-[#EEECE6]">
+            {!testRideEndAt ? (
+              <button
+                type="button"
+                onClick={() => setTestRideEndAt(new Date().toISOString())}
+                data-testid="handcard-mark-test-ride-end"
+                className="h-[28px] px-3 rounded-md text-[11.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#185FA5] hover:text-[#185FA5] transition-colors"
+              >
+                ✓ 標記試駕結束（啟動黃金時刻倒數）
+              </button>
+            ) : (
+              <>
+                <span className="text-[11px] text-[#5A5955]">
+                  試駕結束：
+                  <b className="font-mono text-[#2C2C2A] ml-1">
+                    {new Date(testRideEndAt).toLocaleString("zh-TW", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
+                  </b>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTestRideEndAt(null)}
+                  data-testid="handcard-reset-test-ride-end"
+                  className="h-[24px] px-2 rounded text-[11px] text-[#5A5955] hover:text-[#185FA5] border border-[#D5D3CB] hover:border-[#185FA5] bg-white transition-colors"
+                >
+                  ↻ 重新計時
+                </button>
+              </>
+            )}
+          </div>
+
+          {goldenMoment.state === "active" && (
+            <div
+              data-testid="golden-moment-active"
+              className="rounded-lg px-4 py-3 bg-[#FDF3E3] text-[#854F0B] border border-[#F5C97A] flex items-center gap-3"
+            >
+              <div className="text-[22px]">⚡</div>
+              <div className="flex-1">
+                <div className="text-[12.5px] font-bold">
+                  黃金時刻剩 <span className="font-mono text-[14px]">{goldenMoment.remainMin}</span> 分鐘 — 立即開立報價單
+                </div>
+                <div className="text-[11px] opacity-85 leading-relaxed">
+                  客戶試駕後熱情最高，把握熱情高峰開立報價單，避免離店後冷卻。
+                </div>
+              </div>
+              <button
+                type="button"
+                data-testid="golden-moment-cta"
+                className="h-[30px] px-3 rounded-md text-[12px] font-semibold bg-[#854F0B] text-white hover:bg-[#6B3A00] whitespace-nowrap"
+              >
+                立即報價 →
+              </button>
+            </div>
+          )}
+
+          {goldenMoment.state === "expired" && (
+            <div
+              data-testid="golden-moment-expired"
+              className="rounded-lg px-4 py-3 bg-[#F2F2F2] text-[#6B6A68] border border-[#D5D3CB] flex items-center gap-3"
+            >
+              <div className="text-[22px]">⌛</div>
+              <div className="flex-1">
+                <div className="text-[12.5px] font-bold text-[#5A5955]">
+                  黃金時刻已過（試駕結束 <span className="font-mono">{goldenMoment.elapsedMin}</span> 分鐘前）
+                </div>
+                <div className="text-[11px] leading-relaxed">
+                  仍建議主動跟進並開立報價單；若客戶已離店，請在 D+1 內 LINE 跟進。
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -547,6 +723,17 @@ export default function HandcardForm() {
         <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             type="button"
+            onClick={() => {
+              // BDN #15 · 跳轉至 RS06 並帶客戶姓名做 pre-fill
+              // handcard 尚未接 DB，沒有 row id 可帶；用 query string 直接傳值
+              // 未來 handcard 接 DB 後可升級成 ?from_handcard={uuid} + helper 撈
+              const params = new URLSearchParams({ from_handcard: "1" });
+              if (customerName.trim()) {
+                params.set("customer_name", customerName.trim());
+              }
+              router.push(`/usedcar/evaluation?${params.toString()}`);
+            }}
+            data-testid="handcard-goto-rs06"
             className="rounded-lg border-2 border-[#854F0B] bg-[#FDF3E3] hover:bg-[#F8EAC5] p-3 flex items-center gap-3 text-left transition-colors"
           >
             <div className="text-[22px]">🔧</div>
@@ -840,19 +1027,49 @@ export default function HandcardForm() {
           </span>
           <button
             type="button"
-            className="ml-auto h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            disabled={isSyncing}
+            className="ml-auto h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
           >
             暫存草稿
           </button>
           <button
             type="button"
-            disabled={!identity || !customerName}
+            onClick={handleSubmit}
+            disabled={!identity || !customerName || isSyncing}
+            data-testid="handcard-submit-bottom"
             className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            儲存並送出
+            {isSyncing ? "同步中⋯" : "儲存並送出"}
           </button>
         </div>
       </div>
+
+      {/* BDN #16 · CRM01A 同步 toast */}
+      {banner && (
+        <div
+          data-testid="handcard-sync-toast"
+          data-toast-kind={banner.kind}
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 flex items-center gap-3 max-w-[420px] ${
+            banner.kind === "ok"
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : banner.kind === "demo"
+                ? "bg-[#EAF4FB] text-[#0C3E70] border border-[#85B7EB]"
+                : "bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E]"
+          }`}
+        >
+          <span className="flex-1 leading-snug">{banner.msg}</span>
+          {banner.kind === "warn" && (
+            <button
+              type="button"
+              onClick={() => setBanner(null)}
+              className="text-[#854F0B] hover:opacity-70 shrink-0"
+              aria-label="關閉"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      )}
     </main>
   );
 }

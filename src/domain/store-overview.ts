@@ -64,6 +64,10 @@ export type StaffRanking = {
   avgAmount: number;
   npsAvg: number;
   detractorCount: number;
+  /** CRM07：D+3 電訪完成率（%）— 該 SA 名下 D+3 type call_tasks 完成數 / 應做數 */
+  d3FollowupRate: number;
+  /** CRM07：逾期客戶數（該 SA 名下、next_service_due_date < today 的客戶數） */
+  overdueCustomerCount: number;
 };
 
 export type StoreAlert = {
@@ -86,6 +90,26 @@ export type ServiceKpi = {
   upcomingDueCount: number; // 未來 14 天保養到期
 };
 
+export type OverdueTrendBucket = {
+  month: string;   // YYYY-MM
+  label: string;   // "5月"
+  count: number;
+};
+
+export type DimensionInsight = {
+  key: string;
+  label: string;
+  emoji: string;
+  avgScore: number;   // 0–10
+  total: number;      // 樣本數
+};
+
+export type PushOpenRateKpi = {
+  open_rate: number;     // %
+  total_sent: number;
+  total_read: number;
+};
+
 export type StoreOverviewData = {
   kpi: StoreKpi;
   npsByKind: NpsByKind[];
@@ -96,6 +120,12 @@ export type StoreOverviewData = {
   salesLeadKpi: SalesLeadKpi;
   serviceKpi: ServiceKpi;
   alerts: StoreAlert[];
+  /** CRM07：逾期未回廠近 7 個月趨勢（real-data：vehicles.next_service_due_date < today） */
+  overdueTrend: OverdueTrendBucket[];
+  /** CRM07：售後維度洞察（aspect_scores 各面向均分） */
+  dimensionInsights: DimensionInsight[];
+  /** CRM07：推播通知開啟率（aftersales kind） */
+  pushOpenRate: PushOpenRateKpi;
 };
 
 type NpsRawRow = {
@@ -105,6 +135,8 @@ type NpsRawRow = {
   category: string | null;
   comment: string | null;
   sales_person: string | null;
+  customer_id: string | null;
+  metadata: Record<string, unknown> | null;
   responded_at: string;
 };
 
@@ -183,10 +215,11 @@ export async function getStoreOverview(
     custRes,
     custTagsRes,
     vehRes,
+    pushRes,
   ] = await Promise.all([
     supabase
       .from("nps_responses")
-      .select("id, kind, score, category, comment, sales_person, responded_at")
+      .select("id, kind, score, category, comment, sales_person, customer_id, metadata, responded_at")
       .eq("brand_id", brand)
       .gte("responded_at", cutoffIso)
       .order("responded_at", { ascending: false }),
@@ -222,6 +255,13 @@ export async function getStoreOverview(
       .select("id, customer_id, next_service_due_date, warranty_until, is_active, last_service_date, last_service_mileage")
       .eq("brand_id", brand)
       .eq("is_active", true),
+    supabase
+      .from("push_campaigns")
+      .select("sent_count, read_count, status, sent_at")
+      .eq("brand_id", brand)
+      .eq("kind", "aftersales")
+      .eq("status", "completed")
+      .gte("sent_at", cutoffIso),
   ]);
 
   if (npsRes.error) throw npsRes.error;
@@ -231,13 +271,16 @@ export async function getStoreOverview(
   if (custRes.error) throw custRes.error;
   if (custTagsRes.error) throw custTagsRes.error;
   if (vehRes.error) throw vehRes.error;
+  if (pushRes.error) throw pushRes.error;
 
   const npsRows = (npsRes.data ?? []) as NpsRawRow[];
   const leads = leadsRes.data ?? [];
+  const calls = callsRes.data ?? [];
   const workOrders = woRes.data ?? [];
   const customers = custRes.data ?? [];
   const tags = custTagsRes.data ?? [];
   const vehicles = vehRes.data ?? [];
+  const pushDeliveries = pushRes.data ?? [];
 
   // ─── KPI 計算 ───
   const salesNpsRows = npsRows.filter((r) => r.kind === "sales");
@@ -369,6 +412,27 @@ export async function getStoreOverview(
     npsByPerson.set(n.sales_person, arr);
   }
 
+  // 售後 D+3 電訪 task 統計：依 customer_id 分配回 SA（advisor_id 來自 work_orders）
+  // 先把 customer → advisor_id 對映建好
+  const customerToAdvisor = new Map<string, string>();
+  for (const w of workOrders) {
+    if (w.customer_id && w.advisor_id) {
+      customerToAdvisor.set(w.customer_id as string, w.advisor_id as string);
+    }
+  }
+
+  const D3_TASK_KINDS = new Set(["aftersales_d3", "d3_followup"]);
+  const overdueDueDate = new Date();
+  const overdueCustomerIds = new Set(
+    vehicles
+      .filter(
+        (v) =>
+          v.next_service_due_date &&
+          new Date(v.next_service_due_date) < overdueDueDate,
+      )
+      .map((v) => v.customer_id as string),
+  );
+
   const saStaffRanking: StaffRanking[] = [...advisorMap.entries()]
     .map(([key, v], idx) => {
       const totalAmt = v.wos.reduce((s, w) => s + Number(w.total_amount ?? 0), 0);
@@ -382,6 +446,35 @@ export async function getStoreOverview(
       const detractorCount = personNps.filter((r) => classify(r.score) === "detractor").length;
       const label =
         key === "未指派" ? "未指派" : `服務顧問 ${key.slice(-6).toUpperCase()}`;
+
+      // CRM07：D+3 電訪率 + 逾期客戶數
+      const ownedCustomerIds = new Set(
+        v.wos.map((w) => w.customer_id as string).filter(Boolean),
+      );
+      const d3Tasks = calls.filter(
+        (c) =>
+          D3_TASK_KINDS.has((c as { call_type?: string }).call_type ?? "") &&
+          ownedCustomerIds.has(c.customer_id as string),
+      );
+      // 也納入 customer 對 advisor 反查（部分 task 沒對到 wo）
+      const extraD3 = calls.filter(
+        (c) =>
+          D3_TASK_KINDS.has((c as { call_type?: string }).call_type ?? "") &&
+          customerToAdvisor.get(c.customer_id as string) === key,
+      );
+      const d3All = new Map<string, (typeof calls)[number]>();
+      [...d3Tasks, ...extraD3].forEach((t) => d3All.set(t.id as string, t));
+      const d3Total = d3All.size;
+      const d3Done = [...d3All.values()].filter(
+        (t) => t.status === "completed",
+      ).length;
+      const d3FollowupRate =
+        d3Total > 0 ? Math.round((d3Done / d3Total) * 100) : 0;
+
+      const overdueCustomerCount = [...ownedCustomerIds].filter((id) =>
+        overdueCustomerIds.has(id),
+      ).length;
+
       return {
         rank: idx + 1,
         name: label,
@@ -389,6 +482,8 @@ export async function getStoreOverview(
         avgAmount,
         npsAvg: Math.round(avgScore * 10) / 10,
         detractorCount,
+        d3FollowupRate,
+        overdueCustomerCount,
       };
     })
     .sort((a, b) => b.workOrderCount - a.workOrderCount)
@@ -454,6 +549,96 @@ export async function getStoreOverview(
     });
   }
 
+  // ── CRM07：逾期未回廠近 7 個月趨勢（real-data 從 customer_vehicles + work_orders 推算）─
+  // 以「該月月底」當作 cut-off，計算當時 next_service_due_date < monthEnd 且 vehicle 仍 active 的車輛數。
+  // 沒有歷史快照表時，用當前 vehicles 推算（demo 等價於：愈早的月份逾期愈少，因為 due_date 是相對未來）。
+  // 簡化做法：取 vehicles.next_service_due_date 落在 (monthStart - 360 days, monthEnd] 的個數，
+  // 代表「截至該月底已過期 ≤1 年的車輛」— 對 demo 已夠有解釋力。
+  const overdueTrend: OverdueTrendBucket[] = [];
+  const trend7Months = lastNMonths(7);
+  const monthLabel: Record<string, string> = {};
+  trend7Months.forEach((m) => {
+    const mm = Number.parseInt(m.slice(5), 10);
+    monthLabel[m] = `${mm}月`;
+  });
+  for (const m of trend7Months) {
+    const [yy, mm] = m.split("-").map((s) => Number.parseInt(s, 10));
+    const monthEnd = new Date(yy, mm, 0, 23, 59, 59); // 月底
+    const yearAgo = new Date(yy, mm - 13, 1);
+    const overdueAt = vehicles.filter((v) => {
+      if (!v.next_service_due_date) return false;
+      const due = new Date(v.next_service_due_date);
+      return due < monthEnd && due >= yearAgo;
+    }).length;
+    overdueTrend.push({ month: m, label: monthLabel[m], count: overdueAt });
+  }
+
+  // ── CRM07：售後維度洞察（aspect_scores 平均） ───
+  const ASPECT_DEFS: Array<{ key: string; label: string; emoji: string }> = [
+    { key: "sa_attitude", label: "SA 服務態度", emoji: "🤝" },
+    { key: "repair_quality", label: "維修品質", emoji: "🔧" },
+    { key: "waiting_time", label: "等待時間", emoji: "⏱️" },
+    { key: "cost_transparency", label: "費用透明度", emoji: "💰" },
+    { key: "pickup_explanation", label: "取車說明", emoji: "📋" },
+  ];
+  const aspectSums = new Map<string, { sum: number; n: number }>();
+  for (const n of saNpsRows) {
+    const meta = (n.metadata ?? {}) as { aspect_scores?: Record<string, number> };
+    const scores = meta.aspect_scores ?? {};
+    for (const def of ASPECT_DEFS) {
+      const v = scores[def.key];
+      if (typeof v === "number" && v >= 0) {
+        const cur = aspectSums.get(def.key) ?? { sum: 0, n: 0 };
+        cur.sum += v;
+        cur.n += 1;
+        aspectSums.set(def.key, cur);
+      }
+    }
+  }
+  const dimensionInsights: DimensionInsight[] = ASPECT_DEFS.map((def) => {
+    const agg = aspectSums.get(def.key);
+    return {
+      key: def.key,
+      label: def.label,
+      emoji: def.emoji,
+      avgScore: agg && agg.n > 0 ? Math.round((agg.sum / agg.n) * 10) / 10 : 0,
+      total: agg?.n ?? 0,
+    };
+  });
+
+  // ── CRM07：推播通知開啟率 ───
+  const totalSent = pushDeliveries.reduce((s, p) => s + Number(p.sent_count ?? 0), 0);
+  const totalRead = pushDeliveries.reduce((s, p) => s + Number(p.read_count ?? 0), 0);
+  const pushOpenRate: PushOpenRateKpi = {
+    open_rate: totalSent > 0 ? Math.round((totalRead / totalSent) * 1000) / 10 : 0,
+    total_sent: totalSent,
+    total_read: totalRead,
+  };
+
+  // ── 動態化預警文案：批評者 alert 接客戶名（demo：取最近 1 件） ──
+  if (combinedNps.detractor > 0) {
+    const recentDetractor = npsRows.find((r) => r.score <= 6);
+    const detractorCustomer = recentDetractor?.customer_id
+      ? customers.find((c) => c.id === recentDetractor.customer_id)
+      : null;
+    if (recentDetractor && detractorCustomer) {
+      const days = Math.max(
+        1,
+        Math.round(
+          (Date.now() - new Date(recentDetractor.responded_at).getTime()) /
+            (24 * 60 * 60 * 1000),
+        ),
+      );
+      const idx = alerts.findIndex((a) => a.title.includes("批評者"));
+      if (idx >= 0) {
+        alerts[idx] = {
+          ...alerts[idx],
+          body: `最新一筆：${detractorCustomer.name as string}（NPS ${recentDetractor.score}，${days} 天前回應）。${alerts[idx].body}`,
+        };
+      }
+    }
+  }
+
   return {
     kpi,
     npsByKind,
@@ -464,5 +649,8 @@ export async function getStoreOverview(
     salesLeadKpi,
     serviceKpi,
     alerts,
+    overdueTrend,
+    dimensionInsights,
+    pushOpenRate,
   };
 }

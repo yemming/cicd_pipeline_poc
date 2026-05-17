@@ -71,6 +71,13 @@ export type DormantLeadStats = {
   topCompetitor: { brand: string | null; count: number };
   reasonBreakdown: Array<{ reason: LostReason; count: number; pct: number }>;
   competitorBreakdown: Array<{ brand: string; count: number; pct: number }>;
+  /** 休眠分桶（CRM04A v2 Tab 1 4 顆 KPI） */
+  bucket30_60: number;
+  bucket60_90: number;
+  bucket90plus: number;
+  /** 本月／本季戰敗（CRM04A v2 Tab 2 4 顆 KPI） */
+  lostThisMonth: number;
+  lostThisQuarter: number;
 };
 
 type RawRow = {
@@ -184,7 +191,7 @@ export async function getDormantLeadStats(
   const { data, error } = await supabase
     .from("sales_leads")
     .select(
-      "dormancy_status, lost_reason, competitor_brand, last_revive_at, lost_at",
+      "dormancy_status, lost_reason, competitor_brand, last_revive_at, lost_at, last_visit_at",
     )
     .eq("brand_id", brand)
     .eq("kind", kind)
@@ -197,20 +204,47 @@ export async function getDormantLeadStats(
     competitor_brand: string | null;
     last_revive_at: string | null;
     lost_at: string | null;
+    last_visit_at: string | null;
   }>;
 
   let dormantCount = 0;
   let lostCount = 0;
   let revivedThisMonth = 0;
+  let bucket30_60 = 0;
+  let bucket60_90 = 0;
+  let bucket90plus = 0;
+  let lostThisMonth = 0;
+  let lostThisQuarter = 0;
   const reasonMap = new Map<string, number>();
   const compMap = new Map<string, number>();
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const quarter = Math.floor(now.getMonth() / 3);
+  const quarterStart = new Date(now.getFullYear(), quarter * 3, 1).getTime();
 
   for (const r of rows) {
-    if (r.dormancy_status === "dormant") dormantCount += 1;
-    if (r.dormancy_status === "lost") lostCount += 1;
+    if (r.dormancy_status === "dormant") {
+      dormantCount += 1;
+      // 用 last_visit_at 算休眠分桶
+      if (r.last_visit_at) {
+        const days = Math.floor(
+          (Date.now() - new Date(r.last_visit_at).getTime()) /
+            (1000 * 60 * 60 * 24),
+        );
+        if (days >= 90) bucket90plus += 1;
+        else if (days >= 60) bucket60_90 += 1;
+        else if (days >= 30) bucket30_60 += 1;
+      }
+    }
+    if (r.dormancy_status === "lost") {
+      lostCount += 1;
+      if (r.lost_at) {
+        const t = new Date(r.lost_at).getTime();
+        if (t >= monthStart) lostThisMonth += 1;
+        if (t >= quarterStart) lostThisQuarter += 1;
+      }
+    }
     if (
       r.dormancy_status === "revived" &&
       r.last_revive_at &&
@@ -264,6 +298,11 @@ export async function getDormantLeadStats(
     },
     reasonBreakdown,
     competitorBreakdown,
+    bucket30_60,
+    bucket60_90,
+    bucket90plus,
+    lostThisMonth,
+    lostThisQuarter,
   };
 }
 

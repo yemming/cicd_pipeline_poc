@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
 import type { NewCarInventoryData } from "@/domain/sales-newcar-inventory";
-import type { NewCarStatus, NewCarUnit } from "@/domain/sales-newcar-inventory.constants";
+import type {
+  NewCarStatus,
+  NewCarSubStatus,
+  NewCarUnit,
+} from "@/domain/sales-newcar-inventory.constants";
 
 const TONE_TEXT: Record<string, string> = {
   teal: "text-[#0F6E56]",
@@ -19,6 +23,46 @@ const STATUS_CHIP: Record<NewCarStatus, string> = {
   "訂車中": "bg-[#EEEDFE] text-[#534AB7] border border-[#C5C0F0]",
   "已售出": "bg-[#FDECEA] text-[#C8001A] border border-[#F5AEAD]",
 };
+
+// ── Sub-status（進貨切面）─────────────────────────────────
+// 顯式 subStatus 優先；缺值時依 business status 推導 fallback。
+function deriveSubStatus(u: NewCarUnit): NewCarSubStatus {
+  if (u.subStatus) return u.subStatus;
+  if (u.status === "訂車中") return { kind: "in_transit" };
+  return { kind: "in_stock" };
+}
+
+const SUB_STATUS_CHIP_BASE =
+  "inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap";
+
+function subStatusChipProps(s: NewCarSubStatus): { label: string; className: string; testId: string } {
+  switch (s.kind) {
+    case "in_stock":
+      return {
+        label: "在庫",
+        className: `${SUB_STATUS_CHIP_BASE} bg-[#EAF3DE] text-[#3B6D11]`,
+        testId: "substatus-in-stock",
+      };
+    case "in_transit":
+      return {
+        label: "在途",
+        className: `${SUB_STATUS_CHIP_BASE} bg-[#EAF4FB] text-[#185FA5]`,
+        testId: "substatus-in-transit",
+      };
+    case "eta":
+      return {
+        label: `預估到貨 ${s.etaDate}`,
+        className: `${SUB_STATUS_CHIP_BASE} bg-[#FDF3E3] text-[#854F0B]`,
+        testId: "substatus-eta",
+      };
+    case "assigned":
+      return {
+        label: `已配車（${s.rsName}）`,
+        className: `${SUB_STATUS_CHIP_BASE} bg-[#EEE5F7] text-[#5B2D8C]`,
+        testId: "substatus-assigned",
+      };
+  }
+}
 
 type DisplayMode = "card" | "list";
 
@@ -348,6 +392,16 @@ function CardGrid({
           <div className="p-3">
             <div className="text-[13px] font-bold text-[#2C2C2A]">{u.model}</div>
             <div className="text-[11px] text-[#9A9890] mb-1">{u.year} 年款</div>
+            {(() => {
+              const sub = subStatusChipProps(deriveSubStatus(u));
+              return (
+                <div className="mb-2" data-testid={`newcar-substatus-${u.id}`}>
+                  <span className={sub.className} data-testid={sub.testId}>
+                    {sub.label}
+                  </span>
+                </div>
+              );
+            })()}
             <div className="flex items-center gap-1.5 mb-2">
               <span
                 className="inline-block w-[14px] h-[14px] rounded-full border border-black/10"
@@ -441,6 +495,7 @@ function ListView({
             <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">在庫天</th>
             <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">售價</th>
             <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">狀態</th>
+            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">進貨</th>
             <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6] text-right">操作</th>
           </tr>
         </thead>
@@ -483,6 +538,16 @@ function ListView({
                 >
                   {u.status}
                 </span>
+              </td>
+              <td className="px-3 py-2" data-testid={`row-newcar-substatus-${u.id}`}>
+                {(() => {
+                  const sub = subStatusChipProps(deriveSubStatus(u));
+                  return (
+                    <span className={sub.className} data-testid={`row-${sub.testId}`}>
+                      {sub.label}
+                    </span>
+                  );
+                })()}
               </td>
               <td className="px-3 py-2 text-right">
                 <div className="inline-flex gap-1.5 justify-end">

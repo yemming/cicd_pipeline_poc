@@ -798,7 +798,7 @@ function CustomTab(props: {
   const limitCls =
     used >= PERSONAL_TAG_LIMIT
       ? "bg-[#FDECEA] border-[#F5AEAD] text-[#C8001A]"
-      : used >= PERSONAL_TAG_LIMIT - 1
+      : used >= PERSONAL_TAG_LIMIT - 4
         ? "bg-[#FDF3E3] border-[#F0C97E] text-[#854F0B]"
         : "bg-[#F8F7F4] border-[#EEECE6] text-[#5A5955]";
 
@@ -810,15 +810,15 @@ function CustomTab(props: {
         主管可在觀察視角看到全店自訂標籤的使用情況，但不干預您的使用。
       </div>
 
-      <div className={`flex items-center gap-2 border rounded-md px-3 py-2 text-[12px] ${limitCls}`}>
-        <div className="flex gap-1">
-          {Array.from({ length: PERSONAL_TAG_LIMIT }).map((_, i) => (
-            <span
-              key={i}
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ background: i < used ? "#1A3A5C" : "#EEECE6" }}
-            />
-          ))}
+      <div className={`flex items-center gap-3 border rounded-md px-3 py-2 text-[12px] ${limitCls}`}>
+        <div className="w-[200px] h-[6px] rounded-full bg-[#EEECE6] overflow-hidden shrink-0">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.min(100, (used / PERSONAL_TAG_LIMIT) * 100)}%`,
+              background: used >= PERSONAL_TAG_LIMIT - 4 ? "#854F0B" : "#1A3A5C",
+            }}
+          />
         </div>
         <span>
           已使用：<b>{used} / {PERSONAL_TAG_LIMIT}</b> 個

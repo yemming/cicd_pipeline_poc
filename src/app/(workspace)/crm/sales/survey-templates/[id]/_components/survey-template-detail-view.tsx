@@ -3,19 +3,61 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import {
+  archiveSurveyVersionAction,
   createSurveyTemplateAction,
   deleteSurveyTemplateAction,
+  reorderQuestionsAction,
+  restoreSurveyVersionAction,
+  saveAsNewSurveyVersionAction,
   setSurveyTemplateActiveAction,
+  updateSurveyMetadataAction,
+  updateSurveySaScriptAction,
   updateSurveyTemplateAction,
   type SurveyTemplateInput,
 } from "@/lib/sales/survey-templates-actions";
-import type {
-  SurveyKind,
-  SurveyQuestion,
-  SurveyTemplateRow,
-} from "@/domain/sales-survey-templates";
+import {
+  APPLICABLE_TIMING_ICON,
+  APPLICABLE_TIMING_LABEL,
+  QUESTION_TYPE_DESC,
+  QUESTION_TYPE_ICON,
+  QUESTION_TYPE_LABEL,
+  QUESTION_TYPES,
+  SURVEY_HABC_ICON,
+  SURVEY_HABC_LABEL,
+  SURVEY_HABC_TARGETS,
+  SURVEY_STATUS_BADGE_CLS,
+  SURVEY_STATUS_LABEL,
+  readSurveyHabc,
+  readSurveySaScript,
+  readSurveyStatus,
+  readSurveyTiming,
+  readSurveyVersions,
+  timingOrderFor,
+  type ApplicableTiming,
+  type SurveyHabcTarget,
+  type SurveyKind,
+  type SurveyMetadata,
+  type SurveyQuestion,
+  type SurveyQuestionType,
+  type SurveyTemplateRow,
+} from "@/domain/sales-survey-templates.constants";
 
 type Banner = { ok: boolean; msg: string } | null;
 type TabKey = "questions" | "metadata";
@@ -49,6 +91,13 @@ const blankInput = (kind: SurveyKind): SurveyTemplateInput => ({
   effective_from: "",
   effective_to: "",
   is_active: true,
+  metadata: {
+    applicable_timing:
+      kind === "aftersales" ? "d3_satisfaction" : "deal_followup",
+    target_habc: ["H", "A", "B"],
+    status: "draft",
+    sa_script: "",
+  },
 });
 
 const fromSurvey = (s: SurveyTemplateRow): SurveyTemplateInput => ({
@@ -61,15 +110,11 @@ const fromSurvey = (s: SurveyTemplateRow): SurveyTemplateInput => ({
   effective_from: s.effective_from ?? "",
   effective_to: s.effective_to ?? "",
   is_active: s.is_active,
+  metadata: s.metadata ?? {},
 });
 
-const newQuestion = (idx: number): SurveyQuestion => ({
-  id: `q${idx + 1}`,
-  label: "",
-  type: "single",
-  required: true,
-  options: ["選項一", "選項二"],
-});
+// newQuestion 已被 AddQuestionModal 取代（v2 起所有新題目走 modal）。
+// 保留型別 import 給 modal 使用。
 
 export function SurveyTemplateDetailView({
   survey,
@@ -92,6 +137,12 @@ export function SurveyTemplateDetailView({
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(initialMode === "create");
   const [activeTab, setActiveTab] = useState<TabKey>("questions");
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+  );
 
   const initialDraft: SurveyTemplateInput = survey
     ? fromSurvey(survey)
@@ -217,24 +268,147 @@ export function SurveyTemplateDetailView({
     next[idx] = { ...next[idx], ...patch };
     setFormDraft({ ...formDraft, questions: next });
   };
-  const addQuestion = () => {
-    setFormDraft({
-      ...formDraft,
-      questions: [...formDraft.questions, newQuestion(formDraft.questions.length)],
-    });
+  const appendQuestion = (q: SurveyQuestion) => {
+    setFormDraft({ ...formDraft, questions: [...formDraft.questions, q] });
   };
   const removeQuestion = (idx: number) => {
     const next = [...formDraft.questions];
     next.splice(idx, 1);
     setFormDraft({ ...formDraft, questions: next });
   };
-  const moveQuestion = (idx: number, dir: -1 | 1) => {
-    const target = idx + dir;
-    if (target < 0 || target >= formDraft.questions.length) return;
-    const next = [...formDraft.questions];
-    [next[idx], next[target]] = [next[target], next[idx]];
-    setFormDraft({ ...formDraft, questions: next });
+
+  // 拖曳重排（dnd-kit）。view 模式也允許拖、立即打 server action 樂觀更新。
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIdx = formDraft.questions.findIndex((q) => q.id === active.id);
+    const newIdx = formDraft.questions.findIndex((q) => q.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const reordered = arrayMove(formDraft.questions, oldIdx, newIdx);
+    setFormDraft({ ...formDraft, questions: reordered });
+    // view 模式（非 editing/creating）拖曳：直接寫回後端
+    if (!showInputs && survey) {
+      startTransition(async () => {
+        const res = await reorderQuestionsAction(
+          survey.id,
+          reordered.map((q) => q.id),
+        );
+        if (res.ok) {
+          showBanner({ ok: true, msg: "✓ 已更新題序" });
+          router.refresh();
+        } else {
+          // rollback
+          setFormDraft({ ...formDraft, questions: survey.questions });
+          showBanner({ ok: false, msg: res.error });
+        }
+      });
+    }
   };
+
+  // metadata 操作（HABC chip toggle / 適用時機 select）— edit 模式存在 draft；view 模式直接打 action
+  const updateMetadata = (patch: Partial<SurveyMetadata>) => {
+    const merged: SurveyMetadata = { ...(formDraft.metadata ?? {}), ...patch };
+    setFormDraft({ ...formDraft, metadata: merged });
+    if (!showInputs && survey) {
+      startTransition(async () => {
+        const res = await updateSurveyMetadataAction(survey.id, patch);
+        if (res.ok) {
+          showBanner({ ok: true, msg: "✓ 已更新適用設定" });
+          router.refresh();
+        } else {
+          showBanner({ ok: false, msg: res.error });
+        }
+      });
+    }
+  };
+
+  const toggleHabc = (g: SurveyHabcTarget) => {
+    const cur = readSurveyHabc(formDraft.metadata);
+    const next = cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g];
+    updateMetadata({ target_habc: next });
+  };
+
+  const archiveVersion = () => {
+    if (!survey) return;
+    const note = prompt(
+      "為新版本寫一段變更說明（會留在版本記錄裡）：",
+      "封存當前版本、開啟新草稿",
+    );
+    if (note === null) return; // 使用者按取消
+    startTransition(async () => {
+      const res = await archiveSurveyVersionAction(survey.id, note);
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已封存版本、新草稿已開啟" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  /** 另存新版（CRM02B spec § 版本記錄 - 另存新版本 button） */
+  const saveAsNewVersion = () => {
+    if (!survey) return;
+    const note = prompt(
+      "為新版寫一段變更說明（會留在版本記錄裡）：",
+      "另存為新版草稿",
+    );
+    if (note === null) return;
+    startTransition(async () => {
+      const res = await saveAsNewSurveyVersionAction(survey.id, note);
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已另存為新版草稿" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  /** 還原指定版本（CRM02B spec § 版本記錄 - 還原此版 button） */
+  const restoreVersion = (versionLabel: string) => {
+    if (!survey) return;
+    if (
+      !confirm(
+        `確定要把問卷還原回 ${versionLabel} 嗎？\n還原後：\n- 題目與 SA 話術會回到 ${versionLabel} 當時的內容\n- 問卷狀態會切回「草稿」（請 review 後再啟用）\n- 當前版本會自動封存、保留快照`,
+      )
+    )
+      return;
+    startTransition(async () => {
+      const res = await restoreSurveyVersionAction(survey.id, versionLabel);
+      if (res.ok) {
+        showBanner({ ok: true, msg: `✓ 已還原至 ${versionLabel}（草稿）` });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  /** SA 建議話術 - blur 後存（CRM02B spec § script-editor） */
+  const [saScriptDraft, setSaScriptDraft] = useState<string>(
+    readSurveySaScript(survey?.metadata ?? null),
+  );
+  const saScriptOriginal = readSurveySaScript(survey?.metadata ?? null);
+  const saScriptDirty = saScriptDraft !== saScriptOriginal;
+  const saveSaScript = () => {
+    if (!survey || !saScriptDirty) return;
+    startTransition(async () => {
+      const res = await updateSurveySaScriptAction(survey.id, saScriptDraft);
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已儲存 SA 建議話術" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  const currentMetadata = formDraft.metadata ?? survey?.metadata ?? {};
+  const currentHabc = readSurveyHabc(currentMetadata);
+  const currentTiming = readSurveyTiming(currentMetadata);
+  const currentStatus = readSurveyStatus(currentMetadata);
+  const currentVersions = readSurveyVersions(currentMetadata);
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -393,13 +567,29 @@ export function SurveyTemplateDetailView({
                       {KIND_LABEL[survey.kind]}
                     </span>
                     <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${SURVEY_STATUS_BADGE_CLS[currentStatus]}`}
+                      data-testid="survey-status-chip"
+                    >
+                      {SURVEY_STATUS_LABEL[currentStatus]}
+                    </span>
+                    {currentTiming ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#EAF4FB] text-[#185FA5]">
+                        🎯 {APPLICABLE_TIMING_LABEL[currentTiming]}
+                      </span>
+                    ) : null}
+                    <span
                       className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${survey.is_active ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#F2F2F2] text-[#6B6A68]"}`}
                     >
-                      {survey.is_active ? "啟用" : "停用"}
+                      {survey.is_active ? "is_active=true" : "is_active=false"}
                     </span>
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#EBF3FF] text-[#1A3A5C]">
                       {survey.questions.length} 題
                     </span>
+                    {currentVersions[0] ? (
+                      <span className="font-mono text-[11px] text-[#9A9890]">
+                        · {currentVersions[0].ver}
+                      </span>
+                    ) : null}
                   </>
                 ) : null}
               </div>
@@ -634,40 +824,205 @@ export function SurveyTemplateDetailView({
           </div>
           <div className="bg-white border border-[#EEECE6] border-t-0 rounded-b-lg p-4 space-y-3">
             {activeTab === "questions" ? (
-              <SectionCard
-                title={`題目清單（${formDraft.questions.length}）`}
-                right={
-                  showInputs ? (
-                    <button
-                      type="button"
-                      onClick={addQuestion}
-                      className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#0F6E56] text-white hover:bg-[#0a5742]"
-                    >
-                      ＋ 新增題目
-                    </button>
-                  ) : null
-                }
-              >
-                {formDraft.questions.length === 0 ? (
-                  <div className="text-[12px] text-[#9A9890] py-3">
-                    尚無題目。{showInputs ? "點上方「＋ 新增題目」開始建立。" : "點「修改」進入編輯模式建立題目。"}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {formDraft.questions.map((q, idx) => (
-                      <QuestionRow
-                        key={`${q.id}-${idx}`}
-                        idx={idx}
-                        q={q}
-                        editing={showInputs}
-                        onChange={(patch) => updateQuestion(idx, patch)}
-                        onRemove={() => removeQuestion(idx)}
-                        onMove={(dir) => moveQuestion(idx, dir)}
+              <>
+                {/* SA 建議話術編輯器 — CRM02B spec § script-editor（深藍底）
+                    aftersales 才顯示；sales 側暫不需要這個 feature */}
+                {currentKind === "aftersales" ? (
+                  <SectionCard
+                    title="▼ 🎙️ SA 建議話術腳本"
+                    right={
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-[#9A9890]">
+                          顯示於 CRM03B 電訪工作台
+                        </span>
+                        <button
+                          type="button"
+                          onClick={saveSaScript}
+                          disabled={!canEdit || isPending || !saScriptDirty}
+                          data-testid="survey-sa-script-save"
+                          className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                        >
+                          {isPending ? "儲存中…" : saScriptDirty ? "💾 儲存話術" : "✓ 已儲存"}
+                        </button>
+                      </div>
+                    }
+                  >
+                    <div className="rounded-lg bg-[#1A3A5C] p-3.5">
+                      <div className="text-[9.5px] font-bold tracking-wider text-white/50 mb-1.5 uppercase">
+                        SA 電訪話術腳本
+                      </div>
+                      <textarea
+                        value={saScriptDraft}
+                        onChange={(e) => setSaScriptDraft(e.target.value)}
+                        onBlur={saveSaScript}
+                        disabled={!canEdit || isPending}
+                        rows={4}
+                        placeholder="輸入建議話術，SA 在 CRM03B 電訪時可直接參照此腳本..."
+                        data-testid="survey-sa-script-textarea"
+                        className="w-full bg-white/10 border border-white/15 rounded-md px-3 py-2 text-white text-[12.5px] leading-[1.8] outline-none focus:border-white/35 placeholder:text-white/35 resize-y min-h-[80px] disabled:opacity-60 font-mono"
                       />
-                    ))}
+                      <div className="text-[10.5px] text-white/40 mt-1.5">
+                        ＊話術將同步顯示於 CRM03B 電訪工作台的建議話術欄位
+                      </div>
+                    </div>
+                  </SectionCard>
+                ) : null}
+
+                {/* HABC 對象 chip grid + 適用時機 + 狀態（題目編輯展開面板 - spec 要求） */}
+                <SectionCard title="▼ 適用對象與時機">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] text-[#9A9890] font-medium">
+                        適用時機
+                      </label>
+                      <select
+                        value={currentTiming ?? ""}
+                        onChange={(e) =>
+                          updateMetadata({
+                            applicable_timing:
+                              (e.target.value as ApplicableTiming) || null,
+                          })
+                        }
+                        disabled={!canEdit || isPending}
+                        className="mt-1 h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] outline-none focus:border-[#185FA5] disabled:opacity-60"
+                        data-testid="survey-timing-select"
+                      >
+                        <option value="">— 未指定 —</option>
+                        {timingOrderFor(currentKind).map((t) => (
+                          <option key={t} value={t}>
+                            {APPLICABLE_TIMING_ICON[t]} {APPLICABLE_TIMING_LABEL[t]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-[#9A9890] font-medium">
+                        問卷狀態
+                      </label>
+                      <select
+                        value={currentStatus}
+                        onChange={(e) =>
+                          updateMetadata({
+                            status: e.target.value as
+                              | "active"
+                              | "draft"
+                              | "archived",
+                          })
+                        }
+                        disabled={!canEdit || isPending}
+                        className="mt-1 h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] outline-none focus:border-[#185FA5] disabled:opacity-60"
+                        data-testid="survey-status-select"
+                      >
+                        <option value="draft">草稿</option>
+                        <option value="active">啟用中</option>
+                        <option value="archived">已封存</option>
+                      </select>
+                    </div>
                   </div>
-                )}
-              </SectionCard>
+                  <div className="mt-3">
+                    <label className="text-[11px] text-[#9A9890] font-medium">
+                      適用 HABC 對象（可多選）
+                    </label>
+                    <div
+                      className="mt-1 grid grid-cols-2 md:grid-cols-4 gap-1.5"
+                      data-testid="survey-habc-chip-grid"
+                    >
+                      {SURVEY_HABC_TARGETS.map((g) => {
+                        const selected = currentHabc.includes(g);
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => toggleHabc(g)}
+                            disabled={!canEdit || isPending}
+                            className={`h-[40px] px-3 rounded border text-[12px] flex items-center gap-1.5 disabled:opacity-60 ${
+                              selected
+                                ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
+                                : "bg-white border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                            }`}
+                            aria-pressed={selected}
+                          >
+                            <span>{SURVEY_HABC_ICON[g]}</span>
+                            <span>{SURVEY_HABC_LABEL[g]}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <SectionCard
+                  title={`▼ 題目清單（${formDraft.questions.length}） · 拖曳調整題序`}
+                  right={
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddQuestion(true)}
+                        disabled={!canEdit}
+                        data-testid="survey-add-question-button"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                      >
+                        ＋ 新增題目
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowVersions(true)}
+                        data-testid="survey-version-panel-open"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                      >
+                        📋 版本記錄
+                      </button>
+                      <button
+                        type="button"
+                        onClick={saveAsNewVersion}
+                        disabled={!canEdit || isPending}
+                        data-testid="survey-save-as-new-version"
+                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#185FA5] text-white hover:bg-[#0F4A85] disabled:opacity-50"
+                      >
+                        💾 另存新版
+                      </button>
+                      <button
+                        type="button"
+                        onClick={archiveVersion}
+                        disabled={!canEdit || isPending}
+                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                      >
+                        📦 封存當前版本
+                      </button>
+                    </div>
+                  }
+                >
+                  {formDraft.questions.length === 0 ? (
+                    <div className="text-[12px] text-[#9A9890] py-3">
+                      尚無題目。點右上「＋ 新增題目」開始建立。
+                    </div>
+                  ) : (
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={onDragEnd}
+                    >
+                      <SortableContext
+                        items={formDraft.questions.map((q) => q.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-2">
+                          {formDraft.questions.map((q, idx) => (
+                            <QuestionRow
+                              key={q.id}
+                              idx={idx}
+                              q={q}
+                              editing={showInputs}
+                              onChange={(patch) => updateQuestion(idx, patch)}
+                              onRemove={() => removeQuestion(idx)}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  )}
+                </SectionCard>
+              </>
             ) : null}
 
             {activeTab === "metadata" ? (
@@ -676,11 +1031,22 @@ export function SurveyTemplateDetailView({
                   <Kv label="問卷 ID" value={<span className="font-mono text-[11.5px]">{survey.id}</span>} small />
                   <Kv label="品牌" value={<span className="font-mono">{survey.brand_id}</span>} small mono />
                   <Kv
-                    label="metadata（jsonb）"
+                    label="metadata（jsonb 鍵列表）"
                     value={
                       <code className="text-[11px] text-[#5A5955]">
-                        （目前無自訂 metadata）
+                        {Object.keys(survey.metadata ?? {}).length === 0
+                          ? "（無自訂 metadata）"
+                          : Object.keys(survey.metadata ?? {}).join(" · ")}
                       </code>
+                    }
+                    small
+                  />
+                  <Kv
+                    label="版本數"
+                    value={
+                      <span className="font-mono">
+                        {currentVersions.length}
+                      </span>
                     }
                     small
                   />
@@ -698,7 +1064,8 @@ export function SurveyTemplateDetailView({
           right={
             <button
               type="button"
-              onClick={addQuestion}
+              onClick={() => setShowAddQuestion(true)}
+              data-testid="survey-add-question-button-create"
               className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#0F6E56] text-white hover:bg-[#0a5742]"
             >
               ＋ 新增題目
@@ -710,36 +1077,69 @@ export function SurveyTemplateDetailView({
               尚無題目，點上方「＋ 新增題目」開始建立。也可以先建立問卷主檔、之後再補題目。
             </div>
           ) : (
-            <div className="space-y-2">
-              {createDraft.questions.map((q, idx) => (
-                <QuestionRow
-                  key={`new-${q.id}-${idx}`}
-                  idx={idx}
-                  q={q}
-                  editing
-                  onChange={(patch) => updateQuestion(idx, patch)}
-                  onRemove={() => removeQuestion(idx)}
-                  onMove={(dir) => moveQuestion(idx, dir)}
-                />
-              ))}
-            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={onDragEnd}
+            >
+              <SortableContext
+                items={createDraft.questions.map((q) => q.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {createDraft.questions.map((q, idx) => (
+                    <QuestionRow
+                      key={q.id}
+                      idx={idx}
+                      q={q}
+                      editing
+                      onChange={(patch) => updateQuestion(idx, patch)}
+                      onRemove={() => removeQuestion(idx)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </SectionCard>
+      ) : null}
+
+      {showAddQuestion ? (
+        <AddQuestionModal
+          onClose={() => setShowAddQuestion(false)}
+          onAdd={(q) => {
+            appendQuestion(q);
+            setShowAddQuestion(false);
+            showBanner({ ok: true, msg: "✓ 已加入新題目（待儲存）" });
+          }}
+        />
+      ) : null}
+
+      {showVersions ? (
+        <VersionsModal
+          versions={currentVersions}
+          status={currentStatus}
+          code={survey?.code ?? "（新問卷）"}
+          canEdit={canEdit}
+          disabled={isPending}
+          onRestore={(ver) => {
+            restoreVersion(ver);
+            setShowVersions(false);
+          }}
+          onSaveAsNew={() => {
+            saveAsNewVersion();
+            setShowVersions(false);
+          }}
+          onClose={() => setShowVersions(false)}
+        />
       ) : null}
     </main>
   );
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// QuestionRow — 單題編輯 / 顯示
+// QuestionRow — 單題編輯 / 顯示（dnd-kit sortable）
 // ──────────────────────────────────────────────────────────────────────────
-
-const QUESTION_TYPE_LABEL: Record<SurveyQuestion["type"], string> = {
-  single: "單選",
-  multi: "複選",
-  rating: "評分",
-  text: "文字",
-};
 
 function QuestionRow({
   idx,
@@ -747,156 +1147,575 @@ function QuestionRow({
   editing,
   onChange,
   onRemove,
-  onMove,
 }: {
   idx: number;
   q: SurveyQuestion;
   editing: boolean;
   onChange: (patch: Partial<SurveyQuestion>) => void;
   onRemove: () => void;
-  onMove: (dir: -1 | 1) => void;
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: q.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
   const hasOptions =
     q.type === "single" || q.type === "multi" || q.type === "rating";
-
   const optionsText = (q.options ?? []).join("\n");
 
   if (!editing) {
     return (
-      <div className="border border-[#EEECE6] rounded p-3 bg-[#FAFAF8]">
-        <div className="flex items-start gap-2">
-          <span className="font-mono text-[11px] text-[#9A9890] mt-0.5">
-            Q{idx + 1}
-          </span>
-          <div className="flex-1 min-w-0">
-            <div className="text-[12.5px] text-[#2C2C2A]">{q.label || "（未命名題目）"}</div>
-            <div className="flex items-center gap-2 mt-1 text-[11px] text-[#5A5955]">
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[#EEF4FB] text-[#185FA5]">
-                {QUESTION_TYPE_LABEL[q.type]}
-              </span>
-              {q.required ? (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[#FDECEA] text-[#CC0000]">
-                  必填
-                </span>
-              ) : (
-                <span className="text-[#9A9890]">選填</span>
-              )}
-              {hasOptions ? (
-                <span className="text-[#9A9890]">
-                  選項：{(q.options ?? []).join(" / ") || "（無）"}
-                </span>
-              ) : null}
-            </div>
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="border border-[#EEECE6] rounded p-3 bg-[#FAFAF8] flex items-start gap-2"
+        data-testid={`survey-question-row-${q.id}`}
+      >
+        <button
+          type="button"
+          className="cursor-grab active:cursor-grabbing text-[#9A9890] hover:text-[#5A5955] select-none mt-0.5"
+          aria-label="拖曳排序"
+          {...attributes}
+          {...listeners}
+        >
+          ⠿
+        </button>
+        <span className="font-mono text-[11px] text-[#9A9890] mt-0.5 shrink-0">
+          Q{idx + 1}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-[12.5px] text-[#2C2C2A]">
+            {q.label || "（未命名題目）"}
           </div>
+          <div className="flex items-center gap-2 mt-1 text-[11px] text-[#5A5955] flex-wrap">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[#EEF4FB] text-[#185FA5]">
+              {QUESTION_TYPE_ICON[q.type]} {QUESTION_TYPE_LABEL[q.type]}
+            </span>
+            {q.required ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[#FDECEA] text-[#CC0000]">
+                必填
+              </span>
+            ) : (
+              <span className="text-[#9A9890]">選填</span>
+            )}
+            {hasOptions ? (
+              <span className="text-[#9A9890]">
+                選項：{(q.options ?? []).join(" / ") || "（無）"}
+              </span>
+            ) : null}
+          </div>
+          {q.hint ? (
+            <div
+              className="mt-1.5 text-[11px] text-[#185FA5] bg-[#EAF4FB] rounded px-2 py-1"
+              data-testid={`survey-question-hint-display-${q.id}`}
+            >
+              💬 {q.hint}
+            </div>
+          ) : null}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="border border-[#EEECE6] rounded p-3 bg-white">
-      <div className="flex items-start gap-2">
-        <span className="font-mono text-[11px] text-[#9A9890] mt-2">
-          Q{idx + 1}
-        </span>
-        <div className="flex-1 min-w-0 space-y-2">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="border border-[#EEECE6] rounded p-3 bg-white flex items-start gap-2"
+      data-testid={`survey-question-row-${q.id}`}
+    >
+      <button
+        type="button"
+        className="cursor-grab active:cursor-grabbing text-[#9A9890] hover:text-[#5A5955] select-none mt-2"
+        aria-label="拖曳排序"
+        {...attributes}
+        {...listeners}
+      >
+        ⠿
+      </button>
+      <span className="font-mono text-[11px] text-[#9A9890] mt-2 shrink-0">
+        Q{idx + 1}
+      </span>
+      <div className="flex-1 min-w-0 space-y-2">
+        <input
+          value={q.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          placeholder="題目敘述，例如：對銷售顧問的服務您打幾分？"
+          className="h-[28px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] outline-none focus:border-[#185FA5]"
+        />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <div>
+            <label className="text-[11px] text-[#9A9890]">題型</label>
+            <select
+              value={q.type}
+              onChange={(e) => {
+                const nextType = e.target.value as SurveyQuestionType;
+                const patch: Partial<SurveyQuestion> = { type: nextType };
+                if (nextType === "text") patch.options = undefined;
+                else if (!q.options || q.options.length === 0)
+                  patch.options = ["選項一", "選項二"];
+                onChange(patch);
+              }}
+              className="h-[28px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] outline-none focus:border-[#185FA5]"
+            >
+              {QUESTION_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {QUESTION_TYPE_LABEL[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-[#9A9890]">是否必填</label>
+            <select
+              value={q.required ? "yes" : "no"}
+              onChange={(e) => onChange({ required: e.target.value === "yes" })}
+              className="h-[28px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] outline-none focus:border-[#185FA5]"
+            >
+              <option value="yes">必填</option>
+              <option value="no">選填</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-[#9A9890]">題目 ID</label>
+            <input
+              value={q.id}
+              onChange={(e) => onChange({ id: e.target.value })}
+              placeholder="q1"
+              className="h-[28px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] font-mono outline-none focus:border-[#185FA5]"
+            />
+          </div>
+        </div>
+        {hasOptions ? (
+          <div>
+            <label className="text-[11px] text-[#9A9890]">
+              選項（每行一個）
+            </label>
+            <textarea
+              value={optionsText}
+              onChange={(e) =>
+                onChange({
+                  options: e.target.value
+                    .split("\n")
+                    .map((s) => s.trim())
+                    .filter(Boolean),
+                })
+              }
+              rows={3}
+              placeholder={"選項一\n選項二\n選項三"}
+              className="w-full border border-[#D5D3CB] rounded p-2 text-[12.5px] outline-none focus:border-[#185FA5]"
+            />
+          </div>
+        ) : null}
+        <div>
+          <label className="text-[11px] text-[#9A9890]">
+            💬 SA 電訪說明語（選填）
+          </label>
           <input
-            value={q.label}
-            onChange={(e) => onChange({ label: e.target.value })}
-            placeholder="題目敘述，例如：對銷售顧問的服務您打幾分？"
-            className="h-[28px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] outline-none focus:border-[#185FA5]"
+            type="text"
+            value={q.hint ?? ""}
+            onChange={(e) => onChange({ hint: e.target.value })}
+            placeholder="例：請客戶從 0 到 10 分評分，10 分最滿意"
+            className="h-[28px] w-full border border-[#D5D3CB] rounded px-2 text-[12px] outline-none focus:border-[#185FA5]"
+            data-testid={`survey-question-hint-input-${q.id}`}
           />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div>
-              <label className="text-[11px] text-[#9A9890]">題型</label>
-              <select
-                value={q.type}
-                onChange={(e) => {
-                  const nextType = e.target.value as SurveyQuestion["type"];
-                  const patch: Partial<SurveyQuestion> = { type: nextType };
-                  if (nextType === "text") patch.options = undefined;
-                  else if (!q.options || q.options.length === 0)
-                    patch.options = ["選項一", "選項二"];
-                  onChange(patch);
-                }}
-                className="h-[28px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] outline-none focus:border-[#185FA5]"
-              >
-                <option value="single">單選</option>
-                <option value="multi">複選</option>
-                <option value="rating">評分</option>
-                <option value="text">文字</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] text-[#9A9890]">是否必填</label>
-              <select
-                value={q.required ? "yes" : "no"}
-                onChange={(e) =>
-                  onChange({ required: e.target.value === "yes" })
-                }
-                className="h-[28px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] outline-none focus:border-[#185FA5]"
-              >
-                <option value="yes">必填</option>
-                <option value="no">選填</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] text-[#9A9890]">題目 ID</label>
-              <input
-                value={q.id}
-                onChange={(e) => onChange({ id: e.target.value })}
-                placeholder="q1"
-                className="h-[28px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] font-mono outline-none focus:border-[#185FA5]"
-              />
+          <div className="text-[10.5px] text-[#9A9890] mt-0.5">
+            顯示在 CRM03B 電訪工作台題目旁，幫助 SA 詢問
+          </div>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="h-[24px] px-2 rounded text-[11px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
+      >
+        刪除
+      </button>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// AddQuestionModal — 新增題目（題型 grid + 動態選項）
+// ──────────────────────────────────────────────────────────────────────────
+
+function AddQuestionModal({
+  onClose,
+  onAdd,
+}: {
+  onClose: () => void;
+  onAdd: (q: SurveyQuestion) => void;
+}) {
+  const [qtype, setQtype] = useState<SurveyQuestionType>("single");
+  const [label, setLabel] = useState("");
+  const [required, setRequired] = useState(true);
+  const [hint, setHint] = useState("");
+  const [options, setOptions] = useState<string[]>(["選項一", "選項二"]);
+  const [error, setError] = useState<string | null>(null);
+
+  const needOptions = qtype === "single" || qtype === "multi";
+  const inputCls =
+    "h-[32px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5] w-full";
+
+  const submit = () => {
+    if (!label.trim()) {
+      setError("題目內容必填");
+      return;
+    }
+    setError(null);
+    const cleanOpts =
+      qtype === "text"
+        ? undefined
+        : qtype === "rating"
+          ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+          : options.map((s) => s.trim()).filter(Boolean);
+    const q: SurveyQuestion = {
+      id: `q${Date.now()}`,
+      label: label.trim(),
+      type: qtype,
+      required,
+    };
+    if (cleanOpts !== undefined) q.options = cleanOpts;
+    if (hint.trim()) q.hint = hint.trim();
+    onAdd(q);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full overflow-hidden">
+        <header className="px-4 py-3 border-b border-[#EEECE6] flex items-center justify-between">
+          <h2 className="text-[14px] font-semibold text-[#2C2C2A]">
+            ＋ 新增題目
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[#9A9890] hover:text-[#2C2C2A] text-[18px] leading-none"
+            aria-label="關閉"
+          >
+            ×
+          </button>
+        </header>
+        <div className="px-4 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-1.5">
+            <label className="text-[11px] text-[#9A9890] font-medium">
+              題型選擇
+            </label>
+            <div
+              className="grid grid-cols-2 gap-1.5"
+              data-testid="survey-qtype-grid"
+            >
+              {QUESTION_TYPES.map((t) => {
+                const selected = qtype === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setQtype(t)}
+                    className={`p-3 rounded border text-left ${
+                      selected
+                        ? "bg-[#EAF4FB] border-[#185FA5]"
+                        : "bg-white border-[#D5D3CB] hover:border-[#9A9890]"
+                    }`}
+                    aria-pressed={selected}
+                  >
+                    <div className="text-[14px] leading-none">
+                      {QUESTION_TYPE_ICON[t]}
+                    </div>
+                    <div className="mt-1 text-[12.5px] font-semibold text-[#2C2C2A]">
+                      {QUESTION_TYPE_LABEL[t]}
+                    </div>
+                    <div className="text-[11px] text-[#9A9890]">
+                      {QUESTION_TYPE_DESC[t]}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
-          {hasOptions ? (
-            <div>
-              <label className="text-[11px] text-[#9A9890]">
-                選項（每行一個）
+          <div className="space-y-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">
+              題目內容 <span className="text-[#C8001A]">*</span>
+            </label>
+            <textarea
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              rows={2}
+              placeholder="例：請問您上次到訪後，對我們的服務整體滿意度如何？"
+              className="w-full border border-[#D5D3CB] rounded p-2 text-[12.5px] outline-none focus:border-[#185FA5]"
+              autoFocus
+              data-testid="survey-question-label-input"
+            />
+          </div>
+          {needOptions ? (
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-[#9A9890] font-medium">
+                選項設定
               </label>
-              <textarea
-                value={optionsText}
-                onChange={(e) =>
-                  onChange({
-                    options: e.target.value
-                      .split("\n")
-                      .map((s) => s.trim())
-                      .filter(Boolean),
-                  })
-                }
-                rows={3}
-                placeholder={"選項一\n選項二\n選項三"}
-                className="w-full border border-[#D5D3CB] rounded p-2 text-[12.5px] outline-none focus:border-[#185FA5]"
-              />
+              <div className="space-y-1.5">
+                {options.map((opt, i) => (
+                  <div key={i} className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => {
+                        const next = [...options];
+                        next[i] = e.target.value;
+                        setOptions(next);
+                      }}
+                      placeholder={`選項 ${i + 1}`}
+                      className={inputCls}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOptions(options.filter((_, j) => j !== i))
+                      }
+                      className="h-[32px] px-2 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                      aria-label="移除選項"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setOptions([...options, ""])}
+                  className="h-[28px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                >
+                  ＋ 新增選項
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {qtype === "rating" ? (
+            <div className="text-[11.5px] text-[#9A9890] bg-[#F8F7F4] rounded px-2.5 py-2">
+              評分題自動產生 1–10 共 10 個選項，無需手動設定。
+            </div>
+          ) : null}
+          <div className="space-y-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">
+              💬 SA 電訪說明語（選填）
+            </label>
+            <input
+              type="text"
+              value={hint}
+              onChange={(e) => setHint(e.target.value)}
+              placeholder="例：請客戶從 0 到 10 分評分，10 分最滿意"
+              className={inputCls}
+              data-testid="survey-add-question-hint-input"
+            />
+            <div className="text-[10.5px] text-[#9A9890]">
+              顯示在 CRM03B 電訪工作台題目旁，幫助 SA 詢問
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">
+              必填
+            </label>
+            <select
+              value={required ? "yes" : "no"}
+              onChange={(e) => setRequired(e.target.value === "yes")}
+              className={inputCls}
+            >
+              <option value="yes">必填</option>
+              <option value="no">選填</option>
+            </select>
+          </div>
+          {error ? (
+            <div className="px-3 py-2 rounded bg-[#FDECEA] text-[#CC0000] text-[12px]">
+              {error}
             </div>
           ) : null}
         </div>
-        <div className="flex flex-col gap-1">
+        <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
           <button
             type="button"
-            onClick={() => onMove(-1)}
-            className="h-[24px] px-2 rounded text-[11px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-            aria-label="上移"
+            onClick={onClose}
+            className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
           >
-            ↑
+            取消
           </button>
           <button
             type="button"
-            onClick={() => onMove(1)}
-            className="h-[24px] px-2 rounded text-[11px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-            aria-label="下移"
+            onClick={submit}
+            data-testid="survey-add-question-submit"
+            className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742]"
           >
-            ↓
+            ✅ 新增此題
           </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// VersionsModal — 版本記錄
+// ──────────────────────────────────────────────────────────────────────────
+
+function VersionsModal({
+  versions,
+  status,
+  code,
+  canEdit,
+  disabled,
+  onRestore,
+  onSaveAsNew,
+  onClose,
+}: {
+  versions: ReturnType<typeof readSurveyVersions>;
+  status: ReturnType<typeof readSurveyStatus>;
+  code: string;
+  canEdit: boolean;
+  disabled: boolean;
+  onRestore: (ver: string) => void;
+  onSaveAsNew: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl max-w-lg w-full overflow-hidden"
+        data-testid="survey-version-panel"
+      >
+        <header className="px-4 py-3 border-b border-[#EEECE6] flex items-center justify-between">
+          <h2 className="text-[14px] font-semibold text-[#2C2C2A]">
+            📋 {code} 問卷版本記錄
+          </h2>
           <button
             type="button"
-            onClick={onRemove}
-            className="h-[24px] px-2 rounded text-[11px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
+            onClick={onClose}
+            className="text-[#9A9890] hover:text-[#2C2C2A] text-[18px] leading-none"
+            aria-label="關閉"
           >
-            刪除
+            ×
           </button>
+        </header>
+        <div
+          className="px-4 py-4 space-y-2 max-h-[60vh] overflow-y-auto"
+          data-testid="survey-version-list-detail"
+        >
+          {versions.length === 0 ? (
+            <div className="text-[12px] text-[#9A9890] py-4 text-center">
+              尚無版本記錄。點底部「💾 另存新版」或上方「📦 封存當前版本」會寫入第一筆。
+            </div>
+          ) : (
+            versions.map((v, idx) => {
+              const isCurrent = idx === 0 && !v.archived_at;
+              const hasSnapshot = Boolean(
+                v.snapshot && Array.isArray(v.snapshot.questions),
+              );
+              const restoreDisabled =
+                !canEdit || disabled || isCurrent || !hasSnapshot;
+              const restoreHint = !hasSnapshot
+                ? "舊版無快照，無法還原（CRM02B 之前的版本歷史只有 metadata）"
+                : isCurrent
+                  ? "這是當前版本"
+                  : "把問卷還原回此版";
+              return (
+                <div
+                  key={`${v.ver}-${idx}`}
+                  className={`flex items-start gap-3 p-3 rounded border ${
+                    isCurrent
+                      ? "border-[#5DCAA5] bg-[#F2FAF6]"
+                      : "border-[#EEECE6] bg-white"
+                  }`}
+                  data-testid={`survey-version-item-${v.ver}`}
+                >
+                  <span className="font-mono font-semibold text-[13px] text-[#1A3A5C] shrink-0">
+                    {v.ver}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] text-[#2C2C2A]">{v.note}</div>
+                    <div className="text-[11px] text-[#9A9890] mt-0.5">
+                      {v.date}
+                      {v.archived_at
+                        ? ` · 已於 ${v.archived_at} 封存`
+                        : ""}
+                      {hasSnapshot ? (
+                        <span className="ml-2 text-[#0F6E56]">
+                          · 快照 {v.snapshot?.questions?.length ?? 0} 題
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap ${
+                        isCurrent && status === "active"
+                          ? "bg-[#E1F5EE] text-[#0F6E56]"
+                          : isCurrent
+                            ? "bg-[#FDF3E3] text-[#854F0B]"
+                            : "bg-[#F1EFE8] text-[#6B6A68]"
+                      }`}
+                    >
+                      {isCurrent && status === "active"
+                        ? "啟用中"
+                        : isCurrent
+                          ? "當前"
+                          : v.archived_at
+                            ? "封存"
+                            : "舊版"}
+                    </span>
+                    {!isCurrent ? (
+                      <button
+                        type="button"
+                        onClick={() => onRestore(v.ver)}
+                        disabled={restoreDisabled}
+                        title={restoreHint}
+                        data-testid={`survey-version-restore-${v.ver}`}
+                        className="h-[24px] px-2 rounded text-[11px] bg-[#E1F5EE] border border-[#5DCAA5] text-[#0F6E56] hover:bg-[#d0eee2] disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        ↩ 還原此版
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
+        <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-between items-center">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          >
+            關閉
+          </button>
+          <button
+            type="button"
+            onClick={onSaveAsNew}
+            disabled={!canEdit || disabled}
+            data-testid="survey-save-as-new-version-modal"
+            className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+          >
+            💾 另存新版本
+          </button>
+        </footer>
       </div>
     </div>
   );

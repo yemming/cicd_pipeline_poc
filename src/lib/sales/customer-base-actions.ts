@@ -157,6 +157,31 @@ export async function setCustomerActiveAction(
   return { ok: true, data: { id } };
 }
 
+/**
+ * CRM01A Kanban 拖曳專用：更新 HABC 分級
+ * grade=null 代表移回「未分級」（從 Kanban 移出）— 但 Kanban 4 欄都是 HABC，沒有 unclassified 欄位，所以這支只接受 HABC 4 值。
+ */
+export async function updateSalesCustomerHabcGradeAction(
+  id: string,
+  grade: "H" | "A" | "B" | "C",
+): Promise<ActionResult<{ id: string; grade: "H" | "A" | "B" | "C" }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
+  if (!id) return { ok: false, error: "缺少 customer id" };
+  if (!["H", "A", "B", "C"].includes(grade)) {
+    return { ok: false, error: "HABC 分級必須是 H/A/B/C 之一" };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("customers")
+    .update({ habc_grade: grade })
+    .eq("id", id)
+    .eq("brand_id", (await getActiveScope()).brand_id);
+  if (error) return { ok: false, error: mapDbError(error) };
+  revalidatePath(LIST_PATH);
+  revalidatePath(`${LIST_PATH}/${id}`);
+  return { ok: true, data: { id, grade } };
+}
+
 export async function deleteCustomerAction(
   id: string,
 ): Promise<ActionResult<{ id: string }>> {

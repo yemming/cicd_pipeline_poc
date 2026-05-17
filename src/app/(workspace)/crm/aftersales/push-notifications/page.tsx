@@ -1,42 +1,64 @@
 /**
- * Thin re-export — 推播通知設定（售後 module）
+ * CRM06B 售後推播通知管理 — 共用 sales 模組的 board，鎖死 kind='aftersales'。
  *
- * 共用 sales 模組的 board / actions / domain helper，鎖死 module='aftersales'，
- * 透過 props 切換標題、副標、Sprint chip。底層走 `notification_subscriptions.module='aftersales'`
- * 的 row（見 src/lib/sales/sales-notifications-actions.ts、src/domain/sales-notifications.ts）。
+ * 底層走 push_message_templates / push_campaigns 表的 kind='aftersales' row。
  */
 import { redirect } from "next/navigation";
 
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getSalesNotificationsBoardData } from "@/domain/sales-notifications";
+import { listPushTemplates } from "@/domain/sales-push-templates";
+import { listPushCampaigns, getPushBoardKpi } from "@/domain/sales-push-campaigns";
+import { listAutomationRules } from "@/domain/sales-push-automation";
 
 import { PushNotificationsBoard } from "../../sales/push-notifications/_components/push-notifications-board";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; step?: string; category?: string }>;
+}) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
 
   if (!(await hasPermission(PERMISSIONS.CUSTOMER_VIEW))) {
     return (
       <main className="px-6 py-6">
-        <p className="text-[14px] text-[#BF2600]">沒有檢視推播通知設定的權限</p>
+        <p className="text-[14px] text-[#BF2600]">沒有檢視推播通知的權限</p>
       </main>
     );
   }
   const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
-  const data = await getSalesNotificationsBoardData("aftersales");
+
+  const sp = await searchParams;
+  const tab = (sp.tab as "templates" | "new" | "log") ?? "templates";
+  const step = Number.parseInt(sp.step ?? "1", 10) || 1;
+  const category = sp.category ?? "";
+
+  const [templates, campaigns, kpi, automationRules] = await Promise.all([
+    listPushTemplates("aftersales"),
+    listPushCampaigns("aftersales"),
+    getPushBoardKpi("aftersales"),
+    listAutomationRules("aftersales"),
+  ]);
+
   return (
     <PushNotificationsBoard
-      data={data}
+      kind="aftersales"
       canEdit={canEdit}
-      module="aftersales"
-      title="推播通知設定"
-      sprintLabel="AS-CRM06"
+      title="推播通知管理"
+      sprintLabel="CRM06B"
       moduleLabel="售後"
+      templates={templates}
+      campaigns={campaigns}
+      kpi={kpi}
+      automationRules={automationRules}
+      initialTab={tab}
+      initialStep={Math.min(3, Math.max(1, step))}
+      initialCategory={category}
     />
   );
 }

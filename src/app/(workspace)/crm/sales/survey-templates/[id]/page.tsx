@@ -4,6 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getSurveyTemplateDetail } from "@/domain/sales-survey-templates";
+// Note: runtime helper still server-only; type-only import below from .constants is client-safe.
 
 import { SurveyTemplateDetailView } from "./_components/survey-template-detail-view";
 

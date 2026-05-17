@@ -11,7 +11,8 @@ export type SalesDictKind =
   | "response_code"
   | "competitor"
   | "insurer"
-  | "insurance_type";
+  | "insurance_type"
+  | "insurance_lost_reason";
 
 export const SALES_DICT_KINDS: SalesDictKind[] = [
   "lead_source",
@@ -22,6 +23,7 @@ export const SALES_DICT_KINDS: SalesDictKind[] = [
   "competitor",
   "insurer",
   "insurance_type",
+  "insurance_lost_reason",
 ];
 
 export const SALES_DICT_LABELS: Record<SalesDictKind, { title: string; subtitle: string; icon: string; accent: "blue" | "amber" | "teal" | "red" | "purple"; group: string }> = {
@@ -33,6 +35,7 @@ export const SALES_DICT_LABELS: Record<SalesDictKind, { title: string; subtitle:
   competitor: { title: "競品去向清單", subtitle: "CRM03A 客戶去向；CRM07 未成交競品分析", icon: "🏁", accent: "red", group: "CRM03A 電訪工作台" },
   insurer: { title: "合作保險公司", subtitle: "RS_EX1 保險招攬 → 合作保險公司清單", icon: "🛡", accent: "purple", group: "RS_EX1 保險招攬" },
   insurance_type: { title: "投保險種項目", subtitle: "RS_EX1 保險招攬 → 險種項目", icon: "📋", accent: "purple", group: "RS_EX1 保險招攬" },
+  insurance_lost_reason: { title: "流失原因（ROOT CAUSE）", subtitle: "RS_EX1 保險招攬 → 流失原因分析編碼", icon: "🔎", accent: "red", group: "RS_EX1 保險招攬" },
 };
 
 export const SALES_THRESHOLD_KEYS = [

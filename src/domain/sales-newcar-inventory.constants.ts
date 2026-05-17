@@ -7,6 +7,18 @@
 
 export type NewCarStatus = "現車可售" | "已保留" | "訂車中" | "已售出";
 
+/**
+ * 進貨 sub-status（物流切面）— 與 business status 正交。
+ * 未來 DB 落地對映：`new_car_inventory_units.transit_status` + `eta_date` + `assigned_rs_id`。
+ */
+export type NewCarSubStatusKind = "in_stock" | "in_transit" | "eta" | "assigned";
+
+export type NewCarSubStatus =
+  | { kind: "in_stock" }
+  | { kind: "in_transit" }
+  | { kind: "eta"; etaDate: string } // ISO date "2026-06-15"
+  | { kind: "assigned"; rsName: string };
+
 export type NewCarSeries =
   | "Panigale"
   | "Streetfighter"
@@ -29,6 +41,8 @@ export type NewCarUnit = {
   arrived: string;
   days: number | null;
   note: string;
+  /** 進貨 sub-status（物流切面）。缺值時 UI 用 status 推導 fallback。 */
+  subStatus?: NewCarSubStatus;
 };
 
 export type NewCarKpi = {
@@ -41,21 +55,21 @@ export type NewCarKpi = {
 
 export const NEW_CAR_INVENTORY_UNITS: NewCarUnit[] = [
   { id: "PV4S-001", model: "Panigale V4 S", series: "Panigale", year: 2026, color: "紅", colorHex: "#C8001A", msrp: 1498000, status: "現車可售", vin: "ZDM12345", arrived: "2026-03-15", days: 56, note: "" },
-  { id: "PV4S-002", model: "Panigale V4 S", series: "Panigale", year: 2026, color: "白", colorHex: "#F0EEE8", msrp: 1498000, status: "已保留", vin: "ZDM12346", arrived: "2026-03-15", days: 56, note: "王先生保留至 5/20" },
+  { id: "PV4S-002", model: "Panigale V4 S", series: "Panigale", year: 2026, color: "白", colorHex: "#F0EEE8", msrp: 1498000, status: "已保留", vin: "ZDM12346", arrived: "2026-03-15", days: 56, note: "王先生保留至 5/20", subStatus: { kind: "assigned", rsName: "王志強" } },
   { id: "SFV4-001", model: "Streetfighter V4", series: "Streetfighter", year: 2026, color: "黑", colorHex: "#222222", msrp: 1188000, status: "現車可售", vin: "ZDM23456", arrived: "2026-04-01", days: 39, note: "" },
   { id: "SFV4-002", model: "Streetfighter V4 SP2", series: "Streetfighter", year: 2026, color: "灰", colorHex: "#888888", msrp: 1688000, status: "現車可售", vin: "ZDM23457", arrived: "2026-04-01", days: 39, note: "" },
   { id: "MSP-001", model: "Monster SP", series: "Monster", year: 2026, color: "紅", colorHex: "#C8001A", msrp: 688000, status: "現車可售", vin: "ZDM34567", arrived: "2026-04-10", days: 30, note: "" },
-  { id: "MSP-002", model: "Monster SP", series: "Monster", year: 2026, color: "黑", colorHex: "#222222", msrp: 688000, status: "訂車中", vin: "—", arrived: "預計 6/15", days: null, note: "客戶李小姐訂購" },
+  { id: "MSP-002", model: "Monster SP", series: "Monster", year: 2026, color: "黑", colorHex: "#222222", msrp: 688000, status: "訂車中", vin: "—", arrived: "預計 6/15", days: null, note: "客戶李小姐訂購", subStatus: { kind: "eta", etaDate: "2026-06-15" } },
   { id: "MV4S-001", model: "Multistrada V4 S", series: "Multistrada", year: 2026, color: "紅", colorHex: "#C8001A", msrp: 988000, status: "現車可售", vin: "ZDM45678", arrived: "2026-03-20", days: 51, note: "" },
-  { id: "MV4S-002", model: "Multistrada V4 S", series: "Multistrada", year: 2026, color: "黑", colorHex: "#222222", msrp: 988000, status: "已保留", vin: "ZDM45679", arrived: "2026-03-20", days: 51, note: "陳先生保留" },
+  { id: "MV4S-002", model: "Multistrada V4 S", series: "Multistrada", year: 2026, color: "黑", colorHex: "#222222", msrp: 988000, status: "已保留", vin: "ZDM45679", arrived: "2026-03-20", days: 51, note: "陳先生保留", subStatus: { kind: "assigned", rsName: "林宛蓉" } },
   { id: "DX-001", model: "DesertX Rally", series: "DesertX", year: 2026, color: "白", colorHex: "#F0EEE8", msrp: 858000, status: "現車可售", vin: "ZDM56789", arrived: "2026-04-20", days: 20, note: "" },
   { id: "HM-001", model: "Hypermotard 698 RVE", series: "Hypermotard", year: 2026, color: "紅", colorHex: "#C8001A", msrp: 498000, status: "現車可售", vin: "ZDM67890", arrived: "2026-04-25", days: 15, note: "" },
-  { id: "HM-002", model: "Hypermotard 698 RVE", series: "Hypermotard", year: 2026, color: "黑", colorHex: "#222222", msrp: 498000, status: "訂車中", vin: "—", arrived: "預計 6/01", days: null, note: "" },
+  { id: "HM-002", model: "Hypermotard 698 RVE", series: "Hypermotard", year: 2026, color: "黑", colorHex: "#222222", msrp: 498000, status: "訂車中", vin: "—", arrived: "預計 6/01", days: null, note: "", subStatus: { kind: "eta", etaDate: "2026-06-01" } },
   { id: "PV2-001", model: "Panigale V2", series: "Panigale", year: 2026, color: "紅", colorHex: "#C8001A", msrp: 798000, status: "現車可售", vin: "ZDM12399", arrived: "2026-04-05", days: 35, note: "" },
-  { id: "DV4-001", model: "Diavel V4", series: "Diavel", year: 2026, color: "黑", colorHex: "#222222", msrp: 1188000, status: "訂車中", vin: "—", arrived: "預計 7/01", days: null, note: "" },
+  { id: "DV4-001", model: "Diavel V4", series: "Diavel", year: 2026, color: "黑", colorHex: "#222222", msrp: 1188000, status: "訂車中", vin: "—", arrived: "預計 7/01", days: null, note: "", subStatus: { kind: "in_transit" } },
   { id: "MSP-003", model: "Monster SP", series: "Monster", year: 2026, color: "白", colorHex: "#F0EEE8", msrp: 688000, status: "現車可售", vin: "ZDM34599", arrived: "2026-04-28", days: 12, note: "" },
   { id: "SFV4-003", model: "Streetfighter V4", series: "Streetfighter", year: 2026, color: "紅", colorHex: "#C8001A", msrp: 1188000, status: "已保留", vin: "ZDM23499", arrived: "2026-03-28", days: 43, note: "張先生保留至 5/25" },
-  { id: "DX-002", model: "DesertX Rally", series: "DesertX", year: 2026, color: "黑", colorHex: "#222222", msrp: 858000, status: "訂車中", vin: "—", arrived: "預計 6/20", days: null, note: "" },
+  { id: "DX-002", model: "DesertX Rally", series: "DesertX", year: 2026, color: "黑", colorHex: "#222222", msrp: 858000, status: "訂車中", vin: "—", arrived: "預計 6/20", days: null, note: "", subStatus: { kind: "eta", etaDate: "2026-06-20" } },
 ];
 
 export const NEW_CAR_KPI_SUMMARY: NewCarKpi[] = [

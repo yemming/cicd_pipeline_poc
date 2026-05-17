@@ -10,7 +10,7 @@ import { NpsDashboardView } from "./_components/nps-dashboard-view";
 
 export const dynamic = "force-dynamic";
 
-const VALID_RANGES: RangeKey[] = ["7d", "30d", "90d", "all"];
+const VALID_RANGES: RangeKey[] = ["6m", "12m"];
 
 export default async function Page({
   searchParams,
@@ -28,7 +28,7 @@ export default async function Page({
   }
   const sp = await searchParams;
   const rangeRaw = sp.range as RangeKey | undefined;
-  const range: RangeKey = rangeRaw && VALID_RANGES.includes(rangeRaw) ? rangeRaw : "90d";
+  const range: RangeKey = rangeRaw && VALID_RANGES.includes(rangeRaw) ? rangeRaw : "6m";
   const filters: NpsFilters = { range, kind: "sales" };
   const dashboard = await getSalesNpsDashboard(filters);
   return (
@@ -38,8 +38,9 @@ export default async function Page({
       rangeLabel={RANGE_LABEL[range]}
       basePath="/crm/sales/nps"
       title="銷售 NPS 看板"
-      sprintTag="CRM05"
-      caption="銷售後客戶滿意度淨推薦值（NPS）分析・趨勢／分組／批評者留言"
+      sprintTag="CRM05A"
+      caption="銷售後客戶滿意度淨推薦值（NPS）分析・月度趨勢／面向評分／批評者追蹤"
+      kind="sales"
     />
   );
 }

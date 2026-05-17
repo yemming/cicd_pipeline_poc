@@ -6,11 +6,91 @@ import { useSetPageHeader } from "@/components/page-header-context";
 import type { UsedCarInventoryData } from "@/domain/sales-usedcar-inventory";
 import {
   inKmRange,
+  type BusinessTag,
   type UsedCarGrade,
   type UsedCarKmRange,
   type UsedCarStatus,
   type UsedCarUnit,
 } from "@/domain/sales-usedcar-inventory.constants";
+
+// ── BDN #13 業務 chip helpers ─────────────────────────────────────────
+const BIZ_CHIP_BASE =
+  "inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap";
+
+/**
+ * 動保塗銷 chip — true=已清償（綠）、false=未清償（紅）、undefined=不渲染。
+ */
+function LienChip({ cleared }: { cleared?: boolean }) {
+  if (cleared === undefined) return null;
+  if (cleared) {
+    return (
+      <span
+        className={BIZ_CHIP_BASE + " bg-[#EAF3DE] text-[#3B6D11]"}
+        data-testid="chip-lien-cleared"
+      >
+        已清償
+      </span>
+    );
+  }
+  return (
+    <span
+      className={BIZ_CHIP_BASE + " bg-[#FDECEA] text-[#CC0000]"}
+      data-testid="chip-lien-uncleared"
+    >
+      未清償
+    </span>
+  );
+}
+
+/**
+ * 年審 chip — 距今 ≤120 天時為「4 個月內驗車」黃 chip、其餘「正常」灰 chip。
+ * 沒給 dueDate 一律不渲染（不知道狀態就不亂猜）。
+ */
+function InspectionChip({ dueDate }: { dueDate?: string }) {
+  if (!dueDate) return null;
+  const due = new Date(dueDate + "T00:00:00");
+  if (Number.isNaN(due.getTime())) return null;
+  const now = new Date();
+  const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 120) {
+    return (
+      <span
+        className={BIZ_CHIP_BASE + " bg-[#FDF3E3] text-[#854F0B]"}
+        data-testid="chip-inspection-due"
+      >
+        4 個月內驗車
+      </span>
+    );
+  }
+  return (
+    <span
+      className={BIZ_CHIP_BASE + " bg-[#F2F2F2] text-[#6B6A68]"}
+      data-testid="chip-inspection-normal"
+    >
+      正常
+    </span>
+  );
+}
+
+/**
+ * 衍生業務推薦 chip 列 — 每個 tag 一個藍 chip，空陣列不渲染。
+ */
+function BusinessChips({ tags }: { tags?: BusinessTag[] }) {
+  if (!tags || tags.length === 0) return null;
+  return (
+    <>
+      {tags.map((t) => (
+        <span
+          key={t}
+          className={BIZ_CHIP_BASE + " bg-[#EAF4FB] text-[#185FA5]"}
+          data-testid={`chip-biz-${t}`}
+        >
+          {t}
+        </span>
+      ))}
+    </>
+  );
+}
 
 const TONE_TEXT: Record<string, string> = {
   teal: "text-[#0F6E56]",
@@ -42,6 +122,20 @@ function marginRate(margin: number, price: number): number {
   if (price <= 0) return 0;
   return Math.round((margin / price) * 100);
 }
+
+/**
+ * BDN #19 — 低毛利警示判定：毛利率 ≤ 5%
+ * 注意：用未 round 的實際比率判定，避免 5.4% round 到 5 而誤判。
+ * price <= 0 時無法判定、不警示（避免雜訊）。
+ */
+function isLowMargin(margin: number, price: number): boolean {
+  if (price <= 0) return false;
+  return (margin / price) * 100 <= 5;
+}
+
+const LOW_MARGIN_ROW_BG = "bg-[#FEF7E6]";
+const LOW_MARGIN_CHIP_CLASS =
+  "inline-flex items-center text-[10.5px] px-1.5 py-0.5 rounded font-semibold bg-[#FDECEA] text-[#CC0000] whitespace-nowrap";
 
 function marginChipClass(rate: number): string {
   if (rate >= 15) return "bg-[#E1F5EE] text-[#0F6E56]";
@@ -325,11 +419,16 @@ function CardGrid({
     >
       {units.map((u) => {
         const rate = marginRate(u.margin, u.price);
+        const lowMargin = isLowMargin(u.margin, u.price);
         return (
           <article
             key={u.id}
             data-testid={`usedcar-card-${u.id}`}
-            className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden hover:border-[#85B7EB] hover:shadow-md transition cursor-pointer"
+            data-low-margin={lowMargin ? "true" : "false"}
+            className={
+              "border border-[#EEECE6] rounded-lg overflow-hidden hover:border-[#85B7EB] hover:shadow-md transition cursor-pointer " +
+              (lowMargin ? LOW_MARGIN_ROW_BG : "bg-white")
+            }
           >
             <div
               className="h-[110px] flex items-center justify-center relative"
@@ -378,14 +477,35 @@ function CardGrid({
                 <div className="text-[15px] font-bold font-mono text-[#1A3A5C]">
                   NT$ {u.price.toLocaleString()}
                 </div>
-                <div className="mt-0.5">
+                <div className="mt-0.5 flex items-center gap-1 flex-wrap">
                   <span className={"text-[11px] px-1.5 py-0.5 rounded font-semibold " + marginChipClass(rate)}>
                     利潤 {rate}%
                   </span>
+                  {lowMargin && (
+                    <span
+                      className={LOW_MARGIN_CHIP_CLASS}
+                      data-testid={`chip-low-margin-${u.id}`}
+                    >
+                      ⚠️ 低毛利
+                    </span>
+                  )}
                 </div>
               </div>
               {u.note && (
                 <div className="text-[10.5px] text-[#854F0B] mb-2">📌 {u.note}</div>
+              )}
+              {/* BDN #13 — 三組業務 chip：動保塗銷 / 年審 / 衍生業務 */}
+              {(u.lienCleared !== undefined ||
+                u.inspectionDueDate ||
+                (u.recommendedServices && u.recommendedServices.length > 0)) && (
+                <div
+                  className="flex flex-wrap gap-1 mb-2"
+                  data-testid={`biz-chips-${u.id}`}
+                >
+                  <LienChip cleared={u.lienCleared} />
+                  <InspectionChip dueDate={u.inspectionDueDate} />
+                  <BusinessChips tags={u.recommendedServices} />
+                </div>
               )}
               <div className="flex gap-1.5">
                 <button
@@ -447,8 +567,17 @@ function ListView({
         <tbody>
           {units.map((u) => {
             const rate = marginRate(u.margin, u.price);
+            const lowMargin = isLowMargin(u.margin, u.price);
             return (
-              <tr key={u.id} className="hover:bg-[#FAFAF8] border-b border-[#F4F3F0] last:border-b-0">
+              <tr
+                key={u.id}
+                data-low-margin={lowMargin ? "true" : "false"}
+                data-testid={`usedcar-row-${u.id}`}
+                className={
+                  "border-b border-[#F4F3F0] last:border-b-0 " +
+                  (lowMargin ? LOW_MARGIN_ROW_BG + " hover:bg-[#FDF0D4]" : "hover:bg-[#FAFAF8]")
+                }
+              >
                 <td className="px-3 py-2">
                   <span
                     className={
@@ -468,9 +597,19 @@ function ListView({
                 <td className="px-3 py-2 text-[11.5px] font-mono">{u.cost.toLocaleString()}</td>
                 <td className="px-3 py-2 text-[12px] font-mono font-bold">{u.price.toLocaleString()}</td>
                 <td className="px-3 py-2">
-                  <span className={"text-[10.5px] px-1.5 py-0.5 rounded font-semibold " + marginChipClass(rate)}>
-                    {rate}%
-                  </span>
+                  <div className="inline-flex items-center gap-1 flex-wrap">
+                    <span className={"text-[10.5px] px-1.5 py-0.5 rounded font-semibold " + marginChipClass(rate)}>
+                      {rate}%
+                    </span>
+                    {lowMargin && (
+                      <span
+                        className={LOW_MARGIN_CHIP_CLASS}
+                        data-testid={`row-chip-low-margin-${u.id}`}
+                      >
+                        ⚠️ 低毛利
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2">
                   <span
