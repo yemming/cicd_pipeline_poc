@@ -24,6 +24,7 @@ export type {
   CallTaskBoardRow,
   CallTaskBoardKpi,
   CallTaskBoardFilters,
+  CallTaskBoardRange,
   CallTaskWorkOrderInfo,
 } from "@/domain/sales-call-tasks.constants";
 import type {
@@ -33,6 +34,7 @@ import type {
   CallTaskBoardRow,
   CallTaskBoardKpi,
   CallTaskBoardFilters,
+  CallTaskBoardRange,
   CallTaskDerivedStatus,
   CallTaskWorkOrderInfo,
 } from "@/domain/sales-call-tasks.constants";
@@ -277,9 +279,116 @@ export type CallTaskBoardData = {
   kpi: CallTaskBoardKpi;
   /** call_type 分組 count（給 sidebar / tab badge 用） */
   by_call_type: Record<string, number>;
-  /** 選取日的總筆數 */
+  /** 選取視窗的總筆數（依 range 計算） */
   date_total: number;
+  /** range 視窗摘要：給 UI 顯示「本週 (5/12 - 5/18)」字樣 */
+  range_label: string;
+  /** range 視窗起訖 ISO 日期（YYYY-MM-DD），便於 client 渲染 */
+  range_start: string;
+  range_end: string;
 };
+
+/**
+ * 從 ISO date string + 偏移天計算結束日（包含起始日）。
+ */
+function shiftIsoDate(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00+08:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * 依 range 解析視窗起訖（Asia/Taipei 視角）。
+ * - 1d: anchor 當天
+ * - 7d: anchor 當天起 7 天（含當天）
+ * - week: 本週一到週日（不論 anchor 是星期幾，取 anchor 所屬的那一週）
+ * - month: anchor 所屬月的 1 號到月底
+ */
+function resolveRange(
+  anchor: string,
+  range: CallTaskBoardRange,
+): { start: string; end: string; label: string } {
+  const d = new Date(`${anchor}T00:00:00+08:00`);
+  if (range === "1d") {
+    return { start: anchor, end: anchor, label: anchor };
+  }
+  if (range === "7d") {
+    const end = shiftIsoDate(anchor, 6);
+    return { start: anchor, end, label: `近 7 天 (${anchor} ~ ${end})` };
+  }
+  if (range === "week") {
+    // ISO 週：星期一為起點（Sun=0, Mon=1, ... 在 Date.getDay 是這樣）
+    const dow = d.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const offsetToMonday = dow === 0 ? -6 : 1 - dow;
+    const start = shiftIsoDate(anchor, offsetToMonday);
+    const end = shiftIsoDate(start, 6);
+    return { start, end, label: `本週 (${start} ~ ${end})` };
+  }
+  // month
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth();
+  const startDate = new Date(Date.UTC(y, m, 1));
+  const endDate = new Date(Date.UTC(y, m + 1, 0));
+  const start = startDate.toISOString().slice(0, 10);
+  const end = endDate.toISOString().slice(0, 10);
+  return { start, end, label: `本月 (${start} ~ ${end})` };
+}
+
+/**
+ * 查最近一個「有任務的日期」（從今日往未來找 forwardDays 天，再往前找 backwardDays 天）
+ * 用於 UI 預設不空白 — 今日沒任務時自動跳到最近一天有任務的日期。
+ * 找不到回 null，caller 自行 fallback 到 today。
+ */
+export async function getNearestCallTaskDate(
+  kind: SurveyKind,
+  opts: { forwardDays?: number; backwardDays?: number } = {},
+): Promise<string | null> {
+  const forward = opts.forwardDays ?? 30;
+  const backward = opts.backwardDays ?? 14;
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const today = todayIsoTaipei();
+  const fromDate = shiftIsoDate(today, -backward);
+  const toDate = shiftIsoDate(today, forward);
+
+  const { data, error } = await supabase
+    .from("call_tasks")
+    .select("scheduled_at")
+    .eq("brand_id", brand)
+    .eq("kind", kind)
+    .neq("status", "completed")
+    .not("scheduled_at", "is", null)
+    .gte("scheduled_at", `${fromDate}T00:00:00+08:00`)
+    .lte("scheduled_at", `${toDate}T23:59:59+08:00`)
+    .order("scheduled_at", { ascending: true })
+    .limit(500);
+
+  if (error || !data || data.length === 0) return null;
+
+  // 先看今日是否有任務
+  const todayMatch = data.some(
+    (r) =>
+      typeof r.scheduled_at === "string" &&
+      r.scheduled_at.slice(0, 10) === today,
+  );
+  if (todayMatch) return today;
+
+  // 沒今日 → 找今日 *之後* 最近的日期；都沒未來才回往前最近的
+  const future = data.find(
+    (r) =>
+      typeof r.scheduled_at === "string" &&
+      r.scheduled_at.slice(0, 10) >= today,
+  );
+  if (future && typeof future.scheduled_at === "string") {
+    return future.scheduled_at.slice(0, 10);
+  }
+  // 全在過去 → 取最近一筆（data 已 asc 排序，要拿最後一筆 = 最接近今天）
+  const last = data[data.length - 1];
+  if (last && typeof last.scheduled_at === "string") {
+    return last.scheduled_at.slice(0, 10);
+  }
+  return null;
+}
 
 export async function getCallTaskBoardData(
   filters: CallTaskBoardFilters,
@@ -289,13 +398,11 @@ export async function getCallTaskBoardData(
   const brand = (await getActiveScope()).brand_id;
   const today = todayIsoTaipei();
   const selectedDate = filters.date || today;
-
-  // 撈整個 kind 的最近 60 天資料一次（給卡片 list + KPI + counts 共用）
-  // — 量級 < 500 row、避免 N+1 query
-  const fromDate = new Date(`${selectedDate}T00:00:00+08:00`);
-  fromDate.setDate(fromDate.getDate() - 14);
-  const toDate = new Date(`${selectedDate}T00:00:00+08:00`);
-  toDate.setDate(toDate.getDate() + 30);
+  const range: CallTaskBoardRange = filters.range ?? "1d";
+  const { start: rangeStart, end: rangeEnd, label: rangeLabel } = resolveRange(
+    selectedDate,
+    range,
+  );
 
   const baseQuery = supabase
     .from("call_tasks")
@@ -417,11 +524,12 @@ export async function getCallTaskBoardData(
   // ── 套用 filter 篩 rows ──
   let rows = allRows;
 
-  // 日期：只顯示「選取日當天 + overdue（任何日子）」
+  // 日期：依 range 篩選 — 視窗內所有任務 + overdue（任何日子永遠帶出）
   rows = rows.filter((r) => {
-    if (r.derived_status === "overdue") return true; // overdue 永遠顯示
+    if (r.derived_status === "overdue") return true;
     if (!r.scheduled_at) return false;
-    return r.scheduled_at.slice(0, 10) === selectedDate;
+    const day = r.scheduled_at.slice(0, 10);
+    return day >= rangeStart && day <= rangeEnd;
   });
 
   const dateTotal = rows.length;
@@ -452,6 +560,9 @@ export async function getCallTaskBoardData(
     kpi,
     by_call_type,
     date_total: dateTotal,
+    range_label: rangeLabel,
+    range_start: rangeStart,
+    range_end: rangeEnd,
   };
 }
 

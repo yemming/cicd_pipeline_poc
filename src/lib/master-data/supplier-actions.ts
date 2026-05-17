@@ -1,30 +1,54 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import type { SupplierFormState } from "./supplier-form-types";
+import type { SupplierFieldKey } from "./supplier-form-types";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
+
 const SUPPLIER_TYPES = ["oem", "agent", "consumable", "services", "other"] as const;
 type SupplierType = (typeof SUPPLIER_TYPES)[number];
 
-function pickType(raw: FormDataEntryValue | null): SupplierType {
+export type ActionResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; fieldErrors?: Partial<Record<SupplierFieldKey, string>> };
+
+export type SupplierInput = {
+  code?: string | null;
+  name: string;
+  type?: SupplierType | null;
+  tax_id?: string | null;
+  primary_contact?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  payment_terms?: string | null;
+  default_currency?: string | null;
+  gl_payable_coa_id?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+};
+
+function pickType(raw: string | null | undefined): SupplierType {
   const v = String(raw ?? "agent");
   return (SUPPLIER_TYPES as readonly string[]).includes(v)
     ? (v as SupplierType)
     : "agent";
 }
 
-function strOrNull(raw: FormDataEntryValue | null): string | null {
-  const v = String(raw ?? "").trim();
-  return v.length === 0 ? null : v;
+function trim(v: string | null | undefined): string | null {
+  if (v == null) return null;
+  const t = v.trim();
+  return t === "" ? null : t;
 }
 
-function mapDbError(error: { code?: string; message: string }): SupplierFormState {
+function mapDbError(error: { code?: string; message: string }): {
+  error: string;
+  fieldErrors?: Partial<Record<SupplierFieldKey, string>>;
+} {
   if (error.code === "23505" && error.message.includes("suppliers_brand_id_code_key")) {
     return {
       error: "供應商代碼重複",
@@ -61,69 +85,75 @@ async function genSupplierCode(): Promise<string> {
   return `S${String(max + 1).padStart(5, "0")}`;
 }
 
-function pickPayload(fd: FormData) {
+function buildPayload(input: SupplierInput) {
   return {
-    name: String(fd.get("name") ?? "").trim(),
-    type: pickType(fd.get("type")),
-    tax_id: strOrNull(fd.get("tax_id")),
-    primary_contact: strOrNull(fd.get("primary_contact")),
-    phone: strOrNull(fd.get("phone")),
-    email: strOrNull(fd.get("email")),
-    address: strOrNull(fd.get("address")),
-    payment_terms: strOrNull(fd.get("payment_terms")),
-    default_currency: strOrNull(fd.get("default_currency")) ?? "TWD",
-    gl_payable_coa_id: strOrNull(fd.get("gl_payable_coa_id")),
-    notes: strOrNull(fd.get("notes")),
+    name: (input.name ?? "").trim(),
+    type: pickType(input.type),
+    tax_id: trim(input.tax_id ?? null),
+    primary_contact: trim(input.primary_contact ?? null),
+    phone: trim(input.phone ?? null),
+    email: trim(input.email ?? null),
+    address: trim(input.address ?? null),
+    payment_terms: trim(input.payment_terms ?? null),
+    default_currency: trim(input.default_currency ?? null) ?? "TWD",
+    gl_payable_coa_id: trim(input.gl_payable_coa_id ?? null),
+    notes: trim(input.notes ?? null),
   };
 }
 
 export async function createSupplierAction(
-  _prevState: SupplierFormState,
-  fd: FormData,
-): Promise<SupplierFormState> {
+  input: SupplierInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.SUPPLIER_EDIT);
   const ctx = await getCurrentUserContext();
-  if (!ctx.userId) redirect("/login");
+  if (!ctx.userId) return { ok: false, error: "未登入" };
 
-  const payload = pickPayload(fd);
-  const codeRaw = String(fd.get("code") ?? "").trim();
-  const fieldErrors: SupplierFormState["fieldErrors"] = {};
+  const payload = buildPayload(input);
+  const fieldErrors: Partial<Record<SupplierFieldKey, string>> = {};
   if (!payload.name) fieldErrors.name = "必填";
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "請補齊必填欄位", fieldErrors };
+    return { ok: false, error: "請補齊必填欄位", fieldErrors };
   }
 
-  const code = codeRaw.length > 0 ? codeRaw : await genSupplierCode();
+  const codeRaw = trim(input.code ?? null);
+  const code = codeRaw ?? (await genSupplierCode());
 
   const supabase = await createClient();
-  const { error } = await supabase.from("suppliers").insert({
-    brand_id: (await getActiveScope()).brand_id,
-    code,
-    ...payload,
-    created_by: ctx.userId,
-  });
-  if (error) return mapDbError(error);
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("suppliers")
+    .insert({
+      brand_id: scope.brand_id,
+      subsidiary_id: scope.subsidiary_id,
+      code,
+      ...payload,
+      created_by: ctx.userId,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    const mapped = mapDbError(error);
+    return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+  }
 
   revalidatePath("/admin/master-data/suppliers");
-  redirect("/admin/master-data/suppliers");
+  return { ok: true, data: { id: data.id } };
 }
 
 export async function updateSupplierAction(
-  _prevState: SupplierFormState,
-  fd: FormData,
-): Promise<SupplierFormState> {
+  id: string,
+  input: SupplierInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.SUPPLIER_EDIT);
+  if (!id) return { ok: false, error: "缺少 supplier id" };
 
-  const id = String(fd.get("id") ?? "").trim();
-  if (!id) return { error: "缺少 supplier id" };
-
-  const payload = pickPayload(fd);
-  const code = String(fd.get("code") ?? "").trim();
-  const fieldErrors: SupplierFormState["fieldErrors"] = {};
+  const payload = buildPayload(input);
+  const code = trim(input.code ?? null);
+  const fieldErrors: Partial<Record<SupplierFieldKey, string>> = {};
   if (!code) fieldErrors.code = "必填";
   if (!payload.name) fieldErrors.name = "必填";
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "請補齊必填欄位", fieldErrors };
+    return { ok: false, error: "請補齊必填欄位", fieldErrors };
   }
 
   const supabase = await createClient();
@@ -132,12 +162,35 @@ export async function updateSupplierAction(
     .update({
       code,
       ...payload,
-      is_active: fd.get("is_active") === "on",
+      is_active: input.is_active ?? true,
     })
     .eq("id", id);
-  if (error) return mapDbError(error);
+  if (error) {
+    const mapped = mapDbError(error);
+    return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+  }
 
   revalidatePath("/admin/master-data/suppliers");
   revalidatePath(`/admin/master-data/suppliers/${id}`);
-  redirect("/admin/master-data/suppliers");
+  return { ok: true, data: { id } };
+}
+
+export async function deleteSupplierAction(
+  id: string,
+): Promise<ActionResult<null>> {
+  await requirePermission(PERMISSIONS.SUPPLIER_EDIT);
+  if (!id) return { ok: false, error: "缺少 supplier id" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("suppliers").delete().eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        ok: false,
+        error: "此供應商被其他單據引用，無法刪除。請改用「停用」保留歷史。",
+      };
+    }
+    return { ok: false, error: `刪除失敗：${error.message}` };
+  }
+  revalidatePath("/admin/master-data/suppliers");
+  return { ok: true, data: null };
 }

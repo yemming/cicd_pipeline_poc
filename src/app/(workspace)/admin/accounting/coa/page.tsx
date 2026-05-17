@@ -5,7 +5,7 @@ import {
   COA_PAGE_SIZE_DEFAULT,
   listChartOfAccounts,
   type CoaFilters,
-} from "@/lib/accounting/queries";
+} from "@/domain/accounting";
 
 import { CoaBoard } from "./_components/coa-board";
 

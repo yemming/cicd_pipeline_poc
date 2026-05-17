@@ -1,6 +1,7 @@
 "use client";
 
 import { MockShell, MockCard } from "../_mock/mock-shell";
+import { DemoBanner } from "@/components/demo-banner";
 
 const history = [
   { date: "2026/04/12 14:22", type: "客戶主檔", dir: "匯入", rows: 1284, result: "成功", by: "陳大文" },
@@ -26,6 +27,7 @@ export default function Page() {
       breadcrumb={[{ label: "系統設定", href: "/settings/org" }, { label: "數據匯入/出" }]}
       tabs={[{ label: "手動操作", active: true }, { label: "排程任務" }, { label: "歷史紀錄" }]}
     >
+      <DemoBanner message="Demo 用、未接 DB — 本頁為示範畫面、操作不會儲存（規劃中）。" />
       <MockCard title="匯入資料">
         <div className="rounded-xl border-2 border-dashed border-outline-variant/40 p-10 text-center bg-surface-container-lowest">
           <span className="material-symbols-outlined text-5xl text-on-surface-variant/50">

@@ -99,7 +99,7 @@ export const modules: ModuleDef[] = [
       // 線索 & 電銷
       { name: "線索管理",     icon: "search",          href: "/sales/leads",               sprint: "S3-1", stitchScreenId: "7fc8a244a33941aba5db6e8e9bfc6f11", section: "線索與電銷" },
       { name: "電銷工作台",   icon: "call",            href: "/sales/bdc",                 sprint: "S3-2", stitchScreenId: "9f0cbd757c59418da5f94b0e71de75ee", section: "線索與電銷" },
-      { name: "CRM 電訪",     icon: "contact_phone",   href: "/sales/crm",                 sprint: "S3-6", stitchScreenId: "a97d23e4f03847bb8333b1befd647632", section: "線索與電銷" },
+      { name: "CRM 電訪",     icon: "contact_phone",   href: "/crm/sales/call-tasks",      sprint: "S3-6", stitchScreenId: "a97d23e4f03847bb8333b1befd647632", section: "線索與電銷" },
       // 試駕
       { name: "試駕排程",     icon: "drive_eta",       href: "/sales/testdrive",           sprint: "S7-1", stitchScreenId: "a2d1439fc4b4454f805d7560bc22a0d7", section: "試駕管理" },
       // 交易流程
@@ -156,6 +156,42 @@ export const modules: ModuleDef[] = [
       { name: "增項管理",     icon: "add_task",        href: "/service/dropoff" },
       { name: "配件庫存",     icon: "inventory_2",     href: "/service/parts",          stitchScreenId: "bf46972c2a64481cb90839a93382c317" },
       { name: "保固管理",     icon: "shield",          href: "/service/warranty",       stitchScreenId: "efc46f958e984d43ad416acb574af0ef" },
+      // 主管設定（service manager 子頁）
+      { name: "員工管理",     icon: "badge",           href: "/service/manager/employees",     section: "主管設定" },
+      { name: "客戶標籤",     icon: "sell",            href: "/service/manager/customer-tags", section: "主管設定" },
+      { name: "RO 編號前綴",  icon: "format_list_numbered", href: "/service/manager/ro-prefix", section: "主管設定" },
+      { name: "維修廠設定",   icon: "garage",          href: "/service/manager/workshop",      section: "主管設定" },
+    ],
+  },
+
+  // ────────────────────────────────────────────────────────
+  // 2.5 CRM v2 — 客服管理（銷售前 + 售後 雙線）
+  // ────────────────────────────────────────────────────────
+  {
+    key: "crm",
+    name: "客服管理",
+    icon: "headset_mic",
+    accent: "#0EA5E9",
+    description: "電訪・客戶池・休眠喚醒・NPS・推播・問卷",
+    home: "/crm",
+    permission: "crm.access",
+    pages: [
+      { name: "CRM 總覽",       icon: "dashboard",       href: "/crm" },
+      { name: "門市報表",       icon: "store",           href: "/crm/store-report" },
+      // 銷售線
+      { name: "電訪任務（銷售）",  icon: "call",            href: "/crm/sales/call-tasks",          section: "銷售 CRM" },
+      { name: "客戶池（銷售）",    icon: "groups",          href: "/crm/sales/customer-base",       section: "銷售 CRM" },
+      { name: "休眠線索",         icon: "bedtime",         href: "/crm/sales/dormant-leads",       section: "銷售 CRM" },
+      { name: "NPS（銷售）",      icon: "trending_up",     href: "/crm/sales/nps",                 section: "銷售 CRM" },
+      { name: "推播（銷售）",      icon: "campaign",        href: "/crm/sales/push-notifications",  section: "銷售 CRM" },
+      { name: "問卷模板（銷售）",  icon: "quiz",            href: "/crm/sales/survey-templates",    section: "銷售 CRM" },
+      // 售後線
+      { name: "電訪任務（售後）",  icon: "support_agent",   href: "/crm/aftersales/call-tasks",         section: "售後 CRM" },
+      { name: "客戶池（售後）",    icon: "diversity_3",     href: "/crm/aftersales/customer-base",      section: "售後 CRM" },
+      { name: "休眠客戶",         icon: "nightlight",      href: "/crm/aftersales/dormant-customers",  section: "售後 CRM" },
+      { name: "NPS（售後）",      icon: "auto_graph",      href: "/crm/aftersales/nps",                section: "售後 CRM" },
+      { name: "推播（售後）",      icon: "notifications_active", href: "/crm/aftersales/push-notifications", section: "售後 CRM" },
+      { name: "問卷模板（售後）",  icon: "fact_check",      href: "/crm/aftersales/survey-templates",   section: "售後 CRM" },
     ],
   },
 
@@ -276,14 +312,14 @@ export const modules: ModuleDef[] = [
     home: "/admin/approvals",
     permission: "admin.access",
     pages: [
-      { name: "簽核流程設定", icon: "schema",          href: "/admin/approval-flow",       sprint: "S1-4",  stitchScreenId: "5164d2d5b68b4885ae24dd40f3b118a1", section: "簽核中心" },
+      { name: "簽核流程設定", icon: "schema",          href: "/admin/approval-flow",       sprint: "S1-4",  stitchScreenId: "5164d2d5b68b4885ae24dd40f3b118a1", section: "簽核中心", comingSoon: true },
       { name: "我的簽核",     icon: "fact_check",      href: "/admin/approvals",           sprint: "S1-5",  stitchScreenId: "8cf3cbe6d4ef429ca1a3d88958fd5924", section: "簽核中心" },
       { name: "訂單簽核",     icon: "assignment_ind",  href: "/admin/approvals/order",     sprint: "S1-6",  stitchScreenId: "b8e9e9148ed943d0a9914df3d52c0c8d", section: "簽核中心" },
-      { name: "折扣簽核",     icon: "local_offer",     href: "/admin/approvals/discount",  sprint: "S1-7",  stitchScreenId: "c27c74ea875a4c8987b84c4cb8035ab9", section: "簽核中心" },
+      { name: "折扣簽核",     icon: "local_offer",     href: "/admin/approvals/discount",  sprint: "S1-7",  stitchScreenId: "c27c74ea875a4c8987b84c4cb8035ab9", section: "簽核中心", comingSoon: true },
       { name: "收車簽核",     icon: "swap_vert",       href: "/admin/approvals/tradein",   sprint: "S1-8",  stitchScreenId: "638516e5f2284433ad9c8d2cc4351ddb", section: "簽核中心" },
-      { name: "退款簽核",     icon: "currency_exchange", href: "/admin/approvals/refund",  sprint: "S1-9",  stitchScreenId: "3b1ee33fd56f4e5db193ada91c6e700c", section: "簽核中心" },
-      { name: "調車簽核",     icon: "sync_alt",        href: "/admin/approvals/transfer",  sprint: "S1-10", stitchScreenId: "1e7d257222954e50a79e98d49173d153", section: "簽核中心" },
-      { name: "簽核歷史",     icon: "history",         href: "/admin/approvals/history",   sprint: "S1-11", stitchScreenId: "8934f85891e446f2a1f1a60252863972", section: "簽核中心" },
+      { name: "退款簽核",     icon: "currency_exchange", href: "/admin/approvals/refund",  sprint: "S1-9",  stitchScreenId: "3b1ee33fd56f4e5db193ada91c6e700c", section: "簽核中心", comingSoon: true },
+      { name: "調車簽核",     icon: "sync_alt",        href: "/admin/approvals/transfer",  sprint: "S1-10", stitchScreenId: "1e7d257222954e50a79e98d49173d153", section: "簽核中心", comingSoon: true },
+      { name: "簽核歷史",     icon: "history",         href: "/admin/approvals/history",   sprint: "S1-11", stitchScreenId: "8934f85891e446f2a1f1a60252863972", section: "簽核中心", comingSoon: true },
 
       // Notification Hub（Phase 4 新增，參考 Notion IM 規格書 v1.0）
       { name: "通知儀表板",   icon: "campaign",        href: "/admin/notifications",                section: "通知中心", adminOnly: true },

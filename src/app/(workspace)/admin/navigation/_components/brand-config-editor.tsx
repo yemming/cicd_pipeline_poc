@@ -5,6 +5,7 @@ import Image from "next/image";
 
 import { updateBrandAppearance, uploadBrandBadge, removeBrandBadge } from "@/lib/appearance-actions";
 import { setBrandModuleEnabledAction } from "@/lib/rbac/admin-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BadgeCropperModal } from "./badge-cropper-modal";
 
 type BrandRow = { id: string; name: string };
@@ -34,6 +35,7 @@ export function BrandConfigEditor({
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   // brand_modules in-memory（optimistic）
   const [matrix, setMatrix] = useState<Record<string, boolean>>(() => {
@@ -90,7 +92,11 @@ export function BrandConfigEditor({
   };
 
   const onRemove = () => {
-    if (!confirm("確定移除目前 Logo？")) return;
+    setShowRemoveConfirm(true);
+  };
+
+  const confirmRemove = () => {
+    setShowRemoveConfirm(false);
     startTransition(async () => {
       try {
         await removeBrandBadge();
@@ -299,6 +305,18 @@ export function BrandConfigEditor({
         previewLabel="Topbar 預覽（白底模擬）"
         ratioHint="Topbar 左上 logo 區可用空間約 192×56，4:1 比例最不會留白或被切。"
       />
+
+      {showRemoveConfirm && (
+        <ConfirmDialog
+          title="移除品牌 Logo"
+          message="確定移除目前 Logo？此動作會立即生效。"
+          variant="danger"
+          confirmLabel="移除"
+          isPending={pending}
+          onConfirm={confirmRemove}
+          onCancel={() => setShowRemoveConfirm(false)}
+        />
+      )}
     </div>
   );
 }

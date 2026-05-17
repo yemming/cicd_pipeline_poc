@@ -1,14 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
-  WorkOrderFormState,
+  WorkOrderFieldKey,
   WorkOrderItemDraft,
 } from "./workorder-form-types";
 
@@ -25,21 +24,36 @@ type Status = (typeof STATUSES)[number];
 
 const ITEM_KINDS = ["parts", "labor", "external", "discount"] as const;
 
-function pickStatus(raw: FormDataEntryValue | null): Status {
+export type ActionResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; fieldErrors?: Partial<Record<WorkOrderFieldKey, string>> };
+
+export type WorkOrderInput = {
+  ro_no?: string | null;
+  customer_id: string;
+  vehicle_id: string;
+  appointment_id?: string | null;
+  status?: Status | null;
+  advisor_id?: string | null;
+  lead_technician_id?: string | null;
+  mileage_in?: number | null;
+  mileage_out?: number | null;
+  customer_complaint?: string | null;
+  diagnosis?: string | null;
+  work_summary?: string | null;
+  notes?: string | null;
+  items?: WorkOrderItemDraft[];
+};
+
+function pickStatus(raw: string | null | undefined): Status {
   const v = String(raw ?? "draft");
   return (STATUSES as readonly string[]).includes(v) ? (v as Status) : "draft";
 }
 
-function strOrNull(raw: FormDataEntryValue | null): string | null {
-  const v = String(raw ?? "").trim();
-  return v.length === 0 ? null : v;
-}
-
-function numOrNull(raw: FormDataEntryValue | null): number | null {
-  const v = String(raw ?? "").trim();
-  if (v.length === 0) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function trim(v: string | null | undefined): string | null {
+  if (v == null) return null;
+  const t = v.trim();
+  return t === "" ? null : t;
 }
 
 function genRoNo(): string {
@@ -51,7 +65,10 @@ function genRoNo(): string {
   return `RO-${ymd}-${rand}`;
 }
 
-function mapDbError(error: { code?: string; message: string }): WorkOrderFormState {
+function mapDbError(error: { code?: string; message: string }): {
+  error: string;
+  fieldErrors?: Partial<Record<WorkOrderFieldKey, string>>;
+} {
   if (error.code === "23505" && error.message.includes("work_orders_brand_ro_no_unique")) {
     return {
       error: "工單號重複",
@@ -69,24 +86,11 @@ function mapDbError(error: { code?: string; message: string }): WorkOrderFormSta
   return { error: `儲存失敗：${error.message}` };
 }
 
-/**
- * 把 client 序列化的 items_json 解析回 array，做型別與數字 sanitize。
- * 失敗回 null（caller 視為「沒有 items」）。
- */
-function parseItemsJson(raw: FormDataEntryValue | null): WorkOrderItemDraft[] {
-  const s = String(raw ?? "").trim();
-  if (!s) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(s);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .map((raw, idx): WorkOrderItemDraft | null => {
-      if (!raw || typeof raw !== "object") return null;
-      const r = raw as Record<string, unknown>;
+function sanitizeItems(raw: WorkOrderItemDraft[] | undefined): WorkOrderItemDraft[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  return raw
+    .map((r, idx): WorkOrderItemDraft | null => {
+      if (!r || typeof r !== "object") return null;
       const kindStr = String(r.kind ?? "parts");
       if (!(ITEM_KINDS as readonly string[]).includes(kindStr)) return null;
       const description = String(r.description ?? "").trim();
@@ -121,40 +125,39 @@ function sumByKind(items: WorkOrderItemDraft[], kind: WorkOrderItemDraft["kind"]
     .reduce((acc, i) => acc + (Number.isFinite(i.amount) ? i.amount : 0), 0);
 }
 
-function pickPayload(fd: FormData) {
+function buildPayload(input: WorkOrderInput) {
   return {
-    ro_no: strOrNull(fd.get("ro_no")) ?? genRoNo(),
-    customer_id: String(fd.get("customer_id") ?? "").trim(),
-    vehicle_id: String(fd.get("vehicle_id") ?? "").trim(),
-    appointment_id: strOrNull(fd.get("appointment_id")),
-    status: pickStatus(fd.get("status")),
-    advisor_id: strOrNull(fd.get("advisor_id")),
-    lead_technician_id: strOrNull(fd.get("lead_technician_id")),
-    mileage_in: numOrNull(fd.get("mileage_in")),
-    mileage_out: numOrNull(fd.get("mileage_out")),
-    customer_complaint: strOrNull(fd.get("customer_complaint")),
-    diagnosis: strOrNull(fd.get("diagnosis")),
-    work_summary: strOrNull(fd.get("work_summary")),
-    notes: strOrNull(fd.get("notes")),
+    ro_no: trim(input.ro_no ?? null) ?? genRoNo(),
+    customer_id: (input.customer_id ?? "").trim(),
+    vehicle_id: (input.vehicle_id ?? "").trim(),
+    appointment_id: trim(input.appointment_id ?? null),
+    status: pickStatus(input.status),
+    advisor_id: trim(input.advisor_id ?? null),
+    lead_technician_id: trim(input.lead_technician_id ?? null),
+    mileage_in: input.mileage_in ?? null,
+    mileage_out: input.mileage_out ?? null,
+    customer_complaint: trim(input.customer_complaint ?? null),
+    diagnosis: trim(input.diagnosis ?? null),
+    work_summary: trim(input.work_summary ?? null),
+    notes: trim(input.notes ?? null),
   };
 }
 
 export async function createWorkOrderAction(
-  _prevState: WorkOrderFormState,
-  fd: FormData,
-): Promise<WorkOrderFormState> {
+  input: WorkOrderInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   const ctx = await getCurrentUserContext();
-  if (!ctx.userId) redirect("/login");
+  if (!ctx.userId) return { ok: false, error: "未登入" };
 
-  const payload = pickPayload(fd);
-  const items = parseItemsJson(fd.get("items_json"));
+  const payload = buildPayload(input);
+  const items = sanitizeItems(input.items);
 
-  const fieldErrors: WorkOrderFormState["fieldErrors"] = {};
+  const fieldErrors: Partial<Record<WorkOrderFieldKey, string>> = {};
   if (!payload.customer_id) fieldErrors.customer_id = "必選";
   if (!payload.vehicle_id) fieldErrors.vehicle_id = "必選";
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "請補齊必填欄位", fieldErrors };
+    return { ok: false, error: "請補齊必填欄位", fieldErrors };
   }
 
   const partsAmount = sumByKind(items, "parts");
@@ -164,11 +167,13 @@ export async function createWorkOrderAction(
   const totalAmount = partsAmount + laborAmount + externalAmount + discountAmount;
 
   const supabase = await createClient();
+  const scope = await getActiveScope();
 
   const { data: wo, error } = await supabase
     .from("work_orders")
     .insert({
-      brand_id: (await getActiveScope()).brand_id,
+      brand_id: scope.brand_id,
+      subsidiary_id: scope.subsidiary_id,
       ...payload,
       parts_amount: partsAmount,
       labor_amount: laborAmount,
@@ -179,7 +184,10 @@ export async function createWorkOrderAction(
     })
     .select("id")
     .single();
-  if (error) return mapDbError(error);
+  if (error) {
+    const mapped = mapDbError(error);
+    return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+  }
 
   if (items.length > 0) {
     const _brandId = (await getActiveScope()).brand_id;
@@ -203,31 +211,30 @@ export async function createWorkOrderAction(
     if (itemsErr) {
       // 主檔已寫入但子檔失敗 — 為避免孤兒，先回收主檔
       await supabase.from("work_orders").delete().eq("id", wo.id);
-      return mapDbError(itemsErr);
+      const mapped = mapDbError(itemsErr);
+      return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
     }
   }
 
   revalidatePath("/admin/master-data/work-orders");
-  redirect("/admin/master-data/work-orders");
+  return { ok: true, data: { id: wo.id } };
 }
 
 export async function updateWorkOrderAction(
-  _prevState: WorkOrderFormState,
-  fd: FormData,
-): Promise<WorkOrderFormState> {
+  id: string,
+  input: WorkOrderInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!id) return { ok: false, error: "缺少 work_order id" };
 
-  const id = String(fd.get("id") ?? "").trim();
-  if (!id) return { error: "缺少 work_order id" };
+  const payload = buildPayload(input);
+  const items = sanitizeItems(input.items);
 
-  const payload = pickPayload(fd);
-  const items = parseItemsJson(fd.get("items_json"));
-
-  const fieldErrors: WorkOrderFormState["fieldErrors"] = {};
+  const fieldErrors: Partial<Record<WorkOrderFieldKey, string>> = {};
   if (!payload.customer_id) fieldErrors.customer_id = "必選";
   if (!payload.vehicle_id) fieldErrors.vehicle_id = "必選";
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "請補齊必填欄位", fieldErrors };
+    return { ok: false, error: "請補齊必填欄位", fieldErrors };
   }
 
   const partsAmount = sumByKind(items, "parts");
@@ -249,7 +256,10 @@ export async function updateWorkOrderAction(
       total_amount: totalAmount,
     })
     .eq("id", id);
-  if (error) return mapDbError(error);
+  if (error) {
+    const mapped = mapDbError(error);
+    return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+  }
 
   // Items 走「全刪重建」策略 — 簡單可靠，避免 diff 邏輯複雜化。
   // 若日後 line items 有 history / 引用（例如領料單），改成 upsert + soft delete。
@@ -274,10 +284,36 @@ export async function updateWorkOrderAction(
       notes: it.notes,
     }));
     const { error: itemsErr } = await supabase.from("work_order_items").insert(rows);
-    if (itemsErr) return mapDbError(itemsErr);
+    if (itemsErr) {
+      const mapped = mapDbError(itemsErr);
+      return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+    }
   }
 
   revalidatePath("/admin/master-data/work-orders");
   revalidatePath(`/admin/master-data/work-orders/${id}`);
-  redirect("/admin/master-data/work-orders");
+  return { ok: true, data: { id } };
+}
+
+export async function deleteWorkOrderAction(
+  id: string,
+): Promise<ActionResult<null>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!id) return { ok: false, error: "缺少 work_order id" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("work_orders")
+    .delete()
+    .eq("id", id);
+  if (error) {
+    if (error.code === "23503") {
+      return {
+        ok: false,
+        error: "此工單被其他單據引用，無法刪除。請改用「已取消」狀態保留歷史。",
+      };
+    }
+    return { ok: false, error: `刪除失敗：${error.message}` };
+  }
+  revalidatePath("/admin/master-data/work-orders");
+  return { ok: true, data: null };
 }

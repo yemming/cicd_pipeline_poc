@@ -1,17 +1,20 @@
 /**
- * 會計 / CoA 共用 helper — server-only。
+ * 會計 / CoA domain helper — server-only。
  *
- * 提供「下拉可選的過帳科目」共用點：客戶詳情、料號設定、未來的供應商 / 員工
- * 都要選 receivable / payable / 各類 control account。先用最小 API：
- *   - listPostableAccounts()  全 brand 共用（chart_of_accounts 沒 brand 維度）
+ * 統一入口：所有 UI / page.tsx 都從這裡 import accounting queries & actions，
+ * 不要直接 import `@/lib/accounting/*`（POC 紀律 — 見 CLAUDE.md §資料存取架構）。
  *
- * 既有的 `src/domain/items.ts → listPostableAccountsForItem()` 邏輯一致，B5 收尾
- * 時內部會改 call 此檔；外部簽名保持向後相容。
+ * 提供：
+ *   - listPostableAccounts()  下拉可選的過帳科目（客戶詳情、料號設定…）
+ *   - 從 `@/lib/accounting/queries` re-export 所有 list/get 查詢與型別
  */
 
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+
+// Re-export 所有 queries 與型別，UI 一律從 @/domain/accounting 進來
+export * from "@/lib/accounting/queries";
 
 export type AccountOption = {
   id: string;

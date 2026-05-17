@@ -33,6 +33,7 @@ export type RepairOrderRow = {
   vehicle_id: string | null;
   mileage_in: number | null;
   sa_id: string | null;
+  lead_technician_id: string | null;
   status: string;
   opened_at: string | null;
   closed_at: string | null;
@@ -52,6 +53,8 @@ export type RepairOrderListRow = RepairOrderRow & {
   vehicle_license_plate: string | null;
   vehicle_model_name: string | null;
   sa_name: string | null;
+  lead_technician_name: string | null;
+  lead_technician_code: string | null;
 };
 
 export type RepairOrderListFilters = {
@@ -152,7 +155,10 @@ async function joinRepairOrderRows(
   const saIds = Array.from(
     new Set(rows.map((r) => r.sa_id).filter((v): v is string => Boolean(v))),
   );
-  const [custRes, vehRes, saRes] = await Promise.all([
+  const techIds = Array.from(
+    new Set(rows.map((r) => r.lead_technician_id).filter((v): v is string => Boolean(v))),
+  );
+  const [custRes, vehRes, saRes, techRes] = await Promise.all([
     customerIds.length
       ? supabase
           .from("customers")
@@ -175,6 +181,13 @@ async function joinRepairOrderRows(
     saIds.length
       ? supabase.from("employees").select("id, name").in("id", saIds)
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    techIds.length
+      ? supabase
+          .from("aftersales_technicians")
+          .select("id, name, code")
+          .eq("brand_id", brand_id)
+          .in("id", techIds)
+      : Promise.resolve({ data: [] as { id: string; name: string; code: string }[] }),
   ]);
   const custMap = new Map(
     ((custRes.data ?? []) as { id: string; name: string; phone: string | null }[]).map((c) => [
@@ -195,6 +208,12 @@ async function joinRepairOrderRows(
   const saMap = new Map(
     ((saRes.data ?? []) as { id: string; name: string }[]).map((t) => [t.id, t.name]),
   );
+  const techMap = new Map(
+    ((techRes.data ?? []) as { id: string; name: string; code: string }[]).map((t) => [
+      t.id,
+      { name: t.name, code: t.code },
+    ]),
+  );
   return rows.map((r) => ({
     ...r,
     customer_name: r.customer_id ? custMap.get(r.customer_id)?.name ?? null : null,
@@ -204,6 +223,12 @@ async function joinRepairOrderRows(
       : null,
     vehicle_model_name: r.vehicle_id ? vehMap.get(r.vehicle_id)?.model_name ?? null : null,
     sa_name: r.sa_id ? saMap.get(r.sa_id) ?? null : null,
+    lead_technician_name: r.lead_technician_id
+      ? techMap.get(r.lead_technician_id)?.name ?? null
+      : null,
+    lead_technician_code: r.lead_technician_id
+      ? techMap.get(r.lead_technician_id)?.code ?? null
+      : null,
   }));
 }
 
@@ -522,6 +547,83 @@ export async function getRoSearchPageData(
   ]);
   return { rows, totalCount: rows.length, saOptions, kpi };
 }
+
+// ----- /service/workshop · 真派工看板 P1-#11 -----
+
+export type WorkshopTechnicianRow = {
+  id: string;
+  code: string;
+  name: string;
+  grade: string | null;
+  avatar_color: string | null;
+  status: string;
+  is_active: boolean;
+  assigned_ro_count: number;
+};
+
+export type WorkshopBoardData = {
+  active_ros: RepairOrderListRow[];
+  technicians: WorkshopTechnicianRow[];
+};
+
+/** workshop 真派工頁的雙欄資料：active RO 清單 + 技師看板 */
+export async function getWorkshopBoardData(): Promise<WorkshopBoardData> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const [roRes, techRes] = await Promise.all([
+    supabase
+      .from("repair_orders")
+      .select("*")
+      .eq("brand_id", brand)
+      .not("status", "in", '("已關單","已取消","completed","cancelled","closed")')
+      .order("issue_date", { ascending: false })
+      .order("sequence_no", { ascending: false })
+      .limit(200),
+    supabase
+      .from("aftersales_technicians")
+      .select("id, code, name, grade, avatar_color, status, is_active")
+      .eq("brand_id", brand)
+      .order("sort_order", { ascending: true }),
+  ]);
+
+  if (roRes.error) throw roRes.error;
+  if (techRes.error) throw techRes.error;
+
+  const roRows = (roRes.data ?? []) as unknown as RepairOrderRow[];
+  const joined = await joinRepairOrderRows(roRows, brand);
+
+  // 計算每位技師被指派多少張 active RO（依 lead_technician_id）
+  const techCountMap = new Map<string, number>();
+  for (const r of joined) {
+    if (r.lead_technician_id) {
+      techCountMap.set(
+        r.lead_technician_id,
+        (techCountMap.get(r.lead_technician_id) ?? 0) + 1,
+      );
+    }
+  }
+
+  const technicians: WorkshopTechnicianRow[] = (
+    (techRes.data ?? []) as {
+      id: string;
+      code: string;
+      name: string;
+      grade: string | null;
+      avatar_color: string | null;
+      status: string;
+      is_active: boolean;
+    }[]
+  ).map((t) => ({
+    ...t,
+    assigned_ro_count: techCountMap.get(t.id) ?? 0,
+  }));
+
+  return { active_ros: joined, technicians };
+}
+
+/** Re-export 給 UI 統一 import @/domain/repair-orders */
+export { setLeadTechnicianAction as setLeadTechnician } from "@/lib/aftersales/repair-order-actions";
 
 /** 內部用：取下一個流水號（同 brand × date × p1 × p2 的當日流水） */
 export async function nextSequenceNo(

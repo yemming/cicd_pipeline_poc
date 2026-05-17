@@ -11,10 +11,10 @@ export function RetryButton({ deliveryId }: { deliveryId: string }) {
     <div className="inline-flex items-center gap-2">
       <button
         type="button"
-        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
+        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11.5px] ${
           result?.ok
-            ? "bg-success-container text-success"
-            : "bg-primary-container text-primary hover:bg-primary-container/80"
+            ? "bg-[#EAF3DE] text-[#3B6D11]"
+            : "bg-[#EAF4FB] text-[#185FA5] hover:bg-[#DBEAF5]"
         } ${isPending ? "opacity-60 pointer-events-none" : ""}`}
         disabled={isPending}
         onClick={() => {
@@ -28,7 +28,7 @@ export function RetryButton({ deliveryId }: { deliveryId: string }) {
         {isPending ? "重送中…" : result?.ok ? "✓ 已重送" : "重送"}
       </button>
       {result && !result.ok && result.error && (
-        <span className="text-xs text-error" title={result.error}>
+        <span className="text-[11px] text-[#CC0000]" title={result.error}>
           ⚠️ {result.error.slice(0, 24)}…
         </span>
       )}

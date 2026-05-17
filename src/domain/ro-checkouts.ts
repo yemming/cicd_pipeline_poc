@@ -322,3 +322,127 @@ export async function loadFeeSourceForRo(roId: string): Promise<{
     addons: (addons ?? []) as Awaited<ReturnType<typeof loadFeeSourceForRo>>["addons"],
   };
 }
+
+/* ──────────────── 撈 RO 給「開立發票」prefill 用（P1-#10） ──────────────── */
+
+export type RoInvoicePrefillItem = {
+  name: string;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+};
+
+export type RoInvoicePrefill = {
+  ro_id: string;
+  ro_code: string;
+  checkout_no: string;
+  total_amount: number;
+  items: RoInvoicePrefillItem[];
+  customer: {
+    id: string | null;
+    name: string | null;
+    tax_id: string | null;
+    email: string | null;
+    phone: string | null;
+  };
+  invoice_kind: "cloud" | "carrier" | "company" | "donate" | null;
+  invoice_tax_id: string | null;
+};
+
+/**
+ * 給 /einvoice/issue?roId=<id> 用的 prefill helper。
+ * 把 RO 結帳的 fee_summary lines / addons + customer 聯絡資訊
+ * 整成 ManualIssueForm 直接 hydrate 的形狀。
+ */
+export async function fetchRoForInvoice(roId: string): Promise<RoInvoicePrefill | null> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 1) 撈結帳主檔（RO 必須有 ro_checkouts 才能開票）
+  const { data: checkout } = await supabase
+    .from("ro_checkouts")
+    .select("id, repair_order_id, checkout_no, fee_summary, payment, invoice")
+    .eq("repair_order_id", roId)
+    .eq("brand_id", brand)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!checkout) return null;
+
+  const summary = (checkout.fee_summary ?? {}) as FeeSummary;
+  const lines = summary.lines ?? [];
+  const total = summary.payable ?? summary.total ?? 0;
+
+  // 2) 撈 RO + 客戶
+  const { data: ro } = await supabase
+    .from("repair_orders")
+    .select("ro_code, customer_id")
+    .eq("id", roId)
+    .maybeSingle();
+
+  let customer: RoInvoicePrefill["customer"] = {
+    id: null,
+    name: null,
+    tax_id: null,
+    email: null,
+    phone: null,
+  };
+  if (ro?.customer_id) {
+    const { data: cust } = await supabase
+      .from("customers")
+      .select("id, name, tax_id, email, phone")
+      .eq("id", ro.customer_id)
+      .maybeSingle();
+    if (cust) {
+      customer = {
+        id: cust.id,
+        name: cust.name ?? null,
+        tax_id: cust.tax_id ?? null,
+        email: cust.email ?? null,
+        phone: cust.phone ?? null,
+      };
+    }
+  }
+
+  // 3) FeeLine[] → EInvoiceItem 風格
+  //    把 line 整列當一個 invoice item（label = labor/part 名稱、qty=1、unitPrice=subtotal）
+  //    這樣 N 行 line/addon → N 個 invoice item、總額 = sum(items.amount) = summary.payable
+  const items: RoInvoicePrefillItem[] = lines
+    .filter((l) => (l.subtotal ?? 0) > 0)
+    .map((l) => ({
+      name: l.label || "維修費用",
+      qty: 1,
+      unitPrice: Math.round(l.subtotal ?? 0),
+      amount: Math.round(l.subtotal ?? 0),
+    }));
+
+  // 若 lines 為空（罕見：summary.lines 沒帶但 payable 有值），給一筆 fallback
+  if (items.length === 0 && total > 0) {
+    items.push({
+      name: `${ro?.ro_code ?? "RO"} 維修費用`,
+      qty: 1,
+      unitPrice: Math.round(total),
+      amount: Math.round(total),
+    });
+  }
+
+  // 4) 推 invoice_kind → ManualIssueForm 的 invoiceType（最佳猜測）
+  const inv = (checkout.invoice ?? {}) as Invoice;
+  let invoiceKind: RoInvoicePrefill["invoice_kind"] = inv.kind ?? null;
+  if (!invoiceKind) {
+    // 沒指定就照客戶有沒有統編判斷
+    invoiceKind = customer.tax_id ? "company" : "cloud";
+  }
+
+  return {
+    ro_id: roId,
+    ro_code: ro?.ro_code ?? "—",
+    checkout_no: checkout.checkout_no,
+    total_amount: Math.round(total),
+    items,
+    customer,
+    invoice_kind: invoiceKind,
+    invoice_tax_id: inv.tax_id ?? customer.tax_id ?? null,
+  };
+}

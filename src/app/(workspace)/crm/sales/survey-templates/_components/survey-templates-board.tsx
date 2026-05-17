@@ -605,6 +605,12 @@ function SurveyTemplateCard({
         >
           ✎ 編輯題目
         </Link>
+        <Link
+          href={`/csi/surveys/${row.id}/responses`}
+          className="h-[26px] inline-flex items-center px-2.5 rounded text-[11.5px] bg-[#0F6E56] text-white hover:bg-[#0a5742]"
+        >
+          📨 派發紀錄
+        </Link>
         <button
           type="button"
           onClick={onOpenVersions}

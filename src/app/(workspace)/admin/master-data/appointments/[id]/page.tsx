@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import {
@@ -8,12 +7,11 @@ import {
   listCustomerVehicles,
   listEmployees,
 } from "@/lib/master-data/queries";
-import { updateAppointmentAction } from "@/lib/master-data/appointment-actions";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
-import { AppointmentForm } from "../_components/appointment-form";
+import { AppointmentDetailView } from "./_components/appointment-detail-view";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +40,7 @@ export default async function EditAppointmentPage({
   ]);
   if (!appointment) notFound();
 
-  // 確保現任客戶 / 車輛在 dropdown 內（若被停用了還是要顯示）
+  // 確保現任客戶在 dropdown 內（即便被停用）
   const owner = await getCustomerById(appointment.customer_id);
   if (owner && !customers.find((c) => c.id === owner.id)) {
     customers.unshift(owner);
@@ -51,58 +49,28 @@ export default async function EditAppointmentPage({
   const canEdit = await hasPermission(PERMISSIONS.APPOINTMENT_EDIT);
   const canCreateRO = await hasPermission(PERMISSIONS.RO_CREATE);
 
-  const newRoUrl =
-    `/admin/master-data/work-orders/new` +
-    `?customer=${appointment.customer_id}` +
-    `&vehicle=${appointment.vehicle_id}` +
-    `&appointment=${appointment.id}`;
-
   return (
-    <main className="px-6 py-6 max-w-[1100px] space-y-5">
-      <nav className="text-[13px] text-[#6B778C]">
-        <Link href="/admin/master-data/appointments" className="hover:text-[#172B4D]">
-          維修預約
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-[#172B4D]">{appointment.appt_no}</span>
-      </nav>
-
-      <header className="flex items-end justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-[20px] font-bold text-[#172B4D]">
-            編輯預約 ・ {appointment.appt_no}
-          </h1>
-          <p className="text-[13px] text-[#6B778C]">
-            建立於 {new Date(appointment.created_at).toLocaleString("zh-TW")} ・
-            最近更新 {new Date(appointment.updated_at).toLocaleString("zh-TW")}
-          </p>
-        </div>
-        {canCreateRO && (
-          <Link
-            href={newRoUrl}
-            className="inline-flex items-center gap-1 px-4 py-2 bg-[#0052CC] hover:bg-[#0747A6] text-white text-[14px] font-semibold rounded"
-            title="開新工單，預填此預約的客戶 / 車輛 / 關聯預約"
-          >
-            <span className="material-symbols-outlined text-[18px]">build</span>
-            建立工單
-          </Link>
-        )}
-      </header>
-
-      <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
-        {canEdit ? (
-          <AppointmentForm
-            mode="edit"
-            action={updateAppointmentAction}
-            appointment={appointment}
-            customers={customers}
-            vehicles={vehicles}
-            advisors={advisors}
-          />
-        ) : (
-          <p className="text-[14px] text-[#6B778C]">僅可檢視；沒有編輯權限</p>
-        )}
-      </section>
-    </main>
+    <AppointmentDetailView
+      appointment={appointment}
+      customers={customers.map((c) => ({
+        id: c.id,
+        code: c.code,
+        name: c.name,
+        phone: c.phone,
+      }))}
+      vehicles={vehicles.map((v) => ({
+        id: v.id,
+        license_plate: v.license_plate,
+        vin: v.vin,
+      }))}
+      advisors={advisors.map((a) => ({
+        id: a.id,
+        emp_code: a.emp_code,
+        name: a.name,
+        position: a.position,
+      }))}
+      canEdit={canEdit}
+      canCreateRO={canCreateRO}
+    />
   );
 }

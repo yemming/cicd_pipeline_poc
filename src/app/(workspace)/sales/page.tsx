@@ -106,8 +106,7 @@ const PANELS: ModuleHomeGalleryProps["panels"] = [
             code: "RS06",
             name: "中古車評估鑑價",
             desc: "Desmo Service 記錄 · 認證等級評定 · 回寫 RS01",
-            // TODO: hook up when ready — 目前無對應子頁
-            href: "#",
+            href: "/usedcar/evaluations",
             tone: "blue",
             badge: { text: "v1", tone: "navy" },
           },
@@ -173,8 +172,7 @@ const PANELS: ModuleHomeGalleryProps["panels"] = [
             code: "RS_M3",
             name: "主管設定",
             desc: "KPI 目標 · 九宮格 · 標籤管理 · RS 人員 · 保險設定",
-            // TODO: hook up when ready — 目前無對應子頁
-            href: "#",
+            href: "/sales/manager/kpi-targets",
             tone: "navy",
             badge: { text: "v2", tone: "navy" },
           },

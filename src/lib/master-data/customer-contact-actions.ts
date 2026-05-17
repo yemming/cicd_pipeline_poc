@@ -65,8 +65,10 @@ export async function createCustomerContactAction(
   }
 
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { error } = await supabase.from("customer_contacts").insert({
-    brand_id: (await getActiveScope()).brand_id,
+    brand_id: scope.brand_id,
+    subsidiary_id: scope.subsidiary_id,
     customer_id: customerId,
     ...payload,
   });

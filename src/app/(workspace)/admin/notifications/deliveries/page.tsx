@@ -7,8 +7,7 @@ import {
   type EventCode,
 } from "@/domain/notifications";
 import { NotificationsPageHeader } from "../_parts/page-header";
-import { DeliveryStatusBadge } from "../_parts/delivery-status-badge";
-import { RetryButton } from "./_retry-button";
+import { DeliveriesGrid, type DeliveryRow } from "./_deliveries-grid";
 
 interface SearchParams {
   event?: string;
@@ -41,17 +40,24 @@ export default async function DeliveriesPage({
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === "UNAUTHENTICATED") redirect("/login");
     if (msg.startsWith("FORBIDDEN")) {
-      return (
-        <div className="p-8 text-center text-on-surface-variant">
-          無管理權限
-        </div>
-      );
+      return <div className="p-8 text-center text-[#5A5955]">無管理權限</div>;
     }
     throw err;
   }
 
+  const gridRows: DeliveryRow[] = rows.map((d) => ({
+    id: d.id,
+    created_at: d.created_at,
+    event_code: d.event_code,
+    channel_code: d.channel_code,
+    target_ref: d.target_ref,
+    status: d.status,
+    attempts: d.attempts,
+    last_error: d.last_error,
+  }));
+
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-screen bg-white">
       <NotificationsPageHeader
         title="送達記錄"
         subtitle="每一筆推播的狀態與除錯資訊，可手動重送失敗項"
@@ -63,120 +69,85 @@ export default async function DeliveriesPage({
 
       <div className="mx-auto max-w-7xl px-6 py-6 space-y-4">
         {/* Filter bar */}
-        <form className="flex flex-wrap gap-3 rounded-lg border border-outline-variant bg-surface-container p-3 text-sm">
-          <label className="flex items-center gap-2">
-            <span className="text-xs text-on-surface-variant">狀態</span>
-            <select name="status" defaultValue={status ?? ""} className="form-input py-1">
-              <option value="">全部</option>
-              <option value="sent">已送達</option>
-              <option value="failed">失敗</option>
-              <option value="pending">排隊中</option>
-              <option value="retrying">重試中</option>
-            </select>
-          </label>
+        <form className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
+          <div className="flex gap-2 items-end flex-wrap">
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">狀態</label>
+              <select
+                name="status"
+                defaultValue={status ?? ""}
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+              >
+                <option value="">全部</option>
+                <option value="sent">已送達</option>
+                <option value="failed">失敗</option>
+                <option value="pending">排隊中</option>
+                <option value="retrying">重試中</option>
+              </select>
+            </div>
 
-          <label className="flex items-center gap-2">
-            <span className="text-xs text-on-surface-variant">通路</span>
-            <select name="channel" defaultValue={channelCode ?? ""} className="form-input py-1">
-              <option value="">全部</option>
-              <option value="line">LINE</option>
-              <option value="google-chat">Google Chat</option>
-            </select>
-          </label>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">通路</label>
+              <select
+                name="channel"
+                defaultValue={channelCode ?? ""}
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+              >
+                <option value="">全部</option>
+                <option value="line">LINE</option>
+                <option value="google-chat">Google Chat</option>
+              </select>
+            </div>
 
-          <label className="flex items-center gap-2">
-            <span className="text-xs text-on-surface-variant">事件</span>
-            <input
-              name="event"
-              defaultValue={eventCode ?? ""}
-              placeholder="例：feedback_ticket.created"
-              className="form-input py-1 font-mono text-xs w-64"
-            />
-          </label>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">事件</label>
+              <input
+                name="event"
+                defaultValue={eventCode ?? ""}
+                placeholder="例：feedback_ticket.created"
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] font-mono w-64 focus:border-[#185FA5] outline-none"
+              />
+            </div>
 
-          <label className="flex items-center gap-2">
-            <span className="text-xs text-on-surface-variant">筆數</span>
-            <select name="limit" defaultValue={String(limit)} className="form-input py-1">
-              <option>20</option>
-              <option>50</option>
-              <option>100</option>
-              <option>200</option>
-            </select>
-          </label>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">筆數</label>
+              <select
+                name="limit"
+                defaultValue={String(limit)}
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+              >
+                <option>20</option>
+                <option>50</option>
+                <option>100</option>
+                <option>200</option>
+              </select>
+            </div>
 
-          <button
-            type="submit"
-            className="rounded-md px-3 py-1 text-xs font-semibold"
-            style={{ backgroundColor: "#CC0000", color: "#FFFFFF" }}
-          >
-            套用
-          </button>
-          <Link
-            href="/admin/notifications/deliveries"
-            className="rounded-md px-3 py-1 text-xs font-medium text-on-surface-variant hover:bg-surface-container"
-          >
-            清除
-          </Link>
+            <div className="flex gap-2 ml-auto">
+              <button
+                type="submit"
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+              >
+                查詢
+              </button>
+              <Link
+                href="/admin/notifications/deliveries"
+                className="h-[30px] inline-flex items-center px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                重置
+              </Link>
+            </div>
+          </div>
         </form>
 
-        <div className="text-sm text-on-surface-variant">
-          顯示 {rows.length} 筆（上限 {limit}）
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] text-[#9A9890]">
+            共 <b className="text-[#2C2C2A]">{rows.length}</b> 筆（上限 {limit}）
+          </span>
         </div>
 
-        {rows.length === 0 ? (
-          <div className="rounded-lg border border-outline-variant bg-surface-container p-8 text-center text-on-surface-variant">
-            沒有符合條件的記錄
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-outline-variant">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-container text-on-surface-variant">
-                <tr>
-                  <th className="px-3 py-2 text-left">時間</th>
-                  <th className="px-3 py-2 text-left">事件</th>
-                  <th className="px-3 py-2 text-left">通路</th>
-                  <th className="px-3 py-2 text-left">目標</th>
-                  <th className="px-3 py-2 text-left">狀態</th>
-                  <th className="px-3 py-2 text-left">嘗試</th>
-                  <th className="px-3 py-2 text-left">錯誤</th>
-                  <th className="px-3 py-2 text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant bg-surface">
-                {rows.map((d) => (
-                  <tr key={d.id}>
-                    <td className="px-3 py-2 whitespace-nowrap text-on-surface-variant">
-                      {new Date(d.created_at).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">{d.event_code}</td>
-                    <td className="px-3 py-2">{d.channel_code}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{maskRef(d.target_ref)}</td>
-                    <td className="px-3 py-2">
-                      <DeliveryStatusBadge status={d.status} />
-                    </td>
-                    <td className="px-3 py-2 text-center">{d.attempts}</td>
-                    <td
-                      className="px-3 py-2 text-error max-w-xs truncate"
-                      title={d.last_error ?? ""}
-                    >
-                      {d.last_error?.slice(0, 80) ?? ""}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      {d.status !== "sent" && <RetryButton deliveryId={d.id} />}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DeliveriesGrid rows={gridRows} />
       </div>
     </div>
   );
-}
-
-function maskRef(ref: string): string {
-  if (ref.startsWith("https://chat.googleapis.com/")) return `${ref.slice(0, 45)}…`;
-  if (ref.length <= 18) return ref;
-  return `${ref.slice(0, 12)}…${ref.slice(-4)}`;
 }

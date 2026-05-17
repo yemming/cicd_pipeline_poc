@@ -4,7 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import {
   listJournalEntries,
   type JournalEntryFilters,
-} from "@/lib/accounting/queries";
+} from "@/domain/accounting";
 
 import { JournalEntryBoard } from "./_components/journal-entry-board";
 

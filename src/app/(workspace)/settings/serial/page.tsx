@@ -1,6 +1,7 @@
 "use client";
 
 import { MockShell, MockCard, Field, MockInput, MockSelect, SaveBar } from "../_mock/mock-shell";
+import { DemoBanner } from "@/components/demo-banner";
 
 const rules = [
   { name: "接待手卡", code: "NC-YYYYMMDD-NNN", sample: "NC-20260414-001", reset: "每日" },
@@ -17,6 +18,7 @@ export default function Page() {
       title="業務序號"
       breadcrumb={[{ label: "系統設定", href: "/settings/org" }, { label: "業務序號" }]}
     >
+      <DemoBanner message="Demo 用、未接 DB — 本頁為示範畫面、操作不會儲存（規劃中）。" />
       <MockCard title="序號規則">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

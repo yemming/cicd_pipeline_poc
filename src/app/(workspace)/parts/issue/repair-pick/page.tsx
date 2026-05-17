@@ -27,7 +27,7 @@ export default async function RepairPickPage({
 
   const sp = await searchParams;
   const { rows, canEdit, warehouses } = await getIssuesPageData({
-    type: "repair_pick",
+    type: "ro_picking",
     status: sp.status || undefined,
     q: sp.q || undefined,
     warehouse_id: sp.warehouse_id || undefined,

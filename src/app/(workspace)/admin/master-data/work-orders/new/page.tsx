@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
@@ -9,13 +8,13 @@ import {
   listItems,
   listServiceAppointments,
 } from "@/lib/master-data/queries";
-import { createWorkOrderAction } from "@/lib/master-data/workorder-actions";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
+import { listActiveWarehouses } from "@/domain/work-orders";
 import type { WorkOrder } from "@/lib/parts/types";
 
-import { WorkOrderForm } from "../_components/work-order-form";
+import { WorkOrderDetailView } from "../[id]/_components/work-order-detail-view";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +38,6 @@ export default async function NewWorkOrderPage({
   let prefill: Partial<WorkOrder> | null = null;
   if (sp.customer || sp.vehicle || sp.appointment) {
     if (sp.appointment) {
-      // 嘗試讀預約的 customer/vehicle 補完欠缺的欄位
       const appt = await getServiceAppointmentById(sp.appointment);
       if (appt) {
         prefill = {
@@ -58,49 +56,29 @@ export default async function NewWorkOrderPage({
     }
   }
 
-  const [customers, vehicles, appointments, employees, parts] = await Promise.all([
+  const [customers, vehicles, appointments, employees, parts, warehouses] = await Promise.all([
     listCustomers({ limit: 500 }),
     listCustomerVehicles({ activeOnly: true, limit: 500 }),
     listServiceAppointments({ limit: 100 }),
     listEmployees({ status: "active", limit: 200 }),
     listItems({ limit: 200 }),
+    listActiveWarehouses(),
   ]);
 
   return (
-    <main className="px-6 py-6 max-w-[1280px] space-y-5">
-      <nav className="text-[13px] text-[#6B778C]">
-        <Link href="/admin/master-data/work-orders" className="hover:text-[#172B4D]">
-          維修工單
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-[#172B4D]">新增工單</span>
-      </nav>
-
-      <header className="space-y-1">
-        <h1 className="text-[20px] font-bold text-[#172B4D]">新增工單</h1>
-        <p className="text-[13px] text-[#6B778C]">
-          車主與車輛必選；工單號留空會自動產生 RO-{"{YYYYMMDD}"}-{"{6 碼}"}
-          {prefill?.appointment_id && (
-            <span className="ml-2 inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-[#DEEBFF] text-[#0747A6]">
-              ← 由預約轉入
-            </span>
-          )}
-        </p>
-      </header>
-
-      <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
-        <WorkOrderForm
-          mode="create"
-          action={createWorkOrderAction}
-          workOrder={prefill as WorkOrder | null | undefined}
-          customers={customers}
-          vehicles={vehicles}
-          appointments={appointments}
-          advisors={employees}
-          technicians={employees}
-          parts={parts}
-        />
-      </section>
-    </main>
+    <WorkOrderDetailView
+      workOrder={prefill as WorkOrder | null}
+      initialItems={[]}
+      customers={customers}
+      vehicles={vehicles}
+      appointments={appointments}
+      employees={employees}
+      parts={parts}
+      warehouses={warehouses}
+      issues={[]}
+      canEdit
+      canIssue={false}
+      initialMode="create"
+    />
   );
 }

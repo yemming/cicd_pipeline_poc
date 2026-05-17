@@ -260,10 +260,32 @@ export type CallTaskBoardKpi = {
   nps_monthly_count: number;
 };
 
+/**
+ * 日期範圍篩選（view tab quick filter）：
+ * - `1d`（單日，搭配 `date` 欄位看當天，預設值）
+ * - `7d`（近 7 天，由今日往後或往前 7 天滾動視窗）
+ * - `week`（本週，週一到週日）
+ * - `month`（本月）
+ */
+export type CallTaskBoardRange = "1d" | "7d" | "week" | "month";
+
+export const CALL_TASK_RANGE_OPTIONS: {
+  key: CallTaskBoardRange;
+  label: string;
+  hint: string;
+}[] = [
+  { key: "1d", label: "單日", hint: "看某一天的任務" },
+  { key: "7d", label: "近 7 天", hint: "今日起 7 天滾動視窗" },
+  { key: "week", label: "本週", hint: "本週一到週日" },
+  { key: "month", label: "本月", hint: "本月 1 號到月底" },
+];
+
 export type CallTaskBoardFilters = {
   kind: SurveyKind;
-  /** YYYY-MM-DD（Asia/Taipei 視角） */
+  /** YYYY-MM-DD（Asia/Taipei 視角） — 當 range='1d' 時為主軸；其他 range 時 = 視窗起算日。 */
   date: string;
+  /** 1d | 7d | week | month，預設 '1d'（單日） */
+  range: CallTaskBoardRange;
   /** all | overdue | today | done | scheduled */
   status: string;
   /** all | d3_followup | d7_followup | event_invite | custom | aftersales_d3 | ... */

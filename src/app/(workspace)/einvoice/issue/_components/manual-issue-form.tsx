@@ -5,10 +5,61 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { issueInvoiceAction } from "@/lib/einvoice/actions";
+import type { SalesOrderInvoicePrefill } from "@/domain/sales-orders";
 
 type InvoiceMode = "b2c_personal" | "b2c_carrier" | "b2c_taxid" | "b2b" | "donation";
 
 type LineItem = { name: string; qty: number; unitPrice: number };
+
+/**
+ * 來源無關的 prefill 殼。
+ * - P1-#4（sales order 開票）→ source_module='manual'（B1 既有行為，不動）
+ * - P1-#10（RO 結帳開票）→ source_module='service' + source_id=ro.id（本檔新增）
+ */
+export type ManualIssuePrefill = {
+  source_module: "manual" | "service";
+  source_id: string | null;
+  source_ref: string;                       // 顯示用：訂單號 / RO 號 + 結帳號
+  display_title: string;                    // header 顯示用
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
+  customer_tax_id: string | null;
+  total_amount: number | null;
+  items: Array<{ name: string; qty: number; unitPrice: number }>;
+  default_remark: string;
+};
+
+type Props = {
+  /**
+   * 兩種來源都接：
+   * - SalesOrderInvoicePrefill：B1 (#4) 既有形狀
+   * - ManualIssuePrefill：來源無關的新形狀（P1-#10 用）
+   */
+  prefill?: SalesOrderInvoicePrefill | ManualIssuePrefill | null;
+};
+
+function normalizePrefill(
+  p: SalesOrderInvoicePrefill | ManualIssuePrefill | null | undefined,
+): ManualIssuePrefill | null {
+  if (!p) return null;
+  // ManualIssuePrefill 已有 source_module 欄位 → 直接回
+  if ("source_module" in p) return p;
+  // SalesOrderInvoicePrefill → 對齊成 ManualIssuePrefill（B1 行為：source_module='manual'）
+  return {
+    source_module: "manual",
+    source_id: p.id,
+    source_ref: p.order_no,
+    display_title: `為訂單 ${p.order_no} 開立發票`,
+    customer_name: p.customer_name,
+    customer_phone: p.customer_phone,
+    customer_email: p.customer_email,
+    customer_tax_id: p.customer_tax_id,
+    total_amount: p.total_amount,
+    items: p.items,
+    default_remark: `來自訂單 ${p.order_no}`,
+  };
+}
 
 const inputClass =
   "h-[34px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none";
@@ -22,18 +73,25 @@ const MODE_TABS: Array<{ id: InvoiceMode; label: string; description: string }> 
   { id: "donation",     label: "B2C 捐贈",   description: "捐贈碼（如 168001）" },
 ];
 
-export function ManualIssueForm() {
+export function ManualIssueForm({ prefill: rawPrefill = null }: Props = {}) {
   const router = useRouter();
-  const [mode, setMode] = useState<InvoiceMode>("b2c_personal");
-  const [lines, setLines] = useState<LineItem[]>([{ name: "", qty: 1, unitPrice: 0 }]);
+  const prefill = normalizePrefill(rawPrefill);
+  // 預設 mode：若 prefill 帶有公司統編 → b2b、否則 b2c_personal
+  const initialMode: InvoiceMode = prefill?.customer_tax_id ? "b2b" : "b2c_personal";
+  const [mode, setMode] = useState<InvoiceMode>(initialMode);
+  const [lines, setLines] = useState<LineItem[]>(
+    prefill?.items && prefill.items.length > 0
+      ? prefill.items.map((it) => ({ name: it.name, qty: it.qty, unitPrice: it.unitPrice }))
+      : [{ name: "", qty: 1, unitPrice: 0 }],
+  );
   const [carrierCode, setCarrierCode] = useState("");
-  const [taxId,       setTaxId]       = useState("");
-  const [buyerName,   setBuyerName]   = useState("");
+  const [taxId,       setTaxId]       = useState(prefill?.customer_tax_id ?? "");
+  const [buyerName,   setBuyerName]   = useState(prefill?.customer_name ?? "");
   const [buyerAddress,setBuyerAddress] = useState("");
-  const [buyerEmail,  setBuyerEmail]  = useState("");
-  const [buyerPhone,  setBuyerPhone]  = useState("");
+  const [buyerEmail,  setBuyerEmail]  = useState(prefill?.customer_email ?? "");
+  const [buyerPhone,  setBuyerPhone]  = useState(prefill?.customer_phone ?? "");
   const [donationCode,setDonationCode] = useState("");
-  const [remark,      setRemark]       = useState("");
+  const [remark,      setRemark]       = useState(prefill?.default_remark ?? "");
   const [pending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -96,7 +154,9 @@ export function ManualIssueForm() {
         buyerEmail:    buyerEmail.trim() || undefined,
         buyerPhone:    buyerPhone.trim() || undefined,
         donationCode:  mode === "donation" ? donationCode : undefined,
-        sourceModule:  "manual",
+        sourceModule:  prefill?.source_module ?? "manual",
+        sourceId:      prefill?.source_id ?? null,
+        sourceRef:     prefill?.source_ref ?? null,
         remark:        remark.trim() || undefined,
       });
 
@@ -121,10 +181,22 @@ export function ManualIssueForm() {
       </div>
 
       <header className="bg-white border border-[#EEECE6] rounded-lg p-4">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">手動開立電子發票</h1>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
+          {prefill ? prefill.display_title : "手動開立電子發票"}
+        </h1>
         <p className="text-[12px] text-[#9A9890] mt-1">
-          後台補單用，會以 source_module=&apos;manual&apos; 寫入發票主檔。
+          {prefill
+            ? `已從來源帶入買方資料 / 品項 / 金額；可調整後送出。發票會關聯回此來源（source_module=${prefill.source_module}${prefill.source_id ? ` · source_id=${prefill.source_id.slice(0, 8)}…` : ""}）。`
+            : "後台補單用，會以 source_module='manual' 寫入發票主檔。"}
         </p>
+        {prefill && (
+          <div className="mt-2 px-3 py-2 rounded bg-[#EAF4FB] border border-[#85B7EB] text-[12px] text-[#185FA5]">
+            <span className="font-medium">已預填：</span>
+            {prefill.customer_name ?? "（無客戶名）"}
+            {prefill.customer_tax_id && <span> · 統編 {prefill.customer_tax_id}</span>}
+            <span> · 共 {prefill.items.length} 品項 · NT$ {(prefill.total_amount ?? 0).toLocaleString()}</span>
+          </div>
+        )}
       </header>
 
       {/* Mode tabs */}

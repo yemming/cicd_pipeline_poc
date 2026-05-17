@@ -937,6 +937,7 @@ function StatTab(props: { officialTags: OfficialTag[]; myTags: PersonalTag[] }) 
           目前尚未有使用紀錄
         </div>
       ) : (
+        // TODO(P1-λ): 此 mock-only 標籤使用紀錄 table 暫不升級到 <DataGrid>，待接真實 helper 後再做。
         <table className="w-full">
           <thead>
             <tr className="border-b-2 border-[#EEECE6]">

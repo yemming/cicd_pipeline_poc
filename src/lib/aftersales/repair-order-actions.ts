@@ -244,3 +244,69 @@ export async function deleteRepairOrderAction(
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
 }
+
+/**
+ * /service/workshop 真派工：指派主責技師
+ *  - technicianId = null 即解除指派
+ *  - 若 RO status 為「進行中」且原本沒指派技師，順手切到「維修中」（保守做法：兩階段都明示）
+ */
+export async function setLeadTechnicianAction(
+  roId: string,
+  technicianId: string | null,
+): Promise<ActionResult<{ id: string; technician_id: string | null; status: string }>> {
+  await requirePermission(PERMISSIONS.RO_DISPATCH);
+  if (!roId) return { ok: false, error: "缺少工單 id" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 1. 驗 technician 屬於同 brand 且 is_active
+  if (technicianId) {
+    const { data: tech, error: techErr } = await supabase
+      .from("aftersales_technicians")
+      .select("id, brand_id, is_active")
+      .eq("id", technicianId)
+      .maybeSingle();
+    if (techErr) return { ok: false, error: `技師驗證失敗：${techErr.message}` };
+    if (!tech) return { ok: false, error: "找不到指定技師" };
+    if (tech.brand_id !== brand) return { ok: false, error: "技師不屬於當前 brand" };
+    if (!tech.is_active) return { ok: false, error: "技師非啟用中，無法派工" };
+  }
+
+  // 2. 取得目前 RO 狀態 + 確認屬於同 brand
+  const { data: ro, error: roErr } = await supabase
+    .from("repair_orders")
+    .select("id, brand_id, status")
+    .eq("id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (roErr) return { ok: false, error: `工單載入失敗：${roErr.message}` };
+  if (!ro) return { ok: false, error: "找不到工單" };
+
+  // 3. update repair_orders
+  const upd: Record<string, unknown> = {
+    lead_technician_id: technicianId,
+    updated_at: new Date().toISOString(),
+  };
+  // 派工時：若狀態仍為「進行中」（初始受理），切到「維修中」(車間實際施工)
+  let nextStatus = ro.status as string;
+  if (technicianId && ro.status === "進行中") {
+    upd.status = "維修中";
+    nextStatus = "維修中";
+  }
+
+  const { error: updErr } = await supabase
+    .from("repair_orders")
+    .update(upd)
+    .eq("id", roId)
+    .eq("brand_id", brand);
+  if (updErr) return { ok: false, error: `派工失敗：${updErr.message}` };
+
+  revalidatePath("/service/workshop");
+  revalidatePath(PAGE_PATH);
+  revalidatePath(`${PAGE_PATH}/${roId}`);
+  return {
+    ok: true,
+    data: { id: roId, technician_id: technicianId, status: nextStatus },
+  };
+}

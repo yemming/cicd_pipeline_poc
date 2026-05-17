@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import {
@@ -9,7 +8,6 @@ import {
   listItems,
   listServiceAppointments,
 } from "@/lib/master-data/queries";
-import { updateWorkOrderAction } from "@/lib/master-data/workorder-actions";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
@@ -19,8 +17,7 @@ import {
   listWorkOrderItems,
 } from "@/domain/work-orders";
 
-import { IssuePickButton } from "../_components/issue-pick-button";
-import { WorkOrderForm } from "../_components/work-order-form";
+import { WorkOrderDetailView } from "./_components/work-order-detail-view";
 
 export const dynamic = "force-dynamic";
 
@@ -60,53 +57,18 @@ export default async function EditWorkOrderPage({
   const canIssue = await hasPermission(PERMISSIONS.ISSUE_CREATE);
 
   return (
-    <main className="px-6 py-6 max-w-[1280px] space-y-5">
-      <nav className="text-[13px] text-[#6B778C]">
-        <Link href="/admin/master-data/work-orders" className="hover:text-[#172B4D]">
-          維修工單
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-[#172B4D]">{workOrder.ro_no}</span>
-      </nav>
-
-      <header className="space-y-1">
-        <h1 className="text-[20px] font-bold text-[#172B4D]">
-          編輯工單 ・ {workOrder.ro_no}
-        </h1>
-        <p className="text-[13px] text-[#6B778C]">
-          開單於 {new Date(workOrder.opened_at).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })} ・
-          最近更新 {new Date(workOrder.updated_at).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
-        </p>
-      </header>
-
-      <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
-        {canEdit ? (
-          <WorkOrderForm
-            mode="edit"
-            action={updateWorkOrderAction}
-            workOrder={workOrder}
-            initialItems={initialItems}
-            customers={customers}
-            vehicles={vehicles}
-            appointments={appointments}
-            advisors={employees}
-            technicians={employees}
-            parts={parts}
-          />
-        ) : (
-          <p className="text-[14px] text-[#6B778C]">僅可檢視；沒有編輯權限</p>
-        )}
-      </section>
-
-      {canIssue && (
-        <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
-          <IssuePickButton
-            workOrderId={workOrder.id}
-            warehouses={warehouses}
-            existingIssues={issues}
-          />
-        </section>
-      )}
-    </main>
+    <WorkOrderDetailView
+      workOrder={workOrder}
+      initialItems={initialItems}
+      customers={customers}
+      vehicles={vehicles}
+      appointments={appointments}
+      employees={employees}
+      parts={parts}
+      warehouses={warehouses}
+      issues={issues}
+      canEdit={canEdit}
+      canIssue={canIssue}
+    />
   );
 }

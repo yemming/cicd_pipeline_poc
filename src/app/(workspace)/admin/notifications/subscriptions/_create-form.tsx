@@ -54,7 +54,7 @@ export function CreateSubscriptionForm({
   return (
     <form
       action={onSubmit}
-      className={`rounded-lg border border-outline-variant bg-surface-container p-4 space-y-3 ${
+      className={`rounded-lg border border-[#EEECE6] bg-white p-4 space-y-3 ${
         isBusy ? "pointer-events-none opacity-60" : ""
       }`}
     >
@@ -124,14 +124,13 @@ export function CreateSubscriptionForm({
         <button
           type="submit"
           disabled={isBusy || !targetId}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-on-primary disabled:opacity-60"
-          style={{ backgroundColor: "#CC0000", color: "#FFFFFF" }}
+          className="inline-flex items-center gap-2 rounded h-[30px] px-3.5 text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
         >
           {isBusy && <Spinner />}
           {isBusy ? "建立中…" : "建立訂閱"}
         </button>
-        {error && <span className="text-sm text-error">⚠️ {error}</span>}
-        {success && <span className="text-sm text-success">✓ 已建立</span>}
+        {error && <span className="text-[12.5px] text-[#CC0000]">⚠️ {error}</span>}
+        {success && <span className="text-[12.5px] text-[#3B6D11]">✓ 已建立</span>}
       </div>
     </form>
   );
@@ -148,9 +147,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-medium text-on-surface-variant">{label}</span>
+      <span className="text-[11px] font-medium text-[#9A9890]">{label}</span>
       <div className="mt-1">{children}</div>
-      {hint && <span className="mt-0.5 block text-[11px] text-on-surface-variant">{hint}</span>}
+      {hint && <span className="mt-0.5 block text-[11px] text-[#9A9890]">{hint}</span>}
     </label>
   );
 }

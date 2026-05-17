@@ -22,10 +22,11 @@ type ConfirmState =
     };
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
-  draft:             { label: "草稿",     chip: "bg-[#F2F2F2] text-[#6B6A68]" },
+  draft:             { label: "草稿",     chip: "bg-[#FDF3E3] text-[#854F0B]" },
   pending:           { label: "待審核",   chip: "bg-[#FDF3E3] text-[#854F0B]" },
   submitted:         { label: "已送出",   chip: "bg-[#FDF3E3] text-[#854F0B]" },
   approved:          { label: "已核准",   chip: "bg-[#EAF3DE] text-[#3B6D11]" },
+  partial:           { label: "部分到貨", chip: "bg-[#EAF4FB] text-[#185FA5]" },
   partial_received:  { label: "部分到貨", chip: "bg-[#EAF4FB] text-[#185FA5]" },
   closed:            { label: "已結案",   chip: "bg-[#F2F2F2] text-[#6B6A68]" },
   cancelled:         { label: "已取消",   chip: "bg-[#FDECEA] text-[#CC0000]" },
@@ -40,9 +41,9 @@ const TYPE_LABEL: Record<string, string> = {
 
 const STATUS_OPTIONS = [
   { value: "", label: "全部" },
-  { value: "pending", label: "待審核" },
+  { value: "draft", label: "草稿" },
   { value: "approved", label: "已核准" },
-  { value: "partial_received", label: "部分到貨" },
+  { value: "partial", label: "部分到貨" },
   { value: "closed", label: "已結案" },
   { value: "cancelled", label: "已取消" },
 ];

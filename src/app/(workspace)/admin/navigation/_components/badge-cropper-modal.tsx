@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 
+import { AlertDialog } from "@/components/ui/confirm-dialog";
+
 type Ratio = { label: string; value: number | undefined };
 
 const RATIOS: Ratio[] = [
@@ -54,6 +56,7 @@ export function BadgeCropperModal({
   const [aspect, setAspect] = useState<number | undefined>(defaultRatio);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [working, setWorking] = useState(false);
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
   // file → object URL（unmount 時 revoke 避免 leak）
   useEffect(() => {
@@ -83,7 +86,7 @@ export function BadgeCropperModal({
       const cropped = new File([blob], `${stem}-cropped.png`, { type: "image/png" });
       onConfirm(cropped);
     } catch (err) {
-      alert(`裁切失敗：${err instanceof Error ? err.message : String(err)}`);
+      setAlertMsg(`裁切失敗：${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setWorking(false);
     }
@@ -236,6 +239,15 @@ export function BadgeCropperModal({
           </button>
         </div>
       </div>
+
+      {alertMsg && (
+        <AlertDialog
+          title="裁切失敗"
+          message={alertMsg}
+          variant="error"
+          onClose={() => setAlertMsg(null)}
+        />
+      )}
     </div>
   );
 }

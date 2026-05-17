@@ -16,6 +16,7 @@ import {
   uploadBrandBadge,
 } from "@/lib/appearance-actions";
 import { BadgeCropperModal } from "./badge-cropper-modal";
+import { AlertDialog, ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export type AppearanceProps = {
   brandKey: string;
@@ -49,6 +50,10 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
   // 選好原檔後丟給 cropper modal；modal confirm 後才真上傳
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
+  // 取代 native alert / confirm 的 dialog state
+  const [alertMsg, setAlertMsg] = useState<{ title: string; message: string } | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const initialCustomPrimary = initial.custom_palette?.primary ?? "#CC0000";
@@ -68,7 +73,10 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
 
   const handleSave = () => {
     if (!customValid) {
-      alert("自訂主顏色：請填合法 #RRGGBB hex 值");
+      setAlertMsg({
+        title: "自訂主顏色格式錯誤",
+        message: "請填合法 #RRGGBB hex 值",
+      });
       return;
     }
     const fd = new FormData();
@@ -84,7 +92,10 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
         await updateBrandAppearance(fd);
         router.refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
+        setAlertMsg({
+          title: "儲存失敗",
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
     });
   };
@@ -113,21 +124,31 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
         if (fileInputRef.current) fileInputRef.current.value = "";
         router.refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
+        setAlertMsg({
+          title: "上傳失敗",
+          message: err instanceof Error ? err.message : String(err),
+        });
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     });
   };
 
   const handleRemove = () => {
-    if (!confirm("確定移除目前的 footer badge 圖片？sidebar 底部會留白。")) return;
+    setShowRemoveConfirm(true);
+  };
+
+  const performRemove = () => {
+    setShowRemoveConfirm(false);
     startRemove(async () => {
       try {
         await removeBrandBadge();
         setBadgeUrl(null);
         router.refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
+        setAlertMsg({
+          title: "移除失敗",
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
     });
   };
@@ -305,6 +326,27 @@ export function AppearanceEditor({ brandKey, brandName, initial }: AppearancePro
         onCancel={handleCancelCrop}
         onConfirm={handleConfirmCrop}
       />
+
+      {showRemoveConfirm && (
+        <ConfirmDialog
+          title="確定移除 footer badge？"
+          message="確定移除目前的 footer badge 圖片？sidebar 底部會留白。"
+          confirmLabel="確認移除"
+          variant="danger"
+          isPending={removePending}
+          onConfirm={performRemove}
+          onCancel={() => setShowRemoveConfirm(false)}
+        />
+      )}
+
+      {alertMsg && (
+        <AlertDialog
+          title={alertMsg.title}
+          message={alertMsg.message}
+          variant="error"
+          onClose={() => setAlertMsg(null)}
+        />
+      )}
     </section>
   );
 }

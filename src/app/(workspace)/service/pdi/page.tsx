@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
 import { SignatureCanvas } from "@/components/signature-canvas";
+import { DemoBanner } from "@/components/demo-banner";
 
 // ── 新車 PDI 檢查項目 ──────────────────────────────────────
 const NEW_PDI_GROUPS = [
@@ -177,6 +178,7 @@ export default function PDIPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-4">
+      <DemoBanner message="Demo 用、未接 DB — 本頁為示範流程、操作不會儲存。" />
       {/* Header */}
       <div className="bg-[#185FA5] text-white rounded-xl px-5 py-4">
         <div className="text-lg font-bold">PDI 出廠前檢查</div>

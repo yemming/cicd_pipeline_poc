@@ -15,6 +15,7 @@ import {
   updateSalesOrderAction,
   setSalesOrderStatusAction,
   deleteSalesOrderAction,
+  submitForApprovalAction,
 } from "@/lib/sales/order-actions";
 import {
   CONTRACT_TYPE_LABELS,
@@ -46,7 +47,12 @@ type Props = {
 
 function fmtNT(n: number | null): string {
   if (n == null) return "—";
-  return `NT$ ${Number(n).toLocaleString("en-US")}`;
+  // 手刻千分位 — 不靠 toLocaleString，避免 server/client locale 差導致 hydration mismatch
+  const s = String(Math.round(Number(n)));
+  const neg = s.startsWith("-") ? "-" : "";
+  const abs = neg ? s.slice(1) : s;
+  const withCommas = abs.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `NT$ ${neg}${withCommas}`;
 }
 
 function fmtDate(s: string | null): string {
@@ -54,16 +60,18 @@ function fmtDate(s: string | null): string {
   return s.slice(0, 10);
 }
 
+// Asia/Taipei 偏移固定為 +08:00，無 DST、無 locale 差異 → server / client 必定一致
 function fmtDateTime(s: string | null): string {
   if (!s) return "—";
-  return new Date(s).toLocaleString("zh-TW", {
-    timeZone: "Asia/Taipei",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "—";
+  const tpe = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+  const yyyy = tpe.getUTCFullYear();
+  const mm = String(tpe.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(tpe.getUTCDate()).padStart(2, "0");
+  const hh = String(tpe.getUTCHours()).padStart(2, "0");
+  const mi = String(tpe.getUTCMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
 }
 
 function Kv({
@@ -119,6 +127,7 @@ export default function OrderDetailView({ order, canEdit }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("view");
   const [isPending, startTransition] = useTransition();
+  const [isIssuingInvoice, startIssueTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // Edit form state (initialized from order)
@@ -227,13 +236,20 @@ export default function OrderDetailView({ order, canEdit }: Props) {
     });
   }
 
+  function handleIssueInvoice() {
+    // 帶 orderId query 跳到 /einvoice/issue，由 server component fetch 後預填表單
+    startIssueTransition(() => {
+      router.push(`/einvoice/issue?orderId=${order.id}`);
+    });
+  }
+
   // ─────────────────────────────────────────────────────────────
   // Render
   // ─────────────────────────────────────────────────────────────
 
   return (
     <div
-      className={`px-6 py-5 space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}
+      className={`px-6 py-5 space-y-3 ${isPending || isIssuingInvoice ? "pointer-events-none opacity-60" : ""}`}
     >
       {/* Banner */}
       {banner && (
@@ -320,6 +336,17 @@ export default function OrderDetailView({ order, canEdit }: Props) {
                     className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm disabled:opacity-50"
                   >
                     作廢
+                  </button>
+                )}
+              {canEdit &&
+                (order.status === "signed" || order.status === "fulfilled") && (
+                  <button
+                    onClick={handleIssueInvoice}
+                    disabled={isIssuingInvoice || isPending}
+                    className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm disabled:opacity-50"
+                    title="跳到電子發票開立頁、自動帶入此訂單的買方 / 品項 / 金額"
+                  >
+                    {isIssuingInvoice ? "開立中⋯" : "開立發票"}
                   </button>
                 )}
             </>

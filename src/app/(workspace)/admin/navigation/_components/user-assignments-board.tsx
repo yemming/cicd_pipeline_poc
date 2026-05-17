@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { revokeUserRoleScopeAction } from "@/lib/rbac/admin-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 type Brand = { id: string; name: string };
 type Role = { id: string; name: string; description: string | null };
@@ -47,6 +49,7 @@ export function UserAssignmentsBoard({
   const router = useRouter();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmRevoke, setConfirmRevoke] = useState<GroupedRow | null>(null);
 
   // filters
   const [keyword, setKeyword] = useState("");
@@ -114,13 +117,12 @@ export function UserAssignmentsBoard({
   }, [grouped, filterRole, keyword]);
 
   const revokeWhole = (row: GroupedRow) => {
-    const total = row.groups.length + row.brands.length + row.stores.length;
-    if (
-      !confirm(
-        `撤銷 ${row.email ?? row.user_id} 的所有「${row.role_id}」授權？\n會一併刪除 ${total} 筆作用域。`,
-      )
-    )
-      return;
+    setConfirmRevoke(row);
+  };
+  const doRevoke = () => {
+    if (!confirmRevoke) return;
+    const row = confirmRevoke;
+    setConfirmRevoke(null);
     startTransition(async () => {
       const results = await Promise.all([
         revokeUserRoleScopeAction(row.user_id, row.role_id, "group"),
@@ -133,6 +135,59 @@ export function UserAssignmentsBoard({
       setTimeout(() => router.refresh(), 600);
     });
   };
+
+  const columns: DataGridColumn<GroupedRow>[] = [
+    {
+      id: "user",
+      header: "使用者",
+      width: 260,
+      hideable: false,
+      cell: (r) => (
+        <div>
+          <div className="font-medium">{r.email ?? "(unknown)"}</div>
+          <div className="text-[10px] text-[#9A9890] font-mono">{r.user_id}</div>
+        </div>
+      ),
+      exportValue: (r) => `${r.email ?? ""} / ${r.user_id}`,
+      sortValue: (r) => (r.email ?? r.user_id),
+    },
+    {
+      id: "role_id",
+      header: "Role",
+      width: 140,
+      cell: (r) => (
+        <span className="px-1.5 py-0.5 rounded-md bg-[#EBF3FF] text-[#1A3A5C] text-[11px] font-medium font-mono">
+          {r.role_id}
+        </span>
+      ),
+      exportValue: (r) => r.role_id,
+      sortValue: (r) => r.role_id,
+    },
+    {
+      id: "groups",
+      header: "集團",
+      width: 180,
+      sortable: false,
+      cell: (r) => <ScopeChips items={r.groups} labelMap={groupLabels} palette="amber" />,
+      exportValue: (r) => r.groups.map((a) => groupLabels[a.scope_id] ?? a.scope_id).join(","),
+    },
+    {
+      id: "brands",
+      header: "品牌",
+      width: 180,
+      sortable: false,
+      cell: (r) => <ScopeChips items={r.brands} labelMap={brandLabels} palette="blue" />,
+      exportValue: (r) => r.brands.map((a) => brandLabels[a.scope_id] ?? a.scope_id).join(","),
+    },
+    {
+      id: "stores",
+      header: "門店",
+      width: 220,
+      sortable: false,
+      cell: (r) => <ScopeChips items={r.stores} labelMap={storeLabels} palette="green" />,
+      exportValue: (r) => r.stores.map((a) => storeLabels[a.scope_id] ?? a.scope_id).join(","),
+    },
+  ];
 
   return (
     <div className="space-y-3">
@@ -204,74 +259,51 @@ export function UserAssignmentsBoard({
         </span>
       </div>
 
-      {/* Table */}
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <table className="w-full text-[12px]">
-          <thead className="text-[11px] text-[#9A9890] bg-[#F8F7F4]">
-            <tr>
-              <th className="text-left font-medium py-2 px-3 w-[260px]">使用者</th>
-              <th className="text-left font-medium py-2 px-3 w-[120px]">Role</th>
-              <th className="text-left font-medium py-2 px-3">集團</th>
-              <th className="text-left font-medium py-2 px-3">品牌</th>
-              <th className="text-left font-medium py-2 px-3">門店</th>
-              <th className="text-right font-medium py-2 px-3 w-[140px]">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-6 text-center text-[#9A9890] italic">
-                  {grouped.length === 0 ? "尚無任何授權" : "沒有符合條件的授權"}
-                </td>
-              </tr>
-            ) : (
-              filtered.map((r) => (
-                <tr
-                  key={`${r.user_id}::${r.role_id}`}
-                  className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7] align-top"
-                >
-                  <td className="py-2 px-3">
-                    <div className="font-medium">{r.email ?? "(unknown)"}</div>
-                    <div className="text-[10px] text-[#9A9890] font-mono">{r.user_id}</div>
-                  </td>
-                  <td className="py-2 px-3">
-                    <span className="px-1.5 py-0.5 rounded-md bg-[#EBF3FF] text-[#1A3A5C] text-[11px] font-medium font-mono">
-                      {r.role_id}
-                    </span>
-                  </td>
-                  <ScopeCell items={r.groups} labelMap={groupLabels} palette="amber" />
-                  <ScopeCell items={r.brands} labelMap={brandLabels} palette="blue" />
-                  <ScopeCell items={r.stores} labelMap={storeLabels} palette="green" />
-                  <td className="py-2 px-3 text-right">
-                    <div className="inline-flex gap-1.5">
-                      <Link
-                        href={`/admin/navigation/users/${encodeURIComponent(r.user_id)}/${encodeURIComponent(r.role_id)}`}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] flex items-center"
-                      >
-                        修改
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => revokeWhole(r)}
-                        disabled={pending}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
-                        title="撤銷此 user × role 的整列授權"
-                      >
-                        撤銷
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <DataGrid<GroupedRow>
+        columns={columns}
+        data={filtered}
+        rowKey={(r) => `${r.user_id}::${r.role_id}`}
+        persistKey="admin/navigation/user-assignments"
+        exportFileName="user-assignments"
+        emptyMessage={grouped.length === 0 ? "尚無任何授權" : "沒有符合條件的授權"}
+        disabled={pending}
+        rowActions={(r) => (
+          <>
+            <Link
+              href={`/admin/navigation/users/${encodeURIComponent(r.user_id)}/${encodeURIComponent(r.role_id)}`}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] inline-flex items-center"
+            >
+              修改
+            </Link>
+            <button
+              type="button"
+              onClick={() => revokeWhole(r)}
+              disabled={pending}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+              title="撤銷此 user × role 的整列授權"
+            >
+              撤銷
+            </button>
+          </>
+        )}
+        rowActionsWidth={150}
+      />
+      {confirmRevoke && (
+        <ConfirmDialog
+          title="確定撤銷授權？"
+          message={`撤銷 ${confirmRevoke.email ?? confirmRevoke.user_id} 的所有「${confirmRevoke.role_id}」授權？會一併刪除 ${confirmRevoke.groups.length + confirmRevoke.brands.length + confirmRevoke.stores.length} 筆作用域。`}
+          confirmLabel="確認撤銷"
+          variant="danger"
+          isPending={pending}
+          onConfirm={doRevoke}
+          onCancel={() => setConfirmRevoke(null)}
+        />
+      )}
     </div>
   );
 }
 
-function ScopeCell({
+function ScopeChips({
   items,
   labelMap,
   palette,
@@ -281,7 +313,7 @@ function ScopeCell({
   palette: "amber" | "blue" | "green";
 }) {
   if (items.length === 0) {
-    return <td className="py-2 px-3 text-[#9A9890]">—</td>;
+    return <span className="text-[#9A9890]">—</span>;
   }
   const palClass =
     palette === "amber"
@@ -290,18 +322,16 @@ function ScopeCell({
         ? "bg-[#EAF4FB] text-[#185FA5]"
         : "bg-[#EAF3DE] text-[#3B6D11]";
   return (
-    <td className="py-2 px-3">
-      <div className="flex flex-wrap gap-1">
-        {items.map((a) => (
-          <span
-            key={a.id}
-            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${palClass}`}
-            title={a.notes ?? undefined}
-          >
-            {labelMap[a.scope_id] ?? a.scope_id}
-          </span>
-        ))}
-      </div>
-    </td>
+    <div className="flex flex-wrap gap-1">
+      {items.map((a) => (
+        <span
+          key={a.id}
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${palClass}`}
+          title={a.notes ?? undefined}
+        >
+          {labelMap[a.scope_id] ?? a.scope_id}
+        </span>
+      ))}
+    </div>
   );
 }

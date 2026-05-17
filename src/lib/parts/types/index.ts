@@ -180,7 +180,7 @@ export type ReceiptKind =
   | "exception_in";
 
 export type IssueKind =
-  | "repair_pick"
+  | "ro_picking"
   | "internal_sale"
   | "transfer_out"
   | "exception_out";

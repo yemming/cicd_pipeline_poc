@@ -14,6 +14,7 @@ import {
   getAccessibleScopes,
 } from "@/lib/scope/active-scope";
 import { ScopeProvider } from "@/lib/scope/scope-context";
+import { createClient } from "@/lib/supabase/server";
 
 // 確保 brand_appearance 改了之後 reload workspace 一定吃到新值，不被 Next 16 的 layout cache 卡住
 export const dynamic = "force-dynamic";
@@ -33,11 +34,23 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
     (s) => ({ id: s.id, name: s.name, short_name: s.short_name }),
   );
 
+  // 撈當前法人 short_name 給 Topbar chip 顯示（B5）
+  const supabaseClient = await createClient();
+  const { data: subRow } = await supabaseClient
+    .from("subsidiaries")
+    .select("short_name, legal_name")
+    .eq("id", scope.subsidiary_id)
+    .maybeSingle();
+  const subsidiary_short_name =
+    subRow?.short_name ?? subRow?.legal_name ?? null;
+
   return (
     <AdminProvider isAdmin={isAdmin}>
       <ScopeProvider
         value={{
           brand_id: scope.brand_id,
+          subsidiary_id: scope.subsidiary_id,
+          subsidiary_short_name,
           store_id: scope.store_id,
           accessibleBrands: accessible.brands,
           accessibleStores,

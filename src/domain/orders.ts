@@ -187,7 +187,7 @@ export async function createPurchaseOrder(
       amount_pretax: subtotal,
       amount_tax: tax,
       amount_total: total,
-      status: "pending",
+      status: "draft",
     })
     .select("id")
     .single();
@@ -208,7 +208,7 @@ export async function createPurchaseOrder(
   return { ok: true, data: { id: po.id, po_no } };
 }
 
-/** PO 審核：pending → approved */
+/** PO 審核：draft → approved */
 export async function approvePurchaseOrder(
   poId: string,
 ): Promise<Result<null>> {
@@ -225,7 +225,7 @@ export async function approvePurchaseOrder(
       approved_by: user?.id ?? null,
     })
     .eq("id", poId)
-    .eq("status", "pending");
+    .eq("status", "draft");
   if (error) return { ok: false, error: `審核失敗:${error.message}` };
   revalidatePath("/parts/purchase/orders");
   revalidatePath("/parts/receipt/po-grn");

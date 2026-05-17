@@ -640,6 +640,7 @@ export default function InsuranceBoard({ lostReasons = [] }: Props = {}) {
                 🆕 <b>新車交車招攬</b>：交車後 3 日內主動確認保險投保狀況，協助加購商業險與車損險，同時建立保險到期提醒。
               </div>
               <div className="bg-white border border-[#EEECE6] rounded-lg overflow-x-auto">
+                {/* TODO(P1-λ): 此 mock-only table 暫不升級到 <DataGrid>，待保險模組接真實 helper 後再做。 */}
                 <table className="w-full border-collapse">
                   <thead>
                     <tr>

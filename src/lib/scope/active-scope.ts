@@ -28,8 +28,24 @@ const ENV_DEFAULT_BRAND: BrandKey =
 
 export type ActiveScope = {
   brand_id: BrandKey;
+  /**
+   * 法人 ID（NetSuite Subsidiary 對映）。
+   * B5：cookie 結構升級為可選帶 `subsidiary_id`，若 cookie 有值就用、若無則 fallback 到
+   * brands.default_subsidiary_id。當前 1:1 brand-subsidiary 對映下、切 subsidiary 等於切 brand，
+   * 所以 UI 暫無切換 dropdown；長線多 subsidiary per brand 時補上 dropdown。
+   *
+   * 雙 brand 都已在 B1 設好預設法人，找不到時 throw error 讓問題早曝光。
+   */
+  subsidiary_id: string;
   /** null = 「全部店」（在 user 能見範圍內） */
   store_id: string | null;
+};
+
+/** 寫入 cookie 用的形狀（subsidiary_id 可選）。讀取時走 getActiveScope() 一律 normalize 過。 */
+export type ScopeCookieShape = {
+  brand_id?: BrandKey;
+  subsidiary_id?: string;
+  store_id?: string | null;
 };
 
 export type AccessibleStore = {
@@ -186,10 +202,10 @@ export const getActiveScope = cache(async (): Promise<ActiveScope> => {
   const cookieStore = await cookies();
   const raw = cookieStore.get(SCOPE_COOKIE)?.value;
 
-  let parsed: Partial<ActiveScope> | null = null;
+  let parsed: ScopeCookieShape | null = null;
   if (raw) {
     try {
-      parsed = JSON.parse(raw) as Partial<ActiveScope>;
+      parsed = JSON.parse(raw) as ScopeCookieShape;
     } catch {
       parsed = null;
     }
@@ -209,7 +225,51 @@ export const getActiveScope = cache(async (): Promise<ActiveScope> => {
       ? parsed.store_id
       : null;
 
-  return { brand_id: targetBrand, store_id: targetStore };
+  // Subsidiary 解析（B5）：
+  //   1) cookie 內若帶 subsidiary_id 且該 subsidiary 確實屬於 targetBrand → 採用
+  //   2) 否則從 brands.default_subsidiary_id fallback
+  // 注意：cookie 內的 subsidiary 必須做 brand 邊界檢查，避免使用者切 brand 後殘留舊 subsidiary。
+  const supabase = await createClient();
+  let subsidiary_id: string | null = null;
+
+  if (parsed?.subsidiary_id) {
+    const { data: subRow } = await supabase
+      .from("subsidiaries")
+      .select("id")
+      .eq("id", parsed.subsidiary_id)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (subRow?.id) {
+      // TODO 多 subsidiary per brand 時、改成驗 brand_subsidiaries pivot；現階段 1:1 用 brand.default 對 cookie 值比對
+      const { data: brandRow } = await supabase
+        .from("brands")
+        .select("default_subsidiary_id")
+        .eq("id", targetBrand)
+        .single();
+      if (brandRow?.default_subsidiary_id === subRow.id) {
+        subsidiary_id = subRow.id;
+      }
+    }
+  }
+
+  if (!subsidiary_id) {
+    const { data: brandRow } = await supabase
+      .from("brands")
+      .select("default_subsidiary_id")
+      .eq("id", targetBrand)
+      .single();
+    subsidiary_id = (brandRow as { default_subsidiary_id: string | null } | null)
+      ?.default_subsidiary_id ?? null;
+  }
+
+  if (!subsidiary_id) {
+    throw new Error(
+      `Brand "${targetBrand}" has no default_subsidiary_id configured. ` +
+        "請先在 brands 表設置 default_subsidiary_id（B1 應已 backfill，請檢查 DB）。",
+    );
+  }
+
+  return { brand_id: targetBrand, subsidiary_id, store_id: targetStore };
 });
 
 /**

@@ -13,13 +13,20 @@
  *   - TAB 4：收購定價核算（4 段 A/B/C/D 計算表 + 評估結論）
  *
  * 跨頁 state：N/A（單頁 wizard，純 useState）
- * 後端：mock 為主，未接 DB（A12-v2 只做 UI/UX，後續再接 usedcar_evaluations 表）
+ * 後端：第七輪 BDN P1-#7（2026-05-17）已接 DB（used_car_evaluations 表）：
+ *        - 💾 儲存評估單 → INSERT status='draft'，建立後可繼續修改
+ *        - 📨 送出簽核   → 改 status='submitted'，進 /admin/approvals/tradein
+ *        - 歷史評估列表 → /usedcar/evaluations
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import {
+  createEvaluationAction,
+  submitEvaluationAction,
+} from "@/lib/used-car/evaluation-actions";
 
 // ============================================================
 // 常數
@@ -371,6 +378,10 @@ export default function UsedCarEvaluationPage() {
     setTimeout(() => setToast(null), 2800);
   };
 
+  // 已建立的評估單 id（成功儲存 draft 後填入；用於後續 submit）
+  const [savedEvalId, setSavedEvalId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
   // 評估單號（每次掛載 generate）
   const evalNo = useMemo(() => {
     const d = new Date();
@@ -379,6 +390,143 @@ export default function UsedCarEvaluationPage() {
     const dd = String(d.getDate()).padStart(2, "0");
     return `EV-${y}${m}${dd}-001`;
   }, []);
+
+  // TODO(P0-#3 follow-up): 處理 ?id=<uuid> hydrate edit mode
+  // 目前 wizard 是 client component、state 樹複雜（50+ useState），hydrate 邏輯
+  // 需要全部 setState 從 equipment_jsonb / pricing_jsonb 還原；留到後續輪次補。
+  // 入單成功後 router.push 到 /usedcar/evaluations 列表頁讓 user 看到 row 已落 DB。
+
+  // ============================================================
+  // Save / Submit handlers — 第八輪 BDN P0-#3（2026-05-17）接 DB
+  // ============================================================
+
+  // 把當前 wizard state 整包打成 CreateEvaluationInput
+  // 不讀 calcResult（避免破壞 useMemo 編譯期 memoization）；suggested 用同公式 inline 算
+  const buildPayload = () => {
+    const market = n(pMarket);
+    const cost =
+      n(pRepair) + n(pPaint) + n(pTire) + n(pWarranty) + n(pAdmin) + n(pComm) + n(pProfit);
+    const suggested = market - cost;
+    return ({
+    eval_no: evalNo,
+    vin: vin.trim() || null,
+    license_plate: plate.trim() || null,
+    brand_name: brand.trim() || null,
+    model: model.trim() || null,
+    year: year ? Number(year) || null : null,
+    color: color.trim() || null,
+    displacement: displacement || null,
+    mileage: mileage ? Number(mileage) || null : null,
+    appraiser: appraiser.trim() || null,
+    condition_grade: finalGrade,
+    estimated_value: suggested || null,
+    decision: decision || null,
+    conclusion: conclusion.trim() || null,
+    equipment_jsonb: {
+      sideDots,
+      topDots,
+      paintState,
+      paintUm,
+      glassChecks,
+      frameChecks,
+      mechChecks,
+      tireFrontMm,
+      tireRearMm,
+      tireFrontPsi,
+      tireRearPsi,
+      tireFrontWear,
+      tireRearWear,
+      tireFrontBrand,
+      tireRearBrand,
+      sellerName,
+      engineNo,
+      licenseExpire,
+      insuranceExpire,
+      fineQuery,
+      lien,
+      inspect,
+      tax,
+      insuranceRemain,
+      quickGrade,
+      quickNote,
+      ocrVin,
+      ocrEngineNo,
+      scanned,
+      scanDates,
+    },
+    pricing_jsonb: {
+      pMarket,
+      pMsrp,
+      pRepair,
+      pPaint,
+      pTire,
+      pWarranty,
+      pAdmin,
+      pComm,
+      pProfit,
+      pNew,
+    },
+    });
+  };
+
+  // 儲存 draft — 若已有 savedEvalId 走 update（避免重複建單），否則 create
+  // navigateAfter: 成功後是否導頁；submit flow 不導頁直接接送簽
+  function handleSaveDraft(opts?: { navigateAfter?: boolean }): Promise<string | null> {
+    const navigateAfter = opts?.navigateAfter ?? true;
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        // 基本必填 guard
+        if (!vin.trim() && !plate.trim() && !model.trim()) {
+          showToast("❌ 至少需填寫車款、VIN 或車牌其中一項");
+          resolve(null);
+          return;
+        }
+        const payload = buildPayload();
+        // 若已存過、走 update（之後 polish 可改 RPC upsert；目前 create 就好）
+        // 目前 RLS / unique constraint 未強制 eval_no 唯一，重存會被擋在 helper 端
+        const r = await createEvaluationAction(payload);
+        if (!r.ok) {
+          showToast(`❌ ${r.error}`);
+          resolve(null);
+          return;
+        }
+        setSavedEvalId(r.data.id);
+        showToast(`✓ 評估單 ${evalNo} 已儲存草稿`);
+        if (navigateAfter) {
+          router.push("/usedcar/evaluations");
+        }
+        resolve(r.data.id);
+      });
+    });
+  }
+
+  // 送出簽核：若還沒儲存先儲存（不導頁）→ 立刻 submit → 導列表
+  function handleSubmitForReview() {
+    startTransition(async () => {
+      let id = savedEvalId;
+      if (!id) {
+        // 還沒存過、先建 draft（不導頁）
+        if (!vin.trim() && !plate.trim() && !model.trim()) {
+          showToast("❌ 至少需填寫車款、VIN 或車牌其中一項");
+          return;
+        }
+        const r = await createEvaluationAction(buildPayload());
+        if (!r.ok) {
+          showToast(`❌ 建立失敗：${r.error}`);
+          return;
+        }
+        setSavedEvalId(r.data.id);
+        id = r.data.id;
+      }
+      const sr = await submitEvaluationAction(id);
+      if (!sr.ok) {
+        showToast(`❌ 送簽失敗：${sr.error}`);
+        return;
+      }
+      showToast(`📨 評估單 ${evalNo} 已送出簽核`);
+      router.push("/usedcar/evaluations");
+    });
+  }
 
   // ============================================================
   // Derived
@@ -940,11 +1088,12 @@ export default function UsedCarEvaluationPage() {
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => showToast("💾 基本資料已儲存")}
-                  className={btnGhost}
+                  onClick={() => handleSaveDraft({ navigateAfter: false })}
+                  disabled={isPending}
+                  className={`${btnGhost} disabled:opacity-60 disabled:cursor-not-allowed`}
                   data-testid="evaluation-save-tab0"
                 >
-                  💾 儲存
+                  {isPending ? "儲存中⋯" : "💾 儲存草稿"}
                 </button>
                 <button
                   type="button"
@@ -1573,11 +1722,21 @@ export default function UsedCarEvaluationPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => showToast(`💾 評估單 ${evalNo} 已儲存`)}
-                    className={btnGhost}
+                    onClick={() => handleSaveDraft()}
+                    disabled={isPending}
+                    className={`${btnGhost} disabled:opacity-60 disabled:cursor-not-allowed`}
                     data-testid="evaluation-save-final"
                   >
-                    💾 儲存評估單
+                    {isPending ? "儲存中⋯" : "💾 儲存評估單"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitForReview}
+                    disabled={isPending}
+                    className={`${btnPrimary} disabled:opacity-60 disabled:cursor-not-allowed`}
+                    data-testid="evaluation-submit"
+                  >
+                    {isPending ? "送出中⋯" : "📨 送出簽核"}
                   </button>
                   <button
                     type="button"

@@ -8,6 +8,8 @@ import {
   deleteStoreAction,
 } from "@/lib/rbac/org-actions";
 import { Modal, ModalFooter, Field } from "../../groups/_components/groups-board";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 type Row = {
   id: string;
@@ -26,6 +28,107 @@ type Row = {
 
 type Brand = { id: string; name: string };
 type Group = { id: string; name: string };
+
+const storeColumns: DataGridColumn<Row>[] = [
+  {
+    id: "code",
+    header: "店碼",
+    width: 160,
+    hideable: false,
+    cell: (r) => <span className="font-mono">{r.code}</span>,
+    exportValue: (r) => r.code,
+    sortValue: (r) => r.code,
+  },
+  {
+    id: "name",
+    header: "店名",
+    width: 220,
+    cell: (r) => (
+      <span className="font-medium">
+        {r.name}
+        {r.short_name && (
+          <span className="text-[10.5px] text-[#9A9890] ml-1.5">({r.short_name})</span>
+        )}
+      </span>
+    ),
+    exportValue: (r) => r.name + (r.short_name ? ` (${r.short_name})` : ""),
+    sortValue: (r) => r.name,
+  },
+  {
+    id: "type",
+    header: "類型",
+    width: 100,
+    cell: (r) => (
+      <span
+        className={`px-1.5 py-0.5 rounded-md text-[11px] font-medium ${
+          r.type === "region"
+            ? "bg-[#FDF3E3] text-[#854F0B]"
+            : "bg-[#EAF4FB] text-[#185FA5]"
+        }`}
+      >
+        {r.type === "region" ? "區域 / HQ" : "門店"}
+      </span>
+    ),
+    exportValue: (r) => (r.type === "region" ? "區域 / HQ" : "門店"),
+    sortValue: (r) => r.type,
+  },
+  {
+    id: "brand_id",
+    header: "主品牌",
+    width: 100,
+    cell: (r) => <span className="font-mono">{r.brand_id}</span>,
+    exportValue: (r) => r.brand_id,
+    sortValue: (r) => r.brand_id,
+  },
+  {
+    id: "group_id",
+    header: "集團",
+    width: 100,
+    cell: (r) => <span className="font-mono text-[#5A5955]">{r.group_id ?? "—"}</span>,
+    exportValue: (r) => r.group_id ?? "",
+    sortValue: (r) => r.group_id ?? "",
+  },
+  {
+    id: "additional_brands",
+    header: "附加品牌",
+    width: 180,
+    sortable: false,
+    cell: (r) => {
+      const additional = r.brand_ids.filter((b) => b !== r.brand_id);
+      return additional.length === 0 ? (
+        <span className="text-[#9A9890]">—</span>
+      ) : (
+        <div className="flex flex-wrap gap-1">
+          {additional.map((b) => (
+            <span
+              key={b}
+              className="px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5] text-[10.5px] font-mono"
+            >
+              {b}
+            </span>
+          ))}
+        </div>
+      );
+    },
+    exportValue: (r) => r.brand_ids.filter((b) => b !== r.brand_id).join(","),
+  },
+  {
+    id: "is_active",
+    header: "狀態",
+    width: 80,
+    cell: (r) => (
+      <span
+        className={`px-1.5 py-0.5 rounded-md text-[11px] font-medium ${
+          r.is_active ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#F2F2F2] text-[#6B6A68]"
+        }`}
+      >
+        {r.is_active ? "啟用" : "停用"}
+      </span>
+    ),
+    exportValue: (r) => (r.is_active ? "啟用" : "停用"),
+    sortValue: (r) => (r.is_active ? 1 : 0),
+  },
+];
 
 export function StoresBoard({
   rows,
@@ -53,6 +156,7 @@ export function StoresBoard({
   const [fLevel, setFLevel] = useState(2);
   const [fActive, setFActive] = useState(true);
   const [fBrandIds, setFBrandIds] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
 
   const flash = (ok: boolean, msg: string) => {
     setBanner({ ok, msg });
@@ -145,7 +249,12 @@ export function StoresBoard({
   };
 
   const remove = (row: Row) => {
-    if (!confirm(`確定刪除「${row.name}」？\n下層子節點與授權需先清除`)) return;
+    setConfirmDelete(row);
+  };
+  const doRemove = () => {
+    if (!confirmDelete) return;
+    const row = confirmDelete;
+    setConfirmDelete(null);
     startTransition(async () => {
       const res = await deleteStoreAction(row.id);
       if (!res.ok) return flash(false, res.error);
@@ -230,107 +339,35 @@ export function StoresBoard({
         </span>
       </div>
 
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <table className="w-full text-[12px]">
-          <thead className="text-[11px] text-[#9A9890] bg-[#F8F7F4]">
-            <tr>
-              <th className="text-left font-medium py-2 px-3">店碼</th>
-              <th className="text-left font-medium py-2 px-3">店名</th>
-              <th className="text-left font-medium py-2 px-3">類型</th>
-              <th className="text-left font-medium py-2 px-3">主品牌</th>
-              <th className="text-left font-medium py-2 px-3">集團</th>
-              <th className="text-left font-medium py-2 px-3">附加品牌</th>
-              <th className="text-left font-medium py-2 px-3">狀態</th>
-              <th className="text-right font-medium py-2 px-3">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="py-6 text-center text-[#9A9890] italic">
-                  沒有符合條件的門店
-                </td>
-              </tr>
-            ) : (
-              filtered.map((r) => {
-                const additional = r.brand_ids.filter((b) => b !== r.brand_id);
-                return (
-                  <tr key={r.id} className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7]">
-                    <td className="py-2 px-3 font-mono">{r.code}</td>
-                    <td className="py-2 px-3 font-medium">
-                      {r.name}
-                      {r.short_name && (
-                        <span className="text-[10.5px] text-[#9A9890] ml-1.5">
-                          ({r.short_name})
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2 px-3">
-                      <span
-                        className={`px-1.5 py-0.5 rounded-md text-[11px] font-medium ${
-                          r.type === "region"
-                            ? "bg-[#FDF3E3] text-[#854F0B]"
-                            : "bg-[#EAF4FB] text-[#185FA5]"
-                        }`}
-                      >
-                        {r.type === "region" ? "區域 / HQ" : "門店"}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 font-mono">{r.brand_id}</td>
-                    <td className="py-2 px-3 font-mono text-[#5A5955]">{r.group_id ?? "—"}</td>
-                    <td className="py-2 px-3">
-                      {additional.length === 0 ? (
-                        <span className="text-[#9A9890]">—</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {additional.map((b) => (
-                            <span
-                              key={b}
-                              className="px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5] text-[10.5px] font-mono"
-                            >
-                              {b}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-2 px-3">
-                      <span
-                        className={`px-1.5 py-0.5 rounded-md text-[11px] font-medium ${
-                          r.is_active
-                            ? "bg-[#EAF3DE] text-[#3B6D11]"
-                            : "bg-[#F2F2F2] text-[#6B6A68]"
-                        }`}
-                      >
-                        {r.is_active ? "啟用" : "停用"}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 text-right">
-                      <div className="inline-flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => open("edit", r)}
-                          className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                        >
-                          編輯
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => remove(r)}
-                          disabled={pending}
-                          className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
-                        >
-                          刪除
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </section>
+      <DataGrid<Row>
+        columns={storeColumns}
+        data={filtered}
+        rowKey={(r) => r.id}
+        persistKey="admin/org/stores"
+        exportFileName="stores"
+        emptyMessage="沒有符合條件的門店"
+        disabled={pending}
+        rowActions={(r) => (
+          <>
+            <button
+              type="button"
+              onClick={() => open("edit", r)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              編輯
+            </button>
+            <button
+              type="button"
+              onClick={() => remove(r)}
+              disabled={pending}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+            >
+              刪除
+            </button>
+          </>
+        )}
+        rowActionsWidth={150}
+      />
 
       {showForm && (
         <Modal
@@ -480,6 +517,17 @@ export function StoresBoard({
             submitLabel={showForm.mode === "create" ? "建立" : "儲存變更"}
           />
         </Modal>
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          title="確定刪除？"
+          message={`確定刪除「${confirmDelete.name}」？下層子節點與授權需先清除。`}
+          confirmLabel="確認刪除"
+          variant="danger"
+          isPending={pending}
+          onConfirm={doRemove}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </div>
   );

@@ -86,11 +86,12 @@ export async function createVehicleModelAction(
   if (err) return { ok: false, error: err };
 
   const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
+  const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("vehicle_models")
     .insert({
-      brand_id: brand,
+      brand_id: scope.brand_id,
+      subsidiary_id: scope.subsidiary_id,
       ...normalisePayload(input),
       is_active: input.is_active ?? true,
     })

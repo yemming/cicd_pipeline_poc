@@ -93,10 +93,12 @@ export async function createCustomerAction(
   const code = input.code?.trim() || (await genCustomerCode());
 
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("customers")
     .insert({
-      brand_id: (await getActiveScope()).brand_id,
+      brand_id: scope.brand_id,
+      subsidiary_id: scope.subsidiary_id,
       code,
       ...payloadFromInput(input),
       is_active: input.is_active ?? true,

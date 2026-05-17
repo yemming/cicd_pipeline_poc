@@ -62,13 +62,15 @@ export async function createAppointmentAction(
   if (!input.service_type) return { ok: false, error: "業務類型必填" };
 
   const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
+  const scope = await getActiveScope();
+  const brand = scope.brand_id;
   const metadata = buildMetadataPatch(input);
 
   const { data, error } = await supabase
     .from("appointments")
     .insert({
       brand_id: brand,
+      subsidiary_id: scope.subsidiary_id,
       appointment_date: input.appointment_date,
       appointment_time: normalizeTime(input.appointment_time),
       customer_id: input.customer_id || null,

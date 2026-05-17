@@ -1,6 +1,7 @@
 "use client";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { DemoBanner } from "@/components/demo-banner";
 
 const months = ["1月", "2月", "3月", "4月", "5月", "6月"];
 
@@ -118,6 +119,7 @@ export default function FinanceReportPage() {
 
   return (
     <div className="p-6 bg-gray-50 min-h-full">
+      <DemoBanner message="Demo 模擬資料 — 本頁數字皆為示意，未連接真實 DB。" />
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
           <span className="material-symbols-outlined text-gray-400" style={{ fontSize: 18 }}>date_range</span>

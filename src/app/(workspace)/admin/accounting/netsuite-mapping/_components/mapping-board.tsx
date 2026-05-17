@@ -10,6 +10,7 @@ import {
   type MappingInput,
 } from "@/lib/accounting/netsuite-mapping-actions";
 import type { MappingRow } from "@/lib/accounting/queries";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -127,6 +128,108 @@ export function MappingBoard({
   const counts: Record<string, number> = {};
   for (const r of rows) counts[r.dealeros_dim] = (counts[r.dealeros_dim] ?? 0) + 1;
 
+  const columns: DataGridColumn<MappingRow>[] = [
+    {
+      id: "dealeros_dim",
+      header: "DealerOS 維度",
+      width: 120,
+      hideable: false,
+      cell: (r) => (
+        <span className="font-mono font-semibold text-[#1A3A5C]">{r.dealeros_dim}</span>
+      ),
+      exportValue: (r) => r.dealeros_dim,
+      sortValue: (r) => r.dealeros_dim,
+    },
+    {
+      id: "dealeros_id",
+      header: "DealerOS ID",
+      cell: (r) => (
+        <span className="font-mono text-[11.5px] text-[#5A5955]">{r.dealeros_id}</span>
+      ),
+      exportValue: (r) => r.dealeros_id,
+      sortValue: (r) => r.dealeros_id,
+    },
+    {
+      id: "netsuite_internal_id",
+      header: "NetSuite Internal ID",
+      width: 140,
+      cell: (r) => <span className="font-mono">{r.netsuite_internal_id}</span>,
+      exportValue: (r) => r.netsuite_internal_id,
+      sortValue: (r) => r.netsuite_internal_id,
+    },
+    {
+      id: "netsuite_external_id",
+      header: "NetSuite External",
+      width: 130,
+      cell: (r) => (
+        <span className="font-mono text-[11.5px] text-[#5A5955]">
+          {r.netsuite_external_id ?? "—"}
+        </span>
+      ),
+      exportValue: (r) => r.netsuite_external_id ?? "",
+      sortValue: (r) => r.netsuite_external_id ?? "",
+    },
+    {
+      id: "netsuite_segment_type",
+      header: "Segment 類型",
+      width: 110,
+      cell: (r) =>
+        r.netsuite_segment_type ? (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${
+              SEGMENT_CHIP[r.netsuite_segment_type] ?? ""
+            }`}
+          >
+            {r.netsuite_segment_type}
+          </span>
+        ) : (
+          <span className="text-[#9A9890]">—</span>
+        ),
+      exportValue: (r) => r.netsuite_segment_type ?? "",
+      sortValue: (r) => r.netsuite_segment_type ?? "",
+    },
+    {
+      id: "netsuite_segment_script_id",
+      header: "Script ID",
+      width: 150,
+      cell: (r) => (
+        <span className="font-mono text-[11.5px] text-[#5A5955]">
+          {r.netsuite_segment_script_id ?? "—"}
+        </span>
+      ),
+      exportValue: (r) => r.netsuite_segment_script_id ?? "",
+      sortValue: (r) => r.netsuite_segment_script_id ?? "",
+    },
+    {
+      id: "sync_status",
+      header: "狀態",
+      width: 80,
+      cell: (r) => (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${
+            STATUS_CHIP[r.sync_status] ?? "bg-[#F2F2F2] text-[#6B6A68]"
+          }`}
+        >
+          {r.sync_status}
+        </span>
+      ),
+      exportValue: (r) => r.sync_status,
+      sortValue: (r) => r.sync_status,
+    },
+    {
+      id: "synced_at",
+      header: "同步時間",
+      width: 150,
+      cell: (r) => (
+        <span className="text-[11.5px] text-[#5A5955]">
+          {new Date(r.synced_at).toLocaleString("zh-TW")}
+        </span>
+      ),
+      exportValue: (r) => r.synced_at,
+      sortValue: (r) => r.synced_at,
+    },
+  ];
+
   return (
     <main className={`px-6 py-5 space-y-3 ${lockedClass}`}>
       {/* Header */}
@@ -211,85 +314,25 @@ export function MappingBoard({
       </div>
 
       {/* Table */}
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12px]">
-            <thead className="text-[11px] text-[#9A9890] bg-[#F8F7F4]">
-              <tr>
-                <th className="text-left font-medium py-2 px-3 w-[120px]">DealerOS 維度</th>
-                <th className="text-left font-medium py-2 px-3">DealerOS ID</th>
-                <th className="text-left font-medium py-2 px-3 w-[120px]">NetSuite Internal ID</th>
-                <th className="text-left font-medium py-2 px-3 w-[120px]">NetSuite External</th>
-                <th className="text-left font-medium py-2 px-3 w-[100px]">Segment 類型</th>
-                <th className="text-left font-medium py-2 px-3 w-[140px]">Script ID</th>
-                <th className="text-left font-medium py-2 px-3 w-[80px]">狀態</th>
-                <th className="text-left font-medium py-2 px-3 w-[140px]">同步時間</th>
-                <th className="text-right font-medium py-2 px-3 w-[80px]">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7]">
-                  <td className="py-2 px-3 font-mono font-semibold text-[#1A3A5C]">
-                    {r.dealeros_dim}
-                  </td>
-                  <td className="py-2 px-3 font-mono text-[11.5px] text-[#5A5955]">
-                    {r.dealeros_id}
-                  </td>
-                  <td className="py-2 px-3 font-mono">{r.netsuite_internal_id}</td>
-                  <td className="py-2 px-3 font-mono text-[11.5px] text-[#5A5955]">
-                    {r.netsuite_external_id ?? "—"}
-                  </td>
-                  <td className="py-2 px-3">
-                    {r.netsuite_segment_type ? (
-                      <span
-                        className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${
-                          SEGMENT_CHIP[r.netsuite_segment_type] ?? ""
-                        }`}
-                      >
-                        {r.netsuite_segment_type}
-                      </span>
-                    ) : (
-                      <span className="text-[#9A9890]">—</span>
-                    )}
-                  </td>
-                  <td className="py-2 px-3 font-mono text-[11.5px] text-[#5A5955]">
-                    {r.netsuite_segment_script_id ?? "—"}
-                  </td>
-                  <td className="py-2 px-3">
-                    <span
-                      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${
-                        STATUS_CHIP[r.sync_status] ?? "bg-[#F2F2F2] text-[#6B6A68]"
-                      }`}
-                    >
-                      {r.sync_status}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-[11.5px] text-[#5A5955]">
-                    {new Date(r.synced_at).toLocaleString("zh-TW")}
-                  </td>
-                  <td className="py-2 px-3 text-right">
-                    <button
-                      onClick={() => removeRow(r)}
-                      disabled={isPending}
-                      className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-40"
-                    >
-                      刪除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-[12px] text-[#9A9890]">
-                    尚無對映 — 點「⚡ 自動產生預設對映」批次產生 placeholder
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <DataGrid
+        columns={columns}
+        data={rows}
+        rowKey={(r) => r.id}
+        persistKey="admin/accounting/netsuite-mapping"
+        exportFileName="netsuite-mapping"
+        emptyMessage="尚無對映 — 點「⚡ 自動產生預設對映」批次產生 placeholder"
+        disabled={isPending}
+        rowActionsWidth={80}
+        rowActions={(r) => (
+          <button
+            onClick={() => removeRow(r)}
+            disabled={isPending}
+            className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-40"
+          >
+            刪除
+          </button>
+        )}
+      />
 
       {/* Add Modal */}
       {showAdd && (

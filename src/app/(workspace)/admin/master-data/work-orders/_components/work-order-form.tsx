@@ -1,16 +1,26 @@
 "use client";
 
+// TODO(2026-05-18 P0-#10 Batch 3): form 結構仍是 legacy 多表 wizard（528 行、含 line items 子表編輯器）。
+// Actions 已升級成 ActionResult<T> + WorkOrderInput；form 改用 useTransition + onSubmit 串接，
+// 但內部 line items 編輯 UI、CustomerWatcher polling、useState 結構保留不動。
+// 完整 wizard 升級走 multi-step pattern（CLAUDE.md SOP §邊界），不適用標準 design pattern SOP。
+
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Combobox } from "@/components/forms/combobox";
 import { FormField } from "@/components/forms/form-field";
 import { SelectField } from "@/components/forms/select-field";
 import { SubmitButton } from "@/components/forms/submit-button";
 import {
+  createWorkOrderAction,
+  updateWorkOrderAction,
+  type WorkOrderInput,
+} from "@/lib/master-data/workorder-actions";
+import {
   EMPTY_ITEM_DRAFT,
-  EMPTY_WORK_ORDER_FORM_STATE,
-  type WorkOrderFormState,
+  type WorkOrderFieldKey,
   type WorkOrderItemDraft,
 } from "@/lib/master-data/workorder-form-types";
 import type {
@@ -40,16 +50,22 @@ const KIND_OPTIONS = [
   { value: "discount", label: "折扣" },
 ];
 
-type Action = (
-  prev: WorkOrderFormState,
-  fd: FormData,
-) => Promise<WorkOrderFormState>;
-
 const NT = (n: number) => `NT$ ${Math.round(n).toLocaleString()}`;
+
+function strOrNull(v: FormDataEntryValue | null): string | null {
+  const s = String(v ?? "").trim();
+  return s.length === 0 ? null : s;
+}
+
+function numOrNull(v: FormDataEntryValue | null): number | null {
+  const s = String(v ?? "").trim();
+  if (s.length === 0) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
 
 export function WorkOrderForm({
   mode,
-  action,
   workOrder,
   initialItems,
   customers,
@@ -60,7 +76,6 @@ export function WorkOrderForm({
   parts,
 }: {
   mode: "create" | "edit";
-  action: Action;
   workOrder?: WorkOrder | null;
   initialItems?: WorkOrderItem[];
   customers: Customer[];
@@ -70,10 +85,20 @@ export function WorkOrderForm({
   technicians: Employee[];
   parts: Item[];
 }) {
-  const [state, formAction] = useActionState<WorkOrderFormState, FormData>(
-    action,
-    EMPTY_WORK_ORDER_FORM_STATE,
-  );
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<WorkOrderFieldKey, string>>
+  >({});
+  const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  useEffect(() => {
+    if (banner?.ok) {
+      const t = setTimeout(() => setBanner(null), 2200);
+      return () => clearTimeout(t);
+    }
+  }, [banner]);
 
   const [items, setItems] = useState<WorkOrderItemDraft[]>(() => {
     if (initialItems && initialItems.length > 0) {
@@ -137,7 +162,7 @@ export function WorkOrderForm({
 
   const submitIdle = mode === "create" ? "建立工單" : "儲存變更";
   const submitPending = mode === "create" ? "建立中…" : "儲存中…";
-  const fe = state.fieldErrors ?? {};
+  const fe = fieldErrors;
 
   // 客戶選擇後過濾車輛
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
@@ -148,18 +173,63 @@ export function WorkOrderForm({
     [vehicles, selectedCustomerId],
   );
 
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const input: WorkOrderInput = {
+      ro_no: strOrNull(fd.get("ro_no")),
+      customer_id: String(fd.get("customer_id") ?? "").trim(),
+      vehicle_id: String(fd.get("vehicle_id") ?? "").trim(),
+      appointment_id: strOrNull(fd.get("appointment_id")),
+      status: (strOrNull(fd.get("status")) ?? "draft") as WorkOrderInput["status"],
+      advisor_id: strOrNull(fd.get("advisor_id")),
+      lead_technician_id: strOrNull(fd.get("lead_technician_id")),
+      mileage_in: numOrNull(fd.get("mileage_in")),
+      mileage_out: numOrNull(fd.get("mileage_out")),
+      customer_complaint: strOrNull(fd.get("customer_complaint")),
+      diagnosis: strOrNull(fd.get("diagnosis")),
+      work_summary: strOrNull(fd.get("work_summary")),
+      notes: strOrNull(fd.get("notes")),
+      items,
+    };
+
+    startTransition(async () => {
+      setError(null);
+      setFieldErrors({});
+      const res =
+        mode === "create"
+          ? await createWorkOrderAction(input)
+          : await updateWorkOrderAction(workOrder!.id, input);
+      if (!res.ok) {
+        setError(res.error);
+        setFieldErrors(res.fieldErrors ?? {});
+        setBanner({ ok: false, msg: res.error });
+        return;
+      }
+      setBanner({
+        ok: true,
+        msg: mode === "create" ? "✓ 已建立工單" : "✓ 已儲存",
+      });
+      if (mode === "create") {
+        router.push("/admin/master-data/work-orders");
+      } else {
+        router.refresh();
+      }
+    });
+  };
+
   return (
-    <form action={formAction} className="space-y-6">
-      {workOrder && <input type="hidden" name="id" value={workOrder.id} />}
+    <form onSubmit={onSubmit} className="space-y-6">
+      {/* itemsJson 不再用於 server action；保留 hidden input 避免測試或 DOM 觀察期外部依賴漂移 */}
       <input type="hidden" name="items_json" value={itemsJson} />
 
-      {state.error && (
+      {error && (
         <div
           role="alert"
           className="rounded-md border border-[#FFBDAD] bg-[#FFEBE6] px-4 py-3 text-[13px] text-[#BF2600]"
         >
-          <strong className="font-semibold">{state.error}</strong>
-          {state.fieldErrors && Object.keys(state.fieldErrors).length > 0 && (
+          <strong className="font-semibold">{error}</strong>
+          {Object.keys(fe).length > 0 && (
             <span className="ml-2 text-[12px] text-[#BF2600]/80">
               請查看下方紅字欄位
             </span>
@@ -491,7 +561,11 @@ export function WorkOrderForm({
       />
 
       <div className="flex items-center gap-3 pt-3 border-t border-[#DFE1E6]">
-        <SubmitButton idleLabel={submitIdle} pendingLabel={submitPending} />
+        <SubmitButton
+          idleLabel={submitIdle}
+          pendingLabel={submitPending}
+          pending={isPending}
+        />
         <Link
           href="/admin/master-data/work-orders"
           className="px-5 py-2 text-[14px] text-[#42526E] hover:text-[#172B4D]"
@@ -499,6 +573,18 @@ export function WorkOrderForm({
           取消
         </Link>
       </div>
+
+      {banner && (
+        <div
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
+            banner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          }`}
+        >
+          {banner.msg}
+        </div>
+      )}
     </form>
   );
 }

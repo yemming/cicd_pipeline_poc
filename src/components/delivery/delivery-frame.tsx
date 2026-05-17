@@ -18,9 +18,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useTransition, type ReactNode } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { DemoBanner } from "@/components/demo-banner";
 import { useDelivery } from "@/lib/delivery-store";
 import { DELIVERY_STEPS } from "./delivery-constants";
 
@@ -71,6 +72,7 @@ export function DeliveryFrame({
 
   const prev = DELIVERY_STEPS.find((s) => s.id === stepId - 1);
   const next = DELIVERY_STEPS.find((s) => s.id === stepId + 1);
+  const [isPending, startTransition] = useTransition();
 
   // 若有 deliveryId，導航時帶上 query param
   function stepHref(href: string) {
@@ -78,13 +80,15 @@ export function DeliveryFrame({
     return `${href}?deliveryId=${deliveryId}`;
   }
 
-  const handleNext = async () => {
-    if (nextDisabled) return;
-    if (onNext) {
-      const r = await onNext();
-      if (r === false) return;
-    }
-    if (next) router.push(stepHref(next.href));
+  const handleNext = () => {
+    if (nextDisabled || isPending) return;
+    startTransition(async () => {
+      if (onNext) {
+        const r = await onNext();
+        if (r === false) return;
+      }
+      if (next) router.push(stepHref(next.href));
+    });
   };
 
   // 滾到頂（切 step 時）
@@ -94,6 +98,14 @@ export function DeliveryFrame({
 
   return (
     <main className="px-6 py-5 space-y-3" data-testid={`delivery-frame-step-${stepId}`}>
+      {!deliveryId && (
+        <DemoBanner
+          tone="info"
+          message="目前為示範模式（未綁訂單），完成資料不會寫入 DB。"
+          href="/sales/delivery"
+          hrefLabel="改由交車列表進入"
+        />
+      )}
       {/* Page header */}
       <header className="flex items-center gap-2.5" data-testid="delivery-page-header">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
@@ -204,11 +216,13 @@ export function DeliveryFrame({
           <button
             type="button"
             data-testid="delivery-next-btn"
-            disabled={nextDisabled}
+            disabled={nextDisabled || isPending}
             onClick={handleNext}
             className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {nextLabel ?? `${stepDone ? "完成" : "進入"} ${next.label} →`}
+            {isPending
+              ? "儲存中⋯"
+              : (nextLabel ?? `${stepDone ? "完成" : "進入"} ${next.label} →`)}
           </button>
         )}
       </div>

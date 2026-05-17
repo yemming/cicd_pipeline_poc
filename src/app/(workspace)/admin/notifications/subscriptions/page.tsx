@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getNotificationSubscriptionsBoardData } from "@/domain/notifications";
 import { NotificationsPageHeader } from "../_parts/page-header";
 import { CreateSubscriptionForm } from "./_create-form";
-import { SubscriptionRowActions } from "./_row-actions";
+import { SubscriptionsGrid, type SubscriptionRow } from "./_subscriptions-grid";
 
 const EVENT_CODES = [
   "work_order.created",
@@ -21,19 +21,29 @@ export default async function SubscriptionsPage() {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === "UNAUTHENTICATED") redirect("/login");
     if (msg.startsWith("FORBIDDEN")) {
-      return (
-        <div className="p-8 text-center text-on-surface-variant">無管理權限</div>
-      );
+      return <div className="p-8 text-center text-[#5A5955]">無管理權限</div>;
     }
     throw err;
   }
   const { subscriptions: subs, targets, codeTemplates: templates } = data;
 
-  // 建一個 target_id → target 的 map 方便列表顯示
   const targetMap = new Map(targets.map((t) => [t.id, t]));
 
+  const rows: SubscriptionRow[] = subs.map((s) => {
+    const t = targetMap.get(s.target_id);
+    return {
+      id: s.id,
+      event_code: s.event_code,
+      template_code: s.template_code,
+      filter_rules: s.filter_rules,
+      is_active: s.is_active,
+      target_display_name: t?.display_name ?? "—",
+      target_channel_code: t?.channel_code ?? "—",
+    };
+  });
+
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-screen bg-white">
       <NotificationsPageHeader
         title="訂閱管理"
         subtitle="哪些事件要推到哪個 LINE 群組／Google Chat space"
@@ -45,7 +55,7 @@ export default async function SubscriptionsPage() {
 
       <div className="mx-auto max-w-7xl px-6 py-6 space-y-8">
         <section>
-          <h3 className="text-lg font-semibold mb-3">新增訂閱</h3>
+          <h3 className="text-[13px] font-semibold text-[#2C2C2A] mb-3">新增訂閱</h3>
           <CreateSubscriptionForm
             eventCodes={[...EVENT_CODES]}
             targets={targets.map((t) => ({
@@ -54,67 +64,17 @@ export default async function SubscriptionsPage() {
               displayName: t.display_name,
               targetRef: t.target_ref,
             }))}
-            templateCodes={templates.map((t) => ({ code: t.code, eventCode: t.eventCode, channelCode: t.channelCode }))}
+            templateCodes={templates.map((t) => ({
+              code: t.code,
+              eventCode: t.eventCode,
+              channelCode: t.channelCode,
+            }))}
           />
         </section>
 
         <section>
-          <h3 className="text-lg font-semibold mb-3">現有訂閱（{subs.length}）</h3>
-          {subs.length === 0 ? (
-            <div className="rounded-lg border border-outline-variant bg-surface-container p-6 text-center text-on-surface-variant">
-              尚無訂閱。在上方新增一條。
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-outline-variant">
-              <table className="w-full text-sm">
-                <thead className="bg-surface-container text-on-surface-variant">
-                  <tr>
-                    <th className="px-3 py-2 text-left">事件</th>
-                    <th className="px-3 py-2 text-left">目標</th>
-                    <th className="px-3 py-2 text-left">通路</th>
-                    <th className="px-3 py-2 text-left">模板</th>
-                    <th className="px-3 py-2 text-left">過濾規則</th>
-                    <th className="px-3 py-2 text-left">啟用</th>
-                    <th className="px-3 py-2 text-right">操作</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant bg-surface">
-                  {subs.map((s) => {
-                    const t = targetMap.get(s.target_id);
-                    return (
-                      <tr key={s.id}>
-                        <td className="px-3 py-2 font-mono text-xs">{s.event_code}</td>
-                        <td className="px-3 py-2">{t?.display_name ?? "—"}</td>
-                        <td className="px-3 py-2">{t?.channel_code ?? "—"}</td>
-                        <td className="px-3 py-2 text-on-surface-variant">
-                          {s.template_code ?? <span className="italic">預設</span>}
-                        </td>
-                        <td className="px-3 py-2 font-mono text-xs text-on-surface-variant">
-                          {Object.keys(s.filter_rules).length === 0
-                            ? "—"
-                            : JSON.stringify(s.filter_rules)}
-                        </td>
-                        <td className="px-3 py-2">
-                          <SubscriptionRowActions
-                            id={s.id}
-                            isActive={s.is_active}
-                            action="toggle"
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <SubscriptionRowActions
-                            id={s.id}
-                            isActive={s.is_active}
-                            action="delete"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <h3 className="text-[13px] font-semibold text-[#2C2C2A] mb-3">現有訂閱（{subs.length}）</h3>
+          <SubscriptionsGrid rows={rows} />
         </section>
       </div>
     </div>

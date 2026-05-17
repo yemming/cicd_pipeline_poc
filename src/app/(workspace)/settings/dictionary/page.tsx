@@ -1,6 +1,7 @@
 "use client";
 
 import { MockShell, MockCard } from "../_mock/mock-shell";
+import { DemoBanner } from "@/components/demo-banner";
 
 type Dict = {
   key: string;
@@ -24,6 +25,7 @@ export default function Page() {
       breadcrumb={[{ label: "系統設定", href: "/settings/org" }, { label: "字典管理" }]}
       tabs={[{ label: "業務字典", active: true }, { label: "系統字典" }]}
     >
+      <DemoBanner message="Demo 用、未接 DB — 本頁為示範畫面、操作不會儲存（規劃中）。" />
       <MockCard
         title="業務字典清單"
         action={

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { DemoBanner } from "@/components/demo-banner";
 import {
   useServiceDemo,
   SAFETY_LABEL,
@@ -153,6 +154,7 @@ export default function DropoffPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-4">
+      <DemoBanner message="Demo 用、未接 DB — 本頁為示範流程、操作不會儲存。" />
       {/* Header */}
       <div
         className="rounded-xl px-5 py-4"

@@ -8,7 +8,7 @@ import { useAppearance } from "./appearance-context";
 import { TopbarSearch } from "./topbar-search";
 import { useProfile, getInitials } from "@/lib/use-profile";
 import { brands as brandConfigs } from "@/lib/brands/registry";
-import { useActiveBrand } from "@/lib/scope/scope-context";
+import { useActiveBrand, useActiveSubsidiary } from "@/lib/scope/scope-context";
 import { ScopeSwitcher } from "./scope-switcher";
 
 interface TopbarProps {
@@ -20,6 +20,7 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
   const profile = useProfile();
   const activeBrand = useActiveBrand();
   const brand = brandConfigs[activeBrand];
+  const subsidiary = useActiveSubsidiary();
   const { footerBadgeUrl } = useAppearance();
 
   // 內容捲動時把 topbar 變半透明 + 加 backdrop blur，讓底下內容能透出來
@@ -115,8 +116,21 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
       {/* Right segment：metadata + actions（含 search icon，無論寬度都保留，行動裝置時為唯一入口） */}
       <div className="flex-1 flex items-center justify-end gap-0.5 md:gap-2 pl-1 md:pl-2 min-w-0">
         {/* 品牌 / 門店 切換器：吃 ScopeContext，可下拉切換 */}
-        <div className="hidden md:flex shrink-0">
+        <div className="hidden md:flex shrink-0 items-center gap-1.5">
           <ScopeSwitcher />
+          {/* 法人 chip（B5 read-only）：當前 1:1 brand-subsidiary 對映無法 user-facing 切換，
+              長線多 subsidiary per brand 時擴成 dropdown。 */}
+          {subsidiary.short_name && (
+            <span
+              className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-white/15 text-white/90 whitespace-nowrap"
+              title={`法人：${subsidiary.short_name} (id: ${subsidiary.id})`}
+            >
+              <span className="material-symbols-outlined text-[12px] mr-0.5 opacity-80">
+                domain
+              </span>
+              {subsidiary.short_name}
+            </span>
+          )}
         </div>
         {/* 淡白 vertical divider —— 把 metadata 與右側互動 icons 視覺分群 */}
         <div className="hidden md:block w-px h-7 bg-white/20 mx-1" />

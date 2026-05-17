@@ -1,15 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
+  InspectionFieldKey,
   InspectionFindingDraft,
-  InspectionFormState,
 } from "./inspection-form-types";
 
 const KINDS = ["PI", "PDI"] as const;
@@ -20,31 +19,46 @@ type OverallStatus = (typeof OVERALL_STATUSES)[number];
 
 const FINDING_STATUSES = ["ok", "needs_attention", "critical", "na"] as const;
 
-function pickKind(raw: FormDataEntryValue | null): Kind {
+export type ActionResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; fieldErrors?: Partial<Record<InspectionFieldKey, string>> };
+
+export type InspectionInput = {
+  kind?: Kind | null;
+  vehicle_id: string;
+  work_order_id?: string | null;
+  appointment_id?: string | null;
+  inspector_id?: string | null;
+  inspected_at?: string | null; // local 'YYYY-MM-DDTHH:mm' (Asia/Taipei)
+  mileage_at_inspection?: number | null;
+  overall_status?: OverallStatus | null;
+  customer_signature_url?: string | null;
+  notes?: string | null;
+  findings?: InspectionFindingDraft[];
+};
+
+function pickKind(raw: string | null | undefined): Kind {
   const v = String(raw ?? "PI");
   return (KINDS as readonly string[]).includes(v) ? (v as Kind) : "PI";
 }
 
-function pickOverall(raw: FormDataEntryValue | null): OverallStatus {
+function pickOverall(raw: string | null | undefined): OverallStatus {
   const v = String(raw ?? "pending");
   return (OVERALL_STATUSES as readonly string[]).includes(v)
     ? (v as OverallStatus)
     : "pending";
 }
 
-function strOrNull(raw: FormDataEntryValue | null): string | null {
-  const v = String(raw ?? "").trim();
-  return v.length === 0 ? null : v;
+function trim(v: string | null | undefined): string | null {
+  if (v == null) return null;
+  const t = v.trim();
+  return t === "" ? null : t;
 }
 
-function numOrNull(raw: FormDataEntryValue | null): number | null {
-  const v = String(raw ?? "").trim();
-  if (v.length === 0) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function mapDbError(error: { code?: string; message: string }): InspectionFormState {
+function mapDbError(error: { code?: string; message: string }): {
+  error: string;
+  fieldErrors?: Partial<Record<InspectionFieldKey, string>>;
+} {
   if (error.code === "23503") {
     if (error.message.includes("vehicle_id")) {
       return { error: "車輛不存在", fieldErrors: { vehicle_id: "請重新選擇" } };
@@ -62,74 +76,64 @@ function mapDbError(error: { code?: string; message: string }): InspectionFormSt
   return { error: `儲存失敗：${error.message}` };
 }
 
-function parseFindingsJson(raw: FormDataEntryValue | null): InspectionFindingDraft[] {
-  const s = String(raw ?? "").trim();
-  if (!s) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(s);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .map((raw): InspectionFindingDraft | null => {
-      if (!raw || typeof raw !== "object") return null;
-      const r = raw as Record<string, unknown>;
-      const category = String(r.category ?? "").trim();
-      const itemLabel = String(r.item_label ?? "").trim();
+function sanitizeFindings(raw: InspectionFindingDraft[] | undefined): InspectionFindingDraft[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  return raw
+    .map((f): InspectionFindingDraft | null => {
+      if (!f || typeof f !== "object") return null;
+      const category = String(f.category ?? "").trim();
+      const itemLabel = String(f.item_label ?? "").trim();
       if (!category || !itemLabel) return null;
-      const statusStr = String(r.status ?? "ok");
+      const statusStr = String(f.status ?? "ok");
       const status = (FINDING_STATUSES as readonly string[]).includes(statusStr)
         ? (statusStr as InspectionFindingDraft["status"])
         : "ok";
       return {
-        id: r.id ? String(r.id) : null,
+        id: f.id ? String(f.id) : null,
         category,
         item_label: itemLabel,
         status,
-        measurement: r.measurement ? String(r.measurement).trim() || null : null,
-        notes: r.notes ? String(r.notes).trim() || null : null,
-        photo_url: r.photo_url ? String(r.photo_url).trim() || null : null,
+        measurement: f.measurement ? String(f.measurement).trim() || null : null,
+        notes: f.notes ? String(f.notes).trim() || null : null,
+        photo_url: f.photo_url ? String(f.photo_url).trim() || null : null,
       };
     })
     .filter((x): x is InspectionFindingDraft => x !== null);
 }
 
-function pickPayload(fd: FormData) {
-  const inspectedAtLocal = strOrNull(fd.get("inspected_at"));
+function buildPayload(input: InspectionInput) {
+  const inspectedAtLocal = trim(input.inspected_at ?? null);
   const inspectedAt = inspectedAtLocal
     ? new Date(`${inspectedAtLocal}:00+08:00`).toISOString()
     : null;
   return {
-    kind: pickKind(fd.get("kind")),
-    vehicle_id: String(fd.get("vehicle_id") ?? "").trim(),
-    work_order_id: strOrNull(fd.get("work_order_id")),
-    appointment_id: strOrNull(fd.get("appointment_id")),
-    inspector_id: strOrNull(fd.get("inspector_id")),
+    kind: pickKind(input.kind),
+    vehicle_id: (input.vehicle_id ?? "").trim(),
+    work_order_id: trim(input.work_order_id ?? null),
+    appointment_id: trim(input.appointment_id ?? null),
+    inspector_id: trim(input.inspector_id ?? null),
     inspected_at: inspectedAt,
-    mileage_at_inspection: numOrNull(fd.get("mileage_at_inspection")),
-    overall_status: pickOverall(fd.get("overall_status")),
-    customer_signature_url: strOrNull(fd.get("customer_signature_url")),
-    notes: strOrNull(fd.get("notes")),
+    mileage_at_inspection: input.mileage_at_inspection ?? null,
+    overall_status: pickOverall(input.overall_status),
+    customer_signature_url: trim(input.customer_signature_url ?? null),
+    notes: trim(input.notes ?? null),
   };
 }
 
 export async function createInspectionAction(
-  _prevState: InspectionFormState,
-  fd: FormData,
-): Promise<InspectionFormState> {
+  input: InspectionInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.INSPECTION_EDIT);
   const ctx = await getCurrentUserContext();
-  if (!ctx.userId) redirect("/login");
+  if (!ctx.userId) return { ok: false, error: "未登入" };
 
-  const payload = pickPayload(fd);
-  const findings = parseFindingsJson(fd.get("findings_json"));
+  const payload = buildPayload(input);
+  const findings = sanitizeFindings(input.findings);
 
-  const fieldErrors: InspectionFormState["fieldErrors"] = {};
+  const fieldErrors: Partial<Record<InspectionFieldKey, string>> = {};
   if (!payload.vehicle_id) fieldErrors.vehicle_id = "必選";
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "請補齊必填欄位", fieldErrors };
+    return { ok: false, error: "請補齊必填欄位", fieldErrors };
   }
 
   const supabase = await createClient();
@@ -145,7 +149,10 @@ export async function createInspectionAction(
     .insert(insertData)
     .select("id")
     .single();
-  if (error) return mapDbError(error);
+  if (error) {
+    const mapped = mapDbError(error);
+    return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+  }
 
   if (findings.length > 0) {
     const _brandId = (await getActiveScope()).brand_id;
@@ -164,30 +171,29 @@ export async function createInspectionAction(
       .insert(rows);
     if (findErr) {
       await supabase.from("inspection_records").delete().eq("id", rec.id);
-      return mapDbError(findErr);
+      const mapped = mapDbError(findErr);
+      return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
     }
   }
 
   revalidatePath("/admin/master-data/inspections");
-  redirect("/admin/master-data/inspections");
+  return { ok: true, data: { id: rec.id } };
 }
 
 export async function updateInspectionAction(
-  _prevState: InspectionFormState,
-  fd: FormData,
-): Promise<InspectionFormState> {
+  id: string,
+  input: InspectionInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.INSPECTION_EDIT);
+  if (!id) return { ok: false, error: "缺少 inspection id" };
 
-  const id = String(fd.get("id") ?? "").trim();
-  if (!id) return { error: "缺少 inspection id" };
+  const payload = buildPayload(input);
+  const findings = sanitizeFindings(input.findings);
 
-  const payload = pickPayload(fd);
-  const findings = parseFindingsJson(fd.get("findings_json"));
-
-  const fieldErrors: InspectionFormState["fieldErrors"] = {};
+  const fieldErrors: Partial<Record<InspectionFieldKey, string>> = {};
   if (!payload.vehicle_id) fieldErrors.vehicle_id = "必選";
   if (Object.keys(fieldErrors).length > 0) {
-    return { error: "請補齊必填欄位", fieldErrors };
+    return { ok: false, error: "請補齊必填欄位", fieldErrors };
   }
 
   const supabase = await createClient();
@@ -198,7 +204,10 @@ export async function updateInspectionAction(
     .from("inspection_records")
     .update(updateData)
     .eq("id", id);
-  if (error) return mapDbError(error);
+  if (error) {
+    const mapped = mapDbError(error);
+    return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+  }
 
   // Findings 走「全刪重建」（與 work_order_items 同策略；CASCADE 不會觸發）
   await supabase.from("inspection_findings").delete().eq("inspection_id", id);
@@ -218,10 +227,30 @@ export async function updateInspectionAction(
     const { error: findErr } = await supabase
       .from("inspection_findings")
       .insert(rows);
-    if (findErr) return mapDbError(findErr);
+    if (findErr) {
+      const mapped = mapDbError(findErr);
+      return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+    }
   }
 
   revalidatePath("/admin/master-data/inspections");
   revalidatePath(`/admin/master-data/inspections/${id}`);
-  redirect("/admin/master-data/inspections");
+  return { ok: true, data: { id } };
+}
+
+export async function deleteInspectionAction(
+  id: string,
+): Promise<ActionResult<null>> {
+  await requirePermission(PERMISSIONS.INSPECTION_EDIT);
+  if (!id) return { ok: false, error: "缺少 inspection id" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("inspection_records")
+    .delete()
+    .eq("id", id);
+  if (error) {
+    return { ok: false, error: `刪除失敗：${error.message}` };
+  }
+  revalidatePath("/admin/master-data/inspections");
+  return { ok: true, data: null };
 }

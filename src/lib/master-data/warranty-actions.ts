@@ -1,14 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
-  WarrantyFormState,
+  WarrantyFieldKey,
   WarrantyLineDraft,
 } from "./warranty-form-types";
 
@@ -33,40 +32,51 @@ const STATUSES = [
 ] as const;
 type Status = (typeof STATUSES)[number];
 
-function pickType(raw: FormDataEntryValue | null): ClaimType {
+export type ActionResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; fieldErrors?: Partial<Record<WarrantyFieldKey, string>> };
+
+export type WarrantyClaimInput = {
+  cl_no?: string | null;
+  claim_type?: ClaimType | null;
+  claim_date?: string | null;
+  ro_id?: string | null;
+  vin?: string | null;
+  customer_id?: string | null;
+  vehicle_model_id?: string | null;
+  status?: Status | null;
+  applied_amount?: number | null;
+  approved_amount?: number | null;
+  parts_cost?: number | null;
+  labor_cost?: number | null;
+  forecast_receipt_date?: string | null;
+  actual_receipt_date?: string | null;
+  oem_reference_no?: string | null;
+  notes?: string | null;
+  lines?: WarrantyLineDraft[];
+};
+
+function pickType(raw: string | null | undefined): ClaimType {
   const v = String(raw ?? "oem_warranty");
   return (CLAIM_TYPES as readonly string[]).includes(v)
     ? (v as ClaimType)
     : "oem_warranty";
 }
 
-function pickStatus(raw: FormDataEntryValue | null): Status {
+function pickStatus(raw: string | null | undefined): Status {
   const v = String(raw ?? "draft");
   return (STATUSES as readonly string[]).includes(v) ? (v as Status) : "draft";
 }
 
-function strOrNull(raw: FormDataEntryValue | null): string | null {
-  const v = String(raw ?? "").trim();
-  return v.length === 0 ? null : v;
+function trim(v: string | null | undefined): string | null {
+  if (v == null) return null;
+  const t = v.trim();
+  return t === "" ? null : t;
 }
 
-function dateOrNull(raw: FormDataEntryValue | null): string | null {
-  const v = String(raw ?? "").trim();
-  return v.length === 0 ? null : v;
-}
-
-function numOrZero(raw: FormDataEntryValue | null): number {
-  const v = String(raw ?? "").trim();
-  if (v.length === 0) return 0;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function numOrNull(raw: FormDataEntryValue | null): number | null {
-  const v = String(raw ?? "").trim();
-  if (v.length === 0) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function numOrZero(v: number | null | undefined): number {
+  if (v == null) return 0;
+  return Number.isFinite(v) ? v : 0;
 }
 
 function genClNo(): string {
@@ -78,7 +88,10 @@ function genClNo(): string {
   return `WC-${ymd}-${rand}`;
 }
 
-function mapDbError(error: { code?: string; message: string }): WarrantyFormState {
+function mapDbError(error: { code?: string; message: string }): {
+  error: string;
+  fieldErrors?: Partial<Record<WarrantyFieldKey, string>>;
+} {
   if (error.code === "23505" && error.message.includes("warranty_claims_brand_id_cl_no_key")) {
     return {
       error: "索賠單號重複",
@@ -105,66 +118,57 @@ function mapDbError(error: { code?: string; message: string }): WarrantyFormStat
   return { error: `儲存失敗：${error.message}` };
 }
 
-function parseLinesJson(raw: FormDataEntryValue | null): WarrantyLineDraft[] {
-  const s = String(raw ?? "").trim();
-  if (!s) return [];
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(s);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-  return parsed
+function normalizeLines(input: WarrantyLineDraft[] | undefined): WarrantyLineDraft[] {
+  if (!input || !Array.isArray(input)) return [];
+  return input
     .map((raw, idx): WarrantyLineDraft | null => {
       if (!raw || typeof raw !== "object") return null;
-      const r = raw as Record<string, unknown>;
-      const itemId = String(r.item_id ?? "").trim();
+      const itemId = String(raw.item_id ?? "").trim();
       if (!itemId) return null;
-      const qty = Number(r.qty ?? 1);
-      const partsCost = Number(r.parts_cost ?? 0);
-      const laborCost = Number(r.labor_cost ?? 0);
-      const appliedAmount = Number(r.applied_amount ?? partsCost + laborCost);
-      const approvedRaw = r.approved_amount;
+      const qty = Number(raw.qty ?? 1);
+      const partsCost = Number(raw.parts_cost ?? 0);
+      const laborCost = Number(raw.labor_cost ?? 0);
+      const appliedAmount = Number(raw.applied_amount ?? partsCost + laborCost);
+      const approvedRaw = raw.approved_amount;
       return {
-        id: r.id ? String(r.id) : null,
+        id: raw.id ? String(raw.id) : null,
         line_no: idx + 1,
         item_id: itemId,
-        serial_no: r.serial_no ? String(r.serial_no).trim() || null : null,
+        serial_no: raw.serial_no ? String(raw.serial_no).trim() || null : null,
         qty: Number.isFinite(qty) ? qty : 1,
         parts_cost: Number.isFinite(partsCost) ? partsCost : 0,
         labor_cost: Number.isFinite(laborCost) ? laborCost : 0,
         applied_amount: Number.isFinite(appliedAmount) ? appliedAmount : 0,
         approved_amount:
-          approvedRaw == null || approvedRaw === ""
+          approvedRaw == null
             ? null
             : Number.isFinite(Number(approvedRaw))
               ? Number(approvedRaw)
               : null,
-        notes: r.notes ? String(r.notes).trim() || null : null,
+        notes: raw.notes ? String(raw.notes).trim() || null : null,
       };
     })
     .filter((x): x is WarrantyLineDraft => x !== null);
 }
 
-function pickPayload(fd: FormData) {
+function buildPayload(input: WarrantyClaimInput) {
   return {
-    cl_no: strOrNull(fd.get("cl_no")) ?? genClNo(),
-    claim_type: pickType(fd.get("claim_type")),
-    claim_date: dateOrNull(fd.get("claim_date")),
-    ro_id: strOrNull(fd.get("ro_id")),
-    vin: strOrNull(fd.get("vin")),
-    customer_id: strOrNull(fd.get("customer_id")),
-    vehicle_model_id: strOrNull(fd.get("vehicle_model_id")),
-    status: pickStatus(fd.get("status")),
-    applied_amount: numOrZero(fd.get("applied_amount")),
-    approved_amount: numOrNull(fd.get("approved_amount")),
-    parts_cost: numOrZero(fd.get("parts_cost")),
-    labor_cost: numOrZero(fd.get("labor_cost")),
-    forecast_receipt_date: dateOrNull(fd.get("forecast_receipt_date")),
-    actual_receipt_date: dateOrNull(fd.get("actual_receipt_date")),
-    oem_reference_no: strOrNull(fd.get("oem_reference_no")),
-    notes: strOrNull(fd.get("notes")),
+    cl_no: trim(input.cl_no ?? null) ?? genClNo(),
+    claim_type: pickType(input.claim_type),
+    claim_date: trim(input.claim_date ?? null),
+    ro_id: trim(input.ro_id ?? null),
+    vin: trim(input.vin ?? null),
+    customer_id: trim(input.customer_id ?? null),
+    vehicle_model_id: trim(input.vehicle_model_id ?? null),
+    status: pickStatus(input.status),
+    applied_amount: numOrZero(input.applied_amount),
+    approved_amount: input.approved_amount ?? null,
+    parts_cost: numOrZero(input.parts_cost),
+    labor_cost: numOrZero(input.labor_cost),
+    forecast_receipt_date: trim(input.forecast_receipt_date ?? null),
+    actual_receipt_date: trim(input.actual_receipt_date ?? null),
+    oem_reference_no: trim(input.oem_reference_no ?? null),
+    notes: trim(input.notes ?? null),
   };
 }
 
@@ -186,15 +190,14 @@ function aggregate(lines: WarrantyLineDraft[]) {
 }
 
 export async function createWarrantyClaimAction(
-  _prevState: WarrantyFormState,
-  fd: FormData,
-): Promise<WarrantyFormState> {
+  input: WarrantyClaimInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
   const ctx = await getCurrentUserContext();
-  if (!ctx.userId) redirect("/login");
+  if (!ctx.userId) return { ok: false, error: "未登入" };
 
-  const payload = pickPayload(fd);
-  const lines = parseLinesJson(fd.get("lines_json"));
+  const payload = buildPayload(input);
+  const lines = normalizeLines(input.lines);
 
   // 自動 aggregate（覆寫使用者輸入，避免不一致）
   const agg = aggregate(lines);
@@ -206,16 +209,21 @@ export async function createWarrantyClaimAction(
   }
 
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { data: cl, error } = await supabase
     .from("warranty_claims")
     .insert({
-      brand_id: (await getActiveScope()).brand_id,
+      brand_id: scope.brand_id,
+      subsidiary_id: scope.subsidiary_id,
       ...payload,
       created_by: ctx.userId,
     })
     .select("id")
     .single();
-  if (error) return mapDbError(error);
+  if (error) {
+    const mapped = mapDbError(error);
+    return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+  }
 
   if (lines.length > 0) {
     const _brandId = (await getActiveScope()).brand_id;
@@ -238,25 +246,24 @@ export async function createWarrantyClaimAction(
     if (linesErr) {
       // 主檔已寫入但子檔失敗，回收
       await supabase.from("warranty_claims").delete().eq("id", cl.id);
-      return mapDbError(linesErr);
+      const mapped = mapDbError(linesErr);
+      return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
     }
   }
 
   revalidatePath("/admin/master-data/warranty-claims");
-  redirect("/admin/master-data/warranty-claims");
+  return { ok: true, data: { id: cl.id } };
 }
 
 export async function updateWarrantyClaimAction(
-  _prevState: WarrantyFormState,
-  fd: FormData,
-): Promise<WarrantyFormState> {
+  id: string,
+  input: WarrantyClaimInput,
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  if (!id) return { ok: false, error: "缺少 warranty claim id" };
 
-  const id = String(fd.get("id") ?? "").trim();
-  if (!id) return { error: "缺少 warranty claim id" };
-
-  const payload = pickPayload(fd);
-  const lines = parseLinesJson(fd.get("lines_json"));
+  const payload = buildPayload(input);
+  const lines = normalizeLines(input.lines);
 
   const agg = aggregate(lines);
   if (lines.length > 0) {
@@ -271,7 +278,10 @@ export async function updateWarrantyClaimAction(
     .from("warranty_claims")
     .update(payload)
     .eq("id", id);
-  if (error) return mapDbError(error);
+  if (error) {
+    const mapped = mapDbError(error);
+    return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+  }
 
   // Lines 全刪重建
   await supabase.from("warranty_claim_lines").delete().eq("cl_id", id);
@@ -293,10 +303,29 @@ export async function updateWarrantyClaimAction(
     const { error: linesErr } = await supabase
       .from("warranty_claim_lines")
       .insert(rows);
-    if (linesErr) return mapDbError(linesErr);
+    if (linesErr) {
+      const mapped = mapDbError(linesErr);
+      return { ok: false, error: mapped.error, fieldErrors: mapped.fieldErrors };
+    }
   }
 
   revalidatePath("/admin/master-data/warranty-claims");
   revalidatePath(`/admin/master-data/warranty-claims/${id}`);
-  redirect("/admin/master-data/warranty-claims");
+  return { ok: true, data: { id } };
+}
+
+export async function deleteWarrantyClaimAction(
+  id: string,
+): Promise<ActionResult<null>> {
+  await requirePermission(PERMISSIONS.WARRANTY_SUBMIT);
+  if (!id) return { ok: false, error: "缺少 warranty claim id" };
+  const supabase = await createClient();
+  // 先刪 lines（FK），再刪主檔
+  await supabase.from("warranty_claim_lines").delete().eq("cl_id", id);
+  const { error } = await supabase.from("warranty_claims").delete().eq("id", id);
+  if (error) {
+    return { ok: false, error: `刪除失敗：${error.message}` };
+  }
+  revalidatePath("/admin/master-data/warranty-claims");
+  return { ok: true, data: null };
 }

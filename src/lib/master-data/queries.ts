@@ -41,6 +41,19 @@ import type { SupplierPricingRow } from "./supplier-pricing-form-types";
 import type { ReplenishmentPolicyRow } from "./replenishment-policy-form-types";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
+
+// ──────────────────────────────────────────────────────────
+// Pagination defaults — master data 交易表
+// （P0-#11：5 個交易表寫死 limit: 200，改成 server-side pagination）
+// ──────────────────────────────────────────────────────────
+export const WORK_ORDERS_PAGE_SIZE_DEFAULT = 50;
+export const APPOINTMENTS_PAGE_SIZE_DEFAULT = 50;
+export const INSPECTIONS_PAGE_SIZE_DEFAULT = 50;
+export const WARRANTY_CLAIMS_PAGE_SIZE_DEFAULT = 50;
+export const VEHICLES_PAGE_SIZE_DEFAULT = 50;
+
+export type Paginated<T> = { rows: T[]; totalCount: number };
+
 // ──────────────────────────────────────────────────────────
 // 客戶
 // ──────────────────────────────────────────────────────────
@@ -450,16 +463,28 @@ export async function getEmployeeById(id: string): Promise<Employee | null> {
 // 客戶車輛 / 聯絡人（Wave 1.3）
 // ──────────────────────────────────────────────────────────
 
-export async function listCustomerVehicles(opts?: {
+export type ListCustomerVehiclesOpts = {
   customerId?: string;
   search?: string;
   activeOnly?: boolean;
   limit?: number;
-}): Promise<CustomerVehicle[]> {
+  page?: number;
+  pageSize?: number;
+};
+export async function listCustomerVehicles(
+  opts: ListCustomerVehiclesOpts & { page: number },
+): Promise<Paginated<CustomerVehicle>>;
+export async function listCustomerVehicles(
+  opts?: ListCustomerVehiclesOpts,
+): Promise<CustomerVehicle[]>;
+export async function listCustomerVehicles(
+  opts?: ListCustomerVehiclesOpts,
+): Promise<CustomerVehicle[] | Paginated<CustomerVehicle>> {
   const supabase = await createClient();
+  const paginated = opts?.page != null;
   let q = supabase
     .from("customer_vehicles")
-    .select("*")
+    .select("*", paginated ? { count: "exact" } : undefined)
     .eq("brand_id", (await getActiveScope()).brand_id)
     .order("updated_at", { ascending: false });
   if (opts?.activeOnly !== false) q = q.eq("is_active", true);
@@ -469,6 +494,16 @@ export async function listCustomerVehicles(opts?: {
     q = q.or(
       `license_plate.ilike.%${s}%,vin.ilike.%${s}%,engine_no.ilike.%${s}%`
     );
+  }
+  if (paginated) {
+    const page = Math.max(1, opts!.page ?? 1);
+    const pageSize = Math.max(1, opts!.pageSize ?? VEHICLES_PAGE_SIZE_DEFAULT);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    q = q.range(from, to);
+    const { data, count, error } = await q;
+    if (error) throw new Error(`listCustomerVehicles: ${error.message}`);
+    return { rows: data ?? [], totalCount: count ?? 0 };
   }
   q = q.limit(opts?.limit ?? 100);
   const { data, error } = await q;
@@ -528,18 +563,30 @@ export async function getCustomerContactById(
 // Service / 維修（Wave 2.0）
 // ──────────────────────────────────────────────────────────
 
-export async function listServiceAppointments(opts?: {
+export type ListServiceAppointmentsOpts = {
   status?: string;
   customerId?: string;
   vehicleId?: string;
   fromDate?: string;
   toDate?: string;
   limit?: number;
-}): Promise<ServiceAppointment[]> {
+  page?: number;
+  pageSize?: number;
+};
+export async function listServiceAppointments(
+  opts: ListServiceAppointmentsOpts & { page: number },
+): Promise<Paginated<ServiceAppointment>>;
+export async function listServiceAppointments(
+  opts?: ListServiceAppointmentsOpts,
+): Promise<ServiceAppointment[]>;
+export async function listServiceAppointments(
+  opts?: ListServiceAppointmentsOpts,
+): Promise<ServiceAppointment[] | Paginated<ServiceAppointment>> {
   const supabase = await createClient();
+  const paginated = opts?.page != null;
   let q = supabase
     .from("service_appointments")
-    .select("*")
+    .select("*", paginated ? { count: "exact" } : undefined)
     .eq("brand_id", (await getActiveScope()).brand_id)
     .order("scheduled_at", { ascending: false });
   if (opts?.status) q = q.eq("status", opts.status);
@@ -547,6 +594,16 @@ export async function listServiceAppointments(opts?: {
   if (opts?.vehicleId) q = q.eq("vehicle_id", opts.vehicleId);
   if (opts?.fromDate) q = q.gte("scheduled_at", opts.fromDate);
   if (opts?.toDate) q = q.lte("scheduled_at", opts.toDate);
+  if (paginated) {
+    const page = Math.max(1, opts!.page ?? 1);
+    const pageSize = Math.max(1, opts!.pageSize ?? APPOINTMENTS_PAGE_SIZE_DEFAULT);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    q = q.range(from, to);
+    const { data, count, error } = await q;
+    if (error) throw new Error(`listServiceAppointments: ${error.message}`);
+    return { rows: data ?? [], totalCount: count ?? 0 };
+  }
   q = q.limit(opts?.limit ?? 200);
   const { data, error } = await q;
   if (error) throw new Error(`listServiceAppointments: ${error.message}`);
@@ -567,21 +624,43 @@ export async function getServiceAppointmentById(
   return data;
 }
 
-export async function listWorkOrders(opts?: {
+export type ListWorkOrdersOpts = {
   status?: string;
   customerId?: string;
   vehicleId?: string;
   limit?: number;
-}): Promise<WorkOrder[]> {
+  page?: number;
+  pageSize?: number;
+};
+export async function listWorkOrders(
+  opts: ListWorkOrdersOpts & { page: number },
+): Promise<Paginated<WorkOrder>>;
+export async function listWorkOrders(
+  opts?: ListWorkOrdersOpts,
+): Promise<WorkOrder[]>;
+export async function listWorkOrders(
+  opts?: ListWorkOrdersOpts,
+): Promise<WorkOrder[] | Paginated<WorkOrder>> {
   const supabase = await createClient();
+  const paginated = opts?.page != null;
   let q = supabase
     .from("work_orders")
-    .select("*")
+    .select("*", paginated ? { count: "exact" } : undefined)
     .eq("brand_id", (await getActiveScope()).brand_id)
     .order("opened_at", { ascending: false });
   if (opts?.status) q = q.eq("status", opts.status);
   if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
   if (opts?.vehicleId) q = q.eq("vehicle_id", opts.vehicleId);
+  if (paginated) {
+    const page = Math.max(1, opts!.page ?? 1);
+    const pageSize = Math.max(1, opts!.pageSize ?? WORK_ORDERS_PAGE_SIZE_DEFAULT);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    q = q.range(from, to);
+    const { data, count, error } = await q;
+    if (error) throw new Error(`listWorkOrders: ${error.message}`);
+    return { rows: data ?? [], totalCount: count ?? 0 };
+  }
   q = q.limit(opts?.limit ?? 200);
   const { data, error } = await q;
   if (error) throw new Error(`listWorkOrders: ${error.message}`);
@@ -600,21 +679,43 @@ export async function getWorkOrderById(id: string): Promise<WorkOrder | null> {
   return data;
 }
 
-export async function listInspectionRecords(opts?: {
+export type ListInspectionRecordsOpts = {
   vehicleId?: string;
   workOrderId?: string;
   kind?: "PI" | "PDI";
   limit?: number;
-}): Promise<InspectionRecord[]> {
+  page?: number;
+  pageSize?: number;
+};
+export async function listInspectionRecords(
+  opts: ListInspectionRecordsOpts & { page: number },
+): Promise<Paginated<InspectionRecord>>;
+export async function listInspectionRecords(
+  opts?: ListInspectionRecordsOpts,
+): Promise<InspectionRecord[]>;
+export async function listInspectionRecords(
+  opts?: ListInspectionRecordsOpts,
+): Promise<InspectionRecord[] | Paginated<InspectionRecord>> {
   const supabase = await createClient();
+  const paginated = opts?.page != null;
   let q = supabase
     .from("inspection_records")
-    .select("*")
+    .select("*", paginated ? { count: "exact" } : undefined)
     .eq("brand_id", (await getActiveScope()).brand_id)
     .order("inspected_at", { ascending: false });
   if (opts?.vehicleId) q = q.eq("vehicle_id", opts.vehicleId);
   if (opts?.workOrderId) q = q.eq("work_order_id", opts.workOrderId);
   if (opts?.kind) q = q.eq("kind", opts.kind);
+  if (paginated) {
+    const page = Math.max(1, opts!.page ?? 1);
+    const pageSize = Math.max(1, opts!.pageSize ?? INSPECTIONS_PAGE_SIZE_DEFAULT);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    q = q.range(from, to);
+    const { data, count, error } = await q;
+    if (error) throw new Error(`listInspectionRecords: ${error.message}`);
+    return { rows: data ?? [], totalCount: count ?? 0 };
+  }
   q = q.limit(opts?.limit ?? 100);
   const { data, error } = await q;
   if (error) throw new Error(`listInspectionRecords: ${error.message}`);
@@ -639,23 +740,45 @@ export async function getInspectionRecordById(
 // 保固索賠（Wave 2.x）
 // ──────────────────────────────────────────────────────────
 
-export async function listWarrantyClaims(opts?: {
+export type ListWarrantyClaimsOpts = {
   status?: string;
   claimType?: string;
   customerId?: string;
   roId?: string;
   limit?: number;
-}): Promise<WarrantyClaim[]> {
+  page?: number;
+  pageSize?: number;
+};
+export async function listWarrantyClaims(
+  opts: ListWarrantyClaimsOpts & { page: number },
+): Promise<Paginated<WarrantyClaim>>;
+export async function listWarrantyClaims(
+  opts?: ListWarrantyClaimsOpts,
+): Promise<WarrantyClaim[]>;
+export async function listWarrantyClaims(
+  opts?: ListWarrantyClaimsOpts,
+): Promise<WarrantyClaim[] | Paginated<WarrantyClaim>> {
   const supabase = await createClient();
+  const paginated = opts?.page != null;
   let q = supabase
     .from("warranty_claims")
-    .select("*")
+    .select("*", paginated ? { count: "exact" } : undefined)
     .eq("brand_id", (await getActiveScope()).brand_id)
     .order("claim_date", { ascending: false });
   if (opts?.status) q = q.eq("status", opts.status);
   if (opts?.claimType) q = q.eq("claim_type", opts.claimType);
   if (opts?.customerId) q = q.eq("customer_id", opts.customerId);
   if (opts?.roId) q = q.eq("ro_id", opts.roId);
+  if (paginated) {
+    const page = Math.max(1, opts!.page ?? 1);
+    const pageSize = Math.max(1, opts!.pageSize ?? WARRANTY_CLAIMS_PAGE_SIZE_DEFAULT);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    q = q.range(from, to);
+    const { data, count, error } = await q;
+    if (error) throw new Error(`listWarrantyClaims: ${error.message}`);
+    return { rows: data ?? [], totalCount: count ?? 0 };
+  }
   q = q.limit(opts?.limit ?? 200);
   const { data, error } = await q;
   if (error) throw new Error(`listWarrantyClaims: ${error.message}`);

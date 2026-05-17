@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { listNetsuiteMappings } from "@/lib/accounting/queries";
+import { listNetsuiteMappings } from "@/domain/accounting";
 
 import { MappingBoard } from "./_components/mapping-board";
 

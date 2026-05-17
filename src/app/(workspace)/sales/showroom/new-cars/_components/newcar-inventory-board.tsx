@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import type { NewCarInventoryData } from "@/domain/sales-newcar-inventory";
 import type {
   NewCarStatus,
@@ -476,101 +477,145 @@ function ListView({
   units: NewCarUnit[];
   onAction: (u: NewCarUnit, action: "spec" | "quote") => void;
 }) {
-  if (units.length === 0) {
-    return (
-      <div className="bg-white border border-[#EEECE6] rounded-lg py-12 text-center text-[12px] text-[#9A9890]">
-        沒有符合條件的庫存
-      </div>
-    );
-  }
+  const columns: DataGridColumn<NewCarUnit>[] = [
+    {
+      id: "model",
+      header: "車款",
+      cell: (u) => <span className="text-[12.5px] font-semibold">{u.model}</span>,
+      exportValue: (u) => u.model,
+      sortValue: (u) => u.model,
+      hideable: false,
+    },
+    {
+      id: "color",
+      header: "顏色",
+      cell: (u) => (
+        <div className="flex items-center gap-1.5 text-[12px]">
+          <span
+            className="inline-block w-[12px] h-[12px] rounded-full border border-black/10"
+            style={{ background: u.colorHex }}
+          />
+          {u.color}
+        </div>
+      ),
+      exportValue: (u) => u.color,
+      sortValue: (u) => u.color,
+    },
+    {
+      id: "vin",
+      header: "VIN 末 5",
+      cell: (u) => (
+        <span className="text-[12px] font-mono">
+          {u.vin === "—" ? "—" : u.vin.slice(-5)}
+        </span>
+      ),
+      exportValue: (u) => (u.vin === "—" ? "" : u.vin.slice(-5)),
+      sortValue: (u) => u.vin,
+    },
+    {
+      id: "arrived",
+      header: "到廠 / 預計",
+      cell: (u) => <span className="text-[11.5px]">{u.arrived}</span>,
+      exportValue: (u) => u.arrived,
+      sortValue: (u) => u.arrived,
+    },
+    {
+      id: "days",
+      header: "在庫天",
+      align: "right",
+      cell: (u) => (
+        <span
+          className={
+            "text-[12px] font-mono font-semibold " +
+            (u.days === null
+              ? "text-[#9A9890]"
+              : u.days > 60
+                ? "text-[#C8001A]"
+                : u.days > 30
+                  ? "text-[#854F0B]"
+                  : "text-[#0F6E56]")
+          }
+        >
+          {u.days !== null ? `${u.days} 天` : "—"}
+        </span>
+      ),
+      exportValue: (u) => (u.days ?? ""),
+      sortValue: (u) => u.days ?? null,
+    },
+    {
+      id: "msrp",
+      header: "售價",
+      align: "right",
+      cell: (u) => (
+        <span className="text-[12px] font-mono font-bold">{u.msrp.toLocaleString()}</span>
+      ),
+      exportValue: (u) => u.msrp,
+      sortValue: (u) => u.msrp,
+    },
+    {
+      id: "status",
+      header: "狀態",
+      cell: (u) => (
+        <span
+          className={
+            "inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold " +
+            STATUS_CHIP[u.status]
+          }
+        >
+          {u.status}
+        </span>
+      ),
+      exportValue: (u) => u.status,
+      sortValue: (u) => u.status,
+    },
+    {
+      id: "substatus",
+      header: "進貨",
+      sortable: false,
+      cell: (u) => {
+        const sub = subStatusChipProps(deriveSubStatus(u));
+        return (
+          <span
+            className={sub.className}
+            data-testid={`row-${sub.testId}`}
+          >
+            {sub.label}
+          </span>
+        );
+      },
+      exportValue: (u) => subStatusChipProps(deriveSubStatus(u)).label,
+    },
+  ];
+
   return (
-    <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden" data-testid="newcar-list-view">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="bg-[#FAFAF8] text-left">
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">車款</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">顏色</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">VIN 末 5</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">到廠 / 預計</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">在庫天</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">售價</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">狀態</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">進貨</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6] text-right">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {units.map((u) => (
-            <tr key={u.id} className="hover:bg-[#FAFAF8] border-b border-[#F4F3F0] last:border-b-0">
-              <td className="px-3 py-2 text-[12.5px] font-semibold">{u.model}</td>
-              <td className="px-3 py-2 text-[12px]">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block w-[12px] h-[12px] rounded-full border border-black/10"
-                    style={{ background: u.colorHex }}
-                  />
-                  {u.color}
-                </div>
-              </td>
-              <td className="px-3 py-2 text-[12px] font-mono">{u.vin === "—" ? "—" : u.vin.slice(-5)}</td>
-              <td className="px-3 py-2 text-[11.5px]">{u.arrived}</td>
-              <td
-                className={
-                  "px-3 py-2 text-[12px] font-mono font-semibold " +
-                  (u.days === null
-                    ? "text-[#9A9890]"
-                    : u.days > 60
-                      ? "text-[#C8001A]"
-                      : u.days > 30
-                        ? "text-[#854F0B]"
-                        : "text-[#0F6E56]")
-                }
-              >
-                {u.days !== null ? `${u.days} 天` : "—"}
-              </td>
-              <td className="px-3 py-2 text-[12px] font-mono font-bold">{u.msrp.toLocaleString()}</td>
-              <td className="px-3 py-2">
-                <span
-                  className={
-                    "inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold " +
-                    STATUS_CHIP[u.status]
-                  }
-                >
-                  {u.status}
-                </span>
-              </td>
-              <td className="px-3 py-2" data-testid={`row-newcar-substatus-${u.id}`}>
-                {(() => {
-                  const sub = subStatusChipProps(deriveSubStatus(u));
-                  return (
-                    <span className={sub.className} data-testid={`row-${sub.testId}`}>
-                      {sub.label}
-                    </span>
-                  );
-                })()}
-              </td>
-              <td className="px-3 py-2 text-right">
-                <div className="inline-flex gap-1.5 justify-end">
-                  <button
-                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                    onClick={() => onAction(u, "spec")}
-                    data-testid={`row-btn-spec-${u.id}`}
-                  >
-                    規格
-                  </button>
-                  <button
-                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#1A3A5C] text-white hover:bg-[#142E4A]"
-                    onClick={() => onAction(u, "quote")}
-                    data-testid={`row-btn-quote-${u.id}`}
-                  >
-                    報價
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div data-testid="newcar-list-view">
+      <DataGrid
+        columns={columns}
+        data={units}
+        rowKey={(u) => u.id}
+        persistKey="sales/showroom/newcar-inventory"
+        exportFileName="newcar-inventory"
+        emptyMessage="沒有符合條件的庫存"
+        rowActionsWidth={140}
+        rowActions={(u) => (
+          <>
+            <button
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              onClick={() => onAction(u, "spec")}
+              data-testid={`row-btn-spec-${u.id}`}
+            >
+              規格
+            </button>
+            <button
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#1A3A5C] text-white hover:bg-[#142E4A]"
+              onClick={() => onAction(u, "quote")}
+              data-testid={`row-btn-quote-${u.id}`}
+            >
+              報價
+            </button>
+          </>
+        )}
+      />
     </div>
   );
 }

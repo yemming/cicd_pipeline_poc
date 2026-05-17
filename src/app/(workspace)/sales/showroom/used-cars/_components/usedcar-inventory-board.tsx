@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import type { UsedCarInventoryData } from "@/domain/sales-usedcar-inventory";
 import {
   inKmRange,
@@ -540,110 +541,160 @@ function ListView({
   units: UsedCarUnit[];
   onAction: (u: UsedCarUnit, action: "appraise" | "quote") => void;
 }) {
-  if (units.length === 0) {
-    return (
-      <div className="bg-white border border-[#EEECE6] rounded-lg py-12 text-center text-[12px] text-[#9A9890]">
-        沒有符合條件的庫存
-      </div>
-    );
-  }
-  return (
-    <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden" data-testid="usedcar-list-view">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="bg-[#FAFAF8] text-left">
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">等</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">車款</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">年份</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">里程</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">在庫天</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">成本</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">售價</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">利潤</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6]">狀態</th>
-            <th className="text-[10.5px] font-bold uppercase tracking-wider text-[#9A9890] px-3 py-2 border-b border-[#EEECE6] text-right">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {units.map((u) => {
-            const rate = marginRate(u.margin, u.price);
-            const lowMargin = isLowMargin(u.margin, u.price);
-            return (
-              <tr
-                key={u.id}
-                data-low-margin={lowMargin ? "true" : "false"}
-                data-testid={`usedcar-row-${u.id}`}
-                className={
-                  "border-b border-[#F4F3F0] last:border-b-0 " +
-                  (lowMargin ? LOW_MARGIN_ROW_BG + " hover:bg-[#FDF0D4]" : "hover:bg-[#FAFAF8]")
-                }
+  // 註：DataGrid 不支援 row className 注入，row-wide 低毛利 amber 底色已移除；
+  //     低毛利仍以 ⚠️ 低毛利 chip 顯示在「利潤」cell。
+  const columns: DataGridColumn<UsedCarUnit>[] = [
+    {
+      id: "grade",
+      header: "等",
+      width: 40,
+      cell: (u) => (
+        <span
+          className={
+            "inline-flex items-center justify-center w-[20px] h-[20px] rounded-full text-[10px] font-bold " +
+            GRADE_BADGE[u.grade]
+          }
+        >
+          {u.grade}
+        </span>
+      ),
+      exportValue: (u) => u.grade,
+      sortValue: (u) => u.grade,
+    },
+    {
+      id: "model",
+      header: "車款",
+      cell: (u) => <span className="text-[12.5px] font-semibold">{u.model}</span>,
+      exportValue: (u) => u.model,
+      sortValue: (u) => u.model,
+      hideable: false,
+    },
+    {
+      id: "year",
+      header: "年份",
+      align: "right",
+      cell: (u) => <span className="text-[12px]">{u.year}</span>,
+      exportValue: (u) => u.year,
+      sortValue: (u) => u.year,
+    },
+    {
+      id: "km",
+      header: "里程",
+      align: "right",
+      cell: (u) => <span className="text-[12px] font-mono">{u.km.toLocaleString()}</span>,
+      exportValue: (u) => u.km,
+      sortValue: (u) => u.km,
+    },
+    {
+      id: "daysInStock",
+      header: "在庫天",
+      align: "right",
+      cell: (u) => (
+        <span className={"text-[12px] font-mono font-bold " + daysToneClass(u.daysInStock)}>
+          {u.daysInStock} 天
+        </span>
+      ),
+      exportValue: (u) => u.daysInStock,
+      sortValue: (u) => u.daysInStock,
+    },
+    {
+      id: "cost",
+      header: "成本",
+      align: "right",
+      cell: (u) => <span className="text-[11.5px] font-mono">{u.cost.toLocaleString()}</span>,
+      exportValue: (u) => u.cost,
+      sortValue: (u) => u.cost,
+    },
+    {
+      id: "price",
+      header: "售價",
+      align: "right",
+      cell: (u) => (
+        <span className="text-[12px] font-mono font-bold">{u.price.toLocaleString()}</span>
+      ),
+      exportValue: (u) => u.price,
+      sortValue: (u) => u.price,
+    },
+    {
+      id: "margin",
+      header: "利潤",
+      sortable: false,
+      cell: (u) => {
+        const rate = marginRate(u.margin, u.price);
+        const lowMargin = isLowMargin(u.margin, u.price);
+        return (
+          <div
+            className="inline-flex items-center gap-1 flex-wrap"
+            data-low-margin={lowMargin ? "true" : "false"}
+            data-testid={`usedcar-row-${u.id}`}
+          >
+            <span
+              className={
+                "text-[10.5px] px-1.5 py-0.5 rounded font-semibold " + marginChipClass(rate)
+              }
+            >
+              {rate}%
+            </span>
+            {lowMargin && (
+              <span
+                className={LOW_MARGIN_CHIP_CLASS}
+                data-testid={`row-chip-low-margin-${u.id}`}
               >
-                <td className="px-3 py-2">
-                  <span
-                    className={
-                      "inline-flex items-center justify-center w-[20px] h-[20px] rounded-full text-[10px] font-bold " +
-                      GRADE_BADGE[u.grade]
-                    }
-                  >
-                    {u.grade}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-[12.5px] font-semibold">{u.model}</td>
-                <td className="px-3 py-2 text-[12px]">{u.year}</td>
-                <td className="px-3 py-2 text-[12px] font-mono">{u.km.toLocaleString()}</td>
-                <td className={"px-3 py-2 text-[12px] font-mono font-bold " + daysToneClass(u.daysInStock)}>
-                  {u.daysInStock} 天
-                </td>
-                <td className="px-3 py-2 text-[11.5px] font-mono">{u.cost.toLocaleString()}</td>
-                <td className="px-3 py-2 text-[12px] font-mono font-bold">{u.price.toLocaleString()}</td>
-                <td className="px-3 py-2">
-                  <div className="inline-flex items-center gap-1 flex-wrap">
-                    <span className={"text-[10.5px] px-1.5 py-0.5 rounded font-semibold " + marginChipClass(rate)}>
-                      {rate}%
-                    </span>
-                    {lowMargin && (
-                      <span
-                        className={LOW_MARGIN_CHIP_CLASS}
-                        data-testid={`row-chip-low-margin-${u.id}`}
-                      >
-                        ⚠️ 低毛利
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-3 py-2">
-                  <span
-                    className={
-                      "inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold " +
-                      STATUS_CHIP[u.status]
-                    }
-                  >
-                    {u.status}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <div className="inline-flex gap-1.5 justify-end">
-                    <button
-                      className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                      onClick={() => onAction(u, "appraise")}
-                      data-testid={`row-btn-appraise-${u.id}`}
-                    >
-                      評估
-                    </button>
-                    <button
-                      className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#1A3A5C] text-white hover:bg-[#142E4A]"
-                      onClick={() => onAction(u, "quote")}
-                      data-testid={`row-btn-quote-${u.id}`}
-                    >
-                      報價
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                ⚠️ 低毛利
+              </span>
+            )}
+          </div>
+        );
+      },
+      exportValue: (u) => marginRate(u.margin, u.price),
+    },
+    {
+      id: "status",
+      header: "狀態",
+      cell: (u) => (
+        <span
+          className={
+            "inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold " +
+            STATUS_CHIP[u.status]
+          }
+        >
+          {u.status}
+        </span>
+      ),
+      exportValue: (u) => u.status,
+      sortValue: (u) => u.status,
+    },
+  ];
+
+  return (
+    <div data-testid="usedcar-list-view">
+      <DataGrid
+        columns={columns}
+        data={units}
+        rowKey={(u) => u.id}
+        persistKey="sales/showroom/usedcar-inventory"
+        exportFileName="usedcar-inventory"
+        emptyMessage="沒有符合條件的庫存"
+        rowActionsWidth={140}
+        rowActions={(u) => (
+          <>
+            <button
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              onClick={() => onAction(u, "appraise")}
+              data-testid={`row-btn-appraise-${u.id}`}
+            >
+              評估
+            </button>
+            <button
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#1A3A5C] text-white hover:bg-[#142E4A]"
+              onClick={() => onAction(u, "quote")}
+              data-testid={`row-btn-quote-${u.id}`}
+            >
+              報價
+            </button>
+          </>
+        )}
+      />
     </div>
   );
 }

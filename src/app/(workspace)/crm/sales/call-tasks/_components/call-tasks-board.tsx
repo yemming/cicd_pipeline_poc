@@ -21,6 +21,7 @@ import {
   AFTERSALES_CALL_TYPES,
   CALL_RESULT_OPTIONS,
   CALL_SCRIPT_TEMPLATES,
+  CALL_TASK_RANGE_OPTIONS,
   CALL_TYPE_COLOR,
   CALL_TYPE_LABEL,
   CALL_TYPE_SHORT_LABEL,
@@ -28,6 +29,7 @@ import {
   SALES_CALL_TYPES,
   type CallTaskBoardFilters,
   type CallTaskBoardKpi,
+  type CallTaskBoardRange,
   type CallTaskBoardRow,
   type CallTaskResult,
   type CallTaskType,
@@ -134,6 +136,7 @@ export function CallTasksBoard({
   filters,
   historyMap,
   basePath = "/crm/sales/call-tasks",
+  rangeLabel,
 }: {
   rows: CallTaskBoardRow[];
   kpi: CallTaskBoardKpi;
@@ -145,6 +148,8 @@ export function CallTasksBoard({
   currentUserId?: string | null;
   historyMap: Record<string, HistoryEntry[]>;
   basePath?: string;
+  /** range 視窗摘要（如「本週 (5/12 ~ 5/18)」），由 server 計算傳下來 */
+  rangeLabel?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -168,7 +173,9 @@ export function CallTasksBoard({
     const u = new URLSearchParams();
     const merged = { ...filters, ...patch };
     u.set("kind", merged.kind);
-    if (merged.date && merged.date !== today) u.set("date", merged.date);
+    // user 改日期時要強制寫 ?date=YYYY-MM-DD，避免被 server 的 nearest-date fallback 覆蓋
+    if (merged.date) u.set("date", merged.date);
+    if (merged.range && merged.range !== "1d") u.set("range", merged.range);
     if (merged.status !== "all") u.set("status", merged.status);
     if (merged.call_type !== "all") u.set("call_type", merged.call_type);
     if (merged.assignee !== "all") u.set("assignee", merged.assignee);
@@ -179,7 +186,8 @@ export function CallTasksBoard({
 
   const navDate = (days: number) =>
     pushFilters({ date: shiftDate(filters.date, days) });
-  const goToday = () => pushFilters({ date: today });
+  const goToday = () => pushFilters({ date: today, range: "1d" });
+  const setRange = (r: CallTaskBoardRange) => pushFilters({ range: r });
 
   // ── Card edit state helpers ─────────────────────────
   const getEdit = (row: CallTaskBoardRow): EditState => {
@@ -389,9 +397,9 @@ export function CallTasksBoard({
         </div>
       ) : null}
 
-      {/* Date Nav + Tab Pills */}
+      {/* Date Nav + Range Tabs + Tab Pills */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-2.5 flex items-center gap-3 flex-wrap">
-        {/* date-nav */}
+        {/* date-nav — 1d 視角才意義最大；其他 range 仍可選 anchor 日 */}
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -422,11 +430,43 @@ export function CallTasksBoard({
           <button
             type="button"
             onClick={goToday}
-            disabled={isPending || filters.date === today}
+            disabled={isPending || (filters.date === today && filters.range === "1d")}
             className="ml-1 h-7 px-2.5 rounded text-[12px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
           >
             今天
           </button>
+        </div>
+        <span className="w-px h-5 bg-[#EEECE6]" aria-hidden />
+
+        {/* range-tabs — 單日 / 近 7 天 / 本週 / 本月（quick filter） */}
+        <div
+          className="flex items-center gap-1"
+          role="tablist"
+          aria-label="日期範圍篩選"
+          data-testid="call-tasks-range-tabs"
+        >
+          {CALL_TASK_RANGE_OPTIONS.map((opt) => {
+            const active = filters.range === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                title={opt.hint}
+                onClick={() => setRange(opt.key)}
+                disabled={isPending}
+                data-testid={`call-tasks-range-${opt.key}`}
+                className={`h-7 px-2.5 rounded text-[12px] font-medium border transition-colors ${
+                  active
+                    ? "bg-[#EAF4FB] text-[#185FA5] border-[#BFDFF7]"
+                    : "bg-white text-[#5A5955] border-[#D5D3CB] hover:border-[#9A9890]"
+                } disabled:opacity-60`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
         <span className="w-px h-5 bg-[#EEECE6]" aria-hidden />
 
@@ -459,7 +499,11 @@ export function CallTasksBoard({
         </div>
 
         <span className="ml-auto text-[12px] text-[#9A9890]">
-          {filters.date === today ? "今日任務：" : `${filters.date} 任務：`}
+          {filters.range === "1d"
+            ? filters.date === today
+              ? "今日任務："
+              : `${filters.date} 任務：`
+            : `${rangeLabel ?? filters.range} 任務：`}
           <b className="text-[#2C2C2A]" data-testid="call-tasks-date-total">
             {dateTotal}
           </b>{" "}
@@ -536,12 +580,60 @@ export function CallTasksBoard({
 
         <div className={`flex-1 min-w-0 space-y-2 ${isPending ? "opacity-90" : ""}`}>
           {rows.length === 0 ? (
-            <div className="bg-white border border-[#EEECE6] rounded-lg px-6 py-12 text-center">
-              <p className="text-[13px] text-[#9A9890]">
-                {filters.status !== "all" || filters.call_type !== "all"
-                  ? `${STATUS_LABEL[filters.status] ?? "篩選結果"}沒有任務，調整篩選或切換日期`
-                  : `${filters.date} 沒有電訪任務，點右上「＋ 新增電訪任務」開始建檔`}
-              </p>
+            <div
+              className="bg-white border border-[#EEECE6] rounded-lg px-6 py-12 text-center"
+              data-testid="call-tasks-empty"
+            >
+              {filters.status !== "all" || filters.call_type !== "all" ? (
+                <p className="text-[13px] text-[#9A9890]">
+                  {STATUS_LABEL[filters.status] ?? "篩選結果"}沒有任務，調整篩選或切換日期/範圍
+                </p>
+              ) : filters.range === "1d" ? (
+                <div className="space-y-3">
+                  <p className="text-[13px] text-[#9A9890]">
+                    {filters.date === today
+                      ? "今日無待辦電訪任務"
+                      : `${filters.date} 沒有電訪任務`}
+                    ，要看本週或本月嗎？
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRange("week")}
+                      disabled={isPending}
+                      data-testid="call-tasks-empty-cta-week"
+                      className="h-[30px] inline-flex items-center px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+                    >
+                      看本週
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRange("7d")}
+                      disabled={isPending}
+                      data-testid="call-tasks-empty-cta-7d"
+                      className="h-[30px] inline-flex items-center px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                    >
+                      看近 7 天
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRange("month")}
+                      disabled={isPending}
+                      data-testid="call-tasks-empty-cta-month"
+                      className="h-[30px] inline-flex items-center px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                    >
+                      看本月
+                    </button>
+                  </div>
+                  <p className="text-[11.5px] text-[#9A9890]">
+                    或點右上「＋ 新增電訪任務」開始建檔
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[13px] text-[#9A9890]">
+                  {rangeLabel ?? filters.range} 區間內沒有電訪任務，可改回單日視角或調整 anchor 日期。
+                </p>
+              )}
             </div>
           ) : null}
 
@@ -622,7 +714,7 @@ export function CallTasksBoard({
                 chips={chips}
                 expanded={expanded}
                 onToggle={() => toggleExpand(row.id)}
-                disabled={isPending && savingId !== row.id ? false : false}
+                disabled={isPending && savingId !== row.id}
                 saving={savingId === row.id}
                 topInfoBar={topInfoBar}
                 scriptText={script?.text}

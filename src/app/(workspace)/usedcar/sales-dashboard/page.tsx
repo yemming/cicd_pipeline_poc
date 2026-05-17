@@ -1,6 +1,7 @@
 "use client";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { DemoBanner } from "@/components/demo-banner";
 
 const ACCENT = "#F43F5E";
 
@@ -99,6 +100,7 @@ export default function UsedCarSalesDashboardPage() {
 
   return (
     <div className="space-y-6 pb-10">
+      <DemoBanner message="Demo 模擬資料 — 本頁數字皆為示意，未連接真實 DB。" />
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {kpis.map((k) => (
           <div

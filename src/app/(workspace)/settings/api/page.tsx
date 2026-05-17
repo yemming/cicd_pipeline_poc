@@ -3,6 +3,7 @@
 import { MockShell, MockCard, MockToggle } from "../_mock/mock-shell";
 import { brands as brandConfigs } from "@/lib/brands/registry";
 import { useActiveBrand } from "@/lib/scope/scope-context";
+import { DemoBanner } from "@/components/demo-banner";
 
 const tokens = [
   { name: "顧問 App (iOS/Android)", prefix: "sk_live_xxx…a3f2", created: "2026/01/12", lastUsed: "2026/04/14 08:12" },
@@ -38,6 +39,7 @@ export default function Page() {
         { label: "Webhooks" },
       ]}
     >
+      <DemoBanner message="Demo 用、未接 DB — 本頁為示範畫面、操作不會儲存（規劃中）。" />
       <MockCard title="第三方串接">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {integrations.map((i) => (

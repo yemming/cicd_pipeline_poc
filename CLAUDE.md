@@ -808,6 +808,7 @@ VALUES
 - 純資訊頁（沒有 CRUD）→ 只做 list、detail 用唯讀 KV grid 即可
 - 跨多表 wizard（採購單、工單） → 走 multi-step pattern、不適用 inline modal CRUD
 - 有設計稿且明確跟本規格衝突 → 仍以本規格優先（色碼/字級/按鈕順序）
+- permission matrix / tree view / KV grid 不算 list view，可用 raw `<table>`、不必強制走 DataGrid
 
 ---
 

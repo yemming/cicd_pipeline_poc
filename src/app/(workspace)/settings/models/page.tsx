@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { MockShell, MockCard } from "../_mock/mock-shell";
+import { DemoBanner } from "@/components/demo-banner";
 import { ducatiModels, DUCATI_FAMILIES, formatNTD, type DucatiFamily } from "@/lib/ducati-models";
 
 export default function Page() {
@@ -20,6 +21,7 @@ export default function Page() {
         { label: "標配/選配" },
       ]}
     >
+      <DemoBanner href="/admin/master-data/vehicle-models" hrefLabel="改前往車型主檔（真實版本）" />
       <MockCard
         title="Ducati 車型"
         action={

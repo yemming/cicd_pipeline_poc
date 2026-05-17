@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { updateRoleAction, deleteRoleAction } from "@/lib/rbac/admin-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Role = {
   id: string;
@@ -43,6 +44,7 @@ export function RoleDetailView({
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [pending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // 編輯欄位 in-memory 狀態
   const [name, setName] = useState(role.name);
@@ -81,7 +83,11 @@ export function RoleDetailView({
       flash(false, "系統內建角色不可刪除");
       return;
     }
-    if (!confirm(`確定刪除角色「${role.name}」？\n如有授權使用此角色，刪除會被拒絕。`)) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    setShowDeleteConfirm(false);
     startTransition(async () => {
       const res = await deleteRoleAction(role.id);
       if (!res.ok) {
@@ -347,6 +353,24 @@ export function RoleDetailView({
           </table>
         )}
       </section>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="刪除角色"
+          message={
+            <>
+              確定刪除角色「<b>{role.name}</b>」？
+              <br />
+              如有授權使用此角色，刪除會被拒絕。
+            </>
+          }
+          variant="danger"
+          confirmLabel="確認刪除"
+          isPending={pending}
+          onConfirm={confirmDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </div>
   );
 }

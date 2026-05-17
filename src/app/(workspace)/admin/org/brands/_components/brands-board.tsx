@@ -8,6 +8,8 @@ import {
   deleteBrandAction,
 } from "@/lib/rbac/org-actions";
 import { Modal, ModalFooter, Field } from "../../groups/_components/groups-board";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 type Row = {
   id: string;
@@ -19,6 +21,65 @@ type Row = {
 };
 type Group = { id: string; name: string };
 
+const brandColumns: DataGridColumn<Row>[] = [
+  {
+    id: "id",
+    header: "Brand ID",
+    width: 120,
+    hideable: false,
+    cell: (r) => <span className="font-mono">{r.id}</span>,
+    exportValue: (r) => r.id,
+    sortValue: (r) => r.id,
+  },
+  {
+    id: "name",
+    header: "名稱",
+    width: 160,
+    cell: (r) => <span className="font-medium">{r.name}</span>,
+    exportValue: (r) => r.name,
+    sortValue: (r) => r.name,
+  },
+  {
+    id: "manufacturer",
+    header: "原廠",
+    width: 160,
+    cell: (r) => <span className="text-[#5A5955]">{r.manufacturer || "—"}</span>,
+    exportValue: (r) => r.manufacturer ?? "",
+    sortValue: (r) => r.manufacturer ?? "",
+  },
+  {
+    id: "group_ids",
+    header: "代理集團",
+    width: 260,
+    sortable: false,
+    cell: (r) =>
+      r.group_ids.length === 0 ? (
+        <span className="text-[#9A9890] italic">未指定</span>
+      ) : (
+        <div className="flex flex-wrap gap-1">
+          {r.group_ids.map((gid) => (
+            <span
+              key={gid}
+              className="px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5] text-[10.5px] font-mono"
+            >
+              {gid}
+            </span>
+          ))}
+        </div>
+      ),
+    exportValue: (r) => r.group_ids.join(","),
+  },
+  {
+    id: "store_count",
+    header: "門店",
+    width: 80,
+    align: "right",
+    cell: (r) => <span className="text-[#5A5955]">{r.store_count}</span>,
+    exportValue: (r) => r.store_count,
+    sortValue: (r) => r.store_count,
+  },
+];
+
 export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) {
   const [pending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -28,6 +89,7 @@ export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) 
   const [fName, setFName] = useState("");
   const [fMfg, setFMfg] = useState("");
   const [fGroups, setFGroups] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
 
   const flash = (ok: boolean, msg: string) => {
     setBanner({ ok, msg });
@@ -76,7 +138,12 @@ export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) 
   };
 
   const remove = (row: Row) => {
-    if (!confirm(`確定刪除品牌「${row.name}」？`)) return;
+    setConfirmDelete(row);
+  };
+  const doRemove = () => {
+    if (!confirmDelete) return;
+    const row = confirmDelete;
+    setConfirmDelete(null);
     startTransition(async () => {
       const res = await deleteBrandAction(row.id);
       if (!res.ok) return flash(false, res.error);
@@ -119,73 +186,35 @@ export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) 
         </button>
       </div>
 
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <table className="w-full text-[12px]">
-          <thead className="text-[11px] text-[#9A9890] bg-[#F8F7F4]">
-            <tr>
-              <th className="text-left font-medium py-2 px-3">Brand ID</th>
-              <th className="text-left font-medium py-2 px-3">名稱</th>
-              <th className="text-left font-medium py-2 px-3">原廠</th>
-              <th className="text-left font-medium py-2 px-3">代理集團</th>
-              <th className="text-right font-medium py-2 px-3">門店</th>
-              <th className="text-right font-medium py-2 px-3">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-6 text-center text-[#9A9890] italic">
-                  尚無任何品牌
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.id} className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7]">
-                  <td className="py-2 px-3 font-mono">{r.id}</td>
-                  <td className="py-2 px-3 font-medium">{r.name}</td>
-                  <td className="py-2 px-3 text-[#5A5955]">{r.manufacturer || "—"}</td>
-                  <td className="py-2 px-3">
-                    {r.group_ids.length === 0 ? (
-                      <span className="text-[#9A9890] italic">未指定</span>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {r.group_ids.map((gid) => (
-                          <span
-                            key={gid}
-                            className="px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5] text-[10.5px] font-mono"
-                          >
-                            {gid}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-2 px-3 text-right text-[#5A5955]">{r.store_count}</td>
-                  <td className="py-2 px-3 text-right">
-                    <div className="inline-flex gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => open("edit", r)}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                      >
-                        編輯
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => remove(r)}
-                        disabled={pending}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <DataGrid<Row>
+        columns={brandColumns}
+        data={rows}
+        rowKey={(r) => r.id}
+        persistKey="admin/org/brands"
+        exportFileName="brands"
+        emptyMessage="尚無任何品牌"
+        disabled={pending}
+        rowActions={(r) => (
+          <>
+            <button
+              type="button"
+              onClick={() => open("edit", r)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              編輯
+            </button>
+            <button
+              type="button"
+              onClick={() => remove(r)}
+              disabled={pending}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+            >
+              刪除
+            </button>
+          </>
+        )}
+        rowActionsWidth={150}
+      />
 
       {showForm && (
         <Modal
@@ -249,6 +278,17 @@ export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) 
             submitLabel={showForm.mode === "create" ? "建立" : "儲存變更"}
           />
         </Modal>
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          title="確定刪除品牌？"
+          message={`確定刪除品牌「${confirmDelete.name}」？`}
+          confirmLabel="確認刪除"
+          variant="danger"
+          isPending={pending}
+          onConfirm={doRemove}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </div>
   );

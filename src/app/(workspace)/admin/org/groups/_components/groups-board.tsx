@@ -7,6 +7,8 @@ import {
   updateGroupAction,
   deleteGroupAction,
 } from "@/lib/rbac/org-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 type Row = {
   id: string;
@@ -17,6 +19,52 @@ type Row = {
   brand_count: number;
 };
 
+const groupColumns: DataGridColumn<Row>[] = [
+  {
+    id: "id",
+    header: "Group ID",
+    width: 140,
+    hideable: false,
+    cell: (r) => <span className="font-mono">{r.id}</span>,
+    exportValue: (r) => r.id,
+    sortValue: (r) => r.id,
+  },
+  {
+    id: "name",
+    header: "名稱",
+    width: 200,
+    cell: (r) => <span className="font-medium">{r.name}</span>,
+    exportValue: (r) => r.name,
+    sortValue: (r) => r.name,
+  },
+  {
+    id: "short_name",
+    header: "簡稱",
+    width: 140,
+    cell: (r) => <span className="text-[#5A5955]">{r.short_name || "—"}</span>,
+    exportValue: (r) => r.short_name ?? "",
+    sortValue: (r) => r.short_name ?? "",
+  },
+  {
+    id: "brand_count",
+    header: "代理品牌",
+    width: 100,
+    align: "right",
+    cell: (r) => <span className="text-[#5A5955]">{r.brand_count}</span>,
+    exportValue: (r) => r.brand_count,
+    sortValue: (r) => r.brand_count,
+  },
+  {
+    id: "org_count",
+    header: "門店",
+    width: 100,
+    align: "right",
+    cell: (r) => <span className="text-[#5A5955]">{r.org_count}</span>,
+    exportValue: (r) => r.org_count,
+    sortValue: (r) => r.org_count,
+  },
+];
+
 export function GroupsBoard({ rows }: { rows: Row[] }) {
   const [pending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -25,6 +73,7 @@ export function GroupsBoard({ rows }: { rows: Row[] }) {
   const [fId, setFId] = useState("");
   const [fName, setFName] = useState("");
   const [fShort, setFShort] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
 
   const flash = (ok: boolean, msg: string) => {
     setBanner({ ok, msg });
@@ -62,7 +111,12 @@ export function GroupsBoard({ rows }: { rows: Row[] }) {
   };
 
   const remove = (row: Row) => {
-    if (!confirm(`確定刪除集團「${row.name}」？\n依賴的門店 / 品牌代理 / 授權需先清除`)) return;
+    setConfirmDelete(row);
+  };
+  const doRemove = () => {
+    if (!confirmDelete) return;
+    const row = confirmDelete;
+    setConfirmDelete(null);
     startTransition(async () => {
       const res = await deleteGroupAction(row.id);
       if (!res.ok) return flash(false, res.error);
@@ -98,58 +152,35 @@ export function GroupsBoard({ rows }: { rows: Row[] }) {
         </button>
       </div>
 
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <table className="w-full text-[12px]">
-          <thead className="text-[11px] text-[#9A9890] bg-[#F8F7F4]">
-            <tr>
-              <th className="text-left font-medium py-2 px-3">Group ID</th>
-              <th className="text-left font-medium py-2 px-3">名稱</th>
-              <th className="text-left font-medium py-2 px-3">簡稱</th>
-              <th className="text-right font-medium py-2 px-3">代理品牌</th>
-              <th className="text-right font-medium py-2 px-3">門店</th>
-              <th className="text-right font-medium py-2 px-3">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-6 text-center text-[#9A9890] italic">
-                  尚無任何集團
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.id} className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7]">
-                  <td className="py-2 px-3 font-mono">{r.id}</td>
-                  <td className="py-2 px-3 font-medium">{r.name}</td>
-                  <td className="py-2 px-3 text-[#5A5955]">{r.short_name || "—"}</td>
-                  <td className="py-2 px-3 text-right text-[#5A5955]">{r.brand_count}</td>
-                  <td className="py-2 px-3 text-right text-[#5A5955]">{r.org_count}</td>
-                  <td className="py-2 px-3 text-right">
-                    <div className="inline-flex gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => open("edit", r)}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                      >
-                        編輯
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => remove(r)}
-                        disabled={pending}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <DataGrid<Row>
+        columns={groupColumns}
+        data={rows}
+        rowKey={(r) => r.id}
+        persistKey="admin/org/groups"
+        exportFileName="groups"
+        emptyMessage="尚無任何集團"
+        disabled={pending}
+        rowActions={(r) => (
+          <>
+            <button
+              type="button"
+              onClick={() => open("edit", r)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              編輯
+            </button>
+            <button
+              type="button"
+              onClick={() => remove(r)}
+              disabled={pending}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+            >
+              刪除
+            </button>
+          </>
+        )}
+        rowActionsWidth={150}
+      />
 
       {showForm && (
         <Modal
@@ -193,6 +224,17 @@ export function GroupsBoard({ rows }: { rows: Row[] }) {
             submitLabel={showForm.mode === "create" ? "建立" : "儲存變更"}
           />
         </Modal>
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          title="確定刪除集團？"
+          message={`確定刪除集團「${confirmDelete.name}」？依賴的門店 / 品牌代理 / 授權需先清除。`}
+          confirmLabel="確認刪除"
+          variant="danger"
+          isPending={pending}
+          onConfirm={doRemove}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </div>
   );

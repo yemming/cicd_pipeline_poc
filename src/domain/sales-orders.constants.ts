@@ -17,7 +17,7 @@ export type SalesOrderRow = {
   brand_id: string;
   order_no: string;
   contract_type: "new" | "used";
-  status: "draft" | "signed" | "cancelled" | "fulfilled";
+  status: "draft" | "submitted" | "signed" | "cancelled" | "fulfilled";
   customer_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
@@ -29,6 +29,7 @@ export type SalesOrderRow = {
   deal_price: number | null;
   down_payment: number | null;
   delivery_date: string | null;
+  submitted_at: string | null;
   signed_at: string | null;
   fulfilled_at: string | null;
   created_at: string;
@@ -63,6 +64,9 @@ export type SalesOrderDetail = SalesOrderRow & {
   signature_witness: string | null;
   metadata: Record<string, unknown>;
   updated_by: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  review_note: string | null;
 };
 
 export type CreateSalesOrderInput = {
@@ -104,7 +108,7 @@ export type CreateSalesOrderInput = {
 };
 
 export type UpdateSalesOrderInput = Partial<CreateSalesOrderInput> & {
-  status?: "draft" | "signed" | "cancelled" | "fulfilled";
+  status?: "draft" | "submitted" | "signed" | "cancelled" | "fulfilled";
   signature_buyer?: string | null;
   signature_seller?: string | null;
   signature_witness?: string | null;
@@ -142,11 +146,12 @@ export const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
   used: "中古車買賣合約",
 };
 
-export const ORDER_STATUSES = ["draft", "signed", "cancelled", "fulfilled"] as const;
+export const ORDER_STATUSES = ["draft", "submitted", "signed", "cancelled", "fulfilled"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   draft: "草稿",
+  submitted: "送簽中",
   signed: "已簽約",
   cancelled: "已作廢",
   fulfilled: "已交車",
@@ -157,6 +162,7 @@ export const ORDER_STATUS_CHIP: Record<
   { bg: string; text: string }
 > = {
   draft: { bg: "bg-[#F2F2F2]", text: "text-[#6B6A68]" },
+  submitted: { bg: "bg-[#FDF3E3]", text: "text-[#854F0B]" },
   signed: { bg: "bg-[#EAF4FB]", text: "text-[#185FA5]" },
   cancelled: { bg: "bg-[#FDECEA]", text: "text-[#CC0000]" },
   fulfilled: { bg: "bg-[#EAF3DE]", text: "text-[#3B6D11]" },

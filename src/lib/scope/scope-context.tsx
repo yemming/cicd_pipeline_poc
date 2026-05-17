@@ -6,6 +6,12 @@ import type { BrandKey } from "@/lib/brands/types";
 
 export type ScopeContextValue = {
   brand_id: BrandKey;
+  /**
+   * 當前作用中的法人（B5）。1:1 brand-subsidiary 對映下 UI 暫無切換 dropdown，
+   * 只在 Topbar 顯示一顆 read-only chip 讓使用者知道目前打哪個帳本。
+   */
+  subsidiary_id: string;
+  subsidiary_short_name: string | null;
   store_id: string | null;
   /**
    * 該使用者能存取的所有 brand
@@ -49,4 +55,9 @@ export function useActiveBrand(): BrandKey {
 
 export function useActiveStore(): string | null {
   return useActiveScope().store_id;
+}
+
+export function useActiveSubsidiary(): { id: string; short_name: string | null } {
+  const s = useActiveScope();
+  return { id: s.subsidiary_id, short_name: s.subsidiary_short_name };
 }

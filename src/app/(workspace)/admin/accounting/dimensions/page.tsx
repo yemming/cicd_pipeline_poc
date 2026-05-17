@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
-import { listGlDimensions, type DimensionFilters } from "@/lib/accounting/queries";
+import { listGlDimensions, type DimensionFilters } from "@/domain/accounting";
 
 import { DimensionsBoard } from "./_components/dimensions-board";
 

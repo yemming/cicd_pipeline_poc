@@ -1,5 +1,6 @@
 import { getSalesManagerFunnelData } from "@/domain/sales-manager-funnel";
 import SalesManagerFunnelBoard from "../manager/funnel/_components/sales-manager-funnel-board";
+import { DemoBanner } from "@/components/demo-banner";
 
 export const metadata = {
   title: "銷售漏斗 | DealerOS",
@@ -18,12 +19,15 @@ export const metadata = {
 export default async function SalesFunnelPage() {
   const data = await getSalesManagerFunnelData();
   return (
-    <SalesManagerFunnelBoard
-      data={data}
-      pageHeader={{
-        title: "銷售漏斗看板",
-        breadcrumb: [{ label: "銷售管理" }, { label: "銷售漏斗" }],
-      }}
-    />
+    <>
+      <DemoBanner message="Demo 模擬資料 — 本頁數字皆為示意，未連接真實 DB。" />
+      <SalesManagerFunnelBoard
+        data={data}
+        pageHeader={{
+          title: "銷售漏斗看板",
+          breadcrumb: [{ label: "銷售管理" }, { label: "銷售漏斗" }],
+        }}
+      />
+    </>
   );
 }

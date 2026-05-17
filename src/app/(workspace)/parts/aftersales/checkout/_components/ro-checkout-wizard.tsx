@@ -265,6 +265,22 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
           >
             {STATUS_LABEL[data.status]}
           </span>
+          {/* P1-#10 / G2 GAP-06：費用確認後即可開立發票（去掉「先收款才能開」的硬限制，
+              ECPay 開票實務上跟收款流程解耦 — SA 可先給發票、客戶再付） */}
+          {data.fees_confirmed_at && data.ro.id ? (
+            <Link
+              href={`/einvoice/issue?roId=${data.repair_order_id}`}
+              prefetch={false}
+              data-test-id="ro-checkout-issue-invoice"
+              className={`h-[30px] inline-flex items-center px-3.5 rounded-full text-[12.5px] font-medium shadow-sm ${
+                data.invoice?.invoice_no
+                  ? "bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                  : "bg-[#0F6E56] text-white hover:bg-[#0a5742]"
+              }`}
+            >
+              {data.invoice?.invoice_no ? `已開立 ${data.invoice.invoice_no}` : "🧾 開立發票"}
+            </Link>
+          ) : null}
           {data.status !== "completed" ? (
             <button
               onClick={removeCheckout}

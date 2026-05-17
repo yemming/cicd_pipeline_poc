@@ -15,9 +15,11 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import {
   getCallTaskBoardData,
   getCallTaskHistoryByCustomerIds,
+  getNearestCallTaskDate,
 } from "@/domain/sales-call-tasks";
 import type {
   CallTaskBoardFilters,
+  CallTaskBoardRange,
   SurveyKind,
 } from "@/domain/sales-call-tasks.constants";
 import {
@@ -37,6 +39,10 @@ function todayIso(): string {
   return taipei.toISOString().slice(0, 10);
 }
 
+function parseRange(v: string | undefined): CallTaskBoardRange {
+  return v === "7d" || v === "week" || v === "month" ? v : "1d";
+}
+
 export default async function Page({
   searchParams,
 }: {
@@ -54,9 +60,24 @@ export default async function Page({
   const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
   const sp = await searchParams;
   const kind: SurveyKind = "aftersales";
+  const range = parseRange(sp.range);
+  const today = todayIso();
+
+  // user 沒明指日期 + range='1d'：fallback 到最近一個有任務的日期，避免空畫面
+  let resolvedDate: string;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "")) {
+    resolvedDate = sp.date!;
+  } else if (range === "1d") {
+    const nearest = await getNearestCallTaskDate(kind);
+    resolvedDate = nearest ?? today;
+  } else {
+    resolvedDate = today;
+  }
+
   const filters: CallTaskBoardFilters = {
     kind,
-    date: /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "") ? sp.date! : todayIso(),
+    date: resolvedDate,
+    range,
     status: sp.status ?? "all",
     call_type: sp.call_type ?? "all",
     assignee: sp.assignee ?? "all",

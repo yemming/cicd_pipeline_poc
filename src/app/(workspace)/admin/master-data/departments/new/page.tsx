@@ -1,16 +1,14 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
   listDepartments,
   listEmployees,
 } from "@/lib/master-data/queries";
-import { createDepartmentAction } from "@/lib/master-data/department-actions";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
-import { DepartmentForm } from "../_components/department-form";
+import { DepartmentDetailView } from "../[id]/_components/department-detail-view";
 
 export const dynamic = "force-dynamic";
 
@@ -27,34 +25,22 @@ export default async function NewDepartmentPage() {
 
   const [parents, employees] = await Promise.all([
     listDepartments({ activeOnly: true }),
-    listEmployees({ status: "active", limit: 200 }),
+    listEmployees({ status: "active", limit: 500 }),
   ]);
 
   return (
-    <main className="px-6 py-6 max-w-[900px] space-y-5">
-      <nav className="text-[13px] text-[#6B778C]">
-        <Link href="/admin/master-data/departments" className="hover:text-[#172B4D]">
-          部門組織
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-[#172B4D]">新增部門</span>
-      </nav>
-
-      <header className="space-y-1">
-        <h1 className="text-[20px] font-bold text-[#172B4D]">新增部門</h1>
-        <p className="text-[13px] text-[#6B778C]">
-          代碼與名稱必填；上層部門 / 主管可日後補完
-        </p>
-      </header>
-
-      <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
-        <DepartmentForm
-          mode="create"
-          action={createDepartmentAction}
-          parents={parents}
-          employees={employees}
-        />
-      </section>
-    </main>
+    <DepartmentDetailView
+      department={null}
+      parents={parents.map((p) => ({ id: p.id, code: p.code, name: p.name }))}
+      employees={employees.map((e) => ({
+        id: e.id,
+        emp_code: e.emp_code,
+        name: e.name,
+        position: e.position,
+      }))}
+      headcount={0}
+      canEdit
+      initialMode="create"
+    />
   );
 }

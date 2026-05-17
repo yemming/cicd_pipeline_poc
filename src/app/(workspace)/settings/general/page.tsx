@@ -1,6 +1,7 @@
 "use client";
 
 import { MockShell, MockCard, Field, MockInput, MockSelect, SaveBar } from "../_mock/mock-shell";
+import { DemoBanner } from "@/components/demo-banner";
 
 export default function Page() {
   return (
@@ -8,6 +9,7 @@ export default function Page() {
       title="基本設定"
       breadcrumb={[{ label: "系統設定", href: "/settings/org" }, { label: "基本設定" }]}
     >
+      <DemoBanner message="Demo 用、未接 DB — 本頁為示範畫面、操作不會儲存（規劃中）。" />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold font-display text-on-surface">基本設定</h1>

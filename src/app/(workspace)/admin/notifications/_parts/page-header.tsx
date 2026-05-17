@@ -22,9 +22,9 @@ export function NotificationsPageHeader({ title, subtitle, breadcrumb, hideSearc
 
   // 頁首也在 content 區再重複寫一次標題/描述，Topbar 只呈現 breadcrumb
   return (
-    <header className="border-b border-outline-variant bg-surface px-6 py-5">
-      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-on-surface-variant">{subtitle}</p>}
+    <header className="border-b border-[#EEECE6] bg-white px-6 py-5">
+      <h1 className="text-[16px] font-semibold tracking-tight text-[#2C2C2A]">{title}</h1>
+      {subtitle && <p className="mt-1 text-[12px] text-[#9A9890]">{subtitle}</p>}
     </header>
   );
 }

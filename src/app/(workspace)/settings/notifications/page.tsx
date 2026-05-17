@@ -1,6 +1,7 @@
 "use client";
 
 import { MockShell, MockCard, MockToggle, SaveBar } from "../_mock/mock-shell";
+import { DemoBanner } from "@/components/demo-banner";
 
 type Row = { label: string; desc: string; email: boolean; push: boolean; line: boolean };
 
@@ -37,6 +38,7 @@ export default function Page() {
       title="通知設定"
       breadcrumb={[{ label: "系統設定", href: "/settings/org" }, { label: "通知設定" }]}
     >
+      <DemoBanner href="/admin/notifications" hrefLabel="改前往 Notification Hub 後台" />
       <MockCard title="通知管道">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
 import { SignatureCanvas } from "@/components/signature-canvas";
+import { DemoBanner } from "@/components/demo-banner";
 import {
   useServiceDemo,
   SAFETY_LABEL,
@@ -788,6 +789,7 @@ export default function PIPage() {
 
   return (
     <>
+      <DemoBanner href="/parts/aftersales/pre-inspections" hrefLabel="改前往 PI 真實版本" />
       {/* Delete modal */}
       {deleteModal && (
         <DeleteModal

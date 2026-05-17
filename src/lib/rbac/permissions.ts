@@ -115,6 +115,10 @@ export const PERMISSIONS = {
   SALES_ORDER_VIEW: "sales.order.view",
   SALES_ORDER_EDIT: "sales.order.edit",
   SALES_ORDER_CANCEL: "sales.order.cancel",
+  SALES_ORDER_APPROVE: "sales.order.approve",
+
+  // ─── 中古車評估鑑價 ─────────────────────────────
+  USED_CAR_EVALUATION_APPROVE: "usedcar.evaluation.approve",
 
   // ─── Admin ─────────────────────────────────────
   ADMIN_NAV: "admin.nav.edit",

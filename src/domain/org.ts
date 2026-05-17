@@ -80,9 +80,29 @@ function splitMetadata<T extends Record<string, unknown>>(
   return { typed, metadata };
 }
 
-/** Region 自動帶法人：找該 brand 之 active 非 root subsidiary 的第一筆 */
-async function resolveDefaultSubsidiaryId(): Promise<string | null> {
+/**
+ * 解析 brand 預設法人。
+ *
+ * - 傳 brandId（新 code 路徑）：讀 brands.default_subsidiary_id（B1 已 backfill 雙 brand）
+ * - 沒傳 brandId（legacy fallback）：取第一個 non-root active subsidiary
+ *   ← 這條保留是避免 break 既有呼叫者，新 code 一律帶 brandId
+ */
+async function resolveDefaultSubsidiaryId(
+  brandId?: string,
+): Promise<string | null> {
   const supabase = await createClient();
+  if (brandId) {
+    const { data } = await supabase
+      .from("brands")
+      .select("default_subsidiary_id")
+      .eq("id", brandId)
+      .single();
+    return (
+      (data as { default_subsidiary_id: string | null } | null)
+        ?.default_subsidiary_id ?? null
+    );
+  }
+  // legacy fallback - 新 code 不該走這條
   const { data, error } = await supabase
     .from("subsidiaries")
     .select("id")
@@ -168,12 +188,12 @@ export async function addRegion(
   if (!trim(input.code)) return { ok: false, error: "區域代碼必填" };
   if (!trim(input.name)) return { ok: false, error: "區域名稱必填" };
 
-  const subsidiary_id = await resolveDefaultSubsidiaryId();
+  const { brand_id } = await getActiveScope();
+  const subsidiary_id = await resolveDefaultSubsidiaryId(brand_id);
   if (!subsidiary_id) return { ok: false, error: "找不到可用的法人，請先建立法人" };
 
   const { typed, metadata } = splitMetadata(input, REGION_TYPED_KEYS);
   const supabase = await createClient();
-  const { brand_id } = await getActiveScope();
 
   const { data, error } = await supabase
     .from("organizations")

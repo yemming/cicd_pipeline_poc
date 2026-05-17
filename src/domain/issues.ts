@@ -309,7 +309,7 @@ export async function getRepairPickFormData(): Promise<RepairPickFormData> {
       .from("stock_issues")
       .select("ro_id")
       .eq("brand_id", scope.brand_id)
-      .eq("type", "repair_pick")
+      .eq("type", "ro_picking")
       .eq("status", "completed"),
   ]);
 
@@ -629,7 +629,7 @@ export async function pickForWorkOrder(
     supabase,
     brandId: scope.brand_id,
     userId: user?.id ?? null,
-    type: "repair_pick",
+    type: "ro_picking",
     warehouseId: input.warehouse_id,
     customerId: wo.customer_id ?? null,
     roId: wo.id,
@@ -675,7 +675,7 @@ export async function pickAdHoc(
     supabase,
     brandId: scope.brand_id,
     userId: user?.id ?? null,
-    type: "repair_pick",
+    type: "ro_picking",
     warehouseId: input.warehouse_id,
     customerId: input.customer_id ?? null,
     roId: null,

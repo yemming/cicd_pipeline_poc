@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+
 export type EInvoiceRow = {
   id: string;
   source_module: "pos" | "service" | "parts_sales" | "manual";
@@ -114,6 +116,109 @@ export function EInvoiceBoard({ rows, totalCount, canEdit, filters }: Props) {
   const inputClass =
     "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none";
   const labelClass = "text-[11px] text-[#9A9890] font-medium";
+
+  const columns: DataGridColumn<EInvoiceRow>[] = [
+    {
+      id: "ecpay_invoice_no",
+      header: "發票號碼",
+      width: 140,
+      cell: (r) =>
+        r.ecpay_invoice_no ? (
+          <span className="font-mono text-[#2C2C2A]">{r.ecpay_invoice_no}</span>
+        ) : (
+          <span className="text-[#9A9890]">—</span>
+        ),
+      exportValue: (r) => r.ecpay_invoice_no ?? "",
+      sortValue: (r) => r.ecpay_invoice_no ?? "",
+    },
+    {
+      id: "ecpay_invoice_date",
+      header: "開立日",
+      width: 110,
+      cell: (r) => <span className="text-[#5A5955]">{fmtDate(r.ecpay_invoice_date)}</span>,
+      exportValue: (r) => fmtDate(r.ecpay_invoice_date),
+      sortValue: (r) => r.ecpay_invoice_date ?? "",
+    },
+    {
+      id: "source",
+      header: "來源",
+      width: 150,
+      cell: (r) => (
+        <>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EEF4FB] text-[#185FA5]">
+            {SOURCE_LABEL[r.source_module]}
+          </span>
+          {r.source_ref && (
+            <span className="ml-1.5 text-[11px] text-[#9A9890] font-mono">{r.source_ref}</span>
+          )}
+        </>
+      ),
+      exportValue: (r) =>
+        `${SOURCE_LABEL[r.source_module]}${r.source_ref ? ` ${r.source_ref}` : ""}`,
+      sortValue: (r) => r.source_module,
+    },
+    {
+      id: "invoice_type",
+      header: "類型",
+      width: 110,
+      cell: (r) => (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EBF3FF] text-[#1A3A5C]">
+          {TYPE_LABEL[r.invoice_type]}
+        </span>
+      ),
+      exportValue: (r) => TYPE_LABEL[r.invoice_type],
+      sortValue: (r) => r.invoice_type,
+    },
+    {
+      id: "buyer",
+      header: "買方資訊",
+      width: 180,
+      sortable: false,
+      cell: (r) =>
+        r.invoice_type === "b2b" || r.invoice_type === "b2c_taxid" ? (
+          <span className="text-[#5A5955]">
+            <span className="font-mono">{r.tax_id}</span>
+            {r.buyer_name && <span className="ml-1 text-[#9A9890]">·{r.buyer_name}</span>}
+          </span>
+        ) : r.invoice_type === "b2c_carrier" ? (
+          <span className="font-mono text-[#5A5955]">{r.carrier_code}</span>
+        ) : (
+          <span className="text-[#9A9890]">—</span>
+        ),
+      exportValue: (r) => {
+        if (r.invoice_type === "b2b" || r.invoice_type === "b2c_taxid") {
+          return `${r.tax_id ?? ""}${r.buyer_name ? ` ${r.buyer_name}` : ""}`;
+        }
+        if (r.invoice_type === "b2c_carrier") return r.carrier_code ?? "";
+        return "";
+      },
+    },
+    {
+      id: "total_amount",
+      header: "含稅金額",
+      width: 120,
+      align: "right",
+      cell: (r) => (
+        <span className="font-mono text-[#2C2C2A]">{fmtNT(r.total_amount)}</span>
+      ),
+      exportValue: (r) => String(r.total_amount),
+      sortValue: (r) => r.total_amount,
+    },
+    {
+      id: "ecpay_status",
+      header: "狀態",
+      width: 90,
+      cell: (r) => (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${STATUS_CHIP[r.ecpay_status]}`}
+        >
+          {STATUS_LABEL[r.ecpay_status]}
+        </span>
+      ),
+      exportValue: (r) => STATUS_LABEL[r.ecpay_status],
+      sortValue: (r) => r.ecpay_status,
+    },
+  ];
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -245,95 +350,34 @@ export function EInvoiceBoard({ rows, totalCount, canEdit, filters }: Props) {
       </div>
 
       {/* 5. Table */}
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <table className="w-full text-[12px]">
-          <thead className="text-[11px] text-[#9A9890] bg-[#F8F7F4]">
-            <tr>
-              <th className="text-left font-medium py-2 px-3">發票號碼</th>
-              <th className="text-left font-medium py-2 px-3">開立日</th>
-              <th className="text-left font-medium py-2 px-3">來源</th>
-              <th className="text-left font-medium py-2 px-3">類型</th>
-              <th className="text-left font-medium py-2 px-3">買方資訊</th>
-              <th className="text-right font-medium py-2 px-3">含稅金額</th>
-              <th className="text-left font-medium py-2 px-3">狀態</th>
-              <th className="text-left font-medium py-2 px-3 w-[200px]">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={8} className="text-center py-12 text-[12px] text-[#9A9890]">
-                  目前沒有符合條件的發票。試試清除篩選或從 POS 結帳產生第一筆發票。
-                </td>
-              </tr>
+      <DataGrid
+        columns={columns}
+        data={rows}
+        rowKey={(r) => r.id}
+        persistKey="einvoice/list"
+        exportFileName="einvoice-list"
+        emptyMessage="目前沒有符合條件的發票。試試清除篩選或從 POS 結帳產生第一筆發票。"
+        disabled={isPending}
+        rowActions={(r) => (
+          <>
+            <Link
+              href={`/einvoice/${r.id}`}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] inline-flex items-center"
+            >
+              詳情
+            </Link>
+            {r.ecpay_invoice_no && (
+              <button
+                type="button"
+                onClick={() => onCopy(r.ecpay_invoice_no!, r.id)}
+                className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                {copiedId === r.id ? "已複製" : "複製號碼"}
+              </button>
             )}
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7]">
-                <td className="py-2 px-3 font-mono text-[#2C2C2A]">
-                  {r.ecpay_invoice_no ?? <span className="text-[#9A9890]">—</span>}
-                </td>
-                <td className="py-2 px-3 text-[#5A5955]">{fmtDate(r.ecpay_invoice_date)}</td>
-                <td className="py-2 px-3">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EEF4FB] text-[#185FA5]">
-                    {SOURCE_LABEL[r.source_module]}
-                  </span>
-                  {r.source_ref && (
-                    <span className="ml-1.5 text-[11px] text-[#9A9890] font-mono">
-                      {r.source_ref}
-                    </span>
-                  )}
-                </td>
-                <td className="py-2 px-3">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EBF3FF] text-[#1A3A5C]">
-                    {TYPE_LABEL[r.invoice_type]}
-                  </span>
-                </td>
-                <td className="py-2 px-3 text-[#5A5955]">
-                  {r.invoice_type === "b2b" || r.invoice_type === "b2c_taxid" ? (
-                    <>
-                      <span className="font-mono">{r.tax_id}</span>
-                      {r.buyer_name && (
-                        <span className="ml-1 text-[#9A9890]">·{r.buyer_name}</span>
-                      )}
-                    </>
-                  ) : r.invoice_type === "b2c_carrier" ? (
-                    <span className="font-mono text-[#5A5955]">{r.carrier_code}</span>
-                  ) : (
-                    <span className="text-[#9A9890]">—</span>
-                  )}
-                </td>
-                <td className="py-2 px-3 text-right font-mono text-[#2C2C2A]">
-                  {fmtNT(r.total_amount)}
-                </td>
-                <td className="py-2 px-3">
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${STATUS_CHIP[r.ecpay_status]}`}>
-                    {STATUS_LABEL[r.ecpay_status]}
-                  </span>
-                </td>
-                <td className="py-2 px-3">
-                  <div className="flex gap-1.5">
-                    <Link
-                      href={`/einvoice/${r.id}`}
-                      className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] inline-flex items-center"
-                    >
-                      詳情
-                    </Link>
-                    {r.ecpay_invoice_no && (
-                      <button
-                        type="button"
-                        onClick={() => onCopy(r.ecpay_invoice_no!, r.id)}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                      >
-                        {copiedId === r.id ? "已複製" : "複製號碼"}
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+          </>
+        )}
+      />
     </main>
   );
 }

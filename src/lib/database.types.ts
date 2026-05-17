@@ -197,6 +197,99 @@ export type Database = {
         }
         Relationships: []
       }
+      aftersales_technicians: {
+        Row: {
+          actual_minutes: number
+          available_minutes: number
+          avatar_color: string | null
+          brand_id: string
+          code: string
+          created_at: string | null
+          current_bay_code: string | null
+          current_item: string | null
+          current_ro_code: string | null
+          grade: string | null
+          id: string
+          is_active: boolean
+          jobs_done: number
+          jobs_total: number
+          metadata: Json | null
+          name: string
+          organization_id: string | null
+          sold_minutes: number
+          sort_order: number
+          started_at: string | null
+          status: string
+          subsidiary_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          actual_minutes?: number
+          available_minutes?: number
+          avatar_color?: string | null
+          brand_id: string
+          code: string
+          created_at?: string | null
+          current_bay_code?: string | null
+          current_item?: string | null
+          current_ro_code?: string | null
+          grade?: string | null
+          id?: string
+          is_active?: boolean
+          jobs_done?: number
+          jobs_total?: number
+          metadata?: Json | null
+          name: string
+          organization_id?: string | null
+          sold_minutes?: number
+          sort_order?: number
+          started_at?: string | null
+          status?: string
+          subsidiary_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          actual_minutes?: number
+          available_minutes?: number
+          avatar_color?: string | null
+          brand_id?: string
+          code?: string
+          created_at?: string | null
+          current_bay_code?: string | null
+          current_item?: string | null
+          current_ro_code?: string | null
+          grade?: string | null
+          id?: string
+          is_active?: boolean
+          jobs_done?: number
+          jobs_total?: number
+          metadata?: Json | null
+          name?: string
+          organization_id?: string | null
+          sold_minutes?: number
+          sort_order?: number
+          started_at?: string | null
+          status?: string
+          subsidiary_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aftersales_technicians_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aftersales_technicians_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_events: {
         Row: {
           acked_at: string | null
@@ -531,6 +624,7 @@ export type Database = {
       brands: {
         Row: {
           created_at: string
+          default_subsidiary_id: string | null
           id: string
           manufacturer: string | null
           name: string
@@ -540,6 +634,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_subsidiary_id?: string | null
           id: string
           manufacturer?: string | null
           name: string
@@ -549,6 +644,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_subsidiary_id?: string | null
           id?: string
           manufacturer?: string | null
           name?: string
@@ -556,7 +652,15 @@ export type Database = {
           netsuite_synced_at?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "brands_default_subsidiary_id_fkey"
+            columns: ["default_subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       business_rules: {
         Row: {
@@ -638,6 +742,7 @@ export type Database = {
           attempt_count: number
           brand_id: string
           call_result: string | null
+          call_type: string | null
           created_at: string
           created_by: string | null
           customer_id: string
@@ -657,6 +762,7 @@ export type Database = {
           attempt_count?: number
           brand_id: string
           call_result?: string | null
+          call_type?: string | null
           created_at?: string
           created_by?: string | null
           customer_id: string
@@ -676,6 +782,7 @@ export type Database = {
           attempt_count?: number
           brand_id?: string
           call_result?: string | null
+          call_type?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string
@@ -1096,6 +1203,7 @@ export type Database = {
           phone: string | null
           relation: string | null
           role: string
+          subsidiary_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1111,6 +1219,7 @@ export type Database = {
           phone?: string | null
           relation?: string | null
           role?: string
+          subsidiary_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1126,6 +1235,7 @@ export type Database = {
           phone?: string | null
           relation?: string | null
           role?: string
+          subsidiary_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1134,6 +1244,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_contacts_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
             referencedColumns: ["id"]
           },
         ]
@@ -1237,6 +1354,8 @@ export type Database = {
           created_by: string | null
           current_mileage: number | null
           customer_id: string
+          desmo_service_due_date: string | null
+          desmo_service_due_mileage: number | null
           engine_no: string | null
           external_id: string | null
           external_source: string
@@ -1257,6 +1376,7 @@ export type Database = {
           preferred_technician_id: string | null
           purchase_amount: number | null
           purchase_date: string | null
+          subsidiary_id: string | null
           synced_at: string | null
           updated_at: string
           vin: string | null
@@ -1270,6 +1390,8 @@ export type Database = {
           created_by?: string | null
           current_mileage?: number | null
           customer_id: string
+          desmo_service_due_date?: string | null
+          desmo_service_due_mileage?: number | null
           engine_no?: string | null
           external_id?: string | null
           external_source?: string
@@ -1290,6 +1412,7 @@ export type Database = {
           preferred_technician_id?: string | null
           purchase_amount?: number | null
           purchase_date?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string
           vin?: string | null
@@ -1303,6 +1426,8 @@ export type Database = {
           created_by?: string | null
           current_mileage?: number | null
           customer_id?: string
+          desmo_service_due_date?: string | null
+          desmo_service_due_mileage?: number | null
           engine_no?: string | null
           external_id?: string | null
           external_source?: string
@@ -1323,6 +1448,7 @@ export type Database = {
           preferred_technician_id?: string | null
           purchase_amount?: number | null
           purchase_date?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string
           vin?: string | null
@@ -1350,11 +1476,19 @@ export type Database = {
             referencedRelation: "employees"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "customer_vehicles_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
         ]
       }
       customers: {
         Row: {
           address: string | null
+          assigned_sa_user_id: string | null
           birthday: string | null
           brand_id: string
           code: string
@@ -1366,16 +1500,20 @@ export type Database = {
           email: string | null
           external_id: string | null
           external_source: string
+          follow_up_status: string | null
           gl_receivable_coa_id: string | null
+          habc_grade: string | null
           id: string
           is_active: boolean
           metadata: Json | null
           name: string
           national_id: string | null
+          next_follow_up_date: string | null
           notes: string | null
           payment_terms_days: number | null
           phone: string | null
           source_module: string | null
+          subsidiary_id: string | null
           synced_at: string | null
           tax_id: string | null
           type: string
@@ -1383,6 +1521,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          assigned_sa_user_id?: string | null
           birthday?: string | null
           brand_id?: string
           code: string
@@ -1394,16 +1533,20 @@ export type Database = {
           email?: string | null
           external_id?: string | null
           external_source?: string
+          follow_up_status?: string | null
           gl_receivable_coa_id?: string | null
+          habc_grade?: string | null
           id?: string
           is_active?: boolean
           metadata?: Json | null
           name: string
           national_id?: string | null
+          next_follow_up_date?: string | null
           notes?: string | null
           payment_terms_days?: number | null
           phone?: string | null
           source_module?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           tax_id?: string | null
           type?: string
@@ -1411,6 +1554,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          assigned_sa_user_id?: string | null
           birthday?: string | null
           brand_id?: string
           code?: string
@@ -1422,16 +1566,20 @@ export type Database = {
           email?: string | null
           external_id?: string | null
           external_source?: string
+          follow_up_status?: string | null
           gl_receivable_coa_id?: string | null
+          habc_grade?: string | null
           id?: string
           is_active?: boolean
           metadata?: Json | null
           name?: string
           national_id?: string | null
+          next_follow_up_date?: string | null
           notes?: string | null
           payment_terms_days?: number | null
           phone?: string | null
           source_module?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           tax_id?: string | null
           type?: string
@@ -1452,6 +1600,245 @@ export type Database = {
             referencedRelation: "chart_of_accounts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "customers_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deliveries: {
+        Row: {
+          accessories_list: Json | null
+          accessories_note: string | null
+          actual_delivery_date: string | null
+          brand_id: string
+          ceremony_photos: string[] | null
+          created_at: string | null
+          created_by: string | null
+          customer_address: string | null
+          customer_birthday: string | null
+          customer_doc_signature: string | null
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          customer_vehicle_id: string | null
+          delivered_at: string | null
+          delivered_by: string | null
+          delivery_checklist: Json | null
+          delivery_no: string
+          handover_docs_checklist: Json | null
+          id: string
+          keys_count: number | null
+          keys_delivered_at: string | null
+          metadata: Json | null
+          notes: string | null
+          organization_id: string | null
+          pdi_checklist: Json | null
+          pdi_work_order_no: string | null
+          plate_date: string | null
+          plate_no: string | null
+          received_by_customer_name: string | null
+          rs_name: string | null
+          sales_order_id: string | null
+          scheduled_delivery_date: string | null
+          sig_customer: string | null
+          sig_rs: string | null
+          sig_technician: string | null
+          status: string
+          step_completion: Json | null
+          subsidiary_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+          vehicle_color: string | null
+          vehicle_model_id: string | null
+          vehicle_model_name: string | null
+          vin: string | null
+          warranty_checklist: Json | null
+          warranty_consents: Json | null
+          warranty_no: string | null
+          warranty_receive_date: string | null
+          warranty_registered: boolean | null
+          warranty_registered_at: string | null
+          warranty_start_date: string | null
+        }
+        Insert: {
+          accessories_list?: Json | null
+          accessories_note?: string | null
+          actual_delivery_date?: string | null
+          brand_id: string
+          ceremony_photos?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_address?: string | null
+          customer_birthday?: string | null
+          customer_doc_signature?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          customer_vehicle_id?: string | null
+          delivered_at?: string | null
+          delivered_by?: string | null
+          delivery_checklist?: Json | null
+          delivery_no: string
+          handover_docs_checklist?: Json | null
+          id?: string
+          keys_count?: number | null
+          keys_delivered_at?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          organization_id?: string | null
+          pdi_checklist?: Json | null
+          pdi_work_order_no?: string | null
+          plate_date?: string | null
+          plate_no?: string | null
+          received_by_customer_name?: string | null
+          rs_name?: string | null
+          sales_order_id?: string | null
+          scheduled_delivery_date?: string | null
+          sig_customer?: string | null
+          sig_rs?: string | null
+          sig_technician?: string | null
+          status?: string
+          step_completion?: Json | null
+          subsidiary_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vehicle_color?: string | null
+          vehicle_model_id?: string | null
+          vehicle_model_name?: string | null
+          vin?: string | null
+          warranty_checklist?: Json | null
+          warranty_consents?: Json | null
+          warranty_no?: string | null
+          warranty_receive_date?: string | null
+          warranty_registered?: boolean | null
+          warranty_registered_at?: string | null
+          warranty_start_date?: string | null
+        }
+        Update: {
+          accessories_list?: Json | null
+          accessories_note?: string | null
+          actual_delivery_date?: string | null
+          brand_id?: string
+          ceremony_photos?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_address?: string | null
+          customer_birthday?: string | null
+          customer_doc_signature?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          customer_vehicle_id?: string | null
+          delivered_at?: string | null
+          delivered_by?: string | null
+          delivery_checklist?: Json | null
+          delivery_no?: string
+          handover_docs_checklist?: Json | null
+          id?: string
+          keys_count?: number | null
+          keys_delivered_at?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          organization_id?: string | null
+          pdi_checklist?: Json | null
+          pdi_work_order_no?: string | null
+          plate_date?: string | null
+          plate_no?: string | null
+          received_by_customer_name?: string | null
+          rs_name?: string | null
+          sales_order_id?: string | null
+          scheduled_delivery_date?: string | null
+          sig_customer?: string | null
+          sig_rs?: string | null
+          sig_technician?: string | null
+          status?: string
+          step_completion?: Json | null
+          subsidiary_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vehicle_color?: string | null
+          vehicle_model_id?: string | null
+          vehicle_model_name?: string | null
+          vin?: string | null
+          warranty_checklist?: Json | null
+          warranty_consents?: Json | null
+          warranty_no?: string | null
+          warranty_receive_date?: string | null
+          warranty_registered?: boolean | null
+          warranty_registered_at?: string | null
+          warranty_start_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliveries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_customer_vehicle_id_fkey"
+            columns: ["customer_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "customer_vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_delivered_by_fkey"
+            columns: ["delivered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_vehicle_model_id_fkey"
+            columns: ["vehicle_model_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_models"
+            referencedColumns: ["id"]
+          },
         ]
       }
       departments: {
@@ -1469,6 +1856,7 @@ export type Database = {
           netsuite_department_id: string | null
           netsuite_synced_at: string | null
           parent_id: string | null
+          subsidiary_id: string | null
           synced_at: string | null
           updated_at: string
         }
@@ -1486,6 +1874,7 @@ export type Database = {
           netsuite_department_id?: string | null
           netsuite_synced_at?: string | null
           parent_id?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string
         }
@@ -1503,6 +1892,7 @@ export type Database = {
           netsuite_department_id?: string | null
           netsuite_synced_at?: string | null
           parent_id?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string
         }
@@ -1519,6 +1909,13 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
             referencedColumns: ["id"]
           },
         ]
@@ -1902,6 +2299,7 @@ export type Database = {
           pay_rate: number | null
           phone: string | null
           position: string | null
+          subsidiary_id: string | null
           synced_at: string | null
           updated_at: string
           user_id: string | null
@@ -1927,6 +2325,7 @@ export type Database = {
           pay_rate?: number | null
           phone?: string | null
           position?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string
           user_id?: string | null
@@ -1952,6 +2351,7 @@ export type Database = {
           pay_rate?: number | null
           phone?: string | null
           position?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string
           user_id?: string | null
@@ -1962,6 +2362,13 @@ export type Database = {
             columns: ["dept_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
             referencedColumns: ["id"]
           },
         ]
@@ -2137,6 +2544,242 @@ export type Database = {
           url?: string | null
         }
         Relationships: []
+      }
+      final_inspections: {
+        Row: {
+          brand_id: string
+          cleaning: Json
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          inspection_no: string
+          inspector_id: string | null
+          inspector_name: string | null
+          inspector_role: string | null
+          issue_note: string | null
+          line_results: Json
+          metadata: Json
+          next_service: Json
+          notifications: Json
+          repair_order_id: string
+          signature_text: string | null
+          signed_at: string | null
+          signoff_note: string | null
+          status: string
+          test_drive: Json
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          cleaning?: Json
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_no: string
+          inspector_id?: string | null
+          inspector_name?: string | null
+          inspector_role?: string | null
+          issue_note?: string | null
+          line_results?: Json
+          metadata?: Json
+          next_service?: Json
+          notifications?: Json
+          repair_order_id: string
+          signature_text?: string | null
+          signed_at?: string | null
+          signoff_note?: string | null
+          status?: string
+          test_drive?: Json
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          cleaning?: Json
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inspection_no?: string
+          inspector_id?: string | null
+          inspector_name?: string | null
+          inspector_role?: string | null
+          issue_note?: string | null
+          line_results?: Json
+          metadata?: Json
+          next_service?: Json
+          notifications?: Json
+          repair_order_id?: string
+          signature_text?: string | null
+          signed_at?: string | null
+          signoff_note?: string | null
+          status?: string
+          test_drive?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_inspections_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: true
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      followup_cases: {
+        Row: {
+          appointment_id: string | null
+          brand_id: string
+          case_no: string
+          closed_at: string | null
+          closed_reason: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_name: string | null
+          estimated_fee: number
+          id: string
+          last_contacted_at: string | null
+          metadata: Json | null
+          next_contact_at: string | null
+          recovered_amount: number
+          sa_id: string | null
+          sa_name: string | null
+          safety_level: string
+          source_addon_id: string
+          source_ro_id: string | null
+          status: string
+          title: string
+          updated_at: string | null
+          vehicle_license_plate: string | null
+          vehicle_model: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          brand_id: string
+          case_no: string
+          closed_at?: string | null
+          closed_reason?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_name?: string | null
+          estimated_fee?: number
+          id?: string
+          last_contacted_at?: string | null
+          metadata?: Json | null
+          next_contact_at?: string | null
+          recovered_amount?: number
+          sa_id?: string | null
+          sa_name?: string | null
+          safety_level?: string
+          source_addon_id: string
+          source_ro_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string | null
+          vehicle_license_plate?: string | null
+          vehicle_model?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          brand_id?: string
+          case_no?: string
+          closed_at?: string | null
+          closed_reason?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_name?: string | null
+          estimated_fee?: number
+          id?: string
+          last_contacted_at?: string | null
+          metadata?: Json | null
+          next_contact_at?: string | null
+          recovered_amount?: number
+          sa_id?: string | null
+          sa_name?: string | null
+          safety_level?: string
+          source_addon_id?: string
+          source_ro_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string | null
+          vehicle_license_plate?: string | null
+          vehicle_model?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_cases_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_cases_source_addon_id_fkey"
+            columns: ["source_addon_id"]
+            isOneToOne: false
+            referencedRelation: "repair_order_addons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_cases_source_ro_id_fkey"
+            columns: ["source_ro_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      followup_events: {
+        Row: {
+          acted_by: string | null
+          acted_by_name: string | null
+          body: string | null
+          brand_id: string
+          case_id: string
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          occurred_at: string
+          outcome: string | null
+        }
+        Insert: {
+          acted_by?: string | null
+          acted_by_name?: string | null
+          body?: string | null
+          brand_id: string
+          case_id: string
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          outcome?: string | null
+        }
+        Update: {
+          acted_by?: string | null
+          acted_by_name?: string | null
+          body?: string | null
+          brand_id?: string
+          case_id?: string
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          outcome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "followup_cases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gl_dimensions: {
         Row: {
@@ -3436,6 +4079,193 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      new_car_inventory: {
+        Row: {
+          arrival_date: string | null
+          brand_id: string
+          build_date: string | null
+          color: string | null
+          color_hex: string | null
+          config: Json | null
+          cost_price: number | null
+          created_at: string
+          created_by: string | null
+          delivered_date: string | null
+          displayed_date: string | null
+          engine_no: string | null
+          external_id: string | null
+          id: string
+          images: string[] | null
+          license_plate_no: string | null
+          license_plate_status: string
+          linked_sales_order_id: string | null
+          list_price: number | null
+          metadata: Json | null
+          note: string | null
+          organization_id: string | null
+          reserved_date: string | null
+          sold_date: string | null
+          status: string
+          subsidiary_id: string | null
+          updated_at: string
+          updated_by: string | null
+          vehicle_model_id: string | null
+          vin: string | null
+          year: number | null
+        }
+        Insert: {
+          arrival_date?: string | null
+          brand_id: string
+          build_date?: string | null
+          color?: string | null
+          color_hex?: string | null
+          config?: Json | null
+          cost_price?: number | null
+          created_at?: string
+          created_by?: string | null
+          delivered_date?: string | null
+          displayed_date?: string | null
+          engine_no?: string | null
+          external_id?: string | null
+          id?: string
+          images?: string[] | null
+          license_plate_no?: string | null
+          license_plate_status?: string
+          linked_sales_order_id?: string | null
+          list_price?: number | null
+          metadata?: Json | null
+          note?: string | null
+          organization_id?: string | null
+          reserved_date?: string | null
+          sold_date?: string | null
+          status?: string
+          subsidiary_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vehicle_model_id?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Update: {
+          arrival_date?: string | null
+          brand_id?: string
+          build_date?: string | null
+          color?: string | null
+          color_hex?: string | null
+          config?: Json | null
+          cost_price?: number | null
+          created_at?: string
+          created_by?: string | null
+          delivered_date?: string | null
+          displayed_date?: string | null
+          engine_no?: string | null
+          external_id?: string | null
+          id?: string
+          images?: string[] | null
+          license_plate_no?: string | null
+          license_plate_status?: string
+          linked_sales_order_id?: string | null
+          list_price?: number | null
+          metadata?: Json | null
+          note?: string | null
+          organization_id?: string | null
+          reserved_date?: string | null
+          sold_date?: string | null
+          status?: string
+          subsidiary_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vehicle_model_id?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "new_car_inventory_linked_sales_order_id_fkey"
+            columns: ["linked_sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "new_car_inventory_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "new_car_inventory_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "new_car_inventory_vehicle_model_id_fkey"
+            columns: ["vehicle_model_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_automation_rules: {
+        Row: {
+          brand_id: string
+          channel: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          metadata: Json
+          name: string
+          template_id: string | null
+          trigger_config: Json
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          channel: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          metadata?: Json
+          name: string
+          template_id?: string | null
+          trigger_config?: Json
+          trigger_event: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          channel?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          metadata?: Json
+          name?: string
+          template_id?: string | null
+          trigger_config?: Json
+          trigger_event?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_automation_rules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "push_message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notification_channels: {
         Row: {
@@ -5188,6 +6018,137 @@ export type Database = {
           },
         ]
       }
+      pre_inspections: {
+        Row: {
+          appointment_id: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          estimated_labor_units: number | null
+          estimated_subtotal: number | null
+          id: string
+          metadata: Json
+          mileage_in: number | null
+          organization_id: string | null
+          pi_no: string
+          repair_order_id: string | null
+          sa_id: string | null
+          sa_name: string | null
+          signed_at: string | null
+          status: string
+          transferred_at: string | null
+          updated_at: string
+          vehicle_id: string | null
+          vehicle_license_plate: string | null
+          vehicle_model_name: string | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          estimated_labor_units?: number | null
+          estimated_subtotal?: number | null
+          id?: string
+          metadata?: Json
+          mileage_in?: number | null
+          organization_id?: string | null
+          pi_no: string
+          repair_order_id?: string | null
+          sa_id?: string | null
+          sa_name?: string | null
+          signed_at?: string | null
+          status?: string
+          transferred_at?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+          vehicle_license_plate?: string | null
+          vehicle_model_name?: string | null
+        }
+        Update: {
+          appointment_id?: string | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          estimated_labor_units?: number | null
+          estimated_subtotal?: number | null
+          id?: string
+          metadata?: Json
+          mileage_in?: number | null
+          organization_id?: string | null
+          pi_no?: string
+          repair_order_id?: string | null
+          sa_id?: string | null
+          sa_name?: string | null
+          signed_at?: string | null
+          status?: string
+          transferred_at?: string | null
+          updated_at?: string
+          vehicle_id?: string | null
+          vehicle_license_plate?: string | null
+          vehicle_model_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pre_inspections_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "service_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pre_inspections_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pre_inspections_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pre_inspections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pre_inspections_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pre_inspections_sa_id_fkey"
+            columns: ["sa_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pre_inspections_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "customer_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_brands: {
         Row: {
           brand_id: string
@@ -5208,6 +6169,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      profile_subsidiaries: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          subsidiary_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          subsidiary_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          subsidiary_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_subsidiaries_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -5808,6 +6801,510 @@ export type Database = {
           },
         ]
       }
+      push_campaigns: {
+        Row: {
+          audience_count: number
+          brand_id: string
+          buttons: Json
+          channel: string
+          click_count: number
+          convert_count: number
+          created_at: string
+          created_by: string | null
+          extra_conditions: Json
+          id: string
+          kind: string
+          message_body: string
+          metadata: Json
+          name: string
+          read_count: number
+          scheduled_at: string | null
+          sent_at: string | null
+          sent_count: number
+          status: string
+          target_habc: string[]
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          audience_count?: number
+          brand_id?: string
+          buttons?: Json
+          channel: string
+          click_count?: number
+          convert_count?: number
+          created_at?: string
+          created_by?: string | null
+          extra_conditions?: Json
+          id?: string
+          kind: string
+          message_body: string
+          metadata?: Json
+          name: string
+          read_count?: number
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_count?: number
+          status?: string
+          target_habc?: string[]
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audience_count?: number
+          brand_id?: string
+          buttons?: Json
+          channel?: string
+          click_count?: number
+          convert_count?: number
+          created_at?: string
+          created_by?: string | null
+          extra_conditions?: Json
+          id?: string
+          kind?: string
+          message_body?: string
+          metadata?: Json
+          name?: string
+          read_count?: number
+          scheduled_at?: string | null
+          sent_at?: string | null
+          sent_count?: number
+          status?: string
+          target_habc?: string[]
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_campaigns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "push_message_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_message_templates: {
+        Row: {
+          body: string
+          brand_id: string
+          buttons: Json
+          category: string
+          channel: string
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          metadata: Json
+          name: string
+          open_rate: number | null
+          updated_at: string
+          used_count: number
+        }
+        Insert: {
+          body: string
+          brand_id?: string
+          buttons?: Json
+          category: string
+          channel: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          metadata?: Json
+          name: string
+          open_rate?: number | null
+          updated_at?: string
+          used_count?: number
+        }
+        Update: {
+          body?: string
+          brand_id?: string
+          buttons?: Json
+          category?: string
+          channel?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          metadata?: Json
+          name?: string
+          open_rate?: number | null
+          updated_at?: string
+          used_count?: number
+        }
+        Relationships: []
+      }
+      reminder_definitions: {
+        Row: {
+          accent: string
+          category: string
+          code: string
+          created_at: string
+          description: string | null
+          display_order: number
+          icon: string
+          id: string
+          is_active: boolean
+          label: string
+          permission: string | null
+          query_kind: string
+          target_href_template: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string
+          category?: string
+          code: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          icon?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          permission?: string | null
+          query_kind: string
+          target_href_template: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string
+          category?: string
+          code?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          icon?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          permission?: string | null
+          query_kind?: string
+          target_href_template?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      repair_order_addons: {
+        Row: {
+          addon_no: number
+          addon_type: string
+          brand_id: string
+          confirm_method: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_decision: string
+          customer_decision_at: string | null
+          decided_by_sa_id: string | null
+          decision_note: string | null
+          estimated_fee: number
+          followup_case_id: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          proposed_at: string
+          proposed_by: string | null
+          reserved_at: string | null
+          reserved_movement_id: string | null
+          ro_id: string
+          safety_level: string
+          tech_reason: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          addon_no: number
+          addon_type: string
+          brand_id: string
+          confirm_method?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_decision?: string
+          customer_decision_at?: string | null
+          decided_by_sa_id?: string | null
+          decision_note?: string | null
+          estimated_fee?: number
+          followup_case_id?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          proposed_at?: string
+          proposed_by?: string | null
+          reserved_at?: string | null
+          reserved_movement_id?: string | null
+          ro_id: string
+          safety_level?: string
+          tech_reason?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          addon_no?: number
+          addon_type?: string
+          brand_id?: string
+          confirm_method?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_decision?: string
+          customer_decision_at?: string | null
+          decided_by_sa_id?: string | null
+          decision_note?: string | null
+          estimated_fee?: number
+          followup_case_id?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          proposed_at?: string
+          proposed_by?: string | null
+          reserved_at?: string | null
+          reserved_movement_id?: string | null
+          ro_id?: string
+          safety_level?: string
+          tech_reason?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_order_addons_ro_id_fkey"
+            columns: ["ro_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repair_order_lines: {
+        Row: {
+          amount: number
+          brand_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_warranty: boolean
+          item_id: string | null
+          kind: string
+          labor_name: string | null
+          labor_note: string | null
+          labor_units: number | null
+          line_no: number
+          metadata: Json | null
+          part_code: string | null
+          part_name: string | null
+          qty: number | null
+          repair_order_id: string
+          source: string
+          source_ref_id: string | null
+          unit_price: number
+          updated_at: string | null
+        }
+        Insert: {
+          amount?: number
+          brand_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_warranty?: boolean
+          item_id?: string | null
+          kind: string
+          labor_name?: string | null
+          labor_note?: string | null
+          labor_units?: number | null
+          line_no: number
+          metadata?: Json | null
+          part_code?: string | null
+          part_name?: string | null
+          qty?: number | null
+          repair_order_id: string
+          source?: string
+          source_ref_id?: string | null
+          unit_price?: number
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          brand_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_warranty?: boolean
+          item_id?: string | null
+          kind?: string
+          labor_name?: string | null
+          labor_note?: string | null
+          labor_units?: number | null
+          line_no?: number
+          metadata?: Json | null
+          part_code?: string | null
+          part_name?: string | null
+          qty?: number | null
+          repair_order_id?: string
+          source?: string
+          source_ref_id?: string | null
+          unit_price?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_order_lines_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_order_lines_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repair_orders: {
+        Row: {
+          appointment_id: string | null
+          brand_id: string
+          closed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_id: string | null
+          estimated_labor_units: number | null
+          estimated_subtotal: number | null
+          id: string
+          issue_date: string
+          lead_technician_id: string | null
+          lines_subtotal: number | null
+          lines_total: number | null
+          metadata: Json | null
+          mileage_in: number | null
+          opened_at: string | null
+          pre_inspection_id: string | null
+          prefix_p1: string
+          prefix_p2: string
+          ro_code: string
+          sa_id: string | null
+          sequence_no: number
+          status: string
+          store_id: string | null
+          subsidiary_id: string | null
+          updated_at: string | null
+          vehicle_id: string | null
+          warranty_status_snapshot: Json | null
+        }
+        Insert: {
+          appointment_id?: string | null
+          brand_id: string
+          closed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string | null
+          estimated_labor_units?: number | null
+          estimated_subtotal?: number | null
+          id?: string
+          issue_date: string
+          lead_technician_id?: string | null
+          lines_subtotal?: number | null
+          lines_total?: number | null
+          metadata?: Json | null
+          mileage_in?: number | null
+          opened_at?: string | null
+          pre_inspection_id?: string | null
+          prefix_p1: string
+          prefix_p2: string
+          ro_code: string
+          sa_id?: string | null
+          sequence_no: number
+          status?: string
+          store_id?: string | null
+          subsidiary_id?: string | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+          warranty_status_snapshot?: Json | null
+        }
+        Update: {
+          appointment_id?: string | null
+          brand_id?: string
+          closed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string | null
+          estimated_labor_units?: number | null
+          estimated_subtotal?: number | null
+          id?: string
+          issue_date?: string
+          lead_technician_id?: string | null
+          lines_subtotal?: number | null
+          lines_total?: number | null
+          metadata?: Json | null
+          mileage_in?: number | null
+          opened_at?: string | null
+          pre_inspection_id?: string | null
+          prefix_p1?: string
+          prefix_p2?: string
+          ro_code?: string
+          sa_id?: string | null
+          sequence_no?: number
+          status?: string
+          store_id?: string | null
+          subsidiary_id?: string | null
+          updated_at?: string | null
+          vehicle_id?: string | null
+          warranty_status_snapshot?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_orders_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_orders_lead_technician_id_fkey"
+            columns: ["lead_technician_id"]
+            isOneToOne: false
+            referencedRelation: "aftersales_technicians"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_orders_sa_id_fkey"
+            columns: ["sa_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_orders_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repair_orders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "customer_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       replenishment_policies: {
         Row: {
           auto_create_pr_for_urgent: boolean
@@ -5820,6 +7317,7 @@ export type Database = {
           is_active: boolean
           metadata: Json | null
           notes: string | null
+          subsidiary_id: string | null
           updated_at: string
           warehouse_id: string | null
         }
@@ -5834,6 +7332,7 @@ export type Database = {
           is_active?: boolean
           metadata?: Json | null
           notes?: string | null
+          subsidiary_id?: string | null
           updated_at?: string
           warehouse_id?: string | null
         }
@@ -5848,10 +7347,18 @@ export type Database = {
           is_active?: boolean
           metadata?: Json | null
           notes?: string | null
+          subsidiary_id?: string | null
           updated_at?: string
           warehouse_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "replenishment_policies_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "replenishment_policies_warehouse_id_fkey"
             columns: ["warehouse_id"]
@@ -6053,6 +7560,71 @@ export type Database = {
           },
         ]
       }
+      ro_checkouts: {
+        Row: {
+          brand_id: string
+          checkout_no: string
+          closed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_signature: Json | null
+          fee_summary: Json | null
+          fees_confirmed_at: string | null
+          id: string
+          invoice: Json | null
+          metadata: Json | null
+          payment: Json | null
+          receipt_printed_at: string | null
+          repair_order_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          brand_id: string
+          checkout_no: string
+          closed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_signature?: Json | null
+          fee_summary?: Json | null
+          fees_confirmed_at?: string | null
+          id?: string
+          invoice?: Json | null
+          metadata?: Json | null
+          payment?: Json | null
+          receipt_printed_at?: string | null
+          repair_order_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          brand_id?: string
+          checkout_no?: string
+          closed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_signature?: Json | null
+          fee_summary?: Json | null
+          fees_confirmed_at?: string | null
+          id?: string
+          invoice?: Json | null
+          metadata?: Json | null
+          payment?: Json | null
+          receipt_printed_at?: string | null
+          repair_order_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ro_checkouts_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: true
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           permission_code: string
@@ -6163,6 +7735,131 @@ export type Database = {
           },
         ]
       }
+      sales_handcards: {
+        Row: {
+          assigned_rs_name: string | null
+          assigned_rs_user_id: string | null
+          brand_id: string
+          competitor_brand: string | null
+          competitor_model: string | null
+          created_at: string
+          created_by: string | null
+          customer_email: string | null
+          customer_id: string | null
+          customer_identity: string | null
+          customer_name: string
+          customer_phone: string | null
+          id: string
+          intended_models: string[] | null
+          intent_level: number | null
+          lead_grade: string | null
+          lead_id: string | null
+          metadata: Json
+          notes: string | null
+          organization_id: string | null
+          purchase_timing: string | null
+          quote_remark: string | null
+          quoted_amount: number | null
+          reception_date: string
+          reception_period: string | null
+          status: string
+          trial_status: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          assigned_rs_name?: string | null
+          assigned_rs_user_id?: string | null
+          brand_id: string
+          competitor_brand?: string | null
+          competitor_model?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_identity?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          id?: string
+          intended_models?: string[] | null
+          intent_level?: number | null
+          lead_grade?: string | null
+          lead_id?: string | null
+          metadata?: Json
+          notes?: string | null
+          organization_id?: string | null
+          purchase_timing?: string | null
+          quote_remark?: string | null
+          quoted_amount?: number | null
+          reception_date?: string
+          reception_period?: string | null
+          status?: string
+          trial_status?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          assigned_rs_name?: string | null
+          assigned_rs_user_id?: string | null
+          brand_id?: string
+          competitor_brand?: string | null
+          competitor_model?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_identity?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          id?: string
+          intended_models?: string[] | null
+          intent_level?: number | null
+          lead_grade?: string | null
+          lead_id?: string | null
+          metadata?: Json
+          notes?: string | null
+          organization_id?: string | null
+          purchase_timing?: string | null
+          quote_remark?: string | null
+          quoted_amount?: number | null
+          reception_date?: string
+          reception_period?: string | null
+          status?: string
+          trial_status?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_handcards_assigned_rs_user_id_fkey"
+            columns: ["assigned_rs_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_handcards_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_handcards_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_handcards_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_leads: {
         Row: {
           assignee_id: string | null
@@ -6264,6 +7961,271 @@ export type Database = {
           },
         ]
       }
+      sales_orders: {
+        Row: {
+          brand_id: string
+          buyer_national_id: string | null
+          condition_notes: string | null
+          contract_type: string
+          created_at: string
+          created_by: string | null
+          customer_address: string | null
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          deal_price: number | null
+          delivery_date: string | null
+          down_payment: number | null
+          final_payment_date: string | null
+          fulfilled_at: string | null
+          id: string
+          lead_id: string | null
+          metadata: Json
+          order_no: string
+          payment_method: string | null
+          quote_snapshot: Json | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rs_name: string | null
+          signature_buyer: string | null
+          signature_seller: string | null
+          signature_witness: string | null
+          signed_at: string | null
+          special_notes: string | null
+          status: string
+          submitted_at: string | null
+          total_amount: number | null
+          transfer_by: string | null
+          updated_at: string
+          updated_by: string | null
+          used_brand_model: string | null
+          used_cc: string | null
+          used_cert_level: string | null
+          used_mileage: string | null
+          used_plate: string | null
+          used_vehicle_id: string | null
+          used_year: string | null
+          vehicle_color: string | null
+          vehicle_engine_no: string | null
+          vehicle_model_id: string | null
+          vehicle_model_name: string | null
+          vehicle_vin: string | null
+        }
+        Insert: {
+          brand_id: string
+          buyer_national_id?: string | null
+          condition_notes?: string | null
+          contract_type: string
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          deal_price?: number | null
+          delivery_date?: string | null
+          down_payment?: number | null
+          final_payment_date?: string | null
+          fulfilled_at?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json
+          order_no: string
+          payment_method?: string | null
+          quote_snapshot?: Json | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rs_name?: string | null
+          signature_buyer?: string | null
+          signature_seller?: string | null
+          signature_witness?: string | null
+          signed_at?: string | null
+          special_notes?: string | null
+          status?: string
+          submitted_at?: string | null
+          total_amount?: number | null
+          transfer_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          used_brand_model?: string | null
+          used_cc?: string | null
+          used_cert_level?: string | null
+          used_mileage?: string | null
+          used_plate?: string | null
+          used_vehicle_id?: string | null
+          used_year?: string | null
+          vehicle_color?: string | null
+          vehicle_engine_no?: string | null
+          vehicle_model_id?: string | null
+          vehicle_model_name?: string | null
+          vehicle_vin?: string | null
+        }
+        Update: {
+          brand_id?: string
+          buyer_national_id?: string | null
+          condition_notes?: string | null
+          contract_type?: string
+          created_at?: string
+          created_by?: string | null
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          deal_price?: number | null
+          delivery_date?: string | null
+          down_payment?: number | null
+          final_payment_date?: string | null
+          fulfilled_at?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json
+          order_no?: string
+          payment_method?: string | null
+          quote_snapshot?: Json | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rs_name?: string | null
+          signature_buyer?: string | null
+          signature_seller?: string | null
+          signature_witness?: string | null
+          signed_at?: string | null
+          special_notes?: string | null
+          status?: string
+          submitted_at?: string | null
+          total_amount?: number | null
+          transfer_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          used_brand_model?: string | null
+          used_cc?: string | null
+          used_cert_level?: string | null
+          used_mileage?: string | null
+          used_plate?: string | null
+          used_vehicle_id?: string | null
+          used_year?: string | null
+          vehicle_color?: string | null
+          vehicle_engine_no?: string | null
+          vehicle_model_id?: string | null
+          vehicle_model_name?: string | null
+          vehicle_vin?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_used_vehicle_id_fkey"
+            columns: ["used_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "used_car_inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_vehicle_model_id_fkey"
+            columns: ["vehicle_model_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_test_drives: {
+        Row: {
+          brand_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          id: string
+          lead_id: string | null
+          metadata: Json
+          notes: string | null
+          sales_consultant_id: string | null
+          scheduled_at: string
+          status: string
+          updated_at: string
+          vehicle_model_id: string | null
+        }
+        Insert: {
+          brand_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json
+          notes?: string | null
+          sales_consultant_id?: string | null
+          scheduled_at: string
+          status?: string
+          updated_at?: string
+          vehicle_model_id?: string | null
+        }
+        Update: {
+          brand_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          lead_id?: string | null
+          metadata?: Json
+          notes?: string | null
+          sales_consultant_id?: string | null
+          scheduled_at?: string
+          status?: string
+          updated_at?: string
+          vehicle_model_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_test_drives_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_test_drives_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "sales_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_test_drives_sales_consultant_id_fkey"
+            columns: ["sales_consultant_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_test_drives_vehicle_model_id_fkey"
+            columns: ["vehicle_model_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_appointments: {
         Row: {
           advisor_id: string | null
@@ -6358,6 +8320,93 @@ export type Database = {
             columns: ["work_order_id"]
             isOneToOne: false
             referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_bays: {
+        Row: {
+          bay_type: string | null
+          brand_id: string
+          code: string
+          created_at: string
+          current_item: string | null
+          current_ro_code: string | null
+          current_tech_color: string | null
+          current_tech_name: string | null
+          done_today: number
+          id: string
+          is_active: boolean
+          metadata: Json
+          name: string
+          organization_id: string | null
+          purpose: string | null
+          sort_order: number
+          started_at: string | null
+          status: string
+          subsidiary_id: string | null
+          updated_at: string
+          used_minutes: number
+        }
+        Insert: {
+          bay_type?: string | null
+          brand_id: string
+          code: string
+          created_at?: string
+          current_item?: string | null
+          current_ro_code?: string | null
+          current_tech_color?: string | null
+          current_tech_name?: string | null
+          done_today?: number
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name: string
+          organization_id?: string | null
+          purpose?: string | null
+          sort_order?: number
+          started_at?: string | null
+          status?: string
+          subsidiary_id?: string | null
+          updated_at?: string
+          used_minutes?: number
+        }
+        Update: {
+          bay_type?: string | null
+          brand_id?: string
+          code?: string
+          created_at?: string
+          current_item?: string | null
+          current_ro_code?: string | null
+          current_tech_color?: string | null
+          current_tech_name?: string | null
+          done_today?: number
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name?: string
+          organization_id?: string | null
+          purpose?: string | null
+          sort_order?: number
+          started_at?: string | null
+          status?: string
+          subsidiary_id?: string | null
+          updated_at?: string
+          used_minutes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_bays_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_bays_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
             referencedColumns: ["id"]
           },
         ]
@@ -7492,6 +9541,7 @@ export type Database = {
           payment_terms_days: number | null
           phone: string | null
           primary_contact: string | null
+          subsidiary_id: string | null
           supplier_type: string | null
           synced_at: string | null
           tax_id: string | null
@@ -7522,6 +9572,7 @@ export type Database = {
           payment_terms_days?: number | null
           phone?: string | null
           primary_contact?: string | null
+          subsidiary_id?: string | null
           supplier_type?: string | null
           synced_at?: string | null
           tax_id?: string | null
@@ -7552,6 +9603,7 @@ export type Database = {
           payment_terms_days?: number | null
           phone?: string | null
           primary_contact?: string | null
+          subsidiary_id?: string | null
           supplier_type?: string | null
           synced_at?: string | null
           tax_id?: string | null
@@ -7582,10 +9634,89 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "suppliers_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "suppliers_withholding_tax_code_id_fkey"
             columns: ["withholding_tax_code_id"]
             isOneToOne: false
             referencedRelation: "tax_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_responses: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          metadata: Json
+          responded_at: string | null
+          response_json: Json
+          sent_at: string
+          source_id: string | null
+          source_module: string | null
+          status: string
+          target_customer_id: string | null
+          target_user_id: string | null
+          template_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metadata?: Json
+          responded_at?: string | null
+          response_json?: Json
+          sent_at?: string
+          source_id?: string | null
+          source_module?: string | null
+          status?: string
+          target_customer_id?: string | null
+          target_user_id?: string | null
+          template_id: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metadata?: Json
+          responded_at?: string | null
+          response_json?: Json
+          sent_at?: string
+          source_id?: string | null
+          source_module?: string | null
+          status?: string
+          target_customer_id?: string | null
+          target_user_id?: string | null
+          template_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_responses_target_customer_id_fkey"
+            columns: ["target_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_responses_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "survey_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -7954,6 +10085,236 @@ export type Database = {
         }
         Relationships: []
       }
+      used_car_evaluations: {
+        Row: {
+          appraiser: string | null
+          approved_at: string | null
+          approved_by: string | null
+          brand_id: string
+          brand_name: string | null
+          color: string | null
+          conclusion: string | null
+          condition_grade: string | null
+          created_at: string | null
+          customer_id: string | null
+          decision: string | null
+          displacement: string | null
+          equipment_jsonb: Json | null
+          estimated_value: number | null
+          eval_no: string | null
+          evaluator_id: string | null
+          id: string
+          license_plate: string | null
+          metadata: Json | null
+          mileage: number | null
+          model: string | null
+          organization_id: string | null
+          pricing_jsonb: Json | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string | null
+          vin: string | null
+          year: number | null
+        }
+        Insert: {
+          appraiser?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          brand_id: string
+          brand_name?: string | null
+          color?: string | null
+          conclusion?: string | null
+          condition_grade?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          decision?: string | null
+          displacement?: string | null
+          equipment_jsonb?: Json | null
+          estimated_value?: number | null
+          eval_no?: string | null
+          evaluator_id?: string | null
+          id?: string
+          license_plate?: string | null
+          metadata?: Json | null
+          mileage?: number | null
+          model?: string | null
+          organization_id?: string | null
+          pricing_jsonb?: Json | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Update: {
+          appraiser?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          brand_id?: string
+          brand_name?: string | null
+          color?: string | null
+          conclusion?: string | null
+          condition_grade?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          decision?: string | null
+          displacement?: string | null
+          equipment_jsonb?: Json | null
+          estimated_value?: number | null
+          eval_no?: string | null
+          evaluator_id?: string | null
+          id?: string
+          license_plate?: string | null
+          metadata?: Json | null
+          mileage?: number | null
+          model?: string | null
+          organization_id?: string | null
+          pricing_jsonb?: Json | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "used_car_evaluations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      used_car_inventory: {
+        Row: {
+          acquisition_date: string | null
+          acquisition_price: number | null
+          acquisition_source: string | null
+          brand_id: string
+          color: string | null
+          color_hex: string | null
+          condition_grade: string | null
+          cost: number | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          images: string[] | null
+          inspection_due_date: string | null
+          inspection_report: Json | null
+          license_plate: string | null
+          lien_cleared: boolean | null
+          listed_date: string | null
+          listing_price: number | null
+          margin: number | null
+          metadata: Json | null
+          mileage_km: number | null
+          model_display_name: string
+          note: string | null
+          organization_id: string | null
+          recommended_services: string[] | null
+          sold_date: string | null
+          status: string
+          updated_at: string | null
+          updated_by: string | null
+          vehicle_model_id: string | null
+          vin: string | null
+          year: number
+        }
+        Insert: {
+          acquisition_date?: string | null
+          acquisition_price?: number | null
+          acquisition_source?: string | null
+          brand_id: string
+          color?: string | null
+          color_hex?: string | null
+          condition_grade?: string | null
+          cost?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          images?: string[] | null
+          inspection_due_date?: string | null
+          inspection_report?: Json | null
+          license_plate?: string | null
+          lien_cleared?: boolean | null
+          listed_date?: string | null
+          listing_price?: number | null
+          margin?: number | null
+          metadata?: Json | null
+          mileage_km?: number | null
+          model_display_name: string
+          note?: string | null
+          organization_id?: string | null
+          recommended_services?: string[] | null
+          sold_date?: string | null
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          vehicle_model_id?: string | null
+          vin?: string | null
+          year: number
+        }
+        Update: {
+          acquisition_date?: string | null
+          acquisition_price?: number | null
+          acquisition_source?: string | null
+          brand_id?: string
+          color?: string | null
+          color_hex?: string | null
+          condition_grade?: string | null
+          cost?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          images?: string[] | null
+          inspection_due_date?: string | null
+          inspection_report?: Json | null
+          license_plate?: string | null
+          lien_cleared?: boolean | null
+          listed_date?: string | null
+          listing_price?: number | null
+          margin?: number | null
+          metadata?: Json | null
+          mileage_km?: number | null
+          model_display_name?: string
+          note?: string | null
+          organization_id?: string | null
+          recommended_services?: string[] | null
+          sold_date?: string | null
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          vehicle_model_id?: string | null
+          vin?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "used_car_inventory_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "used_car_inventory_vehicle_model_id_fkey"
+            columns: ["vehicle_model_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_assignments: {
         Row: {
           expires_at: string | null
@@ -7998,6 +10359,47 @@ export type Database = {
           },
         ]
       }
+      user_reminder_subscriptions: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          is_visible: boolean
+          reminder_code: string
+          slot_index: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          is_visible?: boolean
+          reminder_code: string
+          slot_index: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          is_visible?: boolean
+          reminder_code?: string
+          slot_index?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_reminder_subscriptions_reminder_code_fkey"
+            columns: ["reminder_code"]
+            isOneToOne: false
+            referencedRelation: "reminder_definitions"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       vehicle_models: {
         Row: {
           brand_id: string
@@ -8018,6 +10420,7 @@ export type Database = {
           netsuite_synced_at: string | null
           series: string
           standard_cost: number | null
+          subsidiary_id: string | null
           updated_at: string
           vehicle_type: Database["public"]["Enums"]["vehicle_type"]
           year_end: number | null
@@ -8042,6 +10445,7 @@ export type Database = {
           netsuite_synced_at?: string | null
           series: string
           standard_cost?: number | null
+          subsidiary_id?: string | null
           updated_at?: string
           vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
           year_end?: number | null
@@ -8066,6 +10470,7 @@ export type Database = {
           netsuite_synced_at?: string | null
           series?: string
           standard_cost?: number | null
+          subsidiary_id?: string | null
           updated_at?: string
           vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
           year_end?: number | null
@@ -8098,6 +10503,13 @@ export type Database = {
             columns: ["gl_revenue_coa_id"]
             isOneToOne: false
             referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_models_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
             referencedColumns: ["id"]
           },
         ]
@@ -8428,6 +10840,7 @@ export type Database = {
           ro_id: string | null
           status: string
           submitted_at: string | null
+          subsidiary_id: string | null
           synced_at: string | null
           updated_at: string
           vehicle_model_id: string | null
@@ -8460,6 +10873,7 @@ export type Database = {
           ro_id?: string | null
           status?: string
           submitted_at?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string
           vehicle_model_id?: string | null
@@ -8492,6 +10906,7 @@ export type Database = {
           ro_id?: string | null
           status?: string
           submitted_at?: string | null
+          subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string
           vehicle_model_id?: string | null
@@ -8510,6 +10925,13 @@ export type Database = {
             columns: ["ro_id"]
             isOneToOne: false
             referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
             referencedColumns: ["id"]
           },
           {
@@ -8637,6 +11059,7 @@ export type Database = {
           qc_at: string | null
           ro_no: string
           status: string
+          subsidiary_id: string | null
           synced_at: string | null
           total_amount: number
           updated_at: string
@@ -8670,6 +11093,7 @@ export type Database = {
           qc_at?: string | null
           ro_no: string
           status?: string
+          subsidiary_id?: string | null
           synced_at?: string | null
           total_amount?: number
           updated_at?: string
@@ -8703,6 +11127,7 @@ export type Database = {
           qc_at?: string | null
           ro_no?: string
           status?: string
+          subsidiary_id?: string | null
           synced_at?: string | null
           total_amount?: number
           updated_at?: string
@@ -8736,6 +11161,13 @@ export type Database = {
             columns: ["lead_technician_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
             referencedColumns: ["id"]
           },
           {
@@ -9067,6 +11499,10 @@ export type Database = {
         Returns: undefined
       }
       user_has_brand: { Args: { p_brand: string }; Returns: boolean }
+      user_has_subsidiary: {
+        Args: { p_subsidiary_id: string }
+        Returns: boolean
+      }
       warehouse_soft_delete_zone: {
         Args: { p_zone_id: string }
         Returns: undefined

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import {
   convertLinesToPRs,
   ignoreReplenishmentLines,
@@ -58,6 +59,11 @@ const PRIORITY_LABEL: Record<string, string> = {
   normal: "一般",
   low: "低",
 };
+const PRIORITY_ORDER: Record<string, number> = {
+  urgent: 0,
+  normal: 1,
+  low: 2,
+};
 const ABC_BADGE: Record<string, string> = {
   A: "bg-[#FDECEA] text-[#CC0000]",
   B: "bg-[#FDF3E3] text-[#854F0B]",
@@ -88,7 +94,6 @@ export function ReplenishmentBoard({
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterAbc, setFilterAbc] = useState<string>("all");
   const [filterSupplier, setFilterSupplier] = useState<string>("all");
-  const [filterWarehouse, setFilterWarehouse] = useState<string>("all");
   const [horizonDays, setHorizonDays] = useState<number>(policy?.horizon_days ?? 7);
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -217,6 +222,189 @@ export function ReplenishmentBoard({
     });
   }
 
+  // ── DataGrid columns ──
+  // 注意：urgent row 高亮（紅字粗體）內嵌在 cell 內 conditional className；
+  //       checkbox 多選用外部 selected set + cell render；
+  //       qty inline edit 用受控 input + 失焦/Enter saveQty（draft 模式），
+  //       不走 DataGrid 內建 editable（因為要保 draft + numeric 校驗 + Enter 行為）。
+  const columns: DataGridColumn<ReplenishLine>[] = [
+    {
+      id: "select",
+      header: "",
+      width: 36,
+      hideable: false,
+      sortable: false,
+      cell: (l) => (
+        <input
+          type="checkbox"
+          checked={selected.has(l.id)}
+          onChange={() => toggle(l.id)}
+          aria-label={`選取 ${l.item_code}`}
+        />
+      ),
+    },
+    {
+      id: "item_code",
+      header: "料號",
+      cell: (l) => <span className="font-mono">{l.item_code}</span>,
+      exportValue: (l) => l.item_code,
+      sortValue: (l) => l.item_code,
+    },
+    {
+      id: "item_name",
+      header: "品名",
+      cell: (l) => l.item_name,
+      exportValue: (l) => l.item_name,
+      sortValue: (l) => l.item_name,
+    },
+    {
+      id: "abc_class",
+      header: "ABC",
+      width: 60,
+      cell: (l) =>
+        l.abc_class ? (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${
+              ABC_BADGE[l.abc_class] ?? "bg-[#EBF3FF] text-[#1A3A5C]"
+            }`}
+          >
+            {l.abc_class}
+          </span>
+        ) : (
+          <span className="text-[#9A9890]">—</span>
+        ),
+      exportValue: (l) => l.abc_class ?? "",
+      sortValue: (l) => l.abc_class ?? "",
+    },
+    {
+      id: "on_hand_qty",
+      header: "在手",
+      align: "right",
+      cell: (l) => (
+        <span
+          className={`font-mono ${
+            l.priority === "urgent" ? "text-[#CC0000] font-semibold" : ""
+          }`}
+        >
+          {l.on_hand_qty}
+        </span>
+      ),
+      exportValue: (l) => l.on_hand_qty,
+      sortValue: (l) => l.on_hand_qty,
+    },
+    {
+      id: "on_order_qty",
+      header: "在途",
+      align: "right",
+      cell: (l) => <span className="font-mono text-[#9A9890]">{l.on_order_qty}</span>,
+      exportValue: (l) => l.on_order_qty,
+      sortValue: (l) => l.on_order_qty,
+    },
+    {
+      id: "gross_demand_qty",
+      header: "需求(視野)",
+      align: "right",
+      cell: (l) => <span className="font-mono">{l.gross_demand_qty}</span>,
+      exportValue: (l) => l.gross_demand_qty,
+      sortValue: (l) => l.gross_demand_qty,
+    },
+    {
+      id: "reorder_point",
+      header: "ROP",
+      align: "right",
+      defaultHidden: true,
+      cell: (l) => <span className="font-mono">{l.reorder_point}</span>,
+      exportValue: (l) => l.reorder_point,
+      sortValue: (l) => l.reorder_point,
+    },
+    {
+      id: "safety_stock",
+      header: "SS",
+      align: "right",
+      defaultHidden: true,
+      cell: (l) => <span className="font-mono">{l.safety_stock}</span>,
+      exportValue: (l) => l.safety_stock,
+      sortValue: (l) => l.safety_stock,
+    },
+    {
+      id: "suggested_qty",
+      header: "建議量",
+      align: "right",
+      cell: (l) => {
+        const draft = drafts[l.id];
+        const inputValue = draft !== undefined ? draft : String(l.suggested_qty);
+        return (
+          <input
+            type="number"
+            min={0}
+            value={inputValue}
+            onChange={(e) => setQtyDraft(l.id, e.target.value)}
+            onBlur={() => draft !== undefined && saveQty(l.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className={`w-20 px-2 py-0.5 text-right font-mono text-[12px] border rounded ${
+              draft !== undefined
+                ? "border-[#FFC400] bg-[#FFFAE6]"
+                : "border-[#EEECE6]"
+            } focus:outline-none focus:border-[#185FA5]`}
+          />
+        );
+      },
+      exportValue: (l) => l.suggested_qty,
+      sortValue: (l) => l.suggested_qty,
+    },
+    {
+      id: "supplier_name",
+      header: "供應商",
+      cell: (l) =>
+        l.supplier_name ? (
+          <span className="text-[12px]">{l.supplier_name}</span>
+        ) : (
+          <span className="text-[#9A9890]">—</span>
+        ),
+      exportValue: (l) => l.supplier_name ?? "",
+      sortValue: (l) => l.supplier_name ?? "",
+    },
+    {
+      id: "lead_time_days",
+      header: "前置",
+      align: "right",
+      cell: (l) => (
+        <span className="font-mono text-[#9A9890]">{l.lead_time_days ?? "—"}</span>
+      ),
+      exportValue: (l) => l.lead_time_days ?? "",
+      sortValue: (l) => l.lead_time_days ?? null,
+    },
+    {
+      id: "est_amount",
+      header: "預估金額",
+      align: "right",
+      cell: (l) => (
+        <span className="font-mono">{`NT$${Number(l.est_amount).toLocaleString("en-US")}`}</span>
+      ),
+      exportValue: (l) => Number(l.est_amount),
+      sortValue: (l) => Number(l.est_amount),
+    },
+    {
+      id: "priority",
+      header: "優先度",
+      width: 60,
+      cell: (l) => (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${PRIORITY_BADGE[l.priority]}`}
+        >
+          {PRIORITY_LABEL[l.priority]}
+        </span>
+      ),
+      exportValue: (l) => PRIORITY_LABEL[l.priority],
+      sortValue: (l) => PRIORITY_ORDER[l.priority] ?? 99,
+    },
+  ];
+
   return (
     <div className="flex gap-4 items-start">
       {/* 主欄 */}
@@ -335,6 +523,14 @@ export function ReplenishmentBoard({
           <div className="ml-auto flex gap-1.5">
             <button
               type="button"
+              onClick={toggleAll}
+              disabled={filtered.length === 0}
+              className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              {allSelected ? "全部取消" : "全選"}
+            </button>
+            <button
+              type="button"
               disabled={selected.size === 0 || isPending}
               onClick={() => handleIgnore(Array.from(selected))}
               className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
@@ -353,135 +549,19 @@ export function ReplenishmentBoard({
         </div>
 
         {/* Table */}
-        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead className="text-[11px] text-[#9A9890] bg-[#F8F7F4]">
-                <tr>
-                  <th className="px-3 py-2 text-center w-[36px]">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleAll}
-                      disabled={filtered.length === 0}
-                    />
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium">料號</th>
-                  <th className="px-3 py-2 text-left font-medium">品名</th>
-                  <th className="px-3 py-2 text-center font-medium w-[60px]">ABC</th>
-                  <th className="px-3 py-2 text-right font-medium">在手</th>
-                  <th className="px-3 py-2 text-right font-medium">在途</th>
-                  <th className="px-3 py-2 text-right font-medium">需求(視野)</th>
-                  <th className="px-3 py-2 text-right font-medium">ROP</th>
-                  <th className="px-3 py-2 text-right font-medium">SS</th>
-                  <th className="px-3 py-2 text-right font-medium">建議量</th>
-                  <th className="px-3 py-2 text-left font-medium">供應商</th>
-                  <th className="px-3 py-2 text-right font-medium">前置</th>
-                  <th className="px-3 py-2 text-right font-medium">預估金額</th>
-                  <th className="px-3 py-2 text-center font-medium w-[60px]">優先度</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={14} className="px-3 py-8 text-center text-[12.5px] text-[#9A9890]">
-                      {run
-                        ? "目前篩選條件下沒有可顯示的建議"
-                        : "點右上角「重新計算建議」開始 MRP"}
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((l) => {
-                    const draft = drafts[l.id];
-                    const isUrgent = l.priority === "urgent";
-                    const inputValue =
-                      draft !== undefined ? draft : String(l.suggested_qty);
-                    return (
-                      <tr
-                        key={l.id}
-                        className={`border-t border-[#F8F7F4] hover:bg-[#FBFAF7] ${
-                          isUrgent ? "bg-[#FFF9F0]" : ""
-                        }`}
-                      >
-                        <td className="px-3 py-2 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(l.id)}
-                            onChange={() => toggle(l.id)}
-                          />
-                        </td>
-                        <td className="px-3 py-2 font-mono text-[12px]">{l.item_code}</td>
-                        <td className="px-3 py-2">{l.item_name}</td>
-                        <td className="px-3 py-2 text-center">
-                          {l.abc_class ? (
-                            <span
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${
-                                ABC_BADGE[l.abc_class] ?? "bg-[#EBF3FF] text-[#1A3A5C]"
-                              }`}
-                            >
-                              {l.abc_class}
-                            </span>
-                          ) : (
-                            <span className="text-[#9A9890]">—</span>
-                          )}
-                        </td>
-                        <td
-                          className={`px-3 py-2 text-right font-mono ${
-                            isUrgent ? "text-[#CC0000] font-semibold" : ""
-                          }`}
-                        >
-                          {l.on_hand_qty}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono text-[#9A9890]">
-                          {l.on_order_qty}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono">{l.gross_demand_qty}</td>
-                        <td className="px-3 py-2 text-right font-mono">{l.reorder_point}</td>
-                        <td className="px-3 py-2 text-right font-mono">{l.safety_stock}</td>
-                        <td className="px-3 py-2 text-right">
-                          <input
-                            type="number"
-                            min={0}
-                            value={inputValue}
-                            onChange={(e) => setQtyDraft(l.id, e.target.value)}
-                            onBlur={() => draft !== undefined && saveQty(l.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                (e.target as HTMLInputElement).blur();
-                              }
-                            }}
-                            className={`w-20 px-2 py-0.5 text-right font-mono text-[12px] border rounded ${
-                              draft !== undefined
-                                ? "border-[#FFC400] bg-[#FFFAE6]"
-                                : "border-[#EEECE6]"
-                            } focus:outline-none focus:border-[#185FA5]`}
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-[12px]">
-                          {l.supplier_name ?? <span className="text-[#9A9890]">—</span>}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono text-[#9A9890]">
-                          {l.lead_time_days ?? "—"}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono">
-                          {`NT$${Number(l.est_amount).toLocaleString("en-US")}`}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <span
-                            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${PRIORITY_BADGE[l.priority]}`}
-                          >
-                            {PRIORITY_LABEL[l.priority]}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataGrid
+          columns={columns}
+          data={filtered}
+          rowKey={(l) => l.id}
+          persistKey="parts/purchase/replenishment"
+          exportFileName="replenishment-suggestions"
+          emptyMessage={
+            run
+              ? "目前篩選條件下沒有可顯示的建議"
+              : "點右上角「重新計算建議」開始 MRP"
+          }
+          disabled={isPending}
+        />
       </div>
 
       {/* 右側 policy panel */}

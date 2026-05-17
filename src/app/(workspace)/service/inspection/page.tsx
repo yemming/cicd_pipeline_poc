@@ -1,6 +1,7 @@
 "use client";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { DemoBanner } from "@/components/demo-banner";
 import { useServiceDemo } from "@/lib/service-demo/context";
 
 // ── 複檢項目定義 ─────────────────────────────────────────────
@@ -104,6 +105,7 @@ export default function InspectionPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-4 pb-24">
+      <DemoBanner href="/parts/aftersales/final-inspections" hrefLabel="改前往複檢真實版本" />
       {/* Sprint chip 列（含 ★4 跨模組 e2e marker） */}
       <header className="flex items-center gap-2.5 flex-wrap">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">竣工複檢</h1>

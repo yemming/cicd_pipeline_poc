@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { AlertDialog, ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   createNavNode,
   deleteNavNode,
@@ -105,6 +106,12 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [savingAll, startSaveAll] = useTransition();
   const [addChildTarget, setAddChildTarget] = useState<NavNodeRow | null>(null);
+  // 全頁共用的 alert / discard confirm 狀態（取代 native alert/confirm）
+  const [alertState, setAlertState] = useState<{ title: string; message: string } | null>(null);
+  const showAlert = useCallback((title: string, message: string) => {
+    setAlertState({ title, message });
+  }, []);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const requestAddChild = useCallback((node: NavNodeRow) => {
     setAddChildTarget(node);
@@ -131,7 +138,11 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
 
   const discardAll = () => {
     if (Object.keys(drafts).length === 0) return;
-    if (!confirm(`捨棄 ${Object.keys(drafts).length} 筆未儲存變更？此動作無法復原。`)) return;
+    setShowDiscardConfirm(true);
+  };
+
+  const confirmDiscardAll = () => {
+    setShowDiscardConfirm(false);
     setDrafts({});
   };
 
@@ -193,8 +204,9 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
         return next;
       });
       if (failures.length > 0) {
-        alert(
-          `部分節點儲存失敗（共 ${failures.length} 筆，已留在草稿）：\n` +
+        showAlert(
+          "部分節點儲存失敗",
+          `共 ${failures.length} 筆，已留在草稿：\n` +
             failures.map((f) => `• ${f.name}: ${f.msg}`).join("\n"),
         );
       }
@@ -245,7 +257,7 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
             <h2 className="text-sm font-bold uppercase tracking-wider text-on-surface-variant">
               目錄樹
             </h2>
-            <NewModuleButton brandKey={brandKey} />
+            <NewModuleButton brandKey={brandKey} showAlert={showAlert} />
           </div>
           <p className="text-[11px] text-on-surface-variant mb-3 leading-relaxed">
             滑到任一節點，右側會出現
@@ -276,6 +288,7 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
                   onToggleExpanded={toggleExpanded}
                   onDraft={setDraft}
                   onRequestAddChild={requestAddChild}
+                  showAlert={showAlert}
                 />
               ))}
             </ul>
@@ -291,6 +304,7 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
               isDirty={!!drafts[selected.id]}
               onDraft={(patch) => setDraft(selected.id, patch)}
               onRequestAddChild={requestAddChild}
+              showAlert={showAlert}
             />
           ) : (
             <div className="py-12 text-center text-sm text-on-surface-variant">
@@ -315,6 +329,26 @@ export function NavEditor({ initialRows, brandKey, brandName }: Props) {
             });
             router.refresh();
           }}
+        />
+      )}
+
+      {showDiscardConfirm && (
+        <ConfirmDialog
+          title="捨棄未儲存變更"
+          message={`捨棄 ${Object.keys(drafts).length} 筆未儲存變更？此動作無法復原。`}
+          variant="danger"
+          confirmLabel="確認捨棄"
+          onConfirm={confirmDiscardAll}
+          onCancel={() => setShowDiscardConfirm(false)}
+        />
+      )}
+
+      {alertState && (
+        <AlertDialog
+          title={alertState.title}
+          message={<span className="whitespace-pre-wrap">{alertState.message}</span>}
+          variant="error"
+          onClose={() => setAlertState(null)}
         />
       )}
     </>
@@ -385,6 +419,7 @@ function TreeNode({
   onToggleExpanded,
   onDraft,
   onRequestAddChild,
+  showAlert,
 }: {
   node: TreeNodeData;
   expanded: Set<string>;
@@ -395,6 +430,7 @@ function TreeNode({
   onToggleExpanded: (id: string) => void;
   onDraft: (id: string, patch: NavDraft) => void;
   onRequestAddChild: (node: NavNodeRow) => void;
+  showAlert: (title: string, message: string) => void;
 }) {
   const isExpanded = expanded.has(node.id);
   const isSelected = selectedId === node.id;
@@ -461,7 +497,7 @@ function TreeNode({
         )}
 
         <ActiveToggle node={node} onDraft={onDraft} />
-        <NodeActions node={node} onRequestAddChild={onRequestAddChild} />
+        <NodeActions node={node} onRequestAddChild={onRequestAddChild} showAlert={showAlert} />
       </div>
 
       {hasChildren && isExpanded && (
@@ -478,6 +514,7 @@ function TreeNode({
               onToggleExpanded={onToggleExpanded}
               onDraft={onDraft}
               onRequestAddChild={onRequestAddChild}
+              showAlert={showAlert}
             />
           ))}
         </ul>
@@ -716,11 +753,14 @@ function ActiveToggle({
 function NodeActions({
   node,
   onRequestAddChild,
+  showAlert,
 }: {
   node: NavNodeRow;
   onRequestAddChild: (node: NavNodeRow) => void;
+  showAlert: (title: string, message: string) => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const router = useRouter();
 
   const guardedAction = (fn: () => Promise<void>) => (e: React.MouseEvent) => {
@@ -730,7 +770,7 @@ function NodeActions({
         await fn();
         router.refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
+        showAlert("操作失敗", err instanceof Error ? err.message : String(err));
       }
     });
   };
@@ -741,6 +781,23 @@ function NodeActions({
   const handleAddChild = (e: React.MouseEvent) => {
     e.stopPropagation();
     onRequestAddChild(node);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    setShowDeleteConfirm(false);
+    startTransition(async () => {
+      try {
+        await deleteNavNode(node.id);
+        router.refresh();
+      } catch (err) {
+        showAlert("刪除失敗", err instanceof Error ? err.message : String(err));
+      }
+    });
   };
 
   return (
@@ -765,13 +822,23 @@ function NodeActions({
       <IconBtn
         icon="delete"
         title="刪除（連同子節點）"
-        onClick={guardedAction(async () => {
-          if (!confirm(`確定刪除「${node.name}」與其所有子項？此動作不可復原。`)) {
-            throw new Error("已取消");
-          }
-          await deleteNavNode(node.id);
-        })}
+        onClick={handleDelete}
       />
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="刪除節點"
+          message={
+            <>
+              確定刪除「<b>{node.name}</b>」與其所有子項？此動作不可復原。
+            </>
+          }
+          variant="danger"
+          confirmLabel="確認刪除"
+          isPending={pending}
+          onConfirm={confirmDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </div>
   );
 }
@@ -800,7 +867,13 @@ function IconBtn({
 // Add module / child / page buttons
 // ──────────────────────────────────────────────────────────
 
-function NewModuleButton({ brandKey: _brandKey }: { brandKey: string }) {
+function NewModuleButton({
+  brandKey: _brandKey,
+  showAlert,
+}: {
+  brandKey: string;
+  showAlert: (title: string, message: string) => void;
+}) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const handleClick = () => {
@@ -816,7 +889,7 @@ function NewModuleButton({ brandKey: _brandKey }: { brandKey: string }) {
         await createNavNode(fd);
         router.refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
+        showAlert("建立模組失敗", err instanceof Error ? err.message : String(err));
       }
     });
   };
@@ -847,11 +920,13 @@ function NodeForm({
   isDirty,
   onDraft,
   onRequestAddChild,
+  showAlert,
 }: {
   node: NavNodeRow;
   isDirty: boolean;
   onDraft: (patch: NavDraft) => void;
   onRequestAddChild: (node: NavNodeRow) => void;
+  showAlert: (title: string, message: string) => void;
 }) {
   const [uploadPending, startUpload] = useTransition();
   const router = useRouter();
@@ -873,7 +948,7 @@ function NodeForm({
         setPageKind("static_html");
         router.refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : String(err));
+        showAlert("HTML 上傳失敗", err instanceof Error ? err.message : String(err));
       }
     });
   };

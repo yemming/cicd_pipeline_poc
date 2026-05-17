@@ -23,6 +23,13 @@ export default function UsedCarProspectsNewPage() {
 
   return (
     <div className="max-w-3xl space-y-6 pb-16">
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-800 flex items-start gap-2">
+        <span className="material-symbols-outlined text-[18px] mt-0.5">warning</span>
+        <div>
+          <div className="font-semibold">Demo 模式・尚未接後端</div>
+          <div className="text-amber-700">本表單目前僅為畫面 demo，按下「儲存」不會寫入資料庫。等 prospect server action 上線後會切換為真實儲存。</div>
+        </div>
+      </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
           <span className="material-symbols-outlined text-[20px]" style={{ color: "#F43F5E" }}>person</span>
@@ -287,12 +294,12 @@ export default function UsedCarProspectsNewPage() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              儲存中...
+              （demo）模擬儲存中...
             </>
           ) : (
             <>
               <span className="material-symbols-outlined text-[18px]">save</span>
-              儲存潛客
+              （demo）模擬儲存
             </>
           )}
         </button>

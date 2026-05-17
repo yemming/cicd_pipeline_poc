@@ -1,6 +1,7 @@
 "use client";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { DemoBanner } from "@/components/demo-banner";
 
 const ROLES = [
   { name: "集團管理員", type: "system", count: 2, icon: "admin_panel_settings" },
@@ -116,7 +117,9 @@ export default function RolesPage() {
   });
 
   return (
-    <div className="-m-4 md:-m-8 bg-[#FCF8FF] min-h-[calc(100dvh-4rem)] flex gap-8 p-8">
+    <div className="-m-4 md:-m-8 bg-[#FCF8FF] min-h-[calc(100dvh-4rem)]">
+      <DemoBanner href="/admin/rbac" hrefLabel="改前往 RBAC 管理（真實版本）" />
+      <div className="flex gap-8 p-8">
       {/* Left: Role list */}
       <div className="w-1/3 flex flex-col gap-3">
         <h3 className="font-bold text-[#1A1A2E] text-sm px-1">角色清單</h3>
@@ -242,6 +245,7 @@ export default function RolesPage() {
             儲存權限設定
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

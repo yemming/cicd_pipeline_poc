@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { createRoleAction, deleteRoleAction } from "@/lib/rbac/admin-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 type RoleRow = {
   id: string;
@@ -21,6 +23,74 @@ export function RolesBoard({ rows }: { rows: RoleRow[] }) {
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [keyword, setKeyword] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const roleColumns: DataGridColumn<RoleRow>[] = [
+    {
+      id: "id",
+      header: "Role ID",
+      width: 140,
+      hideable: false,
+      cell: (r) => <span className="font-mono">{r.id}</span>,
+      exportValue: (r) => r.id,
+      sortValue: (r) => r.id,
+    },
+    {
+      id: "name",
+      header: "名稱",
+      width: 160,
+      cell: (r) => <span className="font-medium">{r.name}</span>,
+      exportValue: (r) => r.name,
+      sortValue: (r) => r.name,
+    },
+    {
+      id: "description",
+      header: "描述",
+      width: 280,
+      cell: (r) => (
+        <span className="text-[#5A5955] truncate block max-w-[280px]" title={r.description ?? ""}>
+          {r.description || "—"}
+        </span>
+      ),
+      exportValue: (r) => r.description ?? "",
+      sortValue: (r) => r.description ?? "",
+    },
+    {
+      id: "is_system",
+      header: "類型",
+      width: 90,
+      cell: (r) =>
+        r.is_system ? (
+          <span className="px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5] text-[11px] font-medium">
+            system
+          </span>
+        ) : (
+          <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11] text-[11px] font-medium">
+            custom
+          </span>
+        ),
+      exportValue: (r) => (r.is_system ? "system" : "custom"),
+      sortValue: (r) => (r.is_system ? 1 : 0),
+    },
+    {
+      id: "permission_count",
+      header: "權限數",
+      width: 80,
+      align: "right",
+      cell: (r) => <span className="text-[#5A5955]">{r.permission_count}</span>,
+      exportValue: (r) => r.permission_count,
+      sortValue: (r) => r.permission_count,
+    },
+    {
+      id: "user_count",
+      header: "使用人數",
+      width: 90,
+      align: "right",
+      cell: (r) => <span className="text-[#5A5955]">{r.user_count}</span>,
+      exportValue: (r) => r.user_count,
+      sortValue: (r) => r.user_count,
+    },
+  ];
 
   // 新增表單
   const [newId, setNewId] = useState("");
@@ -66,7 +136,12 @@ export function RolesBoard({ rows }: { rows: RoleRow[] }) {
   };
 
   const remove = (id: string, name: string) => {
-    if (!confirm(`確定刪除角色「${name}」？\n\n刪除前必須撤銷所有相關授權。`)) return;
+    setConfirmDelete({ id, name });
+  };
+  const doRemove = () => {
+    if (!confirmDelete) return;
+    const { id } = confirmDelete;
+    setConfirmDelete(null);
     startTransition(async () => {
       const res = await deleteRoleAction(id);
       if (!res.ok) {
@@ -131,74 +206,47 @@ export function RolesBoard({ rows }: { rows: RoleRow[] }) {
         </span>
       </div>
 
-      {/* Table */}
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <table className="w-full text-[12px]">
-          <thead className="text-[11px] text-[#9A9890] bg-[#F8F7F4]">
-            <tr>
-              <th className="text-left font-medium py-2 px-3">Role ID</th>
-              <th className="text-left font-medium py-2 px-3">名稱</th>
-              <th className="text-left font-medium py-2 px-3">描述</th>
-              <th className="text-left font-medium py-2 px-3">類型</th>
-              <th className="text-right font-medium py-2 px-3">權限數</th>
-              <th className="text-right font-medium py-2 px-3">使用人數</th>
-              <th className="text-right font-medium py-2 px-3">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="py-6 text-center text-[#9A9890] italic">
-                  {rows.length === 0 ? "尚無任何角色" : "沒有符合關鍵字的角色"}
-                </td>
-              </tr>
-            ) : (
-              filtered.map((r) => (
-                <tr key={r.id} className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7]">
-                  <td className="py-2 px-3 font-mono">{r.id}</td>
-                  <td className="py-2 px-3 font-medium">{r.name}</td>
-                  <td className="py-2 px-3 text-[#5A5955] max-w-[280px] truncate" title={r.description ?? ""}>
-                    {r.description || "—"}
-                  </td>
-                  <td className="py-2 px-3">
-                    {r.is_system ? (
-                      <span className="px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5] text-[11px] font-medium">
-                        system
-                      </span>
-                    ) : (
-                      <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11] text-[11px] font-medium">
-                        custom
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 px-3 text-right text-[#5A5955]">{r.permission_count}</td>
-                  <td className="py-2 px-3 text-right text-[#5A5955]">{r.user_count}</td>
-                  <td className="py-2 px-3 text-right">
-                    <div className="inline-flex gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => router.push(`/admin/navigation/roles/${r.id}`)}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                      >
-                        編輯
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => remove(r.id, r.name)}
-                        disabled={r.is_system || pending}
-                        title={r.is_system ? "系統內建角色不可刪除" : ""}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <DataGrid<RoleRow>
+        columns={roleColumns}
+        data={filtered}
+        rowKey={(r) => r.id}
+        persistKey="admin/navigation/roles"
+        exportFileName="roles"
+        emptyMessage={rows.length === 0 ? "尚無任何角色" : "沒有符合關鍵字的角色"}
+        disabled={pending}
+        rowActions={(r) => (
+          <>
+            <button
+              type="button"
+              onClick={() => router.push(`/admin/navigation/roles/${r.id}`)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              編輯
+            </button>
+            <button
+              type="button"
+              onClick={() => remove(r.id, r.name)}
+              disabled={r.is_system || pending}
+              title={r.is_system ? "系統內建角色不可刪除" : ""}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              刪除
+            </button>
+          </>
+        )}
+        rowActionsWidth={150}
+      />
+      {confirmDelete && (
+        <ConfirmDialog
+          title="確定刪除角色？"
+          message={`確定刪除角色「${confirmDelete.name}」？刪除前必須撤銷所有相關授權。`}
+          confirmLabel="確認刪除"
+          variant="danger"
+          isPending={pending}
+          onConfirm={doRemove}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
 
       {/* Create Modal */}
       {showCreate && (

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import {
   createSupplierPricingAction,
   deleteSupplierPricingAction,
@@ -64,13 +65,6 @@ const fromRow = (r: SupplierPricingRow): SupplierPricingInput => ({
   notes: r.notes,
   is_active: r.is_active,
 });
-
-function csvEscape(s: string): string {
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
 
 export function SupplierPricingBoard({
   rows,
@@ -198,63 +192,184 @@ export function SupplierPricingBoard({
     });
   };
 
-  const exportCsv = () => {
-    const header = [
-      "供應商代碼",
-      "供應商名稱",
-      "料號",
-      "品名",
-      "幣別",
-      "單價",
-      "前置(天)",
-      "MOQ",
-      "倍數",
-      "主要",
-      "生效日",
-      "到期日",
-      "狀態",
-      "備註",
-    ];
-    const lines = [header.join(",")];
-    for (const r of rows) {
-      const s = supplierMap.get(r.supplier_id);
-      const i = itemMap.get(r.item_id);
-      lines.push(
-        [
-          s?.code ?? "",
-          s?.name ?? "",
-          i?.code ?? "",
-          i?.name ?? "",
-          r.currency,
-          Number(r.unit_price),
-          r.lead_time_days,
-          Number(r.min_order_qty),
-          Number(r.order_multiple),
-          r.is_primary ? "是" : "否",
-          r.valid_from ?? "",
-          r.valid_to ?? "",
-          r.is_active ? "啟用" : "停用",
-          r.notes ?? "",
-        ]
-          .map((v) => csvEscape(String(v)))
-          .join(","),
-      );
-    }
-    const blob = new Blob(["﻿" + lines.join("\n")], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `supplier-pricing-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const lockedClass = isPending ? "pointer-events-none opacity-60" : "";
   const inputClass =
     "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5]";
   const labelClass = "text-[11px] text-[#9A9890] font-medium";
+
+  const columns: DataGridColumn<SupplierPricingRow>[] = [
+    {
+      id: "supplier",
+      header: "供應商",
+      hideable: false,
+      cell: (r) => {
+        const s = supplierMap.get(r.supplier_id);
+        if (!s) return <span className="text-[#9A9890]">未知供應商</span>;
+        return (
+          <Link
+            href={`/admin/master-data/supplier-pricing/${r.id}`}
+            className="block hover:text-[#185FA5]"
+          >
+            <div className="font-mono text-[12px] text-[#185FA5]">{s.code}</div>
+            <div className="text-[12.5px] text-[#2C2C2A]">{s.name}</div>
+          </Link>
+        );
+      },
+      exportValue: (r) => {
+        const s = supplierMap.get(r.supplier_id);
+        return s ? `${s.code} ${s.name}` : "";
+      },
+      sortValue: (r) => supplierMap.get(r.supplier_id)?.code ?? "",
+    },
+    {
+      id: "item",
+      header: "料號",
+      hideable: false,
+      cell: (r) => {
+        const it = itemMap.get(r.item_id);
+        if (!it) return <span className="text-[#9A9890]">未知料號</span>;
+        return (
+          <Link
+            href={`/admin/master-data/supplier-pricing/${r.id}`}
+            className="block hover:text-[#185FA5]"
+          >
+            <div className="font-mono text-[12px] text-[#185FA5]">{it.code}</div>
+            <div className="text-[12.5px] text-[#2C2C2A]">{it.name}</div>
+            {it.category ? (
+              <div className="text-[11px] text-[#9A9890]">{it.category}</div>
+            ) : null}
+          </Link>
+        );
+      },
+      exportValue: (r) => {
+        const it = itemMap.get(r.item_id);
+        return it ? `${it.code} ${it.name}` : "";
+      },
+      sortValue: (r) => itemMap.get(r.item_id)?.code ?? "",
+    },
+    {
+      id: "unit_price",
+      header: "單價",
+      align: "right",
+      cell: (r) => (
+        <span className="font-mono text-[12px] text-[#2C2C2A] whitespace-nowrap">
+          {`${r.currency} ${Number(r.unit_price).toLocaleString("en-US", {
+            maximumFractionDigits: 2,
+          })}`}
+        </span>
+      ),
+      exportValue: (r) => Number(r.unit_price),
+      sortValue: (r) => Number(r.unit_price),
+    },
+    {
+      id: "currency",
+      header: "幣別",
+      width: 70,
+      defaultHidden: true,
+      cell: (r) => r.currency,
+      exportValue: (r) => r.currency,
+      sortValue: (r) => r.currency,
+    },
+    {
+      id: "lead_time_days",
+      header: "前置(天)",
+      align: "right",
+      width: 90,
+      cell: (r) => (
+        <span className="font-mono text-[12px] text-[#2C2C2A]">
+          {r.lead_time_days}
+        </span>
+      ),
+      exportValue: (r) => r.lead_time_days,
+      sortValue: (r) => r.lead_time_days,
+    },
+    {
+      id: "moq_multiple",
+      header: "MOQ × 倍數",
+      align: "right",
+      width: 120,
+      cell: (r) => (
+        <span className="font-mono text-[12px] text-[#2C2C2A] whitespace-nowrap">
+          {`${Number(r.min_order_qty)} × ${Number(r.order_multiple)}`}
+        </span>
+      ),
+      exportValue: (r) =>
+        `${Number(r.min_order_qty)} × ${Number(r.order_multiple)}`,
+      sortValue: (r) => Number(r.min_order_qty),
+    },
+    {
+      id: "is_primary",
+      header: "主要",
+      width: 80,
+      cell: (r) =>
+        r.is_primary ? (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#FDF3E3] text-[#854F0B]">
+            ★ 主要
+          </span>
+        ) : (
+          <span className="text-[#9A9890] text-[12px]">—</span>
+        ),
+      exportValue: (r) => (r.is_primary ? "是" : "否"),
+      sortValue: (r) => r.is_primary,
+    },
+    {
+      id: "valid_period",
+      header: "有效期間",
+      width: 200,
+      cell: (r) => (
+        <span className="font-mono text-[11.5px] text-[#5A5955] whitespace-nowrap">
+          {r.valid_from || r.valid_to
+            ? `${r.valid_from ?? "—"} → ${r.valid_to ?? "—"}`
+            : "永久"}
+        </span>
+      ),
+      exportValue: (r) =>
+        r.valid_from || r.valid_to
+          ? `${r.valid_from ?? ""} → ${r.valid_to ?? ""}`
+          : "永久",
+      sortValue: (r) => r.valid_from ?? "",
+    },
+    {
+      id: "notes",
+      header: "備註",
+      defaultHidden: true,
+      cell: (r) =>
+        r.notes ? (
+          <span className="text-[11.5px] text-[#5A5955]">{r.notes}</span>
+        ) : (
+          <span className="text-[#9A9890]">—</span>
+        ),
+      exportValue: (r) => r.notes ?? "",
+      sortValue: (r) => r.notes ?? "",
+    },
+    {
+      id: "is_active",
+      header: "狀態",
+      width: 80,
+      cell: (r) => (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap ${
+            r.is_active
+              ? "bg-[#EAF3DE] text-[#3B6D11]"
+              : "bg-[#F2F2F2] text-[#6B6A68]"
+          }`}
+        >
+          {r.is_active ? "啟用" : "停用"}
+        </span>
+      ),
+      exportValue: (r) => (r.is_active ? "啟用" : "停用"),
+      sortValue: (r) => r.is_active,
+    },
+  ];
+
+  const noResultMsg =
+    filters.q ||
+    filters.supplier !== "all" ||
+    filters.item !== "all" ||
+    filters.primary !== "all" ||
+    filters.status !== "all"
+      ? "無符合條件的定價，請調整篩選條件"
+      : "尚無定價資料 — 點右上角「＋ 新增定價」開始建立";
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -374,184 +489,49 @@ export function SupplierPricingBoard({
       {/* Toolbar */}
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">
-          共 <b className="text-[#2C2C2A]">{totalCount.toLocaleString("en-US")}</b> 筆定價
-          （顯示 <b className="text-[#2C2C2A]">{rows.length}</b> 筆）
+          共 <b className="text-[#2C2C2A]">{totalCount.toLocaleString("en-US")}</b>{" "}
+          筆定價（顯示 <b className="text-[#2C2C2A]">{rows.length}</b> 筆）
         </span>
-        <div className="ml-auto flex gap-1.5">
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-          >
-            匯出 CSV
-          </button>
-        </div>
       </div>
 
-      {/* Table */}
-      <section
-        className={`bg-white border border-[#EEECE6] rounded-lg overflow-hidden ${lockedClass}`}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">
-                  供應商
-                </th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">
-                  料號
-                </th>
-                <th className="px-3 py-2 text-right text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">
-                  單價
-                </th>
-                <th className="px-3 py-2 text-right text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">
-                  前置(天)
-                </th>
-                <th className="px-3 py-2 text-right text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">
-                  MOQ × 倍數
-                </th>
-                <th className="px-3 py-2 text-center text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">
-                  主要
-                </th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6] whitespace-nowrap">
-                  有效期間
-                </th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">
-                  狀態
-                </th>
-                <th className="px-3 py-2 text-left text-[11px] font-semibold text-[#5A5955] bg-[#F8F7F4] border-b border-[#EEECE6]">
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const s = supplierMap.get(r.supplier_id);
-                const it = itemMap.get(r.item_id);
-                return (
-                  <tr
-                    key={r.id}
-                    className="border-b border-[#EEECE6] last:border-b-0 hover:bg-[#F8F7F4]"
-                  >
-                    <td className="px-3 py-2">
-                      {s ? (
-                        <Link
-                          href={`/admin/master-data/supplier-pricing/${r.id}`}
-                          className="block hover:text-[#185FA5]"
-                        >
-                          <div className="font-mono text-[12px] text-[#185FA5]">
-                            {s.code}
-                          </div>
-                          <div className="text-[12.5px] text-[#2C2C2A]">{s.name}</div>
-                        </Link>
-                      ) : (
-                        <span className="text-[#9A9890]">未知供應商</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {it ? (
-                        <Link
-                          href={`/admin/master-data/supplier-pricing/${r.id}`}
-                          className="block hover:text-[#185FA5]"
-                        >
-                          <div className="font-mono text-[12px] text-[#185FA5]">
-                            {it.code}
-                          </div>
-                          <div className="text-[12.5px] text-[#2C2C2A]">{it.name}</div>
-                          {it.category ? (
-                            <div className="text-[11px] text-[#9A9890]">
-                              {it.category}
-                            </div>
-                          ) : null}
-                        </Link>
-                      ) : (
-                        <span className="text-[#9A9890]">未知料號</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-[12px] text-[#2C2C2A]">
-                      {`${r.currency} ${Number(r.unit_price).toLocaleString("en-US", { maximumFractionDigits: 2 })}`}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-[12px] text-[#2C2C2A]">
-                      {r.lead_time_days}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-[12px] text-[#2C2C2A]">
-                      {`${Number(r.min_order_qty)} × ${Number(r.order_multiple)}`}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {r.is_primary ? (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#FDF3E3] text-[#854F0B]">
-                          ★ 主要
-                        </span>
-                      ) : (
-                        <span className="text-[#9A9890] text-[12px]">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-[11.5px] text-[#5A5955] whitespace-nowrap">
-                      {r.valid_from || r.valid_to
-                        ? `${r.valid_from ?? "—"} → ${r.valid_to ?? "—"}`
-                        : "永久"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${
-                          r.is_active
-                            ? "bg-[#EAF3DE] text-[#3B6D11]"
-                            : "bg-[#F2F2F2] text-[#6B6A68]"
-                        }`}
-                      >
-                        {r.is_active ? "啟用" : "停用"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 space-x-1 whitespace-nowrap">
-                      <button
-                        type="button"
-                        disabled={!canEdit}
-                        onClick={() => openEdit(r)}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
-                      >
-                        編輯
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!canEdit}
-                        onClick={() => toggleActive(r.id, !r.is_active)}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
-                      >
-                        {r.is_active ? "停用" : "啟用"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!canEdit}
-                        onClick={() => deleteRow(r)}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
-                      >
-                        刪除
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {rows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="px-3 py-10 text-center text-[#9A9890] text-[12.5px]"
-                  >
-                    {filters.q ||
-                    filters.supplier !== "all" ||
-                    filters.item !== "all" ||
-                    filters.primary !== "all" ||
-                    filters.status !== "all"
-                      ? "無符合條件的定價，請調整篩選條件"
-                      : "尚無定價資料 — 點右上角「＋ 新增定價」開始建立"}
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <DataGrid
+        columns={columns}
+        data={rows}
+        rowKey={(r) => r.id}
+        persistKey="admin/master-data/supplier-pricing"
+        exportFileName="supplier-pricing"
+        emptyMessage={noResultMsg}
+        disabled={isPending}
+        rowActionsWidth={210}
+        rowActions={(r) => (
+          <>
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => openEdit(r)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              編輯
+            </button>
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => toggleActive(r.id, !r.is_active)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              {r.is_active ? "停用" : "啟用"}
+            </button>
+            <button
+              type="button"
+              disabled={!canEdit}
+              onClick={() => deleteRow(r)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+            >
+              刪除
+            </button>
+          </>
+        )}
+      />
 
       {/* Unified Create/Edit Modal */}
       {formMode.kind !== "closed" ? (
@@ -630,7 +610,7 @@ export function SupplierPricingBoard({
                 className={inputClass}
               />
             </Field>
-            <Field label="MOQ（最小起訂量）*">
+            <Field label="MOQ(最小起訂量) *">
               <input
                 type="number"
                 value={formDraft.min_order_qty}

@@ -505,6 +505,7 @@ export default function QuotePage() {
             }
           >
             <div className="overflow-x-auto -mx-4">
+              {/* TODO(P1-λ): 此 mock-only 報價單明細 table 暫不升級到 <DataGrid>，待接真實 helper 後再做。 */}
               <table className="w-full border-collapse" data-testid="quote-table">
                 <thead>
                   <tr className="bg-[#FAFAF8] border-b-2 border-[#EEECE6]">

@@ -14,6 +14,9 @@ import {
   updateSalesOrder,
   setSalesOrderStatus,
   deleteSalesOrder,
+  submitSalesOrderForApproval,
+  approveSalesOrder,
+  rejectSalesOrder,
   type CreateSalesOrderInput,
   type UpdateSalesOrderInput,
 } from "@/domain/sales-orders";
@@ -55,7 +58,7 @@ export async function updateSalesOrderAction(
 
 export async function setSalesOrderStatusAction(
   id: string,
-  status: "signed" | "cancelled" | "fulfilled",
+  status: "submitted" | "signed" | "cancelled" | "fulfilled",
 ): Promise<ActionResult<{ id: string }>> {
   if (status === "cancelled") {
     const canCancel = await hasPermission(PERMISSIONS.SALES_ORDER_CANCEL);
@@ -79,4 +82,44 @@ export async function deleteSalesOrderAction(
   if (!canEdit) return { ok: false, error: "沒有刪除訂單的權限" };
 
   return deleteSalesOrder(id);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Submit for approval（送簽） — P1-#6（第七輪 BDN）
+// ─────────────────────────────────────────────────────────────
+
+export async function submitForApprovalAction(
+  orderId: string,
+): Promise<ActionResult<{ id: string }>> {
+  const canEdit = await hasPermission(PERMISSIONS.SALES_ORDER_EDIT);
+  if (!canEdit) return { ok: false, error: "沒有送簽訂單的權限" };
+
+  return submitSalesOrderForApproval(orderId);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Approve / Reject（簽核中心用） — P1-#6（第七輪 BDN）/ P0-#5（第八輪）
+//
+// 權限：SALES_ORDER_APPROVE（取消權 ≠ 簽核權；admin 自動有所有 permission）
+// ─────────────────────────────────────────────────────────────
+
+export async function approveSalesOrderAction(
+  orderId: string,
+  note?: string | null,
+): Promise<ActionResult<{ id: string }>> {
+  const canApprove = await hasPermission(PERMISSIONS.SALES_ORDER_APPROVE);
+  if (!canApprove) return { ok: false, error: "沒有簽核訂單的權限" };
+
+  return approveSalesOrder(orderId, note ?? null);
+}
+
+export async function rejectSalesOrderAction(
+  orderId: string,
+  note?: string | null,
+): Promise<ActionResult<{ id: string }>> {
+  const canApprove = await hasPermission(PERMISSIONS.SALES_ORDER_APPROVE);
+  if (!canApprove) return { ok: false, error: "沒有簽核訂單的權限" };
+  if (!note?.trim()) return { ok: false, error: "請填寫駁回原因" };
+
+  return rejectSalesOrder(orderId, note.trim());
 }

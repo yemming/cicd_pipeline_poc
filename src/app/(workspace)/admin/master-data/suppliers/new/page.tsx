@@ -1,13 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { listAccounts } from "@/lib/master-data/queries";
-import { createSupplierAction } from "@/lib/master-data/supplier-actions";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
-import { SupplierForm } from "../_components/supplier-form";
+import { SupplierDetailView } from "../[id]/_components/supplier-detail-view";
 
 export const dynamic = "force-dynamic";
 
@@ -25,29 +23,11 @@ export default async function NewSupplierPage() {
   const accounts = await listAccounts({ l1Category: "LIABILITY" });
 
   return (
-    <main className="px-6 py-6 max-w-[1100px] space-y-5">
-      <nav className="text-[13px] text-[#6B778C]">
-        <Link href="/admin/master-data/suppliers" className="hover:text-[#172B4D]">
-          供應商
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-[#172B4D]">新增供應商</span>
-      </nav>
-
-      <header className="space-y-1">
-        <h1 className="text-[20px] font-bold text-[#172B4D]">新增供應商</h1>
-        <p className="text-[13px] text-[#6B778C]">
-          供應商名稱與類型必填；其餘可日後補完
-        </p>
-      </header>
-
-      <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
-        <SupplierForm
-          mode="create"
-          action={createSupplierAction}
-          accounts={accounts}
-        />
-      </section>
-    </main>
+    <SupplierDetailView
+      supplier={null}
+      accounts={accounts}
+      canEdit
+      initialMode="create"
+    />
   );
 }

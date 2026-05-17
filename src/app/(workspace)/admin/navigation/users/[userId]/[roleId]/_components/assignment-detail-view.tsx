@@ -9,6 +9,7 @@ import {
   deleteUserAssignmentAction,
   revokeUserRoleScopeAction,
 } from "@/lib/rbac/admin-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Brand = { id: string; name: string };
 type Group = { id: string; name: string };
@@ -54,6 +55,7 @@ export function AssignmentDetailView({
   const [mode, setMode] = useState<"view" | "edit" | "create">(initialMode);
   const [pending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [showRevokeAllConfirm, setShowRevokeAllConfirm] = useState(false);
 
   // Create mode form
   const [formUserId, setFormUserId] = useState(userId ?? "");
@@ -146,14 +148,12 @@ export function AssignmentDetailView({
 
   const revokeWhole = () => {
     if (!userId || !role) return;
-    if (
-      !confirm(
-        `確定撤銷 ${email ?? userId} 的所有 ${role.name} 授權？\n會一併刪除 ${
-          granted.groups.length + granted.brands.length + granted.stores.length
-        } 筆作用域。`,
-      )
-    )
-      return;
+    setShowRevokeAllConfirm(true);
+  };
+
+  const confirmRevokeWhole = () => {
+    if (!userId || !role) return;
+    setShowRevokeAllConfirm(false);
     startTransition(async () => {
       // 三個 scope_type 各刪一次
       const results = await Promise.all([
@@ -459,6 +459,24 @@ export function AssignmentDetailView({
             </div>
           </div>
         </section>
+      )}
+
+      {showRevokeAllConfirm && userId && role && (
+        <ConfirmDialog
+          title="撤銷整列授權"
+          message={
+            <>
+              確定撤銷 <b>{email ?? userId}</b> 的所有 <b>{role.name}</b> 授權？
+              <br />
+              會一併刪除 {granted.groups.length + granted.brands.length + granted.stores.length} 筆作用域。
+            </>
+          }
+          variant="danger"
+          confirmLabel="確認撤銷"
+          isPending={pending}
+          onConfirm={confirmRevokeWhole}
+          onCancel={() => setShowRevokeAllConfirm(false)}
+        />
       )}
     </div>
   );

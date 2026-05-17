@@ -9,7 +9,7 @@ type Tab = "today" | "customers" | "inventory" | "orders" | "profile";
 const NAV_ITEMS: { key: Tab; icon: string; iconFilled: string; label: string; href?: string }[] = [
   { key: "today",     icon: "today",        iconFilled: "today",         label: "今日" },
   { key: "customers", icon: "groups",        iconFilled: "groups",        label: "客戶", href: "/sales/customers" },
-  { key: "inventory", icon: "two_wheeler",   iconFilled: "two_wheeler",   label: "庫存", href: "/sales/inventory" },
+  { key: "inventory", icon: "two_wheeler",   iconFilled: "two_wheeler",   label: "庫存", href: "/sales/showroom/new-cars" },
   { key: "orders",    icon: "description",   iconFilled: "description",   label: "訂單", href: "/sales/orders" },
   { key: "profile",   icon: "account_circle",iconFilled: "account_circle",label: "我的" },
 ];
@@ -83,7 +83,7 @@ const CUSTOMER_TOOLS = [
     icon: "compare",
     label: "車型比較",
     desc: "並排對比規格",
-    href: "/sales/inventory",
+    href: "/sales/showroom/new-cars",
     color: "#CC0000",
     bg: "from-[#CC0000]/10 to-[#CC0000]/5",
   },
@@ -99,7 +99,7 @@ const CUSTOMER_TOOLS = [
     icon: "directions_bike",
     label: "試駕預約",
     desc: "現場立即報名",
-    href: "/sales/test-rides",
+    href: "/sales/reception/test-rides",
     color: "#4A7C59",
     bg: "from-[#4A7C59]/10 to-[#4A7C59]/5",
   },

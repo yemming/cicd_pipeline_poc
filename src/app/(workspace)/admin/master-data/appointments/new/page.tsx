@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
@@ -6,12 +5,11 @@ import {
   listCustomerVehicles,
   listEmployees,
 } from "@/lib/master-data/queries";
-import { createAppointmentAction } from "@/lib/master-data/appointment-actions";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
-import { AppointmentForm } from "../_components/appointment-form";
+import { AppointmentDetailView } from "../[id]/_components/appointment-detail-view";
 
 export const dynamic = "force-dynamic";
 
@@ -32,32 +30,31 @@ export default async function NewAppointmentPage() {
     listEmployees({ status: "active", limit: 200 }),
   ]);
 
+  const canCreateRO = await hasPermission(PERMISSIONS.RO_CREATE);
+
   return (
-    <main className="px-6 py-6 max-w-[1100px] space-y-5">
-      <nav className="text-[13px] text-[#6B778C]">
-        <Link href="/admin/master-data/appointments" className="hover:text-[#172B4D]">
-          維修預約
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-[#172B4D]">新增預約</span>
-      </nav>
-
-      <header className="space-y-1">
-        <h1 className="text-[20px] font-bold text-[#172B4D]">新增預約</h1>
-        <p className="text-[13px] text-[#6B778C]">
-          車主與時間必填；單號留空會自動產生
-        </p>
-      </header>
-
-      <section className="bg-white border border-[#DFE1E6] rounded-md p-5">
-        <AppointmentForm
-          mode="create"
-          action={createAppointmentAction}
-          customers={customers}
-          vehicles={vehicles}
-          advisors={advisors}
-        />
-      </section>
-    </main>
+    <AppointmentDetailView
+      appointment={null}
+      customers={customers.map((c) => ({
+        id: c.id,
+        code: c.code,
+        name: c.name,
+        phone: c.phone,
+      }))}
+      vehicles={vehicles.map((v) => ({
+        id: v.id,
+        license_plate: v.license_plate,
+        vin: v.vin,
+      }))}
+      advisors={advisors.map((a) => ({
+        id: a.id,
+        emp_code: a.emp_code,
+        name: a.name,
+        position: a.position,
+      }))}
+      canEdit
+      canCreateRO={canCreateRO}
+      initialMode="create"
+    />
   );
 }

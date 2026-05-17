@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { deleteDraftEntryAction } from "@/lib/accounting/journal-entry-actions";
 import type { JournalEntryRow } from "@/lib/accounting/queries";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -102,6 +103,73 @@ export function JournalEntryBoard({
     "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none";
   const labelClass = "text-[11px] text-[#9A9890] font-medium";
   const lockedClass = isPending ? "pointer-events-none opacity-60" : "";
+
+  const columns: DataGridColumn<JournalEntryRow>[] = [
+    {
+      id: "entry_no",
+      header: "傳票編號",
+      width: 180,
+      hideable: false,
+      cell: (r) => <span className="font-mono text-[12px]">{r.entry_no}</span>,
+      exportValue: (r) => r.entry_no,
+      sortValue: (r) => r.entry_no,
+    },
+    {
+      id: "entry_date",
+      header: "日期",
+      width: 110,
+      cell: (r) => <span className="text-[#5A5955]">{r.entry_date}</span>,
+      exportValue: (r) => r.entry_date,
+      sortValue: (r) => r.entry_date,
+    },
+    {
+      id: "description",
+      header: "摘要",
+      cell: (r) => <span className="text-[#2C2C2A]">{r.description ?? "—"}</span>,
+      exportValue: (r) => r.description ?? "",
+      sortValue: (r) => r.description ?? "",
+    },
+    {
+      id: "line_count",
+      header: "行數",
+      width: 60,
+      align: "right",
+      cell: (r) => (
+        <span className="text-[11.5px] text-[#5A5955]">{r.line_count ?? 0}</span>
+      ),
+      exportValue: (r) => String(r.line_count ?? 0),
+      sortValue: (r) => r.line_count ?? 0,
+    },
+    {
+      id: "total_amount",
+      header: "總金額",
+      width: 120,
+      align: "right",
+      cell: (r) => (
+        <span className="font-mono text-[11.5px] text-[#2C2C2A]">
+          {fmtAmount(r.total_amount ?? 0)}
+        </span>
+      ),
+      exportValue: (r) => String(r.total_amount ?? 0),
+      sortValue: (r) => r.total_amount ?? 0,
+    },
+    {
+      id: "status",
+      header: "狀態",
+      width: 80,
+      cell: (r) => (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${
+            STATUS_CHIP[r.status] ?? "bg-[#F2F2F2] text-[#6B6A68]"
+          }`}
+        >
+          {STATUS_LABEL[r.status] ?? r.status}
+        </span>
+      ),
+      exportValue: (r) => STATUS_LABEL[r.status] ?? r.status,
+      sortValue: (r) => r.status,
+    },
+  ];
 
   return (
     <main className={`px-6 py-5 space-y-3 ${lockedClass}`}>
@@ -209,76 +277,36 @@ export function JournalEntryBoard({
       </div>
 
       {/* 5. Table */}
-      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12px]">
-            <thead className="text-[11px] text-[#9A9890] bg-[#F8F7F4] sticky top-0">
-              <tr>
-                <th className="text-left font-medium py-2 px-3 w-[180px]">傳票編號</th>
-                <th className="text-left font-medium py-2 px-3 w-[110px]">日期</th>
-                <th className="text-left font-medium py-2 px-3">摘要</th>
-                <th className="text-right font-medium py-2 px-3 w-[60px]">行數</th>
-                <th className="text-right font-medium py-2 px-3 w-[120px]">總金額</th>
-                <th className="text-left font-medium py-2 px-3 w-[80px]">狀態</th>
-                <th className="text-right font-medium py-2 px-3 w-[140px]">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7]">
-                  <td className="py-2 px-3 font-mono text-[12px]">{r.entry_no}</td>
-                  <td className="py-2 px-3 text-[#5A5955]">{r.entry_date}</td>
-                  <td className="py-2 px-3">
-                    <span className="text-[#2C2C2A]">{r.description ?? "—"}</span>
-                  </td>
-                  <td className="py-2 px-3 text-right text-[11.5px] text-[#5A5955]">
-                    {r.line_count ?? 0}
-                  </td>
-                  <td className="py-2 px-3 text-right font-mono text-[11.5px] text-[#2C2C2A]">
-                    {fmtAmount(r.total_amount ?? 0)}
-                  </td>
-                  <td className="py-2 px-3">
-                    <span
-                      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${
-                        STATUS_CHIP[r.status] ?? "bg-[#F2F2F2] text-[#6B6A68]"
-                      }`}
-                    >
-                      {STATUS_LABEL[r.status] ?? r.status}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-right">
-                    <div className="inline-flex gap-1">
-                      <button
-                        onClick={() => router.push(`/admin/accounting/journal-entries/${r.id}`)}
-                        disabled={isPending}
-                        className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
-                      >
-                        檢視
-                      </button>
-                      {r.status === "draft" && (
-                        <button
-                          onClick={() => onDelete(r)}
-                          disabled={isPending}
-                          className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
-                        >
-                          刪除
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-[12px] text-[#9A9890]">
-                    沒有符合條件的分錄
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <DataGrid
+        columns={columns}
+        data={rows}
+        rowKey={(r) => r.id}
+        persistKey="admin/accounting/journal-entries"
+        exportFileName="journal-entries"
+        emptyMessage="沒有符合條件的分錄"
+        disabled={isPending}
+        rowActionsWidth={140}
+        rowActions={(r) => (
+          <>
+            <button
+              onClick={() => router.push(`/admin/accounting/journal-entries/${r.id}`)}
+              disabled={isPending}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              檢視
+            </button>
+            {r.status === "draft" && (
+              <button
+                onClick={() => onDelete(r)}
+                disabled={isPending}
+                className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+              >
+                刪除
+              </button>
+            )}
+          </>
+        )}
+      />
     </main>
   );
 }

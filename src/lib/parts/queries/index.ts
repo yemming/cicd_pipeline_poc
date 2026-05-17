@@ -104,7 +104,7 @@ export async function getOpenPurchaseOrders(): Promise<PurchaseOrder[]> {
   const { data, error } = await supabase
     .from("purchase_orders")
     .select("*")
-    .in("status", ["pending", "approved", "partial_received"])
+    .in("status", ["draft", "approved", "partial", "partial_received"])
     .order("created_at", { ascending: false });
   if (error) throw new Error(`getOpenPurchaseOrders: ${error.message}`);
   return data ?? [];

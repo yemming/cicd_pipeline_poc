@@ -27,7 +27,10 @@ export async function proxy(request: NextRequest) {
 
   // 公開路由不需要驗證
   // /api/admin/notifications/*：route handler 自己做 admin 檢查（含 dev bypass token），不走 cookie middleware
-  const publicPaths = ['/login', '/api/auth', '/api/holidays', '/api/weather', '/api/line', '/api/admin/notifications', '/stitch', '/parts-stitch']
+  // 公開路由：
+  // - /csi/surveys/respond：公開填問卷頁（持 token 即可訪問，給客戶用，不必登入）
+  // - /api/csi/respond：對應的 submit API（用 token 寫回 survey_responses）
+  const publicPaths = ['/login', '/api/auth', '/api/holidays', '/api/weather', '/api/line', '/api/admin/notifications', '/stitch', '/parts-stitch', '/csi/surveys/respond', '/api/csi/respond']
   const isPublic =
     request.nextUrl.pathname === '/' ||
     publicPaths.some(p => request.nextUrl.pathname.startsWith(p))

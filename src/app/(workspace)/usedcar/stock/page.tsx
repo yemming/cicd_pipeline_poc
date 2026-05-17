@@ -6,6 +6,7 @@
  */
 
 import { listUsedCars } from "@/domain/used-car-inventory";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import UsedCarsBoard from "@/app/(workspace)/sales/showroom/used-cars/_components/used-cars-board";
 
 export const metadata = {
@@ -18,10 +19,10 @@ export default async function UsedCarStockPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const sp = await searchParams;
-  const brandId = "indian"; // TODO: 從 session 取得
+  const scope = await getActiveScope();
 
   const { units, totalCount } = await listUsedCars({
-    brandId,
+    brandId: scope.brand_id,
     status: sp.status || undefined,
     conditionGrade: sp.grade || undefined,
     kmRange: sp.km || undefined,
