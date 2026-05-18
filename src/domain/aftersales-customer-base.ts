@@ -43,6 +43,7 @@ export type AftersalesCustomerBaseRow = {
   phone: string | null;
   email: string | null;
   is_active: boolean;
+  avatar_url: string | null;
   // 售後脈絡：
   primary_license_plate: string | null;
   primary_mileage: number | null;
@@ -92,7 +93,7 @@ export async function getAftersalesCustomerBaseListPageData(
 
   let q = supabase
     .from("customers")
-    .select("id, code, name, type, phone, email, is_active, tax_id, national_id, address")
+    .select("id, code, name, type, phone, email, is_active, avatar_url, tax_id, national_id, address")
     .eq("brand_id", brand);
 
   if (filters.type === "individual" || filters.type === "corporate") {
@@ -211,6 +212,7 @@ export async function getAftersalesCustomerBaseListPageData(
       phone: c.phone,
       email: c.email,
       is_active: c.is_active,
+      avatar_url: (c as { avatar_url?: string | null }).avatar_url ?? null,
       primary_license_plate: primary?.license_plate ?? null,
       primary_mileage: primary?.mileage ?? null,
       vehicle_count: vehicleCount.get(c.id) ?? 0,
@@ -609,7 +611,7 @@ export async function listAftersalesCustomersForCrmBoard(
   let q = supabase
     .from("customers")
     .select(
-      "id, code, name, type, phone, email, is_active, source_module, assigned_sa_user_id, created_at",
+      "id, code, name, type, phone, email, is_active, avatar_url, source_module, assigned_sa_user_id, created_at",
     )
     .eq("brand_id", brand);
 
@@ -814,6 +816,7 @@ export async function listAftersalesCustomersForCrmBoard(
       phone: c.phone,
       email: c.email,
       is_active: c.is_active,
+      avatar_url: (c as { avatar_url?: string | null }).avatar_url ?? null,
       primary_license_plate: primary?.license_plate ?? null,
       primary_mileage: primary?.mileage ?? null,
       vehicle_count: vehicleCount.get(c.id) ?? 0,

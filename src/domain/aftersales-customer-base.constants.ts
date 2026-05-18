@@ -49,6 +49,7 @@ export type AftersalesCustomerCrmRow = {
   phone: string | null;
   email: string | null;
   is_active: boolean;
+  avatar_url: string | null;
   primary_license_plate: string | null;
   primary_mileage: number | null;
   vehicle_count: number;

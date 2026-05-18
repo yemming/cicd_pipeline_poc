@@ -56,6 +56,38 @@ export function EmployeesBoard({
 
   const columns: DataGridColumn<Employee>[] = [
     {
+      id: "avatar",
+      header: "",
+      width: 48,
+      sortable: false,
+      hideable: true,
+      cell: (e) => {
+        const url = (e as unknown as { avatar_url?: string | null }).avatar_url ?? null;
+        return (
+          <Link
+            href={`/admin/master-data/employees/${e.id}`}
+            className="block w-8 h-8 rounded-full overflow-hidden border border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-center"
+            title={e.name}
+          >
+            {url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={url}
+                alt={e.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <span className="text-[11px] text-[#9A9890] font-medium">
+                {e.name.slice(0, 1)}
+              </span>
+            )}
+          </Link>
+        );
+      },
+      exportValue: () => "",
+    },
+    {
       id: "emp_code",
       header: "代碼",
       width: 140,

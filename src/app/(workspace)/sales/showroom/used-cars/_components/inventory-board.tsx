@@ -605,14 +605,26 @@ function CardGrid({
             }
           >
             <div
-              className="h-[110px] flex items-center justify-center relative"
+              className="h-[110px] flex items-center justify-center relative overflow-hidden"
               style={{
-                background: r.color_hex
-                  ? `linear-gradient(135deg, ${r.color_hex} 0%, ${r.color_hex}99 100%)`
-                  : "linear-gradient(135deg, #5A5955 0%, #9A9890 100%)",
+                background: r.images && r.images.length > 0
+                  ? "#F8F7F4"
+                  : r.color_hex
+                    ? `linear-gradient(135deg, ${r.color_hex} 0%, ${r.color_hex}99 100%)`
+                    : "linear-gradient(135deg, #5A5955 0%, #9A9890 100%)",
               }}
             >
-              <span className="text-[40px] opacity-60">🏍️</span>
+              {r.images && r.images.length > 0 ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={r.images[0]}
+                  alt={r.model_display_name ?? "車輛照片"}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="text-[40px] opacity-60">🏍️</span>
+              )}
               {r.condition_grade && (
                 <span
                   className={

@@ -1,15 +1,19 @@
 /**
  * 接待手卡詳情頁（/sales/reception/handcard/[id]）
  *
- * server component — 鑒權、撈單筆資料、傳給 HandcardDetailView。
+ * server component — 鑒權、撈單筆資料 + 字典 + picker 候選清單，傳給 wizard。
  */
-import { redirect } from 'next/navigation';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import { getCurrentUserAndAdmin } from '@/lib/feedback-admin';
 import { hasPermission } from '@/lib/rbac/policies';
 import { PERMISSIONS } from '@/lib/rbac/permissions';
-import { getHandcardById } from '@/domain/sales-handcards';
+import {
+  getHandcardById,
+  listRevisitCandidates,
+  listOwnerCandidates,
+} from '@/domain/sales-handcards';
+import { getVehicleModelOptions } from '@/domain/new-car-inventory';
 import { HandcardDetailView } from './_components/handcard-detail-view';
 
 export const dynamic = 'force-dynamic';
@@ -26,8 +30,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function HandcardDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ mode?: string }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect('/login');
@@ -42,9 +48,27 @@ export default async function HandcardDetailPage({
 
   const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
   const { id } = await params;
-  const handcard = await getHandcardById(id);
+  const sp = (await searchParams) ?? {};
+
+  const [handcard, vehicleModels, revisitCandidates, ownerCandidates] = await Promise.all([
+    getHandcardById(id),
+    getVehicleModelOptions(),
+    listRevisitCandidates({ excludeId: id, limit: 100 }),
+    listOwnerCandidates({ limit: 100 }),
+  ]);
 
   if (!handcard) notFound();
 
-  return <HandcardDetailView handcard={handcard} canEdit={canEdit} initialMode="view" />;
+  const initialMode = sp.mode === 'edit' && canEdit ? 'edit' : 'view';
+
+  return (
+    <HandcardDetailView
+      handcard={handcard}
+      canEdit={canEdit}
+      vehicleModels={vehicleModels.map((m) => ({ id: m.id, display_name: m.display_name }))}
+      revisitCandidates={revisitCandidates}
+      ownerCandidates={ownerCandidates}
+      initialMode={initialMode}
+    />
+  );
 }

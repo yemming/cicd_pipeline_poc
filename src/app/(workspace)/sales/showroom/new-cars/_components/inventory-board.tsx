@@ -852,16 +852,27 @@ function CardGrid({
             data-testid={`newcar-card-${r.id}`}
             className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden hover:border-[#85B7EB] hover:shadow-md transition"
           >
-            {/* 縮圖 placeholder（TODO：之後接 r.images[0]）*/}
             <div
-              className="h-[110px] flex items-center justify-center relative"
+              className="h-[110px] flex items-center justify-center relative overflow-hidden"
               style={{
-                background: r.color_hex
-                  ? `linear-gradient(135deg, ${r.color_hex} 0%, ${r.color_hex}99 100%)`
-                  : "linear-gradient(135deg, #1A3A5C 0%, #2A5080 100%)",
+                background: r.images && r.images.length > 0
+                  ? "#F8F7F4"
+                  : r.color_hex
+                    ? `linear-gradient(135deg, ${r.color_hex} 0%, ${r.color_hex}99 100%)`
+                    : "linear-gradient(135deg, #1A3A5C 0%, #2A5080 100%)",
               }}
             >
-              <span className="text-[40px] opacity-60">🏍️</span>
+              {r.images && r.images.length > 0 ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={r.images[0]}
+                  alt={r.model_display_name ?? "車輛照片"}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <span className="text-[40px] opacity-60">🏍️</span>
+              )}
               <span
                 className={
                   "absolute top-2 right-2 text-[10.5px] font-bold px-2 py-0.5 rounded " +

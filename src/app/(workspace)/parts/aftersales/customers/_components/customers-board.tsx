@@ -108,6 +108,35 @@ export function CustomersBoard({
   const columns: DataGridColumn<AftersalesCustomerBaseRow>[] = useMemo(
     () => [
       {
+        id: "avatar",
+        header: "",
+        width: 48,
+        sortable: false,
+        hideable: true,
+        cell: (r) => (
+          <Link
+            href={`/parts/aftersales/customers/${r.id}`}
+            className="block w-8 h-8 rounded-full overflow-hidden border border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-center"
+            title={r.name}
+          >
+            {r.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={r.avatar_url}
+                alt={r.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <span className="text-[11px] text-[#9A9890] font-medium">
+                {r.name.slice(0, 1)}
+              </span>
+            )}
+          </Link>
+        ),
+        exportValue: () => "",
+      },
+      {
         id: "code",
         header: "客戶編號",
         width: 140,

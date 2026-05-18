@@ -158,6 +158,9 @@ export function HandcardBoard({
     startTransition(() => router.push(`/sales/reception/handcard?${sp}`));
   }
 
+  // 舊版 modal-based create/edit — 已被 /handcard/new + /handcard/[id]?mode=edit wizard 取代。
+  // 留著做為 fallback、未來可考慮整段清理。
+  /* eslint-disable @typescript-eslint/no-unused-vars */
   function openCreate() {
     setForm({ ...emptyForm, reception_date: new Date().toISOString().slice(0, 10) });
     setEditTarget(null);
@@ -189,6 +192,7 @@ export function HandcardBoard({
     setModalMode('edit');
     setModalOpen(true);
   }
+  /* eslint-enable @typescript-eslint/no-unused-vars */
 
   async function handleSubmit() {
     setFormPending(true);
@@ -481,12 +485,12 @@ export function HandcardBoard({
               重置
             </button>
             {canEdit && (
-              <button
-                className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
-                onClick={openCreate}
+              <Link
+                href="/sales/reception/handcard/new"
+                className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] inline-flex items-center"
               >
                 ＋ 新增手卡
-              </button>
+              </Link>
             )}
           </div>
         </div>
@@ -513,12 +517,12 @@ export function HandcardBoard({
           canEdit
             ? (r) => (
                 <>
-                  <button
-                    onClick={() => openEdit(r)}
-                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                  <Link
+                    href={`/sales/reception/handcard/${r.id}?mode=edit`}
+                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] inline-flex items-center"
                   >
                     編輯
-                  </button>
+                  </Link>
                   {r.status === 'open' && (
                     <button
                       onClick={() => handleConvert(r)}

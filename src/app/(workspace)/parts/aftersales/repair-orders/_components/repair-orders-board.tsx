@@ -241,6 +241,28 @@ export function RepairOrdersBoard({
         sortValue: (r) => r.status,
       },
       {
+        id: "photos",
+        header: "照片",
+        width: 60,
+        align: "right",
+        cell: (r) => {
+          const n = r.images?.length ?? 0;
+          return n > 0 ? (
+            <span
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#EAF4FB] text-[#185FA5]"
+              title={`${n} 張現場照片`}
+            >
+              <span>📷</span>
+              <span>{n}</span>
+            </span>
+          ) : (
+            <span className="text-[#9A9890]">—</span>
+          );
+        },
+        exportValue: (r) => String(r.images?.length ?? 0),
+        sortValue: (r) => r.images?.length ?? 0,
+      },
+      {
         id: "opened_at",
         header: "開單時間",
         width: 150,

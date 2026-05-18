@@ -273,3 +273,122 @@ export async function convertHandcardToLead(
 
   return { leadId: lead.id };
 }
+
+// ── Picker queries（給 detail wizard 用的「潛客再訪 / 老車主」候選清單） ──────
+
+export type RevisitCandidate = {
+  id: string;
+  reception_date: string;
+  customer_name: string;
+  customer_phone: string | null;
+  lead_grade: HandcardLeadGrade | null;
+  assigned_rs_name: string | null;
+  intended_models: string[] | null;
+  status: HandcardStatus;
+};
+
+export async function listRevisitCandidates(opts: {
+  excludeId?: string;
+  q?: string;
+  limit?: number;
+} = {}): Promise<RevisitCandidate[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const limit = opts.limit ?? 50;
+
+  let q = supabase
+    .from('sales_handcards')
+    .select(
+      'id, reception_date, customer_name, customer_phone, lead_grade, assigned_rs_name, intended_models, status',
+    )
+    .eq('brand_id', brand)
+    .order('reception_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (opts.excludeId) q = q.neq('id', opts.excludeId);
+  if (opts.q?.trim()) {
+    const t = opts.q.trim().replace(/[%,]/g, '');
+    q = q.or(`customer_name.ilike.%${t}%,customer_phone.ilike.%${t}%`);
+  }
+
+  const { data } = await q;
+  return (data ?? []) as RevisitCandidate[];
+}
+
+export type OwnerCandidate = {
+  id: string;
+  code: string;
+  name: string;
+  phone: string | null;
+  primary_vehicle: {
+    license_plate: string | null;
+    model_name: string | null;
+    purchase_date: string | null;
+    current_mileage: number | null;
+  } | null;
+};
+
+export async function listOwnerCandidates(opts: {
+  q?: string;
+  limit?: number;
+} = {}): Promise<OwnerCandidate[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const limit = opts.limit ?? 50;
+
+  let cq = supabase
+    .from('customers')
+    .select('id, code, name, phone')
+    .eq('brand_id', brand)
+    .eq('is_active', true)
+    .order('code')
+    .limit(limit);
+
+  if (opts.q?.trim()) {
+    const t = opts.q.trim().replace(/[%,]/g, '');
+    cq = cq.or(`name.ilike.%${t}%,phone.ilike.%${t}%,code.ilike.%${t}%`);
+  }
+
+  const { data: customers } = await cq;
+  if (!customers || customers.length === 0) return [];
+
+  const ids = customers.map((c) => c.id);
+  const { data: vehicles } = await supabase
+    .from('customer_vehicles')
+    .select('customer_id, license_plate, manufactured_year, current_mileage, last_service_date, model_id, created_at')
+    .eq('brand_id', brand)
+    .in('customer_id', ids)
+    .order('created_at', { ascending: false });
+
+  const modelIds = Array.from(
+    new Set((vehicles ?? []).map((v) => v.model_id).filter((x): x is string => Boolean(x))),
+  );
+  const modelMap = new Map<string, string>();
+  if (modelIds.length > 0) {
+    const { data: models } = await supabase
+      .from('vehicle_models')
+      .select('id, display_name')
+      .in('id', modelIds);
+    for (const m of models ?? []) modelMap.set(m.id, m.display_name as string);
+  }
+
+  const firstVehicleByCustomer = new Map<string, OwnerCandidate['primary_vehicle']>();
+  for (const v of vehicles ?? []) {
+    if (firstVehicleByCustomer.has(v.customer_id)) continue;
+    firstVehicleByCustomer.set(v.customer_id, {
+      license_plate: v.license_plate,
+      model_name: v.model_id ? modelMap.get(v.model_id) ?? null : null,
+      purchase_date: v.last_service_date,
+      current_mileage: v.current_mileage,
+    });
+  }
+
+  return customers.map((c) => ({
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    phone: c.phone,
+    primary_vehicle: firstVehicleByCustomer.get(c.id) ?? null,
+  }));
+}
