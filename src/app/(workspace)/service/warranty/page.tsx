@@ -1,15 +1,7 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+// canonical → /parts/aftersales（第八輪 Q9=A）
+// TODO: aftersales 暫無「保固管理」對映頁；先導到模組首頁
+import { redirect } from "next/navigation";
 
-export default async function Page() {
-  const html = await loadStitchBody("efc46f958e984d43ad416acb574af0ef");
-  return (
-    <StitchInline
-      html={html}
-      title="保固管理"
-      sprint="S8-3"
-      screenId="efc46f958e984d43ad416acb574af0ef"
-      breadcrumb={[{ label: "維修管理", href: "/service/appointments" }, { label: "保固管理" }]}
-    />
-  );
+export default function Page() {
+  redirect("/parts/aftersales");
 }

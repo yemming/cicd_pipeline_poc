@@ -196,3 +196,17 @@ export const RS_FILTER_OPTIONS = ["all", "林佳蓉", "陳雅惠", "張志明", 
 export type RsFilterValue = (typeof RS_FILTER_OPTIONS)[number];
 
 export const LAST_UPDATED = "2026-05-14";
+
+// ── Round-9 Batch B: _FALLBACK 別名 ──
+// 上方常數 Phase 1 是 mock，Phase 2 起改為 DB query 失敗時的 fallback。
+// 保留原名同時 export _FALLBACK 別名供 domain helper 使用。
+export const LAYER1_KPIS_FALLBACK = LAYER1_KPIS;
+export const LAYER2_KPIS_FALLBACK = LAYER2_KPIS;
+export const LAYER3_KPIS_FALLBACK = LAYER3_KPIS;
+export const BEP_DATA_FALLBACK = BEP_DATA;
+export const MONTHLY_TREND_FALLBACK = MONTHLY_TREND;
+export const MONTHLY_CHART_TARGET_FALLBACK = MONTHLY_CHART_TARGET;
+export const RS_RANKING_FALLBACK = RS_RANKING;
+export const MODEL_SALES_FALLBACK = MODEL_SALES;
+export const WEEKLY_TREND_FALLBACK = WEEKLY_TREND;
+export const LAST_UPDATED_FALLBACK = LAST_UPDATED;

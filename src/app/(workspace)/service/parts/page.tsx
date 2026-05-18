@@ -1,15 +1,7 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+// canonical → /parts/aftersales（第八輪 Q9=A）
+// TODO: aftersales 暫無「配件庫存」對映頁；先導到模組首頁，未來可接到 /parts/inventory
+import { redirect } from "next/navigation";
 
-export default async function Page() {
-  const html = await loadStitchBody("bf46972c2a64481cb90839a93382c317");
-  return (
-    <StitchInline
-      html={html}
-      title="配件庫存"
-      sprint="S4-3"
-      screenId="bf46972c2a64481cb90839a93382c317"
-      breadcrumb={[{ label: "維修管理", href: "/service/appointments" }, { label: "配件庫存" }]}
-    />
-  );
+export default function Page() {
+  redirect("/parts/aftersales");
 }

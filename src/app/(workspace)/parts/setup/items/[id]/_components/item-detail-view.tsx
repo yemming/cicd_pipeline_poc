@@ -20,7 +20,7 @@ import {
 } from "@/lib/parts-setup/item-gl-actions";
 import { QuickAddSelect } from "@/components/quick-add-select";
 
-import { ItemImageUploader } from "./item-image-uploader";
+import { EntityImageUploader } from "@/components/image-upload/entity-image-uploader";
 import { PrintLabelModal } from "./print-label-modal";
 import { SalesStorePricesTable } from "./sales-store-prices-table";
 import { StockLotsSection } from "./stock-lots-section";
@@ -667,13 +667,17 @@ export function ItemDetailView({
                 建立後可上傳圖片
               </div>
             ) : (
-              <ItemImageUploader
-                itemId={item.id}
+              <EntityImageUploader
+                entity="item"
+                entityId={item.id}
                 imageUrl={item.image_url}
                 alt={item.name}
                 canEdit={canEdit}
                 width={260}
                 height={120}
+                cropRatio={undefined}
+                cropTitle="調整商品圖片"
+                promptText="點擊上傳商品圖片"
               />
             )}
           </div>

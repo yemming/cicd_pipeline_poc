@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { EntityImageGallery } from "@/components/image-upload/entity-image-gallery";
 import {
   createUsedCarAction,
   updateUsedCarAction,
@@ -95,13 +96,14 @@ type Props = {
   car: UsedCarInventoryRow | null;
   brandId: string;
   initialMode?: "view" | "edit" | "create";
+  canEdit?: boolean;
 };
 
 type FormMode = "view" | "edit" | "create";
 type Banner = { ok: boolean; msg: string } | null;
 
 // ─────────────────────────────────────────────────────────────────────
-export default function UsedCarDetailView({ car, brandId, initialMode = "view" }: Props) {
+export default function UsedCarDetailView({ car, brandId, initialMode = "view", canEdit = true }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<FormMode>(initialMode);
@@ -475,24 +477,22 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view" }
           {/* 圖片框 */}
           <div className="shrink-0">
             {isCreating ? (
-              <div className="w-[220px] h-[110px] border-2 border-dashed border-[#D5D3CB] rounded-lg bg-[#F8F7F4] flex items-center justify-center text-[12px] text-[#9A9890]">
-                建立後可上傳圖片
+              <div className="w-[280px] h-[180px] border-2 border-dashed border-[#D5D3CB] rounded-lg bg-[#F8F7F4] flex items-center justify-center text-[12px] text-[#9A9890]">
+                建立後可上傳車輛照片
               </div>
-            ) : (
-              <div className="w-[220px] h-[110px] border border-[#EEECE6] rounded-lg bg-[#F8F7F4] flex items-center justify-center overflow-hidden">
-                {car?.images && car.images.length > 0 ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={car.images[0]} alt={car.model_display_name} className="w-full h-full object-cover" />
-                ) : (
-                  <div
-                    className="w-full h-full flex items-center justify-center text-[40px] opacity-60"
-                    style={{ background: car?.color_hex ? `linear-gradient(135deg, ${car.color_hex} 0%, ${car.color_hex}99 100%)` : "#F8F7F4" }}
-                  >
-                    🏍️
-                  </div>
-                )}
-              </div>
-            )}
+            ) : car ? (
+              <EntityImageGallery
+                entity="used-car"
+                entityId={car.id}
+                images={car.images ?? []}
+                alt={car.model_display_name ?? "車輛照片"}
+                canEdit={canEdit}
+                width={280}
+                height={180}
+                maxImages={12}
+                emptyHint="尚未上傳車輛照片"
+              />
+            ) : null}
           </div>
         </div>
       </header>

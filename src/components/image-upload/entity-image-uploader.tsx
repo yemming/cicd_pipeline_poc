@@ -4,25 +4,45 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  removeItemImageAction,
-  uploadItemImageAction,
-} from "@/lib/parts-setup/item-actions";
+  removeEntityImageAction,
+  uploadEntityImageAction,
+} from "@/lib/image-upload/actions";
 import { BadgeCropperModal } from "@/app/(workspace)/admin/navigation/_components/badge-cropper-modal";
 
-export function ItemImageUploader({
-  itemId,
+type EntityKey =
+  | "item"
+  | "new-car"
+  | "used-car"
+  | "customer"
+  | "employee"
+  | "repair-order";
+
+export function EntityImageUploader({
+  entity,
+  entityId,
   imageUrl,
   alt,
   canEdit,
-  width = 280,
+  width = 260,
   height = 120,
+  cropRatio = 1,
+  cropTitle,
+  promptText = "點擊上傳圖片",
+  rounded = "lg",
 }: {
-  itemId: string;
+  entity: EntityKey;
+  entityId: string;
   imageUrl: string | null;
   alt: string;
   canEdit: boolean;
   width?: number;
   height?: number;
+  /** 預設裁切比例。1 = 方形（avatar），undefined = 自由 */
+  cropRatio?: number | undefined;
+  cropTitle?: string;
+  promptText?: string;
+  /** "lg" = rounded-lg, "full" = rounded-full（avatar 圓框） */
+  rounded?: "lg" | "full";
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -32,6 +52,7 @@ export function ItemImageUploader({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const trigger = () => {
+    if (!canEdit || isPending) return;
     setError(null);
     fileRef.current?.click();
   };
@@ -52,7 +73,7 @@ export function ItemImageUploader({
     const fd = new FormData();
     fd.append("file", cropped);
     startTransition(async () => {
-      const res = await uploadItemImageAction(itemId, fd);
+      const res = await uploadEntityImageAction(entity, entityId, fd);
       if (res.ok) {
         setPendingFile(null);
         setPreviewBust(Date.now());
@@ -68,10 +89,10 @@ export function ItemImageUploader({
   };
 
   const remove = () => {
-    if (!confirm("確定移除此商品圖片？")) return;
+    if (!confirm("確定移除此圖片？")) return;
     setError(null);
     startTransition(async () => {
-      const res = await removeItemImageAction(itemId);
+      const res = await removeEntityImageAction(entity, entityId);
       if (res.ok) {
         setPreviewBust(Date.now());
         router.refresh();
@@ -85,10 +106,12 @@ export function ItemImageUploader({
       : imageUrl
     : null;
 
+  const roundedClass = rounded === "full" ? "rounded-full" : "rounded-lg";
+
   return (
     <div className="flex flex-col items-stretch gap-1.5" style={{ width }}>
       <div
-        className="relative group rounded-lg border border-[#D5D3CB] bg-white flex items-center justify-center overflow-hidden"
+        className={`relative group ${roundedClass} border border-[#D5D3CB] bg-white flex items-center justify-center overflow-hidden`}
         style={{ width, height }}
       >
         <input
@@ -112,13 +135,13 @@ export function ItemImageUploader({
             onClick={trigger}
             className="w-full h-full flex flex-col items-center justify-center text-[#9A9890] hover:text-[#0F6E56] hover:bg-[#F8F7F4] disabled:opacity-50"
           >
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <circle cx="8.5" cy="8.5" r="1.5" />
               <path d="M21 15l-5-5L5 21" />
             </svg>
-            <div className="text-[11px] mt-1.5">{isPending ? "處理中…" : "點擊上傳商品圖片"}</div>
-            <div className="text-[10px] mt-0.5 text-[#B8B6AE]">JPG / PNG / WebP，上限 8MB</div>
+            <div className="text-[11px] mt-1.5">{isPending ? "處理中…" : promptText}</div>
+            <div className="text-[10px] mt-0.5 text-[#B8B6AE]">JPG / PNG / WebP，上限 10MB</div>
           </button>
         )}
 
@@ -155,6 +178,11 @@ export function ItemImageUploader({
         pending={isPending}
         onCancel={onCropCancel}
         onConfirm={onCropConfirm}
+        defaultRatio={cropRatio}
+        title={cropTitle ?? "調整圖片"}
+        description="拖曳移動、滑鼠滾輪縮放、選擇比例 — 直到右側預覽看起來對。"
+        previewLabel="預覽"
+        ratioHint="可選 1:1 方形、4:3 橫式或自由比例。"
       />
     </div>
   );

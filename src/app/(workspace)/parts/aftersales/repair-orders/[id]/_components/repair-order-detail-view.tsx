@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { EntityImageGallery } from "@/components/image-upload/entity-image-gallery";
 import {
   cancelRepairOrderAction,
   updateRepairOrderStatusAction,
@@ -241,6 +242,27 @@ export function RepairOrderDetailView({
             label="進廠里程"
             value={ro.mileage_in != null ? `${ro.mileage_in.toLocaleString()} km` : null}
             mono
+          />
+        </div>
+      </section>
+
+      {/* 事故 / 維修現場照片 */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 維修現場照片</span>
+          <span className="text-[11px] text-[#9A9890] ml-2">最多 20 張，建議拍車體損傷、零件異常、保固爭議現場存證</span>
+        </header>
+        <div className="px-4 py-4">
+          <EntityImageGallery
+            entity="repair-order"
+            entityId={ro.id}
+            images={ro.images ?? []}
+            alt={`${ro.ro_code} 維修現場照片`}
+            canEdit={canEdit}
+            width={420}
+            height={280}
+            maxImages={20}
+            emptyHint="尚未上傳照片"
           />
         </div>
       </section>

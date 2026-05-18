@@ -12,7 +12,7 @@ import {
   getOrganizationOptions,
   getCurrentBrandId,
 } from "@/domain/new-car-inventory";
-import NewCarsBoard from "./_components/new-cars-board";
+import NewCarInventoryBoard from "./_components/inventory-board";
 
 export const metadata = {
   title: "新車庫存 | DealerOS",
@@ -27,7 +27,7 @@ export default async function NewCarsPage() {
   ]);
 
   return (
-    <NewCarsBoard
+    <NewCarInventoryBoard
       initialRows={rows}
       vehicleModels={vehicleModels}
       organizations={organizations}

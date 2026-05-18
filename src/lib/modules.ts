@@ -138,29 +138,27 @@ export const modules: ModuleDef[] = [
   // ────────────────────────────────────────────────────────
   // 2. 維修管理 (S4 全部 + S8-3 保固)
   // ────────────────────────────────────────────────────────
+  // 維修管理 — canonical 已整併到 /parts/aftersales（第九輪 T8 / 第八輪 Q9=A）
+  // 舊 /service/* 路徑全 server redirect 到 /parts/aftersales/*、保留外連結相容
+  // 不再列入 modules registry，避免 sidebar 重複入口
+  // ────────────────────────────────────────────────────────
   {
     key: "service",
-    name: "維修管理",
+    name: "維修管理（已搬家）",
     icon: "build",
     accent: "#4A90E2",
-    description: "預約・工單・維修廠・配件",
-    home: "/service/appointments",
+    description: "已整併到「配件 / 售後」模組，舊連結自動轉址",
+    home: "/parts/aftersales",
     permission: "service.access",
     pages: [
-      { name: "預約看板",     icon: "calendar_today",  href: "/service/appointments",   stitchScreenId: "1575f27a2ada4bb8bb7d2f21894790cb" },
-      { name: "接待預檢",     icon: "fact_check",      href: "/service/pi" },
-      { name: "PDI 作業",     icon: "verified",        href: "/service/pdi" },
-      { name: "維修工單",     icon: "construction",    href: "/service/workorders" },
-      { name: "技師派工",     icon: "garage",          href: "/service/workshop",       stitchScreenId: "ef95845f1f78486f83905a9cd1ec1ccf" },
-      { name: "竣工複檢",     icon: "task_alt",        href: "/service/inspection" },
-      { name: "增項管理",     icon: "add_task",        href: "/service/dropoff" },
-      { name: "配件庫存",     icon: "inventory_2",     href: "/service/parts",          stitchScreenId: "bf46972c2a64481cb90839a93382c317" },
-      { name: "保固管理",     icon: "shield",          href: "/service/warranty",       stitchScreenId: "efc46f958e984d43ad416acb574af0ef" },
-      // 主管設定（service manager 子頁）
-      { name: "員工管理",     icon: "badge",           href: "/service/manager/employees",     section: "主管設定" },
-      { name: "客戶標籤",     icon: "sell",            href: "/service/manager/customer-tags", section: "主管設定" },
-      { name: "RO 編號前綴",  icon: "format_list_numbered", href: "/service/manager/ro-prefix", section: "主管設定" },
-      { name: "維修廠設定",   icon: "garage",          href: "/service/manager/workshop",      section: "主管設定" },
+      { name: "預約管理",       icon: "calendar_today",       href: "/parts/aftersales/appointments" },
+      { name: "接待預檢",       icon: "fact_check",           href: "/parts/aftersales/pre-inspections" },
+      { name: "維修工單",       icon: "construction",         href: "/parts/aftersales/repair-orders" },
+      { name: "工位看板",       icon: "garage",               href: "/parts/aftersales/management/bays" },
+      { name: "竣工複檢",       icon: "task_alt",             href: "/parts/aftersales/final-inspections" },
+      { name: "員工名冊",       icon: "badge",                href: "/parts/aftersales/management/staff",         section: "主管設定" },
+      { name: "客戶標籤",       icon: "sell",                 href: "/parts/aftersales/management/customer-tags", section: "主管設定" },
+      { name: "RO 編號規則",    icon: "format_list_numbered", href: "/parts/aftersales/management/ro-numbering",  section: "主管設定" },
     ],
   },
 
@@ -351,7 +349,8 @@ export const modules: ModuleDef[] = [
       { name: "客戶聯絡人",     icon: "contacts",      href: "/admin/master-data/customer-contacts", section: "List 主檔" },
       { name: "部門組織",       icon: "account_tree",  href: "/admin/master-data/departments",        section: "List 主檔" },
       { name: "供應商",         icon: "business",      href: "/admin/master-data/suppliers",          section: "List 主檔" },
-      { name: "料號商品",       icon: "inventory_2",   href: "/admin/master-data/items",              section: "List 主檔", comingSoon: true },
+      // T10：parts/setup/items 是「商品基礎資料」單一料號主檔；parts/setup/items-info 是「商品多維度資訊」（跨倉/跨供應商）
+      { name: "商品基礎資料",    icon: "inventory_2",   href: "/admin/master-data/items",              section: "List 主檔", comingSoon: true },
       { name: "供應商定價",     icon: "price_change",  href: "/admin/master-data/supplier-pricing",    section: "List 主檔" },
       { name: "料號前置時間",   icon: "schedule_send", href: "/admin/master-data/item-lead-times",     section: "List 主檔" },
       { name: "補貨計畫設定",   icon: "tune",          href: "/admin/master-data/replenishment-policies", section: "List 主檔" },

@@ -130,3 +130,12 @@ export const FUNNEL_STAGES = [
 ] as const;
 
 export const LAST_UPDATED = "2026-05-10 14:35";
+
+// ── Round-9 Batch B: _FALLBACK 別名 ──
+// 上方常數 Phase 1 是 mock，Phase 2 起改為 DB query 失敗時的 fallback。
+// 為避免改動 board UI 元件 import，保留原名同時 export _FALLBACK 別名給 domain helper 用。
+export const RS_LIST_FALLBACK = RS_LIST;
+export const KPI_TARGETS_FALLBACK = KPI_TARGETS;
+export const CUSTOMER_TAG_GROUPS_FALLBACK = CUSTOMER_TAG_GROUPS;
+export const FUNNEL_STAGES_FALLBACK = FUNNEL_STAGES;
+export const LAST_UPDATED_FALLBACK = LAST_UPDATED;

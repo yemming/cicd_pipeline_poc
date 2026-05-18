@@ -12,6 +12,7 @@ import {
 } from "@/lib/master-data/employee-actions";
 import type { EmployeeFieldKey } from "@/lib/master-data/employee-form-types";
 import type { Department, Employee } from "@/lib/parts/types";
+import { EntityImageUploader } from "@/components/image-upload/entity-image-uploader";
 
 export type DepartmentRef = { id: string; code: string; name: string };
 
@@ -377,30 +378,39 @@ export function EmployeeDetailView({
               </div>
             </div>
           </div>
-          <div className="shrink-0">
-            <div
-              className={`w-[260px] h-[120px] rounded-lg flex flex-col items-center justify-center text-[12px] ${
-                creating
-                  ? "border-2 border-dashed border-[#D5D3CB] bg-[#F8F7F4] text-[#9A9890]"
-                  : "border border-[#EEECE6] bg-[#F8F7F4]"
-              }`}
-            >
-              {creating ? (
-                <span>建立後顯示員工資訊</span>
-              ) : employee ? (
-                <>
-                  <div className="text-[11px] text-[#9A9890]">到職日</div>
-                  <div className="text-[16px] font-semibold text-[#2C2C2A] font-mono">
-                    {employee.hire_date ?? "—"}
+          <div className="shrink-0 flex items-start gap-3">
+            {creating ? (
+              <div className="w-[120px] h-[120px] rounded-full border-2 border-dashed border-[#D5D3CB] bg-[#F8F7F4] flex items-center justify-center text-[11px] text-[#9A9890] text-center px-2">
+                建立後可上傳大頭照
+              </div>
+            ) : employee ? (
+              <EntityImageUploader
+                entity="employee"
+                entityId={employee.id}
+                imageUrl={(employee as unknown as { avatar_url: string | null }).avatar_url ?? null}
+                alt={`${employee.name} 大頭照`}
+                canEdit={canEdit}
+                width={120}
+                height={120}
+                cropRatio={1}
+                cropTitle="調整員工大頭照"
+                promptText="點擊上傳大頭照"
+                rounded="full"
+              />
+            ) : null}
+            {!creating && employee ? (
+              <div className="h-[120px] w-[130px] rounded-lg border border-[#EEECE6] bg-[#F8F7F4] flex flex-col items-center justify-center text-[12px]">
+                <div className="text-[11px] text-[#9A9890]">到職日</div>
+                <div className="text-[16px] font-semibold text-[#2C2C2A] font-mono">
+                  {employee.hire_date ?? "—"}
+                </div>
+                {employee.leave_date ? (
+                  <div className="text-[11px] text-[#9A9890] mt-1">
+                    離職日 {employee.leave_date}
                   </div>
-                  {employee.leave_date ? (
-                    <div className="text-[11px] text-[#9A9890] mt-1">
-                      離職日 {employee.leave_date}
-                    </div>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       </header>

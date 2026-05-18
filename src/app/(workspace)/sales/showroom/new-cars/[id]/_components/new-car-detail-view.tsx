@@ -21,6 +21,7 @@ import {
 } from "@/domain/new-car-inventory.constants";
 import type { NewCarInventoryRow, NewCarInventoryInput } from "@/domain/new-car-inventory.constants";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { EntityImageGallery } from "@/components/image-upload/entity-image-gallery";
 
 // ── 小元件 ──────────────────────────────────────────────────────────────
 
@@ -328,14 +329,22 @@ export default function NewCarDetailView({
           </div>
           <div className="shrink-0">
             {isCreate ? (
-              <div className="w-[200px] h-[100px] border-2 border-dashed border-[#D5D3CB] rounded-lg bg-[#F8F7F4] flex items-center justify-center text-[12px] text-[#9A9890]">
-                建立後可上傳圖片
+              <div className="w-[280px] h-[180px] border-2 border-dashed border-[#D5D3CB] rounded-lg bg-[#F8F7F4] flex items-center justify-center text-[12px] text-[#9A9890]">
+                建立後可上傳車輛照片
               </div>
-            ) : (
-              <div className="w-[200px] h-[100px] bg-gradient-to-br from-[#1A3A5C] to-[#2A5080] rounded-lg flex items-center justify-center">
-                <span className="text-4xl opacity-60">🏍️</span>
-              </div>
-            )}
+            ) : car ? (
+              <EntityImageGallery
+                entity="new-car"
+                entityId={car.id}
+                images={car.images ?? []}
+                alt={car.model_display_name ?? "車輛照片"}
+                canEdit={canEdit}
+                width={280}
+                height={180}
+                maxImages={12}
+                emptyHint="尚未上傳車輛照片"
+              />
+            ) : null}
           </div>
         </div>
       </header>

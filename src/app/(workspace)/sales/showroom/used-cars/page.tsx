@@ -1,5 +1,5 @@
 import { listUsedCars } from "@/domain/used-car-inventory";
-import UsedCarsBoard from "./_components/used-cars-board";
+import UsedCarInventoryBoard from "./_components/inventory-board";
 
 export const metadata = {
   title: "中古車庫存 | DealerOS",
@@ -22,7 +22,7 @@ export default async function UsedCarsPage({
   });
 
   return (
-    <UsedCarsBoard
+    <UsedCarInventoryBoard
       rows={units}
       totalCount={totalCount}
       viewMode="dealer"

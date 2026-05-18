@@ -43,6 +43,7 @@ export type RepairOrderRow = {
   metadata: Record<string, unknown> | null;
   store_id: string | null;
   subsidiary_id: string | null;
+  images: string[] | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -622,8 +623,14 @@ export async function getWorkshopBoardData(): Promise<WorkshopBoardData> {
   return { active_ros: joined, technicians };
 }
 
-/** Re-export 給 UI 統一 import @/domain/repair-orders */
-export { setLeadTechnicianAction as setLeadTechnician } from "@/lib/aftersales/repair-order-actions";
+/** Re-export 給 UI 統一 import @/domain/repair-orders（包成 wrapper 才能在 "use server" 檔重新導出）*/
+import { setLeadTechnicianAction } from "@/lib/aftersales/repair-order-actions";
+export async function setLeadTechnician(
+  roId: string,
+  technicianId: string | null,
+) {
+  return setLeadTechnicianAction(roId, technicianId);
+}
 
 /** 內部用：取下一個流水號（同 brand × date × p1 × p2 的當日流水） */
 export async function nextSequenceNo(

@@ -114,7 +114,7 @@ export function CustomersBoard({
         hideable: false,
         cell: (r) => (
           <Link
-            href={`/admin/master-data/customers/${r.id}`}
+            href={`/parts/aftersales/customers/${r.id}`}
             className="font-mono font-semibold text-[#1A3A5C] hover:text-[#185FA5] hover:underline text-[11.5px]"
           >
             {r.code}
@@ -354,14 +354,22 @@ export function CustomersBoard({
         exportFileName="aftersales-customers"
         emptyMessage="輸入車主姓名 / 車牌 / 電話查詢，或調整服務狀態"
         disabled={isPending}
-        rowActionsWidth={110}
+        rowActionsWidth={170}
         rowActions={(r) => (
-          <Link
-            href={`/admin/master-data/customers/${r.id}`}
-            className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-          >
-            人車詳情
-          </Link>
+          <div className="flex gap-1.5">
+            <Link
+              href={`/parts/aftersales/customers/${r.id}`}
+              className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              查看
+            </Link>
+            <Link
+              href={`/admin/master-data/customers/${r.id}`}
+              className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              主檔
+            </Link>
+          </div>
         )}
       />
     </main>

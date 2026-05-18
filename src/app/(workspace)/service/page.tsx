@@ -1,17 +1,10 @@
 /**
- * /service — 售後修護模組首頁（C0a）
+ * /service — 第八輪 Q9=A canonical 整併：service/* → parts/aftersales/*
  *
- * 與 /parts/aftersales 共用 <AftersalesFlowDiagram> 元件、同一份流程關係圖。
- * 解掉了 Phase 1 sidebar 驗收撞到的 /service 404（之前沒有 root page）。
+ * 維修管理舊路徑保留 server redirect、避免外連結 404；canonical 入口在 /parts/aftersales。
  */
+import { redirect } from "next/navigation";
 
-import AftersalesFlowDiagram from "@/components/aftersales-flow-diagram";
-
-export default async function ServicePage() {
-  return (
-    <AftersalesFlowDiagram
-      backHref="/service/appointments"
-      backLabel="← 預約管理"
-    />
-  );
+export default function ServiceRedirect() {
+  redirect("/parts/aftersales");
 }

@@ -266,6 +266,7 @@ export type AftersalesCustomerDetail = {
   source_module: string | null;
   notes: string | null;
   is_active: boolean;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -317,6 +318,164 @@ export type AftersalesCustomerDetailBundle = {
   models: ModelRef[];
 };
 
+// ──────────────────────────────────────────────────────────────────────────
+// 人車檔案（SA 接待視角）— /parts/aftersales/customers/[id]
+// 在現有 detail bundle 之上補：
+//   - repairOrders：repair_orders（接待視角的維修歷史，跟工單表 work_orders 並存）
+//   - followups：followup_cases（透過 source_ro_id 反查到客戶名下的 RO）
+//   - officialTags：customer_tags 字典（brand 級可選標籤，SA 端唯讀參考）
+//   - pickupNotify：business_rules 取車通知範本（per brand）
+// 不建任何新表；皆讀現有 schema。
+// ──────────────────────────────────────────────────────────────────────────
+
+export type AftersalesRepairOrderRow = {
+  id: string;
+  ro_code: string;
+  status: string;
+  issue_date: string;
+  opened_at: string | null;
+  closed_at: string | null;
+  mileage_in: number | null;
+  vehicle_id: string | null;
+  estimated_subtotal: number | null;
+  lines_total: number | null;
+};
+
+export type AftersalesFollowupCaseRow = {
+  id: string;
+  case_no: string;
+  title: string;
+  status: string;
+  safety_level: string;
+  estimated_fee: number;
+  recovered_amount: number;
+  next_contact_at: string | null;
+  last_contacted_at: string | null;
+  closed_at: string | null;
+  source_ro_id: string | null;
+  vehicle_license_plate: string | null;
+  vehicle_model: string | null;
+  created_at: string | null;
+};
+
+export type AftersalesOfficialTagRow = {
+  id: string;
+  label: string;
+  code: string | null;
+  color: string;
+  emoji: string | null;
+  description: string | null;
+  sort_order: number;
+};
+
+export type AftersalesPickupNotifyTemplate = {
+  has_template: boolean;
+  default_channels: { line: boolean; sms: boolean; phone: boolean };
+  line_template: string | null;
+  sms_template: string | null;
+  updated_at: string | null;
+};
+
+export type AftersalesCustomerFullBundle = AftersalesCustomerDetailBundle & {
+  repairOrders: AftersalesRepairOrderRow[];
+  followups: AftersalesFollowupCaseRow[];
+  officialTags: AftersalesOfficialTagRow[];
+  pickupNotify: AftersalesPickupNotifyTemplate;
+};
+
+/**
+ * 統一 alias — 人車檔案 detail page 一律呼叫這支。
+ * 內部 6 連撈：customer / vehicles / repair_orders / customer_tags / followup_cases / pickup_notify。
+ * 既有的 work_orders / appointments / models 也一起回傳（reuse 既有 bundle，避免兩套 type 漂移）。
+ */
+export async function getCustomerById(
+  id: string,
+): Promise<AftersalesCustomerFullBundle | null> {
+  const base = await getAftersalesCustomerDetail(id);
+  if (!base) return null;
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const [roRes, tagsRes, fcRes, pickupRes] = await Promise.all([
+    supabase
+      .from("repair_orders")
+      .select(
+        "id, ro_code, status, issue_date, opened_at, closed_at, mileage_in, vehicle_id, estimated_subtotal, lines_total",
+      )
+      .eq("brand_id", brand)
+      .eq("customer_id", id)
+      .order("issue_date", { ascending: false })
+      .limit(50),
+    supabase
+      .from("customer_tags")
+      .select("id, label, code, color, emoji, description, sort_order")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    // followup_cases 沒有 customer_id 欄位，透過該客戶名下的 RO 反查
+    supabase
+      .from("repair_orders")
+      .select("id")
+      .eq("brand_id", brand)
+      .eq("customer_id", id),
+    supabase
+      .from("business_rules")
+      .select("config, updated_at")
+      .eq("brand_id", brand)
+      .eq("rule_kind", "aftersales_pickup_notify_template")
+      .maybeSingle(),
+  ]);
+
+  const repairOrders = (roRes.data ?? []) as AftersalesRepairOrderRow[];
+  const officialTags = (tagsRes.data ?? []) as AftersalesOfficialTagRow[];
+
+  // 透過 RO ids 反查 followup_cases
+  const roIds = ((fcRes.data ?? []) as Array<{ id: string }>).map((r) => r.id);
+  let followups: AftersalesFollowupCaseRow[] = [];
+  if (roIds.length > 0) {
+    const { data: fcData } = await supabase
+      .from("followup_cases")
+      .select(
+        "id, case_no, title, status, safety_level, estimated_fee, recovered_amount, next_contact_at, last_contacted_at, closed_at, source_ro_id, vehicle_license_plate, vehicle_model, created_at",
+      )
+      .eq("brand_id", brand)
+      .in("source_ro_id", roIds)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    followups = (fcData ?? []) as AftersalesFollowupCaseRow[];
+  }
+
+  // pickup notify template
+  const pickupRow = pickupRes.data as
+    | { config: unknown; updated_at: string | null }
+    | null;
+  const pickupConfig = (pickupRow?.config ?? {}) as {
+    line_template?: string;
+    sms_template?: string;
+    default_channels?: { line?: boolean; sms?: boolean; phone?: boolean };
+  };
+  const pickupNotify: AftersalesPickupNotifyTemplate = {
+    has_template: Boolean(pickupRow),
+    default_channels: {
+      line: pickupConfig.default_channels?.line ?? true,
+      sms: pickupConfig.default_channels?.sms ?? false,
+      phone: pickupConfig.default_channels?.phone ?? false,
+    },
+    line_template: pickupConfig.line_template ?? null,
+    sms_template: pickupConfig.sms_template ?? null,
+    updated_at: pickupRow?.updated_at ?? null,
+  };
+
+  return {
+    ...base,
+    repairOrders,
+    officialTags,
+    followups,
+    pickupNotify,
+  };
+}
+
 export async function getAftersalesCustomerDetail(
   id: string,
 ): Promise<AftersalesCustomerDetailBundle | null> {
@@ -326,7 +485,7 @@ export async function getAftersalesCustomerDetail(
   const { data: customer, error: cErr } = await supabase
     .from("customers")
     .select(
-      "id, code, name, type, tax_id, national_id, phone, email, address, birthday, source_module, notes, is_active, created_at, updated_at",
+      "id, code, name, type, tax_id, national_id, phone, email, address, birthday, source_module, notes, is_active, avatar_url, created_at, updated_at",
     )
     .eq("id", id)
     .eq("brand_id", brand)
