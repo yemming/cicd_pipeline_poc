@@ -12,91 +12,35 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
 
-// ─────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────
-
-export type TestDriveStatus =
-  | "scheduled"
-  | "in_progress"
-  | "completed"
-  | "cancelled"
-  | "no_show";
-
-export const TEST_DRIVE_STATUS_LABELS: Record<TestDriveStatus, string> = {
-  scheduled: "已排程",
-  in_progress: "進行中",
-  completed: "已完成",
-  cancelled: "已取消",
-  no_show: "未到",
-};
-
-export const TEST_DRIVE_STATUS_CHIP: Record<
+// 純展示型常數 / type 從 client-safe 的 .constants 重新導出
+import {
+  TEST_DRIVE_STATUS_LABELS,
+  TEST_DRIVE_STATUS_CHIP,
+  TEST_DRIVES_PAGE_SIZE_DEFAULT,
+} from "./sales-test-drives.constants";
+import type {
   TestDriveStatus,
-  { bg: string; text: string }
-> = {
-  scheduled: { bg: "bg-[#EAF4FB]", text: "text-[#185FA5]" },
-  in_progress: { bg: "bg-[#FDF3E3]", text: "text-[#854F0B]" },
-  completed: { bg: "bg-[#EAF3DE]", text: "text-[#3B6D11]" },
-  cancelled: { bg: "bg-[#F2F2F2]", text: "text-[#6B6A68]" },
-  no_show: { bg: "bg-[#FDECEA]", text: "text-[#CC0000]" },
+  TestDriveRow,
+  ListTestDrivesFilter,
+  CreateTestDriveInput,
+  UpdateTestDriveInput,
+  Result,
+  TestDriveLookups,
+} from "./sales-test-drives.constants";
+
+export {
+  TEST_DRIVE_STATUS_LABELS,
+  TEST_DRIVE_STATUS_CHIP,
+  TEST_DRIVES_PAGE_SIZE_DEFAULT,
 };
-
-export type TestDriveRow = {
-  id: string;
-  brand_id: string;
-  customer_id: string | null;
-  vehicle_model_id: string | null;
-  lead_id: string | null;
-  sales_consultant_id: string | null;
-  scheduled_at: string;
-  completed_at: string | null;
-  status: TestDriveStatus;
-  notes: string | null;
-  metadata: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-  // joined
-  customer_name: string | null;
-  vehicle_model_name: string | null;
-  consultant_name: string | null;
-};
-
-export type ListTestDrivesFilter = {
-  status?: string;
-  q?: string;
-  page?: number;
-  pageSize?: number;
-};
-
-export type CreateTestDriveInput = {
-  customer_id?: string | null;
-  vehicle_model_id?: string | null;
-  lead_id?: string | null;
-  sales_consultant_id?: string | null;
-  scheduled_at: string; // ISO
-  status?: TestDriveStatus;
-  notes?: string | null;
-  metadata?: Record<string, unknown>;
-};
-
-export type UpdateTestDriveInput = Partial<CreateTestDriveInput> & {
-  completed_at?: string | null;
-};
-
-export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
-
-export const TEST_DRIVES_PAGE_SIZE_DEFAULT = 50;
-
-// ─────────────────────────────────────────────────────────────
-// Lookups (給 list 頁的篩選器 / 新增 / detail dropdown 用)
-// ─────────────────────────────────────────────────────────────
-
-export type TestDriveLookups = {
-  customers: Array<{ id: string; name: string }>;
-  models: Array<{ id: string; name: string }>;
-  consultants: Array<{ id: string; name: string }>;
-  leads: Array<{ id: string }>;
+export type {
+  TestDriveStatus,
+  TestDriveRow,
+  ListTestDrivesFilter,
+  CreateTestDriveInput,
+  UpdateTestDriveInput,
+  Result,
+  TestDriveLookups,
 };
 
 export async function getTestDriveLookups(): Promise<TestDriveLookups> {

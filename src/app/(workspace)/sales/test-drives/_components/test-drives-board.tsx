@@ -15,7 +15,7 @@ import {
   type TestDriveRow,
   type TestDriveStatus,
   type TestDriveLookups,
-} from "@/domain/sales-test-drives";
+} from "@/domain/sales-test-drives.constants";
 
 // ─────────────────────────────────────────────────────────────
 // Types
