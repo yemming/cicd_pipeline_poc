@@ -80,22 +80,32 @@ export function RepairOrderDetailView({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+  /** 狀態切換確認 modal — 為 null 時關閉 */
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
 
   function showBanner(b: { ok: boolean; msg: string }) {
     setBanner(b);
     if (b.ok) setTimeout(() => setBanner(null), 2200);
   }
 
-  function changeStatus(next: string) {
+  function askStatus(next: string) {
     if (!canEdit || isPending) return;
     if (next === ro.status) return;
+    setPendingStatus(next);
+  }
+
+  function confirmStatus() {
+    const next = pendingStatus;
+    if (!next) return;
     startTransition(async () => {
       const res = await updateRepairOrderStatusAction(ro.id, next);
       if (res.ok) {
         showBanner({ ok: true, msg: `✓ 已切換為「${next}」` });
+        setPendingStatus(null);
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
+        setPendingStatus(null);
       }
     });
   }
@@ -205,7 +215,7 @@ export function RepairOrderDetailView({
                   <button
                     key={s}
                     type="button"
-                    onClick={() => changeStatus(s)}
+                    onClick={() => askStatus(s)}
                     disabled={isPending}
                     className="h-[26px] px-3 rounded-full text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
                   >
@@ -227,6 +237,9 @@ export function RepairOrderDetailView({
         </div>
       </header>
 
+      {/* 主/側二欄：左主資訊 / 右側 SA 狀態時程（M03-3 spec） */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr,320px] gap-3">
+        <div className="space-y-3 min-w-0">
       {/* 基本資料 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
@@ -353,6 +366,76 @@ export function RepairOrderDetailView({
           </span>
         </div>
       </section>
+        </div>
+
+        {/* 右側欄：SA / 狀態時程 / 派工資訊 */}
+        <aside className="space-y-3">
+          <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 服務顧問 (SA)</span>
+            </header>
+            <div className="px-4 py-3 space-y-2 text-[12.5px]">
+              <Kv label="SA 名" value={ro.sa_name} />
+              <Kv label="主修技師" value={ro.lead_technician_name} />
+            </div>
+          </section>
+
+          <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 狀態時程</span>
+            </header>
+            <div className="px-4 py-3">
+              <ol className="relative border-l-2 border-[#EEECE6] ml-2 space-y-3">
+                <TimelineStep
+                  done={!!ro.opened_at}
+                  label="開單"
+                  time={ro.opened_at ? fmtTaipeiDateTime(ro.opened_at) : null}
+                />
+                <TimelineStep
+                  done={ro.status === "維修中" || ro.status === "待結帳" || ro.status === "已關單"}
+                  label="維修中"
+                  time={null}
+                />
+                <TimelineStep
+                  done={ro.status === "待結帳" || ro.status === "已關單"}
+                  label="待結帳"
+                  time={null}
+                />
+                <TimelineStep
+                  done={ro.status === "已關單"}
+                  label="關單"
+                  time={ro.closed_at ? fmtTaipeiDateTime(ro.closed_at) : null}
+                  cancelled={ro.status === "已取消"}
+                />
+              </ol>
+            </div>
+          </section>
+
+          <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 金額快覽</span>
+            </header>
+            <div className="px-4 py-3 space-y-2 text-[12.5px]">
+              <div className="flex justify-between">
+                <span className="text-[#5A5955]">明細小計</span>
+                <span className="font-mono">NT${Number(ro.lines_subtotal ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#5A5955]">含稅總計</span>
+                <span className="font-mono font-semibold text-[#1A3A5C]">
+                  NT${Number(ro.lines_total ?? 0).toLocaleString()}
+                </span>
+              </div>
+              <Link
+                href={`/parts/aftersales/repair-orders/${ro.id}/lines`}
+                className="block text-center mt-2 h-[28px] leading-[28px] rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                查看明細 →
+              </Link>
+            </div>
+          </section>
+        </aside>
+      </div>
 
       {banner && (
         <div
@@ -365,6 +448,103 @@ export function RepairOrderDetailView({
           {banner.msg}
         </div>
       )}
+
+      {/* 狀態切換確認 modal（M03-3 spec：狀態變更需確認） */}
+      {pendingStatus && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => !isPending && setPendingStatus(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[420px] max-w-[90vw] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#F8F7F4]">
+              <div className="text-[13px] font-semibold text-[#2C2C2A]">確認狀態變更</div>
+            </header>
+            <div className="px-4 py-4 space-y-3 text-[12.5px] text-[#2C2C2A]">
+              <p>
+                即將把工單{" "}
+                <span className="font-mono font-semibold text-[#1A3A5C]">{ro.ro_code}</span>{" "}
+                狀態切換為：
+              </p>
+              <div className="flex items-center gap-2 justify-center py-2">
+                <span
+                  className={`inline-flex px-2.5 py-1 rounded-md text-[12px] font-medium ${statusBadge(ro.status)}`}
+                >
+                  {ro.status}
+                </span>
+                <span className="text-[#9A9890]">→</span>
+                <span
+                  className={`inline-flex px-2.5 py-1 rounded-md text-[12px] font-medium ${statusBadge(pendingStatus)}`}
+                >
+                  {pendingStatus}
+                </span>
+              </div>
+              {pendingStatus === "待結帳" && (
+                <p className="text-[11.5px] text-[#854F0B] bg-[#FDF3E3] border border-[#F0C97E] rounded px-2 py-1.5">
+                  ⚠️ 切到「待結帳」代表維修已完成，請先確認工項 / 零件明細齊全。
+                </p>
+              )}
+              {pendingStatus === "已關單" && (
+                <p className="text-[11.5px] text-[#3B6D11] bg-[#EAF3DE] border border-[#C5DC9F] rounded px-2 py-1.5">
+                  關單後僅可查閱，金額與項目將無法再修改。
+                </p>
+              )}
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingStatus(null)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmStatus}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60"
+              >
+                {isPending ? "切換中⋯" : "確認切換"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+function TimelineStep({
+  done,
+  label,
+  time,
+  cancelled,
+}: {
+  done: boolean;
+  label: string;
+  time: string | null;
+  cancelled?: boolean;
+}) {
+  const dotCls = cancelled
+    ? "bg-[#F2F2F2] border-[#9A9890]"
+    : done
+      ? "bg-[#3B6D11] border-[#3B6D11]"
+      : "bg-white border-[#D5D3CB]";
+  const labelCls = cancelled
+    ? "text-[#9A9890] line-through"
+    : done
+      ? "text-[#2C2C2A] font-medium"
+      : "text-[#9A9890]";
+  return (
+    <li className="ml-3 pl-3 relative">
+      <span
+        className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full border-2 ${dotCls}`}
+      />
+      <div className={`text-[12.5px] ${labelCls}`}>{label}</div>
+      {time && <div className="text-[11px] text-[#9A9890] font-mono">{time}</div>}
+    </li>
   );
 }

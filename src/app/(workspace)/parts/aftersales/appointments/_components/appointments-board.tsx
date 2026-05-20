@@ -1,15 +1,36 @@
 "use client";
 
+/**
+ * 預約管理看板 — A 級（M03-2 / 第十輪 BDN）
+ *
+ * 升級點：
+ *  1. 4 顆標準 <KpiCard tone delta>（本日預約 / 入廠率 / 未到 / 取消）
+ *  2. <HeatMap> 週×時段（08-19）預約熱點
+ *  3. <DonutChart> 狀態分佈
+ *  4. 視圖切換：list（DataGrid）/ kanban（拖曳改狀態樂觀更新）/ schedule（時段條列）
+ *  5. 樂觀更新 + pending 鎖 UI
+ */
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo, useOptimistic } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import {
+  KpiCard,
+  KanbanBoard,
+  type KanbanCard,
+  type KanbanColumn,
+} from "@/components/visualization";
+import { HeatMap, DonutChart, type DonutDatum, type HeatMapDatum } from "@/components/charts";
+import {
   SERVICE_TYPES,
   APPOINTMENT_STATUSES,
+  APPOINTMENT_KANBAN_COLUMNS,
+  DAY_OF_WEEK_LABELS,
   statusChipClass,
+  statusToKanbanColumn,
   serviceTypeLabel,
   TECH_LOAD_MAX,
 } from "@/domain/appointments.constants";
@@ -24,6 +45,7 @@ import type {
 } from "@/domain/appointments";
 
 type Banner = { ok: boolean; msg: string } | null;
+type ViewMode = "list" | "kanban" | "schedule";
 
 export type AppointmentsBoardPageHeader = {
   title: string;
@@ -38,8 +60,8 @@ export function AppointmentsBoard({
   basePath = "/parts/aftersales/appointments",
   pageHeader = {
     title: "預約管理看板",
-    breadcrumb: [{ label: "售後工單" }, { label: "預約管理看板" }],
-    sprintChip: "售後 Phase 1",
+    breadcrumb: [{ label: "售後修護" }, { label: "預約管理看板" }],
+    sprintChip: "M03-2 · A 級",
   },
 }: {
   data: AppointmentsListPageData;
@@ -57,6 +79,14 @@ export function AppointmentsBoard({
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
   const [draftFilters, setDraftFilters] = useState<AppointmentListFilters>(filters);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  // 樂觀更新 status — 拖曳 Kanban / 快速切狀態用
+  const [optimisticRows, applyOptimistic] = useOptimistic(
+    data.rows,
+    (state, action: { id: string; status: string }) =>
+      state.map((r) => (r.id === action.id ? { ...r, status: action.status } : r)),
+  );
 
   const showBanner = (b: Banner) => {
     setBanner(b);
@@ -78,14 +108,30 @@ export function AppointmentsBoard({
 
   const handleQuickStatus = (id: string, status: string) => {
     startTransition(async () => {
+      applyOptimistic({ id, status });
       const res = await setAppointmentStatusAction(id, status);
       if (res.ok) {
         showBanner({ ok: true, msg: `✓ 已切到「${status}」` });
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
+        router.refresh(); // rollback 樂觀
       }
     });
+  };
+
+  const handleKanbanMove = (
+    cardId: string,
+    fromColumn: string,
+    toColumn: string,
+  ) => {
+    if (fromColumn === toColumn) return;
+    if (!canEdit) {
+      showBanner({ ok: false, msg: "無編輯權限" });
+      return;
+    }
+    // toColumn id 就是目標 status（"待到廠/已到廠/維修中/已完成"）
+    handleQuickStatus(cardId, toColumn);
   };
 
   const handleDelete = (id: string, label: string) => {
@@ -106,6 +152,55 @@ export function AppointmentsBoard({
   const labelCls = "text-[11px] text-[#9A9890] font-medium";
 
   const today = filters.date || data.rows[0]?.appointment_date || "";
+
+  // ── HeatMap data：把 server 回的 cells 轉成 HeatMapDatum[]
+  const heatmapData = useMemo<HeatMapDatum[]>(() => {
+    return data.heatmap.map((c) => ({
+      x: `${String(c.hour).padStart(2, "0")}`,
+      y: DAY_OF_WEEK_LABELS[c.day_of_week] ?? String(c.day_of_week),
+      value: c.count,
+    }));
+  }, [data.heatmap]);
+
+  // ── DonutChart：當前 row 的狀態分佈（用 optimistic）
+  const statusDistribution = useMemo<DonutDatum[]>(() => {
+    const palette: Record<string, string> = {
+      待到廠: "#9A9890",
+      已到廠: "#185FA5",
+      等待中: "#854F0B",
+      維修中: "#1A3A5C",
+      待取車: "#0F6E56",
+      已完成: "#3B6D11",
+      已取消: "#CC0000",
+    };
+    const counts = new Map<string, number>();
+    for (const r of optimisticRows) {
+      counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
+    }
+    const out: DonutDatum[] = [];
+    for (const s of APPOINTMENT_STATUSES) {
+      const v = counts.get(s) ?? 0;
+      if (v > 0) out.push({ name: s, value: v, color: palette[s] });
+    }
+    return out;
+  }, [optimisticRows]);
+
+  // ── Kanban cards
+  const kanbanCards = useMemo<KanbanCard[]>(() => {
+    return optimisticRows.map((r) => ({
+      id: r.id,
+      columnId: statusToKanbanColumn(r.status),
+      content: <KanbanCardBody row={r} basePath={basePath} />,
+    }));
+  }, [optimisticRows, basePath]);
+
+  const kanbanColumns = useMemo<KanbanColumn[]>(() => {
+    return APPOINTMENT_KANBAN_COLUMNS.map((c) => ({
+      id: c.id,
+      title: c.title,
+      tone: c.tone,
+    }));
+  }, []);
 
   const columns: DataGridColumn<AppointmentListRow>[] = [
     {
@@ -141,7 +236,8 @@ export function AppointmentsBoard({
           </span>
         </div>
       ),
-      exportValue: (r) => `${r.vehicle_model_name ?? ""} / ${r.vehicle_license_plate ?? ""}`,
+      exportValue: (r) =>
+        `${r.vehicle_model_name ?? ""} / ${r.vehicle_license_plate ?? ""}`,
     },
     {
       id: "service_type",
@@ -153,7 +249,9 @@ export function AppointmentsBoard({
           {r.service_subtype ? `-${r.service_subtype}` : ""}
         </span>
       ),
-      exportValue: (r) => serviceTypeLabel(r.service_type) + (r.service_subtype ? `-${r.service_subtype}` : ""),
+      exportValue: (r) =>
+        serviceTypeLabel(r.service_type) +
+        (r.service_subtype ? `-${r.service_subtype}` : ""),
       sortValue: (r) => r.service_type ?? "",
     },
     {
@@ -166,7 +264,8 @@ export function AppointmentsBoard({
           {r.estimated_hours ? `${Number(r.estimated_hours).toFixed(1)}h` : "—"}
         </span>
       ),
-      exportValue: (r) => (r.estimated_hours ? Number(r.estimated_hours).toFixed(1) + "h" : ""),
+      exportValue: (r) =>
+        r.estimated_hours ? Number(r.estimated_hours).toFixed(1) + "h" : "",
       sortValue: (r) => Number(r.estimated_hours ?? 0),
     },
     {
@@ -192,7 +291,11 @@ export function AppointmentsBoard({
   ];
 
   const sprintCaption =
-    data.rows.length > 0 ? `今日 ${data.kpis.total} 台 · 已到廠 ${data.kpis.arrived} 台` : "";
+    data.rows.length > 0
+      ? `今日 ${data.kpis.total} 台 · 已到廠 ${data.kpis.arrived} 台`
+      : "整條售後 pipeline 的入口";
+
+  const stats = data.stats;
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -204,109 +307,153 @@ export function AppointmentsBoard({
             {pageHeader.sprintChip}
           </span>
         )}
-        <span className="text-[12px] text-[#9A9890]">{sprintCaption || "整條售後 pipeline 的入口"}</span>
+        <span className="text-[12px] text-[#9A9890]">{sprintCaption}</span>
       </header>
 
-      {/* KPI Row */}
+      {/* KPI Row — 4 顆標準 KpiCard with tone + delta */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <KpiCard label="今日預約" value={`${data.kpis.total} 台`} sub={`已到廠 ${data.kpis.arrived} 台`} color="#1A3A5C" />
         <KpiCard
-          label="等待中"
-          value={`${data.kpis.waiting} 台`}
-          sub={data.kpis.waiting_overdue > 0 ? `超時 ${data.kpis.waiting_overdue} 台` : "無超時"}
-          color="#854F0B"
-        />
-        <KpiCard
-          label="維修中"
-          value={`${data.kpis.in_progress} 台`}
-          sub={
-            data.kpis.in_progress > 0
-              ? `平均工時 ${data.kpis.in_progress_avg_hours}h`
-              : "無進行中"
+          label="本日預約"
+          value={`${stats.today_total} 台`}
+          tone="blue"
+          layout="vertical"
+          icon={<span className="material-symbols-outlined text-[18px]">event</span>}
+          delta={
+            stats.delta_today_total !== 0
+              ? {
+                  value: Math.round(stats.delta_today_total),
+                  tone: stats.delta_today_total > 0 ? "positive" : "negative",
+                }
+              : undefined
           }
-          color="#185FA5"
         />
         <KpiCard
-          label="已完成"
-          value={`${data.kpis.completed} 台`}
-          sub={`等待取車 ${data.kpis.pending_pickup} 台`}
-          color="#3B6D11"
+          label="入廠率（30 天）"
+          value={`${stats.checked_in_rate.toFixed(1)}%`}
+          tone="teal"
+          layout="vertical"
+          icon={
+            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+          }
+          delta={
+            stats.delta_checked_in_rate !== 0
+              ? {
+                  value: Math.round(stats.delta_checked_in_rate * 10) / 10,
+                  tone:
+                    stats.delta_checked_in_rate > 0 ? "positive" : "negative",
+                }
+              : undefined
+          }
+        />
+        <KpiCard
+          label="未到率（30 天）"
+          value={`${stats.no_show_rate.toFixed(1)}%`}
+          tone="amber"
+          layout="vertical"
+          icon={
+            <span className="material-symbols-outlined text-[18px]">
+              do_not_disturb_on
+            </span>
+          }
+          delta={
+            stats.delta_no_show_rate !== 0
+              ? {
+                  value: Math.round(stats.delta_no_show_rate * 10) / 10,
+                  // no-show 下降是好事
+                  tone: stats.delta_no_show_rate < 0 ? "positive" : "negative",
+                }
+              : undefined
+          }
+        />
+        <KpiCard
+          label="取消率（30 天）"
+          value={`${stats.cancel_rate.toFixed(1)}%`}
+          tone="red"
+          layout="vertical"
+          icon={
+            <span className="material-symbols-outlined text-[18px]">cancel</span>
+          }
+          delta={
+            stats.delta_cancel_rate !== 0
+              ? {
+                  value: Math.round(stats.delta_cancel_rate * 10) / 10,
+                  tone: stats.delta_cancel_rate < 0 ? "positive" : "negative",
+                }
+              : undefined
+          }
         />
       </section>
 
-      {/* Schedule + TechLoad */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+      {/* Heatmap + Status Donut + Tech Load 三欄 */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden md:col-span-2">
           <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-[#2C2C2A]">📅 今日排程（{today}）</span>
-            <Link
-              href={`${basePath}/new${today ? `?date=${today}` : ""}`}
-              className="h-[26px] px-3 inline-flex items-center rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
-            >
-              ＋ 新增預約
-            </Link>
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              週×時段預約熱點（近 60 天）
+            </span>
+            <span className="text-[11px] text-[#9A9890]">08:00 – 19:59</span>
           </header>
-          <div className="px-4 py-3 max-h-[280px] overflow-y-auto">
-            {data.schedule.length === 0 ? (
-              <p className="text-[12px] text-[#9A9890]">今日無排程</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {data.schedule.map((s, i) => (
-                  <li
-                    key={`${s.bucket}-${i}`}
-                    className="flex items-start gap-2 py-1 border-b border-[#F8F7F4] last:border-b-0"
-                  >
-                    <span className="text-[11px] font-mono text-[#9A9890] min-w-[100px]">
-                      {s.bucket}
-                    </span>
-                    <div className="flex flex-col gap-0.5">
-                      {s.items.map((it, j) => (
-                        <span key={j} className="text-[12px] text-[#2C2C2A]">
-                          {it.customer_name ?? "—"} {it.service_label}
-                          {it.technician_short ? ` (${it.technician_short})` : ""}
-                          {it.status === "已完成" ? " ✅" : ""}
-                        </span>
-                      ))}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="px-4 py-3">
+            <HeatMap data={heatmapData} tone="blue" size="md" showValues={false} />
           </div>
         </div>
 
         <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
           <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-            <span className="text-[13px] font-semibold text-[#2C2C2A]">👨‍🔧 技師工作負載</span>
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              當前狀態分佈
+            </span>
           </header>
-          <div className="px-4 py-3 max-h-[280px] overflow-y-auto space-y-2">
-            {data.techLoad.length === 0 ? (
-              <p className="text-[12px] text-[#9A9890]">無技師資料</p>
+          <div className="px-4 py-3">
+            {statusDistribution.length === 0 ? (
+              <p className="text-[12px] text-[#9A9890] py-12 text-center">
+                當天無預約資料
+              </p>
             ) : (
-              data.techLoad.map((t) => {
-                const pct = Math.min(100, Math.round((t.load / t.max) * 100));
-                const barColor = pct >= 75 ? "#854F0B" : "#3B6D11";
-                return (
-                  <div key={t.id} className="flex items-center gap-2.5">
-                    <div className="text-[12.5px] font-medium text-[#2C2C2A] min-w-[64px]">
-                      {t.name}
-                    </div>
-                    <div className="flex-1">
-                      <div className="bg-[#F2F2F2] rounded-full h-2 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${pct}%`, background: barColor }}
-                        />
-                      </div>
-                      <div className="text-[10.5px] text-[#9A9890] mt-0.5">
-                        {t.load}/{t.max} 台 · {t.status}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+              <DonutChart
+                data={statusDistribution}
+                size="sm"
+                showLegend
+                centerLabel={`${optimisticRows.length}`}
+                centerCaption="預約"
+              />
             )}
           </div>
+        </div>
+      </section>
+
+      {/* 技師工作負載 */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">技師工作負載</span>
+        </header>
+        <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 max-h-[180px] overflow-y-auto">
+          {data.techLoad.length === 0 ? (
+            <p className="text-[12px] text-[#9A9890]">無技師資料</p>
+          ) : (
+            data.techLoad.map((t) => {
+              const pct = Math.min(100, Math.round((t.load / t.max) * 100));
+              const barColor = pct >= 75 ? "#854F0B" : "#3B6D11";
+              return (
+                <div key={t.id} className="flex items-center gap-2.5">
+                  <div className="text-[12.5px] font-medium text-[#2C2C2A] min-w-[64px]">
+                    {t.name}
+                  </div>
+                  <div className="flex-1">
+                    <div className="bg-[#F2F2F2] rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${pct}%`, background: barColor }}
+                      />
+                    </div>
+                    <div className="text-[10.5px] text-[#9A9890] mt-0.5">
+                      {t.load}/{t.max} 台 · {t.status}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </section>
 
@@ -321,7 +468,9 @@ export function AppointmentsBoard({
               type="date"
               className={inputCls}
               value={draftFilters.date || ""}
-              onChange={(e) => setDraftFilters({ ...draftFilters, date: e.target.value })}
+              onChange={(e) =>
+                setDraftFilters({ ...draftFilters, date: e.target.value })
+              }
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -329,7 +478,9 @@ export function AppointmentsBoard({
             <select
               className={inputCls}
               value={draftFilters.status || "all"}
-              onChange={(e) => setDraftFilters({ ...draftFilters, status: e.target.value })}
+              onChange={(e) =>
+                setDraftFilters({ ...draftFilters, status: e.target.value })
+              }
             >
               <option value="all">全部</option>
               {APPOINTMENT_STATUSES.map((s) => (
@@ -344,7 +495,9 @@ export function AppointmentsBoard({
             <select
               className={inputCls}
               value={draftFilters.service_type || "all"}
-              onChange={(e) => setDraftFilters({ ...draftFilters, service_type: e.target.value })}
+              onChange={(e) =>
+                setDraftFilters({ ...draftFilters, service_type: e.target.value })
+              }
             >
               <option value="all">全部</option>
               {SERVICE_TYPES.map((t) => (
@@ -383,7 +536,14 @@ export function AppointmentsBoard({
             <button
               type="button"
               disabled={isPending}
-              onClick={() => applyFilters({ date: "", status: "all", service_type: "all", technician_id: "all" })}
+              onClick={() =>
+                applyFilters({
+                  date: "",
+                  status: "all",
+                  service_type: "all",
+                  technician_id: "all",
+                })
+              }
               className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
             >
               重置
@@ -400,63 +560,150 @@ export function AppointmentsBoard({
         </div>
       </section>
 
-      {/* 4. Toolbar */}
+      {/* 4. Toolbar + 視圖切換 */}
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">
           共 <b className="text-[#2C2C2A]">{data.totalCount}</b> 筆預約
           {today ? `（${today}）` : ""}
         </span>
+        <div className="ml-auto inline-flex bg-[#F2F2F2] rounded-lg p-0.5">
+          <ViewTab active={viewMode === "list"} onClick={() => setViewMode("list")}>
+            清單
+          </ViewTab>
+          <ViewTab
+            active={viewMode === "kanban"}
+            onClick={() => setViewMode("kanban")}
+          >
+            看板
+          </ViewTab>
+          <ViewTab
+            active={viewMode === "schedule"}
+            onClick={() => setViewMode("schedule")}
+          >
+            排程
+          </ViewTab>
+        </div>
       </div>
 
-      {/* 5. Table */}
-      <DataGrid
-        columns={columns}
-        data={data.rows}
-        rowKey={(r) => r.id}
-        persistKey="parts/aftersales/appointments"
-        exportFileName="appointments"
-        emptyMessage="當天沒有預約資料"
-        disabled={isPending}
-        rowActionsWidth={canEdit ? 280 : 110}
-        rowActions={(r) => (
-          <div className="flex gap-1.5">
-            {canEdit && r.status === "待到廠" && (
-              <button
-                type="button"
-                onClick={() => handleQuickStatus(r.id, "已到廠")}
-                className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#EBF3FF] border border-[#85B7EB] text-[#1A3A5C] hover:bg-[#dde9f8]"
+      {/* 5. 視圖內容 */}
+      {viewMode === "list" && (
+        <DataGrid
+          columns={columns}
+          data={optimisticRows}
+          rowKey={(r) => r.id}
+          persistKey="parts/aftersales/appointments"
+          exportFileName="appointments"
+          emptyMessage="當天沒有預約資料"
+          disabled={isPending}
+          rowActionsWidth={canEdit ? 280 : 110}
+          rowActions={(r) => (
+            <div className="flex gap-1.5">
+              {canEdit && r.status === "待到廠" && (
+                <button
+                  type="button"
+                  onClick={() => handleQuickStatus(r.id, "已到廠")}
+                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#EBF3FF] border border-[#85B7EB] text-[#1A3A5C] hover:bg-[#dde9f8]"
+                >
+                  到廠
+                </button>
+              )}
+              <Link
+                href={`${basePath}/${r.id}`}
+                className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
               >
-                到廠
-              </button>
-            )}
-            <button
-              type="button"
-              disabled
-              title="預檢模組待開發"
-              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#1A3A5C] text-white opacity-40 cursor-not-allowed"
-            >
-              預檢
-            </button>
-            <Link
-              href={`${basePath}/${r.id}`}
-              className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-            >
-              編輯
-            </Link>
+                編輯
+              </Link>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleDelete(
+                      r.id,
+                      `${(r.appointment_time as string).slice(0, 5)} ${r.customer_name ?? ""}`,
+                    )
+                  }
+                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
+                >
+                  刪除
+                </button>
+              )}
+            </div>
+          )}
+        />
+      )}
+
+      {viewMode === "kanban" && (
+        <section
+          className={`bg-white border border-[#EEECE6] rounded-lg p-3 ${isPending ? "opacity-60 pointer-events-none" : ""}`}
+        >
+          {optimisticRows.length === 0 ? (
+            <p className="text-[12px] text-[#9A9890] text-center py-8">
+              當天沒有預約資料
+            </p>
+          ) : (
+            <>
+              <p className="text-[11px] text-[#9A9890] mb-2">
+                拖曳卡片到目標欄位即可切換狀態（樂觀更新）— 「等待中」併入「已到廠 /
+                等待」、「待取車」併入「已完成 / 取車」
+              </p>
+              <KanbanBoard
+                columns={kanbanColumns}
+                cards={kanbanCards}
+                onMove={canEdit ? handleKanbanMove : undefined}
+              />
+            </>
+          )}
+        </section>
+      )}
+
+      {viewMode === "schedule" && (
+        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              今日排程（{today || "—"}）
+            </span>
             {canEdit && (
-              <button
-                type="button"
-                onClick={() =>
-                  handleDelete(r.id, `${(r.appointment_time as string).slice(0, 5)} ${r.customer_name ?? ""}`)
-                }
-                className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
+              <Link
+                href={`${basePath}/new${today ? `?date=${today}` : ""}`}
+                className="h-[26px] px-3 inline-flex items-center rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
               >
-                刪除
-              </button>
+                ＋ 新增預約
+              </Link>
+            )}
+          </header>
+          <div className="px-4 py-3 max-h-[420px] overflow-y-auto">
+            {data.schedule.length === 0 ? (
+              <p className="text-[12px] text-[#9A9890] py-6 text-center">今日無排程</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {data.schedule.map((s, i) => (
+                  <li
+                    key={`${s.bucket}-${i}`}
+                    className="flex items-start gap-2 py-1 border-b border-[#F8F7F4] last:border-b-0"
+                  >
+                    <span className="text-[11px] font-mono text-[#9A9890] min-w-[110px]">
+                      {s.bucket}
+                    </span>
+                    <div className="flex flex-col gap-0.5 flex-1">
+                      {s.items.map((it, j) => (
+                        <span key={j} className="text-[12px] text-[#2C2C2A]">
+                          {it.customer_name ?? "—"} {it.service_label}
+                          {it.technician_short ? ` (${it.technician_short})` : ""}
+                          <span
+                            className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] ${statusChipClass(it.status)}`}
+                          >
+                            {it.status}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-        )}
-      />
+        </section>
+      )}
 
       {/* 6. Banner */}
       {banner && (
@@ -470,30 +717,77 @@ export function AppointmentsBoard({
 
       {/* footer hint */}
       <p className="text-[10.5px] text-[#9A9890] mt-4">
-        TECH_LOAD_MAX = {TECH_LOAD_MAX} · 「預檢」按鈕待 pre_inspections 模組開發後啟用
+        TECH_LOAD_MAX = {TECH_LOAD_MAX} · 「未到率」= 已過日期但仍為「待到廠」/
+        總預約；「入廠率」= 已到廠以上 / 非取消預約
       </p>
     </main>
   );
 }
 
-function KpiCard({
-  label,
-  value,
-  sub,
-  color,
+function ViewTab({
+  active,
+  onClick,
+  children,
 }: {
-  label: string;
-  value: string;
-  sub: string;
-  color: string;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
-      <div className="text-[11px] text-[#9A9890]">{label}</div>
-      <div className="text-[22px] font-bold mt-1" style={{ color }}>
-        {value}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-[26px] px-3 rounded-md text-[11.5px] font-medium transition-all ${
+        active
+          ? "bg-white text-[#1A3A5C] shadow-sm"
+          : "text-[#5A5955] hover:text-[#1A3A5C]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function KanbanCardBody({
+  row,
+  basePath,
+}: {
+  row: AppointmentListRow;
+  basePath: string;
+}) {
+  return (
+    <Link
+      href={`${basePath}/${row.id}`}
+      className="block -m-3 px-3 py-2 hover:bg-[#F8F7F4]"
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono text-[11.5px] font-semibold text-[#1A3A5C]">
+          {(row.appointment_time as string).slice(0, 5)}
+        </span>
+        <span className="text-[12px] font-medium text-[#2C2C2A] truncate">
+          {row.customer_name ?? "（未指定）"}
+        </span>
       </div>
-      <div className="text-[11px] text-[#9A9890]">{sub}</div>
-    </div>
+      <div className="text-[11px] text-[#9A9890] mt-0.5 truncate font-mono">
+        {row.vehicle_license_plate ?? "—"}
+        {row.vehicle_model_name ? ` · ${row.vehicle_model_name}` : ""}
+      </div>
+      <div className="flex items-center gap-1 mt-1 flex-wrap">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[#EBF3FF] text-[#1A3A5C] text-[10.5px]">
+          {serviceTypeLabel(row.service_type)}
+          {row.service_subtype ? `-${row.service_subtype}` : ""}
+        </span>
+        {row.technician_name && (
+          <span className="text-[10.5px] text-[#5A5955]">
+            👨‍🔧 {row.technician_name}
+          </span>
+        )}
+        {row.estimated_hours && (
+          <span className="text-[10.5px] text-[#9A9890]">
+            {Number(row.estimated_hours).toFixed(1)}h
+          </span>
+        )}
+      </div>
+    </Link>
   );
 }

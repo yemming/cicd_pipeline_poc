@@ -164,3 +164,27 @@ export type NewCarKpiSummary = {
   arrived: number;
   sold_this_month: number;
 };
+
+export type NewCarByModelDatum = {
+  model: string;
+  series: string | null;
+  in_transit: number;
+  arrived: number;
+  displayed: number;
+  reserved: number;
+  sold: number;
+  delivered: number;
+  damaged: number;
+  total: number;
+} & Record<NewCarInventoryStatus, number>;
+
+export type NewCarSlowMover = {
+  id: string;
+  vin: string | null;
+  model_display_name: string | null;
+  color: string | null;
+  status: NewCarInventoryStatus;
+  arrival_date: string;
+  days_in_stock: number;
+  list_price: number | null;
+};

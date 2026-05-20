@@ -184,6 +184,39 @@ export async function lookupItemsByModelYear(
     .sort((a, b) => a.item_code.localeCompare(b.item_code));
 }
 
+// ============================================================================
+// P1-5 matrix view types — 給 compatibility-matrix.tsx 用
+// ============================================================================
+
+export type MatrixItemRow = {
+  id: string;
+  code: string;
+  name: string;
+  category: string | null;
+};
+
+export type MatrixModelCol = {
+  id: string;
+  series: string;
+  model_name: string;
+  display_name: string;
+};
+
+export type MatrixCell = {
+  compat_id: string;
+  year_start: number | null;
+  year_end: number | null;
+  notes: string | null;
+  is_verified: boolean;
+};
+
+export type CompatMatrix = {
+  items: MatrixItemRow[];
+  models: MatrixModelCol[];
+  cells: Record<string, MatrixCell>; // key = `${itemId}|${modelId}`
+  categories: string[];
+};
+
 export async function getCompatibilityPageData(filter: {
   series?: string;
 }): Promise<{

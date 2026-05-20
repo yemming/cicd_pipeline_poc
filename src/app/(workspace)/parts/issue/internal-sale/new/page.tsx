@@ -4,6 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getInternalSaleFormData } from "@/domain/issues";
+import { listDestinationStores } from "@/domain/internal-sale-issues";
 
 import { NewInternalSaleForm } from "./_components/new-internal-sale-form";
 
@@ -19,6 +20,18 @@ export default async function NewInternalSalePage() {
       </main>
     );
   }
-  const data = await getInternalSaleFormData();
-  return <NewInternalSaleForm data={data} />;
+  const [data, destinationStores] = await Promise.all([
+    getInternalSaleFormData(),
+    listDestinationStores(),
+  ]);
+  const warehouseCodeMap = Object.fromEntries(
+    data.warehouses.map((w) => [w.id, w.code]),
+  );
+  return (
+    <NewInternalSaleForm
+      data={data}
+      destinationStores={destinationStores}
+      warehouseCodeMap={warehouseCodeMap}
+    />
+  );
 }

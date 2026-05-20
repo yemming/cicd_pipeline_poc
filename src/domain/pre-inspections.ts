@@ -13,6 +13,7 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import type {
   CheckRow,
   DotMark,
+  PreInspectionMode,
   PreInspectionStatus,
   SaQuoteItem,
   Signature,
@@ -44,6 +45,7 @@ export type PreInspectionRow = {
   organization_id: string | null;
   pi_no: string;
   status: PreInspectionStatus;
+  mode: PreInspectionMode;
   appointment_id: string | null;
   customer_id: string | null;
   vehicle_id: string | null;
@@ -58,6 +60,7 @@ export type PreInspectionRow = {
   estimated_subtotal: number | null;
   estimated_labor_units: number | null;
   metadata: PreInspectionMetadata | null;
+  photos: string[];
   signed_at: string | null;
   transferred_at: string | null;
   created_at: string | null;
@@ -73,6 +76,7 @@ export type PreInspectionListRow = PreInspectionRow & {
 
 export type PreInspectionFilters = {
   status?: PreInspectionStatus | "all";
+  mode?: PreInspectionMode | "all";
   q?: string;
 };
 
@@ -83,7 +87,15 @@ function decorate(rows: PreInspectionRow[]): PreInspectionListRow[] {
     const done = checks.filter((c) => c.state >= 0).length;
     const warn = checks.filter((c) => c.state === 1).length;
     const dmg = checks.filter((c) => c.state === 2).length;
-    return { ...r, total_checks: total, done_checks: done, warning_count: warn, damage_count: dmg };
+    return {
+      ...r,
+      photos: Array.isArray(r.photos) ? r.photos : [],
+      mode: (r.mode ?? "full") as PreInspectionMode,
+      total_checks: total,
+      done_checks: done,
+      warning_count: warn,
+      damage_count: dmg,
+    };
   });
 }
 
@@ -102,6 +114,9 @@ export async function listPreInspections(
 
   if (filters.status && filters.status !== "all") {
     query = query.eq("status", filters.status);
+  }
+  if (filters.mode && filters.mode !== "all") {
+    query = query.eq("mode", filters.mode);
   }
   if (filters.q && filters.q.trim()) {
     const q = filters.q.trim();

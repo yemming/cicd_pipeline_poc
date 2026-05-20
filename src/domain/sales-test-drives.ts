@@ -24,6 +24,8 @@ import type {
   ListTestDrivesFilter,
   CreateTestDriveInput,
   UpdateTestDriveInput,
+  CompleteTestDriveInput,
+  TestDriveStats,
   Result,
   TestDriveLookups,
 } from "./sales-test-drives.constants";
@@ -39,6 +41,8 @@ export type {
   ListTestDrivesFilter,
   CreateTestDriveInput,
   UpdateTestDriveInput,
+  CompleteTestDriveInput,
+  TestDriveStats,
   Result,
   TestDriveLookups,
 };
@@ -95,6 +99,7 @@ type RawListRow = {
   customer_id: string | null;
   vehicle_model_id: string | null;
   lead_id: string | null;
+  handcard_id: string | null;
   sales_consultant_id: string | null;
   scheduled_at: string;
   completed_at: string | null;
@@ -115,6 +120,7 @@ function shapeRow(r: RawListRow): TestDriveRow {
     customer_id: r.customer_id,
     vehicle_model_id: r.vehicle_model_id,
     lead_id: r.lead_id,
+    handcard_id: r.handcard_id,
     sales_consultant_id: r.sales_consultant_id,
     scheduled_at: r.scheduled_at,
     completed_at: r.completed_at,
@@ -133,7 +139,7 @@ function shapeRow(r: RawListRow): TestDriveRow {
 }
 
 const SELECT_FIELDS =
-  "id, brand_id, customer_id, vehicle_model_id, lead_id, sales_consultant_id, scheduled_at, completed_at, status, notes, metadata, created_at, updated_at, customer:customers!sales_test_drives_customer_id_fkey ( name ), vehicle_model:vehicle_models!sales_test_drives_vehicle_model_id_fkey ( model_name ), consultant:employees!sales_test_drives_sales_consultant_id_fkey ( name )";
+  "id, brand_id, customer_id, vehicle_model_id, lead_id, handcard_id, sales_consultant_id, scheduled_at, completed_at, status, notes, metadata, created_at, updated_at, customer:customers!sales_test_drives_customer_id_fkey ( name ), vehicle_model:vehicle_models!sales_test_drives_vehicle_model_id_fkey ( model_name ), consultant:employees!sales_test_drives_sales_consultant_id_fkey ( name )";
 
 export async function listTestDrives(
   filter: ListTestDrivesFilter = {},
@@ -283,4 +289,78 @@ export async function deleteTestDrive(
 
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Complete（試駕完成回填 — 寫 rating / feedback / 里程 / 路線到 metadata）
+// ─────────────────────────────────────────────────────────────
+
+export async function completeTestDrive(
+  id: string,
+  payload: CompleteTestDriveInput,
+): Promise<Result<{ id: string; handcard_id: string | null }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 讀現有 metadata 合併
+  const { data: existing, error: rErr } = await supabase
+    .from("sales_test_drives")
+    .select("id, handcard_id, metadata")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (rErr) return { ok: false, error: rErr.message };
+  if (!existing) return { ok: false, error: "找不到試駕記錄" };
+
+  const prevMeta =
+    existing.metadata && typeof existing.metadata === "object"
+      ? (existing.metadata as Record<string, unknown>)
+      : {};
+
+  const meta: Record<string, unknown> = {
+    ...prevMeta,
+    rating: payload.rating ?? null,
+    feedback: payload.feedback ?? null,
+    mileage_before: payload.mileage_before ?? null,
+    mileage_after: payload.mileage_after ?? null,
+    route_taken: payload.route_taken ?? null,
+  };
+
+  const { error } = await supabase
+    .from("sales_test_drives")
+    .update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      notes: payload.notes ?? null,
+      metadata: meta,
+    })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: error.message };
+
+  return {
+    ok: true,
+    data: { id, handcard_id: existing.handcard_id ?? null },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Link to handcard — 試駕完成後綁定接待手卡
+// ─────────────────────────────────────────────────────────────
+
+export async function linkToHandcard(
+  testRideId: string,
+  handcardId: string,
+): Promise<Result<{ id: string }>> {
+  if (!testRideId) return { ok: false, error: "缺少試駕 id" };
+  if (!handcardId) return { ok: false, error: "缺少手卡 id" };
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("sales_test_drives")
+    .update({ handcard_id: handcardId })
+    .eq("id", testRideId)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: { id: testRideId } };
 }

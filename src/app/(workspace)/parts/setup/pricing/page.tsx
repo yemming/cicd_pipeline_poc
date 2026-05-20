@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function PricingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ store?: string; q?: string }>;
+  searchParams: Promise<{ store?: string; q?: string; type?: string; band?: string }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -35,10 +35,13 @@ export default async function PricingPage({
     <PricingBoard
       stores={data.stores}
       rows={data.rows}
+      stats={data.stats}
       activeStoreId={data.activeStoreId}
       activeStoreName={data.activeStoreName}
       canEdit={data.canEdit}
       initialQ={sp.q ?? ""}
+      initialType={sp.type ?? ""}
+      initialBand={sp.band ?? ""}
     />
   );
 }

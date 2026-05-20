@@ -213,10 +213,13 @@ export async function getCountPlansPageData(
   rows: CountPlanListRow[];
   warehouses: { id: string; name: string; code: string }[];
   canEdit: boolean;
+  stats: CountPlansStats;
+  ganttBars: CountPlanGanttBar[];
+  ganttRange: { from: string; to: string };
 }> {
   const supabase = await createClient();
   const scope = await getActiveScope();
-  const [rows, canEdit, whRes] = await Promise.all([
+  const [rows, canEdit, whRes, stats, ganttBars] = await Promise.all([
     listCountPlans({ is_active: filter.is_active, q: filter.q }),
     hasPermission(PERMISSIONS.COUNT_PLAN),
     supabase
@@ -225,11 +228,164 @@ export async function getCountPlansPageData(
       .eq("brand_id", scope.brand_id)
       .eq("is_active", true)
       .order("code"),
+    getCountPlansStats(),
+    getCountPlanGanttData(),
   ]);
   const filteredRows = filter.warehouse_id
     ? rows.filter((r) => r.warehouse_id === filter.warehouse_id)
     : rows;
-  return { rows: filteredRows, warehouses: whRes.data ?? [], canEdit };
+  const now = new Date();
+  const from = new Date(now.getTime() - 30 * 86400_000).toISOString().slice(0, 10);
+  const to = new Date(now.getTime() + 60 * 86400_000).toISOString().slice(0, 10);
+  return {
+    rows: filteredRows,
+    warehouses: whRes.data ?? [],
+    canEdit,
+    stats,
+    ganttBars,
+    ganttRange: { from, to },
+  };
+}
+
+// ─────────────────────────── Count Plans 排期 / KPI（A 級補強） ───────────────────────────
+
+export interface CountPlansStats {
+  /** 本月已排定（next_run_at 在本月）+ 本月已執行（last_run_at 在本月）合計 */
+  this_month_total: number;
+  /** 本月已執行（last_run_at 在本月） */
+  this_month_executed: number;
+  /** 本月計畫的完成率（已執行 / 本月計畫總數）— null = 本月沒有計畫 */
+  completion_rate: number | null;
+  /** 接下來 7 天內待執行（next_run_at 在 7 天內、is_active=true） */
+  upcoming_7d: number;
+  /** 逾期（next_run_at 過了但沒 last_run_at、is_active=true） */
+  overdue: number;
+}
+
+export async function getCountPlansStats(): Promise<CountPlansStats> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("inventory_count_plans")
+    .select("next_run_at, last_run_at, is_active")
+    .eq("brand_id", brand);
+  if (error) throw error;
+  const rows = data ?? [];
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const in7d = new Date(now.getTime() + 7 * 86400_000);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  let thisMonthScheduled = 0;
+  let thisMonthExecuted = 0;
+  let upcoming7d = 0;
+  let overdue = 0;
+
+  for (const r of rows) {
+    const nextRun = r.next_run_at ? new Date(r.next_run_at) : null;
+    const lastRun = r.last_run_at ? new Date(r.last_run_at) : null;
+    if (nextRun && nextRun >= monthStart && nextRun < monthEnd) thisMonthScheduled++;
+    if (lastRun && lastRun >= monthStart && lastRun < monthEnd) thisMonthExecuted++;
+    if (r.is_active && nextRun && nextRun >= today && nextRun <= in7d) upcoming7d++;
+    if (r.is_active && nextRun && nextRun < today && !lastRun) overdue++;
+  }
+
+  const thisMonthTotal = thisMonthScheduled + thisMonthExecuted;
+  const completionRate =
+    thisMonthTotal > 0 ? Math.round((thisMonthExecuted / thisMonthTotal) * 1000) / 10 : null;
+
+  return {
+    this_month_total: thisMonthTotal,
+    this_month_executed: thisMonthExecuted,
+    completion_rate: completionRate,
+    upcoming_7d: upcoming7d,
+    overdue,
+  };
+}
+
+export interface CountPlanGanttBar {
+  id: string;
+  plan_name: string;
+  warehouse_name: string | null;
+  plan_type: string | null;
+  /** 起始日 ISO（last_run_at 或 next_run_at） */
+  start: string;
+  /** 結束日 ISO（start + duration_days） */
+  end: string;
+  /** 來自 metadata.duration_days，預設 2 */
+  duration_days: number;
+  /** 來自 metadata.assignee_label */
+  assignee_label: string | null;
+  /** 狀態：done / scheduled / overdue / paused */
+  status: "done" | "scheduled" | "overdue" | "paused";
+  is_active: boolean;
+}
+
+export async function getCountPlanGanttData(): Promise<CountPlanGanttBar[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("inventory_count_plans")
+    .select("id, plan_name, warehouse_id, plan_type, next_run_at, last_run_at, is_active, metadata")
+    .eq("brand_id", brand);
+  if (error) throw error;
+  const plans = data ?? [];
+
+  const wIds = Array.from(new Set(plans.map((p) => p.warehouse_id).filter((x): x is string => !!x)));
+  const wRes = wIds.length > 0
+    ? await supabase.from("warehouses").select("id, name").in("id", wIds)
+    : { data: [], error: null };
+  if (wRes.error) throw wRes.error;
+  const wMap = new Map((wRes.data ?? []).map((w) => [w.id, w.name]));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return plans
+    .map((p): CountPlanGanttBar | null => {
+      const meta = (p.metadata as Record<string, unknown> | null) ?? {};
+      const durationDays =
+        typeof meta.duration_days === "number" && meta.duration_days > 0
+          ? meta.duration_days
+          : 2;
+      const assigneeLabel =
+        typeof meta.assignee_label === "string" ? meta.assignee_label : null;
+
+      // 優先用 last_run_at（已執行的呈現歷史 bar）、不然用 next_run_at（排程 bar）
+      const baseDateStr = p.last_run_at ?? p.next_run_at;
+      if (!baseDateStr) return null;
+      const startDate = new Date(baseDateStr);
+      if (Number.isNaN(startDate.getTime())) return null;
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(startDate.getTime() + durationDays * 86400_000);
+
+      let status: CountPlanGanttBar["status"];
+      if (!p.is_active) {
+        status = "paused";
+      } else if (p.last_run_at && new Date(p.last_run_at) >= startDate) {
+        status = "done";
+      } else if (p.next_run_at && new Date(p.next_run_at) < today && !p.last_run_at) {
+        status = "overdue";
+      } else {
+        status = "scheduled";
+      }
+
+      return {
+        id: p.id,
+        plan_name: p.plan_name,
+        warehouse_name: p.warehouse_id ? wMap.get(p.warehouse_id) ?? null : null,
+        plan_type: p.plan_type,
+        start: startDate.toISOString().slice(0, 10),
+        end: endDate.toISOString().slice(0, 10),
+        duration_days: durationDays,
+        assignee_label: assigneeLabel,
+        status,
+        is_active: p.is_active,
+      };
+    })
+    .filter((x): x is CountPlanGanttBar => x !== null)
+    .sort((a, b) => a.start.localeCompare(b.start));
 }
 
 export async function getCountPlanById(id: string): Promise<{

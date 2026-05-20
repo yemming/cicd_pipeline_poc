@@ -13,6 +13,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import {
+  getAftersalesCallTaskInsights,
   getCallTaskBoardData,
   getCallTaskHistoryByCustomerIds,
   getNearestCallTaskDate,
@@ -27,7 +28,7 @@ import {
   CALL_TYPE_SHORT_LABEL,
 } from "@/domain/sales-call-tasks.constants";
 
-import { CallTasksBoard } from "../../sales/call-tasks/_components/call-tasks-board";
+import { AftersalesCallTasksBoard } from "./_components/aftersales-call-tasks-board";
 
 export const dynamic = "force-dynamic";
 
@@ -82,10 +83,11 @@ export default async function Page({
     call_type: sp.call_type ?? "all",
     assignee: sp.assignee ?? "all",
   };
-  const { rows, kpi, by_call_type, date_total } = await getCallTaskBoardData(
-    filters,
-    userId,
-  );
+  const [{ rows, kpi, by_call_type, date_total, range_label }, insights] =
+    await Promise.all([
+      getCallTaskBoardData(filters, userId),
+      getAftersalesCallTaskInsights(),
+    ]);
 
   const customerIds = Array.from(
     new Set(rows.map((r) => r.customer_id).filter(Boolean)),
@@ -124,7 +126,7 @@ export default async function Page({
   }
 
   return (
-    <CallTasksBoard
+    <AftersalesCallTasksBoard
       rows={rows}
       kpi={kpi}
       byCallType={by_call_type}
@@ -134,6 +136,8 @@ export default async function Page({
       currentUserId={userId}
       historyMap={historyMap}
       basePath={BASE_PATH}
+      rangeLabel={range_label}
+      insights={insights}
     />
   );
 }

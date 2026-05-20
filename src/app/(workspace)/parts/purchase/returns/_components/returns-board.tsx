@@ -13,14 +13,24 @@ import {
   deletePurchaseReturn,
   getPurchaseOrderLinesForReturn,
   shipPurchaseReturn,
-  type AddPurchaseReturnInput,
-  type POLineForReturn,
-  type PurchaseReturnRowExpanded,
-  type PurchaseReturnKpis,
-  type VendorOption,
-  type POOption,
+} from "@/domain/parts-purchase-returns";
+import type {
+  AddPurchaseReturnInput,
+  POLineForReturn,
+  PurchaseReturnRowExpanded,
+  PurchaseReturnKpis,
+  VendorOption,
+  POOption,
 } from "@/domain/procurement";
-import { RETURN_REASONS, RETURN_STATUSES, fmtDateTime } from "@/domain/procurement.constants";
+import type { ReturnReasonBreakdown } from "@/domain/parts-purchase-returns.constants";
+import {
+  RETURN_REASONS,
+  RETURN_STATUSES,
+  fmtDateTime,
+  REASON_DONUT_COLOR,
+} from "@/domain/parts-purchase-returns.constants";
+import { KpiCard } from "@/components/visualization/KpiCard";
+import { DonutChart, type DonutDatum } from "@/components/charts/DonutChart";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -73,6 +83,7 @@ export function ReturnsBoard({
   kpis,
   vendors,
   poOptions,
+  reasonBreakdown,
   canEdit,
   canApprove,
   filter,
@@ -84,6 +95,7 @@ export function ReturnsBoard({
   kpis: PurchaseReturnKpis;
   vendors: VendorOption[];
   poOptions: POOption[];
+  reasonBreakdown: ReturnReasonBreakdown[];
   canEdit: boolean;
   canApprove: boolean;
   filter: {
@@ -280,33 +292,35 @@ export function ReturnsBoard({
         </div>
       )}
 
-      {/* 3. KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-        <KpiCard
-          label="待處理退貨"
-          value={kpis.pending_count}
-          unit="筆退貨申請"
-          color="#854F0B"
-        />
-        <KpiCard
-          label="退貨中（物流）"
-          value={kpis.shipped_count}
-          unit="筆已寄出"
-          color="#185FA5"
-        />
-        <KpiCard
-          label="本月已完成退貨"
-          value={kpis.completed_this_month}
-          unit="筆退貨完成"
-          color="#0F6E56"
-        />
-        <KpiCard
-          label="本月退貨金額"
-          value={kpis.amount_this_month}
-          unit={`NT$ ${Math.round(kpis.amount_this_month).toLocaleString("en-US")}`}
-          color="#1A3A5C"
-          isAmount
-        />
+      {/* 3. KPI cards + Donut（退貨原因分佈） */}
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-2.5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          <KpiCard
+            label="待處理退貨"
+            value={kpis.pending_count}
+            tone="amber"
+            layout="vertical"
+          />
+          <KpiCard
+            label="退貨中（物流）"
+            value={kpis.shipped_count}
+            tone="blue"
+            layout="vertical"
+          />
+          <KpiCard
+            label="本月已完成退貨"
+            value={kpis.completed_this_month}
+            tone="teal"
+            layout="vertical"
+          />
+          <KpiCard
+            label="本月退貨金額"
+            value={fmtNTShort(kpis.amount_this_month)}
+            tone="blue"
+            layout="vertical"
+          />
+        </div>
+        <ReasonBreakdownCard breakdown={reasonBreakdown} />
       </div>
 
       {/* 4. Filter Bar */}
@@ -607,29 +621,60 @@ export function ReturnsBoard({
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// KPI Card
+// Reason Breakdown Card — DonutChart 退貨原因分佈
 // ──────────────────────────────────────────────────────────────────────────
-function KpiCard({
-  label,
-  value,
-  unit,
-  color,
-  isAmount,
-}: {
-  label: string;
-  value: number;
-  unit: string;
-  color: string;
-  isAmount?: boolean;
-}) {
+function ReasonBreakdownCard({ breakdown }: { breakdown: ReturnReasonBreakdown[] }) {
+  const total = breakdown.reduce((sum, b) => sum + b.count, 0);
+  const data: DonutDatum[] = breakdown.map((b) => ({
+    name: RETURN_REASONS.find((r) => r.value === b.reason)?.label ?? b.reason,
+    value: b.count,
+    color: REASON_DONUT_COLOR[b.reason] ?? "#9A9890",
+  }));
+
   return (
-    <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
-      <div className="text-[11px] text-[#9A9890]">{label}</div>
-      <div className="font-mono font-semibold my-1" style={{ color, fontSize: isAmount ? 22 : 24 }}>
-        {isAmount ? fmtNTShort(value) : value}
+    <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+        <span className="text-[13px] font-semibold text-[#2C2C2A]">退貨原因分佈</span>
+        <span className="text-[11px] text-[#9A9890]">不含作廢</span>
+      </header>
+      <div className="px-3 py-2 grid grid-cols-[120px_1fr] gap-2 items-center">
+        {total === 0 ? (
+          <div className="col-span-2 text-center py-6 text-[12px] text-[#9A9890]">
+            尚無退貨資料
+          </div>
+        ) : (
+          <>
+            <DonutChart
+              data={data}
+              size="sm"
+              centerLabel={String(total)}
+              centerCaption="筆"
+              showTooltip
+            />
+            <div className="space-y-1">
+              {breakdown.slice(0, 5).map((b) => {
+                const label = RETURN_REASONS.find((r) => r.value === b.reason)?.label ?? b.reason;
+                const color = REASON_DONUT_COLOR[b.reason] ?? "#9A9890";
+                const pct = total > 0 ? Math.round((b.count / total) * 100) : 0;
+                return (
+                  <div key={b.reason} className="flex items-center gap-1.5 text-[11.5px]">
+                    <span
+                      className="inline-block w-2 h-2 rounded-full shrink-0"
+                      style={{ background: color }}
+                    />
+                    <span className="text-[#2C2C2A] truncate flex-1">{label}</span>
+                    <span className="font-mono text-[#5A5955]">{b.count}</span>
+                    <span className="font-mono text-[10.5px] text-[#9A9890] w-[34px] text-right">
+                      {pct}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
-      <div className="text-[11px] text-[#9A9890]">{unit}</div>
-    </div>
+    </section>
   );
 }
 

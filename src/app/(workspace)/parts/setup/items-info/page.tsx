@@ -3,7 +3,12 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getItemsInfoPageData } from "@/domain/items";
+import {
+  getItemsInfoPageData,
+  getItemsInfoKpis,
+  listItemsInfoOverview,
+  getItemDimensions,
+} from "@/domain/items";
 
 import { ItemsInfoBoard } from "./_components/items-info-board";
 
@@ -26,10 +31,17 @@ export default async function ItemsInfoPage({
   }
 
   const sp = await searchParams;
-  const { result, searched, canEdit } = await getItemsInfoPageData({
-    q: sp.q || undefined,
-    sku_type: sp.sku_type || undefined,
-  });
+  const [{ result, searched, canEdit }, kpis, overview] = await Promise.all([
+    getItemsInfoPageData({
+      q: sp.q || undefined,
+      sku_type: sp.sku_type || undefined,
+    }),
+    getItemsInfoKpis(),
+    listItemsInfoOverview(),
+  ]);
+
+  // 命中查詢時，順帶撈該商品的多維度資料（適配車型 + 供應商定價），給管理 Modal 用
+  const dimensions = result ? await getItemDimensions(result.id) : null;
 
   return (
     <ItemsInfoBoard
@@ -38,6 +50,9 @@ export default async function ItemsInfoPage({
       result={result}
       searched={searched}
       canEdit={canEdit}
+      kpis={kpis}
+      overview={overview}
+      dimensions={dimensions}
     />
   );
 }

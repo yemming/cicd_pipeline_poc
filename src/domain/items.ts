@@ -561,3 +561,284 @@ export async function getItemLabelData(id: string): Promise<ItemLabelData | null
   if (error || !data) return null;
   return data as unknown as ItemLabelData;
 }
+
+/**
+ * 商品資訊 (items-info) 頂部 KPI 條：當前 brand 的多維度料號統計。
+ *
+ * 五個指標：
+ * - totalItems：本 brand 啟用中商品數
+ * - skuCount：所有維度料號筆數
+ * - itemsWithSku：已建立至少 1 筆 SKU 的商品數
+ * - itemsMissingSku：啟用中但 0 筆 SKU 的商品數（需補維度）
+ * - alternateCount：替代 / 供應商料號筆數（業務避坑指標）
+ */
+export type ItemsInfoKpis = {
+  totalItems: number;
+  itemsWithSku: number;
+  itemsMissingSku: number;
+  skuCount: number;
+  alternateCount: number;
+  supplierCount: number;
+  barcodeCount: number;
+  byType: { sku_type: string; count: number }[];
+};
+
+export async function getItemsInfoKpis(): Promise<ItemsInfoKpis> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const [itemsRes, skusRes] = await Promise.all([
+    supabase
+      .from("items")
+      .select("id")
+      .eq("brand_id", brand)
+      .eq("is_active", true),
+    supabase
+      .from("item_skus")
+      .select("item_id, sku_type")
+      .eq("brand_id", brand),
+  ]);
+
+  const items = (itemsRes.data ?? []) as { id: string }[];
+  const skus = (skusRes.data ?? []) as { item_id: string; sku_type: string }[];
+
+  const itemIdsWithSku = new Set(skus.map((s) => s.item_id));
+  const byTypeMap = new Map<string, number>();
+  for (const s of skus) {
+    byTypeMap.set(s.sku_type, (byTypeMap.get(s.sku_type) ?? 0) + 1);
+  }
+  const byType = Array.from(byTypeMap.entries())
+    .map(([sku_type, count]) => ({ sku_type, count }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    totalItems: items.length,
+    itemsWithSku: items.filter((it) => itemIdsWithSku.has(it.id)).length,
+    itemsMissingSku: items.filter((it) => !itemIdsWithSku.has(it.id)).length,
+    skuCount: skus.length,
+    alternateCount: byTypeMap.get("alternate") ?? 0,
+    supplierCount: byTypeMap.get("supplier") ?? 0,
+    barcodeCount: byTypeMap.get("barcode") ?? 0,
+    byType,
+  };
+}
+
+/**
+ * 已建立 SKU 的商品快覽（左欄列表用）— 最近異動排前面、最多 50 筆。
+ *
+ * 給商品資訊頁的「最近編輯 / Top 商品」面板用：使用者沒輸入查詢時也能直接點清單瀏覽。
+ */
+export type ItemsInfoListItem = {
+  id: string;
+  code: string;
+  name: string;
+  category: string | null;
+  control_type: string | null;
+  sku_count: number;
+  has_primary: boolean;
+  updated_at: string;
+};
+
+export async function listItemsInfoOverview(): Promise<ItemsInfoListItem[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const [itemsRes, skusRes] = await Promise.all([
+    supabase
+      .from("items")
+      .select("id, code, name, category, control_type, updated_at")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("item_skus")
+      .select("item_id, is_primary")
+      .eq("brand_id", brand),
+  ]);
+
+  const skus = (skusRes.data ?? []) as { item_id: string; is_primary: boolean }[];
+  const countMap = new Map<string, number>();
+  const primaryMap = new Map<string, boolean>();
+  for (const s of skus) {
+    countMap.set(s.item_id, (countMap.get(s.item_id) ?? 0) + 1);
+    if (s.is_primary) primaryMap.set(s.item_id, true);
+  }
+
+  return ((itemsRes.data ?? []) as {
+    id: string;
+    code: string;
+    name: string;
+    category: string | null;
+    control_type: string | null;
+    updated_at: string;
+  }[]).map((it) => ({
+    id: it.id,
+    code: it.code,
+    name: it.name,
+    category: it.category,
+    control_type: it.control_type,
+    sku_count: countMap.get(it.id) ?? 0,
+    has_primary: primaryMap.get(it.id) ?? false,
+    updated_at: it.updated_at,
+  }));
+}
+
+/**
+ * 單一商品的多維度資訊（給管理 Modal 多 tab 用）。
+ *
+ * 一次撈：
+ * - skus：所有維度料號（含 supplier_id ref）
+ * - fitments：適配車型（含車型名稱 / 年份）
+ * - supplierPricing：供應商定價（含 supplier name）
+ * - suppliers：本 brand 所有供應商（給「新增供應商料號」的下拉用）
+ * - vehicleModels：本 brand 所有車型（給「新增適配」的下拉用）
+ */
+export type ItemDimensionsFitment = {
+  id: string;
+  vehicle_model_id: string;
+  vehicle_display: string;
+  year_start: number | null;
+  year_end: number | null;
+  is_verified: boolean;
+  notes: string | null;
+};
+
+export type ItemDimensionsSupplierPricing = {
+  id: string;
+  supplier_id: string;
+  supplier_name: string;
+  is_primary: boolean;
+  unit_price: number;
+  currency: string;
+  lead_time_days: number;
+  min_order_qty: number;
+  is_active: boolean;
+};
+
+export type ItemDimensionsSkuRow = ItemSkuRow & {
+  supplier_name?: string | null;
+};
+
+export type ItemDimensions = {
+  item: ItemRow;
+  skus: ItemDimensionsSkuRow[];
+  fitments: ItemDimensionsFitment[];
+  supplierPricing: ItemDimensionsSupplierPricing[];
+  suppliers: { id: string; code: string; name: string }[];
+  vehicleModels: { id: string; series: string; model_name: string; display_name: string }[];
+};
+
+export async function getItemDimensions(itemId: string): Promise<ItemDimensions | null> {
+  if (!itemId) return null;
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const [itemRes, skusRes, fitRes, pricingRes, supRes, modelRes] = await Promise.all([
+    supabase.from("items").select("*").eq("id", itemId).eq("brand_id", brand).single(),
+    supabase
+      .from("item_skus")
+      .select("*, suppliers:supplier_id ( name )")
+      .eq("item_id", itemId)
+      .eq("brand_id", brand)
+      .order("is_primary", { ascending: false })
+      .order("sku_type"),
+    supabase
+      .from("item_vehicle_compatibility")
+      .select(
+        "id, vehicle_model_id, year_start, year_end, is_verified, notes, vehicle_models:vehicle_model_id ( display_name, series, model_name, year_start, year_end )",
+      )
+      .eq("item_id", itemId)
+      .eq("brand_id", brand)
+      .order("is_verified", { ascending: false }),
+    supabase
+      .from("supplier_item_pricing")
+      .select(
+        "id, supplier_id, is_primary, unit_price, currency, lead_time_days, min_order_qty, is_active, suppliers:supplier_id ( name )",
+      )
+      .eq("item_id", itemId)
+      .eq("brand_id", brand)
+      .order("is_primary", { ascending: false })
+      .order("unit_price"),
+    supabase.from("suppliers").select("id, code, name").eq("brand_id", brand).eq("is_active", true).order("code"),
+    supabase
+      .from("vehicle_models")
+      .select("id, series, model_name, display_name")
+      .eq("brand_id", brand)
+      .eq("is_active", true)
+      .order("series")
+      .order("model_name"),
+  ]);
+
+  if (itemRes.error || !itemRes.data) return null;
+
+  // supabase typed FK joins 會回成 array（即使語意上是 0..1）；統一用 unknown 中介轉型
+  type SkuRowRaw = ItemSkuRow & { suppliers: { name: string }[] | { name: string } | null };
+  type FitRowRaw = {
+    id: string;
+    vehicle_model_id: string;
+    year_start: number | null;
+    year_end: number | null;
+    is_verified: boolean;
+    notes: string | null;
+    vehicle_models:
+      | { display_name: string; year_start: number | null; year_end: number | null }[]
+      | { display_name: string; year_start: number | null; year_end: number | null }
+      | null;
+  };
+  type PricingRowRaw = {
+    id: string;
+    supplier_id: string;
+    is_primary: boolean;
+    unit_price: number;
+    currency: string;
+    lead_time_days: number;
+    min_order_qty: number;
+    is_active: boolean;
+    suppliers: { name: string }[] | { name: string } | null;
+  };
+
+  function pickOne<T>(v: T[] | T | null | undefined): T | null {
+    if (!v) return null;
+    if (Array.isArray(v)) return v[0] ?? null;
+    return v;
+  }
+
+  return {
+    item: itemRes.data as ItemRow,
+    skus: ((skusRes.data ?? []) as unknown as SkuRowRaw[]).map((s) => ({
+      ...s,
+      supplier_name: pickOne(s.suppliers)?.name ?? null,
+    })),
+    fitments: ((fitRes.data ?? []) as unknown as FitRowRaw[]).map((f) => {
+      const m = pickOne(f.vehicle_models);
+      return {
+        id: f.id,
+        vehicle_model_id: f.vehicle_model_id,
+        vehicle_display: m?.display_name ?? "（已刪除）",
+        year_start: f.year_start ?? m?.year_start ?? null,
+        year_end: f.year_end ?? m?.year_end ?? null,
+        is_verified: f.is_verified,
+        notes: f.notes,
+      };
+    }),
+    supplierPricing: ((pricingRes.data ?? []) as unknown as PricingRowRaw[]).map((p) => ({
+      id: p.id,
+      supplier_id: p.supplier_id,
+      supplier_name: pickOne(p.suppliers)?.name ?? "（未知供應商）",
+      is_primary: p.is_primary,
+      unit_price: Number(p.unit_price),
+      currency: p.currency,
+      lead_time_days: p.lead_time_days,
+      min_order_qty: Number(p.min_order_qty),
+      is_active: p.is_active,
+    })),
+    suppliers: (supRes.data ?? []) as { id: string; code: string; name: string }[],
+    vehicleModels: (modelRes.data ?? []) as {
+      id: string;
+      series: string;
+      model_name: string;
+      display_name: string;
+    }[],
+  };
+}

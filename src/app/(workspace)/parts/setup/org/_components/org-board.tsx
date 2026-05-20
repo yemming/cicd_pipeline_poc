@@ -20,9 +20,13 @@ import {
 } from "@/domain/org";
 import type {
   OrgRow,
+  OrgTreeNode,
+  OrgTreeStats,
   SubsidiaryOption,
   WarehouseRow,
 } from "@/domain/org";
+import { HierarchyTree, type TreeNode } from "@/components/visualization/HierarchyTree";
+import { KpiCard } from "@/components/visualization/KpiCard";
 
 const STORE_TYPE_OPTIONS = [
   { value: "direct", label: "直營" },
@@ -62,6 +66,8 @@ export function OrgBoard({
   subsidiaries,
   binCountsByWarehouseId,
   canEdit,
+  tree,
+  treeStats,
 }: {
   regions: OrgRow[];
   stores: OrgRow[];
@@ -69,14 +75,83 @@ export function OrgBoard({
   subsidiaries: SubsidiaryOption[];
   binCountsByWarehouseId: Record<string, number>;
   canEdit: boolean;
+  tree: OrgTreeNode[];
+  treeStats: OrgTreeStats;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [modal, setModal] = useState<Modal>({ kind: "none" });
   const [banner, setBanner] = useState<Banner>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
+    tree[0]?.id ?? null,
+  );
 
   const regionById = useMemo(() => new Map(regions.map((r) => [r.id, r])), [regions]);
   const storeById = useMemo(() => new Map(stores.map((s) => [s.id, s])), [stores]);
+
+  // 把 OrgTreeNode 樹轉為 <HierarchyTree> 需要的 TreeNode（label + 右側 badge 顯示計數 + 停用 chip）
+  const treeData = useMemo<TreeNode[]>(() => {
+    function toTreeNode(n: OrgTreeNode): TreeNode {
+      const childCountLabel =
+        n.kind === "region"
+          ? `${n.childCount ?? 0} 店`
+          : n.kind === "store"
+            ? `${n.childCount ?? 0} 倉`
+            : `${n.childCount ?? 0} 庫位`;
+      return {
+        id: n.id,
+        label: `${n.label}　${n.code}`,
+        badge: (
+          <span className="inline-flex items-center gap-1">
+            <span className="text-[10.5px] text-[#9A9890]">{childCountLabel}</span>
+            {!n.isActive ? (
+              <span className="px-1 py-0 rounded-sm text-[10px] bg-[#F2F2F2] text-[#6B6A68]">
+                停用
+              </span>
+            ) : null}
+          </span>
+        ),
+        children: n.children?.map(toTreeNode),
+      };
+    }
+    return tree.map(toTreeNode);
+  }, [tree]);
+
+  // 查找選中節點的 entity 物件（給 detail panel 用）
+  const selectedNode = useMemo<OrgTreeNode | null>(() => {
+    if (!selectedNodeId) return null;
+    function walk(arr: OrgTreeNode[]): OrgTreeNode | null {
+      for (const n of arr) {
+        if (n.id === selectedNodeId) return n;
+        if (n.children?.length) {
+          const got = walk(n.children);
+          if (got) return got;
+        }
+      }
+      return null;
+    }
+    return walk(tree);
+  }, [selectedNodeId, tree]);
+
+  // 為 detail panel 提供「點此進 CRUD」的 callback（直接打開對應 modal）
+  function openSelectedEdit() {
+    if (!selectedNode || !canEdit) return;
+    if (selectedNode.kind === "region") {
+      const row = regions.find((r) => r.id === selectedNode.id);
+      if (row) setModal({ kind: "region-edit", row });
+    } else if (selectedNode.kind === "store") {
+      const row = stores.find((s) => s.id === selectedNode.id);
+      if (row) setModal({ kind: "store-edit", row });
+    } else if (selectedNode.kind === "warehouse") {
+      const row = warehouses.find((w) => w.id === selectedNode.id);
+      if (row) setModal({ kind: "warehouse-edit", row });
+    }
+  }
+
+  const storeActiveRate =
+    treeStats.storeCount === 0
+      ? 0
+      : Math.round((treeStats.storeActiveCount / treeStats.storeCount) * 100);
 
   function showBanner(b: Banner) {
     setBanner(b);
@@ -131,6 +206,106 @@ export function OrgBoard({
       <div className="px-4 py-2.5 rounded-lg bg-[#EAF4FB] border border-[#B5D4F4] text-[12px] text-[#185FA5]">
         📋 組織架構為整個庫存管理系統的基礎，所有採購、入庫、出庫、調撥作業均依此三層結構進行權限控管與數據隔離。
       </div>
+
+      {/* ───── KPI 列 ───────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard
+          label="銷售區域"
+          value={treeStats.regionCount}
+          tone="blue"
+          layout="horizontal"
+          icon={<span className="text-[18px]">🗺</span>}
+        />
+        <KpiCard
+          label="門店總數"
+          value={treeStats.storeCount}
+          tone="teal"
+          layout="horizontal"
+          icon={<span className="text-[18px]">🏪</span>}
+        />
+        <KpiCard
+          label="啟用門店占比"
+          value={`${storeActiveRate}%`}
+          tone={storeActiveRate >= 80 ? "green" : storeActiveRate >= 50 ? "amber" : "red"}
+          layout="horizontal"
+          icon={<span className="text-[18px]">✅</span>}
+        />
+        <KpiCard
+          label="倉庫總數"
+          value={treeStats.warehouseCount}
+          tone="amber"
+          layout="horizontal"
+          icon={<span className="text-[18px]">🏗</span>}
+        />
+      </div>
+
+      {/* ───── 三層樹 + Detail Panel（drill-down 視覺階層） ─────────── */}
+      <section className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div className="md:col-span-2 bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+            <div className="text-[13px] font-semibold text-[#2C2C2A]">🌲 三層樹</div>
+            <span className="text-[11px] text-[#9A9890]">區域 → 門店 → 倉庫</span>
+          </header>
+          {treeData.length === 0 ? (
+            <div className="px-4 py-10 text-[11.5px] text-[#9A9890] text-center">
+              尚無組織資料。請從下方「銷售區域」開始建立。
+            </div>
+          ) : (
+            <div className="p-2 max-h-[420px] overflow-auto">
+              <HierarchyTree
+                data={treeData}
+                defaultExpanded
+                selectedId={selectedNodeId ?? undefined}
+                onSelect={(n) => setSelectedNodeId(n.id)}
+                className="border-none p-0"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="md:col-span-3 bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+            <div className="text-[13px] font-semibold text-[#2C2C2A]">📋 節點詳情</div>
+            {selectedNode ? (
+              <span className="px-1.5 py-0.5 rounded-md text-[11px] bg-[#EBF3FF] text-[#1A3A5C]">
+                {selectedNode.kind === "region"
+                  ? "區域"
+                  : selectedNode.kind === "store"
+                    ? "門店"
+                    : "倉庫"}
+              </span>
+            ) : null}
+            <div className="ml-auto">
+              {selectedNode && canEdit ? (
+                <button
+                  type="button"
+                  onClick={openSelectedEdit}
+                  disabled={isPending}
+                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+                >
+                  編輯此節點
+                </button>
+              ) : null}
+            </div>
+          </header>
+          <div className="px-4 py-3">
+            {selectedNode ? (
+              <DetailPanel
+                node={selectedNode}
+                regions={regions}
+                stores={stores}
+                warehouses={warehouses}
+                subsidiaries={subsidiaries}
+                binCountsByWarehouseId={binCountsByWarehouseId}
+              />
+            ) : (
+              <div className="px-4 py-10 text-[11.5px] text-[#9A9890] text-center">
+                從左側樹點選任一節點查看詳情。
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       <div className={`grid grid-cols-3 gap-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
         {/* ─── Row 1, Col 1/3: Regions (簡單列表，非 table) ─────────────────── */}
@@ -1130,6 +1305,156 @@ function WarehouseFormModal({
       </div>
       <FormActions onClose={onClose} onSubmit={submit} mode={mode} isPending={isPending} />
     </Modal>
+  );
+}
+
+// ───── Detail Panel（drill-down 顯示樹節點明細） ──────────────────────────
+
+function DetailPanel({
+  node,
+  regions,
+  stores,
+  warehouses,
+  subsidiaries,
+  binCountsByWarehouseId,
+}: {
+  node: OrgTreeNode;
+  regions: OrgRow[];
+  stores: OrgRow[];
+  warehouses: WarehouseRow[];
+  subsidiaries: SubsidiaryOption[];
+  binCountsByWarehouseId: Record<string, number>;
+}) {
+  if (node.kind === "region") {
+    const row = regions.find((r) => r.id === node.id);
+    if (!row) return <EmptyDetail />;
+    const childStores = stores.filter((s) => s.parent_id === row.id);
+    const childWhs = warehouses.filter((w) =>
+      childStores.some((s) => s.id === w.org_id),
+    );
+    return (
+      <div className="space-y-3">
+        <DetailGrid
+          items={[
+            { label: "區域代碼", value: row.code, mono: true },
+            { label: "區域名稱", value: row.name },
+            { label: "狀態", value: row.is_active ? "啟用" : "停用" },
+            { label: "涵蓋範圍", value: row.notes ?? "—" },
+            { label: "底下門店", value: `${childStores.length} 店` },
+            { label: "底下倉庫", value: `${childWhs.length} 倉` },
+          ]}
+        />
+      </div>
+    );
+  }
+  if (node.kind === "store") {
+    const row = stores.find((s) => s.id === node.id);
+    if (!row) return <EmptyDetail />;
+    const region = regions.find((r) => r.id === row.parent_id);
+    const meta = (row.metadata ?? {}) as Record<string, unknown>;
+    const storeType = typeof meta.store_type === "string" ? meta.store_type : "direct";
+    const subsidiaryId =
+      typeof meta.subsidiary_id === "string" ? meta.subsidiary_id : null;
+    const subsidiary = subsidiaryId
+      ? subsidiaries.find((s) => s.id === subsidiaryId)
+      : null;
+    const childWhs = warehouses.filter((w) => w.org_id === row.id);
+    return (
+      <div className="space-y-3">
+        <DetailGrid
+          items={[
+            { label: "門店代碼", value: row.code, mono: true },
+            { label: "門店名稱", value: row.name },
+            { label: "所屬區域", value: region?.name ?? "—" },
+            {
+              label: "所屬法人",
+              value: subsidiary?.short_name ?? subsidiary?.legal_name ?? "—",
+            },
+            { label: "類型", value: storeType === "dealer" ? "經銷" : "直營" },
+            { label: "狀態", value: row.is_active ? "啟用" : "停用" },
+            {
+              label: "簡稱",
+              value:
+                (typeof meta.short_name === "string" ? meta.short_name : null) ?? "—",
+            },
+            {
+              label: "電話",
+              value: (typeof meta.phone === "string" ? meta.phone : null) ?? "—",
+            },
+            {
+              label: "負責人",
+              value:
+                (typeof meta.responsible_person === "string"
+                  ? meta.responsible_person
+                  : null) ?? "—",
+            },
+            {
+              label: "地址",
+              value:
+                (typeof meta.address === "string" ? meta.address : null) ?? "—",
+              full: true,
+            },
+            { label: "底下倉庫", value: `${childWhs.length} 倉` },
+          ]}
+        />
+      </div>
+    );
+  }
+  // warehouse
+  const row = warehouses.find((w) => w.id === node.id);
+  if (!row) return <EmptyDetail />;
+  const store = stores.find((s) => s.id === row.org_id);
+  const region = store?.parent_id ? regions.find((r) => r.id === store.parent_id) : null;
+  const typeLabel =
+    WAREHOUSE_TYPE_LABEL[row.type ?? "main"] ?? row.type ?? "—";
+  const binCount = binCountsByWarehouseId[row.id] ?? 0;
+  return (
+    <div className="space-y-3">
+      <DetailGrid
+        items={[
+          { label: "倉庫代碼", value: row.code, mono: true },
+          { label: "倉庫名稱", value: row.name },
+          { label: "所屬門店", value: store?.name ?? "—" },
+          { label: "所屬區域", value: region?.name ?? "—" },
+          { label: "類型", value: typeLabel },
+          { label: "狀態", value: row.is_active ? "啟用" : "停用" },
+          { label: "庫位數", value: `${binCount}` },
+          { label: "地址", value: row.address ?? "—", full: true },
+          { label: "備註", value: row.notes ?? "—", full: true },
+        ]}
+      />
+    </div>
+  );
+}
+
+function EmptyDetail() {
+  return (
+    <div className="px-4 py-10 text-[11.5px] text-[#9A9890] text-center">
+      找不到對應的資料（可能已被刪除）。
+    </div>
+  );
+}
+
+function DetailGrid({
+  items,
+}: {
+  items: { label: string; value: string; mono?: boolean; full?: boolean }[];
+}) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2.5">
+      {items.map((it) => (
+        <div key={it.label} className={it.full ? "md:col-span-3" : ""}>
+          <div className="text-[11px] text-[#9A9890] mb-0.5">{it.label}</div>
+          <div
+            className={`text-[12.5px] text-[#2C2C2A] ${
+              it.mono ? "font-mono" : ""
+            }`}
+          >
+            {it.value}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

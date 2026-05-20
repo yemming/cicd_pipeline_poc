@@ -9,7 +9,12 @@ import { redirect } from 'next/navigation';
 import { getCurrentUserAndAdmin } from '@/lib/feedback-admin';
 import { hasPermission } from '@/lib/rbac/policies';
 import { PERMISSIONS } from '@/lib/rbac/permissions';
-import { listHandcards, type HandcardFilters } from '@/domain/sales-handcards';
+import {
+  listHandcards,
+  getHandcardKpis,
+  getHandcardSourceDistribution,
+  type HandcardFilters,
+} from '@/domain/sales-handcards';
 import { HandcardBoard } from './_components/handcard-board';
 
 export const dynamic = 'force-dynamic';
@@ -47,7 +52,11 @@ export default async function HandcardPage({
 
   const page = Math.max(1, Number(sp.page ?? 1));
 
-  const { rows, totalCount } = await listHandcards(filters, { page, pageSize: 50 });
+  const [{ rows, totalCount }, kpis, sourceDist] = await Promise.all([
+    listHandcards(filters, { page, pageSize: 50 }),
+    getHandcardKpis(),
+    getHandcardSourceDistribution({ monthsBack: 3 }),
+  ]);
 
   return (
     <HandcardBoard
@@ -55,6 +64,8 @@ export default async function HandcardPage({
       totalCount={totalCount}
       canEdit={canEdit}
       filters={filters}
+      kpis={kpis}
+      sourceDist={sourceDist}
     />
   );
 }

@@ -5,6 +5,8 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization/KpiCard";
+import { FunnelChart } from "@/components/charts/FunnelChart";
 import {
   deleteSalesOrderAction,
   setSalesOrderStatusAction,
@@ -17,6 +19,8 @@ import {
   type OrderStatus,
   type ContractType,
   type PaymentMethod,
+  type SalesOrderKpis,
+  type SalesOrderStatusBreakdown,
 } from "@/domain/sales-orders.constants";
 import type { SalesOrderRow } from "@/domain/sales-orders.constants";
 
@@ -31,6 +35,8 @@ export type OrdersBoardProps = {
   totalCount: number;
   page: number;
   pageSize: number;
+  kpis: SalesOrderKpis;
+  statusBreakdown: SalesOrderStatusBreakdown[];
   filterStatus: string;
   filterContractType: string;
   filterQ: string;
@@ -94,6 +100,8 @@ export default function OrdersBoard({
   totalCount,
   page,
   pageSize,
+  kpis,
+  statusBreakdown,
   filterStatus,
   filterContractType,
   filterQ,
@@ -343,6 +351,105 @@ export default function OrdersBoard({
           新車訂購合約 + 中古車買賣合約管理
         </span>
       </header>
+
+      {/* KPI Row — A 級升級（2026-05-20，M01-8） */}
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+        <KpiCard
+          tone="blue"
+          label="本月訂單"
+          value={kpis.monthly_count}
+          layout="vertical"
+        />
+        <KpiCard
+          tone="teal"
+          label="本月成交金額"
+          value={
+            kpis.monthly_amount > 0
+              ? `NT$ ${kpis.monthly_amount.toLocaleString("en-US")}`
+              : "—"
+          }
+          layout="vertical"
+        />
+        <KpiCard
+          tone="amber"
+          label="待簽核"
+          value={kpis.pending_approval_count}
+          layout="vertical"
+        />
+        <KpiCard
+          tone="purple"
+          label="待交車"
+          value={kpis.pending_delivery_count}
+          layout="vertical"
+        />
+        <KpiCard
+          tone="green"
+          label="本月已交車"
+          value={kpis.fulfilled_this_month}
+          layout="vertical"
+        />
+      </section>
+
+      {/* Funnel + Status Breakdown */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-white border border-[#EEECE6] rounded-lg p-3 md:col-span-2">
+          <div className="text-[13px] font-semibold text-[#2C2C2A] mb-1.5">
+            訂單漏斗
+          </div>
+          <div className="text-[11px] text-[#9A9890] mb-2">
+            草稿 → 送簽 → 已簽約 → 已交車（轉換階段視覺化）
+          </div>
+          <FunnelChart
+            data={(() => {
+              const map = new Map(
+                statusBreakdown.map((s) => [s.status, s.count]),
+              );
+              const draft = map.get("draft") ?? 0;
+              const submitted = map.get("submitted") ?? 0;
+              const signed = map.get("signed") ?? 0;
+              const fulfilled = map.get("fulfilled") ?? 0;
+              return [
+                {
+                  name: `草稿 (${draft + submitted + signed + fulfilled})`,
+                  value: Math.max(draft + submitted + signed + fulfilled, 1),
+                },
+                {
+                  name: `送簽以上 (${submitted + signed + fulfilled})`,
+                  value: Math.max(submitted + signed + fulfilled, 0.01),
+                },
+                {
+                  name: `已簽約以上 (${signed + fulfilled})`,
+                  value: Math.max(signed + fulfilled, 0.01),
+                },
+                {
+                  name: `已交車 (${fulfilled})`,
+                  value: Math.max(fulfilled, 0.01),
+                },
+              ];
+            })()}
+            tone="blue"
+            size="md"
+          />
+        </div>
+        <div className="bg-white border border-[#EEECE6] rounded-lg p-3">
+          <div className="text-[13px] font-semibold text-[#2C2C2A] mb-2">
+            狀態分佈
+          </div>
+          <div className="space-y-1.5">
+            {statusBreakdown.map((s) => (
+              <div
+                key={s.status}
+                className="flex items-center justify-between text-[12px]"
+              >
+                <StatusChip status={s.status} />
+                <span className="font-mono font-semibold text-[#2C2C2A]">
+                  {s.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Banner */}
       {banner && (

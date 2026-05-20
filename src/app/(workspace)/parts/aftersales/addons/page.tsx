@@ -3,13 +3,12 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import {
-  listAddons,
-  listRoOptionsForAddons,
-  type AddonsListFilter,
-  type CustomerDecision,
-  type SafetyLevel,
-} from "@/domain/repair-order-addons";
+import { listAddons, listRoOptionsForAddons } from "@/domain/repair-order-addons";
+import type {
+  AddonsListFilter,
+  CustomerDecision,
+  SafetyLevel,
+} from "@/domain/repair-order-addons.constants";
 
 import { AddonsBoard } from "./_components/addons-board";
 

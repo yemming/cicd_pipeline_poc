@@ -1,5 +1,5 @@
 /**
- * Constants for 售後客戶基盤（/aftersales/crm/customer-base）
+ * Constants for 售後客戶基盤（/crm/aftersales/customer-base）
  *
  * Pure types & const enums — safe to import from client components.
  * Server-only domain helper 在 aftersales-customer-base.ts。
@@ -13,6 +13,29 @@ export type AftersalesCustomerBaseFilters = {
   /** code / name / phone / tax_id / license_plate */
   q: string;
 };
+
+/**
+ * KpiCard 列：人車檔案列表頁（/parts/aftersales/customers）頂部用
+ * 全部 derive 自 board rows，不另發 round-trip。
+ */
+export type AftersalesCustomerBaseKpi = {
+  /** 總客戶（全集） */
+  total_customers: number;
+  /** VIP（visit_count ≥ 3 或自定義條件） */
+  vip_count: number;
+  /** 本月進廠數（distinct work_orders 本月） */
+  this_month_visits: number;
+  /** 待回廠（at_risk）+ 流失邊緣（dormant） */
+  at_risk_dormant: number;
+};
+
+/** VIP 規則 — 累計回廠 ≥ 3 次 或 名下車輛 ≥ 2 台 */
+export function isVipRow(r: {
+  visit_count: number;
+  vehicle_count: number;
+}): boolean {
+  return r.visit_count >= 3 || r.vehicle_count >= 2;
+}
 
 /**
  * 售後服務狀態 — 由 next_service_due_date / last_service_date 推導
@@ -82,6 +105,16 @@ export type AftersalesCustomerCrmKpi = {
   due_soon: number;
   this_month_visits: number;
   rs05_synced: number;
+  /** 本月新建 customer（created_at ≥ 月初） */
+  new_this_month: number;
+  /** 沉睡客戶（> 180 天未進廠） */
+  dormant: number;
+  /** 保固 30 天內到期（有車輛者） */
+  warranty_due_30d: number;
+  /** 平均 NPS（最近 90 天 aftersales kind） */
+  avg_nps: number | null;
+  /** 推薦者比例 score >= 9 / 總回應 */
+  promoter_rate: number | null;
 };
 
 export type AftersalesCustomerCrmFilters = {

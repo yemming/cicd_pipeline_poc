@@ -43,8 +43,13 @@ import {
   type NewCarInventoryInput,
   type NewCarInventoryStatus,
   type LicensePlateStatus,
+  type NewCarKpiSummary,
+  type NewCarByModelDatum,
+  type NewCarSlowMover,
 } from "@/domain/new-car-inventory.constants";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { KpiCard } from "@/components/visualization/KpiCard";
+import { BarChart } from "@/components/charts";
 
 // ── 型別 ──────────────────────────────────────────────────────────────
 
@@ -75,9 +80,17 @@ function daysInStock(row: NewCarInventoryRow): number | null {
 
 function daysToneClass(days: number | null): string {
   if (days === null) return "text-[#9A9890]";
-  if (days > 60) return "text-[#C8001A]";
+  if (days > 90) return "text-[#C8001A]";
+  if (days > 60) return "text-[#854F0B]";
   if (days > 30) return "text-[#854F0B]";
   return "text-[#0F6E56]";
+}
+
+/** 庫齡 > 90 天且尚在展示/保留/到廠 → 視為 slow mover，列表/卡片要 amber highlight */
+function isSlowMover(row: NewCarInventoryRow): boolean {
+  if (row.status === "sold" || row.status === "delivered" || row.status === "damaged") return false;
+  const d = daysInStock(row);
+  return d !== null && d > 90;
 }
 
 /**
@@ -127,11 +140,17 @@ export default function NewCarInventoryBoard({
   vehicleModels,
   organizations,
   brandId,
+  kpi,
+  byModel,
+  slowMovers,
 }: {
   initialRows: NewCarInventoryRow[];
   vehicleModels: VehicleModelOption[];
   organizations: OrganizationOption[];
   brandId: string;
+  kpi: NewCarKpiSummary;
+  byModel: NewCarByModelDatum[];
+  slowMovers: NewCarSlowMover[];
 }) {
   useSetPageHeader({
     title: "新車庫存",
@@ -437,12 +456,22 @@ export default function NewCarInventoryBoard({
     {
       id: "days_in_stock",
       header: "在庫天",
-      width: 80,
+      width: 100,
       align: "right",
       cell: (r) => {
         const d = daysInStock(r);
+        const slow = isSlowMover(r);
         return (
-          <span className={"font-mono font-semibold text-[12px] " + daysToneClass(d)}>
+          <span
+            data-testid={`days-cell-${r.id}`}
+            data-slow={slow ? "true" : "false"}
+            className={
+              slow
+                ? "inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono font-semibold text-[11.5px] bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E]"
+                : "font-mono font-semibold text-[12px] " + daysToneClass(d)
+            }
+          >
+            {slow ? <span>⚠</span> : null}
             {d === null ? "—" : `${d} 天`}
           </span>
         );
@@ -555,6 +584,101 @@ export default function NewCarInventoryBoard({
           展廳現場現貨管理 — 卡片 / 列表雙模式、狀態追蹤、領牌、報價接續
         </span>
       </header>
+
+      {/* KPI Row — 庫存節奏一眼讀 */}
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5" data-testid="newcar-kpi-row">
+        <KpiCard
+          label="展示中 / 可售"
+          value={kpi.displayed}
+          tone="teal"
+          layout="vertical"
+        />
+        <KpiCard
+          label="已保留"
+          value={kpi.reserved}
+          tone="amber"
+          layout="vertical"
+        />
+        <KpiCard
+          label="在途"
+          value={kpi.in_transit}
+          tone="blue"
+          layout="vertical"
+        />
+        <KpiCard
+          label="已到廠待上架"
+          value={kpi.arrived}
+          tone="gray"
+          layout="vertical"
+        />
+        <KpiCard
+          label="本月已售"
+          value={kpi.sold_this_month}
+          tone="red"
+          layout="vertical"
+        />
+      </section>
+
+      {/* BarChart by-model + Slow Movers 並排 */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 bg-white border border-[#EEECE6] rounded-lg overflow-hidden" data-testid="newcar-by-model-chart">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 各車型庫存（依狀態堆疊）</span>
+            <span className="text-[11px] text-[#9A9890]">— 看哪些車賣得動、哪些卡在展示</span>
+          </header>
+          <div className="px-3 py-3">
+            {byModel.length === 0 ? (
+              <div className="py-10 text-center text-[12px] text-[#9A9890]">尚無庫存資料</div>
+            ) : (
+              <BarChart
+                data={byModel as unknown as Record<string, unknown>[]}
+                categoryKey="model"
+                valueKey={[
+                  { key: "displayed", label: "展示中", color: "#3B6D11" },
+                  { key: "reserved", label: "已保留", color: "#854F0B" },
+                  { key: "in_transit", label: "在途", color: "#185FA5" },
+                  { key: "arrived", label: "已到廠", color: "#6B6A68" },
+                  { key: "sold", label: "已售", color: "#C8001A" },
+                  { key: "delivered", label: "已交車", color: "#0F6E56" },
+                ]}
+                stacked
+                showLegend
+                size="md"
+              />
+            )}
+          </div>
+        </div>
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden" data-testid="newcar-slow-movers">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-[#854F0B]">⚠ 庫齡 &gt; 90 天</span>
+            <span className="text-[11px] text-[#9A9890]">老闆要看哪些賣不動</span>
+            <span className="ml-auto inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#FDF3E3] text-[#854F0B]">
+              {slowMovers.length}
+            </span>
+          </header>
+          <div className="max-h-[260px] overflow-y-auto">
+            {slowMovers.length === 0 ? (
+              <div className="py-10 text-center text-[12px] text-[#9A9890]">✓ 沒有庫齡過長的車</div>
+            ) : (
+              <ul className="divide-y divide-[#F4F2EC]">
+                {slowMovers.slice(0, 10).map((s) => (
+                  <li key={s.id} className="px-4 py-2 hover:bg-[#FAFAF8]">
+                    <Link href={`/sales/showroom/new-cars/${s.id}`} className="flex items-center gap-2 text-[12px]">
+                      <span className="font-semibold text-[#2C2C2A] truncate flex-1">
+                        {s.model_display_name ?? s.vin ?? "—"}
+                      </span>
+                      <span className="text-[10.5px] text-[#9A9890] whitespace-nowrap">{s.color ?? "—"}</span>
+                      <span className="font-mono font-bold text-[#C8001A] text-[12px] whitespace-nowrap">
+                        {s.days_in_stock} 天
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Filter Bar + View Toggle */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
@@ -845,13 +969,26 @@ function CardGrid({
       {rows.map((r) => {
         const rate = profitRate(r);
         const d = daysInStock(r);
+        const slow = isSlowMover(r);
         const statusLabel = NEW_CAR_STATUS_LABELS[r.status];
         return (
           <article
             key={r.id}
             data-testid={`newcar-card-${r.id}`}
-            className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden hover:border-[#85B7EB] hover:shadow-md transition"
+            data-slow={slow ? "true" : "false"}
+            className={
+              "bg-white rounded-lg overflow-hidden hover:shadow-md transition " +
+              (slow
+                ? "border-2 border-[#F0C97E] ring-1 ring-[#FDF3E3]"
+                : "border border-[#EEECE6] hover:border-[#85B7EB]")
+            }
           >
+            {slow && (
+              <div className="px-3 py-1 bg-[#FDF3E3] text-[#854F0B] text-[10.5px] font-semibold flex items-center gap-1 border-b border-[#F0C97E]">
+                <span>⚠</span>
+                <span>庫齡 {d} 天 — slow mover</span>
+              </div>
+            )}
             <div
               className="h-[110px] flex items-center justify-center relative overflow-hidden"
               style={{

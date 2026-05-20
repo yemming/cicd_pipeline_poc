@@ -682,6 +682,196 @@ export async function getCallTaskLookups(kind: SurveyKind): Promise<{
   };
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Aftersales 專屬：售後維運洞察（給 CRM03B 工作台上方 insight panel 用）
+// ──────────────────────────────────────────────────────────────────────────
+
+export type AftersalesNpsAggregate = {
+  promoter: number;
+  passive: number;
+  detractor: number;
+  total: number;
+  avg: number | null;
+  nps_score: number | null; // 標準 NPS = %promoter - %detractor (-100..100)
+};
+
+export type AftersalesCallTaskInsights = {
+  /** 過去 7 天 NPS 每日平均（含 0）— SparkLine 用 */
+  nps_trend_7d: Array<{ date: string; avg: number | null }>;
+  /** 近 14 天每日完成數 — BarChart 用 */
+  completion_14d: Array<{ date: string; done: number; total: number }>;
+  /** call_type 分佈（取 scheduled_at 在過去 30 天 ~ 未來 30 天） — DonutChart 用 */
+  call_type_distribution: Array<{
+    call_type: string;
+    label: string;
+    count: number;
+  }>;
+  /** 本月 NPS 聚合（含 promoter/passive/detractor） */
+  nps_monthly: AftersalesNpsAggregate;
+};
+
+/**
+ * 取得售後電訪工作台 insight panel 所需的維運洞察數據。
+ *
+ * 只用於 aftersales kind 的工作台；sales 那側不會呼叫此函式。
+ * 一次撈完三個視角的資料：NPS 7 日趨勢、call_type 分佈、14 日完成率。
+ */
+export async function getAftersalesCallTaskInsights(): Promise<AftersalesCallTaskInsights> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const today = todayIsoTaipei();
+
+  // ── 1. NPS 過去 7 天每日平均 ──
+  const npsFrom = shiftIsoDate(today, -6); // 含今天共 7 天
+  const npsFromTs = `${npsFrom}T00:00:00+08:00`;
+  const monthStart = `${today.slice(0, 7)}-01T00:00:00+08:00`;
+  const { data: npsRows } = await supabase
+    .from("nps_responses")
+    .select("score, responded_at")
+    .eq("brand_id", brand)
+    .eq("kind", "aftersales")
+    .gte("responded_at", npsFromTs);
+
+  // bucket 進每日
+  const npsByDay = new Map<string, number[]>();
+  for (const r of (npsRows ?? []) as Array<{
+    score: number | null;
+    responded_at: string | null;
+  }>) {
+    if (r.score == null || !r.responded_at) continue;
+    const d = new Date(r.responded_at);
+    const taipei = new Date(d.getTime() + 8 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    if (!npsByDay.has(taipei)) npsByDay.set(taipei, []);
+    npsByDay.get(taipei)!.push(r.score);
+  }
+  const nps_trend_7d: Array<{ date: string; avg: number | null }> = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = shiftIsoDate(today, -i);
+    const scores = npsByDay.get(d) ?? [];
+    nps_trend_7d.push({
+      date: d,
+      avg:
+        scores.length > 0
+          ? Math.round(
+              (scores.reduce((a, b) => a + b, 0) / scores.length) * 10,
+            ) / 10
+          : null,
+    });
+  }
+
+  // ── 2. 本月 NPS 聚合 ──
+  const { data: npsMonth } = await supabase
+    .from("nps_responses")
+    .select("score")
+    .eq("brand_id", brand)
+    .eq("kind", "aftersales")
+    .gte("responded_at", monthStart);
+  const monthScores = ((npsMonth ?? []) as Array<{ score: number | null }>)
+    .map((r) => r.score)
+    .filter((s): s is number => typeof s === "number");
+  const promoter = monthScores.filter((s) => s >= 9).length;
+  const passive = monthScores.filter((s) => s >= 7 && s <= 8).length;
+  const detractor = monthScores.filter((s) => s <= 6).length;
+  const total = monthScores.length;
+  const avg =
+    total > 0
+      ? Math.round((monthScores.reduce((a, b) => a + b, 0) / total) * 10) / 10
+      : null;
+  const nps_score =
+    total > 0
+      ? Math.round(((promoter - detractor) / total) * 100)
+      : null;
+
+  // ── 3. call_type 分佈（過去 30 天到未來 30 天） ──
+  const distFrom = `${shiftIsoDate(today, -30)}T00:00:00+08:00`;
+  const distTo = `${shiftIsoDate(today, 30)}T23:59:59+08:00`;
+  const { data: distRows } = await supabase
+    .from("call_tasks")
+    .select("call_type")
+    .eq("brand_id", brand)
+    .eq("kind", "aftersales")
+    .not("scheduled_at", "is", null)
+    .gte("scheduled_at", distFrom)
+    .lte("scheduled_at", distTo);
+
+  const distByType = new Map<string, number>();
+  for (const r of (distRows ?? []) as Array<{ call_type: string | null }>) {
+    const k = r.call_type ?? "custom";
+    distByType.set(k, (distByType.get(k) ?? 0) + 1);
+  }
+  const callTypeLabels: Record<string, string> = {
+    aftersales_d3: "D+3 滿意",
+    maintenance_reminder: "保養提醒",
+    warranty_reminder: "保固提醒",
+    desmo_reminder: "Desmo",
+    nps_interview: "NPS 訪談",
+    custom: "自訂",
+  };
+  const call_type_distribution = Array.from(distByType.entries())
+    .map(([k, v]) => ({
+      call_type: k,
+      label: callTypeLabels[k] ?? k,
+      count: v,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // ── 4. 近 14 天每日完成率（completed 數 / 排程數） ──
+  const compFrom = shiftIsoDate(today, -13);
+  const compFromTs = `${compFrom}T00:00:00+08:00`;
+  const compToTs = `${today}T23:59:59+08:00`;
+  const { data: compRows } = await supabase
+    .from("call_tasks")
+    .select("status, scheduled_at, last_attempt_at")
+    .eq("brand_id", brand)
+    .eq("kind", "aftersales")
+    .not("scheduled_at", "is", null)
+    .gte("scheduled_at", compFromTs)
+    .lte("scheduled_at", compToTs);
+  const totalByDay = new Map<string, number>();
+  const doneByDay = new Map<string, number>();
+  for (const r of (compRows ?? []) as Array<{
+    status: string;
+    scheduled_at: string | null;
+    last_attempt_at: string | null;
+  }>) {
+    if (!r.scheduled_at) continue;
+    const day = r.scheduled_at.slice(0, 10);
+    totalByDay.set(day, (totalByDay.get(day) ?? 0) + 1);
+    if (r.status === "completed") {
+      doneByDay.set(day, (doneByDay.get(day) ?? 0) + 1);
+    }
+  }
+  const completion_14d: Array<{
+    date: string;
+    done: number;
+    total: number;
+  }> = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = shiftIsoDate(today, -i);
+    completion_14d.push({
+      date: d,
+      done: doneByDay.get(d) ?? 0,
+      total: totalByDay.get(d) ?? 0,
+    });
+  }
+
+  return {
+    nps_trend_7d,
+    completion_14d,
+    call_type_distribution,
+    nps_monthly: {
+      promoter,
+      passive,
+      detractor,
+      total,
+      avg,
+      nps_score,
+    },
+  };
+}
+
 /** 撈某客戶最近 N 筆 call_tasks（給卡片展開區的「歷史接觸記錄」用） */
 export type CallTaskHistoryEntry = {
   id: string;

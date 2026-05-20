@@ -51,6 +51,8 @@ import {
   setTechnicianActiveAction,
   deleteTechnicianAction,
 } from "@/lib/aftersales/aftersales-technician-actions";
+import { KpiCard } from "@/components/visualization";
+import { BarChart, GaugeChart } from "@/components/charts";
 
 type Props = {
   technicians: AftersalesTechnicianRow[];
@@ -110,6 +112,21 @@ export function DispatchDashboard({
     }
   };
 
+  // 視覺概覽 — 派生指標
+  const activeTechs = technicians.filter((t) => t.is_active);
+  const onTargetEff = activeTechs.filter(
+    (t) => computeEfficiency(t.sold_minutes, t.actual_minutes) >= NADA_EFF_TARGET,
+  ).length;
+  const onTargetUtil = activeTechs.filter(
+    (t) => computeUtilization(t.actual_minutes, t.available_minutes) >= NADA_UTIL_TARGET,
+  ).length;
+  const nadaBarData = activeTechs.map((t) => ({
+    name: t.name,
+    eff: computeEfficiency(t.sold_minutes, t.actual_minutes),
+    prod: computeProductivity(t.sold_minutes, t.available_minutes),
+    util: computeUtilization(t.actual_minutes, t.available_minutes),
+  }));
+
   return (
     <main className={`px-6 py-5 space-y-3 ${isPending ? "opacity-95" : ""}`}>
       {/* ── Page Header ────────────────────────── */}
@@ -122,6 +139,118 @@ export function DispatchDashboard({
           技師即時狀態、NADA 三指標、手動派工
         </span>
       </header>
+
+      {/* ── 視覺概覽（A 級華麗版）────────────────── */}
+      <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          label="在職技師"
+          value={`${kpis.working + kpis.idle + kpis.break} / ${kpis.total_active}`}
+          tone="blue"
+          layout="vertical"
+        />
+        <KpiCard
+          label="今日工單（完成 / 總）"
+          value={`${totals.done_jobs} / ${totals.total_jobs}`}
+          tone={totals.done_jobs >= totals.total_jobs * 0.8 ? "teal" : "amber"}
+          layout="vertical"
+        />
+        <KpiCard
+          label="效率達標人數"
+          value={`${onTargetEff} / ${activeTechs.length}`}
+          tone={onTargetEff >= activeTechs.length * 0.7 ? "teal" : onTargetEff > 0 ? "amber" : "red"}
+          layout="vertical"
+          delta={{
+            value: NADA_EFF_TARGET,
+            tone: "neutral",
+          }}
+        />
+        <KpiCard
+          label="利用率達標人數"
+          value={`${onTargetUtil} / ${activeTechs.length}`}
+          tone={onTargetUtil >= activeTechs.length * 0.7 ? "teal" : onTargetUtil > 0 ? "amber" : "red"}
+          layout="vertical"
+          delta={{
+            value: NADA_UTIL_TARGET,
+            tone: "neutral",
+          }}
+        />
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-3">
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 全員效率 Eff.</span>
+          </header>
+          <div className="p-3">
+            <GaugeChart
+              value={Math.min(150, totals.avg_eff)}
+              max={150}
+              tone={
+                totals.avg_eff >= NADA_EFF_TARGET ? "teal" : totals.avg_eff >= 100 ? "amber" : "red"
+              }
+              size="md"
+              label={`${totals.avg_eff}%`}
+              caption={`目標 ≥ ${NADA_EFF_TARGET}%`}
+            />
+          </div>
+        </div>
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 全員生產力 Prod.</span>
+          </header>
+          <div className="p-3">
+            <GaugeChart
+              value={totals.avg_prod}
+              tone={
+                totals.avg_prod >= NADA_PROD_TARGET ? "teal" : totals.avg_prod >= 70 ? "amber" : "red"
+              }
+              size="md"
+              label={`${totals.avg_prod}%`}
+              caption={`目標 ${NADA_PROD_TARGET}-87.5%`}
+            />
+          </div>
+        </div>
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 全員利用率 Util.</span>
+          </header>
+          <div className="p-3">
+            <GaugeChart
+              value={totals.avg_util}
+              tone={
+                totals.avg_util >= NADA_UTIL_TARGET ? "teal" : totals.avg_util >= 65 ? "amber" : "red"
+              }
+              size="md"
+              label={`${totals.avg_util}%`}
+              caption={`目標 ≥ ${NADA_UTIL_TARGET}%`}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 個別技師 NADA 三指標比較</span>
+        </header>
+        <div className="p-3">
+          {nadaBarData.length === 0 ? (
+            <p className="text-[12px] text-[#9A9890] text-center py-10">尚無在職技師</p>
+          ) : (
+            <BarChart
+              data={nadaBarData}
+              categoryKey="name"
+              valueKey={[
+                { key: "eff", label: "效率 %" },
+                { key: "prod", label: "生產力 %" },
+                { key: "util", label: "利用率 %" },
+              ]}
+              tone="blue"
+              size="md"
+              showLegend
+            />
+          )}
+        </div>
+      </section>
 
       {/* ── NADA 公式說明 ────────────────────────── */}
       <section className="bg-[#1A1A1A] text-white rounded-lg p-3 grid gap-1.5 md:grid-cols-3 text-[11.5px] leading-relaxed">

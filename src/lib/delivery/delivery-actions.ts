@@ -10,6 +10,8 @@ import {
   type DeliveryStepPayload,
 } from '@/lib/deliveries';
 import type { DeliveryStatus, DeliveryStepName } from '@/lib/deliveries.constants';
+import { getDeliveryTimeline as _getDeliveryTimeline } from '@/domain/sales-delivery';
+import type { DeliveryTimelineEvent } from '@/domain/sales-delivery.constants';
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -109,5 +111,31 @@ export async function deleteDeliveryAction(id: string): Promise<ActionResult<{ i
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `刪除失敗：${msg}` };
+  }
+}
+
+/** Status transition wrappers — 給 Kanban drag-and-drop / Detail Panel 用 */
+export async function schedulePdiAction(id: string): Promise<ActionResult<{ id: string }>> {
+  return setDeliveryStatusAction(id, 'pdi_in_progress');
+}
+
+export async function markPdiDoneAction(id: string): Promise<ActionResult<{ id: string }>> {
+  return setDeliveryStatusAction(id, 'pdi_complete');
+}
+
+export async function confirmDeliveryAction(id: string): Promise<ActionResult<{ id: string }>> {
+  return setDeliveryStatusAction(id, 'delivery_confirmed');
+}
+
+/** 撈 timeline 給 client detail panel */
+export async function loadDeliveryTimelineAction(
+  id: string,
+): Promise<ActionResult<DeliveryTimelineEvent[]>> {
+  try {
+    const events = await _getDeliveryTimeline(id);
+    return { ok: true, data: events };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `載入時間軸失敗：${msg}` };
   }
 }

@@ -21,6 +21,7 @@ import {
   TREND_HOT_THRESHOLD,
   TREND_RISING_THRESHOLD,
   type TagColor,
+  type TagKind,
 } from "./customer-tags.constants";
 
 export type Result<T> =
@@ -37,7 +38,15 @@ export type OfficialTag = {
   description: string | null;
   is_active: boolean;
   sort_order: number;
-  /** 暫時：assignments 表尚未建，先用 0；UI 端 fallback */
+  /** 與 customer_tags.usage_count 對映；assignments 表落地前由人工 / batch update 維護 */
+  usage_count: number;
+  /** 標籤分類：official = 主管維護；system_auto = 系統規則自動貼 */
+  tag_kind: TagKind;
+  /** 系統自動標籤的規則描述（metadata.rule） */
+  rule: string | null;
+  /** 近 7 天每天新增套用次數（metadata.sparkline_7d；用於 KPI sparkline） */
+  sparkline_7d: number[];
+  /** 暫保留：舊 callsite 用 .usage；指向 usage_count */
   usage: number;
 };
 
@@ -91,6 +100,50 @@ function isValidColor(c: unknown): c is TagColor {
   return c === "red" || c === "yellow" || c === "green" || c === "blue";
 }
 
+function isValidKind(k: unknown): k is TagKind {
+  return k === "official" || k === "system_auto";
+}
+
+type RawOfficialTagRow = {
+  id: string;
+  brand_id: string;
+  code: string | null;
+  label: string;
+  color: string;
+  emoji: string | null;
+  description: string | null;
+  is_active: boolean;
+  sort_order: number;
+  usage_count: number | null;
+  tag_kind: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+function rowToOfficialTag(r: RawOfficialTagRow): OfficialTag {
+  const meta = (r.metadata ?? {}) as Record<string, unknown>;
+  const spark = Array.isArray(meta.sparkline_7d) ? (meta.sparkline_7d as unknown[]) : [];
+  const sparkline_7d = spark
+    .map((v) => (typeof v === "number" ? v : Number(v) || 0))
+    .slice(0, 7);
+  while (sparkline_7d.length < 7) sparkline_7d.push(0);
+  return {
+    id: r.id,
+    brand_id: r.brand_id,
+    code: r.code,
+    label: r.label,
+    color: r.color as TagColor,
+    emoji: r.emoji,
+    description: r.description,
+    is_active: r.is_active,
+    sort_order: r.sort_order,
+    usage_count: r.usage_count ?? 0,
+    tag_kind: (isValidKind(r.tag_kind) ? r.tag_kind : "official") as TagKind,
+    rule: typeof meta.rule === "string" ? (meta.rule as string) : null,
+    sparkline_7d,
+    usage: r.usage_count ?? 0,
+  };
+}
+
 function deriveTrend(totalUse: number): "hot" | "rising" | "normal" {
   if (totalUse >= TREND_HOT_THRESHOLD) return "hot";
   if (totalUse >= TREND_RISING_THRESHOLD) return "rising";
@@ -106,17 +159,15 @@ export async function listOfficialTags(): Promise<OfficialTag[]> {
   const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("customer_tags")
-    .select("id, brand_id, code, label, color, emoji, description, is_active, sort_order")
+    .select(
+      "id, brand_id, code, label, color, emoji, description, is_active, sort_order, usage_count, tag_kind, metadata",
+    )
     .eq("brand_id", scope.brand_id)
     .eq("is_active", true)
     .order("color")
     .order("sort_order");
   if (error) throw error;
-  return ((data ?? []) as Array<Omit<OfficialTag, "usage">>).map((r) => ({
-    ...r,
-    color: r.color as TagColor,
-    usage: 0, // assignments 表尚未建；後續接時改撈真實 join count
-  }));
+  return ((data ?? []) as unknown as RawOfficialTagRow[]).map(rowToOfficialTag);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -369,6 +420,9 @@ export type OfficialTagInput = {
   label: string;
   color: TagColor;
   description?: string | null;
+  tag_kind?: TagKind;
+  /** 系統自動標籤的規則描述（會寫入 metadata.rule） */
+  rule?: string | null;
 };
 
 /** 含 inactive；主管頁要看到全部、能切啟用狀態 */
@@ -377,17 +431,17 @@ export async function listAllOfficialTags(): Promise<OfficialTag[]> {
   const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("customer_tags")
-    .select("id, brand_id, code, label, color, emoji, description, is_active, sort_order")
+    .select(
+      "id, brand_id, code, label, color, emoji, description, is_active, sort_order, usage_count, tag_kind, metadata",
+    )
     .eq("brand_id", scope.brand_id)
+    .order("tag_kind", { ascending: true })
     .order("color")
     .order("sort_order");
   if (error) throw error;
-  return ((data ?? []) as Array<Omit<OfficialTag, "usage">>).map((r) => ({
-    ...r,
-    color: r.color as TagColor,
-    usage: 0,
-  }));
+  return ((data ?? []) as unknown as RawOfficialTagRow[]).map(rowToOfficialTag);
 }
+
 
 export async function createOfficialTag(
   input: OfficialTagInput,
@@ -411,6 +465,11 @@ export async function createOfficialTag(
     .maybeSingle();
   const nextSort = (maxRow?.sort_order ?? 0) + 1;
 
+  const tagKind: TagKind = isValidKind(input.tag_kind) ? input.tag_kind : "official";
+  const ruleText = input.rule?.trim() ?? "";
+  const metadata: Record<string, unknown> = { sparkline_7d: [0, 0, 0, 0, 0, 0, 0] };
+  if (tagKind === "system_auto" && ruleText) metadata.rule = ruleText;
+
   const { data, error } = await supabase
     .from("customer_tags")
     .insert({
@@ -419,8 +478,10 @@ export async function createOfficialTag(
       color: input.color,
       emoji: TAG_COLOR_EMOJI[input.color],
       description: input.description?.trim() || null,
+      tag_kind: tagKind,
       sort_order: nextSort,
       created_by: user.id,
+      metadata,
     })
     .select("id")
     .single();
@@ -431,7 +492,7 @@ export async function createOfficialTag(
 
 export async function updateOfficialTag(
   id: string,
-  patch: { label?: string; color?: TagColor; description?: string | null },
+  patch: { label?: string; color?: TagColor; description?: string | null; tag_kind?: TagKind; rule?: string | null },
 ): Promise<Result<{ id: string }>> {
   const update: Record<string, unknown> = {};
   if (patch.label !== undefined) {
@@ -446,11 +507,33 @@ export async function updateOfficialTag(
     update.emoji = TAG_COLOR_EMOJI[patch.color];
   }
   if (patch.description !== undefined) update.description = patch.description?.trim() || null;
-  if (Object.keys(update).length === 0) return { ok: true, data: { id } };
+  if (patch.tag_kind !== undefined) {
+    if (!isValidKind(patch.tag_kind)) return { ok: false, error: "標籤分類不合法" };
+    update.tag_kind = patch.tag_kind;
+  }
+  const noPatch = Object.keys(update).length === 0 && patch.rule === undefined;
+  if (noPatch) return { ok: true, data: { id } };
   update.updated_at = new Date().toISOString();
 
   const supabase = await createClient();
   const scope = await getActiveScope();
+
+  // 更新 rule（merge into metadata.rule）— 走第二次 update 走 jsonb_set
+  if (patch.rule !== undefined) {
+    const { data: existing, error: readErr } = await supabase
+      .from("customer_tags")
+      .select("metadata")
+      .eq("id", id)
+      .eq("brand_id", scope.brand_id)
+      .maybeSingle();
+    if (readErr) return { ok: false, error: mapDbError(readErr, "更新失敗") };
+    const meta = (existing?.metadata as Record<string, unknown> | null) ?? {};
+    const ruleText = patch.rule?.trim() ?? "";
+    if (ruleText) meta.rule = ruleText;
+    else delete meta.rule;
+    update.metadata = meta;
+  }
+
   const { error } = await supabase
     .from("customer_tags")
     .update(update)

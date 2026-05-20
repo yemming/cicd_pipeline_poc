@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization";
+import { DonutChart, BarChart } from "@/components/charts";
 import {
   setSupplierActive,
   softDeleteSupplier,
-  type SupplierWithContract,
+  type SupplierWithActivity,
   type ContractStatus,
+  type SuppliersStats,
 } from "@/domain/suppliers";
 
 const TYPE_LABEL: Record<string, { label: string; chip: string }> = {
@@ -36,15 +39,31 @@ function formatPhone(p: string | null): string {
   return p ?? "—";
 }
 
+function formatMoney(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return "0";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return Math.round(n).toLocaleString("en-US");
+}
+
+function daysAgo(iso: string | null): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  return Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24));
+}
+
 export function SuppliersBoard({
   rows,
   canEdit,
+  stats,
   initialType,
   initialContractStatus,
   initialQ,
 }: {
-  rows: SupplierWithContract[];
+  rows: SupplierWithActivity[];
   canEdit: boolean;
+  stats: SuppliersStats;
   initialType: string;
   initialContractStatus: string;
   initialQ: string;
@@ -55,7 +74,7 @@ export function SuppliersBoard({
   const [contractStatus, setContractStatus] = useState(initialContractStatus);
   const [q, setQ] = useState(initialQ);
   const [banner, setBanner] = useState<Banner>(null);
-  const [deleteTarget, setDeleteTarget] = useState<SupplierWithContract | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SupplierWithActivity | null>(null);
 
   function showBanner(b: Banner) {
     setBanner(b);
@@ -81,7 +100,7 @@ export function SuppliersBoard({
     });
   }
 
-  function toggleActive(row: SupplierWithContract) {
+  function toggleActive(row: SupplierWithActivity) {
     startTransition(async () => {
       const res = await setSupplierActive(row.id, !row.is_active);
       if (res.ok) {
@@ -110,7 +129,17 @@ export function SuppliersBoard({
 
   const total = rows.length;
 
-  const columns: DataGridColumn<SupplierWithContract>[] = [
+  // ─── KPI / Chart 衍生資料 ───
+  const typeDonutData = stats.type_distribution.map((b) => ({
+    name: b.label,
+    value: b.count,
+  }));
+  const topBarData = stats.top_by_amount.map((t) => ({
+    name: t.name.length > 8 ? `${t.name.slice(0, 8)}…` : t.name,
+    amount: Math.round(t.total_amount),
+  }));
+
+  const columns: DataGridColumn<SupplierWithActivity>[] = [
     {
       id: "name",
       header: "供應商名稱",
@@ -198,6 +227,45 @@ export function SuppliersBoard({
       sortValue: (r) => r.contract_status,
     },
     {
+      id: "po_amount_180d",
+      header: "近 180d 採購額",
+      width: 130,
+      align: "right",
+      defaultHidden: false,
+      cell: (r) =>
+        r.po_amount_180d > 0 ? (
+          <span className="font-mono text-[12px] text-[#1A3A5C]">
+            {formatMoney(r.po_amount_180d)}
+          </span>
+        ) : (
+          <span className="text-[#9A9890]">—</span>
+        ),
+      exportValue: (r) => String(r.po_amount_180d),
+      sortValue: (r) => r.po_amount_180d,
+    },
+    {
+      id: "last_po_date",
+      header: "最後採購",
+      width: 120,
+      defaultHidden: true,
+      cell: (r) => {
+        const d = daysAgo(r.last_po_date);
+        if (d == null) return <span className="text-[#9A9890]">—</span>;
+        const tone =
+          d <= 30 ? "bg-[#EAF3DE] text-[#3B6D11]" :
+          d <= 90 ? "bg-[#EAF4FB] text-[#185FA5]" :
+          d <= 180 ? "bg-[#FDF3E3] text-[#854F0B]" :
+          "bg-[#FDECEA] text-[#CC0000]";
+        return (
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${tone}`}>
+            {d} 天前
+          </span>
+        );
+      },
+      exportValue: (r) => r.last_po_date ?? "",
+      sortValue: (r) => r.last_po_date ?? "",
+    },
+    {
       id: "is_active",
       header: "狀態",
       width: 70,
@@ -215,6 +283,98 @@ export function SuppliersBoard({
       sortValue: (r) => (r.is_active ? 1 : 0),
     },
   ];
+
+  const kpiSlot = (
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <KpiCard
+        label="供應商總數"
+        value={stats.total}
+        tone="blue"
+        icon={<span className="text-[18px]">🏭</span>}
+      />
+      <KpiCard
+        label="啟用中"
+        value={stats.active}
+        tone="green"
+        icon={<span className="text-[18px]">✅</span>}
+        delta={
+          stats.total > 0
+            ? {
+                value: Math.round((stats.active / stats.total) * 100),
+                tone: "neutral",
+              }
+            : undefined
+        }
+      />
+      <KpiCard
+        label="即將到期合約"
+        value={stats.expiring_soon}
+        tone="amber"
+        icon={<span className="text-[18px]">⏳</span>}
+      />
+      <KpiCard
+        label="需扣繳所得稅"
+        value={stats.withholding_count}
+        tone="purple"
+        icon={<span className="text-[18px]">📑</span>}
+      />
+      <KpiCard
+        label="近 180d 採購額"
+        value={formatMoney(stats.total_po_amount_180d)}
+        tone="teal"
+        icon={<span className="text-[18px]">💰</span>}
+      />
+    </div>
+  );
+
+  const chartSlot = (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <section className="bg-white border border-[#EEECE6] rounded-md px-3 py-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[12px] font-semibold text-[#2C2C2A]">類型分布</span>
+          <span className="text-[11px] text-[#9A9890]">
+            共 {stats.type_distribution.length} 種類型
+          </span>
+        </div>
+        {typeDonutData.length > 0 ? (
+          <DonutChart
+            data={typeDonutData}
+            size="sm"
+            showLegend
+            centerLabel={String(stats.total)}
+            centerCaption="家"
+          />
+        ) : (
+          <div className="text-center text-[12px] text-[#9A9890] py-6">尚無資料</div>
+        )}
+      </section>
+      <section className="bg-white border border-[#EEECE6] rounded-md px-3 py-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[12px] font-semibold text-[#2C2C2A]">
+            近 180 天 Top 5 採購對象
+          </span>
+          <span className="text-[11px] text-[#9A9890]">
+            合計 {formatMoney(stats.total_po_amount_180d)}
+          </span>
+        </div>
+        {topBarData.length > 0 ? (
+          <BarChart
+            data={topBarData}
+            categoryKey="name"
+            valueKey="amount"
+            orientation="horizontal"
+            tone="teal"
+            size="sm"
+            rainbow
+          />
+        ) : (
+          <div className="text-center text-[12px] text-[#9A9890] py-6">
+            近 180 天無採購紀錄
+          </div>
+        )}
+      </section>
+    </div>
+  );
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -315,6 +475,61 @@ export function SuppliersBoard({
         emptyMessage="沒有符合條件的供應商"
         disabled={isPending}
         rowActionsWidth={210}
+        kpiSlot={kpiSlot}
+        chartSlot={chartSlot}
+        rowExtraBelow={(r) => {
+          const chips: ReactNode[] = [];
+          if (r.supply_categories) {
+            const items = r.supply_categories
+              .split(/[、,・]/u)
+              .map((x) => x.trim())
+              .filter((x) => x.length > 0)
+              .slice(0, 5);
+            for (const it of items) {
+              chips.push(
+                <span
+                  key={`cat-${it}`}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EEF4FB] text-[#185FA5]"
+                >
+                  {it}
+                </span>,
+              );
+            }
+          }
+          if (r.po_count_180d > 0) {
+            chips.push(
+              <span
+                key="poc"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#E8F5F0] text-[#0F6E56]"
+              >
+                近 180d {r.po_count_180d} 張 PO
+              </span>,
+            );
+          }
+          if (r.last_po_date) {
+            const d = daysAgo(r.last_po_date);
+            chips.push(
+              <span
+                key="lpo"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#F2F2F2] text-[#5A5955]"
+              >
+                最後採購 {d != null ? `${d} 天前` : "—"}
+              </span>,
+            );
+          }
+          if (r.email) {
+            chips.push(
+              <span
+                key="em"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#F8F7F4] text-[#5A5955] font-mono"
+              >
+                ✉ {r.email}
+              </span>,
+            );
+          }
+          if (chips.length === 0) return null;
+          return <div className="flex flex-wrap gap-1.5 py-1">{chips}</div>;
+        }}
         rowActions={(r) => (
           <>
             <Link

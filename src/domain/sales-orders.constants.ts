@@ -186,3 +186,20 @@ export const USED_CERT_LEVELS = [
 export type UsedCertLevel = (typeof USED_CERT_LEVELS)[number];
 
 export const TRANSFER_OPTIONS = ["本店代辦", "買受人自行辦理"] as const;
+
+// ─────────────────────────────────────────────────────────────
+// KPI / Funnel types — A 級升級 client-safe（M01-8, 2026-05-20）
+// ─────────────────────────────────────────────────────────────
+
+export type SalesOrderKpis = {
+  monthly_count: number;
+  monthly_amount: number;
+  pending_delivery_count: number;
+  fulfilled_this_month: number;
+  pending_approval_count: number;
+};
+
+export type SalesOrderStatusBreakdown = {
+  status: OrderStatus;
+  count: number;
+};

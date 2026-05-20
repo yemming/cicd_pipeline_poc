@@ -1,1030 +1,886 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+/**
+ * Insurance Board — A 級版（2026-05-20）
+ *
+ * 完全走 DB（@/domain/sales-insurance + @/lib/sales/insurance-actions）。
+ * 視覺：KpiCard 頂列 / DonutChart 險種分佈 / DataGrid 即將到期清單 / pending kanban。
+ */
+
+import { useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { KpiCard } from "@/components/visualization/KpiCard";
+import { DonutChart } from "@/components/charts/DonutChart";
+import { BarChart } from "@/components/charts/BarChart";
+import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import {
-  BIKE_MODELS,
-  CALL_RESULTS,
-  COVERAGE_KEYS,
-  DONE_CASES_SEED,
-  INS_CASES_SEED,
-  INS_PARAMS,
-  INSURERS,
-  LOST_REASONS,
-  NEW_DELIVERIES,
-  PERF_LOST_REASONS,
-  PERF_RS_ROWS,
-  PERF_YEAR_TOTALS,
-  QUOTE_STATES,
-  RS_LIST,
-  SCRIPTS,
-  type InsCase,
-  type InsType,
-  type InsUrgency,
-  type LostReasonOption,
-} from "./insurance.constants";
-
-type TabKey = "renew" | "new" | "perf";
-type UrgencyFilter = "all" | InsUrgency;
-
-const URGENCY_LABEL: Record<UrgencyFilter, string> = {
-  all: "全部",
-  urgent: "🔴 30 天內",
-  soon: "🟡 31–90 天",
-  far: "🔵 91–180 天",
-  done: "✅ 已續保",
-};
-
-const DOT_COLOR: Record<UrgencyFilter, string> = {
-  all: "#1A3A5C",
-  urgent: "#C8001A",
-  soon: "#F0C97E",
-  far: "#185FA5",
-  done: "#0F6E56",
-};
-
-const COUNT_PILL: Record<UrgencyFilter, string> = {
-  all: "bg-[#F1EFE8] text-[#5A5955]",
-  urgent: "bg-[#FDECEA] text-[#C8001A]",
-  soon: "bg-[#FDF3E3] text-[#854F0B]",
-  far: "bg-[#E1F5EE] text-[#0F6E56]",
-  done: "bg-[#E1F5EE] text-[#0F6E56]",
-};
-
-const TYPE_BADGE: Record<InsType, string> = {
-  新轉續: "bg-[#E1F5EE] text-[#0F6E56] border-[#5DCAA5]",
-  續轉續: "bg-[#EAF4FB] text-[#185FA5] border-[#85B7EB]",
-  斷轉續: "bg-[#FDF3E3] text-[#854F0B] border-[#F0C97E]",
-  外轉續: "bg-[#EEEDFE] text-[#534AB7] border-[#AFA9EC]",
-  在修未投保: "bg-[#FDECEA] text-[#C8001A] border-[#F5AEAD]",
-};
-
-const URG_LEFTBAR: Record<InsUrgency, string> = {
-  urgent: "border-l-[3px] border-l-[#C8001A]",
-  soon: "border-l-[3px] border-l-[#F0C97E]",
-  far: "border-l-[3px] border-l-[#185FA5]",
-  done: "border-l-[3px] border-l-[#0F6E56] opacity-90",
-};
-
-const URG_BOX: Record<InsUrgency, string> = {
-  urgent: "bg-[#FDECEA] text-[#C8001A]",
-  soon: "bg-[#FDF3E3] text-[#854F0B]",
-  far: "bg-[#EAF4FB] text-[#185FA5]",
-  done: "bg-[#E1F5EE] text-[#0F6E56]",
-};
-
-const EXP_BADGE: Record<InsUrgency, { cls: string; label: (d: number) => string }> = {
-  urgent: { cls: "bg-[#FDECEA] text-[#C8001A] border-[#F5AEAD]", label: (d) => `急 ${d} 天` },
-  soon: { cls: "bg-[#FDF3E3] text-[#854F0B] border-[#F0C97E]", label: (d) => `近 ${d} 天` },
-  far: { cls: "bg-[#EAF4FB] text-[#185FA5] border-[#85B7EB]", label: (d) => `遠 ${d} 天` },
-  done: { cls: "bg-[#E1F5EE] text-[#0F6E56] border-[#5DCAA5]", label: () => "已續保" },
-};
+  POLICY_STATUS_LABEL,
+  POLICY_STATUS_CHIP,
+  POLICY_TYPE_LABEL,
+  RENEWAL_TYPE_LABEL,
+  type CreatePolicyInput,
+  type InsuranceFilters,
+  type InsuranceKpis,
+  type InsuranceLookups,
+  type InsurancePolicyRow,
+  type InsuranceTypeBreakdown,
+  type PolicyStatus,
+  type PolicyType,
+  type RenewalDueBucket,
+  type RenewalType,
+} from "@/domain/sales-insurance.constants";
+import {
+  createPolicyAction,
+  markCancelledAction,
+  markRenewedAction,
+} from "@/lib/sales/insurance-actions";
 
 type Props = {
-  /** BDN #14：流失原因（ROOT CAUSE）字典；由 page.tsx 從 sales_dictionary 撈傳進來 */
-  lostReasons?: LostReasonOption[];
+  rows: InsurancePolicyRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  kpis: InsuranceKpis;
+  dueBuckets: RenewalDueBucket[];
+  byType: InsuranceTypeBreakdown[];
+  lookups: InsuranceLookups;
+  filters: Required<InsuranceFilters> & { status: PolicyStatus | "all" };
+  lostReasons: { code: string; label: string }[];
+  canEdit: boolean;
 };
 
-export default function InsuranceBoard({ lostReasons = [] }: Props = {}) {
+const inputCls =
+  "w-full h-[30px] px-2 text-[12.5px] border border-[#D5D3CB] rounded outline-none focus:border-[#185FA5] bg-white";
+const labelCls = "text-[11px] text-[#9A9890] font-medium";
+
+const DONUT_TONE_BY_TYPE: Record<PolicyType, string> = {
+  compulsory: "#1A3A5C",
+  voluntary: "#0F6E56",
+  theft: "#B45309",
+  other: "#6B7280",
+};
+
+export default function InsuranceBoard({
+  rows,
+  totalCount,
+  page,
+  pageSize,
+  kpis,
+  dueBuckets,
+  byType,
+  lookups,
+  filters,
+  canEdit,
+}: Props) {
   useSetPageHeader({
-    title: "RS_EX1 保險招攬工作台",
+    title: "保險招攬工作台",
     breadcrumb: [
       { label: "銷售管理", href: "/sales/overview" },
       { label: "展廳接待" },
-      { label: "保險業務" },
+      { label: "保險招攬" },
     ],
     hideSearch: true,
   });
 
-  const [cases, setCases] = useState<InsCase[]>(() =>
-    [...INS_CASES_SEED, ...DONE_CASES_SEED].map((c) => ({ ...c })),
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function showBanner(ok: boolean, msg: string) {
+    setBanner({ ok, msg });
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    if (ok) bannerTimer.current = setTimeout(() => setBanner(null), 2200);
+  }
+
+  // ── Filters → URL ─────────────────────────────────
+  const [filterStatus, setFilterStatus] = useState<PolicyStatus | "all">(filters.status);
+  const [filterType, setFilterType] = useState<PolicyType | "all">(filters.policy_type);
+  const [filterExpiry, setFilterExpiry] = useState<"30" | "60" | "90" | "expired" | "all">(
+    filters.expiry_window as "30" | "60" | "90" | "expired" | "all",
   );
-  const [tab, setTab] = useState<TabKey>("renew");
-  const [filterRs, setFilterRs] = useState<string>("all");
-  const [filterUrg, setFilterUrg] = useState<UrgencyFilter>("all");
-  const [navUrg, setNavUrg] = useState<UrgencyFilter>("all");
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const [scriptIdx, setScriptIdx] = useState<Record<number, number>>({});
+  const [filterSearch, setFilterSearch] = useState(filters.search);
+  const [filterAssigned, setFilterAssigned] = useState<string>(filters.assigned_to);
 
-  // form per card
-  const [formState, setFormState] = useState<
-    Record<
-      number,
-      {
-        result?: string;
-        nextDate?: string;
-        lost?: string;
-        lostReasonCode?: string;
-        note?: string;
-        quote?: string;
-        co?: string;
+  function applyFilters() {
+    const sp = new URLSearchParams();
+    if (filterStatus !== "all") sp.set("status", filterStatus);
+    if (filterType !== "all") sp.set("policy_type", filterType);
+    if (filterExpiry !== "all") sp.set("expiry_window", filterExpiry);
+    if (filterSearch.trim()) sp.set("search", filterSearch.trim());
+    if (filterAssigned !== "all") sp.set("assigned_to", filterAssigned);
+    startTransition(() => {
+      router.push(`/sales/insurance${sp.toString() ? `?${sp.toString()}` : ""}`);
+    });
+  }
+  function resetFilters() {
+    setFilterStatus("all");
+    setFilterType("all");
+    setFilterExpiry("all");
+    setFilterSearch("");
+    setFilterAssigned("all");
+    startTransition(() => router.push("/sales/insurance"));
+  }
+
+  function goToPage(next: number) {
+    const sp = new URLSearchParams();
+    if (filters.status !== "all") sp.set("status", filters.status);
+    if (filters.policy_type !== "all") sp.set("policy_type", filters.policy_type);
+    if (filters.expiry_window !== "all") sp.set("expiry_window", filters.expiry_window);
+    if (filters.search) sp.set("search", filters.search);
+    if (filters.assigned_to !== "all") sp.set("assigned_to", filters.assigned_to);
+    if (next > 1) sp.set("page", String(next));
+    startTransition(() => {
+      router.push(`/sales/insurance${sp.toString() ? `?${sp.toString()}` : ""}`);
+    });
+  }
+
+  // ── Pending kanban ────────────────────────────────
+  const pendingRows = useMemo(() => rows.filter((r) => r.status === "pending"), [rows]);
+
+  // ── Actions ───────────────────────────────────────
+  function handleRenew(id: string) {
+    startTransition(async () => {
+      const res = await markRenewedAction(id);
+      if (res.ok) {
+        showBanner(true, "已標記為已續保");
+        router.refresh();
+      } else {
+        showBanner(false, `續保失敗：${res.error}`);
       }
-    >
-  >({});
+    });
+  }
+  function handleCancel(id: string) {
+    startTransition(async () => {
+      const res = await markCancelledAction(id);
+      if (res.ok) {
+        showBanner(true, "已標記為取消");
+        router.refresh();
+      } else {
+        showBanner(false, `取消失敗：${res.error}`);
+      }
+    });
+  }
 
-  // modal
+  // ── Create modal ──────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);
-  const [newCase, setNewCase] = useState({
-    name: "",
-    phone: "",
-    plate: "",
-    bike: "",
-    expiry: "",
-    type: "新轉續" as InsType,
-    co: "富邦產險",
-    rs: "林佳蓉",
-    note: "",
+  const [draft, setDraft] = useState<CreatePolicyInput>({
+    customer_id: null,
+    vehicle_id: null,
+    policy_no: "",
+    insurer: "",
+    policy_type: "compulsory",
+    start_date: null,
+    end_date: "",
+    premium: null,
+    status: "pending",
+    renewal_type: "renew_to_renew",
+    assigned_to: null,
+    notes: "",
   });
-
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function showToast(msg: string) {
-    setToast(msg);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2700);
-  }
-
-  const counts = useMemo(() => {
-    const c: Record<UrgencyFilter, number> = { all: cases.length, urgent: 0, soon: 0, far: 0, done: 0 };
-    cases.forEach((x) => {
-      c[x.urgency] += 1;
-    });
-    return c;
-  }, [cases]);
-
-  const filtered = useMemo(() => {
-    const cu = navUrg !== "all" ? navUrg : filterUrg;
-    return cases
-      .filter((c) => (filterRs === "all" || c.rs === filterRs) && (cu === "all" || c.urgency === cu))
-      .sort((a, b) => {
-        const order = { urgent: 0, soon: 1, far: 2, done: 3 } as const;
-        return (order[a.urgency] - order[b.urgency]) || a.daysLeft - b.daysLeft;
-      });
-  }, [cases, filterRs, filterUrg, navUrg]);
-
-  function toggleCard(id: number) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  function resetDraft() {
+    setDraft({
+      customer_id: null,
+      vehicle_id: null,
+      policy_no: "",
+      insurer: "",
+      policy_type: "compulsory",
+      start_date: null,
+      end_date: "",
+      premium: null,
+      status: "pending",
+      renewal_type: "renew_to_renew",
+      assigned_to: null,
+      notes: "",
     });
   }
-
-  function updateForm(
-    id: number,
-    patch: Partial<{
-      result: string;
-      nextDate: string;
-      lost: string;
-      lostReasonCode: string;
-      note: string;
-      quote: string;
-      co: string;
-    }>,
-  ) {
-    setFormState((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-  }
-
-  function saveCall(id: number) {
-    const f = formState[id] || {};
-    if (!f.result) {
-      showToast("請先選擇電訪結果");
+  function submitDraft() {
+    if (!draft.insurer.trim()) {
+      showBanner(false, "請填寫保險公司");
       return;
     }
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
-        const nextCount = c.callCount + 1;
-        const reachedMax = nextCount >= INS_PARAMS.maxCalls && c.urgency !== "done";
-        const closed = f.quote === "已成交並出單";
-        const histLine = `電訪記錄：${f.result}${f.note ? ` — ${f.note.substring(0, 30)}` : ""}`;
-        return {
-          ...c,
-          callCount: nextCount,
-          note: f.note ?? c.note,
-          nextDate: f.nextDate ?? c.nextDate,
-          lost: f.lost ?? c.lost,
-          lostReasonCode: f.lostReasonCode ?? c.lostReasonCode,
-          result: f.result,
-          urgency: closed ? "done" : c.urgency,
-          status: closed ? "done" : reachedMax ? "escalate" : c.status,
-          history: [...c.history, { dot: closed ? "teal" : "blue", time: "05-10", text: histLine }],
-        };
-      }),
-    );
-    if (f.quote === "已成交並出單") showToast("✅ 已成交出單！恭喜完成保險招攬！");
-    else {
-      const c = cases.find((x) => x.id === id);
-      if (c && c.callCount + 1 >= INS_PARAMS.maxCalls && c.urgency !== "done") showToast("⚠ 已達電訪上限，自動升報主管");
-      else showToast(`✅ 電訪記錄已儲存${f.nextDate ? ` · 下次 ${f.nextDate}` : ""}`);
-    }
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-  }
-
-  function skipCase(id: number) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    showToast("已略過，請記得安排下次追蹤");
-  }
-
-  function addCase() {
-    if (!newCase.name || !newCase.phone || !newCase.expiry) {
-      showToast("請填寫姓名、電話及到期日");
+    if (!draft.end_date) {
+      showBanner(false, "請填寫到期日");
       return;
     }
-    const today = new Date("2026-05-10");
-    const exp = new Date(newCase.expiry);
-    const days = Math.round((exp.getTime() - today.getTime()) / 86400000);
-    const urgency: InsUrgency = days <= 30 ? "urgent" : days <= 90 ? "soon" : "far";
-    setCases((prev) => [
-      ...prev,
-      {
-        id: Math.max(0, ...prev.map((c) => c.id)) + 1,
-        name: newCase.name,
-        phone: newCase.phone,
-        plate: newCase.plate || "—",
-        bike: newCase.bike || "未填",
-        expiry: newCase.expiry,
-        daysLeft: days,
-        urgency,
-        type: newCase.type,
-        co: newCase.co,
-        rs: newCase.rs,
-        status: "pending",
-        callCount: 0,
-        coverages: { 強制: "YES", 商業: "NO", 車損: "NO", 不計免賠: "NO", 第三人: "YES", 竊盜: "NO", 刮痕: "NO", 玻璃: "NO" },
-        history: [{ dot: "amber", time: "05-10", text: "手動新增保險件" }],
-        note: newCase.note,
+    startTransition(async () => {
+      const res = await createPolicyAction(draft);
+      if (res.ok) {
+        showBanner(true, "已建立保險件");
+        setModalOpen(false);
+        resetDraft();
+        router.refresh();
+      } else {
+        showBanner(false, `建立失敗：${res.error}`);
+      }
+    });
+  }
+
+  // ── Columns ───────────────────────────────────────
+  const columns: DataGridColumn<InsurancePolicyRow>[] = [
+    {
+      id: "end_date",
+      header: "到期日",
+      width: 140,
+      hideable: false,
+      sortValue: (r) => r.end_date,
+      exportValue: (r) => r.end_date,
+      cell: (r) => {
+        const d = r.days_to_expiry;
+        const highlight =
+          d < 0
+            ? "bg-[#FDECEA] text-[#CC0000] border-[#F5AEAD]"
+            : d <= 30
+              ? "bg-[#FDECEA] text-[#CC0000] border-[#F5AEAD]"
+              : d <= 60
+                ? "bg-[#FDF3E3] text-[#854F0B] border-[#F0C97E]"
+                : "bg-[#EAF4FB] text-[#185FA5] border-[#85B7EB]";
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-[12px]">{r.end_date}</span>
+            <span className={`inline-flex w-fit items-center px-1.5 py-0.5 rounded-md border text-[10.5px] ${highlight}`}>
+              {d < 0 ? `已逾期 ${-d} 天` : `${d} 天後到期`}
+            </span>
+          </div>
+        );
       },
-    ]);
-    setModalOpen(false);
-    setNewCase({ name: "", phone: "", plate: "", bike: "", expiry: "", type: "新轉續", co: "富邦產險", rs: "林佳蓉", note: "" });
-    showToast(`✅ 已建立保險件：${newCase.name} · 到期 ${newCase.expiry}`);
-  }
+    },
+    {
+      id: "customer",
+      header: "客戶 / 車牌",
+      width: 180,
+      sortValue: (r) => r.customer_name ?? "",
+      exportValue: (r) =>
+        `${r.customer_name ?? "—"}${r.vehicle_plate ? ` / ${r.vehicle_plate}` : ""}`,
+      cell: (r) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[12.5px] font-semibold">{r.customer_name ?? "—"}</span>
+          {r.vehicle_plate && (
+            <span className="font-mono text-[11px] text-[#5A5955] bg-[#F2F2F2] px-1.5 py-0.5 rounded w-fit">
+              {r.vehicle_plate}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "policy_no",
+      header: "保單號 / 險種",
+      width: 170,
+      sortValue: (r) => r.policy_no ?? "",
+      exportValue: (r) => `${r.policy_no ?? "—"} / ${POLICY_TYPE_LABEL[r.policy_type]}`,
+      cell: (r) => (
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-[11.5px] text-[#5A5955]">{r.policy_no ?? "—"}</span>
+          <span className="inline-flex w-fit items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5]">
+            {POLICY_TYPE_LABEL[r.policy_type]}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: "insurer",
+      header: "保險公司",
+      width: 110,
+      sortValue: (r) => r.insurer,
+      exportValue: (r) => r.insurer,
+      cell: (r) => <span className="text-[12.5px]">{r.insurer}</span>,
+    },
+    {
+      id: "renewal_type",
+      header: "招攬類型",
+      width: 90,
+      sortValue: (r) => r.renewal_type ?? "",
+      exportValue: (r) => (r.renewal_type ? RENEWAL_TYPE_LABEL[r.renewal_type as RenewalType] : ""),
+      cell: (r) =>
+        r.renewal_type ? (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EBF3FF] text-[#1A3A5C] whitespace-nowrap">
+            {RENEWAL_TYPE_LABEL[r.renewal_type as RenewalType]}
+          </span>
+        ) : (
+          <span className="text-[#9A9890]">—</span>
+        ),
+    },
+    {
+      id: "premium",
+      header: "保費",
+      width: 90,
+      align: "right",
+      sortValue: (r) => r.premium ?? 0,
+      exportValue: (r) => r.premium ?? 0,
+      cell: (r) => (
+        <span className="font-mono text-[12.5px]">
+          {r.premium == null ? "—" : `$${Math.round(r.premium).toLocaleString()}`}
+        </span>
+      ),
+    },
+    {
+      id: "assigned_to",
+      header: "負責業務",
+      width: 100,
+      sortValue: (r) => r.assigned_to_name ?? "",
+      exportValue: (r) => r.assigned_to_name ?? "",
+      cell: (r) => <span className="text-[12.5px]">{r.assigned_to_name ?? "—"}</span>,
+    },
+    {
+      id: "status",
+      header: "狀態",
+      width: 90,
+      sortValue: (r) => r.status,
+      exportValue: (r) => POLICY_STATUS_LABEL[r.status],
+      cell: (r) => {
+        const chip = POLICY_STATUS_CHIP[r.status];
+        return (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${chip.bg} ${chip.text}`}
+          >
+            {POLICY_STATUS_LABEL[r.status]}
+          </span>
+        );
+      },
+    },
+    {
+      id: "call_count",
+      header: "電訪",
+      width: 60,
+      align: "right",
+      sortValue: (r) => r.call_count,
+      exportValue: (r) => r.call_count,
+      cell: (r) => <span className="font-mono text-[11.5px]">{r.call_count}</span>,
+    },
+  ];
 
-  const inputCls = "w-full h-[32px] px-2.5 text-[12px] border border-[#D5D3CB] rounded outline-none focus:border-[#185FA5] bg-white";
-  const selectCls = inputCls;
-  const labelCls = "text-[11.5px] font-semibold text-[#4A4A48] mb-1";
+  // ── KPIs / charts data ────────────────────────────
+  const donutData = useMemo(
+    () =>
+      byType
+        .filter((b) => b.count > 0)
+        .map((b) => ({ name: b.label, value: b.count, color: DONUT_TONE_BY_TYPE[b.policy_type] })),
+    [byType],
+  );
+  const barData = useMemo(
+    () =>
+      dueBuckets.map((b) => ({
+        window: `${b.window} 天`,
+        count: b.count,
+      })),
+    [dueBuckets],
+  );
 
   return (
-    <main className="bg-[#F8F7F4] min-h-screen text-[#2C2C2A] text-[13px]">
-      {/* Sub bar — tabs + filters */}
-      <div className="bg-white border-b border-[#EEECE6] px-6 py-2 flex items-center gap-2.5 flex-wrap sticky top-0 z-30">
-        <div className="flex border border-[#D5D3CB] rounded overflow-hidden">
-          {(
-            [
-              ["renew", "🔔 續保到期提醒"],
-              ["new", "🆕 新車交車招攬"],
-              ["perf", "📊 業績總覽"],
-            ] as const
-          ).map(([key, label], i, arr) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`px-4 h-[28px] text-[12px] whitespace-nowrap transition-colors ${i < arr.length - 1 ? "border-r border-[#D5D3CB]" : ""} ${
-                tab === key ? "bg-[#1A3A5C] text-white" : "bg-white text-[#7A7A78] hover:bg-[#F4F3F0]"
-              }`}
+    <main className="px-6 py-5 space-y-3">
+      {/* Header */}
+      <header className="flex items-center gap-2.5">
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">保險招攬工作台</h1>
+        <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
+          M01-10
+        </span>
+        <span className="text-[12px] text-[#9A9890]">
+          續保到期清單 · 招攬中件數 · KPI · 險種分佈
+        </span>
+      </header>
+
+      {/* KPI Row */}
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+        <KpiCard
+          tone="amber"
+          label="本月到期"
+          value={kpis.expiring_this_month}
+          layout="vertical"
+        />
+        <KpiCard
+          tone="red"
+          label="30 天內到期"
+          value={kpis.expiring_30_days}
+          layout="vertical"
+        />
+        <KpiCard tone="green" label="在保中" value={kpis.active_count} layout="vertical" />
+        <KpiCard
+          tone="gray"
+          label="已過期未續"
+          value={kpis.expired_unrenewed}
+          layout="vertical"
+        />
+        <KpiCard
+          tone="blue"
+          label="本月續保率"
+          value={`${kpis.renewal_rate_pct}%`}
+          layout="vertical"
+        />
+      </section>
+
+      {/* Charts Row */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-white border border-[#EEECE6] rounded-lg p-3 md:col-span-1">
+          <div className="text-[13px] font-semibold text-[#2C2C2A] mb-2">險種分佈</div>
+          {donutData.length === 0 ? (
+            <div className="text-[12px] text-[#9A9890] py-8 text-center">尚無保單資料</div>
+          ) : (
+            <DonutChart
+              data={donutData}
+              showLegend
+              size="sm"
+              centerLabel={String(donutData.reduce((s, d) => s + d.value, 0))}
+              centerCaption="總保單"
+            />
+          )}
+        </div>
+        <div className="bg-white border border-[#EEECE6] rounded-lg p-3 md:col-span-2">
+          <div className="text-[13px] font-semibold text-[#2C2C2A] mb-2">即將到期分佈（90 天內）</div>
+          {dueBuckets.every((b) => b.count === 0) ? (
+            <div className="text-[12px] text-[#9A9890] py-8 text-center">
+              90 天內無到期保單
+            </div>
+          ) : (
+            <BarChart
+              data={barData}
+              categoryKey="window"
+              valueKey="count"
+              tone="amber"
+              size="sm"
+              rainbow
+              showTooltip
+            />
+          )}
+        </div>
+      </section>
+
+      {/* Filter Bar */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
+        <div className="flex gap-2 items-end flex-wrap">
+          <div className="flex flex-col gap-1">
+            <label className={labelCls}>狀態</label>
+            <select
+              className={inputCls}
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as PolicyStatus | "all")}
             >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="w-px h-[18px] bg-[#EEECE6]" />
-        <select className="h-[28px] px-2.5 text-[12px] border border-[#D5D3CB] rounded bg-white" value={filterRs} onChange={(e) => setFilterRs(e.target.value)}>
-          <option value="all">全體 RS</option>
-          {RS_LIST.map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-        <select
-          className="h-[28px] px-2.5 text-[12px] border border-[#D5D3CB] rounded bg-white"
-          value={filterUrg}
-          onChange={(e) => setFilterUrg(e.target.value as UrgencyFilter)}
-        >
-          {(["all", "urgent", "soon", "far", "done"] as UrgencyFilter[]).map((k) => (
-            <option key={k} value={k}>
-              {k === "all" ? "所有到期狀態" : URGENCY_LABEL[k]}
-            </option>
-          ))}
-        </select>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-[11px] text-[#9A9890]">共 {filtered.length} 筆</span>
-          <button
-            className="px-3.5 h-[28px] text-[12px] rounded bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
-            onClick={() => setModalOpen(true)}
-          >
-            ＋ 新增保險件
-          </button>
-        </div>
-      </div>
-
-      {/* Layout */}
-      <div className="flex">
-        {/* Sidenav */}
-        <aside className="w-[200px] flex-shrink-0 bg-white border-r border-[#EEECE6] py-3.5 sticky top-[44px] h-[calc(100vh-44px)] overflow-y-auto">
-          <NavSection label="到期狀態">
-            {(["all", "urgent", "soon", "far", "done"] as UrgencyFilter[]).map((k) => (
-              <NavItem
-                key={k}
-                active={navUrg === k}
-                onClick={() => setNavUrg(k)}
-                dotColor={DOT_COLOR[k]}
-                label={URGENCY_LABEL[k]}
-                count={counts[k]}
-                countCls={COUNT_PILL[k]}
-              />
-            ))}
-          </NavSection>
-          <div className="h-px bg-[#EEECE6] mx-3 my-2" />
-          <NavSection label="本月業績">
-            <NavStatic label="已完成件數" valueCls="bg-[#E1F5EE] text-[#0F6E56]" value="3 件" />
-            <NavStatic label="佣金收入" valueCls="bg-[#FDF3E3] text-[#854F0B]" value="$12,600" small />
-            <NavStatic label="續保率" valueCls="bg-[#E1F5EE] text-[#0F6E56]" value="60%" />
-          </NavSection>
-          <div className="h-px bg-[#EEECE6] mx-3 my-2" />
-          <NavSection label="待跟進清單">
-            <NavItem dotColor="#F0C97E" label="需再次電訪" count={3} countCls="bg-[#FDF3E3] text-[#854F0B]" onClick={() => showToast("篩選：需再次電訪")} />
-            <NavItem dotColor="#C8001A" label="上報主管" count={1} countCls="bg-[#FDECEA] text-[#C8001A]" onClick={() => showToast("篩選：上報主管")} />
-            <NavItem dotColor="#9A9890" label="更正資訊" count={1} countCls="bg-[#F1EFE8] text-[#5A5955]" onClick={() => showToast("篩選：更正資訊")} />
-          </NavSection>
-          <div className="h-px bg-[#EEECE6] mx-3 my-2" />
-          <NavSection label="快速連結">
-            <NavItem dotColor="#0F6E56" label="客戶基盤" onClick={() => showToast("→ CRM01A 客戶基盤")} />
-            <NavItem dotColor="#534AB7" label="保險參數設定" onClick={() => showToast("→ RS_M3 保險參數設定")} />
-          </NavSection>
-        </aside>
-
-        {/* Main */}
-        <div className="flex-1 px-5 py-4 pb-12">
-          {/* KPI */}
-          <div className="grid grid-cols-5 gap-2.5 mb-3.5">
-            <KpiCard accent="#F0C97E" label="本月待處理" value="7" valueCls="text-[#854F0B]" sub="續保 5 + 新件 2" />
-            <KpiCard accent="#C8001A" label="30 天內到期" value="2" valueCls="text-[#C8001A]" sub="優先電訪" barCls="bg-[#C8001A]" barWidth="29%" />
-            <KpiCard accent="#0F6E56" label="已完成件數" value="3" valueCls="text-[#0F6E56]" sub="續保率 60%（目標 70%）" barCls="bg-[#0F6E56]" barWidth="60%" />
-            <KpiCard accent="#185FA5" label="本月佣金收入" value="$12,600" valueCls="text-[#185FA5] text-[18px]" sub="目標 $20,000" barCls="bg-[#185FA5]" barWidth="63%" />
-            <KpiCard accent="#1A3A5C" label="年度累計佣金" value="$58,400" valueCls="text-[#1A3A5C] text-[18px]" sub="前 5 月合計" />
-          </div>
-
-          {tab === "renew" && (
-            <div className="flex flex-col gap-2">
-              {filtered.length === 0 ? (
-                <div className="text-center text-[12px] text-[#9A9890] py-10 bg-white border border-[#EEECE6] rounded">沒有符合條件的保險件</div>
-              ) : (
-                filtered.map((c) => {
-                  const open = expanded.has(c.id);
-                  const sIdx = scriptIdx[c.id] ?? 0;
-                  const f = formState[c.id] || {};
-                  return (
-                    <article key={c.id} className={`bg-white border border-[#EEECE6] rounded-[9px] overflow-hidden ${URG_LEFTBAR[c.urgency]}`}>
-                      {/* header */}
-                      <div className="flex items-center gap-3 px-3.5 py-2.5 cursor-pointer" onClick={() => toggleCard(c.id)}>
-                        <div className={`w-[46px] h-[46px] rounded-lg flex flex-col items-center justify-center flex-shrink-0 ${URG_BOX[c.urgency]}`}>
-                          <div className="text-[17px] font-bold font-mono leading-none">{c.urgency === "done" ? "✅" : c.daysLeft}</div>
-                          <div className="text-[9px] text-[#9A9890] mt-0.5">{c.urgency === "done" ? "已續保" : "天後到期"}</div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className="text-[13px] font-bold">{c.name}</span>
-                            <span className="text-[11.5px] font-mono text-[#7A7A78] bg-[#F1EFE8] px-1.5 py-0.5 rounded">{c.plate}</span>
-                            <span className="text-[11.5px] text-[#5A5955]">🏍️ {c.bike}</span>
-                          </div>
-                          <div className="flex gap-3 text-[11.5px] text-[#7A7A78] flex-wrap items-center">
-                            <span className="font-semibold text-[#5A5955]">👤 {c.rs}</span>
-                            <span>到期：{c.expiry}</span>
-                            <span>電訪 {c.callCount} 次</span>
-                            <span>原保：{c.co}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                          <div className="flex gap-1">
-                            <span className={`text-[10.5px] px-2 py-0.5 rounded font-semibold border ${TYPE_BADGE[c.type]}`}>{c.type}</span>
-                            <span className={`text-[10.5px] px-2 py-0.5 rounded font-semibold border ${EXP_BADGE[c.urgency].cls}`}>
-                              {EXP_BADGE[c.urgency].label(c.daysLeft)}
-                            </span>
-                          </div>
-                          <div className="flex gap-1">
-                            {c.urgency !== "done" && c.status !== "escalate" && (
-                              <button
-                                className="px-2.5 py-1 text-[11px] rounded border bg-[#FDF3E3] border-[#F0C97E] text-[#854F0B] hover:bg-[#FAE8C4]"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleCard(c.id);
-                                }}
-                              >
-                                📞 電訪記錄
-                              </button>
-                            )}
-                            <button
-                              className="px-2.5 py-1 text-[11px] rounded border bg-[#F1EFE8] border-[#D5D3CB] text-[#5A5955]"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                showToast("→ CRM01A 客戶詳情");
-                              }}
-                            >
-                              詳情
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {open && (
-                        <div className="border-t border-[#F4F3F0] px-4 py-3.5 bg-[#FAFAF8]">
-                          {c.urgency === "done" && (
-                            <div className="bg-[#E1F5EE] border border-[#5DCAA5] rounded p-2.5 mb-2.5 text-[12px] text-[#085041]">
-                              ✅ 已成交出單{c.result ? ` — ${c.result}` : ""}
-                            </div>
-                          )}
-                          {c.status === "escalate" && c.urgency !== "done" && (
-                            <div className="bg-[#FDECEA] border border-[#F5AEAD] rounded p-2.5 mb-2.5 text-[12px] text-[#C8001A]">
-                              ⚠ 已達電訪上限（{c.callCount} / {INS_PARAMS.maxCalls}），自動升報主管處理。
-                            </div>
-                          )}
-
-                          {/* detail grid */}
-                          <div className="grid grid-cols-4 gap-2 mb-3">
-                            {[
-                              ["保險到期", c.expiry],
-                              ["續保類型", c.type],
-                              ["原保公司", c.co],
-                              ["電訪次數", `${c.callCount} / ${INS_PARAMS.maxCalls} 次`],
-                            ].map(([l, v]) => (
-                              <div key={l} className="bg-white border border-[#EEECE6] rounded-[7px] px-3 py-2">
-                                <div className="text-[10px] text-[#9A9890] mb-0.5">{l}</div>
-                                <div className="text-[12.5px] font-semibold text-[#2C2C2A]">{v}</div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* coverages */}
-                          <div className="mb-3">
-                            <div className="text-[10.5px] font-semibold tracking-wide uppercase text-[#9A9890] mb-1.5">上年保障項目</div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {COVERAGE_KEYS.map((k) => {
-                                const v = c.coverages[k];
-                                return (
-                                  <span
-                                    key={k}
-                                    className={`px-2.5 py-1 rounded text-[11.5px] border ${
-                                      v === "YES"
-                                        ? "bg-[#E1F5EE] border-[#5DCAA5] text-[#085041]"
-                                        : "bg-[#F1EFE8] border-[#D5D3CB] text-[#9A9890] line-through"
-                                    }`}
-                                  >
-                                    {k}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* script box */}
-                          <div className="bg-[#1A3A5C] rounded-lg p-3 mb-3 text-white">
-                            <div className="text-[9.5px] font-bold tracking-wide uppercase opacity-60 mb-1.5 flex items-center gap-2 flex-wrap">
-                              話術模板（主管設定 · RS 唯讀）
-                              {SCRIPTS.map((s, i) => (
-                                <button
-                                  key={s.tag}
-                                  onClick={() => setScriptIdx((p) => ({ ...p, [c.id]: i }))}
-                                  className={`text-[10.5px] px-2 py-0.5 rounded border ${
-                                    sIdx === i ? "bg-white/25 border-white/30" : "bg-white/10 border-white/20"
-                                  } text-white/85`}
-                                  title={s.title}
-                                >
-                                  {s.tag}
-                                </button>
-                              ))}
-                            </div>
-                            <div className="text-[12.5px] leading-[1.8] opacity-90">{SCRIPTS[sIdx].text}</div>
-                          </div>
-
-                          {/* history */}
-                          <div className="mb-3">
-                            <div className="text-[10.5px] font-semibold tracking-wide uppercase text-[#9A9890] mb-1.5">歷史電訪記錄</div>
-                            {c.history.map((h, i) => (
-                              <div key={i} className="flex gap-2.5 py-1.5 border-b border-[#F4F3F0] last:border-b-0 text-[12px]">
-                                <div className={`w-[7px] h-[7px] rounded-full flex-shrink-0 mt-1 ${h.dot === "blue" ? "bg-[#185FA5]" : h.dot === "amber" ? "bg-[#F0C97E]" : "bg-[#0F6E56]"}`} />
-                                <span className="text-[10.5px] text-[#9A9890] font-mono mt-0.5 whitespace-nowrap">{h.time}</span>
-                                <span className="flex-1 text-[#4A4A48] leading-[1.5]">{h.text}</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* form */}
-                          {c.urgency !== "done" && c.status !== "escalate" && (
-                            <div className="bg-white border border-[#EEECE6] rounded-lg px-3.5 py-3">
-                              <div className="text-[11.5px] font-semibold text-[#4A4A48] mb-2.5">📝 電訪結果記錄</div>
-                              <div className="flex gap-1.5 flex-wrap mb-2.5">
-                                {CALL_RESULTS.map((r, i) => (
-                                  <button
-                                    key={r}
-                                    onClick={() => updateForm(c.id, { result: r })}
-                                    className={`px-3 py-1 rounded border text-[11.5px] ${
-                                      f.result === r
-                                        ? i === 0
-                                          ? "border-[#0F6E56] bg-[#E1F5EE] text-[#0F6E56] font-semibold"
-                                          : i === 1
-                                            ? "border-[#185FA5] bg-[#EAF4FB] text-[#185FA5] font-semibold"
-                                            : i === 2
-                                              ? "border-[#9A9890] bg-[#F1EFE8] text-[#5A5955] font-semibold"
-                                              : i === 3
-                                                ? "border-[#F0C97E] bg-[#FDF3E3] text-[#854F0B] font-semibold"
-                                                : i === 4
-                                                  ? "border-[#534AB7] bg-[#EEEDFE] text-[#534AB7] font-semibold"
-                                                  : "border-[#C8001A] bg-[#FDECEA] text-[#C8001A] font-semibold"
-                                        : "border-[#D5D3CB] bg-white text-[#5A5955] hover:border-[#B4B2A9] hover:bg-[#F4F3F0]"
-                                    }`}
-                                  >
-                                    {r}
-                                  </button>
-                                ))}
-                              </div>
-                              <div className="grid grid-cols-2 gap-2.5 mb-2.5">
-                                <div>
-                                  <div className={labelCls}>下次電訪日期</div>
-                                  <input
-                                    type="date"
-                                    className={inputCls}
-                                    value={f.nextDate ?? c.nextDate ?? ""}
-                                    onChange={(e) => updateForm(c.id, { nextDate: e.target.value })}
-                                  />
-                                </div>
-                                <div>
-                                  <div className={labelCls}>流失去向（已在他處續保）</div>
-                                  <select className={selectCls} value={f.lost ?? c.lost ?? ""} onChange={(e) => updateForm(c.id, { lost: e.target.value })}>
-                                    <option value="">— 無 —</option>
-                                    {LOST_REASONS.map((r) => (
-                                      <option key={r}>{r}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                {/* BDN #14：流失原因 ROOT CAUSE 編碼 — 與「流失去向」正交、回答「為什麼流失」 */}
-                                <div className="col-span-2" data-testid="lost-reason-root-cause">
-                                  <div className={labelCls}>流失原因（ROOT CAUSE）</div>
-                                  <select
-                                    className={selectCls}
-                                    value={f.lostReasonCode ?? c.lostReasonCode ?? ""}
-                                    onChange={(e) => updateForm(c.id, { lostReasonCode: e.target.value })}
-                                    data-testid="lost-reason-select"
-                                  >
-                                    <option value="">— 未編碼 —</option>
-                                    {lostReasons.map((r) => (
-                                      <option key={r.code} value={r.code}>
-                                        {r.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="col-span-2">
-                                  <div className={labelCls}>電訪備註</div>
-                                  <textarea
-                                    className="w-full px-2.5 py-1.5 text-[12px] border border-[#D5D3CB] rounded outline-none focus:border-[#185FA5] resize-y min-h-[56px] bg-white"
-                                    placeholder="記錄客戶反應、承諾事項、後續行動..."
-                                    value={f.note ?? c.note}
-                                    onChange={(e) => updateForm(c.id, { note: e.target.value })}
-                                  />
-                                </div>
-                                <div>
-                                  <div className={labelCls}>報價狀態</div>
-                                  <select className={selectCls} value={f.quote ?? ""} onChange={(e) => updateForm(c.id, { quote: e.target.value })}>
-                                    {QUOTE_STATES.map((q) => (
-                                      <option key={q}>{q}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <div className={labelCls}>出單公司（成交時填）</div>
-                                  <select className={selectCls} value={f.co ?? ""} onChange={(e) => updateForm(c.id, { co: e.target.value })}>
-                                    <option value="">— 無 —</option>
-                                    {INSURERS.map((co) => (
-                                      <option key={co}>{co}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </div>
-                              <div className="flex justify-end gap-2 pt-2.5 border-t border-[#EEECE6]">
-                                <button
-                                  className="px-3.5 h-[28px] text-[12px] rounded border border-[#D5D3CB] bg-white text-[#5A5955] hover:border-[#9A9890]"
-                                  onClick={() => skipCase(c.id)}
-                                >
-                                  略過（本次不跟進）
-                                </button>
-                                <button
-                                  className="px-3.5 h-[28px] text-[12px] rounded bg-[#1A3A5C] text-white hover:bg-[#0F2A45] font-medium"
-                                  onClick={() => saveCall(c.id)}
-                                >
-                                  💾 儲存電訪記錄
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </article>
-                  );
-                })
+              <option value="all">全部狀態</option>
+              {(["active", "pending", "expired", "renewed", "cancelled"] as PolicyStatus[]).map(
+                (s) => (
+                  <option key={s} value={s}>
+                    {POLICY_STATUS_LABEL[s]}
+                  </option>
+                ),
               )}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={labelCls}>險種</label>
+            <select
+              className={inputCls}
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as PolicyType | "all")}
+            >
+              <option value="all">全部險種</option>
+              {(["compulsory", "voluntary", "theft", "other"] as PolicyType[]).map((t) => (
+                <option key={t} value={t}>
+                  {POLICY_TYPE_LABEL[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={labelCls}>到期區間</label>
+            <select
+              className={inputCls}
+              value={filterExpiry}
+              onChange={(e) =>
+                setFilterExpiry(e.target.value as "30" | "60" | "90" | "expired" | "all")
+              }
+            >
+              <option value="all">不限</option>
+              <option value="30">未來 30 天</option>
+              <option value="60">未來 60 天</option>
+              <option value="90">未來 90 天</option>
+              <option value="expired">已逾期</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={labelCls}>負責業務</label>
+            <select
+              className={inputCls}
+              value={filterAssigned}
+              onChange={(e) => setFilterAssigned(e.target.value)}
+            >
+              <option value="all">全部</option>
+              {lookups.employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1 min-w-[180px]">
+            <label className={labelCls}>搜尋（保單號 / 公司 / 備註）</label>
+            <input
+              className={inputCls}
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+              placeholder="輸入關鍵字..."
+            />
+          </div>
+          <div className="flex gap-2 ml-auto">
+            <button
+              disabled={isPending}
+              onClick={applyFilters}
+              className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60"
+            >
+              {isPending ? "查詢中⋯" : "查詢"}
+            </button>
+            <button
+              disabled={isPending}
+              onClick={resetFilters}
+              className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
+            >
+              重置
+            </button>
+            <button
+              disabled={isPending || !canEdit}
+              onClick={() => setModalOpen(true)}
+              className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+              title={canEdit ? "" : "需要 sales.insurance.edit 權限"}
+            >
+              ＋ 新增保險件
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Pending Kanban */}
+      {pendingRows.length > 0 && (
+        <section className="bg-white border border-[#EEECE6] rounded-lg">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              ▼ 招攬中（pending） · {pendingRows.length} 件
+            </span>
+            <span className="text-[11px] text-[#9A9890]">點「續保」標記成交、「取消」標記放棄</span>
+          </header>
+          <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+            {pendingRows.slice(0, 12).map((r) => {
+              const d = r.days_to_expiry;
+              const tone =
+                d < 0 || d <= 30
+                  ? "border-l-[3px] border-l-[#CC0000]"
+                  : d <= 60
+                    ? "border-l-[3px] border-l-[#854F0B]"
+                    : "border-l-[3px] border-l-[#185FA5]";
+              return (
+                <article
+                  key={r.id}
+                  className={`bg-[#FAFAF8] border border-[#EEECE6] rounded-md p-2.5 ${tone}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[12.5px] font-semibold truncate">
+                        {r.customer_name ?? "—"}
+                      </div>
+                      <div className="text-[11px] text-[#5A5955] mt-0.5">
+                        {r.vehicle_plate ?? "—"} · {POLICY_TYPE_LABEL[r.policy_type]} · {r.insurer}
+                      </div>
+                      <div className="text-[11px] text-[#9A9890] mt-0.5 font-mono">
+                        到期 {r.end_date}（
+                        {d < 0 ? `逾期 ${-d} 天` : `剩 ${d} 天`}）
+                      </div>
+                    </div>
+                    {r.renewal_type && (
+                      <span className="inline-flex shrink-0 items-center px-1.5 py-0.5 rounded-md text-[10.5px] bg-[#EBF3FF] text-[#1A3A5C] whitespace-nowrap">
+                        {RENEWAL_TYPE_LABEL[r.renewal_type as RenewalType]}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-1.5 mt-2">
+                    <button
+                      disabled={isPending || !canEdit}
+                      onClick={() => handleRenew(r.id)}
+                      className="h-[24px] px-2 text-[11px] rounded bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                    >
+                      ✓ 續保
+                    </button>
+                    <button
+                      disabled={isPending || !canEdit}
+                      onClick={() => handleCancel(r.id)}
+                      className="h-[24px] px-2 text-[11px] rounded bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                    >
+                      ✕ 取消
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {pendingRows.length > 12 && (
+            <div className="px-4 py-2 text-[11px] text-[#9A9890] border-t border-[#EEECE6]">
+              還有 {pendingRows.length - 12} 件招攬中保單未顯示，請用上方篩選器（狀態=招攬中）查看完整清單。
             </div>
           )}
+        </section>
+      )}
 
-          {tab === "new" && (
-            <section data-testid="new-delivery-tab">
-              <div className="bg-[#EAF4FB] border border-[#85B7EB] rounded-lg px-3.5 py-2.5 mb-3.5 text-[12px] text-[#0C3E70] leading-[1.7]">
-                🆕 <b>新車交車招攬</b>：交車後 3 日內主動確認保險投保狀況，協助加購商業險與車損險，同時建立保險到期提醒。
-              </div>
-              <div className="bg-white border border-[#EEECE6] rounded-lg overflow-x-auto">
-                {/* TODO(P1-λ): 此 mock-only table 暫不升級到 <DataGrid>，待保險模組接真實 helper 後再做。 */}
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr>
-                      {["客戶姓名", "車款", "交車日期", "車牌", "負責 RS", "保險狀態", "備註", "操作"].map((h) => (
-                        <th key={h} className="text-[10.5px] font-semibold tracking-wide uppercase text-[#9A9890] py-2 px-3 border-b-2 border-[#EEECE6] text-left whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {NEW_DELIVERIES.map((d, i) => {
-                      const isCovOk = d.insStatus === "全險已投";
-                      return (
-                        <tr key={i} className="hover:bg-[#FAFAF8]">
-                          <td className="py-2.5 px-3 border-b border-[#F4F3F0] text-[12.5px] font-semibold">{d.name}</td>
-                          <td className="py-2.5 px-3 border-b border-[#F4F3F0] text-[12.5px]">{d.bike}</td>
-                          <td className="py-2.5 px-3 border-b border-[#F4F3F0] font-mono text-[12px]">{d.delivDate}</td>
-                          <td className="py-2.5 px-3 border-b border-[#F4F3F0]">
-                            <span className="font-mono text-[12px] bg-[#F1EFE8] px-1.5 py-0.5 rounded">{d.plate}</span>
-                          </td>
-                          <td className="py-2.5 px-3 border-b border-[#F4F3F0] text-[12.5px]">{d.rs}</td>
-                          <td className="py-2.5 px-3 border-b border-[#F4F3F0]">
-                            <span className={`text-[11px] px-2 py-0.5 rounded font-semibold ${isCovOk ? "bg-[#E1F5EE] text-[#0F6E56]" : "bg-[#FDF3E3] text-[#854F0B]"}`}>
-                              {d.insStatus}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 border-b border-[#F4F3F0] text-[11.5px] text-[#7A7A78]">{d.note}</td>
-                          <td className="py-2.5 px-3 border-b border-[#F4F3F0]">
-                            <button
-                              className="px-2.5 h-[24px] text-[11px] rounded border border-[#D5D3CB] bg-white text-[#5A5955] hover:border-[#9A9890]"
-                              onClick={() => showToast("→ 建立保險提醒件")}
-                            >
-                              建立提醒
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          )}
-
-          {tab === "perf" && (
-            <section data-testid="perf-tab" className="grid grid-cols-2 gap-3.5">
-              <PerfBox title="本月業績摘要">
-                {[
-                  ["總件數", "7 件", "pb-blue"],
-                  ["已完成", "3 件", "pb-amber"],
-                  ["進行中", "4 件", "pb-blue"],
-                  ["成交率", "43%（目標 70%）", "pb-blue"],
-                  ["佣金收入", "$12,600", "pb-amber"],
-                  ["佣金目標", "$20,000", "pb-blue"],
-                  ["達成率", "63%", "pb-amber"],
-                ].map(([k, v, _c]) => (
-                  <PerfRow key={k} k={k} v={v} cls={_c} />
-                ))}
-                {/* BDN #21：達成率 progress bar + 預測線 */}
-                <div className="mt-3 pt-3 border-t border-[#F4F3F0] flex flex-col gap-3">
-                  <ProgressBarWithForecast
-                    label="件數達成率"
-                    actual={3}
-                    target={5}
-                    unit="件"
-                  />
-                  <ProgressBarWithForecast
-                    label="佣金達成率"
-                    actual={12600}
-                    target={20000}
-                    unit="$"
-                    isCurrency
-                  />
-                </div>
-              </PerfBox>
-              <PerfBox title="RS 個人業績">
-                {PERF_RS_ROWS.map((r) => (
-                  <PerfRow key={r.name} k={`👤 ${r.name}`} v={`${r.done} 件　$${r.rev.toLocaleString()}`} cls={r.done > 0 ? "pb-teal" : ""} />
-                ))}
-              </PerfBox>
-              <PerfBox title="流失原因分析">
-                {/* BDN #14：當字典已載入則動態群聚 cases，否則 fallback 到 hardcoded demo 數字 */}
-                {lostReasons.length > 0
-                  ? lostReasons.map((r) => {
-                      const count = cases.filter((c) => c.lostReasonCode === r.code).length;
-                      return <PerfRow key={r.code} k={r.label} v={`${count} 件`} cls="pb-amber" />;
-                    })
-                  : PERF_LOST_REASONS.map((r) => (
-                      <PerfRow key={r.label} k={r.label} v={`${r.count} 件`} cls="pb-amber" />
-                    ))}
-              </PerfBox>
-              <PerfBox title="年度累計">
-                {PERF_YEAR_TOTALS.map((r) => (
-                  <PerfRow key={r.month} k={r.month} v={`$${r.amount.toLocaleString()}`} cls="pb-blue" />
-                ))}
-              </PerfBox>
-            </section>
-          )}
+      {/* Data grid */}
+      <section>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[12px] text-[#9A9890]">
+            共 <b className="text-[#2C2C2A]">{totalCount}</b> 筆保單（顯示 <b>{rows.length}</b> 筆）
+          </span>
         </div>
-      </div>
+        <DataGrid
+          columns={columns}
+          data={rows}
+          rowKey={(r) => r.id}
+          persistKey="sales/insurance"
+          exportFileName="insurance-policies"
+          emptyMessage="沒有符合條件的保單"
+          disabled={isPending}
+          rowActionsWidth={170}
+          rowActions={(r) =>
+            r.status === "pending" || r.status === "active" ? (
+              <div className="flex gap-1">
+                <button
+                  disabled={isPending || !canEdit}
+                  onClick={() => handleRenew(r.id)}
+                  className="h-[26px] px-2.5 text-[11.5px] rounded bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                  title={canEdit ? "標記已續保" : "需要編輯權限"}
+                >
+                  續保
+                </button>
+                <button
+                  disabled={isPending || !canEdit}
+                  onClick={() => handleCancel(r.id)}
+                  className="h-[26px] px-2.5 text-[11.5px] rounded bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+                  title={canEdit ? "標記取消" : "需要編輯權限"}
+                >
+                  取消
+                </button>
+              </div>
+            ) : (
+              <span className="text-[11px] text-[#9A9890]">—</span>
+            )
+          }
+          pagination={{
+            page,
+            pageSize,
+            totalCount,
+            onPageChange: goToPage,
+          }}
+        />
+      </section>
 
-      {/* Modal */}
+      {/* Create Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black/35 z-50 flex items-center justify-center" onClick={(e) => e.target === e.currentTarget && setModalOpen(false)}>
+        <div
+          className="fixed inset-0 bg-black/35 z-50 flex items-center justify-center"
+          onClick={(e) => e.target === e.currentTarget && setModalOpen(false)}
+        >
           <div className="bg-white rounded-xl w-[540px] max-w-[92vw] shadow-2xl overflow-hidden">
             <div className="px-5 py-3.5 border-b border-[#EEECE6] flex items-center justify-between">
-              <div className="text-[14px] font-bold">＋ 新增保險招攬件</div>
-              <button className="text-[20px] text-[#9A9890] px-1.5" onClick={() => setModalOpen(false)}>
+              <div className="text-[14px] font-bold">＋ 新增保險件</div>
+              <button
+                className="text-[20px] text-[#9A9890] px-1.5"
+                onClick={() => setModalOpen(false)}
+              >
                 ×
               </button>
             </div>
-            <div className="px-5 py-4 max-h-[64vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
-                <FormField label="客戶姓名" required>
-                  <input className={inputCls} placeholder="例：王大明" value={newCase.name} onChange={(e) => setNewCase({ ...newCase, name: e.target.value })} />
-                </FormField>
-                <FormField label="聯絡電話" required>
-                  <input className={inputCls} placeholder="0912-345-678" value={newCase.phone} onChange={(e) => setNewCase({ ...newCase, phone: e.target.value })} />
-                </FormField>
-                <FormField label="車牌號碼">
-                  <input className={inputCls} placeholder="例：ABC-1234" value={newCase.plate} onChange={(e) => setNewCase({ ...newCase, plate: e.target.value })} />
-                </FormField>
-                <FormField label="車款">
-                  <select className={selectCls} value={newCase.bike} onChange={(e) => setNewCase({ ...newCase, bike: e.target.value })}>
-                    <option value="">— 請選擇 —</option>
-                    {BIKE_MODELS.map((b) => (
-                      <option key={b}>{b}</option>
-                    ))}
-                  </select>
-                </FormField>
-                <FormField label="保險到期日" required>
-                  <input type="date" className={inputCls} value={newCase.expiry} onChange={(e) => setNewCase({ ...newCase, expiry: e.target.value })} />
-                </FormField>
-                <FormField label="續保類型">
-                  <select className={selectCls} value={newCase.type} onChange={(e) => setNewCase({ ...newCase, type: e.target.value as InsType })}>
-                    {(["新轉續", "續轉續", "斷轉續", "外轉續", "在修未投保"] as InsType[]).map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                </FormField>
-                <FormField label="原保公司">
-                  <select className={selectCls} value={newCase.co} onChange={(e) => setNewCase({ ...newCase, co: e.target.value })}>
-                    {INSURERS.map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                </FormField>
-                <FormField label="負責 RS">
-                  <select className={selectCls} value={newCase.rs} onChange={(e) => setNewCase({ ...newCase, rs: e.target.value })}>
-                    {RS_LIST.map((r) => (
-                      <option key={r}>{r}</option>
-                    ))}
-                  </select>
-                </FormField>
+            <div className="px-5 py-4 max-h-[64vh] overflow-y-auto grid grid-cols-2 gap-3">
+              <div>
+                <div className={labelCls}>客戶</div>
+                <select
+                  className={inputCls}
+                  value={draft.customer_id ?? ""}
+                  onChange={(e) =>
+                    setDraft({ ...draft, customer_id: e.target.value || null, vehicle_id: null })
+                  }
+                >
+                  <option value="">— 請選擇 —</option>
+                  {lookups.customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="mt-3">
+              <div>
+                <div className={labelCls}>配車（依客戶過濾）</div>
+                <select
+                  className={inputCls}
+                  value={draft.vehicle_id ?? ""}
+                  onChange={(e) => setDraft({ ...draft, vehicle_id: e.target.value || null })}
+                >
+                  <option value="">— 不關聯 —</option>
+                  {lookups.vehicles
+                    .filter((v) =>
+                      draft.customer_id ? v.customer_id === draft.customer_id : true,
+                    )
+                    .map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.label}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <div className={labelCls}>
+                  保險公司 <span className="text-[#CC0000]">*</span>
+                </div>
+                <input
+                  className={inputCls}
+                  value={draft.insurer}
+                  onChange={(e) => setDraft({ ...draft, insurer: e.target.value })}
+                  placeholder="例：富邦產險"
+                />
+              </div>
+              <div>
+                <div className={labelCls}>保單號</div>
+                <input
+                  className={inputCls}
+                  value={draft.policy_no ?? ""}
+                  onChange={(e) => setDraft({ ...draft, policy_no: e.target.value })}
+                />
+              </div>
+              <div>
+                <div className={labelCls}>險種</div>
+                <select
+                  className={inputCls}
+                  value={draft.policy_type}
+                  onChange={(e) =>
+                    setDraft({ ...draft, policy_type: e.target.value as PolicyType })
+                  }
+                >
+                  {(["compulsory", "voluntary", "theft", "other"] as PolicyType[]).map((t) => (
+                    <option key={t} value={t}>
+                      {POLICY_TYPE_LABEL[t]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className={labelCls}>招攬類型</div>
+                <select
+                  className={inputCls}
+                  value={draft.renewal_type ?? ""}
+                  onChange={(e) =>
+                    setDraft({ ...draft, renewal_type: (e.target.value || null) as RenewalType | null })
+                  }
+                >
+                  <option value="">— 不指定 —</option>
+                  {(
+                    [
+                      "new_to_renew",
+                      "renew_to_renew",
+                      "lapsed_to_renew",
+                      "external_to_renew",
+                      "in_service_no_policy",
+                    ] as RenewalType[]
+                  ).map((t) => (
+                    <option key={t} value={t}>
+                      {RENEWAL_TYPE_LABEL[t]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className={labelCls}>起始日</div>
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={draft.start_date ?? ""}
+                  onChange={(e) => setDraft({ ...draft, start_date: e.target.value || null })}
+                />
+              </div>
+              <div>
+                <div className={labelCls}>
+                  到期日 <span className="text-[#CC0000]">*</span>
+                </div>
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={draft.end_date}
+                  onChange={(e) => setDraft({ ...draft, end_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <div className={labelCls}>保費（NTD）</div>
+                <input
+                  type="number"
+                  className={inputCls}
+                  value={draft.premium ?? ""}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      premium: e.target.value ? Number(e.target.value) : null,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <div className={labelCls}>負責業務</div>
+                <select
+                  className={inputCls}
+                  value={draft.assigned_to ?? ""}
+                  onChange={(e) => setDraft({ ...draft, assigned_to: e.target.value || null })}
+                >
+                  <option value="">— 未指派 —</option>
+                  {lookups.employees.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-2">
                 <div className={labelCls}>備註</div>
                 <textarea
-                  className="w-full px-2.5 py-1.5 text-[12px] border border-[#D5D3CB] rounded outline-none focus:border-[#185FA5] resize-y min-h-[56px] bg-white"
-                  placeholder="客戶特殊情況、上次溝通重點..."
-                  value={newCase.note}
-                  onChange={(e) => setNewCase({ ...newCase, note: e.target.value })}
+                  className="w-full px-2 py-1.5 text-[12.5px] border border-[#D5D3CB] rounded outline-none focus:border-[#185FA5] resize-y min-h-[56px] bg-white"
+                  value={draft.notes ?? ""}
+                  onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
                 />
-                <div className="text-[11px] text-[#9A9890] mt-1">儲存後系統依到期日自動計算提醒優先序</div>
               </div>
             </div>
             <div className="px-5 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
-              <button className="px-4 h-[30px] text-[12.5px] rounded border border-[#D5D3CB] bg-white text-[#5A5955] hover:border-[#9A9890]" onClick={() => setModalOpen(false)}>
+              <button
+                disabled={isPending}
+                onClick={() => setModalOpen(false)}
+                className="px-4 h-[30px] text-[12.5px] rounded border border-[#D5D3CB] bg-white text-[#5A5955] hover:border-[#9A9890]"
+              >
                 取消
               </button>
-              <button className="px-4 h-[30px] text-[12.5px] rounded bg-[#1A3A5C] text-white hover:bg-[#0F2A45] font-medium" onClick={addCase}>
-                ✅ 建立保險件
+              <button
+                disabled={isPending}
+                onClick={submitDraft}
+                className="px-4 h-[30px] text-[12.5px] rounded bg-[#0F6E56] text-white hover:bg-[#0a5742] font-medium disabled:opacity-50"
+              >
+                {isPending ? "建立中⋯" : "✓ 建立"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {toast && (
-        <div className="fixed bottom-6 right-6 px-4 py-2 rounded-lg shadow-lg text-[13px] z-50 bg-[#1A3A5C] text-white">{toast}</div>
-      )}
-    </main>
-  );
-}
-
-function NavSection({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="px-3 mb-1.5">
-      <div className="text-[10px] font-semibold tracking-wide uppercase text-[#9A9890] px-1.5 pt-2 pb-1">{label}</div>
-      {children}
-    </div>
-  );
-}
-
-function NavItem({
-  active,
-  onClick,
-  dotColor,
-  label,
-  count,
-  countCls,
-}: {
-  active?: boolean;
-  onClick?: () => void;
-  dotColor: string;
-  label: string;
-  count?: number;
-  countCls?: string;
-}) {
-  return (
-    <div
-      onClick={onClick}
-      className={`flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer transition-colors mb-0.5 text-[12px] ${
-        active ? "bg-[#FDF3E3] text-[#854F0B] font-semibold" : "text-[#4A4A48] hover:bg-[#F4F3F0]"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: dotColor }} />
-        {label}
-      </div>
-      {typeof count === "number" && <span className={`text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded ${countCls ?? ""}`}>{count}</span>}
-    </div>
-  );
-}
-
-function NavStatic({ label, value, valueCls, small }: { label: string; value: string; valueCls: string; small?: boolean }) {
-  return (
-    <div className="flex items-center justify-between px-2 py-1.5 mb-0.5">
-      <div className="text-[11px] text-[#5A5955]">{label}</div>
-      <span className={`font-mono font-semibold px-1.5 py-0.5 rounded ${valueCls} ${small ? "text-[10px]" : "text-[11px]"}`}>{value}</span>
-    </div>
-  );
-}
-
-function KpiCard({
-  accent,
-  label,
-  value,
-  valueCls,
-  sub,
-  barCls,
-  barWidth,
-}: {
-  accent: string;
-  label: string;
-  value: string;
-  valueCls: string;
-  sub: string;
-  barCls?: string;
-  barWidth?: string;
-}) {
-  return (
-    <div className="bg-white border border-[#EEECE6] rounded-lg px-3 py-2.5" style={{ borderLeft: `3px solid ${accent}` }}>
-      <div className="text-[10.5px] text-[#9A9890] mb-0.5">{label}</div>
-      <div className={`text-[22px] font-bold font-mono leading-none mb-0.5 ${valueCls}`}>{value}</div>
-      <div className="text-[10.5px] text-[#9A9890]">{sub}</div>
-      {barCls && barWidth && (
-        <div className="h-1 bg-[#EEECE6] rounded-full mt-1.5 overflow-hidden">
-          <div className={`h-full rounded-full ${barCls}`} style={{ width: barWidth }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PerfBox({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white border border-[#EEECE6] rounded-[10px] px-4 py-3.5">
-      <div className="text-[11px] font-semibold tracking-wide uppercase text-[#9A9890] mb-2.5">{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function PerfRow({ k, v, cls }: { k: string; v: string; cls?: string }) {
-  const c =
-    cls === "pb-teal"
-      ? "text-[#0F6E56]"
-      : cls === "pb-amber"
-        ? "text-[#854F0B]"
-        : cls === "pb-blue"
-          ? "text-[#185FA5]"
-          : "text-[#5A5955]";
-  return (
-    <div className="flex justify-between py-1.5 border-b border-[#F4F3F0] last:border-b-0 text-[12.5px]">
-      <span className="text-[#5A5955]">{k}</span>
-      <span className={`font-mono font-semibold ${c}`}>{v}</span>
-    </div>
-  );
-}
-
-/**
- * BDN #21：本月業績達成率 progress bar + 月底預測線
- * - 顏色閾值：≥80% 綠 / 50–80% 黃 / <50% 紅
- * - 預測：actual * (daysInMonth / daysPassed)，daysPassed >= 3 才顯示（避免月初基數太小）
- * - 預測線以虛線 marker 疊在 bar 上，超過 100% 截斷在 100% 並標 🎯+
- */
-function ProgressBarWithForecast({
-  label,
-  actual,
-  target,
-  unit,
-  isCurrency,
-}: {
-  label: string;
-  actual: number;
-  target: number;
-  unit: string;
-  isCurrency?: boolean;
-}) {
-  const now = new Date();
-  const daysPassed = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const showForecast = daysPassed >= 3;
-  const rawPct = target > 0 ? (actual / target) * 100 : 0;
-  const pct = Math.min(100, Math.max(0, rawPct));
-  const predicted = showForecast ? actual * (daysInMonth / daysPassed) : 0;
-  const predictedRawPct = target > 0 ? (predicted / target) * 100 : 0;
-  const predictedPct = Math.min(100, Math.max(0, predictedRawPct));
-  const overshoot = predictedRawPct > 100;
-  const color = rawPct >= 80 ? "#0F6E56" : rawPct >= 50 ? "#F0C97E" : "#C8001A";
-  const fmt = (n: number) =>
-    isCurrency
-      ? `$${Math.round(n).toLocaleString()}`
-      : `${Math.round(n).toLocaleString()} ${unit}`;
-  return (
-    <div data-testid="progress-bar-with-forecast">
-      <div className="flex justify-between items-baseline mb-1 text-[11.5px]">
-        <span className="font-semibold text-[#4A4A48]">{label}</span>
-        <span className="text-[#5A5955]">
-          實際 <span className="font-mono font-semibold" style={{ color }}>{fmt(actual)}</span>
-          {" / "}
-          目標 <span className="font-mono text-[#5A5955]">{fmt(target)}</span>
-          <span className="ml-1.5 font-mono font-semibold" style={{ color }}>
-            （{Math.round(rawPct)}%）
-          </span>
-        </span>
-      </div>
-      <div className="relative w-full h-[12px] rounded-full bg-[#EEECE6] overflow-visible">
+      {/* Banner */}
+      {banner && (
         <div
-          className="h-full rounded-full transition-[width]"
-          style={{ width: `${pct}%`, background: color }}
-        />
-        {showForecast && (
-          <>
-            {/* 預測線 marker：垂直虛線從 bar 上方延伸到下方 */}
-            <div
-              className="absolute -top-1 h-[20px] border-l-2 border-dashed border-[#5A5955]"
-              style={{ left: `calc(${predictedPct}% - 1px)` }}
-              title={`預估月底 ${fmt(predicted)}`}
-            />
-          </>
-        )}
-      </div>
-      {showForecast ? (
-        <div className="flex justify-between items-baseline mt-1 text-[10.5px] text-[#7A7A78]">
-          <span>已過 {daysPassed} / 共 {daysInMonth} 天</span>
-          <span>
-            預估月底{" "}
-            <span className="font-mono font-semibold text-[#4A4A48]">
-              {fmt(predicted)}
-              {overshoot && " 🎯+"}
-            </span>
-            <span className="ml-1">（{Math.round(predictedRawPct)}%）</span>
-          </span>
-        </div>
-      ) : (
-        <div className="mt-1 text-[10.5px] text-[#9A9890]">
-          已過 {daysPassed} / 共 {daysInMonth} 天 · 月初資料尚少、暫不顯示預測
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
+            banner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          }`}
+        >
+          {banner.msg}
         </div>
       )}
-    </div>
-  );
-}
 
-function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-[11.5px] font-semibold text-[#4A4A48] mb-1">
-        {label}
-        {required && <span className="text-[#C8001A] ml-0.5">*</span>}
-      </div>
-      {children}
-    </div>
+      {/* Empty state（DataGrid 已處理 empty rows，但 0 筆 + 沒任何篩選時補一個 hint） */}
+      {totalCount === 0 &&
+        filters.status === "all" &&
+        filters.policy_type === "all" &&
+        filters.expiry_window === "all" &&
+        !filters.search && (
+          <section className="bg-[#FDF3E3] border border-[#F0C97E] rounded-lg px-4 py-3 text-[12px] text-[#854F0B]">
+            目前還沒有任何保單資料。點右上「＋ 新增保險件」開始建立，或從售後維修工單匯入續保提醒。
+          </section>
+        )}
+    </main>
   );
 }

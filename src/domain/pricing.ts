@@ -195,12 +195,133 @@ export async function listItemStorePrices(
   });
 }
 
+/**
+ * KPI / 視覺化用聚合資料 — 與 listPricing 一起算，避免重複 query。
+ */
+export type PricingStats = {
+  total: number;                  // 商品總數
+  with_store_price: number;        // 有獨立定價（custom + promo）的商品數
+  promo_count: number;             // 促銷中
+  custom_count: number;            // 門店自訂
+  default_count: number;           // 沿用建議
+  avg_margin_pct: number | null;   // 平均毛利率
+  high_margin_count: number;       // 毛利率 ≥ 20%
+  mid_margin_count: number;        // 15–20%
+  low_margin_count: number;        // < 15%
+  no_margin_count: number;         // null（成本或售價缺）
+  price_buckets: Array<{ label: string; count: number; min: number; max: number | null }>;
+  top_margin: Array<{ code: string; name: string; margin_pct: number; store_price: number }>;
+  bottom_margin: Array<{ code: string; name: string; margin_pct: number; store_price: number }>;
+  expiring_promo_count: number;    // 14 天內到期的促銷
+};
+
+function computePricingStats(rows: PricingRow[]): PricingStats {
+  const total = rows.length;
+  let with_store_price = 0;
+  let promo_count = 0;
+  let custom_count = 0;
+  let default_count = 0;
+  let expiring_promo_count = 0;
+
+  let marginSum = 0;
+  let marginN = 0;
+  let high = 0;
+  let mid = 0;
+  let low = 0;
+  let none = 0;
+
+  const buckets = [
+    { label: "< 500", count: 0, min: 0, max: 500 },
+    { label: "500–2k", count: 0, min: 500, max: 2000 },
+    { label: "2k–10k", count: 0, min: 2000, max: 10000 },
+    { label: "10k–50k", count: 0, min: 10000, max: 50000 },
+    { label: "≥ 50k", count: 0, min: 50000, max: null as number | null },
+  ];
+
+  const now = Date.now();
+  const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+
+  for (const r of rows) {
+    if (r.pricing_type === "promo") {
+      promo_count++;
+      with_store_price++;
+      if (r.promo_end_date) {
+        const t = new Date(r.promo_end_date).getTime();
+        if (t > now && t - now <= TWO_WEEKS_MS) expiring_promo_count++;
+      }
+    } else if (r.pricing_type === "store_custom") {
+      custom_count++;
+      with_store_price++;
+    } else {
+      default_count++;
+    }
+
+    if (r.margin_pct === null) {
+      none++;
+    } else {
+      marginSum += r.margin_pct;
+      marginN++;
+      if (r.margin_pct >= 20) high++;
+      else if (r.margin_pct >= 15) mid++;
+      else low++;
+    }
+
+    if (r.store_price !== null) {
+      const p = r.store_price;
+      for (const b of buckets) {
+        if (p >= b.min && (b.max === null || p < b.max)) {
+          b.count++;
+          break;
+        }
+      }
+    }
+  }
+
+  const sorted = rows
+    .filter((r) => r.margin_pct !== null && r.store_price !== null)
+    .sort((a, b) => (b.margin_pct ?? 0) - (a.margin_pct ?? 0));
+
+  const top_margin = sorted.slice(0, 5).map((r) => ({
+    code: r.code,
+    name: r.name,
+    margin_pct: r.margin_pct ?? 0,
+    store_price: r.store_price ?? 0,
+  }));
+  const bottom_margin = sorted
+    .slice(-5)
+    .reverse()
+    .map((r) => ({
+      code: r.code,
+      name: r.name,
+      margin_pct: r.margin_pct ?? 0,
+      store_price: r.store_price ?? 0,
+    }));
+
+  return {
+    total,
+    with_store_price,
+    promo_count,
+    custom_count,
+    default_count,
+    avg_margin_pct: marginN > 0 ? Math.round((marginSum / marginN) * 10) / 10 : null,
+    high_margin_count: high,
+    mid_margin_count: mid,
+    low_margin_count: low,
+    no_margin_count: none,
+    price_buckets: buckets,
+    top_margin,
+    bottom_margin,
+    expiring_promo_count,
+  };
+}
+
 export async function getPricingPageData(filter: {
   store_id?: string;
   q?: string;
 }): Promise<{
   stores: StoreOption[];
   rows: PricingRow[];
+  stats: PricingStats;
   activeStoreId: string | null;
   activeStoreName: string | null;
   canEdit: boolean;
@@ -214,9 +335,11 @@ export async function getPricingPageData(filter: {
       : Promise.resolve([] as PricingRow[]),
     hasPermission(PERMISSIONS.ITEM_EDIT),
   ]);
+  const stats = computePricingStats(rows);
   return {
     stores,
     rows,
+    stats,
     activeStoreId,
     activeStoreName: activeStore?.name ?? null,
     canEdit,

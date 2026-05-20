@@ -1078,7 +1078,7 @@ export async function getAbcStructurePageData(): Promise<AbcStructurePageData> {
 
 // ─────────────────────────── ABC settings page（/parts/analytics/abc-settings） ───────────────────────────
 
-import type { AbcConfig } from "@/app/(workspace)/parts/analytics/abc-settings/_components/abc-settings-board";
+import type { AbcConfig } from "@/domain/parts-abc.constants";
 
 export async function getAbcSettingsPageData(): Promise<AbcConfig | null> {
   const supabase = await createClient();

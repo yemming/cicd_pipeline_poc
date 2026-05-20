@@ -38,12 +38,13 @@ export default async function SuppliersPage({
     contract_status: (sp.contract_status as ContractStatus | "all" | undefined) ?? "all",
     q: sp.q || undefined,
   };
-  const { rows, canEdit } = await getSuppliersPageData(filter);
+  const { rows, canEdit, stats } = await getSuppliersPageData(filter);
 
   return (
     <SuppliersBoard
       rows={rows}
       canEdit={canEdit}
+      stats={stats}
       initialType={sp.type ?? ""}
       initialContractStatus={sp.contract_status ?? "all"}
       initialQ={sp.q ?? ""}

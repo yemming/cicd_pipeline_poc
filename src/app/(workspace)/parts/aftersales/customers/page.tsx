@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getAftersalesCustomerBaseListPageData } from "@/domain/aftersales-customer-base";
+import { getAftersalesCustomerBaseListPageDataWithKpi } from "@/domain/aftersales-customer-base";
 import type { AftersalesCustomerBaseFilters } from "@/domain/aftersales-customer-base.constants";
 
 import { CustomersBoard } from "./_components/customers-board";
@@ -34,10 +34,15 @@ export default async function CustomersPage({
     q: sp.q ?? "",
   };
 
-  const { rows, totalCount } =
-    await getAftersalesCustomerBaseListPageData(filters);
+  const { rows, totalCount, kpi } =
+    await getAftersalesCustomerBaseListPageDataWithKpi(filters);
 
   return (
-    <CustomersBoard rows={rows} totalCount={totalCount} filters={filters} />
+    <CustomersBoard
+      rows={rows}
+      totalCount={totalCount}
+      filters={filters}
+      kpi={kpi}
+    />
   );
 }

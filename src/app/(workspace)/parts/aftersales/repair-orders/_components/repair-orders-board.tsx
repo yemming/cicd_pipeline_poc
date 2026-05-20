@@ -6,6 +6,8 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization";
+import { DonutChart } from "@/components/charts";
 import {
   PREFIX_P1_DEFS,
   PREFIX_P2_DEFS,
@@ -16,6 +18,15 @@ import type {
   RepairOrderListPageData,
   RepairOrderListRow,
 } from "@/domain/repair-orders";
+
+// DonutChart 各狀態色票（依 statusChipClass 的 tone 對應）
+const STATUS_COLORS: Record<string, string> = {
+  進行中: "#185FA5", // blue
+  維修中: "#854F0B", // amber
+  待結帳: "#1A3A5C", // navy
+  已關單: "#3B6D11", // green
+  已取消: "#6B6A68", // gray
+};
 
 const labelClass = "text-[11px] text-[#9A9890] font-medium";
 const inputClass =
@@ -122,6 +133,30 @@ export function RepairOrdersBoard({
       router.push("/parts/aftersales/repair-orders");
     });
   }
+
+  // KpiCard / DonutChart 資料（來自 data.statusStats，反映該 brand 整體分佈，
+  // 不受 filter 影響——donut 是「全景」、totalCount 才是「篩選後筆數」）
+  const statsByStatus = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of data.statusStats ?? []) map.set(s.status, s.count);
+    return map;
+  }, [data.statusStats]);
+  const statusCount = (s: string) => statsByStatus.get(s) ?? 0;
+  const donutData = useMemo(
+    () =>
+      (data.statusStats ?? [])
+        .filter((s) => s.count > 0)
+        .map((s) => ({
+          name: s.status,
+          value: s.count,
+          color: STATUS_COLORS[s.status] ?? "#9A9890",
+        })),
+    [data.statusStats],
+  );
+  const totalForDonut = useMemo(
+    () => donutData.reduce((sum, d) => sum + d.value, 0),
+    [donutData],
+  );
 
   const columns: DataGridColumn<RepairOrderListRow>[] = useMemo(
     () => [
@@ -381,7 +416,7 @@ export function RepairOrdersBoard({
 
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">
-          共 <b className="text-[#2C2C2A]">{data.totalCount}</b> 筆工單
+          共 <b className="text-[#2C2C2A]">{data.totalCount}</b> 筆工單（依當前篩選）
         </span>
       </div>
 
@@ -394,6 +429,67 @@ export function RepairOrdersBoard({
         emptyMessage="目前沒有符合條件的工單"
         disabled={isPending}
         rowActionsWidth={170}
+        kpiSlot={
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <KpiCard
+              label="進行中"
+              value={statusCount("進行中")}
+              tone="blue"
+              layout="vertical"
+            />
+            <KpiCard
+              label="維修中"
+              value={statusCount("維修中")}
+              tone="amber"
+              layout="vertical"
+            />
+            <KpiCard
+              label="待結帳"
+              value={statusCount("待結帳")}
+              tone="purple"
+              layout="vertical"
+            />
+            <KpiCard
+              label="本月已關單"
+              value={statusCount("已關單")}
+              tone="green"
+              layout="vertical"
+            />
+          </div>
+        }
+        chartSlot={
+          totalForDonut > 0 ? (
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="text-[13px] font-semibold text-[#2C2C2A] shrink-0">
+                狀態分佈
+              </div>
+              <div className="shrink-0">
+                <DonutChart
+                  data={donutData}
+                  size="sm"
+                  centerLabel={String(totalForDonut)}
+                  centerCaption="工單總數"
+                  showLegend={false}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2 text-[12px]">
+                {donutData.map((d) => (
+                  <span
+                    key={d.name}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#EEECE6] bg-white"
+                  >
+                    <span
+                      className="inline-block w-2 h-2 rounded-full"
+                      style={{ backgroundColor: d.color }}
+                    />
+                    <span className="text-[#5A5955]">{d.name}</span>
+                    <b className="text-[#2C2C2A] font-mono">{d.value}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : undefined
+        }
         rowActions={(r) => (
           <Link
             href={`/parts/aftersales/repair-orders/${r.id}`}

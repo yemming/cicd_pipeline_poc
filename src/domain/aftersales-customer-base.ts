@@ -20,12 +20,14 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 
 import type {
   AftersalesCustomerBaseFilters,
+  AftersalesCustomerBaseKpi,
   AftersalesServiceStatus,
   AftersalesCustomerTraffic,
   AftersalesCustomerCrmRow,
   AftersalesCustomerCrmKpi,
   AftersalesCustomerCrmFilters,
 } from "./aftersales-customer-base.constants";
+import { isVipRow } from "./aftersales-customer-base.constants";
 
 // Re-export 給既有 caller 用（page.tsx 過去從這支 import 這些 type）
 export type {
@@ -250,6 +252,49 @@ export async function getAftersalesCustomerBaseListPageData(
   return { rows, totalCount: totalRes.count ?? 0 };
 }
 
+/**
+ * 人車檔案列表頁專用：在 `getAftersalesCustomerBaseListPageData` 之上補 KpiCard 列。
+ * KPI 為「全集」級（不被 filter 影響） — 總客戶 / VIP / 本月進廠數 / 待回廠+流失。
+ *
+ * 本月進廠數需要額外一次 work_orders 撈（限本月開單），其他 KPI 從 rows derive。
+ */
+export async function getAftersalesCustomerBaseListPageDataWithKpi(
+  filters: AftersalesCustomerBaseFilters,
+): Promise<AftersalesCustomerBaseListResult & { kpi: AftersalesCustomerBaseKpi }> {
+  const { rows, totalCount } = await getAftersalesCustomerBaseListPageData(
+    filters,
+  );
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const monthStart = new Date(
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    1,
+  ).toISOString();
+
+  const { count: monthVisitCount } = await supabase
+    .from("work_orders")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", brand)
+    .gte("opened_at", monthStart);
+
+  // VIP / at-risk / dormant 由 rows derive
+  const vipCount = rows.filter((r) => isVipRow(r)).length;
+  const atRiskDormant = rows.filter(
+    (r) => r.service_status === "at_risk" || r.service_status === "dormant",
+  ).length;
+
+  const kpi: AftersalesCustomerBaseKpi = {
+    total_customers: totalCount,
+    vip_count: vipCount,
+    this_month_visits: monthVisitCount ?? 0,
+    at_risk_dormant: atRiskDormant,
+  };
+
+  return { rows, totalCount, kpi };
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // Detail
 // ──────────────────────────────────────────────────────────────────────────
@@ -383,6 +428,10 @@ export type AftersalesCustomerFullBundle = AftersalesCustomerDetailBundle & {
   followups: AftersalesFollowupCaseRow[];
   officialTags: AftersalesOfficialTagRow[];
   pickupNotify: AftersalesPickupNotifyTemplate;
+  /** 人車檔案 A 級新增：終身價值 — 累計進廠 / 累計金額 / 平均客單 / 距上次進廠天數 */
+  lifetime: AftersalesCustomerLifetime;
+  /** 人車檔案 A 級新增：NPS 摘要（推薦者 / 中立 / 批評）— 不一定有資料 */
+  npsSummary: AftersalesNpsSummary;
 };
 
 /**
@@ -469,12 +518,280 @@ export async function getCustomerById(
     updated_at: pickupRow?.updated_at ?? null,
   };
 
+  // ── 人車檔案 A 級新增：lifetime + npsSummary ──
+  // Lifetime 從 base.workOrders 直接算（不另發 round-trip）
+  const wos = base.workOrders;
+  const visitCount = wos.length;
+  const totalAmount = wos.reduce(
+    (s, w) => s + (w.total_amount == null ? 0 : Number(w.total_amount)),
+    0,
+  );
+  const openedDates = wos
+    .map((w) => w.opened_at)
+    .filter((x): x is string => Boolean(x))
+    .sort();
+  const firstVisitAt = openedDates[0] ?? null;
+  const lastVisitAt = openedDates[openedDates.length - 1] ?? null;
+  const nowTs = Date.now();
+  const daysSinceLastVisit = lastVisitAt
+    ? Math.round((nowTs - new Date(lastVisitAt).getTime()) / 86400000)
+    : null;
+  const lifetime: AftersalesCustomerLifetime = {
+    visit_count: visitCount,
+    total_amount: totalAmount,
+    first_visit_at: firstVisitAt,
+    last_visit_at: lastVisitAt,
+    avg_amount: visitCount > 0 ? totalAmount / visitCount : 0,
+    days_since_last_visit: daysSinceLastVisit,
+  };
+
+  // NPS 摘要（限 customer_id）
+  const { data: npsAggData } = await supabase
+    .from("nps_responses")
+    .select("score")
+    .eq("brand_id", brand)
+    .eq("customer_id", id);
+  const npsScores = ((npsAggData ?? []) as Array<{ score: number }>).map(
+    (n) => n.score,
+  );
+  const promoter = npsScores.filter((s) => s >= 9).length;
+  const passive = npsScores.filter((s) => s >= 7 && s <= 8).length;
+  const detractor = npsScores.filter((s) => s <= 6).length;
+  const npsAvg =
+    npsScores.length > 0
+      ? Math.round(
+          (npsScores.reduce((s, n) => s + n, 0) / npsScores.length) * 10,
+        ) / 10
+      : null;
+  const latestScore = npsScores.length > 0 ? npsScores[0] : null;
+  const npsSummary: AftersalesNpsSummary = {
+    total: npsScores.length,
+    avg: npsAvg,
+    latest_score: latestScore,
+    promoter,
+    passive,
+    detractor,
+  };
+
   return {
     ...base,
     repairOrders,
     officialTags,
     followups,
     pickupNotify,
+    lifetime,
+    npsSummary,
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 360° Profile bundle — 售後客戶基盤詳情頁專用
+// 在 getAftersalesCustomerDetail 之上加：
+//   - npsResponses（最近 30 筆 aftersales kind）
+//   - callTasks（最近 30 筆 aftersales kind，涵蓋電訪歷史）
+//   - warrantySubscriptions（從車輛 warranty_until / insurance_until / desmo 衍生）
+//   - lifetime（visit_count / total_amount / first_visit / last_visit / avg_amount）
+//   - npsSummary（avg / promoter / passive / detractor count）
+// 不開新表；全用 join。
+// ──────────────────────────────────────────────────────────────────────────
+
+export type AftersalesNpsResponseRow = {
+  id: string;
+  score: number;
+  category: string | null;
+  comment: string | null;
+  responded_at: string;
+  kind: string;
+};
+
+export type AftersalesCallTaskRow = {
+  id: string;
+  kind: string;
+  status: string;
+  call_result: string | null;
+  scheduled_at: string | null;
+  last_attempt_at: string | null;
+  attempt_count: number | null;
+  notes: string | null;
+  call_type: string | null;
+  created_at: string;
+};
+
+export type AftersalesWarrantyEntry = {
+  vehicle_id: string;
+  license_plate: string | null;
+  model_name: string | null;
+  /** 'warranty' = 原廠保固、'insurance' = 強制險、'desmo' = Desmo 服務（到期） */
+  kind: "warranty" | "insurance" | "desmo";
+  expires_at: string | null;
+  days_left: number | null;
+  /** valid / due_soon (≤30d) / expiring (≤60d) / expired / unknown */
+  status: "valid" | "due_soon" | "expiring" | "expired" | "unknown";
+};
+
+export type AftersalesCustomerLifetime = {
+  visit_count: number;
+  total_amount: number;
+  first_visit_at: string | null;
+  last_visit_at: string | null;
+  avg_amount: number;
+  /** 距上次進廠天數（null 表從未進廠） */
+  days_since_last_visit: number | null;
+};
+
+export type AftersalesNpsSummary = {
+  total: number;
+  avg: number | null;
+  /** 最近一筆（responded_at desc）的 score */
+  latest_score: number | null;
+  promoter: number;
+  passive: number;
+  detractor: number;
+};
+
+export type AftersalesCustomerProfileBundle = AftersalesCustomerDetailBundle & {
+  npsResponses: AftersalesNpsResponseRow[];
+  callTasks: AftersalesCallTaskRow[];
+  warrantySubscriptions: AftersalesWarrantyEntry[];
+  lifetime: AftersalesCustomerLifetime;
+  npsSummary: AftersalesNpsSummary;
+};
+
+function deriveWarrantyStatus(
+  expires: string | null,
+  now: number,
+): { status: AftersalesWarrantyEntry["status"]; days_left: number | null } {
+  if (!expires) return { status: "unknown", days_left: null };
+  const ts = new Date(expires).getTime();
+  const days = Math.round((ts - now) / 86400000);
+  if (days < 0) return { status: "expired", days_left: days };
+  if (days <= 30) return { status: "due_soon", days_left: days };
+  if (days <= 60) return { status: "expiring", days_left: days };
+  return { status: "valid", days_left: days };
+}
+
+export async function getAftersalesCustomerProfile(
+  id: string,
+): Promise<AftersalesCustomerProfileBundle | null> {
+  const base = await getAftersalesCustomerDetail(id);
+  if (!base) return null;
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const [npsRes, callRes] = await Promise.all([
+    supabase
+      .from("nps_responses")
+      .select("id, score, category, comment, responded_at, kind")
+      .eq("brand_id", brand)
+      .eq("customer_id", id)
+      .order("responded_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("call_tasks")
+      .select(
+        "id, kind, status, call_result, scheduled_at, last_attempt_at, attempt_count, notes, call_type, created_at",
+      )
+      .eq("brand_id", brand)
+      .eq("customer_id", id)
+      .order("scheduled_at", { ascending: false, nullsFirst: false })
+      .limit(30),
+  ]);
+
+  const npsResponses = (npsRes.data ?? []) as AftersalesNpsResponseRow[];
+  const callTasks = (callRes.data ?? []) as AftersalesCallTaskRow[];
+
+  // Lifetime metrics from workOrders
+  const wos = base.workOrders;
+  const visitCount = wos.length;
+  const totalAmount = wos.reduce(
+    (s, w) => s + (w.total_amount == null ? 0 : Number(w.total_amount)),
+    0,
+  );
+  const openedDates = wos
+    .map((w) => w.opened_at)
+    .filter((x): x is string => Boolean(x))
+    .sort();
+  const firstVisitAt = openedDates[0] ?? null;
+  const lastVisitAt = openedDates[openedDates.length - 1] ?? null;
+  const now = Date.now();
+  const daysSinceLastVisit = lastVisitAt
+    ? Math.round((now - new Date(lastVisitAt).getTime()) / 86400000)
+    : null;
+  const lifetime: AftersalesCustomerLifetime = {
+    visit_count: visitCount,
+    total_amount: totalAmount,
+    first_visit_at: firstVisitAt,
+    last_visit_at: lastVisitAt,
+    avg_amount: visitCount > 0 ? totalAmount / visitCount : 0,
+    days_since_last_visit: daysSinceLastVisit,
+  };
+
+  // NPS summary
+  const promoter = npsResponses.filter((n) => n.score >= 9).length;
+  const passive = npsResponses.filter((n) => n.score >= 7 && n.score <= 8).length;
+  const detractor = npsResponses.filter((n) => n.score <= 6).length;
+  const npsAvg =
+    npsResponses.length > 0
+      ? npsResponses.reduce((s, n) => s + n.score, 0) / npsResponses.length
+      : null;
+  const npsSummary: AftersalesNpsSummary = {
+    total: npsResponses.length,
+    avg: npsAvg,
+    latest_score: npsResponses[0]?.score ?? null,
+    promoter,
+    passive,
+    detractor,
+  };
+
+  // Warranty entries — 每車三條（warranty / insurance / desmo），只列有日期的
+  const modelMap = new Map(base.models.map((m) => [m.id, m.display_name]));
+  const warrantySubscriptions: AftersalesWarrantyEntry[] = [];
+  for (const v of base.vehicles) {
+    const modelName = v.model_id ? (modelMap.get(v.model_id) ?? null) : null;
+    if (v.warranty_until) {
+      const ds = deriveWarrantyStatus(v.warranty_until, now);
+      warrantySubscriptions.push({
+        vehicle_id: v.id,
+        license_plate: v.license_plate,
+        model_name: modelName,
+        kind: "warranty",
+        expires_at: v.warranty_until,
+        ...ds,
+      });
+    }
+    const ins = (v as unknown as { insurance_until?: string | null }).insurance_until ?? null;
+    if (ins) {
+      const ds = deriveWarrantyStatus(ins, now);
+      warrantySubscriptions.push({
+        vehicle_id: v.id,
+        license_plate: v.license_plate,
+        model_name: modelName,
+        kind: "insurance",
+        expires_at: ins,
+        ...ds,
+      });
+    }
+    if (v.next_service_due_date) {
+      const ds = deriveWarrantyStatus(v.next_service_due_date, now);
+      warrantySubscriptions.push({
+        vehicle_id: v.id,
+        license_plate: v.license_plate,
+        model_name: modelName,
+        kind: "desmo",
+        expires_at: v.next_service_due_date,
+        ...ds,
+      });
+    }
+  }
+
+  return {
+    ...base,
+    npsResponses,
+    callTasks,
+    warrantySubscriptions,
+    lifetime,
+    npsSummary,
   };
 }
 
@@ -652,6 +969,11 @@ export async function listAftersalesCustomersForCrmBoard(
         due_soon: 0,
         this_month_visits: 0,
         rs05_synced: 0,
+        new_this_month: 0,
+        dormant: 0,
+        warranty_due_30d: 0,
+        avg_nps: null,
+        promoter_rate: null,
       },
       totalCount: totalRes.count ?? 0,
     };
@@ -930,6 +1252,49 @@ export async function listAftersalesCustomersForCrmBoard(
     (w) => new Date(w.opened_at).getTime() >= monthStart,
   ).length;
 
+  const newThisMonth = customers.filter(
+    (c) => new Date(c.created_at).getTime() >= monthStart,
+  ).length;
+
+  // dormant: 超過 180 天未進廠（或從未進廠且建檔 > 90 天）
+  const SIX_MO = 180 * 86400000;
+  const dormantCount = customers.reduce((acc, c) => {
+    const lv = lastVisitByCustomer.get(c.id)?.opened_at ?? null;
+    if (lv) {
+      if (now - new Date(lv).getTime() > SIX_MO) return acc + 1;
+      return acc;
+    }
+    if (now - new Date(c.created_at).getTime() > 90 * 86400000) return acc + 1;
+    return acc;
+  }, 0);
+
+  // warranty 30 天內到期：用主車輛 warranty_until
+  const warrantyDue30dCount = customers.reduce((acc, c) => {
+    const primary = firstVehicleByCustomer.get(c.id);
+    if (!primary?.warranty_until) return acc;
+    const left = daysFromNow(primary.warranty_until, now);
+    if (left != null && left >= 0 && left <= 30) return acc + 1;
+    return acc;
+  }, 0);
+
+  // 平均 NPS（最近 90 天 aftersales kind，撈全 brand）
+  const nintyDaysAgo = new Date(now - 90 * 86400000).toISOString();
+  const { data: npsAggData } = await supabase
+    .from("nps_responses")
+    .select("score")
+    .eq("brand_id", brand)
+    .eq("kind", "aftersales")
+    .gte("responded_at", nintyDaysAgo);
+  const npsScores = ((npsAggData ?? []) as Array<{ score: number }>).map((r) => r.score);
+  const avgNps =
+    npsScores.length > 0
+      ? Math.round((npsScores.reduce((s, n) => s + n, 0) / npsScores.length) * 10) / 10
+      : null;
+  const promoterRate =
+    npsScores.length > 0
+      ? Math.round((npsScores.filter((s) => s >= 9).length / npsScores.length) * 100)
+      : null;
+
   const kpi: AftersalesCustomerCrmKpi = {
     total: totalRes.count ?? 0,
     overdue: allDerived.filter((d) => d.traffic === "red").length,
@@ -940,9 +1305,13 @@ export async function listAftersalesCustomersForCrmBoard(
     ).length,
     this_month_visits: thisMonthVisits,
     rs05_synced: allDerived.filter((d) => d.source_module === "sales").length,
+    new_this_month: newThisMonth,
+    dormant: dormantCount,
+    warranty_due_30d: warrantyDue30dCount,
+    avg_nps: avgNps,
+    promoter_rate: promoterRate,
   };
 
-  // warranty / soon counts 用於 sidebar 顯示
   return { rows, kpi, totalCount: totalRes.count ?? 0 };
 }
 

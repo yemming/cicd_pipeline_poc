@@ -4,8 +4,9 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import type { PurchaseOrderListRow } from "@/domain/orders";
+import type { PurchaseOrderListRow, PurchaseOrderKpis } from "@/domain/orders";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard, FlowDiagram, type FlowNode, type FlowEdge } from "@/components/visualization";
 
 import { PORowActions, type PoActionResult } from "./po-row-actions";
 
@@ -35,6 +36,7 @@ const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
 const TYPE_LABEL: Record<string, string> = {
   planned:    "計畫採購",
   urgent:     "緊急採購",
+  standard:   "標準採購",
   ad_hoc:     "臨時採購",
   oem_import: "原廠匯入",
 };
@@ -48,6 +50,16 @@ const STATUS_OPTIONS = [
   { value: "cancelled", label: "已取消" },
 ];
 
+// FlowDiagram 用：把 filter status 映到 flow node
+const STATUS_TO_FLOW_NODE: Record<string, string> = {
+  draft: "draft",
+  submitted: "draft",
+  approved: "approved",
+  partial: "partial",
+  partial_received: "partial",
+  closed: "closed",
+};
+
 function fmtMoney(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
   return `NT$ ${n.toLocaleString("en-US")}`;
@@ -57,16 +69,31 @@ function fmtDate(d: string | null): string {
   return d ? d.replace(/-/g, "/") : "—";
 }
 
+function isOverdue(row: PurchaseOrderListRow, todayISO: string): boolean {
+  if (!row.eta_date) return false;
+  if (row.status !== "approved" && row.status !== "partial") return false;
+  return row.eta_date < todayISO;
+}
+
+function daysOverdue(eta: string | null, todayISO: string): number {
+  if (!eta) return 0;
+  const a = new Date(eta).getTime();
+  const b = new Date(todayISO).getTime();
+  return Math.max(0, Math.floor((b - a) / (1000 * 60 * 60 * 24)));
+}
+
 export function OrdersBoard({
   rows,
   canEdit,
   initialStatus,
   initialQ,
+  kpis,
 }: {
   rows: PurchaseOrderListRow[];
   canEdit: boolean;
   initialStatus: string;
   initialQ: string;
+  kpis: PurchaseOrderKpis;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -74,6 +101,8 @@ export function OrdersBoard({
   const [q, setQ] = useState(initialQ);
   const [banner, setBanner] = useState<Banner>(null);
   const [confirmModal, setConfirmModal] = useState<ConfirmState>(null);
+
+  const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   function flash(b: Banner) {
     setBanner(b);
@@ -134,6 +163,27 @@ export function OrdersBoard({
     });
   }
 
+  // FlowDiagram nodes / edges：固定 5 步流程
+  const flowNodes: FlowNode[] = useMemo(
+    () => [
+      { id: "draft",     label: "草稿",     tone: "amber" },
+      { id: "approved",  label: "已核准",   tone: "green" },
+      { id: "partial",   label: "部分到貨", tone: "blue" },
+      { id: "closed",    label: "已結案",   tone: "gray" },
+    ],
+    [],
+  );
+  const flowEdges: FlowEdge[] = useMemo(
+    () => [
+      { from: "draft",    to: "approved" },
+      { from: "approved", to: "partial" },
+      { from: "partial",  to: "closed" },
+      { from: "approved", to: "closed", label: "全收貨" },
+    ],
+    [],
+  );
+  const currentFlowNode = STATUS_TO_FLOW_NODE[status] ?? undefined;
+
   const columns: DataGridColumn<PurchaseOrderListRow>[] = useMemo(
     () => [
       {
@@ -192,8 +242,24 @@ export function OrdersBoard({
       {
         id: "eta_date",
         header: "預計到貨",
-        width: 110,
-        cell: (r) => <span className="font-mono text-[12px]">{fmtDate(r.eta_date)}</span>,
+        width: 130,
+        cell: (r) => {
+          const overdue = isOverdue(r, todayISO);
+          if (!overdue) {
+            return <span className="font-mono text-[12px]">{fmtDate(r.eta_date)}</span>;
+          }
+          const days = daysOverdue(r.eta_date, todayISO);
+          return (
+            <span className="inline-flex items-center gap-1">
+              <span className="font-mono text-[12px] text-[#CC0000] font-semibold">
+                {fmtDate(r.eta_date)}
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD] whitespace-nowrap">
+                ⚠ 逾期 {days}d
+              </span>
+            </span>
+          );
+        },
         exportValue: (r) => r.eta_date ?? "",
         sortValue: (r) => r.eta_date ?? "",
       },
@@ -211,15 +277,30 @@ export function OrdersBoard({
       {
         id: "receipt_progress_pct",
         header: "到貨進度",
-        width: 100,
+        width: 130,
         align: "right",
-        cell: (r) => (
-          <span className="font-mono text-[12px]">
-            {r.receipt_progress_pct === null || r.receipt_progress_pct === undefined
-              ? "—"
-              : `${r.receipt_progress_pct}%`}
-          </span>
-        ),
+        cell: (r) => {
+          const pct = r.receipt_progress_pct ?? 0;
+          if (r.status === "draft" || r.status === "cancelled") {
+            return <span className="font-mono text-[12px] text-[#9A9890]">—</span>;
+          }
+          const color =
+            pct >= 100
+              ? "bg-[#0F6E56]"
+              : pct >= 50
+                ? "bg-[#185FA5]"
+                : "bg-[#854F0B]";
+          return (
+            <div className="flex items-center gap-1.5 justify-end">
+              <div className="w-[60px] h-[6px] bg-[#F2F2F2] rounded overflow-hidden">
+                <div className={`h-full ${color}`} style={{ width: `${Math.min(100, pct)}%` }} />
+              </div>
+              <span className="font-mono text-[11px] text-[#5A5955] w-[34px] text-right">
+                {pct}%
+              </span>
+            </div>
+          );
+        },
         exportValue: (r) => r.receipt_progress_pct ?? 0,
         sortValue: (r) => r.receipt_progress_pct ?? 0,
       },
@@ -243,7 +324,7 @@ export function OrdersBoard({
         sortValue: (r) => r.status ?? "",
       },
     ],
-    [],
+    [todayISO],
   );
 
   return (
@@ -257,6 +338,58 @@ export function OrdersBoard({
           建立採購單、供應商確認、追蹤到貨進度
         </span>
       </header>
+
+      {/* KPI Row — 5 cards */}
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <KpiCard
+          label="本月新增"
+          value={kpis.newThisMonth}
+          tone="blue"
+          icon={<span className="text-[18px]">📝</span>}
+        />
+        <KpiCard
+          label="待審核"
+          value={kpis.pendingApproval}
+          tone="amber"
+          icon={<span className="text-[18px]">⏳</span>}
+        />
+        <KpiCard
+          label="在途中"
+          value={kpis.inTransit}
+          tone="teal"
+          icon={<span className="text-[18px]">🚚</span>}
+        />
+        <KpiCard
+          label="本月已收貨"
+          value={kpis.receivedThisMonth}
+          tone="green"
+          icon={<span className="text-[18px]">✅</span>}
+        />
+        <KpiCard
+          label="逾期"
+          value={kpis.overdue}
+          tone="red"
+          icon={<span className="text-[18px]">⚠️</span>}
+        />
+      </section>
+
+      {/* Flow Diagram — PO 狀態流 */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[12px] font-semibold text-[#2C2C2A]">採購單狀態流</span>
+          <span className="text-[11px] text-[#9A9890]">
+            {currentFlowNode
+              ? `目前篩選：${STATUS_LABEL[status]?.label ?? status}`
+              : "點選下方狀態欄位篩選"}
+          </span>
+        </div>
+        <FlowDiagram
+          nodes={flowNodes}
+          edges={flowEdges}
+          currentNodeId={currentFlowNode}
+          orientation="horizontal"
+        />
+      </section>
 
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">
@@ -319,6 +452,14 @@ export function OrdersBoard({
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">
           共 <b className="text-[#2C2C2A]">{rows.length}</b> 筆採購單
+          {kpis.overdue > 0 ? (
+            <>
+              {" "}
+              <span className="text-[#CC0000] font-medium">
+                · 含 {kpis.overdue} 筆逾期
+              </span>
+            </>
+          ) : null}
         </span>
       </div>
 
@@ -328,7 +469,11 @@ export function OrdersBoard({
         rowKey={(r) => r.id}
         persistKey="parts/purchase/orders"
         exportFileName="purchase-orders"
-        emptyMessage="沒有符合條件的採購單"
+        emptyMessage={
+          initialStatus || initialQ
+            ? "沒有符合條件的採購單。試試調整篩選或重置篩選。"
+            : "尚無採購單。點右上「＋ 新增採購單」開始建立。"
+        }
         disabled={isPending}
         rowActionsWidth={210}
         rowActions={(r) => (

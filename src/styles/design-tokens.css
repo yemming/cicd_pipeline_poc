@@ -1,0 +1,242 @@
+/* ===== DealerOS Design Tokens — Tone / Chip / Gradient / Shadow / Motion =====
+ *
+ * 「華麗版」KPI / chart 視覺系統。與 globals.css 內既有的 Omotenashi tonal
+ * palette（primary navy / tertiary gold / surface 系列）並列存在；
+ * 既有頁面慣用的 hex 直寫（#1A3A5C / #0F6E56 / #185FA5 / #CC0000 / #EEECE6 ...）
+ * 仍由各頁面以 arbitrary value class（`bg-[#1A3A5C]`）使用 — 本檔案不覆寫、不取代。
+ *
+ * 引入方式：globals.css 已 `@import "./design-tokens.css";`，layout.tsx 自動載入。
+ *
+ * Tailwind v4 用法：
+ *   - `bg-tone-blue-500` / `text-tone-amber-700` / `border-tone-red-100`
+ *   - `bg-gradient-hero` / `bg-gradient-kpi-blue` (via backgroundImage tokens)
+ *   - `shadow-lift` / `shadow-tone-purple`
+ *   - `transition-tone` / `transition-lift`
+ *   - chip：`bg-chip-active-bg text-chip-active-text border-chip-active-border`
+ *
+ * 純 CSS var 用法（無 Tailwind 也可）：
+ *   - `style={{ background: 'var(--tone-blue-500)' }}`
+ *   - `style={{ boxShadow: 'var(--shadow-lift)' }}`
+ */
+
+/* ─────────────────────────────────────────────────────────────────
+ * 1) Tone palette (7 tones × 5 steps)
+ *    50  = wash / chip background
+ *    100 = chip background hover、subtle fill
+ *    500 = main KPI accent / chart series
+ *    700 = text on tone-50/100、accent border、hover
+ *    900 = deep / heading on tinted surface
+ * ───────────────────────────────────────────────────────────────── */
+:root {
+  /* blue */
+  --tone-blue-50:  #EFF6FF;
+  --tone-blue-100: #DBEAFE;
+  --tone-blue-500: #3B82F6;
+  --tone-blue-700: #1D4ED8;
+  --tone-blue-900: #1E3A8A;
+
+  /* teal */
+  --tone-teal-50:  #ECFDF5;
+  --tone-teal-100: #D1FAE5;
+  --tone-teal-500: #14B8A6;
+  --tone-teal-700: #0F766E;
+  --tone-teal-900: #134E4A;
+
+  /* amber */
+  --tone-amber-50:  #FFFBEB;
+  --tone-amber-100: #FEF3C7;
+  --tone-amber-500: #F59E0B;
+  --tone-amber-700: #B45309;
+  --tone-amber-900: #78350F;
+
+  /* red */
+  --tone-red-50:  #FEF2F2;
+  --tone-red-100: #FEE2E2;
+  --tone-red-500: #EF4444;
+  --tone-red-700: #B91C1C;
+  --tone-red-900: #7F1D1D;
+
+  /* purple */
+  --tone-purple-50:  #F5F3FF;
+  --tone-purple-100: #EDE9FE;
+  --tone-purple-500: #8B5CF6;
+  --tone-purple-700: #6D28D9;
+  --tone-purple-900: #4C1D95;
+
+  /* green */
+  --tone-green-50:  #F0FDF4;
+  --tone-green-100: #DCFCE7;
+  --tone-green-500: #22C55E;
+  --tone-green-700: #15803D;
+  --tone-green-900: #14532D;
+
+  /* gray */
+  --tone-gray-50:  #F9FAFB;
+  --tone-gray-100: #F3F4F6;
+  --tone-gray-500: #6B7280;
+  --tone-gray-700: #374151;
+  --tone-gray-900: #111827;
+
+  /* ─────────────────────────────────────────────────────────────
+   * 2) Chip palette — status badge 用，每色三件套：bg / text / border
+   * ───────────────────────────────────────────────────────────── */
+  --chip-active-bg:     var(--tone-green-100);
+  --chip-active-text:   var(--tone-green-700);
+  --chip-active-border: var(--tone-green-500);
+
+  --chip-inactive-bg:     var(--tone-gray-100);
+  --chip-inactive-text:   var(--tone-gray-700);
+  --chip-inactive-border: var(--tone-gray-500);
+
+  --chip-warning-bg:     var(--tone-amber-100);
+  --chip-warning-text:   var(--tone-amber-700);
+  --chip-warning-border: var(--tone-amber-500);
+
+  --chip-error-bg:     var(--tone-red-100);
+  --chip-error-text:   var(--tone-red-700);
+  --chip-error-border: var(--tone-red-500);
+
+  --chip-info-bg:     var(--tone-blue-100);
+  --chip-info-text:   var(--tone-blue-700);
+  --chip-info-border: var(--tone-blue-500);
+
+  --chip-pending-bg:     var(--tone-purple-100);
+  --chip-pending-text:   var(--tone-purple-700);
+  --chip-pending-border: var(--tone-purple-500);
+
+  /* ─────────────────────────────────────────────────────────────
+   * 3) Gradients — hero / KPI cards / accent
+   *    用法：bg-gradient-hero / style={{ backgroundImage: 'var(--gradient-hero)' }}
+   * ───────────────────────────────────────────────────────────── */
+  --gradient-hero:      linear-gradient(135deg, #1A3A5C 0%, #4C1D95 50%, #185FA5 100%);
+  --gradient-kpi-blue:  linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+  --gradient-kpi-amber: linear-gradient(135deg, #F59E0B 0%, #B45309 100%);
+  --gradient-kpi-teal:  linear-gradient(135deg, #14B8A6 0%, #0F766E 100%);
+  --gradient-kpi-red:   linear-gradient(135deg, #EF4444 0%, #B91C1C 100%);
+  --gradient-accent:    linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+
+  /* ─────────────────────────────────────────────────────────────
+   * 4) Shadows — sm / md / lg + colored (hover lift)
+   * ───────────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.10), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.10), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+
+  /* hover lift — 給 KPI card / 主要 CTA 用 */
+  --shadow-lift: 0 12px 24px -8px rgba(15, 23, 42, 0.18), 0 4px 8px -4px rgba(15, 23, 42, 0.08);
+
+  /* colored shadows — hover 漸層 KPI 卡片時搭配主色光暈 */
+  --shadow-tone-blue:   0 12px 24px -8px rgba(59, 130, 246, 0.45);
+  --shadow-tone-teal:   0 12px 24px -8px rgba(20, 184, 166, 0.45);
+  --shadow-tone-amber:  0 12px 24px -8px rgba(245, 158, 11, 0.45);
+  --shadow-tone-red:    0 12px 24px -8px rgba(239, 68, 68, 0.45);
+  --shadow-tone-purple: 0 12px 24px -8px rgba(139, 92, 246, 0.45);
+  --shadow-tone-green:  0 12px 24px -8px rgba(34, 197, 94, 0.45);
+
+  /* ─────────────────────────────────────────────────────────────
+   * 5) Motion — transition utility
+   * ───────────────────────────────────────────────────────────── */
+  --transition-tone: color 200ms ease, background-color 200ms ease, border-color 200ms ease;
+  --transition-lift: transform 250ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 250ms ease;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * 6) Tailwind v4 @theme 註冊：讓 `bg-tone-blue-500` 等 utility 可用
+ *    Tailwind v4 不再吃 tailwind.config.ts；token 必須以 @theme 註冊。
+ * ───────────────────────────────────────────────────────────────── */
+@theme inline {
+  /* tone-* colors → bg/text/border utilities */
+  --color-tone-blue-50:  var(--tone-blue-50);
+  --color-tone-blue-100: var(--tone-blue-100);
+  --color-tone-blue-500: var(--tone-blue-500);
+  --color-tone-blue-700: var(--tone-blue-700);
+  --color-tone-blue-900: var(--tone-blue-900);
+
+  --color-tone-teal-50:  var(--tone-teal-50);
+  --color-tone-teal-100: var(--tone-teal-100);
+  --color-tone-teal-500: var(--tone-teal-500);
+  --color-tone-teal-700: var(--tone-teal-700);
+  --color-tone-teal-900: var(--tone-teal-900);
+
+  --color-tone-amber-50:  var(--tone-amber-50);
+  --color-tone-amber-100: var(--tone-amber-100);
+  --color-tone-amber-500: var(--tone-amber-500);
+  --color-tone-amber-700: var(--tone-amber-700);
+  --color-tone-amber-900: var(--tone-amber-900);
+
+  --color-tone-red-50:  var(--tone-red-50);
+  --color-tone-red-100: var(--tone-red-100);
+  --color-tone-red-500: var(--tone-red-500);
+  --color-tone-red-700: var(--tone-red-700);
+  --color-tone-red-900: var(--tone-red-900);
+
+  --color-tone-purple-50:  var(--tone-purple-50);
+  --color-tone-purple-100: var(--tone-purple-100);
+  --color-tone-purple-500: var(--tone-purple-500);
+  --color-tone-purple-700: var(--tone-purple-700);
+  --color-tone-purple-900: var(--tone-purple-900);
+
+  --color-tone-green-50:  var(--tone-green-50);
+  --color-tone-green-100: var(--tone-green-100);
+  --color-tone-green-500: var(--tone-green-500);
+  --color-tone-green-700: var(--tone-green-700);
+  --color-tone-green-900: var(--tone-green-900);
+
+  --color-tone-gray-50:  var(--tone-gray-50);
+  --color-tone-gray-100: var(--tone-gray-100);
+  --color-tone-gray-500: var(--tone-gray-500);
+  --color-tone-gray-700: var(--tone-gray-700);
+  --color-tone-gray-900: var(--tone-gray-900);
+
+  /* chip-* colors */
+  --color-chip-active-bg:     var(--chip-active-bg);
+  --color-chip-active-text:   var(--chip-active-text);
+  --color-chip-active-border: var(--chip-active-border);
+  --color-chip-inactive-bg:     var(--chip-inactive-bg);
+  --color-chip-inactive-text:   var(--chip-inactive-text);
+  --color-chip-inactive-border: var(--chip-inactive-border);
+  --color-chip-warning-bg:     var(--chip-warning-bg);
+  --color-chip-warning-text:   var(--chip-warning-text);
+  --color-chip-warning-border: var(--chip-warning-border);
+  --color-chip-error-bg:     var(--chip-error-bg);
+  --color-chip-error-text:   var(--chip-error-text);
+  --color-chip-error-border: var(--chip-error-border);
+  --color-chip-info-bg:     var(--chip-info-bg);
+  --color-chip-info-text:   var(--chip-info-text);
+  --color-chip-info-border: var(--chip-info-border);
+  --color-chip-pending-bg:     var(--chip-pending-bg);
+  --color-chip-pending-text:   var(--chip-pending-text);
+  --color-chip-pending-border: var(--chip-pending-border);
+
+  /* gradients → `bg-gradient-hero` etc */
+  --background-image-gradient-hero:      var(--gradient-hero);
+  --background-image-gradient-kpi-blue:  var(--gradient-kpi-blue);
+  --background-image-gradient-kpi-amber: var(--gradient-kpi-amber);
+  --background-image-gradient-kpi-teal:  var(--gradient-kpi-teal);
+  --background-image-gradient-kpi-red:   var(--gradient-kpi-red);
+  --background-image-gradient-accent:    var(--gradient-accent);
+
+  /* shadows → `shadow-lift` / `shadow-tone-purple` */
+  --shadow-lift:         var(--shadow-lift);
+  --shadow-tone-blue:    var(--shadow-tone-blue);
+  --shadow-tone-teal:    var(--shadow-tone-teal);
+  --shadow-tone-amber:   var(--shadow-tone-amber);
+  --shadow-tone-red:     var(--shadow-tone-red);
+  --shadow-tone-purple:  var(--shadow-tone-purple);
+  --shadow-tone-green:   var(--shadow-tone-green);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * 7) Reusable utility classes（Tailwind 不方便表達的 motion 用 class）
+ * ───────────────────────────────────────────────────────────────── */
+.transition-tone { transition: var(--transition-tone); }
+.transition-lift { transition: var(--transition-lift); }
+
+/* hover-lift：KPI card 滑入主操作的呼吸感 */
+.hover-lift {
+  transition: var(--transition-lift);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}

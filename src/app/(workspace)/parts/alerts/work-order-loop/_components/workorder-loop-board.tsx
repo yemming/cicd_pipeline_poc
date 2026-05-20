@@ -5,51 +5,98 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard, FlowDiagram, type FlowNode, type FlowEdge } from "@/components/visualization";
+import { FunnelChart, type FunnelDatum } from "@/components/charts";
 import {
   resolveWorkorderLoopEntryAction,
   escalateWorkorderLoopEntryAction,
   deleteWorkorderLoopEntryAction,
   updateWorkorderLoopEntryAction,
-  type WorkorderLoopRow,
 } from "@/domain/alerts";
 import { WORKORDER_LOOP_STATUS_CHIP, WORKORDER_LOOP_STATUS_OPTIONS } from "@/domain/alerts.constants";
+import {
+  LOOP_STAGE_CHIP,
+  LOOP_STAGE_LABELS,
+  LOOP_STAGE_OPTIONS,
+  LOOP_STAGE_ORDER,
+  LOOP_STAGE_TONES,
+  type LoopStageKey,
+} from "@/domain/parts-alert-work-order-loop.constants";
 
 const inputClass =
   "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none";
 const labelClass = "text-[11px] text-[#9A9890] font-medium";
 
-const FLOW_STEPS = [
-  { icon: "🔧", label: "SA 領料", sub: "工單出庫 / 庫存不足", color: "border-[#CC0000] bg-[#FDECEA] text-[#CC0000]" },
-  { icon: "⚡", label: "缺料告警", sub: "工單進入「待料」狀態", color: "border-[#CC0000] bg-[#FDECEA] text-[#CC0000]" },
-  { icon: "📋", label: "自動建需求", sub: "系統自動建立緊急補貨需求", color: "border-[#854F0B] bg-[#FDF3E3] text-[#854F0B]" },
-  { icon: "🛒", label: "採購審核", sub: "主管審核緊急採購單", color: "border-[#185FA5] bg-[#EAF4FB] text-[#185FA5]" },
-  { icon: "📥", label: "備件到庫", sub: "採購入庫 / 庫存更新", color: "border-[#0F6E56] bg-[#E8F5F0] text-[#0F6E56]" },
-  { icon: "✅", label: "自動解除", sub: "待料解除 / SA LINE 通知", color: "border-[#3B6D11] bg-[#EAF3DE] text-[#3B6D11]" },
-];
+export type LoopBoardRow = {
+  id: string;
+  brand_id: string;
+  ro_no: string;
+  missing_parts: string;
+  sa_name: string | null;
+  shortage_reason: string | null;
+  po_no: string | null;
+  eta_label: string | null;
+  days_pending: number;
+  status: string;
+  is_overdue: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  stage: LoopStageKey;
+};
+
+export type LoopKpi = {
+  open_count: number;
+  overdue_count: number;
+  resolved_count: number;
+  total_count: number;
+  avg_cycle_days: number;
+  avg_open_days: number;
+};
+
+export type LoopStageStat = {
+  key: LoopStageKey;
+  label: string;
+  count: number;
+  avg_days: number;
+  overdue_count: number;
+};
 
 export function WorkorderLoopBoard({
-  entries,
+  rows,
+  kpi,
+  stages,
+  funnel,
+  saOptions,
   canEdit,
+  errorMsg,
   initialQ,
   initialStatus,
   initialOverdue,
+  initialStage,
+  initialSa,
 }: {
-  entries: WorkorderLoopRow[];
+  rows: LoopBoardRow[];
+  kpi: LoopKpi;
+  stages: LoopStageStat[];
+  funnel: FunnelDatum[];
+  saOptions: string[];
   canEdit: boolean;
+  errorMsg: string | null;
   initialQ: string;
   initialStatus: string;
   initialOverdue: string;
+  initialStage: string;
+  initialSa: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [q, setQ] = useState(initialQ);
   const [status, setStatus] = useState(initialStatus);
   const [overdue, setOverdue] = useState(initialOverdue);
+  const [stage, setStage] = useState(initialStage);
+  const [sa, setSa] = useState(initialSa);
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
-
-  const rows = useMemo(() => entries, [entries]);
-
-  const pendingCount = rows.filter((e) => e.status === "pending" || e.status === "escalated").length;
 
   function buildHref(extra: Record<string, string | undefined>) {
     const params = new URLSearchParams();
@@ -57,6 +104,8 @@ export function WorkorderLoopBoard({
       q: q || undefined,
       status: status || undefined,
       overdue_only: overdue || undefined,
+      stage: stage || undefined,
+      sa_name: sa || undefined,
       ...extra,
     };
     for (const [k, v] of Object.entries(merged)) {
@@ -75,6 +124,8 @@ export function WorkorderLoopBoard({
     setQ("");
     setStatus("");
     setOverdue("");
+    setStage("");
+    setSa("");
     startTransition(() => router.push("/parts/alerts/work-order-loop"));
   }
 
@@ -83,7 +134,12 @@ export function WorkorderLoopBoard({
     if (b.ok) setTimeout(() => setBanner(null), 2200);
   }
 
-  function resolve(r: WorkorderLoopRow) {
+  function onStageNodeClick(key: LoopStageKey) {
+    setStage(key);
+    startTransition(() => router.push(buildHref({ stage: key })));
+  }
+
+  function resolve(r: LoopBoardRow) {
     startTransition(async () => {
       const res = await resolveWorkorderLoopEntryAction(r.id);
       if (res.ok) {
@@ -95,7 +151,7 @@ export function WorkorderLoopBoard({
     });
   }
 
-  function escalate(r: WorkorderLoopRow) {
+  function escalate(r: LoopBoardRow) {
     startTransition(async () => {
       const res = await escalateWorkorderLoopEntryAction(r.id);
       if (res.ok) {
@@ -107,7 +163,7 @@ export function WorkorderLoopBoard({
     });
   }
 
-  function removeRow(r: WorkorderLoopRow) {
+  function removeRow(r: LoopBoardRow) {
     if (!confirm(`確定刪除待料工單「${r.ro_no}」？此動作無法復原。`)) return;
     startTransition(async () => {
       const res = await deleteWorkorderLoopEntryAction(r.id);
@@ -120,13 +176,14 @@ export function WorkorderLoopBoard({
     });
   }
 
-  const columns = useMemo<DataGridColumn<WorkorderLoopRow>[]>(() => {
+  // ── DataGrid columns ──
+  const columns = useMemo<DataGridColumn<LoopBoardRow>[]>(() => {
     const textEdit = (field: "missing_parts" | "sa_name" | "shortage_reason" | "po_no" | "eta_label") =>
       canEdit
         ? {
             type: "text" as const,
-            getValue: (r: WorkorderLoopRow) => (r[field] as string | null) ?? "",
-            onSave: async (r: WorkorderLoopRow, value: string) => {
+            getValue: (r: LoopBoardRow) => (r[field] as string | null) ?? "",
+            onSave: async (r: LoopBoardRow, value: string) => {
               const v = value.trim();
               if (field === "missing_parts" && !v) {
                 return { ok: false as const, error: "缺料備件不可為空" };
@@ -162,9 +219,25 @@ export function WorkorderLoopBoard({
         sortValue: (r) => r.ro_no,
       },
       {
+        id: "stage",
+        header: "閉環階段",
+        width: 110,
+        cell: (r) => (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap border ${
+              LOOP_STAGE_CHIP[r.stage]
+            }`}
+          >
+            {LOOP_STAGE_LABELS[r.stage]}
+          </span>
+        ),
+        exportValue: (r) => LOOP_STAGE_LABELS[r.stage],
+        sortValue: (r) => LOOP_STAGE_ORDER.indexOf(r.stage),
+      },
+      {
         id: "missing_parts",
         header: "缺料備件",
-        width: 240,
+        width: 230,
         cell: (r) => r.missing_parts,
         exportValue: (r) => r.missing_parts,
         sortValue: (r) => r.missing_parts,
@@ -182,7 +255,7 @@ export function WorkorderLoopBoard({
       {
         id: "shortage_reason",
         header: "待料原因",
-        width: 140,
+        width: 130,
         cell: (r) => r.shortage_reason ?? "—",
         exportValue: (r) => r.shortage_reason ?? "",
         sortValue: (r) => r.shortage_reason ?? "",
@@ -191,7 +264,7 @@ export function WorkorderLoopBoard({
       {
         id: "po_no",
         header: "補貨單號",
-        width: 160,
+        width: 150,
         cell: (r) => (
           <span className="font-mono text-[#0F6E56]">{r.po_no ?? "—"}</span>
         ),
@@ -218,7 +291,7 @@ export function WorkorderLoopBoard({
         cell: (r) => (
           <span
             className={`font-mono ${
-              r.is_overdue ? "text-[#CC0000]" : "text-[#854F0B]"
+              r.is_overdue ? "text-[#CC0000] font-semibold" : "text-[#854F0B]"
             }`}
           >
             {r.days_pending} 天
@@ -230,10 +303,9 @@ export function WorkorderLoopBoard({
       {
         id: "status",
         header: "狀態",
-        width: 100,
+        width: 90,
         cell: (r) => {
-          const def =
-            WORKORDER_LOOP_STATUS_CHIP[r.status] ?? WORKORDER_LOOP_STATUS_CHIP.pending;
+          const def = WORKORDER_LOOP_STATUS_CHIP[r.status] ?? WORKORDER_LOOP_STATUS_CHIP.pending;
           return (
             <span
               className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${def.chip}`}
@@ -249,56 +321,139 @@ export function WorkorderLoopBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canEdit]);
 
+  // ── FlowDiagram nodes / edges ──
+  const flowNodes = useMemo<FlowNode[]>(() => {
+    return LOOP_STAGE_ORDER.map((key) => {
+      const stat = stages.find((s) => s.key === key);
+      const count = stat?.count ?? 0;
+      const avg = stat?.avg_days ?? 0;
+      return {
+        id: key,
+        label: `${LOOP_STAGE_LABELS[key]}  ${count} 件 · ${avg}d`,
+        tone: LOOP_STAGE_TONES[key],
+      };
+    });
+  }, [stages]);
+
+  const flowEdges = useMemo<FlowEdge[]>(() => {
+    const e: FlowEdge[] = [];
+    for (let i = 0; i < LOOP_STAGE_ORDER.length - 1; i++) {
+      e.push({ from: LOOP_STAGE_ORDER[i]!, to: LOOP_STAGE_ORDER[i + 1]! });
+    }
+    return e;
+  }, []);
+
   return (
     <main className="px-6 py-5 space-y-3">
       {/* Page Header */}
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">工單增項閉環</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          10.4 ★3
+          10.4 ★3 · A 級
         </span>
         <span className="text-[12px] text-[#9A9890]">
-          維修工單缺料後的自動補貨觸發 / 待料解除 / SA 通知完整閉環
+          維修工單缺料 → 自動補貨觸發 → 待料解除 → SA 通知，閉環健康度儀表板
         </span>
       </header>
 
-      {/* 串接提示 */}
-      <div className="bg-[#EEEDFE] border border-[#AFA9EC] rounded-md px-4 py-2.5 text-[12px] text-[#26215C] flex items-center justify-between gap-2.5 flex-wrap">
-        <div>
-          🔗 此頁面與售後工單模組「增項閉環子模組」串接 — 庫存缺料 → 自動推送至售後工單追蹤；車主同意回廠 → 庫存自動預留備料
+      {/* Error banner（error 三狀態之一） */}
+      {errorMsg ? (
+        <div className="bg-[#FDECEA] border border-[#F5AEAD] rounded-md px-4 py-2.5 text-[12px] text-[#CC0000]">
+          ⚠ 資料載入失敗：{errorMsg}
         </div>
-        <Link
-          href="/parts/issue/repair-pick"
-          className="h-[28px] px-3 inline-flex items-center rounded text-[11.5px] font-medium bg-[#534AB7] text-white hover:bg-[#3F379B]"
-        >
-          → 維修領料出庫
-        </Link>
-      </div>
+      ) : null}
 
-      {/* 流程圖（context） */}
-      <section className="bg-white border border-[#EEECE6] rounded-lg px-5 py-4">
-        <div className="text-[13px] font-semibold text-[#2C2C2A] mb-3.5">
-          🔄 工單缺料完整閉環流程
-        </div>
-        <div className="flex items-center gap-0 overflow-x-auto pb-2">
-          {FLOW_STEPS.map((s, idx) => (
-            <div key={s.label} className="flex items-center">
-              <div className="flex flex-col items-center gap-1.5 min-w-[100px]">
-                <div
-                  className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-[18px] ${s.color}`}
-                >
-                  {s.icon}
-                </div>
-                <div className="text-[11.5px] font-semibold text-center">{s.label}</div>
-                <div className="text-[10px] text-[#9A9890] text-center leading-tight">
-                  {s.sub}
-                </div>
-              </div>
-              {idx < FLOW_STEPS.length - 1 && (
-                <div className="text-[#D5D3CB] text-[20px] px-1 mb-[16px]">→</div>
-              )}
+      {/* KPI 列 */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard
+          tone="red"
+          layout="vertical"
+          label="未閉環件數"
+          value={kpi.open_count}
+        />
+        <KpiCard
+          tone="amber"
+          layout="vertical"
+          label="超期件數"
+          value={kpi.overdue_count}
+        />
+        <KpiCard
+          tone="green"
+          layout="vertical"
+          label="已解除（累計）"
+          value={kpi.resolved_count}
+        />
+        <KpiCard
+          tone="blue"
+          layout="vertical"
+          label="平均閉環天數"
+          value={`${kpi.avg_cycle_days} 天`}
+        />
+      </section>
+
+      {/* FlowDiagram + FunnelChart 並排 */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 bg-white border border-[#EEECE6] rounded-lg px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[13px] font-semibold text-[#2C2C2A]">
+              🔄 工單缺料完整閉環流程（點階段卡片可篩選）
             </div>
-          ))}
+            {stage ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setStage("");
+                  startTransition(() => router.push(buildHref({ stage: undefined })));
+                }}
+                className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                清除階段篩選
+              </button>
+            ) : null}
+          </div>
+
+          {/* 階段卡片列（可點 → drill down） */}
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-3">
+            {stages.map((s) => {
+              const isActive = stage === s.key;
+              return (
+                <button
+                  type="button"
+                  key={s.key}
+                  onClick={() => onStageNodeClick(s.key)}
+                  className={`text-left rounded-lg border px-2.5 py-2 transition hover:shadow-sm ${
+                    isActive
+                      ? "border-tone-blue-500 ring-1 ring-tone-blue-500 bg-tone-blue-50"
+                      : "border-[#EEECE6] bg-white hover:border-[#9A9890]"
+                  }`}
+                >
+                  <div className="text-[11px] text-[#9A9890]">{s.label}</div>
+                  <div className="mt-0.5 flex items-baseline gap-1.5">
+                    <span className="text-[18px] font-semibold text-[#2C2C2A]">{s.count}</span>
+                    <span className="text-[10.5px] text-[#9A9890]">件</span>
+                  </div>
+                  <div className="text-[10.5px] text-[#9A9890]">平均 {s.avg_days}d</div>
+                  {s.overdue_count > 0 ? (
+                    <div className="text-[10.5px] text-[#CC0000]">超期 {s.overdue_count}</div>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* SVG FlowDiagram（horizontal） */}
+          <FlowDiagram nodes={flowNodes} edges={flowEdges} currentNodeId={stage || undefined} />
+        </div>
+
+        <div className="bg-white border border-[#EEECE6] rounded-lg px-5 py-4">
+          <div className="text-[13px] font-semibold text-[#2C2C2A] mb-2">📉 階段漏斗</div>
+          {funnel.every((d) => d.value === 0) ? (
+            <div className="h-[260px] flex items-center justify-center text-[12px] text-[#9A9890]">
+              尚無資料
+            </div>
+          ) : (
+            <FunnelChart data={funnel} tone="purple" size="md" />
+          )}
         </div>
       </section>
 
@@ -313,8 +468,23 @@ export function WorkorderLoopBoard({
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && applyFilter()}
               placeholder="RO 號、零件名稱、PO 號..."
-              className={`${inputClass} w-[260px]`}
+              className={`${inputClass} w-[240px]`}
             />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>閉環階段</label>
+            <select
+              value={stage}
+              onChange={(e) => setStage(e.target.value)}
+              className={`${inputClass} w-[140px]`}
+            >
+              {LOOP_STAGE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex flex-col gap-1">
@@ -322,12 +492,28 @@ export function WorkorderLoopBoard({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className={`${inputClass} w-[130px]`}
+              className={`${inputClass} w-[120px]`}
             >
               <option value="">全部</option>
               {WORKORDER_LOOP_STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>SA 人員</label>
+            <select
+              value={sa}
+              onChange={(e) => setSa(e.target.value)}
+              className={`${inputClass} w-[120px]`}
+            >
+              <option value="">全部</option>
+              {saOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
                 </option>
               ))}
             </select>
@@ -377,21 +563,28 @@ export function WorkorderLoopBoard({
         </div>
       </section>
 
-      {/* Toolbar */}
+      {/* Toolbar 摘要列 */}
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">
-          共 <b className="text-[#2C2C2A]">{rows.length}</b> 筆待料工單，未解除{" "}
-          <b className="text-[#CC0000]">{pendingCount}</b> 筆
+          共 <b className="text-[#2C2C2A]">{rows.length}</b> 筆 · 未閉環{" "}
+          <b className="text-[#CC0000]">{kpi.open_count}</b> · 超期{" "}
+          <b className="text-[#CC0000]">{kpi.overdue_count}</b> · 平均{" "}
+          <b className="text-[#2C2C2A]">{kpi.avg_open_days}</b> 天
         </span>
       </div>
 
+      {/* DataGrid（empty 三狀態之三：emptyMessage 由 DataGrid 處理） */}
       <DataGrid
         columns={columns}
         data={rows}
         rowKey={(r) => r.id}
         persistKey="parts/alerts/work-order-loop"
         exportFileName="workorder-loop-entries"
-        emptyMessage="目前無待料工單"
+        emptyMessage={
+          stage
+            ? `「${LOOP_STAGE_LABELS[stage as LoopStageKey]}」階段目前沒有工單`
+            : "目前無待料工單"
+        }
         disabled={isPending}
         rowActionsWidth={260}
         rowActions={(r) => (

@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getAftersalesCustomerDetail } from "@/domain/aftersales-customer-base";
+import { getAftersalesCustomerProfile } from "@/domain/aftersales-customer-base";
 
 import { AftersalesCustomerBaseDetailView } from "./_components/aftersales-customer-base-detail-view";
 
@@ -25,7 +25,7 @@ export default async function Page({
   }
   const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
   const { id } = await params;
-  const bundle = await getAftersalesCustomerDetail(id);
+  const bundle = await getAftersalesCustomerProfile(id);
   if (!bundle) notFound();
 
   return (
@@ -35,6 +35,11 @@ export default async function Page({
       workOrders={bundle.workOrders}
       appointments={bundle.appointments}
       models={bundle.models}
+      npsResponses={bundle.npsResponses}
+      callTasks={bundle.callTasks}
+      warrantySubscriptions={bundle.warrantySubscriptions}
+      lifetime={bundle.lifetime}
+      npsSummary={bundle.npsSummary}
       canEdit={canEdit}
       initialMode="view"
     />

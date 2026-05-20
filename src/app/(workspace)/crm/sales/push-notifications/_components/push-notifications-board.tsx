@@ -9,7 +9,7 @@
  *   3. 發送記錄（log）：<DataGrid> 列表 + 點 row 展開成效詳情
  */
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -74,6 +74,8 @@ export function PushNotificationsBoard({
   initialTab,
   initialStep,
   initialCategory,
+  extraAnalyticsSlot,
+  extraLogTopSlot,
 }: {
   kind: PushKind;
   canEdit: boolean;
@@ -87,6 +89,10 @@ export function PushNotificationsBoard({
   initialTab: TabKey;
   initialStep: number;
   initialCategory: string;
+  /** A 級對齊用：在 KPI bar 與 Tabs 之間插入額外 analytics 區塊（aftersales 用 FunnelChart / BarChart 強化） */
+  extraAnalyticsSlot?: ReactNode;
+  /** A 級對齊用：在 log tab 上方注入額外圖表（範本開啟率排行） */
+  extraLogTopSlot?: ReactNode;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -296,6 +302,9 @@ export function PushNotificationsBoard({
       {/* KPI bar */}
       <KpiRow kpi={kpi} kind={kind} />
 
+      {/* A 級對齊：aftersales 的 enhanced analytics（KpiCard + FunnelChart + BarChart） */}
+      {extraAnalyticsSlot}
+
       {/* Tabs */}
       <div className="bg-white border border-[#EEECE6] rounded-t-lg overflow-x-auto">
         <div className="flex border-b border-[#EEECE6]">
@@ -380,7 +389,9 @@ export function PushNotificationsBoard({
           />
         )}
         {tab === "log" && (
-          <LogTab
+          <>
+            {extraLogTopSlot}
+            <LogTab
             campaigns={campaigns}
             isPending={isPending}
             canEdit={canEdit}
@@ -405,6 +416,7 @@ export function PushNotificationsBoard({
               });
             }}
           />
+          </>
         )}
       </div>
 

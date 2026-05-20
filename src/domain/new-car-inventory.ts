@@ -8,7 +8,7 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { NewCarInventoryStatus, LicensePlateStatus, NewCarInventoryRow, NewCarInventoryInput, NewCarInventoryFilters, VehicleModelOption, OrganizationOption, NewCarKpiSummary } from "./new-car-inventory.constants";
+import type { NewCarInventoryStatus, LicensePlateStatus, NewCarInventoryRow, NewCarInventoryInput, NewCarInventoryFilters, VehicleModelOption, OrganizationOption, NewCarKpiSummary, NewCarByModelDatum, NewCarSlowMover } from "./new-car-inventory.constants";
 
 // ── Re-export types from .constants.ts（server-side caller 仍可 import from "@/domain/new-car-inventory"）──
 export type {
@@ -18,6 +18,8 @@ export type {
   VehicleModelOption,
   OrganizationOption,
   NewCarKpiSummary,
+  NewCarByModelDatum,
+  NewCarSlowMover,
 } from "./new-car-inventory.constants";
 
 // ── 查詢 ──────────────────────────────────────────────────────────────
@@ -210,4 +212,87 @@ export async function getNewCarKpiSummary(): Promise<NewCarKpiSummary> {
       (r) => r.status === "sold" && r.sold_date?.startsWith(thisMonth)
     ).length,
   };
+}
+
+/**
+ * 庫存量按車型 + status 堆疊（給 BarChart 用）。
+ * 回傳每個車型一列、key=status 為 value，category 為車型名。
+ */
+export async function getNewCarInventoryByModel(): Promise<NewCarByModelDatum[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("new_car_inventory")
+    .select("status, vehicle_models(display_name, series)");
+  if (error) throw error;
+
+  type Joined = { status: string; vehicle_models: { display_name?: string; series?: string } | null };
+  const rows = (data ?? []) as unknown as Joined[];
+
+  const byModel = new Map<string, NewCarByModelDatum>();
+  for (const r of rows) {
+    const name = r.vehicle_models?.display_name ?? "（未指定）";
+    if (!byModel.has(name)) {
+      byModel.set(name, {
+        model: name,
+        series: r.vehicle_models?.series ?? null,
+        in_transit: 0,
+        arrived: 0,
+        displayed: 0,
+        reserved: 0,
+        sold: 0,
+        delivered: 0,
+        damaged: 0,
+        total: 0,
+      });
+    }
+    const datum = byModel.get(name)!;
+    const status = r.status as NewCarInventoryStatus;
+    datum[status] = (datum[status] ?? 0) + 1;
+    datum.total += 1;
+  }
+
+  return Array.from(byModel.values()).sort((a, b) => b.total - a.total);
+}
+
+/**
+ * 庫齡 > {days} 天且尚未售出的車（slow movers）。
+ */
+export async function getNewCarSlowMovers(days = 90): Promise<NewCarSlowMover[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("new_car_inventory")
+    .select("id, vin, color, status, arrival_date, list_price, vehicle_models(display_name)")
+    .in("status", ["arrived", "displayed", "reserved"])
+    .not("arrival_date", "is", null);
+  if (error) throw error;
+
+  type Joined = {
+    id: string;
+    vin: string | null;
+    color: string | null;
+    status: string;
+    arrival_date: string;
+    list_price: number | null;
+    vehicle_models: { display_name?: string } | null;
+  };
+  const rows = (data ?? []) as unknown as Joined[];
+  const today = new Date();
+
+  return rows
+    .map((r) => {
+      const arrived = new Date(r.arrival_date);
+      const daysIn = Math.floor((today.getTime() - arrived.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        id: r.id,
+        vin: r.vin,
+        model_display_name: r.vehicle_models?.display_name ?? null,
+        color: r.color,
+        status: r.status as NewCarInventoryStatus,
+        arrival_date: r.arrival_date,
+        days_in_stock: daysIn,
+        list_price: r.list_price,
+      };
+    })
+    .filter((r) => r.days_in_stock > days)
+    .sort((a, b) => b.days_in_stock - a.days_in_stock);
 }

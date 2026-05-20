@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization/KpiCard";
 import {
   setAlertRuleActiveAction,
   deleteAlertRuleAction,
@@ -27,6 +28,38 @@ type Row = BusinessRuleRow & { _cfg: Partial<AlertRuleConfig> };
 
 function attach(r: BusinessRuleRow): Row {
   return { ...r, _cfg: (r.config ?? {}) as Partial<AlertRuleConfig> };
+}
+
+/**
+ * 把規則依 alert_type (= config.code 中第一段或 code 本體) 歸類。
+ * code 形式：'low_stock' / 'out_of_stock' / 'overstock' / 'contract_expiring' / ...
+ * 直接用 code 字串當 alert_type 軸。
+ */
+function alertTypeOf(r: Row): string {
+  return r._cfg.code ?? "其他";
+}
+
+function priorityOf(r: Row): string {
+  return r._cfg.priority ?? "normal";
+}
+
+const PRIORITY_AXIS: Array<{ id: string; label: string; tone: "red" | "amber" | "blue" | "gray" }> = [
+  { id: "critical", label: "緊急", tone: "red" },
+  { id: "high", label: "高", tone: "amber" },
+  { id: "normal", label: "一般", tone: "blue" },
+  { id: "low", label: "低", tone: "gray" },
+];
+
+// alert_type 的人話標籤（從第一筆規則的 label 推；fallback 顯示 code）
+function buildAlertTypeIndex(rows: Row[]): Array<{ id: string; label: string }> {
+  const map = new Map<string, string>();
+  for (const r of rows) {
+    const t = alertTypeOf(r);
+    if (!map.has(t)) map.set(t, r._cfg.label ?? t);
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([id, label]) => ({ id, label }));
 }
 
 export function AlertRulesBoard({
@@ -53,7 +86,44 @@ export function AlertRulesBoard({
   const [isActive, setIsActive] = useState(initialIsActive);
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // matrix 選中 cell（rowId=alert_type / colId=priority）
+  const [selectedCell, setSelectedCell] = useState<{
+    alertType: string;
+    priority: string;
+  } | null>(null);
+
   const rows = useMemo(() => rules.map(attach), [rules]);
+
+  // KPI 統計
+  const stats = useMemo(() => {
+    const total = rows.length;
+    const enabled = rows.filter((r) => r.is_active).length;
+    const critical = rows.filter((r) => r._cfg.priority === "critical").length;
+    const alertTypes = new Set(rows.map(alertTypeOf)).size;
+    return { total, enabled, critical, alertTypes };
+  }, [rows]);
+
+  // matrix index：rows = alert_type、cols = priority
+  const alertTypeAxis = useMemo(() => buildAlertTypeIndex(rows), [rows]);
+  const matrix = useMemo(() => {
+    const m = new Map<string, Map<string, Row[]>>();
+    for (const t of alertTypeAxis) m.set(t.id, new Map());
+    for (const r of rows) {
+      const t = alertTypeOf(r);
+      const p = priorityOf(r);
+      if (!m.has(t)) m.set(t, new Map());
+      const inner = m.get(t)!;
+      if (!inner.has(p)) inner.set(p, []);
+      inner.get(p)!.push(r);
+    }
+    return m;
+  }, [rows, alertTypeAxis]);
+
+  // 右側 Panel 顯示用：當前 cell 的 rules
+  const panelRules = useMemo<Row[]>(() => {
+    if (!selectedCell) return [];
+    return matrix.get(selectedCell.alertType)?.get(selectedCell.priority) ?? [];
+  }, [selectedCell, matrix]);
 
   function buildHref(extra: Record<string, string | undefined>) {
     const params = new URLSearchParams();
@@ -73,6 +143,7 @@ export function AlertRulesBoard({
   }
 
   function applyFilter() {
+    setSelectedCell(null);
     startTransition(() => router.push(buildHref({})));
   }
 
@@ -81,6 +152,7 @@ export function AlertRulesBoard({
     setPriority("");
     setTone("");
     setIsActive("");
+    setSelectedCell(null);
     startTransition(() => router.push("/parts/alerts/rules"));
   }
 
@@ -279,6 +351,278 @@ export function AlertRulesBoard({
         <span className="text-[12px] text-[#9A9890]">系統告警類型定義與觸發條件</span>
       </header>
 
+      {/* KPI 列 */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard
+          label="總規則"
+          value={stats.total}
+          tone="blue"
+          layout="horizontal"
+          icon={<span>📋</span>}
+        />
+        <KpiCard
+          label="啟用中"
+          value={`${stats.enabled} / ${stats.total}`}
+          tone="green"
+          layout="horizontal"
+          icon={<span>✓</span>}
+        />
+        <KpiCard
+          label="critical 規則"
+          value={stats.critical}
+          tone="red"
+          layout="horizontal"
+          icon={<span>⚠</span>}
+        />
+        <KpiCard
+          label="涵蓋類型"
+          value={stats.alertTypes}
+          tone="amber"
+          layout="horizontal"
+          icon={<span>🎯</span>}
+        />
+      </section>
+
+      {/* Matrix + Right Panel */}
+      <section className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
+        {/* Matrix（alert_type × priority） */}
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              ▼ 規則矩陣（類型 × 優先度）
+            </span>
+            <span className="text-[11px] text-[#9A9890]">
+              點 cell 顯示該組合的規則
+            </span>
+          </header>
+          <div className="overflow-auto">
+            {alertTypeAxis.length === 0 ? (
+              <div className="px-4 py-8 text-center text-[12px] text-[#9A9890]">
+                沒有規則資料，先點右上「＋ 新增規則」開始
+              </div>
+            ) : (
+              <table className="w-full border-collapse text-[12px]">
+                <thead>
+                  <tr>
+                    <th
+                      className="sticky left-0 top-0 z-20 bg-[#F8F7F4] border-b border-r border-[#EEECE6] px-3 py-2 text-left text-[11px] text-[#9A9890] font-medium"
+                      style={{ minWidth: 180 }}
+                    >
+                      告警類型 ↓ ／ 優先度 →
+                    </th>
+                    {PRIORITY_AXIS.map((p) => {
+                      const chipDef = ALERT_RULE_PRIORITY_CHIP[p.id];
+                      return (
+                        <th
+                          key={p.id}
+                          className="sticky top-0 z-10 bg-[#F8F7F4] border-b border-[#EEECE6] px-3 py-2 text-center text-[11px] font-semibold whitespace-nowrap"
+                        >
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded-md ${chipDef.chip}`}
+                          >
+                            {chipDef.label}
+                          </span>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {alertTypeAxis.map((t) => (
+                    <tr key={t.id}>
+                      <th
+                        scope="row"
+                        className="sticky left-0 z-10 bg-white border-b border-r border-[#EEECE6] px-3 py-2 text-left text-[12px] text-[#2C2C2A] font-medium whitespace-nowrap"
+                        style={{ minWidth: 180 }}
+                      >
+                        <span className="font-mono text-[11px] text-[#9A9890] mr-1.5">
+                          {t.id}
+                        </span>
+                        {t.label}
+                      </th>
+                      {PRIORITY_AXIS.map((p) => {
+                        const cellRules = matrix.get(t.id)?.get(p.id) ?? [];
+                        const has = cellRules.length > 0;
+                        const isSelected =
+                          selectedCell?.alertType === t.id &&
+                          selectedCell?.priority === p.id;
+                        const enabledCount = cellRules.filter((r) => r.is_active).length;
+                        return (
+                          <td
+                            key={p.id}
+                            className="border-b border-[#EEECE6] text-center p-0"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                has
+                                  ? setSelectedCell({
+                                      alertType: t.id,
+                                      priority: p.id,
+                                    })
+                                  : undefined
+                              }
+                              disabled={!has}
+                              className={`w-full h-11 inline-flex items-center justify-center text-[12px] transition ${
+                                isSelected
+                                  ? "bg-[#1A3A5C] text-white font-semibold"
+                                  : has
+                                  ? "bg-white text-[#1A3A5C] hover:bg-[#EAF4FB]"
+                                  : "bg-white text-[#D5D3CB]"
+                              }`}
+                              aria-label={`${t.label} × ${p.label} ${has ? `${cellRules.length} 條規則` : "無規則"}`}
+                            >
+                              {has ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <span>✓</span>
+                                  <span>{cellRules.length} 條</span>
+                                  {enabledCount < cellRules.length && (
+                                    <span
+                                      className={`text-[10px] ${isSelected ? "text-white/80" : "text-[#9A9890]"}`}
+                                    >
+                                      ({enabledCount} 啟用)
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        {/* Right Panel */}
+        <aside className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden flex flex-col">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              {selectedCell ? "規則明細" : "▼ 點 cell 顯示規則"}
+            </span>
+          </header>
+          <div className="p-3 space-y-2 max-h-[420px] overflow-auto">
+            {!selectedCell ? (
+              <p className="text-[12px] text-[#9A9890] py-6 text-center">
+                在左側矩陣點任一 cell，這裡會列出該「類型 × 優先度」組合下的所有規則
+              </p>
+            ) : panelRules.length === 0 ? (
+              <p className="text-[12px] text-[#9A9890] py-6 text-center">
+                此組合下沒有規則
+              </p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="text-[11px] text-[#9A9890]">
+                    <span className="font-mono text-[#5A5955]">{selectedCell.alertType}</span>
+                    <span className="mx-1">×</span>
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${
+                        ALERT_RULE_PRIORITY_CHIP[selectedCell.priority]?.chip ?? ""
+                      }`}
+                    >
+                      {ALERT_RULE_PRIORITY_CHIP[selectedCell.priority]?.label ??
+                        selectedCell.priority}
+                    </span>
+                  </div>
+                  <Link
+                    href={`/parts/alerts/rules/new?code=${encodeURIComponent(selectedCell.alertType)}&priority=${encodeURIComponent(selectedCell.priority)}`}
+                    aria-disabled={!canEdit}
+                    tabIndex={!canEdit ? -1 : 0}
+                    title={canEdit ? "" : "沒有編輯權限"}
+                    className={`h-[24px] px-2 rounded text-[11px] inline-flex items-center bg-[#0F6E56] text-white hover:bg-[#0a5742] ${
+                      !canEdit ? "opacity-50 pointer-events-none" : ""
+                    }`}
+                  >
+                    ＋ 新增
+                  </Link>
+                </div>
+                {panelRules.map((r) => {
+                  const tDef =
+                    ALERT_RULE_TONE_CHIP[r._cfg.tone ?? ""] ?? ALERT_RULE_TONE_CHIP.neutral;
+                  return (
+                    <div
+                      key={r.id}
+                      className="border border-[#EEECE6] rounded-md p-2.5 hover:border-[#185FA5] transition"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Link
+                              href={`/parts/alerts/rules/${r.id}`}
+                              className="text-[12.5px] font-semibold text-[#1A3A5C] hover:underline"
+                            >
+                              {r._cfg.label ?? r._cfg.code ?? r.id}
+                            </Link>
+                            <span
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] whitespace-nowrap ${tDef.chip}`}
+                            >
+                              {tDef.label}
+                            </span>
+                            <span
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] whitespace-nowrap ${
+                                r.is_active
+                                  ? "bg-[#EAF3DE] text-[#3B6D11]"
+                                  : "bg-[#F2F2F2] text-[#6B6A68]"
+                              }`}
+                            >
+                              {r.is_active ? "啟用" : "停用"}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-[#5A5955] mt-1 line-clamp-2">
+                            {r._cfg.description ?? "—"}
+                          </div>
+                          <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                            {(r._cfg.channels ?? []).map((ch) => (
+                              <span
+                                key={ch}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] bg-[#EAF4FB] text-[#185FA5]"
+                              >
+                                {ch}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5 mt-2">
+                        <Link
+                          href={`/parts/alerts/rules/${r.id}`}
+                          className="h-[24px] px-2 rounded text-[11px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                        >
+                          編輯
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => toggleActive(r)}
+                          disabled={!canEdit || isPending}
+                          className="h-[24px] px-2 rounded text-[11px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                        >
+                          {r.is_active ? "停用" : "啟用"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeRow(r)}
+                          disabled={!canEdit || isPending}
+                          className="h-[24px] px-2 rounded text-[11px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+        </aside>
+      </section>
+
+      {/* Filter Bar */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">
           <div className="flex flex-col gap-1">

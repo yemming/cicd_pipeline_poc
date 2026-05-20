@@ -318,3 +318,56 @@ export async function updateRoDiscountAction(
   revalidatePath(roDetailPath(roId));
   return { ok: true, data: { id: roId } };
 }
+
+/**
+ * setLinePartLifecycleAction — 標記零件 lifecycle（M03-3 spec）。
+ *
+ * lifecycle 值（存在 repair_order_lines.metadata.part_lifecycle）：
+ *  - 'new'       新料件（預設，UI 不顯示 chip）
+ *  - 'installed' 已安裝（chip 綠）
+ *  - 'returned'  退料（chip 灰，amount 不變但工項說明附註）
+ *  - 'replaced'  替換（chip 紅，原零件作廢、新零件另起 line）
+ *
+ * 註：不重算金額（part 仍計費）。若要把退料 line 從計費中剔除，請改用 deleteLineAction
+ * 後新增退料記錄。這個 action 純粹是「標記」用，方便 SA 在現場標註流程狀態。
+ */
+export async function setLinePartLifecycleAction(
+  roId: string,
+  lineId: string,
+  lifecycle: "new" | "installed" | "returned" | "replaced",
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const own = await ensureRoOwned(roId);
+  if (!own.ok) return own;
+  if (!lineId) return { ok: false, error: "缺少 line id" };
+  if (!["new", "installed", "returned", "replaced"].includes(lifecycle)) {
+    return { ok: false, error: "lifecycle 不合法" };
+  }
+
+  const supabase = await createClient();
+  const { data: line } = await supabase
+    .from("repair_order_lines")
+    .select("metadata, kind")
+    .eq("id", lineId)
+    .eq("repair_order_id", roId)
+    .maybeSingle();
+  if (!line) return { ok: false, error: "找不到該 line" };
+  if ((line as { kind: string }).kind !== "part") {
+    return { ok: false, error: "lifecycle 僅適用於零件 line" };
+  }
+
+  const meta = ((line.metadata ?? {}) as Record<string, unknown>) || {};
+  meta.part_lifecycle = lifecycle;
+  meta.part_lifecycle_changed_at = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("repair_order_lines")
+    .update({ metadata: meta })
+    .eq("id", lineId)
+    .eq("repair_order_id", roId);
+  if (error) return { ok: false, error: `標記失敗：${error.message}` };
+
+  revalidatePath(pagePath(roId));
+  revalidatePath(roDetailPath(roId));
+  return { ok: true, data: { id: lineId } };
+}

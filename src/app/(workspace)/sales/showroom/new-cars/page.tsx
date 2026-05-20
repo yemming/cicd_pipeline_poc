@@ -11,6 +11,9 @@ import {
   getVehicleModelOptions,
   getOrganizationOptions,
   getCurrentBrandId,
+  getNewCarKpiSummary,
+  getNewCarInventoryByModel,
+  getNewCarSlowMovers,
 } from "@/domain/new-car-inventory";
 import NewCarInventoryBoard from "./_components/inventory-board";
 
@@ -19,11 +22,14 @@ export const metadata = {
 };
 
 export default async function NewCarsPage() {
-  const [rows, vehicleModels, organizations, brandId] = await Promise.all([
+  const [rows, vehicleModels, organizations, brandId, kpi, byModel, slowMovers] = await Promise.all([
     listNewCars(),
     getVehicleModelOptions(),
     getOrganizationOptions(),
     getCurrentBrandId(),
+    getNewCarKpiSummary(),
+    getNewCarInventoryByModel(),
+    getNewCarSlowMovers(90),
   ]);
 
   return (
@@ -32,6 +38,9 @@ export default async function NewCarsPage() {
       vehicleModels={vehicleModels}
       organizations={organizations}
       brandId={brandId}
+      kpi={kpi}
+      byModel={byModel}
+      slowMovers={slowMovers}
     />
   );
 }

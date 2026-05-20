@@ -20,6 +20,8 @@ import { useRouter } from "next/navigation";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization/KpiCard";
+import { BarChart } from "@/components/charts";
 import {
   DisplayModeToggle,
   readPersistedMode,
@@ -34,6 +36,11 @@ import type {
   UsedCarDbStatus,
   UsedCarConditionGrade,
 } from "@/domain/used-car-inventory.constants";
+import type {
+  UsedCarBoardKpi,
+  UsedCarByModelDatum,
+  UsedCarSlowMover,
+} from "@/domain/used-car-inventory";
 import {
   calcDaysInStock,
   statusLabel,
@@ -84,9 +91,18 @@ function marginChipClass(rate: number | null): string {
 }
 
 function daysToneClass(days: number): string {
-  if (days > 45) return "text-[#C8001A]";
-  if (days > 30) return "text-[#854F0B]";
+  if (days > 90) return "text-[#C8001A]";
+  if (days > 60) return "text-[#854F0B]";
   return "text-[#0F6E56]";
+}
+
+function isAged90(listedDate: string | null, status: UsedCarDbStatus): boolean {
+  if (status === "sold" || status === "withdrawn") return false;
+  return calcDaysInStock(listedDate, null) > 90;
+}
+
+function isNegativeMargin(margin: number | null): boolean {
+  return margin != null && margin < 0;
 }
 
 const LOW_MARGIN_ROW_BG = "bg-[#FEF7E6]";
@@ -100,13 +116,24 @@ type Props = {
   totalCount: number;
   /** "dealer" = 展廳接待視角；"usedcar" = 中古車輛模組視角 */
   viewMode?: "dealer" | "usedcar";
+  /** A 級看板必傳，舊 caller 不傳則整段隱藏 */
+  kpi?: UsedCarBoardKpi;
+  byModel?: UsedCarByModelDatum[];
+  slowMovers?: UsedCarSlowMover[];
 };
 
 type Banner = { ok: boolean; msg: string } | null;
 
 // ─────────────────────────────────────────────────────────────────────
 
-export default function UsedCarInventoryBoard({ rows, totalCount, viewMode = "dealer" }: Props) {
+export default function UsedCarInventoryBoard({
+  rows,
+  totalCount,
+  viewMode = "dealer",
+  kpi,
+  byModel,
+  slowMovers,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
@@ -266,13 +293,24 @@ export default function UsedCarInventoryBoard({ rows, totalCount, viewMode = "de
     {
       id: "days_in_stock",
       header: "在庫天數",
-      width: 85,
+      width: 110,
       align: "right",
       cell: (r) => {
         const days = calcDaysInStock(r.listed_date, r.status === "sold" ? r.sold_date : null);
+        const aged = isAged90(r.listed_date, r.status);
         return (
-          <span className={"font-mono font-semibold text-[12px] " + daysToneClass(days)}>
-            {days} 天
+          <span className="inline-flex items-center gap-1 justify-end">
+            <span className={"font-mono font-semibold text-[12px] " + daysToneClass(days)}>
+              {days} 天
+            </span>
+            {aged && (
+              <span
+                className="text-[10px] px-1 py-0.5 rounded font-semibold bg-[#FDECEA] text-[#CC0000] whitespace-nowrap"
+                data-testid={`chip-aged-90-${r.id}`}
+              >
+                老
+              </span>
+            )}
           </span>
         );
       },
@@ -310,16 +348,28 @@ export default function UsedCarInventoryBoard({ rows, totalCount, viewMode = "de
     {
       id: "margin_rate",
       header: "毛利率",
-      width: 80,
+      width: 120,
       align: "right",
       cell: (r) => {
         const rate = marginRate(r.margin, r.listing_price);
-        const low = isLowMargin(r.margin, r.listing_price);
+        const neg = isNegativeMargin(r.margin);
+        const low = !neg && isLowMargin(r.margin, r.listing_price);
         return (
-          <span className="inline-flex items-center gap-1">
-            <span className={"text-[10.5px] px-1.5 py-0.5 rounded font-semibold " + marginChipClass(rate)}>
+          <span className="inline-flex items-center gap-1 justify-end">
+            <span
+              className={"text-[10.5px] px-1.5 py-0.5 rounded font-semibold " + marginChipClass(rate)}
+              data-testid={`margin-rate-${r.id}`}
+            >
               {rate === null ? "—" : `${rate}%`}
             </span>
+            {neg && (
+              <span
+                className="text-[10px] px-1 py-0.5 rounded font-semibold bg-[#C8001A] text-white whitespace-nowrap"
+                data-testid={`chip-neg-margin-${r.id}`}
+              >
+                負利
+              </span>
+            )}
             {low && (
               <span className="text-[10px] px-1 py-0.5 rounded font-semibold bg-[#FDECEA] text-[#CC0000] whitespace-nowrap">
                 低毛利
@@ -410,6 +460,134 @@ export default function UsedCarInventoryBoard({ rows, totalCount, viewMode = "de
           展廳中古車庫存管理 — 等級、整備、保留與在庫天數
         </span>
       </header>
+
+      {/* KPI Row — A 級看板（M01-7）*/}
+      {kpi && (
+        <section
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5"
+          data-testid="usedcar-kpi-row"
+        >
+          <KpiCard
+            label="總台數"
+            value={kpi.total}
+            tone="gray"
+            layout="vertical"
+          />
+          <KpiCard
+            label="在庫可售"
+            value={kpi.available}
+            tone="teal"
+            layout="vertical"
+          />
+          <KpiCard
+            label="平均毛利率"
+            value={`${kpi.avgMarginRate}%`}
+            tone={kpi.avgMarginRate >= 15 ? "green" : kpi.avgMarginRate >= 8 ? "amber" : "red"}
+            layout="vertical"
+          />
+          <KpiCard
+            label="庫齡 > 90 天"
+            value={kpi.aged90}
+            tone={kpi.aged90 === 0 ? "gray" : "amber"}
+            layout="vertical"
+          />
+          <KpiCard
+            label="負毛利車"
+            value={kpi.negativeMargin}
+            tone={kpi.negativeMargin === 0 ? "gray" : "red"}
+            layout="vertical"
+          />
+          <KpiCard
+            label="本月已售"
+            value={kpi.soldThisMonth}
+            tone="blue"
+            layout="vertical"
+          />
+        </section>
+      )}
+
+      {/* BarChart by-model + Slow Movers 並排 */}
+      {(byModel || slowMovers) && (
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div
+            className="lg:col-span-2 bg-white border border-[#EEECE6] rounded-lg overflow-hidden"
+            data-testid="usedcar-by-model-chart"
+          >
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">
+                ▼ 各車型庫存（依狀態堆疊）
+              </span>
+              <span className="text-[11px] text-[#9A9890]">
+                — 哪些車有量、哪些車型卡很久
+              </span>
+            </header>
+            <div className="px-3 py-3">
+              {!byModel || byModel.length === 0 ? (
+                <div className="py-10 text-center text-[12px] text-[#9A9890]">
+                  尚無庫存資料
+                </div>
+              ) : (
+                <BarChart
+                  data={byModel as unknown as Record<string, unknown>[]}
+                  categoryKey="model"
+                  valueKey={[
+                    { key: "available", label: "在庫可售", color: "#0F6E56" },
+                    { key: "pending_inspection", label: "整備中", color: "#534AB7" },
+                    { key: "reserved", label: "已保留", color: "#854F0B" },
+                    { key: "sold", label: "已售出", color: "#C8001A" },
+                    { key: "withdrawn", label: "已下架", color: "#9A9890" },
+                  ]}
+                  stacked
+                  showLegend
+                  size="md"
+                />
+              )}
+            </div>
+          </div>
+          <div
+            className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden"
+            data-testid="usedcar-slow-movers"
+          >
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-[#854F0B]">
+                ⚠ 庫齡 &gt; 90 天
+              </span>
+              <span className="text-[11px] text-[#9A9890]">老闆要看哪些賣不動</span>
+              <span className="ml-auto inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#FDF3E3] text-[#854F0B]">
+                {slowMovers?.length ?? 0}
+              </span>
+            </header>
+            <div className="max-h-[260px] overflow-y-auto">
+              {!slowMovers || slowMovers.length === 0 ? (
+                <div className="py-10 text-center text-[12px] text-[#9A9890]">
+                  ✓ 沒有庫齡過長的車
+                </div>
+              ) : (
+                <ul className="divide-y divide-[#F4F2EC]">
+                  {slowMovers.slice(0, 10).map((s) => (
+                    <li key={s.id} className="px-4 py-2 hover:bg-[#FAFAF8]">
+                      <Link
+                        href={`/sales/showroom/used-cars/${s.id}`}
+                        className="flex items-center gap-2 text-[12px]"
+                      >
+                        <span className="font-semibold text-[#2C2C2A] truncate flex-1">
+                          {s.model_display_name}
+                        </span>
+                        <span className="text-[10.5px] text-[#9A9890] whitespace-nowrap">
+                          {s.color ?? "—"}
+                        </span>
+                        <span className="font-mono font-bold text-[#C8001A] text-[12px] whitespace-nowrap">
+                          {s.days_in_stock} 天
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Banner */}
       {banner && (
@@ -592,16 +770,27 @@ function CardGrid({
     >
       {rows.map((r) => {
         const rate = marginRate(r.margin, r.listing_price);
-        const low = isLowMargin(r.margin, r.listing_price);
+        const neg = isNegativeMargin(r.margin);
+        const low = !neg && isLowMargin(r.margin, r.listing_price);
         const days = calcDaysInStock(r.listed_date, r.status === "sold" ? r.sold_date : null);
+        const aged = isAged90(r.listed_date, r.status);
+        const warn = neg || low || aged;
         return (
           <article
             key={r.id}
             data-testid={`usedcar-card-${r.id}`}
             data-low-margin={low ? "true" : "false"}
+            data-neg-margin={neg ? "true" : "false"}
+            data-aged-90={aged ? "true" : "false"}
             className={
-              "border border-[#EEECE6] rounded-lg overflow-hidden hover:border-[#85B7EB] hover:shadow-md transition " +
-              (low ? LOW_MARGIN_ROW_BG : "bg-white")
+              "border rounded-lg overflow-hidden hover:shadow-md transition " +
+              (neg
+                ? "border-[#F5AEAD] bg-[#FDECEA]"
+                : aged
+                  ? "border-[#F0C97E] bg-[#FDF3E3]"
+                  : warn
+                    ? "border-[#F0C97E] " + LOW_MARGIN_ROW_BG
+                    : "border-[#EEECE6] bg-white hover:border-[#85B7EB]")
             }
           >
             <div
@@ -686,12 +875,28 @@ function CardGrid({
                   >
                     利潤 {rate === null ? "—" : `${rate}%`}
                   </span>
+                  {neg && (
+                    <span
+                      className="inline-flex items-center text-[10.5px] px-1.5 py-0.5 rounded font-semibold bg-[#C8001A] text-white whitespace-nowrap"
+                      data-testid={`chip-neg-margin-${r.id}`}
+                    >
+                      ⚠️ 負利潤
+                    </span>
+                  )}
                   {low && (
                     <span
                       className={LOW_MARGIN_CHIP_CLASS}
                       data-testid={`chip-low-margin-${r.id}`}
                     >
                       ⚠️ 低毛利
+                    </span>
+                  )}
+                  {aged && (
+                    <span
+                      className="inline-flex items-center text-[10.5px] px-1.5 py-0.5 rounded font-semibold bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E] whitespace-nowrap"
+                      data-testid={`chip-aged-90-card-${r.id}`}
+                    >
+                      庫齡 {days} 天
                     </span>
                   )}
                 </div>

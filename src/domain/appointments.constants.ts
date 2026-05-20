@@ -43,6 +43,36 @@ export type DailyKpis = {
   pending_pickup: number;
 };
 
+/**
+ * AppointmentStats — Notion spec 規格「頂 KpiCard（本日預約/入廠率/未到/取消）」+ 月度趨勢用。
+ * checked_in_rate / no_show_count / canceled_count 用月度（最近 30 天）統計。
+ * delta_* = 與「再前一個月」比較的百分點 / 百分比變化。
+ */
+export type AppointmentStats = {
+  today_total: number;
+  today_arrived: number;
+  today_remaining: number;
+  // 月度（最近 30 天）
+  month_total: number;
+  month_arrived: number;
+  month_no_show: number;
+  month_canceled: number;
+  checked_in_rate: number;    // 入廠率 = arrived / total（不含已取消）
+  no_show_rate: number;       // 未到率 = no_show / total
+  cancel_rate: number;        // 取消率 = canceled / total
+  delta_checked_in_rate: number; // 百分點差（vs 前 30 天）
+  delta_no_show_rate: number;
+  delta_cancel_rate: number;
+  delta_today_total: number;     // 百分比差（today vs 同星期上週同日）
+};
+
+/** Heat map cell：day_of_week 0=Sun ... 6=Sat；hour 0–23 */
+export type HeatmapCell = {
+  day_of_week: number;
+  hour: number;
+  count: number;
+};
+
 export type ScheduleItem = {
   customer_name: string | null;
   service_label: string;
@@ -77,10 +107,37 @@ export type AppointmentsListPageData = {
   rows: AppointmentListRow[];
   totalCount: number;
   kpis: DailyKpis;
+  stats: AppointmentStats;
+  heatmap: HeatmapCell[];
   schedule: ScheduleSlot[];
   techLoad: TechnicianLoad[];
   lookups: AppointmentLookups;
 };
+
+/** Kanban columns（依 Notion spec：待確認 / 已確認 / 入廠 / 完成） */
+export const APPOINTMENT_KANBAN_COLUMNS = [
+  { id: "待到廠", title: "待到廠", tone: "gray" as const },
+  { id: "已到廠", title: "已到廠 / 等待", tone: "blue" as const, includes: ["已到廠", "等待中"] as readonly string[] },
+  { id: "維修中", title: "維修中", tone: "amber" as const },
+  { id: "已完成", title: "已完成 / 取車", tone: "green" as const, includes: ["已完成", "待取車"] as readonly string[] },
+] as const;
+
+/** 把 row.status 對映到 kanban column id（多對一） */
+export function statusToKanbanColumn(status: string): string {
+  for (const col of APPOINTMENT_KANBAN_COLUMNS) {
+    const inc = (col as { includes?: readonly string[] }).includes;
+    if (inc?.includes(status)) return col.id;
+    if (col.id === status) return col.id;
+  }
+  return "待到廠";
+}
+
+/** Kanban column id → 拖入後設定的目標 status（多選 column 用主要值） */
+export function kanbanColumnToStatus(columnId: string): string {
+  return columnId; // 目前 column id 同 status
+}
+
+export const DAY_OF_WEEK_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 
 export const APPOINTMENT_STATUSES = [
   "待到廠",

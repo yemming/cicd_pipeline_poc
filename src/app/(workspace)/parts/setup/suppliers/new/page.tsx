@@ -27,6 +27,7 @@ export default async function NewSupplierPage() {
     <SupplierDetailView
       supplier={null}
       contracts={[]}
+      metrics={null}
       coaOptions={lookups.coaOptions}
       taxCodeOptions={lookups.taxCodeOptions}
       canEdit={true}

@@ -6,10 +6,16 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization";
 import {
+  MODE_CHIP,
+  MODE_DESC,
+  MODE_LABEL,
+  PRE_INSPECTION_MODE,
   PRE_INSPECTION_STATUS,
   STATUS_CHIP,
   STATUS_LABEL,
+  type PreInspectionMode,
   type PreInspectionStatus,
 } from "@/domain/pre-inspections.constants";
 import type {
@@ -22,7 +28,11 @@ import {
 } from "@/lib/aftersales/pre-inspection-actions";
 
 type Banner = { ok: boolean; msg: string } | null;
-type Filter = { status: PreInspectionStatus | "all"; q: string };
+type Filter = {
+  status: PreInspectionStatus | "all";
+  mode: PreInspectionMode | "all";
+  q: string;
+};
 
 type Props = {
   rows: PreInspectionListRow[];
@@ -60,6 +70,7 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
   const [createMode, setCreateMode] = useState<"appt" | "blank">(
     candidates.length > 0 ? "appt" : "blank",
   );
+  const [createPiMode, setCreatePiMode] = useState<PreInspectionMode>("full");
   const [selectedApptId, setSelectedApptId] = useState<string>(candidates[0]?.id ?? "");
   const [blankForm, setBlankForm] = useState({
     customer_name: "",
@@ -70,7 +81,27 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
     sa_name: "",
   });
   const [statusLocal, setStatusLocal] = useState<Filter["status"]>(filter.status);
+  const [modeLocal, setModeLocal] = useState<Filter["mode"]>(filter.mode);
   const [qLocal, setQLocal] = useState(filter.q);
+
+  // KPI 計算（list 客戶端聚合，伺服器已過濾 brand）
+  const kpis = useMemo(() => {
+    const total = rows.length;
+    const inProgress = rows.filter(
+      (r) => r.status === "in_progress" || r.status === "quoting",
+    ).length;
+    const transferred = rows.filter((r) => r.status === "transferred").length;
+    const simpleCount = rows.filter((r) => r.mode === "simple").length;
+    const fullCount = rows.filter((r) => r.mode === "full").length;
+    const damaged = rows.reduce((acc, r) => acc + r.damage_count, 0);
+    const avgQuote = (() => {
+      const priced = rows.filter((r) => (r.estimated_subtotal ?? 0) > 0);
+      if (priced.length === 0) return 0;
+      const sum = priced.reduce((acc, r) => acc + Number(r.estimated_subtotal ?? 0), 0);
+      return Math.round(sum / priced.length);
+    })();
+    return { total, inProgress, transferred, simpleCount, fullCount, damaged, avgQuote };
+  }, [rows]);
 
   function showBanner(b: NonNullable<Banner>) {
     setBanner(b);
@@ -80,6 +111,7 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
   function applyFilter() {
     const params = new URLSearchParams();
     if (statusLocal !== "all") params.set("status", statusLocal);
+    if (modeLocal !== "all") params.set("mode", modeLocal);
     if (qLocal.trim()) params.set("q", qLocal.trim());
     startTransition(() => {
       router.push(`/parts/aftersales/pre-inspections?${params.toString()}`);
@@ -87,6 +119,7 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
   }
   function resetFilter() {
     setStatusLocal("all");
+    setModeLocal("all");
     setQLocal("");
     startTransition(() => {
       router.push(`/parts/aftersales/pre-inspections`);
@@ -100,7 +133,7 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
           showBanner({ ok: false, msg: "請選擇預約" });
           return;
         }
-        const res = await createFromAppointmentAction(selectedApptId);
+        const res = await createFromAppointmentAction(selectedApptId, createPiMode);
         if (res.ok) {
           showBanner({ ok: true, msg: "✓ 已建立預檢，跳轉中⋯" });
           setCreateOpen(false);
@@ -117,6 +150,7 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
         vehicle_model_name: blankForm.vehicle_model_name.trim() || undefined,
         mileage_in: blankForm.mileage_in ? Number(blankForm.mileage_in) : null,
         sa_name: blankForm.sa_name.trim() || undefined,
+        mode: createPiMode,
       });
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 已建立預檢，跳轉中⋯" });
@@ -159,6 +193,37 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
         ),
         exportValue: (r) => STATUS_LABEL[r.status],
         sortValue: (r) => r.status,
+      },
+      {
+        id: "mode",
+        header: "模式",
+        width: 90,
+        cell: (r) => (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${MODE_CHIP[r.mode]}`}
+            title={MODE_DESC[r.mode]}
+          >
+            {MODE_LABEL[r.mode]}
+          </span>
+        ),
+        exportValue: (r) => MODE_LABEL[r.mode],
+        sortValue: (r) => r.mode,
+      },
+      {
+        id: "photos",
+        header: "照片",
+        width: 70,
+        align: "right",
+        cell: (r) =>
+          r.photos.length > 0 ? (
+            <span className="inline-flex items-center gap-0.5 text-[11.5px] text-[#185FA5]">
+              📷 {r.photos.length}
+            </span>
+          ) : (
+            <span className="text-[#9A9890]">—</span>
+          ),
+        exportValue: (r) => r.photos.length,
+        sortValue: (r) => r.photos.length,
       },
       {
         id: "customer",
@@ -258,6 +323,50 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
         </span>
       </header>
 
+      {/* KPI 列 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <KpiCard
+          tone="blue"
+          layout="mini"
+          label="今日預檢單"
+          value={kpis.total}
+        />
+        <KpiCard
+          tone="amber"
+          layout="mini"
+          label="進行中 / 報價中"
+          value={kpis.inProgress}
+        />
+        <KpiCard
+          tone="green"
+          layout="mini"
+          label="已轉工單"
+          value={kpis.transferred}
+        />
+        <KpiCard
+          tone="teal"
+          layout="mini"
+          label="平均預估費用"
+          value={kpis.avgQuote > 0 ? `NT$${kpis.avgQuote.toLocaleString()}` : "—"}
+        />
+      </div>
+
+      {/* 模式分布提示條 */}
+      <div className="flex items-center gap-2 text-[11.5px] text-[#5A5955]">
+        <span>分布：</span>
+        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md ${MODE_CHIP.full}`}>
+          {MODE_LABEL.full} × {kpis.fullCount}
+        </span>
+        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md ${MODE_CHIP.simple}`}>
+          {MODE_LABEL.simple} × {kpis.simpleCount}
+        </span>
+        {kpis.damaged > 0 && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[#FCEBEB] text-[#CC0000]">
+            🔧 累計損傷標記 {kpis.damaged}
+          </span>
+        )}
+      </div>
+
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">
           <div className="flex flex-col gap-1">
@@ -271,6 +380,21 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
               {PRE_INSPECTION_STATUS.map((s) => (
                 <option key={s} value={s}>
                   {STATUS_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">模式</label>
+            <select
+              value={modeLocal}
+              onChange={(e) => setModeLocal(e.target.value as Filter["mode"])}
+              className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+            >
+              <option value="all">全部</option>
+              {PRE_INSPECTION_MODE.map((m) => (
+                <option key={m} value={m}>
+                  {MODE_LABEL[m]}
                 </option>
               ))}
             </select>
@@ -341,6 +465,31 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-[14px] font-semibold text-[#2C2C2A]">新增預檢單</h2>
+
+            {/* Mode 選擇器：simple / full */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-[#9A9890] font-medium">預檢模式</label>
+              <div className="grid grid-cols-2 gap-2">
+                {PRE_INSPECTION_MODE.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setCreatePiMode(m)}
+                    className={`text-left p-2.5 rounded-lg border text-[12px] transition-colors ${
+                      createPiMode === m
+                        ? "border-[#1A3A5C] bg-[#EBF3FF]"
+                        : "border-[#EEECE6] bg-white hover:bg-[#F8F7F4]"
+                    }`}
+                  >
+                    <div className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${MODE_CHIP[m]} mb-1`}>
+                      {MODE_LABEL[m]}
+                    </div>
+                    <div className="text-[11.5px] text-[#5A5955] leading-snug">{MODE_DESC[m]}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex border border-[#EEECE6] rounded overflow-hidden text-[12px]">
               <button
                 onClick={() => setCreateMode("appt")}

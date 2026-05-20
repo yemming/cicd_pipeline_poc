@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function RequisitionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; priority?: string }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -26,9 +26,18 @@ export default async function RequisitionsPage({
   }
 
   const sp = await searchParams;
-  const { rows, canEdit } = await getRequisitionsPageData({
+  const { rows, canEdit, kpi } = await getRequisitionsPageData({
     status: sp.status || undefined,
+    priority: sp.priority || undefined,
   });
 
-  return <RequisitionsBoard rows={rows} canEdit={canEdit} initialStatus={sp.status ?? ""} />;
+  return (
+    <RequisitionsBoard
+      rows={rows}
+      canEdit={canEdit}
+      kpi={kpi}
+      initialStatus={sp.status ?? ""}
+      initialPriority={sp.priority ?? ""}
+    />
+  );
 }

@@ -26,7 +26,7 @@ export default async function OrdersPage({
   }
 
   const sp = await searchParams;
-  const { rows, canEdit } = await getOrdersPageData({
+  const { rows, canEdit, kpis } = await getOrdersPageData({
     status: sp.status || undefined,
     q: sp.q || undefined,
   });
@@ -35,6 +35,7 @@ export default async function OrdersPage({
     <OrdersBoard
       rows={rows}
       canEdit={canEdit}
+      kpis={kpis}
       initialStatus={sp.status ?? ""}
       initialQ={sp.q ?? ""}
     />

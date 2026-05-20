@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { EntityImageUploader } from "@/components/image-upload/entity-image-uploader";
+import { KpiCard, Timeline, type TimelineEvent } from "@/components/visualization";
 import type {
   AftersalesCustomerDetail,
   AftersalesCustomerVehicle,
@@ -15,8 +16,11 @@ import type {
   AftersalesFollowupCaseRow,
   AftersalesOfficialTagRow,
   AftersalesPickupNotifyTemplate,
+  AftersalesCustomerLifetime,
+  AftersalesNpsSummary,
   ModelRef,
 } from "@/domain/aftersales-customer-base";
+import { QuickAppointmentButton } from "./quick-appointment-button";
 
 type TabKey = "vehicles" | "history" | "followups" | "pickup";
 
@@ -138,7 +142,10 @@ export function CustomerDetailView({
   officialTags,
   pickupNotify,
   models,
+  lifetime,
+  npsSummary,
   canEdit,
+  canEditAppointment,
 }: {
   customer: AftersalesCustomerDetail;
   vehicles: AftersalesCustomerVehicle[];
@@ -149,7 +156,10 @@ export function CustomerDetailView({
   officialTags: AftersalesOfficialTagRow[];
   pickupNotify: AftersalesPickupNotifyTemplate;
   models: ModelRef[];
+  lifetime: AftersalesCustomerLifetime;
+  npsSummary: AftersalesNpsSummary;
   canEdit: boolean;
+  canEditAppointment: boolean;
 }) {
   useSetPageHeader({
     title: customer.name,
@@ -264,6 +274,16 @@ export function CustomerDetailView({
           >
             開新工單
           </Link>
+          <QuickAppointmentButton
+            customerId={customer.id}
+            customerName={customer.name}
+            vehicles={vehicles.map((v) => ({
+              id: v.id,
+              license_plate: v.license_plate,
+              next_service_due_date: v.next_service_due_date,
+            }))}
+            canEdit={canEditAppointment}
+          />
           <Link
             href={`/crm/aftersales/customer-base/${customer.id}`}
             className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
@@ -371,6 +391,84 @@ export function CustomerDetailView({
           </div>
         </div>
       </header>
+
+      {/* 2.5 KpiCard 列 — CLV / 上次進廠 / 平均客單 / NPS */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard
+          label="累計回廠"
+          value={`${lifetime.visit_count}`}
+          tone="blue"
+          icon={<span className="text-[16px]">🛠</span>}
+        />
+        <KpiCard
+          label="累計消費"
+          value={
+            lifetime.total_amount > 0
+              ? `NT$ ${Math.round(lifetime.total_amount).toLocaleString()}`
+              : "—"
+          }
+          tone="green"
+          icon={<span className="text-[16px]">💰</span>}
+        />
+        <KpiCard
+          label={
+            lifetime.days_since_last_visit == null
+              ? "尚未進廠"
+              : `上次進廠（${lifetime.days_since_last_visit} 天前）`
+          }
+          value={
+            lifetime.last_visit_at ? fmtDate(lifetime.last_visit_at) : "—"
+          }
+          tone={
+            lifetime.days_since_last_visit == null
+              ? "gray"
+              : lifetime.days_since_last_visit > 180
+                ? "red"
+                : lifetime.days_since_last_visit > 90
+                  ? "amber"
+                  : "teal"
+          }
+          icon={<span className="text-[16px]">📅</span>}
+        />
+        <KpiCard
+          label={
+            npsSummary.total > 0
+              ? `NPS 平均（${npsSummary.total} 筆回應）`
+              : "NPS 尚無回應"
+          }
+          value={
+            npsSummary.avg != null ? npsSummary.avg.toFixed(1) : "—"
+          }
+          tone={
+            npsSummary.avg == null
+              ? "gray"
+              : npsSummary.avg >= 9
+                ? "green"
+                : npsSummary.avg >= 7
+                  ? "teal"
+                  : "red"
+          }
+          icon={<span className="text-[16px]">⭐</span>}
+          sparkline={
+            npsSummary.total > 0 ? (
+              <div className="flex gap-1 text-[10.5px]">
+                <span className="text-tone-green-700">
+                  推薦 {npsSummary.promoter}
+                </span>
+                <span className="text-tone-gray-500">·</span>
+                <span className="text-tone-amber-700">
+                  中立 {npsSummary.passive}
+                </span>
+                <span className="text-tone-gray-500">·</span>
+                <span className="text-tone-red-700">
+                  批評 {npsSummary.detractor}
+                </span>
+              </div>
+            ) : undefined
+          }
+          layout={npsSummary.total > 0 ? "with-chart" : "horizontal"}
+        />
+      </section>
 
       {/* 3. 區段卡片 — 基本資料 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
@@ -592,8 +690,61 @@ function HistoryTab({
   rows: HistoryRow[];
   appointments: AftersalesAppointmentRow[];
 }) {
+  // Timeline 事件 — 最近 12 筆 RO（DESC date）
+  const timelineEvents: TimelineEvent[] = rows.slice(0, 12).map((r) => {
+    const tone =
+      r.status === "closed" || r.status === "completed" || r.status === "done"
+        ? "green"
+        : r.status === "cancelled" || r.status === "void"
+          ? "red"
+          : r.status === "draft"
+            ? "gray"
+            : "blue";
+    return {
+      id: `${r.kind}-${r.id}`,
+      time: r.date ? fmtDate(r.date) : "—",
+      title: `${r.no}`,
+      description: (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[#5A5955] truncate max-w-[260px]">
+            {r.summary}
+          </span>
+          {r.amount != null && (
+            <span className="font-mono text-[11px] text-[#0F6E56]">
+              {fmtNT(r.amount)}
+            </span>
+          )}
+          {r.mileage_in != null && (
+            <span className="font-mono text-[11px] text-[#9A9890]">
+              {fmtMileage(r.mileage_in)}
+            </span>
+          )}
+          <span
+            className={`inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-medium ${roStatusChip(r.status)}`}
+          >
+            {r.status}
+          </span>
+        </div>
+      ),
+      tone,
+    };
+  });
+
   return (
     <div className="space-y-3">
+      {timelineEvents.length > 0 && (
+        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+              RO 時間軸（最近 {timelineEvents.length} 筆）
+            </h2>
+          </header>
+          <div className="px-4 py-4">
+            <Timeline events={timelineEvents} variant="vertical" />
+          </div>
+        </section>
+      )}
+
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
           <h2 className="text-[13px] font-semibold text-[#2C2C2A]">

@@ -37,6 +37,7 @@ export type TestDriveRow = {
   customer_id: string | null;
   vehicle_model_id: string | null;
   lead_id: string | null;
+  handcard_id: string | null;
   sales_consultant_id: string | null;
   scheduled_at: string;
   completed_at: string | null;
@@ -54,8 +55,27 @@ export type TestDriveRow = {
 export type ListTestDrivesFilter = {
   status?: string;
   q?: string;
+  sales_consultant_id?: string | null;
+  date_from?: string | null;
+  date_to?: string | null;
   page?: number;
   pageSize?: number;
+};
+
+export type TestDriveStats = {
+  todayCount: number;
+  weekCompleted: number;
+  avgRating: number | null;
+  scheduledCount: number;
+};
+
+export type CompleteTestDriveInput = {
+  rating?: number | null;
+  feedback?: string | null;
+  mileage_before?: number | null;
+  mileage_after?: number | null;
+  route_taken?: string | null;
+  notes?: string | null;
 };
 
 export type CreateTestDriveInput = {

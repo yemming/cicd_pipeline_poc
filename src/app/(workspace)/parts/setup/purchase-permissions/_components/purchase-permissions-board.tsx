@@ -11,6 +11,7 @@ import type {
   PurchaseWorkflowStep,
   RoleRow,
 } from "@/domain/rules";
+import { KpiCard } from "@/components/visualization";
 
 // ──────────────────────────────────────────────────────────────────────────
 // 本地 Form state（每張 row 對應一個編輯狀態）
@@ -168,6 +169,50 @@ export function PurchasePermissionsBoard({
     return m;
   }, [roles]);
 
+  // KPI 計算（即時反應 form state、不是 server snapshot）
+  const kpi = useMemo(() => {
+    const totalRules = rows.length;
+    const activeRoles = new Set(
+      rows.map((r) => r.scope_role_code).filter(Boolean),
+    ).size;
+    const supervisorRequired = rows.filter(
+      (r) => r.require_supervisor_approval,
+    ).length;
+    // 平均單筆上限（排除「無上限」）
+    const numericLimits = rows
+      .map((r) => parseAmount(r.single_limit_text))
+      .filter(
+        (v): v is number => v !== null && Number.isFinite(v) && !Number.isNaN(v),
+      );
+    const avgSingleLimit =
+      numericLimits.length > 0
+        ? Math.round(
+            numericLimits.reduce((a, b) => a + b, 0) / numericLimits.length,
+          )
+        : null;
+    return { totalRules, activeRoles, supervisorRequired, avgSingleLimit };
+  }, [rows]);
+
+  // 是否有「未儲存的變更」— 用 ruleToForm 對齊 server snapshot 後字串比對
+  const dirty = useMemo(() => {
+    const snapshot = authorityRules.map(ruleToForm);
+    if (snapshot.length !== rows.length) return true;
+    for (let i = 0; i < rows.length; i++) {
+      const a = snapshot[i];
+      const b = rows[i];
+      if (
+        a.id !== b.id ||
+        a.scope_role_code !== b.scope_role_code ||
+        a.single_limit_text !== b.single_limit_text ||
+        a.monthly_limit_text !== b.monthly_limit_text ||
+        a.require_supervisor_approval !== b.require_supervisor_approval
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [rows, authorityRules]);
+
   return (
     <main className="px-6 py-5 space-y-3">
       {/* Banner */}
@@ -192,7 +237,50 @@ export function PurchasePermissionsBoard({
         <span className="text-[12px] text-[#9A9890]">
           依角色與門店設定採購金額上限與審核流程
         </span>
+        {dirty && (
+          <span className="ml-2 px-2 py-0.5 text-[11px] rounded-md bg-[#FDF3E3] text-[#854F0B] font-medium">
+            有未儲存的變更
+          </span>
+        )}
       </header>
+
+      {/* KPI 列 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard
+          label="總規則數"
+          value={kpi.totalRules}
+          tone="blue"
+          icon={<span className="text-[18px]">📋</span>}
+        />
+        <KpiCard
+          label="涵蓋角色"
+          value={kpi.activeRoles}
+          tone="teal"
+          icon={<span className="text-[18px]">👤</span>}
+        />
+        <KpiCard
+          label="需主管審核"
+          value={`${kpi.supervisorRequired} / ${kpi.totalRules}`}
+          tone={kpi.supervisorRequired > 0 ? "amber" : "gray"}
+          icon={<span className="text-[18px]">🔐</span>}
+        />
+        <KpiCard
+          label="平均單筆上限"
+          value={
+            kpi.avgSingleLimit === null
+              ? "—"
+              : `NT$ ${kpi.avgSingleLimit.toLocaleString("en-US")}`
+          }
+          tone={
+            kpi.avgSingleLimit === null
+              ? "gray"
+              : kpi.avgSingleLimit >= 100000
+                ? "green"
+                : "blue"
+          }
+          icon={<span className="text-[18px]">💰</span>}
+        />
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* 左卡：角色採購權限 */}

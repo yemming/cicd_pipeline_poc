@@ -141,10 +141,16 @@ export async function getWarehouseBinsPageData(warehouseId?: string): Promise<{
   warehouses: WarehouseSummary[];
   activeWarehouse: WarehouseSummary | null;
   zones: ZoneWithBins[];
+  heatmap: BinHeatmap;
 }> {
   const warehouses = await listWarehousesWithCounts();
   if (warehouses.length === 0) {
-    return { warehouses, activeWarehouse: null, zones: [] };
+    return {
+      warehouses,
+      activeWarehouse: null,
+      zones: [],
+      heatmap: { kpi: emptyKpi(), binMetrics: {} },
+    };
   }
 
   const activeWarehouse =
@@ -181,7 +187,195 @@ export async function getWarehouseBinsPageData(warehouseId?: string): Promise<{
     bins: binsByZone.get(z.id) ?? [],
   }));
 
-  return { warehouses, activeWarehouse, zones };
+  const heatmap = await getBinHeatmap(activeWarehouse.id, binsRes.data ?? []);
+
+  return { warehouses, activeWarehouse, zones, heatmap };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Bin Heatmap — KPI + 每 bin 佔率 / 最後活動（M04U-7 華麗版）
+// ──────────────────────────────────────────────────────────────────────────
+
+export type BinKpi = {
+  totalBins: number;
+  usedBins: number;
+  emptyBins: number;
+  reservedBins: number;
+  utilizationPct: number;
+  staleBins: number; // 60 天以上沒動的 used bin
+};
+
+export type BinMetric = {
+  binId: string;
+  skuCount: number;
+  totalQty: number;
+  lastMovementAt: string | null;
+  isStale: boolean;
+  occupancyPct: number | null; // totalQty / capacity * 100，capacity null 就 null
+};
+
+export type BinHeatmap = {
+  kpi: BinKpi;
+  binMetrics: Record<string, BinMetric>;
+};
+
+function emptyKpi(): BinKpi {
+  return {
+    totalBins: 0,
+    usedBins: 0,
+    emptyBins: 0,
+    reservedBins: 0,
+    utilizationPct: 0,
+    staleBins: 0,
+  };
+}
+
+/**
+ * 撈某 warehouse 內 active bin 的 occupancy 指標。
+ *
+ * - 從 `stock_items` group by bin_id 算 SKU 種類數、總 qty、最後活動時間
+ * - 結合 `warehouse_bins.metadata.status` 算 used / empty / reserved KPI
+ * - 60 天以上沒動的 used bin 標 stale（給未來「冷區告警」用）
+ */
+export async function getBinHeatmap(
+  warehouseId: string,
+  prefetchedBins?: BinRow[],
+): Promise<BinHeatmap> {
+  const supabase = await createClient();
+
+  let bins: BinRow[];
+  if (prefetchedBins) {
+    bins = prefetchedBins;
+  } else {
+    const { data, error } = await supabase
+      .from("warehouse_bins")
+      .select("*")
+      .eq("warehouse_id", warehouseId)
+      .eq("is_active", true);
+    if (error) throw error;
+    bins = (data ?? []) as BinRow[];
+  }
+
+  const { data: stockData, error: stockErr } = await supabase
+    .from("stock_items")
+    .select("bin_id, item_id, qty, last_movement_at")
+    .eq("warehouse_id", warehouseId);
+  if (stockErr) throw stockErr;
+
+  // group by bin_id
+  type Agg = { skuSet: Set<string>; totalQty: number; lastMovement: string | null };
+  const aggByBin = new Map<string, Agg>();
+  for (const row of stockData ?? []) {
+    if (!row.bin_id) continue;
+    const a = aggByBin.get(row.bin_id) ?? {
+      skuSet: new Set<string>(),
+      totalQty: 0,
+      lastMovement: null,
+    };
+    if (row.item_id) a.skuSet.add(row.item_id);
+    a.totalQty += Number(row.qty ?? 0);
+    if (row.last_movement_at) {
+      if (!a.lastMovement || row.last_movement_at > a.lastMovement) {
+        a.lastMovement = row.last_movement_at;
+      }
+    }
+    aggByBin.set(row.bin_id, a);
+  }
+
+  const STALE_THRESHOLD_DAYS = 60;
+  const staleCutoff = Date.now() - STALE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
+
+  const binMetrics: Record<string, BinMetric> = {};
+  let usedBins = 0;
+  let emptyBins = 0;
+  let reservedBins = 0;
+  let staleBins = 0;
+
+  for (const bin of bins) {
+    const agg = aggByBin.get(bin.id);
+    const meta = (bin.metadata ?? {}) as Record<string, unknown>;
+    const status = typeof meta.status === "string" ? meta.status : "empty";
+    if (status === "used") usedBins++;
+    else if (status === "reserved") reservedBins++;
+    else emptyBins++;
+
+    const skuCount = agg?.skuSet.size ?? 0;
+    const totalQty = agg?.totalQty ?? 0;
+    const lastMovementAt = agg?.lastMovement ?? null;
+    const isStale =
+      status === "used" &&
+      (lastMovementAt == null || new Date(lastMovementAt).getTime() < staleCutoff);
+    if (isStale) staleBins++;
+
+    const capacity = bin.capacity;
+    const occupancyPct =
+      capacity != null && capacity > 0 ? Math.min(100, Math.round((totalQty / capacity) * 100)) : null;
+
+    binMetrics[bin.id] = {
+      binId: bin.id,
+      skuCount,
+      totalQty,
+      lastMovementAt,
+      isStale,
+      occupancyPct,
+    };
+  }
+
+  const totalBins = bins.length;
+  const utilizationPct =
+    totalBins > 0 ? Math.round(((usedBins + reservedBins) / totalBins) * 100) : 0;
+
+  return {
+    kpi: { totalBins, usedBins, emptyBins, reservedBins, utilizationPct, staleBins },
+    binMetrics,
+  };
+}
+
+/**
+ * 撈某 bin 的詳細 SKU 列表（給點 bin 後右側 Detail panel 用）。
+ */
+export type BinSkuLine = {
+  stockId: string;
+  itemId: string | null;
+  itemCode: string | null;
+  itemName: string | null;
+  qty: number;
+  serialNo: string | null;
+  batchNo: string | null;
+  lastMovementAt: string | null;
+};
+
+export async function getBinSkuLines(binId: string): Promise<BinSkuLine[]> {
+  await requirePermission(PERMISSIONS.PARTS_WAREHOUSE_ARCH_VIEW);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("stock_items")
+    .select("id, item_id, qty, serial_no, batch_no, last_movement_at, items(code, name)")
+    .eq("bin_id", binId)
+    .order("last_movement_at", { ascending: false, nullsFirst: false });
+  if (error) throw error;
+  type Row = {
+    id: string;
+    item_id: string | null;
+    qty: number | null;
+    serial_no: string | null;
+    batch_no: string | null;
+    last_movement_at: string | null;
+    items: { code: string | null; name: string | null } | { code: string | null; name: string | null }[] | null;
+  };
+  return ((data ?? []) as Row[]).map((r) => {
+    const item = Array.isArray(r.items) ? r.items[0] : r.items;
+    return {
+      stockId: r.id,
+      itemId: r.item_id,
+      itemCode: item?.code ?? null,
+      itemName: item?.name ?? null,
+      qty: Number(r.qty ?? 0),
+      serialNo: r.serial_no,
+      batchNo: r.batch_no,
+      lastMovementAt: r.last_movement_at,
+    };
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────

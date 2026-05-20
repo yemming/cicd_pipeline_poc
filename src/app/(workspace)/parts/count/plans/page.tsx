@@ -33,17 +33,21 @@ export default async function CountPlansPage({
   const isActive =
     sp.is_active === "true" ? true : sp.is_active === "false" ? false : undefined;
 
-  const { rows, warehouses, canEdit } = await getCountPlansPageData({
-    is_active: isActive,
-    q: sp.q || undefined,
-    warehouse_id: sp.warehouse_id || undefined,
-  });
+  const { rows, warehouses, canEdit, stats, ganttBars, ganttRange } =
+    await getCountPlansPageData({
+      is_active: isActive,
+      q: sp.q || undefined,
+      warehouse_id: sp.warehouse_id || undefined,
+    });
 
   return (
     <CountPlansBoard
       rows={rows}
       warehouses={warehouses}
       canEdit={canEdit}
+      stats={stats}
+      ganttBars={ganttBars}
+      ganttRange={ganttRange}
       initialIsActive={sp.is_active ?? ""}
       initialQ={sp.q ?? ""}
       initialWarehouseId={sp.warehouse_id ?? ""}

@@ -21,7 +21,17 @@ export default async function ControlTypesPage() {
     );
   }
 
-  const { controlTypes } = await getControlTypesPageData();
+  const data = await getControlTypesPageData();
+  const canEdit = await hasPermission(PERMISSIONS.PARTS_CONTROL_TYPE_EDIT);
 
-  return <ControlTypesBoard controlTypes={controlTypes} />;
+  return (
+    <ControlTypesBoard
+      controlTypes={data.controlTypes}
+      skuCounts={data.skuCounts}
+      totalSkus={data.totalSkus}
+      inactiveSkus={data.inactiveSkus}
+      relatedRules={data.relatedRules}
+      canEdit={canEdit}
+    />
+  );
 }

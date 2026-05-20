@@ -3,7 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getTransferById } from "@/domain/transfers";
+import {
+  getTransferById,
+  getTransferSubsidiaryInfo,
+  getTransferTimeline,
+} from "@/domain/transfers";
 
 import { TransferDetailView } from "./_components/transfer-detail-view";
 
@@ -28,6 +32,18 @@ export default async function TransferDetailPage({
   const transfer = await getTransferById(id);
   if (!transfer) notFound();
 
-  const canEdit = await hasPermission(PERMISSIONS.RECEIPT_CREATE);
-  return <TransferDetailView transfer={transfer} canEdit={canEdit} />;
+  const [canEdit, subInfo, timeline] = await Promise.all([
+    hasPermission(PERMISSIONS.RECEIPT_CREATE),
+    getTransferSubsidiaryInfo(id),
+    getTransferTimeline(id),
+  ]);
+
+  return (
+    <TransferDetailView
+      transfer={transfer}
+      canEdit={canEdit}
+      subsidiaryInfo={subInfo}
+      timeline={timeline}
+    />
+  );
 }

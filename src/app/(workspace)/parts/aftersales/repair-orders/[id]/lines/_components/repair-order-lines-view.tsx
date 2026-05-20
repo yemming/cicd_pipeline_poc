@@ -9,6 +9,7 @@ import {
   addLaborLineAction,
   addPartLineAction,
   deleteLineAction,
+  setLinePartLifecycleAction,
   updateLaborLineAction,
   updatePartLineAction,
   updateRoDiscountAction,
@@ -44,6 +45,30 @@ const inputCls =
   "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white";
 const btnSm =
   "h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center disabled:opacity-50";
+
+// M03-3 spec：零件 lifecycle
+export type PartLifecycle = "new" | "installed" | "returned" | "replaced";
+
+function lifecycleOf(line: RepairOrderLineWithStock): PartLifecycle {
+  const meta = (line.metadata ?? {}) as Record<string, unknown>;
+  const v = typeof meta.part_lifecycle === "string" ? meta.part_lifecycle : "new";
+  return (["new", "installed", "returned", "replaced"].includes(v)
+    ? v
+    : "new") as PartLifecycle;
+}
+
+function lifecycleChip(lc: PartLifecycle): { label: string; cls: string } {
+  switch (lc) {
+    case "installed":
+      return { label: "已安裝", cls: "bg-[#EAF3DE] text-[#3B6D11]" };
+    case "returned":
+      return { label: "已退料", cls: "bg-[#F2F2F2] text-[#6B6A68]" };
+    case "replaced":
+      return { label: "已替換", cls: "bg-[#FDECEA] text-[#CC0000]" };
+    default:
+      return { label: "新料", cls: "bg-[#EAF4FB] text-[#185FA5]" };
+  }
+}
 
 export function RepairOrderLinesView({
   data,
@@ -834,12 +859,37 @@ function PartRow({
   const stockLow =
     line.stock_on_hand != null && line.qty != null && Number(line.stock_on_hand) < Number(line.qty);
 
+  const lc = lifecycleOf(line);
+  const chip = lifecycleChip(lc);
+
+  function setLifecycle(next: PartLifecycle) {
+    startTransition(async () => {
+      const res = await setLinePartLifecycleAction(roId, line.id, next);
+      if (res.ok) {
+        showBanner({ ok: true, msg: `✓ 已標記「${lifecycleChip(next).label}」` });
+        onSaved();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
   if (!isEditing) {
     return (
       <tr className="border-t border-[#EEECE6]">
         <td className="px-3 py-2 text-[#9A9890] font-mono">{line.line_no}</td>
         <td className="px-3 py-2 font-mono text-[11px]">{line.part_code}</td>
-        <td className="px-3 py-2 text-[#2C2C2A]">{line.part_name}</td>
+        <td className="px-3 py-2 text-[#2C2C2A]">
+          <span className={lc === "returned" || lc === "replaced" ? "text-[#9A9890]" : ""}>
+            {line.part_name}
+          </span>
+          <span
+            className={`ml-1.5 inline-flex px-1.5 py-0.5 rounded-md text-[11px] font-medium ${chip.cls}`}
+            title={`零件 lifecycle：${chip.label}`}
+          >
+            {chip.label}
+          </span>
+        </td>
         <td className="px-3 py-2 text-right font-mono">{Number(line.qty ?? 0)}</td>
         <td className="px-3 py-2 text-right font-mono">{fmtNT(line.unit_price)}</td>
         <td className="px-3 py-2 text-right font-mono font-semibold">
@@ -857,9 +907,53 @@ function PartRow({
           </span>
         </td>
         <td className="px-3 py-2 text-right">
-          <div className="inline-flex gap-1.5">
+          <div className="inline-flex gap-1.5 flex-wrap justify-end">
             {canEdit && (
               <>
+                {lc !== "installed" && (
+                  <button
+                    type="button"
+                    onClick={() => setLifecycle("installed")}
+                    disabled={isPending}
+                    className={`${btnSm} bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] hover:bg-[#dceec5]`}
+                    title="標記為已安裝"
+                  >
+                    ✓ 安裝
+                  </button>
+                )}
+                {lc !== "returned" && lc !== "replaced" && (
+                  <button
+                    type="button"
+                    onClick={() => setLifecycle("returned")}
+                    disabled={isPending}
+                    className={`${btnSm} bg-white border border-[#D5D3CB] text-[#854F0B] hover:border-[#9A9890]`}
+                    title="依規則退料"
+                  >
+                    ↺ 退料
+                  </button>
+                )}
+                {lc !== "replaced" && (
+                  <button
+                    type="button"
+                    onClick={() => setLifecycle("replaced")}
+                    disabled={isPending}
+                    className={`${btnSm} bg-white border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]`}
+                    title="依規則替換（保留原料件作為紀錄）"
+                  >
+                    ⇄ 替換
+                  </button>
+                )}
+                {lc !== "new" && (
+                  <button
+                    type="button"
+                    onClick={() => setLifecycle("new")}
+                    disabled={isPending}
+                    className={`${btnSm} bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]`}
+                    title="清除標記，回到「新料」"
+                  >
+                    清除
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onEdit}

@@ -1,18 +1,47 @@
 "use client";
 
+/**
+ * 追加項目記錄 — A 級（M03-4 / 第十輪 BDN）
+ *
+ * 升級點：
+ *  1. 4 顆標準 <KpiCard tone vertical icon delta>（待確認 / 同意 / 拒絕 / 同意金額）
+ *  2. <DonutChart> 決策分佈 + <FunnelChart> 「提議 → 確認 → 同意 → 寫工單」漏斗
+ *  3. 視圖切換：list（DataGrid）/ kanban（拖曳改決策樂觀更新）/ followup（待追蹤閉環）
+ *  4. detail page 連結（/parts/aftersales/addons/[id]）
+ *  5. 樂觀更新（useOptimistic）+ pending 鎖 UI
+ *
+ * 注意：cancelled 只在 list 視圖看得到（kanban 不放，會塞）。
+ */
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useOptimistic } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import {
+  KpiCard,
+  KanbanBoard,
+  type KanbanCard,
+  type KanbanColumn,
+} from "@/components/visualization";
+import { DonutChart, FunnelChart, type DonutDatum, type FunnelDatum } from "@/components/charts";
+import {
+  ADDON_KANBAN_COLUMNS,
+  CONFIRM_LABEL,
+  DECISION_CHIP,
+  DECISION_DONUT_COLOR,
+  DECISION_LABEL,
+  SAFETY_CHIP,
+  SAFETY_LABEL,
+  TYPE_LABEL,
   type AddonsListFilter,
   type AddonsSummary,
   type CustomerDecision,
   type RepairOrderAddonWithRo,
+  type RoOptionForAddons,
   type SafetyLevel,
-} from "@/domain/repair-order-addons";
+} from "@/domain/repair-order-addons.constants";
 import {
   cancelAddonAction,
   createAddonAction,
@@ -22,6 +51,7 @@ import {
 } from "@/lib/aftersales/repair-order-addon-actions";
 
 type Banner = { ok: boolean; msg: string } | null;
+type ViewMode = "list" | "kanban" | "followup";
 
 // 純算數格式化 Asia/Taipei wall-clock（避開 toLocaleString 在 Node ICU / browser ICU
 // 對 dayPeriod / narrow nbsp 不一致造成的 SSR / CSR hydration mismatch）
@@ -40,53 +70,6 @@ function fmtTaipeiDateTime(iso: string): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
-const decisionLabel: Record<string, string> = {
-  pending: "待確認",
-  agreed: "車主同意",
-  deferred: "暫緩",
-  rejected: "拒絕",
-  cancelled: "已取消",
-};
-
-const decisionChip: Record<string, string> = {
-  pending: "bg-[#FDF3E3] text-[#854F0B]",
-  agreed: "bg-[#EAF3DE] text-[#3B6D11]",
-  deferred: "bg-[#EAF4FB] text-[#185FA5]",
-  rejected: "bg-[#FDECEA] text-[#CC0000]",
-  cancelled: "bg-[#F2F2F2] text-[#6B6A68]",
-};
-
-const safetyLabel: Record<SafetyLevel, string> = {
-  normal: "一般建議",
-  safety_related: "⚠️ 安全相關",
-  safety_critical: "🔴 安全警示",
-};
-
-const safetyChip: Record<SafetyLevel, string> = {
-  normal: "bg-[#F2F2F2] text-[#6B6A68]",
-  safety_related: "bg-[#FDF3E3] text-[#854F0B]",
-  safety_critical: "bg-[#FDECEA] text-[#CC0000]",
-};
-
-const typeLabel: Record<string, string> = {
-  labor: "工項",
-  parts: "零件",
-  labor_and_parts: "零件+工",
-};
-
-const confirmLabel: Record<string, string> = {
-  phone: "電話口頭",
-  onsite: "現場本人",
-  line: "Line 文字",
-};
-
-type RoOption = {
-  id: string;
-  ro_code: string;
-  status: string;
-  customer_name: string | null;
-};
-
 export function AddonsBoard({
   rows,
   summary,
@@ -98,7 +81,7 @@ export function AddonsBoard({
   summary: AddonsSummary;
   filter: AddonsListFilter;
   canEdit: boolean;
-  roOptions: RoOption[];
+  roOptions: RoOptionForAddons[];
 }) {
   useSetPageHeader({
     title: "追加項目記錄",
@@ -114,6 +97,16 @@ export function AddonsBoard({
   const [banner, setBanner] = useState<Banner>(null);
   const [decideTarget, setDecideTarget] = useState<RepairOrderAddonWithRo | null>(null);
   const [creating, setCreating] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  // 樂觀更新 customer_decision — 拖曳 Kanban / 快速決策用
+  const [optimisticRows, applyOptimistic] = useOptimistic(
+    rows,
+    (state, action: { id: string; decision: CustomerDecision }) =>
+      state.map((r) =>
+        r.id === action.id ? { ...r, customer_decision: action.decision } : r,
+      ),
+  );
 
   // filter inputs（local state，按「查詢」才推 URL）
   const [decisionLocal, setDecisionLocal] = useState<CustomerDecision | "all">(
@@ -150,15 +143,119 @@ export function AddonsBoard({
   const handleCancel = (id: string) => {
     if (!confirm("確認取消此追加項目？只有待確認的可取消。")) return;
     startTransition(async () => {
+      applyOptimistic({ id, decision: "cancelled" });
       const r = await cancelAddonAction(id);
       if (r.ok) {
         showBanner({ ok: true, msg: "✓ 已取消" });
         router.refresh();
       } else {
         showBanner({ ok: false, msg: r.error });
+        router.refresh();
       }
     });
   };
+
+  // Kanban 拖曳：fromColumn = 原 decision, toColumn = 目標 decision
+  // 規則：只有 pending → {agreed/deferred/rejected} 透過 decide flow（會寫 ro_lines）
+  //        其他組合都禁止（避免亂改已決策的資料）
+  const handleKanbanMove = (
+    cardId: string,
+    fromColumn: string,
+    toColumn: string,
+  ) => {
+    if (fromColumn === toColumn) return;
+    if (!canEdit) {
+      showBanner({ ok: false, msg: "無編輯權限" });
+      return;
+    }
+    if (fromColumn !== "pending") {
+      showBanner({ ok: false, msg: "已決策的追加項目不能改用拖曳，請從詳情頁處理" });
+      return;
+    }
+    if (!["agreed", "deferred", "rejected"].includes(toColumn)) {
+      showBanner({ ok: false, msg: "目標欄位不合法" });
+      return;
+    }
+
+    // pending → agreed 走完整 decide flow，confirm_method 必填
+    // 為避免 kanban 上沒有 modal 選擇，這裡開 decideTarget 讓使用者選確認方式
+    const target = optimisticRows.find((r) => r.id === cardId);
+    if (target) setDecideTarget(target);
+  };
+
+  // ── KPI 數據（從 summary 來，沒有 delta — 沒歷史比較資料）
+  const kpiPending = summary.pending;
+  const kpiAgreed = summary.agreed;
+  const kpiRejected = summary.rejected + summary.cancelled;
+  const kpiAgreedAmt = summary.agreedAmount;
+  const kpiFollowup = summary.followupNeeded;
+
+  // ── DonutChart：決策分佈
+  const decisionDistribution = useMemo<DonutDatum[]>(() => {
+    const counts: Record<CustomerDecision, number> = {
+      pending: 0,
+      agreed: 0,
+      deferred: 0,
+      rejected: 0,
+      cancelled: 0,
+    };
+    for (const r of optimisticRows) counts[r.customer_decision] += 1;
+    const out: DonutDatum[] = [];
+    (Object.keys(counts) as CustomerDecision[]).forEach((k) => {
+      if (counts[k] > 0)
+        out.push({
+          name: DECISION_LABEL[k],
+          value: counts[k],
+          color: DECISION_DONUT_COLOR[k],
+        });
+    });
+    return out;
+  }, [optimisticRows]);
+
+  // ── FunnelChart：「提議 → 已確認(non-pending) → 同意 → 已寫工單」
+  const funnelData = useMemo<FunnelDatum[]>(() => {
+    const total = optimisticRows.length;
+    const confirmed = optimisticRows.filter((r) => r.customer_decision !== "pending").length;
+    const agreed = optimisticRows.filter((r) => r.customer_decision === "agreed").length;
+    const reserved = optimisticRows.filter(
+      (r) => r.customer_decision === "agreed" && r.reserved_at,
+    ).length;
+    return [
+      { name: "技師提議", value: total, color: "#9A9890" },
+      { name: "車主已回覆", value: confirmed, color: "#F59E0B" },
+      { name: "同意執行", value: agreed, color: "#22C55E" },
+      { name: "已寫進工單", value: reserved, color: "#0F6E56" },
+    ];
+  }, [optimisticRows]);
+
+  // ── Kanban cards / columns
+  const kanbanCards = useMemo<KanbanCard[]>(() => {
+    return optimisticRows
+      .filter((r) => r.customer_decision !== "cancelled")
+      .map((r) => ({
+        id: r.id,
+        columnId: r.customer_decision,
+        content: <KanbanCardBody row={r} />,
+      }));
+  }, [optimisticRows]);
+
+  const kanbanColumns = useMemo<KanbanColumn[]>(
+    () =>
+      ADDON_KANBAN_COLUMNS.map((c) => ({
+        id: c.id,
+        title: c.title,
+        tone: c.tone,
+      })),
+    [],
+  );
+
+  // ── 待追蹤 closeloop 視圖：只看 requires_followup 的 row
+  const followupRows = useMemo(() => {
+    return optimisticRows.filter((r) => {
+      const meta = (r.metadata ?? {}) as Record<string, unknown>;
+      return Boolean(meta.requires_followup);
+    });
+  }, [optimisticRows]);
 
   const columns: DataGridColumn<RepairOrderAddonWithRo>[] = useMemo(
     () => [
@@ -193,12 +290,15 @@ export function AddonsBoard({
         header: "項目名稱",
         width: 220,
         cell: (r) => (
-          <div className="flex flex-col">
-            <span className="text-[#2C2C2A]">{r.name}</span>
+          <Link
+            href={`/parts/aftersales/addons/${r.id}`}
+            className="flex flex-col hover:text-[#185FA5]"
+          >
+            <span className="text-[#2C2C2A] hover:text-[#185FA5]">{r.name}</span>
             {r.tech_reason && (
               <span className="text-[11px] text-[#9A9890] line-clamp-1">{r.tech_reason}</span>
             )}
-          </div>
+          </Link>
         ),
         exportValue: (r) => r.name,
       },
@@ -208,10 +308,10 @@ export function AddonsBoard({
         width: 90,
         cell: (r) => (
           <span className="px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5]">
-            {typeLabel[r.addon_type] ?? r.addon_type}
+            {TYPE_LABEL[r.addon_type]}
           </span>
         ),
-        exportValue: (r) => typeLabel[r.addon_type] ?? r.addon_type,
+        exportValue: (r) => TYPE_LABEL[r.addon_type],
       },
       {
         id: "safety_level",
@@ -219,12 +319,12 @@ export function AddonsBoard({
         width: 120,
         cell: (r) => (
           <span
-            className={`px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${safetyChip[r.safety_level]}`}
+            className={`px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${SAFETY_CHIP[r.safety_level]}`}
           >
-            {safetyLabel[r.safety_level]}
+            {SAFETY_LABEL[r.safety_level]}
           </span>
         ),
-        exportValue: (r) => safetyLabel[r.safety_level],
+        exportValue: (r) => SAFETY_LABEL[r.safety_level],
       },
       {
         id: "estimated_fee",
@@ -245,11 +345,11 @@ export function AddonsBoard({
         width: 90,
         cell: (r) =>
           r.confirm_method ? (
-            <span className="text-[11.5px] text-[#5A5955]">{confirmLabel[r.confirm_method]}</span>
+            <span className="text-[11.5px] text-[#5A5955]">{CONFIRM_LABEL[r.confirm_method]}</span>
           ) : (
             <span className="text-[11.5px] text-[#9A9890]">—</span>
           ),
-        exportValue: (r) => (r.confirm_method ? confirmLabel[r.confirm_method] : ""),
+        exportValue: (r) => (r.confirm_method ? CONFIRM_LABEL[r.confirm_method] : ""),
       },
       {
         id: "customer_decision",
@@ -257,12 +357,12 @@ export function AddonsBoard({
         width: 90,
         cell: (r) => (
           <span
-            className={`px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${decisionChip[r.customer_decision]}`}
+            className={`px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${DECISION_CHIP[r.customer_decision]}`}
           >
-            {decisionLabel[r.customer_decision] ?? r.customer_decision}
+            {DECISION_LABEL[r.customer_decision]}
           </span>
         ),
-        exportValue: (r) => decisionLabel[r.customer_decision] ?? r.customer_decision,
+        exportValue: (r) => DECISION_LABEL[r.customer_decision],
       },
       {
         id: "followup",
@@ -298,27 +398,110 @@ export function AddonsBoard({
     [],
   );
 
+  const sprintCaption =
+    summary.total === 0
+      ? "技師發現 → 車主決策 → 同意寫進 RO，拒絕/暫緩+安全 → 增項閉環"
+      : `共 ${summary.total} 筆 · 待確認 ${summary.pending} · 同意 ${summary.agreed} · 待追蹤 ${summary.followupNeeded}`;
+
   return (
     <main className="px-6 py-5 space-y-3">
-      {/* Page header */}
+      {/* Page Header */}
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">追加項目記錄</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          售後・Phase 4.5
+          M03-4 · A 級
         </span>
-        <span className="text-[12px] text-[#9A9890]">
-          技師發現 → 車主決策 → 同意寫進 RO，拒絕/暫緩+安全 → 增項閉環
-        </span>
+        <span className="text-[12px] text-[#9A9890]">{sprintCaption}</span>
       </header>
 
-      {/* KPI summary */}
-      <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 grid grid-cols-2 md:grid-cols-6 gap-x-4 gap-y-2">
-        <Kpi label="總筆數" value={summary.total} />
-        <Kpi label="待確認" value={summary.pending} accent="amber" />
-        <Kpi label="已同意" value={summary.agreed} accent="green" />
-        <Kpi label="已拒絕" value={summary.rejected} accent="red" />
-        <Kpi label="同意金額" value={`NT$ ${summary.agreedAmount.toLocaleString()}`} />
-        <Kpi label="待追蹤" value={summary.followupNeeded} accent="red" />
+      {/* KPI Row — 4 顆標準 KpiCard with tone */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <KpiCard
+          label="待確認"
+          value={`${kpiPending} 件`}
+          tone="amber"
+          layout="vertical"
+          icon={<span className="material-symbols-outlined text-[18px]">help</span>}
+        />
+        <KpiCard
+          label="車主同意"
+          value={`${kpiAgreed} 件`}
+          tone="green"
+          layout="vertical"
+          icon={<span className="material-symbols-outlined text-[18px]">check_circle</span>}
+        />
+        <KpiCard
+          label="拒絕 / 取消"
+          value={`${kpiRejected} 件`}
+          tone="red"
+          layout="vertical"
+          icon={<span className="material-symbols-outlined text-[18px]">cancel</span>}
+        />
+        <KpiCard
+          label="同意金額"
+          value={`NT$ ${kpiAgreedAmt.toLocaleString()}`}
+          tone="teal"
+          layout="vertical"
+          icon={<span className="material-symbols-outlined text-[18px]">payments</span>}
+        />
+      </section>
+
+      {/* mini KPI 列 — 補次要指標 */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <KpiCard label="暫緩" value={`${summary.deferred} 件`} tone="blue" layout="mini" />
+        <KpiCard
+          label="拒絕（不含取消）"
+          value={`${summary.rejected} 件`}
+          tone="red"
+          layout="mini"
+        />
+        <KpiCard
+          label="待追蹤閉環"
+          value={`${kpiFollowup} 件`}
+          tone="red"
+          layout="mini"
+        />
+        <KpiCard
+          label="拒絕損失金額"
+          value={`NT$ ${summary.rejectedAmount.toLocaleString()}`}
+          tone="gray"
+          layout="mini"
+        />
+      </section>
+
+      {/* Donut + Funnel 兩欄 */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">決策分佈</span>
+          </header>
+          <div className="px-4 py-3">
+            {decisionDistribution.length === 0 ? (
+              <p className="text-[12px] text-[#9A9890] py-12 text-center">無追加項目資料</p>
+            ) : (
+              <DonutChart
+                data={decisionDistribution}
+                size="sm"
+                showLegend
+                centerLabel={`${optimisticRows.length}`}
+                centerCaption="項目"
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">決策漏斗</span>
+          </header>
+          <div className="px-4 py-3">
+            {funnelData[0].value === 0 ? (
+              <p className="text-[12px] text-[#9A9890] py-12 text-center">無追加項目資料</p>
+            ) : (
+              <FunnelChart data={funnelData} size="sm" showLabels />
+            )}
+          </div>
+        </div>
       </section>
 
       {/* Banner */}
@@ -335,7 +518,9 @@ export function AddonsBoard({
       )}
 
       {/* Filter Bar */}
-      <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
+      <section
+        className={`bg-white border border-[#EEECE6] rounded-lg px-4 py-3 ${isPending ? "opacity-60 pointer-events-none" : ""}`}
+      >
         <div className="flex gap-2 items-end flex-wrap">
           <div className="flex flex-col gap-1">
             <label className="text-[11px] text-[#9A9890] font-medium">決策狀態</label>
@@ -420,60 +605,168 @@ export function AddonsBoard({
         </div>
       </section>
 
-      {/* Toolbar */}
+      {/* Toolbar + 視圖切換 */}
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">
-          共 <b className="text-[#2C2C2A]">{rows.length}</b> 筆追加項目
+          共 <b className="text-[#2C2C2A]">{optimisticRows.length}</b> 筆追加項目
         </span>
+        <div className="ml-auto inline-flex bg-[#F2F2F2] rounded-lg p-0.5">
+          <ViewTab active={viewMode === "list"} onClick={() => setViewMode("list")}>
+            清單
+          </ViewTab>
+          <ViewTab active={viewMode === "kanban"} onClick={() => setViewMode("kanban")}>
+            看板
+          </ViewTab>
+          <ViewTab active={viewMode === "followup"} onClick={() => setViewMode("followup")}>
+            待追蹤閉環（{followupRows.length}）
+          </ViewTab>
+        </div>
       </div>
 
-      <DataGrid
-        columns={columns}
-        data={rows}
-        rowKey={(r) => r.id}
-        persistKey="parts/aftersales/addons"
-        exportFileName="repair-order-addons"
-        emptyMessage="目前沒有符合條件的追加項目"
-        disabled={isPending}
-        rowActionsWidth={canEdit ? 250 : 130}
-        rowActions={(r) => (
-          <>
-            <Link
-              href={`/parts/aftersales/repair-orders/${r.ro_id}/lines`}
-              className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-            >
-              查工單
-            </Link>
-            {canEdit && r.customer_decision === "pending" && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setDecideTarget(r)}
-                  disabled={isPending}
-                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
-                >
-                  決策
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCancel(r.id)}
-                  disabled={isPending}
-                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
-                >
-                  取消
-                </button>
-              </>
+      {/* 視圖內容 */}
+      {viewMode === "list" && (
+        <DataGrid
+          columns={columns}
+          data={optimisticRows}
+          rowKey={(r) => r.id}
+          persistKey="parts/aftersales/addons"
+          exportFileName="repair-order-addons"
+          emptyMessage="目前沒有符合條件的追加項目"
+          disabled={isPending}
+          rowActionsWidth={canEdit ? 290 : 130}
+          rowActions={(r) => (
+            <>
+              <Link
+                href={`/parts/aftersales/addons/${r.id}`}
+                className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                詳情
+              </Link>
+              <Link
+                href={`/parts/aftersales/repair-orders/${r.ro_id}/lines`}
+                className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                查工單
+              </Link>
+              {canEdit && r.customer_decision === "pending" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setDecideTarget(r)}
+                    disabled={isPending}
+                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+                  >
+                    決策
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCancel(r.id)}
+                    disabled={isPending}
+                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
+                  >
+                    取消
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        />
+      )}
+
+      {viewMode === "kanban" && (
+        <section
+          className={`bg-white border border-[#EEECE6] rounded-lg p-3 ${isPending ? "opacity-60 pointer-events-none" : ""}`}
+        >
+          {kanbanCards.length === 0 ? (
+            <p className="text-[12px] text-[#9A9890] text-center py-8">無追加項目資料</p>
+          ) : (
+            <>
+              <p className="text-[11px] text-[#9A9890] mb-2">
+                只有「待確認」可拖到右邊三欄（會開啟確認方式對話框），已決策請從詳情頁處理。已取消的不顯示。
+              </p>
+              <KanbanBoard
+                columns={kanbanColumns}
+                cards={kanbanCards}
+                onMove={canEdit ? handleKanbanMove : undefined}
+              />
+            </>
+          )}
+        </section>
+      )}
+
+      {viewMode === "followup" && (
+        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              待追蹤閉環 — 安全相關 / 安全警示但被拒絕或暫緩的項目
+            </span>
+          </header>
+          <div className="p-3">
+            {followupRows.length === 0 ? (
+              <p className="text-[12px] text-[#9A9890] text-center py-8">目前沒有待追蹤項目</p>
+            ) : (
+              <ul className="space-y-2">
+                {followupRows.map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex items-start gap-3 px-3 py-2 border border-[#EEECE6] rounded-md hover:bg-[#FDF8F0]"
+                  >
+                    <span
+                      className={`px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap mt-0.5 ${SAFETY_CHIP[r.safety_level]}`}
+                    >
+                      {SAFETY_LABEL[r.safety_level]}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-[12.5px]">
+                        <Link
+                          href={`/parts/aftersales/addons/${r.id}`}
+                          className="font-medium text-[#1A3A5C] hover:text-[#185FA5]"
+                        >
+                          {r.name}
+                        </Link>
+                        <span
+                          className={`px-1.5 py-0.5 rounded-md text-[11px] ${DECISION_CHIP[r.customer_decision]}`}
+                        >
+                          {DECISION_LABEL[r.customer_decision]}
+                        </span>
+                        <span className="text-[11px] text-[#9A9890]">
+                          工單{" "}
+                          <Link
+                            href={`/parts/aftersales/repair-orders/${r.ro_id}/lines`}
+                            className="font-mono text-[#185FA5] hover:underline"
+                          >
+                            {r.ro?.ro_code ?? "—"}
+                          </Link>{" "}
+                          · {r.ro?.customer_name ?? ""} {r.ro?.vehicle_license_plate ?? ""}
+                        </span>
+                      </div>
+                      {r.tech_reason && (
+                        <p className="text-[11.5px] text-[#5A5955] mt-1">{r.tech_reason}</p>
+                      )}
+                      {r.decision_note && (
+                        <p className="text-[11.5px] text-[#9A9890] mt-0.5">
+                          備註：{r.decision_note}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-[#9A9890] whitespace-nowrap mt-0.5">
+                      {fmtTaipeiMonthDayTime(r.customer_decision_at ?? r.proposed_at)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
-          </>
-        )}
-      />
+          </div>
+        </section>
+      )}
 
       {/* Decide Modal */}
       {decideTarget && (
         <DecideModal
           target={decideTarget}
           onClose={() => setDecideTarget(null)}
-          onDone={(b) => {
+          onDone={(b, decision) => {
+            if (b.ok && decision) applyOptimistic({ id: decideTarget.id, decision });
             showBanner(b);
             setDecideTarget(null);
             router.refresh();
@@ -493,32 +786,59 @@ export function AddonsBoard({
           }}
         />
       )}
+
+      <p className="text-[10.5px] text-[#9A9890] mt-4">
+        同意 → 自動寫 repair_order_lines (source=addon) · 拒絕/暫緩 + 安全等級 ≠ 一般 →
+        自動標 requires_followup
+      </p>
     </main>
   );
 }
 
-function Kpi({
-  label,
-  value,
-  accent,
+function ViewTab({
+  active,
+  onClick,
+  children,
 }: {
-  label: string;
-  value: string | number;
-  accent?: "amber" | "green" | "red";
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
-  const color =
-    accent === "amber"
-      ? "text-[#854F0B]"
-      : accent === "green"
-        ? "text-[#3B6D11]"
-        : accent === "red"
-          ? "text-[#CC0000]"
-          : "text-[#2C2C2A]";
   return (
-    <div className="flex flex-col">
-      <span className="text-[11px] text-[#9A9890]">{label}</span>
-      <span className={`text-[15px] font-semibold ${color}`}>{value}</span>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-[26px] px-3 rounded-md text-[11.5px] font-medium transition-all ${
+        active ? "bg-white text-[#1A3A5C] shadow-sm" : "text-[#5A5955] hover:text-[#1A3A5C]"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function KanbanCardBody({ row }: { row: RepairOrderAddonWithRo }) {
+  return (
+    <Link
+      href={`/parts/aftersales/addons/${row.id}`}
+      className="block -m-3 px-3 py-2 hover:bg-[#F8F7F4]"
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono text-[11.5px] font-semibold text-[#1A3A5C]">
+          #{row.addon_no}
+        </span>
+        <span className="text-[12px] font-medium text-[#2C2C2A] truncate">{row.name}</span>
+      </div>
+      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+        <span className="font-mono text-[10.5px] text-[#9A9890]">{row.ro?.ro_code ?? "—"}</span>
+        <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${SAFETY_CHIP[row.safety_level]}`}>
+          {SAFETY_LABEL[row.safety_level]}
+        </span>
+      </div>
+      <div className="text-[10.5px] text-[#5A5955] mt-0.5">
+        NT$ {Number(row.estimated_fee).toLocaleString()} · {TYPE_LABEL[row.addon_type]}
+      </div>
+    </Link>
   );
 }
 
@@ -527,7 +847,7 @@ function CreateModal({
   onClose,
   onDone,
 }: {
-  roOptions: RoOption[];
+  roOptions: RoOptionForAddons[];
   onClose: () => void;
   onDone: (b: { ok: boolean; msg: string }) => void;
 }) {
@@ -567,6 +887,7 @@ function CreateModal({
               onChange={(e) => setForm({ ...form, ro_id: e.target.value })}
               disabled={pending}
             >
+              {roOptions.length === 0 && <option value="">（沒有可用工單）</option>}
               {roOptions.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.ro_code} ({r.status}) {r.customer_name ?? ""}
@@ -587,7 +908,9 @@ function CreateModal({
             <select
               className={inputClass}
               value={form.addon_type}
-              onChange={(e) => setForm({ ...form, addon_type: e.target.value as AddonInput["addon_type"] })}
+              onChange={(e) =>
+                setForm({ ...form, addon_type: e.target.value as AddonInput["addon_type"] })
+              }
               disabled={pending}
             >
               <option value="labor">工項</option>
@@ -623,7 +946,10 @@ function CreateModal({
               className={inputClass}
               value={form.confirm_method ?? ""}
               onChange={(e) =>
-                setForm({ ...form, confirm_method: (e.target.value || null) as ConfirmMethod | null })
+                setForm({
+                  ...form,
+                  confirm_method: (e.target.value || null) as ConfirmMethod | null,
+                })
               }
               disabled={pending}
             >
@@ -672,7 +998,7 @@ function DecideModal({
 }: {
   target: RepairOrderAddonWithRo;
   onClose: () => void;
-  onDone: (b: { ok: boolean; msg: string }) => void;
+  onDone: (b: { ok: boolean; msg: string }, decision?: CustomerDecision) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [decision, setDecision] = useState<"agreed" | "deferred" | "rejected">("agreed");
@@ -694,7 +1020,10 @@ function DecideModal({
           : decision === "deferred"
             ? "✓ 已標記為暫緩"
             : "✓ 已標記為拒絕";
-      onDone(r.ok ? { ok: true, msg } : { ok: false, msg: r.error });
+      onDone(
+        r.ok ? { ok: true, msg } : { ok: false, msg: r.error },
+        r.ok ? decision : undefined,
+      );
     });
   };
 
@@ -711,8 +1040,9 @@ function DecideModal({
           車主決策 — {target.name}
         </h2>
         <p className="text-[11.5px] text-[#9A9890] mb-3">
-          工單 {target.ro?.ro_code ?? "—"} ・ {typeLabel[target.addon_type]} ・{" "}
-          {safetyLabel[target.safety_level]} ・ 估價 NT$ {Number(target.estimated_fee).toLocaleString()}
+          工單 {target.ro?.ro_code ?? "—"} ・ {TYPE_LABEL[target.addon_type]} ・{" "}
+          {SAFETY_LABEL[target.safety_level]} ・ 估價 NT${" "}
+          {Number(target.estimated_fee).toLocaleString()}
         </p>
 
         <div className="mb-3">
@@ -768,12 +1098,12 @@ function DecideModal({
 
         {decision === "agreed" && (
           <p className="mt-3 text-[11.5px] text-[#3B6D11] bg-[#EAF3DE] border border-[#C5DC9F] rounded px-2.5 py-1.5">
-            同意後將自動寫入工單明細（{typeLabel[target.addon_type]}），可至「維修明細」頁查看。
+            同意後將自動寫入工單明細（{TYPE_LABEL[target.addon_type]}），可至「維修明細」頁查看。
           </p>
         )}
         {decision !== "agreed" && target.safety_level !== "normal" && (
           <p className="mt-3 text-[11.5px] text-[#CC0000] bg-[#FDECEA] border border-[#F5AEAD] rounded px-2.5 py-1.5">
-            此項屬「{safetyLabel[target.safety_level]}」，將自動標記為「待追蹤」進入增項閉環看板。
+            此項屬「{SAFETY_LABEL[target.safety_level]}」，將自動標記為「待追蹤」進入增項閉環看板。
           </p>
         )}
 

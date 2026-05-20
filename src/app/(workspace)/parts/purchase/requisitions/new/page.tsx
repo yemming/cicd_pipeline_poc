@@ -25,6 +25,8 @@ const placeholder: DetailRequisition = {
   approved_at: null,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
+  priority: "normal",
+  budget_limit: null,
 };
 
 export default async function NewRequisitionPage() {

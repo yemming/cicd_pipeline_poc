@@ -117,6 +117,307 @@ export async function getReceiptsPageData(
 }
 
 // ─────────────────────────────────────────────────────────────
+// PO-GRN 升 A 級：擴充 page-bundle helper + KPI / Warehouse 選項
+// ─────────────────────────────────────────────────────────────
+
+export type ReceiptKpis = {
+  totalCount: number;        // 範圍內入庫單總數（不含 cancelled）
+  draftCount: number;        // 草稿（理論上 purchase 入庫一律 completed，留 0 兼容）
+  completedCount: number;    // 已過帳
+  cancelledCount: number;    // 已作廢
+  paidCount: number;         // 已結款（metadata.payment.status='paid'）
+  returnedCount: number;     // 已退回（metadata.return.status='returned'）
+  totalAmount: number;       // 已過帳合計金額（未稅）
+  totalQty: number;          // 已過帳合計件數
+};
+
+export type WarehouseOption = { id: string; name: string };
+
+export type ReceiptsPageBundle = {
+  rows: StockReceiptListRow[];
+  totalCount: number;
+  kpis: ReceiptKpis;
+  warehouses: WarehouseOption[];
+  canEdit: boolean;
+};
+
+/**
+ * 純粹給 /parts/receipt/po-grn list view 用的 bundle：
+ * 一次撈 rows / kpis（全範圍 brand）/ warehouse options / canEdit。
+ * KPI 走「全 brand purchase 入庫單」整體量級，不受 list filter 影響。
+ */
+export async function getPoGrnPageBundle(
+  filter: Omit<ListReceiptsFilter, "type"> = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<ReceiptsPageBundle> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const [{ rows, totalCount }, canEdit, kpiRes, whRes] = await Promise.all([
+    listReceipts({ ...filter, type: "purchase" }, options),
+    hasPermission(PERMISSIONS.RECEIPT_CREATE),
+    supabase
+      .from("stock_receipts")
+      .select("status, amount_total, qty_received_total, metadata")
+      .eq("brand_id", scope.brand_id)
+      .eq("type", "purchase"),
+    supabase
+      .from("warehouses")
+      .select("id, name")
+      .eq("brand_id", scope.brand_id)
+      .eq("is_active", true)
+      .order("name"),
+  ]);
+
+  const allReceipts = kpiRes.data ?? [];
+  let draftCount = 0;
+  let completedCount = 0;
+  let cancelledCount = 0;
+  let paidCount = 0;
+  let returnedCount = 0;
+  let totalAmount = 0;
+  let totalQty = 0;
+  for (const r of allReceipts) {
+    const s = r.status ?? "";
+    if (s === "draft") draftCount += 1;
+    else if (s === "cancelled") cancelledCount += 1;
+    else if (s === "completed" || s === "posted") completedCount += 1;
+
+    if (s === "completed" || s === "posted") {
+      totalAmount += Number(r.amount_total ?? 0);
+      totalQty += Number(r.qty_received_total ?? 0);
+    }
+    const meta = (r.metadata ?? {}) as Record<string, unknown>;
+    const payment = (meta.payment ?? {}) as Record<string, unknown>;
+    if (payment.status === "paid") paidCount += 1;
+    const ret = (meta.return ?? {}) as Record<string, unknown>;
+    if (ret.status === "returned") returnedCount += 1;
+  }
+
+  // totalCount kpi 排除已作廢，符合「有效入庫單」直覺
+  const kpis: ReceiptKpis = {
+    totalCount: allReceipts.length - cancelledCount,
+    draftCount,
+    completedCount,
+    cancelledCount,
+    paidCount,
+    returnedCount,
+    totalAmount: Math.round(totalAmount * 100) / 100,
+    totalQty,
+  };
+
+  return {
+    rows,
+    totalCount,
+    kpis,
+    warehouses: (whRes.data ?? []) as WarehouseOption[],
+    canEdit,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// History stats / trend — KpiCard + BarChart 用
+// ─────────────────────────────────────────────────────────────
+
+export type ReceiptHistoryStats = {
+  monthCount: number;
+  monthAmount: number;
+  topSuppliers: Array<{ vendor_id: string | null; name: string; amount: number; count: number }>;
+  topCategories: Array<{ category: string; count: number; amount: number }>;
+};
+
+/**
+ * 當月入庫筆數 / 金額 + 供應商 TOP3 + 熱門品類
+ * 統計範圍：近 N 天（預設 30，等同「當月」概念）。已排除 cancelled。
+ */
+export async function getReceiptHistoryStats(
+  options: { days?: number } = {},
+): Promise<ReceiptHistoryStats> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const days = Math.max(1, options.days ?? 30);
+  const since = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
+
+  const { data: recs, error } = await supabase
+    .from("stock_receipts")
+    .select("id, vendor_id, amount_total, receipt_date, status")
+    .eq("brand_id", scope.brand_id)
+    .gte("receipt_date", since)
+    .neq("status", "cancelled");
+  if (error) throw error;
+  const list = recs ?? [];
+
+  const monthCount = list.length;
+  const monthAmount = list.reduce((s, r) => s + Number(r.amount_total ?? 0), 0);
+
+  // 供應商 TOP
+  const vendorAgg = new Map<string | null, { amount: number; count: number }>();
+  for (const r of list) {
+    const k = r.vendor_id ?? null;
+    const cur = vendorAgg.get(k) ?? { amount: 0, count: 0 };
+    cur.amount += Number(r.amount_total ?? 0);
+    cur.count += 1;
+    vendorAgg.set(k, cur);
+  }
+  const vendorIds = Array.from(vendorAgg.keys()).filter(
+    (x): x is string => !!x,
+  );
+  const vMap = new Map<string, string>();
+  if (vendorIds.length > 0) {
+    const { data: vendors } = await supabase
+      .from("suppliers")
+      .select("id, name")
+      .in("id", vendorIds);
+    for (const v of vendors ?? []) vMap.set(v.id, v.name);
+  }
+  const topSuppliers = Array.from(vendorAgg.entries())
+    .map(([vid, agg]) => ({
+      vendor_id: vid,
+      name: vid ? vMap.get(vid) ?? "（未知供應商）" : "（內部來源）",
+      amount: Math.round(agg.amount * 100) / 100,
+      count: agg.count,
+    }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 3);
+
+  // 熱門品類：用 receipt_lines.metadata.item_category（seed 拍照）
+  //   沒拍到的時候 fallback 走 items.category join
+  const grIds = list.map((r) => r.id);
+  let topCategories: Array<{ category: string; count: number; amount: number }> = [];
+  if (grIds.length > 0) {
+    const { data: lines } = await supabase
+      .from("stock_receipt_lines")
+      .select("gr_id, item_id, line_amount, metadata")
+      .in("gr_id", grIds);
+    const itemsNeedingCategory = new Set<string>();
+    for (const l of lines ?? []) {
+      const meta = (l.metadata ?? {}) as Record<string, unknown>;
+      if (!meta.item_category) itemsNeedingCategory.add(l.item_id);
+    }
+    const itemCatMap = new Map<string, string | null>();
+    if (itemsNeedingCategory.size > 0) {
+      const { data: items } = await supabase
+        .from("items")
+        .select("id, category")
+        .in("id", Array.from(itemsNeedingCategory));
+      for (const it of items ?? []) itemCatMap.set(it.id, it.category);
+    }
+    const catAgg = new Map<string, { count: number; amount: number }>();
+    for (const l of lines ?? []) {
+      const meta = (l.metadata ?? {}) as Record<string, unknown>;
+      const cat =
+        (typeof meta.item_category === "string" ? meta.item_category : null) ??
+        itemCatMap.get(l.item_id) ??
+        "（未分類）";
+      const cur = catAgg.get(cat) ?? { count: 0, amount: 0 };
+      cur.count += 1;
+      cur.amount += Number(l.line_amount ?? 0);
+      catAgg.set(cat, cur);
+    }
+    topCategories = Array.from(catAgg.entries())
+      .map(([category, agg]) => ({
+        category,
+        count: agg.count,
+        amount: Math.round(agg.amount * 100) / 100,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }
+
+  return {
+    monthCount,
+    monthAmount: Math.round(monthAmount * 100) / 100,
+    topSuppliers,
+    topCategories,
+  };
+}
+
+export type ReceiptTrendPoint = {
+  date: string;          // yyyy-mm-dd
+  label: string;         // mm/dd（顯示用）
+  total: number;         // 整日金額
+  purchase: number;
+  transfer: number;
+  ro_return: number;
+  warranty_return: number;
+  other: number;
+  count: number;
+};
+
+/**
+ * 近 N 天入庫趨勢 — stacked bar by source_type
+ */
+export async function getReceiptTrend(
+  options: { days?: number } = {},
+): Promise<ReceiptTrendPoint[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const days = Math.max(1, options.days ?? 30);
+  const since = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("stock_receipts")
+    .select("receipt_date, type, amount_total, status")
+    .eq("brand_id", scope.brand_id)
+    .gte("receipt_date", since)
+    .neq("status", "cancelled");
+  if (error) throw error;
+  const rows = data ?? [];
+
+  // 建立連續日期軸（即使該日沒入庫也顯示 0）
+  const byDate = new Map<string, ReceiptTrendPoint>();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400_000);
+    const iso = d.toISOString().slice(0, 10);
+    const label = `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+    byDate.set(iso, {
+      date: iso,
+      label,
+      total: 0,
+      purchase: 0,
+      transfer: 0,
+      ro_return: 0,
+      warranty_return: 0,
+      other: 0,
+      count: 0,
+    });
+  }
+  for (const r of rows) {
+    if (!r.receipt_date) continue;
+    const point = byDate.get(r.receipt_date);
+    if (!point) continue;
+    const amt = Number(r.amount_total ?? 0);
+    point.total += amt;
+    point.count += 1;
+    switch (r.type) {
+      case "purchase":
+        point.purchase += amt;
+        break;
+      case "transfer":
+        point.transfer += amt;
+        break;
+      case "ro_return":
+        point.ro_return += amt;
+        break;
+      case "warranty_return":
+        point.warranty_return += amt;
+        break;
+      default:
+        point.other += amt;
+    }
+  }
+  return Array.from(byDate.values()).map((p) => ({
+    ...p,
+    total: Math.round(p.total * 100) / 100,
+    purchase: Math.round(p.purchase * 100) / 100,
+    transfer: Math.round(p.transfer * 100) / 100,
+    ro_return: Math.round(p.ro_return * 100) / 100,
+    warranty_return: Math.round(p.warranty_return * 100) / 100,
+    other: Math.round(p.other * 100) / 100,
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────
 // Mutations
 // ─────────────────────────────────────────────────────────────
 

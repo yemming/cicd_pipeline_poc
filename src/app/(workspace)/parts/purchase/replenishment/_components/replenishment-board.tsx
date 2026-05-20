@@ -1,414 +1,275 @@
 "use client";
 
-import Link from "next/link";
+/**
+ * /parts/purchase/replenishment Run List Board（A 級）
+ *
+ * 主視角：KpiCard 4 顆 → Filter Bar → DataGrid（runs）→ 點 row 開 Detail Panel（lines）
+ * 動作：trigger（重算）/ approve / reject / generate PO
+ *
+ * 為什麼 detail panel 用 inline right-rail（不開新頁）：
+ *   - run 是「審批中的快照」、生命週期短，detail page 太重
+ *   - 點 row 即看 lines、approve / reject / 生 PO 都在 panel 內、router.refresh 後狀態回流
+ */
+
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization/KpiCard";
+
 import {
-  convertLinesToPRs,
-  ignoreReplenishmentLines,
-  runReplenishment,
-  updateSuggestedQty,
-} from "@/domain/replenishment";
+  approveRun,
+  generatePoFromRun,
+  rejectRun,
+  triggerReplenishmentRun,
+} from "@/lib/parts-purchase/replenishment-actions";
 
-export type ReplenishLine = {
-  id: string;
-  item_code: string;
-  item_name: string;
-  abc_class: string | null;
-  on_hand_qty: number;
-  on_order_qty: number;
-  gross_demand_qty: number;
-  reorder_point: number;
-  safety_stock: number;
-  net_demand_qty: number;
-  suggested_qty: number;
-  unit_price: number;
-  est_amount: number;
-  supplier_id: string | null;
-  supplier_name: string | null;
-  lead_time_days: number | null;
-  required_date: string | null;
-  latest_order_date: string | null;
-  priority: "urgent" | "normal" | "low";
-  status: "open" | "converted" | "ignored";
-};
-
-export type RunMeta = {
-  id: string;
-  created_at: string;
-  created_label: string;
-  horizon_days: number;
-  total_lines: number;
-  total_amount: number;
-  status: string;
-};
-
-export type WarehouseOption = { id: string; code: string; name: string };
+import {
+  PRIORITY_BADGE,
+  PRIORITY_LABEL,
+  RUN_STATUS_LABEL,
+  TRIGGER_KIND_LABEL,
+  type ReplenishmentKpis,
+  type ReplenishmentRunLineRow,
+  type ReplenishmentRunRow,
+  type RunListStatus,
+} from "@/domain/parts-replenishment.constants";
 
 type Banner = { ok: boolean; msg: string } | null;
 
-const PRIORITY_BADGE: Record<string, string> = {
-  urgent: "bg-[#FDECEA] text-[#CC0000]",
-  normal: "bg-[#FDF3E3] text-[#854F0B]",
-  low: "bg-[#F2F2F2] text-[#6B6A68]",
-};
-const PRIORITY_LABEL: Record<string, string> = {
-  urgent: "緊急",
-  normal: "一般",
-  low: "低",
-};
-const PRIORITY_ORDER: Record<string, number> = {
-  urgent: 0,
-  normal: 1,
-  low: 2,
-};
-const ABC_BADGE: Record<string, string> = {
-  A: "bg-[#FDECEA] text-[#CC0000]",
-  B: "bg-[#FDF3E3] text-[#854F0B]",
-  C: "bg-[#E8F5F0] text-[#0F6E56]",
-  D: "bg-[#EAF4FB] text-[#185FA5]",
-};
-
 export function ReplenishmentBoard({
-  run,
-  lines: initialLines,
+  runs,
   warehouses,
-  policy,
+  kpis,
+  filters,
+  selectedRunId,
+  selectedRunDetail,
   canRun,
-  canCreatePR,
+  canCreatePO,
 }: {
-  run: RunMeta | null;
-  lines: ReplenishLine[];
-  warehouses: WarehouseOption[];
-  policy: {
-    horizon_days: number;
-    frequency: string;
-    auto_create_pr_for_urgent: boolean;
-  } | null;
+  runs: ReplenishmentRunRow[];
+  warehouses: Array<{ id: string; code: string; name: string }>;
+  kpis: ReplenishmentKpis;
+  filters: { status: string; warehouseId: string; month: string };
+  selectedRunId: string | null;
+  selectedRunDetail: { run: ReplenishmentRunRow; lines: ReplenishmentRunLineRow[] } | null;
   canRun: boolean;
-  canCreatePR: boolean;
+  canCreatePO: boolean;
 }) {
   const router = useRouter();
-  const [filterPriority, setFilterPriority] = useState<string>("all");
-  const [filterAbc, setFilterAbc] = useState<string>("all");
-  const [filterSupplier, setFilterSupplier] = useState<string>("all");
-  const [horizonDays, setHorizonDays] = useState<number>(policy?.horizon_days ?? 7);
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [statusF, setStatusF] = useState(filters.status);
+  const [whF, setWhF] = useState(filters.warehouseId);
+  const [monthF, setMonthF] = useState(filters.month);
+  const [triggerWh, setTriggerWh] = useState<string>("");
+  const [triggerHorizon, setTriggerHorizon] = useState<number>(7);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>("");
   const [banner, setBanner] = useState<Banner>(null);
   const [isPending, startTransition] = useTransition();
 
-  const supplierOptions = useMemo(() => {
-    const s = new Map<string, string>();
-    for (const l of initialLines) {
-      if (l.supplier_id && l.supplier_name) s.set(l.supplier_id, l.supplier_name);
-    }
-    return Array.from(s.entries()).map(([id, name]) => ({ id, name }));
-  }, [initialLines]);
-
-  const filtered = useMemo(() => {
-    return initialLines.filter((l) => {
-      if (l.status !== "open") return false;
-      if (filterPriority !== "all" && l.priority !== filterPriority) return false;
-      if (filterAbc !== "all" && (l.abc_class ?? "") !== filterAbc) return false;
-      if (filterSupplier !== "all" && (l.supplier_id ?? "") !== filterSupplier) return false;
-      return true;
-    });
-  }, [initialLines, filterPriority, filterAbc, filterSupplier]);
-
-  const allSelected = filtered.length > 0 && filtered.every((l) => selected.has(l.id));
-  const totalSelectedAmt = filtered
-    .filter((l) => selected.has(l.id))
-    .reduce((s, l) => s + Number(l.est_amount), 0);
-
-  function toggleAll() {
-    if (allSelected) setSelected(new Set());
-    else setSelected(new Set(filtered.map((l) => l.id)));
-  }
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  // 推 URL（filter / 選擇）
+  function navigate(next: Partial<{ status: string; warehouseId: string; month: string; runId: string | null }>) {
+    const sp = new URLSearchParams();
+    const status = next.status ?? statusF;
+    const wh = next.warehouseId ?? whF;
+    const month = next.month ?? monthF;
+    const runId = next.runId !== undefined ? next.runId : selectedRunId;
+    if (status && status !== "all") sp.set("status", status);
+    if (wh && wh !== "all") sp.set("warehouseId", wh);
+    if (month) sp.set("month", month);
+    if (runId) sp.set("runId", runId);
+    const qs = sp.toString();
+    router.push(`/parts/purchase/replenishment${qs ? "?" + qs : ""}`);
   }
 
-  function handleRun() {
+  function applyFilters() {
+    navigate({ runId: null });
+  }
+  function resetFilters() {
+    setStatusF("all");
+    setWhF("all");
+    setMonthF("");
+    router.push("/parts/purchase/replenishment");
+  }
+
+  function handleTrigger() {
     setBanner(null);
     startTransition(async () => {
-      const res = await runReplenishment({
-        warehouseId: selectedWarehouse || null,
-        horizonDays,
-      });
+      const res = await triggerReplenishmentRun(triggerWh || null, triggerHorizon);
       if (!res.ok) {
-        setBanner({ ok: false, msg: `計算失敗：${res.error}` });
+        setBanner({ ok: false, msg: `重算失敗：${res.error}` });
         return;
       }
       setBanner({
         ok: true,
-        msg: `已計算 ${res.lines} 項建議（預估 NT$ ${Number(res.amount).toLocaleString("en-US")}）`,
+        msg: `已計算 ${res.data.lines} 項建議（預估 NT$ ${Number(res.data.amount).toLocaleString("en-US")}）`,
       });
-      setSelected(new Set());
       router.refresh();
     });
   }
 
-  function handleIgnore(ids: string[]) {
-    if (ids.length === 0) return;
+  function handleApprove(runId: string) {
     setBanner(null);
     startTransition(async () => {
-      const res = await ignoreReplenishmentLines(ids);
-      if (!res.ok) setBanner({ ok: false, msg: `忽略失敗：${res.error}` });
+      const res = await approveRun(runId, null);
+      if (!res.ok) setBanner({ ok: false, msg: `核准失敗：${res.error}` });
       else {
-        setBanner({ ok: true, msg: `已忽略 ${ids.length} 項建議` });
-        setSelected(new Set());
+        setBanner({ ok: true, msg: "已核准此補貨批次" });
         router.refresh();
       }
     });
   }
 
-  function handleConvert() {
-    if (!run) return;
-    const ids = Array.from(selected);
-    if (ids.length === 0) {
-      setBanner({ ok: false, msg: "請至少勾選一項建議" });
+  function openRejectModal(runId: string) {
+    setRejectingId(runId);
+    setRejectReason("");
+  }
+  function confirmReject() {
+    if (!rejectingId) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      setBanner({ ok: false, msg: "請填寫駁回原因" });
       return;
     }
     setBanner(null);
     startTransition(async () => {
-      const res = await convertLinesToPRs({ runId: run.id, lineIds: ids });
-      if (!res.ok) {
-        setBanner({ ok: false, msg: `建單失敗：${res.error}` });
-        return;
-      }
-      const summary = res.createdPRs
-        .map((p) => `${p.req_no}（${p.lines} 行）`)
-        .join("、");
-      setBanner({
-        ok: true,
-        msg: `已建立 ${res.createdPRs.length} 張採購申請：${summary}`,
-      });
-      setSelected(new Set());
-      router.refresh();
-    });
-  }
-
-  function setQtyDraft(id: string, v: string) {
-    setDrafts((d) => ({ ...d, [id]: v }));
-  }
-  function saveQty(id: string) {
-    const raw = drafts[id];
-    if (raw === undefined) return;
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) {
-      setBanner({ ok: false, msg: "建議量需為 0 或正數" });
-      return;
-    }
-    startTransition(async () => {
-      const res = await updateSuggestedQty(id, n);
-      if (!res.ok) setBanner({ ok: false, msg: `更新建議量失敗：${res.error}` });
+      const res = await rejectRun(rejectingId, reason);
+      if (!res.ok) setBanner({ ok: false, msg: `駁回失敗：${res.error}` });
       else {
-        setDrafts((d) => {
-          const nd = { ...d };
-          delete nd[id];
-          return nd;
-        });
+        setBanner({ ok: true, msg: "已駁回此補貨批次" });
+        setRejectingId(null);
+        setRejectReason("");
         router.refresh();
       }
     });
   }
 
-  // ── DataGrid columns ──
-  // 注意：urgent row 高亮（紅字粗體）內嵌在 cell 內 conditional className；
-  //       checkbox 多選用外部 selected set + cell render；
-  //       qty inline edit 用受控 input + 失焦/Enter saveQty（draft 模式），
-  //       不走 DataGrid 內建 editable（因為要保 draft + numeric 校驗 + Enter 行為）。
-  const columns: DataGridColumn<ReplenishLine>[] = [
+  function handleGeneratePO(runId: string) {
+    setBanner(null);
+    startTransition(async () => {
+      const res = await generatePoFromRun(runId);
+      if (!res.ok) {
+        setBanner({ ok: false, msg: `生 PO 失敗：${res.error}` });
+        return;
+      }
+      const summary = res.data.createdPos.map((p) => `${p.po_no}（${p.lines} 行）`).join("、");
+      setBanner({
+        ok: true,
+        msg: `已建立 ${res.data.createdPos.length} 張採購單：${summary}`,
+      });
+      router.refresh();
+    });
+  }
+
+  // 月份下拉：最近 6 個月
+  const monthOptions = useMemo(() => {
+    const arr: { value: string; label: string }[] = [];
+    const now = new Date();
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      arr.push({ value: v, label: `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}` });
+    }
+    return arr;
+  }, []);
+
+  const columns: DataGridColumn<ReplenishmentRunRow>[] = [
     {
-      id: "select",
-      header: "",
-      width: 36,
-      hideable: false,
-      sortable: false,
-      cell: (l) => (
-        <input
-          type="checkbox"
-          checked={selected.has(l.id)}
-          onChange={() => toggle(l.id)}
-          aria-label={`選取 ${l.item_code}`}
-        />
-      ),
+      id: "created_label",
+      header: "建立時間",
+      width: 140,
+      cell: (r) => <span className="font-mono text-[12px]">{r.created_label}</span>,
+      exportValue: (r) => r.created_label,
+      sortValue: (r) => r.created_at,
     },
     {
-      id: "item_code",
-      header: "料號",
-      cell: (l) => <span className="font-mono">{l.item_code}</span>,
-      exportValue: (l) => l.item_code,
-      sortValue: (l) => l.item_code,
+      id: "warehouse_label",
+      header: "倉庫",
+      width: 160,
+      cell: (r) => r.warehouse_label ?? <span className="text-[#9A9890]">全部</span>,
+      exportValue: (r) => r.warehouse_label ?? "全部",
+      sortValue: (r) => r.warehouse_label ?? "",
     },
     {
-      id: "item_name",
-      header: "品名",
-      cell: (l) => l.item_name,
-      exportValue: (l) => l.item_name,
-      sortValue: (l) => l.item_name,
+      id: "trigger_kind",
+      header: "觸發",
+      width: 80,
+      cell: (r) => TRIGGER_KIND_LABEL[r.trigger_kind] ?? r.trigger_kind,
+      exportValue: (r) => TRIGGER_KIND_LABEL[r.trigger_kind] ?? r.trigger_kind,
+      sortValue: (r) => r.trigger_kind,
     },
     {
-      id: "abc_class",
-      header: "ABC",
-      width: 60,
-      cell: (l) =>
-        l.abc_class ? (
-          <span
-            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${
-              ABC_BADGE[l.abc_class] ?? "bg-[#EBF3FF] text-[#1A3A5C]"
-            }`}
-          >
-            {l.abc_class}
-          </span>
-        ) : (
-          <span className="text-[#9A9890]">—</span>
-        ),
-      exportValue: (l) => l.abc_class ?? "",
-      sortValue: (l) => l.abc_class ?? "",
-    },
-    {
-      id: "on_hand_qty",
-      header: "在手",
+      id: "horizon_days",
+      header: "視野(天)",
+      width: 70,
       align: "right",
-      cell: (l) => (
-        <span
-          className={`font-mono ${
-            l.priority === "urgent" ? "text-[#CC0000] font-semibold" : ""
-          }`}
-        >
-          {l.on_hand_qty}
-        </span>
-      ),
-      exportValue: (l) => l.on_hand_qty,
-      sortValue: (l) => l.on_hand_qty,
+      cell: (r) => <span className="font-mono">{r.horizon_days}</span>,
+      exportValue: (r) => r.horizon_days,
+      sortValue: (r) => r.horizon_days,
     },
     {
-      id: "on_order_qty",
-      header: "在途",
+      id: "total_lines",
+      header: "建議數",
+      width: 70,
       align: "right",
-      cell: (l) => <span className="font-mono text-[#9A9890]">{l.on_order_qty}</span>,
-      exportValue: (l) => l.on_order_qty,
-      sortValue: (l) => l.on_order_qty,
+      cell: (r) => <span className="font-mono">{r.total_lines}</span>,
+      exportValue: (r) => r.total_lines,
+      sortValue: (r) => r.total_lines,
     },
     {
-      id: "gross_demand_qty",
-      header: "需求(視野)",
-      align: "right",
-      cell: (l) => <span className="font-mono">{l.gross_demand_qty}</span>,
-      exportValue: (l) => l.gross_demand_qty,
-      sortValue: (l) => l.gross_demand_qty,
-    },
-    {
-      id: "reorder_point",
-      header: "ROP",
-      align: "right",
-      defaultHidden: true,
-      cell: (l) => <span className="font-mono">{l.reorder_point}</span>,
-      exportValue: (l) => l.reorder_point,
-      sortValue: (l) => l.reorder_point,
-    },
-    {
-      id: "safety_stock",
-      header: "SS",
-      align: "right",
-      defaultHidden: true,
-      cell: (l) => <span className="font-mono">{l.safety_stock}</span>,
-      exportValue: (l) => l.safety_stock,
-      sortValue: (l) => l.safety_stock,
-    },
-    {
-      id: "suggested_qty",
-      header: "建議量",
-      align: "right",
-      cell: (l) => {
-        const draft = drafts[l.id];
-        const inputValue = draft !== undefined ? draft : String(l.suggested_qty);
-        return (
-          <input
-            type="number"
-            min={0}
-            value={inputValue}
-            onChange={(e) => setQtyDraft(l.id, e.target.value)}
-            onBlur={() => draft !== undefined && saveQty(l.id)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            className={`w-20 px-2 py-0.5 text-right font-mono text-[12px] border rounded ${
-              draft !== undefined
-                ? "border-[#FFC400] bg-[#FFFAE6]"
-                : "border-[#EEECE6]"
-            } focus:outline-none focus:border-[#185FA5]`}
-          />
-        );
-      },
-      exportValue: (l) => l.suggested_qty,
-      sortValue: (l) => l.suggested_qty,
-    },
-    {
-      id: "supplier_name",
-      header: "供應商",
-      cell: (l) =>
-        l.supplier_name ? (
-          <span className="text-[12px]">{l.supplier_name}</span>
-        ) : (
-          <span className="text-[#9A9890]">—</span>
-        ),
-      exportValue: (l) => l.supplier_name ?? "",
-      sortValue: (l) => l.supplier_name ?? "",
-    },
-    {
-      id: "lead_time_days",
-      header: "前置",
-      align: "right",
-      cell: (l) => (
-        <span className="font-mono text-[#9A9890]">{l.lead_time_days ?? "—"}</span>
-      ),
-      exportValue: (l) => l.lead_time_days ?? "",
-      sortValue: (l) => l.lead_time_days ?? null,
-    },
-    {
-      id: "est_amount",
+      id: "total_amount",
       header: "預估金額",
       align: "right",
-      cell: (l) => (
-        <span className="font-mono">{`NT$${Number(l.est_amount).toLocaleString("en-US")}`}</span>
+      cell: (r) => (
+        <span className="font-mono">{`NT$${Number(r.total_amount).toLocaleString("en-US")}`}</span>
       ),
-      exportValue: (l) => Number(l.est_amount),
-      sortValue: (l) => Number(l.est_amount),
+      exportValue: (r) => Number(r.total_amount),
+      sortValue: (r) => Number(r.total_amount),
     },
     {
-      id: "priority",
-      header: "優先度",
-      width: 60,
-      cell: (l) => (
-        <span
-          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${PRIORITY_BADGE[l.priority]}`}
-        >
-          {PRIORITY_LABEL[l.priority]}
+      id: "status",
+      header: "狀態",
+      width: 90,
+      cell: (r) => {
+        const s = RUN_STATUS_LABEL[r.status] ?? { label: r.status, tone: "bg-[#F2F2F2] text-[#6B6A68]" };
+        return (
+          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${s.tone}`}>
+            {s.label}
+          </span>
+        );
+      },
+      exportValue: (r) => RUN_STATUS_LABEL[r.status]?.label ?? r.status,
+      sortValue: (r) => r.status,
+    },
+    {
+      id: "generated_po_ids",
+      header: "已生 PO",
+      width: 70,
+      align: "right",
+      cell: (r) => (
+        <span className={`font-mono ${r.generated_po_ids.length > 0 ? "text-[#0F6E56]" : "text-[#9A9890]"}`}>
+          {r.generated_po_ids.length}
         </span>
       ),
-      exportValue: (l) => PRIORITY_LABEL[l.priority],
-      sortValue: (l) => PRIORITY_ORDER[l.priority] ?? 99,
+      exportValue: (r) => r.generated_po_ids.length,
+      sortValue: (r) => r.generated_po_ids.length,
     },
   ];
 
   return (
-    <div className="flex gap-4 items-start">
-      {/* 主欄 */}
-      <div className="flex-1 min-w-0 space-y-3">
+    <>
+      <main className="px-6 py-5 space-y-3">
+        {/* Page Header */}
+        <header className="flex items-center gap-2.5">
+          <h1 className="text-[16px] font-semibold text-[#2C2C2A]">日常補貨計畫</h1>
+          <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
+            4.2
+          </span>
+          <span className="text-[12px] text-[#9A9890]">
+            審核補貨批次、核准後一鍵生 PO（連動 4.4 商品採購）
+          </span>
+        </header>
+
         {/* Banner */}
         {banner && (
           <div
@@ -422,225 +283,409 @@ export function ReplenishmentBoard({
           </div>
         )}
 
+        {/* KPI Row */}
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard
+            label="本月 Run 次數"
+            value={kpis.monthRuns}
+            tone="blue"
+            icon={<span className="text-[18px]">🧮</span>}
+          />
+          <KpiCard
+            label="待 review"
+            value={kpis.pendingReview}
+            tone="amber"
+            icon={<span className="text-[18px]">⏳</span>}
+          />
+          <KpiCard
+            label="已生 PO"
+            value={kpis.generatedPo}
+            tone="teal"
+            icon={<span className="text-[18px]">📦</span>}
+          />
+          <KpiCard
+            label="本月平均金額"
+            value={`NT$${Number(kpis.avgAmount).toLocaleString("en-US")}`}
+            tone="purple"
+            icon={<span className="text-[18px]">💰</span>}
+          />
+        </section>
+
         {/* Filter Bar */}
         <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
           <div className="flex gap-2 items-end flex-wrap">
             <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-[#9A9890] font-medium">優先度</label>
+              <label className="text-[11px] text-[#9A9890] font-medium">狀態</label>
               <select
-                value={filterPriority}
-                onChange={(e) => setFilterPriority(e.target.value)}
+                value={statusF}
+                onChange={(e) => setStatusF(e.target.value)}
                 className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5]"
               >
                 <option value="all">全部</option>
-                <option value="urgent">緊急</option>
-                <option value="normal">一般</option>
-                <option value="low">低</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-[#9A9890] font-medium">ABC 等級</label>
-              <select
-                value={filterAbc}
-                onChange={(e) => setFilterAbc(e.target.value)}
-                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5]"
-              >
-                <option value="all">全部</option>
-                {["A", "B", "C", "D"].map((c) => (
-                  <option key={c} value={c}>{`${c} 類`}</option>
+                {(Object.keys(RUN_STATUS_LABEL) as RunListStatus[]).map((k) => (
+                  <option key={k} value={k}>{RUN_STATUS_LABEL[k].label}</option>
                 ))}
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-[#9A9890] font-medium">供應商</label>
+              <label className="text-[11px] text-[#9A9890] font-medium">倉庫</label>
               <select
-                value={filterSupplier}
-                onChange={(e) => setFilterSupplier(e.target.value)}
-                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] min-w-[180px]"
+                value={whF}
+                onChange={(e) => setWhF(e.target.value)}
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] min-w-[170px]"
               >
-                <option value="all">全部</option>
-                {supplierOptions.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-[#9A9890] font-medium">適用倉庫</label>
-              <select
-                value={selectedWarehouse}
-                onChange={(e) => setSelectedWarehouse(e.target.value)}
-                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5]"
-              >
-                <option value="">全部倉庫</option>
+                <option value="all">全部倉庫</option>
                 {warehouses.map((w) => (
                   <option key={w.id} value={w.id}>{`${w.code} ${w.name}`}</option>
                 ))}
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-[#9A9890] font-medium">需求視野（天）</label>
-              <input
-                type="number"
-                value={horizonDays}
-                onChange={(e) => setHorizonDays(Math.max(1, parseInt(e.target.value || "7", 10)))}
-                className="h-[30px] w-20 border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5]"
-              />
+              <label className="text-[11px] text-[#9A9890] font-medium">月份</label>
+              <select
+                value={monthF}
+                onChange={(e) => setMonthF(e.target.value)}
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5]"
+              >
+                <option value="">全部</option>
+                {monthOptions.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
             </div>
             <div className="flex gap-2 ml-auto">
               <button
                 type="button"
-                disabled={!canRun || isPending}
-                onClick={handleRun}
+                onClick={applyFilters}
+                disabled={isPending}
                 className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60"
               >
-                {isPending ? "計算中⋯" : "重新計算建議"}
+                查詢
+              </button>
+              <button
+                type="button"
+                onClick={resetFilters}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                重置
               </button>
             </div>
           </div>
         </section>
 
-        {/* Toolbar */}
-        <div className="flex items-center gap-2">
-          {run ? (
-            <span className="text-[12px] text-[#9A9890]">
-              {`本批次 `}<b className="text-[#2C2C2A]">{run.total_lines}</b>{` 項 ・ 預估 `}
-              <b className="text-[#2C2C2A]">{`NT$ ${Number(run.total_amount).toLocaleString("en-US")}`}</b>
-              {` ・ 視野 ${run.horizon_days} 天 ・ 建立於 `}
-              {run.created_label}
-              {selected.size > 0 && (
+        {/* Trigger Bar */}
+        <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 flex flex-wrap gap-2 items-end">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">手動觸發 — 倉庫</label>
+            <select
+              value={triggerWh}
+              onChange={(e) => setTriggerWh(e.target.value)}
+              className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] min-w-[200px]"
+            >
+              <option value="">全部倉庫</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>{`${w.code} ${w.name}`}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">需求視野（天）</label>
+            <input
+              type="number"
+              min={1}
+              value={triggerHorizon}
+              onChange={(e) => setTriggerHorizon(Math.max(1, parseInt(e.target.value || "7", 10)))}
+              className="h-[30px] w-24 border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5]"
+            />
+          </div>
+          <button
+            type="button"
+            disabled={!canRun || isPending}
+            onClick={handleTrigger}
+            className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
+          >
+            {isPending ? "計算中⋯" : "＋ 重新計算建議"}
+          </button>
+          <div className="ml-auto text-[11.5px] text-[#9A9890]">
+            提示：跑完一輪計算會新增一筆 run，請至列表審核後生 PO。
+          </div>
+        </section>
+
+        {/* Two-column layout */}
+        <div className="flex gap-3 items-start">
+          {/* Run List */}
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="text-[12px] text-[#9A9890]">
+              共 <b className="text-[#2C2C2A]">{runs.length}</b> 筆補貨批次
+              {selectedRunId && (
                 <>
                   {` ・ 已選 `}
-                  <b className="text-[#185FA5]">{selected.size}</b>
-                  {` 項（合計 `}
-                  <b className="text-[#185FA5]">{`NT$ ${Number(totalSelectedAmt).toLocaleString("en-US")}`}</b>
-                  {`）`}
+                  <b className="text-[#185FA5]">1</b>
+                  {` 筆`}
                 </>
               )}
-            </span>
-          ) : (
-            <span className="text-[12px] text-[#9A9890]">尚未計算過任何建議</span>
-          )}
-          <div className="ml-auto flex gap-1.5">
-            <button
-              type="button"
-              onClick={toggleAll}
-              disabled={filtered.length === 0}
-              className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
-            >
-              {allSelected ? "全部取消" : "全選"}
-            </button>
-            <button
-              type="button"
-              disabled={selected.size === 0 || isPending}
-              onClick={() => handleIgnore(Array.from(selected))}
-              className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
-            >
-              忽略選取（{selected.size}）
-            </button>
-            <button
-              type="button"
-              disabled={!canCreatePR || selected.size === 0 || !run || isPending}
-              onClick={handleConvert}
-              className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
-            >
-              {isPending ? "建單中⋯" : `一鍵建立採購申請（${selected.size}）`}
-            </button>
-          </div>
-        </div>
-
-        {/* Table */}
-        <DataGrid
-          columns={columns}
-          data={filtered}
-          rowKey={(l) => l.id}
-          persistKey="parts/purchase/replenishment"
-          exportFileName="replenishment-suggestions"
-          emptyMessage={
-            run
-              ? "目前篩選條件下沒有可顯示的建議"
-              : "點右上角「重新計算建議」開始 MRP"
-          }
-          disabled={isPending}
-        />
-      </div>
-
-      {/* 右側 policy panel */}
-      <aside className="w-[200px] shrink-0">
-        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-            <span className="text-[13px] font-semibold text-[#2C2C2A]">補貨計畫設定</span>
-          </header>
-          <div className="px-4 py-3 space-y-2.5 text-[12px]">
-            {policy ? (
-              <>
-                <div>
-                  <div className="text-[11px] text-[#9A9890]">執行頻率</div>
-                  <div className="text-[12.5px]">
-                    {{
-                      weekly_mon: "每週一",
-                      biweekly: "每兩週",
-                      monthly_1: "每月一日",
-                      manual: "手動觸發",
-                    }[policy.frequency] ?? policy.frequency}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[11px] text-[#9A9890]">需求視野</div>
-                  <div className="text-[12.5px]">{`${policy.horizon_days} 天`}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] text-[#9A9890]">緊急自動建單</div>
-                  <div className="text-[12.5px]">
-                    {policy.auto_create_pr_for_urgent ? "啟用" : "關閉"}
-                  </div>
-                </div>
-                <Link
-                  href="/admin/master-data/replenishment-policies"
-                  className="inline-block text-[11.5px] text-[#185FA5] hover:underline"
-                >
-                  編輯設定 →
-                </Link>
-              </>
-            ) : (
-              <div className="text-[#9A9890]">
-                尚未建立補貨計畫設定
-                <Link
-                  href="/admin/master-data/replenishment-policies/new"
-                  className="block mt-2 text-[11.5px] text-[#185FA5] hover:underline"
-                >
-                  立即建立 →
-                </Link>
+            </div>
+            {runs.length === 0 ? (
+              <div className="bg-white border border-[#EEECE6] rounded-lg p-8 text-center text-[#9A9890] text-[12.5px]">
+                目前沒有符合條件的補貨批次。
+                {canRun && (
+                  <>
+                    {" "}
+                    點上方<b className="text-[#0F6E56]">「＋ 重新計算建議」</b>立即產生第一輪。
+                  </>
+                )}
               </div>
+            ) : (
+              <DataGrid
+                columns={columns}
+                data={runs}
+                rowKey={(r) => r.id}
+                persistKey="parts/purchase/replenishment/runs"
+                exportFileName="replenishment-runs"
+                emptyMessage="目前沒有符合條件的補貨批次"
+                disabled={isPending}
+                rowActionsHeader="檢視"
+                rowActionsWidth={84}
+                rowActions={(r) => (
+                  <button
+                    type="button"
+                    onClick={() => navigate({ runId: r.id })}
+                    className={`h-[26px] px-2.5 rounded text-[11.5px] ${
+                      r.id === selectedRunId
+                        ? "bg-[#1A3A5C] text-white"
+                        : "bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                    }`}
+                  >
+                    {r.id === selectedRunId ? "檢視中" : "查看"}
+                  </button>
+                )}
+              />
             )}
           </div>
-        </section>
 
-        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden mt-3">
-          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-            <span className="text-[13px] font-semibold text-[#2C2C2A]">資料來源</span>
-          </header>
-          <div className="px-4 py-3 space-y-1.5 text-[11.5px] text-[#5A5955]">
-            <Link
-              href="/admin/master-data/supplier-pricing"
-              className="block hover:text-[#185FA5]"
-            >
-              · 供應商定價（價/MOQ/lead time）
-            </Link>
-            <Link
-              href="/admin/master-data/item-lead-times"
-              className="block hover:text-[#185FA5]"
-            >
-              · 料號預設前置時間
-            </Link>
-            <Link href="/parts/alerts/thresholds" className="block hover:text-[#185FA5]">
-              · 庫存水位（ROP/SS/min/max）
-            </Link>
-            <Link href="/parts/purchase/requisitions" className="block hover:text-[#185FA5]">
-              · 採購申請看板 →
-            </Link>
+          {/* Detail Panel */}
+          <aside className="w-[420px] shrink-0">
+            {selectedRunDetail ? (
+              <DetailPanel
+                detail={selectedRunDetail}
+                onClose={() => navigate({ runId: null })}
+                onApprove={() => handleApprove(selectedRunDetail.run.id)}
+                onReject={() => openRejectModal(selectedRunDetail.run.id)}
+                onGeneratePO={() => handleGeneratePO(selectedRunDetail.run.id)}
+                canRun={canRun}
+                canCreatePO={canCreatePO}
+                isPending={isPending}
+              />
+            ) : (
+              <section className="bg-white border border-[#EEECE6] rounded-lg p-6 text-center text-[12.5px] text-[#9A9890]">
+                點左側任一筆 run 查看建議明細與審批
+              </section>
+            )}
+          </aside>
+        </div>
+      </main>
+
+      {/* Reject Modal */}
+      {rejectingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-lg shadow-xl w-[420px] p-5 space-y-3">
+            <h2 className="text-[14px] font-semibold text-[#2C2C2A]">駁回補貨批次</h2>
+            <p className="text-[12px] text-[#5A5955]">
+              請說明駁回原因，將記錄到批次 metadata 供後續追蹤。
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="例：本季預算上限已到 / 需求重評估 / 供應商調整中…"
+              className="w-full h-24 border border-[#D5D3CB] rounded p-2 text-[12.5px] focus:border-[#185FA5] resize-none"
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectingId(null);
+                  setRejectReason("");
+                }}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmReject}
+                disabled={isPending || !rejectReason.trim()}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#CC0000] text-white hover:bg-[#A60000] disabled:opacity-60"
+              >
+                {isPending ? "駁回中⋯" : "確認駁回"}
+              </button>
+            </div>
           </div>
-        </section>
-      </aside>
+        </div>
+      )}
+    </>
+  );
+}
+
+function DetailPanel({
+  detail,
+  onClose,
+  onApprove,
+  onReject,
+  onGeneratePO,
+  canRun,
+  canCreatePO,
+  isPending,
+}: {
+  detail: { run: ReplenishmentRunRow; lines: ReplenishmentRunLineRow[] };
+  onClose: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onGeneratePO: () => void;
+  canRun: boolean;
+  canCreatePO: boolean;
+  isPending: boolean;
+}) {
+  const { run, lines } = detail;
+  const statusInfo = RUN_STATUS_LABEL[run.status] ?? { label: run.status, tone: "bg-[#F2F2F2] text-[#6B6A68]" };
+
+  const canApprove = run.status === "open" && canRun;
+  const canRejectAction = (run.status === "open" || run.status === "approved") && canRun;
+  const canGen = (run.status === "approved" || run.status === "partially_converted") && canCreatePO;
+
+  return (
+    <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+      <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+        <span className="text-[13px] font-semibold text-[#2C2C2A]">補貨批次詳情</span>
+        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${statusInfo.tone}`}>
+          {statusInfo.label}
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-auto h-[24px] px-2 rounded text-[11.5px] text-[#5A5955] hover:bg-[#EEECE6]"
+        >
+          ✕
+        </button>
+      </header>
+
+      <div className="px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[12.5px]">
+        <Kv label="建立時間" value={run.created_label} />
+        <Kv label="觸發方式" value={TRIGGER_KIND_LABEL[run.trigger_kind] ?? run.trigger_kind} />
+        <Kv label="倉庫" value={run.warehouse_label ?? "全部"} />
+        <Kv label="視野" value={`${run.horizon_days} 天`} />
+        <Kv label="建議數" value={`${run.total_lines} 項`} />
+        <Kv label="預估金額" value={`NT$${Number(run.total_amount).toLocaleString("en-US")}`} />
+        {run.approved_at && (
+          <Kv label="核准" value={`${run.approved_by_label ?? "—"}${run.approval_note ? `（${run.approval_note}）` : ""}`} colSpan />
+        )}
+        {run.rejected_at && (
+          <Kv label="駁回" value={`${run.rejected_by_label ?? "—"}${detail.run.approval_note ? "" : ""}`} colSpan />
+        )}
+        {run.generated_po_ids.length > 0 && (
+          <Kv label="已生 PO" value={`${run.generated_po_ids.length} 張`} colSpan />
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="px-4 pb-3 flex gap-2 flex-wrap">
+        <button
+          type="button"
+          disabled={!canApprove || isPending}
+          onClick={onApprove}
+          className="h-[28px] px-3 rounded text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+        >
+          {isPending ? "處理中⋯" : "核准"}
+        </button>
+        <button
+          type="button"
+          disabled={!canRejectAction || isPending}
+          onClick={onReject}
+          className="h-[28px] px-3 rounded text-[12px] font-medium bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+        >
+          駁回
+        </button>
+        <button
+          type="button"
+          disabled={!canGen || isPending}
+          onClick={onGeneratePO}
+          className="h-[28px] px-3 rounded text-[12px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+        >
+          {isPending ? "生 PO 中⋯" : "一鍵生 PO"}
+        </button>
+      </div>
+
+      {/* Lines */}
+      <div className="border-t border-[#EEECE6]">
+        <div className="px-4 py-2 bg-[#F8F7F4] text-[11.5px] font-semibold text-[#5A5955]">
+          建議明細（{lines.length}）
+        </div>
+        <div className="max-h-[480px] overflow-y-auto">
+          {lines.length === 0 ? (
+            <div className="px-4 py-6 text-center text-[12px] text-[#9A9890]">
+              此批次無明細
+            </div>
+          ) : (
+            <ul className="divide-y divide-[#EEECE6]">
+              {lines.map((l) => (
+                <li key={l.id} className="px-4 py-2.5 hover:bg-[#F8F7F4]">
+                  <div className="flex items-start gap-2">
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] ${PRIORITY_BADGE[l.priority]} shrink-0 mt-0.5`}
+                    >
+                      {PRIORITY_LABEL[l.priority]}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-mono text-[11.5px] text-[#185FA5]">{l.item_code}</span>
+                        <span className="text-[12px] text-[#2C2C2A] truncate">{l.item_name}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-[#5A5955]">
+                        <span>
+                          在手 <b className={l.on_hand_qty <= l.reorder_point ? "text-[#CC0000]" : ""}>{l.on_hand_qty}</b>
+                        </span>
+                        <span>ROP {l.reorder_point}</span>
+                        <span>
+                          建議 <b className="text-[#0F6E56]">{l.suggested_qty}</b>
+                        </span>
+                        <span className="font-mono">NT${Number(l.est_amount).toLocaleString("en-US")}</span>
+                      </div>
+                      {l.supplier_name && (
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">
+                          {l.supplier_name}
+                          {l.lead_time_days != null && ` ・ LT ${l.lead_time_days}d`}
+                          {l.required_date && ` ・ 需求 ${l.required_date}`}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className={`text-[10.5px] px-1.5 py-0.5 rounded-md shrink-0 ${
+                        l.status === "converted"
+                          ? "bg-[#E8F5F0] text-[#0F6E56]"
+                          : l.status === "ignored"
+                          ? "bg-[#F2F2F2] text-[#6B6A68]"
+                          : "bg-[#FDF3E3] text-[#854F0B]"
+                      }`}
+                    >
+                      {l.status === "converted" ? "已轉" : l.status === "ignored" ? "忽略" : "待轉"}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Kv({ label, value, colSpan = false }: { label: string; value: string; colSpan?: boolean }) {
+  return (
+    <div className={colSpan ? "col-span-2" : ""}>
+      <div className="text-[10.5px] text-[#9A9890]">{label}</div>
+      <div className="text-[12px] text-[#2C2C2A]">{value}</div>
     </div>
   );
 }

@@ -243,12 +243,17 @@ export function DiscountsBoard({
           崗位折扣審批
         </h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          C
+          售後管理
         </span>
         <span className="text-[12px] text-[#9A9890]">
           各崗位折扣上限 + 超限審批流（依 LiVE 規範，配置完成後需提交審批）
         </span>
       </header>
+
+      {/* 警告提示 — 對齊 ro-numbering / env-check-items 的 design pattern */}
+      <div className="bg-[#FAEEDA] border border-[#BA7517] rounded-lg px-3.5 py-2.5 text-[12px] text-[#412402] leading-relaxed">
+        <strong>⚠️ 重要：</strong>崗位折扣權限直接影響工單最終實收金額；折扣上限調整後即時生效，建議於月底結算後再調整、並通知 SA 團隊。超限折扣會自動觸發審批流，由配置的審批人核可後才會落 DB。
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* 左卡：崗位折扣權限 */}

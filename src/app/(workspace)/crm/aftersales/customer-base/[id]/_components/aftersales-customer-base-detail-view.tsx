@@ -11,6 +11,15 @@ import {
   updateAftersalesCustomerAction,
   type AftersalesCustomerInput,
 } from "@/lib/aftersales/customer-base-actions";
+import { KpiCard, Timeline, type TimelineEvent } from "@/components/visualization";
+import { DonutChart, GaugeChart, SparkLine } from "@/components/charts";
+import type {
+  AftersalesCallTaskRow,
+  AftersalesCustomerLifetime,
+  AftersalesNpsResponseRow,
+  AftersalesNpsSummary,
+  AftersalesWarrantyEntry,
+} from "@/domain/aftersales-customer-base";
 
 export type DetailCustomer = {
   id: string;
@@ -70,13 +79,73 @@ export type AppointmentRow = {
 export type ModelRef = { id: string; display_name: string };
 
 type Banner = { ok: boolean; msg: string } | null;
-type TabKey = "vehicles" | "service_history" | "notes";
+type TabKey =
+  | "vehicles"
+  | "service_history"
+  | "call_history"
+  | "warranty"
+  | "nps";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "vehicles", label: "名下車輛" },
-  { key: "service_history", label: "服務歷程" },
-  { key: "notes", label: "業務備註" },
+  { key: "service_history", label: "維修歷史" },
+  { key: "call_history", label: "電訪紀錄" },
+  { key: "warranty", label: "保固訂閱" },
+  { key: "nps", label: "NPS 評分" },
 ];
+
+const CALL_STATUS_LABEL: Record<string, string> = {
+  pending: "待聯繫",
+  in_progress: "進行中",
+  completed: "已完成",
+  skipped: "略過",
+};
+const CALL_RESULT_LABEL: Record<string, string> = {
+  answered: "已接通",
+  no_answer: "未接通",
+  callback_later: "稍後回電",
+  wrong_number: "電話錯誤",
+};
+const CALL_TYPE_LABEL: Record<string, string> = {
+  maintenance_reminder: "保養提醒",
+  warranty_reminder: "保固提醒",
+  desmo_reminder: "Desmo 服務",
+  aftersales_d3: "D+3 售後回訪",
+  d3_followup: "D+3 回訪",
+  d7_followup: "D+7 回訪",
+  nps_interview: "NPS 調查",
+  event_invite: "活動邀請",
+  custom: "自訂",
+};
+
+function callStatusLabel(s: string): string {
+  return CALL_STATUS_LABEL[s] ?? s;
+}
+function callResultLabel(r: string | null): string {
+  if (!r) return "—";
+  return CALL_RESULT_LABEL[r] ?? r;
+}
+function callTypeLabel(t: string | null): string {
+  if (!t) return "電訪";
+  return CALL_TYPE_LABEL[t] ?? t;
+}
+function callTaskTone(status: string): "blue" | "green" | "amber" | "gray" {
+  if (status === "completed") return "green";
+  if (status === "pending") return "amber";
+  if (status === "in_progress") return "blue";
+  return "gray";
+}
+
+const WARRANTY_KIND_LABEL: Record<string, string> = {
+  warranty: "原廠保固",
+  insurance: "強制險",
+  desmo: "下次預定保養",
+};
+const WARRANTY_KIND_ICON: Record<string, string> = {
+  warranty: "🛡️",
+  insurance: "📋",
+  desmo: "⚙️",
+};
 
 function fmtDateTime(s: string | null | undefined): string {
   if (!s) return "—";
@@ -150,6 +219,11 @@ export function AftersalesCustomerBaseDetailView({
   workOrders,
   appointments,
   models,
+  npsResponses = [],
+  callTasks = [],
+  warrantySubscriptions = [],
+  lifetime = null,
+  npsSummary = null,
   canEdit,
   initialMode = "view",
 }: {
@@ -158,6 +232,11 @@ export function AftersalesCustomerBaseDetailView({
   workOrders: WorkOrderRow[];
   appointments: AppointmentRow[];
   models: ModelRef[];
+  npsResponses?: AftersalesNpsResponseRow[];
+  callTasks?: AftersalesCallTaskRow[];
+  warrantySubscriptions?: AftersalesWarrantyEntry[];
+  lifetime?: AftersalesCustomerLifetime | null;
+  npsSummary?: AftersalesNpsSummary | null;
   canEdit: boolean;
   initialMode?: "view" | "create";
 }) {
@@ -282,14 +361,16 @@ export function AftersalesCustomerBaseDetailView({
   const titleName = creating ? "（新增客戶）" : (customer?.name ?? "—");
   const titleCode = creating ? "新增客戶" : (customer?.code ?? "—");
 
-  // 售後 KPI 計算
-  const totalVisits = workOrders.length;
-  const lastVisitAt = workOrders[0]?.opened_at ?? null;
+  // 售後 KPI 計算 — 優先用 lifetime（從 helper 算好），fallback 用 workOrders
+  const totalVisits = lifetime?.visit_count ?? workOrders.length;
+  const lastVisitAt = lifetime?.last_visit_at ?? workOrders[0]?.opened_at ?? null;
   const lastRoNo = workOrders[0]?.ro_no ?? null;
-  const totalAmount = workOrders.reduce(
-    (sum, w) => sum + (w.total_amount == null ? 0 : Number(w.total_amount)),
-    0,
-  );
+  const totalAmount =
+    lifetime?.total_amount ??
+    workOrders.reduce(
+      (sum, w) => sum + (w.total_amount == null ? 0 : Number(w.total_amount)),
+      0,
+    );
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -936,33 +1017,373 @@ export function AftersalesCustomerBaseDetailView({
               </div>
             ) : null}
 
-            {activeTab === "notes" ? (
-              <SectionCard title="業務備註">
-                {showInputs ? (
-                  <textarea
-                    value={formDraft.notes ?? ""}
-                    onChange={(e) =>
-                      setFormDraft({ ...formDraft, notes: e.target.value })
-                    }
-                    rows={6}
-                    placeholder="記錄客戶偏好、跟進事項、SLA 敏感點…"
-                    className="w-full border border-[#D5D3CB] rounded p-2 text-[12.5px] outline-none focus:border-[#185FA5]"
+            {activeTab === "call_history" ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <KpiCard
+                    label="累積電訪"
+                    value={callTasks.length}
+                    tone="blue"
+                    layout="mini"
                   />
-                ) : customer?.notes ? (
-                  <p className="text-[12.5px] text-[#2C2C2A] whitespace-pre-wrap leading-relaxed">
-                    {customer.notes}
-                  </p>
-                ) : (
-                  <div className="text-[12px] text-[#9A9890] py-2">
-                    尚無業務備註。點「修改」可在此寫入跟進紀錄。
-                  </div>
-                )}
-              </SectionCard>
+                  <KpiCard
+                    label="已完成"
+                    value={callTasks.filter((c) => c.status === "completed").length}
+                    tone="green"
+                    layout="mini"
+                  />
+                  <KpiCard
+                    label="待處理"
+                    value={
+                      callTasks.filter(
+                        (c) => c.status === "pending" || c.status === "in_progress",
+                      ).length
+                    }
+                    tone="amber"
+                    layout="mini"
+                  />
+                </div>
+                <SectionCard title={`電訪紀錄（${callTasks.length}）`}>
+                  {callTasks.length === 0 ? (
+                    <div className="text-[12px] text-[#9A9890] py-3">
+                      尚無電訪紀錄
+                    </div>
+                  ) : (
+                    <Timeline
+                      events={callTasks.slice(0, 20).map<TimelineEvent>((c) => ({
+                        id: c.id,
+                        time: fmtDateTime(c.scheduled_at ?? c.created_at),
+                        title: `${callTypeLabel(c.call_type)}・${callStatusLabel(c.status)}`,
+                        tone: callTaskTone(c.status),
+                        description: (
+                          <div className="space-y-0.5">
+                            <div className="text-[11.5px] text-[#5A5955]">
+                              結果：{callResultLabel(c.call_result)}
+                              {c.attempt_count != null
+                                ? `・第 ${c.attempt_count} 次聯繫`
+                                : ""}
+                            </div>
+                            {c.notes ? (
+                              <div className="text-[11.5px] text-[#2C2C2A]">
+                                {c.notes}
+                              </div>
+                            ) : null}
+                          </div>
+                        ),
+                      }))}
+                    />
+                  )}
+                </SectionCard>
+              </div>
+            ) : null}
+
+            {activeTab === "warranty" ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                  <KpiCard
+                    label="保固訂閱總數"
+                    value={warrantySubscriptions.length}
+                    tone="blue"
+                    layout="mini"
+                  />
+                  <KpiCard
+                    label="即將到期"
+                    value={
+                      warrantySubscriptions.filter(
+                        (w) => w.status === "due_soon" || w.status === "expiring",
+                      ).length
+                    }
+                    tone="amber"
+                    layout="mini"
+                  />
+                  <KpiCard
+                    label="已過期"
+                    value={
+                      warrantySubscriptions.filter((w) => w.status === "expired").length
+                    }
+                    tone="red"
+                    layout="mini"
+                  />
+                  <KpiCard
+                    label="有效中"
+                    value={
+                      warrantySubscriptions.filter((w) => w.status === "valid").length
+                    }
+                    tone="green"
+                    layout="mini"
+                  />
+                </div>
+                <SectionCard title={`保固 / 訂閱（${warrantySubscriptions.length}）`}>
+                  {warrantySubscriptions.length === 0 ? (
+                    <div className="text-[12px] text-[#9A9890] py-3">
+                      此客戶尚無保固或服務訂閱資料
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {warrantySubscriptions.map((w, idx) => (
+                        <WarrantyRow
+                          key={`${w.vehicle_id}-${w.kind}-${idx}`}
+                          entry={w}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
+              </div>
+            ) : null}
+
+            {activeTab === "nps" ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <SectionCard title="NPS 概況">
+                    {npsSummary && npsSummary.total > 0 ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-[140px] shrink-0">
+                          <GaugeChart
+                            value={
+                              npsSummary.latest_score != null
+                                ? npsSummary.latest_score * 10
+                                : 0
+                            }
+                            max={100}
+                            tone={
+                              (npsSummary.latest_score ?? 0) >= 9
+                                ? "teal"
+                                : (npsSummary.latest_score ?? 0) >= 7
+                                  ? "blue"
+                                  : "red"
+                            }
+                            size="sm"
+                            label={
+                              npsSummary.latest_score != null
+                                ? String(npsSummary.latest_score)
+                                : "—"
+                            }
+                            caption="最新分數"
+                          />
+                        </div>
+                        <div className="flex-1 space-y-1.5 text-[12px]">
+                          <div className="flex justify-between">
+                            <span className="text-[#9A9890]">平均分數</span>
+                            <span className="font-mono font-semibold text-[#1A3A5C]">
+                              {npsSummary.avg != null
+                                ? npsSummary.avg.toFixed(1)
+                                : "—"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#9A9890]">回覆筆數</span>
+                            <span className="font-mono">{npsSummary.total}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-[#9A9890]">推薦者比例</span>
+                            <span className="font-mono text-[#3B6D11]">
+                              {npsSummary.total > 0
+                                ? `${Math.round(
+                                    (npsSummary.promoter / npsSummary.total) * 100,
+                                  )}%`
+                                : "—"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[12px] text-[#9A9890] py-3">
+                        尚無 NPS 評分資料
+                      </div>
+                    )}
+                  </SectionCard>
+                  <SectionCard title="分布">
+                    {npsSummary && npsSummary.total > 0 ? (
+                      <DonutChart
+                        data={[
+                          {
+                            name: "推薦者 (9-10)",
+                            value: npsSummary.promoter,
+                            color: "#3B6D11",
+                          },
+                          {
+                            name: "被動者 (7-8)",
+                            value: npsSummary.passive,
+                            color: "#854F0B",
+                          },
+                          {
+                            name: "批評者 (0-6)",
+                            value: npsSummary.detractor,
+                            color: "#CC0000",
+                          },
+                        ]}
+                        size="sm"
+                        showLegend
+                        centerLabel={String(npsSummary.total)}
+                        centerCaption="筆評分"
+                      />
+                    ) : (
+                      <div className="text-[12px] text-[#9A9890] py-3">尚無資料</div>
+                    )}
+                  </SectionCard>
+                  <SectionCard title="最近 6 筆趨勢">
+                    {npsResponses.length > 0 ? (
+                      <div className="h-[100px] w-full">
+                        <SparkLine
+                          data={npsResponses
+                            .slice(0, 6)
+                            .reverse()
+                            .map((n) => n.score)}
+                          tone={
+                            (npsResponses[0]?.score ?? 0) >= 9
+                              ? "teal"
+                              : (npsResponses[0]?.score ?? 0) >= 7
+                                ? "blue"
+                                : "red"
+                          }
+                          height={100}
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-[12px] text-[#9A9890] py-3">尚無資料</div>
+                    )}
+                  </SectionCard>
+                </div>
+
+                <SectionCard title={`歷次 NPS 回覆（${npsResponses.length}）`}>
+                  {npsResponses.length === 0 ? (
+                    <div className="text-[12px] text-[#9A9890] py-3">
+                      此客戶尚未填寫 NPS 問卷
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {npsResponses.slice(0, 15).map((n) => (
+                        <NpsRow key={n.id} response={n} />
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
+              </div>
             ) : null}
           </div>
         </>
       ) : null}
+
+      {/* 業務備註 — 不放在 tabs，獨立 section（編輯模式可改） */}
+      {!creating && customer ? (
+        <section
+          className={`bg-white border border-[#EEECE6] rounded-lg overflow-hidden ${showInputs ? lockedClass : ""}`}
+        >
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              ▼ 業務備註
+            </span>
+          </header>
+          <div className="px-4 py-3">
+            {showInputs ? (
+              <textarea
+                value={formDraft.notes ?? ""}
+                onChange={(e) =>
+                  setFormDraft({ ...formDraft, notes: e.target.value })
+                }
+                rows={4}
+                placeholder="記錄客戶偏好、跟進事項、SLA 敏感點…"
+                className="w-full border border-[#D5D3CB] rounded p-2 text-[12.5px] outline-none focus:border-[#185FA5]"
+              />
+            ) : customer.notes ? (
+              <p className="text-[12.5px] text-[#2C2C2A] whitespace-pre-wrap leading-relaxed">
+                {customer.notes}
+              </p>
+            ) : (
+              <div className="text-[12px] text-[#9A9890] py-2">
+                尚無業務備註。點「修改」可在此寫入跟進紀錄。
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
     </main>
+  );
+}
+
+function WarrantyRow({ entry }: { entry: AftersalesWarrantyEntry }) {
+  const statusCls: Record<AftersalesWarrantyEntry["status"], string> = {
+    valid: "bg-[#EAF3DE] text-[#3B6D11]",
+    expiring: "bg-[#FDF3E3] text-[#854F0B]",
+    due_soon: "bg-[#FDF3E3] text-[#854F0B]",
+    expired: "bg-[#FDECEA] text-[#CC0000]",
+    unknown: "bg-[#F2F2F2] text-[#6B6A68]",
+  };
+  const statusText: Record<AftersalesWarrantyEntry["status"], string> = {
+    valid: "有效中",
+    expiring: "60 天內到期",
+    due_soon: "30 天內到期",
+    expired: "已過期",
+    unknown: "未設定",
+  };
+  const days = entry.days_left;
+  const daysText =
+    days == null
+      ? "—"
+      : days < 0
+        ? `逾期 ${Math.abs(days)} 天`
+        : `剩 ${days} 天`;
+  return (
+    <div className="flex items-center gap-3 px-3 py-2 bg-[#F8F7F4] border border-[#EEECE6] rounded">
+      <span className="text-[18px]">{WARRANTY_KIND_ICON[entry.kind]}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[12.5px] font-semibold text-[#2C2C2A]">
+            {WARRANTY_KIND_LABEL[entry.kind]}
+          </span>
+          <span className="font-mono text-[11.5px] text-[#185FA5]">
+            {entry.license_plate ?? "—"}
+          </span>
+          {entry.model_name ? (
+            <span className="text-[11px] text-[#9A9890]">{entry.model_name}</span>
+          ) : null}
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${statusCls[entry.status]}`}
+          >
+            {statusText[entry.status]}
+          </span>
+        </div>
+        <div className="text-[11px] text-[#5A5955] font-mono mt-0.5">
+          到期日：{entry.expires_at ? entry.expires_at.slice(0, 10) : "—"}
+          {entry.expires_at ? `（${daysText}）` : ""}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NpsRow({ response }: { response: AftersalesNpsResponseRow }) {
+  const tone =
+    response.score >= 9
+      ? "bg-[#EAF3DE] text-[#3B6D11] border-[#C5DC9F]"
+      : response.score >= 7
+        ? "bg-[#EAF4FB] text-[#185FA5] border-[#85B7EB]"
+        : "bg-[#FDECEA] text-[#CC0000] border-[#F5AEAD]";
+  return (
+    <div className="flex items-start gap-3 px-3 py-2 bg-white border border-[#EEECE6] rounded">
+      <div
+        className={`shrink-0 w-[44px] h-[44px] rounded flex items-center justify-center text-[18px] font-semibold border ${tone}`}
+      >
+        {response.score}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 text-[11px] text-[#9A9890] mb-1">
+          <span className="font-mono">
+            {response.responded_at.slice(0, 16).replace("T", " ")}
+          </span>
+          {response.category ? (
+            <span className="px-1.5 py-0.5 rounded bg-[#F2F2F2] text-[#5A5955]">
+              {response.category}
+            </span>
+          ) : null}
+          <span className="text-[#9A9890]">{response.kind}</span>
+        </div>
+        <div className="text-[12px] text-[#2C2C2A]">
+          {response.comment ?? <span className="text-[#9A9890]">（無留言）</span>}
+        </div>
+      </div>
+    </div>
   );
 }
 

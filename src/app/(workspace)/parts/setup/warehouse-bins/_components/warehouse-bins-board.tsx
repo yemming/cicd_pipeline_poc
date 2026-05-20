@@ -10,10 +10,19 @@ import {
   createZone,
   deleteBin,
   deleteZone,
+  getBinSkuLines,
   updateBin,
   updateZone,
 } from "@/domain/warehouse";
-import type { BinRow, WarehouseSummary, ZoneWithBins } from "@/domain/warehouse";
+import type {
+  BinHeatmap,
+  BinMetric,
+  BinRow,
+  BinSkuLine,
+  WarehouseSummary,
+  ZoneWithBins,
+} from "@/domain/warehouse";
+import { KpiCard } from "@/components/visualization";
 
 type BinStatus = "used" | "empty" | "reserved";
 
@@ -71,21 +80,81 @@ type ModalState =
   | { kind: "bin-batch"; zoneId?: string }
   | { kind: "bin-edit"; bin: BinRow };
 
+function formatRelative(iso: string | null): string {
+  if (!iso) return "—";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  if (diffMs < 0) return "—";
+  const day = 24 * 60 * 60 * 1000;
+  if (diffMs < day) {
+    const h = Math.max(1, Math.round(diffMs / (60 * 60 * 1000)));
+    return `${h} 小時前`;
+  }
+  const days = Math.round(diffMs / day);
+  if (days < 30) return `${days} 天前`;
+  const months = Math.round(days / 30);
+  if (months < 12) return `${months} 個月前`;
+  return `${Math.round(days / 365)} 年前`;
+}
+
 export function WarehouseBinsBoard({
   warehouses,
   activeWarehouse,
   zones,
+  heatmap,
   canEdit,
 }: {
   warehouses: WarehouseSummary[];
   activeWarehouse: WarehouseSummary | null;
   zones: ZoneWithBins[];
+  heatmap: BinHeatmap;
   canEdit: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [modal, setModal] = useState<ModalState>({ kind: "none" });
   const [banner, setBanner] = useState<Banner>(null);
+  const [selectedBinId, setSelectedBinId] = useState<string | null>(null);
+  const [skuLines, setSkuLines] = useState<BinSkuLine[] | null>(null);
+  const [skuLoading, setSkuLoading] = useState(false);
+  const [skuError, setSkuError] = useState<string | null>(null);
+
+  // 切倉庫時清掉選取
+  useEffect(() => {
+    setSelectedBinId(null);
+    setSkuLines(null);
+    setSkuError(null);
+  }, [activeWarehouse?.id]);
+
+  // 點 bin → 撈 SKU 列表
+  useEffect(() => {
+    if (!selectedBinId) {
+      setSkuLines(null);
+      setSkuError(null);
+      return;
+    }
+    let cancelled = false;
+    setSkuLoading(true);
+    setSkuError(null);
+    getBinSkuLines(selectedBinId)
+      .then((rows) => {
+        if (!cancelled) setSkuLines(rows);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setSkuError(e instanceof Error ? e.message : "撈庫位 SKU 失敗");
+      })
+      .finally(() => {
+        if (!cancelled) setSkuLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedBinId]);
+
+  // 把所有 bin 攤平方便 lookup（給 detail panel 用）
+  const flatBins = zones.flatMap((z) => z.bins);
+  const selectedBin = selectedBinId ? flatBins.find((b) => b.id === selectedBinId) ?? null : null;
+  const selectedZone = selectedBin ? zones.find((z) => z.id === selectedBin.zone_id) ?? null : null;
+  const selectedMetric: BinMetric | null = selectedBin ? heatmap.binMetrics[selectedBin.id] ?? null : null;
 
   function showBanner(b: Banner) {
     setBanner(b);
@@ -98,6 +167,8 @@ export function WarehouseBinsBoard({
     router.refresh();
   }
 
+  const kpi = heatmap.kpi;
+
   return (
     <main className="px-6 py-5 space-y-3">
       <header className="flex items-center gap-2.5 flex-wrap">
@@ -108,7 +179,7 @@ export function WarehouseBinsBoard({
           庫存 · 2.2
         </span>
         <span className="text-[12px] text-[#9A9890]">
-          設定四層倉儲結構的實際位置與編碼規則
+          {activeWarehouse ? `「${activeWarehouse.name}」` : ""}庫位佔率視覺化・點 grid 看明細
         </span>
         <Link
           href="/parts/setup/warehouse-arch"
@@ -117,6 +188,46 @@ export function WarehouseBinsBoard({
           ← 倉儲四層架構
         </Link>
       </header>
+
+      {/* KPI 列 — 五張卡 */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <KpiCard
+          tone="blue"
+          layout="horizontal"
+          label="總庫位數"
+          value={kpi.totalBins}
+        />
+        <KpiCard
+          tone="teal"
+          layout="horizontal"
+          label="已用"
+          value={kpi.usedBins}
+        />
+        <KpiCard
+          tone="gray"
+          layout="horizontal"
+          label="空位"
+          value={kpi.emptyBins}
+        />
+        <KpiCard
+          tone="amber"
+          layout="horizontal"
+          label="保留中"
+          value={kpi.reservedBins}
+        />
+        <KpiCard
+          tone={
+            kpi.utilizationPct >= 80
+              ? "red"
+              : kpi.utilizationPct >= 50
+                ? "amber"
+                : "green"
+          }
+          layout="horizontal"
+          label="佔率"
+          value={`${kpi.utilizationPct}%`}
+        />
+      </div>
 
       <div className="flex gap-3 items-start">
         {/* 左：倉庫選擇 */}
@@ -287,25 +398,68 @@ export function WarehouseBinsBoard({
                     {zone.bins.map((bin) => {
                       const status = binStatus(bin);
                       const palette = BIN_PALETTE[status];
+                      const metric = heatmap.binMetrics[bin.id];
+                      const isSelected = selectedBinId === bin.id;
+                      const stale = metric?.isStale;
+                      const occ = metric?.occupancyPct;
+                      // 佔率色階：>=80% 紅、>=50% 黃、>0% 綠，0/null 走 status palette
+                      let occOverlay: { bg: string; text: string; border: string } | null = null;
+                      if (status === "used" && occ != null && occ > 0) {
+                        if (occ >= 80) {
+                          occOverlay = {
+                            bg: "bg-[#FDECEA]",
+                            border: "border-[#CC0000]",
+                            text: "text-[#CC0000]",
+                          };
+                        } else if (occ >= 50) {
+                          occOverlay = {
+                            bg: "bg-[#FDF3E3]",
+                            border: "border-[#854F0B]",
+                            text: "text-[#854F0B]",
+                          };
+                        } else {
+                          occOverlay = {
+                            bg: "bg-[#E8F5F0]",
+                            border: "border-[#0F6E56]",
+                            text: "text-[#0F6E56]",
+                          };
+                        }
+                      }
+                      const cellBg = occOverlay?.bg ?? palette.bg;
+                      const cellBorder = occOverlay?.border ?? palette.border;
+                      const codeText = occOverlay?.text ?? palette.text;
                       return (
                         <button
                           key={bin.id}
                           type="button"
-                          disabled={!canEdit}
-                          onClick={() => setModal({ kind: "bin-edit", bin })}
-                          className={`p-1.5 rounded border text-center ${palette.bg} ${palette.border} ${
-                            canEdit ? "hover:ring-2 hover:ring-[#185FA5] cursor-pointer" : "cursor-default"
+                          onClick={() => setSelectedBinId(bin.id)}
+                          className={`relative p-1.5 rounded border text-center ${cellBg} ${cellBorder} hover:ring-2 hover:ring-[#185FA5] cursor-pointer ${
+                            isSelected ? "ring-2 ring-[#1A3A5C] ring-offset-1" : ""
                           }`}
-                          title={bin.name ?? bin.code}
+                          title={`${bin.code}${bin.name ? ` — ${bin.name}` : ""}${
+                            metric ? ` · ${metric.skuCount} SKU / qty ${metric.totalQty}` : ""
+                          }`}
                         >
                           <div
-                            className={`font-mono text-[10.5px] font-semibold ${palette.text}`}
+                            className={`font-mono text-[10.5px] font-semibold ${codeText}`}
                           >
                             {bin.code}
                           </div>
-                          <div className={`text-[10px] ${palette.subText}`}>
-                            {palette.label}
+                          <div className={`text-[10px] ${codeText} opacity-80`}>
+                            {occ != null
+                              ? `${occ}%`
+                              : status === "reserved"
+                                ? "保留"
+                                : status === "used"
+                                  ? `${metric?.skuCount ?? 0} SKU`
+                                  : "空"}
                           </div>
+                          {stale ? (
+                            <span
+                              className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-[#CC0000]"
+                              title="60 天以上沒動 — 冷區"
+                            />
+                          ) : null}
                         </button>
                       );
                     })}
@@ -315,10 +469,174 @@ export function WarehouseBinsBoard({
             ))
           )}
 
-          <div className="text-[11px] text-[#9A9890] px-1">
-            💡 庫位狀態（已用 / 空 / 保留）由人工標記；點 cell 開 modal 切換。
+          <div className="text-[11px] text-[#9A9890] px-1 flex items-center gap-2 flex-wrap">
+            <span>佔率色階：</span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block w-2.5 h-2.5 rounded bg-[#E8F5F0] border border-[#0F6E56]" /> &lt;50%
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block w-2.5 h-2.5 rounded bg-[#FDF3E3] border border-[#854F0B]" /> 50–80%
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block w-2.5 h-2.5 rounded bg-[#FDECEA] border border-[#CC0000]" /> ≥80%
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block w-2.5 h-2.5 rounded bg-[#F8F7F4] border border-[#D5D3CB]" /> 空
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#CC0000]" /> 冷區（60 天無動）
+            </span>
+            <span className="ml-2 text-[10px] text-[#9A9890]">
+              點 grid 看明細・編輯庫位狀態請按右側 detail panel
+            </span>
           </div>
         </section>
+
+        {/* 右：庫位明細 panel */}
+        <aside className="w-[300px] flex-shrink-0 bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-[#F8F7F4] border-b border-[#EEECE6] flex items-center gap-1.5">
+            <span className="text-[12px] font-semibold text-[#5A5955]">庫位明細</span>
+            {selectedBin ? (
+              <span className="ml-auto inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] bg-[#EAF4FB] text-[#185FA5] font-mono">
+                {selectedBin.code}
+              </span>
+            ) : null}
+          </div>
+
+          {!selectedBin ? (
+            <div className="px-3 py-10 text-[11.5px] text-[#9A9890] text-center leading-relaxed">
+              👈 點左側任一庫位 grid<br />
+              查看 SKU・佔率・最後活動
+            </div>
+          ) : (
+            <div className="divide-y divide-[#EEECE6]">
+              {/* 基本資訊 */}
+              <div className="px-3 py-2.5 space-y-1.5">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[14px] font-semibold text-[#2C2C2A]">
+                    {selectedBin.name ?? selectedBin.code}
+                  </span>
+                  {selectedZone ? (
+                    <span className="text-[10.5px] text-[#9A9890]">
+                      {selectedZone.code} 區・{selectedZone.name}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[11px]">
+                  <div>
+                    <div className="text-[#9A9890]">狀態</div>
+                    <div className="text-[#2C2C2A]">
+                      {BIN_PALETTE[binStatus(selectedBin)].label}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[#9A9890]">容量</div>
+                    <div className="text-[#2C2C2A] font-mono">
+                      {selectedBin.capacity ?? "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[#9A9890]">SKU 種類</div>
+                    <div className="text-[#2C2C2A] font-mono">
+                      {selectedMetric?.skuCount ?? 0}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[#9A9890]">總數量</div>
+                    <div className="text-[#2C2C2A] font-mono">
+                      {selectedMetric?.totalQty ?? 0}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[#9A9890]">佔率</div>
+                    <div className="text-[#2C2C2A] font-mono">
+                      {selectedMetric?.occupancyPct != null
+                        ? `${selectedMetric.occupancyPct}%`
+                        : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[#9A9890]">最後活動</div>
+                    <div className="text-[#2C2C2A]">
+                      {formatRelative(selectedMetric?.lastMovementAt ?? null)}
+                    </div>
+                  </div>
+                </div>
+                {selectedMetric?.isStale ? (
+                  <div className="text-[10.5px] px-2 py-1 rounded bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000]">
+                    ⚠️ 冷區：60 天以上無進出庫活動
+                  </div>
+                ) : null}
+              </div>
+
+              {/* SKU 列表 */}
+              <div className="px-3 py-2.5">
+                <div className="text-[11px] font-semibold text-[#5A5955] mb-1.5">
+                  庫存 SKU
+                </div>
+                {skuLoading ? (
+                  <div className="text-[11px] text-[#9A9890] py-3 text-center">載入中⋯</div>
+                ) : skuError ? (
+                  <div className="text-[11px] text-[#CC0000] py-2">{skuError}</div>
+                ) : !skuLines || skuLines.length === 0 ? (
+                  <div className="text-[11px] text-[#9A9890] py-3 text-center">
+                    此庫位目前無庫存
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
+                    {skuLines.map((line) => (
+                      <div
+                        key={line.stockId}
+                        className="px-2 py-1.5 bg-[#F8F7F4] border border-[#EEECE6] rounded text-[11px]"
+                      >
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-mono font-semibold text-[#1A3A5C]">
+                            {line.itemCode ?? "—"}
+                          </span>
+                          <span className="ml-auto font-mono text-[#2C2C2A]">
+                            × {line.qty}
+                          </span>
+                        </div>
+                        {line.itemName ? (
+                          <div className="text-[10.5px] text-[#5A5955] truncate" title={line.itemName}>
+                            {line.itemName}
+                          </div>
+                        ) : null}
+                        <div className="flex gap-2 text-[10px] text-[#9A9890] mt-0.5">
+                          {line.serialNo ? <span>S/N {line.serialNo}</span> : null}
+                          {line.batchNo ? <span>批 {line.batchNo}</span> : null}
+                          {line.lastMovementAt ? (
+                            <span className="ml-auto">{formatRelative(line.lastMovementAt)}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 動作 */}
+              <div className="px-3 py-2.5 flex gap-1.5">
+                <button
+                  type="button"
+                  disabled={!canEdit || isPending}
+                  onClick={() => setModal({ kind: "bin-edit", bin: selectedBin })}
+                  className="flex-1 h-[28px] px-3 rounded text-[11.5px] bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={!canEdit ? "沒有編輯權限" : undefined}
+                >
+                  編輯庫位
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBinId(null)}
+                  className="h-[28px] px-3 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                >
+                  關閉
+                </button>
+              </div>
+            </div>
+          )}
+        </aside>
       </div>
 
       {/* Modals */}
@@ -420,7 +738,15 @@ export function WarehouseBinsBoard({
           onDone={(b) => {
             showBanner(b);
             if (b.ok) {
+              // 刪除庫位 / 改變 bin 後同步重撈 SKU lines
+              const wasSelected = selectedBinId === modal.bin.id;
               setModal({ kind: "none" });
+              if (wasSelected) {
+                // 觸發 useEffect 重新 fetch
+                const cur = selectedBinId;
+                setSelectedBinId(null);
+                setTimeout(() => setSelectedBinId(cur), 0);
+              }
               refresh();
             }
           }}

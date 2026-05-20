@@ -37,6 +37,7 @@ export type FinalInspectionRow = {
   signoff_note: string | null;
   notifications: NotificationLog[];
   next_service: NextService;
+  photos: string[];
   closed_at: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
@@ -289,6 +290,7 @@ async function joinList(
       cleaning: (r.cleaning ?? {}) as Cleaning,
       notifications: Array.isArray(r.notifications) ? (r.notifications as NotificationLog[]) : [],
       next_service: (r.next_service ?? {}) as NextService,
+      photos: Array.isArray(r.photos) ? (r.photos as string[]) : [],
       ro_code: ro?.ro_code ?? null,
       ro_status: ro?.status ?? null,
       customer_name: customer,

@@ -2,6 +2,10 @@
  * CRM06B 售後推播通知管理 — 共用 sales 模組的 board，鎖死 kind='aftersales'。
  *
  * 底層走 push_message_templates / push_campaigns 表的 kind='aftersales' row。
+ * A 級對齊（M02-8）：透過 extraAnalyticsSlot / extraLogTopSlot 注入
+ *   - FunnelChart（送達 → 已讀 → 點擊 → 轉化進廠）
+ *   - BarChart（各範本開啟率排行）
+ *   - 標準 @/components/visualization/KpiCard（取代原生本地 KpiCard）
  */
 import { redirect } from "next/navigation";
 
@@ -13,6 +17,10 @@ import { listPushCampaigns, getPushBoardKpi } from "@/domain/sales-push-campaign
 import { listAutomationRules } from "@/domain/sales-push-automation";
 
 import { PushNotificationsBoard } from "../../sales/push-notifications/_components/push-notifications-board";
+import {
+  AftersalesPushAnalyticsHeader,
+  AftersalesPushTemplateRanking,
+} from "./_components/aftersales-push-analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +67,12 @@ export default async function Page({
       initialTab={tab}
       initialStep={Math.min(3, Math.max(1, step))}
       initialCategory={category}
+      extraAnalyticsSlot={
+        <AftersalesPushAnalyticsHeader kpi={kpi} campaigns={campaigns} />
+      }
+      extraLogTopSlot={
+        <AftersalesPushTemplateRanking templates={templates} campaigns={campaigns} />
+      }
     />
   );
 }

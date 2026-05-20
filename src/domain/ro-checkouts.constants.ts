@@ -83,7 +83,8 @@ export type CustomerSignature = {
 export const PAYMENT_METHODS = [
   { id: "credit_card", label: "信用卡", icon: "💳" },
   { id: "cash", label: "現金", icon: "💵" },
-  { id: "mobile", label: "行動支付", icon: "📱" },
+  { id: "line_pay", label: "LINE Pay", icon: "💚" },
+  { id: "mobile", label: "其他行動支付", icon: "📱" },
   { id: "transfer", label: "銀行轉帳", icon: "🏦" },
 ] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]["id"];
@@ -91,7 +92,8 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number]["id"];
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   credit_card: "信用卡",
   cash: "現金",
-  mobile: "行動支付",
+  line_pay: "LINE Pay",
+  mobile: "其他行動支付",
   transfer: "銀行轉帳",
 };
 

@@ -36,7 +36,7 @@ export type AftersalesCustomerInput = {
   is_active?: boolean;
 };
 
-const LIST_PATH = "/aftersales/crm/customer-base";
+const LIST_PATH = "/crm/aftersales/customer-base";
 
 function trim(v: string | null | undefined): string | null {
   if (v == null) return null;

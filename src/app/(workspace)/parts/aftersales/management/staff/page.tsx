@@ -4,7 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import {
-  listAftersalesStaff,
+  listAftersalesStaffWithKpi,
   listAftersalesDepartments,
 } from "@/domain/aftersales-staff";
 import { AFTERSALES_STAFF_PAGE_SIZE_DEFAULT } from "@/domain/aftersales-staff.constants";
@@ -19,6 +19,7 @@ type SearchParams = Promise<{
   dept?: string;
   status?: string;
   auth?: string;
+  view?: string;
   page?: string;
 }>;
 
@@ -47,9 +48,10 @@ export default async function AftersalesStaffPage({
   };
   const page = Math.max(1, Number(sp.page ?? "1") || 1);
   const pageSize = AFTERSALES_STAFF_PAGE_SIZE_DEFAULT;
+  const view = (sp.view === "list" ? "list" : "grid") as "grid" | "list";
 
-  const [{ rows, totalCount }, departments, canEdit] = await Promise.all([
-    listAftersalesStaff(filters, { page, pageSize }),
+  const [{ rows, totalCount, summary }, departments, canEdit] = await Promise.all([
+    listAftersalesStaffWithKpi(filters, { page, pageSize }),
     listAftersalesDepartments(),
     hasPermission(PERMISSIONS.EMPLOYEE_EDIT),
   ]);
@@ -58,9 +60,11 @@ export default async function AftersalesStaffPage({
     <StaffBoard
       rows={rows}
       totalCount={totalCount}
+      summary={summary}
       page={page}
       pageSize={pageSize}
       departments={departments}
+      view={view}
       filters={{
         q: filters.q,
         grade: filters.grade,

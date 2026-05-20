@@ -36,17 +36,32 @@ type Tables = Database["public"]["Tables"];
 export type RequisitionRow = Tables["purchase_requisitions"]["Row"];
 export type RequisitionLineRow = Tables["purchase_requisition_lines"]["Row"];
 
+export type RequisitionPriority = "urgent" | "high" | "normal" | "low";
+
 export type RequisitionWithLines = RequisitionRow & {
   org_name: string | null;
   store_name: string | null;
   line_count: number;
   first_item: { code: string; name: string; qty: number } | null;
+  /** 估算總成本（所有 line 的 qty × items.standard_cost 加總） */
+  estimated_cost: number;
+  /** 已用預算百分比（0~999），無 budget_limit 時為 null */
+  budget_used_pct: number | null;
 };
 
 export type RequisitionFilter = {
   status?: string;
   org_id?: string;
   date_from?: string;
+  priority?: string;
+};
+
+export type RequisitionKpi = {
+  pendingApproval: number;
+  approved: number;
+  overdue: number;
+  newThisMonth: number;
+  overBudget: number;
 };
 
 export async function listRequisitions(
@@ -64,6 +79,7 @@ export async function listRequisitions(
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.org_id) q = q.eq("org_id", filter.org_id);
   if (filter.date_from) q = q.gte("required_date", filter.date_from);
+  if (filter.priority) q = q.eq("priority", filter.priority);
 
   const { data: reqs, error } = await q;
   if (error) throw error;
@@ -94,31 +110,46 @@ export async function listRequisitions(
     linesByReq.set(l.req_id, arr);
   }
 
-  // 撈第一筆 line 的 item info（如果有）
-  const firstItemIds = Array.from(
+  // 撈所有 line 涉及的 item info + standard_cost（一次性 batch）
+  const allItemIds = Array.from(
     new Set(
       Array.from(linesByReq.values())
-        .map((arr) => arr[0]?.item_id)
+        .flat()
+        .map((l) => l.item_id)
         .filter((x): x is string => !!x),
     ),
   );
-  let itemMap = new Map<string, { code: string; name: string }>();
-  if (firstItemIds.length > 0) {
+  let itemMap = new Map<string, { code: string; name: string; standard_cost: number }>();
+  if (allItemIds.length > 0) {
     const { data: items, error: iErr } = await supabase
       .from("items")
-      .select("id, code, name")
-      .in("id", firstItemIds);
+      .select("id, code, name, standard_cost")
+      .in("id", allItemIds);
     if (iErr) throw iErr;
     itemMap = new Map(
-      (items ?? []).map((it) => [it.id, { code: it.code ?? "", name: it.name ?? "" }]),
+      (items ?? []).map((it) => [
+        it.id,
+        {
+          code: it.code ?? "",
+          name: it.name ?? "",
+          standard_cost: Number(it.standard_cost ?? 0),
+        },
+      ]),
     );
   }
 
   return reqs.map((r) => {
     const lines = linesByReq.get(r.id) ?? [];
     const firstLine = lines[0];
-    const itemMeta =
-      firstLine?.item_id ? itemMap.get(firstLine.item_id) : null;
+    const itemMeta = firstLine?.item_id ? itemMap.get(firstLine.item_id) : null;
+    let estCost = 0;
+    for (const l of lines) {
+      const it = l.item_id ? itemMap.get(l.item_id) : null;
+      if (!it) continue;
+      estCost += (Number(l.qty_required ?? 0)) * it.standard_cost;
+    }
+    const budget = Number(r.budget_limit ?? 0);
+    const usedPct = budget > 0 ? Math.round((estCost / budget) * 100) : null;
     return {
       ...r,
       org_name: r.org_id ? orgMap.get(r.org_id) ?? null : null,
@@ -128,11 +159,58 @@ export async function listRequisitions(
         ? {
             code: itemMeta.code,
             name: itemMeta.name,
-            qty: firstLine?.qty_required ?? 0,
+            qty: Number(firstLine?.qty_required ?? 0),
           }
         : null,
+      estimated_cost: estCost,
+      budget_used_pct: usedPct,
     };
   });
+}
+
+/**
+ * 計算 KPI（待審 / 已核准 / 逾期 / 本月新增 / 超預算）
+ * 注意：直接取目前 brand 全表，不受 filter 影響（KPI 是全集）
+ */
+export async function getRequisitionsKpi(): Promise<RequisitionKpi> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const rows = await listRequisitions({});
+
+  const today = new Date();
+  const todayISO = today.toISOString().slice(0, 10);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+
+  // 全集（不只 5 個 list 顯示的）— 為了精準計數，再次 query 一次 minimal 欄位
+  const { data: all } = await supabase
+    .from("purchase_requisitions")
+    .select("id, status, required_date, created_at, brand_id")
+    .eq("brand_id", scope.brand_id);
+
+  let pendingApproval = 0;
+  let approved = 0;
+  let overdue = 0;
+  let newThisMonth = 0;
+  for (const r of all ?? []) {
+    if (r.status === "submitted") pendingApproval++;
+    if (r.status === "approved") approved++;
+    if (
+      (r.status === "submitted" || r.status === "approved") &&
+      r.required_date &&
+      r.required_date < todayISO
+    ) {
+      overdue++;
+    }
+    if (r.created_at && r.created_at.slice(0, 10) >= monthStart) newThisMonth++;
+  }
+
+  const overBudget = rows.filter(
+    (r) => r.budget_used_pct !== null && r.budget_used_pct > 100,
+  ).length;
+
+  return { pendingApproval, approved, overdue, newThisMonth, overBudget };
 }
 
 export async function getRequisitionsPageData(
@@ -140,12 +218,14 @@ export async function getRequisitionsPageData(
 ): Promise<{
   rows: RequisitionWithLines[];
   canEdit: boolean;
+  kpi: RequisitionKpi;
 }> {
-  const [rows, canEdit] = await Promise.all([
+  const [rows, canEdit, kpi] = await Promise.all([
     listRequisitions(filter),
     hasPermission(PERMISSIONS.PR_APPROVE),
+    getRequisitionsKpi(),
   ]);
-  return { rows, canEdit };
+  return { rows, canEdit, kpi };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -157,6 +237,8 @@ export type RequisitionInput = {
   org_id: string | null;       // 申請門店
   required_date: string | null;
   notes: string | null;         // 需求原因（自由文字）
+  priority: RequisitionPriority;
+  budget_limit: number | null;
   // 第一條 line（demo：每張單先固定 1 line）
   item_id: string | null;
   qty_required: number;
@@ -224,6 +306,8 @@ export async function createRequisition(
       status: "submitted",
       required_date: trim(input.required_date),
       notes: trim(input.notes),
+      priority: input.priority,
+      budget_limit: input.budget_limit,
       created_by: ctx.userId,
     })
     .select("id, req_no")
@@ -267,6 +351,8 @@ export async function updateRequisition(
       org_id: input.org_id,
       required_date: trim(input.required_date),
       notes: trim(input.notes),
+      priority: input.priority,
+      budget_limit: input.budget_limit,
     })
     .eq("id", id)
     .eq("brand_id", brand);
@@ -325,6 +411,31 @@ async function setStatus(
     .eq("id", id)
     .eq("brand_id", (await getActiveScope()).brand_id);
   if (error) return { ok: false, error: `狀態更新失敗：${error.message}` };
+  revalidatePath("/parts/purchase/requisitions");
+  revalidatePath(`/parts/purchase/requisitions/${id}`);
+  return { ok: true, data: null };
+}
+
+/**
+ * 變更需求單 priority（list view inline 切換用）
+ * 任何有 PR_CREATE 權限的人都可改（不需 PR_APPROVE）
+ */
+export async function setRequisitionPriority(
+  id: string,
+  priority: RequisitionPriority,
+): Promise<Result<null>> {
+  await requirePermission(PERMISSIONS.PR_CREATE);
+  if (!["urgent", "high", "normal", "low"].includes(priority)) {
+    return { ok: false, error: "無效的優先度" };
+  }
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { error } = await supabase
+    .from("purchase_requisitions")
+    .update({ priority })
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `更新失敗：${error.message}` };
   revalidatePath("/parts/purchase/requisitions");
   revalidatePath(`/parts/purchase/requisitions/${id}`);
   return { ok: true, data: null };
@@ -391,6 +502,7 @@ export interface RequisitionDetailPageData {
   lines: LineRow[];
   items: ItemRef[];
   orgs: OrgRef[];
+  estimatedCost: number;
 }
 
 export async function getRequisitionDetailPageData(
@@ -402,7 +514,7 @@ export async function getRequisitionDetailPageData(
   const { data: req, error: reqErr } = await supabase
     .from("purchase_requisitions")
     .select(
-      "id, req_no, org_id, status, required_date, notes, source, approved_at, created_at, updated_at",
+      "id, req_no, org_id, status, required_date, notes, source, approved_at, created_at, updated_at, priority, budget_limit",
     )
     .eq("id", id)
     .eq("brand_id", brand)
@@ -426,11 +538,11 @@ export async function getRequisitionDetailPageData(
 
   const lines = (linesRes.data ?? []) as unknown as LineRow[];
   const itemIds = Array.from(new Set(lines.map((l) => l.item_id)));
-  const linkedItems: ItemRef[] = itemIds.length
-    ? ((
-        await supabase.from("items").select("id, code, name").in("id", itemIds)
-      ).data ?? []) as unknown as ItemRef[]
-    : [];
+  // 撈 linked items 帶上 standard_cost（為了 estimatedCost 計算）
+  const linkedRes = itemIds.length
+    ? await supabase.from("items").select("id, code, name, standard_cost").in("id", itemIds)
+    : { data: [] as Array<{ id: string; code: string; name: string; standard_cost: number | null }> };
+  const linkedWithCost = linkedRes.data ?? [];
 
   const { data: allItemsData } = await supabase
     .from("items")
@@ -442,12 +554,28 @@ export async function getRequisitionDetailPageData(
   const allItems = (allItemsData ?? []) as unknown as ItemRef[];
 
   const itemMap = new Map(allItems.map((i) => [i.id, i]));
-  for (const it of linkedItems) if (!itemMap.has(it.id)) itemMap.set(it.id, it);
+  for (const it of linkedWithCost) {
+    if (!itemMap.has(it.id)) {
+      itemMap.set(it.id, { id: it.id, code: it.code ?? "", name: it.name ?? "" });
+    }
+  }
+
+  // 估算 cost：每條 line × items.standard_cost 加總
+  const costByItem = new Map<string, number>();
+  for (const it of linkedWithCost) {
+    costByItem.set(it.id, Number(it.standard_cost ?? 0));
+  }
+  let estimatedCost = 0;
+  for (const l of lines) {
+    const c = costByItem.get(l.item_id) ?? 0;
+    estimatedCost += Number(l.qty_required ?? 0) * c;
+  }
 
   return {
     requisition: req as unknown as DetailRequisition,
     lines,
     items: Array.from(itemMap.values()),
     orgs: (orgsRes.data ?? []) as unknown as OrgRef[],
+    estimatedCost,
   };
 }

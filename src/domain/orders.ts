@@ -85,12 +85,75 @@ export async function getOrdersPageData(filter: {
 } = {}): Promise<{
   rows: PurchaseOrderListRow[];
   canEdit: boolean;
+  kpis: PurchaseOrderKpis;
 }> {
-  const [rows, canEdit] = await Promise.all([
+  const [rows, canEdit, kpis] = await Promise.all([
     listPurchaseOrders(filter),
     hasPermission(PERMISSIONS.PO_CREATE),
+    getPurchaseOrderKpis(),
   ]);
-  return { rows, canEdit };
+  return { rows, canEdit, kpis };
+}
+
+// ─────────────────────────────────────────────────────────────
+// KPI — 給 board.tsx 頂部 KpiCard 列用
+// ─────────────────────────────────────────────────────────────
+
+export type PurchaseOrderKpis = {
+  newThisMonth: number;        // 本月新增（po_date 落在本月）
+  pendingApproval: number;     // 草稿/待審核（status = draft）
+  inTransit: number;           // 在途（approved 或 partial，尚未 closed）
+  receivedThisMonth: number;   // 本月已收貨（closed 且 closed_at 落在本月）
+  overdue: number;             // 逾期（approved/partial 且 eta_date < 今天）
+};
+
+export async function getPurchaseOrderKpis(): Promise<PurchaseOrderKpis> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const [newRes, pendRes, inTransitRes, receivedRes, overdueRes] = await Promise.all([
+    supabase
+      .from("purchase_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", scope.brand_id)
+      .gte("po_date", firstOfMonth),
+    supabase
+      .from("purchase_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", scope.brand_id)
+      .eq("status", "draft"),
+    supabase
+      .from("purchase_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", scope.brand_id)
+      .in("status", ["approved", "partial"]),
+    supabase
+      .from("purchase_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", scope.brand_id)
+      .eq("status", "closed")
+      .gte("closed_at", firstOfMonth),
+    supabase
+      .from("purchase_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", scope.brand_id)
+      .in("status", ["approved", "partial"])
+      .lt("eta_date", todayStr),
+  ]);
+
+  return {
+    newThisMonth: newRes.count ?? 0,
+    pendingApproval: pendRes.count ?? 0,
+    inTransit: inTransitRes.count ?? 0,
+    receivedThisMonth: receivedRes.count ?? 0,
+    overdue: overdueRes.count ?? 0,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────

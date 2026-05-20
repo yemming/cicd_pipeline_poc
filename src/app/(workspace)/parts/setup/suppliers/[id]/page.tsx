@@ -7,6 +7,7 @@ import {
   getSupplierById,
   getContractsBySupplierId,
   getSupplierLookups,
+  getSupplierMetrics,
 } from "@/domain/suppliers";
 
 import { SupplierDetailView } from "./_components/supplier-detail-view";
@@ -37,12 +38,16 @@ export default async function SupplierDetailPage({
   ]);
   if (!supplier) notFound();
 
-  const contracts = await getContractsBySupplierId(supplier.id);
+  const [contracts, metrics] = await Promise.all([
+    getContractsBySupplierId(supplier.id),
+    getSupplierMetrics(supplier.id),
+  ]);
 
   return (
     <SupplierDetailView
       supplier={supplier}
       contracts={contracts}
+      metrics={metrics}
       coaOptions={lookups.coaOptions}
       taxCodeOptions={lookups.taxCodeOptions}
       canEdit={canEdit}

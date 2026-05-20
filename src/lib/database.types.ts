@@ -6543,6 +6543,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           brand_id: string
+          budget_limit: number | null
           created_at: string
           created_by: string | null
           external_id: string | null
@@ -6551,6 +6552,7 @@ export type Database = {
           metadata: Json | null
           notes: string | null
           org_id: string | null
+          priority: string
           req_no: string
           required_date: string | null
           source: string
@@ -6564,6 +6566,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           brand_id?: string
+          budget_limit?: number | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
@@ -6572,6 +6575,7 @@ export type Database = {
           metadata?: Json | null
           notes?: string | null
           org_id?: string | null
+          priority?: string
           req_no: string
           required_date?: string | null
           source?: string
@@ -6585,6 +6589,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           brand_id?: string
+          budget_limit?: number | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
@@ -6593,6 +6598,7 @@ export type Database = {
           metadata?: Json | null
           notes?: string | null
           org_id?: string | null
+          priority?: string
           req_no?: string
           required_date?: string | null
           source?: string
@@ -10688,10 +10694,12 @@ export type Database = {
           external_source: string
           id: string
           is_active: boolean
+          is_warranty_staging: boolean
           metadata: Json | null
           name: string
           notes: string | null
           org_id: string | null
+          sort_order: number
           synced_at: string | null
           type: string
           updated_at: string
@@ -10705,10 +10713,12 @@ export type Database = {
           external_source?: string
           id?: string
           is_active?: boolean
+          is_warranty_staging?: boolean
           metadata?: Json | null
           name: string
           notes?: string | null
           org_id?: string | null
+          sort_order?: number
           synced_at?: string | null
           type?: string
           updated_at?: string
@@ -10722,10 +10732,12 @@ export type Database = {
           external_source?: string
           id?: string
           is_active?: boolean
+          is_warranty_staging?: boolean
           metadata?: Json | null
           name?: string
           notes?: string | null
           org_id?: string | null
+          sort_order?: number
           synced_at?: string | null
           type?: string
           updated_at?: string

@@ -3,74 +3,42 @@
 /**
  * Domain Helper — Aftersales Repair Order Addons（追加項目記錄）
  *
- * 對應頁面：/parts/aftersales/addons（全廠 list）+ 內嵌 decideAddon 操作
+ * 對應頁面：/parts/aftersales/addons（全廠 list）+ /parts/aftersales/addons/[id] (detail)
  * Spec：docs/DUCATI_售後工單模組_..._最新版/04_追加項目記錄.html
  *
  * 結構：
  *   repair_order_addons (envelope) — 決策過程紀錄
  *     ↳ agreed → INSERT repair_order_lines (source='addon', source_ref_id=addon.id)
  *     ↳ rejected/deferred + safety → metadata.requires_followup=true（05 之後接走）
+ *
+ * 鐵律 #8：server-only module，types 全部抽到 repair-order-addons.constants.ts。
+ * 這裡只 export async function。
  */
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
 
-export type AddonType = "labor" | "parts" | "labor_and_parts";
-export type SafetyLevel = "normal" | "safety_related" | "safety_critical";
-export type ConfirmMethod = "phone" | "onsite" | "line";
-export type CustomerDecision = "pending" | "agreed" | "deferred" | "rejected" | "cancelled";
+import type {
+  AddonsListFilter,
+  AddonsSummary,
+  RepairOrderAddonRow,
+  RepairOrderAddonWithRo,
+  RoOptionForAddons,
+} from "./repair-order-addons.constants";
 
-export type RepairOrderAddonRow = {
-  id: string;
-  brand_id: string;
-  ro_id: string;
-  addon_no: number;
-  name: string;
-  addon_type: AddonType;
-  safety_level: SafetyLevel;
-  estimated_fee: number;
-  tech_reason: string | null;
-  proposed_by: string | null;
-  proposed_at: string;
-  confirm_method: ConfirmMethod | null;
-  customer_decision: CustomerDecision;
-  customer_decision_at: string | null;
-  decided_by_sa_id: string | null;
-  decision_note: string | null;
-  followup_case_id: string | null;
-  reserved_at: string | null;
-  metadata: Record<string, unknown> | null;
-  created_at: string | null;
-  updated_at: string | null;
-};
-
-export type RepairOrderAddonWithRo = RepairOrderAddonRow & {
-  ro: {
-    id: string;
-    ro_code: string;
-    status: string;
-    customer_name: string | null;
-    vehicle_license_plate: string | null;
-  } | null;
-};
-
-export type AddonsListFilter = {
-  decision?: CustomerDecision | "all";
-  safetyLevel?: SafetyLevel | "all";
-  roId?: string | null;
-  q?: string | null;
-};
-
-export type AddonsSummary = {
-  total: number;
-  pending: number;
-  agreed: number;
-  deferred: number;
-  rejected: number;
-  agreedAmount: number;
-  rejectedAmount: number;
-  followupNeeded: number;
-};
+function emptySummary(): AddonsSummary {
+  return {
+    total: 0,
+    pending: 0,
+    agreed: 0,
+    deferred: 0,
+    rejected: 0,
+    cancelled: 0,
+    agreedAmount: 0,
+    rejectedAmount: 0,
+    followupNeeded: 0,
+  };
+}
 
 export async function listAddons(
   filter: AddonsListFilter = {},
@@ -110,9 +78,7 @@ export async function listAddons(
   if (roIds.length > 0) {
     const { data: ros } = await supabase
       .from("repair_orders")
-      .select(
-        "id, ro_code, status, customer_name, vehicle_license_plate",
-      )
+      .select("id, ro_code, status, customer_name, vehicle_license_plate")
       .in("id", roIds);
     for (const r of ros ?? []) {
       roMap.set(r.id, r as RepairOrderAddonWithRo["ro"]);
@@ -126,7 +92,7 @@ export async function listAddons(
 
   const summary = rows.reduce<AddonsSummary>((acc, r) => {
     acc.total += 1;
-    acc[r.customer_decision === "cancelled" ? "rejected" : r.customer_decision] += 1;
+    acc[r.customer_decision] += 1;
     if (r.customer_decision === "agreed") acc.agreedAmount += Number(r.estimated_fee ?? 0);
     if (r.customer_decision === "rejected") acc.rejectedAmount += Number(r.estimated_fee ?? 0);
     const meta = (r.metadata ?? {}) as Record<string, unknown>;
@@ -137,7 +103,9 @@ export async function listAddons(
   return { rows, summary };
 }
 
-export async function getAddonById(id: string): Promise<RepairOrderAddonWithRo | null> {
+export async function getAddonById(
+  id: string,
+): Promise<RepairOrderAddonWithRo | null> {
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
   const { data: a } = await supabase
@@ -152,12 +120,51 @@ export async function getAddonById(id: string): Promise<RepairOrderAddonWithRo |
     .select("id, ro_code, status, customer_name, vehicle_license_plate")
     .eq("id", a.ro_id)
     .maybeSingle();
-  return { ...(a as RepairOrderAddonRow), ro: (ro ?? null) as RepairOrderAddonWithRo["ro"] };
+  return {
+    ...(a as RepairOrderAddonRow),
+    ro: (ro ?? null) as RepairOrderAddonWithRo["ro"],
+  };
 }
 
-export async function listRoOptionsForAddons(): Promise<
-  { id: string; ro_code: string; status: string; customer_name: string | null }[]
+/**
+ * 取「同意後」自動寫進 repair_order_lines 的明細，用於 detail page 顯示連動結果
+ */
+export async function listLinesFromAddon(
+  addonId: string,
+): Promise<
+  Array<{
+    id: string;
+    line_no: number;
+    kind: string;
+    labor_name: string | null;
+    part_name: string | null;
+    qty: number | null;
+    unit_price: number | null;
+    amount: number | null;
+  }>
 > {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data } = await supabase
+    .from("repair_order_lines")
+    .select("id, line_no, kind, labor_name, part_name, qty, unit_price, amount")
+    .eq("brand_id", brand)
+    .eq("source", "addon")
+    .eq("source_ref_id", addonId)
+    .order("line_no", { ascending: true });
+  return (data ?? []) as Array<{
+    id: string;
+    line_no: number;
+    kind: string;
+    labor_name: string | null;
+    part_name: string | null;
+    qty: number | null;
+    unit_price: number | null;
+    amount: number | null;
+  }>;
+}
+
+export async function listRoOptionsForAddons(): Promise<RoOptionForAddons[]> {
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
   const { data } = await supabase
@@ -167,18 +174,5 @@ export async function listRoOptionsForAddons(): Promise<
     .in("status", ["進行中", "維修中", "待結帳"])
     .order("created_at", { ascending: false })
     .limit(200);
-  return (data ?? []) as { id: string; ro_code: string; status: string; customer_name: string | null }[];
-}
-
-function emptySummary(): AddonsSummary {
-  return {
-    total: 0,
-    pending: 0,
-    agreed: 0,
-    deferred: 0,
-    rejected: 0,
-    agreedAmount: 0,
-    rejectedAmount: 0,
-    followupNeeded: 0,
-  };
+  return (data ?? []) as RoOptionForAddons[];
 }

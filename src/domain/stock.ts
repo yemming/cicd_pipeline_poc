@@ -13,7 +13,14 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
 import type { Database } from "@/lib/database.types";
-import { BALANCE_PAGE_SIZE_DEFAULT } from "./stock.constants";
+import {
+  BALANCE_PAGE_SIZE_DEFAULT,
+  classifyWarranty,
+  deriveLifecycleStages,
+  type SerialLifecycleStage,
+  type WarrantyClassification,
+  type WarrantyStatus,
+} from "./stock.constants";
 
 type Tables = Database["public"]["Tables"];
 export type StockItemRow = Tables["stock_items"]["Row"];
@@ -365,6 +372,183 @@ export async function querySerialNo(serialNo: string): Promise<SerialTraceResult
     },
     history,
   };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 序列號生命週期（Phase 2 · M04U-10 序列號追蹤升級用）
+//
+// 把 querySerialNo 的結果再包一層，補上：
+//   - 5 stage 生命週期分類（receipt → in_stock → reserved → issued → warranty）
+//   - 保固狀態（active / expiring_soon / expired / none）
+// type 與純函式都放在 stock.constants.ts、這裡只有 async server function。
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * 拿到完整序號生命週期（含 5 段 stage + 保固判讀），給 serial-tracking 頁
+ * 的「序號生命週期 Timeline」用。
+ */
+export async function getSerialLifecycle(serialNo: string): Promise<
+  | { found: false; serial_no: string }
+  | {
+      found: true;
+      serial_no: string;
+      item: { id: string; code: string; name: string };
+      current: SerialTraceCurrent;
+      history: SerialTraceEvent[];
+      stages: SerialLifecycleStage[];
+      warranty: WarrantyClassification;
+    }
+> {
+  const base = await querySerialNo(serialNo);
+  if (!base.found) return base;
+
+  // 撈保固欄位（querySerialNo 沒拉、stock_items 上有 warranty_start/end）
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data: warrantyRow } = await supabase
+    .from("stock_items")
+    .select("warranty_start, warranty_end")
+    .eq("brand_id", scope.brand_id)
+    .eq("serial_no", base.serial_no)
+    .order("last_movement_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const warranty = classifyWarranty(
+    warrantyRow?.warranty_start ?? null,
+    warrantyRow?.warranty_end ?? null,
+  );
+
+  const stages = deriveLifecycleStages(base.history, base.current, warranty);
+
+  return {
+    found: true,
+    serial_no: base.serial_no,
+    item: base.item,
+    current: base.current,
+    history: base.history,
+    stages,
+    warranty,
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 序列號 KPI（給 serial-tracking 頂部 KpiCard 列用）
+// ──────────────────────────────────────────────────────────────────────────
+
+export async function getSerialTrackingKpis(): Promise<{
+  tracked_skus: number;
+  in_stock_serials: number;
+  issued_serials: number;
+  warranty_expiring: number;
+}> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const today = new Date();
+  const todayIso = today.toISOString().slice(0, 10);
+  const future = new Date(today);
+  future.setDate(future.getDate() + 60);
+  const futureIso = future.toISOString().slice(0, 10);
+
+  const [trackedSkus, inStock, issued, warrantyExp] = await Promise.all([
+    supabase
+      .from("items")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", scope.brand_id)
+      .eq("serial_tracking_required", true)
+      .eq("is_active", true),
+    supabase
+      .from("stock_items")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", scope.brand_id)
+      .eq("status", "available")
+      .not("serial_no", "is", null),
+    supabase
+      .from("stock_items")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", scope.brand_id)
+      .eq("status", "issued")
+      .not("serial_no", "is", null),
+    supabase
+      .from("stock_items")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", scope.brand_id)
+      .not("serial_no", "is", null)
+      .gte("warranty_end", todayIso)
+      .lte("warranty_end", futureIso),
+  ]);
+
+  return {
+    tracked_skus: trackedSkus.count ?? 0,
+    in_stock_serials: inStock.count ?? 0,
+    issued_serials: issued.count ?? 0,
+    warranty_expiring: warrantyExp.count ?? 0,
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 最近追蹤紀錄（右側 panel 用）
+// ──────────────────────────────────────────────────────────────────────────
+
+export async function listRecentSerialActivities(limit: number = 8): Promise<
+  Array<{
+    serial_no: string;
+    item_code: string;
+    item_name: string;
+    status: string;
+    warehouse_name: string | null;
+    last_movement_at: string;
+    warranty_status: WarrantyStatus;
+  }>
+> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: items, error } = await supabase
+    .from("stock_items")
+    .select(
+      "serial_no, item_id, warehouse_id, status, warranty_start, warranty_end, last_movement_at",
+    )
+    .eq("brand_id", scope.brand_id)
+    .not("serial_no", "is", null)
+    .order("last_movement_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  if (!items || items.length === 0) return [];
+
+  const itemIds = Array.from(new Set(items.map((s) => s.item_id).filter((x): x is string => !!x)));
+  const warehouseIds = Array.from(
+    new Set(items.map((s) => s.warehouse_id).filter((x): x is string => !!x)),
+  );
+
+  const [itemRes, whRes] = await Promise.all([
+    itemIds.length > 0
+      ? supabase.from("items").select("id, code, name").in("id", itemIds)
+      : Promise.resolve({ data: [] as { id: string; code: string | null; name: string | null }[] }),
+    warehouseIds.length > 0
+      ? supabase.from("warehouses").select("id, name").in("id", warehouseIds)
+      : Promise.resolve({ data: [] as { id: string; name: string | null }[] }),
+  ]);
+
+  const iMap = new Map(
+    (itemRes.data ?? []).map((i) => [i.id, { code: i.code ?? "", name: i.name ?? "" }]),
+  );
+  const wMap = new Map((whRes.data ?? []).map((w) => [w.id, w.name ?? ""]));
+
+  return items.map((s) => {
+    const meta = iMap.get(s.item_id ?? "");
+    const w = classifyWarranty(s.warranty_start ?? null, s.warranty_end ?? null);
+    return {
+      serial_no: s.serial_no ?? "",
+      item_code: meta?.code ?? "",
+      item_name: meta?.name ?? "",
+      status: s.status ?? "",
+      warehouse_name: s.warehouse_id ? wMap.get(s.warehouse_id) ?? null : null,
+      last_movement_at: s.last_movement_at ?? "",
+      warranty_status: w.status,
+    };
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────

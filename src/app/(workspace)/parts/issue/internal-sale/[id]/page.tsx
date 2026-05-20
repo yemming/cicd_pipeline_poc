@@ -3,7 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getIssueById } from "@/domain/issues";
+import {
+  getInternalSaleIssueById,
+  listDestinationStores,
+} from "@/domain/internal-sale-issues";
 
 import { InternalSaleDetailView } from "./_components/internal-sale-detail-view";
 
@@ -25,9 +28,18 @@ export default async function InternalSaleDetailPage({
   }
 
   const { id } = await params;
-  const issue = await getIssueById(id);
+  const [issue, destinationStores] = await Promise.all([
+    getInternalSaleIssueById(id),
+    listDestinationStores(),
+  ]);
   if (!issue) notFound();
 
   const canEdit = await hasPermission(PERMISSIONS.ISSUE_CREATE);
-  return <InternalSaleDetailView issue={issue} canEdit={canEdit} />;
+  return (
+    <InternalSaleDetailView
+      issue={issue}
+      destinationStores={destinationStores}
+      canEdit={canEdit}
+    />
+  );
 }

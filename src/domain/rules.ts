@@ -990,14 +990,86 @@ export async function saveSerialTrackingRules(
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// control_type helpers（管控類型定義 — Phase 1 readonly）
+// control_type helpers（管控類型定義 — A 級：含 SKU 統計與相關規則 drill-down）
 // ──────────────────────────────────────────────────────────────────────────
 
 export async function getControlTypesPageData(): Promise<{
   controlTypes: BusinessRuleRow[];
+  skuCounts: { code: string; count: number }[];
+  totalSkus: number;
+  inactiveSkus: number;
+  relatedRules: {
+    purchase_authority: number;
+    alert_rule: number;
+    count_tolerance: number;
+    count_workflow: number;
+  };
 }> {
-  const controlTypes = await listRulesByKind("control_type");
-  return { controlTypes };
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const [controlTypes, skuRes, inactiveRes, purchaseAuthRes, alertRuleRes, countTolRes, countWfRes] =
+    await Promise.all([
+      listRulesByKind("control_type"),
+      supabase
+        .from("items")
+        .select("control_type", { count: "exact" })
+        .eq("brand_id", scope.brand_id)
+        .eq("is_active", true),
+      supabase
+        .from("items")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", scope.brand_id)
+        .eq("is_active", false),
+      supabase
+        .from("business_rules")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", scope.brand_id)
+        .eq("rule_kind", "purchase_authority")
+        .eq("is_active", true),
+      supabase
+        .from("business_rules")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", scope.brand_id)
+        .eq("rule_kind", "alert_rule")
+        .eq("is_active", true),
+      supabase
+        .from("business_rules")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", scope.brand_id)
+        .eq("rule_kind", "count_tolerance")
+        .eq("is_active", true),
+      supabase
+        .from("business_rules")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", scope.brand_id)
+        .eq("rule_kind", "count_workflow")
+        .eq("is_active", true),
+    ]);
+
+  if (skuRes.error) throw new Error(`control_type skuCounts: ${skuRes.error.message}`);
+
+  // group by control_type 在 client side 做（資料量小、避免 RPC）
+  const countMap = new Map<string, number>();
+  for (const row of skuRes.data ?? []) {
+    const code = (row as { control_type: string | null }).control_type ?? "—";
+    countMap.set(code, (countMap.get(code) ?? 0) + 1);
+  }
+  const skuCounts = Array.from(countMap.entries()).map(([code, count]) => ({ code, count }));
+  const totalSkus = skuRes.count ?? 0;
+
+  return {
+    controlTypes,
+    skuCounts,
+    totalSkus,
+    inactiveSkus: inactiveRes.count ?? 0,
+    relatedRules: {
+      purchase_authority: purchaseAuthRes.count ?? 0,
+      alert_rule: alertRuleRes.count ?? 0,
+      count_tolerance: countTolRes.count ?? 0,
+      count_workflow: countWfRes.count ?? 0,
+    },
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1074,4 +1146,194 @@ export async function saveCountToleranceRule(
   if (error) return { ok: false, error: mapDbError(error, "新增容許率規則失敗") };
   for (const p of COUNT_RULES_REVALIDATE) revalidatePath(p);
   return { ok: true, data: { id: data.id } };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// count_workflow CRUD（盤點審核流程規則）— Phase 2 A 級升級
+// ──────────────────────────────────────────────────────────────────────────
+
+export type CountWorkflowInput = {
+  category: "within" | "overflow" | "a_class_force";
+  label: string;
+  description: string;
+  tone: "neutral" | "amber" | "red";
+  badge_label: string;
+  badge_kind: "teal" | "pend" | "red";
+  sort_order?: number;
+};
+
+function validateCountWorkflowInput(input: CountWorkflowInput): string | null {
+  if (!input.label?.trim()) return "規則名稱必填";
+  if (!input.description?.trim()) return "規則描述必填";
+  if (!["within", "overflow", "a_class_force"].includes(input.category)) {
+    return "category 不合法";
+  }
+  if (!["neutral", "amber", "red"].includes(input.tone)) return "tone 不合法";
+  if (!["teal", "pend", "red"].includes(input.badge_kind)) return "badge_kind 不合法";
+  if (!input.badge_label?.trim()) return "徽章文字必填";
+  return null;
+}
+
+function inputToWorkflowConfig(input: CountWorkflowInput): CountWorkflowConfig {
+  return {
+    category: input.category,
+    label: input.label.trim(),
+    description: input.description.trim(),
+    tone: input.tone,
+    badge: { label: input.badge_label.trim(), kind: input.badge_kind },
+  };
+}
+
+export async function createCountWorkflowAction(
+  input: CountWorkflowInput,
+): Promise<Result<{ id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.PARTS_COUNT_RULE_EDIT))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const err = validateCountWorkflowInput(input);
+  if (err) return { ok: false, error: err };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { userId } = await getCurrentUserAndAdmin();
+
+  // 同 brand 內同 category 不可重複（業務規則：每個情境只能有一條規則）
+  const dup = await supabase
+    .from("business_rules")
+    .select("id")
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "count_workflow")
+    .contains("config", { category: input.category })
+    .maybeSingle();
+  if (dup.data?.id) {
+    return { ok: false, error: `情境「${input.category}」已存在，請改編輯既有規則` };
+  }
+
+  const config = inputToWorkflowConfig(input);
+  const { data, error } = await supabase
+    .from("business_rules")
+    .insert({
+      brand_id: scope.brand_id,
+      rule_kind: "count_workflow",
+      scope_role_code: null,
+      scope_store_id: null,
+      config: config as unknown as Database["public"]["Tables"]["business_rules"]["Insert"]["config"],
+      sort_order: input.sort_order ?? 99,
+      is_active: true,
+      created_by: userId ?? null,
+      updated_by: userId ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: mapDbError(error, "新增審核流程規則失敗") };
+  for (const p of COUNT_RULES_REVALIDATE) revalidatePath(p);
+  return { ok: true, data: { id: data.id } };
+}
+
+export async function updateCountWorkflowAction(
+  id: string,
+  patch: Partial<CountWorkflowInput>,
+): Promise<Result<{ id: string }>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  if (!(await hasPermission(PERMISSIONS.PARTS_COUNT_RULE_EDIT))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { userId } = await getCurrentUserAndAdmin();
+
+  const cur = await supabase
+    .from("business_rules")
+    .select("config")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "count_workflow")
+    .maybeSingle();
+  if (cur.error) return { ok: false, error: mapDbError(cur.error, "讀取現況失敗") };
+  if (!cur.data) return { ok: false, error: "規則不存在" };
+
+  const curCfg = (cur.data.config ?? {}) as Partial<CountWorkflowConfig>;
+  const curBadge = curCfg.badge ?? { label: "", kind: "teal" as const };
+  const merged: CountWorkflowInput = {
+    category: (patch.category ?? curCfg.category ?? "within") as CountWorkflowInput["category"],
+    label: patch.label ?? curCfg.label ?? "",
+    description: patch.description ?? curCfg.description ?? "",
+    tone: (patch.tone ?? curCfg.tone ?? "neutral") as CountWorkflowInput["tone"],
+    badge_label: patch.badge_label ?? curBadge.label ?? "",
+    badge_kind: (patch.badge_kind ?? curBadge.kind ?? "teal") as CountWorkflowInput["badge_kind"],
+  };
+  const err = validateCountWorkflowInput(merged);
+  if (err) return { ok: false, error: err };
+
+  // category 改了 → 檢查不撞其他 row
+  if (merged.category !== curCfg.category) {
+    const dup = await supabase
+      .from("business_rules")
+      .select("id")
+      .eq("brand_id", scope.brand_id)
+      .eq("rule_kind", "count_workflow")
+      .neq("id", id)
+      .contains("config", { category: merged.category })
+      .maybeSingle();
+    if (dup.data?.id) {
+      return { ok: false, error: `情境「${merged.category}」已存在` };
+    }
+  }
+
+  const config = inputToWorkflowConfig(merged);
+  const updates: Record<string, unknown> = {
+    config: config as unknown as Database["public"]["Tables"]["business_rules"]["Update"]["config"],
+    updated_by: userId ?? null,
+  };
+  if (patch.sort_order !== undefined) updates.sort_order = patch.sort_order;
+
+  const { error } = await supabase
+    .from("business_rules")
+    .update(updates)
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: mapDbError(error, "更新審核流程規則失敗") };
+  for (const p of COUNT_RULES_REVALIDATE) revalidatePath(p);
+  return { ok: true, data: { id } };
+}
+
+export async function setCountWorkflowActiveAction(
+  id: string,
+  active: boolean,
+): Promise<Result<{ id: string }>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  if (!(await hasPermission(PERMISSIONS.PARTS_COUNT_RULE_EDIT))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("business_rules")
+    .update({ is_active: active })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "count_workflow");
+  if (error) return { ok: false, error: mapDbError(error, "切換啟用狀態失敗") };
+  for (const p of COUNT_RULES_REVALIDATE) revalidatePath(p);
+  return { ok: true, data: { id } };
+}
+
+export async function deleteCountWorkflowAction(
+  id: string,
+): Promise<Result<{ id: string }>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  if (!(await hasPermission(PERMISSIONS.PARTS_COUNT_RULE_EDIT))) {
+    return { ok: false, error: "沒有編輯權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("business_rules")
+    .delete()
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("rule_kind", "count_workflow");
+  if (error) return { ok: false, error: mapDbError(error, "刪除審核流程規則失敗") };
+  for (const p of COUNT_RULES_REVALIDATE) revalidatePath(p);
+  return { ok: true, data: { id } };
 }

@@ -20,6 +20,8 @@ import type {
   ListSalesOrdersFilter,
   CustomerPickRow,
   VehicleModelPickRow,
+  SalesOrderKpis,
+  SalesOrderStatusBreakdown,
 } from "./sales-orders.constants";
 
 // ─────────────────────────────────────────────────────────────
@@ -34,9 +36,100 @@ export type {
   ListSalesOrdersFilter,
   CustomerPickRow,
   VehicleModelPickRow,
+  SalesOrderKpis,
+  SalesOrderStatusBreakdown,
 } from "./sales-orders.constants";
 
 export const ORDERS_PAGE_SIZE_DEFAULT = 50;
+
+// ─────────────────────────────────────────────────────────────
+// KPI / Funnel — A 級升級（2026-05-20，M01-8）
+// ─────────────────────────────────────────────────────────────
+
+export async function getSalesOrderKpis(): Promise<SalesOrderKpis> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const today = new Date();
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    .toISOString()
+    .slice(0, 10);
+
+  const [monthlyRes, pendingDeliveryRes, fulfilledRes, pendingApprovalRes] =
+    await Promise.all([
+      supabase
+        .from("sales_orders")
+        .select("total_amount, deal_price", { count: "exact" })
+        .eq("brand_id", scope.brand_id)
+        .gte("created_at", `${monthStart}T00:00:00Z`)
+        .lte("created_at", `${monthEnd}T23:59:59Z`),
+      supabase
+        .from("sales_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", scope.brand_id)
+        .eq("status", "signed"),
+      supabase
+        .from("sales_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", scope.brand_id)
+        .eq("status", "fulfilled")
+        .gte("fulfilled_at", `${monthStart}T00:00:00Z`)
+        .lte("fulfilled_at", `${monthEnd}T23:59:59Z`),
+      supabase
+        .from("sales_orders")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", scope.brand_id)
+        .eq("status", "submitted"),
+    ]);
+
+  const rows = (monthlyRes.data ?? []) as Array<{
+    total_amount: number | null;
+    deal_price: number | null;
+  }>;
+  const monthlyAmount = rows.reduce(
+    (sum, r) => sum + (Number(r.total_amount ?? r.deal_price) || 0),
+    0,
+  );
+
+  return {
+    monthly_count: monthlyRes.count ?? 0,
+    monthly_amount: monthlyAmount,
+    pending_delivery_count: pendingDeliveryRes.count ?? 0,
+    fulfilled_this_month: fulfilledRes.count ?? 0,
+    pending_approval_count: pendingApprovalRes.count ?? 0,
+  };
+}
+
+export async function getSalesOrderStatusBreakdown(): Promise<
+  SalesOrderStatusBreakdown[]
+> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data, error } = await supabase
+    .from("sales_orders")
+    .select("status")
+    .eq("brand_id", scope.brand_id);
+
+  if (error) {
+    console.error(
+      "[sales-orders] getSalesOrderStatusBreakdown failed:",
+      error.message,
+    );
+    return [];
+  }
+
+  const counts = new Map<SalesOrderStatusBreakdown["status"], number>();
+  for (const r of data ?? []) {
+    const s = r.status as SalesOrderStatusBreakdown["status"];
+    counts.set(s, (counts.get(s) ?? 0) + 1);
+  }
+  return (
+    ["draft", "submitted", "signed", "fulfilled", "cancelled"] as const
+  ).map((s) => ({ status: s, count: counts.get(s) ?? 0 }));
+}
 
 export async function listSalesOrders(
   filter: ListSalesOrdersFilter = {},

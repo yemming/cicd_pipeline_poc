@@ -12,7 +12,9 @@ import {
   rejectRequisition,
   updateRequisition,
   type RequisitionInput,
+  type RequisitionPriority,
 } from "@/domain/requisitions";
+import { GaugeChart } from "@/components/charts";
 
 export type DetailRequisition = {
   id: string;
@@ -25,6 +27,8 @@ export type DetailRequisition = {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  priority: string;
+  budget_limit: number | null;
 };
 
 export type LineRow = {
@@ -50,6 +54,18 @@ const STATUS_META: Record<string, { label: string; chip: string; pillBadge: stri
   cancelled: { label: "已拒絕",     chip: "bg-[#FDECEA] text-[#CC0000]", pillBadge: "bg-[#FDECEA] text-[#CC0000]" },
 };
 
+const PRIORITY_META: Record<string, { label: string; chip: string }> = {
+  urgent: { label: "🔥 緊急", chip: "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]" },
+  high:   { label: "⬆ 高",   chip: "bg-[#FDF3E3] text-[#854F0B] border border-[#F4D78A]" },
+  normal: { label: "─ 中",   chip: "bg-[#EAF4FB] text-[#185FA5] border border-[#B5D4F4]" },
+  low:    { label: "⬇ 低",   chip: "bg-[#F2F2F2] text-[#6B6A68] border border-[#D5D3CB]" },
+};
+
+function fmtTwd(n: number | null | undefined): string {
+  if (n == null) return "—";
+  return `NT$ ${Math.round(Number(n)).toLocaleString("en-US")}`;
+}
+
 function fmtDate(s: string | null): string {
   if (!s) return "—";
   try { return new Date(s).toISOString().slice(0, 10); } catch { return "—"; }
@@ -65,6 +81,7 @@ export function RequisitionDetailView({
   lines: linesProp,
   items,
   orgs,
+  estimatedCost,
   canEdit,
   canApprove,
   forceCreating = false,
@@ -73,6 +90,7 @@ export function RequisitionDetailView({
   lines: LineRow[];
   items: ItemRef[];
   orgs: OrgRef[];
+  estimatedCost?: number;
   canEdit: boolean;
   canApprove: boolean;
   forceCreating?: boolean;
@@ -100,6 +118,10 @@ export function RequisitionDetailView({
     org_id: requisition.org_id,
     required_date: requisition.required_date,
     notes: requisition.notes,
+    priority: (["urgent","high","normal","low"].includes(requisition.priority)
+      ? requisition.priority
+      : "normal") as RequisitionPriority,
+    budget_limit: requisition.budget_limit,
     item_id: firstLine?.item_id ?? null,
     qty_required: firstLine?.qty_required ?? 1,
     uom: firstLine?.uom ?? "個",
@@ -109,6 +131,8 @@ export function RequisitionDetailView({
     org_id: orgs[0]?.id ?? null,
     required_date: new Date().toISOString().slice(0, 10),
     notes: "",
+    priority: "normal",
+    budget_limit: null,
     item_id: null,
     qty_required: 1,
     uom: "個",
@@ -370,6 +394,14 @@ export function RequisitionDetailView({
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${status.chip}`}>
                       {status.label}
                     </span>
+                    {(() => {
+                      const pm = PRIORITY_META[requisition.priority] ?? PRIORITY_META.normal;
+                      return (
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${pm.chip}`}>
+                          {pm.label}
+                        </span>
+                      );
+                    })()}
                     {orgName ? (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EBF3FF] text-[#1A3A5C]">{orgName}</span>
                     ) : null}
@@ -461,6 +493,51 @@ export function RequisitionDetailView({
               </span>
             )}
           />
+          <Kv
+            label="優先度"
+            value={
+              showInputs ? (
+                <select
+                  value={formDraft.priority}
+                  onChange={(e) => setFormDraft({ ...formDraft, priority: e.target.value as RequisitionPriority })}
+                  className={inputClass}
+                >
+                  <option value="urgent">🔥 緊急</option>
+                  <option value="high">⬆ 高</option>
+                  <option value="normal">─ 中</option>
+                  <option value="low">⬇ 低</option>
+                </select>
+              ) : (() => {
+                const pm = PRIORITY_META[requisition.priority] ?? PRIORITY_META.normal;
+                return (
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${pm.chip}`}>
+                    {pm.label}
+                  </span>
+                );
+              })()
+            }
+          />
+          <Kv
+            label="預算上限"
+            value={
+              showInputs ? (
+                <input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={formDraft.budget_limit ?? ""}
+                  placeholder="未設定"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setFormDraft({ ...formDraft, budget_limit: v === "" ? null : Number(v) });
+                  }}
+                  className={inputClass}
+                />
+              ) : (
+                <span className="font-mono">{fmtTwd(requisition.budget_limit)}</span>
+              )
+            }
+          />
           {!creating ? (
             <Kv label="來源" value={requisition.source} mono />
           ) : null}
@@ -547,6 +624,95 @@ export function RequisitionDetailView({
           建立後狀態自動為「待審核」，採購主管核准後即可轉為正式採購單。
         </p>
       ) : null}
+
+      {/* 優先度與預算 — 含 gauge 視覺 */}
+      {!creating ? (() => {
+        const firstLineLocal = linesProp[0] ?? null;
+        const itemMeta = firstLineLocal?.item_id
+          ? itemMap.get(firstLineLocal.item_id)
+          : null;
+        // 估算：第一條 line 的 qty × items.standard_cost（detail 沒撈 cost，用 0 fallback）
+        // 為了實作簡單，這邊直接讓 server-side 算好的不傳；改用 lines + items metadata 嗎？
+        // 折衷：showcase mode — 用 budget_limit 顯示 gauge，cost 顯示「請至列表查看完整數字」
+        const budget = Number(requisition.budget_limit ?? 0);
+        const estCost = estimatedCost ?? 0;
+        const usedPct = budget > 0 ? Math.round((estCost / budget) * 100) : null;
+        const over = usedPct != null && usedPct > 100;
+        return (
+          <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 優先度與預算</span>
+              {over ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]">
+                  ⚠ 超預算 {usedPct}%
+                </span>
+              ) : null}
+            </header>
+            <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3 items-center">
+              {/* gauge */}
+              <div className="md:col-span-1 flex justify-center">
+                {budget > 0 ? (
+                  <div className="w-full max-w-[200px]">
+                    <GaugeChart
+                      value={Math.min(150, usedPct ?? 0)}
+                      max={100}
+                      isPercent
+                      tone={over ? "red" : (usedPct ?? 0) >= 80 ? "amber" : "teal"}
+                      size="md"
+                      label={`${usedPct ?? 0}%`}
+                      caption="預算使用率"
+                    />
+                  </div>
+                ) : (
+                  <div className="text-[12px] text-[#9A9890] text-center py-6">
+                    未設定預算上限
+                  </div>
+                )}
+              </div>
+              {/* 摘要 */}
+              <div className="md:col-span-2 grid grid-cols-2 gap-x-6 gap-y-3">
+                <Kv
+                  label="優先度"
+                  value={(() => {
+                    const pm = PRIORITY_META[requisition.priority] ?? PRIORITY_META.normal;
+                    return (
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${pm.chip}`}>
+                        {pm.label}
+                      </span>
+                    );
+                  })()}
+                />
+                <Kv label="預算上限" value={<span className="font-mono">{fmtTwd(requisition.budget_limit)}</span>} />
+                <Kv
+                  label="估算成本"
+                  value={
+                    <span className={`font-mono ${over ? "text-[#CC0000] font-semibold" : ""}`}>
+                      {fmtTwd(estCost)}
+                    </span>
+                  }
+                />
+                <Kv
+                  label="使用率"
+                  value={
+                    usedPct == null ? (
+                      <span className="text-[#9A9890]">—</span>
+                    ) : (
+                      <span className={`font-mono ${over ? "text-[#CC0000] font-semibold" : ""}`}>
+                        {usedPct}%
+                      </span>
+                    )
+                  }
+                />
+                {itemMeta ? (
+                  <div className="col-span-2 text-[11.5px] text-[#9A9890]">
+                    成本來源：<span className="font-mono">{itemMeta.code}</span> × {firstLineLocal?.qty_required ?? 0} {firstLineLocal?.uom ?? ""}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        );
+      })() : null}
 
       {!creating ? sectionCard("審核資訊", (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">

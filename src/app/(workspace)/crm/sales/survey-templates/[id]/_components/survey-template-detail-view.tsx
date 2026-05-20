@@ -60,10 +60,11 @@ import {
 } from "@/domain/sales-survey-templates.constants";
 
 type Banner = { ok: boolean; msg: string } | null;
-type TabKey = "questions" | "metadata";
+type TabKey = "questions" | "preview" | "metadata";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "questions", label: "題目編輯" },
+  { key: "preview", label: "預覽" },
   { key: "metadata", label: "進階設定" },
 ];
 
@@ -1025,6 +1026,18 @@ export function SurveyTemplateDetailView({
               </>
             ) : null}
 
+            {activeTab === "preview" ? (
+              <SurveyPreviewPanel
+                kind={currentKind}
+                code={survey.code}
+                name={survey.name}
+                description={survey.description}
+                target_segment={survey.target_segment}
+                questions={survey.questions}
+                metadata={survey.metadata}
+              />
+            ) : null}
+
             {activeTab === "metadata" ? (
               <SectionCard title="進階設定">
                 <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-[12.5px]">
@@ -1766,4 +1779,167 @@ function SectionCard({
       <div className="px-4 py-3">{children}</div>
     </section>
   );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// SurveyPreviewPanel — 預覽問卷實際長相（唯讀，不真的收答案）
+// 給「拍板前 / SA 內訓 / 主管 review」直接看問卷會長成什麼樣
+// ──────────────────────────────────────────────────────────────────────────
+
+function SurveyPreviewPanel({
+  kind,
+  code,
+  name,
+  description,
+  target_segment,
+  questions,
+  metadata,
+}: {
+  kind: SurveyKind;
+  code: string;
+  name: string;
+  description: string | null;
+  target_segment: string | null;
+  questions: SurveyQuestion[];
+  metadata: SurveyMetadata;
+}) {
+  const timing = readSurveyTiming(metadata);
+  return (
+    <SectionCard title={`▼ 預覽：${KIND_LABEL[kind]}問卷`}>
+      <div className="mx-auto max-w-[680px] border border-[#EEECE6] rounded-lg bg-[#FAF9F6] p-5 space-y-4">
+        <header className="space-y-1.5 border-b border-[#EEECE6] pb-3">
+          <div className="flex items-center gap-2 text-[11px] text-[#9A9890]">
+            <span className="font-mono">{code || "（未指定編號）"}</span>
+            {timing ? (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5]">
+                <span>{APPLICABLE_TIMING_ICON[timing]}</span>
+                <span>{APPLICABLE_TIMING_LABEL[timing]}</span>
+              </span>
+            ) : null}
+          </div>
+          <h3 className="text-[16px] font-semibold text-[#2C2C2A] leading-tight">
+            {name || "（未命名問卷）"}
+          </h3>
+          {description ? (
+            <p className="text-[12.5px] text-[#5A5955] leading-snug">
+              {description}
+            </p>
+          ) : null}
+          {target_segment ? (
+            <div className="text-[11.5px] text-[#9A9890]">
+              適用對象：<span className="text-[#5A5955]">{target_segment}</span>
+            </div>
+          ) : null}
+        </header>
+
+        {questions.length === 0 ? (
+          <div className="text-[12px] text-[#9A9890] py-6 text-center">
+            尚無題目，請至「題目編輯」分頁新增。
+          </div>
+        ) : (
+          <ol className="space-y-4">
+            {questions.map((q, idx) => (
+              <PreviewQuestionItem key={q.id} idx={idx + 1} q={q} />
+            ))}
+          </ol>
+        )}
+
+        <footer className="border-t border-[#EEECE6] pt-3 flex items-center justify-between text-[11px] text-[#9A9890]">
+          <span>※ 預覽僅供 review 用，不會儲存任何作答</span>
+          <span>共 {questions.length} 題</span>
+        </footer>
+      </div>
+    </SectionCard>
+  );
+}
+
+function PreviewQuestionItem({ idx, q }: { idx: number; q: SurveyQuestion }) {
+  return (
+    <li className="space-y-2">
+      <div className="flex items-start gap-2">
+        <span className="text-[12.5px] font-semibold text-[#1A3A5C] shrink-0">
+          Q{idx}.
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] text-[#2C2C2A] leading-snug">
+            {q.label || "（未填題目文字）"}
+            {q.required ? (
+              <span className="ml-1 text-[#CC0000]">*</span>
+            ) : null}
+          </div>
+          {q.hint ? (
+            <div className="mt-1 text-[11.5px] text-[#854F0B] bg-[#FDF3E3] border border-[#F2D597] rounded px-2 py-1 inline-block">
+              💡 SA 提示：{q.hint}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="pl-7">
+        <PreviewAnswerControl q={q} />
+      </div>
+    </li>
+  );
+}
+
+function PreviewAnswerControl({ q }: { q: SurveyQuestion }) {
+  if (q.type === "single") {
+    const opts = q.options ?? [];
+    return opts.length === 0 ? (
+      <PreviewPlaceholder text="（單選題 — 尚未設定選項）" />
+    ) : (
+      <div className="space-y-1.5">
+        {opts.map((opt, i) => (
+          <label
+            key={`${q.id}-opt-${i}`}
+            className="flex items-center gap-2 text-[12.5px] text-[#2C2C2A] cursor-default"
+          >
+            <span className="w-3.5 h-3.5 rounded-full border border-[#9A9890] bg-white shrink-0" />
+            <span>{opt}</span>
+          </label>
+        ))}
+      </div>
+    );
+  }
+  if (q.type === "multi") {
+    const opts = q.options ?? [];
+    return opts.length === 0 ? (
+      <PreviewPlaceholder text="（多選題 — 尚未設定選項）" />
+    ) : (
+      <div className="space-y-1.5">
+        {opts.map((opt, i) => (
+          <label
+            key={`${q.id}-opt-${i}`}
+            className="flex items-center gap-2 text-[12.5px] text-[#2C2C2A] cursor-default"
+          >
+            <span className="w-3.5 h-3.5 rounded-sm border border-[#9A9890] bg-white shrink-0" />
+            <span>{opt}</span>
+          </label>
+        ))}
+      </div>
+    );
+  }
+  if (q.type === "rating") {
+    return (
+      <div className="flex items-center gap-1.5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <span
+            key={n}
+            className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-[#D5D3CB] bg-white text-[12px] text-[#5A5955]"
+          >
+            {n}
+          </span>
+        ))}
+        <span className="ml-2 text-[11px] text-[#9A9890]">（評分 1–5）</span>
+      </div>
+    );
+  }
+  return (
+    <div className="border border-dashed border-[#D5D3CB] rounded bg-white px-3 py-2 min-h-[56px] text-[12px] text-[#9A9890]">
+      （受訪者於此處作答）
+    </div>
+  );
+}
+
+function PreviewPlaceholder({ text }: { text: string }) {
+  return <div className="text-[11.5px] text-[#9A9890] italic">{text}</div>;
 }

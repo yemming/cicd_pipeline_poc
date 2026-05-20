@@ -117,6 +117,10 @@ export const PERMISSIONS = {
   SALES_ORDER_CANCEL: "sales.order.cancel",
   SALES_ORDER_APPROVE: "sales.order.approve",
 
+  // ─── 銷售・保險招攬 ─────────────────────────────
+  SALES_INSURANCE_VIEW: "sales.insurance.view",
+  SALES_INSURANCE_EDIT: "sales.insurance.edit",
+
   // ─── 中古車評估鑑價 ─────────────────────────────
   USED_CAR_EVALUATION_APPROVE: "usedcar.evaluation.approve",
 

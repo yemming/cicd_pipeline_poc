@@ -9,6 +9,7 @@ import {
   listStores,
   listWarehouses,
   listSubsidiaryOptions,
+  getOrgTree,
 } from "@/domain/org";
 import { getBinCountsByWarehouseId } from "@/domain/warehouse";
 
@@ -30,13 +31,15 @@ export default async function OrgUnifiedPage() {
 
   const canEdit = await hasPermission(PERMISSIONS.ORG_EDIT);
 
-  const [regionsRes, storesRes, warehousesRes, subsidiariesRes, binCounts] = await Promise.all([
-    listRegions(),
-    listStores(),
-    listWarehouses(),
-    listSubsidiaryOptions(),
-    getBinCountsByWarehouseId(),
-  ]);
+  const [regionsRes, storesRes, warehousesRes, subsidiariesRes, binCounts, treeRes] =
+    await Promise.all([
+      listRegions(),
+      listStores(),
+      listWarehouses(),
+      listSubsidiaryOptions(),
+      getBinCountsByWarehouseId(),
+      getOrgTree(),
+    ]);
 
   return (
     <OrgBoard
@@ -46,6 +49,8 @@ export default async function OrgUnifiedPage() {
       subsidiaries={subsidiariesRes.data}
       binCountsByWarehouseId={binCounts}
       canEdit={canEdit}
+      tree={treeRes.data}
+      treeStats={treeRes.stats}
     />
   );
 }

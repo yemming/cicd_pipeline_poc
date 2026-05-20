@@ -116,6 +116,99 @@ async function loadRoMeta(roIds: string[]): Promise<Map<string, RoMeta>> {
   return map;
 }
 
+/* ──────────────── KPI ──────────────── */
+
+export type CheckoutKpis = {
+  /** 今日（Asia/Taipei）已關單張數 */
+  todayClosedCount: number;
+  /** 今日已關單應收總額 */
+  todayRevenue: number;
+  /** 近 30 天平均客單（已關單） */
+  avgTicket30d: number;
+  /** 近 30 天「全部付清率」= completed / (in_progress + signed + paid + completed) */
+  paidThroughRate: number;
+  /** 進行中（含 in_progress + signed + paid 但未關單）張數 */
+  openCount: number;
+};
+
+function startOfTaipeiDayIso(): string {
+  const now = new Date();
+  // 取台北時區 00:00 對應的 UTC ISO
+  const tw = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+  tw.setHours(0, 0, 0, 0);
+  // 上面的 setHours 是本機時區的 0 點；換回正確的 Taipei 00:00：
+  // 用 offset 推算：先取本機時區 offset、再加上 Taipei 與 UTC 的 +08:00。
+  const offsetMin = tw.getTimezoneOffset(); // 本機相對 UTC 分鐘
+  const utcMs = tw.getTime() - (offsetMin + 8 * 60) * 60 * 1000;
+  return new Date(utcMs).toISOString();
+}
+
+export async function getCheckoutKpis(): Promise<CheckoutKpis> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const todayStart = startOfTaipeiDayIso();
+  const thirtyAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+
+  // 一次撈近 30 天的全部結帳，本地端統計（demo 量級 OK）
+  const { data, error } = await supabase
+    .from("ro_checkouts")
+    .select("status, fee_summary, closed_at, created_at")
+    .eq("brand_id", brand)
+    .gte("created_at", thirtyAgo)
+    .limit(2000);
+
+  if (error || !data) {
+    return {
+      todayClosedCount: 0,
+      todayRevenue: 0,
+      avgTicket30d: 0,
+      paidThroughRate: 0,
+      openCount: 0,
+    };
+  }
+
+  type Row = {
+    status: RoCheckoutStatus;
+    fee_summary: FeeSummary | null;
+    closed_at: string | null;
+    created_at: string | null;
+  };
+  const rows = data as Row[];
+
+  let todayClosedCount = 0;
+  let todayRevenue = 0;
+  let completed30 = 0;
+  let totalRevenue30 = 0;
+  let openCount = 0;
+  const total30 = rows.length;
+
+  for (const r of rows) {
+    const payable = Number(r.fee_summary?.payable ?? 0);
+    if (r.status === "completed") {
+      completed30 += 1;
+      totalRevenue30 += payable;
+      if (r.closed_at && r.closed_at >= todayStart) {
+        todayClosedCount += 1;
+        todayRevenue += payable;
+      }
+    } else {
+      openCount += 1;
+    }
+  }
+
+  const avgTicket30d = completed30 > 0 ? Math.round(totalRevenue30 / completed30) : 0;
+  const paidThroughRate = total30 > 0 ? Math.round((completed30 / total30) * 100) : 0;
+
+  return {
+    todayClosedCount,
+    todayRevenue,
+    avgTicket30d,
+    paidThroughRate,
+    openCount,
+  };
+}
+
 /* ──────────────── List ──────────────── */
 
 export async function listRoCheckouts(

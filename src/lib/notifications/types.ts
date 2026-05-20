@@ -15,7 +15,11 @@ export type EventCode =
   // Phase 6.1：DealerOS 本 repo 首個真實接點
   | "feedback_ticket.created"
   // 第七輪 P1-#5：CSI 問卷派發（template → instance），payload 帶 response_url 讓客戶點 LINE 卡片進填寫頁
-  | "survey.dispatched";
+  | "survey.dispatched"
+  // 第十輪 P1-2：售後跟進案升級告警
+  | "aftersales_followup.escalated"
+  // 第十輪 P1-3：取車通知測試送出（用於後台模板測試）
+  | "pickup_notification.test";
 
 export interface NotificationEvent<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   code: EventCode;

@@ -31,5 +31,11 @@ export default async function RequisitionDetailPage({
   const canEdit = await hasPermission(PERMISSIONS.PR_CREATE);
   const canApprove = await hasPermission(PERMISSIONS.PR_APPROVE);
 
-  return <RequisitionDetailView {...data} canEdit={canEdit} canApprove={canApprove} />;
+  return (
+    <RequisitionDetailView
+      {...data}
+      canEdit={canEdit}
+      canApprove={canApprove}
+    />
+  );
 }

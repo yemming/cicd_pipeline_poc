@@ -15,6 +15,7 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   PREFIX_P1_DEFS,
   PREFIX_P2_DEFS,
+  RO_STATUS_OPTIONS,
   type PrefixP1,
   type PrefixP2,
 } from "./repair-orders.constants";
@@ -39,6 +40,8 @@ export type RepairOrderRow = {
   closed_at: string | null;
   estimated_subtotal: number | null;
   estimated_labor_units: number | null;
+  lines_subtotal: number | null;
+  lines_total: number | null;
   warranty_status_snapshot: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
   store_id: string | null;
@@ -391,22 +394,57 @@ export async function getDefaultDraftCandidate(): Promise<{
   return { id: row.id, label: `${row.appointment_date} 預約` };
 }
 
+export type RoStatusStat = {
+  status: string;
+  count: number;
+};
+
 export type RepairOrderListPageData = {
   rows: RepairOrderListRow[];
   totalCount: number;
   prefixP1Defs: typeof PREFIX_P1_DEFS;
   prefixP2Defs: typeof PREFIX_P2_DEFS;
+  statusStats: RoStatusStat[];
 };
+
+/**
+ * getRoStatsByStatus — 同 brand 內 RO 各狀態筆數（M03-3 spec）。
+ *
+ * 給 List 頁頂 DonutChart 用。**只看 brand，不套 filter** —— donut 顯示「該 brand 整體
+ * 工單分佈」是稳定的全景；filter 結果筆數另外由 totalCount 顯示。
+ */
+export async function getRoStatsByStatus(): Promise<RoStatusStat[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data } = await supabase
+    .from("repair_orders")
+    .select("status")
+    .eq("brand_id", brand);
+
+  const counts = new Map<string, number>();
+  for (const r of (data ?? []) as { status: string }[]) {
+    counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
+  }
+  // 按 RO_STATUS_OPTIONS 順序排
+  return RO_STATUS_OPTIONS.map((s) => ({
+    status: s as string,
+    count: counts.get(s) ?? 0,
+  }));
+}
 
 export async function getRepairOrdersListPageData(
   filters: RepairOrderListFilters,
 ): Promise<RepairOrderListPageData> {
-  const rows = await listRepairOrders(filters);
+  const [rows, statusStats] = await Promise.all([
+    listRepairOrders(filters),
+    getRoStatsByStatus(),
+  ]);
   return {
     rows,
     totalCount: rows.length,
     prefixP1Defs: PREFIX_P1_DEFS,
     prefixP2Defs: PREFIX_P2_DEFS,
+    statusStats,
   };
 }
 

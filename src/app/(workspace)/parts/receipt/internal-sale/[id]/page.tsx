@@ -25,8 +25,21 @@ export default async function InternalSaleDetailPage({
   }
 
   const { id } = await params;
-  const receipt = await getInternalSaleReceiptById(id);
-  if (!receipt) notFound();
+  const detail = await getInternalSaleReceiptById(id);
+  if (!detail) notFound();
 
-  return <InternalSaleDetailView receipt={receipt} />;
+  const canEdit = await hasPermission(PERMISSIONS.RECEIPT_CREATE);
+  // edit / view 不需要完整 lookup（明細不可改），只 stub 空 array 給型別
+  // 但若 user 在 detail page 上按「新增」會跳 /new，那邊重撈
+  return (
+    <InternalSaleDetailView
+      detail={detail}
+      canEdit={canEdit}
+      warehouses={[]}
+      customers={[]}
+      items={[]}
+      issues={[]}
+      initialMode="view"
+    />
+  );
 }

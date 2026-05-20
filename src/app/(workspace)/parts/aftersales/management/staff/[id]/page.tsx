@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import {
   getAftersalesStaffById,
+  getAftersalesStaffKpi,
   listAftersalesDepartments,
 } from "@/domain/aftersales-staff";
 
@@ -28,10 +29,11 @@ export default async function StaffDetailPage({
   }
 
   const { id } = await params;
-  const [staff, departments, canEdit] = await Promise.all([
+  const [staff, departments, canEdit, kpi] = await Promise.all([
     getAftersalesStaffById(id),
     listAftersalesDepartments(),
     hasPermission(PERMISSIONS.EMPLOYEE_EDIT),
+    getAftersalesStaffKpi(id),
   ]);
   if (!staff) notFound();
 
@@ -41,6 +43,7 @@ export default async function StaffDetailPage({
       departments={departments}
       initialMode="view"
       canEdit={canEdit}
+      kpi={kpi}
     />
   );
 }

@@ -5,12 +5,18 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { EntityImageGallery } from "@/components/image-upload/entity-image-gallery";
 import {
   DECISION_LABEL,
+  MODE_CHIP,
+  MODE_DESC,
+  MODE_LABEL,
+  PRE_INSPECTION_MODE,
   PURPOSES,
   SAFETY_CHIP,
   SAFETY_LABEL,
   SA_ASKS,
+  SIMPLE_MODE_STEP_INDICES,
   STATUS_CHIP,
   STATUS_LABEL,
   TECH_CATEGORY_BG,
@@ -20,6 +26,7 @@ import {
   computeQuote,
   type AskAnswer,
   type CheckRow,
+  type PreInspectionMode,
   type SaQuoteItem,
   type TechCategory,
   type TechDecision,
@@ -31,6 +38,7 @@ import type { EnvCheckItem } from "@/domain/env-check-items";
 import {
   cancelAction,
   deleteAction,
+  setModeAction,
   signAction,
   transferToRoAction,
   updateAsksAction,
@@ -81,6 +89,13 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
   const locked =
     !canEdit || data.status === "transferred" || data.status === "cancelled";
 
+  const currentMode: PreInspectionMode = data.mode ?? "full";
+  // simple mode 只顯示「環車檢查」「確認簽名」兩步；full mode 顯示全部 5 步
+  const visibleStepIndices: readonly number[] =
+    currentMode === "simple"
+      ? (SIMPLE_MODE_STEP_INDICES as readonly number[])
+      : WIZARD_STEPS.map((_, i) => i);
+
   // local state — initialised from server snapshot
   const initialChecks: CheckRow[] = useMemo(() => {
     const m = data.metadata?.checks ?? [];
@@ -119,6 +134,23 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
   function showBanner(b: NonNullable<Banner>) {
     setBanner(b);
     if (b.ok) setTimeout(() => setBanner(null), 2200);
+  }
+
+  function handleSetMode(mode: PreInspectionMode) {
+    if (mode === currentMode) return;
+    if (locked) return;
+    startTransition(async () => {
+      const res = await setModeAction(data.id, mode);
+      if (res.ok) {
+        showBanner({ ok: true, msg: `✓ 已切換為${MODE_LABEL[mode]}` });
+        if (mode === "simple" && !SIMPLE_MODE_STEP_INDICES.includes(step as 0 | 4)) {
+          setStep(0);
+        }
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
   }
 
   function refreshAndToast(msg: string) {
@@ -266,6 +298,12 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
           >
             {STATUS_LABEL[data.status]}
           </span>
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${MODE_CHIP[currentMode]}`}
+            title={MODE_DESC[currentMode]}
+          >
+            {MODE_LABEL[currentMode]}
+          </span>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <Link
@@ -312,31 +350,60 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
         </div>
       </div>
 
-      {/* Step pills */}
-      <div className="bg-white border border-[#EEECE6] rounded-lg overflow-x-auto">
-        <div className="flex border-b border-[#EEECE6]">
-          {WIZARD_STEPS.map((s, i) => (
+      {/* Mode switcher */}
+      <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 flex items-center gap-3 flex-wrap">
+        <div>
+          <div className="text-[11px] text-[#9A9890] font-medium mb-0.5">預檢模式</div>
+          <div className="text-[11.5px] text-[#5A5955]">{MODE_DESC[currentMode]}</div>
+        </div>
+        <div className="ml-auto inline-flex border border-[#EEECE6] rounded overflow-hidden text-[12px]">
+          {PRE_INSPECTION_MODE.map((m) => (
             <button
-              key={s.key}
-              onClick={() => setStep(i)}
-              className={`flex-1 min-w-[140px] px-4 h-[44px] text-[12.5px] whitespace-nowrap border-r last:border-r-0 border-[#EEECE6] inline-flex items-center justify-center gap-2 ${
-                i === step
-                  ? "bg-white text-[#1A3A5C] font-semibold border-b-2 border-b-[#1A3A5C] -mb-px"
-                  : "text-[#5A5955] hover:bg-[#F8F7F4]"
-              }`}
+              key={m}
+              type="button"
+              onClick={() => handleSetMode(m)}
+              disabled={locked || isPending}
+              className={`h-[30px] px-3.5 transition-colors ${
+                currentMode === m
+                  ? "bg-[#1A3A5C] text-white font-medium"
+                  : "bg-white text-[#5A5955] hover:bg-[#F8F7F4]"
+              } disabled:opacity-60`}
             >
-              <span
-                className={`inline-flex items-center justify-center w-[20px] h-[20px] rounded-full text-[11px] font-semibold ${
-                  i === step
-                    ? "bg-[#1A3A5C] text-white"
-                    : "bg-[#E8E7E4] text-[#3A3A38]"
-                }`}
-              >
-                {i + 1}
-              </span>
-              {s.label}
+              {MODE_LABEL[m]}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Step pills — simple mode 只顯示可見步驟 */}
+      <div className="bg-white border border-[#EEECE6] rounded-lg overflow-x-auto">
+        <div className="flex border-b border-[#EEECE6]">
+          {WIZARD_STEPS.map((s, i) => {
+            const visible = visibleStepIndices.includes(i);
+            if (!visible) return null;
+            return (
+              <button
+                key={s.key}
+                onClick={() => setStep(i)}
+                className={`flex-1 min-w-[140px] px-4 h-[44px] text-[12.5px] whitespace-nowrap border-r last:border-r-0 border-[#EEECE6] inline-flex items-center justify-center gap-2 ${
+                  i === step
+                    ? "bg-white text-[#1A3A5C] font-semibold border-b-2 border-b-[#1A3A5C] -mb-px"
+                    : "text-[#5A5955] hover:bg-[#F8F7F4]"
+                }`}
+              >
+                <span
+                  className={`inline-flex items-center justify-center w-[20px] h-[20px] rounded-full text-[11px] font-semibold ${
+                    i === step
+                      ? "bg-[#1A3A5C] text-white"
+                      : "bg-[#E8E7E4] text-[#3A3A38]"
+                  }`}
+                >
+                  {visibleStepIndices.indexOf(i) + 1}
+                </span>
+                {s.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -344,6 +411,9 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
       <div className="bg-white border border-[#EEECE6] rounded-lg p-4 space-y-4">
         {step === 0 && (
           <Step1Circle
+            piId={data.id}
+            photos={data.photos ?? []}
+            canEdit={canEdit}
             basic={basic}
             setBasic={setBasic}
             checks={checks}
@@ -409,26 +479,39 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
         )}
       </div>
 
-      {/* Footer nav */}
-      <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 flex items-center gap-2">
-        <button
-          onClick={() => setStep(Math.max(0, step - 1))}
-          disabled={step === 0}
-          className="h-[30px] px-3 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-40"
-        >
-          ← 上一步
-        </button>
-        <div className="ml-auto text-[12px] text-[#9A9890]">
-          第 {step + 1} 步 / 5　{WIZARD_STEPS[step].label}
-        </div>
-        <button
-          onClick={() => setStep(Math.min(4, step + 1))}
-          disabled={step === 4}
-          className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-40"
-        >
-          下一步：{WIZARD_STEPS[Math.min(step + 1, 4)].label} →
-        </button>
-      </div>
+      {/* Footer nav — simple mode 跳過中間 step */}
+      {(() => {
+        const cursor = visibleStepIndices.indexOf(step);
+        const prevStep = cursor > 0 ? visibleStepIndices[cursor - 1] : null;
+        const nextStep =
+          cursor >= 0 && cursor < visibleStepIndices.length - 1
+            ? visibleStepIndices[cursor + 1]
+            : null;
+        return (
+          <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 flex items-center gap-2">
+            <button
+              onClick={() => prevStep !== null && setStep(prevStep)}
+              disabled={prevStep === null}
+              className="h-[30px] px-3 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-40"
+            >
+              ← 上一步
+            </button>
+            <div className="ml-auto text-[12px] text-[#9A9890]">
+              第 {cursor + 1} 步 / {visibleStepIndices.length}
+              {WIZARD_STEPS[step]?.label ?? ""}
+            </div>
+            <button
+              onClick={() => nextStep !== null && setStep(nextStep)}
+              disabled={nextStep === null}
+              className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-40"
+            >
+              {nextStep !== null
+                ? `下一步：${WIZARD_STEPS[nextStep].label} →`
+                : "已到最後一步"}
+            </button>
+          </div>
+        );
+      })()}
 
       {banner && (
         <div
@@ -448,6 +531,9 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
 /* ───────────────────────────── Step 1 ───────────────────────────── */
 
 function Step1Circle({
+  piId,
+  photos,
+  canEdit,
   basic,
   setBasic,
   checks,
@@ -463,6 +549,9 @@ function Step1Circle({
   saveBasic,
   saveChecks,
 }: {
+  piId: string;
+  photos: string[];
+  canEdit: boolean;
   basic: {
     customer_name: string;
     customer_phone: string;
@@ -576,6 +665,31 @@ function Step1Circle({
               className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none"
             />
           </div>
+        </div>
+      </section>
+
+      {/* 環車照片區 — 最多 20 張 */}
+      <section className="border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+            ▼ 環車照片
+            <span className="text-[11.5px] text-[#9A9890] ml-2 font-normal">
+              （標記損傷處拍照存證，最多 20 張）
+            </span>
+          </h2>
+        </header>
+        <div className="px-4 py-3">
+          <EntityImageGallery
+            entity="pre-inspection"
+            entityId={piId}
+            images={photos}
+            alt="環車照片"
+            canEdit={canEdit && !locked}
+            width={360}
+            height={240}
+            maxImages={20}
+            emptyHint="點擊上傳環車照片（多角度損傷存證）"
+          />
         </div>
       </section>
     </div>

@@ -651,6 +651,157 @@ export async function listRegionOptions(): Promise<{ data: RegionOption[]; error
   return { data: data ?? [], error: null };
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Hierarchy Tree（給 <HierarchyTree> 用）
+// ──────────────────────────────────────────────────────────────────────────
+
+export type OrgTreeNode = {
+  /** 節點 id：region/store 用 organizations.id；warehouse 用 warehouses.id */
+  id: string;
+  /** 'region' | 'store' | 'warehouse' — UI 區分 detail panel 樣式用 */
+  kind: "region" | "store" | "warehouse";
+  /** entity id（同 id，方便 union 寫法） */
+  refId: string;
+  label: string;
+  code: string;
+  isActive: boolean;
+  /** 該節點下統計：region.storeCount / store.warehouseCount / warehouse.binCount */
+  childCount?: number;
+  children?: OrgTreeNode[];
+};
+
+export type OrgTreeStats = {
+  regionCount: number;
+  storeCount: number;
+  storeActiveCount: number;
+  warehouseCount: number;
+  warehouseActiveCount: number;
+};
+
+/**
+ * 撈當前 brand scope 的完整三層樹（含 binCount 統計）。
+ *
+ * 同 React Server Component 直接呼叫即可。失敗回 `{ data: [], stats, error }`。
+ */
+export async function getOrgTree(): Promise<{
+  data: OrgTreeNode[];
+  stats: OrgTreeStats;
+  error: string | null;
+}> {
+  const supabase = await createClient();
+  const { brand_id } = await getActiveScope();
+
+  const [regionsRes, storesRes, warehousesRes] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("id, code, name, is_active")
+      .eq("brand_id", brand_id)
+      .eq("type", "region")
+      .order("code", { ascending: true }),
+    supabase
+      .from("organizations")
+      .select("id, code, name, is_active, parent_id")
+      .eq("brand_id", brand_id)
+      .eq("type", "store")
+      .order("code", { ascending: true }),
+    supabase
+      .from("warehouses")
+      .select("id, code, name, is_active, org_id")
+      .eq("brand_id", brand_id)
+      .order("code", { ascending: true }),
+  ]);
+
+  const err =
+    regionsRes.error?.message ??
+    storesRes.error?.message ??
+    warehousesRes.error?.message ??
+    null;
+  if (err) {
+    return {
+      data: [],
+      stats: {
+        regionCount: 0,
+        storeCount: 0,
+        storeActiveCount: 0,
+        warehouseCount: 0,
+        warehouseActiveCount: 0,
+      },
+      error: err,
+    };
+  }
+
+  const regions = regionsRes.data ?? [];
+  const stores = storesRes.data ?? [];
+  const warehouses = warehousesRes.data ?? [];
+
+  // 撈 bins count（warehouse → bins）
+  const warehouseIds = warehouses.map((w) => w.id);
+  let binCountsByWarehouseId: Record<string, number> = {};
+  if (warehouseIds.length > 0) {
+    const { data: binsRows } = await supabase
+      .from("warehouse_bins")
+      .select("warehouse_id")
+      .in("warehouse_id", warehouseIds);
+    binCountsByWarehouseId = (binsRows ?? []).reduce<Record<string, number>>(
+      (acc, b) => {
+        const k = (b as { warehouse_id: string }).warehouse_id;
+        acc[k] = (acc[k] ?? 0) + 1;
+        return acc;
+      },
+      {},
+    );
+  }
+
+  // 組樹：region → store → warehouse
+  const data: OrgTreeNode[] = regions.map((r) => {
+    const childStores = stores
+      .filter((s) => s.parent_id === r.id)
+      .map<OrgTreeNode>((s) => {
+        const childWarehouses = warehouses
+          .filter((w) => w.org_id === s.id)
+          .map<OrgTreeNode>((w) => ({
+            id: w.id,
+            kind: "warehouse",
+            refId: w.id,
+            label: w.name,
+            code: w.code,
+            isActive: w.is_active,
+            childCount: binCountsByWarehouseId[w.id] ?? 0,
+          }));
+        return {
+          id: s.id,
+          kind: "store",
+          refId: s.id,
+          label: s.name,
+          code: s.code,
+          isActive: s.is_active,
+          childCount: childWarehouses.length,
+          children: childWarehouses,
+        };
+      });
+    return {
+      id: r.id,
+      kind: "region",
+      refId: r.id,
+      label: r.name,
+      code: r.code,
+      isActive: r.is_active,
+      childCount: childStores.length,
+      children: childStores,
+    };
+  });
+
+  const stats: OrgTreeStats = {
+    regionCount: regions.length,
+    storeCount: stores.length,
+    storeActiveCount: stores.filter((s) => s.is_active).length,
+    warehouseCount: warehouses.length,
+    warehouseActiveCount: warehouses.filter((w) => w.is_active).length,
+  };
+
+  return { data, stats, error: null };
+}
+
 export async function listStoreOptions(): Promise<{ data: StoreOption[]; error: string | null }> {
   const supabase = await createClient();
   const { brand_id } = await getActiveScope();

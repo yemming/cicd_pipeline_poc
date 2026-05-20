@@ -4,10 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
-import {
-  getStagingWarehousePageData,
-  listOrganizationsForStaging,
-} from "@/domain/warranty";
+import { getStagingWarehouseAdminPageData } from "@/domain/parts-warranty-staging";
 import { StagingWarehouseBoard } from "./_components/staging-warehouse-board";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +16,8 @@ export default async function StagingWarehousePage({
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
+
+  // 檢視權限：保固模組 view（看資料）
   if (!(await hasPermission(PERMISSIONS.WARRANTY_VIEW))) {
     return (
       <main className="px-6 py-6">
@@ -26,19 +25,22 @@ export default async function StagingWarehousePage({
       </main>
     );
   }
+
   const sp = (await searchParams) ?? {};
-  const [{ warehouses, rules, activeWarehouse, items, canEdit }, orgs] =
-    await Promise.all([
-      getStagingWarehousePageData(sp.wh),
-      listOrganizationsForStaging(),
-    ]);
+
+  // 編輯權限：倉庫設定 edit（切 is_warranty_staging flag）
+  const canEdit = await hasPermission(PERMISSIONS.WAREHOUSE_EDIT);
+
+  const data = await getStagingWarehouseAdminPageData(sp.wh);
+
   return (
     <StagingWarehouseBoard
-      warehouses={warehouses}
-      rules={rules}
-      activeWarehouse={activeWarehouse}
-      items={items}
-      orgs={orgs}
+      tree={data.tree}
+      warehouses={data.warehouses}
+      stagingWarehouses={data.stagingWarehouses}
+      selectedWarehouse={data.selectedWarehouse}
+      occupancy={data.occupancy}
+      totals={data.totals}
       canEdit={canEdit}
     />
   );

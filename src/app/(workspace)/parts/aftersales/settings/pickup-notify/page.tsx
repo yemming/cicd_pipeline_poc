@@ -9,9 +9,12 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getPickupNotifySettings } from "@/domain/aftersales-pickup-notify";
+import {
+  listPickupTemplates,
+  listPickupSchedules,
+} from "@/domain/aftersales-pickup-notify";
 
-import { PickupNotifyForm } from "./_components/pickup-notify-form";
+import { PickupNotifyBoard } from "./_components/pickup-notify-board";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "取車通知設定 | DealerOS" };
@@ -29,7 +32,10 @@ export default async function Page() {
   }
 
   const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
-  const settings = await getPickupNotifySettings();
+  const [templates, schedules] = await Promise.all([
+    listPickupTemplates(),
+    listPickupSchedules(),
+  ]);
 
-  return <PickupNotifyForm settings={settings} canEdit={canEdit} />;
+  return <PickupNotifyBoard templates={templates} schedules={schedules} canEdit={canEdit} />;
 }

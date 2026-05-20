@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 
 import { ColumnChooser } from "./column-chooser";
 import { EditableCell, type EditableSpec } from "./editable-cell";
@@ -48,10 +48,20 @@ export type DataGridProps<T> = {
   rowActions?: (row: T) => React.ReactNode;
   rowActionsHeader?: string;
   rowActionsWidth?: number;
+  /**
+   * 可選 — 在每列下方額外渲染一行（橫跨整個 colSpan）。
+   * 回傳 null / undefined 代表此列無 expand。
+   * 用於 inline 展開明細品項、附件、子單之類的場景。
+   */
+  rowExtraBelow?: (row: T) => React.ReactNode;
   emptyMessage?: string;
   disabled?: boolean;
   // 不傳就沒分頁；傳了會在表格底部顯示 pagination footer，sort 改成只作用於當頁
   pagination?: PaginationState;
+  // 可選 KPI 卡片區（渲染在 toolbar 上方，用於 list view 頂端 KpiCard 列）
+  kpiSlot?: React.ReactNode;
+  // 可選 chart 區（渲染在 toolbar 上方、kpiSlot 之下）
+  chartSlot?: React.ReactNode;
 };
 
 type SortState = { id: string; dir: "asc" | "desc" } | null;
@@ -83,9 +93,12 @@ export function DataGrid<T>({
   rowActions,
   rowActionsHeader = "操作",
   rowActionsWidth = 210,
+  rowExtraBelow,
   emptyMessage = "沒有資料",
   disabled,
   pagination,
+  kpiSlot,
+  chartSlot,
 }: DataGridProps<T>) {
   const [visibility, setVisibility] = useColumnVisibility(persistKey, columns);
   const [exporting, setExporting] = useState(false);
@@ -157,6 +170,12 @@ export function DataGrid<T>({
         disabled ? "pointer-events-none opacity-60" : ""
       }`}
     >
+      {kpiSlot && (
+        <div className="px-3 py-3 border-b border-[#EEECE6]">{kpiSlot}</div>
+      )}
+      {chartSlot && (
+        <div className="px-3 py-3 border-b border-[#EEECE6]">{chartSlot}</div>
+      )}
       <div className="px-3 py-1.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-end gap-1.5">
         <button
           type="button"
@@ -266,38 +285,52 @@ export function DataGrid<T>({
                 </td>
               </tr>
             ) : (
-              sortedData.map((row) => (
-                <tr
-                  key={rowKey(row)}
-                  className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7]"
-                >
-                  {visibleColumns.map((c) => (
-                    <td
-                      key={c.id}
-                      className={`py-2 px-3 align-top ${
-                        c.align === "right" ? "text-right" : ""
-                      }`}
-                    >
-                      {c.editable ? (
-                        <EditableCell
-                          row={row}
-                          renderValue={c.cell}
-                          editable={c.editable}
-                        />
-                      ) : (
-                        c.cell(row)
+              sortedData.map((row) => {
+                const extra = rowExtraBelow ? rowExtraBelow(row) : null;
+                return (
+                  <Fragment key={rowKey(row)}>
+                    <tr className="border-t border-[#F8F7F4] hover:bg-[#FBFAF7]">
+                      {visibleColumns.map((c) => (
+                        <td
+                          key={c.id}
+                          className={`py-2 px-3 align-top ${
+                            c.align === "right" ? "text-right" : ""
+                          }`}
+                        >
+                          {c.editable ? (
+                            <EditableCell
+                              row={row}
+                              renderValue={c.cell}
+                              editable={c.editable}
+                            />
+                          ) : (
+                            c.cell(row)
+                          )}
+                        </td>
+                      ))}
+                      {rowActions && (
+                        <td className="py-2 px-3 text-right align-top">
+                          <div className="flex gap-1.5 justify-end whitespace-nowrap">
+                            {rowActions(row)}
+                          </div>
+                        </td>
                       )}
-                    </td>
-                  ))}
-                  {rowActions && (
-                    <td className="py-2 px-3 text-right align-top">
-                      <div className="flex gap-1.5 justify-end whitespace-nowrap">
-                        {rowActions(row)}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))
+                    </tr>
+                    {extra ? (
+                      <tr className="border-t border-[#F8F7F4] bg-[#FBFAF7]">
+                        <td
+                          colSpan={
+                            visibleColumns.length + (rowActions ? 1 : 0)
+                          }
+                          className="p-0"
+                        >
+                          {extra}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>

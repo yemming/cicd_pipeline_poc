@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getStockBalancePageData } from "@/domain/stock";
-import { BALANCE_PAGE_SIZE_DEFAULT } from "@/domain/stock.constants";
+import { getBalancePageData } from "@/domain/parts-balance";
 
-import { StockBalanceBoard } from "./_components/stock-balance-board";
+import { BalanceBoard } from "./_components/balance-board";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
 
 export default async function StockBalancePage({
   searchParams,
@@ -16,8 +17,9 @@ export default async function StockBalancePage({
   searchParams: Promise<{
     q?: string;
     warehouse?: string;
-    control?: string;
-    status?: string;
+    abc?: string;
+    alert?: string;
+    category?: string;
     include_zero?: string;
     page?: string;
   }>;
@@ -35,29 +37,35 @@ export default async function StockBalancePage({
 
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
-  const pageSize = BALANCE_PAGE_SIZE_DEFAULT;
-  const { rows, totalCount, warehouses } = await getStockBalancePageData(
-    {
-      q: sp.q || undefined,
-      warehouse_id: sp.warehouse || undefined,
-      control_type: sp.control || undefined,
-      status: sp.status || undefined,
-      include_zero: sp.include_zero === "1",
-    },
-    { page, pageSize },
-  );
+
+  const { rows, totalCount, stats, warehouses, categories, canReplenish } =
+    await getBalancePageData(
+      {
+        q: sp.q || undefined,
+        warehouse_id: sp.warehouse || undefined,
+        abc_class: sp.abc || undefined,
+        alert_level: sp.alert || undefined,
+        category: sp.category || undefined,
+        include_zero: sp.include_zero === "1",
+      },
+      { page, pageSize: PAGE_SIZE },
+    );
 
   return (
-    <StockBalanceBoard
+    <BalanceBoard
       rows={rows}
       totalCount={totalCount}
+      stats={stats}
       warehouses={warehouses}
+      categories={categories}
+      canReplenish={canReplenish}
       page={page}
-      pageSize={pageSize}
+      pageSize={PAGE_SIZE}
       initialQ={sp.q ?? ""}
       initialWarehouse={sp.warehouse ?? ""}
-      initialControl={sp.control ?? ""}
-      initialStatus={sp.status ?? ""}
+      initialAbc={sp.abc ?? ""}
+      initialAlert={sp.alert ?? ""}
+      initialCategory={sp.category ?? ""}
       initialIncludeZero={sp.include_zero === "1"}
     />
   );

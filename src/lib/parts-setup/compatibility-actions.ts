@@ -141,3 +141,90 @@ export async function deleteCompatAction(
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
 }
+
+// ============================================================================
+// P1-5 bulk apply：矩陣模式批次套用適配
+// ============================================================================
+
+export type BulkApplyInput = {
+  item_ids: string[];
+  vehicle_model_ids: string[];
+  year_start: number | null;
+  year_end: number | null;
+  notes: string | null;
+};
+
+export async function bulkApplyCompatibilityAction(
+  input: BulkApplyInput,
+): Promise<ActionResult<{ inserted: number; updated: number; skipped: number }>> {
+  await requirePermission(PERMISSIONS.ITEM_EDIT);
+  if (!input.item_ids?.length) return { ok: false, error: "請選擇至少一個備件" };
+  if (!input.vehicle_model_ids?.length) return { ok: false, error: "請選擇至少一個車型" };
+
+  const yr = normalizeYears(input.year_start, input.year_end);
+  if (yr.error) return { ok: false, error: yr.error };
+
+  const total = input.item_ids.length * input.vehicle_model_ids.length;
+  if (total > 500) return { ok: false, error: `批次上限 500 組，目前 ${total} 組` };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 讀現有 row 判斷新增/更新
+  const { data: existing, error: qErr } = await supabase
+    .from("item_vehicle_compatibility")
+    .select("id, item_id, vehicle_model_id")
+    .eq("brand_id", brand)
+    .in("item_id", input.item_ids)
+    .in("vehicle_model_id", input.vehicle_model_ids);
+  if (qErr) return { ok: false, error: `查詢失敗：${qErr.message}` };
+
+  const existMap = new Map<string, string>();
+  for (const r of existing ?? []) {
+    existMap.set(`${r.item_id}|${r.vehicle_model_id}`, r.id);
+  }
+
+  let inserted = 0;
+  let updated = 0;
+  let skipped = 0;
+  const notes = input.notes?.trim() || null;
+
+  for (const itemId of input.item_ids) {
+    for (const modelId of input.vehicle_model_ids) {
+      const existingId = existMap.get(`${itemId}|${modelId}`);
+      if (existingId) {
+        const { error } = await supabase
+          .from("item_vehicle_compatibility")
+          .update({
+            year_start: yr.year_start,
+            year_end: yr.year_end,
+            notes,
+          })
+          .eq("id", existingId);
+        if (error) {
+          skipped++;
+          continue;
+        }
+        updated++;
+      } else {
+        const { error } = await supabase.from("item_vehicle_compatibility").insert({
+          brand_id: brand,
+          item_id: itemId,
+          vehicle_model_id: modelId,
+          year_start: yr.year_start,
+          year_end: yr.year_end,
+          notes,
+          is_verified: false,
+        });
+        if (error) {
+          skipped++;
+          continue;
+        }
+        inserted++;
+      }
+    }
+  }
+
+  revalidatePath(PAGE_PATH);
+  return { ok: true, data: { inserted, updated, skipped } };
+}

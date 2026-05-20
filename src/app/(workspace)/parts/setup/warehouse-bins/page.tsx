@@ -26,7 +26,7 @@ export default async function WarehouseBinsPage({
   }
 
   const { w } = await searchParams;
-  const { warehouses, activeWarehouse, zones } = await getWarehouseBinsPageData(w);
+  const { warehouses, activeWarehouse, zones, heatmap } = await getWarehouseBinsPageData(w);
   const canEdit = await hasPermission(PERMISSIONS.PARTS_WAREHOUSE_ARCH_EDIT);
 
   return (
@@ -34,6 +34,7 @@ export default async function WarehouseBinsPage({
       warehouses={warehouses}
       activeWarehouse={activeWarehouse}
       zones={zones}
+      heatmap={heatmap}
       canEdit={canEdit}
     />
   );

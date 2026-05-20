@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization";
 import {
   FINAL_INSPECTION_STATUS,
   STATUS_CHIP,
@@ -55,6 +56,24 @@ export function FinalInspectionsBoard({ rows, candidates, filter, canEdit }: Pro
   const [selectedRoId, setSelectedRoId] = useState<string>(candidates[0]?.id ?? "");
   const [statusLocal, setStatusLocal] = useState<Filter["status"]>(filter.status);
   const [qLocal, setQLocal] = useState(filter.q);
+
+  // KPI 聚合（已被 server 過濾過 brand）
+  const kpis = useMemo(() => {
+    const total = rows.length;
+    const inProgress = rows.filter((r) => r.status === "in_progress").length;
+    const passed = rows.filter((r) => r.status === "passed").length;
+    const completed = rows.filter((r) => r.status === "completed").length;
+    const rejected = rows.filter((r) => r.status === "rejected").length;
+    // 平均通過率
+    const passRates = rows
+      .filter((r) => r.total_lines > 0)
+      .map((r) => r.passed_lines / r.total_lines);
+    const avgPassRate =
+      passRates.length > 0
+        ? Math.round((passRates.reduce((a, b) => a + b, 0) / passRates.length) * 100)
+        : 0;
+    return { total, inProgress, passed, completed, rejected, avgPassRate };
+  }, [rows]);
 
   function showBanner(b: NonNullable<Banner>) {
     setBanner(b);
@@ -219,6 +238,42 @@ export function FinalInspectionsBoard({ rows, candidates, filter, canEdit }: Pro
           維修完成後逐項複檢、試車、清潔、簽核、通知取車的 5 步驟單據
         </span>
       </header>
+
+      {/* KPI 列 */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <KpiCard tone="blue" layout="mini" label="本月複檢單" value={kpis.total} />
+        <KpiCard tone="amber" layout="mini" label="複檢中" value={kpis.inProgress} />
+        <KpiCard tone="purple" layout="mini" label="已簽核" value={kpis.passed} />
+        <KpiCard tone="green" layout="mini" label="已完成（待結帳）" value={kpis.completed} />
+        <KpiCard
+          tone={kpis.rejected > 0 ? "red" : "gray"}
+          layout="mini"
+          label="退回重修"
+          value={kpis.rejected}
+        />
+      </div>
+
+      {/* 通過率提示條 */}
+      {rows.length > 0 ? (
+        <div className="flex items-center gap-2 text-[11.5px] text-[#5A5955]">
+          <span>平均項目通過率：</span>
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-md font-medium ${
+              kpis.avgPassRate >= 90
+                ? "bg-[#EAF3DE] text-[#3B6D11]"
+                : kpis.avgPassRate >= 60
+                ? "bg-[#FDF3E3] text-[#854F0B]"
+                : "bg-[#FDECEA] text-[#CC0000]"
+            }`}
+          >
+            {kpis.avgPassRate}%
+          </span>
+          <span className="text-[#9A9890]">·</span>
+          <span>
+            可建立來源工單 <b className="text-[#2C2C2A]">{candidates.length}</b> 張
+          </span>
+        </div>
+      ) : null}
 
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">

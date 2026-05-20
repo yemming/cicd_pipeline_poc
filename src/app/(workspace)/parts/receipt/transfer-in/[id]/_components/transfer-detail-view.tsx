@@ -7,8 +7,12 @@ import { useState, useTransition } from "react";
 import type {
   StockTransferDetail,
   StockTransferDetailLine,
+  TransferSubsidiaryInfo,
+  TransferTimelineEvent,
 } from "@/domain/transfers";
 import { updateTransfer, voidTransfer } from "@/domain/transfers";
+import { Timeline } from "@/components/visualization/Timeline";
+import type { ToneKey } from "@/components/visualization/tone";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit";
@@ -45,9 +49,13 @@ const inputClass =
 export function TransferDetailView({
   transfer,
   canEdit,
+  subsidiaryInfo,
+  timeline,
 }: {
   transfer: StockTransferDetail;
   canEdit: boolean;
+  subsidiaryInfo: TransferSubsidiaryInfo;
+  timeline: TransferTimelineEvent[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -240,6 +248,23 @@ export function TransferDetailView({
         </div>
       </div>
 
+      {/* 1.5 跨主體警示 */}
+      {subsidiaryInfo.is_cross_subsidiary ? (
+        <div className="bg-[#FDF3E3] border border-[#F5C97A] rounded-md px-4 py-2.5 text-[12.5px] text-[#854F0B] flex items-start gap-2">
+          <span className="text-[14px]">⚠️</span>
+          <div className="flex-1">
+            <b>跨主體調撥</b>
+            <span className="ml-1.5">
+              {subsidiaryInfo.src_subsidiary_name ?? "—"} →{" "}
+              {subsidiaryInfo.tgt_subsidiary_name ?? "—"}
+            </span>
+            <span className="ml-1 text-[11.5px] text-[#9A6F11]">
+              需走 INTER_COMPANY_TRANSFER 分錄（未實作）。收貨時不會自動產生 GL JE，會計需手動補。
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {/* 2. Title Card */}
       <header className="bg-white border border-[#EEECE6] rounded-lg p-4">
         <div className="flex items-stretch gap-4">
@@ -404,6 +429,7 @@ export function TransferDetailView({
         editLineNotes={editLineNotes}
         setEditLineNotes={setEditLineNotes}
         totals={{ requested: totalRequested, shipped: totalShipped, received: totalReceived, amount: totalAmount }}
+        timeline={timeline}
       />
 
       {/* 6. Banner */}
@@ -476,20 +502,39 @@ export function TransferDetailView({
   );
 }
 
+const TIMELINE_TONE: Record<TransferTimelineEvent["kind"], ToneKey> = {
+  created: "gray",
+  shipped: "blue",
+  in_transit: "amber",
+  partial: "amber",
+  received: "green",
+  cancelled: "red",
+};
+
 function Tabs({
   lines,
   mode,
   editLineNotes,
   setEditLineNotes,
   totals,
+  timeline,
 }: {
   lines: StockTransferDetailLine[];
   mode: Mode;
   editLineNotes: Record<string, string>;
   setEditLineNotes: (next: Record<string, string>) => void;
   totals: { requested: number; shipped: number; received: number; amount: number };
+  timeline: TransferTimelineEvent[];
 }) {
-  const [tab, setTab] = useState<"lines" | "audit">("lines");
+  const [tab, setTab] = useState<"lines" | "timeline">("lines");
+
+  const timelineEvents = timeline.map((e) => ({
+    id: e.id,
+    time: new Date(e.at),
+    title: e.title,
+    description: e.description,
+    tone: TIMELINE_TONE[e.kind],
+  }));
 
   return (
     <>
@@ -508,14 +553,14 @@ function Tabs({
           </button>
           <button
             type="button"
-            onClick={() => setTab("audit")}
+            onClick={() => setTab("timeline")}
             className={`px-4 h-[40px] text-[12.5px] whitespace-nowrap ${
-              tab === "audit"
+              tab === "timeline"
                 ? "bg-white text-[#1A3A5C] font-semibold border-b-2 border-b-[#1A3A5C] -mb-px"
                 : "text-[#5A5955] hover:bg-[#F8F7F4]"
             }`}
           >
-            異動紀錄
+            生命週期（{timeline.length}）
           </button>
         </div>
       </div>
@@ -528,10 +573,12 @@ function Tabs({
             setEditLineNotes={setEditLineNotes}
             totals={totals}
           />
-        ) : (
+        ) : timelineEvents.length === 0 ? (
           <div className="text-[12px] text-[#9A9890] py-8 text-center">
-            異動紀錄功能待開發
+            尚無事件紀錄
           </div>
+        ) : (
+          <Timeline events={timelineEvents} variant="vertical" />
         )}
       </div>
     </>

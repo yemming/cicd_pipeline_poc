@@ -25,6 +25,7 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   computeQuote,
   type CheckRow,
+  type PreInspectionMode,
   type SaQuoteItem,
   type Signature,
   type TechRow,
@@ -85,6 +86,7 @@ export async function createBlankAction(payload: {
   vehicle_model_name?: string;
   mileage_in?: number | null;
   sa_name?: string;
+  mode?: PreInspectionMode;
 }): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   const supabase = await createClient();
@@ -100,6 +102,7 @@ export async function createBlankAction(payload: {
       brand_id: brand,
       pi_no,
       status: "in_progress",
+      mode: payload.mode ?? "full",
       customer_name: payload.customer_name ?? null,
       customer_phone: payload.customer_phone ?? null,
       vehicle_license_plate: payload.vehicle_license_plate ?? null,
@@ -126,6 +129,7 @@ export async function createBlankAction(payload: {
 
 export async function createFromAppointmentAction(
   appointment_id: string,
+  mode: PreInspectionMode = "full",
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   const supabase = await createClient();
@@ -196,6 +200,7 @@ export async function createFromAppointmentAction(
       brand_id: brand,
       pi_no,
       status: "in_progress",
+      mode,
       appointment_id,
       customer_id: appt.customer_id,
       vehicle_id: appt.vehicle_id,
@@ -298,6 +303,27 @@ export async function updateSaItemsAction(
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   return patchMetadata(id, { sa_items });
+}
+
+export async function setModeAction(
+  id: string,
+  mode: PreInspectionMode,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (isLockedByStatus(ctx.row.status)) {
+    return { ok: false, error: `狀態為「${ctx.row.status}」，無法切換模式` };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("pre_inspections")
+    .update({ mode })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  revalidatePath(PAGE);
+  return { ok: true, data: { id } };
 }
 
 export async function updateBasicInfoAction(

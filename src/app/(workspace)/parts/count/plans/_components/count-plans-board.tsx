@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
-import type { CountPlanListRow } from "@/domain/count";
+import { KpiCard } from "@/components/visualization";
+import type { CountPlanListRow, CountPlansStats, CountPlanGanttBar } from "@/domain/count";
 import {
   createCountPlanAction,
   updateCountPlanAction,
@@ -54,6 +55,9 @@ export function CountPlansBoard({
   rows,
   warehouses,
   canEdit,
+  stats,
+  ganttBars,
+  ganttRange,
   initialIsActive,
   initialQ,
   initialWarehouseId,
@@ -61,6 +65,9 @@ export function CountPlansBoard({
   rows: CountPlanListRow[];
   warehouses: WarehouseOption[];
   canEdit: boolean;
+  stats: CountPlansStats;
+  ganttBars: CountPlanGanttBar[];
+  ganttRange: { from: string; to: string };
   initialIsActive: string;
   initialQ: string;
   initialWarehouseId: string;
@@ -72,6 +79,7 @@ export function CountPlansBoard({
   const [q, setQ] = useState(initialQ);
   const [warehouseId, setWarehouseId] = useState(initialWarehouseId);
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [selectedBarId, setSelectedBarId] = useState<string | null>(null);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -347,6 +355,15 @@ export function CountPlansBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canEdit]);
 
+  const selectedBar = useMemo(
+    () => (selectedBarId ? ganttBars.find((b) => b.id === selectedBarId) ?? null : null),
+    [selectedBarId, ganttBars],
+  );
+  const selectedRow = useMemo(
+    () => (selectedBarId ? rows.find((r) => r.id === selectedBarId) ?? null : null),
+    [selectedBarId, rows],
+  );
+
   return (
     <main className="px-6 py-5 space-y-3">
       <header className="flex items-center gap-2.5">
@@ -358,6 +375,68 @@ export function CountPlansBoard({
           設定週期性盤點計畫、自動排程下次執行
         </span>
       </header>
+
+      {/* KPI 列 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard
+          label="本月計畫"
+          value={stats.this_month_total}
+          tone="blue"
+          icon={<span className="material-symbols-outlined text-[18px]">event_note</span>}
+        />
+        <KpiCard
+          label="本月已完成"
+          value={stats.this_month_executed}
+          tone="green"
+          icon={<span className="material-symbols-outlined text-[18px]">task_alt</span>}
+        />
+        <KpiCard
+          label="完成率"
+          value={stats.completion_rate == null ? "—" : `${stats.completion_rate}%`}
+          tone={
+            stats.completion_rate == null
+              ? "gray"
+              : stats.completion_rate >= 70
+                ? "green"
+                : stats.completion_rate >= 40
+                  ? "amber"
+                  : "red"
+          }
+          icon={<span className="material-symbols-outlined text-[18px]">trending_up</span>}
+        />
+        <KpiCard
+          label={stats.overdue > 0 ? `逾期 / 7 天內待盤` : "7 天內待盤"}
+          value={
+            stats.overdue > 0
+              ? `${stats.overdue} / ${stats.upcoming_7d}`
+              : stats.upcoming_7d
+          }
+          tone={stats.overdue > 0 ? "red" : "amber"}
+          icon={<span className="material-symbols-outlined text-[18px]">schedule</span>}
+        />
+      </div>
+
+      {/* 甘特圖 */}
+      <GanttSection
+        bars={ganttBars}
+        range={ganttRange}
+        selectedId={selectedBarId}
+        onSelect={(id) => setSelectedBarId(id === selectedBarId ? null : id)}
+      />
+
+      {/* Detail Panel — 選中 bar / row 時顯示 */}
+      {selectedBar && selectedRow && (
+        <DetailPanel
+          bar={selectedBar}
+          row={selectedRow}
+          canEdit={canEdit}
+          onClose={() => setSelectedBarId(null)}
+          onEdit={() => {
+            openEdit(selectedRow);
+            setSelectedBarId(null);
+          }}
+        />
+      )}
 
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">
@@ -676,6 +755,305 @@ function Field({
     <div className={`flex flex-col gap-1 ${full ? "col-span-2" : ""}`}>
       <label className="text-[11px] text-[#9A9890] font-medium">{label}</label>
       {children}
+    </div>
+  );
+}
+
+// ─── 甘特圖：自製 SVG / div 排期視覺 ───
+
+const STATUS_COLOR: Record<
+  CountPlanGanttBar["status"],
+  { fill: string; border: string; text: string; label: string }
+> = {
+  done: { fill: "#EAF3DE", border: "#3B6D11", text: "#3B6D11", label: "已執行" },
+  scheduled: { fill: "#EBF3FF", border: "#1A3A5C", text: "#1A3A5C", label: "排程中" },
+  overdue: { fill: "#FDECEA", border: "#CC0000", text: "#CC0000", label: "逾期" },
+  paused: { fill: "#F2F2F2", border: "#9A9890", text: "#6B6A68", label: "停用" },
+};
+
+function daysBetween(a: string, b: string): number {
+  return Math.round(
+    (new Date(b).getTime() - new Date(a).getTime()) / 86400_000,
+  );
+}
+
+function fmtShortDate(d: string): string {
+  // 2026-05-14 → 05/14
+  return d.slice(5).replace("-", "/");
+}
+
+function GanttSection({
+  bars,
+  range,
+  selectedId,
+  onSelect,
+}: {
+  bars: CountPlanGanttBar[];
+  range: { from: string; to: string };
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const totalDays = Math.max(1, daysBetween(range.from, range.to));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayOffset = daysBetween(range.from, todayStr);
+  const todayPct = (todayOffset / totalDays) * 100;
+
+  // 產生時間軸刻度（每 ~ 10 天一個 tick）
+  const tickCount = 9; // 10 段，9 個 inner ticks
+  const ticks = Array.from({ length: tickCount + 1 }, (_, i) => {
+    const t = i / tickCount;
+    const offsetDays = Math.round(t * totalDays);
+    const d = new Date(new Date(range.from).getTime() + offsetDays * 86400_000)
+      .toISOString()
+      .slice(0, 10);
+    return { pct: t * 100, label: fmtShortDate(d), date: d };
+  });
+
+  if (bars.length === 0) {
+    return (
+      <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-6">
+        <div className="text-[13px] font-semibold text-[#2C2C2A] mb-1">排期甘特圖</div>
+        <p className="text-[12px] text-[#9A9890]">
+          目前沒有可呈現的計畫排程（請先設定 next_run_at）
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="bg-white border border-[#EEECE6] rounded-lg">
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-3">
+        <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 排期甘特圖</span>
+        <span className="text-[11px] text-[#9A9890]">
+          {fmtShortDate(range.from)} ~ {fmtShortDate(range.to)} ・ 共 {bars.length} 個計畫
+        </span>
+        <div className="ml-auto flex items-center gap-3 text-[11px]">
+          {(["done", "scheduled", "overdue", "paused"] as const).map((s) => (
+            <div key={s} className="flex items-center gap-1">
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-sm"
+                style={{ backgroundColor: STATUS_COLOR[s].fill, border: `1px solid ${STATUS_COLOR[s].border}` }}
+              />
+              <span style={{ color: STATUS_COLOR[s].text }}>{STATUS_COLOR[s].label}</span>
+            </div>
+          ))}
+        </div>
+      </header>
+
+      <div className="overflow-x-auto">
+        <div className="min-w-[720px] px-4 py-3">
+          {/* 時間軸 header */}
+          <div className="flex">
+            <div className="w-[180px] shrink-0 text-[11px] text-[#9A9890] font-medium">
+              計畫 / 倉庫
+            </div>
+            <div className="flex-1 relative h-[22px] border-b border-[#EEECE6]">
+              {ticks.map((t, i) => (
+                <div
+                  key={i}
+                  className="absolute top-0 text-[10px] text-[#9A9890] -translate-x-1/2"
+                  style={{ left: `${t.pct}%` }}
+                >
+                  {t.label}
+                </div>
+              ))}
+              {/* today 線 */}
+              {todayPct >= 0 && todayPct <= 100 && (
+                <div
+                  className="absolute top-0 bottom-0 w-px bg-[#CC0000]"
+                  style={{ left: `${todayPct}%` }}
+                  title={`今天 ${todayStr}`}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* bar 列 */}
+          <div className="space-y-1.5 mt-2">
+            {bars.map((bar) => {
+              const startOffset = daysBetween(range.from, bar.start);
+              const widthDays = Math.max(1, daysBetween(bar.start, bar.end));
+              const leftPct = Math.max(0, (startOffset / totalDays) * 100);
+              const widthPct = Math.min(
+                100 - leftPct,
+                (widthDays / totalDays) * 100,
+              );
+              const outOfRange = startOffset + widthDays < 0 || startOffset > totalDays;
+              const color = STATUS_COLOR[bar.status];
+              const isSelected = selectedId === bar.id;
+
+              return (
+                <div
+                  key={bar.id}
+                  className={`flex items-center group ${isSelected ? "bg-[#F8F7F4]" : "hover:bg-[#F8F7F4]"}`}
+                >
+                  <div className="w-[180px] shrink-0 pr-2 py-1">
+                    <div className="text-[12px] font-medium text-[#2C2C2A] truncate" title={bar.plan_name}>
+                      {bar.plan_name}
+                    </div>
+                    <div className="text-[10.5px] text-[#9A9890] truncate">
+                      {bar.warehouse_name ?? "—"}
+                    </div>
+                  </div>
+                  <div className="flex-1 relative h-[28px]">
+                    {/* 背景刻度 */}
+                    {ticks.map((t, i) => (
+                      <div
+                        key={i}
+                        className="absolute top-0 bottom-0 w-px bg-[#F2F1ED]"
+                        style={{ left: `${t.pct}%` }}
+                      />
+                    ))}
+                    {/* today 線 */}
+                    {todayPct >= 0 && todayPct <= 100 && (
+                      <div
+                        className="absolute top-0 bottom-0 w-px bg-[#CC0000]/60"
+                        style={{ left: `${todayPct}%` }}
+                      />
+                    )}
+                    {/* bar */}
+                    {!outOfRange && (
+                      <button
+                        type="button"
+                        onClick={() => onSelect(bar.id)}
+                        className={`absolute top-1 h-[20px] rounded text-[10.5px] flex items-center px-1.5 gap-1 transition-shadow ${
+                          isSelected ? "ring-2 ring-[#185FA5] ring-offset-1" : "hover:shadow-sm"
+                        }`}
+                        style={{
+                          left: `${leftPct}%`,
+                          width: `${Math.max(2, widthPct)}%`,
+                          backgroundColor: color.fill,
+                          border: `1px solid ${color.border}`,
+                          color: color.text,
+                          minWidth: "32px",
+                        }}
+                        title={`${bar.plan_name} ・ ${bar.start} ~ ${bar.end} ・ ${color.label}${
+                          bar.assignee_label ? ` ・ ${bar.assignee_label}` : ""
+                        }`}
+                      >
+                        <span className="truncate font-medium">
+                          {bar.assignee_label ?? color.label}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DetailPanel({
+  bar,
+  row,
+  canEdit,
+  onClose,
+  onEdit,
+}: {
+  bar: CountPlanGanttBar;
+  row: CountPlanListRow;
+  canEdit: boolean;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const color = STATUS_COLOR[bar.status];
+  const planTypeDef = COUNT_PLAN_TYPE_CHIP[row.plan_type ?? ""] ?? {
+    label: row.plan_type ?? "—",
+    chip: "bg-[#F2F2F2] text-[#6B6A68]",
+  };
+  const meta = (row.metadata ?? {}) as Record<string, unknown>;
+  const scopeText = typeof meta.scope_text === "string" ? meta.scope_text : null;
+  return (
+    <section className="bg-white border border-[#EEECE6] rounded-lg">
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+        <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 計畫詳情</span>
+        <span
+          className="px-1.5 py-0.5 rounded-md text-[11px]"
+          style={{
+            backgroundColor: color.fill,
+            border: `1px solid ${color.border}`,
+            color: color.text,
+          }}
+        >
+          {color.label}
+        </span>
+        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${planTypeDef.chip}`}>
+          {planTypeDef.label}
+        </span>
+        <div className="ml-auto flex gap-1.5">
+          <Link
+            href={`/parts/count/plans/${row.id}`}
+            className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          >
+            開啟詳情頁
+          </Link>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              編輯
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-[26px] w-[26px] rounded text-[11.5px] inline-flex items-center justify-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          >
+            ×
+          </button>
+        </div>
+      </header>
+      <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-3">
+        <Kv label="計畫名稱" value={row.plan_name} />
+        <Kv label="倉庫" value={row.warehouse_name ?? "—"} />
+        <Kv label="排程 (cron)" value={row.schedule_cron ?? "—"} mono />
+        <Kv label="ABC 範圍" value={row.abc_filter ?? "—"} />
+        <Kv label="排定起始" value={bar.start.replace(/-/g, "/")} mono />
+        <Kv label="排定結束" value={bar.end.replace(/-/g, "/")} mono />
+        <Kv label="工期 (天)" value={String(bar.duration_days)} />
+        <Kv label="負責人" value={bar.assignee_label ?? "—"} />
+        <Kv label="上次執行" value={fmtDate(row.last_run_at)} mono />
+        <Kv label="下次執行" value={fmtDate(row.next_run_at)} mono />
+        <Kv label="啟用" value={row.is_active ? "啟用" : "停用"} />
+        <Kv label="範圍" value={scopeText ?? "—"} small />
+        {row.notes && (
+          <div className="md:col-span-4">
+            <div className="text-[11px] text-[#9A9890] font-medium mb-0.5">備註</div>
+            <div className="text-[12.5px] text-[#2C2C2A] whitespace-pre-wrap">{row.notes}</div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function Kv({
+  label,
+  value,
+  mono,
+  small,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  small?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-[11px] text-[#9A9890] font-medium mb-0.5">{label}</div>
+      <div
+        className={`${small ? "text-[11.5px] text-[#5A5955]" : "text-[12.5px] text-[#2C2C2A]"} ${
+          mono ? "font-mono" : ""
+        }`}
+      >
+        {value}
+      </div>
     </div>
   );
 }

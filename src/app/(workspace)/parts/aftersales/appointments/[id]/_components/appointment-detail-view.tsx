@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, useMemo } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { Timeline, type TimelineEvent } from "@/components/visualization";
 import {
   APPOINTMENT_STATUSES,
   SERVICE_TYPES,
@@ -516,18 +517,23 @@ export function AppointmentDetailView({
         </div>
       </section>
 
-      {/* 5. 時程記錄（read-only） */}
+      {/* 5. 時程記錄 — Timeline 視覺化 */}
       {appointment && mode !== "create" && (
         <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
           <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
             <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 時程記錄</span>
           </header>
-          <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
-            <Kv label="到廠時間" value={appointment.arrived_at ?? "—"} mono />
-            <Kv label="進車間時間" value={appointment.started_at ?? "—"} mono />
-            <Kv label="完工時間" value={appointment.completed_at ?? "—"} mono />
-            <Kv label="建立時間" value={appointment.created_at ?? "—"} mono />
-            <Kv label="最後更新" value={appointment.updated_at ?? "—"} mono />
+          <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+              <Timeline
+                events={buildTimelineEvents(appointment)}
+                variant="vertical"
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-y-2.5 content-start">
+              <Kv label="建立時間" value={appointment.created_at ?? "—"} mono />
+              <Kv label="最後更新" value={appointment.updated_at ?? "—"} mono />
+            </div>
           </div>
         </section>
       )}
@@ -562,6 +568,73 @@ function Kv({ label, value, mono }: { label: string; value: string; mono?: boole
       </span>
     </div>
   );
+}
+
+function fmtTime(t: string | null | undefined): string {
+  if (!t) return "—";
+  try {
+    return new Date(t).toLocaleString("zh-TW", {
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return t;
+  }
+}
+
+function buildTimelineEvents(a: AppointmentListRow): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+  events.push({
+    id: "booked",
+    time: a.created_at ?? "—",
+    title: "預約建立",
+    description: `${a.appointment_date} ${(a.appointment_time as string).slice(0, 5)} · 來源 ${
+      ((a.metadata ?? {}) as Record<string, unknown>).source ?? "—"
+    }`,
+    tone: "gray",
+  });
+  if (a.arrived_at) {
+    events.push({
+      id: "arrived",
+      time: fmtTime(a.arrived_at),
+      title: "到廠 / Check-in",
+      description: "客戶報到、車輛入場",
+      tone: "blue",
+    });
+  }
+  if (a.started_at) {
+    events.push({
+      id: "started",
+      time: fmtTime(a.started_at),
+      title: "進車間 / 開始維修",
+      description: a.technician_name ? `技師：${a.technician_name}` : undefined,
+      tone: "amber",
+    });
+  }
+  if (a.completed_at) {
+    events.push({
+      id: "completed",
+      time: fmtTime(a.completed_at),
+      title: "維修完工",
+      description: "等待客戶取車",
+      tone: "green",
+    });
+  }
+  const meta = (a.metadata ?? {}) as Record<string, unknown>;
+  if (meta.canceled_at) {
+    events.push({
+      id: "canceled",
+      time: fmtTime(meta.canceled_at as string),
+      title: "已取消",
+      description: (meta.cancel_reason as string) ?? undefined,
+      tone: "red",
+    });
+  }
+  return events;
 }
 
 function todayLocal(): string {

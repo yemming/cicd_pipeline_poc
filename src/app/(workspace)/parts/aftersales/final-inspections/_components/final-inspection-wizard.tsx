@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { EntityImageGallery } from "@/components/image-upload/entity-image-gallery";
 import {
   DEFAULT_CLEANING_ITEMS,
   DEFAULT_TEST_DRIVE_ITEMS,
@@ -506,6 +507,34 @@ export function FinalInspectionWizard({ data, canEdit }: Props) {
           readonly={readonly}
         />
       ) : null}
+
+      {/* 竣工照片區（貫穿所有 step，最多 12 張） */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+          <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+            ▼ 竣工照片證據
+          </h2>
+          <span className="text-[11.5px] text-[#9A9890]">
+            （試車後 / 清潔後 / 交車前現場照片，作為複檢與交車存證，最多 12 張）
+          </span>
+          <span className="ml-auto text-[11px] text-[#9A9890]">
+            已上傳 {data.photos.length} / 12 張
+          </span>
+        </header>
+        <div className="px-4 py-3">
+          <EntityImageGallery
+            entity="final-inspection"
+            entityId={data.id}
+            images={data.photos}
+            alt="竣工照片"
+            canEdit={canEdit && !isCompleted}
+            width={320}
+            height={210}
+            maxImages={12}
+            emptyHint="點擊上傳竣工照片（試車記錄 / 清潔狀態 / 交車前外觀）"
+          />
+        </div>
+      </section>
 
       {/* footer nav */}
       <div className="flex items-center justify-between bg-white border border-[#EEECE6] rounded-lg px-4 py-2.5">

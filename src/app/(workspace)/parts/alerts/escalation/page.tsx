@@ -3,20 +3,20 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getAlertEscalationPageData } from "@/domain/rules";
+import {
+  listAlertTypes,
+  listEscalations,
+  simulateEscalation,
+} from "@/domain/parts-alerts-escalation";
 
-import { EscalationBoard } from "./_components/escalation-board";
+import { AlertEscalationBoard } from "./_components/alert-escalation-board";
 
 export const dynamic = "force-dynamic";
 
 export default async function AlertEscalationPage({
   searchParams,
 }: {
-  searchParams?: Promise<{
-    q?: string;
-    level?: string;
-    is_active?: string;
-  }>;
+  searchParams?: Promise<{ alert_type?: string }>;
 }) {
   const { userId } = await getCurrentUserAndAdmin();
   if (!userId) redirect("/login");
@@ -29,24 +29,28 @@ export default async function AlertEscalationPage({
     );
   }
 
+  const canEdit = await hasPermission(PERMISSIONS.ALERT_CONFIG);
   const sp = (await searchParams) ?? {};
-  const levelNum = sp.level ? Number(sp.level) : undefined;
-  const filter = {
-    q: sp.q || undefined,
-    level: levelNum !== undefined && Number.isFinite(levelNum) ? levelNum : undefined,
-    is_active:
-      sp.is_active === "true" ? true : sp.is_active === "false" ? false : undefined,
-  };
 
-  const { rules, canEdit } = await getAlertEscalationPageData(filter);
+  const alertTypes = await listAlertTypes();
+  const activeType = sp.alert_type && alertTypes.some((t) => t.alert_type === sp.alert_type)
+    ? sp.alert_type
+    : alertTypes[0]?.alert_type;
+
+  const [rows, simulation] = activeType
+    ? await Promise.all([
+        listEscalations({ alert_type: activeType }),
+        simulateEscalation(activeType),
+      ])
+    : [[], { alert_label: "", trigger_desc: null, steps: [] }];
 
   return (
-    <EscalationBoard
-      rules={rules}
+    <AlertEscalationBoard
       canEdit={canEdit}
-      initialQ={sp.q ?? ""}
-      initialLevel={sp.level ?? ""}
-      initialIsActive={sp.is_active ?? ""}
+      alertTypes={alertTypes}
+      activeType={activeType ?? ""}
+      rows={rows}
+      simulation={simulation}
     />
   );
 }

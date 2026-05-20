@@ -6,6 +6,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import {
   listRoCheckouts,
   listRoCandidatesForCheckout,
+  getCheckoutKpis,
 } from "@/domain/ro-checkouts";
 import {
   RO_CHECKOUT_STATUS,
@@ -43,9 +44,10 @@ export default async function RoCheckoutsPage({
     : "all") as RoCheckoutStatus | "all";
   const q = sp.q ?? "";
 
-  const [rows, candidates] = await Promise.all([
+  const [rows, candidates, kpis] = await Promise.all([
     listRoCheckouts({ status, q }),
     listRoCandidatesForCheckout(),
+    getCheckoutKpis(),
   ]);
 
   return (
@@ -54,6 +56,7 @@ export default async function RoCheckoutsPage({
       candidates={candidates}
       filter={{ status, q }}
       canEdit={canEdit}
+      kpis={kpis}
     />
   );
 }

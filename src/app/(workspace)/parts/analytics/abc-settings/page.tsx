@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getAbcSettingsPageData } from "@/domain/analytics";
+import { getAbcConfig } from "@/domain/parts-abc";
 
 import { AbcSettingsBoard } from "./_components/abc-settings-board";
 
@@ -20,6 +20,6 @@ export default async function AbcSettingsPage() {
     );
   }
   const canEdit = await hasPermission(PERMISSIONS.PARTS_CONTROL_TYPE_EDIT);
-  const config = await getAbcSettingsPageData();
+  const config = await getAbcConfig();
   return <AbcSettingsBoard config={config} canEdit={canEdit} />;
 }

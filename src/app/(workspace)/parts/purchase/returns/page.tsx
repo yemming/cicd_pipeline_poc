@@ -9,8 +9,10 @@ import {
   getPurchaseReturnKpis,
   listVendorOptions,
   listPurchaseOrderOptions,
-  type PurchaseReturnListFilter,
-} from "@/domain/procurement";
+  getPurchaseReturnReasonBreakdown,
+} from "@/domain/parts-purchase-returns";
+import type { ReturnReasonBreakdown } from "@/domain/parts-purchase-returns.constants";
+import type { PurchaseReturnListFilter } from "@/domain/procurement";
 
 import { ReturnsBoard } from "./_components/returns-board";
 
@@ -49,18 +51,21 @@ export default async function PurchaseReturnsPage({
   let kpis = { pending_count: 0, shipped_count: 0, completed_this_month: 0, amount_this_month: 0 };
   let vendors: Awaited<ReturnType<typeof listVendorOptions>> = [];
   let poOptions: Awaited<ReturnType<typeof listPurchaseOrderOptions>> = [];
+  let reasonBreakdown: ReturnReasonBreakdown[] = [];
   try {
-    const [listRes, kpiRes, vendorRes, poRes] = await Promise.all([
+    const [listRes, kpiRes, vendorRes, poRes, breakdownRes] = await Promise.all([
       listPurchaseReturns(filter),
       getPurchaseReturnKpis(),
       listVendorOptions(),
       listPurchaseOrderOptions(),
+      getPurchaseReturnReasonBreakdown(),
     ]);
     rows = listRes.rows;
     total = listRes.total;
     kpis = kpiRes;
     vendors = vendorRes;
     poOptions = poRes;
+    reasonBreakdown = breakdownRes;
   } catch (e) {
     loadError = e instanceof Error ? e.message : String(e);
   }
@@ -72,6 +77,7 @@ export default async function PurchaseReturnsPage({
       kpis={kpis}
       vendors={vendors}
       poOptions={poOptions}
+      reasonBreakdown={reasonBreakdown}
       canEdit={canEdit}
       canApprove={canApprove}
       filter={{

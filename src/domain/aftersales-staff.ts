@@ -37,6 +37,7 @@ export type AftersalesStaffRow = {
   employment_status: string;
   is_active: boolean;
   notes: string | null;
+  avatar_url: string | null;
   // 售後 metadata 拆出來給 UI 直接用
   grade: string | null;
   work_type: string | null;
@@ -59,6 +60,47 @@ export type AftersalesStaffFilters = {
   dept?: string;
   status?: "all" | "active" | "inactive";
   auth?: "all" | "yes" | "no";
+};
+
+/* ────────────── KPI types ────────────── */
+
+export type AftersalesStaffKpi = {
+  emp_id: string;
+  /** 累計 RO 筆數（員工作為 SA 的 RO 總數） */
+  ro_count_total: number;
+  /** 本月 RO 筆數（依 opened_at 月份） */
+  ro_count_month: number;
+  /** 本月業績金額（員工作為 SA 的 lines_total 加總） */
+  monthly_revenue: number;
+  /** NPS 平均分（被分派為負責人的 nps_responses.score 平均，0-10） */
+  nps_avg: number | null;
+  /** NPS 樣本數 */
+  nps_count: number;
+  /** CSAT — 取 NPS >=9 的比例 (推薦比例)，0-100，沒樣本回 null */
+  csat_pct: number | null;
+};
+
+export type AftersalesStaffRowWithKpi = AftersalesStaffRow & {
+  kpi: AftersalesStaffKpi;
+};
+
+export type AftersalesStaffSummaryKpi = {
+  /** 售後部門總人數（含離職） */
+  headcount: number;
+  /** 在職人數 */
+  active_count: number;
+  /** 持有竣工複檢授權人數 */
+  auth_count: number;
+  /** 本月累計 RO 數 */
+  ro_count_month: number;
+  /** 本月業績金額 */
+  monthly_revenue: number;
+  /** 售後 NPS 平均（過去 90 天） */
+  nps_avg: number | null;
+  /** 售後 NPS 樣本數（過去 90 天） */
+  nps_count: number;
+  /** 各職級人數 */
+  grade_distribution: Record<string, number>;
 };
 
 /* ────────────── helpers ────────────── */
@@ -96,6 +138,7 @@ function rowFromDb(
     employment_status: (row.employment_status as string) ?? "active",
     is_active: Boolean(row.is_active ?? true),
     notes: (row.notes as string | null) ?? null,
+    avatar_url: (row.avatar_url as string | null) ?? null,
     grade: (meta.grade as string | null) ?? null,
     work_type: (meta.work_type as string | null) ?? null,
     final_inspection_auth: Boolean(meta.final_inspection_auth),
@@ -150,7 +193,7 @@ export async function listAftersalesStaff(
   let q = supabase
     .from("employees")
     .select(
-      "id, brand_id, emp_code, name, email, phone, dept_id, position, hire_date, leave_date, employment_status, is_active, notes, metadata, created_at, updated_at",
+      "id, brand_id, emp_code, name, email, phone, dept_id, position, hire_date, leave_date, employment_status, is_active, notes, avatar_url, metadata, created_at, updated_at",
       { count: "exact" },
     )
     .eq("brand_id", brand);
@@ -206,7 +249,7 @@ export async function getAftersalesStaffById(
   const { data, error } = await supabase
     .from("employees")
     .select(
-      "id, brand_id, emp_code, name, email, phone, dept_id, position, hire_date, leave_date, employment_status, is_active, notes, metadata, created_at, updated_at",
+      "id, brand_id, emp_code, name, email, phone, dept_id, position, hire_date, leave_date, employment_status, is_active, notes, avatar_url, metadata, created_at, updated_at",
     )
     .eq("id", id)
     .eq("brand_id", brand)
@@ -216,6 +259,225 @@ export async function getAftersalesStaffById(
   const aftersalesDepts = await listAftersalesDepartments();
   const deptMap = new Map(aftersalesDepts.map((d) => [d.id, d]));
   return rowFromDb(data as Record<string, unknown>, deptMap);
+}
+
+/* ────────────── KPI 計算 ────────────── */
+
+/** 列出當前 brand 售後員工 + 每位 KPI（給卡片 grid / DataGrid 用） */
+export async function listAftersalesStaffWithKpi(
+  filters: AftersalesStaffFilters = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<{
+  rows: AftersalesStaffRowWithKpi[];
+  totalCount: number;
+  summary: AftersalesStaffSummaryKpi;
+}> {
+  const { rows, totalCount } = await listAftersalesStaff(filters, options);
+  if (rows.length === 0) {
+    return {
+      rows: [],
+      totalCount,
+      summary: {
+        headcount: 0,
+        active_count: 0,
+        auth_count: 0,
+        ro_count_month: 0,
+        monthly_revenue: 0,
+        nps_avg: null,
+        nps_count: 0,
+        grade_distribution: {},
+      },
+    };
+  }
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const empIds = rows.map((r) => r.id);
+
+  // 本月 start (UTC); 全部 KPI 比較以 UTC 為準
+  const now = new Date();
+  const monthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  ).toISOString();
+  // 90 天前
+  const npsWindow = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 90),
+  ).toISOString();
+
+  /* RO aggregations — 一次撈整批 */
+  type RoMin = {
+    sa_id: string | null;
+    opened_at: string;
+    closed_at: string | null;
+    lines_total: number | null;
+  };
+  const { data: roRows } = await supabase
+    .from("repair_orders")
+    .select("sa_id, opened_at, closed_at, lines_total")
+    .eq("brand_id", brand)
+    .in("sa_id", empIds);
+
+  const roByEmp = new Map<
+    string,
+    { total: number; month: number; revenue: number }
+  >();
+  for (const r of (roRows ?? []) as RoMin[]) {
+    if (!r.sa_id) continue;
+    const cur = roByEmp.get(r.sa_id) ?? { total: 0, month: 0, revenue: 0 };
+    cur.total += 1;
+    if (r.opened_at >= monthStart) {
+      cur.month += 1;
+      cur.revenue += Number(r.lines_total ?? 0);
+    }
+    roByEmp.set(r.sa_id, cur);
+  }
+
+  /* NPS aggregations — 過去 90 天 */
+  type NpsMin = { score: number | null; metadata: { assigned_to_emp_id?: string } };
+  const { data: npsRows } = await supabase
+    .from("nps_responses")
+    .select("score, metadata")
+    .eq("brand_id", brand)
+    .eq("kind", "aftersales")
+    .gte("responded_at", npsWindow);
+
+  const npsByEmp = new Map<
+    string,
+    { sum: number; count: number; promoter: number }
+  >();
+  let summaryNpsSum = 0;
+  let summaryNpsCount = 0;
+  for (const r of (npsRows ?? []) as NpsMin[]) {
+    const score = Number(r.score ?? 0);
+    if (Number.isNaN(score)) continue;
+    summaryNpsSum += score;
+    summaryNpsCount += 1;
+    const emp = r.metadata?.assigned_to_emp_id;
+    if (!emp || !empIds.includes(emp)) continue;
+    const cur = npsByEmp.get(emp) ?? { sum: 0, count: 0, promoter: 0 };
+    cur.sum += score;
+    cur.count += 1;
+    if (score >= 9) cur.promoter += 1;
+    npsByEmp.set(emp, cur);
+  }
+
+  /* 組合 */
+  const rowsWithKpi: AftersalesStaffRowWithKpi[] = rows.map((r) => {
+    const ro = roByEmp.get(r.id) ?? { total: 0, month: 0, revenue: 0 };
+    const nps = npsByEmp.get(r.id);
+    return {
+      ...r,
+      kpi: {
+        emp_id: r.id,
+        ro_count_total: ro.total,
+        ro_count_month: ro.month,
+        monthly_revenue: ro.revenue,
+        nps_avg: nps && nps.count > 0 ? nps.sum / nps.count : null,
+        nps_count: nps?.count ?? 0,
+        csat_pct:
+          nps && nps.count > 0 ? Math.round((nps.promoter / nps.count) * 100) : null,
+      },
+    };
+  });
+
+  /* Summary */
+  const gradeDist: Record<string, number> = {};
+  let activeCount = 0;
+  let authCount = 0;
+  let summaryMonthRo = 0;
+  let summaryMonthRevenue = 0;
+  for (const r of rows) {
+    if (r.is_active) activeCount += 1;
+    if (r.final_inspection_auth) authCount += 1;
+    if (r.grade) gradeDist[r.grade] = (gradeDist[r.grade] ?? 0) + 1;
+    const ro = roByEmp.get(r.id);
+    if (ro) {
+      summaryMonthRo += ro.month;
+      summaryMonthRevenue += ro.revenue;
+    }
+  }
+
+  return {
+    rows: rowsWithKpi,
+    totalCount,
+    summary: {
+      headcount: rows.length,
+      active_count: activeCount,
+      auth_count: authCount,
+      ro_count_month: summaryMonthRo,
+      monthly_revenue: summaryMonthRevenue,
+      nps_avg: summaryNpsCount > 0 ? summaryNpsSum / summaryNpsCount : null,
+      nps_count: summaryNpsCount,
+      grade_distribution: gradeDist,
+    },
+  };
+}
+
+/** 單一員工 KPI（detail view 用） */
+export async function getAftersalesStaffKpi(
+  empId: string,
+): Promise<AftersalesStaffKpi> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const now = new Date();
+  const monthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+  ).toISOString();
+  const npsWindow = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 90),
+  ).toISOString();
+
+  type RoMin = {
+    opened_at: string;
+    lines_total: number | null;
+  };
+  const { data: roRows } = await supabase
+    .from("repair_orders")
+    .select("opened_at, lines_total")
+    .eq("brand_id", brand)
+    .eq("sa_id", empId);
+
+  let total = 0;
+  let month = 0;
+  let revenue = 0;
+  for (const r of (roRows ?? []) as RoMin[]) {
+    total += 1;
+    if (r.opened_at >= monthStart) {
+      month += 1;
+      revenue += Number(r.lines_total ?? 0);
+    }
+  }
+
+  type NpsMin = { score: number | null };
+  const { data: npsRows } = await supabase
+    .from("nps_responses")
+    .select("score")
+    .eq("brand_id", brand)
+    .eq("kind", "aftersales")
+    .gte("responded_at", npsWindow)
+    .eq("metadata->>assigned_to_emp_id", empId);
+
+  let sum = 0;
+  let count = 0;
+  let promoter = 0;
+  for (const r of (npsRows ?? []) as NpsMin[]) {
+    const score = Number(r.score ?? 0);
+    if (Number.isNaN(score)) continue;
+    sum += score;
+    count += 1;
+    if (score >= 9) promoter += 1;
+  }
+
+  return {
+    emp_id: empId,
+    ro_count_total: total,
+    ro_count_month: month,
+    monthly_revenue: revenue,
+    nps_avg: count > 0 ? sum / count : null,
+    nps_count: count,
+    csat_pct: count > 0 ? Math.round((promoter / count) * 100) : null,
+  };
 }
 
 /** distinct grade options 給 filter dropdown */

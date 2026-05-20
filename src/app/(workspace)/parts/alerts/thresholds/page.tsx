@@ -4,6 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getThresholdsPageData } from "@/domain/alerts";
+import { getThresholdStats } from "@/domain/parts-thresholds";
 
 import { ThresholdsBoard } from "./_components/thresholds-board";
 
@@ -35,19 +36,23 @@ export default async function ThresholdsPage({
   const isActiveFilter =
     sp.is_active === "true" ? true : sp.is_active === "false" ? false : undefined;
 
-  const { rows, warehouses, canEdit } = await getThresholdsPageData({
-    abc_class: sp.abc_class || undefined,
-    q: sp.q || undefined,
-    warehouse_id: sp.warehouse_id || undefined,
-    priority: sp.priority || undefined,
-    is_active: isActiveFilter,
-  });
+  const [{ rows, warehouses, canEdit }, stats] = await Promise.all([
+    getThresholdsPageData({
+      abc_class: sp.abc_class || undefined,
+      q: sp.q || undefined,
+      warehouse_id: sp.warehouse_id || undefined,
+      priority: sp.priority || undefined,
+      is_active: isActiveFilter,
+    }),
+    getThresholdStats(),
+  ]);
 
   return (
     <ThresholdsBoard
       rows={rows}
       warehouses={warehouses}
       canEdit={canEdit}
+      stats={stats}
       initialAbc={sp.abc_class ?? ""}
       initialQ={sp.q ?? ""}
       initialWarehouseId={sp.warehouse_id ?? ""}

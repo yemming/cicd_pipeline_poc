@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization/KpiCard";
 import {
   RO_CHECKOUT_STATUS,
   STATUS_CHIP,
@@ -13,6 +14,7 @@ import {
   type RoCheckoutStatus,
 } from "@/domain/ro-checkouts.constants";
 import type {
+  CheckoutKpis,
   RoCandidate,
   RoCheckoutListRow,
 } from "@/domain/ro-checkouts";
@@ -26,6 +28,7 @@ type Props = {
   candidates: RoCandidate[];
   filter: Filter;
   canEdit: boolean;
+  kpis: CheckoutKpis;
 };
 
 function pad(n: number) {
@@ -41,7 +44,7 @@ function fmtMoney(n: number | null | undefined): string {
   return `NT$${n.toLocaleString("en-US")}`;
 }
 
-export function RoCheckoutsBoard({ rows, candidates, filter, canEdit }: Props) {
+export function RoCheckoutsBoard({ rows, candidates, filter, canEdit, kpis }: Props) {
   useSetPageHeader({
     title: "結帳收款",
     breadcrumb: [
@@ -213,6 +216,40 @@ export function RoCheckoutsBoard({ rows, candidates, filter, canEdit }: Props) {
           竣工複檢通過後的 4 步驟結帳：費用確認 → 車主第二次簽名 → 收款方式・發票 → RO 關單
         </span>
       </header>
+
+      <section
+        className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+        data-test-id="ro-checkout-kpis"
+      >
+        <KpiCard
+          label="今日業績"
+          value={fmtMoney(kpis.todayRevenue)}
+          tone="green"
+          layout="horizontal"
+          icon={<span aria-hidden>💰</span>}
+        />
+        <KpiCard
+          label="今日結案張數"
+          value={`${kpis.todayClosedCount} 張`}
+          tone="blue"
+          layout="horizontal"
+          icon={<span aria-hidden>🧾</span>}
+        />
+        <KpiCard
+          label="平均客單（近 30 天）"
+          value={kpis.avgTicket30d > 0 ? fmtMoney(kpis.avgTicket30d) : "—"}
+          tone="teal"
+          layout="horizontal"
+          icon={<span aria-hidden>📊</span>}
+        />
+        <KpiCard
+          label="全部付清率（近 30 天）"
+          value={`${kpis.paidThroughRate}%`}
+          tone={kpis.paidThroughRate >= 80 ? "green" : kpis.paidThroughRate >= 50 ? "amber" : "red"}
+          layout="horizontal"
+          icon={<span aria-hidden>✅</span>}
+        />
+      </section>
 
       <section className="rounded-lg border border-[#85B7EB] bg-[#EAF4FB] px-4 py-3 text-[12.5px] text-[#0C3E70] leading-7">
         <div className="font-semibold text-[#1A3A5C] mb-1">

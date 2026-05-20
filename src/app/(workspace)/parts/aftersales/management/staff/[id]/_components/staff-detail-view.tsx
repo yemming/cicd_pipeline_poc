@@ -13,8 +13,10 @@ import {
 } from "@/lib/aftersales/staff-actions";
 import type {
   AftersalesStaffRow,
+  AftersalesStaffKpi,
   AftersalesDepartmentOption,
 } from "@/domain/aftersales-staff";
+import { KpiCard } from "@/components/visualization";
 import {
   AFTERSALES_GRADES,
   AFTERSALES_WORK_TYPES,
@@ -31,11 +33,13 @@ export function StaffDetailView({
   departments,
   initialMode = "view",
   canEdit,
+  kpi = null,
 }: {
   staff: AftersalesStaffRow | null;
   departments: AftersalesDepartmentOption[];
   initialMode?: Mode;
   canEdit: boolean;
+  kpi?: AftersalesStaffKpi | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -304,56 +308,128 @@ export function StaffDetailView({
 
       {/* 2. Title card */}
       <header className="bg-white border border-[#EEECE6] rounded-lg p-4">
-        <div className="flex flex-col gap-2">
-          <div className="text-[11px] tracking-wider text-[#9A9890]">
-            售後服務部門 · employees
-          </div>
-          <h1 className="text-[18px] font-semibold text-[#2C2C2A] leading-tight">
-            {titleName}
-          </h1>
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap text-[12px]">
-            <span className="font-mono text-[#5A5955]">{titleCode}</span>
-            {!creating && staff ? (
-              <>
-                {staff.grade ? (
-                  <span
-                    className="px-1.5 py-0.5 rounded-md text-[11px] font-semibold"
-                    style={(() => {
-                      const s = getGradeChipStyle(staff.grade);
-                      return { background: s.bg, color: s.fg };
-                    })()}
-                  >
-                    {staff.grade}
-                  </span>
-                ) : null}
-                {staff.work_type ? (
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#EEF4FB] text-[#185FA5] text-[11px]">
-                    {staff.work_type}
-                  </span>
-                ) : null}
-                {staff.final_inspection_auth ? (
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11] text-[11px]">
-                    ✓ 複檢授權
-                  </span>
-                ) : null}
-                {staff.is_active ? (
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11] text-[11px]">
-                    在職
-                  </span>
-                ) : (
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#F2F2F2] text-[#6B6A68] text-[11px]">
-                    離職
-                  </span>
-                )}
-              </>
+        <div className="flex items-start gap-4">
+          {/* 頭像 */}
+          {!creating ? (
+            staff?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={staff.avatar_url}
+                alt={staff.name}
+                className="w-16 h-16 rounded-full object-cover shrink-0"
+              />
             ) : (
-              <span className="px-1.5 py-0.5 rounded-md bg-[#FDF3E3] text-[#854F0B] text-[11px]">
-                尚未建立
-              </span>
-            )}
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center text-white text-[18px] font-bold shrink-0"
+                style={{
+                  background: staff?.grade
+                    ? getGradeChipStyle(staff.grade).fg
+                    : "#5A5955",
+                }}
+              >
+                {staff?.name
+                  ? staff.name.length <= 2
+                    ? staff.name
+                    : staff.name.slice(-2)
+                  : "—"}
+              </div>
+            )
+          ) : (
+            <div className="w-16 h-16 rounded-full border-2 border-dashed border-[#D5D3CB] flex items-center justify-center text-[10px] text-[#9A9890] shrink-0">
+              建立後
+              <br />可設定
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2 flex-1 min-w-0">
+            <div className="text-[11px] tracking-wider text-[#9A9890]">
+              售後服務部門 · employees
+            </div>
+            <h1 className="text-[18px] font-semibold text-[#2C2C2A] leading-tight">
+              {titleName}
+            </h1>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap text-[12px]">
+              <span className="font-mono text-[#5A5955]">{titleCode}</span>
+              {!creating && staff ? (
+                <>
+                  {staff.grade ? (
+                    <span
+                      className="px-1.5 py-0.5 rounded-md text-[11px] font-semibold"
+                      style={(() => {
+                        const s = getGradeChipStyle(staff.grade);
+                        return { background: s.bg, color: s.fg };
+                      })()}
+                    >
+                      {staff.grade}
+                    </span>
+                  ) : null}
+                  {staff.work_type ? (
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#EEF4FB] text-[#185FA5] text-[11px]">
+                      {staff.work_type}
+                    </span>
+                  ) : null}
+                  {staff.final_inspection_auth ? (
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11] text-[11px]">
+                      ✓ 複檢授權
+                    </span>
+                  ) : null}
+                  {staff.is_active ? (
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11] text-[11px]">
+                      在職
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded-md bg-[#F2F2F2] text-[#6B6A68] text-[11px]">
+                      離職
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="px-1.5 py-0.5 rounded-md bg-[#FDF3E3] text-[#854F0B] text-[11px]">
+                  尚未建立
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </header>
+
+      {/* KPI 段（僅 view mode 顯示） */}
+      {!creating && staff && kpi ? (
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          <KpiCard
+            tone="blue"
+            label="累計 RO 筆數"
+            value={kpi.ro_count_total}
+          />
+          <KpiCard
+            tone="teal"
+            label="本月 RO"
+            value={kpi.ro_count_month}
+          />
+          <KpiCard
+            tone="green"
+            label="本月業績"
+            value={
+              kpi.monthly_revenue >= 10000
+                ? `$${(kpi.monthly_revenue / 10000).toFixed(1)}萬`
+                : `$${Math.round(kpi.monthly_revenue).toLocaleString()}`
+            }
+          />
+          <KpiCard
+            tone={
+              kpi.nps_avg === null
+                ? "gray"
+                : kpi.nps_avg >= 8.5
+                  ? "green"
+                  : kpi.nps_avg >= 7
+                    ? "blue"
+                    : "amber"
+            }
+            label={`NPS（${kpi.nps_count} 樣本）`}
+            value={kpi.nps_avg === null ? "—" : `${kpi.nps_avg.toFixed(1)} / 10`}
+          />
+        </section>
+      ) : null}
 
       {/* 3. 區段卡片 1：基本資料 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">

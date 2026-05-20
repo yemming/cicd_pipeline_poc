@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -8,9 +8,13 @@ import {
   approveRequisition,
   convertRequisition,
   rejectRequisition,
+  setRequisitionPriority,
+  type RequisitionKpi,
+  type RequisitionPriority,
   type RequisitionWithLines,
 } from "@/domain/requisitions";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard, type ToneKey } from "@/components/visualization";
 
 type Banner = { ok: boolean; msg: string } | null;
 type ConfirmTone = "danger" | "primary" | "success";
@@ -42,22 +46,75 @@ const STATUS_OPTIONS = [
   { value: "cancelled", label: "已拒絕" },
 ];
 
+type PriorityMeta = {
+  label: string;
+  chip: string;
+  tone: ToneKey;
+  sort: number;
+};
+const PRIORITY_META: Record<string, PriorityMeta> = {
+  urgent: { label: "🔥 緊急", chip: "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]", tone: "red",    sort: 0 },
+  high:   { label: "⬆ 高",   chip: "bg-[#FDF3E3] text-[#854F0B] border border-[#F4D78A]", tone: "amber",  sort: 1 },
+  normal: { label: "─ 中",   chip: "bg-[#EAF4FB] text-[#185FA5] border border-[#B5D4F4]", tone: "blue",   sort: 2 },
+  low:    { label: "⬇ 低",   chip: "bg-[#F2F2F2] text-[#6B6A68] border border-[#D5D3CB]", tone: "gray",   sort: 3 },
+};
+const PRIORITY_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "全部" },
+  { value: "urgent", label: "緊急" },
+  { value: "high", label: "高" },
+  { value: "normal", label: "中" },
+  { value: "low", label: "低" },
+];
+
 function formatDate(d: string | null): string {
   return d ? d.replace(/-/g, "/") : "—";
+}
+
+function formatCurrency(n: number | null): string {
+  if (n == null) return "—";
+  return `NT$ ${Math.round(n).toLocaleString("en-US")}`;
+}
+
+/** mini gauge bar — 用於 list view 的單格內預算進度顯示 */
+function BudgetBar({ pct }: { pct: number | null }) {
+  if (pct == null) {
+    return <span className="text-[11px] text-[#9A9890]">—</span>;
+  }
+  const over = pct > 100;
+  const clamped = Math.min(100, pct);
+  const barColor = over ? "#CC0000" : pct >= 80 ? "#854F0B" : "#0F6E56";
+  const bgColor = over ? "#FDECEA" : pct >= 80 ? "#FDF3E3" : "#EAF3DE";
+  return (
+    <div className="flex items-center gap-1.5 min-w-[110px]">
+      <div className="relative flex-1 h-[6px] rounded-full overflow-hidden" style={{ background: bgColor }}>
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${clamped}%`, background: barColor }} />
+      </div>
+      <span
+        className={`font-mono text-[11px] tabular-nums ${over ? "text-[#CC0000] font-semibold" : "text-[#5A5955]"}`}
+      >
+        {pct}%
+      </span>
+    </div>
+  );
 }
 
 export function RequisitionsBoard({
   rows,
   canEdit,
+  kpi,
   initialStatus,
+  initialPriority,
 }: {
   rows: RequisitionWithLines[];
   canEdit: boolean;
+  kpi: RequisitionKpi;
   initialStatus: string;
+  initialPriority: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState(initialStatus);
+  const [priority, setPriorityFilter] = useState(initialPriority);
   const [banner, setBanner] = useState<Banner>(null);
   const [confirmModal, setConfirmModal] = useState<ConfirmState>(null);
 
@@ -69,6 +126,7 @@ export function RequisitionsBoard({
   function applyFilter() {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
+    if (priority) params.set("priority", priority);
     startTransition(() =>
       router.push(`/parts/purchase/requisitions${params.toString() ? "?" + params : ""}`),
     );
@@ -76,8 +134,23 @@ export function RequisitionsBoard({
 
   function resetFilter() {
     setStatus("");
+    setPriorityFilter("");
     startTransition(() => router.push("/parts/purchase/requisitions"));
   }
+
+  const changePriority = useCallback(
+    (r: RequisitionWithLines, next: RequisitionPriority) => {
+      if (r.priority === next) return;
+      startTransition(async () => {
+        const res = await setRequisitionPriority(r.id, next);
+        if (res.ok) {
+          flash({ ok: true, msg: "✓ 已變更優先度" });
+          router.refresh();
+        } else flash({ ok: false, msg: res.error });
+      });
+    },
+    [router],
+  );
 
   function doApprove(r: RequisitionWithLines) {
     setConfirmModal({
@@ -153,6 +226,43 @@ export function RequisitionsBoard({
 
   const columns: DataGridColumn<RequisitionWithLines>[] = useMemo(
     () => [
+      {
+        id: "priority",
+        header: "優先度",
+        width: 130,
+        hideable: false,
+        cell: (r) => {
+          const meta = PRIORITY_META[r.priority] ?? PRIORITY_META.normal;
+          const stLocked =
+            r.status === "converted" || r.status === "cancelled";
+          if (!canEdit || stLocked) {
+            return (
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${meta.chip}`}>
+                {meta.label}
+              </span>
+            );
+          }
+          // 可編輯：inline select（不阻擋 row click）
+          return (
+            <select
+              value={r.priority}
+              onChange={(e) =>
+                changePriority(r, e.target.value as RequisitionPriority)
+              }
+              disabled={isPending}
+              className={`h-[24px] text-[11px] font-medium rounded-md px-1.5 border-0 outline-none cursor-pointer disabled:opacity-60 ${meta.chip}`}
+              title="點擊變更優先度"
+            >
+              <option value="urgent">🔥 緊急</option>
+              <option value="high">⬆ 高</option>
+              <option value="normal">─ 中</option>
+              <option value="low">⬇ 低</option>
+            </select>
+          );
+        },
+        exportValue: (r) => (PRIORITY_META[r.priority] ?? PRIORITY_META.normal).label.replace(/[🔥⬆─⬇]\s*/g, ""),
+        sortValue: (r) => (PRIORITY_META[r.priority] ?? PRIORITY_META.normal).sort,
+      },
       {
         id: "req_no",
         header: "需求單號",
@@ -239,6 +349,21 @@ export function RequisitionsBoard({
         sortValue: (r) => r.status ?? "",
       },
       {
+        id: "budget",
+        header: "預算使用",
+        width: 180,
+        cell: (r) => (
+          <div className="flex flex-col gap-0.5">
+            <BudgetBar pct={r.budget_used_pct} />
+            <span className="text-[10px] text-[#9A9890] font-mono">
+              {formatCurrency(r.estimated_cost)} / {formatCurrency(Number(r.budget_limit))}
+            </span>
+          </div>
+        ),
+        exportValue: (r) => (r.budget_used_pct == null ? "" : `${r.budget_used_pct}%`),
+        sortValue: (r) => r.budget_used_pct ?? -1,
+      },
+      {
         id: "notes",
         header: "備註",
         cell: (r) => (
@@ -246,9 +371,10 @@ export function RequisitionsBoard({
         ),
         exportValue: (r) => r.notes ?? "",
         sortValue: (r) => r.notes ?? "",
+        defaultHidden: true,
       },
     ],
-    [],
+    [canEdit, isPending, changePriority],
   );
 
   return (
@@ -265,6 +391,40 @@ export function RequisitionsBoard({
         📋 需求處理：門店服務人員提出備料/補貨需求，採購部門審核後轉為正式採購單。
       </div>
 
+      {/* KPI Row — 5 cards */}
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <KpiCard
+          label="待審核"
+          value={kpi.pendingApproval}
+          tone="amber"
+          icon={<span className="text-[18px]">⏳</span>}
+        />
+        <KpiCard
+          label="已核准"
+          value={kpi.approved}
+          tone="teal"
+          icon={<span className="text-[18px]">✅</span>}
+        />
+        <KpiCard
+          label="逾期未處理"
+          value={kpi.overdue}
+          tone="red"
+          icon={<span className="text-[18px]">⚠️</span>}
+        />
+        <KpiCard
+          label="本月新增"
+          value={kpi.newThisMonth}
+          tone="blue"
+          icon={<span className="text-[18px]">📝</span>}
+        />
+        <KpiCard
+          label="超預算"
+          value={kpi.overBudget}
+          tone={kpi.overBudget > 0 ? "red" : "gray"}
+          icon={<span className="text-[18px]">💰</span>}
+        />
+      </section>
+
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">
           <div className="flex flex-col gap-1">
@@ -275,6 +435,20 @@ export function RequisitionsBoard({
               className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
             >
               {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">優先度</label>
+            <select
+              value={priority}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+            >
+              {PRIORITY_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>

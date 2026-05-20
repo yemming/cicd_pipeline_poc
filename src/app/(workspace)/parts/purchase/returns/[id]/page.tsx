@@ -4,7 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
-import { getPurchaseReturnById } from "@/domain/procurement";
+import { getPurchaseReturnById } from "@/domain/parts-purchase-returns";
 import { ReturnDetailView } from "./_components/return-detail-view";
 
 export const dynamic = "force-dynamic";

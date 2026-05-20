@@ -12,6 +12,8 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import { DataGrid, type DataGridColumn } from '@/components/data-grid';
+import { KpiCard } from '@/components/visualization/KpiCard';
+import { DonutChart } from '@/components/charts/DonutChart';
 import {
   createHandcardAction,
   updateHandcardAction,
@@ -33,7 +35,12 @@ import {
   type HandcardTrialStatus,
   type HandcardReceptionPeriod,
 } from '@/domain/sales-handcards.constants';
-import type { HandcardRow, HandcardFilters } from '@/domain/sales-handcards';
+import type {
+  HandcardRow,
+  HandcardFilters,
+  HandcardKpis,
+  HandcardSourceDatum,
+} from '@/domain/sales-handcards';
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -121,11 +128,15 @@ export function HandcardBoard({
   totalCount,
   canEdit,
   filters,
+  kpis,
+  sourceDist,
 }: {
   rows: HandcardRow[];
   totalCount: number;
   canEdit: boolean;
   filters: HandcardFilters;
+  kpis: HandcardKpis;
+  sourceDist: HandcardSourceDatum[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -416,6 +427,52 @@ export function HandcardBoard({
           {banner.msg}
         </div>
       )}
+
+      {/* 2.5 KPI Row + Source Donut */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          <KpiCard
+            tone="blue"
+            label="本月新增"
+            value={kpis.month_total}
+            layout="vertical"
+          />
+          <KpiCard
+            tone="amber"
+            label="接待中"
+            value={kpis.open_count}
+            layout="vertical"
+          />
+          <KpiCard
+            tone="purple"
+            label="待跟進"
+            value={kpis.pending_followup}
+            layout="vertical"
+          />
+          <KpiCard
+            tone="green"
+            label="本月轉 Lead"
+            value={kpis.converted_count}
+            layout="vertical"
+          />
+        </div>
+        <div className="bg-white border border-[#EEECE6] rounded-lg p-3">
+          <div className="text-[13px] font-semibold text-[#2C2C2A] mb-2">
+            來源分佈 <span className="text-[11px] text-[#9A9890] font-normal">（近 3 個月）</span>
+          </div>
+          {sourceDist.length === 0 ? (
+            <div className="text-[12px] text-[#9A9890] py-8 text-center">尚無接待資料</div>
+          ) : (
+            <DonutChart
+              data={sourceDist}
+              showLegend
+              size="sm"
+              centerLabel={String(sourceDist.reduce((s, d) => s + d.value, 0))}
+              centerCaption="筆數"
+            />
+          )}
+        </div>
+      </section>
 
       {/* 3. Filter Bar */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">

@@ -28,7 +28,10 @@ export default async function CustomerDetailPage({
   const bundle = await getCustomerById(id);
   if (!bundle) notFound();
 
-  const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
+  const [canEdit, canEditAppointment] = await Promise.all([
+    hasPermission(PERMISSIONS.CUSTOMER_EDIT),
+    hasPermission(PERMISSIONS.APPOINTMENT_EDIT),
+  ]);
 
   return (
     <CustomerDetailView
@@ -41,7 +44,10 @@ export default async function CustomerDetailPage({
       officialTags={bundle.officialTags}
       pickupNotify={bundle.pickupNotify}
       models={bundle.models}
+      lifetime={bundle.lifetime}
+      npsSummary={bundle.npsSummary}
       canEdit={canEdit}
+      canEditAppointment={canEditAppointment}
     />
   );
 }

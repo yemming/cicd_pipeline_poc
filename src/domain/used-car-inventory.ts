@@ -29,6 +29,38 @@ export type UsedCarKpiSummary = {
   soldThisMonth: number;
 };
 
+// ── A 級看板用 KPI（M01-7）──
+export type UsedCarBoardKpi = {
+  total: number;           // 全部（含已售出）
+  available: number;       // 在庫可售
+  avgMarginRate: number;   // 平均毛利率 %
+  aged90: number;          // 庫齡 > 90 天的台數
+  negativeMargin: number;  // 毛利為負的台數
+  soldThisMonth: number;   // 本月已售
+};
+
+export type UsedCarByModelDatum = {
+  model: string;
+  available: number;
+  pending_inspection: number;
+  reserved: number;
+  sold: number;
+  withdrawn: number;
+  total: number;
+};
+
+export type UsedCarSlowMover = {
+  id: string;
+  model_display_name: string;
+  color: string | null;
+  status: UsedCarDbStatus;
+  listed_date: string | null;
+  days_in_stock: number;
+  listing_price: number | null;
+  margin: number | null;
+  condition_grade: UsedCarConditionGrade | null;
+};
+
 export type UsedCarInventoryData = {
   units: UsedCarInventoryRow[];
   kpis: UsedCarKpiSummary;
@@ -197,4 +229,179 @@ export async function deleteUsedCar(id: string): Promise<void> {
     .delete()
     .eq("id", id);
   if (error) throw new Error(`deleteUsedCar: ${error.message}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// A 級看板補強（M01-7）：KPI / by-model / slow-movers
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * 抓目前登入者的 brand_id（fallback 'indian'）— 跟 new-car-inventory 同邏輯。
+ */
+export async function getCurrentBrandId(): Promise<string> {
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) return "indian";
+  const { data } = await supabase
+    .from("profile_brands")
+    .select("brand_id")
+    .eq("user_id", userId)
+    .limit(1)
+    .single();
+  return data?.brand_id ?? "indian";
+}
+
+/**
+ * 看板頂部 KPI 列：總台數 / 在售 / 平均毛利率 / 庫齡>90天 / 負毛利 / 本月已售。
+ */
+export async function getUsedCarKpis(brandId: string): Promise<UsedCarBoardKpi> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("used_car_inventory")
+    .select("status, listed_date, sold_date, listing_price, margin")
+    .eq("brand_id", brandId);
+  if (error) throw new Error(`getUsedCarKpis: ${error.message}`);
+
+  const rows = (data ?? []) as {
+    status: string;
+    listed_date: string | null;
+    sold_date: string | null;
+    listing_price: number | null;
+    margin: number | null;
+  }[];
+
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const total = rows.length;
+  const available = rows.filter((r) => r.status === "available").length;
+
+  // 平均毛利率（只看「有 listing_price > 0 + margin 非 null」的 row）
+  const marginRows = rows.filter(
+    (r) => r.margin != null && r.listing_price != null && r.listing_price > 0
+  );
+  const avgMarginRate =
+    marginRows.length === 0
+      ? 0
+      : Math.round(
+          (marginRows.reduce(
+            (sum, r) => sum + (r.margin! / r.listing_price!) * 100,
+            0
+          ) /
+            marginRows.length) *
+            10
+        ) / 10;
+
+  // 庫齡 > 90 天的「未售出」台數
+  const aged90 = rows.filter((r) => {
+    if (r.status === "sold" || r.status === "withdrawn") return false;
+    if (!r.listed_date) return false;
+    const days = Math.floor(
+      (now.getTime() - new Date(r.listed_date).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return days > 90;
+  }).length;
+
+  const negativeMargin = rows.filter(
+    (r) => r.margin != null && r.margin < 0 && r.status !== "sold"
+  ).length;
+
+  const soldThisMonth = rows.filter((r) => {
+    if (r.status !== "sold" || !r.sold_date) return false;
+    return new Date(r.sold_date) >= thisMonthStart;
+  }).length;
+
+  return { total, available, avgMarginRate, aged90, negativeMargin, soldThisMonth };
+}
+
+/**
+ * 各車型 × 狀態堆疊（給 BarChart 用）— 依 model_display_name aggregate。
+ */
+export async function getUsedCarByModel(brandId: string): Promise<UsedCarByModelDatum[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("used_car_inventory")
+    .select("model_display_name, status")
+    .eq("brand_id", brandId);
+  if (error) throw new Error(`getUsedCarByModel: ${error.message}`);
+
+  type Row = { model_display_name: string; status: string };
+  const rows = (data ?? []) as Row[];
+
+  const byModel = new Map<string, UsedCarByModelDatum>();
+  for (const r of rows) {
+    const name = r.model_display_name ?? "（未指定）";
+    if (!byModel.has(name)) {
+      byModel.set(name, {
+        model: name,
+        available: 0,
+        pending_inspection: 0,
+        reserved: 0,
+        sold: 0,
+        withdrawn: 0,
+        total: 0,
+      });
+    }
+    const datum = byModel.get(name)!;
+    const status = r.status as UsedCarDbStatus;
+    if (status in datum) {
+      (datum as unknown as Record<string, number>)[status] += 1;
+    }
+    datum.total += 1;
+  }
+
+  return Array.from(byModel.values()).sort((a, b) => b.total - a.total);
+}
+
+/**
+ * 庫齡 > {days} 天且尚未售出的車（給「老闆要看哪些賣不動」清單用）。
+ */
+export async function getUsedCarSlowMovers(
+  brandId: string,
+  days = 90
+): Promise<UsedCarSlowMover[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("used_car_inventory")
+    .select(
+      "id, model_display_name, color, status, listed_date, listing_price, margin, condition_grade"
+    )
+    .eq("brand_id", brandId)
+    .in("status", ["available", "pending_inspection", "reserved"])
+    .not("listed_date", "is", null);
+  if (error) throw new Error(`getUsedCarSlowMovers: ${error.message}`);
+
+  type Row = {
+    id: string;
+    model_display_name: string;
+    color: string | null;
+    status: string;
+    listed_date: string;
+    listing_price: number | null;
+    margin: number | null;
+    condition_grade: string | null;
+  };
+  const rows = (data ?? []) as Row[];
+  const today = new Date();
+
+  return rows
+    .map((r) => {
+      const daysIn = Math.floor(
+        (today.getTime() - new Date(r.listed_date).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return {
+        id: r.id,
+        model_display_name: r.model_display_name,
+        color: r.color,
+        status: r.status as UsedCarDbStatus,
+        listed_date: r.listed_date,
+        days_in_stock: daysIn,
+        listing_price: r.listing_price,
+        margin: r.margin,
+        condition_grade: r.condition_grade as UsedCarConditionGrade | null,
+      };
+    })
+    .filter((r) => r.days_in_stock > days)
+    .sort((a, b) => b.days_in_stock - a.days_in_stock);
 }

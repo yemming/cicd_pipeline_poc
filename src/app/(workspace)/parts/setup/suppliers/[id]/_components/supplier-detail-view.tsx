@@ -12,6 +12,7 @@ import {
   type SupplierRow,
   type SupplierContractRow,
   type SupplierWriteInput,
+  type SupplierMetrics,
   type CoaOption,
   type TaxCodeOption,
 } from "@/domain/suppliers";
@@ -21,10 +22,12 @@ import {
   deleteContract,
   type ContractWriteInput,
 } from "@/domain/contracts";
+import { KpiCard, Timeline, type TimelineEvent } from "@/components/visualization";
+import { SparkLine } from "@/components/charts";
 
 type Mode = "view" | "edit" | "create";
 type Banner = { ok: boolean; msg: string } | null;
-type TabKey = "contracts" | "categories" | "system";
+type TabKey = "performance" | "contracts" | "categories" | "system";
 
 const SUPPLIER_TYPE_OPTIONS: { value: string; label: string; chip: string }[] = [
   { value: "VEHICLE_DEALER", label: "原廠 / 整車代理", chip: "bg-[#EBF3FF] text-[#1A3A5C]" },
@@ -58,6 +61,31 @@ function fmtMoney(n: number | null | undefined, currency = "TWD"): string {
   if (n == null) return "—";
   return `${currency} ${Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
+
+function fmtAbbreviated(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n === 0) return "0";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return Math.round(n).toLocaleString("en-US");
+}
+
+function daysAgoLabel(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "—";
+  const d = Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24));
+  if (d <= 0) return "今天";
+  return `${d} 天前`;
+}
+
+const PO_STATUS_LABEL: Record<string, { label: string; tone: "blue" | "amber" | "teal" | "green" | "gray" | "red" }> = {
+  draft: { label: "草稿", tone: "gray" },
+  pending: { label: "待審", tone: "amber" },
+  approved: { label: "已核准", tone: "blue" },
+  partial: { label: "部分到貨", tone: "teal" },
+  closed: { label: "已結案", tone: "green" },
+  cancelled: { label: "已取消", tone: "red" },
+};
 
 function emptyInput(): SupplierWriteInput {
   return {
@@ -120,6 +148,7 @@ const textareaClass =
 export function SupplierDetailView({
   supplier,
   contracts,
+  metrics,
   coaOptions,
   taxCodeOptions,
   canEdit,
@@ -127,6 +156,7 @@ export function SupplierDetailView({
 }: {
   supplier: SupplierRow | null;
   contracts: SupplierContractRow[];
+  metrics: SupplierMetrics | null;
   coaOptions: CoaOption[];
   taxCodeOptions: TaxCodeOption[];
   canEdit: boolean;
@@ -135,7 +165,7 @@ export function SupplierDetailView({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [tab, setTab] = useState<TabKey>("contracts");
+  const [tab, setTab] = useState<TabKey>("performance");
   const [form, setForm] = useState<SupplierWriteInput>(
     supplier ? rowToInput(supplier) : emptyInput(),
   );
@@ -422,6 +452,42 @@ export function SupplierDetailView({
           </div>
         </div>
       </header>
+
+      {/* 2b. KPI strip — view mode only, 不在 create / 沒 metrics 時隱藏 */}
+      {!isCreating && metrics && supplier && (
+        <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <KpiCard
+            label="合作天數"
+            value={metrics.partnership_days}
+            tone="blue"
+            icon={<span className="text-[18px]">📅</span>}
+          />
+          <KpiCard
+            label="近 12 個月 PO"
+            value={metrics.po_count_ltm}
+            tone="teal"
+            icon={<span className="text-[18px]">📦</span>}
+          />
+          <KpiCard
+            label="近 12 個月金額"
+            value={fmtAbbreviated(metrics.po_amount_ltm)}
+            tone="green"
+            icon={<span className="text-[18px]">💰</span>}
+          />
+          <KpiCard
+            label="進行中 PO"
+            value={metrics.open_po_count}
+            tone="amber"
+            icon={<span className="text-[18px]">🔄</span>}
+          />
+          <KpiCard
+            label="有效合約"
+            value={`${metrics.active_contract_count} / ${metrics.contract_count}`}
+            tone={metrics.active_contract_count > 0 ? "purple" : "gray"}
+            icon={<span className="text-[18px]">📑</span>}
+          />
+        </section>
+      )}
 
       {/* 3a. Section: 基本資料 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
@@ -746,6 +812,7 @@ export function SupplierDetailView({
             <div className="flex border-b border-[#EEECE6]">
               {(
                 [
+                  { key: "performance", label: "效能 / 統計" },
                   { key: "contracts", label: "合約" },
                   { key: "categories", label: "供應品類" },
                   { key: "system", label: "系統 / 整合" },
@@ -767,6 +834,9 @@ export function SupplierDetailView({
             </div>
           </div>
           <div className="bg-white border border-[#EEECE6] border-t-0 rounded-b-lg p-4 space-y-3">
+            {tab === "performance" && (
+              <PerformancePanel metrics={metrics} />
+            )}
             {tab === "contracts" && (
               <ContractsPanel
                 contracts={contracts}
@@ -1310,5 +1380,129 @@ function ContractModal({
         </button>
       </div>
     </Modal>
+  );
+}
+
+function PerformancePanel({ metrics }: { metrics: SupplierMetrics | null }) {
+  if (!metrics) {
+    return (
+      <div className="text-center text-[12px] text-[#9A9890] py-6">
+        尚無績效資料（建立後待採購單累積）
+      </div>
+    );
+  }
+
+  const closedRate =
+    metrics.po_count_total > 0
+      ? Math.round((metrics.closed_po_count / metrics.po_count_total) * 100)
+      : 0;
+
+  // 依 月份 統計 recent_pos
+  const monthBuckets = new Map<string, number>();
+  for (const p of metrics.recent_pos) {
+    if (!p.po_date) continue;
+    const m = p.po_date.slice(0, 7);
+    monthBuckets.set(m, (monthBuckets.get(m) ?? 0) + p.amount_total);
+  }
+  const sortedMonths = Array.from(monthBuckets.entries())
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .slice(-6);
+  const sparkData = sortedMonths.map(([, v]) => Math.round(v));
+
+  const events: TimelineEvent[] = metrics.recent_pos.slice(0, 6).map((p) => {
+    const def = PO_STATUS_LABEL[p.status] ?? { label: p.status || "—", tone: "gray" as const };
+    return {
+      id: p.id,
+      time: p.po_date ? p.po_date.replaceAll("-", "/") : "—",
+      title: p.po_no || "（無單號）",
+      description: (
+        <span className="font-mono">
+          {fmtMoney(p.amount_total)} · {def.label}
+        </span>
+      ),
+      tone: def.tone,
+    };
+  });
+
+  return (
+    <div className="space-y-3">
+      {/* KPI row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard
+          label="累計 PO 張數"
+          value={metrics.po_count_total}
+          tone="blue"
+          icon={<span className="text-[18px]">📦</span>}
+        />
+        <KpiCard
+          label="累計採購額"
+          value={fmtAbbreviated(metrics.po_amount_total)}
+          tone="green"
+          icon={<span className="text-[18px]">💰</span>}
+        />
+        <KpiCard
+          label="結案率"
+          value={`${closedRate}%`}
+          tone={closedRate >= 80 ? "green" : closedRate >= 50 ? "teal" : "amber"}
+          icon={<span className="text-[18px]">✅</span>}
+        />
+        <KpiCard
+          label="最後採購"
+          value={daysAgoLabel(metrics.last_po_date)}
+          tone="purple"
+          icon={<span className="text-[18px]">⏱️</span>}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Sparkline of recent months */}
+        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center">
+            <h2 className="text-[13px] font-semibold text-[#2C2C2A]">近 6 個月採購趨勢</h2>
+            <span className="ml-auto text-[11px] text-[#9A9890]">
+              {sortedMonths.length > 0 ? `${sortedMonths[0][0]} ~ ${sortedMonths[sortedMonths.length - 1][0]}` : "—"}
+            </span>
+          </header>
+          <div className="px-4 py-3">
+            {sparkData.length > 0 ? (
+              <SparkLine data={sparkData} tone="teal" height={80} strokeWidth={2} />
+            ) : (
+              <div className="text-center text-[12px] text-[#9A9890] py-4">
+                近期無採購紀錄
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1 mt-2">
+              {sortedMonths.map(([m, v]) => (
+                <span
+                  key={m}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] bg-[#F8F7F4] text-[#5A5955]"
+                >
+                  <span className="font-mono">{m}</span>
+                  <span className="font-semibold text-[#1A3A5C]">{fmtAbbreviated(v)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Recent PO Timeline */}
+        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+              最近採購單（{metrics.recent_pos.length}/8）
+            </h2>
+          </header>
+          <div className="px-4 py-3">
+            {events.length > 0 ? (
+              <Timeline events={events} variant="vertical" />
+            ) : (
+              <div className="text-center text-[12px] text-[#9A9890] py-4">
+                尚無採購紀錄
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
   );
 }

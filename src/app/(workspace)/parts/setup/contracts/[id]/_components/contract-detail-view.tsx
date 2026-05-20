@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { KpiCard } from "@/components/visualization";
+import { GaugeChart } from "@/components/charts";
+
 import {
   createContract,
   updateContract,
@@ -313,6 +316,11 @@ export function ContractDetailView({
         </div>
       </header>
 
+      {/* KPI + Gauge 區（create mode 隱藏） */}
+      {mode !== "create" && contract && (
+        <ContractInsights contract={contract} isInactive={isInactive} />
+      )}
+
       {/* ▼ 合約基本資料 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
@@ -606,6 +614,143 @@ export function ContractDetailView({
 }
 
 // ─────────── sub-components ───────────
+
+function ContractInsights({
+  contract,
+  isInactive,
+}: {
+  contract: ContractWithSupplier;
+  isInactive: boolean;
+}) {
+  // 計算合約進度（effective_from → effective_to）
+  const today = new Date();
+  const from = contract.effective_from ? new Date(contract.effective_from) : null;
+  const to = contract.effective_to ? new Date(contract.effective_to) : null;
+  const totalDays =
+    from && to
+      ? Math.max(1, Math.floor((to.getTime() - from.getTime()) / 86_400_000))
+      : 0;
+  const elapsedDays =
+    from
+      ? Math.max(0, Math.floor((today.getTime() - from.getTime()) / 86_400_000))
+      : 0;
+  const elapsedPct =
+    totalDays > 0 ? Math.min(100, Math.round((elapsedDays / totalDays) * 100)) : 0;
+
+  // tone：已失效 = gray / 已到期 = red / 即將到期 = amber / 有效 = green / 未生效 = blue
+  const gaugeTone: "gray" | "red" | "amber" | "green" | "blue" = isInactive
+    ? "gray"
+    : contract.computed_status === "expired"
+      ? "red"
+      : contract.computed_status === "expiring"
+        ? "amber"
+        : contract.computed_status === "valid"
+          ? "green"
+          : "blue";
+
+  const kpiTone: "green" | "amber" | "red" | "gray" =
+    isInactive
+      ? "gray"
+      : contract.computed_status === "expired"
+        ? "red"
+        : contract.computed_status === "expiring"
+          ? "amber"
+          : "green";
+
+  const daysLeftDisplay =
+    contract.days_left === null
+      ? "—"
+      : contract.days_left < 0
+        ? `-${Math.abs(contract.days_left)}d`
+        : `${contract.days_left}d`;
+
+  const amountDisplay =
+    contract.amount_limit !== null
+      ? `NT$ ${Number(contract.amount_limit).toLocaleString("en-US")}`
+      : "無上限";
+
+  const minOrderDisplay =
+    contract.min_order_amount !== null && contract.min_order_amount !== undefined
+      ? `NT$ ${Number(contract.min_order_amount).toLocaleString("en-US")}`
+      : "—";
+
+  const paymentTermsDisplay = contract.payment_terms ?? "—";
+
+  return (
+    <section className="grid grid-cols-1 md:grid-cols-[1.4fr,1fr] gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
+        <KpiCard
+          label={
+            contract.days_left !== null && contract.days_left < 0
+              ? "已過期天數"
+              : "剩餘天數"
+          }
+          value={daysLeftDisplay}
+          tone={kpiTone}
+          icon={<span className="text-[18px]">⏰</span>}
+        />
+        <KpiCard
+          label="合約金額上限"
+          value={amountDisplay}
+          tone="teal"
+          icon={<span className="text-[18px]">💰</span>}
+        />
+        <KpiCard
+          label="付款條件"
+          value={paymentTermsDisplay}
+          tone="blue"
+          icon={<span className="text-[18px]">💳</span>}
+        />
+        <KpiCard
+          label="最低訂購金額"
+          value={minOrderDisplay}
+          tone="purple"
+          icon={<span className="text-[18px]">🛒</span>}
+        />
+      </div>
+      <section className="bg-white border border-[#EEECE6] rounded-md px-3 py-2 flex flex-col">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[12px] font-semibold text-[#2C2C2A]">
+            合約效期進度
+          </span>
+          <span className="text-[11px] text-[#9A9890]">
+            {totalDays > 0 ? `共 ${totalDays} 天` : "—"}
+          </span>
+        </div>
+        {totalDays > 0 ? (
+          <>
+            <GaugeChart
+              value={elapsedPct}
+              tone={gaugeTone}
+              size="sm"
+              label={`${elapsedPct}%`}
+              caption={
+                isInactive
+                  ? "已失效"
+                  : contract.computed_status === "expired"
+                    ? "已到期"
+                    : `已過 ${elapsedDays}d`
+              }
+              isPercent
+            />
+            <div className="flex items-center justify-between text-[11px] text-[#9A9890] mt-1">
+              <span className="font-mono">
+                {contract.effective_from?.replace(/-/g, "/") ?? "—"}
+              </span>
+              <span className="font-mono">
+                {contract.effective_to?.replace(/-/g, "/") ?? "—"}
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="text-center text-[12px] text-[#9A9890] py-6 flex-1 flex items-center justify-center">
+            尚未設定完整生效區間
+          </div>
+        )}
+      </section>
+    </section>
+  );
+}
 
 function Field({
   label,

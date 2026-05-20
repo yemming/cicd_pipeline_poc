@@ -9,6 +9,8 @@ import type {
   StockReceiptDetailLine,
 } from "@/domain/receipts";
 import { payReceipt, returnReceipt, updateReceipt, voidReceipt } from "@/domain/receipts";
+import { KpiCard } from "@/components/visualization/KpiCard";
+import { Timeline, type TimelineEvent } from "@/components/visualization/Timeline";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit";
@@ -265,40 +267,65 @@ export function ReceiptDetailView({
 
       {/* 2. Title Card */}
       <header className="bg-white border border-[#EEECE6] rounded-lg p-4">
-        <div className="flex items-stretch gap-4">
-          <div className="flex-1 min-w-0 flex flex-col gap-2">
-            <div>
-              <div className="text-[11px] tracking-wider text-[#9A9890]">採購入庫單</div>
-              <h1 className="text-[18px] font-semibold text-[#2C2C2A] leading-tight font-mono">
-                {receipt.gr_no}
-              </h1>
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap text-[12px]">
-                <span
-                  className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${statusDef.chip}`}
-                >
-                  {statusDef.label}
+        <div className="flex flex-col gap-3">
+          <div>
+            <div className="text-[11px] tracking-wider text-[#9A9890]">採購入庫單</div>
+            <h1 className="text-[18px] font-semibold text-[#2C2C2A] leading-tight font-mono">
+              {receipt.gr_no}
+            </h1>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap text-[12px]">
+              <span
+                className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${statusDef.chip}`}
+              >
+                {statusDef.label}
+              </span>
+              {isPaid ? (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11]">
+                  已結款
                 </span>
-                {receipt.source_po_no ? (
-                  <Link
-                    href={`/parts/purchase/orders/${receipt.source_doc_id}`}
-                    className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5] hover:underline font-mono"
-                  >
-                    來源 PO：{receipt.source_po_no}
-                  </Link>
-                ) : null}
-                <span className="text-[#9A9890]">·</span>
-                <span className="text-[#5A5955] font-mono">{fmtDate(receipt.receipt_date)}</span>
-              </div>
+              ) : null}
+              {isReturned ? (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
+                  已退回
+                </span>
+              ) : null}
+              {receipt.source_po_no ? (
+                <Link
+                  href={`/parts/purchase/orders/${receipt.source_doc_id}`}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5] hover:underline font-mono"
+                >
+                  來源 PO：{receipt.source_po_no}
+                </Link>
+              ) : null}
+              <span className="text-[#9A9890]">·</span>
+              <span className="text-[#5A5955] font-mono">{fmtDate(receipt.receipt_date)}</span>
             </div>
           </div>
-          <div className="shrink-0 w-[260px] h-[120px] bg-[#F8F7F4] border border-[#EEECE6] rounded-lg flex flex-col items-center justify-center gap-1">
-            <div className="text-[11px] text-[#9A9890]">入庫總金額</div>
-            <div className="text-[20px] font-semibold text-[#1A3A5C] font-mono">
-              {fmtMoney(totalAmount)}
-            </div>
-            <div className="text-[11px] text-[#9A9890]">
-              共 {lineCount} 筆明細 / {totalQty} 件
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <KpiCard
+              label="入庫總金額"
+              value={fmtMoney(totalAmount)}
+              tone="blue"
+              layout="vertical"
+            />
+            <KpiCard
+              label="明細筆數"
+              value={lineCount}
+              tone="teal"
+              layout="vertical"
+            />
+            <KpiCard
+              label="入庫總件數"
+              value={totalQty}
+              tone="green"
+              layout="vertical"
+            />
+            <KpiCard
+              label="付款狀態"
+              value={isPaid ? "已結款" : isReturned ? "已退回" : "未結款"}
+              tone={isPaid ? "green" : isReturned ? "amber" : "gray"}
+              layout="vertical"
+            />
           </div>
         </div>
       </header>
@@ -381,7 +408,14 @@ export function ReceiptDetailView({
       </section>
 
       {/* 4. Tabs */}
-      <Tabs lines={receipt.lines} mode={mode} editLineNotes={editLineNotes} setEditLineNotes={setEditLineNotes} totalQty={totalQty} totalAmount={totalAmount} />
+      <Tabs
+        receipt={receipt}
+        mode={mode}
+        editLineNotes={editLineNotes}
+        setEditLineNotes={setEditLineNotes}
+        totalQty={totalQty}
+        totalAmount={totalAmount}
+      />
 
       {/* 6. Banner */}
       {banner ? (
@@ -454,21 +488,101 @@ export function ReceiptDetailView({
 }
 
 function Tabs({
-  lines,
+  receipt,
   mode,
   editLineNotes,
   setEditLineNotes,
   totalQty,
   totalAmount,
 }: {
-  lines: StockReceiptDetailLine[];
+  receipt: StockReceiptDetail;
   mode: Mode;
   editLineNotes: Record<string, string>;
   setEditLineNotes: (next: Record<string, string>) => void;
   totalQty: number;
   totalAmount: number;
 }) {
-  const [tab, setTab] = useState<"lines" | "audit">("lines");
+  const [tab, setTab] = useState<"lines" | "timeline" | "payment">("lines");
+  const lines = receipt.lines;
+
+  const meta = (receipt.metadata ?? {}) as {
+    payment?: {
+      status?: string;
+      paid_at?: string;
+      bank_id?: string;
+      amount?: number;
+    };
+    return?: {
+      status?: string;
+      returned_at?: string;
+      reason?: string | null;
+      net_amount?: number;
+      tax_amount?: number;
+    };
+  };
+  const payment = meta.payment ?? null;
+  const ret = meta.return ?? null;
+
+  // 採購流程 timeline 事件
+  const events: TimelineEvent[] = [];
+  if (receipt.source_po_no) {
+    events.push({
+      id: "po",
+      time: "PO 核准",
+      title: `採購單 ${receipt.source_po_no}`,
+      description: "供應商已確認、待收貨",
+      tone: "blue",
+    });
+  }
+  events.push({
+    id: "grn",
+    time: fmtDate(receipt.receipt_date),
+    title: `${receipt.gr_no} 入庫`,
+    description: `${lines.length} 筆明細 / ${totalQty} 件 / ${fmtMoney(totalAmount)}（庫存已寫入）`,
+    tone: "teal",
+  });
+  if (receipt.posted_at) {
+    events.push({
+      id: "posted",
+      time: fmtDateTime(receipt.posted_at),
+      title: "已過帳",
+      description: receipt.posted_by_name
+        ? `過帳人：${receipt.posted_by_name}（自動產 PARTS_PURCHASE 分錄）`
+        : "自動產 PARTS_PURCHASE 分錄",
+      tone: "green",
+    });
+  }
+  if (payment?.status === "paid") {
+    events.push({
+      id: "paid",
+      time: payment.paid_at ? fmtDateTime(payment.paid_at) : "—",
+      title: "已結款",
+      description: `銀行：${payment.bank_id ?? "—"} / 金額 ${fmtMoney(payment.amount ?? 0)}（VENDOR_PAYMENT_BANK 已產分錄）`,
+      tone: "green",
+    });
+  }
+  if (ret?.status === "returned") {
+    events.push({
+      id: "returned",
+      time: ret.returned_at ? fmtDateTime(ret.returned_at) : "—",
+      title: "已退回供應商",
+      description: ret.reason
+        ? `原因：${ret.reason}（PARTS_RETURN_TO_SUPPLIER 已產分錄）`
+        : "PARTS_RETURN_TO_SUPPLIER 已產分錄",
+      tone: "amber",
+    });
+  }
+  if (receipt.status === "cancelled") {
+    events.push({
+      id: "cancelled",
+      time: fmtDateTime(receipt.voided_at),
+      title: "已作廢",
+      description: receipt.void_reason
+        ? `原因：${receipt.void_reason}（庫存已沖回、PO 進度還原）`
+        : "庫存已沖回、PO 進度還原",
+      tone: "red",
+    });
+  }
 
   return (
     <>
@@ -487,14 +601,25 @@ function Tabs({
           </button>
           <button
             type="button"
-            onClick={() => setTab("audit")}
-            className={`px-4 h-[40px] text-[12.5px] whitespace-nowrap ${
-              tab === "audit"
+            onClick={() => setTab("timeline")}
+            className={`px-4 h-[40px] text-[12.5px] whitespace-nowrap border-r border-[#EEECE6] ${
+              tab === "timeline"
                 ? "bg-white text-[#1A3A5C] font-semibold border-b-2 border-b-[#1A3A5C] -mb-px"
                 : "text-[#5A5955] hover:bg-[#F8F7F4]"
             }`}
           >
-            異動紀錄
+            採購流程
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("payment")}
+            className={`px-4 h-[40px] text-[12.5px] whitespace-nowrap ${
+              tab === "payment"
+                ? "bg-white text-[#1A3A5C] font-semibold border-b-2 border-b-[#1A3A5C] -mb-px"
+                : "text-[#5A5955] hover:bg-[#F8F7F4]"
+            }`}
+          >
+            付款與退貨
           </button>
         </div>
       </div>
@@ -508,13 +633,137 @@ function Tabs({
             totalQty={totalQty}
             totalAmount={totalAmount}
           />
+        ) : tab === "timeline" ? (
+          events.length > 0 ? (
+            <Timeline events={events} variant="vertical" />
+          ) : (
+            <div className="text-[12px] text-[#9A9890] py-8 text-center">
+              尚無流程紀錄
+            </div>
+          )
         ) : (
-          <div className="text-[12px] text-[#9A9890] py-8 text-center">
-            異動紀錄功能待開發
-          </div>
+          <PaymentPanel
+            payment={payment}
+            returnInfo={ret}
+            totalAmount={totalAmount}
+          />
         )}
       </div>
     </>
+  );
+}
+
+function PaymentPanel({
+  payment,
+  returnInfo,
+  totalAmount,
+}: {
+  payment: {
+    status?: string;
+    paid_at?: string;
+    bank_id?: string;
+    amount?: number;
+  } | null;
+  returnInfo: {
+    status?: string;
+    returned_at?: string;
+    reason?: string | null;
+    net_amount?: number;
+    tax_amount?: number;
+  } | null;
+  totalAmount: number;
+}) {
+  const isPaid = payment?.status === "paid";
+  const isReturned = returnInfo?.status === "returned";
+  const taxAmount = Math.round(totalAmount * 0.05 * 100) / 100;
+  const grossAmount = Math.round((totalAmount + taxAmount) * 100) / 100;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* 付款卡 */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <h2 className="text-[13px] font-semibold text-[#2C2C2A]">付款資訊</h2>
+        </header>
+        <div className="px-4 py-3 space-y-2 text-[12.5px]">
+          <Kv
+            label="付款狀態"
+            value={
+              isPaid ? (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11]">
+                  已結款
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#F2F2F2] text-[#6B6A68]">
+                  未結款
+                </span>
+              )
+            }
+          />
+          <Kv label="未稅金額" value={fmtMoney(totalAmount)} mono />
+          <Kv label="稅額（5%）" value={fmtMoney(taxAmount)} mono />
+          <Kv label="含稅總額" value={fmtMoney(grossAmount)} mono />
+          {isPaid ? (
+            <>
+              <Kv label="付款銀行" value={payment?.bank_id ?? "—"} />
+              <Kv
+                label="付款金額"
+                value={fmtMoney(payment?.amount ?? 0)}
+                mono
+              />
+              <Kv label="付款時間" value={fmtDateTime(payment?.paid_at)} mono />
+            </>
+          ) : null}
+        </div>
+      </section>
+
+      {/* 退貨卡 */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <h2 className="text-[13px] font-semibold text-[#2C2C2A]">退貨資訊</h2>
+        </header>
+        <div className="px-4 py-3 space-y-2 text-[12.5px]">
+          <Kv
+            label="退貨狀態"
+            value={
+              isReturned ? (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
+                  已退回供應商
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#F2F2F2] text-[#6B6A68]">
+                  未退回
+                </span>
+              )
+            }
+          />
+          {isReturned ? (
+            <>
+              <Kv
+                label="退回未稅"
+                value={fmtMoney(returnInfo?.net_amount ?? 0)}
+                mono
+              />
+              <Kv
+                label="退回稅額"
+                value={fmtMoney(returnInfo?.tax_amount ?? 0)}
+                mono
+              />
+              <Kv
+                label="退回時間"
+                value={fmtDateTime(returnInfo?.returned_at)}
+                mono
+              />
+              <Kv label="退回原因" value={returnInfo?.reason ?? "—"} />
+            </>
+          ) : (
+            <div className="text-[11.5px] text-[#9A9890] py-2">
+              此入庫單尚未退回供應商。
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
 

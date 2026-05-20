@@ -11,9 +11,13 @@ import {
   deletePurchaseReturn,
   shipPurchaseReturn,
   updatePurchaseReturn,
-  type PurchaseReturnDetail,
-} from "@/domain/procurement";
-import { RETURN_REASONS, RETURN_STATUSES, fmtDateTime } from "@/domain/procurement.constants";
+} from "@/domain/parts-purchase-returns";
+import type { PurchaseReturnDetail } from "@/domain/procurement";
+import {
+  RETURN_REASONS,
+  RETURN_STATUSES,
+  fmtDateTime,
+} from "@/domain/parts-purchase-returns.constants";
 
 type Mode = "view" | "edit";
 type Banner = { ok: boolean; msg: string } | null;

@@ -9,6 +9,9 @@ import type {
   RepairPickPreview,
 } from "@/domain/issues";
 import { previewRepairPick, createInternalSale } from "@/domain/issues";
+import { updateInternalSaleDelivery } from "@/domain/internal-sale-issues";
+import type { StoreOption } from "@/domain/internal-sale-issues";
+import { estimateDeliveryEta } from "@/domain/internal-sale-issues.constants";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -30,7 +33,30 @@ function newLine(): Line {
   return { id: `l${lineSeq}`, item_id: "", qty: "1", unit_price: "0", notes: "" };
 }
 
-export function NewInternalSaleForm({ data }: { data: InternalSaleFormData }) {
+function toDatetimeLocal(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
+function fromDatetimeLocal(s: string): string | null {
+  if (!s) return null;
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toISOString();
+}
+
+export function NewInternalSaleForm({
+  data,
+  destinationStores,
+  warehouseCodeMap,
+}: {
+  data: InternalSaleFormData;
+  destinationStores: StoreOption[];
+  warehouseCodeMap: Record<string, string | null>;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
@@ -39,6 +65,13 @@ export function NewInternalSaleForm({ data }: { data: InternalSaleFormData }) {
   const [customerId, setCustomerId] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
+
+  // delivery fields
+  const [destinationStoreId, setDestinationStoreId] = useState<string>("");
+  const [deliveryEtaAt, setDeliveryEtaAt] = useState<string>("");
+  const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+  const [recipientName, setRecipientName] = useState<string>("");
+  const [recipientPhone, setRecipientPhone] = useState<string>("");
 
   const [preview, setPreview] = useState<RepairPickPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -64,11 +97,22 @@ export function NewInternalSaleForm({ data }: { data: InternalSaleFormData }) {
     backToStepA();
   }
 
+  function quickEstimateEta() {
+    const whCode = warehouseCodeMap[warehouseId] ?? null;
+    const dest = destinationStores.find((s) => s.id === destinationStoreId);
+    const { eta_at, hours, rule } = estimateDeliveryEta({
+      warehouse_code: whCode,
+      destination_store_code: dest?.code ?? null,
+    });
+    setDeliveryEtaAt(toDatetimeLocal(eta_at));
+    flash({ ok: true, msg: `已估算：${rule} → ${hours}h` });
+  }
+
   const canPreview =
-    !!warehouseId
-    && notes.trim().length > 0
-    && lines.length > 0
-    && lines.every((l) => l.item_id && Number(l.qty) > 0 && Number(l.unit_price) >= 0);
+    !!warehouseId &&
+    notes.trim().length > 0 &&
+    lines.length > 0 &&
+    lines.every((l) => l.item_id && Number(l.qty) > 0 && Number(l.unit_price) >= 0);
 
   function runPreview() {
     if (!canPreview) return;
@@ -99,13 +143,39 @@ export function NewInternalSaleForm({ data }: { data: InternalSaleFormData }) {
           line_notes: l.notes.trim() || null,
         })),
       });
-      if (res.ok) {
-        flash({ ok: true, msg: `✓ 已過帳 ${res.data.gi_no}` });
-        router.push(`/parts/issue/internal-sale/${res.data.id}`);
-        router.refresh();
-      } else {
+      if (!res.ok) {
         flash({ ok: false, msg: `過帳失敗：${res.error}` });
+        return;
       }
+      // 過帳成功 → 補寫配送資訊
+      const hasDelivery =
+        destinationStoreId ||
+        deliveryEtaAt ||
+        deliveryAddress.trim() ||
+        recipientName.trim() ||
+        recipientPhone.trim();
+      if (hasDelivery) {
+        const etaIso = fromDatetimeLocal(deliveryEtaAt);
+        const delRes = await updateInternalSaleDelivery(res.data.id, {
+          destination_store_id: destinationStoreId || null,
+          delivery_eta_at: etaIso,
+          delivery_address: deliveryAddress.trim() || null,
+          recipient_name: recipientName.trim() || null,
+          recipient_phone: recipientPhone.trim() || null,
+          delivery_status: destinationStoreId || etaIso ? "in_transit" : "pending",
+        });
+        if (!delRes.ok) {
+          flash({
+            ok: false,
+            msg: `出庫已建立但配送資訊寫入失敗：${delRes.error}（請至詳情頁手動補）`,
+          });
+          router.push(`/parts/issue/internal-sale/${res.data.id}`);
+          return;
+        }
+      }
+      flash({ ok: true, msg: `✓ 已過帳 ${res.data.gi_no}` });
+      router.push(`/parts/issue/internal-sale/${res.data.id}`);
+      router.refresh();
     });
   }
 
@@ -145,176 +215,268 @@ export function NewInternalSaleForm({ data }: { data: InternalSaleFormData }) {
       {/* Step A */}
       {inStepA ? (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3">
-          <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-              <h2 className="text-[13px] font-semibold text-[#2C2C2A]">▼ 出貨內容</h2>
-              <p className="text-[11px] text-[#9A9890] mt-0.5">
-                結算單價可自訂（內部售價）；FIFO 從源倉扣帳
-              </p>
-            </header>
-            <div className="px-4 py-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
-                    出庫倉 <span className="text-[#CC0000]">*</span>
-                  </label>
-                  <select
-                    value={warehouseId}
-                    onChange={(e) => {
-                      setWarehouseId(e.target.value);
-                      backToStepA();
-                    }}
-                    className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
-                  >
-                    <option value="">— 選擇出庫倉 —</option>
-                    {data.warehouses.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.code ? `${w.code} ` : ""}
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
+          <div className="space-y-3">
+            {/* 出貨內容 */}
+            <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+              <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                <h2 className="text-[13px] font-semibold text-[#2C2C2A]">▼ 出貨內容</h2>
+                <p className="text-[11px] text-[#9A9890] mt-0.5">
+                  結算單價可自訂（內部售價）；FIFO 從源倉扣帳
+                </p>
+              </header>
+              <div className="px-4 py-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+                      出庫倉 <span className="text-[#CC0000]">*</span>
+                    </label>
+                    <select
+                      value={warehouseId}
+                      onChange={(e) => {
+                        setWarehouseId(e.target.value);
+                        backToStepA();
+                      }}
+                      className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+                    >
+                      <option value="">— 選擇出庫倉 —</option>
+                      {data.warehouses.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.code ? `${w.code} ` : ""}
+                          {w.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+                      買方（選填）
+                    </label>
+                    <select
+                      value={customerId}
+                      onChange={(e) => setCustomerId(e.target.value)}
+                      className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+                    >
+                      <option value="">— 不指定 —</option>
+                      {data.customers.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.code ? `${c.code} ` : ""}
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+
                 <div>
                   <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
-                    買方（選填）
+                    用途說明 <span className="text-[#CC0000]">*</span>
+                  </label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    placeholder="例如：員工 A 自用、展示車保養、跨法人銷售⋯"
+                    className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <header className="flex items-center justify-between">
+                    <h3 className="text-[12px] font-semibold text-[#2C2C2A]">
+                      出貨明細（{lines.length}）
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={addLine}
+                      className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                    >
+                      ＋ 新增料件
+                    </button>
+                  </header>
+                  <table className="w-full text-[12.5px]">
+                    <thead>
+                      <tr className="text-[11px] text-[#9A9890] border-b border-[#EEECE6]">
+                        <th className="px-2 py-2 text-left font-medium w-[40px]">行</th>
+                        <th className="px-2 py-2 text-left font-medium">料件</th>
+                        <th className="px-2 py-2 text-right font-medium w-[90px]">出貨數</th>
+                        <th className="px-2 py-2 text-right font-medium w-[120px]">結算單價</th>
+                        <th className="px-2 py-2 text-right font-medium w-[120px]">金額（小計）</th>
+                        <th className="px-2 py-2 text-left font-medium">備註</th>
+                        <th className="px-2 py-2 w-[60px]"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lines.map((l, idx) => {
+                        const sub = Number(l.qty || 0) * Number(l.unit_price || 0);
+                        return (
+                          <tr key={l.id} className="border-t border-[#F8F7F4]">
+                            <td className="px-2 py-2 font-mono text-[#9A9890]">{idx + 1}</td>
+                            <td className="px-2 py-2">
+                              <select
+                                value={l.item_id}
+                                onChange={(e) =>
+                                  updateLine(l.id, { item_id: e.target.value })
+                                }
+                                className="w-full h-[28px] border border-[#D5D3CB] rounded px-2 text-[12px] focus:border-[#185FA5] outline-none"
+                              >
+                                <option value="">— 選擇料件 —</option>
+                                {data.items.map((it) => (
+                                  <option key={it.id} value={it.id}>
+                                    {it.code} — {it.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-2 py-2 text-right">
+                              <input
+                                type="number"
+                                min={1}
+                                step="any"
+                                value={l.qty}
+                                onChange={(e) => updateLine(l.id, { qty: e.target.value })}
+                                className="w-full h-[28px] border border-[#D5D3CB] rounded px-2 text-[12px] text-right font-mono focus:border-[#185FA5] outline-none"
+                              />
+                            </td>
+                            <td className="px-2 py-2 text-right">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={l.unit_price}
+                                onChange={(e) =>
+                                  updateLine(l.id, { unit_price: e.target.value })
+                                }
+                                className="w-full h-[28px] border border-[#D5D3CB] rounded px-2 text-[12px] text-right font-mono focus:border-[#185FA5] outline-none"
+                              />
+                            </td>
+                            <td className="px-2 py-2 text-right font-mono text-[#5A5955]">
+                              {sub > 0 ? fmtMoney(sub) : "—"}
+                            </td>
+                            <td className="px-2 py-2">
+                              <input
+                                type="text"
+                                value={l.notes}
+                                onChange={(e) => updateLine(l.id, { notes: e.target.value })}
+                                placeholder="—"
+                                className="w-full h-[28px] border border-[#D5D3CB] rounded px-2 text-[12px] focus:border-[#185FA5] outline-none"
+                              />
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              {lines.length > 1 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => removeLine(l.id)}
+                                  className="text-[12px] text-[#CC0000] hover:underline"
+                                >
+                                  刪除
+                                </button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-[#1A3A5C] bg-[#F8F7F4]">
+                        <td colSpan={4} className="px-2 py-2 text-[11px] text-[#9A9890] text-right">
+                          合計
+                        </td>
+                        <td className="px-2 py-2 text-right font-mono font-semibold text-[#2C2C2A]">
+                          {fmtMoney(estimatedAmount)}
+                        </td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            {/* 配送資訊（M04U-20 新增；非必填、可後補） */}
+            <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+              <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                <h2 className="text-[13px] font-semibold text-[#2C2C2A]">▼ 配送資訊</h2>
+                <p className="text-[11px] text-[#9A9890] mt-0.5">
+                  選填；可指定收貨門店、預估送達時間、收件人。若未填則建單後配送狀態為「待出貨」。
+                </p>
+              </header>
+              <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+                    收貨門店
                   </label>
                   <select
-                    value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
+                    value={destinationStoreId}
+                    onChange={(e) => setDestinationStoreId(e.target.value)}
                     className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
                   >
                     <option value="">— 不指定 —</option>
-                    {data.customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.code ? `${c.code} ` : ""}
-                        {c.name}
+                    {destinationStores.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.code ? `${s.code} ` : ""}
+                        {s.name}
                       </option>
                     ))}
                   </select>
                 </div>
+                <div>
+                  <div className="flex items-center mb-1">
+                    <label className="text-[11px] text-[#9A9890] font-medium">預估送達</label>
+                    <button
+                      type="button"
+                      onClick={quickEstimateEta}
+                      disabled={!warehouseId}
+                      className="ml-auto h-[22px] px-2 rounded text-[11px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                    >
+                      估算 →
+                    </button>
+                  </div>
+                  <input
+                    type="datetime-local"
+                    value={deliveryEtaAt}
+                    onChange={(e) => setDeliveryEtaAt(e.target.value)}
+                    className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+                    收件人姓名
+                  </label>
+                  <input
+                    type="text"
+                    value={recipientName}
+                    onChange={(e) => setRecipientName(e.target.value)}
+                    placeholder="—"
+                    className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+                    收件人電話
+                  </label>
+                  <input
+                    type="tel"
+                    value={recipientPhone}
+                    onChange={(e) => setRecipientPhone(e.target.value)}
+                    placeholder="0912-345-678"
+                    className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] font-mono focus:border-[#185FA5] outline-none"
+                  />
+                </div>
+                <div className="col-span-1 md:col-span-2">
+                  <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+                    配送地址
+                  </label>
+                  <input
+                    type="text"
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    placeholder="—"
+                    className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+                  />
+                </div>
               </div>
-
-              <div>
-                <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
-                  用途說明 <span className="text-[#CC0000]">*</span>
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  placeholder="例如：員工 A 自用、展示車保養、跨法人銷售⋯"
-                  className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <header className="flex items-center justify-between">
-                  <h3 className="text-[12px] font-semibold text-[#2C2C2A]">
-                    出貨明細（{lines.length}）
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={addLine}
-                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                  >
-                    ＋ 新增料件
-                  </button>
-                </header>
-                <table className="w-full text-[12.5px]">
-                  <thead>
-                    <tr className="text-[11px] text-[#9A9890] border-b border-[#EEECE6]">
-                      <th className="px-2 py-2 text-left font-medium w-[40px]">行</th>
-                      <th className="px-2 py-2 text-left font-medium">料件</th>
-                      <th className="px-2 py-2 text-right font-medium w-[90px]">出貨數</th>
-                      <th className="px-2 py-2 text-right font-medium w-[120px]">結算單價</th>
-                      <th className="px-2 py-2 text-right font-medium w-[120px]">金額（小計）</th>
-                      <th className="px-2 py-2 text-left font-medium">備註</th>
-                      <th className="px-2 py-2 w-[60px]"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map((l, idx) => {
-                      const sub = Number(l.qty || 0) * Number(l.unit_price || 0);
-                      return (
-                        <tr key={l.id} className="border-t border-[#F8F7F4]">
-                          <td className="px-2 py-2 font-mono text-[#9A9890]">{idx + 1}</td>
-                          <td className="px-2 py-2">
-                            <select
-                              value={l.item_id}
-                              onChange={(e) => updateLine(l.id, { item_id: e.target.value })}
-                              className="w-full h-[28px] border border-[#D5D3CB] rounded px-2 text-[12px] focus:border-[#185FA5] outline-none"
-                            >
-                              <option value="">— 選擇料件 —</option>
-                              {data.items.map((it) => (
-                                <option key={it.id} value={it.id}>
-                                  {it.code} — {it.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-2 py-2 text-right">
-                            <input
-                              type="number"
-                              min={1}
-                              step="any"
-                              value={l.qty}
-                              onChange={(e) => updateLine(l.id, { qty: e.target.value })}
-                              className="w-full h-[28px] border border-[#D5D3CB] rounded px-2 text-[12px] text-right font-mono focus:border-[#185FA5] outline-none"
-                            />
-                          </td>
-                          <td className="px-2 py-2 text-right">
-                            <input
-                              type="number"
-                              min={0}
-                              step="any"
-                              value={l.unit_price}
-                              onChange={(e) => updateLine(l.id, { unit_price: e.target.value })}
-                              className="w-full h-[28px] border border-[#D5D3CB] rounded px-2 text-[12px] text-right font-mono focus:border-[#185FA5] outline-none"
-                            />
-                          </td>
-                          <td className="px-2 py-2 text-right font-mono text-[#5A5955]">
-                            {sub > 0 ? fmtMoney(sub) : "—"}
-                          </td>
-                          <td className="px-2 py-2">
-                            <input
-                              type="text"
-                              value={l.notes}
-                              onChange={(e) => updateLine(l.id, { notes: e.target.value })}
-                              placeholder="—"
-                              className="w-full h-[28px] border border-[#D5D3CB] rounded px-2 text-[12px] focus:border-[#185FA5] outline-none"
-                            />
-                          </td>
-                          <td className="px-2 py-2 text-center">
-                            {lines.length > 1 ? (
-                              <button
-                                type="button"
-                                onClick={() => removeLine(l.id)}
-                                className="text-[12px] text-[#CC0000] hover:underline"
-                              >
-                                刪除
-                              </button>
-                            ) : null}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-[#1A3A5C] bg-[#F8F7F4]">
-                      <td colSpan={4} className="px-2 py-2 text-[11px] text-[#9A9890] text-right">
-                        合計
-                      </td>
-                      <td className="px-2 py-2 text-right font-mono font-semibold text-[#2C2C2A]">
-                        {fmtMoney(estimatedAmount)}
-                      </td>
-                      <td colSpan={2}></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-          </section>
+            </section>
+          </div>
 
           <aside className="bg-white border border-[#EEECE6] rounded-lg p-4 space-y-3 self-start">
             <h2 className="text-[13px] font-semibold text-[#2C2C2A]">FIFO 配置</h2>

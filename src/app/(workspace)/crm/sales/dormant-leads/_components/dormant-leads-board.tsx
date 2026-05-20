@@ -36,6 +36,8 @@ import {
   rescheduleRecontactAction,
 } from "@/lib/sales/sales-recontact-actions";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization/KpiCard";
+import { DonutChart } from "@/components/charts/DonutChart";
 import {
   DORMANCY_STATUS_BADGE,
   DORMANCY_STATUS_LABEL,
@@ -460,89 +462,89 @@ export function DormantLeadsBoard({
   );
 
   // KPI 卡：4 套版本 — Tab 1 用分桶、Tab 2 用戰敗分析
+  // 改用 <KpiCard> + tone 規範（A 級對齊 design tokens）
   const tab1Kpis: Array<{
     label: string;
     value: number | string;
-    color: string;
+    tone: "blue" | "amber" | "red" | "teal" | "green" | "purple" | "gray";
     sub: string;
-    border: string;
   }> = [
     {
       label: isAfter ? "逾期未回廠總數" : "休眠總數",
       value: stats.dormantCount,
-      color: "#1A3A5C",
+      tone: "blue",
       sub: isAfter ? "全部逾期客戶" : "超過 30 天未互動",
-      border: "#1A3A5C",
     },
     {
       label: "30–60 天",
       value: stats.bucket30_60,
-      color: "#D4820A",
+      tone: "amber",
       sub: "早期休眠，喚醒機率較高",
-      border: "#D4820A",
     },
     {
       label: isAfter ? "60–120 天" : "60–90 天",
       value: stats.bucket60_90,
-      color: "#C8001A",
+      tone: "red",
       sub: "需主動出擊",
-      border: "#C8001A",
     },
     {
       label: isAfter ? "120 天以上（嚴重）" : "90 天以上",
       value: stats.bucket90plus,
-      color: "#C8001A",
+      tone: "red",
       sub: "高流失風險，建議活動喚醒",
-      border: "#C8001A",
     },
   ];
 
   const tab2Kpis: Array<{
     label: string;
     value: number | string;
-    color: string;
+    tone: "blue" | "amber" | "red" | "teal" | "green" | "purple" | "gray";
     sub: string;
-    border: string;
   }> = [
     {
       label: isAfter ? "本月新增流失" : "本月戰敗",
       value: stats.lostThisMonth,
-      color: "#C8001A",
+      tone: "red",
       sub: new Date().toISOString().slice(0, 7).replace("-", "年") + "月",
-      border: "#C8001A",
     },
     {
       label: isAfter ? "本季新增流失" : "本季戰敗",
       value: stats.lostThisQuarter,
-      color: "#C8001A",
+      tone: "amber",
       sub: `Q${Math.floor(new Date().getMonth() / 3) + 1} ${new Date().getFullYear()}`,
-      border: "#D4820A",
     },
     {
       label: isAfter ? "主要流失原因" : "最高戰敗原因",
       value: stats.topLostReason.reason
         ? reasonMap[stats.topLostReason.reason]
         : "—",
-      color: "#D4820A",
-      sub: stats.topLostReason.count
-        ? `${stats.topLostReason.count} 件`
-        : "",
-      border: "#D4820A",
+      tone: "amber",
+      sub: stats.topLostReason.count ? `${stats.topLostReason.count} 件` : "",
     },
     {
       label: isAfter ? "本月喚回" : "最高競品",
       value: isAfter
         ? stats.revivedThisMonth
-        : stats.topCompetitor.brand ?? "—",
-      color: isAfter ? "#0F6E56" : "#1A3A5C",
+        : (stats.topCompetitor.brand ?? "—"),
+      tone: isAfter ? "green" : "blue",
       sub: isAfter
         ? "已重新預約進廠"
         : stats.topCompetitor.count
           ? `${stats.topCompetitor.count} 件`
           : "",
-      border: isAfter ? "#0F6E56" : "#1A3A5C",
     },
   ];
+
+  // DonutChart 用：戰敗原因 top 5（spec A 級要求）
+  const reasonDonutData = useMemo(() => {
+    return stats.reasonBreakdown.slice(0, 5).map((r) => ({
+      name: reasonMap[r.reason],
+      value: r.count,
+      color: LOST_REASON_BAR_COLOR[r.reason] ?? "#888",
+    }));
+  }, [stats.reasonBreakdown, reasonMap]);
+
+  const reasonDonutTotal = reasonDonutData.reduce((a, b) => a + b.value, 0);
 
   const insightLine = competitorInsight(stats.topCompetitor.brand);
   const tabBaseClass =
@@ -609,23 +611,19 @@ export function DormantLeadsBoard({
       {/* ========== TAB 1：休眠 / 逾期管理 ========== */}
       {tab === "dormant" ? (
         <>
-          {/* KPI Row */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {/* KPI Row — A 級 KpiCard 對齊 design tokens */}
+          <section
+            className="grid grid-cols-2 md:grid-cols-4 gap-2"
+            data-testid="tab1-kpi-row"
+          >
             {tab1Kpis.map((k) => (
-              <div
+              <KpiCard
                 key={k.label}
-                className="bg-white border border-[#EEECE6] rounded-lg px-3 py-2.5"
-                style={{ borderLeft: `3px solid ${k.border}` }}
-              >
-                <div className="text-[11px] text-[#9A9890]">{k.label}</div>
-                <div
-                  className="text-[24px] font-bold leading-tight font-mono"
-                  style={{ color: k.color }}
-                >
-                  {k.value}
-                </div>
-                <div className="text-[10.5px] text-[#9A9890]">{k.sub}</div>
-              </div>
+                label={k.label}
+                value={k.value}
+                tone={k.tone}
+                layout="vertical"
+              />
             ))}
           </section>
 
@@ -847,25 +845,83 @@ export function DormantLeadsBoard({
       {/* ========== TAB 2：戰敗 / 流失分析 ========== */}
       {tab === "lost-analytics" ? (
         <>
-          {/* KPI Row */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {/* KPI Row — A 級 KpiCard */}
+          <section
+            className="grid grid-cols-2 md:grid-cols-4 gap-2"
+            data-testid="tab2-kpi-row"
+          >
             {tab2Kpis.map((k) => (
-              <div
+              <KpiCard
                 key={k.label}
-                className="bg-white border border-[#EEECE6] rounded-lg px-3 py-2.5"
-                style={{ borderLeft: `3px solid ${k.border}` }}
-              >
-                <div className="text-[11px] text-[#9A9890]">{k.label}</div>
-                <div
-                  className="text-[20px] font-bold leading-tight font-mono"
-                  style={{ color: k.color }}
-                  data-testid={`tab2-kpi-${k.label}`}
-                >
-                  {k.value}
-                </div>
-                <div className="text-[10.5px] text-[#9A9890]">{k.sub}</div>
-              </div>
+                label={k.label}
+                value={k.value}
+                tone={k.tone}
+                layout="vertical"
+              />
             ))}
+          </section>
+
+          {/* Donut：戰敗原因 Top 5（A 級新增） */}
+          <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+              <span className="w-7 h-7 rounded bg-[#FDF3E3] flex items-center justify-center text-[13px]">
+                🍩
+              </span>
+              <div>
+                <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+                  {isAfter ? "流失原因 Top 5" : "戰敗原因 Top 5"}
+                </h2>
+                <p className="text-[11px] text-[#9A9890]">
+                  主要{isAfter ? "流失" : "戰敗"}原因佔比結構
+                </p>
+              </div>
+            </header>
+            <div className="px-4 py-3">
+              {reasonDonutData.length === 0 ? (
+                <div className="text-[12px] text-[#9A9890] py-12 text-center">
+                  {isAfter ? "尚無流失紀錄" : "尚無戰敗紀錄"}
+                </div>
+              ) : (
+                <div
+                  className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4 items-center"
+                  data-testid="lost-reason-donut"
+                >
+                  <DonutChart
+                    data={reasonDonutData}
+                    size="md"
+                    centerLabel={`${reasonDonutTotal}`}
+                    centerCaption={isAfter ? "件流失" : "件戰敗"}
+                    showTooltip
+                  />
+                  <ul className="flex flex-col gap-1.5">
+                    {reasonDonutData.map((d) => {
+                      const pct =
+                        reasonDonutTotal === 0
+                          ? 0
+                          : Math.round((d.value / reasonDonutTotal) * 100);
+                      return (
+                        <li
+                          key={d.name}
+                          className="flex items-center gap-2 text-[12px] text-[#2C2C2A]"
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-sm shrink-0"
+                            style={{ backgroundColor: d.color }}
+                          />
+                          <span className="flex-1 truncate">{d.name}</span>
+                          <span className="font-mono text-[12px] text-[#5A5955]">
+                            {d.value}
+                          </span>
+                          <span className="font-mono text-[11px] text-[#9A9890] w-10 text-right">
+                            {pct}%
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* 兩欄圖表 */}

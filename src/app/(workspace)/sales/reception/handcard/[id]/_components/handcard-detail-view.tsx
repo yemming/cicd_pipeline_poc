@@ -54,6 +54,7 @@ import { HandcardChipPool } from '@/components/sales/handcard-chip-pool';
 import { HandcardStepBar, type WizardStep } from '@/components/sales/handcard-step-bar';
 import { HandcardPickerModal } from '@/components/sales/handcard-picker-modal';
 import { recommendHabc } from '@/domain/handcard-tag-dictionary';
+import { Timeline, type TimelineEvent } from '@/components/visualization/Timeline';
 
 type Mode = 'view' | 'edit' | 'create';
 type Banner = { ok: boolean; msg: string } | null;
@@ -899,6 +900,75 @@ export function HandcardDetailView({
           </div>
         </div>
       </section>
+
+      {/* ─── 建立 / 編輯模式：後續自動流程 Timeline 預覽 ─── */}
+      {editable && (
+        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-[20px] h-[20px] rounded-full bg-[#0F6E56] text-white text-[11px] font-bold">
+              ✓
+            </span>
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              {isCreating ? '送出後將自動執行' : '儲存後將觸發'}
+            </span>
+            <span className="text-[11px] text-[#9A9890]">含 CRM / 試駕 / 後續追蹤連動</span>
+          </header>
+          <div className="px-4 py-4">
+            <Timeline
+              variant="vertical"
+              events={(() => {
+                const events: TimelineEvent[] = [
+                  {
+                    id: 'create',
+                    time: isCreating ? '立即' : '本次儲存',
+                    title: isCreating ? '建立接待手卡' : '更新接待手卡',
+                    description: `客戶：${form.customer_name?.trim() || '（未填）'} · 身份：${form.customer_identity ? IDENTITY_LABEL[form.customer_identity] : '（未選）'}`,
+                    tone: 'blue',
+                  },
+                ];
+                if (form.intended_models?.length) {
+                  events.push({
+                    id: 'lead',
+                    time: '同步',
+                    title: '建立 / 更新 CRM01A 潛客紀錄',
+                    description: `意向車款：${form.intended_models.join('、')} · HABC：${form.lead_grade ?? '待判定'}`,
+                    tone: 'purple',
+                  });
+                }
+                if (form.trial_status && form.trial_status !== 'none' && form.trial_status !== 'refused') {
+                  events.push({
+                    id: 'trial',
+                    time: 'T+0',
+                    title: '同步試乘紀錄',
+                    description: '帶出於 RS02 試乘試駕模組（如有預約則更新狀態）',
+                    tone: 'amber',
+                  });
+                }
+                const fd = typeof meta.followup_date === 'string' ? meta.followup_date : null;
+                if (fd) {
+                  events.push({
+                    id: 'followup',
+                    time: fd,
+                    title: '排程後續追蹤',
+                    description: `方式：${typeof meta.followup_method === 'string' && meta.followup_method ? meta.followup_method : '電訪'}`,
+                    tone: 'teal',
+                  });
+                }
+                if (meta.visit_result === '訂單成立' || form.status === 'converted_to_lead') {
+                  events.push({
+                    id: 'order',
+                    time: 'T+1',
+                    title: '轉訂單 / 走 RS04 報價成交流程',
+                    description: '可由列表「轉 Lead」或詳情頁右上動作觸發',
+                    tone: 'green',
+                  });
+                }
+                return events;
+              })()}
+            />
+          </div>
+        </section>
+      )}
 
       {/* ─── CRM01A 同步提示卡 ─── */}
       <section className="bg-[#EAF4FB] border border-[#9DC4E4] rounded-lg px-4 py-3 flex items-start gap-3">

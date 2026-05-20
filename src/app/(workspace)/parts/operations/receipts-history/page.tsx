@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { listReceipts } from "@/domain/receipts";
+import {
+  listReceipts,
+  getReceiptHistoryStats,
+  getReceiptTrend,
+} from "@/domain/receipts";
 import { RECEIPTS_PAGE_SIZE_DEFAULT } from "@/domain/receipts.constants";
 
 import { ReceiptsHistoryBoard } from "./_components/receipts-history-board";
@@ -37,16 +41,21 @@ export default async function ReceiptsHistoryPage({
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
   const pageSize = RECEIPTS_PAGE_SIZE_DEFAULT;
 
-  const { rows, totalCount } = await listReceipts(
-    {
-      type: sp.type || undefined,
-      status: sp.status || undefined,
-      q: sp.q || undefined,
-      date_from: sp.date_from || undefined,
-      date_to: sp.date_to || undefined,
-    },
-    { page, pageSize },
-  );
+  // list / stats / trend 並行；stats + trend 不受 filter 影響（給歷史總覽）
+  const [{ rows, totalCount }, stats, trend] = await Promise.all([
+    listReceipts(
+      {
+        type: sp.type || undefined,
+        status: sp.status || undefined,
+        q: sp.q || undefined,
+        date_from: sp.date_from || undefined,
+        date_to: sp.date_to || undefined,
+      },
+      { page, pageSize },
+    ),
+    getReceiptHistoryStats({ days: 30 }),
+    getReceiptTrend({ days: 30 }),
+  ]);
 
   return (
     <ReceiptsHistoryBoard
@@ -59,6 +68,8 @@ export default async function ReceiptsHistoryPage({
       initialQ={sp.q ?? ""}
       initialDateFrom={sp.date_from ?? ""}
       initialDateTo={sp.date_to ?? ""}
+      stats={stats}
+      trend={trend}
     />
   );
 }

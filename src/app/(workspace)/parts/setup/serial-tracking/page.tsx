@@ -4,18 +4,21 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getSerialTrackingPageData } from "@/domain/rules";
+import { getSerialTrackingKpis, listRecentSerialActivities } from "@/domain/stock";
 
-import { SerialBoard } from "../serial/_components/serial-board";
+import { SerialTrackingBoard } from "./_components/serial-tracking-board";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Phase 3C D1.16 — /parts/setup/serial-tracking
+ * Phase 2 · M04U-10 — /parts/setup/serial-tracking
  *
  * 規格：docs/DUCATI_v2_output/04_庫存管理/01_基礎設定/03_基礎設定_序列號追蹤.html
- *
- * 本路由與 /parts/setup/serial 共用同一份 SerialBoard 元件 + domain helper，
- * 僅以 sprintLabel = "庫存 · 3.5" 對應規格頁標籤；不複製元件 / helper。
+ * 目標：C/B 級 → A 級
+ *   - 頂部 KpiCard 列（追蹤中 SKU / 庫存中 / 已出庫 / 保固快到期）
+ *   - 序號查詢列 + 5 段生命週期 Timeline（入庫 → 庫存 → 預留 → 出庫 → 保固）
+ *   - 最近追蹤紀錄（chip 標 warranty/status）
+ *   - 規則設定（A/B/C 三類）保留、收進右側 panel
  */
 export default async function SerialTrackingPage() {
   const { userId } = await getCurrentUserAndAdmin();
@@ -29,13 +32,18 @@ export default async function SerialTrackingPage() {
     );
   }
 
-  const { rules, canEdit } = await getSerialTrackingPageData();
+  const [{ rules, canEdit }, kpis, recent] = await Promise.all([
+    getSerialTrackingPageData(),
+    getSerialTrackingKpis(),
+    listRecentSerialActivities(8),
+  ]);
+
   return (
-    <SerialBoard
+    <SerialTrackingBoard
       rules={rules}
       canEdit={canEdit}
-      sprintLabel="庫存 · 3.5"
-      caption="設定哪些備件需要序列號追蹤・追蹤規則與查詢"
+      kpis={kpis}
+      recent={recent}
     />
   );
 }

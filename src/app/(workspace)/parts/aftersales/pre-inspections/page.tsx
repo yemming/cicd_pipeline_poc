@@ -5,7 +5,9 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { listAppointmentCandidates, listPreInspections } from "@/domain/pre-inspections";
 import {
+  PRE_INSPECTION_MODE,
   PRE_INSPECTION_STATUS,
+  type PreInspectionMode,
   type PreInspectionStatus,
 } from "@/domain/pre-inspections.constants";
 
@@ -16,6 +18,11 @@ export const dynamic = "force-dynamic";
 const STATUS_FILTER: ReadonlyArray<PreInspectionStatus | "all"> = [
   "all",
   ...PRE_INSPECTION_STATUS,
+];
+
+const MODE_FILTER: ReadonlyArray<PreInspectionMode | "all"> = [
+  "all",
+  ...PRE_INSPECTION_MODE,
 ];
 
 export default async function PreInspectionsPage({
@@ -37,10 +44,13 @@ export default async function PreInspectionsPage({
   const status = ((STATUS_FILTER as readonly string[]).includes(sp.status ?? "")
     ? sp.status
     : "all") as PreInspectionStatus | "all";
+  const mode = ((MODE_FILTER as readonly string[]).includes(sp.mode ?? "")
+    ? sp.mode
+    : "all") as PreInspectionMode | "all";
   const q = sp.q ?? "";
 
   const [rows, candidates] = await Promise.all([
-    listPreInspections({ status, q }),
+    listPreInspections({ status, mode, q }),
     listAppointmentCandidates(),
   ]);
 
@@ -48,7 +58,7 @@ export default async function PreInspectionsPage({
     <PreInspectionsBoard
       rows={rows}
       candidates={candidates}
-      filter={{ status, q }}
+      filter={{ status, mode, q }}
       canEdit={canEdit}
     />
   );

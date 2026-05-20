@@ -6,9 +6,12 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { KpiCard } from "@/components/visualization";
 import {
   SERVICE_STATUS_LABEL,
+  isVipRow,
   type AftersalesCustomerBaseFilters,
+  type AftersalesCustomerBaseKpi,
   type AftersalesServiceStatus,
 } from "@/domain/aftersales-customer-base.constants";
 import type { AftersalesCustomerBaseRow } from "@/domain/aftersales-customer-base";
@@ -54,10 +57,12 @@ export function CustomersBoard({
   rows,
   totalCount,
   filters,
+  kpi,
 }: {
   rows: AftersalesCustomerBaseRow[];
   totalCount: number;
   filters: AftersalesCustomerBaseFilters;
+  kpi: AftersalesCustomerBaseKpi;
 }) {
   useSetPageHeader({
     title: "人車檔案",
@@ -155,9 +160,9 @@ export function CustomersBoard({
       {
         id: "name",
         header: "車主",
-        width: 140,
+        width: 170,
         cell: (r) => (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[12.5px] text-[#2C2C2A] font-medium">
               {r.name}
             </span>
@@ -166,10 +171,18 @@ export function CustomersBoard({
             >
               {r.type === "corporate" ? "企業" : "個人"}
             </span>
+            {isVipRow(r) && (
+              <span
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-semibold bg-tone-amber-50 text-tone-amber-700 border border-tone-amber-100"
+                title="VIP — 累計回廠 ≥ 3 次 或 名下車輛 ≥ 2 台"
+              >
+                ★ VIP
+              </span>
+            )}
           </div>
         ),
         exportValue: (r) =>
-          `${r.name}${r.type === "corporate" ? "（企業）" : ""}`,
+          `${r.name}${r.type === "corporate" ? "（企業）" : ""}${isVipRow(r) ? "（VIP）" : ""}`,
         sortValue: (r) => r.name,
       },
       {
@@ -286,6 +299,34 @@ export function CustomersBoard({
           車主 / 車輛 / 維修履歷 主檔 · 售後接待視角
         </span>
       </header>
+
+      {/* KpiCard 列 — 售後接待視角四指標 */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard
+          label="總客戶"
+          value={kpi.total_customers.toLocaleString()}
+          tone="blue"
+          icon={<span className="text-[16px]">👥</span>}
+        />
+        <KpiCard
+          label="VIP 客戶（≥3 次 或 ≥2 車）"
+          value={kpi.vip_count.toLocaleString()}
+          tone="amber"
+          icon={<span className="text-[16px]">★</span>}
+        />
+        <KpiCard
+          label="本月進廠數"
+          value={kpi.this_month_visits.toLocaleString()}
+          tone="green"
+          icon={<span className="text-[16px]">🛠</span>}
+        />
+        <KpiCard
+          label="待回廠 / 流失邊緣"
+          value={kpi.at_risk_dormant.toLocaleString()}
+          tone={kpi.at_risk_dormant > 0 ? "red" : "gray"}
+          icon={<span className="text-[16px]">⚠</span>}
+        />
+      </section>
 
       {/* ★5 跨模組 banner — 連到 CRM 售後客戶基盤（同一批 customers、不同視角） */}
       <section className="bg-[#F0EFFE] border border-[#C4BEF0] rounded-lg px-4 py-2.5 flex items-center gap-3 flex-wrap">

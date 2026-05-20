@@ -33,6 +33,8 @@ import {
   deleteBayAction,
   setShopDailyHoursAction,
 } from "@/lib/aftersales/service-bay-actions";
+import { KpiCard } from "@/components/visualization";
+import { BarChart, GaugeChart } from "@/components/charts";
 
 type Props = {
   bays: ServiceBayRow[];
@@ -104,6 +106,21 @@ export function BaysDashboard({
     }
   };
 
+  // 視覺概覽 — 派生指標
+  const totalBays = bays.length;
+  const overallUsagePct = efficiency.totals.usage_pct;
+  const overallDone = efficiency.totals.done_today;
+  const overallTurnover = efficiency.totals.turnover;
+  const occupancyRatio =
+    kpis.total > 0
+      ? Math.round(((kpis.busy + kpis.urgent) / Math.max(1, kpis.total - kpis.offline)) * 100)
+      : 0;
+  const turnoverBarData = efficiency.rows.map((r) => ({
+    name: r.name,
+    turnover: r.turnover,
+    usage: r.usage_pct,
+  }));
+
   return (
     <main className={`px-6 py-5 space-y-3 ${isPending ? "opacity-95" : ""}`}>
       {/* ── Page Header ────────────────────────── */}
@@ -118,6 +135,81 @@ export function BaysDashboard({
           {captionOverride ?? "車間工位即時狀態、計時、使用率"}
         </span>
       </header>
+
+      {/* ── 視覺概覽（A 級華麗版）────────────────── */}
+      <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          label="工位總數"
+          value={totalBays}
+          tone="blue"
+          layout="vertical"
+        />
+        <KpiCard
+          label="使用中（含逾時）"
+          value={`${kpis.busy + kpis.urgent} / ${Math.max(1, kpis.total - kpis.offline)}`}
+          tone={kpis.urgent > 0 ? "red" : kpis.busy > 0 ? "amber" : "teal"}
+          layout="vertical"
+          delta={{
+            value: occupancyRatio,
+            tone: occupancyRatio >= 80 ? "positive" : occupancyRatio >= 50 ? "neutral" : "negative",
+          }}
+        />
+        <KpiCard
+          label="今日完成工單"
+          value={overallDone}
+          tone="green"
+          layout="vertical"
+        />
+        <KpiCard
+          label="平均使用率"
+          value={`${overallUsagePct}%`}
+          tone={overallUsagePct >= 80 ? "teal" : overallUsagePct >= 50 ? "amber" : "red"}
+          layout="vertical"
+        />
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-3">
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 全場平均使用率</span>
+          </header>
+          <div className="p-3">
+            {totalBays === 0 ? (
+              <p className="text-[12px] text-[#9A9890] text-center py-10">尚無工位資料</p>
+            ) : (
+              <GaugeChart
+                value={overallUsagePct}
+                tone={overallUsagePct >= 80 ? "teal" : overallUsagePct >= 50 ? "amber" : "red"}
+                size="md"
+                label={`${overallUsagePct}%`}
+                caption={`目標 ≥ 80%　周轉 ${overallTurnover} 張/位`}
+              />
+            )}
+          </div>
+        </div>
+        <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden md:col-span-2">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 各工位今日完成數 vs 使用率</span>
+          </header>
+          <div className="p-3">
+            {turnoverBarData.length === 0 ? (
+              <p className="text-[12px] text-[#9A9890] text-center py-10">尚無工位資料</p>
+            ) : (
+              <BarChart
+                data={turnoverBarData}
+                categoryKey="name"
+                valueKey={[
+                  { key: "turnover", label: "完成工單" },
+                  { key: "usage", label: "使用率 %" },
+                ]}
+                tone="blue"
+                size="md"
+                showLegend
+              />
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* ── KPI Bar ────────────────────────────── */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 flex flex-wrap items-center gap-2">

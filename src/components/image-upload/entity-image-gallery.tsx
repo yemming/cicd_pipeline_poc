@@ -14,7 +14,9 @@ type EntityKey =
   | "used-car"
   | "customer"
   | "employee"
-  | "repair-order";
+  | "repair-order"
+  | "pre-inspection"
+  | "final-inspection";
 
 export function EntityImageGallery({
   entity,

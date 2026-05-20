@@ -8,7 +8,9 @@ export type EntityKey =
   | "used-car"
   | "customer"
   | "employee"
-  | "repair-order";
+  | "repair-order"
+  | "pre-inspection"
+  | "final-inspection";
 
 export type EntityConfig = {
   table: string;
@@ -99,6 +101,30 @@ export const ENTITY_CONFIGS: Record<EntityKey, EntityConfig> = {
     revalidate: (id) => [
       `/service/workorders/${id}`,
       "/service/workorders",
+    ],
+  },
+  "pre-inspection": {
+    table: "pre_inspections",
+    column: "photos",
+    mode: "multi",
+    permission: PERMISSIONS.RO_CREATE,
+    bucket: DEFAULT_ENTITY_BUCKET,
+    maxImages: 20,
+    revalidate: (id) => [
+      `/parts/aftersales/pre-inspections/${id}`,
+      "/parts/aftersales/pre-inspections",
+    ],
+  },
+  "final-inspection": {
+    table: "final_inspections",
+    column: "photos",
+    mode: "multi",
+    permission: PERMISSIONS.RO_CREATE,
+    bucket: DEFAULT_ENTITY_BUCKET,
+    maxImages: 12,
+    revalidate: (id) => [
+      `/parts/aftersales/final-inspections/${id}`,
+      "/parts/aftersales/final-inspections",
     ],
   },
 };

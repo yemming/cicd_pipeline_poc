@@ -137,6 +137,97 @@ export async function listHandcards(
   return { rows: (data ?? []) as HandcardRow[], totalCount: count ?? 0 };
 }
 
+// ── KPI 統計（列表頂部用）─────────────────────────────────────────────────
+export type HandcardKpis = {
+  month_total: number;        // 本月新增手卡
+  open_count: number;         // 目前接待中
+  pending_followup: number;   // 待跟進（open + 設定了 followup_date 且尚未過）
+  converted_count: number;    // 本月已轉 Lead
+};
+
+export async function getHandcardKpis(): Promise<HandcardKpis> {
+  const supabase = await createClient();
+  const { brand_id: brandId } = await getActiveScope();
+
+  // 取本月起始日
+  const now = new Date();
+  const ymStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+  const baseSel = supabase
+    .from('sales_handcards')
+    .select('id, status, reception_date, metadata', { count: 'exact', head: false })
+    .eq('brand_id', brandId);
+
+  // 一次撈當月手卡 → JS aggregate（量級 OK：單一品牌、月份範圍）
+  const { data: monthRows, error: monthErr } = await baseSel.gte('reception_date', ymStart);
+  if (monthErr) throw monthErr;
+
+  // open / pending followup 需看全部（不限月）
+  const { data: allOpen, error: openErr } = await supabase
+    .from('sales_handcards')
+    .select('id, status, metadata')
+    .eq('brand_id', brandId)
+    .eq('status', 'open');
+  if (openErr) throw openErr;
+
+  const todayStr = now.toISOString().slice(0, 10);
+  const pendingFollowup = (allOpen ?? []).filter((r) => {
+    const md = (r.metadata ?? {}) as Record<string, unknown>;
+    const fd = typeof md.followup_date === 'string' ? md.followup_date : null;
+    return fd && fd >= todayStr;
+  }).length;
+
+  const monthTotal = (monthRows ?? []).length;
+  const convertedCount = (monthRows ?? []).filter((r) => r.status === 'converted_to_lead').length;
+
+  return {
+    month_total: monthTotal,
+    open_count: (allOpen ?? []).length,
+    pending_followup: pendingFollowup,
+    converted_count: convertedCount,
+  };
+}
+
+// ── 來源分佈（DonutChart 用）— 取自 metadata.arrival_source ─────────────
+export type HandcardSourceDatum = { name: string; value: number };
+
+export async function getHandcardSourceDistribution(opts: {
+  monthsBack?: number;   // 預設 3 個月
+} = {}): Promise<HandcardSourceDatum[]> {
+  const supabase = await createClient();
+  const { brand_id: brandId } = await getActiveScope();
+
+  const months = opts.monthsBack ?? 3;
+  const since = new Date();
+  since.setMonth(since.getMonth() - months);
+  const sinceStr = since.toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from('sales_handcards')
+    .select('metadata, customer_identity')
+    .eq('brand_id', brandId)
+    .gte('reception_date', sinceStr);
+  if (error) throw error;
+
+  // 計算來源 — 優先吃 metadata.arrival_source，沒有時 fallback 用身份標籤
+  const counter = new Map<string, number>();
+  for (const row of data ?? []) {
+    const md = (row.metadata ?? {}) as Record<string, unknown>;
+    const raw =
+      (typeof md.arrival_source === 'string' && md.arrival_source.trim()) ||
+      (row.customer_identity === 'revisit' ? '潛客再訪' :
+       row.customer_identity === 'owner' ? '老車主回廠' :
+       row.customer_identity === 'switcher' ? '他牌換購' :
+       row.customer_identity === 'new' ? '首次來訪' : '未分類');
+    counter.set(raw, (counter.get(raw) ?? 0) + 1);
+  }
+
+  return Array.from(counter.entries())
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+}
+
 // ── 單筆查詢 ──────────────────────────────────────────────────────────────
 export async function getHandcardById(id: string): Promise<HandcardRow | null> {
   const supabase = await createClient();

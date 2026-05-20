@@ -20,6 +20,32 @@ export const PRE_INSPECTION_STATUS = [
 ] as const;
 export type PreInspectionStatus = (typeof PRE_INSPECTION_STATUS)[number];
 
+/**
+ * Dual mode：
+ *  - simple = 簡易版：客戶趕時間 / 進廠快檢，只跑「環車檢查 + 簽名」2 步
+ *  - full   = 完整版：5-step 全流程（環車 / 來意 / 技師 / 報價 / 簽名）
+ */
+export const PRE_INSPECTION_MODE = ["simple", "full"] as const;
+export type PreInspectionMode = (typeof PRE_INSPECTION_MODE)[number];
+
+export const MODE_LABEL: Record<PreInspectionMode, string> = {
+  simple: "簡易版",
+  full: "完整版",
+};
+
+export const MODE_CHIP: Record<PreInspectionMode, string> = {
+  simple: "bg-[#EAF4FB] text-[#185FA5]",
+  full: "bg-[#E5F5EE] text-[#0F6E56]",
+};
+
+export const MODE_DESC: Record<PreInspectionMode, string> = {
+  simple: "客戶趕時間 / 快速進廠 — 環車檢查 + 簽名 2 步",
+  full: "完整 5 步 — 環車 / 來意 / 技師 / 報價 / 簽名",
+};
+
+/** 簡易版只跑這兩步（key 對應 WIZARD_STEPS 順序：環車=0、簽名=4） */
+export const SIMPLE_MODE_STEP_INDICES = [0, 4] as const;
+
 export const STATUS_LABEL: Record<PreInspectionStatus, string> = {
   in_progress: "預檢中",
   quoting: "報價中",

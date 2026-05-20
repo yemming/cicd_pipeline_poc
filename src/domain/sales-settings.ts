@@ -363,3 +363,49 @@ export async function getHandcardParamsData() {
 }
 
 export type HandcardParamsData = Awaited<ReturnType<typeof getHandcardParamsData>>;
+
+// ──────────────────────────────────────────────────────────────────────────
+// Card Config Stats — A 級 KpiCard 統計卡片
+// ──────────────────────────────────────────────────────────────────────────
+
+export type SalesCardConfigStats = {
+  total_options: number;       // 三類設定總數（dict + threshold + flag）
+  active_options: number;      // is_active = true 的數量
+  dict_total: number;          // 字典總數
+  dict_active: number;         // 字典啟用數
+  threshold_count: number;     // 數值閾值數量
+  flag_enabled: number;        // 已啟用 flag 數
+  flag_total: number;          // flag 總數
+};
+
+export async function getSalesCardConfigStats(): Promise<SalesCardConfigStats> {
+  const [dictionary, thresholds, flags] = await Promise.all([
+    listSalesDictionary(),
+    listSalesThresholds(),
+    listSalesFeatureFlags(),
+  ]);
+
+  const dict_total = dictionary.length;
+  const dict_active = dictionary.filter((r) => r.is_active).length;
+  const flag_enabled = flags.filter((r) => r.config.enabled).length;
+
+  return {
+    total_options: dict_total + thresholds.length + flags.length,
+    active_options: dict_active + thresholds.length + flag_enabled,
+    dict_total,
+    dict_active,
+    threshold_count: thresholds.length,
+    flag_enabled,
+    flag_total: flags.length,
+  };
+}
+
+export async function getCardConfigBoardData() {
+  const [params, stats] = await Promise.all([
+    getHandcardParamsData(),
+    getSalesCardConfigStats(),
+  ]);
+  return { params, stats };
+}
+
+export type CardConfigBoardData = Awaited<ReturnType<typeof getCardConfigBoardData>>;

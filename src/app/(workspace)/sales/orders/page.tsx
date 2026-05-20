@@ -1,7 +1,7 @@
 /**
  * 訂單中心 — List View (server component)
  *
- * RS04 成交訂單合約書列表 + 狀態管理
+ * RS04 成交訂單合約書列表 + 狀態管理 + A 級 KPI / Funnel（2026-05-20，M01-8）
  * 合約簽訂 wizard → /sales/orders/new
  * 合約詳情    → /sales/orders/[id]
  */
@@ -9,7 +9,12 @@
 import { Suspense } from "react";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { listSalesOrders, ORDERS_PAGE_SIZE_DEFAULT } from "@/domain/sales-orders";
+import {
+  listSalesOrders,
+  getSalesOrderKpis,
+  getSalesOrderStatusBreakdown,
+  ORDERS_PAGE_SIZE_DEFAULT,
+} from "@/domain/sales-orders";
 import OrdersBoard from "./_components/orders-board";
 
 type SearchParams = {
@@ -31,16 +36,30 @@ export default async function OrdersListPage({
   const filterContractType = sp.contract_type ?? "";
   const filterQ = sp.q ?? "";
 
-  const [{ rows, totalCount }, canEdit] = await Promise.all([
-    listSalesOrders({
-      status: filterStatus || undefined,
-      contract_type: filterContractType || undefined,
-      q: filterQ || undefined,
-      page,
-      pageSize,
-    }),
-    hasPermission(PERMISSIONS.SALES_ORDER_EDIT),
-  ]);
+  const canView = await hasPermission(PERMISSIONS.SALES_ORDER_VIEW);
+  if (!canView) {
+    return (
+      <main className="px-6 py-5">
+        <div className="text-[13px] text-[#CC0000]">
+          沒有檢視訂單中心的權限。
+        </div>
+      </main>
+    );
+  }
+
+  const [{ rows, totalCount }, kpis, statusBreakdown, canEdit] =
+    await Promise.all([
+      listSalesOrders({
+        status: filterStatus || undefined,
+        contract_type: filterContractType || undefined,
+        q: filterQ || undefined,
+        page,
+        pageSize,
+      }),
+      getSalesOrderKpis(),
+      getSalesOrderStatusBreakdown(),
+      hasPermission(PERMISSIONS.SALES_ORDER_EDIT),
+    ]);
 
   return (
     <Suspense fallback={null}>
@@ -49,6 +68,8 @@ export default async function OrdersListPage({
         totalCount={totalCount}
         page={page}
         pageSize={pageSize}
+        kpis={kpis}
+        statusBreakdown={statusBreakdown}
         filterStatus={filterStatus}
         filterContractType={filterContractType}
         filterQ={filterQ}

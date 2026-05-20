@@ -157,6 +157,372 @@ export async function getTransferInPageData(): Promise<{
 }
 
 // ─────────────────────────────────────────────────────────────
+// Transfer-In A-grade — KpiCard + paged list + warehouse options
+// ─────────────────────────────────────────────────────────────
+
+export type TransferInKpis = {
+  inTransitCount: number;
+  partialCount: number;
+  receivedRecentCount: number; // 近 30 天已收貨
+  todayEtaCount: number;
+  delayedCount: number; // 預計到貨已逾期且尚未到齊
+  avgTransitDays: number | null;
+  totalAmountReceivedRecent: number; // 近 30 天已收貨總金額
+};
+
+export type WarehouseOption = {
+  id: string;
+  code: string | null;
+  name: string;
+};
+
+export async function getTransferInKpis(): Promise<TransferInKpis> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const today = new Date().toISOString().slice(0, 10);
+  const since30 = new Date(Date.now() - 30 * 86400_000)
+    .toISOString()
+    .slice(0, 10);
+
+  // live：在途中（in_transit + partial）
+  const { data: liveRows, error: liveErr } = await supabase
+    .from("stock_transfers")
+    .select(
+      "id, status, expected_arrival_date, qty_shipped_total, qty_received_total, metadata",
+    )
+    .eq("brand_id", scope.brand_id)
+    .in("status", ["in_transit", "partial"]);
+  if (liveErr) throw liveErr;
+  const live = liveRows ?? [];
+
+  const inTransitCount = live.filter((r) => r.status === "in_transit").length;
+  const partialCount = live.filter((r) => r.status === "partial").length;
+  const todayEtaCount = live.filter(
+    (r) => r.expected_arrival_date === today,
+  ).length;
+  const delayedCount = live.filter((r) => {
+    const meta = (r.metadata ?? {}) as Record<string, unknown>;
+    if (meta.delayed === true) return true;
+    if (
+      r.expected_arrival_date &&
+      r.expected_arrival_date < today &&
+      Number(r.qty_received_total ?? 0) < Number(r.qty_shipped_total ?? 0)
+    ) {
+      return true;
+    }
+    return false;
+  }).length;
+
+  // 近 30 天 received
+  const { data: recvRows } = await supabase
+    .from("stock_transfers")
+    .select("id, ship_date, received_at")
+    .eq("brand_id", scope.brand_id)
+    .eq("status", "received")
+    .gte("received_at", `${since30}T00:00:00Z`)
+    .not("ship_date", "is", null)
+    .not("received_at", "is", null);
+
+  const receivedRecentCount = (recvRows ?? []).length;
+  let avgTransitDays: number | null = null;
+  if (recvRows && recvRows.length > 0) {
+    const days: number[] = [];
+    for (const r of recvRows) {
+      if (!r.ship_date || !r.received_at) continue;
+      const ship = new Date(`${r.ship_date}T00:00:00Z`).getTime();
+      const recv = new Date(r.received_at).getTime();
+      const d = Math.round((recv - ship) / 86400_000);
+      if (d >= 0 && d < 365) days.push(d);
+    }
+    if (days.length > 0) {
+      avgTransitDays =
+        Math.round((days.reduce((s, d) => s + d, 0) / days.length) * 10) / 10;
+    }
+  }
+
+  // 近 30 天 received 金額（join lines 算 sum(qty_shipped * unit_cost)）
+  let totalAmountReceivedRecent = 0;
+  const recvIds = (recvRows ?? []).map((r) => r.id);
+  if (recvIds.length > 0) {
+    const { data: linesRows } = await supabase
+      .from("stock_transfer_lines")
+      .select("tr_id, qty_shipped, unit_cost")
+      .in("tr_id", recvIds);
+    for (const l of linesRows ?? []) {
+      totalAmountReceivedRecent +=
+        Number(l.qty_shipped ?? 0) * Number(l.unit_cost ?? 0);
+    }
+    totalAmountReceivedRecent =
+      Math.round(totalAmountReceivedRecent * 100) / 100;
+  }
+
+  return {
+    inTransitCount,
+    partialCount,
+    receivedRecentCount,
+    todayEtaCount,
+    delayedCount,
+    avgTransitDays,
+    totalAmountReceivedRecent,
+  };
+}
+
+/**
+ * Bundle：一次撈 board 需要的所有資料（rows + total + kpis + warehouses + perms）。
+ *
+ * Filters：
+ *  - q：tr_no ILIKE
+ *  - status：'' | 'in_transit' | 'partial' | 'received' | 'cancelled'（'' 預設取
+ *    in_transit + partial + received）
+ *  - source_warehouse_id / target_warehouse_id
+ *  - date_from / date_to（對 ship_date）
+ *
+ * pagination：page / pageSize（default 50）。
+ */
+export type TransferInPageBundle = {
+  rows: TransferListRow[];
+  totalCount: number;
+  kpis: TransferInKpis;
+  warehouses: WarehouseOption[];
+  canEdit: boolean;
+};
+
+export async function getTransferInPageBundle(
+  filter: {
+    q?: string;
+    status?: string;
+    source_warehouse_id?: string;
+    target_warehouse_id?: string;
+    date_from?: string;
+    date_to?: string;
+  } = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<TransferInPageBundle> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const statusIn = filter.status
+    ? undefined
+    : ["in_transit", "partial", "received"];
+
+  const [paged, kpis, canEdit, whRes] = await Promise.all([
+    listTransfersPaged(
+      {
+        q: filter.q,
+        status: filter.status,
+        status_in: statusIn,
+        source_warehouse_id: filter.source_warehouse_id,
+        target_warehouse_id: filter.target_warehouse_id,
+        date_from: filter.date_from,
+        date_to: filter.date_to,
+      },
+      options,
+    ),
+    getTransferInKpis(),
+    hasPermission(PERMISSIONS.RECEIPT_CREATE),
+    supabase
+      .from("warehouses")
+      .select("id, code, name")
+      .eq("brand_id", scope.brand_id)
+      .eq("is_active", true)
+      .order("code"),
+  ]);
+
+  return {
+    rows: paged.rows,
+    totalCount: paged.totalCount,
+    kpis,
+    canEdit,
+    warehouses: (whRes.data ?? []) as WarehouseOption[],
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Transfer Detail — Timeline & cross-subsidiary flag
+// ─────────────────────────────────────────────────────────────
+
+export type TransferTimelineEvent = {
+  id: string;
+  at: string; // ISO
+  kind: "created" | "shipped" | "in_transit" | "partial" | "received" | "cancelled";
+  title: string;
+  description?: string;
+};
+
+/**
+ * 由 stock_transfers 上的時間欄位 + status 重建 timeline。
+ * 不額外開 audit table（POC 階段），純粹從現有 row 推導。
+ */
+export async function getTransferTimeline(
+  id: string,
+): Promise<TransferTimelineEvent[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: t, error } = await supabase
+    .from("stock_transfers")
+    .select(
+      "id, tr_no, status, created_at, updated_at, ship_date, shipped_at, received_at, expected_arrival_date, actual_arrival_date, voided_at, void_reason, qty_shipped_total, qty_received_total",
+    )
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!t) return [];
+
+  const events: TransferTimelineEvent[] = [];
+
+  events.push({
+    id: "created",
+    at: t.created_at,
+    kind: "created",
+    title: "建立調撥單",
+    description: t.tr_no,
+  });
+
+  if (t.shipped_at) {
+    events.push({
+      id: "shipped",
+      at: t.shipped_at,
+      kind: "shipped",
+      title: "已出貨",
+      description:
+        t.expected_arrival_date != null
+          ? `預計到貨 ${t.expected_arrival_date}`
+          : "預計到貨未設定",
+    });
+  }
+
+  if (
+    (t.status === "partial" || t.status === "received") &&
+    Number(t.qty_received_total ?? 0) > 0 &&
+    t.status === "partial"
+  ) {
+    events.push({
+      id: "partial",
+      at: t.updated_at ?? t.created_at,
+      kind: "partial",
+      title: "部分到貨",
+      description: `已收 ${t.qty_received_total} / ${t.qty_shipped_total}`,
+    });
+  }
+
+  if (t.received_at) {
+    events.push({
+      id: "received",
+      at: t.received_at,
+      kind: "received",
+      title: "已收貨入庫",
+      description: t.actual_arrival_date
+        ? `實際到貨 ${t.actual_arrival_date}`
+        : undefined,
+    });
+  }
+
+  if (t.voided_at && t.status === "cancelled") {
+    events.push({
+      id: "cancelled",
+      at: t.voided_at,
+      kind: "cancelled",
+      title: "已作廢",
+      description: t.void_reason ?? "（未填原因）",
+    });
+  }
+
+  // 排序：時間升序
+  events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  return events;
+}
+
+/**
+ * 判斷該調撥是否跨主體（src subsidiary ≠ tgt subsidiary）。
+ * Detail page 用來顯示警示 chip + 提示「需走 INTER_COMPANY_TRANSFER」。
+ */
+export type TransferSubsidiaryInfo = {
+  src_subsidiary_id: string | null;
+  tgt_subsidiary_id: string | null;
+  src_subsidiary_name: string | null;
+  tgt_subsidiary_name: string | null;
+  is_cross_subsidiary: boolean;
+};
+
+export async function getTransferSubsidiaryInfo(
+  transferId: string,
+): Promise<TransferSubsidiaryInfo> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: t } = await supabase
+    .from("stock_transfers")
+    .select("source_warehouse_id, target_warehouse_id")
+    .eq("id", transferId)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!t) {
+    return {
+      src_subsidiary_id: null,
+      tgt_subsidiary_id: null,
+      src_subsidiary_name: null,
+      tgt_subsidiary_name: null,
+      is_cross_subsidiary: false,
+    };
+  }
+
+  const [srcWh, tgtWh] = await Promise.all([
+    supabase
+      .from("warehouses")
+      .select("org_id")
+      .eq("id", t.source_warehouse_id)
+      .maybeSingle(),
+    supabase
+      .from("warehouses")
+      .select("org_id")
+      .eq("id", t.target_warehouse_id)
+      .maybeSingle(),
+  ]);
+
+  const [srcOrg, tgtOrg] = await Promise.all([
+    srcWh.data?.org_id
+      ? supabase
+          .from("organizations")
+          .select("subsidiary_id")
+          .eq("id", srcWh.data.org_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as { data: { subsidiary_id: string | null } | null }),
+    tgtWh.data?.org_id
+      ? supabase
+          .from("organizations")
+          .select("subsidiary_id")
+          .eq("id", tgtWh.data.org_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as { data: { subsidiary_id: string | null } | null }),
+  ]);
+  const srcSubId = srcOrg.data?.subsidiary_id ?? null;
+  const tgtSubId = tgtOrg.data?.subsidiary_id ?? null;
+
+  const subIds = Array.from(
+    new Set([srcSubId, tgtSubId].filter((x): x is string => !!x)),
+  );
+  let subMap = new Map<string, string>();
+  if (subIds.length > 0) {
+    const { data: subs } = await supabase
+      .from("subsidiaries")
+      .select("id, name")
+      .in("id", subIds);
+    subMap = new Map((subs ?? []).map((s) => [s.id, s.name]));
+  }
+
+  return {
+    src_subsidiary_id: srcSubId,
+    tgt_subsidiary_id: tgtSubId,
+    src_subsidiary_name: srcSubId ? subMap.get(srcSubId) ?? null : null,
+    tgt_subsidiary_name: tgtSubId ? subMap.get(tgtSubId) ?? null : null,
+    is_cross_subsidiary:
+      srcSubId != null && tgtSubId != null && srcSubId !== tgtSubId,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 // Transfer-Out（出貨方視角）— list + form + preview + mutations
 // ─────────────────────────────────────────────────────────────
 
@@ -190,10 +556,184 @@ export async function getTransferOutPageData(filter: {
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// Transfer-Out A-grade — KpiCard + paged list + warehouse options
+// ─────────────────────────────────────────────────────────────
+
+export type TransferOutKpis = {
+  inTransitCount: number; // 在途中
+  partialCount: number; // 部分收貨
+  todayShippedCount: number; // 今日已出貨
+  cancelledRecentCount: number; // 近 30 天取消
+  shippedRecentCount: number; // 近 30 天出貨筆數
+  totalAmountShippedRecent: number; // 近 30 天出貨金額
+};
+
+export async function getTransferOutKpis(): Promise<TransferOutKpis> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const today = new Date().toISOString().slice(0, 10);
+  const since30 = new Date(Date.now() - 30 * 86400_000)
+    .toISOString()
+    .slice(0, 10);
+
+  // live：在途中（in_transit + partial）
+  const { data: liveRows, error: liveErr } = await supabase
+    .from("stock_transfers")
+    .select("id, status")
+    .eq("brand_id", scope.brand_id)
+    .in("status", ["in_transit", "partial"]);
+  if (liveErr) throw liveErr;
+  const live = liveRows ?? [];
+
+  const inTransitCount = live.filter((r) => r.status === "in_transit").length;
+  const partialCount = live.filter((r) => r.status === "partial").length;
+
+  // 今日出貨（shipped_at 落在今天 OR ship_date = today）
+  const { data: todayRows, error: todayErr } = await supabase
+    .from("stock_transfers")
+    .select("id")
+    .eq("brand_id", scope.brand_id)
+    .eq("ship_date", today);
+  if (todayErr) throw todayErr;
+  const todayShippedCount = (todayRows ?? []).length;
+
+  // 近 30 天 cancelled
+  const { data: cancRows } = await supabase
+    .from("stock_transfers")
+    .select("id")
+    .eq("brand_id", scope.brand_id)
+    .eq("status", "cancelled")
+    .gte("voided_at", `${since30}T00:00:00Z`);
+  const cancelledRecentCount = (cancRows ?? []).length;
+
+  // 近 30 天 已出貨（ship_date >= since30，狀態不限 — 反映「出貨流量」）
+  const { data: shipRows } = await supabase
+    .from("stock_transfers")
+    .select("id, qty_shipped_total")
+    .eq("brand_id", scope.brand_id)
+    .gte("ship_date", since30)
+    .not("ship_date", "is", null);
+  const shippedRecentCount = (shipRows ?? []).length;
+
+  // 近 30 天 已出貨金額（join lines 算 sum(qty_shipped * unit_cost)）
+  let totalAmountShippedRecent = 0;
+  const shipIds = (shipRows ?? []).map((r) => r.id);
+  if (shipIds.length > 0) {
+    const { data: linesRows } = await supabase
+      .from("stock_transfer_lines")
+      .select("tr_id, qty_shipped, unit_cost")
+      .in("tr_id", shipIds);
+    for (const l of linesRows ?? []) {
+      totalAmountShippedRecent +=
+        Number(l.qty_shipped ?? 0) * Number(l.unit_cost ?? 0);
+    }
+    totalAmountShippedRecent = Math.round(totalAmountShippedRecent * 100) / 100;
+  }
+
+  return {
+    inTransitCount,
+    partialCount,
+    todayShippedCount,
+    cancelledRecentCount,
+    shippedRecentCount,
+    totalAmountShippedRecent,
+  };
+}
+
+export type TransferOutPageBundle = {
+  rows: TransferListRow[];
+  totalCount: number;
+  kpis: TransferOutKpis;
+  warehouses: WarehouseOption[];
+  canEdit: boolean;
+};
+
+/**
+ * Bundle：一次撈 transfer-out board 需要的所有資料。
+ *
+ * Filters：
+ *  - q：tr_no ILIKE
+ *  - status：'' | 'in_transit' | 'partial' | 'received' | 'cancelled'
+ *    （'' 預設取 in_transit + partial + received + cancelled，反映出貨方視角的整段生命週期）
+ *  - source_warehouse_id / target_warehouse_id
+ *  - date_from / date_to（對 ship_date）
+ *
+ * pagination：page / pageSize（default 50）。
+ */
+export async function getTransferOutPageBundle(
+  filter: {
+    q?: string;
+    status?: string;
+    source_warehouse_id?: string;
+    target_warehouse_id?: string;
+    date_from?: string;
+    date_to?: string;
+  } = {},
+  options: { page?: number; pageSize?: number } = {},
+): Promise<TransferOutPageBundle> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 出貨方視角不預設過濾掉 cancelled — 出貨人想看自己取消過的單
+  const statusIn = filter.status
+    ? undefined
+    : ["in_transit", "partial", "received", "cancelled"];
+
+  const [paged, kpis, canEdit, whRes] = await Promise.all([
+    listTransfersPaged(
+      {
+        q: filter.q,
+        status: filter.status,
+        status_in: statusIn,
+        source_warehouse_id: filter.source_warehouse_id,
+        target_warehouse_id: filter.target_warehouse_id,
+        date_from: filter.date_from,
+        date_to: filter.date_to,
+      },
+      options,
+    ),
+    getTransferOutKpis(),
+    hasPermission(PERMISSIONS.TRANSFER_CREATE),
+    supabase
+      .from("warehouses")
+      .select("id, code, name")
+      .eq("brand_id", scope.brand_id)
+      .eq("is_active", true)
+      .order("code"),
+  ]);
+
+  return {
+    rows: paged.rows,
+    totalCount: paged.totalCount,
+    kpis,
+    canEdit,
+    warehouses: (whRes.data ?? []) as WarehouseOption[],
+  };
+}
+
 export type NewTransferFormData = {
   warehouses: Array<{ id: string; code: string | null; name: string }>;
   items: Array<{ id: string; code: string; name: string; base_uom: string | null }>;
 };
+
+/**
+ * 給 transfers-in-transit filter 下拉用的精簡倉庫清單（不要 items）。
+ */
+export async function listActiveWarehousesForTransfer(): Promise<
+  Array<{ id: string; code: string | null; name: string }>
+> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("warehouses")
+    .select("id, code, name")
+    .eq("brand_id", scope.brand_id)
+    .eq("is_active", true)
+    .order("code");
+  if (error) throw error;
+  return (data ?? []) as Array<{ id: string; code: string | null; name: string }>;
+}
 
 export async function getNewTransferFormData(): Promise<NewTransferFormData> {
   const supabase = await createClient();
@@ -1098,5 +1638,272 @@ export async function voidTransfer(
   revalidatePath(`/parts/receipt/transfer-in/${id}`);
   revalidatePath("/parts/operations/transfers-in-transit");
   revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Transfers-In-Transit Board — KPI / FlowDiagram / row expand
+// （M04L-2 升 A 級新增）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * KpiCard stats + FlowDiagram counts。
+ *
+ * - inTransitCount：status in ('in_transit','partial') 的單數
+ * - delayedCount：上述中 metadata.delayed=true 或 (expected_arrival_date < today AND qty_received < qty_shipped)
+ * - todayEtaCount：expected_arrival_date = today 且仍在途
+ * - avgTransitDays：近 30 天 received status 的 (received_at::date - ship_date) 平均
+ * - statusCounts：給 FlowDiagram 各 node 顯示件數（issued / in_transit / arrived / received）
+ *   ── issued = 已出貨但尚未送達（ship_date 有但 qty_received_total=0）
+ *   ── in_transit = status='in_transit' 純在途
+ *   ── arrived = status='partial'（部分到貨）
+ *   ── received = status='received' 且近 30 天
+ */
+export type TransfersInTransitStats = {
+  inTransitCount: number;
+  delayedCount: number;
+  todayEtaCount: number;
+  avgTransitDays: number | null;
+  statusCounts: {
+    issued: number;
+    in_transit: number;
+    partial: number;
+    received: number;
+  };
+};
+
+export async function getTransfersInTransitStats(): Promise<TransfersInTransitStats> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const today = new Date().toISOString().slice(0, 10);
+  const since30 = new Date(Date.now() - 30 * 86400_000)
+    .toISOString()
+    .slice(0, 10);
+
+  // 在途中（in_transit + partial）+ 延遲 + 今日 ETA
+  const { data: liveRows, error: liveErr } = await supabase
+    .from("stock_transfers")
+    .select(
+      "id, status, ship_date, expected_arrival_date, qty_shipped_total, qty_received_total, metadata",
+    )
+    .eq("brand_id", scope.brand_id)
+    .in("status", ["in_transit", "partial"]);
+  if (liveErr) throw liveErr;
+  const live = liveRows ?? [];
+
+  const inTransitCount = live.length;
+  const delayedCount = live.filter((r) => {
+    const meta = (r.metadata ?? {}) as Record<string, unknown>;
+    if (meta.delayed === true) return true;
+    if (
+      r.expected_arrival_date &&
+      r.expected_arrival_date < today &&
+      Number(r.qty_received_total ?? 0) < Number(r.qty_shipped_total ?? 0)
+    )
+      return true;
+    return false;
+  }).length;
+  const todayEtaCount = live.filter(
+    (r) => r.expected_arrival_date === today,
+  ).length;
+
+  // 近 30 天平均運送天數（received status）
+  const { data: recvRows } = await supabase
+    .from("stock_transfers")
+    .select("ship_date, received_at")
+    .eq("brand_id", scope.brand_id)
+    .eq("status", "received")
+    .gte("received_at", `${since30}T00:00:00Z`)
+    .not("ship_date", "is", null)
+    .not("received_at", "is", null);
+  let avgTransitDays: number | null = null;
+  if (recvRows && recvRows.length > 0) {
+    const days: number[] = [];
+    for (const r of recvRows) {
+      if (!r.ship_date || !r.received_at) continue;
+      const ship = new Date(`${r.ship_date}T00:00:00Z`).getTime();
+      const recv = new Date(r.received_at).getTime();
+      const d = Math.round((recv - ship) / 86400_000);
+      if (d >= 0 && d < 365) days.push(d);
+    }
+    if (days.length > 0) {
+      avgTransitDays =
+        Math.round((days.reduce((s, d) => s + d, 0) / days.length) * 10) / 10;
+    }
+  }
+
+  // FlowDiagram 件數：issued（partial 不算 issued，這裡 issued 取 in_transit 全未到貨）
+  const issued = live.filter(
+    (r) =>
+      r.status === "in_transit" &&
+      Number(r.qty_received_total ?? 0) === 0,
+  ).length;
+  const inTransitOnly = live.filter((r) => r.status === "in_transit").length;
+  const partial = live.filter((r) => r.status === "partial").length;
+
+  // 近 30 天已驗收（status=received）
+  const { count: recvCount } = await supabase
+    .from("stock_transfers")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", scope.brand_id)
+    .eq("status", "received")
+    .gte("received_at", `${since30}T00:00:00Z`);
+
+  return {
+    inTransitCount,
+    delayedCount,
+    todayEtaCount,
+    avgTransitDays,
+    statusCounts: {
+      issued,
+      in_transit: inTransitOnly,
+      partial,
+      received: recvCount ?? 0,
+    },
+  };
+}
+
+/**
+ * 批次撈一批 transfer 的明細品項（給 row expand 用）。
+ * 一次抓多筆 tr_ids，內部組 (item_code, item_name, qty_shipped, qty_received) 給 UI 渲染。
+ */
+export type TransferInTransitLine = {
+  tr_id: string;
+  line_no: number;
+  item_id: string;
+  item_code: string;
+  item_name: string;
+  qty_shipped: number;
+  qty_received: number;
+  uom: string | null;
+};
+
+export async function getTransferLinesByTrIds(
+  trIds: string[],
+): Promise<TransferInTransitLine[]> {
+  if (trIds.length === 0) return [];
+  const supabase = await createClient();
+  const { data: lines, error } = await supabase
+    .from("stock_transfer_lines")
+    .select(
+      "tr_id, line_no, item_id, qty_shipped, qty_received, uom, metadata",
+    )
+    .in("tr_id", trIds)
+    .order("line_no");
+  if (error) throw error;
+  const rows = lines ?? [];
+  if (rows.length === 0) return [];
+
+  const itemIds = Array.from(new Set(rows.map((l) => l.item_id)));
+  const { data: items } = await supabase
+    .from("items")
+    .select("id, code, name")
+    .in("id", itemIds);
+  const itemMap = new Map(
+    (items ?? []).map((i) => [i.id, { code: i.code, name: i.name }]),
+  );
+
+  return rows.map((l) => {
+    const meta = (l.metadata ?? {}) as Record<string, unknown>;
+    const item = itemMap.get(l.item_id);
+    return {
+      tr_id: l.tr_id,
+      line_no: l.line_no,
+      item_id: l.item_id,
+      item_code:
+        (typeof meta.item_code === "string" ? meta.item_code : null) ??
+        item?.code ??
+        "—",
+      item_name:
+        (typeof meta.item_name === "string" ? meta.item_name : null) ??
+        item?.name ??
+        "—",
+      qty_shipped: Number(l.qty_shipped ?? 0),
+      qty_received: Number(l.qty_received ?? 0),
+      uom: l.uom,
+    };
+  });
+}
+
+/**
+ * 把調撥單標為延遲（寫進 metadata.delayed = true + delayed_reason）。
+ * UI 上 chip 立刻反映；不會改 status，業務語意維持「在途中」。
+ */
+export async function markTransferAsDelayed(
+  id: string,
+  reason?: string,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  if (!(await hasPermission(PERMISSIONS.TRANSFER_CREATE))) {
+    return { ok: false, error: "沒有編輯調撥的權限" };
+  }
+  const scope = await getActiveScope();
+
+  // 先讀 metadata 合併
+  const { data: existing, error: readErr } = await supabase
+    .from("stock_transfers")
+    .select("id, metadata, status")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+  if (!existing) return { ok: false, error: "找不到該調撥單" };
+  if (!["in_transit", "partial"].includes(existing.status)) {
+    return { ok: false, error: "只能標記在途中的調撥單為延遲" };
+  }
+
+  const meta = (existing.metadata ?? {}) as Record<string, unknown>;
+  const newMeta = {
+    ...meta,
+    delayed: true,
+    delayed_reason: reason?.trim() || "（未填寫原因）",
+    delayed_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from("stock_transfers")
+    .update({ metadata: newMeta, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/parts/operations/transfers-in-transit");
+  return { ok: true, data: { id } };
+}
+
+/**
+ * 清除延遲標記（撤銷）。
+ */
+export async function clearTransferDelayed(
+  id: string,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  if (!(await hasPermission(PERMISSIONS.TRANSFER_CREATE))) {
+    return { ok: false, error: "沒有編輯調撥的權限" };
+  }
+  const scope = await getActiveScope();
+
+  const { data: existing, error: readErr } = await supabase
+    .from("stock_transfers")
+    .select("id, metadata")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+  if (!existing) return { ok: false, error: "找不到該調撥單" };
+
+  const meta = (existing.metadata ?? {}) as Record<string, unknown>;
+  delete meta.delayed;
+  delete meta.delayed_reason;
+  delete meta.delayed_at;
+
+  const { error } = await supabase
+    .from("stock_transfers")
+    .update({ metadata: meta, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/parts/operations/transfers-in-transit");
   return { ok: true, data: { id } };
 }
