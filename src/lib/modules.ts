@@ -479,6 +479,22 @@ export const modules: ModuleDef[] = [
       { name: "Ducati_售後完整工單套件_v4",   icon: "folder_special",  href: "/dev/aftersales-kit" },
     ],
   },
+
+  // ────────────────────────────────────────────────────────
+  // 13. AI Curve — 接待錄音 → AI 自動抽取手卡欄位（彩蛋、放最下面）
+  //     POC：mobile-first、stateless demo、不綁手卡
+  // ────────────────────────────────────────────────────────
+  {
+    key: "ai-curve",
+    name: "AI Curve",
+    icon: "auto_awesome",
+    accent: "#7C3AED",
+    description: "接待錄音 → AI 自動生手卡",
+    home: "/ai-curve",
+    pages: [
+      { name: "AI 錄音接待", icon: "graphic_eq", href: "/ai-curve" },
+    ],
+  },
 ];
 
 export function getModuleByKey(key: string): ModuleDef | undefined {

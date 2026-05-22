@@ -99,3 +99,6 @@ AGENTS.md
 
 # Smoke / debug 截圖工件（pw-smoke-*.mjs 會寫到 tmp/，數十 MB、別 commit）
 /tmp/
+
+# /spike dev artifacts (HTTPS self-signed cert，含 private key)
+/.spike/
