@@ -11,6 +11,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   FEEDBACK_ATTACHMENT_BUCKET,
   type FeedbackTicket,
@@ -28,9 +29,11 @@ export interface FeedbackTicketsListPageData {
 
 export async function getFeedbackTicketsListPageData(): Promise<FeedbackTicketsListPageData> {
   const supabase = await createClient();
+  const brandId = (await getActiveScope()).brand_id;
   const { data, error } = await supabase
     .from("feedback_tickets")
     .select("*")
+    .eq("brand_id", brandId)
     .order("updated_at", { ascending: false });
 
   const tickets = (data ?? []) as FeedbackTicket[];
@@ -67,10 +70,16 @@ export async function getFeedbackTicketDetailPageData(
   id: string,
 ): Promise<FeedbackTicketDetailPageData | null> {
   const supabase = await createClient();
+  const brandId = (await getActiveScope()).brand_id;
 
   const [{ data: ticketData }, { data: canvasData }, { data: commentsRaw }] =
     await Promise.all([
-      supabase.from("feedback_tickets").select("*").eq("id", id).maybeSingle(),
+      supabase
+        .from("feedback_tickets")
+        .select("*")
+        .eq("id", id)
+        .eq("brand_id", brandId)
+        .maybeSingle(),
       supabase
         .from("feedback_canvas_snapshots")
         .select("snapshot")

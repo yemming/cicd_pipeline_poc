@@ -9,6 +9,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import type { Json } from "@/lib/database.types";
 
 export type Result<T = unknown> =
@@ -22,9 +23,10 @@ export async function saveFeedbackCanvasSnapshot(
   if (!ticketId) return { ok: false, error: "缺 ticketId" };
 
   const supabase = await createClient();
+  const brandId = (await getActiveScope()).brand_id;
   const { error } = await supabase
     .from("feedback_canvas_snapshots")
-    .upsert({ ticket_id: ticketId, snapshot });
+    .upsert({ ticket_id: ticketId, snapshot, brand_id: brandId });
 
   if (error) return { ok: false, error: error.message };
   revalidatePath(`/feedback/tickets/${ticketId}`);
