@@ -6,11 +6,34 @@ import {
   createSession,
   deleteSession,
   getSessionMessages,
-  askInSession,
   type ChatSession,
   type ChatMessage,
 } from "@/domain/rag-chat";
+import type { RetrievedChunk } from "@/lib/ai/rag-retrieve";
 import { ChatMessageBubble } from "./chat-message";
+
+const PROMPT_SUGGESTIONS: { icon: string; label: string; q: string }[] = [
+  {
+    icon: "📘",
+    label: "手冊技術問題",
+    q: "Desert X 第一次保養多少里程？",
+  },
+  {
+    icon: "🔧",
+    label: "歷史維修紀錄",
+    q: "車牌 IMC-001 的車最近修過什麼？",
+  },
+  {
+    icon: "👤",
+    label: "客戶身家",
+    q: "客戶林志玲名下有什麼車？最近回廠是什麼時候？",
+  },
+  {
+    icon: "🎤",
+    label: "接待追蹤",
+    q: "最近的接待錄音裡，哪些客戶意向是 4 分以上？",
+  },
+];
 
 export function ChatApp({
   initialSessions,
@@ -25,8 +48,10 @@ export function ChatApp({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [streaming, setStreaming] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // 切 session → 載 message
   useEffect(() => {
@@ -44,18 +69,19 @@ export function ChatApp({
     };
   }, [activeId]);
 
-  // auto scroll to bottom on new messages
+  // auto scroll
   useEffect(() => {
     if (threadRef.current) {
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
-  }, [messages.length, isPending]);
+  }, [messages, streaming]);
 
   async function onNewSession() {
     const r = await createSession();
     if (r.ok) {
       setActiveId(r.data.id);
       router.refresh();
+      inputRef.current?.focus();
     } else {
       setBanner(r.error);
     }
@@ -75,32 +101,37 @@ export function ChatApp({
     });
   }
 
-  function onSubmit() {
+  async function onSubmit() {
     const q = input.trim();
-    if (!q) return;
-    if (!activeId) {
-      // 沒選 session → 開新的再送
-      startTransition(async () => {
-        const r = await createSession();
-        if (!r.ok) {
-          setBanner(r.error);
-          return;
-        }
-        setActiveId(r.data.id);
-        await sendQuestion(r.data.id, q);
-      });
-    } else {
-      startTransition(async () => {
-        await sendQuestion(activeId, q);
-      });
+    if (!q || streaming) return;
+
+    let sessionId = activeId;
+    if (!sessionId) {
+      const r = await createSession();
+      if (!r.ok) {
+        setBanner(r.error);
+        return;
+      }
+      sessionId = r.data.id;
+      setActiveId(sessionId);
     }
+    setInput("");
+    await streamAnswer(sessionId, q);
   }
 
-  async function sendQuestion(sessionId: string, q: string) {
-    setInput("");
-    // 樂觀更新：先 push user message
+  function pickSuggestion(q: string) {
+    setInput(q);
+    inputRef.current?.focus();
+  }
+
+  async function streamAnswer(sessionId: string, q: string) {
+    setStreaming(true);
+
+    // 樂觀 push 一條 user message + 一條 assistant placeholder（空 content、邊收邊填）
+    const tempUserId = `temp-u-${Date.now()}`;
+    const tempAssistantId = `temp-a-${Date.now()}`;
     const tempUser: ChatMessage = {
-      id: `temp-${Date.now()}`,
+      id: tempUserId,
       session_id: sessionId,
       role: "user",
       content: q,
@@ -110,35 +141,103 @@ export function ChatApp({
       latency_ms: null,
       created_at: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, tempUser]);
+    const tempAssistant: ChatMessage = {
+      id: tempAssistantId,
+      session_id: sessionId,
+      role: "assistant",
+      content: "",
+      retrieved_chunks: null,
+      tokens_in: null,
+      tokens_out: null,
+      latency_ms: null,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, tempUser, tempAssistant]);
 
-    const r = await askInSession(sessionId, q);
-    if (!r.ok) {
-      setBanner(r.error);
-      // 移除 temp user message
-      setMessages((prev) => prev.filter((m) => m.id !== tempUser.id));
-      return;
+    try {
+      const resp = await fetch("/api/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, question: q }),
+      });
+      if (!resp.ok || !resp.body) {
+        const err = await resp.text();
+        throw new Error(err || `HTTP ${resp.status}`);
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accText = "";
+      let metaUser: ChatMessage | null = null;
+      let metaRetrieved: RetrievedChunk[] = [];
+      let finalAssistant: ChatMessage | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let idx;
+        while ((idx = buffer.indexOf("\n\n")) !== -1) {
+          const evRaw = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          if (!evRaw.startsWith("data: ")) continue;
+          const ev = JSON.parse(evRaw.slice(6));
+          if (ev.type === "meta") {
+            metaUser = ev.userMessage as ChatMessage;
+            metaRetrieved = (ev.retrieved as RetrievedChunk[]) ?? [];
+            // 把 user temp 換成真實 row
+            setMessages((prev) =>
+              prev.map((m) => (m.id === tempUserId && metaUser ? metaUser : m)),
+            );
+          } else if (ev.type === "text") {
+            accText += ev.text as string;
+            const snapshot = accText;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === tempAssistantId ? { ...m, content: snapshot } : m,
+              ),
+            );
+          } else if (ev.type === "done") {
+            finalAssistant = ev.assistantMessage as ChatMessage | null;
+          }
+        }
+      }
+
+      // 用真實 assistant row 取代（含 token / latency / retrieved）
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempAssistantId
+            ? (finalAssistant ?? {
+                ...m,
+                content: accText,
+                retrieved_chunks: metaRetrieved.length > 0 ? metaRetrieved : null,
+              })
+            : m,
+        ),
+      );
+
+      // 更新左側 sessions 列表（move 到 top + title）
+      setSessions((prev) => {
+        const cur = prev.find((s) => s.id === sessionId);
+        const updated: ChatSession = {
+          id: sessionId,
+          title: cur?.title ?? q.slice(0, 30),
+          created_at: cur?.created_at ?? new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        return [updated, ...prev.filter((s) => s.id !== sessionId)];
+      });
+    } catch (e) {
+      // streaming 失敗 → 移除兩條 temp、顯示 banner
+      setMessages((prev) =>
+        prev.filter((m) => m.id !== tempUserId && m.id !== tempAssistantId),
+      );
+      setBanner(`AI 出錯：${(e as Error).message}`);
+    } finally {
+      setStreaming(false);
     }
-    // 用真實的 user message + assistant 取代
-    setMessages((prev) => [
-      ...prev.filter((m) => m.id !== tempUser.id),
-      r.data.userMessage,
-      r.data.assistantMessage,
-    ]);
-
-    // 把 session 移到列表頂端 + 更新 title
-    setSessions((prev) => {
-      const idx = prev.findIndex((s) => s.id === sessionId);
-      const updated: ChatSession = {
-        id: sessionId,
-        title:
-          prev[idx]?.title ?? q.slice(0, 30) ?? null,
-        created_at: prev[idx]?.created_at ?? new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      const others = prev.filter((s) => s.id !== sessionId);
-      return [updated, ...others];
-    });
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -155,8 +254,8 @@ export function ChatApp({
         <div className="px-3 py-3 border-b border-[#EEECE6]">
           <button
             onClick={onNewSession}
-            disabled={isPending}
-            className="w-full h-[36px] rounded-md bg-[#185FA5] text-white text-[12.5px] font-medium hover:bg-[#0F2A45] disabled:opacity-50"
+            disabled={isPending || streaming}
+            className="w-full h-[36px] rounded-md bg-gradient-to-br from-[#185FA5] to-[#1A3A5C] text-white text-[12.5px] font-medium hover:from-[#0F2A45] hover:to-[#0F2A45] shadow disabled:opacity-50"
           >
             ＋ 新對話
           </button>
@@ -202,77 +301,133 @@ export function ChatApp({
       <section className="flex-1 flex flex-col min-w-0">
         <header className="px-5 py-3 border-b border-[#EEECE6] bg-white">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px] text-[#185FA5]">
-              auto_awesome
-            </span>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#185FA5] flex items-center justify-center">
+              <span className="material-symbols-outlined text-[14px] text-white">
+                auto_awesome
+              </span>
+            </div>
             <h1 className="text-[14px] font-semibold text-[#2C2C2A]">
-              AI 問答（手冊 + 修車紀錄 + 客戶資料）
+              AI 問答
             </h1>
-          </div>
-          <div className="text-[11px] text-[#9A9890] mt-0.5">
-            Gemini 2.5 Flash・RAG 從 brand 內所有知識庫檢索
+            <span className="text-[11px] text-[#9A9890]">
+              ・ Gemini 2.5 Flash ・ RAG 從手冊 / 工單 / 客戶 / 接待錄音 檢索
+            </span>
           </div>
         </header>
 
         <div
           ref={threadRef}
-          className="flex-1 overflow-y-auto px-5 py-4 space-y-3"
+          className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
         >
-          {!activeId && messages.length === 0 && (
-            <div className="text-center text-[12.5px] text-[#9A9890] py-10">
-              選一個對話或開新的，問我任何事 ─ 例如：
-              <ul className="mt-3 text-left max-w-md mx-auto space-y-1 text-[12px]">
-                <li>・ Panigale V4 第一次保養多少里程？</li>
-                <li>・ 上次幫車牌 ABC-123 換過什麼？</li>
-                <li>・ 王先生家那台車保險到什麼時候？</li>
-                <li>・ Diavel V4 換煞車碟盤的工時是多少？</li>
-              </ul>
-            </div>
+          {messages.length === 0 ? (
+            <EmptyState onPick={pickSuggestion} />
+          ) : (
+            messages.map((m) => (
+              <ChatMessageBubble
+                key={m.id}
+                message={m}
+                isStreaming={streaming && m.id.startsWith("temp-a-") && !m.content}
+              />
+            ))
           )}
-          {messages.map((m) => (
-            <ChatMessageBubble key={m.id} message={m} />
-          ))}
-          {isPending && (
-            <div className="flex items-center gap-2 text-[12px] text-[#9A9890]">
-              <span className="w-3 h-3 rounded-full border-2 border-[#185FA5]/30 border-t-[#185FA5] animate-spin" />
-              AI 思考中⋯
-            </div>
+          {streaming && messages.length > 0 && (
+            <StreamingHint />
           )}
         </div>
 
         <div className="border-t border-[#EEECE6] bg-white p-3">
-          <div className="flex gap-2 items-end">
+          <div className="flex gap-2 items-end max-w-4xl mx-auto">
             <textarea
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder="輸入問題（Enter 送出、Shift+Enter 換行）"
               rows={2}
-              disabled={isPending}
-              className="flex-1 border border-[#D5D3CB] rounded-lg px-3 py-2 text-[13px] focus:border-[#185FA5] outline-none resize-none"
+              disabled={streaming}
+              className="flex-1 border border-[#D5D3CB] rounded-xl px-3 py-2 text-[13px] focus:border-[#185FA5] outline-none resize-none shadow-sm disabled:bg-[#F8F7F4]"
             />
             <button
               onClick={onSubmit}
-              disabled={isPending || !input.trim()}
-              className="h-[44px] px-5 rounded-full bg-[#185FA5] text-white text-[13px] font-semibold hover:bg-[#0F2A45] disabled:opacity-50"
+              disabled={streaming || !input.trim()}
+              className="h-[44px] px-5 rounded-full bg-gradient-to-br from-[#185FA5] to-[#1A3A5C] text-white text-[13px] font-semibold shadow hover:from-[#0F2A45] disabled:opacity-50 disabled:from-[#9A9890] disabled:to-[#9A9890] inline-flex items-center gap-1.5"
             >
-              {isPending ? "送出中⋯" : "送出"}
+              <span className="material-symbols-outlined text-[18px]">
+                {streaming ? "more_horiz" : "send"}
+              </span>
+              {streaming ? "回答中" : "送出"}
             </button>
           </div>
         </div>
       </section>
 
       {banner && (
-        <div className="fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD] z-50">
+        <div className="fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD] z-50 max-w-md">
           {banner}
           <button
             onClick={() => setBanner(null)}
-            className="ml-3 text-[#CC0000]"
+            className="ml-3 text-[#CC0000] font-bold"
           >
             ✕
           </button>
         </div>
       )}
     </main>
+  );
+}
+
+// ─── Empty state with prompt chips ────────────────────────
+
+function EmptyState({ onPick }: { onPick: (q: string) => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-full text-center px-4">
+      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#185FA5] flex items-center justify-center mb-4 shadow-lg">
+        <span className="material-symbols-outlined text-[28px] text-white">
+          auto_awesome
+        </span>
+      </div>
+      <h2 className="text-[18px] font-semibold text-[#2C2C2A] mb-1">
+        我能查 brand 內所有知識
+      </h2>
+      <p className="text-[12.5px] text-[#5A5955] mb-6 max-w-md">
+        手冊 / 修車工單 / 客戶資料 / 接待錄音 / 名片掃描 都已索引。試試這些問題：
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl w-full">
+        {PROMPT_SUGGESTIONS.map((s) => (
+          <button
+            key={s.q}
+            onClick={() => onPick(s.q)}
+            className="text-left p-3 rounded-lg bg-white border border-[#EEECE6] hover:border-[#185FA5] hover:shadow-md transition-all group"
+          >
+            <div className="flex items-start gap-2">
+              <span className="text-[16px] mt-0.5">{s.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[11.5px] font-semibold text-[#9A9890] group-hover:text-[#185FA5] uppercase tracking-wider mb-1">
+                  {s.label}
+                </div>
+                <div className="text-[13px] text-[#2C2C2A] leading-snug">
+                  {s.q}
+                </div>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Streaming hint（思考中動畫，等首個 chunk 到來） ─────────
+
+function StreamingHint() {
+  return (
+    <div className="flex items-center gap-2 text-[11.5px] text-[#9A9890] pl-11">
+      <span className="flex gap-0.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#185FA5] animate-bounce [animation-delay:0ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#185FA5] animate-bounce [animation-delay:150ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#185FA5] animate-bounce [animation-delay:300ms]" />
+      </span>
+      <span>檢索 + 思考中⋯</span>
+    </div>
   );
 }

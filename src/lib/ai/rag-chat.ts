@@ -14,6 +14,7 @@ import type { RetrievedChunk, RagSourceType } from './rag-retrieve';
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:streamGenerateContent?alt=sse`;
 const MAX_HISTORY_TURNS = 6; // 最近 6 輪 user+assistant pair
 
 const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的內部助理。你幫業務 / 技師 / 服務顧問
@@ -21,9 +22,21 @@ const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的內部助理。�
 
 【極重要的反幻覺規則】
 - 你只能根據下面提供的 [上下文] 來回答
-- 上下文不足 → 直說「我查不到相關資料」，不要編、不要從常識補
+- 上下文真的不足 → 才說「我查不到相關資料」，但要明確說出你檢索到了什麼（譬如「我有
+  C00019 孫燕姿這位客戶的資料，但沒有她的車輛或維修紀錄」）— 不要丟一句「查不到」就拍拍屁股走
 - 不准引用沒在上下文出現的條目（手冊頁碼 / RO code / 客戶名）
 - 上下文裡的車型若跟 user 問的車型對不上、要明說「你問的是 X、但我找到的是 Y 的資料」
+
+【代詞與 follow-up（多輪對話必看）】
+- 用戶用「它 / 他 / 她 / 那 / 那台車 / 這個客戶 / 它的紀錄 / 他最近」等代詞時、
+  優先用前一兩輪對話的 entity 解讀、不要反問「請問是指哪位客戶」
+- 例：上輪講了車牌 IMC-001、下輪問「那它有沒有維修紀錄」→ 直接答 IMC-001 的工單
+- 例：上輪提到孫燕姿、下輪問「她最近有來嗎」→ 直接查孫燕姿、不要反問
+
+【容錯 / Fuzzy match】
+- 用戶可能打錯字（例「孫燕資」→「孫燕姿」、「林志林」→「林志玲」），優先用音近 /
+  形近的客戶。如果上下文裡有相似客戶就直接答、不要反問
+- 車牌格式不固定（IMC001 / IMC-001 / imc001 都當同一台）
 
 【引用規則】
 - 回答完之後用「【來源】」區塊列出引用的條目
@@ -31,10 +44,14 @@ const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的內部助理。�
 - 工單類：寫「工單 RO-XXX」
 - 客戶 / 車輛 / 接待錄音 / 名片：寫「客戶資料 / 接待紀錄 / 名片」+ 對應代碼
 
+【格式】
+- 用 Markdown：列表用 \`-\`、強調用 \`**bold**\`、code 用反引號
+- 多筆並列資料用 bullet list、不要把工單摘要全擠一段
+- 數字 / 規格 / 工時 / 金額 / 日期 直接 copy 上下文、不四捨五入不改寫
+
 【語氣】
 - 繁體中文（台灣）
-- 直接、精簡
-- 數字 / 規格 / 工時 / 金額 都要從上下文 copy 出來、不要四捨五入或改寫
+- 直接、精簡、像同事間講話，不要過度客套
 `;
 
 export type ChatHistoryMessage = {
@@ -116,7 +133,115 @@ export async function generateChatAnswer(
   };
 }
 
-function formatContextBlock(chunks: RetrievedChunk[]): string {
+// ─── Streaming 版（給 SSE Route Handler 用） ─────────────────────
+
+export type StreamEvent =
+  | { type: 'text'; text: string }
+  | {
+      type: 'done';
+      fullText: string;
+      tokensIn: number;
+      tokensOut: number;
+      latencyMs: number;
+    };
+
+export async function* streamChatAnswer(
+  userMessage: string,
+  history: ChatHistoryMessage[],
+  retrieved: RetrievedChunk[],
+): AsyncGenerator<StreamEvent> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY 沒設');
+
+  const contextBlock = formatContextBlock(retrieved);
+  const recentHistory = history.slice(-MAX_HISTORY_TURNS * 2);
+
+  const contents = [
+    ...recentHistory.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    })),
+    {
+      role: 'user',
+      parts: [
+        {
+          text: `[上下文 — 從知識庫檢索 ${retrieved.length} 筆相關資料]\n\n${contextBlock}\n\n---\n\n[使用者問題]\n${userMessage}`,
+        },
+      ],
+    },
+  ];
+
+  const payload = {
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents,
+    generationConfig: {
+      temperature: 0.2,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  };
+
+  const t0 = Date.now();
+  const resp = await fetch(`${STREAM_ENDPOINT}&key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!resp.ok || !resp.body) {
+    const errText = await resp.text();
+    throw new Error(`Gemini stream ${resp.status}：${errText.slice(0, 300)}`);
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
+  let tokensIn = 0;
+  let tokensOut = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE 用 \n\n 分隔每個 event，event 第一行通常是 "data: {...}"
+    let idx;
+    while ((idx = buffer.indexOf('\n\n')) !== -1) {
+      const event = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      if (!event.startsWith('data: ')) continue;
+      const json = event.slice(6);
+      if (!json.trim()) continue;
+      try {
+        const parsed = JSON.parse(json);
+        const txt = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (txt) {
+          fullText += txt;
+          yield { type: 'text', text: txt };
+        }
+        const usage = parsed.usageMetadata;
+        if (usage) {
+          tokensIn = usage.promptTokenCount ?? tokensIn;
+          tokensOut = usage.candidatesTokenCount ?? tokensOut;
+        }
+      } catch {
+        // 忽略 parse 失敗的 chunk
+      }
+    }
+  }
+
+  yield {
+    type: 'done',
+    fullText,
+    tokensIn,
+    tokensOut,
+    latencyMs: Date.now() - t0,
+  };
+}
+
+// ─── 工具：給 streaming 端 reuse ─────────────────────────────────
+
+export function formatContextBlock(chunks: RetrievedChunk[]): string {
   if (chunks.length === 0) return '（沒有檢索到任何相關資料）';
   return chunks
     .map((c, idx) => {

@@ -262,6 +262,11 @@ export async function serializeCustomer(
   if (c.email) bits.push(`Email ${c.email}`);
   if (c.address) bits.push(`地址 ${c.address}`);
 
+  // 兩個都空 → 明確標示「無互動紀錄」、讓 AI 有東西可講、不要乾說「查不到」
+  if ((!vehicles || vehicles.length === 0) && (!ros || ros.length === 0)) {
+    bits.push('目前尚無車輛 / 工單 / 互動紀錄（可能是剛建檔的客戶）');
+  }
+
   if (vehicles && vehicles.length > 0) {
     // 撈車型名
     const modelIds = Array.from(
@@ -335,7 +340,14 @@ export async function serializeHandcardVoiceNote(
   const ai = n.ai_suggestions as Record<string, { value?: unknown }> | null;
 
   const bits: string[] = [];
-  bits.push(`接待錄音紀錄｜${formatDateTime(n.created_at)}｜時長 ${n.duration_seconds ?? 0} 秒`);
+  // 12 欄手卡有 reviewed_decisions.customer_name / customer_phone → 拿出來放在開頭，
+  // 讓 retrieval 對客戶姓名 query 也能命中接待錄音 chunk
+  const customerName = (reviewed?.customer_name as string | undefined)?.trim();
+  const customerPhone = (reviewed?.customer_phone as string | undefined)?.trim();
+  const head = customerName
+    ? `接待錄音紀錄｜客戶 ${customerName}${customerPhone ? `（${customerPhone}）` : ''}`
+    : '接待錄音紀錄';
+  bits.push(`${head}｜${formatDateTime(n.created_at)}｜時長 ${n.duration_seconds ?? 0} 秒`);
 
   // reviewed_decisions 優先；否則用 ai_suggestions
   const get = (k: string): string | undefined => {
