@@ -16,8 +16,6 @@
  * 對多欄版面 / 表格 抽出來的文字會擠在一起、retrieval 階段靠 embedding 補救。
  */
 
-import { extractText, getDocumentProxy } from 'unpdf';
-
 export type ExtractedPdf = {
   text: string;
   pageCount: number;
@@ -35,6 +33,9 @@ export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
     );
   }
 
+  // Dynamic import：build 期不分析整個 pdfjs-dist（~10MB），避免 OOM；只在
+  // runtime 真的解 PDF 時才 load
+  const { extractText, getDocumentProxy } = await import('unpdf');
   const data = new Uint8Array(buffer);
   const pdf = await getDocumentProxy(data);
 
