@@ -22,6 +22,14 @@ import {
 
 const BUCKET = 'handcard-voice-notes';
 
+/**
+ * 預算護欄：錄音 60 秒、檔案 3 MB 為 hard cap。
+ * 60s opus ~500KB / 60s aac-mp4 ~1MB / 60s mp3 ~1MB，3 MB buffer 夠 + 擋掉長錄音。
+ * Client 在 ai-curve-app.tsx 也有 60s 自動停、這層是被繞過時的防線。
+ */
+const MAX_DURATION_SECONDS = 60;
+const MAX_AUDIO_BYTES = 3 * 1024 * 1024;
+
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
 export type AiCurveNoteResult = {
@@ -95,6 +103,14 @@ export async function recordAiCurveNote(
   const audioBuffer = Buffer.from(arrayBuf);
   const sizeBytes = audioBuffer.byteLength;
   const mimeType = audio.type || 'audio/webm';
+
+  // 預算護欄 — 在上 Storage 與打 Gemini 之前先擋掉超長 / 超大檔
+  if (sizeBytes > MAX_AUDIO_BYTES) {
+    return {
+      ok: false,
+      error: `錄音檔太大（${(sizeBytes / 1024 / 1024).toFixed(2)} MB > ${MAX_AUDIO_BYTES / 1024 / 1024} MB 上限）。請控制在 60 秒內。`,
+    };
+  }
   const ext = mimeType.includes('mp4')
     ? 'm4a'
     : mimeType.includes('webm')
@@ -108,6 +124,13 @@ export async function recordAiCurveNote(
     const n = parseInt(durationRaw, 10);
     return Number.isFinite(n) ? n : 0;
   })();
+
+  if (durationSeconds > MAX_DURATION_SECONDS) {
+    return {
+      ok: false,
+      error: `錄音長度 ${durationSeconds} 秒超過 ${MAX_DURATION_SECONDS} 秒上限，請重錄。`,
+    };
+  }
 
   // Storage path: <brand>/ai-curve/<ts>-<random>.<ext>
   const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);

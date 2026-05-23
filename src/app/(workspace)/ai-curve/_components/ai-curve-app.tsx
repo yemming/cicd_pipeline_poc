@@ -20,6 +20,14 @@ import { HistoryItem } from "./history-item";
 
 type Phase = "idle" | "recording" | "uploading" | "result" | "error";
 
+/**
+ * 錄音上限：60 秒。原因 = 控制 Gemini token 用量、避免有人按住不放忘記停。
+ * 到 60 秒會自動停止錄音、走正常上傳流程；不需要使用者操作。
+ * Server 端 `recordAiCurveNote` 也有同樣 cap，client 被繞過時擋下。
+ */
+const MAX_DURATION_SECONDS = 60;
+const SOFT_WARN_AT_SECONDS = 50;
+
 function pickMimeType(): string {
   const candidates = [
     "audio/webm;codecs=opus",
@@ -80,7 +88,9 @@ export function AiCurveApp({ recent }: { recent: AiCurveNoteListItem[] }) {
 
   useEffect(() => {
     if (phase === "recording") {
-      timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+      timerRef.current = setInterval(() => {
+        setSeconds((s) => Math.min(s + 1, MAX_DURATION_SECONDS));
+      }, 1000);
     } else if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
@@ -89,6 +99,19 @@ export function AiCurveApp({ recent }: { recent: AiCurveNoteListItem[] }) {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [phase]);
+
+  // 60 秒自動停：看到 seconds 達上限就 stop MediaRecorder
+  // 走獨立 useEffect 而不是塞 setInterval callback、避免 forward reference stopRecording
+  useEffect(() => {
+    if (phase !== "recording") return;
+    if (seconds < MAX_DURATION_SECONDS) return;
+    const mr = mrRef.current;
+    if (mr && mr.state !== "inactive") mr.stop();
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  }, [phase, seconds]);
 
   useEffect(() => {
     return () => {
@@ -289,6 +312,17 @@ export function AiCurveApp({ recent }: { recent: AiCurveNoteListItem[] }) {
               <div className="text-[48px] font-mono text-[#2C2C2A] tabular-nums leading-none">
                 {String(Math.floor(seconds / 60)).padStart(2, "0")}:
                 {String(seconds % 60).padStart(2, "0")}
+              </div>
+              <div
+                className={`text-[11.5px] tabular-nums ${
+                  seconds >= SOFT_WARN_AT_SECONDS
+                    ? "text-[#CC0000] font-medium"
+                    : "text-[#9A9890]"
+                }`}
+              >
+                {seconds >= MAX_DURATION_SECONDS
+                  ? "已達 60 秒上限・自動停止"
+                  : `上限 60 秒・剩 ${MAX_DURATION_SECONDS - seconds} 秒`}
               </div>
               <button
                 onClick={stopRecording}
