@@ -1,0 +1,6 @@
+{
+  "node_version": "20",
+  "build_command": "NODE_OPTIONS='--max-old-space-size=4096' npm run build",
+  "start_command": "npm run start",
+  "install_command": "npm install"
+}
