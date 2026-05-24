@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-
 import type { PurchaseOrderForPrint } from "@/domain/orders";
 import {
   PrintShell,
@@ -57,12 +55,7 @@ export function PurchaseOrderPrintable({
 }: {
   data: PurchaseOrderForPrint;
 }) {
-  // 載入後自動跳列印 dialog；400ms 等字體 + 圖片 hydrate 完
-  useEffect(() => {
-    const t = setTimeout(() => window.print(), 400);
-    return () => clearTimeout(t);
-  }, []);
-
+  // 不 auto window.print() — 使用者看完預覽再自己點右上「列印 / 另存 PDF」
   const currency = data.currency ?? "TWD";
 
   return (

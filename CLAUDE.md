@@ -636,7 +636,7 @@ create mode 下 H1 顯示「（未命名{NOUN}）」、chip 列顯示「— [尚
 ```
 src/app/print/{slug}/[id]/
   ├── page.tsx                          ← server component；撈資料 + 權限檢查
-  └── _components/{slug}-printable.tsx  ← client component；渲染 + 自動 window.print()
+  └── _components/{slug}-printable.tsx  ← client component；渲染 + 右上浮動列印工具列
 
 src/components/print/
   ├── print-shell.tsx       ← 共用文件外殼（brand logo / 文件標題 / 單號 / 客戶區）
@@ -644,6 +644,7 @@ src/components/print/
   ├── print-table.tsx       ← 表格元件（thead 跨頁 repeat、斑馬紋）
   ├── print-totals.tsx      ← 金額小計區（含稅 / 未稅 / 折扣 / 總計）
   ├── print-signatures.tsx  ← 簽核欄（申請人 / 主管 / 倉管 / 客戶簽收）
+  ├── print-toolbar.tsx     ← 螢幕版浮動工具列「列印 / 另存 PDF」「關閉」(@media print 自動隱藏)
   └── print.css             ← @page / @media print 全域規則（一次 import 給所有 print route）
 ```
 
@@ -656,6 +657,8 @@ POC 階段一律用 client-side `window.print()` + 印表機 OS dialog「另存�
 - 手機 / iPad / 桌機共用同一份 print route，沒有 platform-specific 程式碼
 
 **未來真的需要 server-side 自動產 PDF 推 LINE / Email** 時，加 `/api/pdf/{slug}/[id]` endpoint 用 Puppeteer 對同一條 print route 截圖就好 — route 本體不重構。
+
+⚠️ **預覽 vs 列印分開** — print route 載完**只顯示 A4 預覽**，不自動觸發 `window.print()`。使用者要列印 / 存 PDF 時點右上 `<PrintToolbar>` 的按鈕。理由：自動跳列印 dialog 會打斷預覽流程、再加上瀏覽器 popup blocker 風險。
 
 ### 三、列印路由結構
 
@@ -699,18 +702,13 @@ export default async function QuotationPrintPage({
 ```tsx
 "use client";
 
-import { useEffect } from "react";
-import { PrintShell, PrintMetaGrid, PrintTable, PrintTotals, PrintSignatures } from "@/components/print";
-import "@/components/print/print.css";
+import { PrintShell, PrintMetaGrid, PrintTable, PrintTotals, PrintSignatures, PrintToolbar } from "@/components/print";
 
 export function QuotationPrintable({ data }: { data: QuotationForPrint }) {
-  // 載入後自動跳列印 dialog；多等 400ms 給字體 + 圖片載完
-  useEffect(() => {
-    const t = setTimeout(() => window.print(), 400);
-    return () => clearTimeout(t);
-  }, []);
-
+  // 不 auto window.print() — 預覽歸預覽，使用者自己點右上「列印 / 另存 PDF」
   return (
+   <>
+    <PrintToolbar />
     <PrintShell
       brand={data.brand}
       docTitle="報價單 QUOTATION"
