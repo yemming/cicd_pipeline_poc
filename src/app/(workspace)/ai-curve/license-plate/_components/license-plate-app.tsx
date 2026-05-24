@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   scanLicensePlate,
+  loadScanResult,
   type ScanLicensePlateResult,
   type LicensePlateScanListItem,
 } from "@/domain/license-plate";
@@ -75,6 +76,24 @@ export function LicensePlateApp({
     setDragOver(false);
     const f = e.dataTransfer.files?.[0];
     if (f) acceptFile(f);
+  }
+
+  async function loadHistoric(scanId: string) {
+    setPhase("uploading");
+    setErrMsg("");
+    try {
+      const r = await loadScanResult(scanId);
+      if (!r.ok) {
+        setErrMsg(r.error);
+        setPhase("error");
+        return;
+      }
+      setResult(r.data);
+      setPhase("result");
+    } catch (e) {
+      setErrMsg(`載入失敗：${(e as Error).message}`);
+      setPhase("error");
+    }
   }
 
   async function recognize() {
@@ -189,7 +208,11 @@ export function LicensePlateApp({
                 </h2>
                 <div className="space-y-2">
                   {localRecent.map((item) => (
-                    <RecentScanItem key={item.id} item={item} />
+                    <RecentScanItem
+                      key={item.id}
+                      item={item}
+                      onClick={() => loadHistoric(item.id)}
+                    />
                   ))}
                 </div>
               </section>
@@ -531,10 +554,19 @@ function NoMatchCard({ plate }: { plate: string }) {
   );
 }
 
-function RecentScanItem({ item }: { item: LicensePlateScanListItem }) {
+function RecentScanItem({
+  item,
+  onClick,
+}: {
+  item: LicensePlateScanListItem;
+  onClick?: () => void;
+}) {
   const conf = Math.round((item.ai_confidence ?? 0) * 100);
   return (
-    <div className="bg-white border border-[#EEECE6] rounded-lg px-3 py-2 flex items-center gap-3">
+    <button
+      onClick={onClick}
+      className="w-full bg-white border border-[#EEECE6] rounded-lg px-3 py-2 flex items-center gap-3 text-left hover:border-[#854F0B] hover:shadow-sm active:scale-[0.99] transition-all"
+    >
       {item.imageSignedUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -570,6 +602,6 @@ function RecentScanItem({ item }: { item: LicensePlateScanListItem }) {
           minute: "2-digit",
         })}
       </span>
-    </div>
+    </button>
   );
 }

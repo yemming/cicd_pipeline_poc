@@ -245,6 +245,116 @@ export async function scanLicensePlate(
   };
 }
 
+// ─── 重新載入歷史 scan（給「最近辨識」點擊重看結果用） ────
+
+export async function loadScanResult(
+  scanId: string,
+): Promise<Result<ScanLicensePlateResult>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_VIEW);
+  const supabase = await createClient();
+  const { brand_id: brandId } = await getActiveScope();
+
+  const { data: row } = await supabase
+    .from('license_plate_scans')
+    .select(
+      'id, storage_path, ai_plate, ai_plate_normalized, ai_confidence, ai_latency_ms, ai_tokens_in, ai_tokens_out, matched_vehicle_id',
+    )
+    .eq('id', scanId)
+    .eq('brand_id', brandId)
+    .maybeSingle();
+  if (!row) return { ok: false, error: '找不到該掃描' };
+
+  // 重新撈 matched info（reproduce ScanLicensePlateResult 結構）
+  let matched: MatchedVehicleInfo | null = null;
+  if (row.matched_vehicle_id) {
+    const { data: v } = await supabase
+      .from('customer_vehicles')
+      .select(
+        'id, customer_id, license_plate, vin, manufactured_year, current_mileage, last_service_date, next_service_due_date, warranty_until, insurance_until, model_id, customers!inner(name, phone, email)',
+      )
+      .eq('id', row.matched_vehicle_id as string)
+      .maybeSingle();
+
+    type Cand = {
+      id: string;
+      customer_id: string;
+      license_plate: string;
+      vin: string | null;
+      manufactured_year: number | null;
+      current_mileage: number | null;
+      last_service_date: string | null;
+      next_service_due_date: string | null;
+      warranty_until: string | null;
+      insurance_until: string | null;
+      model_id: string | null;
+      customers: { name: string; phone: string | null; email: string | null };
+    };
+    const candidate = v as unknown as Cand | null;
+
+    if (candidate) {
+      let modelName: string | null = null;
+      if (candidate.model_id) {
+        const { data: m } = await supabase
+          .from('vehicle_models')
+          .select('display_name')
+          .eq('id', candidate.model_id)
+          .maybeSingle();
+        modelName = (m?.display_name as string) ?? null;
+      }
+      const { data: ros } = await supabase
+        .from('repair_orders')
+        .select('ro_code, issue_date, status, lines_total')
+        .eq('vehicle_id', candidate.id)
+        .order('issue_date', { ascending: false })
+        .limit(3);
+
+      matched = {
+        vehicle_id: candidate.id,
+        customer_id: candidate.customer_id,
+        license_plate: candidate.license_plate,
+        vin: candidate.vin,
+        vehicle_model_name: modelName,
+        manufactured_year: candidate.manufactured_year,
+        current_mileage: candidate.current_mileage,
+        last_service_date: candidate.last_service_date,
+        next_service_due_date: candidate.next_service_due_date,
+        warranty_until: candidate.warranty_until,
+        insurance_until: candidate.insurance_until,
+        customer_name: candidate.customers.name,
+        customer_phone: candidate.customers.phone,
+        customer_email: candidate.customers.email,
+        recent_ros: (ros ?? []).map((r) => ({
+          ro_code: r.ro_code as string,
+          issue_date: r.issue_date as string | null,
+          status: r.status as string,
+          total: r.lines_total as number | null,
+        })),
+      };
+    }
+  }
+
+  const { data: signed } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(row.storage_path as string, SIGNED_URL_TTL);
+
+  return {
+    ok: true,
+    data: {
+      scanId: row.id as string,
+      plate: (row.ai_plate as string | null) ?? '',
+      plateNormalized: (row.ai_plate_normalized as string | null) ?? '',
+      confidence: Number(row.ai_confidence ?? 0),
+      evidence: '（歷史紀錄、無原始 evidence 描述）',
+      imageSignedUrl: signed?.signedUrl ?? '',
+      latencyMs: (row.ai_latency_ms as number | null) ?? 0,
+      tokensIn: (row.ai_tokens_in as number | null) ?? 0,
+      tokensOut: (row.ai_tokens_out as number | null) ?? 0,
+      matched,
+      ambiguous: [],
+    },
+  };
+}
+
 // ─── list ─────────────────────────────────────────────────
 
 export async function listRecentLicensePlateScans(
