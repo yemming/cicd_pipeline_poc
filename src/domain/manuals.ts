@@ -164,13 +164,19 @@ export async function uploadManual(
 export async function listManuals(): Promise<ManualListItem[]> {
   const supabase = await createClient();
   const { brand_id: brandId } = await getActiveScope();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('manuals')
     .select(
       'id, title, description, mime_type, size_bytes, page_count, total_chunks, status, error_message, ingested_at, created_at, storage_path, vehicle_model_ids',
     )
     .eq('brand_id', brandId)
     .order('created_at', { ascending: false });
+
+  // 失敗時要噴出來而不是悄悄回 []，否則「手冊不見了」這種誤判會再發生
+  if (error) {
+    console.error('[manuals] listManuals failed:', error.message);
+    throw new Error(`listManuals failed: ${error.message}`);
+  }
 
   const items: ManualListItem[] = [];
   for (const row of data ?? []) {
