@@ -384,6 +384,9 @@ after(async () => {
 |---|---|---|---|
 | <name> | /xxx | List View | parts/setup/items/_components/items-board.tsx |
 | <name> | /xxx/[id] | Page View | parts/setup/items/[id]/_components/item-detail-view.tsx |
+| <name>（單據型才有） | /print/<print-slug>/[id] | Print Route | （首版 canonical 待落地，套 `src/components/print/*`、規格走 CLAUDE.md §📄 列印 / PDF Pattern） |
+
+**單據型判斷**：詳情頁是「會印出來給客戶 / 主管 / 倉管 / 簽核」的單據（採購單 / 銷售訂單 / 報價單 / 維修工單 / 領料單 / 調撥單 / 進貨單 / 退貨單 / 對帳單）→ **必須**加 Print Route。簽核 / 通知 / 設定 / 主檔類頁面不要加。
 
 ## 7. nav_nodes（雙 brand）
 
@@ -401,6 +404,8 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 |---|---|
 | 新增 | src/domain/<module>.ts |
 | 新增 | src/app/(workspace)/.../page.tsx |
+| 新增（單據型才有） | src/app/print/<print-slug>/[id]/page.tsx |
+| 新增（單據型才有） | src/app/print/<print-slug>/[id]/_components/<slug>-printable.tsx |
 | ... | ... |
 
 ## 9. Verification（落地完手測）
@@ -410,6 +415,7 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 3. <jsonb metadata 機制驗證>
 4. tsc --noEmit / eslint
 5. 手測 list filter / inline modal CRUD / detail / 切 tab
+6. （單據型才有）Cmd+P 預覽列印 → 另存為 PDF 檢查 A4 塞得下 + 表頭跨頁 repeat + iOS Safari 列印測一次
 6. **會計事件驗證**（若 section 5 列了事件）：跑一次業務動作 → 查 `journal_entries` / `journal_entry_lines` 有沒有自動產出對應分錄、借貸平衡、period 為 OPEN、cash_flow_section 填對
 
 ## 10. 開放問題（階段 3 拍板）

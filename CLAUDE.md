@@ -507,17 +507,18 @@ export async function listFoo(filters, options: { page?: number; pageSize?: numb
 </div>
 ```
 
-CRUD pill 顏色與順序（**view mode 5 顆從左到右固定**）：
+CRUD pill 顏色與順序（**view mode 從左到右固定**）：
 
 | 按鈕 | 用途 | className |
 |---|---|---|
 | 返回列表 | 回 list | `bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm` |
 | 新增 | 進 create mode（同頁就地清空，**不跳新頁**） | `font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm disabled:opacity-50` |
 | 修改 | 進 edit mode | `font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] shadow-sm disabled:opacity-50` |
+| 🖨️ 列印（可選） | 只在「可列印單據」出現，詳見 §📄 列印 / PDF Pattern | `bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm` |
 | 刪除 | 危險動作 | `bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50` |
 | 停用 / 啟用 | 切 is_active | `bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm disabled:opacity-50` |
 
-edit mode 換成 `[儲存變更（綠）][取消（白）]`；create mode 換成 `[取消（白）][建立並開啟（綠）]`。
+edit mode 換成 `[儲存變更（綠）][取消（白）]`；create mode 換成 `[取消（白）][建立並開啟（綠）]`。列印按鈕只在 view mode 出現、edit/create mode 不顯示（避免列印到未存的草稿）。
 
 ⚠️ **「新增」一律不開新頁**：點下去 → 同一個 PageView 切到 create mode、欄位清空、麵包屑顯示「{LIST} › 新增{NOUN} [建立模式]」、tabs 與相依資料區塊隱藏、儲存後 `router.push` 到新 id 的 detail page。詳見 `item-detail-view.tsx` 的 `creating` state 實作。
 
@@ -621,6 +622,271 @@ create mode 下 H1 顯示「（未命名{NOUN}）」、chip 列顯示「— [尚
 5. 自由的部分只有：filter 欄位數、`columns` 內容、KV 欄、tab 數、tab 內容、`<Kv>` 排列
 
 碰到設計稿（Stitch / Figma）跟這份規格衝突 → 規格贏，設計稿上的 sidebar/topbar/CRUD 一律改用本規格的 token；只有頁面主體內容才照設計稿做。
+
+---
+
+## 📄 列印 / PDF Pattern（MANDATORY）
+
+> **適用範圍**：所有可列印的「單據型」頁面 — 採購單 / 銷售訂單 / 報價單 / 維修工單 / 領料單 / 調撥單 / 進貨單 / 出貨單 / 退貨單 / 對帳單。簽核 / 通知 / 設定類頁面**不需要列印**，不必套這套。
+
+### 一、核心原則 — Print Route Pattern
+
+列印用的版面**獨立成一個路由**，跟 workspace shell（sidebar / topbar / breadcrumb）完全脫鉤。檔案位置在 `src/app/print/{slug}/[id]/`，**不在** `(workspace)` group 底下，所以不會繼承 PageHeaderContext / ScopeContext 之外的 UI chrome。
+
+```
+src/app/print/{slug}/[id]/
+  ├── page.tsx                          ← server component；撈資料 + 權限檢查
+  └── _components/{slug}-printable.tsx  ← client component；渲染 + 自動 window.print()
+
+src/components/print/
+  ├── print-shell.tsx       ← 共用文件外殼（brand logo / 文件標題 / 單號 / 客戶區）
+  ├── print-meta-grid.tsx   ← 上方 KV grid（單號、日期、客戶、業務員⋯）
+  ├── print-table.tsx       ← 表格元件（thead 跨頁 repeat、斑馬紋）
+  ├── print-totals.tsx      ← 金額小計區（含稅 / 未稅 / 折扣 / 總計）
+  ├── print-signatures.tsx  ← 簽核欄（申請人 / 主管 / 倉管 / 客戶簽收）
+  └── print.css             ← @page / @media print 全域規則（一次 import 給所有 print route）
+```
+
+### 二、技術選擇 — 走 `window.print()`、不上 Puppeteer
+
+POC 階段一律用 client-side `window.print()` + 印表機 OS dialog「另存為 PDF」。理由：
+
+- 0 新依賴、Zeabur image 大小不變
+- iOS Safari / Android Chrome 都能列印 → 另存 PDF 到 Files
+- 手機 / iPad / 桌機共用同一份 print route，沒有 platform-specific 程式碼
+
+**未來真的需要 server-side 自動產 PDF 推 LINE / Email** 時，加 `/api/pdf/{slug}/[id]` endpoint 用 Puppeteer 對同一條 print route 截圖就好 — route 本體不重構。
+
+### 三、列印路由結構
+
+**`page.tsx` (server component)**：
+
+```tsx
+// src/app/print/quotation/[id]/page.tsx
+import { getQuotationForPrint } from "@/domain/sales";
+import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
+import { hasPermission, PERMISSIONS } from "@/lib/rbac/policies";
+import { QuotationPrintable } from "./_components/quotation-printable";
+
+export const dynamic = "force-dynamic";
+
+export default async function QuotationPrintPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const { userId } = await getCurrentUserAndAdmin();
+  if (!userId) {
+    return <main className="p-8 text-[14px] text-[#CC0000]">請先登入</main>;
+  }
+  // 列印權限 = 詳情頁讀取權限。沒額外的「列印 only」權限
+  if (!(await hasPermission(PERMISSIONS.SALES_ORDER_VIEW))) {
+    return <main className="p-8 text-[14px] text-[#CC0000]">無權限列印此單據</main>;
+  }
+  const quotation = await getQuotationForPrint(id);
+  if (!quotation) {
+    return <main className="p-8 text-[14px] text-[#CC0000]">找不到報價單 {id}</main>;
+  }
+  return <QuotationPrintable data={quotation} />;
+}
+```
+
+⚠️ **沒有 `(workspace)` group 包住，所以沒 topbar / sidebar / brand logo header** — 這正是想要的（列印頁要乾淨）。
+
+**`_components/{slug}-printable.tsx` (client component)**：
+
+```tsx
+"use client";
+
+import { useEffect } from "react";
+import { PrintShell, PrintMetaGrid, PrintTable, PrintTotals, PrintSignatures } from "@/components/print";
+import "@/components/print/print.css";
+
+export function QuotationPrintable({ data }: { data: QuotationForPrint }) {
+  // 載入後自動跳列印 dialog；多等 400ms 給字體 + 圖片載完
+  useEffect(() => {
+    const t = setTimeout(() => window.print(), 400);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <PrintShell
+      brand={data.brand}
+      docTitle="報價單 QUOTATION"
+      docNo={data.quote_no}
+      docDate={data.created_at}
+      pageNumber  /* 自動印「第 X 頁 / 共 Y 頁」 */
+    >
+      <PrintMetaGrid
+        cols={2}
+        items={[
+          { label: "客戶", value: data.customer.name },
+          { label: "聯絡電話", value: data.customer.phone },
+          { label: "業務員", value: data.sa.name },
+          { label: "報價日期", value: data.quote_date },
+          { label: "有效期限", value: data.expires_at },
+        ]}
+      />
+
+      <PrintTable
+        columns={[
+          { header: "項次", width: 40 },
+          { header: "品名 / 規格", flex: 1 },
+          { header: "數量", width: 60, align: "right" },
+          { header: "單價", width: 90, align: "right" },
+          { header: "小計", width: 100, align: "right" },
+        ]}
+        rows={data.lines.map((l, i) => [
+          i + 1,
+          `${l.item_name}\n${l.spec ?? ""}`,
+          l.qty,
+          formatNT(l.unit_price),
+          formatNT(l.subtotal),
+        ])}
+      />
+
+      <PrintTotals
+        items={[
+          { label: "未稅小計", value: formatNT(data.subtotal_excl_tax) },
+          { label: "稅額 5%", value: formatNT(data.tax) },
+          { label: "折扣", value: formatNT(-data.discount) },
+        ]}
+        grandTotal={{ label: "總計含稅", value: formatNT(data.total) }}
+      />
+
+      <PrintSignatures
+        roles={["業務員", "業務主管", "客戶簽收"]}
+      />
+    </PrintShell>
+  );
+}
+```
+
+### 四、共用元件規範
+
+#### `<PrintShell>` props
+
+| prop | 必填 | 說明 |
+|---|---|---|
+| `brand` | ✓ | `{ key, displayName, logoUrl }` — 自動套對應品牌 logo |
+| `docTitle` | ✓ | 文件中文+英文標題（例：「報價單 QUOTATION」） |
+| `docNo` | ✓ | 單號（會印在右上角大字、條碼可選） |
+| `docDate` | ✓ | 開立日期 |
+| `pageNumber` |  | true 時自動印「第 N 頁 / 共 M 頁」on footer（CSS counter-increment） |
+| `legalFooter` |  | 公司抬頭 / 統編 / 地址 / 電話（沒給就吃 `subsidiary` context） |
+| `children` |  | 文件主體（用 `<PrintMetaGrid>` / `<PrintTable>` / `<PrintTotals>` / `<PrintSignatures>` 拼） |
+
+#### Print CSS 規範
+
+```css
+/* src/components/print/print.css */
+@page { size: A4; margin: 15mm 12mm 18mm 12mm; }
+
+@media print {
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .no-print { display: none !important; }
+  thead { display: table-header-group; }   /* 表頭跨頁自動 repeat */
+  tfoot { display: table-footer-group; }
+  tr, .keep-together { page-break-inside: avoid; }
+  .page-break-before { page-break-before: always; }
+  .page-break-after { page-break-after: always; }
+}
+
+/* 字級規範 — 列印用 pt 不用 px，跟印表機解析度脫鉤 */
+.print-doc-title { font-size: 16pt; font-weight: 700; }
+.print-meta-label { font-size: 9pt; color: #5A5955; }
+.print-meta-value { font-size: 10.5pt; color: #1A1A1A; }
+.print-table-header { font-size: 9.5pt; font-weight: 600; background: #F8F7F4; }
+.print-table-cell { font-size: 10pt; }
+.print-totals-value { font-size: 11pt; font-weight: 600; }
+.print-grand-total { font-size: 14pt; font-weight: 700; color: #1A3A5C; }
+.print-signature-label { font-size: 9pt; color: #5A5955; }
+```
+
+⚠️ **單位用 pt 不用 px**：印表機解析度是 dpi 不是 css px，用 pt 才能跨印表機一致。
+
+### 五、Page View 整合 — CRUD pill bar 加列印按鈕
+
+```tsx
+{/* view mode、且這個單據型頁面是可列印的 */}
+{!editing && !creating && isPrintable && (
+  <button
+    onClick={() => window.open(`/print/${PRINT_SLUG}/${id}`, "_blank")}
+    className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm inline-flex items-center gap-1"
+    title="列印 / 另存 PDF"
+  >
+    <span className="material-symbols-outlined text-[14px]">print</span>
+    列印
+  </button>
+)}
+```
+
+**`PRINT_SLUG` 命名規則**：kebab-case 單數名詞，跟 detail page slug 解耦（detail 在 `/parts/purchase/orders/[id]`、print 在 `/print/purchase-order/[id]`）。
+
+| 業務模組 | PRINT_SLUG |
+|---|---|
+| 採購單 | `purchase-order` |
+| 銷售訂單 | `sales-order` |
+| 報價單 | `quotation` |
+| 維修工單 | `repair-order` |
+| 領料單 | `stock-issue` |
+| 調撥單 | `stock-transfer` |
+| 進貨單 (GRN) | `stock-receipt` |
+| 退貨單 | `return-order` |
+| 對帳單 | `statement` |
+
+### 六、Domain helper 規範
+
+詳情頁的 `getXxxById(id)` 通常只回單頭資料，**列印需要額外撈關聯資料**（明細列、客戶 contact、業務員姓名、subsidiary 法人資訊⋯）。所以在 helper 加一支 `getXxxForPrint(id)`，一次撈齊。
+
+```ts
+// src/domain/sales.ts
+export type QuotationForPrint = {
+  // 單頭
+  id: string;
+  quote_no: string;
+  quote_date: string;
+  expires_at: string;
+  // joined
+  brand: BrandInfo;
+  subsidiary: SubsidiaryInfo;
+  customer: { name: string; phone: string; address: string };
+  sa: { name: string; phone: string };
+  lines: Array<{ item_name: string; spec: string | null; qty: number; unit_price: number; subtotal: number }>;
+  // 計算欄
+  subtotal_excl_tax: number;
+  tax: number;
+  discount: number;
+  total: number;
+};
+
+export async function getQuotationForPrint(id: string): Promise<QuotationForPrint | null> {
+  // 一次 query 含 joined customer / sa / lines / subsidiary
+  // ⚠️ RLS 跟詳情頁一樣靠 user_has_brand() 把跨 brand 擋掉
+}
+```
+
+### 七、新增列印頁的 SOP（每張單據 ~30 分鐘）
+
+1. **加 `getXxxForPrint(id)` 到對應 domain helper** — 撈齊單頭 + 明細 + joined 顯示欄位
+2. **建 `src/app/print/{slug}/[id]/page.tsx`** — server component 拉資料 + 權限檢查
+3. **建 `_components/{slug}-printable.tsx`** — 用 `<PrintShell>` + `<PrintMetaGrid>` + `<PrintTable>` + `<PrintTotals>` + `<PrintSignatures>` 拼出版面
+4. **在對應 detail-view 加列印按鈕** — `window.open(\`/print/${SLUG}/${id}\`, '_blank')`
+5. **手測**：
+   - Cmd+P → 預覽 → 「另存為 PDF」 → 開 PDF 檢查 A4 是否塞得下、表頭跨頁有沒有 repeat
+   - 印表機列印一張看實體看版面（標題位置、簽核欄底部）
+   - iOS Safari 列印測：「分享 → 列印 → 多手指捏放預覽 → 另存 PDF」
+
+### 八、不要做的事
+
+- ❌ 在 print route 留 `<Topbar>` / `<Sidebar>` — 列印就是要乾淨
+- ❌ 用 px 標尺寸 — 用 pt，否則跨印表機字級不對
+- ❌ 在列印頁加複雜互動（編輯欄位、按鈕展開折疊）— 列印頁是「snapshot」，要互動回 detail 頁做完再列印
+- ❌ 第一版就上 Puppeteer — 未來真的需要 server-side 自動推 PDF 再加
+- ❌ 多人共用同一個 print route 但 props 大不同 — 設計上應該是「一張單一條 route」、共用的是 `<PrintShell>` 元件，不是 route
+- ❌ Print route 寫資料庫 — print 是純讀，禁止有任何 server action / mutation
+- ❌ 沒做 `getXxxForPrint` helper、直接在 print page 拼 query — joined 拼錯會 N+1，集中在 domain helper 一次撈乾淨
 
 ---
 
