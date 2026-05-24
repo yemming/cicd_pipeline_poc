@@ -10,7 +10,6 @@ import {
   type ChatSession,
   type ChatMessage,
 } from "@/domain/rag-chat";
-import type { RetrievedChunk } from "@/lib/ai/rag-retrieve";
 import { ChatMessageBubble } from "./chat-message";
 
 const PROMPT_SUGGESTIONS: { icon: string; label: string; q: string }[] = [
@@ -78,6 +77,28 @@ export function ChatApp({
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
   }, [messages, streaming]);
+
+  // 切回 tab 自動 reconcile：SSE 在 iOS 切到背景常被 kill，但後端會把答案寫完進 DB。
+  // 切回前景時若還卡在 streaming 或 thread 內還掛著 temp- 訊息，就直接 fetch DB 蓋掉，避免使用者卡在「回答中」永遠不動。
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState !== "visible") return;
+      if (!activeId) return;
+      const hasTemps = messages.some((m) => m.id.startsWith("temp-"));
+      if (streaming || hasTemps) {
+        getSessionMessages(activeId)
+          .then((fresh) => {
+            setMessages(fresh);
+            setStreaming(false);
+          })
+          .catch(() => {
+            // 網路掛了就讓使用者自己重試 — 不蓋現有訊息
+          });
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [activeId, streaming, messages]);
 
   async function onNewSession() {
     const r = await createSession();
@@ -163,6 +184,8 @@ export function ChatApp({
     };
     setMessages((prev) => [...prev, tempUser, tempAssistant]);
 
+    let streamError: Error | null = null;
+
     try {
       const resp = await fetch("/api/chat/stream", {
         method: "POST",
@@ -179,7 +202,6 @@ export function ChatApp({
       let buffer = "";
       let accText = "";
       let metaUser: ChatMessage | null = null;
-      let metaRetrieved: RetrievedChunk[] = [];
       let finalAssistant: ChatMessage | null = null;
 
       while (true) {
@@ -195,7 +217,6 @@ export function ChatApp({
           const ev = JSON.parse(evRaw.slice(6));
           if (ev.type === "meta") {
             metaUser = ev.userMessage as ChatMessage;
-            metaRetrieved = (ev.retrieved as RetrievedChunk[]) ?? [];
             // 把 user temp 換成真實 row
             setMessages((prev) =>
               prev.map((m) => (m.id === tempUserId && metaUser ? metaUser : m)),
@@ -215,38 +236,64 @@ export function ChatApp({
       }
 
       // 用真實 assistant row 取代（含 token / latency / retrieved）
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempAssistantId
-            ? (finalAssistant ?? {
-                ...m,
-                content: accText,
-                retrieved_chunks: metaRetrieved.length > 0 ? metaRetrieved : null,
-              })
-            : m,
-        ),
-      );
-
-      // 更新左側 sessions 列表（move 到 top + title）
-      setSessions((prev) => {
-        const cur = prev.find((s) => s.id === sessionId);
-        const updated: ChatSession = {
-          id: sessionId,
-          title: cur?.title ?? q.slice(0, 30),
-          created_at: cur?.created_at ?? new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        return [updated, ...prev.filter((s) => s.id !== sessionId)];
-      });
+      if (finalAssistant) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempAssistantId ? finalAssistant! : m)),
+        );
+      }
     } catch (e) {
-      // streaming 失敗 → 移除兩條 temp、顯示 banner
-      setMessages((prev) =>
-        prev.filter((m) => m.id !== tempUserId && m.id !== tempAssistantId),
-      );
-      setBanner(`AI 出錯：${(e as Error).message}`);
-    } finally {
-      setStreaming(false);
+      // 不要直接拿掉 temp — 後端可能已經把答案寫進 DB（client 端 stream 被 mobile 切背景 / proxy timeout kill）
+      // 留給下面 DB reconcile 步驟收尾
+      streamError = e as Error;
     }
+
+    // 不管成功 / 失敗，最後都從 DB 撈一次當 truth source。
+    // 解決 iOS 切背景被 kill streaming 時 user 看到「永遠回答中」、或 catch 把答案誤清掉的問題。
+    let dbReconciled = false;
+    try {
+      const fresh = await getSessionMessages(sessionId);
+      setMessages(fresh);
+      dbReconciled = true;
+    } catch {
+      // DB 也撈不到 → 等下走錯誤分支
+    }
+
+    // 判斷是否真的失敗：streamError 存在、且 DB 裡也沒有對應 assistant row → 才顯示 banner
+    if (streamError) {
+      // reconcile 後沒有 assistant 訊息 = 真的失敗
+      const allMsgs = await getSessionMessages(sessionId).catch(() => null);
+      const hasAssistantNow =
+        allMsgs?.some(
+          (m) =>
+            m.role === "assistant" &&
+            m.content.trim().length > 0 &&
+            Date.now() - new Date(m.created_at).getTime() < 60_000,
+        ) ?? false;
+      if (!hasAssistantNow) {
+        // DB 也沒有答案，才當真的失敗 — 把 temp 拿掉避免畫面殘留
+        if (!dbReconciled) {
+          setMessages((prev) =>
+            prev.filter((m) => m.id !== tempUserId && m.id !== tempAssistantId),
+          );
+        }
+        setBanner(`AI 出錯：${streamError.message}`);
+      }
+      // 否則 stream 雖然斷了但後端有完成 — 安靜收尾，DB reconcile 已經把答案撈出來
+    }
+
+    // 更新左側 sessions 列表（move 到 top + title）
+    setSessions((prev) => {
+      const cur = prev.find((s) => s.id === sessionId);
+      const updated: ChatSession = {
+        id: sessionId,
+        title: cur?.title ?? q.slice(0, 30),
+        created_at: cur?.created_at ?? new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      return [updated, ...prev.filter((s) => s.id !== sessionId)];
+    });
+
+    setStreaming(false);
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -295,7 +342,7 @@ export function ChatApp({
   }
 
   return (
-    <main className="flex h-[calc(100vh-64px)] -mx-6 -my-5 bg-[#F8F7F4] relative">
+    <main className="flex h-[calc(100dvh-52px)] -mx-6 -my-5 bg-[#F8F7F4] relative overscroll-contain">
       {/* Mobile backdrop（< md，sidebar 開啟時顯示） */}
       {sidebarOpen && (
         <div
@@ -395,38 +442,41 @@ export function ChatApp({
           </div>
         </header>
 
+        {/* 訊息流：mobile 100%、平板 max-w-2xl、桌機 max-w-3xl — 鎖三尺寸，視窗變大不會把訊息拉超寬難讀 */}
         <div
           ref={threadRef}
-          className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
+          className="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-5 py-4"
         >
-          {messages.length === 0 ? (
-            <EmptyState onPick={pickSuggestion} />
-          ) : (
-            messages.map((m) => (
-              <ChatMessageBubble
-                key={m.id}
-                message={m}
-                isStreaming={streaming && m.id.startsWith("temp-a-") && !m.content}
-                onRegenerate={
-                  m.role === "assistant" && !m.id.startsWith("temp-")
-                    ? () => regenerate(m.id)
-                    : undefined
-                }
-                onEdit={
-                  m.role === "user" && !m.id.startsWith("temp-")
-                    ? (content) => editAndResend(m.id, content)
-                    : undefined
-                }
-              />
-            ))
-          )}
-          {streaming && messages.length > 0 && (
-            <StreamingHint />
-          )}
+          <div className="w-full mx-auto md:max-w-2xl lg:max-w-3xl space-y-4">
+            {messages.length === 0 ? (
+              <EmptyState onPick={pickSuggestion} />
+            ) : (
+              messages.map((m) => (
+                <ChatMessageBubble
+                  key={m.id}
+                  message={m}
+                  isStreaming={streaming && m.id.startsWith("temp-a-") && !m.content}
+                  onRegenerate={
+                    m.role === "assistant" && !m.id.startsWith("temp-")
+                      ? () => regenerate(m.id)
+                      : undefined
+                  }
+                  onEdit={
+                    m.role === "user" && !m.id.startsWith("temp-")
+                      ? (content) => editAndResend(m.id, content)
+                      : undefined
+                  }
+                />
+              ))
+            )}
+            {streaming && messages.length > 0 && (
+              <StreamingHint />
+            )}
+          </div>
         </div>
 
-        <div className="border-t border-[#EEECE6] bg-white p-3">
-          <div className="flex gap-2 items-end max-w-4xl mx-auto">
+        <div className="border-t border-[#EEECE6] bg-white p-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
+          <div className="flex gap-2 items-end mx-auto w-full md:max-w-2xl lg:max-w-3xl">
             <textarea
               ref={inputRef}
               value={input}
@@ -435,7 +485,9 @@ export function ChatApp({
               placeholder="輸入問題（Enter 送出、Shift+Enter 換行）"
               rows={2}
               disabled={streaming}
-              className="flex-1 border border-[#D5D3CB] rounded-xl px-3 py-2 text-[13px] focus:border-[#185FA5] outline-none resize-none shadow-sm disabled:bg-[#F8F7F4]"
+              // iOS Safari focus 時 font-size < 16px 會自動 zoom 1.x — mobile 強制 16px 避免畫面亂跳；
+              // sm+（≥640px）才回到設計尺寸 13px。
+              className="flex-1 border border-[#D5D3CB] rounded-xl px-3 py-2 text-[16px] sm:text-[13px] focus:border-[#185FA5] outline-none resize-none shadow-sm disabled:bg-[#F8F7F4]"
             />
             <button
               onClick={onSubmit}
