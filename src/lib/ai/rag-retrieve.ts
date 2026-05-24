@@ -10,13 +10,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { embedText, toPgVector } from '@/lib/ai/embeddings';
 
-export type RagSourceType =
-  | 'manual'
-  | 'repair_order'
-  | 'final_inspection'
-  | 'customer'
-  | 'handcard_voice'
-  | 'business_card';
+/** RAG source type — 自由字串、實際清單見 `SOURCE_REGISTRY` */
+export type RagSourceType = string;
 
 export type RetrievedChunk = {
   chunkId: string;

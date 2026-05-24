@@ -11,6 +11,7 @@
 import 'server-only';
 
 import type { RetrievedChunk, RagSourceType } from './rag-retrieve';
+import { resolveLabel, resolveShortLabel } from './rag-registry';
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
@@ -20,11 +21,29 @@ const MAX_HISTORY_TURNS = 6; // 最近 6 輪 user+assistant pair
 const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的內部助理。你幫業務 / 技師 / 服務顧問
 回答「原廠手冊技術問題」「客戶 / 車輛 / 修車紀錄問題」「銷售互動 follow-up」三類問題。
 
-【極重要的反幻覺規則】
+【知識庫範圍 — 你被檢索的內容只有這些】
+你的 RAG 索引涵蓋 7 種 source：
+1. 原廠手冊（Owner Manual PDF 抽取段落）
+2. 維修工單 repair_orders
+3. 最終檢驗 final_inspections
+4. 客戶主檔 customers（+ 名下車輛 + 近期工單摘要）
+5. 接待錄音紀錄 handcard_voice_notes
+6. 名片掃描 business_card_scans
+7. 電子發票 einvoices
+
+【遇到「查不到」時的正確回應方式】
+- 第一步：明確說出你檢索到了什麼（譬如「我有 C00019 孫燕姿這位客戶的資料，但沒有她
+  的車輛或維修紀錄」）
+- 第二步：判斷用戶要找的東西是否在上述 7 種範圍內：
+  · 在範圍但確實沒資料 → 講「目前資料庫沒有這筆」
+  · 不在範圍 → 明說「我的知識庫目前涵蓋 [手冊/工單/客戶/檢驗/錄音/名片/發票]，
+    你要找的『XXX』不在裡面，請直接到對應的管理頁面查」並建議路徑
+    （銷售訂單 → /sales、預約 → /service/appointments、車輛庫存 → /inventory/vehicles 等）
+- 禁止：丟一句「我查不到」就走、不要編造「無法直接確認」這種模糊話術
+
+【其他反幻覺規則】
 - 你只能根據下面提供的 [上下文] 來回答
-- 上下文真的不足 → 才說「我查不到相關資料」，但要明確說出你檢索到了什麼（譬如「我有
-  C00019 孫燕姿這位客戶的資料，但沒有她的車輛或維修紀錄」）— 不要丟一句「查不到」就拍拍屁股走
-- 不准引用沒在上下文出現的條目（手冊頁碼 / RO code / 客戶名）
+- 不准引用沒在上下文出現的條目（手冊頁碼 / RO code / 客戶名 / 發票號）
 - 上下文裡的車型若跟 user 問的車型對不上、要明說「你問的是 X、但我找到的是 Y 的資料」
 
 【代詞與 follow-up（多輪對話必看）】
@@ -198,23 +217,39 @@ export async function* streamChatAnswer(
   let fullText = '';
   let tokensIn = 0;
   let tokensOut = 0;
+  let chunkN = 0;
+  let eventN = 0;
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    chunkN++;
+    const incoming = decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+    buffer += incoming;
 
-    // SSE 用 \n\n 分隔每個 event，event 第一行通常是 "data: {...}"
-    let idx;
-    while ((idx = buffer.indexOf('\n\n')) !== -1) {
-      const event = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 2);
-      if (!event.startsWith('data: ')) continue;
-      const json = event.slice(6);
+    // Line-based parser：Gemini streamGenerateContent 實測每個 event 就是一行
+    // `data: {...}\n`，部分情況才接空行（標準 SSE 用 \n\n 分隔，但 Gemini 不嚴格）。
+    // 改成按 \n 切、每行如果是 `data: ` 開頭就 parse 一次、可靠很多
+    let nlIdx;
+    while ((nlIdx = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, nlIdx);
+      buffer = buffer.slice(nlIdx + 1);
+      if (!line.startsWith('data: ')) continue; // 空行 / 非 data 行直接跳
+      eventN++;
+      const json = line.slice(6);
       if (!json.trim()) continue;
       try {
         const parsed = JSON.parse(json);
         const txt = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const finishReason = parsed?.candidates?.[0]?.finishReason;
+        if (finishReason && finishReason !== 'STOP') {
+          console.warn(
+            '[stream] finishReason 非 STOP:',
+            finishReason,
+            '/ raw:',
+            line.slice(0, 300),
+          );
+        }
         if (txt) {
           fullText += txt;
           yield { type: 'text', text: txt };
@@ -224,10 +259,21 @@ export async function* streamChatAnswer(
           tokensIn = usage.promptTokenCount ?? tokensIn;
           tokensOut = usage.candidatesTokenCount ?? tokensOut;
         }
-      } catch {
-        // 忽略 parse 失敗的 chunk
+      } catch (e) {
+        console.warn(
+          '[stream] parse 失敗:',
+          (e as Error).message,
+          '/ raw:',
+          json.slice(0, 200),
+        );
       }
     }
+  }
+
+  if (!fullText) {
+    console.warn(
+      `[stream] 結束但 fullText 是空：chunks=${chunkN} events=${eventN} buffer="${buffer.slice(0, 200)}"`,
+    );
   }
 
   yield {
@@ -256,27 +302,13 @@ function sourceLabel(
   sourceType: RagSourceType,
   metadata: Record<string, unknown>,
 ): string {
-  switch (sourceType) {
-    case 'manual': {
-      const title = (metadata.title as string) ?? '原廠手冊';
-      const page = metadata.page as number | null | undefined;
-      return page ? `《${title}》第 ${page} 頁` : `《${title}》`;
-    }
-    case 'repair_order': {
-      const code = (metadata.ro_code as string) ?? '—';
-      return `工單 ${code}`;
-    }
-    case 'final_inspection': {
-      const no = (metadata.inspection_no as string) ?? '—';
-      return `最終檢驗 ${no}`;
-    }
-    case 'customer': {
-      const code = (metadata.customer_code as string) ?? '—';
-      return `客戶資料 ${code}`;
-    }
-    case 'handcard_voice':
-      return '接待錄音紀錄';
-    case 'business_card':
-      return '名片掃描';
+  // manual 特例：保留《》格式 + 頁碼
+  if (sourceType === 'manual') {
+    const title = (metadata.title as string) ?? '原廠手冊';
+    const page = metadata.page as number | null | undefined;
+    return page ? `《${title}》第 ${page} 頁` : `《${title}》`;
   }
+  const label = resolveLabel(sourceType);
+  const short = resolveShortLabel(sourceType, metadata);
+  return short === label ? label : `${label} ${short}`;
 }

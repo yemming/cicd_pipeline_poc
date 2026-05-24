@@ -50,6 +50,8 @@ export function ChatApp({
   const [isPending, startTransition] = useTransition();
   const [streaming, setStreaming] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
+  // mobile：sidebar 預設收起，桌機（md+）保持常駐
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -80,11 +82,17 @@ export function ChatApp({
     const r = await createSession();
     if (r.ok) {
       setActiveId(r.data.id);
+      setSidebarOpen(false); // mobile：開新對話自動關 drawer 看 chat
       router.refresh();
       inputRef.current?.focus();
     } else {
       setBanner(r.error);
     }
+  }
+
+  function selectSession(id: string) {
+    setActiveId(id);
+    setSidebarOpen(false); // mobile：選 session 自動關 drawer
   }
 
   function onDeleteSession(id: string) {
@@ -248,16 +256,41 @@ export function ChatApp({
   }
 
   return (
-    <main className="flex h-[calc(100vh-64px)] -mx-6 -my-5 bg-[#F8F7F4]">
-      {/* Session list */}
-      <aside className="w-[240px] shrink-0 border-r border-[#EEECE6] bg-white overflow-y-auto flex flex-col">
-        <div className="px-3 py-3 border-b border-[#EEECE6]">
+    <main className="flex h-[calc(100vh-64px)] -mx-6 -my-5 bg-[#F8F7F4] relative">
+      {/* Mobile backdrop（< md，sidebar 開啟時顯示） */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Session list — 手機 drawer / 桌機常駐 */}
+      <aside
+        className={`
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
+          fixed md:relative inset-y-0 left-0 z-40
+          w-[260px] md:w-[240px] shrink-0
+          border-r border-[#EEECE6] bg-white
+          flex flex-col
+          transition-transform duration-200 ease-out
+        `}
+      >
+        <div className="px-3 py-3 border-b border-[#EEECE6] flex items-center gap-2">
           <button
             onClick={onNewSession}
             disabled={isPending || streaming}
-            className="w-full h-[36px] rounded-md bg-gradient-to-br from-[#185FA5] to-[#1A3A5C] text-white text-[12.5px] font-medium hover:from-[#0F2A45] hover:to-[#0F2A45] shadow disabled:opacity-50"
+            className="flex-1 h-[36px] rounded-md bg-gradient-to-br from-[#185FA5] to-[#1A3A5C] text-white text-[12.5px] font-medium hover:from-[#0F2A45] hover:to-[#0F2A45] shadow disabled:opacity-50"
           >
             ＋ 新對話
+          </button>
+          {/* mobile 關閉鈕 */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden w-9 h-9 rounded-md border border-[#EEECE6] text-[#5A5955] hover:bg-[#F8F7F4] flex items-center justify-center"
+            aria-label="關閉"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
         <div className="flex-1 overflow-y-auto py-2">
@@ -269,7 +302,7 @@ export function ChatApp({
           {sessions.map((s) => (
             <div
               key={s.id}
-              onClick={() => setActiveId(s.id)}
+              onClick={() => selectSession(s.id)}
               className={`group flex items-center gap-2 px-3 py-2 cursor-pointer text-[12.5px] ${
                 activeId === s.id
                   ? "bg-[#EAF4FB] border-l-2 border-l-[#185FA5]"
@@ -287,7 +320,7 @@ export function ChatApp({
                   e.stopPropagation();
                   onDeleteSession(s.id);
                 }}
-                className="opacity-0 group-hover:opacity-100 text-[#9A9890] hover:text-[#CC0000] text-[14px]"
+                className="md:opacity-0 md:group-hover:opacity-100 text-[#9A9890] hover:text-[#CC0000] text-[14px] w-6 h-6 flex items-center justify-center"
                 aria-label="刪除"
               >
                 ✕
@@ -299,17 +332,25 @@ export function ChatApp({
 
       {/* Chat thread */}
       <section className="flex-1 flex flex-col min-w-0">
-        <header className="px-5 py-3 border-b border-[#EEECE6] bg-white">
+        <header className="px-3 sm:px-5 py-3 border-b border-[#EEECE6] bg-white">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#185FA5] flex items-center justify-center">
+            {/* mobile hamburger — 開 sidebar */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden w-9 h-9 rounded-md border border-[#EEECE6] text-[#5A5955] hover:bg-[#F8F7F4] flex items-center justify-center shrink-0"
+              aria-label="開啟對話列表"
+            >
+              <span className="material-symbols-outlined text-[20px]">menu</span>
+            </button>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#7C3AED] to-[#185FA5] flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-[14px] text-white">
                 auto_awesome
               </span>
             </div>
-            <h1 className="text-[14px] font-semibold text-[#2C2C2A]">
+            <h1 className="text-[14px] font-semibold text-[#2C2C2A] shrink-0">
               AI 問答
             </h1>
-            <span className="text-[11px] text-[#9A9890]">
+            <span className="text-[11px] text-[#9A9890] truncate hidden sm:inline">
               ・ Gemini 2.5 Flash ・ RAG 從手冊 / 工單 / 客戶 / 接待錄音 檢索
             </span>
           </div>

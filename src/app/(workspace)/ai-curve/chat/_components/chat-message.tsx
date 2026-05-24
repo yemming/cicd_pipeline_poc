@@ -6,64 +6,27 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/domain/rag-chat";
 import type { RetrievedChunk, RagSourceType } from "@/lib/ai/rag-retrieve";
+import {
+  resolveIcon,
+  resolveShortLabel,
+  resolveHref,
+} from "@/lib/ai/rag-registry";
 
 function sourceTypeIcon(t: RagSourceType): string {
-  switch (t) {
-    case "manual":
-      return "📘";
-    case "repair_order":
-      return "🔧";
-    case "final_inspection":
-      return "✓";
-    case "customer":
-      return "👤";
-    case "handcard_voice":
-      return "🎤";
-    case "business_card":
-      return "💳";
-  }
+  return resolveIcon(t);
 }
 
 function citationShortLabel(chunk: RetrievedChunk): string {
-  const m = chunk.metadata;
-  switch (chunk.sourceType) {
-    case "manual": {
-      const title = (m.title as string) ?? "手冊";
-      const page = m.page as number | null | undefined;
-      // 標題太長截前 20 字
-      const t = title.length > 20 ? title.slice(0, 20) + "…" : title;
-      return page ? `${t} P.${page}` : t;
-    }
-    case "repair_order":
-      return (m.ro_code as string) ?? "工單";
-    case "final_inspection":
-      return (m.inspection_no as string) ?? "檢驗";
-    case "customer":
-      return (m.customer_code as string) ?? "客戶";
-    case "handcard_voice":
-      return "接待錄音";
-    case "business_card":
-      return "名片";
-  }
+  return resolveShortLabel(chunk.sourceType, chunk.metadata);
 }
 
 /** Citation pill 點擊 → 跳轉到對應原始資料頁；null 表示無對應頁面（開 modal 看內容） */
 function citationHref(chunk: RetrievedChunk): string | null {
-  const m = chunk.metadata;
-  switch (chunk.sourceType) {
-    case "manual":
-      return "/admin/manuals";
-    case "repair_order":
-      return `/admin/master-data/work-orders?q=${m.ro_code ?? ""}`;
-    case "final_inspection":
-      return `/admin/master-data/inspections?q=${m.inspection_no ?? ""}`;
-    case "customer":
-      return `/admin/master-data/customers/${chunk.sourceId}`;
-    case "handcard_voice":
-      return "/ai-curve";
-    case "business_card":
-      return "/ai-curve/business-card";
+  // customer 特例：用 sourceId（uuid）做 detail page path
+  if (chunk.sourceType === "customer") {
+    return `/admin/master-data/customers/${chunk.sourceId}`;
   }
+  return resolveHref(chunk.sourceType, chunk.metadata);
 }
 
 export function ChatMessageBubble({

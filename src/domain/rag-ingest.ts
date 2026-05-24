@@ -17,20 +17,13 @@ import { requirePermission } from '@/lib/rbac/policies';
 import { PERMISSIONS } from '@/lib/rbac/permissions';
 import { embedBatch, EMBEDDING_MODEL, toPgVector } from '@/lib/ai/embeddings';
 import {
-  serializeRepairOrder,
-  serializeFinalInspection,
-  serializeCustomer,
-  serializeHandcardVoiceNote,
-  serializeBusinessCardScan,
-  type SerializedChunk,
-} from '@/lib/ai/rag-serialize';
+  INGESTABLE_SOURCES,
+  getIngestable,
+} from '@/lib/ai/rag-registry.server';
+import type { SerializedChunk } from '@/lib/ai/rag-serialize';
 
-export type RagSourceType =
-  | 'repair_order'
-  | 'final_inspection'
-  | 'customer'
-  | 'handcard_voice'
-  | 'business_card';
+/** RAG source type — 自由字串、實際清單見 `INGESTABLE_SOURCES` registry */
+export type RagSourceType = string;
 
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -84,17 +77,9 @@ export async function reindexAllRecords(): Promise<Result<ReindexProgress[]>> {
   const supabase = await createClient();
   const { brand_id: brandId } = await getActiveScope();
 
-  const sources: { type: RagSourceType; table: string }[] = [
-    { type: 'repair_order', table: 'repair_orders' },
-    { type: 'final_inspection', table: 'final_inspections' },
-    { type: 'customer', table: 'customers' },
-    { type: 'handcard_voice', table: 'handcard_voice_notes' },
-    { type: 'business_card', table: 'business_card_scans' },
-  ];
-
   const out: ReindexProgress[] = [];
 
-  for (const { type, table } of sources) {
+  for (const { type, table } of INGESTABLE_SOURCES) {
     const { data: rows, error } = await supabase
       .from(table)
       .select('id')
@@ -161,16 +146,7 @@ async function serializeOne(
   id: string,
 ): Promise<SerializedChunk | null> {
   const supabase = await createClient();
-  switch (type) {
-    case 'repair_order':
-      return serializeRepairOrder(supabase, id);
-    case 'final_inspection':
-      return serializeFinalInspection(supabase, id);
-    case 'customer':
-      return serializeCustomer(supabase, id);
-    case 'handcard_voice':
-      return serializeHandcardVoiceNote(supabase, id);
-    case 'business_card':
-      return serializeBusinessCardScan(supabase, id);
-  }
+  const src = getIngestable(type);
+  if (!src) return null;
+  return src.serialize(supabase, id);
 }
