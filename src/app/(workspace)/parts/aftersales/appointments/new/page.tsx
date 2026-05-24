@@ -32,6 +32,8 @@ export default async function AppointmentNewPage({
       canEdit={true}
       initialMode="create"
       initialDate={sp.date}
+      initialCustomerId={sp.customer_id ?? null}
+      initialVehicleId={sp.vehicle_id ?? null}
     />
   );
 }

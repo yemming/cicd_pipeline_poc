@@ -36,12 +36,17 @@ export function AppointmentDetailView({
   canEdit,
   initialMode,
   initialDate,
+  initialCustomerId,
+  initialVehicleId,
 }: {
   appointment: AppointmentListRow | null;
   lookups: AppointmentLookups;
   canEdit: boolean;
   initialMode: Mode;
   initialDate?: string;
+  /** 從別處（譬如車辨）帶入預填的 customer / vehicle */
+  initialCustomerId?: string | null;
+  initialVehicleId?: string | null;
 }) {
   useSetPageHeader({
     title: appointment ? `預約 ${(appointment.appointment_time as string).slice(0, 5)} ${appointment.customer_name ?? ""}` : "新增預約",
@@ -83,8 +88,8 @@ export function AppointmentDetailView({
     return {
       appointment_date: initialDate || todayLocal(),
       appointment_time: "09:00",
-      customer_id: null,
-      vehicle_id: null,
+      customer_id: initialCustomerId ?? null,
+      vehicle_id: initialVehicleId ?? null,
       service_type: "MN",
       service_subtype: "CP",
       estimated_hours: 1.5,
