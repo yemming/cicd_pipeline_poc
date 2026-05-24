@@ -460,6 +460,172 @@ export async function getPurchaseOrderById(
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// 列印 — getPurchaseOrderForPrint(id)
+//
+// 跟 detail 不同：除了單頭 + 明細，還要撈
+//   - subsidiary（買方法人 letterhead）
+//   - supplier 全資料（電話 / 地址 / 統編 / 付款條件）
+//   - warehouse 地址（收貨地）
+// 一支 helper 一次撈乾淨，print page 不要自己拼 query。
+// ─────────────────────────────────────────────────────────────
+
+export type PurchaseOrderForPrint = {
+  // 買方（公司 letterhead）
+  buyer: {
+    legalName: string;
+    taxId: string | null;
+    address: string | null;
+    phone: string | null;
+    responsible: string | null;
+  };
+  brand: { key: string; displayName: string };
+
+  // 賣方（供應商）
+  vendor: {
+    code: string | null;
+    name: string;
+    contact: string | null;
+    phone: string | null;
+    address: string | null;
+    taxId: string | null;
+    paymentTerms: string | null;
+  };
+
+  // 收貨地（倉庫）
+  shipTo: {
+    name: string | null;
+    address: string | null;
+  };
+
+  // 單頭
+  poNo: string;
+  poDate: string | null;
+  etaDate: string | null;
+  currency: string | null;
+  exchangeRate: number;
+  status: string;
+  purchaseType: string | null;
+  sourceReqNo: string | null;
+  notes: string | null;
+  createdByName: string | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
+
+  // 明細
+  lines: Array<{
+    lineNo: number;
+    itemCode: string | null;
+    itemName: string;
+    uom: string | null;
+    qty: number;
+    unitPrice: number;
+    pretax: number;
+    tax: number;
+    total: number;
+    notes: string | null;
+  }>;
+
+  // 總計
+  amountPretax: number;
+  amountTax: number;
+  amountTotal: number;
+};
+
+export async function getPurchaseOrderForPrint(
+  id: string,
+): Promise<PurchaseOrderForPrint | null> {
+  // reuse detail fetcher（已有單頭 + 明細 + 倉庫名 + 供應商基本資訊）
+  const detail = await getPurchaseOrderById(id);
+  if (!detail) return null;
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 補撈：subsidiary 法人資訊 + supplier 完整聯絡資訊 + warehouse 地址
+  // brand registry 是 client-side 靜態資料、不能 server import；改用 hard-coded 對映（兩個品牌而已）
+  const brandDisplayName: Record<string, string> = {
+    ducati: "Ducati Taiwan",
+    indian: "Indian Motorcycle Taiwan",
+  };
+
+  const [subsRes, supRes, whRes] = await Promise.all([
+    supabase
+      .from("subsidiaries")
+      .select("legal_name, tax_id, address, phone, responsible_person")
+      .eq("id", scope.subsidiary_id)
+      .maybeSingle(),
+    detail.vendor_id
+      ? supabase
+          .from("suppliers")
+          .select("code, name, primary_contact, phone, address, tax_id, payment_terms")
+          .eq("id", detail.vendor_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    detail.warehouse_id
+      ? supabase
+          .from("warehouses")
+          .select("name, address")
+          .eq("id", detail.warehouse_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+  ]);
+
+  return {
+    buyer: {
+      legalName: subsRes.data?.legal_name ?? "—",
+      taxId: subsRes.data?.tax_id ?? null,
+      address: subsRes.data?.address ?? null,
+      phone: subsRes.data?.phone ?? null,
+      responsible: subsRes.data?.responsible_person ?? null,
+    },
+    brand: {
+      key: scope.brand_id,
+      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+    },
+    vendor: {
+      code: supRes.data?.code ?? detail.vendor_code,
+      name: supRes.data?.name ?? detail.vendor_name ?? "—",
+      contact: supRes.data?.primary_contact ?? null,
+      phone: supRes.data?.phone ?? null,
+      address: supRes.data?.address ?? null,
+      taxId: supRes.data?.tax_id ?? null,
+      paymentTerms: supRes.data?.payment_terms ?? null,
+    },
+    shipTo: {
+      name: whRes.data?.name ?? detail.warehouse_name,
+      address: whRes.data?.address ?? null,
+    },
+    poNo: detail.po_no,
+    poDate: detail.po_date,
+    etaDate: detail.eta_date,
+    currency: detail.currency,
+    exchangeRate: Number(detail.exchange_rate ?? 1),
+    status: detail.status,
+    purchaseType: detail.purchase_type,
+    sourceReqNo: detail.source_req_no,
+    notes: detail.notes,
+    createdByName: detail.created_by_name,
+    approvedByName: detail.approved_by_name,
+    approvedAt: detail.approved_at,
+    lines: detail.lines.map((l) => ({
+      lineNo: l.line_no,
+      itemCode: l.item_code,
+      itemName: l.item_name ?? "—",
+      uom: l.item_uom,
+      qty: l.qty_ordered,
+      unitPrice: l.unit_price,
+      pretax: l.line_amount_pretax,
+      tax: l.line_amount_tax,
+      total: l.line_amount_total,
+      notes: l.notes,
+    })),
+    amountPretax: Number(detail.amount_pretax ?? 0),
+    amountTax: Number(detail.amount_tax ?? 0),
+    amountTotal: Number(detail.amount_total ?? 0),
+  };
+}
+
 // 建單表單需要的下拉資料
 export type NewPOFormPick = { id: string; code: string; name: string };
 export type NewPOFormItemPick = NewPOFormPick & { base_uom: string | null };

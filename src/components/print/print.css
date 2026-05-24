@@ -1,0 +1,292 @@
+/* 列印共用樣式 — 給 src/app/print/** 路由用。
+ * 不要被 Tailwind reset 影響；class 一律加 print- prefix 避開全站衝突。
+ * 字級單位用 pt 不用 px — 印表機解析度 (dpi) 跟螢幕 px 脫鉤、pt 才能跨機台一致。
+ */
+
+@page {
+  size: A4;
+  margin: 15mm 12mm 18mm 12mm;
+}
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .no-print { display: none !important; }
+  /* 表頭跨頁自動 repeat、footer 也 sticky 在每頁底 */
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr, .keep-together { page-break-inside: avoid; }
+  .page-break-before { page-break-before: always; }
+  .page-break-after { page-break-after: always; }
+}
+
+/* ── 文件 root ─────────────────────────────────────────── */
+
+.print-doc {
+  font-family: "PingFang TC", "Microsoft JhengHei", "Heiti TC", system-ui, sans-serif;
+  color: #1A1A1A;
+  background: #fff;
+  padding: 18pt 16pt;
+  max-width: 210mm;
+  margin: 0 auto;
+}
+
+/* 螢幕預覽時加個淺灰背景，看起來像一張 A4 紙 */
+@media screen {
+  body { background: #E5E4DF; }
+  .print-doc {
+    margin: 16pt auto;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    border: 1pt solid #D5D3CB;
+  }
+}
+
+/* ── Header / Letterhead ──────────────────────────────── */
+
+.print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24pt;
+  padding-bottom: 10pt;
+  border-bottom: 1.5pt solid #1A3A5C;
+  margin-bottom: 14pt;
+}
+
+.print-letterhead { flex: 1; min-width: 0; }
+
+.print-brand {
+  font-size: 11pt;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #1A3A5C;
+  margin-bottom: 4pt;
+}
+
+.print-company {
+  font-size: 14pt;
+  font-weight: 700;
+  margin-bottom: 4pt;
+}
+
+.print-meta-line {
+  font-size: 9pt;
+  color: #5A5955;
+  line-height: 1.4;
+}
+
+.print-doc-meta {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.print-doc-title {
+  font-size: 16pt;
+  font-weight: 700;
+  color: #1A3A5C;
+  margin-bottom: 6pt;
+}
+
+.print-doc-no {
+  font-size: 9pt;
+  color: #5A5955;
+}
+
+.print-doc-no-value {
+  font-family: "SF Mono", "Consolas", monospace;
+  font-size: 12pt;
+  font-weight: 700;
+  color: #1A1A1A;
+  letter-spacing: 0.02em;
+}
+
+/* ── Body ─────────────────────────────────────────────── */
+
+.print-body { font-size: 10pt; }
+
+/* ── Section title（章節分隔，例：「採購明細」） ────────── */
+
+.print-section-title {
+  font-size: 11pt;
+  font-weight: 700;
+  color: #1A3A5C;
+  padding: 4pt 0;
+  border-bottom: 0.5pt solid #D5D3CB;
+  margin: 12pt 0 6pt 0;
+}
+
+/* ── Meta grid（KV 區）── */
+
+.print-meta-grid-wrapper { margin-bottom: 10pt; }
+
+.print-meta-grid {
+  display: grid;
+  gap: 4pt 18pt;
+}
+
+.print-meta-grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.print-meta-grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.print-meta-grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+.print-meta-pair {
+  display: flex;
+  gap: 6pt;
+  align-items: baseline;
+  padding: 2pt 0;
+  border-bottom: 0.25pt dotted #D5D3CB;
+}
+
+.print-meta-label {
+  font-size: 9pt;
+  color: #5A5955;
+  flex-shrink: 0;
+  min-width: 5em;
+}
+
+.print-meta-value {
+  font-size: 10.5pt;
+  color: #1A1A1A;
+  flex: 1;
+  word-break: break-word;
+}
+
+/* ── Table（明細列）── */
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 4pt;
+}
+
+.print-table th.print-table-header {
+  font-size: 9.5pt;
+  font-weight: 600;
+  background: #F8F7F4;
+  color: #2C2C2A;
+  border: 0.5pt solid #D5D3CB;
+  padding: 5pt 6pt;
+  text-align: left;
+}
+
+.print-table td.print-table-cell {
+  font-size: 10pt;
+  border: 0.5pt solid #EEECE6;
+  padding: 4pt 6pt;
+  vertical-align: top;
+}
+
+.print-table .text-right { text-align: right; }
+.print-table .text-center { text-align: center; }
+.print-table .text-left { text-align: left; }
+
+.print-table tr:nth-child(even) td { background: #FBFAF7; }
+
+/* ── Totals（金額小計區）── */
+
+.print-totals {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10pt;
+}
+
+.print-totals-table {
+  border-collapse: collapse;
+  min-width: 240pt;
+}
+
+.print-totals-table td {
+  padding: 4pt 8pt;
+  font-size: 10.5pt;
+  border-bottom: 0.5pt solid #EEECE6;
+}
+
+.print-totals-label { color: #5A5955; text-align: right; }
+.print-totals-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  min-width: 120pt;
+}
+
+.print-grand-total-row td.print-grand-total {
+  font-size: 13pt;
+  font-weight: 700;
+  color: #1A3A5C;
+  border-top: 1pt solid #1A3A5C;
+  border-bottom: 1.5pt double #1A3A5C;
+  padding-top: 6pt;
+  padding-bottom: 6pt;
+}
+
+/* ── Signatures（簽核欄）── */
+
+.print-signatures {
+  display: flex;
+  gap: 18pt;
+  margin-top: 24pt;
+  padding-top: 10pt;
+}
+
+.print-signature-cell {
+  flex: 1;
+  text-align: center;
+}
+
+.print-signature-line {
+  border-top: 0.5pt solid #5A5955;
+  margin-bottom: 4pt;
+  height: 36pt;
+}
+
+.print-signature-label {
+  font-size: 9pt;
+  color: #5A5955;
+}
+
+/* ── Notes 區（單頭備註）── */
+
+.print-notes {
+  margin-top: 10pt;
+  padding: 6pt 8pt;
+  background: #F8F7F4;
+  border-left: 2pt solid #1A3A5C;
+  font-size: 9.5pt;
+  color: #2C2C2A;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* ── 螢幕版的「列印 / 關閉」浮動工具列 ── */
+
+.print-toolbar {
+  position: fixed;
+  top: 12pt;
+  right: 12pt;
+  z-index: 100;
+  display: flex;
+  gap: 8pt;
+}
+
+.print-toolbar button {
+  background: #1A3A5C;
+  color: white;
+  border: none;
+  padding: 8pt 14pt;
+  border-radius: 4pt;
+  font-size: 10pt;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2pt 8pt rgba(0, 0, 0, 0.15);
+}
+
+.print-toolbar button.print-toolbar-secondary {
+  background: white;
+  color: #5A5955;
+  border: 1pt solid #D5D3CB;
+}
+
+.print-toolbar button:hover { opacity: 0.9; }
+
+@media print { .print-toolbar { display: none; } }

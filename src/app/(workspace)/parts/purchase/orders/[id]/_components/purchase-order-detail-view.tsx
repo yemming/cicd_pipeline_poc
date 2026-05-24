@@ -224,6 +224,19 @@ export function PurchaseOrderDetailView({
               </button>
               <button
                 type="button"
+                onClick={() =>
+                  window.open(`/print/purchase-order/${order.id}`, "_blank")
+                }
+                className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm inline-flex items-center gap-1"
+                title="列印 / 另存 PDF"
+              >
+                <span className="material-symbols-outlined text-[14px]">
+                  print
+                </span>
+                列印
+              </button>
+              <button
+                type="button"
                 onClick={() => setConfirmAction("cancel")}
                 disabled={!canEdit || !canCancel}
                 title={!canCancel ? "僅草稿/已核准且尚未入庫可取消" : ""}
