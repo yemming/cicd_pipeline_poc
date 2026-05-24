@@ -47,17 +47,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // 注意：不再在 <html> inline style 設 --color-brand-primary*。
+  // 真正的 brand 顏色由 AppearanceProvider 內 `paletteCssVars()` 算出來、套到內層 <div>，
+  // 兩邊都設會造成 hydration mismatch（root layout 用 env 寫死、provider 用 darken() 算）。
+  // globals.css 內有 default fallback (#CC0000 / #A80000)、AppearanceProvider 外的頁面照樣有色。
   const brand = getCurrentBrand();
-  const brandStyle = {
-    "--color-brand-primary": brand.primaryColor,
-    "--color-brand-primary-dark": brand.primaryColorDark,
-  } as React.CSSProperties;
-
   return (
     <html
       lang="zh-Hant"
       className={`${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
-      style={brandStyle}
       data-brand={brand.key}
     >
       <head>
