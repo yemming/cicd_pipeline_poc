@@ -72,13 +72,21 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
           </Link>
         </div>
 
-        {/* Breadcrumb：對齊右側 metadata 字級 text-[10.5px]；最後一項白、前面 70% 透明 */}
+        {/* Breadcrumb：對齊右側 metadata 字級 text-[10.5px]；最後一項白、前面 70% 透明。
+            Mobile：只露最後 2 個（父 › 子），更早期的層級 md+ 才顯示，避免螢幕窄被擠壓。 */}
         {breadcrumb && breadcrumb.length > 0 && (
-          <nav className="hidden md:flex items-center gap-1.5 min-w-0 text-[10.5px] leading-tight">
+          <nav className="flex items-center gap-1.5 min-w-0 text-[10.5px] leading-tight">
             {breadcrumb.map((b, i) => {
               const isLast = i === breadcrumb.length - 1;
+              const isSecondToLast = i === breadcrumb.length - 2;
+              const mobileVisible = isLast || isSecondToLast;
               return (
-                <span key={`${i}-${b.label}`} className="flex items-center gap-1.5 min-w-0">
+                <span
+                  key={`${i}-${b.label}`}
+                  className={`items-center gap-1.5 min-w-0 ${
+                    mobileVisible ? "flex" : "hidden md:flex"
+                  }`}
+                >
                   {i > 0 && (
                     <span className="text-white/40 select-none shrink-0">›</span>
                   )}
@@ -105,10 +113,10 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
         )}
       </div>
 
-      {/* Center segment：寬度 ≥ 1400px 才出現 inline 全域搜尋（dropdown 在 input 下方就地展開，不再彈 overlay）。
-          窄於 1400px 整段藏起、改用右側放大鏡 icon → CommandPalette overlay。 */}
+      {/* Center segment：寬度 ≥ lg (1024px) 就出現 inline 全域搜尋（dropdown 在 input 下方就地展開，不再彈 overlay）。
+          窄於 lg 整段藏起、改用右側放大鏡 icon → CommandPalette overlay。 */}
       {!hideSearch && (
-        <div className="hidden min-[1400px]:flex shrink-0 justify-center px-3 min-[1400px]:w-[380px] 2xl:w-[460px]">
+        <div className="hidden lg:flex shrink-0 justify-center px-3 lg:w-[280px] xl:w-[380px] 2xl:w-[460px]">
           <TopbarSearch placeholder={brand.searchPlaceholder} />
         </div>
       )}

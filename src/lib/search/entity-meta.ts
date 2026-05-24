@@ -10,9 +10,15 @@ export const ENTITY_META: Record<
   employee: { label: "員工", icon: "badge", color: "#854F0B" },
   supplier: { label: "供應商", icon: "local_shipping", color: "#6B4FA0" },
   item: { label: "商品", icon: "inventory_2", color: "#3B6D11" },
-  work_order: { label: "維修工單", icon: "build", color: "#CC0000" },
+  work_order: { label: "服務工單", icon: "build", color: "#CC0000" },
+  repair_order: { label: "維修工單", icon: "construction", color: "#A22000" },
   purchase_order: { label: "採購單", icon: "shopping_cart", color: "#3B6D11" },
-  pos_transaction: { label: "POS 發票", icon: "receipt_long", color: "#185FA5" },
+  sales_order: { label: "銷售訂單", icon: "shopping_bag", color: "#CC0000" },
+  einvoice: { label: "電子發票", icon: "receipt_long", color: "#185FA5" },
+  pos_transaction: { label: "POS 交易", icon: "point_of_sale", color: "#185FA5" },
+  stock_item: { label: "庫存批號 / 序號", icon: "inventory", color: "#3B6D11" },
+  stock_receipt: { label: "進貨單", icon: "input", color: "#3B6D11" },
+  service_appointment: { label: "服務預約", icon: "event", color: "#854F0B" },
 };
 
 export function entityMeta(type: string) {

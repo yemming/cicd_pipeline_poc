@@ -14,6 +14,10 @@ const streetfighter = getModelById("streetfighter-v4-sp2")!;
 export default function ShowroomPage() {
   useSetPageHeader({
     title: "展廳看板",
+    breadcrumb: [
+      { label: "銷售管理" },
+      { label: "展廳看板" },
+    ],
     tabs: [
       { label: "當前總覽", active: true },
       { label: "數據報表" },

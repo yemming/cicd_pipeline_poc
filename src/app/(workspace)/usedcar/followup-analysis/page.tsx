@@ -66,7 +66,13 @@ const summary = [
 ];
 
 export default function FollowupAnalysisPage() {
-  useSetPageHeader({ title: "跟進分析" });
+  useSetPageHeader({
+    title: "跟進分析",
+    breadcrumb: [
+      { label: "中古車輛", href: "/usedcar/sales-dashboard" },
+      { label: "跟進分析" },
+    ],
+  });
 
   return (
     <div className="p-6 bg-gray-50 min-h-full">

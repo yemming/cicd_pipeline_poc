@@ -73,7 +73,14 @@ const SUB_TABS: { key: SubTab; label: string }[] = [
 ];
 
 export default function UsedCarProspectsPage() {
-  useSetPageHeader({ title: "潛客跟進", hideSearch: true });
+  useSetPageHeader({
+    title: "潛客跟進",
+    hideSearch: true,
+    breadcrumb: [
+      { label: "中古車輛", href: "/usedcar/sales-dashboard" },
+      { label: "潛客跟進" },
+    ],
+  });
 
   const [subTab, setSubTab]   = useState<SubTab>("3d");
   const [search, setSearch]   = useState("");

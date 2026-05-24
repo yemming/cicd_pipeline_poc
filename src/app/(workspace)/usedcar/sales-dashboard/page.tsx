@@ -96,7 +96,14 @@ const contactJudgements = [
 ];
 
 export default function UsedCarSalesDashboardPage() {
-  useSetPageHeader({ title: "中古銷售看板", hideSearch: false });
+  useSetPageHeader({
+    title: "中古銷售看板",
+    hideSearch: false,
+    breadcrumb: [
+      { label: "中古車輛" },
+      { label: "中古銷售看板" },
+    ],
+  });
 
   return (
     <div className="space-y-6 pb-10">

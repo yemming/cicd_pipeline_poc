@@ -41,7 +41,13 @@ const monthlyTrend = [
 ];
 
 export default function OpenRatePage() {
-  useSetPageHeader({ title: "開口率管理" });
+  useSetPageHeader({
+    title: "開口率管理",
+    breadcrumb: [
+      { label: "中古車輛", href: "/usedcar/sales-dashboard" },
+      { label: "開口率管理" },
+    ],
+  });
 
   return (
     <div className="p-6 bg-gray-50 min-h-full">

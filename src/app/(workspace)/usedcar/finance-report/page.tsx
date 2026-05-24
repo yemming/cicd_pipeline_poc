@@ -115,7 +115,13 @@ const profitContrib = [
 ];
 
 export default function FinanceReportPage() {
-  useSetPageHeader({ title: "財務報表" });
+  useSetPageHeader({
+    title: "財務報表",
+    breadcrumb: [
+      { label: "中古車輛", href: "/usedcar/sales-dashboard" },
+      { label: "財務報表" },
+    ],
+  });
 
   return (
     <div className="p-6 bg-gray-50 min-h-full">

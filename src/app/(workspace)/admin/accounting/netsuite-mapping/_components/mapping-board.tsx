@@ -11,6 +11,7 @@ import {
 } from "@/lib/accounting/netsuite-mapping-actions";
 import type { MappingRow } from "@/lib/accounting/queries";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { useSetPageHeader } from "@/components/page-header-context";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -33,6 +34,13 @@ export function MappingBoard({
   totalCount: number;
   filters: { dim?: string };
 }) {
+  useSetPageHeader({
+    title: "NetSuite Mapping 表",
+    breadcrumb: [
+      { label: "會計財務設定", href: "/admin/accounting/coa" },
+      { label: "Mapping 表" },
+    ],
+  });
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);

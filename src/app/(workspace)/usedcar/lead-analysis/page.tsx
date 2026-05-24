@@ -38,7 +38,13 @@ const budgetSegments = [
 ];
 
 export default function LeadAnalysisPage() {
-  useSetPageHeader({ title: "線索分析" });
+  useSetPageHeader({
+    title: "線索分析",
+    breadcrumb: [
+      { label: "中古車輛", href: "/usedcar/sales-dashboard" },
+      { label: "線索分析" },
+    ],
+  });
 
   return (
     <div className="p-6 bg-gray-50 min-h-full">

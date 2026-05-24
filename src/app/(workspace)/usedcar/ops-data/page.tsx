@@ -86,7 +86,13 @@ type Tab = typeof TABS[number];
 export default function OpsDataPage() {
   const [tab, setTab] = useState<Tab>("新車軌道");
 
-  useSetPageHeader({ title: "業務數據表" });
+  useSetPageHeader({
+    title: "業務數據表",
+    breadcrumb: [
+      { label: "中古車輛", href: "/usedcar/sales-dashboard" },
+      { label: "業務數據表" },
+    ],
+  });
 
   const total = calcNewCarTotal();
   const asTotal = calcAfterSalesTotal();
