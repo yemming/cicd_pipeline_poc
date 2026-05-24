@@ -827,6 +827,221 @@ export async function listPendingApprovalOrders(): Promise<SalesOrderRow[]> {
 // Form data helpers
 // ─────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────
+// 列印 — getSalesOrderForPrint(id)
+//
+// 跟 detail 不同：除了單頭，還要撈
+//   - subsidiary（賣方法人 letterhead；DealerOS 的「公司本體」）
+//   - customer 完整 contact（電話 / 地址 / 統編 / Email）
+//   - quote_snapshot.items 拆成明細行（沒有 line table，全靠 jsonb）
+// 一支 helper 一次撈乾淨、print page 不要自己拼 query。
+// ─────────────────────────────────────────────────────────────
+
+export type SalesOrderForPrint = {
+  /** sales_orders.id (uuid)，給 /api/pdf/sales-order/{id} 用 */
+  id: string;
+  // 賣方（公司 letterhead）
+  buyer: {
+    legalName: string;
+    taxId: string | null;
+    address: string | null;
+    phone: string | null;
+    responsible: string | null;
+  };
+  brand: { key: string; displayName: string };
+
+  // 買方（客戶）
+  customer: {
+    code: string | null;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+    taxId: string | null;
+    nationalId: string | null;
+  };
+
+  // 單頭
+  orderNo: string;
+  orderDate: string | null; // created_at -> YYYY-MM-DD
+  contractType: "new" | "used";
+  status: string;
+  paymentMethod: string | null;
+  deliveryDate: string | null;
+  finalPaymentDate: string | null;
+  rsName: string | null;
+  transferBy: string | null;
+  signedAt: string | null;
+  fulfilledAt: string | null;
+
+  // 車輛資訊（新車 / 中古車二擇一有值）
+  vehicle: {
+    modelName: string | null;     // 新車型號
+    color: string | null;
+    vin: string | null;
+    engineNo: string | null;
+    usedBrandModel: string | null; // 中古車廠牌/車款
+    usedYear: string | null;
+    usedPlate: string | null;
+    usedCc: string | null;
+    usedMileage: string | null;
+    usedCertLevel: string | null;
+  };
+
+  // 明細（從 quote_snapshot.items 解出；無 items 時 fallback 一行）
+  lines: Array<{
+    lineNo: number;
+    itemName: string;
+    qty: number;
+    unitPrice: number;
+    total: number;
+    notes: string | null;
+  }>;
+
+  // 總計
+  totalAmount: number;
+  downPayment: number | null;
+  finalPayment: number | null;
+  specialNotes: string | null;
+  conditionNotes: string | null;
+};
+
+export async function getSalesOrderForPrint(
+  id: string,
+): Promise<SalesOrderForPrint | null> {
+  const detail = await getSalesOrderById(id);
+  if (!detail) return null;
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // brand registry 是 client-side 靜態資料、不能 server import；hard-code 對映（兩個品牌）
+  const brandDisplayName: Record<string, string> = {
+    ducati: "Ducati Taiwan",
+    indian: "Indian Motorcycle Taiwan",
+  };
+
+  const [subsRes, custRes] = await Promise.all([
+    supabase
+      .from("subsidiaries")
+      .select("legal_name, tax_id, address, phone, responsible_person")
+      .eq("id", scope.subsidiary_id)
+      .maybeSingle(),
+    detail.customer_id
+      ? supabase
+          .from("customers")
+          .select("code, name, phone, email, address, tax_id, national_id")
+          .eq("id", detail.customer_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+  ]);
+
+  // 解 quote_snapshot.items
+  type QuoteItem = {
+    name?: string;
+    qty?: number;
+    unitPrice?: number;
+    unit_price?: number;
+    amount?: number;
+    notes?: string | null;
+  };
+  const rawItems = ((detail.quote_snapshot as { items?: QuoteItem[] } | null)
+    ?.items ?? []) as QuoteItem[];
+
+  const totalAmount = Number(detail.total_amount ?? detail.deal_price ?? 0);
+
+  let lines: SalesOrderForPrint["lines"] = [];
+  if (Array.isArray(rawItems) && rawItems.length > 0) {
+    lines = rawItems.map((it, idx) => {
+      const qty = Number(it.qty ?? 1) || 1;
+      const unitPrice =
+        Number(it.unitPrice ?? it.unit_price ?? it.amount ?? 0) || 0;
+      return {
+        lineNo: idx + 1,
+        itemName: String(it.name ?? "").trim() || "—",
+        qty,
+        unitPrice,
+        total: qty * unitPrice,
+        notes: it.notes ?? null,
+      };
+    });
+  }
+  if (lines.length === 0) {
+    const fallbackName =
+      detail.contract_type === "used"
+        ? (detail.used_brand_model ?? "中古車交易")
+        : (detail.vehicle_model_name ?? "新車交易");
+    lines = [
+      {
+        lineNo: 1,
+        itemName: fallbackName,
+        qty: 1,
+        unitPrice: totalAmount,
+        total: totalAmount,
+        notes: null,
+      },
+    ];
+  }
+
+  const downPayment =
+    detail.down_payment != null ? Number(detail.down_payment) : null;
+  const finalPayment =
+    downPayment != null ? Math.max(totalAmount - downPayment, 0) : null;
+
+  return {
+    id: detail.id,
+    buyer: {
+      legalName: subsRes.data?.legal_name ?? "—",
+      taxId: subsRes.data?.tax_id ?? null,
+      address: subsRes.data?.address ?? null,
+      phone: subsRes.data?.phone ?? null,
+      responsible: subsRes.data?.responsible_person ?? null,
+    },
+    brand: {
+      key: scope.brand_id,
+      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+    },
+    customer: {
+      code: custRes.data?.code ?? null,
+      name: custRes.data?.name ?? detail.customer_name ?? "—",
+      phone: custRes.data?.phone ?? detail.customer_phone ?? null,
+      email: custRes.data?.email ?? detail.customer_email ?? null,
+      address: custRes.data?.address ?? detail.customer_address ?? null,
+      taxId: custRes.data?.tax_id ?? null,
+      nationalId: custRes.data?.national_id ?? detail.buyer_national_id ?? null,
+    },
+    orderNo: detail.order_no,
+    orderDate: detail.created_at ? detail.created_at.slice(0, 10) : null,
+    contractType: detail.contract_type,
+    status: detail.status,
+    paymentMethod: detail.payment_method,
+    deliveryDate: detail.delivery_date,
+    finalPaymentDate: detail.final_payment_date,
+    rsName: detail.rs_name,
+    transferBy: detail.transfer_by,
+    signedAt: detail.signed_at,
+    fulfilledAt: detail.fulfilled_at,
+    vehicle: {
+      modelName: detail.vehicle_model_name,
+      color: detail.vehicle_color,
+      vin: detail.vehicle_vin,
+      engineNo: detail.vehicle_engine_no,
+      usedBrandModel: detail.used_brand_model,
+      usedYear: detail.used_year,
+      usedPlate: detail.used_plate,
+      usedCc: detail.used_cc,
+      usedMileage: detail.used_mileage,
+      usedCertLevel: detail.used_cert_level,
+    },
+    lines,
+    totalAmount,
+    downPayment,
+    finalPayment,
+    specialNotes: detail.special_notes,
+    conditionNotes: detail.condition_notes,
+  };
+}
+
 export async function getSalesOrderFormData(): Promise<{
   customers: CustomerPickRow[];
   vehicleModels: VehicleModelPickRow[];

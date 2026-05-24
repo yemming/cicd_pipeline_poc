@@ -30,6 +30,7 @@ import type {
   SalesQuoteDetail,
   SalesQuoteRow,
   UpdateSalesQuoteInput,
+  VehicleKind,
 } from "./sales-quote.constants";
 
 // ─────────────────────────────────────────────────────────────
@@ -450,4 +451,193 @@ export async function deleteSalesQuote(
 
   revalidatePath("/sales/quote");
   return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 列印 — getSalesQuoteForPrint(id)
+//
+// 跟 detail 不同：除了單頭 + 明細，還補撈
+//   - subsidiary（買方 / 開單公司 letterhead）
+//   - customer 完整聯絡（電話 / email / 地址 / 統編，若有 customer_id）
+//   - vehicle_model 詳細資訊（series / cc / msrp）
+// 一支 helper 撈乾淨，print page 不要自己拼 query。
+// ─────────────────────────────────────────────────────────────
+
+export type SalesQuoteForPrint = {
+  /** 原 sales_quotes.id (uuid)，給 /api/pdf/quotation/{id} 用 */
+  id: string;
+  // 賣方（公司 letterhead）
+  seller: {
+    legalName: string;
+    taxId: string | null;
+    address: string | null;
+    phone: string | null;
+    responsible: string | null;
+  };
+  brand: { key: string; displayName: string };
+
+  // 客戶
+  customer: {
+    code: string | null;
+    name: string;
+    contactPhone: string | null;
+    email: string | null;
+    address: string | null;
+    taxId: string | null;
+  };
+
+  // 單頭
+  quoteNo: string;
+  vehicleKind: VehicleKind;
+  status: QuoteStatus;
+  rsName: string | null;
+  expiresAt: string | null;
+  sentAt: string | null;
+  estimatedDeliveryDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+
+  // 車輛
+  vehicle: {
+    modelName: string | null;
+    series: string | null;
+    engineCc: number | null;
+    msrp: number | null;
+    usedBrandModel: string | null;
+  };
+
+  // 明細（從 lines jsonb 拆）
+  lines: Array<{
+    lineNo: number;
+    category: QuoteLine["category"];
+    categoryLabel: string;
+    name: string;
+    note: string | null;
+    listPrice: number | null;
+    quotePrice: number;
+    isGift: boolean;
+  }>;
+
+  // 金額
+  vehicleAmount: number;
+  addonAmount: number;
+  discountAmount: number;
+  /** 稅前小計 = vehicle + addon - discount（= total / 1.05 之四捨五入近似） */
+  amountPretax: number;
+  amountTax: number;
+  amountTotal: number;
+};
+
+// 報價明細分類顯示名（給列印用，跟 list view chip 對齊）
+const QUOTE_LINE_CATEGORY_LABEL: Record<QuoteLine["category"], string> = {
+  vehicle: "車輛",
+  gift: "贈品",
+  addon: "加值附加",
+  insurance: "保險",
+  license: "牌照 / 規費",
+  discount: "折扣",
+};
+
+export async function getSalesQuoteForPrint(
+  id: string,
+): Promise<SalesQuoteForPrint | null> {
+  // reuse detail fetcher（單頭 + lines + brand 範圍檢查都已處理）
+  const detail = await getSalesQuoteById(id);
+  if (!detail) return null;
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // brand registry 是 client-side 靜態資料、不能 server import；改 hard-coded（兩個品牌）
+  const brandDisplayName: Record<string, string> = {
+    ducati: "Ducati Taiwan",
+    indian: "Indian Motorcycle Taiwan",
+  };
+
+  const [subsRes, custRes, modelRes] = await Promise.all([
+    supabase
+      .from("subsidiaries")
+      .select("legal_name, tax_id, address, phone, responsible_person")
+      .eq("id", scope.subsidiary_id)
+      .maybeSingle(),
+    detail.customer_id
+      ? supabase
+          .from("customers")
+          .select("code, name, phone, email, address, tax_id")
+          .eq("id", detail.customer_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    detail.vehicle_model_id
+      ? supabase
+          .from("vehicle_models")
+          .select("series, display_name, model_name, engine_cc, msrp")
+          .eq("id", detail.vehicle_model_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+  ]);
+
+  // 含稅總計 → 拆 5% 稅（台灣營業稅率）。total = pretax * 1.05 → pretax = total / 1.05
+  const total = Number(detail.total_amount ?? 0);
+  const pretax = Math.round(total / 1.05);
+  const tax = total - pretax;
+
+  return {
+    id: detail.id,
+    seller: {
+      legalName: subsRes.data?.legal_name ?? "—",
+      taxId: subsRes.data?.tax_id ?? null,
+      address: subsRes.data?.address ?? null,
+      phone: subsRes.data?.phone ?? null,
+      responsible: subsRes.data?.responsible_person ?? null,
+    },
+    brand: {
+      key: scope.brand_id,
+      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+    },
+    customer: {
+      code: custRes.data?.code ?? null,
+      name: custRes.data?.name ?? detail.customer_name ?? "—",
+      contactPhone: custRes.data?.phone ?? detail.customer_phone ?? null,
+      email: custRes.data?.email ?? null,
+      address: custRes.data?.address ?? null,
+      taxId: custRes.data?.tax_id ?? null,
+    },
+    quoteNo: detail.quote_no,
+    vehicleKind: detail.vehicle_kind,
+    status: detail.status,
+    rsName: detail.rs_name,
+    expiresAt: detail.expires_at,
+    sentAt: detail.sent_at,
+    estimatedDeliveryDate: detail.estimated_delivery_date,
+    notes: detail.notes,
+    createdAt: detail.created_at,
+    updatedAt: detail.updated_at,
+    vehicle: {
+      modelName:
+        modelRes.data?.display_name ??
+        modelRes.data?.model_name ??
+        detail.vehicle_model_name,
+      series: modelRes.data?.series ?? null,
+      engineCc: modelRes.data?.engine_cc ?? null,
+      msrp: modelRes.data?.msrp != null ? Number(modelRes.data.msrp) : null,
+      usedBrandModel: detail.used_brand_model,
+    },
+    lines: (detail.lines ?? []).map((l, i) => ({
+      lineNo: i + 1,
+      category: l.category,
+      categoryLabel: QUOTE_LINE_CATEGORY_LABEL[l.category] ?? l.category,
+      name: l.name,
+      note: l.note ?? null,
+      listPrice: l.listPrice ?? null,
+      quotePrice: Number(l.quotePrice ?? 0),
+      isGift: Boolean(l.isGift),
+    })),
+    vehicleAmount: Number(detail.vehicle_amount ?? 0),
+    addonAmount: Number(detail.addon_amount ?? 0),
+    discountAmount: Number(detail.discount_amount ?? 0),
+    amountPretax: pretax,
+    amountTax: tax,
+    amountTotal: total,
+  };
 }

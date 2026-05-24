@@ -164,6 +164,15 @@ export function RepairOrderDetailView({
               新增 RO
             </Link>
           )}
+          <button
+            type="button"
+            onClick={() =>
+              window.open(`/print/repair-order/${ro.id}`, "_blank")
+            }
+            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
+          >
+            🖨️ 列印 / PDF
+          </button>
           {canEdit && ro.status !== "已取消" && ro.status !== "已關單" && (
             <button
               type="button"

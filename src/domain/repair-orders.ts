@@ -690,3 +690,331 @@ export async function nextSequenceNo(
   const top = (data ?? [])[0] as { sequence_no: number } | undefined;
   return (top?.sequence_no ?? 0) + 1;
 }
+
+// ─────────────────────────────────────────────────────────────
+// 列印 — getRepairOrderForPrint(id)
+//
+// 跟 detail 不同：除了單頭，還要撈
+//   - subsidiary（服務端法人 letterhead）
+//   - customer 完整聯絡（電話 / email / 地址）
+//   - vehicle 車籍（VIN / 引擎號碼 / 出廠日 / 現里程 / 保固到期）
+//   - workshop / store 地址
+//   - repair_order_lines：labor + parts 兩段
+// 一支 helper 一次撈乾淨，print page 不要自己拼 query。
+// ─────────────────────────────────────────────────────────────
+
+export type RepairOrderForPrint = {
+  /** repair_orders.id (uuid)，給 /api/pdf/repair-order/{id} 用 */
+  id: string;
+  // 服務端（公司 letterhead）
+  buyer: {
+    legalName: string;
+    taxId: string | null;
+    address: string | null;
+    phone: string | null;
+    responsible: string | null;
+  };
+  brand: { key: string; displayName: string };
+
+  // 客戶 + 車輛
+  customer: {
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+  };
+  vehicle: {
+    licensePlate: string | null;
+    modelName: string | null;
+    vin: string | null;
+    engineNo: string | null;
+    color: string | null;
+    manufacturedYear: number | null;
+    currentMileage: number | null;
+    warrantyUntil: string | null;
+  };
+
+  // 工廠 / 服務點
+  workshop: {
+    name: string | null;
+    address: string | null;
+  };
+
+  // 單頭
+  roCode: string;
+  issueDate: string | null;
+  prefixP1: string;
+  prefixP2: string;
+  status: string;
+  saName: string | null;
+  leadTechnicianName: string | null;
+  leadTechnicianCode: string | null;
+  mileageIn: number | null;
+  openedAt: string | null;
+  estimatedCompletion: string | null;
+  closedAt: string | null;
+  notes: string | null;
+  customerComplaint: string | null;
+
+  // 明細 — 兩段
+  laborLines: Array<{
+    lineNo: number;
+    name: string;
+    units: number;
+    unitPrice: number;
+    amount: number;
+    isWarranty: boolean;
+    note: string | null;
+  }>;
+  partLines: Array<{
+    lineNo: number;
+    code: string | null;
+    name: string;
+    qty: number;
+    unitPrice: number;
+    amount: number;
+    isWarranty: boolean;
+  }>;
+
+  // 總計（同 lines 頁的算法：折扣 → 稅 5% → 含稅）
+  amountLaborSubtotal: number;
+  amountPartsSubtotal: number;
+  amountSubtotal: number;
+  discountPct: number;
+  amountTax: number;
+  amountTotal: number;
+};
+
+export async function getRepairOrderForPrint(
+  id: string,
+): Promise<RepairOrderForPrint | null> {
+  if (!id) return null;
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const brand = scope.brand_id;
+
+  const { data: ro, error: roErr } = await supabase
+    .from("repair_orders")
+    .select("*")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (roErr || !ro) return null;
+
+  const roRec = ro as unknown as RepairOrderRow;
+  const meta = (roRec.metadata ?? {}) as Record<string, unknown>;
+  const discount_pct = Number(meta.discount_pct ?? 0);
+  // 客訴 / 預計完工 / 備註目前都存 metadata（repair_orders 沒有對應 typed column）
+  const customerComplaint =
+    typeof meta.customer_complaint === "string"
+      ? (meta.customer_complaint as string)
+      : typeof meta.complaint === "string"
+        ? (meta.complaint as string)
+        : null;
+  const estimatedCompletion =
+    typeof meta.estimated_completion === "string"
+      ? (meta.estimated_completion as string)
+      : null;
+  const notes =
+    typeof meta.notes === "string"
+      ? (meta.notes as string)
+      : typeof meta.memo === "string"
+        ? (meta.memo as string)
+        : null;
+
+  const brandDisplayName: Record<string, string> = {
+    ducati: "Ducati Taiwan",
+    indian: "Indian Motorcycle Taiwan",
+  };
+
+  const [subsRes, custRes, vehRes, saRes, techRes, linesRes, storeRes] = await Promise.all([
+    scope.subsidiary_id
+      ? supabase
+          .from("subsidiaries")
+          .select("legal_name, tax_id, address, phone, responsible_person")
+          .eq("id", scope.subsidiary_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    roRec.customer_id
+      ? supabase
+          .from("customers")
+          .select("name, phone, email, address")
+          .eq("id", roRec.customer_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    roRec.vehicle_id
+      ? supabase
+          .from("customer_vehicles")
+          .select(
+            "license_plate, vin, engine_no, color, manufactured_year, current_mileage, warranty_until, vehicle_models(display_name)",
+          )
+          .eq("id", roRec.vehicle_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    roRec.sa_id
+      ? supabase
+          .from("employees")
+          .select("name")
+          .eq("id", roRec.sa_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    roRec.lead_technician_id
+      ? supabase
+          .from("aftersales_technicians")
+          .select("name, code")
+          .eq("id", roRec.lead_technician_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    supabase
+      .from("repair_order_lines")
+      .select(
+        "id, line_no, kind, labor_name, labor_units, labor_note, part_code, part_name, qty, unit_price, amount, is_warranty",
+      )
+      .eq("repair_order_id", id)
+      .order("line_no", { ascending: true }),
+    roRec.store_id
+      ? supabase
+          .from("organizations")
+          .select("name, address")
+          .eq("id", roRec.store_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+  ]);
+
+  const subs = subsRes.data as
+    | {
+        legal_name: string;
+        tax_id: string | null;
+        address: string | null;
+        phone: string | null;
+        responsible_person: string | null;
+      }
+    | null;
+  const cust = custRes.data as
+    | { name: string; phone: string | null; email: string | null; address: string | null }
+    | null;
+  const vehRaw = vehRes.data as
+    | {
+        license_plate: string | null;
+        vin: string | null;
+        engine_no: string | null;
+        color: string | null;
+        manufactured_year: number | null;
+        current_mileage: number | null;
+        warranty_until: string | null;
+        vehicle_models: { display_name?: string } | { display_name?: string }[] | null;
+      }
+    | null;
+  const vehicleModelName = vehRaw
+    ? Array.isArray(vehRaw.vehicle_models)
+      ? vehRaw.vehicle_models[0]?.display_name ?? null
+      : vehRaw.vehicle_models?.display_name ?? null
+    : null;
+  const sa = saRes.data as { name: string } | null;
+  const tech = techRes.data as { name: string; code: string } | null;
+  const store = storeRes.data as { name: string | null; address: string | null } | null;
+
+  type LineRaw = {
+    line_no: number;
+    kind: "labor" | "part";
+    labor_name: string | null;
+    labor_units: number | null;
+    labor_note: string | null;
+    part_code: string | null;
+    part_name: string | null;
+    qty: number | null;
+    unit_price: number;
+    amount: number;
+    is_warranty: boolean;
+  };
+  const allLines = (linesRes.data ?? []) as unknown as LineRaw[];
+  const laborLines = allLines
+    .filter((l) => l.kind === "labor")
+    .map((l) => ({
+      lineNo: l.line_no,
+      name: l.labor_name ?? "—",
+      units: Number(l.labor_units ?? 0),
+      unitPrice: Number(l.unit_price ?? 0),
+      amount: Number(l.amount ?? 0),
+      isWarranty: l.is_warranty === true,
+      note: l.labor_note,
+    }));
+  const partLines = allLines
+    .filter((l) => l.kind === "part")
+    .map((l) => ({
+      lineNo: l.line_no,
+      code: l.part_code,
+      name: l.part_name ?? "—",
+      qty: Number(l.qty ?? 0),
+      unitPrice: Number(l.unit_price ?? 0),
+      amount: Number(l.amount ?? 0),
+      isWarranty: l.is_warranty === true,
+    }));
+
+  // 金額：跟 lines 頁同算法（subtotal × (1-discount%) → tax 5% → total）
+  const TAX_RATE = 0.05;
+  const laborSubtotal = laborLines.reduce((s, l) => s + l.amount, 0);
+  const partsSubtotal = partLines.reduce((s, l) => s + l.amount, 0);
+  const subtotal = laborSubtotal + partsSubtotal;
+  const safeDiscount = Math.max(0, Math.min(30, discount_pct));
+  const discounted = subtotal * (1 - safeDiscount / 100);
+  const tax = Math.round(discounted * TAX_RATE);
+  const total = Math.round(discounted + tax);
+
+  return {
+    id: roRec.id,
+    buyer: {
+      legalName: subs?.legal_name ?? "—",
+      taxId: subs?.tax_id ?? null,
+      address: subs?.address ?? null,
+      phone: subs?.phone ?? null,
+      responsible: subs?.responsible_person ?? null,
+    },
+    brand: {
+      key: brand,
+      displayName: brandDisplayName[brand] ?? brand,
+    },
+    customer: {
+      name: cust?.name ?? null,
+      phone: cust?.phone ?? null,
+      email: cust?.email ?? null,
+      address: cust?.address ?? null,
+    },
+    vehicle: {
+      licensePlate: vehRaw?.license_plate ?? null,
+      modelName: vehicleModelName,
+      vin: vehRaw?.vin ?? null,
+      engineNo: vehRaw?.engine_no ?? null,
+      color: vehRaw?.color ?? null,
+      manufacturedYear: vehRaw?.manufactured_year ?? null,
+      currentMileage: vehRaw?.current_mileage ?? null,
+      warrantyUntil: vehRaw?.warranty_until ?? null,
+    },
+    workshop: {
+      name: store?.name ?? null,
+      address: store?.address ?? null,
+    },
+    roCode: roRec.ro_code,
+    issueDate: roRec.issue_date,
+    prefixP1: roRec.prefix_p1,
+    prefixP2: roRec.prefix_p2,
+    status: roRec.status,
+    saName: sa?.name ?? null,
+    leadTechnicianName: tech?.name ?? null,
+    leadTechnicianCode: tech?.code ?? null,
+    mileageIn: roRec.mileage_in,
+    openedAt: roRec.opened_at,
+    estimatedCompletion,
+    closedAt: roRec.closed_at,
+    notes,
+    customerComplaint,
+    laborLines,
+    partLines,
+    amountLaborSubtotal: laborSubtotal,
+    amountPartsSubtotal: partsSubtotal,
+    amountSubtotal: subtotal,
+    discountPct: safeDiscount,
+    amountTax: tax,
+    amountTotal: total,
+  };
+}

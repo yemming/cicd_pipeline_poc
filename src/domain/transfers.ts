@@ -1907,3 +1907,212 @@ export async function clearTransferDelayed(
   revalidatePath("/parts/operations/transfers-in-transit");
   return { ok: true, data: { id } };
 }
+
+// ─────────────────────────────────────────────────────────────
+// 列印 — getTransferForPrint(id)
+//
+// 跟 detail 不同：除了單頭 + 明細，還要撈
+//   - subsidiary（公司 letterhead）
+//   - 出庫倉 / 入庫倉 完整資訊（含地址、所屬 org 名）
+// 一支 helper 一次撈乾淨，print page 不要自己拼 query。
+//
+// 業務語意：調撥是內部單據、無金額（不出帳），列印不顯示金額/小計，
+//   只列「調撥量 / 已收數量」。
+// ─────────────────────────────────────────────────────────────
+
+export type TransferForPrint = {
+  /** stock_transfers.id (uuid)，給 /api/pdf/stock-transfer/{id} 用 */
+  id: string;
+
+  // 公司 letterhead（出庫端的法人）
+  buyer: {
+    legalName: string;
+    taxId: string | null;
+    address: string | null;
+    phone: string | null;
+    responsible: string | null;
+  };
+  brand: { key: string; displayName: string };
+
+  // 出庫倉
+  fromWarehouse: {
+    code: string | null;
+    name: string | null;
+    address: string | null;
+    orgName: string | null;
+  };
+
+  // 入庫倉
+  toWarehouse: {
+    code: string | null;
+    name: string | null;
+    address: string | null;
+    orgName: string | null;
+  };
+
+  // 單頭
+  trNo: string;
+  shipDate: string | null;
+  expectedArrivalDate: string | null;
+  actualArrivalDate: string | null;
+  transferType: string | null;
+  reason: string | null;
+  status: string;
+  logisticsProvider: string | null;
+  logisticsTrackingNo: string | null;
+  notes: string | null;
+  shippedByName: string | null;
+  receivedByName: string | null;
+  shippedAt: string | null;
+  receivedAt: string | null;
+
+  // 明細（無金額）
+  lines: Array<{
+    lineNo: number;
+    itemCode: string | null;
+    itemName: string;
+    spec: string | null;
+    uom: string | null;
+    qtyShipped: number;
+    qtyReceived: number;
+    notes: string | null;
+  }>;
+
+  // 數量總計（沒金額；只有件數合計）
+  qtyShippedTotal: number;
+  qtyReceivedTotal: number;
+};
+
+export async function getTransferForPrint(
+  id: string,
+): Promise<TransferForPrint | null> {
+  // reuse detail fetcher（已有單頭 + 明細 + 倉庫名）
+  const detail = await getTransferById(id);
+  if (!detail) return null;
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const brandDisplayName: Record<string, string> = {
+    ducati: "Ducati Taiwan",
+    indian: "Indian Motorcycle Taiwan",
+  };
+
+  // 補撈：subsidiary（letterhead） + 兩倉完整資訊（含 org 名）+ items 規格
+  const [subsRes, srcWhRes, tgtWhRes] = await Promise.all([
+    supabase
+      .from("subsidiaries")
+      .select("legal_name, tax_id, address, phone, responsible_person")
+      .eq("id", scope.subsidiary_id)
+      .maybeSingle(),
+    detail.source_warehouse_id
+      ? supabase
+          .from("warehouses")
+          .select("code, name, address, org_id")
+          .eq("id", detail.source_warehouse_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    detail.target_warehouse_id
+      ? supabase
+          .from("warehouses")
+          .select("code, name, address, org_id")
+          .eq("id", detail.target_warehouse_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+  ]);
+
+  // org 名（兩倉的 organization 顯示名）
+  const orgIds = Array.from(
+    new Set(
+      [srcWhRes.data?.org_id, tgtWhRes.data?.org_id].filter(
+        (x): x is string => !!x,
+      ),
+    ),
+  );
+  let orgMap = new Map<string, string>();
+  if (orgIds.length > 0) {
+    const { data: orgs } = await supabase
+      .from("organizations")
+      .select("id, name")
+      .in("id", orgIds);
+    orgMap = new Map((orgs ?? []).map((o) => [o.id, o.name]));
+  }
+
+  // 規格欄位（items.specification / spec / metadata 都有可能）— 撈 items.metadata 看有沒有 spec
+  const itemIds = Array.from(new Set(detail.lines.map((l) => l.item_id)));
+  let specMap = new Map<string, string | null>();
+  if (itemIds.length > 0) {
+    const { data: itemRows } = await supabase
+      .from("items")
+      .select("id, metadata")
+      .in("id", itemIds);
+    specMap = new Map(
+      (itemRows ?? []).map((it) => {
+        const meta = (it.metadata ?? {}) as Record<string, unknown>;
+        const spec =
+          (meta.spec as string | undefined) ??
+          (meta.specification as string | undefined) ??
+          (meta.size as string | undefined) ??
+          null;
+        return [it.id, spec ?? null];
+      }),
+    );
+  }
+
+  return {
+    id: detail.id,
+    buyer: {
+      legalName: subsRes.data?.legal_name ?? "—",
+      taxId: subsRes.data?.tax_id ?? null,
+      address: subsRes.data?.address ?? null,
+      phone: subsRes.data?.phone ?? null,
+      responsible: subsRes.data?.responsible_person ?? null,
+    },
+    brand: {
+      key: scope.brand_id,
+      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+    },
+    fromWarehouse: {
+      code: srcWhRes.data?.code ?? null,
+      name: srcWhRes.data?.name ?? detail.source_warehouse_name,
+      address: srcWhRes.data?.address ?? null,
+      orgName: srcWhRes.data?.org_id
+        ? orgMap.get(srcWhRes.data.org_id) ?? null
+        : null,
+    },
+    toWarehouse: {
+      code: tgtWhRes.data?.code ?? null,
+      name: tgtWhRes.data?.name ?? detail.target_warehouse_name,
+      address: tgtWhRes.data?.address ?? null,
+      orgName: tgtWhRes.data?.org_id
+        ? orgMap.get(tgtWhRes.data.org_id) ?? null
+        : null,
+    },
+    trNo: detail.tr_no,
+    shipDate: detail.ship_date,
+    expectedArrivalDate: detail.expected_arrival_date,
+    actualArrivalDate: detail.actual_arrival_date,
+    transferType: detail.transfer_type,
+    reason: detail.reason,
+    status: detail.status,
+    logisticsProvider: detail.logistics_provider,
+    logisticsTrackingNo: detail.logistics_tracking_no,
+    notes: detail.notes,
+    shippedByName: detail.shipped_by_name,
+    receivedByName: detail.received_by_name,
+    shippedAt: detail.shipped_at,
+    receivedAt: detail.received_at,
+    lines: detail.lines.map((l) => ({
+      lineNo: l.line_no,
+      itemCode: l.item_code,
+      itemName: l.item_name ?? "—",
+      spec: specMap.get(l.item_id) ?? null,
+      uom: l.uom,
+      qtyShipped: l.qty_shipped,
+      qtyReceived: l.qty_received,
+      notes: l.notes,
+    })),
+    qtyShippedTotal: Number(detail.qty_shipped_total ?? 0),
+    qtyReceivedTotal: Number(detail.qty_received_total ?? 0),
+  };
+}

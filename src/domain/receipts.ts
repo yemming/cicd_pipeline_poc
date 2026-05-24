@@ -1231,6 +1231,244 @@ export async function returnReceipt(
   return { ok: true, data: { receipt_id: gr.id } };
 }
 
+// ─────────────────────────────────────────────────────────────
+// 列印 — getReceiptForPrint(id)
+//
+// 跟 detail 不同：除了單頭 + 明細，還要撈
+//   - subsidiary（買方法人 letterhead）
+//   - supplier 全資料（電話 / 地址 / 統編 / 付款條件）
+//   - warehouse 地址（收貨地）
+//   - 來源 PO line.qty_ordered（給「應收/實收/差異」用）
+//
+// 三種 receipt_type 共用此 helper，由 receipt_type 切換 buyer/vendor 與簽核標籤
+// （由 printable component 端依資料切，本 helper 純資料）。
+// ─────────────────────────────────────────────────────────────
+
+export type StockReceiptForPrint = {
+  /** stock_receipts.id — 給 /api/pdf/stock-receipt/{id} 用 */
+  id: string;
+  // 買方（公司 letterhead）
+  buyer: {
+    legalName: string;
+    taxId: string | null;
+    address: string | null;
+    phone: string | null;
+    responsible: string | null;
+  };
+  brand: { key: string; displayName: string };
+
+  // 賣方 / 供應商
+  vendor: {
+    code: string | null;
+    name: string;
+    contact: string | null;
+    phone: string | null;
+    address: string | null;
+    taxId: string | null;
+    paymentTerms: string | null;
+  };
+
+  // 收貨倉
+  shipTo: {
+    name: string | null;
+    address: string | null;
+  };
+
+  // 單頭
+  grNo: string;
+  receiptType: string;            // purchase / transfer / ro_return / warranty_return
+  receiptDate: string | null;
+  status: string;
+  sourcePoNo: string | null;      // 來源採購單號（purchase 才有）
+  sourceGiNo: string | null;
+  sourceTrNo: string | null;
+  notes: string | null;
+  postedByName: string | null;
+  postedAt: string | null;
+
+  // 明細（含應收/實收/差異 — qty_ordered 從來源 po_line 撈，沒有則為 null）
+  lines: Array<{
+    lineNo: number;
+    itemCode: string | null;
+    itemName: string;
+    spec: string | null;
+    uom: string | null;
+    qtyOrdered: number | null;
+    qtyReceived: number;
+    qtyDiff: number | null;
+    unitCost: number;
+    lineAmount: number;
+    binLabel: string | null;
+    notes: string | null;
+  }>;
+
+  // 總計
+  totalQtyOrdered: number | null;
+  totalQtyReceived: number;
+  totalAmount: number;
+};
+
+export async function getReceiptForPrint(
+  id: string,
+): Promise<StockReceiptForPrint | null> {
+  // reuse detail fetcher（已有單頭 + 明細 + 倉庫名 + 供應商基本資訊 + 來源 PO 單號）
+  const detail = await getReceiptById(id);
+  if (!detail) return null;
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const brandDisplayName: Record<string, string> = {
+    ducati: "Ducati Taiwan",
+    indian: "Indian Motorcycle Taiwan",
+  };
+
+  // 撈 source po_lines 的 qty_ordered（給「應收」欄）— 只有 source_doc_type=purchase_order 才撈
+  const lineIds = detail.lines.map((l) => l.id);
+  const poLineQtyMap = new Map<string, number>();
+  if (
+    detail.source_doc_type === "purchase_order" &&
+    detail.source_doc_id &&
+    lineIds.length > 0
+  ) {
+    // stock_receipt_lines.source_line_id -> purchase_order_lines.id；source_line_type='po_line'
+    const { data: srLines } = await supabase
+      .from("stock_receipt_lines")
+      .select("id, source_line_id, source_line_type")
+      .in("id", lineIds);
+    const poLineIds = Array.from(
+      new Set(
+        (srLines ?? [])
+          .filter((l) => l.source_line_type === "po_line" && l.source_line_id)
+          .map((l) => l.source_line_id as string),
+      ),
+    );
+    if (poLineIds.length > 0) {
+      const { data: poLines } = await supabase
+        .from("purchase_order_lines")
+        .select("id, qty_ordered")
+        .in("id", poLineIds);
+      const orderedById = new Map<string, number>(
+        (poLines ?? []).map((p) => [p.id, Number(p.qty_ordered ?? 0)]),
+      );
+      // 把 srLine.id → qty_ordered 串起來
+      for (const sr of srLines ?? []) {
+        if (sr.source_line_id && orderedById.has(sr.source_line_id)) {
+          poLineQtyMap.set(sr.id, orderedById.get(sr.source_line_id) as number);
+        }
+      }
+    }
+  }
+
+  const [subsRes, supRes, whRes, itemSpecRes] = await Promise.all([
+    supabase
+      .from("subsidiaries")
+      .select("legal_name, tax_id, address, phone, responsible_person")
+      .eq("id", scope.subsidiary_id)
+      .maybeSingle(),
+    detail.vendor_id
+      ? supabase
+          .from("suppliers")
+          .select("code, name, primary_contact, phone, address, tax_id, payment_terms")
+          .eq("id", detail.vendor_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    detail.warehouse_id
+      ? supabase
+          .from("warehouses")
+          .select("name, address")
+          .eq("id", detail.warehouse_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    // 撈 items.spec_description 給 spec 欄（如果有）
+    detail.lines.length > 0
+      ? supabase
+          .from("items")
+          .select("id, spec_description")
+          .in(
+            "id",
+            Array.from(new Set(detail.lines.map((l) => l.item_id))),
+          )
+      : Promise.resolve({ data: [] } as const),
+  ]);
+
+  const specMap = new Map<string, string | null>(
+    ((itemSpecRes.data ?? []) as Array<{ id: string; spec_description: string | null }>).map(
+      (it) => [it.id, it.spec_description],
+    ),
+  );
+
+  // 總計 — qty_ordered 只有任一 line 有對應 PO line 才算（避免 null + number = NaN）
+  let totalQtyOrdered: number | null = null;
+  let totalQtyReceived = 0;
+  for (const l of detail.lines) {
+    totalQtyReceived += Number(l.qty_received ?? 0);
+    const qo = poLineQtyMap.get(l.id);
+    if (qo !== undefined) {
+      totalQtyOrdered = (totalQtyOrdered ?? 0) + qo;
+    }
+  }
+
+  return {
+    id: detail.id,
+    buyer: {
+      legalName: subsRes.data?.legal_name ?? "—",
+      taxId: subsRes.data?.tax_id ?? null,
+      address: subsRes.data?.address ?? null,
+      phone: subsRes.data?.phone ?? null,
+      responsible: subsRes.data?.responsible_person ?? null,
+    },
+    brand: {
+      key: scope.brand_id,
+      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+    },
+    vendor: {
+      code: supRes.data?.code ?? null,
+      name: supRes.data?.name ?? detail.vendor_name ?? "—",
+      contact: supRes.data?.primary_contact ?? null,
+      phone: supRes.data?.phone ?? null,
+      address: supRes.data?.address ?? null,
+      taxId: supRes.data?.tax_id ?? null,
+      paymentTerms: supRes.data?.payment_terms ?? null,
+    },
+    shipTo: {
+      name: whRes.data?.name ?? detail.warehouse_name,
+      address: whRes.data?.address ?? null,
+    },
+    grNo: detail.gr_no,
+    receiptType: detail.type,
+    receiptDate: detail.receipt_date,
+    status: detail.status,
+    sourcePoNo: detail.source_po_no,
+    sourceGiNo: detail.source_gi_no,
+    sourceTrNo: detail.source_tr_no,
+    notes: detail.notes,
+    postedByName: detail.posted_by_name,
+    postedAt: detail.posted_at,
+    lines: detail.lines.map((l) => {
+      const qo = poLineQtyMap.get(l.id) ?? null;
+      const diff = qo !== null ? Number(l.qty_received ?? 0) - qo : null;
+      return {
+        lineNo: l.line_no,
+        itemCode: l.item_code,
+        itemName: l.item_name ?? "—",
+        spec: specMap.get(l.item_id) ?? null,
+        uom: l.uom,
+        qtyOrdered: qo,
+        qtyReceived: Number(l.qty_received ?? 0),
+        qtyDiff: diff,
+        unitCost: Number(l.unit_cost ?? 0),
+        lineAmount: Number(l.line_amount ?? 0),
+        binLabel: l.bin_label,
+        notes: l.notes,
+      };
+    }),
+    totalQtyOrdered,
+    totalQtyReceived,
+    totalAmount: Number(detail.amount_total ?? 0),
+  };
+}
+
 // ─────────────────────────── PO GRN new page（/parts/receipt/po-grn/new） ───────────────────────────
 
 export interface PoCandidate {

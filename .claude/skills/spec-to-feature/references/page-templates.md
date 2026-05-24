@@ -110,7 +110,22 @@ const handleSave = () => startTransition(async () => {
 
 ## Print Pattern（單據型頁面附掛）
 
-**範本**：尚未落地第一張，採購單預計第一個（路徑 `src/app/print/purchase-order/[id]/`）。
+**Canonical 範本**：採購單 PO（2026-05-24 首版落地）
+- Server page：`src/app/print/purchase-order/[id]/page.tsx`
+- Printable：`src/app/print/purchase-order/[id]/_components/purchase-order-printable.tsx`
+- Domain helper：`src/domain/orders.ts` line 464-630（`PurchaseOrderForPrint` 型別 + `getPurchaseOrderForPrint(id)`）
+- Detail pill 整合：`src/app/(workspace)/parts/purchase/orders/[id]/_components/purchase-order-detail-view.tsx` line 225-237
+
+**現役範例**（全部沿用同一套共用元件、看實際業務語意差異）：
+| 業務 | PRINT_SLUG | Helper | Detail pill |
+|---|---|---|---|
+| 採購單 | `purchase-order` | `src/domain/orders.ts::getPurchaseOrderForPrint` | `parts/purchase/orders/[id]` |
+| 銷售訂單 | `sales-order` | `src/domain/sales-orders.ts::getSalesOrderForPrint` | `sales/orders/[id]` |
+| 報價單 | `quotation` | `src/domain/sales-quote.ts::getSalesQuoteForPrint` | `sales/quote/[id]` |
+| 維修工單 | `repair-order` | `src/domain/repair-orders.ts::getRepairOrderForPrint` | `parts/aftersales/repair-orders/[id]` |
+| 領料單 | `stock-issue` | `src/domain/issues.ts::getIssueForPrint` | `parts/issue/repair-pick/[id]` |
+| 調撥單 | `stock-transfer` | `src/domain/transfers.ts::getTransferForPrint` | `parts/issue/transfer-out/[id]` |
+| 進貨單 | `stock-receipt` | `src/domain/receipts.ts::getReceiptForPrint` | `parts/receipt/po-grn/[id]` |
 
 **何時要做**：頁面是「業務單據」型，使用者會需要列印 / 另存 PDF / 簽核蓋章存檔。判斷清單見上方「列印按鈕只在『單據型』頁面出現」。
 
@@ -119,33 +134,39 @@ const handleSave = () => startTransition(async () => {
 ```
 src/app/print/{slug}/[id]/
   ├── page.tsx                          ← server，撈 getXxxForPrint(id) + 權限檢查
-  └── _components/{slug}-printable.tsx  ← client，渲染 + useEffect 自動 window.print()
+  └── _components/{slug}-printable.tsx  ← client，渲染 + 右上 <PrintToolbar />（不 auto window.print）
+
+src/app/api/pdf/[slug]/[id]/route.ts    ← server PDF API（puppeteer-core + @sparticuz/chromium）
+                                           ⚠️ 新 slug 必須加進 ALLOWED_SLUGS
 
 src/components/print/
-  ├── print-shell.tsx       brand logo + 文件標題 + 單號 + 客戶區 + 頁碼
-  ├── print-meta-grid.tsx   上方 KV grid
-  ├── print-table.tsx       表格（thead 跨頁 repeat）
-  ├── print-totals.tsx      金額小計區
-  ├── print-signatures.tsx  簽核欄
-  └── print.css             @page A4 / @media print 全域規則
+  ├── print-shell.tsx       brand logo + 文件標題 + 單號 + 買賣方區
+  ├── print-meta-grid.tsx   上方 KV grid（cols=2/3/4）
+  ├── print-table.tsx       表格（thead 跨頁 repeat、斑馬紋）
+  ├── print-totals.tsx      金額小計區（含稅 / 未稅 / 折扣 / grand total）
+  ├── print-signatures.tsx  簽核欄（可變角色）
+  ├── print-toolbar.tsx     螢幕版浮動「下載 PDF」(@media print 自動隱藏)
+  └── print.css             @page A4 / @media print 全域規則 + Noto Sans TC @import
 ```
 
-**技術選擇**：client-side `window.print()`，零新依賴。**禁止上 Puppeteer**（除非未來有 server-side 自動推 LINE/Email 的明確需求）。
+**技術選擇**：server-side PDF（puppeteer-core + @sparticuz/chromium），**不靠 `window.print()` 出 PDF**（瀏覽器強制塞 URL header / 頁碼 / 時間 footer）。`window.print()` 只當實體列印機 fallback。
 
 **SOP**（每張單據 ~30 分鐘）：
 
-1. 在對應 domain helper 加 `getXxxForPrint(id)` — 一次撈齊單頭 + 明細 + joined 顯示欄位（客戶名 / 業務員名 / subsidiary）
-2. 建 `src/app/print/{SLUG}/[id]/page.tsx` server component
-3. 建 `_components/{slug}-printable.tsx` client component，用共用 `<PrintShell>` 系列元件拼版面
-4. detail-view 的 CRUD pill bar 加列印按鈕：`window.open('/print/${SLUG}/${id}', '_blank')`
-5. Cmd+P 預覽 → 「另存為 PDF」測 A4 塞得下 + 表頭跨頁 repeat OK + iOS Safari 列印測
+1. 在對應 domain helper 加 `getXxxForPrint(id)` + `XxxForPrint` 型別 — reuse `getXxxById` 拿單頭 + 明細，補撈 subsidiary letterhead / 客戶 contact / supplier contact / warehouse 地址
+2. 建 `src/app/print/{SLUG}/[id]/page.tsx`（拷 `purchase-order/page.tsx`，改 permission constant + helper import）
+3. 建 `_components/{slug}-printable.tsx`（拷 PO printable，改業務欄位 + 文件標題 + 簽核欄）
+4. detail-view CRUD pill bar 加列印按鈕：`window.open('/print/{SLUG}/${id}', '_blank')`
+5. **把新 slug 加進** `src/app/api/pdf/[slug]/[id]/route.ts` 的 `ALLOWED_SLUGS`（少這步 PDF 會 400）
+6. 開 `/print/{SLUG}/{id}` 看 A4 預覽 → 點右上「下載 PDF」→ 檢查 PDF **沒有 URL header / 頁碼 / 時間 footer**、CJK 字體正常、多頁 thead 跨頁 repeat
 
-**完整規範**（每行都要照）：`CLAUDE.md` §📄 列印 / PDF Pattern。包含：
+**業務語意差異提醒**：
 
-- PRINT_SLUG 命名規則（kebab-case 單數名詞表）
-- Print CSS 字級用 pt 不用 px（印表機解析度脫鉤）
-- `<PrintShell>` props 表
-- 不要做的事 8 條
+- 內部單據（領料 / 調撥）**無金額** → 省略 `<PrintTotals>` 或改印「數量合計」
+- buyer / vendor 概念在不同單據不一樣（採購單 buyer=公司 / vendor=供應商；銷售訂單 buyer=客戶 / vendor=公司；領料單兩端都是內部部門/倉）— `<PrintShell>` 的 `buyer` 槽永遠擺「公司本體 letterhead」，對手方在 `<PrintMetaGrid>` 區塊內表達
+- 簽核欄角色由業務決定（採購 = 請購人/採購主管/財務/供應商簽收；報價 = 業務員/業務主管/客戶簽收；領料 = 領料人/倉管/倉管主管…）
+
+**完整規範**（每行都要照）：`CLAUDE.md` §📄 列印 / PDF Pattern。
 
 **禁止項**：
 
@@ -154,6 +175,9 @@ src/components/print/
 - ❌ 用 px 標尺寸（用 pt）
 - ❌ 編輯欄位 / 折疊互動（列印頁是 snapshot）
 - ❌ 沒做 `getXxxForPrint` helper、直接在 print page 拼 query
+- ❌ printable 裡 auto `window.print()`（預覽歸預覽、列印歸列印；user 自己點 toolbar）
+- ❌ 沒加 ALLOWED_SLUGS 就上線（PDF API 會 400）
+- ❌ 自己換字體沒 `@import` Google Fonts（chromium 不含 CJK 字體）
 
 ## Multi-section Page（謹慎使用）
 

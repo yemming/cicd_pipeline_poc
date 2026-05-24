@@ -16,13 +16,12 @@ export const maxDuration = 60;
  */
 const ALLOWED_SLUGS = new Set([
   "purchase-order",
-  // 之後新單據加在這
-  // "sales-order",
-  // "quotation",
-  // "repair-order",
-  // "stock-issue",
-  // "stock-transfer",
-  // "stock-receipt",
+  "sales-order",
+  "quotation",
+  "repair-order",
+  "stock-issue",
+  "stock-transfer",
+  "stock-receipt",
 ]);
 
 export async function GET(

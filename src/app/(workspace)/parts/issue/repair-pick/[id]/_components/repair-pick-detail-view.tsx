@@ -174,6 +174,15 @@ export function RepairPickDetailView({
               </button>
               <button
                 type="button"
+                onClick={() =>
+                  window.open(`/print/stock-issue/${issue.id}`, "_blank")
+                }
+                className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center gap-1 bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
+              >
+                🖨️ 列印
+              </button>
+              <button
+                type="button"
                 onClick={() => setVoidModalOpen(true)}
                 disabled={!canEdit || isCancelled}
                 className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"

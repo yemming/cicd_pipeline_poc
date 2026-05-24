@@ -248,6 +248,223 @@ export async function getIssueById(id: string): Promise<StockIssueDetail | null>
 }
 
 // ─────────────────────────────────────────────────────────────
+// 列印 — getIssueForPrint(id)
+//
+// 跟 detail 不同：補撈 subsidiary（買方 letterhead）+ warehouse 地址 + customer 完整資訊。
+// 通用 helper、根據 issue_type 切換語意（repair-pick / internal-sale / transfer-out）。
+// ─────────────────────────────────────────────────────────────
+
+export type IssueForPrintLine = {
+  lineNo: number;
+  itemCode: string | null;
+  itemName: string;
+  uom: string;
+  qtyIssued: number;
+  unitCost: number | null;
+  unitPrice: number | null;
+  lineAmount: number | null;
+  binLabel: string | null;
+  serialNo: string | null;
+  batchNo: string | null;
+  notes: string | null;
+};
+
+export type IssueForPrint = {
+  /** stock_issues.id，給 /api/pdf/stock-issue/{id} 用 */
+  id: string;
+  type: string;             // ro_picking / internal_sale / transfer_out
+  docTitle: string;         // 領料單 / 內售出貨單 / 調撥單
+  signatureRoles: string[]; // 依 type 切換
+
+  // 買方（公司 letterhead）
+  buyer: {
+    legalName: string;
+    taxId: string | null;
+    address: string | null;
+    phone: string | null;
+    responsible: string | null;
+  };
+  brand: { key: string; displayName: string };
+
+  // 申請部門 / 來源（取代採購單的 vendor 區塊）
+  applicant: {
+    /** 譬如「維修廠」「業務部」「調撥出庫」 */
+    department: string;
+    /** 譬如「RO-20251024-001」「ad-hoc 手動領料」「TR-2025xxx」 */
+    sourceDocNo: string | null;
+    /** 客戶（如果有，譬如 RO 對應車主、internal sale 對應客戶）*/
+    customerName: string | null;
+    customerCode: string | null;
+    customerPhone: string | null;
+  };
+
+  // 出庫倉
+  warehouse: {
+    code: string | null;
+    name: string;
+    address: string | null;
+  };
+
+  // 單頭
+  giNo: string;
+  issueDate: string | null;
+  status: string;
+  notes: string | null;
+  roNo: string | null;
+  sourceDocType: string | null;
+  postedByName: string | null;
+  postedAt: string | null;
+
+  // 明細
+  lines: IssueForPrintLine[];
+
+  // 統計（內部單據預設無金額，只統計數量；有 line_amount 時也回給上層自行決定要不要印）
+  qtyTotal: number;
+  amountTotal: number;
+  hasAmount: boolean;
+};
+
+const ISSUE_TYPE_META: Record<
+  string,
+  { docTitle: string; department: string; signatures: string[] }
+> = {
+  ro_picking: {
+    docTitle: "領料單 STOCK ISSUE",
+    department: "維修廠",
+    signatures: ["領料人 / 技師", "倉管", "倉管主管"],
+  },
+  internal_sale: {
+    docTitle: "內售出貨單 INTERNAL SALE",
+    department: "業務部",
+    signatures: ["業務", "倉管", "業務主管"],
+  },
+  transfer_out: {
+    docTitle: "調撥出庫單 TRANSFER OUT",
+    department: "調撥出庫",
+    signatures: ["出庫人", "入庫人", "倉管主管"],
+  },
+};
+
+export async function getIssueForPrint(
+  id: string,
+): Promise<IssueForPrint | null> {
+  const detail = await getIssueById(id);
+  if (!detail) return null;
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const brandDisplayName: Record<string, string> = {
+    ducati: "Ducati Taiwan",
+    indian: "Indian Motorcycle Taiwan",
+  };
+
+  const [subsRes, whRes, customerRes] = await Promise.all([
+    supabase
+      .from("subsidiaries")
+      .select("legal_name, tax_id, address, phone, responsible_person")
+      .eq("id", scope.subsidiary_id)
+      .maybeSingle(),
+    detail.warehouse_id
+      ? supabase
+          .from("warehouses")
+          .select("code, name, address")
+          .eq("id", detail.warehouse_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+    detail.customer_id
+      ? supabase
+          .from("customers")
+          .select("code, name, phone")
+          .eq("id", detail.customer_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null } as const),
+  ]);
+
+  const meta =
+    ISSUE_TYPE_META[detail.type ?? ""] ?? {
+      docTitle: "出庫單 STOCK ISSUE",
+      department: "—",
+      signatures: ["申請人", "倉管", "主管"],
+    };
+
+  // 來源單號：RO 工單優先；ad-hoc / internal sale 用 notes 開頭或標記
+  let sourceDocNo: string | null = null;
+  if (detail.ro_no) {
+    sourceDocNo = `RO ${detail.ro_no}`;
+  } else if (detail.type === "ro_picking") {
+    sourceDocNo = "ad-hoc 手動領料";
+  }
+
+  const lines: IssueForPrintLine[] = detail.lines.map((l) => ({
+    lineNo: l.line_no,
+    itemCode: l.item_code,
+    itemName: l.item_name ?? "—",
+    uom: l.uom,
+    qtyIssued: Number(l.qty_issued ?? 0),
+    unitCost: l.unit_cost,
+    unitPrice: l.unit_price,
+    lineAmount: l.line_amount,
+    binLabel: l.bin_label,
+    serialNo: l.serial_no,
+    batchNo: l.batch_no,
+    notes: l.notes,
+  }));
+
+  const qtyTotal = lines.reduce((s, l) => s + l.qtyIssued, 0);
+  const amountTotal = lines.reduce(
+    (s, l) => s + Number(l.lineAmount ?? 0),
+    0,
+  );
+  // 內部單據預設無金額；只有 internal_sale 確實有 unit_price 才印 totals
+  const hasAmount =
+    detail.type === "internal_sale" &&
+    lines.some((l) => l.unitPrice !== null && Number(l.unitPrice) > 0);
+
+  return {
+    id: detail.id,
+    type: detail.type ?? "ro_picking",
+    docTitle: meta.docTitle,
+    signatureRoles: meta.signatures,
+    buyer: {
+      legalName: subsRes.data?.legal_name ?? "—",
+      taxId: subsRes.data?.tax_id ?? null,
+      address: subsRes.data?.address ?? null,
+      phone: subsRes.data?.phone ?? null,
+      responsible: subsRes.data?.responsible_person ?? null,
+    },
+    brand: {
+      key: scope.brand_id,
+      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+    },
+    applicant: {
+      department: meta.department,
+      sourceDocNo,
+      customerName: customerRes.data?.name ?? detail.customer_name ?? null,
+      customerCode: customerRes.data?.code ?? null,
+      customerPhone: customerRes.data?.phone ?? null,
+    },
+    warehouse: {
+      code: whRes.data?.code ?? detail.warehouse_code,
+      name: whRes.data?.name ?? detail.warehouse_name ?? "—",
+      address: whRes.data?.address ?? null,
+    },
+    giNo: detail.gi_no,
+    issueDate: detail.issue_date,
+    status: detail.status,
+    notes: detail.notes,
+    roNo: detail.ro_no,
+    sourceDocType: detail.source_doc_type,
+    postedByName: detail.posted_by_name,
+    postedAt: detail.posted_at,
+    lines,
+    qtyTotal,
+    amountTotal: Math.round(amountTotal * 100) / 100,
+    hasAmount,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 // New form data + preview
 // ─────────────────────────────────────────────────────────────
 

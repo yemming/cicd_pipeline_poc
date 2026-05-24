@@ -219,6 +219,19 @@ export function ReceiptDetailView({
               </button>
               <button
                 type="button"
+                onClick={() =>
+                  window.open(`/print/stock-receipt/${receipt.id}`, "_blank")
+                }
+                className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm inline-flex items-center gap-1"
+                title="列印 / 另存 PDF"
+              >
+                <span className="material-symbols-outlined text-[14px]">
+                  print
+                </span>
+                列印
+              </button>
+              <button
+                type="button"
                 onClick={confirmPay}
                 disabled={!canEdit || isCancelled || isPaid || isReturned || isPending}
                 className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm disabled:opacity-50"

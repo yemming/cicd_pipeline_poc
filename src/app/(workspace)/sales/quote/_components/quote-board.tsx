@@ -249,9 +249,12 @@ export default function QuoteBoard({
       width: 160,
       hideable: false,
       cell: (r) => (
-        <span className="font-mono font-semibold text-[#1A3A5C]">
+        <Link
+          href={`/sales/quote/${r.id}`}
+          className="font-mono font-semibold text-[#1A3A5C] hover:text-[#185FA5] hover:underline"
+        >
           {r.quote_no}
-        </span>
+        </Link>
       ),
       exportValue: (r) => r.quote_no,
       sortValue: (r) => r.quote_no,
