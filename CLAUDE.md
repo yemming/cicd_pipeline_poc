@@ -635,8 +635,13 @@ create mode 下 H1 顯示「（未命名{NOUN}）」、chip 列顯示「— [尚
 
 ```
 src/app/print/{slug}/[id]/
-  ├── page.tsx                          ← server component；撈資料 + 權限檢查
-  └── _components/{slug}-printable.tsx  ← client component；渲染 + 右上浮動列印工具列
+  ├── page.tsx                          ← server component；撈資料 + 權限檢查（螢幕預覽用）
+  └── _components/{slug}-printable.tsx  ← client component；渲染 + 右上浮動工具列
+
+src/app/api/pdf/[slug]/[id]/route.ts    ← Server PDF API（headless chromium 對 print route 截圖、回 PDF blob）
+
+src/lib/pdf/
+  └── render.ts             ← chromium launch / page.pdf 抽出共用 helper
 
 src/components/print/
   ├── print-shell.tsx       ← 共用文件外殼（brand logo / 文件標題 / 單號 / 客戶區）
@@ -644,21 +649,25 @@ src/components/print/
   ├── print-table.tsx       ← 表格元件（thead 跨頁 repeat、斑馬紋）
   ├── print-totals.tsx      ← 金額小計區（含稅 / 未稅 / 折扣 / 總計）
   ├── print-signatures.tsx  ← 簽核欄（申請人 / 主管 / 倉管 / 客戶簽收）
-  ├── print-toolbar.tsx     ← 螢幕版浮動工具列「列印 / 另存 PDF」「關閉」(@media print 自動隱藏)
-  └── print.css             ← @page / @media print 全域規則（一次 import 給所有 print route）
+  ├── print-toolbar.tsx     ← 螢幕版浮動工具列「下載 PDF」「關閉」(@media print 自動隱藏)
+  └── print.css             ← @page / @media print 全域規則（含 Google Fonts Noto Sans TC import）
 ```
 
-### 二、技術選擇 — 走 `window.print()`、不上 Puppeteer
+### 二、技術選擇 — `puppeteer-core` + `@sparticuz/chromium`（server-side）
 
-POC 階段一律用 client-side `window.print()` + 印表機 OS dialog「另存為 PDF」。理由：
+**為什麼不用 `window.print()`**：瀏覽器原生「另存為 PDF」會強制在每頁印 URL header / 頁碼 / 時間 footer（user 可手動取消但每次都要勾、印表機驅動還可能強塞），業務單據不能用。
 
-- 0 新依賴、Zeabur image 大小不變
-- iOS Safari / Android Chrome 都能列印 → 另存 PDF 到 Files
-- 手機 / iPad / 桌機共用同一份 print route，沒有 platform-specific 程式碼
+**走 server-side**：
 
-**未來真的需要 server-side 自動產 PDF 推 LINE / Email** 時，加 `/api/pdf/{slug}/[id]` endpoint 用 Puppeteer 對同一條 print route 截圖就好 — route 本體不重構。
+- `puppeteer-core@^23` + `@sparticuz/chromium@^131`（stripped Chromium，bundled 在 npm 套件裡、不需要 Dockerfile）
+- `/api/pdf/[slug]/[id]/route.ts` 是通用 endpoint，slug 走 whitelist (`ALLOWED_SLUGS`)
+- chromium 啟動 → forward auth cookie → page.goto(`/print/{slug}/{id}`) → `page.pdf({ displayHeaderFooter: false, printBackground: true })` → 回 PDF blob
 
-⚠️ **預覽 vs 列印分開** — print route 載完**只顯示 A4 預覽**，不自動觸發 `window.print()`。使用者要列印 / 存 PDF 時點右上 `<PrintToolbar>` 的按鈕。理由：自動跳列印 dialog 會打斷預覽流程、再加上瀏覽器 popup blocker 風險。
+**字體**：@sparticuz/chromium 不含任何 CJK 字體，中文會出豆腐。靠 `print.css` 的 `@import url('...Noto+Sans+TC...')` 拉 Google Fonts，render 時 chromium 自動 fetch。
+
+**Deploy 不用改 Zeabur 設定**：@sparticuz/chromium 把 chromium binary 包進 npm 套件 + 靜態連結 deps，`npm install` 完直接能跑，不用 Dockerfile / apt install。
+
+⚠️ **預覽 vs 列印分開** — print route 載完**只顯示 A4 預覽**（瀏覽器內），不自動觸發任何動作。使用者要 PDF 時點右上 `<PrintToolbar>` 的「下載 PDF」→ 走 server-side API → 回乾淨 PDF（**無 browser chrome / 無 URL header**）→ 在新 tab 用瀏覽器內建 PDF reader 開，從那邊可以再列印實體機（PDF reader 列印也不會有 URL header）。
 
 ### 三、列印路由結構
 
@@ -705,10 +714,10 @@ export default async function QuotationPrintPage({
 import { PrintShell, PrintMetaGrid, PrintTable, PrintTotals, PrintSignatures, PrintToolbar } from "@/components/print";
 
 export function QuotationPrintable({ data }: { data: QuotationForPrint }) {
-  // 不 auto window.print() — 預覽歸預覽，使用者自己點右上「列印 / 另存 PDF」
+  // 不 auto window.print() — 預覽歸預覽，user 自己點右上「下載 PDF」走 server-side API
   return (
    <>
-    <PrintToolbar />
+    <PrintToolbar pdfHref={`/api/pdf/quotation/${data.id}`} />
     <PrintShell
       brand={data.brand}
       docTitle="報價單 QUOTATION"
@@ -867,24 +876,28 @@ export async function getQuotationForPrint(id: string): Promise<QuotationForPrin
 
 ### 七、新增列印頁的 SOP（每張單據 ~30 分鐘）
 
-1. **加 `getXxxForPrint(id)` 到對應 domain helper** — 撈齊單頭 + 明細 + joined 顯示欄位
+1. **加 `getXxxForPrint(id)` 到對應 domain helper** — 撈齊單頭 + 明細 + joined 顯示欄位；**型別必含 `id`** 給 PDF API URL 用
 2. **建 `src/app/print/{slug}/[id]/page.tsx`** — server component 拉資料 + 權限檢查
-3. **建 `_components/{slug}-printable.tsx`** — 用 `<PrintShell>` + `<PrintMetaGrid>` + `<PrintTable>` + `<PrintTotals>` + `<PrintSignatures>` 拼出版面
-4. **在對應 detail-view 加列印按鈕** — `window.open(\`/print/${SLUG}/${id}\`, '_blank')`
-5. **手測**：
-   - Cmd+P → 預覽 → 「另存為 PDF」 → 開 PDF 檢查 A4 是否塞得下、表頭跨頁有沒有 repeat
-   - 印表機列印一張看實體看版面（標題位置、簽核欄底部）
-   - iOS Safari 列印測：「分享 → 列印 → 多手指捏放預覽 → 另存 PDF」
+3. **建 `_components/{slug}-printable.tsx`** — 用 `<PrintShell>` + `<PrintMetaGrid>` + `<PrintTable>` + `<PrintTotals>` + `<PrintSignatures>` 拼出版面，把 `<PrintToolbar pdfHref={\`/api/pdf/${SLUG}/${data.id}\`} />` 放最外層
+4. **PDF API whitelist**：到 `src/app/api/pdf/[slug]/[id]/route.ts` 的 `ALLOWED_SLUGS` set 加新 slug（**不加會回 400**）
+5. **在對應 detail-view 加列印按鈕** — `window.open(\`/print/${SLUG}/${id}\`, '_blank')`
+6. **手測**：
+   - 螢幕預覽：開 `/print/{slug}/{id}` 直接看 A4 版面對不對
+   - PDF 下載：點工具列「下載 PDF」→ 開新 tab 看 PDF reader 內容 → **確認沒有 URL header / 頁碼 footer**
+   - 中文字：確認 PDF 內中文不是豆腐方塊（沒拉 Google Fonts 或 chromium 沒裝字體會出豆腐）
+   - 多頁：找一張行數 > 30 的單據看 thead 跨頁有沒有自動 repeat
 
 ### 八、不要做的事
 
 - ❌ 在 print route 留 `<Topbar>` / `<Sidebar>` — 列印就是要乾淨
 - ❌ 用 px 標尺寸 — 用 pt，否則跨印表機字級不對
 - ❌ 在列印頁加複雜互動（編輯欄位、按鈕展開折疊）— 列印頁是「snapshot」，要互動回 detail 頁做完再列印
-- ❌ 第一版就上 Puppeteer — 未來真的需要 server-side 自動推 PDF 再加
+- ❌ 走 `window.print()` 產 PDF — 瀏覽器強制印 URL header / 頁碼 footer，業務單據不能用；走 server-side `/api/pdf/{slug}/{id}` 才乾淨
 - ❌ 多人共用同一個 print route 但 props 大不同 — 設計上應該是「一張單一條 route」、共用的是 `<PrintShell>` 元件，不是 route
 - ❌ Print route 寫資料庫 — print 是純讀，禁止有任何 server action / mutation
 - ❌ 沒做 `getXxxForPrint` helper、直接在 print page 拼 query — joined 拼錯會 N+1，集中在 domain helper 一次撈乾淨
+- ❌ 新 slug 沒加進 `ALLOWED_SLUGS` 就上線 — PDF API 會回 400，detail page 螢幕版可用但「下載 PDF」按鈕會炸
+- ❌ 自己換字體 family 卻沒 import 對應的 @font-face — server chromium 沒任何 CJK 字體，會出豆腐
 
 ---
 

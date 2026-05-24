@@ -471,6 +471,8 @@ export async function getPurchaseOrderById(
 // ─────────────────────────────────────────────────────────────
 
 export type PurchaseOrderForPrint = {
+  /** 原 purchase_orders.id (uuid)，給 /api/pdf/purchase-order/{id} 用 */
+  id: string;
   // 買方（公司 letterhead）
   buyer: {
     legalName: string;
@@ -572,6 +574,7 @@ export async function getPurchaseOrderForPrint(
   ]);
 
   return {
+    id: detail.id,
     buyer: {
       legalName: subsRes.data?.legal_name ?? "—",
       taxId: subsRes.data?.tax_id ?? null,

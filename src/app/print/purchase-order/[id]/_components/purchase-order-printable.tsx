@@ -60,7 +60,7 @@ export function PurchaseOrderPrintable({
 
   return (
     <>
-      <PrintToolbar />
+      <PrintToolbar pdfHref={`/api/pdf/purchase-order/${data.id}`} />
       <PrintShell
         brand={data.brand}
         buyer={data.buyer}
