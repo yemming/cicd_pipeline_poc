@@ -1,34 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/domain/rag-chat";
 import { recordFeedback } from "@/domain/rag-chat";
-import type { RetrievedChunk, RagSourceType } from "@/lib/ai/rag-retrieve";
-import {
-  resolveIcon,
-  resolveShortLabel,
-  resolveHref,
-} from "@/lib/ai/rag-registry";
-
-function sourceTypeIcon(t: RagSourceType): string {
-  return resolveIcon(t);
-}
-
-function citationShortLabel(chunk: RetrievedChunk): string {
-  return resolveShortLabel(chunk.sourceType, chunk.metadata);
-}
-
-/** Citation pill 點擊 → 跳轉到對應原始資料頁；null 表示無對應頁面（開 modal 看內容） */
-function citationHref(chunk: RetrievedChunk): string | null {
-  // customer 特例：用 sourceId（uuid）做 detail page path
-  if (chunk.sourceType === "customer") {
-    return `/admin/master-data/customers/${chunk.sourceId}`;
-  }
-  return resolveHref(chunk.sourceType, chunk.metadata);
-}
 
 export function ChatMessageBubble({
   message,
@@ -44,7 +20,6 @@ export function ChatMessageBubble({
   /** user bubble hover 「✏️ 編輯」會呼叫、傳 current content + messageId */
   onEdit?: (currentContent: string) => void;
 }) {
-  const [openChunk, setOpenChunk] = useState<RetrievedChunk | null>(null);
   const [fb, setFb] = useState<'up' | 'down' | null>(
     message.feedback?.rating ?? null,
   );
@@ -89,47 +64,6 @@ export function ChatMessageBubble({
             <MarkdownBody content={message.content} streaming={isStreaming} />
           )}
         </div>
-
-        {/* Citations — chip 列、不再用 details */}
-        {!isUser &&
-          !isStreaming &&
-          message.retrieved_chunks &&
-          message.retrieved_chunks.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pl-1">
-              {message.retrieved_chunks.map((c, idx) => {
-                const href = citationHref(c);
-                const sim = Math.round(c.similarity * 100);
-                const inner = (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-[#EEECE6] text-[11px] text-[#5A5955] hover:border-[#185FA5] hover:text-[#185FA5] transition-colors cursor-pointer">
-                    <span>{sourceTypeIcon(c.sourceType)}</span>
-                    <span className="font-medium">{citationShortLabel(c)}</span>
-                    <span className="text-[#9A9890]">{sim}%</span>
-                  </span>
-                );
-                return (
-                  <button
-                    key={c.chunkId || idx}
-                    onClick={(e) => {
-                      // Cmd / Ctrl 點擊 → 跳頁；普通點擊 → 開 modal 看 chunk
-                      if (href && (e.metaKey || e.ctrlKey)) {
-                        window.open(href, "_blank");
-                        return;
-                      }
-                      setOpenChunk(c);
-                    }}
-                    className="focus:outline-none"
-                    title={
-                      href
-                        ? "點擊看完整內容（Cmd+點擊在新分頁開原資料）"
-                        : "點擊看完整內容"
-                    }
-                  >
-                    {inner}
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
         {/* Action row + Footer — assistant 才有 */}
         {!isUser && !isStreaming && (
@@ -202,11 +136,6 @@ export function ChatMessageBubble({
           我
         </div>
       )}
-
-      {/* Chunk content modal */}
-      {openChunk && (
-        <ChunkModal chunk={openChunk} onClose={() => setOpenChunk(null)} />
-      )}
     </div>
   );
 }
@@ -277,63 +206,3 @@ function MarkdownBody({ content, streaming }: { content: string; streaming?: boo
   );
 }
 
-// ─── Chunk content modal ──────────────────────────────────
-
-function ChunkModal({
-  chunk,
-  onClose,
-}: {
-  chunk: RetrievedChunk;
-  onClose: () => void;
-}) {
-  const href = citationHref(chunk);
-  const sim = Math.round(chunk.similarity * 100);
-  return (
-    <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
-        <header className="px-4 py-3 border-b border-[#EEECE6] flex items-center gap-2">
-          <span className="text-[20px]">{sourceTypeIcon(chunk.sourceType)}</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-semibold truncate">
-              {citationShortLabel(chunk)}
-            </div>
-            <div className="text-[11px] text-[#9A9890]">
-              {chunk.sourceType} ・ 相似度 {sim}%
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-[#9A9890] hover:text-[#2C2C2A] text-[18px] px-2"
-          >
-            ✕
-          </button>
-        </header>
-        <div className="flex-1 overflow-y-auto p-4 text-[12.5px] text-[#2C2C2A] whitespace-pre-wrap leading-relaxed">
-          {chunk.content}
-        </div>
-        <footer className="px-4 py-2.5 border-t border-[#EEECE6] flex justify-end gap-2">
-          {href && (
-            <Link
-              href={href}
-              target="_blank"
-              className="h-[28px] px-3 rounded text-[12px] bg-[#185FA5] text-white hover:bg-[#0F2A45] inline-flex items-center"
-            >
-              開啟原資料 ↗
-            </Link>
-          )}
-          <button
-            onClick={onClose}
-            className="h-[28px] px-3 rounded text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-          >
-            關閉
-          </button>
-        </footer>
-      </div>
-    </div>
-  );
-}
