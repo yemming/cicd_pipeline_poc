@@ -1,4 +1,4 @@
-import { listManuals } from "@/domain/manuals";
+import { listManuals, listVehicleModelOptions } from "@/domain/manuals";
 import { ManualsBoard } from "./_components/manuals-board";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
@@ -18,6 +18,9 @@ export default async function AdminManualsPage() {
     );
   }
 
-  const manuals = await listManuals();
-  return <ManualsBoard manuals={manuals} />;
+  const [manuals, vehicleModels] = await Promise.all([
+    listManuals(),
+    listVehicleModelOptions(),
+  ]);
+  return <ManualsBoard manuals={manuals} vehicleModels={vehicleModels} />;
 }

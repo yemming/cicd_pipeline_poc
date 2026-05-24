@@ -29,6 +29,8 @@ export type RetrieveOptions = {
   topK?: number;
   /** 限定客戶 id（會比對 metadata->>'customer_id'） */
   customerId?: string;
+  /** 限定車型 id（手冊 chunk 才適用、非手冊 source 不受影響） */
+  vehicleModelId?: string;
 };
 
 export async function retrieveContext(
@@ -49,6 +51,7 @@ export async function retrieveContext(
     p_brand_id: options.brandId,
     p_source_types: options.sourceTypes ?? null,
     p_customer_id: options.customerId ?? null,
+    p_vehicle_model_id: options.vehicleModelId ?? null,
     p_top_k: topK,
   });
 

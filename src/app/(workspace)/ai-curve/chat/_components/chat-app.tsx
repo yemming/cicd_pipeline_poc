@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   createSession,
   deleteSession,
+  deleteMessages,
   getSessionMessages,
   type ChatSession,
   type ChatMessage,
@@ -255,6 +256,44 @@ export function ChatApp({
     }
   }
 
+  /** 重新生成 assistant 答案：找上一條 user message、刪 user+assistant、重發 */
+  async function regenerate(assistantMessageId: string) {
+    if (streaming || !activeId) return;
+    const idx = messages.findIndex((m) => m.id === assistantMessageId);
+    if (idx < 1) return;
+    const userMsg = messages[idx - 1];
+    if (userMsg.role !== "user") return;
+
+    const r = await deleteMessages([userMsg.id, assistantMessageId]);
+    if (!r.ok) {
+      setBanner(`刪除舊訊息失敗：${r.error}`);
+      return;
+    }
+    setMessages((prev) =>
+      prev.filter((m) => m.id !== userMsg.id && m.id !== assistantMessageId),
+    );
+    await streamAnswer(activeId, userMsg.content);
+  }
+
+  /** 編輯重發：刪此 user message 及之後所有、用新內容重發 */
+  async function editAndResend(userMessageId: string, originalContent: string) {
+    if (streaming || !activeId) return;
+    const next = window.prompt("編輯問題", originalContent);
+    if (!next || !next.trim() || next.trim() === originalContent.trim()) return;
+
+    const idx = messages.findIndex((m) => m.id === userMessageId);
+    if (idx < 0) return;
+    const toDelete = messages.slice(idx).map((m) => m.id);
+
+    const r = await deleteMessages(toDelete);
+    if (!r.ok) {
+      setBanner(`刪除舊訊息失敗：${r.error}`);
+      return;
+    }
+    setMessages((prev) => prev.slice(0, idx));
+    await streamAnswer(activeId, next.trim());
+  }
+
   return (
     <main className="flex h-[calc(100vh-64px)] -mx-6 -my-5 bg-[#F8F7F4] relative">
       {/* Mobile backdrop（< md，sidebar 開啟時顯示） */}
@@ -368,6 +407,16 @@ export function ChatApp({
                 key={m.id}
                 message={m}
                 isStreaming={streaming && m.id.startsWith("temp-a-") && !m.content}
+                onRegenerate={
+                  m.role === "assistant" && !m.id.startsWith("temp-")
+                    ? () => regenerate(m.id)
+                    : undefined
+                }
+                onEdit={
+                  m.role === "user" && !m.id.startsWith("temp-")
+                    ? (content) => editAndResend(m.id, content)
+                    : undefined
+                }
               />
             ))
           )}

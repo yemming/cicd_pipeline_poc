@@ -39,6 +39,8 @@ export type ChatMessage = {
   tokens_out: number | null;
   latency_ms: number | null;
   created_at: string;
+  /** 用戶對這條 assistant message 的回饋（client-side join 帶上） */
+  feedback?: { rating: 'up' | 'down'; reason: string | null } | null;
 };
 
 // ─── sessions ─────────────────────────────────────────────
@@ -62,7 +64,79 @@ export async function getSessionMessages(sessionId: string): Promise<ChatMessage
     )
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true });
-  return (data ?? []) as ChatMessage[];
+  const rows = (data ?? []) as ChatMessage[];
+
+  // 一次撈這個 session 內所有 assistant message 的 feedback、attach 到對應 row
+  const assistantIds = rows.filter((r) => r.role === 'assistant').map((r) => r.id);
+  if (assistantIds.length > 0) {
+    const { data: fb } = await supabase
+      .from('chat_message_feedback')
+      .select('message_id, rating, reason')
+      .in('message_id', assistantIds);
+    const fbMap = new Map(
+      (fb ?? []).map((f) => [
+        f.message_id as string,
+        { rating: f.rating as 'up' | 'down', reason: f.reason as string | null },
+      ]),
+    );
+    for (const r of rows) {
+      if (r.role === 'assistant') r.feedback = fbMap.get(r.id) ?? null;
+    }
+  }
+  return rows;
+}
+
+/** 對 assistant message 給 👍/👎，重複按同 rating = 撤回、不同 rating = 改評 */
+export async function recordFeedback(
+  messageId: string,
+  rating: 'up' | 'down',
+  reason?: string,
+): Promise<Result<{ rating: 'up' | 'down' | null }>> {
+  const supabase = await createClient();
+  const ctx = await getCurrentUserContext();
+  if (!ctx.userId) return { ok: false, error: '未登入' };
+
+  // 看當前有沒有同 user 評過
+  const { data: existing } = await supabase
+    .from('chat_message_feedback')
+    .select('id, rating')
+    .eq('message_id', messageId)
+    .eq('created_by', ctx.userId)
+    .maybeSingle();
+
+  // 同 rating → 撤回（delete）
+  if (existing && existing.rating === rating) {
+    const { error } = await supabase
+      .from('chat_message_feedback')
+      .delete()
+      .eq('id', existing.id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: { rating: null } };
+  }
+
+  // 已存在但不同 rating → update
+  if (existing) {
+    const { error } = await supabase
+      .from('chat_message_feedback')
+      .update({
+        rating,
+        reason: reason ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: { rating } };
+  }
+
+  // 新評
+  const { error } = await supabase.from('chat_message_feedback').insert({
+    message_id: messageId,
+    rating,
+    reason: reason ?? null,
+    created_by: ctx.userId,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: { rating } };
 }
 
 export async function createSession(): Promise<Result<{ id: string }>> {
@@ -79,6 +153,15 @@ export async function createSession(): Promise<Result<{ id: string }>> {
   if (error || !data) return { ok: false, error: error?.message ?? 'unknown' };
   revalidatePath('/ai-curve/chat');
   return { ok: true, data: { id: data.id as string } };
+}
+
+/** 刪 message — 給「編輯重發」「重新生成」用，刪後 client 重新 streamAnswer */
+export async function deleteMessages(ids: string[]): Promise<Result<{ count: number }>> {
+  if (ids.length === 0) return { ok: true, data: { count: 0 } };
+  const supabase = await createClient();
+  const { error } = await supabase.from('chat_messages').delete().in('id', ids);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: { count: ids.length } };
 }
 
 export async function deleteSession(sessionId: string): Promise<Result<{ id: string }>> {

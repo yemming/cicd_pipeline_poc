@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ChatMessage } from "@/domain/rag-chat";
+import { recordFeedback } from "@/domain/rag-chat";
 import type { RetrievedChunk, RagSourceType } from "@/lib/ai/rag-retrieve";
 import {
   resolveIcon,
@@ -32,13 +33,34 @@ function citationHref(chunk: RetrievedChunk): string | null {
 export function ChatMessageBubble({
   message,
   isStreaming,
+  onRegenerate,
+  onEdit,
 }: {
   message: ChatMessage;
   /** true 時：assistant message 還在 streaming、顯示 cursor + 不渲染 footer */
   isStreaming?: boolean;
+  /** assistant bubble hover 「↻ 重新生成」會呼叫 */
+  onRegenerate?: () => void;
+  /** user bubble hover 「✏️ 編輯」會呼叫、傳 current content + messageId */
+  onEdit?: (currentContent: string) => void;
 }) {
   const [openChunk, setOpenChunk] = useState<RetrievedChunk | null>(null);
+  const [fb, setFb] = useState<'up' | 'down' | null>(
+    message.feedback?.rating ?? null,
+  );
+  const [, startFb] = useTransition();
   const isUser = message.role === "user";
+
+  function rate(rating: 'up' | 'down') {
+    // 樂觀更新：同 rating 撤回、不同改評
+    const prev = fb;
+    const next = prev === rating ? null : rating;
+    setFb(next);
+    startFb(async () => {
+      const r = await recordFeedback(message.id, rating);
+      if (!r.ok) setFb(prev); // rollback
+    });
+  }
 
   return (
     <div className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -109,15 +131,67 @@ export function ChatMessageBubble({
             </div>
           )}
 
-        {/* Footer — token / latency 收進 tooltip、不再純文字疊在底部 */}
-        {!isUser && !isStreaming && (message.tokens_in || message.latency_ms) && (
-          <div
-            className="text-[10.5px] text-[#9A9890] tabular-nums pl-1 cursor-help select-none"
-            title={`輸入 ${message.tokens_in ?? 0} tokens / 輸出 ${
-              message.tokens_out ?? 0
-            } tokens / 延遲 ${message.latency_ms ?? 0} ms`}
-          >
-            {((message.latency_ms ?? 0) / 1000).toFixed(1)}s
+        {/* Action row + Footer — assistant 才有 */}
+        {!isUser && !isStreaming && (
+          <div className="flex items-center gap-2 pl-1 mt-0.5">
+            {/* 👍 */}
+            <button
+              onClick={() => rate('up')}
+              title={fb === 'up' ? '取消讚' : '答得好'}
+              className={`w-7 h-7 rounded-md flex items-center justify-center text-[14px] transition-colors ${
+                fb === 'up'
+                  ? 'bg-[#EAF3DE] text-[#3B6D11]'
+                  : 'text-[#9A9890] hover:bg-[#F8F7F4] hover:text-[#3B6D11]'
+              }`}
+            >
+              👍
+            </button>
+            {/* 👎 */}
+            <button
+              onClick={() => rate('down')}
+              title={fb === 'down' ? '取消踩' : '答錯了 / 不好'}
+              className={`w-7 h-7 rounded-md flex items-center justify-center text-[14px] transition-colors ${
+                fb === 'down'
+                  ? 'bg-[#FDECEA] text-[#CC0000]'
+                  : 'text-[#9A9890] hover:bg-[#F8F7F4] hover:text-[#CC0000]'
+              }`}
+            >
+              👎
+            </button>
+            {/* ↻ 重新生成 */}
+            {onRegenerate && (
+              <button
+                onClick={onRegenerate}
+                title="重新生成"
+                className="w-7 h-7 rounded-md flex items-center justify-center text-[14px] text-[#9A9890] hover:bg-[#F8F7F4] hover:text-[#185FA5]"
+              >
+                <span className="material-symbols-outlined text-[16px]">refresh</span>
+              </button>
+            )}
+            {/* token / latency hover tooltip */}
+            {(message.tokens_in || message.latency_ms) && (
+              <div
+                className="text-[10.5px] text-[#9A9890] tabular-nums ml-1 cursor-help select-none"
+                title={`輸入 ${message.tokens_in ?? 0} tokens / 輸出 ${
+                  message.tokens_out ?? 0
+                } tokens / 延遲 ${message.latency_ms ?? 0} ms`}
+              >
+                {((message.latency_ms ?? 0) / 1000).toFixed(1)}s
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* User bubble action — hover 出「編輯」 */}
+        {isUser && onEdit && (
+          <div className="flex items-center gap-2 pr-1 mt-0.5 self-end">
+            <button
+              onClick={() => onEdit(message.content)}
+              title="編輯重發"
+              className="w-7 h-7 rounded-md flex items-center justify-center text-[14px] text-[#9A9890] hover:bg-[#F8F7F4] hover:text-[#185FA5]"
+            >
+              <span className="material-symbols-outlined text-[16px]">edit</span>
+            </button>
           </div>
         )}
       </div>

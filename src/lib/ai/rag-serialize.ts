@@ -374,13 +374,55 @@ export async function serializeHandcardVoiceNote(
   const transcript = n.transcript as string | null;
   if (transcript) bits.push(`逐字稿：${transcript.slice(0, 400)}`);
 
+  // Fuzzy match：reviewed 有 customer_name/phone → 查 customers 寫 metadata.customer_id
+  // 讓 hybrid retrieval 之後能跨 entity 撈相關工單 / 名片
+  let matchedCustomerId: string | null = null;
+  if (customerName || customerPhone) {
+    matchedCustomerId = await findCustomerByContact(
+      supabase,
+      n.brand_id as string,
+      customerName,
+      customerPhone,
+    );
+  }
+
   return {
     content: bits.join('｜'),
     metadata: {
       kind: 'handcard_voice',
       duration_seconds: n.duration_seconds,
+      customer_name: customerName ?? null,
+      customer_id: matchedCustomerId,
     },
   };
+}
+
+/** 模糊比對：先用電話（精準）、再退到姓名 ILIKE */
+async function findCustomerByContact(
+  supabase: SupabaseClient,
+  brandId: string,
+  name?: string,
+  phone?: string,
+): Promise<string | null> {
+  if (phone) {
+    const { data } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('brand_id', brandId)
+      .eq('phone', phone)
+      .maybeSingle();
+    if (data?.id) return data.id as string;
+  }
+  if (name && name.trim().length >= 2) {
+    const { data } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('brand_id', brandId)
+      .ilike('name', name.trim())
+      .maybeSingle();
+    if (data?.id) return data.id as string;
+  }
+  return null;
 }
 
 // ─── business_card_scan ────────────────────────────────────────
@@ -823,6 +865,8 @@ export async function serializeCustomerVehicle(
       vin: v.vin,
       customer_id: v.customer_id,
       vehicle_model_id: v.model_id,
+      // 車輛本身不過期、但保固到期可作降分提示
+      valid_until: v.warranty_until,
     },
   };
 }
@@ -984,7 +1028,12 @@ export async function serializeSalesQuote(
   if (q.notes?.trim()) bits.push(`備註：${q.notes.trim()}`);
   return {
     content: bits.join('｜'),
-    metadata: { quote_no: q.quote_no, customer_id: q.customer_id, status: q.status },
+    metadata: {
+      quote_no: q.quote_no,
+      customer_id: q.customer_id,
+      status: q.status,
+      valid_until: q.expires_at, // 過期 chunk 在 retrieval 會降分
+    },
   };
 }
 
@@ -1126,7 +1175,12 @@ export async function serializeInsurancePolicy(
   if (i.notes?.trim()) bits.push(`備註：${i.notes.trim()}`);
   return {
     content: bits.join('｜'),
-    metadata: { policy_no: i.policy_no, customer_id: i.customer_id, status: i.status },
+    metadata: {
+      policy_no: i.policy_no,
+      customer_id: i.customer_id,
+      status: i.status,
+      valid_until: i.end_date, // 保險到期日 → retrieval 降分
+    },
   };
 }
 

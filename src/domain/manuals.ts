@@ -21,7 +21,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getActiveScope } from '@/lib/scope/active-scope';
 import { getCurrentUserContext, requirePermission } from '@/lib/rbac/policies';
 import { PERMISSIONS } from '@/lib/rbac/permissions';
-import { extractPdfText } from '@/lib/ai/pdf-parse';
+import { extractDocText } from '@/lib/ai/pdf-parse';
 import { chunkText, embedBatch, EMBEDDING_MODEL, toPgVector } from '@/lib/ai/embeddings';
 
 const BUCKET = 'manuals';
@@ -42,7 +42,25 @@ export type ManualListItem = {
   ingested_at: string | null;
   created_at: string;
   signed_url: string;
+  vehicle_model_ids: string[];
 };
+
+export type VehicleModelOption = {
+  id: string;
+  display_name: string;
+};
+
+export async function listVehicleModelOptions(): Promise<VehicleModelOption[]> {
+  const supabase = await createClient();
+  const { brand_id: brandId } = await getActiveScope();
+  const { data } = await supabase
+    .from('vehicle_models')
+    .select('id, display_name')
+    .eq('brand_id', brandId)
+    .eq('is_active', true)
+    .order('display_name');
+  return (data ?? []) as VehicleModelOption[];
+}
 
 // ─── upload ──────────────────────────────────────────────────
 
@@ -54,14 +72,42 @@ export async function uploadManual(
   const file = formData.get('file');
   const title = (formData.get('title') as string | null)?.trim() || '';
   const description = (formData.get('description') as string | null)?.trim() || null;
+  // 多選車型：modelIds 用 JSON 字串 ['uuid1', 'uuid2'] 傳
+  const modelIdsRaw = formData.get('vehicle_model_ids') as string | null;
+  let vehicleModelIds: string[] = [];
+  if (modelIdsRaw) {
+    try {
+      const parsed = JSON.parse(modelIdsRaw);
+      if (Array.isArray(parsed)) vehicleModelIds = parsed.filter((x) => typeof x === 'string');
+    } catch {
+      /* ignore */
+    }
+  }
   if (!(file instanceof File)) return { ok: false, error: '缺檔案' };
   if (!title) return { ok: false, error: '手冊標題必填' };
 
-  // 目前先只接 PDF（DOCX 留 Phase 2、寫 docx parser 再加）
-  const mimeType = file.type || 'application/pdf';
-  if (!mimeType.includes('pdf')) {
-    return { ok: false, error: '目前僅支援 PDF（DOCX / TXT 留下一輪）' };
+  // 接 PDF / DOCX / TXT；其餘擋下避免亂吃
+  const mimeType = file.type || 'application/octet-stream';
+  const filename = file.name?.toLowerCase() || '';
+  const isPdf = mimeType.includes('pdf') || filename.endsWith('.pdf');
+  const isDocx =
+    mimeType.includes('wordprocessingml') ||
+    mimeType.includes('msword') ||
+    filename.endsWith('.docx');
+  const isTxt =
+    mimeType.includes('text/plain') ||
+    mimeType.includes('text/markdown') ||
+    filename.endsWith('.txt') ||
+    filename.endsWith('.md');
+  if (!isPdf && !isDocx && !isTxt) {
+    return { ok: false, error: `不支援的檔案類型：${mimeType}（僅 PDF / DOCX / TXT）` };
   }
+  // 修正 mimeType（瀏覽器有時送錯）
+  const normalizedMime = isPdf
+    ? 'application/pdf'
+    : isDocx
+      ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      : 'text/plain';
 
   const supabase = await createClient();
   const { brand_id: brandId } = await getActiveScope();
@@ -72,12 +118,13 @@ export async function uploadManual(
   const sizeBytes = buffer.byteLength;
   const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
   const rand = Math.random().toString(36).slice(2, 8);
-  const storagePath = `${brandId}/${ts}-${rand}.pdf`;
+  const ext = isPdf ? 'pdf' : isDocx ? 'docx' : 'txt';
+  const storagePath = `${brandId}/${ts}-${rand}.${ext}`;
 
   // 上傳 Storage
   const { error: upErr } = await supabase.storage
     .from(BUCKET)
-    .upload(storagePath, buffer, { contentType: mimeType, upsert: false });
+    .upload(storagePath, buffer, { contentType: normalizedMime, upsert: false });
   if (upErr) return { ok: false, error: `Storage 上傳失敗：${upErr.message}` };
 
   // 建主檔 row
@@ -88,10 +135,11 @@ export async function uploadManual(
       title,
       description,
       storage_path: storagePath,
-      mime_type: mimeType,
+      mime_type: normalizedMime,
       size_bytes: sizeBytes,
       status: 'pending',
       uploaded_by: ctx.userId,
+      vehicle_model_ids: vehicleModelIds,
     })
     .select('id')
     .single();
@@ -119,7 +167,7 @@ export async function listManuals(): Promise<ManualListItem[]> {
   const { data } = await supabase
     .from('manuals')
     .select(
-      'id, title, description, mime_type, size_bytes, page_count, total_chunks, status, error_message, ingested_at, created_at, storage_path',
+      'id, title, description, mime_type, size_bytes, page_count, total_chunks, status, error_message, ingested_at, created_at, storage_path, vehicle_model_ids',
     )
     .eq('brand_id', brandId)
     .order('created_at', { ascending: false });
@@ -142,6 +190,7 @@ export async function listManuals(): Promise<ManualListItem[]> {
       ingested_at: row.ingested_at as string | null,
       created_at: row.created_at as string,
       signed_url: signed?.signedUrl ?? '',
+      vehicle_model_ids: (row.vehicle_model_ids as string[] | null) ?? [],
     });
   }
   return items;
@@ -218,7 +267,7 @@ async function runIngest(manualId: string): Promise<void> {
   const supabase = await createClient();
   const { data: m } = await supabase
     .from('manuals')
-    .select('id, brand_id, title, storage_path')
+    .select('id, brand_id, title, storage_path, mime_type, vehicle_model_ids')
     .eq('id', manualId)
     .maybeSingle();
   if (!m) return;
@@ -236,8 +285,11 @@ async function runIngest(manualId: string): Promise<void> {
     if (dlErr || !blob) throw new Error(`下載失敗：${dlErr?.message}`);
     const buffer = Buffer.from(await blob.arrayBuffer());
 
-    // 抽文字
-    const { text, pageCount, pages } = await extractPdfText(buffer);
+    // 抽文字（PDF / DOCX / TXT 統一介面）
+    const { text, pageCount, pages } = await extractDocText(
+      buffer,
+      m.mime_type as string,
+    );
 
     // 切塊：先依頁切（每頁可能含多 chunk）—保留 page metadata
     const allChunks: { content: string; page: number | null }[] = [];
@@ -268,7 +320,11 @@ async function runIngest(manualId: string): Promise<void> {
       chunk_index: idx,
       content: c.content,
       embedding: toPgVector(vecs[idx]),
-      metadata: { title: m.title, page: c.page },
+      metadata: {
+        title: m.title,
+        page: c.page,
+        vehicle_model_ids: (m.vehicle_model_ids as string[] | null) ?? [],
+      },
       embedding_model: EMBEDDING_MODEL,
       updated_at: new Date().toISOString(),
     }));

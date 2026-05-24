@@ -7,23 +7,65 @@
  */
 
 /**
- * PDF 文字抽取 — 用 unpdf
+ * 文件文字抽取 — PDF / DOCX / TXT
  *
- * unpdf 是 pdfjs-dist 的 serverless-friendly wrapper：自動處理 fake worker setup，
- * 避開 Next.js Turbopack 解析 pdf.worker.mjs 路徑的問題。
+ * - PDF: unpdf（pdfjs-dist serverless-friendly wrapper、避開 Turbopack worker 坑）
+ * - DOCX: mammoth（Word .docx → 純文字）
+ * - TXT: 直接 UTF-8 decode
  *
- * 對純文字 PDF 效果很好；掃描檔 / 圖片型 PDF 需 OCR（POC 版不處理）。
- * 對多欄版面 / 表格 抽出來的文字會擠在一起、retrieval 階段靠 embedding 補救。
+ * 對純文字 input 效果好；PDF 掃描檔 / 圖片型需 OCR（POC 不處理）。
+ * 多欄版面 / 表格 抽出文字會擠在一起、retrieval 階段靠 embedding 補救。
  */
 
 export type ExtractedPdf = {
   text: string;
   pageCount: number;
-  /** 每頁原始 text（給之後 chunking 帶 page metadata 用） */
+  /** 每頁原始 text（給之後 chunking 帶 page metadata 用），TXT/DOCX 只有 1 頁 */
   pages: { pageNumber: number; text: string }[];
 };
 
 const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB，跟 next.config.ts bodySizeLimit 對齊
+
+/** Dispatch by mime type — 統一 caller 介面 */
+export async function extractDocText(
+  buffer: Buffer,
+  mimeType: string,
+): Promise<ExtractedPdf> {
+  if (mimeType.includes('pdf')) return extractPdfText(buffer);
+  if (
+    mimeType.includes('wordprocessingml') ||
+    mimeType.includes('msword') ||
+    mimeType === 'application/octet-stream' // .docx 有時被偵測為這個
+  ) {
+    return extractDocxText(buffer);
+  }
+  if (mimeType.includes('text/plain') || mimeType.includes('text/markdown')) {
+    return extractTxtText(buffer);
+  }
+  throw new Error(`不支援的檔案類型：${mimeType}（僅接受 PDF / DOCX / TXT）`);
+}
+
+export async function extractDocxText(buffer: Buffer): Promise<ExtractedPdf> {
+  if (buffer.byteLength === 0) throw new Error('DOCX buffer 是空的');
+  if (buffer.byteLength > MAX_PDF_BYTES) {
+    throw new Error(`DOCX 太大（${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB > 25 MB）`);
+  }
+  const { default: mammoth } = await import('mammoth');
+  const result = await mammoth.extractRawText({ buffer });
+  const text = (result.value ?? '').trim();
+  if (!text) throw new Error('DOCX 抽不到任何文字');
+  return { text, pageCount: 1, pages: [{ pageNumber: 1, text }] };
+}
+
+export async function extractTxtText(buffer: Buffer): Promise<ExtractedPdf> {
+  if (buffer.byteLength === 0) throw new Error('TXT buffer 是空的');
+  if (buffer.byteLength > MAX_PDF_BYTES) {
+    throw new Error(`TXT 太大（${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB > 25 MB）`);
+  }
+  const text = buffer.toString('utf8').trim();
+  if (!text) throw new Error('TXT 是空的');
+  return { text, pageCount: 1, pages: [{ pageNumber: 1, text }] };
+}
 
 export async function extractPdfText(buffer: Buffer): Promise<ExtractedPdf> {
   if (buffer.byteLength === 0) throw new Error('PDF buffer 是空的');

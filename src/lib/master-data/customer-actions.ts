@@ -1,10 +1,12 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { ingestRecordInternal, removeFromRag } from "@/domain/rag-ingest";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
@@ -109,6 +111,9 @@ export async function createCustomerAction(
 
   if (error) return { ok: false, error: mapDbError(error) };
 
+  // 背景：新建客戶 → 進 RAG 知識庫（不阻擋 UI）
+  after(() => ingestRecordInternal("customer", data.id));
+
   revalidatePath("/admin/master-data/customers");
   return { ok: true, data: { id: data.id } };
 }
@@ -134,6 +139,8 @@ export async function updateCustomerAction(
     .eq("brand_id", (await getActiveScope()).brand_id);
 
   if (error) return { ok: false, error: mapDbError(error) };
+
+  after(() => ingestRecordInternal("customer", id));
 
   revalidatePath("/admin/master-data/customers");
   revalidatePath(`/admin/master-data/customers/${id}`);
@@ -177,6 +184,9 @@ export async function deleteCustomerAction(
     }
     return { ok: false, error: mapDbError(error) };
   }
+  // 客戶被刪 → 清掉對應 rag_chunks
+  after(() => removeFromRag("customer", id));
+
   revalidatePath("/admin/master-data/customers");
   return { ok: true, data: null };
 }

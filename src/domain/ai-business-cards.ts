@@ -12,12 +12,14 @@
 
 import 'server-only';
 
+import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
 import { getActiveScope } from '@/lib/scope/active-scope';
 import { getCurrentUserContext, requirePermission } from '@/lib/rbac/policies';
 import { PERMISSIONS } from '@/lib/rbac/permissions';
+import { ingestRecordInternal, removeFromRag } from '@/domain/rag-ingest';
 import {
   extractBusinessCard,
   type BusinessCardSuggestions,
@@ -253,6 +255,9 @@ export async function saveReviewedBusinessCard(
       if (r.ok) leadId = r.leadId;
     }
 
+    after(() => ingestRecordInternal('business_card', scanId));
+    after(() => ingestRecordInternal('customer', customerId));
+    if (leadId) after(() => ingestRecordInternal('sales_lead', leadId));
     revalidatePath(`/admin/master-data/customers/${customerId}`);
     return { ok: true, data: { customerId, leadId, isNew: false } };
   }
@@ -343,6 +348,10 @@ export async function saveReviewedBusinessCard(
     if (r.ok) leadId = r.leadId;
     // 建商機失敗不擋客戶建立、frontend 自己決定要不要提示
   }
+
+  after(() => ingestRecordInternal('business_card', scanId));
+  after(() => ingestRecordInternal('customer', customerId));
+  if (leadId) after(() => ingestRecordInternal('sales_lead', leadId));
 
   revalidatePath('/admin/master-data/customers');
   revalidatePath(`/admin/master-data/customers/${customerId}`);
@@ -457,6 +466,7 @@ export async function deleteBusinessCardScan(
     .eq('brand_id', brandId);
 
   if (delErr) return { ok: false, error: `刪 DB 失敗：${delErr.message}` };
+  after(() => removeFromRag('business_card', scanId));
   return { ok: true, data: { id: scanId } };
 }
 

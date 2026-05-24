@@ -13,8 +13,10 @@
 
 import 'server-only';
 
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getActiveScope } from '@/lib/scope/active-scope';
+import { ingestRecordInternal, removeFromRag } from '@/domain/rag-ingest';
 import {
   transcribeAndExtract,
   type HandcardVoiceSuggestions,
@@ -220,6 +222,8 @@ export async function saveReviewedAiCurveNote(
   if (error || !data) {
     return { ok: false, error: `儲存失敗：${error?.message ?? 'unknown'}` };
   }
+  // review 確認後 → 進 RAG（reviewed_decisions 有 customer_name，命中率才高）
+  after(() => ingestRecordInternal('handcard_voice', data.id));
   return { ok: true, data: { id: data.id, reviewedAt } };
 }
 
@@ -256,6 +260,7 @@ export async function deleteAiCurveNote(
     .eq('brand_id', brandId);
 
   if (delErr) return { ok: false, error: `刪 DB 失敗：${delErr.message}` };
+  after(() => removeFromRag('handcard_voice', noteId));
   return { ok: true, data: { id: noteId } };
 }
 

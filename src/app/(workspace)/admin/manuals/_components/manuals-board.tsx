@@ -1,14 +1,23 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   uploadManual,
   reindexManual,
   deleteManual,
   type ManualListItem,
+  type VehicleModelOption,
 } from "@/domain/manuals";
-import { reindexAllRecords, type ReindexProgress } from "@/domain/rag-ingest";
+import {
+  reindexSource,
+  type ReindexProgress,
+} from "@/domain/rag-ingest";
+import {
+  listIngestableSourceMeta,
+  resolveIcon,
+  resolveLabel,
+} from "@/lib/ai/rag-registry";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 function formatSize(bytes: number | null): string {
@@ -36,12 +45,32 @@ function statusChip(s: ManualListItem["status"]) {
   );
 }
 
-export function ManualsBoard({ manuals }: { manuals: ManualListItem[] }) {
+export function ManualsBoard({
+  manuals,
+  vehicleModels,
+}: {
+  manuals: ManualListItem[];
+  vehicleModels: VehicleModelOption[];
+}) {
+  const modelMap = new Map(vehicleModels.map((v) => [v.id, v.display_name]));
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [showUpload, setShowUpload] = useState(false);
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [reindexResult, setReindexResult] = useState<ReindexProgress[] | null>(null);
+  // 即時進度：source type → 'pending' | 'processing' | { succeeded, failed, total }
+  const [reindexProgress, setReindexProgress] = useState<
+    Record<string, 'pending' | 'processing' | ReindexProgress> | null
+  >(null);
+
+  // 自動 polling：若有 pending / processing 的手冊，每 3 秒 refresh 一次直到全 ready/failed
+  useEffect(() => {
+    const hasInflight = manuals.some(
+      (m) => m.status === "pending" || m.status === "processing",
+    );
+    if (!hasInflight) return;
+    const timer = setInterval(() => router.refresh(), 3000);
+    return () => clearInterval(timer);
+  }, [manuals, router]);
 
   function showOk(msg: string) {
     setBanner({ ok: true, msg });
@@ -77,17 +106,27 @@ export function ManualsBoard({ manuals }: { manuals: ManualListItem[] }) {
   }
 
   function onReindexRecords() {
-    if (!confirm("要重建「修車紀錄 / 客戶 / 手卡 / 名片」的向量索引嗎？")) return;
+    if (!confirm("要重建所有業務表的向量索引嗎？（手冊不會動）")) return;
+    const sources = listIngestableSourceMeta();
+    const initial: Record<string, 'pending' | 'processing' | ReindexProgress> = {};
+    for (const s of sources) initial[s.type] = 'pending';
+
     startTransition(async () => {
-      setReindexResult(null);
-      const r = await reindexAllRecords();
-      if (r.ok) {
-        setReindexResult(r.data);
-        showOk("✓ 紀錄索引已重建");
-        router.refresh();
-      } else {
-        showErr(r.error);
+      setReindexProgress(initial);
+      for (const s of sources) {
+        setReindexProgress((prev) => ({ ...(prev ?? {}), [s.type]: 'processing' }));
+        const r = await reindexSource(s.type);
+        if (r.ok) {
+          setReindexProgress((prev) => ({ ...(prev ?? {}), [s.type]: r.data }));
+        } else {
+          setReindexProgress((prev) => ({
+            ...(prev ?? {}),
+            [s.type]: { source_type: s.type, total: 0, succeeded: 0, failed: 0 },
+          }));
+        }
       }
+      showOk("✓ 紀錄索引已重建");
+      router.refresh();
     });
   }
 
@@ -142,6 +181,36 @@ export function ManualsBoard({ manuals }: { manuals: ManualListItem[] }) {
       ),
       sortValue: (r) => r.total_chunks,
       exportValue: (r) => String(r.total_chunks),
+    },
+    {
+      id: "vehicle_models",
+      header: "適用車型",
+      width: 180,
+      cell: (r) => {
+        if (r.vehicle_model_ids.length === 0) {
+          return <span className="text-[11px] text-[#9A9890]">— 通用</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {r.vehicle_model_ids.slice(0, 3).map((id) => (
+              <span
+                key={id}
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5] text-[10.5px]"
+              >
+                {modelMap.get(id) ?? id.slice(0, 8)}
+              </span>
+            ))}
+            {r.vehicle_model_ids.length > 3 && (
+              <span className="text-[10.5px] text-[#9A9890]">
+                +{r.vehicle_model_ids.length - 3}
+              </span>
+            )}
+          </div>
+        );
+      },
+      sortValue: (r) => r.vehicle_model_ids.length,
+      exportValue: (r) =>
+        r.vehicle_model_ids.map((id) => modelMap.get(id) ?? id).join("、"),
     },
     {
       id: "status",
@@ -234,22 +303,59 @@ export function ManualsBoard({ manuals }: { manuals: ManualListItem[] }) {
         </div>
       </div>
 
-      {reindexResult && (
-        <div className="bg-white border border-[#EEECE6] rounded-lg p-3 text-[12px]">
-          <div className="font-semibold mb-1">重建結果：</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
-            {reindexResult.map((r) => (
-              <div key={r.source_type} className="flex justify-between">
-                <span className="text-[#5A5955]">{r.source_type}</span>
-                <span className="font-mono">
-                  <span className="text-[#3B6D11]">{r.succeeded}</span>
-                  {r.failed > 0 && (
-                    <span className="text-[#CC0000]">/{r.failed} 失敗</span>
+      {reindexProgress && (
+        <div className="bg-white border border-[#EEECE6] rounded-lg p-3">
+          <div className="text-[12.5px] font-semibold mb-2 flex items-center gap-2">
+            <span>重建進度</span>
+            {Object.values(reindexProgress).every(
+              (v) => typeof v === 'object',
+            ) ? (
+              <span className="text-[11px] text-[#3B6D11]">✓ 完成</span>
+            ) : (
+              <span className="text-[11px] text-[#185FA5] flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full border border-[#185FA5] border-t-transparent animate-spin" />
+                處理中⋯
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1 text-[11.5px]">
+            {Object.entries(reindexProgress).map(([type, state]) => {
+              const icon = resolveIcon(type);
+              const label = resolveLabel(type);
+              const isDone = typeof state === 'object';
+              return (
+                <div
+                  key={type}
+                  className={`flex items-center justify-between px-2 py-1 rounded ${
+                    state === 'processing'
+                      ? 'bg-[#EAF4FB]'
+                      : isDone
+                        ? ''
+                        : 'opacity-50'
+                  }`}
+                >
+                  <span className="flex items-center gap-1 min-w-0">
+                    <span>{icon}</span>
+                    <span className="text-[#5A5955] truncate">{label}</span>
+                  </span>
+                  {state === 'pending' && (
+                    <span className="text-[#9A9890]">⋯</span>
                   )}
-                  <span className="text-[#9A9890]"> / {r.total}</span>
-                </span>
-              </div>
-            ))}
+                  {state === 'processing' && (
+                    <span className="w-3 h-3 rounded-full border border-[#185FA5] border-t-transparent animate-spin" />
+                  )}
+                  {isDone && (
+                    <span className="font-mono">
+                      <span className="text-[#3B6D11]">{state.succeeded}</span>
+                      {state.failed > 0 && (
+                        <span className="text-[#CC0000]">/{state.failed}失</span>
+                      )}
+                      <span className="text-[#9A9890]"> / {state.total}</span>
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -285,6 +391,7 @@ export function ManualsBoard({ manuals }: { manuals: ManualListItem[] }) {
 
       {showUpload && (
         <UploadModal
+          vehicleModels={vehicleModels}
           onClose={() => setShowUpload(false)}
           onSuccess={(msg) => {
             setShowUpload(false);
@@ -313,10 +420,12 @@ export function ManualsBoard({ manuals }: { manuals: ManualListItem[] }) {
 // ─── Upload modal ──────────────────────────────────────────
 
 function UploadModal({
+  vehicleModels,
   onClose,
   onSuccess,
   onError,
 }: {
+  vehicleModels: VehicleModelOption[];
   onClose: () => void;
   onSuccess: (msg: string) => void;
   onError: (msg: string) => void;
@@ -324,12 +433,22 @@ function UploadModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  function toggleModel(id: string) {
+    setSelectedModels((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   function submit() {
     if (!file) {
-      onError("請選 PDF 檔");
+      onError("請選檔案（PDF / DOCX / TXT / MD）");
       return;
     }
     if (!title.trim()) {
@@ -340,6 +459,7 @@ function UploadModal({
     fd.append("file", file);
     fd.append("title", title.trim());
     if (description.trim()) fd.append("description", description.trim());
+    fd.append("vehicle_model_ids", JSON.stringify([...selectedModels]));
 
     startTransition(async () => {
       const r = await uploadManual(fd);
@@ -386,18 +506,53 @@ function UploadModal({
               className="w-full border border-[#D5D3CB] rounded px-2 py-1 text-[12.5px] focus:border-[#185FA5] outline-none"
             />
           </div>
+          {vehicleModels.length > 0 && (
+            <div>
+              <label className="block text-[11px] text-[#9A9890] font-medium mb-1">
+                適用車型（選填、多選；不選 = 通用）
+              </label>
+              <div className="max-h-32 overflow-y-auto border border-[#D5D3CB] rounded p-2 flex flex-wrap gap-1.5">
+                {vehicleModels.map((m) => {
+                  const on = selectedModels.has(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => toggleModel(m.id)}
+                      disabled={isPending}
+                      className={`px-2 py-0.5 rounded-md text-[11px] border transition-colors ${
+                        on
+                          ? "bg-[#185FA5] text-white border-[#185FA5]"
+                          : "bg-white text-[#5A5955] border-[#D5D3CB] hover:border-[#185FA5]"
+                      }`}
+                    >
+                      {m.display_name}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedModels.size > 0 && (
+                <div className="text-[10.5px] text-[#185FA5] mt-1">
+                  已選 {selectedModels.size} 個車型
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <label className="block text-[11px] text-[#9A9890] font-medium mb-1">
-              PDF 檔 <span className="text-[#CC0000]">*</span>
+              檔案 <span className="text-[#CC0000]">*</span>
             </label>
             <input
               ref={fileRef}
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,.pdf,.docx,.txt,.md"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               disabled={isPending}
               className="text-[12px]"
             />
+            <div className="text-[10.5px] text-[#9A9890] mt-1">
+              支援 PDF / DOCX / TXT / MD
+            </div>
             {file && (
               <div className="text-[11px] text-[#5A5955] mt-1">
                 已選：{file.name}（{(file.size / 1024 / 1024).toFixed(2)} MB）

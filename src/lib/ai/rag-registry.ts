@@ -122,3 +122,8 @@ export function resolveHref(type: string, metadata: Record<string, unknown>): st
   if (!src) return null;
   return typeof src.href === 'function' ? src.href(metadata) : src.href;
 }
+
+/** 給 client UI 用：列出所有可 reindex 的 source（排除 manual 自走 pipeline） */
+export function listIngestableSourceMeta(): SourceMeta[] {
+  return SOURCE_META.filter((s) => s.type !== 'manual');
+}
