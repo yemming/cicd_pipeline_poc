@@ -8,6 +8,7 @@ import "server-only";
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
@@ -462,6 +463,142 @@ export async function updateSalesOrder(
 }
 
 // ─────────────────────────────────────────────────────────────
+// 跨模組 hook #3：交車（sales_orders fulfilled）→ 啟動車輛保固
+//
+// 算 customer_vehicles.warranty_until = 交車日 + vehicle_models.warranty_months 個月，
+// upsert 該客戶的車輛主檔。
+//   - 僅「新車」交車啟保固（used_vehicle_id 非 null 的中古車有自己的 hook，且不啟原廠保固）
+//   - 冪等：以 customer_vehicles.metadata->>'warranty_source_order' 記來源訂單；
+//     已啟動過（含「已啟動但起算日更早」）就不覆蓋，防 fulfilled 切兩次 / 取消再 fulfilled
+//   - 非阻塞：由 caller after() 包，失敗只 log、不回滾交車
+// ─────────────────────────────────────────────────────────────
+
+function addMonthsToDate(isoDate: string, months: number): string {
+  // isoDate: 'YYYY-MM-DD'；回傳同格式。用 UTC 月份相加避開時區漂移。
+  const [y, m, d] = isoDate.split("-").map((v) => parseInt(v, 10));
+  const base = new Date(Date.UTC(y, m - 1, d));
+  base.setUTCMonth(base.getUTCMonth() + months);
+  return base.toISOString().slice(0, 10);
+}
+
+export async function startVehicleWarranty(
+  salesOrderId: string,
+): Promise<{ ok: true; data: { skipped?: true; vehicle_id?: string } } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 1. 撈訂單的車輛資料
+  const { data: order, error: orderErr } = await supabase
+    .from("sales_orders")
+    .select(
+      "id, customer_id, vehicle_model_id, vehicle_vin, vehicle_color, vehicle_engine_no, used_vehicle_id, fulfilled_at, delivery_date",
+    )
+    .eq("id", salesOrderId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (orderErr) return { ok: false, error: orderErr.message };
+  if (!order) return { ok: false, error: "找不到訂單" };
+
+  // 僅新車交車啟保固（中古車 used_vehicle_id 非 null → 跳過）
+  if (order.used_vehicle_id) return { ok: true, data: { skipped: true } };
+  if (!order.customer_id || !order.vehicle_model_id) {
+    return { ok: true, data: { skipped: true } };
+  }
+
+  // 2. 保固期長度：vehicle_models.warranty_months（typed 欄位，POC 預設 24）
+  const { data: model, error: modelErr } = await supabase
+    .from("vehicle_models")
+    .select("warranty_months")
+    .eq("id", order.vehicle_model_id)
+    .maybeSingle();
+  if (modelErr) return { ok: false, error: modelErr.message };
+  const warrantyMonths = model?.warranty_months ?? 24;
+
+  // 3. 起算日 = 交車日（fulfilled_at 優先，否則 delivery_date，否則今天）
+  const deliveredIso =
+    (order.fulfilled_at ? order.fulfilled_at.slice(0, 10) : null) ??
+    order.delivery_date ??
+    new Date().toISOString().slice(0, 10);
+  const warrantyUntil = addMonthsToDate(deliveredIso, warrantyMonths);
+
+  // 4. 冪等：這張訂單已啟動過保固就 skip（不覆蓋更早的起算）
+  const { data: alreadyStarted, error: dupErr } = await supabase
+    .from("customer_vehicles")
+    .select("id")
+    .eq("brand_id", brand)
+    .eq("metadata->>warranty_source_order", salesOrderId)
+    .limit(1)
+    .maybeSingle();
+  if (dupErr) return { ok: false, error: dupErr.message };
+  if (alreadyStarted) return { ok: true, data: { skipped: true } };
+
+  // 5. 找該客戶既有車輛（以 VIN 對；無 VIN 則以 customer+model）→ upsert
+  let existingVehicleId: string | null = null;
+  if (order.vehicle_vin) {
+    const { data: byVin } = await supabase
+      .from("customer_vehicles")
+      .select("id")
+      .eq("brand_id", brand)
+      .eq("customer_id", order.customer_id)
+      .eq("vin", order.vehicle_vin)
+      .limit(1)
+      .maybeSingle();
+    existingVehicleId = byVin?.id ?? null;
+  }
+
+  const warrantyMeta = {
+    warranty_source_order: salesOrderId,
+    warranty_started_at: deliveredIso,
+    warranty_months: warrantyMonths,
+  };
+
+  if (existingVehicleId) {
+    // 既有車 → 更新保固欄 + merge metadata
+    const { data: cur } = await supabase
+      .from("customer_vehicles")
+      .select("metadata")
+      .eq("id", existingVehicleId)
+      .maybeSingle();
+    const mergedMeta = {
+      ...((cur?.metadata as Record<string, unknown> | null) ?? {}),
+      ...warrantyMeta,
+    };
+    const { error: updErr } = await supabase
+      .from("customer_vehicles")
+      .update({
+        warranty_until: warrantyUntil,
+        purchase_date: deliveredIso,
+        metadata: mergedMeta,
+      })
+      .eq("id", existingVehicleId)
+      .eq("brand_id", brand);
+    if (updErr) return { ok: false, error: updErr.message };
+    return { ok: true, data: { vehicle_id: existingVehicleId } };
+  }
+
+  // 找不到既有車 → 建新車輛主檔
+  const { data: inserted, error: insErr } = await supabase
+    .from("customer_vehicles")
+    .insert({
+      brand_id: brand,
+      customer_id: order.customer_id,
+      model_id: order.vehicle_model_id,
+      vin: order.vehicle_vin ?? null,
+      color: order.vehicle_color ?? null,
+      engine_no: order.vehicle_engine_no ?? null,
+      acquired_from: "new",
+      purchase_date: deliveredIso,
+      warranty_until: warrantyUntil,
+      external_source: "manual",
+      metadata: warrantyMeta,
+    })
+    .select("id")
+    .single();
+  if (insErr) return { ok: false, error: insErr.message };
+  return { ok: true, data: { vehicle_id: inserted.id } };
+}
+
+// ─────────────────────────────────────────────────────────────
 // Set status
 //
 // 中古成交 hook（GAP-07 修正）：
@@ -549,6 +686,20 @@ export async function setSalesOrderStatus(
       revalidatePath("/usedcar/stock");
       revalidatePath("/sales/showroom/used-cars");
     }
+  }
+
+  // ── 跨模組 hook #3：交車 → 啟動保固（非阻塞、失敗不回滾交車）──
+  if (status === "fulfilled") {
+    after(async () => {
+      try {
+        const res = await startVehicleWarranty(id);
+        if (!res.ok) {
+          console.error("[hook#3 交車→保固] 啟動失敗（不影響交車）", res.error);
+        }
+      } catch (e) {
+        console.error("[hook#3 交車→保固] 副作用例外（不影響交車）", e);
+      }
+    });
   }
 
   revalidatePath("/sales/orders");

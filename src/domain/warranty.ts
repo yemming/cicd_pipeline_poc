@@ -609,6 +609,44 @@ export async function registerOldPart(
   input: RegisterOldPartInput,
 ): Promise<ActionResult<{ id: string; wc_no: string }>> {
   await requirePermission(PERMISSIONS.USEDPART_OPS);
+  return registerOldPartCore(input);
+}
+
+/**
+ * 跨模組 hook #6 用：竣工複檢通過 → 自動登錄保固換下的舊件。
+ *
+ * 與 registerOldPart 共用核心 insert，差別：
+ *   - 不做 requirePermission（系統自動副作用，觸發者是技師 / SA，未必有 USEDPART_OPS）
+ *   - 自帶 (ro_id, item_id) 防重：同工單同料件已登錄就 skip（防複檢被簽兩次 / sign→clearSign→sign）
+ * 由 caller after() 包 try/catch、失敗不炸主流程。
+ */
+export async function registerOldPartFromInspection(
+  input: RegisterOldPartInput,
+): Promise<ActionResult<{ id: string; wc_no: string } | { skipped: true }>> {
+  if (!input.item_id) return { ok: false, error: "料件必選" };
+  if (!input.ro_id) return { ok: false, error: "缺少 ro_id" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 防重：同 ro_id + item_id 已登錄過就 skip
+  const { data: existing, error: dupErr } = await supabase
+    .from("old_parts")
+    .select("id")
+    .eq("brand_id", brand)
+    .eq("ro_id", input.ro_id)
+    .eq("item_id", input.item_id)
+    .limit(1)
+    .maybeSingle();
+  if (dupErr) return { ok: false, error: dupErr.message };
+  if (existing) return { ok: true, data: { skipped: true } };
+
+  return registerOldPartCore(input);
+}
+
+async function registerOldPartCore(
+  input: RegisterOldPartInput,
+): Promise<ActionResult<{ id: string; wc_no: string }>> {
   if (!input.item_id) return { ok: false, error: "料件必選" };
   if (!input.oem_directive)
     return { ok: false, error: "原廠處置指示必選" };

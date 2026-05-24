@@ -288,6 +288,30 @@ export function AftersalesNpsBoard({
                 }
                 centerCaption="NPS 指數"
               />
+              {/* 分群明細（純顯示，供金標 E2E 精確抓取；donut legend 不含數值） */}
+              <div
+                className="flex items-center justify-center gap-3 mt-2 text-[11px] text-[#5A5955]"
+                data-testid="nps-seg-detail"
+              >
+                <span>
+                  推薦者{" "}
+                  <b data-testid="nps-seg-promoter-n" style={{ color: NPS_SEGMENT_COLOR.promoter }}>
+                    {kpi.promoter}
+                  </b>
+                </span>
+                <span>
+                  中立者{" "}
+                  <b data-testid="nps-seg-passive-n" style={{ color: NPS_SEGMENT_COLOR.passive }}>
+                    {kpi.passive}
+                  </b>
+                </span>
+                <span>
+                  批評者{" "}
+                  <b data-testid="nps-seg-detractor-n" style={{ color: NPS_SEGMENT_COLOR.detractor }}>
+                    {kpi.detractor}
+                  </b>
+                </span>
+              </div>
             </SectionCard>
           </section>
 

@@ -222,6 +222,7 @@ export type Database = {
           status: string
           subsidiary_id: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           actual_minutes?: number
@@ -247,6 +248,7 @@ export type Database = {
           status?: string
           subsidiary_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           actual_minutes?: number
@@ -272,6 +274,7 @@ export type Database = {
           status?: string
           subsidiary_id?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -662,6 +665,78 @@ export type Database = {
           },
         ]
       }
+      business_card_scans: {
+        Row: {
+          ai_latency_ms: number | null
+          ai_processed_at: string | null
+          ai_suggestions: Json
+          ai_tokens_in: number | null
+          ai_tokens_out: number | null
+          brand_id: string
+          created_at: string
+          created_by: string
+          customer_id: string | null
+          duplicate_of_customer_id: string | null
+          id: string
+          mime_type: string
+          reviewed_at: string | null
+          reviewed_decisions: Json
+          size_bytes: number | null
+          storage_path: string
+        }
+        Insert: {
+          ai_latency_ms?: number | null
+          ai_processed_at?: string | null
+          ai_suggestions?: Json
+          ai_tokens_in?: number | null
+          ai_tokens_out?: number | null
+          brand_id: string
+          created_at?: string
+          created_by: string
+          customer_id?: string | null
+          duplicate_of_customer_id?: string | null
+          id?: string
+          mime_type: string
+          reviewed_at?: string | null
+          reviewed_decisions?: Json
+          size_bytes?: number | null
+          storage_path: string
+        }
+        Update: {
+          ai_latency_ms?: number | null
+          ai_processed_at?: string | null
+          ai_suggestions?: Json
+          ai_tokens_in?: number | null
+          ai_tokens_out?: number | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string
+          customer_id?: string | null
+          duplicate_of_customer_id?: string | null
+          id?: string
+          mime_type?: string
+          reviewed_at?: string | null
+          reviewed_decisions?: Json
+          size_bytes?: number | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_card_scans_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_card_scans_duplicate_of_customer_id_fkey"
+            columns: ["duplicate_of_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_rules: {
         Row: {
           brand_id: string
@@ -949,6 +1024,115 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      chat_message_feedback: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          message_id: string
+          rating: string
+          reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          message_id: string
+          rating: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          message_id?: string
+          rating?: string
+          reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_message_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          latency_ms: number | null
+          retrieved_chunks: Json | null
+          role: string
+          session_id: string
+          tokens_in: number | null
+          tokens_out: number | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          retrieved_chunks?: Json | null
+          role: string
+          session_id: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          retrieved_chunks?: Json | null
+          role?: string
+          session_id?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_sessions: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       classifications: {
         Row: {
@@ -1311,7 +1495,9 @@ export type Database = {
           label: string
           metadata: Json
           sort_order: number
+          tag_kind: string
           updated_at: string
+          usage_count: number
         }
         Insert: {
           brand_id: string
@@ -1326,7 +1512,9 @@ export type Database = {
           label: string
           metadata?: Json
           sort_order?: number
+          tag_kind?: string
           updated_at?: string
+          usage_count?: number
         }
         Update: {
           brand_id?: string
@@ -1341,7 +1529,9 @@ export type Database = {
           label?: string
           metadata?: Json
           sort_order?: number
+          tag_kind?: string
           updated_at?: string
+          usage_count?: number
         }
         Relationships: []
       }
@@ -1488,7 +1678,11 @@ export type Database = {
       customers: {
         Row: {
           address: string | null
+          aftersales_dormancy_status: string | null
+          aftersales_lost_at: string | null
+          aftersales_lost_reason: string | null
           assigned_sa_user_id: string | null
+          avatar_url: string | null
           birthday: string | null
           brand_id: string
           code: string
@@ -1521,7 +1715,11 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          aftersales_dormancy_status?: string | null
+          aftersales_lost_at?: string | null
+          aftersales_lost_reason?: string | null
           assigned_sa_user_id?: string | null
+          avatar_url?: string | null
           birthday?: string | null
           brand_id?: string
           code: string
@@ -1554,7 +1752,11 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          aftersales_dormancy_status?: string | null
+          aftersales_lost_at?: string | null
+          aftersales_lost_reason?: string | null
           assigned_sa_user_id?: string | null
+          avatar_url?: string | null
           birthday?: string | null
           brand_id?: string
           code?: string
@@ -2279,6 +2481,7 @@ export type Database = {
       }
       employees: {
         Row: {
+          avatar_url: string | null
           brand_id: string
           created_at: string
           created_by: string | null
@@ -2305,6 +2508,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          avatar_url?: string | null
           brand_id: string
           created_at?: string
           created_by?: string | null
@@ -2331,6 +2535,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          avatar_url?: string | null
           brand_id?: string
           created_at?: string
           created_by?: string | null
@@ -2382,7 +2587,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          brand_id?: string
+          brand_id: string
           metadata?: Json | null
           snapshot?: Json
           ticket_id: string
@@ -2419,7 +2624,7 @@ export type Database = {
           uploader_id: string | null
         }
         Insert: {
-          brand_id?: string
+          brand_id: string
           comment_id: string
           created_at?: string
           file_name: string
@@ -2466,7 +2671,7 @@ export type Database = {
         Insert: {
           author_id?: string | null
           body: string
-          brand_id?: string
+          brand_id: string
           created_at?: string
           id?: string
           metadata?: Json | null
@@ -2518,7 +2723,7 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           assignee_id?: string | null
-          brand_id?: string
+          brand_id: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -2562,6 +2767,7 @@ export type Database = {
           metadata: Json
           next_service: Json
           notifications: Json
+          photos: Json
           repair_order_id: string
           signature_text: string | null
           signed_at: string | null
@@ -2586,6 +2792,7 @@ export type Database = {
           metadata?: Json
           next_service?: Json
           notifications?: Json
+          photos?: Json
           repair_order_id: string
           signature_text?: string | null
           signed_at?: string | null
@@ -2610,6 +2817,7 @@ export type Database = {
           metadata?: Json
           next_service?: Json
           notifications?: Json
+          photos?: Json
           repair_order_id?: string
           signature_text?: string | null
           signed_at?: string | null
@@ -2635,12 +2843,16 @@ export type Database = {
           case_no: string
           closed_at: string | null
           closed_reason: string | null
+          closure_evidence_url: string | null
           created_at: string | null
           created_by: string | null
           customer_name: string | null
+          escalated_at: string | null
+          escalation_level: number
           estimated_fee: number
           id: string
           last_contacted_at: string | null
+          manager_id: string | null
           metadata: Json | null
           next_contact_at: string | null
           recovered_amount: number
@@ -2661,12 +2873,16 @@ export type Database = {
           case_no: string
           closed_at?: string | null
           closed_reason?: string | null
+          closure_evidence_url?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_name?: string | null
+          escalated_at?: string | null
+          escalation_level?: number
           estimated_fee?: number
           id?: string
           last_contacted_at?: string | null
+          manager_id?: string | null
           metadata?: Json | null
           next_contact_at?: string | null
           recovered_amount?: number
@@ -2687,12 +2903,16 @@ export type Database = {
           case_no?: string
           closed_at?: string | null
           closed_reason?: string | null
+          closure_evidence_url?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_name?: string | null
+          escalated_at?: string | null
+          escalation_level?: number
           estimated_fee?: number
           id?: string
           last_contacted_at?: string | null
+          manager_id?: string | null
           metadata?: Json | null
           next_contact_at?: string | null
           recovered_amount?: number
@@ -2931,6 +3151,74 @@ export type Database = {
         }
         Relationships: []
       }
+      handcard_voice_notes: {
+        Row: {
+          ai_latency_ms: number | null
+          ai_processed_at: string | null
+          ai_suggestions: Json
+          ai_tokens_in: number | null
+          ai_tokens_out: number | null
+          brand_id: string
+          created_at: string
+          created_by: string
+          duration_seconds: number | null
+          handcard_id: string | null
+          id: string
+          mime_type: string
+          reviewed_at: string | null
+          reviewed_decisions: Json
+          size_bytes: number | null
+          storage_path: string
+          transcript: string
+        }
+        Insert: {
+          ai_latency_ms?: number | null
+          ai_processed_at?: string | null
+          ai_suggestions?: Json
+          ai_tokens_in?: number | null
+          ai_tokens_out?: number | null
+          brand_id: string
+          created_at?: string
+          created_by: string
+          duration_seconds?: number | null
+          handcard_id?: string | null
+          id?: string
+          mime_type: string
+          reviewed_at?: string | null
+          reviewed_decisions?: Json
+          size_bytes?: number | null
+          storage_path: string
+          transcript?: string
+        }
+        Update: {
+          ai_latency_ms?: number | null
+          ai_processed_at?: string | null
+          ai_suggestions?: Json
+          ai_tokens_in?: number | null
+          ai_tokens_out?: number | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string
+          duration_seconds?: number | null
+          handcard_id?: string | null
+          id?: string
+          mime_type?: string
+          reviewed_at?: string | null
+          reviewed_decisions?: Json
+          size_bytes?: number | null
+          storage_path?: string
+          transcript?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handcard_voice_notes_handcard_id_fkey"
+            columns: ["handcard_id"]
+            isOneToOne: false
+            referencedRelation: "sales_handcards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_findings: {
         Row: {
           brand_id: string
@@ -3066,6 +3354,160 @@ export type Database = {
             columns: ["work_order_id"]
             isOneToOne: false
             referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_attempts: {
+        Row: {
+          attempted_at: string
+          attempted_by: string | null
+          brand_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          next_action_date: string | null
+          notes: string | null
+          policy_id: string
+          result: string
+        }
+        Insert: {
+          attempted_at?: string
+          attempted_by?: string | null
+          brand_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          next_action_date?: string | null
+          notes?: string | null
+          policy_id: string
+          result: string
+        }
+        Update: {
+          attempted_at?: string
+          attempted_by?: string | null
+          brand_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          next_action_date?: string | null
+          notes?: string | null
+          policy_id?: string
+          result?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_attempts_attempted_by_fkey"
+            columns: ["attempted_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_attempts_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_policies: {
+        Row: {
+          assigned_to: string | null
+          brand_id: string
+          call_count: number
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          end_date: string
+          id: string
+          insurer: string
+          last_called_at: string | null
+          lost_reason_code: string | null
+          metadata: Json
+          next_action_date: string | null
+          notes: string | null
+          policy_no: string | null
+          policy_type: string
+          premium: number | null
+          renewal_reminded_at: string | null
+          renewal_type: string | null
+          start_date: string | null
+          status: string
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          brand_id: string
+          call_count?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          end_date: string
+          id?: string
+          insurer: string
+          last_called_at?: string | null
+          lost_reason_code?: string | null
+          metadata?: Json
+          next_action_date?: string | null
+          notes?: string | null
+          policy_no?: string | null
+          policy_type: string
+          premium?: number | null
+          renewal_reminded_at?: string | null
+          renewal_type?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          brand_id?: string
+          call_count?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          end_date?: string
+          id?: string
+          insurer?: string
+          last_called_at?: string | null
+          lost_reason_code?: string | null
+          metadata?: Json
+          next_action_date?: string | null
+          notes?: string | null
+          policy_no?: string | null
+          policy_type?: string
+          premium?: number | null
+          renewal_reminded_at?: string | null
+          renewal_type?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_policies_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "customer_vehicles"
             referencedColumns: ["id"]
           },
         ]
@@ -3451,6 +3893,98 @@ export type Database = {
           },
           {
             foreignKeyName: "inventory_counts_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_reservations: {
+        Row: {
+          brand_id: string
+          consumed_qty: number
+          created_at: string
+          id: string
+          item_id: string
+          metadata: Json
+          release_reason: string | null
+          released_at: string | null
+          reserved_at: string
+          reserved_by: string | null
+          reserved_qty: number
+          ro_id: string | null
+          source_id: string | null
+          source_type: string
+          status: string
+          stock_item_id: string | null
+          updated_at: string
+          warehouse_id: string
+        }
+        Insert: {
+          brand_id: string
+          consumed_qty?: number
+          created_at?: string
+          id?: string
+          item_id: string
+          metadata?: Json
+          release_reason?: string | null
+          released_at?: string | null
+          reserved_at?: string
+          reserved_by?: string | null
+          reserved_qty: number
+          ro_id?: string | null
+          source_id?: string | null
+          source_type: string
+          status?: string
+          stock_item_id?: string | null
+          updated_at?: string
+          warehouse_id: string
+        }
+        Update: {
+          brand_id?: string
+          consumed_qty?: number
+          created_at?: string
+          id?: string
+          item_id?: string
+          metadata?: Json
+          release_reason?: string | null
+          released_at?: string | null
+          reserved_at?: string
+          reserved_by?: string | null
+          reserved_qty?: number
+          ro_id?: string | null
+          source_id?: string | null
+          source_type?: string
+          status?: string
+          stock_item_id?: string | null
+          updated_at?: string
+          warehouse_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_reservations_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_ro_id_fkey"
+            columns: ["ro_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_stock_item_id_fkey"
+            columns: ["stock_item_id"]
+            isOneToOne: false
+            referencedRelation: "stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_reservations_warehouse_id_fkey"
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
@@ -3930,6 +4464,246 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      kpi_targets: {
+        Row: {
+          brand_id: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          metric_code: string
+          period_key: string
+          period_type: string
+          subject_id: string | null
+          subject_type: string
+          subsidiary_id: string | null
+          target_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_code: string
+          period_key: string
+          period_type: string
+          subject_id?: string | null
+          subject_type: string
+          subsidiary_id?: string | null
+          target_value: number
+          updated_at?: string | null
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_code?: string
+          period_key?: string
+          period_type?: string
+          subject_id?: string | null
+          subject_type?: string
+          subsidiary_id?: string | null
+          target_value?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_targets_subsidiary_id_fkey"
+            columns: ["subsidiary_id"]
+            isOneToOne: false
+            referencedRelation: "subsidiaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      labor_time_sessions: {
+        Row: {
+          brand_id: string
+          created_at: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          metadata: Json | null
+          repair_order_id: string
+          repair_order_line_id: string | null
+          started_at: string
+          status: string
+          technician_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          metadata?: Json | null
+          repair_order_id: string
+          repair_order_line_id?: string | null
+          started_at?: string
+          status?: string
+          technician_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          metadata?: Json | null
+          repair_order_id?: string
+          repair_order_line_id?: string | null
+          started_at?: string
+          status?: string
+          technician_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_time_sessions_repair_order_id_fkey"
+            columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labor_time_sessions_repair_order_line_id_fkey"
+            columns: ["repair_order_line_id"]
+            isOneToOne: false
+            referencedRelation: "repair_order_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "labor_time_sessions_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "aftersales_technicians"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      license_plate_scans: {
+        Row: {
+          ai_confidence: number | null
+          ai_latency_ms: number | null
+          ai_plate: string | null
+          ai_plate_normalized: string | null
+          ai_tokens_in: number | null
+          ai_tokens_out: number | null
+          brand_id: string
+          created_at: string
+          created_by: string
+          id: string
+          matched_customer_id: string | null
+          matched_vehicle_id: string | null
+          mime_type: string
+          size_bytes: number | null
+          storage_path: string
+        }
+        Insert: {
+          ai_confidence?: number | null
+          ai_latency_ms?: number | null
+          ai_plate?: string | null
+          ai_plate_normalized?: string | null
+          ai_tokens_in?: number | null
+          ai_tokens_out?: number | null
+          brand_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          matched_customer_id?: string | null
+          matched_vehicle_id?: string | null
+          mime_type: string
+          size_bytes?: number | null
+          storage_path: string
+        }
+        Update: {
+          ai_confidence?: number | null
+          ai_latency_ms?: number | null
+          ai_plate?: string | null
+          ai_plate_normalized?: string | null
+          ai_tokens_in?: number | null
+          ai_tokens_out?: number | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          matched_customer_id?: string | null
+          matched_vehicle_id?: string | null
+          mime_type?: string
+          size_bytes?: number | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "license_plate_scans_matched_customer_id_fkey"
+            columns: ["matched_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "license_plate_scans_matched_vehicle_id_fkey"
+            columns: ["matched_vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "customer_vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manuals: {
+        Row: {
+          brand_id: string
+          created_at: string
+          description: string | null
+          error_message: string | null
+          id: string
+          ingested_at: string | null
+          mime_type: string
+          page_count: number | null
+          size_bytes: number | null
+          status: string
+          storage_path: string
+          title: string
+          total_chunks: number
+          uploaded_by: string
+          vehicle_model_ids: string[]
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          ingested_at?: string | null
+          mime_type: string
+          page_count?: number | null
+          size_bytes?: number | null
+          status?: string
+          storage_path: string
+          title: string
+          total_chunks?: number
+          uploaded_by: string
+          vehicle_model_ids?: string[]
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          ingested_at?: string | null
+          mime_type?: string
+          page_count?: number | null
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string
+          title?: string
+          total_chunks?: number
+          uploaded_by?: string
+          vehicle_model_ids?: string[]
+        }
+        Relationships: []
       }
       nav_nodes: {
         Row: {
@@ -5157,6 +5931,7 @@ export type Database = {
         Row: {
           apply_amount: number
           approved_amount: number
+          approved_at: string | null
           brand_id: string
           claim_no: string
           created_at: string
@@ -5165,16 +5940,22 @@ export type Database = {
           id: string
           item_label: string
           metadata: Json | null
+          notes: string | null
+          reimbursed_at: string | null
+          ro_id: string | null
           ro_no: string | null
+          sla_days: number
           sort_order: number
           status: string
           status_label: string | null
+          submitted_at: string | null
           updated_at: string
           warranty_type: string | null
         }
         Insert: {
           apply_amount?: number
           approved_amount?: number
+          approved_at?: string | null
           brand_id: string
           claim_no: string
           created_at?: string
@@ -5183,16 +5964,22 @@ export type Database = {
           id?: string
           item_label: string
           metadata?: Json | null
+          notes?: string | null
+          reimbursed_at?: string | null
+          ro_id?: string | null
           ro_no?: string | null
+          sla_days?: number
           sort_order?: number
           status?: string
           status_label?: string | null
+          submitted_at?: string | null
           updated_at?: string
           warranty_type?: string | null
         }
         Update: {
           apply_amount?: number
           approved_amount?: number
+          approved_at?: string | null
           brand_id?: string
           claim_no?: string
           created_at?: string
@@ -5201,14 +5988,27 @@ export type Database = {
           id?: string
           item_label?: string
           metadata?: Json | null
+          notes?: string | null
+          reimbursed_at?: string | null
+          ro_id?: string | null
           ro_no?: string | null
+          sla_days?: number
           sort_order?: number
           status?: string
           status_label?: string | null
+          submitted_at?: string | null
           updated_at?: string
           warranty_type?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "parts_warranty_claims_ro_id_fkey"
+            columns: ["ro_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       parts_warranty_cost_recovery_config: {
         Row: {
@@ -5611,6 +6411,57 @@ export type Database = {
         }
         Relationships: []
       }
+      parts_warranty_used_parts_lifecycle_rules: {
+        Row: {
+          action_label: string
+          brand_id: string
+          channel: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          metadata: Json | null
+          notes: string | null
+          requires_approval: boolean
+          sla_days: number | null
+          sort_order: number
+          stage: string
+          target_role: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_label: string
+          brand_id: string
+          channel?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json | null
+          notes?: string | null
+          requires_approval?: boolean
+          sla_days?: number | null
+          sort_order?: number
+          stage: string
+          target_role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_label?: string
+          brand_id?: string
+          channel?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json | null
+          notes?: string | null
+          requires_approval?: boolean
+          sla_days?: number | null
+          sort_order?: number
+          stage?: string
+          target_role?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       parts_workorder_loop_entries: {
         Row: {
           brand_id: string
@@ -5686,6 +6537,101 @@ export type Database = {
           created_at?: string
           label?: string
           module?: string
+        }
+        Relationships: []
+      }
+      pickup_notification_schedules: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          metadata: Json
+          offset_minutes: number
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
+          target_role: string | null
+          template_id: string
+          trigger_event: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          offset_minutes?: number
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          target_role?: string | null
+          template_id: string
+          trigger_event: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          offset_minutes?: number
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          target_role?: string | null
+          template_id?: string
+          trigger_event?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pickup_notification_schedules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "pickup_notification_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pickup_notification_templates: {
+        Row: {
+          body_template: string
+          brand_id: string
+          channel: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          metadata: Json
+          name: string
+          subject: string | null
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          body_template: string
+          brand_id: string
+          channel: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name: string
+          subject?: string | null
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          body_template?: string
+          brand_id?: string
+          channel?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name?: string
+          subject?: string | null
+          updated_at?: string
+          variables?: Json
         }
         Relationships: []
       }
@@ -6032,7 +6978,9 @@ export type Database = {
           id: string
           metadata: Json
           mileage_in: number | null
+          mode: string
           organization_id: string | null
+          photos: string[]
           pi_no: string
           repair_order_id: string | null
           sa_id: string | null
@@ -6058,7 +7006,9 @@ export type Database = {
           id?: string
           metadata?: Json
           mileage_in?: number | null
+          mode?: string
           organization_id?: string | null
+          photos?: string[]
           pi_no: string
           repair_order_id?: string | null
           sa_id?: string | null
@@ -6084,7 +7034,9 @@ export type Database = {
           id?: string
           metadata?: Json
           mileage_in?: number | null
+          mode?: string
           organization_id?: string | null
+          photos?: string[]
           pi_no?: string
           repair_order_id?: string | null
           sa_id?: string | null
@@ -6944,6 +7896,48 @@ export type Database = {
         }
         Relationships: []
       }
+      rag_chunks: {
+        Row: {
+          brand_id: string
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string
+          embedding_model: string
+          id: string
+          metadata: Json
+          source_id: string
+          source_type: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          chunk_index?: number
+          content: string
+          created_at?: string
+          embedding: string
+          embedding_model?: string
+          id?: string
+          metadata?: Json
+          source_id: string
+          source_type: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string
+          embedding_model?: string
+          id?: string
+          metadata?: Json
+          source_id?: string
+          source_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reminder_definitions: {
         Row: {
           accent: string
@@ -7087,6 +8081,9 @@ export type Database = {
           brand_id: string
           created_at: string | null
           created_by: string | null
+          done: boolean
+          done_at: string | null
+          done_by: string | null
           id: string
           is_warranty: boolean
           item_id: string | null
@@ -7110,6 +8107,9 @@ export type Database = {
           brand_id: string
           created_at?: string | null
           created_by?: string | null
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
           id?: string
           is_warranty?: boolean
           item_id?: string | null
@@ -7133,6 +8133,9 @@ export type Database = {
           brand_id?: string
           created_at?: string | null
           created_by?: string | null
+          done?: boolean
+          done_at?: string | null
+          done_by?: string | null
           id?: string
           is_warranty?: boolean
           item_id?: string | null
@@ -7152,6 +8155,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "repair_order_lines_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "aftersales_technicians"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "repair_order_lines_item_id_fkey"
             columns: ["item_id"]
@@ -7179,6 +8189,7 @@ export type Database = {
           estimated_labor_units: number | null
           estimated_subtotal: number | null
           id: string
+          images: string[] | null
           issue_date: string
           lead_technician_id: string | null
           lines_subtotal: number | null
@@ -7209,6 +8220,7 @@ export type Database = {
           estimated_labor_units?: number | null
           estimated_subtotal?: number | null
           id?: string
+          images?: string[] | null
           issue_date: string
           lead_technician_id?: string | null
           lines_subtotal?: number | null
@@ -7239,6 +8251,7 @@ export type Database = {
           estimated_labor_units?: number | null
           estimated_subtotal?: number | null
           id?: string
+          images?: string[] | null
           issue_date?: string
           lead_technician_id?: string | null
           lines_subtotal?: number | null
@@ -7758,6 +8771,7 @@ export type Database = {
           id: string
           intended_models: string[] | null
           intent_level: number | null
+          latest_test_drive_id: string | null
           lead_grade: string | null
           lead_id: string | null
           metadata: Json
@@ -7789,6 +8803,7 @@ export type Database = {
           id?: string
           intended_models?: string[] | null
           intent_level?: number | null
+          latest_test_drive_id?: string | null
           lead_grade?: string | null
           lead_id?: string | null
           metadata?: Json
@@ -7820,6 +8835,7 @@ export type Database = {
           id?: string
           intended_models?: string[] | null
           intent_level?: number | null
+          latest_test_drive_id?: string | null
           lead_grade?: string | null
           lead_id?: string | null
           metadata?: Json
@@ -7848,6 +8864,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_handcards_latest_test_drive_id_fkey"
+            columns: ["latest_test_drive_id"]
+            isOneToOne: false
+            referencedRelation: "sales_test_drives"
             referencedColumns: ["id"]
           },
           {
@@ -8152,6 +9175,121 @@ export type Database = {
           },
         ]
       }
+      sales_quotes: {
+        Row: {
+          addon_amount: number | null
+          brand_id: string
+          closed_at: string | null
+          converted_order_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          discount_amount: number | null
+          estimated_delivery_date: string | null
+          expires_at: string | null
+          id: string
+          lines: Json | null
+          metadata: Json
+          notes: string | null
+          quote_no: string
+          rs_name: string | null
+          sent_at: string | null
+          status: string
+          total_amount: number | null
+          updated_at: string
+          updated_by: string | null
+          used_brand_model: string | null
+          vehicle_amount: number | null
+          vehicle_kind: string
+          vehicle_model_id: string | null
+          vehicle_model_name: string | null
+        }
+        Insert: {
+          addon_amount?: number | null
+          brand_id: string
+          closed_at?: string | null
+          converted_order_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount_amount?: number | null
+          estimated_delivery_date?: string | null
+          expires_at?: string | null
+          id?: string
+          lines?: Json | null
+          metadata?: Json
+          notes?: string | null
+          quote_no: string
+          rs_name?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          used_brand_model?: string | null
+          vehicle_amount?: number | null
+          vehicle_kind?: string
+          vehicle_model_id?: string | null
+          vehicle_model_name?: string | null
+        }
+        Update: {
+          addon_amount?: number | null
+          brand_id?: string
+          closed_at?: string | null
+          converted_order_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount_amount?: number | null
+          estimated_delivery_date?: string | null
+          expires_at?: string | null
+          id?: string
+          lines?: Json | null
+          metadata?: Json
+          notes?: string | null
+          quote_no?: string
+          rs_name?: string | null
+          sent_at?: string | null
+          status?: string
+          total_amount?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          used_brand_model?: string | null
+          vehicle_amount?: number | null
+          vehicle_kind?: string
+          vehicle_model_id?: string | null
+          vehicle_model_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_quotes_converted_order_id_fkey"
+            columns: ["converted_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_quotes_vehicle_model_id_fkey"
+            columns: ["vehicle_model_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_test_drives: {
         Row: {
           brand_id: string
@@ -8159,6 +9297,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_id: string | null
+          handcard_id: string | null
           id: string
           lead_id: string | null
           metadata: Json
@@ -8175,6 +9314,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          handcard_id?: string | null
           id?: string
           lead_id?: string | null
           metadata?: Json
@@ -8191,6 +9331,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          handcard_id?: string | null
           id?: string
           lead_id?: string | null
           metadata?: Json
@@ -8207,6 +9348,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_test_drives_handcard_id_fkey"
+            columns: ["handcard_id"]
+            isOneToOne: false
+            referencedRelation: "sales_handcards"
             referencedColumns: ["id"]
           },
           {
@@ -8506,6 +9654,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_id: string | null
+          delivery_address: string | null
+          delivery_eta_at: string | null
+          delivery_status: string | null
+          destination_store_id: string | null
           external_id: string | null
           external_source: string
           gi_no: string
@@ -8518,6 +9670,8 @@ export type Database = {
           posted_at: string | null
           posted_by: string | null
           qty_issued_total: number
+          recipient_name: string | null
+          recipient_phone: string | null
           ro_id: string | null
           source_doc_id: string | null
           source_doc_type: string | null
@@ -8536,6 +9690,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          delivery_address?: string | null
+          delivery_eta_at?: string | null
+          delivery_status?: string | null
+          destination_store_id?: string | null
           external_id?: string | null
           external_source?: string
           gi_no: string
@@ -8548,6 +9706,8 @@ export type Database = {
           posted_at?: string | null
           posted_by?: string | null
           qty_issued_total?: number
+          recipient_name?: string | null
+          recipient_phone?: string | null
           ro_id?: string | null
           source_doc_id?: string | null
           source_doc_type?: string | null
@@ -8566,6 +9726,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          delivery_address?: string | null
+          delivery_eta_at?: string | null
+          delivery_status?: string | null
+          destination_store_id?: string | null
           external_id?: string | null
           external_source?: string
           gi_no?: string
@@ -8578,6 +9742,8 @@ export type Database = {
           posted_at?: string | null
           posted_by?: string | null
           qty_issued_total?: number
+          recipient_name?: string | null
+          recipient_phone?: string | null
           ro_id?: string | null
           source_doc_id?: string | null
           source_doc_type?: string | null
@@ -8596,6 +9762,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_issues_destination_store_id_fkey"
+            columns: ["destination_store_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -10429,6 +11602,7 @@ export type Database = {
           subsidiary_id: string | null
           updated_at: string
           vehicle_type: Database["public"]["Enums"]["vehicle_type"]
+          warranty_months: number
           year_end: number | null
           year_start: number | null
         }
@@ -10454,6 +11628,7 @@ export type Database = {
           subsidiary_id?: string | null
           updated_at?: string
           vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
+          warranty_months?: number
           year_end?: number | null
           year_start?: number | null
         }
@@ -10479,6 +11654,7 @@ export type Database = {
           subsidiary_id?: string | null
           updated_at?: string
           vehicle_type?: Database["public"]["Enums"]["vehicle_type"]
+          warranty_months?: number
           year_end?: number | null
           year_start?: number | null
         }
@@ -10530,6 +11706,7 @@ export type Database = {
           is_active: boolean
           metadata: Json | null
           name: string | null
+          sort_order: number
           updated_at: string
           warehouse_id: string
           zone_id: string
@@ -10543,6 +11720,7 @@ export type Database = {
           is_active?: boolean
           metadata?: Json | null
           name?: string | null
+          sort_order?: number
           updated_at?: string
           warehouse_id: string
           zone_id: string
@@ -10556,6 +11734,7 @@ export type Database = {
           is_active?: boolean
           metadata?: Json | null
           name?: string | null
+          sort_order?: number
           updated_at?: string
           warehouse_id?: string
           zone_id?: string
@@ -10588,6 +11767,7 @@ export type Database = {
           is_occupied: boolean
           metadata: Json | null
           position: string | null
+          sort_order: number
           updated_at: string
           warehouse_id: string
         }
@@ -10601,6 +11781,7 @@ export type Database = {
           is_occupied?: boolean
           metadata?: Json | null
           position?: string | null
+          sort_order?: number
           updated_at?: string
           warehouse_id: string
         }
@@ -10614,6 +11795,7 @@ export type Database = {
           is_occupied?: boolean
           metadata?: Json | null
           position?: string | null
+          sort_order?: number
           updated_at?: string
           warehouse_id?: string
         }
@@ -10645,6 +11827,7 @@ export type Database = {
           metadata: Json | null
           name: string
           notes: string | null
+          sort_order: number
           updated_at: string
           warehouse_id: string
         }
@@ -10658,6 +11841,7 @@ export type Database = {
           metadata?: Json | null
           name: string
           notes?: string | null
+          sort_order?: number
           updated_at?: string
           warehouse_id: string
         }
@@ -10671,6 +11855,7 @@ export type Database = {
           metadata?: Json | null
           name?: string
           notes?: string | null
+          sort_order?: number
           updated_at?: string
           warehouse_id?: string
         }
@@ -11193,6 +12378,58 @@ export type Database = {
       }
     }
     Views: {
+      followup_stats_by_store: {
+        Row: {
+          avg_close_days: number | null
+          brand_id: string | null
+          closed_count: number | null
+          escalated_count: number | null
+          open_count: number | null
+          recovered_amount: number | null
+          recovered_count: number | null
+          store_id: string | null
+          store_name: string | null
+          total_count: number | null
+          total_lost_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_funnel_metrics: {
+        Row: {
+          brand_id: string | null
+          builds: number | null
+          contacts: number | null
+          deliveries: number | null
+          orders: number | null
+          period_key: string | null
+          period_type: string | null
+          quotes: number | null
+          rs_name: string | null
+          trials: number | null
+        }
+        Relationships: []
+      }
+      sales_metrics_monthly: {
+        Row: {
+          brand_id: string | null
+          deliveries_amount: number | null
+          deliveries_count: number | null
+          orders_amount: number | null
+          orders_count: number | null
+          period_key: string | null
+          rs_name: string | null
+          vehicle_model_id: string | null
+        }
+        Relationships: []
+      }
       v_inventory_turnover: {
         Row: {
           abc_class: string | null
@@ -11297,6 +12534,25 @@ export type Database = {
           p_warehouse_id?: string
         }
         Returns: string
+      }
+      match_rag_chunks: {
+        Args: {
+          p_brand_id: string
+          p_customer_id?: string
+          p_source_types?: string[]
+          p_top_k?: number
+          p_vehicle_model_id?: string
+          query_embedding: string
+        }
+        Returns: {
+          chunk_index: number
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+          source_id: string
+          source_type: string
+        }[]
       }
       org_soft_delete_region: {
         Args: { p_region_id: string }
@@ -11504,6 +12760,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      refresh_sales_metrics_monthly: { Args: never; Returns: undefined }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       supplier_soft_delete: {

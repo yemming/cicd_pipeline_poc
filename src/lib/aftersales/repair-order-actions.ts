@@ -12,11 +12,13 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { createFollowUpTask } from "@/domain/sales-call-tasks";
 
 import {
   PREFIX_COMBO_RULES,
@@ -97,6 +99,49 @@ export async function confirmRepairOrderAction(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
   const issueDate = todayIsoDate();
+
+  // ── 跨模組 hook #2：SA 鎖定 / 防重複指派（同步守門，非 after）──
+  // proposal §#2：確認/指派前先擋。after() 是寫完才跑、擋不住重複，所以在 insert 之前查。
+  // OPEN_RO_STATUSES：尚未結束的工單狀態（已關單 / 已取消 不算佔用）
+  const OPEN_RO_STATUSES = ["進行中", "維修中", "待結帳"];
+
+  // (a) 同車已有進行中工單 → 擋（一台車同時間只該有一張 open RO）
+  if (input.vehicle_id) {
+    const { data: openRo, error: openErr } = await supabase
+      .from("repair_orders")
+      .select("id, ro_code")
+      .eq("brand_id", brand)
+      .eq("vehicle_id", input.vehicle_id)
+      .in("status", OPEN_RO_STATUSES)
+      .limit(1)
+      .maybeSingle();
+    if (openErr) return { ok: false, error: `防重檢查失敗：${openErr.message}` };
+    if (openRo) {
+      return {
+        ok: false,
+        error: `此車已有進行中的工單（${openRo.ro_code}），請先結清再建立新單。`,
+      };
+    }
+  }
+
+  // (b) 同一預約防重複 confirm → 一張預約只該開一張 RO
+  if (input.appointment_id) {
+    const { data: dupRo, error: dupErr } = await supabase
+      .from("repair_orders")
+      .select("id, ro_code")
+      .eq("brand_id", brand)
+      .eq("appointment_id", input.appointment_id)
+      .neq("status", "已取消")
+      .limit(1)
+      .maybeSingle();
+    if (dupErr) return { ok: false, error: `防重檢查失敗：${dupErr.message}` };
+    if (dupRo) {
+      return {
+        ok: false,
+        error: `此預約已建立過工單（${dupRo.ro_code}），請勿重複確認。`,
+      };
+    }
+  }
 
   // 2. 簡單 retry on unique violation（POC 階段：上限 5 次）
   let lastErr: string | null = null;
@@ -190,6 +235,44 @@ export async function updateRepairOrderStatusAction(
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
+
+  // ── 跨模組 hook #7：工單關閉 → 建立 NPS 滿意度回訪任務 ──
+  // 非阻塞、try/catch 吞錯；helper 以 metadata.source_ro 防同單重複觸發。
+  // 範圍（Ming 拍板）：只做「關單 → 建 NPS 回訪 call_task」，不碰 work_orders 進廠數對齊。
+  if (status === "已關單") {
+    after(async () => {
+      try {
+        const sb = await createClient();
+        const { data: ro } = await sb
+          .from("repair_orders")
+          .select("customer_id, vehicle_id, ro_code")
+          .eq("id", id)
+          .eq("brand_id", brand)
+          .maybeSingle();
+        if (!ro?.customer_id) return; // 沒掛客戶的工單不建 NPS
+
+        const res = await createFollowUpTask({
+          customer_id: ro.customer_id,
+          kind: "aftersales",
+          call_type: "nps_interview",
+          days_from_now: 1, // 關單後隔天回訪
+          notes: `系統自動建立：工單 ${ro.ro_code} 關單後 NPS 滿意度回訪`,
+          metadata: {
+            source: "repair_order_close_hook",
+            source_ro: id,
+            ro_code: ro.ro_code,
+            vehicle_id: ro.vehicle_id ?? null,
+          },
+          dedupeMetaKey: "source_ro",
+        });
+        if (!res.ok) {
+          console.error("[hook#7 關單→NPS] 建立失敗（不影響關單）", res.error);
+        }
+      } catch (e) {
+        console.error("[hook#7 關單→NPS] 副作用例外（不影響關單）", e);
+      }
+    });
+  }
 
   revalidatePath(PAGE_PATH);
   revalidatePath(`${PAGE_PATH}/${id}`);

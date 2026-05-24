@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { ingestRecordInternal, removeFromRag } from "@/domain/rag-ingest";
+import { createFollowUpTask } from "@/domain/sales-call-tasks";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
 export type ActionResult<T = unknown> =
@@ -113,6 +114,23 @@ export async function createCustomerAction(
 
   // 背景：新建客戶 → 進 RAG 知識庫（不阻擋 UI）
   after(() => ingestRecordInternal("customer", data.id));
+
+  // 跨模組 hook #1：建客 → 自動產生回訪任務（建客後 +3 天的 sales 回訪電訪）
+  // 非阻塞、try/catch 吞錯，副作用失敗不影響本次建客成功
+  after(async () => {
+    try {
+      await createFollowUpTask({
+        customer_id: data.id,
+        kind: "sales",
+        call_type: "d3_followup",
+        days_from_now: 3,
+        notes: "系統自動建立：新客戶建檔後回訪",
+        metadata: { source: "customer_create_hook" },
+      });
+    } catch (e) {
+      console.error("[hook#1 建客→回訪] 副作用失敗（不影響建客）", e);
+    }
+  });
 
   revalidatePath("/admin/master-data/customers");
   return { ok: true, data: { id: data.id } };

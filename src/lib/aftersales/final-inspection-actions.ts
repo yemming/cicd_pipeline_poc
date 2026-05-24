@@ -17,17 +17,18 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { registerOldPartFromInspection } from "@/domain/warranty";
 
 import {
   buildInitialLineResults,
   hasAnyFail,
   isLineResultsAllPassed,
-  type CheckState,
   type Cleaning,
   type LineResult,
   type NextService,
@@ -297,6 +298,55 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
     .update({ status: "待結帳" })
     .eq("id", ctx.row.repair_order_id)
     .eq("brand_id", ctx.brand);
+
+  // ── 跨模組 hook #6：複檢通過 → 保固單的換下舊件自動登錄 ──
+  // 僅保固單（RO prefix_p1='WC'）觸發；撈該 RO 換下的保固零件逐筆 registerOldPart。
+  // 非阻塞、try/catch 吞錯；helper 自帶 (ro_id,item_id) 防重。
+  const roId = ctx.row.repair_order_id as string | null;
+  if (roId) {
+    after(async () => {
+      try {
+        const sb = await createClient();
+        const brand = (await getActiveScope()).brand_id;
+
+        // 是否為保固單
+        const { data: ro } = await sb
+          .from("repair_orders")
+          .select("prefix_p1, vehicle_id")
+          .eq("id", roId)
+          .eq("brand_id", brand)
+          .maybeSingle();
+        if (!ro || ro.prefix_p1 !== "WC") return; // POC：只有 WC 保固單才登舊件
+
+        // 取該 RO 換下的保固零件（kind=part / is_warranty / 有 item_id）
+        const { data: lines } = await sb
+          .from("repair_order_lines")
+          .select("item_id, is_warranty, kind")
+          .eq("repair_order_id", roId)
+          .eq("brand_id", brand)
+          .eq("kind", "part")
+          .eq("is_warranty", true)
+          .not("item_id", "is", null);
+
+        const today = new Date().toISOString().slice(0, 10);
+        for (const line of lines ?? []) {
+          if (!line.item_id) continue;
+          const res = await registerOldPartFromInspection({
+            ro_id: roId,
+            item_id: line.item_id,
+            entry_date: today,
+            oem_directive: "pending", // 待原廠處置指示（disposal_action → 'pending'）
+          });
+          if (!res.ok) {
+            console.error("[hook#6 複檢→舊件] 單筆登錄失敗（續跑其餘）", line.item_id, res.error);
+          }
+        }
+      } catch (e) {
+        console.error("[hook#6 複檢→舊件] 副作用例外（不影響複檢完成）", e);
+      }
+    });
+  }
+
   revalidatePath(`${PAGE}/${id}`);
   revalidatePath(PAGE);
   revalidatePath("/parts/aftersales/repair-orders");
@@ -342,4 +392,7 @@ export async function deleteAction(id: string): Promise<ActionResult<{ id: strin
   return { ok: true, data: { id } };
 }
 
-export type { CheckState };
+// 註：原本這裡有 `export type { CheckState }`，但本檔有頂層 "use server"，
+// Turbopack 會把 type 再匯出當成值匯出 → 觸發 'A "use server" file can only export
+// async functions' + 'CheckState is not defined' 500（completeAction 整支炸、hook#6 不跑）。
+// CheckState 沒有任何外部 import，移除此死 re-export。（第十一輪 Phase 2 SA-05 修）

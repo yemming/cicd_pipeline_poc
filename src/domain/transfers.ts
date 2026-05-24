@@ -8,12 +8,14 @@
  *   （從 src/lib/parts/actions/index.ts L726-842 遷入；Result<T> 沿用 domain 慣例）
  */
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { releaseWaitingForItem } from "@/domain/parts-waiting";
 
 import type { Database } from "@/lib/database.types";
 
@@ -1332,6 +1334,23 @@ export async function receiveTransfer(
       tgt_subsidiary: tgtSub,
     });
   }
+
+  // 8. 跨模組 hook #5（CROSS-03）：補貨入庫 → 解除等這些 item 的待料工單。
+  //    對每條入庫 line 的 item × 目標倉，找在等它的待料 RO → release/補足預留、解缺料告警、清 metadata flag。
+  //    after() 非阻塞 + try/catch：解待料失敗絕不回滾本次收貨。
+  const arrivedItems = Array.from(
+    new Set(trLines.map((l) => l.item_id).filter((x): x is string => !!x)),
+  );
+  const targetWarehouseId = tr.target_warehouse_id;
+  after(async () => {
+    for (const itemId of arrivedItems) {
+      try {
+        await releaseWaitingForItem({ item_id: itemId, warehouse_id: targetWarehouseId });
+      } catch (e) {
+        console.error("[hook#5] 解除待料失敗（不影響本次收貨）", { itemId, error: e });
+      }
+    }
+  });
 
   revalidatePath("/parts/issue/transfer-out");
   revalidatePath("/parts/receipt/transfer-in");

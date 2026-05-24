@@ -97,6 +97,10 @@ export const PERMISSIONS = {
   RO_DISPATCH: "service.ro.dispatch",
   RO_CLOSE: "service.ro.close",
   RO_APPROVE: "service.ro.approve",
+  // ─── Tech 技師工作台（C4 第十一輪）─ 接單 / 施工執行 / 追加項目提報 ──
+  RO_ACCEPT: "service.ro.accept",
+  RO_EXECUTE: "service.ro.execute",
+  ADDON_PROPOSE: "service.addon.propose",
   WARRANTY_VIEW: "service.warranty.view",
   WARRANTY_SUBMIT: "service.warranty.submit",
   AFTERSALES_DISCOUNT_VIEW: "service.aftersales_discount.view",

@@ -927,3 +927,101 @@ export async function getCallTaskHistoryByCustomerIds(
   }
   return out;
 }
+
+// ─────────────────────────────────────────────────────────────
+// 跨模組 hook 用：自動建立回訪 / NPS 任務（第十一輪 C1-C3a）
+//
+// 共用入口：#1 建客→回訪（kind=sales / call_type=d3_followup）、
+//          #7 關單→NPS（kind=aftersales / call_type=nps_interview）。
+//
+// ⚠️ 這是「系統副作用」helper，不是 user-facing action：
+//   - 不做 requirePermission（觸發它的上游 action 已驗過權限）
+//   - 仍綁 getActiveScope().brand_id → RLS 雙 brand 隔離不破
+//   - 內建冪等：同 customer + 同 call_type 已有 pending 任務（或 metadata.source_ro 命中）→ skip
+//   - 失敗只回 { ok:false }，由 caller 的 after() try/catch 吞掉、不炸主流程
+// ─────────────────────────────────────────────────────────────
+
+export type CreateFollowUpTaskInput = {
+  customer_id: string;
+  kind: "sales" | "aftersales";
+  /** call_tasks.call_type，需符合 CHECK（d3_followup / nps_interview / …） */
+  call_type: string;
+  /** 排程日（ISO timestamptz）；不給則用「現在 + days_from_now 天」 */
+  scheduled_at?: string | null;
+  /** scheduled_at 未給時，從現在往後推幾天（預設 3 天） */
+  days_from_now?: number;
+  assignee_id?: string | null;
+  notes?: string | null;
+  /** 額外塞進 call_tasks.metadata（如 { source_ro, source_order } 供冪等查重） */
+  metadata?: Record<string, unknown>;
+  /**
+   * 防重鍵：用 metadata 的某個 key 做冪等查重（例 'source_ro'）。
+   * 給了就查「同 customer + 同 call_type + metadata->>dedupeMetaKey = 該值」是否已存在；
+   * 不給就退回查「同 customer + 同 call_type + status=pending」是否已存在。
+   */
+  dedupeMetaKey?: string;
+};
+
+export type CreateFollowUpTaskResult =
+  | { ok: true; data: { id: string } | { skipped: true } }
+  | { ok: false; error: string };
+
+export async function createFollowUpTask(
+  input: CreateFollowUpTaskInput,
+): Promise<CreateFollowUpTaskResult> {
+  if (!input.customer_id) return { ok: false, error: "缺少 customer_id" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // ── 冪等：先查是否已有對應任務 ──
+  let dupQuery = supabase
+    .from("call_tasks")
+    .select("id")
+    .eq("brand_id", brand)
+    .eq("customer_id", input.customer_id)
+    .eq("call_type", input.call_type)
+    .limit(1);
+
+  const dedupeKey = input.dedupeMetaKey;
+  const dedupeVal = dedupeKey ? input.metadata?.[dedupeKey] : undefined;
+  if (dedupeKey && dedupeVal != null) {
+    // 以 metadata 某 key（如 source_ro）查重 → 同來源不重複建
+    dupQuery = dupQuery.eq(`metadata->>${dedupeKey}`, String(dedupeVal));
+  } else {
+    // 退回：同 customer + 同 call_type 已有 pending 任務就 skip
+    dupQuery = dupQuery.eq("status", "pending");
+  }
+
+  const { data: existing, error: dupErr } = await dupQuery.maybeSingle();
+  if (dupErr) return { ok: false, error: dupErr.message };
+  if (existing) return { ok: true, data: { skipped: true } };
+
+  // ── 排程日 ──
+  let scheduledAt = input.scheduled_at ?? null;
+  if (!scheduledAt) {
+    const days = input.days_from_now ?? 3;
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    scheduledAt = d.toISOString();
+  }
+
+  const { data, error } = await supabase
+    .from("call_tasks")
+    .insert({
+      brand_id: brand,
+      kind: input.kind,
+      customer_id: input.customer_id,
+      call_type: input.call_type,
+      status: "pending",
+      scheduled_at: scheduledAt,
+      assignee_id: input.assignee_id ?? null,
+      notes: input.notes ?? null,
+      metadata: (input.metadata ?? {}) as Record<string, unknown>,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: { id: data.id } };
+}

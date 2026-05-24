@@ -1,0 +1,304 @@
+{
+  "_meta": {
+    "brand": "indian",
+    "as_of": "2026-05-24",
+    "this_month": "2026-05",
+    "tolerance_pct": 2,
+    "note": "Phase 2 截圖比對基準。數字是 Batch B seed 後對 Indian brand 跑各報表 helper / view 同邏輯 query 的快照。每個 key 的 _source 標明算法出處與時間窗口；窗口語意以 helper 為準（RS-03=本月 / NPS 看板=近 6 月 / store-overview=近 30 天 / 技師=當前快照 / INV-07=12 月滾動 view）。",
+    "_caveats": [
+      "RS-03 用 signed_at 落在本月、status in (signed,fulfilled)、amount=total_amount>0 ? total_amount : deal_price；新車/中古靠 contract_type(new/used) 分。",
+      "CRM-04 store-overview salesRevenue 是 demo 估算（newCarCount × 800000），非真實 sales_orders；newCarCount=leads.converted_customer_id 非空（不限時間）。",
+      "CRM-05 NPS 看板預設 range=6m（sales-nps.constants 寫死預設 6 個月），不是本月；分類 promoter>=9 / passive 7-8 / detractor<=6；npsScore=round(promoterPct-detractorPct)。",
+      "INV-07 ABC：inv_07_abc + inv_07_turnover 來自 v_inventory_turnover，其 abc_class = items.control_type（全品項管控等級，A/B/C=34/68/99）；另記 abc_classification_results 動態分類桶（只 30 個有結果的 item）供對照。",
+      "INV-07 stale：baseline 來自 v_stale_inventory（status='available' 且 last_movement_at 分級 mild<-90d / severe<-180d / critical<-365d）。詳情頁 /parts/analytics/stale 走 analytics.ts listStaleRows（≥90 才算 stale、取 max(issue_date,last_movement_at)、含非 available 狀態）算法不同，stats 另記於 _alt 供 Phase 2 判斷該對哪一個。"
+    ]
+  },
+  "rs_03_sales_report": {
+    "this_month_new_units": 20,
+    "this_month_used_units": 6,
+    "this_month_total_units": 26,
+    "this_month_total_amount": 17282000,
+    "by_contract": {
+      "new": {
+        "units": 20,
+        "revenue": 15152000
+      },
+      "used": {
+        "units": 6,
+        "revenue": 2130000
+      }
+    },
+    "by_rs": {
+      "王志強": {
+        "units": 5,
+        "revenue": 2800000
+      },
+      "黃淑芬": {
+        "units": 5,
+        "revenue": 2630000
+      },
+      "魏呈宇": {
+        "units": 4,
+        "revenue": 2620000
+      },
+      "陳曉芸": {
+        "units": 4,
+        "revenue": 2305000
+      },
+      "王俊傑": {
+        "units": 2,
+        "revenue": 2014000
+      },
+      "陳雅惠": {
+        "units": 2,
+        "revenue": 1844000
+      },
+      "陳怡君": {
+        "units": 1,
+        "revenue": 1200000
+      },
+      "林佳蓉": {
+        "units": 1,
+        "revenue": 922000
+      },
+      "張志明": {
+        "units": 1,
+        "revenue": 667000
+      },
+      "林育誠": {
+        "units": 1,
+        "revenue": 280000
+      }
+    },
+    "rs_count": 10,
+    "_source": "src/domain/sales-report.ts getSalesReportBundle()（getSalesReportKpis revenue=sumAmount(current)、getSalesByConsultantRanking、本月窗口 periodKey=2026-05）",
+    "_window": "signed_at >= 2026-05-01 AND < 2026-06-01；status in (signed,fulfilled)"
+  },
+  "crm_04_store_report": {
+    "_window": "近 30 天（store-overview.constants STORE_RANGE_DAYS['30d']；now()-30d ≈ 2026-04-24 起）",
+    "kpi": {
+      "new_car_count": 0,
+      "work_order_count": 3,
+      "work_order_revenue": 12873,
+      "work_order_avg_amount": 4291,
+      "sales_revenue_est": 0,
+      "service_revenue": 12873,
+      "total_revenue": 12873,
+      "combined_nps": 32,
+      "follow_up_count": 36
+    },
+    "nps_by_kind": {
+      "sales": {
+        "total": 7,
+        "npsScore": 100,
+        "detractor": 0
+      },
+      "aftersales": {
+        "total": 31,
+        "npsScore": 16,
+        "detractor": 8
+      }
+    },
+    "sales_lead_kpi": {
+      "active": 43,
+      "dormant": 17,
+      "lost": 15
+    },
+    "service_kpi": {
+      "overdue_count": 28,
+      "upcoming_due_count": 2
+    },
+    "_notes": "follow_up_count = combinedNps.detractor(8) + overdueWoCount(28) = 36。salesRevenueEst = newCarCount(0) × 800000 = 0。combined_nps 32 是 30d 全 38 筆合計，與 CRM-05 6m 窗口不同。",
+    "_source": "src/domain/store-overview.ts getStoreOverview({range:'30d'}) — aggregate nps_responses / work_orders / sales_leads / customer_vehicles"
+  },
+  "crm_05_nps_dashboard": {
+    "total": 38,
+    "promoter": 18,
+    "passive": 12,
+    "detractor": 8,
+    "promoter_pct": 47.4,
+    "detractor_pct": 21.1,
+    "nps_score": 26,
+    "_window": "近 6 個月（預設 range=6m，月初對齊 2025-12-01 起）",
+    "_source": "src/domain/sales-nps.ts getSalesNpsDashboard({range:'6m',kind:'sales'}) kpi.npsScore；nps_responses kind='sales'"
+  },
+  "crm_05_nps_aftersales": {
+    "total": 78,
+    "promoter": 35,
+    "passive": 25,
+    "detractor": 18,
+    "promoter_pct": 44.9,
+    "detractor_pct": 23.1,
+    "nps_score": 22,
+    "_window": "近 6 個月（預設 range=6m，月初對齊 2025-12-01 起）",
+    "_source": "src/domain/crm-aftersales-nps.ts getAftersalesNpsDashboard({range:'6m'}) kpi.npsScore；nps_responses kind='aftersales'"
+  },
+  "sa_09_tech_efficiency": {
+    "kpi": {
+      "technician_count": 6,
+      "working": 2,
+      "jobs_total": 126,
+      "jobs_done": 126,
+      "jobs_in_progress": 0,
+      "avg_efficiency": 120,
+      "avg_productivity": 78,
+      "avg_utilization": 65,
+      "eff_on_target_count": 3,
+      "util_on_target_count": 0,
+      "total_sold_hours": 406.5,
+      "total_actual_hours": 337.7,
+      "total_available_hours": 518.3
+    },
+    "technicians": [
+      {
+        "code": "T3",
+        "name": "王志豪",
+        "status": "idle",
+        "jobs_total": 21,
+        "efficiency_pct": 145,
+        "productivity_pct": 104,
+        "utilization_pct": 72
+      },
+      {
+        "code": "T5",
+        "name": "李家豪",
+        "status": "break",
+        "jobs_total": 21,
+        "efficiency_pct": 132,
+        "productivity_pct": 92,
+        "utilization_pct": 70
+      },
+      {
+        "code": "T1",
+        "name": "陳建明",
+        "status": "working",
+        "jobs_total": 21,
+        "efficiency_pct": 125,
+        "productivity_pct": 83,
+        "utilization_pct": 66
+      },
+      {
+        "code": "T6",
+        "name": "黃文凱",
+        "status": "off",
+        "jobs_total": 21,
+        "efficiency_pct": 118,
+        "productivity_pct": 76,
+        "utilization_pct": 64
+      },
+      {
+        "code": "T4",
+        "name": "張哲瑋",
+        "status": "idle",
+        "jobs_total": 21,
+        "efficiency_pct": 110,
+        "productivity_pct": 68,
+        "utilization_pct": 62
+      },
+      {
+        "code": "T2",
+        "name": "林俊宏",
+        "status": "working",
+        "jobs_total": 21,
+        "efficiency_pct": 98,
+        "productivity_pct": 59,
+        "utilization_pct": 60
+      }
+    ],
+    "_notes": "排序依 efficiency desc（helper 預設）。avg_* 用全員 sum 算（computeEfficiency(sumSold,sumActual) 等），非各技師百分比的算術平均。eff_on_target=eff>=125%(3人:T3/T5/T1)、util_on_target=util>=80%(0人)。",
+    "_source": "src/domain/aftersales-technicians.ts getTechnicianEfficiencySummary()；aftersales_technicians 當前快照、computeEfficiency/Productivity/Utilization（constants）"
+  },
+  "inv_07_abc": {
+    "A": {
+      "count": 34
+    },
+    "B": {
+      "count": 68
+    },
+    "C": {
+      "count": 99
+    },
+    "total_items": 201,
+    "_source": "v_inventory_turnover GROUP BY abc_class（abc_class = items.control_type）— /parts/analytics 周轉頁",
+    "_alt_abc_classification_results": {
+      "A": {
+        "count": 8,
+        "amount_12m": 4632266
+      },
+      "B": {
+        "count": 10,
+        "amount_12m": 1200535
+      },
+      "C": {
+        "count": 12,
+        "amount_12m": 210328
+      },
+      "_note": "abc-settings 頁（/parts/analytics/abc-settings）真正的動態分類桶；只 30 個有 result 的 item。Phase 2 若截的是 abc-settings 頁用這組、若是周轉頁用上面 control_type 那組。"
+    }
+  },
+  "inv_07_turnover": {
+    "A": {
+      "item_count": 8,
+      "turnover_avg": 1.8
+    },
+    "B": {
+      "item_count": 10,
+      "turnover_avg": 2.1
+    },
+    "C": {
+      "item_count": 12,
+      "turnover_avg": 7.1
+    },
+    "overall": {
+      "turnover_times": 1.3,
+      "days_of_stock": 274
+    },
+    "_source": "/parts/analytics/turnover getTurnoverPageData()：分母=平均庫存(期初+期末)/2（拍板#5），母體=abc_classification_results.abc_class（30 classified items）。±2% 容差",
+    "_note": "D3 原主值挑錯來源（v_inventory_turnover qty_out/qty_on_hand、全201品項），已於 2026-05-24 INV-07 對帳後校正為頁面實際輸出。計算邏輯本輪未改（R3）。",
+    "_alt_v_inventory_turnover": {
+      "A": {
+        "item_count": 34,
+        "turnover_avg": 1.03,
+        "turnover_min": 0.0,
+        "turnover_max": 2.13,
+        "days_of_stock_avg": 250.2
+      },
+      "B": {
+        "item_count": 68,
+        "turnover_avg": 0.48,
+        "turnover_min": 0.0,
+        "turnover_max": 1.0,
+        "days_of_stock_avg": 778.2
+      },
+      "C": {
+        "item_count": 99,
+        "turnover_avg": 0.07,
+        "turnover_min": 0.0,
+        "turnover_max": 0.33,
+        "days_of_stock_avg": 3930.4
+      },
+      "_source": "v_inventory_turnover.turnover_rate_12m by abc_class(control_type)，Indian。turnover_rate_12m = qty_out_12m / qty_on_hand（出庫=stock_issues completed 近一年）",
+      "_window": "近 12 個月滾動（stock_issues.posted_at >= now()-1year）"
+    }
+  },
+  "inv_07_stale": {
+    "mild": {
+      "rows": 34,
+      "stale_amount": 211202
+    },
+    "severe": {
+      "rows": 11,
+      "stale_amount": 51994
+    },
+    "critical": {
+      "rows": 0,
+      "stale_amount": 0
+    },
+    "total_rows": 45,
+    "total_amount": 263196,
+    "_source": "v_stale_inventory GROUP BY stale_severity，Indian。分級：mild=last_movement_at<-90d / severe<-180d / critical<-365d；只算 status='available' 且 qty>0。row 是 (item × warehouse) 粒度。",
+    "_alt_analytics_listStaleRows": {
+      "_note": "詳情頁 /parts/analytics/stale 走 src/domain/analytics.ts getStaleOverview()/listStaleRows()，算法不同（days_idle=now-max(issue_date,last_movement_at)、≥90 才算、bucket b90_180/b180_365/b365_plus、per-item 非 per-warehouse、含非 available 狀態）。若 Phase 2 截的是該頁，數字會跟 view 不同 — 需另跑 helper 比對，不要直接套 view 的 mild/severe/critical。TODO Phase 2 校：確認截圖頁面是 stale 詳情頁(helper) 還是某個吃 v_stale_inventory 的看板。"
+    }
+  }
+}
