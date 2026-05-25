@@ -21,6 +21,11 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 
 import type { TechStatus } from "@/domain/aftersales-technicians.constants";
+import {
+  createTechnicianFromEmployee,
+  bindTechnicianUser,
+  type CreateTechnicianFromEmployeeInput,
+} from "@/domain/aftersales-technicians";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -266,4 +271,27 @@ export async function deleteTechnicianAction(
 
 export async function checkDispatchEditPermission(): Promise<boolean> {
   return await hasPermission(PERMISSIONS.RO_DISPATCH);
+}
+
+// ── 第14輪：員工/技師串接 ──
+
+export async function createTechnicianFromEmployeeAction(
+  input: CreateTechnicianFromEmployeeInput,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_DISPATCH);
+  const res = await createTechnicianFromEmployee(input);
+  if (!res.ok) return { ok: false, error: res.error };
+  revalidatePath(PAGE);
+  return { ok: true, data: res.data };
+}
+
+export async function bindTechnicianUserAction(
+  technician_id: string,
+  user_id: string | null,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_DISPATCH);
+  const res = await bindTechnicianUser(technician_id, user_id);
+  if (!res.ok) return { ok: false, error: res.error ?? "綁定帳號失敗" };
+  revalidatePath(PAGE);
+  return { ok: true, data: { id: technician_id } };
 }

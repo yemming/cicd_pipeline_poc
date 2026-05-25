@@ -8,10 +8,12 @@ import {
   createEmployeeAction,
   deleteEmployeeAction,
   updateEmployeeAction,
+  updateEmployeeRolesAction,
   type EmployeeInput,
 } from "@/lib/master-data/employee-actions";
 import type { EmployeeFieldKey } from "@/lib/master-data/employee-form-types";
 import type { Department, Employee } from "@/lib/parts/types";
+import type { EmployeeRoleType } from "@/domain/employee-roles.constants";
 import { EntityImageUploader } from "@/components/image-upload/entity-image-uploader";
 
 export type DepartmentRef = { id: string; code: string; name: string };
@@ -77,11 +79,13 @@ export function EmployeeDetailView({
   departments,
   canEdit,
   initialMode = "view",
+  roleOptions = [],
 }: {
   employee: Employee | null;
   departments: DepartmentRef[] | Department[];
   canEdit: boolean;
   initialMode?: "view" | "create";
+  roleOptions?: EmployeeRoleType[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -414,6 +418,16 @@ export function EmployeeDetailView({
           </div>
         </div>
       </header>
+
+      {/* 員工角色（第14輪新增 — 系統判斷用，跟 position「HR 職稱」分層） */}
+      {employee && !creating ? (
+        <EmployeeRolesSection
+          employee={employee}
+          roleOptions={roleOptions}
+          canEdit={canEdit}
+          onBanner={showBanner}
+        />
+      ) : null}
 
       {/* 基本資料 */}
       <section
@@ -780,5 +794,144 @@ function Kv({
         {value}
       </div>
     </div>
+  );
+}
+
+// ── 第14輪：員工角色 inline 編輯區段 ──
+function EmployeeRolesSection({
+  employee,
+  roleOptions,
+  canEdit,
+  onBanner,
+}: {
+  employee: Employee;
+  roleOptions: EmployeeRoleType[];
+  canEdit: boolean;
+  onBanner: (b: { ok: boolean; msg: string } | null) => void;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const initialCodes = (employee.role_codes ?? []) as string[];
+  const [draft, setDraft] = useState<string[]>(initialCodes);
+
+  const activeRoles = roleOptions.filter((r) => r.is_active);
+  const roleMap = new Map(roleOptions.map((r) => [r.code, r]));
+  const currentChips = initialCodes.map((c) => roleMap.get(c) ?? null);
+
+  function toggle(code: string) {
+    if (draft.includes(code)) setDraft(draft.filter((c) => c !== code));
+    else setDraft([...draft, code]);
+  }
+
+  function save() {
+    startTransition(async () => {
+      const res = await updateEmployeeRolesAction(employee.id, draft);
+      if (res.ok) {
+        onBanner({ ok: true, msg: "✓ 已更新員工角色" });
+        setEditing(false);
+        router.refresh();
+      } else {
+        onBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  return (
+    <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+        <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 員工角色（系統判斷用）</span>
+        <span className="text-[11.5px] text-[#9A9890]">
+          標籤式，系統用此判斷該員工能出現在哪些下拉/報表（跟「職位」HR 職稱分開）
+        </span>
+        {canEdit && !editing ? (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="ml-auto h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          >
+            編輯角色
+          </button>
+        ) : null}
+      </header>
+      <div className="px-4 py-3">
+        {!editing ? (
+          <div className="flex flex-wrap gap-1.5">
+            {currentChips.length === 0 ? (
+              <span className="text-[12px] text-[#9A9890]">尚未指派角色</span>
+            ) : (
+              currentChips.map((r, i) => {
+                if (!r) {
+                  return (
+                    <span
+                      key={initialCodes[i]}
+                      className="inline-flex items-center px-2 py-0.5 rounded-md text-[11.5px] bg-[#F2F2F2] text-[#9A9890]"
+                      title="此角色已停用或不存在"
+                    >
+                      {initialCodes[i]}（停用）
+                    </span>
+                  );
+                }
+                return (
+                  <span
+                    key={r.code}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11.5px] text-white"
+                    style={{ backgroundColor: r.color }}
+                  >
+                    {r.name_zh}
+                  </span>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {activeRoles.map((r) => {
+                const checked = draft.includes(r.code);
+                return (
+                  <button
+                    type="button"
+                    key={r.code}
+                    onClick={() => toggle(r.code)}
+                    disabled={isPending}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11.5px] border ${
+                      checked
+                        ? "text-white border-transparent"
+                        : "bg-white text-[#5A5955] border-[#D5D3CB] hover:border-[#9A9890]"
+                    } disabled:opacity-50`}
+                    style={checked ? { backgroundColor: r.color } : undefined}
+                  >
+                    {checked ? "✓ " : ""}
+                    {r.name_zh}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(initialCodes);
+                  setEditing(false);
+                }}
+                disabled={isPending}
+                className="h-[28px] px-3 rounded text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={save}
+                disabled={isPending}
+                className="h-[28px] px-3 rounded text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
+              >
+                {isPending ? "儲存中⋯" : "儲存角色"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

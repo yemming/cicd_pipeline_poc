@@ -15,25 +15,67 @@ import {
   FEEDBACK_ATTACHMENT_MAX_SIZE,
   FEEDBACK_ATTACHMENT_MAX_COUNT,
 } from "@/lib/feedback";
+import type { Json } from "@/lib/database.types";
 
 function s(fd: FormData, key: string): string {
   const v = fd.get(key);
   return typeof v === "string" ? v.trim() : "";
 }
 
-export async function createTicket(fd: FormData) {
-  const title = s(fd, "title");
-  const url = s(fd, "url") || null;
-  const description = s(fd, "description") || null;
+/**
+ * 建單 — 第二代簽名（ticket #8bc5bad2 / Ming 拍板）：
+ *   - 拿掉「發生什麼事？」標題欄，title 由 description 第一行自動 derive（≤ 80 字）
+ *   - description 改必填
+ *   - 接受 client buffer 的 Excalidraw snapshot（可空），建單成功後同流程 upsert canvas
+ *   - 改回 Result type（不 redirect、不 throw），讓 client 自控 banner/navigation
+ *
+ * Schema 限制（保留）：feedback_tickets.title NOT NULL → derive 必須保證非空字串
+ */
+export type CreateTicketInput = {
+  url: string | null;
+  description: string;
+  snapshot: unknown | null;      // Excalidraw scene { elements, appState, files }；不傳就不建 canvas row
+  files?: File[] | null;          // ticket-level 附件（非畫布內圖）；上傳到 feedback-attachments bucket、metadata.attachments 存清單
+};
 
-  if (!title) {
-    throw new Error("標題為必填");
+export type CreateTicketResult =
+  | { ok: true; ticketId: string }
+  | { ok: false; error: string };
+
+type TicketAttachmentMeta = {
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_path: string;
+  uploaded_at: string;
+};
+
+export async function createTicket(input: CreateTicketInput): Promise<CreateTicketResult> {
+  const description = (input.description ?? "").trim();
+  if (!description) return { ok: false, error: "請填寫問題描述（必填）" };
+
+  // 從 description 第一行 derive title（最多 80 字、超出截斷加 …）
+  const firstLine = description.split(/\r?\n/, 1)[0]?.trim() ?? "";
+  if (!firstLine) return { ok: false, error: "描述開頭不可全部空白" };
+  const title = firstLine.length > 80 ? `${firstLine.slice(0, 77)}…` : firstLine;
+  const url = (input.url ?? "").trim() || null;
+
+  // 附件 client 端校驗（server 雙保）
+  const files = (input.files ?? []).filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length > FEEDBACK_ATTACHMENT_MAX_COUNT) {
+    return { ok: false, error: `附件最多 ${FEEDBACK_ATTACHMENT_MAX_COUNT} 個` };
+  }
+  for (const f of files) {
+    if (f.size > FEEDBACK_ATTACHMENT_MAX_SIZE) {
+      return {
+        ok: false,
+        error: `「${f.name}」超過單檔上限 ${(FEEDBACK_ATTACHMENT_MAX_SIZE / 1024 / 1024).toFixed(0)} MB`,
+      };
+    }
   }
 
   const { userId, email } = await getCurrentUserAndAdmin();
-  if (!userId) {
-    redirect("/login");
-  }
+  if (!userId) return { ok: false, error: "請先登入" };
 
   const supabase = await createClient();
   const brandId = (await getActiveScope()).brand_id;
@@ -43,8 +85,61 @@ export async function createTicket(fd: FormData) {
     .select("id")
     .single();
 
-  if (error || !data) {
-    throw new Error(`建立失敗：${error?.message ?? "unknown"}`);
+  if (error || !data) return { ok: false, error: `建立失敗：${error?.message ?? "unknown"}` };
+  const ticketId = data.id as string;
+
+  // client 帶 canvas snapshot 就一併 upsert（by ticket_id）。canvas 失敗不影響建單
+  if (input.snapshot && typeof input.snapshot === "object") {
+    const { error: snapErr } = await supabase
+      .from("feedback_canvas_snapshots")
+      .upsert({ ticket_id: ticketId, snapshot: input.snapshot as Json, brand_id: brandId });
+    if (snapErr) console.error("[feedback] canvas snapshot upsert 失敗（不影響建單）", snapErr);
+  }
+
+  // 上傳附件到 storage、metadata.attachments 存清單（path 規則 {ticketId}/_ticket/{token}.{ext} 避開 comment 路徑）
+  // 任一檔失敗：清掉本次已上傳的、ticket 保留（user 可進詳情頁重傳）
+  if (files.length > 0) {
+    const uploaded: TicketAttachmentMeta[] = [];
+    for (const f of files) {
+      const extMatch = f.name.match(/\.[A-Za-z0-9]{1,10}$/);
+      const ext = extMatch ? extMatch[0].toLowerCase() : "";
+      const token = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const storagePath = `${ticketId}/_ticket/${token}${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from(FEEDBACK_ATTACHMENT_BUCKET)
+        .upload(storagePath, f, {
+          contentType: f.type || "application/octet-stream",
+          upsert: false,
+        });
+      if (upErr) {
+        console.error("[feedback] 附件上傳失敗（rollback 本批）", upErr);
+        if (uploaded.length > 0) {
+          await supabase.storage
+            .from(FEEDBACK_ATTACHMENT_BUCKET)
+            .remove(uploaded.map((u) => u.storage_path));
+        }
+        break;
+      }
+      uploaded.push({
+        file_name: f.name,
+        mime_type: f.type || "application/octet-stream",
+        size_bytes: f.size,
+        storage_path: storagePath,
+        uploaded_at: new Date().toISOString(),
+      });
+    }
+    if (uploaded.length > 0) {
+      const { error: metaErr } = await supabase
+        .from("feedback_tickets")
+        .update({ metadata: { attachments: uploaded } })
+        .eq("id", ticketId);
+      if (metaErr) {
+        console.error("[feedback] metadata.attachments 寫入失敗", metaErr);
+        await supabase.storage
+          .from(FEEDBACK_ATTACHMENT_BUCKET)
+          .remove(uploaded.map((u) => u.storage_path));
+      }
+    }
   }
 
   revalidatePath("/feedback/tickets");
@@ -57,9 +152,8 @@ export async function createTicket(fd: FormData) {
     .maybeSingle();
   const createdByDisplay = profile?.name?.trim() || email || userId;
 
-  // Notification Hub 埋點：客戶提新許願單時推 IM 通知（非阻塞，不影響 response）
+  // Notification Hub 埋點：客戶提新許願單時推 IM 通知（非阻塞、不影響 response）
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-  const ticketId = data.id;
   after(async () => {
     try {
       await notifications.dispatch({
@@ -68,7 +162,7 @@ export async function createTicket(fd: FormData) {
           ticketId,
           title,
           url: url ?? "",
-          description: description ?? "",
+          description,
           createdBy: createdByDisplay,
           actionUrl: `${appUrl}/feedback/tickets/${ticketId}`,
         },
@@ -78,7 +172,7 @@ export async function createTicket(fd: FormData) {
     }
   });
 
-  redirect(`/feedback/tickets/${ticketId}`);
+  return { ok: true, ticketId };
 }
 
 export async function updateTicketStatus(ticketId: string, next: FeedbackStatus) {
@@ -174,6 +268,17 @@ export async function deleteTicket(ticketId: string) {
       .select("storage_path")
       .in("comment_id", commentIds);
     attachmentPaths = (atts ?? []).map((a) => a.storage_path).filter(Boolean);
+  }
+
+  // 加收 ticket-level 附件路徑（metadata.attachments[].storage_path，2026-05-25 新增）
+  const { data: tk } = await supabase
+    .from("feedback_tickets")
+    .select("metadata")
+    .eq("id", ticketId)
+    .maybeSingle();
+  const meta = (tk?.metadata ?? {}) as { attachments?: Array<{ storage_path?: string }> };
+  for (const a of meta.attachments ?? []) {
+    if (a?.storage_path) attachmentPaths.push(a.storage_path);
   }
 
   // 先刪主檔（comments / canvas / attachments 靠 ON DELETE CASCADE）

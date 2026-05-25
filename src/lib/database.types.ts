@@ -208,6 +208,7 @@ export type Database = {
           current_bay_code: string | null
           current_item: string | null
           current_ro_code: string | null
+          employee_id: string | null
           grade: string | null
           id: string
           is_active: boolean
@@ -234,6 +235,7 @@ export type Database = {
           current_bay_code?: string | null
           current_item?: string | null
           current_ro_code?: string | null
+          employee_id?: string | null
           grade?: string | null
           id?: string
           is_active?: boolean
@@ -260,6 +262,7 @@ export type Database = {
           current_bay_code?: string | null
           current_item?: string | null
           current_ro_code?: string | null
+          employee_id?: string | null
           grade?: string | null
           id?: string
           is_active?: boolean
@@ -277,6 +280,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "aftersales_technicians_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "aftersales_technicians_organization_id_fkey"
             columns: ["organization_id"]
@@ -2479,6 +2489,60 @@ export type Database = {
           },
         ]
       }
+      employee_role_types: {
+        Row: {
+          code: string
+          color: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string | null
+          is_active: boolean
+          is_system: boolean
+          metadata: Json
+          name_en: string | null
+          name_zh: string
+          sort_order: number
+          suggested_rbac_role_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          code: string
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          is_active?: boolean
+          is_system?: boolean
+          metadata?: Json
+          name_en?: string | null
+          name_zh: string
+          sort_order?: number
+          suggested_rbac_role_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          code?: string
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          is_active?: boolean
+          is_system?: boolean
+          metadata?: Json
+          name_en?: string | null
+          name_zh?: string
+          sort_order?: number
+          suggested_rbac_role_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           avatar_url: string | null
@@ -2502,6 +2566,7 @@ export type Database = {
           pay_rate: number | null
           phone: string | null
           position: string | null
+          role_codes: string[]
           subsidiary_id: string | null
           synced_at: string | null
           updated_at: string
@@ -2529,6 +2594,7 @@ export type Database = {
           pay_rate?: number | null
           phone?: string | null
           position?: string | null
+          role_codes?: string[]
           subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string
@@ -2556,6 +2622,7 @@ export type Database = {
           pay_rate?: number | null
           phone?: string | null
           position?: string | null
+          role_codes?: string[]
           subsidiary_id?: string | null
           synced_at?: string | null
           updated_at?: string

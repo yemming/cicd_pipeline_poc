@@ -497,3 +497,111 @@ export async function listAftersalesStaffGrades(): Promise<string[]> {
   }
   return Array.from(set).sort();
 }
+
+/* ──────────────── 第14輪：員工/技師串接 ──────────────── */
+
+export type TechnicianCandidateEmployee = {
+  id: string;
+  emp_code: string;
+  name: string;
+  position: string | null;
+  dept_id: string | null;
+  has_active_technician: boolean;
+};
+
+/**
+ * 派工看板「新增技師」員工 dropdown 用 —
+ * 列當前 brand「在職 + 角色含 technician」員工，標記是否已有 active 技師檔
+ * (UI 應 disable / 過濾掉 has_active_technician=true)
+ */
+export async function listTechnicianCandidateEmployees(): Promise<
+  TechnicianCandidateEmployee[]
+> {
+  const brand = (await getActiveScope()).brand_id;
+  const supabase = await createClient();
+  const { data: emps, error } = await supabase
+    .from("employees")
+    .select("id, emp_code, name, position, dept_id")
+    .eq("brand_id", brand)
+    .eq("is_active", true)
+    .neq("employment_status", "left")
+    .contains("role_codes", ["technician"])
+    .order("emp_code");
+  if (error) throw new Error(`listTechnicianCandidateEmployees: ${error.message}`);
+  if (!emps?.length) return [];
+
+  const empIds = emps.map((e) => e.id as string);
+  const { data: techs } = await supabase
+    .from("aftersales_technicians")
+    .select("employee_id")
+    .in("employee_id", empIds)
+    .eq("is_active", true);
+  const boundSet = new Set<string>(
+    (techs ?? []).map((t) => t.employee_id as string).filter(Boolean),
+  );
+  return emps.map((e) => ({
+    id: e.id as string,
+    emp_code: (e.emp_code as string) ?? "",
+    name: (e.name as string) ?? "",
+    position: (e.position as string | null) ?? null,
+    dept_id: (e.dept_id as string | null) ?? null,
+    has_active_technician: boundSet.has(e.id as string),
+  }));
+}
+
+/**
+ * 更新員工角色標籤。
+ * 守則（拍板 #4）：拿掉 'technician' 時若該員工尚有 active 技師檔 → 拒絕、引導去派工台先停用
+ */
+export async function updateEmployeeRoles(
+  employee_id: string,
+  role_codes: string[],
+): Promise<{ ok: boolean; error?: string }> {
+  if (!employee_id) return { ok: false, error: "缺員工 id" };
+  const supabase = await createClient();
+
+  const { data: cur } = await supabase
+    .from("employees")
+    .select("role_codes")
+    .eq("id", employee_id)
+    .maybeSingle();
+  if (!cur) return { ok: false, error: "員工不存在" };
+
+  const before = (cur.role_codes ?? []) as string[];
+  const removingTech = before.includes("technician") && !role_codes.includes("technician");
+  if (removingTech) {
+    const { data: tech } = await supabase
+      .from("aftersales_technicians")
+      .select("id, code")
+      .eq("employee_id", employee_id)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (tech) {
+      return {
+        ok: false,
+        error: `該員工尚有啟用中的技師檔（${tech.code as string}），請先到派工看板停用該技師再移除角色`,
+      };
+    }
+  }
+
+  // 驗證 role_codes 都是有效（在 employee_role_types 且 is_active）
+  if (role_codes.length) {
+    const { data: valids } = await supabase
+      .from("employee_role_types")
+      .select("code")
+      .in("code", role_codes)
+      .eq("is_active", true);
+    const validSet = new Set((valids ?? []).map((v) => v.code as string));
+    const invalid = role_codes.filter((c) => !validSet.has(c));
+    if (invalid.length) {
+      return { ok: false, error: `下列角色不存在或已停用：${invalid.join(", ")}` };
+    }
+  }
+
+  const { error } = await supabase
+    .from("employees")
+    .update({ role_codes, updated_at: new Date().toISOString() })
+    .eq("id", employee_id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

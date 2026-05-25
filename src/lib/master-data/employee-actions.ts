@@ -8,6 +8,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import type { EmployeeFieldKey } from "./employee-form-types";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { updateEmployeeRoles } from "@/domain/aftersales-staff";
 
 const EMPLOYMENT_STATUSES = ["active", "on_leave", "terminated", "retired"] as const;
 type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
@@ -166,4 +167,17 @@ export async function deleteEmployeeAction(
   }
   revalidatePath("/admin/master-data/employees");
   return { ok: true, data: null };
+}
+
+// ── 第14輪：員工角色標籤更新 ──
+export async function updateEmployeeRolesAction(
+  employee_id: string,
+  role_codes: string[],
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.EMPLOYEE_EDIT);
+  const res = await updateEmployeeRoles(employee_id, role_codes);
+  if (!res.ok) return { ok: false, error: res.error ?? "更新員工角色失敗" };
+  revalidatePath("/admin/master-data/employees");
+  revalidatePath(`/admin/master-data/employees/${employee_id}`);
+  return { ok: true, data: { id: employee_id } };
 }

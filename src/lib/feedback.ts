@@ -42,6 +42,17 @@ export type FeedbackTicket = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  metadata: Record<string, unknown> | null;
+};
+
+/** Ticket-level 附件（建單時上傳，存 metadata.attachments[]、與 comment-level 不同表） */
+export type TicketAttachment = {
+  file_name: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_path: string;
+  uploaded_at: string | null;
+  signed_url: string | null;
 };
 
 export type FeedbackAttachment = {

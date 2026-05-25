@@ -16,6 +16,7 @@ import {
   FEEDBACK_ATTACHMENT_BUCKET,
   type FeedbackTicket,
   type FeedbackAttachment,
+  type TicketAttachment,
 } from "@/lib/feedback";
 import type { CommentItem } from "@/components/feedback/comment-thread";
 
@@ -64,6 +65,7 @@ export interface FeedbackTicketDetailPageData {
   ticket: FeedbackTicket;
   snapshot: unknown | null;
   comments: CommentItem[];
+  ticketAttachments: TicketAttachment[];
 }
 
 export async function getFeedbackTicketDetailPageData(
@@ -147,9 +149,50 @@ export async function getFeedbackTicketDetailPageData(
     parent_id: c.parent_id ?? null,
   }));
 
+  // Ticket-level 附件（metadata.attachments[]，2026-05-25 新增）— 簽 1 小時 signed URL 給 client 下載
+  const meta = (ticket.metadata ?? {}) as {
+    attachments?: Array<{
+      file_name: string;
+      mime_type: string;
+      size_bytes: number;
+      storage_path: string;
+      uploaded_at?: string;
+    }>;
+  };
+  const ticketAttachments: Array<{
+    file_name: string;
+    mime_type: string;
+    size_bytes: number;
+    storage_path: string;
+    uploaded_at: string | null;
+    signed_url: string | null;
+  }> = [];
+  const rawAtts = meta.attachments ?? [];
+  if (rawAtts.length > 0) {
+    const paths = rawAtts.map((a) => a.storage_path).filter(Boolean);
+    const { data: signed } = await supabase.storage
+      .from(FEEDBACK_ATTACHMENT_BUCKET)
+      .createSignedUrls(paths, 60 * 60);
+    const urlMap: Record<string, string> = {};
+    for (const s of signed ?? []) {
+      if (s.path && s.signedUrl) urlMap[s.path] = s.signedUrl;
+    }
+    for (const a of rawAtts) {
+      ticketAttachments.push({
+        file_name: a.file_name,
+        mime_type: a.mime_type ?? "application/octet-stream",
+        size_bytes: a.size_bytes ?? 0,
+        storage_path: a.storage_path,
+        uploaded_at: a.uploaded_at ?? null,
+        signed_url: urlMap[a.storage_path] ?? null,
+      });
+    }
+  }
+
   return {
     ticket,
     snapshot: canvasData?.snapshot ?? null,
     comments,
+    ticketAttachments,
   };
 }

@@ -8,6 +8,7 @@ import {
   computeDispatchKpis,
   computeDispatchTotals,
 } from "@/domain/aftersales-technicians";
+import { listTechnicianCandidateEmployees } from "@/domain/aftersales-staff";
 
 import { DispatchDashboard } from "./_components/dispatch-dashboard";
 
@@ -25,10 +26,11 @@ export default async function DispatchBoardPage() {
   }
   const canEdit = await hasPermission(PERMISSIONS.RO_DISPATCH);
 
-  const [technicians, kpis, totals] = await Promise.all([
+  const [technicians, kpis, totals, employeeCandidates] = await Promise.all([
     listAftersalesTechnicians(),
     computeDispatchKpis(),
     computeDispatchTotals(),
+    listTechnicianCandidateEmployees(),
   ]);
 
   return (
@@ -37,6 +39,7 @@ export default async function DispatchBoardPage() {
       kpis={kpis}
       totals={totals}
       canEdit={canEdit}
+      employeeCandidates={employeeCandidates}
     />
   );
 }

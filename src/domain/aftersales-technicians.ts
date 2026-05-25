@@ -45,6 +45,12 @@ export type AftersalesTechnicianRow = {
   metadata: Record<string, unknown> | null;
   created_at: string | null;
   updated_at: string | null;
+  // ── 第14輪：員工/技師串接（view-time join，denormalize 不複寫） ──
+  employee_id: string | null;
+  employee_canonical_name: string | null;     // employees.name（最新姓名來源）
+  employee_emp_code: string | null;            // employees.emp_code
+  user_id: string | null;                       // 登入帳號綁定（既有欄、改 expose）
+  user_email: string | null;                    // join auth.users 取
 };
 
 export type DispatchKpis = {
@@ -71,19 +77,31 @@ export type DispatchTotals = {
 
 /* ──────────────── Read ──────────────── */
 
-/** 列出當前 brand 全部技師（依 sort_order） */
+/** 列出當前 brand 全部技師（依 sort_order；含 employee view-time join） */
 export async function listAftersalesTechnicians(): Promise<
   AftersalesTechnicianRow[]
 > {
   const scope = await getActiveScope();
   const supabase = await createClient();
+  // 第14輪：JOIN employees（取最新姓名 / emp_code），avoids denormalize sync 漂移
   const { data, error } = await supabase
     .from("aftersales_technicians")
-    .select("*")
+    .select("*, employees(id, name, emp_code)")
     .eq("brand_id", scope.brand_id)
     .order("sort_order", { ascending: true });
   if (error) throw error;
-  return (data ?? []) as AftersalesTechnicianRow[];
+  return (data ?? []).map((r) => {
+    const rec = r as Record<string, unknown>;
+    const emp = rec.employees as { id: string; name: string; emp_code: string } | null;
+    const { employees: _e, ...rest } = rec as Record<string, unknown> & { employees?: unknown };
+    void _e;
+    return {
+      ...(rest as unknown as Omit<AftersalesTechnicianRow, "employee_canonical_name" | "employee_emp_code" | "user_email">),
+      employee_canonical_name: emp?.name ?? null,
+      employee_emp_code: emp?.emp_code ?? null,
+      user_email: null, // auth.users 查另撈
+    } satisfies AftersalesTechnicianRow;
+  });
 }
 
 /** KPI bar：施工中 / 待命 / 休息 / 下班 計數 */
@@ -253,4 +271,117 @@ export async function getTechnicianEfficiencySummary(options?: {
     total_available_hours: Math.round((avail_min / 60) * 10) / 10,
   };
   return { kpis, ranking: sliced };
+}
+
+/* ──────────────── 第14輪：員工/技師串接 ──────────────── */
+
+export type CreateTechnicianFromEmployeeInput = {
+  employee_id: string;
+  code: string;
+  grade?: string | null;
+  avatar_color?: string | null;
+  sort_order?: number;
+  user_id?: string | null;
+};
+
+/** 派工新增技師（必填 employee_id；同員工已有 active 技師檔則拒絕，防一人雙技師） */
+export async function createTechnicianFromEmployee(
+  input: CreateTechnicianFromEmployeeInput,
+): Promise<{ ok: true; data: { id: string } } | { ok: false; error: string }> {
+  if (!input.employee_id) return { ok: false, error: "請選員工（必填）" };
+  const code = (input.code ?? "").trim();
+  if (!code) return { ok: false, error: "技師代碼不可為空" };
+
+  const scope = await getActiveScope();
+  const supabase = await createClient();
+
+  // 員工要存在、在職、含 technician 角色
+  const { data: emp } = await supabase
+    .from("employees")
+    .select("id, name, brand_id, is_active, employment_status, role_codes")
+    .eq("id", input.employee_id)
+    .maybeSingle();
+  if (!emp) return { ok: false, error: "員工不存在" };
+  if (emp.brand_id !== scope.brand_id)
+    return { ok: false, error: "該員工不屬於當前 brand" };
+  if (!emp.is_active || emp.employment_status === "left")
+    return { ok: false, error: "該員工已停用或離職" };
+  const roles = (emp.role_codes ?? []) as string[];
+  if (!roles.includes("technician"))
+    return { ok: false, error: "該員工角色未含「技師」，請先到員工主檔加上技師角色" };
+
+  // 已有 active 技師檔 → 拒絕（一人一檔）
+  const { data: existing } = await supabase
+    .from("aftersales_technicians")
+    .select("id")
+    .eq("employee_id", input.employee_id)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (existing) return { ok: false, error: "該員工已有啟用中的技師檔" };
+
+  const { data, error } = await supabase
+    .from("aftersales_technicians")
+    .insert({
+      brand_id: scope.brand_id,
+      employee_id: input.employee_id,
+      code,
+      name: emp.name as string,
+      grade: input.grade ?? "車間技師",
+      avatar_color: input.avatar_color ?? "#185FA5",
+      sort_order: input.sort_order ?? 0,
+      status: "idle",
+      user_id: input.user_id ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: `此技師代碼已存在：${code}` };
+    return { ok: false, error: `建立技師失敗：${error.message}` };
+  }
+  return { ok: true, data: { id: data.id as string } };
+}
+
+/** 綁/解綁登入帳號（user_id 全 brand 唯一，避免一帳號綁多技師） */
+export async function bindTechnicianUser(
+  technician_id: string,
+  user_id: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!technician_id) return { ok: false, error: "缺技師 id" };
+  const supabase = await createClient();
+  if (user_id) {
+    const { data: dup } = await supabase
+      .from("aftersales_technicians")
+      .select("id")
+      .eq("user_id", user_id)
+      .neq("id", technician_id)
+      .maybeSingle();
+    if (dup) return { ok: false, error: "此帳號已綁其他技師" };
+  }
+  const { error } = await supabase
+    .from("aftersales_technicians")
+    .update({ user_id })
+    .eq("id", technician_id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/** auth.users 搜尋（給綁定 UI；by email 模糊查）— 用 admin schema 函式查
+ *  POC 階段先走 service_role + 自製 SQL view 不便，直接走 list user 的 supabase admin API 不在 RLS 內
+ *  簡化版：先撈 brand 內既有員工的 user_id 對映（看誰已綁、避免重複）+ 提供 email 比對候選清單
+ */
+export async function listTechnicianBindingCandidates(): Promise<
+  Array<{ user_id: string; email: string | null; bound_technician_id: string | null }>
+> {
+  const supabase = await createClient();
+  // 從 auth.users view 撈（如有 publicly-readable view），否則用 employees 含 user_id 的去 join
+  // POC 階段：先回傳已綁過的技師清單，方便 UI 顯示「未綁帳號」狀態
+  const { data } = await supabase
+    .from("aftersales_technicians")
+    .select("user_id, id")
+    .not("user_id", "is", null);
+  return (data ?? []).map((r) => ({
+    user_id: r.user_id as string,
+    email: null,
+    bound_technician_id: r.id as string,
+  }));
 }

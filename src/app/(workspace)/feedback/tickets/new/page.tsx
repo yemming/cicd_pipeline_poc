@@ -10,7 +10,7 @@ export default async function NewTicketPage({
   const defaultUrl = typeof sp.url === "string" ? sp.url : undefined;
 
   return (
-    <div className="narrow-container">
+    <div className="mx-auto w-full max-w-7xl px-4 md:px-6 xl:px-8 py-4 md:py-6">
       {/* Breadcrumb — Jira style */}
       <div className="flex items-center gap-1.5 text-[12px] text-[#6B778C] mb-4">
         <Link href="/feedback/tickets" className="hover:text-[#172B4D] hover:underline transition-colors">

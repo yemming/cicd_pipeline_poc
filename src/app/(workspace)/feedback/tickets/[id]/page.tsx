@@ -22,7 +22,7 @@ export default async function TicketDetailPage({
   ]);
 
   if (!data) notFound();
-  const { ticket, snapshot, comments } = data;
+  const { ticket, snapshot, comments, ticketAttachments } = data;
 
   return (
     // 抵銷 workspace shell padding（p-4/md:p-6/lg:p-8）讓 split panel 貼齊邊緣
@@ -91,6 +91,40 @@ export default async function TicketDetailPage({
               </div>
             </div>
           </div>
+
+          {/* Ticket-level 附件（建單時上傳的、跟著 ticket 走） */}
+          {ticketAttachments.length > 0 && (
+            <div className="bg-white border border-[#DFE1E6] rounded-md px-5 py-3">
+              <div className="text-[11px] font-bold text-[#6B778C] uppercase tracking-wide mb-2">
+                附件（{ticketAttachments.length}）
+              </div>
+              <ul className="space-y-1.5">
+                {ticketAttachments.map((a) => (
+                  <li key={a.storage_path}>
+                    <a
+                      href={a.signed_url ?? "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded border border-[#DFE1E6] hover:bg-[#F4F5F7] transition-colors max-w-full ${
+                        a.signed_url ? "" : "pointer-events-none opacity-50"
+                      }`}
+                      title={a.file_name}
+                    >
+                      <span className="material-symbols-outlined text-[16px] text-[#6B778C]">
+                        {a.mime_type.startsWith("image/") ? "image" : "attach_file"}
+                      </span>
+                      <span className="text-[12.5px] text-[#172B4D] truncate">{a.file_name}</span>
+                      <span className="text-[10.5px] text-[#6B778C] shrink-0">
+                        {a.size_bytes < 1024 * 1024
+                          ? `${(a.size_bytes / 1024).toFixed(1)} KB`
+                          : `${(a.size_bytes / 1024 / 1024).toFixed(1)} MB`}
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Status */}
           <div className="bg-white border border-[#DFE1E6] rounded-md px-5 py-3">

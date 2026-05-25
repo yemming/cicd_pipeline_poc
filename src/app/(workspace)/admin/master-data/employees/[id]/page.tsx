@@ -4,6 +4,7 @@ import { getEmployeeById, listDepartments } from "@/lib/master-data/queries";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
+import { listEmployeeRoleTypes } from "@/domain/employee-roles";
 
 import { EmployeeDetailView } from "./_components/employee-detail-view";
 
@@ -26,9 +27,10 @@ export default async function EditEmployeePage({
     );
   }
 
-  const [employee, departments] = await Promise.all([
+  const [employee, departments, roleOptions] = await Promise.all([
     getEmployeeById(id),
     listDepartments(),
+    listEmployeeRoleTypes({ include_inactive: true }),
   ]);
   if (!employee) notFound();
 
@@ -39,6 +41,7 @@ export default async function EditEmployeePage({
       employee={employee}
       departments={departments.map((d) => ({ id: d.id, code: d.code, name: d.name }))}
       canEdit={canEdit}
+      roleOptions={roleOptions}
     />
   );
 }

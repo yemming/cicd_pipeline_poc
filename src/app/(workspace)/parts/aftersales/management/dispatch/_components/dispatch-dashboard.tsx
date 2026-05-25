@@ -43,14 +43,16 @@ import type {
   DispatchTotals,
 } from "@/domain/aftersales-technicians";
 import {
-  createTechnicianAction,
   updateTechnicianAction,
   dispatchToTechnicianAction,
   completeTechnicianJobAction,
   setTechnicianStatusAction,
   setTechnicianActiveAction,
   deleteTechnicianAction,
+  createTechnicianFromEmployeeAction,
+  bindTechnicianUserAction,
 } from "@/lib/aftersales/aftersales-technician-actions";
+import type { TechnicianCandidateEmployee } from "@/domain/aftersales-staff";
 import { KpiCard } from "@/components/visualization";
 import { BarChart, GaugeChart } from "@/components/charts";
 
@@ -59,6 +61,7 @@ type Props = {
   kpis: DispatchKpis;
   totals: DispatchTotals;
   canEdit: boolean;
+  employeeCandidates: TechnicianCandidateEmployee[];
 };
 
 type Banner = { ok: boolean; msg: string } | null;
@@ -80,6 +83,7 @@ export function DispatchDashboard({
   kpis,
   totals,
   canEdit,
+  employeeCandidates,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -504,11 +508,23 @@ export function DispatchDashboard({
           mode={modal.kind}
           tech={modal.kind === "edit" ? modal.tech : null}
           isPending={isPending}
+          employeeCandidates={employeeCandidates}
           onCancel={() => setModal({ kind: "closed" })}
           onSubmit={(input) => {
             startTransition(async () => {
               if (modal.kind === "create") {
-                const res = await createTechnicianAction(input);
+                if (!input.employee_id) {
+                  setBanner({ ok: false, msg: "請選員工（必填）" });
+                  return;
+                }
+                const res = await createTechnicianFromEmployeeAction({
+                  employee_id: input.employee_id,
+                  code: input.code,
+                  grade: input.grade,
+                  avatar_color: input.avatar_color,
+                  sort_order: input.sort_order,
+                  user_id: input.user_id || null,
+                });
                 handleResult(res, "技師已建立");
               } else if (modal.kind === "edit") {
                 const res = await updateTechnicianAction(modal.tech.id, {
@@ -517,6 +533,18 @@ export function DispatchDashboard({
                   avatar_color: input.avatar_color,
                   sort_order: input.sort_order,
                 });
+                if (res.ok) {
+                  // 編輯模式順手存 user_id（若有改）
+                  const curUid = modal.tech.user_id ?? null;
+                  const newUid = input.user_id || null;
+                  if (curUid !== newUid) {
+                    const bindRes = await bindTechnicianUserAction(modal.tech.id, newUid);
+                    if (!bindRes.ok) {
+                      setBanner({ ok: false, msg: `技師資料已存、但綁帳號失敗：${bindRes.error}` });
+                      return;
+                    }
+                  }
+                }
                 handleResult(res, "技師已更新");
               }
             });
@@ -845,6 +873,8 @@ type TechFormInput = {
   grade: string | null;
   avatar_color: string | null;
   sort_order: number;
+  employee_id: string | null;   // 第14輪：create 模式必填、edit 模式不動
+  user_id: string | null;       // 第14輪：選填、綁登入帳號（UUID 直填，MVP）
 };
 
 function TechFormModal({
@@ -853,23 +883,40 @@ function TechFormModal({
   isPending,
   onCancel,
   onSubmit,
+  employeeCandidates,
 }: {
   mode: "create" | "edit";
   tech: AftersalesTechnicianRow | null;
   isPending: boolean;
   onCancel: () => void;
   onSubmit: (input: TechFormInput) => void;
+  employeeCandidates: TechnicianCandidateEmployee[];
 }) {
+  const [employeeId, setEmployeeId] = useState<string>("");
   const [code, setCode] = useState(tech?.code ?? "");
   const [name, setName] = useState(tech?.name ?? "");
   const [grade, setGrade] = useState<string>(tech?.grade ?? "車間技師");
   const [color, setColor] = useState<string>(tech?.avatar_color ?? "#185FA5");
   const [sortOrder, setSortOrder] = useState<number>(tech?.sort_order ?? 0);
+  const [userId, setUserId] = useState<string>(tech?.user_id ?? "");
+
+  // 員工 dropdown 候選：在職 + 含 technician 角色 + 尚未綁技師
+  const availableEmployees = employeeCandidates.filter((e) => !e.has_active_technician);
+
+  function onSelectEmployee(eid: string) {
+    setEmployeeId(eid);
+    const emp = employeeCandidates.find((e) => e.id === eid);
+    if (emp) {
+      setName(emp.name);
+      // 建議技師代碼：用員工 emp_code 第一個字 + T + 流水 fallback
+      if (!code.trim()) setCode(emp.emp_code || "");
+    }
+  }
 
   return (
     <ModalShell
       title={
-        mode === "create" ? "新增技師" : `編輯技師 — ${tech?.name ?? ""}`
+        mode === "create" ? "新增技師（從員工挑）" : `編輯技師 — ${tech?.name ?? ""}`
       }
       onCancel={onCancel}
       onConfirm={() =>
@@ -879,11 +926,35 @@ function TechFormModal({
           grade: grade || null,
           avatar_color: color || null,
           sort_order: sortOrder,
+          employee_id: mode === "create" ? (employeeId || null) : (tech?.employee_id ?? null),
+          user_id: userId.trim() || null,
         })
       }
       confirmText={mode === "create" ? "建立" : "儲存變更"}
       isPending={isPending}
     >
+      {mode === "create" ? (
+        <div className="mb-3">
+          <Field label="員工 * — 從員工主檔挑（限角色含「技師」+ 未綁技師檔的在職員工）">
+            <select
+              className={inputClass}
+              value={employeeId}
+              onChange={(e) => onSelectEmployee(e.target.value)}
+            >
+              <option value="">— 請選員工 —</option>
+              {availableEmployees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.emp_code} ｜ {e.name}
+                  {e.position ? `（${e.position}）` : ""}
+                </option>
+              ))}
+            </select>
+            <span className="text-[11px] text-[#9A9890]">
+              找不到要的人？先去「員工主檔」加上「技師」角色，這裡會出現
+            </span>
+          </Field>
+        </div>
+      ) : null}
       <div className="grid grid-cols-2 gap-3">
         <Field label="技師代碼 *">
           <input
@@ -894,10 +965,11 @@ function TechFormModal({
             placeholder="T1"
           />
         </Field>
-        <Field label="姓名 *">
+        <Field label={mode === "create" ? "姓名（自動帶員工檔）" : "姓名 *"}>
           <input
             className={inputClass}
             value={name}
+            disabled={mode === "create"}
             onChange={(e) => setName(e.target.value)}
             placeholder="陳建明"
           />
@@ -939,6 +1011,17 @@ function TechFormModal({
               />
             ))}
           </div>
+        </Field>
+        <Field label="綁定登入帳號 user_id（選填，填了該帳號才能進 /tech 工作台）" full>
+          <input
+            className={inputClass}
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            placeholder="auth.users 的 UUID（如：5151ec08-fdff-440d-...）"
+          />
+          <span className="text-[11px] text-[#9A9890]">
+            MVP：先貼 UUID。未來會加 email 搜尋。一個帳號只能綁一位技師。
+          </span>
         </Field>
       </div>
     </ModalShell>

@@ -3,12 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { usePageHeader } from "./page-header-context";
 import { useAppearance } from "./appearance-context";
 import { TopbarSearch } from "./topbar-search";
 import { useProfile, getInitials } from "@/lib/use-profile";
 import { brands as brandConfigs } from "@/lib/brands/registry";
-import { useActiveBrand, useActiveSubsidiary } from "@/lib/scope/scope-context";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 import { ScopeSwitcher } from "./scope-switcher";
 
 interface TopbarProps {
@@ -20,7 +21,6 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
   const profile = useProfile();
   const activeBrand = useActiveBrand();
   const brand = brandConfigs[activeBrand];
-  const subsidiary = useActiveSubsidiary();
   const { footerBadgeUrl } = useAppearance();
 
   // 內容捲動時把 topbar 變半透明 + 加 backdrop blur，讓底下內容能透出來
@@ -126,19 +126,11 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
         {/* 品牌 / 門店 切換器：吃 ScopeContext，可下拉切換 */}
         <div className="hidden md:flex shrink-0 items-center gap-1.5">
           <ScopeSwitcher />
-          {/* 法人 chip（B5 read-only）：當前 1:1 brand-subsidiary 對映無法 user-facing 切換，
-              長線多 subsidiary per brand 時擴成 dropdown。 */}
-          {subsidiary.short_name && (
-            <span
-              className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-white/15 text-white/90 whitespace-nowrap"
-              title={`法人：${subsidiary.short_name} (id: ${subsidiary.id})`}
-            >
-              <span className="material-symbols-outlined text-[12px] mr-0.5 opacity-80">
-                domain
-              </span>
-              {subsidiary.short_name}
-            </span>
-          )}
+          {/* 法人 chip 已拿掉（feedback ticket #8bc5bad2）：
+              當前 1:1 brand-subsidiary 對映下，subsidiary.short_name（如「DealerOS Indian」）
+              跟左側 brand logo 視覺重複、且把 Global Search 擠掉。
+              要重新啟用：當系統升級成多 subsidiary per brand、user 需要切換時，
+              改成 dropdown / pill 樣式（建議改用 subsidiary.metadata.short_label 而非 short_name 避免再混 brand 名）。 */}
         </div>
         {/* 淡白 vertical divider —— 把 metadata 與右側互動 icons 視覺分群 */}
         <div className="hidden md:block w-px h-7 bg-white/20 mx-1" />
@@ -152,13 +144,9 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
             <span className="material-symbols-outlined text-[20px] md:text-[22px]">search</span>
           </button>
         )}
-        <button className="p-1.5 md:p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all relative">
-          <span className="material-symbols-outlined text-[20px] md:text-[22px]">notifications</span>
-          <span
-            className="absolute top-1.5 right-1.5 md:top-2 md:right-2 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-400 rounded-full border-2"
-            style={{ borderColor: "var(--color-brand-primary)" }}
-          />
-        </button>
+        <QuickAddFeedbackButton />
+        {/* 鈴鐺通知功能尚未實作（過去是 dumb decorative button） → 改為「新增意見單」快捷入口
+            點擊：導 /feedback/tickets/new?url=<當前頁網址>，自動帶來源 URL 進表單 */}
         <Link
           href="/me/profile"
           title={profile?.name ? `${profile.name} — 個人設定` : "個人設定"}
@@ -182,5 +170,24 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
         </Link>
       </div>
     </header>
+  );
+}
+
+/** Topbar 快捷：新增意見單，自動把當前頁網址帶過去 prefill 表單的「網址」欄 */
+function QuickAddFeedbackButton() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const qs = searchParams?.toString();
+  const currentUrl = qs ? `${pathname}?${qs}` : pathname;
+  const href = `/feedback/tickets/new?url=${encodeURIComponent(currentUrl ?? "/")}`;
+  return (
+    <Link
+      href={href}
+      title="新增意見單（自動帶當前頁網址）"
+      aria-label="新增意見單"
+      className="p-1.5 md:p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all inline-flex items-center justify-center"
+    >
+      <span className="material-symbols-outlined text-[20px] md:text-[22px]">add_comment</span>
+    </Link>
   );
 }

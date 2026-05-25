@@ -3,6 +3,17 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
   FEEDBACK_STATUS_LABEL,
   FEEDBACK_STATUS_ORDER,
   type FeedbackStatus,
@@ -14,6 +25,7 @@ import {
   archiveTicket,
   unarchiveTicket,
   deleteTicket,
+  updateTicketStatus,
 } from "@/lib/feedback-actions";
 
 function formatRelative(iso: string): string {
@@ -52,18 +64,75 @@ export function TicketsBoard({
   const [view, setView] = useState<View>("kanban");
   // List view 是否顯示封存單（僅 admin 有此切換）
   const [showArchived, setShowArchived] = useState(false);
+  // 拖拉狀態切換的樂觀更新副本（admin 才會用）。
+  // server prop 變化（revalidatePath 重撈）時 render 階段比對 prop ref 重置 local，
+  // 避免 useEffect setState（react-hooks/set-state-in-effect 禁止）。
+  const [localTickets, setLocalTickets] = useState<FeedbackTicket[]>(tickets);
+  const [prevPropTickets, setPrevPropTickets] = useState(tickets);
+  if (prevPropTickets !== tickets) {
+    setPrevPropTickets(tickets);
+    setLocalTickets(tickets);
+  }
+  const [dndBanner, setDndBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [, startDndTransition] = useTransition();
 
-  // Kanban 永遠排除 archived
+  // 8px 拖拉啟動門檻：避免點擊卡片進 detail 時誤觸拖拉
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveDragId(String(e.active.id));
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    setActiveDragId(null);
+    const { active, over } = e;
+    if (!over) return;
+    const ticketId = String(active.id);
+    const nextStatus = String(over.id) as FeedbackStatus;
+    if (!FEEDBACK_STATUS_ORDER.includes(nextStatus)) return;
+    const cur = localTickets.find((t) => t.id === ticketId);
+    if (!cur || cur.status === nextStatus) return;
+    const prevStatus = cur.status;
+
+    // 樂觀：立刻搬卡片到目標欄
+    setLocalTickets((prev) =>
+      prev.map((t) => (t.id === ticketId ? { ...t, status: nextStatus } : t)),
+    );
+    startDndTransition(async () => {
+      try {
+        await updateTicketStatus(ticketId, nextStatus);
+        setDndBanner({
+          ok: true,
+          msg: `✓ 已切換為「${FEEDBACK_STATUS_LABEL[nextStatus]}」`,
+        });
+        setTimeout(() => setDndBanner(null), 2200);
+      } catch (err) {
+        // 失敗：rollback + 紅 banner
+        setLocalTickets((prev) =>
+          prev.map((t) => (t.id === ticketId ? { ...t, status: prevStatus } : t)),
+        );
+        setDndBanner({
+          ok: false,
+          msg: err instanceof Error ? err.message : "狀態切換失敗",
+        });
+      }
+    });
+  }
+
+  // Kanban 永遠排除 archived；用 localTickets 才能反映拖拉樂觀更新
   const activeTickets = useMemo(
-    () => tickets.filter((t) => !t.archived_at),
-    [tickets]
+    () => localTickets.filter((t) => !t.archived_at),
+    [localTickets],
   );
 
   // List：非 admin 只看未封存；admin 可切換
   const listTickets = useMemo(() => {
     if (!isAdmin) return activeTickets;
-    return showArchived ? tickets.filter((t) => t.archived_at) : activeTickets;
-  }, [tickets, activeTickets, isAdmin, showArchived]);
+    return showArchived ? localTickets.filter((t) => t.archived_at) : activeTickets;
+  }, [localTickets, activeTickets, isAdmin, showArchived]);
 
   const grouped: Record<FeedbackStatus, FeedbackTicket[]> = {
     draft: [],
@@ -153,53 +222,98 @@ export function TicketsBoard({
         </div>
       </div>
 
-      {/* ── Kanban view (Jira style) — 永不顯示 archived，也沒有 archive 群組 ── */}
+      {/* ── Kanban view (Jira style) — 永不顯示 archived，也沒有 archive 群組 ──
+          Admin 可拖拉卡片切換狀態；非 admin 純檢視（拖拉 listener 不註冊）
+          server `updateTicketStatus` 自帶 admin gate，client 不過是 UX 層 */}
       {view === "kanban" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-0 border border-[#DFE1E6] rounded-md overflow-hidden bg-[#F4F5F7]">
-          {FEEDBACK_STATUS_ORDER.map((status, idx) => {
-            const items = grouped[status];
-            const ind = STATUS_INDICATOR[status];
-            const isLast = idx === FEEDBACK_STATUS_ORDER.length - 1;
+        <DndContext
+          sensors={sensors}
+          onDragStart={isAdmin ? handleDragStart : undefined}
+          onDragEnd={isAdmin ? handleDragEnd : undefined}
+          onDragCancel={isAdmin ? () => setActiveDragId(null) : undefined}
+        >
+          {isAdmin ? (
+            <p className="text-[11.5px] text-[#6B778C] mb-2">
+              💡 拖拉卡片到目標欄切換狀態（拖到「工作中」= 派 sub-agent 接手開發）
+            </p>
+          ) : null}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-0 border border-[#DFE1E6] rounded-md overflow-hidden bg-[#F4F5F7]">
+            {FEEDBACK_STATUS_ORDER.map((status, idx) => {
+              const items = grouped[status];
+              const ind = STATUS_INDICATOR[status];
+              const isLast = idx === FEEDBACK_STATUS_ORDER.length - 1;
+              return (
+                <DroppableColumn
+                  key={status}
+                  status={status}
+                  enabled={isAdmin}
+                  isLast={isLast}
+                >
+                  {/* Column header */}
+                  <div className="px-3 pt-3 pb-2 flex items-center gap-2 border-b border-[#DFE1E6] bg-[#F4F5F7]">
+                    {ind.check ? (
+                      <span className="material-symbols-outlined text-[14px] text-[#36B37E]">check_circle</span>
+                    ) : (
+                      <span className={`w-2.5 h-2.5 rounded-sm ${ind.dot}`} />
+                    )}
+                    <span className="text-[11px] font-bold text-[#6B778C] uppercase tracking-wider">
+                      {FEEDBACK_STATUS_LABEL[status]}
+                    </span>
+                    <span className="text-[11px] text-[#6B778C] font-bold ml-1">{items.length}</span>
+                  </div>
 
-            return (
-              <div
-                key={status}
-                className={`flex flex-col min-h-[500px] ${!isLast ? "border-r border-[#DFE1E6]" : ""}`}
-              >
-                {/* Column header */}
-                <div className="px-3 pt-3 pb-2 flex items-center gap-2 border-b border-[#DFE1E6] bg-[#F4F5F7]">
-                  {ind.check ? (
-                    <span className="material-symbols-outlined text-[14px] text-[#36B37E]">check_circle</span>
-                  ) : (
-                    <span className={`w-2.5 h-2.5 rounded-sm ${ind.dot}`} />
-                  )}
-                  <span className="text-[11px] font-bold text-[#6B778C] uppercase tracking-wider">
-                    {FEEDBACK_STATUS_LABEL[status]}
-                  </span>
-                  <span className="text-[11px] text-[#6B778C] font-bold ml-1">{items.length}</span>
-                </div>
-
-                {/* Cards */}
-                <div className="flex-1 p-2 space-y-2 overflow-y-auto">
-                  {items.length === 0 ? (
-                    <div className="text-center text-[12px] text-[#6B778C]/50 py-10 italic">
-                      — 無單據 —
-                    </div>
-                  ) : (
-                    items.map((t) => (
+                  {/* Cards */}
+                  <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-[420px]">
+                    {items.length === 0 ? (
+                      <div className="text-center text-[12px] text-[#6B778C]/50 py-10 italic">
+                        — 無單據 —
+                      </div>
+                    ) : (
+                      items.map((t) => (
+                        <DraggableTicketCard
+                          key={t.id}
+                          ticket={t}
+                          authorName={t.created_by ? authorMap[t.created_by] : undefined}
+                          enabled={isAdmin}
+                        />
+                      ))
+                    )}
+                  </div>
+                </DroppableColumn>
+              );
+            })}
+          </div>
+          {/* DragOverlay：把拖拉中的卡片 portal 到 body、跳出所有 overflow / stacking context */}
+          <DragOverlay dropAnimation={null}>
+            {activeDragId
+              ? (() => {
+                  const t = localTickets.find((x) => x.id === activeDragId);
+                  return t ? (
+                    <div className="cursor-grabbing shadow-2xl rotate-1">
                       <TicketCard
-                        key={t.id}
                         ticket={t}
                         authorName={t.created_by ? authorMap[t.created_by] : undefined}
                       />
-                    ))
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                    </div>
+                  ) : null;
+                })()
+              : null}
+          </DragOverlay>
+        </DndContext>
       )}
+
+      {/* DnD banner（樂觀更新成功/失敗提示） */}
+      {dndBanner ? (
+        <div
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
+            dndBanner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          }`}
+        >
+          {dndBanner.msg}
+        </div>
+      ) : null}
 
       {/* ── List view ── */}
       {view === "list" && (
@@ -352,6 +466,67 @@ function RowAdminActions({ ticket }: { ticket: FeedbackTicket }) {
           {err.length > 14 ? err.slice(0, 14) + "…" : err}
         </span>
       )}
+    </div>
+  );
+}
+
+// ── DnD wrappers（admin only；非 admin 走 pass-through 不註冊 listener） ──
+
+function DroppableColumn({
+  status,
+  enabled,
+  isLast,
+  children,
+}: {
+  status: FeedbackStatus;
+  enabled: boolean;
+  isLast: boolean;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: status, disabled: !enabled });
+  return (
+    <div
+      ref={enabled ? setNodeRef : undefined}
+      className={`flex flex-col min-h-[500px] transition-colors ${
+        !isLast ? "border-r border-[#DFE1E6]" : ""
+      } ${isOver && enabled ? "bg-[#DEEBFF]" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function DraggableTicketCard({
+  ticket,
+  authorName,
+  enabled,
+}: {
+  ticket: FeedbackTicket;
+  authorName?: string;
+  enabled: boolean;
+}) {
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: ticket.id,
+    disabled: !enabled,
+  });
+  if (!enabled) {
+    return <TicketCard ticket={ticket} authorName={authorName} />;
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      // 不套 transform：DragOverlay 接管拖拉中視覺定位
+      // 來源卡片留在原位、僅淡化作為「已被拿起」提示
+      style={{
+        opacity: isDragging ? 0.35 : 1,
+        cursor: isDragging ? "grabbing" : "grab",
+      }}
+      {...listeners}
+      {...attributes}
+      // 拖拉狀態下禁止 Link 點擊跳轉（避免拖完誤觸進 detail）
+      onClickCapture={isDragging ? (e) => e.preventDefault() : undefined}
+    >
+      <TicketCard ticket={ticket} authorName={authorName} />
     </div>
   );
 }
