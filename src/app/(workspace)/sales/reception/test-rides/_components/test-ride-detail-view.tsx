@@ -9,35 +9,33 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { FlowDiagram } from "@/components/visualization";
 import {
   TEST_DRIVE_STATUS_LABELS,
   TEST_DRIVE_STATUS_CHIP,
   type TestDriveRow,
-  type TestDriveStatus,
   type TestDriveLookups,
+  type TestDriveSignature,
 } from "@/domain/sales-test-drives.constants";
 import {
   completeTestDriveAction,
   deleteTestDriveAction,
-  setTestDriveStatusAction,
   updateTestDriveAction,
 } from "@/lib/sales/test-drives-actions";
+
+import { TestRideConsentModal } from "./test-ride-consent-modal";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit" | "complete";
 
 function fmtTime(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("zh-TW", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // 手動 UTC→Asia/Taipei(+8)：避免 toLocaleString 的 Node/browser ICU 格式分歧造成 hydration mismatch。
+  const t = new Date(new Date(iso).getTime() + 8 * 3600 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${t.getUTCFullYear()}/${p(t.getUTCMonth() + 1)}/${p(t.getUTCDate())} ${p(t.getUTCHours())}:${p(t.getUTCMinutes())}`;
 }
 
 export function TestRideDetailView({
@@ -57,6 +55,7 @@ export function TestRideDetailView({
     searchParams.get("complete") === "1" && row.status === "in_progress" ? "complete" : "view",
   );
   const [goldenModalOpen, setGoldenModalOpen] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
 
   // ── edit form state ──
   const [editForm, setEditForm] = useState({
@@ -131,18 +130,6 @@ export function TestRideDetailView({
     });
   }
 
-  function changeStatus(next: TestDriveStatus) {
-    startTransition(async () => {
-      const res = await setTestDriveStatusAction(row.id, next);
-      if (res.ok) {
-        showBanner({ ok: true, msg: `✓ 已切換為「${TEST_DRIVE_STATUS_LABELS[next]}」` });
-        router.refresh();
-      } else {
-        showBanner({ ok: false, msg: `切換失敗：${res.error}` });
-      }
-    });
-  }
-
   function removeRow() {
     if (!window.confirm("確認刪除這筆試駕記錄？")) return;
     startTransition(async () => {
@@ -155,14 +142,14 @@ export function TestRideDetailView({
     });
   }
 
-  useEffect(() => {
-    if (searchParams.get("complete") === "1" && row.status === "in_progress") {
-      setMode("complete");
-    }
-  }, [searchParams, row.status]);
-
   const chipCls = TEST_DRIVE_STATUS_CHIP[row.status];
   const ratingNum = (meta.rating as number | undefined) ?? null;
+
+  // 已簽的試乘同意簽名（出車前簽，存 metadata.signature）
+  const signature =
+    meta.signature && typeof meta.signature === "object"
+      ? (meta.signature as TestDriveSignature)
+      : null;
 
   // ── FlowDiagram nodes ──
   const flowNodes = [
@@ -226,7 +213,7 @@ export function TestRideDetailView({
                   {row.status === "scheduled" && (
                     <button
                       type="button"
-                      onClick={() => changeStatus("in_progress")}
+                      onClick={() => setConsentOpen(true)}
                       disabled={isPending}
                       className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] hover:bg-[#F9E4B7] shadow-sm disabled:opacity-50"
                     >
@@ -501,6 +488,34 @@ export function TestRideDetailView({
             </div>
           </section>
 
+          {signature && (
+            <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+              <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 試乘同意簽名</span>
+              </header>
+              <div className="px-4 py-4 flex flex-col md:flex-row gap-4 md:items-start">
+                <div className="shrink-0 border border-[#EEECE6] rounded-lg overflow-hidden bg-neutral-50 w-[300px] max-w-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={signature.data_url}
+                    alt="客戶試乘同意簽名"
+                    className="w-full h-[140px] object-contain"
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-y-3 flex-1">
+                  <Kv label="簽署時間" value={fmtTime(signature.signed_at)} />
+                  <Kv label="簽署人" value={signature.signer_name ?? row.customer_name ?? "—"} />
+                  <Kv
+                    label="同意條款版本"
+                    value={signature.consent_version ?? "—"}
+                    mono
+                    small
+                  />
+                </div>
+              </div>
+            </section>
+          )}
+
           {row.status === "completed" && (
             <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
               <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
@@ -541,6 +556,20 @@ export function TestRideDetailView({
             </section>
           )}
         </>
+      )}
+
+      {/* 試乘同意簽名 modal（出車前簽 → 切 in_progress）*/}
+      {consentOpen && (
+        <TestRideConsentModal
+          testRideId={row.id}
+          signerName={row.customer_name}
+          onClose={() => setConsentOpen(false)}
+          onSuccess={() => {
+            setConsentOpen(false);
+            showBanner({ ok: true, msg: "✓ 已簽署並開始試駕" });
+            router.refresh();
+          }}
+        />
       )}
 
       {/* Golden moment modal */}

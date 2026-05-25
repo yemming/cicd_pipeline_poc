@@ -28,7 +28,20 @@ import {
 } from "@/lib/sales/test-drives-actions";
 import type { TestDriveStats } from "@/domain/sales-test-drives";
 
+import { TestRideConsentModal } from "./test-ride-consent-modal";
+
 type Banner = { ok: boolean; msg: string } | null;
+
+/**
+ * 預約時間顯示：手動把 UTC 轉 Asia/Taipei(+8) wall-clock 格式化。
+ * 不用 toLocaleString —— Node(SSR) 與 browser 的 ICU 對 zh-TW 日期/上下午格式可能不同，
+ * 會造成 hydration mismatch（server text ≠ client text）。台灣無 DST，固定 +8 安全。
+ */
+function fmtTaipei(iso: string): string {
+  const t = new Date(new Date(iso).getTime() + 8 * 3600 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${t.getUTCFullYear()}/${p(t.getUTCMonth() + 1)}/${p(t.getUTCDate())} ${p(t.getUTCHours())}:${p(t.getUTCMinutes())}`;
+}
 
 type CreateForm = {
   scheduled_date: string;
@@ -81,6 +94,9 @@ export function TestRidesBoard({
   // ── modal ──
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<CreateForm>(emptyForm);
+
+  // ── 試乘同意簽名 modal（出車前簽）──
+  const [consentTarget, setConsentTarget] = useState<TestDriveRow | null>(null);
 
   function showBanner(b: Exclude<Banner, null>) {
     setBanner(b);
@@ -184,13 +200,7 @@ export function TestRidesBoard({
             href={`/sales/reception/test-rides/${r.id}`}
             className="font-mono text-[12.5px] text-[#185FA5] hover:underline"
           >
-            {new Date(r.scheduled_at).toLocaleString("zh-TW", {
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {fmtTaipei(r.scheduled_at)}
           </Link>
         ),
         exportValue: (r) => r.scheduled_at,
@@ -443,7 +453,7 @@ export function TestRidesBoard({
             {r.status === "scheduled" && (
               <button
                 type="button"
-                onClick={() => changeStatus(r, "in_progress")}
+                onClick={() => setConsentTarget(r)}
                 className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] hover:bg-[#F9E4B7]"
               >
                 開始
@@ -582,6 +592,20 @@ export function TestRidesBoard({
             </footer>
           </div>
         </div>
+      )}
+
+      {/* 試乘同意簽名 modal（出車前簽 → 切 in_progress）*/}
+      {consentTarget && (
+        <TestRideConsentModal
+          testRideId={consentTarget.id}
+          signerName={consentTarget.customer_name}
+          onClose={() => setConsentTarget(null)}
+          onSuccess={() => {
+            setConsentTarget(null);
+            showBanner({ ok: true, msg: "✓ 已簽署並開始試駕" });
+            router.refresh();
+          }}
+        />
       )}
 
       {/* Banner */}

@@ -109,6 +109,9 @@ export async function approveEvaluationAction(
     revalidatePath(`/usedcar/evaluations/${id}`);
     revalidatePath("/admin/approvals/tradein");
     revalidatePath(`/admin/approvals/tradein/${id}`);
+    // 核准會同步衍生一筆中古庫存（pending_inspection）→ revalidate 庫存頁讓它立刻出現
+    revalidatePath("/usedcar/stock");
+    revalidatePath("/sales/showroom/used-cars");
     return { ok: true, data: result };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "核准失敗";

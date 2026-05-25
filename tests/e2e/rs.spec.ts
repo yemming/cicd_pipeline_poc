@@ -11,6 +11,7 @@
  */
 import { test, expect, useRole, authFile } from "./helpers/role-fixtures";
 import baselines from "./fixtures/report-baselines.json";
+import { resetEvalFixture, readEvalDerivedInventory } from "./helpers/fixture-db";
 
 // ──────────────────────────────────────────────────────────
 test.describe("RS-01 銷售主管每日登入 — 工作台首頁檢視", () => {
@@ -183,12 +184,17 @@ test.describe("RS-05 RS 人員管理 / 九宮格 / 手卡參數 / 客群標籤",
   test("四個輔助設定基礎功能（人員清單 / 九宮格 / 參數即時生效 / 標籤啟停）", async ({ page }) => {
     // Step 1) 【RS 人員管理】顯示現有 RS 清單、基本欄位
     await page.goto("/sales/manager/staff");
+    await expect(page).toHaveURL(/\/sales\/manager\/staff/);
+    // 🔧 第十二輪 G6：Indian 業務部(SAL)已補在職員工 fixture（過去 9 名全 SVC/PRT → 此頁空）。
+    //    斷言人員清單非空（至少業務經理 + 負責車系 chip 渲染），證明 fixture 落地。
+    await expect(page.getByText(/共\s*\d+\s*位\s*RS/)).toBeVisible();
+    await expect(page.getByText("張承翰")).toBeVisible();
+    await expect(page.getByText("全車系", { exact: true }).first()).toBeVisible();
     // Step 2) 【員工九宮格】UI 顯示正常（未開發則記「待開發」）
     // Step 3) 【手卡參數】改某欄位選項 → 切電子手卡確認新選項出現
     // Step 4) 【客群標籤】新增「VIP 測試標籤」→ 切手卡確認下拉出現
     // Step 5) 停用標籤 → 手卡中不再顯示
-    // 斷言點：✓1 人員清單欄位完整 ✓3 手卡參數即時更新（免重整）✓4 標籤新增即現、停用即消
-    await expect(page).toHaveURL(/\/sales\/manager\/staff/);
+    // 斷言點：✓1 人員清單欄位完整（G6 fixture 非空）✓3 手卡參數即時更新（免重整）✓4 標籤新增即現、停用即消
   });
 });
 
@@ -420,49 +426,123 @@ test.describe("RS-07C 接待手卡 — 何先生現有車主回訪、原 RS 離�
 });
 
 // ──────────────────────────────────────────────────────────
-test.describe("RS-08 試乘試駕 — 車輛安排、電子簽名、試乘記錄", () => {
-  // persona: sales_lead · deps: RS-07A（手卡）· route: /sales/reception/test-rides(RS02)、/sales/showroom/new-cars(RS03A)
+test.describe("RS-08 試乘試駕 — DB-backed 試乘記錄 board（建立寫 DB）", () => {
+  // persona: sales_lead · deps: RS-07A（手卡）· route: /sales/reception/test-rides(RS02)
+  // 🔧 第十二輪 G1：route 已從 demo wizard（TestRidesForm，不寫 DB）換成 DB-backed TestRidesBoard。
+  //    本 case 改驗「列表 render + 新增試駕寫 sales_test_drives」。設計為冪等：建立 unique-marker
+  //    記錄 → 搜尋定位 → 列尾刪除清掉，不污染 DB。
+  //    （舊 4-step demo wizard 仍可由 /sales/reception/test-rides/wizard 達，本 case 不再驗。）
+  //    ⏳ 試乘電子簽名 + 完成回寫評分屬 G3，落地後再於本 describe 補 complete-flow 斷言。
   useRole("sales_lead");
 
-  test("試乘 wizard：基本登記（駕照）→ 安全確認清單 100% → 計時 → 黃金時刻回寫", async ({ page }) => {
-    // 註：route /sales/reception/test-rides 實際  render 的是 4-step demo wizard（TestRidesForm），
-    //     不是 DB-backed list board（TestRidesBoard 元件存在但未掛任何 route — 見回報「孤兒元件」）。
-    // Step 1) 進試乘 wizard，STEP1 試駕基本登記
+  test("DB board：列表 render（KPI + 共 N 筆）→ 新增試駕寫 DB → 搜尋定位 → 刪除清理（冪等）", async ({ page }) => {
+    const marker = `E2E-RS08-${Date.now()}`;
+
+    // Step 1) 進 DB-backed 試乘列表
     await page.goto("/sales/reception/test-rides");
     await expect(page).toHaveURL(/\/sales\/reception\/test-rides/);
     await expect(page.getByRole("heading", { name: "試乘試駕" })).toBeVisible();
-    // 4-step step bar 存在
-    await expect(page.locator('[data-test-id="td-step-bar"]')).toBeVisible();
-    // ✓ 車輛安排：試駕車款下拉（可選試駕車）+ 大型重機駕照必填（合格駕照確認）
-    await expect(page.locator("div", { hasText: /^大型重機駕照/ }).first()).toBeVisible();
-    await expect(page.locator("div", { hasText: /^試駕車款/ }).first()).toBeVisible();
-    // 客戶姓名來自 RS01 手卡（placeholder 提示帶入機制）
-    await expect(page.getByPlaceholder("來自 RS01 電子手卡")).toBeVisible();
+    // ✓ board 標記：toolbar「共 N 筆試駕記錄」+ KPI 卡（今日試駕 / 待安排）
+    await expect(page.getByText(/共\s*\d+\s*筆試駕記錄/)).toBeVisible();
+    await expect(page.getByText("今日試駕")).toBeVisible();
+    await expect(page.getByText("待安排")).toBeVisible();
 
-    // Step 2) 進 STEP2 安全確認清單（試駕前安全 gate）→ 全部 OK → 進度條 100%
-    await page.locator("#td-step-2").click();
-    await expect(page.getByText("試駕前安全確認清單")).toBeVisible();
-    await page.locator('[data-test-id="td-check-all"]').click();
-    await expect(page.locator('[data-test-id="td-safety-pct"]')).toHaveText("100%");
+    // Step 2) 開「＋ 新增試駕」modal
+    await page.getByRole("button", { name: /新增試駕/ }).click();
+    await expect(page.getByRole("heading", { name: "新增試駕預約" })).toBeVisible();
+    const modal = page.locator("div.shadow-xl").filter({ has: page.getByRole("heading", { name: "新增試駕預約" }) });
+    // 日期預設今天（不動）；客戶 / 車款選第一個真實 option（option[0] 是「— 未指定 —」）
+    await modal.locator("select").nth(0).selectOption({ index: 1 });
+    const modelSel = modal.locator("select").nth(1);
+    if ((await modelSel.locator("option").count()) > 1) await modelSel.selectOption({ index: 1 });
+    // 備註填 unique marker（用於之後搜尋定位 + 刪除）
+    await modal.locator("textarea").fill(marker);
 
-    // Step 3) 進 STEP4 結果評估 + 黃金時刻：試駕結果記錄（整體感受、回寫 RS01 手卡）
-    await page.locator("#td-step-4").click();
-    await expect(page.getByText("⚡ 黃金時刻")).toBeVisible();
-    await expect(page.getByText("試駕結果記錄")).toBeVisible();
-    // ✓ 結果自動回寫 RS01 電子手卡（唯讀）提示存在
-    await expect(page.getByText(/自動回寫/)).toBeVisible();
-    // 儲存試駕記錄（demo：toast 回寫手卡）
-    await page.getByRole("button", { name: /💾 儲存試駕記錄/ }).click();
-    await expect(page.locator('[data-test-id="td-toast"]')).toContainText(/回寫至 RS01/, { timeout: 8000 });
+    // Step 3) 建立 → 寫 sales_test_drives → banner「✓ 試駕已建立」
+    await modal.getByRole("button", { name: /^建立$/ }).click();
+    await expect(page.getByText("✓ 試駕已建立")).toBeVisible({ timeout: 12000 });
+
+    // Step 4) 搜尋備註定位剛建的列（unique marker 保證唯一）
+    await page.getByPlaceholder("搜尋備註...").fill(marker);
+    await page.getByRole("button", { name: /^查詢$/ }).click();
+    const targetRow = page.locator("table tbody tr").filter({ hasText: marker });
+    await expect(targetRow).toHaveCount(1, { timeout: 12000 });
 
     await page.screenshot({ path: "docs/test-evidence/round-11/RS-08.png", fullPage: true });
-    // 斷言點：✓1 車輛安排（試駕車款下拉 + 駕照必填 gate）✓2 安全確認清單全 OK→100%（出發 gate）
-    //         ✓3 試駕結果記錄 + 黃金時刻 ✓4 結果回寫 RS01 手卡（demo toast）
-    // ⚠️ 功能缺 1：整個 test-rides 模組無「電子簽名」（無 signature canvas / sign pad）— spec
-    //    「客戶電子簽名同意試乘條款」未實作。
-    // ⚠️ 架構缺 2：DB-backed TestRidesBoard / test-ride-detail-view 元件已寫好（含 createTestDrive /
-    //    completeTestDrive server actions、status 機、評分回寫）但**未掛 route** — 現役頁是 demo wizard，
-    //    不寫 DB。spec「試乘記錄寫入、自動關聯手卡」尚未真正落地 → 記給主 agent。
+
+    // Step 5) 冪等清理：列尾「刪除」→ confirm accept → banner「✓ 已刪除」
+    page.on("dialog", (d) => d.accept());
+    await targetRow.getByRole("button", { name: "刪除" }).click();
+    await expect(page.getByText("✓ 已刪除")).toBeVisible({ timeout: 12000 });
+
+    // 斷言點：✓1 DB-backed board render（KPI + 共 N 筆 + DataGrid）
+    //         ✓2 新增試駕 modal → createTestDriveAction 寫 sales_test_drives（banner 確認）
+    //         ✓3 搜尋備註定位 + 列尾刪除（冪等，不留測試資料）
+    // 🔧 第十二輪 G1 完成：test-rides 已 DB 落地（RS-08 從 demo wizard → DB board）。
+  });
+
+  // 🔧 第十二輪 G3：試乘電子簽名（出車前簽同意條款）。沒簽不出車 + 簽名存 metadata.signature。
+  test("RS-08b 開始試駕需先簽同意條款：沒簽不出車 → 簽名後 in_progress（出車前簽、G3）", async ({ page }) => {
+    const marker = `E2E-RS08b-${Date.now()}`;
+    page.on("dialog", (d) => d.accept());
+
+    // 建一筆 scheduled 試乘
+    await page.goto("/sales/reception/test-rides");
+    await expect(page.getByRole("heading", { name: "試乘試駕" })).toBeVisible();
+    await expect(page.getByText(/共\s*\d+\s*筆試駕記錄/)).toBeVisible();
+    await page.getByRole("button", { name: /新增試駕/ }).click();
+    await expect(page.getByRole("heading", { name: "新增試駕預約" })).toBeVisible();
+    const createModal = page.locator("div.shadow-xl").filter({ has: page.getByRole("heading", { name: "新增試駕預約" }) });
+    await createModal.locator("select").nth(0).selectOption({ index: 1 });
+    await createModal.locator("textarea").fill(marker);
+    await createModal.getByRole("button", { name: /^建立$/ }).click();
+    await expect(page.getByText("✓ 試駕已建立")).toBeVisible({ timeout: 12000 });
+
+    // 搜尋定位該列、點列尾「開始」
+    await page.getByPlaceholder("搜尋備註...").fill(marker);
+    await page.getByRole("button", { name: /^查詢$/ }).click();
+    const targetRow = page.locator("table tbody tr").filter({ hasText: marker });
+    await expect(targetRow).toHaveCount(1, { timeout: 12000 });
+    await targetRow.getByRole("button", { name: "開始" }).click();
+
+    // consent modal 出現 + 同意條款文字
+    await expect(page.getByRole("heading", { name: "試乘同意條款 — 出車前簽名" })).toBeVisible();
+    await expect(page.getByText("試乘同意暨免責聲明")).toBeVisible();
+    const consent = page.locator("div").filter({ has: page.getByRole("heading", { name: "試乘同意條款 — 出車前簽名" }) }).last();
+
+    // 沒簽 → footer「簽名並開始試駕」disabled（沒簽不出車）
+    const confirmBtn = page.getByRole("button", { name: "簽名並開始試駕" });
+    await expect(confirmBtn).toBeDisabled();
+
+    // 在 canvas 畫筆 → 確認簽名
+    const cv = consent.locator("canvas").first();
+    const box = await cv.boundingBox();
+    if (!box) throw new Error("找不到簽名 canvas");
+    await page.mouse.move(box.x + 40, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.3);
+    await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.7);
+    await page.mouse.up();
+    await consent.getByRole("button", { name: "確認簽名" }).click();
+
+    // 簽完 → footer 可按 → 出車
+    await expect(confirmBtn).toBeEnabled({ timeout: 8000 });
+    await confirmBtn.click();
+    await expect(page.getByText("✓ 已簽署並開始試駕")).toBeVisible({ timeout: 12000 });
+
+    await page.screenshot({ path: "docs/test-evidence/round-11/RS-08b.png", fullPage: true });
+
+    // 冪等清理：搜尋（status 已變 in_progress 但 marker 仍在）→ 刪除
+    await page.getByPlaceholder("搜尋備註...").fill(marker);
+    await page.getByRole("button", { name: /^查詢$/ }).click();
+    const doneRow = page.locator("table tbody tr").filter({ hasText: marker });
+    await expect(doneRow).toHaveCount(1, { timeout: 12000 });
+    await doneRow.getByRole("button", { name: "刪除" }).click();
+    await expect(page.getByText("✓ 已刪除")).toBeVisible({ timeout: 12000 });
+
+    // 斷言點：✓1 開始試駕先彈同意條款 modal ✓2 沒簽→確認鈕 disabled（沒簽不出車）
+    //         ✓3 canvas 簽名→確認鈕 enabled→出車（startTestDriveWithSignatureAction 寫 metadata.signature）
+    //         ✓4 banner「✓ 已簽署並開始試駕」（status→in_progress）✓5 冪等刪除不留資料
   });
 });
 
@@ -507,9 +587,48 @@ test.describe("RS-09 置換評估 — 中古車估價、自動關聯手卡、進
 
     await page.screenshot({ path: "docs/test-evidence/round-11/RS-09.png", fullPage: true });
     // 斷言點：✓1 帶手卡客戶（賣方姓名 prefill）✓2 車況評分彙整→建議估價 ✓3 儲存草稿寫 DB（toast + 導列表）
-    // ⚠️ 功能缺：approveEvaluation 只把 status→'approved'，**不自動建立 used_car_inventory row**。
-    //    spec RS-09「估完進中古庫存（★串接）」尚未實作 — 評估單與中古庫存目前解耦 → 記給主 agent。
-    //    （主管審核流程本身存在：submitted→approved，但不衍生庫存）
+    // 🔧 第十二輪 G4 已補：approveEvaluation 核准後自動衍生 used_car_inventory（見下方 RS-09B）。
+  });
+});
+
+// ──────────────────────────────────────────────────────────
+// 🔧 第十二輪 G4：估價核准 → 中古庫存串接（approve 後同步建 used_car_inventory、冪等）。
+// persona: rs_manager（主管核准）。fixture: Indian 估價單 EV-20260516-001（submitted）。
+// beforeEach/afterEach 用 service-role 把 eval 清回 submitted + 刪衍生庫存 → 可重跑。
+const RS09B_EVAL_NO = "EV-20260516-001";
+test.describe("RS-09B 估價核准 → 中古庫存串接（G4 ★串接）", () => {
+  useRole("rs_manager");
+  test.beforeEach(async () => { await resetEvalFixture(RS09B_EVAL_NO); });
+  test.afterEach(async () => { await resetEvalFixture(RS09B_EVAL_NO); });
+
+  test("主管核准估價單 → 自動衍生 used_car_inventory（pending_inspection、冪等單筆、雙向關聯）", async ({ page }) => {
+    // Step 1) 進中古車收車簽核中心，找該 submitted 估價單
+    await page.goto("/admin/approvals/tradein");
+    await expect(page).toHaveURL(/\/admin\/approvals\/tradein/);
+    const row = page.locator("tr, [role='row']").filter({ hasText: RS09B_EVAL_NO }).first();
+    await expect(row).toBeVisible({ timeout: 12000 });
+
+    // Step 2) 點該列「核准」→ confirm modal「確認核准」
+    await row.getByRole("button", { name: /^核准$/ }).click();
+    await page.getByRole("button", { name: /確認核准/ }).click();
+    await expect(page.getByText(/已核准/)).toBeVisible({ timeout: 12000 });
+
+    await page.screenshot({ path: "docs/test-evidence/round-11/RS-09B.png", fullPage: true });
+
+    // Step 3) 後端串接斷言（hook：approve 同步衍生庫存）
+    const fx = await readEvalDerivedInventory(RS09B_EVAL_NO);
+    expect(fx.evalStatus).toBe("approved");
+    expect(fx.inventory.length, "approve 後應衍生剛好 1 筆中古庫存（冪等）").toBe(1);
+    const car = fx.inventory[0];
+    expect(car.status).toBe("pending_inspection"); // 整備中、不一核准就上架
+    expect(car.acquisition_price).toBe(415000); // = 估價單 estimated_value
+    expect(car.listing_price).toBe(470000); // = pricing.pMarket
+    expect(car.margin).toBe(-5000); // listing - cost(415000+60000整備)，允許負值
+    expect(car.condition_grade).toBe("B"); // 同估價單直帶
+    // 雙向關聯：estimation.metadata.generated_inventory_id == 衍生庫存 id
+    expect(fx.generatedInventoryId).toBe(car.id);
+    // 斷言點：✓1 核准 submitted→approved ✓2 自動衍生庫存 ✓3 status=pending_inspection（不直接上架）
+    //         ✓4 金額對映正確（含負 margin）✓5 雙向 metadata 關聯 ✓6 冪等單筆
   });
 });
 

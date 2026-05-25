@@ -13,12 +13,14 @@ import {
   updateTestDrive,
   deleteTestDrive,
   completeTestDrive,
+  startTestDriveWithSignature,
   linkToHandcard,
 } from "@/domain/sales-test-drives";
 import type {
   CreateTestDriveInput,
   UpdateTestDriveInput,
   CompleteTestDriveInput,
+  StartWithSignatureInput,
   Result,
 } from "@/domain/sales-test-drives.constants";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -92,6 +94,20 @@ export async function linkToHandcardAction(
   if (res.ok) {
     revalidatePath(LIST_PATH);
     revalidatePath(`${LIST_PATH}/${testRideId}`);
+  }
+  return res;
+}
+
+export async function startTestDriveWithSignatureAction(
+  id: string,
+  input: StartWithSignatureInput,
+): Promise<Result<{ id: string }>> {
+  const g = await gate();
+  if (!g.ok) return g;
+  const res = await startTestDriveWithSignature(id, input);
+  if (res.ok) {
+    revalidatePath(LIST_PATH);
+    revalidatePath(`${LIST_PATH}/${id}`);
   }
   return res;
 }

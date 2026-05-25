@@ -130,6 +130,18 @@ export type OtherTechnicianOption = {
   name: string;
 };
 
+/** 追加項目 modal 用的零件 / 倉庫候選清單（顯示 code + name） */
+export type AddonItemOption = {
+  id: string;
+  code: string;
+  name: string;
+};
+export type AddonWarehouseOption = {
+  id: string;
+  code: string;
+  name: string;
+};
+
 function todayTaipeiIsoDate(): string {
   const d = new Date();
   const tz = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
@@ -512,6 +524,41 @@ export async function listOtherTechnicians(excludeTechId: string): Promise<Other
     .order("sort_order", { ascending: true });
   if (error) throw error;
   return (data ?? []) as OtherTechnicianOption[];
+}
+
+/**
+ * 追加項目 modal 的零件候選清單：active items，顯示 code + name。
+ * 給 AddonModal 選「追加為零件」要預留的零件用（餵 reserve_item.item_id）。
+ */
+export async function listItemOptionsForAddon(): Promise<AddonItemOption[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("items")
+    .select("id, code, name")
+    .eq("brand_id", brand)
+    .eq("is_active", true)
+    .order("code", { ascending: true })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []) as AddonItemOption[];
+}
+
+/**
+ * 追加項目 modal 的倉庫候選清單：active warehouses，顯示 code + name。
+ * 給 AddonModal 選預留來源倉用（餵 reserve_item.warehouse_id）。
+ */
+export async function listWarehouseOptionsForAddon(): Promise<AddonWarehouseOption[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("warehouses")
+    .select("id, code, name")
+    .eq("brand_id", brand)
+    .eq("is_active", true)
+    .order("code", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as AddonWarehouseOption[];
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -290,39 +290,33 @@ test.describe("INV-06 保固索賠 — 竣工後舊件登錄、追蹤、費用�
     console.log(`[INV-06] hook#6 WC-20260524-001 可見=${wc6 > 0 ? "是" : "否（不在 old_parts，記錄不阻塞）"}`);
     await page.screenshot({ path: "docs/test-evidence/round-11/INV-06.png", fullPage: true });
 
-    // ⚠️ 權限邊界（非 bug，不 grant）：staging-warehouse / ro-link / cost-recovery 用 PERMISSIONS.WARRANTY_VIEW
-    //   (=parts.warranty.view)。RBAC seed 下「倉管 / 庫存主管」皆無此 code（兩者只有 parts.usedpart.ops），
-    //   故這三頁對 warehouse / stock_lead 皆預期顯示「沒有檢視…的權限」— 屬保固索賠檢視/設定為更高權限 role 範疇。
-    //   本 case 驗：頁面有正常回應（非 500 / Application error），權限訊息屬預期邊界（記錄不阻塞主驗點）。
+    // 🔧 第十二輪 G5（Ming 拍板補權）：staging-warehouse / ro-link / cost-recovery gate 在
+    //   service.warranty.view。已補給 warehouse / stock_lead（倉管也要能操作保固索賠流程）。
+    //   故這三頁對 warehouse 現在應**可正常檢視**（不再顯示「沒有檢視…的權限」）。
 
     // ── Step 2) 11 暫存倉 /parts/warranty/staging-warehouse（舊件存「C 區-保固暫存倉」與一般庫分開）──
     await page.goto("/parts/warranty/staging-warehouse");
     await expect(page).toHaveURL(/\/parts\/warranty\/staging-warehouse/);
     await expect(body).not.toContainText("Application error");
+    await expect(body).not.toContainText("沒有檢視"); // G5：warehouse 已補權，不再被擋
     await expect(page.locator("main").last()).toBeVisible();
-    const stagingBlocked = (await body.getByText("沒有檢視", { exact: false }).count()) > 0;
-    console.log(`[INV-06] 暫存倉設定頁載入 OK（warranty.view 權限邊界 blocked=${stagingBlocked}）`);
 
     // ── Step 3) 11 RO 串接 /parts/warranty/ro-link（索賠申請含工單號/品號/更換日期）──
     await page.goto("/parts/warranty/ro-link");
     await expect(page).toHaveURL(/\/parts\/warranty\/ro-link/);
     await expect(body).not.toContainText("Application error");
+    await expect(body).not.toContainText("沒有檢視"); // G5
     await expect(page.locator("main").last()).toBeVisible();
-    const roBlocked = (await body.getByText("沒有檢視", { exact: false }).count()) > 0;
-    const roRows = await page.locator("table tbody tr, [role='row']").count();
-    console.log(`[INV-06] RO 串接頁載入 OK（blocked=${roBlocked}，row≈${roRows}）`);
 
     // ── Step 4-5) 11 費用回收 /parts/warranty/cost-recovery（更新回款狀態、實際金額、結案；到期前 7 天提醒）──
     await page.goto("/parts/warranty/cost-recovery");
     await expect(page).toHaveURL(/\/parts\/warranty\/cost-recovery/);
     await expect(body).not.toContainText("Application error");
+    await expect(body).not.toContainText("沒有檢視"); // G5
     await expect(page.locator("main").last()).toBeVisible();
-    const crBlocked = (await body.getByText("沒有檢視", { exact: false }).count()) > 0;
-    const crRows = await page.locator("table tbody tr, [role='row']").count();
-    console.log(`[INV-06] 費用回收頁載入 OK（blocked=${crBlocked}，row≈${crRows}）`);
-    // 斷言點：✓1 ⭐保固竣工自動觸發舊件登錄（used-parts row≈4 已驗）✓2 舊件存暫存倉與一般分開（權限邊界 blocked）
-    //         ✓3 索賠申請含完整資訊（權限邊界 blocked）✓4 到期前 7 天提醒+回款後結案（權限邊界 blocked）
-    //         —— 舊件登錄頁可見且有資料；設定/追蹤三頁屬 warranty.view 更高權限範疇（warehouse/stock_lead 皆無，預期被擋，不 grant）
+    // 斷言點：✓1 ⭐保固竣工自動觸發舊件登錄（used-parts row≈4 已驗）✓2 舊件存暫存倉與一般分開（G5 後 warehouse 可檢視）
+    //         ✓3 索賠申請含完整資訊（可檢視）✓4 到期前 7 天提醒+回款後結案（可檢視）
+    //         —— 第十二輪 G5：保固索賠三頁已補權給倉管/庫存主管，warehouse persona 全程可操作
   });
 });
 

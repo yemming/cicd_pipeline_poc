@@ -28,6 +28,8 @@ import type {
   TestDriveStats,
   Result,
   TestDriveLookups,
+  StartWithSignatureInput,
+  TestDriveSignature,
 } from "./sales-test-drives.constants";
 
 export {
@@ -45,6 +47,8 @@ export type {
   TestDriveStats,
   Result,
   TestDriveLookups,
+  StartWithSignatureInput,
+  TestDriveSignature,
 };
 
 export async function getTestDriveLookups(): Promise<TestDriveLookups> {
@@ -159,6 +163,11 @@ export async function listTestDrives(
     .range(from, to);
 
   if (filter.status) q = q.eq("status", filter.status);
+  if (filter.sales_consultant_id)
+    q = q.eq("sales_consultant_id", filter.sales_consultant_id);
+  if (filter.date_from)
+    q = q.gte("scheduled_at", `${filter.date_from}T00:00:00`);
+  if (filter.date_to) q = q.lte("scheduled_at", `${filter.date_to}T23:59:59`);
   if (filter.q) {
     const t = filter.q.trim().replace(/[%,]/g, "");
     if (t) q = q.ilike("notes", `%${t}%`);
@@ -169,6 +178,86 @@ export async function listTestDrives(
 
   const rows = ((data ?? []) as unknown as RawListRow[]).map(shapeRow);
   return { rows, totalCount: count ?? 0 };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Stats（KPI 4 顆：今日試駕 / 本週完成 / 平均評分 / 待安排）
+// ─────────────────────────────────────────────────────────────
+
+export async function getTestDriveStats(): Promise<TestDriveStats> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 撈當前 brand 全量 minimal 欄位，在 JS 端算 KPI（量級小、不需獨立 RPC）
+  const { data, error } = await supabase
+    .from("sales_test_drives")
+    .select("status, scheduled_at, completed_at, metadata")
+    .eq("brand_id", scope.brand_id);
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<{
+    status: string;
+    scheduled_at: string;
+    completed_at: string | null;
+    metadata: unknown;
+  }>;
+
+  // 以 Asia/Taipei 當地日界判斷「今日」「本週」
+  const tz = "Asia/Taipei";
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date()); // YYYY-MM-DD
+
+  // 本週一 00:00（台北）— 用當地日期算週一
+  const now = new Date();
+  const localNow = new Date(
+    now.toLocaleString("en-US", { timeZone: tz }),
+  );
+  const dow = (localNow.getDay() + 6) % 7; // 週一=0
+  const weekStartLocal = new Date(localNow);
+  weekStartLocal.setDate(localNow.getDate() - dow);
+  weekStartLocal.setHours(0, 0, 0, 0);
+
+  let todayCount = 0;
+  let weekCompleted = 0;
+  let scheduledCount = 0;
+  const ratings: number[] = [];
+
+  for (const r of rows) {
+    const localDateStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(r.scheduled_at));
+    if (localDateStr === todayStr) todayCount += 1;
+    if (r.status === "scheduled") scheduledCount += 1;
+    if (r.status === "completed" && r.completed_at) {
+      const c = new Date(r.completed_at);
+      if (c >= weekStartLocal) weekCompleted += 1;
+    }
+    const meta =
+      r.metadata && typeof r.metadata === "object"
+        ? (r.metadata as Record<string, unknown>)
+        : {};
+    const rating = meta.rating;
+    if (typeof rating === "number") ratings.push(rating);
+    else if (typeof rating === "string" && rating.trim() !== "") {
+      const n = Number(rating);
+      if (!Number.isNaN(n)) ratings.push(n);
+    }
+  }
+
+  const avgRating =
+    ratings.length > 0
+      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) /
+        10
+      : null;
+
+  return { todayCount, weekCompleted, avgRating, scheduledCount };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -342,6 +431,63 @@ export async function completeTestDrive(
     ok: true,
     data: { id, handcard_id: existing.handcard_id ?? null },
   };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Start with signature（出車前簽試乘同意條款 → 寫 metadata.signature + 切 in_progress）
+// 不污染 completeTestDrive；沿用 read-merge-write metadata 寫法。
+// ─────────────────────────────────────────────────────────────
+
+export async function startTestDriveWithSignature(
+  id: string,
+  sig: StartWithSignatureInput,
+): Promise<Result<{ id: string }>> {
+  if (!sig.dataUrl || !sig.dataUrl.startsWith("data:image/")) {
+    return { ok: false, error: "缺少有效的簽名圖" };
+  }
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 讀現有 metadata 合併（避免覆蓋既有 started_at / 其他鍵）
+  const { data: existing, error: rErr } = await supabase
+    .from("sales_test_drives")
+    .select("id, status, metadata")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (rErr) return { ok: false, error: rErr.message };
+  if (!existing) return { ok: false, error: "找不到試駕記錄" };
+  if (existing.status !== "scheduled") {
+    return { ok: false, error: "只有「已排程」的試駕可以簽名出車" };
+  }
+
+  const prevMeta =
+    existing.metadata && typeof existing.metadata === "object"
+      ? (existing.metadata as Record<string, unknown>)
+      : {};
+
+  const signature: TestDriveSignature = {
+    data_url: sig.dataUrl,
+    signed_at: new Date().toISOString(),
+    consent_version: sig.consentVersion ?? "test-drive-v1",
+    ...(sig.signerName ? { signer_name: sig.signerName } : {}),
+  };
+
+  const meta: Record<string, unknown> = {
+    ...prevMeta,
+    started_at: new Date().toISOString(),
+    signature,
+  };
+
+  const { error } = await supabase
+    .from("sales_test_drives")
+    .update({ status: "in_progress", metadata: meta })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: error.message };
+
+  return { ok: true, data: { id } };
 }
 
 // ─────────────────────────────────────────────────────────────

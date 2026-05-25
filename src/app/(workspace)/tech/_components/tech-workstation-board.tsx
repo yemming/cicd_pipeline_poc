@@ -25,6 +25,8 @@ import type {
   TechWorkstationKpi,
   OtherTechnicianOption,
   AddonInput,
+  AddonItemOption,
+  AddonWarehouseOption,
 } from "@/domain/tech-workstation";
 
 type TabKey = "pending" | "in_progress" | "done_today";
@@ -83,12 +85,16 @@ export function TechWorkstationBoard({
   initialOrders,
   kpi,
   otherTechnicians,
+  itemOptions,
+  warehouseOptions,
   perms,
 }: {
   technician: TechnicianRow;
   initialOrders: AssignedOrderCard[];
   kpi: TechWorkstationKpi;
   otherTechnicians: OtherTechnicianOption[];
+  itemOptions: AddonItemOption[];
+  warehouseOptions: AddonWarehouseOption[];
   perms: Perms;
 }) {
   const [tab, setTab] = useState<TabKey>(
@@ -341,6 +347,8 @@ export function TechWorkstationBoard({
       {addonForRo && (
         <AddonModal
           busy={isPending}
+          itemOptions={itemOptions}
+          warehouseOptions={warehouseOptions}
           onClose={() => setAddonForRo(null)}
           onSubmit={(payload) => handleAddAddon(addonForRo, payload)}
         />
@@ -644,10 +652,14 @@ function ReassignControl({
 
 function AddonModal({
   busy,
+  itemOptions,
+  warehouseOptions,
   onClose,
   onSubmit,
 }: {
   busy: boolean;
+  itemOptions: AddonItemOption[];
+  warehouseOptions: AddonWarehouseOption[];
   onClose: () => void;
   onSubmit: (payload: AddonInput) => void;
 }) {
@@ -656,19 +668,38 @@ function AddonModal({
   const [safety, setSafety] = useState<AddonInput["safety_level"]>("normal");
   const [reason, setReason] = useState("");
   const [fee, setFee] = useState("");
+  // 零件預留欄位（只在追加含零件時相關 → 餵 reserve_item）
+  const [itemId, setItemId] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
+  const [qty, setQty] = useState("1");
 
   const inputClass =
     "h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-60";
   const labelClass = "text-[11px] text-[#9A9890] font-medium";
 
+  // 含零件的類型才顯示「備件預留」區塊（pure labor 不需要選零件）
+  const involvesParts = addonType === "parts" || addonType === "labor_and_parts";
+  const qtyNum = Number(qty);
+  // 有選零件時，倉庫 + 數量必填且 qty > 0；沒選零件（labor-only）→ reserve_item: null
+  const reserveInvalid =
+    involvesParts && itemId !== "" && (warehouseId === "" || !Number.isFinite(qtyNum) || qtyNum <= 0);
+  const canSubmit = !!name.trim() && !reserveInvalid;
+
   function submit() {
     if (!name.trim()) return;
+    // 只有「含零件」且實際選了零件、倉庫、qty>0 才帶 reserve_item，否則 null（labor-only 合法）
+    const reserve_item =
+      involvesParts && itemId && warehouseId && qtyNum > 0
+        ? { item_id: itemId, warehouse_id: warehouseId, qty: qtyNum }
+        : null;
+    if (reserveInvalid) return;
     onSubmit({
       name: name.trim(),
       addon_type: addonType,
       safety_level: safety,
       tech_reason: reason.trim() || null,
       estimated_fee: fee.trim() ? Number(fee) : 0,
+      reserve_item,
     });
   }
 
@@ -718,6 +749,66 @@ function AddonModal({
               </select>
             </div>
           </div>
+          {/* 備件預留：只在追加含零件時顯示。選了零件才需填倉庫 + 數量、送出帶 reserve_item */}
+          {involvesParts && (
+            <div className="border border-[#EEECE6] rounded-lg overflow-hidden">
+              <div className="px-3 py-1.5 bg-[#F8F7F4] text-[11px] font-semibold text-[#5A5955]">
+                備件預留（選填）
+              </div>
+              <div className="px-3 py-3 space-y-3">
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>零件</label>
+                  <select
+                    className={inputClass}
+                    value={itemId}
+                    disabled={busy}
+                    onChange={(e) => setItemId(e.target.value)}
+                  >
+                    <option value="">不預留零件</option>
+                    {itemOptions.map((it) => (
+                      <option key={it.id} value={it.id}>
+                        {it.code} · {it.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {itemId && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className={labelClass}>來源倉庫 *</label>
+                      <select
+                        className={inputClass}
+                        value={warehouseId}
+                        disabled={busy}
+                        onChange={(e) => setWarehouseId(e.target.value)}
+                      >
+                        <option value="">請選擇倉庫</option>
+                        {warehouseOptions.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.code} · {w.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className={labelClass}>數量 *</label>
+                      <input
+                        className={inputClass}
+                        value={qty}
+                        type="number"
+                        min={1}
+                        disabled={busy}
+                        onChange={(e) => setQty(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+                {reserveInvalid && (
+                  <p className="text-[11px] text-[#CC0000]">已選零件時，請選來源倉庫並填寫數量（大於 0）</p>
+                )}
+              </div>
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <label className={labelClass}>預估費用（NT$）</label>
             <input
@@ -750,7 +841,7 @@ function AddonModal({
           </button>
           <button
             onClick={submit}
-            disabled={busy || !name.trim()}
+            disabled={busy || !canSubmit}
             className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
           >
             {busy ? "新增中⋯" : "確認追加"}

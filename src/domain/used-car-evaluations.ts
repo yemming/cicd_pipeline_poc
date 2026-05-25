@@ -13,6 +13,8 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { createUsedCar } from "@/domain/used-car-inventory";
+import type { CreateUsedCarInput } from "@/domain/used-car-inventory";
 
 // ── Status ──
 export const EVAL_STATUSES = ["draft", "submitted", "approved", "rejected"] as const;
@@ -192,12 +194,97 @@ export async function submitEvaluation(id: string): Promise<{ id: string }> {
   return data as { id: string };
 }
 
-// ── 核准（submitted → approved）──
+// ── 估價單 pricing_jsonb 數字解析 helper（字串 → number，空 / 非數回 0）──
+function pNum(jsonb: Record<string, unknown> | null | undefined, key: string): number {
+  const v = jsonb?.[key];
+  if (v == null || v === "") return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * 純函式：把估價單 row 映射成建立中古庫存的 input（§proposal §2 對映表）。
+ *
+ * 核心 3 條：estimated_value → acquisition_price、pricing_jsonb.pMarket → listing_price、
+ * condition_grade 同 enum 直帶。cost = 收購價 + 整備規費；margin 只在 listing/cost 皆有才算否則 null。
+ * 雙向關聯：metadata.source_evaluation_id = eval.id（兼任冪等鍵）。
+ */
+export function mapEvaluationToUsedCar(
+  ev: UsedCarEvaluationRow,
+  approverId: string | null
+): CreateUsedCarInput {
+  // acquisition_price = 收購估價
+  const acquisitionPrice = ev.estimated_value ?? null;
+
+  // 整備 / 規費聚合（pricing_jsonb 內的字串需 Number()）
+  const pricing = ev.pricing_jsonb ?? null;
+  const reconCost =
+    pNum(pricing, "pComm") +
+    pNum(pricing, "pAdmin") +
+    pNum(pricing, "pTire") +
+    pNum(pricing, "pPaint") +
+    pNum(pricing, "pRepair") +
+    pNum(pricing, "pWarranty");
+
+  // cost = 收購價 + 整備規費；無 acquisition_price 時 cost 留 null（避免把純整備費當成本）
+  const cost = acquisitionPrice != null ? acquisitionPrice + reconCost : null;
+
+  // listing_price = 市場行情 pMarket（空 → null，待整備後人工定價）
+  const pMarketRaw = pricing?.["pMarket"];
+  const listingPrice =
+    pMarketRaw == null || pMarketRaw === ""
+      ? null
+      : (() => {
+          const n = Number(pMarketRaw);
+          return Number.isFinite(n) ? n : null;
+        })();
+
+  // margin 只在 listing_price 與 cost 皆有時計算，否則 null（不亂塞 0）
+  const margin =
+    listingPrice != null && cost != null ? listingPrice - cost : null;
+
+  // model_display_name NN：eval.model → brand_name + model → fallback
+  const modelDisplayName =
+    ev.model?.trim() ||
+    [ev.brand_name?.trim(), "未指定車款"].filter(Boolean).join(" ") ||
+    "（未指定）";
+
+  return {
+    brand_id: ev.brand_id,
+    organization_id: ev.organization_id,
+    vin: ev.vin?.trim() ? ev.vin : null, // 空則 null，避免空字串撞 vin unique
+    license_plate: ev.license_plate,
+    model_display_name: modelDisplayName,
+    year: ev.year ?? new Date().getFullYear(),
+    color: ev.color,
+    mileage_km: ev.mileage ?? 0,
+    acquisition_price: acquisitionPrice,
+    listing_price: listingPrice,
+    cost,
+    margin,
+    acquisition_source: "trade_in",
+    acquisition_date: new Date().toISOString().slice(0, 10),
+    listed_date: null, // 待整備完才上架
+    status: "pending_inspection", // 整備中、不上架
+    condition_grade: ev.condition_grade,
+    note: ev.conclusion,
+    created_by: approverId,
+    metadata: {
+      source_evaluation_id: ev.id,
+      source_eval_no: ev.eval_no,
+      generated_from: "eval_approval",
+    },
+  };
+}
+
+// ── 核准（submitted → approved）+ 同步衍生中古庫存（冪等）──
 export async function approveEvaluation(
   id: string,
   approverId: string | null
-): Promise<{ id: string }> {
+): Promise<{ id: string; inventory_id?: string }> {
   const supabase = await createClient();
+
+  // (1) 改 status submitted → approved，撈回完整 row 以組庫存 input
   const { data, error } = await supabase
     .from("used_car_evaluations")
     .update({
@@ -207,11 +294,60 @@ export async function approveEvaluation(
     })
     .eq("id", id)
     .eq("status", "submitted")
-    .select("id")
+    .select("*")
     .single();
   if (error) throw new Error(`approveEvaluation: ${error.message}`);
   if (!data) throw new Error("approveEvaluation: 評估單必須為待簽核才能核准");
-  return data as { id: string };
+
+  const ev = data as UsedCarEvaluationRow;
+
+  // (2) 衍生中古庫存 — 冪等兜底（含「approved 卻沒庫存」的孤兒補建）
+  const inventoryId = await ensureInventoryFromEvaluation(supabase, ev, approverId);
+
+  return { id: ev.id, inventory_id: inventoryId };
+}
+
+/**
+ * 冪等地由估價單衍生一筆中古庫存：
+ * 先用 metadata->>'source_evaluation_id' 邏輯鍵查重，命中則回現有 id（skip create），
+ * 否則建立 pending_inspection 庫存並雙向回寫 eval.metadata.generated_inventory_id。
+ *
+ * 與 approveEvaluation 拆開：approve 第二次（status 已 approved）會在 (1) throw，
+ * 但「approved 卻沒庫存」的孤兒可透過直接重跑此函式 / 重 approve 流程補建。
+ */
+async function ensureInventoryFromEvaluation(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ev: UsedCarEvaluationRow,
+  approverId: string | null
+): Promise<string> {
+  // 防重：同一估價單已建過庫存 → skip，回現有 id
+  const { data: existing } = await supabase
+    .from("used_car_inventory")
+    .select("id")
+    .eq("brand_id", ev.brand_id)
+    .eq("metadata->>source_evaluation_id", ev.id)
+    .limit(1)
+    .maybeSingle();
+  if (existing?.id) return existing.id as string;
+
+  // 建庫存
+  const { id: inventoryId } = await createUsedCar(mapEvaluationToUsedCar(ev, approverId));
+
+  // 雙向回寫：eval.metadata.generated_inventory_id（合併、不整碗覆蓋）
+  const mergedMeta = {
+    ...(ev.metadata ?? {}),
+    generated_inventory_id: inventoryId,
+  };
+  const { error: backErr } = await supabase
+    .from("used_car_evaluations")
+    .update({ metadata: mergedMeta })
+    .eq("id", ev.id);
+  // 回寫失敗不回滾庫存（庫存才是主結果）；僅記錄
+  if (backErr) {
+    console.error(`approveEvaluation: 回寫 generated_inventory_id 失敗 — ${backErr.message}`);
+  }
+
+  return inventoryId;
 }
 
 // ── 駁回（submitted → rejected）──

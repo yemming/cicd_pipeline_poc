@@ -93,6 +93,24 @@ export type UpdateTestDriveInput = Partial<CreateTestDriveInput> & {
   completed_at?: string | null;
 };
 
+// ── 試乘同意電子簽名（G3）──
+// 存於 sales_test_drives.metadata.signature（inline base64 dataURL，零 migration）
+export type TestDriveSignature = {
+  data_url: string; // data:image/png;base64,...
+  signed_at: string; // UTC ISO（顯示時轉 Asia/Taipei）
+  consent_version?: string; // 同意條款版本（條款改版可辨識）
+  signer_name?: string; // 冗餘存簽署人名，免 join 即可顯示
+};
+
+export type StartWithSignatureInput = {
+  dataUrl: string;
+  signerName?: string;
+  consentVersion?: string;
+};
+
+// 目前同意條款版本（條文改版時 bump）
+export const TEST_DRIVE_CONSENT_VERSION = "test-drive-v1";
+
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
 export const TEST_DRIVES_PAGE_SIZE_DEFAULT = 50;

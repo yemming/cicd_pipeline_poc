@@ -12,6 +12,8 @@ import {
   listMyAssignedOrders,
   getMyWorkstationKpi,
   listOtherTechnicians,
+  listItemOptionsForAddon,
+  listWarehouseOptionsForAddon,
 } from "@/domain/tech-workstation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -46,16 +48,27 @@ export default async function TechWorkstationPage() {
     return <UnboundTechNotice />;
   }
 
-  const [orders, kpi, otherTechs, canAccept, canExecute, canPropose, canDispatch] =
-    await Promise.all([
-      listMyAssignedOrders(technician.id),
-      getMyWorkstationKpi(technician.id),
-      listOtherTechnicians(technician.id),
-      hasPermission(PERMISSIONS.RO_ACCEPT),
-      hasPermission(PERMISSIONS.RO_EXECUTE),
-      hasPermission(PERMISSIONS.ADDON_PROPOSE),
-      hasPermission(PERMISSIONS.RO_DISPATCH),
-    ]);
+  const [
+    orders,
+    kpi,
+    otherTechs,
+    itemOptions,
+    warehouseOptions,
+    canAccept,
+    canExecute,
+    canPropose,
+    canDispatch,
+  ] = await Promise.all([
+    listMyAssignedOrders(technician.id),
+    getMyWorkstationKpi(technician.id),
+    listOtherTechnicians(technician.id),
+    listItemOptionsForAddon(),
+    listWarehouseOptionsForAddon(),
+    hasPermission(PERMISSIONS.RO_ACCEPT),
+    hasPermission(PERMISSIONS.RO_EXECUTE),
+    hasPermission(PERMISSIONS.ADDON_PROPOSE),
+    hasPermission(PERMISSIONS.RO_DISPATCH),
+  ]);
 
   return (
     <TechWorkstationBoard
@@ -63,6 +76,8 @@ export default async function TechWorkstationPage() {
       initialOrders={orders}
       kpi={kpi}
       otherTechnicians={otherTechs}
+      itemOptions={itemOptions}
+      warehouseOptions={warehouseOptions}
       perms={{
         canAccept,
         canExecute,

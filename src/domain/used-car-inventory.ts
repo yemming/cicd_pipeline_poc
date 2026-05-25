@@ -150,6 +150,8 @@ export async function getUsedCarById(id: string): Promise<UsedCarInventoryRow | 
 
 // ── 建立 ──
 export type CreateUsedCarInput = {
+  metadata?: Record<string, unknown> | null;
+  created_by?: string | null;
   brand_id: string;
   organization_id?: string | null;
   vehicle_model_id?: string | null;
