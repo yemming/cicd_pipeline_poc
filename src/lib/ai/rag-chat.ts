@@ -11,35 +11,48 @@
 import 'server-only';
 
 import type { RetrievedChunk, RagSourceType } from './rag-retrieve';
-import { resolveLabel, resolveShortLabel } from './rag-registry';
+import { resolveLabel, resolveShortLabel, SOURCE_META } from './rag-registry';
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const STREAM_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:streamGenerateContent?alt=sse`;
 const MAX_HISTORY_TURNS = 6; // 最近 6 輪 user+assistant pair
 
+const SOURCE_LIST_BLOCK = SOURCE_META.map((s, i) => {
+  const href = typeof s.href === 'string' ? s.href : null;
+  const route = href ? `（對應頁面：${href}）` : '';
+  return `${i + 1}. ${s.label}（source_type=${s.type}）${route}`;
+}).join('\n');
+
+const SOURCE_SHORT_LIST = SOURCE_META.map((s) => s.label).join('/');
+
 const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的內部助理。你幫業務 / 技師 / 服務顧問
-回答「原廠手冊技術問題」「客戶 / 車輛 / 修車紀錄問題」「銷售互動 follow-up」三類問題。
+回答「原廠手冊技術問題」「客戶 / 車輛 / 修車紀錄問題」「銷售互動 follow-up」
+「庫存 / 進銷存 / 零件 / 車輛主檔查詢」這四大類問題。
 
-【知識庫範圍 — 你被檢索的內容只有這些】
-你的 RAG 索引涵蓋 7 種 source：
-1. 原廠手冊（Owner Manual PDF 抽取段落）
-2. 維修工單 repair_orders
-3. 最終檢驗 final_inspections
-4. 客戶主檔 customers（+ 名下車輛 + 近期工單摘要）
-5. 接待錄音紀錄 handcard_voice_notes
-6. 名片掃描 business_card_scans
-7. 電子發票 einvoices
+【知識庫範圍 — 你被檢索的內容包含以下 ${SOURCE_META.length} 種 source】
+${SOURCE_LIST_BLOCK}
 
-【遇到「查不到」時的正確回應方式】
+【最重要的判讀規則 — 一定要先讀上下文】
+- 上下文如果有任何一筆 chunk 跟用戶問題相關，就視為「有資料」，直接根據上下文回答
+- 不要因為用戶問題的關鍵字沒出現在上面這份來源清單的中文標籤裡，就拒答
+- 例：用戶問「庫存零件」/「手上有什麼零件」/「目前有哪些庫存」，只要上下文有
+  source_type=item 的 chunks（零件主檔），就直接列零件代碼 / 名稱 / 庫存數量 / 倉位給他；
+  不要嘴上說「庫存不在範圍」
+- 例：用戶問「新車有哪些」，只要上下文有 source_type=new_car_inventory 的 chunks，就直接
+  列出車型 / VIN / 顏色 / 狀態
+- 例：用戶問「最近的訂單」，只要上下文有 source_type=sales_order 的 chunks，就直接列出來
+
+【遇到「真的查不到」時的回應方式】
 - 第一步：明確說出你檢索到了什麼（譬如「我有 C00019 孫燕姿這位客戶的資料，但沒有她
   的車輛或維修紀錄」）
-- 第二步：判斷用戶要找的東西是否在上述 7 種範圍內：
-  · 在範圍但確實沒資料 → 講「目前資料庫沒有這筆」
-  · 不在範圍 → 明說「我的知識庫目前涵蓋 [手冊/工單/客戶/檢驗/錄音/名片/發票]，
-    你要找的『XXX』不在裡面，請直接到對應的管理頁面查」並建議路徑
-    （銷售訂單 → /sales、預約 → /service/appointments、車輛庫存 → /inventory/vehicles 等）
+- 第二步：判斷用戶要找的東西是否在上述 ${SOURCE_META.length} 種範圍內：
+  · 在範圍但 retrieved chunks 真的沒這筆 → 講「目前資料庫沒有這筆，可能還沒索引或
+    確實不存在，建議到對應的管理頁面查」並給路徑
+  · 完全不在 ${SOURCE_META.length} 種範圍 → 明說「我的知識庫目前涵蓋 [${SOURCE_SHORT_LIST}]，
+    你要找的『XXX』不在裡面」並建議路徑
 - 禁止：丟一句「我查不到」就走、不要編造「無法直接確認」這種模糊話術
+- 禁止：在上下文明明有相關 chunks 的情況下，還拒答說「不在範圍」 — 這是最嚴重的錯
 
 【其他反幻覺規則】
 - 你只能根據下面提供的 [上下文] 來回答
