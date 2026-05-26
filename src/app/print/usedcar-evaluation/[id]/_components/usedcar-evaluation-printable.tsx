@@ -1,7 +1,7 @@
 "use client";
 
 import type { UsedCarEvaluationForPrint } from "@/domain/used-car-evaluations";
-import { STATUS_LABELS } from "@/domain/used-car-evaluations";
+import { STATUS_LABELS } from "@/domain/used-car-evaluations.constants";
 import {
   PrintShell,
   PrintMetaGrid,

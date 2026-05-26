@@ -16,20 +16,18 @@ import { createClient } from "@/lib/supabase/server";
 import { createUsedCar } from "@/domain/used-car-inventory";
 import type { CreateUsedCarInput } from "@/domain/used-car-inventory";
 
-// ── Status ──
-export const EVAL_STATUSES = ["draft", "submitted", "approved", "rejected"] as const;
-export type EvaluationStatus = (typeof EVAL_STATUSES)[number];
+// 純常數抽到 .constants（無 server 相依），client component 可直接 import 那支；
+// 此處 import 供本檔型別使用，並 re-export 讓既有 server 端 importer 不用改路徑。
+import {
+  EVAL_STATUSES,
+  STATUS_LABELS,
+  CONDITION_GRADES,
+  type EvaluationStatus,
+  type ConditionGrade,
+} from "./used-car-evaluations.constants";
 
-export const STATUS_LABELS: Record<EvaluationStatus, string> = {
-  draft: "草稿",
-  submitted: "待簽核",
-  approved: "已核准",
-  rejected: "已駁回",
-};
-
-// ── Condition grade ──
-export const CONDITION_GRADES = ["S", "A", "B", "C", "D"] as const;
-export type ConditionGrade = (typeof CONDITION_GRADES)[number];
+export { EVAL_STATUSES, STATUS_LABELS, CONDITION_GRADES };
+export type { EvaluationStatus, ConditionGrade };
 
 // ── Row 型別（對應 DB 欄位）──
 export type UsedCarEvaluationRow = {
