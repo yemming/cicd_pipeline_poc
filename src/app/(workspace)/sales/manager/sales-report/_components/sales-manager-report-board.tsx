@@ -264,7 +264,6 @@ export default function SalesManagerReportBoard({ data }: { data: SalesManagerRe
   useSetPageHeader({
     title: "RS_M2 業績報表",
     breadcrumb: [{ label: "銷售管理" }, { label: "業績報表" }],
-    hideSearch: true,
   });
 
   const [period, setPeriod] = useState<Period>("month");

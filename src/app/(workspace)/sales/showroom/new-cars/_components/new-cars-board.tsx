@@ -73,7 +73,6 @@ export default function NewCarsBoard({
   useSetPageHeader({
     title: "新車庫存",
     breadcrumb: [{ label: "展廳接待" }, { label: "新車庫存" }],
-    hideSearch: true,
   });
 
   const router = useRouter();

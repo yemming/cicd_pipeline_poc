@@ -45,7 +45,6 @@ export function SalesStaffBoard({
       { label: "主管工作台" },
       { label: "RS 人員管理" },
     ],
-    hideSearch: true,
   });
 
   const router = useRouter();

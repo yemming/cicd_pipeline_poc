@@ -19,7 +19,6 @@ export default function KpiTargetsView({ data }: { data: KpiTargetsPageData }) {
   useSetPageHeader({
     title: "KPI 目標與 HABC 閾值",
     breadcrumb: [{ label: "銷售管理" }, { label: "主管工作台" }, { label: "KPI 目標與 HABC 閾值" }],
-    hideSearch: true,
   });
 
   const [banner, setBanner] = useState<BannerState>(null);

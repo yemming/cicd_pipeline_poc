@@ -80,7 +80,6 @@ export default function InsuranceBoard({
       { label: "展廳接待" },
       { label: "保險招攬" },
     ],
-    hideSearch: true,
   });
 
   const router = useRouter();

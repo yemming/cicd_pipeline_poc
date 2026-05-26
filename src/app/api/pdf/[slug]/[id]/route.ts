@@ -22,6 +22,7 @@ const ALLOWED_SLUGS = new Set([
   "stock-issue",
   "stock-transfer",
   "stock-receipt",
+  "usedcar-evaluation",
 ]);
 
 export async function GET(

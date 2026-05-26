@@ -88,7 +88,6 @@ export default function SalesReportBoard({
   useSetPageHeader({
     title: "業績報表",
     breadcrumb: [{ label: "銷售管理" }, { label: "業績報表" }],
-    hideSearch: true,
   });
 
   const router = useRouter();

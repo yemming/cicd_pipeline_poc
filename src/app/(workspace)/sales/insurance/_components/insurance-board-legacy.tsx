@@ -93,7 +93,6 @@ export default function InsuranceBoard({ lostReasons = [] }: Props = {}) {
       { label: "展廳接待" },
       { label: "保險業務" },
     ],
-    hideSearch: true,
   });
 
   const [cases, setCases] = useState<InsCase[]>(() =>

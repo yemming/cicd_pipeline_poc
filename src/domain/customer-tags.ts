@@ -50,6 +50,8 @@ export type OfficialTag = {
   usage: number;
 };
 
+export type TagVisibility = "owner_only" | "department" | "cross_department";
+
 export type PersonalTag = {
   id: string;
   brand_id: string;
@@ -59,9 +61,14 @@ export type PersonalTag = {
   note: string | null;
   is_active: boolean;
   use_count: number;
+  visibility: TagVisibility;
   created_at: string;
   updated_at: string;
 };
+
+function isValidVisibility(v: unknown): v is TagVisibility {
+  return v === "owner_only" || v === "department" || v === "cross_department";
+}
 
 export type BrandAggregatedTag = {
   /** 同 (color, name) 視為一個聚合條目 */
@@ -79,6 +86,8 @@ export type PersonalTagInput = {
   name: string;
   color: TagColor;
   note?: string | null;
+  /** P-08：tag 可見範圍，預設 owner_only */
+  visibility?: TagVisibility;
 };
 
 const REVALIDATE_PATHS = [
@@ -188,14 +197,18 @@ export async function listMyPersonalTags(): Promise<PersonalTag[]> {
   const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("customer_personal_tags")
-    .select("id, brand_id, owner_id, name, color, note, is_active, use_count, created_at, updated_at")
+    .select("id, brand_id, owner_id, name, color, note, is_active, use_count, visibility, created_at, updated_at")
     .eq("brand_id", scope.brand_id)
     .eq("owner_id", user.id)
     .eq("is_active", true)
     .order("color")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return ((data ?? []) as PersonalTag[]).map((r) => ({ ...r, color: r.color as TagColor }));
+  return ((data ?? []) as PersonalTag[]).map((r) => ({
+    ...r,
+    color: r.color as TagColor,
+    visibility: isValidVisibility(r.visibility) ? r.visibility : "owner_only",
+  }));
 }
 
 export async function createPersonalTag(input: PersonalTagInput): Promise<Result<{ id: string }>> {
@@ -218,6 +231,10 @@ export async function createPersonalTag(input: PersonalTagInput): Promise<Result
     return { ok: false, error: `已達自訂標籤上限 ${PERSONAL_TAG_LIMIT} 個，請先刪除不用的標籤` };
   }
 
+  const visibility: TagVisibility = isValidVisibility(input.visibility)
+    ? input.visibility
+    : "owner_only";
+
   const { data, error } = await supabase
     .from("customer_personal_tags")
     .insert({
@@ -226,6 +243,7 @@ export async function createPersonalTag(input: PersonalTagInput): Promise<Result
       name,
       color: input.color,
       note: input.note?.trim() || null,
+      visibility,
     })
     .select("id")
     .single();
@@ -236,7 +254,7 @@ export async function createPersonalTag(input: PersonalTagInput): Promise<Result
 
 export async function updatePersonalTag(
   id: string,
-  patch: { name?: string; color?: TagColor; note?: string | null },
+  patch: { name?: string; color?: TagColor; note?: string | null; visibility?: TagVisibility },
 ): Promise<Result<{ id: string }>> {
   const update: Record<string, unknown> = {};
   if (patch.name !== undefined) {
@@ -250,6 +268,11 @@ export async function updatePersonalTag(
     update.color = patch.color;
   }
   if (patch.note !== undefined) update.note = patch.note?.trim() || null;
+  if (patch.visibility !== undefined) {
+    if (!isValidVisibility(patch.visibility))
+      return { ok: false, error: "可見範圍不合法" };
+    update.visibility = patch.visibility;
+  }
   if (Object.keys(update).length === 0) return { ok: true, data: { id } };
   update.updated_at = new Date().toISOString();
 

@@ -385,6 +385,125 @@ export async function deleteEvaluation(id: string): Promise<void> {
   if (error) throw new Error(`deleteEvaluation: ${error.message}`);
 }
 
+// ── 列印用：join brand / subsidiary / customer / appraiser，回完整 print payload ──
+export type UsedCarEvaluationForPrint = {
+  id: string;
+  eval_no: string | null;
+  created_at: string;
+  status: EvaluationStatus;
+  brand: { key: string; displayName: string };
+  seller: {
+    legalName: string;
+    taxId: string | null;
+    address: string | null;
+    phone: string | null;
+  };
+  customer: {
+    name: string;
+    phone: string | null;
+  };
+  vehicle: {
+    brand_name: string | null;
+    model: string | null;
+    year: number | null;
+    vin: string | null;
+    license_plate: string | null;
+    displacement: string | null;
+    color: string | null;
+    mileage: number | null;
+  };
+  appraiser: string | null;
+  condition_grade: ConditionGrade | null;
+  decision: string | null;
+  conclusion: string | null;
+  estimated_value: number | null;
+  pricing_jsonb: Record<string, unknown>;
+};
+
+const BRAND_DISPLAY_NAME: Record<string, string> = {
+  ducati: "Ducati 杜卡迪",
+  indian: "Indian Motorcycle 印地安",
+};
+
+export async function getEvaluationForPrint(
+  id: string,
+): Promise<UsedCarEvaluationForPrint | null> {
+  const supabase = await createClient();
+  const { data: row, error } = await supabase
+    .from("used_car_evaluations")
+    .select("*, customer:customers(name, phone)")
+    .eq("id", id)
+    .single();
+  if (error || !row) return null;
+
+  // 撈所屬 subsidiary 作為列印 letterhead
+  // 沒設 subsidiary_id 的單也要能列、抓 brand 預設第一個 subsidiary（容錯）
+  const evalRow = row as UsedCarEvaluationWithCustomer & {
+    subsidiary_id?: string | null;
+  };
+  type SubsidiaryLetterhead = {
+    legal_name: string | null;
+    tax_id: string | null;
+    address: string | null;
+    phone: string | null;
+  };
+  let subsidiaryRes: SubsidiaryLetterhead | null = null;
+  if (evalRow.subsidiary_id) {
+    const { data } = await supabase
+      .from("subsidiaries")
+      .select("legal_name, tax_id, address, phone")
+      .eq("id", evalRow.subsidiary_id)
+      .maybeSingle();
+    subsidiaryRes = (data as unknown as SubsidiaryLetterhead) ?? null;
+  }
+  if (!subsidiaryRes) {
+    const { data } = await supabase
+      .from("subsidiaries")
+      .select("legal_name, tax_id, address, phone")
+      .eq("brand_id", evalRow.brand_id)
+      .limit(1)
+      .maybeSingle();
+    subsidiaryRes = (data as unknown as SubsidiaryLetterhead) ?? null;
+  }
+
+  return {
+    id: evalRow.id,
+    eval_no: evalRow.eval_no,
+    created_at: evalRow.created_at,
+    status: evalRow.status,
+    brand: {
+      key: evalRow.brand_id,
+      displayName: BRAND_DISPLAY_NAME[evalRow.brand_id] ?? evalRow.brand_id,
+    },
+    seller: {
+      legalName: subsidiaryRes?.legal_name ?? "—",
+      taxId: subsidiaryRes?.tax_id ?? null,
+      address: subsidiaryRes?.address ?? null,
+      phone: subsidiaryRes?.phone ?? null,
+    },
+    customer: {
+      name: evalRow.customer?.name ?? "—",
+      phone: evalRow.customer?.phone ?? null,
+    },
+    vehicle: {
+      brand_name: evalRow.brand_name,
+      model: evalRow.model,
+      year: evalRow.year,
+      vin: evalRow.vin,
+      license_plate: evalRow.license_plate,
+      displacement: evalRow.displacement,
+      color: evalRow.color,
+      mileage: evalRow.mileage,
+    },
+    appraiser: evalRow.appraiser,
+    condition_grade: evalRow.condition_grade,
+    decision: evalRow.decision,
+    conclusion: evalRow.conclusion,
+    estimated_value: evalRow.estimated_value,
+    pricing_jsonb: evalRow.pricing_jsonb,
+  };
+}
+
 // ── 產評估單號 ──
 export function genEvalNo(): string {
   const d = new Date();

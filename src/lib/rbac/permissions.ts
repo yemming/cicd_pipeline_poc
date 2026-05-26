@@ -13,6 +13,11 @@ export const PERMISSIONS = {
   EMPLOYEE_EDIT: "master.employee.edit",
   CUSTOMER_VIEW: "master.customer.view",
   CUSTOMER_EDIT: "master.customer.edit",
+  // ─── P-08 部門私房欄位 ──────────────────────────
+  CUSTOMER_SALES_PRIVATE_VIEW: "customer.sales_private.view",
+  CUSTOMER_SALES_PRIVATE_EDIT: "customer.sales_private.edit",
+  CUSTOMER_SERVICE_PRIVATE_VIEW: "customer.service_private.view",
+  CUSTOMER_SERVICE_PRIVATE_EDIT: "customer.service_private.edit",
   SUPPLIER_VIEW: "master.supplier.view",
   SUPPLIER_EDIT: "master.supplier.edit",
   ITEM_VIEW: "master.item.view",

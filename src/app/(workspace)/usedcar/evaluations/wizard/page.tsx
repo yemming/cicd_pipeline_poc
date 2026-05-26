@@ -19,14 +19,21 @@
  *        - 歷史評估列表 → /usedcar/evaluations
  */
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { useIsAdmin } from "@/components/admin-context";
 import {
   createEvaluationAction,
   submitEvaluationAction,
+  approveEvaluationAction,
+  rejectEvaluationAction,
+  deleteEvaluationAction,
+  loadEvaluationForViewAction,
 } from "@/lib/used-car/evaluation-actions";
+import type { UsedCarEvaluationWithCustomer } from "@/domain/used-car-evaluations";
 
 // ============================================================
 // 常數
@@ -382,6 +389,140 @@ export default function UsedCarEvaluationPage() {
   const [savedEvalId, setSavedEvalId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // ── ?id= 進來 → fetch + prefill（view 模式 / 簽核台「查看」進來）─────────
+  const evaluationId = searchParams.get("id");
+  const [prefillLoading, setPrefillLoading] = useState<boolean>(!!evaluationId);
+  const [prefillSource, setPrefillSource] =
+    useState<UsedCarEvaluationWithCustomer | null>(null);
+  const [prefillError, setPrefillError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!evaluationId) return;
+    let cancelled = false;
+    (async () => {
+      setPrefillLoading(true);
+      setPrefillError(null);
+      const r = await loadEvaluationForViewAction(evaluationId);
+      if (cancelled) return;
+      if (!r.ok) {
+        setPrefillError(r.error);
+        setPrefillLoading(false);
+        return;
+      }
+      const row = r.data;
+      setPrefillSource(row);
+      setSavedEvalId(row.id);
+      if (row.customer?.name) setSellerName(row.customer.name);
+      if (row.brand_name) setBrand(row.brand_name);
+      if (row.model) setModel(row.model);
+      if (row.year != null) setYear(String(row.year));
+      if (row.vin) setVin(row.vin);
+      if (row.license_plate) setPlate(row.license_plate);
+      if (row.mileage != null) setMileage(String(row.mileage));
+      if (row.color) setColor(row.color);
+      if (row.displacement) setDisplacement(row.displacement);
+      if (row.appraiser) setAppraiser(row.appraiser);
+      if (row.condition_grade) {
+        setQuickGrade(row.condition_grade);
+        setFinalGrade(row.condition_grade);
+      }
+      if (row.conclusion) {
+        setQuickNote(row.conclusion);
+        setConclusion(row.conclusion);
+      }
+      if (row.decision) setDecision(row.decision);
+      // pricing_jsonb 反向 prefill（key 對應 handleSaveDraft 寫入時的命名）
+      const pricing = (row.pricing_jsonb ?? {}) as Record<string, unknown>;
+      const asStr = (v: unknown) => (typeof v === "string" ? v : "");
+      if (pricing.pMarket != null) setPMarket(asStr(pricing.pMarket));
+      if (pricing.pMsrp != null) setPMsrp(asStr(pricing.pMsrp));
+      if (pricing.pRepair != null) setPRepair(asStr(pricing.pRepair));
+      if (pricing.pPaint != null) setPPaint(asStr(pricing.pPaint));
+      if (pricing.pTire != null) setPTire(asStr(pricing.pTire));
+      if (pricing.pWarranty != null) setPWarranty(asStr(pricing.pWarranty));
+      if (pricing.pAdmin != null) setPAdmin(asStr(pricing.pAdmin));
+      if (pricing.pComm != null) setPComm(asStr(pricing.pComm));
+      if (pricing.pProfit != null) setPProfit(asStr(pricing.pProfit));
+      if (pricing.pNew != null) setPNew(asStr(pricing.pNew));
+      // equipment_jsonb 反向 prefill 賣家 / OCR / 證件等（最常見的 metadata 欄）
+      const eq = (row.equipment_jsonb ?? {}) as Record<string, unknown>;
+      if (typeof eq.sellerName === "string" && eq.sellerName) setSellerName(eq.sellerName);
+      if (typeof eq.engineNo === "string") setEngineNo(eq.engineNo);
+      if (typeof eq.licenseExpire === "string") setLicenseExpire(eq.licenseExpire);
+      if (typeof eq.insuranceExpire === "string") setInsuranceExpire(eq.insuranceExpire);
+      if (typeof eq.quickNote === "string") setQuickNote(eq.quickNote);
+      setPrefillLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [evaluationId]);
+
+  // ── 簽核：detail 頁直接核准 / 駁回（admin only、status=submitted 才顯示）─────
+  const isAdmin = useIsAdmin();
+  const [isApproving, startApproveTransition] = useTransition();
+  const canApprove =
+    isAdmin && !!prefillSource && prefillSource.status === "submitted";
+
+  function handleApprove() {
+    if (!evaluationId || !canApprove) return;
+    if (!confirm(`確定核准評估單 ${prefillSource?.eval_no ?? ""}？`)) return;
+    startApproveTransition(async () => {
+      const r = await approveEvaluationAction(evaluationId);
+      if (!r.ok) {
+        showToast(`❌ 核准失敗：${r.error}`);
+        return;
+      }
+      showToast("✓ 已核准、同步建中古車庫存");
+      setTimeout(() => router.push("/admin/approvals/tradein"), 800);
+    });
+  }
+
+  function handleReject() {
+    if (!evaluationId || !canApprove) return;
+    const reason = window.prompt("駁回原因（必填）：");
+    if (!reason || !reason.trim()) {
+      showToast("❌ 請填寫駁回原因");
+      return;
+    }
+    startApproveTransition(async () => {
+      const r = await rejectEvaluationAction(evaluationId, reason.trim());
+      if (!r.ok) {
+        showToast(`❌ 駁回失敗：${r.error}`);
+        return;
+      }
+      showToast("✓ 已駁回");
+      setTimeout(() => router.push("/admin/approvals/tradein"), 800);
+    });
+  }
+
+  // ── 刪除：admin only、draft only（後端 domain helper 也強制 status=draft）─────
+  const canDelete =
+    isAdmin && !!prefillSource && prefillSource.status === "draft";
+
+  function handleDelete() {
+    if (!evaluationId || !canDelete) return;
+    if (
+      !confirm(
+        `確定刪除評估單 ${prefillSource?.eval_no ?? ""}？無法復原。`,
+      )
+    )
+      return;
+    startApproveTransition(async () => {
+      const r = await deleteEvaluationAction(evaluationId);
+      if (!r.ok) {
+        showToast(`❌ 刪除失敗：${r.error}`);
+        return;
+      }
+      showToast("✓ 已刪除");
+      setTimeout(() => router.push("/usedcar/evaluations"), 700);
+    });
+  }
+
+  // ── 修改：draft 狀態下、wizard inputs 一直可編；CRUD pill bar 提供「💾 儲存變更」
+  // 直接 trigger 既有 handleSaveDraft（內部會判斷 update vs create）。
+  const canEdit = !!prefillSource && prefillSource.status === "draft";
+
   // 評估單號（每次掛載 generate）
   const evalNo = useMemo(() => {
     const d = new Date();
@@ -681,10 +822,153 @@ export default function UsedCarEvaluationPage() {
   // Render
   // ============================================================
 
+  // ?id= 進來、prefill 還沒回 → 全螢幕 loading（避免閃預設值）
+  if (evaluationId && prefillLoading && !prefillError) {
+    return (
+      <main className="px-6 py-12 flex flex-col items-center gap-3 text-[#5A5955]">
+        <div className="w-10 h-10 rounded-full border-4 border-[#185FA5]/20 border-t-[#185FA5] animate-spin" />
+        <div className="text-[13px]">載入評估單⋯</div>
+      </main>
+    );
+  }
+  if (evaluationId && prefillError) {
+    return (
+      <main className="px-6 py-12 flex flex-col items-center gap-3">
+        <div className="text-[14px] text-[#CC0000]">⚠️ {prefillError}</div>
+        <Link
+          href="/usedcar/evaluations"
+          className="h-[30px] px-4 inline-flex items-center rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+        >
+          ← 返回列表
+        </Link>
+      </main>
+    );
+  }
+
+  const modeLabel = prefillSource
+    ? (
+        {
+          draft: "草稿",
+          submitted: "已送審（檢視中）",
+          approved: "已核准",
+          rejected: "已駁回",
+        } as const
+      )[prefillSource.status]
+    : null;
+  const modeChipCls = prefillSource
+    ? prefillSource.status === "approved"
+      ? "bg-[#EAF3DE] text-[#3B6D11]"
+      : prefillSource.status === "rejected"
+        ? "bg-[#FDECEA] text-[#CC0000]"
+        : prefillSource.status === "submitted"
+          ? "bg-[#FDF3E3] text-[#854F0B]"
+          : "bg-[#F2F2F2] text-[#6B6A68]"
+    : "";
+
   return (
-    <div className="-m-4 md:-m-8 bg-[#F8F7F4] min-h-[calc(100dvh-4rem)] flex flex-col">
-      <main className="flex-1 pb-20">
-        <div className="max-w-[1100px] mx-auto px-6 py-5 space-y-3">
+    <div className="max-w-[1100px] mx-auto space-y-3 pb-20">
+          {/* Breadcrumb + CRUD pill bar（PageView 規格） */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-[12px] text-[#9A9890]">
+              <Link
+                href="/usedcar/evaluations"
+                className="hover:text-[#185FA5]"
+              >
+                中古車評估歷史
+              </Link>
+              <span>›</span>
+              <span className="text-[#5A5955] font-mono">{evalNo}</span>
+              {modeLabel && (
+                <span
+                  className={`ml-1 px-2 py-0.5 rounded-md text-[11px] ${modeChipCls}`}
+                >
+                  {modeLabel}
+                </span>
+              )}
+              {!prefillSource && !evaluationId && (
+                <span className="ml-1 px-2 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
+                  建立模式
+                </span>
+              )}
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
+              <Link
+                href="/usedcar/evaluations"
+                className="h-[30px] px-4 inline-flex items-center rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
+              >
+                ← 返回列表
+              </Link>
+              {evaluationId && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.open(
+                      `/print/usedcar-evaluation/${evaluationId}`,
+                      "_blank",
+                      "noopener",
+                    )
+                  }
+                  className="h-[30px] px-4 inline-flex items-center gap-1 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
+                  title="列印 / 另存 PDF"
+                >
+                  <span className="material-symbols-outlined text-[14px]">
+                    print
+                  </span>
+                  列印
+                </button>
+              )}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => void handleSaveDraft({ navigateAfter: false })}
+                  disabled={isPending || isApproving}
+                  className="h-[30px] px-4 inline-flex items-center rounded-full text-[12px] font-semibold bg-[#1A3A5C] text-white hover:bg-[#0F2A45] shadow-sm disabled:opacity-50"
+                  title="儲存目前欄位變更（草稿狀態才能改）"
+                >
+                  {isPending ? "儲存中⋯" : "💾 儲存變更"}
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isApproving || isPending}
+                  className="h-[30px] px-4 inline-flex items-center rounded-full text-[12px] font-semibold bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"
+                >
+                  {isApproving ? "處理中⋯" : "🗑️ 刪除"}
+                </button>
+              )}
+              {canApprove && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleApprove}
+                    disabled={isApproving}
+                    className="h-[30px] px-4 inline-flex items-center rounded-full text-[12px] font-semibold bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm disabled:opacity-50"
+                  >
+                    {isApproving ? "簽核中⋯" : "✓ 核准"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    disabled={isApproving}
+                    className="h-[30px] px-4 inline-flex items-center rounded-full text-[12px] font-semibold bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"
+                  >
+                    {isApproving ? "處理中⋯" : "✗ 駁回"}
+                  </button>
+                </>
+              )}
+              {evaluationId && !canApprove && !canEdit && (
+                <Link
+                  href="/usedcar/evaluations/new"
+                  className="h-[30px] px-4 inline-flex items-center rounded-full text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm"
+                >
+                  ＋ 新增評估
+                </Link>
+              )}
+            </div>
+          </div>
+
           {/* Page Header */}
           <header
             className="flex items-center gap-2.5 flex-wrap"
@@ -1756,8 +2040,6 @@ export default function UsedCarEvaluationPage() {
               </div>
             </section>
           )}
-        </div>
-      </main>
 
       {/* Toast */}
       {toast && (

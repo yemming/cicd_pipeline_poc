@@ -100,7 +100,6 @@ export default function NewCarDetailView({
       { label: "新車庫存", href: "/sales/showroom/new-cars" },
       { label: isCreate ? "新增" : (car?.vin ?? car?.id?.slice(0, 8) ?? "詳情") },
     ],
-    hideSearch: true,
   });
 
   function resetCreateForm() {

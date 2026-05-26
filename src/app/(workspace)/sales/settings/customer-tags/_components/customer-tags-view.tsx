@@ -84,7 +84,6 @@ export default function CustomerTagsView({ data }: { data: PageData }) {
       { label: "主管工作台" },
       { label: "客群標籤設定" },
     ],
-    hideSearch: true,
   });
 
   const [tab, setTab] = useState<TabKey>("lib");
@@ -150,6 +149,7 @@ export default function CustomerTagsView({ data }: { data: PageData }) {
           note: createForm.note || null,
           is_active: true,
           use_count: 0,
+          visibility: "owner_only",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -182,6 +182,7 @@ export default function CustomerTagsView({ data }: { data: PageData }) {
             note: null,
             is_active: true,
             use_count: 0,
+            visibility: "owner_only",
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           },

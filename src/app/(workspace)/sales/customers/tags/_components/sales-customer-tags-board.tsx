@@ -77,7 +77,6 @@ export function SalesCustomerTagsBoard({ data }: { data: PageData }) {
       { label: "客戶管理", href: "/sales/customers" },
       { label: "客戶標籤" },
     ],
-    hideSearch: true,
   });
 
   const router = useRouter();

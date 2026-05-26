@@ -244,7 +244,7 @@ export const modules: ModuleDef[] = [
     permission: "usedcar.access",
     pages: [
       // 車輛管理
-      { name: "置換評估",       icon: "assessment",        href: "/usedcar/evaluation",       sprint: "S5-1", stitchScreenId: "e8c1015b71784626ac9797caaf57f457", section: "車輛管理" },
+      { name: "置換評估",       icon: "assessment",        href: "/usedcar/evaluations",      sprint: "S5-1", stitchScreenId: "e8c1015b71784626ac9797caaf57f457", section: "車輛管理" },
       { name: "中古車庫存",     icon: "inventory",         href: "/usedcar/stock",            sprint: "S5-2", stitchScreenId: "6f6ddad5a36144daa42a772607663054", section: "車輛管理" },
       { name: "拍賣管理",       icon: "gavel",             href: "/usedcar/auction",          sprint: "S5-3", stitchScreenId: "cc722dbd9b5c4af29b5fe7e516db70fd", section: "車輛管理" },
       // 銷售管理（中古車專屬銷售流程）

@@ -82,7 +82,6 @@ export default function SalesManagerFunnelBoard({ data, pageHeader }: SalesManag
   useSetPageHeader({
     title: pageHeader?.title ?? "RS_M1 銷售漏斗看板",
     breadcrumb: pageHeader?.breadcrumb ?? [{ label: "主管工作台" }, { label: "銷售漏斗" }],
-    hideSearch: true,
   });
 
   const [role, setRole] = useState<ViewRole>("manager");

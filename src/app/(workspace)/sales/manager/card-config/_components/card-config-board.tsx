@@ -65,7 +65,6 @@ export default function CardConfigBoard({
   useSetPageHeader({
     title: "手卡參數設定",
     breadcrumb: [{ label: "銷售管理" }, { label: "主管工作台" }, { label: "手卡參數設定" }],
-    hideSearch: true,
   });
 
   const [banner, setBanner] = useState<BannerState>(null);

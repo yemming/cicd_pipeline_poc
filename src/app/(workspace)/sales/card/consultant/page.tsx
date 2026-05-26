@@ -362,7 +362,7 @@ export default function ConsultantPage() {
             <div className="px-4 py-4 space-y-3">
               <div className="flex items-center gap-3 flex-wrap">
                 <Link
-                  href="/usedcar/evaluation"
+                  href="/usedcar/evaluations/wizard"
                   className="inline-flex items-center gap-2 h-[34px] px-4 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
                 >
                   💰 前往中古車鑑價 RS06

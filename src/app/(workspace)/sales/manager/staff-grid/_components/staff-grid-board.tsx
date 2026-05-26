@@ -55,7 +55,6 @@ export function StaffGridBoard({
       { label: "主管工作台" },
       { label: "員工評估九宮格" },
     ],
-    hideSearch: true,
   });
 
   const router = useRouter();

@@ -41,7 +41,7 @@ export function EvaluationsBoard({ rows, statusLabels }: Props) {
       hideable: false,
       cell: (r) => (
         <Link
-          href={`/usedcar/evaluation?id=${r.id}`}
+          href={`/usedcar/evaluations/${r.id}`}
           className="font-mono font-semibold text-[#1A3A5C] hover:underline"
         >
           {r.eval_no ?? r.id.slice(0, 8)}

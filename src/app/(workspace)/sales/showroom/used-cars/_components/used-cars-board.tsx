@@ -75,7 +75,6 @@ export default function UsedCarsBoard({
     breadcrumb: isUsedcarModule
       ? [{ label: "中古車輛" }, { label: "中古車庫存" }]
       : [{ label: "展廳接待" }, { label: "中古車庫存" }],
-    hideSearch: true,
   });
 
   useEffect(() => {

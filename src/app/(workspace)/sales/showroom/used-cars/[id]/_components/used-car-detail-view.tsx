@@ -139,7 +139,6 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
       { label: "中古車庫存", href: "/sales/showroom/used-cars" },
       { label: mode === "create" ? "新增" : (car?.model_display_name ?? "—") },
     ],
-    hideSearch: true,
   });
 
   useEffect(() => {

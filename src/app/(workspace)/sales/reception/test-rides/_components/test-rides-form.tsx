@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
+import { createTestDriveAction } from "@/lib/sales/test-drives-actions";
 import {
   SAFETY_CATEGORY_TITLES,
   TD_BIKE_MODELS,
@@ -34,15 +36,17 @@ export default function TestRidesForm() {
       { label: "展廳接待" },
       { label: "試乘試駕" },
     ],
-    hideSearch: true,
   });
 
   const [step, setStep] = useState<StepIdx>(1);
   const [doneSteps, setDoneSteps] = useState<Set<StepIdx>>(new Set());
 
   // STEP 1 表單
-  const [customerName, setCustomerName] = useState("王大明");
-  const [phone] = useState("0912-345-678");
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [prefillBanner, setPrefillBanner] = useState<string | null>(null);
+  const driverLicenseTokenRef = useRef<string | null>(null);
   const [license, setLicense] = useState<string>(TD_LICENSE_OPTIONS[0].value);
   const [licenseNo, setLicenseNo] = useState("");
   const [tdDate, setTdDate] = useState("2026-05-14");
@@ -96,6 +100,143 @@ export default function TestRidesForm() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 2800);
   }
+
+  // 寫 DB：點「儲存試駕記錄」/「回到電子手卡」/「立即開立報價單」前先存
+  const router = useRouter();
+  const [isSaving, startSavingTransition] = useTransition();
+  const [savedRecordId, setSavedRecordId] = useState<string | null>(null);
+
+  function buildScheduledAtIso(): string {
+    // tdDate "2026-05-14" + tdTime "14:30" → ISO（強制 Asia/Taipei +08:00）
+    const safeDate = tdDate || new Date().toISOString().slice(0, 10);
+    const safeTime = tdTime || "12:00";
+    return new Date(`${safeDate}T${safeTime}:00+08:00`).toISOString();
+  }
+
+  function buildMetadata(): Record<string, unknown> {
+    return {
+      // 試駕快照（不放 typed core 的 wizard state 全進這）
+      wizard_version: "RS02-v1",
+      customer_name_snapshot: customerName.trim() || null,
+      phone_snapshot: phone.trim() || null,
+      license_status: license, // "valid" | "none"
+      license_no: licenseNo.trim() || null,
+      test_drive_model_name: tdModel,
+      plate_no: plateNo.trim() || null,
+      route,
+      purpose,
+      intent_level: intent,
+      // step 2 safety check
+      safety_pct: safetyPct,
+      safety_done: safetyDoneCount,
+      safety_total: TD_SAFETY_ITEMS.length,
+      safety_detail: safety,
+      // step 3 timing / km
+      duration_seconds: seconds,
+      started_label: startedLabel,
+      stopped,
+      km_start: kmStart.trim() || null,
+      km_end: kmEnd.trim() || null,
+      km_total: kmTotal || null,
+      escort,
+      road_note: roadNote.trim() || null,
+      // step 4 evaluation
+      overall_tone: overall,
+      power_feel: powerFeel,
+      handling_feel: handlingFeel,
+      ergonomics: ergo,
+      intent_change: intentChange,
+      recommend_adjust: recommendAdjust,
+      skip_reason: showSkipReason ? skipReason : null,
+    };
+  }
+
+  function handleSaveTestDrive(
+    afterSaved?: (recordId: string) => void,
+  ): void {
+    if (savedRecordId) {
+      // 已存過、不重複 insert（避免 double-click）
+      afterSaved?.(savedRecordId);
+      return;
+    }
+    if (!customerName.trim()) {
+      showToast("⚠️ 客戶姓名必填");
+      return;
+    }
+    if (license === "none") {
+      showToast("⚠️ 客戶無大型重機駕照，不可建立試駕記錄");
+      return;
+    }
+    startSavingTransition(async () => {
+      const r = await createTestDriveAction({
+        customer_id: customerId,
+        vehicle_model_id: null, // TD_BIKE_MODELS 是寫死字串、車款 name 塞 metadata；未來換 DB-backed dropdown 再 lookup
+        scheduled_at: buildScheduledAtIso(),
+        status: stopped ? "completed" : "scheduled",
+        notes: rsNote.trim() || null,
+        metadata: buildMetadata(),
+      });
+      if (!r.ok) {
+        showToast(`❌ 儲存失敗：${r.error}`);
+        return;
+      }
+      setSavedRecordId(r.data.id);
+      showToast("✓ 試駕記錄已儲存");
+      afterSaved?.(r.data.id);
+    });
+  }
+
+  // 駕照 OCR 跨 tab prefill：點按鈕 → 開新 tab 帶 token → 對方建客戶後寫 localStorage → 這邊接收
+  function openDriverLicenseOcr() {
+    if (typeof window === "undefined") return;
+    const token =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    driverLicenseTokenRef.current = token;
+    try {
+      window.localStorage.removeItem(`td_prefill_${token}`);
+    } catch {}
+    window.open(
+      `/ai-curve/driving-license?return_token=${encodeURIComponent(token)}`,
+      "_blank",
+      "noopener",
+    );
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    function onStorage(ev: StorageEvent) {
+      const token = driverLicenseTokenRef.current;
+      if (!token || !ev.key) return;
+      if (ev.key !== `td_prefill_${token}`) return;
+      if (!ev.newValue) return;
+      try {
+        const payload = JSON.parse(ev.newValue) as {
+          customerId?: string;
+          name?: string;
+          license_no?: string;
+          license_class?: string;
+        };
+        if (payload.customerId) setCustomerId(payload.customerId);
+        if (payload.name) setCustomerName(payload.name);
+        if (payload.license_no) setLicenseNo(payload.license_no);
+        const lc = payload.license_class ?? "";
+        const isValidBigBike = /A1|A2|大型|重型/.test(lc);
+        setLicense(isValidBigBike ? "valid" : "none");
+        setPrefillBanner(`✓ 已從駕照建立客戶「${payload.name ?? ""}」、欄位已自動帶入`);
+        setTimeout(() => setPrefillBanner(null), 4000);
+      } catch {
+        /* ignore parse error */
+      }
+      try {
+        window.localStorage.removeItem(ev.key);
+      } catch {}
+      driverLicenseTokenRef.current = null;
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   function goStep(n: StepIdx) {
     setDoneSteps((prev) => {
@@ -193,6 +334,42 @@ export default function TestRidesForm() {
             sub="試駕前完成資料登記，確認客戶已持有合格駕照"
             badge="TD-20260514-001"
           >
+            {/* 拍駕照 OCR 入口：沒客戶資料時走這條最快 */}
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-dashed border-[#185FA5]/40 bg-[#EAF4FB] px-3 py-2">
+              <div className="flex items-center gap-2 text-[12px] text-[#185FA5] min-w-0">
+                <span className="material-symbols-outlined text-[18px] shrink-0">
+                  drive_eta
+                </span>
+                <span className="truncate">
+                  沒客戶資料？拍張駕照、AI 自動建客戶並回填欄位
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={openDriverLicenseOcr}
+                className="shrink-0 h-[28px] px-3 rounded-full bg-[#185FA5] text-white text-[12px] font-medium hover:bg-[#0F2A45] inline-flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[15px]">
+                  photo_camera
+                </span>
+                拍駕照建客戶
+              </button>
+            </div>
+            {prefillBanner && (
+              <div className="mb-3 px-3 py-2 rounded-md text-[12px] bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]">
+                {prefillBanner}
+                {customerId && (
+                  <a
+                    href={`/admin/master-data/customers/${customerId}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="ml-2 underline"
+                  >
+                    開啟客戶主檔 →
+                  </a>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2.5 mb-3">
               <Field label="客戶姓名" required>
                 <input
@@ -200,11 +377,18 @@ export default function TestRidesForm() {
                   className={fiClass}
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="來自 RS01 電子手卡"
+                  placeholder="拍駕照或從 RS01 電子手卡帶入"
                 />
               </Field>
               <Field label="聯絡電話">
-                <input type="text" className={`${fiClass} bg-[#F4F3F0]`} value={phone} readOnly />
+                <input
+                  type="text"
+                  className={fiClass}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0912-xxx-xxx"
+                  inputMode="tel"
+                />
               </Field>
               <Field label="大型重機駕照" required>
                 <select className={fsClass} value={license} onChange={(e) => setLicense(e.target.value)}>
@@ -619,14 +803,41 @@ export default function TestRidesForm() {
             </div>
           </Panel>
           <Footer>
-            <Btn variant="ghost" onClick={() => showToast("💾 試駕記錄已儲存並回寫至 RS01")}>
-              💾 儲存試駕記錄
+            <Btn
+              variant="ghost"
+              onClick={() => handleSaveTestDrive()}
+              disabled={isSaving}
+            >
+              {isSaving
+                ? "儲存中⋯"
+                : savedRecordId
+                  ? "✓ 已儲存"
+                  : "💾 儲存試駕記錄"}
             </Btn>
-            <Btn variant="teal" onClick={() => showToast("← 跳轉至 RS01 電子手卡（demo）")}>
-              ← 回到電子手卡
+            <Btn
+              variant="teal"
+              onClick={() =>
+                handleSaveTestDrive(() => {
+                  setTimeout(
+                    () => router.push("/sales/reception/test-rides"),
+                    700,
+                  );
+                })
+              }
+              disabled={isSaving}
+            >
+              {isSaving ? "儲存中⋯" : "← 儲存並回到試駕列表"}
             </Btn>
-            <Btn variant="red" onClick={() => showToast("🏷️ 跳轉至 RS04 報價單（demo）")}>
-              🏷️ 立即開立報價單 →
+            <Btn
+              variant="red"
+              onClick={() =>
+                handleSaveTestDrive(() => {
+                  setTimeout(() => router.push("/sales/quote/new"), 700);
+                })
+              }
+              disabled={isSaving}
+            >
+              {isSaving ? "儲存中⋯" : "🏷️ 儲存並開立報價單 →"}
             </Btn>
           </Footer>
         </div>

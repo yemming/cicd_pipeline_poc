@@ -166,7 +166,6 @@ export default function HandcardForm() {
       { label: "展廳接待", href: "/sales/showroom/new-cars" },
       { label: "接待手卡" },
     ],
-    hideSearch: true,
   });
 
   // 1. 來客身份
@@ -731,7 +730,7 @@ export default function HandcardForm() {
               if (customerName.trim()) {
                 params.set("customer_name", customerName.trim());
               }
-              router.push(`/usedcar/evaluation?${params.toString()}`);
+              router.push(`/usedcar/evaluations/wizard?${params.toString()}`);
             }}
             data-testid="handcard-goto-rs06"
             className="rounded-lg border-2 border-[#854F0B] bg-[#FDF3E3] hover:bg-[#F8EAC5] p-3 flex items-center gap-3 text-left transition-colors"

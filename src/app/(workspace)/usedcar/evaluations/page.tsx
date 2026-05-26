@@ -31,7 +31,7 @@ export default async function EvaluationsPage({ searchParams }: Props) {
           共 <b className="text-[#2C2C2A]">{totalCount}</b> 筆評估
         </span>
         <Link
-          href="/usedcar/evaluation"
+          href="/usedcar/evaluations/wizard"
           className="ml-auto h-[30px] inline-flex items-center px-4 rounded-full text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742]"
         >
           ＋ 新增評估

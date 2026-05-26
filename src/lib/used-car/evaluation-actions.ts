@@ -17,13 +17,31 @@ import {
   approveEvaluation,
   rejectEvaluation,
   deleteEvaluation,
+  fetchEvaluationById,
   genEvalNo,
 } from "@/domain/used-car-evaluations";
-import type { CreateEvaluationInput } from "@/domain/used-car-evaluations";
+import type {
+  CreateEvaluationInput,
+  UsedCarEvaluationWithCustomer,
+} from "@/domain/used-car-evaluations";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+// ── 讀單筆評估（給 wizard 接 ?id= prefill 用） ──
+export async function loadEvaluationForViewAction(
+  id: string,
+): Promise<ActionResult<UsedCarEvaluationWithCustomer>> {
+  if (!id) return { ok: false, error: "缺 id" };
+  try {
+    const row = await fetchEvaluationById(id);
+    if (!row) return { ok: false, error: "找不到評估單" };
+    return { ok: true, data: row };
+  } catch (e) {
+    return { ok: false, error: `讀取失敗：${(e as Error).message}` };
+  }
+}
 
 // ── 建立評估單（draft） ──
 export async function createEvaluationAction(
@@ -48,7 +66,7 @@ export async function createEvaluationAction(
       status: input.status ?? "draft",
     });
     revalidatePath("/usedcar/evaluations");
-    revalidatePath("/usedcar/evaluation");
+    revalidatePath("/usedcar/evaluations/wizard");
     return { ok: true, data: result };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "建立失敗";

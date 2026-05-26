@@ -141,7 +141,7 @@ export function TradeinApprovalsBoard({
         hideable: false,
         cell: (r) => (
           <Link
-            href={`/usedcar/evaluation?id=${r.id}`}
+            href={`/usedcar/evaluations/${r.id}`}
             className="font-mono font-semibold text-[#1A3A5C] hover:underline"
           >
             {r.eval_no ?? r.id.slice(0, 8)}
@@ -295,7 +295,7 @@ export function TradeinApprovalsBoard({
           return (
             <>
               <Link
-                href={`/usedcar/evaluation?id=${r.id}`}
+                href={`/usedcar/evaluations/${r.id}`}
                 className="h-[26px] inline-flex items-center px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
               >
                 查看

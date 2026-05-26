@@ -114,7 +114,6 @@ export default function NewCarInventoryBoard({
             { label: "展廳接待" },
             { label: "新車庫存" },
           ],
-    hideSearch: true,
   });
 
   const [series, setSeries] = useState<string>("");

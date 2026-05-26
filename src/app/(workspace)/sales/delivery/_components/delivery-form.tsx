@@ -27,7 +27,6 @@ export default function DeliveryForm() {
       { label: "展廳接待" },
       { label: "交車流程" },
     ],
-    hideSearch: true,
   });
 
   const [step, setStep] = useState<StepIdx>(1);

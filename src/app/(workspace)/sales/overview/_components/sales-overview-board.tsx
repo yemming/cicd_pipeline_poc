@@ -63,7 +63,6 @@ export default function SalesOverviewBoard({ data }: { data: SalesOverviewData }
   useSetPageHeader({
     title: "銷售模組導覽",
     breadcrumb: [{ label: "銷售接待" }, { label: "銷售模組導覽" }],
-    hideSearch: true,
   });
 
   const [tab, setTab] = useState<TabKey>("modules");
