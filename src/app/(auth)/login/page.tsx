@@ -264,25 +264,6 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-8 flex items-center gap-4">
-              <div className="h-px bg-outline-variant/30 flex-grow" />
-              <span className="text-[10px] text-outline-variant uppercase tracking-widest font-bold">
-                第三方 SSO 單一登入
-              </span>
-              <div className="h-px bg-outline-variant/30 flex-grow" />
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <button className="flex items-center justify-center gap-3 py-3 border border-outline-variant/50 rounded-xl hover:bg-surface-container-low transition-all bg-white shadow-sm hover:shadow-md">
-                <span className="text-xs font-bold text-on-surface-variant">
-                  Google
-                </span>
-              </button>
-              <button className="flex items-center justify-center gap-3 py-3 border border-outline-variant/50 rounded-xl hover:bg-surface-container-low transition-all bg-white shadow-sm hover:shadow-md">
-                <span className="text-xs font-bold text-on-surface-variant">
-                  Microsoft
-                </span>
-              </button>
-            </div>
             <footer className="mt-12 text-center space-y-3">
               <p className="text-sm text-outline">
                 需要協助？{" "}
