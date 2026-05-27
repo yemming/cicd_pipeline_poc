@@ -10,8 +10,14 @@ import {
   type DeliveryStepPayload,
 } from '@/lib/deliveries';
 import type { DeliveryStatus, DeliveryStepName } from '@/lib/deliveries.constants';
-import { getDeliveryTimeline as _getDeliveryTimeline } from '@/domain/sales-delivery';
-import type { DeliveryTimelineEvent } from '@/domain/sales-delivery.constants';
+import {
+  getDeliveryTimeline as _getDeliveryTimeline,
+  getDeliveryPdiStatus as _getDeliveryPdiStatus,
+} from '@/domain/sales-delivery';
+import type {
+  DeliveryTimelineEvent,
+  DeliveryPdiStatus,
+} from '@/domain/sales-delivery.constants';
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -137,5 +143,21 @@ export async function loadDeliveryTimelineAction(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `載入時間軸失敗：${msg}` };
+  }
+}
+
+/**
+ * 撈「該交車單關聯車輛的 PDI 完成狀態」給 RS05 STEP「PDI 完成確認」用。
+ * 純讀，不建工單、不寫資料。
+ */
+export async function loadDeliveryPdiStatusAction(
+  id: string,
+): Promise<ActionResult<DeliveryPdiStatus>> {
+  try {
+    const status = await _getDeliveryPdiStatus(id);
+    return { ok: true, data: status };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `載入 PDI 狀態失敗：${msg}` };
   }
 }

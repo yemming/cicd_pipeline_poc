@@ -1,7 +1,7 @@
 // RS05 交車流程 wizard 靜態清單
 
 export const DLV_STEPS = [
-  { idx: 1, label: "PDI 整備觸發" },
+  { idx: 1, label: "PDI 完成確認" },
   { idx: 2, label: "交車確認表（36項）" },
   { idx: 3, label: "保固條款登記" },
   { idx: 4, label: "完成交車 · 觸發 D+3" },

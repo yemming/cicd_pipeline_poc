@@ -40,7 +40,7 @@ export type DeliveryFrameProps = {
 
 const STEP_TITLES: Record<number, { title: string; caption: string }> = {
   1: { title: "訂單覆核", caption: "交車前資料核對 · 確認客戶與車輛資訊正確" },
-  2: { title: "PDI 整備", caption: "PDI（Pre-Delivery Inspection）29 項整備檢查 · 售後技師執行" },
+  2: { title: "PDI 完成確認", caption: "確認本車到港時的 PDI 整備已完成（29 項）· 交車前不再建立工單" },
   3: { title: "PDI 配件安裝", caption: "依客戶訂單安裝 Ducati Performance 配件並確認操作正常" },
   4: { title: "客戶交車確認表", caption: "DUCATI Check List — BIKE DELIVERY TO CUSTOMER · 36 項點交" },
   5: { title: "保固條款簽署", caption: "DUCATI Warranty Terms — 交車登記表 · 三方簽署" },

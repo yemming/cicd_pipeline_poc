@@ -386,6 +386,8 @@ export type AftersalesRepairOrderRow = {
   vehicle_id: string | null;
   estimated_subtotal: number | null;
   lines_total: number | null;
+  /** 費用歸屬：customer（客付）/ vehicle_cost（整車成本，PD 工單）/ vendor / internal … */
+  fee_allocation: string | null;
 };
 
 export type AftersalesFollowupCaseRow = {
@@ -452,7 +454,7 @@ export async function getCustomerById(
     supabase
       .from("repair_orders")
       .select(
-        "id, ro_code, status, issue_date, opened_at, closed_at, mileage_in, vehicle_id, estimated_subtotal, lines_total",
+        "id, ro_code, status, issue_date, opened_at, closed_at, mileage_in, vehicle_id, estimated_subtotal, lines_total, fee_allocation",
       )
       .eq("brand_id", brand)
       .eq("customer_id", id)

@@ -7,18 +7,29 @@
  */
 
 // ── 狀態（DB 的 status 欄位值）──
+// T0（第十五輪）新增合法值：evaluation / pending_recon / consignment / in_transit_transfer / inactive
 export type UsedCarDbStatus =
+  | "evaluation"
+  | "pending_recon"
   | "available"
   | "reserved"
   | "sold"
   | "pending_inspection"
+  | "consignment"
+  | "in_transit_transfer"
+  | "inactive"
   | "withdrawn";
 
 export const USED_CAR_DB_STATUS_LABELS: Record<UsedCarDbStatus, string> = {
+  evaluation: "評估中",
+  pending_recon: "待整備",
   available: "在庫可售",
   reserved: "已保留",
   sold: "已售出",
   pending_inspection: "整備中",
+  consignment: "寄售",
+  in_transit_transfer: "調撥在途",
+  inactive: "停用",
   withdrawn: "已下架",
 };
 
@@ -42,6 +53,26 @@ export const USED_CAR_ACQUISITION_SOURCE_LABELS: Record<UsedCarAcquisitionSource
   direct_buy: "直接收購",
   other: "其他",
 };
+
+// ── 來源 badge（卡片左下角 + filter）──
+// 設計稿 RS03B：🔄置換 / 🛒直購 / 🏷拍賣
+export const USED_CAR_SOURCE_BADGE: Record<
+  UsedCarAcquisitionSource,
+  { label: string; icon: string; chip: string }
+> = {
+  trade_in: { label: "置換", icon: "🔄", chip: "bg-[#FDF3E3] text-[#6B3A00] border border-[#F0C97E]" },
+  direct_buy: { label: "直購", icon: "🛒", chip: "bg-[#EAF4FB] text-[#185FA5] border border-[#85B7EB]" },
+  auction: { label: "拍賣", icon: "🏷", chip: "bg-[#EEEDFE] text-[#534AB7] border border-[#C5C0F0]" },
+  other: { label: "其他", icon: "📦", chip: "bg-[#F2F2F2] text-[#6B6A68] border border-[#D5D3CB]" },
+};
+
+export const USED_CAR_SOURCE_OPTIONS: { value: UsedCarAcquisitionSource | ""; label: string }[] = [
+  { value: "", label: "全部來源" },
+  { value: "trade_in", label: "🔄 置換收購" },
+  { value: "direct_buy", label: "🛒 直接收購" },
+  { value: "auction", label: "🏷 拍賣場" },
+  { value: "other", label: "其他" },
+];
 
 // ── 衍生業務推薦 tag ──
 export type UsedCarBusinessTag = "保險" | "配件升級" | "Track Day";
@@ -76,6 +107,7 @@ export const USED_CAR_GRADE_OPTIONS: { value: UsedCarConditionGrade | ""; label:
 export const USED_CAR_STATUS_OPTIONS: { value: UsedCarDbStatus | ""; label: string }[] = [
   { value: "", label: "全部狀態" },
   { value: "available", label: "在庫可售" },
+  { value: "pending_recon", label: "待整備" },
   { value: "pending_inspection", label: "整備中" },
   { value: "reserved", label: "已保留" },
   { value: "sold", label: "已售出" },
@@ -115,11 +147,30 @@ export type UsedCarInventoryRow = {
   images: string[] | null;
   note: string | null;
   metadata: Record<string, unknown>;
+  // ── T0（第十五輪）整備成本欄位 ──
+  recon_workorder_id: string | null;
+  recon_labor_cost: number | null;
+  recon_parts_cost: number | null;
+  bodywork_cost: number | null;
+  transfer_freight_cost: number | null;
+  /** generated 計算欄（acquisition_price + recon_labor + recon_parts + bodywork + transfer_freight），唯讀 */
+  total_cost: number | null;
+  /** join repair_orders 撈出的整備工單號（待整備車輛顯示用，非 DB column） */
+  recon_workorder_code: string | null;
   created_at: string;
   updated_at: string;
   created_by: string | null;
   updated_by: string | null;
 };
+
+// ── 整備成本合計（recon_labor + recon_parts + bodywork；不含運費 / 收購）──
+export function calcReconCost(r: {
+  recon_labor_cost: number | null;
+  recon_parts_cost: number | null;
+  bodywork_cost: number | null;
+}): number {
+  return (r.recon_labor_cost ?? 0) + (r.recon_parts_cost ?? 0) + (r.bodywork_cost ?? 0);
+}
 
 // ── 計算在庫天數（listed_date 到今天）──
 export function calcDaysInStock(listedDate: string | null, soldDate: string | null): number {

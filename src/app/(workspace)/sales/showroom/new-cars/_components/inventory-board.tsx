@@ -39,6 +39,9 @@ import {
   LICENSE_PLATE_STATUS_LABELS,
   ALL_STATUSES,
   ALL_LICENSE_PLATE_STATUSES,
+  pdiProgress,
+  pdiWorkorderNo,
+  grossMargin,
   type NewCarInventoryRow,
   type NewCarInventoryInput,
   type NewCarInventoryStatus,
@@ -143,6 +146,7 @@ export default function NewCarInventoryBoard({
   kpi,
   byModel,
   slowMovers,
+  canViewCost,
 }: {
   initialRows: NewCarInventoryRow[];
   vehicleModels: VehicleModelOption[];
@@ -151,6 +155,8 @@ export default function NewCarInventoryBoard({
   kpi: NewCarKpiSummary;
   byModel: NewCarByModelDatum[];
   slowMovers: NewCarSlowMover[];
+  /** 主管才看得到整車成本 / 毛利（permission: sales.cost.view） */
+  canViewCost: boolean;
 }) {
   useSetPageHeader({
     title: "新車庫存",
@@ -289,6 +295,15 @@ export default function NewCarInventoryBoard({
             build_date: null,
             cost_price: fCostPrice ? parseFloat(fCostPrice) : null,
             list_price: fListPrice ? parseFloat(fListPrice) : null,
+            pdi_labor_cost: null,
+            pdi_parts_cost: null,
+            transfer_freight_cost: null,
+            total_cost: fCostPrice ? parseFloat(fCostPrice) : null,
+            pdi_workorder_id: null,
+            purchase_order_id: null,
+            arrival_batch_id: null,
+            damage_flag: null,
+            damage_notes: null,
             status: fStatus,
             arrival_date: fArrivalDate || null,
             displayed_date: null,
@@ -370,6 +385,49 @@ export default function NewCarInventoryBoard({
   }
 
   // ── DataGrid columns（列表模式）──
+  // 整車成本 / 毛利：只主管可見（permission sales.cost.view）
+  const costColumns: DataGridColumn<NewCarInventoryRow>[] = canViewCost
+    ? [
+        {
+          id: "total_cost",
+          header: "整車成本",
+          width: 130,
+          align: "right",
+          cell: (r) => {
+            if (r.status === "pending_pdi") {
+              return <span className="text-[#534AB7] text-[11px]">計算中（PDI）</span>;
+            }
+            return r.total_cost != null && r.total_cost > 0 ? (
+              <span className="font-mono text-[12px] text-[#5A5955]">{r.total_cost.toLocaleString()}</span>
+            ) : (
+              <span className="text-[#9A9890] text-[12px]">—</span>
+            );
+          },
+          exportValue: (r) => (r.total_cost != null ? r.total_cost.toString() : ""),
+          sortValue: (r) => r.total_cost ?? -1,
+        },
+        {
+          id: "gross_margin",
+          header: "毛利空間",
+          width: 120,
+          align: "right",
+          cell: (r) => {
+            const m = grossMargin(r);
+            return m != null ? (
+              <span className="font-mono text-[12px] font-semibold text-[#0F6E56]">{m.toLocaleString()}</span>
+            ) : (
+              <span className="text-[#9A9890] text-[12px]">—</span>
+            );
+          },
+          exportValue: (r) => {
+            const m = grossMargin(r);
+            return m != null ? m.toString() : "";
+          },
+          sortValue: (r) => grossMargin(r) ?? -1,
+        },
+      ]
+    : [];
+
   const columns: DataGridColumn<NewCarInventoryRow>[] = [
     {
       id: "vin",
@@ -562,6 +620,7 @@ export default function NewCarInventoryBoard({
       cell: (r) => <span className="text-[12px] text-[#5A5955]">{r.note ?? "—"}</span>,
       exportValue: (r) => r.note ?? "",
     },
+    ...costColumns,
   ];
 
   const isSubmitting = isPending;
@@ -584,12 +643,18 @@ export default function NewCarInventoryBoard({
         </span>
       </header>
 
-      {/* KPI Row — 庫存節奏一眼讀 */}
+      {/* KPI Row — 庫存節奏一眼讀（依 status 動態統計）*/}
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5" data-testid="newcar-kpi-row">
         <KpiCard
-          label="展示中 / 可售"
+          label="現車可售"
           value={kpi.displayed}
           tone="teal"
+          layout="vertical"
+        />
+        <KpiCard
+          label="待 PDI"
+          value={kpi.pending_pdi}
+          tone="purple"
           layout="vertical"
         />
         <KpiCard
@@ -599,15 +664,9 @@ export default function NewCarInventoryBoard({
           layout="vertical"
         />
         <KpiCard
-          label="在途"
+          label="在途中"
           value={kpi.in_transit}
           tone="blue"
-          layout="vertical"
-        />
-        <KpiCard
-          label="已到廠待上架"
-          value={kpi.arrived}
-          tone="gray"
           layout="vertical"
         />
         <KpiCard
@@ -617,6 +676,21 @@ export default function NewCarInventoryBoard({
           layout="vertical"
         />
       </section>
+
+      {/* 入庫入口橫幅 — 引導至 INV02 到港確認（T7 才建頁，先放連結）*/}
+      <Link
+        href="/sales/inventory/arrival-confirmation"
+        data-testid="newcar-arrival-banner"
+        className="flex items-center gap-3 flex-wrap rounded-lg border border-[#85B7EB] bg-[#EAF4FB] px-4 py-2.5 hover:bg-[#DCEDFB] transition"
+      >
+        <span className="flex-1 text-[12.5px] text-[#0C3E70] leading-relaxed">
+          <b>新車入庫入口：</b>新車到港後請至 INV02 進行到港確認（逐台掃 VIN），系統將自動建立 PDI 工單。
+          <b>PDI 完成後車輛才會顯示為「可售」</b>，業務才可配車報價。
+        </span>
+        <span className="shrink-0 inline-flex items-center gap-1 h-[30px] px-3.5 rounded-md bg-[#1A3A5C] text-white text-[12px] font-semibold hover:bg-[#0F2A45]">
+          📦 前往 INV02 到港確認
+        </span>
+      </Link>
 
       {/* BarChart by-model + Slow Movers 並排 */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -634,6 +708,7 @@ export default function NewCarInventoryBoard({
                 categoryKey="model"
                 valueKey={[
                   { key: "displayed", label: "展示中", color: "#3B6D11" },
+                  { key: "pending_pdi", label: "待 PDI", color: "#534AB7" },
                   { key: "reserved", label: "已保留", color: "#854F0B" },
                   { key: "in_transit", label: "在途", color: "#185FA5" },
                   { key: "arrived", label: "已到廠", color: "#6B6A68" },
@@ -777,7 +852,7 @@ export default function NewCarInventoryBoard({
 
       {/* Card / List */}
       {displayMode === "card" ? (
-        <CardGrid rows={filtered} onEdit={openEdit} />
+        <CardGrid rows={filtered} onEdit={openEdit} canViewCost={canViewCost} />
       ) : (
         <DataGrid
           columns={columns}
@@ -787,31 +862,51 @@ export default function NewCarInventoryBoard({
           exportFileName="new-car-inventory"
           emptyMessage="沒有符合條件的庫存"
           disabled={isSubmitting}
-          rowActionsWidth={230}
-          rowActions={(r) => (
-            <>
-              <Link
-                href={`/sales/showroom/new-cars/${r.id}`}
-                className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-              >
-                詳情
-              </Link>
-              <button
-                onClick={() => openEdit(r)}
-                className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                disabled={isSubmitting}
-              >
-                編輯
-              </button>
-              <button
-                onClick={() => handleDelete(r)}
-                className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
-                disabled={isSubmitting}
-              >
-                刪除
-              </button>
-            </>
-          )}
+          rowActionsWidth={300}
+          rowActions={(r) => {
+            const canQuote = r.status === "displayed" || r.status === "reserved";
+            return (
+              <>
+                <Link
+                  href={`/sales/showroom/new-cars/${r.id}`}
+                  className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                >
+                  詳情
+                </Link>
+                {canQuote ? (
+                  <Link
+                    href={`/sales/showroom/new-cars/${r.id}`}
+                    className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+                    data-testid={`row-quote-${r.id}`}
+                  >
+                    報價
+                  </Link>
+                ) : (
+                  <span
+                    className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-[#F4F3F0] border border-[#D5D3CB] text-[#B0AEA8] cursor-not-allowed"
+                    data-testid={`row-quote-locked-${r.id}`}
+                    title={r.status === "pending_pdi" ? "PDI 完成後才可報價" : "此狀態不可報價"}
+                  >
+                    {r.status === "pending_pdi" ? "PDI 中" : "不可售"}
+                  </span>
+                )}
+                <button
+                  onClick={() => openEdit(r)}
+                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                  disabled={isSubmitting}
+                >
+                  編輯
+                </button>
+                <button
+                  onClick={() => handleDelete(r)}
+                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
+                  disabled={isSubmitting}
+                >
+                  刪除
+                </button>
+              </>
+            );
+          }}
         />
       )}
 
@@ -949,9 +1044,11 @@ export default function NewCarInventoryBoard({
 function CardGrid({
   rows,
   onEdit,
+  canViewCost,
 }: {
   rows: NewCarInventoryRow[];
   onEdit: (row: NewCarInventoryRow) => void;
+  canViewCost: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -970,6 +1067,11 @@ function CardGrid({
         const d = daysInStock(r);
         const slow = isSlowMover(r);
         const statusLabel = NEW_CAR_STATUS_LABELS[r.status];
+        const isPdi = r.status === "pending_pdi";
+        const canQuote = r.status === "displayed" || r.status === "reserved";
+        const progress = pdiProgress(r);
+        const woNo = pdiWorkorderNo(r);
+        const margin = grossMargin(r);
         return (
           <article
             key={r.id}
@@ -1017,6 +1119,20 @@ function CardGrid({
               >
                 {statusLabel}
               </span>
+              {/* 待 PDI — 圖片底部綠色進度條 */}
+              {isPdi && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-[4px] bg-white/30"
+                  data-testid={`pdi-progress-strip-${r.id}`}
+                >
+                  <div
+                    className="h-full bg-[#5DCAA5] transition-[width] duration-300"
+                    style={{ width: `${progress}%` }}
+                    data-testid={`pdi-progress-fill-${r.id}`}
+                    data-progress={progress}
+                  />
+                </div>
+              )}
             </div>
             <div className="p-3">
               <Link
@@ -1028,6 +1144,19 @@ function CardGrid({
               <div className="text-[11px] text-[#9A9890] mb-2">
                 {r.year ?? "—"} 年 · {r.color ?? "—"}
               </div>
+              {/* PDI 狀態提示列 */}
+              {isPdi ? (
+                <div
+                  className="text-[10.5px] px-1.5 py-1 rounded mb-2 bg-[#EEEDFE] text-[#534AB7]"
+                  data-testid={`pdi-hint-${r.id}`}
+                >
+                  🔧 PDI 進行中{woNo ? ` — ${woNo}` : ""} · {progress}%
+                </div>
+              ) : canQuote && woNo ? (
+                <div className="text-[10.5px] px-1.5 py-1 rounded mb-2 bg-[#E1F5EE] text-[#0F6E56]">
+                  ✅ PDI 完成 — {woNo}
+                </div>
+              ) : null}
               <div className="space-y-0.5 mb-2">
                 {r.vin && (
                   <div className="flex justify-between text-[11.5px]">
@@ -1035,12 +1164,6 @@ function CardGrid({
                     <span className="font-mono font-semibold">{r.vin.slice(-5)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-[11.5px]">
-                  <span className="text-[#9A9890]">收購成本</span>
-                  <span className="font-mono">
-                    {r.cost_price != null ? `NT$ ${r.cost_price.toLocaleString()}` : "—"}
-                  </span>
-                </div>
                 <div className="flex justify-between text-[11.5px]">
                   <span className="text-[#9A9890]">到廠日</span>
                   <span className="font-mono">{r.arrival_date ?? "—"}</span>
@@ -1056,14 +1179,42 @@ function CardGrid({
                 <div className="text-[15px] font-bold font-mono text-[#1A3A5C]">
                   {r.list_price != null ? `NT$ ${r.list_price.toLocaleString()}` : "—"}
                 </div>
-                <div className="mt-0.5 flex items-center gap-1 flex-wrap">
-                  <span
-                    className={"text-[11px] px-1.5 py-0.5 rounded font-semibold " + profitChipClass(rate)}
-                    data-testid={`profit-chip-${r.id}`}
+                {/* 整車成本 / 毛利 — 只主管可見（sales.cost.view）*/}
+                {canViewCost && (
+                  <div
+                    className="mt-1 text-[11px] text-[#9A9890]"
+                    data-testid={`cost-row-${r.id}`}
                   >
-                    利潤 {rate === null ? "—" : `${rate}%`}
-                  </span>
-                </div>
+                    {isPdi ? (
+                      <span className="text-[#534AB7]">整車成本計算中（PDI 未完成）</span>
+                    ) : r.total_cost != null && r.total_cost > 0 ? (
+                      <>
+                        整車成本：
+                        <span className="font-mono text-[#5A5955]">NT$ {r.total_cost.toLocaleString()}</span>
+                        {margin != null && (
+                          <>
+                            {"　毛利空間："}
+                            <span className="font-mono font-semibold text-[#0F6E56]">
+                              NT$ {margin.toLocaleString()}
+                            </span>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <span>整車成本待確認</span>
+                    )}
+                  </div>
+                )}
+                {canViewCost && (
+                  <div className="mt-0.5 flex items-center gap-1 flex-wrap">
+                    <span
+                      className={"text-[11px] px-1.5 py-0.5 rounded font-semibold " + profitChipClass(rate)}
+                      data-testid={`profit-chip-${r.id}`}
+                    >
+                      利潤 {rate === null ? "—" : `${rate}%`}
+                    </span>
+                  </div>
+                )}
               </div>
               {r.note && (
                 <div className="text-[10.5px] text-[#854F0B] mb-2">📌 {r.note}</div>
@@ -1074,15 +1225,27 @@ function CardGrid({
                   className="flex-1 h-[28px] rounded text-[11.5px] font-semibold bg-white border border-[#D5D3CB] text-[#4A4A48] hover:bg-[#F4F3F0]"
                   data-testid={`btn-edit-${r.id}`}
                 >
-                  評估 / 編輯
+                  {isPdi ? "PDI 工單" : "評估 / 編輯"}
                 </button>
-                <Link
-                  href={`/sales/showroom/new-cars/${r.id}`}
-                  className="flex-1 h-[28px] rounded text-[11.5px] font-semibold bg-[#1A3A5C] text-white hover:bg-[#142E4A] inline-flex items-center justify-center"
-                  data-testid={`btn-quote-${r.id}`}
-                >
-                  報價
-                </Link>
+                {canQuote ? (
+                  <Link
+                    href={`/sales/showroom/new-cars/${r.id}`}
+                    className="flex-1 h-[28px] rounded text-[11.5px] font-semibold bg-[#1A3A5C] text-white hover:bg-[#142E4A] inline-flex items-center justify-center"
+                    data-testid={`btn-quote-${r.id}`}
+                  >
+                    配車報價
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex-1 h-[28px] rounded text-[11.5px] font-semibold bg-[#F4F3F0] border border-[#D5D3CB] text-[#B0AEA8] cursor-not-allowed"
+                    data-testid={`btn-quote-locked-${r.id}`}
+                    title={isPdi ? "PDI 完成後才可配車報價" : "此狀態不可報價"}
+                  >
+                    {isPdi ? "PDI 中暫不可售" : statusLabel}
+                  </button>
+                )}
               </div>
             </div>
           </article>

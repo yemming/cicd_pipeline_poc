@@ -32,6 +32,7 @@ import {
   rejectEvaluationAction,
   deleteEvaluationAction,
   loadEvaluationForViewAction,
+  confirmTradeInAcquisitionAction,
 } from "@/lib/used-car/evaluation-actions";
 import type { UsedCarEvaluationWithCustomer } from "@/domain/used-car-evaluations";
 
@@ -253,12 +254,18 @@ const TIRE_WEAR_OPTIONS = [
   "鋸齒磨損（懸吊問題）",
 ];
 
-const PURCHASE_DECISIONS = [
-  "建議收購（正常流程）",
-  "建議收購（條件：整備後重評）",
-  "謹慎收購（需主管核准）",
-  "不建議收購（風險過高）",
+// T12：收購決策改成「有 value 的選項」（對映設計稿 RS06 STEP4）。
+// value 落 DB（decision 欄）、label 顯示。前 3 個（BUY_*）會觸發真正建主檔+工單，NO_BUY 不觸發。
+const PURCHASE_DECISIONS: { value: string; label: string }[] = [
+  { value: "", label: "— 請選擇收購決策 —" },
+  { value: "BUY_NORMAL", label: "✅ 建議收購（正常流程）" },
+  { value: "BUY_COND", label: "⚠️ 條件收購（整備後重評）" },
+  { value: "BUY_MGR", label: "🔐 謹慎收購（需主管核准）" },
+  { value: "NO_BUY", label: "❌ 不建議收購（風險過高）" },
 ];
+
+// 是否為「會觸發建主檔」的收購決策
+const BUY_DECISIONS = new Set(["BUY_NORMAL", "BUY_COND", "BUY_MGR"]);
 
 function n(v: string) {
   return parseInt(v.replace(/[^\d]/g, ""), 10) || 0;
@@ -375,8 +382,17 @@ export default function UsedCarEvaluationPage() {
   const [pProfit, setPProfit] = useState("");
   const [pNew, setPNew] = useState("");
   const [finalGrade, setFinalGrade] = useState<GradeKey>("B");
-  const [decision, setDecision] = useState(PURCHASE_DECISIONS[0]);
+  // T12：decision 現在存 value（BUY_NORMAL / BUY_COND / BUY_MGR / NO_BUY / ""）
+  const [decision, setDecision] = useState<string>("");
   const [conclusion, setConclusion] = useState("");
+
+  // T12：確認收購結果（成功卡）+ transition
+  const [tradeInDone, setTradeInDone] = useState<{
+    used_car_id: string;
+    ro_code: string;
+    conditional: boolean;
+  } | null>(null);
+  const [isAcquiring, startAcquireTransition] = useTransition();
 
   // toast
   const [toast, setToast] = useState<string | null>(null);
@@ -666,6 +682,54 @@ export default function UsedCarEvaluationPage() {
       }
       showToast(`📨 評估單 ${evalNo} 已送出簽核`);
       router.push("/usedcar/evaluations");
+    });
+  }
+
+  // ── T12：確認收購（置換 trade_in）— 真 server action ─────────────────
+  // 呼叫共用觸發函式：建中古車主檔（pending_recon）+ 觸發 PD-UC 整備工單。
+  // decision 必為 BUY_* 才會走這條；NO_BUY 不觸發。
+  function handleConfirmTradeIn() {
+    if (!BUY_DECISIONS.has(decision)) {
+      showToast("❌ 請先在「收購決策」選擇收購選項");
+      return;
+    }
+    // 基本必填：車款 / VIN / 車牌 至少一項
+    if (!model.trim() && !vin.trim() && !plate.trim()) {
+      showToast("❌ 至少需填寫車款、VIN 或車牌其中一項");
+      return;
+    }
+    const market = n(pMarket);
+    const cost =
+      n(pRepair) + n(pPaint) + n(pTire) + n(pWarranty) + n(pAdmin) + n(pComm) + n(pProfit);
+    const suggested = market - cost;
+    const reconEstimate = n(pRepair) + n(pPaint) + n(pTire) + n(pWarranty) + n(pAdmin);
+    startAcquireTransition(async () => {
+      const r = await confirmTradeInAcquisitionAction({
+        evaluation_id: savedEvalId ?? undefined,
+        decision: decision as "BUY_NORMAL" | "BUY_COND" | "BUY_MGR",
+        vehicle: {
+          brand_name: brand.trim() || null,
+          model: model.trim() || null,
+          year: year ? Number(year) || null : null,
+          vin: vin.trim() || null,
+          license_plate: plate.trim() || null,
+          color: color.trim() || null,
+          mileage_km: mileage ? Number(mileage) || null : null,
+          condition_grade: finalGrade,
+        },
+        acquisition_price: suggested || null,
+        recon_estimate: reconEstimate || null,
+        conclusion: conclusion.trim() || null,
+      });
+      if (!r.ok) {
+        showToast(`❌ ${r.error}`);
+        return;
+      }
+      setTradeInDone({
+        used_car_id: r.data.used_car_id,
+        ro_code: r.data.ro_code,
+        conditional: decision === "BUY_COND",
+      });
     });
   }
 
@@ -1982,7 +2046,9 @@ export default function UsedCarEvaluationPage() {
                       data-testid="evaluation-decision"
                     >
                       {PURCHASE_DECISIONS.map((d) => (
-                        <option key={d}>{d}</option>
+                        <option key={d.value} value={d.value}>
+                          {d.label}
+                        </option>
                       ))}
                     </select>
                   </Field>
@@ -1995,6 +2061,96 @@ export default function UsedCarEvaluationPage() {
                     onChange={(e) => setConclusion(e.target.value)}
                   />
                 </Field>
+
+                {/* T12：依決策顯示對應說明卡 + 確認收購（真 action）/ 確認不收購 */}
+                {BUY_DECISIONS.has(decision) && !tradeInDone && (
+                  <div
+                    className="mt-3 rounded-md border border-[#5DCAA5] bg-[#E1F5EE] px-3.5 py-3 text-[12px] text-[#085041] leading-relaxed"
+                    data-testid="evaluation-buy-desc"
+                  >
+                    <b>
+                      {decision === "BUY_COND"
+                        ? "⚠️ 條件收購（整備後重評）"
+                        : decision === "BUY_MGR"
+                          ? "🔐 謹慎收購（需主管核准）"
+                          : "✅ 建議收購（正常流程）"}
+                    </b>
+                    <br />
+                    確認後系統將自動：
+                    <br />1 · 建立中古車車輛主檔（acquisition_source = trade_in，狀態「待整備」）
+                    <br />2 · 觸發整備工單（PD-UC），費用計入整車成本、通知售後主管分派技師
+                    {decision === "BUY_COND" && (
+                      <>
+                        <br />3 · 標記「整備後需重新鑑價」才可上架銷售
+                      </>
+                    )}
+                    <div className="mt-2.5">
+                      <button
+                        type="button"
+                        onClick={handleConfirmTradeIn}
+                        disabled={isAcquiring}
+                        data-testid="evaluation-confirm-tradein"
+                        className={`${btnTeal} disabled:opacity-60 disabled:cursor-not-allowed`}
+                      >
+                        {isAcquiring ? "建立中⋯" : "✅ 確認收購（建主檔 + 觸發整備工單）"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {decision === "NO_BUY" && !tradeInDone && (
+                  <div
+                    className="mt-3 rounded-md border border-[#F5AEAD] bg-[#FDECEA] px-3.5 py-3 text-[12px] text-[#CC0000] leading-relaxed"
+                    data-testid="evaluation-nobuy-desc"
+                  >
+                    <b>❌ 不建議收購（風險過高）</b>
+                    <br />
+                    不會建立任何車輛主檔。請於結論說明欄填寫不收購理由，再送出簽核 / 儲存即可。
+                  </div>
+                )}
+
+                {/* T12：收購成功結果卡 */}
+                {tradeInDone && (
+                  <div
+                    className="mt-3 rounded-lg bg-gradient-to-br from-[#0F6E56] to-[#185FA5] text-white p-4 shadow"
+                    data-testid="evaluation-tradein-done"
+                  >
+                    <div className="text-[15px] font-bold mb-1">
+                      {tradeInDone.conditional
+                        ? "⚠️ 條件收購確認！整備工單已建立"
+                        : "🎉 收購確認完成！整備工單已建立"}
+                    </div>
+                    <div className="text-[12px] opacity-90 mb-3">
+                      中古車車輛主檔已建立，整備工單已觸發，費用計入整車成本
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <span className="px-3 py-1.5 rounded-md bg-white/15 border border-white/25 text-[12px]">
+                        整備工單：<b className="font-mono">{tradeInDone.ro_code}</b>
+                      </span>
+                      <span className="px-3 py-1.5 rounded-md bg-white/15 border border-white/25 text-[12px]">
+                        來源類型：<b>TRADE_IN</b>
+                      </span>
+                      <span className="px-3 py-1.5 rounded-md bg-white/15 border border-white/25 text-[12px]">
+                        車輛狀態：<b>待整備</b>
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => router.push("/usedcar/stock")}
+                        className="px-4 py-2 rounded-md bg-white text-[#0F6E56] text-[12.5px] font-semibold"
+                      >
+                        🏍️ 查看中古車庫存
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => router.push("/parts/aftersales/repair-orders")}
+                        className="px-4 py-2 rounded-md bg-white/15 border border-white/30 text-[12.5px] font-semibold"
+                      >
+                        🔧 查看整備工單
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-2 flex-wrap mt-2">
                   <button

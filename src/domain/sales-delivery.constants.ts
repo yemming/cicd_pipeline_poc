@@ -83,3 +83,38 @@ export type DeliveryTimelineEvent = {
   description?: string;
   tone: ToneKey;
 };
+
+// ─── PDI 完成確認（RS05 STEP / pdi-view）──────────────────────
+// PDI 工單在「車輛到港入庫」(INV02) 即觸發、技師做完關單；交車時只「確認 PDI 已完成」。
+// 三種狀態卡依「該交車單關聯車輛的 PDI 工單狀態」判定：
+//   ok       車輛已 displayed/reserved/sold/delivered 且 PDI 工單已關單 → 綠卡，可進下一步
+//   pending  車輛 pending_pdi 且工單仍進行中（未關單）          → 黃卡，下一步鎖
+//   blocked  車輛 pending_pdi 但無工單 / 找不到關聯車輛 / 異常    → 紅卡，下一步鎖
+export type DeliveryPdiState = "ok" | "pending" | "blocked";
+
+export type DeliveryPdiStatus = {
+  /** 三態：決定顯示哪張卡、是否允許進下一步 */
+  state: DeliveryPdiState;
+  /** state === 'ok' 才可進入後續交車流程 */
+  canProceed: boolean;
+  /** 是否有對應到一台庫存車（VIN join 成功） */
+  hasLinkedCar: boolean;
+  /** 關聯車輛 id（new_car_inventory.id） */
+  carId: string | null;
+  /** 關聯車輛狀態（new_car_inventory.status） */
+  carStatus: string | null;
+  /** PDI 工單號（repair_orders.ro_code） */
+  workOrderNo: string | null;
+  /** PDI 工單狀態（repair_orders.status，中文：已關單 / 進行中 …） */
+  workOrderStatus: string | null;
+  /** 是否已關單 */
+  workOrderClosed: boolean;
+  /** 完成（關單）日期 yyyy-mm-dd，若有 */
+  completedDate: string | null;
+  /** 執行技師姓名（lead_technician_id → employees.name），seed 多為 null */
+  technicianName: string | null;
+  /** PDI 工時費（計入整車成本） */
+  pdiLaborCost: number | null;
+  /** PDI 零件費（計入整車成本） */
+  pdiPartsCost: number | null;
+};

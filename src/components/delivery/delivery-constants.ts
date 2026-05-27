@@ -15,7 +15,7 @@ export const DELIVERY_STEPS = [
   {
     id: 2 as const,
     num: "STEP 2",
-    label: "PDI 整備",
+    label: "PDI 完成確認",
     href: "/delivery/pdi",
     sprint: "銷售 · RS05-v1-step2",
   },

@@ -37,6 +37,25 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // PD（PDI整備）模式：選 PD 時 P2 自動鎖 IN（內部結算），費用計入整車成本、車主應付 NT$0
+  const isPDI = p1 === "PD";
+
+  // 選 P1：PD → 強制 P2=IN；離開 PD（原本是 IN）→ 還原成 CP（或保固預設 WR）
+  function selectP1(code: PrefixP1) {
+    setP1(code);
+    if (code === "PD") {
+      setP2("IN");
+    } else if (p2 === "IN") {
+      setP2(draft.has_warranty_concern ? "WR" : "CP");
+    }
+  }
+
+  // 選 P2：PD 模式下鎖定、不允許手動改
+  function selectP2(code: PrefixP2) {
+    if (isPDI) return;
+    setP2(code);
+  }
+
   const rule = comboLookup(p1, p2);
   const verdict = rule?.verdict ?? "needs_supervisor";
   const description =
@@ -233,19 +252,23 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
             <div className="flex flex-wrap gap-2">
               {PREFIX_P1_DEFS.map((d) => {
                 const selected = p1 === d.code;
+                const isPd = d.code === "PD";
+                // PD 選中 → 綠（整車成本內部結算）；其餘選中 → 深藍
+                const selectedCls = isPd
+                  ? "border-[#0F6E56] bg-[#E8F5F0]"
+                  : "border-[#1A3A5C] bg-[#EBF3FF]";
+                const codeColor = isPd ? "text-[#0F6E56]" : "text-[#1A3A5C]";
                 return (
                   <button
                     key={d.code}
                     type="button"
-                    onClick={() => setP1(d.code)}
+                    onClick={() => selectP1(d.code)}
                     disabled={isPending}
                     className={`flex-1 min-w-[150px] text-left px-3 py-2.5 rounded-lg border-[1.5px] transition-colors ${
-                      selected
-                        ? "border-[#1A3A5C] bg-[#EBF3FF]"
-                        : "border-[#D5D3CB] bg-white hover:border-[#9A9890]"
+                      selected ? selectedCls : "border-[#D5D3CB] bg-white hover:border-[#9A9890]"
                     }`}
                   >
-                    <div className="text-[18px] font-bold font-mono text-[#1A3A5C]">{d.code}</div>
+                    <div className={`text-[18px] font-bold font-mono ${codeColor}`}>{d.code}</div>
                     <div className="text-[12.5px] font-semibold text-[#2C2C2A]">{d.name}</div>
                     <div className="text-[11px] text-[#9A9890] mt-0.5">{d.desc}</div>
                   </button>
@@ -254,24 +277,72 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
             </div>
           </div>
 
+          {/* PD 費用說明卡（選 PD 時顯示）— 整車成本 / 車主應付 NT$0 */}
+          {isPDI && (
+            <div className="rounded-lg px-4 py-3 bg-[#E8F5F0] border-[1.5px] border-[#1D9E75]">
+              <div className="text-[12.5px] font-bold text-[#085041] mb-1">
+                ℹ️ PDI 整備工單（PD）— 費用計入整車成本
+              </div>
+              <div className="text-[12px] text-[#0F4A35] leading-relaxed">
+                本工單類型用於<b>新車到港</b>或<b>中古車整備</b>的 PDI 作業。
+                費用由<b>銷售部門整車成本</b>承擔、<b>不向車主收取任何費用</b>。
+                系統將於工單完成後自動把工時費用與零件費用寫回車輛主檔、更新整車成本合計。
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {[
+                  "付款性質：IN（內部結算）",
+                  "費用歸屬：整車在庫成本",
+                  "車主應付：NT$0",
+                  "適用前綴：PD-IN（新車）/ PD-UC（中古）",
+                ].map((t) => (
+                  <span
+                    key={t}
+                    className="bg-white border border-[#1D9E75] rounded px-2.5 py-0.5 text-[11.5px] text-[#085041]"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
-            <div className="text-[12px] text-[#5A5955] mb-2">付款性質 (P2)</div>
+            <div className="text-[12px] text-[#5A5955] mb-2">
+              {isPDI ? "付款性質 (P2)（PDI 模式：自動鎖定為內部結算）" : "付款性質 (P2)"}
+            </div>
             <div className="flex flex-wrap gap-2">
               {PREFIX_P2_DEFS.map((d) => {
+                const isIn = d.code === "IN";
+                // PD 模式：只顯示 IN（鎖定）；非 PD 模式：隱藏 IN（IN 只屬於 PDI）
+                if (isPDI && !isIn) return null;
+                if (!isPDI && isIn) return null;
                 const selected = p2 === d.code;
                 return (
                   <button
                     key={d.code}
                     type="button"
-                    onClick={() => setP2(d.code)}
-                    disabled={isPending}
-                    className={`flex-1 min-w-[180px] text-left px-3 py-2.5 rounded-lg border-[1.5px] transition-colors ${
-                      selected
-                        ? "border-[#1A3A5C] bg-[#EBF3FF]"
-                        : "border-[#D5D3CB] bg-white hover:border-[#9A9890]"
+                    onClick={() => selectP2(d.code)}
+                    disabled={isPending || isPDI}
+                    className={`relative flex-1 min-w-[180px] text-left px-3 py-2.5 rounded-lg border-[1.5px] transition-colors ${
+                      isPDI
+                        ? "border-[#1D9E75] bg-[#E8F5F0] cursor-not-allowed"
+                        : selected
+                          ? "border-[#1A3A5C] bg-[#EBF3FF]"
+                          : "border-[#D5D3CB] bg-white hover:border-[#9A9890]"
                     }`}
                   >
-                    <div className="text-[18px] font-bold font-mono text-[#1A3A5C]">{d.code}</div>
+                    {isIn && (
+                      <span className="absolute top-1.5 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#E8F5F0] text-[#0F6E56] border border-[#1D9E75]">
+                        自動鎖定
+                      </span>
+                    )}
+                    <div
+                      className={`text-[18px] font-bold font-mono ${
+                        isIn ? "text-[#0F6E56]" : "text-[#1A3A5C]"
+                      }`}
+                    >
+                      {d.code}
+                    </div>
                     <div className="text-[12.5px] font-semibold text-[#2C2C2A]">{d.name}</div>
                     <div className="text-[11px] text-[#9A9890] mt-0.5">{d.desc}</div>
                   </button>
@@ -287,7 +358,9 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
                 ? "bg-[#FDECEA] border-[#F5AEAD] text-[#CC0000]"
                 : isWarning
                   ? "bg-[#FDF3E3] border-[#F0C97E] text-[#854F0B]"
-                  : "bg-[#EAF3DE] border-[#C5DC9F] text-[#3B6D11]"
+                  : isPDI
+                    ? "bg-[#E8F5F0] border-[#1D9E75] text-[#085041]"
+                    : "bg-[#EAF3DE] border-[#C5DC9F] text-[#3B6D11]"
             }`}
           >
             {description}
@@ -298,12 +371,14 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
             )}
           </div>
 
-          {/* Confirm */}
+          {/* Confirm — PD 模式下按鈕轉綠（整車成本內部結算） */}
           <button
             type="button"
             onClick={confirm}
             disabled={isInvalid || isPending}
-            className="w-full h-[52px] rounded-lg bg-[#1A3A5C] text-white text-[15px] font-semibold hover:bg-[#0F2A45] disabled:bg-[#D5D3CB] disabled:text-[#9A9890] disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+            className={`w-full h-[52px] rounded-lg text-white text-[15px] font-semibold disabled:bg-[#D5D3CB] disabled:text-[#9A9890] disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${
+              isPDI ? "bg-[#0F6E56] hover:bg-[#085041]" : "bg-[#1A3A5C] hover:bg-[#0F2A45]"
+            }`}
           >
             {isPending
               ? "建立中⋯"
@@ -312,7 +387,9 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
                 : `確認開立工單 ${previewCode} →`}
           </button>
           <div className="text-center text-[11px] text-[#9A9890]">
-            確認後工單狀態設為「進行中」、預約狀態同步切「維修中」、技師可開始作業並打卡
+            {isPDI
+              ? "確認後 PDI 工單狀態設為「進行中」、技師可開始作業；完工後費用自動計入整車成本（車主應付 NT$0）"
+              : "確認後工單狀態設為「進行中」、預約狀態同步切「維修中」、技師可開始作業並打卡"}
           </div>
         </div>
       </section>

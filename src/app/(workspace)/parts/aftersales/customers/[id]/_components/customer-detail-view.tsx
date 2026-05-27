@@ -118,6 +118,31 @@ function followupStatusChip(s: string): string {
   }
 }
 
+// 從工單編號解析業務類型前綴（P1）→ 彩色 badge
+// repair_orders.ro_code 走 P1-P2-YYMMDD-NNN 慣例（MN-CP-… / WC-WR-… / PD-IN-…）
+// work_orders.ro_no 走 RO-2026-A-NNN，無 P1 前綴 → 回 null（顯示中性 badge）
+type RoTypeBadge = { code: string; label: string; className: string };
+
+const RO_TYPE_DEFS: Record<
+  string,
+  { label: string; className: string }
+> = {
+  PD: { label: "PD", className: "bg-[#F0EFFE] text-[#534AB7]" }, // 紫 — PDI 整備
+  WC: { label: "WC", className: "bg-[#EAF3DE] text-[#3B6D11]" }, // 綠 — 保固索賠
+  RP: { label: "RP", className: "bg-[#FDF3E3] text-[#854F0B]" }, // 琥珀 — 機修
+  AC: { label: "AC", className: "bg-[#FDECEA] text-[#CC0000]" }, // 紅 — 事故
+  MN: { label: "MN", className: "bg-[#EBF3FF] text-[#1A3A5C]" }, // 深藍 — 定期保養
+  OT: { label: "OT", className: "bg-[#F2F2F2] text-[#6B6A68]" }, // 灰 — 其他業務
+};
+
+function roTypeBadge(no: string | null | undefined): RoTypeBadge | null {
+  if (!no) return null;
+  const p1 = no.split("-")[0]?.toUpperCase() ?? "";
+  const def = RO_TYPE_DEFS[p1];
+  if (!def) return null;
+  return { code: p1, label: def.label, className: def.className };
+}
+
 function safetyChip(level: string): string {
   switch (level) {
     case "critical":
@@ -213,6 +238,8 @@ export function CustomerDetailView({
       status: r.status,
       mileage_in: r.mileage_in,
       amount: r.lines_total ?? r.estimated_subtotal,
+      // PD 工單費用歸屬整車成本（fee_allocation='vehicle_cost'）→ 金額欄顯示綠色「整車成本」tag
+      is_vehicle_cost: r.fee_allocation === "vehicle_cost",
       summary:
         (r.vehicle_id && vehicleById.get(r.vehicle_id)?.license_plate) ||
         "—",
@@ -227,6 +254,7 @@ export function CustomerDetailView({
       status: w.status,
       mileage_in: w.mileage_in,
       amount: w.total_amount,
+      is_vehicle_cost: false,
       summary: w.work_summary ?? w.customer_complaint ?? "—",
       raw: w,
     }));
@@ -680,6 +708,7 @@ type HistoryRow = {
   status: string;
   mileage_in: number | null;
   amount: number | null;
+  is_vehicle_cost: boolean;
   summary: string;
 };
 
@@ -760,6 +789,7 @@ function HistoryTab({
             <thead className="bg-[#F8F7F4] text-[11px] text-[#9A9890]">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">工單號</th>
+                <th className="px-3 py-2 text-left font-medium">類型</th>
                 <th className="px-3 py-2 text-left font-medium">開單日</th>
                 <th className="px-3 py-2 text-left font-medium">結單日</th>
                 <th className="px-3 py-2 text-right font-medium">進廠里程</th>
@@ -778,6 +808,20 @@ function HistoryTab({
                   <td className="px-3 py-2 font-mono font-semibold text-[#1A3A5C]">
                     {r.no}
                   </td>
+                  <td className="px-3 py-2">
+                    {(() => {
+                      const t = roTypeBadge(r.no);
+                      return t ? (
+                        <span
+                          className={`inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold ${t.className}`}
+                        >
+                          {t.label}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-[#9A9890]">—</span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-3 py-2 font-mono">{fmtDate(r.date)}</td>
                   <td className="px-3 py-2 font-mono">
                     {fmtDate(r.closed_at)}
@@ -789,7 +833,20 @@ function HistoryTab({
                     {r.summary}
                   </td>
                   <td className="px-3 py-2 font-mono text-right">
-                    {fmtNT(r.amount)}
+                    {r.is_vehicle_cost ? (
+                      <span className="inline-flex items-center gap-1 justify-end flex-wrap">
+                        <span className="inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#EAF3DE] text-[#3B6D11] whitespace-nowrap">
+                          整車成本
+                        </span>
+                        {r.amount != null && (
+                          <span className="text-[11px] text-[#3B6D11]">
+                            {fmtNT(r.amount)}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      fmtNT(r.amount)
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <span

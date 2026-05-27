@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DUCATI 售後 — 正式工單RO確認</title>
+<style>:root{--red:#CC0000;--dark:#1A1A1A;--navy:#1A3A5C;--white:#FFFFFF;--g50:#F5F5F4;--g100:#E8E7E4;--g200:#D1D0CE;--g400:#999;--g500:#6B6A68;--g700:#3A3A38;--green:#0F6E56;--green-bg:#E1F5EE;--green-bd:#1D9E75;--amber:#854F0B;--amber-bg:#FAEEDA;--amber-bd:#BA7517;--red-bg:#FCEBEB;--blue:#185FA5;--blue-bg:#E6F1FB;--blue-bd:#4A90D9;--purple:#534AB7;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#1D9E75;--font:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;--r:10px;--r-sm:6px;}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#EDECEB;font-family:var(--font);font-size:14px;color:var(--dark)}
+/* Header */
+header{background:var(--navy);height:48px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.2);}
+.h-logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.h-div{width:1px;height:20px;background:rgba(255,255,255,0.2);display:inline-block;}
+.h-title{font-size:13px;color:rgba(255,255,255,0.6);}
+.h-title b{color:#fff;font-weight:500;}
+.h-meta{margin-left:auto;font-size:12px;color:rgba(255,255,255,0.55);}
+.h-branch{font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.15);}
+/* Nav */
+.nav-btns{position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;}
+.nav-btn{padding:5px 14px;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;}
+.nav-back{background:#1A3A5C;}
+.nav-fwd{background:#C8001A;}
+/* Layout */
+.wrap{max-width:860px;margin:0 auto;padding:20px;}
+/* Warn Banner */
+.warn-banner{background:var(--red-bg);border:1.5px solid #F5AEAD;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--red);font-weight:500;display:none;}
+/* RO Card */
+.ro-card{background:var(--white);border:1px solid var(--g100);border-radius:12px;overflow:hidden;margin-bottom:14px;}
+.ro-card-hdr{background:var(--navy);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+.ro-id{font-size:22px;font-weight:700;letter-spacing:1px;font-family:monospace;}
+.ro-meta{font-size:12px;opacity:.65;margin-top:2px;}
+.ro-body{padding:18px 20px;}
+/* Info grid */
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.info-item{background:var(--g50);border-radius:8px;padding:10px 12px;}
+.info-lbl{font-size:10.5px;color:var(--g400);font-weight:500;margin-bottom:3px;}
+.info-val{font-size:13px;font-weight:600;color:var(--dark);}
+.info-val.mono{font-family:monospace;}
+/* Section label */
+.sec-lbl{font-size:11px;color:var(--g400);font-weight:500;letter-spacing:.3px;margin-bottom:8px;}
+/* Items preview */
+.items-preview{background:var(--g50);border-radius:8px;padding:12px 14px;margin-bottom:16px;}
+.items-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--g100);font-size:12.5px;}
+.items-row:last-child{border-bottom:none;}
+.items-total{display:flex;justify-content:space-between;align-items:center;padding:8px 0 0;font-size:14px;font-weight:700;color:var(--navy);border-top:2px solid var(--navy);margin-top:4px;}
+/* Prefix rows */
+.p-section-title{font-size:12px;color:var(--g500);margin:10px 0 8px;}
+.prefix-row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;margin-bottom:16px;}
+.prefix-box{background:var(--white);border:1.5px solid var(--g200);border-radius:8px;padding:12px 14px;flex:1;min-width:120px;cursor:pointer;transition:all .15s;position:relative;}
+.prefix-box:hover{border-color:var(--navy);}
+.prefix-box.selected{border-color:var(--navy);background:#EBF3FF;}
+.prefix-box.selected-pdi{border-color:var(--teal);background:var(--teal-bg);}
+.prefix-box.locked{background:var(--g50);border-color:var(--g200);cursor:not-allowed;opacity:.45;}
+.prefix-box.locked-pdi{background:var(--teal-bg);border-color:var(--teal-bd);cursor:not-allowed;}
+.prefix-box input[type=radio]{display:none;}
+.prefix-code{font-size:20px;font-weight:700;font-family:monospace;color:var(--navy);margin-bottom:4px;}
+.prefix-code.teal{color:var(--teal);}
+.prefix-name{font-size:12.5px;font-weight:600;color:var(--dark);}
+.prefix-desc{font-size:11px;color:var(--g400);margin-top:2px;}
+.lock-tag{position:absolute;top:6px;right:8px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-bd);}
+/* PD 說明卡 */
+.pdi-notice{background:var(--teal-bg);border:1.5px solid var(--teal-bd);border-radius:8px;padding:12px 14px;margin-bottom:16px;display:none;}
+.pdi-notice-title{font-size:12.5px;font-weight:700;color:#085041;margin-bottom:5px;}
+.pdi-notice-body{font-size:12px;color:#0F4A35;line-height:1.7;}
+.pdi-notice-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.pdi-chip{background:#fff;border:1px solid var(--teal-bd);border-radius:5px;padding:3px 10px;font-size:11.5px;color:#085041;}
+.pdi-chip b{font-family:monospace;}
+/* Combo result */
+.combo-result{padding:10px 14px;border-radius:8px;border:1.5px solid var(--g200);margin-bottom:16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;}
+.combo-ok{background:var(--green-bg);border-color:var(--green-bd);color:var(--green);}
+.combo-pdi{background:var(--teal-bg);border-color:var(--teal-bd);color:#085041;}
+.combo-err{background:var(--red-bg);border-color:#F5AEAD;color:var(--red);}
+/* Confirm button */
+.confirm-btn{width:100%;height:52px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.confirm-btn:hover{background:#0F2A45;}
+.confirm-btn.pdi-mode{background:var(--teal);}
+.confirm-btn.pdi-mode:hover{background:#085041;}
+.confirm-btn:disabled{background:var(--g200);color:var(--g400);cursor:not-allowed;}
+.confirm-hint{text-align:center;margin-top:8px;font-size:11px;color:var(--g400);}
+/* Toast */
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+/* Warranty badge */
+.warranty-ok{background:var(--green-bg);border:1px solid var(--green-bd);border-radius:6px;padding:7px 12px;font-size:12px;color:var(--green);margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<div class="nav-btns">
+  <button class="nav-btn nav-back" onclick="go('01_預約管理看板.html')">← 預約看板</button>
+  <button class="nav-btn nav-fwd" onclick="go('03_維修項目零件明細.html')">維修明細 →</button>
+</div>
+
+<header>
+  <span class="h-logo">DUCATI</span>
+  <span class="h-div"></span>
+  <span class="h-title">售後工單模組 <b>正式工單（RO）開立確認</b></span>
+  <span class="h-meta">SA：魏呈宇　2026/05/08　<span class="h-branch">台北直營店</span></span>
+</header>
+
+<div class="wrap">
+
+  <!-- 警告橫幅 -->
+  <div class="warn-banner" id="combo-warn"></div>
+
+  <!-- RO 工單確認卡 -->
+  <div class="ro-card">
+    <div class="ro-card-hdr">
+      <div>
+        <div class="ro-id" id="ro-id-display">MN-CP-260508-003</div>
+        <div class="ro-meta">正式維修工單（RO）· 2026/05/08 09:42 · SA：魏呈宇</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;opacity:.65;margin-bottom:4px;">由預檢單自動帶入</div>
+        <div style="font-size:12px;background:rgba(255,255,255,0.15);padding:2px 10px;border-radius:5px;">PI-20260508-003</div>
+      </div>
+    </div>
+
+    <div class="ro-body">
+
+      <!-- 車主與車輛資料 -->
+      <div class="sec-lbl">▌ 車主與車輛資料（由預檢單自動帶入）</div>
+      <div class="info-grid">
+        <div class="info-item"><div class="info-lbl">車主姓名</div><div class="info-val">鄭宗勳</div></div>
+        <div class="info-item"><div class="info-lbl">聯絡電話</div><div class="info-val mono">0960-771-318</div></div>
+        <div class="info-item"><div class="info-lbl">進廠日期</div><div class="info-val">2026/05/08</div></div>
+        <div class="info-item"><div class="info-lbl">車型</div><div class="info-val">PANIGALE V2</div></div>
+        <div class="info-item"><div class="info-lbl">車牌號碼</div><div class="info-val mono">LGX-8096</div></div>
+        <div class="info-item"><div class="info-lbl">進廠里程</div><div class="info-val">12,850 km</div></div>
+      </div>
+      <div class="warranty-ok">🛡 保固狀態：<b>有效</b> · 到期：2027/11/18 · 里程：無限制（NORM）</div>
+
+      <!-- 維修項目 -->
+      <div class="sec-lbl">▌ 本次維修項目（由預檢單帶入，共 3 項）</div>
+      <div class="items-preview">
+        <div class="items-row"><span>① Desmo 12,000km 定期保養</span><span style="font-family:monospace;font-size:12px;">2.5 LU · NT$5,300</span></div>
+        <div class="items-row"><span>② 前煞車皮（左右）更換</span><span style="font-family:monospace;font-size:12px;">0.5 LU · NT$2,000</span></div>
+        <div class="items-row"><span>③ 鏈條張力調整</span><span style="font-family:monospace;font-size:12px;">0.5 LU · NT$500</span></div>
+        <div class="items-total"><span>預估合計（含稅）</span><span>NT$8,190</span></div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- 業務類型選擇（v2 修正：加入 PD PDI整備）                      -->
+      <!-- ============================================================ -->
+      <div class="sec-lbl">▌ SA 選擇工單類型（必填）</div>
+
+      <div class="p-section-title">業務類型</div>
+      <div class="prefix-row" id="p1-row">
+        <label class="prefix-box selected" onclick="selP1('MN',this)">
+          <input type="radio" name="p1" value="MN" checked>
+          <div class="prefix-code">MN</div>
+          <div class="prefix-name">定期保養</div>
+          <div class="prefix-desc">Maintenance · 客付收入</div>
+        </label>
+        <label class="prefix-box" onclick="selP1('RP',this)">
+          <input type="radio" name="p1" value="RP">
+          <div class="prefix-code">RP</div>
+          <div class="prefix-name">機修</div>
+          <div class="prefix-desc">Repair · 客付收入</div>
+        </label>
+        <label class="prefix-box" onclick="selP1('WC',this)">
+          <input type="radio" name="p1" value="WC">
+          <div class="prefix-code">WC</div>
+          <div class="prefix-name">保固索賠</div>
+          <div class="prefix-desc">Warranty · 廠商轉收入</div>
+        </label>
+        <label class="prefix-box" onclick="selP1('AC',this)">
+          <input type="radio" name="p1" value="AC">
+          <div class="prefix-code">AC</div>
+          <div class="prefix-name">事故</div>
+          <div class="prefix-desc">Accident · 保險付款</div>
+        </label>
+        <label class="prefix-box" onclick="selP1('OT',this)">
+          <input type="radio" name="p1" value="OT">
+          <div class="prefix-code">OT</div>
+          <div class="prefix-name">其他業務</div>
+          <div class="prefix-desc">Others · 客付收入</div>
+        </label>
+        <!-- ★ 新增：PD PDI整備 -->
+        <label class="prefix-box" id="pd-box" onclick="selP1('PD',this)">
+          <input type="radio" name="p1" value="PD">
+          <div class="prefix-code teal">PD</div>
+          <div class="prefix-name">PDI 整備</div>
+          <div class="prefix-desc">Pre-Delivery · 整車成本</div>
+        </label>
+      </div>
+
+      <!-- PD 說明卡（選 PD 時顯示） -->
+      <div class="pdi-notice" id="pdi-notice">
+        <div class="pdi-notice-title">ℹ️ PDI 整備工單（PD）— 費用計入整車成本</div>
+        <div class="pdi-notice-body">
+          本工單類型用於<b>新車到港</b>或<b>中古車整備</b>的 PDI 作業。<br>
+          費用由<b>銷售部門整車成本</b>承擔，<b>不向車主收取任何費用</b>。<br>
+          系統將於工單完成後自動將工時費用與零件費用寫回車輛主檔，更新整車成本合計。
+        </div>
+        <div class="pdi-notice-chips">
+          <div class="pdi-chip">付款性質：<b>IN（內部結算）</b></div>
+          <div class="pdi-chip">費用歸屬：<b>整車在庫成本</b></div>
+          <div class="pdi-chip">車主應付：<b>NT$0</b></div>
+          <div class="pdi-chip">適用前綴：<b>PD-IN</b>（新車）/ <b>PD-UC</b>（中古）</div>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- 付款性質選擇（v2 修正：選 PD 時鎖定為 IN，其他選項 disable）  -->
+      <!-- ============================================================ -->
+      <div class="p-section-title" id="p2-title">付款性質</div>
+      <div class="prefix-row" id="p2-row">
+        <label class="prefix-box selected" id="p2-cp" onclick="selP2('CP',this)">
+          <input type="radio" name="p2" value="CP" checked>
+          <div class="prefix-code">CP</div>
+          <div class="prefix-name">客付</div>
+          <div class="prefix-desc">Customer Pay · 自費</div>
+        </label>
+        <label class="prefix-box" id="p2-wr" onclick="selP2('WR',this)">
+          <input type="radio" name="p2" value="WR">
+          <div class="prefix-code">WR</div>
+          <div class="prefix-name">保固</div>
+          <div class="prefix-desc">Warranty · 廠商負擔</div>
+        </label>
+        <label class="prefix-box" id="p2-fr" onclick="selP2('FR',this)">
+          <input type="radio" name="p2" value="FR">
+          <div class="prefix-code">FR</div>
+          <div class="prefix-name">免費施工</div>
+          <div class="prefix-desc">Free of Charge · 本店吸收</div>
+        </label>
+        <!-- ★ 新增：IN 內部結算（僅 PD 時顯示並自動選中） -->
+        <label class="prefix-box locked-pdi" id="p2-in" style="display:none;">
+          <input type="radio" name="p2" value="IN">
+          <div class="lock-tag">自動鎖定</div>
+          <div class="prefix-code teal">IN</div>
+          <div class="prefix-name">內部結算</div>
+          <div class="prefix-desc">整車成本轉入 · 銷售部門負擔</div>
+        </label>
+      </div>
+
+      <!-- 組合結果 -->
+      <div class="combo-result combo-ok" id="combo-result">✅ MN-CP 定保客付 · 一般應收帳款 · 合法組合</div>
+
+      <!-- 確認按鈕 -->
+      <button class="confirm-btn" id="confirm-btn" onclick="confirmRO()">
+        確認開立工單 MN-CP-260508-003 →
+      </button>
+      <div class="confirm-hint" id="confirm-hint">確認後工單狀態設為「進行中」，技師可開始作業並打卡</div>
+
+    </div>
+  </div>
+
+</div>
+
+<div id="_sys_toast_"></div>
+
+<script>
+var p1='MN', p2='CP';
+
+/* 業務類型與付款性質合法組合表 */
+var combos={
+  'MN-CP':'✅ MN-CP 定保客付 · 一般應收帳款 · 合法組合',
+  'MN-FR':'✅ MN-FR 定保免費（返工/公關）· 費用認列',
+  'RP-CP':'✅ RP-CP 機修客付 · 一般應收帳款 · 合法組合',
+  'RP-FR':'✅ RP-FR 機修免費（返工賠償）· 費用認列',
+  'WC-WR':'✅ WC-WR 保固索賠（廠商付）· 廠商應收帳款',
+  'WC-CP':'✅ WC-CP 保固轉客付（超出範圍部分）',
+  'WC-FR':'❌ WC-FR 邏輯衝突！保固索賠不可免費施工，請重新選擇',
+  'AC-CP':'✅ AC-CP 事故客付 · 一般應收帳款',
+  'AC-FR':'✅ AC-FR 事故免費（特殊公關）· 費用認列',
+  'OT-CP':'✅ OT-CP 其他業務客付 · 一般應收帳款',
+  'OT-FR':'✅ OT-FR 其他業務免費 · 費用認列',
+  /* ★ PD 類型：唯一合法付款性質為 IN（內部結算） */
+  'PD-IN':'✅ PD-IN PDI整備（內部結算）· 費用計入整車成本 · 車主不收費'
+};
+
+function selP1(v, el){
+  p1=v;
+  /* 清除所有 p1 選中狀態 */
+  document.querySelectorAll('#p1-row .prefix-box').forEach(function(b){
+    b.classList.remove('selected','selected-pdi');
+  });
+  if(el) el.classList.add(v==='PD'?'selected-pdi':'selected');
+
+  if(v==='PD'){
+    /* PD 模式：隱藏 CP/WR/FR，顯示並鎖定 IN */
+    lockP2ForPDI();
+  } else {
+    /* 非 PD：恢復正常付款性質選項 */
+    unlockP2();
+  }
+  updateCombo();
+}
+
+function selP2(v, el){
+  if(p1==='PD') return; /* PD 模式下付款性質不可手動選 */
+  p2=v;
+  document.querySelectorAll('#p2-row .prefix-box').forEach(function(b){
+    b.classList.remove('selected');
+  });
+  if(el) el.classList.add('selected');
+  updateCombo();
+}
+
+function lockP2ForPDI(){
+  /* 隱藏 CP / WR / FR */
+  document.getElementById('p2-cp').style.display='none';
+  document.getElementById('p2-wr').style.display='none';
+  document.getElementById('p2-fr').style.display='none';
+  /* 顯示並自動選中 IN */
+  var inBox=document.getElementById('p2-in');
+  inBox.style.display='';
+  p2='IN';
+  /* 顯示 PD 說明卡 */
+  document.getElementById('pdi-notice').style.display='';
+  /* 付款性質標題說明 */
+  document.getElementById('p2-title').textContent='付款性質（PDI 模式：自動鎖定為內部結算）';
+  document.getElementById('p2-title').style.color='var(--teal)';
+}
+
+function unlockP2(){
+  /* 顯示 CP / WR / FR */
+  document.getElementById('p2-cp').style.display='';
+  document.getElementById('p2-wr').style.display='';
+  document.getElementById('p2-fr').style.display='';
+  /* 隱藏 IN */
+  document.getElementById('p2-in').style.display='none';
+  /* 預設選回 CP */
+  p2='CP';
+  document.getElementById('p2-cp').classList.add('selected');
+  /* 隱藏 PD 說明卡 */
+  document.getElementById('pdi-notice').style.display='none';
+  /* 恢復標題 */
+  document.getElementById('p2-title').textContent='付款性質';
+  document.getElementById('p2-title').style.color='';
+}
+
+function updateCombo(){
+  var key=p1+'-'+p2;
+  var res=document.getElementById('combo-result');
+  var btn=document.getElementById('confirm-btn');
+  var warn=document.getElementById('combo-warn');
+  var hint=document.getElementById('confirm-hint');
+
+  var txt=combos[key]||'⚠️ 此組合需主管確認';
+  var isErr=txt.startsWith('❌');
+  var isPDI=(p1==='PD');
+
+  res.textContent=txt;
+  res.className='combo-result '+(isPDI?'combo-pdi':(isErr?'combo-err':'combo-ok'));
+
+  btn.disabled=isErr;
+  btn.className='confirm-btn'+(isPDI?' pdi-mode':'');
+  btn.textContent=isErr?'請先選擇正確組合':('確認開立工單 '+p1+'-'+p2+'-260508-003 →');
+
+  warn.style.display=(isErr&&!isPDI)?'block':'none';
+  warn.textContent=isErr?'⚠️ WC（保固索賠）不可搭配 FR（免費施工），此組合邏輯衝突，請重新選擇付款性質。':'';
+
+  if(isPDI){
+    hint.textContent='確認後 PDI 工單狀態設為「進行中」· 技師可開始作業 · 完工後費用自動計入整車成本';
+    hint.style.color='var(--teal)';
+  } else {
+    hint.textContent='確認後工單狀態設為「進行中」，技師可開始作業並打卡';
+    hint.style.color='';
+  }
+
+  document.getElementById('ro-id-display').textContent=p1+'-'+p2+'-260508-003';
+}
+
+function confirmRO(){
+  if(p1==='WC'&&p2==='FR') return;
+  var isPDI=(p1==='PD');
+  if(isPDI){
+    showToast('✅ PDI 工單 PD-IN-260508-003 已開立\n\n狀態：進行中\n費用歸屬：整車成本（內部結算）\n→ 技師可開始作業 · 完工後成本自動更新');
+  } else {
+    showToast('✅ 工單 '+p1+'-'+p2+'-260508-003 已開立\n\n狀態：進行中\n→ 技師可開始作業並打卡');
+  }
+}
+
+function showToast(msg,dur){
+  var t=document.getElementById('_sys_toast_');
+  if(!t)return;
+  t.textContent=msg;
+  t.style.transform='translateY(0)';
+  t.style.opacity='1';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(function(){
+    t.style.transform='translateY(80px)';
+    t.style.opacity='0';
+  },dur||3200);
+}
+
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

@@ -237,6 +237,11 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  /**
+   * @deprecated 錯誤邏輯殘留：交車當天才建 PDI 工單。
+   * PDI 已改為車輛到港(INV02)時觸發、技師做完關單，RS05 STEP 2 只「確認 PDI 已完成」。
+   * 不再有 UI 入口呼叫此函式；保留 context shape 避免破壞既有 import。
+   */
   const triggerPdiWorkOrder = useCallback(() => {
     setState((prev) => {
       if (prev.pdiWorkOrderNo) return prev;

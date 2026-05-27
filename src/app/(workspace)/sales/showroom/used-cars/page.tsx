@@ -4,6 +4,7 @@ import {
   getUsedCarKpis,
   getUsedCarByModel,
   getUsedCarSlowMovers,
+  canViewUsedCarCost,
 } from "@/domain/used-car-inventory";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
@@ -33,17 +34,19 @@ export default async function UsedCarsPage({
   const sp = await searchParams;
   const brandId = await getCurrentBrandId();
 
-  const [{ units, totalCount }, kpi, byModel, slowMovers] = await Promise.all([
+  const [{ units, totalCount }, kpi, byModel, slowMovers, canViewCost] = await Promise.all([
     listUsedCars({
       brandId,
       status: sp.status || undefined,
       conditionGrade: sp.grade || undefined,
       kmRange: sp.km || undefined,
       search: sp.q || undefined,
+      source: sp.source || undefined,
     }),
     getUsedCarKpis(brandId),
     getUsedCarByModel(brandId),
     getUsedCarSlowMovers(brandId, 90),
+    canViewUsedCarCost(),
   ]);
 
   return (
@@ -54,6 +57,7 @@ export default async function UsedCarsPage({
       kpi={kpi}
       byModel={byModel}
       slowMovers={slowMovers}
+      canViewCost={canViewCost}
     />
   );
 }

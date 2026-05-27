@@ -16,6 +16,7 @@ import { vehiclePdiCompletedLine, vehiclePdiCompletedGoogleChat } from "./vehicl
 import { customerHandoverScheduledLine, customerHandoverScheduledGoogleChat } from "./customer-handover-scheduled";
 import { feedbackTicketCreatedLine, feedbackTicketCreatedGoogleChat } from "./feedback-ticket-created";
 import { surveyDispatchedLine, surveyDispatchedGoogleChat } from "./survey-dispatched";
+import { vehicleArrivalConfirmedLine, vehicleArrivalConfirmedGoogleChat } from "./vehicle-arrival-confirmed";
 
 // Code-registered 預設模板集合（本 repo 內建、版本隨 git 追蹤）
 const CODE_TEMPLATES: TemplateDefinition[] = [
@@ -33,6 +34,8 @@ const CODE_TEMPLATES: TemplateDefinition[] = [
   feedbackTicketCreatedGoogleChat,
   surveyDispatchedLine,
   surveyDispatchedGoogleChat,
+  vehicleArrivalConfirmedLine,
+  vehicleArrivalConfirmedGoogleChat,
 ];
 
 /** 以 `eventCode:channelCode` / `code` 建兩個索引 */

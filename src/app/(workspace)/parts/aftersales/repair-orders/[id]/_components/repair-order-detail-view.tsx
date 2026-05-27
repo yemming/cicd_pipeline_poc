@@ -364,12 +364,28 @@ export function RepairOrderDetailView({
           <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 子模組</span>
         </header>
         <div className="px-4 py-3 flex flex-wrap gap-2">
-          <Link
-            href={`/parts/aftersales/repair-orders/${ro.id}/lines`}
-            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#1A3A5C] text-white hover:bg-[#0F2A45] shadow-sm"
-          >
-            🔧 維修項目／零件明細 →
-          </Link>
+          {ro.prefix_p1 === "PD" && ro.related_used_car_id ? (
+            <Link
+              href={`/parts/aftersales/workorders/recon/${ro.id}`}
+              className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm"
+            >
+              🔧 中古車整備工單執行（24 項）→
+            </Link>
+          ) : ro.prefix_p1 === "PD" ? (
+            <Link
+              href={`/parts/aftersales/workorders/pdi/${ro.id}`}
+              className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm"
+            >
+              🔧 PDI 整備工單執行（30 項）→
+            </Link>
+          ) : (
+            <Link
+              href={`/parts/aftersales/repair-orders/${ro.id}/lines`}
+              className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#1A3A5C] text-white hover:bg-[#0F2A45] shadow-sm"
+            >
+              🔧 維修項目／零件明細 →
+            </Link>
+          )}
           <span className="text-[11px] text-[#9A9890] inline-flex items-center">
             04 追加項目・05 增項閉環・06 竣工複檢・08 結帳收款 待落地
           </span>

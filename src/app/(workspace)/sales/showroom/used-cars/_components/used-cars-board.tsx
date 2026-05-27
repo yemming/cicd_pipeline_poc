@@ -16,10 +16,15 @@ import {
 
 // ── Design tokens ─────────────────────────────────────────────────────
 const STATUS_CHIP: Record<UsedCarDbStatus, string> = {
+  evaluation: "bg-[#EAF4FB] text-[#185FA5] border border-[#85B7EB]",
+  pending_recon: "bg-[#EEEDFE] text-[#534AB7] border border-[#C5C0F0]",
   available: "bg-[#E1F5EE] text-[#0F6E56] border border-[#5DCAA5]",
   reserved: "bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E]",
   sold: "bg-[#FDECEA] text-[#C8001A] border border-[#F5AEAD]",
   pending_inspection: "bg-[#EEEDFE] text-[#534AB7] border border-[#C5C0F0]",
+  consignment: "bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E]",
+  in_transit_transfer: "bg-[#EAF4FB] text-[#185FA5] border border-[#85B7EB]",
+  inactive: "bg-[#F2F2F2] text-[#6B6A68] border border-[#D5D3CB]",
   withdrawn: "bg-[#F2F2F2] text-[#6B6A68] border border-[#D5D3CB]",
 };
 

@@ -23,6 +23,7 @@ import {
   getKanbanColumnIdByStatus,
   type DeliveryKanbanCard,
   type DeliveryKpiSummary,
+  type DeliveryPdiStatus,
   type DeliveryTimelineEvent,
 } from "./sales-delivery.constants";
 
@@ -30,6 +31,7 @@ import {
 export type {
   DeliveryKpiSummary,
   DeliveryKanbanCard,
+  DeliveryPdiStatus,
   DeliveryTimelineEvent,
 } from "./sales-delivery.constants";
 
@@ -229,6 +231,121 @@ export async function getDeliveryTimeline(
   // 依時間排序
   events.sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
   return events;
+}
+
+// repair_orders.status 為中文 enum；「已關單」代表 PDI 工單完成
+const RO_CLOSED_STATUS = "已關單";
+// 視為「PDI 已完成、可售」的車輛狀態（PDI 在到港時做完才會進這些狀態）
+const CAR_PDI_DONE_STATUSES = new Set(["displayed", "reserved", "sold", "delivered"]);
+
+/**
+ * 查「該交車單關聯車輛的 PDI 完成狀態」（RS05 STEP — PDI 完成確認）。
+ *
+ * 串接鏈：
+ *   deliveries.vin ─(VIN + brand)→ new_car_inventory
+ *     → new_car_inventory.pdi_workorder_id → repair_orders（PDI 工單，PD-IN）
+ *
+ * PDI 不是在交車當天才做，而是車輛到港入庫(INV02)時即觸發、技師做完關單。
+ * 本函式只「讀狀態」決定交車流程能不能往下走，不寫任何資料、不建工單。
+ *
+ * 三態判定：
+ *   ok       車已 displayed/reserved/sold/delivered 且 PDI 工單已關單 → 可進下一步
+ *   pending  車 pending_pdi 且工單存在但未關單                       → 鎖
+ *   blocked  車 pending_pdi 無工單 / 找不到關聯車輛 / 其他異常        → 鎖
+ */
+export async function getDeliveryPdiStatus(
+  deliveryId: string,
+): Promise<DeliveryPdiStatus> {
+  const supabase = await createClient();
+
+  const empty: DeliveryPdiStatus = {
+    state: "blocked",
+    canProceed: false,
+    hasLinkedCar: false,
+    carId: null,
+    carStatus: null,
+    workOrderNo: null,
+    workOrderStatus: null,
+    workOrderClosed: false,
+    completedDate: null,
+    technicianName: null,
+    pdiLaborCost: null,
+    pdiPartsCost: null,
+  };
+
+  // 1) 撈交車單 VIN + brand
+  const { data: dlv, error: dlvErr } = await supabase
+    .from("deliveries")
+    .select("vin, brand_id")
+    .eq("id", deliveryId)
+    .maybeSingle();
+  if (dlvErr) throw dlvErr;
+  if (!dlv?.vin) return empty; // 沒 VIN 無從對車 → blocked（找不到關聯車輛）
+
+  // 2) VIN + brand join 庫存車
+  const { data: car, error: carErr } = await supabase
+    .from("new_car_inventory")
+    .select(
+      "id, status, pdi_workorder_id, pdi_labor_cost, pdi_parts_cost",
+    )
+    .eq("brand_id", dlv.brand_id)
+    .eq("vin", dlv.vin)
+    .maybeSingle();
+  if (carErr) throw carErr;
+  if (!car) return empty; // VIN 對不到庫存車（例如 demo 交車單未串庫存）→ blocked
+
+  const result: DeliveryPdiStatus = {
+    ...empty,
+    hasLinkedCar: true,
+    carId: car.id,
+    carStatus: car.status,
+    pdiLaborCost: car.pdi_labor_cost ?? null,
+    pdiPartsCost: car.pdi_parts_cost ?? null,
+  };
+
+  // 3) 撈 PDI 工單
+  if (car.pdi_workorder_id) {
+    const { data: ro, error: roErr } = await supabase
+      .from("repair_orders")
+      .select("ro_code, status, closed_at, lead_technician_id")
+      .eq("id", car.pdi_workorder_id)
+      .maybeSingle();
+    if (roErr) throw roErr;
+    if (ro) {
+      result.workOrderNo = ro.ro_code;
+      result.workOrderStatus = ro.status;
+      result.workOrderClosed = ro.status === RO_CLOSED_STATUS;
+      result.completedDate = ro.closed_at ? ro.closed_at.slice(0, 10) : null;
+      if (ro.lead_technician_id) {
+        const { data: emp } = await supabase
+          .from("employees")
+          .select("name")
+          .eq("id", ro.lead_technician_id)
+          .maybeSingle();
+        result.technicianName = emp?.name ?? null;
+      }
+    }
+  }
+
+  // 4) 推導三態
+  const carDone = CAR_PDI_DONE_STATUSES.has(car.status);
+  if (carDone && result.workOrderClosed) {
+    // 正常完成：車可售 + 工單關單
+    result.state = "ok";
+    result.canProceed = true;
+  } else if (carDone && !car.pdi_workorder_id) {
+    // 車已可售但沒掛 PDI 工單（舊資料 / 手動上架）— 視為已完成（車況已是可售）
+    result.state = "ok";
+    result.canProceed = true;
+  } else if (car.pdi_workorder_id && !result.workOrderClosed) {
+    // 工單還在跑 → 進行中
+    result.state = "pending";
+  } else {
+    // pending_pdi 無工單、或工單狀態異常 → blocked
+    result.state = "blocked";
+  }
+
+  return result;
 }
 
 export { DELIVERY_KANBAN_COLUMNS };

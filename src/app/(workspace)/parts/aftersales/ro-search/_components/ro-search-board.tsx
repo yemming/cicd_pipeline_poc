@@ -38,20 +38,29 @@ function statusChipClass(status: string): string {
 }
 
 function p1ChipClass(p1: string): string {
+  // 業務類型彩色 badge 配色（partner 設計稿 10_工單查詢）：
+  // PD=紫 / WC=綠 / RP=琥珀 / AC=紅 / MN=深藍 / OT=靛
   switch (p1) {
-    case "MN":
+    case "PD":
+      return "bg-[#EEEDFE] text-[#534AB7]";
+    case "WC":
       return "bg-[#E5F5EE] text-[#0F6E56]";
     case "RP":
-      return "bg-[#EAF4FB] text-[#185FA5]";
-    case "WC":
       return "bg-[#FDF3E3] text-[#854F0B]";
     case "AC":
       return "bg-[#FDECEA] text-[#CC0000]";
+    case "MN":
+      return "bg-[#E8EFF8] text-[#1A3A5C]";
     case "OT":
-      return "bg-[#F0EFFE] text-[#534AB7]";
+      return "bg-[#EAF4FB] text-[#185FA5]";
     default:
       return "bg-[#F2F2F2] text-[#6B6A68]";
   }
+}
+
+/** PD 工單（fee_allocation='vehicle_cost'）= 內部整備作業，費用計入整車成本 */
+function isVehicleCostRo(r: RepairOrderListRow): boolean {
+  return r.prefix_p1 === "PD" || r.fee_allocation === "vehicle_cost";
 }
 
 function formatCurrency(v: number): string {
@@ -133,20 +142,41 @@ export function RoSearchBoard({
         id: "customer",
         header: "車主 / 車型",
         width: 180,
-        cell: (r) => (
-          <div className="flex flex-col leading-tight">
-            <span className="text-[12.5px] text-[#2C2C2A] font-medium">
-              {r.customer_name ?? <span className="text-[#9A9890]">—</span>}
-            </span>
-            <span className="text-[11px] text-[#9A9890]">
-              {r.vehicle_model_name ?? r.vehicle_license_plate ?? "—"}
-            </span>
-          </div>
-        ),
-        exportValue: (r) =>
-          [r.customer_name, r.vehicle_model_name ?? r.vehicle_license_plate]
+        cell: (r) => {
+          const internal = isVehicleCostRo(r);
+          // PD 整備為內部作業（無外部車主）；以 metadata.internal_owner_label 顯示經銷商名，
+          // 退回既有 customer_name，再退回「—」。前綴固定打 [內部] 標示為內部結算。
+          const meta = (r.metadata ?? {}) as { internal_owner_label?: string };
+          const ownerName = internal
+            ? meta.internal_owner_label ?? r.customer_name ?? "海德生"
+            : r.customer_name;
+          return (
+            <div className="flex flex-col leading-tight">
+              <span className="text-[12.5px] text-[#2C2C2A] font-medium">
+                {internal ? (
+                  <span>
+                    <span className="text-[#534AB7] font-semibold">[內部]</span> {ownerName}
+                  </span>
+                ) : (
+                  ownerName ?? <span className="text-[#9A9890]">—</span>
+                )}
+              </span>
+              <span className="text-[11px] text-[#9A9890]">
+                {r.vehicle_model_name ?? r.vehicle_license_plate ?? "—"}
+              </span>
+            </div>
+          );
+        },
+        exportValue: (r) => {
+          const internal = isVehicleCostRo(r);
+          const meta = (r.metadata ?? {}) as { internal_owner_label?: string };
+          const ownerName = internal
+            ? `[內部] ${meta.internal_owner_label ?? r.customer_name ?? "海德生"}`
+            : r.customer_name;
+          return [ownerName, r.vehicle_model_name ?? r.vehicle_license_plate]
             .filter(Boolean)
-            .join(" / "),
+            .join(" / ");
+        },
         sortValue: (r) => r.customer_name ?? "",
       },
       {
@@ -217,6 +247,19 @@ export function RoSearchBoard({
         align: "right",
         cell: (r) => {
           const amt = Number(r.estimated_subtotal ?? 0);
+          // PD 整備工單：費用計入整車成本，不顯示一般客付金額格式，改綠色「整車成本」tag
+          if (isVehicleCostRo(r)) {
+            return (
+              <span className="inline-flex flex-col items-end gap-0.5">
+                <span className="inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold bg-[#E5F5EE] text-[#0F6E56] whitespace-nowrap">
+                  整車成本
+                </span>
+                <span className="font-mono text-[11px] text-[#0F6E56]">
+                  {formatCurrency(amt)}
+                </span>
+              </span>
+            );
+          }
           if (r.prefix_p2 === "WR") {
             return (
               <span className="font-mono text-[12px] text-[#854F0B]">

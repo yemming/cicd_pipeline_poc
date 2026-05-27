@@ -20,6 +20,9 @@ import {
   fetchEvaluationById,
   genEvalNo,
 } from "@/domain/used-car-evaluations";
+import { triggerUsedCarAcquisition } from "@/domain/used-purchase-requests";
+import { createClient } from "@/lib/supabase/server";
+import type { UsedCarConditionGrade } from "@/domain/used-car-inventory.constants";
 import type {
   CreateEvaluationInput,
   UsedCarEvaluationWithCustomer,
@@ -174,6 +177,164 @@ export async function deleteEvaluationAction(
     return { ok: true, data: { id } };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "刪除失敗";
+    return { ok: false, error: msg };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ★ T12 — RS06 收購決策真實觸發（置換 trade_in）
+// ─────────────────────────────────────────────────────────────────────
+
+const TRADEIN_GRADES: UsedCarConditionGrade[] = ["S", "A", "B", "C", "D"];
+
+export type ConfirmTradeInInput = {
+  /** 評估單 id（wizard 已存 draft 才有；用於雙向關聯 + 防重） */
+  evaluation_id?: string | null;
+  /** 收購決策（對映設計稿 4 選項） */
+  decision: "BUY_NORMAL" | "BUY_COND" | "BUY_MGR";
+  /** 從 wizard 帶上來的車輛 / 鑑價資料（避免一定要先存 draft） */
+  vehicle: {
+    brand_name?: string | null;
+    model?: string | null;
+    year?: number | null;
+    vin?: string | null;
+    license_plate?: string | null;
+    color?: string | null;
+    mileage_km?: number | null;
+    condition_grade?: string | null;
+  };
+  /** 收購金額（建議收購報價 = market − cost） */
+  acquisition_price?: number | null;
+  /** 整備預估費（B 段合計） */
+  recon_estimate?: number | null;
+  conclusion?: string | null;
+};
+
+export type ConfirmTradeInResult = {
+  evaluation_id: string | null;
+  used_car_id: string;
+  recon_workorder_id: string;
+  ro_code: string;
+};
+
+/**
+ * ★ 確認置換收購 → 呼叫共用觸發函式（acquisition_source='trade_in'）。
+ *  - 建中古車主檔（pending_recon）+ 觸發 PD-UC 整備工單
+ *  - 若帶 evaluation_id：回寫 eval.metadata.generated_inventory_id / decision，並防重
+ *  - 回傳中古車主檔 id + 整備工單號
+ */
+export async function confirmTradeInAcquisitionAction(
+  input: ConfirmTradeInInput,
+): Promise<ActionResult<ConfirmTradeInResult>> {
+  try {
+    const ctx = await getCurrentUserAndAdmin();
+    if (!ctx.userId) return { ok: false, error: "請先登入" };
+    // 收購決策會建中古車主檔 + 工單，沿用評估簽核權限
+    const canApprove = await hasPermission(PERMISSIONS.USED_CAR_EVALUATION_APPROVE);
+    if (!canApprove) return { ok: false, error: "沒有確認收購的權限（需評估簽核權限）" };
+
+    const supabase = await createClient();
+
+    // 決定 brand：有評估單用評估單的，否則用登入者 brand（fallback indian）
+    let brandId = "indian";
+    let evalRow: { id: string; brand_id: string; metadata: Record<string, unknown>; eval_no: string | null } | null = null;
+    if (input.evaluation_id) {
+      const row = await fetchEvaluationById(input.evaluation_id);
+      if (!row) return { ok: false, error: "找不到評估單" };
+      evalRow = {
+        id: row.id,
+        brand_id: row.brand_id,
+        metadata: (row.metadata ?? {}) as Record<string, unknown>,
+        eval_no: row.eval_no,
+      };
+      brandId = row.brand_id;
+      // 防重：已衍生過庫存 → 擋
+      if (evalRow.metadata.generated_inventory_id) {
+        return {
+          ok: false,
+          error: "此評估單已確認收購（中古車主檔已建立），請勿重複觸發。",
+        };
+      }
+    } else {
+      const { data: pb } = await supabase
+        .from("profile_brands")
+        .select("brand_id")
+        .eq("user_id", ctx.userId)
+        .limit(1)
+        .maybeSingle();
+      brandId = pb?.brand_id ?? "indian";
+    }
+
+    const v = input.vehicle;
+    const modelName =
+      v.model?.trim() ||
+      [v.brand_name?.trim(), "未指定車款"].filter(Boolean).join(" ") ||
+      "（未指定）";
+    const grade =
+      v.condition_grade && TRADEIN_GRADES.includes(v.condition_grade as UsedCarConditionGrade)
+        ? (v.condition_grade as UsedCarConditionGrade)
+        : null;
+
+    // ── 呼叫共用觸發函式（trade_in）──
+    const trigger = await triggerUsedCarAcquisition({
+      brand_id: brandId,
+      model_display_name: modelName,
+      year: v.year ?? new Date().getFullYear(),
+      acquisition_source: "trade_in",
+      acquisition_price: input.acquisition_price ?? null,
+      vin: v.vin,
+      license_plate: v.license_plate,
+      color: v.color,
+      mileage_km: v.mileage_km,
+      condition_grade: grade,
+      recon_estimate: input.recon_estimate ?? null,
+      note: input.conclusion ?? null,
+      created_by: ctx.userId,
+      source_kind: "evaluation",
+      source_id: evalRow?.id ?? "manual",
+      source_no: evalRow?.eval_no ?? null,
+      conditional: input.decision === "BUY_COND",
+    });
+
+    // ── 雙向回寫評估單 metadata（若有評估單）──
+    if (evalRow) {
+      const mergedMeta = {
+        ...evalRow.metadata,
+        generated_inventory_id: trigger.used_car_id,
+        generated_recon_workorder_id: trigger.recon_workorder_id,
+        purchase_decision_code: input.decision,
+      };
+      const { error: backErr } = await supabase
+        .from("used_car_evaluations")
+        .update({ metadata: mergedMeta, decision: input.decision })
+        .eq("id", evalRow.id);
+      if (backErr) {
+        console.error(
+          `confirmTradeInAcquisitionAction: 回寫評估單 metadata 失敗（不影響主結果）— ${backErr.message}`,
+        );
+      }
+    }
+
+    revalidatePath("/usedcar/evaluations");
+    if (input.evaluation_id) {
+      revalidatePath(`/usedcar/evaluations/${input.evaluation_id}`);
+      revalidatePath("/usedcar/evaluations/wizard");
+    }
+    revalidatePath("/usedcar/stock");
+    revalidatePath("/sales/showroom/used-cars");
+    revalidatePath("/parts/aftersales/repair-orders");
+
+    return {
+      ok: true,
+      data: {
+        evaluation_id: evalRow?.id ?? null,
+        used_car_id: trigger.used_car_id,
+        recon_workorder_id: trigger.recon_workorder_id,
+        ro_code: trigger.ro_code,
+      },
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "確認收購失敗";
     return { ok: false, error: msg };
   }
 }

@@ -96,6 +96,15 @@ export async function confirmRepairOrderAction(
   const verdict = rule?.verdict ?? "needs_supervisor";
   const accounting = rule?.accounting ?? null;
 
+  // 費用歸屬：依會計類別推導（PD-IN → VEHICLE_COST → 'vehicle_cost'，費用計入整車成本、車主應付 NT$0）
+  // WC-WR 等廠商索賠 → 'warranty_vendor'；其餘客付/費用認列 → 'customer'
+  const feeAllocation: "customer" | "vehicle_cost" | "warranty_vendor" =
+    accounting === "VEHICLE_COST"
+      ? "vehicle_cost"
+      : accounting === "AR_VENDOR"
+        ? "warranty_vendor"
+        : "customer";
+
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
   const issueDate = todayIsoDate();
@@ -178,6 +187,7 @@ export async function confirmRepairOrderAction(
         subsidiary_id: input.subsidiary_id || null,
         status: "進行中",
         opened_at: new Date().toISOString(),
+        fee_allocation: feeAllocation,
         estimated_subtotal: input.estimated_subtotal ?? null,
         estimated_labor_units: input.estimated_labor_units ?? null,
         warranty_status_snapshot: input.warranty_status_snapshot ?? {},

@@ -43,21 +43,30 @@ import type {
 } from "@/domain/used-car-inventory";
 import {
   calcDaysInStock,
+  calcReconCost,
   statusLabel,
   inKmRange,
   USED_CAR_GRADE_OPTIONS,
   USED_CAR_STATUS_OPTIONS,
   USED_CAR_KM_RANGE_OPTIONS,
+  USED_CAR_SOURCE_OPTIONS,
+  USED_CAR_SOURCE_BADGE,
   type UsedCarKmRange,
+  type UsedCarAcquisitionSource,
 } from "@/domain/used-car-inventory.constants";
 
 // ── Design tokens ─────────────────────────────────────────────────────
 
 const STATUS_CHIP: Record<UsedCarDbStatus, string> = {
+  evaluation: "bg-[#EAF4FB] text-[#185FA5] border border-[#85B7EB]",
+  pending_recon: "bg-[#EEEDFE] text-[#534AB7] border border-[#C5C0F0]",
   available: "bg-[#E1F5EE] text-[#0F6E56] border border-[#5DCAA5]",
   reserved: "bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E]",
   sold: "bg-[#FDECEA] text-[#C8001A] border border-[#F5AEAD]",
   pending_inspection: "bg-[#EEEDFE] text-[#534AB7] border border-[#C5C0F0]",
+  consignment: "bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E]",
+  in_transit_transfer: "bg-[#EAF4FB] text-[#185FA5] border border-[#85B7EB]",
+  inactive: "bg-[#F2F2F2] text-[#6B6A68] border border-[#D5D3CB]",
   withdrawn: "bg-[#F2F2F2] text-[#6B6A68] border border-[#D5D3CB]",
 };
 
@@ -120,6 +129,8 @@ type Props = {
   kpi?: UsedCarBoardKpi;
   byModel?: UsedCarByModelDatum[];
   slowMovers?: UsedCarSlowMover[];
+  /** 是否可看整備成本 / 整車成本（sales.cost.view）；不傳預設隱藏 */
+  canViewCost?: boolean;
 };
 
 type Banner = { ok: boolean; msg: string } | null;
@@ -133,6 +144,7 @@ export default function UsedCarInventoryBoard({
   kpi,
   byModel,
   slowMovers,
+  canViewCost = false,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -142,6 +154,7 @@ export default function UsedCarInventoryBoard({
   const [grade, setGrade] = useState<string>("");
   const [status, setStatus] = useState<string>("");
   const [kmRange, setKmRange] = useState<string>("");
+  const [source, setSource] = useState<string>("");
   const [query, setQuery] = useState<string>("");
 
   const isUsedcarModule = viewMode === "usedcar";
@@ -170,11 +183,12 @@ export default function UsedCarInventoryBoard({
     return rows.filter((r) => {
       if (grade && r.condition_grade !== grade) return false;
       if (status && r.status !== status) return false;
+      if (source && r.acquisition_source !== source) return false;
       if (!inKmRange(r.mileage_km ?? 0, kmRange as UsedCarKmRange | "")) return false;
       if (q && !(r.model_display_name ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [rows, grade, status, kmRange, query]);
+  }, [rows, grade, status, source, kmRange, query]);
 
   // ── 狀態切換 ──
   function handleSetStatus(row: UsedCarInventoryRow, next: UsedCarDbStatus) {
@@ -319,18 +333,76 @@ export default function UsedCarInventoryBoard({
         calcDaysInStock(r.listed_date, r.status === "sold" ? r.sold_date : null),
     },
     {
+      id: "acquisition_source",
+      header: "來源",
+      width: 80,
+      cell: (r) => {
+        if (!r.acquisition_source) return <span className="text-[11px] text-[#9A9890]">—</span>;
+        const b = USED_CAR_SOURCE_BADGE[r.acquisition_source];
+        return (
+          <span
+            className={"inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold whitespace-nowrap " + b.chip}
+            data-testid={`source-badge-${r.id}`}
+          >
+            {b.icon} {b.label}
+          </span>
+        );
+      },
+      exportValue: (r) =>
+        r.acquisition_source ? USED_CAR_SOURCE_BADGE[r.acquisition_source].label : "",
+      sortValue: (r) => r.acquisition_source ?? "",
+    },
+    {
       id: "cost",
-      header: "成本 (NT$)",
-      width: 110,
+      header: "收購成本 (NT$)",
+      width: 120,
       align: "right",
       cell: (r) => (
         <span className="font-mono text-[11.5px]">
-          {r.cost != null ? r.cost.toLocaleString() : "—"}
+          {r.acquisition_price != null
+            ? r.acquisition_price.toLocaleString()
+            : r.cost != null
+              ? r.cost.toLocaleString()
+              : "—"}
         </span>
       ),
-      exportValue: (r) => String(r.cost ?? ""),
-      sortValue: (r) => r.cost ?? 0,
+      exportValue: (r) => String(r.acquisition_price ?? r.cost ?? ""),
+      sortValue: (r) => r.acquisition_price ?? r.cost ?? 0,
     },
+    // 整備成本 + 整車成本：sales.cost.view 才顯示
+    ...(canViewCost
+      ? ([
+          {
+            id: "recon_cost",
+            header: "整備成本 (NT$)",
+            width: 120,
+            align: "right",
+            cell: (r) => {
+              const recon = calcReconCost(r);
+              return (
+                <span className="font-mono text-[11.5px] text-[#854F0B]">
+                  {recon > 0 ? `+${recon.toLocaleString()}` : "—"}
+                </span>
+              );
+            },
+            exportValue: (r) => String(calcReconCost(r)),
+            sortValue: (r) => calcReconCost(r),
+          },
+          {
+            id: "total_cost",
+            header: "整車成本 (NT$)",
+            width: 125,
+            align: "right",
+            cell: (r) => (
+              <span className="font-mono font-bold text-[12px] text-[#1A3A5C]">
+                {r.total_cost != null ? r.total_cost.toLocaleString() : "—"}
+              </span>
+            ),
+            exportValue: (r) => String(r.total_cost ?? ""),
+            sortValue: (r) => r.total_cost ?? 0,
+          },
+        ] as DataGridColumn<UsedCarInventoryRow>[])
+      : []),
     {
       id: "listing_price",
       header: "售價 (NT$)",
@@ -505,6 +577,31 @@ export default function UsedCarInventoryBoard({
         </section>
       )}
 
+      {/* 入庫入口橫幅（RS03B）— 置換→RS06 評估鑑價、直購→RS_INV05 收購申請 */}
+      <section
+        data-testid="usedcar-entry-banner"
+        className="bg-[#E1F5EE] border border-[#5DCAA5] rounded-lg px-4 py-3 flex items-center gap-3 flex-wrap"
+      >
+        <div className="flex-1 min-w-[200px] text-[12.5px] text-[#085041]">
+          <b className="font-bold">新增中古車庫存？</b>{" "}
+          選擇來源方式建立車輛主檔，系統將自動觸發整備工單（PD-UC）並計入整車成本。
+        </div>
+        <Link
+          href="/usedcar/evaluations"
+          data-testid="usedcar-entry-trade-in"
+          className="h-[32px] px-4 rounded-md inline-flex items-center text-[12px] font-semibold bg-[#0F6E56] text-white hover:bg-[#085041] whitespace-nowrap"
+        >
+          🔄 置換收購 → RS06 評估鑑價
+        </Link>
+        <Link
+          href="/sales/inventory/used-purchase"
+          data-testid="usedcar-entry-direct-buy"
+          className="h-[32px] px-4 rounded-md inline-flex items-center text-[12px] font-semibold bg-[#1A3A5C] text-white hover:bg-[#0F2A45] whitespace-nowrap"
+        >
+          🛒 直接收購 → INV05 收購申請
+        </Link>
+      </section>
+
       {/* BarChart by-model + Slow Movers 並排 */}
       {(byModel || slowMovers) && (
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -636,6 +733,21 @@ export default function UsedCarInventoryBoard({
             </select>
           </div>
           <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">來源類型</label>
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              className="h-[30px] px-2 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] outline-none"
+              data-testid="filter-source"
+            >
+              {USED_CAR_SOURCE_OPTIONS.map((o) => (
+                <option key={o.value || "all-source"} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
             <label className="text-[11px] text-[#9A9890] font-medium">里程</label>
             <select
               value={kmRange}
@@ -663,7 +775,7 @@ export default function UsedCarInventoryBoard({
           <div className="flex gap-2 ml-auto items-end">
             <button
               onClick={() => {
-                setGrade(""); setStatus(""); setKmRange(""); setQuery("");
+                setGrade(""); setStatus(""); setSource(""); setKmRange(""); setQuery("");
               }}
               className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
             >
@@ -697,6 +809,7 @@ export default function UsedCarInventoryBoard({
           onSetStatus={handleSetStatus}
           onDelete={handleDelete}
           isPending={isPending}
+          canViewCost={canViewCost}
         />
       ) : (
         <DataGrid
@@ -749,11 +862,13 @@ function CardGrid({
   onSetStatus,
   onDelete,
   isPending,
+  canViewCost,
 }: {
   rows: UsedCarInventoryRow[];
   onSetStatus: (row: UsedCarInventoryRow, next: UsedCarDbStatus) => void;
   onDelete: (row: UsedCarInventoryRow) => void;
   isPending: boolean;
+  canViewCost: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -774,6 +889,12 @@ function CardGrid({
         const days = calcDaysInStock(r.listed_date, r.status === "sold" ? r.sold_date : null);
         const aged = isAged90(r.listed_date, r.status);
         const warn = neg || low || aged;
+        const sourceBadge = r.acquisition_source
+          ? USED_CAR_SOURCE_BADGE[r.acquisition_source as UsedCarAcquisitionSource]
+          : null;
+        const acqCost = r.acquisition_price ?? r.cost ?? null;
+        const reconCost = calcReconCost(r);
+        const isPendingRecon = r.status === "pending_recon";
         return (
           <article
             key={r.id}
@@ -831,8 +952,31 @@ function CardGrid({
               >
                 {statusLabel(r.status)}
               </span>
+              {sourceBadge && (
+                <span
+                  className={
+                    "absolute bottom-2 left-2 text-[9.5px] font-bold px-1.5 py-0.5 rounded " +
+                    sourceBadge.chip
+                  }
+                  data-testid={`source-badge-card-${r.id}`}
+                >
+                  {sourceBadge.icon} {sourceBadge.label}
+                </span>
+              )}
             </div>
             <div className="p-3">
+              {/* 待整備車輛：紫色整備工單號提示列 */}
+              {isPendingRecon && (
+                <div
+                  className="flex items-center gap-1 text-[10.5px] text-[#534AB7] bg-[#EEEDFE] rounded px-1.5 py-1 mb-2"
+                  data-testid={`recon-workorder-${r.id}`}
+                >
+                  🔧 整備工單：
+                  <span className="font-mono font-semibold">
+                    {r.recon_workorder_code ?? "（未指派）"}
+                  </span>
+                </div>
+              )}
               <Link
                 href={`/sales/showroom/used-cars/${r.id}`}
                 className="block text-[13px] font-bold text-[#2C2C2A] hover:text-[#185FA5]"
@@ -850,12 +994,37 @@ function CardGrid({
                     {(r.mileage_km ?? 0).toLocaleString()} km
                   </span>
                 </div>
-                <div className="flex justify-between text-[11.5px]">
-                  <span className="text-[#9A9890]">收購成本</span>
-                  <span className="font-mono font-semibold">
-                    {r.cost != null ? `NT$ ${r.cost.toLocaleString()}` : "—"}
-                  </span>
-                </div>
+                {/* 三行成本（sales.cost.view 才顯示，否則只露「主管可見」）*/}
+                {canViewCost ? (
+                  <>
+                    <div className="flex justify-between text-[11.5px]">
+                      <span className="text-[#9A9890]">收購成本</span>
+                      <span className="font-mono font-semibold">
+                        {acqCost != null ? `NT$ ${acqCost.toLocaleString()}` : "—"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[11.5px]">
+                      <span className="text-[#9A9890]">整備成本</span>
+                      <span className="font-mono font-semibold text-[#854F0B]">
+                        {reconCost > 0 ? `+${reconCost.toLocaleString()}` : "—"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[11.5px]">
+                      <span className="text-[#9A9890]">整車成本合計</span>
+                      <span
+                        className="font-mono font-bold text-[#1A3A5C]"
+                        data-testid={`total-cost-${r.id}`}
+                      >
+                        {r.total_cost != null ? `NT$ ${r.total_cost.toLocaleString()}` : "—"}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-[11.5px]">
+                    <span className="text-[#9A9890]">成本</span>
+                    <span className="text-[11px] text-[#9A9890] italic">主管可見</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-[11.5px]">
                   <span className="text-[#9A9890]">在庫天數</span>
                   <span className={"font-mono font-semibold " + daysToneClass(days)}>
@@ -932,7 +1101,24 @@ function CardGrid({
                 >
                   評估
                 </Link>
-                {r.status !== "sold" ? (
+                {isPendingRecon ? (
+                  r.recon_workorder_id ? (
+                    <Link
+                      href={`/parts/aftersales/repair-orders/${r.recon_workorder_id}`}
+                      className="flex-1 h-[28px] rounded text-[11.5px] font-semibold bg-[#EEEDFE] border border-[#534AB7] text-[#534AB7] hover:bg-[#DDDCFC] inline-flex items-center justify-center"
+                      data-testid={`btn-recon-workorder-${r.id}`}
+                    >
+                      整備工單
+                    </Link>
+                  ) : (
+                    <span
+                      className="flex-1 h-[28px] rounded text-[11.5px] font-semibold bg-[#F2F2F2] text-[#9A9890] inline-flex items-center justify-center cursor-not-allowed"
+                      data-testid={`btn-recon-workorder-${r.id}`}
+                    >
+                      待整備
+                    </span>
+                  )
+                ) : r.status !== "sold" ? (
                   <button
                     onClick={() =>
                       onSetStatus(r, r.status === "available" ? "reserved" : "available")

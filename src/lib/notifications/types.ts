@@ -19,7 +19,9 @@ export type EventCode =
   // 第十輪 P1-2：售後跟進案升級告警
   | "aftersales_followup.escalated"
   // 第十輪 P1-3：取車通知測試送出（用於後台模板測試）
-  | "pickup_notification.test";
+  | "pickup_notification.test"
+  // 第十五輪 T7：整車到港確認完成（PDI 工單已建立，通知售後主管分派技師）
+  | "vehicle_arrival.confirmed";
 
 export interface NotificationEvent<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   code: EventCode;

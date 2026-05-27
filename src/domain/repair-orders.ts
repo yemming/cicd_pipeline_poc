@@ -47,6 +47,10 @@ export type RepairOrderRow = {
   store_id: string | null;
   subsidiary_id: string | null;
   images: string[] | null;
+  /** 費用歸屬：customer（一般客付）/ vehicle_cost（PD 整備計入整車成本）/ vendor / insurer 等 */
+  fee_allocation: string | null;
+  related_new_car_id: string | null;
+  related_used_car_id: string | null;
   created_at: string | null;
   updated_at: string | null;
 };

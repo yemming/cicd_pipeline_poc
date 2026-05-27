@@ -29,7 +29,10 @@ const SELECT_FIELDS = `
   vin, external_id, vehicle_model_id,
   color, color_hex, config,
   year, engine_no, build_date,
-  cost_price, list_price, status,
+  cost_price, list_price,
+  pdi_labor_cost, pdi_parts_cost, transfer_freight_cost, total_cost,
+  pdi_workorder_id, purchase_order_id, arrival_batch_id, damage_flag, damage_notes,
+  status,
   arrival_date, displayed_date, reserved_date, sold_date, delivered_date,
   license_plate_status, license_plate_no,
   linked_sales_order_id, note, images, metadata,
@@ -133,6 +136,7 @@ export async function setNewCarStatus(
   const supabase = await createClient();
   const dateField: Record<NewCarInventoryStatus, string | null> = {
     in_transit: null,
+    pending_pdi: "arrival_date",
     arrived: "arrival_date",
     displayed: "displayed_date",
     reserved: "reserved_date",
@@ -205,6 +209,7 @@ export async function getNewCarKpiSummary(): Promise<NewCarKpiSummary> {
 
   return {
     displayed: rows.filter((r) => r.status === "displayed").length,
+    pending_pdi: rows.filter((r) => r.status === "pending_pdi").length,
     reserved: rows.filter((r) => r.status === "reserved").length,
     in_transit: rows.filter((r) => r.status === "in_transit").length,
     arrived: rows.filter((r) => r.status === "arrived").length,
@@ -236,6 +241,7 @@ export async function getNewCarInventoryByModel(): Promise<NewCarByModelDatum[]>
         model: name,
         series: r.vehicle_models?.series ?? null,
         in_transit: 0,
+        pending_pdi: 0,
         arrived: 0,
         displayed: 0,
         reserved: 0,

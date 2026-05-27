@@ -15,6 +15,8 @@ import {
   getNewCarInventoryByModel,
   getNewCarSlowMovers,
 } from "@/domain/new-car-inventory";
+import { hasPermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import NewCarInventoryBoard from "./_components/inventory-board";
 
 export const metadata = {
@@ -22,15 +24,17 @@ export const metadata = {
 };
 
 export default async function NewCarsPage() {
-  const [rows, vehicleModels, organizations, brandId, kpi, byModel, slowMovers] = await Promise.all([
-    listNewCars(),
-    getVehicleModelOptions(),
-    getOrganizationOptions(),
-    getCurrentBrandId(),
-    getNewCarKpiSummary(),
-    getNewCarInventoryByModel(),
-    getNewCarSlowMovers(90),
-  ]);
+  const [rows, vehicleModels, organizations, brandId, kpi, byModel, slowMovers, canViewCost] =
+    await Promise.all([
+      listNewCars(),
+      getVehicleModelOptions(),
+      getOrganizationOptions(),
+      getCurrentBrandId(),
+      getNewCarKpiSummary(),
+      getNewCarInventoryByModel(),
+      getNewCarSlowMovers(90),
+      hasPermission(PERMISSIONS.SALES_COST_VIEW),
+    ]);
 
   return (
     <NewCarInventoryBoard
@@ -41,6 +45,7 @@ export default async function NewCarsPage() {
       kpi={kpi}
       byModel={byModel}
       slowMovers={slowMovers}
+      canViewCost={canViewCost}
     />
   );
 }

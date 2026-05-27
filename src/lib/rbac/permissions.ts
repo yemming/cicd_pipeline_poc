@@ -130,6 +130,9 @@ export const PERMISSIONS = {
   SALES_INSURANCE_VIEW: "sales.insurance.view",
   SALES_INSURANCE_EDIT: "sales.insurance.edit",
 
+  // ─── 銷售・成本 / 毛利可見（主管） ──────────────
+  SALES_COST_VIEW: "sales.cost.view",
+
   // ─── 中古車評估鑑價 ─────────────────────────────
   USED_CAR_EVALUATION_APPROVE: "usedcar.evaluation.approve",
 

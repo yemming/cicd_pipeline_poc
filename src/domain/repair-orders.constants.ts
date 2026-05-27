@@ -10,10 +10,10 @@
  * rule_kind='ro_prefix_combo' 覆蓋）。
  */
 
-export type PrefixP1 = "MN" | "RP" | "WC" | "AC" | "OT";
-export type PrefixP2 = "CP" | "WR" | "FR";
+export type PrefixP1 = "MN" | "RP" | "WC" | "AC" | "OT" | "PD";
+export type PrefixP2 = "CP" | "WR" | "FR" | "IN";
 export type ComboVerdict = "valid" | "invalid" | "needs_supervisor";
-export type AccountingCategory = "AR_CUSTOMER" | "AR_VENDOR" | "EXPENSE" | "MIXED";
+export type AccountingCategory = "AR_CUSTOMER" | "AR_VENDOR" | "EXPENSE" | "MIXED" | "VEHICLE_COST";
 
 export const PREFIX_P1_DEFS: {
   code: PrefixP1;
@@ -25,6 +25,7 @@ export const PREFIX_P1_DEFS: {
   { code: "WC", name: "保固索賠", desc: "Warranty · 廠商轉收入" },
   { code: "AC", name: "事故", desc: "Accident · 保險付款" },
   { code: "OT", name: "其他業務", desc: "Others · 客付收入" },
+  { code: "PD", name: "PDI整備", desc: "Pre-Delivery Inspection · 內部結算" },
 ];
 
 export const PREFIX_P2_DEFS: {
@@ -35,6 +36,7 @@ export const PREFIX_P2_DEFS: {
   { code: "CP", name: "客付", desc: "Customer Pay · 自費" },
   { code: "WR", name: "保固", desc: "Warranty · 廠商負擔" },
   { code: "FR", name: "免費施工", desc: "Free of Charge · 本店吸收" },
+  { code: "IN", name: "內部結算", desc: "Internal · 整車成本轉入" },
 ];
 
 export const PREFIX_COMBO_RULES: {
@@ -55,6 +57,7 @@ export const PREFIX_COMBO_RULES: {
   { p1: "AC", p2: "FR", verdict: "valid", accounting: "EXPENSE", description: "✅ AC-FR 事故免費（特殊公關）· 費用認列" },
   { p1: "OT", p2: "CP", verdict: "valid", accounting: "AR_CUSTOMER", description: "✅ OT-CP 其他業務客付 · 一般應收帳款" },
   { p1: "OT", p2: "FR", verdict: "valid", accounting: "EXPENSE", description: "✅ OT-FR 其他業務免費 · 費用認列" },
+  { p1: "PD", p2: "IN", verdict: "valid", accounting: "VEHICLE_COST", description: "✅ PD-IN PDI整備 · 整車成本轉入（內部結算，車主應付 NT$0）" },
   // 以下未列在 HTML 11 種白名單中 → fallback 為 needs_supervisor（POC 階段不擋、加 metadata 標記）
   // RP-WR / AC-WR / OT-WR / MN-WR
 ];

@@ -9,7 +9,6 @@ import {
   DLV_STEPS,
   HANDOVER_DOCS,
   HANDOVER_DOC_ITEMS,
-  PDI_ITEMS,
   SIGNATURE_DEFS,
   WARRANTY_CONFIRM_ITEMS,
   WARRANTY_EXCLUSIONS,
@@ -32,9 +31,10 @@ export default function DeliveryForm() {
   const [step, setStep] = useState<StepIdx>(1);
   const [doneSteps, setDoneSteps] = useState<Set<StepIdx>>(new Set());
 
-  // PDI 整備
-  const [pdiTriggered, setPdiTriggered] = useState(false);
-  const [pdiChecked, setPdiChecked] = useState<Set<number>>(new Set());
+  // PDI 完成確認（三態：ok 綠 / pending 黃 / blocked 紅）
+  // 預設 ok（demo：車已於到港時完成 PDI）。串接後由後端讀車輛 PDI 工單狀態決定。
+  type PdiState = "ok" | "pending" | "blocked";
+  const [pdiState, setPdiState] = useState<PdiState>("ok");
 
   // 交車確認表
   const [deliveryChecked, setDeliveryChecked] = useState<Set<string>>(new Set());
@@ -90,15 +90,6 @@ export default function DeliveryForm() {
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function togglePdi(i: number) {
-    setPdiChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
-      return next;
-    });
-  }
-
   function toggleDelivery(id: string) {
     setDeliveryChecked((prev) => {
       const next = new Set(prev);
@@ -140,21 +131,18 @@ export default function DeliveryForm() {
     setDocSignature(null);
   }
 
-  function checkAllPdi() {
-    const all = new Set<number>();
-    PDI_ITEMS.forEach((_, i) => all.add(i));
-    setPdiChecked(all);
-  }
-
   function checkAllDelivery() {
     const all = new Set<string>();
     DELIVERY_ITEMS.forEach((it) => all.add(it.id));
     setDeliveryChecked(all);
   }
 
-  function triggerPdi() {
-    setPdiTriggered(true);
-    showToast("🔧 PDI 工單 PD-IN-260601-001 已建立 · SA 已收到通知");
+  function tryNextFromPdi() {
+    if (pdiState !== "ok") {
+      showToast("⛔ PDI 整備工單尚未完成，無法進行交車。請聯絡售後主管。", "error");
+      return;
+    }
+    goStep(2);
   }
 
   function doSign(role: SignatureRole, label: string) {
@@ -189,10 +177,6 @@ export default function DeliveryForm() {
     [],
   );
 
-  const pdiCount = pdiChecked.size;
-  const pdiTotal = PDI_ITEMS.length;
-  const pdiPct = Math.round((pdiCount / pdiTotal) * 100);
-
   const deliveryCount = deliveryChecked.size;
   const deliveryTotal = DELIVERY_ITEMS.length;
   const deliveryPct = Math.round((deliveryCount / deliveryTotal) * 100);
@@ -222,7 +206,7 @@ export default function DeliveryForm() {
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">交車流程</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">RS05</span>
-        <span className="text-[12px] text-[#9A9890]">PDI 整備 → 36 項交車確認 → 保固條款登記 → 完成交車 + 觸發 D+3</span>
+        <span className="text-[12px] text-[#9A9890]">PDI 完成確認 → 36 項交車確認 → 保固條款登記 → 完成交車 + 觸發 D+3</span>
       </header>
 
       {/* Info card：訂單摘要 */}
@@ -265,69 +249,168 @@ export default function DeliveryForm() {
         })}
       </div>
 
-      {/* STEP 1 PDI */}
+      {/* STEP 1 PDI 完成確認 */}
       {step === 1 && (
         <div className="space-y-3" data-test-pane="1">
-          <div className="border-2 border-[#C8001A] rounded-[10px] p-4 bg-[#FDECEA]">
-            <div className="text-[14px] font-bold text-[#7A1010] mb-1.5">🔧 觸發 PDI 整備工單（必做）</div>
-            <p className="text-[12px] text-[#5A1010] leading-[1.7] mb-3">
-              交車前須由售後技師完成 PDI（Pre-Delivery Inspection）29 項整備檢查。本觸發建立內部工單（前綴碼 PD-IN），費用由銷售部門結算，車主不須付費。PDI 完成後方可進行交車。
-            </p>
-            <div className="flex gap-2.5 flex-wrap mb-3">
-              <PdiChip label="工單前綴碼" value="PD-IN" />
-              <PdiChip label="付款性質" value="內部結算（銷售→售後）" />
-              <PdiChip label="PDI 項目" value="29 項" />
-              <PdiChip label="預計工時" value="2–3 小時" />
+          {/* 三態確認卡（PDI 在到港時即觸發，交車時只確認已完成） */}
+          {pdiState === "ok" && (
+            <div
+              className="rounded-[10px] p-4 bg-[#E1F5EE] border-2 border-[#5DCAA5]"
+              data-test-id="dlv-pdi-card"
+              data-pdi-state="ok"
+            >
+              <div className="text-[14px] font-bold text-[#085041] mb-1.5">
+                ✅ PDI 整備已完成 — 本車可進行交車
+              </div>
+              <p className="text-[12px] text-[#0F4A35] leading-[1.7] mb-3">
+                本車已於入庫時完成 PDI 整備（Pre-Delivery Inspection）29 項檢查，技師簽核存檔。
+                PDI 費用已計入整車成本，<b>不向客戶收取</b>。請確認以下資訊後繼續交車流程。
+              </p>
+              <div className="flex gap-2 flex-wrap mb-3">
+                <StateChip tone="ok" label="PDI 工單號" value="PD-IN-260515-003" />
+                <StateChip tone="ok" label="完成日期" value="2026-05-15" />
+                <StateChip tone="ok" label="執行技師" value="林建宏 SA" />
+                <StateChip tone="ok" label="PDI 項目" value="29 / 29 項" />
+                <StateChip tone="ok" label="費用歸屬" value="整車成本（內部結算）" />
+              </div>
+              <div className="flex flex-end justify-end gap-2">
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => showToast("📄 PDI 檢查表 PDF 已開啟")}
+                >
+                  📄 查看 PDI 檢查表副本
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPdiState("pending")}
+                  testId="dlv-pdi-switch-pending"
+                >
+                  ⚠️ 切換為：PDI 未完成（測試）
+                </Btn>
+              </div>
             </div>
-            {!pdiTriggered ? (
-              <div className="flex gap-2 flex-wrap">
-                <Btn variant="primary" onClick={triggerPdi} testId="dlv-trigger-pdi">
-                  🔧 建立 PDI 工單並通知 SA
-                </Btn>
-                <Btn variant="ghost" onClick={() => showToast("🔍 PDI-IN-260601-001 狀態：進行中（15/29）")}>
-                  🔍 查詢進度
-                </Btn>
-              </div>
-            ) : (
-              <div
-                className="bg-[#E1F5EE] border border-[#5DCAA5] rounded-md px-3.5 py-2.5 text-[12.5px] text-[#085041]"
-                data-test-id="dlv-pdi-triggered"
-              >
-                <b>✅ PDI 工單已建立</b>　工單號：PD-IN-260601-001 · 已通知技師張建國 · 預計完成：3 小時
-              </div>
-            )}
-          </div>
+          )}
 
+          {pdiState === "pending" && (
+            <div
+              className="rounded-[10px] p-4 bg-[#FDF3E3] border-2 border-[#F0C97E]"
+              data-test-id="dlv-pdi-card"
+              data-pdi-state="pending"
+            >
+              <div className="text-[14px] font-bold text-[#6B3A00] mb-1.5">
+                ⚠️ PDI 整備進行中 — 請等待完成後再交車
+              </div>
+              <p className="text-[12px] text-[#5A3200] leading-[1.7] mb-3">
+                本車的 PDI 整備工單正在進行中。請等待技師完成並由主管核准後，系統將自動更新狀態。
+              </p>
+              <div className="flex gap-2 flex-wrap mb-3">
+                <StateChip tone="pending" label="PDI 工單號" value="PD-IN-260515-003" />
+                <StateChip tone="pending" label="工單狀態" value="進行中" />
+                <StateChip tone="pending" label="進度" value="22 / 29 項" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => showToast("🔄 已重新整理 PDI 工單狀態")}
+                >
+                  🔄 重新整理狀態
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPdiState("ok")}
+                  testId="dlv-pdi-switch-ok"
+                >
+                  ✅ 切換為：PDI 已完成（測試）
+                </Btn>
+              </div>
+            </div>
+          )}
+
+          {pdiState === "blocked" && (
+            <div
+              className="rounded-[10px] p-4 bg-[#FDECEA] border-2 border-[#F5AEAD]"
+              data-test-id="dlv-pdi-card"
+              data-pdi-state="blocked"
+            >
+              <div className="text-[14px] font-bold text-[#7A1010] mb-1.5">
+                ⛔ PDI 整備尚未完成 — 無法進行交車
+              </div>
+              <p className="text-[12px] text-[#5A1010] leading-[1.7] mb-3">
+                本車的 PDI 整備工單尚未關閉，請售後技師完成 PDI 並由主管核准後，方可繼續交車流程。
+                如有急件需求，請聯絡售後主管處理。
+              </p>
+              <div className="flex gap-2 flex-wrap mb-3">
+                <StateChip tone="blocked" label="PDI 工單號" value="PD-IN-260515-003" />
+                <StateChip tone="blocked" label="工單狀態" value="未完成" />
+                <StateChip tone="blocked" label="已完成" value="15 / 29 項" />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => showToast("📞 已發送通知給售後主管")}
+                >
+                  📞 通知售後主管加速處理
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPdiState("ok")}
+                  testId="dlv-pdi-switch-ok"
+                >
+                  ✅ 切換為：PDI 已完成（測試）
+                </Btn>
+              </div>
+            </div>
+          )}
+
+          {/* 說明面板：為何 PDI 在此只「確認」而非「觸發」 */}
           <Panel
-            icon="🔧"
-            iconBg="bg-[#FDECEA]"
-            title="PDI 檢查清單（29項）"
-            sub="技師執行 · RS 確認結果"
-            badge={`${pdiCount} / ${pdiTotal}`}
-            badgeId="dlv-pdi-cnt"
-            badgeTone={pdiCount === pdiTotal ? "teal" : "gray"}
+            icon="ℹ️"
+            iconBg="bg-[#EAF4FB]"
+            title="關於 PDI 整備工單"
+            sub="流程說明 · RS 人員請詳閱"
           >
-            <ProgressRow label="PDI 進度" pct={pdiPct} />
-            <div className="flex flex-col gap-1 mt-2">
-              {PDI_ITEMS.map((t, i) => (
-                <CheckItem
-                  key={i}
-                  checked={pdiChecked.has(i)}
-                  onClick={() => togglePdi(i)}
-                  num={i + 1}
-                  text={t}
-                  testId={`dlv-pdi-${i + 1}`}
-                />
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className="bg-[#EAF4FB] rounded-md px-3 py-2.5">
+                <div className="text-[11.5px] font-bold text-[#185FA5] mb-1">✅ 正確流程</div>
+                <div className="text-[12px] text-[#0C3E70] leading-[1.7]">
+                  車輛<b>到港入庫時</b>，系統自動觸發 PDI 工單（INV02 到港確認）
+                  <br />→ 售後技師執行 29 項檢查
+                  <br />→ 主管核准
+                  <br />→ <b>車輛狀態變為「可銷售」</b>
+                  <br />→ 業務才能配車並建立訂單
+                </div>
+              </div>
+              <div className="bg-[#FDECEA] rounded-md px-3 py-2.5">
+                <div className="text-[11.5px] font-bold text-[#7A1010] mb-1">❌ 舊版錯誤設計</div>
+                <div className="text-[12px] text-[#5A1010] leading-[1.7]">
+                  舊版把「PDI 觸發」放在交車流程第一步，
+                  <br />
+                  這代表車輛<b>賣出之後才做 PDI</b>，邏輯錯誤。
+                  <br />
+                  PDI 應在<b>入庫時</b>完成，
+                  <br />
+                  交車時只需「確認副本」即可。
+                </div>
+              </div>
             </div>
           </Panel>
 
           <Footer>
-            <Btn variant="ghost" size="sm" onClick={checkAllPdi} testId="dlv-pdi-all">
-              ✅ 全部完成（測試）
-            </Btn>
-            <Btn variant="teal" onClick={() => goStep(2)} testId="dlv-pdi-next">
-              PDI 完成 → 交車確認表 →
+            <Btn
+              variant={pdiState === "ok" ? "teal" : "ghost"}
+              onClick={tryNextFromPdi}
+              disabled={pdiState !== "ok"}
+              testId="dlv-pdi-next"
+            >
+              {pdiState === "ok"
+                ? "確認 PDI 已完成 → 交車確認表 →"
+                : "⛔ PDI 未完成，無法繼續交車"}
             </Btn>
           </Footer>
         </div>
@@ -849,10 +932,24 @@ function InfoDiv() {
   return <div className="w-px h-8 bg-white/20 shrink-0" />;
 }
 
-function PdiChip({ label, value }: { label: string; value: string }) {
+function StateChip({
+  tone,
+  label,
+  value,
+}: {
+  tone: "ok" | "pending" | "blocked";
+  label: string;
+  value: string;
+}) {
+  const cls =
+    tone === "ok"
+      ? "border-[#5DCAA5] text-[#085041]"
+      : tone === "pending"
+      ? "border-[#F0C97E] text-[#6B3A00]"
+      : "border-[#F5AEAD] text-[#7A1010]";
   return (
-    <div className="bg-white border border-[#F5AEAD] rounded-md px-3 py-1.5 text-[12px]">
-      {label}：<b className="text-[#C8001A] font-mono">{value}</b>
+    <div className={`bg-white border rounded-md px-3 py-1.5 text-[12px] ${cls}`}>
+      {label}：<b className="font-mono">{value}</b>
     </div>
   );
 }

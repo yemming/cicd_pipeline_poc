@@ -12,8 +12,10 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { hasPermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import type { UsedCarDbStatus, UsedCarConditionGrade, UsedCarAcquisitionSource, UsedCarInventoryRow } from "./used-car-inventory.constants";
-import { USED_CAR_DB_STATUS_LABELS, calcDaysInStock, statusLabel } from "./used-car-inventory.constants";
+import { calcDaysInStock } from "./used-car-inventory.constants";
 
 // ── Re-export types + pure helpers from .constants.ts（server-side caller 仍可 import from "@/domain/used-car-inventory"）──
 export type { UsedCarInventoryRow } from "./used-car-inventory.constants";
@@ -74,7 +76,26 @@ export type UsedCarFilter = {
   conditionGrade?: string;
   kmRange?: string;
   search?: string;
+  /** 來源類型（acquisition_source）：trade_in / direct_buy / auction / other */
+  source?: string;
 };
+
+// 主查詢 select：含 join repair_orders 撈整備工單號（待整備車輛顯示用）
+const USED_CAR_SELECT =
+  "*, recon_workorder:repair_orders!used_car_inventory_recon_workorder_id_fkey(ro_code)";
+
+// 把 supabase 回的 nested join 攤平成 recon_workorder_code
+function flattenReconCode(
+  row: Record<string, unknown> & {
+    recon_workorder?: { ro_code: string | null } | null;
+  }
+): UsedCarInventoryRow {
+  const { recon_workorder, ...rest } = row;
+  return {
+    ...rest,
+    recon_workorder_code: recon_workorder?.ro_code ?? null,
+  } as UsedCarInventoryRow;
+}
 
 // ── 主查詢：撈指定 brand 的庫存列表 ──
 export async function listUsedCars(filter: UsedCarFilter): Promise<UsedCarInventoryData> {
@@ -82,7 +103,7 @@ export async function listUsedCars(filter: UsedCarFilter): Promise<UsedCarInvent
 
   let q = supabase
     .from("used_car_inventory")
-    .select("*", { count: "exact" })
+    .select(USED_CAR_SELECT, { count: "exact" })
     .eq("brand_id", filter.brandId)
     .order("created_at", { ascending: false });
 
@@ -92,6 +113,9 @@ export async function listUsedCars(filter: UsedCarFilter): Promise<UsedCarInvent
   if (filter.conditionGrade) {
     q = q.eq("condition_grade", filter.conditionGrade);
   }
+  if (filter.source) {
+    q = q.eq("acquisition_source", filter.source);
+  }
   if (filter.search) {
     q = q.ilike("model_display_name", `%${filter.search}%`);
   }
@@ -100,7 +124,7 @@ export async function listUsedCars(filter: UsedCarFilter): Promise<UsedCarInvent
   const { data, error, count } = await q;
   if (error) throw new Error(`listUsedCars: ${error.message}`);
 
-  const rows = (data ?? []) as UsedCarInventoryRow[];
+  const rows = (data ?? []).map((r) => flattenReconCode(r as Record<string, unknown>));
 
   // 里程 filter（DB 不好 range，資料量 <1000 client-side 沒問題）
   const units = filter.kmRange
@@ -141,11 +165,11 @@ export async function getUsedCarById(id: string): Promise<UsedCarInventoryRow | 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("used_car_inventory")
-    .select("*")
+    .select(USED_CAR_SELECT)
     .eq("id", id)
     .single();
   if (error) return null;
-  return data as UsedCarInventoryRow;
+  return flattenReconCode(data as Record<string, unknown>);
 }
 
 // ── 建立 ──
@@ -252,6 +276,14 @@ export async function getCurrentBrandId(): Promise<string> {
     .limit(1)
     .single();
   return data?.brand_id ?? "indian";
+}
+
+/**
+ * 是否可看「整車成本」等敏感成本欄位。
+ * 沿用 RBAC：擁有 sales.cost.view（app admin 自動有）才看得到整備成本 / 整車成本合計。
+ */
+export async function canViewUsedCarCost(): Promise<boolean> {
+  return hasPermission(PERMISSIONS.SALES_COST_VIEW);
 }
 
 /**
