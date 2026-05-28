@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { PDI_ITEMS } from "@/components/delivery/delivery-constants";
-import { useDelivery } from "@/lib/delivery-store";
 import {
   loadDeliveryPdiStatusAction,
   updateDeliveryStepAction,
 } from "@/lib/delivery/delivery-actions";
+import type { DeliveryRow } from "@/lib/deliveries";
 import type { DeliveryPdiStatus } from "@/domain/sales-delivery.constants";
 
 const NT = (n: number | null) =>
@@ -22,22 +22,14 @@ const NT = (n: number | null) =>
  * 依該交車單關聯車輛（VIN join new_car_inventory → pdi_workorder repair_orders）的
  * PDI 狀態顯示三態卡：ok 綠 / pending 黃 / blocked 紅。非 ok 時鎖住下一步。
  */
-export function PdiView({ deliveryId }: { deliveryId?: string }) {
-  const { patch } = useDelivery();
-  const [, startTransition] = useTransition();
+export function PdiView({ delivery }: { delivery: DeliveryRow }) {
+  const deliveryId = delivery.id;
 
   const [pdi, setPdi] = useState<DeliveryPdiStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // demo 模式（沒綁 deliveryId）：無法對車，給一張示範用的「已完成」綠卡讓流程可走通
-  const demoMode = !deliveryId;
-
   async function loadStatus() {
-    if (!deliveryId) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setLoadError(null);
     const res = await loadDeliveryPdiStatusAction(deliveryId);
@@ -51,37 +43,34 @@ export function PdiView({ deliveryId }: { deliveryId?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveryId]);
 
-  // 三態：demo 視為 ok；有 deliveryId 時看後端
-  const effectiveState: DeliveryPdiStatus["state"] = demoMode
-    ? "ok"
-    : (pdi?.state ?? "blocked");
-  const canProceed = demoMode ? true : (pdi?.canProceed ?? false);
+  const effectiveState: DeliveryPdiStatus["state"] = pdi?.state ?? "blocked";
+  const canProceed = pdi?.canProceed ?? false;
   // 載入中時暫鎖，避免使用者搶在判定前推進
-  const nextDisabled = (!demoMode && loading) || !canProceed;
+  const nextDisabled = loading || !canProceed;
 
-  function handleNext() {
-    if (!canProceed) return;
-    // PDI 已確認完成 → 標記 store 的 29 項（讓 step bar step 2 顯示 done）
-    patch({ pdiChecked: PDI_ITEMS.map((_, i) => i) });
-    if (deliveryId) {
-      startTransition(async () => {
-        await updateDeliveryStepAction(
-          deliveryId,
-          "pdi",
-          {
-            // 確認 PDI 已完成；副本 29 項全數視為通過
-            pdi_checklist: PDI_ITEMS.map((_, i) => i),
-            pdi_work_order_no: pdi?.workOrderNo ?? undefined,
-          },
-          "pdi_complete",
-        );
-      });
+  async function handleNext(): Promise<boolean> {
+    if (!canProceed) return false;
+    const res = await updateDeliveryStepAction(
+      deliveryId,
+      "pdi",
+      {
+        // 確認 PDI 已完成；副本 29 項全數視為通過
+        pdi_checklist: PDI_ITEMS.map((_, i) => i),
+        pdi_work_order_no: pdi?.workOrderNo ?? undefined,
+      },
+      "pdi_complete",
+    );
+    if (!res.ok) {
+      setLoadError(res.error);
+      return false;
     }
+    return true;
   }
 
   return (
     <DeliveryFrame
       stepId={2}
+      delivery={delivery}
       stepDone={canProceed}
       nextDisabled={nextDisabled}
       nextLabel={
@@ -92,7 +81,7 @@ export function PdiView({ deliveryId }: { deliveryId?: string }) {
       onNext={handleNext}
     >
       {/* 載入 / 錯誤狀態 */}
-      {!demoMode && loading && (
+      {loading && (
         <section
           className="bg-white border border-[#EEECE6] rounded-lg p-6 text-[12px] text-[#9A9890]"
           data-testid="pdi-status-loading"
@@ -100,7 +89,7 @@ export function PdiView({ deliveryId }: { deliveryId?: string }) {
           確認 PDI 狀態中⋯
         </section>
       )}
-      {!demoMode && loadError && !loading && (
+      {loadError && !loading && (
         <section
           className="bg-[#FDECEA] border border-[#F5AEAD] rounded-lg px-4 py-3 text-[12.5px] text-[#CC0000] flex items-center justify-between gap-3"
           data-testid="pdi-status-error"
@@ -117,11 +106,11 @@ export function PdiView({ deliveryId }: { deliveryId?: string }) {
       )}
 
       {/* 三態確認卡 */}
-      {(demoMode || (!loading && !loadError)) && (
+      {!loading && !loadError && (
         <PdiConfirmCard
           state={effectiveState}
           pdi={pdi}
-          demoMode={demoMode}
+          demoMode={false}
           onRefresh={() => void loadStatus()}
         />
       )}

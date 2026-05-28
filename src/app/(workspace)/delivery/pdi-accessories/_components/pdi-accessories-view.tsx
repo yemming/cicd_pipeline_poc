@@ -1,32 +1,47 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { PDI_ACCESSORIES } from "@/components/delivery/delivery-constants";
-import { useDelivery } from "@/lib/delivery-store";
 import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
+import type { DeliveryRow } from "@/lib/deliveries";
 
-export function PdiAccessoriesView({ deliveryId }: { deliveryId?: string }) {
-  const { state, toggleAccessory, patch } = useDelivery();
-  const [, startTransition] = useTransition();
+export function PdiAccessoriesView({ delivery }: { delivery: DeliveryRow }) {
   const total = PDI_ACCESSORIES.length;
-  const done = state.accessoriesChecked.length;
+  const [checkedKeys, setCheckedKeys] = useState<string[]>(
+    delivery.accessories_list ?? [],
+  );
+  const [note, setNote] = useState(delivery.accessories_note ?? "");
+  const [err, setErr] = useState<string | null>(null);
+
+  const done = checkedKeys.length;
   const stepDone = done > 0;
 
-  function handleNext() {
-    if (deliveryId) {
-      startTransition(async () => {
-        await updateDeliveryStepAction(deliveryId, "accessories", {
-          accessories_list: state.accessoriesChecked,
-          accessories_note: state.accessoriesNote,
-        }, "accessories_complete");
-      });
+  function toggle(key: string) {
+    setCheckedKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  }
+
+  async function handleNext(): Promise<boolean> {
+    setErr(null);
+    const res = await updateDeliveryStepAction(
+      delivery.id,
+      "accessories",
+      { accessories_list: checkedKeys, accessories_note: note },
+      "accessories_complete",
+    );
+    if (!res.ok) {
+      setErr(res.error);
+      return false;
     }
+    return true;
   }
 
   return (
     <DeliveryFrame
       stepId={3}
+      delivery={delivery}
       stepDone={stepDone}
       nextLabel={
         stepDone
@@ -61,12 +76,12 @@ export function PdiAccessoriesView({ deliveryId }: { deliveryId?: string }) {
         </header>
         <div className="px-4 py-3 space-y-1.5">
           {PDI_ACCESSORIES.map((a) => {
-            const checked = state.accessoriesChecked.includes(a.key);
+            const checked = checkedKeys.includes(a.key);
             return (
               <button
                 key={a.key}
                 type="button"
-                onClick={() => toggleAccessory(a.key)}
+                onClick={() => toggle(a.key)}
                 data-testid={`acc-item-${a.key}`}
                 className={`w-full flex items-start gap-3 px-3 py-2 rounded border text-left transition-colors ${
                   checked
@@ -112,14 +127,23 @@ export function PdiAccessoriesView({ deliveryId }: { deliveryId?: string }) {
         <div className="px-4 py-3">
           <textarea
             data-testid="acc-note-input"
-            value={state.accessoriesNote}
-            onChange={(e) => patch({ accessoriesNote: e.target.value })}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
             rows={3}
             placeholder="例：Termignoni 排氣管已重新刷 ECU map、轉速於 6500rpm 起紅燈⋯"
             className="w-full px-2.5 py-2 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] focus:outline-none resize-y"
           />
         </div>
       </section>
+
+      {err && (
+        <div
+          className="fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          data-testid="acc-error"
+        >
+          {err}
+        </div>
+      )}
     </DeliveryFrame>
   );
 }

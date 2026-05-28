@@ -1,29 +1,51 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { DELIVERY_DOCS } from "@/components/delivery/delivery-constants";
-import { useDelivery } from "@/lib/delivery-store";
 import { completeDeliveryAction } from "@/lib/delivery/delivery-actions";
+import type { DeliveryRow } from "@/lib/deliveries";
 
-export function CeremonyView({ deliveryId }: { deliveryId?: string }) {
-  const { state, confirmDelivery, reset } = useDelivery();
+/** ISO → 「YYYY-MM-DD HH:mm (台北)」手動 +8，避免 toLocaleString 的 hydration mismatch */
+function fmtTaipei(iso: string | null): string {
+  if (!iso) return "";
+  const t = new Date(new Date(iso).getTime() + 8 * 3600 * 1000);
+  return `${t.toISOString().slice(0, 16).replace("T", " ")}（台北）`;
+}
+
+export function CeremonyView({ delivery }: { delivery: DeliveryRow }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+
+  const delivered = delivery.status === "delivered";
+
+  function handleConfirm() {
+    setErr(null);
+    startTransition(async () => {
+      const res = await completeDeliveryAction(delivery.id, {
+        delivered_at: new Date().toISOString(),
+      });
+      if (!res.ok) {
+        setErr(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   return (
-    <DeliveryFrame stepId={6} stepDone={state.delivered} nextLabel="完成交車">
+    <DeliveryFrame stepId={6} delivery={delivery} stepDone={delivered} nextLabel="完成交車">
       <section
         className="rounded-xl p-6 text-white text-center"
-        style={{
-          background: "linear-gradient(135deg,#085041,#0F6E56)",
-        }}
+        style={{ background: "linear-gradient(135deg,#085041,#0F6E56)" }}
         data-testid="ceremony-complete-card"
       >
-        <div className="text-[20px] font-bold mb-1.5">
-          🎉 恭喜！交車完成
-        </div>
+        <div className="text-[20px] font-bold mb-1.5">🎉 恭喜！交車完成</div>
         <div className="text-[12.5px] opacity-85 mb-3.5 leading-relaxed">
-          {state.customerName} 的 {state.vehicleModel} 已完成所有交車程序
+          {delivery.customer_name} 的 {delivery.vehicle_model_name} 已完成所有交車程序
           <br />
           確認後系統將自動觸發以下動作
         </div>
@@ -33,11 +55,11 @@ export function CeremonyView({ deliveryId }: { deliveryId?: string }) {
         >
           <b className="text-[#5DCAA5]">✅ 自動觸發項目：</b>
           <br />
-          1 · 於 <b>CRM03A 電訪工作台</b> 建立 D+3 滿意度回訪任務（2026-06-04）
+          1 · 於電訪工作台建立 D+3 滿意度回訪任務
           <br />
           2 · 更新客戶狀態為「已成交 — 已交車」
           <br />
-          3 · RS_M1 銷售漏斗「完成交車」層計數 +1
+          3 · 銷售漏斗「完成交車」層計數 +1
           <br />
           4 · 保固條款書存檔（存留 4 年）
           <br />
@@ -46,43 +68,27 @@ export function CeremonyView({ deliveryId }: { deliveryId?: string }) {
         <div className="flex flex-wrap justify-center gap-2">
           <button
             type="button"
-            disabled={state.delivered || isPending}
+            disabled={delivered || isPending}
             data-testid="ceremony-confirm-btn"
-            onClick={() => {
-              confirmDelivery();
-              if (deliveryId) {
-                startTransition(async () => {
-                  await completeDeliveryAction(deliveryId, {
-                    delivered_at: new Date().toISOString(),
-                  });
-                });
-              }
-            }}
+            onClick={handleConfirm}
             className="px-5 py-2 rounded text-[12.5px] font-semibold bg-white text-[#085041] hover:bg-[#E1F5EE] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isPending ? "儲存中⋯" : state.delivered ? "✅ 已完成交車" : "✅ 確認完成交車"}
+            {isPending ? "儲存中⋯" : delivered ? "✅ 已完成交車" : "✅ 確認完成交車"}
           </button>
-          <button
-            type="button"
+          <Link
+            href="/sales/delivery"
+            data-testid="ceremony-back-btn"
             className="px-5 py-2 rounded text-[12.5px] font-semibold bg-white/15 text-white border-[1.5px] border-white/35 hover:bg-white/25"
           >
-            🖨️ 列印交車文件
-          </button>
-          <button
-            type="button"
-            onClick={reset}
-            data-testid="ceremony-reset-btn"
-            className="px-5 py-2 rounded text-[12.5px] font-semibold bg-white/15 text-white border-[1.5px] border-white/35 hover:bg-white/25"
-          >
-            🔄 重置 demo 資料
-          </button>
+            ← 回交車看板
+          </Link>
         </div>
-        {state.delivered && state.deliveredAt && (
+        {delivered && delivery.delivered_at && (
           <div
             className="mt-3 text-[11px] opacity-80 font-mono"
             data-testid="ceremony-delivered-at"
           >
-            完成時間：{new Date(state.deliveredAt).toLocaleString("zh-TW")}
+            完成時間：{fmtTaipei(delivery.delivered_at)}
           </div>
         )}
       </section>
@@ -129,6 +135,15 @@ export function CeremonyView({ deliveryId }: { deliveryId?: string }) {
           ))}
         </div>
       </section>
+
+      {err && (
+        <div
+          className="fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          data-testid="ceremony-error"
+        >
+          {err}
+        </div>
+      )}
     </DeliveryFrame>
   );
 }

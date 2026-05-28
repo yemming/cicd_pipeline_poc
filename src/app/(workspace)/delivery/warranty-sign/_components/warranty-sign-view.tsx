@@ -1,10 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { WARRANTY_CHECKLIST_ITEMS } from "@/components/delivery/delivery-constants";
-import { useDelivery, type SignatureRole } from "@/lib/delivery-store";
 import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
+import type { DeliveryRow } from "@/lib/deliveries";
+
+type SigRole = "technician" | "rs" | "customer";
 
 const EXCLUSIONS = [
   "用於任何運動競賽的機車",
@@ -17,70 +19,84 @@ const EXCLUSIONS = [
 ];
 
 const WARRANTY_TERMS = [
-  {
-    label: "整車保固（台灣碩文版）",
-    value: "2 年不限里程",
-    sub: "自保固啟動日起",
-  },
-  {
-    label: "零件保固（原廠非消耗品）",
-    value: "24 個月",
-    sub: "授權經銷商購買安裝起算",
-  },
-  {
-    label: "一般保固（≥500cc 公路）",
-    value: "24 個月不限里程",
-    sub: "Panigale V4 S 適用",
-  },
-  {
-    label: "Desmo 服務（≥500cc）",
-    value: "24 個月 或 40,000 km",
-    sub: "以先到為準",
-  },
+  { label: "整車保固（台灣碩文版）", value: "2 年不限里程", sub: "自保固啟動日起" },
+  { label: "零件保固（原廠非消耗品）", value: "24 個月", sub: "授權經銷商購買安裝起算" },
+  { label: "一般保固（≥500cc 公路）", value: "24 個月不限里程", sub: "公路車適用" },
+  { label: "Desmo 服務（≥500cc）", value: "24 個月 或 40,000 km", sub: "以先到為準" },
 ];
 
-export function WarrantySignView({ deliveryId }: { deliveryId?: string }) {
-  const {
-    state,
-    patch,
-    sign,
-    setConsent,
-    toggleWarrantyItem,
-  } = useDelivery();
-  const [, startTransition] = useTransition();
+/** ISO → YYYY-MM-DD（手動格式，避免 toLocaleDateString 的 SSR/client hydration mismatch） */
+function fmtDate(iso: string | null): string {
+  return iso ? iso.slice(0, 10) : "";
+}
 
-  const allSigned =
-    !!state.signatures.technician &&
-    !!state.signatures.rs &&
-    !!state.signatures.customer;
+export function WarrantySignView({ delivery }: { delivery: DeliveryRow }) {
+  const [plateNo, setPlateNo] = useState(delivery.plate_no ?? "");
+  const [plateDate, setPlateDate] = useState(delivery.plate_date ?? "");
+  const [warrantyReceiveDate, setWarrantyReceiveDate] = useState(
+    delivery.warranty_receive_date ?? "",
+  );
+  const [warrantyStartDate, setWarrantyStartDate] = useState(
+    delivery.warranty_start_date ?? "",
+  );
+  const [consents, setConsents] = useState({
+    promo: Boolean(delivery.warranty_consents?.promo),
+    survey: Boolean(delivery.warranty_consents?.survey),
+    personalize: Boolean(delivery.warranty_consents?.personalize),
+  });
+  const [checklist, setChecklist] = useState<number[]>(
+    delivery.warranty_checklist ?? [],
+  );
+  const [sigs, setSigs] = useState<Record<SigRole, string | null>>({
+    technician: delivery.sig_technician,
+    rs: delivery.sig_rs,
+    customer: delivery.sig_customer,
+  });
+  const [err, setErr] = useState<string | null>(null);
 
-  const stepDone = allSigned;
-
+  const allSigned = Boolean(sigs.technician && sigs.rs && sigs.customer);
   const inputCls =
     "w-full h-[32px] px-2.5 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] focus:outline-none";
 
-  function handleNext() {
-    if (deliveryId) {
-      startTransition(async () => {
-        await updateDeliveryStepAction(deliveryId, "warranty", {
-          plate_no: state.plateNo,
-          plate_date: state.plateDate || undefined,
-          warranty_receive_date: state.warrantyReceiveDate || undefined,
-          warranty_start_date: state.warrantyStartDate || undefined,
-          warranty_consents: state.warrantyConsents,
-          warranty_checklist: state.warrantyChecklist,
-          sig_technician: state.signatures.technician,
-          sig_rs: state.signatures.rs,
-          sig_customer: state.signatures.customer,
-        }, "warranty_signed");
-      });
+  function sign(role: SigRole) {
+    setSigs((p) => ({ ...p, [role]: new Date().toISOString() }));
+  }
+  function toggleChecklist(i: number) {
+    setChecklist((prev) =>
+      prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i],
+    );
+  }
+
+  async function handleNext(): Promise<boolean> {
+    setErr(null);
+    const res = await updateDeliveryStepAction(
+      delivery.id,
+      "warranty",
+      {
+        plate_no: plateNo,
+        plate_date: plateDate || undefined,
+        warranty_receive_date: warrantyReceiveDate || undefined,
+        warranty_start_date: warrantyStartDate || undefined,
+        warranty_consents: consents,
+        warranty_checklist: checklist,
+        sig_technician: sigs.technician,
+        sig_rs: sigs.rs,
+        sig_customer: sigs.customer,
+      },
+      "warranty_signed",
+    );
+    if (!res.ok) {
+      setErr(res.error);
+      return false;
     }
+    return true;
   }
 
   return (
     <DeliveryFrame
       stepId={5}
-      stepDone={stepDone}
+      delivery={delivery}
+      stepDone={allSigned}
       nextLabel="保固簽署完成 → 完成交車 →"
       nextDisabled={!allSigned}
       onNext={handleNext}
@@ -105,87 +121,45 @@ export function WarrantySignView({ deliveryId }: { deliveryId?: string }) {
         <div className="px-4 py-4 space-y-4">
           <SectionTitle>一、客戶資料</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <FormField
-              label="姓名"
-              required
-              value={state.customerName}
-              onChange={(v) => patch({ customerName: v })}
-              input={inputCls}
-            />
-            <FormField
-              label="手機號碼"
-              required
-              value={state.customerPhone}
-              onChange={(v) => patch({ customerPhone: v })}
-              input={inputCls}
-            />
-            <FormField
-              label="出生年月日"
-              type="date"
-              value={state.customerBirthday}
-              onChange={(v) => patch({ customerBirthday: v })}
-              input={inputCls}
-            />
-            <FormField
-              label="電子郵件"
-              value={state.customerEmail}
-              onChange={(v) => patch({ customerEmail: v })}
-              input={inputCls}
-            />
-            <FormField
-              label="通訊地址"
-              className="md:col-span-2"
-              value={state.customerAddress}
-              onChange={(v) => patch({ customerAddress: v })}
-              input={inputCls}
-            />
+            <RoField label="姓名" value={delivery.customer_name ?? ""} input={inputCls} />
+            <RoField label="手機號碼" value={delivery.customer_phone ?? ""} input={inputCls} />
+            <RoField label="出生年月日" value={fmtDate(delivery.customer_birthday)} input={inputCls} />
+            <RoField label="電子郵件" value={delivery.customer_email ?? ""} input={inputCls} />
+            <RoField label="通訊地址" className="md:col-span-2" value={delivery.customer_address ?? ""} input={inputCls} />
           </div>
 
           <SectionTitle>二、車輛資料</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <FormField
-              label="車型"
-              required
-              value={state.vehicleModel}
-              onChange={(v) => patch({ vehicleModel: v })}
-              input={`${inputCls} bg-[#F4F3F0]`}
-              readOnly
-            />
+            <RoField label="車型" value={delivery.vehicle_model_name ?? ""} input={`${inputCls} bg-[#F4F3F0]`} />
             <FormField
               label="車牌號碼"
               testId="warranty-input-plate"
-              value={state.plateNo}
-              onChange={(v) => patch({ plateNo: v })}
+              value={plateNo}
+              onChange={setPlateNo}
               input={inputCls}
               placeholder="辦牌後填入"
             />
             <FormField
               label="掛牌日"
               type="date"
-              value={state.plateDate}
-              onChange={(v) => patch({ plateDate: v })}
+              value={plateDate}
+              onChange={setPlateDate}
               input={inputCls}
             />
-            <FormField
-              label="車身號碼（VIN）"
-              required
-              value={state.vin}
-              onChange={(v) => patch({ vin: v.toUpperCase() })}
-              input={`${inputCls} font-mono`}
-            />
+            <RoField label="車身號碼（VIN）" value={delivery.vin ?? ""} input={`${inputCls} font-mono`} />
             <FormField
               label="保固條款收件日"
               type="date"
-              value={state.warrantyReceiveDate}
-              onChange={(v) => patch({ warrantyReceiveDate: v })}
+              value={warrantyReceiveDate}
+              onChange={setWarrantyReceiveDate}
               input={inputCls}
             />
             <FormField
               label="保固啟動日"
               required
               type="date"
-              value={state.warrantyStartDate}
-              onChange={(v) => patch({ warrantyStartDate: v })}
+              value={warrantyStartDate}
+              onChange={setWarrantyStartDate}
               input={inputCls}
             />
           </div>
@@ -224,12 +198,12 @@ export function WarrantySignView({ deliveryId }: { deliveryId?: string }) {
           <SectionTitle>四、交車確認事項</SectionTitle>
           <div className="flex flex-col gap-1">
             {WARRANTY_CHECKLIST_ITEMS.map((t, i) => {
-              const checked = state.warrantyChecklist.includes(i);
+              const checked = checklist.includes(i);
               return (
                 <button
                   key={i}
                   type="button"
-                  onClick={() => toggleWarrantyItem(i)}
+                  onClick={() => toggleChecklist(i)}
                   data-testid={`warranty-check-${i}`}
                   className={`flex items-start gap-2.5 px-2.5 py-1.5 rounded border text-left transition-colors ${
                     checked
@@ -246,9 +220,7 @@ export function WarrantySignView({ deliveryId }: { deliveryId?: string }) {
                   >
                     ✓
                   </span>
-                  <span className="text-[12.5px] flex-1 leading-relaxed">
-                    {t}
-                  </span>
+                  <span className="text-[12.5px] flex-1 leading-relaxed">{t}</span>
                 </button>
               );
             })}
@@ -258,56 +230,41 @@ export function WarrantySignView({ deliveryId }: { deliveryId?: string }) {
           <div className="bg-[#FAFAF8] border border-[#EEECE6] rounded-md p-3 flex flex-col gap-2">
             <ConsentRow
               label="同意接受廣告 / 促銷資訊"
-              checked={state.warrantyConsents.promo}
-              onChange={(v) => setConsent("promo", v)}
+              checked={consents.promo}
+              onChange={(v) => setConsents((p) => ({ ...p, promo: v }))}
               testId="warranty-consent-promo"
             />
             <ConsentRow
               label="同意接受市場調查"
-              checked={state.warrantyConsents.survey}
-              onChange={(v) => setConsent("survey", v)}
+              checked={consents.survey}
+              onChange={(v) => setConsents((p) => ({ ...p, survey: v }))}
               testId="warranty-consent-survey"
             />
             <ConsentRow
               label="同意接受個人化服務"
-              checked={state.warrantyConsents.personalize}
-              onChange={(v) => setConsent("personalize", v)}
+              checked={consents.personalize}
+              onChange={(v) => setConsents((p) => ({ ...p, personalize: v }))}
               testId="warranty-consent-personalize"
             />
           </div>
 
           <SectionTitle>六、三方簽署</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-            <SignBox
-              role="technician"
-              icon="🔧"
-              label="技師簽名"
-              sub="交車前準備已完成"
-              signedAt={state.signatures.technician}
-              onSign={sign}
-              testId="warranty-sign-technician"
-            />
-            <SignBox
-              role="rs"
-              icon="📝"
-              label="銷售顧問（RS）簽名"
-              sub="交車說明完成"
-              signedAt={state.signatures.rs}
-              onSign={sign}
-              testId="warranty-sign-rs"
-            />
-            <SignBox
-              role="customer"
-              icon="✍️"
-              label="客戶簽名"
-              sub="已閱讀並了解保固條款"
-              signedAt={state.signatures.customer}
-              onSign={sign}
-              testId="warranty-sign-customer"
-            />
+            <SignBox role="technician" icon="🔧" label="技師簽名" sub="交車前準備已完成" signedAt={sigs.technician} onSign={sign} testId="warranty-sign-technician" />
+            <SignBox role="rs" icon="📝" label="銷售顧問（RS）簽名" sub="交車說明完成" signedAt={sigs.rs} onSign={sign} testId="warranty-sign-rs" />
+            <SignBox role="customer" icon="✍️" label="客戶簽名" sub="已閱讀並了解保固條款" signedAt={sigs.customer} onSign={sign} testId="warranty-sign-customer" />
           </div>
         </div>
       </section>
+
+      {err && (
+        <div
+          className="fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          data-testid="warranty-error"
+        >
+          {err}
+        </div>
+      )}
     </DeliveryFrame>
   );
 }
@@ -321,6 +278,30 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+function RoField({
+  label,
+  value,
+  input,
+  className,
+}: {
+  label: string;
+  value: string;
+  input: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col gap-1 ${className ?? ""}`}>
+      <label className="text-[11.5px] font-semibold text-[#4A4A48]">{label}</label>
+      <input
+        type="text"
+        className={`${input} bg-[#F4F3F0] text-[#5A5955] cursor-not-allowed`}
+        value={value}
+        readOnly
+      />
+    </div>
+  );
+}
+
 function FormField({
   label,
   value,
@@ -328,7 +309,6 @@ function FormField({
   input,
   required,
   type,
-  readOnly,
   placeholder,
   className,
   testId,
@@ -339,7 +319,6 @@ function FormField({
   input: string;
   required?: boolean;
   type?: string;
-  readOnly?: boolean;
   placeholder?: string;
   className?: string;
   testId?: string;
@@ -352,11 +331,8 @@ function FormField({
       </label>
       <input
         type={type ?? "text"}
-        className={`${input} ${
-          readOnly ? "bg-[#F4F3F0] text-[#5A5955] cursor-not-allowed" : ""
-        }`}
+        className={input}
         value={value}
-        readOnly={readOnly}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         data-testid={testId}
@@ -398,15 +374,15 @@ function SignBox({
   onSign,
   testId,
 }: {
-  role: SignatureRole;
+  role: SigRole;
   icon: string;
   label: string;
   sub: string;
   signedAt: string | null;
-  onSign: (r: SignatureRole) => void;
+  onSign: (r: SigRole) => void;
   testId: string;
 }) {
-  const signed = !!signedAt;
+  const signed = Boolean(signedAt);
   return (
     <button
       type="button"
@@ -423,7 +399,7 @@ function SignBox({
         {signed ? `${label.replace("簽名", "")}已簽名` : label}
       </div>
       <div className="text-[10.5px] text-[#9A9890]">
-        {signed ? new Date(signedAt).toLocaleDateString("zh-TW") : sub}
+        {signed ? fmtDate(signedAt) : sub}
       </div>
     </button>
   );

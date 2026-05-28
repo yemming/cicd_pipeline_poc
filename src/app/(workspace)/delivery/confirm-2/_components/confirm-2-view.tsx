@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import {
   DELIVERY_ITEMS,
@@ -8,8 +8,8 @@ import {
   DELIVERY_ITEM_ROWS,
   type DeliveryItemCat,
 } from "@/components/delivery/delivery-constants";
-import { useDelivery } from "@/lib/delivery-store";
 import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
+import type { DeliveryRow } from "@/lib/deliveries";
 
 const CAT_PILL: Record<DeliveryItemCat, string> = {
   a: "bg-[#185FA5]",
@@ -18,34 +18,51 @@ const CAT_PILL: Record<DeliveryItemCat, string> = {
   d: "bg-[#534AB7]",
 };
 
-export function Confirm2View({ deliveryId }: { deliveryId?: string }) {
-  const { state, toggleDelivery, toggleDeliveryAll } = useDelivery();
-  const [, startTransition] = useTransition();
+export function Confirm2View({ delivery }: { delivery: DeliveryRow }) {
   const total = DELIVERY_ITEMS.length;
-  const done = state.deliveryChecked.length;
-  const pct = Math.round((done / total) * 100);
   const allIdx = DELIVERY_ITEMS.map((_, i) => i);
-  const stepDone = done === total;
   const rows = DELIVERY_ITEM_ROWS;
 
-  function handleNext() {
-    if (deliveryId) {
-      startTransition(async () => {
-        await updateDeliveryStepAction(deliveryId, "confirm2", {
-          delivery_checklist: state.deliveryChecked,
-        }, stepDone ? "delivery_confirmed" : undefined);
-      });
+  const [checked, setChecked] = useState<number[]>(
+    delivery.delivery_checklist ?? [],
+  );
+  const [err, setErr] = useState<string | null>(null);
+
+  const done = checked.length;
+  const pct = Math.round((done / total) * 100);
+  const stepDone = done === total;
+
+  function toggle(i: number) {
+    setChecked((prev) =>
+      prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i],
+    );
+  }
+  function toggleAll() {
+    setChecked((prev) => (prev.length === total ? [] : [...allIdx]));
+  }
+
+  async function handleNext(): Promise<boolean> {
+    setErr(null);
+    const res = await updateDeliveryStepAction(
+      delivery.id,
+      "confirm2",
+      { delivery_checklist: checked },
+      done === total ? "delivery_confirmed" : undefined,
+    );
+    if (!res.ok) {
+      setErr(res.error);
+      return false;
     }
+    return true;
   }
 
   return (
     <DeliveryFrame
       stepId={4}
+      delivery={delivery}
       stepDone={stepDone}
       nextLabel={
-        stepDone
-          ? "交車確認完成 → 保固條款 →"
-          : "確認表進行中 → 保固條款 →"
+        stepDone ? "交車確認完成 → 保固條款 →" : "確認表進行中 → 保固條款 →"
       }
       onNext={handleNext}
     >
@@ -93,7 +110,7 @@ export function Confirm2View({ deliveryId }: { deliveryId?: string }) {
           </div>
           <div className="flex flex-col gap-1" data-testid="confirm2-checklist">
             {rows.map(({ item, i, showDivider }) => {
-              const checked = state.deliveryChecked.includes(i);
+              const isChecked = checked.includes(i);
               return (
                 <div key={i}>
                   {showDivider && (
@@ -106,17 +123,17 @@ export function Confirm2View({ deliveryId }: { deliveryId?: string }) {
                   )}
                   <button
                     type="button"
-                    onClick={() => toggleDelivery(i)}
+                    onClick={() => toggle(i)}
                     data-testid={`confirm2-item-${i}`}
                     className={`w-full flex items-start gap-2.5 px-2.5 py-1.5 rounded border text-left transition-colors ${
-                      checked
+                      isChecked
                         ? "bg-[#E1F5EE] border-[#5DCAA5]"
                         : "bg-white border-[#EEECE6] hover:bg-[#F0F7FF] hover:border-[#85B7EB]"
                     }`}
                   >
                     <span
                       className={`w-[17px] h-[17px] rounded border-2 flex items-center justify-center text-[10px] mt-0.5 shrink-0 ${
-                        checked
+                        isChecked
                           ? "bg-[#0F6E56] border-[#0F6E56] text-white"
                           : "border-[#D5D3CB] text-transparent"
                       }`}
@@ -142,15 +159,24 @@ export function Confirm2View({ deliveryId }: { deliveryId?: string }) {
           <div className="flex justify-end pt-3">
             <button
               type="button"
-              onClick={() => toggleDeliveryAll(allIdx)}
+              onClick={toggleAll}
               className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
               data-testid="confirm2-toggle-all-btn"
             >
-              ✅ 全部完成（測試）
+              ✅ 全部完成
             </button>
           </div>
         </div>
       </section>
+
+      {err && (
+        <div
+          className="fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          data-testid="confirm2-error"
+        >
+          {err}
+        </div>
+      )}
     </DeliveryFrame>
   );
 }

@@ -12,8 +12,9 @@
  *   4. children — 該 step 的具體內容
  *   5. Footer 動作列（← 上一步 / 下一步 →）
  *
- * 跨頁 state 走 <DeliveryProvider>（src/lib/delivery-store.tsx），由
- * (workspace)/delivery/layout.tsx 提供。
+ * 資料：吃 server 載入的真實 `delivery` row（deliveries 表）；info card 與 step bar
+ * 進度都讀它。已退役舊的 client mock store。各 step 的「下一步」由 view 透過
+ * updateDeliveryStepAction 寫 DB 後推進。
  */
 
 import Link from "next/link";
@@ -21,12 +22,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useTransition, type ReactNode } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
-import { DemoBanner } from "@/components/demo-banner";
-import { useDelivery } from "@/lib/delivery-store";
+import type { DeliveryRow } from "@/lib/deliveries";
+// 已退役 mock：DeliveryFrame 不再依賴 delivery-store / DemoBanner，改吃 delivery prop
+import type { DeliveryStepName } from "@/lib/deliveries.constants";
 import { DELIVERY_STEPS } from "./delivery-constants";
+
+/** step id（1-6）→ deliveries.step_completion 的 key */
+const STEP_KEY: Record<number, DeliveryStepName> = {
+  1: "confirm1",
+  2: "pdi",
+  3: "accessories",
+  4: "confirm2",
+  5: "warranty",
+  6: "ceremony",
+};
 
 export type DeliveryFrameProps = {
   stepId: 1 | 2 | 3 | 4 | 5 | 6;
+  /** 真實交車單（取代舊 mock store）— info card / step bar 進度都讀它 */
+  delivery: DeliveryRow;
   children: ReactNode;
   /** 該 step 是否已完成（影響 step bar 「done」狀態） */
   stepDone?: boolean;
@@ -49,6 +63,7 @@ const STEP_TITLES: Record<number, { title: string; caption: string }> = {
 
 export function DeliveryFrame({
   stepId,
+  delivery,
   children,
   stepDone,
   nextLabel,
@@ -57,8 +72,7 @@ export function DeliveryFrame({
 }: DeliveryFrameProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const deliveryId = searchParams.get("deliveryId");
-  const { state, hydrated } = useDelivery();
+  const deliveryId = searchParams.get("deliveryId") ?? delivery.id;
   const meta = STEP_TITLES[stepId];
   const sprint = DELIVERY_STEPS.find((s) => s.id === stepId)?.sprint ?? "";
 
@@ -98,14 +112,6 @@ export function DeliveryFrame({
 
   return (
     <main className="px-6 py-5 space-y-3" data-testid={`delivery-frame-step-${stepId}`}>
-      {!deliveryId && (
-        <DemoBanner
-          tone="info"
-          message="目前為示範模式（未綁訂單），完成資料不會寫入 DB。"
-          href="/sales/delivery"
-          hrefLabel="改由交車列表進入"
-        />
-      )}
       {/* Page header */}
       <header className="flex items-center gap-2.5" data-testid="delivery-page-header">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
@@ -127,17 +133,10 @@ export function DeliveryFrame({
       >
         {DELIVERY_STEPS.map((s, i) => {
           const isActive = s.id === stepId;
-          // done 判定：來自 store 狀態
+          // done 判定：來自真實交車單的 step_completion（或已交車則全完成）
           const done =
-            (s.id === 1 && state.confirmedOrder) ||
-            (s.id === 2 && state.pdiChecked.length === 29) ||
-            (s.id === 3 && state.accessoriesChecked.length > 0) ||
-            (s.id === 4 && state.deliveryChecked.length === 36) ||
-            (s.id === 5 &&
-              state.signatures.technician !== null &&
-              state.signatures.rs !== null &&
-              state.signatures.customer !== null) ||
-            (s.id === 6 && state.delivered);
+            delivery.status === "delivered" ||
+            Boolean(delivery.step_completion?.[STEP_KEY[s.id]]);
           return (
             <Link
               key={s.id}
@@ -169,34 +168,25 @@ export function DeliveryFrame({
         className="bg-[#1A3A5C] rounded-lg px-5 py-3 text-white flex flex-wrap items-center gap-x-5 gap-y-2"
         data-testid="delivery-info-card"
       >
-        <InfoItem label="客戶姓名" value={state.customerName} />
+        <InfoItem label="客戶姓名" value={delivery.customer_name ?? ""} />
         <Div />
-        <InfoItem label="訂購車款" value={state.vehicleModel} />
+        <InfoItem label="訂購車款" value={delivery.vehicle_model_name ?? ""} />
         <Div />
-        <InfoItem label="車身顏色" value={state.vehicleColor} />
+        <InfoItem label="車身顏色" value={delivery.vehicle_color ?? ""} />
         <Div />
         <InfoItem
-          label="合約編號"
-          value={state.contractNo}
+          label="交車單號"
+          value={delivery.delivery_no}
           mono
           testId="delivery-info-contract"
         />
         <Div />
-        <InfoItem label="銷售顧問" value={state.rsName} />
+        <InfoItem label="銷售顧問" value={delivery.rs_name ?? ""} />
         <Div />
-        <InfoItem label="預定交車日" value={state.deliveryDate} />
+        <InfoItem label="預定交車日" value={delivery.scheduled_delivery_date ?? ""} />
       </section>
 
-      {/* hydration guard 避免 SSR / client mismatch */}
-      <div className="space-y-3">
-        {hydrated ? (
-          children
-        ) : (
-          <div className="bg-white border border-[#EEECE6] rounded-lg p-6 text-[12px] text-[#9A9890]">
-            載入中⋯
-          </div>
-        )}
-      </div>
+      <div className="space-y-3">{children}</div>
 
       {/* 下方動作列 */}
       <div
