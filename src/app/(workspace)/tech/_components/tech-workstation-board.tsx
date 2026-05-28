@@ -88,6 +88,7 @@ export function TechWorkstationBoard({
   itemOptions,
   warehouseOptions,
   perms,
+  fallbackNotice = null,
 }: {
   technician: TechnicianRow;
   initialOrders: AssignedOrderCard[];
@@ -96,6 +97,8 @@ export function TechWorkstationBoard({
   itemOptions: AddonItemOption[];
   warehouseOptions: AddonWarehouseOption[];
   perms: Perms;
+  /** 非本人（fallback）檢視模式：帶技師名 → 顯示唯讀 debug 橫幅；null = 正常本人模式 */
+  fallbackNotice?: { techName: string } | null;
 }) {
   const [tab, setTab] = useState<TabKey>(
     initialOrders.some((o) => o.status === STATUS_IN_REPAIR) ? "in_progress" : "pending",
@@ -289,6 +292,19 @@ export function TechWorkstationBoard({
 
   return (
     <main className="px-6 py-5 space-y-3">
+      {/* Debug 檢視模式：未綁技師的帳號 fallback 看別人的工作台（唯讀） */}
+      {fallbackNotice && (
+        <div className="bg-[#FDF3E3] border border-[#F5D9A8] rounded-lg px-4 py-2.5 flex items-start gap-2">
+          <span className="material-symbols-outlined text-[#854F0B] text-[18px] leading-none mt-0.5">
+            visibility
+          </span>
+          <p className="text-[12px] text-[#854F0B] leading-relaxed">
+            <b>Debug 檢視模式</b>：您的帳號尚未綁定技師，目前顯示技師「{fallbackNotice.techName}」的工作台資料（
+            <b>唯讀</b>，不可接單／計時／追加／轉派）。正式使用請到「技師主檔」把您的登入帳號綁到對應技師。
+          </p>
+        </div>
+      )}
+
       {/* Header：技師 + KPI */}
       <header className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">

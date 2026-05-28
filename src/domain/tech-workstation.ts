@@ -184,6 +184,36 @@ export async function getCurrentTechnician(): Promise<TechnicianRow | null> {
   return data as TechnicianRow;
 }
 
+/**
+ * 取當前登入者的技師；**沒綁定時 fallback 到該 brand 第一位啟用技師**（debug-friendly）。
+ *
+ * 為什麼：未綁技師的帳號（同事、管理員）原本會卡在 UnboundTechNotice、整頁空白，
+ * 沒辦法 debug 畫面。改成 fallback 讓任何登入者都看得到資料；回傳 `isFallback`
+ * 讓頁面標示「這不是您本人的單、僅供檢視」並把寫入權限關成唯讀（page 端處理），
+ * 避免同事誤接單／誤計時改到別人的工單。
+ *
+ * 該 brand 完全沒有技師 → 回 null（頁面仍顯示 UnboundTechNotice）。
+ */
+export async function getCurrentTechnicianOrFallback(): Promise<
+  { technician: TechnicianRow; isFallback: boolean } | null
+> {
+  const real = await getCurrentTechnician();
+  if (real) return { technician: real, isFallback: false };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data } = await supabase
+    .from("aftersales_technicians")
+    .select("id, brand_id, code, name, grade, avatar_color, status, is_active")
+    .eq("brand_id", brand)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return { technician: data as TechnicianRow, isFallback: true };
+}
+
 // ─────────────────────────────────────────────────────────────
 // 讀：指派給我的工單（含工項 / 追加 / 工時）
 // ─────────────────────────────────────────────────────────────

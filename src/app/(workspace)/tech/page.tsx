@@ -8,7 +8,7 @@
  */
 
 import {
-  getCurrentTechnician,
+  getCurrentTechnicianOrFallback,
   listMyAssignedOrders,
   getMyWorkstationKpi,
   listOtherTechnicians,
@@ -43,10 +43,12 @@ export default async function TechWorkstationPage() {
     );
   }
 
-  const technician = await getCurrentTechnician();
-  if (!technician) {
+  // 沒綁技師 → fallback 到該 brand 第一位技師（debug 檢視），完全沒技師才擋 UnboundTechNotice
+  const resolved = await getCurrentTechnicianOrFallback();
+  if (!resolved) {
     return <UnboundTechNotice />;
   }
+  const { technician, isFallback } = resolved;
 
   const [
     orders,
@@ -78,12 +80,14 @@ export default async function TechWorkstationPage() {
       otherTechnicians={otherTechs}
       itemOptions={itemOptions}
       warehouseOptions={warehouseOptions}
+      // fallback（非本人）模式：全關寫入權限 → 看得到、改不了，避免誤動別人的單
       perms={{
-        canAccept,
-        canExecute,
-        canPropose,
-        canDispatch,
+        canAccept: isFallback ? false : canAccept,
+        canExecute: isFallback ? false : canExecute,
+        canPropose: isFallback ? false : canPropose,
+        canDispatch: isFallback ? false : canDispatch,
       }}
+      fallbackNotice={isFallback ? { techName: technician.name } : null}
     />
   );
 }
