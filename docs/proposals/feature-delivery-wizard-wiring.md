@@ -90,3 +90,32 @@ return <XxxView delivery={delivery} />;
 - 重整頁面資料仍在（來自 DB 非 localStorage）
 - 無 deliveryId 直接開 `/delivery/pdi` → 導回看板
 - `grep -rn "delivery-store" src` = 0（mock 已退役）
+
+## 八、落地結果（2026-05-28）
+
+拍板：Nav 採「單一交車作業看板入口」（option A），6 step 側欄項停用、收斂成「交車作業看板」→ `/sales/delivery`（雙 brand，nav_nodes 已改）。`commit 7609cb7` 落地。
+
+### 8.1 e2e 實走抓到的寫入 bug（`commit 2a9a4dc`）
+> tsc/eslint/build 全綠，但 Playwright 實走才抓到 —— 寫入流程必 browser e2e。
+
+- **症狀**：confirm-1 按下一步噴「儲存步驟失敗（confirm1）：[object Object]」、DB 沒落地。
+- **根因**：`updateDeliveryStep` 把 payload 直接 spread 進 supabase UPDATE，但 confirm-1 送了 `confirmedOrder`（UI 旗標、`deliveries` 無此欄位）→ PostgrestError；且 `String(e)` 把 error 物件吞成 `[object Object]`。
+- **修**：`updateDeliveryStep` 解構剝掉 `confirmedOrder`（語意已由 `step_completion.confirm1` 表達）；`delivery-actions` 加 `msgOf()` 正確取 `PostgrestError.message`。
+
+### 8.2 順帶修掉的 RLS brand 隔離洞（Supabase migration `fix_deliveries_rls_brand_isolation`）
+> ⚠️ 此變更只在 Supabase cloud（repo 無 migrations 目錄），SQL 記於此供追溯。
+
+- **原 bug**：`deliveries` 四條 policy 都是 `brand_id IN (SELECT deliveries.brand_id FROM profiles WHERE profiles.id=auth.uid())` —— correlated subquery 取的是 row 自己的 brand_id，等於「有 profile 就放行」→ 任何登入者可讀寫任何 brand 的交車單，brand 隔離失效。
+- **修正**：改成與 `repair_orders` 等業務表一致的 `user_has_brand(brand_id)`：
+  ```sql
+  DROP POLICY ... (舊 4 條)
+  CREATE POLICY deliveries_select ON deliveries FOR SELECT USING (user_has_brand(brand_id));
+  CREATE POLICY deliveries_insert ON deliveries FOR INSERT WITH CHECK (user_has_brand(brand_id));
+  CREATE POLICY deliveries_update ON deliveries FOR UPDATE USING (user_has_brand(brand_id)) WITH CHECK (user_has_brand(brand_id));
+  CREATE POLICY deliveries_delete ON deliveries FOR DELETE USING (user_has_brand(brand_id));
+  ```
+
+### 8.3 驗證結果（line e2e on production）
+- 登入 David（`ccc@ccc.ccc`，4 營運角色、indian-only）→ `/delivery/confirm-1?deliveryId=…` 顯示**真客戶「柯文哲 / Scout Bobber」**（非 mock 王大明/Panigale）✅
+- 按下一步 → 導到 `/delivery/pdi`、DB `status→pdi_in_progress`、`step_completion.confirm1` 落地 ✅（新 RLS 未誤擋 David 合法 Indian 寫入）
+- 測試後已將該 demo 交車單還原為 `scheduled`、`step_completion={}`，未留髒資料。
