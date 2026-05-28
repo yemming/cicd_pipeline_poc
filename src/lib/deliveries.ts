@@ -222,8 +222,13 @@ export async function updateDeliveryStep(
     [step]: { completed_at: new Date().toISOString() },
   };
 
+  // confirmedOrder 是 UI 層旗標、deliveries 無此欄位（其語意已由 step_completion.confirm1 表達）；
+  // 剝掉避免 spread 進 UPDATE 造成「column does not exist」。
+  const { confirmedOrder: _confirmedOrder, ...dbPayload } = payload;
+  void _confirmedOrder;
+
   const patch: Record<string, unknown> = {
-    ...payload,
+    ...dbPayload,
     step_completion: stepCompletion,
   };
 

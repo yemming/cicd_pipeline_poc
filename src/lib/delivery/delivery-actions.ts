@@ -23,6 +23,15 @@ export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
+/** 擷取錯誤訊息 — Supabase PostgrestError 不是 Error instance，String(e) 會變 "[object Object]" */
+function msgOf(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object" && "message" in e) {
+    return String((e as { message: unknown }).message);
+  }
+  return String(e);
+}
+
 /** 生成交車單號：DLV-YYYYMM-XXXX */
 function genDeliveryNo(): string {
   const now = new Date();
@@ -39,7 +48,7 @@ export async function createDeliveryAction(
     const row = await createDelivery({ ...input, delivery_no });
     return { ok: true, data: { id: row.id, delivery_no: row.delivery_no } };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = msgOf(e);
     return { ok: false, error: `建立交車單失敗：${msg}` };
   }
 }
@@ -52,7 +61,7 @@ export async function updateDeliveryAction(
     const row = await updateDelivery(id, patch);
     return { ok: true, data: { id: row.id } };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = msgOf(e);
     return { ok: false, error: `更新交車單失敗：${msg}` };
   }
 }
@@ -71,7 +80,7 @@ export async function updateDeliveryStepAction(
     const row = await updateDeliveryStep(deliveryId, step, payload, newStatus);
     return { ok: true, data: { id: row.id } };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = msgOf(e);
     return { ok: false, error: `儲存步驟失敗（${step}）：${msg}` };
   }
 }
@@ -84,7 +93,7 @@ export async function setDeliveryStatusAction(
     const row = await setDeliveryStatus(id, status);
     return { ok: true, data: { id: row.id } };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = msgOf(e);
     return { ok: false, error: `變更狀態失敗：${msg}` };
   }
 }
@@ -105,7 +114,7 @@ export async function completeDeliveryAction(
     const row = await updateDeliveryStep(deliveryId, 'ceremony', payload, 'delivered');
     return { ok: true, data: { id: row.id } };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = msgOf(e);
     return { ok: false, error: `完成交車失敗：${msg}` };
   }
 }
@@ -115,7 +124,7 @@ export async function deleteDeliveryAction(id: string): Promise<ActionResult<{ i
     await deleteDelivery(id);
     return { ok: true, data: { id } };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = msgOf(e);
     return { ok: false, error: `刪除失敗：${msg}` };
   }
 }
@@ -141,7 +150,7 @@ export async function loadDeliveryTimelineAction(
     const events = await _getDeliveryTimeline(id);
     return { ok: true, data: events };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = msgOf(e);
     return { ok: false, error: `載入時間軸失敗：${msg}` };
   }
 }
@@ -157,7 +166,7 @@ export async function loadDeliveryPdiStatusAction(
     const status = await _getDeliveryPdiStatus(id);
     return { ok: true, data: status };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = msgOf(e);
     return { ok: false, error: `載入 PDI 狀態失敗：${msg}` };
   }
 }
