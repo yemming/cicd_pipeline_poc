@@ -21,6 +21,9 @@ export type ModulePage = {
   sprint?: string;
   /** Only visible to admin users (FEEDBACK_ADMIN_EMAILS / NOTIFICATION_ADMIN_EMAILS) */
   adminOnly?: boolean;
+  /** 此頁要求的 RBAC permission code（鏡射 page 的 hasPermission guard）；
+   *  使用者缺此權限 → nav filter 會把它藏掉。null/undefined = 不需權限、永遠顯示。 */
+  permission?: string;
   /** 小數字徽章（如「3」表示 3 筆待處理） */
   badge?: string;
 };
@@ -37,6 +40,8 @@ export type ParentGroup = {
   badge?: string;
   /** Direct-link parent（樣板的「庫存查詢」「模組導覽總覽」），有 href 就跳轉而非摺疊 */
   href?: string;
+  /** Direct-link parent 要求的 permission（鏡射其 href 頁的 guard）；缺則藏。 */
+  permission?: string;
   children: ModulePage[];
 };
 

@@ -68,6 +68,7 @@ function rowToPage(row: NavNodeRow, sectionName: string | undefined): ModulePage
   if (sectionName) page.section = sectionName;
   if (row.sprint) page.sprint = row.sprint;
   if (row.is_admin_only) page.adminOnly = true;
+  if (row.permission) page.permission = row.permission;
   if (row.badge) page.badge = row.badge;
   return page;
 }
@@ -131,9 +132,11 @@ function buildModuleDef(
         if (child.page_kind === "react_route" && child.href && childPages.length === 0) {
           const dlHref = normalizeHref(child.href);
           parent.href = dlHref;
+          if (child.permission) parent.permission = child.permission;
           // 同步加進 flat pages（供 PagesPanel/CommandPalette 看見）
           const dl: ModulePage = { name: child.name, href: dlHref };
           if (child.icon) dl.icon = child.icon;
+          if (child.permission) dl.permission = child.permission;
           if (child.badge) dl.badge = child.badge;
           pages.push(dl);
         }

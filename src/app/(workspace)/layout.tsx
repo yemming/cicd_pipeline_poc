@@ -4,6 +4,8 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { NavProvider } from "@/components/nav-provider";
 import { AppearanceProvider } from "@/components/appearance-context";
 import { loadNavTree } from "@/lib/nav/loader";
+import { filterNavByPermission } from "@/lib/nav/filter-by-permission";
+import { getUserPermissions } from "@/lib/rbac/policies";
 import {
   loadBrandAppearance,
   loadUserAppearanceOverride,
@@ -23,11 +25,14 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
   const { userId, isAdmin } = await getCurrentUserAndAdmin();
   const scope = await getActiveScope();
   const accessible = await getAccessibleScopes();
-  const [modules, brandAppearance, userOverride] = await Promise.all([
+  const [rawModules, brandAppearance, userOverride, perms] = await Promise.all([
     loadNavTree(scope.brand_id),
     loadBrandAppearance(scope.brand_id),
     userId ? loadUserAppearanceOverride(userId) : Promise.resolve(null),
+    getUserPermissions(),
   ]);
+  // 依使用者權限把沒權限的頁/模組從側欄濾掉（鏡射 page 端 hasPermission / isAdmin guard）
+  const modules = filterNavByPermission(rawModules, perms, isAdmin);
   const appearance = mergeUserAppearance(brandAppearance, userOverride);
 
   const accessibleStores = (accessible.storesByBrand[scope.brand_id] ?? []).map(
