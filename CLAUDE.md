@@ -18,11 +18,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | 用途 | Email | Password |
 |------|-------|----------|
-| 直接 Playwright 登入正式站做 E2E（含 admin-gated 頁如 `/admin/accounting/reports/*`） | `ccc@ccc.ccc` | `ccc@ccc.ccc` |
+| Playwright 登入正式站做 E2E（含 admin-gated 頁如 `/admin/accounting/reports/*`、`/admin/*`） | `yemming.yu@gmail.com` | `yemming.yu@gmail.com` |
 
-- 帳密相同（`ccc@ccc.ccc`），用一般 email/password Supabase auth（**非** Google OAuth），所以可全自動 Playwright 登入。
+- **帳密相同**（`yemming.yu@gmail.com`）；此帳號已在 `app_admins`（isAdmin=true）→ 可進所有 admin-gated 頁。雖平常用 Google OAuth，但已另設 email/password，可全自動 Playwright 登入（走 `/login` 的 email/password 表單，**非** OAuth）。
 - **storageState 換網域作廢**：`tests/e2e/.auth/*.json` 是 localhost cookie，打部署 URL 無效 → 對部署後 URL 用此帳號**重新登入**產 storageState。
-- 8 個 e2e persona（sa/tech/warehouse/…）都不是 admin → 要驗 admin 頁一律用 `ccc@ccc.ccc`。
+- 8 個 e2e persona（sa/tech/warehouse/…）都不是 admin → 要驗 admin 頁一律用 `yemming.yu@gmail.com`。
+- ⚠️ `ccc@ccc.ccc` 是**客戶 demo 帳號（非 admin）**，給客戶進來看展示用 —— **不要拿來測 admin 頁、不要擅自把它加進 `app_admins`**（會把設定類功能也對它打開）。
 
 ## 開發測試資料規範（MANDATORY）
 
