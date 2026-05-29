@@ -8,6 +8,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **DealerOS for Ducati Taiwan** — 杜卡迪（Ducati）重機經銷商營運管理平台。基於 Next.js 16 App Router，設計稿全部在 Stitch 上完成。
 
+## 部署環境 / E2E 測試帳號（MANDATORY）
+
+**正式部署 URL**：`https://dealeros.zeabur.app/`（Zeabur `DealerOS-Production`，監看 GitHub `main` 自動部署）。
+
+**驗證一律走 Deploy-then-Test**（`.claude/skills/spec-to-feature/references/orchestration.md` §3）：push → Zeabur 自動部署 → 打**部署後 URL** 跑 Playwright，**不在開發機起常駐 `next dev`**（會跟 Chromium 搶記憶體當機）。
+
+**E2E 測試帳號（admin，可程式登入）**：
+
+| 用途 | Email | Password |
+|------|-------|----------|
+| 直接 Playwright 登入正式站做 E2E（含 admin-gated 頁如 `/admin/accounting/reports/*`） | `ccc@ccc.ccc` | `ccc@ccc.ccc` |
+
+- 帳密相同（`ccc@ccc.ccc`），用一般 email/password Supabase auth（**非** Google OAuth），所以可全自動 Playwright 登入。
+- **storageState 換網域作廢**：`tests/e2e/.auth/*.json` 是 localhost cookie，打部署 URL 無效 → 對部署後 URL 用此帳號**重新登入**產 storageState。
+- 8 個 e2e persona（sa/tech/warehouse/…）都不是 admin → 要驗 admin 頁一律用 `ccc@ccc.ccc`。
+
 ## 開發測試資料規範（MANDATORY）
 
 **所有開發 / demo / 測試資料一律塞在 `brand_id='indian'` 底下，不要亂放到 ducati。**
