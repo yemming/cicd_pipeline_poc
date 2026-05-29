@@ -470,9 +470,20 @@ VALUES ('ducati', '<parent>', 3, <n>, '<中文名>', '<icon>', '<href>', 'react_
 
 ### 階段 5：驗證 + 清孤兒
 
-**5.1 驗證**
+**5.1 驗證 — 走 Deploy-then-Test，不在開發機起 dev server**
 
-落地後向用戶輸出 checklist（從提案的「8. Verification」拷出來、加實際操作步驟）。Skill 自己用 Chrome MCP 跑一次互動主流程（建立 / 編輯 / 儲存 / 刪除）+ 查 DB 確認落地，不要替用戶宣告完成、等他點頭。
+> **完整流程見 `references/orchestration.md` §3 部署後驗證模型。** 為什麼：開發機同時跑 `next dev`（常駐 JIT）+ Playwright Chromium 會 OOM 當機 → app 改跑部署端、Playwright 打部署後 URL。
+
+落地後向用戶輸出 checklist（從提案「8. Verification」拷出來），然後走六步循環：
+
+1. **自審（本地關卡拉高）**：`npx tsc --noEmit` 0、`npx eslint <touched>` 0、跑天條 + DataGrid 靜態稽核、**本地 `npm run build` 過一次**（先 `rm -rf .next`，抓 tsc 抓不到的 server-only/client-import 爆 build）、讀過 diff
+2. **commit + push**（分支策略見 orchestration §3.4）
+3. **Zeabur 自動部署** → 輪詢 `zeabur deployment list`（`reference_zeabur_cli`）
+4. **部署失敗** → 抓 `zeabur` log → 修 → 回 2；**deploy 綠之前不進 E2E**
+5. **部署成功** → Playwright 打**部署後 URL**（不是 localhost）跑互動主流程（建立/編輯/儲存/刪除）+ 查 DB 確認落地。**序列、一流程一頁面**；storageState 要對部署網域重產（localhost 的作廢）；寫入測試資料 `brand_id='indian'` + 測完清乾淨、部署端不做破壞性操作
+6. **全綠**才回報，不要替用戶宣告完成、等他點頭
+
+❌ **不再用 Chrome MCP / Playwright 打 `localhost:3000`、不再 `npm run dev` 起本地伺服器做驗證。**
 
 **Helper 架構 audit（強制、無例外）**：
 
@@ -543,6 +554,7 @@ grep -rn "@/lib/supabase" "src/app/(workspace)" src/components 2>/dev/null
 - ❌ 不雙 brand 補 nav_nodes（會至少一個品牌看不到入口）
 - ❌ 在 `"use server"` module（如 `src/domain/*.ts` server helper）裡 export 非 async value（陣列、物件、type alias 不算）。Next 16 會跑 `Runtime Error: A "use server" file can only export async functions`。**新建 domain helper 同時建 `*.constants.ts` 放常數**（type alias OK 留 helper 檔，但 const / array / object 一律拆檔）。已踩雷三次（procurement / rules / rbac），是反覆失分點。
 - ❌ MCP 驗證通過後不清孤兒（必須當下盤點、列清單、刪掉；拖到下次 session = 累積債）
+- ❌ 在開發機 `npm run dev` 起常駐 dev server + 同機開 Playwright 打 localhost 做驗證（`next dev` JIT 常駐 + Chromium 並存會 OOM 當機）。**驗證一律 Deploy-then-Test**：push → Zeabur 自動部署 → Playwright 打部署後 URL（見階段 5.1 / `references/orchestration.md` §3）。一次性 `npm run build` 可以本地跑（跑完就退、不常駐）、`next dev` 不行。
 
 ## References
 
@@ -553,6 +565,7 @@ grep -rn "@/lib/supabase" "src/app/(workspace)" src/components 2>/dev/null
 - `references/page-templates.md` — List View / Page View / Setting Page 骨架引用
 - `references/side-effect-checklist.md` — 哪些動作通常有副作用
 - `references/naming-conventions.md` — domain / table / route 命名慣例
+- `references/orchestration.md` — **用 Workflow 多 agent 編排本流程時必讀**：哪些階段可平行、哪些必序列（E2E 一個流程一個頁面、migration 單一序列、`.next` 污染要 worktree 隔離、拍板是人類閘門把流程切兩段）
 
 ## 第一個 dogfood 案例（用來驗 skill 自己好不好用）
 
