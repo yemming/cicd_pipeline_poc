@@ -265,3 +265,212 @@ export async function listReportSubsidiaries(): Promise<SubsidiaryOption[]> {
     }>
   ).map((s) => ({ id: s.id, name: s.short_name || s.legal_name || s.id }));
 }
+
+// ============================================================
+// P4 損益表 (Income Statement) — 期間損益
+//
+// 與 TB 兩處不同：
+//  (1) 期間數（date_from~date_to）非累計餘額 — 重用 RPC 傳 p_date_from。
+//  (2) 只取損益類（l1_category 4-8）；每科目金額＝「淨利貢獻」= ΣCredit − ΣDebit
+//      → 收入(+)、成本費用(−)，contra-revenue(銷貨退回)與營業外收支自動分號，無需 case-by-case。
+//
+// L1 節點本身即各類合計（4 營收 / 5 成本 / 6 費用 / 7 營業外 / 8 稅），故僅在區塊「之間」
+// 插跨區小計（毛利 / 營業利益 / 稅前淨利）與總計（本期淨利），不重複插「XX 合計」。
+// ============================================================
+
+/** 損益類 l1_category（account_code 開頭 4-8）；資產負債權益(1-3)留給 BS */
+const IS_PL_CATEGORIES: ReadonlySet<L1Category> = new Set([
+  "REVENUE",
+  "COGS",
+  "EXPENSE",
+  "NON_OPERATING",
+  "TAX",
+]);
+
+export type IncomeStatementRow = {
+  id: string;
+  /** account=科目列；subtotal=小計/總計列 */
+  kind: "account" | "subtotal";
+  account_code: string; // subtotal 為 ""
+  name_zh_tw: string;
+  level: CoaLevel | null; // subtotal 為 null
+  /** 縮排深度 0(L1)..4(L5)；subtotal=0 */
+  depth: number;
+  l1_category: L1Category | null;
+  /** 對本期淨利的貢獻：收入(+)、成本費用(−)。subtotal=該層累計小計 */
+  amount: number;
+  /** account：該科目(含子樹)有過帳活動；subtotal 恆 true */
+  has_activity: boolean;
+  /** 本期淨利那條（視覺最強調） */
+  is_grand_total: boolean;
+};
+
+export type IncomeStatementResult = {
+  rows: IncomeStatementRow[];
+  revenue_total: number; // 營業收入
+  cogs_total: number; // 營業成本（≤0）
+  gross_profit: number; // 營業毛利
+  opex_total: number; // 營業費用（≤0）
+  operating_income: number; // 營業利益
+  non_operating_total: number; // 營業外收支淨額
+  income_before_tax: number; // 稅前淨利
+  tax_total: number; // 所得稅（≤0）
+  net_income: number; // 本期淨利
+  date_from: string;
+  date_to: string;
+  subsidiary_id: string | null;
+};
+
+/**
+ * 損益表（期間數）。
+ * @param filters.date_from  期間起日（含）；YTD 由頁面給「年度首期起日」
+ * @param filters.date_to    期間止日（含）
+ * @param filters.subsidiary_id  法人 uuid；'all'/未給＝全法人
+ */
+export async function getIncomeStatement(filters: {
+  date_from: string;
+  date_to: string;
+  subsidiary_id?: string;
+}): Promise<IncomeStatementResult> {
+  const sb = createServiceClient();
+  const tenant = await getDefaultTenantUuid();
+  const subsidiaryId =
+    filters.subsidiary_id && filters.subsidiary_id !== "all"
+      ? filters.subsidiary_id
+      : null;
+
+  // 1. RPC：葉節點(L5) 期間 ΣDebit/ΣCredit
+  const { data: aggData, error: aggErr } = await sb.rpc(
+    "fn_gl_account_balances",
+    {
+      p_tenant: tenant,
+      p_date_to: filters.date_to,
+      p_date_from: filters.date_from,
+      p_subsidiary: subsidiaryId,
+    },
+  );
+  if (aggErr) throw new Error(`fn_gl_account_balances: ${aggErr.message}`);
+  const leaves = (aggData ?? []) as Array<{
+    coa_id: string;
+    debit: number | string;
+    credit: number | string;
+  }>;
+
+  // 2. 全 COA 樹（is_active）— account_code 排序即 pre-order；損益子集另留一份
+  const { data: coaData, error: coaErr } = await sb
+    .from("chart_of_accounts")
+    .select(
+      "id, account_code, parent_code, level, name_zh_tw, display_indent_name, l1_category, normal_balance, is_postable",
+    )
+    .eq("tenant_id", tenant)
+    .eq("is_active", true)
+    .order("account_code");
+  if (coaErr) throw new Error(`coa tree: ${coaErr.message}`);
+  const allCoa = (coaData ?? []) as unknown as CoaTreeRow[];
+  const plCoa = allCoa.filter((r) => IS_PL_CATEGORIES.has(r.l1_category));
+
+  const byCode = new Map<string, CoaTreeRow>();
+  const idToCode = new Map<string, string>();
+  for (const r of plCoa) {
+    byCode.set(r.account_code, r);
+    idToCode.set(r.id, r.account_code);
+  }
+  // id→category 用全表（葉層各類合計、孤兒判定）
+  const idToCat = new Map<string, L1Category>();
+  for (const r of allCoa) idToCat.set(r.id, r.l1_category);
+
+  // 3. rollup：葉 contribution(=ΣC−ΣD) 沿 parent_code 累加；各類合計直接由葉層算（與樹脫鉤）
+  const amountByCode = new Map<string, number>();
+  const touched = new Set<string>();
+  const totalByCat = new Map<L1Category, number>();
+
+  for (const lf of leaves) {
+    const cat = idToCat.get(lf.coa_id);
+    if (!cat || !IS_PL_CATEGORIES.has(cat)) continue; // BS 科目跳過
+    const contribution = num(lf.credit) - num(lf.debit);
+    totalByCat.set(cat, (totalByCat.get(cat) ?? 0) + contribution);
+
+    const code = idToCode.get(lf.coa_id);
+    if (!code) continue; // 孤兒損益科目：計入合計、不顯示於樹
+    let cur: string | null | undefined = code;
+    const guard = new Set<string>(); // 防 parent_code 自環
+    while (cur && byCode.has(cur) && !guard.has(cur)) {
+      guard.add(cur);
+      amountByCode.set(cur, (amountByCode.get(cur) ?? 0) + contribution);
+      touched.add(cur);
+      cur = byCode.get(cur)!.parent_code;
+    }
+  }
+
+  const catTotal = (c: L1Category) => round2(totalByCat.get(c) ?? 0);
+  const revenue_total = catTotal("REVENUE");
+  const cogs_total = catTotal("COGS");
+  const gross_profit = round2(revenue_total + cogs_total);
+  const opex_total = catTotal("EXPENSE");
+  const operating_income = round2(gross_profit + opex_total);
+  const non_operating_total = catTotal("NON_OPERATING");
+  const income_before_tax = round2(operating_income + non_operating_total);
+  const tax_total = catTotal("TAX");
+  const net_income = round2(income_before_tax + tax_total);
+
+  // 4. 組裝報表列：各 l1 區塊（L1 節點＝該類合計 + 明細子樹），區塊之間插跨區小計
+  const accountRows = (category: L1Category): IncomeStatementRow[] =>
+    plCoa
+      .filter((r) => r.l1_category === category)
+      .map((r) => ({
+        id: r.id,
+        kind: "account" as const,
+        account_code: r.account_code,
+        name_zh_tw: r.name_zh_tw,
+        level: r.level,
+        depth: LEVEL_DEPTH[r.level] ?? 0,
+        l1_category: r.l1_category,
+        amount: round2(amountByCode.get(r.account_code) ?? 0),
+        has_activity: touched.has(r.account_code),
+        is_grand_total: false,
+      }));
+  const subtotal = (
+    label: string,
+    amount: number,
+    grand = false,
+  ): IncomeStatementRow => ({
+    id: `subtotal:${label}`,
+    kind: "subtotal",
+    account_code: "",
+    name_zh_tw: label,
+    level: null,
+    depth: 0,
+    l1_category: null,
+    amount,
+    has_activity: true,
+    is_grand_total: grand,
+  });
+
+  const rows: IncomeStatementRow[] = [
+    ...accountRows("REVENUE"),
+    ...accountRows("COGS"),
+    subtotal("營業毛利", gross_profit),
+    ...accountRows("EXPENSE"),
+    subtotal("營業利益", operating_income),
+    ...accountRows("NON_OPERATING"),
+    subtotal("稅前淨利", income_before_tax),
+    ...accountRows("TAX"),
+    subtotal("本期淨利", net_income, true),
+  ];
+
+  return {
+    rows,
+    revenue_total,
+    cogs_total,
+    gross_profit,
+    opex_total,
+    operating_income,
+    non_operating_total,
+    income_before_tax,
+    tax_total,
+    net_income,
+    date_from: filters.date_from,
+    date_to: filters.date_to,
+    subsidiary_id: subsidiaryId,
+  };
+}
