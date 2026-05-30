@@ -124,3 +124,87 @@ export const SKU_STALE_DAYS = {
   /** 呆滯：≥ 180 天未異動 */
   dead: 180,
 } as const;
+
+/* ══════════════════════════════════════════════════════════════
+   第二十一輪 GRP13 促銷活動管理 — 共用常數 / 型別
+   （group-promotions.ts〔server helper〕＋ promotions-board.tsx〔client〕共用）
+   ══════════════════════════════════════════════════════════════ */
+
+/** 集團五店（GRP13 適用門店多選 + org_id→簡稱對映用）。 */
+export const FIVE_STORES: Array<{ id: string; name: string; short: string }> = [
+  { id: "c557f308-c236-46db-80e2-968034056eab", name: "台北旗艦店", short: "台北" },
+  { id: "17000000-0000-4000-8000-000000000001", name: "台中中港店", short: "台中" },
+  { id: "17000000-0000-4000-8000-000000000002", name: "高雄博愛店", short: "高雄" },
+  { id: "17000000-0000-4000-8000-000000000003", name: "台南安平店", short: "台南" },
+  { id: "17000000-0000-4000-8000-000000000004", name: "嘉義民雄店", short: "嘉義" },
+];
+
+/** org_id → 門店簡稱（GRP13 門店執行監看表把 org_id 轉中文）。 */
+export const STORE_SHORT_BY_ID: Record<string, string> = Object.fromEntries(
+  FIVE_STORES.map((s) => [s.id, s.short]),
+);
+
+/** 活動類型（side panel 下拉）。 */
+export const PROMO_TYPES = [
+  "整車銷售優惠",
+  "零件精品折扣",
+  "售後保養優惠",
+  "綜合促銷",
+] as const;
+
+/** 促銷活動狀態機。draft→review→approved(active/scheduled)→ended→archived。 */
+export type PromoStatus =
+  | "draft"
+  | "review"
+  | "scheduled"
+  | "active"
+  | "ended"
+  | "archived";
+
+/** 狀態 meta（label / chip 樣式 / 狀態點色），用本專案 design tokens。 */
+export const PROMO_STATUS_META: Record<
+  PromoStatus,
+  { label: string; chip: string; dot: string }
+> = {
+  active: { label: "進行中", chip: "bg-[#EAF3DE] text-[#3B6D11]", dot: "#0F6E56" },
+  scheduled: { label: "已排程", chip: "bg-[#EAF4FB] text-[#185FA5]", dot: "#185FA5" },
+  review: { label: "審核中", chip: "bg-[#FDF3E3] text-[#854F0B]", dot: "#F5B942" },
+  draft: { label: "草稿", chip: "bg-[#F2F2F2] text-[#6B6A68]", dot: "#9A9890" },
+  ended: { label: "已結束", chip: "bg-[#F2F2F2] text-[#6B6A68]", dot: "#C9C7C0" },
+  archived: { label: "已封存", chip: "bg-[#F0F0F0] text-[#9A9890]", dot: "#CCCCCC" },
+};
+
+/** List 視圖狀態 tabs（archived 只在「全部」出現）。 */
+export const PROMO_STATUS_TABS: Array<{ key: "all" | PromoStatus; label: string }> = [
+  { key: "all", label: "全部" },
+  { key: "active", label: "進行中" },
+  { key: "scheduled", label: "已排程" },
+  { key: "review", label: "審核中" },
+  { key: "draft", label: "草稿" },
+  { key: "ended", label: "已結束" },
+];
+
+/** LINE 海報模板（漸層 + 文字色；3 款切換）。 */
+export const PROMO_TEMPLATES: Record<
+  string,
+  { label: string; gradient: string; fg: string; sub: string }
+> = {
+  warm: {
+    label: "🔥 暖橙",
+    gradient: "linear-gradient(135deg,#3A1F02 0%,#854F0B 60%,#F5B942 100%)",
+    fg: "#FFFFFF",
+    sub: "rgba(255,255,255,.85)",
+  },
+  dark: {
+    label: "🌑 深藍",
+    gradient: "linear-gradient(135deg,#0D1B2A 0%,#1A3A5C 60%,#2A5A8C 100%)",
+    fg: "#FFFFFF",
+    sub: "rgba(255,255,255,.85)",
+  },
+  light: {
+    label: "☀️ 亮黃",
+    gradient: "linear-gradient(135deg,#FDF3E3 0%,#F5B942 60%,#E8A73A 100%)",
+    fg: "#3A1F02",
+    sub: "rgba(58,31,2,.8)",
+  },
+};

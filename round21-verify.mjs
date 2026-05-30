@@ -32,20 +32,20 @@ page.on("console", (m) => {
 });
 
 try {
-  // ── 登入 ──
-  await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
-  await page.fill('input[type="email"], input[name="email"]', EMAIL);
-  await page.fill('input[type="password"], input[name="password"]', PASSWORD);
-  await Promise.all([
-    page.waitForLoadState("networkidle"),
-    page.click('button[type="submit"], button:has-text("登入")'),
-  ]);
-  await page.waitForTimeout(2500);
+  // ── 登入（沿用 round20 已驗證流程）──
+  await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded", timeout: 45000 });
+  await page.locator('input[type="email"]').fill(EMAIL);
+  await page.locator('input[type="password"]').fill(PASSWORD);
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL((u) => !u.pathname.endsWith("/login"), { timeout: 30000 });
   log(!page.url().includes("/login"), `登入成功（${page.url()}）`);
+  await ctx.addCookies([
+    { name: "dealeros_scope", value: JSON.stringify({ brand_id: "indian" }), url: BASE },
+  ]);
 
   // ── 進 GRP13 ──
-  await page.goto(`${BASE}/group/promotions`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(2000);
+  await page.goto(`${BASE}/group/promotions`, { waitUntil: "networkidle", timeout: 45000 });
+  await page.waitForTimeout(2500);
   const bodyText = await page.textContent("body");
 
   log(bodyText.includes("促銷活動管理"), "頁面標題 促銷活動管理");
