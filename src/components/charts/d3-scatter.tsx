@@ -29,11 +29,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { scaleLinear } from "d3-scale";
+import { scaleLinear, scaleSqrt } from "d3-scale";
 import { extent, mean } from "d3-array";
 
 export type ScatterTag = "star" | "watch" | "danger" | "neutral";
 export type ScatterMarkerShape = "circle" | "diamond";
+/** 配色主題：light=現狀（白底）、dark=暗色（戰情室深底）。 */
+export type ScatterTheme = "light" | "dark";
 
 /** tag → 點色票（明星綠 / 待輔導琥珀 / 危險紅 / 中性灰）。 */
 export const SCATTER_TAG_COLOR: Record<ScatterTag, { fill: string; stroke: string }> = {
@@ -78,10 +80,59 @@ export interface D3ScatterChartProps<T> {
   height?: number;
   /** 沒資料時的訊息 */
   emptyMessage?: string;
+  /* ──────── 第十八輪新增 optional props（不給=行為與 round-16/17 完全一致） ──────── */
+  /**
+   * 取點大小依據值（如門店營收規模）→ 用 d3.scaleSqrt 映射成圓圈直徑（22-52px）。
+   * 不給時維持原本固定大小（半徑 5 / hover 7）。回 null 的點用最小尺寸。
+   * 註：僅對 circle 形狀套用面積比例；diamond 仍用固定半徑（保持既有視覺）。
+   */
+  sizeOf?: (d: T) => number | null;
+  /**
+   * 歷史軌跡：給且 show=true 時，每點畫一條歷史座標的虛線軌跡 + 末端箭頭。
+   * pointsOf 回該點的歷史座標序列（與 x/y 同單位，舊→新），最後一點應接近現值點。
+   */
+  trail?: { pointsOf: (d: T) => Array<{ x: number; y: number }>; show: boolean };
+  /** 配色主題；dark 時換暗色 token（深底 / 淺軸線文字）。預設 light（維持現狀）。 */
+  theme?: ScatterTheme;
+  /** 點擊某點觸發（戰略象限頁鑽取門店用）。 */
+  onSelect?: (d: T) => void;
+  /** 選中點的 key（配合 keyOf 比對）；選中點畫外圈 ring。 */
+  selectedKey?: string | null;
+  /** 取點唯一 key（selectedKey 比對用）；不給時 selectedKey 無作用。 */
+  keyOf?: (d: T) => string;
+  /** 四象限角落標籤文字（tl/tr/bl/br）。 */
+  quadrantLabels?: { tl?: string; tr?: string; bl?: string; br?: string };
 }
 
 const DEFAULT_THEME = "#1A3A5C";
 const MARGIN = { top: 16, right: 18, bottom: 44, left: 56 };
+
+/** dark / light 主題的中性 token（軸線 / 文字 / 底色）。 */
+const THEME_TOKENS: Record<ScatterTheme, {
+  bg: string | null;
+  axis: string;
+  grid: string;
+  tickText: string;
+  axisTitle: string;
+  labelText: string;
+}> = {
+  light: {
+    bg: null, // 不畫底（沿用容器白底，位元級不變）
+    axis: "#D5D3CB",
+    grid: "#EEECE6",
+    tickText: "#9A9890",
+    axisTitle: "#5A5955",
+    labelText: "#5A5955",
+  },
+  dark: {
+    bg: "#0D1B2A",
+    axis: "#3A4A5C",
+    grid: "#1E2D40",
+    tickText: "#8FA3B8",
+    axisTitle: "#C2D0DE",
+    labelText: "#C2D0DE",
+  },
+};
 
 /** 把 hex 主色淡化成象限底色（4 象限淡藍/灰）。固定 alpha 疊白底近似。 */
 function tint(hex: string, alpha: number): string {
@@ -109,11 +160,19 @@ export function D3ScatterChart<T>({
   showLabel,
   height = 280,
   emptyMessage = "尚無資料",
+  sizeOf,
+  trail,
+  theme = "light",
+  onSelect,
+  selectedKey = null,
+  keyOf,
+  quadrantLabels,
 }: D3ScatterChartProps<T>) {
   const uid = useId().replace(/[:]/g, "");
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(420);
   const [hover, setHover] = useState<{ d: T; cx: number; cy: number } | null>(null);
+  const tok = THEME_TOKENS[theme];
 
   // RWD：ResizeObserver 量容器寬，svg 用 viewBox 自適應
   useLayoutEffect(() => {
@@ -144,6 +203,34 @@ export function D3ScatterChart<T>({
 
   const innerW = Math.max(40, width - MARGIN.left - MARGIN.right);
   const innerH = Math.max(40, height - MARGIN.top - MARGIN.bottom);
+
+  // 點大小 scale（給了 sizeOf 才建；d3.scaleSqrt 讓面積正比於值，直徑 22-52px）
+  const sizeScale = useMemo(() => {
+    if (!sizeOf) return null;
+    const vals: number[] = [];
+    for (const d of data) {
+      const v = sizeOf(d);
+      if (v != null && !Number.isNaN(v) && v > 0) vals.push(v);
+    }
+    if (vals.length === 0) return null;
+    const lo = Math.min(...vals);
+    const hi = Math.max(...vals);
+    // 半徑範圍 11-26（=直徑 22-52）
+    return scaleSqrt().domain([lo === hi ? 0 : lo, hi]).range([11, 26]).clamp(true);
+  }, [data, sizeOf]);
+
+  // 某點的半徑（無 sizeOf → 固定 5/hover7；有 → scaleSqrt，hover 再 +2）
+  const radiusOf = useCallback(
+    (d: T, isHover: boolean): number => {
+      if (sizeScale && sizeOf) {
+        const v = sizeOf(d);
+        const base = v != null && !Number.isNaN(v) && v > 0 ? sizeScale(v) : 11;
+        return isHover ? base + 2 : base;
+      }
+      return isHover ? 7 : 5;
+    },
+    [sizeScale, sizeOf],
+  );
 
   // d3-array extent + pad；單點/全相同值時撐出一個安全區間避免除零
   const { xScale, yScale, xMean, yMean, xTicks, yTicks } = useMemo(() => {
@@ -195,10 +282,15 @@ export function D3ScatterChart<T>({
   }, [data]);
 
   if (points.length === 0) {
+    // light：維持原 className（位元級不變）；dark：暗色佔位框
     return (
       <div
         ref={containerRef}
-        className="flex items-center justify-center text-[12px] text-[#9A9890] bg-[#F8F7F4] border border-dashed border-[#D5D3CB] rounded-lg"
+        className={
+          theme === "dark"
+            ? "flex items-center justify-center text-[12px] text-[#8FA3B8] bg-[#0D1B2A] border border-dashed border-[#3A4A5C] rounded-lg"
+            : "flex items-center justify-center text-[12px] text-[#9A9890] bg-[#F8F7F4] border border-dashed border-[#D5D3CB] rounded-lg"
+        }
         style={{ height }}
       >
         {emptyMessage}
@@ -224,6 +316,8 @@ export function D3ScatterChart<T>({
         role="img"
         aria-label={`${xLabel} vs ${yLabel} 散佈圖`}
       >
+        {/* dark 主題：整圖深底（light 不畫，沿用容器白底，位元級不變） */}
+        {tok.bg ? <rect x={0} y={0} width={width} height={height} fill={tok.bg} /> : null}
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
           {/* 象限背景：以均值十字切 4 區，淡色填（左下危險區帶淡紅、其餘淡主色） */}
           {meanX != null && meanY != null && (
@@ -246,7 +340,7 @@ export function D3ScatterChart<T>({
                 x2={innerW}
                 y1={yScale(tv)}
                 y2={yScale(tv)}
-                stroke="#EEECE6"
+                stroke={tok.grid}
                 strokeDasharray="2 3"
               />
               <text
@@ -254,7 +348,7 @@ export function D3ScatterChart<T>({
                 y={yScale(tv) + 3.5}
                 textAnchor="end"
                 fontSize={10}
-                fill="#9A9890"
+                fill={tok.tickText}
               >
                 {yFormat(tv)}
               </text>
@@ -269,15 +363,15 @@ export function D3ScatterChart<T>({
               y={innerH + 16}
               textAnchor="middle"
               fontSize={10}
-              fill="#9A9890"
+              fill={tok.tickText}
             >
               {xFormat(tv)}
             </text>
           ))}
 
           {/* 軸線 */}
-          <line x1={0} x2={innerW} y1={innerH} y2={innerH} stroke="#D5D3CB" strokeWidth={1} />
-          <line x1={0} x2={0} y1={0} y2={innerH} stroke="#D5D3CB" strokeWidth={1} />
+          <line x1={0} x2={innerW} y1={innerH} y2={innerH} stroke={tok.axis} strokeWidth={1} />
+          <line x1={0} x2={0} y1={0} y2={innerH} stroke={tok.axis} strokeWidth={1} />
 
           {/* 均值十字虛線（x̄ 垂直、ȳ 水平） */}
           {meanX != null && (
@@ -310,18 +404,92 @@ export function D3ScatterChart<T>({
             </text>
           )}
 
+          {/* 四象限角落標籤（給了 quadrantLabels 才畫） */}
+          {quadrantLabels ? (
+            <g style={{ pointerEvents: "none" }}>
+              {quadrantLabels.tl ? (
+                <text x={4} y={12} fontSize={9.5} fill={tok.tickText} opacity={0.85}>
+                  {quadrantLabels.tl}
+                </text>
+              ) : null}
+              {quadrantLabels.tr ? (
+                <text x={innerW - 4} y={12} textAnchor="end" fontSize={9.5} fill={tok.tickText} opacity={0.85}>
+                  {quadrantLabels.tr}
+                </text>
+              ) : null}
+              {quadrantLabels.bl ? (
+                <text x={4} y={innerH - 6} fontSize={9.5} fill={tok.tickText} opacity={0.85}>
+                  {quadrantLabels.bl}
+                </text>
+              ) : null}
+              {quadrantLabels.br ? (
+                <text x={innerW - 4} y={innerH - 6} textAnchor="end" fontSize={9.5} fill={tok.tickText} opacity={0.85}>
+                  {quadrantLabels.br}
+                </text>
+              ) : null}
+            </g>
+          ) : null}
+
+          {/* 歷史軌跡（給了 trail.show 才畫）：每點歷史座標連成虛線 + 末端箭頭 */}
+          {trail?.show
+            ? points.map((p, i) => {
+                const hist = trail.pointsOf(p.d);
+                if (!hist || hist.length < 2) return null;
+                const segs = hist
+                  .map((h) => ({ px: xScale(h.x), py: yScale(h.y) }))
+                  .filter((s) => !Number.isNaN(s.px) && !Number.isNaN(s.py));
+                if (segs.length < 2) return null;
+                const dStr = segs
+                  .map((s, idx) => `${idx === 0 ? "M" : "L"} ${s.px} ${s.py}`)
+                  .join(" ");
+                const color = SCATTER_TAG_COLOR[p.tag];
+                // 末端箭頭：最後兩點方向
+                const a = segs[segs.length - 2];
+                const b = segs[segs.length - 1];
+                const ang = Math.atan2(b.py - a.py, b.px - a.px);
+                const ah = 5;
+                const arrow = `M ${b.px} ${b.py} L ${b.px - ah * Math.cos(ang - Math.PI / 6)} ${
+                  b.py - ah * Math.sin(ang - Math.PI / 6)
+                } M ${b.px} ${b.py} L ${b.px - ah * Math.cos(ang + Math.PI / 6)} ${
+                  b.py - ah * Math.sin(ang + Math.PI / 6)
+                }`;
+                return (
+                  <g key={`trail-${uid}-${i}`} style={{ pointerEvents: "none" }}>
+                    <path
+                      d={dStr}
+                      fill="none"
+                      stroke={color.fill}
+                      strokeWidth={1.2}
+                      strokeDasharray="3 3"
+                      opacity={0.55}
+                    />
+                    <path d={arrow} fill="none" stroke={color.fill} strokeWidth={1.2} opacity={0.7} />
+                  </g>
+                );
+              })
+            : null}
+
           {/* 資料點 */}
           {points.map((p, i) => {
             const cx = xScale(p.vx);
             const cy = yScale(p.vy);
             const color = SCATTER_TAG_COLOR[p.tag];
             const isHover = hover?.d === p.d;
-            const r = isHover ? 7 : 5;
+            const r = radiusOf(p.d, isHover);
             // 常駐姓名小標籤（GRP11）：給了 showLabel 才渲染，放點右側、小字弱化色
             const label = showLabel ? showLabel(p.d) : null;
+            // 選中（戰略象限鑽取）：keyOf 比對 selectedKey → 外圈 ring
+            const isSelected =
+              selectedKey != null && keyOf != null && keyOf(p.d) === selectedKey;
             // markerShape 可為字串（整圖同形狀）或函式（逐點決定，GRP11 跨部門用）
             const shape: ScatterMarkerShape =
               typeof markerShape === "function" ? markerShape(p.d) : markerShape;
+            const clickable = onSelect != null;
+            const handlers = {
+              onMouseEnter: () => onEnter(p),
+              onMouseLeave: onLeave,
+              ...(clickable ? { onClick: () => onSelect?.(p.d) } : {}),
+            };
             const marker =
               shape === "diamond" ? (
                 <path
@@ -331,8 +499,7 @@ export function D3ScatterChart<T>({
                   strokeWidth={isHover ? 2 : 1}
                   fillOpacity={0.85}
                   style={{ cursor: "pointer", transition: "d 80ms" }}
-                  onMouseEnter={() => onEnter(p)}
-                  onMouseLeave={onLeave}
+                  {...handlers}
                 />
               ) : (
                 <circle
@@ -344,19 +511,32 @@ export function D3ScatterChart<T>({
                   strokeWidth={isHover ? 2 : 1}
                   fillOpacity={0.85}
                   style={{ cursor: "pointer", transition: "r 80ms" }}
-                  onMouseEnter={() => onEnter(p)}
-                  onMouseLeave={onLeave}
+                  {...handlers}
                 />
               );
             return (
               <g key={`pt-${uid}-${i}`}>
+                {/* 選中外圈 ring */}
+                {isSelected ? (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={r + 4}
+                    fill="none"
+                    stroke={color.stroke}
+                    strokeWidth={1.6}
+                    strokeDasharray="2 2"
+                    opacity={0.9}
+                    style={{ pointerEvents: "none" }}
+                  />
+                ) : null}
                 {marker}
                 {label ? (
                   <text
                     x={cx + r + 3}
                     y={cy + 3.5}
                     fontSize={9.5}
-                    fill="#5A5955"
+                    fill={tok.labelText}
                     style={{ pointerEvents: "none" }}
                   >
                     {label}
@@ -373,7 +553,7 @@ export function D3ScatterChart<T>({
             textAnchor="middle"
             fontSize={11}
             fontWeight={600}
-            fill="#5A5955"
+            fill={tok.axisTitle}
           >
             {xLabel}
           </text>
@@ -382,7 +562,7 @@ export function D3ScatterChart<T>({
             textAnchor="middle"
             fontSize={11}
             fontWeight={600}
-            fill="#5A5955"
+            fill={tok.axisTitle}
           >
             {yLabel}
           </text>

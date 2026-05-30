@@ -35,6 +35,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { HEALTH_DIM_LABEL, type HealthDim } from "./group-analytics-labels";
 
 /* ────────────── 共用型別 ────────────── */
 
@@ -1156,4 +1157,346 @@ function shiftMonth(ym: string, delta: number): string {
 function currentMonth(): string {
   const now = new Date();
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  第十八輪 — 集團策略評估層（DealerHealth / 戰略象限）Batch A 地基 append
+ *  （不改既有 export；沿用 round-16/17 的 loadStoreMetrics / listDiagnosticStores
+ *    / month utils / EfficiencyTag / StoreLite）
+ *
+ *  本層是「集團總部一眼看遍所有門店健康度」的儀表：六維健康分數雷達 + 戰略象限散佈
+ *  + 跨季趨勢。資料策略沿用：門店層指標（org_id=門店、staff_id IS NULL）一律讀
+ *  kpi_snapshots（demo seed 會塞）；issues / strategy / tag 由 helper「規則生成」，
+ *  不另存 seed（這樣 seed 只要塞六維分數 + 幾個衍生欄位，文字描述全由 code 算）。
+ *
+ *  ── 季度錨點 ──
+ *  本層用「季別」當時間軸。period_month 的月份映季別：
+ *    月 1-3 → Q1、4-6 → Q2、7-9 → Q3、10-12 → Q4，label = `YYYY Qn`。
+ *  seed 可以每季塞一筆（period_month 用該季任一月，建議用季首月 1/4/7/10）。
+ *
+ *  全部對「無資料」安全：回空陣列 / null，不 throw。
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ────────────── 共用型別（策略評估層） ────────────── */
+
+// HealthDim 型別 + HEALTH_DIM_LABEL 值已移到 ./group-analytics-labels
+// （"use server" 檔不可 export 非 async 物件；本檔頂部已 import 供內部使用）。
+
+/** issue 文字的人話模板（維度偏低時掛這句）。 */
+const HEALTH_DIM_ISSUE_HINT: Record<HealthDim, string> = {
+  dim_sales: "銷售動能不足，留意來客量與成交率。",
+  dim_after: "返修率可能異常或進廠量偏低，需稽核維修品質。",
+  dim_parts: "零件供應/週轉偏弱，留意呆滯料與滿足率。",
+  dim_people: "人才能效或留任偏弱，留意人均產值與流動率。",
+  dim_csat: "客戶滿意度偏低，NPS 與回廠忠誠需強化。",
+  dim_finance: "財務體質偏弱，留意毛利率與費用控管。",
+};
+
+const HEALTH_DIMS: HealthDim[] = [
+  "dim_sales",
+  "dim_after",
+  "dim_parts",
+  "dim_people",
+  "dim_csat",
+  "dim_finance",
+];
+
+/** 健康分數頁的一筆門店（六維 + 規則生成的診斷文字 + tag）。 */
+export type StoreHealthScore = {
+  store: StoreLite;
+  period: string; // YYYY-MM-01（seed 的季首月）
+  /** 季別標籤（YYYY Qn） */
+  quarter: string;
+  /** 綜合健康分數 0-100（seed health_score；缺則六維等權平均 fallback） */
+  score: number | null;
+  /** 上期健康分數（seed health_score_prev；缺回 null） */
+  scorePrev: number | null;
+  /** 環比變化（score - scorePrev；任一缺回 null） */
+  delta: number | null;
+  /** 六維分數（各 0-100；缺回 null） */
+  dims: Record<HealthDim, number | null>;
+  /** 衍生指標（戰略象限 / KPI 卡用） */
+  achievement_rate: number | null; // 目標達成率 0..1
+  gross_profit_rate: number | null; // 毛利率 0..1
+  store_nps: number | null; // 門店 NPS
+  growth_rate: number | null; // 成長率（同比）0..1（可負）
+  revenue_scale: number | null; // 營收規模（散佈圖點大小用）
+  staff_count: number | null; // 員工數
+  /** 戰略象限（前端依均值十字動態分類；helper 先留 null） */
+  quad: "tl" | "tr" | "bl" | "br" | null;
+  /** 規則生成的問題清單（掃六維 <60 bad、60-75 warn） */
+  issues: Array<{ level: "warn" | "bad"; dim: string; text: string }>;
+  /** 規則生成的一句策略建議 */
+  strategy: string;
+  /** 依綜合分數分級對映（>=80 star / 65-80 neutral / 50-65 watch / <50 danger） */
+  tag: EfficiencyTag;
+};
+
+/** 跨季健康分數歷史（趨勢圖用）。 */
+export type StoreScoreHistory = {
+  store: StoreLite;
+  /** 季別標籤序列（舊→新，YYYY Qn） */
+  quarters: string[];
+  /** 各季綜合健康分數（與 quarters 同長度；null=該季缺值） */
+  scores: Array<number | null>;
+  /** 兩條趨勢線（健康分數 + 目標達成率） */
+  axes: {
+    health: Array<number | null>;
+    achievement: Array<number | null>;
+  };
+};
+
+/* ────────────── 季度工具（純函式） ────────────── */
+
+/** YYYY-MM-01（或任意 date 字串）→ 季別標籤 `YYYY Qn`。 */
+function quarterLabel(d: string): string {
+  const [y, mo] = d.split("-").map((s) => parseInt(s, 10));
+  const q = Math.floor((mo - 1) / 3) + 1;
+  return `${y} Q${q}`;
+}
+
+/** 六維等權平均（任一缺值仍以現有維度平均；全缺回 null）。 */
+function sixDimAverage(dims: Record<HealthDim, number | null>): number | null {
+  const vals = HEALTH_DIMS.map((k) => dims[k]).filter(
+    (v): v is number => v != null && !Number.isNaN(v),
+  );
+  if (vals.length === 0) return null;
+  return vals.reduce((s, v) => s + v, 0) / vals.length;
+}
+
+/** 綜合分數 → EfficiencyTag（star/neutral/watch/danger）。 */
+function healthTag(score: number | null): EfficiencyTag {
+  if (score == null) return "neutral";
+  if (score >= 80) return "star";
+  if (score >= 65) return "neutral";
+  if (score >= 50) return "watch";
+  return "danger";
+}
+
+/** 規則生成：掃六維產 issues（<60 bad、60-75 warn）。 */
+function buildHealthIssues(
+  dims: Record<HealthDim, number | null>,
+): Array<{ level: "warn" | "bad"; dim: string; text: string }> {
+  const issues: Array<{ level: "warn" | "bad"; dim: string; text: string }> = [];
+  for (const k of HEALTH_DIMS) {
+    const v = dims[k];
+    if (v == null || Number.isNaN(v)) continue;
+    const label = HEALTH_DIM_LABEL[k];
+    if (v < 60) {
+      issues.push({
+        level: "bad",
+        dim: label,
+        text: `${label}維度 ${Math.round(v)} 分偏低 — ${HEALTH_DIM_ISSUE_HINT[k]}`,
+      });
+    } else if (v <= 75) {
+      issues.push({
+        level: "warn",
+        dim: label,
+        text: `${label}維度 ${Math.round(v)} 分待加強 — ${HEALTH_DIM_ISSUE_HINT[k]}`,
+      });
+    }
+  }
+  return issues;
+}
+
+/** 規則生成：依綜合分數分級 + 最弱維度，產一句策略建議。 */
+function buildHealthStrategy(
+  score: number | null,
+  dims: Record<HealthDim, number | null>,
+): string {
+  // 找最弱維度
+  let weakest: HealthDim | null = null;
+  let weakestVal = Infinity;
+  for (const k of HEALTH_DIMS) {
+    const v = dims[k];
+    if (v == null || Number.isNaN(v)) continue;
+    if (v < weakestVal) {
+      weakestVal = v;
+      weakest = k;
+    }
+  }
+  const weakLabel = weakest ? HEALTH_DIM_LABEL[weakest] : null;
+
+  if (score == null) {
+    return "資料不足，建議先補齊各維度績效快照後再行評估。";
+  }
+  if (score >= 80) {
+    return weakLabel && weakestVal < 75
+      ? `綜合表現優異，可作為集團標竿；唯「${weakLabel}」維度相對最弱，鞏固後即全面領先。`
+      : "綜合表現優異、六維均衡，建議列為集團標竿門店並萃取可複製的營運做法。";
+  }
+  if (score >= 65) {
+    return weakLabel
+      ? `整體穩健，瓶頸在「${weakLabel}」（${Math.round(weakestVal)} 分）；集中資源補強此維度可推升綜合分數。`
+      : "整體穩健，建議鎖定單一最弱維度集中突破。";
+  }
+  if (score >= 50) {
+    return weakLabel
+      ? `表現待輔導，最弱維度為「${weakLabel}」（${Math.round(weakestVal)} 分）；建議列入季度輔導名單、訂定改善里程碑。`
+      : "表現待輔導，建議列入季度輔導名單並訂定改善里程碑。";
+  }
+  return weakLabel
+    ? `綜合分數偏低（${Math.round(score)} 分）屬高風險門店，核心痛點「${weakLabel}」；建議總部介入診斷、優先資源挹注。`
+    : `綜合分數偏低屬高風險門店，建議總部立即介入診斷。`;
+}
+
+/* ────────────── (A1) getDealerHealthScores ────────────── */
+
+/**
+ * 集團所有門店的健康分數總覽（戰略評估首頁 / 健康分數雷達 / 戰略象限散佈圖共用）。
+ * 對每間 listDiagnosticStores 的門店，讀「最新一期」門店層 metric（org_id=門店、
+ * staff_id IS NULL；opts.period 指定則鎖該期）。
+ *
+ * 【資料合約 — kpi_snapshots（org_id=門店, staff_id=NULL, staff_role=NULL）metric_key】
+ *   ── 綜合 / 環比（seed）──
+ *   health_score(0-100)              綜合健康分數；缺則 helper 用六維等權平均 fallback
+ *   health_score_prev(0-100)         上期綜合健康分數（算 delta 用）
+ *   ── 六維（seed，各 0-100）──
+ *   dim_sales / dim_after / dim_parts / dim_people / dim_csat / dim_finance
+ *   ── 衍生指標（seed；戰略象限與 KPI 卡用）──
+ *   achievement_rate(0..1)           目標達成率
+ *   gross_profit_rate(0..1)          毛利率
+ *   store_nps                        門店 NPS（-100..100 或 0..100，seed 自訂）
+ *   growth_rate(0..1，可負)          同比成長率
+ *   revenue_scale                    營收規模（散佈圖點大小；無門店 FK 的交易表算不出 → seed）
+ *   staff_count                      員工數（同上 → seed）
+ *
+ * 【helper 規則生成、不讀 seed】：
+ *   • score = health_score ?? 六維等權平均（兩者 seed 一致即可，helper 提供 fallback）
+ *   • issues：掃六維，<60 標 bad、60-75 標 warn，附人話（不存 seed）
+ *   • strategy：依綜合分數分級 + 最弱維度產一句（不存 seed）
+ *   • tag：依綜合分數分級（>=80 star / 65-80 neutral / 50-65 watch / <50 danger）
+ *   • quad：先留 null（前端依「全集均值十字」動態分類；helper 不臆測象限）
+ *
+ * ⚠️ revenue_scale / staff_count 卡點：現行交易表（sales_orders / repair_orders）
+ *    無可靠門店 FK（rs_name 是文字、repair_orders 走 sa_id），無法穩定彙總到門店層
+ *    → 一律 seed。詳見回報「卡點」。
+ */
+export async function getDealerHealthScores(
+  brandId: string,
+  opts: { period?: string } = {},
+): Promise<StoreHealthScore[]> {
+  const client = await createClient();
+  const stores = await listDiagnosticStores(brandId);
+  if (stores.length === 0) return [];
+
+  const bench = await loadNationalBenchmarks(client, brandId); // 預留：前端對標用，目前型別未直接吐
+  void bench;
+
+  const out: StoreHealthScore[] = [];
+  for (const store of stores) {
+    const { period, metrics } = await loadStoreMetrics(client, brandId, store.id, opts.period);
+
+    const dims: Record<HealthDim, number | null> = {
+      dim_sales: m(metrics, "dim_sales"),
+      dim_after: m(metrics, "dim_after"),
+      dim_parts: m(metrics, "dim_parts"),
+      dim_people: m(metrics, "dim_people"),
+      dim_csat: m(metrics, "dim_csat"),
+      dim_finance: m(metrics, "dim_finance"),
+    };
+
+    const seedScore = m(metrics, "health_score");
+    const score = seedScore ?? sixDimAverage(dims);
+    const scorePrev = m(metrics, "health_score_prev");
+    const delta = score != null && scorePrev != null ? score - scorePrev : null;
+
+    const periodStr = period ?? opts.period ?? "";
+
+    out.push({
+      store,
+      period: periodStr,
+      quarter: periodStr ? quarterLabel(periodStr) : "",
+      score,
+      scorePrev,
+      delta,
+      dims,
+      achievement_rate: m(metrics, "achievement_rate"),
+      gross_profit_rate: m(metrics, "gross_profit_rate"),
+      store_nps: m(metrics, "store_nps"),
+      growth_rate: m(metrics, "growth_rate"),
+      revenue_scale: m(metrics, "revenue_scale"),
+      staff_count: m(metrics, "staff_count"),
+      quad: null, // 前端依全集均值十字動態分類
+      issues: buildHealthIssues(dims),
+      strategy: buildHealthStrategy(score, dims),
+      tag: healthTag(score),
+    });
+  }
+
+  return out;
+}
+
+/* ────────────── (A2) getStoreScoreHistory ────────────── */
+
+/**
+ * 集團所有門店的「跨季」健康分數歷史（趨勢圖用，預設近 5 季）。
+ * 對每店讀「所有」health_score row（+ achievement_rate）依 period_month 排序，
+ * 取最後 N 季當序列。
+ *
+ * 【資料合約 — kpi_snapshots（org_id=門店, staff_id=NULL）跨多 period】
+ *   health_score(0-100)        每季一筆（period_month 用該季首月：1/4/7/10 月）
+ *   achievement_rate(0..1)     每季一筆（同上 period 對齊）
+ *
+ * 季度錨點：period_month 月份映季別（1-3→Q1…），同季多筆取最新（依 created/period 序，
+ * 此處以 period_month 去重，一季一值）。N = opts.quarters（預設 5）。
+ */
+export async function getStoreScoreHistory(
+  brandId: string,
+  opts: { quarters?: number } = {},
+): Promise<StoreScoreHistory[]> {
+  const client = await createClient();
+  const n = Math.max(1, opts.quarters ?? 5);
+  const stores = await listDiagnosticStores(brandId);
+  if (stores.length === 0) return [];
+
+  const out: StoreScoreHistory[] = [];
+  for (const store of stores) {
+    // 撈該店 health_score + achievement_rate 全部 period（量小），client 端依季彙整
+    const { data } = await client
+      .from("kpi_snapshots")
+      .select("period_month, metric_key, metric_value")
+      .eq("brand_id", brandId)
+      .eq("org_id", store.id)
+      .is("staff_id", null)
+      .in("metric_key", ["health_score", "achievement_rate"])
+      .order("period_month", { ascending: true });
+
+    const rows = (data ?? []) as Array<{
+      period_month: string;
+      metric_key: string;
+      metric_value: number | null;
+    }>;
+
+    // 依季別彙整：每季一個 bucket（同季多筆取最後出現＝較新 period）
+    const byQuarter = new Map<
+      string,
+      { period: string; health: number | null; achievement: number | null }
+    >();
+    for (const r of rows) {
+      const q = quarterLabel(r.period_month);
+      const bucket = byQuarter.get(q) ?? { period: r.period_month, health: null, achievement: null };
+      bucket.period = r.period_month; // asc 排序，後者較新
+      if (r.metric_key === "health_score") bucket.health = r.metric_value;
+      else if (r.metric_key === "achievement_rate") bucket.achievement = r.metric_value;
+      byQuarter.set(q, bucket);
+    }
+
+    // 依 period 排序（季別 key 本身可比，但用 period 更穩），取最後 N 季
+    const ordered = [...byQuarter.entries()]
+      .sort((a, b) => a[1].period.localeCompare(b[1].period))
+      .slice(-n);
+
+    out.push({
+      store,
+      quarters: ordered.map(([q]) => q),
+      scores: ordered.map(([, v]) => v.health),
+      axes: {
+        health: ordered.map(([, v]) => v.health),
+        achievement: ordered.map(([, v]) => v.achievement),
+      },
+    });
+  }
+
+  return out;
 }
