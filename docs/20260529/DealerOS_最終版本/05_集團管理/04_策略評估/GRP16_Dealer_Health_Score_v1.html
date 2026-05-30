@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP16 Dealer Health Score — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#0D1B2A;color:#E8E6E0;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;
+  --teal:#0F6E56;--teal-light:#3DBE6E;--teal-bg:#E1F5EE;
+  --red:#C8001A;--red-light:#F5AEAD;--red-bg:#FDECEA;
+  --amber:#854F0B;--amber-light:#F5B942;--amber-bg:#FDF3E3;
+  --header:#0D2438;--bg:#0D1B2A;--card:#132230;--card2:#1A2E42;
+  --border:#1E3448;--border2:#243C52;
+  --text:#E8E6E0;--text-sub:#7A9AB8;--text-dim:#4A6A88;
+  --score-great:#3DBE6E;--score-good:#5DCAA5;--score-mid:#F5B942;
+  --score-warn:#E8A73A;--score-bad:#C8001A;
+}
+
+/* ── HEADER ── */
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border2);box-shadow:0 2px 12px rgba(0,0,0,.4);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.15);}
+.htitle{font-size:13px;color:rgba(255,255,255,.5);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.08);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.12);cursor:pointer;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.15);}
+.ver-badge{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(61,190,110,.2);border:1px solid rgba(61,190,110,.3);color:#3DBE6E;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+/* ── SUB BAR ── */
+.sub-bar{background:var(--header);border-bottom:1px solid var(--border);padding:7px 24px;display:flex;align-items:center;gap:10px;position:sticky;top:52px;z-index:90;}
+.chip{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border2);background:rgba(255,255,255,.05);color:var(--text-sub);transition:.15s;}
+.chip.active{background:var(--teal);border-color:var(--teal);color:#fff;}
+.chip:hover:not(.active){background:rgba(255,255,255,.1);}
+.sub-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-dim);}
+.rdot{width:7px;height:7px;border-radius:50%;background:#3DBE6E;display:inline-block;}
+
+.main{max-width:1400px;margin:0 auto;padding:24px 24px 60px;}
+
+/* ── SEC TITLE ── */
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text-dim);margin:28px 0 14px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── HERO SCORE ── */
+.hero-score-wrap{display:grid;grid-template-columns:auto 1fr;gap:32px;align-items:center;background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:28px 32px;margin-bottom:24px;position:relative;overflow:hidden;}
+.hero-score-wrap::before{content:'';position:absolute;right:-60px;top:-60px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(61,190,110,.08) 0%,transparent 70%);}
+.hero-gauge-wrap{position:relative;width:180px;height:180px;flex-shrink:0;}
+.hero-score-info{z-index:1;}
+.hero-score-title{font-size:13px;color:var(--text-sub);margin-bottom:4px;letter-spacing:.05em;}
+.hero-score-main{font-size:48px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:8px;}
+.hero-score-sub{font-size:13px;color:var(--text-sub);margin-bottom:16px;}
+.hero-kpi-row{display:flex;gap:20px;flex-wrap:wrap;}
+.hero-kpi{text-align:center;}
+.hero-kpi-val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;}
+.hero-kpi-label{font-size:10px;color:var(--text-dim);margin-top:2px;}
+
+/* ── STORE HEALTH CARDS ── */
+.store-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:28px;}
+.store-card{background:var(--card);border:1px solid var(--border2);border-radius:12px;overflow:hidden;transition:box-shadow .2s,border-color .2s;cursor:pointer;}
+.store-card:hover{border-color:var(--border);box-shadow:0 8px 32px rgba(0,0,0,.3);}
+.sc-header{padding:14px 18px 12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);}
+.sc-store-name{font-size:15px;font-weight:700;flex:1;}
+.sc-score-badge{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;padding:4px 14px;border-radius:8px;}
+.sc-body{padding:14px 18px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;}
+.sc-dims{flex:1;}
+.sc-dim-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.sc-dim-row:last-child{margin-bottom:0;}
+.sc-dim-label{font-size:11px;color:var(--text-sub);width:68px;flex-shrink:0;}
+.sc-dim-bar-wrap{flex:1;height:5px;background:var(--border2);border-radius:3px;overflow:hidden;}
+.sc-dim-bar{height:100%;border-radius:3px;transition:width .6s ease;}
+.sc-dim-val{font-size:11px;font-family:'DM Mono',monospace;font-weight:700;width:36px;text-align:right;flex-shrink:0;}
+.sc-delta{font-size:11px;margin-top:6px;display:flex;align-items:center;gap:4px;}
+.sc-delta.up{color:var(--score-great);}
+.sc-delta.dn{color:var(--score-bad);}
+.sc-delta.flat{color:var(--text-dim);}
+.sc-footer{padding:8px 18px;border-top:1px solid var(--border);font-size:11px;color:var(--text-dim);display:flex;align-items:center;justify-content:space-between;}
+.sc-issues{color:var(--score-warn);font-weight:600;}
+
+/* ── RADAR CHART ── */
+.radar-wrap{flex-shrink:0;}
+
+/* ── TREND CHART ── */
+.trend-card{background:var(--card);border:1px solid var(--border2);border-radius:12px;overflow:hidden;margin-bottom:24px;}
+.tc-header{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.tc-title{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;}
+.tc-dot{width:8px;height:8px;border-radius:50%;background:var(--score-great);}
+.tc-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(61,190,110,.15);color:var(--score-great);border:1px solid rgba(61,190,110,.25);}
+.tc-body{padding:18px;}
+
+/* ── IMPROVEMENT LIST ── */
+.improve-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:28px;}
+.improve-card{background:var(--card);border:1px solid var(--border2);border-radius:10px;overflow:hidden;}
+.ic-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.ic-store{font-size:12px;font-weight:700;}
+.ic-score{font-size:12px;font-family:'DM Mono',monospace;font-weight:700;}
+.ic-body{padding:12px 14px;}
+.ic-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.ic-item:last-child{border-bottom:none;}
+.ic-icon{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;margin-top:1px;}
+.ic-text{flex:1;line-height:1.5;color:var(--text-sub);}
+.ic-text b{color:var(--text);}
+
+/* ── RANKING TABLE ── */
+.rank-card{background:var(--card);border:1px solid var(--border2);border-radius:12px;overflow:hidden;margin-bottom:24px;}
+.rt{width:100%;border-collapse:collapse;}
+.rt th{font-size:10.5px;font-weight:700;color:var(--text-dim);padding:9px 14px;border-bottom:1px solid var(--border);text-align:left;background:rgba(0,0,0,.15);white-space:nowrap;}
+.rt th.c{text-align:center;}
+.rt td{padding:11px 14px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:middle;}
+.rt tr:last-child td{border-bottom:none;}
+.rt tr:hover td{background:rgba(255,255,255,.03);}
+.mono{font-family:'DM Mono',monospace;font-weight:700;}
+.score-pill{display:inline-block;padding:3px 12px;border-radius:20px;font-size:13px;font-weight:700;font-family:'DM Mono',monospace;}
+.prog-bar{height:5px;background:var(--border2);border-radius:3px;overflow:hidden;margin-top:4px;}
+.prog-fill{height:100%;border-radius:3px;}
+
+/* ── LEGEND ── */
+.score-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+.sl-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-sub);}
+.sl-dot{width:10px;height:10px;border-radius:2px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--header);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:9999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;border:1px solid var(--border2);}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@media(max-width:960px){.store-cards{grid-template-columns:1fr;}.improve-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP16 Dealer Health Score</b></div>
+  <div class="org-badge">💚 健康評分系統</div>
+  <div class="ver-badge">v1 D3</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn" onclick="showToast('匯出中…')">⬇ 匯出報告</button>
+  </div>
+</header>
+
+<div class="sub-bar">
+  <span style="font-size:12px;font-weight:700;color:var(--text-sub);">評分期間：</span>
+  <button class="chip active" onclick="setChip(this)">2026 Q2</button>
+  <button class="chip" onclick="setChip(this)">2026 Q1</button>
+  <button class="chip" onclick="setChip(this)">2025 Q4</button>
+  <div class="sub-right">
+    <span class="rdot"></span> 評分更新：2026-05-28
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- 分數圖例 -->
+  <div class="score-legend">
+    <div class="sl-item"><div class="sl-dot" style="background:#3DBE6E;"></div>優秀 90–100</div>
+    <div class="sl-item"><div class="sl-dot" style="background:#5DCAA5;"></div>良好 75–89</div>
+    <div class="sl-item"><div class="sl-dot" style="background:#F5B942;"></div>普通 60–74</div>
+    <div class="sl-item"><div class="sl-dot" style="background:#E8A73A;"></div>警示 45–59</div>
+    <div class="sl-item"><div class="sl-dot" style="background:#C8001A;"></div>危險 0–44</div>
+  </div>
+
+  <!-- 集團整體 Health Score -->
+  <div class="sec-title">🏢 集團整體 Health Score</div>
+  <div class="hero-score-wrap">
+    <div class="hero-gauge-wrap">
+      <svg id="hero-gauge" width="180" height="180"></svg>
+    </div>
+    <div class="hero-score-info">
+      <div class="hero-score-title">INDIAN MOTORCYCLE TAIWAN ／ 集團綜合健康評分</div>
+      <div class="hero-score-main" id="hero-score-val" style="color:#5DCAA5;">78.4</div>
+      <div class="hero-score-sub">▲ +3.2分 vs 上季（2026 Q1：75.2）｜評級：<span style="color:#5DCAA5;font-weight:700;">良好</span></div>
+      <div class="hero-kpi-row">
+        <div class="hero-kpi"><div class="hero-kpi-val" style="color:#3DBE6E;">2</div><div class="hero-kpi-label">優秀門店</div></div>
+        <div class="hero-kpi"><div class="hero-kpi-val" style="color:#5DCAA5;">1</div><div class="hero-kpi-label">良好門店</div></div>
+        <div class="hero-kpi"><div class="hero-kpi-val" style="color:#F5B942;">1</div><div class="hero-kpi-label">警示門店</div></div>
+        <div class="hero-kpi"><div class="hero-kpi-val" style="color:#3DBE6E;">銷售</div><div class="hero-kpi-label">最強維度</div></div>
+        <div class="hero-kpi"><div class="hero-kpi-val" style="color:#F5B942;">零件</div><div class="hero-kpi-label">最弱維度</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 門店健康評分卡 -->
+  <div class="sec-title">🏪 門店個別 Health Score</div>
+  <div class="store-cards" id="store-cards"></div>
+
+  <!-- 季度趨勢 -->
+  <div class="sec-title">📈 各門店 Health Score 季度走勢</div>
+  <div class="trend-card">
+    <div class="tc-header">
+      <div class="tc-title"><div class="tc-dot"></div>Health Score 季度走勢（近5季）</div>
+      <div class="tc-tag">2025 Q2 → 2026 Q2</div>
+    </div>
+    <div class="tc-body">
+      <div id="chart-trend" style="height:220px;"></div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:12px;" id="trend-legend"></div>
+    </div>
+  </div>
+
+  <!-- 改善建議 -->
+  <div class="sec-title">🔧 低分維度改善建議</div>
+  <div class="improve-grid" id="improve-grid"></div>
+
+  <!-- 排行榜 -->
+  <div class="sec-title">🏆 門店 Health Score 排行榜</div>
+  <div class="rank-card">
+    <table class="rt">
+      <thead>
+        <tr>
+          <th class="c">排名</th>
+          <th>門店</th>
+          <th class="c">綜合評分</th>
+          <th class="c">銷售</th>
+          <th class="c">售後</th>
+          <th class="c">零件</th>
+          <th class="c">人員能效</th>
+          <th class="c">客戶滿意</th>
+          <th class="c">財務健康</th>
+          <th class="c">vs 上季</th>
+          <th class="c">評級</th>
+        </tr>
+      </thead>
+      <tbody id="rank-tbody"></tbody>
+    </table>
+  </div>
+
+</div><!-- /main -->
+
+<div id="toast" class="toast"></div>
+
+<!-- ════ JS ════ -->
+<script>
+// ── 門店健康資料 ──
+const STORES = [
+  {
+    name:'台北旗艦店', short:'台北',
+    score: 88.2, prev: 84.6,
+    color: '#3DBE6E',
+    dims: { sales:92, after:86, parts:78, people:90, csat:88, finance:91 },
+    issues: [
+      { icon:'📦', level:'warn', text:'<b>零件周轉率</b>偏低（5.8次），建議檢視採購頻率與安全庫存設定' },
+      { icon:'🔁', level:'warn', text:'<b>SA 接車返修率</b>近月小幅上升，需關注技師 Chris 施工品質' },
+    ],
+  },
+  {
+    name:'台中中港店', short:'台中',
+    score: 81.4, prev: 79.2,
+    color: '#5DCAA5',
+    dims: { sales:84, after:82, parts:88, people:78, csat:80, finance:82 },
+    issues: [
+      { icon:'👤', level:'warn', text:'<b>人員能效</b>偏低（78分），銷售顧問 Bob 轉換率連續3月未達標' },
+      { icon:'😊', level:'warn', text:'<b>客戶滿意度</b>（NPS +34）低於集團均值 +42，需加強服務流程' },
+    ],
+  },
+  {
+    name:'高雄博愛店', short:'高雄',
+    score: 58.6, prev: 62.8,
+    color: '#F5B942',
+    dims: { sales:62, after:55, parts:52, people:60, csat:58, finance:61 },
+    issues: [
+      { icon:'📉', level:'bad', text:'<b>整體評分下滑 -4.2分</b>，售後與零件維度雙雙低於警戒線' },
+      { icon:'🔩', level:'bad', text:'<b>技師 Marcus 返修率 18.4%</b>，遠超集團標準 5%，需立即輔導' },
+      { icon:'📦', level:'bad', text:'<b>零件呆滯率 6.8%</b>，超過警戒線 5%，建議促銷消化' },
+      { icon:'💲', level:'warn', text:'<b>Scout Bobber 成交均價</b>低於定價下限 -4.8%，已列越界警示' },
+    ],
+  },
+  {
+    name:'桃園中壢店', short:'桃園',
+    score: 76.8, prev: 74.1,
+    color: '#5DCAA5',
+    dims: { sales:78, after:80, parts:74, people:76, csat:79, finance:74 },
+    issues: [
+      { icon:'✨', level:'warn', text:'<b>精品加裝率 28.9%</b>，低於集團均值 38.5%，建議加強話術培訓' },
+      { icon:'💲', level:'warn', text:'<b>定價達成率</b>偏低，部分品項成交均價接近下限邊緣' },
+    ],
+  },
+];
+
+const DIM_LABELS = { sales:'銷售', after:'售後', parts:'零件', people:'人員', csat:'客滿', finance:'財務' };
+const DIM_KEYS   = ['sales','after','parts','people','csat','finance'];
+
+// ── 分數轉顏色 ──
+function scoreColor(s) {
+  if (s >= 90) return '#3DBE6E';
+  if (s >= 75) return '#5DCAA5';
+  if (s >= 60) return '#F5B942';
+  if (s >= 45) return '#E8A73A';
+  return '#C8001A';
+}
+function scoreLabel(s) {
+  if (s >= 90) return '優秀';
+  if (s >= 75) return '良好';
+  if (s >= 60) return '普通';
+  if (s >= 45) return '警示';
+  return '危險';
+}
+
+// ── Hero 儀表盤圓弧 ──
+(function drawHeroGauge() {
+  const score = 78.4;
+  const W = 180, H = 180, r = 74, cx = 90, cy = 95;
+  const startAngle = Math.PI * 0.75;
+  const endAngle   = Math.PI * 2.25;
+  const fillAngle  = startAngle + (endAngle - startAngle) * (score / 100);
+
+  const svg = d3.select('#hero-gauge');
+
+  const arcBg = d3.arc()
+    .innerRadius(r - 14).outerRadius(r)
+    .startAngle(startAngle).endAngle(endAngle);
+  svg.append('path').attr('d', arcBg()).attr('transform', `translate(${cx},${cy})`)
+    .attr('fill', '#1E3448');
+
+  const arcFill = d3.arc()
+    .innerRadius(r - 14).outerRadius(r)
+    .startAngle(startAngle).endAngle(startAngle)
+    .cornerRadius(4);
+  const fillPath = svg.append('path')
+    .attr('transform', `translate(${cx},${cy})`)
+    .attr('fill', '#5DCAA5');
+  fillPath.transition().duration(1200).ease(d3.easeQuadOut)
+    .attrTween('d', () => {
+      const i = d3.interpolate(startAngle, fillAngle);
+      return t => arcFill.endAngle(i(t))();
+    });
+
+  // 中心文字
+  svg.append('text').attr('x', cx).attr('y', cy - 4)
+    .attr('text-anchor', 'middle').attr('font-size', 32).attr('font-weight', 700)
+    .attr('font-family', 'DM Mono, monospace').attr('fill', '#5DCAA5').text(score);
+  svg.append('text').attr('x', cx).attr('y', cy + 18)
+    .attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', '#7A9AB8').text('/ 100');
+  svg.append('text').attr('x', cx).attr('y', cy + 36)
+    .attr('text-anchor', 'middle').attr('font-size', 11).attr('font-weight', 700).attr('fill', '#5DCAA5').text('良好');
+
+  // 刻度標籤
+  [0, 25, 50, 75, 100].forEach(v => {
+    const angle = startAngle + (endAngle - startAngle) * (v / 100);
+    const lx = cx + (r + 10) * Math.cos(angle - Math.PI/2);
+    const ly = cy + (r + 10) * Math.sin(angle - Math.PI/2);
+    svg.append('text').attr('x', lx).attr('y', ly + 4)
+      .attr('text-anchor', 'middle').attr('font-size', 9)
+      .attr('font-family', 'DM Mono, monospace').attr('fill', '#4A6A88').text(v);
+  });
+})();
+
+// ── 門店卡片 ──
+function drawRadar(containerId, dims, color) {
+  const el = document.getElementById(containerId);
+  const size = 130;
+  const cx = size/2, cy = size/2, r = 46;
+  const keys = DIM_KEYS;
+  const n = keys.length;
+  const angleStep = (Math.PI * 2) / n;
+
+  const svg = d3.select(el).append('svg').attr('width', size).attr('height', size);
+
+  // 背景網格
+  [20, 40, 60, 80, 100].forEach(pct => {
+    const pts = keys.map((_, i) => {
+      const a = angleStep * i - Math.PI/2;
+      const rr = r * pct / 100;
+      return [cx + rr * Math.cos(a), cy + rr * Math.sin(a)];
+    });
+    svg.append('polygon')
+      .attr('points', pts.map(p=>p.join(',')).join(' '))
+      .attr('fill', 'none').attr('stroke', '#1E3448').attr('stroke-width', 1);
+  });
+
+  // 軸線
+  keys.forEach((_, i) => {
+    const a = angleStep * i - Math.PI/2;
+    svg.append('line')
+      .attr('x1', cx).attr('y1', cy)
+      .attr('x2', cx + r * Math.cos(a)).attr('y2', cy + r * Math.sin(a))
+      .attr('stroke', '#1E3448').attr('stroke-width', 1);
+  });
+
+  // 資料多邊形
+  const dataPoints = keys.map((k, i) => {
+    const a = angleStep * i - Math.PI/2;
+    const rr = r * dims[k] / 100;
+    return [cx + rr * Math.cos(a), cy + rr * Math.sin(a)];
+  });
+  svg.append('polygon')
+    .attr('points', dataPoints.map(p=>p.join(',')).join(' '))
+    .attr('fill', color).attr('fill-opacity', 0.18)
+    .attr('stroke', color).attr('stroke-width', 1.8);
+
+  // 資料點
+  dataPoints.forEach(([x, y]) => {
+    svg.append('circle').attr('cx', x).attr('cy', y).attr('r', 3)
+      .attr('fill', color).attr('stroke', '#0D1B2A').attr('stroke-width', 1.5);
+  });
+
+  // 軸標籤
+  keys.forEach((k, i) => {
+    const a = angleStep * i - Math.PI/2;
+    const lx = cx + (r + 12) * Math.cos(a);
+    const ly = cy + (r + 12) * Math.sin(a);
+    svg.append('text')
+      .attr('x', lx).attr('y', ly + 3)
+      .attr('text-anchor', 'middle').attr('font-size', 8.5)
+      .attr('font-family', 'Noto Sans TC, sans-serif').attr('fill', '#7A9AB8')
+      .text(DIM_LABELS[k]);
+  });
+}
+
+function renderStoreCards() {
+  const container = document.getElementById('store-cards');
+  STORES.forEach((s, idx) => {
+    const delta = s.score - s.prev;
+    const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(1);
+    const deltaClass = delta >= 0 ? 'up' : 'dn';
+    const radarId = `radar-${idx}`;
+
+    const card = document.createElement('div');
+    card.className = 'store-card';
+    card.innerHTML = `
+      <div class="sc-header">
+        <div style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0;"></div>
+        <div class="sc-store-name">${s.name}</div>
+        <div class="sc-score-badge" style="background:${s.color}22;color:${s.color};">${s.score}</div>
+        <div style="font-size:11px;font-weight:700;color:${s.color};margin-left:4px;">${scoreLabel(s.score)}</div>
+      </div>
+      <div class="sc-body">
+        <div class="sc-dims">
+          ${DIM_KEYS.map(k => `
+            <div class="sc-dim-row">
+              <div class="sc-dim-label">${DIM_LABELS[k]}</div>
+              <div class="sc-dim-bar-wrap">
+                <div class="sc-dim-bar" style="width:${s.dims[k]}%;background:${scoreColor(s.dims[k])};"></div>
+              </div>
+              <div class="sc-dim-val" style="color:${scoreColor(s.dims[k])};">${s.dims[k]}</div>
+            </div>`).join('')}
+          <div class="sc-delta ${deltaClass}">
+            ${delta >= 0 ? '▲' : '▼'} ${deltaStr}分 vs 上季
+          </div>
+        </div>
+        <div class="radar-wrap" id="${radarId}"></div>
+      </div>
+      <div class="sc-footer">
+        <span class="sc-issues">${s.issues.length > 0 ? '⚠ ' + s.issues.length + ' 項需改善' : '✅ 無警示'}</span>
+        <span style="color:var(--text-dim);">點擊查看詳情</span>
+      </div>
+    `;
+    container.appendChild(card);
+    drawRadar(radarId, s.dims, s.color);
+  });
+}
+
+renderStoreCards();
+
+// ── 季度趨勢折線 ──
+(function drawTrend() {
+  const el = document.getElementById('chart-trend');
+  const W = el.clientWidth || 900, H = 220;
+  const margin = { top:16, right:20, bottom:28, left:40 };
+  const w = W - margin.left - margin.right;
+  const h = H - margin.top - margin.bottom;
+
+  const quarters = ['2025 Q2','2025 Q3','2025 Q4','2026 Q1','2026 Q2'];
+  const trendData = [
+    { store:'台北', color:'#3DBE6E', values:[82.1, 83.4, 85.0, 84.6, 88.2] },
+    { store:'台中', color:'#5DCAA5', values:[74.2, 76.0, 77.8, 79.2, 81.4] },
+    { store:'高雄', color:'#F5B942', values:[68.4, 65.2, 63.1, 62.8, 58.6] },
+    { store:'桃園', color:'#85B7EB', values:[70.1, 71.4, 72.8, 74.1, 76.8] },
+  ];
+
+  const svg = d3.select(el).append('svg').attr('width','100%').attr('viewBox',`0 0 ${W} ${H}`);
+  const g = svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+
+  const x = d3.scalePoint().domain(quarters).range([0, w]);
+  const y = d3.scaleLinear().domain([50, 95]).range([h, 0]);
+
+  // 格線
+  g.selectAll('.gl').data(y.ticks(5)).enter().append('line')
+    .attr('x1',0).attr('x2',w).attr('y1',d=>y(d)).attr('y2',d=>y(d))
+    .attr('stroke','#1E3448').attr('stroke-width',1);
+
+  // 警戒線 60
+  g.append('line').attr('x1',0).attr('x2',w).attr('y1',y(60)).attr('y2',y(60))
+    .attr('stroke','#C8001A').attr('stroke-width',1).attr('stroke-dasharray','4,3').attr('opacity',.5);
+  g.append('text').attr('x',w+4).attr('y',y(60)+4).attr('font-size',9).attr('fill','#C8001A').attr('opacity',.7).text('60');
+
+  trendData.forEach(s => {
+    const line = d3.line()
+      .x((d,i) => x(quarters[i]))
+      .y(d => y(d))
+      .curve(d3.curveMonotoneX);
+
+    const path = g.append('path').datum(s.values)
+      .attr('fill','none').attr('stroke',s.color).attr('stroke-width',2.5)
+      .attr('d', line);
+    const tl = path.node().getTotalLength();
+    path.attr('stroke-dasharray',tl).attr('stroke-dashoffset',tl)
+      .transition().duration(900).delay(trendData.indexOf(s)*150)
+      .attr('stroke-dashoffset',0);
+
+    // 面積
+    const area = d3.area()
+      .x((d,i)=>x(quarters[i])).y0(h).y1(d=>y(d)).curve(d3.curveMonotoneX);
+    g.append('path').datum(s.values)
+      .attr('fill',s.color).attr('fill-opacity',.05).attr('d',area);
+
+    // 點
+    g.selectAll(null).data(s.values).enter().append('circle')
+      .attr('cx',(d,i)=>x(quarters[i])).attr('cy',d=>y(d))
+      .attr('r',4).attr('fill',s.color).attr('stroke','#0D1B2A').attr('stroke-width',2)
+      .style('opacity',0).transition().delay(800+trendData.indexOf(s)*150).style('opacity',1);
+
+    // 末端標籤
+    const last = s.values[s.values.length-1];
+    g.append('text')
+      .attr('x',x(quarters[quarters.length-1])+8)
+      .attr('y',y(last)+4)
+      .attr('font-size',10).attr('font-weight',700).attr('fill',s.color)
+      .text(s.store+' '+last);
+  });
+
+  g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x).tickSize(0))
+    .select('.domain').remove();
+  g.selectAll('.tick text').attr('font-size',10).attr('fill','#4A6A88');
+  g.append('g').call(d3.axisLeft(y).ticks(5)).select('.domain').remove();
+  g.selectAll('.tick text').attr('font-size',10).attr('fill','#4A6A88');
+  g.selectAll('.tick line').attr('stroke','none');
+
+  // Legend
+  const legend = document.getElementById('trend-legend');
+  trendData.forEach(s => {
+    const div = document.createElement('div');
+    div.style = 'display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);';
+    div.innerHTML = `<div style="width:20px;height:3px;background:${s.color};border-radius:2px;"></div>${s.store}`;
+    legend.appendChild(div);
+  });
+})();
+
+// ── 改善建議 ──
+function renderImprove() {
+  const container = document.getElementById('improve-grid');
+  STORES.filter(s => s.issues.length > 0).forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'improve-card';
+    const worstDim = DIM_KEYS.reduce((a,b) => s.dims[a] < s.dims[b] ? a : b);
+    card.innerHTML = `
+      <div class="ic-header" style="border-left:3px solid ${s.color};">
+        <div class="ic-store">${s.name}</div>
+        <div style="flex:1;"></div>
+        <div class="ic-score" style="color:${s.color};">${s.score}分</div>
+        <div style="font-size:10px;margin-left:6px;color:var(--text-dim);">最弱：${DIM_LABELS[worstDim]} ${s.dims[worstDim]}分</div>
+      </div>
+      <div class="ic-body">
+        ${s.issues.map(issue => `
+          <div class="ic-item">
+            <div class="ic-icon" style="background:${issue.level==='bad'?'rgba(200,0,26,.2)':'rgba(245,185,66,.15)'};color:${issue.level==='bad'?'#F5AEAD':'#F5B942'};">${issue.icon}</div>
+            <div class="ic-text">${issue.text}</div>
+          </div>`).join('')}
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+renderImprove();
+
+// ── 排行榜 ──
+function renderRanking() {
+  const sorted = [...STORES].sort((a,b) => b.score - a.score);
+  document.getElementById('rank-tbody').innerHTML = sorted.map((s, i) => {
+    const delta = s.score - s.prev;
+    const deltaStr = (delta>=0?'+':'')+delta.toFixed(1);
+    const deltaColor = delta>=0?'#3DBE6E':'#C8001A';
+    const rankEmoji = ['🥇','🥈','🥉',''][i] || '';
+    return `<tr>
+      <td class="c">
+        <span class="mono" style="font-size:16px;">${rankEmoji}</span>
+        <span class="mono" style="color:${i<3?'#3DBE6E':'#4A6A88'};font-size:11px;"> ${String(i+1).padStart(2,'0')}</span>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:${s.color};"></div>
+          <span style="font-weight:700;">${s.name}</span>
+        </div>
+      </td>
+      <td class="c">
+        <span class="score-pill" style="background:${s.color}22;color:${s.color};">${s.score}</span>
+        <div class="prog-bar" style="width:80px;margin:4px auto 0;">
+          <div class="prog-fill" style="width:${s.score}%;background:${s.color};"></div>
+        </div>
+      </td>
+      ${DIM_KEYS.map(k=>`<td class="c"><span class="mono" style="color:${scoreColor(s.dims[k])};font-size:12px;">${s.dims[k]}</span></td>`).join('')}
+      <td class="c"><span style="color:${deltaColor};font-weight:700;font-family:'DM Mono',monospace;font-size:12px;">${deltaStr}</span></td>
+      <td class="c"><span class="score-pill" style="background:${s.color}22;color:${s.color};font-size:11px;">${scoreLabel(s.score)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+renderRanking();
+
+// ── Utils ──
+function setChip(el) {
+  el.closest('.sub-bar').querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  showToast('已切換期間：'+el.textContent.trim());
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

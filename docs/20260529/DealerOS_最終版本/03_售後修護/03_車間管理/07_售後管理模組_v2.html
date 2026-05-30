@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>DUCATI 售後管理模組</title>
+<style>:root{--red:#CC0000;--dark:#1A1A1A;--navy:#1A3A5C;--white:#FFFFFF;--g50:#F5F5F4;--g100:#E8E7E4;--g200:#D1D0CE;--g400:#999;--g500:#6B6A68;--g700:#3A3A38;--green:#0F6E56;--green-bg:#E1F5EE;--green-bd:#1D9E75;--amber:#854F0B;--amber-bg:#FAEEDA;--amber-bd:#BA7517;--red-bg:#FCEBEB;--blue:#185FA5;--blue-bg:#E6F1FB;--blue-bd:#4A90D9;--purple:#534AB7;--purple-bg:#EEEEFF;--font:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;--r:10px;--r-sm:6px;}*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#EDECEB;font-family:var(--font);font-size:14px;color:var(--dark)}.app{display:flex;flex-direction:column;height:100vh;max-width:1024px;margin:0 auto;background:var(--white);box-shadow:0 0 30px rgba(0,0,0,0.12)}.hdr{background:var(--dark);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}.hdr-logo{font-size:17px;font-weight:700;letter-spacing:2px;margin-right:12px}.hdr-title{font-size:13px;opacity:0.9}.hdr-sub{font-size:11px;opacity:0.6;margin-top:1px}.hdr-meta{text-align:right;font-size:11px;opacity:0.8;line-height:1.7}.main-nav{display:flex;background:var(--dark);padding:0 14px;flex-shrink:0;gap:4px;border-top:0.5px solid rgba(255,255,255,0.1)}.main-nav-btn{padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;color:rgba(255,255,255,0.5);border-bottom:3px solid transparent;transition:all 0.15s;user-select:none;display:flex;align-items:center;gap:6px}.main-nav-btn.active{color:#fff;border-bottom-color:var(--red)}.main-nav-btn:hover{color:rgba(255,255,255,0.85)}.live-dot{width:7px;height:7px;border-radius:50%;background:#4ADE80;animation:pulse-g 1.5s infinite}@keyframes pulse-g{0%,100%{opacity:1}50%{opacity:0.4}}.sub-nav{display:flex;background:#2C2C2C;padding:0 14px;flex-shrink:0;gap:4px}.sub-nav-btn{padding:8px 16px;font-size:12px;font-weight:500;cursor:pointer;color:rgba(255,255,255,0.45);border-bottom:2px solid transparent;transition:all 0.15s;user-select:none}.sub-nav-btn.active{color:#fff;border-bottom-color:#4ADE80}.setting-tabs{display:flex;background:var(--g50);border-bottom:1px solid var(--g100);flex-shrink:0;overflow-x:auto}.setting-tabs::-webkit-scrollbar{display:none}.stab{padding:10px 16px;font-size:12px;font-weight:500;cursor:pointer;border-bottom:3px solid transparent;color:var(--g500);white-space:nowrap;user-select:none;display:flex;align-items:center;gap:5px}.stab.active{color:var(--dark);border-bottom-color:var(--dark);background:var(--white)}.stab-num{width:20px;height:20px;border-radius:4px;background:var(--g200);color:var(--g700);font-size:10px;text-align:center;line-height:20px;font-weight:700}.stab.active .stab-num{background:var(--dark);color:#fff}.content{flex:1;overflow-y:auto;padding:12px;background:var(--g50)}.screen{display:none}.screen.active{display:block}.panel{display:none}.panel.active{display:block}.card{background:var(--white);border:0.5px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:10px}.card-hdr{padding:9px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between}.card-hdr.dark{background:var(--dark);color:#fff}.card-hdr.navy{background:var(--navy);color:#fff}.card-hdr.green{background:var(--green);color:#fff}.card-hdr.red{background:var(--red);color:#fff}.card-hdr.amber{background:var(--amber);color:#fff}.card-hdr.purple{background:var(--purple);color:#fff}.card-body{padding:12px 14px}.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.field{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}.field label{font-size:11px;color:var(--g500);font-weight:500}.field input,.field select{height:36px;padding:0 10px;border:0.5px solid var(--g200);border-radius:var(--r-sm);font-size:12px;color:var(--dark);background:var(--g50);width:100%}.field input:focus,.field select:focus{outline:none;border-color:var(--dark);background:#fff}.field textarea{padding:8px 10px;border:0.5px solid var(--g200);border-radius:var(--r-sm);font-size:12px;resize:none;background:var(--g50);width:100%}.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}.badge-ok{background:var(--green-bg);color:var(--green);border:0.5px solid var(--green-bd)}.badge-warn{background:var(--amber-bg);color:var(--amber)}.badge-bad{background:var(--red-bg);color:var(--red)}.badge-blue{background:var(--blue-bg);color:var(--blue)}.badge-gray{background:var(--g100);color:var(--g500)}.btn{height:34px;padding:0 14px;border-radius:var(--r-sm);font-size:12px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s;display:inline-flex;align-items:center;gap:4px}.btn:active{transform:scale(0.97)}.btn-dark{background:var(--dark);color:#fff}.btn-red{background:var(--red);color:#fff}.btn-green{background:var(--green);color:#fff}.btn-outline{background:transparent;border:0.5px solid var(--g200);color:var(--dark)}.btn-sm{height:28px;padding:0 10px;font-size:11px}.btn-ghost{background:rgba(255,255,255,0.15);color:#fff;border:0.5px solid rgba(255,255,255,0.3)}.tbl{width:100%;border-collapse:collapse;font-size:12px}.tbl th{background:var(--dark);color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600;white-space:nowrap}.tbl td{padding:8px 10px;border-bottom:0.5px solid var(--g100);vertical-align:middle}.tbl tr:hover td{background:var(--blue-bg)}.toggle-wrap{display:flex;align-items:center;gap:6px;cursor:pointer}.toggle{width:36px;height:20px;border-radius:10px;background:var(--g200);position:relative;transition:background 0.2s;flex-shrink:0}.toggle.on{background:var(--green)}.toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)}.toggle.on::after{left:18px}.kpi-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}.kpi-chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px}.kpi-chip .dot{width:8px;height:8px;border-radius:50%}.bay-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.bay-card{border-radius:8px;padding:11px;border:1.5px solid var(--g200);background:var(--white);cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden}.bay-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}.bay-card.free::before{background:var(--green-bd)}.bay-card.busy::before{background:var(--amber-bd)}.bay-card.urgent::before{background:var(--red);animation:urgent-pulse 1.2s infinite}.bay-card.offline::before{background:var(--g400)}@keyframes urgent-pulse{0%,100%{opacity:1}50%{opacity:0.3}}.bay-card:hover{box-shadow:0 3px 12px rgba(0,0,0,0.12);transform:translateY(-1px)}.bay-card.free{border-color:var(--green-bd);background:linear-gradient(135deg,#fff 0%,#F0FBF7 100%)}.bay-card.busy{border-color:var(--amber-bd);background:linear-gradient(135deg,#fff 0%,#FDF6E8 100%)}.bay-card.urgent{border-color:var(--red);background:linear-gradient(135deg,#fff 0%,#FDF0F0 100%)}.bay-card.offline{border-color:var(--g200);background:var(--g50);opacity:0.65}.bay-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.bay-name{font-size:13px;font-weight:700}.bay-type{font-size:10px;color:var(--g500);background:var(--g100);padding:1px 6px;border-radius:3px}.bay-status-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px}.free .bay-status-badge{background:var(--green-bg);color:var(--green)}.busy .bay-status-badge{background:var(--amber-bg);color:var(--amber)}.urgent .bay-status-badge{background:var(--red-bg);color:var(--red)}.offline .bay-status-badge{background:var(--g100);color:var(--g500)}.bay-ro{font-size:11px;font-weight:600;color:var(--dark);margin-bottom:2px}.bay-item{font-size:10px;color:var(--g500);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bay-timer{font-size:20px;font-weight:800;color:var(--dark);font-variant-numeric:tabular-nums;letter-spacing:-0.5px;margin-bottom:3px}.busy .bay-timer{color:var(--amber)}.urgent .bay-timer{color:var(--red)}.bay-tech-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--g500)}.tech-dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff}.dispatch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.tech-card{border-radius:8px;padding:11px;border:1.5px solid var(--g200);background:var(--white);position:relative;overflow:hidden}.tech-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}.tech-card.working::before{background:var(--blue-bd)}.tech-card.break::before{background:var(--g400)}.tech-card.idle::before{background:var(--green-bd)}.tech-card.working{border-color:var(--blue-bd);background:linear-gradient(135deg,#fff 0%,#EEF6FF 100%)}.tech-card.break{border-color:var(--g200);background:var(--g50)}.tech-card.idle{border-color:var(--green-bd);background:linear-gradient(135deg,#fff 0%,#F0FBF7 100%)}.tech-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}.tech-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0}.tech-info{flex:1}.tech-name{font-size:13px;font-weight:700;margin-bottom:1px}.tech-grade{font-size:10px;color:var(--g500)}.tech-status-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px}.working .tech-status-badge{background:var(--blue-bg);color:var(--blue)}.break .tech-status-badge{background:var(--g100);color:var(--g500)}.idle .tech-status-badge{background:var(--green-bg);color:var(--green)}.tech-cur{font-size:11px;margin-bottom:6px}.tech-cur-ro{font-weight:600;color:var(--dark)}.tech-cur-item{color:var(--g500)}.tech-stats-row{display:flex;gap:0;border:0.5px solid var(--g100);border-radius:6px;overflow:hidden;margin-bottom:6px}.tech-stat{flex:1;text-align:center;padding:5px 0;border-right:0.5px solid var(--g100)}.tech-stat:last-child{border-right:none}.tech-stat label{display:block;font-size:9px;color:var(--g400);margin-bottom:1px}.tech-stat span{font-size:12px;font-weight:700}.eff-wrap{display:flex;align-items:center;gap:6px}.eff-bar{flex:1;height:5px;background:var(--g200);border-radius:3px;overflow:hidden}.eff-fill{height:100%;border-radius:3px;transition:width 0.5s}.eff-val{font-size:11px;font-weight:600;min-width:32px;text-align:right}.dispatch-btn{width:100%;height:28px;border:0.5px solid var(--g200);background:var(--white);border-radius:5px;font-size:11px;cursor:pointer;color:var(--blue);font-weight:500;margin-top:6px;transition:all 0.15s}.dispatch-btn:hover{background:var(--blue-bg);border-color:var(--blue-bd)}.ro-preview-bar{background:var(--dark);border-radius:8px;padding:14px 18px;display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}.ro-seg{display:flex;flex-direction:column;align-items:center}.ro-seg label{font-size:9px;color:rgba(255,255,255,0.5);margin-bottom:3px;letter-spacing:0.5px;text-transform:uppercase}.ro-seg span{font-size:18px;font-weight:800;font-family:monospace;letter-spacing:1px}.ro-sep{font-size:22px;color:rgba(255,255,255,0.25);margin-top:10px;font-weight:300}.p1-teal{color:#7FFFD4}.p2-amber{color:#FFD580}.p3-purple{color:#C9A0FF}.p4-red{color:#F9A8A8}.prefix-table{width:100%;border-collapse:collapse;font-size:12px}.prefix-table th{background:var(--dark);color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600}.prefix-table td{padding:8px 10px;border-bottom:0.5px solid var(--g100);vertical-align:middle}.prefix-table tr:nth-child(even) td{background:var(--g50)}.p-code{font-family:monospace;font-size:13px;font-weight:700;background:var(--dark);color:#7FFFD4;padding:2px 8px;border-radius:4px;display:inline-block}.p2-code{background:#2C1A00;color:#FFD580}.acct-tag{font-size:10px;padding:2px 6px;border-radius:3px;font-weight:500}.acct-income{background:var(--green-bg);color:var(--green)}.acct-internal{background:var(--blue-bg);color:var(--blue)}.acct-claim{background:var(--purple-bg);color:var(--purple)}.discount-table{width:100%;border-collapse:collapse;font-size:12px}.discount-table th{background:var(--dark);color:#fff;padding:7px 10px;text-align:center;font-size:11px;font-weight:600}.discount-table td{padding:8px 10px;border-bottom:0.5px solid var(--g100);text-align:center;vertical-align:middle}.discount-table tr:nth-child(even) td{background:var(--g50)}.discount-input{width:64px;height:30px;border:0.5px solid var(--g200);border-radius:4px;font-size:12px;text-align:center;background:#fff}.approval-chip{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500}.hint{font-size:11px;color:var(--g500)}.divider{height:0.5px;background:var(--g100);margin:12px 0}.sec-title{font-size:12px;font-weight:600;color:var(--g500);margin-bottom:8px;padding-bottom:6px;border-bottom:0.5px solid var(--g100);display:flex;align-items:center;justify-content:space-between}.alert{border-radius:8px;padding:10px 14px;font-size:12px;line-height:1.7;margin-bottom:10px}.alert.amber{background:var(--amber-bg);border:0.5px solid var(--amber-bd);color:#412402}.alert.blue{background:var(--blue-bg);border:0.5px solid var(--blue-bd);color:#0D3166}.alert.red{background:var(--red-bg);border:0.5px solid #F09595;color:#7A1A1A}.footer{padding:9px 14px;background:#fff;border-top:0.5px solid var(--g100);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;font-size:11px;color:var(--g500)}.clock-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center;}.clock-overlay.open{display:flex;}.clock-modal{background:#fff;border-radius:14px;padding:24px 26px;width:400px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.25);}.cm-title{font-size:15px;font-weight:700;margin-bottom:3px;color:var(--dark);}.cm-sub{font-size:12px;color:var(--g400);margin-bottom:14px;}.cm-ro{font-size:18px;font-weight:700;font-family:monospace;color:var(--navy);}.cm-item{font-size:12.5px;color:var(--g500);margin-top:2px;margin-bottom:14px;}.cm-stat{background:var(--g50);border-radius:8px;padding:9px 12px;margin-bottom:12px;display:flex;justify-content:space-between;font-size:12px;color:var(--g500);}.cm-stat span{font-weight:600;color:var(--dark);}.cm-timer{font-size:40px;font-weight:700;font-family:monospace;text-align:center;color:var(--navy);margin:8px 0 14px;letter-spacing:2px;}.cm-btns{display:flex;gap:8px;}.cm-btn{flex:1;height:46px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .12s;}.cm-start{background:var(--green);color:#fff;}.cm-done{background:var(--navy);color:#fff;}.cm-done:hover{background:#0F2A45;}.cm-cancel{background:var(--g100);color:var(--g600);flex:0 0 auto;padding:0 16px;}.cm-hint{text-align:center;font-size:11px;color:var(--g400);margin-top:8px;}</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;"><button onclick="go('00_售後工單模組_導覽總覽.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">← 導覽總覽</button></div>
+<div class="app">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="hdr-logo">DUCATI</div>
+      <div>
+        <div class="hdr-title">售後管理模組 Service Management</div>
+        <div class="hdr-sub">台北旗艦服務中心　｜　管理員：王主管</div>
+      </div>
+    </div>
+    <div class="hdr-meta">
+      <span>2026/04/29　週三</span>
+      <span id="clock">10:25:00</span>
+    </div>
+  </div>
+
+  <!-- 主選單（一級）-->
+  <div class="main-nav">
+    <div class="main-nav-btn active" onclick="switchMain('live')">
+      <div class="live-dot"></div> 即時看板
+    </div>
+    <div class="main-nav-btn" onclick="switchMain('setting')">
+      ⚙️ 系統設定
+    </div>
+  </div>
+
+  <!-- 看板子選單（二級，即時看板用）-->
+  <div class="sub-nav" id="live-subnav">
+    <div class="sub-nav-btn active" onclick="switchLive('bay')">🔧 工位看板</div>
+    <div class="sub-nav-btn" onclick="switchLive('dispatch')">👨‍🔧 派工看板</div>
+  </div>
+
+  <!-- 設定子Tab（系統設定用，預設隱藏）-->
+  <div class="setting-tabs" id="setting-subnav" style="display:none">
+    <div class="stab active" data-stab="0"><span class="stab-num">A</span>員工人員名冊</div>
+    <div class="stab" data-stab="1"><span class="stab-num">B</span>工單編號設定</div>
+    <div class="stab" data-stab="2"><span class="stab-num">C</span>崗位折扣設定</div>
+  </div>
+
+  <div class="content">
+
+    <!-- ════════════════════════
+         即時看板
+    ════════════════════════ -->
+    <div class="screen active" id="screen-live">
+
+      <!-- 工位看板 -->
+      <div id="live-bay">
+        <div class="kpi-bar">
+          <div class="kpi-chip" style="background:var(--green-bg);border:0.5px solid var(--green-bd)">
+            <div class="dot" style="background:var(--green-bd)"></div>
+            <span style="color:var(--green)">空閒 <strong id="cnt-free">0</strong> 個</span>
+          </div>
+          <div class="kpi-chip" style="background:var(--amber-bg);border:0.5px solid var(--amber-bd)">
+            <div class="dot" style="background:var(--amber-bd)"></div>
+            <span style="color:var(--amber)">使用中 <strong id="cnt-busy">0</strong> 個</span>
+          </div>
+          <div class="kpi-chip" style="background:var(--red-bg);border:0.5px solid #F09595">
+            <div class="dot" style="background:var(--red)"></div>
+            <span style="color:var(--red)">逾時警示 <strong id="cnt-urgent">0</strong> 個</span>
+          </div>
+          <div class="kpi-chip" style="background:var(--g100);border:0.5px solid var(--g200)">
+            <div class="dot" style="background:var(--g400)"></div>
+            <span style="color:var(--g500)">停用 <strong id="cnt-offline">0</strong> 個</span>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;color:var(--g500)">每日可用工時：</span>
+            <select id="daily-hours-select" style="height:28px;padding:0 8px;border:0.5px solid var(--g200);border-radius:4px;font-size:12px;background:#fff" onchange="updateDailyHours(this.value)">
+              <option value="8">8 小時</option>
+              <option value="9" selected>9 小時</option>
+              <option value="10">10 小時</option>
+              <option value="12">12 小時</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="showToast('新增工位')">+ 新增工位</button>
+          </div>
+        </div>
+
+        <div class="bay-grid" id="bay-grid"></div>
+
+        <!-- 工位效率統計 -->
+        <div class="card" style="margin-top:10px">
+          <div class="card-hdr navy"><span>📊 工位效率統計　今日</span></div>
+          <div class="card-body" style="padding:0">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>工位</th><th>性質/用途</th><th>完成工單</th>
+                  <th>已用工時</th><th>可用工時</th>
+                  <th>使用率</th><th>周轉率（張/日）</th><th>狀態</th>
+                </tr>
+              </thead>
+              <tbody id="bay-eff-tbody"></tbody>
+              <tfoot id="bay-eff-tfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="hint" style="margin-top:6px;padding:0 2px">
+          <strong>工位使用率</strong> = 已用工時 ÷ 每日可用工時 × 100%　｜　
+          <strong>工位周轉率</strong> = 今日完成工單數 ÷ 工位數量（業界目標：使用率 ≥ 80%）
+        </div>
+        <div class="hint" style="margin-top:4px;padding:0 2px">點擊工位卡片可查看詳情、指派工單或編輯工位性質</div>
+      </div>
+
+      <!-- 派工看板 -->
+      <div id="live-dispatch" style="display:none">
+        <!-- 人效公式說明 -->
+        <div style="background:var(--navy);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;gap:20px;flex-wrap:wrap">
+          <div style="font-size:11px;color:rgba(255,255,255,0.9);line-height:1.8">
+            <strong style="color:#7FFFD4">效率 Efficiency</strong> = 銷售工時 ÷ 實際施工工時 × 100%　目標 ≥ 125%
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.9);line-height:1.8">
+            <strong style="color:#FFD580">生產力 Productivity</strong> = 銷售工時 ÷ 可用工時 × 100%　目標 85-87.5%
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.9);line-height:1.8">
+            <strong style="color:#C9A0FF">利用率 Utilization</strong> = 實際施工工時 ÷ 可用工時 × 100%　目標 ≥ 80%
+          </div>
+        </div>
+
+        <div class="kpi-bar">
+          <div class="kpi-chip" style="background:var(--blue-bg);border:0.5px solid var(--blue-bd)">
+            <div class="dot" style="background:var(--blue-bd)"></div>
+            <span style="color:var(--blue)">施工中 <strong id="cnt-working">0</strong> 人</span>
+          </div>
+          <div class="kpi-chip" style="background:var(--green-bg);border:0.5px solid var(--green-bd)">
+            <div class="dot" style="background:var(--green-bd)"></div>
+            <span style="color:var(--green)">待命 <strong id="cnt-idle">0</strong> 人</span>
+          </div>
+          <div class="kpi-chip" style="background:var(--g100);border:0.5px solid var(--g200)">
+            <div class="dot" style="background:var(--g400)"></div>
+            <span style="color:var(--g500)">休息 <strong id="cnt-break">0</strong> 人</span>
+          </div>
+          <div style="margin-left:auto">
+            <button class="btn btn-dark btn-sm" onclick="showToast('開啟手動派工面板')">派工 →</button>
+          </div>
+        </div>
+
+        <div class="dispatch-grid" id="dispatch-grid"></div>
+
+        <div class="divider"></div>
+        <div class="sec-title">今日人效統計（NADA 標準）</div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-body" style="padding:0">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>技師</th>
+                  <th>可用工時</th><th>銷售工時</th><th>實際施工</th>
+                  <th title="銷售÷實際×100%  目標≥125%">效率 Eff.</th>
+                  <th title="銷售÷可用×100%  目標85-87.5%">生產力 Prod.</th>
+                  <th title="實際÷可用×100%  目標≥80%">利用率 Util.</th>
+                  <th>狀態</th>
+                </tr>
+              </thead>
+              <tbody id="eff-tbody"></tbody>
+              <tfoot id="eff-tfoot"></tfoot>
+            </table>
+          </div>
+        </div>
+        <div class="hint" style="margin-top:6px;padding:0 2px">
+          LU（工時單位）× 6分鐘 = 實際銷售分鐘數 ÷ 60 = 銷售工時（小時）
+        </div>
+      </div>
+
+    </div><!-- /screen-live -->
+
+    <!-- ════════════════════════
+         系統設定
+    ════════════════════════ -->
+    <div class="screen" id="screen-setting">
+
+      <!-- A：員工人員名冊 -->
+      <div class="panel active" id="stab-panel0">
+        <div class="alert blue">
+          <strong>說明：</strong>僅限售後服務部門。職級設定影響竣工複檢授權、折扣權限與系統功能存取。
+        </div>
+        <div class="card">
+          <div class="card-hdr dark">
+            <span>員工人員名冊　售後服務部門</span>
+            <button class="btn btn-sm btn-ghost" onclick="openAddStaff()">+ 新增員工</button>
+          </div>
+          <div class="card-body" style="padding:0">
+            <table class="tbl">
+              <thead>
+                <tr><th>員工編號</th><th>姓名</th><th>職級</th><th>工種</th><th>竣工複檢授權</th><th>系統帳號</th><th>在職</th><th>操作</th></tr>
+              </thead>
+              <tbody id="staff-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr dark"><span>職級權限對照表</span></div>
+          <div class="card-body" style="padding:0">
+            <table class="tbl">
+              <thead>
+                <tr><th>功能模組</th><th>售後主管</th><th>售後接待(SA)</th><th>車間技師</th><th>零件主管</th><th>零件專員</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>預檢單（全部Tab）</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center"><span class="badge badge-gray">Tab3技師</span></td><td style="text-align:center">—</td><td style="text-align:center">—</td></tr>
+                <tr><td>正式工單(RO)</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center"><span class="badge badge-gray">只讀</span></td><td style="text-align:center">—</td><td style="text-align:center">—</td></tr>
+                <tr><td>竣工複檢簽核</td><td style="text-align:center">✅ 預設</td><td style="text-align:center">—</td><td style="text-align:center"><span class="badge badge-warn">需授權</span></td><td style="text-align:center">—</td><td style="text-align:center">—</td></tr>
+                <tr><td>增項閉環看板</td><td style="text-align:center"><span class="badge badge-ok">整店視角</span></td><td style="text-align:center"><span class="badge badge-blue">個人視角</span></td><td style="text-align:center"><span class="badge badge-blue">個人視角</span></td><td style="text-align:center"><span class="badge badge-blue">庫房視角</span></td><td style="text-align:center"><span class="badge badge-blue">庫房視角</span></td></tr>
+                <tr><td>折扣授權上限</td><td style="text-align:center">主管層</td><td style="text-align:center">SA層</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center">—</td></tr>
+                <tr><td>管理模組（本頁）</td><td style="text-align:center">✅ 全部</td><td style="text-align:center">—</td><td style="text-align:center">—</td><td style="text-align:center"><span class="badge badge-gray">部分</span></td><td style="text-align:center">—</td></tr>
+                <tr><td>即時看板</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- B：工單編號設定 -->
+      <div class="panel" id="stab-panel1">
+        <div class="alert amber">
+          <strong>⚠️ 重要：</strong>前綴碼一經使用即不建議修改，以免影響業界創新看板的歷史統計分析。建議系統上線前完整設定，日後僅新增。
+        </div>
+
+        <!-- 格式預覽 -->
+        <div class="card">
+          <div class="card-hdr dark"><span>工單編號格式即時預覽</span></div>
+          <div class="card-body">
+            <div class="ro-preview-bar">
+              <div class="ro-seg"><label>前綴碼1（業務類型）</label><span class="p1-teal" id="prev-p1">MN</span></div>
+              <div class="ro-sep">-</div>
+              <div class="ro-seg"><label>前綴碼2（付款性質）</label><span class="p2-amber" id="prev-p2">CP</span></div>
+              <div class="ro-sep">-</div>
+              <div class="ro-seg"><label>年月日（自動）</label><span class="p3-purple">260429</span></div>
+              <div class="ro-sep">-</div>
+              <div class="ro-seg"><label>流水號（自動）</label><span class="p4-red">001</span></div>
+            </div>
+            <div class="hint" style="margin-top:8px">完整範例：<strong style="font-family:monospace;font-size:13px;color:var(--dark)" id="ro-full">MN-CP-260429-001</strong>
+            　｜　流水號每日自動歸零 ｜ 年月日格式：YYMMDD</div>
+          </div>
+        </div>
+
+        <div class="g2">
+          <!-- 前綴碼1 -->
+          <div class="card">
+            <div class="card-hdr dark">
+              <span>前綴碼1　業務類型</span>
+              <button class="btn btn-sm btn-ghost" onclick="addP1()">+ 新增</button>
+            </div>
+            <div class="card-body" style="padding:0">
+              <table class="prefix-table" id="p1-table">
+                <thead><tr><th>代碼</th><th>業務類型</th><th>財會性質</th><th>說明</th></tr></thead>
+                <tbody id="p1-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 前綴碼2 -->
+          <div class="card">
+            <div class="card-hdr dark">
+              <span>前綴碼2　付款性質</span>
+              <button class="btn btn-sm btn-ghost" onclick="addP2()">+ 新增</button>
+            </div>
+            <div class="card-body" style="padding:0">
+              <table class="prefix-table" id="p2-table">
+                <thead><tr><th>代碼</th><th>付款性質</th><th>適用對象</th><th>說明</th></tr></thead>
+                <tbody id="p2-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 組合範例 -->
+        <div class="card">
+          <div class="card-hdr dark"><span>常用組合範例</span></div>
+          <div class="card-body">
+            <div id="combo-examples" style="display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- C：崗位折扣 -->
+      <div class="panel" id="stab-panel2">
+        <div class="alert blue">
+          <strong>說明：</strong>各崗位折扣上限由主管設定，超出權限的折扣需提交審批流。依 LiVE 系統規範，配置完成後需提交審批，審批通過後方可生效。
+        </div>
+        <div class="card">
+          <div class="card-hdr dark"><span>崗位折扣權限設定</span></div>
+          <div class="card-body" style="padding:0">
+            <table class="discount-table">
+              <thead>
+                <tr><th style="text-align:left;padding-left:10px">崗位</th><th>全場最高折扣</th><th>商品最高折扣</th><th>人工費最高折扣</th><th>超限需審批</th></tr>
+              </thead>
+              <tbody id="discount-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hdr dark"><span>審批流設定　超出折扣權限時觸發</span></div>
+          <div class="card-body">
+            <div class="g2">
+              <div>
+                <div class="field"><label>第一級審批（SA超限）</label>
+                  <select><option>售後主管</option><option>代理店長</option></select>
+                </div>
+                <div class="field"><label>第二級審批（主管超限）</label>
+                  <select><option>店長</option><option>代理商授權人員</option></select>
+                </div>
+              </div>
+              <div>
+                <div class="field"><label>審批期限</label>
+                  <select><option>當日內完成</option><option>2小時內</option><option>4小時內</option></select>
+                </div>
+                <div class="field"><label>逾期未審批處理方式</label>
+                  <select><option>自動退回申請人</option><option>通知下一級審批人</option></select>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:4px">
+              <button class="btn btn-dark" onclick="showToast('審批流設定已提交，審批通過後生效')">提交審批流設定</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /screen-setting -->
+
+  </div><!-- /content -->
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>DUCATI 售後管理模組　｜　即時看板每30秒自動更新</span>
+    <button class="btn btn-outline btn-sm" onclick="showToast('匯出本日看板報表（Excel）')">匯出報表</button>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ─── 資料 ───
+// 門店每日可用工時設定（主管可自定義）
+var shopDailyHours = 9; // 預設9小時
+
+var bays = [
+  {id:'B1',name:'機電工位 1',type:'機電',purpose:'一般機電維修保養',status:'busy', ro:'MN-CP-260429-008',item:'定期保養（機油+濾芯）',tech:'陳建明',techColor:'#185FA5',startMin:65, doneToday:3,usedHours:6.2},
+  {id:'B2',name:'機電工位 2',type:'機電',purpose:'一般機電維修保養',status:'urgent',ro:'RP-CP-260429-003',item:'DDS故障碼診斷',tech:'林志豪', techColor:'#CC0000',startMin:142,doneToday:1,usedHours:7.8},
+  {id:'B3',name:'機電工位 3',type:'機電',purpose:'一般機電維修保養',status:'free',  ro:'',item:'',tech:'',techColor:'',startMin:0,  doneToday:2,usedHours:4.5},
+  {id:'B4',name:'機電工位 4',type:'機電',purpose:'複雜維修/引擎拆裝',status:'busy', ro:'WC-WR-260429-011',item:'保固：前煞車來令片',tech:'陳建明',techColor:'#185FA5',startMin:28, doneToday:1,usedHours:2.8},
+  {id:'B5',name:'電裝工位 1',type:'電裝',purpose:'電氣/電控/DDS診斷',status:'free',  ro:'',item:'',tech:'',techColor:'',startMin:0,  doneToday:2,usedHours:5.0},
+  {id:'B6',name:'電裝工位 2',type:'電裝',purpose:'電氣/電控/DDS診斷',status:'busy', ro:'RP-CP-260429-007',item:'電瓶電壓測試更換',tech:'王小明',techColor:'#534AB7',startMin:45, doneToday:3,usedHours:5.5},
+  {id:'B7',name:'PDI 工位', type:'PDI', purpose:'新車/中古車PDI專用',status:'busy', ro:'PD-IN-260429-001',item:'新車PDI標準作業',tech:'李大偉',techColor:'#0F6E56',startMin:90, doneToday:1,usedHours:3.0},
+  {id:'B8',name:'備用工位', type:'多功能',purpose:'彈性使用/暫停中',status:'offline',ro:'',item:'',tech:'',techColor:'',startMin:0,  doneToday:0,usedHours:0},
+];
+
+var techs = [
+  // availH=可用工時(打卡), soldH=銷售工時(LU換算), actualH=實際施工工時
+  {name:'陳建明',grade:'資深技師',color:'#185FA5',status:'working',curRo:'MN-CP-260429-008',curItem:'定期保養',today:5,done:3,inprog:2,availH:8.0,soldH:9.5,actualH:7.2,eff:0},
+  {name:'林志豪', grade:'技師',    color:'#CC0000',status:'working',curRo:'RP-CP-260429-003',curItem:'DDS故障碼診斷',today:3,done:1,inprog:2,availH:8.0,soldH:6.2,actualH:6.8,eff:0},
+  {name:'王小明', grade:'技師',    color:'#534AB7',status:'working',curRo:'RP-CP-260429-007',curItem:'電瓶更換',today:4,done:2,inprog:1,availH:8.0,soldH:7.0,actualH:5.8,eff:0},
+  {name:'李大偉', grade:'資深技師',color:'#0F6E56',status:'working',curRo:'PD-IN-260429-001',curItem:'新車PDI',today:2,done:1,inprog:1,availH:8.0,soldH:7.8,actualH:6.5,eff:0},
+  {name:'張志明', grade:'技師',    color:'#854F0B',status:'idle',   curRo:'',curItem:'',today:3,done:3,inprog:0,availH:8.0,soldH:6.5,actualH:6.8,eff:0},
+  {name:'吳雅琪', grade:'技師學徒',color:'#888',   status:'break',  curRo:'',curItem:'',today:1,done:1,inprog:0,availH:8.0,soldH:3.5,actualH:4.2,eff:0},
+];
+// 計算人效三指標
+techs.forEach(function(t){
+  t.efficiency   = t.actualH>0 ? Math.round(t.soldH/t.actualH*100) : 0;  // 效率：銷售÷實際×100%
+  t.productivity = t.availH>0  ? Math.round(t.soldH/t.availH*100)  : 0;  // 生產力：銷售÷可用×100%
+  t.utilization  = t.availH>0  ? Math.round(t.actualH/t.availH*100): 0;  // 利用率：實際÷可用×100%
+});
+
+var staffData = [
+  {id:'SA001',name:'王主管',grade:'售後主管',type:'管理',auth:true,account:'wang.mgr',active:true},
+  {id:'SA002',name:'魏呈宇',grade:'售後接待',type:'接待',auth:false,account:'wei.sa',active:true},
+  {id:'SA003',name:'陳曉芸',grade:'售後接待',type:'接待',auth:false,account:'chen.sa',active:true},
+  {id:'SA004',name:'陳建明',grade:'車間技師',type:'機電',auth:true,account:'chen.tech',active:true},
+  {id:'SA005',name:'林志豪',grade:'車間技師',type:'機電',auth:false,account:'lin.tech',active:true},
+  {id:'SA006',name:'王小明',grade:'車間技師',type:'電裝',auth:false,account:'wang.tech',active:true},
+  {id:'SA007',name:'李大偉',grade:'車間技師',type:'機電',auth:true,account:'li.tech',active:true},
+  {id:'SA008',name:'黃備料',grade:'零件主管',type:'備料',auth:false,account:'huang.parts',active:true},
+  {id:'SA009',name:'蔡零件',grade:'零件專員',type:'備料',auth:false,account:'tsai.parts',active:true},
+];
+
+var p1Data = [
+  {code:'MN',name:'定保 Maintenance',acct:'客付收入','acct-type':'income',note:'定期保養、里程保養、Desmo保養'},
+  {code:'RP',name:'機修 Repair',acct:'客付收入','acct-type':'income',note:'故障維修、零件更換'},
+  {code:'WC',name:'保固索賠 Warranty Claim',acct:'廠商/代理商轉收入','acct-type':'claim',note:'向Ducati/代理商申請，不適用免費施工'},
+  {code:'AC',name:'事故 Accident',acct:'保險公司付款','acct-type':'income',note:'碰撞、事故維修'},
+  {code:'PD',name:'PDI作業 Pre-Delivery Inspection',acct:'內部結算（售後收入/銷售成本）','acct-type':'internal',note:'新車/中古車交車前檢查，內部工單'},
+  {code:'OT',name:'其他業務 Others',acct:'客付收入','acct-type':'income',note:'洗車美容、精品、延長保固、自營項目'},
+  {code:'—',name:'（預留自定義A）',acct:'主管設定','acct-type':'gray',note:''},
+  {code:'—',name:'（預留自定義B）',acct:'主管設定','acct-type':'gray',note:''},
+];
+
+var p2Data = [
+  {code:'CP',name:'Customer Pay 客付',target:'一般客戶自費',note:'正常收費'},
+  {code:'WR',name:'Warranty 保固',target:'僅搭配 WC 使用',note:'原廠/代理商付款'},
+  {code:'IN',name:'Internal 內部',target:'部門間結算',note:'PDI等內部工單'},
+  {code:'FR',name:'Free of Charge 免費',target:'不適用WC類',note:'返工賠償、私下賠償、公關'},
+  {code:'—',name:'（預留自定義C）',target:'主管設定',note:''},
+];
+
+var combos = [
+  {code:'MN-CP',desc:'定保客付　最常見',color:'var(--green)'},
+  {code:'RP-CP',desc:'機修客付　一般維修',color:'var(--blue)'},
+  {code:'RP-FR',desc:'機修免費　返工/賠償（不含WC）',color:'var(--amber)'},
+  {code:'WC-WR',desc:'保固索賠　向原廠申請費用',color:'var(--purple)'},
+  {code:'AC-CP',desc:'事故客付　保險理賠由客戶自行申請',color:'#CC7700'},
+  {code:'PD-IN',desc:'PDI內部工單　銷售/售後部門間結算',color:'var(--navy)'},
+  {code:'OT-CP',desc:'其他業務客付　洗車/精品/延伸保固',color:'var(--green)'},
+];
+
+var discountData = [
+  {grade:'售後主管',all:95,goods:90,labor:85,approval:'店長'},
+  {grade:'售後接待(SA)',all:98,goods:95,labor:90,approval:'售後主管'},
+  {grade:'車間技師',all:'-',goods:'-',labor:'-',approval:'—'},
+  {grade:'零件主管',all:95,goods:90,labor:'-',approval:'售後主管'},
+  {grade:'零件專員',all:'-',goods:98,labor:'-',approval:'零件主管'},
+];
+
+// ─── 時鐘 ───
+function updateClock(){
+  var now=new Date();
+  var h=now.getHours().toString().padStart(2,'0');
+  var m=now.getMinutes().toString().padStart(2,'0');
+  var s=now.getSeconds().toString().padStart(2,'0');
+  var el=document.getElementById('clock');
+  if(el)el.textContent=h+':'+m+':'+s;
+}
+setInterval(updateClock,1000);
+
+// ─── 計時器 ───
+var timers={};
+function startTimers(){
+  bays.forEach(function(b){
+    if(b.status==='busy'||b.status==='urgent'){
+      timers[b.id]=b.startMin;
+    }
+  });
+  setInterval(function(){
+    Object.keys(timers).forEach(function(id){timers[id]++;});
+    bays.forEach(function(b){
+      if(timers[b.id]!==undefined){
+        b.startMin=timers[b.id];
+        if(b.startMin>=120&&b.status==='busy'){b.status='urgent';}
+        var el=document.getElementById('timer-'+b.id);
+        if(el)el.textContent=formatTime(b.startMin);
+      }
+    });
+  },60000);
+}
+function formatTime(mins){
+  var h=Math.floor(mins/60);
+  var m=mins%60;
+  return (h>0?h+'h ':'')+m+'m';
+}
+
+// ─── 工位看板 ───
+function updateDailyHours(v){shopDailyHours=parseFloat(v);renderBays();}
+function renderBays(){
+  var grid=document.getElementById('bay-grid');
+  var free=0,busy=0,urgent=0,offline=0;
+  bays.forEach(function(b){
+    if(b.status==='free')free++;
+    else if(b.status==='busy')busy++;
+    else if(b.status==='urgent')urgent++;
+    else offline++;
+  });
+  document.getElementById('cnt-free').textContent=free;
+  document.getElementById('cnt-busy').textContent=busy;
+  document.getElementById('cnt-urgent').textContent=urgent;
+  document.getElementById('cnt-offline').textContent=offline;
+
+  grid.innerHTML=bays.map(function(b){
+    var isActive=b.status==='busy'||b.status==='urgent';
+    return '<div class="bay-card '+b.status+'" onclick="bayClick(\''+b.id+'\')">'
+      +'<div class="bay-top">'
+      +'<span class="bay-name">'+b.name+'</span>'
+      +'<span class="bay-type">'+b.type+'</span>'
+      +'</div>'
+      +'<div style="font-size:10px;color:var(--g500);margin-bottom:5px">'+b.purpose+'</div>'
+      +'<div class="bay-status-badge">'
+        +(b.status==='free'?'● 空閒':b.status==='busy'?'● 使用中':b.status==='urgent'?'⚠ 逾時':'■ 停用')
+      +'</div>'
+      +(isActive?'<div class="bay-ro" style="margin-top:6px">'+b.ro+'</div>':'')
+      +(isActive?'<div class="bay-item">'+b.item+'</div>':'')
+      +(isActive?'<div class="bay-timer" id="timer-'+b.id+'">'+formatTime(b.startMin)+'</div>':'')
+      +(isActive?'<div class="bay-tech-row"><div class="tech-dot" style="background:'+b.techColor+'">'+b.tech.charAt(0)+'</div>'+b.tech+'</div>':'')
+      +(b.status==='free'?'<div style="margin-top:8px;text-align:center;font-size:11px;color:var(--g400)">可指派工單</div>':'')
+      +(b.status==='offline'?'<div style="margin-top:8px;text-align:center;font-size:11px;color:var(--g400)">停用中</div>':'')
+      +'</div>';
+  }).join('');
+
+  // 工位效率統計表
+  var totalUsed=0,totalDone=0,activeBays=0;
+  var tbody=document.getElementById('bay-eff-tbody');
+  if(tbody){
+    tbody.innerHTML=bays.map(function(b){
+      if(b.status==='offline') return '<tr><td><strong>'+b.name+'</strong></td><td style="color:var(--g400)">'+b.purpose+'</td><td colspan="6" style="text-align:center;color:var(--g400)">停用中</td></tr>';
+      var useRate=shopDailyHours>0?Math.round(b.usedHours/shopDailyHours*100):0;
+      var useColor=useRate>=80?'var(--green)':useRate>=60?'var(--amber)':'var(--red)';
+      var turnover=(b.doneToday+(b.status!=='free'?1:0));
+      totalUsed+=b.usedHours; totalDone+=b.doneToday; activeBays++;
+      return '<tr>'
+        +'<td><strong>'+b.name+'</strong></td>'
+        +'<td style="font-size:11px;color:var(--g500)">'+b.purpose+'</td>'
+        +'<td style="text-align:center">'+b.doneToday+'</td>'
+        +'<td style="text-align:center">'+b.usedHours.toFixed(1)+'h</td>'
+        +'<td style="text-align:center">'+shopDailyHours+'h</td>'
+        +'<td><div style="display:flex;align-items:center;gap:6px">'
+        +'<div style="flex:1;height:5px;background:var(--g200);border-radius:3px;overflow:hidden"><div style="height:100%;width:'+useRate+'%;background:'+useColor+';border-radius:3px"></div></div>'
+        +'<span style="font-size:11px;font-weight:700;color:'+useColor+';min-width:36px">'+useRate+'%</span></div></td>'
+        +'<td style="text-align:center;font-weight:600">'+turnover+' 張</td>'
+        +'<td><span class="badge badge-'+(b.status==='free'?'ok':b.status==='busy'?'warn':'bad')+'">'+(b.status==='free'?'空閒':b.status==='busy'?'使用中':'逾時')+'</span></td>'
+        +'</tr>';
+    }).join('');
+  }
+  // 合計列
+  var tfoot=document.getElementById('bay-eff-tfoot');
+  if(tfoot&&activeBays>0){
+    var totalRate=Math.round(totalUsed/(shopDailyHours*activeBays)*100);
+    var totalColor=totalRate>=80?'var(--green)':totalRate>=60?'var(--amber)':'var(--red)';
+    tfoot.innerHTML='<tr style="background:var(--dark);color:#fff">'
+      +'<td colspan="2" style="padding:7px 10px;font-weight:600">全場合計</td>'
+      +'<td style="text-align:center;padding:7px 10px">'+totalDone+' 張</td>'
+      +'<td style="text-align:center;padding:7px 10px">'+totalUsed.toFixed(1)+'h</td>'
+      +'<td style="text-align:center;padding:7px 10px">'+(shopDailyHours*activeBays).toFixed(0)+'h</td>'
+      +'<td style="padding:7px 10px"><span style="font-size:13px;font-weight:800;color:'+totalColor+'">'+totalRate+'%</span></td>'
+      +'<td style="text-align:center;padding:7px 10px;font-weight:600">'+(totalDone/activeBays).toFixed(1)+' 張/位</td>'
+      +'<td style="padding:7px 10px;font-size:11px;color:rgba(255,255,255,0.7)">目標 ≥ 80%</td>'
+      +'</tr>';
+  }
+}
+function bayClick(id){
+  var b=bays.find(function(x){return x.id===id;});
+  if(!b)return;
+  if(b.status==='free') showToast('工位：'+b.name+'\n狀態：空閒\n\n→ 指派工單給此工位');
+  else if(b.status==='offline') showToast('工位：'+b.name+'\n狀態：停用\n\n→ 啟用此工位');
+  else showToast('工位：'+b.name+'\n工單：'+b.ro+'\n項目：'+b.item+'\n技師：'+b.tech+'\n已用時：'+formatTime(b.startMin)+'\n\n→ 查看詳情 / 暫停作業');
+}
+
+// ─── 派工看板 ───
+function renderDispatch(){
+  var working=techs.filter(function(t){return t.status==='working';}).length;
+  var idle=techs.filter(function(t){return t.status==='idle';}).length;
+  var brk=techs.filter(function(t){return t.status==='break';}).length;
+  document.getElementById('cnt-working').textContent=working;
+  document.getElementById('cnt-idle').textContent=idle;
+  document.getElementById('cnt-break').textContent=brk;
+
+  var statusMap={working:'施工中',idle:'待命',break:'休息'};
+  document.getElementById('dispatch-grid').innerHTML=techs.map(function(t){
+    var effColor =t.efficiency  >=125?'var(--green)':t.efficiency  >=100?'var(--amber)':'var(--red)';
+    var prodColor=t.productivity>=85 ?'var(--green)':t.productivity>=70 ?'var(--amber)':'var(--red)';
+    var utilColor=t.utilization >=80 ?'var(--green)':t.utilization >=65 ?'var(--amber)':'var(--red)';
+    return '<div class="tech-card '+t.status+'">'
+      +'<div class="tech-top">'
+      +'<div class="tech-avatar" style="background:'+t.color+'">'+t.name.charAt(0)+'</div>'
+      +'<div class="tech-info"><div class="tech-name">'+t.name+'</div><div class="tech-grade">'+t.grade+'</div></div>'
+      +'<span class="tech-status-badge">'+statusMap[t.status]+'</span>'
+      +'</div>'
+      +(t.status==='working'?'<div class="tech-cur"><div class="tech-cur-ro">'+t.curRo+'</div><div class="tech-cur-item">'+t.curItem+'</div></div>':'')
+      +(t.status==='idle'?'<div style="font-size:11px;color:var(--green);margin-bottom:6px">✅ 可接受派工</div>':'')
+      +(t.status==='break'?'<div style="font-size:11px;color:var(--g400);margin-bottom:6px">休息中</div>':'')
+      // 人效三指標
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:6px">'
+      +'<div style="background:var(--g50);border-radius:5px;padding:5px;text-align:center">'
+        +'<div style="font-size:9px;color:var(--g400);margin-bottom:1px">效率 Eff.</div>'
+        +'<div style="font-size:13px;font-weight:800;color:'+effColor+'">'+t.efficiency+'%</div>'
+        +'<div style="font-size:9px;color:var(--g400)">目標≥125%</div>'
+      +'</div>'
+      +'<div style="background:var(--g50);border-radius:5px;padding:5px;text-align:center">'
+        +'<div style="font-size:9px;color:var(--g400);margin-bottom:1px">生產力 Prod.</div>'
+        +'<div style="font-size:13px;font-weight:800;color:'+prodColor+'">'+t.productivity+'%</div>'
+        +'<div style="font-size:9px;color:var(--g400)">目標85-87%</div>'
+      +'</div>'
+      +'<div style="background:var(--g50);border-radius:5px;padding:5px;text-align:center">'
+        +'<div style="font-size:9px;color:var(--g400);margin-bottom:1px">利用率 Util.</div>'
+        +'<div style="font-size:13px;font-weight:800;color:'+utilColor+'">'+t.utilization+'%</div>'
+        +'<div style="font-size:9px;color:var(--g400)">目標≥80%</div>'
+      +'</div>'
+      +'</div>'
+      +'<div class="tech-stats-row">'
+      +'<div class="tech-stat"><label>今日工單</label><span>'+t.today+'</span></div>'
+      +'<div class="tech-stat"><label>完成</label><span style="color:var(--green)">'+t.done+'</span></div>'
+      +'<div class="tech-stat"><label>進行中</label><span style="color:var(--amber)">'+t.inprog+'</span></div>'
+      +'<div class="tech-stat"><label>銷售工時</label><span>'+t.soldH+'h</span></div>'
+      +'</div>'
+      +'<button class="dispatch-btn" onclick="showToast(\'派工給：'+t.name+'\')">指派工單 →</button>'
+      +'</div>';
+  }).join('');
+
+  // 人效統計表
+  var totAvail=0,totSold=0,totActual=0;
+  document.getElementById('eff-tbody').innerHTML=techs.map(function(t){
+    totAvail+=t.availH; totSold+=t.soldH; totActual+=t.actualH;
+    var effColor =t.efficiency  >=125?'var(--green)':t.efficiency  >=100?'var(--amber)':'var(--red)';
+    var prodColor=t.productivity>=85 ?'var(--green)':t.productivity>=70 ?'var(--amber)':'var(--red)';
+    var utilColor=t.utilization >=80 ?'var(--green)':t.utilization >=65 ?'var(--amber)':'var(--red)';
+    var st=t.status==='working'?'<span class="badge badge-blue">施工中</span>':t.status==='idle'?'<span class="badge badge-ok">待命</span>':'<span class="badge badge-gray">休息</span>';
+    return '<tr>'
+      +'<td><strong>'+t.name+'</strong><br><span style="font-size:10px;color:var(--g500)">'+t.grade+'</span></td>'
+      +'<td style="text-align:center">'+t.availH+'h</td>'
+      +'<td style="text-align:center;font-weight:600;color:var(--blue)">'+t.soldH+'h</td>'
+      +'<td style="text-align:center">'+t.actualH+'h</td>'
+      +'<td style="text-align:center"><strong style="color:'+effColor+'">'+t.efficiency+'%</strong></td>'
+      +'<td style="text-align:center"><strong style="color:'+prodColor+'">'+t.productivity+'%</strong></td>'
+      +'<td style="text-align:center"><strong style="color:'+utilColor+'">'+t.utilization+'%</strong></td>'
+      +'<td>'+st+'</td></tr>';
+  }).join('');
+
+  // 合計列
+  var avgEff  = totActual>0?Math.round(totSold/totActual*100):0;
+  var avgProd = totAvail>0 ?Math.round(totSold/totAvail*100) :0;
+  var avgUtil = totAvail>0 ?Math.round(totActual/totAvail*100):0;
+  var eC=avgEff>=125?'#7FFFD4':avgEff>=100?'#FFD580':'#F9A8A8';
+  var pC=avgProd>=85?'#7FFFD4':avgProd>=70?'#FFD580':'#F9A8A8';
+  var uC=avgUtil>=80?'#7FFFD4':avgUtil>=65?'#FFD580':'#F9A8A8';
+  var tfoot=document.getElementById('eff-tfoot');
+  if(tfoot){
+    tfoot.innerHTML='<tr style="background:var(--dark)">'
+      +'<td style="padding:7px 10px;color:#fff;font-weight:600">全員合計／平均</td>'
+      +'<td style="text-align:center;color:rgba(255,255,255,0.7);padding:7px 10px">'+totAvail+'h</td>'
+      +'<td style="text-align:center;color:#7FFFD4;font-weight:700;padding:7px 10px">'+totSold.toFixed(1)+'h</td>'
+      +'<td style="text-align:center;color:rgba(255,255,255,0.7);padding:7px 10px">'+totActual.toFixed(1)+'h</td>'
+      +'<td style="text-align:center;padding:7px 10px"><strong style="color:'+eC+';font-size:13px">'+avgEff+'%</strong></td>'
+      +'<td style="text-align:center;padding:7px 10px"><strong style="color:'+pC+';font-size:13px">'+avgProd+'%</strong></td>'
+      +'<td style="text-align:center;padding:7px 10px"><strong style="color:'+uC+';font-size:13px">'+avgUtil+'%</strong></td>'
+      +'<td style="padding:7px 10px;font-size:10px;color:rgba(255,255,255,0.5)">NADA 標準</td></tr>';
+  }
+}
+
+// ─── 員工名冊 ───
+function renderStaff(){
+  var gradeColor={
+    '售後主管':'var(--red)',
+    '售後接待':'var(--blue)',
+    '車間技師':'var(--amber)',
+    '零件主管':'var(--green)',
+    '零件專員':'var(--purple)',
+  };
+  document.getElementById('staff-tbody').innerHTML=staffData.map(function(s){
+    var gc=gradeColor[s.grade]||'var(--dark)';
+    return '<tr>'
+      +'<td style="font-family:monospace;color:var(--g500)">'+s.id+'</td>'
+      +'<td><strong>'+s.name+'</strong></td>'
+      +'<td><span style="background:'+gc+'15;color:'+gc+';padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600">'+s.grade+'</span></td>'
+      +'<td style="font-size:11px;color:var(--g500)">'+s.type+'</td>'
+      +'<td><div class="toggle-wrap" onclick="toggleAuth(\''+s.id+'\')">'
+        +'<div class="toggle '+(s.auth?'on':'')+'" id="tog-'+s.id+'"></div>'
+        +'<span style="font-size:11px;color:'+(s.auth?'var(--green)':'var(--g400)')+'">'+( s.auth?'✅ 已授權':'—')+'</span>'
+      +'</div></td>'
+      +'<td style="font-family:monospace;font-size:11px;color:var(--g500)">'+s.account+'</td>'
+      +'<td><span class="badge '+(s.active?'badge-ok':'badge-gray')+'">'+(s.active?'在職':'離職')+'</span></td>'
+      +'<td><button class="btn btn-outline btn-sm" onclick="showToast(\'編輯：'+s.name+'\')">編輯</button></td>'
+      +'</tr>';
+  }).join('');
+}
+function toggleAuth(id){
+  var s=staffData.find(function(x){return x.id===id;});
+  if(!s)return;
+  if(s.grade==='售後主管'&&s.auth){showToast('售後主管預設擁有竣工複檢授權，無法取消。');return;}
+  s.auth=!s.auth;
+  renderStaff();
+}
+function openAddStaff(){showToast('新增員工：填寫姓名/職級/工種，系統自動產生員工編號與系統帳號。');}
+
+// ─── 工單編號 ───
+function renderP1(){
+  var acctStyle={income:'acct-income',internal:'acct-internal',claim:'acct-claim',gray:'badge-gray'};
+  document.getElementById('p1-tbody').innerHTML=p1Data.map(function(p,i){
+    var isReserved=p.code==='—';
+    return '<tr>'
+      +'<td><span class="p-code" style="'+(isReserved?'opacity:0.4':'')+'">'+p.code+'</span></td>'
+      +'<td style="font-size:12px'+(isReserved?';color:var(--g400)':'')+'">'+p.name+'</td>'
+      +'<td><span class="acct-tag '+(acctStyle[p['acct-type']]||'badge-gray')+'">'+p.acct+'</span></td>'
+      +'<td style="font-size:10px;color:var(--g500)">'+p.note+'</td>'
+      +'</tr>';
+  }).join('');
+}
+function renderP2(){
+  document.getElementById('p2-tbody').innerHTML=p2Data.map(function(p){
+    var isReserved=p.code==='—';
+    return '<tr>'
+      +'<td><span class="p-code p2-code" style="'+(isReserved?'opacity:0.4':'')+'">'+p.code+'</span></td>'
+      +'<td style="font-size:12px'+(isReserved?';color:var(--g400)':'')+'">'+p.name+'</td>'
+      +'<td style="font-size:11px;color:var(--g500)">'+p.target+'</td>'
+      +'<td style="font-size:10px;color:var(--g500)">'+p.note+'</td>'
+      +'</tr>';
+  }).join('');
+}
+function renderCombos(){
+  document.getElementById('combo-examples').innerHTML=combos.map(function(c){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--g50);border-radius:6px;border:0.5px solid var(--g100)">'
+      +'<span style="font-family:monospace;font-size:14px;font-weight:700;color:'+c.color+';min-width:90px">'+c.code+'</span>'
+      +'<span style="font-size:12px;color:var(--dark)">'+c.desc+'</span>'
+      +'<span style="margin-left:auto;font-family:monospace;font-size:11px;color:var(--g400)">'+c.code+'-260429-001</span>'
+      +'</div>';
+  }).join('');
+}
+function addP1(){showToast('新增業務類型前綴碼（自定義A/B）：\n填寫代碼（2-3碼）/ 業務類型名稱 / 財會性質');}
+function addP2(){showToast('新增付款性質前綴碼（自定義C）：\n填寫代碼（2碼）/ 付款性質 / 適用對象');}
+
+// ─── 折扣 ───
+function renderDiscount(){
+  document.getElementById('discount-tbody').innerHTML=discountData.map(function(d){
+    return '<tr>'
+      +'<td style="text-align:left;font-weight:600;padding-left:10px">'+d.grade+'</td>'
+      +'<td><input class="discount-input" value="'+(d.all!=='-'?d.all+'%':'-')+'" '+(d.all==='-'?'disabled style="background:var(--g50);color:var(--g400)"':'')+'/></td>'
+      +'<td><input class="discount-input" value="'+(d.goods!=='-'?d.goods+'%':'-')+'" '+(d.goods==='-'?'disabled style="background:var(--g50);color:var(--g400)"':'')+'/></td>'
+      +'<td><input class="discount-input" value="'+(d.labor!=='-'?d.labor+'%':'-')+'" '+(d.labor==='-'?'disabled style="background:var(--g50);color:var(--g400)"':'')+'/></td>'
+      +'<td><span class="approval-chip '+(d.approval==='—'?'badge-gray':'badge-warn')+'">'+d.approval+'</span></td>'
+      +'</tr>';
+  }).join('');
+}
+
+// ─── 主選單切換 ───
+function switchMain(mode){
+  document.querySelectorAll('.main-nav-btn').forEach(function(b,i){
+    b.classList.toggle('active',i===(mode==='live'?0:1));
+  });
+  document.getElementById('screen-live').classList.toggle('active',mode==='live');
+  document.getElementById('screen-setting').classList.toggle('active',mode==='setting');
+  document.getElementById('live-subnav').style.display=mode==='live'?'flex':'none';
+  document.getElementById('setting-subnav').style.display=mode==='setting'?'flex':'none';
+}
+
+// ─── 看板子選單 ───
+function switchLive(view){
+  document.querySelectorAll('.sub-nav-btn').forEach(function(b,i){
+    b.classList.toggle('active',i===(view==='bay'?0:1));
+  });
+  document.getElementById('live-bay').style.display=view==='bay'?'':'none';
+  document.getElementById('live-dispatch').style.display=view==='dispatch'?'':'none';
+}
+
+// ─── 設定 Tab ───
+document.querySelectorAll('.stab').forEach(function(t){
+  t.addEventListener('click',function(){
+    var n=+t.dataset.stab;
+    document.querySelectorAll('.stab').forEach(function(x,i){x.classList.toggle('active',i===n);});
+    document.querySelectorAll('#screen-setting .panel').forEach(function(p,i){p.classList.toggle('active',i===n);});
+  });
+});
+
+// ─── Init ───
+renderBays();
+renderDispatch();
+renderStaff();
+renderP1();
+renderP2();
+renderCombos();
+renderDiscount();
+startTimers();
+updateClock();
+
+var _ckSec=0,_ckIv=null;
+function openClock(id){
+  var b=bays.find(function(x){return x.id===id;});
+  if(!b)return;
+  if(b.status==='free'){showToast("指派工單給 "+b.name);return;}
+  if(b.status==='offline'){showToast("此工位停用中");return;}
+  document.getElementById('cm-bay').textContent=b.name;
+  document.getElementById('cm-tech').textContent='技師：'+b.tech;
+  document.getElementById('cm-ro').textContent=b.ro;
+  document.getElementById('cm-item').textContent=b.item;
+  document.getElementById('cm-done').textContent=b.doneToday+' 台';
+  var h=Math.floor(b.startMin/60),m=b.startMin%60;
+  document.getElementById('cm-elapsed').textContent=h+'h '+String(m).padStart(2,'0')+'m';
+  _ckSec=b.startMin*60;
+  if(_ckIv)clearInterval(_ckIv);
+  _ckIv=setInterval(function(){
+    _ckSec++;
+    var hh=Math.floor(_ckSec/3600),mm=Math.floor((_ckSec%3600)/60),ss=_ckSec%60;
+    document.getElementById('cm-timer').textContent=
+      String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');
+  },1000);
+  document.getElementById('clock-overlay').classList.add('open');
+}
+function closeClockOverlay(){
+  clearInterval(_ckIv);
+  document.getElementById('clock-overlay').classList.remove('open');
+}
+function clockDone(){
+  clearInterval(_ckIv);
+  document.getElementById('clock-overlay').classList.remove('open');
+  var now=new Date().toLocaleTimeString("zh-TW");
+  showToast("完工交棒完成！
+
+工單狀態：等待竣工複檢
+打卡時間："+now+"（防竄改）
+
+→ 主管可進行竣工複檢");
+}
+bayClick=function(id){openClock(id);};
+</script>
+<div class="clock-overlay" id="clock-overlay" onclick="if(event.target===this)closeClockOverlay()"><div class="clock-modal"><div class="cm-title" id="cm-bay"></div><div class="cm-sub" id="cm-tech"></div><div class="cm-ro" id="cm-ro"></div><div class="cm-item" id="cm-item"></div><div class="cm-stat"><span>今日完成</span><span id="cm-done"></span><span style="margin-left:16px;">本工單已用</span><span id="cm-elapsed"></span></div><div class="cm-timer" id="cm-timer">00:00:00</div><div class="cm-btns"><button class="cm-btn cm-cancel" onclick="closeClockOverlay()">關閉</button><button class="cm-btn cm-done" onclick="clockDone()">✅ 完工交棒</button></div><div class="cm-hint">完工後工單推進至「等待竣工複檢」，時間戳防竄改</div></div></div>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

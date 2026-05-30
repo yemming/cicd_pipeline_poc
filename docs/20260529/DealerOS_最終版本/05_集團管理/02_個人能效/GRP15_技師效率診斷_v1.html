@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP15 技師效率診斷 — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;
+  --gray:#9A9890;--border:#EEECE6;--header:#0D2438;
+  --green:#1E7D3E;--green-bg:#EAF5EA;
+}
+
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(15,110,86,.4);border:1px solid rgba(15,110,86,.5);color:#5DCAA5;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+.sub-bar{background:#fff;border-bottom:1px solid var(--border);padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.chip{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:#fff;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.chip.active{background:var(--teal);border-color:var(--teal);color:#fff;}
+.chip:hover:not(.active){background:#F4F3F0;}
+.sub-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gray);}
+.rdot{width:7px;height:7px;border-radius:50%;background:#3DBE6E;display:inline-block;}
+
+.main{max-width:1400px;margin:0 auto;padding:20px 24px 48px;}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#061A12 0%,#0F6E56 55%,#0A4A38 100%);border-radius:12px;padding:20px 28px;margin-bottom:16px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-20px;top:-20px;width:160px;height:160px;border-radius:50%;background:rgba(61,190,110,.12);pointer-events:none;}
+.hero h1{font-size:18px;font-weight:700;margin-bottom:4px;}
+.hero p{font-size:12px;opacity:.7;line-height:1.6;max-width:520px;}
+.hstats{display:flex;gap:8px;}
+.hstat{text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 14px;}
+.hstat-n{font-size:19px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.hstat-l{font-size:10px;opacity:.6;margin-top:3px;}
+
+/* 門店 Tabs */
+.store-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.store-tab{padding:6px 14px;border-radius:7px;font-size:12.5px;cursor:pointer;border:1.5px solid var(--border);background:#fff;font-weight:500;transition:.15s;display:flex;align-items:center;gap:5px;font-family:'Noto Sans TC',sans-serif;}
+.store-tab.active{border-color:var(--teal);background:var(--teal-bg);color:var(--teal);font-weight:700;}
+.store-tab:hover:not(.active){background:#F4F3F0;}
+.st-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.cc-header{padding:11px 16px;border-bottom:1px solid var(--border);background:#FAFAF8;display:flex;align-items:flex-start;gap:10px;}
+.cc-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px;}
+.cc-meta{flex:1;}
+.cc-title{font-size:13px;font-weight:700;color:var(--teal);margin-bottom:2px;}
+.cc-sub{font-size:11px;color:var(--gray);line-height:1.4;}
+.cc-badge{font-size:10px;padding:2px 8px;border-radius:5px;font-weight:700;white-space:nowrap;margin-top:2px;display:inline-block;}
+.cb-insight{background:var(--amber-bg);color:var(--amber);}
+.cb-good{background:var(--green-bg);color:var(--green);}
+.cb-watch{background:var(--red-bg);color:var(--red);}
+.cc-body{padding:12px 16px 8px;}
+
+/* Tooltip */
+.d3-tooltip{position:fixed;background:#0D2438;color:#E8E6E0;padding:10px 14px;border-radius:8px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;border:1px solid rgba(255,255,255,.1);max-width:220px;line-height:1.6;}
+.d3-tooltip .tt-name{font-weight:700;font-size:13px;margin-bottom:3px;color:#fff;}
+.d3-tooltip .tt-store{font-size:10.5px;color:#5DCAA5;margin-bottom:6px;}
+.d3-tooltip .tt-row{display:flex;justify-content:space-between;gap:10px;}
+.d3-tooltip .tt-val{font-family:'DM Mono',monospace;font-weight:700;}
+.d3-tooltip .tt-tag{margin-top:6px;font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;display:inline-block;}
+
+.quad-legend{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px;}
+.ql{background:#FAFAF8;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:10.5px;}
+.ql-t{font-weight:700;margin-bottom:1px;}
+.ql-d{color:var(--gray);}
+
+.insight-box{background:var(--teal-bg);border:1px solid var(--teal-bd);border-radius:7px;padding:9px 13px;margin-top:8px;font-size:11.5px;color:var(--teal);line-height:1.6;}
+
+/* 返修率警示 */
+.rework-warn{background:var(--red-bg);border:1px solid var(--red-bd);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#5A1010;line-height:1.6;}
+
+/* 排名表 */
+.rank-panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.rp-hdr{padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.rp-title{font-size:13px;font-weight:600;}
+.rp-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.rt{width:100%;border-collapse:collapse;}
+.rt th{font-size:10.5px;font-weight:700;color:var(--gray);padding:7px 12px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;white-space:nowrap;cursor:pointer;}
+.rt th:hover{color:var(--teal);}
+.rt th.c{text-align:center;}.rt th.r{text-align:right;}
+.rt td{padding:9px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.rt tr:last-child td{border-bottom:none;}
+.rt tr:hover td{background:#FAFAF8;}
+.mono{font-family:'DM Mono',monospace;font-weight:700;}
+.prog-wrap{display:flex;align-items:center;gap:7px;}
+.prog-bar{height:5px;background:#EEECE6;border-radius:3px;flex:1;min-width:50px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;}
+.pf-ok{background:#3DBE6E;}.pf-warn{background:var(--amber);}.pf-bad{background:var(--red);}.pf-teal{background:var(--teal);}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.t-up{color:#3DBE6E;font-weight:700;}.t-dn{color:var(--red);font-weight:700;}.t-flat{color:var(--gray);}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:9999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+/* 技師等級 badge */
+.grade-A{background:#EAF5EA;color:#1E7D3E;}
+.grade-B{background:var(--teal-bg);color:var(--teal);}
+.grade-C{background:var(--amber-bg);color:var(--amber);}
+.grade-D{background:var(--red-bg);color:var(--red);}
+
+@media(max-width:960px){.chart-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP15 技師效率診斷</b></div>
+  <div class="org-badge">🔩 技術服務層</div>
+  <div class="ver-badge">v1 D3</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn" onclick="showToast('匯出中…')">⬇ 匯出</button>
+  </div>
+</header>
+
+<div class="sub-bar">
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">期間：</span>
+  <button class="chip active" onclick="setChip(this)">近3個月均值</button>
+  <button class="chip" onclick="setChip(this)">本月</button>
+  <button class="chip" onclick="setChip(this)">本季</button>
+  <div class="sub-right">
+    <span class="rdot"></span> 資料更新：2026-05-28 08:00
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div>
+      <h1>🔩 技師個人效率診斷</h1>
+      <p>四張散佈圖從工時效率、完工品質、返修風險、資歷成長四個維度診斷每位技師的表現。<br>高台次高返修率是技師層最危險的型態，代表品質換速度。本頁可與 GRP08 SA診斷交叉比對。</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n" id="st-total">—</div><div class="hstat-l">技師人數</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-above">—</div><div class="hstat-l">效率達標</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-watch">—</div><div class="hstat-l">需關注</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-avg-eff">—</div><div class="hstat-l">均值工時效率</div></div>
+    </div>
+  </div>
+
+  <!-- 返修率警示 -->
+  <div class="rework-warn" id="rework-warn-box">
+    <span style="font-size:16px;flex-shrink:0;">⚠️</span>
+    <div id="rework-warn-text">
+      <b style="color:var(--red);">全集團技師返修率告警：</b>台中中港店 Marcus 返修率達 18.4%，遠超集團標準 5%。高返修率技師需即刻安排技術訓練或師徒配對輔導。建議搭配 GRP08 SA診斷交叉比對，確認是否有 SA 將返修台次重複接入。
+    </div>
+  </div>
+
+  <!-- 門店切換 Tabs -->
+  <div class="store-tabs">
+    <div class="store-tab active" onclick="setStore('all',this)"><span class="st-dot" style="background:#9A9890;"></span>全集團</div>
+    <div class="store-tab" onclick="setStore('台北',this)"><span class="st-dot" style="background:#1A3A5C;"></span>台北旗艦店</div>
+    <div class="store-tab" onclick="setStore('台中',this)"><span class="st-dot" style="background:#2A6080;"></span>台中中港店</div>
+    <div class="store-tab" onclick="setStore('高雄',this)"><span class="st-dot" style="background:#3A5080;"></span>高雄博愛店</div>
+    <div class="store-tab" onclick="setStore('桃園',this)"><span class="st-dot" style="background:#0F6E56;"></span>桃園中壢店</div>
+  </div>
+
+  <div class="sec-title">技師個人效率散佈圖（D3.js 資料驅動）</div>
+
+  <div class="chart-grid">
+
+    <!-- T1 工時效率圖 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--teal-bg);">⏱</div>
+        <div class="cc-meta">
+          <div class="cc-title">T1 工時效率圖</div>
+          <div class="cc-sub">X軸：月接單台數　Y軸：工時效率（%）</div>
+          <span class="cc-badge cb-insight" id="b-t1">📊 效率象限分析</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-t1"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 低台數高效率</div><div class="ql-d">精細作業，台數待提升</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 高台數高效率</div><div class="ql-d">明星技師，量質俱佳</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--gray);">↙ 低台數低效率</div><div class="ql-d">需全面提升或師徒輔導</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 高台數低效率</div><div class="ql-d">接很多但工時超標，品質風險高</div></div>
+        </div>
+        <div class="insight-box" id="ins-t1"><b>T1 診斷：</b>載入中…</div>
+      </div>
+    </div>
+
+    <!-- T2 品質風險圖 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--red-bg);">🔁</div>
+        <div class="cc-meta">
+          <div class="cc-title">T2 品質風險圖</div>
+          <div class="cc-sub">X軸：月接單台數　Y軸：返修率（%）</div>
+          <span class="cc-badge cb-watch" id="b-t2">⚠ 返修率偵測中</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-t2"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↖ 低台數低返修</div><div class="ql-d">謹慎型，品質穩定</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↗ 高台數低返修</div><div class="ql-d">理想型，量大仍保品質</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↙ 低台數高返修</div><div class="ql-d">台數少仍有返修，技術問題</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 高台數高返修（危險型）</div><div class="ql-d">以速度換品質，最高風險</div></div>
+        </div>
+        <div class="insight-box" id="ins-t2"><b>T2 診斷：</b>載入中…</div>
+      </div>
+    </div>
+
+    <!-- T3 完工準時圖 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--navy-bg);">✅</div>
+        <div class="cc-meta">
+          <div class="cc-title">T3 完工準時圖</div>
+          <div class="cc-sub">X軸：工時效率（%）　Y軸：完工準時率（%）</div>
+          <span class="cc-badge cb-good" id="b-t3">✅ 準時率分析</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-t3"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 低效率高準時</div><div class="ql-d">謹慎但慢，需提升速度</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 高效率高準時</div><div class="ql-d">最理想的技師型態</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↙ 低效率低準時</div><div class="ql-d">需全面訓練</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 高效率低準時</div><div class="ql-d">排程管理問題</div></div>
+        </div>
+        <div class="insight-box" id="ins-t3"><b>T3 診斷：</b>載入中…</div>
+      </div>
+    </div>
+
+    <!-- T4 資歷成長圖 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--purple-bg);">📈</div>
+        <div class="cc-meta">
+          <div class="cc-title">T4 資歷成長圖</div>
+          <div class="cc-sub">X軸：技師年資（年）　Y軸：工時效率（%）</div>
+          <span class="cc-badge cb-insight" id="b-t4">📊 資歷×效率對照</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-t4"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 淺資歷高效率</div><div class="ql-d">潛力新星，適合加速培育</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 深資歷高效率</div><div class="ql-d">資深核心技師，穩定輸出</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--gray);">↙ 淺資歷低效率</div><div class="ql-d">新人，師徒制跟進</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 深資歷低效率</div><div class="ql-d">老技師懈怠或技能退步，需輔導</div></div>
+        </div>
+        <div class="insight-box" id="ins-t4"><b>T4 診斷：</b>載入中…</div>
+      </div>
+    </div>
+
+  </div><!-- /chart-grid -->
+
+  <!-- 技師排名表 -->
+  <div class="sec-title">技師效率排名表</div>
+  <div class="rank-panel">
+    <div class="rp-hdr">
+      <div>
+        <div class="rp-title">🔩 全體技師效率綜合排名</div>
+        <div class="rp-sub">點擊欄位標題可排序 ｜ 返修率超過 8% 標紅警示</div>
+      </div>
+    </div>
+    <table class="rt">
+      <thead>
+        <tr>
+          <th class="c">#</th>
+          <th>技師姓名</th>
+          <th>門店</th>
+          <th onclick="sortBy('jobs')" title="點擊排序">月接單台數 ↕</th>
+          <th onclick="sortBy('efficiency')" title="點擊排序">工時效率 ↕</th>
+          <th onclick="sortBy('ontime')" title="點擊排序">完工準時率 ↕</th>
+          <th class="c" onclick="sortBy('rework')" title="點擊排序">返修率 ↕</th>
+          <th class="c" onclick="sortBy('seniority')" title="點擊排序">年資 ↕</th>
+          <th class="c">等級</th>
+          <th class="c">趨勢</th>
+          <th class="c">評級</th>
+        </tr>
+      </thead>
+      <tbody id="rtbody"></tbody>
+    </table>
+  </div>
+
+</div><!-- /main -->
+
+<div id="tooltip" class="d3-tooltip"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+// ── 技師原始資料 ──
+const RAW = [
+  // 台北旗艦店
+  { name:'Alex',    store:'台北', jobs:68, efficiency:112, ontime:94, rework:2.1, seniority:9,  tag:'明星', trend:'up'   },
+  { name:'Brian',   store:'台北', jobs:54, efficiency:98,  ontime:88, rework:3.4, seniority:6,  tag:'穩定', trend:'flat' },
+  { name:'Chris',   store:'台北', jobs:72, efficiency:105, ontime:91, rework:4.8, seniority:11, tag:'穩定', trend:'up'   },
+  { name:'Diana',   store:'台北', jobs:41, efficiency:88,  ontime:82, rework:5.2, seniority:2,  tag:'培育', trend:'up'   },
+  // 台中中港店
+  { name:'Edward',  store:'台中', jobs:65, efficiency:108, ontime:92, rework:3.0, seniority:8,  tag:'明星', trend:'up'   },
+  { name:'Frank',   store:'台中', jobs:78, efficiency:95,  ontime:85, rework:7.6, seniority:5,  tag:'注意', trend:'dn'   },
+  { name:'Grace',   store:'台中', jobs:49, efficiency:102, ontime:90, rework:2.8, seniority:7,  tag:'穩定', trend:'flat' },
+  { name:'Marcus',  store:'台中', jobs:82, efficiency:91,  ontime:80, rework:18.4,seniority:3,  tag:'輔導', trend:'dn'   },
+  // 高雄博愛店
+  { name:'Henry',   store:'高雄', jobs:60, efficiency:115, ontime:96, rework:1.8, seniority:12, tag:'明星', trend:'up'   },
+  { name:'Iris',    store:'高雄', jobs:44, efficiency:84,  ontime:78, rework:6.4, seniority:1,  tag:'培育', trend:'up'   },
+  { name:'Jack',    store:'高雄', jobs:55, efficiency:99,  ontime:87, rework:3.9, seniority:5,  tag:'穩定', trend:'flat' },
+  // 桃園中壢店
+  { name:'Kevin',   store:'桃園', jobs:52, efficiency:94,  ontime:86, rework:4.2, seniority:4,  tag:'穩定', trend:'flat' },
+  { name:'Linda',   store:'桃園', jobs:38, efficiency:78,  ontime:74, rework:8.8, seniority:2,  tag:'注意', trend:'dn'   },
+  { name:'Michael', store:'桃園', jobs:61, efficiency:107, ontime:93, rework:2.5, seniority:10, tag:'明星', trend:'up'   },
+];
+
+const TAG_COLOR = {
+  '明星':'#0F6E56', '穩定':'#1A3A5C',
+  '培育':'#854F0B', '注意':'#E8A73A', '輔導':'#C8001A',
+};
+const TAG_STYLE = {
+  '明星':{ bg:'#E1F5EE', color:'#0F6E56' },
+  '穩定':{ bg:'#EAF4FB', color:'#1A3A5C' },
+  '培育':{ bg:'#FDF3E3', color:'#854F0B' },
+  '注意':{ bg:'#FFF8E1', color:'#7A5800' },
+  '輔導':{ bg:'#FDECEA', color:'#C8001A' },
+};
+const GRADE = (d) => {
+  const score = d.efficiency * 0.4 + d.ontime * 0.3 + (10 - d.rework) * 3;
+  if (score >= 140) return 'A';
+  if (score >= 120) return 'B';
+  if (score >= 100) return 'C';
+  return 'D';
+};
+
+let currentData = RAW;
+
+// ── drawScatter（菱形，技師用）──
+function drawScatter(containerId, data, xAcc, yAcc, xLabel, yLabel, xFmt, yFmt, accent, invertY) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  const W = Math.min(el.clientWidth || 540, 540);
+  const H = 220;
+  const margin = { top:16, right:20, bottom:46, left:58 };
+  const w = W - margin.left - margin.right;
+  const h = H - margin.top - margin.bottom;
+
+  const svg = d3.select(el).append('svg')
+    .attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const xs = d3.scaleLinear().domain(d3.extent(data, xAcc).map((v,i)=>i===0?v*0.88:v*1.1)).range([0,w]);
+  const ys = d3.scaleLinear().domain(d3.extent(data, yAcc).map((v,i)=>i===0?v*0.88:v*1.1)).range([h,0]);
+
+  const avgX = d3.mean(data, xAcc);
+  const avgY = d3.mean(data, yAcc);
+
+  // 象限背景
+  [
+    [0,         0,          xs(avgX), ys(avgY),              'rgba(133,79,11,.04)' ],
+    [xs(avgX),  0,          w-xs(avgX), ys(avgY),            'rgba(30,125,62,.06)' ],
+    [0,         ys(avgY),   xs(avgX), h-ys(avgY),            'rgba(200,0,26,.04)'  ],
+    [xs(avgX),  ys(avgY),   w-xs(avgX), h-ys(avgY),          invertY ? 'rgba(30,125,62,.04)' : 'rgba(200,0,26,.06)'],
+  ].forEach(([x,y,ww,hh,c])=>
+    g.append('rect').attr('x',x).attr('y',y).attr('width',ww).attr('height',hh).attr('fill',c)
+  );
+
+  // 格線
+  g.append('g').call(d3.axisLeft(ys).tickSize(-w).tickFormat(''))
+    .select('.domain').remove();
+  g.selectAll('.tick line').attr('stroke','rgba(0,0,0,.04)').attr('stroke-dasharray','3,3');
+
+  // 均值線
+  [[xs(avgX),0,xs(avgX),h],[0,ys(avgY),w,ys(avgY)]].forEach(([x1,y1,x2,y2])=>
+    g.append('line').attr('x1',x1).attr('y1',y1).attr('x2',x2).attr('y2',y2)
+     .attr('stroke',`${accent}55`).attr('stroke-width',1.5).attr('stroke-dasharray','5,4')
+  );
+  g.append('text').attr('x',xs(avgX)+4).attr('y',h-3)
+   .attr('fill',`${accent}88`).attr('font-size',9).attr('font-family','DM Mono,monospace')
+   .text('均值 '+Math.round(avgX));
+  g.append('text').attr('x',4).attr('y',ys(avgY)-4)
+   .attr('fill',`${accent}88`).attr('font-size',9).attr('font-family','DM Mono,monospace')
+   .text('均值 '+yFmt(Math.round(avgY)));
+
+  // 軸
+  g.append('g').attr('transform',`translate(0,${h})`)
+   .call(d3.axisBottom(xs).ticks(5).tickFormat(xFmt))
+   .call(ax=>{
+     ax.select('.domain').attr('stroke','#EEECE6');
+     ax.selectAll('text').attr('fill','#9A9890').attr('font-size',10).attr('font-family','DM Mono,monospace');
+     ax.selectAll('.tick line').attr('stroke','#EEECE6');
+   });
+  g.append('g')
+   .call(d3.axisLeft(ys).ticks(5).tickFormat(yFmt))
+   .call(ax=>{
+     ax.select('.domain').attr('stroke','#EEECE6');
+     ax.selectAll('text').attr('fill','#9A9890').attr('font-size',10).attr('font-family','DM Mono,monospace');
+     ax.selectAll('.tick line').attr('stroke','#EEECE6');
+   });
+  g.append('text').attr('x',w/2).attr('y',h+36).attr('text-anchor','middle')
+   .attr('fill','#9A9890').attr('font-size',10).attr('font-family','Noto Sans TC,sans-serif').text(xLabel);
+  g.append('text').attr('transform','rotate(-90)').attr('x',-h/2).attr('y',-50)
+   .attr('text-anchor','middle').attr('fill','#9A9890').attr('font-size',10).attr('font-family','Noto Sans TC,sans-serif').text(yLabel);
+
+  const tooltip = document.getElementById('tooltip');
+
+  // ── 菱形（技師）──
+  const diamondSize = 9;
+  const diamondPath = d => {
+    const cx = xs(xAcc(d)), cy = ys(yAcc(d));
+    return `M${cx},${cy-diamondSize} L${cx+diamondSize},${cy} L${cx},${cy+diamondSize} L${cx-diamondSize},${cy} Z`;
+  };
+
+  const dots = g.selectAll('.dot').data(data).enter().append('g').attr('class','dot');
+
+  dots.append('path')
+    .attr('d', d => {
+      const cx = xs(xAcc(d)), cy = ys(yAcc(d));
+      return `M${cx},${cy} L${cx},${cy} L${cx},${cy} Z`;
+    })
+    .attr('fill', d => TAG_COLOR[d.tag] || '#9A9890')
+    .attr('fill-opacity', .85)
+    .attr('stroke', '#fff').attr('stroke-width', 1.5)
+    .attr('cursor', 'pointer')
+    .transition().duration(600).ease(d3.easeBackOut).delay((d,i)=>i*50)
+    .attr('d', diamondPath);
+
+  dots.append('text')
+    .attr('x', d => xs(xAcc(d)))
+    .attr('y', d => { const cy = ys(yAcc(d)); return cy < 20 ? cy+20 : cy-13; })
+    .attr('text-anchor','middle').attr('fill','#4A4A48').attr('font-size',9.5)
+    .attr('font-family','Noto Sans TC,sans-serif').attr('font-weight','600')
+    .attr('pointer-events','none').attr('opacity',0).text(d=>d.name)
+    .transition().duration(400).delay((d,i)=>i*50+300).attr('opacity',1);
+
+  dots.selectAll('path')
+    .on('mouseover', function(event, d) {
+      d3.select(this).transition().duration(120)
+        .attr('d', () => {
+          const s = diamondSize * 1.5;
+          const cx = xs(xAcc(d)), cy = ys(yAcc(d));
+          return `M${cx},${cy-s} L${cx+s},${cy} L${cx},${cy+s} L${cx-s},${cy} Z`;
+        }).attr('stroke-width', 2.5);
+      const ts = TAG_STYLE[d.tag] || { bg:'#F1EFE8', color:'#9A9890' };
+      tooltip.innerHTML = `
+        <div class="tt-name">${d.name}</div>
+        <div class="tt-store">${d.store}門店　技師 Technician</div>
+        <div class="tt-row"><span>${xLabel}</span><span class="tt-val">${xFmt(xAcc(d))}</span></div>
+        <div class="tt-row"><span>${yLabel}</span><span class="tt-val">${yFmt(yAcc(d))}</span></div>
+        <div class="tt-row"><span>返修率</span><span class="tt-val" style="color:${d.rework>8?'#C8001A':'#3DBE6E'}">${d.rework}%</span></div>
+        <div class="tt-row"><span>年資</span><span class="tt-val">${d.seniority}年</span></div>
+        <span class="tt-tag" style="background:${ts.bg};color:${ts.color};">${d.tag}</span>
+      `;
+      tooltip.style.opacity = '1';
+    })
+    .on('mousemove', function(event) {
+      const x = event.clientX+14, y = event.clientY-10;
+      tooltip.style.left = (x+220>window.innerWidth ? event.clientX-230 : x)+'px';
+      tooltip.style.top  = (y+180>window.innerHeight? event.clientY-190 : y)+'px';
+    })
+    .on('mouseout', function(event, d) {
+      d3.select(this).transition().duration(120)
+        .attr('d', diamondPath(d)).attr('stroke-width', 1.5);
+      tooltip.style.opacity = '0';
+    });
+}
+
+// ── renderAll ──
+function renderAll(data) {
+  const accent = '#0F6E56';
+
+  drawScatter('c-t1', data, d=>d.jobs,       d=>d.efficiency, '月接單台數',   '工時效率（%）',    v=>v+'台', v=>v+'%',  accent, false);
+  drawScatter('c-t2', data, d=>d.jobs,       d=>d.rework,     '月接單台數',   '返修率（%）',      v=>v+'台', v=>v+'%',  accent, true);
+  drawScatter('c-t3', data, d=>d.efficiency, d=>d.ontime,     '工時效率（%）','完工準時率（%）',  v=>v+'%',  v=>v+'%',  accent, false);
+  drawScatter('c-t4', data, d=>d.seniority,  d=>d.efficiency, '技師年資（年）','工時效率（%）',   v=>v+'年', v=>v+'%',  accent, false);
+
+  // Hero stats
+  const avgEff = Math.round(data.reduce((s,d)=>s+d.efficiency,0)/data.length);
+  const above  = data.filter(d=>d.efficiency>=100).length;
+  const watch  = data.filter(d=>['注意','輔導'].includes(d.tag)).length;
+  document.getElementById('st-total').textContent   = data.length;
+  document.getElementById('st-above').textContent   = above;
+  document.getElementById('st-watch').textContent   = watch;
+  document.getElementById('st-avg-eff').textContent = avgEff + '%';
+
+  // Insight boxes
+  const topEff  = [...data].sort((a,b)=>b.efficiency-a.efficiency)[0];
+  const topRework = [...data].sort((a,b)=>b.rework-a.rework)[0];
+  const star    = [...data].sort((a,b)=>(b.efficiency+b.ontime)-(a.efficiency+a.ontime))[0];
+  document.getElementById('ins-t1').innerHTML = `<b>T1 診斷：</b>${topEff.name}（${topEff.store}）工時效率最高 ${topEff.efficiency}%，月接單 ${topEff.jobs} 台。低於均值技師建議優先安排進修訓練。`;
+  document.getElementById('ins-t2').innerHTML = `<b>T2 診斷：</b>${topRework.name}（${topRework.store}）返修率 <b style="color:var(--red)">${topRework.rework}%</b>，遠超標準 5%。需立即安排師徒配對或停單複查。`;
+  document.getElementById('ins-t3').innerHTML = `<b>T3 診斷：</b>${star.name}（${star.store}）效率 ${star.efficiency}% × 準時率 ${star.ontime}%，雙指標最佳，是本期標竿技師。`;
+  document.getElementById('ins-t4').innerHTML = `<b>T4 診斷：</b>資歷與效率理論上應正相關。若有深資歷但低效率技師出現，需評估是否有懈怠或技能退步問題。`;
+
+  // 返修警示
+  const highRework = data.filter(d=>d.rework>=8);
+  if (highRework.length > 0) {
+    document.getElementById('rework-warn-box').style.display = '';
+    document.getElementById('rework-warn-text').innerHTML =
+      `<b style="color:var(--red);">返修率警示：</b>` +
+      highRework.map(d=>`<b>${d.name}</b>（${d.store}）返修率 <b>${d.rework}%</b>`).join('、') +
+      `，超過集團標準 5%。建議立即安排技術訓練或師徒配對輔導。`;
+  } else {
+    document.getElementById('rework-warn-box').style.display = 'none';
+  }
+}
+
+// ── renderTable ──
+function renderTable(data, sortKey='efficiency') {
+  const sorted = [...data].sort((a,b)=>b[sortKey]-a[sortKey]);
+  document.getElementById('rtbody').innerHTML = sorted.map((d,i)=>{
+    const ts = TAG_STYLE[d.tag] || { bg:'#F1EFE8', color:'#9A9890' };
+    const grade = GRADE(d);
+    const effColor = d.efficiency>=100?'var(--teal)':d.efficiency>=88?'var(--amber)':'var(--red)';
+    const reworkColor = d.rework>=8?'var(--red)':d.rework>=5?'var(--amber)':'var(--teal)';
+    const ontimeColor = d.ontime>=90?'var(--teal)':d.ontime>=82?'var(--amber)':'var(--red)';
+    const effPct = Math.min(100, d.efficiency);
+    const effCls = d.efficiency>=100?'pf-teal':d.efficiency>=88?'pf-warn':'pf-bad';
+    const tr = d.trend==='up'?'<span class="t-up">▲</span>':d.trend==='dn'?'<span class="t-dn">▼</span>':'<span class="t-flat">→</span>';
+    return `<tr>
+      <td class="c"><span class="mono" style="color:${i<3?'#0F6E56':'#9A9890'}">${String(i+1).padStart(2,'0')}</span></td>
+      <td>
+        <div style="font-weight:700;">${d.name}</div>
+        <div style="font-size:10.5px;color:var(--gray);">${d.store}門店　｜　技師 Technician</div>
+      </td>
+      <td><span class="badge" style="background:var(--teal-bg);color:var(--teal);font-size:10px;">${d.store}</span></td>
+      <td>
+        <div class="prog-wrap">
+          <div class="prog-bar"><div class="prog-fill pf-teal" style="width:${Math.min(100,d.jobs/82*100)}%;"></div></div>
+          <span class="mono" style="font-size:11.5px;min-width:38px;text-align:right;">${d.jobs}台</span>
+        </div>
+      </td>
+      <td>
+        <div class="prog-wrap">
+          <div class="prog-bar"><div class="prog-fill ${effCls}" style="width:${effPct}%;"></div></div>
+          <span class="mono" style="font-size:11.5px;min-width:42px;text-align:right;color:${effColor};">${d.efficiency}%</span>
+        </div>
+      </td>
+      <td><span class="mono" style="color:${ontimeColor};">${d.ontime}%</span></td>
+      <td class="c"><span class="mono" style="color:${reworkColor};${d.rework>=8?'font-size:13px;':''}">${d.rework}%${d.rework>=8?' ⚠':''}</span></td>
+      <td class="c"><span class="mono" style="color:var(--gray);">${d.seniority}年</span></td>
+      <td class="c"><span class="badge grade-${grade}">${grade} 級</span></td>
+      <td class="c">${tr}</td>
+      <td class="c"><span class="badge" style="background:${ts.bg};color:${ts.color};">${d.tag}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 門店切換 ──
+function setStore(key, el) {
+  document.querySelectorAll('.store-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  currentData = key==='all' ? RAW : RAW.filter(d=>d.store===key);
+  renderAll(currentData);
+  renderTable(currentData);
+  showToast(key==='all' ? '顯示全集團' : '篩選：'+key+'門店　共'+currentData.length+'位技師');
+}
+
+function sortBy(k) { renderTable(currentData, k); showToast('依 '+k+' 排序'); }
+
+function setChip(el) {
+  el.closest('.sub-bar').querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  showToast('已切換：'+el.textContent.trim());
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+window.addEventListener('load', ()=>{ renderAll(RAW); renderTable(RAW); });
+window.addEventListener('resize', ()=>{ renderAll(currentData); });
+</script>
+</body>
+</html>

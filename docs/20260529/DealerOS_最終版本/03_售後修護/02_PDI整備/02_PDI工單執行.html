@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>02_PDI 工單執行 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--blue:#185FA5;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--navy:#1A3A5C;--gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-teal{background:rgba(15,110,86,.8);border-color:transparent;}
+.hbtn-teal:hover{background:var(--teal);}
+.main{max-width:1100px;margin:0 auto;padding:18px 24px 60px;}
+/* Tab bar */
+.tab-bar{background:#fff;border-bottom:2px solid #EEECE6;display:flex;position:sticky;top:52px;z-index:90;overflow-x:auto;}
+.tab-btn{flex-shrink:0;padding:11px 14px;font-size:12px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;}
+.tab-btn.active{color:var(--navy);font-weight:700;border-bottom-color:var(--red);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+/* Cards & panels */
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.panel-hdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-left{display:flex;align-items:center;gap:10px;}
+.picon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-blue{background:var(--blue-bg);}.pi-teal{background:var(--teal-bg);}.pi-amber{background:var(--amber-bg);}.pi-red{background:var(--red-bg);}.pi-dark{background:#E8EDF2;}.pi-purple{background:var(--purple-bg);}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:14px 16px;}
+/* Info grid */
+.ig{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.ig3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.ib{background:#F4F3F0;border-radius:7px;padding:9px 12px;}
+.il{font-size:10.5px;color:var(--gray);margin-bottom:3px;}
+.iv{font-size:13px;font-weight:600;}
+.iv.mono{font-family:'DM Mono',monospace;font-size:12px;}
+.iv.teal{color:var(--teal);}
+.iv.red{color:var(--red);}
+/* Progress */
+.prog-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.prog-bar{flex:1;height:8px;background:#EEECE6;border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--teal),#5DCAA5);border-radius:4px;transition:width .3s;}
+.prog-pct{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;color:var(--teal);white-space:nowrap;}
+/* Checklist */
+.chk-cat{font-size:11px;font-weight:700;color:#fff;padding:5px 10px 4px;border-radius:5px;margin-top:10px;margin-bottom:5px;letter-spacing:.3px;}
+.cat-a{background:#185FA5;}.cat-b{background:var(--teal);}.cat-c{background:var(--amber);}.cat-d{background:var(--purple);}
+.chk-item{display:flex;align-items:flex-start;gap:9px;padding:7px 10px;border-radius:6px;border:1px solid #EEECE6;background:#fff;cursor:pointer;transition:all .15s;margin-bottom:3px;}
+.chk-item:hover{border-color:var(--blue-bd);background:var(--blue-bg);}
+.chk-item.checked{background:var(--teal-bg);border-color:var(--teal-bd);}
+.chk-item.flagged{background:var(--amber-bg);border-color:var(--amber-bd);}
+.chk-cb{width:18px;height:18px;border-radius:4px;border:2px solid #D5D3CB;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:11px;transition:all .15s;}
+.chk-item.checked .chk-cb{background:var(--teal);border-color:var(--teal);color:#fff;}
+.chk-item.flagged .chk-cb{background:var(--amber);border-color:var(--amber);color:#fff;}
+.chk-num{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--gray);flex-shrink:0;min-width:22px;margin-top:2px;}
+.chk-text{font-size:12.5px;flex:1;line-height:1.5;}
+.chk-flag-btn{font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid var(--amber-bd);background:var(--amber-bg);color:var(--amber);cursor:pointer;flex-shrink:0;font-family:'Noto Sans TC',sans-serif;transition:.15s;white-space:nowrap;}
+.chk-flag-btn:hover{background:var(--amber);color:#fff;}
+.chk-note{display:none;margin-top:6px;width:100%;padding:5px 8px;border-radius:5px;border:1px solid var(--amber-bd);font-size:11.5px;font-family:'Noto Sans TC',sans-serif;background:#fff;}
+.chk-item.flagged .chk-note{display:block;}
+/* Parts & labor table */
+.parts-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.parts-tbl th{background:var(--navy);color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600;}
+.parts-tbl td{padding:7px 10px;border-bottom:1px solid #F4F3F0;vertical-align:middle;}
+.parts-tbl tr:hover td{background:#F8F7F4;}
+.parts-tbl tfoot td{background:#F4F3F0;font-weight:600;font-size:12.5px;}
+.add-row-inline{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;padding:8px;border:1.5px dashed #D5D3CB;border-radius:6px;background:#FAFAF8;}
+.add-inp{padding:5px 8px;border-radius:5px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;background:#fff;outline:none;}
+.add-inp:focus{border-color:var(--blue-bd);}
+.add-inp.sm{width:80px;}
+.add-inp.md{width:130px;}
+.add-inp.lg{flex:1;min-width:140px;}
+/* Cost summary */
+.cost-bar{background:var(--navy);border-radius:9px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;}
+.cb-item{text-align:center;}
+.cb-label{font-size:10px;opacity:.65;margin-bottom:3px;color:#fff;}
+.cb-val{font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:#fff;}
+.cb-val.teal{color:#5DCAA5;}
+.cb-divider{width:1px;height:36px;background:rgba(255,255,255,.2);}
+.cost-notice{background:var(--teal-bg);border:1.5px solid var(--teal-bd);border-radius:8px;padding:11px 14px;margin-bottom:12px;font-size:12px;color:#085041;line-height:1.7;}
+/* Signature */
+.sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+.sign-box{border:1.5px dashed #D5D3CB;border-radius:8px;padding:14px;text-align:center;background:#FAFAF8;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;transition:all .15s;}
+.sign-box:hover{border-color:var(--blue-bd);background:var(--blue-bg);}
+.sign-box.signed{border-style:solid;border-color:var(--teal-bd);background:var(--teal-bg);}
+.sign-icon{font-size:22px;}
+.sign-label{font-size:12px;font-weight:600;color:#4A4A48;}
+.sign-sub{font-size:10.5px;color:var(--gray);}
+/* Complete card */
+.complete-card{background:linear-gradient(135deg,#085041,var(--teal));border-radius:12px;padding:20px 24px;color:#fff;margin-bottom:14px;}
+.cc-title{font-size:18px;font-weight:700;margin-bottom:5px;}
+.cc-sub{font-size:12px;opacity:.85;margin-bottom:12px;line-height:1.7;}
+.cc-trigger{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:11px 14px;font-size:12px;line-height:1.9;margin-bottom:12px;}
+.cc-trigger b{color:#5DCAA5;}
+.cc-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.cc-btn{padding:8px 18px;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;border:none;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.cc-white{background:#fff;color:#085041;}
+.cc-white:hover{background:var(--teal-bg);}
+.cc-outline{background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.3);}
+.cc-outline:hover{background:rgba(255,255,255,.25);}
+/* Misc */
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;}
+.fi:focus{border-color:var(--blue-bd);}
+.fs{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;color:var(--gray);margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-red{background:var(--red-bg);color:var(--red);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-purple{background:var(--purple-bg);color:var(--purple);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.mb12{margin-bottom:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">售後模組 <b>SA_PDI 工單執行</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('10_工單查詢_v2.html')">← 工單查詢</button>
+    <button class="hbtn hbtn-teal" onclick="go('RS03A_新車庫存看板_v2.html')">RS03A 庫存 →</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" id="tb0" onclick="swTab(0,this)">📋 工單資訊</button>
+  <button class="tab-btn" id="tb1" onclick="swTab(1,this)">🔧 PDI 檢查清單（29項）</button>
+  <button class="tab-btn" id="tb2" onclick="swTab(2,this)">🔩 零件與工時記錄</button>
+  <button class="tab-btn" id="tb3" onclick="swTab(3,this)">💰 費用彙總</button>
+  <button class="tab-btn" id="tb4" onclick="swTab(4,this)">✅ 完成核准</button>
+</div>
+
+<div class="main">
+
+<!-- TAB 0：工單資訊 -->
+<div class="tab-pane active" id="pane-0">
+  <!-- PDI 費用說明橫幅 -->
+  <div style="background:var(--teal-bg);border:1.5px solid var(--teal-bd);border-radius:9px;padding:11px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div style="font-size:12.5px;color:#085041;flex:1;"><b>PDI 工單費用說明：</b>本工單業務類型為 PD（PDI整備），費用歸屬為<b>整車在庫成本</b>，不向客戶收取任何費用。工單完成核准後，費用將自動寫回車輛主檔並更新整車成本合計。</div>
+    <span class="badge b-teal">內部結算（IN）</span>
+    <span class="badge b-teal">車主應付：NT$0</span>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-dark">📋</div><div><div class="panel-title">PDI 工單基本資訊</div><div class="panel-sub">由 INV02 到港確認自動建立</div></div></div>
+      <span class="badge b-purple">進行中</span>
+    </div>
+    <div class="panel-body">
+      <div class="ig">
+        <div class="ib"><div class="il">工單號</div><div class="iv mono teal">PD-IN-260526-001</div></div>
+        <div class="ib"><div class="il">業務類型</div><div class="iv">PD — PDI 整備</div></div>
+        <div class="ib"><div class="il">付款性質</div><div class="iv">IN — 內部結算</div></div>
+        <div class="ib"><div class="il">費用歸屬</div><div class="iv teal">整車成本</div></div>
+      </div>
+      <div class="ig">
+        <div class="ib"><div class="il">關聯採購單</div><div class="iv mono">PO-202605-001</div></div>
+        <div class="ib"><div class="il">接車日期</div><div class="iv">2026/05/26</div></div>
+        <div class="ib"><div class="il">預計完工</div><div class="iv">2026/05/27</div></div>
+        <div class="ib"><div class="il">指派技師</div><div class="iv">林建宏 SA</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-blue">🏍️</div><div><div class="panel-title">車輛資料</div><div class="panel-sub">關聯車輛主檔</div></div></div></div>
+    <div class="panel-body">
+      <div class="ig">
+        <div class="ib"><div class="il">車系</div><div class="iv">Scout</div></div>
+        <div class="ib"><div class="il">車型</div><div class="iv">Scout Bobber</div></div>
+        <div class="ib"><div class="il">年份</div><div class="iv">2026</div></div>
+        <div class="ib"><div class="il">顏色</div><div class="iv">Black Smoke</div></div>
+      </div>
+      <div class="ig3">
+        <div class="ib"><div class="il">VIN（車架號）</div><div class="iv mono">5VPHB36N8P1234567</div></div>
+        <div class="ib"><div class="il">里程</div><div class="iv mono">0 km（新車）</div></div>
+        <div class="ib"><div class="il">採購成本</div><div class="iv mono">NT$480,000</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex-end">
+    <button class="btn btn-teal" onclick="swTab(1,document.getElementById('tb1'))">開始 PDI 作業 →</button>
+  </div>
+</div>
+
+<!-- TAB 1：PDI 檢查清單 -->
+<div class="tab-pane" id="pane-1">
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-teal">🔧</div><div><div class="panel-title">PDI 整備檢查清單（29 項）</div><div class="panel-sub">逐項勾選完成，發現異常可標記旗標並填寫說明</div></div></div>
+      <span class="badge b-gray" id="chk-cnt">0 / 29</span>
+    </div>
+    <div class="panel-body">
+      <div class="prog-row">
+        <span style="font-size:11.5px;font-weight:600;white-space:nowrap;">檢查進度</span>
+        <div class="prog-bar"><div class="prog-fill" id="chk-bar" style="width:0%;"></div></div>
+        <span class="prog-pct" id="chk-pct">0%</span>
+      </div>
+      <div id="pdi-checklist"></div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost btn-sm" onclick="checkAll()">✅ 全部完成（測試）</button>
+    <button class="btn btn-ghost" onclick="swTab(0,document.getElementById('tb0'))">← 工單資訊</button>
+    <button class="btn btn-teal" onclick="swTab(2,document.getElementById('tb2'))">零件與工時記錄 →</button>
+  </div>
+</div>
+
+<!-- TAB 2：零件與工時 -->
+<div class="tab-pane" id="pane-2">
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-amber">⏱️</div><div><div class="panel-title">工時記錄</div><div class="panel-sub">記錄技師工時，費用計入整車成本</div></div></div></div>
+    <div class="panel-body">
+      <table class="parts-tbl" id="labor-tbl">
+        <thead><tr><th>作業項目</th><th>技師</th><th>工時（LU）</th><th>單價/LU</th><th>小計</th><th></th></tr></thead>
+        <tbody id="labor-tbody">
+          <tr>
+            <td>PDI 整備作業（29項標準）</td>
+            <td>林建宏 SA</td>
+            <td><input type="number" class="add-inp sm" value="2.5" min="0" step="0.5" oninput="calcTotal()"></td>
+            <td><input type="number" class="add-inp sm" value="800" oninput="calcTotal()"></td>
+            <td class="labor-sub" style="font-family:'DM Mono',monospace;font-weight:600;">NT$2,000</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove();calcTotal()">✕</button></td>
+          </tr>
+        </tbody>
+        <tfoot><tr><td colspan="4" style="text-align:right;padding-right:12px;">工時費用合計</td><td id="labor-total" style="font-family:'DM Mono',monospace;">NT$2,000</td><td></td></tr></tfoot>
+      </table>
+      <div class="add-row-inline">
+        <input type="text" class="add-inp lg" id="new-labor-name" placeholder="作業項目說明">
+        <input type="text" class="add-inp md" id="new-labor-tech" placeholder="技師姓名">
+        <input type="number" class="add-inp sm" id="new-labor-lu" placeholder="LU" min="0" step="0.5">
+        <input type="number" class="add-inp sm" id="new-labor-rate" placeholder="單價" min="0">
+        <button class="btn btn-primary btn-sm" onclick="addLabor()">＋ 新增</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-blue">🔩</div><div><div class="panel-title">零件使用記錄</div><div class="panel-sub">PDI 作業使用的零件，費用計入整車成本</div></div></div></div>
+    <div class="panel-body">
+      <table class="parts-tbl">
+        <thead><tr><th>零件料號</th><th>零件名稱</th><th>數量</th><th>單價</th><th>小計</th><th></th></tr></thead>
+        <tbody id="parts-tbody">
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-size:11.5px;">10000-OIL-15W50</td>
+            <td>Indian 原廠機油 15W-50（1L）</td>
+            <td><input type="number" class="add-inp sm" value="3" min="0" oninput="calcTotal()"></td>
+            <td><input type="number" class="add-inp sm" value="320" oninput="calcTotal()"></td>
+            <td class="parts-sub" style="font-family:'DM Mono',monospace;font-weight:600;">NT$960</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove();calcTotal()">✕</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-size:11.5px;">10001-OIL-FLT</td>
+            <td>機油濾芯</td>
+            <td><input type="number" class="add-inp sm" value="1" min="0" oninput="calcTotal()"></td>
+            <td><input type="number" class="add-inp sm" value="280" oninput="calcTotal()"></td>
+            <td class="parts-sub" style="font-family:'DM Mono',monospace;font-weight:600;">NT$280</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove();calcTotal()">✕</button></td>
+          </tr>
+        </tbody>
+        <tfoot><tr><td colspan="4" style="text-align:right;padding-right:12px;">零件費用合計</td><td id="parts-total" style="font-family:'DM Mono',monospace;">NT$1,240</td><td></td></tr></tfoot>
+      </table>
+      <div class="add-row-inline">
+        <input type="text" class="add-inp sm" id="new-part-no" placeholder="料號">
+        <input type="text" class="add-inp lg" id="new-part-name" placeholder="零件名稱">
+        <input type="number" class="add-inp sm" id="new-part-qty" placeholder="數量" min="1">
+        <input type="number" class="add-inp sm" id="new-part-price" placeholder="單價">
+        <button class="btn btn-primary btn-sm" onclick="addPart()">＋ 新增</button>
+      </div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="swTab(1,document.getElementById('tb1'))">← 檢查清單</button>
+    <button class="btn btn-teal" onclick="swTab(3,document.getElementById('tb3'))">費用彙總 →</button>
+  </div>
+</div>
+
+<!-- TAB 3：費用彙總 -->
+<div class="tab-pane" id="pane-3">
+  <div class="cost-bar">
+    <div class="cb-item"><div class="cb-label">工時費用</div><div class="cb-val" id="s3-labor">NT$2,000</div></div>
+    <div class="cb-divider"></div>
+    <div class="cb-item"><div class="cb-label">零件費用</div><div class="cb-val" id="s3-parts">NT$1,240</div></div>
+    <div class="cb-divider"></div>
+    <div class="cb-item"><div class="cb-label">PDI 費用合計</div><div class="cb-val teal" id="s3-total" style="font-size:18px;">NT$3,240</div></div>
+    <div class="cb-divider"></div>
+    <div class="cb-item"><div class="cb-label">車主應付</div><div class="cb-val" style="color:#5DCAA5;">NT$0</div></div>
+  </div>
+
+  <div class="cost-notice">
+    <b>費用歸屬說明（財務科目）</b><br>
+    借：整車在庫成本 NT$3,240（流動資產）<br>
+    貸：售後部門內部服務收入 NT$2,000（工時）＋ 零件庫存 NT$1,240（零件）<br><br>
+    工單完成核准後，系統自動將 NT$3,240 寫回車輛主檔 `pdi_labor_cost` 與 `pdi_parts_cost`，<br>並重新計算 `total_cost`（整車成本合計）。
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-teal">💰</div><div><div class="panel-title">整車成本更新預覽</div><div class="panel-sub">PDI完成後車輛主檔的成本變化</div></div></div></div>
+    <div class="panel-body">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <thead><tr style="background:#F4F3F0;"><th style="padding:7px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--gray);">成本項目</th><th style="padding:7px 10px;text-align:right;font-size:11px;font-weight:600;color:var(--gray);">金額</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:7px 10px;border-bottom:1px solid #F4F3F0;">採購成本</td><td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;border-bottom:1px solid #F4F3F0;">NT$480,000</td></tr>
+          <tr><td style="padding:7px 10px;border-bottom:1px solid #F4F3F0;">關稅</td><td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;border-bottom:1px solid #F4F3F0;">NT$48,000</td></tr>
+          <tr><td style="padding:7px 10px;border-bottom:1px solid #F4F3F0;">運費分攤</td><td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;border-bottom:1px solid #F4F3F0;">NT$3,500</td></tr>
+          <tr><td style="padding:7px 10px;border-bottom:1px solid #F4F3F0;">保險費分攤</td><td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;border-bottom:1px solid #F4F3F0;">NT$1,200</td></tr>
+          <tr style="background:var(--teal-bg);"><td style="padding:7px 10px;border-bottom:1px solid var(--teal-bd);color:var(--teal);font-weight:600;">＋ PDI 工時費用（本工單）</td><td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;border-bottom:1px solid var(--teal-bd);color:var(--teal);font-weight:600;" id="preview-labor">NT$2,000</td></tr>
+          <tr style="background:var(--teal-bg);"><td style="padding:7px 10px;border-bottom:2px solid var(--teal-bd);color:var(--teal);font-weight:600;">＋ PDI 零件費用（本工單）</td><td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;border-bottom:2px solid var(--teal-bd);color:var(--teal);font-weight:600;" id="preview-parts">NT$1,240</td></tr>
+          <tr style="background:var(--navy);"><td style="padding:9px 10px;color:#fff;font-weight:700;font-size:13px;">整車成本合計（更新後）</td><td style="padding:9px 10px;text-align:right;font-family:'DM Mono',monospace;color:#5DCAA5;font-weight:700;font-size:15px;" id="preview-total">NT$535,940</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="swTab(2,document.getElementById('tb2'))">← 零件工時</button>
+    <button class="btn btn-teal" onclick="swTab(4,document.getElementById('tb4'))">完成核准 →</button>
+  </div>
+</div>
+
+<!-- TAB 4：完成核准 -->
+<div class="tab-pane" id="pane-4">
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-teal">✅</div><div><div class="panel-title">PDI 完成確認與核准</div><div class="panel-sub">技師簽名確認 + 主管核准後工單關閉，費用自動寫回整車成本</div></div></div></div>
+    <div class="panel-body">
+      <div class="sec-title">PDI 作業摘要</div>
+      <div class="ig">
+        <div class="ib"><div class="il">工單號</div><div class="iv mono teal">PD-IN-260526-001</div></div>
+        <div class="ib"><div class="il">完成項目</div><div class="iv teal" id="done-cnt-summary">0 / 29 項</div></div>
+        <div class="ib"><div class="il">PDI費用合計</div><div class="iv teal" id="done-cost-summary">NT$3,240</div></div>
+        <div class="ib"><div class="il">車輛狀態（完成後）</div><div class="iv teal">可售（AVAILABLE）</div></div>
+      </div>
+
+      <div class="sec-title">備注與特殊狀況</div>
+      <textarea class="fi" style="height:70px;resize:none;" placeholder="PDI作業備注、發現的異常狀況說明..."></textarea>
+
+      <div class="sec-title">完工日期</div>
+      <div class="fg2">
+        <div><div class="fl">實際完工日期 <span style="color:var(--red);">*</span></div><input type="date" class="fi" value="2026-05-27"></div>
+        <div><div class="fl">里程確認</div><input type="text" class="fi" value="0 km（新車）" readonly style="background:#F4F3F0;"></div>
+      </div>
+
+      <div class="sec-title">三方簽署</div>
+      <div class="sign-grid">
+        <div class="sign-box" id="sgn-tech" onclick="doSign('sgn-tech','技師 林建宏')">
+          <div class="sign-icon">🔧</div>
+          <div class="sign-label">技師簽名</div>
+          <div class="sign-sub">PDI 29項全數完成確認</div>
+        </div>
+        <div class="sign-box" id="sgn-mgr" onclick="doSign('sgn-mgr','售後主管')">
+          <div class="sign-icon">✅</div>
+          <div class="sign-label">售後主管核准</div>
+          <div class="sign-sub">核准後工單關閉，費用寫回整車成本</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex-end" id="approve-btn-row">
+    <button class="btn btn-ghost" onclick="swTab(3,document.getElementById('tb3'))">← 費用彙總</button>
+    <button class="btn btn-ghost" onclick="showToast('🖨️ PDI 檢查表 PDF 已產生')">🖨️ 列印PDI檢查表</button>
+    <button class="btn btn-teal" style="font-size:13px;padding:9px 22px;" onclick="approvePDI()">✅ 核准完工 — 費用寫回整車成本</button>
+  </div>
+
+  <!-- 完成卡（核准後顯示） -->
+  <div class="complete-card" id="done-card" style="display:none;">
+    <div class="cc-title">🎉 PDI 完成！整車成本已更新</div>
+    <div class="cc-sub">工單 PD-IN-260526-001 已關閉 · 費用已寫回車輛主檔 · 車輛狀態已更新為可售</div>
+    <div class="cc-trigger">
+      <b>✅ 系統已自動執行：</b><br>
+      1 · 工單狀態更新為 <b>CLOSED（已關單）</b><br>
+      2 · pdi_labor_cost = <b>NT$2,000</b>、pdi_parts_cost = <b>NT$1,240</b> 已寫入車輛主檔<br>
+      3 · total_cost（整車成本）更新為 <b>NT$535,940</b><br>
+      4 · 車輛主檔狀態從 <b>PENDING_PDI</b> → <b>AVAILABLE（可售）</b><br>
+      5 · <b>RS03A 新車庫存看板</b>此車狀態即時更新為「可售」<br>
+      6 · 業務主管收到通知：「Scout Bobber VIN:...4567 PDI完成，現可銷售」
+    </div>
+    <div class="cc-actions">
+      <button class="cc-btn cc-white" onclick="go('RS03A_新車庫存看板_v2.html')">📋 查看新車庫存</button>
+      <button class="cc-btn cc-outline" onclick="go('10_工單查詢_v2.html')">← 工單查詢</button>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+function go(url){window.location.href=url;}
+
+/* ── PDI 29 項檢查清單資料 ── */
+var pdiItems=[
+  {cat:'A',catName:'A. 交車前準備與外觀確認',items:[
+    '閱讀技術公報 SRV-SRB 車款介紹',
+    '目視檢查運輸包裝完整性（如適用）',
+    '移除運輸包裝（如適用）',
+    '目視檢查車輛完整性',
+    '檢查所有配件完整性（參閱配件箱零件清單）',
+    '移除車輪保護裝置',
+    '安裝把手平衡端子',
+    '安裝後視鏡及貼上提醒標籤',
+  ]},
+  {cat:'B',catName:'B. 機械系統確認',items:[
+    '啟動電瓶並安裝於車輛',
+    '檢查最終傳動鏈條張力',
+    '檢查胎壓 前/後 2.5 bar',
+    '檢查煞車及離合器油（若有需要請補充）',
+    '檢查引擎機油液面高度，必要時補充',
+    '檢查鑰匙功能和龍頭鎖（左右）是否作動正常',
+    '檢查前後輪軸固定扭力',
+    '檢查前後煞車卡鉗固定螺栓扭力',
+    '添加汽油直到預備油量燈熄滅',
+  ]},
+  {cat:'C',catName:'C. 電氣與系統確認',items:[
+    '檢查燈光、方向燈、喇叭和控制開關；調整遠近燈高度',
+    '檢查儀錶板日期時間，設定符合計量單位（Km、°C）',
+    '檢查引擎停止開關、側腳柱開關和離合器拉桿開關',
+    '透過 NDCS 檢查是否有技術公報或召回需要執行',
+    '透過 DDS 2.0 檢查 ECU 是否有故障碼與軟體升級',
+    '根據客戶訂單安裝 Performance 配件並確認操作正常',
+  ]},
+  {cat:'D',catName:'D. 最終測試與文件',items:[
+    '最終檢查和道路測試（確認安全裝置和散熱風扇作動）',
+    '清潔車輛',
+    '車輛保固啟動申請與文件填寫',
+    '向車主說明定期保養計劃，依交車確認表實際教學車輛功能操作',
+    '提供車主隨車文件、配件箱和保養手冊',
+    '確認 PDI 檢查表已完成並簽名存檔',
+    '確認整備費用已記錄（工時 + 零件）',
+  ]},
+];
+
+var chkDone=[];
+var flagged=[];
+
+function buildChecklist(){
+  var h='';
+  var idx=0;
+  pdiItems.forEach(function(cat){
+    h+='<div class="chk-cat cat-'+cat.cat.toLowerCase()+'">'+cat.catName+'</div>';
+    cat.items.forEach(function(item){
+      var i=idx++;
+      h+='<div class="chk-item" id="ci'+i+'" onclick="toggleChk('+i+',event)">'+
+        '<div class="chk-cb" id="cb'+i+'"></div>'+
+        '<span class="chk-num">'+(i+1)+'</span>'+
+        '<div class="chk-text">'+item+'</div>'+
+        '<button class="chk-flag-btn" onclick="event.stopPropagation();toggleFlag('+i+')">⚑ 標記</button>'+
+        '</div>'+
+        '<div style="padding:0 10px 3px 10px;display:none;" id="note-area-'+i+'">'+
+        '<input type="text" class="fi" placeholder="填寫異常說明..." style="font-size:11.5px;margin-bottom:4px;" id="note-'+i+'">'+
+        '</div>';
+    });
+  });
+  document.getElementById('pdi-checklist').innerHTML=h;
+}
+
+function toggleChk(i,e){
+  if(e.target.classList.contains('chk-flag-btn'))return;
+  var el=document.getElementById('ci'+i);
+  var cb=document.getElementById('cb'+i);
+  if(el.classList.contains('flagged'))return;
+  if(chkDone.indexOf(i)>-1){
+    chkDone.splice(chkDone.indexOf(i),1);
+    el.classList.remove('checked');
+    cb.textContent='';
+  } else {
+    chkDone.push(i);
+    el.classList.add('checked');
+    cb.textContent='✓';
+  }
+  updChkProg();
+}
+
+function toggleFlag(i){
+  var el=document.getElementById('ci'+i);
+  var na=document.getElementById('note-area-'+i);
+  if(el.classList.contains('flagged')){
+    el.classList.remove('flagged');
+    na.style.display='none';
+    flagged=flagged.filter(function(x){return x!==i;});
+  } else {
+    el.classList.add('flagged');
+    el.classList.remove('checked');
+    na.style.display='block';
+    if(flagged.indexOf(i)<0)flagged.push(i);
+    if(chkDone.indexOf(i)>-1){chkDone.splice(chkDone.indexOf(i),1);}
+    document.getElementById('cb'+i).textContent='⚑';
+  }
+  updChkProg();
+}
+
+function updChkProg(){
+  var total=29;
+  var done=chkDone.length+flagged.length;
+  var pct=Math.round(done/total*100);
+  document.getElementById('chk-cnt').textContent=done+' / '+total;
+  document.getElementById('chk-bar').style.width=pct+'%';
+  document.getElementById('chk-pct').textContent=pct+'%';
+  document.getElementById('done-cnt-summary').textContent=done+' / '+total+' 項';
+  if(done===total){
+    document.getElementById('chk-cnt').className='badge b-teal';
+  }
+}
+
+function checkAll(){
+  var total=29;
+  for(var i=0;i<total;i++){
+    if(chkDone.indexOf(i)<0&&flagged.indexOf(i)<0){
+      chkDone.push(i);
+      var el=document.getElementById('ci'+i);
+      if(el){el.classList.add('checked');document.getElementById('cb'+i).textContent='✓';}
+    }
+  }
+  updChkProg();
+  showToast('✅ 29 項全部完成（測試模式）');
+}
+
+/* ── 費用計算 ── */
+var laborAmt=2000,partsAmt=1240;
+
+function calcTotal(){
+  /* 工時 */
+  var lRows=document.getElementById('labor-tbody').querySelectorAll('tr');
+  laborAmt=0;
+  lRows.forEach(function(r){
+    var inputs=r.querySelectorAll('input[type=number]');
+    if(inputs.length>=2){
+      var sub=parseFloat(inputs[0].value||0)*parseFloat(inputs[1].value||0);
+      laborAmt+=sub;
+      var subCell=r.querySelector('.labor-sub');
+      if(subCell)subCell.textContent='NT$'+sub.toLocaleString();
+    }
+  });
+  /* 零件 */
+  var pRows=document.getElementById('parts-tbody').querySelectorAll('tr');
+  partsAmt=0;
+  pRows.forEach(function(r){
+    var inputs=r.querySelectorAll('input[type=number]');
+    if(inputs.length>=2){
+      var sub=parseFloat(inputs[0].value||0)*parseFloat(inputs[1].value||0);
+      partsAmt+=sub;
+      var subCell=r.querySelector('.parts-sub');
+      if(subCell)subCell.textContent='NT$'+sub.toLocaleString();
+    }
+  });
+  var total=laborAmt+partsAmt;
+  var baseCost=480000+48000+3500+1200;
+  document.getElementById('labor-total').textContent='NT$'+laborAmt.toLocaleString();
+  document.getElementById('parts-total').textContent='NT$'+partsAmt.toLocaleString();
+  document.getElementById('s3-labor').textContent='NT$'+laborAmt.toLocaleString();
+  document.getElementById('s3-parts').textContent='NT$'+partsAmt.toLocaleString();
+  document.getElementById('s3-total').textContent='NT$'+total.toLocaleString();
+  document.getElementById('preview-labor').textContent='NT$'+laborAmt.toLocaleString();
+  document.getElementById('preview-parts').textContent='NT$'+partsAmt.toLocaleString();
+  document.getElementById('preview-total').textContent='NT$'+(baseCost+total).toLocaleString();
+  document.getElementById('done-cost-summary').textContent='NT$'+total.toLocaleString();
+}
+
+function addLabor(){
+  var name=document.getElementById('new-labor-name').value;
+  var tech=document.getElementById('new-labor-tech').value;
+  var lu=parseFloat(document.getElementById('new-labor-lu').value||0);
+  var rate=parseFloat(document.getElementById('new-labor-rate').value||0);
+  if(!name){showToast('⚠️ 請填寫作業項目說明');return;}
+  var sub=lu*rate;
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td>'+name+'</td><td>'+tech+'</td>'+
+    '<td><input type="number" class="add-inp sm" value="'+lu+'" oninput="calcTotal()"></td>'+
+    '<td><input type="number" class="add-inp sm" value="'+rate+'" oninput="calcTotal()"></td>'+
+    '<td class="labor-sub" style="font-family:\'DM Mono\',monospace;font-weight:600;">NT$'+sub.toLocaleString()+'</td>'+
+    '<td><button class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove();calcTotal()">✕</button></td>';
+  document.getElementById('labor-tbody').appendChild(tr);
+  ['new-labor-name','new-labor-tech','new-labor-lu','new-labor-rate'].forEach(function(id){document.getElementById(id).value='';});
+  calcTotal();
+}
+
+function addPart(){
+  var no=document.getElementById('new-part-no').value||'—';
+  var name=document.getElementById('new-part-name').value;
+  var qty=parseFloat(document.getElementById('new-part-qty').value||0);
+  var price=parseFloat(document.getElementById('new-part-price').value||0);
+  if(!name){showToast('⚠️ 請填寫零件名稱');return;}
+  var sub=qty*price;
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td style="font-family:\'DM Mono\',monospace;font-size:11.5px;">'+no+'</td><td>'+name+'</td>'+
+    '<td><input type="number" class="add-inp sm" value="'+qty+'" oninput="calcTotal()"></td>'+
+    '<td><input type="number" class="add-inp sm" value="'+price+'" oninput="calcTotal()"></td>'+
+    '<td class="parts-sub" style="font-family:\'DM Mono\',monospace;font-weight:600;">NT$'+sub.toLocaleString()+'</td>'+
+    '<td><button class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove();calcTotal()">✕</button></td>';
+  document.getElementById('parts-tbody').appendChild(tr);
+  ['new-part-no','new-part-name','new-part-qty','new-part-price'].forEach(function(id){document.getElementById(id).value='';});
+  calcTotal();
+}
+
+function doSign(id,role){
+  var el=document.getElementById(id);
+  el.classList.add('signed');
+  el.innerHTML='<div class="sign-icon">✅</div><div class="sign-label">'+role+'</div><div class="sign-sub">'+new Date().toLocaleDateString('zh-TW')+' 已簽名確認</div>';
+  showToast('✅ '+role+' 電子簽名完成');
+}
+
+function approvePDI(){
+  /* 後端串接點：
+     PATCH /api/workorders/PD-IN-260526-001/complete
+     {
+       labor_cost: laborAmt,
+       parts_cost: partsAmt,
+       completed_date: '2026-05-27',
+       technician_sign: true,
+       manager_sign: true
+     }
+     後端執行：
+     1. 工單狀態 → CLOSED
+     2. vehicle.pdi_labor_cost = laborAmt
+     3. vehicle.pdi_parts_cost = partsAmt
+     4. vehicle.total_cost 重新計算
+     5. vehicle.vehicle_status → AVAILABLE
+  */
+  document.getElementById('done-card').style.display='';
+  document.getElementById('approve-btn-row').style.display='none';
+  showToast('🎉 PDI 核准完成！\n工單已關閉 · 整車成本已更新\n車輛狀態：可售（AVAILABLE）');
+}
+
+function swTab(n,el){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  el.classList.add('active');
+  document.getElementById('pane-'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3200);
+}
+
+window.onload=function(){buildChecklist();};
+</script>
+</body>
+</html>

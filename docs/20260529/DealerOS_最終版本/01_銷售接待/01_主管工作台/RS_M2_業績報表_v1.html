@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS_M2 業績報表 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+
+/* ── Header ── */
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+
+/* ── Sub bar ── */
+.sub-bar{background:#fff;border-bottom:1px solid #EEECE6;padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.period-toggle{display:flex;gap:0;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;}
+.period-btn{padding:5px 14px;font-size:12px;cursor:pointer;border-right:1px solid #D5D3CB;color:#7A7A78;background:#fff;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.period-btn:last-child{border-right:none;}
+.period-btn.active{background:#F1EFE8;color:#2C2C2A;font-weight:600;}
+.rs-select{padding:5px 10px;border:1px solid #D5D3CB;border-radius:6px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;background:#fff;outline:none;}
+.sub-divider{width:1px;height:18px;background:#EEECE6;}
+.export-btn{padding:5px 13px;border-radius:6px;font-size:12px;border:1px solid #D5D3CB;background:#fff;color:#4A4A48;cursor:pointer;font-family:'Noto Sans TC',sans-serif;display:flex;align-items:center;gap:5px;}
+.export-btn:hover{background:#F4F3F0;}
+
+/* ── Main ── */
+.main{max-width:1120px;margin:0 auto;padding:18px 24px 40px;}
+
+/* ── Layer titles ── */
+.layer-title{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.layer-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+
+/* ── KPI rows ── */
+.kpi-row-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi-row-5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.kpi-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.kpi-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:12px 14px;position:relative;}
+.kpi-card.good{border-color:#5DCAA5;background:#F5FDF9;}
+.kpi-card.warn{border-color:#F0C97E;background:#FFFDF5;}
+.kpi-card.alert{border-color:#F5AEAD;background:#FFF8F8;}
+.kpi-l{font-size:11px;color:#9A9890;margin-bottom:3px;}
+.kpi-n{font-size:26px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:4px;}
+.kpi-n.blue{color:#185FA5;}
+.kpi-n.teal{color:#0F6E56;}
+.kpi-n.amber{color:#854F0B;}
+.kpi-n.red{color:#C8001A;}
+.kpi-n.purple{color:#534AB7;}
+.kpi-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.kpi-target{font-size:11px;color:#9A9890;}
+.kpi-delta{font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;}
+.delta-up{background:#E1F5EE;color:#0F6E56;}
+.delta-down{background:#FDECEA;color:#C8001A;}
+.delta-flat{background:#F1EFE8;color:#5A5955;}
+.kpi-progress{height:4px;background:#EEECE6;border-radius:2px;margin-top:8px;overflow:hidden;}
+.kpi-bar{height:100%;border-radius:2px;transition:width .6s ease;}
+.bar-teal{background:#0F6E56;}
+.bar-amber{background:#F0C97E;}
+.bar-red{background:#C8001A;}
+.bar-blue{background:#185FA5;}
+
+/* ── Panel ── */
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.panel-hdr{padding:11px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.panel-left{display:flex;align-items:center;gap:10px;}
+.picon{font-size:14px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pi-blue{background:#EAF4FB;}
+.pi-teal{background:#E1F5EE;}
+.pi-amber{background:#FDF3E3;}
+.pi-red{background:#FDECEA;}
+.pi-purple{background:#EEEDFE;}
+.pi-dark{background:#E8EDF2;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:#9A9890;margin-top:1px;}
+.panel-body{padding:14px 16px;}
+
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-blue{background:#EAF4FB;color:#185FA5;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}
+.b-amber{background:#FDF3E3;color:#854F0B;}
+.b-red{background:#FDECEA;color:#C8001A;}
+.b-gray{background:#F1EFE8;color:#5A5955;}
+.b-purple{background:#EEEDFE;color:#534AB7;}
+.b-gold{background:#FFF8DC;color:#8B6800;border:1px solid #D4A800;}
+
+/* ── 損益平衡進度 ── */
+.bep-container{position:relative;margin:16px 0 8px;}
+.bep-track{height:28px;background:#F4F3F0;border-radius:6px;overflow:hidden;position:relative;}
+.bep-fill{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:12px;transition:width .8s ease;position:relative;}
+.bep-fill-label{font-size:12px;font-weight:700;color:#fff;font-family:'DM Mono',monospace;white-space:nowrap;}
+.bep-target-line{position:absolute;top:0;bottom:0;width:2px;background:#1A3A5C;z-index:2;}
+.bep-target-flag{position:absolute;top:-20px;font-size:10px;font-weight:600;color:#1A3A5C;white-space:nowrap;transform:translateX(-50%);}
+.bep-markers{display:flex;justify-content:space-between;margin-top:5px;font-size:10.5px;color:#9A9890;font-family:'DM Mono',monospace;}
+.bep-zones{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;}
+.bep-zone{border-radius:7px;padding:10px 13px;border:1px solid;}
+.bz-loss{background:#FFF8F8;border-color:#F5AEAD;}
+.bz-cover{background:#FFFDF5;border-color:#F0C97E;}
+.bz-profit{background:#F5FDF9;border-color:#5DCAA5;}
+.bz-label{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:4px;}
+.bz-loss .bz-label{color:#C8001A;}
+.bz-cover .bz-label{color:#854F0B;}
+.bz-profit .bz-label{color:#0F6E56;}
+.bz-val{font-size:16px;font-weight:700;font-family:'DM Mono',monospace;}
+.bz-loss .bz-val{color:#C8001A;}
+.bz-cover .bz-val{color:#854F0B;}
+.bz-profit .bz-val{color:#0F6E56;}
+.bz-sub{font-size:11px;color:#9A9890;margin-top:2px;}
+
+/* ── RS 業績表 ── */
+.rs-table{width:100%;border-collapse:collapse;}
+.rs-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:7px 12px;border-bottom:2px solid #EEECE6;text-align:left;white-space:nowrap;}
+.rs-table td{padding:9px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.rs-table tr:last-child td{border-bottom:none;}
+.rs-table tr:hover td{background:#FAFAF8;}
+.rs-name{font-weight:600;color:#2C2C2A;}
+.rs-num{font-family:'DM Mono',monospace;font-weight:600;}
+.mini-bar-wrap{width:90px;height:7px;background:#EEECE6;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:6px;}
+.mini-bar-fill{height:100%;border-radius:4px;}
+.fill-good{background:#0F6E56;}
+.fill-ok{background:#185FA5;}
+.fill-warn{background:#F0C97E;}
+.fill-alert{background:#C8001A;}
+.rank-badge{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+.rank-1{background:#D4A800;color:#fff;}
+.rank-2{background:#9A9890;color:#fff;}
+.rank-3{background:#C47A3C;color:#fff;}
+.rank-n{background:#EEECE6;color:#7A7A78;}
+
+/* ── 週趨勢圖 ── */
+.chart-area{position:relative;height:160px;display:flex;align-items:flex-end;gap:10px;padding:0 4px;}
+.chart-bar-group{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.chart-bars{display:flex;gap:3px;align-items:flex-end;width:100%;}
+.chart-bar{flex:1;border-radius:3px 3px 0 0;transition:height .5s ease;cursor:pointer;position:relative;}
+.chart-bar:hover::after{content:attr(data-tip);position:absolute;bottom:105%;left:50%;transform:translateX(-50%);background:#1A3A5C;color:#fff;padding:3px 7px;border-radius:4px;font-size:10.5px;white-space:nowrap;pointer-events:none;z-index:10;}
+.bar-sales{background:#1A3A5C;}
+.bar-target{background:#EEECE6;}
+.chart-x{font-size:10.5px;color:#9A9890;text-align:center;margin-top:4px;width:100%;}
+.chart-legend{display:flex;gap:12px;margin-bottom:10px;}
+.cl-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#7A7A78;}
+.cl-dot{width:10px;height:10px;border-radius:2px;}
+.chart-yaxis{position:absolute;left:0;top:0;bottom:20px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;}
+.y-label{font-size:9.5px;color:#C8C7C4;font-family:'DM Mono',monospace;}
+
+/* ── 車系業績分析 ── */
+.model-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.model-card{background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;}
+.model-name{font-size:12px;font-weight:600;color:#2C2C2A;margin-bottom:6px;}
+.model-series{font-size:10px;color:#9A9890;margin-bottom:8px;}
+.model-nums{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.model-count{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:#1A3A5C;}
+.model-rev{font-size:11.5px;color:#5A5955;}
+.model-bar-wrap{height:5px;background:#EEECE6;border-radius:3px;overflow:hidden;}
+.model-bar-fill{height:100%;border-radius:3px;background:#1A3A5C;}
+
+/* ── 財務損益（預留）── */
+.finance-placeholder{background:#E8EDF2;border:1px dashed #8FAABB;border-radius:8px;padding:20px;text-align:center;color:#3A5A6C;}
+.fp-title{font-size:13px;font-weight:600;margin-bottom:6px;}
+.fp-sub{font-size:12px;opacity:.7;line-height:1.6;}
+
+/* ── 月份比較 ── */
+.month-compare-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+.mc-card{border-radius:7px;padding:9px 11px;border:1px solid #EEECE6;background:#FAFAF8;text-align:center;}
+.mc-card.current{border-color:#185FA5;background:#EAF4FB;}
+.mc-month{font-size:10.5px;color:#9A9890;margin-bottom:5px;}
+.mc-card.current .mc-month{color:#185FA5;font-weight:600;}
+.mc-n{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:#2C2C2A;}
+.mc-card.current .mc-n{color:#185FA5;}
+.mc-rate{font-size:10.5px;margin-top:3px;}
+.mc-up{color:#0F6E56;}
+.mc-down{color:#C8001A;}
+.mc-flat{color:#9A9890;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+/* ── Divider ── */
+.divider{height:1px;background:#EEECE6;margin:12px 0;}
+.mb14{margin-bottom:14px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售管理 <b>RS_M2 業績報表</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="showToast('← 返回 RS00 導覽總覽')">← 總覽</button>
+    <button class="hbtn" onclick="showToast('→ 跳轉 RS_M1 銷售漏斗看板')">漏斗看板</button>
+    <button class="hbtn" onclick="showToast('→ 跳轉 RS_M3 主管設定')">主管設定</button>
+  </div>
+</header>
+
+<!-- ── Sub Bar ── -->
+<div class="sub-bar">
+  <div style="font-size:11px;color:#9A9890;font-weight:600;">期間</div>
+  <div class="period-toggle">
+    <div class="period-btn active" id="pb-month" onclick="setPeriod('month',this)">本月</div>
+    <div class="period-btn" id="pb-q" onclick="setPeriod('q',this)">本季</div>
+    <div class="period-btn" id="pb-year" onclick="setPeriod('year',this)">本年</div>
+  </div>
+  <div class="sub-divider"></div>
+  <div style="font-size:11px;color:#9A9890;font-weight:600;">人員</div>
+  <select class="rs-select" id="rs-filter" onchange="renderAll()">
+    <option value="all">全體 RS</option>
+    <option value="林佳蓉">林佳蓉</option>
+    <option value="陳雅惠">陳雅惠</option>
+    <option value="張志明">張志明</option>
+    <option value="王俊傑">王俊傑</option>
+  </select>
+  <div class="sub-divider"></div>
+  <button class="export-btn" onclick="showToast('📊 匯出 Excel 報表...')">📊 匯出 Excel</button>
+  <button class="export-btn" onclick="showToast('🖨 列印報表...')">🖨 列印</button>
+  <div style="margin-left:auto;font-size:11px;color:#9A9890;" id="period-label">2026 年 5 月（本月）</div>
+</div>
+
+<!-- ── Main ── -->
+<div class="main">
+
+<!-- ── Layer 1：結果指標 ── -->
+<div class="layer-title">Layer 1 — 結果指標（總經理視角）</div>
+<div class="kpi-row-4 mb14">
+  <div class="kpi-card good">
+    <div class="kpi-l">月度成交台數</div>
+    <div class="kpi-n teal">11<span style="font-size:14px;font-weight:400;margin-left:2px;">台</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 15 台</span><span class="kpi-delta delta-up">+2 vs 上月</span></div>
+    <div class="kpi-progress"><div class="kpi-bar bar-teal" style="width:73%;"></div></div>
+  </div>
+  <div class="kpi-card warn">
+    <div class="kpi-l">月度訂車台數</div>
+    <div class="kpi-n amber">13<span style="font-size:14px;font-weight:400;margin-left:2px;">台</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 16 台</span><span class="kpi-delta delta-up">+1 vs 上月</span></div>
+    <div class="kpi-progress"><div class="kpi-bar bar-amber" style="width:81%;"></div></div>
+  </div>
+  <div class="kpi-card alert">
+    <div class="kpi-l">整體成交率</div>
+    <div class="kpi-n red">9.2<span style="font-size:14px;font-weight:400;margin-left:2px;">%</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 12%</span><span class="kpi-delta delta-down">-0.8% vs 上月</span></div>
+    <div class="kpi-progress"><div class="kpi-bar bar-red" style="width:77%;"></div></div>
+  </div>
+  <div class="kpi-card good">
+    <div class="kpi-l">本月總業績</div>
+    <div class="kpi-n blue">1,408<span style="font-size:14px;font-weight:400;margin-left:2px;">萬</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 1,920 萬</span><span class="kpi-delta delta-up">+12% vs 上月</span></div>
+    <div class="kpi-progress"><div class="kpi-bar bar-blue" style="width:73%;"></div></div>
+  </div>
+</div>
+
+<!-- ── 損益平衡進度 ── -->
+<div class="panel mb14">
+  <div class="panel-hdr">
+    <div class="panel-left">
+      <div class="picon pi-amber">📊</div>
+      <div>
+        <div class="panel-title">損益平衡進度</div>
+        <div class="panel-sub">月固定成本覆蓋狀況 · 超過損益點後每台均為純利潤</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="badge b-amber">損益點：9 台</span>
+      <span class="badge b-teal">已超越 ＋2 台</span>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:8px;">
+      <div>
+        <div style="font-size:11px;color:#9A9890;margin-bottom:3px;">本月已成交</div>
+        <div style="font-size:28px;font-weight:700;font-family:'DM Mono',monospace;color:#0F6E56;">11 台</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:#9A9890;margin-bottom:3px;">損益平衡點</div>
+        <div style="font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:#1A3A5C;">9 台</div>
+      </div>
+    </div>
+
+    <!-- 進度條 -->
+    <div class="bep-container">
+      <div style="position:relative;margin-bottom:26px;">
+        <div class="bep-target-flag" style="left:60%;">▼ 損益點 9台</div>
+        <div class="bep-target-line" style="left:60%;"></div>
+      </div>
+      <div class="bep-track">
+        <div class="bep-fill" style="width:73%;background:linear-gradient(90deg,#F0C97E 0%,#F0C97E 55%,#0F6E56 55%,#0F6E56 100%);">
+          <span class="bep-fill-label">11 / 15 台</span>
+        </div>
+      </div>
+      <div class="bep-markers">
+        <span>0</span>
+        <span>損益點 9台</span>
+        <span>目標 15台</span>
+      </div>
+    </div>
+
+    <!-- 三個區間 -->
+    <div class="bep-zones">
+      <div class="bep-zone bz-loss">
+        <div class="bz-label">虧損區間</div>
+        <div class="bz-val">0 – 8 台</div>
+        <div class="bz-sub">固定成本未覆蓋</div>
+      </div>
+      <div class="bep-zone bz-cover">
+        <div class="bz-label">打平區間</div>
+        <div class="bz-val">9 台</div>
+        <div class="bz-sub">剛好覆蓋固定成本</div>
+      </div>
+      <div class="bep-zone bz-profit">
+        <div class="bz-label">獲利區間 ✅</div>
+        <div class="bz-val">10 – 15 台</div>
+        <div class="bz-sub">每台均為純利潤 · 已在此區</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;padding:10px 13px;background:#F5FDF9;border:1px solid #5DCAA5;border-radius:7px;font-size:12px;color:#085041;line-height:1.7;">
+      💡 目前超過損益點 <b>2 台</b>，月底前還需達成 <b>4 台</b>才能完成月度目標（15 台）。損益平衡點由財務部設定，如需調整請聯繫系統管理員。
+    </div>
+
+    <div style="margin-top:10px;background:#E8EDF2;border:1px dashed #8FAABB;border-radius:7px;padding:10px 13px;font-size:11.5px;color:#3A5A6C;">
+      🔒 <b>財務預留欄位</b>：毛利率 / 月固定成本 / 每台平均售價 — Phase 2 由財務模組補齊
+    </div>
+  </div>
+</div>
+
+<!-- ── Layer 2：過程指標 ── -->
+<div class="layer-title">Layer 2 — 過程指標（銷售主管視角）</div>
+<div class="kpi-row-5 mb14">
+  <div class="kpi-card good">
+    <div class="kpi-l">建檔完整率</div>
+    <div class="kpi-n teal">88<span style="font-size:14px;font-weight:400;">%</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 90%</span><span class="kpi-delta delta-flat">≈ 目標</span></div>
+    <div class="kpi-progress"><div class="kpi-bar bar-teal" style="width:88%;"></div></div>
+  </div>
+  <div class="kpi-card alert">
+    <div class="kpi-l">試乘試駕率</div>
+    <div class="kpi-n red">42<span style="font-size:14px;font-weight:400;">%</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 60%</span><span class="kpi-delta delta-down">-5% vs 上月</span></div>
+    <div class="kpi-progress"><div class="kpi-bar bar-red" style="width:70%;"></div></div>
+  </div>
+  <div class="kpi-card warn">
+    <div class="kpi-l">報價轉化率</div>
+    <div class="kpi-n amber">63<span style="font-size:14px;font-weight:400;">%</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 70%</span><span class="kpi-delta delta-up">+3% vs 上月</span></div>
+    <div class="kpi-progress"><div class="kpi-bar bar-amber" style="width:90%;"></div></div>
+  </div>
+  <div class="kpi-card good">
+    <div class="kpi-l">訂車成交率</div>
+    <div class="kpi-n teal">58<span style="font-size:14px;font-weight:400;">%</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 60%</span><span class="kpi-delta delta-flat">≈ 目標</span></div>
+    <div class="kpi-progress"><div class="kpi-bar bar-teal" style="width:97%;"></div></div>
+  </div>
+  <div class="kpi-card alert">
+    <div class="kpi-l">試駕後即時報價率</div>
+    <div class="kpi-n red">54<span style="font-size:14px;font-weight:400;">%</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 80%</span><span class="kpi-delta delta-down">-8% vs 上月</span></div>
+    <div class="kpi-progress"><div class="kpi-bar bar-red" style="width:68%;"></div></div>
+  </div>
+</div>
+
+<!-- ── Layer 3：行為數據 ── -->
+<div class="layer-title">Layer 3 — 行為數據（銷售顧問視角）</div>
+<div class="kpi-row-5 mb14">
+  <div class="kpi-card">
+    <div class="kpi-l">到店接觸人次</div>
+    <div class="kpi-n blue">119<span style="font-size:14px;font-weight:400;">人</span></div>
+    <div class="kpi-meta"><span class="kpi-delta delta-up">+14 vs 上月</span></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-l">電子手卡建檔數</div>
+    <div class="kpi-n blue">105<span style="font-size:14px;font-weight:400;">份</span></div>
+    <div class="kpi-meta"><span class="kpi-target">建檔率 88%</span></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-l">試乘試駕人次</div>
+    <div class="kpi-n blue">44<span style="font-size:14px;font-weight:400;">次</span></div>
+    <div class="kpi-meta"><span class="kpi-target">試駕率 42%</span></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-l">報價單開立數</div>
+    <div class="kpi-n blue">28<span style="font-size:14px;font-weight:400;">張</span></div>
+    <div class="kpi-meta"><span class="kpi-target">報價率 63%</span></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-l">交車後 3 日回訪率</div>
+    <div class="kpi-n teal">91<span style="font-size:14px;font-weight:400;">%</span></div>
+    <div class="kpi-meta"><span class="kpi-target">目標 90%</span><span class="kpi-delta delta-up">✅ 達標</span></div>
+  </div>
+</div>
+
+<!-- ── 月份趨勢比較 ── -->
+<div class="panel mb14">
+  <div class="panel-hdr">
+    <div class="panel-left">
+      <div class="picon pi-blue">📈</div>
+      <div>
+        <div class="panel-title">近 5 個月成交台數趨勢</div>
+        <div class="panel-sub">月度對比 · 目標線 15 台</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div class="month-compare-grid" style="margin-bottom:16px;">
+      <div class="mc-card"><div class="mc-month">1 月</div><div class="mc-n">8</div><div class="mc-rate mc-down">-20%</div></div>
+      <div class="mc-card"><div class="mc-month">2 月</div><div class="mc-n">7</div><div class="mc-rate mc-down">-13%</div></div>
+      <div class="mc-card"><div class="mc-month">3 月</div><div class="mc-n">12</div><div class="mc-rate mc-up">+71%</div></div>
+      <div class="mc-card"><div class="mc-month">4 月</div><div class="mc-n">9</div><div class="mc-rate mc-down">-25%</div></div>
+      <div class="mc-card current"><div class="mc-month">5 月（本月）</div><div class="mc-n">11</div><div class="mc-rate mc-up">+22%</div></div>
+    </div>
+
+    <!-- 柱狀圖 -->
+    <div class="chart-legend">
+      <div class="cl-item"><div class="cl-dot" style="background:#1A3A5C;"></div>實際成交</div>
+      <div class="cl-item"><div class="cl-dot" style="background:#EEECE6;"></div>目標 15 台</div>
+    </div>
+    <div class="chart-area" id="chart-monthly">
+      <!-- JS 生成 -->
+    </div>
+  </div>
+</div>
+
+<!-- ── RS 個人業績對比 ── -->
+<div class="panel mb14">
+  <div class="panel-hdr">
+    <div class="panel-left">
+      <div class="picon pi-dark">👥</div>
+      <div>
+        <div class="panel-title">RS 個人業績排行</div>
+        <div class="panel-sub">本月 · 主管專屬視角</div>
+      </div>
+    </div>
+    <span class="badge b-blue">主管視角</span>
+  </div>
+  <div class="panel-body" style="padding:0;">
+    <table class="rs-table">
+      <thead>
+        <tr>
+          <th style="width:40px;">排名</th>
+          <th>RS 顧問</th>
+          <th>成交台數</th>
+          <th>業績金額</th>
+          <th>試駕率</th>
+          <th>報價率</th>
+          <th>即時報價率</th>
+          <th>回訪率</th>
+          <th>HABC H+A</th>
+        </tr>
+      </thead>
+      <tbody id="rs-rank-tbody">
+        <!-- JS 生成 -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── 車系業績分析 ── -->
+<div class="panel mb14">
+  <div class="panel-hdr">
+    <div class="panel-left">
+      <div class="picon pi-red">🏍️</div>
+      <div>
+        <div class="panel-title">車系業績分析</div>
+        <div class="panel-sub">本月各車系成交台數與佔比</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div class="model-grid" id="model-grid">
+      <!-- JS 生成 -->
+    </div>
+  </div>
+</div>
+
+<!-- ── 週趨勢 ── -->
+<div class="panel mb14">
+  <div class="panel-hdr">
+    <div class="panel-left">
+      <div class="picon pi-teal">📅</div>
+      <div>
+        <div class="panel-title">本月週趨勢</div>
+        <div class="panel-sub">每週到店人次 vs 成交台數</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div class="chart-legend">
+      <div class="cl-item"><div class="cl-dot" style="background:#1A3A5C;"></div>到店人次</div>
+      <div class="cl-item"><div class="cl-dot" style="background:#C8001A;"></div>成交台數（×5倍顯示）</div>
+    </div>
+    <div class="chart-area" id="chart-weekly"></div>
+  </div>
+</div>
+
+<!-- ── 財務損益預留 ── -->
+<div class="panel mb14">
+  <div class="panel-hdr">
+    <div class="panel-left">
+      <div class="picon pi-purple">💹</div>
+      <div>
+        <div class="panel-title">財務損益報表</div>
+        <div class="panel-sub">毛利分析 · 費用結構 · Phase 2 開放</div>
+      </div>
+    </div>
+    <span class="badge b-gray">Phase 2 預留</span>
+  </div>
+  <div class="panel-body">
+    <div class="two-col" style="margin-bottom:0;">
+      <div class="finance-placeholder">
+        <div class="fp-title">💹 毛利結構分析</div>
+        <div class="fp-sub">新車毛利 / 中古車毛利 / 衍生商品<br>待財務模組 Phase 2 補齊資料後開啟</div>
+      </div>
+      <div class="finance-placeholder">
+        <div class="fp-title">📋 費用結構</div>
+        <div class="fp-sub">人事成本 / 場地費用 / 行銷費用<br>需對接財務系統或手動輸入</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end .main -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+var period = 'month';
+
+var rsData = [
+  {name:'林佳蓉',sales:4,rev:512,trial:55,quote:70,golden:65,revisit:93,habc:8},
+  {name:'張志明',sales:3,rev:384,trial:40,quote:58,golden:50,revisit:90,habc:5},
+  {name:'陳雅惠',sales:3,rev:384,trial:38,quote:62,golden:48,revisit:91,habc:6},
+  {name:'王俊傑',sales:1,rev:128,trial:35,quote:60,golden:52,revisit:88,habc:3}
+];
+
+var modelData = [
+  {name:'Panigale V4',series:'超跑系列',count:4,rev:512,max:4},
+  {name:'Monster SP',series:'Monster 系列',count:3,rev:288,max:4},
+  {name:'Streetfighter V2',series:'街車系列',count:2,rev:210,max:4},
+  {name:'Multistrada V4',series:'越野旅行',count:1,rev:168,max:4},
+  {name:'Diavel V4',series:'動力巡航',count:1,rev:158,max:4},
+  {name:'Scrambler',series:'Scrambler 系列',count:0,rev:0,max:4}
+];
+
+var weeklyData = [
+  {w:'第1週',contacts:28,sales:3},
+  {w:'第2週',contacts:32,sales:4},
+  {w:'第3週',contacts:35,sales:2},
+  {w:'第4週（進行中）',contacts:24,sales:2}
+];
+
+var monthlyData = [
+  {m:'1月',v:8},{m:'2月',v:7},{m:'3月',v:12},{m:'4月',v:9},{m:'5月',v:11}
+];
+
+function setPeriod(p, el) {
+  period = p;
+  document.querySelectorAll('.period-btn').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  var labels = {month:'2026 年 5 月（本月）',q:'2026 年 Q2（本季）',year:'2026 年（本年）'};
+  document.getElementById('period-label').textContent = labels[p];
+  showToast('已切換至：' + labels[p]);
+}
+
+function renderRsTable() {
+  var sorted = rsData.slice().sort(function(a,b){return b.sales - a.sales;});
+  var html = sorted.map(function(rs, i) {
+    var rank = i + 1;
+    var rankClass = rank <= 3 ? 'rank-'+rank : 'rank-n';
+    var rankLabel = rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : rank;
+    var trialCls = rs.trial >= 60 ? 'fill-good' : rs.trial >= 45 ? 'fill-ok' : 'fill-alert';
+    var quoteCls = rs.quote >= 70 ? 'fill-good' : rs.quote >= 55 ? 'fill-warn' : 'fill-alert';
+    var goldenCls = rs.golden >= 80 ? 'fill-good' : rs.golden >= 60 ? 'fill-warn' : 'fill-alert';
+    return '<tr>' +
+      '<td><span class="rank-badge ' + rankClass + '">' + rankLabel + '</span></td>' +
+      '<td><span class="rs-name">' + rs.name + '</span></td>' +
+      '<td><span class="rs-num" style="color:#1A3A5C;">' + rs.sales + ' 台</span></td>' +
+      '<td><span class="rs-num" style="color:#5A5955;">' + rs.rev + ' 萬</span></td>' +
+      '<td><div style="display:flex;align-items:center;"><div class="mini-bar-wrap"><div class="mini-bar-fill ' + trialCls + '" style="width:' + rs.trial + '%;"></div></div><span class="rs-num" style="font-size:12px;">' + rs.trial + '%</span></div></td>' +
+      '<td><div style="display:flex;align-items:center;"><div class="mini-bar-wrap"><div class="mini-bar-fill ' + quoteCls + '" style="width:' + rs.quote + '%;"></div></div><span class="rs-num" style="font-size:12px;">' + rs.quote + '%</span></div></td>' +
+      '<td><div style="display:flex;align-items:center;"><div class="mini-bar-wrap"><div class="mini-bar-fill ' + goldenCls + '" style="width:' + rs.golden + '%;"></div></div><span class="rs-num" style="font-size:12px;">' + rs.golden + '%</span></div></td>' +
+      '<td><span class="rs-num" style="color:' + (rs.revisit >= 90 ? '#0F6E56' : '#C8001A') + ';">' + rs.revisit + '%</span></td>' +
+      '<td><span class="badge ' + (rs.habc >= 7 ? 'b-teal' : rs.habc >= 5 ? 'b-blue' : 'b-amber') + '">' + rs.habc + ' 人</span></td>' +
+      '</tr>';
+  }).join('');
+  document.getElementById('rs-rank-tbody').innerHTML = html;
+}
+
+function renderModelGrid() {
+  var total = modelData.reduce(function(s,m){return s + m.count;}, 0);
+  var html = modelData.map(function(m) {
+    var pct = total > 0 ? Math.round(m.count / total * 100) : 0;
+    var barW = m.max > 0 ? Math.round(m.count / m.max * 100) : 0;
+    return '<div class="model-card">' +
+      '<div class="model-name">' + m.name + '</div>' +
+      '<div class="model-series">' + m.series + '</div>' +
+      '<div class="model-nums">' +
+        '<div class="model-count">' + m.count + '<span style="font-size:12px;font-weight:400;margin-left:2px;">台</span></div>' +
+        '<div>' +
+          '<div style="font-size:11px;color:#9A9890;text-align:right;">' + pct + '% 佔比</div>' +
+          '<div class="model-rev" style="text-align:right;">' + (m.rev > 0 ? m.rev + ' 萬' : '—') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="model-bar-wrap"><div class="model-bar-fill" style="width:' + barW + '%;"></div></div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('model-grid').innerHTML = html;
+}
+
+function renderChartMonthly() {
+  var maxVal = 15;
+  var h = 130;
+  var html = monthlyData.map(function(d, i) {
+    var barH = Math.round(d.v / maxVal * h);
+    var tgtH = h;
+    var isCurrent = i === monthlyData.length - 1;
+    return '<div class="chart-bar-group">' +
+      '<div class="chart-bars" style="height:' + h + 'px;">' +
+        '<div class="chart-bar bar-sales" style="height:' + barH + 'px;background:' + (isCurrent ? '#C8001A' : '#1A3A5C') + ';" data-tip="' + d.m + '：' + d.v + ' 台"></div>' +
+        '<div class="chart-bar bar-target" style="height:' + tgtH + 'px;" data-tip="目標：15 台"></div>' +
+      '</div>' +
+      '<div class="chart-x">' + d.m + '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('chart-monthly').innerHTML = html;
+}
+
+function renderChartWeekly() {
+  var maxC = 40;
+  var h = 130;
+  var html = weeklyData.map(function(d) {
+    var cH = Math.round(d.contacts / maxC * h);
+    var sH = Math.round(d.sales * 5 / maxC * h);
+    return '<div class="chart-bar-group">' +
+      '<div class="chart-bars" style="height:' + h + 'px;align-items:flex-end;">' +
+        '<div class="chart-bar" style="height:' + cH + 'px;background:#1A3A5C;" data-tip="到店：' + d.contacts + ' 人"></div>' +
+        '<div class="chart-bar" style="height:' + sH + 'px;background:#C8001A;" data-tip="成交：' + d.sales + ' 台"></div>' +
+      '</div>' +
+      '<div class="chart-x" style="font-size:10px;">' + d.w + '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('chart-weekly').innerHTML = html;
+}
+
+function renderAll() {
+  renderRsTable();
+  renderModelGrid();
+  renderChartMonthly();
+  renderChartWeekly();
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){t.classList.remove('show');}, 2500);
+}
+
+renderAll();
+</script>
+</body>
+</html>

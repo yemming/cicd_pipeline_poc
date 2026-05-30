@@ -854,6 +854,7 @@ export async function pickForWorkOrder(
     sourceDocId: wo.id,
     notes: input.notes ?? `RO ${wo.ro_no} 一鍵領料`,
     preview: previewRes.data,
+    postCogs: true,
   });
 }
 
@@ -901,6 +902,7 @@ export async function pickAdHoc(
     notes: input.notes.trim(),
     preview: previewRes.data,
     lineNotes: input.lines.map((l, i) => ({ line_no: i + 1, notes: l.line_notes ?? null })),
+    postCogs: true,
   });
 }
 
@@ -919,8 +921,14 @@ async function persistPick(args: {
   lineNotes?: Array<{ line_no: number; notes: string | null }>;
   /** 可選：依 line_no 指定該行的售價（per qty），預設用 stock_items.unit_cost。 */
   linePrices?: Array<{ line_no: number; unit_price: number }>;
+  /**
+   * 是否認列銷貨成本（COGS_ON_ISSUE：Dr 銷貨成本 / Cr 存貨）。
+   * RO 領料 / ad-hoc 出庫 = true（這些原本完全沒記 COGS，是 GL 缺口）。
+   * 內售出貨 = false（createInternalSale 自己走 PARTS_RETAIL_SALE 已含 COGS，勿重複）。
+   */
+  postCogs?: boolean;
 }): Promise<Result<{ id: string; gi_no: string }>> {
-  const { supabase, brandId, userId, type, warehouseId, customerId, roId, sourceDocType, sourceDocId, notes, preview, lineNotes, linePrices } = args;
+  const { supabase, brandId, userId, type, warehouseId, customerId, roId, sourceDocType, sourceDocId, notes, preview, lineNotes, linePrices, postCogs } = args;
 
   const gi_no = await nextGiNo(supabase);
   const now = new Date();
@@ -1009,6 +1017,37 @@ async function persistPick(args: {
       };
       if (newQty <= 0) update.status = "issued";
       await supabase.from("stock_items").update(update).eq("id", p.stock_id);
+    }
+  }
+
+  // 認列銷貨成本（COGS_ON_ISSUE）— 非阻塞、autoPost。
+  // cost_amount = 實際消耗層成本（Σ qty×unit_cost），與存貨減少完全 tie-out。
+  // 依 item 聚合，一張 entry/item（沿用 PARTS_PURCHASE 的聚合慣例）。
+  if (postCogs) {
+    const cogsByItem = new Map<string, number>();
+    for (const l of preview.lines) {
+      let c = 0;
+      for (const p of l.picks) c += p.qty * p.unit_cost;
+      if (c > 0) cogsByItem.set(l.item_id, (cogsByItem.get(l.item_id) ?? 0) + c);
+    }
+    if (cogsByItem.size > 0) {
+      const issueDate = now.toISOString().slice(0, 10);
+      after(async () => {
+        for (const [itemId, cost] of cogsByItem) {
+          const costAmount = Math.round(cost * 100) / 100;
+          if (!(costAmount > 0)) continue;
+          const res = await instantiateTransaction(
+            TX_TYPES.COGS_ON_ISSUE,
+            { item_id: itemId, cost_amount: costAmount, warehouse_id: warehouseId },
+            { autoPost: true, entryDate: issueDate, userId: userId ?? undefined },
+          );
+          if (!res.ok) {
+            console.error("[accounting] COGS_ON_ISSUE 過帳失敗", { gi_no, item_id: itemId, error: res.error });
+          } else {
+            console.log("[accounting] COGS_ON_ISSUE 已過帳", { gi_no, item_id: itemId, journal_entry: res.data });
+          }
+        }
+      });
     }
   }
 

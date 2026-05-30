@@ -15,6 +15,7 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
+import { postCostEvent } from "@/domain/costing";
 import { RECEIPTS_PAGE_SIZE_DEFAULT } from "@/domain/receipts.constants";
 
 import type { Database } from "@/lib/database.types";
@@ -448,7 +449,7 @@ export async function receiveStock(
   // 1. 撈 PO 確認狀態 + warehouse
   const { data: po, error: poErr } = await supabase
     .from("purchase_orders")
-    .select("id, po_no, vendor_id, warehouse_id, status")
+    .select("id, po_no, vendor_id, warehouse_id, status, currency, exchange_rate")
     .eq("id", input.po_id)
     .single();
   if (poErr || !po) return { ok: false, error: `找不到 PO:${poErr?.message ?? "no row"}` };
@@ -503,9 +504,13 @@ export async function receiveStock(
   const totalAmount = grLinesWithAmount.reduce((s, l) => s + l.line_amount, 0);
 
   // 5. Insert GR
+  // brand_id 必須顯式帶入 scope brand：stock_receipts.brand_id DEFAULT 'ducati'，
+  // 不帶會落到 ducati → 非 ducati 使用者被 RLS 擋 + 違反「demo 一律 indian」。
+  const scope = await getActiveScope();
   const { data: gr, error: grErr } = await supabase
     .from("stock_receipts")
     .insert({
+      brand_id: scope.brand_id,
       gr_no,
       type: "purchase",
       warehouse_id: po.warehouse_id,
@@ -523,8 +528,8 @@ export async function receiveStock(
     .single();
   if (grErr) return { ok: false, error: `建立 GR 失敗:${grErr.message}` };
 
-  // 6. Insert GR lines
-  const grLinesToInsert = grLinesWithAmount.map((l) => ({ ...l, gr_id: gr.id }));
+  // 6. Insert GR lines（brand_id 同樣顯式帶，避免 DEFAULT 'ducati' + RLS 擋）
+  const grLinesToInsert = grLinesWithAmount.map((l) => ({ ...l, gr_id: gr.id, brand_id: scope.brand_id }));
   const { data: grLines, error: grLinesErr } = await supabase
     .from("stock_receipt_lines")
     .insert(grLinesToInsert)
@@ -537,7 +542,6 @@ export async function receiveStock(
   // 7. 產生 stock_items(每張 GR line 對應 1+ 條 stock_item)
   // 量產(qty 類):一條 row qty=qty_received
   // 序列號類:展開為 N 條 qty=1 — 但目前 input 沒帶序列號明細,先一條合計
-  const scope = await getActiveScope();
   const inputLineByPoLineId = new Map(input.lines.map((l) => [l.po_line_id, l]));
   const stockItems = grLines.map((grLine, idx) => {
     const inputLine = input.lines[idx];
@@ -594,34 +598,56 @@ export async function receiveStock(
 
   void inputLineByPoLineId; // 防 unused warning
 
-  // 10. 自動產會計分錄（PARTS_PURCHASE）— 非阻塞、autoPost 直接 posted
-  // POC 階段限制：
-  //   - 整單聚合成一張 entry，item_id 取第一筆代表（多 item 拆細分錄屬 engine v2）
-  //   - SUBSIDIARY 軸由 engine normalizeSubsidiaryChain 自動從 warehouse_id 兩跳補
+  // 10. 成本帳 + GL（GR/IR 模型）— 非阻塞、autoPost 直接 posted
+  //   a) 每行 fire 成本 ledger 事件（receipt）→ 更新 inventory_cost_ledger + inventory_cost_state
+  //   b) 整單聚合一張 INVENTORY_RECEIPT 分錄：Dr 存貨 / Cr GR/IR（func/TWD）
+  //   稅與 AP 不在此認，待廠商發票 VENDOR_BILL 清 GR/IR。多幣別：用 PO 匯率把成本換成 func。
+  // POC 限制：GL 整單聚合成一張 entry、item_id 取第一筆代表（成本帳則逐行精確 fire）。
   const receiptDate = input.receipt_date ?? today.toISOString().slice(0, 10);
+  const fxRate = Number(po.exchange_rate ?? 1) || 1;
   const firstGrLine = grLinesWithAmount[0];
+  const funcGoods = Math.round(totalAmount * fxRate * 100) / 100;
   if (firstGrLine && po.vendor_id) {
-    const netAmount = Math.round(totalAmount * 100) / 100;
-    const taxAmount = Math.round(netAmount * 0.05 * 100) / 100;
     after(async () => {
+      // a) 成本事件（逐行）— func 單位成本 = PO 單位成本 × 匯率
+      for (const line of grLinesWithAmount) {
+        const costRes = await postCostEvent({
+          subjectType: "part",
+          eventType: "receipt",
+          brandId: scope.brand_id,
+          itemId: line.item_id,
+          warehouseId: po.warehouse_id ?? undefined,
+          qty: line.qty_received,
+          unitCostIn: Math.round(line.unit_cost * fxRate * 100) / 100,
+          sourceTable: "stock_receipts",
+          sourceId: gr.id,
+        });
+        if (!costRes.ok) {
+          console.error("[costing] INVENTORY_RECEIPT 成本事件失敗", {
+            gr_no,
+            item_id: line.item_id,
+            error: costRes.error,
+          });
+        }
+      }
+      // b) GL：Dr 存貨 / Cr GR/IR 零件
       const res = await instantiateTransaction(
-        TX_TYPES.PARTS_PURCHASE,
+        TX_TYPES.INVENTORY_RECEIPT,
         {
           supplier_id: po.vendor_id,
           item_id: firstGrLine.item_id,
-          net_amount: netAmount,
-          tax_amount: taxAmount,
+          func_goods: funcGoods,
           warehouse_id: po.warehouse_id,
         },
         { autoPost: true, entryDate: receiptDate },
       );
       if (!res.ok) {
-        console.error("[accounting] PARTS_PURCHASE 自動過帳失敗", {
+        console.error("[accounting] INVENTORY_RECEIPT 自動過帳失敗", {
           gr_no,
           error: res.error,
         });
       } else {
-        console.log("[accounting] PARTS_PURCHASE 已自動過帳（posted）", {
+        console.log("[accounting] INVENTORY_RECEIPT 已自動過帳（posted）", {
           gr_no,
           journal_entry: res.data,
         });
@@ -989,7 +1015,13 @@ export async function voidReceipt(
 }
 
 // ─────────────────────────────────────────────────────────────
-// Pay supplier — 沖 PARTS_PURCHASE 產生的 AP
+// Pay supplier — 沖 AP（metadata 捷徑）
+//
+// @deprecated GR/IR 模型上線後（receiveStock 改走 INVENTORY_RECEIPT、進貨認 GR/IR 不認 AP），
+// 此捷徑的 VENDOR_PAYMENT_BANK(Dr AP/Cr 銀行) 會借一個從未貸過的 AP → 帳會歪。
+// 正式付款一律走 廠商發票(vendor-bills.ts) → 付款(payments.ts) 流程。
+// 留著不刪、不自動 fire（需人工點），待下一輪 vendor-bill UI 落地時把 GRN 詳情頁的
+// 「結款」按鈕改為「建立廠商發票」並移除此捷徑。returnReceipt 同此處置。
 // ─────────────────────────────────────────────────────────────
 
 export type PayReceiptInput = {

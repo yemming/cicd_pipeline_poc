@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS01 電子手卡 v8 — DUCATI 銷售接待</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+
+/* ── Header ── */
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-red{background:rgba(200,0,26,.75);border-color:transparent;}
+.hbtn-red:hover{background:rgba(200,0,26,.95);}
+.hbtn-teal{background:rgba(15,110,86,.75);border-color:transparent;}
+.hbtn-teal:hover{background:rgba(15,110,86,.95);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+
+/* ── Sub bar ── */
+.sub-bar{background:#fff;border-bottom:1px solid #EEECE6;padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.sub-label{font-size:11px;color:#9A9890;font-weight:600;letter-spacing:.3px;}
+.sub-tag{display:inline-flex;align-items:center;gap:5px;background:#F1EFE8;border:1px solid #D5D3CB;border-radius:5px;padding:3px 10px;font-size:11.5px;color:#5A5955;}
+.sub-tag.new-visit{background:#EAF4FB;border-color:#85B7EB;color:#0C3E70;}
+.sub-tag.revisit{background:#EEEDFE;border-color:#AFA9EC;color:#26215C;}
+.sub-tag.owner{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}
+.sub-tag.switcher{background:#FDF3E3;border-color:#F0C97E;color:#854F0B;}
+.sub-divider{width:1px;height:18px;background:#EEECE6;}
+.progress-steps{display:flex;align-items:center;gap:4px;}
+.prog-step{display:flex;align-items:center;gap:4px;font-size:11px;}
+.prog-dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;transition:all .2s;}
+.prog-dot.done{background:#0F6E56;color:#fff;}
+.prog-dot.active{background:#1A3A5C;color:#fff;box-shadow:0 0 0 3px rgba(26,58,92,.2);}
+.prog-dot.todo{background:#EEECE6;color:#9A9890;}
+.prog-label{color:#7A7A78;white-space:nowrap;}
+.prog-label.active{color:#1A3A5C;font-weight:600;}
+.prog-arr{color:#D5D3CB;font-size:10px;}
+
+/* ── Layout ── */
+.main{max-width:1100px;margin:0 auto;padding:18px 24px 40px;}
+
+/* ── 來客身份選擇（Identity Selector）── */
+.identity-banner{border-radius:10px;padding:14px 18px;margin-bottom:16px;border:1.5px solid;}
+.ib-new{background:#EAF4FB;border-color:#85B7EB;}
+.ib-revisit{background:#EEEDFE;border-color:#AFA9EC;}
+.ib-owner{background:#E1F5EE;border-color:#5DCAA5;}
+.ib-switcher{background:#FDF3E3;border-color:#F0C97E;}
+.ib-row{display:flex;align-items:center;gap:12px;}
+.ib-icon{font-size:20px;flex-shrink:0;}
+.ib-text{flex:1;}
+.ib-title{font-size:13px;font-weight:700;margin-bottom:2px;}
+.ib-desc{font-size:11.5px;line-height:1.5;}
+.ib-new .ib-title{color:#0C3E70;}
+.ib-revisit .ib-title{color:#26215C;}
+.ib-owner .ib-title{color:#0F6E56;}
+.ib-switcher .ib-title{color:#854F0B;}
+.ib-new .ib-desc{color:#1A5A8C;}
+.ib-revisit .ib-desc{color:#3D387A;}
+.ib-owner .ib-desc{color:#156E52;}
+.ib-switcher .ib-desc{color:#9A5700;}
+
+/* Identity type selector */
+.identity-selector{background:#fff;border:1px solid #EEECE6;border-radius:10px;padding:16px;margin-bottom:16px;}
+.id-sel-title{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.id-sel-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.id-type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.id-type-card{border-radius:9px;padding:13px 12px;cursor:pointer;border:2px solid #EEECE6;background:#FAFAF8;transition:all .15s;text-align:center;}
+.id-type-card:hover{border-color:#B4B2A9;background:#F4F3F0;}
+.id-type-card.selected.new{border-color:#185FA5;background:#EAF4FB;}
+.id-type-card.selected.revisit{border-color:#534AB7;background:#EEEDFE;}
+.id-type-card.selected.owner{border-color:#0F6E56;background:#E1F5EE;}
+.id-type-card.selected.switcher{border-color:#854F0B;background:#FDF3E3;}
+.id-icon{font-size:22px;margin-bottom:6px;}
+.id-label{font-size:12px;font-weight:600;color:#2C2C2A;margin-bottom:2px;}
+.id-hint{font-size:10.5px;color:#9A9890;line-height:1.4;}
+.id-type-card.selected.new .id-label{color:#0C3E70;}
+.id-type-card.selected.revisit .id-label{color:#26215C;}
+.id-type-card.selected.owner .id-label{color:#085041;}
+.id-type-card.selected.switcher .id-label{color:#6B3A00;}
+
+/* ── 兩欄佈局 ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+
+/* ── Section / Panel ── */
+.section{background:#fff;border:1px solid #EEECE6;border-radius:10px;margin-bottom:14px;overflow:hidden;}
+.section-hdr{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.section-left{display:flex;align-items:center;gap:10px;}
+.sicon{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.si-blue{background:#EAF4FB;}
+.si-teal{background:#E1F5EE;}
+.si-amber{background:#FDF3E3;}
+.si-red{background:#FDECEA;}
+.si-purple{background:#EEEDFE;}
+.si-dark{background:#E8EDF2;}
+.section-title{font-size:13px;font-weight:600;color:#2C2C2A;}
+.section-note{font-size:11px;color:#9A9890;margin-top:1px;}
+.section-badge{display:flex;align-items:center;gap:6px;}
+.section-body{padding:16px;}
+
+/* ── Form Elements ── */
+.form-row{margin-bottom:13px;}
+.form-row:last-child{margin-bottom:0;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:5px;display:flex;align-items:center;gap:5px;}
+.form-req{color:#C8001A;font-size:11px;}
+.form-hint{font-size:11px;color:#9A9890;margin-top:3px;line-height:1.5;}
+.form-input{width:100%;padding:8px 11px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;transition:border .15s;background:#fff;}
+.form-input:focus{border-color:#85B7EB;box-shadow:0 0 0 3px rgba(133,183,235,.12);}
+.form-input[readonly]{background:#F8F7F4;color:#7A7A78;cursor:not-allowed;}
+.form-input.prefilled{background:#F0F9FF;border-color:#85B7EB;color:#0C3E70;}
+.form-select{width:100%;padding:8px 11px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;cursor:pointer;}
+.form-select:focus{border-color:#85B7EB;}
+.form-textarea{width:100%;padding:8px 11px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;resize:vertical;min-height:72px;transition:border .15s;background:#fff;}
+.form-textarea:focus{border-color:#85B7EB;}
+.input-group{display:flex;gap:8px;}
+.input-group .form-input{flex:1;}
+.input-addon{padding:8px 11px;background:#F1EFE8;border:1px solid #D5D3CB;border-radius:6px;font-size:12px;color:#5A5955;white-space:nowrap;display:flex;align-items:center;}
+
+/* ── 唯讀回寫欄位 ── */
+.readonly-block{background:#F8F7F4;border:1px solid #EEECE6;border-radius:7px;padding:10px 13px;display:flex;align-items:center;gap:10px;}
+.readonly-block.from-rs02{background:#F0F9FF;border-color:#85B7EB;}
+.readonly-block.from-rs06{background:#FDF8F0;border-color:#F0C97E;}
+.rb-icon{font-size:14px;flex-shrink:0;}
+.rb-label{font-size:10.5px;color:#9A9890;margin-bottom:2px;}
+.rb-val{font-size:12.5px;font-weight:600;color:#2C2C2A;}
+.rb-source{font-size:10px;color:#9A9890;margin-top:1px;font-family:'DM Mono',monospace;}
+
+/* ── 多選車款 ── */
+.bike-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.bike-chip{border-radius:7px;padding:8px 10px;cursor:pointer;border:1.5px solid #EEECE6;background:#FAFAF8;transition:all .15s;display:flex;align-items:center;gap:7px;}
+.bike-chip:hover{border-color:#B4B2A9;}
+.bike-chip.selected{border-color:#1A3A5C;background:#EAF4FB;}
+.bike-chip input[type=checkbox]{width:14px;height:14px;accent-color:#1A3A5C;flex-shrink:0;}
+.bike-chip-label{font-size:12px;color:#2C2C2A;line-height:1.3;}
+.bike-chip.selected .bike-chip-label{color:#0C3E70;font-weight:600;}
+.bike-series{font-size:9.5px;color:#9A9890;display:block;margin-top:1px;}
+
+/* ── HABC 輔助建議 ── */
+.habc-suggest{border-radius:9px;padding:13px 15px;margin-top:12px;display:flex;align-items:flex-start;gap:12px;}
+.habc-suggest.grade-H{background:#FDECEA;border:1.5px solid #F5AEAD;}
+.habc-suggest.grade-A{background:#FDF3E3;border:1.5px solid #F0C97E;}
+.habc-suggest.grade-B{background:#EAF4FB;border:1.5px solid #85B7EB;}
+.habc-suggest.grade-C{background:#F1EFE8;border:1.5px solid #D5D3CB;}
+.habc-icon{font-size:22px;flex-shrink:0;margin-top:1px;}
+.habc-body{flex:1;}
+.habc-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.habc-grade-badge{font-size:13px;font-weight:700;font-family:'DM Mono',monospace;padding:2px 10px;border-radius:5px;}
+.grade-H .habc-grade-badge{background:#C8001A;color:#fff;}
+.grade-A .habc-grade-badge{background:#854F0B;color:#fff;}
+.grade-B .habc-grade-badge{background:#185FA5;color:#fff;}
+.grade-C .habc-grade-badge{background:#5A5955;color:#fff;}
+.habc-sys-label{font-size:10.5px;color:#9A9890;}
+.habc-reason{font-size:12px;line-height:1.6;margin-bottom:8px;}
+.grade-H .habc-reason{color:#7A1010;}
+.grade-A .habc-reason{color:#6B3A00;}
+.grade-B .habc-reason{color:#0C3E70;}
+.grade-C .habc-reason{color:#5A5955;}
+.habc-override-row{display:flex;align-items:center;gap:8px;}
+.habc-override-label{font-size:11px;color:#9A9890;}
+.habc-btns{display:flex;gap:5px;}
+.habc-grade-btn{padding:3px 10px;border-radius:5px;font-size:11.5px;font-weight:700;border:1.5px solid;cursor:pointer;font-family:'DM Mono',monospace;transition:all .12s;}
+.habc-grade-btn.h{background:#FDECEA;border-color:#F5AEAD;color:#C8001A;}
+.habc-grade-btn.a{background:#FDF3E3;border-color:#F0C97E;color:#854F0B;}
+.habc-grade-btn.b{background:#EAF4FB;border-color:#85B7EB;color:#185FA5;}
+.habc-grade-btn.c{background:#F1EFE8;border-color:#D5D3CB;color:#5A5955;}
+.habc-grade-btn.active{box-shadow:0 0 0 2px currentColor;}
+
+/* ── 四色標籤系統 ── */
+.tag-area{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.tag-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:500;cursor:pointer;border:1.5px solid;transition:all .12s;user-select:none;}
+.tag-chip.t-red{background:#FDECEA;border-color:#F5AEAD;color:#C8001A;}
+.tag-chip.t-yellow{background:#FDF3E3;border-color:#F0C97E;color:#854F0B;}
+.tag-chip.t-green{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}
+.tag-chip.t-blue{background:#EAF4FB;border-color:#85B7EB;color:#185FA5;}
+.tag-chip.active{box-shadow:0 0 0 2px currentColor;}
+.tag-chip .tag-x{font-size:12px;font-weight:700;margin-left:2px;opacity:.6;}
+.tag-chip:hover .tag-x{opacity:1;}
+.tag-legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.tag-legend-item{display:flex;align-items:center;gap:4px;font-size:10.5px;color:#7A7A78;}
+.tag-dot{width:8px;height:8px;border-radius:50%;}
+.tag-dot.red{background:#C8001A;}
+.tag-dot.yellow{background:#F0C97E;}
+.tag-dot.green{background:#5DCAA5;}
+.tag-dot.blue{background:#185FA5;}
+.tag-lib-section{margin-bottom:10px;}
+.tag-lib-title{font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+.tag-lib-title.red{color:#C8001A;}
+.tag-lib-title.yellow{color:#854F0B;}
+.tag-lib-title.green{color:#0F6E56;}
+.tag-lib-title.blue{color:#185FA5;}
+.tag-custom-row{display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed #EEECE6;}
+
+/* ── 再訪帶出歷史 ── */
+.history-block{background:#F8F0FE;border:1px solid #CFC9FF;border-radius:9px;padding:13px 15px;margin-bottom:14px;}
+.history-title{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#534AB7;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.history-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.history-item{background:#fff;border:1px solid #D4D0FF;border-radius:7px;padding:9px 11px;}
+.hi-label{font-size:10px;color:#9A9890;margin-bottom:3px;}
+.hi-val{font-size:12.5px;font-weight:600;color:#26215C;}
+.hi-sub{font-size:10px;color:#534AB7;margin-top:2px;}
+.history-tags-row{margin-top:8px;}
+.history-tags-label{font-size:10.5px;color:#9A9890;margin-bottom:4px;}
+.history-note{margin-top:8px;font-size:11.5px;color:#5A4A90;line-height:1.6;background:#fff;border:1px solid #D4D0FF;border-radius:6px;padding:8px 11px;}
+
+/* ── 老車主特殊區塊 ── */
+.owner-block{background:#E8F5EE;border:1px solid #5DCAA5;border-radius:9px;padding:13px 15px;margin-bottom:14px;}
+.owner-title{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#0F6E56;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.owner-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.owner-item{background:#fff;border:1px solid #A0DCC4;border-radius:7px;padding:9px 11px;}
+.oi-label{font-size:10px;color:#9A9890;margin-bottom:3px;}
+.oi-val{font-size:12.5px;font-weight:600;color:#085041;}
+.owner-alert{margin-top:8px;background:#FDF3E3;border:1px solid #F0C97E;border-radius:6px;padding:8px 11px;font-size:11.5px;color:#854F0B;display:flex;align-items:flex-start;gap:6px;}
+
+/* ── 他牌換購特殊區塊 ── */
+.switcher-block{background:#FDF8EE;border:1px solid #F0C97E;border-radius:9px;padding:13px 15px;margin-bottom:14px;}
+.switcher-title{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#854F0B;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+
+/* ── 跳轉按鈕（子模組）── */
+.jump-btn{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;border:1.5px solid;cursor:pointer;transition:all .15s;font-family:'Noto Sans TC',sans-serif;width:100%;background:#fff;text-align:left;}
+.jump-btn:hover{box-shadow:0 2px 8px rgba(0,0,0,.08);}
+.jump-btn.to-rs02{border-color:#5DCAA5;color:#0F6E56;}
+.jump-btn.to-rs02:hover{background:#E1F5EE;}
+.jump-btn.to-rs06{border-color:#F0C97E;color:#854F0B;}
+.jump-btn.to-rs06:hover{background:#FDF3E3;}
+.jump-btn.to-rs03a{border-color:#85B7EB;color:#185FA5;}
+.jump-btn.to-rs03a:hover{background:#EAF4FB;}
+.jump-btn.to-rs03b{border-color:#AFA9EC;color:#534AB7;}
+.jump-btn.to-rs03b:hover{background:#EEEDFE;}
+.jump-icon{font-size:16px;flex-shrink:0;}
+.jump-text{flex:1;}
+.jump-title{font-size:12.5px;font-weight:600;line-height:1.3;}
+.jump-sub{font-size:11px;color:#9A9890;margin-top:1px;}
+.jump-arr{font-size:14px;opacity:.5;}
+.jump-status{font-size:10.5px;padding:2px 7px;border-radius:4px;flex-shrink:0;}
+.status-pending{background:#F1EFE8;color:#5A5955;border:1px solid #D5D3CB;}
+.status-done{background:#E1F5EE;color:#0F6E56;border:1px solid #5DCAA5;}
+.status-alert{background:#FDECEA;color:#C8001A;border:1px solid #F5AEAD;}
+
+/* ── 報價三觸發時機提示 ── */
+.quote-trigger{border-radius:8px;padding:11px 13px;display:flex;gap:9px;align-items:flex-start;margin-bottom:8px;}
+.qt-gold{background:#FDF8E8;border:1.5px solid #D4A800;}
+.qt-normal{background:#EAF4FB;border:1px solid #85B7EB;}
+.qt-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.qt-text{flex:1;}
+.qt-title{font-size:12px;font-weight:700;margin-bottom:2px;}
+.qt-gold .qt-title{color:#6B3A00;}
+.qt-normal .qt-title{color:#0C3E70;}
+.qt-desc{font-size:11.5px;line-height:1.5;}
+.qt-gold .qt-desc{color:#9A5700;}
+.qt-normal .qt-desc{color:#1A5A8C;}
+
+/* ── KPI 快速顯示 ── */
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.kpi-mini{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:10px 12px;}
+.kpi-mini-l{font-size:10.5px;color:#9A9890;margin-bottom:3px;}
+.kpi-mini-n{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.kpi-mini-n.blue{color:#185FA5;}
+.kpi-mini-n.teal{color:#0F6E56;}
+.kpi-mini-n.amber{color:#854F0B;}
+.kpi-mini-n.red{color:#C8001A;}
+
+/* ── Buttons ── */
+.btn{padding:7px 18px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-teal{background:#0F6E56;border-color:#0F6E56;color:#fff;}
+.btn-teal:hover{background:#0A5642;}
+.btn-red{background:#C8001A;border-color:#C8001A;color:#fff;}
+.btn-red:hover{background:#A80015;}
+.btn-amber{background:#FDF3E3;border-color:#F0C97E;color:#854F0B;}
+.btn-amber:hover{background:#FAE8C4;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+.btn-xs{padding:3px 9px;font-size:11px;}
+
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-blue{background:#EAF4FB;color:#185FA5;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}
+.b-amber{background:#FDF3E3;color:#854F0B;}
+.b-red{background:#FDECEA;color:#C8001A;}
+.b-gray{background:#F1EFE8;color:#5A5955;}
+.b-purple{background:#EEEDFE;color:#534AB7;}
+.b-gold{background:#FFF8DC;color:#8B6800;border:1px solid #D4A800;}
+
+/* ── Divider ── */
+.divider{height:1px;background:#EEECE6;margin:12px 0;}
+.divider-dashed{height:1px;border-top:1px dashed #EEECE6;margin:12px 0;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:320px;display:flex;align-items:center;gap:8px;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:480px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-lg{width:620px;}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;line-height:1;padding:2px 6px;}
+.modal-body{padding:20px;max-height:70vh;overflow-y:auto;}
+.modal-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+
+/* ── 固定底部操作列 ── */
+.footer-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #EEECE6;padding:11px 24px;display:flex;align-items:center;justify-content:space-between;z-index:80;box-shadow:0 -2px 12px rgba(0,0,0,.07);}
+.footer-left{display:flex;align-items:center;gap:10px;}
+.footer-right{display:flex;gap:8px;align-items:center;}
+.auto-save-tag{font-size:11px;color:#9A9890;display:flex;align-items:center;gap:4px;}
+.auto-save-dot{width:6px;height:6px;border-radius:50%;background:#5DCAA5;}
+
+/* ── 區塊 spacing ── */
+.mb14{margin-bottom:14px;}
+
+/* ── 老車主保險提示 Callout ── */
+.insurance-callout{background:#FDF3E3;border:1.5px solid #F0C97E;border-radius:9px;padding:12px 15px;display:flex;gap:10px;align-items:flex-start;}
+.ins-icon{font-size:18px;flex-shrink:0;}
+.ins-title{font-size:12.5px;font-weight:700;color:#6B3A00;margin-bottom:3px;}
+.ins-desc{font-size:11.5px;color:#9A5700;line-height:1.5;}
+.ins-link{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:11.5px;font-weight:600;color:#854F0B;cursor:pointer;text-decoration:underline;}
+
+/* ── 黃金時刻強制提示 ── */
+.golden-moment{background:linear-gradient(135deg,#FFF8DC 0%,#FDF3E3 100%);border:2px solid #D4A800;border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;position:relative;overflow:hidden;}
+.golden-moment::before{content:'★';position:absolute;right:12px;top:10px;font-size:32px;color:rgba(212,168,0,.15);}
+.gm-icon{font-size:22px;flex-shrink:0;}
+.gm-title{font-size:14px;font-weight:700;color:#6B3A00;margin-bottom:4px;}
+.gm-desc{font-size:12px;color:#9A5700;line-height:1.6;margin-bottom:10px;}
+.gm-btn{background:#D4A800;border:none;color:#fff;padding:7px 18px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .15s;}
+.gm-btn:hover{background:#B08C00;}
+
+/* ── CRM 同步提示 ── */
+.crm-sync-box{background:#E8EDF2;border:1px solid #8FAABB;border-radius:8px;padding:11px 14px;display:flex;align-items:center;gap:10px;margin-top:12px;}
+.crm-sync-icon{font-size:16px;}
+.crm-sync-text{flex:1;font-size:12px;color:#1A2E3A;}
+.crm-sync-text b{color:#1A3A5C;}
+
+/* ── 意向強度 ── */
+.intent-row{display:flex;gap:8px;}
+.intent-btn{flex:1;padding:8px 6px;border-radius:7px;border:1.5px solid #EEECE6;background:#FAFAF8;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-size:11.5px;text-align:center;transition:all .15s;line-height:1.4;}
+.intent-btn:hover{border-color:#B4B2A9;}
+.intent-btn.sel-5{border-color:#C8001A;background:#FDECEA;color:#C8001A;font-weight:700;}
+.intent-btn.sel-4{border-color:#F0C97E;background:#FDF3E3;color:#854F0B;font-weight:700;}
+.intent-btn.sel-3{border-color:#85B7EB;background:#EAF4FB;color:#185FA5;font-weight:700;}
+.intent-btn.sel-2{border-color:#D5D3CB;background:#F1EFE8;color:#5A5955;font-weight:700;}
+.intent-btn.sel-1{border-color:#D5D3CB;background:#F4F3F0;color:#9A9890;font-weight:700;}
+.intent-label{font-size:11px;color:#9A9890;margin-top:4px;font-weight:400;}
+
+/* ── 購買時機輔助 ── */
+.timing-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.timing-card{border-radius:7px;padding:9px 11px;border:1.5px solid #EEECE6;background:#FAFAF8;cursor:pointer;transition:all .15s;}
+.timing-card:hover{border-color:#B4B2A9;}
+.timing-card.sel{border-color:#1A3A5C;background:#EAF4FB;}
+.timing-card input[type=radio]{display:none;}
+.timing-title{font-size:12px;font-weight:600;color:#2C2C2A;}
+.timing-card.sel .timing-title{color:#0C3E70;}
+.timing-sub{font-size:10.5px;color:#9A9890;margin-top:2px;line-height:1.4;}
+.timing-card.sel .timing-sub{color:#185FA5;}
+
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售接待 <b>RS01 電子手卡</b></div>
+  <div class="ver-badge">v8</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS00_銷售模組_導覽總覽_v2.html')">← 總覽</button>
+    <button class="hbtn" onclick="openModal('modal-history-list')">📋 手卡記錄</button>
+    <button class="hbtn hbtn-teal" onclick="openCrmSync()">⇅ CRM 同步</button>
+    <button class="hbtn hbtn-red" onclick="confirmSave()">💾 儲存手卡</button>
+  </div>
+</header>
+
+<!-- ── Sub Bar（進度 + 身份標籤）── -->
+<div class="sub-bar">
+  <div class="sub-label">身份</div>
+  <div class="sub-tag" id="identity-tag-display">— 尚未選擇 —</div>
+  <div class="sub-divider"></div>
+  <div class="progress-steps" id="progress-bar">
+    <div class="prog-step"><div class="prog-dot active" id="pdot-1">1</div><div class="prog-label active" id="plbl-1">接待建檔</div></div>
+    <div class="prog-arr">›</div>
+    <div class="prog-step"><div class="prog-dot todo" id="pdot-2">2</div><div class="prog-label" id="plbl-2">意向確認</div></div>
+    <div class="prog-arr">›</div>
+    <div class="prog-step"><div class="prog-dot todo" id="pdot-3">3</div><div class="prog-label" id="plbl-3">試駕/鑑價</div></div>
+    <div class="prog-arr">›</div>
+    <div class="prog-step"><div class="prog-dot todo" id="pdot-4">4</div><div class="prog-label" id="plbl-4">報價追蹤</div></div>
+    <div class="prog-arr">›</div>
+    <div class="prog-step"><div class="prog-dot todo" id="pdot-5">5</div><div class="prog-label" id="plbl-5">成交交車</div></div>
+  </div>
+  <div class="sub-divider"></div>
+  <div style="font-size:11px;color:#9A9890;">RS：<b style="color:#1A3A5C;">林佳蓉</b></div>
+  <div style="font-size:11px;color:#9A9890;margin-left:auto;">手卡編號 <span style="font-family:'DM Mono',monospace;font-weight:600;color:#2C2C2A;">#RC-2026-0510-047</span></div>
+</div>
+
+<!-- ── Main ── -->
+<div class="main">
+
+<!-- ★ STEP 0：來客身份選擇 ── -->
+<div class="section mb14" id="section-identity">
+  <div class="section-hdr">
+    <div class="section-left">
+      <div class="sicon si-dark">🎯</div>
+      <div>
+        <div class="section-title">來客身份確認</div>
+        <div class="section-note">決定後續表單邏輯 · 可在儲存前修改</div>
+      </div>
+    </div>
+    <div class="section-badge"><span class="badge b-red">必填</span></div>
+  </div>
+  <div class="section-body">
+    <div class="id-sel-title">請選擇來客身份類型</div>
+    <div class="id-type-grid">
+      <div class="id-type-card" id="id-new" onclick="selectIdentity('new')">
+        <div class="id-icon">🆕</div>
+        <div class="id-label">首次來訪</div>
+        <div class="id-hint">從未到訪，無歷史記錄<br>建立全新手卡</div>
+      </div>
+      <div class="id-type-card" id="id-revisit" onclick="selectIdentity('revisit')">
+        <div class="id-icon">🔄</div>
+        <div class="id-label">潛客再訪</div>
+        <div class="id-hint">曾建檔，有歷史追蹤記錄<br>自動帶出上次資訊</div>
+      </div>
+      <div class="id-type-card" id="id-owner" onclick="selectIdentity('owner')">
+        <div class="id-icon">🏍️</div>
+        <div class="id-label">DUCATI 老車主</div>
+        <div class="id-hint">現有車主回廠或洽換新車<br>自動帶出車輛資料</div>
+      </div>
+      <div class="id-type-card" id="id-switcher" onclick="selectIdentity('switcher')">
+        <div class="id-icon">🔀</div>
+        <div class="id-label">他牌換購</div>
+        <div class="id-hint">其他品牌車主考慮換購<br>需記錄現有車輛與品牌</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ★ 再訪歷史帶出（潛客再訪時顯示）── -->
+<div class="history-block" id="block-history" style="display:none;">
+  <div class="history-title">🔄 潛客再訪記錄 — 自動帶入上次資訊</div>
+  <div class="history-grid">
+    <div class="history-item"><div class="hi-label">上次到訪</div><div class="hi-val">2026-04-22</div><div class="hi-sub">距今 18 天</div></div>
+    <div class="history-item"><div class="hi-label">接待 RS</div><div class="hi-val">林佳蓉</div><div class="hi-sub">本次同一 RS</div></div>
+    <div class="history-item"><div class="hi-label">當時 HABC</div><div class="hi-val">B 級潛客</div><div class="hi-sub">本次重新評估</div></div>
+    <div class="history-item"><div class="hi-label">意向車款</div><div class="hi-val">Panigale V4</div><div class="hi-sub">+ Streetfighter V4</div></div>
+    <div class="history-item"><div class="hi-label">上次進展</div><div class="hi-val">已試乘</div><div class="hi-sub">未開立報價單</div></div>
+    <div class="history-item"><div class="hi-label">黃金時刻</div><div class="hi-val">未把握</div><div class="hi-sub" style="color:#C8001A;">⚠ 本次須主動報價</div></div>
+  </div>
+  <div class="history-tags-row">
+    <div class="history-tags-label">上次標籤：</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;">
+      <span class="tag-chip t-blue active">🔵 試過一次試駕</span>
+      <span class="tag-chip t-yellow active">🟡 偏好 Panigale 系列</span>
+      <span class="tag-chip t-red active">🔴 預算仍在確認</span>
+    </div>
+  </div>
+  <div class="history-note">📝 上次備註：客戶試乘 Panigale V4 後非常滿意操控性，但表示需再考慮預算與保險費用。建議再訪時主動提出分期方案並立即開報價單。</div>
+</div>
+
+<!-- ★ 老車主資料帶出（老車主時顯示）── -->
+<div class="owner-block" id="block-owner" style="display:none;">
+  <div class="owner-title">🏍️ DUCATI 老車主車輛資料</div>
+  <div class="owner-grid">
+    <div class="owner-item"><div class="oi-label">現有車款</div><div class="oi-val">Monster 821</div></div>
+    <div class="owner-item"><div class="oi-label">車牌</div><div class="oi-val">ABC-1234</div></div>
+    <div class="owner-item"><div class="oi-label">購入日期</div><div class="oi-val">2021-03-15</div></div>
+    <div class="owner-item"><div class="oi-label">里程數</div><div class="oi-val">38,500 km</div></div>
+    <div class="owner-item"><div class="oi-label">Desmo Service</div><div class="oi-val">2024-11 完成</div></div>
+    <div class="owner-item"><div class="oi-label">保險到期</div><div class="oi-val">2026-08-31</div></div>
+  </div>
+  <div class="owner-alert">
+    ⚠️ 保險將於 3.5 個月後到期，建議主動提醒續保並詢問換車意願，連結 RS_EX1 保險工作台。
+  </div>
+</div>
+
+<!-- ★ 他牌換購區塊（他牌時顯示）── -->
+<div class="switcher-block" id="block-switcher" style="display:none;">
+  <div class="switcher-title">🔀 他牌換購資訊</div>
+  <div class="two-col" style="margin-bottom:0;">
+    <div class="form-row" style="margin-bottom:0;">
+      <div class="form-label">現有車款品牌 <span class="form-req">*</span></div>
+      <select class="form-select" id="sw-brand">
+        <option value="">— 請選擇 —</option>
+        <option>BMW Motorrad</option>
+        <option>Triumph</option>
+        <option>MV Agusta</option>
+        <option>KAWASAKI（大型）</option>
+        <option>YAMAHA（大型）</option>
+        <option>Honda（大型）</option>
+        <option>其他進口品牌</option>
+      </select>
+    </div>
+    <div class="form-row" style="margin-bottom:0;">
+      <div class="form-label">現有車款型號</div>
+      <input type="text" class="form-input" id="sw-model" placeholder="例：BMW R1250GS、Triumph Tiger 900">
+    </div>
+    <div class="form-row" style="margin-bottom:0;">
+      <div class="form-label">換購原因</div>
+      <select class="form-select" id="sw-reason">
+        <option value="">— 請選擇 —</option>
+        <option>想體驗義式超跑操控</option>
+        <option>對 DUCATI 品牌忠誠度高</option>
+        <option>朋友推薦 / 口碑</option>
+        <option>參加 DRE 學院後被吸引</option>
+        <option>其他</option>
+      </select>
+    </div>
+    <div class="form-row" style="margin-bottom:0;">
+      <div class="form-label">舊車處理方式</div>
+      <select class="form-select" id="sw-disposal">
+        <option value="">— 請選擇 —</option>
+        <option>自行處理</option>
+        <option>希望本店協助估價（→ RS06）</option>
+        <option>已有買家</option>
+        <option>送人</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- ★ STEP 1：基本接待資訊 ── -->
+<div class="section mb14">
+  <div class="section-hdr">
+    <div class="section-left">
+      <div class="sicon si-blue">👤</div>
+      <div>
+        <div class="section-title">基本接待資訊</div>
+        <div class="section-note">來客基本資料 · 到店時間與來源管道</div>
+      </div>
+    </div>
+    <div class="section-badge"><span class="badge b-blue">Step 1</span></div>
+  </div>
+  <div class="section-body">
+    <div class="two-col">
+      <div>
+        <div class="form-row">
+          <div class="form-label">客戶姓名 <span class="form-req">*</span></div>
+          <input type="text" class="form-input" id="cust-name" placeholder="例：王大明" oninput="updateHeaderName(this.value)">
+        </div>
+        <div class="form-row">
+          <div class="form-label">聯絡電話 <span class="form-req">*</span></div>
+          <div class="input-group">
+            <input type="tel" class="form-input" id="cust-phone" placeholder="0912-345-678">
+            <div class="input-addon">📱 LINE</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">Email</div>
+          <input type="email" class="form-input" id="cust-email" placeholder="example@mail.com">
+        </div>
+        <div class="form-row">
+          <div class="form-label">年齡層</div>
+          <select class="form-select" id="cust-age">
+            <option value="">— 請選擇 —</option>
+            <option>25歲以下</option>
+            <option>25–34歲</option>
+            <option>35–44歲</option>
+            <option>45–54歲</option>
+            <option>55歲以上</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <div class="form-row">
+          <div class="form-label">到店日期 <span class="form-req">*</span></div>
+          <input type="date" class="form-input" id="arrive-date" value="2026-05-10">
+        </div>
+        <div class="form-row">
+          <div class="form-label">到店時間</div>
+          <div class="input-group">
+            <input type="time" class="form-input" id="arrive-time" value="14:30">
+            <div class="input-addon">離店：自動帶入</div>
+          </div>
+          <div class="form-hint">離店時間於儲存時自動記錄在店時長</div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">來店管道 <span class="form-req">*</span></div>
+          <select class="form-select" id="arrive-source">
+            <option value="">— 請選擇（讀取 RS_SET）—</option>
+            <option>展廳到訪</option>
+            <option>車展活動</option>
+            <option>FB／IG 社群</option>
+            <option>老車主轉介紹</option>
+            <option>DSPOT App</option>
+            <option>活動現場（DRE）</option>
+            <option>騎士節活動</option>
+            <option>Track Day</option>
+          </select>
+          <div class="form-hint">選項由 RS_SET 參數設定頁管理</div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">接待 RS <span class="form-req">*</span></div>
+          <select class="form-select" id="rs-assign">
+            <option>林佳蓉</option>
+            <option>陳雅惠</option>
+            <option>張志明</option>
+            <option>王俊傑</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ★ STEP 2：意向車款（多選）── -->
+<div class="section mb14">
+  <div class="section-hdr">
+    <div class="section-left">
+      <div class="sicon si-red">🏍️</div>
+      <div>
+        <div class="section-title">意向車款</div>
+        <div class="section-note">可複選新車 + 中古車 · 勾選後可跳轉庫存看板</div>
+      </div>
+    </div>
+    <div class="section-badge"><span class="badge b-blue">Step 2</span></div>
+  </div>
+  <div class="section-body">
+    <div class="form-label" style="margin-bottom:10px;">意向新車車款（可複選）</div>
+    <div class="bike-grid mb14">
+      <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">Panigale V4<span class="bike-series">超跑系列</span></div></label>
+      <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">Panigale V2<span class="bike-series">超跑系列</span></div></label>
+      <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">Streetfighter V4<span class="bike-series">街車系列</span></div></label>
+      <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">Streetfighter V2<span class="bike-series">街車系列</span></div></label>
+      <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">Monster SP<span class="bike-series">Monster 系列</span></div></label>
+      <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">Multistrada V4<span class="bike-series">越野旅行</span></div></label>
+      <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">Diavel V4<span class="bike-series">動力巡航</span></div></label>
+      <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">Scrambler<span class="bike-series">Scrambler 系列</span></div></label>
+      <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">其他 / 未確定<span class="bike-series">待進一步確認</span></div></label>
+    </div>
+
+    <div class="divider-dashed"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;margin-top:12px;">
+      <div class="form-label" style="margin-bottom:0;">亦有中古車意向</div>
+      <label class="tag-chip t-purple" style="cursor:pointer;">
+        <input type="checkbox" id="want-used" onchange="toggleUsedBikes(this.checked)" style="display:none;">
+        <span id="used-toggle-label">點擊啟用</span>
+      </label>
+    </div>
+    <div id="used-bikes-area" style="display:none;">
+      <div class="bike-grid">
+        <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">中古 Panigale 系列<span class="bike-series">庫存查 RS03B</span></div></label>
+        <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">中古 Monster 系列<span class="bike-series">庫存查 RS03B</span></div></label>
+        <label class="bike-chip" onclick="toggleBike(this)"><input type="checkbox"><div class="bike-chip-label">中古車（不限車款）<span class="bike-series">依庫存推薦</span></div></label>
+      </div>
+    </div>
+
+    <div class="divider-dashed"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn btn-ghost btn-sm" onclick="openModal('modal-rs03a')">📋 查新車庫存 RS03A →</button>
+      <button class="btn btn-ghost btn-sm" onclick="openModal('modal-rs03b')">📋 查中古車庫存 RS03B →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ★ STEP 3：購買時機 + 意向強度 + HABC 輔助建議 ── -->
+<div class="section mb14">
+  <div class="section-hdr">
+    <div class="section-left">
+      <div class="sicon si-amber">📊</div>
+      <div>
+        <div class="section-title">購買時機評估 × HABC 系統輔助建議</div>
+        <div class="section-note">系統依購買時機 × 試駕狀態自動推算建議級別 · RS 可手動覆蓋</div>
+      </div>
+    </div>
+    <div class="section-badge"><span class="badge b-blue">Step 3</span></div>
+  </div>
+  <div class="section-body">
+    <div class="two-col">
+      <div>
+        <div class="form-label" style="margin-bottom:10px;">購買時機</div>
+        <div class="timing-grid">
+          <div class="timing-card" id="t-now" onclick="selectTiming('now',this)">
+            <div class="timing-title">🔥 立即決策</div>
+            <div class="timing-sub">本月內有意向，資金已備妥</div>
+          </div>
+          <div class="timing-card" id="t-3m" onclick="selectTiming('3m',this)">
+            <div class="timing-title">⏰ 3 個月內</div>
+            <div class="timing-sub">有明確計畫，仍在比較方案</div>
+          </div>
+          <div class="timing-card" id="t-6m" onclick="selectTiming('6m',this)">
+            <div class="timing-title">📅 半年左右</div>
+            <div class="timing-sub">初步了解階段，預算待確認</div>
+          </div>
+          <div class="timing-card" id="t-explore" onclick="selectTiming('explore',this)">
+            <div class="timing-title">🔍 純粹了解</div>
+            <div class="timing-sub">無明確購買時機，探詢行情</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="form-label" style="margin-bottom:10px;">意向強度評估</div>
+        <div class="intent-row">
+          <div class="intent-btn" id="intent-5" onclick="selectIntent(5)">
+            <div>🔥🔥</div>
+            <div class="intent-label">極強</div>
+          </div>
+          <div class="intent-btn" id="intent-4" onclick="selectIntent(4)">
+            <div>🔥</div>
+            <div class="intent-label">強</div>
+          </div>
+          <div class="intent-btn" id="intent-3" onclick="selectIntent(3)">
+            <div>✳️</div>
+            <div class="intent-label">中等</div>
+          </div>
+          <div class="intent-btn" id="intent-2" onclick="selectIntent(2)">
+            <div>❄️</div>
+            <div class="intent-label">偏低</div>
+          </div>
+          <div class="intent-btn" id="intent-1" onclick="selectIntent(1)">
+            <div>💤</div>
+            <div class="intent-label">觀望</div>
+          </div>
+        </div>
+        <div style="margin-top:14px;">
+          <div class="form-label" style="margin-bottom:5px;">試駕狀態</div>
+          <select class="form-select" id="trial-status" onchange="recalcHABC()">
+            <option value="none">尚未試駕</option>
+            <option value="done-today">本次已試駕</option>
+            <option value="done-before">之前已試駕</option>
+            <option value="refused">明確拒絕試駕</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- HABC 系統建議 -->
+    <div id="habc-suggest-block" class="habc-suggest grade-A" style="display:none;">
+      <div class="habc-icon">🤖</div>
+      <div class="habc-body">
+        <div class="habc-row">
+          <div class="habc-grade-badge" id="habc-grade-badge">A</div>
+          <div class="habc-sys-label">系統建議 — 依購買時機 × 試駕狀態</div>
+        </div>
+        <div class="habc-reason" id="habc-reason">購買時機明確（3 個月內），已有試駕經驗，建議定為 A 級積極追蹤。</div>
+        <div class="habc-override-row">
+          <div class="habc-override-label">RS 確認或手動覆蓋：</div>
+          <div class="habc-btns">
+            <button class="habc-grade-btn h" id="hbtn-H" onclick="overrideHABC('H')">H</button>
+            <button class="habc-grade-btn a active" id="hbtn-A" onclick="overrideHABC('A')">A</button>
+            <button class="habc-grade-btn b" id="hbtn-B" onclick="overrideHABC('B')">B</button>
+            <button class="habc-grade-btn c" id="hbtn-C" onclick="overrideHABC('C')">C</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="habc-placeholder" style="margin-top:12px;padding:10px;background:#F8F7F4;border:1px dashed #D5D3CB;border-radius:7px;font-size:12px;color:#9A9890;text-align:center;">
+      ↑ 選擇購買時機後，系統將自動推算 HABC 建議級別
+    </div>
+  </div>
+</div>
+
+<!-- ★ STEP 4：試乘試駕跳轉（RS02）── -->
+<div class="section mb14">
+  <div class="section-hdr">
+    <div class="section-left">
+      <div class="sicon si-teal">🏁</div>
+      <div>
+        <div class="section-title">試乘試駕</div>
+        <div class="section-note">跳轉 RS02 記錄 · 完成後自動回寫此卡（唯讀）</div>
+      </div>
+    </div>
+    <div class="section-badge"><span class="badge b-blue">Step 4</span></div>
+  </div>
+  <div class="section-body">
+    <div class="two-col" style="margin-bottom:12px;">
+      <button class="jump-btn to-rs02" onclick="jumpToRS02()">
+        <div class="jump-icon">🏁</div>
+        <div class="jump-text">
+          <div class="jump-title">前往試乘試駕 RS02</div>
+          <div class="jump-sub">記錄試駕車款、時間、里程、客戶反應</div>
+        </div>
+        <span class="jump-status status-pending" id="rs02-status">待執行</span>
+        <div class="jump-arr">›</div>
+      </button>
+      <div style="padding:10px 0;font-size:12px;color:#9A9890;line-height:1.7;">
+        ⚡ <b style="color:#2C2C2A;">黃金時刻提示</b>：試駕結束後立即開立報價單，把握客戶熱情最高峰。<br>完成試駕後系統將自動在此卡顯示「立即報價」提示。
+      </div>
+    </div>
+
+    <!-- 試駕回寫結果（試駕完成後顯示）-->
+    <div class="readonly-block from-rs02" id="rs02-result" style="display:none;">
+      <div class="rb-icon">🏁</div>
+      <div style="flex:1;">
+        <div class="rb-label">試駕回寫結果（唯讀，由 RS02 寫入）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:6px;">
+          <div><div class="rb-label">試駕車款</div><div class="rb-val">Panigale V4</div></div>
+          <div><div class="rb-label">試駕時間</div><div class="rb-val">14:45</div></div>
+          <div><div class="rb-label">時長</div><div class="rb-val">25 分鐘</div></div>
+          <div><div class="rb-label">客戶反應</div><div class="rb-val">非常滿意</div></div>
+        </div>
+        <div class="rb-source">← 資料來源：RS02_試乘試駕 · 2026-05-10 15:10 寫入</div>
+      </div>
+    </div>
+
+    <!-- 黃金時刻（試駕後觸發）-->
+    <div class="golden-moment" id="golden-moment-block" style="display:none;margin-top:12px;">
+      <div class="gm-icon">⭐</div>
+      <div>
+        <div class="gm-title">黃金時刻！立即開立報價單</div>
+        <div class="gm-desc">客戶試駕滿意度高，現在是開立報價的最佳時機。把握熱情最高點，避免客戶離店後冷卻。</div>
+        <button class="gm-btn" onclick="openQuoteModal()">立即開立報價單 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ★ STEP 5：中古車評估鑑價跳轉（RS06）── -->
+<div class="section mb14" id="section-rs06">
+  <div class="section-hdr">
+    <div class="section-left">
+      <div class="sicon si-amber">🔧</div>
+      <div>
+        <div class="section-title">中古車評估鑑價</div>
+        <div class="section-note">跳轉 RS06 · 完成後自動回寫此卡（唯讀）</div>
+      </div>
+    </div>
+    <div class="section-badge"><span class="badge b-amber">選填</span></div>
+  </div>
+  <div class="section-body">
+    <div class="two-col" style="margin-bottom:0;">
+      <button class="jump-btn to-rs06" onclick="jumpToRS06()">
+        <div class="jump-icon">🔧</div>
+        <div class="jump-text">
+          <div class="jump-title">前往中古車評估鑑價 RS06</div>
+          <div class="jump-sub">記錄評估價格、Desmo 保養、認證等級</div>
+        </div>
+        <span class="jump-status status-pending" id="rs06-status">待執行</span>
+        <div class="jump-arr">›</div>
+      </button>
+      <div style="padding:10px 0;font-size:12px;color:#9A9890;line-height:1.7;">
+        適用情況：客戶有舊車折抵需求，或有意購買本店中古車。<br>完成後評估價格與認證等級將自動回寫此欄。
+      </div>
+    </div>
+
+    <!-- RS06 回寫結果 -->
+    <div class="readonly-block from-rs06" id="rs06-result" style="display:none;margin-top:12px;">
+      <div class="rb-icon">🔧</div>
+      <div style="flex:1;">
+        <div class="rb-label">鑑價回寫結果（唯讀，由 RS06 寫入）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:6px;">
+          <div><div class="rb-label">鑑價車款</div><div class="rb-val">Monster 821</div></div>
+          <div><div class="rb-label">評估價格</div><div class="rb-val">$185,000</div></div>
+          <div><div class="rb-label">認證等級</div><div class="rb-val">DPO</div></div>
+          <div><div class="rb-label">Desmo</div><div class="rb-val">2024-11 完成</div></div>
+        </div>
+        <div class="rb-source">← 資料來源：RS06_中古車評估鑑價 · 2026-05-10 15:45 寫入</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ★ STEP 6：報價與追蹤 ── -->
+<div class="section mb14">
+  <div class="section-hdr">
+    <div class="section-left">
+      <div class="sicon si-red">💰</div>
+      <div>
+        <div class="section-title">報價與追蹤</div>
+        <div class="section-note">三個報價觸發時機 · 記錄報價狀態與後續追蹤</div>
+      </div>
+    </div>
+    <div class="section-badge"><span class="badge b-blue">Step 6</span></div>
+  </div>
+  <div class="section-body">
+    <div class="quote-trigger qt-gold mb14">
+      <div class="qt-icon">⭐</div>
+      <div class="qt-text">
+        <div class="qt-title">① 黃金時刻：試駕結束當下（RS02 強制提示）</div>
+        <div class="qt-desc">試駕後客戶熱情最高，必須在離店前開立報價單。RS02 完成時系統強制顯示提示。</div>
+      </div>
+    </div>
+    <div class="quote-trigger qt-normal mb14">
+      <div class="qt-icon">📋</div>
+      <div class="qt-text">
+        <div class="qt-title">② 客戶當天表明購買意願</div>
+        <div class="qt-desc">即使未試駕，只要客戶明確表達有意購買，即可當場開報價單。</div>
+      </div>
+    </div>
+    <div class="quote-trigger qt-normal" style="margin-bottom:16px;">
+      <div class="qt-icon">📞</div>
+      <div class="qt-text">
+        <div class="qt-title">③ 潛客再訪（CRM03A 電訪追蹤觸發）</div>
+        <div class="qt-desc">再訪客戶未開報價，電訪工作台 CRM03A 將於 D+3 / D+7 提示跟進。</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="two-col">
+      <div>
+        <div class="form-row">
+          <div class="form-label">報價單狀態</div>
+          <select class="form-select" id="quote-status" onchange="updateQuoteStatus(this.value)">
+            <option value="none">尚未開立</option>
+            <option value="draft">草稿中</option>
+            <option value="issued">已開立（已給客戶）</option>
+            <option value="revised">已修訂</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">報價金額</div>
+          <div class="input-group">
+            <div class="input-addon">NT$</div>
+            <input type="number" class="form-input" id="quote-amount" placeholder="0" style="text-align:right;">
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="form-row">
+          <div class="form-label">下次追蹤日期</div>
+          <input type="date" class="form-input" id="follow-date">
+          <div class="form-hint">儲存後自動同步至 CRM03A 電訪工作台</div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">追蹤方式</div>
+          <select class="form-select" id="follow-method">
+            <option>LINE 訊息</option>
+            <option>電話</option>
+            <option>邀請再訪</option>
+            <option>邀請活動（DRE / Track Day）</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ★ STEP 7：客戶標籤系統 ── -->
+<div class="section mb14">
+  <div class="section-hdr">
+    <div class="section-left">
+      <div class="sicon si-purple">🏷️</div>
+      <div>
+        <div class="section-title">客戶標籤</div>
+        <div class="section-note">四色標籤快選 · 官方標籤庫由 RS_M3 Tab3 管理</div>
+      </div>
+    </div>
+    <div class="section-badge"><span class="badge b-purple">Step 7</span></div>
+  </div>
+  <div class="section-body">
+    <div class="tag-legend">
+      <div class="tag-legend-item"><div class="tag-dot red"></div>🔴 注意事項</div>
+      <div class="tag-legend-item"><div class="tag-dot yellow"></div>🟡 偏好車款/特質</div>
+      <div class="tag-legend-item"><div class="tag-dot green"></div>🟢 服務備忘</div>
+      <div class="tag-legend-item"><div class="tag-dot blue"></div>🔵 溝通與費用</div>
+    </div>
+
+    <!-- 已選標籤 -->
+    <div class="form-label" style="margin-bottom:8px;">已貼標籤</div>
+    <div class="tag-area" id="selected-tags">
+      <div style="font-size:11.5px;color:#9A9890;padding:4px 0;">尚未貼標 — 從下方選擇</div>
+    </div>
+
+    <div class="divider-dashed"></div>
+
+    <!-- 官方標籤庫 -->
+    <div class="tag-lib-section">
+      <div class="tag-lib-title red">🔴 注意事項</div>
+      <div class="tag-area">
+        <span class="tag-chip t-red" onclick="toggleTag(this,'🔴 預算偏低','t-red')">🔴 預算偏低</span>
+        <span class="tag-chip t-red" onclick="toggleTag(this,'🔴 決策者非本人','t-red')">🔴 決策者非本人</span>
+        <span class="tag-chip t-red" onclick="toggleTag(this,'🔴 有競品比較','t-red')">🔴 有競品比較</span>
+        <span class="tag-chip t-red" onclick="toggleTag(this,'🔴 態度冷淡','t-red')">🔴 態度冷淡</span>
+        <span class="tag-chip t-red" onclick="toggleTag(this,'🔴 擔心保險費高','t-red')">🔴 擔心保險費高</span>
+      </div>
+    </div>
+    <div class="tag-lib-section">
+      <div class="tag-lib-title yellow">🟡 偏好與特質</div>
+      <div class="tag-area">
+        <span class="tag-chip t-yellow" onclick="toggleTag(this,'🟡 偏好 Panigale 系列','t-yellow')">🟡 偏好 Panigale 系列</span>
+        <span class="tag-chip t-yellow" onclick="toggleTag(this,'🟡 偏好輕巧街車','t-yellow')">🟡 偏好輕巧街車</span>
+        <span class="tag-chip t-yellow" onclick="toggleTag(this,'🟡 著重外觀設計','t-yellow')">🟡 著重外觀設計</span>
+        <span class="tag-chip t-yellow" onclick="toggleTag(this,'🟡 重視操控性能','t-yellow')">🟡 重視操控性能</span>
+        <span class="tag-chip t-yellow" onclick="toggleTag(this,'🟡 Track Day 愛好者','t-yellow')">🟡 Track Day 愛好者</span>
+        <span class="tag-chip t-yellow" onclick="toggleTag(this,'🟡 已提供型錄','t-yellow')">🟡 已提供型錄</span>
+      </div>
+    </div>
+    <div class="tag-lib-section">
+      <div class="tag-lib-title green">🟢 服務備忘</div>
+      <div class="tag-area">
+        <span class="tag-chip t-green" onclick="toggleTag(this,'🟢 需安排試駕','t-green')">🟢 需安排試駕</span>
+        <span class="tag-chip t-green" onclick="toggleTag(this,'🟢 需聯絡 DRE 學院','t-green')">🟢 需聯絡 DRE 學院</span>
+        <span class="tag-chip t-green" onclick="toggleTag(this,'🟢 需提供中古車資訊','t-green')">🟢 需提供中古車資訊</span>
+        <span class="tag-chip t-green" onclick="toggleTag(this,'🟢 已邀請活動','t-green')">🟢 已邀請活動</span>
+        <span class="tag-chip t-green" onclick="toggleTag(this,'🟢 女性騎士','t-green')">🟢 女性騎士</span>
+      </div>
+    </div>
+    <div class="tag-lib-section">
+      <div class="tag-lib-title blue">🔵 溝通與費用</div>
+      <div class="tag-area">
+        <span class="tag-chip t-blue" onclick="toggleTag(this,'🔵 希望分期','t-blue')">🔵 希望分期</span>
+        <span class="tag-chip t-blue" onclick="toggleTag(this,'🔵 需了解補助方案','t-blue')">🔵 需了解補助方案</span>
+        <span class="tag-chip t-blue" onclick="toggleTag(this,'🔵 試過一次試駕','t-blue')">🔵 試過一次試駕</span>
+        <span class="tag-chip t-blue" onclick="toggleTag(this,'🔵 需要話術引導','t-blue')">🔵 需要話術引導</span>
+        <span class="tag-chip t-blue" onclick="toggleTag(this,'🔵 比較三家經銷商','t-blue')">🔵 比較三家經銷商</span>
+      </div>
+    </div>
+
+    <!-- RS 自訂標籤 -->
+    <div class="tag-custom-row">
+      <input type="text" class="form-input" id="custom-tag-input" placeholder="輸入自訂標籤名稱..." style="flex:1;font-size:12px;">
+      <select class="form-select" id="custom-tag-color" style="width:130px;">
+        <option value="t-red">🔴 注意</option>
+        <option value="t-yellow">🟡 偏好</option>
+        <option value="t-green">🟢 備忘</option>
+        <option value="t-blue">🔵 費用</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="addCustomTag()">+ 新增</button>
+    </div>
+    <div class="form-hint" style="margin-top:5px;">自訂標籤將標示「自訂」，主管可於 RS_M3 Tab3 升為官方標籤</div>
+  </div>
+</div>
+
+<!-- ★ STEP 8：備註與競品記錄 ── -->
+<div class="section mb14">
+  <div class="section-hdr">
+    <div class="section-left">
+      <div class="sicon si-dark">📝</div>
+      <div>
+        <div class="section-title">備註與競品記錄</div>
+        <div class="section-note">接待重點、客戶需求、競品比較情況</div>
+      </div>
+    </div>
+    <div class="section-badge"><span class="badge b-gray">Step 8</span></div>
+  </div>
+  <div class="section-body">
+    <div class="two-col">
+      <div>
+        <div class="form-row">
+          <div class="form-label">接待備註</div>
+          <textarea class="form-textarea" id="visit-note" placeholder="記錄本次接待重點、客戶提問、特殊需求...&#10;&#10;例：客戶對 Panigale V4 操控性非常感興趣，詢問了賽道版本差異，有意願參加 Track Day 活動。"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-label">主要需求摘要</div>
+          <textarea class="form-textarea" id="need-note" placeholder="客戶最在意的 1–3 個需求點..." style="min-height:55px;"></textarea>
+        </div>
+      </div>
+      <div>
+        <div class="form-row">
+          <div class="form-label">競品比較（客戶提及）</div>
+          <select class="form-select" id="competitor-1" style="margin-bottom:6px;">
+            <option value="">— 競品 1（讀取 RS_SET）—</option>
+            <option>BMW Motorrad</option>
+            <option>Triumph</option>
+            <option>MV Agusta</option>
+            <option>KAWASAKI（大型）</option>
+            <option>YAMAHA（大型）</option>
+            <option>中古車行</option>
+            <option>個人買賣（臉書）</option>
+          </select>
+          <select class="form-select" id="competitor-2">
+            <option value="">— 競品 2（可不填）—</option>
+            <option>BMW Motorrad</option>
+            <option>Triumph</option>
+            <option>MV Agusta</option>
+            <option>KAWASAKI（大型）</option>
+            <option>YAMAHA（大型）</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">結果記錄</div>
+          <select class="form-select" id="visit-result">
+            <option value="">— 本次接待結果 —</option>
+            <option value="signed">✅ 當場成交</option>
+            <option value="trial-done">🏁 已試駕，待報價</option>
+            <option value="quoted">📋 已報價，待決定</option>
+            <option value="follow">📞 需後續追蹤跟進</option>
+            <option value="lost">❌ 未成交（戰敗）</option>
+            <option value="explore">🔍 純粹了解，長期維護</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">未成交原因（如有）</div>
+          <select class="form-select" id="lost-reason" style="display:none;" id="lost-reason">
+            <option value="">— 請選擇 —</option>
+            <option>預算不足</option>
+            <option>選擇競品</option>
+            <option>決策者另有他人</option>
+            <option>暫緩購買計畫</option>
+            <option>購買中古車</option>
+            <option>其他原因</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ★ CRM 同步提示 ── -->
+<div class="crm-sync-box" id="crm-sync-bar" style="margin-bottom:14px;">
+  <div class="crm-sync-icon">⇅</div>
+  <div class="crm-sync-text">儲存後詢問是否同步至 <b>CRM01A 銷售客戶基盤</b> — 建立潛客記錄並排程 D+3 / D+7 電訪提醒</div>
+  <button class="btn btn-ghost btn-sm" onclick="openCrmSync()">確認設定</button>
+</div>
+
+<!-- ★ 老車主保險提示 ── -->
+<div class="insurance-callout" id="insurance-callout" style="display:none;margin-bottom:14px;">
+  <div class="ins-icon">🔔</div>
+  <div>
+    <div class="ins-title">保險提醒：車主保險將於 3.5 個月後到期</div>
+    <div class="ins-desc">建議主動提醒客戶保險續約，並詢問換車意願。可連結 RS_EX1 保險招攬工作台進行衍生業務。</div>
+    <div class="ins-link" onclick="go('RS_EX1_保險招攬工作台_v1.html')">→ 前往 RS_EX1 保險工作台</div>
+  </div>
+</div>
+
+<!-- 底部空間（固定底列用）-->
+<div style="height:20px;"></div>
+
+</div><!-- end .main -->
+
+<!-- ── 固定底部操作列 ── -->
+<div class="footer-bar">
+  <div class="footer-left">
+    <div class="auto-save-tag"><div class="auto-save-dot"></div>自動草稿儲存中</div>
+    <span style="font-size:11px;color:#9A9890;margin-left:10px;" id="last-saved-label">最後儲存：尚未儲存</span>
+  </div>
+  <div class="footer-right">
+    <button class="btn btn-ghost btn-sm" onclick="clearForm()">🗑 清除</button>
+    <button class="btn btn-ghost btn-sm" onclick="printCard()">🖨 列印手卡</button>
+    <button class="btn btn-amber btn-sm" onclick="openModal('modal-preview')">👁 預覽</button>
+    <button class="btn btn-primary" onclick="confirmSave()">💾 儲存並建檔</button>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast">✅ 訊息</div>
+
+<!-- ── Modal: CRM 同步 ── -->
+<div class="overlay" id="modal-crm-sync" onclick="closeModalOverlay(event,'modal-crm-sync')">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">⇅ CRM01A 同步設定</div>
+      <button class="modal-close" onclick="closeModal('modal-crm-sync')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#EAF4FB;border:1px solid #85B7EB;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#0C3E70;line-height:1.7;">
+        儲存手卡後，可選擇同步至 CRM01A 銷售客戶基盤，建立潛客記錄並自動排程電訪提醒。
+      </div>
+      <div class="form-row">
+        <div class="form-label">同步類型</div>
+        <select class="form-select">
+          <option>新建潛客記錄（CRM01A）</option>
+          <option>更新現有潛客記錄</option>
+          <option>僅記錄手卡，不同步 CRM</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-label">排程電訪提醒</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;">
+            <input type="checkbox" checked> D+3 電訪提醒（<span style="font-family:'DM Mono',monospace;">2026-05-13</span>）
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;">
+            <input type="checkbox" checked> D+7 電訪提醒（<span style="font-family:'DM Mono',monospace;">2026-05-17</span>）
+          </label>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">負責 RS</div>
+        <select class="form-select"><option>林佳蓉（本次接待）</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-crm-sync')">取消</button>
+      <button class="btn btn-primary" onclick="saveCrmSync()">✅ 確認同步</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: 報價單（黃金時刻）── -->
+<div class="overlay" id="modal-quote" onclick="closeModalOverlay(event,'modal-quote')">
+  <div class="modal modal-lg">
+    <div class="modal-hdr">
+      <div class="modal-title">⭐ 開立報價單</div>
+      <button class="modal-close" onclick="closeModal('modal-quote')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="golden-moment" style="margin-bottom:16px;">
+        <div class="gm-icon">⭐</div>
+        <div>
+          <div class="gm-title">黃金時刻！趁熱開立報價</div>
+          <div class="gm-desc" style="margin-bottom:0;">客戶試駕後熱情正高，現在是最佳時機。</div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="form-row">
+          <div class="form-label">報價車款 <span class="form-req">*</span></div>
+          <select class="form-select">
+            <option>Panigale V4（意向車款）</option>
+            <option>Panigale V4 S</option>
+            <option>Panigale V4 R</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">建議售價</div>
+          <div class="input-group"><div class="input-addon">NT$</div><input type="number" class="form-input" value="1280000" style="text-align:right;"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-label">付款方式</div>
+          <select class="form-select">
+            <option>全額現金</option>
+            <option>分期（12 期）</option>
+            <option>分期（24 期）</option>
+            <option>貸款（需確認）</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">報價有效期</div>
+          <input type="date" class="form-input" value="2026-05-24">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">優惠備注</div>
+        <textarea class="form-textarea" placeholder="例：含原廠保固2年、加贈原廠安全帽..." style="min-height:55px;"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-quote')">取消</button>
+      <button class="btn btn-teal" onclick="saveQuote()">📋 儲存報價單</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: 預覽手卡 ── -->
+<div class="overlay" id="modal-preview" onclick="closeModalOverlay(event,'modal-preview')">
+  <div class="modal modal-lg">
+    <div class="modal-hdr">
+      <div class="modal-title">👁 手卡預覽</div>
+      <button class="modal-close" onclick="closeModal('modal-preview')">×</button>
+    </div>
+    <div class="modal-body" id="preview-body">
+      <!-- 動態生成 -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-preview')">關閉</button>
+      <button class="btn btn-primary" onclick="confirmSave()">💾 確認儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: RS03A/B 假連結 ── -->
+<div class="overlay" id="modal-rs03a" onclick="closeModalOverlay(event,'modal-rs03a')">
+  <div class="modal"><div class="modal-hdr"><div class="modal-title">📋 新車庫存 RS03A</div><button class="modal-close" onclick="closeModal('modal-rs03a')">×</button></div>
+  <div class="modal-body"><div style="text-align:center;padding:30px 0;color:#9A9890;font-size:13px;">→ 跳轉至 RS03A_新車庫存看板.html<br><span style="font-size:11px;margin-top:6px;display:block;">（意向車型已帶入篩選條件）</span></div></div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-rs03a')">關閉</button><button class="btn btn-primary" onclick="go('RS03A_新車庫存看板_v1.html')">前往 RS03A →</button></div>
+  </div>
+</div>
+<div class="overlay" id="modal-rs03b" onclick="closeModalOverlay(event,'modal-rs03b')">
+  <div class="modal"><div class="modal-hdr"><div class="modal-title">📋 中古車庫存 RS03B</div><button class="modal-close" onclick="closeModal('modal-rs03b')">×</button></div>
+  <div class="modal-body"><div style="text-align:center;padding:30px 0;color:#9A9890;font-size:13px;">→ 跳轉至 RS03B_中古車庫存看板.html<br><span style="font-size:11px;margin-top:6px;display:block;">（中古車意向篩選條件已帶入）</span></div></div>
+  <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-rs03b')">關閉</button><button class="btn btn-primary" onclick="go('RS03B_中古車庫存看板_v1.html')">前往 RS03B →</button></div>
+  </div>
+</div>
+
+<!-- ── Modal: 手卡記錄清單 ── -->
+<div class="overlay" id="modal-history-list" onclick="closeModalOverlay(event,'modal-history-list')">
+  <div class="modal modal-lg">
+    <div class="modal-hdr"><div class="modal-title">📋 手卡記錄</div><button class="modal-close" onclick="closeModal('modal-history-list')">×</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <input type="text" class="form-input" placeholder="搜尋客戶姓名或電話..." style="flex:1;">
+        <select class="form-select" style="width:130px;"><option>本月</option><option>本季</option><option>全部</option></select>
+      </div>
+      <!-- 假資料列表 -->
+      <div style="display:flex;flex-direction:column;gap:0;">
+        ${['王大明 · Panigale V4 · 2026-05-10 · H 級 · 待報價 · 林佳蓉',
+           '陳美玲 · Monster SP · 2026-05-09 · A 級 · 已報價 · 陳雅惠',
+           '李文彬 · Streetfighter V4 · 2026-05-08 · B 級 · 追蹤中 · 張志明'].map(r => {
+          const p = r.split(' · ');
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #F4F3F0;font-size:12.5px;">
+            <div style="flex:1;font-weight:600;">${p[0]}</div>
+            <div style="color:#7A7A78;">${p[1]}</div>
+            <div style="font-family:'DM Mono',monospace;color:#9A9890;font-size:11.5px;">${p[2]}</div>
+            <div><span class="badge ${p[3].startsWith('H')?'b-red':p[3].startsWith('A')?'b-amber':'b-blue'}">${p[3]}</span></div>
+            <div style="color:#7A7A78;font-size:11.5px;">${p[4]}</div>
+            <div style="color:#9A9890;font-size:11px;">${p[5]}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-history-list')">關閉</button></div>
+  </div>
+</div>
+
+<script>
+// ── 狀態 ──
+var currentIdentity = '';
+var currentTiming = '';
+var currentIntent = 0;
+var selectedTags = [];
+var currentHABC = '';
+var dirty = false;
+
+// ── 來客身份選擇 ──
+function selectIdentity(type) {
+  currentIdentity = type;
+  ['new','revisit','owner','switcher'].forEach(function(t) {
+    var card = document.getElementById('id-' + t);
+    card.className = 'id-type-card';
+    if (t === type) {
+      card.className = 'id-type-card selected ' + t;
+    }
+  });
+
+  // 更新 sub-bar 標籤
+  var tagEl = document.getElementById('identity-tag-display');
+  var labels = {
+    new: ['首次來訪', 'new-visit'],
+    revisit: ['潛客再訪', 'revisit'],
+    owner: ['DUCATI 老車主', 'owner'],
+    switcher: ['他牌換購', 'switcher']
+  };
+  tagEl.textContent = labels[type][0];
+  tagEl.className = 'sub-tag ' + labels[type][1];
+
+  // 顯示對應特殊區塊
+  document.getElementById('block-history').style.display = type === 'revisit' ? 'block' : 'none';
+  document.getElementById('block-owner').style.display = type === 'owner' ? 'block' : 'none';
+  document.getElementById('block-switcher').style.display = type === 'switcher' ? 'block' : 'none';
+  document.getElementById('insurance-callout').style.display = type === 'owner' ? 'flex' : 'none';
+
+  // 再訪自動帶出標籤
+  if (type === 'revisit') {
+    showToast('已帶出上次到訪記錄與標籤');
+  } else if (type === 'owner') {
+    showToast('已帶出車主車輛資料與保險提醒');
+  }
+  markDirty();
+}
+
+// ── 車款多選 ──
+function toggleBike(label) {
+  var cb = label.querySelector('input[type=checkbox]');
+  cb.checked = !cb.checked;
+  if (cb.checked) {
+    label.classList.add('selected');
+  } else {
+    label.classList.remove('selected');
+  }
+  markDirty();
+}
+
+function toggleUsedBikes(checked) {
+  document.getElementById('used-bikes-area').style.display = checked ? 'block' : 'none';
+  document.getElementById('used-toggle-label').textContent = checked ? '✅ 已啟用' : '點擊啟用';
+}
+
+// ── 購買時機 ──
+function selectTiming(timing, card) {
+  currentTiming = timing;
+  document.querySelectorAll('.timing-card').forEach(function(c) {
+    c.classList.remove('sel');
+  });
+  card.classList.add('sel');
+  recalcHABC();
+  markDirty();
+}
+
+// ── 意向強度 ──
+function selectIntent(level) {
+  currentIntent = level;
+  for (var i = 1; i <= 5; i++) {
+    var btn = document.getElementById('intent-' + i);
+    btn.className = 'intent-btn' + (i === level ? ' sel-' + i : '');
+  }
+  recalcHABC();
+  markDirty();
+}
+
+// ── HABC 自動計算 ──
+var habcLogic = {
+  grades: {
+    H: { cls: 'grade-H', badge: 'H' },
+    A: { cls: 'grade-A', badge: 'A' },
+    B: { cls: 'grade-B', badge: 'B' },
+    C: { cls: 'grade-C', badge: 'C' }
+  },
+  reasons: {
+    H: '購買時機明確（立即決策），意向強烈，屬最高優先潛客，建議本週內完成報價並跟進。',
+    A: '購買時機明確（3 個月內）或已試駕，建議積極跟進，安排試駕或直接推進報價單。',
+    B: '購買時機 3–6 個月，意向中等，定期維持接觸、邀請活動，培養購買意願。',
+    C: '純粹了解或意向偏低，屬長期維護對象，每月保持一次接觸，勿過度打擾。'
+  }
+};
+
+function recalcHABC() {
+  if (!currentTiming) return;
+  var trialStatus = document.getElementById('trial-status').value;
+  var grade;
+
+  if (currentTiming === 'now' || (currentIntent >= 4)) {
+    grade = 'H';
+  } else if (currentTiming === '3m' || trialStatus === 'done-today' || trialStatus === 'done-before') {
+    grade = 'A';
+  } else if (currentTiming === '6m') {
+    grade = 'B';
+  } else {
+    grade = 'C';
+  }
+
+  showHABC(grade);
+}
+
+function showHABC(grade) {
+  currentHABC = grade;
+  var block = document.getElementById('habc-suggest-block');
+  var placeholder = document.getElementById('habc-placeholder');
+  block.style.display = 'flex';
+  placeholder.style.display = 'none';
+
+  block.className = 'habc-suggest ' + habcLogic.grades[grade].cls;
+  document.getElementById('habc-grade-badge').textContent = grade;
+  document.getElementById('habc-reason').textContent = habcLogic.reasons[grade];
+
+  ['H','A','B','C'].forEach(function(g) {
+    var btn = document.getElementById('hbtn-' + g);
+    btn.className = 'habc-grade-btn ' + g.toLowerCase() + (g === grade ? ' active' : '');
+  });
+}
+
+function overrideHABC(grade) {
+  showHABC(grade);
+  showToast('已手動覆蓋為 ' + grade + ' 級（系統建議已保留記錄）');
+}
+
+// ── 四色標籤 ──
+function toggleTag(chip, name, cls) {
+  var idx = selectedTags.findIndex(function(t) { return t.name === name; });
+  if (idx >= 0) {
+    selectedTags.splice(idx, 1);
+    chip.classList.remove('active');
+  } else {
+    selectedTags.push({ name: name, cls: cls });
+    chip.classList.add('active');
+  }
+  renderSelectedTags();
+  markDirty();
+}
+
+function addCustomTag() {
+  var input = document.getElementById('custom-tag-input');
+  var color = document.getElementById('custom-tag-color').value;
+  var name = input.value.trim();
+  if (!name) { showToast('請輸入標籤名稱'); return; }
+  var emoji = { 't-red': '🔴', 't-yellow': '🟡', 't-green': '🟢', 't-blue': '🔵' };
+  var fullName = emoji[color] + ' ' + name + '（自訂）';
+  selectedTags.push({ name: fullName, cls: color });
+  renderSelectedTags();
+  input.value = '';
+  markDirty();
+  showToast('已新增自訂標籤：' + name);
+}
+
+function renderSelectedTags() {
+  var area = document.getElementById('selected-tags');
+  if (selectedTags.length === 0) {
+    area.innerHTML = '<div style="font-size:11.5px;color:#9A9890;padding:4px 0;">尚未貼標 — 從下方選擇</div>';
+    return;
+  }
+  area.innerHTML = selectedTags.map(function(t, i) {
+    return '<span class="tag-chip ' + t.cls + ' active" onclick="removeTag(' + i + ')">' + t.name + ' <span class="tag-x">×</span></span>';
+  }).join('');
+}
+
+function removeTag(idx) {
+  selectedTags.splice(idx, 1);
+  renderSelectedTags();
+  markDirty();
+}
+
+// ── 跳轉子模組 ──
+function jumpToRS02() {
+  window.location.href = 'RS02_試乘試駕_v1.html';
+}
+
+function jumpToRS06() {
+  window.location.href = 'RS06_中古車評估鑑價_v2.html';
+}
+
+// ── 報價單 ──
+function openQuoteModal() {
+  openModal('modal-quote');
+}
+
+function saveQuote() {
+  document.getElementById('quote-status').value = 'issued';
+  closeModal('modal-quote');
+  updateProgress(4);
+  showToast('✅ 報價單已開立儲存');
+}
+
+// ── 進度條 ──
+function updateProgress(step) {
+  for (var i = 1; i <= 5; i++) {
+    var dot = document.getElementById('pdot-' + i);
+    var lbl = document.getElementById('plbl-' + i);
+    if (i < step) {
+      dot.className = 'prog-dot done';
+    } else if (i === step) {
+      dot.className = 'prog-dot active';
+      lbl.className = 'prog-label active';
+    } else {
+      dot.className = 'prog-dot todo';
+      lbl.className = 'prog-label';
+    }
+  }
+}
+
+// ── 結果狀態 ──
+function updateQuoteStatus(val) {
+  var lostSel = document.getElementById('lost-reason');
+  if (lostSel) lostSel.style.display = (val === 'none' || val === '') ? 'none' : 'block';
+}
+
+// ── CRM 同步 ──
+function openCrmSync() {
+  openModal('modal-crm-sync');
+}
+
+function saveCrmSync() {
+  closeModal('modal-crm-sync');
+  showToast('✅ 已設定 CRM01A 同步 · D+3 / D+7 電訪提醒已排程');
+}
+
+// ── 儲存 ──
+function confirmSave() {
+  if (!currentIdentity) {
+    showToast('⚠ 請先選擇來客身份類型');
+    document.getElementById('section-identity').scrollIntoView({ behavior: 'smooth' });
+    return;
+  }
+  var name = document.getElementById('cust-name').value.trim();
+  if (!name) {
+    showToast('⚠ 請填寫客戶姓名');
+    return;
+  }
+  dirty = false;
+  var now = new Date();
+  var timeStr = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+  document.getElementById('last-saved-label').textContent = '最後儲存：' + timeStr;
+  document.title = 'RS01 電子手卡 v8 — ' + name;
+  updateProgress(5);
+  showToast('✅ 手卡已儲存 · 是否同步 CRM01A？');
+  setTimeout(function() { openCrmSync(); }, 1200);
+}
+
+// ── 預覽 ──
+function openPreview() {
+  var body = document.getElementById('preview-body');
+  var name = document.getElementById('cust-name').value || '（未填）';
+  var phone = document.getElementById('cust-phone').value || '（未填）';
+  var identityLabels = { new: '首次來訪', revisit: '潛客再訪', owner: 'DUCATI 老車主', switcher: '他牌換購' };
+  body.innerHTML = '<div style="font-size:13px;line-height:2;">' +
+    '<div><b>手卡編號：</b>#RC-2026-0510-047</div>' +
+    '<div><b>來客身份：</b>' + (identityLabels[currentIdentity] || '未選擇') + '</div>' +
+    '<div><b>客戶姓名：</b>' + name + '</div>' +
+    '<div><b>聯絡電話：</b>' + phone + '</div>' +
+    '<div><b>HABC 級別：</b>' + (currentHABC || '未評定') + '</div>' +
+    '<div><b>已貼標籤：</b>' + (selectedTags.map(function(t){ return t.name; }).join('、') || '無') + '</div>' +
+    '<div><b>接待 RS：</b>' + document.getElementById('rs-assign').value + '</div>' +
+    '</div>';
+  openModal('modal-preview');
+}
+
+// ── 清除 ──
+function clearForm() {
+  if (!confirm('確定要清除所有填寫內容嗎？')) return;
+  location.reload();
+}
+
+function printCard() {
+  showToast('🖨 列印功能：請使用瀏覽器 Ctrl+P');
+}
+
+function updateHeaderName(val) {
+  if (val) document.title = 'RS01 電子手卡 v8 — ' + val;
+}
+
+function markDirty() {
+  dirty = true;
+  if (!document.title.startsWith('●')) document.title = '● ' + document.title;
+}
+
+// ── Modal helpers ──
+function openModal(id) {
+  document.getElementById(id).classList.add('show');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+function closeModalOverlay(e, id) {
+  if (e.target === document.getElementById(id)) closeModal(id);
+}
+
+// ── Toast ──
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function() { t.classList.remove('show'); }, 2800);
+}
+
+// ── 初始化 ──
+renderSelectedTags();
+updateProgress(1);
+
+// 自動草稿模擬
+setInterval(function() {
+  if (dirty) {
+    var now = new Date();
+    document.getElementById('last-saved-label').textContent = '草稿儲存：' + now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0');
+  }
+}, 30000);
+</script>
+</body>
+</html>

@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS00 銷售模組 導覽總覽 v4 — DUCATI 管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.main{max-width:1200px;margin:0 auto;padding:22px 24px 48px;}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#0D2B47 0%,#1A3A5C 45%,#8B0010 100%);border-radius:12px;padding:26px 30px;margin-bottom:18px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-30px;top:-30px;width:200px;height:200px;border-radius:50%;background:rgba(200,0,26,.15);pointer-events:none;}
+.hero h1{font-size:20px;font-weight:700;margin-bottom:6px;letter-spacing:.3px;}
+.hero p{font-size:12.5px;opacity:.8;line-height:1.75;max-width:560px;}
+.hstats{display:flex;gap:10px;flex-wrap:wrap;}
+.hstat{text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:9px 18px;}
+.hstat-n{font-size:22px;font-weight:700;line-height:1;}
+.hstat-l{font-size:10px;opacity:.65;margin-top:4px;}
+
+/* Tab bar */
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #EEECE6;margin-bottom:20px;}
+.tab-btn{padding:9px 20px;font-size:13px;font-weight:500;color:#7A7A78;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;font-family:'Noto Sans TC',sans-serif;background:none;border-top:none;border-left:none;border-right:none;}
+.tab-btn.active{color:#1A3A5C;font-weight:700;border-bottom-color:#1A3A5C;}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+
+/* Section & Panel */
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.panel-hdr{padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.panel-icon{font-size:15px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pi-blue{background:#EAF4FB;}.pi-teal{background:#E1F5EE;}.pi-amber{background:#FDF3E3;}.pi-red{background:#FDECEA;}.pi-purple{background:#EEEDFE;}.pi-dark{background:#E8EDF2;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:#9A9890;margin-top:1px;}
+.panel-body{padding:14px 16px;}
+
+/* 模組卡片網格 */
+.module-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.module-card{border-radius:9px;padding:13px 14px;border:1.5px solid;cursor:pointer;transition:all .15s;position:relative;}
+.module-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.1);transform:translateY(-1px);}
+.mc-blue{background:#EAF4FB;border-color:#85B7EB;}
+.mc-teal{background:#E1F5EE;border-color:#5DCAA5;}
+.mc-red{background:#FDECEA;border-color:#F5AEAD;}
+.mc-amber{background:#FDF3E3;border-color:#F0C97E;}
+.mc-purple{background:#EEEDFE;border-color:#AFA9EC;}
+.mc-dark{background:#E8EDF2;border-color:#8FAABB;}
+.mc-green{background:#EAF3DE;border-color:#B5D4B0;}
+.mc-code{font-size:10px;font-family:'DM Mono',monospace;font-weight:600;margin-bottom:5px;opacity:.7;}
+.mc-name{font-size:13px;font-weight:700;margin-bottom:4px;line-height:1.3;}
+.mc-desc{font-size:11px;line-height:1.5;opacity:.75;}
+.mc-file{font-size:9.5px;font-family:'DM Mono',monospace;margin-top:7px;padding:2px 6px;border-radius:4px;display:inline-block;background:rgba(255,255,255,.5);}
+.mc-ver{position:absolute;top:10px;right:10px;font-size:9.5px;font-family:'DM Mono',monospace;font-weight:700;background:rgba(255,255,255,.6);padding:1px 6px;border-radius:4px;}
+.mc-new{position:absolute;top:10px;right:10px;font-size:9px;font-weight:700;background:#C8001A;color:#fff;padding:1px 6px;border-radius:4px;letter-spacing:.3px;}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-done{background:#EAF3DE;color:#3B6D11;}
+.b-v2{background:#EAF4FB;color:#185FA5;}
+.b-new{background:#FDECEA;color:#C8001A;}
+.b-gray{background:#F1EFE8;color:#5A5955;}
+.b-phase{background:#FDF3E3;color:#854F0B;}
+
+/* 關係流程圖 */
+.flow-wrap{overflow-x:auto;padding:8px 0 16px;}
+.flow-svg-container{min-width:960px;}
+
+/* 串接關係表 */
+.conn-table{width:100%;border-collapse:collapse;}
+.conn-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:7px 12px;border-bottom:2px solid #EEECE6;text-align:left;white-space:nowrap;}
+.conn-table td{padding:9px 12px;border-bottom:1px solid #F4F3F0;font-size:12px;vertical-align:top;}
+.conn-table tr:last-child td{border-bottom:none;}
+.conn-table tr:hover td{background:#FAFAF8;}
+.conn-from{font-weight:600;font-family:'DM Mono',monospace;font-size:11.5px;color:#1A3A5C;}
+.conn-arrow{color:#C8001A;font-size:14px;font-weight:700;padding:0 4px;}
+.conn-to{font-family:'DM Mono',monospace;font-size:11.5px;color:#534AB7;}
+.conn-desc{color:#5A5955;font-size:11.5px;}
+.conn-status{font-size:10.5px;padding:1px 7px;border-radius:4px;white-space:nowrap;}
+.cs-live{background:#E1F5EE;color:#0F6E56;}
+.cs-sim{background:#FDF3E3;color:#854F0B;}
+.cs-p2{background:#F1EFE8;color:#5A5955;}
+
+/* 設計原則 */
+.principle-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.principle-card{background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:13px 15px;}
+.pc-code{font-size:10px;font-family:'DM Mono',monospace;font-weight:700;color:#9A9890;margin-bottom:5px;}
+.pc-title{font-size:13px;font-weight:700;color:#1A3A5C;margin-bottom:5px;}
+.pc-desc{font-size:12px;color:#5A5955;line-height:1.65;}
+
+/* KPI 四格 */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;}
+.kpi-l{font-size:10.5px;color:#9A9890;margin-bottom:3px;}
+.kpi-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.kn-blue{color:#185FA5;}.kn-teal{color:#0F6E56;}.kn-amber{color:#854F0B;}.kn-red{color:#C8001A;}
+.kpi-sub{font-size:10.5px;color:#9A9890;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售接待模組 <b>RS00 導覽總覽</b></div>
+  <div class="ver-badge">v4</div>
+  <div style="background:rgba(15,110,86,.55);border:1px solid rgba(15,110,86,.8);color:#fff;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:600;letter-spacing:.4px;">SA B 系列已串接</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS01_電子手卡_v8.html')">電子手卡 →</button>
+    <button class="hbtn" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')" style="background:rgba(15,110,86,.5);border-color:rgba(15,110,86,.7);">🔧 售後 CRM →</button>
+    <button class="hbtn" onclick="go('CRM07_店長綜合報表_v2.html')" style="background:rgba(200,0,26,.5);border-color:rgba(200,0,26,.7);">🏬 店長報表</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div>
+      <h1>🏍️ DUCATI 全系統模組導覽（RS + SA + CRM）</h1>
+      <p>完整覆蓋銷售（RS）與售後（SA）雙側流程：接待建檔 → 試駕 → 庫存 → 交車 → 售後保養 → CRM 追蹤 → 店長報表。RS05 交車後自動觸發 SA 側 CRM01B 建檔，形成完整客戶生命週期閉環。</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n">22</div><div class="hstat-l">RS 模組</div></div>
+      <div class="hstat"><div class="hstat-n">8</div><div class="hstat-l">SA CRM 模組</div></div>
+      <div class="hstat"><div class="hstat-n">v4</div><div class="hstat-l">本頁版本</div></div>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-l">RS 前台模組</div><div class="kpi-n kn-blue">10</div><div class="kpi-sub">RS00–RS06 + RS_EX1</div></div>
+    <div class="kpi-card"><div class="kpi-l">主管 / 設定模組</div><div class="kpi-n kn-teal">5</div><div class="kpi-sub">RS_SET / RS_SET2 / RS_M1–M3</div></div>
+    <div class="kpi-card"><div class="kpi-l">CRM 全系列</div><div class="kpi-n kn-amber">15</div><div class="kpi-sub">CRM00 / A系列 / B系列 / CRM07 v2</div></div>
+    <div class="kpi-card"><div class="kpi-l">RS05→SA 跨部門串接</div><div class="kpi-n kn-red">✅</div><div class="kpi-sub">交車觸發 CRM01B 自動建檔</div></div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab(0,this)">📋 模組總覽</button>
+    <button class="tab-btn" onclick="switchTab(1,this)">🔗 串接關係圖</button>
+    <button class="tab-btn" onclick="switchTab(2,this)">📐 設計原則</button>
+    <button class="tab-btn" onclick="switchTab(3,this)">📁 檔案清單</button>
+  </div>
+
+  <!-- ══ Tab 0：模組總覽 ══ -->
+  <div class="tab-pane active" id="tab-0">
+
+    <!-- RS 前台模組 -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="panel-icon pi-blue">🏍️</div>
+        <div><div class="panel-title">RS 前台作業模組</div><div class="panel-sub">銷售顧問日常使用 · 接待 → 試駕 → 庫存 → 鑑價 → 報價訂單 → 交車 → 保險</div></div>
+      </div>
+      <div class="panel-body">
+        <div class="module-grid">
+          <div class="mc-blue module-card" onclick="showToast('→ RS01_電子手卡_v8.html')">
+            <div class="mc-ver">v8</div>
+            <div class="mc-code">RS01</div>
+            <div class="mc-name">電子手卡</div>
+            <div class="mc-desc">四種來客身份 · HABC輔助建議 · 四色標籤 · 雙向跳轉回寫</div>
+            <div class="mc-file">RS01_電子手卡_v8.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('RS02_試乘試駕_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">RS02</div>
+            <div class="mc-name">試乘試駕</div>
+            <div class="mc-desc">試駕記錄 · 黃金時刻強制提示開報價單 · 回寫 RS01</div>
+            <div class="mc-file">RS02_試乘試駕.html</div>
+          </div>
+          <div class="mc-blue module-card" onclick="go('RS03A_新車庫存看板_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">RS03A</div>
+            <div class="mc-name">新車庫存看板</div>
+            <div class="mc-desc">新車庫存狀態 · 意向車型篩選 · 從 RS01 帶入條件</div>
+            <div class="mc-file">RS03A_新車庫存看板.html</div>
+          </div>
+          <div class="mc-purple module-card" onclick="go('RS03B_中古車庫存看板_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">RS03B</div>
+            <div class="mc-name">中古車庫存看板</div>
+            <div class="mc-desc">CPO/DPO/PO 三級認證 · 中古車篩選 · 從 RS01 帶入</div>
+            <div class="mc-file">RS03B_中古車庫存看板.html</div>
+          </div>
+          <div class="mc-amber module-card" onclick="go('RS06_中古車評估鑑價_v2.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">RS06</div>
+            <div class="mc-name">中古車評估鑑價</div>
+            <div class="mc-desc">Desmo Service 記錄 · 認證等級評定 · 回寫 RS01</div>
+            <div class="mc-file">RS06_中古車評估鑑價.html</div>
+          </div>
+          <div class="mc-red module-card" onclick="go('RS04_賞車報價與成交訂單_v1.html')">
+            <div class="mc-new">NEW</div>
+            <div class="mc-code">RS04</div>
+            <div class="mc-name">賞車報價與成交訂單</div>
+            <div class="mc-desc">報價單（新/中古共用）· 新車訂購合約 · 中古車買賣切結合約</div>
+            <div class="mc-file">RS04_賞車報價與成交訂單_v1.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('RS05_交車管理_v1.html')">
+            <div class="mc-new">NEW</div>
+            <div class="mc-code">RS05</div>
+            <div class="mc-name">交車管理</div>
+            <div class="mc-desc">PDI 觸發（PD-IN）· 交車確認表 36 項 · 保固條款簽名 · 觸發 D+3</div>
+            <div class="mc-file">RS05_交車管理_v1.html</div>
+          </div>
+          <div class="mc-red module-card" onclick="go('RS_EX1_保險招攬工作台_v1.html')">
+            <div class="mc-new">NEW</div>
+            <div class="mc-code">RS_EX1</div>
+            <div class="mc-name">前端續保招攬工作</div>
+            <div class="mc-desc">續保到期提醒 · 話術模板 · 新車交車招攬 · 佣金業績</div>
+            <div class="mc-file">RS_EX1_前端續保招攬工作_v1.html</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主管 / 設定模組 -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="panel-icon pi-dark">⚙️</div>
+        <div><div class="panel-title">主管 / 設定模組</div><div class="panel-sub">主管統一管理 · 參數下發各 RS 前台</div></div>
+      </div>
+      <div class="panel-body">
+        <div class="module-grid">
+          <div class="mc-dark module-card" onclick="go('RS_M1_銷售漏斗看板_v5.html')">
+            <div class="mc-ver">v5</div>
+            <div class="mc-code">RS_M1</div>
+            <div class="mc-name">銷售漏斗看板</div>
+            <div class="mc-desc">三層 KPI · PULS 診斷 · HABC 分布 · 客群畫像</div>
+            <div class="mc-file">RS_M1_銷售漏斗看板_v5.html</div>
+          </div>
+          <div class="mc-dark module-card" onclick="go('RS_M2_業績報表_v1.html')">
+            <div class="mc-new">NEW</div>
+            <div class="mc-code">RS_M2</div>
+            <div class="mc-name">業績報表</div>
+            <div class="mc-desc">損益平衡進度 · RS 排行 · 車系分析 · 月度趨勢</div>
+            <div class="mc-file">RS_M2_業績報表_v1.html</div>
+          </div>
+          <div class="mc-dark module-card" onclick="go('RS_M3_主管設定_v2.html')">
+            <div class="mc-ver">v2</div>
+            <div class="mc-code">RS_M3</div>
+            <div class="mc-name">主管設定</div>
+            <div class="mc-desc">KPI目標 · 九宮格 · 標籤管理 · RS人員 · 保險設定</div>
+            <div class="mc-file">RS_M3_主管設定_v2.html</div>
+          </div>
+          <div class="mc-green module-card" onclick="go('RS_SET_參數設定頁_UI規範示範.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">RS_SET</div>
+            <div class="mc-name">參數設定頁</div>
+            <div class="mc-desc">線索來源清單 · 競品去向清單 · 功能開關</div>
+            <div class="mc-file">RS_SET_參數設定頁_UI規範示範.html</div>
+          </div>
+          <div class="mc-green module-card" onclick="go('RS_SET2_v2.html')">
+            <div class="mc-ver">v2</div>
+            <div class="mc-code">RS_SET2</div>
+            <div class="mc-name">客戶標籤管理</div>
+            <div class="mc-desc">官方標籤瀏覽 · 個人自訂（無審核）· 主管觀察視角</div>
+            <div class="mc-file">RS_SET2_客戶標籤管理_v2.html</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRM 銷售側 A 系列 -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="panel-icon pi-purple">👥</div>
+        <div><div class="panel-title">CRM 銷售側模組（A 系列）</div><div class="panel-sub">潛客管理 · HABC 分級 · 電訪追蹤 · NPS</div></div>
+      </div>
+      <div class="panel-body">
+        <div class="module-grid">
+          <div class="mc-purple module-card" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM00</div>
+            <div class="mc-name">CRM 模組導覽總覽</div>
+            <div class="mc-desc">RS + SA 雙側 CRM 全模組入口與流程關係圖</div>
+            <div class="mc-file">CRM00_客服管理模組_導覽總覽_v1.html</div>
+          </div>
+          <div class="mc-purple module-card" onclick="go('CRM01A_銷售客戶基盤_v1.html')">
+            <div class="mc-ver">v2</div>
+            <div class="mc-code">CRM01A</div>
+            <div class="mc-name">銷售客戶基盤</div>
+            <div class="mc-desc">HABC 分級 · 列表/看板雙視圖 · SA 唯讀標籤（P-08）</div>
+            <div class="mc-file">CRM01A_銷售客戶基盤_v1.html</div>
+          </div>
+          <div class="mc-purple module-card" onclick="go('CRM02A_銷售電訪問卷設定.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM02A</div>
+            <div class="mc-name">銷售電訪問卷設定</div>
+            <div class="mc-desc">問卷版本控制 · 題型管理 · 適用時機 · 套用至 CRM03A</div>
+            <div class="mc-file">CRM02A_銷售電訪問卷設定.html</div>
+          </div>
+          <div class="mc-purple module-card" onclick="go('CRM03A_銷售電訪工作台_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM03A</div>
+            <div class="mc-name">銷售電訪工作台</div>
+            <div class="mc-desc">D+3/D+7 排程 · 話術提示 · 通話記錄 · 逾期警示</div>
+            <div class="mc-file">CRM03A_銷售電訪工作台_v1.html</div>
+          </div>
+          <div class="mc-purple module-card" onclick="go('CRM04A_銷售休眠戰敗管理_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM04A</div>
+            <div class="mc-name">銷售休眠戰敗管理</div>
+            <div class="mc-desc">休眠分層 · 戰敗原因分析 · 再接觸排程</div>
+            <div class="mc-file">CRM04A_銷售休眠戰敗管理_v1.html</div>
+          </div>
+          <div class="mc-purple module-card" onclick="go('CRM05A_NPS看板_銷售_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM05A</div>
+            <div class="mc-name">NPS 看板（銷售）</div>
+            <div class="mc-desc">月度 NPS · 各面向評分 · 批評者追蹤</div>
+            <div class="mc-file">CRM05A_NPS看板_銷售_v1.html</div>
+          </div>
+          <div class="mc-purple module-card" onclick="go('CRM06A_銷售推播通知管理_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM06A</div>
+            <div class="mc-name">銷售推播通知管理</div>
+            <div class="mc-desc">範本管理 · 客群篩選 · 排程發送 · 開啟率成效</div>
+            <div class="mc-file">CRM06A_銷售推播通知管理_v1.html</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SA CRM B 系列（新增）-->
+    <div class="panel" style="border-color:#5DCAA5;">
+      <div class="panel-hdr" style="background:linear-gradient(90deg,#0C5A46,#0F6E56);color:#fff;">
+        <div class="panel-icon" style="background:rgba(255,255,255,.15);font-size:15px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;">🔧</div>
+        <div>
+          <div class="panel-title" style="color:#fff;">CRM 售後側模組（B 系列）</div>
+          <div class="panel-sub" style="color:rgba(255,255,255,.7);">SA 售後專用 · P-08 部門隔離 · RS05 交車後自動串接</div>
+        </div>
+        <div style="margin-left:auto;background:rgba(255,255,255,.2);color:#fff;padding:3px 10px;border-radius:5px;font-size:10.5px;font-weight:700;">SA 側 · 真實數據</div>
+      </div>
+      <div class="panel-body">
+        <div style="background:#E1F5EE;border:1px solid #A8DFC9;border-radius:7px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:#0F6E56;">
+          🔗 <b>RS05 串接說明：</b>RS05 交車管理完成後，自動觸發 CRM01B 建立售後客戶基盤記錄，並由 CRM03B 排程 D+3 滿意度電訪。RS 與 SA 客戶資料依 P-08 原則隔離，唯一共享欄位為客戶標籤。
+        </div>
+        <div class="module-grid">
+          <div class="mc-teal module-card" onclick="go('CRM01B_售後客戶基盤_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM01B</div>
+            <div class="mc-name">售後客戶基盤</div>
+            <div class="mc-desc">逾期回廠追蹤 · 智慧快篩 · 保固/Desmo 提醒 · RS 共享標籤（唯讀）</div>
+            <div class="mc-file">CRM01B_售後客戶基盤_v1.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('CRM02B_售後電訪問卷設定_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM02B</div>
+            <div class="mc-name">售後電訪問卷設定</div>
+            <div class="mc-desc">D+3/保養/保固/Desmo 問卷 · SA 話術腳本 · 同步至 CRM03B</div>
+            <div class="mc-file">CRM02B_售後電訪問卷設定_v1.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('CRM03B_售後電訪工作台_v1.html')">
+            <div class="mc-new">串接 RS05</div>
+            <div class="mc-code">CRM03B</div>
+            <div class="mc-name">售後電訪工作台</div>
+            <div class="mc-desc">D+3 滿意度 · 回廠提醒 · Desmo/保固提醒 · NPS 快評</div>
+            <div class="mc-file">CRM03B_售後電訪工作台_v1.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('CRM04B_售後休眠流失管理_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM04B</div>
+            <div class="mc-name">售後休眠流失管理</div>
+            <div class="mc-desc">逾期未回廠 · 流失原因分析 · 低NPS追蹤 · 喚醒排程</div>
+            <div class="mc-file">CRM04B_售後休眠流失管理_v1.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('CRM05B_NPS看板_售後_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM05B</div>
+            <div class="mc-name">NPS 看板（售後）</div>
+            <div class="mc-desc">SA 個人 NPS · 服務類型拆分 · 批評者追蹤 · 面向評分</div>
+            <div class="mc-file">CRM05B_NPS看板_售後_v1.html</div>
+          </div>
+          <div class="mc-teal module-card" onclick="go('CRM06B_售後推播通知管理_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM06B</div>
+            <div class="mc-name">售後推播通知管理</div>
+            <div class="mc-desc">自動化規則 · 保固/Desmo/維修通知範本 · 進廠轉換率</div>
+            <div class="mc-file">CRM06B_售後推播通知管理_v1.html</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 店長跨部門報表 -->
+    <div class="panel" style="border-color:#8FAABB;">
+      <div class="panel-hdr" style="background:linear-gradient(90deg,#0D2438,#1A3A5C);color:#fff;">
+        <div class="panel-icon" style="background:rgba(255,255,255,.15);font-size:15px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;">🏬</div>
+        <div>
+          <div class="panel-title" style="color:#fff;">店長跨部門總覽</div>
+          <div class="panel-sub" style="color:rgba(255,255,255,.7);">唯讀視角 · RS + SA 雙側數據彙整 · P-08 原則下的跨部門觀察</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="module-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="mc-dark module-card" onclick="go('CRM07_店長綜合報表_v2.html')">
+            <div class="mc-new" style="background:#0D2438;">v2 升版</div>
+            <div class="mc-code">CRM07</div>
+            <div class="mc-name">店長跨部門綜合報表</div>
+            <div class="mc-desc">RS+SA NPS 對比趨勢 · SA 真實數據 · 逾期預警 · 跨部門標籤概覽 · 人員效率排行</div>
+            <div class="mc-file">CRM07_店長綜合報表_v2.html</div>
+          </div>
+          <div class="mc-dark module-card" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')">
+            <div class="mc-ver">v1</div>
+            <div class="mc-code">CRM00</div>
+            <div class="mc-name">CRM 模組入口總覽</div>
+            <div class="mc-desc">RS + SA 雙側 CRM 模組一覽 · 流程關係圖 · 快速跳轉各模組</div>
+            <div class="mc-file">CRM00_客服管理模組_導覽總覽_v1.html</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ Tab 1：串接關係圖 ══ -->
+  <div class="tab-pane" id="tab-1">
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="panel-icon pi-red">🔗</div>
+        <div><div class="panel-title">模組串接關係圖</div><div class="panel-sub">資料流向 · 主管設定下發 · RS 前台串接</div></div>
+      </div>
+      <div class="panel-body">
+        <div class="flow-wrap">
+          <!-- SVG 關係流程圖 -->
+          <svg viewBox="0 0 980 620" xmlns="http://www.w3.org/2000/svg" style="width:100%;font-family:'Noto Sans TC',sans-serif;" class="flow-svg-container">
+            <defs>
+              <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                <polygon points="0 0,8 3,0 6" fill="#C8001A"/>
+              </marker>
+              <marker id="arr-gray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                <polygon points="0 0,8 3,0 6" fill="#B4B2A9"/>
+              </marker>
+              <marker id="arr-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                <polygon points="0 0,8 3,0 6" fill="#185FA5"/>
+              </marker>
+              <marker id="arr-teal" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                <polygon points="0 0,8 3,0 6" fill="#0F6E56"/>
+              </marker>
+            </defs>
+
+            <!-- 背景區塊標籤 -->
+            <rect x="10" y="10" width="200" height="600" rx="8" fill="#E8EDF2" opacity=".4"/>
+            <text x="110" y="30" text-anchor="middle" font-size="10" font-weight="700" fill="#3A5A6C" letter-spacing="1">主管／設定層</text>
+
+            <rect x="230" y="10" width="260" height="600" rx="8" fill="#EAF4FB" opacity=".35"/>
+            <text x="360" y="30" text-anchor="middle" font-size="10" font-weight="700" fill="#185FA5" letter-spacing="1">RS 前台作業層</text>
+
+            <rect x="510" y="10" width="220" height="600" rx="8" fill="#EEEDFE" opacity=".35"/>
+            <text x="620" y="30" text-anchor="middle" font-size="10" font-weight="700" fill="#534AB7" letter-spacing="1">CRM 追蹤層</text>
+
+            <rect x="750" y="10" width="220" height="600" rx="8" fill="#E1F5EE" opacity=".35"/>
+            <text x="860" y="30" text-anchor="middle" font-size="10" font-weight="700" fill="#0F6E56" letter-spacing="1">衍生業務層</text>
+
+            <!-- ── 主管層節點 ── -->
+            <!-- RS_M3 -->
+            <rect x="20" y="50" width="180" height="52" rx="7" fill="#1A3A5C"/>
+            <text x="110" y="71" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS_M3 主管設定</text>
+            <text x="110" y="87" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">KPI / 九宮格 / 標籤 / 保險</text>
+
+            <!-- RS_SET -->
+            <rect x="20" y="130" width="180" height="44" rx="7" fill="#3B6D11"/>
+            <text x="110" y="150" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS_SET 參數設定</text>
+            <text x="110" y="164" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">來源 / 競品 / 功能開關</text>
+
+            <!-- RS_SET2 -->
+            <rect x="20" y="205" width="180" height="44" rx="7" fill="#3B6D11" opacity=".85"/>
+            <text x="110" y="225" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS_SET2 標籤管理</text>
+            <text x="110" y="239" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">RS 自訂 · 主管觀察</text>
+
+            <!-- RS_M1 -->
+            <rect x="20" y="285" width="180" height="44" rx="7" fill="#534AB7"/>
+            <text x="110" y="305" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS_M1 銷售漏斗看板</text>
+            <text x="110" y="319" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">KPI / PULS / 客群畫像</text>
+
+            <!-- RS_M2 -->
+            <rect x="20" y="360" width="180" height="44" rx="7" fill="#534AB7" opacity=".8"/>
+            <text x="110" y="380" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS_M2 業績報表</text>
+            <text x="110" y="394" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">損益 / RS排行 / 趨勢</text>
+
+            <!-- ── RS 前台層節點 ── -->
+            <!-- RS01 -->
+            <rect x="242" y="50" width="236" height="52" rx="7" fill="#185FA5"/>
+            <text x="360" y="71" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS01 電子手卡</text>
+            <text x="360" y="87" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">四身份 / HABC / 標籤 / 跳轉</text>
+
+            <!-- RS02 -->
+            <rect x="242" y="138" width="110" height="44" rx="7" fill="#0F6E56"/>
+            <text x="297" y="158" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS02 試駕</text>
+            <text x="297" y="172" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">黃金時刻提示</text>
+
+            <!-- RS06 -->
+            <rect x="368" y="138" width="110" height="44" rx="7" fill="#854F0B"/>
+            <text x="423" y="158" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS06 鑑價</text>
+            <text x="423" y="172" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">Desmo / 認證</text>
+
+            <!-- RS03A -->
+            <rect x="242" y="215" width="110" height="44" rx="7" fill="#185FA5" opacity=".75"/>
+            <text x="297" y="235" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS03A 新車庫</text>
+            <text x="297" y="249" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">庫存狀態</text>
+
+            <!-- RS03B -->
+            <rect x="368" y="215" width="110" height="44" rx="7" fill="#534AB7" opacity=".75"/>
+            <text x="423" y="235" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS03B 中古庫</text>
+            <text x="423" y="249" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">CPO/DPO/PO</text>
+
+            <!-- ── CRM 層節點 ── -->
+            <!-- CRM01A -->
+            <rect x="522" y="50" width="196" height="52" rx="7" fill="#534AB7"/>
+            <text x="620" y="71" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">CRM01A 客戶基盤</text>
+            <text x="620" y="87" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">HABC / 列表 / 看板</text>
+
+            <!-- CRM03A -->
+            <rect x="522" y="138" width="196" height="52" rx="7" fill="#534AB7" opacity=".8"/>
+            <text x="620" y="158" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">CRM03A 電訪工作台</text>
+            <text x="620" y="174" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">D+3/D+7 / 話術 / 記錄</text>
+
+            <!-- ── 衍生業務層節點 ── -->
+            <!-- RS_EX1 -->
+            <rect x="762" y="50" width="196" height="52" rx="7" fill="#C8001A"/>
+            <text x="860" y="71" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RS_EX1 前端續保招攬</text>
+            <text x="860" y="87" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,.7)">到期提醒 / 話術 / 佣金</text>
+
+            <!-- ── 連線 ── -->
+            <!-- RS_M3 → RS01（KPI/標籤/HABC） -->
+            <line x1="200" y1="76" x2="240" y2="76" stroke="#1A3A5C" stroke-width="1.5" marker-end="url(#arr-blue)" stroke-dasharray="5,3"/>
+            <text x="218" y="71" text-anchor="middle" font-size="8.5" fill="#1A3A5C">設定下發</text>
+
+            <!-- RS_M3 → RS_EX1（保險參數/話術） -->
+            <path d="M200,60 Q700,40 760,60" stroke="#C8001A" stroke-width="1.5" fill="none" marker-end="url(#arr)" stroke-dasharray="5,3"/>
+            <text x="480" y="38" text-anchor="middle" font-size="8.5" fill="#C8001A">Tab5 保險設定 → 話術/參數</text>
+
+            <!-- RS_SET → RS01（來源/競品） -->
+            <line x1="200" y1="152" x2="240" y2="95" stroke="#3B6D11" stroke-width="1.5" marker-end="url(#arr-teal)" stroke-dasharray="4,3"/>
+
+            <!-- RS_SET2 → RS01（自訂標籤） -->
+            <line x1="200" y1="227" x2="240" y2="100" stroke="#3B6D11" stroke-width="1.5" marker-end="url(#arr-teal)" stroke-dasharray="4,3"/>
+
+            <!-- RS01 → RS02（試駕跳轉） -->
+            <line x1="297" y1="102" x2="297" y2="136" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arr-teal)"/>
+            <!-- RS02 → RS01（回寫） -->
+            <path d="M320,138 Q340,120 340,102" stroke="#F0C97E" stroke-width="1.5" fill="none" marker-end="url(#arr-gray)" stroke-dasharray="3,3"/>
+            <text x="350" y="118" font-size="8" fill="#854F0B">回寫</text>
+
+            <!-- RS01 → RS06（鑑價跳轉） -->
+            <line x1="423" y1="102" x2="423" y2="136" stroke="#854F0B" stroke-width="1.5" marker-end="url(#arr)"/>
+            <!-- RS06 → RS01（回寫） -->
+            <path d="M400,138 Q385,120 385,102" stroke="#F0C97E" stroke-width="1.5" fill="none" marker-end="url(#arr-gray)" stroke-dasharray="3,3"/>
+
+            <!-- RS01 → RS03A -->
+            <line x1="297" y1="102" x2="297" y2="213" stroke="#185FA5" stroke-width="1" marker-end="url(#arr-blue)" stroke-dasharray="4,3"/>
+            <!-- RS01 → RS03B -->
+            <line x1="423" y1="102" x2="423" y2="213" stroke="#534AB7" stroke-width="1" marker-end="url(#arr-blue)" stroke-dasharray="4,3"/>
+
+            <!-- RS01 → CRM01A（儲存同步） -->
+            <line x1="478" y1="76" x2="520" y2="76" stroke="#534AB7" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+            <text x="498" y="70" text-anchor="middle" font-size="8.5" fill="#534AB7">同步</text>
+
+            <!-- CRM01A → CRM03A（排程） -->
+            <line x1="620" y1="102" x2="620" y2="136" stroke="#534AB7" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+            <text x="640" y="122" font-size="8.5" fill="#534AB7">排程</text>
+
+            <!-- CRM03A → CRM01A（回寫） -->
+            <path d="M596,136 Q582,120 596,102" stroke="#F0C97E" stroke-width="1.5" fill="none" marker-end="url(#arr-gray)" stroke-dasharray="3,3"/>
+
+            <!-- RS01 → RS_EX1（老車主） -->
+            <path d="M478,76 Q700,76 760,76" stroke="#C8001A" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+            <text x="620" y="68" text-anchor="middle" font-size="8.5" fill="#C8001A">老車主觸發</text>
+
+            <!-- RS_M1 讀取 RS_M3 -->
+            <path d="M110,104 Q60,195 110,283" stroke="#534AB7" stroke-width="1.5" fill="none" marker-end="url(#arr-blue)" stroke-dasharray="4,3"/>
+            <text x="52" y="200" text-anchor="middle" font-size="8" fill="#534AB7">KPI目標值</text>
+
+            <!-- RS_SET2 主管觀察 ← 全店自訂 -->
+            <text x="110" y="260" text-anchor="middle" font-size="8" fill="#3B6D11">↑ 全店觀察</text>
+
+            <!-- CRM03A 讀取 RS_SET（競品） -->
+            <path d="M522,164 Q380,200 200,164" stroke="#3B6D11" stroke-width="1" fill="none" marker-end="url(#arr-teal)" stroke-dasharray="3,3"/>
+
+            <!-- 圖例 -->
+            <rect x="22" y="450" width="936" height="140" rx="8" fill="#F8F7F4" stroke="#EEECE6" stroke-width="1"/>
+            <text x="40" y="472" font-size="10" font-weight="700" fill="#5A5955" letter-spacing=".5">圖例</text>
+
+            <line x1="40" y1="492" x2="90" y2="492" stroke="#1A3A5C" stroke-width="2" marker-end="url(#arr-blue)"/>
+            <text x="98" y="496" font-size="10" fill="#4A4A48">主管設定下發（單向）</text>
+
+            <line x1="40" y1="514" x2="90" y2="514" stroke="#534AB7" stroke-width="2" marker-end="url(#arr-blue)"/>
+            <text x="98" y="518" font-size="10" fill="#4A4A48">資料同步/跳轉（設計已對應）</text>
+
+            <line x1="40" y1="536" x2="90" y2="536" stroke="#F0C97E" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arr-gray)"/>
+            <text x="98" y="540" font-size="10" fill="#4A4A48">回寫（Phase 2 真實串接）</text>
+
+            <line x1="40" y1="558" x2="90" y2="558" stroke="#C8001A" stroke-width="1.5" marker-end="url(#arr)"/>
+            <text x="98" y="562" font-size="10" fill="#4A4A48">衍生業務觸發</text>
+
+            <rect x="300" y="475" width="12" height="12" rx="3" fill="#1A3A5C"/>
+            <text x="320" y="486" font-size="10" fill="#4A4A48">主管/設定層</text>
+            <rect x="300" y="497" width="12" height="12" rx="3" fill="#185FA5"/>
+            <text x="320" y="508" font-size="10" fill="#4A4A48">RS 前台層</text>
+            <rect x="300" y="519" width="12" height="12" rx="3" fill="#534AB7"/>
+            <text x="320" y="530" font-size="10" fill="#4A4A48">CRM 追蹤層</text>
+            <rect x="300" y="541" width="12" height="12" rx="3" fill="#C8001A"/>
+            <text x="320" y="552" font-size="10" fill="#4A4A48">衍生業務層</text>
+
+            <text x="500" y="486" font-size="10" fill="#854F0B">⚠ 虛線箭頭 = 目前為模擬展示，Phase 2 真實打通資料層</text>
+            <text x="500" y="504" font-size="10" fill="#5A5955">實線箭頭 = 設計邏輯已對應，UI/UX 層面已完整呈現</text>
+            <text x="500" y="522" font-size="10" fill="#5A5955">所有模組目前為獨立靜態 HTML，Phase 2 導入共用資料層後全面打通</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- 串接關係明細表 -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="panel-icon pi-blue">📋</div>
+        <div><div class="panel-title">串接關係明細</div><div class="panel-sub">資料流向 · 串接狀態說明</div></div>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="conn-table">
+          <thead><tr><th>來源</th><th></th><th>目標</th><th>說明</th><th>狀態</th></tr></thead>
+          <tbody>
+            <tr><td class="conn-from">RS_M3 Tab1</td><td class="conn-arrow">→</td><td class="conn-to">RS_M1 儀表盤</td><td class="conn-desc">KPI 目標值 → 儀表盤刻度線</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS_M3 Tab3</td><td class="conn-arrow">→</td><td class="conn-to">RS01 / RS_SET2</td><td class="conn-desc">官方標籤庫下發</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS_M3 Tab4</td><td class="conn-arrow">→</td><td class="conn-to">RS_M1 / 九宮格</td><td class="conn-desc">RS 人員清單同步</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS_M3 Tab5</td><td class="conn-arrow">→</td><td class="conn-to">RS_EX1</td><td class="conn-desc">保險公司/話術/提醒天數下發（唯讀）</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS_SET</td><td class="conn-arrow">→</td><td class="conn-to">RS01 / CRM03A</td><td class="conn-desc">線索來源 / 競品去向下拉選單</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS_SET2</td><td class="conn-arrow">→</td><td class="conn-to">RS01</td><td class="conn-desc">個人自訂標籤供貼標使用</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS01</td><td class="conn-arrow">→</td><td class="conn-to">RS02</td><td class="conn-desc">跳轉試駕，完成後回寫試駕結果（唯讀）</td><td><span class="conn-status cs-sim">Phase 2 真實串接</span></td></tr>
+            <tr><td class="conn-from">RS01</td><td class="conn-arrow">→</td><td class="conn-to">RS06</td><td class="conn-desc">跳轉鑑價，完成後回寫評估結果（唯讀）</td><td><span class="conn-status cs-sim">Phase 2 真實串接</span></td></tr>
+            <tr><td class="conn-from">RS01</td><td class="conn-arrow">→</td><td class="conn-to">RS03A / RS03B</td><td class="conn-desc">帶入意向車型篩選庫存</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS01</td><td class="conn-arrow">→</td><td class="conn-to">CRM01A</td><td class="conn-desc">儲存後詢問是否同步建立潛客記錄</td><td><span class="conn-status cs-sim">Phase 2 真實串接</span></td></tr>
+            <tr><td class="conn-from">RS01</td><td class="conn-arrow">→</td><td class="conn-to">RS_EX1</td><td class="conn-desc">老車主身份觸發保險到期提醒</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS02</td><td class="conn-arrow">→</td><td class="conn-to">RS01</td><td class="conn-desc">黃金時刻強制提示開報價單</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS02 / RS03A/B</td><td class="conn-arrow">→</td><td class="conn-to">RS04</td><td class="conn-desc">試駕完成或客戶表明意願 → 開立賞車報價單</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS04 Tab1</td><td class="conn-arrow">→</td><td class="conn-to">RS04 Tab2/3</td><td class="conn-desc">報價確認成交 → 依新車/中古車跳轉對應合約書</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS04</td><td class="conn-arrow">→</td><td class="conn-to">RS05</td><td class="conn-desc">合約書確認後 → 進入交車管理</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS05 STEP2</td><td class="conn-arrow">→</td><td class="conn-to">SA 售後模組</td><td class="conn-desc">觸發 PDI 工單（前綴碼 PD-IN），通知 SA 技師執行 29 項整備</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">RS05 完成交車</td><td class="conn-arrow">→</td><td class="conn-to">CRM03A</td><td class="conn-desc">交車完成 → 自動排程 D+3 滿意度回訪任務</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+            <tr><td class="conn-from">CRM01A</td><td class="conn-arrow">→</td><td class="conn-to">CRM03A</td><td class="conn-desc">建立潛客後排程 D+3/D+7 電訪任務</td><td><span class="conn-status cs-sim">Phase 2 真實串接</span></td></tr>
+            <tr><td class="conn-from">CRM03A</td><td class="conn-arrow">→</td><td class="conn-to">CRM01A</td><td class="conn-desc">通話記錄回寫客戶基盤歷史</td><td><span class="conn-status cs-sim">Phase 2 真實串接</span></td></tr>
+            <tr><td class="conn-from">RS_SET2</td><td class="conn-arrow">→</td><td class="conn-to">RS_M3 Tab3</td><td class="conn-desc">RS 高頻自訂標籤提示主管考慮升官方</td><td><span class="conn-status cs-live">設計已對應</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Tab 2：設計原則 ══ -->
+  <div class="tab-pane" id="tab-2">
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="panel-icon pi-dark">📐</div>
+        <div><div class="panel-title">系統設計核心原則</div><div class="panel-sub">v6.1 現行六項原則</div></div>
+      </div>
+      <div class="panel-body">
+        <div class="principle-grid">
+          <div class="principle-card">
+            <div class="pc-code">P-01</div>
+            <div class="pc-title">可設定參數化設計</div>
+            <div class="pc-desc">所有下拉選單、狀態代碼、追蹤天數等「參數」必須開放主管設定，不得硬寫死。實作位置：RS_SET、RS_M3 全五個 Tab。</div>
+          </div>
+          <div class="principle-card">
+            <div class="pc-code">P-02</div>
+            <div class="pc-title">三層 KPI 架構</div>
+            <div class="pc-desc">Layer 1 總經理看結果指標、Layer 2 主管看過程指標（儀表盤）、Layer 3 RS 看行為數據。RS_M1 / RS_M2 均依此架構呈現。</div>
+          </div>
+          <div class="principle-card">
+            <div class="pc-code">P-03</div>
+            <div class="pc-title">PULS 診斷閉環</div>
+            <div class="pc-desc">Problem → Understand → Let's solve it → Secure。點擊任一 KPI 展開四步診斷工作區，存檔後自動追蹤改善效果。</div>
+          </div>
+          <div class="principle-card">
+            <div class="pc-code">P-04</div>
+            <div class="pc-title">視角分離原則</div>
+            <div class="pc-desc">主管視角可看全店所有人數據；RS 個人視角只看自己 vs 全店平均，不顯示同事個別數據，避免內部競爭氛圍影響協作。</div>
+          </div>
+          <div class="principle-card">
+            <div class="pc-code">P-05</div>
+            <div class="pc-title">客群畫像（非客戶輪廓）</div>
+            <div class="pc-desc">標籤統計顯示於 RS_M1 主管視角，屬於群體累積洞察，不是單一客戶資料。用詞必須為「客群畫像」，不得用「客戶輪廓」。</div>
+          </div>
+          <div class="principle-card">
+            <div class="pc-code">P-06</div>
+            <div class="pc-title">自訂標籤自由度原則</div>
+            <div class="pc-desc">RS 自訂標籤無需審核，立即可用。每筆客戶最多 5 個自訂標籤。主管在 RS_M3 Tab3 觀察使用趨勢，決定是否升為官方標籤。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Tab 3：檔案清單 ══ -->
+  <div class="tab-pane" id="tab-3">
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="panel-icon pi-teal">📁</div>
+        <div><div class="panel-title">完整檔案清單</div><div class="panel-sub">v6.1 現行版本 · 14 個模組</div></div>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="conn-table">
+          <thead><tr><th>代碼</th><th>中文檔名</th><th>版本</th><th>最後更新</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td class="conn-from">RS00</td><td>RS00_銷售模組_導覽總覽.html</td><td><span class="badge b-v2">v3</span></td><td>v6.2</td><td class="conn-desc">本頁，補入 RS04/RS05/CRM00/CRM02A，串接關係升至 18 條</td></tr>
+            <tr><td class="conn-from">RS01</td><td>RS01_電子手卡_v8.html</td><td><span class="badge b-v2">v8</span></td><td>v6.1</td><td class="conn-desc">四身份 / HABC / 標籤 / 雙向回寫</td></tr>
+            <tr><td class="conn-from">RS02</td><td>RS02_試乘試駕.html</td><td><span class="badge b-gray">v1</span></td><td>v6.0</td><td class="conn-desc">試駕記錄 / 黃金時刻提示</td></tr>
+            <tr><td class="conn-from">RS03A</td><td>RS03A_新車庫存看板.html</td><td><span class="badge b-gray">v1</span></td><td>v6.0</td><td class="conn-desc">新車庫存狀態</td></tr>
+            <tr><td class="conn-from">RS03B</td><td>RS03B_中古車庫存看板.html</td><td><span class="badge b-gray">v1</span></td><td>v6.0</td><td class="conn-desc">三級認證中古車庫存</td></tr>
+            <tr><td class="conn-from">RS06</td><td>RS06_中古車評估鑑價.html</td><td><span class="badge b-gray">v1</span></td><td>v6.0</td><td class="conn-desc">Desmo / 鑑價 / 認證</td></tr>
+            <tr><td class="conn-from">RS04</td><td>RS04_賞車報價與成交訂單_v1.html</td><td><span class="badge b-new">NEW</span></td><td>v6.2</td><td class="conn-desc">報價單（新/中古共用）/ 新車訂購合約 / 中古車買賣切結合約</td></tr>
+            <tr><td class="conn-from">RS05</td><td>RS05_交車管理_v1.html</td><td><span class="badge b-new">NEW</span></td><td>v6.2</td><td class="conn-desc">PDI 觸發 PD-IN / 交車確認表 36 項 / 保固條款 / 觸發 D+3</td></tr>
+            <tr><td class="conn-from">RS_SET</td><td>RS_SET_參數設定頁_UI規範示範.html</td><td><span class="badge b-gray">v1</span></td><td>v6.0</td><td class="conn-desc">線索來源 / 競品清單 / 功能開關</td></tr>
+            <tr><td class="conn-from">RS_SET2</td><td>RS_SET2_客戶標籤管理_v2.html</td><td><span class="badge b-v2">v2</span></td><td>v6.1</td><td class="conn-desc">標籤自由新增 / 無審核 / 主管觀察</td></tr>
+            <tr><td class="conn-from">RS_M1</td><td>RS_M1_銷售漏斗看板_v5.html</td><td><span class="badge b-gray">v5</span></td><td>v6.0</td><td class="conn-desc">漏斗 / PULS / 客群畫像</td></tr>
+            <tr><td class="conn-from">RS_M2</td><td>RS_M2_業績報表_v1.html</td><td><span class="badge b-new">NEW</span></td><td>v6.1</td><td class="conn-desc">損益平衡 / RS排行 / 車系分析</td></tr>
+            <tr><td class="conn-from">RS_M3</td><td>RS_M3_主管設定_v2.html</td><td><span class="badge b-v2">v2</span></td><td>v6.1</td><td class="conn-desc">五 Tab，新增 Tab5 保險設定</td></tr>
+            <tr><td class="conn-from">CRM00</td><td>CRM00_客服管理模組_導覽總覽_v1.html</td><td><span class="badge b-new">NEW</span></td><td>v6.2</td><td class="conn-desc">CRM 模組入口總覽 / 13 個模組流程關係圖</td></tr>
+            <tr><td class="conn-from">CRM01A</td><td>CRM01A_銷售客戶基盤_v1.html</td><td><span class="badge b-new">NEW</span></td><td>v6.1</td><td class="conn-desc">HABC / 列表看板 / 客戶詳情</td></tr>
+            <tr><td class="conn-from">CRM02A</td><td>CRM02A_銷售電訪問卷設定.html</td><td><span class="badge b-new">NEW</span></td><td>v6.2</td><td class="conn-desc">問卷設定 / 題型管理 / 適用範圍</td></tr>
+            <tr><td class="conn-from">CRM03A</td><td>CRM03A_銷售電訪工作台_v1.html</td><td><span class="badge b-new">NEW</span></td><td>v6.1</td><td class="conn-desc">D+3/D+7 / 話術 / 通話記錄</td></tr>
+            <tr><td class="conn-from">RS_EX1</td><td>RS_EX1_前端續保招攬工作_v1.html</td><td><span class="badge b-new">NEW</span></td><td>v6.1</td><td class="conn-desc">續保提醒 / 話術 / 新車招攬 / 佣金</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .main -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+function switchTab(i, el) {
+  document.querySelectorAll('.tab-btn').forEach(function(b,idx){b.classList.toggle('active',idx===i);});
+  document.querySelectorAll('.tab-pane').forEach(function(p,idx){p.classList.toggle('active',idx===i);});
+}
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2500);
+}
+</script>
+</body>
+</html>

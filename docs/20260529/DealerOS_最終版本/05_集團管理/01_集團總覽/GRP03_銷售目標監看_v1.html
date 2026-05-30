@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP03 銷售目標監看 — DealerOS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;--purple-bd:#AFA9EC;
+  --gray:#9A9890;--border:#EEECE6;--header:#0D2438;
+  --green:#1E7D3E;--green-bg:#EAF5EA;
+}
+
+/* ── Header ── */
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(255,165,0,.2);border:1px solid rgba(255,165,0,.3);color:#FFD580;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+/* ── Sub bar ── */
+.sub-bar{background:#fff;border-bottom:1px solid var(--border);padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.period-chip{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:#fff;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.period-chip.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.period-chip:hover:not(.active){background:#F4F3F0;}
+.sub-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gray);}
+.refresh-dot{width:7px;height:7px;border-radius:50%;background:#3DBE6E;display:inline-block;}
+
+/* ── Main ── */
+.main{max-width:1300px;margin:0 auto;padding:20px 24px 48px;}
+
+/* ── Hero ── */
+.hero{background:linear-gradient(135deg,#0A1F35 0%,#1A3A5C 55%,#1A3A5C 100%);border-radius:12px;padding:22px 28px;margin-bottom:16px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-20px;top:-20px;width:180px;height:180px;border-radius:50%;background:rgba(80,120,240,.1);pointer-events:none;}
+.hero h1{font-size:19px;font-weight:700;margin-bottom:5px;}
+.hero p{font-size:12px;opacity:.75;line-height:1.7;max-width:580px;}
+.hstats{display:flex;gap:8px;flex-wrap:wrap;}
+.hstat{text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 16px;min-width:80px;}
+.hstat-n{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.hstat-l{font-size:10px;opacity:.65;margin-top:3px;}
+
+/* ── Info banner ── */
+.info-banner{background:var(--navy-bg);border:1px solid var(--navy-bd);border-radius:8px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;}
+.ib-icon{font-size:15px;flex-shrink:0;}
+.ib-text{font-size:12px;color:var(--navy);line-height:1.6;}
+
+/* ── Section title ── */
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:18px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── 填報狀態卡 ── */
+.status-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;}
+.status-card{background:#fff;border:1px solid var(--border);border-radius:9px;padding:12px 14px;position:relative;}
+.sc-store{font-size:12.5px;font-weight:700;margin-bottom:6px;}
+.sc-type{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;display:inline-block;margin-bottom:8px;}
+.sct-direct{background:var(--navy-bg);color:var(--navy);}
+.sct-dealer{background:var(--teal-bg);color:var(--teal);}
+.sc-status{display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;}
+.sc-date{font-size:10px;color:var(--gray);margin-top:3px;}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sd-done{background:#3DBE6E;}
+.sd-pending{background:var(--amber);}
+.sd-missing{background:var(--red);}
+.sc-dept-row{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;}
+.dept-pill{font-size:9.5px;padding:1px 6px;border-radius:4px;font-weight:600;}
+.dp-ok{background:var(--green-bg);color:var(--green);}
+.dp-warn{background:var(--amber-bg);color:var(--amber);}
+.dp-miss{background:var(--red-bg);color:var(--red);}
+
+/* ── 主監看表 ── */
+.panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.panel-hdr{padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.panel-icon{font-size:14px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+
+.watch-table{width:100%;border-collapse:collapse;}
+.watch-table th{font-size:10.5px;font-weight:700;color:var(--gray);padding:8px 10px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;white-space:nowrap;letter-spacing:.3px;}
+.watch-table th.center{text-align:center;}
+.watch-table td{padding:9px 10px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.watch-table tr:last-child td{border-bottom:none;}
+.watch-table tr:hover td{background:#FAFAF8;}
+
+.store-name-cell{font-weight:700;display:flex;align-items:center;gap:6px;}
+.store-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot-direct{background:var(--navy);}
+.dot-dealer{background:var(--teal);}
+
+/* Progress */
+.prog-wrap{display:flex;align-items:center;gap:8px;}
+.prog-bar{height:6px;background:#EEECE6;border-radius:3px;flex:1;min-width:60px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;}
+.pf-ok{background:#3DBE6E;}
+.pf-warn{background:var(--amber);}
+.pf-bad{background:var(--red);}
+.pf-navy{background:var(--navy);}
+.prog-val{font-size:11.5px;font-weight:700;font-family:'DM Mono',monospace;min-width:40px;text-align:right;}
+
+/* 目標合理性標示 */
+.reason-tag{font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;white-space:nowrap;}
+.rt-hi{background:#E8F5E8;color:#1E6E1E;}
+.rt-ok{background:var(--navy-bg);color:var(--navy);}
+.rt-lo{background:var(--amber-bg);color:var(--amber);}
+.rt-miss{background:var(--red-bg);color:var(--red);}
+
+/* 備註欄 */
+.note-cell{font-size:11.5px;color:#5A5955;font-style:italic;max-width:180px;}
+.note-add{font-size:11px;color:var(--navy);cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.note-add:hover{color:#254d7a;}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-ok{background:var(--green-bg);color:var(--green);}
+.b-warn{background:var(--amber-bg);color:var(--amber);}
+.b-bad{background:var(--red-bg);color:var(--red);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-navy{background:var(--navy-bg);color:var(--navy);}
+
+/* DM Mono 數字 */
+.mono{font-family:'DM Mono',monospace;font-weight:700;}
+
+/* ── 合理性分析區 ── */
+.analysis-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.analysis-card{background:#fff;border:1px solid var(--border);border-radius:9px;padding:14px;}
+.ac-title{font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px;}
+.ac-store{font-size:12.5px;font-weight:700;margin-bottom:4px;}
+.ac-note{font-size:11.5px;color:#5A5955;line-height:1.5;}
+.ac-tag{margin-top:6px;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@media(max-width:900px){
+  .status-grid{grid-template-columns:repeat(2,1fr);}
+  .analysis-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP03 銷售目標監看</b></div>
+  <div class="org-badge">🏢 Indian Motorcycle Taiwan</div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn">匯出報表</button>
+  </div>
+</header>
+
+<div class="sub-bar">
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">期間：</span>
+  <button class="period-chip active" onclick="setPeriod(this)">2026年5月</button>
+  <button class="period-chip" onclick="setPeriod(this)">2026年Q2</button>
+  <button class="period-chip" onclick="setPeriod(this)">2026年全年</button>
+  <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">部門：</span>
+  <button class="period-chip active" onclick="setPeriod(this)">全部門</button>
+  <button class="period-chip" onclick="setPeriod(this)">新車銷售</button>
+  <button class="period-chip" onclick="setPeriod(this)">售後服務</button>
+  <button class="period-chip" onclick="setPeriod(this)">中古車</button>
+  <div class="sub-right">
+    <span class="refresh-dot"></span>
+    資料更新：2026-05-28 08:00
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div>
+      <h1>📊 銷售目標監看</h1>
+      <p>本頁面收集各門店自行填報的業績目標，集團僅作監看與參考，不介入目標設定。目標由各門店店長在門店層頁面自行填報，集團可留備註建議供門店參考。</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n">5</div><div class="hstat-l">門店總數</div></div>
+      <div class="hstat"><div class="hstat-n">3</div><div class="hstat-l">已填報</div></div>
+      <div class="hstat"><div class="hstat-n">2</div><div class="hstat-l">待填報</div></div>
+      <div class="hstat"><div class="hstat-n">1</div><div class="hstat-l">目標偏低</div></div>
+    </div>
+  </div>
+
+  <!-- 說明橫幅 -->
+  <div class="info-banner">
+    <div class="ib-icon">ℹ️</div>
+    <div class="ib-text">
+      <b>本頁面為「收集監看」模式：</b>集團管理層僅能查看各門店自報目標、歷史達成與本期進度，不具備修改門店目標的權限。如需給予建議，請使用右側「集團備註」欄填寫，備註將在門店層頁面以提示方式呈現給店長參考。
+      <span style="color:var(--amber);font-weight:600;margin-left:8px;">⚠️ 尚有 2 間門店本月目標未填報。</span>
+    </div>
+  </div>
+
+  <!-- 填報狀態 -->
+  <div class="sec-title">各門店填報狀態</div>
+  <div class="status-grid">
+    <!-- 台北 -->
+    <div class="status-card" style="border-top:3px solid #3DBE6E;">
+      <div class="sc-store">台北旗艦店</div>
+      <span class="sc-type sct-direct">直營</span>
+      <div class="sc-status"><span class="status-dot sd-done"></span>已填報</div>
+      <div class="sc-date">填報時間：05/02 09:14</div>
+      <div class="sc-dept-row">
+        <span class="dept-pill dp-ok">新車 ✓</span>
+        <span class="dept-pill dp-ok">售後 ✓</span>
+        <span class="dept-pill dp-ok">中古車 ✓</span>
+      </div>
+    </div>
+    <!-- 台中 -->
+    <div class="status-card" style="border-top:3px solid #3DBE6E;">
+      <div class="sc-store">台中直營店</div>
+      <span class="sc-type sct-direct">直營</span>
+      <div class="sc-status"><span class="status-dot sd-done"></span>已填報</div>
+      <div class="sc-date">填報時間：05/03 14:22</div>
+      <div class="sc-dept-row">
+        <span class="dept-pill dp-ok">新車 ✓</span>
+        <span class="dept-pill dp-ok">售後 ✓</span>
+        <span class="dept-pill dp-warn">中古車 !</span>
+      </div>
+    </div>
+    <!-- 高雄 -->
+    <div class="status-card" style="border-top:3px solid #3DBE6E;">
+      <div class="sc-store">高雄直營店</div>
+      <span class="sc-type sct-direct">直營</span>
+      <div class="sc-status"><span class="status-dot sd-done"></span>已填報</div>
+      <div class="sc-date">填報時間：05/04 10:05</div>
+      <div class="sc-dept-row">
+        <span class="dept-pill dp-ok">新車 ✓</span>
+        <span class="dept-pill dp-ok">售後 ✓</span>
+        <span class="dept-pill dp-ok">中古車 ✓</span>
+      </div>
+    </div>
+    <!-- 台南 -->
+    <div class="status-card" style="border-top:3px solid var(--amber);">
+      <div class="sc-store">台南授權商</div>
+      <span class="sc-type sct-dealer">授權</span>
+      <div class="sc-status"><span class="status-dot sd-pending"></span>部分填報</div>
+      <div class="sc-date">最後更新：05/06 16:40</div>
+      <div class="sc-dept-row">
+        <span class="dept-pill dp-ok">新車 ✓</span>
+        <span class="dept-pill dp-miss">售後 —</span>
+        <span class="dept-pill dp-miss">中古車 —</span>
+      </div>
+    </div>
+    <!-- 嘉義 -->
+    <div class="status-card" style="border-top:3px solid var(--red);">
+      <div class="sc-store">嘉義授權商</div>
+      <span class="sc-type sct-dealer">授權</span>
+      <div class="sc-status"><span class="status-dot sd-missing"></span>尚未填報</div>
+      <div class="sc-date">截止日期：05/05（已逾期）</div>
+      <div class="sc-dept-row">
+        <span class="dept-pill dp-miss">新車 —</span>
+        <span class="dept-pill dp-miss">售後 —</span>
+        <span class="dept-pill dp-miss">中古車 —</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主監看表：新車銷售 -->
+  <div class="sec-title">新車銷售目標監看</div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-icon" style="background:var(--navy-bg);">🏍</div>
+      <div>
+        <div class="panel-title">新車銷售目標 vs 歷史達成 vs 本期進度</div>
+        <div class="panel-sub">目標由各店自行填報　集團唯讀</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+        <span style="font-size:11px;color:var(--gray);">時間進度：</span>
+        <span style="font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:var(--navy);">66.7%</span>
+      </div>
+    </div>
+    <table class="watch-table">
+      <thead>
+        <tr>
+          <th>門店</th>
+          <th class="center">去年同期達成</th>
+          <th class="center">本期自報目標</th>
+          <th class="center">目標 vs 去年</th>
+          <th>本期已達成進度</th>
+          <th class="center">達成率</th>
+          <th class="center">目標合理性</th>
+          <th>集團備註</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="store-name-cell"><span class="store-dot dot-direct"></span>台北旗艦店</div></td>
+          <td class="center"><span class="mono">26 台</span></td>
+          <td class="center"><span class="mono" style="color:var(--navy);">30 台</span></td>
+          <td class="center"><span class="badge b-ok">↑ +15.4%</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:93%;"></div></div>
+              <span class="prog-val" style="color:#1E7D3E;">28台</span>
+            </div>
+          </td>
+          <td class="center"><span class="mono" style="color:#1E7D3E;">93.3%</span></td>
+          <td class="center"><span class="reason-tag rt-ok">合理</span></td>
+          <td class="note-cell">—</td>
+        </tr>
+        <tr>
+          <td><div class="store-name-cell"><span class="store-dot dot-direct"></span>台中直營店</div></td>
+          <td class="center"><span class="mono">22 台</span></td>
+          <td class="center"><span class="mono" style="color:var(--amber);">18 台</span></td>
+          <td class="center"><span class="badge b-warn">↓ -18.2%</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:72%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">13台</span>
+            </div>
+          </td>
+          <td class="center"><span class="mono" style="color:var(--amber);">72.2%</span></td>
+          <td class="center"><span class="reason-tag rt-lo">偏低 ⚠</span></td>
+          <td class="note-cell">
+            <span style="color:var(--amber);">目標設定低於去年，建議店長確認是否因人員異動調整。</span>
+          </td>
+        </tr>
+        <tr>
+          <td><div class="store-name-cell"><span class="store-dot dot-direct"></span>高雄直營店</div></td>
+          <td class="center"><span class="mono">24 台</span></td>
+          <td class="center"><span class="mono" style="color:var(--navy);">25 台</span></td>
+          <td class="center"><span class="badge b-ok">↑ +4.2%</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:68%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">17台</span>
+            </div>
+          </td>
+          <td class="center"><span class="mono" style="color:var(--amber);">68.0%</span></td>
+          <td class="center"><span class="reason-tag rt-ok">合理</span></td>
+          <td class="note-cell"><span class="note-add" onclick="addNote('高雄直營店')">＋ 新增備註</span></td>
+        </tr>
+        <tr>
+          <td><div class="store-name-cell"><span class="store-dot dot-dealer"></span>台南授權商</div></td>
+          <td class="center"><span class="mono">20 台</span></td>
+          <td class="center"><span class="mono" style="color:var(--navy);">22 台</span></td>
+          <td class="center"><span class="badge b-ok">↑ +10%</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:86%;"></div></div>
+              <span class="prog-val" style="color:#1E7D3E;">19台</span>
+            </div>
+          </td>
+          <td class="center"><span class="mono" style="color:#1E7D3E;">86.4%</span></td>
+          <td class="center"><span class="reason-tag rt-ok">合理</span></td>
+          <td class="note-cell"><span class="note-add" onclick="addNote('台南授權商')">＋ 新增備註</span></td>
+        </tr>
+        <tr style="background:#FFF8F8;">
+          <td><div class="store-name-cell"><span class="store-dot dot-dealer"></span>嘉義授權商</div></td>
+          <td class="center"><span class="mono">18 台</span></td>
+          <td class="center"><span class="mono" style="color:var(--gray);">未填報</span></td>
+          <td class="center"><span class="badge b-gray">—</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-bad" style="width:44%;"></div></div>
+              <span class="prog-val" style="color:var(--red);">8台</span>
+            </div>
+          </td>
+          <td class="center"><span class="mono" style="color:var(--gray);">— %</span></td>
+          <td class="center"><span class="reason-tag rt-miss">未填報</span></td>
+          <td class="note-cell"><span class="note-add" onclick="addNote('嘉義授權商')">＋ 新增備註</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 主監看表：售後服務 -->
+  <div class="sec-title">售後服務目標監看</div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-icon" style="background:var(--teal-bg);">🔧</div>
+      <div>
+        <div class="panel-title">售後服務目標 vs 歷史達成 vs 本期進度</div>
+        <div class="panel-sub">以維修台次為主要目標指標</div>
+      </div>
+    </div>
+    <table class="watch-table">
+      <thead>
+        <tr>
+          <th>門店</th>
+          <th class="center">去年同期台次</th>
+          <th class="center">本期自報目標</th>
+          <th class="center">目標 vs 去年</th>
+          <th>本期已達成進度</th>
+          <th class="center">達成率</th>
+          <th class="center">目標合理性</th>
+          <th>集團備註</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="store-name-cell"><span class="store-dot dot-direct"></span>台北旗艦店</div></td>
+          <td class="center"><span class="mono">580 次</span></td>
+          <td class="center"><span class="mono" style="color:var(--navy);">620 次</span></td>
+          <td class="center"><span class="badge b-ok">↑ +6.9%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-ok" style="width:91%;"></div></div><span class="prog-val" style="color:#1E7D3E;">564次</span></div></td>
+          <td class="center"><span class="mono" style="color:#1E7D3E;">91.0%</span></td>
+          <td class="center"><span class="reason-tag rt-ok">合理</span></td>
+          <td class="note-cell">—</td>
+        </tr>
+        <tr>
+          <td><div class="store-name-cell"><span class="store-dot dot-direct"></span>台中直營店</div></td>
+          <td class="center"><span class="mono">520 次</span></td>
+          <td class="center"><span class="mono" style="color:var(--navy);">540 次</span></td>
+          <td class="center"><span class="badge b-ok">↑ +3.8%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:79%;"></div></div><span class="prog-val" style="color:var(--amber);">427次</span></div></td>
+          <td class="center"><span class="mono" style="color:var(--amber);">79.1%</span></td>
+          <td class="center"><span class="reason-tag rt-ok">合理</span></td>
+          <td class="note-cell"><span class="note-add" onclick="addNote('台中售後')">＋ 新增備註</span></td>
+        </tr>
+        <tr>
+          <td><div class="store-name-cell"><span class="store-dot dot-direct"></span>高雄直營店</div></td>
+          <td class="center"><span class="mono">498 次</span></td>
+          <td class="center"><span class="mono" style="color:var(--navy);">520 次</span></td>
+          <td class="center"><span class="badge b-ok">↑ +4.4%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:74%;"></div></div><span class="prog-val" style="color:var(--amber);">385次</span></div></td>
+          <td class="center"><span class="mono" style="color:var(--amber);">74.0%</span></td>
+          <td class="center"><span class="reason-tag rt-ok">合理</span></td>
+          <td class="note-cell"><span class="note-add" onclick="addNote('高雄售後')">＋ 新增備註</span></td>
+        </tr>
+        <tr>
+          <td><div class="store-name-cell"><span class="store-dot dot-dealer"></span>台南授權商</div></td>
+          <td class="center"><span class="mono">—</span></td>
+          <td class="center"><span class="mono" style="color:var(--gray);">未填報</span></td>
+          <td class="center"><span class="badge b-gray">—</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-navy" style="width:60%;"></div></div><span class="prog-val" style="color:var(--navy);">318次</span></div></td>
+          <td class="center"><span class="mono" style="color:var(--gray);">— %</span></td>
+          <td class="center"><span class="reason-tag rt-miss">未填報</span></td>
+          <td class="note-cell"><span class="note-add" onclick="addNote('台南售後')">＋ 新增備註</span></td>
+        </tr>
+        <tr style="background:#FFF8F8;">
+          <td><div class="store-name-cell"><span class="store-dot dot-dealer"></span>嘉義授權商</div></td>
+          <td class="center"><span class="mono">—</span></td>
+          <td class="center"><span class="mono" style="color:var(--gray);">未填報</span></td>
+          <td class="center"><span class="badge b-gray">—</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-bad" style="width:43%;"></div></div><span class="prog-val" style="color:var(--red);">168次</span></div></td>
+          <td class="center"><span class="mono" style="color:var(--gray);">— %</span></td>
+          <td class="center"><span class="reason-tag rt-miss">未填報</span></td>
+          <td class="note-cell"><span class="note-add" onclick="addNote('嘉義售後')">＋ 新增備註</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 目標合理性分析 -->
+  <div class="sec-title">目標合理性自動分析</div>
+  <div class="analysis-grid">
+    <div class="analysis-card" style="border-top:3px solid var(--amber);">
+      <div class="ac-title">⚠️ 目標偏低提示</div>
+      <div class="ac-store">台中直營店 — 新車銷售</div>
+      <div class="ac-note">自報目標 18 台，低於去年同期 22 台（-18.2%）。建議集團備註詢問是否因人員異動或市場判斷調整。</div>
+      <div class="ac-tag"><span class="reason-tag rt-lo">目標偏低</span></div>
+    </div>
+    <div class="analysis-card" style="border-top:3px solid var(--red);">
+      <div class="ac-title">🔴 未填報提示</div>
+      <div class="ac-store">嘉義授權商 — 全部門</div>
+      <div class="ac-note">截止日 05/05 已逾期，三個部門目標均未填報。本期進度無法計算達成率，建議集團聯繫催報。</div>
+      <div class="ac-tag"><span class="reason-tag rt-miss">未填報（逾期）</span></div>
+    </div>
+    <div class="analysis-card" style="border-top:3px solid #3DBE6E;">
+      <div class="ac-title">✅ 整體進度提示</div>
+      <div class="ac-store">全台已填報門店</div>
+      <div class="ac-note">台北/台南目前達成進度優於時間進度（66.7%），台中/高雄略低，整體屬正常範圍，不需要集團介入。</div>
+      <div class="ac-tag"><span class="reason-tag rt-ok">整體正常</span></div>
+    </div>
+  </div>
+
+  <!-- 底部說明 -->
+  <div style="background:#FAFAF8;border:1px solid var(--border);border-radius:8px;padding:14px 18px;display:flex;align-items:flex-start;gap:10px;">
+    <span style="font-size:15px;">🔒</span>
+    <div style="font-size:11.5px;color:#5A5955;line-height:1.7;">
+      <b style="color:var(--navy);">集團管理層唯讀說明：</b>本頁面數據均來自各門店自行填報，集團無法修改門店目標數值。如需給予建議，請點擊各列「集團備註」欄新增文字，備註將以提示方式顯示在對應門店的目標設定頁面，供店長參考。<br>
+      <b style="color:var(--amber);">未來擴充：</b>當集團管理能力提升後，可在系統設定中開啟「集團目標下發」模式，由集團直接設定各門店目標上限，本頁面自動切換為可編輯模式。
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function setPeriod(el){
+  el.closest('.sub-bar').querySelectorAll('.period-chip').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  showToast('已切換：' + el.textContent.trim());
+}
+function addNote(store){
+  const note = prompt(`為「${store}」新增集團備註：`);
+  if(note) showToast(`✅ 備註已儲存：${store}`);
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GROUP01 集團總覽 — DealerOS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;--purple-bd:#AFA9EC;
+  --gray:#9A9890;--border:#EEECE6;--bg:#F8F7F4;--card:#fff;
+  --header:#0D2438;
+}
+
+/* ── Header ── */
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(255,165,0,.2);border:1px solid rgba(255,165,0,.3);color:#FFD580;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+/* ── Sub bar ── */
+.sub-bar{background:#fff;border-bottom:1px solid var(--border);padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.period-chip{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:#fff;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.period-chip.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.period-chip:hover:not(.active){background:#F4F3F0;}
+.sub-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gray);}
+.refresh-dot{width:7px;height:7px;border-radius:50%;background:#3DBE6E;display:inline-block;}
+
+/* ── Main ── */
+.main{max-width:1300px;margin:0 auto;padding:20px 24px 48px;}
+
+/* ── Hero ── */
+.hero{background:linear-gradient(135deg,#0A1F35 0%,#1A3A5C 55%,#1E3A7A 100%);border-radius:12px;padding:24px 28px;margin-bottom:16px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-30px;top:-30px;width:200px;height:200px;border-radius:50%;background:rgba(80,120,240,.12);pointer-events:none;}
+.hero::after{content:'';position:absolute;right:120px;bottom:-40px;width:140px;height:140px;border-radius:50%;background:rgba(50,200,150,.08);pointer-events:none;}
+.hero h1{font-size:19px;font-weight:700;margin-bottom:5px;}
+.hero p{font-size:12px;opacity:.75;line-height:1.7;max-width:520px;}
+.hstats{display:flex;gap:8px;flex-wrap:wrap;}
+.hstat{text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:9px 16px;min-width:80px;}
+.hstat-n{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.hstat-l{font-size:10px;opacity:.65;margin-top:3px;}
+
+/* ── 4 KPI cards ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.kpi-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:13px 14px;position:relative;}
+.kpi-card.alert{border-left:3px solid var(--red);}
+.kpi-l{font-size:10.5px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:3px;}
+.kn-b{color:var(--navy);}.kn-t{color:var(--teal);}.kn-r{color:var(--red);}.kn-a{color:var(--amber);}
+.kpi-sub{font-size:10.5px;color:var(--gray);}
+.kpi-trend{position:absolute;top:13px;right:13px;font-size:11px;font-weight:600;}
+.trend-up{color:#3DBE6E;}.trend-dn{color:var(--red);}
+
+/* ── Section title ── */
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:18px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── Store comparison table ── */
+.store-panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.store-panel-hdr{padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.sph-icon{font-size:14px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.sph-title{font-size:13px;font-weight:600;}
+.sph-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.store-table{width:100%;border-collapse:collapse;}
+.store-table th{font-size:10.5px;font-weight:700;color:var(--gray);padding:8px 12px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;white-space:nowrap;letter-spacing:.3px;}
+.store-table th.right{text-align:right;}
+.store-table td{padding:10px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.store-table tr:last-child td{border-bottom:none;}
+.store-table tr:hover td{background:#FAFAF8;}
+.store-name{font-weight:700;display:flex;align-items:center;gap:6px;}
+.store-type-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot-direct{background:#1A3A5C;}
+.dot-dealer{background:#0F6E56;}
+.store-type-badge{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;}
+.stb-direct{background:var(--navy-bg);color:var(--navy);}
+.stb-dealer{background:var(--teal-bg);color:var(--teal);}
+
+/* Progress bar */
+.prog-wrap{display:flex;align-items:center;gap:8px;}
+.prog-bar{height:6px;background:#EEECE6;border-radius:3px;flex:1;min-width:60px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;transition:.3s;}
+.pf-ok{background:#3DBE6E;}
+.pf-warn{background:var(--amber);}
+.pf-bad{background:var(--red);}
+.prog-val{font-size:11.5px;font-weight:700;font-family:'DM Mono',monospace;min-width:38px;text-align:right;}
+
+/* Light indicators */
+.light{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;}
+.l-green{background:#3DBE6E;box-shadow:0 0 4px rgba(61,190,110,.4);}
+.l-amber{background:#F0A500;box-shadow:0 0 4px rgba(240,165,0,.4);}
+.l-red{background:var(--red);box-shadow:0 0 4px rgba(200,0,26,.4);}
+
+/* NPS pill */
+.nps-pill{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;padding:2px 8px;border-radius:5px;}
+.nps-hi{background:var(--teal-bg);color:var(--teal);}
+.nps-md{background:var(--amber-bg);color:var(--amber);}
+.nps-lo{background:var(--red-bg);color:var(--red);}
+
+/* Trend arrow in table */
+.t-up{color:#3DBE6E;font-size:12px;}
+.t-dn{color:var(--red);font-size:12px;}
+.t-flat{color:var(--gray);font-size:12px;}
+
+/* Right align */
+td.right{text-align:right;}
+
+/* ── Benchmark row ── */
+.bench-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.bench-card{border-radius:9px;padding:12px 14px;border:1.5px solid;}
+.bc-navy{background:var(--navy-bg);border-color:var(--navy-bd);}
+.bc-teal{background:var(--teal-bg);border-color:var(--teal-bd);}
+.bc-amber{background:var(--amber-bg);border-color:var(--amber-bd);}
+.bc-green{background:#EAF5EA;border-color:#7ACA7A;}
+.bench-label{font-size:10.5px;font-weight:700;opacity:.7;margin-bottom:4px;letter-spacing:.3px;}
+.bench-val{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.bench-sub{font-size:10px;opacity:.7;}
+
+/* ── Trend chart (CSS only) ── */
+.trend-panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.trend-hdr{padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.trend-body{padding:16px;}
+.trend-chart{display:flex;align-items:flex-end;gap:6px;height:80px;padding:0 4px;}
+.trend-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.trend-bar{width:100%;border-radius:3px 3px 0 0;transition:.3s;}
+.trend-bar.cur{opacity:1;}
+.trend-bar.prev{opacity:.35;}
+.trend-month{font-size:9.5px;color:var(--gray);font-family:'DM Mono',monospace;}
+.trend-legend{display:flex;gap:16px;margin-top:8px;}
+.tl-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gray);}
+.tl-dot{width:10px;height:10px;border-radius:2px;}
+
+/* ── Alert banner ── */
+.alert-banner{background:var(--red-bg);border:1px solid var(--red-bd);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;}
+.ab-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.ab-title{font-size:12.5px;font-weight:700;color:var(--red);margin-bottom:2px;}
+.ab-body{font-size:12px;color:#5A2020;line-height:1.6;}
+
+/* ── 2-col grid ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.panel-hdr{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.panel-title{font-size:12.5px;font-weight:600;}
+.panel-sub{font-size:10.5px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:12px 14px;}
+
+/* ── Drilldown button ── */
+.drill-btn{font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:#fff;color:var(--navy);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;white-space:nowrap;}
+.drill-btn:hover{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-ok{background:#EAF5EA;color:#1E6E1E;}
+.b-warn{background:var(--amber-bg);color:var(--amber);}
+.b-bad{background:var(--red-bg);color:var(--red);}
+.b-navy{background:var(--navy-bg);color:var(--navy);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@media(max-width:900px){
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .bench-grid{grid-template-columns:repeat(2,1fr);}
+  .two-col{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GROUP01 集團總覽</b></div>
+  <div class="org-badge">🏢 Indian Motorcycle Taiwan</div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn">← 返回主頁</button>
+    <button class="hbtn" onclick="toast('數據已更新')">↻ 重新整理</button>
+  </div>
+</header>
+
+<div class="sub-bar">
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">期間：</span>
+  <button class="period-chip active" onclick="setPeriod(this)">本月</button>
+  <button class="period-chip" onclick="setPeriod(this)">本季</button>
+  <button class="period-chip" onclick="setPeriod(this)">本年</button>
+  <button class="period-chip" onclick="setPeriod(this)">自訂</button>
+  <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">組織層：</span>
+  <button class="period-chip active" onclick="setPeriod(this)">全部門店</button>
+  <button class="period-chip" onclick="setPeriod(this)">🔵 直營店</button>
+  <button class="period-chip" onclick="setPeriod(this)">🟢 授權經銷商</button>
+  <div class="sub-right">
+    <span class="refresh-dot"></span>
+    資料更新：2026-05-28 08:00
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div>
+      <h1>🏢 Indian Motorcycle Taiwan — 集團總覽</h1>
+      <p>全台 5 間門店即時經營數據彙整。點擊任一門店列可下鑽至部門層，再點進個人能效診斷。<br>直營店以藍色標示，授權經銷商以綠色標示。</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n">5</div><div class="hstat-l">門店總數</div></div>
+      <div class="hstat"><div class="hstat-n">3</div><div class="hstat-l">直營店</div></div>
+      <div class="hstat"><div class="hstat-n">2</div><div class="hstat-l">授權經銷商</div></div>
+      <div class="hstat"><div class="hstat-n">4-tier</div><div class="hstat-l">組織模式</div></div>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div class="alert-banner">
+    <div class="ab-icon">⚠️</div>
+    <div>
+      <div class="ab-title">3 項集團告警需要關注</div>
+      <div class="ab-body">
+        <b>台中直營店</b>：本月客戶流失數（382）已超過新增數（330），客戶基盤正在萎縮。　
+        <b>嘉義授權商</b>：零件備件供應滿足率降至 72%，低於集團標準 90%，已影響售後台次。　
+        <b>高雄直營店</b>：銷售部新進人員（3名）成交率平均僅 8%，低於集團均值 21%。
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 KPI cards -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-l">全台本月新車交車量</div>
+      <div class="kpi-n kn-b">127 <span style="font-size:14px;">台</span></div>
+      <div class="kpi-sub">目標 150 台 ｜ 達成率 84.7%</div>
+      <div class="kpi-trend trend-dn">▼ -8% vs 上月</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-l">全台維修台次</div>
+      <div class="kpi-n kn-t">2,847 <span style="font-size:14px;">次</span></div>
+      <div class="kpi-sub">目標 3,000 ｜ 達成率 94.9%</div>
+      <div class="kpi-trend trend-up">▲ +3% vs 上月</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-l">全台平均 NPS</div>
+      <div class="kpi-n kn-b">+58</div>
+      <div class="kpi-sub">銷售 +62 ｜ 售後 +54</div>
+      <div class="kpi-trend trend-up">▲ +4 vs 上月</div>
+    </div>
+    <div class="kpi-card alert">
+      <div class="kpi-l">集團告警數</div>
+      <div class="kpi-n kn-r">3</div>
+      <div class="kpi-sub">客戶流失 1 ｜ 零件 1 ｜ 人員 1</div>
+      <div class="kpi-trend trend-dn" style="color:var(--red);">需立即處理</div>
+    </div>
+  </div>
+
+  <!-- Benchmark -->
+  <div class="sec-title">本月 Benchmark 對標</div>
+  <div class="bench-grid">
+    <div class="bench-card bc-navy">
+      <div class="bench-label" style="color:var(--navy);">本集團</div>
+      <div class="bench-val" style="color:var(--navy);">84.7%</div>
+      <div class="bench-sub" style="color:var(--navy);">新車銷量達成率</div>
+    </div>
+    <div class="bench-card bc-teal">
+      <div class="bench-label" style="color:var(--teal);">聚類均值</div>
+      <div class="bench-val" style="color:var(--teal);">88.2%</div>
+      <div class="bench-sub" style="color:var(--teal);">同規模 5 間門店平均</div>
+    </div>
+    <div class="bench-card bc-amber">
+      <div class="bench-label" style="color:var(--amber);">大區均值</div>
+      <div class="bench-val" style="color:var(--amber);">91.5%</div>
+      <div class="bench-sub" style="color:var(--amber);">台灣區域平均</div>
+    </div>
+    <div class="bench-card bc-green">
+      <div class="bench-label" style="color:#1E6E1E;">全網標杆</div>
+      <div class="bench-val" style="color:#1E6E1E;">96.3%</div>
+      <div class="bench-sub" style="color:#1E6E1E;">前 10% 門店水準</div>
+    </div>
+  </div>
+
+  <!-- Store comparison table -->
+  <div class="sec-title">門店並排對比</div>
+  <div class="store-panel">
+    <div class="store-panel-hdr">
+      <div class="sph-icon" style="background:var(--navy-bg);">📊</div>
+      <div>
+        <div class="sph-title">全台門店 KPI 對比</div>
+        <div class="sph-sub">點擊門店名稱可下鑽至部門層診斷</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
+        <span style="font-size:11px;color:var(--gray);">排序：</span>
+        <button class="drill-btn">銷售達成率</button>
+        <button class="drill-btn">售後毛利</button>
+        <button class="drill-btn">NPS</button>
+      </div>
+    </div>
+    <table class="store-table">
+      <thead>
+        <tr>
+          <th>門店名稱</th>
+          <th>類型</th>
+          <th>新車銷量達成率</th>
+          <th>售後毛利達成率</th>
+          <th>中古車達成率</th>
+          <th class="right">NPS</th>
+          <th class="right">零件周轉率</th>
+          <th>客戶趨勢</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr onclick="drillDown('台北旗艦店')">
+          <td>
+            <div class="store-name">
+              <span class="store-type-dot dot-direct"></span>
+              台北旗艦店
+            </div>
+          </td>
+          <td><span class="store-type-badge stb-direct">直營</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:94%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">94%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:91%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">91%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:88%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">88%</span>
+            </div>
+          </td>
+          <td class="right"><span class="nps-pill nps-hi">+66</span></td>
+          <td class="right"><span class="badge b-ok">11.2x</span></td>
+          <td><span class="light l-green"></span><span class="t-up">↑ +45</span></td>
+          <td><button class="drill-btn" onclick="event.stopPropagation();drillDown('台北旗艦店')">下鑽 →</button></td>
+        </tr>
+        <tr onclick="drillDown('台中直營店')">
+          <td>
+            <div class="store-name">
+              <span class="store-type-dot dot-direct"></span>
+              台中直營店
+            </div>
+          </td>
+          <td><span class="store-type-badge stb-direct">直營</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:72%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">72%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:85%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">85%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:65%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">65%</span>
+            </div>
+          </td>
+          <td class="right"><span class="nps-pill nps-md">+51</span></td>
+          <td class="right"><span class="badge b-warn">8.4x</span></td>
+          <td>
+            <span class="light l-red"></span>
+            <span class="t-dn">↓ -52</span>
+            <span class="badge b-bad" style="margin-left:4px;font-size:9.5px;">⚠ 流失</span>
+          </td>
+          <td><button class="drill-btn" onclick="event.stopPropagation();drillDown('台中直營店')">下鑽 →</button></td>
+        </tr>
+        <tr onclick="drillDown('高雄直營店')">
+          <td>
+            <div class="store-name">
+              <span class="store-type-dot dot-direct"></span>
+              高雄直營店
+            </div>
+          </td>
+          <td><span class="store-type-badge stb-direct">直營</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:68%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">68%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:79%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">79%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:71%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">71%</span>
+            </div>
+          </td>
+          <td class="right"><span class="nps-pill nps-md">+55</span></td>
+          <td class="right"><span class="badge b-ok">9.8x</span></td>
+          <td><span class="light l-amber"></span><span class="t-flat">→ +12</span></td>
+          <td><button class="drill-btn" onclick="event.stopPropagation();drillDown('高雄直營店')">下鑽 →</button></td>
+        </tr>
+        <tr onclick="drillDown('台南授權商')">
+          <td>
+            <div class="store-name">
+              <span class="store-type-dot dot-dealer"></span>
+              台南授權商
+            </div>
+          </td>
+          <td><span class="store-type-badge stb-dealer">授權</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:89%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">89%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:83%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">83%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:58%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">58%</span>
+            </div>
+          </td>
+          <td class="right"><span class="nps-pill nps-hi">+63</span></td>
+          <td class="right"><span class="badge b-ok">10.5x</span></td>
+          <td><span class="light l-green"></span><span class="t-up">↑ +28</span></td>
+          <td><button class="drill-btn" onclick="event.stopPropagation();drillDown('台南授權商')">下鑽 →</button></td>
+        </tr>
+        <tr onclick="drillDown('嘉義授權商')">
+          <td>
+            <div class="store-name">
+              <span class="store-type-dot dot-dealer"></span>
+              嘉義授權商
+            </div>
+          </td>
+          <td><span class="store-type-badge stb-dealer">授權</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:76%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">76%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-bad" style="width:58%;"></div></div>
+              <span class="prog-val" style="color:var(--red);">58%</span>
+            </div>
+          </td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:64%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">64%</span>
+            </div>
+          </td>
+          <td class="right"><span class="nps-pill nps-md">+46</span></td>
+          <td class="right">
+            <span class="badge b-bad">5.1x</span>
+            <span style="font-size:9.5px;color:var(--red);margin-left:3px;">⚠</span>
+          </td>
+          <td><span class="light l-amber"></span><span class="t-flat">→ +5</span></td>
+          <td><button class="drill-btn" onclick="event.stopPropagation();drillDown('嘉義授權商')">下鑽 →</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Trend chart + Health Score -->
+  <div class="two-col">
+
+    <!-- Trend -->
+    <div class="trend-panel">
+      <div class="trend-hdr">
+        <div class="sph-icon" style="background:var(--navy-bg);">📈</div>
+        <div>
+          <div class="sph-title">全台月度趨勢</div>
+          <div class="sph-sub" style="color:var(--gray);font-size:11px;">當期 vs 上年同期</div>
+        </div>
+        <div style="margin-left:auto;">
+          <select style="font-size:11px;border:1px solid var(--border);border-radius:5px;padding:3px 6px;font-family:'Noto Sans TC',sans-serif;color:var(--gray);">
+            <option>新車銷量</option>
+            <option>售後毛利</option>
+            <option>NPS</option>
+          </select>
+        </div>
+      </div>
+      <div class="trend-body">
+        <div class="trend-chart">
+          <!-- 8 months -->
+          <div class="trend-bar-wrap">
+            <div class="trend-bar prev" style="height:52px;background:var(--navy);"></div>
+            <div class="trend-bar cur" style="height:48px;background:var(--teal);"></div>
+            <div class="trend-month">1月</div>
+          </div>
+          <div class="trend-bar-wrap">
+            <div class="trend-bar prev" style="height:38px;background:var(--navy);"></div>
+            <div class="trend-bar cur" style="height:32px;background:var(--teal);"></div>
+            <div class="trend-month">2月</div>
+          </div>
+          <div class="trend-bar-wrap">
+            <div class="trend-bar prev" style="height:58px;background:var(--navy);"></div>
+            <div class="trend-bar cur" style="height:55px;background:var(--teal);"></div>
+            <div class="trend-month">3月</div>
+          </div>
+          <div class="trend-bar-wrap">
+            <div class="trend-bar prev" style="height:62px;background:var(--navy);"></div>
+            <div class="trend-bar cur" style="height:58px;background:var(--teal);"></div>
+            <div class="trend-month">4月</div>
+          </div>
+          <div class="trend-bar-wrap">
+            <div class="trend-bar prev" style="height:70px;background:var(--navy);"></div>
+            <div class="trend-bar cur" style="height:65px;background:var(--teal);"></div>
+            <div class="trend-month">5月</div>
+          </div>
+          <div class="trend-bar-wrap">
+            <div class="trend-bar prev" style="height:75px;background:var(--navy);"></div>
+            <div class="trend-bar cur" style="height:68px;background:var(--teal);"></div>
+            <div class="trend-month">6月</div>
+          </div>
+          <div class="trend-bar-wrap">
+            <div class="trend-bar prev" style="height:68px;background:var(--navy);"></div>
+            <div class="trend-bar cur" style="height:60px;background:var(--teal);"></div>
+            <div class="trend-month">7月</div>
+          </div>
+          <div class="trend-bar-wrap">
+            <div class="trend-bar prev" style="height:72px;background:var(--navy);"></div>
+            <div class="trend-bar cur" style="height:63px;background:var(--teal);border:2px solid var(--amber);"></div>
+            <div class="trend-month" style="color:var(--amber);font-weight:700;">本月</div>
+          </div>
+        </div>
+        <div class="trend-legend">
+          <div class="tl-item"><div class="tl-dot" style="background:var(--navy);opacity:.4;"></div>上年同期</div>
+          <div class="tl-item"><div class="tl-dot" style="background:var(--teal);"></div>本年</div>
+          <div class="tl-item" style="color:var(--amber);">⚠ 本月低於去年同期</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Health Score -->
+    <div class="panel">
+      <div class="panel-hdr">
+        <div class="sph-icon" style="background:#FDF3E3;">⭐</div>
+        <div>
+          <div class="panel-title">Dealer Health Score</div>
+          <div class="panel-sub" style="font-size:11px;color:var(--gray);">5維度加權綜合評分（0-100）</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <!-- 5 stores -->
+          <div style="display:grid;grid-template-columns:100px 1fr 50px;gap:8px;align-items:center;font-size:12px;">
+            <span style="font-weight:600;">台北旗艦店</span>
+            <div class="prog-bar" style="height:10px;"><div class="prog-fill pf-ok" style="width:87%;"></div></div>
+            <span style="font-family:'DM Mono',monospace;font-weight:700;color:#1E6E1E;text-align:right;">87</span>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 1fr 50px;gap:8px;align-items:center;font-size:12px;">
+            <span style="font-weight:600;">台南授權商</span>
+            <div class="prog-bar" style="height:10px;"><div class="prog-fill pf-ok" style="width:81%;"></div></div>
+            <span style="font-family:'DM Mono',monospace;font-weight:700;color:#1E6E1E;text-align:right;">81</span>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 1fr 50px;gap:8px;align-items:center;font-size:12px;">
+            <span style="font-weight:600;">高雄直營店</span>
+            <div class="prog-bar" style="height:10px;"><div class="prog-fill pf-warn" style="width:72%;"></div></div>
+            <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--amber);text-align:right;">72</span>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 1fr 50px;gap:8px;align-items:center;font-size:12px;">
+            <span style="font-weight:600;">台中直營店</span>
+            <div class="prog-bar" style="height:10px;"><div class="prog-fill pf-warn" style="width:64%;"></div></div>
+            <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--amber);text-align:right;">64</span>
+          </div>
+          <div style="display:grid;grid-template-columns:100px 1fr 50px;gap:8px;align-items:center;font-size:12px;">
+            <span style="font-weight:600;color:var(--red);">嘉義授權商</span>
+            <div class="prog-bar" style="height:10px;"><div class="prog-fill pf-bad" style="width:51%;"></div></div>
+            <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--red);text-align:right;">51</span>
+          </div>
+        </div>
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--gray);">評分維度：財務30% · 客戶25% · 銷售20% · 服務15% · 人員10%</span>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:6px;">
+          <span class="badge b-ok">≥80 健康</span>
+          <span class="badge b-warn">60-79 關注</span>
+          <span class="badge b-bad">＜60 介入</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Strategic action panel -->
+  <div class="sec-title">戰略決策建議</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;">
+    <div style="background:#EAF5EA;border:1.5px solid #7ACA7A;border-radius:9px;padding:12px 14px;">
+      <div style="font-size:10px;font-weight:700;color:#1E6E1E;letter-spacing:.4px;margin-bottom:5px;">🟢 擴大支持</div>
+      <div style="font-size:12.5px;font-weight:700;color:#1E6E1E;margin-bottom:4px;">台北旗艦店</div>
+      <div style="font-size:11px;color:#2D5A2D;line-height:1.5;">Health Score 87，NPS +66，建議增加原廠配額與行銷資源。</div>
+    </div>
+    <div style="background:var(--amber-bg);border:1.5px solid var(--amber-bd);border-radius:9px;padding:12px 14px;">
+      <div style="font-size:10px;font-weight:700;color:var(--amber);letter-spacing:.4px;margin-bottom:5px;">🟡 輔導介入</div>
+      <div style="font-size:12.5px;font-weight:700;color:var(--amber);margin-bottom:4px;">台中直營店</div>
+      <div style="font-size:11px;color:#5A3A00;line-height:1.5;">客戶流失加速，建議安排區域輔導顧問進駐，聚焦客戶招攬。</div>
+    </div>
+    <div style="background:var(--red-bg);border:1.5px solid var(--red-bd);border-radius:9px;padding:12px 14px;">
+      <div style="font-size:10px;font-weight:700;color:var(--red);letter-spacing:.4px;margin-bottom:5px;">🔴 授權審查</div>
+      <div style="font-size:12.5px;font-weight:700;color:var(--red);margin-bottom:4px;">嘉義授權商</div>
+      <div style="font-size:11px;color:#5A1010;line-height:1.5;">零件供應嚴重不足，售後毛利僅58%。授權到期評估是否續約。</div>
+    </div>
+    <div style="background:var(--purple-bg);border:1.5px solid var(--purple-bd);border-radius:9px;padding:12px 14px;">
+      <div style="font-size:10px;font-weight:700;color:var(--purple);letter-spacing:.4px;margin-bottom:5px;">⭐ 策略合作評估</div>
+      <div style="font-size:12.5px;font-weight:700;color:var(--purple);margin-bottom:4px;">台南授權商</div>
+      <div style="font-size:11px;color:#2D2870;line-height:1.5;">表現穩定但規模小，台南市場潛力大，可主動洽談策略合作或升級。</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function setPeriod(el){
+  const parent = el.closest('.sub-bar') || el.parentElement;
+  parent.querySelectorAll('.period-chip').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  toast('期間已切換：' + el.textContent.trim());
+}
+function drillDown(store){
+  toast('下鑽至：' + store + '（門店部門層）');
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

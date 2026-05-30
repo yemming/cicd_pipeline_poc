@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP02 BSC 計分卡 — DealerOS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;--purple-bd:#AFA9EC;
+  --gray:#9A9890;--border:#EEECE6;--card:#fff;
+  --header:#0D2438;
+}
+
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(255,165,0,.2);border:1px solid rgba(255,165,0,.3);color:#FFD580;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+.sub-bar{background:#fff;border-bottom:1px solid var(--border);padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.period-chip{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:#fff;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.period-chip.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.period-chip:hover:not(.active){background:#F4F3F0;}
+.store-chip{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:#fff;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.store-chip.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.sub-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gray);}
+.refresh-dot{width:7px;height:7px;border-radius:50%;background:#3DBE6E;display:inline-block;}
+
+.main{max-width:1300px;margin:0 auto;padding:20px 24px 48px;}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#0A1F35 0%,#1A3A5C 55%,#0D3D30 100%);border-radius:12px;padding:22px 28px;margin-bottom:16px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-20px;top:-20px;width:180px;height:180px;border-radius:50%;background:rgba(80,200,150,.1);pointer-events:none;}
+.hero h1{font-size:19px;font-weight:700;margin-bottom:5px;}
+.hero p{font-size:12px;opacity:.75;line-height:1.7;max-width:520px;}
+.hstats{display:flex;gap:8px;flex-wrap:wrap;}
+.hstat{text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 14px;min-width:70px;}
+.hstat-n{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.hstat-l{font-size:10px;opacity:.65;margin-top:3px;}
+
+/* Section title */
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:18px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* Tab bar */
+.tab-bar{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;}
+.tab-btn{padding:9px 20px;font-size:13px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;font-family:'Noto Sans TC',sans-serif;background:none;border-top:none;border-left:none;border-right:none;}
+.tab-btn.active{color:var(--navy);font-weight:700;border-bottom-color:var(--navy);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+
+/* BSC dimension header */
+.dim-hdr{border-radius:8px;padding:10px 16px;margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+.dim-hdr-sales{background:linear-gradient(90deg,var(--navy),#2A5080);color:#fff;}
+.dim-hdr-service{background:linear-gradient(90deg,var(--teal),#1A8A6A);color:#fff;}
+.dim-hdr-customer{background:linear-gradient(90deg,#534AB7,#7060CC);color:#fff;}
+.dim-hdr-inventory{background:linear-gradient(90deg,var(--amber),#A06010);color:#fff;}
+.dim-hdr-hr{background:linear-gradient(90deg,#5A5955,#8A8880);color:#fff;}
+.dim-label{font-size:13px;font-weight:700;}
+.dim-sub{font-size:11px;opacity:.75;margin-left:auto;}
+.dim-weight{background:rgba(255,255,255,.2);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;}
+
+/* KPI table */
+.kpi-table{width:100%;border-collapse:collapse;margin-bottom:16px;}
+.kpi-table th{font-size:10.5px;font-weight:700;color:var(--gray);padding:7px 12px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;white-space:nowrap;}
+.kpi-table th.center{text-align:center;}
+.kpi-table td{padding:9px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.kpi-table tr:last-child td{border-bottom:none;}
+.kpi-table tr:hover td{background:#FAFAF8;}
+.kpi-num{font-family:'DM Mono',monospace;font-weight:700;}
+.kpi-name{font-weight:600;}
+.kpi-code{font-size:10px;font-family:'DM Mono',monospace;color:var(--gray);margin-top:1px;}
+.kpi-freq{font-size:10.5px;padding:1px 7px;border-radius:4px;font-weight:600;}
+.freq-m{background:var(--navy-bg);color:var(--navy);}
+.freq-q{background:var(--amber-bg);color:var(--amber);}
+.freq-y{background:var(--teal-bg);color:var(--teal);}
+.freq-h{background:var(--purple-bg);color:var(--purple);}
+
+/* Progress in table */
+.prog-wrap{display:flex;align-items:center;gap:8px;}
+.prog-bar{height:6px;background:#EEECE6;border-radius:3px;flex:1;min-width:80px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;}
+.pf-ok{background:#3DBE6E;}
+.pf-warn{background:#F0A500;}
+.pf-bad{background:var(--red);}
+.prog-val{font-size:11.5px;font-weight:700;font-family:'DM Mono',monospace;min-width:40px;text-align:right;}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-ok{background:#EAF5EA;color:#1E6E1E;}
+.b-warn{background:var(--amber-bg);color:var(--amber);}
+.b-bad{background:var(--red-bg);color:var(--red);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-navy{background:var(--navy-bg);color:var(--navy);}
+
+/* Store compare cols */
+.store-cols{display:grid;gap:6px;}
+.sc-item{display:flex;align-items:center;gap:6px;font-size:11.5px;}
+.sc-name{width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--gray);}
+.sc-val{font-family:'DM Mono',monospace;font-weight:700;min-width:38px;text-align:right;}
+
+/* Overall score card */
+.score-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;}
+.score-card{background:#fff;border:1px solid var(--border);border-radius:9px;padding:12px 10px;text-align:center;}
+.score-icon{font-size:20px;margin-bottom:4px;}
+.score-dim{font-size:10.5px;color:var(--gray);margin-bottom:4px;}
+.score-val{font-size:26px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.score-weight{font-size:10px;color:var(--gray);margin-top:2px;}
+
+/* Panel */
+.panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.panel-hdr{padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.panel-icon{font-size:14px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:14px 16px;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@media(max-width:900px){
+  .score-grid{grid-template-columns:repeat(3,1fr);}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP02 BSC 計分卡</b></div>
+  <div class="org-badge">🏢 Indian Motorcycle Taiwan</div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn">匯出報表</button>
+  </div>
+</header>
+
+<div class="sub-bar">
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">期間：</span>
+  <button class="period-chip active" onclick="setPeriod(this)">本月</button>
+  <button class="period-chip" onclick="setPeriod(this)">本季</button>
+  <button class="period-chip" onclick="setPeriod(this)">本年</button>
+  <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">門店：</span>
+  <button class="store-chip active" onclick="setStore(this)">全部門店</button>
+  <button class="store-chip" onclick="setStore(this)">台北旗艦店</button>
+  <button class="store-chip" onclick="setStore(this)">台中直營店</button>
+  <button class="store-chip" onclick="setStore(this)">高雄直營店</button>
+  <button class="store-chip" onclick="setStore(this)">台南授權商</button>
+  <button class="store-chip" onclick="setStore(this)">嘉義授權商</button>
+  <div class="sub-right">
+    <span class="refresh-dot"></span>
+    資料更新：2026-05-28 08:00
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div>
+      <h1>📊 BSC 平衡計分卡</h1>
+      <p>22 項 KPI 涵蓋銷售、服務、客戶忠誠、庫存、人力五大面向。集團層彙整各門店數據，點擊任一指標可下鑽至門店個人能效診斷。</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n">22</div><div class="hstat-l">KPI 項目</div></div>
+      <div class="hstat"><div class="hstat-n">5</div><div class="hstat-l">評估面向</div></div>
+      <div class="hstat"><div class="hstat-n">14</div><div class="hstat-l">達標項目</div></div>
+      <div class="hstat"><div class="hstat-n">8</div><div class="hstat-l">待改善項目</div></div>
+    </div>
+  </div>
+
+  <!-- 5-dim score cards -->
+  <div class="sec-title">五大面向總分</div>
+  <div class="score-grid">
+    <div class="score-card" style="border-top:3px solid var(--navy);">
+      <div class="score-icon">🏍</div>
+      <div class="score-dim">銷售效率</div>
+      <div class="score-val" style="color:var(--navy);">78</div>
+      <div class="score-weight">權重 20%</div>
+    </div>
+    <div class="score-card" style="border-top:3px solid var(--teal);">
+      <div class="score-icon">🔧</div>
+      <div class="score-dim">服務品質</div>
+      <div class="score-val" style="color:var(--teal);">72</div>
+      <div class="score-weight">權重 15%</div>
+    </div>
+    <div class="score-card" style="border-top:3px solid var(--purple);">
+      <div class="score-icon">❤️</div>
+      <div class="score-dim">客戶忠誠</div>
+      <div class="score-val" style="color:var(--purple);">81</div>
+      <div class="score-weight">權重 25%</div>
+    </div>
+    <div class="score-card" style="border-top:3px solid var(--amber);">
+      <div class="score-icon">📦</div>
+      <div class="score-dim">庫存管理</div>
+      <div class="score-val" style="color:var(--amber);">65</div>
+      <div class="score-weight">權重 10%</div>
+    </div>
+    <div class="score-card" style="border-top:3px solid #3DBE6E;">
+      <div class="score-icon">💰</div>
+      <div class="score-dim">財務健康</div>
+      <div class="score-val" style="color:#1E6E1E;">84</div>
+      <div class="score-weight">權重 30%</div>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab(0,this)">🏍 銷售（6項）</button>
+    <button class="tab-btn" onclick="switchTab(1,this)">🔧 服務（5項）</button>
+    <button class="tab-btn" onclick="switchTab(2,this)">❤️ 客戶忠誠（4項）</button>
+    <button class="tab-btn" onclick="switchTab(3,this)">📦 庫存（3項）</button>
+    <button class="tab-btn" onclick="switchTab(4,this)">👥 人力（2項）＋財務（2項）</button>
+  </div>
+
+  <!-- ══ Tab 0：銷售 ══ -->
+  <div class="tab-pane active" id="tab-0">
+    <div class="dim-hdr dim-hdr-sales">
+      <span class="dim-label">🏍 銷售面向</span>
+      <span class="dim-sub">6 項指標 ｜ 權重 20%</span>
+      <span class="dim-weight">達標 4/6</span>
+    </div>
+    <table class="kpi-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>KPI 名稱</th>
+          <th>集團均值</th>
+          <th>目標值</th>
+          <th>達成率</th>
+          <th class="center">趨勢</th>
+          <th class="center">頻率</th>
+          <th>各門店對比</th>
+          <th>狀態</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--navy);">01</span></td>
+          <td>
+            <div class="kpi-name">新車交車量</div>
+            <div class="kpi-code">deliveries COUNT by org/month</div>
+          </td>
+          <td><span class="kpi-num">25.4 台</span></td>
+          <td><span class="kpi-num">30 台</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:84%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">84%</span>
+            </div>
+          </td>
+          <td style="text-align:center;color:var(--red);">▼</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td>
+            <div class="store-cols">
+              <div class="sc-item"><span class="sc-name">台北</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:94%;"></div></div><span class="sc-val" style="color:#1E6E1E;">94%</span></div>
+              <div class="sc-item"><span class="sc-name">台中</span><div class="prog-bar"><div class="prog-fill pf-warn" style="width:72%;"></div></div><span class="sc-val" style="color:var(--amber);">72%</span></div>
+              <div class="sc-item"><span class="sc-name">高雄</span><div class="prog-bar"><div class="prog-fill pf-warn" style="width:68%;"></div></div><span class="sc-val" style="color:var(--amber);">68%</span></div>
+            </div>
+          </td>
+          <td><span class="badge b-warn">待改善</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--navy);">02</span></td>
+          <td>
+            <div class="kpi-name">銷售目標達成率</div>
+            <div class="kpi-code">deliveries / sales_targets</div>
+          </td>
+          <td><span class="kpi-num">84.7%</span></td>
+          <td><span class="kpi-num">90%</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:84%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">84%</span>
+            </div>
+          </td>
+          <td style="text-align:center;color:var(--red);">▼</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td>
+            <div class="store-cols">
+              <div class="sc-item"><span class="sc-name">台南</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:89%;"></div></div><span class="sc-val" style="color:#1E6E1E;">89%</span></div>
+              <div class="sc-item"><span class="sc-name">嘉義</span><div class="prog-bar"><div class="prog-fill pf-warn" style="width:76%;"></div></div><span class="sc-val" style="color:var(--amber);">76%</span></div>
+            </div>
+          </td>
+          <td><span class="badge b-warn">待改善</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--navy);">03</span></td>
+          <td>
+            <div class="kpi-name">銷售漏斗轉化率</div>
+            <div class="kpi-code">orders / leads（展廳+ADC）</div>
+          </td>
+          <td><span class="kpi-num">21.9%</span></td>
+          <td><span class="kpi-num">22%</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:99%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">99%</span>
+            </div>
+          </td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td>
+            <div class="store-cols">
+              <div class="sc-item"><span class="sc-name">台北</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">24%</span></div>
+              <div class="sc-item"><span class="sc-name">高雄</span><div class="prog-bar"><div class="prog-fill pf-bad" style="width:59%;"></div></div><span class="sc-val" style="color:var(--red);">13%</span></div>
+            </div>
+          </td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--navy);">04</span></td>
+          <td>
+            <div class="kpi-name">新車平均折扣率</div>
+            <div class="kpi-code">(MSRP - 售價) / MSRP</div>
+          </td>
+          <td><span class="kpi-num">-8.4%</span></td>
+          <td><span class="kpi-num">&lt; -10%</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">✓</span>
+            </div>
+          </td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td>
+            <div class="store-cols">
+              <div class="sc-item"><span class="sc-name">各店</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">全達標</span></div>
+            </div>
+          </td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--navy);">05</span></td>
+          <td>
+            <div class="kpi-name">試乘率</div>
+            <div class="kpi-code">test_drives / new_leads</div>
+          </td>
+          <td><span class="kpi-num">42%</span></td>
+          <td><span class="kpi-num">45%</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-warn" style="width:93%;"></div></div>
+              <span class="prog-val" style="color:var(--amber);">93%</span>
+            </div>
+          </td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td>
+            <div class="store-cols">
+              <div class="sc-item"><span class="sc-name">台北</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">55%</span></div>
+              <div class="sc-item"><span class="sc-name">嘉義</span><div class="prog-bar"><div class="prog-fill pf-warn" style="width:71%;"></div></div><span class="sc-val" style="color:var(--amber);">32%</span></div>
+            </div>
+          </td>
+          <td><span class="badge b-warn">待改善</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--navy);">06</span></td>
+          <td>
+            <div class="kpi-name">保險滲透率</div>
+            <div class="kpi-code">insurance_sold / deliveries</div>
+          </td>
+          <td><span class="kpi-num">81%</span></td>
+          <td><span class="kpi-num">85%</span></td>
+          <td>
+            <div class="prog-wrap">
+              <div class="prog-bar"><div class="prog-fill pf-ok" style="width:95%;"></div></div>
+              <span class="prog-val" style="color:#1E6E1E;">95%</span>
+            </div>
+          </td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td>
+            <div class="store-cols">
+              <div class="sc-item"><span class="sc-name">各店</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:95%;"></div></div><span class="sc-val" style="color:#1E6E1E;">均良好</span></div>
+            </div>
+          </td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ Tab 1：服務 ══ -->
+  <div class="tab-pane" id="tab-1">
+    <div class="dim-hdr dim-hdr-service">
+      <span class="dim-label">🔧 服務品質面向</span>
+      <span class="dim-sub">5 項指標 ｜ 權重 15%</span>
+      <span class="dim-weight">達標 3/5</span>
+    </div>
+    <table class="kpi-table">
+      <thead>
+        <tr>
+          <th>#</th><th>KPI 名稱</th><th>集團均值</th><th>目標值</th><th>達成率</th><th class="center">趨勢</th><th class="center">頻率</th><th>各門店對比</th><th>狀態</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--teal);">07</span></td>
+          <td><div class="kpi-name">維修台次</div><div class="kpi-code">repair_orders COUNT</div></td>
+          <td><span class="kpi-num">569 次</span></td>
+          <td><span class="kpi-num">600 次</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:94%;"></div></div><span class="prog-val" style="color:var(--amber);">94%</span></div></td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">嘉義</span><div class="prog-bar"><div class="prog-fill pf-bad" style="width:58%;"></div></div><span class="sc-val" style="color:var(--red);">58%</span></div></div></td>
+          <td><span class="badge b-warn">待改善</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--teal);">08</span></td>
+          <td><div class="kpi-name">單車平均工單產值</div><div class="kpi-code">repair_orders.total / COUNT</div></td>
+          <td><span class="kpi-num">NT$2,847</span></td>
+          <td><span class="kpi-num">NT$3,000</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:94%;"></div></div><span class="prog-val" style="color:var(--amber);">94%</span></div></td>
+          <td style="text-align:center;color:var(--red);">▼</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">台北</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">3,480</span></div><div class="sc-item"><span class="sc-name">嘉義</span><div class="prog-bar"><div class="prog-fill pf-bad" style="width:70%;"></div></div><span class="sc-val" style="color:var(--red);">2,120</span></div></div></td>
+          <td><span class="badge b-warn">待改善</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--teal);">09</span></td>
+          <td><div class="kpi-name">售後吸收率</div><div class="kpi-code">售後毛利 / 全店固定費用</div></td>
+          <td><span class="kpi-num">68%</span></td>
+          <td><span class="kpi-num">70%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:97%;"></div></div><span class="prog-val" style="color:var(--amber);">97%</span></div></td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">各店</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:97%;"></div></div><span class="sc-val" style="color:#1E6E1E;">均良好</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--teal);">10</span></td>
+          <td><div class="kpi-name">首次修復率（FTF）</div><div class="kpi-code">1 - rework_count / total_ro</div></td>
+          <td><span class="kpi-num" style="color:var(--red);">72%</span></td>
+          <td><span class="kpi-num">95%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-bad" style="width:75%;"></div></div><span class="prog-val" style="color:var(--red);">75%</span></div></td>
+          <td style="text-align:center;color:var(--red);">▼</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td>
+            <div class="store-cols">
+              <div class="sc-item"><span class="sc-name">台北</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:96%;"></div></div><span class="sc-val" style="color:#1E6E1E;">96%</span></div>
+              <div class="sc-item"><span class="sc-name">台中</span><div class="prog-bar"><div class="prog-fill pf-bad" style="width:55%;"></div></div><span class="sc-val" style="color:var(--red);">52%</span></div>
+            </div>
+          </td>
+          <td><span class="badge b-bad">⚠ 告警</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--teal);">11</span></td>
+          <td><div class="kpi-name">Tech 人效利用率</div><div class="kpi-code">售出工時 / 出勤工時</div></td>
+          <td><span class="kpi-num">78%</span></td>
+          <td><span class="kpi-num">80%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:97%;"></div></div><span class="prog-val" style="color:var(--amber);">97%</span></div></td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">各店</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:97%;"></div></div><span class="sc-val" style="color:#1E6E1E;">均良好</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ Tab 2：客戶忠誠 ══ -->
+  <div class="tab-pane" id="tab-2">
+    <div class="dim-hdr dim-hdr-customer">
+      <span class="dim-label">❤️ 客戶忠誠面向</span>
+      <span class="dim-sub">4 項指標 ｜ 權重 25%</span>
+      <span class="dim-weight">達標 3/4</span>
+    </div>
+    <table class="kpi-table">
+      <thead>
+        <tr><th>#</th><th>KPI 名稱</th><th>集團均值</th><th>目標值</th><th>達成率</th><th class="center">趨勢</th><th class="center">頻率</th><th>各門店對比</th><th>狀態</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--purple);">12</span></td>
+          <td><div class="kpi-name">銷售 NPS</div><div class="kpi-code">nps_responses WHERE type=sales AVG</div></td>
+          <td><span class="kpi-num">+62</span></td>
+          <td><span class="kpi-num">+60</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="prog-val" style="color:#1E6E1E;">✓</span></div></td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">台北</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">+66</span></div><div class="sc-item"><span class="sc-name">嘉義</span><div class="prog-bar"><div class="prog-fill pf-warn" style="width:76%;"></div></div><span class="sc-val" style="color:var(--amber);">+46</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--purple);">13</span></td>
+          <td><div class="kpi-name">售後 NPS</div><div class="kpi-code">nps_responses WHERE type=aftersales AVG</div></td>
+          <td><span class="kpi-num">+54</span></td>
+          <td><span class="kpi-num">+55</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:98%;"></div></div><span class="prog-val" style="color:var(--amber);">98%</span></div></td>
+          <td style="text-align:center;color:var(--red);">▼</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">台北</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">+68</span></div><div class="sc-item"><span class="sc-name">台中</span><div class="prog-bar"><div class="prog-fill pf-warn" style="width:76%;"></div></div><span class="sc-val" style="color:var(--amber);">+42</span></div></div></td>
+          <td><span class="badge b-warn">待改善</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--purple);">14</span></td>
+          <td><div class="kpi-name">售後回廠率</div><div class="kpi-code">回廠客戶數 / 有效保有客戶數</div></td>
+          <td><span class="kpi-num">68%</span></td>
+          <td><span class="kpi-num">70%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:97%;"></div></div><span class="prog-val" style="color:var(--amber);">97%</span></div></td>
+          <td style="text-align:center;color:var(--red);">▼</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-q">季</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">各店</span><div class="prog-bar"><div class="prog-fill pf-warn" style="width:97%;"></div></div><span class="sc-val" style="color:var(--amber);">接近達標</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--purple);">15</span></td>
+          <td><div class="kpi-name">客戶保留率</div><div class="kpi-code">期末活躍客戶 / 期初活躍客戶</div></td>
+          <td><span class="kpi-num">91%</span></td>
+          <td><span class="kpi-num">92%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:98%;"></div></div><span class="prog-val" style="color:var(--amber);">98%</span></div></td>
+          <td style="text-align:center;color:var(--red);">▼</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-y">年</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">台中</span><div class="prog-bar"><div class="prog-fill pf-bad" style="width:82%;"></div></div><span class="sc-val" style="color:var(--red);">85%</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ Tab 3：庫存 ══ -->
+  <div class="tab-pane" id="tab-3">
+    <div class="dim-hdr dim-hdr-inventory">
+      <span class="dim-label">📦 庫存管理面向</span>
+      <span class="dim-sub">3 項指標 ｜ 權重 10%</span>
+      <span class="dim-weight">達標 2/3</span>
+    </div>
+    <table class="kpi-table">
+      <thead>
+        <tr><th>#</th><th>KPI 名稱</th><th>集團均值</th><th>目標值</th><th>達成率</th><th class="center">趨勢</th><th class="center">頻率</th><th>各門店對比</th><th>狀態</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--amber);">16</span></td>
+          <td><div class="kpi-name">新車在庫天數</div><div class="kpi-code">AVG(sold_date - arrival_date)</div></td>
+          <td><span class="kpi-num">38 天</span></td>
+          <td><span class="kpi-num">&lt; 45 天</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="prog-val" style="color:#1E6E1E;">✓</span></div></td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">各店</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">全達標</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--amber);">17</span></td>
+          <td><div class="kpi-name">零件庫存周轉率</div><div class="kpi-code">年備件銷售成本 / 月均庫存 × 12</div></td>
+          <td><span class="kpi-num">8.2x</span></td>
+          <td><span class="kpi-num">10x</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:82%;"></div></div><span class="prog-val" style="color:var(--amber);">82%</span></div></td>
+          <td style="text-align:center;color:var(--red);">▼</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">嘉義</span><div class="prog-bar"><div class="prog-fill pf-bad" style="width:51%;"></div></div><span class="sc-val" style="color:var(--red);">5.1x</span></div></div></td>
+          <td><span class="badge b-warn">待改善</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:var(--amber);">18</span></td>
+          <td><div class="kpi-name">缺料發生率</div><div class="kpi-code">1 - parts_fulfillment_rate</div></td>
+          <td><span class="kpi-num" style="color:var(--red);">14%</span></td>
+          <td><span class="kpi-num">&lt; 10%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-bad" style="width:71%;"></div></div><span class="prog-val" style="color:var(--red);">未達標</span></div></td>
+          <td style="text-align:center;color:var(--red);">▼</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">嘉義</span><div class="prog-bar"><div class="prog-fill pf-bad" style="width:28%;"></div></div><span class="sc-val" style="color:var(--red);">28%</span></div><div class="sc-item"><span class="sc-name">台北</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:96%;"></div></div><span class="sc-val" style="color:#1E6E1E;">4%</span></div></div></td>
+          <td><span class="badge b-bad">⚠ 告警</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ Tab 4：人力 + 財務 ══ -->
+  <div class="tab-pane" id="tab-4">
+    <div class="dim-hdr dim-hdr-hr">
+      <span class="dim-label">👥 人力效能面向</span>
+      <span class="dim-sub">2 項指標 ｜ 權重 10%</span>
+      <span class="dim-weight">達標 2/2</span>
+    </div>
+    <table class="kpi-table" style="margin-bottom:20px;">
+      <thead>
+        <tr><th>#</th><th>KPI 名稱</th><th>集團均值</th><th>目標值</th><th>達成率</th><th class="center">趨勢</th><th class="center">頻率</th><th>各門店對比</th><th>狀態</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="kpi-num" style="color:#5A5955;">21</span></td>
+          <td><div class="kpi-name">人員保留率</div><div class="kpi-code">1 - resigned / headcount</div></td>
+          <td><span class="kpi-num">88%</span></td>
+          <td><span class="kpi-num">85%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="prog-val" style="color:#1E6E1E;">✓</span></div></td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-q">季</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">各店</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">全達標</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:#5A5955;">22</span></td>
+          <td><div class="kpi-name">Tech 認證通過率</div><div class="kpi-code">certified_techs / total_techs</div></td>
+          <td><span class="kpi-num">74%</span></td>
+          <td><span class="kpi-num">80%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-warn" style="width:92%;"></div></div><span class="prog-val" style="color:var(--amber);">92%</span></div></td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-h">半年</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">台中</span><div class="prog-bar"><div class="prog-fill pf-warn" style="width:75%;"></div></div><span class="sc-val" style="color:var(--amber);">60%</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="dim-hdr" style="background:linear-gradient(90deg,#1E6E1E,#2A8A2A);color:#fff;">
+      <span class="dim-label">💰 財務健康面向</span>
+      <span class="dim-sub">2 項指標 ｜ 權重 30%</span>
+      <span class="dim-weight">達標 2/2</span>
+    </div>
+    <table class="kpi-table">
+      <thead>
+        <tr><th>#</th><th>KPI 名稱</th><th>集團均值</th><th>目標值</th><th>達成率</th><th class="center">趨勢</th><th class="center">頻率</th><th>各門店對比</th><th>狀態</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="kpi-num" style="color:#1E6E1E;">19</span></td>
+          <td><div class="kpi-name">置換率（CPO）</div><div class="kpi-code">used_car_purchases(置換) / new_deliveries</div></td>
+          <td><span class="kpi-num">22%</span></td>
+          <td><span class="kpi-num">20%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="prog-val" style="color:#1E6E1E;">✓</span></div></td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">各店</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">全達標</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+        <tr>
+          <td><span class="kpi-num" style="color:#1E6E1E;">20</span></td>
+          <td><div class="kpi-name">各店新車折扣區間</div><div class="kpi-code">MIN/AVG/MAX discount per org_id</div></td>
+          <td><span class="kpi-num">-8.4%</span></td>
+          <td><span class="kpi-num">&lt; -10%</span></td>
+          <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="prog-val" style="color:#1E6E1E;">✓</span></div></td>
+          <td style="text-align:center;color:#3DBE6E;">▲</td>
+          <td style="text-align:center;"><span class="kpi-freq freq-m">月</span></td>
+          <td><div class="store-cols"><div class="sc-item"><span class="sc-name">各店</span><div class="prog-bar"><div class="prog-fill pf-ok" style="width:100%;"></div></div><span class="sc-val" style="color:#1E6E1E;">全達標</span></div></div></td>
+          <td><span class="badge b-ok">達標</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function switchTab(idx, btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+idx).classList.add('active');
+}
+function setPeriod(el){
+  el.closest('.sub-bar').querySelectorAll('.period-chip').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  showToast('期間已切換：' + el.textContent.trim());
+}
+function setStore(el){
+  el.closest('.sub-bar').querySelectorAll('.store-chip').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  showToast('篩選門店：' + el.textContent.trim());
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+</script>
+</body>
+</html>

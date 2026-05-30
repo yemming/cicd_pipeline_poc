@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRP13 促銷活動管理 — DealerOS</title>
+<style>
+  :root {
+    --navy:        #1A3A5C;
+    --teal:        #0F6E56;
+    --red:         #C8001A;
+    --amber:       #854F0B;
+    --amber-bg:    #FDF3E3;
+    --amber-bd:    #F0C97E;
+    --amber-bright:#F5B942;
+    --purple:      #534AB7;
+    --header:      #0D2438;
+    --bg:          #F8F7F4;
+    --white:       #FFFFFF;
+    --text:        #1A1A1A;
+    --text-sub:    #5A5A5A;
+    --border:      #E0DDD6;
+    --red-bg:      #FDECEA;
+    --red-bd:      #F5AEAD;
+    --teal-bg:     #E1F5EE;
+    --teal-bd:     #5DCAA5;
+    --navy-bg:     #EAF4FB;
+    --navy-bd:     #85B7EB;
+    --purple-bg:   #EEEDFE;
+    --purple-bd:   #AFA9EC;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'PingFang TC','Noto Sans TC','Microsoft JhengHei',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+  /* ── TOPBAR ── */
+  .topbar { background:var(--header); height:52px; display:flex; align-items:center; padding:0 24px; gap:16px; position:sticky; top:0; z-index:300; border-bottom:2px solid var(--amber); }
+  .topbar-brand { color:var(--amber-bright); font-size:15px; font-weight:700; letter-spacing:.05em; }
+  .topbar-sep   { color:#3A5A7A; }
+  .topbar-title { color:#C8D8E8; font-size:13px; }
+  .topbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+  .topbar-badge { background:rgba(133,79,11,.25); color:var(--amber-bright); font-size:11px; padding:2px 10px; border-radius:10px; border:1px solid rgba(240,201,126,.3); }
+
+  /* ── PAGE HEADER ── */
+  .page-header { background:linear-gradient(135deg,#3A1F02 0%,#5C2E05 40%,#854F0B 100%); padding:28px 32px 24px; position:relative; overflow:hidden; }
+  .page-header::before { content:''; position:absolute; right:-40px; top:-40px; width:260px; height:260px; background:radial-gradient(circle,rgba(240,201,126,.12) 0%,transparent 70%); border-radius:50%; }
+  .ph-breadcrumb { font-size:11px; color:rgba(240,201,126,.6); margin-bottom:8px; letter-spacing:.08em; }
+  .ph-title { font-size:22px; font-weight:700; color:#FFF; display:flex; align-items:center; gap:10px; position:relative; z-index:1; }
+  .ph-title-icon { width:32px; height:32px; background:rgba(240,201,126,.2); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+  .ph-subtitle { margin-top:6px; font-size:13px; color:rgba(240,201,126,.75); position:relative; z-index:1; }
+  .ph-controls { position:absolute; right:32px; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:10px; z-index:2; }
+  .ph-select { background:rgba(255,255,255,.1); border:1px solid rgba(240,201,126,.35); color:#FFF; padding:6px 28px 6px 10px; border-radius:6px; font-size:12px; cursor:pointer; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23F0C97E'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
+  .ph-select option { background:#3A1F02; color:#FFF; }
+  .ph-btn { background:var(--amber); color:#FFF; border:none; padding:6px 14px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; }
+  .ph-btn:hover { background:#9D5E0D; }
+  .ph-btn-new { background:var(--amber-bright); color:#3A1F02; border:none; padding:6px 16px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:700; }
+  .ph-btn-new:hover { background:#E8A73A; }
+
+  /* ── MAIN ── */
+  .main { padding:24px 32px 48px; }
+
+  /* ── SECTION TITLE ── */
+  .section-title { font-size:13px; font-weight:700; color:var(--amber); text-transform:uppercase; letter-spacing:.1em; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--amber-bd); }
+
+  /* ── ALERT ── */
+  .alert-banner { background:var(--red-bg); border:1px solid var(--red-bd); border-left:4px solid var(--red); border-radius:8px; padding:10px 16px; margin-bottom:20px; display:flex; align-items:center; gap:10px; font-size:13px; color:#8B0012; }
+  .alert-items { display:flex; gap:20px; flex-wrap:wrap; }
+  .alert-item  { display:flex; align-items:center; gap:6px; }
+  .alert-dot   { width:8px; height:8px; border-radius:50%; background:var(--red); flex-shrink:0; }
+
+  /* ── KPI GRID ── */
+  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
+  .kpi-card { background:var(--white); border:1px solid var(--border); border-radius:10px; padding:16px 18px; position:relative; overflow:hidden; transition:box-shadow .2s; }
+  .kpi-card:hover { box-shadow:0 4px 16px rgba(133,79,11,.12); }
+  .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--amber); }
+  .kpi-card.warn::before { background:var(--red); }
+  .kpi-card.good::before { background:var(--teal); }
+  .kpi-card.info::before { background:var(--navy); }
+  .kpi-label { font-size:11px; color:var(--text-sub); margin-bottom:8px; }
+  .kpi-value { font-size:24px; font-weight:700; color:var(--text); line-height:1; margin-bottom:6px; }
+  .kpi-value span { font-size:13px; font-weight:400; color:var(--text-sub); }
+  .kpi-sub   { font-size:11px; color:var(--text-sub); margin-top:4px; }
+
+  /* ── STATUS TABS ── */
+  .status-tabs { display:flex; gap:0; margin-bottom:20px; border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--white); }
+  .status-tab { flex:1; padding:10px 0; text-align:center; font-size:12px; font-weight:600; cursor:pointer; border-right:1px solid var(--border); transition:background .15s; color:var(--text-sub); position:relative; }
+  .status-tab:last-child { border-right:none; }
+  .status-tab.active { background:var(--amber-bg); color:var(--amber); }
+  .status-tab .tab-count { display:inline-block; margin-left:5px; background:var(--border); color:var(--text-sub); font-size:10px; padding:1px 6px; border-radius:8px; }
+  .status-tab.active .tab-count { background:var(--amber-bd); color:var(--amber); }
+
+  /* ── ACTIVITY LIST ── */
+  .activity-list { display:flex; flex-direction:column; gap:12px; margin-bottom:28px; }
+  .activity-card { background:var(--white); border:1px solid var(--border); border-radius:10px; overflow:hidden; transition:box-shadow .2s; }
+  .activity-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.06); }
+  .activity-card-header { padding:14px 18px; display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--border); }
+  .act-status-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .act-status-dot.active   { background:#0F6E56; box-shadow:0 0 0 3px rgba(15,110,86,.15); }
+  .act-status-dot.scheduled{ background:var(--navy); box-shadow:0 0 0 3px rgba(26,58,92,.15); }
+  .act-status-dot.draft    { background:#999; }
+  .act-status-dot.review   { background:var(--amber-bright); box-shadow:0 0 0 3px rgba(245,185,66,.2); }
+  .act-status-dot.ended    { background:var(--border); }
+  .act-status-dot.archived { background:#CCC; }
+  .act-title { font-size:14px; font-weight:700; flex:1; }
+  .act-period { font-size:12px; color:var(--text-sub); white-space:nowrap; }
+  .act-badges { display:flex; gap:6px; align-items:center; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; white-space:nowrap; }
+  .badge-active    { background:var(--teal-bg);   color:var(--teal);   border:1px solid var(--teal-bd); }
+  .badge-scheduled { background:var(--navy-bg);   color:var(--navy);   border:1px solid var(--navy-bd); }
+  .badge-draft     { background:#F5F5F5; color:#888; border:1px solid #DDD; }
+  .badge-review    { background:#FFF8E1; color:#7A5800; border:1px solid #F0C97E; }
+  .badge-ended     { background:#F5F5F5; color:#888; border:1px solid #DDD; }
+  .badge-archived  { background:#F0F0F0; color:#999; border:1px solid #DDD; }
+  .badge-warn      { background:var(--red-bg); color:var(--red); border:1px solid var(--red-bd); }
+  .badge-ok        { background:var(--teal-bg); color:var(--teal); }
+  .activity-card-body { padding:14px 18px; display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto; gap:16px; align-items:center; }
+  .act-info-label { font-size:11px; color:var(--text-sub); margin-bottom:3px; }
+  .act-info-val   { font-size:13px; font-weight:600; }
+  .act-info-val.warn  { color:var(--red); }
+  .act-info-val.ok    { color:var(--teal); }
+  .act-info-val.amber { color:var(--amber); }
+  .act-actions { display:flex; gap:6px; }
+  .btn-edit { background:var(--amber-bg); color:var(--amber); border:1px solid var(--amber-bd); padding:5px 12px; border-radius:5px; font-size:11px; cursor:pointer; font-weight:600; }
+  .btn-edit:hover { background:var(--amber); color:#FFF; }
+  .btn-view { background:var(--navy-bg); color:var(--navy); border:1px solid var(--navy-bd); padding:5px 12px; border-radius:5px; font-size:11px; cursor:pointer; font-weight:600; }
+  .btn-view:hover { background:var(--navy); color:#FFF; }
+  .btn-danger { background:var(--red-bg); color:var(--red); border:1px solid var(--red-bd); padding:5px 10px; border-radius:5px; font-size:11px; cursor:pointer; font-weight:600; }
+  .discount-range { display:flex; align-items:center; gap:6px; font-size:13px; }
+  .discount-range .range-box { background:var(--amber-bg); border:1px solid var(--amber-bd); border-radius:4px; padding:2px 8px; font-weight:700; color:var(--amber); font-size:12px; }
+
+  /* ── STORE EXECUTION TABLE ── */
+  .data-table { width:100%; border-collapse:collapse; font-size:12px; }
+  .data-table th { padding:8px 12px; text-align:left; font-size:11px; color:var(--text-sub); font-weight:600; border-bottom:1px solid var(--border); background:#FAFAF8; }
+  .data-table td { padding:9px 12px; border-bottom:1px solid #F0EDE8; vertical-align:middle; }
+  .data-table tr:last-child td { border-bottom:none; }
+  .data-table tr:hover td { background:var(--amber-bg); }
+  .data-table tfoot td { font-weight:700; background:#FAFAF8; border-top:2px solid var(--border); }
+  .out-of-range { color:var(--red); font-weight:700; }
+  .in-range     { color:var(--teal); font-weight:600; }
+
+  /* ── CARD ── */
+  .card { background:var(--white); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:24px; }
+  .card-header { padding:14px 18px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .card-title  { font-size:13px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; }
+  .card-title .dot { width:8px; height:8px; border-radius:50%; background:var(--amber); }
+  .card-tag { font-size:11px; padding:2px 8px; border-radius:4px; background:var(--amber-bg); color:var(--amber); border:1px solid var(--amber-bd); }
+  .card-body { padding:18px; }
+
+  /* ── EFFECT ANALYSIS ── */
+  .effect-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .effect-item { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:14px 16px; }
+  .effect-label { font-size:11px; color:var(--text-sub); margin-bottom:6px; }
+  .effect-val   { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .effect-delta { font-size:12px; }
+  .effect-delta.up   { color:var(--teal); }
+  .effect-delta.down { color:var(--red); }
+
+  /* ════════════════════════
+     SIDE PANEL
+  ════════════════════════ */
+  .panel-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:400; opacity:0; pointer-events:none; transition:opacity .25s; }
+  .panel-overlay.open { opacity:1; pointer-events:all; }
+  .side-panel { position:fixed; top:0; right:0; width:700px; height:100vh; background:var(--white); z-index:401; transform:translateX(100%); transition:transform .3s ease; overflow-y:auto; display:flex; flex-direction:column; }
+  .side-panel.open { transform:translateX(0); }
+  .panel-header { background:var(--header); padding:18px 24px; display:flex; align-items:center; gap:12px; flex-shrink:0; border-bottom:2px solid var(--amber); }
+  .panel-title  { color:#FFF; font-size:16px; font-weight:700; flex:1; }
+  .panel-close  { background:none; border:none; color:#8AAABB; font-size:20px; cursor:pointer; padding:0 4px; line-height:1; }
+  .panel-close:hover { color:#FFF; }
+  .panel-body   { padding:24px; flex:1; }
+  .panel-footer { padding:16px 24px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:flex-end; flex-shrink:0; background:#FAFAF8; }
+
+  /* Status bar in panel */
+  .panel-status-bar { display:flex; align-items:center; gap:10px; background:var(--amber-bg); border:1px solid var(--amber-bd); border-radius:8px; padding:10px 14px; margin-bottom:20px; }
+  .panel-status-label { font-size:12px; color:var(--text-sub); }
+  .panel-status-val   { font-size:13px; font-weight:700; }
+  .panel-status-actions { margin-left:auto; display:flex; gap:6px; }
+  .btn-status { padding:4px 10px; border-radius:5px; font-size:11px; cursor:pointer; font-weight:600; border:1px solid; }
+  .btn-approve { background:var(--teal-bg); color:var(--teal); border-color:var(--teal-bd); }
+  .btn-approve:hover { background:var(--teal); color:#FFF; }
+  .btn-archive { background:#F5F5F5; color:#666; border-color:#DDD; }
+  .btn-archive:hover { background:#999; color:#FFF; }
+  .btn-takedown { background:var(--red-bg); color:var(--red); border-color:var(--red-bd); }
+  .btn-takedown:hover { background:var(--red); color:#FFF; }
+
+  /* Form */
+  .form-section { margin-bottom:22px; }
+  .form-section-title { font-size:12px; font-weight:700; color:var(--amber); text-transform:uppercase; letter-spacing:.08em; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid var(--amber-bd); }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:12px; }
+  .form-row.full { grid-template-columns:1fr; }
+  .form-group { display:flex; flex-direction:column; gap:5px; }
+  .form-label { font-size:11px; font-weight:600; color:var(--text-sub); }
+  .form-input, .form-select, .form-textarea {
+    border:1px solid var(--border); border-radius:6px; padding:8px 10px;
+    font-size:13px; font-family:inherit; background:var(--white); color:var(--text);
+    transition:border-color .15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { outline:none; border-color:var(--amber-bright); box-shadow:0 0 0 3px rgba(245,185,66,.15); }
+  .form-textarea { resize:vertical; min-height:80px; }
+  .form-hint { font-size:11px; color:var(--text-sub); margin-top:2px; }
+
+  /* Discount range inputs */
+  .discount-inputs { display:flex; align-items:center; gap:10px; }
+  .discount-inputs .form-input { width:100px; text-align:center; font-weight:700; }
+  .discount-sep { font-size:13px; color:var(--text-sub); }
+  .discount-validate-msg { font-size:11px; margin-top:4px; }
+  .discount-validate-msg.error { color:var(--red); }
+  .discount-validate-msg.ok    { color:var(--teal); }
+
+  /* Store checkboxes */
+  .store-check-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+  .store-check-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; cursor:pointer; transition:background .15s; }
+  .store-check-item:hover { background:var(--amber-bg); border-color:var(--amber-bd); }
+  .store-check-item input[type=checkbox] { accent-color:var(--amber); width:15px; height:15px; }
+  .store-check-label { font-size:13px; font-weight:600; }
+
+  /* Rich text mock editor */
+  .rich-editor { border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .rich-toolbar { background:#FAFAF8; border-bottom:1px solid var(--border); padding:8px 10px; display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
+  .rich-btn { background:none; border:1px solid transparent; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer; color:var(--text); }
+  .rich-btn:hover { background:var(--border); }
+  .rich-btn.active { background:var(--amber-bg); border-color:var(--amber-bd); color:var(--amber); }
+  .rich-sep { width:1px; height:20px; background:var(--border); margin:0 4px; }
+  .rich-content { padding:14px; min-height:120px; font-size:13px; line-height:1.7; outline:none; }
+  .rich-content:focus { box-shadow:inset 0 0 0 2px rgba(245,185,66,.25); }
+
+  /* Image upload mock */
+  .img-upload-area { border:2px dashed var(--amber-bd); border-radius:8px; padding:24px; text-align:center; cursor:pointer; transition:background .15s; }
+  .img-upload-area:hover { background:var(--amber-bg); }
+  .img-upload-icon { font-size:28px; margin-bottom:8px; }
+  .img-upload-text { font-size:13px; color:var(--text-sub); }
+  .img-upload-hint { font-size:11px; color:#AAA; margin-top:4px; }
+
+  /* ── POSTER PREVIEW ── */
+  .poster-section { margin-bottom:22px; }
+  .template-selector { display:flex; gap:12px; margin-bottom:16px; }
+  .template-opt { border:2px solid var(--border); border-radius:8px; padding:8px 14px; cursor:pointer; font-size:12px; font-weight:600; color:var(--text-sub); transition:all .15s; text-align:center; }
+  .template-opt:hover { border-color:var(--amber-bd); color:var(--amber); }
+  .template-opt.selected { border-color:var(--amber); background:var(--amber-bg); color:var(--amber); }
+  .poster-preview-wrap { display:flex; gap:20px; align-items:flex-start; }
+  .poster-canvas {
+    width:360px; height:360px; flex-shrink:0;
+    border-radius:12px; overflow:hidden; position:relative;
+    background:linear-gradient(135deg,#3A1F02 0%,#854F0B 60%,#F5B942 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px; text-align:center; color:#FFF;
+    box-shadow:0 8px 32px rgba(133,79,11,.25);
+  }
+  .poster-canvas.tpl-dark {
+    background:linear-gradient(135deg,#0D1B2A 0%,#1A3A5C 60%,#2A5A8C 100%);
+  }
+  .poster-canvas.tpl-light {
+    background:linear-gradient(135deg,#FDF3E3 0%,#F5B942 60%,#E8A73A 100%);
+    color:#3A1F02;
+  }
+  .poster-brand { font-size:11px; letter-spacing:.2em; opacity:.7; margin-bottom:8px; text-transform:uppercase; }
+  .poster-title { font-size:22px; font-weight:700; line-height:1.3; margin-bottom:10px; }
+  .poster-discount { font-size:48px; font-weight:700; line-height:1; margin:8px 0; }
+  .poster-discount span { font-size:18px; vertical-align:super; }
+  .poster-period { font-size:12px; opacity:.8; margin-top:10px; border-top:1px solid rgba(255,255,255,.3); padding-top:10px; width:100%; }
+  .poster-stores { font-size:11px; opacity:.65; margin-top:6px; }
+  .poster-logo { position:absolute; top:16px; right:16px; font-size:22px; opacity:.6; }
+  .poster-actions { display:flex; flex-direction:column; gap:10px; padding-top:8px; }
+  .btn-dl { background:var(--amber); color:#FFF; border:none; padding:8px 16px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; width:160px; }
+  .btn-dl:hover { background:#9D5E0D; }
+  .btn-dl-line { background:#06C755; color:#FFF; border:none; padding:8px 16px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; width:160px; }
+  .dl-hint { font-size:11px; color:var(--text-sub); margin-top:8px; line-height:1.5; }
+
+  /* Status log */
+  .status-log { display:flex; flex-direction:column; gap:0; }
+  .log-item { display:flex; gap:12px; padding:8px 0; border-bottom:1px solid #F5F5F5; }
+  .log-item:last-child { border-bottom:none; }
+  .log-dot-wrap { display:flex; flex-direction:column; align-items:center; gap:0; }
+  .log-dot { width:10px; height:10px; border-radius:50%; background:var(--amber); margin-top:3px; flex-shrink:0; }
+  .log-line { flex:1; width:1px; background:var(--border); margin:2px 0; }
+  .log-content { flex:1; }
+  .log-status { font-size:12px; font-weight:700; }
+  .log-meta   { font-size:11px; color:var(--text-sub); margin-top:1px; }
+
+  /* Footer */
+  .page-footer { background:var(--header); padding:12px 32px; display:flex; align-items:center; justify-content:space-between; font-size:11px; color:#5A7A9A; }
+  .footer-brand { color:var(--amber-bright); font-weight:700; }
+
+  /* Footer panel btns */
+  .btn-save { background:var(--amber); color:#FFF; border:none; padding:8px 20px; border-radius:6px; font-size:13px; cursor:pointer; font-weight:600; }
+  .btn-save:hover { background:#9D5E0D; }
+  .btn-submit { background:var(--navy); color:#FFF; border:none; padding:8px 20px; border-radius:6px; font-size:13px; cursor:pointer; font-weight:600; }
+  .btn-submit:hover { background:#0D2A48; }
+  .btn-cancel { background:none; border:1px solid var(--border); color:var(--text-sub); padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer; }
+  .btn-cancel:hover { background:var(--border); }
+
+  /* Animate */
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .fade-up { animation:fadeUp .4s ease both; }
+  .d1{animation-delay:.05s} .d2{animation-delay:.1s} .d3{animation-delay:.15s} .d4{animation-delay:.2s}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <span class="topbar-brand">DealerOS</span>
+  <span class="topbar-sep">›</span>
+  <span class="topbar-title">集團管理層</span>
+  <span class="topbar-sep">›</span>
+  <span class="topbar-title">促銷活動管理</span>
+  <div class="topbar-right">
+    <span class="topbar-badge">GRP13</span>
+    <span style="color:#5A7A9A;font-size:12px;">Indian Motorcycle Taiwan ／ 全部店</span>
+  </div>
+</div>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="ph-breadcrumb">集團管理 › 促銷活動</div>
+  <div class="ph-title">
+    <div class="ph-title-icon">🎯</div>
+    促銷活動管理
+  </div>
+  <div class="ph-subtitle">活動建立 × 折扣授權範圍 × 門店執行監看 × 海報產出</div>
+  <div class="ph-controls">
+    <select class="ph-select" id="sel-period">
+      <option>2026 Q2（4–6月）</option>
+      <option>2026 Q1（1–3月）</option>
+      <option>全部時間</option>
+    </select>
+    <select class="ph-select" id="sel-store">
+      <option value="all">全部門店</option>
+      <option value="tp">台北旗艦店</option>
+      <option value="tc">台中中港店</option>
+      <option value="kh">高雄博愛店</option>
+      <option value="ty">桃園中壢店</option>
+    </select>
+    <button class="ph-btn-new" onclick="openPanel('new')">＋ 新增活動</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ALERT -->
+  <div class="alert-banner fade-up">
+    <span style="font-size:16px;">⚠️</span>
+    <strong style="margin-right:8px;">折扣越界警示</strong>
+    <div class="alert-items">
+      <div class="alert-item"><div class="alert-dot"></div>高雄博愛店：「Q2換季保養優惠」實際折扣 78折，低於授權下限 80折</div>
+      <div class="alert-item"><div class="alert-dot"></div>桃園中壢店：「FTR試乘購車禮」尚未回報執行狀況</div>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="section-title">🎯 本季活動概況</div>
+  <div class="kpi-grid">
+    <div class="kpi-card good fade-up d1">
+      <div class="kpi-label">✅ 進行中活動</div>
+      <div class="kpi-value">3<span> 個</span></div>
+      <div class="kpi-sub">另有 2 個即將開始</div>
+    </div>
+    <div class="kpi-card fade-up d2">
+      <div class="kpi-label">💰 活動業績貢獻</div>
+      <div class="kpi-value">NT$ 4.2<span>M</span></div>
+      <div class="kpi-sub">佔本季總業績 18.3%</div>
+    </div>
+    <div class="kpi-card fade-up d3">
+      <div class="kpi-label">📉 平均折扣率</div>
+      <div class="kpi-value">88.4<span>折</span></div>
+      <div class="kpi-sub">集團授權範圍 85–95折</div>
+    </div>
+    <div class="kpi-card warn fade-up d4">
+      <div class="kpi-label">🚨 折扣越界筆數</div>
+      <div class="kpi-value">2<span> 筆</span></div>
+      <div class="kpi-sub">需通路管理經理確認</div>
+    </div>
+  </div>
+
+  <!-- STATUS TABS -->
+  <div class="status-tabs" id="status-tabs">
+    <div class="status-tab active" onclick="filterStatus('all',this)">全部 <span class="tab-count">8</span></div>
+    <div class="status-tab" onclick="filterStatus('active',this)">進行中 <span class="tab-count">3</span></div>
+    <div class="status-tab" onclick="filterStatus('scheduled',this)">已排程 <span class="tab-count">2</span></div>
+    <div class="status-tab" onclick="filterStatus('review',this)">審核中 <span class="tab-count">1</span></div>
+    <div class="status-tab" onclick="filterStatus('draft',this)">草稿 <span class="tab-count">1</span></div>
+    <div class="status-tab" onclick="filterStatus('ended',this)">已結束 <span class="tab-count">1</span></div>
+  </div>
+
+  <!-- ACTIVITY LIST -->
+  <div class="activity-list" id="activity-list">
+    <!-- JS 生成 -->
+  </div>
+
+  <!-- 門店執行監看 -->
+  <div class="section-title">🏪 門店折扣執行監看</div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="dot"></div>各門店實際折扣 vs 集團授權範圍</div>
+      <div style="display:flex;gap:8px;">
+        <div class="card-tag">進行中活動</div>
+        <div class="card-tag" style="background:var(--red-bg);color:var(--red);border-color:var(--red-bd);">越界 2 筆 ⚠️</div>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>門店</th>
+            <th>活動名稱</th>
+            <th>集團授權範圍</th>
+            <th>門店實際折扣</th>
+            <th>執行單數</th>
+            <th>業績貢獻</th>
+            <th>狀態</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>台北旗艦</strong></td>
+            <td>Q2換季保養優惠</td>
+            <td><span style="color:var(--text-sub);">80折 ～ 95折</span></td>
+            <td class="in-range">88折</td>
+            <td>47 單</td>
+            <td>NT$312K</td>
+            <td><span class="badge badge-ok">正常</span></td>
+          </tr>
+          <tr>
+            <td><strong>台中中港</strong></td>
+            <td>Q2換季保養優惠</td>
+            <td><span style="color:var(--text-sub);">80折 ～ 95折</span></td>
+            <td class="in-range">90折</td>
+            <td>38 單</td>
+            <td>NT$248K</td>
+            <td><span class="badge badge-ok">正常</span></td>
+          </tr>
+          <tr style="background:#FFF8F8;">
+            <td><strong>高雄博愛</strong></td>
+            <td>Q2換季保養優惠</td>
+            <td><span style="color:var(--text-sub);">80折 ～ 95折</span></td>
+            <td class="out-of-range">78折 ⚠️</td>
+            <td>29 單</td>
+            <td>NT$178K</td>
+            <td><span class="badge badge-warn">越界警示</span></td>
+          </tr>
+          <tr>
+            <td><strong>桃園中壢</strong></td>
+            <td>Q2換季保養優惠</td>
+            <td><span style="color:var(--text-sub);">80折 ～ 95折</span></td>
+            <td class="in-range">92折</td>
+            <td>21 單</td>
+            <td>NT$142K</td>
+            <td><span class="badge badge-ok">正常</span></td>
+          </tr>
+          <tr>
+            <td><strong>台北旗艦</strong></td>
+            <td>FTR試乘購車禮</td>
+            <td><span style="color:var(--text-sub);">95折 ～ 98折</span></td>
+            <td class="in-range">96折</td>
+            <td>8 單</td>
+            <td>NT$684K</td>
+            <td><span class="badge badge-ok">正常</span></td>
+          </tr>
+          <tr>
+            <td><strong>台中中港</strong></td>
+            <td>FTR試乘購車禮</td>
+            <td><span style="color:var(--text-sub);">95折 ～ 98折</span></td>
+            <td class="in-range">97折</td>
+            <td>5 單</td>
+            <td>NT$427K</td>
+            <td><span class="badge badge-ok">正常</span></td>
+          </tr>
+          <tr style="background:#FFF8F8;">
+            <td><strong>桃園中壢</strong></td>
+            <td>FTR試乘購車禮</td>
+            <td><span style="color:var(--text-sub);">95折 ～ 98折</span></td>
+            <td style="color:#999;">— 未回報</td>
+            <td>—</td>
+            <td>—</td>
+            <td><span class="badge badge-warn">待確認</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 活動效益分析 -->
+  <div class="section-title">📊 活動效益分析</div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="dot"></div>活動期間 vs 非活動期間業績對比</div>
+      <div class="card-tag">本季已結束活動</div>
+    </div>
+    <div class="card-body">
+      <div class="effect-grid">
+        <div class="effect-item">
+          <div class="effect-label">🔧 「年度保養包」（已結束）</div>
+          <div class="effect-val" style="color:var(--teal);">NT$2.84M</div>
+          <div class="effect-delta up">▲ 34.2% vs 非活動期同期</div>
+        </div>
+        <div class="effect-item">
+          <div class="effect-label">🏍 參與門店數</div>
+          <div class="effect-val">4<span style="font-size:14px;font-weight:400;color:var(--text-sub);"> 間</span></div>
+          <div class="effect-delta up">全部門店參與</div>
+        </div>
+        <div class="effect-item">
+          <div class="effect-label">📉 毛利影響</div>
+          <div class="effect-val" style="color:var(--amber);">-2.4pp</div>
+          <div class="effect-delta" style="color:var(--text-sub);">毛利率 32.4% → 30.0%</div>
+        </div>
+        <div class="effect-item">
+          <div class="effect-label">🛒 客單價</div>
+          <div class="effect-val">NT$3,840</div>
+          <div class="effect-delta up">▲ 18.6% vs 非活動期</div>
+        </div>
+        <div class="effect-item">
+          <div class="effect-label">🔄 回購率</div>
+          <div class="effect-val" style="color:var(--teal);">28.4%</div>
+          <div class="effect-delta up">▲ 6.2pp vs 非活動期</div>
+        </div>
+        <div class="effect-item">
+          <div class="effect-label">📋 整體評分</div>
+          <div class="effect-val" style="color:var(--amber);">B+</div>
+          <div class="effect-delta" style="color:var(--text-sub);">業績佳、毛利略降</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- FOOTER -->
+<div class="page-footer">
+  <span><span class="footer-brand">DealerOS</span> — 促銷活動管理 GRP13</span>
+  <span>資料截止：2026-05-28　｜　更新週期：每日 02:00</span>
+  <span>Indian Motorcycle Taiwan</span>
+</div>
+
+<!-- ════════════════════════════════
+     SIDE PANEL
+════════════════════════════════ -->
+<div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
+<div class="side-panel" id="side-panel">
+  <div class="panel-header">
+    <div class="panel-title" id="panel-title">新增促銷活動</div>
+    <button class="panel-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="panel-body">
+
+    <!-- 狀態列 -->
+    <div class="panel-status-bar" id="panel-status-bar">
+      <div>
+        <div class="panel-status-label">目前狀態</div>
+        <div class="panel-status-val" id="panel-status-val">📝 草稿</div>
+      </div>
+      <div class="panel-status-actions">
+        <button class="btn-status btn-approve" onclick="changeStatus('review')">送審</button>
+        <button class="btn-status btn-approve" onclick="changeStatus('approved')" style="display:none;" id="btn-approve">核准上架</button>
+        <button class="btn-status btn-takedown" id="btn-takedown" style="display:none;" onclick="changeStatus('ended')">緊急下架</button>
+        <button class="btn-status btn-archive" id="btn-archive" onclick="changeStatus('archived')">封存</button>
+      </div>
+    </div>
+
+    <!-- 基本資料 -->
+    <div class="form-section">
+      <div class="form-section-title">基本資料</div>
+      <div class="form-row full">
+        <div class="form-group">
+          <label class="form-label">活動名稱 *</label>
+          <input class="form-input" type="text" placeholder="例：2026 Q3 夏季精品節" id="act-name">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">活動開始日 *</label>
+          <input class="form-input" type="date" value="2026-07-01" id="act-start">
+        </div>
+        <div class="form-group">
+          <label class="form-label">活動結束日 *</label>
+          <input class="form-input" type="date" value="2026-07-31" id="act-end">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">活動類型</label>
+          <select class="form-select" id="act-type">
+            <option>整車銷售優惠</option>
+            <option>零件精品折扣</option>
+            <option>售後保養優惠</option>
+            <option>綜合促銷</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">負責人</label>
+          <input class="form-input" type="text" placeholder="通路管理經理姓名" id="act-owner">
+        </div>
+      </div>
+    </div>
+
+    <!-- 折扣授權範圍 -->
+    <div class="form-section">
+      <div class="form-section-title">折扣授權範圍（手動填寫）</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">折扣下限（門店不得低於此折扣）*</label>
+          <div class="discount-inputs">
+            <input class="form-input" type="number" min="50" max="100" step="1" placeholder="例：80" id="disc-min" oninput="validateDiscount()">
+            <span class="discount-sep">折</span>
+          </div>
+          <div class="discount-validate-msg" id="disc-min-msg"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">折扣上限（建議售價基準）*</label>
+          <div class="discount-inputs">
+            <input class="form-input" type="number" min="50" max="100" step="1" placeholder="例：95" id="disc-max" oninput="validateDiscount()">
+            <span class="discount-sep">折</span>
+          </div>
+          <div class="discount-validate-msg" id="disc-max-msg"></div>
+        </div>
+      </div>
+      <div class="form-hint">⚠️ 門店實際折扣低於下限時，系統將自動標示越界警示供集團監看。下限不得高於上限。</div>
+      <div class="discount-validate-msg" id="disc-range-msg" style="margin-top:6px;font-size:12px;"></div>
+    </div>
+
+    <!-- 適用門店 -->
+    <div class="form-section">
+      <div class="form-section-title">適用門店</div>
+      <div style="margin-bottom:10px;">
+        <label style="font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="check-all-stores" onchange="toggleAllStores(this)" style="accent-color:var(--amber);">
+          <span style="font-weight:600;">全部門店</span>
+        </label>
+      </div>
+      <div class="store-check-grid">
+        <label class="store-check-item"><input type="checkbox" class="store-cb" value="tp" checked> <span class="store-check-label">🏢 台北旗艦店</span></label>
+        <label class="store-check-item"><input type="checkbox" class="store-cb" value="tc" checked> <span class="store-check-label">🏢 台中中港店</span></label>
+        <label class="store-check-item"><input type="checkbox" class="store-cb" value="kh" checked> <span class="store-check-label">🏢 高雄博愛店</span></label>
+        <label class="store-check-item"><input type="checkbox" class="store-cb" value="ty" checked> <span class="store-check-label">🏢 桃園中壢店</span></label>
+      </div>
+    </div>
+
+    <!-- 活動文案 -->
+    <div class="form-section">
+      <div class="form-section-title">活動文案編輯</div>
+      <div class="form-row full" style="margin-bottom:12px;">
+        <div class="form-group">
+          <label class="form-label">活動標題（海報大標）*</label>
+          <input class="form-input" type="text" placeholder="例：夏日騎乘精品節" id="poster-title-input" oninput="updatePoster()">
+        </div>
+      </div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div class="form-group">
+          <label class="form-label">折扣標語（海報顯示）</label>
+          <input class="form-input" type="text" placeholder="例：全館85折起" id="poster-discount-input" oninput="updatePoster()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">活動副標 / 說明</label>
+          <input class="form-input" type="text" placeholder="例：指定精品最低85折" id="poster-sub-input" oninput="updatePoster()">
+        </div>
+      </div>
+      <!-- 富文字編輯器 -->
+      <div class="form-group" style="margin-bottom:14px;">
+        <label class="form-label">活動詳細說明（圖文）</label>
+        <div class="rich-editor">
+          <div class="rich-toolbar">
+            <button class="rich-btn active" onclick="fmtDoc('bold')"><b>B</b></button>
+            <button class="rich-btn" onclick="fmtDoc('italic')"><i>I</i></button>
+            <button class="rich-btn" onclick="fmtDoc('underline')"><u>U</u></button>
+            <div class="rich-sep"></div>
+            <button class="rich-btn" onclick="fmtDoc('insertUnorderedList')">≡</button>
+            <button class="rich-btn" onclick="fmtDoc('insertOrderedList')">1.</button>
+            <div class="rich-sep"></div>
+            <button class="rich-btn" style="color:var(--amber);" onclick="fmtColor('#854F0B')">A</button>
+            <button class="rich-btn" style="color:var(--red);"   onclick="fmtColor('#C8001A')">A</button>
+            <button class="rich-btn" style="color:var(--teal);"  onclick="fmtColor('#0F6E56')">A</button>
+            <div class="rich-sep"></div>
+            <button class="rich-btn" onclick="fmtDoc('removeFormat')">清除</button>
+          </div>
+          <div class="rich-content" contenteditable="true" id="rich-content">
+            <p>在此輸入活動詳細說明、注意事項、條款備註…</p>
+          </div>
+        </div>
+      </div>
+      <!-- 封面圖上傳 -->
+      <div class="form-group">
+        <label class="form-label">封面圖上傳（建議 1:1 或 1.91:1）</label>
+        <div class="img-upload-area" onclick="alert('實際系統將開啟檔案選擇器（Partner 實作）')">
+          <div class="img-upload-icon">🖼</div>
+          <div class="img-upload-text">點擊上傳封面圖</div>
+          <div class="img-upload-hint">支援 JPG、PNG，建議寬度 1080px 以上</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 海報預覽 -->
+    <div class="form-section poster-section">
+      <div class="form-section-title">LINE 海報預覽 × 下載</div>
+      <div style="margin-bottom:12px;font-size:12px;color:var(--text-sub);">選擇模板後即時預覽，下載尺寸符合 LINE 推送規格（1:1 / 1080×1080px）</div>
+      <div class="template-selector">
+        <div class="template-opt selected" onclick="selectTemplate('warm',this)">🔥 暖橙（預設）</div>
+        <div class="template-opt" onclick="selectTemplate('dark',this)">🌑 深藍</div>
+        <div class="template-opt" onclick="selectTemplate('light',this)">☀️ 亮黃</div>
+      </div>
+      <div class="poster-preview-wrap">
+        <div class="poster-canvas" id="poster-canvas">
+          <div class="poster-logo">🏍</div>
+          <div class="poster-brand">INDIAN MOTORCYCLE TAIWAN</div>
+          <div class="poster-title" id="p-title">夏日騎乘精品節</div>
+          <div class="poster-discount" id="p-discount"><span>全館</span>85折<span>起</span></div>
+          <div id="p-sub" style="font-size:13px;opacity:.8;margin-top:4px;">指定精品最低85折</div>
+          <div class="poster-period" id="p-period">2026.07.01 — 07.31</div>
+          <div class="poster-stores" id="p-stores">台北 ｜ 台中 ｜ 高雄 ｜ 桃園</div>
+        </div>
+        <div>
+          <div class="poster-actions">
+            <button class="btn-dl" onclick="alert('實際系統將由 html2canvas 產出 PNG 下載（Partner 實作）')">⬇ 下載 PNG（1080px）</button>
+            <button class="btn-dl-line" onclick="alert('實際系統將開啟 LINE Official Account 發送介面（Partner 實作）')">📲 推送至 LINE</button>
+          </div>
+          <div class="dl-hint">
+            ※ PNG 下載與 LINE 推送功能<br>由 Partner 使用 html2canvas 實作<br>設計稿為示意預覽
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 狀態異動紀錄 -->
+    <div class="form-section">
+      <div class="form-section-title">狀態異動紀錄</div>
+      <div class="status-log" id="status-log">
+        <div class="log-item">
+          <div class="log-dot-wrap"><div class="log-dot"></div><div class="log-line"></div></div>
+          <div class="log-content">
+            <div class="log-status">📝 草稿建立</div>
+            <div class="log-meta">通路管理經理 陳小明　2026-05-28 14:32</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel-body -->
+  <div class="panel-footer">
+    <button class="btn-cancel" onclick="closePanel()">取消</button>
+    <button class="btn-save" onclick="saveActivity()">儲存草稿</button>
+    <button class="btn-submit" onclick="submitActivity()">送出審核 →</button>
+  </div>
+</div>
+
+<!-- ════════ JS ════════ -->
+<script>
+// ── 活動資料 ──
+const ACTIVITIES = [
+  { id:1, title:'Q2換季保養優惠', type:'售後保養', start:'2026-04-01', end:'2026-06-30', status:'active', discMin:80, discMax:95, stores:['台北','台中','高雄','桃園'], contrib:'NT$880K', execCount:135 },
+  { id:2, title:'FTR 1200 試乘購車禮', type:'整車銷售', start:'2026-05-01', end:'2026-06-30', status:'active', discMin:95, discMax:98, stores:['台北','台中','桃園'], contrib:'NT$1.11M', execCount:13 },
+  { id:3, title:'Scout Bobber 精品加裝禮', type:'零件精品', start:'2026-06-01', end:'2026-06-30', status:'active', discMin:88, discMax:95, stores:['台北','台中','高雄','桃園'], contrib:'NT$342K', execCount:89 },
+  { id:4, title:'Q3 夏季精品節', type:'零件精品', start:'2026-07-01', end:'2026-07-31', status:'scheduled', discMin:85, discMax:95, stores:['全部門店'], contrib:'—', execCount:0 },
+  { id:5, title:'Challenger 暑假試駕活動', type:'整車銷售', start:'2026-07-15', end:'2026-08-15', status:'scheduled', discMin:95, discMax:99, stores:['台北','高雄'], contrib:'—', execCount:0 },
+  { id:6, title:'週年慶全館優惠', type:'綜合促銷', start:'2026-08-01', end:'2026-08-31', status:'review', discMin:82, discMax:95, stores:['全部門店'], contrib:'—', execCount:0 },
+  { id:7, title:'母親節保養特惠', type:'售後保養', start:'2026-05-01', end:'2026-05-31', status:'draft', discMin:85, discMax:92, stores:['全部門店'], contrib:'—', execCount:0 },
+  { id:8, title:'年度保養包', type:'售後保養', start:'2026-01-01', end:'2026-03-31', status:'ended', discMin:80, discMax:92, stores:['全部門店'], contrib:'NT$2.84M', execCount:412 },
+];
+
+const STATUS_META = {
+  active:    { label:'進行中', badge:'badge-active',    dot:'active'    },
+  scheduled: { label:'已排程', badge:'badge-scheduled', dot:'scheduled' },
+  review:    { label:'審核中', badge:'badge-review',    dot:'review'    },
+  draft:     { label:'草稿',   badge:'badge-draft',     dot:'draft'     },
+  ended:     { label:'已結束', badge:'badge-ended',     dot:'ended'     },
+  archived:  { label:'已封存', badge:'badge-archived',  dot:'archived'  },
+};
+
+let currentFilter = 'all';
+
+function filterStatus(status, el) {
+  currentFilter = status;
+  document.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderActivities();
+}
+
+function renderActivities() {
+  const list = document.getElementById('activity-list');
+  const data = currentFilter === 'all' ? ACTIVITIES : ACTIVITIES.filter(a => a.status === currentFilter);
+  list.innerHTML = data.map(a => {
+    const m = STATUS_META[a.status];
+    const isActive = a.status === 'active';
+    return `
+    <div class="activity-card fade-up">
+      <div class="activity-card-header">
+        <div class="act-status-dot ${m.dot}"></div>
+        <div class="act-title">${a.title}</div>
+        <div class="act-period">📅 ${a.start} ～ ${a.end}</div>
+        <div class="act-badges">
+          <span class="badge ${m.badge}">${m.label}</span>
+          <span class="badge" style="background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);">${a.type}</span>
+        </div>
+      </div>
+      <div class="activity-card-body">
+        <div>
+          <div class="act-info-label">折扣授權範圍</div>
+          <div class="discount-range">
+            <span class="range-box">${a.discMin}折</span>
+            <span style="color:var(--text-sub);font-size:12px;">～</span>
+            <span class="range-box">${a.discMax}折</span>
+          </div>
+        </div>
+        <div>
+          <div class="act-info-label">適用門店</div>
+          <div class="act-info-val">${a.stores.join('、')}</div>
+        </div>
+        <div>
+          <div class="act-info-label">業績貢獻</div>
+          <div class="act-info-val ${a.contrib!=='—'?'ok':''}">${a.contrib}</div>
+        </div>
+        <div>
+          <div class="act-info-label">執行單數</div>
+          <div class="act-info-val">${a.execCount > 0 ? a.execCount+' 單' : '—'}</div>
+        </div>
+        <div class="act-actions">
+          <button class="btn-edit" onclick="openPanel('edit',${a.id})">編輯</button>
+          <button class="btn-view" onclick="openPanel('edit',${a.id})">海報</button>
+          ${isActive ? `<button class="btn-danger" onclick="alert('確認緊急下架？此操作將立即對所有門店生效')">下架</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+renderActivities();
+
+// ── PANEL ──
+function openPanel(mode, id) {
+  document.getElementById('panel-overlay').classList.add('open');
+  document.getElementById('side-panel').classList.add('open');
+  if (mode === 'new') {
+    document.getElementById('panel-title').textContent = '新增促銷活動';
+    document.getElementById('panel-status-val').textContent = '📝 草稿';
+    document.getElementById('btn-takedown').style.display = 'none';
+    document.getElementById('btn-approve').style.display = 'none';
+  } else {
+    const a = ACTIVITIES.find(x => x.id === id);
+    document.getElementById('panel-title').textContent = '編輯活動：' + a.title;
+    document.getElementById('act-name').value = a.title;
+    document.getElementById('act-start').value = a.start;
+    document.getElementById('act-end').value = a.end;
+    document.getElementById('disc-min').value = a.discMin;
+    document.getElementById('disc-max').value = a.discMax;
+    document.getElementById('poster-title-input').value = a.title;
+    updatePoster();
+    const m = STATUS_META[a.status];
+    document.getElementById('panel-status-val').textContent = m.label;
+    document.getElementById('btn-takedown').style.display = a.status === 'active' ? '' : 'none';
+    document.getElementById('btn-approve').style.display = a.status === 'review' ? '' : 'none';
+  }
+}
+
+function closePanel() {
+  document.getElementById('panel-overlay').classList.remove('open');
+  document.getElementById('side-panel').classList.remove('open');
+}
+
+// ── 折扣驗證 ──
+function validateDiscount() {
+  const minVal = parseFloat(document.getElementById('disc-min').value);
+  const maxVal = parseFloat(document.getElementById('disc-max').value);
+  const msg = document.getElementById('disc-range-msg');
+  if (!isNaN(minVal) && !isNaN(maxVal)) {
+    if (minVal > maxVal) {
+      msg.textContent = '❌ 折扣下限不得高於上限，請重新填寫';
+      msg.className = 'discount-validate-msg error';
+    } else {
+      msg.textContent = `✅ 授權範圍設定：${minVal}折 ～ ${maxVal}折`;
+      msg.className = 'discount-validate-msg ok';
+    }
+  }
+}
+
+// ── 狀態變更 ──
+const statusLog = [
+  { status:'📝 草稿建立', meta:'通路管理經理 陳小明　2026-05-28 14:32' }
+];
+function changeStatus(newStatus) {
+  const labels = { review:'🔍 送出審核', approved:'✅ 審核通過', ended:'🚨 緊急下架', archived:'📦 已封存' };
+  const now = new Date();
+  const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  statusLog.push({ status: labels[newStatus], meta:`通路管理經理 陳小明　${ts}` });
+  renderLog();
+  document.getElementById('panel-status-val').textContent = labels[newStatus];
+  if (newStatus === 'review') {
+    document.getElementById('btn-approve').style.display = '';
+    document.getElementById('btn-takedown').style.display = 'none';
+  }
+  if (newStatus === 'approved') {
+    document.getElementById('btn-takedown').style.display = '';
+    document.getElementById('btn-approve').style.display = 'none';
+  }
+}
+
+function renderLog() {
+  document.getElementById('status-log').innerHTML = statusLog.map((l, i) => `
+    <div class="log-item">
+      <div class="log-dot-wrap">
+        <div class="log-dot"></div>
+        ${i < statusLog.length-1 ? '<div class="log-line" style="flex:1;min-height:16px;"></div>' : ''}
+      </div>
+      <div class="log-content">
+        <div class="log-status">${l.status}</div>
+        <div class="log-meta">${l.meta}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── 海報即時更新 ──
+let currentTemplate = 'warm';
+function updatePoster() {
+  const t = document.getElementById('poster-title-input').value || '活動名稱';
+  const d = document.getElementById('poster-discount-input').value || '限時優惠';
+  const s = document.getElementById('poster-sub-input').value || '';
+  const start = document.getElementById('act-start').value || '—';
+  const end   = document.getElementById('act-end').value || '—';
+  document.getElementById('p-title').textContent = t;
+  document.getElementById('p-discount').innerHTML = d;
+  document.getElementById('p-sub').textContent = s;
+  document.getElementById('p-period').textContent = `${start} — ${end}`;
+}
+
+function selectTemplate(tpl, el) {
+  currentTemplate = tpl;
+  document.querySelectorAll('.template-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  const canvas = document.getElementById('poster-canvas');
+  canvas.className = 'poster-canvas';
+  if (tpl === 'dark')  canvas.classList.add('tpl-dark');
+  if (tpl === 'light') canvas.classList.add('tpl-light');
+}
+
+// ── 富文字 ──
+function fmtDoc(cmd) { document.execCommand(cmd, false, null); }
+function fmtColor(c) { document.execCommand('foreColor', false, c); }
+
+// ── 儲存 / 送審 ──
+function saveActivity()   { alert('草稿已儲存（Partner 接手後寫入資料庫）'); }
+function submitActivity() {
+  changeStatus('review');
+  alert('已送出審核，等待通路管理主管確認');
+}
+
+// ── 全選門店 ──
+function toggleAllStores(cb) {
+  document.querySelectorAll('.store-cb').forEach(c => c.checked = cb.checked);
+}
+</script>
+</body>
+</html>

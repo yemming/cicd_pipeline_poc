@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS_INV06 出庫管理 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--blue:#185FA5;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--navy:#1A3A5C;--gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.main{max-width:1100px;margin:0 auto;padding:18px 24px 60px;}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;}
+.kpi-l{font-size:11px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.kn-teal{color:var(--teal);}.kn-navy{color:var(--navy);}.kn-amber{color:var(--amber);}.kn-red{color:var(--red);}
+.kpi-s{font-size:10.5px;color:var(--gray);}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.panel-hdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-left{display:flex;align-items:center;gap:10px;}
+.picon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-teal{background:var(--teal-bg);}.pi-navy{background:#E8EDF2;}.pi-amber{background:var(--amber-bg);}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:14px 16px;}
+.filter-bar{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.fb-label{font-size:11.5px;font-weight:600;color:#5A5955;flex-shrink:0;}
+.fb-sel{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;background:#fff;}
+.fb-inp{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;background:#fff;width:160px;}
+.fb-inp:focus,.fb-sel:focus{border-color:var(--blue-bd);}
+.out-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.out-tbl th{background:var(--navy);color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600;}
+.out-tbl td{padding:8px 10px;border-bottom:1px solid #F4F3F0;vertical-align:middle;}
+.out-tbl tr:hover td{background:#F8F7F4;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-navy{background:#E8EDF2;color:var(--navy);}
+.b-red{background:var(--red-bg);color:var(--red);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-blue{background:var(--blue-bg);color:var(--blue);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.mb12{margin-bottom:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">整車庫存管理 <b>RS_INV06 出庫管理</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS03A_新車庫存看板_v1.html')">← 新車庫存</button>
+    <button class="hbtn" onclick="go('RS03B_中古車庫存看板_v1.html')">中古庫存</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-l">本月出庫台數</div><div class="kpi-n kn-teal">12</div><div class="kpi-s">2026年05月</div></div>
+    <div class="kpi"><div class="kpi-l">銷售出庫</div><div class="kpi-n kn-navy">9</div><div class="kpi-s">正常銷售交車</div></div>
+    <div class="kpi"><div class="kpi-l">調撥出庫</div><div class="kpi-n kn-amber">2</div><div class="kpi-s">跨倉調撥</div></div>
+    <div class="kpi"><div class="kpi-l">其他出庫</div><div class="kpi-n kn-red">1</div><div class="kpi-s">展覽/試乘/報廢</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="fb-label">篩選：</span>
+    <select class="fb-sel" id="f-type" onchange="renderTable()">
+      <option value="">全部類型</option>
+      <option value="SALE">銷售出庫</option>
+      <option value="TRANSFER">調撥出庫</option>
+      <option value="DEMO">試乘/展覽</option>
+      <option value="SCRAP">報廢/下架</option>
+    </select>
+    <input type="month" class="fb-sel" value="2026-05">
+    <input type="text" class="fb-inp" placeholder="搜尋車款/VIN..." id="f-search" oninput="renderTable()">
+    <div style="margin-left:auto;">
+      <button class="btn btn-ghost btn-sm" onclick="showToast('📊 出庫報表 Excel 已匯出')">📊 匯出報表</button>
+    </div>
+  </div>
+
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-teal">📦</div><div><div class="panel-title">出庫紀錄</div><div class="panel-sub">所有整車出庫記錄（銷售 / 調撥 / 試乘 / 報廢）</div></div></div>
+      <span class="badge b-navy" id="record-cnt">12 筆</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="out-tbl">
+        <thead><tr><th>出庫單號</th><th>出庫類型</th><th>車型</th><th>VIN末6碼</th><th>車輛類型</th><th>出庫倉庫</th><th>對象/原因</th><th>出庫日期</th><th>整車成本</th><th>售價/備注</th><th>操作</th></tr></thead>
+        <tbody id="out-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+
+var records=[
+  {no:'OUT-260526-001',type:'SALE',typeLabel:'銷售出庫',model:'Scout Bobber',vin:'234561',vtype:'NEW',warehouse:'海德生主倉',target:'王大明 — 訂單 NC-001',date:'2026/05/26',cost:532000,price:568000},
+  {no:'OUT-260524-002',type:'SALE',typeLabel:'銷售出庫',model:'Scout Classic',vin:'234562',vtype:'NEW',warehouse:'台北直營',target:'林小姐 — 訂單 NC-002',date:'2026/05/24',cost:561000,price:598000},
+  {no:'OUT-260522-003',type:'TRANSFER',typeLabel:'調撥出庫',model:'Challenger Dark Horse',vin:'234563',vtype:'NEW',warehouse:'海德生主倉',target:'→ 台中展示中心',date:'2026/05/22',cost:1028000,price:'調撥'},
+  {no:'OUT-260520-004',type:'SALE',typeLabel:'銷售出庫',model:'Scout Bobber 2022',vin:'876543',vtype:'USED',warehouse:'台北直營',target:'陳先生 — 訂單 UC-001',date:'2026/05/20',cost:330040,price:428000},
+  {no:'OUT-260518-005',type:'DEMO',typeLabel:'試乘出庫',model:'Pursuit Dark Horse',vin:'234566',vtype:'NEW',warehouse:'海德生主倉',target:'2026 摩托車展覽',date:'2026/05/18',cost:0,price:'展覽借用'},
+  {no:'OUT-260515-006',type:'SALE',typeLabel:'銷售出庫',model:'Challenger Limited',vin:'234564',vtype:'NEW',warehouse:'台中展示',target:'黃先生 — 訂單 NC-005',date:'2026/05/15',cost:1122000,price:1198000},
+  {no:'OUT-260510-007',type:'SALE',typeLabel:'銷售出庫',model:'Multistrada V4 S 2021',vin:'654321',vtype:'USED',warehouse:'台北直營',target:'吳小姐 — 訂單 UC-002',date:'2026/05/10',cost:648000,price:798000},
+  {no:'OUT-260508-008',type:'SALE',typeLabel:'銷售出庫',model:'Springfield Dark Horse',vin:'234565',vtype:'NEW',warehouse:'海德生主倉',target:'劉先生 — 訂單 NC-007',date:'2026/05/08',cost:832000,price:888000},
+  {no:'OUT-260505-009',type:'SCRAP',typeLabel:'報廢/下架',model:'Super Meteor 650',vin:'111111',vtype:'NEW',warehouse:'倉庫B',target:'碰撞損壞報廢',date:'2026/05/05',cost:398000,price:'報廢'},
+  {no:'OUT-260503-010',type:'SALE',typeLabel:'銷售出庫',model:'Challenger Dark Horse',vin:'999001',vtype:'NEW',warehouse:'台中展示',target:'張先生 — 訂單 NC-008',date:'2026/05/03',cost:1028000,price:1098000},
+  {no:'OUT-260501-011',type:'TRANSFER',typeLabel:'調撥出庫',model:'DesertX 2023',vin:'888123',vtype:'USED',warehouse:'台北直營',target:'→ 高雄展示中心',date:'2026/05/01',cost:595000,price:'調撥'},
+  {no:'OUT-260430-012',type:'SALE',typeLabel:'銷售出庫',model:'Scout Rogue',vin:'777456',vtype:'NEW',warehouse:'高雄展示',target:'蔡先生 — 訂單 NC-010',date:'2026/04/30',cost:568000,price:618000},
+];
+
+var typeBadge={SALE:'b-teal',TRANSFER:'b-blue',DEMO:'b-amber',SCRAP:'b-red'};
+var vtypeBadge={NEW:'b-navy',USED:'b-amber'};
+var vtypeLabel={NEW:'新車',USED:'中古車'};
+
+function renderTable(){
+  var ft=document.getElementById('f-type').value;
+  var q=document.getElementById('f-search').value.toLowerCase();
+  var list=records.filter(function(r){
+    return(!ft||r.type===ft)&&(!q||r.model.toLowerCase().includes(q)||r.vin.toLowerCase().includes(q));
+  });
+  document.getElementById('record-cnt').textContent=list.length+' 筆';
+  document.getElementById('out-tbody').innerHTML=list.map(function(r){
+    var margin=typeof r.price==='number'?r.price-r.cost:null;
+    var priceDisplay=typeof r.price==='number'
+      ?'<div style="font-family:\'DM Mono\',monospace;font-weight:700;">NT$'+r.price.toLocaleString()+'</div>'
+       +(margin!==null?'<div style="font-size:10.5px;color:'+(margin>0?'var(--teal)':'var(--red)')+';">毛利 NT$'+margin.toLocaleString()+'</div>':'')
+      :'<span style="font-size:11.5px;color:var(--gray);">'+r.price+'</span>';
+    return '<tr>'+
+      '<td style="font-family:\'DM Mono\',monospace;font-size:11.5px;font-weight:600;">'+r.no+'</td>'+
+      '<td><span class="badge '+typeBadge[r.type]+'">'+r.typeLabel+'</span></td>'+
+      '<td style="font-weight:600;">'+r.model+'</td>'+
+      '<td style="font-family:\'DM Mono\',monospace;">'+r.vin+'</td>'+
+      '<td><span class="badge '+vtypeBadge[r.vtype]+'" style="font-size:10px;">'+vtypeLabel[r.vtype]+'</span></td>'+
+      '<td style="font-size:11.5px;">'+r.warehouse+'</td>'+
+      '<td style="font-size:11.5px;max-width:140px;">'+r.target+'</td>'+
+      '<td style="font-family:\'DM Mono\',monospace;font-size:11.5px;">'+r.date+'</td>'+
+      '<td style="font-family:\'DM Mono\',monospace;font-size:11.5px;">'+(r.cost>0?'NT$'+r.cost.toLocaleString():'—')+'</td>'+
+      '<td>'+priceDisplay+'</td>'+
+      '<td><button class="btn btn-ghost btn-sm" onclick="showToast(\'📋 '+r.no+' 出庫詳情\')">詳情</button></td>'+
+      '</tr>';
+  }).join('');
+}
+
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3200);}
+window.onload=function(){renderTable();};
+</script>
+</body>
+</html>

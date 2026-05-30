@@ -44,6 +44,9 @@ import {
   CUST_STATES,
   LOST_REASONS,
   CHURN_RISK_DAYS,
+  PARTS_CATEGORIES,
+  PARTS_DEADSTOCK_WARN,
+  PARTS_TURNOVER_TARGET,
 } from "./group-analytics-labels";
 
 /* ────────────── 共用型別 ────────────── */
@@ -1880,6 +1883,506 @@ export async function getStoreCustomerJourney(
     customers,
     highRisk,
     highRiskCount: m(metrics, "churn_risk_high_count"),
+    alerts,
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  第二十輪 — 集團商務管理層 GRP12 集團零件財務總覽 Batch A append
+ *  （不改既有 export；沿用 loadStoreMetrics / loadGroupMetrics / listDiagnosticStores
+ *    / month utils / m() / StoreLite / CustomerMetricDatum）
+ *
+ *  ── 資料策略（校驗 2026-05-30）──
+ *  GRP12 核心五店 metric 早被 round16/17 seed（parts_direct_sale_amt/_margin/
+ *  parts_turnover/parts_deadstock_pct/accessory_install_rate/accessory_margin），
+ *  本層「上捲」= helper SUM/AVG 五店；其餘（呆滯金額/6月走勢/品類donut/精品明細/
+ *  供應商/單店SKU drill）round20 新 seed（metadata._seed='round20-business-mgmt'）。
+ *
+ *  ── 資料合約（本層讀的 metric_key）──
+ *    集團(org_id=NULL)：parts_deadstock_amt / parts_inventory_value /
+ *      accessory_revenue / accessory_units / parts_purchase_total /
+ *      parts_inbound_count / parts_outbound_count / parts_count_variance /
+ *      parts_vendor_concentration(metadata.vendors[]) /
+ *      parts_margin_monthly(6 期) / parts_category_mix(metadata.cat × 4)
+ *    門店(org_id=store)：parts_inventory_value / parts_deadstock_amt /
+ *      accessory_units / accessory_revenue / accessory_avg_ticket /
+ *      accessory_detail(metadata.models[]/top_items[]/items[]) /
+ *      parts_margin_monthly(6 期) / parts_category_mix(metadata.cat × 4) /
+ *      parts_drill(metadata.warehouses[]/skus[]/purchaseTrend{months,purchase,issue})
+ *      + round16/17 既有 parts_direct_sale_amt/_margin/parts_turnover/
+ *        parts_deadstock_pct/accessory_install_rate
+ *
+ *  全部對「無資料」安全：回空陣列 / null，不 throw。
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ────────────── 共用型別（GRP12） ────────────── */
+
+/** 庫存健康狀態（呆滯率 + 周轉率規則生成）。 */
+export type PartsHealthStatus = "ok" | "warn" | "danger";
+
+/** 集團 5 KPI。 */
+export type PartsKpis = {
+  revenue: number | null; // 零件總營收（SUM 五店 parts_direct_sale_amt）
+  marginRate: number | null; // 零件毛利率（AVG 五店 parts_direct_sale_margin）
+  turnover: number | null; // 庫存周轉率（AVG 五店 parts_turnover）
+  deadstockAmt: number | null; // 呆滯庫存金額（集團 parts_deadstock_amt）
+  accessoryRevenue: number | null; // 精品加裝業績（集團 accessory_revenue）
+};
+
+/** 門店零件一列（業績對比 + 庫存健康表共用）。 */
+export type StorePartsRow = {
+  store: StoreLite;
+  revenue: number | null;
+  marginRate: number | null;
+  turnover: number | null;
+  inventoryValue: number | null;
+  deadstockPct: number | null;
+  status: PartsHealthStatus;
+};
+
+/** 精品加裝一列（門店 × 業績）。 */
+export type AccessoryRow = {
+  store: StoreLite;
+  units: number | null;
+  installRate: number | null;
+  revenue: number | null;
+  avgTicket: number | null;
+  topItems: string[];
+};
+
+/** 供應商集中度一列。 */
+export type VendorRow = { name: string; sub: string; pct: number };
+
+/** 本月集團快覽 mini-stat。 */
+export type PartsMiniStat = {
+  label: string;
+  value: string;
+  tone: "navy" | "green" | "amber" | "red";
+};
+
+/** GRP12 集團總覽。 */
+export type GroupPartsFinancials = {
+  period: string;
+  kpis: PartsKpis;
+  storeRows: StorePartsRow[];
+  categoryMix: CustomerMetricDatum[];
+  marginTrend: { months: string[]; values: Array<number | null> };
+  vendors: VendorRow[];
+  vendorConcentration: number | null; // 前 3 大佔比
+  accessoryRows: AccessoryRow[];
+  accessoryTotal: {
+    units: number | null;
+    revenue: number | null;
+    avgTicket: number | null;
+    installRate: number | null;
+  };
+  miniStats: PartsMiniStat[];
+  alerts: string[];
+};
+
+/** 單店 SKU 一筆。 */
+export type SkuRow = {
+  id: string;
+  name: string;
+  cat: string;
+  qty: number;
+  safe: number;
+  amt: number;
+  lastMove: string;
+  age: number;
+  status: "normal" | "warn90" | "warn180" | "low";
+};
+
+/** 倉庫分佈一列。 */
+export type WarehouseRow = { name: string; sku: number; value: number; pct: number };
+
+/** 精品品項排行一列。 */
+export type AccessoryItemRow = { name: string; qty: number; rev: number; avg: number; pct: number };
+
+/** GRP12 單店深鑽。 */
+export type StorePartsDrilldown = {
+  store: StoreLite;
+  period: string;
+  kpis: {
+    revenue: number | null;
+    marginRate: number | null;
+    turnover: number | null;
+    deadstockAmt: number | null;
+    deadstockPct: number | null;
+    accessoryRevenue: number | null;
+  };
+  warehouses: WarehouseRow[];
+  skus: SkuRow[];
+  deadList: SkuRow[]; // age >= 90 子集
+  purchaseTrend: { months: string[]; purchase: Array<number | null>; issue: Array<number | null> };
+  accessoryItems: AccessoryItemRow[];
+  modelAccessory: Array<{ model: string; rate: number }>;
+  alerts: string[];
+};
+
+/* ────────────── GRP12 內部 loader ────────────── */
+
+/** 讀某 scope（org_id=null 集團 / =store 門店）的 parts_category_mix → Map<cat, value>。 */
+async function loadCategoryMix(
+  client: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+  orgId: string | null,
+): Promise<Map<string, number | null>> {
+  let q = client
+    .from("kpi_snapshots")
+    .select("metric_value, metadata")
+    .eq("brand_id", brandId)
+    .eq("metric_key", "parts_category_mix")
+    .is("staff_id", null);
+  q = orgId === null ? q.is("org_id", null) : q.eq("org_id", orgId);
+  const { data } = await q;
+  const map = new Map<string, number | null>();
+  for (const r of (data ?? []) as Array<{
+    metric_value: number | null;
+    metadata: { cat?: string } | null;
+  }>) {
+    const cat = r.metadata?.cat;
+    if (cat) map.set(cat, r.metric_value);
+  }
+  return map;
+}
+
+/** 讀 parts_margin_monthly 月度序列（org_id=null 集團 / =store），舊→新。 */
+async function loadMarginTrend(
+  client: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+  orgId: string | null,
+): Promise<{ months: string[]; values: Array<number | null> }> {
+  let q = client
+    .from("kpi_snapshots")
+    .select("period_month, metric_value")
+    .eq("brand_id", brandId)
+    .eq("metric_key", "parts_margin_monthly")
+    .is("staff_id", null);
+  q = orgId === null ? q.is("org_id", null) : q.eq("org_id", orgId);
+  const { data } = await q.order("period_month", { ascending: true });
+  const months: string[] = [];
+  const values: Array<number | null> = [];
+  for (const r of (data ?? []) as Array<{ period_month: string; metric_value: number | null }>) {
+    months.push(normalizeMonth(r.period_month));
+    values.push(r.metric_value);
+  }
+  return { months, values };
+}
+
+/** 讀集團供應商集中度（parts_vendor_concentration，metadata.vendors[]）。 */
+async function loadVendors(
+  client: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+): Promise<{ concentration: number | null; vendors: VendorRow[] }> {
+  const { data } = await client
+    .from("kpi_snapshots")
+    .select("metric_value, metadata")
+    .eq("brand_id", brandId)
+    .eq("metric_key", "parts_vendor_concentration")
+    .is("org_id", null)
+    .order("period_month", { ascending: false })
+    .limit(1);
+  const row = (data ?? [])[0] as
+    | { metric_value: number | null; metadata: { vendors?: VendorRow[] } | null }
+    | undefined;
+  return { concentration: row?.metric_value ?? null, vendors: row?.metadata?.vendors ?? [] };
+}
+
+/** 讀某店 accessory_detail（metadata.models / top_items / items）。 */
+async function loadAccessoryDetail(
+  client: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+  storeId: string,
+): Promise<{
+  models: Array<{ model: string; rate: number }>;
+  topItems: string[];
+  items: AccessoryItemRow[];
+}> {
+  const { data } = await client
+    .from("kpi_snapshots")
+    .select("metadata")
+    .eq("brand_id", brandId)
+    .eq("org_id", storeId)
+    .eq("metric_key", "accessory_detail")
+    .order("period_month", { ascending: false })
+    .limit(1);
+  const md = (
+    (data ?? [])[0] as
+      | {
+          metadata: {
+            models?: Array<{ model: string; rate: number }>;
+            top_items?: string[];
+            items?: AccessoryItemRow[];
+          } | null;
+        }
+      | undefined
+  )?.metadata;
+  return { models: md?.models ?? [], topItems: md?.top_items ?? [], items: md?.items ?? [] };
+}
+
+/** 讀某店 parts_drill（metadata.warehouses / skus / purchaseTrend）。 */
+async function loadPartsDrill(
+  client: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+  storeId: string,
+): Promise<{
+  warehouses: WarehouseRow[];
+  skus: SkuRow[];
+  purchaseTrend: { months: string[]; purchase: number[]; issue: number[] };
+}> {
+  const { data } = await client
+    .from("kpi_snapshots")
+    .select("metadata")
+    .eq("brand_id", brandId)
+    .eq("org_id", storeId)
+    .eq("metric_key", "parts_drill")
+    .order("period_month", { ascending: false })
+    .limit(1);
+  const md = (
+    (data ?? [])[0] as
+      | {
+          metadata: {
+            warehouses?: WarehouseRow[];
+            skus?: SkuRow[];
+            purchaseTrend?: { months: string[]; purchase: number[]; issue: number[] };
+          } | null;
+        }
+      | undefined
+  )?.metadata;
+  return {
+    warehouses: md?.warehouses ?? [],
+    skus: md?.skus ?? [],
+    purchaseTrend: md?.purchaseTrend ?? { months: [], purchase: [], issue: [] },
+  };
+}
+
+/** 庫存健康狀態：呆滯率 ≥10% 或 周轉 < target 一半=danger；≥5% 或 周轉<target=warn；else ok。 */
+function partsHealthStatus(
+  deadstockPct: number | null,
+  turnover: number | null,
+): PartsHealthStatus {
+  if (deadstockPct != null && deadstockPct >= 0.1) return "danger";
+  if (turnover != null && turnover < PARTS_TURNOVER_TARGET * 0.5) return "danger";
+  if (deadstockPct != null && deadstockPct >= PARTS_DEADSTOCK_WARN) return "warn";
+  if (turnover != null && turnover < PARTS_TURNOVER_TARGET) return "warn";
+  return "ok";
+}
+
+/** 平均（忽略 null）；全 null 回 null。 */
+function avgOf(vals: Array<number | null>): number | null {
+  const ns = vals.filter((v): v is number => v != null && !Number.isNaN(v));
+  if (ns.length === 0) return null;
+  return ns.reduce((s, v) => s + v, 0) / ns.length;
+}
+
+/** 加總（忽略 null）；全 null 回 null。 */
+function sumOf(vals: Array<number | null>): number | null {
+  const ns = vals.filter((v): v is number => v != null && !Number.isNaN(v));
+  if (ns.length === 0) return null;
+  return ns.reduce((s, v) => s + v, 0);
+}
+
+/** 整數千分位（確定性，無 locale 漂移）。 */
+function fmtIntServer(n: number | null): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+/* ────────────── (G1) getGroupPartsFinancials（GRP12 集團視圖） ────────────── */
+
+/**
+ * 集團零件財務總覽。五店核心 metric SUM/AVG 上捲成集團 KPI + 對比；
+ * 呆滯金額/6月走勢/品類donut/供應商/精品明細讀 round20 seed。
+ * 無任何門店時回 null。
+ */
+export async function getGroupPartsFinancials(
+  brandId: string,
+  opts: { period?: string } = {},
+): Promise<GroupPartsFinancials | null> {
+  const client = await createClient();
+  const stores = await listDiagnosticStores(brandId);
+  if (stores.length === 0) return null;
+
+  const { period, metrics: gm } = await loadGroupMetrics(client, brandId, opts.period);
+  const periodStr = period ?? opts.period ?? "2026-05-01";
+
+  const storeRows: StorePartsRow[] = [];
+  const accessoryRows: AccessoryRow[] = [];
+  for (const store of stores) {
+    const { metrics: sm } = await loadStoreMetrics(client, brandId, store.id, periodStr || undefined);
+    const detail = await loadAccessoryDetail(client, brandId, store.id);
+    const deadstockPct = m(sm, "parts_deadstock_pct");
+    const turnover = m(sm, "parts_turnover");
+    storeRows.push({
+      store,
+      revenue: m(sm, "parts_direct_sale_amt"),
+      marginRate: m(sm, "parts_direct_sale_margin"),
+      turnover,
+      inventoryValue: m(sm, "parts_inventory_value"),
+      deadstockPct,
+      status: partsHealthStatus(deadstockPct, turnover),
+    });
+    accessoryRows.push({
+      store,
+      units: m(sm, "accessory_units"),
+      installRate: m(sm, "accessory_install_rate"),
+      revenue: m(sm, "accessory_revenue"),
+      avgTicket: m(sm, "accessory_avg_ticket"),
+      topItems: detail.topItems,
+    });
+  }
+
+  const kpis: PartsKpis = {
+    revenue: sumOf(storeRows.map((r) => r.revenue)),
+    marginRate: avgOf(storeRows.map((r) => r.marginRate)),
+    turnover: avgOf(storeRows.map((r) => r.turnover)),
+    deadstockAmt: m(gm, "parts_deadstock_amt"),
+    accessoryRevenue: m(gm, "accessory_revenue"),
+  };
+
+  const catMap = await loadCategoryMix(client, brandId, null);
+  const categoryMix: CustomerMetricDatum[] = PARTS_CATEGORIES.map((c) => ({
+    ...c,
+    value: catMap.get(c.key) ?? null,
+  }));
+
+  const marginTrend = await loadMarginTrend(client, brandId, null);
+  const { concentration, vendors } = await loadVendors(client, brandId);
+
+  const accessoryTotal = {
+    units: m(gm, "accessory_units"),
+    revenue: m(gm, "accessory_revenue"),
+    avgTicket: (() => {
+      const u = m(gm, "accessory_units");
+      const r = m(gm, "accessory_revenue");
+      return u && u > 0 && r != null ? Math.round(r / u) : null;
+    })(),
+    installRate: avgOf(accessoryRows.map((a) => a.installRate)),
+  };
+
+  const avgDead = avgOf(storeRows.map((r) => r.deadstockPct));
+  const miniStats: PartsMiniStat[] = [
+    { label: "採購總額", value: fmtIntServer(m(gm, "parts_purchase_total")), tone: "amber" },
+    {
+      label: "入庫筆數",
+      value: m(gm, "parts_inbound_count") != null ? String(m(gm, "parts_inbound_count")) : "—",
+      tone: "navy",
+    },
+    {
+      label: "出庫筆數",
+      value: m(gm, "parts_outbound_count") != null ? String(m(gm, "parts_outbound_count")) : "—",
+      tone: "navy",
+    },
+    {
+      label: "呆滯率",
+      value: avgDead != null ? `${(avgDead * 100).toFixed(1)}%` : "—",
+      tone: avgDead != null && avgDead > PARTS_DEADSTOCK_WARN ? "red" : "green",
+    },
+    {
+      label: "精品件數",
+      value: m(gm, "accessory_units") != null ? String(m(gm, "accessory_units")) : "—",
+      tone: "green",
+    },
+    { label: "盤點差異", value: fmtIntServer(m(gm, "parts_count_variance")), tone: "amber" },
+  ];
+
+  const alerts: string[] = [];
+  const worstDead = [...storeRows].sort((a, b) => (b.deadstockPct ?? 0) - (a.deadstockPct ?? 0))[0];
+  if (worstDead && (worstDead.deadstockPct ?? 0) >= 0.1) {
+    alerts.push(
+      `${worstDead.store.name}：呆滯率 ${((worstDead.deadstockPct ?? 0) * 100).toFixed(1)}%，呆滯庫存偏高，建議促銷消化`,
+    );
+  }
+  if (concentration != null && concentration >= 60) {
+    alerts.push(`採購集中度偏高：前 3 大供應商佔比 ${concentration}%，建議評估備用供應商`);
+  }
+  const worstTurn = [...storeRows]
+    .filter((r) => r.turnover != null)
+    .sort((a, b) => (a.turnover ?? 0) - (b.turnover ?? 0))[0];
+  if (worstTurn && (worstTurn.turnover ?? 0) < PARTS_TURNOVER_TARGET) {
+    alerts.push(
+      `${worstTurn.store.name}：庫存周轉率 ${worstTurn.turnover} 次/年，低於目標 ${PARTS_TURNOVER_TARGET}，建議檢視採購頻率`,
+    );
+  }
+
+  return {
+    period: periodStr,
+    kpis,
+    storeRows,
+    categoryMix,
+    marginTrend,
+    vendors,
+    vendorConcentration: concentration,
+    accessoryRows,
+    accessoryTotal,
+    miniStats,
+    alerts,
+  };
+}
+
+/* ────────────── (G2) getStorePartsDrilldown（GRP12 單店深鑽） ────────────── */
+
+/**
+ * 單店零件財務明細。KPI 讀該店當期 scalar；SKU/倉庫/採購出庫趨勢讀 parts_drill；
+ * 精品品項/車型加裝率讀 accessory_detail。呆滯清單 = SKU age>=90 子集（規則衍生）。
+ * 門店不存在或無 drill seed 回 null。
+ */
+export async function getStorePartsDrilldown(
+  brandId: string,
+  storeId: string,
+  opts: { period?: string } = {},
+): Promise<StorePartsDrilldown | null> {
+  const client = await createClient();
+  const stores = await listDiagnosticStores(brandId);
+  const store = stores.find((s) => s.id === storeId);
+  if (!store) return null;
+
+  const { period, metrics: sm } = await loadStoreMetrics(client, brandId, storeId, opts.period);
+  const periodStr = period ?? opts.period ?? "2026-05-01";
+
+  const drill = await loadPartsDrill(client, brandId, storeId);
+  const detail = await loadAccessoryDetail(client, brandId, storeId);
+  if (drill.skus.length === 0 && sm.size === 0) return null;
+
+  const deadList = drill.skus.filter((s) => s.age >= 90);
+  const deadstockPct = m(sm, "parts_deadstock_pct");
+  const turnover = m(sm, "parts_turnover");
+
+  const alerts: string[] = [];
+  const dead180 = drill.skus.filter((s) => s.status === "warn180");
+  if (dead180.length > 0) {
+    alerts.push(`${dead180.length} 項 SKU 呆滯超過 180 天，建議促銷消化或退回原廠`);
+  }
+  const lowStock = drill.skus.filter((s) => s.status === "low");
+  if (lowStock.length > 0) {
+    alerts.push(`安全庫存不足：${lowStock.map((s) => s.name).join("、")}，建議補貨`);
+  }
+  if (turnover != null && turnover < PARTS_TURNOVER_TARGET) {
+    alerts.push(`庫存周轉率 ${turnover} 次/年偏低（目標 ${PARTS_TURNOVER_TARGET}），建議檢視採購頻率`);
+  }
+
+  return {
+    store,
+    period: periodStr,
+    kpis: {
+      revenue: m(sm, "parts_direct_sale_amt"),
+      marginRate: m(sm, "parts_direct_sale_margin"),
+      turnover,
+      deadstockAmt: m(sm, "parts_deadstock_amt"),
+      deadstockPct,
+      accessoryRevenue: m(sm, "accessory_revenue"),
+    },
+    warehouses: drill.warehouses,
+    skus: drill.skus,
+    deadList,
+    purchaseTrend: {
+      months: drill.purchaseTrend.months,
+      purchase: drill.purchaseTrend.purchase,
+      issue: drill.purchaseTrend.issue,
+    },
+    accessoryItems: detail.items,
+    modelAccessory: detail.models,
     alerts,
   };
 }

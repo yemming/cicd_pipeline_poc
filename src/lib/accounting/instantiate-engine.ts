@@ -73,7 +73,7 @@ export async function instantiateTransaction(
   await normalizeSubsidiaryChain(sb, ctxNorm);
 
   // 4. batch fetch masters used by coa_resolver
-  const masters = await fetchMasters(sb, template, ctxNorm);
+  const masters = await fetchMasters(sb, tenant, template, ctxNorm);
   if (!masters.ok) return masters;
 
   // 5. fetch system_accounting_settings (single row per tenant)
@@ -113,6 +113,9 @@ export async function instantiateTransaction(
     if (!Number.isFinite(amount) || amount < 0) {
       return { ok: false, error: `line ${lineDef.line_no}: amount=${amount} 非有效正數` };
     }
+
+    // 零額 line 跳過：DB check 約束要求每行剛好一邊 > 0（零稅 / 零代扣 / 零折扣等情形不出空行）
+    if (amount < 0.005) continue;
 
     const dimensions = resolveDimensions(lineDef.dim_sources ?? {}, ctxNorm);
     const description = renderDescription(lineDef.description_template, ctxNorm, masters.data);
@@ -349,6 +352,7 @@ type MasterRow = Record<string, unknown> & { id: string };
 type MasterCache = {
   byTable: Record<string /* table */, Map<string /* id */, MasterRow>>;
   coaByCode: Map<string /* account_code */, string /* coa_id */>;
+  taxCoaByCode: Map<string /* tax_code */, string /* coa_id */>;
 };
 
 function collectFixedCoaCodes(resolver: CoaResolver, out: Set<string>): void {
@@ -356,16 +360,24 @@ function collectFixedCoaCodes(resolver: CoaResolver, out: Set<string>): void {
   if (resolver.fallback) collectFixedCoaCodes(resolver.fallback, out);
 }
 
+function collectTaxCodes(resolver: CoaResolver, out: Set<string>): void {
+  if (resolver.type === "tax_code_coa") out.add(resolver.source);
+  if (resolver.fallback) collectTaxCodes(resolver.fallback, out);
+}
+
 async function fetchMasters(
   sb: ReturnType<typeof createServiceClient>,
+  tenant: string,
   template: GlTemplate,
   ctx: Record<string, unknown>,
 ): Promise<{ ok: true; data: MasterCache } | { ok: false; error: string }> {
   // 收集每個 (table, column) 需要的 ids
   const needs: Record<string, { columns: Set<string>; ids: Set<string> }> = {};
   const fixedCodes = new Set<string>();
+  const taxCodes = new Set<string>();
   for (const line of template.lines) {
     collectFixedCoaCodes(line.coa_resolver, fixedCodes);
+    collectTaxCodes(line.coa_resolver, taxCodes);
     if (line.coa_resolver.type === "master_field") {
       const [table, column] = line.coa_resolver.source.split(".");
       const idField = line.coa_resolver.lookup_via.replace(/^ctx\./, "");
@@ -402,7 +414,20 @@ async function fetchMasters(
     }
   }
 
-  return { ok: true, data: { byTable, coaByCode } };
+  const taxCoaByCode = new Map<string, string>();
+  if (taxCodes.size > 0) {
+    const { data, error } = await sb
+      .from("tax_codes")
+      .select("tax_code, coa_id")
+      .eq("tenant_id", tenant)
+      .in("tax_code", Array.from(taxCodes));
+    if (error) return { ok: false, error: `撈 tax_code coa_id 失敗：${error.message}` };
+    for (const row of (data as Array<{ tax_code: string; coa_id: string | null }>) ?? []) {
+      if (row.coa_id) taxCoaByCode.set(row.tax_code, row.coa_id);
+    }
+  }
+
+  return { ok: true, data: { byTable, coaByCode, taxCoaByCode } };
 }
 
 // ============================================================
@@ -428,10 +453,13 @@ function resolveCoa(
   } else if (resolver.type === "system_default") {
     coaId = (sys[resolver.source] as string | null | undefined) ?? null;
   } else if (resolver.type === "tax_code_coa") {
-    return {
-      ok: false,
-      error: `tax_code_coa resolver 尚未實作（template 用了 source="${resolver.source}"）`,
-    };
+    coaId = masters.taxCoaByCode.get(resolver.source) ?? null;
+    if (!coaId && !resolver.fallback) {
+      return {
+        ok: false,
+        error: `tax_code_coa tax_code="${resolver.source}" 在 tax_codes 找不到或未綁 coa_id`,
+      };
+    }
   } else if (resolver.type === "fixed_coa") {
     coaId = masters.coaByCode.get(resolver.source) ?? null;
     if (!coaId && !resolver.fallback) {
@@ -544,5 +572,8 @@ function generateEntryNo(typeCode: string): string {
   const now = new Date();
   const pad = (n: number) => n.toString().padStart(2, "0");
   const prefix = typeCode.slice(0, 4).toUpperCase();
-  return `JE-${prefix}-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  // 含毫秒 + 3 碼亂數：同一動作連發多筆分錄（如交車一次過 COGS/AR/沖訂金）不撞 entry_no unique
+  const ms = now.getMilliseconds().toString().padStart(3, "0");
+  const rand = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+  return `JE-${prefix}-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}-${ms}${rand}`;
 }

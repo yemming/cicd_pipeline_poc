@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP09 門店銷售 Tab — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;
+  --gray:#9A9890;--border:#EEECE6;--header:#0D2438;
+  --green:#1E7D3E;--green-bg:#EAF5EA;
+}
+
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+
+/* ── 門店選擇器 ── */
+.store-selector{background:#fff;border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:stretch;gap:0;position:sticky;top:52px;z-index:91;overflow-x:auto;}
+.ss-item{padding:13px 18px;font-size:13px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:.15s;display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.ss-item:hover{color:var(--navy);background:#FAFAF8;}
+.ss-item.active{color:var(--navy);font-weight:700;border-bottom-color:var(--navy);}
+.ss-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* ── 部門 Tab ── */
+.dept-tab-bar{background:#fff;border-bottom:2px solid var(--border);padding:0 24px;display:flex;gap:0;position:sticky;top:105px;z-index:90;}
+.dept-tab{padding:9px 20px;font-size:13px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;font-family:'Noto Sans TC',sans-serif;background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;}
+.dept-tab.active{color:var(--navy);font-weight:700;border-bottom-color:var(--navy);}
+
+.main{max-width:1300px;margin:0 auto;padding:20px 24px 48px;}
+
+/* ── 門店 Hero ── */
+.store-hero{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 24px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.sh-left{display:flex;align-items:center;gap:14px;}
+.sh-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.sh-name{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:2px;}
+.sh-meta{font-size:11.5px;color:var(--gray);}
+.sh-kpis{display:flex;gap:8px;flex-wrap:wrap;}
+.sh-kpi{text-align:center;background:#FAFAF8;border:1px solid var(--border);border-radius:8px;padding:8px 14px;}
+.sh-kpi-n{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.sh-kpi-l{font-size:10px;color:var(--gray);margin-top:2px;}
+
+/* ── Section title ── */
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:18px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── KPI 4格 ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi-card{background:#fff;border:1px solid var(--border);border-radius:9px;padding:13px 14px;position:relative;}
+.kpi-card.alert{border-left:3px solid var(--red);}
+.kpi-card.good{border-left:3px solid #3DBE6E;}
+.kpi-l{font-size:10.5px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:3px;}
+.kpi-sub{font-size:10.5px;color:var(--gray);}
+.kpi-trend{position:absolute;top:13px;right:13px;font-size:11px;font-weight:600;}
+.t-up{color:#3DBE6E;}.t-dn{color:var(--red);}.t-flat{color:var(--gray);}
+
+/* ── Benchmark 4欄 ── */
+.bench-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.bench-card{border-radius:8px;padding:11px 14px;border:1.5px solid;}
+.bc-navy{background:var(--navy-bg);border-color:var(--navy-bd);}
+.bc-teal{background:var(--teal-bg);border-color:var(--teal-bd);}
+.bc-amber{background:var(--amber-bg);border-color:var(--amber-bd);}
+.bc-green{background:#EAF5EA;border-color:#7ACA7A;}
+.bc-label{font-size:10px;font-weight:700;opacity:.7;margin-bottom:3px;}
+.bc-val{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.bc-sub{font-size:10px;opacity:.65;}
+
+/* ── 兩欄 ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.panel-hdr{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.panel-icon{font-size:13px;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.panel-title{font-size:12.5px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:12px 14px;}
+
+/* ── 漏斗圖 ── */
+.funnel{display:flex;flex-direction:column;gap:6px;}
+.funnel-step{display:flex;align-items:center;gap:10px;}
+.fs-bar-wrap{flex:1;}
+.fs-bar{height:28px;border-radius:5px;display:flex;align-items:center;padding:0 10px;font-size:12px;font-weight:700;color:#fff;transition:width .4s ease;position:relative;}
+.fs-label{font-size:11.5px;color:var(--gray);min-width:60px;}
+.fs-val{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;min-width:44px;text-align:right;}
+.fs-rate{font-size:10.5px;color:var(--gray);min-width:36px;text-align:right;}
+.funnel-arrow{text-align:center;color:var(--gray);font-size:11px;margin:-2px 0;}
+
+/* ── 月度趨勢迷你圖 ── */
+.trend-chart{width:100%;}
+
+/* ── 衍生業務對比 ── */
+.deriv-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #F4F3F0;}
+.deriv-row:last-child{border-bottom:none;}
+.dr-label{font-size:12px;min-width:80px;}
+.dr-bar-wrap{flex:1;position:relative;}
+.dr-bar-bg{height:7px;background:#EEECE6;border-radius:3px;overflow:hidden;}
+.dr-bar-fill{height:100%;border-radius:3px;}
+.dr-our{background:var(--navy);}
+.dr-bench{background:rgba(26,58,92,.2);}
+.dr-vals{display:flex;justify-content:space-between;font-size:10px;color:var(--gray);margin-top:2px;}
+
+/* ── 批售告警 ── */
+.wholesale-warn{background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:9px 14px;margin-bottom:10px;font-size:12px;color:#5A3A00;display:flex;align-items:center;gap:8px;}
+
+/* ── 下鑽按鈕 ── */
+.drill-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--navy-bd);background:var(--navy-bg);color:var(--navy);font-size:11.5px;font-weight:600;cursor:pointer;transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.drill-btn:hover{background:var(--navy);color:#fff;}
+
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-ok{background:var(--green-bg);color:var(--green);}
+.b-warn{background:var(--amber-bg);color:var(--amber);}
+.b-bad{background:var(--red-bg);color:var(--red);}
+.b-navy{background:var(--navy-bg);color:var(--navy);}
+
+.mono{font-family:'DM Mono',monospace;font-weight:700;}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:9999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@media(max-width:900px){
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .bench-row{grid-template-columns:repeat(2,1fr);}
+  .two-col{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP09 門店診斷 — 銷售部門</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn" onclick="showToast('下鑽至個人能效…')">👤 個人能效 →</button>
+  </div>
+</header>
+
+<!-- 門店選擇器 -->
+<div class="store-selector" id="store-selector">
+  <div class="ss-item active" onclick="setStore(0,this)"><span class="ss-dot" style="background:#1A3A5C;"></span>台北旗艦店</div>
+  <div class="ss-item" onclick="setStore(1,this)"><span class="ss-dot" style="background:#2A6080;"></span>台中直營店</div>
+  <div class="ss-item" onclick="setStore(2,this)"><span class="ss-dot" style="background:#3A5080;"></span>高雄直營店</div>
+  <div class="ss-item" onclick="setStore(3,this)"><span class="ss-dot" style="background:#0F6E56;"></span>台南授權商</div>
+  <div class="ss-item" onclick="setStore(4,this)"><span class="ss-dot" style="background:#5A7090;"></span>嘉義授權商</div>
+</div>
+
+<!-- 部門 Tab -->
+<div class="dept-tab-bar">
+  <button class="dept-tab active">🏍 新車銷售</button>
+  <button class="dept-tab" onclick="showToast('切換至售後服務 Tab（GRP10）')">🔧 售後服務</button>
+  <button class="dept-tab" onclick="showToast('切換至中古車 Tab')">🚗 中古車</button>
+</div>
+
+<div class="main" id="main-content">
+  <!-- 內容由 JS 動態渲染 -->
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ 各門店銷售部門數據 ══
+const STORES = [
+  {
+    name:'台北旗艦店', type:'直營', color:'#1A3A5C',
+    kpi:{ sales:28, target:30, convRate:24, gp3:2650, derived:9400, batchPct:8 },
+    bench:{ sales:25.4, convRate:21.9, gp3:1851, derived:7164 },
+    funnel:[
+      {label:'總接待',val:635,rate:null},
+      {label:'新增潛客',val:498,rate:'78%'},
+      {label:'再次進店',val:152,rate:'31%'},
+      {label:'試乘',val:274,rate:'55%'},
+      {label:'成交',val:152,rate:'24%'},
+    ],
+    monthData:[22,19,24,26,27,28],
+    prevYear:[20,17,22,24,25,26],
+    deriv:[
+      {label:'金融滲透率',our:68,bench:58},
+      {label:'保險滲透率',our:87,bench:81},
+      {label:'延保滲透率',our:12,bench:5},
+      {label:'精品加裝率',our:45,bench:38},
+    ],
+    batchWarn: false,
+    insight:'台北旗艦店本月新車銷售表現優異，成交率 24% 優於集團均值 21.9%。金融和保險滲透率均超標，延保滲透率 12% 是全集團最高。建議持續維持。',
+  },
+  {
+    name:'台中直營店', type:'直營', color:'#2A6080',
+    kpi:{ sales:13, target:18, convRate:18, gp3:1560, derived:7100, batchPct:28 },
+    bench:{ sales:25.4, convRate:21.9, gp3:1851, derived:7164 },
+    funnel:[
+      {label:'總接待',val:520,rate:null},
+      {label:'新增潛客',val:380,rate:'73%'},
+      {label:'再次進店',val:98,rate:'26%'},
+      {label:'試乘',val:182,rate:'48%'},
+      {label:'成交',val:93,rate:'18%'},
+    ],
+    monthData:[18,14,16,15,14,13],
+    prevYear:[22,19,21,20,21,20],
+    deriv:[
+      {label:'金融滲透率',our:34,bench:58},
+      {label:'保險滲透率',our:79,bench:81},
+      {label:'延保滲透率',our:2,bench:5},
+      {label:'精品加裝率',our:28,bench:38},
+    ],
+    batchWarn: true,
+    insight:'台中直營店銷售部門面臨嚴峻壓力。成交率 18% 低於均值，單車 GP3 NT$1,560 低於均值 NT$1,851。金融滲透率僅 34%，遠低於集團均值 58%，是衍生毛利不足的主要原因。批售佔比 28% 明顯過高。',
+  },
+  {
+    name:'高雄直營店', type:'直營', color:'#3A5080',
+    kpi:{ sales:17, target:25, convRate:19, gp3:1780, derived:7400, batchPct:15 },
+    bench:{ sales:25.4, convRate:21.9, gp3:1851, derived:7164 },
+    funnel:[
+      {label:'總接待',val:480,rate:null},
+      {label:'新增潛客',val:340,rate:'71%'},
+      {label:'再次進店',val:88,rate:'26%'},
+      {label:'試乘',val:155,rate:'46%'},
+      {label:'成交',val:91,rate:'19%'},
+    ],
+    monthData:[19,16,18,17,17,17],
+    prevYear:[21,18,20,19,20,19],
+    deriv:[
+      {label:'金融滲透率',our:45,bench:58},
+      {label:'保險滲透率',our:82,bench:81},
+      {label:'延保滲透率',our:4,bench:5},
+      {label:'精品加裝率',our:34,bench:38},
+    ],
+    batchWarn: false,
+    insight:'高雄直營店銷售達成率 68%，低於時間進度。主要問題是 3 名新進顧問（入職3個月）成交率僅 8%，建議下鑽至個人能效頁面，鎖定這3人進行針對性輔導。',
+  },
+  {
+    name:'台南授權商', type:'授權', color:'#0F6E56',
+    kpi:{ sales:19, target:22, convRate:22, gp3:2100, derived:8200, batchPct:12 },
+    bench:{ sales:25.4, convRate:21.9, gp3:1851, derived:7164 },
+    funnel:[
+      {label:'總接待',val:460,rate:null},
+      {label:'新增潛客',val:320,rate:'70%'},
+      {label:'再次進店',val:105,rate:'33%'},
+      {label:'試乘',val:188,rate:'59%'},
+      {label:'成交',val:101,rate:'22%'},
+    ],
+    monthData:[17,15,18,19,19,19],
+    prevYear:[16,14,17,17,18,18],
+    deriv:[
+      {label:'金融滲透率',our:55,bench:58},
+      {label:'保險滲透率',our:84,bench:81},
+      {label:'延保滲透率',our:6,bench:5},
+      {label:'精品加裝率',our:40,bench:38},
+    ],
+    batchWarn: false,
+    insight:'台南授權商表現穩定，成交率 22% 高於均值，單車 GP3 NT$2,100 優於集團均值。試乘率 59% 是全集團最高，轉化漏斗設計良好。建議集團追蹤此模式並推廣至其他門店。',
+  },
+  {
+    name:'嘉義授權商', type:'授權', color:'#5A7090',
+    kpi:{ sales:8, target:20, convRate:14, gp3:1480, derived:6200, batchPct:22 },
+    bench:{ sales:25.4, convRate:21.9, gp3:1851, derived:7164 },
+    funnel:[
+      {label:'總接待',val:380,rate:null},
+      {label:'新增潛客',val:240,rate:'63%'},
+      {label:'再次進店',val:62,rate:'26%'},
+      {label:'試乘',val:102,rate:'43%'},
+      {label:'成交',val:53,rate:'14%'},
+    ],
+    monthData:[12,9,10,9,8,8],
+    prevYear:[14,11,13,12,12,13],
+    deriv:[
+      {label:'金融滲透率',our:28,bench:58},
+      {label:'保險滲透率',our:76,bench:81},
+      {label:'延保滲透率',our:1,bench:5},
+      {label:'精品加裝率',our:22,bench:38},
+    ],
+    batchWarn: true,
+    insight:'嘉義授權商銷售部門是集團最需要輔導的門店。成交率 14%、GP3 NT$1,480、衍生毛利 NT$6,200 均低於集團均值。金融滲透率僅 28%，延保滲透率 1%，衍生業務幾乎空白。',
+  },
+];
+
+let currentStoreIdx = 0;
+
+function renderStore(idx){
+  const s = STORES[idx];
+  const kpi = s.kpi;
+  const bench = s.bench;
+  const salesAchieve = Math.round(kpi.sales/kpi.target*100);
+  const convColor = kpi.convRate >= bench.convRate ? '#1E7D3E' : '#854F0B';
+  const gp3Color  = kpi.gp3 >= bench.gp3 ? '#1E7D3E' : '#854F0B';
+  const derColor  = kpi.derived >= bench.derived ? '#1E7D3E' : '#854F0B';
+
+  const html = `
+    <!-- 門店 Hero -->
+    <div class="store-hero">
+      <div class="sh-left">
+        <div class="sh-icon" style="background:${s.color}22;">🏍</div>
+        <div>
+          <div class="sh-name">${s.name}</div>
+          <div class="sh-meta">${s.type === '直營' ? '🔵 直營店' : '🟢 授權經銷商'}　｜　新車銷售部門　｜　時間進度 66.7%</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="drill-btn" onclick="showToast('下鑽至 GRP07 個人能效診斷…')">👤 個人能效 →</button>
+        <button class="drill-btn" onclick="showToast('產生門店報告（GRP02R）…')">📋 產生報告</button>
+      </div>
+    </div>
+
+    ${s.batchWarn ? `<div class="wholesale-warn">⚠️ <b>批售佔比 ${kpi.batchPct}% 偏高</b>（集團標準 &lt;15%），批售壓低整體單車 GP3。建議銷售總監檢視近期批售原因並收緊批售授權。</div>` : ''}
+
+    <!-- 4 KPI 卡 -->
+    <div class="sec-title">本月核心 KPI</div>
+    <div class="kpi-row">
+      <div class="kpi-card ${salesAchieve >= 80 ? 'good' : 'alert'}">
+        <div class="kpi-l">本月新車銷量</div>
+        <div class="kpi-n" style="color:${s.color};">${kpi.sales} <span style="font-size:14px;">台</span></div>
+        <div class="kpi-sub">目標 ${kpi.target} 台 ｜ 達成率 ${salesAchieve}%</div>
+        <div class="kpi-trend ${salesAchieve >= 80 ? 't-up' : 't-dn'}">${salesAchieve >= 80 ? '▲' : '▼'} ${salesAchieve}%</div>
+      </div>
+      <div class="kpi-card ${kpi.convRate >= bench.convRate ? 'good' : ''}">
+        <div class="kpi-l">成交率</div>
+        <div class="kpi-n" style="color:${convColor};">${kpi.convRate}%</div>
+        <div class="kpi-sub">集團均值 ${bench.convRate}%</div>
+        <div class="kpi-trend ${kpi.convRate >= bench.convRate ? 't-up' : 't-dn'}">${kpi.convRate >= bench.convRate ? '▲' : '▼'} vs 均值</div>
+      </div>
+      <div class="kpi-card ${kpi.gp3 >= bench.gp3 ? 'good' : 'alert'}">
+        <div class="kpi-l">單車 GP3</div>
+        <div class="kpi-n" style="color:${gp3Color};">NT$${kpi.gp3.toLocaleString()}</div>
+        <div class="kpi-sub">集團均值 NT$${bench.gp3.toLocaleString()}</div>
+        <div class="kpi-trend ${kpi.gp3 >= bench.gp3 ? 't-up' : 't-dn'}">${kpi.gp3 >= bench.gp3 ? '▲' : '▼'} vs 均值</div>
+      </div>
+      <div class="kpi-card ${kpi.derived >= bench.derived ? 'good' : ''}">
+        <div class="kpi-l">單車衍生毛利</div>
+        <div class="kpi-n" style="color:${derColor};">NT$${kpi.derived.toLocaleString()}</div>
+        <div class="kpi-sub">集團均值 NT$${bench.derived.toLocaleString()}</div>
+        <div class="kpi-trend ${kpi.derived >= bench.derived ? 't-up' : 't-dn'}">${kpi.derived >= bench.derived ? '▲' : '▼'} vs 均值</div>
+      </div>
+    </div>
+
+    <!-- Benchmark 4欄 -->
+    <div class="sec-title">Benchmark 對標</div>
+    <div class="bench-row">
+      <div class="bench-card bc-navy">
+        <div class="bc-label" style="color:var(--navy);">本店成交率</div>
+        <div class="bc-val" style="color:var(--navy);">${kpi.convRate}%</div>
+        <div class="bc-sub" style="color:var(--navy);">本月</div>
+      </div>
+      <div class="bench-card bc-teal">
+        <div class="bc-label" style="color:var(--teal);">集團均值</div>
+        <div class="bc-val" style="color:var(--teal);">${bench.convRate}%</div>
+        <div class="bc-sub" style="color:var(--teal);">5間門店平均</div>
+      </div>
+      <div class="bench-card bc-amber">
+        <div class="bc-label" style="color:var(--amber);">本店 GP3</div>
+        <div class="bc-val" style="color:var(--amber);">NT$${kpi.gp3.toLocaleString()}</div>
+        <div class="bc-sub" style="color:var(--amber);">本月均值</div>
+      </div>
+      <div class="bench-card bc-green">
+        <div class="bc-label" style="color:var(--green);">集團 GP3 均值</div>
+        <div class="bc-val" style="color:var(--green);">NT$${bench.gp3.toLocaleString()}</div>
+        <div class="bc-sub" style="color:var(--green);">5間門店平均</div>
+      </div>
+    </div>
+
+    <!-- 漏斗 + 月度趨勢 -->
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--navy-bg);">📊</div>
+          <div><div class="panel-title">銷售漏斗</div><div class="panel-sub">本月接待→潛客→試乘→成交</div></div>
+        </div>
+        <div class="panel-body">
+          <div class="funnel" id="funnel-${idx}"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--navy-bg);">📈</div>
+          <div><div class="panel-title">月度銷量趨勢</div><div class="panel-sub">當期 vs 上年同期（近6個月）</div></div>
+        </div>
+        <div class="panel-body">
+          <svg id="trend-${idx}" width="100%" height="120"></svg>
+          <div style="display:flex;gap:12px;margin-top:6px;">
+            <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--gray);"><div style="width:12px;height:3px;background:${s.color};border-radius:2px;"></div>本年</div>
+            <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--gray);"><div style="width:12px;height:3px;background:${s.color};opacity:.3;border-radius:2px;"></div>去年同期</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 衍生業務對比 + 診斷 -->
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--purple-bg);">🎯</div>
+          <div><div class="panel-title">衍生業務滲透率對比</div><div class="panel-sub">本店 vs 集團均值</div></div>
+        </div>
+        <div class="panel-body">
+          ${s.deriv.map(d=>`
+            <div class="deriv-row">
+              <span class="dr-label">${d.label}</span>
+              <div class="dr-bar-wrap">
+                <div class="dr-bar-bg">
+                  <div class="dr-bar-fill dr-our" style="width:${Math.min(100,d.our)}%;"></div>
+                </div>
+                <div class="dr-vals">
+                  <span style="color:${d.our>=d.bench?'#1E7D3E':'#C8001A'};font-weight:700;">本店 ${d.our}%</span>
+                  <span>均值 ${d.bench}%</span>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--navy-bg);">🔍</div>
+          <div><div class="panel-title">部門診斷摘要</div><div class="panel-sub">系統自動分析</div></div>
+        </div>
+        <div class="panel-body">
+          <div style="font-size:12px;line-height:1.8;color:#2C2C2A;">${s.insight}</div>
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="drill-btn" onclick="showToast('下鑽至 GRP07 個人能效…')">👤 個人能效診斷 →</button>
+            <button class="drill-btn" onclick="showToast('產生門店報告…')">📋 產生報告</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('main-content').innerHTML = html;
+  renderFunnel(idx, s);
+  renderTrendChart(idx, s);
+}
+
+function renderFunnel(idx, s){
+  const container = document.getElementById('funnel-'+idx);
+  if(!container) return;
+  const COLORS = ['#1A3A5C','#2A5080','#3A6090','#4A70A0','#5A80B0'];
+  const maxVal = s.funnel[0].val;
+  container.innerHTML = s.funnel.map((step,i)=>`
+    <div class="funnel-step">
+      <span class="fs-label" style="font-size:11px;">${step.label}</span>
+      <div class="fs-bar-wrap">
+        <div class="fs-bar" style="width:${Math.max(30,step.val/maxVal*100)}%;background:${COLORS[i]||'#1A3A5C'};font-size:11px;">
+          ${step.val}
+        </div>
+      </div>
+      <span class="fs-rate" style="font-size:10.5px;color:${step.rate?'#854F0B':'var(--gray)'};">${step.rate||''}</span>
+    </div>
+    ${i < s.funnel.length-1 ? '<div class="funnel-arrow">↓</div>' : ''}
+  `).join('');
+}
+
+function renderTrendChart(idx, s){
+  const svgEl = document.getElementById('trend-'+idx);
+  if(!svgEl) return;
+  d3.select(svgEl).selectAll('*').remove();
+
+  const months = ['1月','2月','3月','4月','5月','本月'];
+  const W = svgEl.clientWidth || 380;
+  const H = 100;
+  const margin = {top:10,right:10,bottom:24,left:30};
+  const w = W - margin.left - margin.right;
+  const h = H - margin.top - margin.bottom;
+
+  const svg = d3.select(svgEl);
+  const g = svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+
+  const allVals = [...s.monthData, ...s.prevYear];
+  const xs = d3.scalePoint().domain(months).range([0,w]);
+  const ys = d3.scaleLinear().domain([0,d3.max(allVals)*1.2]).range([h,0]).nice();
+
+  const line = d3.line().x((_,i)=>xs(months[i])).y(d=>ys(d)).curve(d3.curveMonotoneX);
+
+  // 去年（淡）
+  g.append('path').datum(s.prevYear)
+   .attr('fill','none').attr('stroke',s.color).attr('stroke-width',1.5)
+   .attr('stroke-opacity',.25).attr('d',line);
+
+  // 今年
+  g.append('path').datum(s.monthData)
+   .attr('fill','none').attr('stroke',s.color).attr('stroke-width',2.5)
+   .attr('d',line);
+
+  // 點
+  g.selectAll('.dot-cur').data(s.monthData).enter().append('circle')
+   .attr('cx',(_,i)=>xs(months[i])).attr('cy',d=>ys(d))
+   .attr('r',4).attr('fill',s.color).attr('stroke','#fff').attr('stroke-width',2);
+
+  // X軸
+  g.append('g').attr('transform',`translate(0,${h})`)
+   .call(d3.axisBottom(xs).tickSize(0))
+   .call(ax=>{ax.select('.domain').attr('stroke','#EEECE6');ax.selectAll('text').attr('fill','#9A9890').attr('font-size',9).attr('font-family','DM Mono, monospace');});
+
+  // Y軸
+  g.append('g').call(d3.axisLeft(ys).ticks(3).tickFormat(v=>v+'台'))
+   .call(ax=>{ax.select('.domain').remove();ax.selectAll('text').attr('fill','#9A9890').attr('font-size',9);ax.selectAll('.tick line').attr('stroke','rgba(0,0,0,.04)').attr('stroke-dasharray','3,3').attr('x2',w);});
+}
+
+function setStore(idx, el){
+  document.querySelectorAll('.ss-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+  currentStoreIdx = idx;
+  renderStore(idx);
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+window.addEventListener('load',()=>renderStore(0));
+window.addEventListener('resize',()=>renderStore(currentStoreIdx));
+</script>
+</body>
+</html>

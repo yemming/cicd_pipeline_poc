@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP19 品牌認證中古車能效 — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;--purple-bd:#AFA9EC;--purple-dark:#3B3488;
+  --gray:#9A9890;--border:#EEECE6;--header:#0D2438;
+  --green:#1E7D3E;--green-bg:#EAF5EA;
+}
+
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(83,74,183,.4);border:1px solid rgba(83,74,183,.5);color:#AFA9EC;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+.sub-bar{background:#fff;border-bottom:1px solid var(--border);padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.chip{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:#fff;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.chip.active{background:var(--purple);border-color:var(--purple);color:#fff;}
+.chip:hover:not(.active){background:#F4F3F0;}
+.sub-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gray);}
+.rdot{width:7px;height:7px;border-radius:50%;background:#3DBE6E;display:inline-block;}
+
+.main{max-width:1400px;margin:0 auto;padding:20px 24px 48px;}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#1A0A4A 0%,#3B3488 55%,#534AB7 100%);border-radius:12px;padding:20px 28px;margin-bottom:16px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-20px;top:-20px;width:160px;height:160px;border-radius:50%;background:rgba(175,169,236,.1);pointer-events:none;}
+.hero h1{font-size:18px;font-weight:700;margin-bottom:4px;}
+.hero p{font-size:12px;opacity:.7;line-height:1.6;max-width:520px;}
+.hstats{display:flex;gap:8px;}
+.hstat{text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 14px;}
+.hstat-n{font-size:19px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.hstat-l{font-size:10px;opacity:.6;margin-top:3px;}
+
+/* Store Tabs */
+.store-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.store-tab{padding:6px 14px;border-radius:7px;font-size:12.5px;cursor:pointer;border:1.5px solid var(--border);background:#fff;font-weight:500;transition:.15s;display:flex;align-items:center;gap:5px;font-family:'Noto Sans TC',sans-serif;}
+.store-tab.active{border-color:var(--purple);background:var(--purple-bg);color:var(--purple);font-weight:700;}
+.store-tab:hover:not(.active){background:#F4F3F0;}
+.st-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.cc-header{padding:11px 16px;border-bottom:1px solid var(--border);background:#FAFAF8;display:flex;align-items:flex-start;gap:10px;}
+.cc-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px;}
+.cc-meta{flex:1;}
+.cc-title{font-size:13px;font-weight:700;color:var(--purple);margin-bottom:2px;}
+.cc-sub{font-size:11px;color:var(--gray);line-height:1.4;}
+.cc-badge{font-size:10px;padding:2px 8px;border-radius:5px;font-weight:700;white-space:nowrap;margin-top:2px;display:inline-block;}
+.cb-insight{background:var(--amber-bg);color:var(--amber);}
+.cb-good{background:var(--green-bg);color:var(--green);}
+.cb-watch{background:var(--red-bg);color:var(--red);}
+.cc-body{padding:12px 16px 8px;}
+
+.d3-tooltip{position:fixed;background:#0D2438;color:#E8E6E0;padding:10px 14px;border-radius:8px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;border:1px solid rgba(255,255,255,.1);max-width:220px;line-height:1.6;}
+.d3-tooltip .tt-name{font-weight:700;font-size:13px;margin-bottom:3px;color:#fff;}
+.d3-tooltip .tt-store{font-size:10.5px;color:#AFA9EC;margin-bottom:6px;}
+.d3-tooltip .tt-row{display:flex;justify-content:space-between;gap:10px;}
+.d3-tooltip .tt-val{font-family:'DM Mono',monospace;font-weight:700;}
+.d3-tooltip .tt-tag{margin-top:6px;font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;display:inline-block;}
+
+.quad-legend{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px;}
+.ql{background:#FAFAF8;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:10.5px;}
+.ql-t{font-weight:700;margin-bottom:1px;}
+.ql-d{color:var(--gray);}
+
+.insight-box{background:var(--purple-bg);border:1px solid var(--purple-bd);border-radius:7px;padding:9px 13px;margin-top:8px;font-size:11.5px;color:var(--purple);line-height:1.6;}
+
+/* 警示 */
+.warn-box{background:var(--red-bg);border:1px solid var(--red-bd);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:#5A1010;line-height:1.6;}
+
+/* 排名表 */
+.rank-panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.rp-hdr{padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.rp-title{font-size:13px;font-weight:600;}
+.rp-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.rt{width:100%;border-collapse:collapse;}
+.rt th{font-size:10.5px;font-weight:700;color:var(--gray);padding:7px 12px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;white-space:nowrap;cursor:pointer;}
+.rt th:hover{color:var(--purple);}
+.rt th.c{text-align:center;}.rt th.r{text-align:right;}
+.rt td{padding:9px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.rt tr:last-child td{border-bottom:none;}
+.rt tr:hover td{background:#FAFAF8;}
+.mono{font-family:'DM Mono',monospace;font-weight:700;}
+.prog-wrap{display:flex;align-items:center;gap:7px;}
+.prog-bar{height:5px;background:#EEECE6;border-radius:3px;flex:1;min-width:50px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;}
+.pf-ok{background:#3DBE6E;}.pf-warn{background:var(--amber);}.pf-bad{background:var(--red);}.pf-purple{background:var(--purple);}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.t-up{color:#3DBE6E;font-weight:700;}.t-dn{color:var(--red);font-weight:700;}.t-flat{color:var(--gray);}
+
+/* 庫存清單 */
+.inv-badge-cert{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-bd);}
+.inv-badge-ok{background:var(--teal-bg);color:var(--teal);}
+.inv-badge-warn{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);}
+.inv-badge-sold{background:#F5F5F5;color:#888;border:1px solid #DDD;}
+
+/* 單店深鑽 */
+.drill-section{display:none;}
+.drill-section.active{display:block;}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:9999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@media(max-width:960px){.chart-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP19 品牌認證中古車能效</b></div>
+  <div class="org-badge">🔄 中古車業務</div>
+  <div class="ver-badge">v1 D3</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn" onclick="showToast('匯出中…')">⬇ 匯出</button>
+  </div>
+</header>
+
+<div class="sub-bar">
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">期間：</span>
+  <button class="chip active" onclick="setChip(this)">近3個月</button>
+  <button class="chip" onclick="setChip(this)">本月</button>
+  <button class="chip" onclick="setChip(this)">本季</button>
+  <div class="sub-right">
+    <span class="rdot"></span> 資料更新：2026-05-28 08:00
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div>
+      <h1>🔄 品牌認證中古車能效診斷</h1>
+      <p>四張散佈圖從收購能力、售出效率、庫存周轉、獲利能力四個維度診斷各門店中古車業務表現。<br>圓圈大小＝現有庫存台數。可切換門店 Tab 查看單店深鑽與庫存清單。</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n" id="st-buy">—</div><div class="hstat-l">本季收購台數</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-sell">—</div><div class="hstat-l">本季售出台數</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-days">—</div><div class="hstat-l">均值翻車天數</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-stock">—</div><div class="hstat-l">現有庫存台數</div></div>
+    </div>
+  </div>
+
+  <!-- 滯銷警示 -->
+  <div class="warn-box" id="warn-box">
+    <span style="font-size:16px;flex-shrink:0;">⚠️</span>
+    <div id="warn-text"></div>
+  </div>
+
+  <!-- 門店切換 -->
+  <div class="store-tabs">
+    <div class="store-tab active" onclick="setStore('all',this)"><span class="st-dot" style="background:#9A9890;"></span>全集團</div>
+    <div class="store-tab" onclick="setStore('台北',this)"><span class="st-dot" style="background:#534AB7;"></span>台北旗艦店</div>
+    <div class="store-tab" onclick="setStore('台中',this)"><span class="st-dot" style="background:#7B72D4;"></span>台中中港店</div>
+    <div class="store-tab" onclick="setStore('高雄',this)"><span class="st-dot" style="background:#AFA9EC;"></span>高雄博愛店</div>
+    <div class="store-tab" onclick="setStore('桃園',this)"><span class="st-dot" style="background:#3B3488;"></span>桃園中壢店</div>
+  </div>
+
+  <div class="sec-title" id="scatter-sec-title">門店中古車業務散佈圖（D3.js）</div>
+
+  <div class="chart-grid">
+
+    <!-- U1 收購能力 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--purple-bg);">🛒</div>
+        <div class="cc-meta">
+          <div class="cc-title">U1 收購能力圖</div>
+          <div class="cc-sub">X軸：本季收購台數　Y軸：平均收購價差率（%）</div>
+          <span class="cc-badge cb-insight" id="b-u1">📊 收購量×議價能力</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-u1"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 少量高差價</div><div class="ql-d">議價強，收購量待提升</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 多量高差價</div><div class="ql-d">收購最強，量質俱佳</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↙ 少量低差價</div><div class="ql-d">收購業務需全面加強</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 多量低差價</div><div class="ql-d">收很多但讓利過多</div></div>
+        </div>
+        <div class="insight-box" id="ins-u1">載入中…</div>
+      </div>
+    </div>
+
+    <!-- U2 售出效率 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--teal-bg);">💰</div>
+        <div class="cc-meta">
+          <div class="cc-title">U2 售出效率圖</div>
+          <div class="cc-sub">X軸：本季售出台數　Y軸：售出平均毛利率（%）</div>
+          <span class="cc-badge cb-good" id="b-u2">✅ 售出量×毛利分析</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-u2"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 少量高毛利</div><div class="ql-d">精品路線，台數待提升</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 多量高毛利</div><div class="ql-d">最理想的中古車門店</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--gray);">↙ 少量低毛利</div><div class="ql-d">需全面提升</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 多量低毛利</div><div class="ql-d">以折扣換台數，不健康</div></div>
+        </div>
+        <div class="insight-box" id="ins-u2">載入中…</div>
+      </div>
+    </div>
+
+    <!-- U3 庫存周轉 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--navy-bg);">⏱</div>
+        <div class="cc-meta">
+          <div class="cc-title">U3 庫存周轉圖</div>
+          <div class="cc-sub">X軸：本季收購台數　Y軸：平均翻車天數（天）</div>
+          <span class="cc-badge cb-watch" id="b-u3">⚠ 翻車天數監控</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-u3"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↖ 少量快翻</div><div class="ql-d">周轉佳，擴大收購量</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 多量快翻</div><div class="ql-d">最理想，高效周轉</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↙ 少量慢翻</div><div class="ql-d">定價或行銷問題</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 多量慢翻（危險型）</div><div class="ql-d">大量滯銷，資金壓力高</div></div>
+        </div>
+        <div class="insight-box" id="ins-u3">載入中…</div>
+      </div>
+    </div>
+
+    <!-- U4 綜合獲利 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--amber-bg);">📈</div>
+        <div class="cc-meta">
+          <div class="cc-title">U4 綜合獲利圖</div>
+          <div class="cc-sub">X軸：收購價差率（%）　Y軸：售出毛利率（%）</div>
+          <span class="cc-badge cb-insight" id="b-u4">📊 收購×售出獲利對照</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-u4"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 低差價高毛利</div><div class="ql-d">賣得好但收得貴</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 高差價高毛利</div><div class="ql-d">收購與銷售雙優，標竿</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↙ 低差價低毛利</div><div class="ql-d">整體獲利能力最弱</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↘ 高差價低毛利</div><div class="ql-d">收得便宜但賣得不好</div></div>
+        </div>
+        <div class="insight-box" id="ins-u4">載入中…</div>
+      </div>
+    </div>
+
+  </div><!-- /chart-grid -->
+
+  <!-- 門店績效排名表 -->
+  <div class="sec-title">門店中古車綜合績效排名</div>
+  <div class="rank-panel">
+    <div class="rp-hdr">
+      <div>
+        <div class="rp-title">🔄 各門店品牌認證中古車綜合績效</div>
+        <div class="rp-sub">點擊欄位標題可排序 ｜ 翻車天數超過 60 天標警示</div>
+      </div>
+    </div>
+    <table class="rt">
+      <thead>
+        <tr>
+          <th class="c">#</th>
+          <th>門店</th>
+          <th onclick="sortBy('buy')" title="點擊排序">收購台數 ↕</th>
+          <th onclick="sortBy('buyMargin')" title="點擊排序">收購價差率 ↕</th>
+          <th onclick="sortBy('sell')" title="點擊排序">售出台數 ↕</th>
+          <th onclick="sortBy('sellMargin')" title="點擊排序">售出毛利率 ↕</th>
+          <th onclick="sortBy('days')" title="點擊排序">平均翻車天數 ↕</th>
+          <th onclick="sortBy('stock')" title="點擊排序">現有庫存 ↕</th>
+          <th class="c" onclick="sortBy('stale')" title="點擊排序">滯銷率 ↕</th>
+          <th class="c">趨勢</th>
+          <th class="c">評級</th>
+        </tr>
+      </thead>
+      <tbody id="rtbody"></tbody>
+    </table>
+  </div>
+
+  <!-- 單店深鑽：庫存清單 -->
+  <div class="drill-section" id="drill-section">
+    <div class="sec-title" id="drill-title">庫存清單</div>
+    <div class="rank-panel">
+      <div class="rp-hdr">
+        <div>
+          <div class="rp-title" id="drill-panel-title">品牌認證中古車庫存清單</div>
+          <div class="rp-sub">含已售出與在庫車輛 ｜ 翻車天數超過 60 天標警示</div>
+        </div>
+      </div>
+      <table class="rt">
+        <thead>
+          <tr>
+            <th>車牌/車號</th>
+            <th>車型</th>
+            <th>年式</th>
+            <th>里程</th>
+            <th>收購價（NT$）</th>
+            <th>售價（NT$）</th>
+            <th>收購日</th>
+            <th>在庫天數</th>
+            <th>認證狀態</th>
+            <th>銷售狀態</th>
+          </tr>
+        </thead>
+        <tbody id="inv-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<div id="tooltip" class="d3-tooltip"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+// ── 門店資料 ──
+const RAW = [
+  { name:'台北', store:'台北旗艦店', color:'#534AB7',
+    buy:18, buyMargin:14.2, sell:16, sellMargin:22.8, days:38, stock:8, stale:12, trend:'up',
+    inventory:[
+      {id:'TPK-001',model:'FTR 1200 S',     year:2023,km:'8,420',buyPrice:380000,sellPrice:468000,buyDate:'2026-03-10',daysIn:79, cert:'已認證',status:'在庫'},
+      {id:'TPK-002',model:'Scout Bobber',   year:2022,km:'12,800',buyPrice:295000,sellPrice:368000,buyDate:'2026-04-02',daysIn:56, cert:'已認證',status:'在庫'},
+      {id:'TPK-003',model:'Chief 110th',    year:2024,km:'3,200', buyPrice:520000,sellPrice:628000,buyDate:'2026-05-01',daysIn:27, cert:'已認證',status:'在庫'},
+      {id:'TPK-004',model:'Challenger',     year:2021,km:'18,400',buyPrice:420000,sellPrice:510000,buyDate:'2026-02-18',daysIn:99, cert:'已認證',status:'在庫'},
+      {id:'TPK-005',model:'Scout Bobber',   year:2023,km:'6,100', buyPrice:310000,sellPrice:388000,buyDate:'2026-04-15',daysIn:43, cert:'已認證',status:'已售'},
+      {id:'TPK-006',model:'FTR 1200 Rally', year:2022,km:'9,800', buyPrice:395000,sellPrice:488000,buyDate:'2026-03-20',daysIn:34, cert:'已認證',status:'已售'},
+      {id:'TPK-007',model:'Chief Bobber',   year:2023,km:'4,500', buyPrice:340000,sellPrice:420000,buyDate:'2026-05-10',daysIn:18, cert:'認證中',status:'在庫'},
+      {id:'TPK-008',model:'Pursuit',        year:2022,km:'14,200',buyPrice:480000,sellPrice:580000,buyDate:'2026-04-28',daysIn:30, cert:'已認證',status:'預訂'},
+    ]
+  },
+  { name:'台中', store:'台中中港店', color:'#7B72D4',
+    buy:14, buyMargin:12.8, sell:13, sellMargin:20.4, days:44, stock:6, stale:8, trend:'up',
+    inventory:[
+      {id:'TCC-001',model:'Scout Bobber',   year:2023,km:'7,200', buyPrice:305000,sellPrice:378000,buyDate:'2026-04-08',daysIn:50, cert:'已認證',status:'在庫'},
+      {id:'TCC-002',model:'FTR 1200 S',     year:2022,km:'11,400',buyPrice:360000,sellPrice:442000,buyDate:'2026-03-25',daysIn:64, cert:'已認證',status:'在庫'},
+      {id:'TCC-003',model:'Chief 110th',    year:2023,km:'5,600', buyPrice:490000,sellPrice:598000,buyDate:'2026-05-05',daysIn:23, cert:'已認證',status:'在庫'},
+      {id:'TCC-004',model:'Challenger',     year:2024,km:'2,800', buyPrice:540000,sellPrice:648000,buyDate:'2026-05-12',daysIn:16, cert:'認證中',status:'在庫'},
+      {id:'TCC-005',model:'Scout Bobber',   year:2021,km:'16,800',buyPrice:265000,sellPrice:328000,buyDate:'2026-03-01',daysIn:88, cert:'已認證',status:'在庫'},
+      {id:'TCC-006',model:'FTR 1200 Rally', year:2022,km:'8,200', buyPrice:385000,sellPrice:472000,buyDate:'2026-04-18',daysIn:40, cert:'已認證',status:'已售'},
+    ]
+  },
+  { name:'高雄', store:'高雄博愛店', color:'#AFA9EC',
+    buy:10, buyMargin:10.4, sell:8,  sellMargin:16.2, days:68, stock:9, stale:33, trend:'dn',
+    inventory:[
+      {id:'KHK-001',model:'Scout Bobber',   year:2022,km:'13,600',buyPrice:280000,sellPrice:338000,buyDate:'2026-01-15',daysIn:133,cert:'已認證',status:'在庫'},
+      {id:'KHK-002',model:'FTR 1200 S',     year:2021,km:'19,200',buyPrice:320000,sellPrice:385000,buyDate:'2026-01-28',daysIn:120,cert:'已認證',status:'在庫'},
+      {id:'KHK-003',model:'Chief 110th',    year:2023,km:'4,400', buyPrice:495000,sellPrice:590000,buyDate:'2026-04-20',daysIn:38, cert:'已認證',status:'在庫'},
+      {id:'KHK-004',model:'Challenger',     year:2022,km:'15,800',buyPrice:400000,sellPrice:475000,buyDate:'2026-02-10',daysIn:107,cert:'已認證',status:'在庫'},
+      {id:'KHK-005',model:'Scout Bobber',   year:2024,km:'1,800', buyPrice:335000,sellPrice:408000,buyDate:'2026-05-08',daysIn:20, cert:'認證中',status:'在庫'},
+      {id:'KHK-006',model:'FTR 1200 Rally', year:2022,km:'10,400',buyPrice:370000,sellPrice:448000,buyDate:'2026-03-15',daysIn:74, cert:'已認證',status:'已售'},
+      {id:'KHK-007',model:'Pursuit',        year:2021,km:'20,800',buyPrice:440000,sellPrice:520000,buyDate:'2026-02-05',daysIn:112,cert:'已認證',status:'在庫'},
+      {id:'KHK-008',model:'Chief Bobber',   year:2023,km:'6,800', buyPrice:348000,sellPrice:420000,buyDate:'2026-04-25',daysIn:33, cert:'已認證',status:'預訂'},
+      {id:'KHK-009',model:'Scout Bobber',   year:2020,km:'24,400',buyPrice:240000,sellPrice:285000,buyDate:'2026-01-10',daysIn:138,cert:'已認證',status:'在庫'},
+    ]
+  },
+  { name:'桃園', store:'桃園中壢店', color:'#3B3488',
+    buy:12, buyMargin:13.6, sell:11, sellMargin:19.8, days:52, stock:5, stale:20, trend:'flat',
+    inventory:[
+      {id:'TYK-001',model:'Scout Bobber',   year:2023,km:'8,600', buyPrice:298000,sellPrice:370000,buyDate:'2026-04-12',daysIn:46, cert:'已認證',status:'在庫'},
+      {id:'TYK-002',model:'FTR 1200 S',     year:2022,km:'10,200',buyPrice:355000,sellPrice:435000,buyDate:'2026-03-28',daysIn:61, cert:'已認證',status:'在庫'},
+      {id:'TYK-003',model:'Chief 110th',    year:2024,km:'2,400', buyPrice:510000,sellPrice:615000,buyDate:'2026-05-15',daysIn:13, cert:'認證中',status:'在庫'},
+      {id:'TYK-004',model:'Challenger',     year:2023,km:'7,800', buyPrice:458000,sellPrice:552000,buyDate:'2026-04-05',daysIn:53, cert:'已認證',status:'已售'},
+      {id:'TYK-005',model:'Scout Bobber',   year:2021,km:'17,200',buyPrice:258000,sellPrice:312000,buyDate:'2026-02-20',daysIn:97, cert:'已認證',status:'在庫'},
+    ]
+  },
+];
+
+const TAG_COLOR = { '標竿':'#0F6E56','穩定':'#534AB7','待提升':'#854F0B','警示':'#C8001A' };
+const TAG_STYLE = {
+  '標竿': {bg:'#E1F5EE',color:'#0F6E56'},
+  '穩定': {bg:'#EEEDFE',color:'#534AB7'},
+  '待提升':{bg:'#FDF3E3',color:'#854F0B'},
+  '警示': {bg:'#FDECEA',color:'#C8001A'},
+};
+function getTag(d){
+  if(d.sellMargin>=22 && d.days<=45) return '標竿';
+  if(d.sellMargin>=18 && d.days<=60) return '穩定';
+  if(d.stale>=30 || d.days>=65) return '警示';
+  return '待提升';
+}
+
+let currentData = RAW;
+
+// ── drawScatter（圓形，門店用）──
+function drawScatter(cid, data, xAcc, yAcc, xLabel, yLabel, xFmt, yFmt, invertY){
+  const el = document.getElementById(cid);
+  el.innerHTML='';
+  const W = Math.min(el.clientWidth||540,540), H=220;
+  const margin={top:16,right:20,bottom:46,left:58};
+  const w=W-margin.left-margin.right, h=H-margin.top-margin.bottom;
+
+  const svg=d3.select(el).append('svg').attr('width','100%').attr('viewBox',`0 0 ${W} ${H}`);
+  const g=svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+
+  const xVals=data.map(xAcc), yVals=data.map(yAcc);
+  const xPad=(d3.max(xVals)-d3.min(xVals))*0.2||2;
+  const yPad=(d3.max(yVals)-d3.min(yVals))*0.2||2;
+  const xs=d3.scaleLinear().domain([d3.min(xVals)-xPad,d3.max(xVals)+xPad]).range([0,w]);
+  const ys=d3.scaleLinear().domain([d3.min(yVals)-yPad,d3.max(yVals)+yPad]).range([h,0]);
+  const avgX=d3.mean(xVals), avgY=d3.mean(yVals);
+
+  // 象限背景
+  const qColors = invertY
+    ? ['rgba(30,125,62,.06)','rgba(30,125,62,.04)','rgba(200,0,26,.04)','rgba(133,79,11,.04)']
+    : ['rgba(133,79,11,.04)','rgba(30,125,62,.06)','rgba(200,0,26,.06)','rgba(200,0,26,.04)'];
+  [
+    [0,0,xs(avgX),ys(avgY),qColors[0]],
+    [xs(avgX),0,w-xs(avgX),ys(avgY),qColors[1]],
+    [0,ys(avgY),xs(avgX),h-ys(avgY),qColors[2]],
+    [xs(avgX),ys(avgY),w-xs(avgX),h-ys(avgY),qColors[3]],
+  ].forEach(([x,y,ww,hh,c])=>g.append('rect').attr('x',x).attr('y',y).attr('width',ww).attr('height',hh).attr('fill',c));
+
+  // 格線
+  g.append('g').call(d3.axisLeft(ys).tickSize(-w).tickFormat('')).select('.domain').remove();
+  g.selectAll('.tick line').attr('stroke','rgba(0,0,0,.04)').attr('stroke-dasharray','3,3');
+
+  // 均值線
+  [[xs(avgX),0,xs(avgX),h],[0,ys(avgY),w,ys(avgY)]].forEach(([x1,y1,x2,y2])=>
+    g.append('line').attr('x1',x1).attr('y1',y1).attr('x2',x2).attr('y2',y2)
+     .attr('stroke','#AFA9EC').attr('stroke-width',1.5).attr('stroke-dasharray','5,4'));
+  g.append('text').attr('x',xs(avgX)+4).attr('y',h-3).attr('fill','#AFA9EC88').attr('font-size',9).attr('font-family','DM Mono,monospace').text('均值 '+xFmt(Math.round(avgX)));
+  g.append('text').attr('x',4).attr('y',ys(avgY)-4).attr('fill','#AFA9EC88').attr('font-size',9).attr('font-family','DM Mono,monospace').text('均值 '+yFmt(Math.round(avgY)));
+
+  // 軸
+  g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(xs).ticks(5).tickFormat(xFmt))
+    .call(ax=>{ax.select('.domain').attr('stroke','#EEECE6');ax.selectAll('text').attr('fill','#9A9890').attr('font-size',10).attr('font-family','DM Mono,monospace');ax.selectAll('.tick line').attr('stroke','#EEECE6');});
+  g.append('g').call(d3.axisLeft(ys).ticks(5).tickFormat(yFmt))
+    .call(ax=>{ax.select('.domain').attr('stroke','#EEECE6');ax.selectAll('text').attr('fill','#9A9890').attr('font-size',10).attr('font-family','DM Mono,monospace');ax.selectAll('.tick line').attr('stroke','#EEECE6');});
+  g.append('text').attr('x',w/2).attr('y',h+36).attr('text-anchor','middle').attr('fill','#9A9890').attr('font-size',10).attr('font-family','Noto Sans TC,sans-serif').text(xLabel);
+  g.append('text').attr('transform','rotate(-90)').attr('x',-h/2).attr('y',-50).attr('text-anchor','middle').attr('fill','#9A9890').attr('font-size',10).attr('font-family','Noto Sans TC,sans-serif').text(yLabel);
+
+  const szScale=d3.scaleSqrt().domain(d3.extent(data,d=>d.stock)).range([14,32]);
+  const tooltip=document.getElementById('tooltip');
+
+  const dots=g.selectAll('.dot').data(data).enter().append('g').attr('class','dot');
+
+  dots.append('circle')
+    .attr('cx',d=>xs(xAcc(d))).attr('cy',d=>ys(yAcc(d))).attr('r',0)
+    .attr('fill',d=>d.color).attr('fill-opacity',.25)
+    .attr('stroke',d=>d.color).attr('stroke-width',2.5)
+    .transition().duration(700).ease(d3.easeBackOut).delay((_,i)=>i*100)
+    .attr('r',d=>szScale(d.stock));
+
+  dots.append('text')
+    .attr('x',d=>xs(xAcc(d))).attr('y',d=>ys(yAcc(d))+4)
+    .attr('text-anchor','middle').attr('font-size',11).attr('font-weight',700)
+    .attr('fill',d=>d.color).attr('pointer-events','none').attr('opacity',0)
+    .text(d=>d.name)
+    .transition().delay((_,i)=>i*100+300).attr('opacity',1);
+
+  dots.on('mouseover',function(event,d){
+      d3.select(this).select('circle').transition().duration(120).attr('fill-opacity',.4).attr('stroke-width',3.5);
+      const tag=getTag(d);
+      const ts=TAG_STYLE[tag];
+      tooltip.innerHTML=`
+        <div class="tt-name">${d.store}</div>
+        <div class="tt-store">品牌認證中古車</div>
+        <div class="tt-row"><span>${xLabel}</span><span class="tt-val" style="color:${d.color};">${xFmt(xAcc(d))}</span></div>
+        <div class="tt-row"><span>${yLabel}</span><span class="tt-val" style="color:${d.color};">${yFmt(yAcc(d))}</span></div>
+        <div class="tt-row"><span>現有庫存</span><span class="tt-val">${d.stock}台</span></div>
+        <span class="tt-tag" style="background:${ts.bg};color:${ts.color};">${tag}</span>`;
+      tooltip.style.opacity='1';
+    })
+    .on('mousemove',function(event){
+      const x=event.clientX+14,y=event.clientY-10;
+      tooltip.style.left=(x+220>window.innerWidth?event.clientX-230:x)+'px';
+      tooltip.style.top=(y+180>window.innerHeight?event.clientY-190:y)+'px';
+    })
+    .on('mouseout',function(){
+      d3.select(this).select('circle').transition().duration(120).attr('fill-opacity',.25).attr('stroke-width',2.5);
+      tooltip.style.opacity='0';
+    });
+}
+
+// ── renderAll ──
+function renderAll(data){
+  drawScatter('c-u1',data,d=>d.buy,      d=>d.buyMargin,  '收購台數','收購價差率（%）',v=>v+'台',v=>v+'%',false);
+  drawScatter('c-u2',data,d=>d.sell,     d=>d.sellMargin, '售出台數','售出毛利率（%）',v=>v+'台',v=>v+'%',false);
+  drawScatter('c-u3',data,d=>d.buy,      d=>d.days,       '收購台數','平均翻車天數（天）',v=>v+'台',v=>v+'天',true);
+  drawScatter('c-u4',data,d=>d.buyMargin,d=>d.sellMargin, '收購價差率（%）','售出毛利率（%）',v=>v+'%',v=>v+'%',false);
+
+  // Hero stats
+  const totalBuy  = data.reduce((s,d)=>s+d.buy,0);
+  const totalSell = data.reduce((s,d)=>s+d.sell,0);
+  const avgDays   = Math.round(data.reduce((s,d)=>s+d.days,0)/data.length);
+  const totalStock= data.reduce((s,d)=>s+d.stock,0);
+  document.getElementById('st-buy').textContent   = totalBuy+'台';
+  document.getElementById('st-sell').textContent  = totalSell+'台';
+  document.getElementById('st-days').textContent  = avgDays+'天';
+  document.getElementById('st-stock').textContent = totalStock+'台';
+
+  // Insights
+  const bestSell  = [...data].sort((a,b)=>b.sellMargin-a.sellMargin)[0];
+  const bestBuy   = [...data].sort((a,b)=>b.buyMargin-a.buyMargin)[0];
+  const fastest   = [...data].sort((a,b)=>a.days-b.days)[0];
+  const slowest   = [...data].sort((a,b)=>b.days-a.days)[0];
+  document.getElementById('ins-u1').innerHTML=`<b>U1 收購診斷：</b>${bestBuy.store}收購價差率最高（${bestBuy.buyMargin}%），議價能力最強。各門店收購台數差距明顯，建議統一收購評估標準。`;
+  document.getElementById('ins-u2').innerHTML=`<b>U2 售出診斷：</b>${bestSell.store}售出毛利率最高（${bestSell.sellMargin}%）。高毛利＋高台數是理想型，避免以折扣換台數。`;
+  document.getElementById('ins-u3').innerHTML=`<b>U3 周轉診斷：</b>${fastest.store}翻車天數最快（${fastest.days}天）。${slowest.days>=60?`${slowest.store}翻車天數${slowest.days}天，已超過警戒線60天，需調整定價策略。`:'各店周轉均在合理範圍。'}`;
+  document.getElementById('ins-u4').innerHTML=`<b>U4 獲利診斷：</b>收購價差率與售出毛利率雙高的門店是中古車標竿。${bestBuy.name===bestSell.name?bestBuy.store+'在兩個維度均領先，是本期標竿。':'不同門店在不同維度各有優勢，可互相學習。'}`;
+
+  // 警示
+  const staleWarn=data.filter(d=>d.days>=60||d.stale>=25);
+  const warnBox=document.getElementById('warn-box');
+  if(staleWarn.length>0){
+    warnBox.style.display='';
+    document.getElementById('warn-text').innerHTML=
+      `<b style="color:var(--red);">庫存滯銷警示：</b>`+
+      staleWarn.map(d=>`<b>${d.store}</b> 平均翻車${d.days}天，滯銷率${d.stale}%`).join('　｜　')+
+      '。建議重新評估定價策略或啟動促銷。';
+  } else { warnBox.style.display='none'; }
+}
+
+// ── renderTable ──
+function renderTable(data, sortKey='sellMargin'){
+  const sorted=[...data].sort((a,b)=>b[sortKey]-a[sortKey]);
+  document.getElementById('rtbody').innerHTML=sorted.map((d,i)=>{
+    const tag=getTag(d);
+    const ts=TAG_STYLE[tag];
+    const tr=d.trend==='up'?'<span class="t-up">▲</span>':d.trend==='dn'?'<span class="t-dn">▼</span>':'<span class="t-flat">→</span>';
+    const daysColor=d.days>=60?'var(--red)':d.days>=45?'var(--amber)':'var(--teal)';
+    const staleColor=d.stale>=30?'var(--red)':d.stale>=20?'var(--amber)':'var(--teal)';
+    return `<tr>
+      <td class="c"><span class="mono" style="color:${i===0?'#0F6E56':'#9A9890'}">${String(i+1).padStart(2,'0')}</span></td>
+      <td><div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${d.color};"></div>
+        <div><div style="font-weight:700;">${d.store}</div><div style="font-size:10.5px;color:var(--gray);">品牌認證中古車</div></div>
+      </div></td>
+      <td><div class="prog-wrap">
+        <div class="prog-bar"><div class="prog-fill pf-purple" style="width:${d.buy/20*100}%;"></div></div>
+        <span class="mono" style="font-size:11.5px;min-width:32px;text-align:right;">${d.buy}台</span>
+      </div></td>
+      <td><span class="mono" style="color:${d.buyMargin>=13?'var(--teal)':d.buyMargin>=11?'var(--amber)':'var(--red)'};">${d.buyMargin}%</span></td>
+      <td><div class="prog-wrap">
+        <div class="prog-bar"><div class="prog-fill pf-purple" style="width:${d.sell/18*100}%;"></div></div>
+        <span class="mono" style="font-size:11.5px;min-width:32px;text-align:right;">${d.sell}台</span>
+      </div></td>
+      <td><span class="mono" style="color:${d.sellMargin>=22?'var(--teal)':d.sellMargin>=18?'var(--amber)':'var(--red)'};">${d.sellMargin}%</span></td>
+      <td><span class="mono" style="color:${daysColor};">${d.days}天${d.days>=60?' ⚠':''}</span></td>
+      <td><span class="mono">${d.stock}台</span></td>
+      <td class="c"><span class="mono" style="color:${staleColor};">${d.stale}%</span></td>
+      <td class="c">${tr}</td>
+      <td class="c"><span class="badge" style="background:${ts.bg};color:${ts.color};">${tag}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 單店深鑽庫存清單 ──
+function renderInventory(storeData){
+  const drill=document.getElementById('drill-section');
+  drill.classList.add('active');
+  document.getElementById('drill-title').textContent=storeData.store+' — 庫存清單';
+  document.getElementById('drill-panel-title').textContent=storeData.store+' 品牌認證中古車庫存明細';
+
+  document.getElementById('inv-tbody').innerHTML=storeData.inventory.map(v=>{
+    const margin=v.sellPrice>0?((v.sellPrice-v.buyPrice)/v.sellPrice*100).toFixed(1):'-';
+    const daysColor=v.daysIn>=90?'var(--red)':v.daysIn>=60?'var(--amber)':'var(--teal)';
+    const statusBadge={
+      '在庫':'<span class="badge inv-badge-cert">在庫</span>',
+      '已售':'<span class="badge inv-badge-sold">已售</span>',
+      '預訂':'<span class="badge inv-badge-ok">預訂</span>',
+    }[v.status]||v.status;
+    const certBadge={
+      '已認證':'<span class="badge inv-badge-cert">✅ 已認證</span>',
+      '認證中':'<span class="badge inv-badge-warn">⏳ 認證中</span>',
+    }[v.cert]||v.cert;
+    return `<tr>
+      <td style="font-family:monospace;font-size:11px;color:var(--purple);">${v.id}</td>
+      <td><strong>${v.model}</strong></td>
+      <td>${v.year}年</td>
+      <td>${v.km} km</td>
+      <td>NT$${v.buyPrice.toLocaleString()}</td>
+      <td>NT$${v.sellPrice.toLocaleString()} <span style="font-size:10px;color:var(--teal);">(+${margin}%)</span></td>
+      <td>${v.buyDate}</td>
+      <td><span class="mono" style="color:${daysColor};">${v.daysIn}天${v.daysIn>=60?' ⚠':''}</span></td>
+      <td>${certBadge}</td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 門店切換 ──
+function setStore(key,el){
+  document.querySelectorAll('.store-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+
+  const drillSection=document.getElementById('drill-section');
+
+  if(key==='all'){
+    currentData=RAW;
+    drillSection.classList.remove('active');
+    document.getElementById('scatter-sec-title').textContent='門店中古車業務散佈圖（D3.js）';
+    showToast('顯示全集團');
+  } else {
+    currentData=RAW.filter(d=>d.name===key);
+    const sd=RAW.find(d=>d.name===key);
+    renderInventory(sd);
+    document.getElementById('scatter-sec-title').textContent=sd.store+' — 中古車業務診斷';
+    showToast('篩選：'+sd.store);
+  }
+  renderAll(currentData);
+  renderTable(currentData);
+}
+
+function sortBy(k){ renderTable(currentData,k); showToast('依 '+k+' 排序'); }
+function setChip(el){
+  el.closest('.sub-bar').querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  showToast('已切換：'+el.textContent.trim());
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+window.addEventListener('load',()=>{renderAll(RAW);renderTable(RAW);});
+window.addEventListener('resize',()=>{renderAll(currentData);});
+</script>
+</body>
+</html>

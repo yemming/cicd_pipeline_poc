@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP10 門店售後Tab — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;
+  --gray:#9A9890;--border:#EEECE6;--header:#0D2438;
+  --green:#1E7D3E;--green-bg:#EAF5EA;
+}
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+
+.store-selector{background:#fff;border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:stretch;gap:0;position:sticky;top:52px;z-index:91;overflow-x:auto;}
+.ss-item{padding:13px 18px;font-size:13px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:.15s;display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.ss-item:hover{color:var(--teal);background:#FAFAF8;}
+.ss-item.active{color:var(--teal);font-weight:700;border-bottom-color:var(--teal);}
+.ss-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+.dept-tab-bar{background:#fff;border-bottom:2px solid var(--border);padding:0 24px;display:flex;gap:0;position:sticky;top:105px;z-index:90;}
+.dept-tab{padding:9px 20px;font-size:13px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;font-family:'Noto Sans TC',sans-serif;background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;}
+.dept-tab.active{color:var(--teal);font-weight:700;border-bottom-color:var(--teal);}
+
+.main{max-width:1300px;margin:0 auto;padding:20px 24px 48px;}
+
+.store-hero{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 24px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.sh-left{display:flex;align-items:center;gap:14px;}
+.sh-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.sh-name{font-size:18px;font-weight:700;color:var(--teal);margin-bottom:2px;}
+.sh-meta{font-size:11.5px;color:var(--gray);}
+
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:18px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi-card{background:#fff;border:1px solid var(--border);border-radius:9px;padding:13px 14px;position:relative;}
+.kpi-card.alert{border-left:3px solid var(--red);}
+.kpi-card.good{border-left:3px solid #3DBE6E;}
+.kpi-l{font-size:10.5px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:3px;}
+.kpi-sub{font-size:10.5px;color:var(--gray);}
+.kpi-trend{position:absolute;top:13px;right:13px;font-size:11px;font-weight:600;}
+.t-up{color:#3DBE6E;}.t-dn{color:var(--red);}.t-flat{color:var(--gray);}
+
+.bench-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.bench-card{border-radius:8px;padding:11px 14px;border:1.5px solid;}
+.bc-teal{background:var(--teal-bg);border-color:var(--teal-bd);}
+.bc-navy{background:var(--navy-bg);border-color:var(--navy-bd);}
+.bc-amber{background:var(--amber-bg);border-color:var(--amber-bd);}
+.bc-green{background:#EAF5EA;border-color:#7ACA7A;}
+.bc-label{font-size:10px;font-weight:700;opacity:.7;margin-bottom:3px;}
+.bc-val{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.bc-sub{font-size:10px;opacity:.65;}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;}
+.panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.panel-hdr{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.panel-icon{font-size:13px;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.panel-title{font-size:12.5px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:12px 14px;}
+
+/* 車間三率 */
+.three-rate{display:flex;flex-direction:column;gap:10px;}
+.tr-item{display:flex;align-items:center;gap:10px;}
+.tr-label{font-size:12px;min-width:72px;color:var(--gray);}
+.tr-bar{flex:1;height:10px;background:#EEECE6;border-radius:5px;overflow:hidden;}
+.tr-fill{height:100%;border-radius:5px;}
+.tr-val{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;min-width:46px;text-align:right;}
+.tr-target{font-size:10px;color:var(--gray);min-width:52px;text-align:right;}
+
+/* 客戶動態 */
+.flow-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F4F3F0;font-size:12.5px;}
+.flow-row:last-child{border-bottom:none;}
+.fl-month{min-width:28px;font-size:11px;color:var(--gray);}
+.fl-new{font-family:'DM Mono',monospace;font-weight:700;min-width:38px;text-align:center;color:#3DBE6E;}
+.fl-lost{font-family:'DM Mono',monospace;font-weight:700;min-width:38px;text-align:center;color:var(--red);}
+.fl-net{font-family:'DM Mono',monospace;font-weight:700;min-width:36px;text-align:right;}
+.fl-warn{font-size:10px;color:var(--red);font-weight:700;}
+
+/* 返修率告警 */
+.rework-banner{border-radius:8px;padding:9px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px;}
+.rb-ok{background:var(--green-bg);border:1px solid #7ACA7A;color:#2D5A2D;}
+.rb-warn{background:var(--amber-bg);border:1px solid var(--amber-bd);color:#5A3A00;}
+.rb-bad{background:var(--red-bg);border:1px solid var(--red-bd);color:#5A1010;}
+
+/* 業務結構圓環（CSS only） */
+.pie-legend{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.pl-row{display:flex;align-items:center;gap:7px;font-size:12px;}
+.pl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.pl-label{flex:1;}
+.pl-val{font-family:'DM Mono',monospace;font-weight:700;min-width:36px;text-align:right;}
+.pl-pct{font-size:10.5px;color:var(--gray);min-width:36px;text-align:right;}
+
+/* 零件與精品 */
+.parts-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #F4F3F0;}
+.parts-row:last-child{border-bottom:none;}
+.pr-label{font-size:12px;min-width:88px;color:#2C2C2A;}
+.pr-bar-wrap{flex:1;}
+.pr-bar-bg{height:6px;background:#EEECE6;border-radius:3px;overflow:hidden;margin-bottom:2px;}
+.pr-bar-our{height:100%;border-radius:3px;background:var(--teal);}
+.pr-vals{display:flex;justify-content:space-between;font-size:10px;}
+.pr-warn{font-size:10px;color:var(--red);font-weight:700;padding:1px 6px;background:var(--red-bg);border-radius:4px;white-space:nowrap;}
+.parts-kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.pk-card{background:#FAFAF8;border:1px solid var(--border);border-radius:7px;padding:9px 11px;text-align:center;}
+.pk-val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.pk-label{font-size:10px;color:var(--gray);}
+.pk-bench{font-size:10px;margin-top:2px;}
+
+.mono{font-family:'DM Mono',monospace;font-weight:700;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-ok{background:var(--green-bg);color:var(--green);}
+.b-warn{background:var(--amber-bg);color:var(--amber);}
+.b-bad{background:var(--red-bg);color:var(--red);}
+.drill-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--teal-bd);background:var(--teal-bg);color:var(--teal);font-size:11.5px;font-weight:600;cursor:pointer;transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.drill-btn:hover{background:var(--teal);color:#fff;}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:9999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@media(max-width:900px){
+  .kpi-row,.bench-row{grid-template-columns:repeat(2,1fr);}
+  .two-col,.three-col{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP10 門店診斷 — 售後服務</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn" onclick="showToast('下鑽至 GRP08 SA能效…')">🔧 SA 能效 →</button>
+  </div>
+</header>
+
+<div class="store-selector">
+  <div class="ss-item active" onclick="setStore(0,this)"><span class="ss-dot" style="background:#1A3A5C;"></span>台北旗艦店</div>
+  <div class="ss-item" onclick="setStore(1,this)"><span class="ss-dot" style="background:#2A6080;"></span>台中直營店</div>
+  <div class="ss-item" onclick="setStore(2,this)"><span class="ss-dot" style="background:#3A5080;"></span>高雄直營店</div>
+  <div class="ss-item" onclick="setStore(3,this)"><span class="ss-dot" style="background:#0F6E56;"></span>台南授權商</div>
+  <div class="ss-item" onclick="setStore(4,this)"><span class="ss-dot" style="background:#5A7090;"></span>嘉義授權商</div>
+</div>
+
+<div class="dept-tab-bar">
+  <button class="dept-tab" onclick="showToast('切換至銷售Tab（GRP09）')">🏍 新車銷售</button>
+  <button class="dept-tab active">🔧 售後服務</button>
+  <button class="dept-tab" onclick="showToast('切換至中古車Tab')">🚗 中古車</button>
+</div>
+
+<div class="main" id="main-content"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const STORES = [
+  {
+    name:'台北旗艦店', type:'直營', color:'#0F6E56',
+    kpi:{rpo:642, target:620, ticketVal:3480, grossRate:44, absorbRate:72, reworkRate:4},
+    bench:{rpo:569, ticketVal:2847, grossRate:42, absorbRate:68, reworkRate:14},
+    threeRate:{efficiency:168, utilization:220, productivity:84},
+    monthRpo:[580,520,610,624,638,642],
+    prevRpo: [560,500,590,600,615,620],
+    business:[
+      {label:'保險事故',val:228,pct:36,color:'#1A3A5C'},
+      {label:'保養',val:192,pct:30,color:'#0F6E56'},
+      {label:'首保',val:96,pct:15,color:'#534AB7'},
+      {label:'索賠',val:70,pct:11,color:'#854F0B'},
+      {label:'一般維修',val:56,pct:8,color:'#9A9890'},
+    ],
+    flow:[
+      {month:'1月',newC:226,lostC:181,net:45},
+      {month:'2月',newC:198,lostC:172,net:26},
+      {month:'3月',newC:242,lostC:188,net:54},
+      {month:'4月',newC:218,lostC:194,net:24},
+      {month:'5月',newC:234,lostC:196,net:38},
+    ],
+    reworkWarn: false,
+    parts:{
+      fulfillRate:96, deadStockPct:6, turnover:11.2,
+      directSaleAmt:148000, directSaleMargin:32,
+      accessoryRate:45, accessoryMargin:48, accessoryBench:38,
+      benchFulfill:88, benchTurnover:8.2, benchDirect:98000,
+    },
+    insight:'台北旗艦店售後表現全集團最佳。首次修復率 96%，返修率 4% 遠低於集團均值 14%。售後吸收率 72% 超過目標，車間三率均在健康區間。建議將此門店的工單標準化流程推廣至其他門店。',
+  },
+  {
+    name:'台中直營店', type:'直營', color:'#2A6080',
+    kpi:{rpo:427, target:540, ticketVal:2420, grossRate:38, absorbRate:61, reworkRate:45},
+    bench:{rpo:569, ticketVal:2847, grossRate:42, absorbRate:68, reworkRate:14},
+    threeRate:{efficiency:156, utilization:225, productivity:52},
+    monthRpo:[510,480,500,490,468,427],
+    prevRpo: [520,498,512,508,520,515],
+    business:[
+      {label:'保險事故',val:152,pct:36,color:'#1A3A5C'},
+      {label:'保養',val:128,pct:30,color:'#0F6E56'},
+      {label:'首保',val:64,pct:15,color:'#534AB7'},
+      {label:'索賠',val:47,pct:11,color:'#854F0B'},
+      {label:'一般維修',val:36,pct:8,color:'#9A9890'},
+    ],
+    flow:[
+      {month:'1月',newC:155,lostC:148,net:7},
+      {month:'2月',newC:146,lostC:158,net:-12},
+      {month:'3月',newC:193,lostC:172,net:21},
+      {month:'4月',newC:172,lostC:198,net:-26},
+      {month:'5月',newC:330,lostC:382,net:-52},
+    ],
+    reworkWarn: true,
+    parts:{
+      fulfillRate:88, deadStockPct:22, turnover:8.4,
+      directSaleAmt:62000, directSaleMargin:24,
+      accessoryRate:28, accessoryMargin:38, accessoryBench:38,
+      benchFulfill:88, benchTurnover:8.2, benchDirect:98000,
+    },
+    insight:'台中直營店售後部門面臨雙重危機。返修率 45% 極度異常（全國標杆 1%），車間生產率僅 52%，顯示工單品質嚴重不足。客戶5月淨流失 -52 人，需立即下鑽至技師個人層，找出返修率最高的技師並針對性輔導。',
+  },
+  {
+    name:'高雄直營店', type:'直營', color:'#3A5080',
+    kpi:{rpo:385, target:520, ticketVal:2650, grossRate:41, absorbRate:65, reworkRate:8},
+    bench:{rpo:569, ticketVal:2847, grossRate:42, absorbRate:68, reworkRate:14},
+    threeRate:{efficiency:148, utilization:198, productivity:74},
+    monthRpo:[420,398,410,395,388,385],
+    prevRpo: [432,410,422,418,424,420],
+    business:[
+      {label:'保險事故',val:138,pct:36,color:'#1A3A5C'},
+      {label:'保養',val:116,pct:30,color:'#0F6E56'},
+      {label:'首保',val:58,pct:15,color:'#534AB7'},
+      {label:'索賠',val:42,pct:11,color:'#854F0B'},
+      {label:'一般維修',val:31,pct:8,color:'#9A9890'},
+    ],
+    flow:[
+      {month:'1月',newC:98,lostC:88,net:10},
+      {month:'2月',newC:88,lostC:92,net:-4},
+      {month:'3月',newC:112,lostC:98,net:14},
+      {month:'4月',newC:104,lostC:96,net:8},
+      {month:'5月',newC:98,lostC:86,net:12},
+    ],
+    reworkWarn: false,
+    parts:{
+      fulfillRate:91, deadStockPct:12, turnover:9.8,
+      directSaleAmt:88000, directSaleMargin:28,
+      accessoryRate:34, accessoryMargin:42, accessoryBench:38,
+      benchFulfill:88, benchTurnover:8.2, benchDirect:98000,
+    },
+    insight:'高雄直營店售後整體穩定，返修率 8% 在可接受範圍。主要問題是台次達成率 74%，低於目標。單車產值 NT$2,650 略低於集團均值，增項話術是提升空間。',
+  },
+  {
+    name:'台南授權商', type:'授權', color:'#0F6E56',
+    kpi:{rpo:318, target:420, ticketVal:2980, grossRate:43, absorbRate:68, reworkRate:6},
+    bench:{rpo:569, ticketVal:2847, grossRate:42, absorbRate:68, reworkRate:14},
+    threeRate:{efficiency:158, utilization:210, productivity:78},
+    monthRpo:[298,272,306,312,318,318],
+    prevRpo: [285,260,292,298,305,310],
+    business:[
+      {label:'保險事故',val:114,pct:36,color:'#1A3A5C'},
+      {label:'保養',val:96,pct:30,color:'#0F6E56'},
+      {label:'首保',val:48,pct:15,color:'#534AB7'},
+      {label:'索賠',val:35,pct:11,color:'#854F0B'},
+      {label:'一般維修',val:25,pct:8,color:'#9A9890'},
+    ],
+    flow:[
+      {month:'1月',newC:142,lostC:118,net:24},
+      {month:'2月',newC:128,lostC:112,net:16},
+      {month:'3月',newC:158,lostC:132,net:26},
+      {month:'4月',newC:148,lostC:124,net:24},
+      {month:'5月',newC:142,lostC:114,net:28},
+    ],
+    reworkWarn: false,
+    parts:{
+      fulfillRate:93, deadStockPct:9, turnover:10.5,
+      directSaleAmt:102000, directSaleMargin:30,
+      accessoryRate:40, accessoryMargin:44, accessoryBench:38,
+      benchFulfill:88, benchTurnover:8.2, benchDirect:98000,
+    },
+    insight:'台南授權商售後表現穩定向上，單車產值 NT$2,980 高於集團均值，返修率 6% 健康。客戶流動5個月均保持正增長，客戶基盤持續擴大。售後吸收率恰好達到目標線。',
+  },
+  {
+    name:'嘉義授權商', type:'授權', color:'#5A7090',
+    kpi:{rpo:168, target:390, ticketVal:2120, grossRate:36, absorbRate:52, reworkRate:18},
+    bench:{rpo:569, ticketVal:2847, grossRate:42, absorbRate:68, reworkRate:14},
+    threeRate:{efficiency:128, utilization:172, productivity:48},
+    monthRpo:[220,198,210,196,182,168],
+    prevRpo: [238,215,228,218,206,214],
+    business:[
+      {label:'保險事故',val:60,pct:36,color:'#1A3A5C'},
+      {label:'保養',val:50,pct:30,color:'#0F6E56'},
+      {label:'首保',val:25,pct:15,color:'#534AB7'},
+      {label:'索賠',val:19,pct:11,color:'#854F0B'},
+      {label:'一般維修',val:14,pct:8,color:'#9A9890'},
+    ],
+    flow:[
+      {month:'1月',newC:62,lostC:58,net:4},
+      {month:'2月',newC:54,lostC:62,net:-8},
+      {month:'3月',newC:68,lostC:64,net:4},
+      {month:'4月',newC:58,lostC:62,net:-4},
+      {month:'5月',newC:62,lostC:57,net:5},
+    ],
+    reworkWarn: true,
+    parts:{
+      fulfillRate:72, deadStockPct:28, turnover:5.1,
+      directSaleAmt:38000, directSaleMargin:18,
+      accessoryRate:22, accessoryMargin:32, accessoryBench:38,
+      benchFulfill:88, benchTurnover:8.2, benchDirect:98000,
+    },
+    insight:'嘉義授權商售後是集團最需要關注的門店。台次達成率僅 43%，車間生產率 48% 是最低值，返修率 18% 超過告警標準。零件備件供應率 72%（低於90%標準）直接影響工單完成率，形成惡性循環。',
+  },
+];
+
+let currentIdx = 0;
+
+function renderStore(idx){
+  const s = STORES[idx];
+  const k = s.kpi;
+  const b = s.bench;
+  const rpoAch = Math.round(k.rpo/k.target*100);
+  const reworkBad = k.reworkRate > 10;
+  const reworkClass = k.reworkRate <= 5 ? 'rb-ok' : k.reworkRate <= 12 ? 'rb-warn' : 'rb-bad';
+  const reworkIcon = k.reworkRate <= 5 ? '✅' : k.reworkRate <= 12 ? '⚠️' : '🔴';
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="store-hero">
+      <div class="sh-left">
+        <div class="sh-icon" style="background:${s.color}22;">🔧</div>
+        <div>
+          <div class="sh-name">${s.name}</div>
+          <div class="sh-meta">${s.type==='直營'?'🔵 直營店':'🟢 授權經銷商'}　｜　售後服務部門　｜　時間進度 66.7%</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="drill-btn" onclick="showToast('下鑽至 GRP08 SA能效…')">🔧 SA能效 →</button>
+        <button class="drill-btn" onclick="showToast('產生門店報告…')">📋 產生報告</button>
+      </div>
+    </div>
+
+    <div class="rework-banner ${reworkClass}">
+      ${reworkIcon} <b>返修率 ${k.reworkRate}%</b>　
+      ${k.reworkRate<=5?'優秀，遠低於集團均值 '+b.reworkRate+'%':
+        k.reworkRate<=12?'注意，略高於集團均值 '+b.reworkRate+'%，建議追蹤技師個人返修率':
+        '嚴重告警！遠超集團均值 '+b.reworkRate+'%（標準 &lt;5%）。請立即下鑽至技師個人層診斷。'}
+    </div>
+
+    <div class="sec-title">本月核心 KPI</div>
+    <div class="kpi-row">
+      <div class="kpi-card ${rpoAch>=80?'good':'alert'}">
+        <div class="kpi-l">維修台次</div>
+        <div class="kpi-n" style="color:${rpoAch>=80?'#1E7D3E':'#C8001A'};">${k.rpo.toLocaleString()}</div>
+        <div class="kpi-sub">目標 ${k.target.toLocaleString()} ｜ 達成率 ${rpoAch}%</div>
+        <div class="kpi-trend ${rpoAch>=80?'t-up':'t-dn'}">${rpoAch>=80?'▲':'▼'} ${rpoAch}%</div>
+      </div>
+      <div class="kpi-card ${k.ticketVal>=b.ticketVal?'good':''}">
+        <div class="kpi-l">單車平均產值</div>
+        <div class="kpi-n" style="color:${k.ticketVal>=b.ticketVal?'#1E7D3E':'#854F0B'};">NT$${k.ticketVal.toLocaleString()}</div>
+        <div class="kpi-sub">集團均值 NT$${b.ticketVal.toLocaleString()}</div>
+        <div class="kpi-trend ${k.ticketVal>=b.ticketVal?'t-up':'t-dn'}">${k.ticketVal>=b.ticketVal?'▲':'▼'} vs 均值</div>
+      </div>
+      <div class="kpi-card ${k.grossRate>=b.grossRate?'good':''}">
+        <div class="kpi-l">主營毛利率</div>
+        <div class="kpi-n" style="color:${k.grossRate>=b.grossRate?'#1E7D3E':'#854F0B'};">${k.grossRate}%</div>
+        <div class="kpi-sub">集團均值 ${b.grossRate}%</div>
+        <div class="kpi-trend ${k.grossRate>=b.grossRate?'t-up':'t-dn'}">${k.grossRate>=b.grossRate?'▲':'▼'} vs 均值</div>
+      </div>
+      <div class="kpi-card ${k.absorbRate>=b.absorbRate?'good':'alert'}">
+        <div class="kpi-l">售後吸收率</div>
+        <div class="kpi-n" style="color:${k.absorbRate>=b.absorbRate?'#1E7D3E':'#C8001A'};">${k.absorbRate}%</div>
+        <div class="kpi-sub">目標 70% ｜ 集團均值 ${b.absorbRate}%</div>
+        <div class="kpi-trend ${k.absorbRate>=70?'t-up':'t-dn'}">${k.absorbRate>=70?'▲':'▼'} vs 目標</div>
+      </div>
+    </div>
+
+    <div class="sec-title">Benchmark 對標</div>
+    <div class="bench-row">
+      <div class="bench-card bc-teal">
+        <div class="bc-label" style="color:var(--teal);">本店台次</div>
+        <div class="bc-val" style="color:var(--teal);">${k.rpo.toLocaleString()}</div>
+        <div class="bc-sub" style="color:var(--teal);">本月</div>
+      </div>
+      <div class="bench-card bc-navy">
+        <div class="bc-label" style="color:var(--navy);">集團均值台次</div>
+        <div class="bc-val" style="color:var(--navy);">${b.rpo.toLocaleString()}</div>
+        <div class="bc-sub" style="color:var(--navy);">5間門店平均</div>
+      </div>
+      <div class="bench-card bc-amber">
+        <div class="bc-label" style="color:var(--amber);">本店單車產值</div>
+        <div class="bc-val" style="color:var(--amber);">NT$${k.ticketVal.toLocaleString()}</div>
+        <div class="bc-sub" style="color:var(--amber);">本月均值</div>
+      </div>
+      <div class="bench-card bc-green">
+        <div class="bc-label" style="color:var(--green);">集團產值均值</div>
+        <div class="bc-val" style="color:var(--green);">NT$${b.ticketVal.toLocaleString()}</div>
+        <div class="bc-sub" style="color:var(--green);">5間門店平均</div>
+      </div>
+    </div>
+
+    <div class="three-col">
+      <!-- 車間三率 -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--teal-bg);">⚙️</div>
+          <div><div class="panel-title">車間三率</div><div class="panel-sub">效率 / 利用率 / 生產率</div></div>
+        </div>
+        <div class="panel-body">
+          <div class="three-rate">
+            <div class="tr-item">
+              <span class="tr-label">車間效率</span>
+              <div class="tr-bar"><div class="tr-fill" style="width:${Math.min(100,s.threeRate.efficiency/2)}%;background:${s.threeRate.efficiency>=150?'#3DBE6E':'#F0A500'};"></div></div>
+              <span class="tr-val" style="color:${s.threeRate.efficiency>=150?'#1E7D3E':'#854F0B'};">${s.threeRate.efficiency}%</span>
+              <span class="tr-target">目標 150%</span>
+            </div>
+            <div class="tr-item">
+              <span class="tr-label">車間利用率</span>
+              <div class="tr-bar"><div class="tr-fill" style="width:${Math.min(100,s.threeRate.utilization/3)}%;background:${s.threeRate.utilization>=180?'#3DBE6E':'#F0A500'};"></div></div>
+              <span class="tr-val" style="color:${s.threeRate.utilization>=180?'#1E7D3E':'#854F0B'};">${s.threeRate.utilization}%</span>
+              <span class="tr-target">目標 180%</span>
+            </div>
+            <div class="tr-item">
+              <span class="tr-label">車間生產率</span>
+              <div class="tr-bar"><div class="tr-fill" style="width:${s.threeRate.productivity}%;background:${s.threeRate.productivity>=75?'#3DBE6E':s.threeRate.productivity>=60?'#F0A500':'#C8001A'};"></div></div>
+              <span class="tr-val" style="color:${s.threeRate.productivity>=75?'#1E7D3E':s.threeRate.productivity>=60?'#854F0B':'#C8001A'};">${s.threeRate.productivity}%</span>
+              <span class="tr-target">目標 75%</span>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--gray);">
+            生產率 = DMS售出工時 / 技師出勤工時
+          </div>
+        </div>
+      </div>
+
+      <!-- 台次月度趨勢 -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--teal-bg);">📈</div>
+          <div><div class="panel-title">台次月度趨勢</div><div class="panel-sub">當期 vs 上年同期</div></div>
+        </div>
+        <div class="panel-body" style="padding-bottom:8px;">
+          <svg id="rpo-trend" width="100%" height="110"></svg>
+          <div style="display:flex;gap:12px;margin-top:4px;">
+            <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--gray);"><div style="width:12px;height:3px;background:${s.color};border-radius:2px;"></div>本年</div>
+            <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--gray);"><div style="width:12px;height:3px;background:${s.color};opacity:.3;border-radius:2px;"></div>去年同期</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 業務結構 -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--teal-bg);">🗂️</div>
+          <div><div class="panel-title">業務結構</div><div class="panel-sub">本月台次組成</div></div>
+        </div>
+        <div class="panel-body">
+          <div class="pie-legend">
+            ${s.business.map(b=>`
+              <div class="pl-row">
+                <div class="pl-dot" style="background:${b.color};"></div>
+                <span class="pl-label">${b.label}</span>
+                <span class="pl-val">${b.val}</span>
+                <span class="pl-pct">${b.pct}%</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 零件與精品業務 -->
+    <div class="sec-title">零件與精品業務</div>
+    <div class="two-col">
+      <!-- 零件庫存健康 -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--amber-bg);">📦</div>
+          <div><div class="panel-title">零件庫存健康</div><div class="panel-sub">供應率 / 周轉率 / 滯銷比例</div></div>
+          ${s.parts.fulfillRate < 90 ? '<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:var(--red-bg);color:var(--red);font-weight:700;margin-left:auto;">⚠ 供應率不足</span>' :
+            s.parts.deadStockPct > 20 ? '<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:var(--amber-bg);color:var(--amber);font-weight:700;margin-left:auto;">⚠ 滯銷比例偏高</span>' :
+            '<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:var(--green-bg);color:var(--green);font-weight:700;margin-left:auto;">✅ 庫存健康</span>'}
+        </div>
+        <div class="panel-body">
+          <div class="parts-kpi-row">
+            <div class="pk-card" style="border-top:2px solid ${s.parts.fulfillRate>=90?'#3DBE6E':'#C8001A'};">
+              <div class="pk-val" style="color:${s.parts.fulfillRate>=90?'#1E7D3E':'#C8001A'};">${s.parts.fulfillRate}%</div>
+              <div class="pk-label">備件供應率</div>
+              <div class="pk-bench" style="color:var(--gray);">標準 ≥90%</div>
+            </div>
+            <div class="pk-card" style="border-top:2px solid ${s.parts.turnover>=s.parts.benchTurnover?'#3DBE6E':'#F0A500'};">
+              <div class="pk-val" style="color:${s.parts.turnover>=s.parts.benchTurnover?'#1E7D3E':'#854F0B'};">${s.parts.turnover}x</div>
+              <div class="pk-label">庫存周轉率</div>
+              <div class="pk-bench" style="color:var(--gray);">均值 ${s.parts.benchTurnover}x</div>
+            </div>
+            <div class="pk-card" style="border-top:2px solid ${s.parts.deadStockPct<=15?'#3DBE6E':s.parts.deadStockPct<=25?'#F0A500':'#C8001A'};">
+              <div class="pk-val" style="color:${s.parts.deadStockPct<=15?'#1E7D3E':s.parts.deadStockPct<=25?'#854F0B':'#C8001A'};">${s.parts.deadStockPct}%</div>
+              <div class="pk-label">滯銷件比例</div>
+              <div class="pk-bench" style="color:var(--gray);">告警 &gt;20%</div>
+            </div>
+          </div>
+          <div class="parts-row">
+            <span class="pr-label">備件供應率</span>
+            <div class="pr-bar-wrap">
+              <div class="pr-bar-bg"><div class="pr-bar-our" style="width:${s.parts.fulfillRate}%;background:${s.parts.fulfillRate>=90?'var(--teal)':'var(--red)'};"></div></div>
+              <div class="pr-vals">
+                <span style="color:${s.parts.fulfillRate>=90?'#1E7D3E':'#C8001A'};font-weight:700;">本店 ${s.parts.fulfillRate}%</span>
+                <span style="color:var(--gray);">標準 90%</span>
+              </div>
+            </div>
+            ${s.parts.fulfillRate<90?'<span class="pr-warn">⚠ 影響台次</span>':''}
+          </div>
+          <div class="parts-row">
+            <span class="pr-label">零件直銷收入</span>
+            <div class="pr-bar-wrap">
+              <div class="pr-bar-bg"><div class="pr-bar-our" style="width:${Math.min(100,s.parts.directSaleAmt/s.parts.benchDirect*100)}%;background:${s.parts.directSaleAmt>=s.parts.benchDirect?'var(--teal)':'var(--amber)'};"></div></div>
+              <div class="pr-vals">
+                <span style="color:${s.parts.directSaleAmt>=s.parts.benchDirect?'#1E7D3E':'#854F0B'};font-weight:700;">本店 NT$${(s.parts.directSaleAmt/1000).toFixed(0)}K</span>
+                <span style="color:var(--gray);">均值 NT$${(s.parts.benchDirect/1000).toFixed(0)}K</span>
+              </div>
+            </div>
+          </div>
+          <div class="parts-row">
+            <span class="pr-label">直銷毛利率</span>
+            <div class="pr-bar-wrap">
+              <div class="pr-bar-bg"><div class="pr-bar-our" style="width:${s.parts.directSaleMargin*2}%;background:${s.parts.directSaleMargin>=28?'var(--teal)':'var(--amber)'};"></div></div>
+              <div class="pr-vals">
+                <span style="color:${s.parts.directSaleMargin>=28?'#1E7D3E':'#854F0B'};font-weight:700;">本店 ${s.parts.directSaleMargin}%</span>
+                <span style="color:var(--gray);">目標 28%+</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 精品加裝業務 -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--purple-bg);">✨</div>
+          <div><div class="panel-title">精品加裝業務</div><div class="panel-sub">加裝率 / 毛利率 vs 集團均值</div></div>
+          ${s.parts.accessoryRate>=s.parts.accessoryBench ?
+            '<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:var(--green-bg);color:var(--green);font-weight:700;margin-left:auto;">✅ 高於均值</span>' :
+            '<span style="font-size:10px;padding:2px 8px;border-radius:5px;background:var(--amber-bg);color:var(--amber);font-weight:700;margin-left:auto;">⚠ 低於均值</span>'}
+        </div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div style="text-align:center;background:#FAFAF8;border:1px solid var(--border);border-radius:8px;padding:12px;">
+              <div style="font-size:26px;font-weight:700;font-family:'DM Mono',monospace;color:${s.parts.accessoryRate>=s.parts.accessoryBench?'#1E7D3E':'#854F0B'};">${s.parts.accessoryRate}%</div>
+              <div style="font-size:10.5px;color:var(--gray);margin-top:3px;">精品加裝率</div>
+              <div style="font-size:10px;color:${s.parts.accessoryRate>=s.parts.accessoryBench?'#1E7D3E':'#C8001A'};margin-top:2px;">均值 ${s.parts.accessoryBench}%　${s.parts.accessoryRate>=s.parts.accessoryBench?'▲ 超標':'▼ 未達'}</div>
+            </div>
+            <div style="text-align:center;background:#FAFAF8;border:1px solid var(--border);border-radius:8px;padding:12px;">
+              <div style="font-size:26px;font-weight:700;font-family:'DM Mono',monospace;color:${s.parts.accessoryMargin>=42?'#1E7D3E':'#854F0B'};">${s.parts.accessoryMargin}%</div>
+              <div style="font-size:10.5px;color:var(--gray);margin-top:3px;">精品毛利率</div>
+              <div style="font-size:10px;color:var(--gray);margin-top:2px;">目標 42%+</div>
+            </div>
+          </div>
+          <!-- 加裝率 vs 各類別 -->
+          <div style="font-size:10.5px;font-weight:700;color:var(--gray);margin-bottom:6px;letter-spacing:.3px;text-transform:uppercase;">加裝率 vs 集團均值對比</div>
+          <div class="parts-row">
+            <span class="pr-label">原廠精品</span>
+            <div class="pr-bar-wrap">
+              <div class="pr-bar-bg"><div style="height:100%;border-radius:3px;width:${Math.min(100,s.parts.accessoryRate*0.4*2)}%;background:var(--purple);"></div></div>
+              <div class="pr-vals"><span style="color:var(--purple);font-weight:700;">${Math.round(s.parts.accessoryRate*0.4)}%</span><span style="color:var(--gray);">均值 15%</span></div>
+            </div>
+          </div>
+          <div class="parts-row">
+            <span class="pr-label">非原廠精品</span>
+            <div class="pr-bar-wrap">
+              <div class="pr-bar-bg"><div style="height:100%;border-radius:3px;width:${Math.min(100,s.parts.accessoryRate*0.6)}%;background:var(--navy);"></div></div>
+              <div class="pr-vals"><span style="color:var(--navy);font-weight:700;">${Math.round(s.parts.accessoryRate*0.6)}%</span><span style="color:var(--gray);">均值 23%</span></div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:11.5px;color:#2C2C2A;line-height:1.6;">
+            ${s.parts.accessoryRate < 30 ? '⚠ 精品加裝率偏低，建議加強 SA 在交車時的精品推薦話術，提升單次工單附加價值。' :
+              s.parts.accessoryRate >= s.parts.accessoryBench ? '✅ 精品加裝率高於集團均值，精品銷售能力良好。' :
+              '精品加裝率接近均值，仍有提升空間。'}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 客戶流動 + 診斷 -->
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--purple-bg);">👥</div>
+          <div><div class="panel-title">客戶流動（近5個月）</div><div class="panel-sub">新增 vs 流失 vs 淨值</div></div>
+        </div>
+        <div class="panel-body">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--gray);padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:2px;">
+            <span>月份</span><span style="min-width:38px;text-align:center;">新增</span><span style="min-width:38px;text-align:center;">流失</span><span style="min-width:36px;text-align:right;">淨值</span>
+          </div>
+          ${s.flow.map(f=>`
+            <div class="flow-row" style="${f.net<0?'background:rgba(200,0,26,.03);':''}">
+              <span class="fl-month">${f.month}</span>
+              <span class="fl-new">+${f.newC}</span>
+              <span class="fl-lost">-${f.lostC}</span>
+              <span class="fl-net" style="color:${f.net>0?'#3DBE6E':f.net===0?'#9A9890':'#C8001A'};">${f.net>0?'+'+f.net:f.net}</span>
+              ${f.net<-10?'<span class="fl-warn">⚠ 淨流失</span>':''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr">
+          <div class="panel-icon" style="background:var(--teal-bg);">🔍</div>
+          <div><div class="panel-title">部門診斷摘要</div><div class="panel-sub">系統自動分析</div></div>
+        </div>
+        <div class="panel-body">
+          <div style="font-size:12px;line-height:1.8;color:#2C2C2A;">${s.insight}</div>
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="drill-btn" onclick="showToast('下鑽至 GRP08 SA能效…')">🔧 SA能效 →</button>
+            <button class="drill-btn" onclick="showToast('產生門店報告…')">📋 產生報告</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 台次趨勢折線圖
+  const svgEl = document.getElementById('rpo-trend');
+  if(!svgEl) return;
+  d3.select(svgEl).selectAll('*').remove();
+  const months = ['1月','2月','3月','4月','5月','本月'];
+  const TW = svgEl.clientWidth||340;
+  const TH = 90;
+  const margin = {top:8,right:8,bottom:22,left:34};
+  const tw = TW-margin.left-margin.right;
+  const th = TH-margin.top-margin.bottom;
+  const svg = d3.select(svgEl);
+  const g = svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const allV = [...s.monthRpo,...s.prevRpo];
+  const xs = d3.scalePoint().domain(months).range([0,tw]);
+  const ys = d3.scaleLinear().domain([0,d3.max(allV)*1.2]).range([th,0]).nice();
+  const line = d3.line().x((_,i)=>xs(months[i])).y(d=>ys(d)).curve(d3.curveMonotoneX);
+  g.append('path').datum(s.prevRpo).attr('fill','none').attr('stroke',s.color).attr('stroke-width',1.5).attr('stroke-opacity',.25).attr('d',line);
+  g.append('path').datum(s.monthRpo).attr('fill','none').attr('stroke',s.color).attr('stroke-width',2.5).attr('d',line);
+  g.selectAll('.dot').data(s.monthRpo).enter().append('circle')
+   .attr('cx',(_,i)=>xs(months[i])).attr('cy',d=>ys(d))
+   .attr('r',4).attr('fill',s.color).attr('stroke','#fff').attr('stroke-width',2);
+  g.append('g').attr('transform',`translate(0,${th})`).call(d3.axisBottom(xs).tickSize(0))
+   .call(ax=>{ax.select('.domain').attr('stroke','#EEECE6');ax.selectAll('text').attr('fill','#9A9890').attr('font-size',9).attr('font-family','DM Mono, monospace');});
+  g.append('g').call(d3.axisLeft(ys).ticks(3).tickFormat(v=>v))
+   .call(ax=>{ax.select('.domain').remove();ax.selectAll('text').attr('fill','#9A9890').attr('font-size',9);ax.selectAll('.tick line').attr('stroke','rgba(0,0,0,.04)').attr('stroke-dasharray','3,3').attr('x2',tw);});
+}
+
+function setStore(idx,el){
+  document.querySelectorAll('.ss-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+  currentIdx=idx;
+  renderStore(idx);
+  showToast('切換至：'+STORES[idx].name);
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+window.addEventListener('load',()=>renderStore(0));
+window.addEventListener('resize',()=>renderStore(currentIdx));
+</script>
+</body>
+</html>

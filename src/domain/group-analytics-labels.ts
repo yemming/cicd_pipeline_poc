@@ -89,3 +89,38 @@ export const CHURN_RISK_DAYS = {
   /** 最高風險：≥ 180 天未回廠 */
   critical: 180,
 } as const;
+
+/* ══════════════════════════════════════════════════════════════
+   第二十輪 GRP12 集團零件財務總覽 — 共用標籤 / 色票 / 閾值常數
+   （group-analytics.ts〔server〕內部 import 組資料合約；
+     /group/parts-financials 頁〔client〕import 同一份畫圖、保口徑一致）
+   ══════════════════════════════════════════════════════════════ */
+
+/**
+ * 零件品項業務分類 4 桶（donut；對齊 spec「原廠保養件/維修零件/精品配件/輪胎」）。
+ * ⚠️ DB items.category 實值是 8 類「功能分類」（車身/煞車/傳動/排氣/懸吊/引擎/耗材/電氣），
+ *    與此業務分類完全不同 → donut 走 seed 聚合值（metadata.cat=key），不即時 join items。
+ */
+export const PARTS_CATEGORIES: DimDef[] = [
+  { key: "oem_service", label: "原廠保養件", color: "#F5B942" },
+  { key: "repair_parts", label: "維修零件", color: "#1A3A5C" },
+  { key: "accessory", label: "精品配件", color: "#534AB7" },
+  { key: "tire", label: "輪胎類", color: "#0F6E56" },
+];
+
+/** 零件庫存周轉率目標（次/年）；低於此在水平 bar 標警示色。 */
+export const PARTS_TURNOVER_TARGET = 6.0;
+
+/** 零件呆滯率警戒線（佔總庫存）；超過此 KPI 卡標紅。 */
+export const PARTS_DEADSTOCK_WARN = 0.05;
+
+/** 零件毛利率 benchmark（集團政策下限）。 */
+export const PARTS_MARGIN_BENCHMARK = 0.3;
+
+/** SKU 滯銷天數分級（單店深鑽 SKU 表 / 呆滯清單共用口徑）。 */
+export const SKU_STALE_DAYS = {
+  /** 滯銷：≥ 90 天未異動 */
+  warn: 90,
+  /** 呆滯：≥ 180 天未異動 */
+  dead: 180,
+} as const;

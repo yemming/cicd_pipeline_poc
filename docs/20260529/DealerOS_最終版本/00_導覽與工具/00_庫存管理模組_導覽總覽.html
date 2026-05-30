@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DUCATI 庫存管理模組 — 導覽總覽</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;
+  --red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;
+  --blue:#185FA5;--blue-l:#EAF4FB;
+  --green:#3B6D11;--green-l:#EAF3DE;
+  --purple:#5D51C8;--purple-l:#EEEAFF;
+  --coral:#C04830;--coral-l:#FBE9E5;
+  --g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;
+  --g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;
+  --font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+
+.hdr{background:var(--navy);padding:0 28px;height:56px;display:flex;align-items:center;gap:14px;
+  border-bottom:2px solid rgba(255,255,255,0.06);position:sticky;top:0;z-index:100;}
+.hdr-logo{font-size:18px;font-weight:700;letter-spacing:2.5px;color:#fff;}
+.hdr-div{width:1px;height:22px;background:rgba(255,255,255,0.2);}
+.hdr-title{font-size:13px;color:rgba(255,255,255,0.6);}
+.hdr-title b{color:#fff;font-weight:600;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.hdr-btn{background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.85);
+  padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:var(--font);
+  transition:background 0.1s;}
+.hdr-btn:hover{background:rgba(255,255,255,0.18);}
+.hdr-btn.primary{background:var(--teal);}
+.hdr-btn.primary:hover{background:#0A5440;}
+
+.hero{background:linear-gradient(135deg, var(--navy2) 0%, var(--navy) 50%, #1E4A70 100%);
+  padding:36px 28px 32px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-60px;top:-60px;width:300px;height:300px;
+  border-radius:50%;background:rgba(255,255,255,0.03);}
+.hero::after{content:'';position:absolute;right:80px;bottom:-80px;width:200px;height:200px;
+  border-radius:50%;background:rgba(15,110,86,0.15);}
+.hero-content{position:relative;z-index:1;max-width:900px;}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);
+  color:rgba(255,255,255,0.8);font-size:11px;padding:3px 10px;border-radius:20px;
+  margin-bottom:12px;font-family:var(--mono);}
+.hero h1{font-size:26px;font-weight:700;color:#fff;letter-spacing:0.5px;margin-bottom:8px;}
+.hero-sub{font-size:13px;color:rgba(255,255,255,0.55);margin-bottom:20px;line-height:1.6;}
+.hero-stats{display:flex;gap:20px;flex-wrap:wrap;}
+.hs{display:flex;flex-direction:column;gap:2px;}
+.hs-n{font-size:28px;font-weight:700;font-family:var(--mono);color:#fff;line-height:1;}
+.hs-l{font-size:11px;color:rgba(255,255,255,0.5);}
+.hs-divider{width:1px;background:rgba(255,255,255,0.12);margin:0 4px;align-self:stretch;}
+
+.wrap{padding:24px 28px 48px;max-width:1200px;margin:0 auto;}
+
+/* 快速入口卡 */
+.quick-links{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;}
+.ql-card{background:var(--white);border:1.5px solid var(--g100);border-radius:10px;
+  padding:14px 16px;cursor:pointer;transition:all 0.15s;text-decoration:none;display:block;}
+.ql-card:hover{border-color:var(--teal);box-shadow:0 4px 14px rgba(15,110,86,0.12);transform:translateY(-1px);}
+.ql-card.disabled{opacity:0.5;cursor:default;}
+.ql-card.disabled:hover{border-color:var(--g100);box-shadow:none;transform:none;}
+.ql-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.ql-icon{font-size:20px;}
+.ql-name{font-size:13px;font-weight:600;}
+.ql-num{font-family:var(--mono);font-size:10px;color:var(--g400);margin-left:auto;}
+.ql-desc{font-size:12px;color:var(--g400);line-height:1.4;}
+.ql-badges{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap;}
+.ql-badge{font-size:10px;padding:1px 6px;border-radius:8px;font-weight:500;}
+.badge-done{background:var(--teal-l);color:var(--teal);}
+.badge-new{background:var(--blue-l);color:var(--blue);}
+.badge-plan{background:var(--g100);color:var(--g400);}
+
+/* 章節標題 */
+.sec-title{font-size:12px;font-weight:700;color:var(--g400);letter-spacing:0.8px;
+  text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--g100);}
+
+/* 模組表格 */
+.mod-grid{display:flex;flex-direction:column;gap:16px;margin-bottom:28px;}
+.mod-section{background:var(--white);border:1px solid var(--g100);border-radius:10px;overflow:hidden;}
+.mod-sec-head{padding:10px 16px;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--g100);}
+.mod-sec-icon{font-size:16px;}
+.mod-sec-name{font-size:13px;font-weight:700;}
+.mod-sec-group{font-size:11px;color:var(--g400);margin-left:auto;font-family:var(--mono);}
+.mod-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--g100);}
+.mod-row{background:var(--white);padding:10px 14px;cursor:pointer;transition:background 0.1s;
+  display:flex;align-items:center;gap:8px;}
+.mod-row:hover.clickable{background:var(--g50);}
+.mod-row.clickable{cursor:pointer;}
+.mod-row-num{font-family:var(--mono);font-size:10.5px;color:var(--g400);min-width:30px;flex-shrink:0;}
+.mod-row-name{font-size:12.5px;flex:1;line-height:1.3;}
+.mod-row-badge{font-size:10px;padding:1px 6px;border-radius:8px;font-weight:500;flex-shrink:0;}
+.mod-row.done .mod-row-num{color:var(--teal);}
+.mod-row.done .mod-row-name{color:var(--g800);}
+.mod-row.new-p .mod-row-num{color:var(--blue);}
+.mod-row.new-p .mod-row-name{color:var(--g800);}
+.mod-row.plan .mod-row-name{color:var(--g400);}
+
+/* 色彩對應 */
+.msh-base{background:#EEF4FB;border-bottom-color:#D0E3F5;}
+.msh-base .mod-sec-name{color:var(--blue);}
+.msh-inout{background:#EDF7F3;border-bottom-color:#C0DDD4;}
+.msh-inout .mod-sec-name{color:var(--teal);}
+.msh-stock{background:#EEEAFF;border-bottom-color:#C9C3EF;}
+.msh-stock .mod-sec-name{color:var(--purple);}
+.msh-count{background:#FDF8EC;border-bottom-color:#F5DFB2;}
+.msh-count .mod-sec-name{color:#C07800;}
+.msh-alert{background:#FEF3F2;border-bottom-color:#F9BFBD;}
+.msh-alert .mod-sec-name{color:var(--red);}
+.msh-wrt{background:#FBF0EC;border-bottom-color:#F2C4B6;}
+.msh-wrt .mod-sec-name{color:var(--coral);}
+.msh-abc{background:#EEEAFF;border-bottom-color:#C9C3EF;}
+.msh-abc .mod-sec-name{color:var(--purple);}
+
+/* 本次交付說明 */
+.delivery-box{background:var(--white);border:1.5px solid var(--blue-l);border-radius:10px;
+  padding:16px 20px;margin-bottom:28px;display:flex;gap:20px;flex-wrap:wrap;}
+.db-col{flex:1;min-width:200px;}
+.db-title{font-size:11px;font-weight:700;color:var(--blue);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px;}
+.db-item{display:flex;align-items:flex-start;gap:6px;padding:4px 0;font-size:12.5px;line-height:1.4;}
+.db-dot{width:5px;height:5px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:5px;}
+.db-note{font-size:11.5px;color:var(--g400);}
+
+/* 版本記錄 */
+.changelog{background:var(--white);border:1px solid var(--g100);border-radius:10px;overflow:hidden;}
+.cl-head{padding:10px 16px;background:var(--g50);border-bottom:1px solid var(--g100);
+  font-size:12px;font-weight:700;color:var(--g600);}
+.cl-row{display:flex;gap:16px;padding:10px 16px;border-bottom:1px solid var(--g50);
+  font-size:12px;align-items:flex-start;}
+.cl-row:last-child{border-bottom:none;}
+.cl-ver{font-family:var(--mono);font-weight:600;color:var(--navy);min-width:50px;flex-shrink:0;}
+.cl-date{color:var(--g400);min-width:90px;font-family:var(--mono);font-size:11.5px;flex-shrink:0;}
+.cl-desc{color:var(--g600);flex:1;line-height:1.5;}
+.cl-tag{display:inline-flex;align-items:center;background:var(--blue-l);color:var(--blue);
+  font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;vertical-align:middle;}
+.cl-tag.done{background:var(--teal-l);color:var(--teal);}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-logo">DUCATI</div>
+  <div class="hdr-div"></div>
+  <div class="hdr-title">庫存管理模組　<b>導覽總覽</b></div>
+  <div class="hdr-right">
+    <button class="hdr-btn" onclick="window.location.href='00_模組功能流程關係圖.html'">📊 功能流程關係圖</button>
+    <button class="hdr-btn primary" onclick="window.location.href='05_入庫管理_採購入庫.html'">進入系統 →</button>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="hero-content">
+    <div class="hero-tag">🏍 DUCATI Taiwan · Inventory Management Module · v2.0</div>
+    <h1>庫存管理模組 HTML 原型</h1>
+    <div class="hero-sub">涵蓋採購、入庫、出庫、庫存作業、盤點、預警、保固、分析全流程 · 共 30 支 HTML 互動原型頁面</div>
+    <div class="hero-stats">
+      <div class="hs"><div class="hs-n">30</div><div class="hs-l">HTML 頁面交付</div></div>
+      <div class="hs-divider"></div>
+      <div class="hs"><div class="hs-n" style="color:#5BC4A8">23</div><div class="hs-l">前期完成</div></div>
+      <div class="hs-divider"></div>
+      <div class="hs"><div class="hs-n" style="color:#AAC9F0">7</div><div class="hs-l">本次新增</div></div>
+      <div class="hs-divider"></div>
+      <div class="hs"><div class="hs-n" style="color:rgba(255,255,255,0.35)">8</div><div class="hs-l">主要功能模組</div></div>
+      <div class="hs-divider"></div>
+      <div class="hs"><div class="hs-n" style="color:rgba(255,255,255,0.35)">2026/05/06</div><div class="hs-l">最後更新日</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- 本次交付說明 -->
+  <div class="sec-title" style="margin-top:4px">🆕 本次新增交付（v2.0）</div>
+  <div class="delivery-box">
+    <div class="db-col">
+      <div class="db-title">新增 7 支頁面</div>
+      <div class="db-item"><span class="db-dot"></span><span><b>7.2</b> 例外出入庫 — 類型卡選擇、主管審核、稽核日誌</span></div>
+      <div class="db-item"><span class="db-dot"></span><span><b>7.3</b> 寄存管理 — 到期追蹤、確認轉入/退還操作</span></div>
+      <div class="db-item"><span class="db-dot"></span><span><b>7.5</b> 備件庫存調整 — 即時計算、調整日誌</span></div>
+      <div class="db-item"><span class="db-dot"></span><span><b>7.6</b> 入庫查詢 — 跨類型彙整、可展開明細</span></div>
+      <div class="db-item"><span class="db-dot"></span><span><b>7.7</b> 調撥在途查詢 — 物流里程碑、逾期標示、追蹤面板</span></div>
+      <div class="db-item"><span class="db-dot"></span><span><b>10.1</b> 庫存水位設定 — 三分頁設定（零件/機車/耗材）</span></div>
+      <div class="db-item"><span class="db-dot"></span><span><b>10.5</b> 告警階層設定 — 三層收件人、升階規則、通知管道</span></div>
+    </div>
+    <div class="db-col">
+      <div class="db-title">本次優化項目</div>
+      <div class="db-item"><span class="db-dot"></span><span>全部 7 支頁面 sidebar 補齊完整跨頁導航連結（12 個目標頁面）</span></div>
+      <div class="db-item"><span class="db-dot"></span><span>7.7 新增右側追蹤面板（物流里程碑 + 備件清單 + 催單操作）</span></div>
+      <div class="db-item"><span class="db-dot"></span><span>10.5 新增接收人功能改為 Modal 彈窗（含搜尋 + 層級選擇）</span></div>
+      <div class="db-item"><span class="db-dot"></span><span>所有頁面均通過 32KB 預覽限制（最大 32,149 bytes）</span></div>
+      <div class="db-note" style="margin-top:8px;padding:8px 10px;background:var(--g50);border-radius:6px">
+        📋 新增：<b>模組功能流程關係圖</b>（00_模組功能流程關係圖.html）— 可點擊跳頁的完整節點圖
+      </div>
+    </div>
+  </div>
+
+  <!-- 快速入口 -->
+  <div class="sec-title">⚡ 快速入口（常用頁面）</div>
+  <div class="quick-links" style="margin-bottom:28px">
+    <a class="ql-card" onclick="go('05_入庫管理_採購入庫.html')">
+      <div class="ql-head"><span class="ql-icon">📥</span><span class="ql-name">採購入庫</span><span class="ql-num">5.1</span></div>
+      <div class="ql-desc">依採購單執行入庫，支援原廠 DMS 到貨匯入</div>
+      <div class="ql-badges"><span class="ql-badge badge-done">已完成</span></div>
+    </a>
+    <a class="ql-card" onclick="go('06_出庫管理_維修領料.html')">
+      <div class="ql-head"><span class="ql-icon">🔧</span><span class="ql-name">維修領料</span><span class="ql-num">6.1</span></div>
+      <div class="ql-desc">RO工單串接領料，自動扣庫、缺料自動觸發補貨</div>
+      <div class="ql-badges"><span class="ql-badge badge-done">已完成</span></div>
+    </a>
+    <a class="ql-card" onclick="go('07_庫存管理_商品庫存查詢_v2.html')">
+      <div class="ql-head"><span class="ql-icon">🔍</span><span class="ql-name">商品庫存查詢</span><span class="ql-num">7.1</span></div>
+      <div class="ql-desc">即時庫存查詢、多維度篩選、告警儀表板入口</div>
+      <div class="ql-badges"><span class="ql-badge badge-done">已完成</span></div>
+    </a>
+    <a class="ql-card" onclick="go('07_庫存作業_例外出入庫.html')">
+      <div class="ql-head"><span class="ql-icon">⚙️</span><span class="ql-name">例外出入庫</span><span class="ql-num">7.2</span></div>
+      <div class="ql-desc">非正常流程的手動出入庫操作，含主管審核</div>
+      <div class="ql-badges"><span class="ql-badge badge-new">本次新增</span></div>
+    </a>
+    <a class="ql-card" onclick="go('07_庫存作業_調撥在途查詢.html')">
+      <div class="ql-head"><span class="ql-icon">🚚</span><span class="ql-name">調撥在途查詢</span><span class="ql-num">7.7</span></div>
+      <div class="ql-desc">追蹤門店間調撥在途物流，逾期即時告警</div>
+      <div class="ql-badges"><span class="ql-badge badge-new">本次新增</span></div>
+    </a>
+    <a class="ql-card" onclick="go('00_模組功能流程關係圖.html')">
+      <div class="ql-head"><span class="ql-icon">📊</span><span class="ql-name">功能流程關係圖</span><span class="ql-num">00</span></div>
+      <div class="ql-desc">全模組節點圖，可點擊跳頁，含關鍵流程串接關係說明</div>
+      <div class="ql-badges"><span class="ql-badge badge-new">本次新增</span></div>
+    </a>
+  </div>
+
+  <!-- 完整模組清單 -->
+  <div class="sec-title">📋 完整模組功能清單</div>
+  <div class="mod-grid">
+
+    <!-- 基礎設定 -->
+    <div class="mod-section">
+      <div class="mod-sec-head msh-base">
+        <span class="mod-sec-icon">🏛</span>
+        <span class="mod-sec-name">基礎設定</span>
+        <span class="mod-sec-group">GROUP A · 1.x / 2.x / 3.x</span>
+      </div>
+      <div class="mod-rows">
+        <div class="mod-row plan"><span class="mod-row-num">1.1</span><span class="mod-row-name">組織三層架構</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">1.2</span><span class="mod-row-name">採購權限規則</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">1.3</span><span class="mod-row-name">商品管理權限</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">1.4</span><span class="mod-row-name">盤點回傳規則</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">1.5</span><span class="mod-row-name">管控類型定義</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">2.1</span><span class="mod-row-name">倉儲四層架構</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">2.2</span><span class="mod-row-name">倉庫 / 庫區 / 庫位 / 擺放</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">2.3</span><span class="mod-row-name">供應商資訊</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">2.4</span><span class="mod-row-name">採購合約</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">3.1</span><span class="mod-row-name">基礎資料</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">3.2</span><span class="mod-row-name">商品資訊（多維度料號）</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">3.3</span><span class="mod-row-name">門市定價</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">3.4</span><span class="mod-row-name">適配設定（料-車/年份）</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">3.5</span><span class="mod-row-name">序列號 / 批號追蹤</span><span class="mod-row-badge badge-plan">規劃</span></div>
+      </div>
+    </div>
+
+    <!-- 進出庫流程 -->
+    <div class="mod-section">
+      <div class="mod-sec-head msh-inout">
+        <span class="mod-sec-icon">🔄</span>
+        <span class="mod-sec-name">進出庫流程</span>
+        <span class="mod-sec-group">GROUP B · 4.x / 5.x / 6.x</span>
+      </div>
+      <div class="mod-rows">
+        <div class="mod-row plan"><span class="mod-row-num">4.1</span><span class="mod-row-name">採購流程鏈路</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">4.2</span><span class="mod-row-name">日常補貨計畫</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row done clickable" onclick="go('04_採購管理_需求處理.html')"><span class="mod-row-num">4.3</span><span class="mod-row-name">需求處理</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row done clickable" onclick="go('04_採購管理_商品採購.html')"><span class="mod-row-num">4.4</span><span class="mod-row-name">商品採購</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">4.5</span><span class="mod-row-name">採購退貨</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row done clickable" onclick="go('05_入庫管理_採購入庫.html')"><span class="mod-row-num">5.1</span><span class="mod-row-name">採購入庫（含原廠到貨匯入）</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row done clickable" onclick="go('05_入庫管理_調撥入庫.html')"><span class="mod-row-num">5.2</span><span class="mod-row-name">調撥入庫</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">5.3</span><span class="mod-row-name">內售入庫</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">5.4</span><span class="mod-row-name">領料退貨入庫</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row done clickable" onclick="go('06_出庫管理_維修領料.html')"><span class="mod-row-num">6.1</span><span class="mod-row-name">維修領料（RO工單串接）</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row done clickable" onclick="go('06_出庫管理_調撥出庫.html')"><span class="mod-row-num">6.2</span><span class="mod-row-name">調撥出庫</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">6.3</span><span class="mod-row-name">內售出庫</span><span class="mod-row-badge badge-plan">規劃</span></div>
+      </div>
+    </div>
+
+    <!-- 庫存查詢與作業 -->
+    <div class="mod-section">
+      <div class="mod-sec-head msh-stock">
+        <span class="mod-sec-icon">⚙️</span>
+        <span class="mod-sec-name">庫存查詢與作業</span>
+        <span class="mod-sec-group">GROUP C · 7.x</span>
+      </div>
+      <div class="mod-rows">
+        <div class="mod-row done clickable" onclick="go('07_庫存管理_商品庫存查詢_v2.html')"><span class="mod-row-num">7.1</span><span class="mod-row-name">商品庫存查詢</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row new-p clickable" onclick="go('07_庫存作業_例外出入庫.html')"><span class="mod-row-num">7.2</span><span class="mod-row-name">例外出入庫</span><span class="mod-row-badge badge-new">NEW ↗</span></div>
+        <div class="mod-row new-p clickable" onclick="go('07_庫存作業_寄存管理.html')"><span class="mod-row-num">7.3</span><span class="mod-row-name">寄存管理</span><span class="mod-row-badge badge-new">NEW ↗</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">7.4</span><span class="mod-row-name">庫存盤點作業</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row new-p clickable" onclick="go('07_庫存作業_備件庫存調整.html')"><span class="mod-row-num">7.5</span><span class="mod-row-name">備件庫存調整</span><span class="mod-row-badge badge-new">NEW ↗</span></div>
+        <div class="mod-row new-p clickable" onclick="go('07_庫存作業_入庫查詢.html')"><span class="mod-row-num">7.6</span><span class="mod-row-name">入庫查詢</span><span class="mod-row-badge badge-new">NEW ↗</span></div>
+        <div class="mod-row new-p clickable" onclick="go('07_庫存作業_調撥在途查詢.html')"><span class="mod-row-num">7.7</span><span class="mod-row-name">調撥在途查詢</span><span class="mod-row-badge badge-new">NEW ↗</span></div>
+      </div>
+    </div>
+
+    <!-- 盤點 + 預警 -->
+    <div class="mod-section">
+      <div class="mod-sec-head msh-count">
+        <span class="mod-sec-icon">📋</span>
+        <span class="mod-sec-name">盤點管理</span>
+        <span class="mod-sec-group">GROUP D · 8.x</span>
+      </div>
+      <div class="mod-rows">
+        <div class="mod-row done clickable" onclick="go('08_盤點管理_盤點計畫.html')"><span class="mod-row-num">8.1</span><span class="mod-row-name">盤點計畫</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row done clickable" onclick="go('08_盤點管理_盤點處理.html')"><span class="mod-row-num">8.2</span><span class="mod-row-name">盤點處理（條碼掃描）</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row done clickable" onclick="go('08_盤點管理_報損報溢.html')"><span class="mod-row-num">8.3</span><span class="mod-row-name">報損報溢</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+      </div>
+    </div>
+
+    <div class="mod-section">
+      <div class="mod-sec-head msh-alert">
+        <span class="mod-sec-icon">⚡</span>
+        <span class="mod-sec-name">預警告警</span>
+        <span class="mod-sec-group">GROUP E · 10.x</span>
+      </div>
+      <div class="mod-rows">
+        <div class="mod-row new-p clickable" onclick="go('10_預警告警_庫存水位設定.html')"><span class="mod-row-num">10.1</span><span class="mod-row-name">庫存水位設定</span><span class="mod-row-badge badge-new">NEW ↗</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">10.2</span><span class="mod-row-name">告警類型與規則</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row done clickable" onclick="go('07_庫存管理_商品庫存查詢_v2.html')"><span class="mod-row-num">10.3</span><span class="mod-row-name">告警儀表板</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">10.4</span><span class="mod-row-name">工單增項閉環</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row new-p clickable" onclick="go('10_預警告警_告警階層設定.html')"><span class="mod-row-num">10.5</span><span class="mod-row-name">告警階層設定</span><span class="mod-row-badge badge-new">NEW ↗</span></div>
+      </div>
+    </div>
+
+    <!-- 保固 + 分析 -->
+    <div class="mod-section">
+      <div class="mod-sec-head msh-wrt">
+        <span class="mod-sec-icon">🔧</span>
+        <span class="mod-sec-name">保固索賠舊件</span>
+        <span class="mod-sec-group">GROUP F · 11.x</span>
+      </div>
+      <div class="mod-rows">
+        <div class="mod-row plan"><span class="mod-row-num">11.1</span><span class="mod-row-name">索賠流程說明</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">11.2</span><span class="mod-row-name">舊件出入庫邏輯</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">11.3</span><span class="mod-row-name">暫存倉設定</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row done clickable" onclick="go('11_保固索賠_舊件管理.html')"><span class="mod-row-num">11.4</span><span class="mod-row-name">舊件管理介面</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">11.5</span><span class="mod-row-name">與 RO 工單串接</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">11.6</span><span class="mod-row-name">索賠費用回收</span><span class="mod-row-badge badge-plan">規劃</span></div>
+      </div>
+    </div>
+
+    <div class="mod-section">
+      <div class="mod-sec-head msh-abc">
+        <span class="mod-sec-icon">📊</span>
+        <span class="mod-sec-name">ABC 分類 / 分析報表</span>
+        <span class="mod-sec-group">GROUP G · 12.x</span>
+      </div>
+      <div class="mod-rows">
+        <div class="mod-row plan"><span class="mod-row-num">12.1</span><span class="mod-row-name">ABC 分類定義與機制</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">12.2</span><span class="mod-row-name">報表：庫存周轉率</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">12.3</span><span class="mod-row-name">報表：呆滯庫存佔比</span><span class="mod-row-badge badge-plan">規劃</span></div>
+        <div class="mod-row done clickable" onclick="go('12_分析報表_ABC分類.html')"><span class="mod-row-num">12.4</span><span class="mod-row-name">報表：即時缺貨率</span><span class="mod-row-badge badge-done">HTML ↗</span></div>
+        <div class="mod-row plan"><span class="mod-row-num">12.5</span><span class="mod-row-name">報表：ABC 結構圖</span><span class="mod-row-badge badge-plan">規劃</span></div>
+      </div>
+    </div>
+
+  </div><!-- mod-grid end -->
+
+  <!-- 版本記錄 -->
+  <div class="sec-title">📝 版本紀錄</div>
+  <div class="changelog">
+    <div class="cl-head">CHANGELOG</div>
+    <div class="cl-row">
+      <div class="cl-ver">v2.0</div>
+      <div class="cl-date">2026/05/06</div>
+      <div class="cl-desc">
+        新增 7 支頁面：7.2 例外出入庫、7.3 寄存管理、7.5 備件庫存調整、7.6 入庫查詢、7.7 調撥在途查詢、10.1 庫存水位設定、10.5 告警階層設定 <span class="cl-tag">NEW</span><br>
+        新增本導覽總覽（00_庫存管理模組_導覽總覽.html）<span class="cl-tag">NEW</span><br>
+        新增模組功能流程關係圖（00_模組功能流程關係圖.html）<span class="cl-tag">NEW</span><br>
+        全部 7 支新頁面補齊 sidebar 完整跨頁導航連結（12 個目標頁面）<span class="cl-tag">NEW</span><br>
+        7.7 補入右側追蹤面板（overlay + 里程碑 + 備件清單）<br>
+        10.5 新增人員改為 modal 彈窗設計<br>
+        所有頁面均通過 &lt; 32KB 預覽限制
+      </div>
+    </div>
+    <div class="cl-row">
+      <div class="cl-ver">v1.0</div>
+      <div class="cl-date">2026/05/05</div>
+      <div class="cl-desc">
+        完成前期 23 支頁面開發 <span class="cl-tag done">DONE</span><br>
+        涵蓋採購管理（4.3–4.4）、入庫管理（5.1–5.2）、出庫管理（6.1–6.2）、庫存查詢（7.1）、盤點管理（8.1–8.3）、保固索賠（11.4）、分析報表（12.4）等核心流程<br>
+        建立共用 CSS 設計規範（--navy、--teal、sidebar class 系統）
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function go(url){window.location.href=url;}
+</script>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

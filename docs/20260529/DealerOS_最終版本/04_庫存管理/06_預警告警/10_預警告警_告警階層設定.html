@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DUCATI 庫存管理系統｜告警階層設定</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+:root{--navy:#1A3A5C;--navy2:#0F2A45;--teal:#0F6E56;--teal-l:#E8F5F0;--red:#CC0000;--red-l:#FDECEA;--amber:#854F0B;--amb-l:#FDF3E3;--blue:#185FA5;--blue-l:#EAF4FB;--gray:#6B6A68;--gray-l:#F2F2F2;--green:#3B6D11;--green-l:#EAF3DE;--g50:#F8F7F4;--g100:#EEECE6;--g200:#D5D3CB;--g400:#9A9890;--g600:#5A5955;--g800:#2C2C2A;--white:#FFFFFF;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono',monospace;--hh:52px;--sw:220px;--r:8px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:var(--g50);color:var(--g800);font-size:13px;}
+.hdr{position:fixed;top:0;left:0;right:0;height:var(--hh);background:var(--navy);display:flex;align-items:center;padding:0 20px;gap:14px;z-index:200;border-bottom:1px solid rgba(255,255,255,0.07);}
+.hdr-logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdr-div{width:1px;height:20px;background:rgba(255,255,255,0.2);}
+.hdr-title{font-size:13px;color:rgba(255,255,255,0.6);}
+.hdr-title b{color:rgba(255,255,255,0.9);font-weight:500;}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.hdr-store{font-size:12px;color:rgba(255,255,255,0.55);}
+.hdr-store b{color:#5BC4A8;font-weight:500;}
+.hdr-sa{font-size:12px;color:rgba(255,255,255,0.55);}
+.hdr-sa b{color:rgba(255,255,255,0.85);font-weight:500;}
+.hdr-bell{width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;position:relative;}
+.hdr-bell .bd{position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#E24B4A;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;}
+.hdr-av{width:28px;height:28px;border-radius:6px;background:var(--teal);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;}
+.sidebar{position:fixed;left:0;top:var(--hh);bottom:0;width:var(--sw);background:var(--white);border-right:1px solid var(--g100);overflow-y:auto;z-index:100;}
+.sidebar::-webkit-scrollbar{width:3px;}.sidebar::-webkit-scrollbar-thumb{background:var(--g200);border-radius:2px;}
+.ng{padding:14px 14px 4px;}
+.ngl{font-size:10px;font-weight:600;letter-spacing:0.9px;text-transform:uppercase;color:var(--g400);display:flex;align-items:center;gap:6px;padding:0 2px;}
+.nd{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.d-blue{background:var(--navy);}.d-purple{background:#7F77DD;}.d-amber{background:#EF9F27;}.d-coral{background:#D85A30;}.d-gray{background:var(--g400);}
+.ni{margin:1px 8px;padding:7px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--g600);transition:all 0.12s;}
+.ni:hover{background:var(--g50);color:var(--g800);}
+.ni.parent{font-weight:500;color:var(--g800);}
+.ni.section-active{background:#F0FAF6;color:var(--teal);font-weight:500;}
+.nico{font-size:13px;width:18px;text-align:center;flex-shrink:0;}
+.narr{font-size:9px;color:var(--g400);margin-left:auto;transition:transform 0.15s;}
+.ni.open .narr{transform:rotate(90deg);}
+.nbadge{margin-left:auto;font-size:10px;font-family:var(--mono);background:var(--red-l);color:var(--red);padding:1px 5px;border-radius:8px;font-weight:500;}
+.nbadge.warn{background:var(--amb-l);color:var(--amber);}.nbadge.new{background:var(--teal-l);color:var(--teal);}
+.nsub{overflow:hidden;max-height:0;transition:max-height 0.2s ease;}.nsub.open{max-height:400px;}
+.nsi{margin:1px 8px 1px 28px;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--g400);transition:all 0.12s;display:flex;align-items:center;gap:6px;}
+.nsi:hover{background:var(--g50);color:var(--g800);}
+.nsi.active{color:var(--blue);background:#F0F6FF;font-weight:500;}
+.nsep{height:1px;background:var(--g100);margin:8px 14px;}
+.main{margin-left:var(--sw);margin-top:var(--hh);padding:20px 22px;}
+.ph{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.ph h1{font-size:16px;font-weight:600;}
+.ph-tag{font-size:11px;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:10px;font-weight:500;}
+.ph-sub{font-size:12px;color:var(--g400);}
+/* 兩欄佈局 */
+.layout{display:grid;grid-template-columns:1fr 400px;gap:14px;align-items:flex-start;}
+.card{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;}
+.card-head{padding:10px 16px;background:var(--g50);border-bottom:1px solid var(--g100);display:flex;align-items:center;gap:8px;}
+.card-title{font-size:13px;font-weight:600;color:var(--g800);}
+.card-body{padding:16px;}
+.btn{padding:0 14px;height:30px;border-radius:5px;font-size:12.5px;cursor:pointer;font-family:var(--font);font-weight:500;border:none;transition:all 0.12s;}
+.btn-navy{background:var(--navy);color:#fff;}.btn-navy:hover{background:var(--navy2);}
+.btn-ghost{background:var(--white);color:var(--g600);border:1px solid var(--g200);}.btn-ghost:hover{border-color:var(--g400);}
+.btn-teal{background:var(--teal);color:#fff;}.btn-teal:hover{background:#0A5440;}
+.btn-sm{padding:0 10px;height:26px;font-size:11.5px;}
+/* 告警類型卡 */
+.alert-type{border:1px solid var(--g100);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
+.at-head{padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;}
+.at-head:hover{background:var(--g50);}
+.at-icon{font-size:16px;flex-shrink:0;}
+.at-name{font-size:13px;font-weight:600;flex:1;}
+.at-badge{font-size:10px;padding:2px 6px;border-radius:6px;font-weight:500;}
+.at-badge-red{background:var(--red-l);color:var(--red);}
+.at-badge-amber{background:var(--amb-l);color:var(--amber);}
+.at-badge-blue{background:var(--blue-l);color:var(--blue);}
+.at-body{border-top:1px solid var(--g100);padding:12px 14px;background:var(--g50);}
+/* 告警階層設定 */
+.tier-list{display:flex;flex-direction:column;gap:8px;}
+.tier-row{display:grid;grid-template-columns:80px 1fr 1fr 100px;gap:8px;align-items:center;padding:8px 12px;background:var(--white);border:1px solid var(--g100);border-radius:6px;}
+.tier-label{font-size:12px;font-weight:600;}
+.tier-1{color:var(--teal);}
+.tier-2{color:var(--amber);}
+.tier-3{color:var(--red);}
+.ff-in{height:28px;border:1px solid var(--g200);border-radius:4px;padding:0 8px;font-size:12.5px;color:var(--g800);background:var(--white);font-family:var(--font);outline:none;width:100%;}
+.ff-in:focus{border-color:var(--blue);}
+.ch-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;}
+.ch-row:last-child{margin-bottom:0;}
+.ch-row input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:var(--teal);}
+/* 告警接收人設定 */
+.recv-list{display:flex;flex-direction:column;gap:6px;}
+.recv-row{display:flex;align-items:center;gap:10px;padding:7px 12px;background:var(--white);border:1px solid var(--g100);border-radius:6px;font-size:12.5px;}
+.recv-av{width:24px;height:24px;border-radius:4px;background:var(--navy);color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.recv-name{flex:1;}
+.recv-role{font-size:11px;color:var(--g400);}
+.recv-ch{display:flex;gap:12px;}
+.recv-ch label{display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;"><button onclick="go('00_庫存管理模組_導覽總覽.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">← 庫存導覽</button></div>
+<header class="hdr">
+  <div class="hdr-logo">DUCATI</div><div class="hdr-div"></div>
+  <div class="hdr-title">預警告警　<b>告警階層設定</b></div>
+  <div class="hdr-right">
+    <div class="hdr-store">門店：<b>台北直營店</b></div>
+    <div class="hdr-sa">倉管：<b>蔡零件</b>　2026/05/06　09:30</div>
+    <div class="hdr-bell">🔔<span class="bd">3</span></div>
+    <div class="hdr-av">蔡</div>
+  </div>
+</header>
+<aside class="sidebar">
+  <div class="ng"><div class="ngl"><span class="nd d-blue"></span>基礎設定</div></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">🏛</span>組織與權限<span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi">組織三層架構</div><div class="nsi">採購權限規則</div><div class="nsi">商品管理權限</div><div class="nsi">盤點回傳規則</div><div class="nsi">管控類型定義</div></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">🏗</span>倉庫管理<span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi">倉儲四層架構</div><div class="nsi">倉庫 / 庫區 / 庫位 / 擺放</div><div class="nsi">供應商資訊</div><div class="nsi">採購合約</div></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">📦</span>商品管理<span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi">基礎資料</div><div class="nsi">商品資訊（多維度料號）</div><div class="nsi">門市定價</div><div class="nsi">適配設定（料-車/年份）</div><div class="nsi">序列號 / 批號追蹤 <span class="nbadge new">新</span></div></div>
+  <div class="nsep"></div>
+  <div class="ng"><div class="ngl"><span class="nd d-purple"></span>進出庫流程</div></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">🛒</span>採購管理<span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi">採購流程鏈路</div><div class="nsi">日常補貨計畫</div><div class="nsi" onclick="window.location.href='04_採購管理_需求處理.html'" style="cursor:pointer">需求處理 <span class="nbadge">3</span></div><div class="nsi" onclick="window.location.href='04_採購管理_商品採購.html'" style="cursor:pointer">商品採購</div><div class="nsi">採購退貨</div></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">📥</span>入庫管理<span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi" onclick="window.location.href='05_入庫管理_採購入庫.html'" style="cursor:pointer">採購入庫（含原廠到貨匯入）</div><div class="nsi" onclick="window.location.href='05_入庫管理_調撥入庫.html'" style="cursor:pointer">調撥入庫</div><div class="nsi">內售入庫</div><div class="nsi">領料退貨入庫</div></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">📤</span>出庫管理<span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi" onclick="window.location.href='06_出庫管理_維修領料.html'" style="cursor:pointer">維修領料（RO工單串接）</div><div class="nsi" onclick="window.location.href='06_出庫管理_調撥出庫.html'" style="cursor:pointer">調撥出庫</div><div class="nsi">內售出庫</div></div>
+  <div class="ni"><span class="nico">🔍</span>庫存查詢<span class="nbadge warn">7</span></div>
+    <div class="ni parent" onclick="tog(this)"><span class="nico">⚙️</span>庫存作業<span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi" onclick="window.location.href='07_庫存作業_例外出入庫.html'" style="cursor:pointer">例外出入庫</div><div class="nsi" onclick="window.location.href='07_庫存作業_寄存管理.html'" style="cursor:pointer">寄存管理</div><div class="nsi" onclick="window.location.href='07_庫存作業_備件庫存調整.html'" style="cursor:pointer">備件庫存調整</div><div class="nsi" onclick="window.location.href='07_庫存作業_入庫查詢.html'" style="cursor:pointer">入庫查詢</div><div class="nsi" onclick="window.location.href='07_庫存作業_調撥在途查詢.html'" style="cursor:pointer">調撥在途查詢</div></div>
+  <div class="nsep"></div>
+  <div class="ng"><div class="ngl"><span class="nd d-amber"></span>盤點與告警</div></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">📋</span>盤點管理<span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi" onclick="window.location.href='08_盤點管理_盤點計畫.html'" style="cursor:pointer">盤點計畫</div><div class="nsi" onclick="window.location.href='08_盤點管理_盤點處理.html'" style="cursor:pointer">盤點處理（條碼掃描）</div><div class="nsi" onclick="window.location.href='08_盤點管理_報損報溢.html'" style="cursor:pointer">報損報溢</div></div>
+    <div class="ni parent open section-active" onclick="tog(this)"><span class="nico">⚡</span>預警告警<span class="narr">▶</span></div>
+  <div class="nsub open"><div class="nsi" onclick="window.location.href='10_預警告警_庫存水位設定.html'" style="cursor:pointer">庫存水位設定</div><div class="nsi">告警類型與規則</div><div class="nsi" onclick="window.location.href='07_庫存管理_商品庫存查詢_v2.html'" style="cursor:pointer">告警儀表板</div><div class="nsi">工單增項閉環</div><div class="nsi active">告警階層設定</div></div>
+  <div class="nsep"></div>
+  <div class="ng"><div class="ngl"><span class="nd d-coral"></span>保固與分析</div></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">🔧</span>保固索賠舊件<span class="nbadge warn">2</span><span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi">索賠流程說明</div><div class="nsi">舊件出入庫邏輯</div><div class="nsi">暫存倉設定</div><div class="nsi" onclick="window.location.href='11_保固索賠_舊件管理.html'" style="cursor:pointer">舊件管理介面</div><div class="nsi">與RO工單串接</div><div class="nsi">索賠費用回收</div></div>
+  <div class="ni parent" onclick="tog(this)"><span class="nico">📊</span>ABC分類 / 分析報表<span class="narr">▶</span></div>
+  <div class="nsub"><div class="nsi">ABC 分類定義與機制</div><div class="nsi">報表：庫存周轉率</div><div class="nsi">報表：呆滯庫存佔比</div><div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" style="cursor:pointer">報表：即時缺貨率</div><div class="nsi">報表：ABC 結構圖</div></div>
+  <div class="nsep"></div>
+  <div style="padding:8px 14px 16px"><div class="ngl" style="margin-bottom:4px"><span class="nd d-gray"></span>附錄</div><div class="nsi" style="margin-left:0">介面設計共用規則（A～H）</div></div>
+</aside>
+<main class="main">
+  <div class="ph">
+    <h1>告警階層設定</h1>
+    <span class="ph-tag">10.5</span>
+    <span class="ph-sub">設定各類告警的升級機制、通知對象與通知方式</span>
+  </div>
+
+  <div class="layout">
+    <!-- 左欄：告警類型與階層設定 -->
+    <div>
+      <!-- 缺料告警 -->
+      <div class="alert-type">
+        <div class="at-head" onclick="toggleAT('at1')">
+          <div class="at-icon">🔴</div>
+          <div class="at-name">缺料告警（低於最小庫存）</div>
+          <span class="at-badge at-badge-red">最高優先</span>
+          <span style="font-size:12px;color:var(--g400);margin-left:8px" id="at1-arr">▼</span>
+        </div>
+        <div class="at-body" id="at1-body">
+          <div style="font-size:11.5px;color:var(--g600);margin-bottom:10px">觸發條件：備件可用庫存低於最小庫存（Min Stock）。觸發後系統自動產生補貨需求，同時依階層通知。</div>
+          <div class="tier-list">
+            <div class="tier-row">
+              <div class="tier-label tier-1">一級告警</div>
+              <div><div style="font-size:11px;color:var(--g400);margin-bottom:4px">觸發後立即（0分鐘）</div><input class="ff-in" type="text" value="蔡零件（倉管）" readonly></div>
+              <div>
+                <div style="font-size:11px;color:var(--g400);margin-bottom:4px">通知方式</div>
+                <div class="ch-row"><input type="checkbox" checked><label>系統推播</label></div>
+                <div class="ch-row"><input type="checkbox" checked><label>簡訊</label></div>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end">編輯</button>
+            </div>
+            <div class="tier-row">
+              <div class="tier-label tier-2">二級升級</div>
+              <div><div style="font-size:11px;color:var(--g400);margin-bottom:4px">未處理 30 分鐘後</div><input class="ff-in" type="text" value="陳主管（倉儲主管）" readonly></div>
+              <div>
+                <div style="font-size:11px;color:var(--g400);margin-bottom:4px">通知方式</div>
+                <div class="ch-row"><input type="checkbox" checked><label>系統推播</label></div>
+                <div class="ch-row"><input type="checkbox"><label>Email</label></div>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end">編輯</button>
+            </div>
+            <div class="tier-row">
+              <div class="tier-label tier-3">三級升級</div>
+              <div><div style="font-size:11px;color:var(--g400);margin-bottom:4px">未處理 2 小時後</div><input class="ff-in" type="text" value="李經理（門店主管）" readonly></div>
+              <div>
+                <div style="font-size:11px;color:var(--g400);margin-bottom:4px">通知方式</div>
+                <div class="ch-row"><input type="checkbox" checked><label>系統推播</label></div>
+                <div class="ch-row"><input type="checkbox" checked><label>Email + 簡訊</label></div>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end">編輯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 再訂購點告警 -->
+      <div class="alert-type">
+        <div class="at-head" onclick="toggleAT('at2')">
+          <div class="at-icon">🟠</div>
+          <div class="at-name">再訂購點告警（低於再訂購點）</div>
+          <span class="at-badge at-badge-amber">中優先</span>
+          <span style="font-size:12px;color:var(--g400);margin-left:8px" id="at2-arr">▶</span>
+        </div>
+        <div class="at-body" id="at2-body" style="display:none">
+          <div style="font-size:11.5px;color:var(--g600);margin-bottom:10px">觸發條件：備件可用庫存低於再訂購點（Reorder Point）且高於最小庫存。提醒採購人員啟動採購流程。</div>
+          <div class="tier-list">
+            <div class="tier-row">
+              <div class="tier-label tier-1">一級告警</div>
+              <div><div style="font-size:11px;color:var(--g400);margin-bottom:4px">觸發後立即</div><input class="ff-in" type="text" value="蔡零件（倉管）" readonly></div>
+              <div><div class="ch-row"><input type="checkbox" checked><label>系統推播</label></div></div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end">編輯</button>
+            </div>
+            <div class="tier-row">
+              <div class="tier-label tier-2">二級升級</div>
+              <div><div style="font-size:11px;color:var(--g400);margin-bottom:4px">未處理 4 小時後</div><input class="ff-in" type="text" value="陳主管（倉儲主管）" readonly></div>
+              <div><div class="ch-row"><input type="checkbox" checked><label>系統推播</label></div></div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end">編輯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 寄存到期告警 -->
+      <div class="alert-type">
+        <div class="at-head" onclick="toggleAT('at3')">
+          <div class="at-icon">🗓</div>
+          <div class="at-name">寄存到期告警</div>
+          <span class="at-badge at-badge-amber">中優先</span>
+          <span style="font-size:12px;color:var(--g400);margin-left:8px" id="at3-arr">▶</span>
+        </div>
+        <div class="at-body" id="at3-body" style="display:none">
+          <div style="font-size:11.5px;color:var(--g600);margin-bottom:10px">觸發條件：寄存品項距到期日 ≤ 7 天觸發提醒；到期當日觸發緊急告警。</div>
+          <div class="tier-list">
+            <div class="tier-row">
+              <div class="tier-label tier-1">到期前 7 天</div>
+              <div><input class="ff-in" type="text" value="蔡零件（倉管）" readonly></div>
+              <div><div class="ch-row"><input type="checkbox" checked><label>系統推播</label></div></div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end">編輯</button>
+            </div>
+            <div class="tier-row">
+              <div class="tier-label tier-2">到期當日</div>
+              <div><input class="ff-in" type="text" value="蔡零件 + 陳主管" readonly></div>
+              <div><div class="ch-row"><input type="checkbox" checked><label>系統推播+簡訊</label></div></div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end">編輯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 在途延遲告警 -->
+      <div class="alert-type">
+        <div class="at-head" onclick="toggleAT('at4')">
+          <div class="at-icon">🚚</div>
+          <div class="at-name">調撥在途延遲告警</div>
+          <span class="at-badge at-badge-blue">低優先</span>
+          <span style="font-size:12px;color:var(--g400);margin-left:8px" id="at4-arr">▶</span>
+        </div>
+        <div class="at-body" id="at4-body" style="display:none">
+          <div style="font-size:11.5px;color:var(--g600);margin-bottom:10px">觸發條件：調撥在途超過預計到貨時間 1 天以上。</div>
+          <div class="tier-list">
+            <div class="tier-row">
+              <div class="tier-label tier-1">延遲 1 天</div>
+              <div><input class="ff-in" type="text" value="蔡零件（倉管）" readonly></div>
+              <div><div class="ch-row"><input type="checkbox" checked><label>系統推播</label></div></div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end">編輯</button>
+            </div>
+            <div class="tier-row">
+              <div class="tier-label tier-2">延遲 3 天</div>
+              <div><input class="ff-in" type="text" value="陳主管（倉儲主管）" readonly></div>
+              <div><div class="ch-row"><input type="checkbox" checked><label>系統推播</label></div></div>
+              <button class="btn btn-ghost btn-sm" style="align-self:flex-end">編輯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost">重置為預設值</button>
+        <button class="btn btn-navy" onclick="showToast('✅ 告警階層設定已儲存！\n所有告警規則已更新並即時生效。')">儲存所有設定</button>
+      </div>
+    </div>
+
+    <!-- 右欄：告警接收人管理 -->
+    <div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">👥 告警接收人管理</div>
+          <button class="btn btn-teal btn-sm" style="margin-left:auto" onclick="showToast('新增告警接收人')">＋ 新增</button>
+        </div>
+        <div class="card-body">
+          <div style="font-size:11.5px;color:var(--g600);margin-bottom:12px;line-height:1.6">設定本門店可接收告警的人員及其默認通知偏好。各人員在「告警階層設定」中可被指定為特定告警的接收者。</div>
+          <div class="recv-list">
+            <div class="recv-row">
+              <div class="recv-av">蔡</div>
+              <div><div class="recv-name">蔡零件</div><div class="recv-role">倉管專員</div></div>
+              <div class="recv-ch">
+                <label><input type="checkbox" checked> 推播</label>
+                <label><input type="checkbox" checked> 簡訊</label>
+                <label><input type="checkbox"> Email</label>
+              </div>
+              <button class="btn btn-ghost btn-sm">編輯</button>
+            </div>
+            <div class="recv-row">
+              <div class="recv-av" style="background:#7F77DD">陳</div>
+              <div><div class="recv-name">陳主管</div><div class="recv-role">倉儲主管</div></div>
+              <div class="recv-ch">
+                <label><input type="checkbox" checked> 推播</label>
+                <label><input type="checkbox"> 簡訊</label>
+                <label><input type="checkbox" checked> Email</label>
+              </div>
+              <button class="btn btn-ghost btn-sm">編輯</button>
+            </div>
+            <div class="recv-row">
+              <div class="recv-av" style="background:var(--amber)">李</div>
+              <div><div class="recv-name">李經理</div><div class="recv-role">門店主管</div></div>
+              <div class="recv-ch">
+                <label><input type="checkbox" checked> 推播</label>
+                <label><input type="checkbox" checked> 簡訊</label>
+                <label><input type="checkbox" checked> Email</label>
+              </div>
+              <button class="btn btn-ghost btn-sm">編輯</button>
+            </div>
+            <div class="recv-row">
+              <div class="recv-av" style="background:var(--teal)">王</div>
+              <div><div class="recv-name">王倉儲</div><div class="recv-role">倉管專員</div></div>
+              <div class="recv-ch">
+                <label><input type="checkbox" checked> 推播</label>
+                <label><input type="checkbox"> 簡訊</label>
+                <label><input type="checkbox"> Email</label>
+              </div>
+              <button class="btn btn-ghost btn-sm">編輯</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="card-head"><div class="card-title">🕐 全域告警靜音時段</div></div>
+        <div class="card-body">
+          <div style="font-size:11.5px;color:var(--g600);margin-bottom:10px">設定靜音時段，系統仍會記錄告警但不推播通知，靜音時段結束後補發未讀告警摘要。</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="checkbox" checked style="width:14px;height:14px;accent-color:var(--teal)">
+              <span style="font-size:12.5px">每日靜音：</span>
+              <input type="text" value="22:00" style="width:70px;height:28px;border:1px solid var(--g200);border-radius:4px;padding:0 8px;font-family:var(--mono);font-size:12px;outline:none;text-align:center">
+              <span style="font-size:12px;color:var(--g400)">–</span>
+              <input type="text" value="07:00" style="width:70px;height:28px;border:1px solid var(--g200);border-radius:4px;padding:0 8px;font-family:var(--mono);font-size:12px;outline:none;text-align:center">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <input type="checkbox" style="width:14px;height:14px;accent-color:var(--teal)">
+              <span style="font-size:12.5px">例外：缺料告警不受靜音影響</span>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="showToast('靜音時段設定已儲存')">儲存靜音設定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+function go(u){location.href=u;}
+function tog(el){const s=el.nextElementSibling;if(!s)return;s.classList.toggle('open');el.classList.toggle('open');}
+function toggleAT(id){
+  const body=document.getElementById(id+'-body');
+  const arr=document.getElementById(id+'-arr');
+  const show=body.style.display==='none';
+  body.style.display=show?'':'none';
+  arr.textContent=show?'▼':'▶';
+}
+</script>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

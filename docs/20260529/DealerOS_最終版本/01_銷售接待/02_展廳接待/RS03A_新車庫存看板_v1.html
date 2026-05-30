@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS03A 新車庫存看板 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--blue:#185FA5;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--navy:#1A3A5C;--gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-teal{background:rgba(15,110,86,.8);border-color:transparent;}
+.hbtn-teal:hover{background:var(--teal);}
+.hbtn-red{background:rgba(200,0,26,.8);border-color:transparent;}
+.hbtn-red:hover{background:var(--red);}
+.main{max-width:1100px;margin:0 auto;padding:16px 20px 60px;}
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.kpi{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;}
+.kpi-l{font-size:11px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.kn-navy{color:var(--navy);}.kn-teal{color:var(--teal);}.kn-amber{color:var(--amber);}.kn-red{color:var(--red);}.kn-purple{color:var(--purple);}
+.kpi-s{font-size:10.5px;color:var(--gray);}
+.arrival-banner{background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:9px;padding:11px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.ab-text{font-size:12.5px;color:#0C3E70;flex:1;}
+.ab-btn{padding:6px 14px;border-radius:6px;font-family:'Noto Sans TC',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:.15s;white-space:nowrap;background:var(--navy);color:#fff;}
+.ab-btn:hover{background:#142E4A;}
+.filter-bar{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.fb-label{font-size:11.5px;font-weight:600;color:#5A5955;flex-shrink:0;}
+.fb-sel{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;background:#fff;}
+.fb-inp{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;background:#fff;width:160px;}
+.fb-inp:focus,.fb-sel:focus{border-color:var(--blue-bd);}
+.fb-right{margin-left:auto;display:flex;gap:8px;}
+.view-toggle{display:flex;gap:4px;}
+.vt-btn{padding:5px 12px;border-radius:5px;border:1px solid #D5D3CB;background:#F4F3F0;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.vt-btn.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.car-card{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;transition:.2s;cursor:pointer;}
+.car-card:hover{border-color:var(--blue-bd);box-shadow:0 4px 16px rgba(26,58,92,.1);}
+.car-img{height:110px;display:flex;align-items:center;justify-content:center;position:relative;}
+.car-img-icon{font-size:40px;opacity:.6;}
+.car-status{position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;}
+.cs-available{background:var(--teal-bg);color:var(--teal);}
+.cs-pending-pdi{background:var(--purple-bg);color:var(--purple);}
+.cs-reserved{background:var(--amber-bg);color:var(--amber);}
+.cs-in-transit{background:var(--blue-bg);color:var(--blue);}
+.cs-sold{background:var(--red-bg);color:var(--red);}
+.pdi-prog-strip{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,.2);}
+.pdi-prog-fill{height:100%;background:#5DCAA5;transition:width .3s;}
+.color-dot{width:12px;height:12px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.1);flex-shrink:0;}
+.car-body{padding:10px 12px;}
+.car-model{font-size:13px;font-weight:700;margin-bottom:2px;}
+.car-sub{font-size:11px;color:var(--gray);margin-bottom:6px;}
+.car-meta{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;}
+.cm-row{display:flex;justify-content:space-between;font-size:11.5px;}
+.cm-lbl{color:var(--gray);}
+.cm-val{font-weight:600;font-family:'DM Mono',monospace;}
+.pdi-hint{font-size:10.5px;padding:3px 7px;border-radius:4px;margin-bottom:6px;}
+.pdi-hint-wait{background:var(--purple-bg);color:var(--purple);}
+.pdi-hint-done{background:var(--teal-bg);color:var(--teal);}
+.car-price{font-size:15px;font-weight:700;color:var(--navy);font-family:'DM Mono',monospace;margin-bottom:4px;}
+.car-cost{font-size:11px;color:var(--gray);margin-bottom:8px;}
+.car-actions{display:flex;gap:6px;}
+.ca-btn{flex:1;padding:5px 0;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid;text-align:center;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.ca-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.ca-primary:hover{background:#142E4A;}
+.ca-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.ca-ghost:hover{background:#F4F3F0;}
+.ca-disabled{background:#F4F3F0;border-color:#D5D3CB;color:#B0AEA8;cursor:not-allowed;}
+.ca-purple{background:var(--purple-bg);border-color:var(--purple);color:var(--purple);}
+.ca-purple:hover{background:#DDDCFC;}
+.list-view{display:none;}
+.list-view.active{display:flex;flex-direction:column;gap:6px;}
+.card-grid.active{display:grid;}
+.list-row{background:#fff;border:1px solid #EEECE6;border-radius:8px;display:grid;grid-template-columns:190px 60px 90px 100px 70px 120px 120px 110px auto;gap:8px;align-items:center;padding:9px 14px;transition:.15s;cursor:pointer;font-size:12px;}
+.list-row:hover{border-color:var(--blue-bd);}
+.list-row.hdr{background:#FAFAF8;font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.3px;cursor:default;}
+.list-row.hdr:hover{border-color:#EEECE6;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-blue{background:var(--blue-bg);color:var(--blue);}
+.b-purple{background:var(--purple-bg);color:var(--purple);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-red{background:var(--red-bg);color:var(--red);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售模組 <b>RS03A 新車庫存看板</b></div>
+  <div class="ver-badge">v2</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS00_銷售模組_導覽總覽_v4.html')">← RS 總覽</button>
+    <button class="hbtn" onclick="go('RS_INV02_到港確認.html')">INV02 到港確認</button>
+    <button class="hbtn" onclick="go('RS03B_中古車庫存看板_v1.html')">中古庫存 →</button>
+    <button class="hbtn hbtn-red" onclick="go('RS04_賞車報價與成交訂單_v1.html')">開立報價 →</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-l">現車可售</div><div class="kpi-n kn-teal" id="kpi-avail">—</div><div class="kpi-s">PDI完成，可立即配車</div></div>
+    <div class="kpi"><div class="kpi-l">待 PDI</div><div class="kpi-n kn-purple" id="kpi-pdi">—</div><div class="kpi-s">整備工單進行中</div></div>
+    <div class="kpi"><div class="kpi-l">已保留</div><div class="kpi-n kn-amber" id="kpi-reserved">—</div><div class="kpi-s">業務鎖定配車中</div></div>
+    <div class="kpi"><div class="kpi-l">在途中</div><div class="kpi-n kn-navy" id="kpi-transit">—</div><div class="kpi-s">已訂購，尚未到港</div></div>
+    <div class="kpi"><div class="kpi-l">本月已售</div><div class="kpi-n kn-red">4</div><div class="kpi-s">2026年05月</div></div>
+  </div>
+
+  <div class="arrival-banner">
+    <div class="ab-text"><b>新車入庫入口：</b>新車到港後請至 INV02 進行到港確認（逐台掃VIN），系統將自動建立 PDI 工單。<b>PDI 完成後車輛才會顯示為「可售」</b>，業務才可配車報價。</div>
+    <button class="ab-btn" onclick="go('RS_INV02_到港確認.html')">📦 前往 INV02 到港確認</button>
+  </div>
+
+  <div class="filter-bar">
+    <span class="fb-label">篩選：</span>
+    <select class="fb-sel" id="f-series" onchange="render()">
+      <option value="">全部車系</option>
+      <option value="Scout">Scout</option>
+      <option value="Chief">Chief</option>
+      <option value="Challenger">Challenger</option>
+      <option value="Springfield">Springfield</option>
+      <option value="Pursuit">Pursuit</option>
+      <option value="Super Meteor">Super Meteor</option>
+    </select>
+    <select class="fb-sel" id="f-status" onchange="render()">
+      <option value="">全部狀態</option>
+      <option value="AVAILABLE">現車可售</option>
+      <option value="PENDING_PDI">待 PDI</option>
+      <option value="RESERVED">已保留</option>
+      <option value="IN_TRANSIT">在途中</option>
+    </select>
+    <select class="fb-sel" id="f-batch" onchange="render()">
+      <option value="">全部批次</option>
+      <option value="BATCH-2605-001">BATCH-2605-001</option>
+      <option value="BATCH-2604-003">BATCH-2604-003</option>
+      <option value="BATCH-2603-002">BATCH-2603-002</option>
+    </select>
+    <input type="text" class="fb-inp" placeholder="搜尋車款/VIN..." id="f-search" oninput="render()">
+    <div class="fb-right">
+      <div class="view-toggle">
+        <button class="vt-btn active" id="vt-card" onclick="setView('card')">⊞ 卡片</button>
+        <button class="vt-btn" id="vt-list" onclick="setView('list')">≡ 列表</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-grid active" id="card-view"></div>
+  <div class="list-view" id="list-view"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+
+var inventory=[
+  {id:'V001',series:'Scout',model:'Scout Bobber',year:2026,color:'Black Smoke',colorHex:'#2C2C2A',vin:'5VPHB36N8P1234561',msrp:568000,total_cost:532000,status:'AVAILABLE',batch:'BATCH-2603-002',arrived:'2026/03/20',days_in_stock:66,pdi_wo:'PD-IN-260320-001',pdi_progress:100,note:''},
+  {id:'V002',series:'Scout',model:'Scout Classic',year:2026,color:'Polished Chrome',colorHex:'#C0C0C0',vin:'5VPHB36N8P1234562',msrp:598000,total_cost:561000,status:'RESERVED',batch:'BATCH-2603-002',arrived:'2026/03/20',days_in_stock:66,pdi_wo:'PD-IN-260320-002',pdi_progress:100,note:'林先生保留至 6/01'},
+  {id:'V003',series:'Challenger',model:'Challenger Dark Horse',year:2026,color:'Black Metallic',colorHex:'#1A1A1A',vin:'5VPHB36N8P1234563',msrp:1098000,total_cost:1028000,status:'AVAILABLE',batch:'BATCH-2604-003',arrived:'2026/04/15',days_in_stock:41,pdi_wo:'PD-IN-260415-001',pdi_progress:100,note:''},
+  {id:'V004',series:'Challenger',model:'Challenger Limited',year:2026,color:'Maroon Metallic',colorHex:'#6B1A1A',vin:'5VPHB36N8P1234564',msrp:1198000,total_cost:1122000,status:'AVAILABLE',batch:'BATCH-2604-003',arrived:'2026/04/15',days_in_stock:41,pdi_wo:'PD-IN-260415-002',pdi_progress:100,note:''},
+  {id:'V005',series:'Springfield',model:'Springfield Dark Horse',year:2026,color:'Black Smoke',colorHex:'#2C2C2A',vin:'5VPHB36N8P1234565',msrp:888000,total_cost:0,status:'PENDING_PDI',batch:'BATCH-2605-001',arrived:'2026/05/26',days_in_stock:0,pdi_wo:'PD-IN-260526-003',pdi_progress:62,note:''},
+  {id:'V006',series:'Pursuit',model:'Pursuit Dark Horse',year:2026,color:'Storm Blue Metallic',colorHex:'#1A3A5C',vin:'5VPHB36N8P1234566',msrp:1388000,total_cost:0,status:'PENDING_PDI',batch:'BATCH-2605-001',arrived:'2026/05/26',days_in_stock:0,pdi_wo:'PD-IN-260526-004',pdi_progress:31,note:''},
+  {id:'V007',series:'Super Meteor',model:'Super Meteor 650',year:2026,color:'Celestial Red',colorHex:'#C8001A',vin:'5VPHB36N8P1234567',msrp:398000,total_cost:0,status:'PENDING_PDI',batch:'BATCH-2605-001',arrived:'2026/05/26',days_in_stock:0,pdi_wo:'PD-IN-260526-005',pdi_progress:0,note:''},
+  {id:'V008',series:'Super Meteor',model:'Super Meteor 650 Tourer',year:2026,color:'Astral Green',colorHex:'#2C5A2C',vin:'5VPHB36N8P1234568',msrp:428000,total_cost:0,status:'PENDING_PDI',batch:'BATCH-2605-001',arrived:'2026/05/26',days_in_stock:0,pdi_wo:'PD-IN-260526-006',pdi_progress:0,note:''},
+  {id:'V009',series:'Scout',model:'Scout Rogue',year:2026,color:'Titanium Smoke',colorHex:'#888888',vin:'—',msrp:618000,total_cost:0,status:'IN_TRANSIT',batch:'BATCH-2605-002',arrived:'預計 2026/06/15',days_in_stock:null,pdi_wo:'—',pdi_progress:0,note:'PO-202605-002 在途'},
+  {id:'V010',series:'Chief',model:'Chief Bobber',year:2026,color:'Black Metallic',colorHex:'#1A1A1A',vin:'—',msrp:788000,total_cost:0,status:'IN_TRANSIT',batch:'BATCH-2605-002',arrived:'預計 2026/06/15',days_in_stock:null,pdi_wo:'—',pdi_progress:0,note:'PO-202605-002 在途'},
+  {id:'V011',series:'Scout',model:'Scout Bobber',year:2026,color:'Ruby Metallic',colorHex:'#8B1A1A',vin:'5VPHB36N8P1234571',msrp:568000,total_cost:531000,status:'AVAILABLE',batch:'BATCH-2603-002',arrived:'2026/03/20',days_in_stock:66,pdi_wo:'PD-IN-260320-003',pdi_progress:100,note:''},
+];
+
+var statusLabel={AVAILABLE:'現車可售',PENDING_PDI:'待 PDI',RESERVED:'已保留',IN_TRANSIT:'在途中',SOLD:'已售'};
+var statusCls={AVAILABLE:'cs-available',PENDING_PDI:'cs-pending-pdi',RESERVED:'cs-reserved',IN_TRANSIT:'cs-in-transit',SOLD:'cs-sold'};
+var statusBadge={AVAILABLE:'b-teal',PENDING_PDI:'b-purple',RESERVED:'b-amber',IN_TRANSIT:'b-blue',SOLD:'b-red'};
+
+function filtered(){
+  var s=document.getElementById('f-series').value;
+  var st=document.getElementById('f-status').value;
+  var b=document.getElementById('f-batch').value;
+  var q=document.getElementById('f-search').value.toLowerCase();
+  return inventory.filter(function(v){
+    return(!s||v.series===s)&&(!st||v.status===st)&&(!b||v.batch===b)&&(!q||v.model.toLowerCase().includes(q)||v.vin.toLowerCase().includes(q));
+  });
+}
+
+function updateKPI(){
+  document.getElementById('kpi-avail').textContent=inventory.filter(function(v){return v.status==='AVAILABLE';}).length;
+  document.getElementById('kpi-pdi').textContent=inventory.filter(function(v){return v.status==='PENDING_PDI';}).length;
+  document.getElementById('kpi-reserved').textContent=inventory.filter(function(v){return v.status==='RESERVED';}).length;
+  document.getElementById('kpi-transit').textContent=inventory.filter(function(v){return v.status==='IN_TRANSIT';}).length;
+}
+
+function setView(v){
+  document.getElementById('vt-card').classList.toggle('active',v==='card');
+  document.getElementById('vt-list').classList.toggle('active',v==='list');
+  document.getElementById('card-view').classList.toggle('active',v==='card');
+  document.getElementById('list-view').classList.toggle('active',v==='list');
+}
+
+function render(){
+  var list=filtered();
+  document.getElementById('card-view').innerHTML=list.map(function(v){
+    var sc=statusCls[v.status]||'cs-available';
+    var isPDI=(v.status==='PENDING_PDI');
+    var isAvail=(v.status==='AVAILABLE'||v.status==='RESERVED');
+    var canQuote=(v.status==='AVAILABLE');
+    var pdiHint=isPDI
+      ?'<div class="pdi-hint pdi-hint-wait">🔧 PDI 進行中 — '+v.pdi_wo+' · '+v.pdi_progress+'%</div>'
+      :(isAvail?'<div class="pdi-hint pdi-hint-done">✅ PDI 完成 — '+v.pdi_wo+'</div>':'');
+    return '<div class="car-card" onclick="showDetail(\''+v.id+'\')">'+
+      '<div class="car-img" style="background:linear-gradient(135deg,'+v.colorHex+'CC,'+v.colorHex+'66);">'+
+        '<div class="car-img-icon">🏍️</div>'+
+        '<div class="car-status '+sc+'">'+statusLabel[v.status]+'</div>'+
+        (isPDI?'<div class="pdi-prog-strip"><div class="pdi-prog-fill" style="width:'+v.pdi_progress+'%;"></div></div>':'')+
+      '</div>'+
+      '<div class="car-body">'+
+        pdiHint+
+        '<div class="car-model">'+v.model+'</div>'+
+        '<div class="car-sub" style="display:flex;align-items:center;gap:5px;"><div class="color-dot" style="background:'+v.colorHex+';"></div><span>'+v.color+'　'+v.year+'年</span></div>'+
+        '<div class="car-meta">'+
+          (v.vin!=='—'?'<div class="cm-row"><span class="cm-lbl">VIN末6碼</span><span class="cm-val">'+v.vin.slice(-6)+'</span></div>':'')+
+          '<div class="cm-row"><span class="cm-lbl">批次</span><span class="cm-val" style="font-size:11px;">'+v.batch+'</span></div>'+
+          '<div class="cm-row"><span class="cm-lbl">到港/預計</span><span class="cm-val" style="font-size:11px;">'+v.arrived+'</span></div>'+
+          (v.days_in_stock!==null?'<div class="cm-row"><span class="cm-lbl">在庫天數</span><span class="cm-val" style="color:'+(v.days_in_stock>60?'var(--red)':v.days_in_stock>30?'var(--amber)':'var(--teal)')+';">'+v.days_in_stock+' 天</span></div>':'')+
+        '</div>'+
+        '<div class="car-price">NT$ '+v.msrp.toLocaleString()+'</div>'+
+        (v.total_cost>0
+          ?'<div class="car-cost">整車成本：NT$ '+v.total_cost.toLocaleString()+'　毛利空間：NT$ '+(v.msrp-v.total_cost).toLocaleString()+'</div>'
+          :(isPDI?'<div class="car-cost" style="color:var(--purple);">整車成本計算中（PDI未完成）</div>':'<div class="car-cost">整車成本待確認</div>'))+
+        (v.note?'<div style="font-size:10.5px;color:var(--amber);margin-bottom:6px;">📌 '+v.note+'</div>':'')+
+        '<div class="car-actions">'+
+          (isPDI?'<button class="ca-btn ca-purple" onclick="event.stopPropagation();showToast(\'🔧 '+v.pdi_wo+'\nPDI進度：'+v.pdi_progress+'%\')">PDI工單</button>':'<button class="ca-btn ca-ghost" onclick="event.stopPropagation();showToast(\'📋 規格詳情\')">規格</button>')+
+          (canQuote?'<button class="ca-btn ca-primary" onclick="event.stopPropagation();go(\'RS04_賞車報價與成交訂單_v1.html\')">配車報價</button>':'<button class="ca-btn ca-disabled">'+(isPDI?'PDI中暫不可售':statusLabel[v.status])+'</button>')+
+        '</div>'+
+      '</div></div>';
+  }).join('');
+
+  document.getElementById('list-view').innerHTML=
+    '<div class="list-row hdr"><div>車款</div><div>年份</div><div>顏色</div><div>VIN末6碼</div><div>在庫天</div><div>整車成本</div><div>售價</div><div>狀態</div><div></div></div>'+
+    list.map(function(v){
+      return '<div class="list-row" onclick="showDetail(\''+v.id+'\')">'+
+        '<div><div style="font-weight:600;">'+v.model+'</div><div style="font-size:10.5px;color:var(--gray);">'+v.series+'</div></div>'+
+        '<div>'+v.year+'</div>'+
+        '<div style="display:flex;align-items:center;gap:4px;"><div class="color-dot" style="background:'+v.colorHex+';"></div><span style="font-size:11px;">'+v.color+'</span></div>'+
+        '<div style="font-family:\'DM Mono\',monospace;font-size:11.5px;">'+(v.vin!=='—'?v.vin.slice(-6):'—')+'</div>'+
+        '<div style="font-weight:700;color:'+(v.days_in_stock===null?'var(--gray)':v.days_in_stock>60?'var(--red)':v.days_in_stock>30?'var(--amber)':'var(--teal)')+';font-family:\'DM Mono\',monospace;">'+(v.days_in_stock!==null?v.days_in_stock+'天':'—')+'</div>'+
+        '<div style="font-family:\'DM Mono\',monospace;font-size:11.5px;">'+(v.total_cost>0?'NT$'+v.total_cost.toLocaleString():'—')+'</div>'+
+        '<div style="font-family:\'DM Mono\',monospace;font-weight:700;">NT$'+v.msrp.toLocaleString()+'</div>'+
+        '<div><span class="badge '+statusBadge[v.status]+'" style="font-size:10px;">'+statusLabel[v.status]+'</span>'+(v.status==='PENDING_PDI'?'<div style="font-size:10px;color:var(--purple);">'+v.pdi_progress+'%</div>':'')+'</div>'+
+        '<div>'+(v.status==='AVAILABLE'?'<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();go(\'RS04_賞車報價與成交訂單_v1.html\')">報價</button>':'<span style="font-size:11px;color:var(--gray);">'+statusLabel[v.status]+'</span>')+'</div>'+
+      '</div>';
+    }).join('');
+}
+
+function showDetail(id){
+  var v=inventory.find(function(x){return x.id===id;});
+  if(!v)return;
+  showToast('🏍️ '+v.model+'\n狀態：'+statusLabel[v.status]+'\nVIN：'+v.vin+'\n售價：NT$'+v.msrp.toLocaleString()+(v.total_cost>0?'\n整車成本：NT$'+v.total_cost.toLocaleString():''));
+}
+
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3200);}
+
+window.onload=function(){updateKPI();render();};
+</script>
+</body>
+</html>

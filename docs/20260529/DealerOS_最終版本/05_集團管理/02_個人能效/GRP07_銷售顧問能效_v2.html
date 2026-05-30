@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP07 銷售顧問能效 v2 — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;
+  --gray:#9A9890;--border:#EEECE6;--header:#0D2438;
+  --green:#1E7D3E;--green-bg:#EAF5EA;
+}
+
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(255,165,0,.2);border:1px solid rgba(255,165,0,.3);color:#FFD580;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+.sub-bar{background:#fff;border-bottom:1px solid var(--border);padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.chip{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:#fff;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.chip.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+.chip:hover:not(.active){background:#F4F3F0;}
+.sub-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gray);}
+.rdot{width:7px;height:7px;border-radius:50%;background:#3DBE6E;display:inline-block;}
+
+.main{max-width:1400px;margin:0 auto;padding:20px 24px 48px;}
+
+.hero{background:linear-gradient(135deg,#0A1F35 0%,#1A3A5C 60%,#1E3A7A 100%);border-radius:12px;padding:20px 28px;margin-bottom:16px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-20px;top:-20px;width:160px;height:160px;border-radius:50%;background:rgba(80,120,240,.1);pointer-events:none;}
+.hero h1{font-size:18px;font-weight:700;margin-bottom:4px;}
+.hero p{font-size:12px;opacity:.7;line-height:1.6;max-width:520px;}
+.hstats{display:flex;gap:8px;}
+.hstat{text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 14px;}
+.hstat-n{font-size:19px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.hstat-l{font-size:10px;opacity:.6;margin-top:3px;}
+
+.store-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.store-tab{padding:6px 14px;border-radius:7px;font-size:12.5px;cursor:pointer;border:1.5px solid var(--border);background:#fff;font-weight:500;transition:.15s;display:flex;align-items:center;gap:5px;font-family:'Noto Sans TC',sans-serif;}
+.store-tab.active{border-color:var(--navy);background:var(--navy-bg);color:var(--navy);font-weight:700;}
+.store-tab:hover:not(.active){background:#F4F3F0;}
+.st-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.cc-header{padding:11px 16px;border-bottom:1px solid var(--border);background:#FAFAF8;display:flex;align-items:flex-start;gap:10px;}
+.cc-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px;}
+.cc-meta{flex:1;}
+.cc-title{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:2px;}
+.cc-sub{font-size:11px;color:var(--gray);line-height:1.4;}
+.cc-badge{font-size:10px;padding:2px 8px;border-radius:5px;font-weight:700;white-space:nowrap;margin-top:2px;display:inline-block;}
+.cb-insight{background:var(--amber-bg);color:var(--amber);}
+.cb-good{background:var(--green-bg);color:var(--green);}
+.cb-watch{background:var(--red-bg);color:var(--red);}
+.cc-body{padding:12px 16px 8px;}
+.chart-container{width:100%;position:relative;}
+
+/* D3 Tooltip */
+.d3-tooltip{position:fixed;background:#0D2438;color:#E8E6E0;padding:10px 14px;border-radius:8px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;border:1px solid rgba(255,255,255,.1);max-width:200px;line-height:1.6;}
+.d3-tooltip .tt-name{font-weight:700;font-size:13px;margin-bottom:4px;color:#fff;}
+.d3-tooltip .tt-store{font-size:10.5px;color:#85B7EB;margin-bottom:6px;}
+.d3-tooltip .tt-row{display:flex;justify-content:space-between;gap:12px;}
+.d3-tooltip .tt-val{font-family:'DM Mono',monospace;font-weight:700;}
+.d3-tooltip .tt-tag{margin-top:6px;font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;display:inline-block;}
+
+/* 象限圖例 */
+.quad-legend{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px;}
+.ql{background:#FAFAF8;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:10.5px;}
+.ql-t{font-weight:700;margin-bottom:1px;}
+.ql-d{color:var(--gray);}
+
+/* 顏色圖例 */
+.color-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.cl-item{display:flex;align-items:center;gap:5px;font-size:11px;}
+.cl-dot{width:10px;height:10px;border-radius:50%;}
+
+/* 排名表 */
+.rank-panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.rp-hdr{padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.rp-title{font-size:13px;font-weight:600;}
+.rp-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.rt{width:100%;border-collapse:collapse;}
+.rt th{font-size:10.5px;font-weight:700;color:var(--gray);padding:7px 12px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;white-space:nowrap;}
+.rt th.c{text-align:center;}
+.rt th.r{text-align:right;}
+.rt td{padding:9px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.rt tr:last-child td{border-bottom:none;}
+.rt tr:hover td{background:#FAFAF8;}
+.mono{font-family:'DM Mono',monospace;font-weight:700;}
+.prog-wrap{display:flex;align-items:center;gap:7px;}
+.prog-bar{height:5px;background:#EEECE6;border-radius:3px;flex:1;min-width:50px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;}
+.pf-ok{background:#3DBE6E;}.pf-warn{background:var(--amber);}.pf-bad{background:var(--red);}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.t-up{color:#3DBE6E;font-weight:700;}.t-dn{color:var(--red);font-weight:700;}.t-flat{color:var(--gray);}
+
+.insight-box{background:var(--navy-bg);border:1px solid var(--navy-bd);border-radius:7px;padding:9px 13px;margin-top:8px;font-size:11.5px;color:var(--navy);line-height:1.6;}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:9999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@media(max-width:960px){.chart-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP07 銷售顧問能效診斷</b></div>
+  <div class="org-badge">🏢 Indian Motorcycle Taiwan</div>
+  <div class="ver-badge">v2 D3</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn" onclick="showToast('匯出中…')">⬇ 匯出</button>
+  </div>
+</header>
+
+<div class="sub-bar">
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">期間：</span>
+  <button class="chip active" onclick="setChip(this)">近3個月均值</button>
+  <button class="chip" onclick="setChip(this)">本月</button>
+  <button class="chip" onclick="setChip(this)">本季</button>
+  <div class="sub-right">
+    <span class="rdot"></span> 資料更新：2026-05-28 08:00
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="hero">
+    <div>
+      <h1>🏍 銷售顧問個人能效診斷</h1>
+      <p>四張散佈圖從不同維度診斷每位銷售顧問的表現。每個點代表一個人，Hover 可查看詳細數據。<br>均值虛線將圖表分為四個象限，右上角是明星，左下角需要輔導。</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n" id="st-total">13</div><div class="hstat-l">顧問人數</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-above">5</div><div class="hstat-l">高於均值</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-watch">4</div><div class="hstat-l">需關注</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-avg">21%</div><div class="hstat-l">平均成交率</div></div>
+    </div>
+  </div>
+
+  <!-- 門店切換 -->
+  <div class="store-tabs">
+    <div class="store-tab active" onclick="setStore('all',this)"><span class="st-dot" style="background:#9A9890;"></span>全集團</div>
+    <div class="store-tab" onclick="setStore('台北',this)"><span class="st-dot" style="background:#1A3A5C;"></span>台北旗艦店</div>
+    <div class="store-tab" onclick="setStore('台中',this)"><span class="st-dot" style="background:#2A6080;"></span>台中直營店</div>
+    <div class="store-tab" onclick="setStore('高雄',this)"><span class="st-dot" style="background:#3A5080;"></span>高雄直營店</div>
+    <div class="store-tab" onclick="setStore('台南',this)"><span class="st-dot" style="background:#0F6E56;"></span>台南授權商</div>
+    <div class="store-tab" onclick="setStore('嘉義',this)"><span class="st-dot" style="background:#5A7090;"></span>嘉義授權商</div>
+  </div>
+
+  <div class="sec-title">個人能效散佈圖（D3.js 資料驅動）</div>
+
+  <div class="chart-grid">
+    <!-- S1 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--navy-bg);">📊</div>
+        <div class="cc-meta">
+          <div class="cc-title">S1 銷售能效圖</div>
+          <div class="cc-sub">X軸：總接待量　Y軸：成交率（%）</div>
+          <span class="cc-badge cb-insight" id="b-s1">⚠ 3人低於均值</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-s1"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 低流量高成交</div><div class="ql-d">待放大接待量</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 高流量高成交</div><div class="ql-d">明星顧問區</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↙ 低流量低成交</div><div class="ql-d">需全面輔導</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 高流量低成交</div><div class="ql-d">話術問題，急需輔導</div></div>
+        </div>
+        <div class="insight-box"><b>診斷：</b>Eva 接待量最高（66次）但成交率僅 6%，屬「高流量低轉化」，是拉低整體均值的主因。建議立即安排一對一話術輔導。</div>
+      </div>
+    </div>
+
+    <!-- S2 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--teal-bg);">💰</div>
+        <div class="cc-meta">
+          <div class="cc-title">S2 盈利能效圖</div>
+          <div class="cc-sub">X軸：成交率（%）　Y軸：單車 GP3（NT$）</div>
+          <span class="cc-badge cb-watch" id="b-s2">🔴 注意右下角折扣過大</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-s2"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 低成交高毛利</div><div class="ql-d">品質好但數量不足</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 高成交高毛利</div><div class="ql-d">最理想的顧問型態</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--gray);">↙ 低成交低毛利</div><div class="ql-d">需全面提升</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 高成交低毛利</div><div class="ql-d">靠折扣換成交，侵蝕毛利</div></div>
+        </div>
+        <div class="insight-box"><b>診斷：</b>Fanny 成交率 22% 但單車 GP3 僅 NT$800，明顯用折扣換量。每成交一台都在侵蝕全店毛利，需立即管控議價權限。</div>
+      </div>
+    </div>
+
+    <!-- S3 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--purple-bg);">🎯</div>
+        <div class="cc-meta">
+          <div class="cc-title">S3 衍生能效圖</div>
+          <div class="cc-sub">X軸：成交率（%）　Y軸：單車衍生毛利（NT$）</div>
+          <span class="cc-badge cb-insight" id="b-s3">⚠ 衍生業務普遍偏弱</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-s3"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 低成交高衍生</div><div class="ql-d">衍生強但轉化弱</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 高成交高衍生</div><div class="ql-d">金融保險話術兼備</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↙ 低成交低衍生</div><div class="ql-d">雙重問題，需重點輔導</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↘ 高成交低衍生</div><div class="ql-d">衍生話術待加強</div></div>
+        </div>
+        <div class="insight-box"><b>診斷：</b>全隊衍生毛利均值 NT$7,582，距目標 NT$9,320 仍有差距。金融滲透率和延保是主要缺口，建議全隊集中訓練。</div>
+      </div>
+    </div>
+
+    <!-- S4 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--red-bg);">❤️</div>
+        <div class="cc-meta">
+          <div class="cc-title">S4 客戶信任圖</div>
+          <div class="cc-sub">X軸：成交台次　Y軸：個人平均 NPS</div>
+          <span class="cc-badge cb-good" id="b-s4">✅ NPS 整體良好</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div class="chart-container" id="c-s4"></div>
+        <div class="quad-legend">
+          <div class="ql"><div class="ql-t" style="color:var(--amber);">↖ 低台次高NPS</div><div class="ql-d">服務好但量不足</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--green);">↗ 高台次高NPS</div><div class="ql-d">量質俱佳的頂尖顧問</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--gray);">↙ 低台次低NPS</div><div class="ql-d">需全面提升</div></div>
+          <div class="ql"><div class="ql-t" style="color:var(--red);">↘ 高台次低NPS</div><div class="ql-d">用服務品質換銷量，最危險</div></div>
+        </div>
+        <div class="insight-box"><b>診斷：</b>Luke NPS 僅 +42，雖台次不高，但服務態度需關注，長期可能影響客戶回購。Darren 高台次高 NPS，是全隊標杆。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 顏色圖例 -->
+  <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:700;color:var(--gray);">點的顏色說明：</span>
+    <div class="color-legend" style="margin:0;padding:0;border:none;">
+      <div class="cl-item"><div class="cl-dot" style="background:#1A3A5C;"></div>明星</div>
+      <div class="cl-item"><div class="cl-dot" style="background:#3DBE6E;"></div>良好</div>
+      <div class="cl-item"><div class="cl-dot" style="background:#F0A500;"></div>觀察</div>
+      <div class="cl-item"><div class="cl-dot" style="background:#C8001A;"></div>注意/輔導</div>
+    </div>
+    <span style="font-size:11px;color:var(--gray);margin-left:8px;">虛線 = 集團均值　｜　點大小固定，Hover 可查看詳細數據</span>
+  </div>
+
+  <!-- 排名表 -->
+  <div class="sec-title">銷售顧問完整數據排名</div>
+  <div class="rank-panel">
+    <div class="rp-hdr">
+      <div style="font-size:14px;width:28px;height:28px;border-radius:6px;background:var(--navy-bg);display:flex;align-items:center;justify-content:center;">👥</div>
+      <div><div class="rp-title">全體銷售顧問 KPI 排名</div><div class="rp-sub">近3個月均值　｜　依成交率排序</div></div>
+      <div style="margin-left:auto;display:flex;gap:5px;">
+        <button class="chip" style="padding:3px 10px;font-size:11px;" onclick="sortBy('conv')">成交率</button>
+        <button class="chip" style="padding:3px 10px;font-size:11px;" onclick="sortBy('gp3')">GP3</button>
+        <button class="chip" style="padding:3px 10px;font-size:11px;" onclick="sortBy('nps')">NPS</button>
+      </div>
+    </div>
+    <table class="rt">
+      <thead>
+        <tr>
+          <th class="c" style="width:32px;">排</th>
+          <th>顧問</th>
+          <th>門店</th>
+          <th class="c">接待量</th>
+          <th>成交率</th>
+          <th class="r">單車 GP3</th>
+          <th class="r">單車衍生</th>
+          <th class="c">NPS</th>
+          <th class="c">趨勢</th>
+          <th class="c">診斷</th>
+        </tr>
+      </thead>
+      <tbody id="rtbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- D3 Tooltip -->
+<div class="d3-tooltip" id="tooltip"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ 資料 ══
+const RAW = [
+  {name:'Darren',store:'台北',conv:38,reception:34,gp3:2800,derived:9400,nps:72,trend:'up',  tag:'明星'},
+  {name:'Edwin', store:'台北',conv:31,reception:36,gp3:2500,derived:8800,nps:65,trend:'up',  tag:'良好'},
+  {name:'James', store:'台北',conv:31,reception:34,gp3:2560,derived:8600,nps:68,trend:'up',  tag:'良好'},
+  {name:'Alex',  store:'台北',conv:24,reception:38,gp3:2200,derived:8400,nps:66,trend:'up',  tag:'良好'},
+  {name:'George',store:'台中',conv:27,reception:52,gp3:1880,derived:8200,nps:61,trend:'up',  tag:'良好'},
+  {name:'Jack',  store:'台中',conv:21,reception:47,gp3:1600,derived:7800,nps:60,trend:'flat',tag:'觀察'},
+  {name:'Eva',   store:'台中',conv: 6,reception:66,gp3:1200,derived:5800,nps:48,trend:'dn', tag:'輔導'},
+  {name:'Fred',  store:'台南',conv:21,reception:56,gp3:2600,derived:8900,nps:63,trend:'up',  tag:'良好'},
+  {name:'Bonny', store:'台南',conv:20,reception:49,gp3:1400,derived:7200,nps:58,trend:'dn', tag:'觀察'},
+  {name:'Fanny', store:'高雄',conv:22,reception:34,gp3: 800,derived:6200,nps:55,trend:'up',  tag:'注意'},
+  {name:'Kelly', store:'高雄',conv:19,reception:34,gp3:1360,derived:6800,nps:57,trend:'dn', tag:'觀察'},
+  {name:'Calvin',store:'嘉義',conv:16,reception:37,gp3:1758,derived:7100,nps:56,trend:'dn', tag:'觀察'},
+  {name:'Luke',  store:'嘉義',conv:14,reception:47,gp3:1760,derived:7000,nps:42,trend:'dn', tag:'注意'},
+];
+
+const TAG_COLOR = {明星:'#1A3A5C',良好:'#3DBE6E',觀察:'#F0A500',注意:'#C8001A',輔導:'#C8001A'};
+const TAG_STYLE = {
+  明星:{bg:'#EAF5EA',color:'#1E7D3E'},良好:{bg:'#EAF4FB',color:'#1A3A5C'},
+  觀察:{bg:'#FDF3E3',color:'#854F0B'},注意:{bg:'#FDECEA',color:'#C8001A'},輔導:{bg:'#FDECEA',color:'#C8001A'},
+};
+
+let currentData = RAW;
+
+// ══ D3 散佈圖繪製函式 ══
+function drawScatter(containerId, data, xAcc, yAcc, xLabel, yLabel, xFmt, yFmt) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  const totalW = container.clientWidth || 520;
+  const margin = {top:16, right:20, bottom:40, left:52};
+  const W = totalW - margin.left - margin.right;
+  const H = 240;
+
+  const svg = d3.select(container)
+    .append('svg')
+    .attr('width', totalW)
+    .attr('height', H + margin.top + margin.bottom)
+    .style('display','block');
+
+  const g = svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+
+  const xs = d3.scaleLinear().domain([0, d3.max(data, xAcc)*1.15]).range([0,W]).nice();
+  const ys = d3.scaleLinear().domain([0, d3.max(data, yAcc)*1.15]).range([H,0]).nice();
+
+  const avgX = d3.mean(data, xAcc);
+  const avgY = d3.mean(data, yAcc);
+
+  // ── 象限背景 ──
+  const qColors = [
+    {x:xs(avgX),y:ys(d3.max(data,yAcc)*1.15), w:W-xs(avgX), h:ys(avgY)-ys(d3.max(data,yAcc)*1.15), c:'rgba(61,190,110,.04)'},  // RU
+    {x:0,       y:ys(d3.max(data,yAcc)*1.15), w:xs(avgX),   h:ys(avgY)-ys(d3.max(data,yAcc)*1.15), c:'rgba(240,165,0,.04)'},    // LU
+    {x:0,       y:ys(avgY),                   w:xs(avgX),   h:H-ys(avgY),                           c:'rgba(200,0,26,.04)'},     // LD
+    {x:xs(avgX),y:ys(avgY),                   w:W-xs(avgX), h:H-ys(avgY),                           c:'rgba(200,0,26,.06)'},     // RD
+  ];
+  qColors.forEach(q=>{
+    g.append('rect').attr('x',q.x).attr('y',q.y).attr('width',q.w).attr('height',q.h)
+     .attr('fill',q.c).attr('rx',0);
+  });
+
+  // ── 格線 ──
+  g.append('g').attr('class','grid')
+   .call(d3.axisLeft(ys).tickSize(-W).tickFormat(''))
+   .select('.domain').remove();
+  g.selectAll('.grid line').attr('stroke','rgba(0,0,0,.04)').attr('stroke-dasharray','3,3');
+
+  // ── 均值虛線 ──
+  g.append('line')
+   .attr('x1',xs(avgX)).attr('x2',xs(avgX)).attr('y1',0).attr('y2',H)
+   .attr('stroke','rgba(26,58,92,.3)').attr('stroke-width',1.5).attr('stroke-dasharray','5,4');
+  g.append('line')
+   .attr('x1',0).attr('x2',W).attr('y1',ys(avgY)).attr('y2',ys(avgY))
+   .attr('stroke','rgba(26,58,92,.3)').attr('stroke-width',1.5).attr('stroke-dasharray','5,4');
+
+  // 均值標籤
+  g.append('text').attr('x',xs(avgX)+4).attr('y',H-3)
+   .attr('fill','rgba(26,58,92,.5)').attr('font-size',9).attr('font-family','DM Mono, monospace')
+   .text('均值 '+Math.round(avgX));
+  g.append('text').attr('x',4).attr('y',ys(avgY)-4)
+   .attr('fill','rgba(26,58,92,.5)').attr('font-size',9).attr('font-family','DM Mono, monospace')
+   .text('均值 '+xFmt(Math.round(avgY)));
+
+  // ── 軸 ──
+  g.append('g').attr('transform',`translate(0,${H})`)
+   .call(d3.axisBottom(xs).ticks(5).tickFormat(xFmt))
+   .call(ax=>{ax.select('.domain').attr('stroke','#EEECE6'); ax.selectAll('text').attr('fill','#9A9890').attr('font-size',10).attr('font-family','DM Mono, monospace'); ax.selectAll('.tick line').attr('stroke','#EEECE6');});
+  g.append('g')
+   .call(d3.axisLeft(ys).ticks(5).tickFormat(yFmt))
+   .call(ax=>{ax.select('.domain').attr('stroke','#EEECE6'); ax.selectAll('text').attr('fill','#9A9890').attr('font-size',10).attr('font-family','DM Mono, monospace'); ax.selectAll('.tick line').attr('stroke','#EEECE6');});
+
+  // 軸標籤
+  g.append('text').attr('x',W/2).attr('y',H+36).attr('text-anchor','middle')
+   .attr('fill','#9A9890').attr('font-size',10).attr('font-family','Noto Sans TC, sans-serif').text(xLabel);
+  g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',-44)
+   .attr('text-anchor','middle').attr('fill','#9A9890').attr('font-size',10).attr('font-family','Noto Sans TC, sans-serif').text(yLabel);
+
+  const tooltip = document.getElementById('tooltip');
+
+  // ── 點 ──
+  const dots = g.selectAll('.dot').data(data).enter().append('g').attr('class','dot');
+
+  dots.append('circle')
+    .attr('cx', d=>xs(xAcc(d)))
+    .attr('cy', d=>ys(yAcc(d)))
+    .attr('r', 0)
+    .attr('fill', d=>TAG_COLOR[d.tag]||'#9A9890')
+    .attr('fill-opacity', 0.85)
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .attr('cursor','pointer')
+    .transition().duration(600).ease(d3.easeBackOut)
+    .delay((d,i)=>i*40)
+    .attr('r', 8);
+
+  // 名字標籤
+  dots.append('text')
+    .attr('x', d=>xs(xAcc(d)))
+    .attr('y', d=>{
+      const cy = ys(yAcc(d));
+      return cy < 20 ? cy + 20 : cy - 12;
+    })
+    .attr('text-anchor','middle')
+    .attr('fill','#4A4A48')
+    .attr('font-size', 9.5)
+    .attr('font-family','Noto Sans TC, sans-serif')
+    .attr('font-weight','600')
+    .attr('pointer-events','none')
+    .attr('opacity',0)
+    .text(d=>d.name)
+    .transition().duration(400).delay((d,i)=>i*40+300)
+    .attr('opacity',1);
+
+  // Hover 效果
+  dots.selectAll('circle')
+    .on('mouseover', function(event, d) {
+      d3.select(this).transition().duration(120).attr('r',13).attr('stroke-width',3);
+      const ts = TAG_STYLE[d.tag]||{bg:'#F1EFE8',color:'#9A9890'};
+      tooltip.innerHTML = `
+        <div class="tt-name">${d.name}</div>
+        <div class="tt-store">${d.store} 門店　銷售顧問</div>
+        <div class="tt-row"><span>${xLabel}</span><span class="tt-val">${xFmt(xAcc(d))}</span></div>
+        <div class="tt-row"><span>${yLabel}</span><span class="tt-val">${yFmt(yAcc(d))}</span></div>
+        <div class="tt-row"><span>成交率</span><span class="tt-val">${d.conv}%</span></div>
+        <div class="tt-row"><span>NPS</span><span class="tt-val">+${d.nps}</span></div>
+        <span class="tt-tag" style="background:${ts.bg};color:${ts.color};">${d.tag}</span>
+      `;
+      tooltip.style.opacity = '1';
+    })
+    .on('mousemove', function(event) {
+      const x = event.clientX + 14;
+      const y = event.clientY - 10;
+      tooltip.style.left = (x + 180 > window.innerWidth ? event.clientX - 200 : x) + 'px';
+      tooltip.style.top  = (y + 160 > window.innerHeight ? event.clientY - 170 : y) + 'px';
+    })
+    .on('mouseout', function() {
+      d3.select(this).transition().duration(120).attr('r',8).attr('stroke-width',2);
+      tooltip.style.opacity = '0';
+    });
+}
+
+// ══ 渲染全部圖表 ══
+function renderAll(data) {
+  drawScatter('c-s1', data, d=>d.reception, d=>d.conv,    '總接待量', '成交率（%）', v=>v, v=>v+'%');
+  drawScatter('c-s2', data, d=>d.conv,      d=>d.gp3,     '成交率（%）', '單車 GP3（NT$）', v=>v+'%', v=>'NT$'+v.toLocaleString());
+  drawScatter('c-s3', data, d=>d.conv,      d=>d.derived, '成交率（%）', '單車衍生（NT$）', v=>v+'%', v=>'NT$'+v.toLocaleString());
+  drawScatter('c-s4', data, d=>d.conv,      d=>d.nps,     '成交率（%）', '個人 NPS',      v=>v+'%', v=>'+'+v);
+
+  // 更新 hero stats
+  const avgConv = Math.round(data.reduce((s,d)=>s+d.conv,0)/data.length);
+  const above = data.filter(d=>d.conv>avgConv).length;
+  const watch = data.filter(d=>['注意','輔導'].includes(d.tag)).length;
+  document.getElementById('st-total').textContent = data.length;
+  document.getElementById('st-above').textContent = above;
+  document.getElementById('st-watch').textContent = watch;
+  document.getElementById('st-avg').textContent = avgConv+'%';
+}
+
+// ══ 排名表 ══
+function renderTable(data, sortKey='conv') {
+  const sorted = [...data].sort((a,b)=>b[sortKey]-a[sortKey]);
+  document.getElementById('rtbody').innerHTML = sorted.map((d,i)=>{
+    const ts = TAG_STYLE[d.tag]||{bg:'#F1EFE8',color:'#9A9890'};
+    const cpct = Math.min(100,d.conv*4);
+    const cc = d.conv>=25?'pf-ok':d.conv>=15?'pf-warn':'pf-bad';
+    const tr = d.trend==='up'?'<span class="t-up">▲</span>':d.trend==='dn'?'<span class="t-dn">▼</span>':'<span class="t-flat">→</span>';
+    return `<tr>
+      <td class="c"><span class="mono" style="color:${i<3?'#1A3A5C':'#9A9890'}">${String(i+1).padStart(2,'0')}</span></td>
+      <td><div style="font-weight:700;">${d.name}</div><div style="font-size:10.5px;color:var(--gray);">${d.store}　｜　銷售顧問</div></td>
+      <td><span class="badge" style="background:var(--navy-bg);color:var(--navy);font-size:10px;">${d.store}</span></td>
+      <td class="c"><span class="mono">${d.reception}</span></td>
+      <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${cc}" style="width:${cpct}%;"></div></div>
+        <span class="mono" style="font-size:11.5px;min-width:36px;text-align:right;color:${d.conv>=25?'#1E7D3E':d.conv>=15?'#854F0B':'#C8001A'};">${d.conv}%</span></div></td>
+      <td class="r"><span class="mono" style="color:${d.gp3>=2000?'#1E7D3E':d.gp3>=1500?'#854F0B':'#C8001A'};">NT$${d.gp3.toLocaleString()}</span></td>
+      <td class="r"><span class="mono" style="color:${d.derived>=8000?'#1E7D3E':d.derived>=7000?'#854F0B':'#C8001A'};">NT$${d.derived.toLocaleString()}</span></td>
+      <td class="c"><span class="mono" style="color:${d.nps>=60?'#1E7D3E':d.nps>=50?'#854F0B':'#C8001A'};">+${d.nps}</span></td>
+      <td class="c">${tr}</td>
+      <td class="c"><span class="badge" style="background:${ts.bg};color:${ts.color};">${d.tag}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function setStore(key, el){
+  document.querySelectorAll('.store-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  currentData = key==='all' ? RAW : RAW.filter(d=>d.store===key);
+  renderAll(currentData);
+  renderTable(currentData);
+  showToast(key==='all'?'顯示全集團':'篩選：'+key);
+}
+
+function sortBy(k){ renderTable(currentData, k); showToast('依 '+k+' 排序'); }
+
+function setChip(el){
+  el.closest('.sub-bar').querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  showToast('已切換：'+el.textContent.trim());
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ── 初始化 ──
+window.addEventListener('load',()=>{
+  renderAll(RAW);
+  renderTable(RAW);
+});
+window.addEventListener('resize',()=>{ renderAll(currentData); });
+</script>
+</body>
+</html>

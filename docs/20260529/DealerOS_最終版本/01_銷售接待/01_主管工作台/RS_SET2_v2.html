@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS_SET2 客戶標籤管理（銷售端）v2 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-primary{background:rgba(24,95,165,.75);border-color:transparent;}
+.hbtn-primary:hover{background:rgba(24,95,165,.95);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+
+/* Sub bar */
+.sub-bar{background:#fff;border-bottom:1px solid #EEECE6;padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.tab-pills{display:flex;gap:0;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;}
+.tab-pill{padding:5px 16px;font-size:12px;cursor:pointer;border-right:1px solid #D5D3CB;color:#7A7A78;background:#fff;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.tab-pill:last-child{border-right:none;}
+.tab-pill.active{background:#1A3A5C;color:#fff;}
+.search-box{display:flex;align-items:center;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;background:#fff;}
+.search-box input{padding:5px 11px;border:none;outline:none;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;width:180px;}
+.search-box button{padding:5px 11px;border:none;background:#F1EFE8;color:#5A5955;cursor:pointer;font-size:12px;}
+.sub-divider{width:1px;height:18px;background:#EEECE6;}
+.rs-badge{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5A5955;}
+.rs-avatar{width:24px;height:24px;border-radius:50%;background:#534AB7;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
+
+/* Layout */
+.layout{display:flex;min-height:calc(100vh - 104px);}
+
+/* Sidenav */
+.sidenav{width:188px;flex-shrink:0;background:#fff;border-right:1px solid #EEECE6;padding:14px 0;position:sticky;top:104px;height:calc(100vh - 104px);overflow-y:auto;}
+.nav-section{padding:0 12px;margin-bottom:6px;}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;padding:8px 6px 4px;}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 8px;border-radius:7px;cursor:pointer;transition:background .12s;color:#4A4A48;font-size:12px;margin-bottom:2px;}
+.nav-item:hover{background:#F4F3F0;}
+.nav-item.active{background:#EAF4FB;color:#185FA5;font-weight:600;}
+.nav-left{display:flex;align-items:center;gap:7px;}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.nav-count{font-size:11px;font-family:'DM Mono',monospace;font-weight:600;padding:1px 6px;border-radius:4px;}
+.nc-red{background:#FDECEA;color:#C8001A;}
+.nc-yellow{background:#FDF3E3;color:#854F0B;}
+.nc-green{background:#E1F5EE;color:#0F6E56;}
+.nc-blue{background:#EAF4FB;color:#185FA5;}
+.nc-gray{background:#F1EFE8;color:#5A5955;}
+.nc-purple{background:#EEEDFE;color:#534AB7;}
+.nav-divider{height:1px;background:#EEECE6;margin:8px 12px;}
+
+/* Main */
+.main{flex:1;padding:16px 20px 48px;}
+
+/* 說明橫幅 */
+.info-banner{background:#EAF4FB;border:1px solid #85B7EB;border-radius:8px;padding:11px 15px;margin-bottom:16px;font-size:12px;color:#0C3E70;line-height:1.7;display:flex;gap:10px;align-items:flex-start;}
+.info-banner.green{background:#E1F5EE;border-color:#5DCAA5;color:#085041;}
+.info-banner.warn{background:#FDF3E3;border-color:#F0C97E;color:#6B3A00;}
+
+/* 四色分區 */
+.color-sections{display:flex;flex-direction:column;gap:14px;}
+.color-section{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;}
+.cs-hdr{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid #EEECE6;}
+.cs-hdr-left{display:flex;align-items:center;gap:10px;}
+.cs-color-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.cd-red{background:#C8001A;} .cd-yellow{background:#F0C97E;} .cd-green{background:#5DCAA5;} .cd-blue{background:#185FA5;}
+.cs-title{font-size:13px;font-weight:600;}
+.cs-desc{font-size:11px;color:#9A9890;margin-top:1px;}
+.cs-hdr-right{display:flex;align-items:center;gap:8px;}
+.cs-count{font-size:11px;font-family:'DM Mono',monospace;color:#9A9890;}
+.cs-body{padding:14px 16px;}
+
+/* 標籤卡片區 */
+.tag-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+
+/* 官方標籤 */
+.tag-official{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;border:1.5px solid;}
+.to-red{background:#FDECEA;border-color:#F5AEAD;color:#C8001A;}
+.to-yellow{background:#FDF3E3;border-color:#F0C97E;color:#854F0B;}
+.to-green{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}
+.to-blue{background:#EAF4FB;border-color:#85B7EB;color:#185FA5;}
+.tag-lock{font-size:10px;opacity:.55;}
+.tag-usage{font-size:10px;background:rgba(0,0,0,.07);padding:1px 5px;border-radius:8px;}
+
+/* 自訂標籤 — v2 無審核，純虛線框 */
+.tag-custom{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;border:1.5px dashed;cursor:pointer;transition:all .12s;position:relative;}
+.tc-red{background:#FFF5F5;border-color:#F5AEAD;color:#C8001A;}
+.tc-yellow{background:#FFFAF0;border-color:#F0C97E;color:#854F0B;}
+.tc-green{background:#F5FDF9;border-color:#5DCAA5;color:#0F6E56;}
+.tc-blue{background:#F0F7FF;border-color:#85B7EB;color:#185FA5;}
+.tag-custom:hover{filter:brightness(.95);}
+.tag-edit-btn{font-size:11px;opacity:.45;margin-left:2px;}
+.tag-custom:hover .tag-edit-btn{opacity:1;}
+.tag-del-x{font-size:13px;font-weight:700;opacity:.35;margin-left:1px;line-height:1;}
+.tag-custom:hover .tag-del-x{opacity:.9;color:#C8001A;}
+
+/* 新增標籤輸入區 */
+.add-tag-row{display:flex;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed #EEECE6;}
+.add-tag-input{flex:1;padding:6px 11px;border-radius:20px;border:1.5px dashed #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;transition:border .15s;background:#FAFAF8;}
+.add-tag-input:focus{border-color:#85B7EB;background:#fff;}
+.add-tag-btn{padding:5px 14px;border-radius:20px;font-family:'Noto Sans TC',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid;transition:all .12s;white-space:nowrap;}
+.atb-red{background:#FDECEA;border-color:#F5AEAD;color:#C8001A;}
+.atb-yellow{background:#FDF3E3;border-color:#F0C97E;color:#854F0B;}
+.atb-green{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}
+.atb-blue{background:#EAF4FB;border-color:#85B7EB;color:#185FA5;}
+
+/* 自訂標籤上限警示條 */
+.custom-limit-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 12px;border-radius:7px;font-size:12px;}
+.clb-ok{background:#F8F7F4;border:1px solid #EEECE6;color:#5A5955;}
+.clb-warn{background:#FDF3E3;border:1px solid #F0C97E;color:#854F0B;}
+.clb-full{background:#FDECEA;border:1px solid #F5AEAD;color:#C8001A;}
+.limit-dots{display:flex;gap:4px;}
+.ld{width:10px;height:10px;border-radius:50%;}
+.ld-used{background:#1A3A5C;}
+.ld-empty{background:#EEECE6;}
+
+/* 使用統計 Tab */
+.stat-table{width:100%;border-collapse:collapse;}
+.stat-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:7px 12px;border-bottom:2px solid #EEECE6;text-align:left;white-space:nowrap;}
+.stat-table td{padding:9px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.stat-table tr:last-child td{border-bottom:none;}
+.stat-table tr:hover td{background:#FAFAF8;}
+.usage-bar-wrap{width:100px;height:7px;background:#EEECE6;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:6px;}
+.usage-bar-fill{height:100%;border-radius:4px;}
+
+/* 主管觀察 Tab */
+.obs-card{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:13px 15px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+.obs-card.hot{border-left:3px solid #C8001A;}
+.obs-card.rising{border-left:3px solid #F0C97E;}
+.obs-card.normal{border-left:3px solid #EEECE6;}
+.obs-info{flex:1;}
+.obs-rs-list{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px;}
+.obs-rs-chip{font-size:10.5px;background:#F1EFE8;border:1px solid #D5D3CB;border-radius:4px;padding:1px 7px;color:#5A5955;}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-red{background:#FDECEA;color:#C8001A;}
+.b-yellow{background:#FDF3E3;color:#854F0B;}
+.b-green{background:#E1F5EE;color:#0F6E56;}
+.b-blue{background:#EAF4FB;color:#185FA5;}
+.b-gray{background:#F1EFE8;color:#5A5955;}
+.b-purple{background:#EEEDFE;color:#534AB7;}
+.b-lock{background:#E8EDF2;color:#3A5A6C;border:1px solid #8FAABB;}
+
+/* Buttons */
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:460px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;padding:2px 6px;}
+.modal-body{padding:20px;}
+.modal-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+.form-row{margin-bottom:13px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:5px;}
+.form-input{width:100%;padding:8px 11px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;transition:border .15s;background:#fff;}
+.form-input:focus{border-color:#85B7EB;}
+.form-select{width:100%;padding:8px 11px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.form-textarea{width:100%;padding:8px 11px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;resize:vertical;min-height:64px;background:#fff;}
+.form-hint{font-size:11px;color:#9A9890;margin-top:3px;line-height:1.5;}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:320px;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+.mb14{margin-bottom:14px;}
+.divider{height:1px;background:#EEECE6;margin:12px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售設定 <b>RS_SET2 客戶標籤管理</b></div>
+  <div class="ver-badge">v2</div>
+  <div class="hright">
+    <button class="hbtn" onclick="showToast('← 返回 RS00 導覽總覽')">← 總覽</button>
+    <button class="hbtn" onclick="showToast('→ RS_SET 參數設定頁')">RS_SET</button>
+    <button class="hbtn" onclick="showToast('→ RS_M3 主管設定 Tab3')">主管標籤庫</button>
+    <button class="hbtn hbtn-primary" onclick="openAddModal()">＋ 新增自訂標籤</button>
+  </div>
+</header>
+
+<!-- Sub bar -->
+<div class="sub-bar">
+  <div class="tab-pills">
+    <div class="tab-pill active" id="tp-lib" onclick="setTab('lib',this)">🏷️ 標籤庫總覽</div>
+    <div class="tab-pill" id="tp-custom" onclick="setTab('custom',this)">✏️ 我的自訂標籤</div>
+    <div class="tab-pill" id="tp-stat" onclick="setTab('stat',this)">📊 使用統計</div>
+    <div class="tab-pill" id="tp-obs" onclick="setTab('obs',this)">👁️ 主管觀察視角</div>
+  </div>
+  <div class="sub-divider"></div>
+  <div class="search-box">
+    <input type="text" id="search-input" placeholder="搜尋標籤名稱..." oninput="filterTags()">
+    <button onclick="filterTags()">🔍</button>
+  </div>
+  <div class="sub-divider"></div>
+  <div class="rs-badge">
+    <div class="rs-avatar">林</div>
+    <span>林佳蓉（個人視角）</span>
+  </div>
+  <div style="margin-left:auto;font-size:11px;color:#9A9890;" id="tag-count-label">官方 22 個 · 自訂 5 個</div>
+</div>
+
+<div class="layout">
+
+  <!-- Sidenav -->
+  <div class="sidenav">
+    <div class="nav-section">
+      <div class="nav-label">標籤顏色</div>
+      <div class="nav-item active" id="nav-all" onclick="setColor('all',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#1A3A5C;"></div>全部</div>
+        <div class="nav-count nc-gray" id="cnt-all">27</div>
+      </div>
+      <div class="nav-item" id="nav-red" onclick="setColor('red',this)">
+        <div class="nav-left"><div class="nav-dot cd-red"></div>🔴 注意事項</div>
+        <div class="nav-count nc-red" id="cnt-red">7</div>
+      </div>
+      <div class="nav-item" id="nav-yellow" onclick="setColor('yellow',this)">
+        <div class="nav-left"><div class="nav-dot cd-yellow"></div>🟡 偏好特質</div>
+        <div class="nav-count nc-yellow" id="cnt-yellow">9</div>
+      </div>
+      <div class="nav-item" id="nav-green" onclick="setColor('green',this)">
+        <div class="nav-left"><div class="nav-dot cd-green"></div>🟢 服務備忘</div>
+        <div class="nav-count nc-green" id="cnt-green">6</div>
+      </div>
+      <div class="nav-item" id="nav-blue" onclick="setColor('blue',this)">
+        <div class="nav-left"><div class="nav-dot cd-blue"></div>🔵 談判協商</div>
+        <div class="nav-count nc-blue" id="cnt-blue">5</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">標籤來源</div>
+      <div class="nav-item" id="nav-official" onclick="setSource('official',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#1A3A5C;"></div>官方標籤</div>
+        <div class="nav-count nc-gray">22</div>
+      </div>
+      <div class="nav-item" id="nav-mine" onclick="setSource('mine',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#534AB7;"></div>我的自訂</div>
+        <div class="nav-count nc-purple" id="cnt-mine">5</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">快速工具</div>
+      <div class="nav-item" onclick="showToast('→ RS01 電子手卡（貼標）')">
+        <div class="nav-left"><div class="nav-dot" style="background:#0F6E56;"></div>前往貼標</div>
+      </div>
+      <div class="nav-item" onclick="showToast('→ RS_M1 客群畫像')">
+        <div class="nav-left"><div class="nav-dot" style="background:#185FA5;"></div>客群畫像分析</div>
+      </div>
+      <div class="nav-item" onclick="showToast('→ RS_M3 Tab3 主管標籤庫')">
+        <div class="nav-left"><div class="nav-dot" style="background:#C8001A;"></div>主管標籤管理</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- ── Tab: 標籤庫總覽 ── -->
+    <div id="tab-lib">
+      <div class="info-banner">
+        <span style="font-size:16px;flex-shrink:0;">💡</span>
+        <div>
+          <b>標籤庫說明：</b>官方標籤由主管在 RS_M3 Tab3 統一設定，RS 只能使用，不能修改或刪除（🔒）。
+          自訂標籤由 RS 個人自由新增，每筆客戶資料最多貼 <b>5 個自訂標籤</b>。
+          主管可在「主管觀察視角」Tab 瀏覽全店自訂標籤的使用趨勢，作為調整官方標籤庫的參考。
+        </div>
+      </div>
+      <div class="color-sections" id="tag-sections"></div>
+    </div>
+
+    <!-- ── Tab: 我的自訂標籤 ── -->
+    <div id="tab-custom" style="display:none;">
+      <div class="info-banner green">
+        <span style="font-size:16px;flex-shrink:0;">✏️</span>
+        <div>
+          <b>自訂標籤說明：</b>您可以自由新增個人自訂標籤，無需審核，立即可用。
+          每筆客戶資料最多貼 <b>5 個自訂標籤</b>（官方標籤不限）。
+          主管可在觀察視角看到全店自訂標籤的使用情況，但不干預您的使用。
+        </div>
+      </div>
+      <div id="my-custom-list"></div>
+    </div>
+
+    <!-- ── Tab: 使用統計 ── -->
+    <div id="tab-stat" style="display:none;">
+      <div style="background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:14px;">
+        <div style="padding:11px 16px;border-bottom:1px solid #EEECE6;background:#FAFAF8;display:flex;align-items:center;gap:10px;">
+          <div style="font-size:14px;width:30px;height:30px;border-radius:6px;background:#EAF4FB;display:flex;align-items:center;justify-content:center;">📊</div>
+          <div>
+            <div style="font-size:13px;font-weight:600;">標籤使用統計</div>
+            <div style="font-size:11px;color:#9A9890;margin-top:1px;">本月 · 我的客戶 · 貼標次數排行</div>
+          </div>
+        </div>
+        <table class="stat-table" id="stat-table"></table>
+      </div>
+    </div>
+
+    <!-- ── Tab: 主管觀察視角 ── -->
+    <div id="tab-obs" style="display:none;">
+      <div class="info-banner">
+        <span style="font-size:16px;flex-shrink:0;">👁️</span>
+        <div>
+          <b>主管觀察視角：</b>此頁顯示全店 RS 目前使用的自訂標籤及使用頻率，供主管作為向下學習的參考。
+          若某個自訂標籤被多位 RS 高頻使用，代表有潛在需求。
+          <b>升為官方標籤的操作請至 RS_M3 主管設定 → Tab3 客戶標籤管理執行</b>，此頁僅作觀察用途。
+        </div>
+      </div>
+      <div id="obs-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal: 新增自訂標籤 -->
+<div class="overlay" id="modal-add" onclick="closeModalOverlay(event,'modal-add')">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">✏️ 新增自訂標籤</div>
+      <button class="modal-close" onclick="closeModal('modal-add')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-label">標籤名稱 <span style="color:#C8001A;">*</span></div>
+        <input type="text" class="form-input" id="new-tag-name" placeholder="例：首次騎重機" maxlength="20">
+        <div class="form-hint">最多 20 字 · 每筆客戶資料最多貼 5 個自訂標籤</div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">標籤顏色分類 <span style="color:#C8001A;">*</span></div>
+        <select class="form-select" id="new-tag-color">
+          <option value="red">🔴 注意事項（客戶需要特別留意的狀況）</option>
+          <option value="yellow">🟡 偏好特質（喜好、興趣、車款傾向）</option>
+          <option value="green">🟢 服務備忘（服務過程的重要提醒）</option>
+          <option value="blue">🔵 談判協商（議價、讓步、條件交換記錄）</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-label">說明備註</div>
+        <textarea class="form-textarea" id="new-tag-note" placeholder="說明這個標籤的使用情境，方便日後識別..."></textarea>
+      </div>
+      <div style="background:#E1F5EE;border:1px solid #5DCAA5;border-radius:7px;padding:9px 12px;font-size:11.5px;color:#085041;line-height:1.6;">
+        ✅ 建立後立即可用，無需審核。主管可在觀察視角看到使用情況。
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">取消</button>
+      <button class="btn btn-primary" onclick="addCustomTag()">✅ 立即建立</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: 編輯自訂標籤 -->
+<div class="overlay" id="modal-edit" onclick="closeModalOverlay(event,'modal-edit')">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">✏️ 編輯自訂標籤</div>
+      <button class="modal-close" onclick="closeModal('modal-edit')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-tag-id">
+      <div class="form-row">
+        <div class="form-label">標籤名稱</div>
+        <input type="text" class="form-input" id="edit-tag-name" maxlength="20">
+      </div>
+      <div class="form-row">
+        <div class="form-label">標籤顏色分類</div>
+        <select class="form-select" id="edit-tag-color">
+          <option value="red">🔴 注意事項</option>
+          <option value="yellow">🟡 偏好特質</option>
+          <option value="green">🟢 服務備忘</option>
+          <option value="blue">🔵 談判協商</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-label">說明備註</div>
+        <textarea class="form-textarea" id="edit-tag-note"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit')">取消</button>
+      <button class="btn btn-primary" onclick="saveEditTag()">💾 儲存修改</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 常數 ──
+var CUSTOM_LIMIT = 5; // 每筆客戶資料最多自訂標籤數
+
+// ── 官方標籤（RS_M3 Tab3 主管管理，唯讀）──
+var officialTags = [
+  // 🔴 注意事項
+  {id:'o1',  name:'🔴 預算偏低',         color:'red',    usage:12, desc:'客戶預算明顯低於車款售價'},
+  {id:'o2',  name:'🔴 決策者非本人',     color:'red',    usage:8,  desc:'需另一人同意'},
+  {id:'o3',  name:'🔴 有競品比較',       color:'red',    usage:15, desc:'客戶同時洽詢其他品牌'},
+  {id:'o4',  name:'🔴 態度冷淡',         color:'red',    usage:4,  desc:'主動性低，需長期維護'},
+  {id:'o5',  name:'🔴 擔心保險費高',     color:'red',    usage:7,  desc:'對保險費用有疑慮'},
+  {id:'o6',  name:'🔴 曾有退訂記錄',     color:'red',    usage:2,  desc:'過去曾訂車後取消'},
+  // 🟡 偏好特質
+  {id:'o7',  name:'🟡 偏好 Panigale',    color:'yellow', usage:18, desc:'對超跑系列有明確偏好'},
+  {id:'o8',  name:'🟡 偏好輕巧街車',     color:'yellow', usage:9,  desc:'傾向操控靈活的車款'},
+  {id:'o9',  name:'🟡 著重外觀設計',     color:'yellow', usage:11, desc:'外觀是主要決策因素'},
+  {id:'o10', name:'🟡 重視操控性能',     color:'yellow', usage:14, desc:'性能規格是主要考量'},
+  {id:'o11', name:'🟡 Track Day 愛好者', color:'yellow', usage:6,  desc:'有賽道騎乘經驗或興趣'},
+  {id:'o12', name:'🟡 已提供型錄',       color:'yellow', usage:22, desc:'本次接待已給予紙本型錄'},
+  {id:'o13', name:'🟡 喜愛義式風格',     color:'yellow', usage:8,  desc:'對 DUCATI 品牌文化有認同'},
+  // 🟢 服務備忘
+  {id:'o14', name:'🟢 需安排試駕',       color:'green',  usage:16, desc:'已表達試駕意願，尚未安排'},
+  {id:'o15', name:'🟢 需聯絡 DRE',       color:'green',  usage:5,  desc:'對 DRE 騎士學院有興趣'},
+  {id:'o16', name:'🟢 需提供中古車資訊', color:'green',  usage:7,  desc:'對中古車庫存有詢問'},
+  {id:'o17', name:'🟢 已邀請活動',       color:'green',  usage:10, desc:'已邀請參加展覽或活動'},
+  {id:'o18', name:'🟢 女性騎士',         color:'green',  usage:4,  desc:'女性客戶，注意接待方式'},
+  // 🔵 談判協商（v2 改名）
+  {id:'o19', name:'🔵 希望分期',         color:'blue',   usage:13, desc:'對分期付款有需求'},
+  {id:'o20', name:'🔵 需了解補助方案',   color:'blue',   usage:6,  desc:'詢問政府或廠商補助'},
+  {id:'o21', name:'🔵 試過一次試駕',     color:'blue',   usage:9,  desc:'上次有試駕，本次再訪'},
+  {id:'o22', name:'🔵 比較三家經銷商',   color:'blue',   usage:5,  desc:'同時洽詢多家 DUCATI 經銷商'}
+];
+
+// ── 我的自訂標籤（v2 無審核狀態，全為 personal）──
+var myTags = [
+  {id:'c1', name:'🔴 首次騎重機',     color:'red',    note:'從輕型車升級，需要更多引導',    usedCount:3},
+  {id:'c2', name:'🟡 偏好紅色車款',   color:'yellow', note:'對 DUCATI 紅特別有感',          usedCount:5},
+  {id:'c3', name:'🟢 已加 LINE 好友', color:'green',  note:'已互加 LINE，後續用 LINE 聯繫', usedCount:8},
+  {id:'c4', name:'🔵 公司採購詢問',   color:'blue',   note:'以公司名義採購，需開發票',      usedCount:2},
+  {id:'c5', name:'🟡 騎士節活動認識', color:'yellow', note:'從騎士節活動帶進來的潛客',      usedCount:4}
+];
+
+// ── 全店自訂標籤（主管觀察用，模擬資料）──
+var allRsTags = [
+  {name:'🔵 公司採購詢問',   color:'blue',   rsUsers:['林佳蓉','陳雅惠','張志明'], totalUse:8,  trend:'rising'},
+  {name:'🟡 偏好紅色車款',   color:'yellow', rsUsers:['林佳蓉','王俊傑'],           totalUse:7,  trend:'rising'},
+  {name:'🟢 已加 LINE 好友', color:'green',  rsUsers:['林佳蓉','陳雅惠'],           totalUse:11, trend:'hot'},
+  {name:'🔴 首次騎重機',     color:'red',    rsUsers:['林佳蓉','張志明'],           totalUse:5,  trend:'normal'},
+  {name:'🟡 騎士節活動認識', color:'yellow', rsUsers:['林佳蓉'],                    totalUse:4,  trend:'normal'},
+  {name:'🔵 老客戶換車詢問', color:'blue',   rsUsers:['陳雅惠','張志明'],           totalUse:6,  trend:'rising'},
+  {name:'🟢 需要女性試乘教練',color:'green', rsUsers:['陳雅惠'],                    totalUse:3,  trend:'normal'}
+];
+
+var currentTab = 'lib';
+var currentColor = 'all';
+var currentSource = 'all';
+
+// ── 色彩元資料 ──
+var colorMeta = {
+  red:    {emoji:'🔴', label:'注意事項', dotCls:'cd-red',    offCls:'to-red',   custCls:'tc-red',   addCls:'atb-red'},
+  yellow: {emoji:'🟡', label:'偏好特質', dotCls:'cd-yellow', offCls:'to-yellow',custCls:'tc-yellow',addCls:'atb-yellow'},
+  green:  {emoji:'🟢', label:'服務備忘', dotCls:'cd-green',  offCls:'to-green', custCls:'tc-green', addCls:'atb-green'},
+  blue:   {emoji:'🔵', label:'談判協商', dotCls:'cd-blue',   offCls:'to-blue',  custCls:'tc-blue',  addCls:'atb-blue'}
+};
+
+// ── Tab 切換 ──
+function setTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-pill').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  ['lib','custom','stat','obs'].forEach(function(t){
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
+  });
+  if (tab === 'lib')    renderLibTab();
+  if (tab === 'custom') renderCustomTab();
+  if (tab === 'stat')   renderStatTab();
+  if (tab === 'obs')    renderObsTab();
+}
+
+function setColor(color, el) {
+  currentColor = color;
+  currentSource = 'all';
+  document.querySelectorAll('.sidenav .nav-item').forEach(function(n){n.classList.remove('active');});
+  el.classList.add('active');
+  renderLibTab();
+}
+
+function setSource(source, el) {
+  currentSource = source;
+  currentColor = 'all';
+  document.querySelectorAll('.sidenav .nav-item').forEach(function(n){n.classList.remove('active');});
+  el.classList.add('active');
+  renderLibTab();
+}
+
+// ── 標籤庫總覽 ──
+function renderLibTab() {
+  var q = document.getElementById('search-input').value.toLowerCase();
+  var colors = ['red','yellow','green','blue'];
+  var html = '';
+
+  colors.forEach(function(color) {
+    if (currentColor !== 'all' && currentColor !== color) return;
+    var meta = colorMeta[color];
+
+    var offFiltered = officialTags.filter(function(t){
+      return t.color === color && currentSource !== 'mine' && (!q || t.name.toLowerCase().includes(q));
+    });
+    var custFiltered = myTags.filter(function(t){
+      return t.color === color && currentSource !== 'official' && (!q || t.name.toLowerCase().includes(q));
+    });
+    if (offFiltered.length === 0 && custFiltered.length === 0) return;
+
+    var myColorCount = myTags.filter(function(t){ return t.color === color; }).length;
+
+    html += '<div class="color-section">' +
+      '<div class="cs-hdr">' +
+        '<div class="cs-hdr-left">' +
+          '<div class="cs-color-dot ' + meta.dotCls + '"></div>' +
+          '<div>' +
+            '<div class="cs-title">' + meta.emoji + ' ' + meta.label + '</div>' +
+            '<div class="cs-desc">官方 ' + offFiltered.length + ' 個' + (custFiltered.length > 0 ? ' · 自訂 ' + custFiltered.length + ' 個' : '') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cs-hdr-right">' +
+          '<span class="cs-count">' + (offFiltered.length + custFiltered.length) + ' 個標籤</span>' +
+          '<button class="btn btn-ghost btn-sm" onclick="openAddModalColor(\'' + color + '\')">＋ 新增自訂</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cs-body">' +
+        // 官方標籤區
+        (offFiltered.length > 0 ?
+          '<div style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;margin-bottom:7px;">' +
+            '官方標籤 <span class="badge b-lock" style="font-size:9.5px;margin-left:4px;">🔒 主管管理</span>' +
+          '</div>' +
+          '<div class="tag-grid">' +
+          offFiltered.map(function(t){
+            return '<span class="tag-official ' + meta.offCls + '" title="' + t.desc + '">' +
+              t.name + '<span class="tag-lock">🔒</span><span class="tag-usage">' + t.usage + '</span>' +
+            '</span>';
+          }).join('') + '</div>' : '') +
+
+        // 自訂標籤區
+        (custFiltered.length > 0 ?
+          '<div style="font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#534AB7;' +
+            'margin-bottom:7px;margin-top:' + (offFiltered.length > 0 ? '12px' : '0') + ';">' +
+            '我的自訂標籤' +
+          '</div>' +
+          '<div class="tag-grid">' +
+          custFiltered.map(function(t){
+            return '<span class="tag-custom ' + meta.custCls + '" title="' + (t.note||'') + '" onclick="openEditModal(\'' + t.id + '\')">' +
+              t.name + '<span class="tag-edit-btn">✎</span>' +
+              '<span class="tag-del-x" onclick="event.stopPropagation();deleteCustomTag(\'' + t.id + '\')">×</span>' +
+            '</span>';
+          }).join('') + '</div>' : '') +
+
+        // 快速新增輸入列
+        '<div class="add-tag-row">' +
+          '<input class="add-tag-input" type="text" id="inline-input-' + color + '"' +
+            ' placeholder="輸入新標籤名稱後按 Enter..." maxlength="20"' +
+            ' onkeydown="if(event.key===\'Enter\')inlineAdd(\'' + color + '\')">' +
+          '<button class="add-tag-btn ' + meta.addCls + '" onclick="inlineAdd(\'' + color + '\')">＋ 新增</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  });
+
+  document.getElementById('tag-sections').innerHTML = html ||
+    '<div style="padding:40px;text-align:center;color:#9A9890;">沒有符合搜尋的標籤</div>';
+}
+
+// ── 我的自訂標籤 Tab ──
+function renderCustomTab() {
+  var usedSlots = myTags.length;
+  var pct = Math.round(usedSlots / CUSTOM_LIMIT * 100);
+  var limitCls = usedSlots >= CUSTOM_LIMIT ? 'clb-full' : usedSlots >= 4 ? 'clb-warn' : 'clb-ok';
+  var dots = '';
+  for (var i = 0; i < CUSTOM_LIMIT; i++) {
+    dots += '<div class="ld ' + (i < usedSlots ? 'ld-used' : 'ld-empty') + '"></div>';
+  }
+
+  var limitBar = '<div class="custom-limit-bar ' + limitCls + '">' +
+    '<div class="limit-dots">' + dots + '</div>' +
+    '<span>每筆客戶資料可貼自訂標籤：<b>' + usedSlots + ' / ' + CUSTOM_LIMIT + '</b> 個</span>' +
+    (usedSlots >= CUSTOM_LIMIT ? '<span style="margin-left:auto;font-weight:600;">已達上限</span>' : '') +
+  '</div>';
+
+  if (myTags.length === 0) {
+    document.getElementById('my-custom-list').innerHTML = limitBar +
+      '<div style="padding:40px;text-align:center;color:#9A9890;font-size:13px;">' +
+        '尚未建立任何自訂標籤<br>' +
+        '<button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="openAddModal()">＋ 新增第一個自訂標籤</button>' +
+      '</div>';
+    return;
+  }
+
+  var html = limitBar + myTags.map(function(t) {
+    var meta = colorMeta[t.color];
+    return '<div style="background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:13px 15px;margin-bottom:10px;display:flex;align-items:center;gap:12px;">' +
+      '<span class="tag-custom ' + meta.custCls + '" style="cursor:default;pointer-events:none;">' + t.name + '</span>' +
+      '<div style="flex:1;">' +
+        '<div style="font-size:11.5px;color:#5A5955;">' + meta.emoji + ' ' + meta.label + '</div>' +
+        '<div style="font-size:11px;color:#9A9890;margin-top:2px;">' + (t.note || '無說明') + '</div>' +
+      '</div>' +
+      '<div style="text-align:right;flex-shrink:0;">' +
+        '<div style="font-size:10.5px;color:#9A9890;">使用次數</div>' +
+        '<div style="font-size:16px;font-weight:700;font-family:DM Mono,monospace;color:#1A3A5C;">' + t.usedCount + '</div>' +
+      '</div>' +
+      '<span class="badge b-purple">個人自訂</span>' +
+      '<button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + t.id + '\')">編輯</button>' +
+      '<button style="padding:5px 10px;border-radius:5px;font-size:11px;border:1px solid #F5AEAD;background:#FDECEA;color:#C8001A;cursor:pointer;" onclick="deleteCustomTag(\'' + t.id + '\')">刪除</button>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('my-custom-list').innerHTML = html;
+}
+
+// ── 使用統計 Tab ──
+function renderStatTab() {
+  var allTags = officialTags.concat(
+    myTags.map(function(t){ return {name:t.name, color:t.color, usage:t.usedCount||0}; })
+  );
+  allTags.sort(function(a,b){ return b.usage - a.usage; });
+  var maxUsage = allTags[0] ? allTags[0].usage : 1;
+
+  var html = '<thead><tr><th>排名</th><th>標籤名稱</th><th>類別</th><th>使用次數</th><th>佔比</th></tr></thead><tbody>' +
+    allTags.slice(0,15).map(function(t, i) {
+      var meta = colorMeta[t.color];
+      var pct = Math.round(t.usage / maxUsage * 100);
+      var fillColor = {red:'#C8001A',yellow:'#F0C97E',green:'#5DCAA5',blue:'#185FA5'}[t.color];
+      return '<tr>' +
+        '<td style="font-family:DM Mono,monospace;font-weight:700;color:' + (i<3?'#854F0B':'#9A9890') + ';">' + (i+1) + '</td>' +
+        '<td><span class="badge ' + {red:'b-red',yellow:'b-yellow',green:'b-green',blue:'b-blue'}[t.color] + '">' + t.name + '</span></td>' +
+        '<td style="font-size:12px;color:#7A7A78;">' + meta.emoji + ' ' + meta.label + '</td>' +
+        '<td><div class="usage-bar-wrap"><div class="usage-bar-fill" style="width:' + pct + '%;background:' + fillColor + ';"></div></div>' +
+          '<span style="font-family:DM Mono,monospace;font-weight:700;color:#1A3A5C;">' + t.usage + '</span></td>' +
+        '<td style="font-size:12px;color:#9A9890;">' + pct + '%</td>' +
+      '</tr>';
+    }).join('') + '</tbody>';
+
+  document.getElementById('stat-table').innerHTML = html;
+}
+
+// ── 主管觀察視角 Tab ──
+function renderObsTab() {
+  var sorted = allRsTags.slice().sort(function(a,b){ return b.totalUse - a.totalUse; });
+  var html = sorted.map(function(t) {
+    var meta = colorMeta[t.color];
+    var trendLabel = {hot:'🔴 高頻使用', rising:'🟡 上升中', normal:'⬜ 一般'}[t.trend];
+    var trendCls   = {hot:'hot', rising:'rising', normal:'normal'}[t.trend];
+    var rsChips = t.rsUsers.map(function(r){ return '<span class="obs-rs-chip">' + r + '</span>'; }).join('');
+    return '<div class="obs-card ' + trendCls + '">' +
+      '<span class="tag-custom ' + meta.custCls + '" style="cursor:default;pointer-events:none;flex-shrink:0;">' + t.name + '</span>' +
+      '<div class="obs-info">' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<span class="badge ' + {red:'b-red',yellow:'b-yellow',green:'b-green',blue:'b-blue'}[t.color] + '" style="font-size:10px;">' + meta.label + '</span>' +
+          '<span class="badge b-gray">' + trendLabel + '</span>' +
+          '<span style="font-family:DM Mono,monospace;font-weight:700;color:#1A3A5C;font-size:13px;">' + t.totalUse + ' 次</span>' +
+        '</div>' +
+        '<div class="obs-rs-list">' + rsChips + '</div>' +
+      '</div>' +
+      '<div style="flex-shrink:0;text-align:right;">' +
+        (t.trend !== 'normal' ?
+          '<div style="font-size:11px;color:#854F0B;background:#FDF3E3;border:1px solid #F0C97E;border-radius:6px;padding:5px 10px;cursor:pointer;" onclick="showToast(\'→ 請至 RS_M3 主管設定 Tab3 執行升為官方操作\')">' +
+            '💡 高頻使用<br><span style="font-size:10px;color:#9A9890;">升為官方請至 RS_M3 Tab3 →</span>' +
+          '</div>' : '<div style="font-size:10.5px;color:#9A9890;">觀察中</div>') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  document.getElementById('obs-list').innerHTML = html ||
+    '<div style="padding:40px;text-align:center;color:#9A9890;">目前全店尚無自訂標籤使用記錄</div>';
+}
+
+// ── 新增自訂標籤 ──
+var _addModalColor = 'red';
+function openAddModal() { _addModalColor = 'red'; openModal('modal-add'); }
+function openAddModalColor(color) {
+  _addModalColor = color;
+  document.getElementById('new-tag-color').value = color;
+  openModal('modal-add');
+}
+
+function addCustomTag() {
+  var name = document.getElementById('new-tag-name').value.trim();
+  if (!name) { showToast('請輸入標籤名稱'); return; }
+  var color = document.getElementById('new-tag-color').value;
+  var note  = document.getElementById('new-tag-note').value.trim();
+  var emoji = {red:'🔴',yellow:'🟡',green:'🟢',blue:'🔵'}[color];
+  myTags.push({id:'c'+Date.now(), name:emoji+' '+name, color:color, note:note, usedCount:0});
+  closeModal('modal-add');
+  document.getElementById('new-tag-name').value = '';
+  document.getElementById('new-tag-note').value = '';
+  updateCounts();
+  renderLibTab();
+  showToast('✅ 已建立自訂標籤：' + emoji + ' ' + name);
+}
+
+function inlineAdd(color) {
+  var input = document.getElementById('inline-input-' + color);
+  var name = input.value.trim();
+  if (!name) { input.focus(); return; }
+  var emoji = {red:'🔴',yellow:'🟡',green:'🟢',blue:'🔵'}[color];
+  myTags.push({id:'c'+Date.now(), name:emoji+' '+name, color:color, note:'', usedCount:0});
+  input.value = '';
+  updateCounts();
+  renderLibTab();
+  showToast('✅ 已新增：' + emoji + ' ' + name);
+}
+
+// ── 編輯自訂標籤 ──
+function openEditModal(id) {
+  var t = myTags.find(function(x){ return x.id===id; });
+  if (!t) return;
+  document.getElementById('edit-tag-id').value   = id;
+  document.getElementById('edit-tag-name').value  = t.name.replace(/^[🔴🟡🟢🔵]\s?/,'');
+  document.getElementById('edit-tag-color').value = t.color;
+  document.getElementById('edit-tag-note').value  = t.note||'';
+  openModal('modal-edit');
+}
+
+function saveEditTag() {
+  var id = document.getElementById('edit-tag-id').value;
+  var t  = myTags.find(function(x){ return x.id===id; });
+  if (!t) return;
+  var name = document.getElementById('edit-tag-name').value.trim();
+  if (!name) { showToast('請輸入標籤名稱'); return; }
+  t.color = document.getElementById('edit-tag-color').value;
+  t.note  = document.getElementById('edit-tag-note').value.trim();
+  var emoji = {red:'🔴',yellow:'🟡',green:'🟢',blue:'🔵'}[t.color];
+  t.name = emoji+' '+name;
+  closeModal('modal-edit');
+  updateCounts();
+  renderLibTab();
+  if (currentTab==='custom') renderCustomTab();
+  showToast('✅ 已更新標籤：' + t.name);
+}
+
+// ── 刪除自訂標籤 ──
+function deleteCustomTag(id) {
+  var t = myTags.find(function(x){ return x.id===id; });
+  if (!t) return;
+  if (!confirm('確定刪除「'+t.name+'」？\n已貼在客戶身上的標籤不受影響。')) return;
+  myTags = myTags.filter(function(x){ return x.id!==id; });
+  updateCounts();
+  renderLibTab();
+  if (currentTab==='custom') renderCustomTab();
+  showToast('已刪除：' + t.name);
+}
+
+// ── 搜尋 ──
+function filterTags() {
+  if (currentTab==='lib') renderLibTab();
+}
+
+// ── 計數更新 ──
+function updateCounts() {
+  var colors = ['red','yellow','green','blue'];
+  var total = officialTags.length + myTags.length;
+  colors.forEach(function(c){
+    var cnt = officialTags.filter(function(t){ return t.color===c; }).length +
+              myTags.filter(function(t){ return t.color===c; }).length;
+    var el = document.getElementById('cnt-'+c);
+    if (el) el.textContent = cnt;
+  });
+  document.getElementById('cnt-all').textContent  = total;
+  document.getElementById('cnt-mine').textContent = myTags.length;
+  document.getElementById('tag-count-label').textContent = '官方 '+officialTags.length+' 個 · 自訂 '+myTags.length+' 個';
+}
+
+// ── Modal helpers ──
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function closeModalOverlay(e,id){ if(e.target===document.getElementById(id)) closeModal(id); }
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(function(){t.classList.remove('show');},2700);
+}
+
+// ── Init ──
+updateCounts();
+renderLibTab();
+</script>
+</body>
+</html>

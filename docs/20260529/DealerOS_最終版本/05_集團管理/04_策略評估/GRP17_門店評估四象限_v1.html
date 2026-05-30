@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP17 門店評估四象限 — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#0D1B2A;color:#E8E6E0;font-size:13px;}
+:root{
+  --teal:#0F6E56;--teal-light:#3DBE6E;--teal-bg:rgba(61,190,110,.12);
+  --red:#C8001A;--red-light:#F5AEAD;
+  --amber:#854F0B;--amber-light:#F5B942;
+  --navy:#1A3A5C;--navy-light:#85B7EB;
+  --purple:#534AB7;--purple-light:#AFA9EC;
+  --header:#0D2438;--bg:#0D1B2A;--card:#132230;--card2:#1A2E42;
+  --border:#1E3448;--border2:#243C52;
+  --text:#E8E6E0;--text-sub:#7A9AB8;--text-dim:#4A6A88;
+  /* 象限色 */
+  --q1:#3DBE6E;  /* 卓越 */
+  --q2:#5DCAA5;  /* 穩健 */
+  --q3:#F5B942;  /* 待發展 */
+  --q4:#E8A73A;  /* 重點輔導 */
+}
+
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:200;border-bottom:1px solid var(--border2);box-shadow:0 2px 12px rgba(0,0,0,.4);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.15);}
+.htitle{font-size:13px;color:rgba(255,255,255,.5);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.08);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.12);cursor:pointer;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.15);}
+.ver-badge{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(83,74,183,.3);border:1px solid rgba(83,74,183,.4);color:#AFA9EC;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+/* CONTROL BAR */
+.ctrl-bar{background:var(--header);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:52px;z-index:190;}
+.ctrl-label{font-size:11px;color:var(--text-dim);font-weight:600;white-space:nowrap;}
+.axis-select{background:var(--card2);border:1px solid var(--border2);color:var(--text);padding:5px 28px 5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237A9AB8'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
+.axis-select:focus{outline:none;border-color:var(--teal);}
+.ctrl-sep{width:1px;height:22px;background:var(--border2);}
+.toggle-btn{padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border2);background:rgba(255,255,255,.05);color:var(--text-sub);transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.toggle-btn.active{background:rgba(83,74,183,.25);border-color:#534AB7;color:#AFA9EC;}
+.toggle-btn:hover:not(.active){background:rgba(255,255,255,.08);}
+.ctrl-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);}
+.rdot{width:7px;height:7px;border-radius:50%;background:#3DBE6E;display:inline-block;}
+
+/* MAIN LAYOUT */
+.main{display:grid;grid-template-columns:1fr 300px;gap:0;height:calc(100vh - 104px);overflow:hidden;}
+
+/* LEFT: CHART AREA */
+.chart-area{padding:20px 20px 20px 24px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+.chart-wrap{background:var(--card);border:1px solid var(--border2);border-radius:12px;overflow:hidden;flex:1;min-height:480px;position:relative;}
+.chart-title-bar{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.chart-title{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.chart-title-dot{width:8px;height:8px;border-radius:50%;background:var(--purple-light);}
+.chart-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(83,74,183,.2);color:#AFA9EC;border:1px solid rgba(83,74,183,.3);}
+#scatter-container{width:100%;height:calc(100% - 48px);}
+
+/* QUAD LABELS (overlay) */
+.quad-label{position:absolute;font-size:11px;font-weight:700;letter-spacing:.05em;opacity:.55;pointer-events:none;display:flex;align-items:center;gap:4px;}
+
+/* BOTTOM LIST */
+.store-list-wrap{background:var(--card);border:1px solid var(--border2);border-radius:12px;overflow:hidden;}
+.sl-header{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.sl-title{font-size:12px;font-weight:700;color:var(--text-sub);}
+.sl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;}
+.sl-col{border-right:1px solid var(--border);}
+.sl-col:last-child{border-right:none;}
+.sl-col-header{padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);}
+.sl-item{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer;transition:background .15s;}
+.sl-item:hover{background:rgba(255,255,255,.04);}
+.sl-item:last-child{border-bottom:none;}
+.sl-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.sl-name{font-size:12px;font-weight:600;}
+.sl-score{font-size:11px;font-family:'DM Mono',monospace;margin-left:auto;}
+
+/* RIGHT: DETAIL PANEL */
+.detail-panel{background:var(--card);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.dp-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-dim);padding:24px;text-align:center;}
+.dp-ph-icon{font-size:40px;opacity:.4;}
+.dp-ph-text{font-size:13px;line-height:1.6;}
+.dp-content{padding:20px;flex:1;}
+.dp-store-name{font-size:18px;font-weight:700;margin-bottom:4px;}
+.dp-quad-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:16px;}
+.dp-score-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.dp-score-item{background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;}
+.dp-score-label{font-size:10px;color:var(--text-dim);margin-bottom:4px;}
+.dp-score-val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;}
+.dp-dims{margin-bottom:16px;}
+.dp-dim-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.dp-dim-label{font-size:11px;color:var(--text-sub);width:64px;flex-shrink:0;}
+.dp-dim-bar{flex:1;height:4px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.dp-dim-fill{height:100%;border-radius:2px;}
+.dp-dim-val{font-size:11px;font-family:'DM Mono',monospace;font-weight:700;width:32px;text-align:right;flex-shrink:0;}
+.dp-strategy{background:rgba(83,74,183,.12);border:1px solid rgba(83,74,183,.2);border-radius:8px;padding:12px 14px;margin-bottom:14px;}
+.dp-strategy-title{font-size:11px;font-weight:700;color:#AFA9EC;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;}
+.dp-strategy-text{font-size:12px;color:var(--text-sub);line-height:1.7;}
+.dp-history{margin-bottom:12px;}
+.dp-history-title{font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em;}
+.dp-hist-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px;}
+.dp-hist-q{color:var(--text-dim);width:50px;}
+.dp-hist-bar{flex:1;height:4px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.dp-hist-fill{height:4px;border-radius:2px;background:var(--purple-light);}
+.dp-hist-val{font-family:'DM Mono',monospace;font-weight:700;width:40px;text-align:right;}
+
+/* TOOLTIP */
+.d3-tooltip{position:fixed;background:#0A1828;color:#E8E6E0;padding:10px 14px;border-radius:8px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;border:1px solid var(--border2);max-width:200px;line-height:1.6;}
+.tt-name{font-weight:700;font-size:14px;margin-bottom:4px;}
+.tt-quad{font-size:10px;margin-bottom:6px;font-weight:700;}
+.tt-row{display:flex;justify-content:space-between;gap:12px;}
+.tt-val{font-family:'DM Mono',monospace;font-weight:700;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--header);color:#fff;padding:10px 20px;border-radius:8px;font-size:12.5px;z-index:9999;opacity:0;transition:.25s;pointer-events:none;border:1px solid var(--border2);}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+
+@media(max-width:1000px){.main{grid-template-columns:1fr;height:auto;}.detail-panel{min-height:300px;border-left:none;border-top:1px solid var(--border);}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP17 門店評估四象限</b></div>
+  <div class="org-badge">⬡ 戰略評估</div>
+  <div class="ver-badge">v1 D3</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn" onclick="showToast('匯出中…')">⬇ 匯出</button>
+  </div>
+</header>
+
+<!-- CONTROL BAR -->
+<div class="ctrl-bar">
+  <span class="ctrl-label">X 軸</span>
+  <select class="axis-select" id="sel-x" onchange="redraw()">
+    <option value="achievement">業績達成率（%）</option>
+    <option value="gp">毛利率（%）</option>
+    <option value="health">Health Score</option>
+    <option value="nps">客戶 NPS</option>
+    <option value="growth">業績成長率（%）</option>
+  </select>
+  <span class="ctrl-label">Y 軸</span>
+  <select class="axis-select" id="sel-y" onchange="redraw()">
+    <option value="health">Health Score</option>
+    <option value="achievement">業績達成率（%）</option>
+    <option value="gp">毛利率（%）</option>
+    <option value="nps">客戶 NPS</option>
+    <option value="growth">業績成長率（%）</option>
+  </select>
+  <div class="ctrl-sep"></div>
+  <span class="ctrl-label">圓圈大小</span>
+  <select class="axis-select" id="sel-size" onchange="redraw()">
+    <option value="revenue">零售業績規模</option>
+    <option value="staff">員工人數</option>
+    <option value="health">Health Score</option>
+  </select>
+  <div class="ctrl-sep"></div>
+  <button class="toggle-btn" id="btn-trail" onclick="toggleTrail(this)">📍 顯示歷史軌跡</button>
+  <div class="ctrl-right">
+    <span class="rdot"></span>
+    <span>資料更新：2026-05-28 ｜ 圓圈大小＝規模指標</span>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main">
+
+  <!-- LEFT -->
+  <div class="chart-area">
+    <div class="chart-wrap" id="chart-wrap">
+      <div class="chart-title-bar">
+        <div class="chart-title">
+          <div class="chart-title-dot"></div>
+          門店戰略評估四象限
+        </div>
+        <div id="axis-desc" class="chart-tag">X：業績達成率　Y：Health Score</div>
+      </div>
+      <div id="scatter-container"></div>
+    </div>
+
+    <!-- 門店列表 -->
+    <div class="store-list-wrap">
+      <div class="sl-header">
+        <div class="sl-title">📋 門店象限分類一覽</div>
+        <div style="font-size:11px;color:var(--text-dim);">點擊門店名稱可查看詳情</div>
+      </div>
+      <div class="sl-grid" id="store-list-grid"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="detail-panel" id="detail-panel">
+    <div class="dp-placeholder" id="dp-placeholder">
+      <div class="dp-ph-icon">⬡</div>
+      <div class="dp-ph-text">點擊圖中任一門店<br>查看詳細評估資訊<br>與建議策略</div>
+    </div>
+    <div class="dp-content" id="dp-content" style="display:none;"></div>
+  </div>
+
+</div>
+
+<div id="tooltip" class="d3-tooltip"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+// ── 門店資料 ──
+const STORES = [
+  {
+    id:'tp', name:'台北旗艦店', short:'台北',
+    color:'#3DBE6E',
+    achievement:102, gp:32.4, health:88.2, nps:52, growth:11.2,
+    revenue:18.4, staff:22,
+    quad:'卓越門店',
+    history:[
+      {q:'Q2\'25', achievement:94, health:82.1},
+      {q:'Q3\'25', achievement:97, health:83.4},
+      {q:'Q4\'25', achievement:99, health:85.0},
+      {q:'Q1\'26', achievement:100, health:84.6},
+      {q:'Q2\'26', achievement:102, health:88.2},
+    ],
+    dims:{ sales:92, after:86, parts:78, people:90, csat:88, finance:91 },
+    strategy:'持續強化明星產品線業績，複製成功模式至其他門店。重點提升零件周轉率（目前 5.8次，目標 6.5次）。可作為集團標竿門店，協助輔導其他門店。',
+  },
+  {
+    id:'tc', name:'台中中港店', short:'台中',
+    color:'#5DCAA5',
+    achievement:96, gp:34.8, health:81.4, nps:34, growth:8.4,
+    revenue:14.2, staff:18,
+    quad:'穩健門店',
+    history:[
+      {q:'Q2\'25', achievement:90, health:74.2},
+      {q:'Q3\'25', achievement:92, health:76.0},
+      {q:'Q4\'25', achievement:94, health:77.8},
+      {q:'Q1\'26', achievement:95, health:79.2},
+      {q:'Q2\'26', achievement:96, health:81.4},
+    ],
+    dims:{ sales:84, after:82, parts:88, people:78, csat:80, finance:82 },
+    strategy:'業績穩定成長，毛利率最高（34.8%）。重點提升 NPS（目前 +34，集團均值 +42），加強服務流程與人員能效培訓。中期目標：Health Score 突破 85。',
+  },
+  {
+    id:'kh', name:'高雄博愛店', short:'高雄',
+    color:'#F5B942',
+    achievement:84, gp:31.5, health:58.6, nps:28, growth:-3.2,
+    revenue:12.8, staff:16,
+    quad:'重點輔導門店',
+    history:[
+      {q:'Q2\'25', achievement:91, health:68.4},
+      {q:'Q3\'25', achievement:88, health:65.2},
+      {q:'Q4\'25', achievement:86, health:63.1},
+      {q:'Q1\'26', achievement:85, health:62.8},
+      {q:'Q2\'26', achievement:84, health:58.6},
+    ],
+    dims:{ sales:62, after:55, parts:52, people:60, csat:58, finance:61 },
+    strategy:'⚠️ 評分持續下滑，需立即介入。優先處理：① 技師 Marcus 返修率（18.4%）師徒輔導 ② 零件呆滯庫存促銷消化 ③ Scout Bobber 定價越界矯正。建議集團派駐輔導員進駐。',
+  },
+  {
+    id:'ty', name:'桃園中壢店', short:'桃園',
+    color:'#85B7EB',
+    achievement:91, gp:33.2, health:76.8, nps:42, growth:6.8,
+    revenue:10.6, staff:14,
+    quad:'待發展門店',
+    history:[
+      {q:'Q2\'25', achievement:84, health:70.1},
+      {q:'Q3\'25', achievement:86, health:71.4},
+      {q:'Q4\'25', achievement:88, health:72.8},
+      {q:'Q1\'26', achievement:90, health:74.1},
+      {q:'Q2\'26', achievement:91, health:76.8},
+    ],
+    dims:{ sales:78, after:80, parts:74, people:76, csat:79, finance:74 },
+    strategy:'成長軌跡良好，近5季持續進步。規模最小但潛力佳。重點提升精品加裝率（目前 28.9%，目標 38%）與業績規模。建議增加銷售人力配置，加速成長曲線。',
+  },
+];
+
+const METRICS = {
+  achievement: { label:'業績達成率', fmt: v=>v+'%', },
+  gp:          { label:'毛利率',     fmt: v=>v+'%', },
+  health:      { label:'Health Score', fmt: v=>v, },
+  nps:         { label:'客戶 NPS',   fmt: v=>'+'+v, },
+  growth:      { label:'業績成長率', fmt: v=>(v>=0?'+':'')+v+'%', },
+  revenue:     { label:'零售業績規模', fmt: v=>v+'M', },
+  staff:       { label:'員工人數',   fmt: v=>v+'人', },
+};
+
+const QUAD_META = {
+  '卓越門店':    { color:'#3DBE6E', bg:'rgba(61,190,110,.15)',   desc:'高達成 × 高健康' },
+  '穩健門店':    { color:'#5DCAA5', bg:'rgba(93,202,165,.12)',   desc:'穩定成長中' },
+  '待發展門店':  { color:'#85B7EB', bg:'rgba(133,183,235,.12)',  desc:'潛力待釋放' },
+  '重點輔導門店':{ color:'#F5B942', bg:'rgba(245,185,66,.12)',   desc:'需即刻介入' },
+};
+
+const DIM_LABELS = { sales:'銷售', after:'售後', parts:'零件', people:'人員', csat:'客滿', finance:'財務' };
+
+let showTrail = false;
+let selectedStore = null;
+
+function getVal(store, key) { return store[key]; }
+
+// ── 主散佈圖 ──
+function drawScatter() {
+  const xKey  = document.getElementById('sel-x').value;
+  const yKey  = document.getElementById('sel-y').value;
+  const szKey = document.getElementById('sel-size').value;
+
+  document.getElementById('axis-desc').textContent =
+    `X：${METRICS[xKey].label}　Y：${METRICS[yKey].label}`;
+
+  const container = document.getElementById('scatter-container');
+  container.innerHTML = '';
+
+  const W = container.clientWidth  || 700;
+  const H = container.clientHeight || 480;
+  const margin = { top:32, right:32, bottom:52, left:60 };
+  const w = W - margin.left - margin.right;
+  const h = H - margin.top  - margin.bottom;
+
+  const svg = d3.select(container).append('svg')
+    .attr('width','100%').attr('height','100%')
+    .attr('viewBox',`0 0 ${W} ${H}`);
+  const g = svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+
+  const xVals = STORES.map(s=>getVal(s,xKey));
+  const yVals = STORES.map(s=>getVal(s,yKey));
+  const pad   = 0.15;
+  const xExt  = d3.extent(xVals);
+  const yExt  = d3.extent(yVals);
+  const xRange = xExt[1]-xExt[0] || 10;
+  const yRange = yExt[1]-yExt[0] || 10;
+
+  const xs = d3.scaleLinear().domain([xExt[0]-xRange*pad, xExt[1]+xRange*pad]).range([0,w]);
+  const ys = d3.scaleLinear().domain([yExt[0]-yRange*pad, yExt[1]+yRange*pad]).range([h,0]);
+  const avgX = d3.mean(xVals);
+  const avgY = d3.mean(yVals);
+
+  // 象限背景
+  const quadBg = [
+    { x:0,         y:0,           w:xs(avgX),   h:ys(avgY),   color:'rgba(61,190,110,.05)',  label:'卓越門店',     lx:xs(avgX)*0.5,  ly:ys(avgY)*0.5  },
+    { x:xs(avgX),  y:0,           w:w-xs(avgX), h:ys(avgY),   color:'rgba(93,202,165,.04)',  label:'穩健門店',     lx:xs(avgX)+(w-xs(avgX))*0.5, ly:ys(avgY)*0.5 },
+    { x:0,         y:ys(avgY),    w:xs(avgX),   h:h-ys(avgY), color:'rgba(245,185,66,.05)',  label:'重點輔導門店', lx:xs(avgX)*0.5,  ly:ys(avgY)+(h-ys(avgY))*0.5 },
+    { x:xs(avgX),  y:ys(avgY),    w:w-xs(avgX), h:h-ys(avgY), color:'rgba(133,183,235,.04)', label:'待發展門店',   lx:xs(avgX)+(w-xs(avgX))*0.5, ly:ys(avgY)+(h-ys(avgY))*0.5 },
+  ];
+
+  quadBg.forEach(q=>{
+    g.append('rect').attr('x',q.x).attr('y',q.y).attr('width',q.w).attr('height',q.h).attr('fill',q.color);
+    const qm = QUAD_META[q.label];
+    g.append('text').attr('x',q.lx).attr('y',q.ly-8)
+      .attr('text-anchor','middle').attr('font-size',11).attr('font-weight',700)
+      .attr('fill',qm.color).attr('opacity',.5).text(q.label);
+    g.append('text').attr('x',q.lx).attr('y',q.ly+8)
+      .attr('text-anchor','middle').attr('font-size',9)
+      .attr('fill',qm.color).attr('opacity',.35).text(qm.desc);
+  });
+
+  // 格線
+  g.append('g').call(d3.axisLeft(ys).tickSize(-w).tickFormat(''))
+    .select('.domain').remove();
+  g.selectAll('.tick line').attr('stroke','rgba(255,255,255,.04)').attr('stroke-dasharray','3,3');
+
+  // 均值線
+  g.append('line').attr('x1',xs(avgX)).attr('x2',xs(avgX)).attr('y1',0).attr('y2',h)
+    .attr('stroke','rgba(255,255,255,.15)').attr('stroke-width',1.5).attr('stroke-dasharray','6,4');
+  g.append('line').attr('x1',0).attr('x2',w).attr('y1',ys(avgY)).attr('y2',ys(avgY))
+    .attr('stroke','rgba(255,255,255,.15)').attr('stroke-width',1.5).attr('stroke-dasharray','6,4');
+
+  // 均值標籤
+  g.append('text').attr('x',xs(avgX)+4).attr('y',h+2)
+    .attr('font-size',9).attr('fill','rgba(255,255,255,.3)').attr('font-family','DM Mono,monospace')
+    .text('均值 '+METRICS[xKey].fmt(Math.round(avgX)));
+  g.append('text').attr('x',2).attr('y',ys(avgY)-4)
+    .attr('font-size',9).attr('fill','rgba(255,255,255,.3)').attr('font-family','DM Mono,monospace')
+    .text('均值 '+METRICS[yKey].fmt(Math.round(avgY)));
+
+  // 歷史軌跡
+  if (showTrail) {
+    STORES.forEach(s=>{
+      const trail = s.history.map(h=>({
+        x: xKey==='health'||xKey==='achievement' ? (xKey==='health'?h.health:h.achievement) : getVal(s,xKey),
+        y: yKey==='health'||yKey==='achievement' ? (yKey==='health'?h.health:h.achievement) : getVal(s,yKey),
+      }));
+      const lineFn = d3.line().x(d=>xs(d.x)).y(d=>ys(d.y)).curve(d3.curveMonotoneX);
+      g.append('path').datum(trail)
+        .attr('fill','none').attr('stroke',s.color).attr('stroke-width',1.5)
+        .attr('stroke-dasharray','4,3').attr('opacity',.4).attr('d',lineFn);
+      // 箭頭（末段方向）
+      if (trail.length >= 2) {
+        const p1 = trail[trail.length-2], p2 = trail[trail.length-1];
+        const dx = xs(p2.x)-xs(p1.x), dy = ys(p2.y)-ys(p1.y);
+        const angle = Math.atan2(dy,dx)*180/Math.PI;
+        g.append('text').attr('x',xs(p1.x)).attr('y',ys(p1.y))
+          .attr('text-anchor','middle').attr('dominant-baseline','middle')
+          .attr('font-size',10).attr('fill',s.color).attr('opacity',.5)
+          .attr('transform',`rotate(${angle},${xs(p1.x)},${ys(p1.y)})`)
+          .text('→');
+      }
+      // 軌跡小點
+      trail.slice(0,-1).forEach(pt=>{
+        g.append('circle').attr('cx',xs(pt.x)).attr('cy',ys(pt.y)).attr('r',3)
+          .attr('fill',s.color).attr('opacity',.3).attr('stroke','none');
+      });
+    });
+  }
+
+  // 軸
+  g.append('g').attr('transform',`translate(0,${h})`)
+    .call(d3.axisBottom(xs).ticks(5).tickFormat(v=>METRICS[xKey].fmt(v)))
+    .call(ax=>{
+      ax.select('.domain').attr('stroke','\#1E3448');
+      ax.selectAll('text').attr('fill','#4A6A88').attr('font-size',10).attr('font-family','DM Mono,monospace');
+      ax.selectAll('.tick line').attr('stroke','#1E3448');
+    });
+  g.append('g').call(d3.axisLeft(ys).ticks(5).tickFormat(v=>METRICS[yKey].fmt(v)))
+    .call(ax=>{
+      ax.select('.domain').attr('stroke','#1E3448');
+      ax.selectAll('text').attr('fill','#4A6A88').attr('font-size',10).attr('font-family','DM Mono,monospace');
+      ax.selectAll('.tick line').attr('stroke','#1E3448');
+    });
+
+  // 軸標籤
+  g.append('text').attr('x',w/2).attr('y',h+38).attr('text-anchor','middle')
+    .attr('font-size',11).attr('fill','#7A9AB8').text(METRICS[xKey].label);
+  g.append('text').attr('transform','rotate(-90)').attr('x',-h/2).attr('y',-48)
+    .attr('text-anchor','middle').attr('font-size',11).attr('fill','#7A9AB8').text(METRICS[yKey].label);
+
+  // 尺寸比例
+  const szVals = STORES.map(s=>getVal(s,szKey));
+  const szScale = d3.scaleSqrt().domain(d3.extent(szVals)).range([22,52]);
+
+  const tooltip = document.getElementById('tooltip');
+
+  // 門店圓圈
+  const dots = g.selectAll('.dot').data(STORES).enter().append('g').attr('class','dot').style('cursor','pointer');
+
+  dots.append('circle')
+    .attr('cx',s=>xs(getVal(s,xKey))).attr('cy',s=>ys(getVal(s,yKey)))
+    .attr('r',0)
+    .attr('fill',s=>s.color).attr('fill-opacity',.18)
+    .attr('stroke',s=>s.color).attr('stroke-width',2.5)
+    .transition().duration(700).ease(d3.easeBackOut).delay((_,i)=>i*100)
+    .attr('r',s=>szScale(getVal(s,szKey)));
+
+  // 選中外圈
+  dots.append('circle')
+    .attr('class','select-ring')
+    .attr('cx',s=>xs(getVal(s,xKey))).attr('cy',s=>ys(getVal(s,yKey)))
+    .attr('r',s=>szScale(getVal(s,szKey))+6)
+    .attr('fill','none').attr('stroke',s=>s.color).attr('stroke-width',2)
+    .attr('stroke-dasharray','4,3').attr('opacity',0);
+
+  dots.append('text')
+    .attr('x',s=>xs(getVal(s,xKey))).attr('y',s=>ys(getVal(s,yKey))+4)
+    .attr('text-anchor','middle').attr('font-size',12).attr('font-weight',700)
+    .attr('fill',s=>s.color).attr('pointer-events','none')
+    .attr('opacity',0).text(s=>s.short)
+    .transition().delay((_,i)=>i*100+400).attr('opacity',1);
+
+  // 健康分數小標籤
+  dots.append('text')
+    .attr('x',s=>xs(getVal(s,xKey))).attr('y',s=>ys(getVal(s,yKey))-szScale(getVal(s,szKey))-6)
+    .attr('text-anchor','middle').attr('font-size',10).attr('font-family','DM Mono,monospace')
+    .attr('fill',s=>s.color).attr('opacity',.7).attr('pointer-events','none')
+    .text(s=>getVal(s,yKey));
+
+  dots.on('mouseover', function(event,s){
+      d3.select(this).select('circle:first-child').transition().duration(120).attr('fill-opacity',.3).attr('stroke-width',3.5);
+      tooltip.innerHTML = `
+        <div class="tt-name">${s.name}</div>
+        <div class="tt-quad" style="color:${QUAD_META[s.quad].color};">${s.quad}</div>
+        <div class="tt-row"><span>${METRICS[xKey].label}</span><span class="tt-val" style="color:${s.color};">${METRICS[xKey].fmt(getVal(s,xKey))}</span></div>
+        <div class="tt-row"><span>${METRICS[yKey].label}</span><span class="tt-val" style="color:${s.color};">${METRICS[yKey].fmt(getVal(s,yKey))}</span></div>
+        <div class="tt-row"><span>規模指標</span><span class="tt-val">${METRICS[szKey].fmt(getVal(s,szKey))}</span></div>
+      `;
+      tooltip.style.opacity='1';
+    })
+    .on('mousemove', function(event){
+      const x=event.clientX+14, y=event.clientY-10;
+      tooltip.style.left=(x+200>window.innerWidth?event.clientX-210:x)+'px';
+      tooltip.style.top=(y+160>window.innerHeight?event.clientY-170:y)+'px';
+    })
+    .on('mouseout', function(event,s){
+      d3.select(this).select('circle:first-child').transition().duration(120).attr('fill-opacity',.18).attr('stroke-width',2.5);
+      tooltip.style.opacity='0';
+    })
+    .on('click', function(event,s){
+      selectedStore = s;
+      // 清除所有選中環
+      d3.selectAll('.select-ring').attr('opacity',0);
+      // 顯示選中環
+      d3.select(this).select('.select-ring').attr('opacity',1);
+      showDetail(s);
+    });
+}
+
+// ── 門店詳情面板 ──
+function showDetail(s) {
+  document.getElementById('dp-placeholder').style.display = 'none';
+  const content = document.getElementById('dp-content');
+  content.style.display = 'block';
+  const qm = QUAD_META[s.quad];
+
+  const histMax = Math.max(...s.history.map(h=>h.health));
+
+  content.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <div style="width:12px;height:12px;border-radius:50%;background:${s.color};"></div>
+      <div class="dp-store-name">${s.name}</div>
+    </div>
+    <div class="dp-quad-badge" style="background:${qm.bg};color:${qm.color};">${s.quad}　${qm.desc}</div>
+
+    <div class="dp-score-row">
+      <div class="dp-score-item">
+        <div class="dp-score-label">Health Score</div>
+        <div class="dp-score-val" style="color:${s.color};">${s.health}</div>
+      </div>
+      <div class="dp-score-item">
+        <div class="dp-score-label">業績達成率</div>
+        <div class="dp-score-val" style="color:${s.color};">${s.achievement}%</div>
+      </div>
+      <div class="dp-score-item">
+        <div class="dp-score-label">毛利率</div>
+        <div class="dp-score-val" style="color:${s.color};">${s.gp}%</div>
+      </div>
+      <div class="dp-score-item">
+        <div class="dp-score-label">客戶 NPS</div>
+        <div class="dp-score-val" style="color:${s.color};">+${s.nps}</div>
+      </div>
+    </div>
+
+    <div class="dp-dims" style="margin-bottom:14px;">
+      <div style="font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">六維度評分</div>
+      ${Object.keys(DIM_LABELS).map(k=>`
+        <div class="dp-dim-row">
+          <div class="dp-dim-label">${DIM_LABELS[k]}</div>
+          <div class="dp-dim-bar"><div class="dp-dim-fill" style="width:${s.dims[k]}%;background:${s.dims[k]>=80?'#3DBE6E':s.dims[k]>=65?'#F5B942':'#C8001A'};"></div></div>
+          <div class="dp-dim-val" style="color:${s.dims[k]>=80?'#3DBE6E':s.dims[k]>=65?'#F5B942':'#C8001A'};">${s.dims[k]}</div>
+        </div>`).join('')}
+    </div>
+
+    <div class="dp-strategy">
+      <div class="dp-strategy-title">🗺 建議策略</div>
+      <div class="dp-strategy-text">${s.strategy}</div>
+    </div>
+
+    <div class="dp-history">
+      <div class="dp-history-title">📈 Health Score 歷史走勢</div>
+      ${s.history.map(h=>`
+        <div class="dp-hist-row">
+          <div class="dp-hist-q">${h.q}</div>
+          <div class="dp-hist-bar"><div class="dp-hist-fill" style="width:${h.health/histMax*100}%;background:${s.color};"></div></div>
+          <div class="dp-hist-val" style="color:${s.color};">${h.health}</div>
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+// ── 門店列表 ──
+function renderStoreList() {
+  const quads = ['卓越門店','穩健門店','待發展門店','重點輔導門店'];
+  const grid = document.getElementById('store-list-grid');
+  grid.innerHTML = '';
+  quads.forEach(q=>{
+    const qm = QUAD_META[q];
+    const stores = STORES.filter(s=>s.quad===q);
+    const col = document.createElement('div');
+    col.className = 'sl-col';
+    col.innerHTML = `
+      <div class="sl-col-header" style="color:${qm.color};border-bottom:2px solid ${qm.color}33;">${q}</div>
+      ${stores.length===0
+        ? `<div style="padding:10px 12px;font-size:11px;color:var(--text-dim);">本季無門店</div>`
+        : stores.map(s=>`
+          <div class="sl-item" onclick="showDetail(STORES.find(x=>x.id==='${s.id}'))">
+            <div class="sl-dot" style="background:${s.color};"></div>
+            <div class="sl-name">${s.name}</div>
+            <div class="sl-score" style="color:${s.color};">${s.health}</div>
+          </div>`).join('')}
+    `;
+    grid.appendChild(col);
+  });
+}
+
+renderStoreList();
+
+// ── 控制項 ──
+function redraw() { drawScatter(); }
+function toggleTrail(btn) {
+  showTrail = !showTrail;
+  btn.classList.toggle('active');
+  drawScatter();
+  showToast(showTrail ? '已顯示歷史軌跡（近5季）' : '已隱藏歷史軌跡');
+}
+function setChip(el) {
+  el.closest('.sub-bar').querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+window.addEventListener('load', ()=>{ drawScatter(); });
+window.addEventListener('resize', ()=>{ drawScatter(); });
+</script>
+</body>
+</html>

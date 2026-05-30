@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM01A 銷售客戶基盤 v2 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+
+/* ── Header ── */
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-red{background:rgba(200,0,26,.75);border-color:transparent;}
+.hbtn-red:hover{background:rgba(200,0,26,.95);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+
+/* ── Sub bar ── */
+.sub-bar{background:#fff;border-bottom:1px solid #EEECE6;padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.search-box{display:flex;align-items:center;gap:0;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;background:#fff;}
+.search-box input{padding:6px 12px;border:none;outline:none;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;width:200px;}
+.search-box button{padding:6px 12px;border:none;background:#F1EFE8;color:#5A5955;cursor:pointer;font-size:12px;}
+.filter-select{padding:5px 10px;border:1px solid #D5D3CB;border-radius:6px;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;background:#fff;outline:none;cursor:pointer;}
+.sub-divider{width:1px;height:18px;background:#EEECE6;}
+.view-toggle{display:flex;gap:0;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;}
+.view-btn{padding:5px 12px;font-size:12px;cursor:pointer;border-right:1px solid #D5D3CB;color:#7A7A78;background:#fff;font-family:'Noto Sans TC',sans-serif;transition:all .12s;}
+.view-btn:last-child{border-right:none;}
+.view-btn.active{background:#1A3A5C;color:#fff;}
+
+/* ── Layout ── */
+.layout{display:flex;min-height:calc(100vh - 104px);}
+
+/* ── Left sidenav（HABC 快篩）── */
+.sidenav{width:190px;flex-shrink:0;background:#fff;border-right:1px solid #EEECE6;padding:14px 0;position:sticky;top:104px;height:calc(100vh - 104px);overflow-y:auto;}
+.nav-section{padding:0 12px;margin-bottom:6px;}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;padding:8px 6px 4px;}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 8px;border-radius:7px;cursor:pointer;transition:background .12s;color:#4A4A48;font-size:12px;margin-bottom:2px;}
+.nav-item:hover{background:#F4F3F0;}
+.nav-item.active{background:#EAF4FB;color:#185FA5;font-weight:600;}
+.nav-left{display:flex;align-items:center;gap:7px;}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.nd-H{background:#C8001A;}
+.nd-A{background:#F0C97E;}
+.nd-B{background:#185FA5;}
+.nd-C{background:#9A9890;}
+.nd-all{background:#1A3A5C;}
+.nav-count{font-size:11px;font-family:'DM Mono',monospace;font-weight:600;background:#F1EFE8;padding:1px 6px;border-radius:4px;color:#5A5955;}
+.nav-item.active .nav-count{background:rgba(24,95,165,.15);color:#185FA5;}
+.nav-divider{height:1px;background:#EEECE6;margin:8px 12px;}
+
+/* ── Main content ── */
+.main{flex:1;padding:16px 20px;overflow:hidden;}
+
+/* ── 統計卡片 ── */
+.stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.stat-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;}
+.stat-card.H{border-left:3px solid #C8001A;}
+.stat-card.A{border-left:3px solid #F0C97E;}
+.stat-card.B{border-left:3px solid #185FA5;}
+.stat-card.C{border-left:3px solid #9A9890;}
+.stat-card.total{border-left:3px solid #1A3A5C;}
+.stat-label{font-size:10.5px;color:#9A9890;margin-bottom:3px;}
+.stat-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:3px;}
+.sn-H{color:#C8001A;}
+.sn-A{color:#854F0B;}
+.sn-B{color:#185FA5;}
+.sn-C{color:#5A5955;}
+.sn-total{color:#1A3A5C;}
+.stat-sub{font-size:10.5px;color:#9A9890;}
+
+/* ── 客戶卡片列表 ── */
+.cust-list{display:flex;flex-direction:column;gap:8px;}
+.cust-card{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:13px 15px;cursor:pointer;transition:all .15s;display:flex;align-items:stretch;gap:14px;}
+.cust-card:hover{border-color:#B4B2A9;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.cust-card.grade-H{border-left:3px solid #C8001A;}
+.cust-card.grade-A{border-left:3px solid #F0C97E;}
+.cust-card.grade-B{border-left:3px solid #185FA5;}
+.cust-card.grade-C{border-left:3px solid #9A9890;}
+
+/* 左側：HABC 徽章 */
+.cust-grade{width:36px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:2px;flex-shrink:0;}
+.grade-pill{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0;}
+.gp-H{background:#FDECEA;color:#C8001A;}
+.gp-A{background:#FDF3E3;color:#854F0B;}
+.gp-B{background:#EAF4FB;color:#185FA5;}
+.gp-C{background:#F1EFE8;color:#5A5955;}
+.days-ago{font-size:9.5px;color:#9A9890;margin-top:4px;text-align:center;line-height:1.3;}
+
+/* 中間：客戶主資訊 */
+.cust-main{flex:1;min-width:0;}
+.cust-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;}
+.cust-name{font-size:14px;font-weight:700;color:#2C2C2A;}
+.cust-phone{font-size:12px;font-family:'DM Mono',monospace;color:#7A7A78;}
+.cust-tags{display:flex;gap:4px;flex-wrap:wrap;}
+.ctag{display:inline-flex;align-items:center;padding:1px 7px;border-radius:10px;font-size:10.5px;font-weight:500;}
+.ctag-red{background:#FDECEA;color:#C8001A;}
+.ctag-yellow{background:#FDF3E3;color:#854F0B;}
+.ctag-green{background:#E1F5EE;color:#0F6E56;}
+.ctag-blue{background:#EAF4FB;color:#185FA5;}
+.cust-mid{display:flex;align-items:center;gap:16px;margin-bottom:5px;flex-wrap:wrap;}
+.cust-info-item{font-size:11.5px;color:#5A5955;display:flex;align-items:center;gap:4px;}
+.cust-info-item b{color:#2C2C2A;}
+.cust-note{font-size:11.5px;color:#7A7A78;line-height:1.5;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* 右側：動作區 */
+.cust-actions{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;flex-shrink:0;gap:8px;}
+.cust-status-row{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.follow-badge{font-size:10.5px;padding:3px 8px;border-radius:5px;font-weight:600;white-space:nowrap;}
+.fb-urgent{background:#FDECEA;color:#C8001A;border:1px solid #F5AEAD;}
+.fb-today{background:#FDF3E3;color:#854F0B;border:1px solid #F0C97E;}
+.fb-ok{background:#E1F5EE;color:#0F6E56;border:1px solid #5DCAA5;}
+.fb-none{background:#F1EFE8;color:#5A5955;border:1px solid #D5D3CB;}
+.next-follow{font-size:10px;color:#9A9890;text-align:right;}
+.cust-btn-row{display:flex;gap:5px;}
+.cust-btn{padding:4px 10px;border-radius:5px;font-size:11px;border:1px solid;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.cb-blue{background:#EAF4FB;border-color:#85B7EB;color:#185FA5;}
+.cb-blue:hover{background:#D5EBF9;}
+.cb-teal{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}
+.cb-teal:hover{background:#C8EEE0;}
+.cb-gray{background:#F1EFE8;border-color:#D5D3CB;color:#5A5955;}
+.cb-gray:hover{background:#E8E7E0;}
+.cb-red{background:#FDECEA;border-color:#F5AEAD;color:#C8001A;}
+
+/* ── 卡片檢視（Kanban 風格）── */
+.kanban-wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.kanban-col{background:#F4F3F0;border-radius:10px;padding:12px;}
+.kanban-col-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.kanban-col-title{font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;}
+.kanban-col-count{font-size:11px;font-family:'DM Mono',monospace;font-weight:600;background:#fff;padding:1px 7px;border-radius:4px;}
+.kanban-cards{display:flex;flex-direction:column;gap:7px;}
+.kb-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 12px;cursor:pointer;transition:all .12s;}
+.kb-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.08);}
+.kb-card.H{border-top:2px solid #C8001A;}
+.kb-card.A{border-top:2px solid #F0C97E;}
+.kb-card.B{border-top:2px solid #185FA5;}
+.kb-card.C{border-top:2px solid #9A9890;}
+.kb-name{font-size:12.5px;font-weight:600;margin-bottom:4px;}
+.kb-bike{font-size:11px;color:#7A7A78;margin-bottom:6px;}
+.kb-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px;}
+.kb-footer{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;color:#9A9890;}
+.kb-rs{font-weight:600;color:#5A5955;}
+
+/* ── Detail 側邊抽屜 ── */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:150;display:none;}
+.drawer-overlay.show{display:block;}
+.drawer{position:fixed;right:0;top:0;bottom:0;width:480px;max-width:95vw;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.14);z-index:151;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s;}
+.drawer.show{transform:translateX(0);}
+.drawer-hdr{padding:16px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.drawer-title{font-size:15px;font-weight:700;}
+.drawer-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;padding:2px 6px;}
+.drawer-body{flex:1;overflow-y:auto;padding:18px 20px;}
+.drawer-section{margin-bottom:18px;}
+.ds-title{font-size:10.5px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#9A9890;margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+.ds-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.info-item{background:#F8F7F4;border:1px solid #EEECE6;border-radius:7px;padding:9px 11px;}
+.ii-label{font-size:10px;color:#9A9890;margin-bottom:3px;}
+.ii-val{font-size:12.5px;font-weight:600;color:#2C2C2A;}
+.timeline{display:flex;flex-direction:column;gap:0;}
+.tl-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #F4F3F0;font-size:12px;}
+.tl-item:last-child{border-bottom:none;}
+.tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.tl-dot-blue{background:#185FA5;}
+.tl-dot-teal{background:#0F6E56;}
+.tl-dot-amber{background:#F0C97E;}
+.tl-dot-red{background:#C8001A;}
+.tl-time{font-size:10.5px;color:#9A9890;white-space:nowrap;margin-top:1px;font-family:'DM Mono',monospace;}
+.tl-text{flex:1;color:#4A4A48;line-height:1.5;}
+.drawer-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;gap:8px;flex-shrink:0;}
+
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:520px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;line-height:1;padding:2px 6px;}
+.modal-body{padding:20px;max-height:65vh;overflow-y:auto;}
+.modal-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+
+/* ── Form ── */
+.form-row{margin-bottom:13px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:5px;display:flex;align-items:center;gap:5px;}
+.form-req{color:#C8001A;}
+.form-input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;transition:border .15s;background:#fff;}
+.form-input:focus{border-color:#85B7EB;}
+.form-select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.form-textarea{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;resize:vertical;min-height:68px;background:#fff;}
+.form-hint{font-size:11px;color:#9A9890;margin-top:3px;}
+.two-col-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* ── Buttons ── */
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-teal{background:#0F6E56;border-color:#0F6E56;color:#fff;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-H{background:#FDECEA;color:#C8001A;}
+.b-A{background:#FDF3E3;color:#854F0B;}
+.b-B{background:#EAF4FB;color:#185FA5;}
+.b-C{background:#F1EFE8;color:#5A5955;}
+.b-blue{background:#EAF4FB;color:#185FA5;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}
+.b-gray{background:#F1EFE8;color:#5A5955;}
+
+/* ── SA 共享標籤（P-08 唯讀）── */
+.shared-tag-box{background:#F4F3F0;border:1px solid #D5D3CB;border-radius:8px;padding:10px 13px;margin-bottom:14px;}
+.stb-title{font-size:10.5px;font-weight:600;color:#9A9890;margin-bottom:6px;display:flex;align-items:center;gap:7px;}
+.stb-lock{font-size:10px;padding:1px 6px;border-radius:4px;background:#EEECE6;color:#9A9890;}
+.stb-tags{display:flex;gap:5px;flex-wrap:wrap;}
+.stb-empty{font-size:11.5px;color:#B4B2A9;font-style:italic;}
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:300px;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+.divider{height:1px;background:#EEECE6;margin:10px 0;}
+.mb14{margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售 CRM <b>CRM01A 銷售客戶基盤</b></div>
+  <div class="ver-badge">v2</div>
+  <div class="hright">
+    <button class="hbtn" onclick="showToast('← 返回 RS00 導覽總覽')">← 總覽</button>
+    <button class="hbtn" onclick="showToast('→ CRM03A 電訪工作台')">電訪工作台</button>
+    <button class="hbtn hbtn-red" onclick="openModal('modal-new')">＋ 新增潛客</button>
+  </div>
+</header>
+
+<!-- ── Sub Bar ── -->
+<div class="sub-bar">
+  <div class="search-box">
+    <input type="text" id="search-input" placeholder="搜尋姓名 / 電話 / 車款..." oninput="filterCustomers()">
+    <button onclick="filterCustomers()">🔍</button>
+  </div>
+  <select class="filter-select" id="filter-rs" onchange="filterCustomers()">
+    <option value="all">全體 RS</option>
+    <option value="林佳蓉">林佳蓉</option>
+    <option value="陳雅惠">陳雅惠</option>
+    <option value="張志明">張志明</option>
+    <option value="王俊傑">王俊傑</option>
+  </select>
+  <select class="filter-select" id="filter-follow" onchange="filterCustomers()">
+    <option value="all">所有狀態</option>
+    <option value="urgent">🔴 逾期未跟進</option>
+    <option value="today">🟡 今日需跟進</option>
+    <option value="ok">🟢 追蹤中</option>
+    <option value="none">⬜ 長期維護</option>
+  </select>
+  <div class="sub-divider"></div>
+  <div class="view-toggle">
+    <div class="view-btn active" id="vb-list" onclick="setView('list',this)">☰ 列表</div>
+    <div class="view-btn" id="vb-kanban" onclick="setView('kanban',this)">⊞ 看板</div>
+  </div>
+  <div style="margin-left:auto;font-size:11px;color:#9A9890;" id="result-count">共 8 筆</div>
+</div>
+
+<!-- ── Layout ── -->
+<div class="layout">
+
+  <!-- ── Sidenav：HABC 快篩 ── -->
+  <div class="sidenav">
+    <div class="nav-section">
+      <div class="nav-label">HABC 分級</div>
+      <div class="nav-item active" id="nav-all" onclick="setHabc('all',this)">
+        <div class="nav-left"><div class="nav-dot nd-all"></div>全部潛客</div>
+        <div class="nav-count" id="cnt-all">8</div>
+      </div>
+      <div class="nav-item" id="nav-H" onclick="setHabc('H',this)">
+        <div class="nav-left"><div class="nav-dot nd-H"></div>H 熱潛客</div>
+        <div class="nav-count" id="cnt-H">2</div>
+      </div>
+      <div class="nav-item" id="nav-A" onclick="setHabc('A',this)">
+        <div class="nav-left"><div class="nav-dot nd-A"></div>A 積極跟進</div>
+        <div class="nav-count" id="cnt-A">3</div>
+      </div>
+      <div class="nav-item" id="nav-B" onclick="setHabc('B',this)">
+        <div class="nav-left"><div class="nav-dot nd-B"></div>B 培養中</div>
+        <div class="nav-count" id="cnt-B">2</div>
+      </div>
+      <div class="nav-item" id="nav-C" onclick="setHabc('C',this)">
+        <div class="nav-left"><div class="nav-dot nd-C"></div>C 長期維護</div>
+        <div class="nav-count" id="cnt-C">1</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">跟進狀態</div>
+      <div class="nav-item" onclick="document.getElementById('filter-follow').value='urgent';filterCustomers();">
+        <div class="nav-left"><div class="nav-dot nd-H"></div>逾期未跟進</div>
+        <div class="nav-count" id="cnt-urgent" style="background:#FDECEA;color:#C8001A;">2</div>
+      </div>
+      <div class="nav-item" onclick="document.getElementById('filter-follow').value='today';filterCustomers();">
+        <div class="nav-left"><div class="nav-dot nd-A"></div>今日需跟進</div>
+        <div class="nav-count" id="cnt-today" style="background:#FDF3E3;color:#854F0B;">1</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">快速工具</div>
+      <div class="nav-item" onclick="showToast('→ 跳轉 CRM03A 電訪工作台')">
+        <div class="nav-left"><div class="nav-dot" style="background:#534AB7;"></div>電訪工作台</div>
+      </div>
+      <div class="nav-item" onclick="showToast('→ 跳轉 RS_M1 銷售漏斗')">
+        <div class="nav-left"><div class="nav-dot" style="background:#0F6E56;"></div>銷售漏斗看板</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main ── -->
+  <div class="main">
+
+    <!-- 統計列 -->
+    <div class="stat-row mb14">
+      <div class="stat-card total">
+        <div class="stat-label">全部潛客</div>
+        <div class="stat-n sn-total">8</div>
+        <div class="stat-sub">本月新增 3 位</div>
+      </div>
+      <div class="stat-card H">
+        <div class="stat-label">H 熱潛客</div>
+        <div class="stat-n sn-H">2</div>
+        <div class="stat-sub">需本週內跟進</div>
+      </div>
+      <div class="stat-card A">
+        <div class="stat-label">A 積極跟進</div>
+        <div class="stat-n sn-A">3</div>
+        <div class="stat-sub">3 個月內購買</div>
+      </div>
+      <div class="stat-card B">
+        <div class="stat-label">B 培養中</div>
+        <div class="stat-n sn-B">2</div>
+        <div class="stat-sub">半年左右</div>
+      </div>
+      <div class="stat-card C">
+        <div class="stat-label">C 長期維護</div>
+        <div class="stat-n sn-C">1</div>
+        <div class="stat-sub">每月維持接觸</div>
+      </div>
+    </div>
+
+    <!-- 列表 / 看板切換 -->
+    <div id="view-list">
+      <div class="cust-list" id="cust-list-body"></div>
+    </div>
+    <div id="view-kanban" style="display:none;">
+      <div class="kanban-wrap" id="kanban-body"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── 客戶詳情抽屜 ── -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="detail-drawer">
+  <div class="drawer-hdr">
+    <div class="drawer-title" id="drawer-cust-name">客戶詳情</div>
+    <button class="drawer-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+  <div class="drawer-footer">
+    <button class="btn btn-ghost btn-sm" onclick="closeDrawer()">關閉</button>
+    <button class="btn btn-ghost btn-sm" onclick="showToast('→ 跳轉 RS01 電子手卡')">開新手卡</button>
+    <button class="btn btn-teal btn-sm" onclick="showToast('→ 跳轉 CRM03A 安排電訪')">📞 安排電訪</button>
+    <button class="btn btn-primary btn-sm" onclick="showToast('✅ 已儲存修改')">儲存</button>
+  </div>
+</div>
+
+<!-- ── Modal: 新增潛客 ── -->
+<div class="overlay" id="modal-new" onclick="closeModalOverlay(event,'modal-new')">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">＋ 新增潛客</div>
+      <button class="modal-close" onclick="closeModal('modal-new')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="two-col-form">
+        <div class="form-row">
+          <div class="form-label">客戶姓名 <span class="form-req">*</span></div>
+          <input type="text" class="form-input" id="new-name" placeholder="例：王大明">
+        </div>
+        <div class="form-row">
+          <div class="form-label">聯絡電話 <span class="form-req">*</span></div>
+          <input type="tel" class="form-input" id="new-phone" placeholder="0912-345-678">
+        </div>
+        <div class="form-row">
+          <div class="form-label">意向車款</div>
+          <select class="form-select" id="new-bike">
+            <option value="">— 請選擇 —</option>
+            <option>Panigale V4</option>
+            <option>Panigale V2</option>
+            <option>Streetfighter V4</option>
+            <option>Streetfighter V2</option>
+            <option>Monster SP</option>
+            <option>Multistrada V4</option>
+            <option>Diavel V4</option>
+            <option>Scrambler</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">HABC 級別 <span class="form-req">*</span></div>
+          <select class="form-select" id="new-habc">
+            <option value="H">H — 熱潛客（立即決策）</option>
+            <option value="A" selected>A — 積極跟進（3 個月內）</option>
+            <option value="B">B — 培養中（半年左右）</option>
+            <option value="C">C — 長期維護</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">負責 RS</div>
+          <select class="form-select" id="new-rs">
+            <option>林佳蓉</option>
+            <option>陳雅惠</option>
+            <option>張志明</option>
+            <option>王俊傑</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">來源</div>
+          <select class="form-select" id="new-source">
+            <option>RS01 手卡同步</option>
+            <option>展廳到訪</option>
+            <option>車展活動</option>
+            <option>FB／IG 社群</option>
+            <option>老車主轉介紹</option>
+            <option>活動現場（DRE）</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">備註</div>
+        <textarea class="form-textarea" id="new-note" placeholder="記錄客戶特殊需求、接觸重點..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-label">下次跟進日期</div>
+        <input type="date" class="form-input" id="new-follow" value="2026-05-13">
+        <div class="form-hint">儲存後自動排程至 CRM03A 電訪工作台</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new')">取消</button>
+      <button class="btn btn-primary" onclick="addCustomer()">✅ 建立潛客記錄</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 資料 ──
+var customers = [
+  {
+    id:1, name:'王大明', phone:'0912-345-678', grade:'H', rs:'林佳蓉',
+    bike:'Panigale V4', source:'RS01 手卡同步', lastVisit:'2026-05-10',
+    followDate:'2026-05-13', followStatus:'today',
+    tags:[{t:'🔴 預算偏低',c:'ctag-red'},{t:'🟡 偏好 Panigale',c:'ctag-yellow'}],
+    saTags:[],
+    note:'試駕後非常滿意，需確認預算與分期方案。黃金時刻已把握，報價單已開立。',
+    timeline:[
+      {dot:'tl-dot-blue',time:'05-10 14:30',text:'到店接待，建立電子手卡 RS01'},
+      {dot:'tl-dot-teal',time:'05-10 14:45',text:'試乘 Panigale V4，客戶反應非常滿意'},
+      {dot:'tl-dot-amber',time:'05-10 15:10',text:'黃金時刻開立報價單，NT$1,280,000'},
+      {dot:'tl-dot-blue',time:'05-10 15:30',text:'同步至 CRM01A，排程 D+3 電訪'}
+    ]
+  },
+  {
+    id:2, name:'陳美玲', phone:'0928-456-789', grade:'H', rs:'陳雅惠',
+    bike:'Monster SP', source:'FB／IG 社群', lastVisit:'2026-05-08',
+    followDate:'2026-05-09', followStatus:'urgent',
+    tags:[{t:'🟢 女性騎士',c:'ctag-green'},{t:'🔵 希望分期',c:'ctag-blue'}],
+    saTags:[],
+    note:'透過 IG 廣告入站，詢問 Monster SP 顏色與配備，有意在本月內決定。',
+    timeline:[
+      {dot:'tl-dot-blue',time:'05-08 11:00',text:'IG 廣告導流，線上詢問 Monster SP'},
+      {dot:'tl-dot-teal',time:'05-08 14:00',text:'到店試乘，喜歡紅色款'},
+      {dot:'tl-dot-amber',time:'05-08 16:00',text:'已報價，等候客戶確認分期方案'}
+    ]
+  },
+  {
+    id:3, name:'李文彬', phone:'0955-567-890', grade:'A', rs:'張志明',
+    bike:'Streetfighter V4', source:'車展活動', lastVisit:'2026-05-06',
+    followDate:'2026-05-17', followStatus:'ok',
+    tags:[{t:'🟡 重視操控性能',c:'ctag-yellow'},{t:'🔵 比較三家經銷商',c:'ctag-blue'}],
+    saTags:[],
+    note:'從車展認識，有試駕過，正在與 Triumph 比較。預計下個月底前決定。',
+    timeline:[
+      {dot:'tl-dot-blue',time:'04-20 10:00',text:'車展初次接觸，取得聯絡方式'},
+      {dot:'tl-dot-teal',time:'05-06 13:00',text:'到店試駕 Streetfighter V4'},
+      {dot:'tl-dot-amber',time:'05-06 15:00',text:'開立報價單，告知與 Triumph 比較中'}
+    ]
+  },
+  {
+    id:4, name:'林宗翰', phone:'0966-678-901', grade:'A', rs:'林佳蓉',
+    bike:'Multistrada V4', source:'老車主轉介紹', lastVisit:'2026-05-03',
+    followDate:'2026-05-20', followStatus:'ok',
+    tags:[{t:'🟡 Track Day 愛好者',c:'ctag-yellow'},{t:'🟢 已邀請活動',c:'ctag-green'}],
+    saTags:[],
+    note:'老車主陳先生介紹，有越野旅行需求，已邀請下個月 DRE 活動。',
+    timeline:[
+      {dot:'tl-dot-blue',time:'05-03 14:00',text:'老車主陳先生轉介紹到店'},
+      {dot:'tl-dot-teal',time:'05-03 15:00',text:'試乘 Multistrada V4，興趣濃厚'},
+      {dot:'tl-dot-teal',time:'05-03 16:00',text:'已邀請 06-15 DRE 活動，客戶接受'}
+    ]
+  },
+  {
+    id:5, name:'黃俊豪', phone:'0977-789-012', grade:'A', rs:'王俊傑',
+    bike:'Diavel V4', source:'DSPOT App', lastVisit:'2026-04-28',
+    followDate:'2026-05-12', followStatus:'urgent',
+    tags:[{t:'🔴 決策者非本人',c:'ctag-red'},{t:'🟡 著重外觀設計',c:'ctag-yellow'}],
+    saTags:[],
+    note:'透過 DSPOT App 預約，需與太太商量後決定。Diavel V4 外觀深感興趣。',
+    timeline:[
+      {dot:'tl-dot-blue',time:'04-28 10:30',text:'DSPOT App 預約到店'},
+      {dot:'tl-dot-teal',time:'04-28 11:00',text:'試乘 Diavel V4，非常喜歡'},
+      {dot:'tl-dot-amber',time:'04-28 12:00',text:'待與配偶商量，預計 2 週內回覆'}
+    ]
+  },
+  {
+    id:6, name:'張雅婷', phone:'0988-890-123', grade:'B', rs:'陳雅惠',
+    bike:'Scrambler', source:'活動現場（DRE）', lastVisit:'2026-04-15',
+    followDate:'2026-05-25', followStatus:'ok',
+    tags:[{t:'🟢 女性騎士',c:'ctag-green'},{t:'🔵 需了解補助方案',c:'ctag-blue'}],
+    saTags:[],
+    note:'DRE 學院學員，完成課程後有換車念頭，目前在觀望預算。半年內可能決定。',
+    timeline:[
+      {dot:'tl-dot-teal',time:'04-10',text:'DRE 學院課程結束'},
+      {dot:'tl-dot-blue',time:'04-15',text:'課後到展廳了解 Scrambler'},
+      {dot:'tl-dot-amber',time:'04-15',text:'已寄送型錄與補助方案說明'}
+    ]
+  },
+  {
+    id:7, name:'吳建國', phone:'0919-901-234', grade:'B', rs:'張志明',
+    bike:'Panigale V2', source:'展廳到訪', lastVisit:'2026-04-10',
+    followDate:'2026-06-01', followStatus:'none',
+    tags:[{t:'🟡 偏好 Panigale 系列',c:'ctag-yellow'}],
+    saTags:[{t:'🔵 VIP 客戶',c:'ctag-blue'},{t:'✅ Track Day 常客',c:'ctag-green'}],
+    note:'自行走入展廳，詢問入門超跑選擇。目前騎日系車，考慮一年內換車。',
+    timeline:[
+      {dot:'tl-dot-blue',time:'04-10',text:'展廳到訪，詢問 Panigale V2 規格'},
+      {dot:'tl-dot-blue',time:'04-10',text:'取得型錄，表示半年至一年內考慮'}
+    ]
+  },
+  {
+    id:8, name:'蔡明哲', phone:'0933-012-345', grade:'C', rs:'林佳蓉',
+    bike:'Streetfighter V2', source:'FB／IG 社群', lastVisit:'2026-03-20',
+    followDate:'2026-06-20', followStatus:'none',
+    tags:[{t:'🔵 需要話術引導',c:'ctag-blue'}],
+    saTags:[{t:'🔴 換車意願調查',c:'ctag-red'}],
+    note:'IG 私訊詢問，純粹了解行情，無明確購買計畫。每月保持一次接觸即可。',
+    timeline:[
+      {dot:'tl-dot-blue',time:'03-20',text:'IG 私訊詢問 Streetfighter V2 售價'},
+      {dot:'tl-dot-blue',time:'03-20',text:'回覆定價並說明試乘流程，客戶表示了解'}
+    ]
+  }
+];
+
+var currentView = 'list';
+var currentHabc = 'all';
+var filteredData = customers.slice();
+
+// ── 篩選 ──
+function getFiltered() {
+  var q = document.getElementById('search-input').value.toLowerCase();
+  var rs = document.getElementById('filter-rs').value;
+  var follow = document.getElementById('filter-follow').value;
+  return customers.filter(function(c) {
+    var matchHabc = currentHabc === 'all' || c.grade === currentHabc;
+    var matchRs = rs === 'all' || c.rs === rs;
+    var matchFollow = follow === 'all' || c.followStatus === follow;
+    var matchQ = !q || c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.bike.toLowerCase().includes(q);
+    return matchHabc && matchRs && matchFollow && matchQ;
+  });
+}
+
+function filterCustomers() {
+  filteredData = getFiltered();
+  document.getElementById('result-count').textContent = '共 ' + filteredData.length + ' 筆';
+  if (currentView === 'list') renderList();
+  else renderKanban();
+}
+
+function setHabc(grade, el) {
+  currentHabc = grade;
+  document.querySelectorAll('.sidenav .nav-item').forEach(function(n){n.classList.remove('active');});
+  el.classList.add('active');
+  filterCustomers();
+}
+
+function setView(v, el) {
+  currentView = v;
+  document.querySelectorAll('.view-btn').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  document.getElementById('view-list').style.display = v === 'list' ? 'block' : 'none';
+  document.getElementById('view-kanban').style.display = v === 'kanban' ? 'block' : 'none';
+  filterCustomers();
+}
+
+// ── 列表渲染 ──
+var followLabels = {
+  urgent: {cls:'fb-urgent', text:'🔴 逾期未跟進'},
+  today:  {cls:'fb-today',  text:'🟡 今日需跟進'},
+  ok:     {cls:'fb-ok',     text:'🟢 追蹤中'},
+  none:   {cls:'fb-none',   text:'⬜ 長期維護'}
+};
+
+function renderList() {
+  var html = filteredData.map(function(c) {
+    var fl = followLabels[c.followStatus];
+    var tagHtml = c.tags.map(function(t){
+      return '<span class="ctag ' + t.c + '">' + t.t + '</span>';
+    }).join('');
+    var lastVisitDays = Math.round((new Date('2026-05-10') - new Date(c.lastVisit)) / 86400000);
+    return '<div class="cust-card grade-' + c.grade + '" onclick="openDrawer(' + c.id + ')">' +
+      '<div class="cust-grade">' +
+        '<div class="grade-pill gp-' + c.grade + '">' + c.grade + '</div>' +
+        '<div class="days-ago">' + (lastVisitDays === 0 ? '今天' : lastVisitDays + '天前') + '</div>' +
+      '</div>' +
+      '<div class="cust-main">' +
+        '<div class="cust-top">' +
+          '<span class="cust-name">' + c.name + '</span>' +
+          '<span class="cust-phone">' + c.phone + '</span>' +
+          '<div class="cust-tags">' + tagHtml + '</div>' +
+        '</div>' +
+        '<div class="cust-mid">' +
+          '<div class="cust-info-item">🏍️ <b>' + c.bike + '</b></div>' +
+          '<div class="cust-info-item">👤 ' + c.rs + '</div>' +
+          '<div class="cust-info-item">📥 ' + c.source + '</div>' +
+        '</div>' +
+        '<div class="cust-note">' + c.note + '</div>' +
+      '</div>' +
+      '<div class="cust-actions">' +
+        '<div class="cust-status-row">' +
+          '<span class="follow-badge ' + fl.cls + '">' + fl.text + '</span>' +
+          '<div class="next-follow">下次跟進：' + c.followDate + '</div>' +
+        '</div>' +
+        '<div class="cust-btn-row">' +
+          '<button class="cust-btn cb-gray" onclick="event.stopPropagation();showToast(\'→ CRM03A 安排電訪\')">📞 電訪</button>' +
+          '<button class="cust-btn cb-blue" onclick="event.stopPropagation();openDrawer(' + c.id + ')">詳情 ›</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('cust-list-body').innerHTML = html || '<div style="padding:40px;text-align:center;color:#9A9890;font-size:13px;">沒有符合條件的潛客記錄</div>';
+}
+
+// ── 看板渲染 ──
+function renderKanban() {
+  var grades = ['H','A','B','C'];
+  var titles = {H:'🔴 H 熱潛客', A:'🟡 A 積極跟進', B:'🔵 B 培養中', C:'⬜ C 長期維護'};
+  var html = grades.map(function(g) {
+    var items = filteredData.filter(function(c){return c.grade === g;});
+    var cards = items.map(function(c) {
+      var tagHtml = c.tags.slice(0,2).map(function(t){
+        return '<span class="ctag ' + t.c + '" style="font-size:10px;padding:1px 5px;">' + t.t + '</span>';
+      }).join('');
+      var fl = followLabels[c.followStatus];
+      return '<div class="kb-card ' + g + '" onclick="openDrawer(' + c.id + ')">' +
+        '<div class="kb-name">' + c.name + '</div>' +
+        '<div class="kb-bike">🏍️ ' + c.bike + '</div>' +
+        '<div class="kb-tags">' + tagHtml + '</div>' +
+        '<div class="kb-footer">' +
+          '<span class="kb-rs">' + c.rs + '</span>' +
+          '<span class="follow-badge ' + fl.cls + '" style="font-size:9.5px;padding:1px 6px;">' + fl.text + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    return '<div class="kanban-col">' +
+      '<div class="kanban-col-hdr">' +
+        '<div class="kanban-col-title">' + titles[g] + '</div>' +
+        '<span class="kanban-col-count">' + items.length + '</span>' +
+      '</div>' +
+      '<div class="kanban-cards">' + cards + (items.length === 0 ? '<div style="padding:16px;text-align:center;font-size:11.5px;color:#9A9890;">無</div>' : '') + '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('kanban-body').innerHTML = html;
+}
+
+// ── 詳情抽屜 ──
+function openDrawer(id) {
+  var c = customers.find(function(x){return x.id === id;});
+  if (!c) return;
+  document.getElementById('drawer-cust-name').textContent = c.name + ' — ' + c.grade + ' 級';
+
+  var tagHtml = c.tags.map(function(t){
+    return '<span class="ctag ' + t.c + '" style="font-size:11.5px;padding:3px 9px;">' + t.t + '</span>';
+  }).join('');
+  var fl = followLabels[c.followStatus];
+  var tlHtml = c.timeline.map(function(tl){
+    return '<div class="tl-item"><div class="tl-dot ' + tl.dot + '"></div><div class="tl-time">' + tl.time + '</div><div class="tl-text">' + tl.text + '</div></div>';
+  }).join('');
+
+    '<div class="shared-tag-box">' +
+      '<div class="stb-title">🔗 SA 售後側共享標籤 <span class="stb-lock">唯讀 · P-08</span></div>' +
+      '<div class="stb-tags">' + (c.saTags && c.saTags.length
+        ? c.saTags.map(function(t){ return '<span class="ctag ' + t.c + '">' + t.t + '</span>'; }).join('')
+        : '<span class="stb-empty">此客戶尚無 SA 側服務標籤</span>') +
+      '</div>' +
+    '</div>' +
+    '<div class="drawer-section">' +
+      '<div class="ds-title">基本資料</div>' +
+      '<div class="info-grid">' +
+        '<div class="info-item"><div class="ii-label">HABC 級別</div><div class="ii-val"><span class="badge b-' + c.grade + '">' + c.grade + ' — ' + {H:'熱潛客',A:'積極跟進',B:'培養中',C:'長期維護'}[c.grade] + '</span></div></div>' +
+        '<div class="info-item"><div class="ii-label">聯絡電話</div><div class="ii-val">' + c.phone + '</div></div>' +
+        '<div class="info-item"><div class="ii-label">意向車款</div><div class="ii-val">' + c.bike + '</div></div>' +
+        '<div class="info-item"><div class="ii-label">負責 RS</div><div class="ii-val">' + c.rs + '</div></div>' +
+        '<div class="info-item"><div class="ii-label">最後到訪</div><div class="ii-val">' + c.lastVisit + '</div></div>' +
+        '<div class="info-item"><div class="ii-label">下次跟進</div><div class="ii-val"><span class="follow-badge ' + fl.cls + '" style="font-size:11px;">' + fl.text + '</span><div style="font-size:10.5px;color:#9A9890;margin-top:3px;">' + c.followDate + '</div></div></div>' +
+        '<div class="info-item" style="grid-column:1/-1;"><div class="ii-label">來源管道</div><div class="ii-val">' + c.source + '</div></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="drawer-section">' +
+      '<div class="ds-title">客戶標籤</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:5px;">' + tagHtml + '</div>' +
+    '</div>' +
+    '<div class="drawer-section">' +
+      '<div class="ds-title">備註</div>' +
+      '<div style="background:#F8F7F4;border:1px solid #EEECE6;border-radius:7px;padding:10px 13px;font-size:12.5px;color:#4A4A48;line-height:1.7;">' + c.note + '</div>' +
+    '</div>' +
+    '<div class="drawer-section">' +
+      '<div class="ds-title">接觸時間軸</div>' +
+      '<div class="timeline">' + tlHtml + '</div>' +
+    '</div>' +
+    '<div class="drawer-section">' +
+      '<div class="ds-title">調整 HABC</div>' +
+      '<div style="display:flex;gap:6px;">' +
+        ['H','A','B','C'].map(function(g){
+          return '<button onclick="updateGrade(' + id + ',\'' + g + '\')" style="flex:1;padding:7px 0;border-radius:6px;font-weight:700;font-size:13px;font-family:\'DM Mono\',monospace;cursor:pointer;border:1.5px solid;transition:all .12s;background:' + (c.grade===g?({H:'#C8001A',A:'#F0C97E',B:'#185FA5',C:'#5A5955'}[g]):'#fff') + ';color:' + (c.grade===g?'#fff':({H:'#C8001A',A:'#854F0B',B:'#185FA5',C:'#5A5955'}[g])) + ';border-color:' + ({H:'#F5AEAD',A:'#F0C97E',B:'#85B7EB',C:'#D5D3CB'}[g]) + ';">' + g + '</button>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('drawer-overlay').classList.add('show');
+  document.getElementById('detail-drawer').classList.add('show');
+}
+
+function closeDrawer() {
+  document.getElementById('drawer-overlay').classList.remove('show');
+  document.getElementById('detail-drawer').classList.remove('show');
+}
+
+function updateGrade(id, grade) {
+  var c = customers.find(function(x){return x.id===id;});
+  if (c) {
+    c.grade = grade;
+    updateCounts();
+    filterCustomers();
+    openDrawer(id);
+    showToast('已更新 ' + c.name + ' 為 ' + grade + ' 級');
+  }
+}
+
+// ── 新增潛客 ──
+function addCustomer() {
+  var name = document.getElementById('new-name').value.trim();
+  var phone = document.getElementById('new-phone').value.trim();
+  if (!name || !phone) { showToast('請填寫姓名與電話'); return; }
+  var newC = {
+    id: customers.length + 1,
+    name: name, phone: phone,
+    grade: document.getElementById('new-habc').value,
+    rs: document.getElementById('new-rs').value,
+    bike: document.getElementById('new-bike').value || '未確定',
+    source: document.getElementById('new-source').value,
+    lastVisit: '2026-05-10',
+    followDate: document.getElementById('new-follow').value,
+    followStatus: 'today',
+    tags: [], note: document.getElementById('new-note').value,
+    timeline: [{dot:'tl-dot-blue',time:'05-10',text:'手動新增潛客記錄'}]
+  };
+  customers.push(newC);
+  updateCounts();
+  filterCustomers();
+  closeModal('modal-new');
+  showToast('✅ 已新增潛客：' + name + ' · 已排程 CRM03A 電訪提醒');
+}
+
+function updateCounts() {
+  ['H','A','B','C'].forEach(function(g){
+    document.getElementById('cnt-'+g).textContent = customers.filter(function(c){return c.grade===g;}).length;
+  });
+  document.getElementById('cnt-all').textContent = customers.length;
+  document.getElementById('cnt-urgent').textContent = customers.filter(function(c){return c.followStatus==='urgent';}).length;
+  document.getElementById('cnt-today').textContent = customers.filter(function(c){return c.followStatus==='today';}).length;
+}
+
+// ── Modal helpers ──
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function closeModalOverlay(e,id){if(e.target===document.getElementById(id))closeModal(id);}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(function(){t.classList.remove('show');},2600);
+}
+
+// ── Init ──
+filterCustomers();
+updateCounts();
+</script>
+</body>
+</html>

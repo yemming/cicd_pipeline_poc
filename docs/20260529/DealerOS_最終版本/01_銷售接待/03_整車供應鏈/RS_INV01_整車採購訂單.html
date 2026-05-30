@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS_INV01 整車採購訂單 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--blue:#185FA5;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--navy:#1A3A5C;--gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-teal{background:rgba(15,110,86,.8);border-color:transparent;}
+.hbtn-teal:hover{background:var(--teal);}
+.main{max-width:1100px;margin:0 auto;padding:18px 24px 60px;}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.panel-hdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-left{display:flex;align-items:center;gap:10px;}
+.picon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-blue{background:var(--blue-bg);}.pi-teal{background:var(--teal-bg);}.pi-amber{background:var(--amber-bg);}.pi-navy{background:#E8EDF2;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:14px 16px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.ff{grid-column:1/-1;}
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.req{color:var(--red);font-size:11px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;}
+.fi:focus{border-color:var(--blue-bd);}
+.fi.mono{font-family:'DM Mono',monospace;}
+.fi.readonly{background:#F4F3F0;}
+.fs{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;color:var(--gray);margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+/* PO 列表 */
+.po-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.po-tbl th{background:var(--navy);color:#fff;padding:7px 10px;text-align:left;font-size:11px;}
+.po-tbl td{padding:8px 10px;border-bottom:1px solid #F4F3F0;vertical-align:middle;}
+.po-tbl tr:hover td{background:#F8F7F4;}
+/* 車款明細行 */
+.detail-row{display:grid;grid-template-columns:1fr 120px 100px 100px 100px 80px;gap:8px;align-items:center;padding:7px 10px;border-radius:6px;border:1px solid #EEECE6;background:#fff;margin-bottom:4px;font-size:12.5px;}
+.detail-hdr{background:#F4F3F0;font-size:11px;font-weight:700;color:var(--gray);}
+/* Total bar */
+.total-bar{background:var(--navy);border-radius:9px;padding:13px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:10px;}
+.tb-item{text-align:center;}
+.tb-label{font-size:10px;opacity:.65;color:#fff;margin-bottom:3px;}
+.tb-val{font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:#fff;}
+.tb-val.teal{color:#5DCAA5;}
+/* Status badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-blue{background:var(--blue-bg);color:var(--blue);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-navy{background:#E8EDF2;color:var(--navy);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.mb12{margin-bottom:12px;}
+.add-row-inline{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;padding:8px;border:1.5px dashed #D5D3CB;border-radius:6px;background:#FAFAF8;}
+.add-inp{padding:5px 8px;border-radius:5px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;background:#fff;outline:none;}
+.add-inp.sm{width:80px;}
+.add-inp.lg{flex:1;min-width:140px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">整車庫存管理 <b>RS_INV01 整車採購訂單</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS03A_新車庫存看板_v1.html')">← 新車庫存</button>
+    <button class="hbtn hbtn-teal" onclick="go('RS_INV02_到港確認.html')">INV02 到港確認 →</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- 採購單列表 -->
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-navy">📋</div><div><div class="panel-title">整車採購訂單管理</div><div class="panel-sub">對原廠下單 · 追蹤在途狀態</div></div></div>
+      <button class="btn btn-primary btn-sm" onclick="showNewPO()">＋ 新增採購單</button>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="po-tbl">
+        <thead><tr><th>採購單號</th><th>批次號</th><th>供應商</th><th>車款數</th><th>台數</th><th>採購日期</th><th>預計到港</th><th>金額（未稅）</th><th>狀態</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-weight:600;font-size:11.5px;">PO-202605-001</td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;">BATCH-2605-001</td>
+            <td>Indian Motorcycle Taiwan</td>
+            <td>4 款</td>
+            <td><span class="badge b-navy">8 台</span></td>
+            <td>2026/05/01</td>
+            <td>2026/05/26</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:600;">NT$6,240,000</td>
+            <td><span class="badge b-teal">到港完成</span></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="showDetail('PO-202605-001')">詳情</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-weight:600;font-size:11.5px;">PO-202605-002</td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;">BATCH-2605-002</td>
+            <td>Indian Motorcycle Taiwan</td>
+            <td>2 款</td>
+            <td><span class="badge b-navy">5 台</span></td>
+            <td>2026/05/10</td>
+            <td>2026/06/15</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:600;">NT$3,890,000</td>
+            <td><span class="badge b-amber">在途中</span></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="showDetail('PO-202605-002')">詳情</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-weight:600;font-size:11.5px;">PO-202604-003</td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;">BATCH-2604-003</td>
+            <td>Indian Motorcycle Taiwan</td>
+            <td>2 款</td>
+            <td><span class="badge b-navy">4 台</span></td>
+            <td>2026/04/05</td>
+            <td>2026/04/15</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:600;">NT$4,384,000</td>
+            <td><span class="badge b-teal">到港完成</span></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="showDetail('PO-202604-003')">詳情</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 新增採購單表單（預設隱藏） -->
+  <div class="panel mb12" id="new-po-form" style="display:none;">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-blue">➕</div><div><div class="panel-title">新增整車採購訂單</div><div class="panel-sub">對原廠 / 總代理下單</div></div></div>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('new-po-form').style.display='none'">✕ 取消</button>
+    </div>
+    <div class="panel-body">
+      <div class="sec-title">採購資訊</div>
+      <div class="fg3 mb12">
+        <div><div class="fl">採購單號</div><input type="text" class="fi mono readonly" value="PO-202606-001" readonly></div>
+        <div><div class="fl">採購日期 <span class="req">*</span></div><input type="date" class="fi" value="2026-05-26"></div>
+        <div><div class="fl">預計到港日 <span class="req">*</span></div><input type="date" class="fi"></div>
+        <div><div class="fl">供應商 <span class="req">*</span></div>
+          <select class="fs"><option>Indian Motorcycle Taiwan</option><option>其他供應商</option></select>
+        </div>
+        <div><div class="fl">付款條件</div>
+          <select class="fs"><option>30天後付款</option><option>即期付款</option><option>信用狀（L/C）</option></select>
+        </div>
+        <div><div class="fl">運輸方式</div>
+          <select class="fs"><option>海運（整批）</option><option>空運（急件）</option></select>
+        </div>
+      </div>
+      <div class="sec-title">採購車款明細</div>
+      <div class="detail-row detail-hdr">
+        <div>車系 / 車型</div><div>顏色</div><div>數量</div><div>單價（未稅）</div><div>小計</div><div></div>
+      </div>
+      <div id="detail-rows">
+        <div class="detail-row">
+          <select class="fs" style="font-size:12px;"><option>Scout Bobber</option><option>Scout Classic</option><option>Challenger Dark Horse</option><option>Challenger Limited</option><option>Springfield Dark Horse</option><option>Pursuit Dark Horse</option><option>Super Meteor 650</option></select>
+          <input type="text" class="add-inp" style="width:100%;" placeholder="顏色">
+          <input type="number" class="add-inp sm" value="2" min="1" oninput="calcPO()">
+          <input type="number" class="add-inp" style="width:100%;" value="480000" oninput="calcPO()">
+          <span class="add-inp" style="font-family:'DM Mono',monospace;font-weight:600;background:#F4F3F0;" id="sub-0">NT$960,000</span>
+          <button class="btn btn-ghost btn-sm" onclick="this.closest('.detail-row').remove();calcPO()">✕</button>
+        </div>
+      </div>
+      <div class="add-row-inline">
+        <button class="btn btn-ghost btn-sm" onclick="addDetailRow()">＋ 新增車款</button>
+      </div>
+      <div class="total-bar">
+        <div class="tb-item"><div class="tb-label">採購車款</div><div class="tb-val" id="po-models">1 款</div></div>
+        <div style="width:1px;height:36px;background:rgba(255,255,255,.2);"></div>
+        <div class="tb-item"><div class="tb-label">採購台數</div><div class="tb-val" id="po-qty">2 台</div></div>
+        <div style="width:1px;height:36px;background:rgba(255,255,255,.2);"></div>
+        <div class="tb-item"><div class="tb-label">採購金額（未稅）</div><div class="tb-val teal" id="po-total" style="font-size:18px;">NT$960,000</div></div>
+      </div>
+      <div class="sec-title">備注</div>
+      <textarea class="fi" style="height:60px;resize:none;" placeholder="特殊要求、指定顏色說明、急件標記等..."></textarea>
+    </div>
+    <div class="flex-end" style="padding:0 16px 14px;">
+      <button class="btn btn-ghost" onclick="showToast('💾 草稿已儲存')">💾 儲存草稿</button>
+      <button class="btn btn-teal" onclick="submitPO()">✅ 送出採購訂單</button>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+var detailCount=1;
+
+function showNewPO(){document.getElementById('new-po-form').style.display='';}
+
+function showDetail(po){
+  showToast('📋 採購單 '+po+'\n點擊 INV02 到港確認 進行車輛掃描確認');
+}
+
+function addDetailRow(){
+  var d=document.getElementById('detail-rows');
+  var idx=detailCount++;
+  var row=document.createElement('div');
+  row.className='detail-row';
+  row.innerHTML='<select class="fs" style="font-size:12px;"><option>Scout Bobber</option><option>Scout Classic</option><option>Challenger Dark Horse</option><option>Challenger Limited</option></select>'+
+    '<input type="text" class="add-inp" style="width:100%;" placeholder="顏色">'+
+    '<input type="number" class="add-inp sm" value="1" min="1" oninput="calcPO()">'+
+    '<input type="number" class="add-inp" style="width:100%;" value="480000" oninput="calcPO()">'+
+    '<span class="add-inp" style="font-family:\'DM Mono\',monospace;font-weight:600;background:#F4F3F0;" id="sub-'+idx+'">NT$480,000</span>'+
+    '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.detail-row\').remove();calcPO()">✕</button>';
+  d.appendChild(row);calcPO();
+}
+
+function calcPO(){
+  var rows=document.getElementById('detail-rows').querySelectorAll('.detail-row');
+  var totalAmt=0,totalQty=0,models=rows.length;
+  rows.forEach(function(r,i){
+    var inputs=r.querySelectorAll('input[type=number]');
+    if(inputs.length>=2){
+      var qty=parseInt(inputs[0].value||0),price=parseInt(inputs[1].value||0),sub=qty*price;
+      totalAmt+=sub;totalQty+=qty;
+      var span=r.querySelector('.add-inp[id^=sub]');
+      if(span)span.textContent='NT$'+sub.toLocaleString();
+    }
+  });
+  document.getElementById('po-models').textContent=models+' 款';
+  document.getElementById('po-qty').textContent=totalQty+' 台';
+  document.getElementById('po-total').textContent='NT$'+totalAmt.toLocaleString();
+}
+
+function submitPO(){
+  /* 後端串接點：
+     POST /api/purchase-orders
+     { supplier_id, order_date, expected_arrival, items: [{model, color, qty, unit_price}] }
+     回傳：{ po_id, batch_id }
+     建立後車輛狀態為 IN_TRANSIT，等待 INV02 到港確認觸發 PENDING_PDI
+  */
+  document.getElementById('new-po-form').style.display='none';
+  showToast('✅ 採購訂單 PO-202606-001 已送出\n供應商已收到通知\n車輛狀態：在途中（IN_TRANSIT）\n→ 到港後請前往 INV02 執行到港確認');
+}
+
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3200);}
+
+window.onload=function(){calcPO();};
+</script>
+</body>
+</html>

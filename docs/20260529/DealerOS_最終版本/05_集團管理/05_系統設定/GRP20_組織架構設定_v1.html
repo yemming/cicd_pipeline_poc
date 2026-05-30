@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP20 組織架構設定 — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F0F2F5;color:#1A2A3A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;--navy-dark:#0D2438;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;--purple-bd:#AFA9EC;
+  --header:#0D2438;--bg:#F0F2F5;--white:#FFFFFF;
+  --text:#1A2A3A;--text-sub:#5A6A7A;--border:#D8E0E8;--border2:#C4D0DC;
+}
+
+/* HEADER */
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(26,58,92,.5);border:1px solid rgba(133,183,235,.3);color:#85B7EB;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+/* PAGE HEADER */
+.page-header{background:linear-gradient(135deg,#071828 0%,#0D2438 50%,#1A3A5C 100%);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;gap:20px;}
+.ph-left{}
+.ph-breadcrumb{font-size:11px;color:rgba(133,183,235,.6);margin-bottom:6px;letter-spacing:.08em;}
+.ph-title{font-size:20px;font-weight:700;color:#FFF;display:flex;align-items:center;gap:10px;}
+.ph-title-icon{width:30px;height:30px;background:rgba(133,183,235,.2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.ph-subtitle{margin-top:4px;font-size:12px;color:rgba(133,183,235,.7);}
+
+/* ORG MODE SWITCHER */
+.org-mode-wrap{display:flex;align-items:center;gap:12px;}
+.org-mode-label{font-size:12px;color:rgba(133,183,235,.7);white-space:nowrap;}
+.org-mode-toggle{display:flex;border:1px solid rgba(133,183,235,.3);border-radius:8px;overflow:hidden;}
+.omt-btn{padding:7px 18px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:.15s;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;}
+.omt-btn.active{background:var(--navy);color:#FFF;}
+.omt-btn:not(.active){background:rgba(255,255,255,.06);color:rgba(133,183,235,.8);}
+.omt-btn:not(.active):hover{background:rgba(255,255,255,.12);}
+
+/* MAIN LAYOUT */
+.main-layout{display:grid;grid-template-columns:1fr 360px;gap:0;min-height:calc(100vh - 130px);}
+
+/* LEFT */
+.left-area{padding:20px 20px 40px 24px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;}
+
+/* SEC TITLE */
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-sub);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ORG TREE CARD */
+.tree-card{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.tc-header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:#FAFBFC;}
+.tc-title{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;}
+.tc-dot{width:8px;height:8px;border-radius:50%;background:var(--navy);}
+.tc-body{padding:4px 0;}
+#tree-svg-wrap{width:100%;overflow:auto;}
+
+/* NODE in SVG - styled via D3 */
+
+/* NODE MANAGER */
+.node-manager{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.nm-header{padding:12px 18px;border-bottom:1px solid var(--border);background:#FAFBFC;display:flex;align-items:center;justify-content:space-between;}
+.nm-title{font-size:13px;font-weight:700;}
+.nm-add-btn{background:var(--navy);color:#FFF;border:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;}
+.nm-add-btn:hover{background:#0D2A48;}
+.nm-tabs{display:flex;border-bottom:1px solid var(--border);}
+.nm-tab{flex:1;padding:9px 0;text-align:center;font-size:11px;font-weight:600;cursor:pointer;color:var(--text-sub);border-bottom:2px solid transparent;transition:.15s;}
+.nm-tab.active{color:var(--navy);border-bottom-color:var(--navy);}
+.nm-tab:hover:not(.active){color:var(--navy);}
+.nm-body{max-height:280px;overflow-y:auto;}
+
+/* NODE ROWS */
+.node-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #F0F4F8;transition:background .15s;cursor:pointer;}
+.node-row:last-child{border-bottom:none;}
+.node-row:hover{background:#F5F8FB;}
+.nr-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.nr-info{flex:1;}
+.nr-name{font-size:13px;font-weight:600;}
+.nr-meta{font-size:10.5px;color:var(--text-sub);margin-top:1px;}
+.nr-badges{display:flex;gap:5px;align-items:center;}
+.nr-status{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600;}
+.nr-status.active{background:var(--teal-bg);color:var(--teal);}
+.nr-status.inactive{background:#F0F0F0;color:#888;}
+.nr-actions{display:flex;gap:5px;}
+.nr-btn{background:none;border:1px solid var(--border);color:var(--text-sub);padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;}
+.nr-btn:hover{background:var(--navy-bg);color:var(--navy);border-color:var(--navy-bd);}
+.nr-btn.danger:hover{background:var(--red-bg);color:var(--red);border-color:var(--red-bd);}
+
+/* AUDIT LOG */
+.audit-card{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.audit-log{display:flex;flex-direction:column;}
+.al-item{display:flex;gap:10px;padding:10px 16px;border-bottom:1px solid #F0F4F8;}
+.al-item:last-child{border-bottom:none;}
+.al-dot{width:8px;height:8px;border-radius:50%;background:var(--navy);margin-top:4px;flex-shrink:0;}
+.al-content{flex:1;}
+.al-title{font-size:12px;font-weight:600;}
+.al-meta{font-size:10.5px;color:var(--text-sub);margin-top:1px;}
+.al-change{font-size:11px;margin-top:3px;color:var(--text);}
+.al-old{color:var(--red);text-decoration:line-through;margin-right:4px;}
+.al-new{color:var(--teal);font-weight:600;}
+
+/* RIGHT: DETAIL PANEL */
+.right-panel{background:var(--white);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;}
+.rp-header{padding:14px 18px;border-bottom:1px solid var(--border);background:#FAFBFC;}
+.rp-title{font-size:13px;font-weight:700;color:var(--navy);}
+.rp-sub{font-size:11px;color:var(--text-sub);margin-top:2px;}
+
+/* PERMISSION TABLE */
+.perm-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+.perm-table th{padding:7px 12px;text-align:left;font-size:10.5px;color:var(--text-sub);font-weight:700;border-bottom:1px solid var(--border);background:#FAFBFC;white-space:nowrap;}
+.perm-table th.c{text-align:center;}
+.perm-table td{padding:7px 12px;border-bottom:1px solid #F0F4F8;vertical-align:middle;}
+.perm-table tr:last-child td{border-bottom:none;}
+.perm-table tr:hover td{background:#F5F8FB;}
+.perm-group{font-size:10px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.06em;padding:8px 12px 4px;background:#F8FAFB;border-bottom:1px solid var(--border);border-top:1px solid var(--border);}
+
+/* PERM TOGGLE */
+.perm-toggle{display:flex;justify-content:center;}
+select.perm-sel{border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:10.5px;color:var(--text);background:#FFF;cursor:pointer;font-family:'Noto Sans TC',sans-serif;}
+select.perm-sel.view{background:var(--teal-bg);color:var(--teal);border-color:var(--teal-bd);}
+select.perm-sel.edit{background:var(--navy-bg);color:var(--navy);border-color:var(--navy-bd);}
+select.perm-sel.none{background:#F5F5F5;color:#999;border-color:#DDD;}
+
+/* ROLE CARDS */
+.role-cards{display:flex;flex-direction:column;gap:8px;padding:14px 16px;}
+.role-card{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.rc-header{padding:8px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;background:#FAFBFC;}
+.rc-icon{font-size:14px;}
+.rc-name{font-size:12px;font-weight:700;flex:1;}
+.rc-expand{font-size:10px;color:var(--text-sub);}
+.rc-body{padding:10px 12px;border-top:1px solid var(--border);}
+.rc-desc{font-size:11px;color:var(--text-sub);margin-bottom:8px;line-height:1.6;}
+.rc-user-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #F0F4F8;font-size:12px;}
+.rc-user-row:last-child{border-bottom:none;}
+.rc-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#FFF;flex-shrink:0;}
+.rc-user-name{flex:1;font-weight:600;}
+.rc-user-store{font-size:10.5px;color:var(--text-sub);}
+
+/* FORM in panel */
+.panel-form{padding:16px;}
+.form-section{margin-bottom:18px;}
+.form-section-title{font-size:11px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--navy-bd);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.form-row.full{grid-template-columns:1fr;}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-label{font-size:10.5px;font-weight:600;color:var(--text-sub);}
+.form-input,.form-select{border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:12px;font-family:inherit;background:#FFF;color:var(--text);transition:border-color .15s;}
+.form-input:focus,.form-select:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(26,58,92,.08);}
+.form-hint{font-size:10.5px;color:var(--text-sub);margin-top:2px;}
+.panel-footer{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:#FAFBFC;}
+.btn-save{background:var(--navy);color:#FFF;border:none;padding:7px 18px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;}
+.btn-save:hover{background:#0D2A48;}
+.btn-cancel{background:none;border:1px solid var(--border);color:var(--text-sub);padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;}
+.btn-cancel:hover{background:var(--border);}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.badge-navy{background:var(--navy-bg);color:var(--navy);border:1px solid var(--navy-bd);}
+.badge-teal{background:var(--teal-bg);color:var(--teal);}
+.badge-amber{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);}
+.badge-purple{background:var(--purple-bg);color:var(--purple);}
+
+/* TAG indicating active panel tab */
+.card-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--navy-bg);color:var(--navy);border:1px solid var(--navy-bd);}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--header);color:#fff;padding:10px 20px;border-radius:8px;font-size:12.5px;z-index:9999;opacity:0;transition:.25s;pointer-events:none;border:1px solid rgba(133,183,235,.2);}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+
+@media(max-width:1000px){.main-layout{grid-template-columns:1fr;}.right-panel{border-left:none;border-top:1px solid var(--border);}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">系統設定 <b>GRP20 組織架構設定</b></div>
+  <div class="org-badge">⚙ 管理員</div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 返回</button>
+    <button class="hbtn" onclick="showToast('設定已儲存')">💾 儲存設定</button>
+  </div>
+</header>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="ph-left">
+    <div class="ph-breadcrumb">系統設定 › 組織架構</div>
+    <div class="ph-title">
+      <div class="ph-title-icon">🏢</div>
+      組織架構設定
+    </div>
+    <div class="ph-subtitle">管理集團組織層級、門店節點、人員指派與頁面權限</div>
+  </div>
+  <div class="org-mode-wrap">
+    <div class="org-mode-label">組織模式（org_mode）</div>
+    <div class="org-mode-toggle">
+      <button class="omt-btn" id="btn-3layer" onclick="setOrgMode(3,this)">三層架構<br><span style="font-size:9px;opacity:.7;">集團→品牌→門店</span></button>
+      <button class="omt-btn active" id="btn-4layer" onclick="setOrgMode(4,this)">四層架構<br><span style="font-size:9px;opacity:.7;">集團→區域→品牌→門店</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+
+  <!-- LEFT -->
+  <div class="left-area">
+
+    <!-- 組織樹 -->
+    <div class="sec-title">🌳 組織結構樹狀圖</div>
+    <div class="tree-card">
+      <div class="tc-header">
+        <div class="tc-title"><div class="tc-dot"></div><span id="tree-mode-label">四層架構 — Indian Motorcycle Taiwan</span></div>
+        <div style="display:flex;gap:8px;">
+          <div class="card-tag" id="tree-node-count">共 10 個節點</div>
+          <button class="nm-add-btn" onclick="showRightPanel('node')">＋ 新增節點</button>
+        </div>
+      </div>
+      <div class="tc-body">
+        <div id="tree-svg-wrap"></div>
+      </div>
+    </div>
+
+    <!-- 節點管理 -->
+    <div class="sec-title">🗂 節點管理</div>
+    <div class="node-manager">
+      <div class="nm-header">
+        <div class="nm-title">各層級節點一覽</div>
+        <button class="nm-add-btn" onclick="showRightPanel('node')">＋ 新增</button>
+      </div>
+      <div class="nm-tabs" id="nm-tabs">
+        <div class="nm-tab active" onclick="setNmTab('group',this)">集團</div>
+        <div class="nm-tab" onclick="setNmTab('region',this)">區域</div>
+        <div class="nm-tab" onclick="setNmTab('brand',this)">品牌</div>
+        <div class="nm-tab" onclick="setNmTab('store',this)">門店</div>
+      </div>
+      <div class="nm-body" id="nm-body"></div>
+    </div>
+
+    <!-- Audit Log -->
+    <div class="sec-title">📋 組織架構異動紀錄</div>
+    <div class="audit-card">
+      <div class="tc-header">
+        <div class="tc-title"><div class="tc-dot"></div>近期異動 Audit Log</div>
+        <div class="card-tag">近 30 天</div>
+      </div>
+      <div class="audit-log">
+        <div class="al-item">
+          <div class="al-dot" style="background:var(--navy);"></div>
+          <div class="al-content">
+            <div class="al-title">新增門店節點：桃園中壢店</div>
+            <div class="al-meta">系統管理員 admin@indian-tw.com　2026-05-15 10:22　｜　✅ 已生效</div>
+            <div class="al-change"><span class="al-new">新增至「北區」品牌節點下，指派負責人：王大明</span></div>
+          </div>
+        </div>
+        <div class="al-item">
+          <div class="al-dot" style="background:var(--amber);"></div>
+          <div class="al-content">
+            <div class="al-title">調整組織模式：三層 → 四層架構</div>
+            <div class="al-meta">系統管理員 admin@indian-tw.com　2026-04-01 09:00　｜　✅ 已生效</div>
+            <div class="al-change"><span class="al-old">三層架構</span>→<span class="al-new">四層架構（新增「區域」層級）</span></div>
+          </div>
+        </div>
+        <div class="al-item">
+          <div class="al-dot" style="background:var(--teal);"></div>
+          <div class="al-content">
+            <div class="al-title">更新門店負責人：高雄博愛店</div>
+            <div class="al-meta">系統管理員 admin@indian-tw.com　2026-03-20 14:45　｜　✅ 已生效</div>
+            <div class="al-change"><span class="al-old">林志明</span>→<span class="al-new">陳建宏</span></div>
+          </div>
+        </div>
+        <div class="al-item">
+          <div class="al-dot" style="background:var(--purple);"></div>
+          <div class="al-content">
+            <div class="al-title">更新權限設定：區域經理角色</div>
+            <div class="al-meta">系統管理員 admin@indian-tw.com　2026-03-10 11:30　｜　✅ 已生效</div>
+            <div class="al-change"><span class="al-new">GRP16 Dealer Health Score 新增「可讀取」權限</span></div>
+          </div>
+        </div>
+        <div class="al-item">
+          <div class="al-dot" style="background:var(--border2);"></div>
+          <div class="al-content">
+            <div class="al-title">新增品牌節點：Indian Motorcycle（南區）</div>
+            <div class="al-meta">系統管理員 admin@indian-tw.com　2026-02-18 16:08　｜　✅ 已生效</div>
+            <div class="al-change"><span class="al-new">指派至「南區」，品牌代碼：INDIAN-S</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /left-area -->
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel" id="right-panel">
+
+    <!-- 預設：權限設定 -->
+    <div id="rp-perm" style="">
+      <div class="rp-header">
+        <div class="rp-title">🔐 頁面權限設定</div>
+        <div class="rp-sub">各角色對 GRP 頁面的存取權限</div>
+      </div>
+
+      <!-- 角色人員 -->
+      <div style="padding:14px 16px 0;">
+        <div class="sec-title" style="margin-bottom:10px;">👤 角色與人員指派</div>
+        <div class="role-cards">
+          <div class="role-card">
+            <div class="rc-header" onclick="toggleRole(this)">
+              <div class="rc-icon">👑</div>
+              <div class="rc-name">集團管理員</div>
+              <div style="margin-left:auto;"><span class="badge badge-navy">1人</span></div>
+              <div class="rc-expand">▾</div>
+            </div>
+            <div class="rc-body">
+              <div class="rc-desc">最高權限，可存取所有頁面與設定功能。</div>
+              <div class="rc-user-row"><div class="rc-avatar" style="background:#1A3A5C;">A</div><div class="rc-user-name">admin</div><div class="rc-user-store">總部</div></div>
+            </div>
+          </div>
+          <div class="role-card">
+            <div class="rc-header" onclick="toggleRole(this)">
+              <div class="rc-icon">🗺</div>
+              <div class="rc-name">區域經理</div>
+              <div style="margin-left:auto;"><span class="badge badge-navy">2人</span></div>
+              <div class="rc-expand">▾</div>
+            </div>
+            <div class="rc-body">
+              <div class="rc-desc">可查看所屬區域所有門店資料，部分頁面可編輯。</div>
+              <div class="rc-user-row"><div class="rc-avatar" style="background:#534AB7;">北</div><div class="rc-user-name">張區域經理</div><div class="rc-user-store">北區</div></div>
+              <div class="rc-user-row"><div class="rc-avatar" style="background:#0F6E56;">南</div><div class="rc-user-name">李區域經理</div><div class="rc-user-store">南區</div></div>
+            </div>
+          </div>
+          <div class="role-card">
+            <div class="rc-header" onclick="toggleRole(this)">
+              <div class="rc-icon">🏪</div>
+              <div class="rc-name">門店主管</div>
+              <div style="margin-left:auto;"><span class="badge badge-navy">4人</span></div>
+              <div class="rc-expand">▾</div>
+            </div>
+            <div class="rc-body">
+              <div class="rc-desc">僅可查看本店資料，不可查看其他門店。</div>
+              <div class="rc-user-row"><div class="rc-avatar" style="background:#1A3A5C;">台北</div><div class="rc-user-name">王店長</div><div class="rc-user-store">台北旗艦</div></div>
+              <div class="rc-user-row"><div class="rc-avatar" style="background:#2A5A8C;">台中</div><div class="rc-user-name">陳店長</div><div class="rc-user-store">台中中港</div></div>
+              <div class="rc-user-row"><div class="rc-avatar" style="background:#3A5080;">高雄</div><div class="rc-user-name">陳建宏</div><div class="rc-user-store">高雄博愛</div></div>
+              <div class="rc-user-row"><div class="rc-avatar" style="background:#0F6E56;">桃園</div><div class="rc-user-name">王大明</div><div class="rc-user-store">桃園中壢</div></div>
+            </div>
+          </div>
+          <div class="role-card">
+            <div class="rc-header" onclick="toggleRole(this)">
+              <div class="rc-icon">👤</div>
+              <div class="rc-name">一般人員</div>
+              <div style="margin-left:auto;"><span class="badge badge-navy">多人</span></div>
+              <div class="rc-expand">▾</div>
+            </div>
+            <div class="rc-body">
+              <div class="rc-desc">只能查看本店指定頁面，無設定權限。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 權限表 -->
+      <div style="padding:0 16px 16px;">
+        <div class="sec-title" style="margin:14px 0 10px;">🔐 GRP 頁面存取權限矩陣</div>
+        <table class="perm-table">
+          <thead>
+            <tr>
+              <th>頁面</th>
+              <th class="c">集團管理員</th>
+              <th class="c">區域經理</th>
+              <th class="c">門店主管</th>
+              <th class="c">一般人員</th>
+            </tr>
+          </thead>
+          <tbody id="perm-tbody"></tbody>
+        </table>
+        <div style="font-size:10.5px;color:var(--text-sub);margin-top:10px;line-height:1.6;">
+          ※ 權限異動後需重新登入生效。Partner 實作時透過 Supabase RLS 控制資料存取。
+        </div>
+      </div>
+    </div><!-- /#rp-perm -->
+
+    <!-- 新增/編輯節點 Panel -->
+    <div id="rp-node" style="display:none;">
+      <div class="rp-header">
+        <div class="rp-title">🗂 新增 / 編輯節點</div>
+        <div class="rp-sub">填寫節點資訊後送出</div>
+      </div>
+      <div class="panel-form">
+        <div class="form-section">
+          <div class="form-section-title">節點基本資料</div>
+          <div class="form-row full"><div class="form-group"><label class="form-label">節點名稱 *</label><input class="form-input" type="text" placeholder="例：台北旗艦店" id="node-name"></div></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">節點層級 *</label>
+              <select class="form-select" id="node-level">
+                <option value="group">集團</option>
+                <option value="region">區域</option>
+                <option value="brand">品牌</option>
+                <option value="store">門店</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">上層節點</label>
+              <select class="form-select" id="node-parent">
+                <option>Indian Motorcycle Taiwan（集團）</option>
+                <option>北區（區域）</option>
+                <option>南區（區域）</option>
+                <option>Indian Motorcycle 北區（品牌）</option>
+                <option>Indian Motorcycle 南區（品牌）</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">節點代碼</label><input class="form-input" type="text" placeholder="例：STORE-TP-001" id="node-code"></div>
+            <div class="form-group"><label class="form-label">狀態</label>
+              <select class="form-select" id="node-status"><option>啟用</option><option>停用</option></select>
+            </div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">負責人指派</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">負責人姓名</label><input class="form-input" type="text" placeholder="例：王大明" id="node-manager"></div>
+            <div class="form-group"><label class="form-label">聯絡 Email</label><input class="form-input" type="email" placeholder="example@email.com" id="node-email"></div>
+          </div>
+          <div class="form-row full"><div class="form-group"><label class="form-label">角色</label>
+            <select class="form-select" id="node-role">
+              <option>集團管理員</option><option>區域經理</option><option>門店主管</option><option>一般人員</option>
+            </select>
+          </div></div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">門店額外資訊（僅門店層級填寫）</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">地址</label><input class="form-input" type="text" placeholder="縣市區街道" id="node-addr"></div>
+            <div class="form-group"><label class="form-label">電話</label><input class="form-input" type="text" placeholder="02-XXXX-XXXX" id="node-tel"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">員工人數</label><input class="form-input" type="number" placeholder="例：18" id="node-staff"></div>
+            <div class="form-group"><label class="form-label">開業日期</label><input class="form-input" type="date" id="node-open"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <button class="btn-cancel" onclick="showRightPanel('perm')">取消</button>
+        <button class="btn-save" onclick="saveNode()">儲存節點</button>
+      </div>
+    </div><!-- /#rp-node -->
+
+  </div><!-- /right-panel -->
+
+</div><!-- /main-layout -->
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ── 組織資料 ──
+const ORG_4 = {
+  name:'Indian Motorcycle Taiwan', type:'group', code:'IMT', id:'g1',
+  children:[
+    { name:'北區', type:'region', code:'NORTH', id:'r1',
+      children:[
+        { name:'Indian Motorcycle 北區', type:'brand', code:'INDIAN-N', id:'b1',
+          children:[
+            { name:'台北旗艦店', type:'store', code:'STORE-TP', id:'s1', manager:'王店長', staff:22, status:'active' },
+            { name:'桃園中壢店', type:'store', code:'STORE-TY', id:'s4', manager:'王大明', staff:14, status:'active' },
+          ]
+        }
+      ]
+    },
+    { name:'南區', type:'region', code:'SOUTH', id:'r2',
+      children:[
+        { name:'Indian Motorcycle 南區', type:'brand', code:'INDIAN-S', id:'b2',
+          children:[
+            { name:'台中中港店', type:'store', code:'STORE-TC', id:'s2', manager:'陳店長', staff:18, status:'active' },
+            { name:'高雄博愛店', type:'store', code:'STORE-KH', id:'s3', manager:'陳建宏', staff:16, status:'active' },
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+const ORG_3 = {
+  name:'Indian Motorcycle Taiwan', type:'group', code:'IMT', id:'g1',
+  children:[
+    { name:'Indian Motorcycle 台灣', type:'brand', code:'INDIAN-TW', id:'b0',
+      children:[
+        { name:'台北旗艦店', type:'store', code:'STORE-TP', id:'s1', manager:'王店長', staff:22, status:'active' },
+        { name:'台中中港店', type:'store', code:'STORE-TC', id:'s2', manager:'陳店長', staff:18, status:'active' },
+        { name:'高雄博愛店', type:'store', code:'STORE-KH', id:'s3', manager:'陳建宏', staff:16, status:'active' },
+        { name:'桃園中壢店', type:'store', code:'STORE-TY', id:'s4', manager:'王大明', staff:14, status:'active' },
+      ]
+    }
+  ]
+};
+
+const NODE_COLORS = { group:'#0D2438', region:'#1A3A5C', brand:'#534AB7', store:'#0F6E56' };
+const NODE_ICONS  = { group:'🏢', region:'🗺', brand:'🏍', store:'🏪' };
+const NODE_LABELS = { group:'集團', region:'區域', brand:'品牌', store:'門店' };
+
+let orgMode = 4;
+let currentOrg = ORG_4;
+
+// ── 組織模式切換 ──
+function setOrgMode(mode, btn){
+  orgMode = mode;
+  document.querySelectorAll('.omt-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentOrg = mode===4 ? ORG_4 : ORG_3;
+  document.getElementById('tree-mode-label').textContent =
+    mode===4 ? '四層架構 — Indian Motorcycle Taiwan' : '三層架構 — Indian Motorcycle Taiwan';
+  drawTree();
+  renderNmTab(document.querySelector('.nm-tab.active')?.dataset.tab||'group');
+  showToast(`已切換為${mode}層架構`);
+}
+
+// ── 組織樹（D3 Tree）──
+function drawTree(){
+  const wrap = document.getElementById('tree-svg-wrap');
+  wrap.innerHTML = '';
+
+  const hierarchy = d3.hierarchy(currentOrg);
+  const nodeCount  = hierarchy.descendants().length;
+  document.getElementById('tree-node-count').textContent = `共 ${nodeCount} 個節點`;
+
+  const nodeW = 160, nodeH = 52, hGap = 40, vGap = 28;
+  const maxDepth = d3.max(hierarchy.descendants(), d=>d.depth);
+  const W = (nodeW + hGap) * (maxDepth+1) + 40;
+
+  // Count leaves per depth for height estimation
+  const leaves = hierarchy.leaves().length;
+  const H = Math.max(leaves * (nodeH + vGap) + 60, 300);
+
+  const treeLayout = d3.tree().size([H - 60, W - nodeW - 60]);
+  treeLayout(hierarchy);
+
+  const svg = d3.select(wrap).append('svg')
+    .attr('width', W).attr('height', H)
+    .style('min-width', W+'px');
+  const g = svg.append('g').attr('transform','translate(30,30)');
+
+  // Links
+  g.selectAll('.link').data(hierarchy.links()).enter().append('path')
+    .attr('fill','none').attr('stroke','#C4D0DC').attr('stroke-width',1.5)
+    .attr('d', d3.linkHorizontal().x(d=>d.y).y(d=>d.x))
+    .attr('opacity',0).transition().duration(600).delay((_,i)=>i*30).attr('opacity',1);
+
+  // Nodes
+  const nodes = g.selectAll('.node').data(hierarchy.descendants()).enter().append('g')
+    .attr('class','node').attr('transform',d=>`translate(${d.y},${d.x})`)
+    .style('cursor','pointer')
+    .on('click',function(event,d){
+      showToast(`節點：${d.data.name}（${NODE_LABELS[d.data.type]}）`);
+    });
+
+  nodes.append('rect')
+    .attr('x',-nodeW/2).attr('y',-nodeH/2)
+    .attr('width',0).attr('height',0)
+    .attr('rx',8).attr('fill','#FFF')
+    .attr('stroke',d=>NODE_COLORS[d.data.type]).attr('stroke-width',2)
+    .transition().duration(500).delay((_,i)=>i*40)
+    .attr('width',nodeW).attr('height',nodeH)
+    .attr('x',-nodeW/2).attr('y',-nodeH/2);
+
+  // Icon bg
+  nodes.append('rect')
+    .attr('x',-nodeW/2).attr('y',-nodeH/2)
+    .attr('width',32).attr('height',nodeH)
+    .attr('rx',8).attr('fill',d=>NODE_COLORS[d.data.type]).attr('fill-opacity',.12)
+    .attr('opacity',0).transition().delay((_,i)=>i*40+300).attr('opacity',1);
+
+  nodes.append('text')
+    .attr('x',-nodeW/2+16).attr('y',5)
+    .attr('text-anchor','middle').attr('font-size',14)
+    .attr('opacity',0).text(d=>NODE_ICONS[d.data.type])
+    .transition().delay((_,i)=>i*40+300).attr('opacity',1);
+
+  nodes.append('text')
+    .attr('x',-nodeW/2+42).attr('y',-5)
+    .attr('font-size',11).attr('font-weight',700)
+    .attr('fill',d=>NODE_COLORS[d.data.type])
+    .attr('opacity',0).text(d=>NODE_LABELS[d.data.type])
+    .transition().delay((_,i)=>i*40+300).attr('opacity',1);
+
+  nodes.append('text')
+    .attr('x',-nodeW/2+42).attr('y',11)
+    .attr('font-size',11.5).attr('font-weight',600).attr('fill','#1A2A3A')
+    .attr('opacity',0).text(d=>{
+      const label = d.data.name.length>12 ? d.data.name.slice(0,12)+'…' : d.data.name;
+      return label;
+    })
+    .transition().delay((_,i)=>i*40+300).attr('opacity',1);
+
+  // Manager badge for stores
+  nodes.filter(d=>d.data.type==='store').append('text')
+    .attr('x',-nodeW/2+42).attr('y',25)
+    .attr('font-size',9.5).attr('fill','#7A9AB8')
+    .attr('opacity',0).text(d=>d.data.manager||'')
+    .transition().delay((_,i)=>i*40+400).attr('opacity',1);
+}
+
+// ── 節點管理 Tab ──
+const NM_DATA = {
+  group:[ {name:'Indian Motorcycle Taiwan',code:'IMT',      manager:'admin',         status:'active'} ],
+  region:[
+    {name:'北區',code:'NORTH',  manager:'張區域經理', status:'active'},
+    {name:'南區',code:'SOUTH',  manager:'李區域經理', status:'active'},
+  ],
+  brand:[
+    {name:'Indian Motorcycle 北區',code:'INDIAN-N',manager:'張區域經理',status:'active'},
+    {name:'Indian Motorcycle 南區',code:'INDIAN-S',manager:'李區域經理',status:'active'},
+  ],
+  store:[
+    {name:'台北旗艦店',code:'STORE-TP',manager:'王店長',staff:22,status:'active'},
+    {name:'台中中港店',code:'STORE-TC',manager:'陳店長',staff:18,status:'active'},
+    {name:'高雄博愛店',code:'STORE-KH',manager:'陳建宏',staff:16,status:'active'},
+    {name:'桃園中壢店',code:'STORE-TY',manager:'王大明',staff:14,status:'active'},
+  ],
+};
+
+function setNmTab(tab, el){
+  document.querySelectorAll('.nm-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  el.dataset.tab = tab;
+  renderNmTab(tab);
+}
+
+function renderNmTab(tab){
+  const data = (orgMode===3 && tab==='region') ? [] : (NM_DATA[tab]||[]);
+  const body = document.getElementById('nm-body');
+  if(data.length===0){
+    body.innerHTML=`<div style="padding:18px 16px;text-align:center;font-size:12px;color:var(--text-sub);">三層架構模式下無「區域」層級</div>`;
+    return;
+  }
+  body.innerHTML=data.map((n,i)=>`
+    <div class="node-row" onclick="showToast('編輯節點：'+this.querySelector('.nr-name').textContent)">
+      <div class="nr-icon" style="background:${NODE_COLORS[tab]}18;">${NODE_ICONS[tab]}</div>
+      <div class="nr-info">
+        <div class="nr-name">${n.name}</div>
+        <div class="nr-meta">${n.code}　｜　負責人：${n.manager}${n.staff?'　｜　'+n.staff+'人':''}</div>
+      </div>
+      <div class="nr-badges">
+        <span class="nr-status ${n.status}">${n.status==='active'?'啟用':'停用'}</span>
+      </div>
+      <div class="nr-actions">
+        <button class="nr-btn" onclick="event.stopPropagation();showRightPanel('node');">編輯</button>
+        <button class="nr-btn danger" onclick="event.stopPropagation();showToast('已停用：${n.name}');">停用</button>
+      </div>
+    </div>`).join('');
+}
+
+// ── 權限矩陣 ──
+const GRP_PAGES = [
+  { group:'集團總覽', pages:[
+    {id:'GRP01',name:'集團總覽'},
+    {id:'GRP02',name:'BSC計分卡'},
+    {id:'GRP02R',name:'門店績效報告'},
+    {id:'GRP04',name:'集團儀表板'},
+    {id:'GRP05',name:'季度績效報告'},
+  ]},
+  { group:'銷售 × 售後', pages:[
+    {id:'GRP03',name:'銷售目標監看'},
+    {id:'GRP07',name:'銷售顧問能效'},
+    {id:'GRP08',name:'SA能效診斷'},
+    {id:'GRP09',name:'門店銷售診斷'},
+    {id:'GRP10',name:'門店售後診斷'},
+    {id:'GRP11',name:'跨部門能效'},
+    {id:'GRP15',name:'技師效率診斷'},
+  ]},
+  { group:'零件 × 商務', pages:[
+    {id:'GRP12',name:'零件財務總覽'},
+    {id:'GRP13',name:'促銷活動管理'},
+    {id:'GRP14',name:'定價折扣設定'},
+    {id:'GRP19',name:'中古車能效'},
+  ]},
+  { group:'策略 × 評估', pages:[
+    {id:'GRP16',name:'Dealer Health Score'},
+    {id:'GRP17',name:'門店評估四象限'},
+    {id:'GRP18',name:'集團客戶動態'},
+  ]},
+  { group:'系統設定', pages:[
+    {id:'GRP20',name:'組織架構設定'},
+  ]},
+];
+
+const DEFAULT_PERM = {
+  admin:  { default:'edit' },
+  region: { default:'view',  overrides:{'GRP14':'view','GRP20':'none'} },
+  store:  { default:'view',  overrides:{'GRP01':'view','GRP02':'view','GRP03':'view','GRP04':'none','GRP05':'view','GRP07':'view','GRP08':'view','GRP11':'none','GRP13':'none','GRP14':'none','GRP16':'view','GRP17':'none','GRP18':'view','GRP19':'view','GRP20':'none'} },
+  staff:  { default:'none',  overrides:{'GRP07':'view','GRP09':'view','GRP10':'view'} },
+};
+
+function getPerm(role, id){
+  const p = DEFAULT_PERM[role];
+  return p.overrides?.[id] || p.default;
+}
+
+function renderPermTable(){
+  const tbody = document.getElementById('perm-tbody');
+  let html='';
+  GRP_PAGES.forEach(group=>{
+    html+=`<tr><td colspan="5" class="perm-group">${group.group}</td></tr>`;
+    group.pages.forEach(p=>{
+      html+=`<tr>
+        <td><span style="font-family:monospace;font-size:10px;color:var(--navy);margin-right:5px;">${p.id}</span>${p.name}</td>
+        ${['admin','region','store','staff'].map(role=>{
+          const perm=getPerm(role,p.id);
+          return `<td class="c"><select class="perm-sel ${perm}" onchange="this.className='perm-sel '+this.value;showToast('權限已更新：${p.id}');">
+            <option value="edit"  ${perm==='edit' ?'selected':''}>可編輯</option>
+            <option value="view"  ${perm==='view' ?'selected':''}>唯讀</option>
+            <option value="none"  ${perm==='none' ?'selected':''}>不可見</option>
+          </select></td>`;
+        }).join('')}
+      </tr>`;
+    });
+  });
+  tbody.innerHTML=html;
+}
+
+// ── 切換右側面板 ──
+function showRightPanel(panel){
+  document.getElementById('rp-perm').style.display = panel==='perm'?'':'none';
+  document.getElementById('rp-node').style.display = panel==='node'?'':'none';
+}
+
+// ── 角色摺疊 ──
+function toggleRole(header){
+  const body = header.nextElementSibling;
+  const expand = header.querySelector('.rc-expand');
+  if(body.style.display==='none'){ body.style.display=''; expand.textContent='▾'; }
+  else { body.style.display='none'; expand.textContent='▸'; }
+}
+
+// ── 儲存節點 ──
+function saveNode(){
+  const name = document.getElementById('node-name').value;
+  if(!name){ showToast('請填寫節點名稱'); return; }
+  showToast('節點已儲存：'+name);
+  showRightPanel('perm');
+}
+
+// ── Tab 初始化補 dataset ──
+document.querySelectorAll('.nm-tab').forEach((t,i)=>{
+  const tabs=['group','region','brand','store'];
+  t.dataset.tab=tabs[i];
+});
+
+// ── Toast ──
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ── Init ──
+window.addEventListener('load',()=>{
+  drawTree();
+  renderNmTab('group');
+  renderPermTable();
+});
+window.addEventListener('resize',()=>{ drawTree(); });
+</script>
+</body>
+</html>

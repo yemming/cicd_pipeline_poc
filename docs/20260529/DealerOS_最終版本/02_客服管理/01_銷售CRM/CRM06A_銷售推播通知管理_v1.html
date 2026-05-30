@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM06A 銷售推播通知管理 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --red:#C8001A;--navy:#1A3A5C;--teal:#0F6E56;
+  --teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --blue-bg:#EAF4FB;--blue-bd:#85B7EB;
+  --gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;
+  --green:#2D7D32;--green-bg:#E8F5E9;
+}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-green{background:rgba(45,125,50,.8);border-color:transparent;}
+.hbtn-green:hover{background:var(--green);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.tab-bar{background:#fff;border-bottom:2px solid #EEECE6;display:flex;position:sticky;top:52px;z-index:90;}
+.tab-btn{flex:1;padding:11px 8px;font-size:12.5px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:.15s;text-align:center;background:none;border-top:none;border-left:none;border-right:none;font-family:'Noto Sans TC',sans-serif;}
+.tab-btn.active{color:var(--navy);font-weight:700;border-bottom-color:var(--red);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+.main{max-width:1100px;margin:0 auto;padding:16px 20px 60px;}
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;}
+.kpi-l{font-size:11px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.kn-n{color:var(--navy);}.kn-t{color:var(--teal);}.kn-a{color:var(--amber);}.kn-g{color:var(--green);}
+.kpi-s{font-size:10.5px;color:var(--gray);}
+/* Panel */
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.ph{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-l{display:flex;align-items:center;gap:10px;}
+.pi{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-b{background:var(--blue-bg);}.pi-t{background:var(--teal-bg);}.pi-a{background:var(--amber-bg);}.pi-r{background:#FDECEA;}.pi-p{background:var(--purple-bg);}.pi-g{background:var(--green-bg);}
+.pt{font-size:13px;font-weight:600;}
+.ps{font-size:11px;color:var(--gray);margin-top:1px;}
+.pb{padding:14px 16px;}
+/* 範本卡片 */
+.tmpl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.tmpl-card{border:1.5px solid #EEECE6;border-radius:9px;overflow:hidden;transition:.15s;cursor:pointer;}
+.tmpl-card:hover{border-color:var(--blue-bd);box-shadow:0 3px 12px rgba(26,58,92,.1);}
+.tmpl-card.selected{border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,58,92,.15);}
+.tc-hdr{padding:10px 12px;display:flex;align-items:center;gap:8px;}
+.tc-icon{font-size:18px;flex-shrink:0;}
+.tc-title{font-size:12.5px;font-weight:700;flex:1;}
+.tc-type{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;}
+.tt-line{background:#EAF4FB;color:#185FA5;}
+.tt-sms{background:#E8F5E9;color:#2D7D32;}
+.tt-both{background:#EEEDFE;color:#534AB7;}
+.tc-body{padding:10px 12px;border-top:1px solid #EEECE6;background:#FAFAF8;font-size:12px;color:#5A5955;line-height:1.7;min-height:80px;}
+.tc-footer{padding:8px 12px;border-top:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.tc-meta{font-size:10.5px;color:var(--gray);}
+/* 通道選擇 */
+.channel-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.ch-chip{padding:8px 16px;border-radius:8px;border:1.5px solid #D5D3CB;background:#F4F3F0;font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:6px;font-family:'Noto Sans TC',sans-serif;}
+.ch-chip:hover{border-color:var(--navy);}
+.ch-chip.sel-line{border-color:#06C755;background:#E8F5E9;color:#2D7D32;}
+.ch-chip.sel-sms{border-color:var(--amber);background:var(--amber-bg);color:var(--amber);}
+.ch-chip.sel-email{border-color:var(--blue-bd);background:var(--blue-bg);color:var(--navy);}
+/* 客群篩選 */
+.seg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.seg-chip{padding:8px 12px;border-radius:7px;border:1.5px solid #EEECE6;background:#fff;font-size:12px;cursor:pointer;transition:.15s;text-align:center;}
+.seg-chip:hover{border-color:var(--blue-bd);}
+.seg-chip.sel{border-color:var(--navy);background:var(--blue-bg;)}
+.seg-chip .sc-n{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:var(--navy);}
+.seg-chip .sc-l{font-size:10.5px;color:var(--gray);margin-top:2px;}
+.seg-chip .sc-c{font-size:11px;font-weight:600;margin-top:3px;}
+/* 推播預覽 */
+.preview-box{border:1px solid #EEECE6;border-radius:9px;overflow:hidden;background:#F8F7F4;}
+.pb-hdr{background:var(--navy);color:#fff;padding:8px 14px;font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:8px;}
+.line-bubble{background:#fff;border-radius:12px;padding:10px 14px;margin:12px;font-size:12.5px;color:#2C2C2A;line-height:1.75;box-shadow:0 1px 4px rgba(0,0,0,.1);max-width:85%;position:relative;}
+.line-bubble::before{content:'DUCATI';font-size:10px;font-weight:700;color:#06C755;display:block;margin-bottom:4px;}
+.line-time{font-size:10px;color:var(--gray);margin:0 12px 10px;text-align:right;}
+/* 記錄列表 */
+.log-row{display:grid;grid-template-columns:180px 100px 80px 80px 80px 80px 1fr;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid #F4F3F0;font-size:12px;transition:.15s;}
+.log-row:hover{background:#FAFAF8;}
+.log-row.hdr{background:#FAFAF8;font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.3px;text-transform:uppercase;border-bottom:2px solid #EEECE6;}
+/* 表單 */
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;}
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.req{color:var(--red);font-size:11px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;}
+.fi:focus{border-color:var(--blue-bd);}
+.fs{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-navy{background:var(--blue-bg);color:var(--navy);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-green{background:var(--green-bg);color:var(--green);}
+.b-red{background:#FDECEA;color:var(--red);}
+.b-purple{background:var(--purple-bg);color:var(--purple);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-green{background:var(--green);border-color:var(--green);color:#fff;}
+.btn-green:hover{background:#1B5E20;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-xs{padding:3px 8px;font-size:11px;border-radius:5px;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:14px 0 7px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.divider{height:1px;background:#EEECE6;margin:12px 0;}
+.mb12{margin-bottom:12px;}
+.fe{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+/* 統計圓環 */
+.stat-ring{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+.ring-item{text-align:center;}
+.ring-val{font-size:26px;font-weight:700;font-family:'DM Mono',monospace;}
+.ring-lbl{font-size:11px;color:var(--gray);margin-top:3px;}
+/* 進度條 */
+.prog-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.prog-lbl{width:80px;font-size:11.5px;flex-shrink:0;text-align:right;color:var(--gray);}
+.prog-bar{flex:1;height:8px;background:#EEECE6;border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:4px;transition:width .5s;}
+.prog-pct{width:40px;font-size:11px;font-weight:700;font-family:'DM Mono',monospace;text-align:right;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:320px;line-height:1.5;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">CRM 銷售側 <b>CRM06A 推播通知管理</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')">← CRM 總覽</button>
+    <button class="hbtn" onclick="go('CRM04A_銷售休眠戰敗管理_v1.html')">休眠戰敗</button>
+    <button class="hbtn" onclick="go('CRM05A_NPS看板_銷售_v1.html')">NPS 看板</button>
+    <button class="hbtn hbtn-green" onclick="swTab(1,document.getElementById('tb1'))">➕ 新增推播任務</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" id="tb0" onclick="swTab(0,this)">📝 Tab 1　推播範本管理</button>
+  <button class="tab-btn" id="tb1" onclick="swTab(1,this)">🚀 Tab 2　新增推播任務</button>
+  <button class="tab-btn" id="tb2" onclick="swTab(2,this)">📊 Tab 3　發送記錄與成效</button>
+</div>
+
+<div class="main">
+
+<!-- ══ TAB 1 推播範本管理 ══ -->
+<div class="tab-pane active" id="pane-0">
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-l">範本總數</div><div class="kpi-n kn-n">12</div><div class="kpi-s">LINE 8 / 簡訊 3 / 雙通道 1</div></div>
+    <div class="kpi"><div class="kpi-l">本月推播次數</div><div class="kpi-n kn-t">6</div><div class="kpi-s">觸達客戶 142 人次</div></div>
+    <div class="kpi"><div class="kpi-l">平均開啟率</div><div class="kpi-n kn-g">68%</div><div class="kpi-s">LINE 訊息已讀率</div></div>
+    <div class="kpi"><div class="kpi-l">回覆互動率</div><div class="kpi-n kn-a">24%</div><div class="kpi-s">回覆或點擊連結</div></div>
+  </div>
+
+  <!-- 範本分類篩選 -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+    <span style="font-size:11.5px;font-weight:600;color:#5A5955;padding:6px 0;">範本分類：</span>
+    <button class="btn btn-primary btn-sm" id="cat-all" onclick="filterTmpl('')">全部</button>
+    <button class="btn btn-ghost btn-sm" id="cat-festival" onclick="filterTmpl('節慶')">🎉 節慶關懷</button>
+    <button class="btn btn-ghost btn-sm" id="cat-launch" onclick="filterTmpl('新車')">🏍️ 新車發表</button>
+    <button class="btn btn-ghost btn-sm" id="cat-event" onclick="filterTmpl('活動')">🏁 活動邀請</button>
+    <button class="btn btn-ghost btn-sm" id="cat-maint" onclick="filterTmpl('保養')">🔧 保養提醒</button>
+    <button class="btn btn-ghost btn-sm" id="cat-personal" onclick="filterTmpl('個人化')">👤 個人化</button>
+    <div style="margin-left:auto;">
+      <button class="btn btn-teal btn-sm" onclick="showToast('➕ 開啟新範本編輯器')">➕ 新增範本</button>
+    </div>
+  </div>
+
+  <div class="tmpl-grid" id="tmpl-grid"></div>
+</div>
+
+<!-- ══ TAB 2 新增推播任務 ══ -->
+<div class="tab-pane" id="pane-1">
+
+  <!-- Step 1 基本設定 -->
+  <div class="panel mb12">
+    <div class="ph"><div class="ph-l"><div class="pi pi-b">①</div><div><div class="pt">Step 1　任務基本設定</div></div></div></div>
+    <div class="pb">
+      <div class="fg2 mb12">
+        <div><div class="fl">任務名稱 <span class="req">*</span></div><input type="text" class="fi" placeholder="例：5月交車客戶感謝推播"></div>
+        <div><div class="fl">發送通道 <span class="req">*</span></div>
+          <div class="channel-row" style="margin-bottom:0;">
+            <div class="ch-chip" id="ch-line" onclick="selCh('line')">💬 LINE 官方帳號</div>
+            <div class="ch-chip" id="ch-sms" onclick="selCh('sms')">📱 簡訊（SMS）</div>
+            <div class="ch-chip" id="ch-email" onclick="selCh('email')">📧 E-mail</div>
+          </div>
+        </div>
+        <div><div class="fl">選用範本</div>
+          <select class="fs" id="tmpl-select" onchange="updatePreview()">
+            <option value="">— 選擇範本或手動輸入 —</option>
+            <option value="t1">🎉 節慶關懷 — 端午節</option>
+            <option value="t2">🏍️ 新車發表 — Panigale V4 S 2026</option>
+            <option value="t3">🏁 Track Day 邀請</option>
+            <option value="t4">🔧 首保提醒（1,000km）</option>
+            <option value="t5">👤 交車後三個月關懷</option>
+            <option value="t6">🎂 客戶生日祝賀</option>
+            <option value="custom">✏️ 自由撰寫</option>
+          </select>
+        </div>
+        <div><div class="fl">發送時間 <span class="req">*</span></div>
+          <div style="display:flex;gap:8px;">
+            <select class="fs" style="width:auto;" id="send-timing">
+              <option value="schedule">📅 排程發送</option>
+              <option value="now">⚡ 立即發送</option>
+            </select>
+            <input type="datetime-local" class="fi" value="2026-05-15T10:00" id="send-dt">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2 客群篩選 -->
+  <div class="panel mb12">
+    <div class="ph"><div class="ph-l"><div class="pi pi-a">②</div><div><div class="pt">Step 2　目標客群篩選</div><div class="ps">來自 CRM01A 客戶基盤 · 多選條件取交集</div></div></div><span class="badge b-navy" id="target-count">預計觸達：— 人</span></div>
+    <div class="pb">
+      <div class="sec-title">依 HABC 分級</div>
+      <div class="seg-grid" id="habc-seg">
+        <div class="seg-chip" id="sg-h" onclick="selSeg('h',this)"><div class="sc-n" style="color:var(--red);">H</div><div class="sc-l">本月成交意向</div><div class="sc-c" style="color:var(--red);">12 人</div></div>
+        <div class="seg-chip" id="sg-a" onclick="selSeg('a',this)"><div class="sc-n" style="color:var(--amber);">A</div><div class="sc-l">30 天內成交</div><div class="sc-c" style="color:var(--amber);">28 人</div></div>
+        <div class="seg-chip" id="sg-b" onclick="selSeg('b',this)"><div class="sc-n" style="color:var(--teal);">B</div><div class="sc-l">3 個月內成交</div><div class="sc-c" style="color:var(--teal);">45 人</div></div>
+        <div class="seg-chip" id="sg-c" onclick="selSeg('c',this)"><div class="sc-n" style="color:var(--gray);">C</div><div class="sc-l">長期觀望</div><div class="sc-c" style="color:var(--gray);">67 人</div></div>
+        <div class="seg-chip" id="sg-sleep" onclick="selSeg('sleep',this)"><div class="sc-n" style="color:var(--purple);">💤</div><div class="sc-l">休眠客戶</div><div class="sc-c" style="color:var(--purple);">24 人</div></div>
+        <div class="seg-chip" id="sg-all" onclick="selSeg('all',this)"><div class="sc-n" style="color:var(--navy);">全</div><div class="sc-l">全部客戶基盤</div><div class="sc-c" style="color:var(--navy);">176 人</div></div>
+      </div>
+      <div class="sec-title">附加條件篩選（可多選）</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;background:#FAFAF8;border:1px solid #EEECE6;border-radius:6px;padding:5px 10px;transition:.15s;" onclick="this.style.borderColor='var(--navy)';calcTarget()"><input type="checkbox" id="f-td"> 有試駕記錄</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;background:#FAFAF8;border:1px solid #EEECE6;border-radius:6px;padding:5px 10px;transition:.15s;" onclick="calcTarget()"><input type="checkbox"> 交車後 60–90 天</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;background:#FAFAF8;border:1px solid #EEECE6;border-radius:6px;padding:5px 10px;transition:.15s;" onclick="calcTarget()"><input type="checkbox"> Panigale 意向</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;background:#FAFAF8;border:1px solid #EEECE6;border-radius:6px;padding:5px 10px;transition:.15s;" onclick="calcTarget()"><input type="checkbox"> Monster 意向</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;background:#FAFAF8;border:1px solid #EEECE6;border-radius:6px;padding:5px 10px;transition:.15s;" onclick="calcTarget()"><input type="checkbox"> 近 3 個月無互動</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;background:#FAFAF8;border:1px solid #EEECE6;border-radius:6px;padding:5px 10px;transition:.15s;" onclick="calcTarget()"><input type="checkbox"> Track Day 常客標籤</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;background:#FAFAF8;border:1px solid #EEECE6;border-radius:6px;padding:5px 10px;transition:.15s;" onclick="calcTarget()"><input type="checkbox"> 已交車客戶</label>
+      </div>
+      <div style="background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:7px;padding:8px 12px;font-size:12px;color:#0C3E70;">
+        ℹ️ 篩選結果僅包含「已加入 DUCATI LINE 官方帳號」或「已留存手機號碼」的客戶，避免無效發送。
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3 訊息內容與預覽 -->
+  <div class="panel mb12">
+    <div class="ph"><div class="ph-l"><div class="pi pi-t">③</div><div><div class="pt">Step 3　訊息內容與預覽</div></div></div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" id="prev-line" onclick="prevMode('line')">💬 LINE 預覽</button>
+        <button class="btn btn-ghost btn-sm" id="prev-sms" onclick="prevMode('sms')">📱 簡訊預覽</button>
+      </div>
+    </div>
+    <div class="pb">
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;">
+        <!-- 編輯區 -->
+        <div>
+          <div class="fl" style="margin-bottom:6px;">訊息內容 <span class="req">*</span></div>
+          <textarea class="fi" style="height:160px;resize:vertical;line-height:1.7;" id="msg-content" oninput="livePreview()" placeholder="輸入推播訊息內容...
+
+可用變數：
+{{姓名}} — 自動帶入客戶姓名
+{{車款}} — 客戶意向/成交車款
+{{RS姓名}} — 負責銷售顧問
+{{門市電話}} — 門市聯絡電話">DUCATI {{姓名}} 您好，
+
+感謝您選擇 DUCATI {{車款}}，成為我們尊貴的車主！
+
+距離您交車已滿 3 個月，您的愛車目前狀態如何呢？歡迎來店進行首次免費健檢，讓我們的技師為您的座騎做全面確認。
+
+📍 預約請聯繫：{{RS姓名}}
+📞 門市電話：{{門市電話}}
+
+期待再次見到您 🏍️</textarea>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11.5px;color:var(--gray);">
+            <span id="char-count">目前 0 字</span>
+            <span>簡訊上限：160 字（超過將分拆為多則）</span>
+          </div>
+          <div class="sec-title">附加按鈕（LINE 訊息限定）</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" class="fi" placeholder="按鈕文字，例：立即預約" style="flex:1;">
+              <input type="text" class="fi" placeholder="連結 URL" style="flex:2;">
+              <button class="btn btn-ghost btn-sm" onclick="showToast('+ 新增按鈕')">+</button>
+            </div>
+          </div>
+        </div>
+        <!-- 預覽區 -->
+        <div>
+          <div class="fl" style="margin-bottom:6px;">發送預覽</div>
+          <div class="preview-box" id="preview-area">
+            <div class="pb-hdr">💬 LINE 官方帳號預覽</div>
+            <div style="padding:4px 12px 0;font-size:10.5px;color:#888;display:flex;align-items:center;gap:6px;">
+              <div style="width:28px;height:28px;border-radius:50%;background:#C8001A;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">D</div>
+              <span>DUCATI Taiwan</span>
+              <span style="margin-left:auto;font-size:10px;">14:30</span>
+            </div>
+            <div class="line-bubble" id="preview-bubble">DUCATI 王大明 您好，
+
+感謝您選擇 DUCATI Panigale V4 S，成為我們尊貴的車主！
+
+距離您交車已滿 3 個月，您的愛車目前狀態如何呢？歡迎來店進行首次免費健檢，讓我們的技師為您的座騎做全面確認。
+
+📍 預約請聯繫：陳志明
+📞 門市電話：(02)1234-5678
+
+期待再次見到您 🏍️</div>
+            <div class="line-time">已讀 1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fe">
+    <button class="btn btn-ghost" onclick="showToast('💾 推播任務已儲存為草稿')">💾 儲存草稿</button>
+    <button class="btn btn-ghost" onclick="showToast('📤 已發送測試訊息至自己的 LINE')">📤 發送測試</button>
+    <button class="btn btn-green" onclick="confirmSend()">🚀 確認排程發送</button>
+  </div>
+</div>
+
+<!-- ══ TAB 3 發送記錄與成效 ══ -->
+<div class="tab-pane" id="pane-2">
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-l">本月累計發送</div><div class="kpi-n kn-n">856</div><div class="kpi-s">6 次推播任務合計</div></div>
+    <div class="kpi"><div class="kpi-l">已讀 / 開啟率</div><div class="kpi-n kn-g">68%</div><div class="kpi-s">LINE 已讀 580 人</div></div>
+    <div class="kpi"><div class="kpi-l">互動回覆率</div><div class="kpi-n kn-a">24%</div><div class="kpi-s">回覆或點擊 205 人</div></div>
+    <div class="kpi"><div class="kpi-l">推播轉成交</div><div class="kpi-n kn-t">3</div><div class="kpi-s">本月推播後 14 天內成交</div></div>
+  </div>
+
+  <!-- 成效統計 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+    <div class="panel">
+      <div class="ph"><div class="ph-l"><div class="pi pi-g">📈</div><div><div class="pt">各推播任務成效</div></div></div></div>
+      <div class="pb">
+        <div class="prog-row"><span class="prog-lbl">交車3月關懷</span><div class="prog-bar"><div class="prog-fill" style="width:82%;background:#06C755;"></div></div><span class="prog-pct" style="color:var(--green);">82%</span></div>
+        <div class="prog-row"><span class="prog-lbl">生日祝賀</span><div class="prog-bar"><div class="prog-fill" style="width:78%;background:#06C755;"></div></div><span class="prog-pct" style="color:var(--green);">78%</span></div>
+        <div class="prog-row"><span class="prog-lbl">Track Day 邀請</span><div class="prog-bar"><div class="prog-fill" style="width:72%;background:var(--navy);"></div></div><span class="prog-pct" style="color:var(--navy);">72%</span></div>
+        <div class="prog-row"><span class="prog-lbl">首保提醒</span><div class="prog-bar"><div class="prog-fill" style="width:65%;background:var(--amber);"></div></div><span class="prog-pct" style="color:var(--amber);">65%</span></div>
+        <div class="prog-row"><span class="prog-lbl">端午節關懷</span><div class="prog-bar"><div class="prog-fill" style="width:58%;background:var(--amber);"></div></div><span class="prog-pct" style="color:var(--amber);">58%</span></div>
+        <div class="prog-row"><span class="prog-lbl">休眠客戶喚醒</span><div class="prog-bar"><div class="prog-fill" style="width:38%;background:var(--red);"></div></div><span class="prog-pct" style="color:var(--red);">38%</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><div class="ph-l"><div class="pi pi-b">💡</div><div><div class="pt">推播效益分析</div></div></div></div>
+      <div class="pb">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:var(--teal-bg);border:1px solid var(--teal-bd);border-radius:7px;padding:10px 12px;">
+            <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:4px;">✅ 最佳時段</div>
+            <div style="font-size:12px;color:#4A4A48;">週二至週四 10:00–12:00 已讀率最高（平均 76%）</div>
+          </div>
+          <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:7px;padding:10px 12px;">
+            <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:4px;">⚠️ 改善建議</div>
+            <div style="font-size:12px;color:#4A4A48;">「休眠客戶喚醒」開啟率僅 38%，建議改用個人化切入點（如主動提及客戶意向車款）</div>
+          </div>
+          <div style="background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:7px;padding:10px 12px;">
+            <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px;">📌 推播頻率建議</div>
+            <div style="font-size:12px;color:#4A4A48;">同一客戶每月最多 <b>2 次</b>，避免過度打擾導致封鎖</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 發送記錄列表 -->
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-l"><div class="pi pi-b">📋</div><div><div class="pt">推播任務記錄</div><div class="ps">本月全部任務</div></div></div>
+      <div style="display:flex;gap:8px;">
+        <select class="fs" style="font-size:12px;width:auto;padding:5px 8px;" onchange="showToast('🔍 篩選套用')">
+          <option>全部通道</option>
+          <option>LINE</option>
+          <option>簡訊</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('📥 匯出發送記錄 CSV')">匯出</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <div class="log-row hdr">
+        <div>任務名稱</div><div>通道</div><div>發送數</div><div>已讀</div><div>互動</div><div>轉成交</div><div>發送時間</div>
+      </div>
+      <div id="log-list"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end main -->
+<div class="toast" id="toast"></div>
+
+<script>
+function go(url){window.location.href=url;}
+function swTab(n,el){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  el.classList.add('active');
+  document.getElementById('pane-'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ── 範本資料 ── */
+var templates=[
+  {cat:'節慶',ch:'LINE',icon:'🎉',title:'端午節祝賀',body:'{{姓名}} 您好！端午佳節即將到來，祝您和家人安康幸福。DUCATI 台北門市也在此感謝您一直以來的支持，歡迎隨時來店聊聊您的愛車！',used:3,rate:58},
+  {cat:'節慶',ch:'簡訊',icon:'🎊',title:'農曆新年祝賀',body:'DUCATI 敬祝{{姓名}}新春快樂，龍年行大運！歡迎來店體驗最新車款。',used:1,rate:72},
+  {cat:'新車',ch:'LINE',icon:'🏍️',title:'Panigale V4 S 2026 發表',body:'{{姓名}} 您好！全新 2026 Panigale V4 S 正式登台，搭載 Superquadro Mono 引擎，最大馬力 215hp。特別邀請您蒞臨參加發表試駕活動！',used:2,rate:65},
+  {cat:'新車',ch:'兩者',icon:'🚀',title:'新款車型到店通知',body:'親愛的 {{姓名}}，您期待的 {{車款}} 已正式到店！歡迎預約試駕，讓我們的 RS {{RS姓名}} 為您安排最優質的體驗。',used:1,rate:70},
+  {cat:'活動',ch:'LINE',icon:'🏁',title:'Track Day 邀請',body:'{{姓名}} 您好！DUCATI Track Day 賽道日活動即將舉行，地點：大鵬灣國際賽道。名額有限，歡迎確認您的參與！\n\n📅 日期：2026/6/8（日）\n🏁 地點：大鵬灣',used:4,rate:72},
+  {cat:'活動',ch:'LINE',icon:'🎓',title:'DRE 學院課程邀請',body:'{{姓名}} 您好！DUCATI Riding Experience (DRE) 進階騎乘課程開放報名，專為有經驗的騎士設計，提升您在賽道上的操控技術。',used:2,rate:68},
+  {cat:'保養',ch:'LINE',icon:'🔧',title:'首保提醒（1,000km）',body:'{{姓名}} 您好！您的 {{車款}} 應該已接近 1,000km 首保里程，記得回廠讓技師進行首次保養喔！首保完全免費，歡迎預約。',used:5,rate:65},
+  {cat:'保養',ch:'簡訊',icon:'🛠️',title:'年度定期保養提醒',body:'DUCATI通知：{{姓名}}您好，您的{{車款}}年度定期保養時間到囉！預約請洽{{門市電話}}。',used:3,rate:61},
+  {cat:'個人化',ch:'LINE',icon:'👤',title:'交車後3個月關懷',body:'{{姓名}} 您好！\n\n感謝您選擇 DUCATI {{車款}}，距離交車已滿 3 個月，您的愛車狀態如何呢？\n\n歡迎來店進行免費健檢，讓我們的技師為您確認一切正常。\n\n📞 聯繫 {{RS姓名}}：{{門市電話}}',used:6,rate:82},
+  {cat:'個人化',ch:'LINE',icon:'🎂',title:'客戶生日祝賀',body:'{{姓名}} 您好！\n\n今天是您特別的日子，DUCATI 全體同仁祝您生日快樂！🎂\n\n作為我們尊貴的車主，特別準備了生日好禮，歡迎本月來店兌換！',used:4,rate:78},
+  {cat:'個人化',ch:'LINE',icon:'🔄',title:'休眠客戶喚醒',body:'{{姓名}} 您好！好一陣子沒見了，您最近騎車了嗎？\n\n我們最近到了幾款您可能會感興趣的 {{車款}}，歡迎有空來店試試手感，讓我知道您的想法！',used:2,rate:38},
+  {cat:'個人化',ch:'兩者',icon:'💬',title:'節日個人化關懷',body:'{{姓名}} 您好，適逢{{節日}}，特別向您送上誠摯問候。感謝您一直以來對 DUCATI 的支持與喜愛。',used:1,rate:55},
+];
+
+var currentCat='';
+function filterTmpl(cat){
+  currentCat=cat;
+  document.querySelectorAll('[id^="cat-"]').forEach(function(b){
+    b.className='btn btn-ghost btn-sm';
+  });
+  var activeId=cat?'cat-'+{節慶:'festival',新車:'launch',活動:'event',保養:'maint',個人化:'personal'}[cat]:'cat-all';
+  var el=document.getElementById(activeId);
+  if(el)el.className='btn btn-primary btn-sm';
+  renderTmpl();
+}
+
+function renderTmpl(){
+  var list=currentCat?templates.filter(function(t){return t.cat===currentCat;}):templates;
+  var chColor={LINE:'tt-line',簡訊:'tt-sms',兩者:'tt-both'};
+  document.getElementById('tmpl-grid').innerHTML=list.map(function(t,i){
+    var stars=t.rate>=70?'⭐⭐⭐':t.rate>=55?'⭐⭐':'⭐';
+    return '<div class="tmpl-card" id="tc'+i+'" onclick="selectTmpl('+i+')">'
+      +'<div class="tc-hdr"><span class="tc-icon">'+t.icon+'</span><span class="tc-title">'+t.title+'</span><span class="tc-type '+chColor[t.ch]+'">'+t.ch+'</span></div>'
+      +'<div class="tc-body">'+t.body.replace(/\n/g,'<br>').substring(0,80)+'...</div>'
+      +'<div class="tc-footer"><span class="tc-meta">已使用 '+t.used+' 次　'+stars+' '+t.rate+'% 開啟率</span>'
+      +'<button class="btn btn-primary btn-xs" onclick="event.stopPropagation();useTmpl('+i+')">使用此範本</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function selectTmpl(i){
+  document.querySelectorAll('.tmpl-card').forEach(function(c){c.classList.remove('selected');});
+  var el=document.getElementById('tc'+i);
+  if(el)el.classList.add('selected');
+}
+
+function useTmpl(i){
+  swTab(1,document.getElementById('tb1'));
+  document.getElementById('msg-content').value=templates[i].body;
+  livePreview();
+  showToast('✅ 已套用範本：'+templates[i].title);
+}
+
+/* ── 通道選擇 ── */
+function selCh(ch){
+  ['line','sms','email'].forEach(function(c){
+    var el=document.getElementById('ch-'+c);
+    if(el)el.className='ch-chip';
+  });
+  var el=document.getElementById('ch-'+ch);
+  if(el)el.classList.add('sel-'+ch);
+}
+
+/* ── 客群篩選計算 ── */
+var selSegs=[];
+var segCount={h:12,a:28,b:45,c:67,sleep:24,all:176};
+function selSeg(id,el){
+  var idx=selSegs.indexOf(id);
+  if(id==='all'){
+    selSegs=['all'];
+    document.querySelectorAll('.seg-chip').forEach(function(c){c.classList.remove('sel');});
+    el.classList.add('sel');
+  } else {
+    var allEl=document.getElementById('sg-all');
+    if(allEl)allEl.classList.remove('sel');
+    var ai=selSegs.indexOf('all');
+    if(ai>-1)selSegs.splice(ai,1);
+    if(idx>-1){selSegs.splice(idx,1);el.classList.remove('sel');}
+    else{selSegs.push(id);el.classList.add('sel');}
+  }
+  calcTarget();
+}
+
+function calcTarget(){
+  var total=0;
+  if(selSegs.indexOf('all')>-1){total=176;}
+  else{selSegs.forEach(function(s){total+=(segCount[s]||0);});}
+  document.getElementById('target-count').textContent='預計觸達：'+total+' 人';
+}
+
+/* ── 訊息預覽 ── */
+function livePreview(){
+  var txt=document.getElementById('msg-content').value;
+  var preview=txt.replace('{{姓名}}','王大明').replace('{{車款}}','Panigale V4 S').replace('{{RS姓名}}','陳志明').replace('{{門市電話}}','(02)1234-5678');
+  document.getElementById('preview-bubble').innerHTML=preview.replace(/\n/g,'<br>');
+  document.getElementById('char-count').textContent='目前 '+txt.length+' 字';
+}
+
+function prevMode(m){
+  var hdr=document.querySelector('.pb-hdr');
+  if(m==='line'){hdr.textContent='💬 LINE 官方帳號預覽';}
+  else{hdr.textContent='📱 簡訊預覽';}
+  document.getElementById('prev-line').className='btn btn-'+(m==='line'?'primary':'ghost')+' btn-sm';
+  document.getElementById('prev-sms').className='btn btn-'+(m==='sms'?'primary':'ghost')+' btn-sm';
+}
+
+function updatePreview(){
+  var v=document.getElementById('tmpl-select').value;
+  var tmplMap={t1:0,t2:2,t3:4,t4:6,t5:8,t6:9};
+  if(tmplMap[v]!==undefined){
+    document.getElementById('msg-content').value=templates[tmplMap[v]].body;
+    livePreview();
+  }
+}
+
+function confirmSend(){
+  var cnt=document.getElementById('target-count').textContent;
+  if(cnt.includes('—')){showToast('⚠️ 請先選擇目標客群');return;}
+  showToast('🚀 推播任務已排程！'+cnt+'，將於 2026-05-15 10:00 發送');
+}
+
+/* ── 發送記錄 ── */
+var logData=[
+  {name:'交車3月客戶關懷',ch:'LINE',sent:38,read:31,interact:18,convert:1,time:'2026-05-08 10:30'},
+  {name:'Track Day 邀請',ch:'LINE',sent:45,read:32,interact:22,convert:0,time:'2026-05-05 09:00'},
+  {name:'首保提醒',ch:'LINE',sent:12,read:8,interact:6,convert:2,time:'2026-05-03 11:00'},
+  {name:'端午節祝賀',ch:'LINE',sent:176,read:102,interact:38,convert:0,time:'2026-05-01 08:30'},
+  {name:'新車款到店通知',ch:'簡訊',sent:89,read:55,interact:22,convert:0,time:'2026-04-28 14:00'},
+  {name:'休眠客戶喚醒',ch:'LINE',sent:24,read:9,interact:3,convert:0,time:'2026-04-25 10:00'},
+];
+
+function renderLog(){
+  document.getElementById('log-list').innerHTML=logData.map(function(l){
+    var openRate=Math.round(l.read/l.sent*100);
+    var intRate=Math.round(l.interact/l.sent*100);
+    var rateColor=openRate>=70?'var(--green)':openRate>=50?'var(--amber)':'var(--red)';
+    return '<div class="log-row">'
+      +'<div><div style="font-weight:600;font-size:12.5px;">'+l.name+'</div></div>'
+      +'<div><span class="badge '+(l.ch==='LINE'?'b-green':'b-teal')+'">'+l.ch+'</span></div>'
+      +'<div style="font-family:\'DM Mono\',monospace;font-weight:600;">'+l.sent+'</div>'
+      +'<div style="font-weight:700;color:'+rateColor+';">'+openRate+'%</div>'
+      +'<div style="font-weight:700;color:var(--navy);">'+intRate+'%</div>'
+      +'<div style="font-weight:700;color:'+(l.convert>0?'var(--teal)':'var(--gray)')+';">'+l.convert+'</div>'
+      +'<div style="font-size:11.5px;color:var(--gray);">'+l.time+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
+window.onload=function(){renderTmpl();renderLog();livePreview();selCh('line');};
+</script>
+</body>
+</html>
