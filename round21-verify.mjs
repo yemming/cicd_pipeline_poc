@@ -103,11 +103,18 @@ try {
 
   await page.screenshot({ path: `${OUT}/grp13-panel.png`, fullPage: true });
 
-  // 送出（建立活動）
+  // 送出（建立活動）— banner 2.2s 自動消，故在 1.2s 內抓；panel 關閉也是成功訊號
   await page.click('button:has-text("建立活動")');
-  await page.waitForTimeout(3000);
-  const afterCreate = await page.textContent("body");
-  log(afterCreate.includes("已建立活動") || afterCreate.includes(TEST_NAME), "建立活動成功（banner / 列表出現）");
+  await page.waitForTimeout(1200);
+  const bannerText = await page
+    .locator(".fixed.bottom-6.right-6")
+    .textContent()
+    .catch(() => "");
+  const panelClosed = (await page.locator("text=新增促銷活動").count()) === 0;
+  log(
+    (bannerText && bannerText.includes("已建立活動")) || panelClosed,
+    `建立活動成功（banner="${bannerText}" panelClosed=${panelClosed}）`,
+  );
 
   await page.screenshot({ path: `${OUT}/grp13-created.png`, fullPage: true });
 

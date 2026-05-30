@@ -38,10 +38,6 @@ export type PromoCampaignInput = {
   poster?: Partial<PromoPosterInput>;
 };
 
-function genId() {
-  return crypto.randomUUID();
-}
-
 async function requireAdmin(): Promise<
   { ok: true; userId: string; email: string } | { ok: false; error: string }
 > {
@@ -87,7 +83,6 @@ export async function createPromoCampaign(
   if (verr) return { ok: false, error: verr };
 
   const sb = createServiceClient();
-  const id = genId();
   const now = new Date().toISOString();
 
   const config = {
@@ -105,18 +100,22 @@ export async function createPromoCampaign(
     audit_log: [{ action: "created", by: auth.email, at: now }],
   };
 
-  const { error } = await sb.from("business_rules").insert({
-    id,
-    brand_id: input.brand_id,
-    rule_kind: "promo_campaign",
-    config,
-    metadata: { name: input.name.trim(), _seed: "round21-promotions" },
-    is_active: true,
-    sort_order: 0,
-  });
+  // id 交給 DB gen_random_uuid() 預設（不用 crypto.randomUUID — runtime 可能無 global crypto）
+  const { data, error } = await sb
+    .from("business_rules")
+    .insert({
+      brand_id: input.brand_id,
+      rule_kind: "promo_campaign",
+      config,
+      metadata: { name: input.name.trim(), _seed: "round21-promotions" },
+      is_active: true,
+      sort_order: 0,
+    })
+    .select("id")
+    .single();
   if (error) return { ok: false, error: mapError(error) };
   revalidatePath("/group/promotions");
-  return { ok: true, data: { id } };
+  return { ok: true, data: { id: data.id } };
 }
 
 /** 更新活動 */

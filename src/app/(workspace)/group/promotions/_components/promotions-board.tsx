@@ -185,15 +185,19 @@ export function PromotionsBoard({
           template: form.poster_template,
         },
       };
-      const res: ActionResult<{ id: string }> = editing
-        ? await updatePromoCampaign(editing.id, payload)
-        : await createPromoCampaign(payload);
-      if (res.ok) {
-        showBanner(true, editing ? "✓ 已更新活動" : "✓ 已建立活動");
-        setPanelOpen(false);
-        router.refresh();
-      } else {
-        showBanner(false, res.error);
+      try {
+        const res: ActionResult<{ id: string }> = editing
+          ? await updatePromoCampaign(editing.id, payload)
+          : await createPromoCampaign(payload);
+        if (res.ok) {
+          showBanner(true, editing ? "✓ 已更新活動" : "✓ 已建立活動");
+          setPanelOpen(false);
+          router.refresh();
+        } else {
+          showBanner(false, res.error);
+        }
+      } catch (e) {
+        showBanner(false, `操作失敗：${e instanceof Error ? e.message : String(e)}`);
       }
     });
   }
@@ -205,13 +209,17 @@ export function PromotionsBoard({
     closePanel = false,
   ) {
     startTransition(async () => {
-      const res = await fn(id);
-      if (res.ok) {
-        showBanner(true, label);
-        if (closePanel) setPanelOpen(false);
-        router.refresh();
-      } else {
-        showBanner(false, res.error);
+      try {
+        const res = await fn(id);
+        if (res.ok) {
+          showBanner(true, label);
+          if (closePanel) setPanelOpen(false);
+          router.refresh();
+        } else {
+          showBanner(false, res.error);
+        }
+      } catch (e) {
+        showBanner(false, `操作失敗：${e instanceof Error ? e.message : String(e)}`);
       }
     });
   }
