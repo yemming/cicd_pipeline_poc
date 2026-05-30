@@ -35,7 +35,16 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
-import { HEALTH_DIM_LABEL, type HealthDim } from "./group-analytics-labels";
+import {
+  HEALTH_DIM_LABEL,
+  type HealthDim,
+  type DimDef,
+  FUNNEL_STAGES,
+  SOURCE_BUCKETS,
+  CUST_STATES,
+  LOST_REASONS,
+  CHURN_RISK_DAYS,
+} from "./group-analytics-labels";
 
 /* ────────────── 共用型別 ────────────── */
 
@@ -1499,4 +1508,378 @@ export async function getStoreScoreHistory(
   }
 
   return out;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   (A3/A4) 第十九輪 GRP18 集團客戶動態
+   ── 資料策略（路線 b，全 seed、helper 純讀）──
+   集團/門店全部讀 kpi_snapshots（metadata._seed='round19-customer-dynamics'）。
+   集團層 org_id=NULL、門店層帶 round17 既有 5 store uuid、當期 period_month=2026-06-01、
+   NPS 月度為 2026-01..06 六點。
+   ⚠️ helper 純讀 metric_value，**禁止在 helper 硬塞常數**（重演 Health Score 陷阱的點）。
+   ⚠️ v2 資料真相校驗結論：集團漏斗/流失率/NPS/高風險名單**皆無法上捲** round17/既有 seed，
+       全部新 seed；跨頁「共用」以 CHURN_RISK_DAYS 閾值口徑對齊兌現（與 CRM04A 同一份常數）。
+
+   【資料合約 — kpi_snapshots（staff_id=NULL；集團 org_id=NULL / 門店 org_id=store uuid）】
+     ◦ KPI：cust_active_total / new_cust_total / repurchase_rate(0..1) / churn_rate(0..1) / group_nps
+     ◦ 漏斗：lc_funnel_{prospect,contact,testride,firstbuy,repurchase}（計數；集團=5 店加總）
+     ◦ 來源 donut：source_{referral,event,online,walkin,other}（百分比，每 scope 合 100）
+     ◦ 客戶狀態：cust_state_{active,dormant60,dormant120,dormant180,lost}（集團計數）
+     ◦ 門店流動：flow_{new,repeat,churn}（per-store 計數）
+     ◦ 流失原因：lost_reason_{service,competitor,price,relocate,other}（集團百分比）
+     ◦ NPS 月度：nps_monthly（period_month=月份 2026-01..06；集團 org_id=NULL / 門店 org_id=store）
+     ◦ 高風險彙總：risk_over90 / risk_over180 / risk_avg_days / risk_pct_active（per-store）
+     ◦ 高風險計數：churn_risk_high_count（集團合計 + 各店）
+     ◦ 逐客戶名單：cust_list（per-store；計數在 metric_value、明細在 metadata.customers[] jsonb 陣列）
+   ══════════════════════════════════════════════════════════════ */
+
+/** 一個維度的 metric 值（key/label/color + 值）。 */
+export type CustomerMetricDatum = DimDef & { value: number | null };
+
+/** 客戶關鍵指標（集團 / 門店共用）。 */
+export type CustomerKpis = {
+  active: number | null; // cust_active_total
+  newCust: number | null; // new_cust_total
+  repurchaseRate: number | null; // repurchase_rate 0..1
+  churnRate: number | null; // churn_rate 0..1
+  nps: number | null; // 集團=group_nps；門店=nps_monthly 末點
+};
+
+/** NPS 月度走勢一點（month=YYYY-MM-01）。 */
+export type NpsPoint = { month: string; value: number | null };
+
+/** 集團彙總高風險表一列（per-store）。 */
+export type StoreRiskRow = {
+  store: StoreLite;
+  over90: number | null;
+  over180: number | null;
+  avgDays: number | null;
+  pctActive: number | null; // 已是百分比值（2.4 而非 0.024）
+  /** 規則生成的建議行動 */
+  action: { level: "warn" | "danger"; text: string };
+};
+
+/** 門店客戶流動對比一列（per-store new/repeat/churn）。 */
+export type StoreFlowRow = {
+  store: StoreLite;
+  newCust: number | null;
+  repeat: number | null;
+  churn: number | null;
+};
+
+/** 單一匿名客戶（cust_list metadata.customers[] 陣列元素）。 */
+export type CustomerRow = {
+  id: string;
+  model: string;
+  buyDate: string;
+  lastVisit: string;
+  days: number;
+  warranty: string;
+  visits: number;
+  type: string;
+  risk: "low" | "warn" | "danger";
+};
+
+/** GRP18 集團總覽（一頁打天下的集團視圖）。 */
+export type GroupCustomerDynamics = {
+  period: string;
+  kpis: CustomerKpis;
+  funnel: CustomerMetricDatum[];
+  sources: CustomerMetricDatum[];
+  states: CustomerMetricDatum[];
+  lostReasons: CustomerMetricDatum[];
+  storeFlow: StoreFlowRow[];
+  npsTrend: NpsPoint[];
+  riskTable: StoreRiskRow[];
+  riskTotal: { over90: number; over180: number; avgDays: number | null; pctActive: number | null };
+  highRiskCount: number | null; // churn_risk_high_count（集團）
+  alerts: string[]; // 規則生成
+};
+
+/** GRP18 單店深鑽視圖。 */
+export type StoreCustomerJourney = {
+  store: StoreLite;
+  period: string;
+  kpis: CustomerKpis;
+  funnel: CustomerMetricDatum[];
+  npsTrend: NpsPoint[];
+  miniStats: Array<{ label: string; value: string; tone: "navy" | "green" | "amber" | "red" }>;
+  customers: CustomerRow[];
+  highRisk: CustomerRow[]; // days >= CHURN_RISK_DAYS.high
+  highRiskCount: number | null;
+  alerts: string[];
+};
+
+/* ────────────── GRP18 內部 loader / 工具 ────────────── */
+
+/** 撈集團層（org_id IS NULL）某期所有 metric。未指定 period → 鎖最新一期。 */
+async function loadGroupMetrics(
+  client: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+  period?: string,
+): Promise<{ period: string | null; metrics: Map<string, number | null> }> {
+  let query = client
+    .from("kpi_snapshots")
+    .select("period_month, metric_key, metric_value")
+    .eq("brand_id", brandId)
+    .is("org_id", null)
+    .is("staff_id", null);
+  if (period) query = query.eq("period_month", period);
+  const { data } = await query.order("period_month", { ascending: false });
+  const rows = (data ?? []) as Array<{
+    period_month: string;
+    metric_key: string;
+    metric_value: number | null;
+  }>;
+  if (rows.length === 0) return { period: period ?? null, metrics: new Map() };
+  // nps_monthly 跨 6 期 → 鎖定最新一期只取當期 snapshot metric（趨勢另由 loadNpsMonthly 撈）
+  const targetPeriod = period ?? rows[0].period_month;
+  const metrics = new Map<string, number | null>();
+  for (const r of rows) {
+    if (r.period_month !== targetPeriod) continue;
+    if (!metrics.has(r.metric_key)) metrics.set(r.metric_key, r.metric_value);
+  }
+  return { period: targetPeriod, metrics };
+}
+
+/** 撈 nps_monthly 月度序列（org_id=null 集團 / =store 門店），舊→新。 */
+async function loadNpsMonthly(
+  client: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+  orgId: string | null,
+): Promise<NpsPoint[]> {
+  let q = client
+    .from("kpi_snapshots")
+    .select("period_month, metric_value")
+    .eq("brand_id", brandId)
+    .eq("metric_key", "nps_monthly")
+    .is("staff_id", null);
+  q = orgId === null ? q.is("org_id", null) : q.eq("org_id", orgId);
+  const { data } = await q.order("period_month", { ascending: true });
+  return ((data ?? []) as Array<{ period_month: string; metric_value: number | null }>).map((r) => ({
+    month: r.period_month,
+    value: r.metric_value,
+  }));
+}
+
+/** 撈某店 cust_list 的匿名客戶陣列（metadata.customers jsonb）。 */
+async function loadCustList(
+  client: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+  storeId: string,
+): Promise<CustomerRow[]> {
+  const { data } = await client
+    .from("kpi_snapshots")
+    .select("metadata")
+    .eq("brand_id", brandId)
+    .eq("org_id", storeId)
+    .eq("metric_key", "cust_list")
+    .order("period_month", { ascending: false })
+    .limit(1);
+  const row = (data ?? [])[0] as { metadata: { customers?: CustomerRow[] } | null } | undefined;
+  return row?.metadata?.customers ?? [];
+}
+
+/** Map + DimDef[] → 帶值的維度清單。 */
+function dimData(metrics: Map<string, number | null>, defs: DimDef[]): CustomerMetricDatum[] {
+  return defs.map((d) => ({ ...d, value: m(metrics, d.key) }));
+}
+
+/** rate(0..1) → "7.2%"（確定性格式，缺回 "—"）。 */
+function pct1(rate: number | null): string {
+  if (rate == null) return "—";
+  return `${(rate * 100).toFixed(1)}%`;
+}
+
+/** 高風險彙總建議行動（規則：均值 ≥150 天 或 ≥10 名 180 天 → 優先電話；否則 關懷簡訊）。 */
+function riskAction(
+  avgDays: number | null,
+  over180: number | null,
+): { level: "warn" | "danger"; text: string } {
+  if ((avgDays != null && avgDays >= 150) || (over180 != null && over180 >= 10)) {
+    return { level: "danger", text: "優先電話關懷" };
+  }
+  return { level: "warn", text: "發送關懷簡訊" };
+}
+
+/* ────────────── (A3) getGroupCustomerDynamics（GRP18 集團視圖） ────────────── */
+
+/**
+ * 集團客戶動態總覽。集團 KPI/漏斗/來源/狀態/流失原因讀 org_id=NULL；
+ * 門店流動 bar + 高風險彙總表迴圈撈各店 org_id；NPS 走勢撈集團 nps_monthly 6 點。
+ * 無 seed（metrics 空）回 null。
+ */
+export async function getGroupCustomerDynamics(
+  brandId: string,
+  opts: { period?: string } = {},
+): Promise<GroupCustomerDynamics | null> {
+  const client = await createClient();
+  const { period, metrics } = await loadGroupMetrics(client, brandId, opts.period);
+  if (metrics.size === 0) return null;
+  const periodStr = period ?? opts.period ?? "";
+
+  const stores = await listDiagnosticStores(brandId);
+
+  // per-store 流動 + 高風險彙總（量小，迴圈撈，與 getDealerHealthScores 同 pattern）
+  const storeFlow: StoreFlowRow[] = [];
+  const riskTable: StoreRiskRow[] = [];
+  const storeNps = new Map<string, number | null>(); // alert 用：該店當前 nps = nps_monthly 末點
+  for (const store of stores) {
+    const { metrics: sm } = await loadStoreMetrics(
+      client,
+      brandId,
+      store.id,
+      periodStr || undefined,
+    );
+    storeFlow.push({
+      store,
+      newCust: m(sm, "flow_new"),
+      repeat: m(sm, "flow_repeat"),
+      churn: m(sm, "flow_churn"),
+    });
+    const over90 = m(sm, "risk_over90");
+    const over180 = m(sm, "risk_over180");
+    const avgDays = m(sm, "risk_avg_days");
+    const pctActive = m(sm, "risk_pct_active");
+    riskTable.push({ store, over90, over180, avgDays, pctActive, action: riskAction(avgDays, over180) });
+    storeNps.set(store.id, m(sm, "nps_monthly"));
+  }
+
+  // 集團合計（over90/over180 加總、avgDays 以 over90 加權、pctActive=over90/active）
+  const sumOver90 = riskTable.reduce((s, r) => s + (r.over90 ?? 0), 0);
+  const sumOver180 = riskTable.reduce((s, r) => s + (r.over180 ?? 0), 0);
+  const weightedDays = riskTable.reduce((s, r) => s + (r.avgDays ?? 0) * (r.over90 ?? 0), 0);
+  const avgDaysTotal = sumOver90 > 0 ? Math.round(weightedDays / sumOver90) : null;
+  const activeTotal = m(metrics, "cust_active_total");
+  const pctActiveTotal =
+    activeTotal && activeTotal > 0 ? Number(((sumOver90 / activeTotal) * 100).toFixed(1)) : null;
+
+  const npsTrend = await loadNpsMonthly(client, brandId, null);
+
+  // 規則生成 alerts（3 條：最嚴重 180 天店 / 集團流失率 vs 警戒線 / NPS 最低店）
+  const alerts: string[] = [];
+  const worst180 = [...riskTable].sort((a, b) => (b.over180 ?? 0) - (a.over180 ?? 0))[0];
+  if (worst180 && (worst180.over180 ?? 0) > 0) {
+    alerts.push(`${worst180.store.name}：${worst180.over180} 名客戶超過 180 天未回廠，流失風險高`);
+  }
+  const churn = m(metrics, "churn_rate");
+  if (churn != null) {
+    alerts.push(`集團整體客戶流失率 ${pct1(churn)}，${churn * 100 > 7 ? "高於" : "低於"}警戒線 7%`);
+  }
+  let lowestNpsStore: StoreLite | null = null;
+  let lowestNps = Infinity;
+  for (const s of stores) {
+    const v = storeNps.get(s.id);
+    if (v != null && v < lowestNps) {
+      lowestNps = v;
+      lowestNpsStore = s;
+    }
+  }
+  if (lowestNpsStore && lowestNps !== Infinity) {
+    alerts.push(`${lowestNpsStore.name} NPS +${lowestNps} 為集團最低，需強化服務體驗`);
+  }
+
+  return {
+    period: periodStr,
+    kpis: {
+      active: activeTotal,
+      newCust: m(metrics, "new_cust_total"),
+      repurchaseRate: m(metrics, "repurchase_rate"),
+      churnRate: churn,
+      nps: m(metrics, "group_nps"),
+    },
+    funnel: dimData(metrics, FUNNEL_STAGES),
+    sources: dimData(metrics, SOURCE_BUCKETS),
+    states: dimData(metrics, CUST_STATES),
+    lostReasons: dimData(metrics, LOST_REASONS),
+    storeFlow,
+    npsTrend,
+    riskTable,
+    riskTotal: { over90: sumOver90, over180: sumOver180, avgDays: avgDaysTotal, pctActive: pctActiveTotal },
+    highRiskCount: m(metrics, "churn_risk_high_count"),
+    alerts,
+  };
+}
+
+/* ────────────── (A4) getStoreCustomerJourney（GRP18 單店深鑽） ────────────── */
+
+/**
+ * 單店客戶動態明細。KPI/漏斗/高風險計數讀該店當期 metric；NPS 撈該店 6 點走勢；
+ * 客戶名單從 cust_list metadata.customers 取；高風險子集 = days >= CHURN_RISK_DAYS.high。
+ * 門店不存在或無 seed 回 null。
+ */
+export async function getStoreCustomerJourney(
+  brandId: string,
+  storeId: string,
+  opts: { period?: string } = {},
+): Promise<StoreCustomerJourney | null> {
+  const client = await createClient();
+  const stores = await listDiagnosticStores(brandId);
+  const store = stores.find((s) => s.id === storeId);
+  if (!store) return null;
+
+  const { period, metrics } = await loadStoreMetrics(client, brandId, storeId, opts.period);
+  if (metrics.size === 0) return null;
+  const periodStr = period ?? opts.period ?? "";
+
+  const npsTrend = await loadNpsMonthly(client, brandId, storeId);
+  const customers = await loadCustList(client, brandId, storeId);
+  const npsCurrent = npsTrend.length ? npsTrend[npsTrend.length - 1].value : m(metrics, "nps_monthly");
+
+  const active = m(metrics, "cust_active_total");
+  const newCust = m(metrics, "new_cust_total");
+  const churnRate = m(metrics, "churn_rate");
+  const highRisk = customers.filter((c) => c.days >= CHURN_RISK_DAYS.high);
+
+  const npsTone: "navy" | "green" | "amber" | "red" =
+    npsCurrent == null
+      ? "navy"
+      : npsCurrent >= 45
+        ? "green"
+        : npsCurrent >= 35
+          ? "navy"
+          : npsCurrent >= 30
+            ? "amber"
+            : "red";
+  const miniStats: StoreCustomerJourney["miniStats"] = [
+    { label: "活躍客戶", value: active != null ? String(active) : "—", tone: "navy" },
+    { label: "本季新客戶", value: newCust != null ? String(newCust) : "—", tone: "green" },
+    { label: "NPS", value: npsCurrent != null ? `+${npsCurrent}` : "—", tone: npsTone },
+  ];
+
+  const alerts: string[] = [];
+  if (churnRate != null && churnRate * 100 > 7) {
+    alerts.push(`客戶流失率 ${pct1(churnRate)}，超過警戒線 7%，建議啟動客戶挽留計畫`);
+  }
+  const over180 = m(metrics, "risk_over180");
+  if (over180 != null && over180 >= 10) {
+    alerts.push(`${over180} 名客戶超過 180 天未回廠，建議優先電話關懷`);
+  }
+  if (npsTrend.length >= 2) {
+    const first = npsTrend[0].value;
+    const last = npsTrend[npsTrend.length - 1].value;
+    if (first != null && last != null) {
+      if (last < first) alerts.push(`NPS 近半年由 +${first} 下滑至 +${last}，需強化服務體驗`);
+      else if (last > first) alerts.push(`NPS 近半年由 +${first} 回升至 +${last}，維持現有服務策略`);
+    }
+  }
+
+  return {
+    store,
+    period: periodStr,
+    kpis: {
+      active,
+      newCust,
+      repurchaseRate: m(metrics, "repurchase_rate"),
+      churnRate,
+      nps: npsCurrent,
+    },
+    funnel: dimData(metrics, FUNNEL_STAGES),
+    npsTrend,
+    miniStats,
+    customers,
+    highRisk,
+    highRiskCount: m(metrics, "churn_risk_high_count"),
+    alerts,
+  };
 }
