@@ -56,8 +56,12 @@ export interface D3ScatterChartProps<T> {
   yFormat?: (v: number) => string;
   /** 主色（象限/十字/軸用）— 銷售藍 #1A3A5C / 售後綠 #0F6E56 */
   colorTheme?: string;
-  /** 點形狀：銷售圓、SA 菱形 */
-  markerShape?: ScatterMarkerShape;
+  /**
+   * 點形狀：銷售圓、SA 菱形。
+   *   - 字串：整張圖同一形狀（round-16 既有用法，行為完全不變）。
+   *   - 函式：逐點決定形狀（GRP11 跨部門 — 同圖內 ●=銷售 ◆=售後）。
+   */
+  markerShape?: ScatterMarkerShape | ((d: T) => ScatterMarkerShape);
   /** 點的診斷分類（上色/描邊用）；不給時全部 neutral */
   tagOf?: (d: T) => ScatterTag;
   /** hover tooltip 內容；不給時用 fallbackLabel + 兩軸數值自組 */
@@ -65,6 +69,11 @@ export interface D3ScatterChartProps<T> {
   /** 沒給 tooltip 時，點的主標題（通常是姓名）；再加門店副標 */
   fallbackLabel?: (d: T) => string;
   fallbackSubLabel?: (d: T) => string | null;
+  /**
+   * 常駐姓名小標籤（GRP11 跨部門能效用）：給了才在點右側渲染一行小字。
+   * 不給時行為與 round-16 完全一致（無標籤）。
+   */
+  showLabel?: (d: T) => string;
   /** 高度（px）；寬度自適應容器 */
   height?: number;
   /** 沒資料時的訊息 */
@@ -97,6 +106,7 @@ export function D3ScatterChart<T>({
   tooltip,
   fallbackLabel,
   fallbackSubLabel,
+  showLabel,
   height = 280,
   emptyMessage = "尚無資料",
 }: D3ScatterChartProps<T>) {
@@ -307,32 +317,52 @@ export function D3ScatterChart<T>({
             const color = SCATTER_TAG_COLOR[p.tag];
             const isHover = hover?.d === p.d;
             const r = isHover ? 7 : 5;
-            return markerShape === "diamond" ? (
-              <path
-                key={`pt-${uid}-${i}`}
-                d={markerPath(cx, cy, r)}
-                fill={color.fill}
-                stroke={color.stroke}
-                strokeWidth={isHover ? 2 : 1}
-                fillOpacity={0.85}
-                style={{ cursor: "pointer", transition: "d 80ms" }}
-                onMouseEnter={() => onEnter(p)}
-                onMouseLeave={onLeave}
-              />
-            ) : (
-              <circle
-                key={`pt-${uid}-${i}`}
-                cx={cx}
-                cy={cy}
-                r={r}
-                fill={color.fill}
-                stroke={color.stroke}
-                strokeWidth={isHover ? 2 : 1}
-                fillOpacity={0.85}
-                style={{ cursor: "pointer", transition: "r 80ms" }}
-                onMouseEnter={() => onEnter(p)}
-                onMouseLeave={onLeave}
-              />
+            // 常駐姓名小標籤（GRP11）：給了 showLabel 才渲染，放點右側、小字弱化色
+            const label = showLabel ? showLabel(p.d) : null;
+            // markerShape 可為字串（整圖同形狀）或函式（逐點決定，GRP11 跨部門用）
+            const shape: ScatterMarkerShape =
+              typeof markerShape === "function" ? markerShape(p.d) : markerShape;
+            const marker =
+              shape === "diamond" ? (
+                <path
+                  d={markerPath(cx, cy, r)}
+                  fill={color.fill}
+                  stroke={color.stroke}
+                  strokeWidth={isHover ? 2 : 1}
+                  fillOpacity={0.85}
+                  style={{ cursor: "pointer", transition: "d 80ms" }}
+                  onMouseEnter={() => onEnter(p)}
+                  onMouseLeave={onLeave}
+                />
+              ) : (
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={r}
+                  fill={color.fill}
+                  stroke={color.stroke}
+                  strokeWidth={isHover ? 2 : 1}
+                  fillOpacity={0.85}
+                  style={{ cursor: "pointer", transition: "r 80ms" }}
+                  onMouseEnter={() => onEnter(p)}
+                  onMouseLeave={onLeave}
+                />
+              );
+            return (
+              <g key={`pt-${uid}-${i}`}>
+                {marker}
+                {label ? (
+                  <text
+                    x={cx + r + 3}
+                    y={cy + 3.5}
+                    fontSize={9.5}
+                    fill="#5A5955"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    {label}
+                  </text>
+                ) : null}
+              </g>
             );
           })}
 
