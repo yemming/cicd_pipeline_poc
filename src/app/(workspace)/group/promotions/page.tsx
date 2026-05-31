@@ -1,4 +1,5 @@
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   listPromoCampaigns,
   listPromoStoreExec,
@@ -15,12 +16,12 @@ export default async function PromotionsPage() {
     return <main className="p-8 text-[14px] text-[#CC0000]">請先登入</main>;
   }
 
-  const brandId = "indian";
+  const { brand_id } = await getActiveScope();
   const [campaigns, storeExec, effect, overview] = await Promise.all([
-    listPromoCampaigns(brandId),
-    listPromoStoreExec(brandId),
-    listPromoEffect(brandId),
-    getPromoOverview(brandId),
+    listPromoCampaigns(brand_id),
+    listPromoStoreExec(brand_id),
+    listPromoEffect(brand_id),
+    getPromoOverview(brand_id),
   ]);
 
   return (
@@ -30,7 +31,6 @@ export default async function PromotionsPage() {
       effect={effect}
       overview={overview}
       canEdit={isAdmin}
-      brandId={brandId}
     />
   );
 }

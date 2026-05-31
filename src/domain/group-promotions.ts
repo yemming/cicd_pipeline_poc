@@ -137,6 +137,21 @@ export async function listPromoCampaigns(brandId: string): Promise<PromoCampaign
   return (data ?? []).map(rowToCampaign);
 }
 
+/** 撈單筆促銷活動（找不到回 null）。 */
+export async function getPromoCampaign(brandId: string, id: string): Promise<PromoCampaign | null> {
+  const sb = await createClient();
+  const { data, error } = await sb
+    .from("business_rules")
+    .select("*")
+    .eq("rule_kind", "promo_campaign")
+    .eq("brand_id", brandId)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return rowToCampaign(data);
+}
+
 export async function listPromoStoreExec(brandId: string): Promise<PromoStoreExec[]> {
   const sb = await createClient();
   const { data, error } = await sb
