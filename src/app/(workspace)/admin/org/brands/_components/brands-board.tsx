@@ -1,13 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import {
-  createBrandAction,
-  updateBrandAction,
-  deleteBrandAction,
-} from "@/lib/rbac/org-actions";
-import { Modal, ModalFooter, Field } from "../../groups/_components/groups-board";
+import { deleteBrandAction } from "@/lib/rbac/org-actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
@@ -27,7 +24,14 @@ const brandColumns: DataGridColumn<Row>[] = [
     header: "Brand ID",
     width: 120,
     hideable: false,
-    cell: (r) => <span className="font-mono">{r.id}</span>,
+    cell: (r) => (
+      <Link
+        href={`/admin/org/brands/${r.id}`}
+        className="font-mono font-semibold text-[#1A3A5C] hover:underline"
+      >
+        {r.id}
+      </Link>
+    ),
     exportValue: (r) => r.id,
     sortValue: (r) => r.id,
   },
@@ -35,7 +39,11 @@ const brandColumns: DataGridColumn<Row>[] = [
     id: "name",
     header: "名稱",
     width: 160,
-    cell: (r) => <span className="font-medium">{r.name}</span>,
+    cell: (r) => (
+      <Link href={`/admin/org/brands/${r.id}`} className="font-medium text-[#185FA5] hover:underline">
+        {r.name}
+      </Link>
+    ),
     exportValue: (r) => r.name,
     sortValue: (r) => r.name,
   },
@@ -81,60 +89,15 @@ const brandColumns: DataGridColumn<Row>[] = [
 ];
 
 export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) {
+  void groups;
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
-  const [showForm, setShowForm] = useState<{ mode: "create" } | { mode: "edit"; row: Row } | null>(null);
-
-  const [fId, setFId] = useState("");
-  const [fName, setFName] = useState("");
-  const [fMfg, setFMfg] = useState("");
-  const [fGroups, setFGroups] = useState<Set<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
 
   const flash = (ok: boolean, msg: string) => {
     setBanner({ ok, msg });
     if (ok) setTimeout(() => setBanner(null), 2200);
-  };
-
-  const open = (mode: "create" | "edit", row?: Row) => {
-    if (mode === "create") {
-      setFId("");
-      setFName("");
-      setFMfg("");
-      setFGroups(new Set());
-      setShowForm({ mode: "create" });
-    } else if (row) {
-      setFId(row.id);
-      setFName(row.name);
-      setFMfg(row.manufacturer ?? "");
-      setFGroups(new Set(row.group_ids));
-      setShowForm({ mode: "edit", row });
-    }
-  };
-
-  const submit = () => {
-    startTransition(async () => {
-      if (showForm?.mode === "create") {
-        const res = await createBrandAction({
-          id: fId,
-          name: fName,
-          manufacturer: fMfg,
-          group_ids: [...fGroups],
-        });
-        if (!res.ok) return flash(false, res.error);
-        flash(true, "✓ 已建立");
-      } else if (showForm?.mode === "edit") {
-        const res = await updateBrandAction(showForm.row.id, {
-          name: fName,
-          manufacturer: fMfg,
-          group_ids: [...fGroups],
-        });
-        if (!res.ok) return flash(false, res.error);
-        flash(true, "✓ 已更新");
-      }
-      setShowForm(null);
-      setTimeout(() => window.location.reload(), 600);
-    });
   };
 
   const remove = (row: Row) => {
@@ -148,15 +111,8 @@ export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) 
       const res = await deleteBrandAction(row.id);
       if (!res.ok) return flash(false, res.error);
       flash(true, "✓ 已刪除");
-      setTimeout(() => window.location.reload(), 600);
+      router.refresh();
     });
-  };
-
-  const toggleGroup = (gid: string) => {
-    const next = new Set(fGroups);
-    if (next.has(gid)) next.delete(gid);
-    else next.add(gid);
-    setFGroups(next);
   };
 
   return (
@@ -179,7 +135,7 @@ export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) 
         </span>
         <button
           type="button"
-          onClick={() => open("create")}
+          onClick={() => router.push("/admin/org/brands/new")}
           className="ml-auto h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742]"
         >
           ＋ 新增品牌
@@ -198,7 +154,7 @@ export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) 
           <>
             <button
               type="button"
-              onClick={() => open("edit", r)}
+              onClick={() => router.push(`/admin/org/brands/${r.id}`)}
               className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
             >
               編輯
@@ -216,69 +172,6 @@ export function BrandsBoard({ rows, groups }: { rows: Row[]; groups: Group[] }) 
         rowActionsWidth={150}
       />
 
-      {showForm && (
-        <Modal
-          title={showForm.mode === "create" ? "新增品牌" : `編輯品牌 — ${showForm.row.id}`}
-          onClose={() => setShowForm(null)}
-        >
-          <div className="space-y-3 px-4 py-4">
-            <Field label="Brand ID" required>
-              <input
-                value={fId}
-                disabled={showForm.mode === "edit"}
-                onChange={(e) => setFId(e.target.value)}
-                placeholder="例：bmw"
-                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] w-full font-mono disabled:bg-[#F8F7F4] disabled:text-[#9A9890]"
-              />
-            </Field>
-            <Field label="品牌名稱" required>
-              <input
-                value={fName}
-                onChange={(e) => setFName(e.target.value)}
-                placeholder="例：BMW"
-                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] w-full"
-              />
-            </Field>
-            <Field label="原廠">
-              <input
-                value={fMfg}
-                onChange={(e) => setFMfg(e.target.value)}
-                placeholder="例：BMW Group"
-                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] w-full"
-              />
-            </Field>
-            <Field label="代理集團（多選）">
-              <div className="border border-[#D5D3CB] rounded p-2 max-h-[180px] overflow-y-auto space-y-1">
-                {groups.length === 0 ? (
-                  <span className="text-[11.5px] text-[#9A9890] italic">尚無集團</span>
-                ) : (
-                  groups.map((g) => (
-                    <label
-                      key={g.id}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-[#F8F7F4] px-1.5 py-0.5 rounded"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={fGroups.has(g.id)}
-                        onChange={() => toggleGroup(g.id)}
-                        className="w-4 h-4 accent-[#0F6E56]"
-                      />
-                      <span className="text-[12px]">{g.name}</span>
-                      <span className="text-[10.5px] text-[#9A9890] font-mono ml-auto">{g.id}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-            </Field>
-          </div>
-          <ModalFooter
-            pending={pending}
-            onCancel={() => setShowForm(null)}
-            onSubmit={submit}
-            submitLabel={showForm.mode === "create" ? "建立" : "儲存變更"}
-          />
-        </Modal>
-      )}
       {confirmDelete && (
         <ConfirmDialog
           title="確定刪除品牌？"

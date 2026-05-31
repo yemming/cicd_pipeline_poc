@@ -1,10 +1,17 @@
 "use client";
 
-import { useTransition } from "react";
+import Link from "next/link";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import {
+  deleteCustomerContactAction,
+  setCustomerContactActiveAction,
+} from "@/lib/master-data/customer-contact-actions";
 import type { CustomerContact } from "@/lib/parts/types";
+
+type Banner = { ok: boolean; msg: string } | null;
 
 const ROLE_LABEL: Record<string, string> = {
   primary: "主要",
@@ -33,9 +40,40 @@ export function CustomerContactsBoard({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [banner, setBanner] = useState<Banner>(null);
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const lockedClass = isPending ? "pointer-events-none opacity-60" : "";
+
+  const showBanner = (b: Banner) => {
+    setBanner(b);
+    if (b?.ok) setTimeout(() => setBanner(null), 2200);
+  };
+
+  const toggleActive = (c: CustomerContact) => {
+    startTransition(async () => {
+      const res = await setCustomerContactActiveAction(c.id, !c.is_active);
+      if (res.ok) {
+        showBanner({ ok: true, msg: c.is_active ? "✓ 已停用" : "✓ 已啟用" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  const removeRow = (c: CustomerContact) => {
+    if (!confirm(`刪除聯絡人「${c.name}」？此動作無法復原。`)) return;
+    startTransition(async () => {
+      const res = await deleteCustomerContactAction(c.id);
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已刪除" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
 
   const columns: DataGridColumn<CustomerContact>[] = [
     {
@@ -57,7 +95,15 @@ export function CustomerContactsBoard({
       id: "name",
       header: "姓名",
       width: 140,
-      cell: (c) => <span className="font-medium">{c.name}</span>,
+      hideable: false,
+      cell: (c) => (
+        <Link
+          href={`/admin/master-data/customer-contacts/${c.id}`}
+          className="font-medium text-[#185FA5] hover:underline"
+        >
+          {c.name}
+        </Link>
+      ),
       exportValue: (c) => c.name,
       sortValue: (c) => c.name,
     },
@@ -138,15 +184,38 @@ export function CustomerContactsBoard({
           Master Data
         </span>
         <span className="text-[12px] text-[#9A9890]">
-          跨客戶總覽；新增 / 編輯請至各客戶詳情頁
+          跨客戶總覽；點姓名進詳情頁檢視 / 編輯
         </span>
       </header>
+
+      {banner && (
+        <div
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
+            banner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          }`}
+        >
+          {banner.msg}
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">
           共 <b className="text-[#2C2C2A]">{rows.length.toLocaleString("en-US")}</b>{" "}
           筆聯絡人
         </span>
+        <div className="ml-auto flex gap-1.5">
+          <button
+            onClick={() =>
+              router.push("/admin/master-data/customer-contacts/new")
+            }
+            disabled={isPending}
+            className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+          >
+            ＋ 新增聯絡人
+          </button>
+        </div>
       </div>
 
       <DataGrid
@@ -158,19 +227,31 @@ export function CustomerContactsBoard({
         emptyMessage="尚無聯絡人 — 至各客戶詳情頁新增"
         disabled={isPending}
         rowActions={(c) => (
-          <button
-            onClick={() =>
-              startTransition(() =>
-                router.push(
-                  `/admin/master-data/customers/${c.customer_id}/contacts/${c.id}`,
-                ),
-              )
-            }
-            disabled={isPending}
-            className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
-          >
-            查看客戶
-          </button>
+          <>
+            <button
+              onClick={() =>
+                router.push(`/admin/master-data/customer-contacts/${c.id}`)
+              }
+              disabled={isPending}
+              className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              編輯
+            </button>
+            <button
+              onClick={() => toggleActive(c)}
+              disabled={isPending}
+              className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              {c.is_active ? "停用" : "啟用"}
+            </button>
+            <button
+              onClick={() => removeRow(c)}
+              disabled={isPending}
+              className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-40"
+            >
+              刪除
+            </button>
+          </>
         )}
       />
     </main>

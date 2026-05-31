@@ -14,6 +14,7 @@ import type {
   EmployeeRoleType,
   EmployeeRoleInput,
   EmployeeRoleUpdateInput,
+  EmployeeUsingRole,
   RoleActionResult,
 } from "./employee-roles.constants";
 import { ROLE_DEFAULT_COLOR, SYSTEM_ROLE_DELETE_MSG } from "./employee-roles.constants";
@@ -140,6 +141,27 @@ export async function deactivateEmployeeRoleType(
   code: string,
 ): Promise<RoleActionResult<{ code: string }>> {
   return updateEmployeeRoleType(code, { is_active: false });
+}
+
+/** 反查：哪些員工把此角色 code 列在 role_codes（detail page 唯讀呈現關聯，不做反向編輯） */
+export async function listEmployeesUsingRole(
+  code: string,
+): Promise<EmployeeUsingRole[]> {
+  if (!code) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("employees")
+    .select("id, emp_code, name, brand_id, is_active")
+    .contains("role_codes", [code])
+    .order("name");
+  if (error) throw new Error(`listEmployeesUsingRole: ${error.message}`);
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    emp_code: (r.emp_code as string | null) ?? null,
+    name: r.name as string,
+    brand_id: (r.brand_id as string | null) ?? null,
+    is_active: Boolean(r.is_active),
+  }));
 }
 
 /** 顯示用：給 chip 渲染（依 code 找 name_zh/color），不在用清單裡的 code 回 null */

@@ -265,6 +265,88 @@ export async function listItemsWithLeadTime(): Promise<LeadTimeRow[]> {
   }));
 }
 
+// ─────────── 料號前置時間 detail page（/admin/master-data/item-lead-times/[id]） ───────────
+
+/**
+ * 料號前置時間 detail view 用的單筆資料。
+ *
+ * 這張「主檔」是 items 的 MRP 子視角：核心欄位唯讀顯示，可編輯的只有
+ * default_lead_time_days（MRP fallback 前置時間）與 default_supplier_id（預設供應商）。
+ * 完整商品維護仍在 /parts/setup/items/[id]。
+ */
+export type ItemLeadTimeDetail = {
+  id: string;
+  code: string;
+  name: string;
+  name_en: string | null;
+  category: string | null;
+  control_type: string;
+  base_uom: string;
+  spec_description: string | null;
+  standard_cost: number | null;
+  suggested_price: number | null;
+  warranty_months: number | null;
+  shelf_life_months: number | null;
+  is_active: boolean;
+  default_supplier_id: string | null;
+  default_supplier_name: string | null;
+  default_lead_time_days: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SupplierLeadTimeOption = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+/** 本 brand 啟用中供應商清單（detail / new 頁「預設供應商」下拉用）。 */
+export async function listSupplierOptionsForLeadTime(): Promise<SupplierLeadTimeOption[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("id, code, name")
+    .eq("brand_id", brand)
+    .eq("is_active", true)
+    .order("code");
+  if (error) return [];
+  return (data ?? []) as SupplierLeadTimeOption[];
+}
+
+/** 單筆料號（含預設供應商名稱）給前置時間 detail 頁。 */
+export async function getItemLeadTimeById(
+  id: string,
+): Promise<ItemLeadTimeDetail | null> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data, error } = await supabase
+    .from("items")
+    .select(
+      "id, code, name, name_en, category, control_type, base_uom, spec_description, standard_cost, suggested_price, warranty_months, shelf_life_months, is_active, default_supplier_id, default_lead_time_days, created_at, updated_at",
+    )
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .single();
+  if (error || !data) return null;
+
+  const row = data as unknown as Omit<ItemLeadTimeDetail, "default_supplier_name">;
+
+  let default_supplier_name: string | null = null;
+  if (row.default_supplier_id) {
+    const { data: sup } = await supabase
+      .from("suppliers")
+      .select("name")
+      .eq("id", row.default_supplier_id)
+      .single();
+    default_supplier_name = (sup?.name as string | undefined) ?? null;
+  }
+
+  return { ...row, default_supplier_name };
+}
+
 // ─────────────────────────── Items list page（/parts/setup/items） ───────────────────────────
 
 import type {

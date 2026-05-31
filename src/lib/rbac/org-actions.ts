@@ -224,6 +224,9 @@ export async function createStoreAction(input: {
   parent_id?: string | null;
   type?: "region" | "store";
   level?: number;
+  address?: string | null;
+  phone?: string | null;
+  responsible_person?: string | null;
   brand_ids?: string[]; // 若是複合店要打多 brand 進 store_brands
 }): Promise<OrgActionResult<{ id: string }>> {
   const deny = await requireAdmin();
@@ -247,6 +250,9 @@ export async function createStoreAction(input: {
       parent_id: input.parent_id ?? null,
       type: input.type ?? "store",
       level: input.level ?? 2,
+      address: input.address?.trim() || null,
+      phone: input.phone?.trim() || null,
+      responsible_person: input.responsible_person?.trim() || null,
       is_active: true,
       external_source: "manual",
     })
@@ -277,6 +283,9 @@ export async function updateStoreAction(
     group_id?: string;
     parent_id?: string | null;
     is_active?: boolean;
+    address?: string | null;
+    phone?: string | null;
+    responsible_person?: string | null;
     brand_ids?: string[]; // 完整覆蓋 store_brands
   },
 ): Promise<OrgActionResult<{ id: string }>> {
@@ -300,6 +309,10 @@ export async function updateStoreAction(
   if (typeof patch.group_id === "string") update.group_id = patch.group_id;
   if (typeof patch.parent_id !== "undefined") update.parent_id = patch.parent_id;
   if (typeof patch.is_active === "boolean") update.is_active = patch.is_active;
+  if (typeof patch.address !== "undefined") update.address = patch.address?.trim() || null;
+  if (typeof patch.phone !== "undefined") update.phone = patch.phone?.trim() || null;
+  if (typeof patch.responsible_person !== "undefined")
+    update.responsible_person = patch.responsible_person?.trim() || null;
 
   if (Object.keys(update).length > 1) {
     const { error } = await sb.from("organizations").update(update).eq("id", id);

@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import { updateItemLeadTime } from "@/lib/master-data/item-lead-time-actions";
+
+const DETAIL_HREF = "/admin/master-data/item-lead-times";
 
 export type LeadTimeRow = {
   id: string;
@@ -63,7 +66,12 @@ export function ItemLeadTimesBoard({
       width: 140,
       hideable: false,
       cell: (r) => (
-        <span className="font-mono text-[12px] text-[#1A3A5C]">{r.code}</span>
+        <Link
+          href={`${DETAIL_HREF}/${r.id}`}
+          className="font-mono text-[12px] font-semibold text-[#1A3A5C] hover:underline"
+        >
+          {r.code}
+        </Link>
       ),
       exportValue: (r) => r.code,
       sortValue: (r) => r.code,
@@ -71,7 +79,14 @@ export function ItemLeadTimesBoard({
     {
       id: "name",
       header: "品名",
-      cell: (r) => r.name,
+      cell: (r) => (
+        <Link
+          href={`${DETAIL_HREF}/${r.id}`}
+          className="text-[#185FA5] hover:underline"
+        >
+          {r.name}
+        </Link>
+      ),
       exportValue: (r) => r.name,
       sortValue: (r) => r.name,
     },
@@ -140,6 +155,22 @@ export function ItemLeadTimesBoard({
           {banner.msg}
         </div>
       ) : null}
+      {canEdit ? (
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[12px] text-[#9A9890]">
+            共 <b className="text-[#2C2C2A]">{rows.length}</b> 筆料號
+          </span>
+          <div className="ml-auto flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => router.push(`${DETAIL_HREF}/new`)}
+              className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742]"
+            >
+              ＋ 新增料號
+            </button>
+          </div>
+        </div>
+      ) : null}
       <DataGrid
         columns={columns}
         data={rows}
@@ -147,6 +178,16 @@ export function ItemLeadTimesBoard({
         persistKey="admin/master-data/item-lead-times"
         exportFileName="item-lead-times"
         emptyMessage="目前沒有可顯示的料號"
+        rowActions={(r) => (
+          <button
+            type="button"
+            onClick={() => router.push(`${DETAIL_HREF}/${r.id}`)}
+            className="h-[26px] px-2.5 rounded text-[11.5px] whitespace-nowrap bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          >
+            編輯
+          </button>
+        )}
+        rowActionsWidth={90}
       />
     </>
   );

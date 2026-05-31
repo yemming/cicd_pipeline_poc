@@ -8,10 +8,12 @@ import {
   createEmployeeRoleType,
   updateEmployeeRoleType,
   deactivateEmployeeRoleType,
+  listEmployeesUsingRole,
 } from "@/domain/employee-roles";
 import type {
   EmployeeRoleInput,
   EmployeeRoleUpdateInput,
+  EmployeeUsingRole,
   RoleActionResult,
 } from "@/domain/employee-roles.constants";
 
@@ -46,4 +48,17 @@ export async function deactivateEmployeeRoleAction(
   const res = await deactivateEmployeeRoleType(code);
   if (res.ok) revalidatePath(BASE_PATH);
   return res;
+}
+
+/** detail page 反查「哪些員工掛此角色」（唯讀，view mode 進場後 lazy load） */
+export async function listEmployeesUsingRoleAction(
+  code: string,
+): Promise<RoleActionResult<EmployeeUsingRole[]>> {
+  await requirePermission(PERMISSIONS.EMPLOYEE_VIEW);
+  try {
+    const data = await listEmployeesUsingRole(code);
+    return { ok: true, data };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "讀取使用此角色的員工失敗" };
+  }
 }

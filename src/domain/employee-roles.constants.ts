@@ -39,6 +39,15 @@ export type RoleActionResult<T = { code: string }> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
+/** 反查：掛此角色 code 的員工（給 detail page 呈現 role_codes 關聯用，唯讀） */
+export type EmployeeUsingRole = {
+  id: string;
+  emp_code: string | null;
+  name: string;
+  brand_id: string | null;
+  is_active: boolean;
+};
+
 /** Chip 預設色 — 給新建角色時的預設值 */
 export const ROLE_DEFAULT_COLOR = "#185FA5";
 

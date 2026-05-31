@@ -25,6 +25,7 @@ export type ItemInput = {
   warranty_months?: number | null;
   shelf_life_months?: number | null;
   default_supplier_id?: string | null;
+  default_lead_time_days?: number | null;
   serial_tracking_required?: boolean;
   batch_tracking_required?: boolean;
   image_url?: string | null;
@@ -53,6 +54,7 @@ export async function createItemAction(
       warranty_months: input.warranty_months ?? null,
       shelf_life_months: input.shelf_life_months ?? null,
       default_supplier_id: input.default_supplier_id || null,
+      default_lead_time_days: input.default_lead_time_days ?? null,
       serial_tracking_required: input.serial_tracking_required ?? false,
       batch_tracking_required: input.batch_tracking_required ?? false,
       image_url: input.image_url?.trim() || null,
