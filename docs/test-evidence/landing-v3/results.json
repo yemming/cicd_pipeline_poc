@@ -1,0 +1,97 @@
+[
+  {
+    "name": "HERO 標題（讓系統 / 跟著你走）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "HERO badge B2B2C",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "影片元素 v0/v1/v2",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "影片切換點 .vdot ×3",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "跑馬燈 ticker",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "PAIN 區（似曾相識）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "MANIFESTO（DealerOS 懂你）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "七維度區",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "集團四層貫通",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "產品截圖 3 張（hl-card img）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "COMPARE 對比表",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "TESTIMONIALS 驗證",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "DMS 演進時間軸（新區塊）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "CTA 區",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "footer 系統登入 → /login",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "3 支 mp4 正確服務（200 video/mp4，未被導 login）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "點 .vdot 可切換影片",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "public/landing 資產無 404",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "console 無嚴重錯誤（已濾 headless 編碼限制）",
+    "pass": true,
+    "detail": ""
+  }
+]
