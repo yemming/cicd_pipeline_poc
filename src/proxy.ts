@@ -30,7 +30,8 @@ export async function proxy(request: NextRequest) {
   // 公開路由：
   // - /csi/surveys/respond：公開填問卷頁（持 token 即可訪問，給客戶用，不必登入）
   // - /api/csi/respond：對應的 submit API（用 token 寫回 survey_responses）
-  const publicPaths = ['/login', '/api/auth', '/api/holidays', '/api/weather', '/api/line', '/api/admin/notifications', '/stitch', '/parts-stitch', '/csi/surveys/respond', '/api/csi/respond']
+  // - /api/deploy/released：CI/CD 部署成功通知 endpoint（自己用 DEPLOY_NOTIFY_TOKEN 守門，外部 script 觸發、無 cookie）
+  const publicPaths = ['/login', '/api/auth', '/api/holidays', '/api/weather', '/api/line', '/api/admin/notifications', '/api/deploy', '/stitch', '/parts-stitch', '/csi/surveys/respond', '/api/csi/respond']
   const isPublic =
     request.nextUrl.pathname === '/' ||
     publicPaths.some(p => request.nextUrl.pathname.startsWith(p))
