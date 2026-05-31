@@ -75,10 +75,10 @@ export function PricingBoard({ policies, deviations, overview }: Props) {
       width: 220,
       hideable: false,
       cell: (p) => (
-        <div className="flex flex-col">
+        <Link href={`/group/pricing/${p.id}`} className="flex flex-col hover:underline">
           {p.code ? <span className="font-mono text-[11px] text-[#9A9890]">{p.code}</span> : null}
           <span className="font-semibold text-[#1A3A5C]">{p.name}</span>
-        </div>
+        </Link>
       ),
       exportValue: (p) => p.name,
       sortValue: (p) => p.name,

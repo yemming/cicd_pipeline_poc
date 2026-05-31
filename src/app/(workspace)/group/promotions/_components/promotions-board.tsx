@@ -68,10 +68,10 @@ export function PromotionsBoard({
       cell: (c) => {
         const m = PROMO_STATUS_META[c.status] ?? PROMO_STATUS_META.draft;
         return (
-          <div className="flex items-center gap-2">
+          <Link href={`/group/promotions/${c.id}`} className="flex items-center gap-2 hover:underline">
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: m.dot }} />
             <span className="font-semibold text-[#2C2C2A]">{c.name}</span>
-          </div>
+          </Link>
         );
       },
       exportValue: (c) => c.name,
