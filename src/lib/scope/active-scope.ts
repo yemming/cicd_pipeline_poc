@@ -262,6 +262,20 @@ export const getActiveScope = cache(async (): Promise<ActiveScope> => {
       ?.default_subsidiary_id ?? null;
   }
 
+  // 系統 context（無登入 session，如 CI 部署通知 / 排程觸發的 dispatch）下，anon client 受
+  // brands_read RLS（僅 authenticated）擋住讀不到 brands → 用 service client 補讀 reference data。
+  // 僅在前面讀不到時才觸發，authed 流程行為不變。
+  if (!subsidiary_id) {
+    const { createServiceClient } = await import("@/lib/supabase/service");
+    const { data: brandRow } = await createServiceClient()
+      .from("brands")
+      .select("default_subsidiary_id")
+      .eq("id", targetBrand)
+      .single();
+    subsidiary_id = (brandRow as { default_subsidiary_id: string | null } | null)
+      ?.default_subsidiary_id ?? null;
+  }
+
   if (!subsidiary_id) {
     throw new Error(
       `Brand "${targetBrand}" has no default_subsidiary_id configured. ` +
