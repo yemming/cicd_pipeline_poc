@@ -1,7 +1,6 @@
 "use client";
 
 import { useSetPageHeader } from "@/components/page-header-context";
-import { DemoBanner } from "@/components/demo-banner";
 
 const ACCENT = "#F43F5E";
 const TARGET_OPEN_RATE = 10;
@@ -51,7 +50,6 @@ export default function OpenRatePage() {
 
   return (
     <div className="p-6 bg-gray-50 min-h-full">
-      <DemoBanner message="Demo 模擬資料 — 本頁數字皆為示意，未連接真實 DB。" />
       <div className="text-sm text-gray-500 mb-5">追蹤新車客戶中推銷中古車的開口率及轉換效果</div>
 
       <div className="grid grid-cols-6 gap-3 mb-5">

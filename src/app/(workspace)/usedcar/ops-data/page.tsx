@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
-import { DemoBanner } from "@/components/demo-banner";
 
 type MonthData = {
   visits: number | null;
@@ -99,7 +98,6 @@ export default function OpsDataPage() {
 
   return (
     <div className="p-6 bg-gray-50 min-h-full">
-      <DemoBanner message="Demo 模擬資料 — 本頁數字皆為示意，未連接真實 DB。" />
       <div className="flex items-center justify-between mb-5">
         <div>
           <div className="text-sm text-gray-500">新車/售後 × 置換業務 月度追蹤</div>

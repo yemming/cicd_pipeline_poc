@@ -61,6 +61,8 @@ jobs:
       - name: next build
         run: npm run build
         env:
+          # GitHub runner ~7GB RAM;Next build + TS 型別檢查易 OOM,拉高 Node heap
+          NODE_OPTIONS: "--max-old-space-size=6144"
           # Next.js 16 build 時若需要 env，可在這裡補。
           # 目前 public env 都在 .env（不會進 repo），build 期間不連 Supabase 也能過。
           NEXT_TELEMETRY_DISABLED: "1"

@@ -1,7 +1,6 @@
 "use client";
 
 import { useSetPageHeader } from "@/components/page-header-context";
-import { DemoBanner } from "@/components/demo-banner";
 
 const ACCENT = "#F43F5E";
 
@@ -76,7 +75,6 @@ export default function FollowupAnalysisPage() {
 
   return (
     <div className="p-6 bg-gray-50 min-h-full">
-      <DemoBanner message="Demo 模擬資料 — 本頁數字皆為示意，未連接真實 DB。" />
       <div className="flex items-center gap-3 mb-6">
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm">
           <span className="material-symbols-outlined text-gray-400" style={{ fontSize: 18 }}>calendar_month</span>
