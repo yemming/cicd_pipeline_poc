@@ -2386,3 +2386,352 @@ export async function getStorePartsDrilldown(
     alerts,
   };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ *  第二十三輪 — 集團管理收尾（GRP15 技師效率診斷 / GRP19 中古車能效）
+ *
+ *  GRP15：技師個人效率（每點=技師）。「能算就算、算不出讀 seed」：
+ *    - 即時：月接單台數（repair_orders.lead_technician_id 聚合）
+ *    - seed（kpi_snapshots, staff_role='tech'）：labor_efficiency / rework_rate /
+ *      on_time_rate / tenure_years / monthly_intake；門店由 seed 的 org_id 帶
+ *      （indian 技師主檔皆掛功能別「維修部」、無真實門店分派 → demo 用 seed org_id
+ *       分散到 5 店，不動 employee 主檔）。
+ *  GRP19：門店中古車業務（每點=門店、圓圈大小=現有庫存）。全真資料驅動，
+ *    自 used_car_inventory 聚合（收購量/售出量/價差率/毛利率/翻車天數/庫存/滯銷率）。
+ *
+ *  全部對「無資料」安全：回空陣列 / null，不 throw。
+ * ════════════════════════════════════════════════════════════════════════ */
+
+const TECH_ROLES = ["technician"];
+
+/** GRP15 技師效率 per-staff。 */
+export type TechEffStaff = {
+  staff_id: string;
+  name: string;
+  store: string | null;
+  /** 月接單台數（repair_orders 即時；無單讀 seed monthly_intake） */
+  intake_count: number;
+  /** 工時效率 0..1（seed） */
+  labor_efficiency: number | null;
+  /** 返修率 0..1（seed；>0.08 標紅 + 告警橫幅） */
+  rework_rate: number | null;
+  /** 完工準時率 0..1（seed） */
+  on_time_rate: number | null;
+  /** 技師年資（年；seed tenure_years） */
+  tenure_years: number | null;
+  /** 綜合評級（A/B/C/D，由 tag 對映） */
+  grade: string;
+  /** 診斷分類 */
+  tag: EfficiencyTag;
+};
+
+/** 技師診斷：高返修=危險、高效率低返修=明星、低效率或偏高返修=待輔導。 */
+function classifyTech(eff: number | null, rework: number | null): EfficiencyTag {
+  if (eff === null || rework === null) return "neutral";
+  if (rework > 0.08) return "danger";
+  if (eff >= 0.85 && rework <= 0.05) return "star";
+  if (eff < 0.7 || rework > 0.06) return "watch";
+  return "neutral";
+}
+
+const TAG_GRADE: Record<EfficiencyTag, string> = {
+  star: "A",
+  watch: "C",
+  danger: "D",
+  neutral: "B",
+};
+
+/**
+ * GRP15 技師效率散佈圖：回每位在職技師一筆（排除 owner 兼任）。
+ * 門店由 seed 的 org_id 解析（→ organizations.name）。無資料安全。
+ */
+export async function getTechEfficiencyScatter(
+  brandId: string,
+  opts: ScatterOptions = {},
+): Promise<TechEffStaff[]> {
+  const client = await createClient();
+  const rollingMonths = opts.rollingMonths ?? 3;
+  const since = rollingWindowStart(rollingMonths);
+
+  const employees = (await listActiveEmployees(client, brandId, TECH_ROLES)).filter(
+    (e) => !(e.role_codes ?? []).includes("owner"),
+  );
+  if (employees.length === 0) return [];
+  const ids = employees.map((e) => e.id);
+
+  // 技師 seed（含 org_id 以解析門店）；client 端取每 (staff, metric) 最新 period
+  const { data: seedRows } = await client
+    .from("kpi_snapshots")
+    .select("staff_id, org_id, period_month, metric_key, metric_value")
+    .eq("brand_id", brandId)
+    .eq("staff_role", "tech")
+    .in("staff_id", ids)
+    .order("period_month", { ascending: false });
+
+  type Seed = { orgId: string | null; metrics: Map<string, number | null> };
+  const seedByStaff = new Map<string, Seed>();
+  const seen = new Set<string>();
+  for (const row of (seedRows ?? []) as Array<{
+    staff_id: string | null;
+    org_id: string | null;
+    metric_key: string;
+    metric_value: number | null;
+  }>) {
+    if (!row.staff_id) continue;
+    let s = seedByStaff.get(row.staff_id);
+    if (!s) {
+      s = { orgId: row.org_id, metrics: new Map() };
+      seedByStaff.set(row.staff_id, s);
+    }
+    const k = `${row.staff_id}|${row.metric_key}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    s.metrics.set(row.metric_key, row.metric_value);
+  }
+
+  // 由 seed org_id 解析門店名
+  const orgIds = [
+    ...new Set([...seedByStaff.values()].map((s) => s.orgId).filter(Boolean) as string[]),
+  ];
+  const storeNames = new Map<string, string>();
+  if (orgIds.length > 0) {
+    const { data: orgs } = await client
+      .from("organizations")
+      .select("id, name")
+      .in("id", orgIds);
+    for (const o of (orgs ?? []) as Array<{ id: string; name: string }>) {
+      storeNames.set(o.id, o.name);
+    }
+  }
+
+  // 即時：repair_orders 依 lead_technician_id 聚合接單台數
+  const { data: roRows } = await client
+    .from("repair_orders")
+    .select("lead_technician_id, opened_at")
+    .eq("brand_id", brandId)
+    .gte("opened_at", since);
+  const roByTech = new Map<string, number>();
+  for (const r of (roRows ?? []) as Array<{ lead_technician_id: string | null }>) {
+    if (!r.lead_technician_id) continue;
+    roByTech.set(r.lead_technician_id, (roByTech.get(r.lead_technician_id) ?? 0) + 1);
+  }
+
+  return employees.map((e) => {
+    const seed = seedByStaff.get(e.id);
+    const metrics = seed?.metrics ?? new Map<string, number | null>();
+    const eff = metrics.get("labor_efficiency") ?? null;
+    const rework = metrics.get("rework_rate") ?? null;
+    const liveIntake = roByTech.get(e.id) ?? 0;
+    const seedIntake = metrics.get("monthly_intake");
+    const intake = liveIntake > 0 ? liveIntake : (seedIntake ?? 0);
+    const tag = classifyTech(eff, rework);
+    return {
+      staff_id: e.id,
+      name: e.name,
+      store: seed?.orgId ? (storeNames.get(seed.orgId) ?? null) : null,
+      intake_count: intake,
+      labor_efficiency: eff,
+      rework_rate: rework,
+      on_time_rate: metrics.get("on_time_rate") ?? null,
+      tenure_years: metrics.get("tenure_years") ?? null,
+      grade: TAG_GRADE[tag],
+      tag,
+    };
+  });
+}
+
+/* ────────────── GRP19 中古車能效 ────────────── */
+
+/** GRP19 門店中古車能效 per-store。 */
+export type UsedCarStoreEff = {
+  store_id: string;
+  store: string;
+  /** 本季收購台數 */
+  acquired_count: number;
+  /** 本季售出台數 */
+  sold_count: number;
+  /** 收購價差率 0..1（(售價-收購價)/收購價 均值） */
+  spread_rate: number | null;
+  /** 售出毛利率 0..1（margin/listing_price 均值，售出車） */
+  margin_rate: number | null;
+  /** 平均翻車天數（售出=售出-收購；在庫=今日-收購） */
+  turnover_days: number | null;
+  /** 現有庫存台數（非 sold）→ 圓圈大小 */
+  inventory_count: number;
+  /** 滯銷率 0..1（在庫且 > 60 天 / 庫存） */
+  deadstock_rate: number | null;
+  tag: EfficiencyTag;
+};
+
+/** GRP19 庫存清單一列。 */
+export type UsedCarInventoryItem = {
+  id: string;
+  store: string | null;
+  license_plate: string | null;
+  model_display_name: string | null;
+  year: number | null;
+  mileage_km: number | null;
+  acquisition_price: number | null;
+  listing_price: number | null;
+  acquisition_date: string | null;
+  sold_date: string | null;
+  status: string | null;
+  condition_grade: string | null;
+  /** 在庫天數（售出=售出-收購；在庫=今日-收購） */
+  days_in_stock: number | null;
+};
+
+type UsedCarRow = {
+  id: string;
+  organization_id: string | null;
+  license_plate: string | null;
+  model_display_name: string | null;
+  year: number | null;
+  mileage_km: number | null;
+  acquisition_price: number | null;
+  listing_price: number | null;
+  margin: number | null;
+  acquisition_date: string | null;
+  sold_date: string | null;
+  status: string | null;
+  condition_grade: string | null;
+};
+
+const USED_CAR_DEAD_DAYS = 60;
+
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86400000);
+}
+
+/** 中古車門店診斷：滯銷率高=危險、高毛利量大=明星、低毛利=待輔導。 */
+function classifyUsedCar(
+  marginRate: number | null,
+  acquired: number,
+  deadRate: number | null,
+): EfficiencyTag {
+  if (deadRate != null && deadRate > 0.4) return "danger";
+  if (marginRate == null) return "neutral";
+  if (marginRate >= 0.11 && acquired >= 5) return "star";
+  if (marginRate < 0.09) return "watch";
+  return "neutral";
+}
+
+/**
+ * GRP19 中古車能效散佈圖：每門店一筆，全真資料聚合自 used_car_inventory。無資料安全。
+ */
+export async function getUsedCarEfficiency(
+  brandId: string,
+  opts: ScatterOptions = {},
+): Promise<UsedCarStoreEff[]> {
+  const client = await createClient();
+  const rollingMonths = opts.rollingMonths ?? 3;
+  const since = rollingWindowStart(rollingMonths);
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const { data } = await client
+    .from("used_car_inventory")
+    .select(
+      "id, organization_id, acquisition_price, listing_price, margin, acquisition_date, sold_date, status",
+    )
+    .eq("brand_id", brandId);
+  const rows = (data ?? []) as UsedCarRow[];
+  if (rows.length === 0) return [];
+
+  const stores = await listDiagnosticStores(brandId);
+  const storeName = new Map(stores.map((s) => [s.id, s.name] as const));
+
+  const byOrg = new Map<string, UsedCarRow[]>();
+  for (const r of rows) {
+    if (!r.organization_id) continue;
+    const arr = byOrg.get(r.organization_id) ?? [];
+    arr.push(r);
+    byOrg.set(r.organization_id, arr);
+  }
+
+  const out: UsedCarStoreEff[] = [];
+  for (const [orgId, list] of byOrg) {
+    const acquired = list.filter((r) => r.acquisition_date && r.acquisition_date >= since);
+    const sold = list.filter((r) => r.sold_date && r.sold_date >= since);
+    const inStock = list.filter((r) => r.status !== "sold");
+
+    const spreads = acquired
+      .filter((r) => r.acquisition_price && r.listing_price && r.acquisition_price > 0)
+      .map((r) => (r.listing_price! - r.acquisition_price!) / r.acquisition_price!);
+    const spread_rate = spreads.length
+      ? spreads.reduce((a, b) => a + b, 0) / spreads.length
+      : null;
+
+    const margins = sold
+      .filter((r) => r.margin != null && r.listing_price && r.listing_price > 0)
+      .map((r) => r.margin! / r.listing_price!);
+    const margin_rate = margins.length
+      ? margins.reduce((a, b) => a + b, 0) / margins.length
+      : null;
+
+    const turns = list
+      .filter((r) => r.acquisition_date)
+      .map((r) => daysBetween(r.acquisition_date!, r.sold_date ?? todayStr));
+    const turnover_days = turns.length ? turns.reduce((a, b) => a + b, 0) / turns.length : null;
+
+    const dead = inStock.filter(
+      (r) => r.acquisition_date && daysBetween(r.acquisition_date, todayStr) > USED_CAR_DEAD_DAYS,
+    ).length;
+    const deadstock_rate = inStock.length ? dead / inStock.length : null;
+
+    out.push({
+      store_id: orgId,
+      store: storeName.get(orgId) ?? "未分配門店",
+      acquired_count: acquired.length,
+      sold_count: sold.length,
+      spread_rate,
+      margin_rate,
+      turnover_days,
+      inventory_count: inStock.length,
+      deadstock_rate,
+      tag: classifyUsedCar(margin_rate, acquired.length, deadstock_rate),
+    });
+  }
+  return out.sort((a, b) => a.store.localeCompare(b.store, "zh-Hant"));
+}
+
+/**
+ * GRP19 中古車庫存清單。可選 orgId 過濾單店；含已售出與在庫。無資料回空陣列。
+ */
+export async function listUsedCarInventory(
+  brandId: string,
+  orgId?: string,
+): Promise<UsedCarInventoryItem[]> {
+  const client = await createClient();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let q = client
+    .from("used_car_inventory")
+    .select(
+      "id, organization_id, license_plate, model_display_name, year, mileage_km, acquisition_price, listing_price, acquisition_date, sold_date, status, condition_grade",
+    )
+    .eq("brand_id", brandId)
+    .order("acquisition_date", { ascending: false });
+  if (orgId) q = q.eq("organization_id", orgId);
+  const { data } = await q;
+  const rows = (data ?? []) as UsedCarRow[];
+
+  const stores = await listDiagnosticStores(brandId);
+  const storeName = new Map(stores.map((s) => [s.id, s.name] as const));
+
+  return rows.map((r) => ({
+    id: r.id,
+    store: r.organization_id ? (storeName.get(r.organization_id) ?? null) : null,
+    license_plate: r.license_plate,
+    model_display_name: r.model_display_name,
+    year: r.year,
+    mileage_km: r.mileage_km,
+    acquisition_price: r.acquisition_price,
+    listing_price: r.listing_price,
+    acquisition_date: r.acquisition_date,
+    sold_date: r.sold_date,
+    status: r.status,
+    condition_grade: r.condition_grade,
+    days_in_stock: r.acquisition_date
+      ? daysBetween(r.acquisition_date, r.sold_date ?? todayStr)
+      : null,
+  }));
+}
