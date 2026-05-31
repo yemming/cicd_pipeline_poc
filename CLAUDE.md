@@ -14,6 +14,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **驗證一律走 Deploy-then-Test**（`.claude/skills/spec-to-feature/references/orchestration.md` §3）：push → Zeabur 自動部署 → 打**部署後 URL** 跑 Playwright，**不在開發機起常駐 `next dev`**（會跟 Chromium 搶記憶體當機）。
 
+**Zeabur 上版成功後必發 LINE 通知（MANDATORY）**：每次 push 觸發部署、**確認 Zeabur 部署成功（RUNNING）後**，一律跑 `node scripts/notify-deploy.mjs` 把本輪更新摘要推到開發群組 LINE（老闆與開發團隊即時知道已上版、這版有什麼）。
+
+- script 會自輪詢 `zeabur deployment list --json` 等到 HEAD `commitSHA` RUNNING **才發**（不是部署中就發）→ 自動用 `git log 上一部署sha..HEAD --pretty=%s` 組摘要 → POST `/api/deploy/released`（`DEPLOY_NOTIFY_TOKEN` 守門）→ Notification Hub 推 LINE 🚀 已上版卡。
+- 摘要**必含本輪 git commit**（commit message 寫清楚即上版說明）；多輪/跨日彙整時可改用 curated 主題重點（python 打同一 endpoint，帶自訂 `summary`）。
+- LINE 走 app 內建 Notification Hub → Messaging API **直推**（群 `C4d5c083...`，**非 Zapier**）；事件 `deploy.released`、模板 `src/lib/notifications/templates/deploy-released.ts`。詳見 memory `reference_twenty_third_round` / `feedback_deploy_notify_include_commits`。
+
 **E2E 測試帳號（admin，可程式登入）**：
 
 | 用途 | Email | Password |
