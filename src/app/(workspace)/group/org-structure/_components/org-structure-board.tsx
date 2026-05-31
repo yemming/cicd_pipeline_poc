@@ -175,7 +175,7 @@ export function OrgStructureBoard({ data }: { data: OrgStructureData }) {
                   <span className="text-[13px] font-semibold text-[#2C2C2A]">
                     ▼ 人員指派{selected.assignments.length > 0 ? `（${selected.assignments.length}）` : ""}
                   </span>
-                  <DeepLink href="/admin/navigation/users" label="編輯人員角色" />
+                  <DeepLink href="/admin/navigation" label="編輯人員角色" />
                 </header>
                 {selected.assignments.length === 0 ? (
                   <div className="px-4 py-5 text-[12.5px] text-[#9A9890]">

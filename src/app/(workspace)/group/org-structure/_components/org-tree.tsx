@@ -51,8 +51,8 @@ function TreeRow({
   selectedKey: string | null;
   onSelect: (n: OrgTreeNode) => void;
 }) {
-  // 預設展開集團 + 法人（depth 0,1），其餘收合
-  const [open, setOpen] = useState(depth <= 1);
+  // 預設展開到區域層（集團/法人/區域），門店與部門即可見；其餘收合
+  const [open, setOpen] = useState(depth <= 2);
   const hasChildren = node.children.length > 0;
   const selected = node.key === selectedKey;
   const m = TYPE_META[node.type];
