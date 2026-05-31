@@ -1,0 +1,87 @@
+[
+  {
+    "name": "登入成功",
+    "pass": true,
+    "detail": "https://dealeros.zeabur.app/dashboard"
+  },
+  {
+    "name": "GRP20 頁可見",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP20 標題",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "樹：組織樹狀結構區",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "樹：集團節點",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "樹：法人節點（Indian）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "樹：法人節點（控股）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "統計 chips",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "頁面權限總覽區",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "門店詳情：門市型態 KV",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "門店詳情：標題切換",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "法人詳情：統一編號 KV",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "人員指派區",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "人員指派：角色（老闆/店長等）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "深連結 /admin/org/groups",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "深連結 /admin/navigation",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "console 無嚴重錯誤",
+    "pass": true,
+    "detail": ""
+  }
+]

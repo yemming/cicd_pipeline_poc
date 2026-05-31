@@ -60,7 +60,7 @@ try {
     // 展開法人 → 點門店節點，驗詳情 KV 切換
     console.log(`\n[3] 點門店節點 → 詳情 KV`);
     // 先點「Indian」法人展開（預設法人層已展開），找門店節點
-    const storeNode = page.locator("text=台北直營店").first();
+    const storeNode = page.locator(".cursor-pointer", { hasText: "台北直營店" }).first();
     if (await storeNode.count()) {
       await storeNode.click();
       await page.waitForTimeout(800);
@@ -74,7 +74,7 @@ try {
 
     // 點法人節點 → 人員指派清單
     console.log(`\n[4] 點法人節點 → 人員指派`);
-    const subNode = page.locator("text=Indian Motorcycle Taiwan").first();
+    const subNode = page.locator(".cursor-pointer", { hasText: "Indian Motorcycle Taiwan" }).first();
     if (await subNode.count()) {
       await subNode.click();
       await page.waitForTimeout(800);
