@@ -7,3 +7,4 @@ export { serviceRequestCreatedLine, serviceRequestCreatedGoogleChat } from "./se
 export { vehiclePdiCompletedLine, vehiclePdiCompletedGoogleChat } from "./vehicle-pdi-completed";
 export { customerHandoverScheduledLine, customerHandoverScheduledGoogleChat } from "./customer-handover-scheduled";
 export { feedbackTicketCreatedLine, feedbackTicketCreatedGoogleChat } from "./feedback-ticket-created";
+export { deployReleasedLine, deployReleasedGoogleChat } from "./deploy-released";
