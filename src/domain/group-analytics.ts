@@ -2735,3 +2735,251 @@ export async function listUsedCarInventory(
       : null,
   }));
 }
+
+/* ────────────── GRP03 銷售目標監看（G1，2026-06-01）────────────── */
+
+export type SalesTargetRow = {
+  orgId: string;
+  storeName: string;
+  target: number | null; // 月目標（台）
+  actual: number | null; // 當期累計成交（台）
+  achievementRate: number | null; // 達成率（0~1+）
+};
+
+/**
+ * GRP03 逐店銷售目標總覽：最新一期 sales_volume_target / sales_volume / achievement_rate。
+ * 給 Pace 配速計算器自動帶入「月目標 / 今日累計」初值（Phase 1 仍可手動覆寫）。
+ * 天條：本 helper 內部走 createClient（RLS scope），UI 不直連。
+ */
+export async function getSalesTargetOverview(brandId: string): Promise<SalesTargetRow[]> {
+  const client = await createClient();
+  const { data: latestRow } = await client
+    .from("kpi_snapshots")
+    .select("period_month")
+    .eq("brand_id", brandId)
+    .eq("metric_key", "achievement_rate")
+    .order("period_month", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const period = (latestRow as { period_month: string } | null)?.period_month ?? null;
+  if (!period) return [];
+
+  // kpi_snapshots.org_id 無 FK → 不能 PostgREST embed organizations，門店名另查 map
+  const [{ data }, { data: orgData }] = await Promise.all([
+    client
+      .from("kpi_snapshots")
+      .select("org_id, metric_key, metric_value, period_month")
+      .eq("brand_id", brandId)
+      .in("metric_key", ["sales_volume_target", "sales_volume", "achievement_rate"])
+      .not("org_id", "is", null),
+    client.from("organizations").select("id, name").eq("brand_id", brandId),
+  ]);
+  const nameById = new Map(
+    ((orgData ?? []) as Array<{ id: string; name: string | null }>).map((o) => [o.id, o.name ?? o.id]),
+  );
+
+  type Row = {
+    org_id: string;
+    metric_key: string;
+    metric_value: number | null;
+    period_month: string;
+  };
+  const rows = (data ?? []) as Row[];
+  const byOrg = new Map<string, SalesTargetRow & { _tp: string; _ta: string }>();
+  for (const r of rows) {
+    const cur =
+      byOrg.get(r.org_id) ??
+      ({ orgId: r.org_id, storeName: nameById.get(r.org_id) ?? r.org_id, target: null, actual: null, achievementRate: null, _tp: "", _ta: "" } as SalesTargetRow & { _tp: string; _ta: string });
+    // achievement_rate 鎖最新期；target/actual 取各自最新期（demo 期別不一致）
+    if (r.metric_key === "achievement_rate" && r.period_month === period) cur.achievementRate = r.metric_value;
+    if (r.metric_key === "sales_volume_target" && r.period_month > cur._tp) { cur.target = r.metric_value; cur._tp = r.period_month; }
+    if (r.metric_key === "sales_volume" && r.period_month > cur._ta) { cur.actual = r.metric_value; cur._ta = r.period_month; }
+    byOrg.set(r.org_id, cur);
+  }
+  return [...byOrg.values()]
+    .map(({ _tp, _ta, ...row }) => row)
+    .sort((a, b) => (b.achievementRate ?? 0) - (a.achievementRate ?? 0));
+}
+
+/* ────────────── GRP01 集團總覽（G1，2026-06-01）────────────── */
+
+export type GroupStoreSummary = {
+  orgId: string;
+  name: string;
+  health: number | null;       // 健康分（0~100）
+  achievement: number | null;  // 銷售達成率（0~1+）
+  nps: number | null;          // 門店 NPS
+};
+
+export type GroupOverview = {
+  healthAvg: number | null;
+  groupNps: number | null;
+  achievementAvg: number | null;
+  storeCount: number;
+  stores: GroupStoreSummary[];
+};
+
+/**
+ * GRP01 集團總覽：集團主管每日首頁。集團層 KPI（門店彙總）+ 逐店摘要供下鑽。
+ * 下鑽目標頁 GRP09 門店銷售 / GRP10 門店售後皆已是真頁（?store=orgId）。
+ * 天條：helper 內部 createClient（RLS scope），UI 不直連。
+ * 注意：kpi_snapshots.org_id 無 FK → 不可 embed organizations，門店名另查。
+ */
+export async function getGroupOverview(brandId: string): Promise<GroupOverview> {
+  const client = await createClient();
+  const [{ data: kpi }, { data: orgData }, { data: gNps }] = await Promise.all([
+    client
+      .from("kpi_snapshots")
+      .select("org_id, metric_key, metric_value, period_month")
+      .eq("brand_id", brandId)
+      .in("metric_key", ["health_score", "achievement_rate", "store_nps"])
+      .not("org_id", "is", null),
+    client.from("organizations").select("id, name").eq("brand_id", brandId),
+    client
+      .from("kpi_snapshots")
+      .select("metric_value")
+      .eq("brand_id", brandId)
+      .eq("metric_key", "group_nps")
+      .is("org_id", null)
+      .order("period_month", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const nameById = new Map(
+    ((orgData ?? []) as Array<{ id: string; name: string | null }>).map((o) => [o.id, o.name ?? o.id]),
+  );
+  type K = { org_id: string; metric_key: string; metric_value: number | null; period_month: string };
+  const latestByKey = new Map<string, { v: number | null; p: string }>(); // org::metric → 最新
+  for (const r of (kpi ?? []) as K[]) {
+    const k = `${r.org_id}::${r.metric_key}`;
+    const cur = latestByKey.get(k);
+    if (!cur || r.period_month > cur.p) latestByKey.set(k, { v: r.metric_value, p: r.period_month });
+  }
+  const orgIds = [...new Set(((kpi ?? []) as K[]).map((r) => r.org_id))];
+  const stores: GroupStoreSummary[] = orgIds
+    .map((id) => ({
+      orgId: id,
+      name: nameById.get(id) ?? id,
+      health: latestByKey.get(`${id}::health_score`)?.v ?? null,
+      achievement: latestByKey.get(`${id}::achievement_rate`)?.v ?? null,
+      nps: latestByKey.get(`${id}::store_nps`)?.v ?? null,
+    }))
+    .sort((a, b) => (b.health ?? 0) - (a.health ?? 0));
+
+  const avg = (xs: (number | null)[]) => {
+    const v = xs.filter((x): x is number => x != null);
+    return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
+  };
+  return {
+    healthAvg: avg(stores.map((s) => s.health)),
+    groupNps: (gNps as { metric_value: number | null } | null)?.metric_value ?? null,
+    achievementAvg: avg(stores.map((s) => s.achievement)),
+    storeCount: stores.length,
+    stores,
+  };
+}
+
+/* ────────────── GRP02 BSC 計分卡（2026-06-01）────────────── */
+
+/** BSC 一個門店的計分列：六大面向分數 + 綜合健康分 + 達成率。 */
+export type BscStoreRow = {
+  orgId: string;
+  name: string;
+  /** 六大面向分數（各 0~100；缺回 null） */
+  dims: Record<HealthDim, number | null>;
+  /** 綜合健康分（health_score，0~100；缺回六維均值 fallback） */
+  total: number | null;
+  /** 銷售達成率（0~1+） */
+  achievement: number | null;
+};
+
+/** BSC 集團層彙總（六面向跨店均值 + 綜合健康分均值 + 集團 NPS）。 */
+export type BscScorecard = {
+  /** 各面向集團均值（跨店平均，缺回 null） */
+  dimAvg: Record<HealthDim, number | null>;
+  /** 綜合健康分集團均值 */
+  healthAvg: number | null;
+  /** 集團 NPS */
+  groupNps: number | null;
+  /** 門店數 */
+  storeCount: number;
+  /** 逐店計分列（綜合分高→低排序） */
+  stores: BscStoreRow[];
+};
+
+/**
+ * GRP02 BSC 計分卡：六大面向（銷售/售後/零件/人才/客戶滿意/財務）平衡計分卡。
+ * 集團層六面向均值 + 綜合健康分 + 集團 NPS，逐店一列六面向分數。
+ *
+ * 資料策略沿用 getGroupOverview：org_id=門店、staff_id NULL 的門店層 dim_* / health_score
+ * / achievement_rate 各取最新期；集團 NPS 讀 org_id=NULL 的 group_nps 最新一筆。
+ * 天條：helper 內部 createClient（RLS scope），UI 不直連。
+ * 注意：kpi_snapshots.org_id 無 FK → 不可 embed organizations，門店名另查 Map。
+ */
+export async function getBscScorecard(brandId: string): Promise<BscScorecard> {
+  const client = await createClient();
+  const [{ data: kpi }, { data: orgData }, { data: gNps }] = await Promise.all([
+    client
+      .from("kpi_snapshots")
+      .select("org_id, metric_key, metric_value, period_month")
+      .eq("brand_id", brandId)
+      .in("metric_key", [...HEALTH_DIMS, "health_score", "achievement_rate"])
+      .not("org_id", "is", null),
+    client.from("organizations").select("id, name").eq("brand_id", brandId),
+    client
+      .from("kpi_snapshots")
+      .select("metric_value")
+      .eq("brand_id", brandId)
+      .eq("metric_key", "group_nps")
+      .is("org_id", null)
+      .order("period_month", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const nameById = new Map(
+    ((orgData ?? []) as Array<{ id: string; name: string | null }>).map((o) => [o.id, o.name ?? o.id]),
+  );
+  type K = { org_id: string; metric_key: string; metric_value: number | null; period_month: string };
+  // org::metric → 最新期值
+  const latestByKey = new Map<string, { v: number | null; p: string }>();
+  for (const r of (kpi ?? []) as K[]) {
+    const k = `${r.org_id}::${r.metric_key}`;
+    const cur = latestByKey.get(k);
+    if (!cur || r.period_month > cur.p) latestByKey.set(k, { v: r.metric_value, p: r.period_month });
+  }
+
+  const avg = (xs: (number | null)[]) => {
+    const v = xs.filter((x): x is number => x != null);
+    return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
+  };
+
+  const orgIds = [...new Set(((kpi ?? []) as K[]).map((r) => r.org_id))];
+  const stores: BscStoreRow[] = orgIds
+    .map((id) => {
+      const dims = Object.fromEntries(
+        HEALTH_DIMS.map((d) => [d, latestByKey.get(`${id}::${d}`)?.v ?? null]),
+      ) as Record<HealthDim, number | null>;
+      // 綜合分優先讀 health_score，缺則六維均值 fallback
+      const total = latestByKey.get(`${id}::health_score`)?.v ?? avg(HEALTH_DIMS.map((d) => dims[d]));
+      return {
+        orgId: id,
+        name: nameById.get(id) ?? id,
+        dims,
+        total,
+        achievement: latestByKey.get(`${id}::achievement_rate`)?.v ?? null,
+      };
+    })
+    .sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+
+  const dimAvg = Object.fromEntries(
+    HEALTH_DIMS.map((d) => [d, avg(stores.map((s) => s.dims[d]))]),
+  ) as Record<HealthDim, number | null>;
+
+  return {
+    dimAvg,
+    healthAvg: avg(stores.map((s) => s.total)),
+    groupNps: (gNps as { metric_value: number | null } | null)?.metric_value ?? null,
+    storeCount: stores.length,
+    stores,
+  };
+}

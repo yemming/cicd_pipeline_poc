@@ -9,11 +9,13 @@
  * 天條：不直連 supabase；資料由 server page 經 @/domain/org-structure 注入。
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import type { OrgNodeType, OrgStructureData, OrgTreeNode } from "@/domain/org-structure";
+import type { OrgSettings } from "@/domain/org-settings";
+import { setOrgModeAction } from "@/lib/group/org-settings-actions";
 
 import { OrgTree, TYPE_META, BRAND_LABEL } from "./org-tree";
 
@@ -54,12 +56,39 @@ function StatChip({ label, value }: { label: string; value: number }) {
   );
 }
 
-export function OrgStructureBoard({ data }: { data: OrgStructureData }) {
+export function OrgStructureBoard({
+  data,
+  orgSettings,
+}: {
+  data: OrgStructureData;
+  orgSettings: OrgSettings | null;
+}) {
   useSetPageHeader({
     title: "組織架構設定",
     breadcrumb: [{ label: "集團管理", href: "/group/dashboard" }, { label: "組織架構設定" }],
     hideSearch: true,
   });
+
+  // G3-A：org_mode 樂觀切換（3 三層 / 4 四層）
+  const [orgMode, setOrgMode] = useState<3 | 4>(orgSettings?.orgMode ?? 3);
+  const [savingMode, startSave] = useTransition();
+  const [modeBanner, setModeBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  function changeOrgMode(next: 3 | 4) {
+    if (!orgSettings || next === orgMode || savingMode) return;
+    const prev = orgMode;
+    setOrgMode(next); // 樂觀
+    startSave(async () => {
+      const res = await setOrgModeAction(orgSettings.groupId, next);
+      if (res.ok) {
+        setModeBanner({ ok: true, msg: `✓ 已切換為 ${next} 層組織模式` });
+        setTimeout(() => setModeBanner(null), 2200);
+      } else {
+        setOrgMode(prev); // rollback
+        setModeBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
 
   const all = useMemo(() => flatten(data.tree), [data.tree]);
   // 預設選中第一個法人（看得到指派），沒有就選根
@@ -83,6 +112,45 @@ export function OrgStructureBoard({ data }: { data: OrgStructureData }) {
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">GRP20</span>
         <span className="text-[12px] text-[#9A9890]">集團組織層級 · 法人 · 門店 · 部門 · 人員指派與頁面權限總覽（唯讀）</span>
       </header>
+
+      {/* G3-A：⚠️ 上線前必須完成 — 紅色警示橫幅 */}
+      <section className="rounded-lg border border-[#F5AEAD] bg-[#FDECEA] px-4 py-3">
+        <div className="flex items-start gap-2">
+          <span className="material-symbols-outlined text-[18px] text-[#CC0000] mt-0.5">warning</span>
+          <div className="flex-1 text-[12.5px] text-[#2C2C2A] leading-relaxed">
+            <b className="text-[#CC0000]">上線前必須完成：</b>組織架構是整個系統的安全基礎。
+            <span className="text-[#5A5955]">
+              組織模式（org_mode）影響全系統組織樹與報表篩選；角色權限矩陣是 Supabase RLS 的設定依據，
+              未依矩陣配置 RLS 則任何角色都能看到其他門店機密資料。請先完成組織架構與權限設定，再進行其他設定。
+            </span>
+          </div>
+        </div>
+
+        {/* org_mode 選擇器 */}
+        <div className="mt-3 flex items-center gap-3 flex-wrap border-t border-[#F5AEAD]/60 pt-3">
+          <span className="text-[12px] text-[#5A5955] font-medium">組織模式</span>
+          {([3, 4] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => changeOrgMode(m)}
+              disabled={savingMode || !orgSettings}
+              className={`h-[30px] px-3.5 rounded-full text-[12.5px] font-medium border transition-colors disabled:opacity-60 ${
+                orgMode === m
+                  ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
+                  : "bg-white text-[#5A5955] border-[#D5D3CB] hover:border-[#9A9890]"
+              }`}
+            >
+              {m === 3 ? "三層（集團→法人→門店）" : "四層（集團→法人→區域→門店）"}
+            </button>
+          ))}
+          {savingMode && <span className="text-[12px] text-[#9A9890]">切換中⋯</span>}
+          {!orgSettings && <span className="text-[12px] text-[#9A9890]">（system_settings 尚未初始化）</span>}
+          <span className="text-[11.5px] text-[#9A9890] ml-auto">
+            目前：{orgMode} 層 · {orgSettings?.groupName ?? "—"}
+          </span>
+        </div>
+      </section>
 
       {/* 統計 chips */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -248,6 +316,19 @@ export function OrgStructureBoard({ data }: { data: OrgStructureData }) {
           )}
         </div>
       </div>
+
+      {/* org_mode 切換 toast */}
+      {modeBanner && (
+        <div
+          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
+            modeBanner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          }`}
+        >
+          {modeBanner.msg}
+        </div>
+      )}
     </main>
   );
 }

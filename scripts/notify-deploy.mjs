@@ -14,6 +14,8 @@
  *   DEPLOY_NOTIFY_TOKEN=xxx node scripts/notify-deploy.mjs
  *   # 可選 env：APP_URL（預設 https://dealeros.zeabur.app）、
  *   #          POLL_TIMEOUT_MS（預設 1800000=30min）、POLL_INTERVAL_MS（預設 20000）
+ *   #          DEPLOY_SUMMARY（curated 人話摘要，多行；給非技術讀者看，跳過 git log 自動組）、
+ *   #          DEPLOY_CHANGE_COUNT（搭配 DEPLOY_SUMMARY，預設取行數）
  *   # 也會自動讀 .env.local 裡的 DEPLOY_NOTIFY_TOKEN / APP_URL
  *
  * 冪等：同一 sha 重跑會重發（無狀態檔）。需要避免重複請在外層判斷。
@@ -113,19 +115,28 @@ async function main() {
     process.exit(3);
   }
 
-  // 組更新摘要：上一個已部署 sha .. HEAD
-  const range = prevSha ? `${prevSha}..${head}` : "-1"; // 無前一筆 → 只取 HEAD 本身
-  let lines;
-  if (prevSha) {
-    lines = git(["log", range, "--no-merges", "--pretty=%s"]).split("\n").filter(Boolean);
+  // 組更新摘要：預設用 git log（上一個已部署 sha .. HEAD）；
+  // 若提供 DEPLOY_SUMMARY env（多輪/跨日彙整、要寫人話給非技術讀者）則用 curated 摘要。
+  let summary;
+  let changeCount;
+  if (process.env.DEPLOY_SUMMARY) {
+    const customLines = process.env.DEPLOY_SUMMARY.split("\n").map((s) => s.trim()).filter(Boolean);
+    summary = customLines.map((l) => (l.startsWith("•") ? l : `• ${l}`)).join("\n");
+    changeCount = process.env.DEPLOY_CHANGE_COUNT ?? String(customLines.length);
   } else {
-    lines = [git(["log", "-1", "--pretty=%s"])];
+    const range = prevSha ? `${prevSha}..${head}` : "-1"; // 無前一筆 → 只取 HEAD 本身
+    let lines;
+    if (prevSha) {
+      lines = git(["log", range, "--no-merges", "--pretty=%s"]).split("\n").filter(Boolean);
+    } else {
+      lines = [git(["log", "-1", "--pretty=%s"])];
+    }
+    const MAX = 12;
+    changeCount = String(lines.length);
+    const shown = lines.slice(0, MAX).map((l) => `• ${l}`);
+    if (lines.length > MAX) shown.push(`…等共 ${lines.length} 項`);
+    summary = shown.join("\n");
   }
-  const MAX = 12;
-  const changeCount = String(lines.length);
-  const shown = lines.slice(0, MAX).map((l) => `• ${l}`);
-  if (lines.length > MAX) shown.push(`…等共 ${lines.length} 項`);
-  const summary = shown.join("\n");
 
   const payload = {
     version: headShort,

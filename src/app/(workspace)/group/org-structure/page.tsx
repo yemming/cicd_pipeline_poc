@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { getOrgStructure } from "@/domain/org-structure";
+import { getOrgSettings } from "@/domain/org-settings";
 
 import { OrgStructureBoard } from "./_components/org-structure-board";
 
@@ -30,6 +31,6 @@ export default async function OrgStructurePage() {
     );
   }
 
-  const data = await getOrgStructure();
-  return <OrgStructureBoard data={data} />;
+  const [data, orgSettings] = await Promise.all([getOrgStructure(), getOrgSettings()]);
+  return <OrgStructureBoard data={data} orgSettings={orgSettings} />;
 }

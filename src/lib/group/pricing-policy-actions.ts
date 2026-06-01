@@ -51,6 +51,8 @@ type StoredConfig = {
   status: PricingStatus;
   effective_date: string | null;
   audit_log: PricingAuditEntry[];
+  /** G4：核准後要把 msrp 同步進這些 service_packages.code（下游 04B 報價即時生效）。 */
+  target_package_codes?: string[] | null;
 };
 
 /** admin gate：回 { brandId, actorName } 或 error。 */
@@ -218,8 +220,32 @@ async function transitionStatus(
     .eq("rule_kind", "pricing_policy")
     .eq("id", id);
   if (error) return { ok: false, error: `${fieldLabel}失敗：${error.message}` };
+  // G4：定價核准（→active）→ 同步 msrp 進對應 service_packages.list_price，04B 報價即時生效。
+  // POC 階段非原子（business_rules 已 commit）；同步失敗只記 log 不擋核准，TODO 改 RPC transaction。
+  if (to === "active") {
+    await syncApprovedPricingToPackages(svc, gate.brandId, id, config);
+  }
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
+}
+
+/** 把已核准定價的 msrp 寫進 config.target_package_codes[] 指定的 service_packages.list_price。 */
+async function syncApprovedPricingToPackages(
+  svc: ReturnType<typeof createServiceClient>,
+  brandId: string,
+  policyId: string,
+  config: StoredConfig,
+): Promise<void> {
+  const codes = (config.target_package_codes ?? []).filter(Boolean);
+  if (codes.length === 0 || config.msrp == null) return;
+  const { error } = await svc
+    .from("service_packages")
+    .update({ list_price: config.msrp, pricing_policy_id: policyId, updated_at: new Date().toISOString() })
+    .eq("brand_id", brandId)
+    .in("code", codes);
+  if (error) {
+    console.error("[pricing-sync] 同步 service_packages 失敗:", error.message, { policyId, codes });
+  }
 }
 
 export async function submitPricingForReviewAction(id: string): Promise<ActionResult<{ id: string }>> {
