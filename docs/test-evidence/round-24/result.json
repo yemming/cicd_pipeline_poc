@@ -1,0 +1,246 @@
+{
+  "pass": 48,
+  "total": 48,
+  "results": [
+    {
+      "name": "登入成功",
+      "pass": true,
+      "detail": "https://dealeros.zeabur.app/dashboard"
+    },
+    {
+      "name": "設定 Indian scope cookie",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-brands list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-brands list 標題",
+      "pass": true,
+      "detail": "組織架構"
+    },
+    {
+      "name": "GRP-brands list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-brands detail 可見",
+      "pass": true,
+      "detail": "/admin/org/brands/ducati"
+    },
+    {
+      "name": "GRP-brands detail 有「修改」pill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-brands detail 有標題",
+      "pass": true,
+      "detail": "Ducati"
+    },
+    {
+      "name": "GRP-brands /new create mode",
+      "pass": true,
+      "detail": "create UI"
+    },
+    {
+      "name": "GRP-groups list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-groups list 標題",
+      "pass": true,
+      "detail": "組織架構"
+    },
+    {
+      "name": "GRP-groups list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-groups detail 可見",
+      "pass": true,
+      "detail": "/admin/org/groups/default"
+    },
+    {
+      "name": "GRP-groups detail 有「修改」pill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-groups detail 有標題",
+      "pass": true,
+      "detail": "DealerOS Demo Group"
+    },
+    {
+      "name": "GRP-groups /new create mode",
+      "pass": true,
+      "detail": "create UI"
+    },
+    {
+      "name": "GRP-stores list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-stores list 標題",
+      "pass": true,
+      "detail": "組織架構"
+    },
+    {
+      "name": "GRP-stores list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-stores detail 可見",
+      "pass": true,
+      "detail": "/admin/org/stores/d36db7bd-47d7-4bdd-b062-31f91b71fa2e"
+    },
+    {
+      "name": "GRP-stores detail 有「修改」pill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP-stores detail 有標題",
+      "pass": true,
+      "detail": "Ducati Taiwan(台灣)"
+    },
+    {
+      "name": "GRP-stores /new create mode",
+      "pass": true,
+      "detail": "create UI"
+    },
+    {
+      "name": "MD-contacts list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "MD-contacts list 標題",
+      "pass": true,
+      "detail": "客戶聯絡人"
+    },
+    {
+      "name": "MD-contacts list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "MD-contacts detail 可見",
+      "pass": true,
+      "detail": "/admin/master-data/customer-contacts/b8ef5ac6-15fb-4177-8597-739905b3da7e"
+    },
+    {
+      "name": "MD-contacts detail 有「修改」pill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "MD-contacts detail 有標題",
+      "pass": true,
+      "detail": "陳太太"
+    },
+    {
+      "name": "MD-contacts /new create mode",
+      "pass": true,
+      "detail": "create UI"
+    },
+    {
+      "name": "MD-leadtimes list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "MD-leadtimes list 標題",
+      "pass": true,
+      "detail": "前置時間"
+    },
+    {
+      "name": "MD-leadtimes list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "MD-leadtimes detail 可見",
+      "pass": true,
+      "detail": "/admin/master-data/item-lead-times/79ab653c-43f7-4c27-b2f9-b04c558298f7"
+    },
+    {
+      "name": "MD-leadtimes detail 有「修改」pill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "MD-leadtimes detail 有標題",
+      "pass": true,
+      "detail": "aaa"
+    },
+    {
+      "name": "MD-leadtimes /new create mode",
+      "pass": true,
+      "detail": "create UI"
+    },
+    {
+      "name": "MD-roles list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "MD-roles list 標題",
+      "pass": true,
+      "detail": "員工角色"
+    },
+    {
+      "name": "MD-roles list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "MD-roles detail 可見",
+      "pass": true,
+      "detail": "/admin/master-data/employee-roles/technician"
+    },
+    {
+      "name": "MD-roles detail 有「修改」pill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "MD-roles detail 有標題",
+      "pass": true,
+      "detail": "技師"
+    },
+    {
+      "name": "MD-roles /new create mode",
+      "pass": true,
+      "detail": "create UI"
+    },
+    {
+      "name": "groups create 填表",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "groups create 寫入成功",
+      "pass": true,
+      "detail": "https://dealeros.zeabur.app/admin/org/groups/e2e_r24_grp"
+    },
+    {
+      "name": "groups delete 清理成功",
+      "pass": true,
+      "detail": "https://dealeros.zeabur.app/admin/org/groups"
+    },
+    {
+      "name": "無 console / page error",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

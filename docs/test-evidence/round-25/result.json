@@ -1,0 +1,111 @@
+{
+  "pass": 21,
+  "total": 21,
+  "results": [
+    {
+      "name": "登入成功",
+      "pass": true,
+      "detail": "https://dealeros.zeabur.app/dashboard"
+    },
+    {
+      "name": "設定 Indian scope cookie",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP14-pricing list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP14-pricing list 標題",
+      "pass": true,
+      "detail": "定價折扣設定"
+    },
+    {
+      "name": "GRP14-pricing list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP14-pricing detail 可見",
+      "pass": true,
+      "detail": "/group/pricing/0943ea77-8766-4017-aaf8-7617ed4825ab"
+    },
+    {
+      "name": "GRP14-pricing detail 有「修改」pill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP14-pricing detail 有標題",
+      "pass": true,
+      "detail": "FTR 1200 S"
+    },
+    {
+      "name": "GRP14-pricing /new create mode",
+      "pass": true,
+      "detail": "create UI"
+    },
+    {
+      "name": "GRP13-promotions list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP13-promotions list 標題",
+      "pass": true,
+      "detail": "促銷活動管理"
+    },
+    {
+      "name": "GRP13-promotions list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP13-promotions detail 可見",
+      "pass": true,
+      "detail": "/group/promotions/21000000-0000-4000-9000-000000000001"
+    },
+    {
+      "name": "GRP13-promotions detail 有「修改」pill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP13-promotions detail 有標題",
+      "pass": true,
+      "detail": "Q2換季保養優惠"
+    },
+    {
+      "name": "GRP13-promotions /new create mode",
+      "pass": true,
+      "detail": "create UI"
+    },
+    {
+      "name": "pricing create 填表",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "pricing create 寫入成功",
+      "pass": true,
+      "detail": "/group/pricing/4c033d86-11bd-4819-9811-5f5e8d138866"
+    },
+    {
+      "name": "pricing detail 有狀態機 pill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "pricing delete 清理成功",
+      "pass": true,
+      "detail": "/group/pricing"
+    },
+    {
+      "name": "無 console / page error",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

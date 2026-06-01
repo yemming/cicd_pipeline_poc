@@ -1,0 +1,157 @@
+[
+  {
+    "name": "登入成功",
+    "pass": true,
+    "detail": "https://dealeros.zeabur.app/dashboard"
+  },
+  {
+    "name": "設定 Indian scope cookie",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 頁可見",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 標題",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 5 KPI（零件總營收）",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 毛利率 KPI",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 周轉率 KPI",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 呆滯庫存 KPI",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 精品加裝 KPI",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 門店業績對比區",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 品項結構 donut",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 庫存健康表",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 供應商集中度",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 SVG 圖表渲染",
+    "pass": true,
+    "detail": "3 個 svg"
+  },
+  {
+    "name": "GRP12 drill 單店深鑽模式",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 drill SKU 明細",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 drill 採購vs出庫",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 drill 車型加裝率",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP12 返回集團總覽",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 頁可見",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 標題",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 現行定價品項 KPI",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 達成率 KPI",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 整車定價表",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 折扣授權範圍欄",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 門店成交偏差",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 異動稽核 log",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 cat-tabs",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "GRP14 毛利率自動算（33.3%）",
+    "pass": true,
+    "detail": "12000/8000"
+  },
+  {
+    "name": "GRP14 新增成功（banner / 列表出現）",
+    "pass": true,
+    "detail": "E2E測試件_540745"
+  },
+  {
+    "name": "無嚴重 console error",
+    "pass": true,
+    "detail": ""
+  }
+]

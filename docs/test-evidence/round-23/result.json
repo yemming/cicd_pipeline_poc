@@ -1,0 +1,146 @@
+{
+  "pass": 28,
+  "total": 28,
+  "results": [
+    {
+      "name": "登入成功",
+      "pass": true,
+      "detail": "https://dealeros.zeabur.app/dashboard"
+    },
+    {
+      "name": "設定 Indian scope cookie",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 頁可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 標題",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 KPI 技師人數",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 KPI 均值工時效率",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 T1 工時效率圖",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 T2 品質風險圖",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 T3 完工準時圖",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 T4 資歷成長圖",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 返修率告警橫幅",
+      "pass": true,
+      "detail": "台中林志豪 18.4%"
+    },
+    {
+      "name": "GRP15 綜合排名表",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP15 4 散佈圖渲染",
+      "pass": true,
+      "detail": "4 個 svg"
+    },
+    {
+      "name": "GRP15 門店切換（台中）",
+      "pass": true,
+      "detail": "台中直營店"
+    },
+    {
+      "name": "GRP19 頁可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 標題",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 KPI 本季收購台數",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 KPI 現有庫存台數",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 U1 收購能力圖",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 U2 售出效率圖",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 U3 庫存周轉圖",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 U4 綜合獲利圖",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 門店綜合績效排名",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 庫存清單",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 4 散佈圖渲染",
+      "pass": true,
+      "detail": "4 個 svg"
+    },
+    {
+      "name": "GRP19 庫存清單有車輛列",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "GRP19 門店切換深鑽",
+      "pass": true,
+      "detail": "台中直營店"
+    },
+    {
+      "name": "無 console / page error",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}
