@@ -304,6 +304,32 @@ export const modules: ModuleDef[] = [
   },
 
   // ────────────────────────────────────────────────────────
+  // 新車進口採購 P2P（Procurement-to-Stock）— 財務級進口全流程
+  // ────────────────────────────────────────────────────────
+  {
+    key: "vehicle-import",
+    name: "新車進口採購",
+    icon: "directions_boat",
+    accent: "#1A3A5C",
+    description: "進口採購・報關・Landed Cost・個別認定",
+    home: "/vehicle-import/tariffs",
+    permission: "vehicle-import.access",
+    pages: [
+      // 採購與物流
+      { name: "進口採購單", icon: "description",   href: "/vehicle-import/purchase-orders", section: "採購與物流" },
+      { name: "進口批次",   icon: "directions_boat", href: "/vehicle-import/shipments",      section: "採購與物流" },
+      { name: "進口文件",   icon: "folder_open",   href: "/vehicle-import/documents",       section: "採購與物流" },
+      // 成本與稅務
+      { name: "Landed Cost 結算", icon: "calculate", href: "/vehicle-import/landed-cost",   section: "成本與稅務" },
+      { name: "車輛成本卡", icon: "receipt_long",  href: "/vehicle-import/cost-cards",       section: "成本與稅務" },
+      { name: "補列審核",   icon: "rule",          href: "/vehicle-import/cost-additions",  section: "成本與稅務" },
+      // 設定
+      { name: "進口稅則",   icon: "percent",       href: "/vehicle-import/tariffs",         section: "設定" },
+      { name: "車型攤提設定", icon: "tune",        href: "/vehicle-import/model-amortization", section: "設定" },
+    ],
+  },
+
+  // ────────────────────────────────────────────────────────
   // 8. 簽核管理 (S1 簽核中心)
   // ────────────────────────────────────────────────────────
   {

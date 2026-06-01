@@ -39,17 +39,18 @@ function fmtNT(n: number): string {
   return `NT$ ${Number(n).toLocaleString("en-US")}`;
 }
 
-const BASE = "/sales/inventory/purchase-orders";
-
 export default function VehiclePOWizard({
   vehicleModels,
   warehouses,
   previewPoNo,
+  basePath = "/sales/inventory/purchase-orders",
 }: {
   vehicleModels: VehicleModelOption[];
   warehouses: WarehouseOption[];
   previewPoNo: string;
+  basePath?: string;
 }) {
+  const BASE = basePath;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);

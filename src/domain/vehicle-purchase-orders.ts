@@ -10,6 +10,7 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getPrintBrandBuyer, type PrintBrandInfo, type PrintBuyerInfo } from "@/lib/pdf/print-context";
 
 // ── 型別 ──────────────────────────────────────────────────────────────
 
@@ -57,11 +58,21 @@ export type VehiclePORow = {
   created_at: string | null;
   updated_at: string | null;
   created_by: string | null;
+  // 進口 P2P 欄位（Round C）
+  pi_no: string | null;
+  incoterms: string | null;
+  deposit_ratio: number | null;
+  deposit_paid_at: string | null;
+  balance_paid_at: string | null;
+  origin_country: string | null;
   // 衍生（list 用）
   model_count: number;
   total_qty: number;
   total_amount_twd: number;
   warehouse_name: string | null;
+  // 進口衍生（依 deposit_ratio × 總額）
+  deposit_amount: number;
+  balance_amount: number;
 };
 
 export type VehiclePODetail = VehiclePORow & {
@@ -104,8 +115,19 @@ async function getBrandId(): Promise<string> {
 const HEAD_FIELDS = `
   id, brand_id, subsidiary_id, po_no, supplier_name, order_date, expected_arrival,
   warehouse_id, currency, exchange_rate, freight_estimate, insurance_estimate,
-  customs_rate, status, notes, metadata, created_at, updated_at, created_by
+  customs_rate, status, notes, metadata, created_at, updated_at, created_by,
+  pi_no, incoterms, deposit_ratio, deposit_paid_at, balance_paid_at, origin_country
 `.trim();
+
+/** 依 deposit_ratio × 採購總額算訂金/尾款（ratio 存小數 0.3 = 30%） */
+function depositSplit(
+  totalAmount: number,
+  depositRatio: number | null,
+): { deposit_amount: number; balance_amount: number } {
+  const ratio = depositRatio == null ? 0 : Number(depositRatio);
+  const deposit = Math.round(totalAmount * ratio);
+  return { deposit_amount: deposit, balance_amount: Math.max(0, totalAmount - deposit) };
+}
 
 // ── 查詢 ──────────────────────────────────────────────────────────────
 
@@ -138,7 +160,12 @@ export async function listVehiclePurchaseOrders(
 
   const heads = (data ?? []) as unknown as Omit<
     VehiclePORow,
-    "model_count" | "total_qty" | "total_amount_twd" | "warehouse_name"
+    | "model_count"
+    | "total_qty"
+    | "total_amount_twd"
+    | "warehouse_name"
+    | "deposit_amount"
+    | "balance_amount"
   >[];
 
   if (heads.length === 0) return { rows: [], totalCount: count ?? 0 };
@@ -173,6 +200,7 @@ export async function listVehiclePurchaseOrders(
 
   const rows: VehiclePORow[] = heads.map((h) => {
     const agg = aggMap.get(h.id) ?? { models: 0, qty: 0, amount: 0 };
+    const split = depositSplit(agg.amount, h.deposit_ratio);
     return {
       ...h,
       metadata: (h.metadata as Record<string, unknown>) ?? {},
@@ -180,6 +208,7 @@ export async function listVehiclePurchaseOrders(
       total_qty: agg.qty,
       total_amount_twd: agg.amount,
       warehouse_name: h.warehouse_id ? whMap.get(h.warehouse_id) ?? null : null,
+      ...split,
     };
   });
 
@@ -203,7 +232,12 @@ export async function getVehiclePurchaseOrderById(
 
   const h = head as unknown as Omit<
     VehiclePORow,
-    "model_count" | "total_qty" | "total_amount_twd" | "warehouse_name"
+    | "model_count"
+    | "total_qty"
+    | "total_amount_twd"
+    | "warehouse_name"
+    | "deposit_amount"
+    | "balance_amount"
   >;
 
   const { data: itemsData, error: itemsErr } = await supabase
@@ -271,7 +305,79 @@ export async function getVehiclePurchaseOrderById(
     total_qty,
     total_amount_twd,
     warehouse_name,
+    ...depositSplit(total_amount_twd, h.deposit_ratio),
     items,
+  };
+}
+
+// ── 列印 ──────────────────────────────────────────────────────────────
+
+export type ImportPOForPrint = {
+  id: string;
+  brand: PrintBrandInfo;
+  buyer: PrintBuyerInfo;
+  po_no: string;
+  pi_no: string | null;
+  supplier_name: string | null;
+  incoterms: string | null;
+  origin_country: string | null;
+  order_date: string | null;
+  expected_arrival: string | null;
+  currency: string | null;
+  exchange_rate: number | null;
+  status: VehiclePOStatus;
+  notes: string | null;
+  lines: Array<{
+    seq: number | null;
+    model: string;
+    color: string | null;
+    qty: number;
+    unit_price_twd: number;
+    subtotal: number;
+  }>;
+  total_qty: number;
+  total_amount_twd: number;
+  deposit_ratio: number | null;
+  deposit_amount: number;
+  deposit_paid_at: string | null;
+  balance_amount: number;
+  balance_paid_at: string | null;
+};
+
+export async function getImportPOForPrint(id: string): Promise<ImportPOForPrint | null> {
+  const po = await getVehiclePurchaseOrderById(id);
+  if (!po) return null;
+  const { brand, buyer } = await getPrintBrandBuyer(po.brand_id, po.subsidiary_id);
+  return {
+    id: po.id,
+    brand,
+    buyer,
+    po_no: po.po_no,
+    pi_no: po.pi_no,
+    supplier_name: po.supplier_name,
+    incoterms: po.incoterms,
+    origin_country: po.origin_country,
+    order_date: po.order_date,
+    expected_arrival: po.expected_arrival,
+    currency: po.currency,
+    exchange_rate: po.exchange_rate,
+    status: po.status,
+    notes: po.notes,
+    lines: po.items.map((it) => ({
+      seq: it.seq,
+      model: [it.model_series, it.model_display_name].filter(Boolean).join(" · ") || "—",
+      color: it.color,
+      qty: it.qty ?? 0,
+      unit_price_twd: Number(it.unit_price_twd ?? 0),
+      subtotal: (it.qty ?? 0) * Number(it.unit_price_twd ?? 0),
+    })),
+    total_qty: po.total_qty,
+    total_amount_twd: po.total_amount_twd,
+    deposit_ratio: po.deposit_ratio,
+    deposit_amount: po.deposit_amount,
+    deposit_paid_at: po.deposit_paid_at,
+    balance_amount: po.balance_amount,
+    balance_paid_at: po.balance_paid_at,
   };
 }
 

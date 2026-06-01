@@ -1,0 +1,121 @@
+{
+  "pass": 23,
+  "total": 23,
+  "results": [
+    {
+      "name": "登入成功",
+      "pass": true,
+      "detail": "/dashboard"
+    },
+    {
+      "name": "設定 Indian scope cookie",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "文件 list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "文件 list 標題",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "文件 list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "文件 modal 開啟+填單號",
+      "pass": true,
+      "detail": "E2E-RC-922299"
+    },
+    {
+      "name": "文件 create 寫入成功",
+      "pass": true,
+      "detail": "E2E-RC-922299"
+    },
+    {
+      "name": "文件 delete 清理成功",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "採購單 list 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "採購單 list 標題",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "採購單 list 有 DataGrid",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "採購單 detail 可見",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail 有「進口與付款」區段",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail 有列印鈕",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail 有麵包屑「進口採購單」",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "進口付款區段編輯儲存成功",
+      "pass": true,
+      "detail": "PI-E2E-RC 已落地"
+    },
+    {
+      "name": "列印 import-po 渲染",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "列印 import-po 有下載 PDF 鈕",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "列印 landed-cost-statement 渲染",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "列印 landed-cost-statement 有下載 PDF 鈕",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "列印 vehicle-cost-card 渲染",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "列印 vehicle-cost-card 有下載 PDF 鈕",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "無 console / page error",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

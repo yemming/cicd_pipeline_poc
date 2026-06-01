@@ -228,6 +228,14 @@ export async function deliverVehicle(
   });
   if (!costEv.ok) return { ok: false, error: `整車成本事件失敗：${costEv.error}` };
 
+  // 1b) 凍結成本：交車 = COGS 鎖定點。之後進口 landed cost 重結算會被
+  //     commitAllocation 的 frozen 守門擋掉，避免改到已出 COGS 的歷史成本。
+  await supabase
+    .from("new_car_inventory")
+    .update({ cost_frozen_at: new Date().toISOString() })
+    .eq("id", dims.vehicle_id)
+    .is("cost_frozen_at", null);
+
   // 2) COGS_ON_VEHICLE_SALE（無 doc row，直接過帳）
   const cogs = await instantiateTransaction(
     TX_TYPES.COGS_ON_VEHICLE_SALE,

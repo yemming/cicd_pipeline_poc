@@ -7,13 +7,14 @@ import { useRouter } from "next/navigation";
 import {
   setVehiclePOStatusAction,
   deleteVehiclePOAction,
+  updateVehiclePOAction,
 } from "@/lib/vehicle-inventory/vehicle-po-actions";
 import type {
   VehiclePODetail,
   VehiclePOStatus,
 } from "@/domain/vehicle-purchase-orders";
 
-const BASE = "/sales/inventory/purchase-orders";
+const INCOTERMS = ["EXW", "FOB", "CIF", "CFR", "DAP", "DDP"];
 
 const STATUS_LABELS: Record<VehiclePOStatus, string> = {
   draft: "草稿",
@@ -71,17 +72,58 @@ type Banner = { ok: boolean; msg: string } | null;
 export default function VehiclePODetailView({
   po,
   canEdit,
+  basePath = "/sales/inventory/purchase-orders",
+  listLabel = "整車採購訂單",
+  showImportSection = false,
 }: {
   po: VehiclePODetail;
   canEdit: boolean;
+  basePath?: string;
+  listLabel?: string;
+  showImportSection?: boolean;
 }) {
+  const BASE = basePath;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
 
+  // 進口/付款區段就地編輯
+  const [editImport, setEditImport] = useState(false);
+  const [imp, setImp] = useState({
+    pi_no: po.pi_no ?? "",
+    incoterms: po.incoterms ?? "",
+    origin_country: po.origin_country ?? "",
+    deposit_ratio: po.deposit_ratio == null ? "" : String(po.deposit_ratio * 100),
+    deposit_paid_at: po.deposit_paid_at ?? "",
+    balance_paid_at: po.balance_paid_at ?? "",
+  });
+
   const showBanner = (b: Banner) => {
     setBanner(b);
     if (b?.ok) setTimeout(() => setBanner(null), 2200);
+  };
+
+  const saveImport = () => {
+    const ratioPct = imp.deposit_ratio.trim() === "" ? null : Number(imp.deposit_ratio);
+    if (ratioPct != null && (Number.isNaN(ratioPct) || ratioPct < 0 || ratioPct > 100)) {
+      showBanner({ ok: false, msg: "訂金比例需為 0–100 的數字" });
+      return;
+    }
+    startTransition(async () => {
+      const res = await updateVehiclePOAction(po.id, {
+        pi_no: imp.pi_no.trim() || null,
+        incoterms: imp.incoterms.trim() || null,
+        origin_country: imp.origin_country.trim() || null,
+        deposit_ratio: ratioPct == null ? null : ratioPct / 100,
+        deposit_paid_at: imp.deposit_paid_at || null,
+        balance_paid_at: imp.balance_paid_at || null,
+      });
+      if (res.ok) {
+        setEditImport(false);
+        showBanner({ ok: true, msg: "✓ 進口資訊已更新" });
+        router.refresh();
+      } else showBanner({ ok: false, msg: res.error });
+    });
   };
 
   const setStatus = (next: VehiclePOStatus) => {
@@ -118,7 +160,7 @@ export default function VehiclePODetailView({
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2 text-[12px] text-[#9A9890]">
           <Link href={BASE} className="hover:text-[#185FA5]">
-            整車採購訂單
+            {listLabel}
           </Link>
           <span>›</span>
           <span className="text-[#5A5955] font-mono">{po.po_no}</span>
@@ -130,6 +172,17 @@ export default function VehiclePODetailView({
           >
             返回列表
           </Link>
+          {showImportSection ? (
+            <button
+              type="button"
+              onClick={() => window.open(`/print/import-po/${po.id}`, "_blank")}
+              className="h-[30px] px-4 inline-flex items-center gap-1 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
+              title="列印 / 另存 PDF"
+            >
+              <span className="material-symbols-outlined text-[14px]">print</span>
+              列印
+            </button>
+          ) : null}
           <Link
             href={`${BASE}/new`}
             aria-disabled={!canEdit}
@@ -220,6 +273,173 @@ export default function VehiclePODetailView({
           </div>
         ) : null}
       </section>
+
+      {/* 進口與付款（訂金/尾款）— 僅 vehicle-import 模組顯示 */}
+      {showImportSection ? (
+        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 進口與付款</span>
+            {canEdit && !editImport ? (
+              <button
+                type="button"
+                onClick={() => setEditImport(true)}
+                className="ml-auto h-[26px] px-3 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                編輯
+              </button>
+            ) : null}
+            {editImport ? (
+              <div className="ml-auto flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={saveImport}
+                  disabled={isPending}
+                  className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                >
+                  {isPending ? "儲存中⋯" : "儲存"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditImport(false);
+                    setImp({
+                      pi_no: po.pi_no ?? "",
+                      incoterms: po.incoterms ?? "",
+                      origin_country: po.origin_country ?? "",
+                      deposit_ratio: po.deposit_ratio == null ? "" : String(po.deposit_ratio * 100),
+                      deposit_paid_at: po.deposit_paid_at ?? "",
+                      balance_paid_at: po.balance_paid_at ?? "",
+                    });
+                  }}
+                  disabled={isPending}
+                  className="h-[26px] px-3 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                >
+                  取消
+                </button>
+              </div>
+            ) : null}
+          </header>
+          {editImport ? (
+            <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+              {(() => {
+                const inp =
+                  "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none";
+                const lbl = "text-[11px] text-[#9A9890] font-medium";
+                return (
+                  <>
+                    <label className="flex flex-col gap-1">
+                      <span className={lbl}>PI 號（預估發票）</span>
+                      <input
+                        className={inp}
+                        value={imp.pi_no}
+                        onChange={(e) => setImp((s) => ({ ...s, pi_no: e.target.value }))}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={lbl}>貿易條件 Incoterms</span>
+                      <select
+                        className={inp}
+                        value={imp.incoterms}
+                        onChange={(e) => setImp((s) => ({ ...s, incoterms: e.target.value }))}
+                      >
+                        <option value="">（未指定）</option>
+                        {INCOTERMS.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={lbl}>原產國</span>
+                      <input
+                        className={inp}
+                        value={imp.origin_country}
+                        onChange={(e) => setImp((s) => ({ ...s, origin_country: e.target.value }))}
+                        placeholder="例：Italy / USA"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={lbl}>訂金比例 (%)</span>
+                      <input
+                        className={inp}
+                        value={imp.deposit_ratio}
+                        onChange={(e) => setImp((s) => ({ ...s, deposit_ratio: e.target.value }))}
+                        placeholder="例：30"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={lbl}>訂金付款日</span>
+                      <input
+                        type="date"
+                        className={inp}
+                        value={imp.deposit_paid_at}
+                        onChange={(e) => setImp((s) => ({ ...s, deposit_paid_at: e.target.value }))}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className={lbl}>尾款付款日</span>
+                      <input
+                        type="date"
+                        className={inp}
+                        value={imp.balance_paid_at}
+                        onChange={(e) => setImp((s) => ({ ...s, balance_paid_at: e.target.value }))}
+                      />
+                    </label>
+                  </>
+                );
+              })()}
+            </div>
+          ) : (
+            <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+              <Kv label="PI 號（預估發票）" value={po.pi_no} mono />
+              <Kv label="貿易條件 Incoterms" value={po.incoterms} />
+              <Kv label="原產國" value={po.origin_country} />
+              <Kv
+                label="訂金比例"
+                value={po.deposit_ratio == null ? "—" : `${(po.deposit_ratio * 100).toFixed(0)}%`}
+                mono
+              />
+              <Kv
+                label="訂金金額"
+                value={
+                  <span>
+                    {fmtNT(po.deposit_amount)}
+                    {po.deposit_paid_at ? (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11]">
+                        已付 {po.deposit_paid_at}
+                      </span>
+                    ) : (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
+                        未付
+                      </span>
+                    )}
+                  </span>
+                }
+                mono
+              />
+              <Kv
+                label="尾款金額"
+                value={
+                  <span>
+                    {fmtNT(po.balance_amount)}
+                    {po.balance_paid_at ? (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11]">
+                        已付 {po.balance_paid_at}
+                      </span>
+                    ) : (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
+                        未付
+                      </span>
+                    )}
+                  </span>
+                }
+                mono
+              />
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {/* 車款明細 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">

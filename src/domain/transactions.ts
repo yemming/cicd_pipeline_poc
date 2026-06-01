@@ -53,6 +53,8 @@ export const TX_TYPES = {
   //   （成本 ledger 餵 deliverVehicle 的 getVehicleLandedCost 硬依賴）
   VEHICLE_INVENTORY_RECEIPT: "VEHICLE_INVENTORY_RECEIPT",
   VEHICLE_VENDOR_BILL: "VEHICLE_VENDOR_BILL",
+  // Round D 進口落地成本：分攤後增量資本化（關稅+貨物稅+進口費用+車型攤提入存貨、進口營業稅進項分離）
+  VEHICLE_IMPORT_LANDED_COST: "VEHICLE_IMPORT_LANDED_COST",
 } as const;
 
 export type TxTypeCode = (typeof TX_TYPES)[keyof typeof TX_TYPES];

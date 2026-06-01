@@ -36,6 +36,13 @@ export type VehiclePOInput = {
   insurance_estimate?: number | null;
   customs_rate?: number | null;
   notes?: string | null;
+  // 進口 P2P 欄位（Round C，更新時可選）
+  pi_no?: string | null;
+  incoterms?: string | null;
+  deposit_ratio?: number | null;
+  deposit_paid_at?: string | null;
+  balance_paid_at?: string | null;
+  origin_country?: string | null;
   items: VehiclePOItemInput[];
 };
 
@@ -181,6 +188,13 @@ export async function updateVehiclePOAction(
   if (patch.insurance_estimate !== undefined) upd.insurance_estimate = patch.insurance_estimate ?? 0;
   if (patch.customs_rate !== undefined) upd.customs_rate = patch.customs_rate ?? 0;
   if (patch.notes !== undefined) upd.notes = patch.notes?.trim() || null;
+  // 進口 P2P 欄位
+  if (patch.pi_no !== undefined) upd.pi_no = patch.pi_no?.trim() || null;
+  if (patch.incoterms !== undefined) upd.incoterms = patch.incoterms?.trim() || null;
+  if (patch.deposit_ratio !== undefined) upd.deposit_ratio = patch.deposit_ratio ?? null;
+  if (patch.deposit_paid_at !== undefined) upd.deposit_paid_at = patch.deposit_paid_at || null;
+  if (patch.balance_paid_at !== undefined) upd.balance_paid_at = patch.balance_paid_at || null;
+  if (patch.origin_country !== undefined) upd.origin_country = patch.origin_country?.trim() || null;
 
   const { error } = await supabase
     .from("vehicle_purchase_orders")
@@ -189,6 +203,7 @@ export async function updateVehiclePOAction(
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `儲存失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
+  revalidatePath("/vehicle-import/purchase-orders");
   return { ok: true, data: { id } };
 }
 
