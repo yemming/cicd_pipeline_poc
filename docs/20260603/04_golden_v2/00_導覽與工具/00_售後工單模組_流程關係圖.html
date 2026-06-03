@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DUCATI 售後工單模組 — 功能流程關係圖</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}.htitle{font-size:13px;color:rgba(255,255,255,.6);}.htitle b{color:#fff;font-weight:500;}.hright{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:rgba(255,255,255,.5);}.hright b{color:#5BC4A8;}.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;}.main{max-width:1200px;margin:0 auto;padding:20px 24px;}.legend{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;font-size:11.5px;color:#6B6A68;}.leg{display:flex;align-items:center;gap:5px;}.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}.scard{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 14px;}.scard-n{font-size:20px;font-weight:700;margin:3px 0;}.scard-l{font-size:11px;color:#9A9890;}.phase{border-radius:10px;overflow:hidden;border:1px solid #EEECE6;margin-bottom:10px;}.phase-hdr{padding:9px 16px;display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;}.phase-body{padding:12px 14px;background:#fff;display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;}.node{border-radius:8px;padding:8px 11px;min-width:130px;max-width:165px;cursor:pointer;transition:all .15s;border:1.5px solid transparent;flex-shrink:0;}.node:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1);}.node-num{font-size:10px;font-family:'DM Mono',monospace;opacity:.65;margin-bottom:3px;}.node-name{font-size:12px;font-weight:600;line-height:1.35;}.node-file{font-size:10px;margin-top:4px;opacity:.7;}.node-status{font-size:10px;margin-top:3px;display:flex;align-items:center;gap:3px;}.arr{font-size:16px;color:#D5D3CB;padding-top:18px;flex-shrink:0;}.arr-label{font-size:9px;color:#B4B2A9;display:block;text-align:center;margin-top:-12px;}.n-done{background:#E1F5EE;border-color:#5DCAA5;}.n-done .node-name{color:#085041;}.n-done .node-status{color:#0F6E56;}.n-new{background:#EAF4FB;border-color:#85B7EB;}.n-new .node-name{color:#0C3E70;}.n-new .node-status{color:#185FA5;}.n-key{background:#FDECEA;border-color:#F5AEAD;}.n-key .node-name{color:#7A1010;}.n-key .node-status{color:#CC0000;}.n-purple{background:#EEEDFE;border-color:#AFA9EC;}.n-purple .node-name{color:#26215C;}.n-purple .node-status{color:#534AB7;}.n-amber{background:#FDF3E3;border-color:#F0C97E;}.n-amber .node-name{color:#6B3A00;}.n-amber .node-status{color:#854F0B;}.n-green{background:#EAF3DE;border-color:#B5D4B0;}.n-green .node-name{color:#084D30;}.n-green .node-status{color:#3B6D11;}.n-gray{background:#F1EFE8;border-color:#B4B2A9;}.n-gray .node-name{color:#3A3A38;}.n-gray .node-status{color:#5A5955;}.ph-teal{background:#E1F5EE;border-color:#5DCAA5;}.ph-teal .phase-hdr{color:#085041;}.ph-blue{background:#EAF4FB;border-color:#85B7EB;}.ph-blue .phase-hdr{color:#0C3E70;}.ph-red{background:#FDECEA;border-color:#F5AEAD;}.ph-red .phase-hdr{color:#7A1010;}.ph-purple{background:#EEEDFE;border-color:#AFA9EC;}.ph-purple .phase-hdr{color:#26215C;}.ph-green{background:#EAF3DE;border-color:#B5D4B0;}.ph-green .phase-hdr{color:#084D30;}.ph-amber{background:#FDF3E3;border-color:#F0C97E;}.ph-amber .phase-hdr{color:#6B3A00;}.connector{padding:5px 16px;background:#F8F7F4;font-size:11px;color:#534AB7;font-weight:500;display:flex;align-items:center;gap:8px;border-top:1px solid #EEECE6;}.conn-line{flex:1;height:1px;background:#D5D3CB;}.side-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;}</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;"><button onclick="go('00_售後工單模組_導覽總覽.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">← 導覽總覽</button><button onclick="go('01_預約管理看板.html')" style="padding:5px 14px;background:#C8001A;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">預約看板 →</button></div>
+<header>
+<div class="logo">DUCATI</div><div class="hdiv"></div>
+<div class="htitle">售後工單模組 <b>功能流程關係圖</b></div>
+<div class="hright">版本 v2.0 · <b>2026/05/08</b>&nbsp;&nbsp;<button class="hbtn" onclick="showToast('← 導覽總覽')">← 導覽總覽</button></div>
+</header>
+<div class="main">
+
+<div class="legend">
+<span>圖例：</span>
+<div class="leg"><div class="leg-dot" style="background:#5DCAA5;"></div>✅ 已完成</div>
+<div class="leg"><div class="leg-dot" style="background:#85B7EB;"></div>🔵 待開發</div>
+<div class="leg"><div class="leg-dot" style="background:#F5AEAD;"></div>🔴 核心關鍵</div>
+<div class="leg"><div class="leg-dot" style="background:#AFA9EC;"></div>🟣 跨頁共用</div>
+<div class="leg"><div class="leg-dot" style="background:#F0C97E;"></div>🟡 支線流程</div>
+</div>
+
+<div class="stats">
+<div class="scard"><div class="scard-l">已完成頁面</div><div class="scard-n" style="color:#3B6D11;">9 支</div></div>
+<div class="scard"><div class="scard-l">待開發頁面</div><div class="scard-n" style="color:#185FA5;">5 支</div></div>
+<div class="scard"><div class="scard-l">剩餘 Sessions</div><div class="scard-n" style="color:#1A3A5C;">2~3</div></div>
+<div class="scard"><div class="scard-l">與庫存模組串接點</div><div class="scard-n" style="color:#534AB7;">4 個</div></div>
+</div>
+
+<!-- Phase 1: 預約進廠 -->
+<div class="phase ph-blue">
+<div class="phase-hdr">📅 預約與進廠管理</div>
+<div class="phase-body">
+<div class="node n-done" onclick="go('01_預約管理看板.html')"><div class="node-num">1.1</div><div class="node-name">預約管理看板</div><div class="node-status">✅ 已完成</div><div class="node-file">01_預約管理看板.html</div></div>
+<div class="arr">→</div>
+<div class="node n-done"><div class="node-num">1.2</div><div class="node-name">技師工作負載</div><div class="node-status">✅ 同頁整合</div></div>
+</div>
+</div>
+
+<div style="text-align:center;font-size:18px;color:#D5D3CB;padding:4px 0;">↓</div>
+
+<!-- Phase 2: SA 預檢 -->
+<div class="phase ph-teal">
+<div class="phase-hdr">🔍 SA 修護接待（預檢五關・同一頁面 Tab 切換）</div>
+<div class="phase-body">
+<div class="node n-done" onclick="go('04_預檢單_RO串接_v3.html')"><div class="node-num">2.1 Tab1</div><div class="node-name">環車預檢</div><div class="node-status">✅ v3</div><div class="node-file">04_預檢單_RO串接_v3</div></div>
+<div class="arr">→</div>
+<div class="node n-done"><div class="node-num">2.2 Tab2</div><div class="node-name">來意詢問<br>+客戶標籤</div><div class="node-status">✅ v3</div></div>
+<div class="arr">→</div>
+<div class="node n-done"><div class="node-num">2.3 Tab3</div><div class="node-name">技師深入<br>檢查</div><div class="node-status">✅ v3</div></div>
+<div class="arr">→</div>
+<div class="node n-done"><div class="node-num">2.4 Tab4</div><div class="node-name">SA 報價<br>彙整</div><div class="node-status">✅ v3</div></div>
+<div class="arr">→</div>
+<div class="node n-done" style="border-width:2px;"><div class="node-num">2.5 Tab5</div><div class="node-name">車主<br>第一次簽名</div><div class="node-status">✅ v3</div></div>
+</div>
+<div class="connector"><div class="conn-line"></div><span>暫緩/拒絕項目 → 自動建立增項閉環追蹤</span><div class="conn-line"></div></div>
+</div>
+
+<div style="text-align:center;font-size:18px;color:#D5D3CB;padding:4px 0;">↓</div>
+
+<!-- Phase 3: RO 工單 -->
+<div class="phase ph-red">
+<div class="phase-hdr">📋 正式工單（RO）開立（資料自動帶入，SA 30秒完成）</div>
+<div class="phase-body">
+<div class="node n-key" onclick="go('02_正式工單RO.html')"><div class="node-num">3.1</div><div class="node-name">RO工單<br>極簡確認卡</div><div class="node-status">✅ 重做完成</div><div class="node-file">02_正式工單RO.html</div></div>
+<div class="arr">→</div>
+<div class="node n-key" onclick="go('03_維修項目零件明細.html')"><div class="node-num">3.2</div><div class="node-name">維修項目<br>零件明細</div><div class="node-status">✅ 已完成</div><div class="node-file">03_維修項目零件明細</div></div>
+<div class="arr">→</div>
+<div class="node n-new" onclick="go('10_工單查詢.html')"><div class="node-num">3.3</div><div class="node-name">工單列表<br>查詢</div><div class="node-status">🔵 Day 3</div><div class="node-file">10_工單列表查詢.html</div></div>
+</div>
+</div>
+
+<div style="text-align:center;font-size:18px;color:#D5D3CB;padding:4px 0;">↓</div>
+
+<!-- Phase 4: 車間管理 -->
+<div class="phase ph-purple">
+<div class="phase-hdr">👨‍🔧 車間管理（工位看板 + 技師打卡整合在同一頁面）</div>
+<div class="phase-body">
+<div class="node n-done" onclick="go('07_售後管理模組_v2.html')"><div class="node-num">4.1</div><div class="node-name">工位看板<br>（圖形化）</div><div class="node-status">✅ v2</div><div class="node-file">07_售後管理模組_v2</div></div>
+<div class="arr">→</div>
+<div class="node n-done"><div class="node-num">4.2</div><div class="node-name">技師派工<br>看板</div><div class="node-status">✅ v2</div></div>
+<div class="arr">→</div>
+<div class="node n-done" style="border-width:2px;"><div class="node-num">4.3 🆕</div><div class="node-name">技師電子<br>打卡（整合）</div><div class="node-status">✅ v2 新增</div><div class="node-file">點工位即打卡</div></div>
+<div class="arr">→</div>
+<div class="node n-done" style="border-width:2px;"><div class="node-num">4.4 🆕</div><div class="node-name">完工交棒<br>（30秒）</div><div class="node-status">✅ v2 新增</div><div class="node-file">推進至複檢</div></div>
+</div>
+</div>
+
+<div style="text-align:center;font-size:18px;color:#D5D3CB;padding:4px 0;">↓</div>
+
+<!-- Phase 5: 竣工 -->
+<div class="phase ph-green">
+<div class="phase-hdr">✅ 竣工複檢 + 取車通知</div>
+<div class="phase-body">
+<div class="node n-done" onclick="go('06_竣工複檢_v1.html')"><div class="node-num">5.1</div><div class="node-name">五步驟<br>竣工複檢</div><div class="node-status">✅ v1</div><div class="node-file">06_竣工複檢_v1.html</div></div>
+<div class="arr">→</div>
+<div class="node n-done"><div class="node-num">5.2</div><div class="node-name">職級授權<br>電子簽核</div><div class="node-status">✅ v1</div></div>
+<div class="arr">→</div>
+<div class="node n-new" onclick="go('11_取車通知設定.html')"><div class="node-num">5.3</div><div class="node-name">取車通知<br>推播設定</div><div class="node-status">🔵 Day 3</div><div class="node-file">11_取車通知設定.html</div></div>
+</div>
+</div>
+
+<div style="text-align:center;font-size:18px;color:#D5D3CB;padding:4px 0;">↓</div>
+
+<!-- Phase 6: 結帳 -->
+<div class="phase ph-green">
+<div class="phase-hdr">💳 結帳收款與關單（含車主第二次簽名）</div>
+<div class="phase-body">
+<div class="node n-new" onclick="go('08_結帳收款.html')"><div class="node-num">6.1</div><div class="node-name">費用明細<br>確認</div><div class="node-status">🔵 Day 2</div><div class="node-file">08_結帳收款.html</div></div>
+<div class="arr">→</div>
+<div class="node n-new" style="border:2px solid #F5AEAD;background:#FDECEA;"><div class="node-num">6.2 ⭐</div><div class="node-name">車主第二次<br>確認簽名</div><div class="node-status" style="color:#CC0000;">🔴 Day 2 重點</div><div class="node-file">同上頁面</div></div>
+<div class="arr">→</div>
+<div class="node n-new"><div class="node-num">6.3</div><div class="node-name">收款方式<br>發票開立</div><div class="node-status">🔵 Day 2</div><div class="node-file">同上頁面</div></div>
+<div class="arr">→</div>
+<div class="node n-new"><div class="node-num">6.4</div><div class="node-name">RO關單<br>存檔36個月</div><div class="node-status">🔵 Day 2</div><div class="node-file">同上頁面</div></div>
+</div>
+</div>
+
+<!-- 側功能 -->
+<div class="side-grid">
+
+<div class="phase ph-red" style="margin:0;">
+<div class="phase-hdr">🔄 增項閉環（完整子模組）</div>
+<div class="phase-body" style="flex-direction:column;gap:6px;">
+<div class="node n-done" style="max-width:100%;width:100%;" onclick="go('05_增項閉環_完整子模組.html')"><div class="node-num">7.1</div><div class="node-name">待追蹤看板（安全等級置頂）</div><div class="node-status">✅ 完整版</div></div>
+<div class="node n-done" style="max-width:100%;width:100%;"><div class="node-num">7.2</div><div class="node-name">D+3/D+10 追蹤時間軸</div><div class="node-status">✅ 完整版</div></div>
+<div class="node n-done" style="max-width:100%;width:100%;"><div class="node-num">7.3</div><div class="node-name">整店統計 / SA閉環績效</div><div class="node-status">✅ 完整版</div></div>
+<div class="node n-done" style="max-width:100%;width:100%;"><div class="node-num">7.4</div><div class="node-name">車主同意 → 一鍵預約回廠</div><div class="node-status">✅ 完整版</div></div>
+</div>
+</div>
+
+<div class="phase ph-purple" style="margin:0;">
+<div class="phase-hdr">👤 人車檔案</div>
+<div class="phase-body" style="flex-direction:column;gap:6px;">
+<div class="node n-new" style="max-width:100%;width:100%;" onclick="go('09_人車檔案.html')"><div class="node-num">8.1</div><div class="node-name">客戶基本資料卡</div><div class="node-status">🔵 Day 3</div></div>
+<div class="node n-new" style="max-width:100%;width:100%;"><div class="node-num">8.2</div><div class="node-name">車輛維修履歷</div><div class="node-status">🔵 Day 3</div></div>
+<div class="node n-new" style="max-width:100%;width:100%;"><div class="node-num">8.3</div><div class="node-name">保固狀態追蹤</div><div class="node-status">🔵 Day 3</div></div>
+</div>
+</div>
+
+<div class="phase ph-amber" style="margin:0;">
+<div class="phase-hdr">⚙️ 系統設定</div>
+<div class="phase-body" style="flex-direction:column;gap:6px;">
+<div class="node n-done" style="max-width:100%;width:100%;"><div class="node-num">9.1</div><div class="node-name">員工人員名冊</div><div class="node-status">✅ v2</div></div>
+<div class="node n-done" style="max-width:100%;width:100%;"><div class="node-num">9.2</div><div class="node-name">工單前綴碼設定</div><div class="node-status">✅ v2</div></div>
+<div class="node n-new" style="max-width:100%;width:100%;" onclick="go('12_客戶標籤主管設定.html')"><div class="node-num">9.3</div><div class="node-name">客戶標籤主管設定</div><div class="node-status">🔵 Day 3</div></div>
+</div>
+</div>
+
+</div>
+
+</div>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

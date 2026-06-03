@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>02_中古車整備工單 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--blue:#185FA5;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--navy:#1A3A5C;--gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-teal{background:rgba(15,110,86,.8);border-color:transparent;}
+.hbtn-teal:hover{background:var(--teal);}
+.main{max-width:1100px;margin:0 auto;padding:18px 24px 60px;}
+.tab-bar{background:#fff;border-bottom:2px solid #EEECE6;display:flex;position:sticky;top:52px;z-index:90;overflow-x:auto;}
+.tab-btn{flex-shrink:0;padding:11px 14px;font-size:12px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;}
+.tab-btn.active{color:var(--navy);font-weight:700;border-bottom-color:var(--red);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.panel-hdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-left{display:flex;align-items:center;gap:10px;}
+.picon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-blue{background:var(--blue-bg);}.pi-teal{background:var(--teal-bg);}.pi-amber{background:var(--amber-bg);}.pi-red{background:var(--red-bg);}.pi-dark{background:#E8EDF2;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:14px 16px;}
+.ig{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.ig3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.ib{background:#F4F3F0;border-radius:7px;padding:9px 12px;}
+.il{font-size:10.5px;color:var(--gray);margin-bottom:3px;}
+.iv{font-size:13px;font-weight:600;}
+.iv.mono{font-family:'DM Mono',monospace;font-size:12px;}
+.iv.teal{color:var(--teal);}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;color:var(--gray);margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;}
+.fi:focus{border-color:var(--blue-bd);}
+.prog-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.prog-bar{flex:1;height:7px;background:#EEECE6;border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--teal),#5DCAA5);border-radius:4px;transition:width .3s;}
+.prog-pct{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;color:var(--teal);white-space:nowrap;}
+.chk-cat{font-size:11px;font-weight:700;color:#fff;padding:5px 10px 4px;border-radius:5px;margin-top:10px;margin-bottom:5px;}
+.cat-a{background:var(--blue);}.cat-b{background:var(--teal);}.cat-c{background:var(--amber);}.cat-d{background:var(--purple);}
+.chk-item{display:flex;align-items:flex-start;gap:9px;padding:7px 10px;border-radius:6px;border:1px solid #EEECE6;background:#fff;cursor:pointer;transition:all .15s;margin-bottom:3px;}
+.chk-item:hover{border-color:var(--blue-bd);background:var(--blue-bg);}
+.chk-item.checked{background:var(--teal-bg);border-color:var(--teal-bd);}
+.chk-item.flagged{background:var(--amber-bg);border-color:var(--amber-bd);}
+.chk-cb{width:18px;height:18px;border-radius:4px;border:2px solid #D5D3CB;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:11px;transition:all .15s;}
+.chk-item.checked .chk-cb{background:var(--teal);border-color:var(--teal);color:#fff;}
+.chk-item.flagged .chk-cb{background:var(--amber);border-color:var(--amber);color:#fff;}
+.chk-num{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--gray);flex-shrink:0;min-width:22px;margin-top:2px;}
+.chk-text{font-size:12.5px;flex:1;line-height:1.5;}
+.chk-flag-btn{font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid var(--amber-bd);background:var(--amber-bg);color:var(--amber);cursor:pointer;flex-shrink:0;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;}
+.parts-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.parts-tbl th{background:var(--navy);color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:600;}
+.parts-tbl td{padding:7px 10px;border-bottom:1px solid #F4F3F0;vertical-align:middle;}
+.parts-tbl tfoot td{background:#F4F3F0;font-weight:600;}
+.add-row-inline{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;padding:8px;border:1.5px dashed #D5D3CB;border-radius:6px;background:#FAFAF8;}
+.add-inp{padding:5px 8px;border-radius:5px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;background:#fff;outline:none;}
+.add-inp.sm{width:80px;}
+.add-inp.lg{flex:1;min-width:140px;}
+.cost-bar{background:var(--navy);border-radius:9px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;}
+.cb-item{text-align:center;}
+.cb-label{font-size:10px;opacity:.65;color:#fff;margin-bottom:3px;}
+.cb-val{font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:#fff;}
+.cb-val.teal{color:#5DCAA5;}
+.cost-notice{background:var(--teal-bg);border:1.5px solid var(--teal-bd);border-radius:8px;padding:11px 14px;margin-bottom:12px;font-size:12px;color:#085041;line-height:1.7;}
+.sign-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+.sign-box{border:1.5px dashed #D5D3CB;border-radius:8px;padding:14px;text-align:center;background:#FAFAF8;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;transition:all .15s;}
+.sign-box:hover{border-color:var(--blue-bd);background:var(--blue-bg);}
+.sign-box.signed{border-style:solid;border-color:var(--teal-bd);background:var(--teal-bg);}
+.sign-label{font-size:12px;font-weight:600;color:#4A4A48;}
+.sign-sub{font-size:10.5px;color:var(--gray);}
+.complete-card{background:linear-gradient(135deg,#085041,var(--teal));border-radius:12px;padding:20px 24px;color:#fff;margin-bottom:14px;}
+.cc-title{font-size:18px;font-weight:700;margin-bottom:5px;}
+.cc-sub{font-size:12px;opacity:.85;margin-bottom:12px;line-height:1.7;}
+.cc-trigger{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:11px 14px;font-size:12px;line-height:1.9;margin-bottom:12px;}
+.cc-trigger b{color:#5DCAA5;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-purple{background:var(--purple-bg);color:var(--purple);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.mb12{margin-bottom:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">售後模組 <b>02_中古車整備工單</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('10_工單查詢.html')">← 工單查詢</button>
+    <button class="hbtn hbtn-teal" onclick="go('RS03B_中古車庫存看板_v1.html')">中古庫存 →</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" id="tb0" onclick="swTab(0,this)">📋 工單資訊</button>
+  <button class="tab-btn" id="tb1" onclick="swTab(1,this)">🔧 整備檢查清單</button>
+  <button class="tab-btn" id="tb2" onclick="swTab(2,this)">🔩 零件與工時</button>
+  <button class="tab-btn" id="tb3" onclick="swTab(3,this)">💰 費用彙總</button>
+  <button class="tab-btn" id="tb4" onclick="swTab(4,this)">✅ 完成核准</button>
+</div>
+
+<div class="main">
+
+<!-- TAB 0 工單資訊 -->
+<div class="tab-pane active" id="pane-0">
+  <div style="background:var(--teal-bg);border:1.5px solid var(--teal-bd);border-radius:9px;padding:11px 16px;margin-bottom:14px;">
+    <div style="font-size:12.5px;color:#085041;"><b>中古車整備工單（PD-UC）費用說明：</b>本工單費用歸屬為<b>整車在庫成本</b>，不向客戶收取費用。完工核准後費用自動寫回中古車車輛主檔，車輛狀態更新為「可售（AVAILABLE）」。</div>
+  </div>
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-dark">📋</div><div><div class="panel-title">整備工單基本資訊</div><div class="panel-sub">由 RS06 收購確認 或 RS_INV05 直購申請 自動建立</div></div></div>
+      <span class="badge b-purple">整備中</span>
+    </div>
+    <div class="panel-body">
+      <div class="ig">
+        <div class="ib"><div class="il">工單號</div><div class="iv mono teal">PD-UC-260526-001</div></div>
+        <div class="ib"><div class="il">業務類型</div><div class="iv">PD-UC — 中古整備</div></div>
+        <div class="ib"><div class="il">付款性質</div><div class="iv">IN — 內部結算</div></div>
+        <div class="ib"><div class="il">費用歸屬</div><div class="iv teal">整車成本</div></div>
+      </div>
+      <div class="ig">
+        <div class="ib"><div class="il">收購來源</div><div class="iv">置換收購（TRADE_IN）</div></div>
+        <div class="ib"><div class="il">建立日期</div><div class="iv">2026/05/26</div></div>
+        <div class="ib"><div class="il">預計完工</div><div class="iv">2026/05/30</div></div>
+        <div class="ib"><div class="il">指派技師</div><div class="iv">林建宏 SA</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-blue">🏍️</div><div><div class="panel-title">車輛資料</div></div></div></div>
+    <div class="panel-body">
+      <div class="ig">
+        <div class="ib"><div class="il">車系</div><div class="iv">Scout</div></div>
+        <div class="ib"><div class="il">車型</div><div class="iv">Scout Bobber</div></div>
+        <div class="ib"><div class="il">年份</div><div class="iv">2022</div></div>
+        <div class="ib"><div class="il">顏色</div><div class="iv">Black Smoke</div></div>
+      </div>
+      <div class="ig3">
+        <div class="ib"><div class="il">VIN</div><div class="iv mono">5VPHB36N8N9876543</div></div>
+        <div class="ib"><div class="il">里程</div><div class="iv mono">28,500 km</div></div>
+        <div class="ib"><div class="il">收購價格</div><div class="iv mono">NT$320,000</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-teal" onclick="swTab(1,document.getElementById('tb1'))">開始整備作業 →</button>
+  </div>
+</div>
+
+<!-- TAB 1 整備檢查清單 -->
+<div class="tab-pane" id="pane-1">
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-amber">🔧</div><div><div class="panel-title">中古車整備檢查清單</div><div class="panel-sub">依車況等級執行整備，發現額外問題可標記旗標並加入維修項目</div></div></div>
+      <span class="badge b-gray" id="chk-cnt">0 / 24</span>
+    </div>
+    <div class="panel-body">
+      <div class="prog-row">
+        <span style="font-size:11.5px;font-weight:600;white-space:nowrap;">整備進度</span>
+        <div class="prog-bar"><div class="prog-fill" id="chk-bar" style="width:0%;"></div></div>
+        <span class="prog-pct" id="chk-pct">0%</span>
+      </div>
+      <div id="recon-checklist"></div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost btn-sm" onclick="checkAll()">✅ 全部完成（測試）</button>
+    <button class="btn btn-ghost" onclick="swTab(0,document.getElementById('tb0'))">← 工單資訊</button>
+    <button class="btn btn-teal" onclick="swTab(2,document.getElementById('tb2'))">零件與工時 →</button>
+  </div>
+</div>
+
+<!-- TAB 2 零件與工時 -->
+<div class="tab-pane" id="pane-2">
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-amber">⏱️</div><div><div class="panel-title">工時記錄</div><div class="panel-sub">整備工時，費用計入整車成本</div></div></div></div>
+    <div class="panel-body">
+      <table class="parts-tbl">
+        <thead><tr><th>作業項目</th><th>技師</th><th>工時（LU）</th><th>單價/LU</th><th>小計</th><th></th></tr></thead>
+        <tbody id="labor-tbody">
+          <tr>
+            <td>中古車整備標準作業</td>
+            <td>林建宏 SA</td>
+            <td><input type="number" class="add-inp sm" value="4" oninput="calcTotal()"></td>
+            <td><input type="number" class="add-inp sm" value="800" oninput="calcTotal()"></td>
+            <td class="labor-sub" style="font-family:'DM Mono',monospace;font-weight:600;">NT$3,200</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove();calcTotal()">✕</button></td>
+          </tr>
+          <tr>
+            <td>外觀漆面修復</td>
+            <td>林建宏 SA</td>
+            <td><input type="number" class="add-inp sm" value="3" oninput="calcTotal()"></td>
+            <td><input type="number" class="add-inp sm" value="800" oninput="calcTotal()"></td>
+            <td class="labor-sub" style="font-family:'DM Mono',monospace;font-weight:600;">NT$2,400</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove();calcTotal()">✕</button></td>
+          </tr>
+        </tbody>
+        <tfoot><tr><td colspan="4" style="text-align:right;padding-right:12px;">工時費用合計</td><td id="labor-total" style="font-family:'DM Mono',monospace;">NT$5,600</td><td></td></tr></tfoot>
+      </table>
+      <div class="add-row-inline">
+        <input type="text" class="add-inp lg" id="new-labor-name" placeholder="作業項目">
+        <input type="text" class="add-inp" style="width:100px;" id="new-labor-tech" placeholder="技師">
+        <input type="number" class="add-inp sm" id="new-labor-lu" placeholder="LU">
+        <input type="number" class="add-inp sm" id="new-labor-rate" placeholder="單價">
+        <button class="btn btn-primary btn-sm" onclick="addLabor()">＋ 新增</button>
+      </div>
+    </div>
+  </div>
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-blue">🔩</div><div><div class="panel-title">零件使用記錄</div></div></div></div>
+    <div class="panel-body">
+      <table class="parts-tbl">
+        <thead><tr><th>料號</th><th>零件名稱</th><th>數量</th><th>單價</th><th>小計</th><th></th></tr></thead>
+        <tbody id="parts-tbody">
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-size:11.5px;">10000-OIL-15W50</td>
+            <td>原廠機油 15W-50</td>
+            <td><input type="number" class="add-inp sm" value="3" oninput="calcTotal()"></td>
+            <td><input type="number" class="add-inp sm" value="320" oninput="calcTotal()"></td>
+            <td class="parts-sub" style="font-family:'DM Mono',monospace;font-weight:600;">NT$960</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove();calcTotal()">✕</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-size:11.5px;">20001-CHAIN-STD</td>
+            <td>傳動鏈條（標準型）</td>
+            <td><input type="number" class="add-inp sm" value="1" oninput="calcTotal()"></td>
+            <td><input type="number" class="add-inp sm" value="3200" oninput="calcTotal()"></td>
+            <td class="parts-sub" style="font-family:'DM Mono',monospace;font-weight:600;">NT$3,200</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove();calcTotal()">✕</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-size:11.5px;">30002-BRK-FLUID</td>
+            <td>煞車油（500ml）</td>
+            <td><input type="number" class="add-inp sm" value="1" oninput="calcTotal()"></td>
+            <td><input type="number" class="add-inp sm" value="280" oninput="calcTotal()"></td>
+            <td class="parts-sub" style="font-family:'DM Mono',monospace;font-weight:600;">NT$280</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove();calcTotal()">✕</button></td>
+          </tr>
+        </tbody>
+        <tfoot><tr><td colspan="4" style="text-align:right;padding-right:12px;">零件費用合計</td><td id="parts-total" style="font-family:'DM Mono',monospace;">NT$4,440</td><td></td></tr></tfoot>
+      </table>
+      <div class="add-row-inline">
+        <input type="text" class="add-inp" style="width:120px;" id="new-part-no" placeholder="料號">
+        <input type="text" class="add-inp lg" id="new-part-name" placeholder="零件名稱">
+        <input type="number" class="add-inp sm" id="new-part-qty" placeholder="數量">
+        <input type="number" class="add-inp sm" id="new-part-price" placeholder="單價">
+        <button class="btn btn-primary btn-sm" onclick="addPart()">＋ 新增</button>
+      </div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="swTab(1,document.getElementById('tb1'))">← 檢查清單</button>
+    <button class="btn btn-teal" onclick="swTab(3,document.getElementById('tb3'))">費用彙總 →</button>
+  </div>
+</div>
+
+<!-- TAB 3 費用彙總 -->
+<div class="tab-pane" id="pane-3">
+  <div class="cost-bar">
+    <div class="cb-item"><div class="cb-label">工時費用</div><div class="cb-val" id="s3-labor">NT$5,600</div></div>
+    <div style="width:1px;height:36px;background:rgba(255,255,255,.2);"></div>
+    <div class="cb-item"><div class="cb-label">零件費用</div><div class="cb-val" id="s3-parts">NT$4,440</div></div>
+    <div style="width:1px;height:36px;background:rgba(255,255,255,.2);"></div>
+    <div class="cb-item"><div class="cb-label">整備費用合計</div><div class="cb-val teal" id="s3-total" style="font-size:18px;">NT$10,040</div></div>
+    <div style="width:1px;height:36px;background:rgba(255,255,255,.2);"></div>
+    <div class="cb-item"><div class="cb-label">車主應付</div><div class="cb-val" style="color:#5DCAA5;">NT$0</div></div>
+  </div>
+  <div class="cost-notice">
+    <b>費用歸屬（財務科目）：</b><br>
+    借：整車在庫成本 NT$10,040（流動資產）<br>
+    貸：售後部門內部服務收入 NT$5,600（工時）＋ 零件庫存 NT$4,440（零件）<br><br>
+    完工核准後，系統自動將整備費用寫回車輛主檔 recon_cost 欄位，重新計算 total_cost。
+  </div>
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-teal">💰</div><div><div class="panel-title">整車成本更新預覽</div></div></div></div>
+    <div class="panel-body">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <thead><tr style="background:#F4F3F0;"><th style="padding:7px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--gray);">成本項目</th><th style="padding:7px 10px;text-align:right;font-size:11px;font-weight:600;color:var(--gray);">金額</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:7px 10px;border-bottom:1px solid #F4F3F0;">收購價格</td><td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;border-bottom:1px solid #F4F3F0;">NT$320,000</td></tr>
+          <tr style="background:var(--teal-bg);"><td style="padding:7px 10px;border-bottom:1px solid var(--teal-bd);color:var(--teal);font-weight:600;">＋ 整備工時費用（本工單）</td><td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;border-bottom:1px solid var(--teal-bd);color:var(--teal);font-weight:600;" id="preview-labor">NT$5,600</td></tr>
+          <tr style="background:var(--teal-bg);"><td style="padding:7px 10px;border-bottom:2px solid var(--teal-bd);color:var(--teal);font-weight:600;">＋ 整備零件費用（本工單）</td><td style="padding:7px 10px;text-align:right;font-family:'DM Mono',monospace;border-bottom:2px solid var(--teal-bd);color:var(--teal);font-weight:600;" id="preview-parts">NT$4,440</td></tr>
+          <tr style="background:var(--navy);"><td style="padding:9px 10px;color:#fff;font-weight:700;font-size:13px;">整車成本合計（更新後）</td><td style="padding:9px 10px;text-align:right;font-family:'DM Mono',monospace;color:#5DCAA5;font-weight:700;font-size:15px;" id="preview-total">NT$330,040</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="swTab(2,document.getElementById('tb2'))">← 零件工時</button>
+    <button class="btn btn-teal" onclick="swTab(4,document.getElementById('tb4'))">完成核准 →</button>
+  </div>
+</div>
+
+<!-- TAB 4 完成核准 -->
+<div class="tab-pane" id="pane-4">
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-teal">✅</div><div><div class="panel-title">整備完成確認與核准</div><div class="panel-sub">技師簽名 + 主管核准 → 工單關閉 → 費用寫回整車成本 → 車輛狀態變為可售</div></div></div></div>
+    <div class="panel-body">
+      <div class="sec-title">整備摘要</div>
+      <div class="ig">
+        <div class="ib"><div class="il">工單號</div><div class="iv mono teal">PD-UC-260526-001</div></div>
+        <div class="ib"><div class="il">完成項目</div><div class="iv teal" id="done-cnt-s">0 / 24 項</div></div>
+        <div class="ib"><div class="il">整備費用合計</div><div class="iv teal" id="done-cost-s">NT$10,040</div></div>
+        <div class="ib"><div class="il">完工後車輛狀態</div><div class="iv teal">可售（AVAILABLE）</div></div>
+      </div>
+      <div class="sec-title">完工備注</div>
+      <textarea class="fi" style="height:60px;resize:none;margin-bottom:12px;" placeholder="整備完成備注、特殊狀況說明..."></textarea>
+      <div class="sec-title">三方簽署</div>
+      <div class="sign-grid">
+        <div class="sign-box" id="sgn-tech" onclick="doSign('sgn-tech','技師 林建宏')">
+          <div style="font-size:22px;">🔧</div>
+          <div class="sign-label">技師簽名</div>
+          <div class="sign-sub">整備項目全數完成確認</div>
+        </div>
+        <div class="sign-box" id="sgn-mgr" onclick="doSign('sgn-mgr','售後主管')">
+          <div style="font-size:22px;">✅</div>
+          <div class="sign-label">售後主管核准</div>
+          <div class="sign-sub">核准後費用寫回整車成本，車輛可售</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="flex-end" id="approve-row">
+    <button class="btn btn-ghost" onclick="swTab(3,document.getElementById('tb3'))">← 費用彙總</button>
+    <button class="btn btn-ghost" onclick="showToast('🖨️ 整備工單 PDF 已產生')">🖨️ 列印工單</button>
+    <button class="btn btn-teal" style="font-size:13px;padding:9px 22px;" onclick="approveRecon()">✅ 核准完工 — 費用寫回整車成本</button>
+  </div>
+  <div class="complete-card" id="done-card" style="display:none;">
+    <div class="cc-title">🎉 整備完成！車輛現已可售</div>
+    <div class="cc-sub">工單 PD-UC-260526-001 已關閉 · 費用已寫回車輛主檔 · 車輛狀態已更新為可售</div>
+    <div class="cc-trigger">
+      <b>✅ 系統已自動執行：</b><br>
+      1 · 工單狀態更新為 <b>CLOSED（已關單）</b><br>
+      2 · recon_cost = <b>NT$10,040</b> 已寫入車輛主檔<br>
+      3 · total_cost（整車成本）更新為 <b>NT$330,040</b><br>
+      4 · 車輛狀態從 <b>PENDING_RECON</b> → <b>AVAILABLE（可售）</b><br>
+      5 · <b>RS03B 中古車庫存</b>此車狀態即時更新為「在庫可售」<br>
+      6 · 業務主管收到通知：「Scout Bobber 2022 整備完成，現可銷售」
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button style="padding:8px 18px;border-radius:7px;background:#fff;color:#085041;border:none;font-size:12.5px;font-weight:600;cursor:pointer;" onclick="go('RS03B_中古車庫存看板_v1.html')">📋 查看中古庫存</button>
+      <button style="padding:8px 18px;border-radius:7px;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.3);font-size:12.5px;font-weight:600;cursor:pointer;" onclick="go('10_工單查詢.html')">← 工單查詢</button>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+var chkDone=[],flagged=[],laborAmt=5600,partsAmt=4440;
+
+var reconItems=[
+  {cat:'A',catName:'A. 清潔與外觀',items:['高壓水洗車身','引擎室清潔','車身拋光處理','補漆/外觀修復（依評估）','鉻件/金屬件光亮處理']},
+  {cat:'B',catName:'B. 機械系統',items:['更換機油及機油濾芯','檢查冷卻液液面及品質','檢查並調整傳動鏈條張力','檢查前後輪胎花紋深度及胎壓','檢查煞車油並補充/更換','檢查電瓶電壓（靜態≥12.6V）','檢查所有燈具功能','引擎啟動測試，確認無異音']},
+  {cat:'C',catName:'C. 安全系統確認',items:['前後煞車制動效果測試','ABS功能確認（如配備）','油門、離合器拉桿作動順暢','轉向無異常晃動','前後懸吊作動正常','道路測試（最少5km）']},
+  {cat:'D',catName:'D. 文件與完工',items:['確認VIN與行照一致','拍攝整備完成照片（前後左右）','填寫整備工時與零件記錄','主管複驗簽核','整備報告存檔']},
+];
+
+function buildChecklist(){
+  var h='',idx=0;
+  reconItems.forEach(function(cat){
+    h+='<div class="chk-cat cat-'+cat.cat.toLowerCase()+'">'+cat.catName+'</div>';
+    cat.items.forEach(function(item){
+      var i=idx++;
+      h+='<div class="chk-item" id="ci'+i+'" onclick="toggleChk('+i+',event)">'+
+        '<div class="chk-cb" id="cb'+i+'"></div>'+
+        '<span class="chk-num">'+(i+1)+'</span>'+
+        '<div class="chk-text">'+item+'</div>'+
+        '<button class="chk-flag-btn" onclick="event.stopPropagation();toggleFlag('+i+')">⚑ 標記</button>'+
+        '</div>';
+    });
+  });
+  document.getElementById('recon-checklist').innerHTML=h;
+}
+
+function toggleChk(i,e){
+  if(e.target.classList.contains('chk-flag-btn'))return;
+  var el=document.getElementById('ci'+i),cb=document.getElementById('cb'+i);
+  if(el.classList.contains('flagged'))return;
+  if(chkDone.indexOf(i)>-1){chkDone.splice(chkDone.indexOf(i),1);el.classList.remove('checked');cb.textContent='';}
+  else{chkDone.push(i);el.classList.add('checked');cb.textContent='✓';}
+  updProg();
+}
+function toggleFlag(i){
+  var el=document.getElementById('ci'+i);
+  if(el.classList.contains('flagged')){el.classList.remove('flagged');flagged=flagged.filter(function(x){return x!==i;});}
+  else{el.classList.add('flagged');el.classList.remove('checked');if(flagged.indexOf(i)<0)flagged.push(i);document.getElementById('cb'+i).textContent='⚑';}
+  updProg();
+}
+function updProg(){
+  var total=24,done=chkDone.length+flagged.length,pct=Math.round(done/total*100);
+  document.getElementById('chk-cnt').textContent=done+' / '+total;
+  document.getElementById('chk-bar').style.width=pct+'%';
+  document.getElementById('chk-pct').textContent=pct+'%';
+  document.getElementById('done-cnt-s').textContent=done+' / '+total+' 項';
+  if(done===total)document.getElementById('chk-cnt').className='badge b-teal';
+}
+function checkAll(){
+  for(var i=0;i<24;i++){if(chkDone.indexOf(i)<0&&flagged.indexOf(i)<0){chkDone.push(i);var el=document.getElementById('ci'+i);if(el){el.classList.add('checked');document.getElementById('cb'+i).textContent='✓';}}}
+  updProg();showToast('✅ 24 項全部完成（測試）');
+}
+
+function calcTotal(){
+  var lRows=document.getElementById('labor-tbody').querySelectorAll('tr');
+  laborAmt=0;
+  lRows.forEach(function(r){var ins=r.querySelectorAll('input[type=number]');if(ins.length>=2){var s=parseFloat(ins[0].value||0)*parseFloat(ins[1].value||0);laborAmt+=s;var c=r.querySelector('.labor-sub');if(c)c.textContent='NT$'+s.toLocaleString();}});
+  var pRows=document.getElementById('parts-tbody').querySelectorAll('tr');
+  partsAmt=0;
+  pRows.forEach(function(r){var ins=r.querySelectorAll('input[type=number]');if(ins.length>=2){var s=parseFloat(ins[0].value||0)*parseFloat(ins[1].value||0);partsAmt+=s;var c=r.querySelector('.parts-sub');if(c)c.textContent='NT$'+s.toLocaleString();}});
+  var total=laborAmt+partsAmt;
+  document.getElementById('labor-total').textContent='NT$'+laborAmt.toLocaleString();
+  document.getElementById('parts-total').textContent='NT$'+partsAmt.toLocaleString();
+  document.getElementById('s3-labor').textContent='NT$'+laborAmt.toLocaleString();
+  document.getElementById('s3-parts').textContent='NT$'+partsAmt.toLocaleString();
+  document.getElementById('s3-total').textContent='NT$'+total.toLocaleString();
+  document.getElementById('preview-labor').textContent='NT$'+laborAmt.toLocaleString();
+  document.getElementById('preview-parts').textContent='NT$'+partsAmt.toLocaleString();
+  document.getElementById('preview-total').textContent='NT$'+(320000+total).toLocaleString();
+  document.getElementById('done-cost-s').textContent='NT$'+total.toLocaleString();
+}
+
+function addLabor(){
+  var n=document.getElementById('new-labor-name').value,t=document.getElementById('new-labor-tech').value;
+  var l=parseFloat(document.getElementById('new-labor-lu').value||0),r=parseFloat(document.getElementById('new-labor-rate').value||0);
+  if(!n)return showToast('⚠️ 請填寫作業項目');
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td>'+n+'</td><td>'+t+'</td><td><input type="number" class="add-inp sm" value="'+l+'" oninput="calcTotal()"></td><td><input type="number" class="add-inp sm" value="'+r+'" oninput="calcTotal()"></td><td class="labor-sub" style="font-family:\'DM Mono\',monospace;font-weight:600;">NT$'+(l*r).toLocaleString()+'</td><td><button class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove();calcTotal()">✕</button></td>';
+  document.getElementById('labor-tbody').appendChild(tr);
+  ['new-labor-name','new-labor-tech','new-labor-lu','new-labor-rate'].forEach(function(id){document.getElementById(id).value='';});
+  calcTotal();
+}
+function addPart(){
+  var no=document.getElementById('new-part-no').value||'—',n=document.getElementById('new-part-name').value;
+  var q=parseFloat(document.getElementById('new-part-qty').value||0),p=parseFloat(document.getElementById('new-part-price').value||0);
+  if(!n)return showToast('⚠️ 請填寫零件名稱');
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td style="font-family:\'DM Mono\',monospace;font-size:11.5px;">'+no+'</td><td>'+n+'</td><td><input type="number" class="add-inp sm" value="'+q+'" oninput="calcTotal()"></td><td><input type="number" class="add-inp sm" value="'+p+'" oninput="calcTotal()"></td><td class="parts-sub" style="font-family:\'DM Mono\',monospace;font-weight:600;">NT$'+(q*p).toLocaleString()+'</td><td><button class="btn btn-ghost btn-sm" onclick="this.closest(\'tr\').remove();calcTotal()">✕</button></td>';
+  document.getElementById('parts-tbody').appendChild(tr);
+  ['new-part-no','new-part-name','new-part-qty','new-part-price'].forEach(function(id){document.getElementById(id).value='';});
+  calcTotal();
+}
+
+function doSign(id,role){
+  var el=document.getElementById(id);el.classList.add('signed');
+  el.innerHTML='<div style="font-size:22px;">✅</div><div class="sign-label">'+role+'</div><div class="sign-sub">'+new Date().toLocaleDateString('zh-TW')+' 已簽名</div>';
+  showToast('✅ '+role+' 電子簽名完成');
+}
+function approveRecon(){
+  /* 後端串接點：
+     PATCH /api/workorders/PD-UC-260526-001/complete
+     { labor_cost: laborAmt, parts_cost: partsAmt }
+     後端：vehicle.recon_cost = labor+parts, vehicle.total_cost 重算, vehicle.status → AVAILABLE
+  */
+  document.getElementById('done-card').style.display='';
+  document.getElementById('approve-row').style.display='none';
+  showToast('🎉 整備核准完成！\n整車成本已更新\n車輛狀態：可售（AVAILABLE）');
+}
+function swTab(n,el){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.remove('active');});
+  el.classList.add('active');document.getElementById('pane-'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3200);}
+window.onload=function(){buildChecklist();};
+</script>
+</body>
+</html>

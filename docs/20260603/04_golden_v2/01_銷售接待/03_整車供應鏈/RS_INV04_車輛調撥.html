@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS_INV04 車輛調撥 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--blue:#185FA5;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--navy:#1A3A5C;--gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-teal{background:rgba(15,110,86,.8);border-color:transparent;}
+.hbtn-teal:hover{background:var(--teal);}
+.main{max-width:1100px;margin:0 auto;padding:18px 24px 60px;}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.panel-hdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-left{display:flex;align-items:center;gap:10px;}
+.picon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-blue{background:var(--blue-bg);}.pi-teal{background:var(--teal-bg);}.pi-amber{background:var(--amber-bg);}.pi-red{background:var(--red-bg);}.pi-navy{background:#E8EDF2;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:14px 16px;}
+.ig{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.ib{background:#F4F3F0;border-radius:7px;padding:9px 12px;}
+.il{font-size:10.5px;color:var(--gray);margin-bottom:3px;}
+.iv{font-size:13px;font-weight:600;}
+.iv.mono{font-family:'DM Mono',monospace;font-size:12px;}
+.iv.teal{color:var(--teal);}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;}
+.ff{grid-column:1/-1;}
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.req{color:var(--red);font-size:11px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;}
+.fi:focus{border-color:var(--blue-bd);}
+.fs{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;color:var(--gray);margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+/* 運費承擔方式 */
+.freight-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px;}
+.freight-card{padding:10px 8px;border:1.5px solid #EEECE6;border-radius:8px;text-align:center;cursor:pointer;transition:all .15s;}
+.freight-card:hover{border-color:var(--navy);}
+.freight-card.sel{border-color:var(--navy);background:var(--blue-bg);}
+.fc-code{font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:var(--navy);margin-bottom:3px;}
+.fc-name{font-size:11px;font-weight:600;color:#2C2C2A;margin-bottom:2px;}
+.fc-desc{font-size:10px;color:var(--gray);}
+/* 警告卡 */
+.warn-card{background:var(--amber-bg);border:1.5px solid var(--amber-bd);border-radius:8px;padding:12px 14px;margin-bottom:12px;display:none;}
+.warn-title{font-size:12.5px;font-weight:700;color:#6B3A00;margin-bottom:5px;}
+.warn-body{font-size:12px;color:#5A3200;line-height:1.7;}
+/* Transfer list */
+.transfer-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.transfer-tbl th{background:var(--navy);color:#fff;padding:7px 10px;text-align:left;font-size:11px;}
+.transfer-tbl td{padding:8px 10px;border-bottom:1px solid #F4F3F0;vertical-align:middle;}
+.transfer-tbl tr:hover td{background:#F8F7F4;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-blue{background:var(--blue-bg);color:var(--blue);}
+.b-purple{background:var(--purple-bg);color:var(--purple);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-navy{background:#E8EDF2;color:var(--navy);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.mb12{margin-bottom:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">整車庫存管理 <b>RS_INV04 車輛調撥</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS03A_新車庫存看板_v1.html')">← 新車庫存</button>
+    <button class="hbtn" onclick="go('RS03B_中古車庫存看板_v1.html')">中古庫存</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- 進行中調撥 -->
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-blue">🔄</div><div><div class="panel-title">調撥紀錄</div><div class="panel-sub">車輛跨倉/跨點調撥管理</div></div></div>
+      <button class="btn btn-primary btn-sm" onclick="toggleNewForm()">＋ 新增調撥申請</button>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="transfer-tbl">
+        <thead><tr><th>調撥單號</th><th>車型</th><th>VIN末6碼</th><th>車輛狀態</th><th>從</th><th>到</th><th>運費承擔</th><th>申請日</th><th>狀態</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-size:11.5px;font-weight:600;">TR-260526-001</td>
+            <td style="font-weight:600;">Scout Bobber</td>
+            <td style="font-family:'DM Mono',monospace;">234561</td>
+            <td><span class="badge b-teal">可售</span></td>
+            <td>海德生主倉</td>
+            <td>台中展示中心</td>
+            <td><span class="badge b-navy">寄倉方負擔</span></td>
+            <td>2026/05/26</td>
+            <td><span class="badge b-amber">調撥中</span></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="showToast('📋 TR-260526-001 調撥進度詳情')">詳情</button></td>
+          </tr>
+          <tr>
+            <td style="font-family:'DM Mono',monospace;font-size:11.5px;font-weight:600;">TR-260520-003</td>
+            <td style="font-weight:600;">Challenger Dark Horse</td>
+            <td style="font-family:'DM Mono',monospace;">234563</td>
+            <td><span class="badge b-purple">待整備</span></td>
+            <td>台北直營</td>
+            <td>海德生整備中心</td>
+            <td><span class="badge b-teal">計入整車成本</span></td>
+            <td>2026/05/20</td>
+            <td><span class="badge b-teal">已完成</span></td>
+            <td><button class="btn btn-ghost btn-sm" onclick="showToast('📋 TR-260520-003 已完成')">詳情</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 新增調撥表單 -->
+  <div class="panel mb12" id="new-form" style="display:none;">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-teal">➕</div><div><div class="panel-title">新增調撥申請</div></div></div>
+      <button class="btn btn-ghost btn-sm" onclick="toggleNewForm()">✕ 取消</button>
+    </div>
+    <div class="panel-body">
+      <div class="sec-title">調撥車輛</div>
+      <div class="fg3 mb12">
+        <div>
+          <div class="fl">選擇車輛 <span class="req">*</span></div>
+          <select class="fs" id="sel-vehicle" onchange="onVehicleChange()">
+            <option value="">— 選擇車輛 —</option>
+            <option value="V001|AVAILABLE|Scout Bobber|234561">Scout Bobber — ...4561（可售）</option>
+            <option value="V003|AVAILABLE|Challenger Dark Horse|234563">Challenger Dark Horse — ...4563（可售）</option>
+            <option value="V005|PENDING_RECON|Springfield Dark Horse|234565">Springfield Dark Horse — ...4565（待整備）</option>
+          </select>
+        </div>
+        <div><div class="fl">調撥出發倉庫</div><select class="fs"><option>海德生主倉（台北）</option><option>台北直營展示中心</option><option>台中展示中心</option></select></div>
+        <div><div class="fl">調撥目的倉庫 <span class="req">*</span></div><select class="fs"><option>台中展示中心</option><option>高雄展示中心</option><option>海德生整備中心</option><option>經銷商台南</option></select></div>
+      </div>
+
+      <!-- 待整備車輛警告 -->
+      <div class="warn-card" id="recon-warn">
+        <div class="warn-title">⚠️ 此車輛狀態為「待整備」— 請確認整備工單處理方式</div>
+        <div class="warn-body">
+          整備前調撥：整備工單將<b>暫停</b>，移交目的地後由當地技師繼續執行。整備費用仍計入整車成本。<br>
+          建議：整備完成後再調撥，可避免工單交接的複雜度。
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="showToast('⚠️ 已確認：整備工單將暫停並移交')">確認整備前調撥</button>
+          <button class="btn btn-ghost btn-sm" onclick="showToast('ℹ️ 建議等整備完成後再調撥')">先完成整備再調撥</button>
+        </div>
+      </div>
+
+      <div class="sec-title">運費承擔方式 <span class="req">*</span>（5種）</div>
+      <div class="freight-grid">
+        <div class="freight-card sel" id="fc-A" onclick="selFreight('A',this)">
+          <div class="fc-code">A</div>
+          <div class="fc-name">計入整車成本</div>
+          <div class="fc-desc">增加 total_cost</div>
+        </div>
+        <div class="freight-card" id="fc-B" onclick="selFreight('B',this)">
+          <div class="fc-code">B</div>
+          <div class="fc-name">調出方負擔</div>
+          <div class="fc-desc">調出倉費用認列</div>
+        </div>
+        <div class="freight-card" id="fc-C" onclick="selFreight('C',this)">
+          <div class="fc-code">C</div>
+          <div class="fc-name">調入方負擔</div>
+          <div class="fc-desc">寄倉方費用認列</div>
+        </div>
+        <div class="freight-card" id="fc-D" onclick="selFreight('D',this)">
+          <div class="fc-code">D</div>
+          <div class="fc-name">各半平攤</div>
+          <div class="fc-desc">雙方各50%</div>
+        </div>
+        <div class="freight-card" id="fc-E" onclick="selFreight('E',this)">
+          <div class="fc-code">E</div>
+          <div class="fc-name">免運費</div>
+          <div class="fc-desc">特殊公關/免費</div>
+        </div>
+      </div>
+
+      <!-- 運費計入成本警告 -->
+      <div id="cost-impact-warn" style="background:var(--blue-bg);border:1.5px solid var(--blue-bd);border-radius:8px;padding:11px 14px;margin-bottom:12px;font-size:12px;color:#0C3E70;">
+        <b>💡 選擇「計入整車成本」：</b>運費將加入 transfer_freight_cost 欄位，整車成本合計（total_cost）自動更新，影響毛利計算。
+      </div>
+
+      <div class="fg2 mb12">
+        <div><div class="fl">預估運費（NT$）</div><input type="number" class="fi" id="freight-amt" placeholder="0" oninput="showFreightImpact()"></div>
+        <div><div class="fl">預計調撥完成日</div><input type="date" class="fi"></div>
+        <div class="ff"><div class="fl">調撥原因</div><input type="text" class="fi" placeholder="例：客戶指定展示、區域庫存調節..."></div>
+      </div>
+
+      <!-- 毛利影響警示 -->
+      <div id="margin-warn" style="display:none;background:var(--red-bg);border:1.5px solid var(--red-bd);border-radius:8px;padding:11px 14px;margin-bottom:12px;font-size:12px;color:#7A1010;">
+        <b>⚠️ 毛利影響警告：</b>此運費計入整車成本後，<span id="margin-impact">毛利將減少 NT$0</span>，請主管確認是否核准。
+      </div>
+    </div>
+    <div class="flex-end" style="padding:0 16px 14px;">
+      <button class="btn btn-ghost" onclick="showToast('💾 調撥草稿已儲存')">💾 儲存草稿</button>
+      <button class="btn btn-teal" onclick="submitTransfer()">✅ 送出調撥申請</button>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+var selFreightCode='A';
+
+function toggleNewForm(){
+  var f=document.getElementById('new-form');
+  f.style.display=f.style.display==='none'?'':'none';
+}
+
+function onVehicleChange(){
+  var val=document.getElementById('sel-vehicle').value;
+  var warn=document.getElementById('recon-warn');
+  warn.style.display=(val.indexOf('PENDING_RECON')>-1)?'':'none';
+}
+
+function selFreight(code,el){
+  selFreightCode=code;
+  ['A','B','C','D','E'].forEach(function(k){document.getElementById('fc-'+k).classList.remove('sel');});
+  el.classList.add('sel');
+  var impactDiv=document.getElementById('cost-impact-warn');
+  if(code==='A'){
+    impactDiv.style.display='';
+    impactDiv.innerHTML='<b>💡 選擇「計入整車成本」：</b>運費將加入 transfer_freight_cost，整車成本合計自動更新，影響毛利計算。';
+  } else if(code==='E'){
+    impactDiv.style.display='';
+    impactDiv.innerHTML='<b>ℹ️ 免運費：</b>transfer_freight_cost = 0，整車成本不受影響。';
+  } else {
+    var names={B:'調出方',C:'調入方（寄倉方）',D:'雙方各半'};
+    impactDiv.style.display='';
+    impactDiv.innerHTML='<b>💡 選擇「'+names[code]+'負擔」：</b>費用計入對應部門費用科目，整車成本不受影響。';
+  }
+  showFreightImpact();
+}
+
+function showFreightImpact(){
+  var amt=parseFloat(document.getElementById('freight-amt').value||0);
+  var warn=document.getElementById('margin-warn');
+  if(selFreightCode==='A'&&amt>0){
+    warn.style.display='';
+    document.getElementById('margin-impact').textContent='毛利將減少 NT$'+amt.toLocaleString();
+  } else {
+    warn.style.display='none';
+  }
+}
+
+function submitTransfer(){
+  /* 後端串接點：
+     POST /api/vehicles/{vehicle_id}/transfer
+     { from_warehouse, to_warehouse, freight_type: selFreightCode, freight_amt, reason }
+     後端：
+     若 freight_type==='A'：vehicle.transfer_freight_cost += freight_amt, 重算 total_cost
+     vehicle.status → IN_TRANSIT_TRANSFER
+     到達確認後 → 恢復原狀態
+  */
+  showToast('✅ 調撥申請 TR-260526-002 已送出\n車輛狀態：調撥中（IN_TRANSIT_TRANSFER）\n運費承擔方式：'+selFreightCode+'\n目的地已收到通知');
+  toggleNewForm();
+}
+
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3200);}
+</script>
+</body>
+</html>

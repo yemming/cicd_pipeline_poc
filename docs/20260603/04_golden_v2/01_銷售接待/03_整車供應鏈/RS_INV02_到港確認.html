@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS_INV02 到港確認 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--blue:#185FA5;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--navy:#1A3A5C;--gray:#9A9890;--purple:#534AB7;--purple-bg:#EEEDFE;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-teal{background:rgba(15,110,86,.8);border-color:transparent;}
+.hbtn-teal:hover{background:var(--teal);}
+.main{max-width:1100px;margin:0 auto;padding:18px 24px 60px;}
+/* Progress steps */
+.step-bar{background:#fff;border-bottom:1px solid #EEECE6;display:flex;position:sticky;top:52px;z-index:90;}
+.step-item{flex:1;padding:11px 6px;text-align:center;font-size:11.5px;font-weight:500;color:#9A9890;border-right:1px solid #EEECE6;cursor:pointer;transition:all .15s;}
+.step-item:last-child{border-right:none;}
+.step-item.active{background:var(--navy);color:#fff;font-weight:700;}
+.step-item.done{background:var(--teal-bg);color:var(--teal);font-weight:600;}
+.step-num{font-family:'DM Mono',monospace;font-size:10px;display:block;margin-bottom:2px;opacity:.7;}
+.step-pane{display:none;}
+.step-pane.active{display:block;}
+/* Cards & panels */
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.panel-hdr{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-left{display:flex;align-items:center;gap:10px;}
+.picon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-blue{background:var(--blue-bg);}.pi-teal{background:var(--teal-bg);}.pi-amber{background:var(--amber-bg);}.pi-red{background:var(--red-bg);}.pi-navy{background:#E8EDF2;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:var(--gray);margin-top:1px;}
+.panel-body{padding:14px 16px;}
+/* Info grid */
+.ig{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.ig3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.ib{background:#F4F3F0;border-radius:7px;padding:9px 12px;}
+.il{font-size:10.5px;color:var(--gray);margin-bottom:3px;}
+.iv{font-size:13px;font-weight:600;}
+.iv.mono{font-family:'DM Mono',monospace;font-size:12px;}
+/* Form */
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;}
+.ff{grid-column:1/-1;}
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.req{color:var(--red);font-size:11px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;outline:none;background:#fff;transition:.15s;}
+.fi:focus{border-color:var(--blue-bd);}
+.fi.mono{font-family:'DM Mono',monospace;}
+.fs{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;outline:none;background:#fff;}
+/* VIN 掃描區 */
+.vin-scanner{background:linear-gradient(135deg,#1A3A5C,#0F2A45);border-radius:12px;padding:20px 24px;margin-bottom:14px;color:#fff;}
+.vs-title{font-size:14px;font-weight:700;margin-bottom:4px;}
+.vs-sub{font-size:12px;opacity:.7;margin-bottom:14px;}
+.vs-input-row{display:flex;gap:10px;align-items:center;}
+.vs-input{flex:1;padding:10px 14px;border-radius:8px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;font-family:'DM Mono',monospace;font-size:15px;outline:none;transition:.2s;}
+.vs-input::placeholder{color:rgba(255,255,255,.4);}
+.vs-input:focus{border-color:#5DCAA5;background:rgba(255,255,255,.15);}
+.vs-btn{padding:10px 20px;border-radius:8px;background:#5DCAA5;color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;white-space:nowrap;}
+.vs-btn:hover{background:#3FB890;}
+.vs-progress{margin-top:12px;display:flex;align-items:center;gap:10px;}
+.vs-prog-bar{flex:1;height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden;}
+.vs-prog-fill{height:100%;background:#5DCAA5;border-radius:3px;transition:width .3s;}
+.vs-prog-txt{font-size:12px;font-family:'DM Mono',monospace;color:#5DCAA5;white-space:nowrap;}
+/* Vehicle list table */
+.vtbl{width:100%;border-collapse:collapse;font-size:12px;}
+.vtbl th{background:var(--navy);color:#fff;padding:8px 10px;text-align:left;font-size:11px;font-weight:600;white-space:nowrap;}
+.vtbl td{padding:8px 10px;border-bottom:1px solid #F4F3F0;vertical-align:middle;}
+.vtbl tr:hover td{background:#F8F7F4;}
+.vtbl tr.confirmed td{background:var(--teal-bg);}
+.vtbl tr.damaged td{background:var(--amber-bg);}
+.row-status{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.rs-wait{background:#F1EFE8;color:var(--gray);}
+.rs-ok{background:var(--teal-bg);color:var(--teal);}
+.rs-dmg{background:var(--amber-bg);color:var(--amber);}
+.rs-err{background:var(--red-bg);color:var(--red);}
+/* Result card */
+.result-card{border-radius:10px;padding:16px 18px;margin-bottom:12px;}
+.rc-ok{background:var(--teal-bg);border:2px solid var(--teal-bd);}
+.rc-warn{background:var(--amber-bg);border:2px solid var(--amber-bd);}
+.rc-title{font-size:14px;font-weight:700;margin-bottom:6px;}
+.rc-ok .rc-title{color:#085041;}
+.rc-warn .rc-title{color:#6B3A00;}
+.rc-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;}
+.rc-chip{background:#fff;border-radius:5px;padding:4px 11px;font-size:12px;border:1px solid;}
+.rc-chip-ok{border-color:var(--teal-bd);color:#085041;}
+.rc-chip-warn{border-color:var(--amber-bd);color:#6B3A00;}
+.rc-chip b{font-family:'DM Mono',monospace;}
+/* Trigger box */
+.trigger-box{background:rgba(15,110,86,.08);border:1.5px solid var(--teal-bd);border-radius:8px;padding:12px 14px;margin-bottom:14px;}
+.trigger-title{font-size:12.5px;font-weight:700;color:#085041;margin-bottom:6px;}
+.trigger-list{font-size:12px;color:#0F4A35;line-height:1.9;}
+.trigger-list b{color:#085041;}
+/* Damage form */
+.dmg-form{background:var(--amber-bg);border:1.5px solid var(--amber-bd);border-radius:8px;padding:12px 14px;margin-bottom:10px;display:none;}
+.dmg-title{font-size:12.5px;font-weight:700;color:#6B3A00;margin-bottom:8px;}
+/* Buttons */
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-red{background:var(--red);border-color:var(--red);color:#fff;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+.b-amber{background:var(--amber-bg);color:var(--amber);}
+.b-gray{background:#F1EFE8;color:var(--gray);}
+.b-blue{background:var(--blue-bg);color:var(--blue);}
+.b-navy{background:#E8EDF2;color:var(--navy);}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;color:var(--gray);margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.mb12{margin-bottom:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">整車庫存管理 <b>INV02 到港確認</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('INV01_整車採購訂單.html')">← INV01 採購單</button>
+    <button class="hbtn hbtn-teal" onclick="go('RS03A_新車庫存看板_v2.html')">RS03A 庫存 →</button>
+  </div>
+</header>
+
+<div class="step-bar">
+  <div class="step-item active" id="s1" onclick="gS(1)"><span class="step-num">STEP 1</span>選擇採購單</div>
+  <div class="step-item" id="s2" onclick="gS(2)"><span class="step-num">STEP 2</span>逐台掃描 VIN</div>
+  <div class="step-item" id="s3" onclick="gS(3)"><span class="step-num">STEP 3</span>確認損傷記錄</div>
+  <div class="step-item" id="s4" onclick="gS(4)"><span class="step-num">STEP 4</span>完成到港 · 觸發 PDI</div>
+</div>
+
+<div class="main">
+
+<!-- STEP 1：選擇採購單 -->
+<div class="step-pane active" id="pane-1">
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-navy">📋</div><div><div class="panel-title">選擇待確認採購單</div><div class="panel-sub">選擇已提交的整車採購訂單進行到港確認作業</div></div></div>
+    </div>
+    <div class="panel-body">
+      <!-- 搜尋列 -->
+      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+        <input type="text" class="fi" placeholder="輸入採購單號搜尋..." style="max-width:220px;" id="po-search">
+        <select class="fs" style="max-width:160px;">
+          <option>全部狀態</option>
+          <option selected>在途中（可確認）</option>
+          <option>已完成</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('🔍 查詢完成')">查詢</button>
+      </div>
+      <!-- 採購單列表 -->
+      <table class="vtbl">
+        <thead><tr><th></th><th>採購單號</th><th>批次號</th><th>供應商</th><th>預計到港</th><th>車輛數</th><th>狀態</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><input type="radio" name="po" onclick="selectPO('PO-202605-001','BATCH-2605-001',8)"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11.5px;font-weight:600;">PO-202605-001</td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;">BATCH-2605-001</td>
+            <td>Indian Motorcycle Taiwan</td>
+            <td>2026/05/26</td>
+            <td><span class="badge b-navy">8 台</span></td>
+            <td><span class="badge b-amber">在途中</span></td>
+            <td><button class="btn btn-sm btn-primary" onclick="selectPO('PO-202605-001','BATCH-2605-001',8)">選擇此單</button></td>
+          </tr>
+          <tr>
+            <td><input type="radio" name="po" onclick="selectPO('PO-202604-003','BATCH-2604-003',5)"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11.5px;font-weight:600;">PO-202604-003</td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;">BATCH-2604-003</td>
+            <td>Indian Motorcycle Taiwan</td>
+            <td>2026/05/28</td>
+            <td><span class="badge b-navy">5 台</span></td>
+            <td><span class="badge b-amber">在途中</span></td>
+            <td><button class="btn btn-sm btn-primary" onclick="selectPO('PO-202604-003','BATCH-2604-003',5)">選擇此單</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 2：逐台掃描 VIN -->
+<div class="step-pane" id="pane-2">
+  <!-- 採購單資訊 -->
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-blue">📦</div><div><div class="panel-title" id="po-title">採購單 PO-202605-001</div><div class="panel-sub">批次到港確認 · 請逐台掃描或手動輸入 VIN 碼</div></div></div>
+      <span class="badge b-amber" id="confirm-progress">0 / 8 已確認</span>
+    </div>
+    <div class="panel-body">
+      <div class="ig">
+        <div class="ib"><div class="il">採購單號</div><div class="iv mono" id="info-po">PO-202605-001</div></div>
+        <div class="ib"><div class="il">供應商</div><div class="iv">Indian Taiwan</div></div>
+        <div class="ib"><div class="il">預計到港日</div><div class="iv">2026/05/26</div></div>
+        <div class="ib"><div class="il">車輛總數</div><div class="iv mono" id="info-total">8 台</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIN 掃描器 -->
+  <div class="vin-scanner">
+    <div class="vs-title">🔍 VIN 掃描確認</div>
+    <div class="vs-sub">使用掃描槍掃描車架號，或手動輸入 17 碼 VIN 後按 Enter 確認</div>
+    <div class="vs-input-row">
+      <input type="text" class="vs-input mono" id="vin-input" placeholder="掃描或輸入 VIN 碼（17碼）..." maxlength="17"
+        onkeydown="if(event.key==='Enter')scanVIN()">
+      <button class="vs-btn" onclick="scanVIN()">✓ 確認</button>
+    </div>
+    <div class="vs-progress">
+      <span style="font-size:11px;opacity:.7;white-space:nowrap;">到港進度</span>
+      <div class="vs-prog-bar"><div class="vs-prog-fill" id="vs-bar" style="width:0%;"></div></div>
+      <span class="vs-prog-txt" id="vs-pct">0 / 8</span>
+    </div>
+  </div>
+
+  <!-- 車輛清單 -->
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-teal">🏍️</div><div><div class="panel-title">本批次車輛清單</div><div class="panel-sub">依採購單明細，逐台確認到港狀態</div></div></div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="autoConfirmAll()">✅ 全部確認無損傷（測試）</button>
+      </div>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="vtbl" id="vehicle-table">
+        <thead><tr><th>#</th><th>車系</th><th>車型</th><th>顏色</th><th>VIN（掃描輸入）</th><th>外觀狀態</th><th>確認狀態</th><th>操作</th></tr></thead>
+        <tbody id="vehicle-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="gS(1)">← 重新選擇採購單</button>
+    <button class="btn btn-teal" id="btn-next-step3" onclick="gS(3)" style="opacity:.4;pointer-events:none;">確認無誤 → 損傷記錄 →</button>
+  </div>
+</div>
+
+<!-- STEP 3：損傷記錄 -->
+<div class="step-pane" id="pane-3">
+  <div class="panel mb12">
+    <div class="panel-hdr">
+      <div class="ph-left"><div class="picon pi-amber">⚠️</div><div><div class="panel-title">損傷記錄確認</div><div class="panel-sub">針對標記損傷的車輛進行詳細記錄並上傳照片</div></div></div>
+      <span class="badge b-amber" id="dmg-count-badge">0 台損傷</span>
+    </div>
+    <div class="panel-body">
+      <div id="dmg-list-area">
+        <!-- 動態產生損傷車輛記錄表單 -->
+      </div>
+      <div id="no-damage-notice" style="background:var(--teal-bg);border:1.5px solid var(--teal-bd);border-radius:8px;padding:12px 14px;">
+        <div style="font-size:13px;font-weight:700;color:#085041;">✅ 本批次無損傷車輛</div>
+        <div style="font-size:12px;color:#0F4A35;margin-top:4px;">所有車輛外觀確認完好，可直接進行到港完成確認。</div>
+      </div>
+    </div>
+  </div>
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="gS(2)">← 返回掃描</button>
+    <button class="btn btn-teal" onclick="gS(4)">損傷記錄完成 → 確認到港 →</button>
+  </div>
+</div>
+
+<!-- STEP 4：完成到港 · 觸發 PDI -->
+<div class="step-pane" id="pane-4">
+  <!-- 到港摘要 -->
+  <div class="result-card rc-ok" id="arrival-summary">
+    <div class="rc-title">✅ 到港確認完成 — 等待最終確認</div>
+    <div class="rc-chips" id="summary-chips">
+      <div class="rc-chip rc-chip-ok">採購單：<b id="s4-po">PO-202605-001</b></div>
+      <div class="rc-chip rc-chip-ok">到港日期：<b>2026/05/26</b></div>
+      <div class="rc-chip rc-chip-ok">已確認：<b id="s4-confirmed">8 台</b></div>
+      <div class="rc-chip rc-chip-ok">損傷車輛：<b id="s4-damaged">0 台</b></div>
+    </div>
+  </div>
+
+  <!-- 系統觸發說明 -->
+  <div class="trigger-box">
+    <div class="trigger-title">🔄 確認後系統將自動執行以下動作：</div>
+    <div class="trigger-list" id="trigger-detail">
+      1 · 每台車輛主檔狀態從 <b>IN_TRANSIT（在途）</b> 更新為 <b>PENDING_PDI（待PDI）</b><br>
+      2 · 系統自動建立 <b>PDI 工單（PD-IN）</b> × 8 筆，費用歸屬：整車成本（內部結算）<br>
+      3 · 到港日期 <b>2026/05/26</b> 寫入所有車輛主檔 arrival_date 欄位<br>
+      4 · 發送通知給售後主管：「8 台新車到港，PDI 工單已建立，請分派技師」<br>
+      5 · <b>RS03A 新車庫存看板</b>出現此批次車輛（狀態：待PDI）<br>
+      6 · 損傷車輛額外觸發採購人員損傷通知
+    </div>
+  </div>
+
+  <!-- 收貨倉庫確認 -->
+  <div class="panel mb12">
+    <div class="panel-hdr"><div class="ph-left"><div class="picon pi-navy">🏭</div><div><div class="panel-title">收貨倉庫確認</div><div class="panel-sub">確認實際收貨倉庫（可能與採購單預設不同）</div></div></div></div>
+    <div class="panel-body">
+      <div class="fg2">
+        <div><div class="fl">實際收貨倉庫 <span class="req">*</span></div>
+          <select class="fs">
+            <option selected>海德生主倉（台北）</option>
+            <option>海德生新車中心</option>
+            <option>台中展示中心</option>
+          </select>
+        </div>
+        <div><div class="fl">實際到港日期 <span class="req">*</span></div>
+          <input type="date" class="fi" value="2026-05-26">
+        </div>
+        <div class="ff"><div class="fl">備註</div>
+          <input type="text" class="fi" placeholder="例：部分車輛外包裝受潮，已拍照存檔">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex-end">
+    <button class="btn btn-ghost" onclick="gS(3)">← 返回損傷記錄</button>
+    <button class="btn btn-ghost" onclick="showToast('🖨️ 到港確認單 PDF 已產生')">🖨️ 列印到港確認單</button>
+    <button class="btn btn-teal" style="font-size:13px;padding:9px 22px;" onclick="confirmArrival()">✅ 確認到港 · 建立 PDI 工單</button>
+  </div>
+
+  <!-- 完成後顯示 -->
+  <div id="done-card" style="display:none;background:linear-gradient(135deg,#085041,#0F6E56);border-radius:12px;padding:20px 24px;color:#fff;margin-top:14px;">
+    <div style="font-size:18px;font-weight:700;margin-bottom:6px;">🎉 到港確認完成！PDI 工單已建立</div>
+    <div style="font-size:12px;opacity:.85;margin-bottom:14px;line-height:1.8;">
+      8 台車輛主檔已更新 · 狀態：待PDI · 8 筆 PD-IN 工單已建立 · 售後主管已收到通知
+    </div>
+    <div style="background:rgba(255,255,255,.12);border-radius:8px;padding:12px 14px;font-size:12px;line-height:1.9;margin-bottom:14px;" id="done-wo-list">
+      <!-- 動態產生工單號列表 -->
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button style="padding:8px 18px;border-radius:7px;background:#fff;color:#085041;border:none;font-size:12.5px;font-weight:600;cursor:pointer;" onclick="go('RS03A_新車庫存看板_v2.html')">📋 查看新車庫存</button>
+      <button style="padding:8px 18px;border-radius:7px;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.3);font-size:12.5px;font-weight:600;cursor:pointer;" onclick="go('INV03_整車採購財務結算.html')">INV03 財務結算 →</button>
+    </div>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+function go(url){window.location.href=url;}
+var doneSteps=[];
+var selectedPO='';
+var totalVehicles=8;
+var confirmedVINs=[];
+var damagedVINs=[];
+
+/* ── 假資料：採購單車輛清單 ── */
+var vehicleData={
+  'PO-202605-001':[
+    {seq:1,series:'Scout',model:'Scout Bobber',color:'Black Smoke',vin:'',status:'wait'},
+    {seq:2,series:'Scout',model:'Scout Classic',color:'Polished Chrome',vin:'',status:'wait'},
+    {seq:3,series:'Challenger',model:'Challenger Dark Horse',color:'Black Metallic',vin:'',status:'wait'},
+    {seq:4,series:'Challenger',model:'Challenger Limited',color:'Maroon Metallic',vin:'',status:'wait'},
+    {seq:5,series:'Springfield',model:'Springfield Dark Horse',color:'Black Smoke',vin:'',status:'wait'},
+    {seq:6,series:'Pursuit',model:'Pursuit Dark Horse',color:'Storm Blue Metallic',vin:'',status:'wait'},
+    {seq:7,series:'Super Meteor',model:'Super Meteor 650',color:'Celestial Red',vin:'',status:'wait'},
+    {seq:8,series:'Super Meteor',model:'Super Meteor 650 Tourer',color:'Astral Green',vin:'',status:'wait'},
+  ],
+  'PO-202604-003':[
+    {seq:1,series:'Scout',model:'Scout Rogue',color:'Titanium Smoke',vin:'',status:'wait'},
+    {seq:2,series:'Chief',model:'Chief Bobber',color:'Black Metallic',vin:'',status:'wait'},
+    {seq:3,series:'Challenger',model:'Challenger',color:'Ghost White Metallic',vin:'',status:'wait'},
+    {seq:4,series:'Springfield',model:'Springfield',color:'Brilliant Blue Metallic',vin:'',status:'wait'},
+    {seq:5,series:'Pursuit',model:'Pursuit Limited',color:'Sunset Red Metallic',vin:'',status:'wait'},
+  ]
+};
+var currentVehicles=[];
+
+function selectPO(po,batch,total){
+  selectedPO=po;
+  totalVehicles=total;
+  confirmedVINs=[];
+  damagedVINs=[];
+  currentVehicles=vehicleData[po]?vehicleData[po].map(function(v){return Object.assign({},v);}):[];
+  document.getElementById('po-title').textContent='採購單 '+po;
+  document.getElementById('info-po').textContent=po;
+  document.getElementById('info-total').textContent=total+' 台';
+  document.getElementById('confirm-progress').textContent='0 / '+total+' 已確認';
+  document.getElementById('vs-pct').textContent='0 / '+total;
+  document.getElementById('vs-bar').style.width='0%';
+  document.getElementById('s4-po').textContent=po;
+  document.getElementById('s4-confirmed').textContent='0 台';
+  renderVehicleTable();
+  doneSteps.push(1);
+  gS(2);
+  showToast('✅ 已選擇採購單 '+po+'\n共 '+total+' 台待確認');
+}
+
+function renderVehicleTable(){
+  var tb=document.getElementById('vehicle-tbody');
+  tb.innerHTML=currentVehicles.map(function(v){
+    var sc=v.status==='ok'?'rs-ok':v.status==='damaged'?'rs-dmg':'rs-wait';
+    var sl=v.status==='ok'?'✅ 已確認':v.status==='damaged'?'⚠️ 損傷':v.status==='error'?'❌ VIN不符':'⏳ 待確認';
+    var rowCls=v.status==='ok'?'confirmed':v.status==='damaged'?'damaged':'';
+    var vinDisplay=v.vin||'<span style="color:var(--gray);font-style:italic;">未掃描</span>';
+    return '<tr class="'+rowCls+'">'+
+      '<td style="font-family:\'DM Mono\',monospace;font-weight:600;">'+v.seq+'</td>'+
+      '<td>'+v.series+'</td>'+
+      '<td style="font-size:12px;">'+v.model+'</td>'+
+      '<td style="font-size:11.5px;">'+v.color+'</td>'+
+      '<td style="font-family:\'DM Mono\',monospace;font-size:12px;">'+vinDisplay+'</td>'+
+      '<td>'+
+        '<select class="fs" style="font-size:11px;padding:3px 6px;height:26px;" onchange="setDamage('+v.seq+',this.value)">'+
+        '<option value="ok" '+(v.dmg==='ok'||!v.dmg?'selected':'')+'>完好</option>'+
+        '<option value="minor" '+(v.dmg==='minor'?'selected':'')+'>輕微損傷</option>'+
+        '<option value="major" '+(v.dmg==='major'?'selected':'')+'>重大損傷</option>'+
+        '</select>'+
+      '</td>'+
+      '<td><span class="row-status '+sc+'">'+sl+'</span></td>'+
+      '<td>'+
+        (v.status==='wait'?'<button class="btn btn-ghost btn-sm" onclick="manualConfirm('+v.seq+')">手動確認</button>':'—')+
+      '</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function scanVIN(){
+  var inp=document.getElementById('vin-input');
+  var vin=inp.value.trim().toUpperCase();
+  if(!vin){showToast('⚠️ 請輸入 VIN 碼');return;}
+  if(vin.length!==17){showToast('⚠️ VIN 碼必須為 17 碼，目前為 '+vin.length+' 碼');return;}
+
+  /* 找到第一台未確認的車輛，模擬掃描配對 */
+  var target=currentVehicles.find(function(v){return v.status==='wait';});
+  if(!target){showToast('✅ 所有車輛已確認完畢');inp.value='';return;}
+
+  target.vin=vin;
+  target.status='ok';
+  confirmedVINs.push(vin);
+  inp.value='';
+  inp.focus();
+
+  updateProgress();
+  renderVehicleTable();
+  showToast('✅ VIN: '+vin+'\n第 '+target.seq+' 台確認完成');
+}
+
+function manualConfirm(seq){
+  var v=currentVehicles.find(function(x){return x.seq===seq;});
+  if(!v)return;
+  /* 產生假 VIN */
+  var fakeVIN='5VPHB36N'+String(Math.floor(Math.random()*9000000+1000000))+'P'+seq;
+  v.vin=fakeVIN;
+  v.status='ok';
+  confirmedVINs.push(fakeVIN);
+  updateProgress();
+  renderVehicleTable();
+  showToast('✅ 第 '+seq+' 台手動確認完成\nVIN: '+fakeVIN);
+}
+
+function setDamage(seq,val){
+  var v=currentVehicles.find(function(x){return x.seq===seq;});
+  if(!v)return;
+  v.dmg=val;
+  if(val!=='ok'){
+    v.status='damaged';
+    if(damagedVINs.indexOf(seq)<0)damagedVINs.push(seq);
+  } else {
+    if(v.vin)v.status='ok';
+    damagedVINs=damagedVINs.filter(function(x){return x!==seq;});
+  }
+  renderVehicleTable();
+}
+
+function autoConfirmAll(){
+  currentVehicles.forEach(function(v,i){
+    if(v.status==='wait'){
+      var fakeVIN='5VPHB36N'+String(8000000+i)+'P'+v.seq;
+      v.vin=fakeVIN;
+      v.status='ok';
+      confirmedVINs.push(fakeVIN);
+    }
+  });
+  updateProgress();
+  renderVehicleTable();
+  showToast('✅ 全部 '+totalVehicles+' 台已確認（測試模式）');
+}
+
+function updateProgress(){
+  var done=currentVehicles.filter(function(v){return v.status==='ok'||v.status==='damaged';}).length;
+  var pct=Math.round(done/totalVehicles*100);
+  document.getElementById('confirm-progress').textContent=done+' / '+totalVehicles+' 已確認';
+  document.getElementById('vs-pct').textContent=done+' / '+totalVehicles;
+  document.getElementById('vs-bar').style.width=pct+'%';
+  document.getElementById('s4-confirmed').textContent=done+' 台';
+  document.getElementById('s4-damaged').textContent=damagedVINs.length+' 台';
+  var allDone=(done===totalVehicles);
+  var btn=document.getElementById('btn-next-step3');
+  btn.style.opacity=allDone?'1':'0.4';
+  btn.style.pointerEvents=allDone?'auto':'none';
+}
+
+function gS(n){
+  [1,2,3,4].forEach(function(i){
+    var s=document.getElementById('s'+i),p=document.getElementById('pane-'+i);
+    s.classList.remove('active','done');
+    p.classList.remove('active');
+    if(doneSteps.indexOf(i)>-1)s.classList.add('done');
+  });
+  document.getElementById('s'+n).classList.add('active');
+  document.getElementById('pane-'+n).classList.add('active');
+  if(n===3)renderDamageStep();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function renderDamageStep(){
+  var dmgVehicles=currentVehicles.filter(function(v){return v.status==='damaged';});
+  document.getElementById('dmg-count-badge').textContent=dmgVehicles.length+' 台損傷';
+  var area=document.getElementById('dmg-list-area');
+  var noticEl=document.getElementById('no-damage-notice');
+  if(dmgVehicles.length===0){
+    area.innerHTML='';
+    noticEl.style.display='';
+  } else {
+    noticEl.style.display='none';
+    area.innerHTML=dmgVehicles.map(function(v){
+      return '<div style="background:var(--amber-bg);border:1.5px solid var(--amber-bd);border-radius:8px;padding:12px 14px;margin-bottom:10px;">'+
+        '<div style="font-size:12.5px;font-weight:700;color:#6B3A00;margin-bottom:8px;">⚠️ #'+v.seq+' '+v.model+' — '+v.dmg==='minor'?'輕微損傷':'重大損傷'+'</div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+        '<div><div class="fl">損傷說明</div><input type="text" class="fi" placeholder="描述損傷部位與程度..."></div>'+
+        '<div><div class="fl">損傷等級</div><select class="fs"><option>輕微（外觀刮傷）</option><option>中等（凹陷/裂痕）</option><option>嚴重（結構損壞）</option></select></div>'+
+        '<div><div class="fl">損傷照片</div><button class="btn btn-ghost btn-sm" onclick="showToast(\'📷 相機已開啟\')">📷 拍照上傳</button></div>'+
+        '<div><div class="fl">VIN</div><span style="font-family:\'DM Mono\',monospace;font-size:12px;">'+v.vin+'</span></div>'+
+        '</div></div>';
+    }).join('');
+  }
+}
+
+function confirmArrival(){
+  /* 後端串接點：
+     POST /api/vehicles/batch-arrival-confirm
+     {
+       purchase_order_id: selectedPO,
+       arrival_date: '2026-05-26',
+       warehouse_id: 'WH-001',
+       vehicles: currentVehicles.map(v => ({
+         seq: v.seq, vin: v.vin, damage_flag: v.dmg!=='ok', damage_level: v.dmg
+       }))
+     }
+     回傳：{ vehicle_ids: [...], pdi_workorder_ids: [...] }
+  */
+  var woList='';
+  currentVehicles.forEach(function(v,i){
+    var woNum='PD-IN-260526-'+String(i+1).padStart(3,'0');
+    woList+='<b>'+woNum+'</b> — '+v.model+'（VIN:'+v.vin.slice(-6)+'）<br>';
+  });
+  document.getElementById('done-wo-list').innerHTML=woList;
+  document.getElementById('done-card').style.display='';
+  doneSteps=[1,2,3,4];
+  [1,2,3,4].forEach(function(i){
+    document.getElementById('s'+i).classList.remove('active');
+    document.getElementById('s'+i).classList.add('done');
+  });
+  showToast('🎉 到港確認完成！\n'+totalVehicles+' 筆 PDI 工單已建立\n售後主管已收到通知');
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},3200);
+}
+</script>
+</body>
+</html>

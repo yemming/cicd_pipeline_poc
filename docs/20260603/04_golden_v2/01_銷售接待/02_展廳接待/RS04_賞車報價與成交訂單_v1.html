@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS04 賞車報價與成交訂單 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-red{background:rgba(200,0,26,.8);border-color:transparent;}
+.hbtn-red:hover{background:#C8001A;}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.tab-bar{background:#fff;border-bottom:2px solid #EEECE6;display:flex;position:sticky;top:52px;z-index:90;padding:0 24px;}
+.tab-btn{padding:13px 20px;font-size:13px;font-weight:500;color:#7A7A78;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:'Noto Sans TC',sans-serif;}
+.tab-btn.active{color:#1A3A5C;font-weight:700;border-bottom-color:#C8001A;}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+.vehicle-switch{display:flex;gap:0;background:#F4F3F0;border-radius:8px;padding:3px;margin-bottom:16px;width:fit-content;}
+.vs-btn{padding:6px 20px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;border:none;background:none;color:#7A7A78;font-family:'Noto Sans TC',sans-serif;transition:all .15s;}
+.vs-btn.active{background:#1A3A5C;color:#fff;}
+.main{max-width:1100px;margin:0 auto;padding:20px 24px 48px;}
+.client-bar{background:#1A3A5C;border-radius:10px;padding:13px 18px;display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;}
+.cb-label{font-size:11px;color:rgba(255,255,255,.55);white-space:nowrap;}
+.cb-value{font-size:13px;font-weight:600;color:#fff;}
+.cb-mono{font-family:'DM Mono',monospace;font-size:12px;color:#5BC4A8;}
+.cb-div{width:1px;height:20px;background:rgba(255,255,255,.15);}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.panel-hdr{padding:11px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.panel-left{display:flex;align-items:center;gap:10px;}
+.picon{font-size:14px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pi-blue{background:#EAF4FB;}.pi-red{background:#FDECEA;}.pi-teal{background:#E1F5EE;}.pi-amber{background:#FDF3E3;}
+.panel-title{font-size:13px;font-weight:600;}
+.panel-sub{font-size:11px;color:#9A9890;margin-top:1px;}
+.panel-body{padding:14px 16px;}
+.car-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.car-card{border:1.5px solid #EEECE6;border-radius:9px;padding:11px 13px;cursor:pointer;transition:all .15s;background:#FAFAF8;}
+.car-card:hover{border-color:#B4B2A9;}
+.car-card.selected{border-color:#C8001A;background:#FFF5F5;}
+.cc-model{font-size:13px;font-weight:700;margin-bottom:2px;}
+.cc-cc{font-size:11px;color:#9A9890;margin-bottom:4px;}
+.cc-price{font-size:14px;font-weight:700;font-family:'DM Mono',monospace;color:#C8001A;}
+.quote-table{width:100%;border-collapse:collapse;}
+.quote-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:7px 10px;border-bottom:2px solid #EEECE6;text-align:left;background:#FAFAF8;white-space:nowrap;}
+.quote-table td{padding:9px 10px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.qt-category{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#9A9890;padding:8px 10px 4px;border-bottom:1px solid #F4F3F0;background:#FAFAF8;}
+.qt-name{font-weight:500;}
+.qt-note{font-size:11px;color:#9A9890;margin-top:2px;}
+.qt-price{font-family:'DM Mono',monospace;font-size:12.5px;font-weight:600;text-align:right;white-space:nowrap;}
+.qt-price.discount{color:#C8001A;}
+.qt-price.sub{color:#185FA5;}
+.input-sm{border:1px solid #D5D3CB;border-radius:5px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:12px;color:#2C2C2A;width:110px;text-align:right;outline:none;background:#fff;}
+.total-bar{background:#1A3A5C;border-radius:9px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:10px;}
+.tb-items{display:flex;gap:20px;align-items:center;flex-wrap:wrap;}
+.tb-item{text-align:center;}
+.tb-label{font-size:10.5px;color:rgba(255,255,255,.55);margin-bottom:2px;}
+.tb-value{font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:#fff;}
+.tb-value.red{color:#FF8080;}
+.tb-value.green{color:#5BC4A8;}
+.tb-actions{display:flex;gap:8px;}
+.btn{padding:8px 18px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.btn-red{background:#C8001A;border-color:#C8001A;color:#fff;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-teal{background:#0F6E56;border-color:#0F6E56;color:#fff;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.form-row{margin-bottom:12px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.form-label .req{color:#C8001A;}
+.form-input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.form-input[readonly]{background:#F8F7F4;color:#5A5955;}
+.form-select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.form-textarea{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;resize:vertical;min-height:70px;background:#fff;}
+.divider{height:1px;background:#EEECE6;margin:16px 0;}
+.section-label{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#9A9890;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.section-label::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.payment-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+.pay-card{border:1.5px solid #EEECE6;border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .15s;text-align:center;background:#FAFAF8;}
+.pay-card.selected{border-color:#185FA5;background:#EAF4FB;}
+.pay-icon{font-size:20px;margin-bottom:4px;}
+.pay-name{font-size:12px;font-weight:600;}
+.step-bar{display:flex;align-items:center;gap:0;margin-bottom:18px;}
+.step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
+.step::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:#EEECE6;z-index:0;}
+.step:last-child::after{display:none;}
+.step-dot{width:28px;height:28px;border-radius:50%;border:2px solid #EEECE6;background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;z-index:1;position:relative;}
+.step-dot.done{background:#0F6E56;border-color:#0F6E56;color:#fff;}
+.step-dot.active{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.step-name{font-size:10.5px;margin-top:5px;color:#9A9890;text-align:center;}
+.step-name.active{color:#1A3A5C;font-weight:600;}
+.sign-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px;}
+.sign-box{border:1.5px dashed #D5D3CB;border-radius:8px;padding:16px;text-align:center;background:#FAFAF8;}
+.sign-label{font-size:11px;color:#9A9890;margin-bottom:24px;}
+.sign-line{border-top:1px solid #D5D3CB;padding-top:6px;font-size:11px;color:#9A9890;margin-top:24px;}
+.disclaimer-box{background:#FFF8E1;border:1.5px solid #F0C97E;border-radius:8px;padding:13px 15px;font-size:11.5px;color:#5A4500;line-height:1.8;margin-bottom:14px;}
+.disclaimer-box .db-title{font-size:12px;font-weight:700;color:#7A3A00;margin-bottom:8px;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-blue{background:#EAF4FB;color:#185FA5;}
+.b-amber{background:#FDF3E3;color:#854F0B;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:480px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;padding:2px 6px;}
+.modal-body{padding:20px;max-height:60vh;overflow-y:auto;}
+.modal-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:11px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:320px;line-height:1.5;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div><div class="hdiv"></div>
+  <div class="htitle">銷售管理 <b>RS04 賞車報價與成交訂單</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS00_銷售模組_導覽總覽_v2.html')">← RS 總覽</button>
+    <button class="hbtn" onclick="go('RS01_電子手卡_v8.html')">電子手卡</button>
+    <button class="hbtn" onclick="go('RS03A_新車庫存看板_v1.html')">新車庫存</button>
+    <button class="hbtn hbtn-red" onclick="openModal('modal-confirm-order')">✅ 確認成交 →</button>
+  </div>
+</header>
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab(0,this)">💰 Tab1 賞車報價單</button>
+  <button class="tab-btn" onclick="switchTab(1,this)">📋 Tab2 新車訂購合約書</button>
+  <button class="tab-btn" onclick="switchTab(2,this)">📜 Tab3 中古車買賣切結合約書</button>
+</div>
+<div class="main">
+
+<!-- Tab 0 報價單 -->
+<div class="tab-pane active" id="tab-0">
+  <div class="client-bar">
+    <div><div class="cb-label">客戶</div><div class="cb-value">陳志宏</div></div>
+    <div class="cb-div"></div>
+    <div><div class="cb-label">報價單號</div><div class="cb-mono">Q-20260510-008</div></div>
+    <div class="cb-div"></div>
+    <div><div class="cb-label">負責 RS</div><div class="cb-value">林育誠</div></div>
+    <div class="cb-div"></div>
+    <div><div class="cb-label">有效期</div><div class="cb-mono" style="color:#F0C97E;">2026/05/24</div></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+    <div class="vehicle-switch">
+      <button class="vs-btn active" id="vs-new" onclick="switchVehicle('new')">🆕 新車報價</button>
+      <button class="vs-btn" id="vs-used" onclick="switchVehicle('used')">🔄 中古車報價</button>
+    </div>
+    <span class="badge b-blue" id="vehicle-badge">新車</span>
+    <span style="font-size:11.5px;color:#9A9890;">報價單格式共用 · 成交後依車種產生對應合約書</span>
+  </div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-left"><div class="picon pi-red">🏍️</div><div><div class="panel-title">車款選擇</div></div></div>
+      <button class="btn btn-ghost btn-sm" onclick="go('RS03A_新車庫存看板_v1.html')">查看庫存 →</button>
+    </div>
+    <div class="panel-body">
+      <div class="car-selector">
+        <div class="car-card selected" onclick="selectCar(this,'Panigale V4','NT$898,000')"><div class="cc-model">Panigale V4</div><div class="cc-cc">1103cc · 義大利</div><div class="cc-price">NT$898,000</div></div>
+        <div class="car-card" onclick="selectCar(this,'Streetfighter V4','NT$858,000')"><div class="cc-model">Streetfighter V4</div><div class="cc-cc">1103cc · 義大利</div><div class="cc-price">NT$858,000</div></div>
+        <div class="car-card" onclick="selectCar(this,'Monster SP','NT$498,000')"><div class="cc-model">Monster SP</div><div class="cc-cc">937cc · 義大利</div><div class="cc-price">NT$498,000</div></div>
+        <div class="car-card" onclick="selectCar(this,'Multistrada V4','NT$998,000')"><div class="cc-model">Multistrada V4</div><div class="cc-cc">1158cc · 義大利</div><div class="cc-price">NT$998,000</div></div>
+        <div class="car-card" onclick="selectCar(this,'Diavel V4','NT$938,000')"><div class="cc-model">Diavel V4</div><div class="cc-cc">1158cc · 義大利</div><div class="cc-price">NT$938,000</div></div>
+        <div class="car-card" onclick="selectCar(this,'Hypermotard 698','NT$428,000')"><div class="cc-model">Hypermotard 698</div><div class="cc-cc">659cc · 義大利</div><div class="cc-price">NT$428,000</div></div>
+      </div>
+      <div id="used-car-fields" style="display:none;margin-top:10px;padding:12px;background:#FFF8E1;border:1px solid #F0C97E;border-radius:8px;">
+        <div class="form-grid">
+          <div><div class="form-label">車身號碼（VIN）</div><input type="text" class="form-input" placeholder="輸入 VIN"></div>
+          <div><div class="form-label">行駛里程（km）</div><input type="text" class="form-input" placeholder="例：12,500"></div>
+          <div><div class="form-label">出廠年份</div><input type="text" class="form-input" placeholder="例：2023"></div>
+          <div><div class="form-label">認證等級</div><select class="form-select"><option>CPO 原廠認證中古</option><option>DPO 經銷商認證中古</option><option>PO 一般中古</option></select></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-left"><div class="picon pi-blue">💰</div><div><div class="panel-title">報價明細</div><div class="panel-sub">含車輛 · 贈品 · 配件 · 保險 · 辦牌 · 優惠</div></div></div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="openModal('modal-add-item')">＋ 新增項目</button>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('報價單已匯出 PDF')">📄 匯出</button>
+      </div>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <table class="quote-table">
+        <thead><tr><th style="width:40%;">項目</th><th>備註</th><th style="text-align:right;">定價</th><th style="text-align:right;">報價</th><th style="width:50px;"></th></tr></thead>
+        <tbody id="quote-tbody">
+          <tr><td colspan="5" class="qt-category">🏍️ 車輛本體</td></tr>
+          <tr><td><div class="qt-name">Panigale V4（2026年款）</div><div class="qt-note">顏色：Ducati Red</div></td><td><span class="badge b-blue">現車</span></td><td class="qt-price">$898,000</td><td class="qt-price sub"><input class="input-sm" value="898,000"></td><td></td></tr>
+          <tr><td colspan="5" class="qt-category">🎁 贈品</td></tr>
+          <tr><td><div class="qt-name">原廠安全帽 AGV K6</div></td><td></td><td class="qt-price">$12,000</td><td class="qt-price discount">贈送</td><td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove()" style="padding:2px 6px;">✕</button></td></tr>
+          <tr><td colspan="5" class="qt-category">⚙️ 選配配件</td></tr>
+          <tr><td><div class="qt-name">Ducati Performance 排氣管升級</div></td><td><span class="badge b-amber">需預訂 7 天</span></td><td class="qt-price">$48,000</td><td class="qt-price sub"><input class="input-sm" value="45,000"></td><td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove()" style="padding:2px 6px;">✕</button></td></tr>
+          <tr><td colspan="5" class="qt-category">🛡️ 保險</td></tr>
+          <tr><td><div class="qt-name">強制責任險（1年）</div></td><td></td><td class="qt-price">$1,490</td><td class="qt-price sub">$1,490</td><td></td></tr>
+          <tr><td><div class="qt-name">商業險（竊盜+車體損失）</div></td><td></td><td class="qt-price">$28,000</td><td class="qt-price sub"><input class="input-sm" value="26,000"></td><td></td></tr>
+          <tr><td colspan="5" class="qt-category">📋 辦牌費用</td></tr>
+          <tr><td><div class="qt-name">牌照稅（年繳）+ 辦牌手續費</div></td><td></td><td class="qt-price">$7,800</td><td class="qt-price sub">$7,800</td><td></td></tr>
+          <tr><td colspan="5" class="qt-category">💸 優惠折讓</td></tr>
+          <tr><td><div class="qt-name">春季促銷折扣</div></td><td><span class="badge b-teal">活動優惠</span></td><td class="qt-price">—</td><td class="qt-price discount">-$20,000</td><td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove()" style="padding:2px 6px;">✕</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="total-bar">
+    <div class="tb-items">
+      <div class="tb-item"><div class="tb-label">車輛定價</div><div class="tb-value">$898,000</div></div>
+      <div class="tb-item"><div class="tb-label">附加費用</div><div class="tb-value">$35,290</div></div>
+      <div class="tb-item"><div class="tb-label">優惠折讓</div><div class="tb-value red">-$32,000</div></div>
+      <div class="tb-item" style="border-left:1px solid rgba(255,255,255,.2);padding-left:20px;">
+        <div class="tb-label">客戶實付總額</div>
+        <div class="tb-value green" style="font-size:22px;">$901,290</div>
+      </div>
+    </div>
+    <div class="tb-actions">
+      <button class="btn btn-ghost" onclick="showToast('報價單已傳送 LINE 給客戶')">📲 傳送客戶</button>
+      <button class="btn btn-red" onclick="switchTab(1,document.querySelectorAll('.tab-btn')[1])">成交 → 建立合約書</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 1 新車訂購合約書 -->
+<div class="tab-pane" id="tab-1">
+  <div class="step-bar">
+    <div class="step"><div class="step-dot done">✓</div><div class="step-name">報價完成</div></div>
+    <div class="step"><div class="step-dot active">2</div><div class="step-name active">新車訂購合約</div></div>
+    <div class="step"><div class="step-dot" style="border-color:#EEECE6;color:#9A9890;">3</div><div class="step-name">客戶簽名</div></div>
+    <div class="step"><div class="step-dot" style="border-color:#EEECE6;color:#9A9890;">4</div><div class="step-name">交車作業</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-left"><div class="picon pi-blue">📋</div><div><div class="panel-title">DUCATI 新車訂購合約書</div><div class="panel-sub">合約編號：PO-20260510-008</div></div></div>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('合約書已匯出 PDF')">📄 匯出 PDF</button>
+    </div>
+    <div class="panel-body">
+      <div class="section-label">一、買受人資料</div>
+      <div class="form-grid">
+        <div><div class="form-label">姓名</div><input type="text" class="form-input" value="陳志宏"></div>
+        <div><div class="form-label">身分證字號</div><input type="text" class="form-input" placeholder="A123456789"></div>
+        <div><div class="form-label">聯絡電話</div><input type="text" class="form-input" value="0912-345-678"></div>
+        <div><div class="form-label">電子郵件</div><input type="text" class="form-input" value="chen@email.com"></div>
+        <div style="grid-column:1/-1;"><div class="form-label">戶籍地址</div><input type="text" class="form-input" placeholder="縣市、區、路號"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-label">二、車輛資料</div>
+      <div class="form-grid">
+        <div><div class="form-label">車款型號</div><input type="text" class="form-input" value="Panigale V4（2026年款）" readonly></div>
+        <div><div class="form-label">車身顏色</div><input type="text" class="form-input" value="Ducati Red"></div>
+        <div><div class="form-label">車身號碼（VIN）</div><input type="text" class="form-input" placeholder="配車後填入"></div>
+        <div><div class="form-label">引擎號碼</div><input type="text" class="form-input" placeholder="配車後填入"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-label">三、付款方式</div>
+      <div class="payment-grid">
+        <div class="pay-card selected" onclick="selPay(this)"><div class="pay-icon">💵</div><div class="pay-name">現金全額</div></div>
+        <div class="pay-card" onclick="selPay(this)"><div class="pay-icon">💳</div><div class="pay-name">刷卡一次</div></div>
+        <div class="pay-card" onclick="selPay(this)"><div class="pay-icon">🏦</div><div class="pay-name">銀行貸款</div></div>
+        <div class="pay-card" onclick="selPay(this)"><div class="pay-icon">📋</div><div class="pay-name">分期付款</div></div>
+      </div>
+      <div class="form-grid">
+        <div><div class="form-label">訂金金額</div><input type="text" class="form-input" placeholder="NT$ 50,000"></div>
+        <div><div class="form-label">預計交車日期</div><input type="date" class="form-input" value="2026-05-17"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-label">四、特殊約定</div>
+      <div class="form-row"><textarea class="form-textarea">贈品：原廠安全帽 AGV K6。選配：DP 排氣管，交車前安裝完成。春季折扣 NT$20,000 已含入。</textarea></div>
+      <div style="background:#F8F7F4;border-radius:8px;padding:12px;font-size:11.5px;color:#4A4A48;line-height:1.9;margin-bottom:14px;">
+        1. 買受人無故取消訂單，訂金恕不退還。2. 賣方無法如期交車，應通知並協商或退還訂金。3. 交車後應依原廠規定完成保固登記及定期保養。4. 本合約一式兩份，雙方各執一份。
+      </div>
+      <div class="sign-grid">
+        <div class="sign-box"><div class="sign-label">買受人簽名</div><div class="sign-line">簽名：＿＿＿＿＿＿<br>日期：2026 年 ＿ 月 ＿ 日</div></div>
+        <div class="sign-box"><div class="sign-label">銷售顧問（RS）</div><div class="sign-line">林育誠<br>2026 年 05 月 10 日</div></div>
+        <div class="sign-box"><div class="sign-label">經銷商授權代表</div><div class="sign-line">＿＿＿＿＿＿<br>DUCATI 台北展示中心</div></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+        <button class="btn btn-ghost" onclick="switchTab(0,document.querySelectorAll('.tab-btn')[0])">← 返回報價單</button>
+        <button class="btn btn-teal" onclick="goDelivery()">✅ 合約確認，進入交車作業 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab 2 中古車買賣切結合約書 -->
+<div class="tab-pane" id="tab-2">
+  <div class="step-bar">
+    <div class="step"><div class="step-dot done">✓</div><div class="step-name">報價完成</div></div>
+    <div class="step"><div class="step-dot active">2</div><div class="step-name active">中古車買賣合約</div></div>
+    <div class="step"><div class="step-dot" style="border-color:#EEECE6;color:#9A9890;">3</div><div class="step-name">客戶簽名</div></div>
+    <div class="step"><div class="step-dot" style="border-color:#EEECE6;color:#9A9890;">4</div><div class="step-name">過戶/交車</div></div>
+  </div>
+  <div class="disclaimer-box">
+    <div class="db-title">⚠️ 中古車買賣重要告知</div>
+    本合約適用於大型重型機車二手買賣交易。車輛以「現況出售（As-Is）」為原則，買受人已充分了解並接受車輛現況。賣方已如實告知已知瑕疵，並依認證等級提供相應保障。
+  </div>
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-left"><div class="picon pi-amber">📜</div><div><div class="panel-title">大型重型機車買賣切結合約書</div><div class="panel-sub">合約編號：UA-20260510-008</div></div></div>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('合約書已匯出 PDF')">📄 匯出 PDF</button>
+    </div>
+    <div class="panel-body">
+      <div class="section-label">一、買賣雙方</div>
+      <div class="form-grid">
+        <div><div class="form-label">賣方（甲方）</div><input type="text" class="form-input" value="DUCATI 台北展示中心" readonly></div>
+        <div><div class="form-label">買受人（乙方）</div><input type="text" class="form-input" value="陳志宏"></div>
+        <div><div class="form-label">乙方身分證字號</div><input type="text" class="form-input" placeholder="A123456789"></div>
+        <div><div class="form-label">乙方聯絡電話</div><input type="text" class="form-input" value="0912-345-678"></div>
+        <div style="grid-column:1/-1;"><div class="form-label">乙方戶籍地址</div><input type="text" class="form-input" placeholder="縣市、區、路號"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-label">二、車輛資料（必填完整）</div>
+      <div class="form-grid">
+        <div><div class="form-label">廠牌/車款</div><input type="text" class="form-input" value="DUCATI Panigale V2"></div>
+        <div><div class="form-label">出廠年份</div><input type="text" class="form-input" value="2022"></div>
+        <div><div class="form-label">車牌號碼</div><input type="text" class="form-input" placeholder="LGX-8096"></div>
+        <div><div class="form-label">排氣量（cc）</div><input type="text" class="form-input" value="955"></div>
+        <div><div class="form-label">車身號碼（VIN）</div><input type="text" class="form-input" placeholder="17碼 VIN"></div>
+        <div><div class="form-label">引擎號碼</div><input type="text" class="form-input" placeholder="引擎號碼"></div>
+        <div><div class="form-label">行駛里程（km）</div><input type="text" class="form-input" value="12,500"></div>
+        <div><div class="form-label">認證等級</div><select class="form-select"><option>CPO 原廠認證</option><option>DPO 經銷商認證</option><option selected>PO 一般中古</option></select></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-label">三、成交價格與過戶</div>
+      <div class="form-grid">
+        <div><div class="form-label">成交價格（NT$）</div><input type="text" class="form-input" placeholder="NT$ ___,000"></div>
+        <div><div class="form-label">訂金金額</div><input type="text" class="form-input" placeholder="NT$ ___,000"></div>
+        <div><div class="form-label">尾款交付日期</div><input type="date" class="form-input"></div>
+        <div><div class="form-label">過戶辦理</div><select class="form-select"><option>本店代辦</option><option>買受人自行辦理</option></select></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-label">四、車輛現況與買受人切結</div>
+      <div class="form-row"><textarea class="form-textarea">車況良好，無重大事故紀錄。左側下整流罩有輕微風化痕跡。12,500km 已完成 Desmo Service，保養紀錄完整。</textarea></div>
+      <div style="background:#FDECEA;border:1px solid #F5AEAD;border-radius:8px;padding:12px;font-size:11.5px;color:#4A4A48;line-height:1.9;margin-bottom:14px;">
+        <b style="color:#7A1010;">買受人切結聲明：</b>本人已親自驗車，充分了解車輛現況及已知瑕疵，同意以「現況」購買本車，不得事後以車況為由要求退換車或減價。
+      </div>
+      <div class="sign-grid">
+        <div class="sign-box"><div class="sign-label">賣方（甲方）簽章</div><div class="sign-line">DUCATI 台北展示中心<br>2026 年 05 月 10 日</div></div>
+        <div class="sign-box"><div class="sign-label">買受人（乙方）簽名</div><div class="sign-line">＿＿＿＿＿＿<br>2026 年 ＿ 月 ＿ 日</div></div>
+        <div class="sign-box"><div class="sign-label">見證人/銷售顧問</div><div class="sign-line">林育誠<br>2026 年 05 月 10 日</div></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+        <button class="btn btn-ghost" onclick="switchTab(0,document.querySelectorAll('.tab-btn')[0])">← 返回報價單</button>
+        <button class="btn btn-teal" onclick="goDelivery()">✅ 合約確認，安排過戶與交車 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- Modal 確認成交 -->
+<div class="overlay" id="modal-confirm-order" onclick="closeModalOverlay(event,'modal-confirm-order')">
+  <div class="modal">
+    <div class="modal-hdr"><div class="modal-title">✅ 確認成交</div><button class="modal-close" onclick="closeModal('modal-confirm-order')">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:13px;line-height:1.9;color:#4A4A48;margin-bottom:14px;">請選擇合約類型後建立成交訂單：</div>
+      <div><div class="form-label">合約類型</div><select class="form-select" id="order-type"><option value="new">📋 新車訂購合約書</option><option value="used">📜 中古車買賣切結合約書</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-confirm-order')">取消</button>
+      <button class="btn btn-red" onclick="goToContract()">→ 前往合約書</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 新增項目 -->
+<div class="overlay" id="modal-add-item" onclick="closeModalOverlay(event,'modal-add-item')">
+  <div class="modal">
+    <div class="modal-hdr"><div class="modal-title">＋ 新增報價項目</div><button class="modal-close" onclick="closeModal('modal-add-item')">×</button></div>
+    <div class="modal-body">
+      <div class="form-row"><div class="form-label">項目名稱</div><input type="text" class="form-input" id="add-name" placeholder="例：快拆牌架"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-row" style="margin-bottom:0;"><div class="form-label">定價</div><input type="text" class="form-input" id="add-list" placeholder="NT$"></div>
+        <div class="form-row" style="margin-bottom:0;"><div class="form-label">報價</div><input type="text" class="form-input" id="add-price" placeholder="NT$ 或「贈送」"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-item')">取消</button>
+      <button class="btn btn-primary" onclick="addItem()">✅ 加入</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function go(url){ window.location.href = url; }
+function switchTab(i,el){ document.querySelectorAll('.tab-btn').forEach(function(b,idx){ b.classList.toggle('active',idx===i); }); document.querySelectorAll('.tab-pane').forEach(function(p,idx){ p.classList.toggle('active',idx===i); }); }
+function switchVehicle(type){ var isUsed=(type==='used'); document.getElementById('vs-new').classList.toggle('active',!isUsed); document.getElementById('vs-used').classList.toggle('active',isUsed); document.getElementById('used-car-fields').style.display=isUsed?'block':'none'; var badge=document.getElementById('vehicle-badge'); badge.textContent=isUsed?'中古車':'新車'; badge.className='badge '+(isUsed?'b-amber':'b-blue'); }
+function selectCar(el,model,price){ document.querySelectorAll('.car-card').forEach(function(c){ c.classList.remove('selected'); }); el.classList.add('selected'); showToast('已選擇：'+model+' · '+price); }
+function selPay(el){ document.querySelectorAll('.pay-card').forEach(function(c){ c.classList.remove('selected'); }); el.classList.add('selected'); }
+function addItem(){ var name=document.getElementById('add-name').value.trim(); if(!name){ showToast('請填寫項目名稱'); return; } var list=document.getElementById('add-list').value||'—'; var price=document.getElementById('add-price').value||'待議'; var tbody=document.getElementById('quote-tbody'); var tr=document.createElement('tr'); tr.innerHTML='<td><div class="qt-name">'+name+'</div></td><td></td><td class="qt-price">'+list+'</td><td class="qt-price sub">'+price+'</td><td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove()" style="padding:2px 6px;">✕</button></td>'; tbody.appendChild(tr); closeModal('modal-add-item'); showToast('✅ 已新增：'+name); }
+function goToContract(){ var type=document.getElementById('order-type').value; closeModal('modal-confirm-order'); switchTab(type==='new'?1:2,document.querySelectorAll('.tab-btn')[type==='new'?1:2]); }
+function goDelivery(){ showToast('✅ 合約確認完成！即將前往交車管理…'); setTimeout(function(){ go('RS05_交車管理_v1.html'); },1500); }
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function closeModalOverlay(e,id){ if(e.target===document.getElementById(id)) closeModal(id); }
+function showToast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){ t.classList.remove('show'); },2800); }
+</script>
+</body>
+</html>

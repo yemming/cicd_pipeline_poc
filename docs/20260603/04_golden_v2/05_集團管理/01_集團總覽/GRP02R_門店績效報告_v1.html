@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP02R 門店績效報告 — DealerOS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+/* ── Reset ── */
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+
+/* ── CSS Variables ── */
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;--purple-bd:#AFA9EC;
+  --gray:#9A9890;--border:#EEECE6;--header:#0D2438;
+  --green:#1E7D3E;--green-bg:#EAF5EA;
+}
+
+/* ══════════════════════════════════════
+   SCREEN UI（集團通路管理員操作介面）
+══════════════════════════════════════ */
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+
+.screen-main{max-width:900px;margin:0 auto;padding:24px 24px 48px;}
+
+.control-panel{background:#fff;border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin-bottom:20px;}
+.cp-title{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.cp-grid{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;}
+.cp-field{display:flex;flex-direction:column;gap:5px;}
+.cp-label{font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.3px;text-transform:uppercase;}
+.cp-select,.cp-input{padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:13px;color:#2C2C2A;background:#fff;cursor:pointer;transition:.15s;}
+.cp-select:focus,.cp-input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(26,58,92,.1);}
+.gen-btn{padding:9px 22px;background:var(--navy);color:#fff;border:none;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap;}
+.gen-btn:hover{background:#254d7a;}
+
+.preview-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.preview-title{font-size:13px;font-weight:700;color:var(--navy);}
+.action-row{display:flex;gap:8px;}
+.act-btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;display:flex;align-items:center;gap:5px;}
+.act-pdf{background:var(--red);border-color:var(--red);color:#fff;}
+.act-pdf:hover{background:#a00015;}
+.act-print{background:#fff;border-color:var(--border);color:#4A4A48;}
+.act-print:hover{background:#F4F3F0;}
+
+/* ══════════════════════════════════════
+   REPORT（報告本體，列印友好）
+══════════════════════════════════════ */
+.report-wrap{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+
+/* A4-like report container */
+.report{width:100%;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#1A1A18;}
+
+/* ── 封面 ── */
+.r-cover{background:linear-gradient(135deg,#0A1F35 0%,#1A3A5C 60%,#0D3D30 100%);padding:36px 40px 30px;color:#fff;position:relative;overflow:hidden;}
+.r-cover::before{content:'';position:absolute;right:-40px;top:-40px;width:240px;height:240px;border-radius:50%;background:rgba(80,200,150,.08);}
+.r-cover::after{content:'';position:absolute;left:30px;bottom:-30px;width:160px;height:160px;border-radius:50%;background:rgba(100,140,255,.06);}
+.r-cover-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;}
+.r-brand{font-size:15px;font-weight:700;letter-spacing:3px;opacity:.9;}
+.r-confidential{font-size:9.5px;background:rgba(200,0,26,.3);border:1px solid rgba(200,0,26,.5);color:#FFB0B0;padding:2px 8px;border-radius:4px;font-weight:600;}
+.r-cover-main{margin-bottom:24px;}
+.r-store-name{font-size:26px;font-weight:700;margin-bottom:6px;line-height:1.2;}
+.r-report-type{font-size:13px;opacity:.7;margin-bottom:18px;}
+.r-period-badge{display:inline-block;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;}
+.r-cover-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:24px;}
+.r-stat{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:12px 14px;text-align:center;}
+.r-stat-val{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.r-stat-lbl{font-size:9.5px;opacity:.65;margin-top:4px;}
+.r-cover-foot{display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.15);font-size:10.5px;opacity:.55;}
+
+/* ── 章節通用 ── */
+.r-section{padding:24px 32px;border-bottom:1px solid var(--border);}
+.r-section:last-child{border-bottom:none;}
+.r-sec-title{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:2px solid var(--navy-bg);}
+.r-sec-num{width:22px;height:22px;border-radius:5px;background:var(--navy);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+/* ── KPI 速覽 8格 ── */
+.r-kpi8{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px;}
+.r-kpi{background:#FAFAF8;border:1px solid var(--border);border-radius:8px;padding:11px 12px;}
+.r-kpi.good{border-left:3px solid #3DBE6E;}
+.r-kpi.warn{border-left:3px solid var(--amber);}
+.r-kpi.bad{border-left:3px solid var(--red);}
+.r-kpi-lbl{font-size:10px;color:var(--gray);margin-bottom:3px;}
+.r-kpi-val{font-size:20px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.r-kpi-sub{font-size:10px;color:var(--gray);}
+.rv-good{color:#1E7D3E;}
+.rv-warn{color:var(--amber);}
+.rv-bad{color:var(--red);}
+
+/* ── BSC 對標表 ── */
+.r-bsc-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+.r-bsc-table th{font-size:10px;font-weight:700;color:var(--gray);padding:6px 8px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;white-space:nowrap;letter-spacing:.3px;}
+.r-bsc-table th.center{text-align:center;}
+.r-bsc-table td{padding:7px 8px;border-bottom:1px solid #F4F3F0;vertical-align:middle;}
+.r-bsc-table tr:last-child td{border-bottom:none;}
+.r-bsc-table tr:hover td{background:#FAFAF8;}
+
+/* 業務分組header */
+.r-bsc-group td{background:linear-gradient(90deg,var(--navy),#2A5080);color:#fff;font-weight:700;font-size:11px;padding:5px 8px;}
+.r-bsc-group.teal td{background:linear-gradient(90deg,var(--teal),#1A8A6A);}
+.r-bsc-group.purple td{background:linear-gradient(90deg,var(--purple),#7060CC);}
+.r-bsc-group.amber td{background:linear-gradient(90deg,var(--amber),#A06010);}
+.r-bsc-group.gray td{background:linear-gradient(90deg,#5A5955,#8A8880);}
+
+/* 燈號 */
+.light-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.ld-green{background:#3DBE6E;box-shadow:0 0 4px rgba(61,190,110,.5);}
+.ld-red{background:var(--red);box-shadow:0 0 4px rgba(200,0,26,.4);}
+.ld-blank{width:10px;height:10px;display:inline-block;}
+
+/* 本店值欄 */
+.r-own-val{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;}
+.r-own-good{color:#1E7D3E;}
+.r-own-warn{color:var(--amber);}
+.r-own-bad{color:var(--red);}
+
+/* Benchmark欄：雙行 */
+.r-bench{text-align:center;}
+.r-bench-a{font-family:'DM Mono',monospace;font-size:11px;color:#5A5955;}
+.r-bench-b{font-family:'DM Mono',monospace;font-size:10px;color:var(--gray);margin-top:1px;}
+.r-bench-divider{width:1px;height:24px;background:var(--border);display:inline-block;vertical-align:middle;}
+
+/* ── 趨勢圖（CSS only bars）── */
+.r-trend-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.r-trend-box{background:#FAFAF8;border:1px solid var(--border);border-radius:8px;padding:12px;}
+.r-trend-title{font-size:10.5px;font-weight:700;color:var(--navy);margin-bottom:8px;}
+.r-bars{display:flex;align-items:flex-end;gap:4px;height:60px;}
+.r-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.r-bar{width:100%;border-radius:2px 2px 0 0;}
+.r-bar.cur{opacity:1;}
+.r-bar.prev{opacity:.3;}
+.r-bar-lbl{font-size:8.5px;color:var(--gray);font-family:'DM Mono',monospace;}
+.r-trend-legend{display:flex;gap:10px;margin-top:6px;}
+.r-tl{display:flex;align-items:center;gap:4px;font-size:9.5px;color:var(--gray);}
+.r-tl-dot{width:8px;height:8px;border-radius:2px;}
+
+/* ── 診斷提示 ── */
+.r-diag-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.r-diag{border-radius:8px;padding:14px;}
+.r-diag-strength{background:var(--green-bg);border:1px solid #7ACA7A;}
+.r-diag-concern{background:var(--red-bg);border:1px solid var(--red-bd);}
+.r-diag-title{font-size:11px;font-weight:700;margin-bottom:8px;}
+.r-diag-strength .r-diag-title{color:var(--green);}
+.r-diag-concern .r-diag-title{color:var(--red);}
+.r-diag-item{display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;font-size:11px;line-height:1.5;}
+.r-diag-item:last-child{margin-bottom:0;}
+.r-diag-icon{flex-shrink:0;margin-top:1px;}
+
+/* ── 頁腳 ── */
+.r-footer{padding:14px 32px;background:#FAFAF8;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--gray);}
+
+/* ══════════════════════════════════════
+   PRINT STYLES
+══════════════════════════════════════ */
+@media print{
+  header,.screen-main > .control-panel,.preview-header{display:none!important;}
+  body{background:#fff;}
+  .screen-main{padding:0;max-width:100%;}
+  .report-wrap{border:none;border-radius:0;}
+  .r-cover{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .r-bsc-group td{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .r-section{page-break-inside:avoid;}
+  .r-cover{page-break-after:always;}
+}
+
+@media(max-width:700px){
+  .cp-grid{grid-template-columns:1fr 1fr;}
+  .r-kpi8{grid-template-columns:repeat(2,1fr);}
+  .r-trend-row{grid-template-columns:1fr;}
+  .r-diag-row{grid-template-columns:1fr;}
+  .r-cover-stats{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ SCREEN UI ══ -->
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP02R 門店績效報告產生器</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← BSC計分卡</button>
+  </div>
+</header>
+
+<div class="screen-main">
+
+  <!-- 控制面板 -->
+  <div class="control-panel">
+    <div class="cp-title">📋 產生單一門店績效報告</div>
+    <div class="cp-grid">
+      <div class="cp-field">
+        <span class="cp-label">選擇門店</span>
+        <select class="cp-select" id="sel-store" onchange="updateReport()">
+          <option value="taipei">台北旗艦店</option>
+          <option value="taichung">台中直營店</option>
+          <option value="kaohsiung">高雄直營店</option>
+          <option value="tainan">台南授權商</option>
+          <option value="chiayi">嘉義授權商</option>
+        </select>
+      </div>
+      <div class="cp-field">
+        <span class="cp-label">報告期間</span>
+        <select class="cp-select" id="sel-period" onchange="updateReport()">
+          <option value="2026-05">2026 年 5 月</option>
+          <option value="2026-04">2026 年 4 月</option>
+          <option value="2026-Q1">2026 年 第一季</option>
+          <option value="2025-annual">2025 年 全年</option>
+        </select>
+      </div>
+      <div class="cp-field">
+        <span class="cp-label">報告語言</span>
+        <select class="cp-select">
+          <option>繁體中文</option>
+          <option>English</option>
+        </select>
+      </div>
+      <button class="gen-btn" onclick="generateReport()">⚡ 產生報告</button>
+    </div>
+  </div>
+
+  <!-- 預覽標頭 -->
+  <div class="preview-header">
+    <div class="preview-title" id="preview-label">📄 預覽：台北旗艦店 — 2026年5月 績效報告</div>
+    <div class="action-row">
+      <button class="act-btn act-print" onclick="window.print()">🖨️ 列印</button>
+      <button class="act-btn act-pdf" onclick="showToast('PDF 下載中…（由 Partner 後端 Puppeteer 產生）')">⬇️ 下載 PDF</button>
+    </div>
+  </div>
+
+  <!-- ══ 報告本體 ══ -->
+  <div class="report-wrap">
+  <div class="report" id="report-body">
+
+    <!-- 封面 -->
+    <div class="r-cover">
+      <div class="r-cover-top">
+        <div class="r-brand">DealerOS</div>
+        <div class="r-confidential">本報告僅供門店內部參考</div>
+      </div>
+      <div class="r-cover-main">
+        <div id="r-store-name" class="r-store-name">台北旗艦店</div>
+        <div class="r-report-type">月度績效報告 Monthly Performance Report</div>
+        <div id="r-period-badge" class="r-period-badge">📅 2026 年 5 月　｜　Indian Motorcycle Taiwan</div>
+      </div>
+      <div class="r-cover-stats">
+        <div class="r-stat">
+          <div id="cv-sales" class="r-stat-val">94%</div>
+          <div class="r-stat-lbl">新車銷量達成率</div>
+        </div>
+        <div class="r-stat">
+          <div id="cv-service" class="r-stat-val">91%</div>
+          <div class="r-stat-lbl">售後毛利達成率</div>
+        </div>
+        <div class="r-stat">
+          <div id="cv-nps" class="r-stat-val">+66</div>
+          <div class="r-stat-lbl">本月 NPS</div>
+        </div>
+        <div class="r-stat">
+          <div id="cv-health" class="r-stat-val">87</div>
+          <div class="r-stat-lbl">健康度評分</div>
+        </div>
+      </div>
+      <div class="r-cover-foot">
+        <span id="r-gen-date">報告產生日期：2026-05-28</span>
+        <span>Indian Motorcycle Taiwan ｜ 集團通路管理部</span>
+      </div>
+    </div>
+
+    <!-- 第一節：本月 KPI 速覽 -->
+    <div class="r-section">
+      <div class="r-sec-title">
+        <div class="r-sec-num">1</div>
+        本月核心指標速覽
+      </div>
+      <div class="r-kpi8">
+        <div class="r-kpi good">
+          <div class="r-kpi-lbl">新車銷量達成率</div>
+          <div class="r-kpi-val rv-good" id="k1">94%</div>
+          <div class="r-kpi-sub">目標 100%　集團均值 84.7%</div>
+        </div>
+        <div class="r-kpi good">
+          <div class="r-kpi-lbl">售後毛利達成率</div>
+          <div class="r-kpi-val rv-good" id="k2">91%</div>
+          <div class="r-kpi-sub">目標 100%　集團均值 79%</div>
+        </div>
+        <div class="r-kpi good">
+          <div class="r-kpi-lbl">銷售 NPS</div>
+          <div class="r-kpi-val rv-good" id="k3">+66</div>
+          <div class="r-kpi-sub">目標 +60　集團均值 +62</div>
+        </div>
+        <div class="r-kpi good">
+          <div class="r-kpi-lbl">售後 NPS</div>
+          <div class="r-kpi-val rv-good" id="k4">+68</div>
+          <div class="r-kpi-sub">目標 +55　集團均值 +54</div>
+        </div>
+        <div class="r-kpi good">
+          <div class="r-kpi-lbl">中古車達成率</div>
+          <div class="r-kpi-val rv-good" id="k5">88%</div>
+          <div class="r-kpi-sub">目標 100%　集團均值 77%</div>
+        </div>
+        <div class="r-kpi good">
+          <div class="r-kpi-lbl">零件庫存周轉率</div>
+          <div class="r-kpi-val rv-good" id="k6">11.2x</div>
+          <div class="r-kpi-sub">目標 10x　集團均值 8.2x</div>
+        </div>
+        <div class="r-kpi good">
+          <div class="r-kpi-lbl">客戶保留率</div>
+          <div class="r-kpi-val rv-good" id="k7">96%</div>
+          <div class="r-kpi-sub">目標 92%　集團均值 91%</div>
+        </div>
+        <div class="r-kpi good">
+          <div class="r-kpi-lbl">Dealer Health Score</div>
+          <div class="r-kpi-val rv-good" id="k8">87</div>
+          <div class="r-kpi-sub">集團最高　全網標杆 90</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二節：BSC KPI 對標表 -->
+    <div class="r-section">
+      <div class="r-sec-title">
+        <div class="r-sec-num">2</div>
+        BSC 平衡計分卡 — 22項KPI 對標分析
+        <span style="font-size:10px;color:var(--gray);font-weight:400;margin-left:8px;">
+          🟢 優於集團均值　⚪ 位於正常範圍　🔴 低於集團均值
+        </span>
+      </div>
+      <table class="r-bsc-table">
+        <thead>
+          <tr>
+            <th style="width:24px;">#</th>
+            <th>指標名稱</th>
+            <th class="center" style="width:70px;">本店值</th>
+            <th class="center" style="width:70px;">集團均值</th>
+            <th class="center" style="width:70px;">聚類均值</th>
+            <th class="center" style="width:70px;">全網標杆</th>
+            <th class="center" style="width:44px;">狀態</th>
+          </tr>
+        </thead>
+        <tbody id="bsc-tbody">
+          <!-- 銷售面向 -->
+          <tr class="r-bsc-group"><td colspan="7">🏍 銷售面向　Sales　（6項 ｜ 權重 20%）</td></tr>
+          <tr>
+            <td style="color:var(--navy);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">01</td>
+            <td>新車交車量</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">28 台</span></td>
+            <td class="r-bench"><div class="r-bench-a">25.4</div><div class="r-bench-b">目標 30</div></td>
+            <td class="r-bench"><div class="r-bench-a">26.1</div><div class="r-bench-b">聚類均值</div></td>
+            <td class="r-bench"><div class="r-bench-a">32</div><div class="r-bench-b">全網前20%</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-blank"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--navy);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">02</td>
+            <td>銷售目標達成率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">94%</span></td>
+            <td class="r-bench"><div class="r-bench-a">84.7%</div><div class="r-bench-b">目標 90%</div></td>
+            <td class="r-bench"><div class="r-bench-a">86.2%</div></td>
+            <td class="r-bench"><div class="r-bench-a">96%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--navy);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">03</td>
+            <td>銷售漏斗轉化率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">24%</span></td>
+            <td class="r-bench"><div class="r-bench-a">21.9%</div><div class="r-bench-b">目標 22%</div></td>
+            <td class="r-bench"><div class="r-bench-a">22.3%</div></td>
+            <td class="r-bench"><div class="r-bench-a">26%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--navy);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">04</td>
+            <td>新車平均折扣率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">-7.2%</span></td>
+            <td class="r-bench"><div class="r-bench-a">-8.4%</div><div class="r-bench-b">上限 -10%</div></td>
+            <td class="r-bench"><div class="r-bench-a">-8.1%</div></td>
+            <td class="r-bench"><div class="r-bench-a">-6%</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--navy);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">05</td>
+            <td>試乘率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">55%</span></td>
+            <td class="r-bench"><div class="r-bench-a">42%</div><div class="r-bench-b">目標 45%</div></td>
+            <td class="r-bench"><div class="r-bench-a">44%</div></td>
+            <td class="r-bench"><div class="r-bench-a">60%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--navy);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">06</td>
+            <td>保險滲透率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">87%</span></td>
+            <td class="r-bench"><div class="r-bench-a">81%</div><div class="r-bench-b">目標 85%</div></td>
+            <td class="r-bench"><div class="r-bench-a">82%</div></td>
+            <td class="r-bench"><div class="r-bench-a">92%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+
+          <!-- 服務面向 -->
+          <tr class="r-bsc-group teal"><td colspan="7">🔧 服務品質面向　Service　（5項 ｜ 權重 15%）</td></tr>
+          <tr>
+            <td style="color:var(--teal);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">07</td>
+            <td>維修台次</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">642 次</span></td>
+            <td class="r-bench"><div class="r-bench-a">569</div><div class="r-bench-b">目標 600</div></td>
+            <td class="r-bench"><div class="r-bench-a">582</div></td>
+            <td class="r-bench"><div class="r-bench-a">720+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--teal);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">08</td>
+            <td>單車平均工單產值</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">NT$3,480</span></td>
+            <td class="r-bench"><div class="r-bench-a">2,847</div><div class="r-bench-b">目標 3,000</div></td>
+            <td class="r-bench"><div class="r-bench-a">2,920</div></td>
+            <td class="r-bench"><div class="r-bench-a">4,000+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--teal);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">09</td>
+            <td>售後吸收率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">72%</span></td>
+            <td class="r-bench"><div class="r-bench-a">68%</div><div class="r-bench-b">目標 70%</div></td>
+            <td class="r-bench"><div class="r-bench-a">69%</div></td>
+            <td class="r-bench"><div class="r-bench-a">80%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--teal);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">10</td>
+            <td>首次修復率（FTF）</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">96%</span></td>
+            <td class="r-bench"><div class="r-bench-a">72%</div><div class="r-bench-b">目標 95%</div></td>
+            <td class="r-bench"><div class="r-bench-a">76%</div></td>
+            <td class="r-bench"><div class="r-bench-a">97%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--teal);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">11</td>
+            <td>Tech 人效利用率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">84%</span></td>
+            <td class="r-bench"><div class="r-bench-a">78%</div><div class="r-bench-b">目標 80%</div></td>
+            <td class="r-bench"><div class="r-bench-a">79%</div></td>
+            <td class="r-bench"><div class="r-bench-a">90%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+
+          <!-- 客戶忠誠 -->
+          <tr class="r-bsc-group purple"><td colspan="7">❤️ 客戶忠誠面向　Customer　（4項 ｜ 權重 25%）</td></tr>
+          <tr>
+            <td style="color:var(--purple);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">12</td>
+            <td>銷售 NPS</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">+66</span></td>
+            <td class="r-bench"><div class="r-bench-a">+62</div><div class="r-bench-b">目標 +60</div></td>
+            <td class="r-bench"><div class="r-bench-a">+63</div></td>
+            <td class="r-bench"><div class="r-bench-a">+70+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--purple);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">13</td>
+            <td>售後 NPS</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">+68</span></td>
+            <td class="r-bench"><div class="r-bench-a">+54</div><div class="r-bench-b">目標 +55</div></td>
+            <td class="r-bench"><div class="r-bench-a">+56</div></td>
+            <td class="r-bench"><div class="r-bench-a">+70+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--purple);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">14</td>
+            <td>售後回廠率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">74%</span></td>
+            <td class="r-bench"><div class="r-bench-a">68%</div><div class="r-bench-b">目標 70%</div></td>
+            <td class="r-bench"><div class="r-bench-a">69%</div></td>
+            <td class="r-bench"><div class="r-bench-a">80%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--purple);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">15</td>
+            <td>客戶保留率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">96%</span></td>
+            <td class="r-bench"><div class="r-bench-a">91%</div><div class="r-bench-b">目標 92%</div></td>
+            <td class="r-bench"><div class="r-bench-a">92%</div></td>
+            <td class="r-bench"><div class="r-bench-a">97%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+
+          <!-- 庫存面向 -->
+          <tr class="r-bsc-group amber"><td colspan="7">📦 庫存管理面向　Inventory　（3項 ｜ 權重 10%）</td></tr>
+          <tr>
+            <td style="color:var(--amber);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">16</td>
+            <td>新車在庫天數</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">32 天</span></td>
+            <td class="r-bench"><div class="r-bench-a">38</div><div class="r-bench-b">上限 45 天</div></td>
+            <td class="r-bench"><div class="r-bench-a">36</div></td>
+            <td class="r-bench"><div class="r-bench-a">&lt;30</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--amber);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">17</td>
+            <td>零件庫存周轉率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">11.2x</span></td>
+            <td class="r-bench"><div class="r-bench-a">8.2x</div><div class="r-bench-b">目標 10x</div></td>
+            <td class="r-bench"><div class="r-bench-a">8.8x</div></td>
+            <td class="r-bench"><div class="r-bench-a">12x+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--amber);font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">18</td>
+            <td>缺料發生率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">4%</span></td>
+            <td class="r-bench"><div class="r-bench-a">14%</div><div class="r-bench-b">目標 &lt;10%</div></td>
+            <td class="r-bench"><div class="r-bench-a">12%</div></td>
+            <td class="r-bench"><div class="r-bench-a">&lt;5%</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+
+          <!-- 財務+人力 -->
+          <tr class="r-bsc-group gray"><td colspan="7">💰 財務健康 ＋ 👥 人力效能　Finance & HR　（4項 ｜ 權重 30%+10%）</td></tr>
+          <tr>
+            <td style="color:#5A5955;font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">19</td>
+            <td>置換率（CPO）</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">28%</span></td>
+            <td class="r-bench"><div class="r-bench-a">22%</div><div class="r-bench-b">目標 20%</div></td>
+            <td class="r-bench"><div class="r-bench-a">23%</div></td>
+            <td class="r-bench"><div class="r-bench-a">35%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:#5A5955;font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">20</td>
+            <td>各店新車折扣區間</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">-7.2%</span></td>
+            <td class="r-bench"><div class="r-bench-a">-8.4%</div><div class="r-bench-b">上限 -10%</div></td>
+            <td class="r-bench"><div class="r-bench-a">-8.1%</div></td>
+            <td class="r-bench"><div class="r-bench-a">-6%</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:#5A5955;font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">21</td>
+            <td>人員保留率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">92%</span></td>
+            <td class="r-bench"><div class="r-bench-a">88%</div><div class="r-bench-b">目標 85%</div></td>
+            <td class="r-bench"><div class="r-bench-a">89%</div></td>
+            <td class="r-bench"><div class="r-bench-a">95%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+          <tr>
+            <td style="color:#5A5955;font-family:'DM Mono',monospace;font-weight:700;font-size:11px;">22</td>
+            <td>Tech 認證通過率</td>
+            <td class="r-bench"><span class="r-own-val r-own-good">84%</span></td>
+            <td class="r-bench"><div class="r-bench-a">74%</div><div class="r-bench-b">目標 80%</div></td>
+            <td class="r-bench"><div class="r-bench-a">76%</div></td>
+            <td class="r-bench"><div class="r-bench-a">90%+</div></td>
+            <td style="text-align:center;"><span class="light-dot ld-green"></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 第三節：月度趨勢 -->
+    <div class="r-section">
+      <div class="r-sec-title">
+        <div class="r-sec-num">3</div>
+        月度趨勢　當期 vs 上年同期
+      </div>
+      <div class="r-trend-row">
+        <!-- 銷售趨勢 -->
+        <div class="r-trend-box">
+          <div class="r-trend-title">🏍 新車銷量（台）</div>
+          <div class="r-bars">
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:48px;background:var(--navy);"></div><div class="r-bar cur" style="height:44px;background:var(--teal);"></div><div class="r-bar-lbl">1月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:36px;background:var(--navy);"></div><div class="r-bar cur" style="height:30px;background:var(--teal);"></div><div class="r-bar-lbl">2月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:52px;background:var(--navy);"></div><div class="r-bar cur" style="height:50px;background:var(--teal);"></div><div class="r-bar-lbl">3月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:56px;background:var(--navy);"></div><div class="r-bar cur" style="height:54px;background:var(--teal);"></div><div class="r-bar-lbl">4月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:60px;background:var(--navy);"></div><div class="r-bar cur" style="height:58px;border:2px solid var(--amber);background:var(--teal);"></div><div class="r-bar-lbl" style="color:var(--amber);">本月</div></div>
+          </div>
+          <div class="r-trend-legend">
+            <div class="r-tl"><div class="r-tl-dot" style="background:var(--navy);opacity:.35;"></div>去年同期</div>
+            <div class="r-tl"><div class="r-tl-dot" style="background:var(--teal);"></div>本年</div>
+          </div>
+        </div>
+        <!-- 售後趨勢 -->
+        <div class="r-trend-box">
+          <div class="r-trend-title">🔧 售後台次（次）</div>
+          <div class="r-bars">
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:42px;background:var(--navy);"></div><div class="r-bar cur" style="height:46px;background:var(--teal);"></div><div class="r-bar-lbl">1月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:34px;background:var(--navy);"></div><div class="r-bar cur" style="height:38px;background:var(--teal);"></div><div class="r-bar-lbl">2月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:48px;background:var(--navy);"></div><div class="r-bar cur" style="height:52px;background:var(--teal);"></div><div class="r-bar-lbl">3月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:50px;background:var(--navy);"></div><div class="r-bar cur" style="height:56px;background:var(--teal);"></div><div class="r-bar-lbl">4月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:54px;background:var(--navy);"></div><div class="r-bar cur" style="height:60px;border:2px solid var(--amber);background:var(--teal);"></div><div class="r-bar-lbl" style="color:var(--amber);">本月</div></div>
+          </div>
+          <div class="r-trend-legend">
+            <div class="r-tl"><div class="r-tl-dot" style="background:var(--navy);opacity:.35;"></div>去年同期</div>
+            <div class="r-tl"><div class="r-tl-dot" style="background:var(--teal);"></div>本年</div>
+          </div>
+        </div>
+        <!-- NPS趨勢 -->
+        <div class="r-trend-box">
+          <div class="r-trend-title">❤️ NPS 分數</div>
+          <div class="r-bars">
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:44px;background:var(--purple);opacity:.3;"></div><div class="r-bar cur" style="height:48px;background:var(--purple);"></div><div class="r-bar-lbl">1月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:40px;background:var(--purple);opacity:.3;"></div><div class="r-bar cur" style="height:44px;background:var(--purple);"></div><div class="r-bar-lbl">2月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:46px;background:var(--purple);opacity:.3;"></div><div class="r-bar cur" style="height:50px;background:var(--purple);"></div><div class="r-bar-lbl">3月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:48px;background:var(--purple);opacity:.3;"></div><div class="r-bar cur" style="height:54px;background:var(--purple);"></div><div class="r-bar-lbl">4月</div></div>
+            <div class="r-bar-wrap"><div class="r-bar prev" style="height:50px;background:var(--purple);opacity:.3;"></div><div class="r-bar cur" style="height:58px;border:2px solid var(--amber);background:var(--purple);"></div><div class="r-bar-lbl" style="color:var(--amber);">本月</div></div>
+          </div>
+          <div class="r-trend-legend">
+            <div class="r-tl"><div class="r-tl-dot" style="background:var(--purple);opacity:.35;"></div>去年同期</div>
+            <div class="r-tl"><div class="r-tl-dot" style="background:var(--purple);"></div>本年</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第四節：重點診斷提示 -->
+    <div class="r-section">
+      <div class="r-sec-title">
+        <div class="r-sec-num">4</div>
+        本月重點診斷提示
+        <span style="font-size:10px;color:var(--gray);font-weight:400;margin-left:8px;">系統根據KPI表現自動生成，供門店主管參考</span>
+      </div>
+      <div class="r-diag-row">
+        <div class="r-diag r-diag-strength">
+          <div class="r-diag-title">🏆 本月表現亮點（前三名）</div>
+          <div class="r-diag-item">
+            <span class="r-diag-icon">✅</span>
+            <span><b>首次修復率 96%</b>，大幅優於集團均值 72%，是全集團表現最佳門店。車間品質管理值得推廣。</span>
+          </div>
+          <div class="r-diag-item">
+            <span class="r-diag-icon">✅</span>
+            <span><b>零件庫存周轉率 11.2x</b>，超過目標 10x，也優於集團均值 8.2x。資金利用效率良好。</span>
+          </div>
+          <div class="r-diag-item">
+            <span class="r-diag-icon">✅</span>
+            <span><b>售後 NPS +68</b>，高於集團均值 +54，顯示客戶對服務品質高度認可。</span>
+          </div>
+        </div>
+        <div class="r-diag r-diag-concern">
+          <div class="r-diag-title">⚠️ 本月需關注事項（前三名）</div>
+          <div class="r-diag-item">
+            <span class="r-diag-icon">🔔</span>
+            <span><b>新車交車量 28 台</b>，低於月度目標 30 台。建議檢視本月潛客轉化率和試乘後跟進流程。</span>
+          </div>
+          <div class="r-diag-item">
+            <span class="r-diag-icon">🔔</span>
+            <span><b>Tech 認證通過率 84%</b>，距全網標杆 90% 仍有距離，建議安排 2 名未認證技師在下季前完成考核。</span>
+          </div>
+          <div class="r-diag-item">
+            <span class="r-diag-icon">🔔</span>
+            <span><b>中古車達成率 88%</b>，雖優於集團均值但未達目標。建議強化銷售顧問置換話術訓練。</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 頁腳 -->
+    <div class="r-footer">
+      <span id="r-footer-store">台北旗艦店　｜　Indian Motorcycle Taiwan　｜　集團通路管理部</span>
+      <span id="r-footer-date">報告期間：2026年5月　｜　產生日期：2026-05-28</span>
+    </div>
+
+  </div><!-- /report -->
+  </div><!-- /report-wrap -->
+
+</div><!-- /screen-main -->
+
+<div class="toast" id="toast" style="position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:320px;"></div>
+
+<script>
+// 門店數據（示範用，實際由後端 API 提供）
+const storeData = {
+  taipei:    { name:'台北旗艦店', sales:'94%', service:'91%', nps:'+66', health:'87', cv:[94,91,'+66',87], kpi:['28台','94%','24%','-7.2%','55%','87%','642次','NT$3,480','72%','96%','84%','+66','+68','74%','96%','32天','11.2x','4%','28%','-7.2%','92%','84%'], status:['blank','green','green','green','green','green','green','green','green','green','green','green','green','green','green','green','green','green','green','green','green','green'] },
+  taichung:  { name:'台中直營店', sales:'72%', service:'85%', nps:'+51', health:'64', cv:[72,85,'+51',64], kpi:['18台','72%','18%','-9.1%','38%','79%','510次','NT$2,420','61%','52%','74%','+51','+42','61%','85%','41天','8.4x','12%','19%','-9.1%','84%','68%'], status:['blank','warn','warn','blank','warn','blank','warn','red','warn','red','blank','blank','red','warn','blank','blank','warn','red','blank','blank','blank','warn'] },
+  kaohsiung: { name:'高雄直營店', sales:'68%', service:'79%', nps:'+55', health:'72', cv:[68,79,'+55',72], kpi:['20台','68%','19%','-8.8%','42%','81%','542次','NT$2,650','65%','78%','76%','+55','+54','65%','88%','38天','9.8x','9%','22%','-8.8%','86%','72%'], status:['blank','warn','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank','blank'] },
+  tainan:    { name:'台南授權商', sales:'89%', service:'83%', nps:'+63', health:'81', cv:[89,83,'+63',81], kpi:['26台','89%','22%','-8.2%','48%','84%','598次','NT$2,980','68%','88%','80%','+63','+60','69%','92%','35天','10.5x','7%','24%','-8.2%','90%','78%'], status:['blank','green','blank','blank','green','blank','blank','blank','blank','green','green','green','green','blank','green','blank','green','green','green','blank','green','blank'] },
+  chiayi:    { name:'嘉義授權商', sales:'76%', service:'58%', nps:'+46', health:'51', cv:[76,58,'+46',51], kpi:['22台','76%','16%','-9.8%','32%','76%','390次','NT$2,120','56%','61%','68%','+46','+38','58%','79%','45天','5.1x','28%','18%','-9.8%','82%','60%'], status:['blank','warn','red','blank','red','blank','red','red','red','red','warn','red','red','red','warn','warn','red','red','warn','blank','blank','warn'] },
+};
+
+const periodLabel = {
+  '2026-05':'2026 年 5 月','2026-04':'2026 年 4 月',
+  '2026-Q1':'2026 年 第一季','2025-annual':'2025 年 全年'
+};
+
+function updateReport(){
+  const store = document.getElementById('sel-store').value;
+  const period = document.getElementById('sel-period').value;
+  const d = storeData[store];
+  const pl = periodLabel[period];
+
+  document.getElementById('preview-label').textContent = `📄 預覽：${d.name} — ${pl} 績效報告`;
+  document.getElementById('r-store-name').textContent = d.name;
+  document.getElementById('r-period-badge').textContent = `📅 ${pl}　｜　Indian Motorcycle Taiwan`;
+  document.getElementById('cv-sales').textContent = d.cv[0]+'%';
+  document.getElementById('cv-service').textContent = d.cv[1]+'%';
+  document.getElementById('cv-nps').textContent = d.cv[2];
+  document.getElementById('cv-health').textContent = d.cv[3];
+  document.getElementById('r-footer-store').textContent = `${d.name}　｜　Indian Motorcycle Taiwan　｜　集團通路管理部`;
+  document.getElementById('r-footer-date').textContent = `報告期間：${pl}　｜　產生日期：2026-05-28`;
+  document.getElementById('r-gen-date').textContent = `報告產生日期：2026-05-28`;
+  // k1-k8
+  const kLabels=['k1','k2','k3','k4','k5','k6','k7','k8'];
+  const kVals=[d.cv[0]+'%',d.cv[1]+'%',d.cv[2],d.cv[2].replace('+','+')+'(售後)',d.kpi[19],d.kpi[16],d.kpi[5],d.cv[3]+'分'];
+  // simplified update
+  showToast(`已切換：${d.name} ${pl}`);
+}
+
+function generateReport(){
+  const store = document.getElementById('sel-store').value;
+  const period = document.getElementById('sel-period').value;
+  updateReport();
+  showToast('✅ 報告已產生！可下載 PDF 或列印。');
+  document.querySelector('.report-wrap').scrollIntoView({behavior:'smooth'});
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.transform='translateY(0)';
+  t.style.opacity='1';
+  setTimeout(()=>{t.style.transform='translateY(80px)';t.style.opacity='0';},2500);
+}
+</script>
+</body>
+</html>

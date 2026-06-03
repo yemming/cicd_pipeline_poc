@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP11 跨部門能效 — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;--purple-bd:#AFA9EC;
+  --gray:#9A9890;--border:#EEECE6;--header:#0D2438;
+  --green:#1E7D3E;--green-bg:#EAF5EA;
+}
+header{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.org-badge{background:rgba(83,74,183,.3);border:1px solid rgba(83,74,183,.4);color:#AFA9EC;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:600;}
+
+.sub-bar{background:#fff;border-bottom:1px solid var(--border);padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.chip{padding:5px 13px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:#fff;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.chip.active{background:var(--purple);border-color:var(--purple);color:#fff;}
+.chip:hover:not(.active){background:#F4F3F0;}
+.sub-right{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gray);}
+.rdot{width:7px;height:7px;border-radius:50%;background:#3DBE6E;display:inline-block;}
+
+.main{max-width:1400px;margin:0 auto;padding:20px 24px 48px;}
+
+/* Hero — 紫色主題，跨部門 */
+.hero{background:linear-gradient(135deg,#1A0A35 0%,#312878 55%,#1A3A5C 100%);border-radius:12px;padding:20px 28px;margin-bottom:16px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;right:-20px;top:-20px;width:160px;height:160px;border-radius:50%;background:rgba(160,140,255,.12);pointer-events:none;}
+.hero h1{font-size:18px;font-weight:700;margin-bottom:4px;}
+.hero p{font-size:12px;opacity:.7;line-height:1.6;max-width:520px;}
+.hstats{display:flex;gap:8px;}
+.hstat{text-align:center;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 14px;}
+.hstat-n{font-size:19px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.hstat-l{font-size:10px;opacity:.6;margin-top:3px;}
+
+.store-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.store-tab{padding:6px 14px;border-radius:7px;font-size:12.5px;cursor:pointer;border:1.5px solid var(--border);background:#fff;font-weight:500;transition:.15s;display:flex;align-items:center;gap:5px;font-family:'Noto Sans TC',sans-serif;}
+.store-tab.active{border-color:var(--purple);background:var(--purple-bg);color:var(--purple);font-weight:700;}
+.store-tab:hover:not(.active){background:#F4F3F0;}
+.st-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* 兩欄圖表區 */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.cc-header{padding:11px 16px;border-bottom:1px solid var(--border);background:#FAFAF8;display:flex;align-items:flex-start;gap:10px;}
+.cc-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px;}
+.cc-meta{flex:1;}
+.cc-title{font-size:13px;font-weight:700;color:var(--purple);margin-bottom:2px;}
+.cc-sub{font-size:11px;color:var(--gray);line-height:1.4;}
+.cc-badge{font-size:10px;padding:2px 8px;border-radius:5px;font-weight:700;white-space:nowrap;margin-top:2px;display:inline-block;}
+.cb-watch{background:var(--red-bg);color:var(--red);}
+.cb-insight{background:var(--amber-bg);color:var(--amber);}
+.cb-good{background:var(--green-bg);color:var(--green);}
+.cc-body{padding:12px 16px 10px;}
+.insight-box{background:var(--purple-bg);border:1px solid var(--purple-bd);border-radius:7px;padding:9px 13px;margin-top:10px;font-size:11.5px;color:var(--purple);line-height:1.6;}
+
+/* NPS 排名表 */
+.nps-table{width:100%;border-collapse:collapse;}
+.nps-table th{font-size:10.5px;font-weight:700;color:var(--gray);padding:7px 10px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;white-space:nowrap;}
+.nps-table th.c{text-align:center;}
+.nps-table td{padding:8px 10px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.nps-table tr:last-child td{border-bottom:none;}
+.nps-table tr:hover td{background:#FAFAF8;}
+
+/* 客戶流失歸因表 */
+.churn-table{width:100%;border-collapse:collapse;}
+.churn-table th{font-size:10.5px;font-weight:700;color:var(--gray);padding:7px 10px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;white-space:nowrap;}
+.churn-table td{padding:8px 10px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.churn-table tr:last-child td{border-bottom:none;}
+.churn-table tr:hover td{background:#FAFAF8;}
+
+/* 部門對比雷達（D3）*/
+.radar-wrap{width:100%;display:flex;justify-content:center;}
+
+/* 排名 badge */
+.rank-num{font-family:'DM Mono',monospace;font-weight:700;font-size:14px;}
+.mono{font-family:'DM Mono',monospace;font-weight:700;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-ok{background:var(--green-bg);color:var(--green);}
+.b-warn{background:var(--amber-bg);color:var(--amber);}
+.b-bad{background:var(--red-bg);color:var(--red);}
+.b-purple{background:var(--purple-bg);color:var(--purple);}
+.b-navy{background:var(--navy-bg);color:var(--navy);}
+.b-teal{background:var(--teal-bg);color:var(--teal);}
+
+.prog-wrap{display:flex;align-items:center;gap:7px;}
+.prog-bar{height:5px;background:#EEECE6;border-radius:3px;flex:1;min-width:50px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;}
+.pf-ok{background:#3DBE6E;}.pf-warn{background:var(--amber);}.pf-bad{background:var(--red);}
+.t-up{color:#3DBE6E;font-weight:700;}.t-dn{color:var(--red);font-weight:700;}.t-flat{color:var(--gray);}
+
+/* D3 Tooltip */
+.d3-tooltip{position:fixed;background:#0D2438;color:#E8E6E0;padding:10px 14px;border-radius:8px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:999;border:1px solid rgba(255,255,255,.1);max-width:200px;line-height:1.6;}
+.d3-tooltip .tt-name{font-weight:700;font-size:13px;margin-bottom:3px;color:#fff;}
+.d3-tooltip .tt-dept{font-size:10.5px;color:#AFA9EC;margin-bottom:5px;}
+.d3-tooltip .tt-row{display:flex;justify-content:space-between;gap:10px;}
+.d3-tooltip .tt-val{font-family:'DM Mono',monospace;font-weight:700;}
+
+.toast{position:fixed;bottom:24px;right:24px;background:#0D2438;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:9999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+@media(max-width:960px){.chart-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP11 跨部門能效</b></div>
+  <div class="org-badge">🔀 跨部門視角</div>
+  <div class="ver-badge">v1 D3</div>
+  <div class="hright">
+    <button class="hbtn" onclick="history.back()">← 集團總覽</button>
+    <button class="hbtn" onclick="showToast('匯出中…')">⬇ 匯出</button>
+  </div>
+</header>
+
+<div class="sub-bar">
+  <span style="font-size:12px;font-weight:700;color:#5A5955;">期間：</span>
+  <button class="chip active" onclick="setChip(this)">近3個月均值</button>
+  <button class="chip" onclick="setChip(this)">本月</button>
+  <button class="chip" onclick="setChip(this)">本季</button>
+  <div class="sub-right">
+    <span class="rdot"></span> 資料更新：2026-05-28 08:00
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="hero">
+    <div>
+      <h1>🔀 跨部門能效診斷</h1>
+      <p>兩張圖橫跨銷售與售後部門，找出哪些人的客戶滿意度和客戶保留率有問題。<br>
+      X1 客戶流失個人歸因：把客戶基盤侵蝕的責任追到具體的人。<br>
+      X2 個人 NPS 排名：用系統 NPS 替代無法取得的原廠 CSI，即時且可歸因到人。</p>
+    </div>
+    <div class="hstats">
+      <div class="hstat"><div class="hstat-n" id="st-total">23</div><div class="hstat-l">納入人員</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-risk">4</div><div class="hstat-l">高風險人員</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-avg-nps">+57</div><div class="hstat-l">全員均值 NPS</div></div>
+      <div class="hstat"><div class="hstat-n" id="st-churn">-52</div><div class="hstat-l">本月淨流失</div></div>
+    </div>
+  </div>
+
+  <!-- 門店切換 -->
+  <div class="store-tabs">
+    <div class="store-tab active" onclick="setStore('all',this)"><span class="st-dot" style="background:#9A9890;"></span>全集團</div>
+    <div class="store-tab" onclick="setStore('台北',this)"><span class="st-dot" style="background:#1A3A5C;"></span>台北旗艦店</div>
+    <div class="store-tab" onclick="setStore('台中',this)"><span class="st-dot" style="background:#2A6080;"></span>台中直營店</div>
+    <div class="store-tab" onclick="setStore('高雄',this)"><span class="st-dot" style="background:#3A5080;"></span>高雄直營店</div>
+    <div class="store-tab" onclick="setStore('台南',this)"><span class="st-dot" style="background:#0F6E56;"></span>台南授權商</div>
+    <div class="store-tab" onclick="setStore('嘉義',this)"><span class="st-dot" style="background:#5A7090;"></span>嘉義授權商</div>
+  </div>
+
+  <div class="sec-title">X1 客戶流失個人歸因 ＋ X2 個人 NPS 排名（D3.js 資料驅動）</div>
+
+  <div class="chart-grid">
+
+    <!-- X1 客戶流失個人歸因 — 散佈圖 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--red-bg);">📉</div>
+        <div class="cc-meta">
+          <div class="cc-title">X1 客戶流失個人歸因圖</div>
+          <div class="cc-sub">X軸：名下客戶總數　Y軸：本月流失客戶數<br>右上角 = 客戶多且流失多（最危險）</div>
+          <span class="cc-badge cb-watch" id="b-x1">🔴 高流失人員需立即關注</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div id="c-x1"></div>
+        <div class="insight-box"><b>診斷：</b>客戶流失不是部門問題，是個人問題。右上角的人員代表名下客戶基盤大但流失率高，是最需要優先輔導的對象。此圖讓「台中直營店本月淨流失 -52」這個抽象數字，具體落到是哪幾個 SA 的責任。</div>
+      </div>
+    </div>
+
+    <!-- X2 個人 NPS 散佈圖 -->
+    <div class="chart-card">
+      <div class="cc-header">
+        <div class="cc-icon" style="background:var(--purple-bg);">❤️</div>
+        <div class="cc-meta">
+          <div class="cc-title">X2 個人 NPS 排名圖</div>
+          <div class="cc-sub">X軸：服務台次（銷售=成交台次，售後=接車台次）　Y軸：個人平均 NPS<br>右下角 = 高台次低NPS（最危險）</div>
+          <span class="cc-badge cb-insight" id="b-x2">⚠ 注意右下角高台次低NPS</span>
+        </div>
+      </div>
+      <div class="cc-body">
+        <div id="c-x2"></div>
+        <div class="insight-box"><b>診斷：</b>NPS 用系統 D+3/D+10 追蹤取得，可精確歸因到每一位銷售顧問和 SA，比原廠 CSI 更即時。右下角（高台次低NPS）代表該人員正在用服務品質換數量，長期侵蝕客戶基盤。</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 客戶流失歸因排名表 -->
+  <div class="sec-title">客戶流失歸因完整排名</div>
+  <div style="background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;">
+    <div style="padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:#FAFAF8;">
+      <div style="font-size:14px;width:28px;height:28px;border-radius:6px;background:var(--red-bg);display:flex;align-items:center;justify-content:center;">📉</div>
+      <div><div style="font-size:13px;font-weight:600;">客戶流失個人歸因排名</div><div style="font-size:11px;color:var(--gray);margin-top:1px;">依流失客戶數排序　｜　涵蓋銷售與售後部門</div></div>
+      <div style="margin-left:auto;display:flex;gap:5px;">
+        <button class="chip" style="padding:3px 10px;font-size:11px;" onclick="sortChurn('churn')">流失數</button>
+        <button class="chip" style="padding:3px 10px;font-size:11px;" onclick="sortChurn('churnRate')">流失率</button>
+      </div>
+    </div>
+    <table class="churn-table" id="churn-table">
+      <thead>
+        <tr>
+          <th style="width:32px;" class="c">排</th>
+          <th>人員</th>
+          <th>門店</th>
+          <th>部門</th>
+          <th class="c">名下客戶</th>
+          <th class="c">本月流失</th>
+          <th>流失率</th>
+          <th class="c">NPS</th>
+          <th class="c">趨勢</th>
+          <th class="c">風險</th>
+        </tr>
+      </thead>
+      <tbody id="churn-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- NPS 跨部門排名表 -->
+  <div class="sec-title">個人 NPS 跨部門完整排名</div>
+  <div style="background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;">
+    <div style="padding:11px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:#FAFAF8;">
+      <div style="font-size:14px;width:28px;height:28px;border-radius:6px;background:var(--purple-bg);display:flex;align-items:center;justify-content:center;">❤️</div>
+      <div><div style="font-size:13px;font-weight:600;">個人 NPS 跨部門完整排名</div><div style="font-size:11px;color:var(--gray);margin-top:1px;">銷售顧問 + SA 合併排名　｜　依 NPS 由高到低</div></div>
+      <div style="margin-left:auto;">
+        <span style="font-size:11px;color:var(--gray);">系統 NPS 來源：D+3 / D+10 電話追蹤</span>
+      </div>
+    </div>
+    <table class="nps-table" id="nps-table">
+      <thead>
+        <tr>
+          <th style="width:32px;" class="c">排</th>
+          <th>人員</th>
+          <th>門店</th>
+          <th>部門</th>
+          <th class="c">台次</th>
+          <th>個人 NPS</th>
+          <th class="c">vs 均值</th>
+          <th class="c">趨勢</th>
+          <th class="c">評級</th>
+        </tr>
+      </thead>
+      <tbody id="nps-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="d3-tooltip" id="tooltip"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ 跨部門人員資料（銷售顧問 + SA 合併）══
+const RAW = [
+  // name, store, dept(銷售/售後), volume(台次), nps, custTotal(名下客戶), churn(本月流失), trend, riskTag
+  {name:'Darren', store:'台北', dept:'銷售', volume:34,  nps:72, custTotal:186, churn:8,  trend:'up',   risk:'低'},
+  {name:'Adam',   store:'台北', dept:'售後', volume:2060,nps:62, custTotal:480, churn:18, trend:'up',   risk:'低'},
+  {name:'Bob',    store:'台北', dept:'售後', volume:1973,nps:58, custTotal:420, churn:32, trend:'dn',   risk:'中'},
+  {name:'Paul',   store:'高雄', dept:'售後', volume:1750,nps:68, custTotal:362, churn:14, trend:'up',   risk:'低'},
+  {name:'Betty',  store:'高雄', dept:'售後', volume:1880,nps:64, custTotal:388, churn:20, trend:'up',   risk:'低'},
+  {name:'Fred',   store:'台南', dept:'銷售', volume:56,  nps:63, custTotal:198, churn:12, trend:'up',   risk:'低'},
+  {name:'George', store:'台中', dept:'銷售', volume:52,  nps:61, custTotal:172, churn:22, trend:'up',   risk:'中'},
+  {name:'Alex',   store:'台北', dept:'銷售', volume:38,  nps:66, custTotal:204, churn:10, trend:'up',   risk:'低'},
+  {name:'Sam',    store:'台中', dept:'售後', volume:1943,nps:55, custTotal:398, churn:48, trend:'up',   risk:'中'},
+  {name:'Jack',   store:'台中', dept:'銷售', volume:47,  nps:60, custTotal:158, churn:18, trend:'flat', risk:'低'},
+  {name:'Helen',  store:'台南', dept:'售後', volume:1650,nps:57, custTotal:310, churn:22, trend:'flat', risk:'低'},
+  {name:'Bonny',  store:'台南', dept:'銷售', volume:49,  nps:58, custTotal:184, churn:16, trend:'dn',   risk:'中'},
+  {name:'Lucy',   store:'嘉義', dept:'售後', volume:1680,nps:56, custTotal:298, churn:24, trend:'up',   risk:'中'},
+  {name:'Kelly',  store:'高雄', dept:'銷售', volume:34,  nps:57, custTotal:128, churn:14, trend:'dn',   risk:'中'},
+  {name:'Calvin', store:'嘉義', dept:'銷售', volume:37,  nps:56, custTotal:142, churn:18, trend:'dn',   risk:'中'},
+  {name:'Fanny',  store:'高雄', dept:'銷售', volume:34,  nps:55, custTotal:118, churn:12, trend:'up',   risk:'中'},
+  {name:'Ken',    store:'嘉義', dept:'售後', volume:1520,nps:50, custTotal:262, churn:28, trend:'dn',   risk:'高'},
+  {name:'Marvin', store:'台南', dept:'售後', volume:1410,nps:52, custTotal:286, churn:24, trend:'dn',   risk:'高'},
+  {name:'Luke',   store:'嘉義', dept:'銷售', volume:47,  nps:42, custTotal:124, churn:16, trend:'dn',   risk:'高'},
+  {name:'Cathy',  store:'台中', dept:'售後', volume:2211,nps:48, custTotal:412, churn:68, trend:'up',   risk:'高'},
+  {name:'Eva',    store:'台中', dept:'銷售', volume:66,  nps:48, custTotal:148, churn:42, trend:'dn',   risk:'高'},
+];
+
+const RISK_STYLE = {
+  低:{bg:'#EAF5EA',color:'#1E7D3E'},
+  中:{bg:'#FDF3E3',color:'#854F0B'},
+  高:{bg:'#FDECEA',color:'#C8001A'},
+};
+const DEPT_COLOR = {銷售:'#1A3A5C', 售後:'#0F6E56'};
+const RISK_DOT = {低:'#3DBE6E', 中:'#F0A500', 高:'#C8001A'};
+
+let currentData = RAW;
+
+// ══ D3 散佈圖（複用 GRP07/08 同一函式）══
+function drawScatter(containerId, data, xAcc, yAcc, xLabel, yLabel, xFmt, yFmt, colorFn) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const totalW = container.clientWidth || 520;
+  const margin = {top:16, right:20, bottom:40, left:52};
+  const W = totalW - margin.left - margin.right;
+  const H = 260;
+
+  const svg = d3.select(container).append('svg')
+    .attr('width', totalW).attr('height', H + margin.top + margin.bottom)
+    .style('display','block');
+  const g = svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+
+  const xs = d3.scaleLinear().domain([0, d3.max(data,xAcc)*1.15]).range([0,W]).nice();
+  const ys = d3.scaleLinear().domain([0, d3.max(data,yAcc)*1.15]).range([H,0]).nice();
+  const avgX = d3.mean(data, xAcc);
+  const avgY = d3.mean(data, yAcc);
+
+  // 象限背景
+  [[xs(avgX),ys(d3.max(data,yAcc)*1.15),W-xs(avgX),ys(avgY)-ys(d3.max(data,yAcc)*1.15),'rgba(200,0,26,.06)'],
+   [0,        ys(d3.max(data,yAcc)*1.15),xs(avgX),  ys(avgY)-ys(d3.max(data,yAcc)*1.15),'rgba(240,165,0,.04)'],
+   [0,        ys(avgY),                  xs(avgX),  H-ys(avgY),                           'rgba(61,190,110,.04)'],
+   [xs(avgX), ys(avgY),                  W-xs(avgX),H-ys(avgY),                           'rgba(240,165,0,.04)'],
+  ].forEach(([x,y,w,h,c])=>g.append('rect').attr('x',x).attr('y',y).attr('width',w).attr('height',h).attr('fill',c));
+
+  // 格線
+  g.append('g').call(d3.axisLeft(ys).tickSize(-W).tickFormat('')).select('.domain').remove();
+  g.selectAll('.tick line').attr('stroke','rgba(0,0,0,.04)').attr('stroke-dasharray','3,3');
+
+  // 均值線
+  g.append('line').attr('x1',xs(avgX)).attr('y1',0).attr('x2',xs(avgX)).attr('y2',H)
+   .attr('stroke','rgba(83,74,183,.3)').attr('stroke-width',1.5).attr('stroke-dasharray','5,4');
+  g.append('line').attr('x1',0).attr('y1',ys(avgY)).attr('x2',W).attr('y2',ys(avgY))
+   .attr('stroke','rgba(83,74,183,.3)').attr('stroke-width',1.5).attr('stroke-dasharray','5,4');
+  g.append('text').attr('x',xs(avgX)+4).attr('y',H-3)
+   .attr('fill','rgba(83,74,183,.55)').attr('font-size',9).attr('font-family','DM Mono, monospace')
+   .text('均值 '+Math.round(avgX));
+  g.append('text').attr('x',4).attr('y',ys(avgY)-4)
+   .attr('fill','rgba(83,74,183,.55)').attr('font-size',9).attr('font-family','DM Mono, monospace')
+   .text('均值 '+yFmt(Math.round(avgY)));
+
+  // 軸
+  g.append('g').attr('transform',`translate(0,${H})`)
+   .call(d3.axisBottom(xs).ticks(5).tickFormat(xFmt))
+   .call(ax=>{ax.select('.domain').attr('stroke','#EEECE6');ax.selectAll('text').attr('fill','#9A9890').attr('font-size',10).attr('font-family','DM Mono, monospace');ax.selectAll('.tick line').attr('stroke','#EEECE6');});
+  g.append('g').call(d3.axisLeft(ys).ticks(5).tickFormat(yFmt))
+   .call(ax=>{ax.select('.domain').attr('stroke','#EEECE6');ax.selectAll('text').attr('fill','#9A9890').attr('font-size',10).attr('font-family','DM Mono, monospace');ax.selectAll('.tick line').attr('stroke','#EEECE6');});
+  g.append('text').attr('x',W/2).attr('y',H+36).attr('text-anchor','middle')
+   .attr('fill','#9A9890').attr('font-size',10).attr('font-family','Noto Sans TC, sans-serif').text(xLabel);
+  g.append('text').attr('transform','rotate(-90)').attr('x',-H/2).attr('y',-44)
+   .attr('text-anchor','middle').attr('fill','#9A9890').attr('font-size',10).attr('font-family','Noto Sans TC, sans-serif').text(yLabel);
+
+  const tooltip = document.getElementById('tooltip');
+  const dots = g.selectAll('.dot').data(data).enter().append('g').attr('class','dot');
+
+  // 部門形狀：銷售=圓形，售後=菱形
+  dots.each(function(d){
+    const px = xs(xAcc(d)), py = ys(yAcc(d));
+    const col = colorFn(d);
+    if(d.dept==='銷售'){
+      d3.select(this).append('circle')
+        .attr('cx',px).attr('cy',py).attr('r',0)
+        .attr('fill',col).attr('fill-opacity',.85)
+        .attr('stroke','#fff').attr('stroke-width',2).attr('cursor','pointer')
+        .transition().duration(600).ease(d3.easeBackOut).delay((_,i)=>i*35).attr('r',8);
+    } else {
+      // 菱形（售後）
+      d3.select(this).append('polygon')
+        .attr('points',`${px},${py-10} ${px+9},${py} ${px},${py+10} ${px-9},${py}`)
+        .attr('fill',col).attr('fill-opacity',.85)
+        .attr('stroke','#fff').attr('stroke-width',2).attr('cursor','pointer')
+        .attr('opacity',0)
+        .transition().duration(600).ease(d3.easeBackOut).delay((_,i)=>i*35).attr('opacity',1);
+    }
+  });
+
+  dots.append('text')
+    .attr('x', d=>xs(xAcc(d)))
+    .attr('y', d=>{ const cy=ys(yAcc(d)); return cy<20?cy+20:cy-12; })
+    .attr('text-anchor','middle').attr('fill','#4A4A48').attr('font-size',9.5)
+    .attr('font-family','Noto Sans TC, sans-serif').attr('font-weight','600')
+    .attr('pointer-events','none').attr('opacity',0).text(d=>d.name)
+    .transition().duration(400).delay((_,i)=>i*35+300).attr('opacity',1);
+
+  dots.on('mouseover', function(event,d){
+      const shape = d3.select(this).select(d.dept==='銷售'?'circle':'polygon');
+      if(d.dept==='銷售') shape.transition().duration(120).attr('r',13).attr('stroke-width',3);
+      else shape.transition().duration(120).attr('transform',`scale(1.4) translate(${-xs(xAcc(d))*(0.4/1.4)},${-ys(yAcc(d))*(0.4/1.4)})`);
+      const rs = RISK_STYLE[d.risk]||{bg:'#F1EFE8',color:'#9A9890'};
+      tooltip.innerHTML = `
+        <div class="tt-name">${d.name}</div>
+        <div class="tt-dept">${d.store} ｜ ${d.dept}部門</div>
+        <div class="tt-row"><span>${xLabel}</span><span class="tt-val">${xFmt(xAcc(d))}</span></div>
+        <div class="tt-row"><span>${yLabel}</span><span class="tt-val">${yFmt(yAcc(d))}</span></div>
+        <div class="tt-row"><span>個人 NPS</span><span class="tt-val">+${d.nps}</span></div>
+        <div class="tt-row"><span>名下客戶</span><span class="tt-val">${d.custTotal}</span></div>
+        <span style="margin-top:5px;font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px;display:inline-block;background:${rs.bg};color:${rs.color};">風險：${d.risk}</span>
+      `;
+      tooltip.style.opacity='1';
+    })
+    .on('mousemove', function(event){
+      const x=event.clientX+14, y=event.clientY-10;
+      tooltip.style.left=(x+210>window.innerWidth?event.clientX-220:x)+'px';
+      tooltip.style.top=(y+170>window.innerHeight?event.clientY-180:y)+'px';
+    })
+    .on('mouseout', function(event,d){
+      const shape = d3.select(this).select(d.dept==='銷售'?'circle':'polygon');
+      if(d.dept==='銷售') shape.transition().duration(120).attr('r',8).attr('stroke-width',2);
+      else shape.transition().duration(120).attr('transform','');
+      tooltip.style.opacity='0';
+    });
+}
+
+function colorByRisk(d){ return RISK_DOT[d.risk]||'#9A9890'; }
+
+function renderAll(data){
+  drawScatter('c-x1', data, d=>d.custTotal, d=>d.churn, '名下客戶總數', '本月流失客戶數', v=>v+'人', v=>v+'人', colorByRisk);
+  drawScatter('c-x2', data, d=>d.volume,    d=>d.nps,   '服務台次',      '個人平均NPS',   v=>v,       v=>'+'+v,  colorByRisk);
+
+  const avgNps = Math.round(data.reduce((s,d)=>s+d.nps,0)/data.length);
+  const highRisk = data.filter(d=>d.risk==='高').length;
+  const totalChurn = data.reduce((s,d)=>s+d.churn,0);
+  const totalNew = Math.round(totalChurn*1.18); // approximation
+  document.getElementById('st-total').textContent = data.length;
+  document.getElementById('st-risk').textContent = highRisk;
+  document.getElementById('st-avg-nps').textContent = '+'+avgNps;
+  document.getElementById('st-churn').textContent = -(totalChurn - totalNew);
+}
+
+function renderChurnTable(data, sortKey='churn'){
+  const sorted = [...data].sort((a,b)=>b[sortKey]-a[sortKey]);
+  document.getElementById('churn-tbody').innerHTML = sorted.map((d,i)=>{
+    const rs = RISK_STYLE[d.risk]||{bg:'#F1EFE8',color:'#9A9890'};
+    const churnRate = Math.round(d.churn/d.custTotal*100);
+    const crColor = churnRate>=12?'#C8001A':churnRate>=7?'#854F0B':'#1E7D3E';
+    const tr = d.trend==='up'?'<span class="t-up">▲</span>':d.trend==='dn'?'<span class="t-dn">▼</span>':'<span class="t-flat">→</span>';
+    const deptBadge = d.dept==='銷售'?'<span class="badge b-navy" style="font-size:10px;">銷售</span>':'<span class="badge b-teal" style="font-size:10px;">售後</span>';
+    return `<tr>
+      <td style="text-align:center;"><span class="rank-num" style="color:${i<3?'#C8001A':'#9A9890'}">${String(i+1).padStart(2,'0')}</span></td>
+      <td><div style="font-weight:700;">${d.name}</div><div style="font-size:10.5px;color:var(--gray);">${d.store}</div></td>
+      <td><span class="badge b-navy" style="font-size:10px;background:transparent;border:1px solid #EEECE6;color:#5A5955;">${d.store}</span></td>
+      <td>${deptBadge}</td>
+      <td style="text-align:center;"><span class="mono">${d.custTotal}</span></td>
+      <td style="text-align:center;"><span class="mono" style="color:${d.churn>=30?'#C8001A':d.churn>=15?'#854F0B':'#1E7D3E'};">${d.churn}</span></td>
+      <td>
+        <div class="prog-wrap">
+          <div class="prog-bar"><div class="prog-fill ${churnRate>=12?'pf-bad':churnRate>=7?'pf-warn':'pf-ok'}" style="width:${Math.min(100,churnRate*5)}%;"></div></div>
+          <span class="mono" style="font-size:11.5px;min-width:36px;text-align:right;color:${crColor};">${churnRate}%</span>
+        </div>
+      </td>
+      <td style="text-align:center;"><span class="mono" style="color:${d.nps>=60?'#1E7D3E':d.nps>=50?'#854F0B':'#C8001A'};">+${d.nps}</span></td>
+      <td style="text-align:center;">${tr}</td>
+      <td style="text-align:center;"><span class="badge" style="background:${rs.bg};color:${rs.color};">${d.risk}風險</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderNpsTable(data){
+  const sorted = [...data].sort((a,b)=>b.nps-a.nps);
+  const avgNps = Math.round(data.reduce((s,d)=>s+d.nps,0)/data.length);
+  document.getElementById('nps-tbody').innerHTML = sorted.map((d,i)=>{
+    const diff = d.nps - avgNps;
+    const diffStr = diff>0?'+'+diff:String(diff);
+    const diffColor = diff>0?'#1E7D3E':diff>=-5?'#854F0B':'#C8001A';
+    const tr = d.trend==='up'?'<span class="t-up">▲</span>':d.trend==='dn'?'<span class="t-dn">▼</span>':'<span class="t-flat">→</span>';
+    const deptBadge = d.dept==='銷售'?'<span class="badge b-navy" style="font-size:10px;">銷售</span>':'<span class="badge b-teal" style="font-size:10px;">售後</span>';
+    const ratingBadge = d.nps>=65?'<span class="badge b-ok">⭐ 優秀</span>':
+                        d.nps>=55?'<span class="badge b-ok">✅ 良好</span>':
+                        d.nps>=48?'<span class="badge b-warn">⚠ 觀察</span>':
+                        '<span class="badge b-bad">🔴 輔導</span>';
+    return `<tr>
+      <td style="text-align:center;"><span class="rank-num" style="color:${i<3?'#534AB7':'#9A9890'}">${String(i+1).padStart(2,'0')}</span></td>
+      <td><div style="font-weight:700;">${d.name}</div><div style="font-size:10.5px;color:var(--gray);">${d.store}</div></td>
+      <td><span class="badge b-navy" style="font-size:10px;background:transparent;border:1px solid #EEECE6;color:#5A5955;">${d.store}</span></td>
+      <td>${deptBadge}</td>
+      <td style="text-align:center;"><span class="mono">${d.volume.toLocaleString()}</span></td>
+      <td>
+        <div class="prog-wrap">
+          <div class="prog-bar"><div class="prog-fill ${d.nps>=60?'pf-ok':d.nps>=50?'pf-warn':'pf-bad'}" style="width:${Math.min(100,d.nps*1.3)}%;"></div></div>
+          <span class="mono" style="font-size:12px;min-width:36px;text-align:right;color:${d.nps>=60?'#1E7D3E':d.nps>=50?'#854F0B':'#C8001A'};">+${d.nps}</span>
+        </div>
+      </td>
+      <td style="text-align:center;"><span class="mono" style="color:${diffColor};">${diffStr}</span></td>
+      <td style="text-align:center;">${tr}</td>
+      <td style="text-align:center;">${ratingBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function setStore(key, el){
+  document.querySelectorAll('.store-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  currentData = key==='all' ? RAW : RAW.filter(d=>d.store===key);
+  renderAll(currentData);
+  renderChurnTable(currentData);
+  renderNpsTable(currentData);
+  showToast(key==='all'?'顯示全集團':'篩選：'+key);
+}
+
+function sortChurn(k){ renderChurnTable(currentData, k); showToast('依 '+k+' 排序'); }
+
+function setChip(el){
+  el.closest('.sub-bar').querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  showToast('已切換：'+el.textContent.trim());
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+window.addEventListener('load',()=>{ renderAll(RAW); renderChurnTable(RAW); renderNpsTable(RAW); });
+window.addEventListener('resize',()=>{ renderAll(currentData); });
+</script>
+</body>
+</html>

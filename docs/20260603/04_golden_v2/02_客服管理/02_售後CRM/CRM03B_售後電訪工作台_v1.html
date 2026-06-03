@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM03B 售後電訪工作台 — DUCATI 售後管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-red{background:rgba(200,0,26,.75);border-color:transparent;}
+.hbtn-red:hover{background:rgba(200,0,26,.95);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.sa-badge{background:rgba(15,110,86,.6);border:1px solid rgba(15,110,86,.8);color:#fff;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:600;letter-spacing:.5px;}
+
+.sub-bar{background:#fff;border-bottom:1px solid #EEECE6;padding:7px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.date-nav{display:flex;align-items:center;gap:6px;}
+.date-nav button{padding:4px 10px;border:1px solid #D5D3CB;border-radius:5px;background:#fff;cursor:pointer;font-size:13px;color:#5A5955;transition:background .12s;}
+.date-nav button:hover{background:#F4F3F0;}
+.date-label{font-size:13px;font-weight:700;color:#1A3A5C;min-width:120px;text-align:center;}
+.filter-select{padding:5px 10px;border:1px solid #D5D3CB;border-radius:6px;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;background:#fff;outline:none;cursor:pointer;}
+.sub-divider{width:1px;height:18px;background:#EEECE6;}
+.tab-pills{display:flex;gap:0;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;}
+.tab-pill{padding:5px 13px;font-size:12px;cursor:pointer;border-right:1px solid #D5D3CB;color:#7A7A78;background:#fff;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.tab-pill:last-child{border-right:none;}
+.tab-pill.active{background:#0F6E56;color:#fff;}
+
+.layout{display:flex;min-height:calc(100vh - 104px);}
+
+.sidenav{width:192px;flex-shrink:0;background:#fff;border-right:1px solid #EEECE6;padding:14px 0;position:sticky;top:104px;height:calc(100vh - 104px);overflow-y:auto;}
+.nav-section{padding:0 12px;margin-bottom:6px;}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;padding:8px 6px 4px;}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 8px;border-radius:7px;cursor:pointer;transition:background .12s;color:#4A4A48;font-size:12px;margin-bottom:2px;}
+.nav-item:hover{background:#F4F3F0;}
+.nav-item.active{background:#E1F5EE;color:#0F6E56;font-weight:600;}
+.nav-left{display:flex;align-items:center;gap:7px;}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.nav-count{font-size:11px;font-family:'DM Mono',monospace;font-weight:600;padding:1px 6px;border-radius:4px;}
+.nc-red{background:#FDECEA;color:#C8001A;}.nc-amber{background:#FDF3E3;color:#D4820A;}.nc-teal{background:#E1F5EE;color:#0F6E56;}.nc-blue{background:#EAF4FB;color:#185FA5;}.nc-gray{background:#F1EFE8;color:#5A5955;}
+.nav-divider{height:1px;background:#EEECE6;margin:8px 12px;}
+
+.main{flex:1;padding:16px 20px;overflow:hidden;}
+
+/* 統計卡 */
+.summary-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.sum-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;}
+.sum-card.s-red{border-left:3px solid #C8001A;}
+.sum-card.s-amber{border-left:3px solid #D4820A;}
+.sum-card.s-teal{border-left:3px solid #0F6E56;}
+.sum-card.s-blue{border-left:3px solid #185FA5;}
+.sum-card.s-dark{border-left:3px solid #1A3A5C;}
+.sum-label{font-size:10.5px;color:#9A9890;margin-bottom:3px;}
+.sum-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.sn-red{color:#C8001A;}.sn-amber{color:#D4820A;}.sn-teal{color:#0F6E56;}.sn-blue{color:#185FA5;}.sn-dark{color:#1A3A5C;}
+.sum-sub{font-size:10.5px;color:#9A9890;}
+
+/* 電訪卡片 */
+.call-list{display:flex;flex-direction:column;gap:8px;}
+.call-card{background:#fff;border:1px solid #EEECE6;border-radius:9px;overflow:hidden;transition:box-shadow .15s;}
+.call-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.07);}
+.call-card.overdue{border-left:3px solid #C8001A;}
+.call-card.pending{border-left:3px solid #D4820A;}
+.call-card.scheduled{border-left:3px solid #185FA5;}
+.call-card.done{border-left:3px solid #0F6E56;opacity:.8;}
+
+.cc-hdr{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;}
+.cc-expand{width:18px;height:18px;border-radius:4px;background:#F1EFE8;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;flex-shrink:0;transition:transform .2s;color:#5A5955;}
+.cc-expand.open{transform:rotate(90deg);}
+.type-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.ti-d3{background:#FDECEA;}.ti-maint{background:#FDF3E3;}.ti-warranty{background:#E1F5EE;}.ti-desmo{background:#EAF4FB;}.ti-nps{background:#EEEDFE;}.ti-custom{background:#F1EFE8;}
+
+.cc-info{flex:1;min-width:0;}
+.cc-top{display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap;}
+.cc-name{font-size:13px;font-weight:700;}
+.cc-phone{font-size:12px;font-family:'DM Mono',monospace;color:#7A7A78;}
+.cc-plate{font-size:11px;font-family:'DM Mono',monospace;color:#9A9890;background:#F4F3F0;padding:1px 6px;border-radius:4px;}
+.cc-mid{display:flex;align-items:center;gap:12px;font-size:11.5px;color:#7A7A78;flex-wrap:wrap;margin-top:2px;}
+.cc-sa{color:#5A5955;font-weight:600;}
+.cc-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;}
+
+.type-badge{font-size:10.5px;padding:3px 9px;border-radius:5px;font-weight:600;white-space:nowrap;}
+.tb-d3{background:#FDECEA;color:#C8001A;border:1px solid #F5AEAD;}
+.tb-maint{background:#FDF3E3;color:#D4820A;border:1px solid #F0C97E;}
+.tb-warranty{background:#E1F5EE;color:#0F6E56;border:1px solid #5DCAA5;}
+.tb-desmo{background:#EAF4FB;color:#185FA5;border:1px solid #85B7EB;}
+.tb-nps{background:#EEEDFE;color:#534AB7;border:1px solid #AFA9EC;}
+.tb-custom{background:#F1EFE8;color:#5A5955;border:1px solid #D5D3CB;}
+
+.due-label{font-size:10px;color:#9A9890;}
+.call-action-btns{display:flex;gap:5px;}
+.cab{padding:4px 10px;border-radius:5px;font-size:11px;border:1px solid;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.cab-teal{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}.cab-teal:hover{background:#C8EEE0;}
+.cab-blue{background:#EAF4FB;border-color:#85B7EB;color:#185FA5;}.cab-blue:hover{background:#D5EBF9;}
+.cab-gray{background:#F1EFE8;border-color:#D5D3CB;color:#5A5955;}.cab-gray:hover{background:#E8E7E0;}
+.cab-red{background:#FDECEA;border-color:#F5AEAD;color:#C8001A;}
+
+/* 展開區 */
+.cc-body{display:none;border-top:1px solid #F4F3F0;padding:14px 16px;background:#FAFAF8;}
+.cc-body.open{display:block;}
+
+/* 話術提示 */
+.script-box{background:#1A3A5C;border-radius:8px;padding:13px 15px;margin-bottom:12px;color:#fff;}
+.script-tag{font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;opacity:.55;margin-bottom:7px;}
+.script-text{font-size:12.5px;line-height:1.8;opacity:.92;}
+.script-highlights{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.sh-chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:2px 8px;font-size:10.5px;color:rgba(255,255,255,.85);cursor:pointer;transition:background .12s;}
+.sh-chip:hover{background:rgba(255,255,255,.22);}
+
+/* NPS 快評 */
+.nps-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:11px 13px;background:#EEEDFE;border-radius:8px;border:1px solid #AFA9EC;}
+.nps-label{font-size:12px;font-weight:600;color:#534AB7;margin-right:6px;white-space:nowrap;}
+.nps-score-btns{display:flex;gap:4px;flex-wrap:wrap;}
+.nps-btn{width:30px;height:30px;border-radius:6px;border:1px solid #D5D3CB;background:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Mono',monospace;color:#5A5955;transition:all .12s;}
+.nps-btn:hover{border-color:#534AB7;color:#534AB7;}
+.nps-btn.sel{background:#534AB7;border-color:#534AB7;color:#fff;}
+.nps-btn[data-v="0"],.nps-btn[data-v="1"],.nps-btn[data-v="2"],.nps-btn[data-v="3"],.nps-btn[data-v="4"],.nps-btn[data-v="5"],.nps-btn[data-v="6"]{}.nps-btn[data-v="7"],.nps-btn[data-v="8"]{}.nps-btn[data-v="9"],.nps-btn[data-v="10"]{}
+
+/* 歷史記錄 */
+.prev-calls{margin-bottom:12px;}
+.prev-title{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;margin-bottom:8px;}
+.prev-item{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #F4F3F0;font-size:12px;}
+.prev-item:last-child{border-bottom:none;}
+.prev-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.pd-teal{background:#0F6E56;}.pd-blue{background:#185FA5;}.pd-amber{background:#D4820A;}.pd-red{background:#C8001A;}.pd-purple{background:#534AB7;}
+.prev-time{font-size:10.5px;color:#9A9890;white-space:nowrap;font-family:'DM Mono',monospace;margin-top:1px;}
+.prev-text{flex:1;color:#4A4A48;line-height:1.5;}
+
+/* 結果快選 */
+.result-icons{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+.ri-btn{padding:5px 12px;border-radius:6px;border:1px solid #D5D3CB;background:#fff;font-size:11.5px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;color:#5A5955;transition:all .12s;}
+.ri-btn:hover{border-color:#B4B2A9;background:#F4F3F0;}
+.ri-btn.sel-connected{border-color:#0F6E56;background:#E1F5EE;color:#0F6E56;font-weight:600;}
+.ri-btn.sel-voicemail{border-color:#185FA5;background:#EAF4FB;color:#185FA5;font-weight:600;}
+.ri-btn.sel-noanswer{border-color:#9A9890;background:#F1EFE8;color:#5A5955;font-weight:600;}
+.ri-btn.sel-reschedule{border-color:#D4820A;background:#FDF3E3;color:#D4820A;font-weight:600;}
+.ri-btn.sel-complaint{border-color:#C8001A;background:#FDECEA;color:#C8001A;font-weight:600;}
+
+/* 記錄表單 */
+.record-area{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.form-input{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;transition:border .15s;background:#fff;}
+.form-input:focus{border-color:#5DCAA5;}
+.form-select{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;background:#fff;}
+.form-textarea{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;outline:none;resize:vertical;min-height:60px;background:#fff;}
+.form-textarea:focus{border-color:#5DCAA5;}
+.form-hint{font-size:11px;color:#9A9890;margin-top:3px;}
+.save-call-row{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid #EEECE6;}
+
+/* 進廠後服務資訊條 */
+.ro-info-bar{background:#E1F5EE;border:1px solid #A8DFC9;border-radius:8px;padding:9px 13px;margin-bottom:12px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;}
+.roi-item{font-size:11.5px;color:#0F6E56;}
+.roi-item b{font-weight:700;}
+.roi-divider{width:1px;height:14px;background:#A8DFC9;}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:520px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:20px;color:#9A9890;padding:2px 6px;}
+.modal-body{padding:20px;max-height:62vh;overflow-y:auto;}
+.modal-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+.two-col-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-row{margin-bottom:12px;}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#0F6E56;border-color:#0F6E56;color:#fff;}.btn-primary:hover{background:#0C5A46;}
+.btn-navy{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}.btn-navy:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+
+/* Toast */
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+.empty-state{padding:48px 0;text-align:center;color:#9A9890;}
+.empty-icon{font-size:36px;margin-bottom:10px;}
+.mb14{margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<!-- 頁首快速導航 -->
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;">
+  <button onclick="go('CRM01B_售後客戶基盤_v1.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">← CRM01B 客戶基盤</button>
+  <button onclick="go('CRM05B_NPS看板_售後_v1.html')" style="padding:5px 14px;background:#0F6E56;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">CRM05B NPS 看板 →</button>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">售後 CRM <b>CRM03B 售後電訪工作台</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="sa-badge">SA 售後專用</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('CRM01B_售後客戶基盤_v1.html')">← 客戶基盤</button>
+    <button class="hbtn" onclick="go('CRM02B_售後電訪問卷設定_v1.html')">問卷設定</button>
+    <button class="hbtn hbtn-red" onclick="openModal('modal-new-call')">＋ 新增電訪任務</button>
+  </div>
+</header>
+
+<!-- Sub bar -->
+<div class="sub-bar">
+  <div class="date-nav">
+    <button onclick="shiftDate(-1)">‹</button>
+    <div class="date-label" id="date-label">2026-05-11</div>
+    <button onclick="shiftDate(1)">›</button>
+    <button style="font-size:11px;padding:4px 9px;" onclick="goToday()">今天</button>
+  </div>
+  <div class="sub-divider"></div>
+  <div class="tab-pills">
+    <div class="tab-pill active" id="tp-all" onclick="setTab('all',this)">全部</div>
+    <div class="tab-pill" id="tp-d3" onclick="setTab('d3',this)">D+3 滿意度</div>
+    <div class="tab-pill" id="tp-maint" onclick="setTab('maint',this)">回廠提醒</div>
+    <div class="tab-pill" id="tp-warranty" onclick="setTab('warranty',this)">保固提醒</div>
+    <div class="tab-pill" id="tp-desmo" onclick="setTab('desmo',this)">Desmo</div>
+    <div class="tab-pill" id="tp-custom" onclick="setTab('custom',this)">自訂跟進</div>
+  </div>
+  <div class="sub-divider"></div>
+  <select class="filter-select" id="filter-sa" onchange="renderAll()">
+    <option value="all">全體 SA</option>
+    <option value="許明志">許明志</option>
+    <option value="林雅婷">林雅婷</option>
+    <option value="陳建宏">陳建宏</option>
+  </select>
+  <div style="margin-left:auto;font-size:11px;color:#9A9890;" id="result-count">今日任務：9 筆</div>
+</div>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidenav -->
+  <div class="sidenav">
+    <div class="nav-section">
+      <div class="nav-label">任務狀態</div>
+      <div class="nav-item active" id="nav-all" onclick="setStatus('all',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#1A3A5C;"></div>全部任務</div>
+        <div class="nav-count nc-gray" id="cnt-all">9</div>
+      </div>
+      <div class="nav-item" id="nav-overdue" onclick="setStatus('overdue',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#C8001A;"></div>逾期未完成</div>
+        <div class="nav-count nc-red" id="cnt-overdue">2</div>
+      </div>
+      <div class="nav-item" id="nav-pending" onclick="setStatus('pending',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#D4820A;"></div>今日待跟進</div>
+        <div class="nav-count nc-amber" id="cnt-pending">4</div>
+      </div>
+      <div class="nav-item" id="nav-done" onclick="setStatus('done',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#0F6E56;"></div>今日已完成</div>
+        <div class="nav-count nc-teal" id="cnt-done">2</div>
+      </div>
+      <div class="nav-item" id="nav-scheduled" onclick="setStatus('scheduled',this)">
+        <div class="nav-left"><div class="nav-dot" style="background:#185FA5;"></div>未來已排程</div>
+        <div class="nav-count nc-blue" id="cnt-scheduled">1</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">電訪類型</div>
+      <div class="nav-item" onclick="setTab('d3',document.getElementById('tp-d3'))">
+        <div class="nav-left"><div class="nav-dot" style="background:#C8001A;"></div>D+3 滿意度回訪</div>
+        <div class="nav-count nc-red">3</div>
+      </div>
+      <div class="nav-item" onclick="setTab('maint',document.getElementById('tp-maint'))">
+        <div class="nav-left"><div class="nav-dot" style="background:#D4820A;"></div>回廠保養提醒</div>
+        <div class="nav-count nc-amber">2</div>
+      </div>
+      <div class="nav-item" onclick="setTab('warranty',document.getElementById('tp-warranty'))">
+        <div class="nav-left"><div class="nav-dot" style="background:#0F6E56;"></div>保固到期提醒</div>
+        <div class="nav-count nc-teal">2</div>
+      </div>
+      <div class="nav-item" onclick="setTab('desmo',document.getElementById('tp-desmo'))">
+        <div class="nav-left"><div class="nav-dot" style="background:#185FA5;"></div>Desmo 提醒</div>
+        <div class="nav-count nc-blue">1</div>
+      </div>
+      <div class="nav-item" onclick="setTab('custom',document.getElementById('tp-custom'))">
+        <div class="nav-left"><div class="nav-dot" style="background:#534AB7;"></div>自訂跟進</div>
+        <div class="nav-count nc-gray">1</div>
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">快速工具</div>
+      <div class="nav-item" onclick="go('CRM01B_售後客戶基盤_v1.html')">
+        <div class="nav-left"><div class="nav-dot" style="background:#0F6E56;"></div>售後客戶基盤</div>
+      </div>
+      <div class="nav-item" onclick="go('CRM02B_售後電訪問卷設定_v1.html')">
+        <div class="nav-left"><div class="nav-dot" style="background:#D4820A;"></div>問卷設定</div>
+      </div>
+      <div class="nav-item" onclick="go('CRM05B_NPS看板_售後_v1.html')">
+        <div class="nav-left"><div class="nav-dot" style="background:#534AB7;"></div>NPS 滿意度看板</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- 今日摘要 -->
+    <div class="summary-row mb14">
+      <div class="sum-card s-dark">
+        <div class="sum-label">今日全部任務</div>
+        <div class="sum-n sn-dark" id="sum-total">9</div>
+        <div class="sum-sub">2026-05-11</div>
+      </div>
+      <div class="sum-card s-red">
+        <div class="sum-label">逾期未完成</div>
+        <div class="sum-n sn-red">2</div>
+        <div class="sum-sub">需優先處理</div>
+      </div>
+      <div class="sum-card s-amber">
+        <div class="sum-label">今日待跟進</div>
+        <div class="sum-n sn-amber">4</div>
+        <div class="sum-sub">本日到期</div>
+      </div>
+      <div class="sum-card s-teal">
+        <div class="sum-label">今日已完成</div>
+        <div class="sum-n sn-teal">2</div>
+        <div class="sum-sub">完成率 22%</div>
+      </div>
+      <div class="sum-card s-blue">
+        <div class="sum-label">本月 NPS 平均</div>
+        <div class="sum-n sn-blue">8.2</div>
+        <div class="sum-sub">已評 24 筆</div>
+      </div>
+    </div>
+
+    <!-- 電訪卡片列表 -->
+    <div class="call-list" id="call-list"></div>
+
+  </div>
+</div>
+
+<!-- 新增電訪任務 Modal -->
+<div class="overlay" id="modal-new-call" onclick="closeModalOverlay(event,'modal-new-call')">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">＋ 新增售後電訪任務</div>
+      <button class="modal-close" onclick="closeModal('modal-new-call')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#E1F5EE;border:1px solid #A8DFC9;border-radius:8px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:#0F6E56;">
+        💡 D+3 滿意度回訪會由 <b>SA 工單系統</b>於工單關閉後自動建立，通常無需手動新增。其他類型（回廠提醒、保固提醒）請手動建立。
+      </div>
+      <div class="two-col-form">
+        <div class="form-row">
+          <div class="form-label">客戶 <span style="color:#C8001A;">*</span></div>
+          <select class="form-select">
+            <option value="">— 從售後客戶基盤選擇 —</option>
+            <option>陳志豪（Panigale V4 S · ABC-1234）</option>
+            <option>林美珍（Multistrada V4 S · XYZ-5678）</option>
+            <option>張偉強（Monster SP · DEF-9012）</option>
+            <option>王淑芬（Scrambler · GHI-3456）</option>
+            <option>蔡雅玲（Diavel V4 · MNO-2468）</option>
+            <option>葉建國（Panigale V4 S · VWX-6802）</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">電訪類型 <span style="color:#C8001A;">*</span></div>
+          <select class="form-select" id="nc-type">
+            <option value="d3">D+3 進廠後滿意度回訪</option>
+            <option value="maint">回廠保養提醒</option>
+            <option value="warranty">保固到期提醒</option>
+            <option value="desmo">Desmo Service 到期提醒</option>
+            <option value="nps">NPS 深度訪談</option>
+            <option value="custom">自訂跟進</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-label">預定跟進日期 <span style="color:#C8001A;">*</span></div>
+          <input type="date" class="form-input" value="2026-05-11">
+        </div>
+        <div class="form-row">
+          <div class="form-label">負責 SA</div>
+          <select class="form-select">
+            <option>許明志</option><option>林雅婷</option><option>陳建宏</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">跟進目標</div>
+        <textarea class="form-textarea" style="font-family:'Noto Sans TC',sans-serif;" placeholder="例：確認維修品質滿意度，詢問 NPS 分數，順帶提醒下次保養里程..."></textarea>
+        <div class="form-hint">儲存後系統自動產生對應話術提示</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new-call')">取消</button>
+      <button class="btn btn-primary" onclick="showToast('✅ 電訪任務已建立！');closeModal('modal-new-call')">建立電訪任務</button>
+    </div>
+  </div>
+</div>
+
+<div id="_sys_toast_"></div>
+
+<script>
+// ── 電訪任務資料 ──
+var tasks = [
+  {
+    id:1, name:'張偉強', phone:'0933-987-654', plate:'DEF-9012',
+    bike:'Monster SP', sa:'陳建宏', type:'maint', typeName:'回廠保養提醒',
+    typeIcon:'⏰', typeCls:'ti-maint', typeBadge:'tb-maint',
+    dueDate:'2026-05-09', status:'overdue',
+    roInfo:{no:'RO-2025-0789', date:'2025-09-10', mileage:'26,800 km', spend:'NT$15,600'},
+    goal:'已逾期 121 天。請優先聯繫，了解未回廠原因，並提醒保固已過期與 Desmo 皮帶到期時程。',
+    script:'張先生您好，我是 DUCATI 售後服務的陳建宏。您的 Monster SP 上次是去年 9 月來保養，依照保養週期已到了下次回廠的時間。最近騎車有沒有感覺哪裡不順？方便安排一個時間進廠讓我們幫您做一次全面檢查？',
+    highlights:['詢問騎乘狀況','確認方便回廠時間','提醒 Desmo 皮帶到期時程'],
+    prev:[
+      {dot:'pd-blue',time:'02-15',text:'電訪未接通，留言請回撥'},
+      {dot:'pd-amber',time:'03-01',text:'接通，表示近期較忙，請3月後再聯繫'},
+    ],
+    result:'', nextDate:'', npsScore:null, note:'', expanded:false
+  },
+  {
+    id:2, name:'蔡雅玲', phone:'0988-111-333', plate:'MNO-2468',
+    bike:'Diavel V4', sa:'陳建宏', type:'maint', typeName:'回廠保養提醒',
+    typeIcon:'⏰', typeCls:'ti-maint', typeBadge:'tb-maint',
+    dueDate:'2026-05-10', status:'overdue',
+    roInfo:{no:'RO-2025-0712', date:'2025-08-30', mileage:'31,500 km', spend:'NT$22,000'},
+    goal:'嚴重逾期 133 天，歷史消費最高（NT$128,500）。主管已介入。請確認是否已有安排進廠，或是否有任何不滿需要處理。',
+    script:'蔡小姐您好，我是 DUCATI 售後服務的陳建宏。您的 Diavel V4 已逾保養週期相當長的時間，我想親自聯繫確認一切都好。請問您最近騎車還順暢嗎？有沒有什麼讓您不方便回廠的原因？',
+    highlights:['確認是否有不滿','詢問是否需要特殊服務','Desmo 皮帶即將到期'],
+    prev:[
+      {dot:'pd-red',time:'01-10',text:'電訪未接通 x3'},
+      {dot:'pd-blue',time:'03-05',text:'主管介入，進行中'},
+    ],
+    result:'', nextDate:'', npsScore:null, note:'', expanded:false
+  },
+  {
+    id:3, name:'王淑芬', phone:'0966-456-789', plate:'GHI-3456',
+    bike:'Scrambler Icon', sa:'許明志', type:'d3', typeName:'D+3 滿意度回訪',
+    typeIcon:'⭐', typeCls:'ti-d3', typeBadge:'tb-d3',
+    dueDate:'2026-05-11', status:'pending',
+    roInfo:{no:'RO-2026-0508', date:'2026-05-08', mileage:'11,200 km', spend:'NT$5,400'},
+    goal:'03/08 進廠做定期保養。確認維修品質與服務體驗是否滿意，詢問 NPS 分數，並提醒下次建議回廠里程。',
+    script:'王小姐您好，我是 DUCATI 售後服務的許明志。您前幾天來做 Scrambler 的定期保養，想關心一下車子騎起來有沒有更順？我們非常重視每位客戶的體驗，可以請您給我們的服務打個分數嗎？從 0 到 10 分。',
+    highlights:['確認保養後騎乘感受','請客戶給 NPS 評分','提醒下次回廠約 5 月底'],
+    prev:[
+      {dot:'pd-teal',time:'05-08',text:'進廠：定期保養完成（RO-2026-0508）'},
+      {dot:'pd-blue',time:'05-08',text:'系統自動建立 D+3 電訪任務'},
+    ],
+    result:'', nextDate:'', npsScore:null, note:'', expanded:false
+  },
+  {
+    id:4, name:'陳怡君', phone:'0955-888-999', plate:'STU-8024',
+    bike:'Hypermotard 698', sa:'林雅婷', type:'d3', typeName:'D+3 滿意度回訪',
+    typeIcon:'⭐', typeCls:'ti-d3', typeBadge:'tb-d3',
+    dueDate:'2026-05-11', status:'pending',
+    roInfo:{no:'RO-2026-0425', date:'2026-04-25', mileage:'3,200 km', spend:'NT$5,800'},
+    goal:'新車 2,000km 初次保養，客戶為新進車主。確認初次保養體驗，建立長期維護關係，順帶說明接下來的 10,000km 保養規劃。',
+    script:'怡君您好，我是 DUCATI 售後服務的林雅婷。您上次來做初次保養，車子現在騎起來感覺如何？新車第一次保養非常重要，我想確認一切都符合您的期待。請問您對我們這次的服務還滿意嗎？',
+    highlights:['初次保養重要性說明','詢問 NPS 評分','說明 10,000km 保養計畫'],
+    prev:[
+      {dot:'pd-teal',time:'04-25',text:'進廠：2,000km 初次保養（RO-2026-0425）'},
+      {dot:'pd-blue',time:'04-25',text:'系統自動建立 D+3 電訪任務'},
+    ],
+    result:'', nextDate:'', npsScore:null, note:'', expanded:false
+  },
+  {
+    id:5, name:'葉建國', phone:'0944-777-666', plate:'VWX-6802',
+    bike:'Panigale V4 S', sa:'陳建宏', type:'desmo', typeName:'Desmo 到期提醒',
+    typeIcon:'⚙️', typeCls:'ti-desmo', typeBadge:'tb-desmo',
+    dueDate:'2026-05-11', status:'pending',
+    roInfo:{no:'RO-2026-0214', date:'2026-02-14', mileage:'38,900 km', spend:'NT$11,200'},
+    goal:'Desmo Service 皮帶到期日為 2026-05-20，僅剩 9 天。皮帶超期行駛有引擎損傷風險，請強調必須儘速安排，並幫客戶預約。',
+    script:'葉先生您好，我是 DUCATI 售後服務的陳建宏。您的 Panigale V4 S 的 Desmo Service 皮帶更換到期日是 5 月 20 日，距今只剩不到 10 天了。這項保養非常重要，皮帶一旦超期有損壞引擎的風險。方便我幫您預約這週或下週的進廠時間嗎？',
+    highlights:['強調 Desmo 皮帶風險','立即協助預約進廠','確認方便時段'],
+    prev:[
+      {dot:'pd-teal',time:'05-01',text:'電訪已通知，表示本週會安排'},
+      {dot:'pd-blue',time:'05-11',text:'複查：系統顯示尚未預約，再次跟進'},
+    ],
+    result:'', nextDate:'', npsScore:null, note:'', expanded:false
+  },
+  {
+    id:6, name:'陳志豪', phone:'0912-345-678', plate:'ABC-1234',
+    bike:'Panigale V4 S', sa:'許明志', type:'warranty', typeName:'保固到期提醒',
+    typeIcon:'🛡️', typeCls:'ti-warranty', typeBadge:'tb-warranty',
+    dueDate:'2026-05-11', status:'pending',
+    roInfo:{no:'RO-2025-0892', date:'2025-10-15', mileage:'18,500 km', spend:'NT$12,800'},
+    goal:'保固到期日 2026-05-30，剩 19 天。說明保固期間可以做一次完整保固檢查，之後可評估延長保固選項。',
+    script:'志豪您好，我是許明志。您的 Panigale V4 S 新車保固將在本月底（5/30）到期，在保固截止前我們可以幫您做一次完整的保固內檢查。建議您本週預約，我們幫您仔細確認車況，也有機會在保固期限內處理任何潛在問題。',
+    highlights:['保固截止前完整檢查','說明延長保固選項','幫客戶預約本週進廠'],
+    prev:[
+      {dot:'pd-teal',time:'04-20',text:'電訪通知，已排定 5/28 進廠確認保固'},
+    ],
+    result:'connected', nextDate:'2026-05-28', npsScore:null, note:'客戶已排 5/28 進廠做保固檢查', expanded:false
+  },
+  {
+    id:7, name:'許文龍', phone:'0911-654-321', plate:'PQR-1357',
+    bike:'SuperSport S', sa:'許明志', type:'d3', typeName:'D+3 滿意度回訪',
+    typeIcon:'⭐', typeCls:'ti-d3', typeBadge:'tb-d3',
+    dueDate:'2026-05-11', status:'done',
+    roInfo:{no:'RO-2026-0301', date:'2026-03-01', mileage:'14,800 km', spend:'NT$9,800'},
+    goal:'大保養 + 賽道版剎車皮更換。確認進廠體驗與剎車感受，詢問 NPS。',
+    script:'文龍您好，我是許明志。您上次來換了賽道版煞車皮，上賽道騎過了嗎？煞車手感有改善嗎？',
+    highlights:['煞車感受確認','賽道體驗詢問','NPS 評分'],
+    prev:[
+      {dot:'pd-teal',time:'03-01',text:'進廠：大保養 + 賽道版剎車皮（RO-2026-0301）'},
+      {dot:'pd-teal',time:'03-04',text:'D+3 電訪完成：NPS 9分，非常滿意，下週要去大鹿林道測試'},
+    ],
+    result:'connected', nextDate:'2026-09-01', npsScore:9, note:'客戶 NPS 9分，推薦指數高。提到賽道煞車手感大幅改善。', expanded:false
+  },
+  {
+    id:8, name:'林美珍', phone:'0922-111-222', plate:'XYZ-5678',
+    bike:'Multistrada V4 S', sa:'林雅婷', type:'warranty', typeName:'保固到期提醒',
+    typeIcon:'🛡️', typeCls:'ti-warranty', typeBadge:'tb-warranty',
+    dueDate:'2026-05-11', status:'done',
+    roInfo:{no:'RO-2026-0312', date:'2026-03-20', mileage:'9,200 km', spend:'NT$7,200'},
+    goal:'保固 2027-01-15 到期，提前告知並評估延長保固。',
+    script:'美珍您好，我是林雅婷。您的 Multistrada 保固還有 8 個月，我想跟您說明延長保固的選項...',
+    highlights:['說明延長保固','確認車況滿意度'],
+    prev:[
+      {dot:'pd-teal',time:'05-11',text:'電訪完成：客戶表示有興趣了解延長保固方案，已寄資料'},
+    ],
+    result:'connected', nextDate:'2026-05-25', npsScore:null, note:'客戶有興趣延長保固，已寄出方案，05-25 再跟進確認。', expanded:false
+  },
+  {
+    id:9, name:'黃俊傑', phone:'0977-234-567', plate:'JKL-7890',
+    bike:'Streetfighter V4', sa:'林雅婷', type:'custom', typeName:'自訂跟進',
+    typeIcon:'📌', typeCls:'ti-custom', typeBadge:'tb-custom',
+    dueDate:'2026-06-15', status:'scheduled',
+    roInfo:{no:'RO-2026-0410', date:'2026-04-10', mileage:'5,800 km', spend:'NT$7,200'},
+    goal:'新交車客戶，D+3 已完成，6 月中追蹤 10,000km 保養預約意願，並詢問騎乘心得。',
+    script:'俊傑您好，我是林雅婷。您的 Streetfighter V4 快騎滿 10,000km 了，建議預約第一次大保養，我們也可以幫您做一次完整車況確認...',
+    highlights:['10,000km 保養預約','騎乘心得詢問','CRM04B 或 NPS 評分'],
+    prev:[
+      {dot:'pd-teal',time:'04-13',text:'D+3 電訪完成：NPS 9分，非常開心交車'},
+      {dot:'pd-blue',time:'05-11',text:'排程 06-15 跟進：10,000km 保養提醒'},
+    ],
+    result:'', nextDate:'2026-06-15', npsScore:9, note:'', expanded:false
+  },
+];
+
+// ── 渲染 ──
+var currentStatus = 'all', currentType = 'all';
+
+function typeLabel(t){ return {d3:'D+3 滿意度',maint:'回廠提醒',warranty:'保固提醒',desmo:'Desmo',nps:'NPS訪談',custom:'自訂跟進'}[t]||t; }
+
+function getFiltered(){
+  let data = [...tasks];
+  if(currentStatus!=='all') data=data.filter(t=>t.status===currentStatus);
+  if(currentType!=='all') data=data.filter(t=>t.type===currentType);
+  const sa=document.getElementById('filter-sa').value;
+  if(sa!=='all') data=data.filter(t=>t.sa===sa);
+  return data;
+}
+
+function renderAll(){
+  const data=getFiltered();
+  document.getElementById('result-count').textContent='共 '+data.length+' 筆任務';
+  const cl=document.getElementById('call-list');
+  if(!data.length){
+    cl.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">此條件下沒有任務</div></div>';
+    return;
+  }
+  cl.innerHTML=data.map(t=>renderCard(t)).join('');
+}
+
+function renderCard(t){
+  const statusCls={overdue:'overdue',pending:'pending',done:'done',scheduled:'scheduled'}[t.status]||'pending';
+  const dueLbl = t.status==='overdue'?`<span style="color:#C8001A;font-weight:700;">逾期未完成</span>`
+    :t.status==='done'?`<span style="color:#0F6E56;">已完成</span>`
+    :t.status==='scheduled'?`<span style="color:#185FA5;">排程 ${t.nextDate||t.dueDate}</span>`
+    :`到期：${t.dueDate}`;
+  const expandedBody = t.expanded ? `cc-body open` : `cc-body`;
+  const expandIcon = t.expanded ? `cc-expand open` : `cc-expand`;
+
+  let npsHtml = '';
+  if(t.type==='d3'||t.type==='nps'){
+    const btns = Array.from({length:11},(_,i)=>`<button class="nps-btn${t.npsScore===i?' sel':''}" data-v="${i}" onclick="setNps(${t.id},${i})">${i}</button>`).join('');
+    npsHtml=`<div class="nps-row"><span class="nps-label">📊 NPS 評分</span><div class="nps-score-btns">${btns}</div></div>`;
+  }
+
+  const prevHtml = t.prev.map(p=>`<div class="prev-item">
+    <div class="prev-dot ${p.dot}"></div>
+    <div class="prev-time">${p.time}</div>
+    <div class="prev-text">${p.text}</div>
+  </div>`).join('');
+
+  const doneNote = t.result ? `<div style="background:#E1F5EE;border:1px solid #A8DFC9;border-radius:6px;padding:8px 11px;font-size:12px;color:#0F6E56;margin-bottom:10px;">
+    <b>✅ 已完成</b>　${t.note||''}　下次跟進：${t.nextDate||'—'}
+  </div>` : '';
+
+  const saveRow = t.status!=='done' ? `
+    <div class="save-call-row">
+      <button class="btn btn-ghost btn-sm" onclick="postponeTask(${t.id})">⏰ 延後一天</button>
+      <button class="btn btn-primary btn-sm" onclick="saveResult(${t.id})">✅ 儲存電訪結果</button>
+    </div>` : '';
+
+  return `<div class="call-card ${statusCls}" id="card-${t.id}">
+    <div class="cc-hdr" onclick="toggleExpand(${t.id})">
+      <div class="${expandIcon}" id="expand-icon-${t.id}">›</div>
+      <div class="type-icon ${t.typeCls}">${t.typeIcon}</div>
+      <div class="cc-info">
+        <div class="cc-top">
+          <span class="cc-name">${t.name}</span>
+          <span class="cc-phone">${t.phone}</span>
+          <span class="cc-plate">${t.plate}</span>
+        </div>
+        <div class="cc-mid">
+          <span class="cc-sa">SA：${t.sa}</span>
+          <span>🏍️ ${t.bike}</span>
+          <span>最近 RO：${t.roInfo.no}</span>
+          <span>消費 ${t.roInfo.spend}</span>
+          <span>${dueLbl}</span>
+        </div>
+      </div>
+      <div class="cc-right">
+        <span class="type-badge ${t.typeBadge}">${t.typeName}</span>
+        <div class="due-label">${t.dueDate}</div>
+        <div class="call-action-btns">
+          ${t.status!=='done'?`<button class="cab cab-teal" onclick="event.stopPropagation();toggleExpand(${t.id})">🎙️ 開始電訪</button>`:''}
+          <button class="cab cab-blue" onclick="event.stopPropagation();showToast('→ 跳轉 CRM01B：'+${JSON.stringify(t.name)})">客戶資料</button>
+        </div>
+      </div>
+    </div>
+    <div class="${expandedBody}" id="body-${t.id}">
+      <div class="ro-info-bar">
+        <span class="roi-item">📋 工單 <b>${t.roInfo.no}</b></span>
+        <div class="roi-divider"></div>
+        <span class="roi-item">📅 <b>${t.roInfo.date}</b></span>
+        <div class="roi-divider"></div>
+        <span class="roi-item">📏 里程 <b>${t.roInfo.mileage}</b></span>
+        <div class="roi-divider"></div>
+        <span class="roi-item">💰 金額 <b>${t.roInfo.spend}</b></span>
+      </div>
+      <div class="script-box">
+        <div class="script-tag">🎙️ 建議話術</div>
+        <div class="script-text">${t.script}</div>
+        <div class="script-highlights">${t.highlights.map(h=>`<span class="sh-chip">${h}</span>`).join('')}</div>
+      </div>
+      ${npsHtml}
+      <div class="prev-calls">
+        <div class="prev-title">歷史記錄</div>
+        ${prevHtml}
+      </div>
+      ${doneNote}
+      ${t.status!=='done'?`
+      <div class="result-icons">
+        <button class="ri-btn" id="ri-${t.id}-connected" onclick="selectResult(${t.id},'connected')">✅ 已接通</button>
+        <button class="ri-btn" id="ri-${t.id}-voicemail" onclick="selectResult(${t.id},'voicemail')">📩 留言</button>
+        <button class="ri-btn" id="ri-${t.id}-noanswer" onclick="selectResult(${t.id},'noanswer')">📵 未接通</button>
+        <button class="ri-btn" id="ri-${t.id}-reschedule" onclick="selectResult(${t.id},'reschedule')">🔄 改期跟進</button>
+        <button class="ri-btn" id="ri-${t.id}-complaint" onclick="selectResult(${t.id},'complaint')">⚠️ 有不滿需處理</button>
+      </div>
+      <div class="record-area">
+        <div>
+          <div class="form-label">下次跟進日期</div>
+          <input type="date" class="form-input" id="next-date-${t.id}">
+        </div>
+        <div>
+          <div class="form-label">CRM 備忘（儲存至客戶基盤）</div>
+          <textarea class="form-textarea" id="note-${t.id}" placeholder="例：NPS 8分，對等待時間略有意見，下次提早告知取車時間..."></textarea>
+        </div>
+      </div>
+      ${saveRow}
+      `:''}
+    </div>
+  </div>`;
+}
+
+function toggleExpand(id){
+  const t=tasks.find(x=>x.id===id);
+  t.expanded=!t.expanded;
+  const body=document.getElementById('body-'+id);
+  const icon=document.getElementById('expand-icon-'+id);
+  if(t.expanded){body.className='cc-body open';icon.className='cc-expand open';}
+  else{body.className='cc-body';icon.className='cc-expand';}
+}
+
+function setNps(taskId, score){
+  const t=tasks.find(x=>x.id===taskId);
+  t.npsScore=score;
+  // Re-render just the NPS buttons
+  const row=document.querySelector(`#body-${taskId} .nps-score-btns`);
+  if(row) row.innerHTML=Array.from({length:11},(_,i)=>`<button class="nps-btn${score===i?' sel':''}" data-v="${i}" onclick="setNps(${taskId},${i})">${i}</button>`).join('');
+  showToast('NPS 記錄：'+score+' 分');
+}
+
+function selectResult(taskId, r){
+  const prev=document.querySelectorAll(`[id^="ri-${taskId}-"]`);
+  prev.forEach(b=>b.className='ri-btn');
+  const btn=document.getElementById('ri-'+taskId+'-'+r);
+  if(btn) btn.className='ri-btn sel-'+r;
+  const t=tasks.find(x=>x.id===taskId);
+  t.result=r;
+}
+
+function saveResult(id){
+  const t=tasks.find(x=>x.id===id);
+  if(!t.result){showToast('請先選擇電訪結果');return;}
+  const noteEl=document.getElementById('note-'+id);
+  const dateEl=document.getElementById('next-date-'+id);
+  t.note=noteEl?noteEl.value:'';
+  t.nextDate=dateEl?dateEl.value:'';
+  t.status='done';
+  t.expanded=false;
+  const npsMsg=t.npsScore!==null?`\nNPS：${t.npsScore} 分`:'';
+  showToast('✅ 電訪結果已儲存！\n客戶：'+t.name+npsMsg+'\n已同步至 CRM01B 客戶基盤');
+  setTimeout(()=>renderAll(),400);
+}
+
+function postponeTask(id){
+  showToast('⏰ 已延後一天\n任務將移至明日待辦');
+}
+
+function setStatus(v,el){
+  currentStatus=v;
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  renderAll();
+}
+
+function setTab(v,el){
+  currentType=v;
+  document.querySelectorAll('.tab-pill').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  renderAll();
+}
+
+// 日期導覽
+var currentDate=new Date(2026,4,11);
+function updateDateLabel(){
+  var y=currentDate.getFullYear(),m=String(currentDate.getMonth()+1).padStart(2,'0'),d=String(currentDate.getDate()).padStart(2,'0');
+  document.getElementById('date-label').textContent=y+'-'+m+'-'+d;
+}
+function shiftDate(delta){
+  currentDate.setDate(currentDate.getDate()+delta);
+  updateDateLabel();
+  showToast('切換至 '+document.getElementById('date-label').textContent+'\n（此版本為示範資料，實際任務依日期動態載入）');
+}
+function goToday(){currentDate=new Date(2026,4,11);updateDateLabel();}
+
+// Modal
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function closeModalOverlay(e,id){if(e.target===document.getElementById(id))closeModal(id);}
+
+// Toast & go
+function showToast(msg,dur){
+  var t=document.getElementById('_sys_toast_');
+  t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);
+}
+function go(url){window.location.href=url;}
+
+// 初始渲染
+renderAll();
+</script>
+</body>
+</html>

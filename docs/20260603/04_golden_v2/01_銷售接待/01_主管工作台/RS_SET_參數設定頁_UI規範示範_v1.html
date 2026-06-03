@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DUCATI 系統 — 參數設定頁 UI 規範示範</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+/* ── Header ── */
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+/* ── Layout ── */
+.layout{display:flex;min-height:calc(100vh - 52px);}
+/* ── Left Nav ── */
+.sidenav{width:220px;flex-shrink:0;background:#fff;border-right:1px solid #EEECE6;padding:16px 0;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto;}
+.nav-section{padding:0 12px;margin-bottom:4px;}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;padding:10px 8px 5px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer;transition:background .12s;color:#4A4A48;font-size:12.5px;}
+.nav-item:hover{background:#F4F3F0;}
+.nav-item.active{background:#EAF4FB;color:#185FA5;font-weight:600;}
+.nav-item.active .nav-dot{background:#185FA5;}
+.nav-dot{width:7px;height:7px;border-radius:50%;background:#D5D3CB;flex-shrink:0;}
+.nav-item.done .nav-dot{background:#3B6D11;}
+.nav-divider{height:1px;background:#EEECE6;margin:8px 12px;}
+/* ── Main Content ── */
+.main{flex:1;padding:24px;max-width:900px;}
+/* ── Page Header ── */
+.page-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:16px;}
+.page-title{font-size:18px;font-weight:700;color:#2C2C2A;margin-bottom:4px;}
+.page-sub{font-size:12px;color:#7A7A78;line-height:1.6;}
+.page-actions{display:flex;gap:8px;flex-shrink:0;}
+/* ── Rule Box（規範說明）── */
+.rule-box{background:#EAF4FB;border:1px solid #85B7EB;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:#0C3E70;line-height:1.7;}
+.rule-box strong{font-weight:600;}
+.rule-box ul{margin:5px 0 0 16px;}
+/* ── Section ── */
+.section{background:#fff;border:1px solid #EEECE6;border-radius:10px;margin-bottom:16px;overflow:hidden;}
+.section-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #EEECE6;background:#FAFAF8;cursor:pointer;user-select:none;}
+.section-left{display:flex;align-items:center;gap:10px;}
+.section-icon{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.si-blue{background:#EAF4FB;}
+.si-amber{background:#FDF3E3;}
+.si-teal{background:#E1F5EE;}
+.si-red{background:#FDECEA;}
+.si-purple{background:#EEEDFE;}
+.section-title{font-size:13px;font-weight:600;color:#2C2C2A;}
+.section-note{font-size:11px;color:#9A9890;margin-top:1px;}
+.section-toggle{font-size:12px;color:#9A9890;display:flex;align-items:center;gap:6px;}
+.chevron{transition:transform .2s;display:inline-block;}
+.chevron.open{transform:rotate(90deg);}
+.section-body{padding:16px;}
+.section-body.collapsed{display:none;}
+/* ── 清單型參數（List Type）── */
+.list-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.list-count{font-size:11.5px;color:#7A7A78;}
+.list-table{width:100%;border-collapse:collapse;}
+.list-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:6px 10px;border-bottom:2px solid #EEECE6;text-align:left;}
+.list-table td{padding:0;}
+.list-row{display:grid;align-items:center;border-bottom:1px solid #F4F3F0;}
+.list-row:last-child{border-bottom:none;}
+.list-row:hover{background:#FAFAF8;}
+.list-cell{padding:8px 10px;font-size:12.5px;color:#2C2C2A;}
+.list-cell.mono{font-family:'DM Mono',monospace;font-size:11.5px;color:#534AB7;}
+.list-cell.muted{color:#7A7A78;font-size:12px;}
+.drag-handle{cursor:grab;color:#C8C7C4;font-size:14px;padding:8px 6px 8px 10px;display:flex;align-items:center;}
+.drag-handle:active{cursor:grabbing;}
+.row-actions{display:flex;gap:4px;padding:6px 10px 6px 4px;align-items:center;}
+.row-btn{padding:3px 8px;border-radius:5px;font-size:11px;border:1px solid;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .12s;}
+.row-btn.edit{background:#EAF4FB;border-color:#85B7EB;color:#185FA5;}
+.row-btn.edit:hover{background:#D5EBF9;}
+.row-btn.del{background:#FDECEA;border-color:#F5AEAD;color:#CC0000;}
+.row-btn.del:hover{background:#FAD9D8;}
+.row-btn.default{background:#F1EFE8;border-color:#D5D3CB;color:#5A5955;}
+/* ── 新增行內輸入 ── */
+.add-row{display:flex;gap:8px;margin-top:12px;align-items:center;padding:10px;background:#F8F7F4;border-radius:7px;border:1px dashed #D5D3CB;}
+.add-row input,.add-row select{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;color:#2C2C2A;background:#fff;outline:none;transition:border .15s;}
+.add-row input:focus,.add-row select:focus{border-color:#85B7EB;}
+.add-row input.wide{flex:1;}
+.add-row input.narrow{width:90px;}
+.inp-label{font-size:11px;color:#9A9890;white-space:nowrap;}
+/* ── 數值型參數（Value Type）── */
+.val-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.val-item{background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:12px 14px;}
+.val-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:2px;}
+.val-desc{font-size:11px;color:#9A9890;margin-bottom:10px;line-height:1.5;}
+.val-control{display:flex;align-items:center;gap:10px;}
+.val-input{width:80px;padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:#2C2C2A;text-align:center;outline:none;transition:border .15s;}
+.val-input:focus{border-color:#85B7EB;}
+.val-unit{font-size:11.5px;color:#7A7A78;}
+.val-reset{font-size:11px;color:#9A9890;border:1px solid #D5D3CB;background:#fff;padding:3px 8px;border-radius:5px;cursor:pointer;}
+.val-reset:hover{background:#F4F3F0;}
+/* ── 開關型參數（Toggle Type）── */
+.toggle-list{display:flex;flex-direction:column;gap:0;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #F4F3F0;}
+.toggle-row:last-child{border-bottom:none;}
+.toggle-info{flex:1;padding-right:20px;}
+.toggle-name{font-size:12.5px;font-weight:600;color:#2C2C2A;margin-bottom:2px;}
+.toggle-desc{font-size:11px;color:#9A9890;line-height:1.5;}
+.toggle-sw{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle-sw input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-track{position:absolute;inset:0;border-radius:11px;background:#D5D3CB;cursor:pointer;transition:background .2s;}
+.toggle-sw input:checked+.toggle-track{background:#185FA5;}
+.toggle-track::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.toggle-sw input:checked+.toggle-track::after{transform:translateX(18px);}
+/* ── Buttons ── */
+.btn{padding:7px 18px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-secondary{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-secondary:hover{background:#F4F3F0;}
+.btn-danger{background:#FDECEA;border-color:#F5AEAD;color:#CC0000;}
+.btn-danger:hover{background:#FAD9D8;}
+.btn-add{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}
+.btn-add:hover{background:#C8EEE0;}
+.btn-sm{padding:5px 12px;font-size:11.5px;}
+/* ── Badge ── */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:5px;font-size:10.5px;font-weight:600;}
+.b-sys{background:#F1EFE8;color:#5A5955;border:1px solid #D5D3CB;}
+.b-custom{background:#EAF3DE;color:#3B6D11;border:1px solid #B5D4B0;}
+.b-req{background:#FDECEA;color:#CC0000;border:1px solid #F5AEAD;}
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:440px;max-width:90vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-hdr{padding:16px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:600;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:18px;color:#9A9890;line-height:1;padding:2px 6px;}
+.modal-body{padding:20px;}
+.form-row{margin-bottom:14px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:5px;display:flex;gap:5px;align-items:center;}
+.form-req{color:#CC0000;}
+.form-input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;transition:border .15s;}
+.form-input:focus{border-color:#85B7EB;}
+.form-hint{font-size:11px;color:#9A9890;margin-top:4px;}
+.form-select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.modal-footer{padding:14px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+/* ── Spec Panel ── */
+.spec-panel{background:#1A3A5C;border-radius:10px;padding:18px 20px;margin-top:20px;color:#fff;}
+.spec-title{font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;opacity:.6;margin-bottom:12px;}
+.spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.spec-item{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:10px 13px;}
+.spec-item-label{font-size:10.5px;opacity:.55;margin-bottom:4px;letter-spacing:.3px;}
+.spec-item-val{font-size:12.5px;font-weight:600;line-height:1.5;}
+.spec-full{grid-column:1/-1;}</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">系統設定 <b>— 參數設定頁 UI 規範示範</b></div>
+  <div class="hright">
+    <button class="hbtn" onclick="showToast('← 返回上一頁')">← 返回</button>
+    <button class="hbtn btn-primary" style="background:rgba(200,0,26,.8);border-color:transparent;" onclick="saveAll()">💾 儲存所有設定</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── 左側導覽（設定分類）── -->
+  <nav class="sidenav">
+    <div class="nav-section">
+      <div class="nav-label">RS01 電子手卡</div>
+      <div class="nav-item active" onclick="scrollTo('sec-source')">
+        <div class="nav-dot"></div>線索來源清單
+      </div>
+      <div class="nav-item" onclick="scrollTo('sec-purchase')">
+        <div class="nav-dot"></div>購買方式
+      </div>
+      <div class="nav-item" onclick="scrollTo('sec-contact')">
+        <div class="nav-dot"></div>接觸判別選項
+      </div>
+      <div class="nav-item" onclick="scrollTo('sec-payment')">
+        <div class="nav-dot"></div>付款方式
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">CRM03A 電訪工作台</div>
+      <div class="nav-item" onclick="scrollTo('sec-followup')">
+        <div class="nav-dot"></div>跟進天數設定
+      </div>
+      <div class="nav-item" onclick="scrollTo('sec-response')">
+        <div class="nav-dot"></div>客戶回應代碼
+      </div>
+      <div class="nav-item" onclick="scrollTo('sec-competitor')">
+        <div class="nav-dot"></div>競品去向清單
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">RS_EX1 保險招攬</div>
+      <div class="nav-item done" onclick="scrollTo('sec-insurer')">
+        <div class="nav-dot"></div>合作保險公司
+      </div>
+      <div class="nav-item" onclick="scrollTo('sec-instype')">
+        <div class="nav-dot"></div>投保險種項目
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">全域設定</div>
+      <div class="nav-item" onclick="scrollTo('sec-toggles')">
+        <div class="nav-dot"></div>功能開關
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── 主內容 ── -->
+  <div class="main">
+
+    <div class="page-hdr">
+      <div>
+        <div class="page-title">⚙️ 參數設定頁</div>
+        <div class="page-sub">以下所有下拉選單、代碼清單、數值閾值，均可由主管自行新增、修改、刪除、排序。<br>灰色 <span class="badge b-sys">系統預設</span> 項目為系統內建，刪除後可從「還原預設」回復；綠色 <span class="badge b-custom">自訂</span> 為店內新增項目。</div>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-secondary btn-sm" onclick="showToast('已匯出設定檔 settings.json')">匯出設定</button>
+        <button class="btn btn-secondary btn-sm" onclick="showToast('請選擇設定檔匯入')">匯入設定</button>
+      </div>
+    </div>
+
+    <!-- 規範說明框 -->
+    <div class="rule-box">
+      <strong>📋 UI 規範說明（開發用）</strong>
+      <ul>
+        <li><strong>清單型參數</strong>：可拖曳排序、新增、修改、刪除，適用線索來源、購買方式、競品清單等</li>
+        <li><strong>數值型參數</strong>：直接輸入數字，有預設值與還原按鈕，適用跟進天數、閾值設定等</li>
+        <li><strong>開關型參數</strong>：On/Off 切換，適用功能啟用/停用</li>
+        <li><strong>必填項目</strong>：以 <span class="badge b-req">必填</span> 標示，不可刪除</li>
+        <li>所有變更須點擊右上角「儲存所有設定」才正式生效，未儲存前顯示暫存狀態</li>
+      </ul>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         清單型範例 A：線索來源
+    ══════════════════════════════════════ -->
+    <div class="section" id="sec-source">
+      <div class="section-hdr" onclick="toggleSection(this)">
+        <div class="section-left">
+          <div class="section-icon si-blue">📡</div>
+          <div>
+            <div class="section-title">線索來源清單 <span class="badge b-req" style="margin-left:6px;">必填欄位</span></div>
+            <div class="section-note">RS01 電子手卡 → 線索來源下拉選單</div>
+          </div>
+        </div>
+        <div class="section-toggle"><span id="cnt-source">6 項</span><span class="chevron open">›</span></div>
+      </div>
+      <div class="section-body" id="body-source">
+        <div class="list-toolbar">
+          <div class="list-count">拖曳 ☰ 可調整排序；排序即下拉選單顯示順序</div>
+          <button class="btn btn-add btn-sm" onclick="openAddModal('線索來源')">＋ 新增項目</button>
+        </div>
+        <table class="list-table">
+          <thead>
+            <tr>
+              <th style="width:28px;"></th>
+              <th style="width:36px;">排序</th>
+              <th>選項名稱</th>
+              <th>說明備註</th>
+              <th style="width:70px;">類型</th>
+              <th style="width:110px;text-align:right;">操作</th>
+            </tr>
+          </thead>
+        </table>
+        <div id="list-source">
+          <!-- rows injected by JS -->
+        </div>
+        <div class="add-row" id="add-source" style="display:none;">
+          <span class="inp-label">名稱</span>
+          <input class="wide" type="text" id="new-source-name" placeholder="例：IG 社群廣告">
+          <span class="inp-label">說明</span>
+          <input style="width:200px;" type="text" id="new-source-desc" placeholder="選填備註">
+          <button class="btn btn-add btn-sm" onclick="addItem('source')">確認新增</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-source').style.display='none'">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         數值型範例：跟進天數
+    ══════════════════════════════════════ -->
+    <div class="section" id="sec-followup">
+      <div class="section-hdr" onclick="toggleSection(this)">
+        <div class="section-left">
+          <div class="section-icon si-amber">📅</div>
+          <div>
+            <div class="section-title">跟進天數設定</div>
+            <div class="section-note">CRM03A 銷售電訪工作台 → 自動邀約任務觸發天數</div>
+          </div>
+        </div>
+        <div class="section-toggle"><span>2 項</span><span class="chevron open">›</span></div>
+      </div>
+      <div class="section-body" id="body-followup">
+        <div class="val-grid">
+          <div class="val-item">
+            <div class="val-label">第一次跟進邀約天數</div>
+            <div class="val-desc">首次接觸後第幾天，系統自動建立第一次電訪任務</div>
+            <div class="val-control">
+              <input class="val-input" type="number" id="v-follow1" value="3" min="1" max="30" onchange="markDirty()">
+              <span class="val-unit">天後（D+N）</span>
+              <button class="val-reset" onclick="document.getElementById('v-follow1').value=3;markDirty()">還原預設</button>
+            </div>
+          </div>
+          <div class="val-item">
+            <div class="val-label">第二次跟進邀約天數</div>
+            <div class="val-desc">首次接觸後第幾天，系統自動建立第二次電訪任務</div>
+            <div class="val-control">
+              <input class="val-input" type="number" id="v-follow2" value="7" min="1" max="60" onchange="markDirty()">
+              <span class="val-unit">天後（D+N）</span>
+              <button class="val-reset" onclick="document.getElementById('v-follow2').value=7;markDirty()">還原預設</button>
+            </div>
+          </div>
+          <div class="val-item">
+            <div class="val-label">休眠客戶重新激活天數</div>
+            <div class="val-desc">超過幾天無跟進記錄，系統將客戶標記為休眠並推送提醒</div>
+            <div class="val-control">
+              <input class="val-input" type="number" id="v-sleep" value="30" min="7" max="180" onchange="markDirty()">
+              <span class="val-unit">天</span>
+              <button class="val-reset" onclick="document.getElementById('v-sleep').value=30;markDirty()">還原預設</button>
+            </div>
+          </div>
+          <div class="val-item">
+            <div class="val-label">保有率計算區間</div>
+            <div class="val-desc">CRM01B 售後客戶基盤：多少年內回廠算有效保有客戶</div>
+            <div class="val-control">
+              <input class="val-input" type="number" id="v-retention" value="3" min="1" max="10" onchange="markDirty()">
+              <span class="val-unit">年</span>
+              <button class="val-reset" onclick="document.getElementById('v-retention').value=3;markDirty()">還原預設</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         清單型範例 B：競品去向
+    ══════════════════════════════════════ -->
+    <div class="section" id="sec-competitor">
+      <div class="section-hdr" onclick="toggleSection(this)">
+        <div class="section-left">
+          <div class="section-icon si-red">🏁</div>
+          <div>
+            <div class="section-title">競品去向清單</div>
+            <div class="section-note">CRM03A → 客戶去向下拉；CRM07 → 未成交競品分析報表</div>
+          </div>
+        </div>
+        <div class="section-toggle"><span id="cnt-competitor">7 項</span><span class="chevron open">›</span></div>
+      </div>
+      <div class="section-body" id="body-competitor">
+        <div class="list-toolbar">
+          <div class="list-count">可依照當地市場競品排序（排在前面的在下拉選單優先顯示）</div>
+          <button class="btn btn-add btn-sm" onclick="openAddModal('競品去向')">＋ 新增競品</button>
+        </div>
+        <div id="list-competitor"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════
+         開關型範例：功能開關
+    ══════════════════════════════════════ -->
+    <div class="section" id="sec-toggles">
+      <div class="section-hdr" onclick="toggleSection(this)">
+        <div class="section-left">
+          <div class="section-icon si-teal">🔧</div>
+          <div>
+            <div class="section-title">功能開關</div>
+            <div class="section-note">各功能模組的啟用／停用控制</div>
+          </div>
+        </div>
+        <div class="section-toggle"><span>5 項</span><span class="chevron open">›</span></div>
+      </div>
+      <div class="section-body" id="body-toggles">
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-name">試乘試駕預約功能</div>
+              <div class="toggle-desc">啟用後，RS02 試乘試駕模組可讓客戶線上預約；停用則改為現場登記</div>
+            </div>
+            <label class="toggle-sw"><input type="checkbox" checked onchange="markDirty()"><div class="toggle-track"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-name">LINE 推播通知</div>
+              <div class="toggle-desc">啟用後，CRM06 可對客戶發送 LINE 訊息（需先完成 LINE Official Account 串接）</div>
+            </div>
+            <label class="toggle-sw"><input type="checkbox" onchange="markDirty()"><div class="toggle-track"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-name">NPS 問卷自動發送</div>
+              <div class="toggle-desc">交車 / 取車後自動觸發 NPS 問卷；停用則由 CRM 人員手動發送</div>
+            </div>
+            <label class="toggle-sw"><input type="checkbox" checked onchange="markDirty()"><div class="toggle-track"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-name">中古車 CPO/DPO 分級顯示</div>
+              <div class="toggle-desc">停用後，RS03B 中古車庫存一律不顯示認證等級標籤（適合尚未建立認證制度的店）</div>
+            </div>
+            <label class="toggle-sw"><input type="checkbox" checked onchange="markDirty()"><div class="toggle-track"></div></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-name">RS 個人銷售漏斗（個人視角）</div>
+              <div class="toggle-desc">啟用後，每位 RS 可在 RS_M1 查看自己的歷史表現 vs 全店平均對比（不顯示同事個別數據）</div>
+            </div>
+            <label class="toggle-sw"><input type="checkbox" checked onchange="markDirty()"><div class="toggle-track"></div></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 設計規範總結面板 ── -->
+    <div class="spec-panel">
+      <div class="spec-title">📐 參數設定頁 — UI 設計規範總表（開發交付用）</div>
+      <div class="spec-grid">
+        <div class="spec-item">
+          <div class="spec-item-label">參數類型 A：清單型</div>
+          <div class="spec-item-val">可拖曳排序・新增・修改・刪除<br>系統預設項目有刪除保護警告</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-item-label">參數類型 B：數值型</div>
+          <div class="spec-item-val">數字輸入框・有最小/最大值限制<br>每格有「還原預設」按鈕</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-item-label">參數類型 C：開關型</div>
+          <div class="spec-item-val">On/Off 切換・有功能說明文字<br>變更即時預覽，儲存才生效</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-item-label">儲存機制</div>
+          <div class="spec-item-val">全頁統一儲存（右上角按鈕）<br>未儲存前頁面標題顯示「●」提示</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-item-label">左側導覽</div>
+          <div class="spec-item-val">依模組分組・點擊捲動定位<br>已完成項目顯示綠色圓點</div>
+        </div>
+        <div class="spec-item">
+          <div class="spec-item-label">Badge 標示規則</div>
+          <div class="spec-item-val">灰色=系統預設・綠色=自訂<br>紅色=必填（不可刪除）</div>
+        </div>
+        <div class="spec-item spec-full">
+          <div class="spec-item-label">通用規則</div>
+          <div class="spec-item-val">所有 Section 可折疊・新增項目優先行內輸入（減少跳頁）・刪除動作需二次確認彈窗・匯出/匯入設定檔（JSON 格式）供多店複製</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ── Modal ── -->
+<div class="overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-hdr">
+      <div class="modal-title" id="modal-title">新增項目</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-label">選項名稱 <span class="form-req">*</span></div>
+        <input class="form-input" id="modal-name" type="text" placeholder="請輸入選項名稱">
+        <div class="form-hint">此名稱將顯示在下拉選單中，建議精簡（10字以內）</div>
+      </div>
+      <div class="form-row">
+        <div class="form-label">說明備註</div>
+        <input class="form-input" id="modal-desc" type="text" placeholder="選填，供主管理解用途">
+      </div>
+      <div class="form-row">
+        <div class="form-label">排序位置</div>
+        <select class="form-select" id="modal-pos">
+          <option value="end">加到最後</option>
+          <option value="start">加到最前</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmModal()">確認新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 資料 ──
+const sourceData = [
+  {name:'展廳到訪',desc:'客戶自行走進展示間',type:'sys'},
+  {name:'車展活動',desc:'各大車展或品牌活動現場',type:'sys'},
+  {name:'FB／IG 社群',desc:'社群媒體廣告或自然流量',type:'sys'},
+  {name:'老車主轉介紹',desc:'現有客戶口碑推薦',type:'sys'},
+  {name:'DSPOT App',desc:'DUCATI 官方 App 預約',type:'sys'},
+  {name:'活動現場（DRE）',desc:'DRE 騎士學院學員轉潛客',type:'custom'},
+];
+const competitorData = [
+  {name:'BMW Motorrad',desc:'同等級豪華重機品牌',type:'sys'},
+  {name:'Triumph',desc:'英系豪華重機',type:'sys'},
+  {name:'MV Agusta',desc:'義系超跑品牌',type:'sys'},
+  {name:'KAWASAKI（大型）',desc:'日系超跑車款',type:'sys'},
+  {name:'YAMAHA（大型）',desc:'日系跑車 / 仿賽',type:'sys'},
+  {name:'中古車行',desc:'非品牌二手機車行',type:'sys'},
+  {name:'個人買賣（臉書）',desc:'FB 二手社團私人交易',type:'custom'},
+];
+
+// ── 渲染清單 ──
+function renderList(id, data, countId){
+  const el = document.getElementById('list-'+id);
+  if(!el) return;
+  el.innerHTML = data.map((r,i)=>`
+    <div class="list-row" style="grid-template-columns:28px 36px 1fr 1.2fr 70px 110px;" draggable="true">
+      <div class="drag-handle">☰</div>
+      <div class="list-cell mono" style="text-align:center;">${i+1}</div>
+      <div class="list-cell">${r.name}</div>
+      <div class="list-cell muted">${r.desc||'—'}</div>
+      <div class="list-cell"><span class="badge ${r.type==='sys'?'b-sys':'b-custom'}">${r.type==='sys'?'系統預設':'自訂'}</span></div>
+      <div class="row-actions" style="justify-content:flex-end;">
+        <button class="row-btn edit" onclick="editItem('${id}',${i})">編輯</button>
+        <button class="row-btn del" onclick="delItem('${id}',${i},this)">刪除</button>
+      </div>
+    </div>`).join('');
+  if(countId) document.getElementById(countId).textContent = data.length+' 項';
+}
+
+function editItem(id,i){
+  const data = id==='source'?sourceData:competitorData;
+  const newName = prompt('修改名稱：',data[i].name);
+  if(newName===null) return;
+  if(!newName.trim()){showToast('名稱不可空白');return;}
+  data[i].name = newName.trim();
+  renderList(id, data, 'cnt-'+id);
+  markDirty();
+  showToast('已更新「'+newName+'」');
+}
+
+function delItem(id,i,btn){
+  const data = id==='source'?sourceData:competitorData;
+  if(data[i].type==='sys'){
+    if(!confirm('「'+data[i].name+'」為系統預設項目，確定要刪除嗎？\n刪除後可從「還原預設」找回。')) return;
+  }
+  const name = data[i].name;
+  data.splice(i,1);
+  renderList(id, data, 'cnt-'+id);
+  markDirty();
+  showToast('已刪除「'+name+'」');
+}
+
+function addItem(id){
+  const data = id==='source'?sourceData:competitorData;
+  const nameEl = document.getElementById('new-'+id+'-name');
+  const descEl = document.getElementById('new-'+id+'-desc');
+  if(!nameEl.value.trim()){showToast('請輸入選項名稱');nameEl.focus();return;}
+  data.push({name:nameEl.value.trim(),desc:(descEl?descEl.value.trim():''),type:'custom'});
+  nameEl.value='';
+  if(descEl) descEl.value='';
+  document.getElementById('add-'+id).style.display='none';
+  renderList(id, data, 'cnt-'+id);
+  markDirty();
+  showToast('已新增「'+data[data.length-1].name+'」');
+}
+
+// ── Section 折疊 ──
+function toggleSection(hdr){
+  const body = hdr.nextElementSibling;
+  const chevron = hdr.querySelector('.chevron');
+  const isOpen = !body.classList.contains('collapsed');
+  if(isOpen){body.classList.add('collapsed');chevron.classList.remove('open');}
+  else{body.classList.remove('collapsed');chevron.classList.add('open');}
+}
+
+// ── Modal ──
+let _modalTarget='';
+function openAddModal(target){
+  _modalTarget=target;
+  document.getElementById('modal-title').textContent='新增'+target;
+  document.getElementById('modal-name').value='';
+  document.getElementById('modal-desc').value='';
+  document.getElementById('modal-overlay').classList.add('show');
+  setTimeout(()=>document.getElementById('modal-name').focus(),100);
+}
+function closeModal(e){
+  if(e&&e.target!==document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+function confirmModal(){
+  const name=document.getElementById('modal-name').value.trim();
+  if(!name){showToast('請填寫選項名稱');return;}
+  const desc=document.getElementById('modal-desc').value.trim();
+  if(_modalTarget==='線索來源'){
+    sourceData.push({name,desc,type:'custom'});
+    renderList('source',sourceData,'cnt-source');
+  } else if(_modalTarget==='競品去向'){
+    competitorData.push({name,desc,type:'custom'});
+    renderList('competitor',competitorData,'cnt-competitor');
+  }
+  markDirty();
+  showToast('已新增「'+name+'」');
+  closeModal();
+}
+
+// ── Dirty state ──
+let dirty=false;
+function markDirty(){
+  dirty=true;
+  document.title='● DUCATI 參數設定頁（未儲存）';
+}
+function saveAll(){
+  dirty=false;
+  document.title='DUCATI 系統 — 參數設定頁 UI 規範示範';
+  showToast('✅ 所有設定已儲存');
+}
+
+// ── Toast ──
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ── Scroll ──
+function scrollTo(id){
+  const el=document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+}
+
+// ── Init ──
+renderList('source',sourceData,'cnt-source');
+renderList('competitor',competitorData,'cnt-competitor');
+</script>
+</body>
+</html>

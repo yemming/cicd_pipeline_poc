@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GRP04 集團儀表板 — DealerOS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#0D1B2A;color:#E8E6E0;font-size:13px;}
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--amber:#854F0B;--purple:#534AB7;
+  --gray:#9A9890;--border:rgba(255,255,255,.08);
+  --card:rgba(255,255,255,.05);--card2:rgba(255,255,255,.08);
+  --green:#3DBE6E;--gold:#F0A500;
+}
+
+/* ── Header ── */
+header{background:rgba(0,0,0,.4);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);backdrop-filter:blur(8px);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.15);}
+.htitle{font-size:13px;color:rgba(255,255,255,.5);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.8);font-size:12px;border:1px solid rgba(255,255,255,.12);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.15);}
+.hbtn.active{background:#1A3A5C;border-color:#2A5080;color:#fff;}
+.ver-badge{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.live-label{font-size:11px;color:var(--green);}
+
+/* ── Layout ── */
+.dashboard{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;grid-template-rows:auto;gap:10px;padding:16px 20px 32px;max-width:1600px;margin:0 auto;}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.card2{background:var(--card2);}
+.card-hdr{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
+.ch-icon{font-size:13px;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ch-title{font-size:12.5px;font-weight:600;color:#E8E6E0;}
+.ch-sub{font-size:10.5px;color:rgba(255,255,255,.35);margin-top:1px;}
+.card-body{padding:12px 14px;}
+
+/* ── Span utilities ── */
+.span2{grid-column:span 2;}
+.span3{grid-column:span 3;}
+.span4{grid-column:span 4;}
+
+/* ── 即時告警橫幅 ── */
+.alert-row{grid-column:span 4;display:flex;gap:8px;flex-wrap:wrap;}
+.alert-chip{display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;border:1px solid;}
+.ac-red{background:rgba(200,0,26,.15);border-color:rgba(200,0,26,.3);color:#FF8080;}
+.ac-amber{background:rgba(133,79,11,.2);border-color:rgba(240,165,0,.3);color:#F0C060;}
+.ac-green{background:rgba(61,190,110,.1);border-color:rgba(61,190,110,.2);color:#3DBE6E;}
+
+/* ── KPI Big Numbers ── */
+.kpi-big{text-align:center;padding:16px 10px;}
+.kb-label{font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;}
+.kb-val{font-size:32px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:4px;}
+.kb-sub{font-size:11px;color:rgba(255,255,255,.35);}
+.kb-trend{font-size:12px;font-weight:600;margin-top:4px;}
+.kt-up{color:var(--green);}
+.kt-dn{color:#FF6060;}
+.kt-flat{color:rgba(255,255,255,.4);}
+
+/* ── Mini bar chart ── */
+.mini-bars{display:flex;align-items:flex-end;gap:3px;height:48px;padding:0 2px;}
+.mb-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.mb-bar{width:100%;border-radius:2px 2px 0 0;}
+.mb-lbl{font-size:8.5px;color:rgba(255,255,255,.3);font-family:'DM Mono',monospace;}
+
+/* ── Store rows ── */
+.store-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+.store-row:last-child{border-bottom:none;}
+.sr-name{font-size:12px;font-weight:600;min-width:80px;white-space:nowrap;}
+.sr-type{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;flex-shrink:0;}
+.srt-direct{background:rgba(26,58,92,.6);color:#85B7EB;}
+.srt-dealer{background:rgba(15,110,86,.4);color:#5DCAA5;}
+.sr-bar{flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;}
+.sr-fill{height:100%;border-radius:3px;}
+.sr-val{font-size:11.5px;font-weight:700;font-family:'DM Mono',monospace;min-width:36px;text-align:right;}
+.sr-nps{font-size:11.5px;font-weight:700;font-family:'DM Mono',monospace;min-width:32px;text-align:right;}
+.sr-arrow{font-size:11px;min-width:18px;text-align:center;}
+
+/* ── Health score ring ── */
+.health-wrap{display:flex;gap:10px;flex-direction:column;}
+.health-item{display:flex;align-items:center;gap:8px;}
+.hi-name{font-size:12px;min-width:72px;white-space:nowrap;}
+.hi-bar{flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;}
+.hi-fill{height:100%;border-radius:4px;}
+.hi-score{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;min-width:28px;text-align:right;}
+
+/* ── Alert table ── */
+.alert-table{width:100%;border-collapse:collapse;}
+.alert-table td{padding:7px 8px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:top;}
+.alert-table tr:last-child td{border-bottom:none;}
+.at-icon{width:22px;font-size:13px;}
+.at-store{font-weight:700;color:#E8E6E0;white-space:nowrap;}
+.at-desc{color:rgba(255,255,255,.55);line-height:1.5;}
+.at-time{font-size:10.5px;color:rgba(255,255,255,.3);white-space:nowrap;}
+.sev-red{color:#FF6060;}
+.sev-amber{color:#F0C060;}
+
+/* ── Trend sparkline ── */
+.sparkline{display:flex;align-items:flex-end;gap:2px;height:36px;}
+.sp-bar{flex:1;border-radius:1px 1px 0 0;opacity:.8;}
+
+/* ── Strategic 4-quad ── */
+.quad-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.quad-card{border-radius:8px;padding:10px 12px;border:1px solid;}
+.qc-expand{background:rgba(61,190,110,.1);border-color:rgba(61,190,110,.2);}
+.qc-coach{background:rgba(240,165,0,.1);border-color:rgba(240,165,0,.2);}
+.qc-review{background:rgba(200,0,26,.1);border-color:rgba(200,0,26,.2);}
+.qc-partner{background:rgba(83,74,183,.1);border-color:rgba(83,74,183,.2);}
+.qc-type{font-size:9.5px;font-weight:700;letter-spacing:.4px;margin-bottom:4px;}
+.qt-expand{color:#3DBE6E;}
+.qt-coach{color:#F0C060;}
+.qt-review{color:#FF6060;}
+.qt-partner{color:#9B8FE8;}
+.qc-store{font-size:12.5px;font-weight:700;color:#E8E6E0;margin-bottom:3px;}
+.qc-note{font-size:11px;color:rgba(255,255,255,.45);line-height:1.4;}
+
+/* ── NPS gauge ── */
+.nps-row{display:flex;gap:12px;justify-content:space-around;padding:8px 0;}
+.nps-item{text-align:center;}
+.nps-val{font-size:24px;font-weight:700;font-family:'DM Mono',monospace;}
+.nps-lbl{font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;}
+.nps-change{font-size:11px;font-weight:600;}
+
+/* ── Parts warning ── */
+.parts-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.parts-row:last-child{border-bottom:none;}
+.pr-store{font-size:12px;font-weight:600;min-width:72px;}
+.pr-bar{flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;}
+.pr-fill{height:100%;border-radius:3px;}
+.pf-good{background:var(--green);}
+.pf-warn{background:var(--gold);}
+.pf-bad{background:#FF4040;}
+.pr-val{font-size:11.5px;font-weight:700;font-family:'DM Mono',monospace;min-width:36px;text-align:right;}
+
+/* ── Customer flow ── */
+.flow-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.flow-row:last-child{border-bottom:none;}
+.fr-store{font-size:12px;font-weight:600;min-width:72px;}
+.fr-new{font-size:12px;font-family:'DM Mono',monospace;color:var(--green);min-width:40px;text-align:center;}
+.fr-lost{font-size:12px;font-family:'DM Mono',monospace;color:#FF6060;min-width:40px;text-align:center;}
+.fr-net{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;min-width:36px;text-align:right;}
+.fr-warn{font-size:10px;color:#FF6060;font-weight:700;}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:2px;}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;background:#1A3A5C;color:#fff;padding:9px 16px;border-radius:7px;font-size:12px;z-index:999;transform:translateY(60px);opacity:0;transition:.2s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DealerOS</div>
+  <div class="hdiv"></div>
+  <div class="htitle">集團管理 <b>GRP04 集團儀表板</b></div>
+  <span class="live-dot"></span>
+  <span class="live-label">即時</span>
+  <div class="hright">
+    <button class="hbtn active">今日</button>
+    <button class="hbtn" onclick="showToast('切換：本週')">本週</button>
+    <button class="hbtn" onclick="showToast('切換：本月')">本月</button>
+    <div class="hdiv"></div>
+    <button class="hbtn" onclick="showToast('已重新整理')">↻</button>
+    <button class="hbtn" onclick="showToast('已截圖')">截圖</button>
+    <div class="ver-badge">v1</div>
+  </div>
+</header>
+
+<div class="dashboard">
+
+  <!-- ── 告警橫幅 ── -->
+  <div class="alert-row">
+    <div class="alert-chip ac-red">🔴 嘉義授權商：零件備件供應率 72%，低於標準 90%，售後台次受影響</div>
+    <div class="alert-chip ac-red">🔴 台中直營店：本月客戶流失（382）已超過新增（330）</div>
+    <div class="alert-chip ac-amber">🟡 高雄直營店：3名新進銷售顧問成交率平均 8%，低於集團均值 21%</div>
+    <div class="alert-chip ac-green">✅ 台北旗艦店：本月 Health Score 87，集團最高</div>
+  </div>
+
+  <!-- ── 全台新車交車 ── -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(26,58,92,.5);">🏍</div>
+      <div><div class="ch-title">全台新車交車量</div><div class="ch-sub">本月累計</div></div>
+    </div>
+    <div class="card-body">
+      <div class="kpi-big">
+        <div class="kb-label">累計交車</div>
+        <div class="kb-val" style="color:#85B7EB;">127</div>
+        <div class="kb-sub">目標 150 台 ｜ 達成率 84.7%</div>
+        <div class="kb-trend kt-dn">▼ -8% vs 上月</div>
+      </div>
+      <div class="mini-bars">
+        <div class="mb-wrap"><div class="mb-bar" style="height:38px;background:#1A3A5C;opacity:.4;"></div><div class="mb-bar" style="height:32px;background:#85B7EB;"></div><div class="mb-lbl">1月</div></div>
+        <div class="mb-wrap"><div class="mb-bar" style="height:30px;background:#1A3A5C;opacity:.4;"></div><div class="mb-bar" style="height:24px;background:#85B7EB;"></div><div class="mb-lbl">2月</div></div>
+        <div class="mb-wrap"><div class="mb-bar" style="height:44px;background:#1A3A5C;opacity:.4;"></div><div class="mb-bar" style="height:40px;background:#85B7EB;"></div><div class="mb-lbl">3月</div></div>
+        <div class="mb-wrap"><div class="mb-bar" style="height:48px;background:#1A3A5C;opacity:.4;"></div><div class="mb-bar" style="height:44px;background:#85B7EB;"></div><div class="mb-lbl">4月</div></div>
+        <div class="mb-wrap"><div class="mb-bar" style="height:52px;background:#1A3A5C;opacity:.4;"></div><div class="mb-bar" style="height:38px;background:#F0A500;border:1px solid #F0C060;"></div><div class="mb-lbl" style="color:#F0A500;">本月</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 全台維修台次 ── -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(15,110,86,.4);">🔧</div>
+      <div><div class="ch-title">全台維修台次</div><div class="ch-sub">本月累計</div></div>
+    </div>
+    <div class="card-body">
+      <div class="kpi-big">
+        <div class="kb-label">累計台次</div>
+        <div class="kb-val" style="color:#5DCAA5;">2,847</div>
+        <div class="kb-sub">目標 3,000 ｜ 達成率 94.9%</div>
+        <div class="kb-trend kt-up">▲ +3% vs 上月</div>
+      </div>
+      <div class="mini-bars">
+        <div class="mb-wrap"><div class="mb-bar" style="height:36px;background:#0F6E56;opacity:.4;"></div><div class="mb-bar" style="height:32px;background:#5DCAA5;"></div><div class="mb-lbl">1月</div></div>
+        <div class="mb-wrap"><div class="mb-bar" style="height:28px;background:#0F6E56;opacity:.4;"></div><div class="mb-bar" style="height:26px;background:#5DCAA5;"></div><div class="mb-lbl">2月</div></div>
+        <div class="mb-wrap"><div class="mb-bar" style="height:40px;background:#0F6E56;opacity:.4;"></div><div class="mb-bar" style="height:42px;background:#5DCAA5;"></div><div class="mb-lbl">3月</div></div>
+        <div class="mb-wrap"><div class="mb-bar" style="height:44px;background:#0F6E56;opacity:.4;"></div><div class="mb-bar" style="height:46px;background:#5DCAA5;"></div><div class="mb-lbl">4月</div></div>
+        <div class="mb-wrap"><div class="mb-bar" style="height:48px;background:#0F6E56;opacity:.4;"></div><div class="mb-bar" style="height:50px;background:#F0A500;border:1px solid #F0C060;"></div><div class="mb-lbl" style="color:#F0A500;">本月</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 全台平均 NPS ── -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(83,74,183,.4);">❤️</div>
+      <div><div class="ch-title">全台平均 NPS</div><div class="ch-sub">銷售 + 售後</div></div>
+    </div>
+    <div class="card-body">
+      <div class="nps-row">
+        <div class="nps-item">
+          <div class="nps-val" style="color:#85B7EB;">+62</div>
+          <div class="nps-lbl">銷售 NPS</div>
+          <div class="nps-change" style="color:var(--green);">▲ +4</div>
+        </div>
+        <div style="width:1px;height:48px;background:var(--border);"></div>
+        <div class="nps-item">
+          <div class="nps-val" style="color:#5DCAA5;">+54</div>
+          <div class="nps-lbl">售後 NPS</div>
+          <div class="nps-change" style="color:#FF6060;">▼ -2</div>
+        </div>
+      </div>
+      <div style="padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.35);">
+        <span>目標：+60 / +55</span>
+        <span>高端重機均值 +50</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 集團告警數 ── -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(200,0,26,.3);">⚠️</div>
+      <div><div class="ch-title">集團告警</div><div class="ch-sub">需要關注</div></div>
+    </div>
+    <div class="card-body">
+      <div class="kpi-big">
+        <div class="kb-label">未解決告警</div>
+        <div class="kb-val" style="color:#FF6060;">3</div>
+        <div class="kb-sub">嚴重 2 ｜ 注意 1</div>
+        <div class="kb-trend kt-dn">▲ +1 vs 昨日</div>
+      </div>
+      <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;">
+        <span style="background:rgba(200,0,26,.2);border:1px solid rgba(200,0,26,.3);color:#FF8080;padding:2px 10px;border-radius:5px;font-size:11px;font-weight:700;">🔴 嚴重 2</span>
+        <span style="background:rgba(133,79,11,.2);border:1px solid rgba(240,165,0,.3);color:#F0C060;padding:2px 10px;border-radius:5px;font-size:11px;font-weight:700;">🟡 注意 1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 門店銷售達成率 ── -->
+  <div class="card span2">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(26,58,92,.5);">📊</div>
+      <div><div class="ch-title">各門店銷售達成率</div><div class="ch-sub">本月 ｜ 時間進度 66.7%</div></div>
+    </div>
+    <div class="card-body">
+      <div class="store-row">
+        <span class="sr-name">台北旗艦店</span>
+        <span class="sr-type srt-direct">直營</span>
+        <div class="sr-bar"><div class="sr-fill" style="width:94%;background:var(--green);"></div></div>
+        <span class="sr-val" style="color:var(--green);">94%</span>
+        <span class="sr-arrow" style="color:var(--green);">▲</span>
+      </div>
+      <div class="store-row">
+        <span class="sr-name">台南授權商</span>
+        <span class="sr-type srt-dealer">授權</span>
+        <div class="sr-bar"><div class="sr-fill" style="width:89%;background:var(--green);"></div></div>
+        <span class="sr-val" style="color:var(--green);">89%</span>
+        <span class="sr-arrow" style="color:var(--green);">▲</span>
+      </div>
+      <div class="store-row">
+        <span class="sr-name">嘉義授權商</span>
+        <span class="sr-type srt-dealer">授權</span>
+        <div class="sr-bar"><div class="sr-fill" style="width:76%;background:var(--gold);"></div></div>
+        <span class="sr-val" style="color:var(--gold);">76%</span>
+        <span class="sr-arrow" style="color:rgba(255,255,255,.3);">→</span>
+      </div>
+      <div class="store-row">
+        <span class="sr-name">台中直營店</span>
+        <span class="sr-type srt-direct">直營</span>
+        <div class="sr-bar"><div class="sr-fill" style="width:72%;background:var(--gold);"></div></div>
+        <span class="sr-val" style="color:var(--gold);">72%</span>
+        <span class="sr-arrow" style="color:#FF6060;">▼</span>
+      </div>
+      <div class="store-row">
+        <span class="sr-name">高雄直營店</span>
+        <span class="sr-type srt-direct">直營</span>
+        <div class="sr-bar"><div class="sr-fill" style="width:68%;background:var(--gold);"></div></div>
+        <span class="sr-val" style="color:var(--gold);">68%</span>
+        <span class="sr-arrow" style="color:#FF6060;">▼</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Dealer Health Score ── -->
+  <div class="card span2">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(240,165,0,.2);">⭐</div>
+      <div><div class="ch-title">Dealer Health Score</div><div class="ch-sub">5維度加權綜合評分（0-100）</div></div>
+    </div>
+    <div class="card-body">
+      <div class="health-wrap">
+        <div class="health-item">
+          <span class="hi-name">台北旗艦店</span>
+          <div class="hi-bar"><div class="hi-fill" style="width:87%;background:var(--green);"></div></div>
+          <span class="hi-score" style="color:var(--green);">87</span>
+        </div>
+        <div class="health-item">
+          <span class="hi-name">台南授權商</span>
+          <div class="hi-bar"><div class="hi-fill" style="width:81%;background:var(--green);"></div></div>
+          <span class="hi-score" style="color:var(--green);">81</span>
+        </div>
+        <div class="health-item">
+          <span class="hi-name">高雄直營店</span>
+          <div class="hi-bar"><div class="hi-fill" style="width:72%;background:var(--gold);"></div></div>
+          <span class="hi-score" style="color:var(--gold);">72</span>
+        </div>
+        <div class="health-item">
+          <span class="hi-name">台中直營店</span>
+          <div class="hi-bar"><div class="hi-fill" style="width:64%;background:var(--gold);"></div></div>
+          <span class="hi-score" style="color:var(--gold);">64</span>
+        </div>
+        <div class="health-item">
+          <span class="hi-name">嘉義授權商</span>
+          <div class="hi-bar"><div class="hi-fill" style="width:51%;background:#FF4040;"></div></div>
+          <span class="hi-score" style="color:#FF6060;">51</span>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:10px;background:rgba(61,190,110,.15);border:1px solid rgba(61,190,110,.2);color:var(--green);padding:1px 7px;border-radius:4px;">≥80 健康</span>
+        <span style="font-size:10px;background:rgba(240,165,0,.15);border:1px solid rgba(240,165,0,.2);color:var(--gold);padding:1px 7px;border-radius:4px;">60-79 關注</span>
+        <span style="font-size:10px;background:rgba(200,0,26,.15);border:1px solid rgba(200,0,26,.2);color:#FF6060;padding:1px 7px;border-radius:4px;">&lt;60 介入</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 告警明細 ── -->
+  <div class="card span2">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(200,0,26,.25);">🚨</div>
+      <div><div class="ch-title">告警明細</div><div class="ch-sub">需要集團關注的事項</div></div>
+    </div>
+    <div class="card-body" style="padding:8px 14px;">
+      <table class="alert-table">
+        <tr>
+          <td class="at-icon sev-red">🔴</td>
+          <td><div class="at-store">嘉義授權商</div><div class="at-desc">零件備件供應滿足率 72%，低於集團標準 90%。售後台次已受影響，本月台次達成率僅 58%。</div></td>
+          <td class="at-time">今日 08:00</td>
+        </tr>
+        <tr>
+          <td class="at-icon sev-red">🔴</td>
+          <td><div class="at-store">台中直營店</div><div class="at-desc">7月客戶流失 382 人，超過新增 330 人，淨流失 -52。客戶基盤正在萎縮，建議立即介入。</div></td>
+          <td class="at-time">昨日 23:00</td>
+        </tr>
+        <tr>
+          <td class="at-icon sev-amber">🟡</td>
+          <td><div class="at-store">高雄直營店</div><div class="at-desc">3名新進銷售顧問（入職3個月）成交率平均 8%，低於集團均值 21%。建議安排話術訓練。</div></td>
+          <td class="at-time">05/26</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 零件供應率 ── -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(133,79,11,.3);">📦</div>
+      <div><div class="ch-title">零件備件供應率</div><div class="ch-sub">標準：≥90%</div></div>
+    </div>
+    <div class="card-body">
+      <div class="parts-row">
+        <span class="pr-store">台北旗艦店</span>
+        <div class="pr-bar"><div class="pr-fill pf-good" style="width:96%;"></div></div>
+        <span class="pr-val" style="color:var(--green);">96%</span>
+      </div>
+      <div class="parts-row">
+        <span class="pr-store">台南授權商</span>
+        <div class="pr-bar"><div class="pr-fill pf-good" style="width:93%;"></div></div>
+        <span class="pr-val" style="color:var(--green);">93%</span>
+      </div>
+      <div class="parts-row">
+        <span class="pr-store">台中直營店</span>
+        <div class="pr-bar"><div class="pr-fill pf-good" style="width:91%;"></div></div>
+        <span class="pr-val" style="color:var(--green);">91%</span>
+      </div>
+      <div class="parts-row">
+        <span class="pr-store">高雄直營店</span>
+        <div class="pr-bar"><div class="pr-fill pf-warn" style="width:88%;"></div></div>
+        <span class="pr-val" style="color:var(--gold);">88%</span>
+      </div>
+      <div class="parts-row">
+        <span class="pr-store">嘉義授權商</span>
+        <div class="pr-bar"><div class="pr-fill pf-bad" style="width:72%;"></div></div>
+        <span class="pr-val" style="color:#FF6060;">72% ⚠</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 客戶流動 ── -->
+  <div class="card">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(83,74,183,.3);">👥</div>
+      <div><div class="ch-title">客戶流動</div><div class="ch-sub">本月新增 vs 流失</div></div>
+    </div>
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.3);padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:4px;">
+        <span>門店</span><span style="min-width:40px;text-align:center;">新增</span><span style="min-width:40px;text-align:center;">流失</span><span style="min-width:36px;text-align:right;">淨值</span>
+      </div>
+      <div class="flow-row">
+        <span class="fr-store">台北旗艦店</span>
+        <span class="fr-new">+226</span>
+        <span class="fr-lost">-181</span>
+        <span class="fr-net" style="color:var(--green);">+45</span>
+      </div>
+      <div class="flow-row">
+        <span class="fr-store">台南授權商</span>
+        <span class="fr-new">+142</span>
+        <span class="fr-lost">-114</span>
+        <span class="fr-net" style="color:var(--green);">+28</span>
+      </div>
+      <div class="flow-row">
+        <span class="fr-store">高雄直營店</span>
+        <span class="fr-new">+98</span>
+        <span class="fr-lost">-86</span>
+        <span class="fr-net" style="color:var(--green);">+12</span>
+      </div>
+      <div class="flow-row">
+        <span class="fr-store">嘉義授權商</span>
+        <span class="fr-new">+62</span>
+        <span class="fr-lost">-57</span>
+        <span class="fr-net" style="color:rgba(255,255,255,.4);">+5</span>
+      </div>
+      <div class="flow-row" style="background:rgba(200,0,26,.05);">
+        <span class="fr-store" style="color:#FF8080;">台中直營店</span>
+        <span class="fr-new">+330</span>
+        <span class="fr-lost" style="font-weight:700;">-382</span>
+        <span class="fr-net" style="color:#FF6060;">-52</span>
+        <span class="fr-warn">⚠ 淨流失</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 戰略決策 ── -->
+  <div class="card span2">
+    <div class="card-hdr">
+      <div class="ch-icon" style="background:rgba(240,165,0,.2);">🎯</div>
+      <div><div class="ch-title">戰略決策建議</div><div class="ch-sub">基於 Dealer Health Score 自動生成</div></div>
+    </div>
+    <div class="card-body">
+      <div class="quad-grid">
+        <div class="quad-card qc-expand">
+          <div class="qc-type qt-expand">🟢 擴大支持</div>
+          <div class="qc-store">台北旗艦店</div>
+          <div class="qc-note">Health Score 87，NPS +66，建議增加原廠配額與行銷資源投入。</div>
+        </div>
+        <div class="quad-card qc-coach">
+          <div class="qc-type qt-coach">🟡 輔導介入</div>
+          <div class="qc-store">台中直營店</div>
+          <div class="qc-note">客戶基盤淨流失，建議安排區域輔導顧問進駐。</div>
+        </div>
+        <div class="quad-card qc-review">
+          <div class="qc-type qt-review">🔴 授權審查</div>
+          <div class="qc-store">嘉義授權商</div>
+          <div class="qc-note">零件供應不足，售後毛利 58%，授權到期時評估是否續約。</div>
+        </div>
+        <div class="quad-card qc-partner">
+          <div class="qc-type qt-partner">🤝 策略合作評估</div>
+          <div class="qc-store">台南授權商</div>
+          <div class="qc-note">表現穩定，台南市場潛力大，可主動洽談策略合作或升級。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 後端串接點 ──
+// GET /api/group/summary?period=YYYYMM → 集團KPI彙總
+// GET /api/stores/{id}/summary → 門店下鑽數據
+// GET /api/group/alerts → 告警清單（紅點數字）
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+// 模擬即時更新
+setInterval(()=>{
+  const dot=document.querySelector('.live-dot');
+  if(dot) dot.style.opacity=dot.style.opacity==='0.3'?'1':'0.3';
+},1000);
+</script>
+</body>
+</html>

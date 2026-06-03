@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS02 試乘試駕 — DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--navy:#1A3A5C;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--gray:#9A9890;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-red{background:rgba(200,0,26,.8);border-color:transparent;}
+.hbtn-red:hover{background:var(--red);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.main{max-width:960px;margin:0 auto;padding:18px 20px 60px;}
+.step-bar{display:flex;background:#fff;border:1px solid #EEECE6;border-radius:9px;overflow:hidden;margin-bottom:14px;}
+.stp{flex:1;padding:10px 8px;text-align:center;font-size:11.5px;font-weight:500;color:var(--gray);border-right:1px solid #EEECE6;cursor:pointer;transition:.15s;}
+.stp:last-child{border-right:none;}
+.stp.active{background:var(--navy);color:#fff;font-weight:700;}
+.stp.done{background:var(--teal-bg);color:var(--teal);font-weight:600;}
+.stp-num{font-family:'DM Mono',monospace;font-size:9px;display:block;opacity:.65;margin-bottom:2px;}
+.step-pane{display:none;}
+.step-pane.active{display:block;}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.ph{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-l{display:flex;align-items:center;gap:10px;}
+.pi{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-r{background:#FDECEA;}.pi-b{background:var(--blue-bg);}.pi-t{background:var(--teal-bg);}.pi-a{background:var(--amber-bg);}
+.pt{font-size:13px;font-weight:600;}
+.ps{font-size:11px;color:var(--gray);margin-top:1px;}
+.pb{padding:14px 16px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 16px;}
+.fl{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:4px;}
+.req{color:var(--red);font-size:11px;}
+.fi{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;transition:border .15s;}
+.fi:focus{border-color:var(--blue-bd);}
+.fs{width:100%;padding:7px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.chk-grid{display:flex;flex-direction:column;gap:3px;}
+.ci{display:flex;align-items:flex-start;gap:9px;padding:7px 10px;border-radius:6px;border:1px solid #EEECE6;background:#fff;cursor:pointer;transition:.15s;}
+.ci:hover{border-color:var(--blue-bd);background:#F0F7FF;}
+.ci.ok{background:var(--teal-bg);border-color:var(--teal-bd);}
+.ci.ng{background:#FDECEA;border-color:#F5AEAD;}
+.cb{display:flex;gap:4px;flex-shrink:0;}
+.cbtn{width:22px;height:22px;border-radius:4px;border:1px solid #D5D3CB;background:#fff;cursor:pointer;font-size:10px;font-weight:700;transition:.15s;}
+.cbtn:hover{border-color:var(--navy);}
+.cbtn.bok{background:var(--teal);border-color:var(--teal);color:#fff;}
+.cbtn.bng{background:var(--red);border-color:var(--red);color:#fff;}
+.ct{font-size:12.5px;flex:1;line-height:1.5;padding-top:2px;}
+.cat-h{font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.4px;padding:6px 10px 3px;background:#F4F3F0;border-radius:5px;margin-top:6px;text-transform:uppercase;}
+.prog-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.pbar{flex:1;height:7px;background:#EEECE6;border-radius:4px;overflow:hidden;}
+.pfill{height:100%;background:linear-gradient(90deg,var(--teal),#5DCAA5);border-radius:4px;transition:width .3s;}
+.ppct{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;color:var(--teal);white-space:nowrap;}
+/* 黃金時刻 */
+.golden{background:linear-gradient(135deg,#7A1010,var(--red));border-radius:12px;padding:22px;color:#fff;text-align:center;margin-bottom:14px;}
+.g-title{font-size:20px;font-weight:700;margin-bottom:6px;}
+.g-sub{font-size:13px;opacity:.85;margin-bottom:16px;line-height:1.65;}
+.g-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+.g-btn{padding:10px 22px;border-radius:8px;font-family:'Noto Sans TC',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:.15s;}
+.g-white{background:#fff;color:#7A1010;}
+.g-white:hover{background:#FDECEA;}
+.g-outline{background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.4);}
+.g-outline:hover{background:rgba(255,255,255,.25);}
+.timer-box{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.timer-label{font-size:12px;opacity:.8;}
+.timer-val{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;}
+/* 結果 */
+.result-item{display:flex;gap:3px;}
+.ri-sel{padding:6px 12px;border-radius:6px;border:1.5px solid #D5D3CB;background:#F4F3F0;font-size:12.5px;cursor:pointer;transition:.15s;font-family:'Noto Sans TC',sans-serif;}
+.ri-sel.sel-ok{background:var(--teal-bg);border-color:var(--teal-bd);color:var(--teal);font-weight:700;}
+.ri-sel.sel-amber{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber);font-weight:700;}
+.ri-sel.sel-red{background:#FDECEA;border-color:#F5AEAD;color:var(--red);font-weight:700;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}.b-gray{background:#F1EFE8;color:var(--gray);}.b-red{background:#FDECEA;color:var(--red);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;white-space:nowrap;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-primary:hover{background:#142E4A;}
+.btn-red{background:var(--red);border-color:var(--red);color:#fff;}
+.btn-red:hover{background:#A8001A;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-teal:hover{background:#085041;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:320px;line-height:1.5;}
+.toast.show{transform:translateY(0);opacity:1;}
+.divider{height:1px;background:#EEECE6;margin:12px 0;}
+.mb12{margin-bottom:12px;}
+.fe{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.sec-title{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);margin:14px 0 7px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">銷售模組 <b>RS02 試乘試駕</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('RS00_銷售模組_導覽總覽_v2.html')">← RS 總覽</button>
+    <button class="hbtn" onclick="go('RS01_電子手卡_v8.html')">← 電子手卡</button>
+    <button class="hbtn hbtn-red" onclick="go('RS04_賞車報價與成交訂單_v1.html')">開立報價 RS04 →</button>
+  </div>
+</header>
+
+<div class="main">
+<!-- 步驟條 -->
+<div class="step-bar">
+  <div class="stp active" id="s1" onclick="gS(1)"><span class="stp-num">STEP 1</span>試駕登記</div>
+  <div class="stp" id="s2" onclick="gS(2)"><span class="stp-num">STEP 2</span>安全確認清單</div>
+  <div class="stp" id="s3" onclick="gS(3)"><span class="stp-num">STEP 3</span>試駕計時</div>
+  <div class="stp" id="s4" onclick="gS(4)"><span class="stp-num">STEP 4</span>結束評估 · 黃金時刻</div>
+</div>
+
+<!-- STEP 1 試駕登記 -->
+<div class="step-pane active" id="pane-1">
+  <div class="panel mb12">
+    <div class="ph"><div class="ph-l"><div class="pi pi-b">📋</div><div><div class="pt">試駕基本登記</div><div class="ps">試駕前完成資料登記，確認客戶已持有合格駕照</div></div></div><span class="badge b-gray">TD-20260510-001</span></div>
+    <div class="pb">
+      <div class="fg2 mb12">
+        <div><div class="fl">客戶姓名 <span class="req">*</span></div><input type="text" class="fi" placeholder="來自 RS01 電子手卡" value="王大明"></div>
+        <div><div class="fl">聯絡電話</div><input type="text" class="fi" value="0912-345-678" readonly style="background:#F4F3F0;"></div>
+        <div><div class="fl">大型重機駕照 <span class="req">*</span></div>
+          <select class="fs"><option value="1">✅ 有效大型重機駕照（A1/A2）</option><option value="0">❌ 無駕照（不可試駕）</option></select>
+        </div>
+        <div><div class="fl">駕照字號</div><input type="text" class="fi" placeholder="請輸入駕照號碼"></div>
+        <div><div class="fl">試駕日期 <span class="req">*</span></div><input type="date" class="fi" value="2026-05-10"></div>
+        <div><div class="fl">試駕時段</div><input type="time" class="fi" value="14:30"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="fg3">
+        <div><div class="fl">試駕車款 <span class="req">*</span></div>
+          <select class="fs" id="td-model"><option>Panigale V4 S（仿賽）</option><option>Streetfighter V4（裸把）</option><option>Monster SP（街車）</option><option>Multistrada V4 S（旅行）</option><option>DesertX Rally（越野）</option><option>Hypermotard 698 RVE（超摩）</option></select>
+        </div>
+        <div><div class="fl">車牌號碼</div><input type="text" class="fi" placeholder="試駕車牌"></div>
+        <div><div class="fl">試駕路線</div>
+          <select class="fs"><option>市區短程（約 15 分）</option><option>山路/彎道體驗（約 30 分）</option><option>高速公路巡航（約 20 分）</option><option>綜合路線（約 45 分）</option></select>
+        </div>
+      </div>
+      <div class="sec-title">意向確認</div>
+      <div class="fg2">
+        <div><div class="fl">試駕目的</div>
+          <select class="fs"><option>新車購買前體驗</option><option>中古車購買前確認</option><option>換購比較（現有其他車款）</option><option>純體驗（暫無購買計畫）</option></select>
+        </div>
+        <div><div class="fl">客戶意向等級</div>
+          <select class="fs"><option>H 級（本月成交）</option><option>A 級（30 天內）</option><option>B 級（3 個月內）</option><option>C 級（暫時觀望）</option></select>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="fe">
+    <button class="btn btn-ghost" onclick="showToast('💾 試駕登記已儲存草稿')">💾 儲存</button>
+    <button class="btn btn-primary" onclick="gS(2)">安全確認清單 →</button>
+  </div>
+</div>
+
+<!-- STEP 2 安全確認 -->
+<div class="step-pane" id="pane-2">
+  <div class="panel mb12">
+    <div class="ph"><div class="ph-l"><div class="pi pi-r">🛡️</div><div><div class="pt">試駕前安全確認清單</div><div class="ps">全部確認 OK 方可出發 · 任一 NG 項目須告知客戶並記錄</div></div></div><span class="badge b-gray" id="safe-cnt">0 / 14</span></div>
+    <div class="pb">
+      <div class="prog-row"><span style="font-size:11.5px;font-weight:600;white-space:nowrap;">確認進度</span><div class="pbar"><div class="pfill" id="safe-bar" style="width:0%;"></div></div><span class="ppct" id="safe-pct">0%</span></div>
+      <div class="cat-h">客戶本身</div>
+      <div class="chk-grid">
+        <div class="ci" id="sc0"><div class="cb"><button class="cbtn" onclick="chk('sc0','ok',this)">✓</button><button class="cbtn" onclick="chk('sc0','ng',this)">✗</button></div><div class="ct">持有有效大型重機駕照（A1 或 A2）</div></div>
+        <div class="ci" id="sc1"><div class="cb"><button class="cbtn" onclick="chk('sc1','ok',this)">✓</button><button class="cbtn" onclick="chk('sc1','ng',this)">✗</button></div><div class="ct">已配戴合格安全帽（全罩式或3/4罩，需扣好扣環）</div></div>
+        <div class="ci" id="sc2"><div class="cb"><button class="cbtn" onclick="chk('sc2','ok',this)">✓</button><button class="cbtn" onclick="chk('sc2','ng',this)">✗</button></div><div class="ct">著長袖長褲，穿著閉趾鞋（不可穿涼鞋、拖鞋）</div></div>
+        <div class="ci" id="sc3"><div class="cb"><button class="cbtn" onclick="chk('sc3','ok',this)">✓</button><button class="cbtn" onclick="chk('sc3','ng',this)">✗</button></div><div class="ct">精神狀態良好，無飲酒或服用影響駕駛之藥物</div></div>
+        <div class="ci" id="sc4"><div class="cb"><button class="cbtn" onclick="chk('sc4','ok',this)">✓</button><button class="cbtn" onclick="chk('sc4','ng',this)">✗</button></div><div class="ct">已簽署試駕同意書（客戶確認知悉風險）</div></div>
+      </div>
+      <div class="cat-h">試駕車輛</div>
+      <div class="chk-grid">
+        <div class="ci" id="sc5"><div class="cb"><button class="cbtn" onclick="chk('sc5','ok',this)">✓</button><button class="cbtn" onclick="chk('sc5','ng',this)">✗</button></div><div class="ct">前後燈光正常（頭燈/尾燈/方向燈）</div></div>
+        <div class="ci" id="sc6"><div class="cb"><button class="cbtn" onclick="chk('sc6','ok',this)">✓</button><button class="cbtn" onclick="chk('sc6','ng',this)">✗</button></div><div class="ct">前後煞車正常作動</div></div>
+        <div class="ci" id="sc7"><div class="cb"><button class="cbtn" onclick="chk('sc7','ok',this)">✓</button><button class="cbtn" onclick="chk('sc7','ng',this)">✗</button></div><div class="ct">胎壓正常（前 2.5 bar / 後 2.5 bar）</div></div>
+        <div class="ci" id="sc8"><div class="cb"><button class="cbtn" onclick="chk('sc8','ok',this)">✓</button><button class="cbtn" onclick="chk('sc8','ng',this)">✗</button></div><div class="ct">油量足夠（不低於 1/4 格）</div></div>
+        <div class="ci" id="sc9"><div class="cb"><button class="cbtn" onclick="chk('sc9','ok',this)">✓</button><button class="cbtn" onclick="chk('sc9','ng',this)">✗</button></div><div class="ct">鏡子（後視鏡）調整完畢</div></div>
+        <div class="ci" id="sc10"><div class="cb"><button class="cbtn" onclick="chk('sc10','ok',this)">✓</button><button class="cbtn" onclick="chk('sc10','ng',this)">✗</button></div><div class="ct">發動正常，怠速穩定，無故障燈亮起</div></div>
+      </div>
+      <div class="cat-h">試駕說明（RS 口頭說明完成）</div>
+      <div class="chk-grid">
+        <div class="ci" id="sc11"><div class="cb"><button class="cbtn" onclick="chk('sc11','ok',this)">✓</button><button class="cbtn" onclick="chk('sc11','ng',this)">✗</button></div><div class="ct">已向客戶說明試駕路線與路況</div></div>
+        <div class="ci" id="sc12"><div class="cb"><button class="cbtn" onclick="chk('sc12','ok',this)">✓</button><button class="cbtn" onclick="chk('sc12','ng',this)">✗</button></div><div class="ct">已說明車輛特性（動力模式 / ABS / DTC 設定）</div></div>
+        <div class="ci" id="sc13"><div class="cb"><button class="cbtn" onclick="chk('sc13','ok',this)">✓</button><button class="cbtn" onclick="chk('sc13','ng',this)">✗</button></div><div class="ct">已告知緊急聯絡方式及回廠時間</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="fe">
+    <button class="btn btn-ghost" onclick="gS(1)">← 返回</button>
+    <button class="btn btn-ghost btn-sm" onclick="chkAll()">✅ 全部 OK（測試）</button>
+    <button class="btn btn-primary" onclick="gS(3)">開始試駕計時 →</button>
+  </div>
+</div>
+
+<!-- STEP 3 計時 -->
+<div class="step-pane" id="pane-3">
+  <div class="panel mb12">
+    <div class="ph"><div class="ph-l"><div class="pi pi-t">⏱️</div><div><div class="pt">試駕計時</div><div class="ps">記錄實際試駕開始/結束時間</div></div></div><span class="badge b-teal" id="timer-badge">待開始</span></div>
+    <div class="pb">
+      <div style="text-align:center;padding:20px 0;">
+        <div style="font-size:11.5px;color:var(--gray);margin-bottom:6px;">試駕時長</div>
+        <div style="font-size:56px;font-weight:700;font-family:'DM Mono',monospace;color:var(--navy);line-height:1;" id="timer-display">00:00</div>
+        <div style="font-size:12px;color:var(--gray);margin-top:8px;" id="timer-start-label">尚未開始</div>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:10px;">
+        <button class="btn btn-teal" id="btn-start" onclick="startTimer()">▶ 開始試駕</button>
+        <button class="btn btn-ghost" id="btn-stop" onclick="stopTimer()" disabled>⏹ 結束試駕</button>
+      </div>
+      <div class="divider"></div>
+      <div class="fg3">
+        <div><div class="fl">出發里程（km）</div><input type="text" class="fi" placeholder="記錄儀表板里程" id="km-start"></div>
+        <div><div class="fl">返回里程（km）</div><input type="text" class="fi" placeholder="試駕後里程" id="km-end"></div>
+        <div><div class="fl">試駕總里程</div><input type="text" class="fi" placeholder="自動計算" id="km-total" readonly style="background:#F4F3F0;font-family:'DM Mono',monospace;font-weight:700;color:var(--navy);"></div>
+      </div>
+      <div class="fg2" style="margin-top:10px;">
+        <div><div class="fl">陪同人員</div>
+          <select class="fs"><option>客戶獨自試駕</option><option>RS 陪同（機車後座）</option><option>RS 先導（另一台車）</option><option>RS 尾隨（另一台車）</option></select>
+        </div>
+        <div><div class="fl">試駕路況記錄</div><input type="text" class="fi" placeholder="例：山路彎道，路況良好"></div>
+      </div>
+    </div>
+  </div>
+  <div class="fe">
+    <button class="btn btn-ghost" onclick="gS(2)">← 返回</button>
+    <button class="btn btn-primary" onclick="gS(4)">試駕結束 → 結果評估</button>
+  </div>
+</div>
+
+<!-- STEP 4 黃金時刻 -->
+<div class="step-pane" id="pane-4">
+
+  <!-- 黃金時刻強制提示 -->
+  <div class="golden">
+    <div class="g-title">⚡ 黃金時刻</div>
+    <div class="g-sub">試駕剛結束是客戶意願最高的時刻<br>現在立即開立報價單，把握成交機會！</div>
+    <div class="g-actions">
+      <button class="g-btn g-white" onclick="go('RS04_賞車報價與成交訂單_v1.html')">🏷️ 立即開立報價單 RS04</button>
+      <button class="g-btn g-outline" onclick="document.getElementById('skip-reason').style.display='block';this.style.display='none'">稍後再說（填寫原因）</button>
+    </div>
+    <div id="skip-reason" style="display:none;margin-top:12px;">
+      <select style="width:100%;max-width:400px;padding:8px 12px;border-radius:7px;border:none;font-family:'Noto Sans TC',sans-serif;font-size:13px;" onchange="showToast('📝 跳過原因已記錄')">
+        <option>— 請選擇跳過原因 —</option>
+        <option>客戶需要時間考慮</option>
+        <option>客戶需要與家人商量</option>
+        <option>客戶對車款尚未確定</option>
+        <option>客戶對價格有疑慮，需另行溝通</option>
+        <option>車款不符合期待，需推薦其他車型</option>
+        <option>客戶主動說明不急購買</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 試駕結果記錄 -->
+  <div class="panel mb12">
+    <div class="ph"><div class="ph-l"><div class="pi pi-a">📝</div><div><div class="pt">試駕結果記錄</div><div class="ps">回寫至 RS01 電子手卡（唯讀）</div></div></div></div>
+    <div class="pb">
+      <div class="sec-title">客戶整體感受</div>
+      <div class="result-item mb12">
+        <button class="ri-sel" onclick="selResult(this,'overall','ok')">😊 非常滿意</button>
+        <button class="ri-sel" onclick="selResult(this,'overall','amber')">🙂 尚可接受</button>
+        <button class="ri-sel" onclick="selResult(this,'overall','red')">😐 不符期待</button>
+      </div>
+      <div class="fg2 mb12">
+        <div><div class="fl">動力感受</div>
+          <select class="fs"><option>— 選擇 —</option><option>超出預期（非常強烈）</option><option>符合預期</option><option>低於預期</option><option>太強，操控不易</option></select>
+        </div>
+        <div><div class="fl">操控靈活性</div>
+          <select class="fs"><option>— 選擇 —</option><option>非常靈活，輕鬆上手</option><option>需要適應期</option><option>感覺偏重/偏大</option><option>感覺偏輕/不穩</option></select>
+        </div>
+        <div><div class="fl">坐姿/人機工學</div>
+          <select class="fs"><option>— 選擇 —</option><option>非常舒適</option><option>尚可</option><option>坐姿太攻擊性</option><option>腳踏位置不適合</option></select>
+        </div>
+        <div><div class="fl">試駕後意向變化</div>
+          <select class="fs"><option>— 選擇 —</option><option>意願明顯提升 ⬆️</option><option>維持原意願</option><option>意願下降 ⬇️</option><option>改變車款興趣</option></select>
+        </div>
+      </div>
+      <div class="sec-title">試駕後推薦車款調整</div>
+      <div class="fg2 mb12">
+        <div><div class="fl">原試駕車款</div><input type="text" class="fi" style="background:#F4F3F0;" readonly id="orig-model" value="Panigale V4 S"></div>
+        <div><div class="fl">建議追加推薦</div>
+          <select class="fs"><option>維持原車款</option><option>改推 Streetfighter V4（降低坐姿）</option><option>改推 Monster SP（更友善）</option><option>改推 Multistrada V4 S（旅行舒適）</option><option>改推 DesertX Rally（冒險性格）</option><option>改推 Hypermotard 698 RVE</option></select>
+        </div>
+      </div>
+      <div><div class="fl">試駕備注 / RS 觀察</div><textarea class="fi" style="height:70px;resize:none;" placeholder="客戶騎乘習慣觀察、特別反應、後續跟進建議..."></textarea></div>
+      <div class="divider"></div>
+      <div style="background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:7px;padding:10px 14px;font-size:12px;color:#0C3E70;">
+        ℹ️ 以下資料將<b>自動回寫</b>至 RS01 電子手卡（唯讀顯示）：試駕車款、試駕日期、試駕時長、整體感受評分、RS 備注
+      </div>
+    </div>
+  </div>
+
+  <div class="fe">
+    <button class="btn btn-ghost" onclick="showToast('💾 試駕記錄已儲存並回寫至 RS01')">💾 儲存試駕記錄</button>
+    <button class="btn btn-teal" onclick="go('RS01_電子手卡_v8.html')">← 回到電子手卡</button>
+    <button class="btn btn-red" onclick="go('RS04_賞車報價與成交訂單_v1.html')">🏷️ 立即開立報價單 →</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+var doneS=[];
+function gS(n){
+  [1,2,3,4].forEach(function(i){
+    var s=document.getElementById('s'+i),p=document.getElementById('pane-'+i);
+    s.classList.remove('active','done');p.classList.remove('active');
+    if(doneS.indexOf(i)>-1)s.classList.add('done');
+  });
+  document.getElementById('s'+n).classList.add('active');
+  document.getElementById('pane-'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+var safeDone=[];
+function chk(id,st,btn){
+  var el=document.getElementById(id);
+  var btns=el.querySelectorAll('.cbtn');
+  btns.forEach(function(b){b.classList.remove('bok','bng');});
+  if(st==='ok'){btn.classList.add('bok');el.classList.remove('ng');el.classList.add('ok');}
+  else{btn.classList.add('bng');el.classList.remove('ok');el.classList.add('ng');}
+  if(safeDone.indexOf(id)<0){safeDone.push(id);}
+  var pct=Math.round(safeDone.length/14*100);
+  document.getElementById('safe-bar').style.width=pct+'%';
+  document.getElementById('safe-pct').textContent=pct+'%';
+  document.getElementById('safe-cnt').textContent=safeDone.length+' / 14';
+}
+function chkAll(){
+  for(var i=0;i<14;i++){
+    var id='sc'+i;
+    var el=document.getElementById(id);
+    if(el&&safeDone.indexOf(id)<0){
+      el.classList.add('ok');
+      el.querySelector('.cbtn').classList.add('bok');
+      safeDone.push(id);
+    }
+  }
+  document.getElementById('safe-bar').style.width='100%';
+  document.getElementById('safe-pct').textContent='100%';
+  document.getElementById('safe-cnt').textContent='14 / 14';
+}
+var timerInt=null,timerSec=0,timerRunning=false;
+function startTimer(){
+  if(timerRunning)return;
+  timerRunning=true;
+  var now=new Date();
+  document.getElementById('timer-start-label').textContent='開始：'+now.toLocaleTimeString('zh-TW');
+  document.getElementById('timer-badge').textContent='試駕中';
+  document.getElementById('timer-badge').className='badge b-red';
+  document.getElementById('btn-start').disabled=true;
+  document.getElementById('btn-stop').disabled=false;
+  timerInt=setInterval(function(){
+    timerSec++;
+    var m=Math.floor(timerSec/60),s=timerSec%60;
+    document.getElementById('timer-display').textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  },1000);
+  showToast('▶ 試駕開始計時');
+}
+function stopTimer(){
+  if(!timerRunning)return;
+  clearInterval(timerInt);timerRunning=false;
+  document.getElementById('timer-badge').textContent='已結束';
+  document.getElementById('timer-badge').className='badge b-teal';
+  document.getElementById('btn-stop').disabled=true;
+  showToast('⏹ 試駕結束 · 共 '+document.getElementById('timer-display').textContent);
+}
+document.getElementById('km-end').addEventListener('input',function(){
+  var s=parseInt(document.getElementById('km-start').value)||0;
+  var e=parseInt(this.value)||0;
+  if(e>s)document.getElementById('km-total').value=(e-s)+' km';
+});
+document.getElementById('orig-model').value=document.getElementById('td-model')?document.getElementById('td-model').value:'';
+function selResult(btn,grp,st){
+  btn.closest('.result-item').querySelectorAll('.ri-sel').forEach(function(b){b.className='ri-sel';});
+  btn.classList.add('sel-'+st);
+}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
+</script>
+</body>
+</html>

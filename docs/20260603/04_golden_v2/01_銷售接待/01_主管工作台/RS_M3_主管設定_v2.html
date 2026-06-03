@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DUCATI 銷售管理 — RS_M3 主管設定</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.hbtn-red{background:rgba(200,0,26,.75);border-color:transparent;}
+.hbtn-red:hover{background:rgba(200,0,26,.95);}
+.layout{display:flex;min-height:calc(100vh - 52px);}
+.sidenav{width:200px;flex-shrink:0;background:#fff;border-right:1px solid #EEECE6;padding:12px 0;position:sticky;top:52px;height:calc(100vh - 52px);overflow-y:auto;}
+.nav-section{padding:0 10px;margin-bottom:2px;}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;padding:10px 8px 4px;}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;cursor:pointer;transition:background .12s;color:#4A4A48;font-size:12px;}
+.nav-item:hover{background:#F4F3F0;}
+.nav-item.active{background:#EAF4FB;color:#185FA5;font-weight:600;}
+.nav-item.active .ndot{background:#185FA5;}
+.ndot{width:7px;height:7px;border-radius:50%;background:#D5D3CB;flex-shrink:0;}
+.nav-divider{height:1px;background:#EEECE6;margin:6px 10px;}
+.main{flex:1;padding:22px 24px;max-width:980px;}
+.page-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:16px;}
+.page-title{font-size:18px;font-weight:700;margin-bottom:4px;}
+.page-sub{font-size:12px;color:#7A7A78;line-height:1.6;}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid #EEECE6;margin-bottom:20px;}
+.tab-btn{padding:9px 20px;font-size:13px;font-weight:500;color:#7A7A78;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;white-space:nowrap;font-family:'Noto Sans TC',sans-serif;background:none;border-top:none;border-left:none;border-right:none;}
+.tab-btn:hover{color:#2C2C2A;}
+.tab-btn.active{color:#1A3A5C;font-weight:700;border-bottom-color:#1A3A5C;}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+.section{background:#fff;border:1px solid #EEECE6;border-radius:10px;margin-bottom:14px;overflow:hidden;}
+.section-hdr{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid #EEECE6;background:#FAFAF8;cursor:pointer;user-select:none;}
+.section-left{display:flex;align-items:center;gap:10px;}
+.sicon{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.si-blue{background:#EAF4FB;}.si-amber{background:#FDF3E3;}.si-teal{background:#E1F5EE;}.si-red{background:#FDECEA;}.si-purple{background:#EEEDFE;}.si-dark{background:#E8EDF2;}
+.section-title{font-size:13px;font-weight:600;}
+.section-note{font-size:11px;color:#9A9890;margin-top:1px;}
+.section-tog{font-size:12px;color:#9A9890;display:flex;align-items:center;gap:5px;}
+.chev{transition:transform .2s;display:inline-block;}
+.chev.open{transform:rotate(90deg);}
+.section-body{padding:16px;}
+.section-body.collapsed{display:none;}
+.btn{padding:6px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}.btn-primary:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}.btn-ghost:hover{background:#F4F3F0;}
+.btn-teal{background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;}.btn-teal:hover{background:#C8EEE0;}
+.btn-red{background:#FDECEA;border-color:#F5AEAD;color:#CC0000;}
+.btn-sm{padding:4px 11px;font-size:11.5px;}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:5px;font-size:10.5px;font-weight:600;}
+.b-gray{background:#F1EFE8;color:#5A5955;border:1px solid #D5D3CB;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}
+.b-blue{background:#EAF4FB;color:#185FA5;}
+.b-amber{background:#FDF3E3;color:#854F0B;}
+.b-red{background:#FDECEA;color:#C8001A;}
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:300px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:200;display:none;align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:460px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.18);overflow:hidden;}
+.modal-hdr{padding:15px 20px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:14px;font-weight:600;}
+.modal-close{background:none;border:none;cursor:pointer;font-size:18px;color:#9A9890;line-height:1;padding:2px 6px;}
+.modal-body{padding:20px;}
+.form-row{margin-bottom:14px;}
+.form-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:5px;display:flex;gap:5px;align-items:center;}
+.form-req{color:#CC0000;}
+.form-input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;transition:border .15s;}
+.form-input:focus{border-color:#85B7EB;}
+.form-select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;background:#fff;}
+.form-hint{font-size:11px;color:#9A9890;margin-top:4px;}
+.modal-footer{padding:13px 20px;border-top:1px solid #EEECE6;display:flex;justify-content:flex-end;gap:8px;}
+/* KPI */
+.kpi-target-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:0;}
+.ktc{background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:12px 14px;}
+.ktc-icon{font-size:18px;margin-bottom:5px;}
+.ktc-label{font-size:11.5px;font-weight:600;color:#2C2C2A;margin-bottom:2px;}
+.ktc-desc{font-size:10.5px;color:#9A9890;margin-bottom:8px;line-height:1.4;}
+.ktc-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.ktc-input{width:66px;padding:5px 8px;border-radius:6px;border:1px solid #D5D3CB;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;text-align:center;color:#1A3A5C;outline:none;}
+.ktc-input:focus{border-color:#85B7EB;}
+.ktc-unit{font-size:11px;color:#7A7A78;}
+.ktc-reset{font-size:10.5px;color:#9A9890;border:1px solid #D5D3CB;background:#fff;padding:2px 6px;border-radius:4px;cursor:pointer;margin-left:auto;}
+.ktc-reset:hover{background:#F4F3F0;}
+/* Val grid */
+.val-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.val-item{background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:12px 14px;}
+.val-label{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:2px;}
+.val-desc{font-size:11px;color:#9A9890;margin-bottom:10px;line-height:1.5;}
+.val-control{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.val-input{width:70px;padding:6px 8px;border-radius:6px;border:1px solid #D5D3CB;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:#1A3A5C;text-align:center;outline:none;}
+.val-input:focus{border-color:#85B7EB;}
+.val-unit{font-size:11.5px;color:#7A7A78;}
+.val-reset{font-size:11px;color:#9A9890;border:1px solid #D5D3CB;background:#fff;padding:3px 8px;border-radius:5px;cursor:pointer;}
+.val-reset:hover{background:#F4F3F0;}
+/* HABC */
+.habc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.habc-card{border-radius:8px;padding:12px 14px;border:1.5px solid;}
+.habc-H{background:#F0FBF6;border-color:#5DCAA5;}.habc-A{background:#EAF4FB;border-color:#85B7EB;}
+.habc-B{background:#FDF3E3;border-color:#F0C97E;}.habc-C{background:#F1EFE8;border-color:#B4B2A9;}
+.habc-letter{font-size:24px;font-weight:800;font-family:'DM Mono',monospace;margin-bottom:2px;}
+.habc-H .habc-letter{color:#0F6E56;}.habc-A .habc-letter{color:#185FA5;}
+.habc-B .habc-letter{color:#854F0B;}.habc-C .habc-letter{color:#5A5955;}
+.habc-name{font-size:11px;font-weight:600;margin-bottom:6px;}
+.habc-H .habc-name{color:#0F6E56;}.habc-A .habc-name{color:#185FA5;}
+.habc-B .habc-name{color:#854F0B;}.habc-C .habc-name{color:#5A5955;}
+.habc-cond{font-size:10.5px;color:#5A5955;line-height:1.5;margin-bottom:8px;}
+.habc-row{display:flex;align-items:center;gap:4px;font-size:11px;color:#5A5955;flex-wrap:wrap;}
+.habc-input{width:50px;padding:3px 5px;border-radius:5px;border:1px solid #D5D3CB;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;text-align:center;outline:none;}
+.habc-input:focus{border-color:#85B7EB;}
+/* 九宮格 */
+.matrix-outer{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;}
+.matrix-left{flex:1;min-width:360px;}
+.matrix-right{width:200px;flex-shrink:0;}
+.matrix-wrap{position:relative;padding-left:44px;padding-bottom:30px;}
+.axis-y{position:absolute;left:0;top:0;bottom:30px;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;font-weight:600;color:#5A5955;width:18px;}
+.y-scale{position:absolute;left:18px;top:0;bottom:30px;display:flex;flex-direction:column;justify-content:space-between;font-size:9.5px;color:#9A9890;font-family:'DM Mono',monospace;width:22px;align-items:flex-end;}
+.x-scale{display:flex;justify-content:space-between;font-size:9.5px;color:#9A9890;font-family:'DM Mono',monospace;margin-top:4px;}
+.matrix-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);border:1.5px solid #C8C7C4;border-radius:8px;overflow:hidden;height:264px;}
+.mc{border:1px solid #EEECE6;padding:7px 9px;position:relative;cursor:pointer;transition:filter .12s;}
+.mc:hover{filter:brightness(.96);}
+.mc-title{font-size:10.5px;font-weight:700;margin-bottom:2px;}
+.mc-hint{font-size:10px;color:#5A5955;line-height:1.3;}
+.mc-avatars{position:absolute;bottom:5px;right:5px;display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:76px;}
+.av{width:23px;height:23px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;border:2px solid rgba(255,255,255,.7);box-shadow:0 1px 3px rgba(0,0,0,.18);cursor:grab;flex-shrink:0;}
+.av:active{cursor:grabbing;}
+.mc-r3c1{background:#FFF8F0;}.mc-r3c2{background:#FFF5E8;}.mc-r3c3{background:#F5FDF9;}
+.mc-r2c1{background:#FFF0EE;}.mc-r2c2{background:#F8F8F8;}.mc-r2c3{background:#EEF9F5;}
+.mc-r1c1{background:#FDECEA;}.mc-r1c2{background:#FDF8E0;}.mc-r1c3{background:#EAF4FB;}
+.mc-detail{background:#EAF4FB;border:1px solid #85B7EB;border-radius:8px;padding:12px 14px;margin-top:12px;display:none;}
+.mc-detail.show{display:block;}
+.mcd-title{font-size:13px;font-weight:700;color:#0C3E70;margin-bottom:4px;}
+.mcd-body{font-size:12px;color:#1A3A5C;line-height:1.65;}
+.thresh-wrap{background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:12px 14px;margin-top:12px;}
+.thresh-title{font-size:11.5px;font-weight:600;color:#4A4A48;margin-bottom:10px;}
+.thresh-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:11.5px;color:#5A5955;flex-wrap:wrap;}
+.thresh-input{width:52px;padding:4px 6px;border:1px solid #D5D3CB;border-radius:5px;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;text-align:center;outline:none;}
+.thresh-input:focus{border-color:#85B7EB;}
+.ml-title{font-size:11px;font-weight:600;color:#5A5955;margin-bottom:8px;}
+.ml-item{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.ml-av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;}
+.ml-name{font-size:11.5px;font-weight:500;}
+.ml-sub{font-size:10.5px;color:#9A9890;}
+/* 標籤管理 */
+.label-color-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.lc-card{border-radius:8px;padding:12px 14px;border:1.5px solid;}
+.lc-red{background:#FFF8F8;border-color:#F5AEAD;}.lc-yellow{background:#FFFDF0;border-color:#F0C97E;}
+.lc-green{background:#F5FDF9;border-color:#5DCAA5;}.lc-blue{background:#EAF4FB;border-color:#85B7EB;}
+.lc-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.lc-title{font-size:12px;font-weight:700;}
+.lc-red .lc-title{color:#C8001A;}.lc-yellow .lc-title{color:#854F0B;}
+.lc-green .lc-title{color:#0F6E56;}.lc-blue .lc-title{color:#185FA5;}
+.lc-tags{min-height:32px;}
+.lc-tag{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:5px;font-size:11.5px;font-weight:500;margin:2px 2px;}
+.lc-red .lc-tag{background:#FDECEA;color:#C8001A;}.lc-yellow .lc-tag{background:#FDF3E3;color:#854F0B;}
+.lc-green .lc-tag{background:#E1F5EE;color:#0F6E56;}.lc-blue .lc-tag{background:#EAF4FB;color:#185FA5;}
+.lc-tag-del{background:none;border:none;cursor:pointer;color:inherit;opacity:.5;font-size:13px;padding:0;line-height:1;}
+.lc-tag-del:hover{opacity:1;}
+.lc-add-row{display:flex;gap:6px;margin-top:8px;}
+.lc-inp{flex:1;padding:5px 8px;border-radius:5px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;outline:none;}
+.lc-inp:focus{border-color:#85B7EB;}
+/* RS table */
+.rs-table{width:100%;border-collapse:collapse;}
+.rs-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:7px 12px;border-bottom:2px solid #EEECE6;text-align:left;white-space:nowrap;}
+.rs-table td{padding:10px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.rs-table tr:last-child td{border-bottom:none;}
+.rs-table tr:hover td{background:#FAFAF8;}
+.rs-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;margin-right:8px;flex-shrink:0;}
+.rs-name-cell{display:flex;align-items:center;}
+.sp-active{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;background:#E1F5EE;color:#0F6E56;}
+.sp-inactive{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600;background:#F1EFE8;color:#9A9890;}
+/* custom tag table */
+.ct-table{width:100%;border-collapse:collapse;}
+.ct-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:6px 10px;border-bottom:2px solid #EEECE6;text-align:left;}
+.ct-table td{padding:8px 10px;border-bottom:1px solid #F4F3F0;font-size:12px;vertical-align:middle;}
+.ct-table tr:last-child td{border-bottom:none;}
+.ct-table tr:hover td{background:#FAFAF8;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">DUCATI</div><div class="hdiv"></div>
+  <div class="htitle">銷售管理 <b>RS_M3 — 主管設定</b></div>
+  <div class="hright">
+    <button class="hbtn" onclick="showToast('← 返回導覽總覽')">← 返回</button>
+    <button class="hbtn" onclick="showToast('→ RS_M1 漏斗看板')">漏斗看板</button>
+    <button class="hbtn hbtn-red" onclick="saveAll()">💾 儲存所有設定</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <nav class="sidenav">
+    <div class="nav-section">
+      <div class="nav-label">Tab 1 · KPI 目標</div>
+      <div class="nav-item active" id="n-l1" onclick="navTo('n-l1','sec-l1',0)"><div class="ndot"></div>Layer 1 結果指標</div>
+      <div class="nav-item" id="n-l2" onclick="navTo('n-l2','sec-l2',0)"><div class="ndot"></div>Layer 2 過程指標</div>
+      <div class="nav-item" id="n-habc" onclick="navTo('n-habc','sec-habc',0)"><div class="ndot"></div>HABC 閾值設定</div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">Tab 2 · 九宮格</div>
+      <div class="nav-item" id="n-matrix" onclick="navTo('n-matrix','sec-matrix',1)"><div class="ndot"></div>員工評估矩陣</div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">Tab 3 · 標籤管理</div>
+      <div class="nav-item" id="n-official" onclick="navTo('n-official','sec-official',2)"><div class="ndot"></div>官方標籤庫</div>
+      <div class="nav-item" id="n-custom" onclick="navTo('n-custom','sec-custom',2)"><div class="ndot"></div>RS 自訂標籤監看</div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">Tab 4 · 人員管理</div>
+      <div class="nav-item" id="n-rs" onclick="navTo('n-rs','sec-rs',3)"><div class="ndot"></div>RS 人員清單</div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">
+      <div class="nav-label">Tab 5 · 保險設定</div>
+      <div class="nav-item" id="n-ins-co" onclick="navTo('n-ins-co','sec-ins-co',4)"><div class="ndot"></div>保險公司清單</div>
+      <div class="nav-item" id="n-ins-type" onclick="navTo('n-ins-type','sec-ins-type',4)"><div class="ndot"></div>續保類型</div>
+      <div class="nav-item" id="n-ins-result" onclick="navTo('n-ins-result','sec-ins-result',4)"><div class="ndot"></div>電訪結果選項</div>
+      <div class="nav-item" id="n-ins-script" onclick="navTo('n-ins-script','sec-ins-script',4)"><div class="ndot"></div>話術模板管理</div>
+      <div class="nav-item" id="n-ins-rule" onclick="navTo('n-ins-rule','sec-ins-rule',4)"><div class="ndot"></div>提醒規則設定</div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="page-hdr">
+      <div>
+        <div class="page-title">⚙️ 主管設定</div>
+        <div class="page-sub">KPI 目標值、員工評估矩陣、客戶標籤庫及 RS 人員管理。儲存後同步至 RS_M1 漏斗看板。</div>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab(0)">📊 KPI 目標值</button>
+      <button class="tab-btn" onclick="switchTab(1)">👥 員工評估九宮格</button>
+      <button class="tab-btn" onclick="switchTab(2)">🏷️ 客戶標籤管理</button>
+      <button class="tab-btn" onclick="switchTab(3)">👤 RS 人員管理</button>
+      <button class="tab-btn" onclick="switchTab(4)">🔔 保險設定</button>
+    </div>
+
+    <!-- ═══ TAB 0 KPI ═══ -->
+    <div class="tab-pane active" id="tab-0">
+
+      <div class="section" id="sec-l1">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-dark">🏆</div>
+            <div><div class="section-title">Layer 1 — 結果指標目標值</div>
+            <div class="section-note">給總經理看的成果指標，影響 RS_M1 看板紅／黃／綠標示</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div class="kpi-target-grid">
+            <div class="ktc">
+              <div class="ktc-icon">🏍️</div>
+              <div class="ktc-label">月度成交台數目標</div>
+              <div class="ktc-desc">新車成交門檻，低於此值儀表盤顯示紅燈</div>
+              <div class="ktc-row">
+                <input class="ktc-input" type="number" id="k-del" value="15" min="1" max="200" onchange="markDirty()">
+                <span class="ktc-unit">台</span>
+                <button class="ktc-reset" onclick="resetKtc('k-del',15)">還原</button>
+              </div>
+            </div>
+            <div class="ktc">
+              <div class="ktc-icon">📋</div>
+              <div class="ktc-label">月度訂車台數目標</div>
+              <div class="ktc-desc">訂車（未交車）達成門檻</div>
+              <div class="ktc-row">
+                <input class="ktc-input" type="number" id="k-ord" value="16" min="1" max="200" onchange="markDirty()">
+                <span class="ktc-unit">台</span>
+                <button class="ktc-reset" onclick="resetKtc('k-ord',16)">還原</button>
+              </div>
+            </div>
+            <div class="ktc">
+              <div class="ktc-icon">📈</div>
+              <div class="ktc-label">整體成交率目標</div>
+              <div class="ktc-desc">成交台數 ÷ 到店人次，衡量全漏斗效率</div>
+              <div class="ktc-row">
+                <input class="ktc-input" type="number" id="k-close" value="12" min="1" max="100" onchange="markDirty()">
+                <span class="ktc-unit">%</span>
+                <button class="ktc-reset" onclick="resetKtc('k-close',12)">還原</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="sec-l2">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-blue">🎯</div>
+            <div><div class="section-title">Layer 2 — 過程指標目標值</div>
+            <div class="section-note">給銷售主管看的流程指標，影響 RS_M1 儀表盤指針位置與警示顏色</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div class="val-grid">
+            <div class="val-item">
+              <div class="val-label">建檔完整率目標</div>
+              <div class="val-desc">到店後成功建立電子手卡的比例</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="k-build" value="90" min="1" max="100" onchange="markDirty()">
+                <span class="val-unit">%</span><button class="val-reset" onclick="resetKtc('k-build',90)">還原預設</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">試乘試駕率目標</div>
+              <div class="val-desc">建檔後成功邀約試駕的比例</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="k-trial" value="60" min="1" max="100" onchange="markDirty()">
+                <span class="val-unit">%</span><button class="val-reset" onclick="resetKtc('k-trial',60)">還原預設</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">報價轉化率目標</div>
+              <div class="val-desc">試駕後開立報價單的比例</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="k-quote" value="70" min="1" max="100" onchange="markDirty()">
+                <span class="val-unit">%</span><button class="val-reset" onclick="resetKtc('k-quote',70)">還原預設</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">訂車成交率目標</div>
+              <div class="val-desc">報價後成功訂車的比例</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="k-order" value="60" min="1" max="100" onchange="markDirty()">
+                <span class="val-unit">%</span><button class="val-reset" onclick="resetKtc('k-order',60)">還原預設</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">試駕後即時報價率目標</div>
+              <div class="val-desc">試駕結束當場開報價單（黃金時刻）的比例</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="k-gold" value="80" min="1" max="100" onchange="markDirty()">
+                <span class="val-unit">%</span><button class="val-reset" onclick="resetKtc('k-gold',80)">還原預設</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">交車後 3 日回訪率目標</div>
+              <div class="val-desc">交車後 3 天內完成回訪電話的比例</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="k-revisit" value="90" min="1" max="100" onchange="markDirty()">
+                <span class="val-unit">%</span><button class="val-reset" onclick="resetKtc('k-revisit',90)">還原預設</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="sec-habc">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-teal">🎯</div>
+            <div><div class="section-title">HABC 輔助判斷閾值設定</div>
+            <div class="section-note">系統自動推算 HABC 建議級別的天數條件，RS 可採用或手動覆蓋</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div style="background:#EAF4FB;border:1px solid #85B7EB;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0C3E70;line-height:1.65;">
+            💡 系統根據「購買時機」×「試駕狀態」自動建議 HABC 級別，顯示為提示框（非強制），RS 可採用或手動調整後才存檔。
+          </div>
+          <div class="habc-grid">
+            <div class="habc-card habc-H">
+              <div class="habc-letter">H</div>
+              <div class="habc-name">高度意願</div>
+              <div class="habc-cond">購買時機在「本月」內，且已完成試駕</div>
+              <div class="habc-row">「本月」定義：<input class="habc-input" id="hd-H" type="number" value="30" min="7" max="60" onchange="markDirty()"> 天內</div>
+            </div>
+            <div class="habc-card habc-A">
+              <div class="habc-letter">A</div>
+              <div class="habc-name">中度意願</div>
+              <div class="habc-cond">1–2 個月內決定，或本月但尚未試駕</div>
+              <div class="habc-row">「近期」定義：<input class="habc-input" id="hd-A" type="number" value="60" min="14" max="120" onchange="markDirty()"> 天內</div>
+            </div>
+            <div class="habc-card habc-B">
+              <div class="habc-letter">B</div>
+              <div class="habc-name">低度意願</div>
+              <div class="habc-cond">3–6 個月考慮中，尚未試駕</div>
+              <div class="habc-row">「中期」定義：<input class="habc-input" id="hd-B" type="number" value="180" min="61" max="365" onchange="markDirty()"> 天內</div>
+            </div>
+            <div class="habc-card habc-C">
+              <div class="habc-letter">C</div>
+              <div class="habc-name">保留意願</div>
+              <div class="habc-cond">長期考慮，聯絡 3 次以上無明確表態</div>
+              <div class="habc-row">逾期：超過 <input class="habc-input" id="hd-C" type="number" value="180" min="61" max="365" onchange="markDirty()"> 天</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB 1 九宮格 ═══ -->
+    <div class="tab-pane" id="tab-1">
+      <div class="section" id="sec-matrix">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-purple">📐</div>
+            <div><div class="section-title">員工評估九宮格</div>
+            <div class="section-note">態度軸（客戶接觸積極度）× 技能軸（成交台數），系統自動定位或手動拖曳</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div class="matrix-outer">
+            <div class="matrix-left">
+              <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
+                <button class="btn btn-teal btn-sm" onclick="autoPlace()">📊 依數據自動定位</button>
+                <button class="btn btn-ghost btn-sm" onclick="showToast('已重置')">↺ 重置</button>
+              </div>
+              <div class="matrix-wrap">
+                <div class="axis-y">技能（成交台數）</div>
+                <div class="y-scale"><span>高</span><span>中</span><span>低</span></div>
+                <div class="matrix-grid" id="matrix-grid">
+                  <div class="mc mc-r3c1" data-r="3" data-c="1" onclick="showMcDetail('3-1')"><div class="mc-title" style="color:#854F0B;">機會高手</div><div class="mc-hint">技巧熟練<br>缺積極性</div><div class="mc-avatars" id="mc-3-1"></div></div>
+                  <div class="mc mc-r3c2" data-r="3" data-c="2" onclick="showMcDetail('3-2')"><div class="mc-title" style="color:#854F0B;">安定高手</div><div class="mc-hint">嘉勉授權<br>維持狀態</div><div class="mc-avatars" id="mc-3-2"></div></div>
+                  <div class="mc mc-r3c3" data-r="3" data-c="3" onclick="showMcDetail('3-3')"><div class="mc-title" style="color:#0F6E56;">全方位高手</div><div class="mc-hint">最佳導師<br>可授權帶人</div><div class="mc-avatars" id="mc-3-3"></div></div>
+                  <div class="mc mc-r2c1" data-r="2" data-c="1" onclick="showMcDetail('2-1')"><div class="mc-title" style="color:#C8001A;">很危險</div><div class="mc-hint">強化培訓<br>設觀察期</div><div class="mc-avatars" id="mc-2-1"></div></div>
+                  <div class="mc mc-r2c2" data-r="2" data-c="2" onclick="showMcDetail('2-2')"><div class="mc-title" style="color:#5A5955;">中規中矩</div><div class="mc-hint">細化要求<br>設短期目標</div><div class="mc-avatars" id="mc-2-2"></div></div>
+                  <div class="mc mc-r2c3" data-r="2" data-c="3" onclick="showMcDetail('2-3')"><div class="mc-title" style="color:#185FA5;">明日之星</div><div class="mc-hint">增加壓力<br>提供成長路徑</div><div class="mc-avatars" id="mc-2-3"></div></div>
+                  <div class="mc mc-r1c1" data-r="1" data-c="1" onclick="showMcDetail('1-1')"><div class="mc-title" style="color:#C8001A;">難搞定</div><div class="mc-hint">約談評估<br>去留決策</div><div class="mc-avatars" id="mc-1-1"></div></div>
+                  <div class="mc mc-r1c2" data-r="1" data-c="2" onclick="showMcDetail('1-2')"><div class="mc-title" style="color:#854F0B;">食之無味</div><div class="mc-hint">觀念導正<br>激發動機</div><div class="mc-avatars" id="mc-1-2"></div></div>
+                  <div class="mc mc-r1c3" data-r="1" data-c="3" onclick="showMcDetail('1-3')"><div class="mc-title" style="color:#185FA5;">急需磨練</div><div class="mc-hint">積極培養<br>資深帶領</div><div class="mc-avatars" id="mc-1-3"></div></div>
+                </div>
+                <div class="x-scale"><span>低</span><span>中</span><span>高</span></div>
+                <div style="text-align:center;font-size:11px;font-weight:600;color:#5A5955;margin-top:4px;">態度（客戶接觸積極度）</div>
+              </div>
+              <div class="mc-detail" id="mc-detail">
+                <div class="mcd-title" id="mcd-title"></div>
+                <div id="mcd-badge" style="margin-bottom:6px;"></div>
+                <div class="mcd-body" id="mcd-body"></div>
+              </div>
+              <div class="thresh-wrap">
+                <div class="thresh-title">⚙️ 軸線閾值設定</div>
+                <div class="thresh-row">態度軸：低/中 分界 ≥ <input class="thresh-input" id="th-al" type="number" value="5" min="1" onchange="markDirty()"> 次／月　中/高 分界 ≥ <input class="thresh-input" id="th-ah" type="number" value="12" min="1" onchange="markDirty()"> 次／月</div>
+                <div class="thresh-row">技能軸：低/中 分界 ≥ <input class="thresh-input" id="th-sl" type="number" value="5" min="1" onchange="markDirty()"> 台／月　中/高 分界 ≥ <input class="thresh-input" id="th-sh" type="number" value="10" min="1" onchange="markDirty()"> 台／月</div>
+                <div style="margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="autoPlace()">依上方閾值重新自動定位</button><span style="font-size:11px;color:#9A9890;margin-left:8px;">計算依據：近 30 天各 RS 數據</span></div>
+              </div>
+            </div>
+            <div class="matrix-right">
+              <div class="ml-title">RS 人員</div>
+              <div id="legend-list"></div>
+              <div style="background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;margin-top:12px;font-size:11.5px;color:#5A5955;line-height:1.65;">
+                <div style="font-weight:600;margin-bottom:4px;">💡 使用說明</div>
+                點擊格子查看管理策略。<br>拖曳頭像可手動調整位置。<br>點「依數據自動定位」重新計算。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB 2 標籤 ═══ -->
+    <div class="tab-pane" id="tab-2">
+      <div class="section" id="sec-official">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-amber">🏷️</div>
+            <div><div class="section-title">官方標籤庫</div>
+            <div class="section-note">主管建立四色標籤，RS 只能使用、不能刪除官方標籤；分析結果顯示於 RS_M1「客群畫像」</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div style="background:#EAF4FB;border:1px solid #85B7EB;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0C3E70;line-height:1.6;">
+            🔴 注意類：需特殊處理或風險提示　🟡 偏好類：客戶偏好特徵　🟢 服務備忘：接待注意事項　🔵 溝通費用：價格付款相關
+          </div>
+          <div class="label-color-grid">
+            <div class="lc-card lc-red">
+              <div class="lc-hdr"><div class="lc-title">🔴 注意類</div><button class="btn btn-sm" style="background:#FDECEA;border-color:#F5AEAD;color:#C8001A;" onclick="addLabelRow('red')">＋ 新增</button></div>
+              <div class="lc-tags" id="tags-red"></div>
+              <div class="lc-add-row" id="add-red" style="display:none;"><input class="lc-inp" id="inp-red" placeholder="標籤名稱（10字內）" onkeydown="if(event.key==='Enter')confirmLabel('red')"><button class="btn btn-sm" style="background:#FDECEA;border-color:#F5AEAD;color:#C8001A;" onclick="confirmLabel('red')">確認</button><button class="btn btn-ghost btn-sm" onclick="cancelLabel('red')">取消</button></div>
+            </div>
+            <div class="lc-card lc-yellow">
+              <div class="lc-hdr"><div class="lc-title">🟡 偏好類</div><button class="btn btn-sm" style="background:#FDF3E3;border-color:#F0C97E;color:#854F0B;" onclick="addLabelRow('yellow')">＋ 新增</button></div>
+              <div class="lc-tags" id="tags-yellow"></div>
+              <div class="lc-add-row" id="add-yellow" style="display:none;"><input class="lc-inp" id="inp-yellow" placeholder="標籤名稱（10字內）" onkeydown="if(event.key==='Enter')confirmLabel('yellow')"><button class="btn btn-sm" style="background:#FDF3E3;border-color:#F0C97E;color:#854F0B;" onclick="confirmLabel('yellow')">確認</button><button class="btn btn-ghost btn-sm" onclick="cancelLabel('yellow')">取消</button></div>
+            </div>
+            <div class="lc-card lc-green">
+              <div class="lc-hdr"><div class="lc-title">🟢 服務備忘</div><button class="btn btn-sm" style="background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;" onclick="addLabelRow('green')">＋ 新增</button></div>
+              <div class="lc-tags" id="tags-green"></div>
+              <div class="lc-add-row" id="add-green" style="display:none;"><input class="lc-inp" id="inp-green" placeholder="標籤名稱（10字內）" onkeydown="if(event.key==='Enter')confirmLabel('green')"><button class="btn btn-sm" style="background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;" onclick="confirmLabel('green')">確認</button><button class="btn btn-ghost btn-sm" onclick="cancelLabel('green')">取消</button></div>
+            </div>
+            <div class="lc-card lc-blue">
+              <div class="lc-hdr"><div class="lc-title">🔵 溝通費用</div><button class="btn btn-sm" style="background:#EAF4FB;border-color:#85B7EB;color:#185FA5;" onclick="addLabelRow('blue')">＋ 新增</button></div>
+              <div class="lc-tags" id="tags-blue"></div>
+              <div class="lc-add-row" id="add-blue" style="display:none;"><input class="lc-inp" id="inp-blue" placeholder="標籤名稱（10字內）" onkeydown="if(event.key==='Enter')confirmLabel('blue')"><button class="btn btn-sm" style="background:#EAF4FB;border-color:#85B7EB;color:#185FA5;" onclick="confirmLabel('blue')">確認</button><button class="btn btn-ghost btn-sm" onclick="cancelLabel('blue')">取消</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="sec-custom">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-teal">🔍</div>
+            <div><div class="section-title">RS 自訂標籤監看</div>
+            <div class="section-note">RS 人員自行新增的標籤，主管可升為官方、保留觀察或刪除</div></div>
+          </div>
+          <div class="section-tog"><span id="custom-cnt">4 筆待審</span><span class="chev open" style="margin-left:6px;">›</span></div>
+        </div>
+        <div class="section-body" style="padding:0 16px 16px;">
+          <table class="ct-table">
+            <thead><tr><th>標籤名稱</th><th>建立者</th><th>使用次數</th><th>建立日期</th><th style="text-align:right;padding-right:8px;">操作</th></tr></thead>
+            <tbody id="custom-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB 3 RS 人員 ═══ -->
+    <div class="tab-pane" id="tab-3">
+      <div class="section" id="sec-rs">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-blue">👤</div>
+            <div><div class="section-title">RS 人員管理</div>
+            <div class="section-note">新增、停用銷售人員帳號，設定負責車系</div></div>
+          </div>
+          <div class="section-tog">
+            <button class="btn btn-teal btn-sm" onclick="event.stopPropagation();openRsModal()" style="margin-right:8px;">＋ 新增 RS</button>
+            <span class="chev open">›</span>
+          </div>
+        </div>
+        <div class="section-body" style="padding:0;">
+          <table class="rs-table">
+            <thead><tr><th>姓名</th><th>帳號</th><th>負責車系</th><th>本月成交</th><th>本月接觸</th><th>狀態</th><th style="text-align:right;padding-right:16px;">操作</th></tr></thead>
+            <tbody id="rs-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TAB 4 保險設定 ═══ -->
+    <div class="tab-pane" id="tab-4">
+
+      <!-- 保險公司清單 -->
+      <div class="section" id="sec-ins-co">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-amber">🏦</div>
+            <div><div class="section-title">保險公司清單</div>
+            <div class="section-note">RS_EX1 電訪工作台的「原保公司」與「出單公司」下拉選單來源 · 主管統一管理</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <span style="font-size:11.5px;color:#7A7A78;" id="cnt-ins-co">共 7 家</span>
+            <button class="btn btn-teal btn-sm" onclick="addInsItem('ins-co-list',insCoData,'cnt-ins-co','保險公司')">＋ 新增</button>
+          </div>
+          <div id="ins-co-list"></div>
+        </div>
+      </div>
+
+      <!-- 續保類型 -->
+      <div class="section" id="sec-ins-type">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-blue">🔄</div>
+            <div><div class="section-title">續保類型</div>
+            <div class="section-note">對應原 Excel「続保类型」欄 · 用於分類客戶保險狀態</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <span style="font-size:11.5px;color:#7A7A78;" id="cnt-ins-type">共 5 項</span>
+            <button class="btn btn-teal btn-sm" onclick="addInsItem('ins-type-list',insTypeData,'cnt-ins-type','續保類型')">＋ 新增</button>
+          </div>
+          <div id="ins-type-list"></div>
+        </div>
+      </div>
+
+      <!-- 電訪結果選項 -->
+      <div class="section" id="sec-ins-result">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-teal">📞</div>
+            <div><div class="section-title">電訪結果選項</div>
+            <div class="section-note">RS 記錄每次電訪後的通話結果 · 分「調研成功」「流失去向」「報價狀態」三組</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#0F6E56;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+                調研結果
+                <button class="btn btn-sm" style="background:#E1F5EE;border-color:#5DCAA5;color:#0F6E56;font-size:10px;padding:2px 8px;" onclick="addInsItem('ins-contact-list',insContactData,'','調研結果')">＋</button>
+              </div>
+              <div id="ins-contact-list"></div>
+            </div>
+
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#C8001A;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+                流失去向
+                <button class="btn btn-sm" style="background:#FDECEA;border-color:#F5AEAD;color:#C8001A;font-size:10px;padding:2px 8px;" onclick="addInsItem('ins-lost-list',insLostData,'','流失去向')">＋</button>
+              </div>
+              <div id="ins-lost-list"></div>
+            </div>
+
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:#854F0B;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">
+                報價狀態
+                <button class="btn btn-sm" style="background:#FDF3E3;border-color:#F0C97E;color:#854F0B;font-size:10px;padding:2px 8px;" onclick="addInsItem('ins-quote-list',insQuoteData,'','報價狀態')">＋</button>
+              </div>
+              <div id="ins-quote-list"></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- 話術模板 -->
+      <div class="section" id="sec-ins-script">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-dark">💬</div>
+            <div><div class="section-title">話術模板管理</div>
+            <div class="section-note">主管統一撰寫 A / B / C / D 四段話術 · RS 在 EX1 工作台唯讀使用 · 不可自行修改</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div style="background:#EAF4FB;border:1px solid #85B7EB;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0C3E70;line-height:1.7;">
+            💡 話術對應原 Excel 開場白 A / B / C / D 四段邏輯。主管在此統一撰寫，RS 電訪時自動帶入（唯讀），確保口徑一致。
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;" id="script-list"></div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="addScriptTemplate()">＋ 新增話術段落</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 提醒規則設定 -->
+      <div class="section" id="sec-ins-rule">
+        <div class="section-hdr" onclick="toggleSec(this)">
+          <div class="section-left"><div class="sicon si-red">⏰</div>
+            <div><div class="section-title">提醒規則設定</div>
+            <div class="section-note">保險到期提醒天數 · 電訪間隔 · 自動排程規則</div></div>
+          </div>
+          <div class="section-tog"><span class="chev open">›</span></div>
+        </div>
+        <div class="section-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div class="val-item">
+              <div class="val-label">🔴 緊急提醒（天前）</div>
+              <div class="val-desc">保險到期前幾天標示為紅色緊急，RS_EX1 優先顯示</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="ins-urgent-days" value="30" min="1" max="60" onchange="markDirty()">
+                <span class="val-unit">天</span>
+                <button class="val-reset" onclick="document.getElementById('ins-urgent-days').value=30;markDirty();">還原</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">🟡 一般提醒（天前）</div>
+              <div class="val-desc">保險到期前幾天開始顯示於 RS_EX1 工作台</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="ins-warn-days" value="90" min="30" max="180" onchange="markDirty()">
+                <span class="val-unit">天</span>
+                <button class="val-reset" onclick="document.getElementById('ins-warn-days').value=90;markDirty();">還原</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">📞 電訪間隔（天）</div>
+              <div class="val-desc">同一客戶兩次電訪之間的最短間隔天數</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="ins-call-gap" value="7" min="1" max="30" onchange="markDirty()">
+                <span class="val-unit">天</span>
+                <button class="val-reset" onclick="document.getElementById('ins-call-gap').value=7;markDirty();">還原</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">🔁 最多電訪次數</div>
+              <div class="val-desc">同一件保險案最多主動電訪次數，超過自動升級主管</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="ins-max-calls" value="3" min="1" max="10" onchange="markDirty()">
+                <span class="val-unit">次</span>
+                <button class="val-reset" onclick="document.getElementById('ins-max-calls').value=3;markDirty();">還原</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">📋 目標續保率</div>
+              <div class="val-desc">月度續保成功率目標，RS_EX1 業績總覽顯示達成狀況</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="ins-target-rate" value="70" min="1" max="100" onchange="markDirty()">
+                <span class="val-unit">%</span>
+                <button class="val-reset" onclick="document.getElementById('ins-target-rate').value=70;markDirty();">還原</button>
+              </div>
+            </div>
+            <div class="val-item">
+              <div class="val-label">💰 佣金目標（月）</div>
+              <div class="val-desc">月度保險佣金收入目標，RS_EX1 業績儀表板顯示</div>
+              <div class="val-control">
+                <input class="val-input" type="number" id="ins-target-rev" value="20000" min="1000" style="width:90px;font-size:13px;" onchange="markDirty()">
+                <span class="val-unit">元</span>
+                <button class="val-reset" onclick="document.getElementById('ins-target-rev').value=20000;markDirty();">還原</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 未成交自動升級規則 -->
+          <div style="background:#FDECEA;border:1px solid #F5AEAD;border-radius:8px;padding:12px 14px;">
+            <div style="font-size:12px;font-weight:600;color:#7A1010;margin-bottom:8px;">🚨 自動升報主管規則</div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:#5A5955;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="rule-maxcall" checked onchange="markDirty()">
+                超過最多電訪次數仍未成交 → 自動進入「上報主管」清單
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="rule-7day" checked onchange="markDirty()">
+                到期 7 天內仍未續保 → 強制升報主管處理
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="rule-nocontact" checked onchange="markDirty()">
+                連續 3 次無法接通 → 列入「更正資訊」清單由主管確認
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end tab-4 -->
+
+  </div>
+</div>
+
+<!-- Modal 新增 RS -->
+<div class="overlay" id="rs-modal" onclick="closeRsModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-hdr"><div class="modal-title">新增 RS 人員</div><button class="modal-close" onclick="closeRsModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-row"><div class="form-label">姓名 <span class="form-req">*</span></div><input class="form-input" id="rs-name" type="text" placeholder="例：陳怡君"></div>
+      <div class="form-row"><div class="form-label">登入帳號 <span class="form-req">*</span></div><input class="form-input" id="rs-acc" type="text" placeholder="例：chen_yj"><div class="form-hint">系統登入 ID，建立後不可修改</div></div>
+      <div class="form-row"><div class="form-label">負責車系</div>
+        <select class="form-select" id="rs-series">
+          <option value="全車系">全車系</option>
+          <option>Panigale 系列（超跑）</option>
+          <option>Streetfighter 系列</option>
+          <option>Monster 系列</option>
+          <option>Multistrada 系列</option>
+          <option>Scrambler 系列</option>
+          <option>Diavel 系列</option>
+        </select>
+      </div>
+      <div class="form-row"><div class="form-label">初始密碼 <span class="form-req">*</span></div><input class="form-input" id="rs-pw" type="password" placeholder="至少 8 碼，含英文與數字"><div class="form-hint">首次登入後系統強制要求修改密碼</div></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeRsModal()">取消</button><button class="btn btn-primary" onclick="confirmAddRs()">建立帳號</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Tab ──
+function switchTab(i){
+  document.querySelectorAll('.tab-btn').forEach(function(b,idx){b.classList.toggle('active',idx===i);});
+  document.querySelectorAll('.tab-pane').forEach(function(p,idx){p.classList.toggle('active',idx===i);});
+}
+function navTo(navId,secId,tab){
+  switchTab(tab);
+  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+  document.getElementById(navId).classList.add('active');
+  setTimeout(function(){var el=document.getElementById(secId);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},120);
+}
+function toggleSec(hdr){
+  var body=hdr.nextElementSibling;
+  var chev=hdr.querySelector('.chev');
+  var open=!body.classList.contains('collapsed');
+  if(open){body.classList.add('collapsed');chev.classList.remove('open');}
+  else{body.classList.remove('collapsed');chev.classList.add('open');}
+}
+function resetKtc(id,def){document.getElementById(id).value=def;markDirty();showToast('已還原預設值 '+def);}
+
+// ── 九宮格 ──
+var rsPersons=[
+  {name:'林佳蓉',abbr:'林',color:'#534AB7',att:14,skill:11,r:0,c:0},
+  {name:'張志明',abbr:'張',color:'#185FA5',att:6,skill:7,r:0,c:0},
+  {name:'王大明',abbr:'王',color:'#0F6E56',att:16,skill:14,r:0,c:0},
+  {name:'陳雅惠',abbr:'陳',color:'#C8001A',att:4,skill:5,r:0,c:0}
+];
+var mcDetails={
+  '3-1':{title:'機會高手',badge:'技能高 × 態度低',bc:'b-amber',body:'技巧已熟練，但主動出擊積極性不足。建議：定期一對一談話了解內在動機；給予更具挑戰性的業績目標；授予帶領新人機會以重燃成就感。'},
+  '3-2':{title:'安定高手',badge:'技能高 × 態度中',bc:'b-blue',body:'表現穩定優秀。建議：公開嘉勉表揚讓其感受被重視；授權主導特定車系或客群；定期詢問職涯方向，避免停滯感造成人才流失。'},
+  '3-3':{title:'全方位高手',badge:'技能高 × 態度高',bc:'b-teal',body:'店內頂尖人才，態度與技能均出色。建議：讓其扮演導師角色帶領新人；給予更大自主空間與業績分成；研究其成功模式並系統化複製。'},
+  '2-1':{title:'很危險',badge:'技能中 × 態度低',bc:'b-red',body:'能力尚可但意願明顯低落，若不處理將拖累士氣。建議：立即安排一對一面談找出根源；設定 60 天觀察期與明確改善指標；若無改善需啟動離職輔導程序。'},
+  '2-2':{title:'中規中矩',badge:'技能中 × 態度中',bc:'b-gray',body:'表現不過不失，有上升空間。建議：細化每週工作目標（邀約次數、跟進比例）；配對安定高手學習；每月設定一個小突破目標以建立信心。'},
+  '2-3':{title:'明日之星',badge:'技能中 × 態度高',bc:'b-blue',body:'態度積極但技能尚在發展，最值得投資的類型。建議：系統化銷售話術訓練；增加高難度客戶作為實戰磨練；設定清晰晉升路徑與時間表。'},
+  '1-1':{title:'難搞定',badge:'技能低 × 態度低',bc:'b-red',body:'技能與態度均低，最棘手的情況。建議：立即店長一對一約談，評估去留意願；給予 30 天明確改善目標；若無法達標啟動離職輔導程序。'},
+  '1-2':{title:'食之無味',badge:'技能低 × 態度中',bc:'b-amber',body:'有一定意願但技能欠缺。建議：安排基礎銷售技巧密集培訓；給予簡單客戶案例先建立信心；由資深 RS 一對一帶領實際接待。'},
+  '1-3':{title:'急需磨練',badge:'技能低 × 態度高',bc:'b-blue',body:'態度極佳但技能生疏，通常為新進 RS。建議：指定導師陪同接待；提供完整話術腳本與試駕演練；30 天密集磨練後評估技能提升狀況。'}
+};
+function calcPos(att,skill){
+  var al=+document.getElementById('th-al').value||5,ah=+document.getElementById('th-ah').value||12;
+  var sl=+document.getElementById('th-sl').value||5,sh=+document.getElementById('th-sh').value||10;
+  return {r:skill<sl?1:skill<sh?2:3, c:att<al?1:att<ah?2:3};
+}
+function renderMatrix(){
+  for(var r=1;r<=3;r++) for(var c=1;c<=3;c++){var el=document.getElementById('mc-'+r+'-'+c);if(el)el.innerHTML='';}
+  rsPersons.forEach(function(p){
+    var el=document.getElementById('mc-'+p.r+'-'+p.c); if(!el) return;
+    var av=document.createElement('div');
+    av.className='av'; av.style.background=p.color; av.textContent=p.abbr; av.title=p.name; av.draggable=true; av.dataset.name=p.name;
+    av.addEventListener('dragstart',function(e){e.dataTransfer.setData('text',p.name);});
+    el.appendChild(av);
+  });
+  var leg=document.getElementById('legend-list');
+  leg.innerHTML=rsPersons.map(function(p){
+    var key=p.r+'-'+p.c; var d=mcDetails[key]||{};
+    return '<div class="ml-item"><div class="ml-av" style="background:'+p.color+'">'+p.abbr+'</div><div><div class="ml-name">'+p.name+'</div><div class="ml-sub">'+(d.title||'')+'</div></div></div>';
+  }).join('');
+}
+function autoPlace(){
+  rsPersons.forEach(function(p){var pos=calcPos(p.att,p.skill);p.r=pos.r;p.c=pos.c;});
+  renderMatrix(); showToast('已依近 30 天數據自動定位');
+}
+function showMcDetail(key){
+  var d=mcDetails[key]; if(!d) return;
+  document.getElementById('mcd-title').textContent=d.title;
+  document.getElementById('mcd-badge').innerHTML='<span class="badge '+d.bc+'">'+d.badge+'</span>';
+  document.getElementById('mcd-body').textContent=d.body;
+  var el=document.getElementById('mc-detail'); el.classList.add('show');
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ── 標籤管理 ──
+var officialLabels={
+  red:['價格敏感','競品考慮中','有投訴記錄'],
+  yellow:['偏好街跑','偏好越野','偏好旅行車','社群活躍車主'],
+  green:['已提供型錄','已寄送報價','需要停車建議'],
+  blue:['詢問車貸','詢問二手抵扣','預算偏低']
+};
+function renderLabels(){
+  ['red','yellow','green','blue'].forEach(function(color){
+    var el=document.getElementById('tags-'+color); if(!el) return;
+    el.innerHTML=officialLabels[color].map(function(t,i){
+      return '<span class="lc-tag">'+t+'<button class="lc-tag-del" onclick="delLabel(\''+color+'\','+i+')" title="刪除">×</button></span>';
+    }).join('');
+  });
+}
+function delLabel(color,i){
+  if(!confirm('刪除官方標籤「'+officialLabels[color][i]+'」？RS 已使用的紀錄不會消失。')) return;
+  officialLabels[color].splice(i,1); renderLabels(); markDirty(); showToast('已刪除標籤');
+}
+function addLabelRow(color){
+  document.querySelectorAll('.lc-add-row').forEach(function(r){r.style.display='none';});
+  document.getElementById('add-'+color).style.display='flex';
+  document.getElementById('inp-'+color).focus();
+}
+function cancelLabel(color){document.getElementById('add-'+color).style.display='none';}
+function confirmLabel(color){
+  var inp=document.getElementById('inp-'+color); var val=inp.value.trim();
+  if(!val){showToast('請輸入標籤名稱');return;}
+  if(val.length>10){showToast('標籤名稱請勿超過 10 字');return;}
+  officialLabels[color].push(val); inp.value=''; document.getElementById('add-'+color).style.display='none';
+  renderLabels(); markDirty(); showToast('已新增標籤「'+val+'」');
+}
+var customTags=[
+  {name:'北部客',rs:'林佳蓉',uses:3,date:'2026-05-08'},
+  {name:'等新款上市',rs:'張志明',uses:5,date:'2026-05-07'},
+  {name:'騎士節見過',rs:'王大明',uses:2,date:'2026-05-05'},
+  {name:'換車考慮中',rs:'陳雅惠',uses:7,date:'2026-05-03'}
+];
+function renderCustomTags(){
+  document.getElementById('custom-cnt').textContent=customTags.length+' 筆待審';
+  document.getElementById('custom-tbody').innerHTML=customTags.map(function(t,i){
+    return '<tr><td><span class="badge b-gray">'+t.name+'</span></td><td>'+t.rs+'</td>'+
+      '<td style="font-family:DM Mono,monospace;font-weight:600;">'+t.uses+' 次</td>'+
+      '<td style="color:#9A9890;">'+t.date+'</td>'+
+      '<td style="text-align:right;">'+
+        '<button class="btn btn-teal btn-sm" style="margin-right:3px;" onclick="promoteTag('+i+')">升為官方</button>'+
+        '<button class="btn btn-ghost btn-sm" style="margin-right:3px;" onclick="showToast(\'保留觀察中\')">保留</button>'+
+        '<button class="btn btn-red btn-sm" onclick="deleteCustomTag('+i+')">刪除</button>'+
+      '</td></tr>';
+  }).join('');
+}
+function promoteTag(i){
+  var t=customTags[i];
+  officialLabels.blue.push(t.name);
+  customTags.splice(i,1);
+  renderLabels(); renderCustomTags(); markDirty();
+  showToast('「'+t.name+'」已升為官方標籤（溝通費用類）');
+}
+function deleteCustomTag(i){
+  if(!confirm('刪除「'+customTags[i].name+'」？')) return;
+  var n=customTags[i].name; customTags.splice(i,1); renderCustomTags(); markDirty(); showToast('已刪除「'+n+'」');
+}
+
+// ── RS 人員 ──
+var rsData=[
+  {name:'林佳蓉',acc:'lin_jr',series:'全車系',del:11,cont:42,active:true,color:'#534AB7'},
+  {name:'張志明',acc:'zhang_zm',series:'Monster / Streetfighter',del:7,cont:35,active:true,color:'#185FA5'},
+  {name:'王大明',acc:'wang_dm',series:'Panigale / Diavel',del:14,cont:28,active:true,color:'#0F6E56'},
+  {name:'陳雅惠',acc:'chen_yh',series:'Scrambler / Multistrada',del:5,cont:31,active:false,color:'#C8001A'}
+];
+function renderRsTable(){
+  document.getElementById('rs-tbody').innerHTML=rsData.map(function(r,i){
+    return '<tr>'+
+      '<td><div class="rs-name-cell"><div class="rs-avatar" style="background:'+r.color+'">'+r.name[0]+'</div>'+r.name+'</div></td>'+
+      '<td style="font-family:DM Mono,monospace;font-size:11.5px;color:#534AB7;">'+r.acc+'</td>'+
+      '<td style="font-size:12px;color:#5A5955;">'+r.series+'</td>'+
+      '<td style="font-family:DM Mono,monospace;font-weight:700;color:#1A3A5C;">'+r.del+' 台</td>'+
+      '<td style="font-family:DM Mono,monospace;color:#5A5955;">'+r.cont+' 人次</td>'+
+      '<td><span class="'+(r.active?'sp-active':'sp-inactive')+'">'+(r.active?'● 在職':'○ 停用')+'</span></td>'+
+      '<td style="text-align:right;padding-right:12px;">'+
+        '<button class="btn btn-ghost btn-sm" style="margin-right:4px;" onclick="showToast(\'編輯：'+r.name+'\')">編輯</button>'+
+        '<button class="btn '+(r.active?'btn-red':'btn-teal')+' btn-sm" onclick="toggleRs('+i+')">'+(r.active?'停用':'啟用')+'</button>'+
+      '</td></tr>';
+  }).join('');
+}
+function toggleRs(i){
+  var r=rsData[i]; var action=r.active?'停用':'啟用';
+  if(!confirm('確定要'+action+'「'+r.name+'」的帳號嗎？')) return;
+  r.active=!r.active; renderRsTable(); markDirty(); showToast('已'+action+'「'+r.name+'」');
+}
+function openRsModal(){document.getElementById('rs-modal').classList.add('show');}
+function closeRsModal(e){if(e&&e.target!==document.getElementById('rs-modal'))return;document.getElementById('rs-modal').classList.remove('show');}
+function confirmAddRs(){
+  var name=document.getElementById('rs-name').value.trim();
+  var acc=document.getElementById('rs-acc').value.trim();
+  var series=document.getElementById('rs-series').value||'全車系';
+  var pw=document.getElementById('rs-pw').value;
+  if(!name||!acc){showToast('請填寫姓名與帳號');return;}
+  if(pw.length<8){showToast('密碼至少 8 碼');return;}
+  var colors=['#854F0B','#534AB7','#185FA5','#0F6E56'];
+  var newPerson={name,acc,series,del:0,cont:0,active:true,color:colors[rsData.length%colors.length]};
+  rsData.push(newPerson);
+  rsPersons.push({name,abbr:name[0],color:newPerson.color,att:0,skill:0,r:1,c:2});
+  renderRsTable(); renderMatrix();
+  document.getElementById('rs-modal').classList.remove('show');
+  ['rs-name','rs-acc','rs-pw'].forEach(function(id){document.getElementById(id).value='';});
+  markDirty(); showToast('已建立 RS 帳號：'+name);
+}
+
+// ── 拖曳放置 ──
+document.addEventListener('DOMContentLoaded',function(){
+  document.querySelectorAll('.mc').forEach(function(cell){
+    cell.addEventListener('dragover',function(e){e.preventDefault();cell.style.outline='2px dashed #85B7EB';});
+    cell.addEventListener('dragleave',function(){cell.style.outline='';});
+    cell.addEventListener('drop',function(e){
+      e.preventDefault(); cell.style.outline='';
+      var name=e.dataTransfer.getData('text');
+      var r=parseInt(cell.dataset.r),c=parseInt(cell.dataset.c);
+      var p=rsPersons.find(function(x){return x.name===name;});
+      if(p){p.r=r;p.c=c;renderMatrix();markDirty();showToast(name+' 已移至此格');}
+    });
+  });
+  autoPlace();
+  renderLabels();
+  renderCustomTags();
+  renderRsTable();
+  initInsTab();
+});
+
+// ══════════════════════════════════
+// ── Tab 4 保險設定資料 ──
+// ══════════════════════════════════
+var insCoData = [
+  {name:'富邦產險', note:'主力合作', sys:true},
+  {name:'國泰世紀產險', note:'', sys:true},
+  {name:'新光產險', note:'', sys:true},
+  {name:'泰安產險', note:'', sys:true},
+  {name:'明台產險', note:'', sys:true},
+  {name:'兆豐產險', note:'', sys:true},
+  {name:'其他', note:'非合作保險公司', sys:true}
+];
+var insTypeData = [
+  {name:'新轉續', desc:'新車車主首次續保', sys:true},
+  {name:'續轉續', desc:'持續在本店續保', sys:true},
+  {name:'斷轉續', desc:'曾中斷後回來續保', sys:true},
+  {name:'外轉續', desc:'從他處轉回本店', sys:true},
+  {name:'在修未投保', desc:'車輛在廠但保險已到期', sys:true}
+];
+var insContactData = [
+  {name:'電訪成功', sys:true},
+  {name:'客忙，再聯繫', sys:true},
+  {name:'無法接通', sys:true},
+  {name:'錯誤號碼', sys:true},
+  {name:'LINE 留言（待回覆）', sys:true},
+  {name:'拒絕電訪', sys:true}
+];
+var insLostData = [
+  {name:'電銷直接投保', sys:true},
+  {name:'親友介紹投保', sys:true},
+  {name:'自行至保險公司', sys:true},
+  {name:'抱怨，不考慮', sys:true},
+  {name:'其他原因', sys:true}
+];
+var insQuoteData = [
+  {name:'LINE 報價', sys:true},
+  {name:'現場報價', sys:true},
+  {name:'Email 報價', sys:true},
+  {name:'已成交並出單', sys:true}
+];
+var insScripts = [
+  {tag:'A', title:'開場白（調研破冰）', color:'#185FA5',
+   text:'○○先生／小姐您好，我是 DUCATI 台北展示中心的○○，現在方便占您一分鐘時間嗎？我們從車輛記錄發現您的愛車保險即將到期，想確認您是否已經續保了呢？'},
+  {tag:'B', title:'尚未續保 → VIP 方案介紹', color:'#0F6E56',
+   text:'我們目前有 VIP 續保專屬服務，可以享受優惠保費，還附贈原廠保養禮券，讓我為您詳細介紹一下我們的方案內容，您看可以嗎？'},
+  {tag:'C', title:'已在他處續保 → 詢問流失原因', color:'#854F0B',
+   text:'感謝您告訴我，請問您是在哪裡續保的呢？是保險公司電銷還是其他經銷商？能否分享一下當時選擇他們的主要原因？（記錄後詢問 D 段）'},
+  {tag:'D', title:'感謝致意 → 預約明年回店', color:'#534AB7',
+   text:'非常感謝您今天撥空接受我的訪問！我們很遺憾這次未能及時為您服務，明年同一時間我再聯繫您為您安排續保，這樣可以嗎？有任何需要歡迎隨時 LINE 我。'}
+];
+
+function renderInsList(listId, data, cntId, typeCls) {
+  var el = document.getElementById(listId);
+  if (!el) return;
+  var color = typeCls || '#1A3A5C';
+  el.innerHTML = data.map(function(d, i) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #F4F3F0;">' +
+      '<div style="flex:1;font-size:12.5px;font-weight:' + (d.sys ? '500' : '400') + ';color:#2C2C2A;">' + d.name +
+        (d.desc ? '<span style="font-size:11px;color:#9A9890;margin-left:6px;">' + d.desc + '</span>' : '') +
+        (d.note ? '<span style="font-size:10.5px;color:#185FA5;background:#EAF4FB;border-radius:4px;padding:1px 6px;margin-left:6px;">' + d.note + '</span>' : '') +
+      '</div>' +
+      '<span style="font-size:10px;background:' + (d.sys ? '#F1EFE8' : '#EAF3DE') + ';color:' + (d.sys ? '#5A5955' : '#3B6D11') + ';border-radius:4px;padding:1px 6px;">' + (d.sys ? '系統預設' : '自訂') + '</span>' +
+      '<button onclick="delInsItem(\'' + listId + '\',' + i + ',window[\'' + listId.replace('-list','Data').replace(/-/g,'') + '\'],\'' + (cntId||'') + '\')" style="padding:2px 7px;border:1px solid #F5AEAD;border-radius:4px;font-size:10.5px;background:#FDECEA;color:#C8001A;cursor:pointer;">刪除</button>' +
+    '</div>';
+  }).join('') || '<div style="padding:10px 0;font-size:12px;color:#9A9890;">尚無項目</div>';
+  if (cntId) document.getElementById(cntId).textContent = '共 ' + data.length + ' 項';
+}
+
+var dataMap = {
+  'ins-co-list': insCoData, 'ins-type-list': insTypeData,
+  'ins-contact-list': insContactData, 'ins-lost-list': insLostData, 'ins-quote-list': insQuoteData
+};
+
+function addInsItem(listId, data, cntId, label) {
+  var name = prompt('新增' + label + '：');
+  if (!name || !name.trim()) return;
+  data.push({name: name.trim(), sys: false});
+  renderInsList(listId, data, cntId);
+  markDirty();
+  showToast('已新增：' + name.trim());
+}
+
+function delInsItem(listId, idx, data, cntId) {
+  if (data[idx] && data[idx].sys) {
+    if (!confirm('「' + data[idx].name + '」為系統預設項目，確定要刪除嗎？')) return;
+  }
+  var name = data[idx].name;
+  data.splice(idx, 1);
+  renderInsList(listId, data, cntId);
+  markDirty();
+  showToast('已刪除：' + name);
+}
+
+function renderScripts() {
+  var el = document.getElementById('script-list');
+  if (!el) return;
+  el.innerHTML = insScripts.map(function(s, i) {
+    return '<div style="background:#fff;border:1px solid #EEECE6;border-radius:8px;overflow:hidden;">' +
+      '<div style="background:' + s.color + ';padding:8px 14px;display:flex;align-items:center;gap:10px;">' +
+        '<span style="background:rgba(255,255,255,.2);color:#fff;font-weight:700;font-size:13px;font-family:DM Mono,monospace;padding:2px 10px;border-radius:5px;">' + s.tag + '</span>' +
+        '<span style="color:#fff;font-size:12.5px;font-weight:600;">' + s.title + '</span>' +
+        '<span style="margin-left:auto;background:rgba(255,255,255,.15);color:#fff;font-size:10.5px;padding:2px 8px;border-radius:4px;">RS 唯讀</span>' +
+      '</div>' +
+      '<div style="padding:12px 14px;">' +
+        '<textarea style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:Noto Sans TC,sans-serif;font-size:12.5px;color:#2C2C2A;resize:vertical;min-height:72px;outline:none;line-height:1.7;" onchange="insScripts[' + i + '].text=this.value;markDirty();">' + s.text + '</textarea>' +
+        '<div style="display:flex;justify-content:flex-end;margin-top:6px;gap:6px;">' +
+          '<button onclick="delScript(' + i + ')" style="padding:3px 10px;border:1px solid #F5AEAD;border-radius:5px;font-size:11px;background:#FDECEA;color:#C8001A;cursor:pointer;">刪除此段</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function addScriptTemplate() {
+  var tag = prompt('話術標籤（如 E）：');
+  if (!tag) return;
+  var title = prompt('段落標題：');
+  if (!title) return;
+  insScripts.push({tag: tag.trim().toUpperCase(), title: title.trim(), color: '#5A5955', text: '請在此輸入話術內容...'});
+  renderScripts();
+  markDirty();
+}
+
+function delScript(i) {
+  if (!confirm('確定刪除「' + insScripts[i].tag + ' — ' + insScripts[i].title + '」？')) return;
+  insScripts.splice(i, 1);
+  renderScripts();
+  markDirty();
+}
+
+function initInsTab() {
+  renderInsList('ins-co-list', insCoData, 'cnt-ins-co');
+  renderInsList('ins-type-list', insTypeData, 'cnt-ins-type');
+  renderInsList('ins-contact-list', insContactData, '');
+  renderInsList('ins-lost-list', insLostData, '');
+  renderInsList('ins-quote-list', insQuoteData, '');
+  renderScripts();
+}
+
+// ── Dirty / Save ──
+var dirty=false;
+function markDirty(){dirty=true;document.title='● RS_M3 主管設定（未儲存）';}
+function saveAll(){dirty=false;document.title='DUCATI 銷售管理 — RS_M3 主管設定';showToast('✅ 所有設定已儲存，RS_M1 儀表盤同步更新');}
+
+// ── Toast ──
+function showToast(msg){
+  var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2500);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>RS_M1 銷售漏斗看板 — DUCATI 銷售管理系統</title>
+<style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+header{background:#1A3A5C;height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}.htitle{font-size:13px;color:rgba(255,255,255,.6);}.htitle b{color:#fff;font-weight:500;}.hright{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:background .15s;}.hbtn:hover{background:rgba(255,255,255,.2);}
+.sub-bar{background:#fff;border-bottom:1px solid #EEECE6;padding:8px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:52px;z-index:90;}
+.role-toggle{display:flex;gap:0;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;}
+.role-btn{padding:5px 16px;font-size:12.5px;cursor:pointer;border-right:1px solid #D5D3CB;color:#7A7A78;background:#fff;font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;}
+.role-btn:last-child{border-right:none;}
+.role-btn.active-mgr{background:#1A3A5C;color:#fff;}
+.role-btn.active-rs{background:#534AB7;color:#fff;}
+.period-toggle{display:flex;gap:0;border:1px solid #D5D3CB;border-radius:6px;overflow:hidden;}
+.period-btn{padding:5px 12px;font-size:12px;cursor:pointer;border-right:1px solid #D5D3CB;color:#7A7A78;background:#fff;font-family:'Noto Sans TC',sans-serif;transition:all .12s;}
+.period-btn:last-child{border-right:none;}
+.period-btn.active{background:#F1EFE8;color:#2C2C2A;font-weight:600;}
+.rs-select-wrap{display:flex;align-items:center;gap:6px;}
+.rs-select{padding:5px 10px;border:1px solid #D5D3CB;border-radius:6px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;background:#fff;outline:none;}
+.lock-note{font-size:11px;color:#9A9890;display:flex;align-items:center;gap:3px;}
+.main{max-width:1100px;margin:0 auto;padding:20px 24px;}
+.role-banner{border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;display:flex;align-items:center;gap:8px;line-height:1.5;}
+.role-banner-mgr{background:#EAF4FB;border:1px solid #85B7EB;color:#0C3E70;}
+.role-banner-rs{background:#EEEDFE;border:1px solid #AFA9EC;color:#26215C;}
+.layer-title{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#9A9890;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.layer-title::after{content:'';flex:1;height:1px;background:#EEECE6;}
+.kpi-row-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi-row-5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.kpi-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.kpi-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .15s;position:relative;}
+.kpi-card:hover{border-color:#85B7EB;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.kpi-card.alert{border-color:#F5AEAD;background:#FFF8F8;}
+.kpi-card.warn{border-color:#F0C97E;background:#FFFDF5;}
+.kpi-card.good{border-color:#5DCAA5;background:#F5FDF9;}
+.kpi-l{font-size:11px;color:#9A9890;margin-bottom:3px;}
+.kpi-n{font-size:26px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:4px;}
+.kpi-n.blue{color:#185FA5;}.kpi-n.teal{color:#0F6E56;}.kpi-n.amber{color:#854F0B;}.kpi-n.red{color:#C8001A;}.kpi-n.purple{color:#534AB7;}
+.kpi-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.kpi-target{font-size:11px;color:#9A9890;}
+.kpi-delta{font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;}
+.delta-up{background:#E1F5EE;color:#0F6E56;}
+.delta-down{background:#FDECEA;color:#C8001A;}
+.delta-flat{background:#F1EFE8;color:#5A5955;}
+.alert-dot{position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%;background:#C8001A;animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.panel-hdr{padding:11px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.panel-left{display:flex;align-items:center;gap:10px;}
+.picon{font-size:14px;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pi-blue{background:#EAF4FB;}.pi-teal{background:#E1F5EE;}.pi-amber{background:#FDF3E3;}.pi-red{background:#FDECEA;}.pi-purple{background:#EEEDFE;}
+.panel-title{font-size:13px;font-weight:600;}.panel-sub{font-size:11px;color:#9A9890;margin-top:1px;}
+.panel-body{padding:14px 16px;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:#E1F5EE;color:#0F6E56;}.b-blue{background:#EAF4FB;color:#185FA5;}.b-amber{background:#FDF3E3;color:#854F0B;}.b-red{background:#FDECEA;color:#C8001A;}.b-gray{background:#F1EFE8;color:#5A5955;}.b-purple{background:#EEEDFE;color:#534AB7;}
+.btn{padding:7px 16px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;font-family:'Noto Sans TC',sans-serif;transition:all .15s;}
+.btn-primary{background:#1A3A5C;border-color:#1A3A5C;color:#fff;}.btn-primary:hover{background:#142E4A;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}.btn-ghost:hover{background:#F4F3F0;}
+.btn-teal{background:#0F6E56;border-color:#0F6E56;color:#fff;}.btn-sm{padding:4px 12px;font-size:12px;}
+.divider{height:1px;background:#EEECE6;margin:12px 0;}
+/* 漏斗 */
+.funnel-stages{display:flex;flex-direction:column;gap:7px;}
+.funnel-stage{display:flex;align-items:center;gap:12px;cursor:pointer;}
+.funnel-stage:hover .funnel-bar-wrap{filter:brightness(.95);}
+.funnel-lbl{font-size:12px;color:#5A5955;width:120px;text-align:right;flex-shrink:0;line-height:1.35;}
+.funnel-bar-wrap{flex:1;height:30px;background:#F4F3F0;border-radius:5px;overflow:hidden;}
+.funnel-bar{height:100%;border-radius:5px;display:flex;align-items:center;padding-left:12px;transition:width .5s ease;}
+.funnel-bar-n{font-size:12.5px;font-weight:700;color:#fff;font-family:'DM Mono',monospace;}
+.funnel-rate{font-size:12px;font-family:'DM Mono',monospace;font-weight:600;width:52px;text-align:right;flex-shrink:0;}
+.funnel-rate.good{color:#0F6E56;}.funnel-rate.warn{color:#854F0B;}.funnel-rate.alert{color:#C8001A;}
+.funnel-arrow{font-size:11px;color:#D5D3CB;width:16px;text-align:center;flex-shrink:0;}
+.funnel-loss{font-size:11px;color:#9A9890;width:56px;flex-shrink:0;}
+.funnel-puls-btn{font-size:11px;padding:2px 8px;border:1px solid #F5AEAD;background:#FDECEA;color:#C8001A;border-radius:4px;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:'Noto Sans TC',sans-serif;}
+/* RS 人員表 */
+.rs-table{width:100%;border-collapse:collapse;}
+.rs-table th{font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#9A9890;padding:8px 12px;border-bottom:2px solid #EEECE6;text-align:left;white-space:nowrap;}
+.rs-table td{padding:10px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.rs-table tr:last-child td{border-bottom:none;}
+.rs-table tr:hover td{background:#FAFAF8;}
+.mini-bar-wrap{width:120px;height:8px;background:#EEECE6;border-radius:4px;overflow:hidden;}
+.mini-bar-fill{height:100%;border-radius:4px;}
+.fill-good{background:#0F6E56;}.fill-ok{background:#185FA5;}.fill-warn{background:#F0C97E;}.fill-alert{background:#C8001A;}
+/* 個人視角比對 */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.compare-card{border-radius:8px;padding:14px 16px;border:1.5px solid;}
+.compare-mine{background:#FAFAFE;border-color:#534AB7;}
+.compare-store{background:#FAFAF8;border-color:#EEECE6;}
+.compare-head{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:10px;}
+.compare-mine .compare-head{color:#534AB7;}
+.compare-store .compare-head{color:#9A9890;}
+.compare-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12.5px;}
+.compare-row:last-child{border-bottom:none;}
+.compare-key{color:#7A7A78;}
+.compare-val{font-family:'DM Mono',monospace;font-weight:700;}
+.compare-mine .compare-val{color:#534AB7;}
+.compare-store .compare-val{color:#5A5955;}
+.compare-delta{font-size:11px;padding:1px 5px;border-radius:3px;margin-left:4px;}
+/* PULS */
+.puls-wrap{background:#fff;border:1.5px solid #F5AEAD;border-radius:10px;overflow:hidden;margin-bottom:14px;display:none;}
+.puls-wrap.show{display:block;}
+.puls-hdr{background:#FDECEA;padding:11px 16px;display:flex;align-items:center;justify-content:space-between;}
+.puls-hdr-left{display:flex;align-items:center;gap:8px;}
+.puls-kpi-tag{font-size:12px;font-weight:600;color:#7A1010;}
+.puls-close{background:none;border:none;cursor:pointer;color:#9A9890;font-size:18px;line-height:1;padding:2px 6px;}
+.puls-nav{display:flex;border-bottom:1px solid #EEECE6;}
+.puls-step{flex:1;padding:10px 14px;cursor:pointer;border-right:1px solid #EEECE6;transition:background .12s;border-bottom:2px solid transparent;}
+.puls-step:last-child{border-right:none;}
+.puls-step:hover{background:#FAFAF8;}
+.puls-step.active{background:#EAF4FB;border-bottom-color:#185FA5;}
+.puls-step.done{background:#F5FDF9;border-bottom-color:#5DCAA5;}
+.puls-letter{font-size:20px;font-weight:800;font-family:'DM Mono',monospace;color:#D5D3CB;}
+.puls-step.active .puls-letter{color:#185FA5;}
+.puls-step.done .puls-letter{color:#0F6E56;}
+.puls-step-name{font-size:10.5px;color:#9A9890;margin-top:1px;}
+.puls-step.active .puls-step-name{color:#185FA5;font-weight:600;}
+.puls-step.done .puls-step-name{color:#0F6E56;}
+.puls-body{padding:16px 18px;}
+.puls-q{font-size:13px;font-weight:600;margin-bottom:4px;}
+.puls-hint{font-size:11.5px;color:#7A7A78;margin-bottom:12px;line-height:1.6;}
+.puls-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.puls-tag{padding:4px 12px;border:1px solid #D5D3CB;border-radius:5px;font-size:12px;cursor:pointer;color:#5A5955;background:#fff;transition:all .12s;}
+.puls-tag:hover{border-color:#85B7EB;background:#F8FBFF;}
+.puls-tag.on{border-color:#1A3A5C;background:#EAF4FB;color:#1A3A5C;font-weight:600;}
+.puls-textarea{width:100%;padding:8px 10px;border:1px solid #D5D3CB;border-radius:6px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:#2C2C2A;outline:none;resize:vertical;min-height:56px;transition:border .15s;}
+.puls-textarea:focus{border-color:#85B7EB;}
+.puls-footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;}
+.puls-progress{font-size:11px;color:#9A9890;}
+/* 趨勢迷你圖 */
+.trend-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.trend-item-title{font-size:11.5px;color:#5A5955;font-weight:500;margin-bottom:6px;}
+.trend-bars{display:flex;align-items:flex-end;gap:2px;height:44px;}
+.trend-bar{flex:1;border-radius:2px 2px 0 0;min-height:3px;}
+.trend-weeks{display:flex;justify-content:space-between;margin-top:3px;}
+.trend-week-lbl{font-size:9px;color:#B4B2A9;font-family:'DM Mono',monospace;}
+/* 接口品質 */
+.iface-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.iface-card{background:#fff;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;}
+.iface-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;margin:3px 0 2px;}
+.iface-l{font-size:11px;color:#9A9890;}
+.iface-card.good .iface-n{color:#0F6E56;}
+.iface-card.warn .iface-n{color:#854F0B;}
+.iface-card.alert .iface-n{color:#C8001A;}
+/* toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:320px;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div><div class="hdiv"></div>
+  <div class="htitle">銷售管理 <b>RS_M1 — 銷售漏斗看板</b></div>
+  <div class="hright">
+    <button class="hbtn" onclick="showToast('→ RS_M2 業績報表')">業績報表</button>
+    <button class="hbtn" onclick="showToast('→ RS_M3 主管設定')">主管設定</button>
+    <button class="hbtn" onclick="showToast('導覽總覽')">導覽總覽</button>
+  </div>
+</header>
+
+<div class="sub-bar">
+  <div class="role-toggle">
+    <div class="role-btn active-mgr" id="btn-mgr" onclick="switchRole('mgr')">🏢 主管視角</div>
+    <div class="role-btn" id="btn-rs" onclick="switchRole('rs')">👤 個人視角</div>
+  </div>
+  <div class="rs-select-wrap" id="rs-select-wrap">
+    <select class="rs-select" id="rs-select" onchange="renderAll()">
+      <option value="all">全店匯總</option>
+      <option value="lin">林佳蓉</option>
+      <option value="zhang">張志明</option>
+      <option value="wang">王大明</option>
+      <option value="chen">陳雅惠</option>
+    </select>
+    <div class="lock-note">🔒 實際系統依登入帳號自動鎖定</div>
+  </div>
+  <div class="period-toggle">
+    <div class="period-btn active" id="p-month" onclick="setPeriod('month',this)">本月</div>
+    <div class="period-btn" id="p-q" onclick="setPeriod('q',this)">本季</div>
+    <div class="period-btn" id="p-year" onclick="setPeriod('year',this)">本年</div>
+  </div>
+  <div style="margin-left:auto;font-size:11px;color:#9A9890;">最後更新：2026-05-10 14:35</div>
+</div>
+
+<div class="main" id="main-content"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var role='mgr';
+var period='month';
+var pulsStep=0;
+var pulsKpi='';
+var pulsData={p:'',u:[],l:'',s:''};
+
+var rsData={
+  lin:{name:'林佳蓉',contacts:42,builds:38,trials:28,quotes:22,orders:14,deliveries:11,habc:{H:4,A:8,B:12,C:14}},
+  zhang:{name:'張志明',contacts:35,builds:30,trials:18,quotes:14,orders:8,deliveries:7,habc:{H:2,A:6,B:10,C:12}},
+  wang:{name:'王大明',contacts:28,builds:24,trials:22,quotes:20,orders:16,deliveries:14,habc:{H:5,A:9,B:6,C:4}},
+  chen:{name:'陳雅惠',contacts:31,builds:26,trials:14,quotes:10,orders:6,deliveries:5,habc:{H:1,A:4,B:8,C:13}}
+};
+
+function getStoreTotal(){
+  var keys=Object.keys(rsData);
+  var r={contacts:0,builds:0,trials:0,quotes:0,orders:0,deliveries:0,habc:{H:0,A:0,B:0,C:0}};
+  keys.forEach(function(k){
+    var d=rsData[k];
+    r.contacts+=d.contacts;r.builds+=d.builds;r.trials+=d.trials;
+    r.quotes+=d.quotes;r.orders+=d.orders;r.deliveries+=d.deliveries;
+    r.habc.H+=d.habc.H;r.habc.A+=d.habc.A;r.habc.B+=d.habc.B;r.habc.C+=d.habc.C;
+  });
+  return r;
+}
+
+function pct(a,b){return b>0?Math.round(a/b*100)+'%':'—';}
+function pctN(a,b){return b>0?Math.round(a/b*100):0;}
+
+function switchRole(r){
+  role=r;
+  document.getElementById('btn-mgr').className='role-btn'+(r==='mgr'?' active-mgr':'');
+  document.getElementById('btn-rs').className='role-btn'+(r==='rs'?' active-rs':'');
+  var wrap=document.getElementById('rs-select-wrap');
+  if(r==='rs'){
+    wrap.style.display='flex';
+    document.getElementById('rs-select').value='lin';
+    document.getElementById('rs-select').disabled=false;
+    // 模擬個人視角只能看自己
+    var opts=document.getElementById('rs-select').options;
+    for(var i=0;i<opts.length;i++){
+      opts[i].disabled=(opts[i].value==='all'||opts[i].value==='');
+    }
+  } else {
+    wrap.style.display='flex';
+    document.getElementById('rs-select').value='all';
+    var opts2=document.getElementById('rs-select').options;
+    for(var i=0;i<opts2.length;i++) opts2[i].disabled=false;
+  }
+  renderAll();
+  showToast(r==='mgr'?'主管視角：可查看全店及各 RS 數據':'個人視角：僅顯示您的數據與全店平均對標');
+}
+
+function setPeriod(p,el){
+  period=p;
+  document.querySelectorAll('.period-btn').forEach(function(b){b.classList.remove('active');});
+  el.classList.add('active');
+  renderAll();
+}
+
+function getRsKey(){
+  var v=document.getElementById('rs-select').value;
+  return v==='all'?null:v;
+}
+
+function renderAll(){
+  var key=getRsKey();
+  var d=key?rsData[key]:getStoreTotal();
+  var mc=document.getElementById('main-content');
+
+  if(role==='mgr'){
+    mc.innerHTML=renderMgr(d,key);
+  } else {
+    var storeD=getStoreTotal();
+    var rsKey=document.getElementById('rs-select').value;
+    var rsD=rsData[rsKey]||rsData['lin'];
+    mc.innerHTML=renderRsView(rsD,storeD);
+  }
+
+  // 重新綁定 PULS 步驟按鈕
+  document.querySelectorAll('.puls-step').forEach(function(el,i){
+    el.onclick=function(){goPuls(i);};
+  });
+}
+
+function renderMgr(d,key){
+  var isAll=!key;
+  var store=getStoreTotal();
+  var trialRate=pctN(d.trials,d.builds);
+  var quoteRate=pctN(d.quotes,d.trials);
+  var orderRate=pctN(d.orders,d.quotes);
+  var closeRate=pctN(d.deliveries,d.contacts);
+
+  var trialClass=trialRate>=60?'good':trialRate>=40?'warn':'alert';
+  var quoteClass=quoteRate>=70?'good':quoteRate>=50?'warn':'alert';
+  var orderClass=orderRate>=60?'good':orderRate>=40?'warn':'alert';
+
+  var html='';
+
+  // 視角說明
+  html+='<div class="role-banner role-banner-mgr">🏢 <b>主管視角</b>　顯示'+(isAll?'全店匯總':'RS '+d.name)+' · '+getPeriodLabel()+' · 可點擊各 KPI 展開 PULS 診斷工作區</div>';
+
+  // === 結果指標層 ===
+  html+='<div class="layer-title">Layer 1 — 結果指標（給主管看）</div>';
+  html+='<div class="kpi-row-4">';
+  html+=kpiCard('本月成交台數','deliveries',d.deliveries,'台','目標 15 台',d.deliveries>=15?'good':d.deliveries>=10?'warn':'alert',
+    d.deliveries>=15?'達標':'未達標',d.deliveries>=15?'delta-up':'delta-down',false);
+  html+=kpiCard('整體成交率','close',closeRate+'%','','目標 12%',closeRate>=12?'good':closeRate>=8?'warn':'alert',
+    closeRate>=12?'達標':'未達標',closeRate>=12?'delta-up':'delta-down',false);
+  html+=kpiCard('本月報價單數','quotes',d.quotes,'張','','','','',false);
+  html+=kpiCard('本月訂車台數','orders',d.orders,'台','目標 16 台',d.orders>=16?'good':d.orders>=12?'warn':'alert',
+    d.orders>=16?'達標':'未達標',d.orders>=16?'delta-up':'delta-down',false);
+  html+='</div>';
+
+  // === 過程指標層 ===
+  html+='<div class="layer-title">Layer 2 \u2014 \u904e\u7a0b\u6307\u6a19\uff08\u7d66\u9280\u552e\u4e3b\u7ba1\u770b\uff09</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">';
+  var kpiTargets=window._kpiTargets||{build:90,trial:60,quote:70,order:60};
+  var l2items=[
+    {lbl:'\u5efa\u6a94\u5b8c\u6574\u7387',val:pctN(d.builds,d.contacts),target:kpiTargets.build,key:'build'},
+    {lbl:'\u8a66\u4e58\u8a66\u99d5\u7387',val:trialRate,target:kpiTargets.trial,key:'trial'},
+    {lbl:'\u5831\u50f9\u8f49\u5316\u7387',val:quoteRate,target:kpiTargets.quote,key:'quote'},
+    {lbl:'\u8a02\u8eca\u6210\u4ea4\u7387',val:orderRate,target:kpiTargets.order,key:'order'}
+  ];
+  l2items.forEach(function(it){
+    var pv=it.val; var tg=it.target;
+    var needleColor=pv>=tg?'#0F6E56':pv>=tg*0.8?'#E07800':'#C8001A';
+    var arcColor=pv>=tg?'#5DCAA5':pv>=tg*0.8?'#F0A500':'#C8001A';
+    var bgColor=pv>=tg?'#F5FDF9':pv>=tg*0.8?'#FFFDF5':'#FFF8F8';
+    var bdColor=pv>=tg?'#5DCAA5':pv>=tg*0.8?'#F0C97E':'#F5AEAD';
+    var statusTxt=pv>=tg?'<span style="color:#0F6E56;font-weight:700;">\u2705 \u9054\u6a19</span>':'<span style="color:'+needleColor+';font-weight:700;">\u843d\u5f8c '+(tg-pv)+'%</span>';
+    var alertDot=pv<tg*0.8?'<div class="alert-dot"></div>':'';
+    // SVG \u5100\u8868\u76e4\u53c3\u6578
+    var R=36; var cx=50; var cy=48;
+    // \u534a\u5713\u5f27\u5f9e\u5de6(180deg)\u5230\u53f3(0deg)\uff0c\u91cd\u5fc3(cx,cy)
+    // stroke-dasharray \u7684\u57fa\u6e96\u662f\u534a\u5713\u5468\u9577 = PI*R
+    var halfCirc=Math.PI*R;
+    var valDash=halfCirc*pv/100;
+    var valGap=halfCirc-valDash;
+    var tgDash=halfCirc*tg/100;
+    // \u6307\u91dd\u89d2\u5ea6\uff1a0%=180deg, 100%=0deg
+    var needleDeg=180-pv*1.8;
+    var nr=needleDeg*Math.PI/180;
+    var nx=(cx+Math.cos(nr)*(R-4)).toFixed(1);
+    var ny=(cy-Math.sin(nr)*(R-4)).toFixed(1);
+    // \u76ee\u6a19\u5c0f\u4e09\u89d2\u65d7\u6a19
+    var tgDeg=180-tg*1.8;
+    var tr2=tgDeg*Math.PI/180;
+    var tx1=(cx+Math.cos(tr2)*(R+2)).toFixed(1);
+    var ty1=(cy-Math.sin(tr2)*(R+2)).toFixed(1);
+    var tx2=(cx+Math.cos(tr2)*(R+10)).toFixed(1);
+    var ty2=(cy-Math.sin(tr2)*(R+10)).toFixed(1);
+    // \u523b\u5ea6\u7dda 0/25/50/75/100
+    var ticks='';
+    [{v:0,major:true},{v:25,major:false},{v:50,major:true},{v:75,major:false},{v:100,major:true}].forEach(function(tk){
+      var td=(180-tk.v*1.8)*Math.PI/180;
+      var r1=tk.major?R+2:R+2;
+      var r2=tk.major?R+9:R+6;
+      ticks+='<line x1="'+(cx+Math.cos(td)*r1).toFixed(1)+'" y1="'+(cy-Math.sin(td)*r1).toFixed(1)+'" x2="'+(cx+Math.cos(td)*r2).toFixed(1)+'" y2="'+(cy-Math.sin(td)*r2).toFixed(1)+'" stroke="'+(tk.major?'#9A9890':'#C8C7C4')+'" stroke-width="'+(tk.major?1.8:1)+'"/>';
+      if(tk.major){
+        var lx=(cx+Math.cos(td)*(R+15)).toFixed(1);
+        var ly=(cy-Math.sin(td)*(R+15)).toFixed(1);
+        ticks+='<text x="'+lx+'" y="'+ly+'" text-anchor="middle" dominant-baseline="middle" font-size="6" fill="#9A9890">'+tk.v+'</text>';
+      }
+    });
+    html+=
+      '<div class="kpi-card" style="background:'+bgColor+';border:1.5px solid '+bdColor+';cursor:pointer;text-align:center;padding:12px 8px 10px;position:relative;" onclick="openPuls(\''+it.lbl+'\')">'+alertDot+
+        '<div style="font-size:11px;color:#5A5955;font-weight:600;margin-bottom:4px;letter-spacing:.2px;">'+it.lbl+'</div>'+
+        '<svg viewBox="0 0 100 56" style="width:100%;max-width:140px;display:block;margin:0 auto;overflow:visible;">'+
+          // \u80cc\u666f\u5f27
+          '<path d="M '+(cx-R)+' '+cy+' A '+R+' '+R+' 0 0 1 '+(cx+R)+' '+cy+'" fill="none" stroke="#E8E7E4" stroke-width="10" stroke-linecap="butt"/>'+
+          // \u5f69\u8272\u5206\u5340\uff080-\u76ee\u6a19\uff1a\u6df1\u8272\uff0c\u76ee\u6a19-\u5167\u5708\uff1a\u6de1)
+          '<path d="M '+(cx-R)+' '+cy+' A '+R+' '+R+' 0 0 1 '+(cx+R)+' '+cy+'" fill="none" stroke="#FDF3E3" stroke-width="10" stroke-linecap="butt" stroke-dasharray="'+halfCirc.toFixed(1)+' 0"/>'+
+          '<path d="M '+(cx-R)+' '+cy+' A '+R+' '+R+' 0 0 1 '+(cx+R)+' '+cy+'" fill="none" stroke="'+arcColor+'" stroke-width="10" stroke-linecap="butt" stroke-dasharray="'+valDash.toFixed(1)+' '+(halfCirc-valDash+1).toFixed(1)+'"/>'+
+          // \u5149\u6fa4\u6548\u679c\u8986\u84cb\u5c64
+          '<path d="M '+(cx-R)+' '+cy+' A '+R+' '+R+' 0 0 1 '+(cx+R)+' '+cy+'" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4" stroke-linecap="butt" stroke-dasharray="'+halfCirc.toFixed(1)+' 0"/>'+
+          // \u523b\u5ea6
+          ticks+
+          // \u76ee\u6a19\u6307\u793a\u7dda
+          '<line x1="'+tx1+'" y1="'+ty1+'" x2="'+tx2+'" y2="'+ty2+'" stroke="#1A3A5C" stroke-width="2.5" stroke-linecap="round"/>'+
+          '<circle cx="'+tx1+'" cy="'+ty1+'" r="2" fill="#1A3A5C"/>'+
+          // \u6307\u91dd\u5f71\u5b50
+          '<line x1="'+cx+'" y1="'+cy+'" x2="'+nx+'" y2="'+ny+'" stroke="rgba(0,0,0,0.12)" stroke-width="3" stroke-linecap="round" transform="translate(0.5,0.5)"/>'+
+          // \u6307\u91dd
+          '<line x1="'+cx+'" y1="'+cy+'" x2="'+nx+'" y2="'+ny+'" stroke="'+needleColor+'" stroke-width="2.5" stroke-linecap="round"/>'+
+          // \u6307\u91dd\u5713\u5fc3
+          '<circle cx="'+cx+'" cy="'+cy+'" r="5" fill="#2C2C2A"/>'+
+          '<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="'+needleColor+'"/>'+
+          '<circle cx="'+cx+'" cy="'+cy+'" r="1.2" fill="#fff"/>'+
+          // \u6578\u5024\u986f\u793a
+          '<text x="'+cx+'" y="'+(cy-1)+'" text-anchor="middle" font-size="15" font-weight="800" fill="'+needleColor+'" font-family="DM Mono,monospace">'+pv+'%</text>'+
+          // \u5e95\u90e8\u5de6\u53f3 0/100 \u5927\u6a19
+          '<text x="'+(cx-R+2)+'" y="'+(cy+8)+'" text-anchor="middle" font-size="7" fill="#B4B2A9">0</text>'+
+          '<text x="'+(cx+R-2)+'" y="'+(cy+8)+'" text-anchor="middle" font-size="7" fill="#B4B2A9">100</text>'+
+        '</svg>'+
+        '<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;">'+
+          '<div style="display:flex;align-items:center;gap:3px;font-size:10.5px;color:#5A5955;">'+
+            '<div style="width:8px;height:8px;border-radius:50%;background:#1A3A5C;"></div>'+
+            '\u76ee\u6a19 '+tg+'%'+
+          '</div>'+
+          statusTxt+
+        '</div>'+
+      '</div>';
+  });
+  html+='</div>';
+
+  // === 原始數據層 ===
+  html+='<div class="layer-title">Layer 3 — 原始數據（行為導向）</div>';
+  html+='<div class="kpi-row-5">';
+  html+=kpiCard('本月到店人次','contacts',d.contacts,'人次','','blue','','',false);
+  html+=kpiCard('電子手卡建檔','builds',d.builds,'筆','','blue','','',false);
+  html+=kpiCard('試乘試駕次數','trials',d.trials,'次','','blue','','',false);
+  html+=kpiCard('HABC 高意願客','habc',d.habc.H+d.habc.A,'位','H+A 級潛客','','','',false);
+  html+=kpiCard('本月有效跟進','follow',Math.round(d.orders*3.2),'次','電訪+邀約','','','',false);
+  html+='</div>';
+
+  // PULS section
+  html+=renderPuls();
+
+  // 漏斗視覺
+  html+=renderFunnel(d);
+
+  // RS compare table - manager only
+  if(isAll) html+=renderRsTable();
+
+  // HABC 分布
+  html+=renderHABC(d);
+
+  // 趨勢
+  html+=renderTrend();
+
+  // 接口品質
+  html+=renderIface();
+
+  // 客群畫像（主管視角）
+  html+=renderClientProfile(d);
+
+  return html;
+}
+
+function renderClientProfile(d){
+  // 標籤分布模擬資料（正式系統從標籤資料庫讀取）
+  var total=d.contacts;
+  var labels=[
+    {color:'#C8001A',bg:'#FDECEA',border:'#F5AEAD',emoji:'🔴',name:'注意類',
+     tags:[
+       {name:'價格敏感',count:18,closed:3},
+       {name:'競品考慮中',count:12,closed:2},
+       {name:'有投訴記錄',count:4,closed:1}
+     ]},
+    {color:'#854F0B',bg:'#FDF3E3',border:'#F0C97E',emoji:'🟡',name:'偏好類',
+     tags:[
+       {name:'偏好街跑',count:32,closed:14},
+       {name:'偏好越野',count:11,closed:4},
+       {name:'社群活躍車主',count:22,closed:9}
+     ]},
+    {color:'#0F6E56',bg:'#E1F5EE',border:'#5DCAA5',emoji:'🟢',name:'服務備忘',
+     tags:[
+       {name:'已提供型錄',count:41,closed:18},
+       {name:'已寄送報價',count:28,closed:15},
+       {name:'需要停車建議',count:7,closed:2}
+     ]},
+    {color:'#185FA5',bg:'#EAF4FB',border:'#85B7EB',emoji:'🔵',name:'溝通費用',
+     tags:[
+       {name:'詢問車貸',count:24,closed:8},
+       {name:'預算偏低',count:16,closed:2},
+       {name:'詢問二手抵扣',count:9,closed:5}
+     ]}
+  ];
+
+  var html='<div class="panel"><div class="panel-hdr"><div class="panel-left">'
+    +'<div class="picon pi-purple">🎯</div>'
+    +'<div><div class="panel-title">客群畫像</div>'
+    +'<div class="panel-sub">本月潛客標籤分布 × 成交率交叉分析｜標籤由 RS_M3 主管設定管理</div>'
+    +'</div></div>'
+    +'<div style="font-size:11px;color:#9A9890;">資料區間：本月｜共 '+total+' 位潛客</div>'
+    +'</div><div class="panel-body">';
+
+  // 四色區塊
+  html+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:14px;">';
+  labels.forEach(function(grp){
+    var grpTotal=grp.tags.reduce(function(s,t){return s+t.count;},0);
+    var grpClosed=grp.tags.reduce(function(s,t){return s+t.closed;},0);
+    var grpRate=grpTotal>0?Math.round(grpClosed/grpTotal*100):0;
+    html+='<div style="background:'+grp.bg+';border:1.5px solid '+grp.border+';border-radius:8px;padding:12px 14px;">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+    html+='<div style="font-size:12px;font-weight:700;color:'+grp.color+';">'+grp.emoji+' '+grp.name+'</div>';
+    html+='<div style="text-align:right;">'
+      +'<span style="font-size:18px;font-weight:800;font-family:DM Mono,monospace;color:'+grp.color+';">'+grpTotal+'</span>'
+      +'<span style="font-size:11px;color:'+grp.color+';margin-left:3px;">人次</span>'
+      +'<div style="font-size:10.5px;color:'+grp.color+';opacity:.8;">成交率 '+grpRate+'%</div>'
+      +'</div></div>';
+    // 各標籤列
+    grp.tags.forEach(function(t){
+      var rate=t.count>0?Math.round(t.closed/t.count*100):0;
+      var barW=Math.round(t.count/Math.max(grpTotal,1)*100);
+      html+='<div style="margin-bottom:6px;">';
+      html+='<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px;">';
+      html+='<span style="color:#2C2C2A;font-weight:500;">'+t.name+'</span>';
+      html+='<span style="color:'+grp.color+';font-family:DM Mono,monospace;font-weight:600;">'+t.count+' 人｜成交 '+rate+'%</span>';
+      html+='</div>';
+      html+='<div style="background:rgba(255,255,255,.5);border-radius:3px;height:6px;width:100%;overflow:hidden;">';
+      html+='<div style="height:100%;width:'+barW+'%;background:'+grp.color+';border-radius:3px;opacity:.7;"></div>';
+      html+='</div></div>';
+    });
+    html+='</div>';
+  });
+  html+='</div>';
+
+  // 洞察摘要列
+  html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">';
+  var insights=[
+    {icon:'💡',title:'最高成交標籤',val:'已提供型錄','sub':'成交率 44%，建議優先跟進'},
+    {icon:'⚠️',title:'流失風險標籤',val:'預算偏低','sub':'成交率僅 13%，需加強方案'},
+    {icon:'🏆',title:'本月標籤覆蓋率',val:Math.round(d.builds/d.contacts*100)+'%','sub':'有'+d.builds+'位潛客已被貼標'}
+  ];
+  insights.forEach(function(ins){
+    html+='<div style="background:#F8F7F4;border:1px solid #EEECE6;border-radius:8px;padding:11px 13px;">';
+    html+='<div style="font-size:13px;margin-bottom:4px;">'+ins.icon+'</div>';
+    html+='<div style="font-size:10.5px;color:#9A9890;margin-bottom:2px;">'+ins.title+'</div>';
+    html+='<div style="font-size:15px;font-weight:700;color:#2C2C2A;margin-bottom:2px;">'+ins.val+'</div>';
+    html+='<div style="font-size:10.5px;color:#7A7A78;">'+ins.sub+'</div>';
+    html+='</div>';
+  });
+  html+='</div>';
+
+  html+='<div style="margin-top:10px;font-size:11px;color:#9A9890;">💡 官方標籤庫及分析維度設定請至 RS_M3 主管設定 → Tab 3 客戶標籤管理</div>';
+  html+='</div></div>';
+  return html;
+}
+
+function kpiCard(lbl,id,val,unit,target,cls,deltaText,deltaClass,hasAlert){
+  var alertDot=hasAlert?'<div class="alert-dot"></div>':'';
+  var deltaHtml=deltaText?'<span class="kpi-delta '+deltaClass+'">'+deltaText+'</span>':'';
+  var targetHtml=target?'<span class="kpi-target">'+target+'</span>':'';
+  var colorClass=cls==='good'?'teal':cls==='alert'?'red':cls==='warn'?'amber':cls;
+  return '<div class="kpi-card '+(cls==='good'?'good':cls==='alert'?'alert':cls==='warn'?'warn':'')+'" onclick="openPuls(\''+lbl+'\')">'+alertDot+
+    '<div class="kpi-l">'+lbl+'</div>'+
+    '<div class="kpi-n '+colorClass+'">'+val+'<span style="font-size:13px;font-weight:400;margin-left:2px;">'+unit+'</span></div>'+
+    '<div class="kpi-meta">'+targetHtml+deltaHtml+'</div>'+
+  '</div>';
+}
+
+function renderPuls(){
+  return '<div class="puls-wrap" id="puls-wrap">'+
+    '<div class="puls-hdr">'+
+      '<div class="puls-hdr-left">'+
+        '<span style="font-size:16px;">🔍</span>'+
+        '<div><div class="puls-kpi-tag" id="puls-kpi-tag">KPI 異常診斷</div>'+
+        '<div style="font-size:11px;color:#9A9890;margin-top:1px;">PULS 四步改善閉環 · 填寫後自動存檔追蹤</div></div>'+
+      '</div>'+
+      '<button class="puls-close" onclick="closePuls()">x</button>'+
+    '</div>'+
+    '<div class="puls-nav">'+
+      '<div class="puls-step active" id="puls-s0"><div class="puls-letter">P</div><div class="puls-step-name">問題定位</div></div>'+
+      '<div class="puls-step" id="puls-s1"><div class="puls-letter">U</div><div class="puls-step-name">原因分析</div></div>'+
+      '<div class="puls-step" id="puls-s2"><div class="puls-letter">L</div><div class="puls-step-name">解決方案</div></div>'+
+      '<div class="puls-step" id="puls-s3"><div class="puls-letter">S</div><div class="puls-step-name">鞏固追蹤</div></div>'+
+    '</div>'+
+    '<div class="puls-body" id="puls-body"></div>'+
+  '</div>';
+}
+
+var pulsContent=[
+  {
+    q:'這個 KPI 目前偏低多少？影響的範圍是什麼？',
+    hint:'請具體說明：低於目標幾個百分點？是全體 RS 都低，還是特定 RS？是本月突然下降，還是持續偏低？',
+    tags:['全體 RS 都低','特定 RS 偏低','本月突然下降','持續 3 個月以上偏低','季節性因素'],
+    placeholder:'例：試乘試駕率本月 42%，低於目標 60% 達 18 個百分點，以林佳蓉和陳雅惠最明顯...'
+  },
+  {
+    q:'可能的根本原因是什麼？',
+    hint:'從人員、流程、工具、外部環境四個維度思考。可複選多項原因。',
+    tags:['RS 主動邀約試駕不足','試駕車不夠或整備中','客戶時間不允許','話術引導不足','競品試乘機制更完善','天氣或季節因素'],
+    placeholder:'例：觀察發現 RS 在客戶未明確表達意願時，不敢主動提出試駕邀請...'
+  },
+  {
+    q:'具體的改善行動是什麼？誰負責？何時完成？',
+    hint:'請寫出可執行的行動，並指定負責人與完成期限。',
+    tags:['本週晨會分享試駕話術','增加試駕車整備頻率','RS 個別輔導','調整試駕路線選項','設定每週試駕邀約目標'],
+    placeholder:'例：本週五前由店長帶領全體 RS 演練試駕邀約話術；張志明負責確保週末至少 2 台試駕車待命...'
+  },
+  {
+    q:'如何確認改善有效？下次確認時間？',
+    hint:'設定追蹤機制，確保改善行動真正產生效果而非一次性。',
+    tags:['下週一檢視','兩週後確認','月底 KPI 回顧','每日晨報追蹤','下月同期對比'],
+    placeholder:'例：兩週後確認試乘試駕率是否提升至 50% 以上；若未改善則升級為主管個別輔導...'
+  }
+];
+
+function openPuls(kpi){
+  pulsKpi=kpi;
+  pulsStep=0;
+  pulsData={p:'',u:[],l:'',s:''};
+  document.getElementById('puls-kpi-tag').textContent='診斷：'+kpi;
+  var wrap=document.getElementById('puls-wrap');
+  wrap.classList.add('show');
+  wrap.scrollIntoView({behavior:'smooth',block:'start'});
+  renderPulsBody();
+  updatePulsNav();
+}
+
+function closePuls(){
+  document.getElementById('puls-wrap').classList.remove('show');
+}
+
+function goPuls(step){
+  savePulsCurrent();
+  pulsStep=step;
+  renderPulsBody();
+  updatePulsNav();
+}
+
+function savePulsCurrent(){
+  var ta=document.getElementById('puls-ta');
+  if(!ta) return;
+  if(pulsStep===0) pulsData.p=ta.value;
+  else if(pulsStep===1) pulsData.l=ta.value;
+  else if(pulsStep===2) pulsData.l=ta.value;
+  else pulsData.s=ta.value;
+}
+
+function renderPulsBody(){
+  var c=pulsContent[pulsStep];
+  var savedVal=pulsStep===0?pulsData.p:pulsStep===3?pulsData.s:pulsData.l;
+  var body=document.getElementById('puls-body');
+  if(!body) return;
+
+  var tagsHtml=c.tags.map(function(t){
+    var isOn=(pulsStep===1&&pulsData.u.indexOf(t)>=0);
+    return '<span class="puls-tag'+(isOn?' on':'')+'" onclick="togglePulsTag(this,\''+t+'\')">' +t+'</span>';
+  }).join('');
+
+  body.innerHTML=
+    '<div class="puls-q">'+c.q+'</div>'+
+    '<div class="puls-hint">'+c.hint+'</div>'+
+    '<div class="puls-tags">'+tagsHtml+'</div>'+
+    '<textarea class="puls-textarea" id="puls-ta" placeholder="'+c.placeholder+'">'+savedVal+'</textarea>'+
+    '<div class="puls-footer">'+
+      '<div class="puls-progress">步驟 '+(pulsStep+1)+' / 4</div>'+
+      '<div style="display:flex;gap:8px;">'+
+        (pulsStep>0?'<button class="btn btn-ghost btn-sm" onclick="goPuls('+(pulsStep-1)+')">← 上一步</button>':'')+
+        (pulsStep<3?'<button class="btn btn-primary btn-sm" onclick="nextPuls()">下一步 →</button>':
+          '<button class="btn btn-teal btn-sm" onclick="savePuls()">儲存改善計畫</button>')+
+      '</div>'+
+    '</div>';
+}
+
+function togglePulsTag(el,tag){
+  el.classList.toggle('on');
+  var idx=pulsData.u.indexOf(tag);
+  if(idx>=0) pulsData.u.splice(idx,1);
+  else pulsData.u.push(tag);
+}
+
+function nextPuls(){
+  savePulsCurrent();
+  pulsStep=Math.min(pulsStep+1,3);
+  renderPulsBody();
+  updatePulsNav();
+}
+
+function updatePulsNav(){
+  for(var i=0;i<4;i++){
+    var s=document.getElementById('puls-s'+i);
+    if(!s) continue;
+    s.className='puls-step'+(i===pulsStep?' active':i<pulsStep?' done':'');
+  }
+}
+
+function savePuls(){
+  savePulsCurrent();
+  showToast('改善計畫已儲存\n下次 KPI 更新時自動對比改善效果');
+  closePuls();
+}
+
+function renderFunnel(d){
+  var stages=[
+    {lbl:'到店接觸',    n:d.contacts,  color:'#1A3A5C'},
+    {lbl:'電子手卡建檔',n:d.builds,    color:'#185FA5'},
+    {lbl:'試乘試駕',    n:d.trials,    color:'#534AB7'},
+    {lbl:'開立報價單',  n:d.quotes,    color:'#854F0B'},
+    {lbl:'訂車成交',    n:d.orders,    color:'#C8001A'},
+    {lbl:'完成交車',    n:d.deliveries,color:'#0F6E56'}
+  ];
+  var max=d.contacts;
+  // SVG 尺寸
+  var W=600, RH=52, HDR=28;
+  var H=HDR+stages.length*RH;
+  // 欄位 x 座標
+  var LBL_MID=90,  LBL_W=170; // 左標籤欄中心
+  var FNL_L=175, FNL_R=425;   // 漏斗區左右邊界
+  var FNL_CX=(FNL_L+FNL_R)/2; // 漏斗中心 300
+  var FNL_HW=(FNL_R-FNL_L)/2; // 漏斗半寬 125
+  var RATE_X=460;              // 轉化率欄 x
+  var LOSS_X=540;              // 流失欄 x
+
+  var html='<div class="panel">'
+    +'<div class="panel-hdr"><div class="panel-left"><div class="picon pi-blue">📊</div>'
+    +'<div><div class="panel-title">銷售漏斗視覺</div>'
+    +'<div class="panel-sub">點擊任一層可展開 PULS 診斷</div></div></div></div>'
+    +'<div class="panel-body">'
+    +'<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;display:block;" xmlns="http://www.w3.org/2000/svg">';
+
+  // === 欄標題 ===
+  html+='<text x="'+LBL_MID+'" y="18" text-anchor="middle" font-size="11" fill="#9A9890" font-family="Noto Sans TC,sans-serif" font-weight="600">階段</text>';
+  html+='<text x="'+FNL_CX+'" y="18" text-anchor="middle" font-size="11" fill="#9A9890" font-family="Noto Sans TC,sans-serif" font-weight="600">人數 / 漏斗</text>';
+  html+='<text x="'+RATE_X+'" y="18" text-anchor="middle" font-size="11" fill="#9A9890" font-family="Noto Sans TC,sans-serif" font-weight="600">轉化率</text>';
+  html+='<text x="'+LOSS_X+'" y="18" text-anchor="middle" font-size="11" fill="#9A9890" font-family="Noto Sans TC,sans-serif" font-weight="600">流失</text>';
+  // 分隔線
+  html+='<line x1="0" y1="'+HDR+'" x2="'+W+'" y2="'+HDR+'" stroke="#EEECE6" stroke-width="1"/>';
+
+  stages.forEach(function(s,i){
+    var prev=i>0?stages[i-1].n:s.n;
+    var nextN=i<stages.length-1?stages[i+1].n:Math.round(s.n*0.65);
+    var rateN=i>0?pctN(s.n,prev):null;
+    var loss=i>0?(prev-s.n):0;
+    var lossPct=i>0?Math.round(loss/prev*100):0;
+    var rateColor=rateN===null?'#B4B2A9':rateN>=70?'#0F6E56':rateN>=50?'#E07800':'#C8001A';
+    var lossColor=lossPct>=30?'#C8001A':lossPct>=15?'#E07800':'#5A5955';
+
+    // 梯形寬度：依人數比例，最小保留10%半寬
+    var topHW = (s.n/max)*(FNL_HW-8)+8;
+    var botHW = (nextN/max)*(FNL_HW-8)+8;
+
+    var y0=HDR+i*RH+2, y1=HDR+(i+1)*RH-2;
+    var midY=(y0+y1)/2;
+
+    // 梯形
+    var pts=(FNL_CX-topHW).toFixed(1)+','+y0+' '
+           +(FNL_CX+topHW).toFixed(1)+','+y0+' '
+           +(FNL_CX+botHW).toFixed(1)+','+y1+' '
+           +(FNL_CX-botHW).toFixed(1)+','+y1;
+    html+='<polygon points="'+pts+'" fill="'+s.color+'" style="cursor:pointer;" onclick="openPuls(\''+s.lbl+'\')"/>';
+    // 高光
+    var hlPts=(FNL_CX-topHW).toFixed(1)+','+y0+' '
+             +(FNL_CX+topHW).toFixed(1)+','+y0+' '
+             +(FNL_CX+botHW*0.9).toFixed(1)+','+(y0+10)+' '
+             +(FNL_CX-botHW*0.9).toFixed(1)+','+(y0+10);
+    html+='<polygon points="'+hlPts+'" fill="rgba(255,255,255,0.15)" style="pointer-events:none;"/>';
+
+    // 數字（漏斗中央）
+    html+='<text x="'+FNL_CX+'" y="'+(midY+5)+'" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" font-family="DM Mono,monospace" style="pointer-events:none;">'+s.n+'</text>';
+
+    // 左側標籤 — 與梯形同一 midY
+    html+='<text x="'+LBL_MID+'" y="'+(midY+5)+'" text-anchor="middle" font-size="12" fill="#2C2C2A" font-family="Noto Sans TC,sans-serif" font-weight="500">'+s.lbl+'</text>';
+
+    // 轉化率
+    if(rateN===null){
+      html+='<text x="'+RATE_X+'" y="'+(midY+4)+'" text-anchor="middle" font-size="11" fill="#B4B2A9" font-family="Noto Sans TC,sans-serif">基準</text>';
+    } else {
+      html+='<text x="'+RATE_X+'" y="'+(midY+6)+'" text-anchor="middle" font-size="16" font-weight="800" fill="'+rateColor+'" font-family="DM Mono,monospace">'+rateN+'%</text>';
+    }
+
+    // 流失
+    if(i>0){
+      html+='<text x="'+LOSS_X+'" y="'+(midY)+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+lossColor+'" font-family="DM Mono,monospace">-'+loss+'</text>';
+      html+='<text x="'+LOSS_X+'" y="'+(midY+13)+'" text-anchor="middle" font-size="10" fill="#B4B2A9" font-family="Noto Sans TC,sans-serif">'+lossPct+'%流失</text>';
+    }
+
+    // 列分隔線
+    if(i<stages.length-1){
+      html+='<line x1="0" y1="'+(HDR+(i+1)*RH)+'" x2="'+LBL_W+'" y2="'+(HDR+(i+1)*RH)+'" stroke="#F0EEE9" stroke-width="0.5"/>';
+      html+='<line x1="'+FNL_R+'" y1="'+(HDR+(i+1)*RH)+'" x2="'+W+'" y2="'+(HDR+(i+1)*RH)+'" stroke="#F0EEE9" stroke-width="0.5"/>';
+    }
+  });
+
+  html+='</svg>';
+  html+='<div style="margin-top:8px;font-size:11.5px;color:#9A9890;">💡 點擊任一層可展開 PULS 診斷工作區</div>';
+  html+='</div></div>';
+  return html;
+}
+function renderRsTable(){
+  var keys=['lin','zhang','wang','chen'];
+  var store=getStoreTotal();
+  var html='<div class="panel"><div class="panel-hdr"><div class="panel-left"><div class="picon pi-purple">👥</div><div><div class="panel-title">各 RS 績效對比</div><div class="panel-sub">主管視角專屬 · RS 個人登入後不顯示同事數據</div></div></div></div><div class="panel-body"><table class="rs-table"><thead><tr><th>RS</th><th>到店</th><th>試駕率</th><th>報價率</th><th>成交率</th><th>成交台</th><th>H+A潛客</th><th>本月狀態</th></tr></thead><tbody>';
+  keys.forEach(function(k){
+    var d=rsData[k];
+    var trialR=pctN(d.trials,d.builds);
+    var quoteR=pctN(d.quotes,d.trials);
+    var orderR=pctN(d.orders,d.quotes);
+    var overallR=pctN(d.deliveries,d.contacts);
+    var status=d.deliveries>=14?'b-teal':d.deliveries>=10?'b-blue':d.deliveries>=7?'b-amber':'b-red';
+    var statusTxt=d.deliveries>=14?'達標':d.deliveries>=10?'接近目標':d.deliveries>=7?'落後':'嚴重落後';
+    html+='<tr>'+
+      '<td><b>'+d.name+'</b></td>'+
+      '<td><span style="font-family:DM Mono,monospace;">'+d.contacts+'</span></td>'+
+      '<td>'+miniBarCell(trialR,60)+'</td>'+
+      '<td>'+miniBarCell(quoteR,70)+'</td>'+
+      '<td>'+miniBarCell(orderR,60)+'</td>'+
+      '<td><span style="font-family:DM Mono,monospace;font-weight:700;">'+d.deliveries+'</span></td>'+
+      '<td><span class="badge b-blue">'+(d.habc.H+d.habc.A)+'</span></td>'+
+      '<td><span class="badge '+status+'">'+statusTxt+'</span></td>'+
+    '</tr>';
+  });
+  html+='</tbody></table></div></div>';
+  return html;
+}
+
+function miniBarCell(val,target){
+  var cls=val>=target?'fill-good':val>=target*0.8?'fill-ok':val>=target*0.6?'fill-warn':'fill-alert';
+  return '<div style="display:flex;align-items:center;gap:6px;">'+
+    '<div class="mini-bar-wrap"><div class="mini-bar-fill '+cls+'" style="width:'+Math.min(val,100)+'%;"></div></div>'+
+    '<span style="font-family:DM Mono,monospace;font-size:12px;">'+val+'%</span>'+
+  '</div>';
+}
+
+function renderHABC(d){
+  var total=d.habc.H+d.habc.A+d.habc.B+d.habc.C;
+  var html='<div class="panel"><div class="panel-hdr"><div class="panel-left"><div class="picon pi-teal">📋</div><div><div class="panel-title">HABC 潛客分布</div><div class="panel-sub">本月累計在追蹤潛客 '+total+' 位</div></div></div></div><div class="panel-body">';
+  var grades=[
+    {g:'H',lbl:'高度意願',n:d.habc.H,color:'#0F6E56',bg:'#E1F5EE',hint:'本月內購買意願，已試駕'},
+    {g:'A',lbl:'中度意願',n:d.habc.A,color:'#185FA5',bg:'#EAF4FB',hint:'1-2 個月內決定，已試駕'},
+    {g:'B',lbl:'低度意願',n:d.habc.B,color:'#854F0B',bg:'#FDF3E3',hint:'3-6 個月，未試駕'},
+    {g:'C',lbl:'保留意願',n:d.habc.C,color:'#5A5955',bg:'#F1EFE8',hint:'長期考慮，聯絡 3 次以上未表態'}
+  ];
+  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">';
+  grades.forEach(function(gr){
+    var pct2=total>0?Math.round(gr.n/total*100):0;
+    html+='<div style="background:'+gr.bg+';border-radius:8px;padding:12px 14px;text-align:center;">'+
+      '<div style="font-size:28px;font-weight:800;color:'+gr.color+';font-family:DM Mono,monospace;">'+gr.g+'</div>'+
+      '<div style="font-size:22px;font-weight:700;color:'+gr.color+';">'+gr.n+'</div>'+
+      '<div style="font-size:11px;color:'+gr.color+';margin-top:2px;">'+gr.lbl+' ('+pct2+'%)</div>'+
+      '<div style="font-size:10.5px;color:#9A9890;margin-top:4px;line-height:1.4;">'+gr.hint+'</div>'+
+    '</div>';
+  });
+  html+='</div></div></div>';
+  return html;
+}
+
+function renderTrend(){
+  var weeks=['W1','W2','W3','W4'];
+  var datasets=[
+    {title:'到店人次',data:[28,35,42,31],color:'#185FA5'},
+    {title:'試乘試駕',data:[12,18,22,14],color:'#534AB7'},
+    {title:'成交台數',data:[3,5,6,3],color:'#C8001A'}
+  ];
+  var html='<div class="panel"><div class="panel-hdr"><div class="panel-left"><div class="picon pi-blue">📈</div><div><div class="panel-title">本月週趨勢</div><div class="panel-sub">各週數據變化</div></div></div></div><div class="panel-body"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">';
+  datasets.forEach(function(ds){
+    var max=Math.max.apply(null,ds.data);
+    html+='<div><div style="font-size:11.5px;color:#5A5955;font-weight:500;margin-bottom:8px;">'+ds.title+'</div>'+
+      '<div style="display:flex;align-items:flex-end;gap:3px;height:44px;">';
+    ds.data.forEach(function(v,i){
+      var h=max>0?Math.round(v/max*40)+4:4;
+      html+='<div style="flex:1;height:'+h+'px;border-radius:2px 2px 0 0;background:'+ds.color+';opacity:'+(0.5+i*0.17)+';"></div>';
+    });
+    html+='</div><div style="display:flex;justify-content:space-between;margin-top:3px;">';
+    weeks.forEach(function(w){html+='<span style="font-size:9px;color:#B4B2A9;font-family:DM Mono,monospace;">'+w+'</span>';});
+    html+='</div></div>';
+  });
+  html+='</div></div></div>';
+  return html;
+}
+
+function renderIface(){
+  var items=[
+    {lbl:'手卡建檔完整率',n:'91%',cls:'good',sub:'目標 90%'},
+    {lbl:'試駕結果回寫率',n:'87%',cls:'warn',sub:'目標 95%'},
+    {lbl:'交車後 3 日回訪率',n:'78%',cls:'warn',sub:'目標 90%'},
+    {lbl:'RO 關單 24h 更新率',n:'95%',cls:'good',sub:'目標 90%'}
+  ];
+  var html='<div class="panel"><div class="panel-hdr"><div class="panel-left"><div class="picon pi-amber">🔗</div><div><div class="panel-title">跨模組接口品質</div><div class="panel-sub">各串接點數據完整度監控</div></div></div></div><div class="panel-body"><div class="iface-grid">';
+  items.forEach(function(it){
+    html+='<div class="iface-card '+it.cls+'">'+
+      '<div class="iface-l">'+it.lbl+'</div>'+
+      '<div class="iface-n">'+it.n+'</div>'+
+      '<div style="font-size:11px;color:#9A9890;">'+it.sub+'</div>'+
+    '</div>';
+  });
+  html+='</div></div></div>';
+  return html;
+}
+
+function renderRsView(rsD,storeD){
+  var html='';
+  html+='<div class="role-banner role-banner-rs">👤 <b>個人視角：'+rsD.name+'</b>　顯示您的數據與全店平均對標 · 不顯示其他 RS 個別數據</div>';
+
+  // 比對卡
+  html+='<div class="compare-grid">';
+  var metrics=[
+    {lbl:'到店接觸人次',me:rsD.contacts,store:Math.round(storeD.contacts/4)},
+    {lbl:'試乘試駕率',me:pctN(rsD.trials,rsD.builds)+'%',store:pctN(storeD.trials,storeD.builds)+'%'},
+    {lbl:'報價轉化率',me:pctN(rsD.quotes,rsD.trials)+'%',store:pctN(storeD.quotes,storeD.trials)+'%'},
+    {lbl:'本月成交台數',me:rsD.deliveries,store:Math.round(storeD.deliveries/4)},
+    {lbl:'H+A 潛客數',me:rsD.habc.H+rsD.habc.A,store:Math.round((storeD.habc.H+storeD.habc.A)/4)}
+  ];
+  html+='<div class="compare-card compare-mine"><div class="compare-head">我的數據</div>';
+  metrics.forEach(function(m){
+    html+='<div class="compare-row"><span class="compare-key">'+m.lbl+'</span><span class="compare-val">'+m.me+'</span></div>';
+  });
+  html+='</div>';
+  html+='<div class="compare-card compare-store"><div class="compare-head">全店平均</div>';
+  metrics.forEach(function(m){
+    html+='<div class="compare-row"><span class="compare-key">'+m.lbl+'</span><span class="compare-val">'+m.store+'</span></div>';
+  });
+  html+='</div></div>';
+
+  // 個人漏斗
+  html+=renderFunnel(rsD);
+
+  // HABC 個人分布
+  html+=renderHABC(rsD);
+
+  return html;
+}
+
+function getPeriodLabel(){
+  return period==='month'?'2026年5月':period==='q'?'2026年Q2':'2026年';
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);
+}
+
+// 初始化
+document.getElementById('rs-select-wrap').style.display='flex';
+renderAll();
+</script>
+</body>
+</html>

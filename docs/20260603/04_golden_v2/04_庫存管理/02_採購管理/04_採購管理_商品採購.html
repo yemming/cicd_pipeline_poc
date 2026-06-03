@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>採購管理｜商品採購 — DUCATI 庫存管理</title>
+<style>
+:root {
+  --navy: #1A3A5C;
+  --blue: #185FA5;
+  --blue-light: #378ADD;
+  --blue-bg: #EBF3FF;
+  --blue-bg2: #EEF6FF;
+
+  --g50:  #FAFAF9;
+  --g100: #F5F5F4;
+  --g200: #EEECE6;
+  --g300: #D8D6CF;
+  --g400: #9A9890;
+  --g500: #6B6A68;
+  --g600: #4A4945;
+  --g700: #2E2D2A;
+  --g800: #1A1917;
+
+  --red: #E24B4A; --red-bg: #FEF5F5; --red-badge: #FDECEA; --red-text: #CC0000;
+  --orange: #EF9F27; --orange-bg: #FFF9F0; --orange-badge: #FDF3E3; --orange-text: #854F0B;
+  --yellow-bg: #FFFDE7; --yellow-text: #5C4500;
+  --green: #0F6E56; --green-bg: #E8F5F0; --green-text: #0F6E56;
+  --purple: #7F77DD; --purple-light: #F0EEFF;
+
+  --sidebar-w: 220px;
+  --header-h: 52px;
+  --font: 'Noto Sans TC', sans-serif;
+  --mono: 'DM Mono', 'Courier New', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); font-size: 13px; color: var(--g700); background: var(--g50); min-height: 100vh; }
+
+/* HEADER */
+.header { position: fixed; top:0; left:0; right:0; height:var(--header-h); background:var(--navy); display:flex; align-items:center; padding:0 16px; z-index:100; }
+.header-logo { font-size:15px; font-weight:700; letter-spacing:2px; color:#fff; }
+.header-divider { width:1px; height:20px; background:rgba(255,255,255,.2); margin:0 12px; }
+.header-breadcrumb { display:flex; align-items:center; gap:6px; font-size:12px; color:rgba(255,255,255,.65); }
+.header-breadcrumb .current { color:#fff; font-weight:600; }
+.header-breadcrumb .sep { opacity:.4; }
+.header-right { margin-left:auto; display:flex; align-items:center; gap:14px; }
+.header-store { font-size:12px; color:rgba(255,255,255,.7); }
+.header-user { display:flex; flex-direction:column; align-items:flex-end; line-height:1.3; font-size:11px; color:rgba(255,255,255,.7); }
+.header-user strong { color:#fff; font-size:12px; }
+.header-bell { position:relative; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:rgba(255,255,255,.75); font-size:16px; }
+.header-bell .badge { position:absolute; top:2px; right:2px; background:var(--red); color:#fff; font-size:9px; font-weight:700; min-width:14px; height:14px; border-radius:7px; display:flex; align-items:center; justify-content:center; padding:0 3px; }
+.header-avatar { width:28px; height:28px; border-radius:50%; background:var(--blue-light); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+
+/* SIDEBAR */
+.sidebar { position:fixed; top:var(--header-h); left:0; bottom:0; width:var(--sidebar-w); background:#fff; border-right:1px solid var(--g200); overflow-y:auto; z-index:90; }
+.sidebar::-webkit-scrollbar { width:4px; }
+.sidebar::-webkit-scrollbar-thumb { background:var(--g200); border-radius:2px; }
+.nav-section { padding:12px 0 4px; }
+.nav-section-label { display:flex; align-items:center; gap:6px; padding:0 12px 6px; font-size:10px; font-weight:600; color:var(--g400); letter-spacing:.9px; text-transform:uppercase; }
+.dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+.dot-blue { background:#1A3A5C; } .dot-purple { background:#7F77DD; } .dot-amber { background:#EF9F27; } .dot-coral { background:#D85A30; } .dot-gray { background:#9A9890; }
+.nav-item { display:flex; align-items:center; gap:8px; padding:0 12px; height:34px; cursor:pointer; font-size:13px; color:var(--g600); position:relative; user-select:none; transition:background .12s; }
+.nav-item:hover { background:var(--g50); color:var(--g800); }
+.nav-item.parent { font-weight:500; color:var(--g800); }
+.nav-item.parent .arrow { margin-left:auto; font-size:10px; color:var(--g400); transition:transform .2s; }
+.nav-item.parent.open .arrow { transform:rotate(90deg); }
+.nav-item.section-active { background:var(--purple-light); }
+.nav-item .icon { font-size:15px; width:18px; text-align:center; }
+.nav-sub { display:none; }
+.nav-sub.open { display:block; }
+.nav-sub-item { display:flex; align-items:center; gap:8px; padding:0 12px 0 38px; height:30px; cursor:pointer; font-size:12px; color:var(--g500); transition:background .12s; }
+.nav-sub-item:hover { background:var(--g50); color:var(--g800); }
+.nav-sub-item.active { color:var(--blue); background:#F0F6FF; font-weight:500; }
+.nav-badge { margin-left:auto; font-size:10px; font-weight:600; padding:1px 5px; border-radius:8px; }
+.nb-red { background:#FDECEA; color:#CC0000; }
+.sidebar-divider { height:1px; background:var(--g200); margin:4px 12px; }
+
+/* MAIN */
+.main { margin-left:var(--sidebar-w); margin-top:var(--header-h); min-height:calc(100vh - var(--header-h)); }
+
+/* FLOW BANNER */
+.flow-banner { background:#fff; border-bottom:1px solid var(--g200); padding:10px 24px; display:flex; align-items:center; gap:0; }
+.flow-step { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--g400); }
+.flow-step .step-num { width:20px; height:20px; border-radius:50%; background:var(--g200); color:var(--g500); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.flow-step.done { color:var(--g500); }
+.flow-step.done .step-num { background:var(--green-bg); color:var(--green); }
+.flow-step.active { color:var(--blue); font-weight:600; }
+.flow-step.active .step-num { background:var(--blue); color:#fff; }
+.flow-arrow { margin:0 8px; color:var(--g300); font-size:12px; }
+
+/* PAGE TITLE */
+.page-title-area { padding:20px 24px 0; display:flex; align-items:baseline; gap:10px; }
+.page-title-area h1 { font-size:20px; font-weight:700; color:var(--g800); letter-spacing:-.3px; }
+.func-badge { background:var(--g100); color:var(--g500); font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; }
+.page-subtitle { font-size:12px; color:var(--g400); margin-top:3px; padding:0 24px 16px; }
+
+/* DRAFT NOTICE */
+.draft-notice {
+  margin: 0 24px 14px;
+  background: var(--blue-bg2);
+  border: 1px solid #AAC9F0;
+  border-left: 4px solid var(--blue);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: var(--blue);
+}
+.draft-notice strong { font-weight: 700; }
+
+/* PILLS */
+.pills { display:flex; gap:4px; padding:0 24px 10px; }
+.pill { height:28px; padding:0 12px; border-radius:14px; font-size:12px; font-weight:500; cursor:pointer; border:1px solid var(--g200); background:#fff; color:var(--g500); display:inline-flex; align-items:center; gap:5px; transition:all .12s; }
+.pill:hover { border-color:var(--blue); color:var(--blue); }
+.pill.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+.pill .pill-count { background:rgba(255,255,255,.25); font-size:10px; padding:0 5px; border-radius:8px; font-weight:700; }
+.pill:not(.active) .pill-count { background:var(--g100); color:var(--g600); }
+
+/* TOOLBAR */
+.toolbar { display:flex; align-items:center; gap:10px; padding:0 24px 10px; }
+.toolbar-count { font-size:12px; color:var(--g500); }
+.toolbar-count strong { color:var(--g700); }
+.toolbar-right { margin-left:auto; display:flex; gap:8px; }
+
+/* QUERY BLOCK */
+.query-block { margin:0 24px 12px; background:#fff; border:1px solid var(--g200); border-radius:8px; padding:14px 16px; }
+.query-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+.query-field { display:flex; flex-direction:column; gap:4px; min-width:130px; }
+.query-field label { font-size:11px; font-weight:600; color:var(--g500); }
+.query-field input, .query-field select { height:32px; border:1px solid var(--g200); border-radius:5px; padding:0 10px; font-size:12px; color:var(--g700); background:#fff; font-family:var(--font); outline:none; transition:border-color .15s; }
+.query-field input:focus, .query-field select:focus { border-color:var(--blue); }
+.query-field.wide { min-width:200px; flex:1; }
+.query-btns { display:flex; gap:8px; align-items:flex-end; margin-left:auto; }
+
+/* BTN */
+.btn { height:32px; padding:0 14px; border-radius:5px; font-size:12px; font-weight:600; font-family:var(--font); cursor:pointer; border:none; display:inline-flex; align-items:center; gap:6px; transition:all .15s; white-space:nowrap; }
+.btn-primary { background:var(--blue); color:#fff; }
+.btn-primary:hover { background:var(--navy); }
+.btn-secondary { background:#fff; color:var(--g600); border:1px solid var(--g200); }
+.btn-secondary:hover { background:var(--g50); color:var(--g800); }
+.btn-success { background:var(--green); color:#fff; }
+.btn-success:hover { background:#0b5a45; }
+.btn-warning { background:var(--orange); color:#fff; }
+.btn-warning:hover { background:#d48a1c; }
+.btn-danger { background:#fff; color:var(--red-text); border:1px solid #F7C1C1; }
+.btn-danger:hover { background:var(--red-bg); }
+.btn-ghost { background:transparent; color:var(--g500); border:1px solid var(--g200); }
+.btn-ghost:hover { background:var(--g50); color:var(--g700); }
+.btn-sm { height:26px; padding:0 10px; font-size:11px; }
+.btn-lg { height:38px; padding:0 20px; font-size:13px; }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+
+/* TABLE */
+.table-wrap { margin:0 24px; background:#fff; border:1px solid var(--g200); border-radius:8px; overflow:hidden; }
+table { width:100%; border-collapse:collapse; }
+thead th { padding:9px 10px; background:var(--g50); border-bottom:1px solid var(--g200); font-size:11px; font-weight:600; color:var(--g500); text-align:left; white-space:nowrap; }
+thead th:first-child { padding-left:14px; }
+tbody tr { border-bottom:1px solid var(--g200); cursor:pointer; transition:background .1s; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:#F8F7F4; }
+tbody tr.row-draft { background:#FFFDE7; }
+tbody tr.row-draft:hover { background:#FFF8D0; }
+td { padding:9px 10px; font-size:12px; color:var(--g700); vertical-align:middle; }
+td:first-child { padding-left:14px; }
+input[type="checkbox"] { accent-color:var(--blue); cursor:pointer; }
+.mono { font-family:var(--mono); font-size:11px; color:var(--g600); }
+.link-text { color:var(--blue); cursor:pointer; font-weight:600; }
+.link-text:hover { text-decoration:underline; }
+
+/* BADGE */
+.badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 7px; border-radius:10px; white-space:nowrap; }
+.badge-draft    { background:#FEF9C3; color:#5C4500; }
+.badge-submitted { background:#DBEAFE; color:#1D4ED8; }
+.badge-pending  { background:#FDF3E3; color:#854F0B; }
+.badge-complete { background:var(--green-bg); color:var(--green-text); }
+.badge-void     { background:var(--g100); color:var(--g500); }
+.badge-red      { background:#FDECEA; color:#CC0000; }
+.badge-green    { background:var(--green-bg); color:var(--green-text); }
+.badge-blue     { background:#DBEAFE; color:#1D4ED8; }
+.badge-orange   { background:#FDF3E3; color:#854F0B; }
+.badge-gray     { background:var(--g100); color:var(--g500); }
+
+/* PO EDIT PANEL (full-page form) */
+.po-panel-overlay { position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:200; opacity:0; pointer-events:none; transition:opacity .25s; }
+.po-panel-overlay.visible { opacity:1; pointer-events:auto; }
+.po-panel { position:fixed; top:0; right:0; bottom:0; width:780px; max-width:95vw; background:#fff; box-shadow:-4px 0 24px rgba(0,0,0,.14); z-index:201; display:flex; flex-direction:column; transform:translateX(100%); transition:transform .28s cubic-bezier(.32,0,.24,1); }
+.po-panel.open { transform:translateX(0); }
+.po-panel-header { padding:14px 20px; border-bottom:1px solid var(--g200); display:flex; align-items:center; gap:10px; flex-shrink:0; background:var(--g50); }
+.po-panel-title { font-size:16px; font-weight:700; color:var(--g800); }
+.po-panel-close { margin-left:auto; width:28px; height:28px; border-radius:50%; border:none; background:var(--g200); color:var(--g500); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.po-panel-close:hover { background:var(--g300); color:var(--g700); }
+.po-panel-body { flex:1; overflow-y:auto; padding:0; }
+.po-panel-body::-webkit-scrollbar { width:4px; }
+.po-panel-body::-webkit-scrollbar-thumb { background:var(--g200); border-radius:2px; }
+.po-panel-footer { padding:14px 20px; border-top:1px solid var(--g200); display:flex; gap:10px; align-items:center; background:var(--g50); flex-shrink:0; }
+
+/* PO form sections */
+.po-section { padding:20px 24px; border-bottom:1px solid var(--g200); }
+.po-section:last-child { border-bottom:none; }
+.po-section-title { font-size:11px; font-weight:700; color:var(--g500); text-transform:uppercase; letter-spacing:.6px; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.po-section-title::after { content:''; flex:1; height:1px; background:var(--g200); }
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 20px; }
+.form-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px 20px; }
+.form-group { display:flex; flex-direction:column; gap:4px; }
+.form-group label { font-size:11px; font-weight:600; color:var(--g500); }
+.form-group label .req { color:var(--red); }
+.form-group input, .form-group select, .form-group textarea { border:1px solid var(--g200); border-radius:6px; padding:7px 10px; font-size:12px; color:var(--g700); font-family:var(--font); outline:none; transition:border-color .15s; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:var(--blue); }
+.form-group .auto-field { background:var(--blue-bg2); color:var(--blue); border-color:#AAC9F0; cursor:not-allowed; }
+.form-group .auto-label { font-size:10px; color:var(--blue-light); margin-top:2px; }
+.form-group.span2 { grid-column:span 2; }
+
+/* Source demand strip */
+.source-strip { background:var(--blue-bg2); border:1px solid #AAC9F0; border-radius:6px; padding:10px 14px; margin-bottom:16px; font-size:12px; color:var(--blue); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.source-strip strong { font-weight:700; }
+.source-tag-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+.source-tag { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; }
+.st-red { background:#FDECEA; color:#CC0000; }
+.st-orange { background:#FDF3E3; color:#854F0B; }
+.st-blue { background:#DBEAFE; color:#1D4ED8; }
+
+/* Detail table for line items */
+.detail-table-wrap { border:1px solid var(--g200); border-radius:6px; overflow:hidden; margin-top:2px; }
+.detail-table { width:100%; border-collapse:collapse; }
+.detail-table th { padding:8px 10px; background:var(--g50); border-bottom:1px solid var(--g200); font-size:11px; font-weight:600; color:var(--g500); text-align:left; white-space:nowrap; }
+.detail-table td { padding:8px 10px; border-bottom:1px solid var(--g200); font-size:12px; color:var(--g700); vertical-align:middle; }
+.detail-table tr:last-child td { border-bottom:none; }
+.detail-table input[type="number"], .detail-table input[type="text"] { width:80px; height:28px; border:1px solid var(--g200); border-radius:4px; padding:0 8px; font-size:12px; text-align:right; font-family:var(--font); outline:none; transition:border-color .15s; }
+.detail-table input:focus { border-color:var(--blue); }
+.detail-table .row-urgent-bg { background:#FFF9F0; }
+.del-btn { width:22px; height:22px; border-radius:50%; border:none; background:var(--g100); color:var(--g400); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all .12s; }
+.del-btn:hover { background:var(--red-badge); color:var(--red-text); }
+
+/* Summary bar */
+.po-summary { display:flex; gap:0; border-top:1px solid var(--g200); background:var(--g50); }
+.summary-item { flex:1; padding:12px 16px; border-right:1px solid var(--g200); }
+.summary-item:last-child { border-right:none; }
+.summary-item .s-label { font-size:10px; font-weight:600; color:var(--g400); text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+.summary-item .s-value { font-size:18px; font-weight:700; color:var(--g800); }
+.summary-item .s-value.green { color:var(--green); }
+.summary-item .s-value.orange { color:var(--orange-text); }
+
+/* Status chip */
+.status-chip { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:3px 10px; border-radius:12px; }
+
+/* Progress bar */
+.progress-bar { width:100%; height:5px; background:var(--g200); border-radius:3px; overflow:hidden; margin-top:4px; }
+.progress-fill { height:100%; border-radius:3px; background:var(--orange); transition:width .3s; }
+.progress-fill.done { background:var(--green); }
+
+/* Prepay modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:300; display:none; align-items:center; justify-content:center; }
+.modal-overlay.visible { display:flex; }
+.modal { background:#fff; border-radius:10px; width:440px; max-width:95vw; box-shadow:0 20px 60px rgba(0,0,0,.2); overflow:hidden; }
+.modal-header { padding:16px 20px; border-bottom:1px solid var(--g200); display:flex; align-items:center; gap:10px; }
+.modal-title { font-size:15px; font-weight:700; color:var(--g800); }
+.modal-close { margin-left:auto; width:26px; height:26px; border-radius:50%; border:none; background:var(--g100); color:var(--g500); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; }
+.modal-body { padding:20px; }
+.modal-footer { padding:14px 20px; border-top:1px solid var(--g200); display:flex; gap:8px; justify-content:flex-end; background:var(--g50); }
+.info-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--g200); font-size:13px; }
+.info-row:last-child { border-bottom:none; }
+.info-row .label { color:var(--g500); }
+.info-row .value { font-weight:600; color:var(--g800); }
+
+/* Toast */
+.toast-container { position:fixed; bottom:24px; right:24px; z-index:500; display:flex; flex-direction:column; gap:8px; }
+.toast { background:var(--g800); color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,.2); animation:slideUp .25s ease; max-width:340px; display:flex; align-items:center; gap:8px; }
+.toast.success { background:var(--green); }
+.toast.warning { background:var(--orange); }
+.toast.error { background:var(--red-text); }
+@keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+.bottom-space { height:32px; }
+
+/* Void confirm line */
+.void-row { background:#FDECEA; border-top:2px solid var(--red); }
+</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;"><button onclick="go('00_庫存管理模組_導覽總覽.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">← 庫存導覽</button></div>
+
+<!-- HEADER -->
+<header class="header">
+  <span class="header-logo">DUCATI</span>
+  <div class="header-divider"></div>
+  <div class="header-breadcrumb">
+    <span>庫存管理</span><span class="sep">›</span>
+    <span>採購管理</span><span class="sep">›</span>
+    <span class="current">商品採購</span>
+  </div>
+  <div class="header-right">
+    <span class="header-store">台北直營店</span>
+    <div class="header-user">
+      <strong>蔡零件</strong>
+      <span id="datetime-display">2026/05/05 09:30</span>
+    </div>
+    <div class="header-bell">🔔<div class="badge">5</div></div>
+    <div class="header-avatar">蔡</div>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="nav-section">
+    <div class="nav-section-label"><span class="dot dot-blue"></span>基礎設定</div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">🏛</span> 組織與權限<span class="arrow">▶</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">組織三層架構</div><div class="nav-sub-item">採購權限</div><div class="nav-sub-item">商品管理權限</div><div class="nav-sub-item">盤點回傳</div><div class="nav-sub-item">管控類型</div></div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">🏗</span> 倉庫管理<span class="arrow">▶</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">倉儲四層架構</div><div class="nav-sub-item">倉庫．庫區．庫位．擺放</div><div class="nav-sub-item">供應商資訊</div><div class="nav-sub-item">採購合約</div></div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">📦</span> 商品管理<span class="arrow">▶</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">基礎資料</div><div class="nav-sub-item">商品資訊（多維度料號）</div><div class="nav-sub-item">門市定價</div><div class="nav-sub-item">適配設定</div><div class="nav-sub-item">序列號追蹤</div></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="nav-section">
+    <div class="nav-section-label"><span class="dot dot-purple"></span>進出庫流程</div>
+    <div class="nav-item parent section-active open" onclick="toggleNav(this)"><span class="icon">🛒</span> 採購管理<span class="arrow" style="transform:rotate(90deg)">▶</span></div>
+    <div class="nav-sub open">
+      <div class="nav-sub-item">採購流程鏈路</div>
+      <div class="nav-sub-item">日常補貨計畫</div>
+      <div class="nav-sub-item">需求處理</div>
+      <div class="nav-sub-item active">商品採購</div>
+      <div class="nav-sub-item">採購退貨</div>
+    </div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">📥</span> 入庫管理<span class="arrow">▶</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">採購入庫（含原廠到貨匯入）</div><div class="nav-sub-item">調撥入庫</div><div class="nav-sub-item">內售入庫</div><div class="nav-sub-item">領料退貨入庫</div></div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">📤</span> 出庫管理<span class="arrow">▶</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">維修領料（RO工單串接）</div><div class="nav-sub-item">調撥出庫</div><div class="nav-sub-item">內售出庫</div></div>
+    <div class="nav-item" style="color:var(--blue);font-weight:500;"><span class="icon">🔍</span> 庫存查詢</div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">⚙️</span> 庫存作業<span class="arrow">▶</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">例外出入庫</div><div class="nav-sub-item">寄存管理</div><div class="nav-sub-item">備件庫存調整</div><div class="nav-sub-item">入庫查詢</div><div class="nav-sub-item">調撥在途查詢</div></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="nav-section">
+    <div class="nav-section-label"><span class="dot dot-amber"></span>盤點與告警</div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">📋</span> 盤點管理<span class="arrow">▶</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">盤點計畫</div><div class="nav-sub-item">盤點處理（條碼掃描）</div><div class="nav-sub-item">報損報溢</div></div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">⚡</span> 預警告警<span class="arrow">▶</span><span class="nav-badge nb-red">3</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">庫存水位設定</div><div class="nav-sub-item">告警類型與規則</div><div class="nav-sub-item">告警儀表板 <span class="nav-badge nb-red" style="margin-left:4px;">3</span></div><div class="nav-sub-item">工單增項閉環</div><div class="nav-sub-item">告警階層</div></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="nav-section">
+    <div class="nav-section-label"><span class="dot dot-coral"></span>保固與分析</div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">🔧</span> 保固索賠舊件<span class="arrow">▶</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">索賠流程</div><div class="nav-sub-item">舊件出入庫</div><div class="nav-sub-item">暫存倉設定</div><div class="nav-sub-item">管理介面</div><div class="nav-sub-item">RO串接</div><div class="nav-sub-item">費用回收</div></div>
+    <div class="nav-item parent" onclick="toggleNav(this)"><span class="icon">📊</span> ABC分類 / 分析報表<span class="arrow">▶</span></div>
+    <div class="nav-sub"><div class="nav-sub-item">ABC定義與機制</div><div class="nav-sub-item">周轉率報表</div><div class="nav-sub-item">呆滯佔比</div><div class="nav-sub-item">缺貨率</div><div class="nav-sub-item">ABC結構圖</div></div>
+  </div>
+  <div class="sidebar-divider"></div>
+  <div class="nav-section">
+    <div class="nav-section-label"><span class="dot dot-gray"></span>附錄</div>
+    <div class="nav-item"><span class="icon">📎</span> 介面設計共用規則</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <!-- Flow banner -->
+  <div class="flow-banner">
+    <div class="flow-step done"><div class="step-num">✓</div><span>觸發 / 計畫</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step done"><div class="step-num">✓</div><span>需求處理</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step active"><div class="step-num">3</div><span>商品採購 ★</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-num">4</div><span>採購入庫</span></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step"><div class="step-num">5</div><span>庫存更新</span></div>
+  </div>
+
+  <!-- Draft notice (simulating arriving from 4.2) -->
+  <div style="height:16px"></div>
+  <div class="draft-notice">
+    <span style="font-size:16px;">📋</span>
+    <div>
+      從<strong>需求處理（4.2）</strong>帶入 <strong>2 張草稿</strong>採購單，請完善後提交供應商。草稿可隨時修改，提交後進入「待收貨」狀態。
+    </div>
+    <button class="btn btn-sm" style="background:#185FA5;color:#fff;margin-left:auto;" onclick="openPO('PO-DRAFT-001')">查看草稿 →</button>
+  </div>
+
+  <!-- Page title -->
+  <div class="page-title-area">
+    <h1>商品採購</h1>
+    <span class="func-badge">4.3</span>
+  </div>
+  <div class="page-subtitle">建立與管理採購單，完善草稿後提交供應商，提交後進入入庫流程（5.1）</div>
+
+  <!-- Query Block -->
+  <div class="query-block">
+    <div class="query-row">
+      <div class="query-field">
+        <label>銷售區域</label>
+        <select><option>台北大區</option><option>全部</option></select>
+      </div>
+      <div class="query-field">
+        <label>門店</label>
+        <select><option>台北直營店</option><option>全部</option></select>
+      </div>
+      <div class="query-field">
+        <label>供應商</label>
+        <select><option>全部供應商</option><option>Ducati 原廠（義大利）</option><option>台灣摩托配件有限公司</option><option>Motul 台灣代理</option></select>
+      </div>
+      <div class="query-field">
+        <label>採購類型</label>
+        <select><option>全部</option><option>臨時採購</option><option>計畫採購</option></select>
+      </div>
+      <div class="query-field wide">
+        <label>採購單號 / 外部單號</label>
+        <input type="text" placeholder="輸入採購單號或外部 DMS 單號">
+      </div>
+      <div class="query-btns">
+        <button class="btn btn-secondary">重置</button>
+        <button class="btn btn-primary">🔍 查詢</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pills -->
+  <div class="pills">
+    <div class="pill active" onclick="setPill(this)">全部 <span class="pill-count">8</span></div>
+    <div class="pill" onclick="setPill(this)">📝 草稿 <span class="pill-count">2</span></div>
+    <div class="pill" onclick="setPill(this)">📤 待收貨 <span class="pill-count">3</span></div>
+    <div class="pill" onclick="setPill(this)">📦 部分入庫 <span class="pill-count">2</span></div>
+    <div class="pill" onclick="setPill(this)">✅ 入庫完成 <span class="pill-count">1</span></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-count">共 <strong>8</strong> 張採購單</div>
+    <div class="toolbar-right">
+      <button class="btn btn-secondary btn-sm">匯出清單</button>
+      <button class="btn btn-primary" onclick="openNewPO()">＋ 新增採購單</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>採購單號</th>
+          <th>來源需求單</th>
+          <th>供應商</th>
+          <th>採購類型</th>
+          <th>收貨倉庫</th>
+          <th>明細數</th>
+          <th>採購總數</th>
+          <th>含稅總金額</th>
+          <th>預計到貨</th>
+          <th>入庫進度</th>
+          <th>狀態</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <!-- 草稿 1 — 來自需求處理（工單待料緊急） -->
+        <tr class="row-draft" onclick="openPO('PO-DRAFT-001')">
+          <td><span class="link-text mono">PO20260505-001</span><br><span style="font-size:10px;color:var(--orange-text);">📋 草稿</span></td>
+          <td><span class="link-text" style="font-size:11px;">REQ-20260505-001</span><br><span style="font-size:10px;" class="source-tag st-red">🔴 工單待料</span></td>
+          <td style="font-size:11px;">Ducati 原廠（義大利）</td>
+          <td><span class="badge badge-orange">臨時採購</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="text-align:center;">2</td>
+          <td style="text-align:center;">3</td>
+          <td style="font-weight:700;">—</td>
+          <td style="font-size:11px;">待確認</td>
+          <td>—</td>
+          <td><span class="badge badge-draft">草稿</span></td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="openPO('PO-DRAFT-001');event.stopPropagation()">完善並提交</button>
+          </td>
+        </tr>
+
+        <!-- 草稿 2 -->
+        <tr class="row-draft" onclick="openPO('PO-DRAFT-002')">
+          <td><span class="link-text mono">PO20260505-002</span><br><span style="font-size:10px;color:var(--orange-text);">📋 草稿</span></td>
+          <td><span class="link-text" style="font-size:11px;">REQ-20260504-014</span><br><span style="font-size:10px;" class="source-tag st-orange">🟠 低庫存</span></td>
+          <td style="font-size:11px;">Motul 台灣代理</td>
+          <td><span class="badge badge-gray">計畫採購</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="text-align:center;">3</td>
+          <td style="text-align:center;">34</td>
+          <td style="font-weight:700;">—</td>
+          <td style="font-size:11px;">待確認</td>
+          <td>—</td>
+          <td><span class="badge badge-draft">草稿</span></td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="openPO('PO-DRAFT-002');event.stopPropagation()">完善並提交</button>
+          </td>
+        </tr>
+
+        <!-- 待收貨 -->
+        <tr onclick="openPO('PO-SUB-001')">
+          <td><span class="link-text mono">PO20260503-008</span></td>
+          <td><span class="link-text" style="font-size:11px;">REQ-20260502-007</span><br><span style="font-size:10px;" class="source-tag st-blue">📋 補貨計畫</span></td>
+          <td style="font-size:11px;">Ducati 原廠（義大利）</td>
+          <td><span class="badge badge-gray">計畫採購</span></td>
+          <td style="font-size:11px;">原廠件倉</td>
+          <td style="text-align:center;">5</td>
+          <td style="text-align:center;">18</td>
+          <td style="font-weight:700;color:var(--green);">NT$ 42,680</td>
+          <td style="font-size:11px;">2026/05/10</td>
+          <td>
+            <div style="font-size:10px;color:var(--g500);">0 / 18 件</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+          </td>
+          <td><span class="badge badge-submitted">待收貨</span></td>
+          <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation()">查看</button></td>
+        </tr>
+
+        <tr onclick="openPO('PO-SUB-002')">
+          <td><span class="link-text mono">PO20260502-006</span></td>
+          <td><span style="font-size:11px;color:var(--g400);">—（臨時採購）</span></td>
+          <td style="font-size:11px;">台灣摩托配件有限公司</td>
+          <td><span class="badge badge-orange">臨時採購</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="text-align:center;">4</td>
+          <td style="text-align:center;">12</td>
+          <td style="font-weight:700;color:var(--green);">NT$ 28,400</td>
+          <td style="font-size:11px;">2026/05/08</td>
+          <td>
+            <div style="font-size:10px;color:var(--g500);">0 / 12 件</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+          </td>
+          <td><span class="badge badge-submitted">待收貨</span></td>
+          <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation()">查看</button></td>
+        </tr>
+
+        <tr onclick="openPO('PO-SUB-003')">
+          <td><span class="link-text mono">PO20260430-005</span></td>
+          <td><span style="font-size:11px;color:var(--g400);">—（臨時採購）</span></td>
+          <td style="font-size:11px;">Motul 台灣代理</td>
+          <td><span class="badge badge-orange">臨時採購</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="text-align:center;">2</td>
+          <td style="text-align:center;">24</td>
+          <td style="font-weight:700;color:var(--green);">NT$ 19,200</td>
+          <td style="font-size:11px;">2026/05/06</td>
+          <td>
+            <div style="font-size:10px;color:var(--g500);">0 / 24 件</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+          </td>
+          <td><span class="badge badge-submitted">待收貨</span></td>
+          <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation()">查看</button></td>
+        </tr>
+
+        <!-- 部分入庫 -->
+        <tr onclick="openPO('PO-PART-001')">
+          <td><span class="link-text mono">PO20260428-004</span></td>
+          <td><span style="font-size:11px;color:var(--g400);">—（計畫採購）</span></td>
+          <td style="font-size:11px;">Ducati 原廠（義大利）</td>
+          <td><span class="badge badge-gray">計畫採購</span></td>
+          <td style="font-size:11px;">原廠件倉</td>
+          <td style="text-align:center;">6</td>
+          <td style="text-align:center;">20</td>
+          <td style="font-weight:700;color:var(--green);">NT$ 87,500</td>
+          <td style="font-size:11px;">2026/05/03</td>
+          <td>
+            <div style="font-size:10px;color:var(--orange-text);">12 / 20 件</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:60%"></div></div>
+          </td>
+          <td><span class="badge badge-pending">部分入庫</span></td>
+          <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation()">查看</button></td>
+        </tr>
+
+        <tr onclick="openPO('PO-PART-002')">
+          <td><span class="link-text mono">PO20260427-003</span></td>
+          <td><span style="font-size:11px;color:var(--g400);">—（計畫採購）</span></td>
+          <td style="font-size:11px;">台灣摩托配件有限公司</td>
+          <td><span class="badge badge-gray">計畫採購</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="text-align:center;">3</td>
+          <td style="text-align:center;">9</td>
+          <td style="font-weight:700;color:var(--green);">NT$ 14,300</td>
+          <td style="font-size:11px;">2026/04/30</td>
+          <td>
+            <div style="font-size:10px;color:var(--orange-text);">6 / 9 件</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:67%"></div></div>
+          </td>
+          <td><span class="badge badge-pending">部分入庫</span></td>
+          <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation()">查看</button></td>
+        </tr>
+
+        <!-- 入庫完成 -->
+        <tr style="opacity:.7;" onclick="openPO('PO-DONE-001')">
+          <td><span class="link-text mono">PO20260425-001</span></td>
+          <td><span style="font-size:11px;color:var(--g400);">—（計畫採購）</span></td>
+          <td style="font-size:11px;">Motul 台灣代理</td>
+          <td><span class="badge badge-gray">計畫採購</span></td>
+          <td style="font-size:11px;">主零件倉</td>
+          <td style="text-align:center;">4</td>
+          <td style="text-align:center;">48</td>
+          <td style="font-weight:700;color:var(--green);">NT$ 38,400</td>
+          <td style="font-size:11px;">2026/04/28</td>
+          <td>
+            <div style="font-size:10px;color:var(--green);">48 / 48 件 ✓</div>
+            <div class="progress-bar"><div class="progress-fill done" style="width:100%"></div></div>
+          </td>
+          <td><span class="badge badge-complete">入庫完成</span></td>
+          <td><button class="btn btn-sm btn-ghost" onclick="event.stopPropagation()">查看</button></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+  <div class="bottom-space"></div>
+</main>
+
+<!-- ============================================================
+     PO EDIT / VIEW PANEL
+     ============================================================ -->
+<div class="po-panel-overlay" id="po-overlay" onclick="closePO()"></div>
+<div class="po-panel" id="po-panel">
+  <div class="po-panel-header">
+    <span style="font-size:18px;" id="pp-icon">🛒</span>
+    <div>
+      <div class="po-panel-title" id="pp-title">採購單</div>
+      <div style="font-size:11px;color:var(--g400);" id="pp-subtitle">建立採購單</div>
+    </div>
+    <div id="pp-status-chip" style="margin-left:12px;"></div>
+    <button class="po-panel-close" onclick="closePO()">✕</button>
+  </div>
+
+  <div class="po-panel-body" id="pp-body">
+    <!-- dynamic -->
+  </div>
+
+  <!-- Summary bar -->
+  <div class="po-summary" id="pp-summary" style="display:none;">
+    <div class="summary-item">
+      <div class="s-label">明細品項</div>
+      <div class="s-value" id="sum-items">—</div>
+    </div>
+    <div class="summary-item">
+      <div class="s-label">採購總數量</div>
+      <div class="s-value" id="sum-qty">—</div>
+    </div>
+    <div class="summary-item">
+      <div class="s-label">未稅金額</div>
+      <div class="s-value" id="sum-pretax">—</div>
+    </div>
+    <div class="summary-item">
+      <div class="s-label">稅額（5%）</div>
+      <div class="s-value" id="sum-tax">—</div>
+    </div>
+    <div class="summary-item">
+      <div class="s-label">含稅總金額</div>
+      <div class="s-value green" id="sum-total">—</div>
+    </div>
+  </div>
+
+  <div class="po-panel-footer" id="pp-footer">
+    <button class="btn btn-secondary" onclick="closePO()">關閉</button>
+    <div style="margin-left:auto;display:flex;gap:8px;" id="pp-actions"></div>
+  </div>
+</div>
+
+<!-- Prepay modal -->
+<div class="modal-overlay" id="prepay-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span style="font-size:18px;">💳</span>
+      <span class="modal-title">記錄預付款</span>
+      <button class="modal-close" onclick="closeModal('prepay-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-row"><span class="label">採購單號</span><span class="value mono" id="prepay-pono">—</span></div>
+      <div class="info-row"><span class="label">供應商</span><span class="value">Ducati 原廠（義大利）</span></div>
+      <div class="info-row"><span class="label">採購總金額</span><span class="value" id="prepay-total">—</span></div>
+      <div style="margin-top:16px;">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>預付金額 <span class="req">*</span></label>
+          <input type="number" placeholder="0" id="prepay-amount">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>預付日期</label>
+          <input type="date" value="2026-05-05">
+        </div>
+        <div class="form-group">
+          <label>備註</label>
+          <input type="text" placeholder="例：電匯轉帳，銀行流水號 XXXX">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('prepay-modal')">取消</button>
+      <button class="btn btn-primary" onclick="submitPrepay()">記錄預付款</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+/* ===== LINE ITEMS DATA ===== */
+const draftItems001 = [
+  { id:1, code:'61340051A', name:'前煞車來令片 PANIGALE V4', unit:'組', qty:2, price:0, urgent:true, seqTrack:false },
+  { id:2, code:'52010481A', name:'後避震彈簧總成 MULTISTRADA V4', unit:'件', qty:1, price:0, urgent:true, seqTrack:true },
+];
+const draftItems002 = [
+  { id:1, code:'MOT5W40-1L', name:'Motul 引擎機油 5W-40 1L', unit:'瓶', qty:24, price:580, urgent:false, seqTrack:false },
+  { id:2, code:'44710161A', name:'機油濾芯 PANIGALE 系列', unit:'個', qty:10, price:320, urgent:false, seqTrack:false },
+];
+
+let currentPOId = null;
+let currentItems = [];
+
+/* ===== OPEN PO PANEL ===== */
+function openPO(id) {
+  currentPOId = id;
+  const isDraft = id.includes('DRAFT');
+  const isNew   = id === 'NEW';
+  const isDone  = id.includes('DONE');
+
+  document.getElementById('pp-icon').textContent = isDraft || isNew ? '📝' : isDone ? '✅' : '📦';
+
+  let title, subtitle, statusChip, actions, bodyHTML;
+
+  if (id === 'PO-DRAFT-001' || isNew) {
+    currentItems = id === 'NEW' ? [] : [...draftItems001];
+    title = id === 'NEW' ? '新增採購單' : 'PO20260505-001';
+    subtitle = id === 'NEW' ? '新建採購單' : '草稿 · 來自需求處理（工單待料）';
+    statusChip = isDraft ? `<span class="badge badge-draft">草稿</span>` : '';
+    actions = `
+      <button class="btn btn-ghost" onclick="voidPO()">作廢</button>
+      <button class="btn btn-secondary" onclick="saveDraft()">💾 儲存草稿</button>
+      <button class="btn btn-warning" onclick="openModal('prepay-modal')">💳 預付</button>
+      <button class="btn btn-primary btn-lg" onclick="submitPO()">📤 提交採購單</button>
+    `;
+    bodyHTML = buildDraftForm(id, currentItems);
+
+  } else if (id === 'PO-DRAFT-002') {
+    currentItems = [...draftItems002];
+    title = 'PO20260505-002';
+    subtitle = '草稿 · 來自需求處理（低庫存系統觸發）';
+    statusChip = `<span class="badge badge-draft">草稿</span>`;
+    actions = `
+      <button class="btn btn-ghost" onclick="voidPO()">作廢</button>
+      <button class="btn btn-secondary" onclick="saveDraft()">💾 儲存草稿</button>
+      <button class="btn btn-warning" onclick="openModal('prepay-modal')">💳 預付</button>
+      <button class="btn btn-primary btn-lg" onclick="submitPO()">📤 提交採購單</button>
+    `;
+    bodyHTML = buildDraftForm(id, currentItems);
+
+  } else {
+    // Read-only view
+    const statusMap = {
+      'PO-SUB-001': ['待收貨','badge-submitted'],
+      'PO-SUB-002': ['待收貨','badge-submitted'],
+      'PO-SUB-003': ['待收貨','badge-submitted'],
+      'PO-PART-001':['部分入庫','badge-pending'],
+      'PO-PART-002':['部分入庫','badge-pending'],
+      'PO-DONE-001':['入庫完成','badge-complete'],
+    };
+    const [st, sc] = statusMap[id] || ['—','badge-gray'];
+    title = id.replace('PO-SUB-001','PO20260503-008').replace('PO-SUB-002','PO20260502-006')
+              .replace('PO-SUB-003','PO20260430-005').replace('PO-PART-001','PO20260428-004')
+              .replace('PO-PART-002','PO20260427-003').replace('PO-DONE-001','PO20260425-001');
+    subtitle = `查看模式，所有欄位唯讀`;
+    statusChip = `<span class="badge ${sc}">${st}</span>`;
+    actions = isDone
+      ? `<button class="btn btn-secondary" onclick="closePO()">關閉</button>`
+      : `<button class="btn btn-primary" onclick="showToast('前往採購入庫（5.1）處理收貨','');closePO()">→ 前往採購入庫</button>`;
+    bodyHTML = buildReadonlyView(id);
+  }
+
+  document.getElementById('pp-title').textContent = title;
+  document.getElementById('pp-subtitle').textContent = subtitle;
+  document.getElementById('pp-status-chip').innerHTML = statusChip;
+  document.getElementById('pp-actions').innerHTML = actions;
+  document.getElementById('pp-body').innerHTML = bodyHTML;
+  document.getElementById('pp-summary').style.display = (isDraft || isNew) ? 'flex' : 'flex';
+
+  // calc summary for draft
+  if (isDraft || isNew) calcSummary();
+
+  document.getElementById('po-overlay').classList.add('visible');
+  document.getElementById('po-panel').classList.add('open');
+}
+
+function buildDraftForm(id, items) {
+  const isDraft001 = id === 'PO-DRAFT-001';
+  const isDraft002 = id === 'PO-DRAFT-002';
+  const poNo = isDraft001 ? 'PO20260505-001' : isDraft002 ? 'PO20260505-002' : '（新建後自動產生）';
+  const sourceReq = isDraft001 ? 'REQ-20260505-001' : isDraft002 ? 'REQ-20260504-014' : '—';
+  const sourceType = isDraft001 ? '<span class="source-tag st-red">🔴 工單待料（緊急）</span>' : isDraft002 ? '<span class="source-tag st-orange">🟠 低庫存系統觸發</span>' : '—';
+  const supplierVal = isDraft001 ? 'Ducati 原廠（義大利）' : isDraft002 ? 'Motul 台灣代理' : '';
+  const supplierType = isDraft001 ? '原廠' : isDraft002 ? '代理商' : '—';
+
+  // source strip
+  let sourceStrip = '';
+  if (isDraft001 || isDraft002) {
+    sourceStrip = `<div class="source-strip">
+      <span style="font-size:16px;">🔗</span>
+      <div>
+        <div>來源需求單號：<strong class="link-text">${sourceReq}</strong></div>
+        <div class="source-tag-row">${sourceType}</div>
+        ${isDraft001 ? '<div style="margin-top:4px;font-size:11px;">⚠️ 工單 <strong>RO-20260503-018</strong> 正等待此零件，入庫後將自動解除待料狀態</div>' : ''}
+      </div>
+    </div>`;
+  }
+
+  // header fields
+  let headerFields = `
+  <div class="po-section">
+    <div class="po-section-title">採購單基本資訊</div>
+    ${sourceStrip}
+    <div class="form-grid">
+      <div class="form-group">
+        <label>採購單號</label>
+        <input type="text" class="auto-field" value="${poNo}" readonly>
+        <div class="auto-label">⚡ 系統自動產生</div>
+      </div>
+      <div class="form-group">
+        <label>外部採購單號（DMS）</label>
+        <input type="text" placeholder="對應 DMS 系統單號（選填）">
+      </div>
+      <div class="form-group">
+        <label>銷售區域 <span class="req">*</span></label>
+        <select><option>台北大區</option></select>
+      </div>
+      <div class="form-group">
+        <label>門店 <span class="req">*</span></label>
+        <select><option>台北直營店</option></select>
+      </div>
+      <div class="form-group">
+        <label>收貨倉庫 <span class="req">*</span></label>
+        <select><option>${isDraft001 ? '原廠件倉' : '主零件倉'}</option><option>主零件倉</option><option>原廠件倉</option></select>
+      </div>
+      <div class="form-group">
+        <label>採購類型 <span class="req">*</span></label>
+        <select>
+          <option ${isDraft001 ? 'selected' : ''}>臨時採購</option>
+          <option ${isDraft002 ? 'selected' : ''}>計畫採購</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>供應商 <span class="req">*</span></label>
+        <select>
+          <option ${isDraft001 ? 'selected' : ''}>${isDraft001 ? 'Ducati 原廠（義大利）' : '—請選擇—'}</option>
+          <option>Ducati 原廠（義大利）</option>
+          <option ${isDraft002 ? 'selected' : ''}>Motul 台灣代理</option>
+          <option>台灣摩托配件有限公司</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>供應商類型</label>
+        <input type="text" class="auto-field" value="${supplierType}" readonly>
+        <div class="auto-label">⚡ 系統帶出</div>
+      </div>
+      <div class="form-group">
+        <label>配送類型 <span class="req">*</span></label>
+        <select><option>直送</option><option>轉運</option></select>
+      </div>
+      <div class="form-group">
+        <label>是否需要合約 <span class="req">*</span></label>
+        <select onchange="handleContractChange(this)"><option>否</option><option>是</option></select>
+      </div>
+      <div class="form-group">
+        <label>商品默認稅率 <span class="req">*</span></label>
+        <select><option>5%</option><option>0%</option></select>
+      </div>
+      <div class="form-group">
+        <label>預計到貨日期</label>
+        <input type="date" value="${isDraft001 ? '2026-05-08' : '2026-05-15'}">
+      </div>
+      <div class="form-group span2">
+        <label>備註</label>
+        <textarea placeholder="供應商備注、特殊要求…" style="height:52px;">${isDraft001 ? '⚠️ 工單待料緊急補貨，請優先處理，預計最短交期' : ''}</textarea>
+      </div>
+    </div>
+  </div>`;
+
+  // detail items
+  let itemRows = items.map((it, idx) => `
+    <tr class="${it.urgent ? 'row-urgent-bg' : ''}" id="row-${it.id}">
+      <td>${idx+1}</td>
+      <td>
+        <div class="mono" style="font-size:11px;">${it.code}</div>
+        <div style="font-weight:500;color:var(--g800);font-size:12px;">${it.name}</div>
+        ${it.urgent ? `<div style="font-size:10px;color:var(--red-text);margin-top:2px;">🔴 工單待料緊急件</div>` : ''}
+        ${it.seqTrack ? `<div style="font-size:10px;color:var(--blue);margin-top:2px;">🔷 需序列號追蹤</div>` : ''}
+      </td>
+      <td style="text-align:center;">${it.unit}</td>
+      <td style="text-align:center;"><input type="number" value="${it.qty}" min="1" style="width:64px;" onchange="calcSummary()"></td>
+      <td style="text-align:right;"><input type="number" value="${it.price||''}" min="0" placeholder="0" style="width:90px;" onchange="calcSummary()" id="price-${it.id}"></td>
+      <td style="text-align:right;" id="linetotal-${it.id}" style="font-weight:600;">${it.price ? 'NT$ '+(it.qty*it.price).toLocaleString() : '—'}</td>
+      <td style="text-align:center;">
+        <button class="del-btn" onclick="deleteRow(${it.id})">✕</button>
+      </td>
+    </tr>`).join('');
+
+  let detailSection = `
+  <div class="po-section">
+    <div class="po-section-title">採購明細</div>
+    <div class="detail-table-wrap">
+      <table class="detail-table">
+        <thead>
+          <tr>
+            <th style="width:32px;">#</th>
+            <th>備件代碼 / 商品名稱</th>
+            <th style="text-align:center;width:48px;">單位</th>
+            <th style="text-align:center;width:80px;">採購數量</th>
+            <th style="text-align:right;width:100px;">採購單價（含稅）</th>
+            <th style="text-align:right;width:110px;">行金額</th>
+            <th style="width:32px;"></th>
+          </tr>
+        </thead>
+        <tbody id="detail-tbody">
+          ${itemRows}
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;">
+      <button class="btn btn-sm btn-secondary" onclick="addRow()">＋ 增加明細列</button>
+      <button class="btn btn-sm btn-secondary" onclick="showToast('可從商品庫搜尋新增','')">🔍 搜尋商品新增</button>
+    </div>
+    <div style="margin-top:10px;padding:10px 12px;background:var(--blue-bg2);border-radius:6px;font-size:11px;color:var(--blue);">
+      💡 合約供應商的採購單價將自動帶入合約價格；若單價超出合約範圍，系統將顯示 ⚠️ 警示
+    </div>
+  </div>`;
+
+  return headerFields + detailSection;
+}
+
+function buildReadonlyView(id) {
+  const poMap = {
+    'PO-SUB-001': { no:'PO20260503-008', sup:'Ducati 原廠（義大利）', type:'計畫採購', wh:'原廠件倉', eta:'2026/05/10', tax:'42,680', items:5, qty:18 },
+    'PO-SUB-002': { no:'PO20260502-006', sup:'台灣摩托配件有限公司', type:'臨時採購', wh:'主零件倉', eta:'2026/05/08', tax:'28,400', items:4, qty:12 },
+    'PO-SUB-003': { no:'PO20260430-005', sup:'Motul 台灣代理', type:'臨時採購', wh:'主零件倉', eta:'2026/05/06', tax:'19,200', items:2, qty:24 },
+    'PO-PART-001':{ no:'PO20260428-004', sup:'Ducati 原廠（義大利）', type:'計畫採購', wh:'原廠件倉', eta:'2026/05/03', tax:'87,500', items:6, qty:20 },
+    'PO-PART-002':{ no:'PO20260427-003', sup:'台灣摩托配件有限公司', type:'計畫採購', wh:'主零件倉', eta:'2026/04/30', tax:'14,300', items:3, qty:9 },
+    'PO-DONE-001':{ no:'PO20260425-001', sup:'Motul 台灣代理', type:'計畫採購', wh:'主零件倉', eta:'2026/04/28', tax:'38,400', items:4, qty:48 },
+  };
+  const d = poMap[id] || {};
+  const isPart = id.includes('PART');
+  const isDone = id.includes('DONE');
+
+  const inPct = isPart ? 60 : isDone ? 100 : 0;
+  const inQty = isPart ? Math.round(d.qty*0.6) : isDone ? d.qty : 0;
+
+  // populate summary
+  setTimeout(() => {
+    document.getElementById('sum-items').textContent = d.items || '—';
+    document.getElementById('sum-qty').textContent = d.qty || '—';
+    document.getElementById('sum-pretax').textContent = d.tax ? `NT$ ${Math.round(d.tax.replace(',','')/1.05).toLocaleString()}` : '—';
+    document.getElementById('sum-tax').textContent = d.tax ? `NT$ ${Math.round(d.tax.replace(',','')/1.05*0.05).toLocaleString()}` : '—';
+    document.getElementById('sum-total').textContent = d.tax ? `NT$ ${d.tax}` : '—';
+  }, 0);
+
+  return `
+  <div class="po-section">
+    <div class="po-section-title">採購單基本資訊（唯讀）</div>
+    <div class="form-grid">
+      <div class="form-group"><label>採購單號</label><input class="auto-field" value="${d.no||'—'}" readonly></div>
+      <div class="form-group"><label>狀態</label><input class="auto-field" value="${isPart?'部分入庫':isDone?'入庫完成':'待收貨'}" readonly></div>
+      <div class="form-group"><label>供應商</label><input class="auto-field" value="${d.sup||'—'}" readonly></div>
+      <div class="form-group"><label>採購類型</label><input class="auto-field" value="${d.type||'—'}" readonly></div>
+      <div class="form-group"><label>收貨倉庫</label><input class="auto-field" value="${d.wh||'—'}" readonly></div>
+      <div class="form-group"><label>預計到貨日期</label><input class="auto-field" value="${d.eta||'—'}" readonly></div>
+    </div>
+  </div>
+  <div class="po-section">
+    <div class="po-section-title">入庫進度</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+      <div style="flex:1;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+          <span style="color:var(--g500);">已入庫 / 採購總數</span>
+          <span style="font-weight:700;color:${isDone?'var(--green)':'var(--orange-text)'};">${inQty} / ${d.qty || '—'} 件</span>
+        </div>
+        <div class="progress-bar" style="height:8px;"><div class="progress-fill ${isDone?'done':''}" style="width:${inPct}%;"></div></div>
+      </div>
+      ${!isDone ? `<button class="btn btn-primary" onclick="showToast('前往採購入庫（5.1）處理收貨','');closePO()">→ 前往採購入庫</button>` : ''}
+    </div>
+    ${isPart ? `<div style="padding:8px 12px;background:var(--orange-bg);border-radius:6px;font-size:12px;color:var(--orange-text);">⚠️ 尚有 ${d.qty - inQty} 件未入庫，請至「採購入庫（5.1）」繼續執行剩餘入庫作業</div>` : ''}
+    ${isDone ? `<div style="padding:8px 12px;background:var(--green-bg);border-radius:6px;font-size:12px;color:var(--green-text);">✅ 此採購單已全數入庫完成，庫存已更新</div>` : ''}
+  </div>
+  <div class="po-section">
+    <div class="po-section-title">採購明細（唯讀）</div>
+    <div class="detail-table-wrap">
+      <table class="detail-table">
+        <thead><tr><th>#</th><th>備件代碼 / 商品名稱</th><th style="text-align:center;">單位</th><th style="text-align:center;">採購數量</th><th style="text-align:center;">已入庫</th><th style="text-align:right;">採購單價</th><th style="text-align:right;">行金額</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><span class="mono">44710161A</span><br>機油濾芯 PANIGALE 系列</td><td style="text-align:center;">個</td><td style="text-align:center;">10</td><td style="text-align:center;color:var(--green);font-weight:600;">${isDone?10:isPart?6:0}</td><td style="text-align:right;">NT$ 320</td><td style="text-align:right;font-weight:600;">NT$ 3,200</td></tr>
+          <tr><td>2</td><td><span class="mono">61340051A</span><br>前煞車來令片 PANIGALE V4</td><td style="text-align:center;">組</td><td style="text-align:center;">5</td><td style="text-align:center;color:var(--green);font-weight:600;">${isDone?5:isPart?3:0}</td><td style="text-align:right;">NT$ 2,800</td><td style="text-align:right;font-weight:600;">NT$ 14,000</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ===== CALC SUMMARY ===== */
+function calcSummary() {
+  let totalQty = 0, preTax = 0;
+  document.querySelectorAll('#detail-tbody tr').forEach(tr => {
+    const qtyInput = tr.querySelector('input[type="number"]');
+    const priceInputs = tr.querySelectorAll('input[type="number"]');
+    if (priceInputs.length < 2) return;
+    const qty = parseInt(priceInputs[0].value) || 0;
+    const price = parseFloat(priceInputs[1].value) || 0;
+    totalQty += qty;
+    preTax += qty * price;
+  });
+  const tax = preTax * 0.05;
+  const total = preTax + tax;
+  const items = document.querySelectorAll('#detail-tbody tr').length;
+
+  document.getElementById('sum-items').textContent = items;
+  document.getElementById('sum-qty').textContent = totalQty + ' 件';
+  document.getElementById('sum-pretax').textContent = preTax ? 'NT$ ' + Math.round(preTax).toLocaleString() : '—';
+  document.getElementById('sum-tax').textContent = tax ? 'NT$ ' + Math.round(tax).toLocaleString() : '—';
+  document.getElementById('sum-total').textContent = total ? 'NT$ ' + Math.round(total).toLocaleString() : '—';
+}
+
+function addRow() {
+  const tbody = document.getElementById('detail-tbody');
+  const idx = tbody.rows.length + 1;
+  const tr = document.createElement('tr');
+  tr.id = 'row-new-' + idx;
+  tr.innerHTML = `
+    <td>${idx}</td>
+    <td><input type="text" placeholder="備件代碼 / 商品名稱" style="width:200px;height:28px;border:1px solid var(--g200);border-radius:4px;padding:0 8px;font-size:12px;"></td>
+    <td style="text-align:center;"><input type="text" placeholder="個" style="width:40px;height:28px;border:1px solid var(--g200);border-radius:4px;padding:0 6px;font-size:12px;text-align:center;"></td>
+    <td style="text-align:center;"><input type="number" value="1" min="1" style="width:64px;" onchange="calcSummary()"></td>
+    <td style="text-align:right;"><input type="number" min="0" placeholder="0" style="width:90px;" onchange="calcSummary()"></td>
+    <td style="text-align:right;" style="font-weight:600;">—</td>
+    <td style="text-align:center;"><button class="del-btn" onclick="this.closest('tr').remove();calcSummary()">✕</button></td>`;
+  tbody.appendChild(tr);
+  calcSummary();
+}
+
+function deleteRow(id) {
+  const tr = document.getElementById('row-' + id);
+  if (tr) { tr.remove(); calcSummary(); }
+}
+
+function handleContractChange(sel) {
+  if (sel.value === '是') showToast('已啟用合約模式，供應商篩選為有效合約供應商，單價將自動帶入合約價格', 'warning');
+}
+
+/* ===== ACTIONS ===== */
+function openNewPO() { openPO('NEW'); }
+
+function saveDraft() {
+  showToast('✅ 草稿已儲存', 'success');
+}
+
+function submitPO() {
+  closePO();
+  setTimeout(() => showToast('✅ 採購單已提交，狀態更新為「待收貨」，供應商將收到通知', 'success'), 200);
+}
+
+function voidPO() {
+  if (confirm('確定要作廢此採購單嗎？此動作無法復原。')) {
+    closePO();
+    setTimeout(() => showToast('採購單已作廢', ''), 200);
+  }
+}
+
+function submitPrepay() {
+  const amt = document.getElementById('prepay-amount').value;
+  if (!amt) { showToast('請輸入預付金額', 'warning'); return; }
+  closeModal('prepay-modal');
+  showToast(`✅ 預付款 NT$ ${parseInt(amt).toLocaleString()} 已記錄，收款時可核銷抵扣`, 'success');
+}
+
+/* ===== PANEL CLOSE ===== */
+function closePO() {
+  document.getElementById('po-overlay').classList.remove('visible');
+  document.getElementById('po-panel').classList.remove('open');
+}
+
+/* ===== MODAL ===== */
+function openModal(id) { document.getElementById(id).classList.add('visible'); }
+function closeModal(id) { document.getElementById(id).classList.remove('visible'); }
+
+/* ===== PILLS / NAV ===== */
+function setPill(el) {
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+}
+function toggleNav(el) {
+  const sub = el.nextElementSibling;
+  if (!sub || !sub.classList.contains('nav-sub')) return;
+  sub.classList.toggle('open');
+  el.classList.toggle('open');
+}
+
+/* ===== TOAST ===== */
+function updatePDCCountdown(){
+  var now=new Date();
+  var cutoff=new Date();
+  cutoff.setHours(17,0,0,0);
+  var diff=cutoff-now;
+  var banner=document.getElementById('pdc-banner');
+  var countdown=document.getElementById('pdc-countdown');
+  var status=document.getElementById('pdc-status');
+  if(diff<=0){
+    countdown.textContent='已截單';
+    countdown.style.color='#C8001A';
+    status.textContent='今日PDC截單已過，緊急單需加收費用';
+    if(banner) banner.style.background='#FDECEA'; banner.style.borderColor='#F5AEAD';
+  } else {
+    var h=Math.floor(diff/3600000);
+    var m=Math.floor((diff%3600000)/60000);
+    var s=Math.floor((diff%60000)/1000);
+    countdown.textContent=(h<10?'0':'')+h+':'+(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+    if(diff<3600000){ countdown.style.color='#C8001A'; status.textContent='⚠️ 不到1小時！請盡快送單'; }
+    else if(diff<7200000){ countdown.style.color='#854F0B'; status.textContent='距PDC截單時間'; }
+    else { countdown.style.color='#854F0B'; status.textContent='距DUCATI原廠PDC截單時間'; }
+  }
+}
+function submitUrgentOrder(){
+  showToast('🚀 緊急採購單已送出！\n系統已通知供應商緊急處理。\n（後端串接點：POST /api/purchase-orders/urgent）');
+}
+setInterval(updatePDCCountdown,1000);
+updatePDCCountdown();
+function showToast(msg, type='') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3800);
+}
+
+/* ===== DATETIME ===== */
+function updateDatetime() {
+  const now = new Date();
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('datetime-display').textContent =
+    `${now.getFullYear()}/${p(now.getMonth()+1)}/${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}`;
+}
+setInterval(updateDatetime, 60000);
+updateDatetime();
+</script>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function updatePDCCountdown(){
+  var now=new Date();
+  var cutoff=new Date();
+  cutoff.setHours(17,0,0,0);
+  var diff=cutoff-now;
+  var banner=document.getElementById('pdc-banner');
+  var countdown=document.getElementById('pdc-countdown');
+  var status=document.getElementById('pdc-status');
+  if(diff<=0){
+    countdown.textContent='已截單';
+    countdown.style.color='#C8001A';
+    status.textContent='今日PDC截單已過，緊急單需加收費用';
+    if(banner) banner.style.background='#FDECEA'; banner.style.borderColor='#F5AEAD';
+  } else {
+    var h=Math.floor(diff/3600000);
+    var m=Math.floor((diff%3600000)/60000);
+    var s=Math.floor((diff%60000)/1000);
+    countdown.textContent=(h<10?'0':'')+h+':'+(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+    if(diff<3600000){ countdown.style.color='#C8001A'; status.textContent='⚠️ 不到1小時！請盡快送單'; }
+    else if(diff<7200000){ countdown.style.color='#854F0B'; status.textContent='距PDC截單時間'; }
+    else { countdown.style.color='#854F0B'; status.textContent='距DUCATI原廠PDC截單時間'; }
+  }
+}
+function submitUrgentOrder(){
+  showToast('🚀 緊急採購單已送出！\n系統已通知供應商緊急處理。\n（後端串接點：POST /api/purchase-orders/urgent）');
+}
+setInterval(updatePDCCountdown,1000);
+updatePDCCountdown();
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

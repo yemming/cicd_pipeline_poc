@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DUCATI 庫存管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --navy:   #1A3A5C;
+  --navy2:  #0F2A45;
+  --teal:   #0F6E56;
+  --teal-l: #E8F5F0;
+  --red:    #CC0000;
+  --red-l:  #FDECEA;
+  --amber:  #854F0B;
+  --amb-l:  #FDF3E3;
+  --blue:   #185FA5;
+  --blue-l: #EAF4FB;
+  --gray:   #6B6A68;
+  --gray-l: #F2F2F2;
+  --ora:    #C05020;
+  --ora-l:  #FFF0E8;
+  --yel:    #7A6200;
+  --yel-l:  #FFFDE7;
+  --g50:    #F8F7F4;
+  --g100:   #EEECE6;
+  --g200:   #D5D3CB;
+  --g400:   #9A9890;
+  --g600:   #5A5955;
+  --g800:   #2C2C2A;
+  --white:  #FFFFFF;
+  --font:   'Noto Sans TC', sans-serif;
+  --mono:   'DM Mono', monospace;
+  --hh:     52px;
+  --sw:     220px;
+  --r:      8px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--font); background:var(--g50); color:var(--g800); font-size:13px; }
+
+/* ── HEADER（與預檢單保持一致） ── */
+.hdr {
+  position:fixed; top:0; left:0; right:0; height:var(--hh);
+  background:var(--navy); display:flex; align-items:center;
+  padding:0 20px; gap:14px; z-index:200;
+  border-bottom:1px solid rgba(255,255,255,0.07);
+}
+.hdr-logo { font-size:17px; font-weight:700; letter-spacing:2px; color:#fff; }
+.hdr-divider { width:1px; height:20px; background:rgba(255,255,255,0.2); }
+.hdr-title { font-size:13px; color:rgba(255,255,255,0.6); }
+.hdr-title b { color:rgba(255,255,255,0.9); font-weight:500; }
+.hdr-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.hdr-store { font-size:12px; color:rgba(255,255,255,0.55); }
+.hdr-store b { color:#5BC4A8; font-weight:500; }
+.hdr-bell {
+  width:28px; height:28px; border-radius:6px;
+  background:rgba(255,255,255,0.08); display:flex;
+  align-items:center; justify-content:center; cursor:pointer;
+  font-size:14px; position:relative;
+}
+.hdr-bell .badge-dot {
+  position:absolute; top:-2px; right:-2px;
+  width:14px; height:14px; border-radius:50%;
+  background:#E24B4A; color:#fff; font-size:9px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono);
+}
+.hdr-avatar {
+  width:28px; height:28px; border-radius:6px;
+  background:var(--teal); display:flex; align-items:center;
+  justify-content:center; color:#fff; font-size:11px; font-weight:600;
+}
+.hdr-sa { font-size:12px; color:rgba(255,255,255,0.6); }
+.hdr-sa b { color:#fff; font-weight:500; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  position:fixed; left:0; top:var(--hh); bottom:0;
+  width:var(--sw); background:var(--white);
+  border-right:1px solid var(--g100);
+  overflow-y:auto; z-index:100;
+}
+.sidebar::-webkit-scrollbar { width:3px; }
+.sidebar::-webkit-scrollbar-thumb { background:var(--g200); border-radius:2px; }
+
+/* 模組群標題 */
+.nav-group { padding:14px 14px 4px; }
+.nav-group-label {
+  font-size:10px; font-weight:600; letter-spacing:0.9px;
+  text-transform:uppercase; color:var(--g400);
+  display:flex; align-items:center; gap:6px; padding:0 2px;
+}
+.nav-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+.d-blue   { background:var(--navy); }
+.d-purple { background:#7F77DD; }
+.d-amber  { background:#EF9F27; }
+.d-coral  { background:#D85A30; }
+.d-gray   { background:var(--g400); }
+
+/* 一級選單 */
+.nav-item {
+  margin:1px 8px; padding:7px 10px;
+  border-radius:6px; cursor:pointer;
+  display:flex; align-items:center; gap:8px;
+  font-size:12.5px; color:var(--g600);
+  transition:all 0.12s; user-select:none;
+}
+.nav-item:hover { background:var(--g50); color:var(--g800); }
+.nav-item.active { background:#EBF3FF; color:var(--blue); font-weight:500; }
+.nav-item.parent { font-weight:500; color:var(--g800); }
+.nav-item.parent:hover { background:var(--g50); }
+.nav-icon { font-size:13px; width:18px; text-align:center; flex-shrink:0; }
+.nav-arrow { font-size:9px; color:var(--g400); margin-left:auto; transition:transform 0.15s; }
+.nav-item.open .nav-arrow { transform:rotate(90deg); }
+.nav-badge { margin-left:auto; font-size:10px; font-family:var(--mono);
+  background:var(--red-l); color:var(--red); padding:1px 5px;
+  border-radius:8px; font-weight:500; }
+.nav-badge.warn { background:var(--amb-l); color:var(--amber); }
+.nav-badge.new  { background:var(--teal-l); color:var(--teal); }
+
+/* 二級選單 */
+.nav-sub { overflow:hidden; max-height:0; transition:max-height 0.2s ease; }
+.nav-sub.open { max-height:500px; }
+.nav-sub-item {
+  margin:1px 8px 1px 28px; padding:5px 10px;
+  border-radius:5px; cursor:pointer; font-size:12px;
+  color:var(--g500, #7A7872); transition:all 0.12s;
+  display:flex; align-items:center; gap:6px;
+}
+.nav-sub-item:hover { background:var(--g50); color:var(--g800); }
+.nav-sub-item.active { color:var(--blue); background:#F0F6FF; font-weight:500; }
+
+/* 分隔線 */
+.nav-sep { height:1px; background:var(--g100); margin:8px 14px; }
+
+/* ── MAIN ── */
+.main { margin-left:var(--sw); margin-top:var(--hh); padding:20px 22px; }
+
+/* ── PAGE HEADER ── */
+.page-head { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+.page-head h1 { font-size:16px; font-weight:600; color:var(--g800); }
+.page-head-tag { font-size:11px; background:var(--blue-l); color:var(--blue);
+  padding:2px 8px; border-radius:10px; font-weight:500; }
+.page-head-sub { font-size:12px; color:var(--g400); margin-left:4px; }
+
+/* ── 告警儀表板 ── */
+.db-label { font-size:11px; font-weight:600; letter-spacing:0.6px;
+  text-transform:uppercase; color:var(--g400); margin-bottom:8px; }
+.alert-cards { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:10px; }
+.ac {
+  background:var(--white); border:1px solid var(--g100); border-radius:var(--r);
+  padding:11px 13px; cursor:pointer; position:relative; overflow:hidden;
+  transition:all 0.12s;
+}
+.ac::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.ac.red::before  { background:#E24B4A; }
+.ac.ora::before  { background:#EF9F27; }
+.ac.yel::before  { background:#F59E0B; }
+.ac.blu::before  { background:#378ADD; }
+.ac.gry::before  { background:var(--g400); }
+.ac:hover { box-shadow:0 2px 8px rgba(0,0,0,0.07); transform:translateY(-1px); }
+.ac-icon { font-size:16px; margin-bottom:5px; }
+.ac-label { font-size:10.5px; color:var(--g400); margin-bottom:3px; }
+.ac-count { font-size:20px; font-weight:600; font-family:var(--mono); margin-bottom:5px; }
+.ac.red .ac-count { color:#E24B4A; }
+.ac.ora .ac-count { color:#EF9F27; }
+.ac.yel .ac-count { color:#F59E0B; }
+.ac.blu .ac-count { color:#378ADD; }
+.ac.gry .ac-count { color:var(--g400); }
+.ac-btn { font-size:10.5px; padding:2px 7px; border-radius:4px; border:none;
+  cursor:pointer; font-family:var(--font); font-weight:500; }
+.ac.red .ac-btn { background:var(--red-l); color:#A32D2D; }
+.ac.ora .ac-btn { background:var(--amb-l); color:var(--amber); }
+.ac.yel .ac-btn { background:var(--yel-l); color:var(--yel); }
+.ac.blu .ac-btn { background:var(--blue-l); color:var(--blue); }
+.ac.gry .ac-btn { background:var(--gray-l); color:var(--gray); }
+
+/* 告警列表 */
+.alert-list { background:var(--white); border:1px solid var(--g100);
+  border-radius:var(--r); overflow:hidden; margin-bottom:14px; }
+.al-head { padding:9px 14px; background:var(--g50); border-bottom:1px solid var(--g100);
+  font-size:11.5px; font-weight:600; color:var(--g600);
+  display:flex; align-items:center; justify-content:space-between; }
+.al-head a { font-size:11px; color:var(--blue); cursor:pointer; font-weight:400; }
+.al-row { padding:8px 14px; border-bottom:1px solid var(--g100);
+  display:flex; align-items:center; gap:10px; transition:background 0.1s; }
+.al-row:last-child { border-bottom:none; }
+.al-row:hover { background:var(--g50); }
+.al-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.al-dot.red { background:#E24B4A; }
+.al-dot.ora { background:#EF9F27; }
+.al-dot.yel { background:#F59E0B; }
+.al-dot.blu { background:#378ADD; }
+.al-name { font-size:12.5px; font-weight:500; min-width:150px; }
+.al-pn { font-family:var(--mono); font-size:11px; color:var(--g400); min-width:90px; }
+.al-desc { font-size:12px; color:var(--g600); flex:1; }
+.al-meta { font-size:11px; color:var(--g400); white-space:nowrap; }
+.al-act { font-size:11px; padding:2px 8px; border-radius:4px; border:none;
+  cursor:pointer; font-family:var(--font); white-space:nowrap; }
+.al-act.red { background:var(--red-l); color:#A32D2D; }
+.al-act.ora { background:var(--amb-l); color:var(--amber); }
+.al-act.yel { background:var(--yel-l); color:var(--yel); }
+
+/* ── 查詢面板 ── */
+.qpanel { background:var(--white); border:1px solid var(--g100);
+  border-radius:var(--r); padding:13px 16px; margin-bottom:12px; }
+.qrow { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
+.qrow + .qrow { margin-top:10px; }
+.qf { display:flex; flex-direction:column; gap:3px; }
+.qf label { font-size:11px; color:var(--g400); font-weight:500; }
+.qf select, .qf input {
+  height:30px; border:1px solid var(--g200); border-radius:5px;
+  padding:0 9px; font-size:12.5px; color:var(--g800);
+  background:var(--white); font-family:var(--font); outline:none;
+  transition:border-color 0.12s;
+}
+.qf select:focus, .qf input:focus { border-color:var(--blue); }
+.qf.w180 input { width:180px; }
+.qf.w120 select { width:120px; }
+.qf.w100 select { width:100px; }
+
+/* 狀態 pills */
+.pills { display:flex; gap:5px; align-items:center; }
+.pill {
+  padding:3px 9px; border-radius:14px; font-size:11.5px;
+  cursor:pointer; border:1px solid var(--g200);
+  color:var(--g600); background:var(--white);
+  transition:all 0.1s; white-space:nowrap;
+}
+.pill:hover { border-color:var(--g400); }
+.pill.all.on    { background:var(--navy); color:#fff; border-color:var(--navy); }
+.pill.ok.on     { background:#EAF3DE; color:#3B6D11; border-color:#C0DD97; }
+.pill.low.on    { background:var(--amb-l); color:var(--amber); border-color:#FAC775; }
+.pill.out.on    { background:var(--red-l); color:#A32D2D; border-color:#F7C1C1; }
+.pill.over.on   { background:var(--blue-l); color:var(--blue); border-color:#B5D4F4; }
+.pill.dead.on   { background:var(--gray-l); color:var(--gray); border-color:var(--g200); font-weight:500; }
+
+/* 按鈕 */
+.btn { padding:0 14px; height:30px; border-radius:5px; font-size:12.5px;
+  cursor:pointer; font-family:var(--font); font-weight:500; border:none; transition:all 0.12s; }
+.btn-navy  { background:var(--navy); color:#fff; }
+.btn-navy:hover  { background:var(--navy2); }
+.btn-ghost { background:var(--white); color:var(--g600); border:1px solid var(--g200); }
+.btn-ghost:hover { border-color:var(--g400); color:var(--g800); }
+.btn-teal  { background:var(--teal); color:#fff; }
+.btn-teal:hover  { background:#0A5440; }
+.qbtns { display:flex; gap:6px; margin-left:auto; }
+
+/* ── 工具列 ── */
+.tbar { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.tbar-info { font-size:12px; color:var(--g400); }
+.tbar-right { margin-left:auto; display:flex; gap:7px; }
+
+/* ── 表格 ── */
+.tw { background:var(--white); border:1px solid var(--g100); border-radius:var(--r); overflow:hidden; }
+.ts { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; min-width:1050px; }
+thead tr { background:var(--g50); }
+thead th {
+  padding:8px 11px; text-align:left; font-size:11px; font-weight:600;
+  color:var(--g600); white-space:nowrap; border-bottom:1px solid var(--g100);
+}
+th.c, td.c { text-align:center; }
+tbody tr { border-bottom:1px solid var(--g100); transition:background 0.1s; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover td { filter:brightness(0.97); }
+tbody td { padding:8px 11px; font-size:12.5px; color:var(--g800); white-space:nowrap; }
+td.mono { font-family:var(--mono); font-size:11.5px; }
+
+/* 告警列底色 */
+tr.r-red  td { background:#FEF5F5; }
+tr.r-ora  td { background:#FFF9F0; }
+tr.r-blu  td { background:#F0F7FD; }
+tr.r-gry  td { background:#F7F7F6; }
+
+/* badges */
+.b { display:inline-flex; align-items:center; padding:2px 6px;
+  border-radius:7px; font-size:11px; font-weight:500; white-space:nowrap; }
+.b-red  { background:var(--red-l); color:#A32D2D; }
+.b-ora  { background:var(--amb-l); color:var(--amber); }
+.b-ok   { background:var(--teal-l); color:var(--teal); }
+.b-blu  { background:var(--blue-l); color:var(--blue); }
+.b-gry  { background:var(--gray-l); color:var(--gray); }
+.b-yel  { background:var(--yel-l); color:var(--yel); }
+.b-grn  { background:#EAF3DE; color:#3B6D11; }
+
+/* 水位條 */
+.wbar { width:72px; height:5px; background:var(--g100); border-radius:3px; overflow:hidden; margin:auto; }
+.wfill { height:100%; border-radius:3px; }
+.wf-ok  { background:#63992B; }
+.wf-ora { background:#EF9F27; }
+.wf-red { background:#E24B4A; }
+.wf-blu { background:#378ADD; }
+.wf-gry { background:var(--g400); }
+
+/* 數量欄 */
+.snum { font-family:var(--mono); font-size:13px; font-weight:500; }
+.snum.red { color:#E24B4A; }
+.snum.ora { color:#EF9F27; }
+.snum.blu { color:#378ADD; }
+.snum.gry { color:var(--g400); }
+
+/* 操作按鈕 */
+.ab { padding:2px 8px; border-radius:4px; border:1px solid var(--g200);
+  background:var(--white); font-size:11px; cursor:pointer;
+  color:var(--g600); font-family:var(--font); transition:all 0.1s; }
+.ab:hover { border-color:var(--g400); color:var(--g800); }
+.ab.p { background:var(--navy); color:#fff; border-color:var(--navy); }
+.ab.p:hover { background:var(--navy2); }
+
+/* 分頁 */
+.pg { display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px; border-top:1px solid var(--g100); }
+.pg-info { font-size:12px; color:var(--g400); }
+.pg-btns { display:flex; gap:3px; }
+.pgb { width:26px; height:26px; border-radius:4px; border:1px solid var(--g200);
+  background:var(--white); cursor:pointer; font-size:12px;
+  display:flex; align-items:center; justify-content:center; color:var(--g600); }
+.pgb:hover { border-color:var(--g400); }
+.pgb.on { background:var(--navy); color:#fff; border-color:var(--navy); }
+</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;"><button onclick="go('00_庫存管理模組_導覽總覽.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">← 庫存導覽</button></div>
+
+<!-- ══ HEADER ══ -->
+<header class="hdr">
+  <div class="hdr-logo">DUCATI</div>
+  <div class="hdr-divider"></div>
+  <div class="hdr-title">庫存管理　<b>商品庫存查詢</b></div>
+  <div class="hdr-right">
+    <div class="hdr-store">門店：<b>台北直營店</b></div>
+    <div class="hdr-sa">SA：<b>魏呈宇</b>　2026/05/05　10:15</div>
+    <div class="hdr-bell">🔔<span class="badge-dot">5</span></div>
+    <div class="hdr-avatar">魏</div>
+  </div>
+</header>
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+
+  <!-- 基礎設定 -->
+  <div class="nav-group">
+    <div class="nav-group-label"><span class="nav-dot d-blue"></span>基礎設定</div>
+  </div>
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">🏛</span>組織與權限
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item">組織三層架構</div>
+    <div class="nav-sub-item">採購權限規則</div>
+    <div class="nav-sub-item">商品管理權限</div>
+    <div class="nav-sub-item">盤點回傳規則</div>
+    <div class="nav-sub-item">管控類型定義</div>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">🏗</span>倉庫管理
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item">倉儲四層架構</div>
+    <div class="nav-sub-item">倉庫 / 庫區 / 庫位 / 擺放</div>
+    <div class="nav-sub-item">供應商資訊</div>
+    <div class="nav-sub-item">採購合約</div>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">📦</span>商品管理
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item">基礎資料</div>
+    <div class="nav-sub-item">商品資訊（多維度料號）</div>
+    <div class="nav-sub-item">門市定價</div>
+    <div class="nav-sub-item">適配設定（料-車/年份）</div>
+    <div class="nav-sub-item" style="color:var(--teal)">序列號 / 批號追蹤 <span class="nav-badge new">新</span></div>
+  </div>
+
+  <div class="nav-sep"></div>
+
+  <!-- 進出庫 -->
+  <div class="nav-group">
+    <div class="nav-group-label"><span class="nav-dot d-purple"></span>進出庫流程</div>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">🛒</span>採購管理
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item">採購流程鏈路</div>
+    <div class="nav-sub-item">日常補貨計畫</div>
+    <div class="nav-sub-item" onclick="window.location.href='04_採購管理_需求處理.html'" style="cursor:pointer">需求處理 <span class="nav-badge">3</span></div>
+    <div class="nav-sub-item" onclick="window.location.href='04_採購管理_商品採購.html'" style="cursor:pointer">商品採購</div>
+    <div class="nav-sub-item">採購退貨</div>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">📥</span>入庫管理
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item" onclick="window.location.href='05_入庫管理_採購入庫.html'" style="cursor:pointer">採購入庫（含原廠到貨匯入）</div>
+    <div class="nav-sub-item" onclick="window.location.href='05_入庫管理_調撥入庫.html'" style="cursor:pointer">調撥入庫</div>
+    <div class="nav-sub-item">內售入庫</div>
+    <div class="nav-sub-item">領料退貨入庫</div>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">📤</span>出庫管理
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item" onclick="window.location.href='06_出庫管理_維修領料.html'" style="cursor:pointer">維修領料（RO工單串接）</div>
+    <div class="nav-sub-item" onclick="window.location.href='06_出庫管理_調撥出庫.html'" style="cursor:pointer">調撥出庫</div>
+    <div class="nav-sub-item">內售出庫</div>
+  </div>
+
+  <div class="nav-item active">
+    <span class="nav-icon">🔍</span>庫存查詢
+    <span class="nav-badge warn">7</span>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">⚙️</span>庫存作業
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item">例外出入庫</div>
+    <div class="nav-sub-item">寄存管理</div>
+    <div class="nav-sub-item">備件庫存調整</div>
+    <div class="nav-sub-item">入庫查詢</div>
+    <div class="nav-sub-item">調撥在途查詢</div>
+  </div>
+
+  <div class="nav-sep"></div>
+
+  <!-- 盤點告警 -->
+  <div class="nav-group">
+    <div class="nav-group-label"><span class="nav-dot d-amber"></span>盤點與告警</div>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">📋</span>盤點管理
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item" onclick="window.location.href='08_盤點管理_盤點計畫.html'" style="cursor:pointer">盤點計畫</div>
+    <div class="nav-sub-item" onclick="window.location.href='08_盤點管理_盤點處理.html'" style="cursor:pointer">盤點處理（條碼掃描）</div>
+    <div class="nav-sub-item" onclick="window.location.href='08_盤點管理_報損報溢.html'" style="cursor:pointer">報損報溢</div>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">⚡</span>預警告警
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item">庫存水位設定</div>
+    <div class="nav-sub-item">告警類型與規則</div>
+    <div class="nav-sub-item nav-sub-item active" onclick="window.location.href='07_庫存管理_商品庫存查詢_v2.html'" style="cursor:pointer">告警儀表板</div>
+    <div class="nav-sub-item">工單增項閉環</div>
+    <div class="nav-sub-item">告警階層設定</div>
+  </div>
+
+  <div class="nav-sep"></div>
+
+  <!-- 保固分析 -->
+  <div class="nav-group">
+    <div class="nav-group-label"><span class="nav-dot d-coral"></span>保固與分析</div>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">🔧</span>保固索賠舊件
+    <span class="nav-badge warn">2</span>
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item">索賠流程說明</div>
+    <div class="nav-sub-item">舊件出入庫邏輯</div>
+    <div class="nav-sub-item">暫存倉設定</div>
+    <div class="nav-sub-item" onclick="window.location.href='11_保固索賠_舊件管理.html'" style="cursor:pointer">舊件管理介面</div>
+    <div class="nav-sub-item">與RO工單串接</div>
+    <div class="nav-sub-item">索賠費用回收</div>
+  </div>
+
+  <div class="nav-item parent" onclick="tog(this)">
+    <span class="nav-icon">📊</span>ABC分類 / 分析報表
+    <span class="nav-arrow">▶</span>
+  </div>
+  <div class="nav-sub">
+    <div class="nav-sub-item">ABC 分類定義與機制</div>
+    <div class="nav-sub-item">報表：庫存周轉率</div>
+    <div class="nav-sub-item">報表：呆滯庫存佔比</div>
+    <div class="nav-sub-item" onclick="window.location.href='12_分析報表_ABC分類.html'" style="cursor:pointer">報表：即時缺貨率</div>
+    <div class="nav-sub-item">報表：ABC 結構圖</div>
+  </div>
+
+  <div class="nav-sep"></div>
+  <div style="padding:8px 14px 16px">
+    <div class="nav-group-label" style="margin-bottom:4px"><span class="nav-dot d-gray"></span>附錄</div>
+    <div class="nav-sub-item" style="margin-left:0">介面設計共用規則（A～H）</div>
+  </div>
+
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+
+  <!-- 頁面標題 -->
+  <div class="page-head">
+    <h1>商品庫存查詢</h1>
+    <span class="page-head-tag">7.1</span>
+    <span class="page-head-sub">即時庫存 · 帳面庫存 vs 可用庫存 · 告警整合</span>
+  </div>
+
+  <!-- ── 告警儀表板 10.4 ── -->
+  <div style="margin-bottom:14px">
+    <div class="db-label">⚡ 庫存告警儀表板（10.4）　台北直營店　2026.05.05 10:15</div>
+    <div class="alert-cards">
+      <div class="ac red" onclick="filter('out')">
+        <div class="ac-icon">🔴</div>
+        <div class="ac-label">缺料告警</div>
+        <div class="ac-count">3</div>
+        <button class="ac-btn">立即處理</button>
+      </div>
+      <div class="ac ora" onclick="filter('low')">
+        <div class="ac-icon">🟠</div>
+        <div class="ac-label">低庫存預警</div>
+        <div class="ac-count">7</div>
+        <button class="ac-btn">查看</button>
+      </div>
+      <div class="ac yel" onclick="filter('all')">
+        <div class="ac-icon">🟡</div>
+        <div class="ac-label">工單待料</div>
+        <div class="ac-count">2</div>
+        <button class="ac-btn">緊急處理</button>
+      </div>
+      <div class="ac blu" onclick="filter('over')">
+        <div class="ac-icon">🔵</div>
+        <div class="ac-label">超儲警示</div>
+        <div class="ac-count">1</div>
+        <button class="ac-btn">查看</button>
+      </div>
+      <div class="ac gry" onclick="filter('dead')">
+        <div class="ac-icon">⚫</div>
+        <div class="ac-label">呆滯料</div>
+        <div class="ac-count">5</div>
+        <button class="ac-btn">查看</button>
+      </div>
+    </div>
+
+    <div class="alert-list">
+      <div class="al-head">
+        最新告警（依緊急程度排序）
+        <a>查看全部 →</a>
+      </div>
+      <div class="al-row">
+        <div class="al-dot red"></div>
+        <div class="al-name">前煞車來令片</div>
+        <div class="al-pn">61340051A</div>
+        <div class="al-desc">現有庫存 <b>1 組</b>，低於安全水位 3 組｜PANIGALE V4</div>
+        <div class="al-meta">2 天前出庫</div>
+        <button class="al-act red">補貨需求</button>
+      </div>
+      <div class="al-row">
+        <div class="al-dot yel"></div>
+        <div class="al-name">後避震彈簧總成</div>
+        <div class="al-pn">36521321A</div>
+        <div class="al-desc">工單 <b>RO-20260503-008</b> 增項待料，庫存 <b>0 組</b>｜Monster 937</div>
+        <div class="al-meta">工單待料中</div>
+        <button class="al-act yel">緊急採購</button>
+      </div>
+      <div class="al-row">
+        <div class="al-dot ora"></div>
+        <div class="al-name">機油 Motul 5W-40</div>
+        <div class="al-pn">DUC-OIL-001</div>
+        <div class="al-desc">現有庫存 <b>8 組</b>，低於再訂購點 10 組，前置 45 天</div>
+        <div class="al-meta">3 天前出庫</div>
+        <button class="al-act ora">建立補貨計畫</button>
+      </div>
+      <div class="al-row">
+        <div class="al-dot red"></div>
+        <div class="al-name">機油濾清器</div>
+        <div class="al-pn">DUC-OIL-002</div>
+        <div class="al-desc">現有庫存 <b>0 組</b>，完全缺料，全車型適用</div>
+        <div class="al-meta">1 天前出庫</div>
+        <button class="al-act red">補貨需求</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 查詢區塊 ── -->
+  <div class="qpanel">
+    <div class="qrow">
+      <div class="qf w100"><label>銷售區域</label>
+        <select><option>台灣北區</option><option>台灣中區</option><option>台灣南區</option></select>
+      </div>
+      <div class="qf w120"><label>門店</label>
+        <select><option>台北直營店</option><option>台中直營店</option><option>高雄經銷商</option></select>
+      </div>
+      <div class="qf w120"><label>倉庫</label>
+        <select><option>全部倉庫</option><option>主零件倉</option><option>寄存倉</option><option>保固暫存倉</option></select>
+      </div>
+      <div class="qf w180"><label>商品編碼 / 備件代碼 / 名稱</label>
+        <input type="text" placeholder="輸入關鍵字...">
+      </div>
+      <div class="qbtns">
+        <button class="btn btn-navy">查詢</button>
+        <button class="btn btn-ghost">重置</button>
+      </div>
+    </div>
+    <div class="qrow" style="align-items:center; gap:6px">
+      <span style="font-size:11px; color:var(--g400); font-weight:500; white-space:nowrap">庫存狀態：</span>
+      <div class="pills">
+        <div class="pill all on"  onclick="filter('all',this)">全部（127）</div>
+        <div class="pill ok"      onclick="filter('ok',this)">正常（111）</div>
+        <div class="pill low"     onclick="filter('low',this)">低庫存（7）</div>
+        <div class="pill out"     onclick="filter('out',this)">缺料（3）</div>
+        <div class="pill over"    onclick="filter('over',this)">超儲（1）</div>
+        <div class="pill dead"    onclick="filter('dead',this)">呆滯（5）</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 工具列 ── -->
+  <div class="tbar">
+    <span class="tbar-info">共 127 筆</span>
+    <select style="height:28px;border:1px solid var(--g200);border-radius:5px;font-size:12px;padding:0 8px;font-family:var(--font)">
+      <option>單位：個</option><option>單位：組</option><option>單位：瓶</option>
+    </select>
+    <div class="tbar-right">
+      <button class="btn btn-teal">＋ 其他出入庫</button>
+      <button class="btn btn-ghost">匯出 Excel</button>
+    </div>
+  </div>
+
+  <!-- ── 表格 ── -->
+  <div class="tw">
+    <div class="ts">
+      <table>
+        <thead>
+          <tr>
+            <th>操作</th>
+            <th>ABC</th>
+            <th>備件代碼</th>
+            <th>商品名稱</th>
+            <th>倉庫 / 庫位</th>
+            <th class="c">庫存</th>
+            <th class="c">可用</th>
+            <th class="c">鎖定</th>
+            <th class="c">水位</th>
+            <th class="c">最小</th>
+            <th class="c">訂購點</th>
+            <th class="c">最大</th>
+            <th>狀態</th>
+            <th>最近出庫</th>
+            <th>成本單價</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="r-red">
+            <td><button class="ab p">補貨</button></td>
+            <td><span class="b b-red">A</span></td>
+            <td class="mono">61340051A</td>
+            <td>前煞車來令片 PANIGALE V4</td>
+            <td>主零件倉 / A-02-03</td>
+            <td class="c"><span class="snum red">1</span></td>
+            <td class="c"><span class="snum red">1</span></td>
+            <td class="c">0</td>
+            <td class="c"><div class="wbar"><div class="wfill wf-red" style="width:8%"></div></div></td>
+            <td class="c mono">3</td><td class="c mono">5</td><td class="c mono">15</td>
+            <td><span class="b b-red">🔴 缺料</span></td>
+            <td>2 天前</td><td class="mono">NT$1,200</td>
+          </tr>
+          <tr class="r-red">
+            <td><button class="ab p">補貨</button></td>
+            <td><span class="b b-red">A</span></td>
+            <td class="mono">DUC-OIL-002</td>
+            <td>機油濾清器</td>
+            <td>主零件倉 / B-01-01</td>
+            <td class="c"><span class="snum red">0</span></td>
+            <td class="c"><span class="snum red">0</span></td>
+            <td class="c">0</td>
+            <td class="c"><div class="wbar"><div class="wfill wf-red" style="width:0%"></div></div></td>
+            <td class="c mono">5</td><td class="c mono">10</td><td class="c mono">30</td>
+            <td><span class="b b-red">🔴 缺料</span></td>
+            <td>1 天前</td><td class="mono">NT$380</td>
+          </tr>
+          <tr class="r-ora">
+            <td><button class="ab">查看</button></td>
+            <td><span class="b b-ora">A</span></td>
+            <td class="mono">DUC-OIL-001</td>
+            <td>引擎機油 Motul 5W-40</td>
+            <td>主零件倉 / B-01-02</td>
+            <td class="c"><span class="snum ora">8</span></td>
+            <td class="c"><span class="snum ora">8</span></td>
+            <td class="c">0</td>
+            <td class="c"><div class="wbar"><div class="wfill wf-ora" style="width:27%"></div></div></td>
+            <td class="c mono">5</td><td class="c mono">10</td><td class="c mono">30</td>
+            <td><span class="b b-ora">🟠 低庫存</span></td>
+            <td>3 天前</td><td class="mono">NT$650</td>
+          </tr>
+          <tr>
+            <td><button class="ab">查看</button></td>
+            <td><span class="b b-ok">A</span></td>
+            <td class="mono">69810091A</td>
+            <td>後煞車來令片 PANIGALE V2</td>
+            <td>主零件倉 / A-02-04</td>
+            <td class="c"><span class="snum">6</span></td>
+            <td class="c"><span class="snum">6</span></td>
+            <td class="c">0</td>
+            <td class="c"><div class="wbar"><div class="wfill wf-ok" style="width:40%"></div></div></td>
+            <td class="c mono">3</td><td class="c mono">5</td><td class="c mono">15</td>
+            <td><span class="b b-ok">✅ 正常</span></td>
+            <td>5 天前</td><td class="mono">NT$1,200</td>
+          </tr>
+          <tr>
+            <td><button class="ab">查看</button></td>
+            <td><span class="b b-grn">B</span></td>
+            <td class="mono">59821091A</td>
+            <td>空氣濾芯 Monster 937</td>
+            <td>主零件倉 / C-03-02</td>
+            <td class="c"><span class="snum">4</span></td>
+            <td class="c"><span class="snum">4</span></td>
+            <td class="c">0</td>
+            <td class="c"><div class="wbar"><div class="wfill wf-ok" style="width:50%"></div></div></td>
+            <td class="c mono">2</td><td class="c mono">3</td><td class="c mono">8</td>
+            <td><span class="b b-ok">✅ 正常</span></td>
+            <td>12 天前</td><td class="mono">NT$520</td>
+          </tr>
+          <tr class="r-blu">
+            <td><button class="ab">查看</button></td>
+            <td><span class="b b-grn">B</span></td>
+            <td class="mono">43510211A</td>
+            <td>火星塞 NGK DCPR8EIX</td>
+            <td>主零件倉 / D-01-05</td>
+            <td class="c"><span class="snum blu">38</span></td>
+            <td class="c"><span class="snum blu">38</span></td>
+            <td class="c">0</td>
+            <td class="c"><div class="wbar"><div class="wfill wf-blu" style="width:100%"></div></div></td>
+            <td class="c mono">5</td><td class="c mono">10</td><td class="c mono">25</td>
+            <td><span class="b b-blu">🔵 超儲</span></td>
+            <td>22 天前</td><td class="mono">NT$180</td>
+          </tr>
+          <tr class="r-gry">
+            <td><button class="ab">查看</button></td>
+            <td><span class="b b-gry">C</span></td>
+            <td class="mono">82930012A</td>
+            <td>水箱蓋 1098 S 適用</td>
+            <td>主零件倉 / E-05-02</td>
+            <td class="c"><span class="snum gry">2</span></td>
+            <td class="c"><span class="snum gry">2</span></td>
+            <td class="c">0</td>
+            <td class="c"><div class="wbar"><div class="wfill wf-gry" style="width:40%"></div></div></td>
+            <td class="c mono">1</td><td class="c mono">2</td><td class="c mono">5</td>
+            <td><span class="b b-gry">⚫ 呆滯料</span></td>
+            <td>128 天前</td><td class="mono">NT$2,400</td>
+          </tr>
+          <tr>
+            <td><button class="ab">查看</button></td>
+            <td><span class="b b-ok">A</span></td>
+            <td class="mono">38010061A</td>
+            <td>煞車油 DOT 4 500ml</td>
+            <td>主零件倉 / B-02-01</td>
+            <td class="c"><span class="snum">12</span></td>
+            <td class="c"><span class="snum">10</span></td>
+            <td class="c">2</td>
+            <td class="c"><div class="wbar"><div class="wfill wf-ok" style="width:60%"></div></div></td>
+            <td class="c mono">5</td><td class="c mono">8</td><td class="c mono">20</td>
+            <td><span class="b b-ok">✅ 正常</span></td>
+            <td>1 天前</td><td class="mono">NT$320</td>
+          </tr>
+          <tr>
+            <td><button class="ab">查看</button></td>
+            <td><span class="b b-grn">B</span></td>
+            <td class="mono">77240031A</td>
+            <td>傳動鏈條 520 O-Ring 108L</td>
+            <td>主零件倉 / C-04-01</td>
+            <td class="c"><span class="snum">3</span></td>
+            <td class="c"><span class="snum">3</span></td>
+            <td class="c">0</td>
+            <td class="c"><div class="wbar"><div class="wfill wf-ok" style="width:60%"></div></div></td>
+            <td class="c mono">2</td><td class="c mono">3</td><td class="c mono">5</td>
+            <td><span class="b b-ok">✅ 正常</span></td>
+            <td>8 天前</td><td class="mono">NT$1,800</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pg">
+      <div class="pg-info">第 1 頁，共 13 頁｜1～9 / 127 筆</div>
+      <div class="pg-btns">
+        <button class="pgb">«</button>
+        <button class="pgb on">1</button>
+        <button class="pgb">2</button>
+        <button class="pgb">3</button>
+        <span style="padding:0 4px;font-size:12px;color:var(--g400)">…</span>
+        <button class="pgb">13</button>
+        <button class="pgb">»</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+function tog(el) {
+  const sub = el.nextElementSibling;
+  if (!sub) return;
+  const open = sub.classList.contains('open');
+  sub.classList.toggle('open', !open);
+  el.classList.toggle('open', !open);
+}
+
+function filter(type, pillEl) {
+  if (pillEl) {
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('on'));
+    pillEl.classList.add('on');
+  }
+  const map = { out:'r-red', low:'r-ora', over:'r-blu', dead:'r-gry' };
+  document.querySelectorAll('tbody tr').forEach(row => {
+    if (type === 'all') { row.style.display = ''; return; }
+    if (type === 'ok') {
+      const ok = !row.classList.contains('r-red') && !row.classList.contains('r-ora') &&
+                 !row.classList.contains('r-blu') && !row.classList.contains('r-gry');
+      row.style.display = ok ? '' : 'none';
+    } else {
+      row.style.display = row.classList.contains(map[type]) ? '' : 'none';
+    }
+  });
+}
+</script>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

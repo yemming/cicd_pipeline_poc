@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分析報表｜ABC分類 — DUCATI 庫存管理</title>
+<style>:root{--navy:#1A3A5C;--blue:#185FA5;--blue-light:#378ADD;--blue-bg:#EBF3FF;--blue-bg2:#EEF6FF;--g50:#FAFAF9;--g100:#F5F5F4;--g200:#EEECE6;--g400:#9A9890;--g500:#6B6A68;--g600:#4A4945;--g700:#2E2D2A;--g800:#1A1917;--red:#E24B4A;--red-bg:#FEF5F5;--red-text:#CC0000;--orange:#EF9F27;--orange-bg:#FFF9F0;--orange-text:#854F0B;--green:#0F6E56;--green-bg:#E8F5F0;--green-text:#0F6E56;--coral:#D85A30;--coral-light:#FEF0EB;--purple:#7F77DD;--purple-light:#F0EEFF;--a-color:#E24B4A;--b-color:#EF9F27;--c-color:#378ADD;--sidebar-w:220px;--header-h:52px;--font:'Noto Sans TC',sans-serif;--mono:'DM Mono','Courier New',monospace}*{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--font);font-size:13px;color:var(--g700);background:var(--g50);min-height:100vh}.header{position:fixed;top:0;left:0;right:0;height:var(--header-h);background:var(--navy);display:flex;align-items:center;padding:0 16px;z-index:100}.header-logo{font-size:15px;font-weight:700;letter-spacing:2px;color:#fff}.hd{width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 12px}.hbc{display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.65)}.hbc .cur{color:#fff;font-weight:600}.hbc .sep{opacity:.4}.hr{margin-left:auto;display:flex;align-items:center;gap:14px}.huser{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;font-size:11px;color:rgba(255,255,255,.7)}.huser strong{color:#fff;font-size:12px}.hbell{position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,.75);font-size:16px}.hbell .badge{position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px}.hav{width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer}.sidebar{position:fixed;top:var(--header-h);left:0;bottom:0;width:var(--sidebar-w);background:#fff;border-right:1px solid var(--g200);overflow-y:auto;z-index:90}.sidebar::-webkit-scrollbar{width:4px}.sidebar::-webkit-scrollbar-thumb{background:var(--g200);border-radius:2px}.ns{padding:12px 0 4px}.nsl{display:flex;align-items:center;gap:6px;padding:0 12px 6px;font-size:10px;font-weight:600;color:var(--g400);letter-spacing:.9px;text-transform:uppercase}.dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}.dot-blue{background:#1A3A5C}.dot-purple{background:#7F77DD}.dot-amber{background:#EF9F27}.dot-coral{background:#D85A30}.dot-gray{background:#9A9890}.ni{display:flex;align-items:center;gap:8px;padding:0 12px;height:34px;cursor:pointer;font-size:13px;color:var(--g600);user-select:none;transition:background .12s}.ni:hover{background:var(--g50);color:var(--g800)}.ni.parent{font-weight:500;color:var(--g800)}.ni.parent .arrow{margin-left:auto;font-size:10px;color:var(--g400);transition:transform .2s}.ni.parent.open .arrow{transform:rotate(90deg)}.ni.sa{background:var(--coral-light)}.ni .ico{font-size:15px;width:18px;text-align:center}.nsub{display:none}.nsub.open{display:block}.nsi{display:flex;align-items:center;gap:8px;padding:0 12px 0 38px;height:30px;cursor:pointer;font-size:12px;color:var(--g500);transition:background .12s}.nsi:hover{background:var(--g50);color:var(--g800)}.nsi.active{color:var(--blue);background:#F0F6FF;font-weight:500}.nbadge{margin-left:auto;font-size:10px;font-weight:600;padding:1px 5px;border-radius:8px}.nb-r{background:#FDECEA;color:#CC0000}.sd{height:1px;background:var(--g200);margin:4px 12px}.main{margin-left:var(--sidebar-w);margin-top:var(--header-h);min-height:calc(100vh - var(--header-h));padding-bottom:40px}.pta{padding:20px 24px 0;display:flex;align-items:baseline;gap:10px}.pta h1{font-size:20px;font-weight:700;color:var(--g800);letter-spacing:-.3px}.fb{background:var(--g100);color:var(--g500);font-size:11px;font-weight:600;padding:2px 7px;border-radius:10px}.psub{font-size:12px;color:var(--g400);padding:3px 24px 16px}.btn{height:32px;padding:0 14px;border-radius:5px;font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap}.bp{background:var(--blue);color:#fff}.bp:hover{background:var(--navy)}.bs{background:#fff;color:var(--g600);border:1px solid var(--g200)}.bs:hover{background:var(--g50)}.bsm{height:26px;padding:0 10px;font-size:11px}.tabs{display:flex;gap:0;padding:0 24px;border-bottom:1px solid var(--g200);background:#fff;margin-bottom:0}.tab{height:44px;padding:0 18px;border:none;background:transparent;font-size:13px;font-weight:500;color:var(--g500);cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font);transition:all .15s;display:flex;align-items:center;gap:6px}.tab:hover{color:var(--g800)}.tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}.report{display:none;padding:20px 24px}.report.active{display:block}.kpi-row{display:flex;gap:12px;margin-bottom:20px}.kpi{flex:1;background:#fff;border:1px solid var(--g200);border-radius:8px;padding:14px 16px}.kpi-label{font-size:11px;color:var(--g400);margin-bottom:4px}.kpi-val{font-size:22px;font-weight:700;color:var(--g800)}.kpi-sub{font-size:11px;color:var(--g500);margin-top:2px}.kpi-trend{font-size:11px;font-weight:600;margin-top:4px}.up{color:var(--green-text)}.down{color:var(--red-text)}.kpi.ka{border-top:3px solid var(--a-color)}.kpi.kb{border-top:3px solid var(--b-color)}.kpi.kc{border-top:3px solid var(--c-color)}.kpi.kg{border-top:3px solid var(--green)}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}.card{background:#fff;border:1px solid var(--g200);border-radius:8px;overflow:hidden}.card-head{padding:12px 16px;border-bottom:1px solid var(--g200);display:flex;align-items:center;justify-content:space-between}.card-title{font-size:13px;font-weight:700;color:var(--g800)}.card-sub{font-size:11px;color:var(--g400)}.card-body{padding:16px}.pie-wrap{display:flex;align-items:center;gap:20px;padding:16px}.pie{width:140px;height:140px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--a-color) 0% 23%,var(--b-color) 23% 54%,var(--c-color) 54% 100%);box-shadow:0 2px 8px rgba(0,0,0,.1)}.legend{display:flex;flex-direction:column;gap:8px;flex:1}.leg-item{display:flex;align-items:center;gap:8px;font-size:12px}.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}.leg-label{color:var(--g600);flex:1}.leg-pct{font-weight:700;color:var(--g800)}.leg-amt{font-size:10px;color:var(--g400)}.bar-chart{padding:4px 0}.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}.bar-label{font-size:11px;color:var(--g600);width:120px;flex-shrink:0;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar-track{flex:1;height:16px;background:var(--g100);border-radius:8px;overflow:hidden}.bar-fill{height:100%;border-radius:8px;transition:width .4s ease}.bar-val{font-size:11px;font-weight:600;color:var(--g700);width:52px;text-align:right;flex-shrink:0}.tw{background:#fff;border:1px solid var(--g200);border-radius:8px;overflow:hidden}table{width:100%;border-collapse:collapse}thead th{padding:9px 12px;background:var(--g50);border-bottom:1px solid var(--g200);font-size:11px;font-weight:600;color:var(--g500);text-align:left;white-space:nowrap}tbody tr{border-bottom:1px solid var(--g200)}tbody tr:last-child{border-bottom:none}tbody tr:hover{background:#F8F7F4}td{padding:9px 12px;font-size:12px;color:var(--g700);vertical-align:middle}.mono{font-family:var(--mono);font-size:11px;color:var(--g600)}.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}.ba-a{background:#FDECEA;color:var(--a-color)}.ba-b{background:#FDF3E3;color:#854F0B}.ba-c{background:#DBEAFE;color:#1D4ED8}.ba-new{background:#EDE9FE;color:#5B21B6}.sparkline{height:32px}.insight-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}.insight{background:#fff;border:1px solid var(--g200);border-radius:8px;padding:12px 14px}.insight-icon{font-size:20px;margin-bottom:6px}.insight-title{font-size:12px;font-weight:700;color:var(--g800);margin-bottom:4px}.insight-text{font-size:11px;color:var(--g500);line-height:1.5}.insight-val{font-size:18px;font-weight:700;margin-top:4px}.iv-red{color:var(--red-text)}.iv-orange{color:var(--orange-text)}.iv-green{color:var(--green-text)}.shortage-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g200)}.shortage-item:last-child{border-bottom:none}.shortage-rank{width:20px;height:20px;border-radius:50%;background:var(--red-bg);color:var(--red-text);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}.shortage-name{flex:1;font-size:12px;font-weight:500}.shortage-count{font-size:12px;font-weight:700;color:var(--red-text)}.shortage-delay{font-size:10px;color:var(--g400)}.stale-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g200)}.stale-item:last-child{border-bottom:none}.stale-days{background:var(--g100);color:var(--g500);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;flex-shrink:0}.stale-name{flex:1;font-size:12px}.stale-amt{font-size:12px;font-weight:600;color:var(--g500)}.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.section-title{font-size:14px;font-weight:700;color:var(--g800)}.toast-c{position:fixed;bottom:24px;right:24px;z-index:500;display:flex;flex-direction:column;gap:8px}.toast{background:var(--g800);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:su .25s ease;max-width:360px}.toast.success{background:var(--green)}@keyframes su{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;"><button onclick="go('00_庫存管理模組_導覽總覽.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">← 庫存導覽</button></div>
+<header class="header">
+  <span class="header-logo">DUCATI</span><div class="hd"></div>
+  <div class="hbc"><span>庫存管理</span><span class="sep">›</span><span>ABC分類 / 分析報表</span><span class="sep">›</span><span class="cur">ABC分類與庫存分析</span></div>
+  <div class="hr">
+    <span style="font-size:12px;color:rgba(255,255,255,.7);">台灣 DUCATI 總代理（集團）</span>
+    <div class="huser"><strong>林集團</strong><span id="dt">2026/05/05 15:00</span></div>
+    <div class="hbell">🔔<div class="badge">2</div></div>
+    <div class="hav">林</div>
+  </div>
+</header>
+
+<aside class="sidebar">
+  <div class="ns"><div class="nsl"><span class="dot dot-blue"></span>基礎設定</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🏛</span>組織與權限<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">組織三層架構</div><div class="nsi">採購權限</div><div class="nsi">商品管理權限</div><div class="nsi">盤點回傳</div><div class="nsi">管控類型</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🏗</span>倉庫管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">倉儲四層架構</div><div class="nsi">倉庫．庫區．庫位．擺放</div><div class="nsi">供應商資訊</div><div class="nsi">採購合約</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📦</span>商品管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">基礎資料</div><div class="nsi">商品資訊（多維度料號）</div><div class="nsi">門市定價</div><div class="nsi">適配設定</div><div class="nsi">序列號追蹤</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-purple"></span>進出庫流程</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🛒</span>採購管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">採購流程鏈路</div><div class="nsi">日常補貨計畫</div><div class="nsi" onclick="window.location.href='04_採購管理_需求處理.html'" title="前往需求處理">需求處理</div><div class="nsi" onclick="window.location.href='04_採購管理_商品採購.html'" title="前往商品採購">商品採購</div><div class="nsi">採購退貨</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📥</span>入庫管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi" onclick="window.location.href='05_入庫管理_採購入庫.html'" title="前往採購入庫（含原廠到貨匯入）">採購入庫（含原廠到貨匯入）</div><div class="nsi" onclick="window.location.href='05_入庫管理_調撥入庫.html'" title="前往調撥入庫">調撥入庫</div><div class="nsi">內售入庫</div><div class="nsi">領料退貨入庫</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📤</span>出庫管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi" onclick="window.location.href='06_出庫管理_維修領料.html'" title="前往維修領料（RO工單串接）">維修領料（RO工單串接）</div><div class="nsi" onclick="window.location.href='06_出庫管理_調撥出庫.html'" title="前往調撥出庫">調撥出庫</div><div class="nsi">內售出庫</div></div>
+    <div class="ni" onclick="window.location.href='07_庫存管理_商品庫存查詢_v2.html'" style="color:var(--blue);font-weight:500;"><span class="ico">🔍</span>庫存查詢</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">⚙️</span>庫存作業<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">例外出入庫</div><div class="nsi">寄存管理</div><div class="nsi">備件庫存調整</div><div class="nsi">入庫查詢</div><div class="nsi">調撥在途查詢</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-amber"></span>盤點與告警</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">📋</span>盤點管理<span class="arrow">▶</span></div><div class="nsub"><div class="nsi" onclick="window.location.href='08_盤點管理_盤點計畫.html'" title="前往盤點計畫">盤點計畫</div><div class="nsi" onclick="window.location.href='08_盤點管理_盤點處理.html'" title="前往盤點處理（條碼掃描）">盤點處理（條碼掃描）</div><div class="nsi" onclick="window.location.href='08_盤點管理_報損報溢.html'" title="前往報損報溢">報損報溢</div></div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">⚡</span>預警告警<span class="arrow">▶</span><span class="nbadge nb-r">3</span></div>
+    <div class="nsub"><div class="nsi">庫存水位設定</div><div class="nsi">告警類型與規則</div><div class="nsi" onclick="window.location.href='07_庫存管理_商品庫存查詢_v2.html'" title="前往告警儀表板">告警儀表板<span class="nbadge nb-r" style="margin-left:4px;">3</span></div><div class="nsi">工單增項閉環</div><div class="nsi">告警階層</div></div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-coral"></span>保固與分析</div>
+    <div class="ni parent" onclick="tN(this)"><span class="ico">🔧</span>保固索賠舊件<span class="arrow">▶</span></div><div class="nsub"><div class="nsi">索賠流程</div><div class="nsi">舊件出入庫</div><div class="nsi">暫存倉設定</div><div class="nsi" onclick="window.location.href='11_保固索賠_舊件管理.html'" title="前往管理介面">管理介面</div><div class="nsi">RO串接</div><div class="nsi">費用回收</div></div>
+    <div class="ni parent sa open" onclick="tN(this)"><span class="ico">📊</span>ABC分類 / 分析報表<span class="arrow" style="transform:rotate(90deg)">▶</span></div>
+    <div class="nsub open">
+      <div class="nsi active" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往ABC定義與機制">ABC定義與機制</div>
+      <div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往周轉率報表">周轉率報表</div>
+      <div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往呆滯佔比">呆滯佔比</div>
+      <div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往缺貨率">缺貨率</div>
+      <div class="nsi" onclick="window.location.href='12_分析報表_ABC分類.html'" title="前往ABC結構圖">ABC結構圖</div>
+    </div>
+  </div>
+  <div class="sd"></div>
+  <div class="ns"><div class="nsl"><span class="dot dot-gray"></span>附錄</div><div class="ni"><span class="ico">📎</span>介面設計共用規則</div></div>
+</aside>
+
+<main class="main">
+  <div class="pta"><h1>ABC 分類與庫存分析報表</h1><span class="fb">12</span></div>
+  <div class="psub">以過去 12 個月滾動數據自動分類，每月重新評估，提供周轉率、呆滯佔比、缺貨率等管理決策參考</div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab(0)">📊 ABC 結構總覽</button>
+    <button class="tab" onclick="switchTab(1)">🔄 庫存周轉率</button>
+    <button class="tab" onclick="switchTab(2)">⚫ 呆滯庫存分析</button>
+    <button class="tab" onclick="switchTab(3)">🚨 缺貨率報告</button>
+    <button class="tab" onclick="switchTab(4)">📋 ABC 零件明細</button>
+  </div>
+
+  <!-- TAB 0: ABC 總覽 -->
+  <div class="report active" id="tab-0">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--g400);">資料基準：2025/06 ～ 2026/05（滾動 12 個月）｜台北直營店</div>
+      <button class="btn bs bsm">📤 匯出報表</button>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi ka"><div class="kpi-label">A 類零件（高頻高值）</div><div class="kpi-val">87 種</div><div class="kpi-sub">佔零件種類 22%</div><div class="kpi-trend up">佔庫存金額 74%</div></div>
+      <div class="kpi kb"><div class="kpi-label">B 類零件（中頻中值）</div><div class="kpi-val">124 種</div><div class="kpi-sub">佔零件種類 31%</div><div class="kpi-trend" style="color:var(--orange-text);">佔庫存金額 18%</div></div>
+      <div class="kpi kc"><div class="kpi-label">C 類零件（低頻低值）</div><div class="kpi-val">185 種</div><div class="kpi-sub">佔零件種類 47%</div><div class="kpi-trend" style="color:var(--blue);">佔庫存金額 8%</div></div>
+      <div class="kpi kg"><div class="kpi-label">總庫存金額</div><div class="kpi-val">NT$ 4.82M</div><div class="kpi-sub">396 種零件</div><div class="kpi-trend up">↑ 3.2% 較上月</div></div>
+    </div>
+
+    <div class="grid2">
+      <!-- PIE -->
+      <div class="card">
+        <div class="card-head"><span class="card-title">ABC 庫存金額結構</span><span class="card-sub">金額佔比</span></div>
+        <div class="pie-wrap">
+          <div class="pie"></div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-dot" style="background:var(--a-color)"></div><span class="leg-label">A 類（高頻高值）</span><span class="leg-pct">74%</span></div>
+            <div style="font-size:10px;color:var(--g400);margin-left:18px;margin-top:-4px;">NT$ 3,568,800</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--b-color)"></div><span class="leg-label">B 類（中頻中值）</span><span class="leg-pct">18%</span></div>
+            <div style="font-size:10px;color:var(--g400);margin-left:18px;margin-top:-4px;">NT$ 867,600</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--c-color)"></div><span class="leg-label">C 類（低頻低值）</span><span class="leg-pct">8%</span></div>
+            <div style="font-size:10px;color:var(--g400);margin-left:18px;margin-top:-4px;">NT$ 385,600</div>
+          </div>
+        </div>
+      </div>
+      <!-- CATEGORY BREAKDOWN -->
+      <div class="card">
+        <div class="card-head"><span class="card-title">各類別管理策略</span></div>
+        <div class="card-body">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead><tr><th style="text-align:left;padding:6px 0;color:var(--g400);font-weight:600;font-size:10px;border-bottom:1px solid var(--g200);">類別</th><th style="text-align:center;padding:6px 4px;color:var(--g400);font-weight:600;font-size:10px;border-bottom:1px solid var(--g200);">盤點頻率</th><th style="text-align:center;padding:6px 4px;color:var(--g400);font-weight:600;font-size:10px;border-bottom:1px solid var(--g200);">呆滯告警</th><th style="text-align:left;padding:6px 4px;color:var(--g400);font-weight:600;font-size:10px;border-bottom:1px solid var(--g200);">採購策略</th></tr></thead>
+            <tbody>
+              <tr style="border-bottom:1px solid var(--g200);"><td style="padding:8px 0;"><span class="badge ba-a">A 類</span></td><td style="text-align:center;padding:8px 4px;">每月</td><td style="text-align:center;padding:8px 4px;font-weight:600;color:var(--orange-text);">60 天</td><td style="padding:8px 4px;color:var(--g500);">少量多次，降低積壓</td></tr>
+              <tr style="border-bottom:1px solid var(--g200);"><td style="padding:8px 0;"><span class="badge ba-b">B 類</span></td><td style="text-align:center;padding:8px 4px;">每季</td><td style="text-align:center;padding:8px 4px;font-weight:600;color:var(--orange-text);">90 天</td><td style="padding:8px 4px;color:var(--g500);">中等批量，定期補貨</td></tr>
+              <tr><td style="padding:8px 0;"><span class="badge ba-c">C 類</span></td><td style="text-align:center;padding:8px 4px;">每年</td><td style="text-align:center;padding:8px 4px;font-weight:600;color:var(--g500);">180 天</td><td style="padding:8px 4px;color:var(--g500);">大批量一次或接單採購</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Insight cards -->
+    <div class="section-hd"><span class="section-title">本月重點發現</span></div>
+    <div class="insight-row">
+      <div class="insight"><div class="insight-icon">⚠️</div><div class="insight-title">A 類呆滯預警</div><div class="insight-text">4 種 A 類零件超過 60 天未出庫，建議優先檢查後促銷或調撥</div><div class="insight-val iv-red">4 種</div></div>
+      <div class="insight"><div class="insight-icon">📈</div><div class="insight-title">新品分類待評估</div><div class="insight-text">12 種新進商品（3 個月內）尚無歷史數據，待評估後自動分類</div><div class="insight-val iv-orange">12 種</div></div>
+      <div class="insight"><div class="insight-icon">✅</div><div class="insight-title">A 類庫存充足率</div><div class="insight-text">A 類零件中有 94% 的庫存高於安全水位，備貨狀況良好</div><div class="insight-val iv-green">94%</div></div>
+    </div>
+  </div>
+
+  <!-- TAB 1: 周轉率 -->
+  <div class="report" id="tab-1">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:12px;color:var(--g400);">公式：期間出庫總金額 ÷ 平均庫存金額</div>
+      <button class="btn bs bsm">📤 匯出</button>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi ka"><div class="kpi-label">A 類平均周轉率</div><div class="kpi-val">8.4×</div><div class="kpi-sub">年化周轉次數</div><div class="kpi-trend up">↑ 0.6 較上月</div></div>
+      <div class="kpi kb"><div class="kpi-label">B 類平均周轉率</div><div class="kpi-val">3.2×</div><div class="kpi-sub">年化周轉次數</div><div class="kpi-trend up">↑ 0.1 較上月</div></div>
+      <div class="kpi kc"><div class="kpi-label">C 類平均周轉率</div><div class="kpi-val">0.8×</div><div class="kpi-sub">年化周轉次數</div><div class="kpi-trend down">↓ 0.2 較上月</div></div>
+      <div class="kpi kg"><div class="kpi-label">全倉整體周轉率</div><div class="kpi-val">5.1×</div><div class="kpi-sub">加權平均</div><div class="kpi-trend up">↑ 0.3 較上月</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-head"><span class="card-title">各品類周轉率排行（前 10）</span><span class="card-sub">低於基準 3× 的品類以橘色標示</span></div>
+      <div class="card-body">
+        <div class="bar-chart">
+          <div class="bar-row"><span class="bar-label" title="引擎機油">引擎機油</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--a-color);"></div></div><span class="bar-val" style="color:var(--a-color);">12.8×</span></div>
+          <div class="bar-row"><span class="bar-label" title="機油濾芯">機油濾芯</span><div class="bar-track"><div class="bar-fill" style="width:88%;background:var(--a-color);"></div></div><span class="bar-val" style="color:var(--a-color);">11.3×</span></div>
+          <div class="bar-row"><span class="bar-label" title="煞車來令片">煞車來令片</span><div class="bar-track"><div class="bar-fill" style="width:72%;background:var(--a-color);"></div></div><span class="bar-val" style="color:var(--a-color);">9.2×</span></div>
+          <div class="bar-row"><span class="bar-label" title="煞車油">煞車油</span><div class="bar-track"><div class="bar-fill" style="width:64%;background:var(--a-color);"></div></div><span class="bar-val" style="color:var(--a-color);">8.2×</span></div>
+          <div class="bar-row"><span class="bar-label" title="空氣濾芯">空氣濾芯</span><div class="bar-track"><div class="bar-fill" style="width:50%;background:var(--b-color);"></div></div><span class="bar-val" style="color:var(--orange-text);">6.4×</span></div>
+          <div class="bar-row"><span class="bar-label" title="傳動鏈條">傳動鏈條</span><div class="bar-track"><div class="bar-fill" style="width:40%;background:var(--b-color);"></div></div><span class="bar-val" style="color:var(--orange-text);">5.1×</span></div>
+          <div class="bar-row"><span class="bar-label" title="煞車碟盤">煞車碟盤</span><div class="bar-track"><div class="bar-fill" style="width:30%;background:var(--b-color);"></div></div><span class="bar-val" style="color:var(--orange-text);">3.8×</span></div>
+          <div class="bar-row"><span class="bar-label" title="油封套組">油封套組</span><div class="bar-track"><div class="bar-fill" style="width:22%;background:var(--orange);opacity:.7;"></div></div><span class="bar-val" style="color:var(--g400);">2.8×</span></div>
+          <div class="bar-row"><span class="bar-label" title="避震器彈簧">避震器彈簧</span><div class="bar-track"><div class="bar-fill" style="width:14%;background:var(--orange);opacity:.6;"></div></div><span class="bar-val" style="color:var(--g400);">1.8×</span></div>
+          <div class="bar-row"><span class="bar-label" title="特殊車型備件">特殊車型備件</span><div class="bar-track"><div class="bar-fill" style="width:7%;background:var(--c-color);opacity:.6;"></div></div><span class="bar-val" style="color:var(--g400);">0.9×</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: 呆滯 -->
+  <div class="report" id="tab-2">
+    <div class="kpi-row">
+      <div class="kpi" style="border-top:3px solid var(--g400);"><div class="kpi-label">呆滯庫存金額（>90天）</div><div class="kpi-val" style="color:var(--g500);">NT$ 328,400</div><div class="kpi-sub">佔總庫存 6.8%</div><div class="kpi-trend down">↑ 0.4% 較上月（惡化）</div></div>
+      <div class="kpi" style="border-top:3px solid var(--g700);"><div class="kpi-label">呆滯庫存金額（>180天）</div><div class="kpi-val" style="color:var(--g600);">NT$ 142,600</div><div class="kpi-sub">佔總庫存 2.9%</div></div>
+      <div class="kpi" style="border-top:3px solid var(--g800);"><div class="kpi-label">呆滯庫存金額（>365天）</div><div class="kpi-val" style="color:var(--g700);">NT$ 52,800</div><div class="kpi-sub">建議報損或促銷出清</div></div>
+      <div class="kpi" style="border-top:3px solid var(--red);"><div class="kpi-label">呆滯品項數</div><div class="kpi-val" style="color:var(--g700);">38 種</div><div class="kpi-sub">其中 A 類 4 種需優先處理</div><div class="kpi-trend down">↑ 3 種 較上月</div></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-head"><span class="card-title">呆滯庫存清單（前 8）</span><span class="card-sub">建議處置動作</span></div>
+        <div class="card-body">
+          <div class="stale-item"><span class="stale-days">428 天</span><div><div class="stale-name">MONSTER 695 缸頭螺絲組（停產車型）<span class="badge ba-c" style="margin-left:6px;">C</span></div><div style="font-size:10px;color:var(--g400);">建議：促銷出清或報損</div></div><span class="stale-amt">NT$ 12,800</span></div>
+          <div class="stale-item"><span class="stale-days">312 天</span><div><div class="stale-name">Hypermotard 796 活塞環（舊款）<span class="badge ba-c" style="margin-left:6px;">C</span></div><div style="font-size:10px;color:var(--g400);">建議：調撥至仍有該車型的門店</div></div><span class="stale-amt">NT$ 24,200</span></div>
+          <div class="stale-item"><span class="stale-days">187 天</span><div><div class="stale-name">特殊顏色油漆罐 DUCATI 紅<span class="badge ba-b" style="margin-left:6px;">B</span></div><div style="font-size:10px;color:var(--g400);">建議：促銷或調撥</div></div><span class="stale-amt">NT$ 8,400</span></div>
+          <div class="stale-item"><span class="stale-days">152 天</span><div><div class="stale-name">前煞車卡鉗 BREMBO M4 舊版<span class="badge ba-b" style="margin-left:6px;">B</span></div><div style="font-size:10px;color:var(--g400);">建議：確認是否有相容車型</div></div><span class="stale-amt">NT$ 18,600</span></div>
+          <div class="stale-item"><span class="stale-days">98 天</span><div><div class="stale-name">Motul 300V 5W-40（過期批次）<span class="badge ba-a" style="margin-left:6px;">A</span></div><div style="font-size:10px;color:var(--red-text);">⚠️ A 類呆滯，需優先處理</div></div><span class="stale-amt">NT$ 14,500</span></div>
+          <div class="stale-item"><span class="stale-days">95 天</span><div><div class="stale-name">空氣濾芯 ST2/ST4（舊車型）<span class="badge ba-a" style="margin-left:6px;">A</span></div><div style="font-size:10px;color:var(--red-text);">⚠️ A 類呆滯，需優先處理</div></div><span class="stale-amt">NT$ 9,600</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><span class="card-title">呆滯佔比各門店比較</span></div>
+        <div class="card-body">
+          <div class="bar-chart">
+            <div class="bar-row"><span class="bar-label">台北直營店</span><div class="bar-track"><div class="bar-fill" style="width:68%;background:var(--orange);"></div></div><span class="bar-val" style="color:var(--orange-text);">6.8%</span></div>
+            <div class="bar-row"><span class="bar-label">台中直營店</span><div class="bar-track"><div class="bar-fill" style="width:42%;background:var(--green);"></div></div><span class="bar-val" style="color:var(--green-text);">4.2%</span></div>
+            <div class="bar-row"><span class="bar-label">高雄經銷商甲</span><div class="bar-track"><div class="bar-fill" style="width:95%;background:var(--red);"></div></div><span class="bar-val" style="color:var(--red-text);">9.5%</span></div>
+            <div class="bar-row"><span class="bar-label">新竹經銷商乙</span><div class="bar-track"><div class="bar-fill" style="width:31%;background:var(--green);"></div></div><span class="bar-val" style="color:var(--green-text);">3.1%</span></div>
+          </div>
+          <div style="margin-top:10px;font-size:11px;color:var(--g400);">⚠️ 高雄經銷商甲呆滯比例偏高，建議主動聯繫協助促銷或調撥</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: 缺貨率 -->
+  <div class="report" id="tab-3">
+    <div class="kpi-row">
+      <div class="kpi" style="border-top:3px solid var(--red);"><div class="kpi-label">本月缺貨率</div><div class="kpi-val" style="color:var(--red-text);">4.2%</div><div class="kpi-sub">23 次 / 547 次需求</div><div class="kpi-trend down">↑ 0.8% 較上月（惡化）</div></div>
+      <div class="kpi" style="border-top:3px solid var(--orange);"><div class="kpi-label">工單延誤天數（均值）</div><div class="kpi-val" style="color:var(--orange-text);">2.3 天</div><div class="kpi-sub">因缺料導致的平均延誤</div></div>
+      <div class="kpi" style="border-top:3px solid var(--green);"><div class="kpi-label">缺貨處理時效（均值）</div><div class="kpi-val" style="color:var(--green-text);">1.8 天</div><div class="kpi-sub">從告警到零件到位</div><div class="kpi-trend up">↓ 0.4天 較上月（改善）</div></div>
+      <div class="kpi" style="border-top:3px solid var(--blue);"><div class="kpi-label">本月觸發補貨需求</div><div class="kpi-val">38 筆</div><div class="kpi-sub">其中緊急工單待料 8 筆</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-head"><span class="card-title">缺貨次數最多的前 10 種零件</span><span class="card-sub">本月統計</span></div>
+      <div class="card-body">
+        <div style="display:flex;flex-direction:column;gap:0;">
+          <div class="shortage-item"><span class="shortage-rank">1</span><div class="shortage-name">前煞車來令片 PANIGALE V4 <span class="badge ba-a" style="margin-left:4px;">A</span></div><span style="margin-left:auto;text-align:right;"><div class="shortage-count">5 次</div><div class="shortage-delay">平均延誤 2.1 天</div></span></div>
+          <div class="shortage-item"><span class="shortage-rank">2</span><div class="shortage-name">引擎機油 Motul 5W-40 1L <span class="badge ba-a" style="margin-left:4px;">A</span></div><span style="margin-left:auto;text-align:right;"><div class="shortage-count">4 次</div><div class="shortage-delay">平均延誤 1.5 天</div></span></div>
+          <div class="shortage-item"><span class="shortage-rank">3</span><div class="shortage-name">後避震彈簧總成 MULTISTRADA <span class="badge ba-b" style="margin-left:4px;">B</span></div><span style="margin-left:auto;text-align:right;"><div class="shortage-count">3 次</div><div class="shortage-delay">平均延誤 4.2 天</div></span></div>
+          <div class="shortage-item"><span class="shortage-rank">4</span><div class="shortage-name">DTC 電控模組 V4 系列 <span class="badge ba-b" style="margin-left:4px;">B</span></div><span style="margin-left:auto;text-align:right;"><div class="shortage-count">3 次</div><div class="shortage-delay">平均延誤 6.8 天</div></span></div>
+          <div class="shortage-item"><span class="shortage-rank">5</span><div class="shortage-name">煞車油 Brembo DOT 5.1 <span class="badge ba-a" style="margin-left:4px;">A</span></div><span style="margin-left:auto;text-align:right;"><div class="shortage-count">2 次</div><div class="shortage-delay">平均延誤 0.8 天</div></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: ABC 明細 -->
+  <div class="report" id="tab-4">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;">
+        <button class="btn bp bsm" onclick="filterABC('all')">全部</button>
+        <button class="btn bs bsm" style="border-color:var(--a-color);color:var(--a-color);" onclick="filterABC('A')">A 類</button>
+        <button class="btn bs bsm" style="border-color:var(--b-color);color:var(--orange-text);" onclick="filterABC('B')">B 類</button>
+        <button class="btn bs bsm" style="border-color:var(--c-color);color:var(--blue);" onclick="filterABC('C')">C 類</button>
+        <button class="btn bs bsm" style="border-color:var(--purple);color:var(--purple);" onclick="filterABC('N')">新品待評估</button>
+      </div>
+      <input type="text" placeholder="搜尋料號 / 商品名稱…" style="height:32px;border:1px solid var(--g200);border-radius:5px;padding:0 10px;font-size:12px;width:200px;font-family:var(--font);outline:none;" oninput="filterABCSearch(this.value)">
+      <button class="btn bs bsm" style="margin-left:auto;">📤 匯出</button>
+    </div>
+    <div class="tw">
+      <table id="abc-table">
+        <thead>
+          <tr>
+            <th>備件代碼</th>
+            <th>商品名稱</th>
+            <th style="text-align:center;">ABC 分類</th>
+            <th style="text-align:right;">12M 出庫金額</th>
+            <th style="text-align:right;">累積佔比</th>
+            <th style="text-align:center;">周轉率</th>
+            <th style="text-align:center;">可用庫存</th>
+            <th style="text-align:center;">庫存天數</th>
+            <th style="text-align:center;">盤點頻率</th>
+          </tr>
+        </thead>
+        <tbody id="abc-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<div class="toast-c" id="tc"></div>
+
+<script>
+const abcData = [
+  { code:'MOT5W40-1L',  name:'Motul 引擎機油 5W-40 1L',      cls:'A', out:842000, cumPct:17.5, turn:12.8, stock:24,  days:12 },
+  { code:'44710161A',   name:'機油濾芯 PANIGALE 系列',         cls:'A', out:624000, cumPct:30.4, turn:11.3, stock:10,  days:8  },
+  { code:'61340051A',   name:'前煞車來令片 PANIGALE V4',       cls:'A', out:512000, cumPct:41.0, turn:9.2,  stock:5,   days:15 },
+  { code:'BRK-FL-001',  name:'Brembo 煞車油 DOT5.1',          cls:'A', out:398000, cumPct:49.3, turn:8.2,  stock:8,   days:11 },
+  { code:'69915121A',   name:'空氣濾芯 MONSTER 821/950',       cls:'A', out:286000, cumPct:55.2, turn:6.4,  stock:3,   days:20 },
+  { code:'MOT7100-4T',  name:'Motul 7100 全合成機油 4T 10W-40',cls:'A', out:248000, cumPct:60.3, turn:5.8,  stock:11,  days:18 },
+  { code:'49610131A',   name:'傳動鏈條 STREETFIGHTER V4',      cls:'B', out:186000, cumPct:64.2, turn:5.1,  stock:4,   days:22 },
+  { code:'65010091A',   name:'後煞車碟盤 PANIGALE V4 S',       cls:'B', out:142000, cumPct:67.1, turn:3.8,  stock:3,   days:28 },
+  { code:'24510881B',   name:'油封套組 TC 42×55×7',            cls:'B', out:98000,  cumPct:69.1, turn:2.8,  stock:15,  days:44 },
+  { code:'52010481A',   name:'後避震彈簧總成 MULTISTRADA V4',  cls:'B', out:76000,  cumPct:70.7, turn:1.8,  stock:2,   days:67 },
+  { code:'28642121A',   name:'DTC 電控模組 V4 系列',           cls:'C', out:42000,  cumPct:71.5, turn:0.9,  stock:1,   days:185},
+  { code:'PADS-FT-V2',  name:'腳踏板防滑貼片 通用款',          cls:'C', out:18000,  cumPct:71.9, turn:0.6,  stock:2,   days:220},
+  { code:'ELF-MOTO-4',  name:'Elf Moto 4 Pro Tech 10W-50',    cls:'N', out:0,      cumPct:null, turn:null,  stock:0,   days:null},
+];
+
+const clsMap = { A:{ cls:'ba-a', label:'A' }, B:{ cls:'ba-b', label:'B' }, C:{ cls:'ba-c', label:'C' }, N:{ cls:'ba-new', label:'新品' } };
+const freqMap = { A:'每月', B:'每季', C:'每年', N:'待分類' };
+
+function renderABC(data) {
+  const tbody = document.getElementById('abc-tbody');
+  tbody.innerHTML = '';
+  data.forEach(d => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono">${d.code}</td>
+      <td style="font-weight:500;">${d.name}</td>
+      <td style="text-align:center;"><span class="badge ${clsMap[d.cls].cls}">${clsMap[d.cls].label} 類</span></td>
+      <td style="text-align:right;font-weight:600;">${d.out ? 'NT$ '+d.out.toLocaleString() : '—'}</td>
+      <td style="text-align:right;color:var(--g500);">${d.cumPct !== null ? d.cumPct+'%' : '—'}</td>
+      <td style="text-align:center;font-weight:600;color:${d.turn>=5?'var(--green-text)':d.turn>=2?'var(--orange-text)':'var(--g400)'};">${d.turn !== null ? d.turn+'×' : '—'}</td>
+      <td style="text-align:center;">${d.stock}</td>
+      <td style="text-align:center;color:${d.days!==null&&d.days>180?'var(--red-text)':d.days>90?'var(--orange-text)':'var(--g700)'};">${d.days !== null ? d.days+' 天' : '—'}</td>
+      <td style="text-align:center;color:var(--g500);">${freqMap[d.cls]}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterABC(cls) {
+  const filtered = cls === 'all' ? abcData : abcData.filter(d => d.cls === cls);
+  renderABC(filtered);
+}
+
+function filterABCSearch(kw) {
+  const filtered = abcData.filter(d => d.code.toLowerCase().includes(kw.toLowerCase()) || d.name.toLowerCase().includes(kw.toLowerCase()));
+  renderABC(filtered);
+}
+
+function switchTab(idx) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  document.querySelectorAll('.report').forEach((r,i) => r.classList.toggle('active', i===idx));
+  if (idx === 4 && document.getElementById('abc-tbody').children.length === 0) renderABC(abcData);
+}
+
+function tN(el) { const s=el.nextElementSibling; if(!s||!s.classList.contains('nsub'))return; s.classList.toggle('open'); el.classList.toggle('open'); }
+function showToast(msg,type='') { const c=document.getElementById('tc'),t=document.createElement('div'); t.className=`toast ${type}`; t.textContent=msg; c.appendChild(t); setTimeout(()=>t.remove(),4000); }
+function updateDT() { const n=new Date(),p=x=>String(x).padStart(2,'0'); document.getElementById('dt').textContent=`${n.getFullYear()}/${p(n.getMonth()+1)}/${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`; }
+setInterval(updateDT,60000); updateDT();
+</script>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

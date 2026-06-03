@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CRM05A NPS 看板（銷售）— DUCATI 銷售管理系統</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:#F8F7F4;color:#2C2C2A;font-size:13px;}
+:root{--red:#C8001A;--navy:#1A3A5C;--teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;--amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;--blue-bg:#EAF4FB;--blue-bd:#85B7EB;--gray:#9A9890;}
+header{background:var(--navy);height:52px;display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+.logo{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdiv{width:1px;height:20px;background:rgba(255,255,255,.2);}
+.htitle{font-size:13px;color:rgba(255,255,255,.6);}
+.htitle b{color:#fff;font-weight:500;}
+.hright{margin-left:auto;display:flex;gap:8px;}
+.hbtn{padding:5px 14px;border-radius:6px;background:rgba(255,255,255,.1);color:#fff;font-size:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:.15s;}
+.hbtn:hover{background:rgba(255,255,255,.2);}
+.ver-badge{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);padding:3px 9px;border-radius:5px;font-size:10.5px;font-family:'DM Mono',monospace;}
+.main{max-width:1100px;margin:0 auto;padding:16px 20px 60px;}
+/* NPS 主卡 */
+.nps-hero{background:linear-gradient(135deg,var(--navy),#2A5080);border-radius:12px;padding:24px;color:#fff;display:flex;align-items:center;gap:32px;flex-wrap:wrap;margin-bottom:14px;}
+.nps-score-wrap{text-align:center;flex-shrink:0;}
+.nps-label{font-size:12px;opacity:.7;margin-bottom:4px;}
+.nps-score{font-size:64px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
+.nps-max{font-size:14px;opacity:.5;}
+.nps-trend{font-size:12px;margin-top:4px;}
+.nps-breakdown{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.nps-seg{text-align:center;padding:12px;background:rgba(255,255,255,.1);border-radius:8px;}
+.nps-seg-n{font-size:28px;font-weight:700;font-family:'DM Mono',monospace;}
+.nps-seg-l{font-size:11px;opacity:.7;margin-top:3px;}
+.nps-seg-p{font-size:12px;margin-top:2px;opacity:.85;}
+.nps-bar-section{flex:1;min-width:240px;}
+.nps-bar-label{font-size:11.5px;opacity:.7;margin-bottom:6px;}
+.nps-bar-track{height:14px;background:rgba(255,255,255,.15);border-radius:7px;overflow:hidden;display:flex;}
+.nps-seg-pro{background:#5DCAA5;}
+.nps-seg-pas{background:#F0C97E;}
+.nps-seg-det{background:#FF8080;}
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi{background:#fff;border:1px solid #EEECE6;border-radius:9px;padding:12px 16px;}
+.kpi-l{font-size:11px;color:var(--gray);margin-bottom:4px;}
+.kpi-n{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:2px;}
+.kn-teal{color:var(--teal);}.kn-amber{color:var(--amber);}.kn-red{color:var(--red);}.kn-navy{color:var(--navy);}
+.kpi-s{font-size:10.5px;color:var(--gray);}
+/* 趨勢圖 */
+.panel{background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:12px;}
+.ph{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #EEECE6;background:#FAFAF8;}
+.ph-l{display:flex;align-items:center;gap:10px;}
+.pi{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-b{background:var(--blue-bg);}.pi-t{background:var(--teal-bg);}.pi-a{background:var(--amber-bg);}.pi-r{background:#FDECEA;}
+.pt{font-size:13px;font-weight:600;}
+.ps{font-size:11px;color:var(--gray);margin-top:1px;}
+.pb{padding:14px 16px;}
+/* 趨勢 SVG */
+.trend-wrap{width:100%;overflow:hidden;}
+/* 回訪記錄 */
+.fb-s{padding:6px 10px;border-radius:6px;border:1px solid #D5D3CB;font-family:'Noto Sans TC',sans-serif;font-size:12px;outline:none;background:#fff;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-teal{background:var(--teal-bg);color:var(--teal);}.b-amber{background:var(--amber-bg);color:var(--amber);}.b-red{background:#FDECEA;color:var(--red);}.b-gray{background:#F1EFE8;color:var(--gray);}
+/* 評分項 */
+.score-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.score-item{background:#FAFAF8;border:1px solid #EEECE6;border-radius:8px;padding:12px;}
+.si-label{font-size:12px;font-weight:600;margin-bottom:6px;}
+.si-bar{height:8px;background:#EEECE6;border-radius:4px;overflow:hidden;margin-bottom:4px;}
+.si-fill{height:100%;border-radius:4px;transition:width .5s;}
+.si-score{font-size:12px;font-weight:700;font-family:'DM Mono',monospace;}
+/* 回訪列表 */
+.review-row{display:grid;grid-template-columns:1fr 60px 80px 90px 120px;gap:12px;align-items:center;padding:9px 12px;border:1px solid #EEECE6;border-radius:7px;background:#fff;transition:.15s;cursor:pointer;margin-bottom:5px;}
+.review-row:hover{border-color:var(--blue-bd);}
+.nps-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0;}
+.np-pro{background:var(--teal-bg);color:var(--teal);}
+.np-pas{background:var(--amber-bg);color:var(--amber);}
+.np-det{background:#FDECEA;color:var(--red);}
+.btn{padding:7px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid;transition:.15s;white-space:nowrap;}
+.btn-ghost{background:#fff;border-color:#D5D3CB;color:#4A4A48;}
+.btn-ghost:hover{background:#F4F3F0;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:.25s;pointer-events:none;max-width:320px;line-height:1.5;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DUCATI</div>
+  <div class="hdiv"></div>
+  <div class="htitle">CRM 銷售側 <b>CRM05A NPS 滿意度看板</b></div>
+  <div class="ver-badge">v1</div>
+  <div class="hright">
+    <button class="hbtn" onclick="go('CRM00_客服管理模組_導覽總覽_v1.html')">← CRM 總覽</button>
+    <button class="hbtn" onclick="go('CRM04A_銷售休眠戰敗管理_v1.html')">← 休眠戰敗</button>
+    <button class="hbtn" onclick="go('CRM03A_銷售電訪工作台_v1.html')">電訪工作台</button>
+    <button class="hbtn" onclick="go('CRM07_店長綜合報表_v1.html')">店長報表 →</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- NPS 主卡 -->
+  <div class="nps-hero">
+    <div class="nps-score-wrap">
+      <div class="nps-label">本月 NPS 分數</div>
+      <div class="nps-score">+62</div>
+      <div class="nps-max">滿分 +100</div>
+      <div class="nps-trend" style="color:#5DCAA5;">▲ +8 vs 上月</div>
+    </div>
+    <div style="width:1px;height:80px;background:rgba(255,255,255,.2);flex-shrink:0;"></div>
+    <div class="nps-breakdown">
+      <div class="nps-seg">
+        <div class="nps-seg-n" style="color:#5DCAA5;">18</div>
+        <div class="nps-seg-l">推薦者（9–10 分）</div>
+        <div class="nps-seg-p">58%</div>
+      </div>
+      <div class="nps-seg">
+        <div class="nps-seg-n" style="color:#F0C97E;">7</div>
+        <div class="nps-seg-l">被動者（7–8 分）</div>
+        <div class="nps-seg-p">23%</div>
+      </div>
+      <div class="nps-seg">
+        <div class="nps-seg-n" style="color:#FF8080;">6</div>
+        <div class="nps-seg-l">批評者（0–6 分）</div>
+        <div class="nps-seg-p">19%</div>
+      </div>
+    </div>
+    <div class="nps-bar-section">
+      <div class="nps-bar-label">本月回答分佈</div>
+      <div class="nps-bar-track">
+        <div class="nps-seg-pro" style="width:58%;"></div>
+        <div class="nps-seg-pas" style="width:23%;"></div>
+        <div class="nps-seg-det" style="width:19%;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:10.5px;opacity:.7;">
+        <span>推薦者 58%</span><span>被動 23%</span><span>批評 19%</span>
+      </div>
+      <div style="margin-top:10px;font-size:11.5px;opacity:.8;">本月有效回答：31 份　問卷完成率：78%</div>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-l">D+3 回訪完成率</div><div class="kpi-n kn-teal">84%</div><div class="kpi-s">本月 31/37 件完成</div></div>
+    <div class="kpi"><div class="kpi-l">平均回答分數</div><div class="kpi-n kn-navy">8.4</div><div class="kpi-s">滿分 10 分</div></div>
+    <div class="kpi"><div class="kpi-l">批評者處理中</div><div class="kpi-n kn-red">4</div><div class="kpi-s">需主管跟進</div></div>
+    <div class="kpi"><div class="kpi-l">高分客戶（≥9）推薦轉介</div><div class="kpi-n kn-teal">3</div><div class="kpi-s">本月轉介新潛客</div></div>
+  </div>
+
+  <div class="fg2">
+    <!-- 趨勢圖 -->
+    <div class="panel">
+      <div class="ph"><div class="ph-l"><div class="pi pi-b">📈</div><div><div class="pt">NPS 月度趨勢</div><div class="ps">近 6 個月</div></div></div>
+        <select class="fb-s" style="font-size:12px;"><option>近 6 個月</option><option>近 12 個月</option></select>
+      </div>
+      <div class="pb">
+        <svg viewBox="0 0 480 160" width="100%" style="display:block;">
+          <!-- 格線 -->
+          <line x1="40" y1="20" x2="460" y2="20" stroke="#EEECE6" stroke-width="1"/>
+          <line x1="40" y1="60" x2="460" y2="60" stroke="#EEECE6" stroke-width="1"/>
+          <line x1="40" y1="100" x2="460" y2="100" stroke="#EEECE6" stroke-width="1"/>
+          <line x1="40" y1="140" x2="460" y2="140" stroke="#EEECE6" stroke-width="1"/>
+          <!-- Y軸標籤 -->
+          <text x="35" y="23" text-anchor="end" font-size="10" fill="#9A9890">+80</text>
+          <text x="35" y="63" text-anchor="end" font-size="10" fill="#9A9890">+60</text>
+          <text x="35" y="103" text-anchor="end" font-size="10" fill="#9A9890">+40</text>
+          <text x="35" y="143" text-anchor="end" font-size="10" fill="#9A9890">+20</text>
+          <!-- 折線 NPS 數值：+42,+50,+45,+55,+54,+62 -->
+          <polyline points="90,95 158,75 226,90 294,60 362,63 430,48"
+            fill="none" stroke="#1A3A5C" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+          <!-- 數據點 -->
+          <circle cx="90" cy="95" r="4" fill="#1A3A5C"/><text x="90" y="88" text-anchor="middle" font-size="10" fill="#1A3A5C">+42</text>
+          <circle cx="158" cy="75" r="4" fill="#1A3A5C"/><text x="158" y="68" text-anchor="middle" font-size="10" fill="#1A3A5C">+50</text>
+          <circle cx="226" cy="90" r="4" fill="#1A3A5C"/><text x="226" y="83" text-anchor="middle" font-size="10" fill="#1A3A5C">+45</text>
+          <circle cx="294" cy="60" r="4" fill="#1A3A5C"/><text x="294" y="53" text-anchor="middle" font-size="10" fill="#1A3A5C">+55</text>
+          <circle cx="362" cy="63" r="4" fill="#1A3A5C"/><text x="362" y="56" text-anchor="middle" font-size="10" fill="#1A3A5C">+54</text>
+          <circle cx="430" cy="48" r="5" fill="#C8001A"/><text x="430" y="41" text-anchor="middle" font-size="10" font-weight="700" fill="#C8001A">+62</text>
+          <!-- X軸月份 -->
+          <text x="90" y="158" text-anchor="middle" font-size="10" fill="#9A9890">12月</text>
+          <text x="158" y="158" text-anchor="middle" font-size="10" fill="#9A9890">1月</text>
+          <text x="226" y="158" text-anchor="middle" font-size="10" fill="#9A9890">2月</text>
+          <text x="294" y="158" text-anchor="middle" font-size="10" fill="#9A9890">3月</text>
+          <text x="362" y="158" text-anchor="middle" font-size="10" fill="#9A9890">4月</text>
+          <text x="430" y="158" text-anchor="middle" font-size="10" fill="#C8001A" font-weight="700">5月</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 各面向評分 -->
+    <div class="panel">
+      <div class="ph"><div class="ph-l"><div class="pi pi-t">⭐</div><div><div class="pt">各評估面向平均分</div><div class="ps">D+3 問卷細項（滿分 10）</div></div></div></div>
+      <div class="pb">
+        <div class="score-grid">
+          <div class="score-item">
+            <div class="si-label">銷售顧問服務態度</div>
+            <div class="si-bar"><div class="si-fill" style="width:92%;background:var(--teal);"></div></div>
+            <div class="si-score" style="color:var(--teal);">9.2 / 10</div>
+          </div>
+          <div class="score-item">
+            <div class="si-label">試駕體驗安排</div>
+            <div class="si-bar"><div class="si-fill" style="width:87%;background:var(--teal);"></div></div>
+            <div class="si-score" style="color:var(--teal);">8.7 / 10</div>
+          </div>
+          <div class="score-item">
+            <div class="si-label">交車流程順暢度</div>
+            <div class="si-bar"><div class="si-fill" style="width:82%;background:#85B7EB;"></div></div>
+            <div class="si-score" style="color:#185FA5;">8.2 / 10</div>
+          </div>
+          <div class="score-item">
+            <div class="si-label">報價透明度</div>
+            <div class="si-bar"><div class="si-fill" style="width:78%;background:#F0C97E;"></div></div>
+            <div class="si-score" style="color:var(--amber);">7.8 / 10</div>
+          </div>
+          <div class="score-item">
+            <div class="si-label">等候時間感受</div>
+            <div class="si-bar"><div class="si-fill" style="width:75%;background:#F0C97E;"></div></div>
+            <div class="si-score" style="color:var(--amber);">7.5 / 10</div>
+          </div>
+          <div class="score-item">
+            <div class="si-label">整體購車體驗</div>
+            <div class="si-bar"><div class="si-fill" style="width:84%;background:var(--teal);"></div></div>
+            <div class="si-score" style="color:var(--teal);">8.4 / 10</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 回訪記錄列表 -->
+  <div class="panel">
+    <div class="ph">
+      <div class="ph-l"><div class="pi pi-b">📋</div><div><div class="pt">D+3 回訪記錄</div><div class="ps">本月交車後滿意度回訪</div></div></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select class="fb-s" style="font-size:12px;" id="nps-filter" onchange="renderNPS()">
+          <option value="">全部</option>
+          <option value="pro">推薦者（9–10）</option>
+          <option value="pas">被動者（7–8）</option>
+          <option value="det">批評者（0–6）</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('📥 匯出 NPS 報表 CSV')">匯出</button>
+      </div>
+    </div>
+    <div class="pb">
+      <div style="display:grid;grid-template-columns:1fr 60px 80px 90px 120px;gap:12px;padding:5px 12px;font-size:11px;font-weight:700;color:var(--gray);letter-spacing:.3px;text-transform:uppercase;border-bottom:1px solid #EEECE6;margin-bottom:6px;">
+        <div>客戶 / 車款</div><div style="text-align:center;">評分</div><div>日期</div><div>負責 RS</div><div>主要回饋</div>
+      </div>
+      <div id="nps-list"></div>
+    </div>
+  </div>
+
+  <!-- 批評者追蹤 -->
+  <div class="panel">
+    <div class="ph"><div class="ph-l"><div class="pi pi-r">🚨</div><div><div class="pt">批評者追蹤處理</div><div class="ps">評分 6 分以下，須主管介入跟進</div></div></div><span class="badge b-red">4 件待處理</span></div>
+    <div class="pb">
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="padding:12px 14px;border:1.5px solid #F5AEAD;border-radius:8px;background:#FDECEA;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <div class="nps-num np-det">4</div>
+            <div><div style="font-weight:600;">許志豪</div><div style="font-size:11.5px;color:var(--gray);">Panigale V4 S · 2026-05-05 交車</div></div>
+            <span class="badge b-red" style="margin-left:auto;">主管介入中</span>
+          </div>
+          <div style="font-size:12.5px;color:#5A1010;background:rgba(255,255,255,.6);padding:8px 10px;border-radius:6px;margin-bottom:8px;">
+            「等待交車時間過長，超過原本說的日期兩週，期間也沒有主動告知進度。」
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="showToast('📞 致電許志豪表達歉意')">致電道歉</button>
+            <button class="btn btn-ghost btn-sm" onclick="showToast('🎁 發送補償方案')">補償方案</button>
+            <button class="btn btn-ghost btn-sm" onclick="showToast('✅ 標記為已處理')">標記完成</button>
+          </div>
+        </div>
+        <div style="padding:12px 14px;border:1.5px solid #F5AEAD;border-radius:8px;background:#FDECEA;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <div class="nps-num np-det">5</div>
+            <div><div style="font-weight:600;">陳雅萍</div><div style="font-size:11.5px;color:var(--gray);">Monster SP · 2026-05-02 交車</div></div>
+            <span class="badge b-amber" style="margin-left:auto;">跟進中</span>
+          </div>
+          <div style="font-size:12.5px;color:#5A1010;background:rgba(255,255,255,.6);padding:8px 10px;border-radius:6px;margin-bottom:8px;">
+            「交車說明太快，很多功能還沒搞清楚就結束了，希望有人可以再詳細說明。」
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="showToast('📅 安排功能說明複習課程')">安排說明</button>
+            <button class="btn btn-ghost btn-sm" onclick="showToast('✅ 標記為已處理')">標記完成</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+<script>
+function go(url){window.location.href=url;}
+var npsData=[
+  {name:'王大明',model:'Panigale V4 S',score:10,date:'2026-05-08',rs:'陳志明',feedback:'非常滿意，交車流程專業'},
+  {name:'李美玲',model:'Monster SP',score:9,date:'2026-05-07',rs:'林雅婷',feedback:'試駕安排很好，強烈推薦'},
+  {name:'張建國',model:'Streetfighter V4',score:8,date:'2026-05-06',rs:'陳志明',feedback:'整體不錯，報價可以更透明'},
+  {name:'許志豪',model:'Panigale V4 S',score:4,date:'2026-05-05',rs:'王建宏',feedback:'等車時間太長，未主動通知'},
+  {name:'劉宗翰',model:'Multistrada V4 S',score:9,date:'2026-05-04',rs:'林雅婷',feedback:'服務態度很好，下次還會來'},
+  {name:'陳雅萍',model:'Monster SP',score:5,date:'2026-05-02',rs:'陳志明',feedback:'交車說明太快，功能沒講清楚'},
+  {name:'吳俊傑',model:'DesertX Rally',score:10,date:'2026-04-30',rs:'王建宏',feedback:'完美的購車體驗！已推薦三位朋友'},
+  {name:'黃雅惠',model:'Hypermotard 698',score:7,date:'2026-04-28',rs:'林雅婷',feedback:'還OK，等候時間稍長'},
+  {name:'蘇立威',model:'Diavel V4',score:9,date:'2026-04-26',rs:'陳志明',feedback:'非常專業的銷售顧問'},
+];
+function npsCls(s){return s>=9?'np-pro':s>=7?'np-pas':'np-det';}
+function npsType(s){return s>=9?'pro':s>=7?'pas':'det';}
+function renderNPS(){
+  var f=document.getElementById('nps-filter').value;
+  var list=npsData.filter(function(it){return !f||npsType(it.score)===f;});
+  document.getElementById('nps-list').innerHTML=list.map(function(it){
+    return '<div class="review-row" onclick="showToast(\'👤 '+it.name+' — '+it.feedback+'\')">'
+      +'<div><div style="font-weight:600;">'+it.name+'</div><div style="font-size:11px;color:var(--gray);">'+it.model+'</div></div>'
+      +'<div style="display:flex;justify-content:center;"><div class="nps-num '+npsCls(it.score)+'">'+it.score+'</div></div>'
+      +'<div style="font-size:12px;color:var(--gray);">'+it.date+'</div>'
+      +'<div style="font-size:12.5px;">'+it.rs+'</div>'
+      +'<div style="font-size:11.5px;color:#5A5955;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+it.feedback+'</div>'
+      +'</div>';
+  }).join('');
+}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2800);}
+window.onload=function(){renderNPS();};
+</script>
+</body>
+</html>

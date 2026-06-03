@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>GRP06 集團儀表板（手機版）— DealerOS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Noto Sans TC',sans-serif;background:#0D1B2A;color:#E8E6E0;font-size:14px;max-width:430px;margin:0 auto;}
+:root{
+  --navy:#1A3A5C;--teal:#0F6E56;--red:#C8001A;
+  --amber:#F0A500;--purple:#534AB7;--green:#3DBE6E;
+  --border:rgba(255,255,255,.08);--card:rgba(255,255,255,.05);
+}
+
+/* ── Header ── */
+.m-header{background:rgba(0,0,0,.5);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);backdrop-filter:blur(8px);}
+.m-logo{font-size:15px;font-weight:700;letter-spacing:2px;color:#fff;}
+.m-title{font-size:12px;color:rgba(255,255,255,.5);}
+.m-live{display:flex;align-items:center;gap:5px;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.live-txt{font-size:10px;color:var(--green);}
+
+/* ── Alert ticker ── */
+.alert-ticker{background:rgba(200,0,26,.15);border-bottom:1px solid rgba(200,0,26,.2);padding:8px 16px;font-size:11.5px;color:#FF8080;white-space:nowrap;overflow:hidden;}
+.ticker-inner{display:inline-block;animation:ticker 20s linear infinite;}
+@keyframes ticker{0%{transform:translateX(100%);}100%{transform:translateX(-100%);}}
+
+/* ── Main ── */
+.m-main{padding:12px 14px 80px;}
+
+/* ── Section ── */
+.m-sec{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.3);margin:16px 0 8px;display:flex;align-items:center;gap:6px;}
+.m-sec::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── KPI 4格 ── */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 12px;}
+.kc-label{font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.3px;margin-bottom:5px;}
+.kc-val{font-size:28px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;margin-bottom:3px;}
+.kc-sub{font-size:10.5px;color:rgba(255,255,255,.3);}
+.kc-trend{font-size:11.5px;font-weight:600;margin-top:4px;}
+.kt-up{color:var(--green);}.kt-dn{color:#FF6060;}
+
+/* ── Alert cards ── */
+.alert-card{background:rgba(200,0,26,.1);border:1px solid rgba(200,0,26,.2);border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+.alert-card.amber{background:rgba(240,165,0,.08);border-color:rgba(240,165,0,.2);}
+.ac-row{display:flex;align-items:flex-start;gap:8px;}
+.ac-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.ac-store{font-size:13px;font-weight:700;color:#FF8080;margin-bottom:3px;}
+.alert-card.amber .ac-store{color:#F0C060;}
+.ac-desc{font-size:12px;color:rgba(255,255,255,.5);line-height:1.5;}
+.ac-time{font-size:10px;color:rgba(255,255,255,.25);margin-top:5px;}
+
+/* ── Store list ── */
+.store-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:.15s;active:background:rgba(255,255,255,.08);}
+.sc-left{flex:1;}
+.sc-name{font-size:14px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:6px;}
+.sc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sd-navy{background:#85B7EB;}
+.sd-teal{background:#5DCAA5;}
+.sc-type{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;}
+.sct-d{background:rgba(26,58,92,.6);color:#85B7EB;}
+.sct-a{background:rgba(15,110,86,.4);color:#5DCAA5;}
+.sc-kpis{display:flex;gap:10px;font-size:11.5px;color:rgba(255,255,255,.4);margin-top:4px;}
+.sc-kpi-val{font-family:'DM Mono',monospace;font-weight:700;}
+.sc-right{text-align:right;}
+.sc-score{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;}
+.sc-score-lbl{font-size:9.5px;color:rgba(255,255,255,.3);}
+.sc-arrow{font-size:16px;color:rgba(255,255,255,.2);margin-top:4px;}
+
+/* ── NPS row ── */
+.nps-row{display:flex;gap:10px;margin-bottom:4px;}
+.nps-card{flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;}
+.nc-val{font-size:26px;font-weight:700;font-family:'DM Mono',monospace;}
+.nc-lbl{font-size:10px;color:rgba(255,255,255,.4);margin-top:3px;}
+.nc-chg{font-size:11.5px;font-weight:600;margin-top:3px;}
+
+/* ── Strategy mini ── */
+.strat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.strat-card{border-radius:9px;padding:10px 12px;border:1px solid;}
+.s-expand{background:rgba(61,190,110,.08);border-color:rgba(61,190,110,.15);}
+.s-coach{background:rgba(240,165,0,.08);border-color:rgba(240,165,0,.15);}
+.s-review{background:rgba(200,0,26,.08);border-color:rgba(200,0,26,.15);}
+.s-partner{background:rgba(83,74,183,.08);border-color:rgba(83,74,183,.15);}
+.st-type{font-size:9px;font-weight:700;letter-spacing:.3px;margin-bottom:4px;}
+.s-expand .st-type{color:#3DBE6E;}
+.s-coach .st-type{color:#F0C060;}
+.s-review .st-type{color:#FF6060;}
+.s-partner .st-type{color:#9B8FE8;}
+.st-store{font-size:12.5px;font-weight:700;color:#E8E6E0;}
+.st-score{font-size:11px;font-family:'DM Mono',monospace;color:rgba(255,255,255,.4);margin-top:2px;}
+
+/* ── Bottom nav ── */
+.m-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:rgba(13,27,42,.95);border-top:1px solid var(--border);display:flex;backdrop-filter:blur(8px);z-index:100;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 12px;cursor:pointer;transition:.15s;gap:3px;}
+.nav-item.active .nav-icon{color:#fff;}
+.nav-item.active .nav-lbl{color:#fff;}
+.nav-icon{font-size:20px;color:rgba(255,255,255,.35);}
+.nav-lbl{font-size:10px;color:rgba(255,255,255,.3);}
+.nav-badge{position:absolute;top:6px;right:calc(50% - 18px);background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:0 4px;border-radius:8px;min-width:16px;text-align:center;}
+.nav-pos{position:relative;}
+
+/* ── Refresh fab ── */
+.fab{position:fixed;bottom:72px;right:16px;width:44px;height:44px;border-radius:50%;background:#1A3A5C;border:1px solid #2A5080;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:99;transition:.2s;}
+.fab:active{transform:scale(.94);}
+
+/* Toast */
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(40px);background:#1A3A5C;color:#fff;padding:9px 18px;border-radius:20px;font-size:12px;z-index:999;opacity:0;transition:.2s;pointer-events:none;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="m-header">
+  <div>
+    <div class="m-logo">DealerOS</div>
+    <div class="m-title">Indian Motorcycle Taiwan</div>
+  </div>
+  <div class="m-live">
+    <span class="live-dot"></span>
+    <span class="live-txt">即時</span>
+  </div>
+</div>
+
+<!-- Alert ticker -->
+<div class="alert-ticker">
+  <span class="ticker-inner">🔴 嘉義授權商：零件供應率 72%，低於標準 90%　｜　🔴 台中直營店：本月客戶淨流失 -52 人　｜　🟡 高雄直營店：新進顧問成交率偏低　｜　&nbsp;&nbsp;&nbsp;&nbsp;</span>
+</div>
+
+<!-- Main -->
+<div class="m-main">
+
+  <!-- KPI 4格 -->
+  <div class="m-sec">本月全台即時</div>
+  <div class="kpi-grid">
+    <div class="kpi-card" style="border-top:2px solid #85B7EB;">
+      <div class="kc-label">新車交車量</div>
+      <div class="kc-val" style="color:#85B7EB;">127</div>
+      <div class="kc-sub">目標 150 台</div>
+      <div class="kc-trend kt-dn">▼ 84.7%</div>
+    </div>
+    <div class="kpi-card" style="border-top:2px solid #5DCAA5;">
+      <div class="kc-label">維修台次</div>
+      <div class="kc-val" style="color:#5DCAA5;">2,847</div>
+      <div class="kc-sub">目標 3,000 次</div>
+      <div class="kc-trend kt-up">▲ 94.9%</div>
+    </div>
+    <div class="kpi-card" style="border-top:2px solid #9B8FE8;">
+      <div class="kc-label">平均 NPS</div>
+      <div class="kc-val" style="color:#9B8FE8;">+58</div>
+      <div class="kc-sub">目標 +60</div>
+      <div class="kc-trend kt-up">▲ +4 vs 上月</div>
+    </div>
+    <div class="kpi-card" style="border-top:2px solid #FF6060;">
+      <div class="kc-label">未解告警</div>
+      <div class="kc-val" style="color:#FF6060;">3</div>
+      <div class="kc-sub">嚴重 2 ｜ 注意 1</div>
+      <div class="kc-trend kt-dn">▲ +1 今日</div>
+    </div>
+  </div>
+
+  <!-- 告警 -->
+  <div class="m-sec">需要關注</div>
+  <div class="alert-card">
+    <div class="ac-row">
+      <span class="ac-icon">🔴</span>
+      <div>
+        <div class="ac-store">嘉義授權商</div>
+        <div class="ac-desc">零件備件供應率 72%，低於集團標準 90%。售後台次達成率僅 58%，持續惡化中。</div>
+        <div class="ac-time">今日 08:00 告警</div>
+      </div>
+    </div>
+  </div>
+  <div class="alert-card">
+    <div class="ac-row">
+      <span class="ac-icon">🔴</span>
+      <div>
+        <div class="ac-store">台中直營店</div>
+        <div class="ac-desc">本月客戶流失 382 人，超過新增 330 人，淨流失 -52，客戶基盤萎縮。</div>
+        <div class="ac-time">昨日 23:00 告警</div>
+      </div>
+    </div>
+  </div>
+  <div class="alert-card amber">
+    <div class="ac-row">
+      <span class="ac-icon">🟡</span>
+      <div>
+        <div class="ac-store">高雄直營店</div>
+        <div class="ac-desc">3名新進銷售顧問成交率平均 8%，低於集團均值 21%，建議安排話術訓練。</div>
+        <div class="ac-time">05/26 告警</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 門店列表 -->
+  <div class="m-sec">各門店 Health Score</div>
+  <div class="store-card" onclick="(function(){ showToast('下鑽至：台北旗艦店'); setTimeout(function(){window.location.href='GRP09_門店銷售Tab_v1.html';},700); })()">
+    <div class="sc-left">
+      <div class="sc-name"><span class="sc-dot sd-navy"></span>台北旗艦店<span class="sc-type sct-d">直營</span></div>
+      <div class="sc-kpis">
+        <span>銷售 <span class="sc-kpi-val" style="color:#3DBE6E;">94%</span></span>
+        <span>NPS <span class="sc-kpi-val" style="color:#3DBE6E;">+66</span></span>
+        <span>零件 <span class="sc-kpi-val" style="color:#3DBE6E;">11.2x</span></span>
+      </div>
+    </div>
+    <div class="sc-right">
+      <div class="sc-score" style="color:#3DBE6E;">87</div>
+      <div class="sc-score-lbl">Health</div>
+      <div class="sc-arrow">›</div>
+    </div>
+  </div>
+  <div class="store-card" onclick="(function(){ showToast('下鑽至：台南授權商'); setTimeout(function(){window.location.href='GRP09_門店銷售Tab_v1.html';},700); })()">
+    <div class="sc-left">
+      <div class="sc-name"><span class="sc-dot sd-teal"></span>台南授權商<span class="sc-type sct-a">授權</span></div>
+      <div class="sc-kpis">
+        <span>銷售 <span class="sc-kpi-val" style="color:#3DBE6E;">89%</span></span>
+        <span>NPS <span class="sc-kpi-val" style="color:#3DBE6E;">+63</span></span>
+        <span>零件 <span class="sc-kpi-val" style="color:#3DBE6E;">10.5x</span></span>
+      </div>
+    </div>
+    <div class="sc-right">
+      <div class="sc-score" style="color:#3DBE6E;">81</div>
+      <div class="sc-score-lbl">Health</div>
+      <div class="sc-arrow">›</div>
+    </div>
+  </div>
+  <div class="store-card" onclick="(function(){ showToast('下鑽至：高雄直營店'); setTimeout(function(){window.location.href='GRP09_門店銷售Tab_v1.html';},700); })()">
+    <div class="sc-left">
+      <div class="sc-name"><span class="sc-dot sd-navy"></span>高雄直營店<span class="sc-type sct-d">直營</span></div>
+      <div class="sc-kpis">
+        <span>銷售 <span class="sc-kpi-val" style="color:#F0A500;">68%</span></span>
+        <span>NPS <span class="sc-kpi-val" style="color:#F0A500;">+55</span></span>
+        <span>零件 <span class="sc-kpi-val" style="color:#F0A500;">9.8x</span></span>
+      </div>
+    </div>
+    <div class="sc-right">
+      <div class="sc-score" style="color:#F0A500;">72</div>
+      <div class="sc-score-lbl">Health</div>
+      <div class="sc-arrow">›</div>
+    </div>
+  </div>
+  <div class="store-card" onclick="(function(){ showToast('下鑽至：台中直營店'); setTimeout(function(){window.location.href='GRP09_門店銷售Tab_v1.html';},700); })()">
+    <div class="sc-left">
+      <div class="sc-name"><span class="sc-dot sd-navy"></span>台中直營店<span class="sc-type sct-d">直營</span></div>
+      <div class="sc-kpis">
+        <span>銷售 <span class="sc-kpi-val" style="color:#F0A500;">72%</span></span>
+        <span>NPS <span class="sc-kpi-val" style="color:#F0A500;">+51</span></span>
+        <span>流失 <span class="sc-kpi-val" style="color:#FF6060;">-52</span></span>
+      </div>
+    </div>
+    <div class="sc-right">
+      <div class="sc-score" style="color:#F0A500;">64</div>
+      <div class="sc-score-lbl">Health</div>
+      <div class="sc-arrow">›</div>
+    </div>
+  </div>
+  <div class="store-card" style="border-color:rgba(200,0,26,.3);" onclick="(function(){ showToast('下鑽至：嘉義授權商'); setTimeout(function(){window.location.href='GRP09_門店銷售Tab_v1.html';},700); })()">
+    <div class="sc-left">
+      <div class="sc-name"><span class="sc-dot" style="background:#FF6060;"></span>嘉義授權商<span class="sc-type sct-a">授權</span></div>
+      <div class="sc-kpis">
+        <span>銷售 <span class="sc-kpi-val" style="color:#FF6060;">76%</span></span>
+        <span>NPS <span class="sc-kpi-val" style="color:#FF6060;">+46</span></span>
+        <span>零件 <span class="sc-kpi-val" style="color:#FF6060;">5.1x ⚠</span></span>
+      </div>
+    </div>
+    <div class="sc-right">
+      <div class="sc-score" style="color:#FF6060;">51</div>
+      <div class="sc-score-lbl">Health</div>
+      <div class="sc-arrow">›</div>
+    </div>
+  </div>
+
+  <!-- NPS -->
+  <div class="m-sec">全台 NPS</div>
+  <div class="nps-row">
+    <div class="nps-card">
+      <div class="nc-val" style="color:#85B7EB;">+62</div>
+      <div class="nc-lbl">銷售 NPS</div>
+      <div class="nc-chg" style="color:var(--green);">▲ +4 vs 上月</div>
+    </div>
+    <div class="nps-card">
+      <div class="nc-val" style="color:#5DCAA5;">+54</div>
+      <div class="nc-lbl">售後 NPS</div>
+      <div class="nc-chg" style="color:#FF6060;">▼ -2 vs 上月</div>
+    </div>
+  </div>
+
+  <!-- 戰略決策 -->
+  <div class="m-sec">戰略決策建議</div>
+  <div class="strat-grid">
+    <div class="strat-card s-expand">
+      <div class="st-type">🟢 擴大支持</div>
+      <div class="st-store">台北旗艦店</div>
+      <div class="st-score">Score 87</div>
+    </div>
+    <div class="strat-card s-coach">
+      <div class="st-type">🟡 輔導介入</div>
+      <div class="st-store">台中直營店</div>
+      <div class="st-score">Score 64</div>
+    </div>
+    <div class="strat-card s-review">
+      <div class="st-type">🔴 授權審查</div>
+      <div class="st-store">嘉義授權商</div>
+      <div class="st-score">Score 51</div>
+    </div>
+    <div class="strat-card s-partner">
+      <div class="st-type">🤝 策略合作</div>
+      <div class="st-store">台南授權商</div>
+      <div class="st-score">Score 81</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FAB -->
+<div class="fab" onclick="showToast('已重新整理')">↻</div>
+
+<!-- Bottom nav -->
+<div class="m-nav">
+  <div class="nav-item active">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-lbl">總覽</span>
+  </div>
+  <div class="nav-item nav-pos" onclick="showToast('切換至 BSC')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-lbl">BSC</span>
+  </div>
+  <div class="nav-item nav-pos" onclick="showToast('切換至告警')">
+    <span class="nav-badge">3</span>
+    <span class="nav-icon">⚠️</span>
+    <span class="nav-lbl">告警</span>
+  </div>
+  <div class="nav-item" onclick="showToast('切換至門店')">
+    <span class="nav-icon">🏪</span>
+    <span class="nav-lbl">門店</span>
+  </div>
+  <div class="nav-item" onclick="showToast('切換至報告')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-lbl">報告</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 後端串接點 ──
+// GET /api/group/summary?period=YYYYMM → 集團KPI彙總
+// GET /api/stores/{id}/summary → 門店下鑽數據
+// GET /api/group/alerts → 告警清單（紅點數字）
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+</script>
+</body>
+</html>
