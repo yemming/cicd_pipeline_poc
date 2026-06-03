@@ -8,6 +8,7 @@ import {
   listServicePackageAudit,
 } from "@/domain/service-packages";
 import { getPricingPolicyNameMap } from "@/domain/group-pricing";
+import { getBrandConfig } from "@/domain/brand-config";
 import { checkServicePackageEditPermission } from "@/lib/aftersales/service-package-actions";
 
 import { ServicePackagesBoard } from "./_components/service-packages-board";
@@ -34,12 +35,13 @@ export default async function ServicePackagesPage() {
   const scope = await getActiveScope();
   const brand = scope.brand_id;
 
-  const [packages, laborRates, audit, canEdit, policyMap] = await Promise.all([
+  const [packages, laborRates, audit, canEdit, policyMap, brandConfig] = await Promise.all([
     listServicePackages(brand, { includeInactive: true }),
     listLaborRates(brand, { includeInactive: true }),
     listServicePackageAudit(brand),
     checkServicePackageEditPermission(),
     getPricingPolicyNameMap(brand),
+    getBrandConfig(brand),
   ]);
 
   return (
@@ -50,6 +52,7 @@ export default async function ServicePackagesPage() {
       audit={audit}
       canEdit={canEdit}
       policyMap={policyMap}
+      hasDesmo={brandConfig.hasDesmo}
     />
   );
 }

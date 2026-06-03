@@ -106,6 +106,7 @@ export function ServicePackagesBoard({
   audit,
   canEdit,
   policyMap,
+  hasDesmo,
 }: {
   brand: string;
   packages: ServicePackage[];
@@ -114,6 +115,8 @@ export function ServicePackagesBoard({
   canEdit: boolean;
   /** G4：service_packages.pricing_policy_id → 集團定價政策摘要（顯示「受集團定價管控」徽章）。 */
   policyMap: Record<string, PricingPolicySummary>;
+  /** brand_config.has_desmo：false（如 Indian）時工時費率表隱藏 Desmo Service 列。 */
+  hasDesmo: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -359,6 +362,7 @@ export function ServicePackagesBoard({
             startTransition={startTransition}
             showBanner={showBanner}
             router={router}
+            hasDesmo={hasDesmo}
           />
         )}
         {tab === "audit" && <AuditTab audit={audit} />}
@@ -493,6 +497,7 @@ function RatesTab({
   startTransition,
   showBanner,
   router,
+  hasDesmo,
 }: {
   brand: string;
   laborRates: LaborRate[];
@@ -501,12 +506,18 @@ function RatesTab({
   startTransition: (cb: () => void) => void;
   showBanner: (b: Banner) => void;
   router: ReturnType<typeof useRouter>;
+  hasDesmo: boolean;
 }) {
   const rateMap = useMemo(() => {
     const m = new Map<string, LaborRate>();
     for (const r of laborRates) m.set(r.bizType, r);
     return m;
   }, [laborRates]);
+  // brand_config.has_desmo=false（如 Indian）時隱藏 Desmo Service 工時費率列。
+  const bizTypes = useMemo(
+    () => (hasDesmo ? BIZ_TYPES : BIZ_TYPES.filter((bt) => bt.code !== "Desmo")),
+    [hasDesmo],
+  );
 
   return (
     <>
@@ -530,7 +541,7 @@ function RatesTab({
             </tr>
           </thead>
           <tbody>
-            {BIZ_TYPES.map((bt) => (
+            {bizTypes.map((bt) => (
               <RateRow
                 key={bt.code}
                 bizType={bt.code}

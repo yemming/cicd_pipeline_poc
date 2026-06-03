@@ -29,6 +29,10 @@ const SERVICE_TYPE_OPTIONS = [
   "車主自費",
   "其他",
 ];
+// brand_config.has_desmo=false（如 Indian）時的選單：移除 Desmo Service。
+const SERVICE_TYPE_OPTIONS_NO_DESMO = SERVICE_TYPE_OPTIONS.filter(
+  (o) => o !== "Desmo Service",
+);
 
 function todayInTpe(): string {
   // YYYY-MM-DD (assume Asia/Taipei runtime; for demo OK)
@@ -40,12 +44,18 @@ export function QuickAppointmentButton({
   customerName,
   vehicles,
   canEdit,
+  hasDesmo,
 }: {
   customerId: string;
   customerName: string;
   vehicles: VehicleLite[];
   canEdit: boolean;
+  /** brand_config.has_desmo：false（如 Indian）時服務類型選單不含 Desmo Service。 */
+  hasDesmo: boolean;
 }) {
+  const serviceTypeOptions = hasDesmo
+    ? SERVICE_TYPE_OPTIONS
+    : SERVICE_TYPE_OPTIONS_NO_DESMO;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -192,7 +202,7 @@ export function QuickAppointmentButton({
                   value={serviceType}
                   onChange={(e) => setServiceType(e.target.value)}
                 >
-                  {SERVICE_TYPE_OPTIONS.map((opt) => (
+                  {serviceTypeOptions.map((opt) => (
                     <option key={opt} value={opt}>
                       {opt}
                     </option>

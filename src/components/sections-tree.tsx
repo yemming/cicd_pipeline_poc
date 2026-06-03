@@ -121,9 +121,11 @@ function ParentGroupItem({
     );
   }, [parent.children, activePageHref]);
 
-  // 預設：含 active child 才展開；後續 active 變動時自動展開（但不強制收回手動展的）
+  // 預設：含 active child 才展開；後續 active 變動時自動展開（但不強制收回手動展的）。
+  // collapsed=true 的群組（設定類）即使含 active child 也預設收起，讓日常操作優先入眼，
+  // 使用者仍可手動點開。
   // 用 prev-state 比對在 render 階段觸發 setOpen，避免 useEffect 內 setState 的 cascading render
-  const [open, setOpen] = useState<boolean>(hasActiveChild);
+  const [open, setOpen] = useState<boolean>(hasActiveChild && !parent.collapsed);
   const [prevHasActiveChild, setPrevHasActiveChild] = useState(hasActiveChild);
   if (hasActiveChild !== prevHasActiveChild) {
     setPrevHasActiveChild(hasActiveChild);

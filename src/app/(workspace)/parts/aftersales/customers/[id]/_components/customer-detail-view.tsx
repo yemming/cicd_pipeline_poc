@@ -171,6 +171,7 @@ export function CustomerDetailView({
   npsSummary,
   canEdit,
   canEditAppointment,
+  hasDesmo,
 }: {
   customer: AftersalesCustomerDetail;
   vehicles: AftersalesCustomerVehicle[];
@@ -185,6 +186,8 @@ export function CustomerDetailView({
   npsSummary: AftersalesNpsSummary;
   canEdit: boolean;
   canEditAppointment: boolean;
+  /** brand_config.has_desmo：傳給 QuickAppointmentButton 篩服務類型選單。 */
+  hasDesmo: boolean;
 }) {
   useSetPageHeader({
     title: customer.name,
@@ -311,6 +314,7 @@ export function CustomerDetailView({
               next_service_due_date: v.next_service_due_date,
             }))}
             canEdit={canEditAppointment}
+            hasDesmo={hasDesmo}
           />
           <Link
             href={`/crm/aftersales/customer-base/${customer.id}`}

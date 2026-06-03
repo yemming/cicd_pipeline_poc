@@ -4,6 +4,8 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getCustomerById } from "@/domain/aftersales-customer-base";
+import { getBrandConfig } from "@/domain/brand-config";
+import { getActiveScope } from "@/lib/scope/active-scope";
 
 import { CustomerDetailView } from "./_components/customer-detail-view";
 
@@ -28,9 +30,11 @@ export default async function CustomerDetailPage({
   const bundle = await getCustomerById(id);
   if (!bundle) notFound();
 
-  const [canEdit, canEditAppointment] = await Promise.all([
+  const scope = await getActiveScope();
+  const [canEdit, canEditAppointment, brandConfig] = await Promise.all([
     hasPermission(PERMISSIONS.CUSTOMER_EDIT),
     hasPermission(PERMISSIONS.APPOINTMENT_EDIT),
+    getBrandConfig(scope.brand_id),
   ]);
 
   return (
@@ -48,6 +52,7 @@ export default async function CustomerDetailPage({
       npsSummary={bundle.npsSummary}
       canEdit={canEdit}
       canEditAppointment={canEditAppointment}
+      hasDesmo={brandConfig.hasDesmo}
     />
   );
 }

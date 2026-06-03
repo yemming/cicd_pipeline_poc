@@ -42,6 +42,9 @@ export type ParentGroup = {
   href?: string;
   /** Direct-link parent 要求的 permission（鏡射其 href 頁的 guard）；缺則藏。 */
   permission?: string;
+  /** 預設收合：即使含 active child 也預設收起（設定類群組，讓日常操作優先入眼），
+   *  使用者仍可手動展開。對應 nav_nodes.collapsed。 */
+  collapsed?: boolean;
   children: ModulePage[];
 };
 

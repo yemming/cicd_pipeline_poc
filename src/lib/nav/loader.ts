@@ -36,6 +36,7 @@ type NavNodeRow = {
   section_group: string | null;
   section_group_color: string | null;
   badge: string | null;
+  collapsed: boolean | null;
 };
 
 function normalizeHref(raw: string): string {
@@ -127,6 +128,7 @@ function buildModuleDef(
         if (child.icon) parent.icon = child.icon;
         if (child.emoji) parent.emoji = child.emoji;
         if (child.badge) parent.badge = child.badge;
+        if (child.collapsed) parent.collapsed = true;
 
         // direct-link parent（自己有 href、無 children）— 樣板「庫存查詢」「模組導覽總覽」
         if (child.page_kind === "react_route" && child.href && childPages.length === 0) {

@@ -5,6 +5,8 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getPreInspectionById } from "@/domain/pre-inspections";
 import { listEnvCheckItems } from "@/domain/env-check-items";
+import { getBrandConfig } from "@/domain/brand-config";
+import { getActiveScope } from "@/lib/scope/active-scope";
 
 import { PreInspectionWizard } from "../_components/pre-inspection-wizard";
 
@@ -26,12 +28,19 @@ export default async function PreInspectionDetailPage({
   }
   const canEdit = await hasPermission(PERMISSIONS.RO_CREATE);
   const { id } = await params;
-  const [data, envCheckItems] = await Promise.all([
+  const scope = await getActiveScope();
+  const [data, envCheckItems, brandConfig] = await Promise.all([
     getPreInspectionById(id),
     listEnvCheckItems({ activeOnly: true }),
+    getBrandConfig(scope.brand_id),
   ]);
   if (!data) return notFound();
   return (
-    <PreInspectionWizard data={data} canEdit={canEdit} envCheckItems={envCheckItems} />
+    <PreInspectionWizard
+      data={data}
+      canEdit={canEdit}
+      envCheckItems={envCheckItems}
+      hasDesmo={brandConfig.hasDesmo}
+    />
   );
 }

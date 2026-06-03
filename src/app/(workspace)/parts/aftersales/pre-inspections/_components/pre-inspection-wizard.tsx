@@ -57,6 +57,12 @@ type Props = {
   canEdit: boolean;
   /** 環檢項目清單（由 page server component 從 business_rules 撈、只給啟用中的） */
   envCheckItems: EnvCheckItem[];
+  /**
+   * 品牌是否有 Desmo 系統（brand_config.has_desmo）。
+   * false（如 Indian）時來廠目的選單隱藏「Desmo 保養」，避免員工誤選。
+   * PURPOSES 仍維持原 index（DB 存的是整數 index），只是不渲染該選項。
+   */
+  hasDesmo: boolean;
 };
 
 function pad(n: number) {
@@ -68,7 +74,7 @@ function fmtDateTime(iso: string | null): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
+export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: Props) {
   // 把 setting page 維護的環檢項目轉成 wizard 用的 CheckRow 預設值（state=-1=未檢）
   const defaultChecks: CheckRow[] = useMemo(
     () => envCheckItems.map((it) => ({ label: it.label, state: -1 })),
@@ -456,6 +462,7 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
             isPending={isPending}
             savePurposes={savePurposes}
             saveAsks={saveAsks}
+            hasDesmo={hasDesmo}
           />
         )}
         {step === 2 && (
@@ -731,6 +738,7 @@ function Step2Purpose({
   isPending,
   savePurposes,
   saveAsks,
+  hasDesmo,
 }: {
   purposes: number[];
   setPurposes: React.Dispatch<React.SetStateAction<number[]>>;
@@ -742,6 +750,7 @@ function Step2Purpose({
   isPending: boolean;
   savePurposes: () => void;
   saveAsks: () => void;
+  hasDesmo: boolean;
 }) {
   function toggleP(i: number) {
     if (locked) return;
@@ -769,6 +778,9 @@ function Step2Purpose({
         <div className="px-4 py-3 space-y-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {PURPOSES.map((p, i) => {
+              // brand_config.has_desmo=false（如 Indian）時隱藏 Desmo 保養選項。
+              // i 維持原 index，不渲染只是少一顆按鈕，DB 存的整數 index 不受影響。
+              if (!hasDesmo && p.label.includes("Desmo")) return null;
               const sel = purposes.includes(i);
               return (
                 <button
