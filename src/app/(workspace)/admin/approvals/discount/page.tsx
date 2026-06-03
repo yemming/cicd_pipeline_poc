@@ -1,21 +1,12 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+import { PlaceholderPage } from "@/components/placeholder-page";
 
-export default async function Page() {
-  const html = await loadStitchBody("c27c74ea875a4c8987b84c4cb8035ab9");
+export default function Page() {
   return (
-    <main className="bg-[#F8F7F4]">
-      <div className="px-6 py-4 bg-[#FDECEA] border-b border-[#F5AEAD] text-[#CC0000] text-[13px] flex items-center gap-2">
-        <span>⚠️</span>
-        <span><strong>Demo 用、未上線</strong> — 本頁僅顯示設計稿、簽核功能尚未實作。如需簽核請至 <a href="/admin/approvals" className="underline">我的簽核中心</a>。</span>
-      </div>
-      <StitchInline
-        html={html}
-        title="折扣簽核"
-        sprint="S1-7"
-        screenId="c27c74ea875a4c8987b84c4cb8035ab9"
-        breadcrumb={[{ label: "簽核管理", href: "/admin/approvals" }, { label: "折扣簽核" }]}
-      />
-    </main>
+    <PlaceholderPage
+      title="折扣簽核"
+      icon="percent"
+      description="折扣簽核規劃中，尚未串接真實資料。完成後超過閾值的折扣會自動進入此處待主管審核。"
+      breadcrumb={[{ label: "簽核管理", href: "/admin/approvals" }, { label: "折扣簽核" }]}
+    />
   );
 }

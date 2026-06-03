@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import type { PurchaseOrderListRow, PurchaseOrderKpis } from "@/domain/orders";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import { KpiCard, FlowDiagram, type FlowNode, type FlowEdge } from "@/components/visualization";
+import { PdcCountdown } from "@/components/parts/pdc-countdown";
 
 import { PORowActions, type PoActionResult } from "./po-row-actions";
 
@@ -329,7 +330,7 @@ export function OrdersBoard({
 
   return (
     <main className="px-6 py-5 space-y-3">
-      <header className="flex items-center gap-2.5">
+      <header className="flex items-center gap-2.5 flex-wrap">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">商品採購</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
           4.4
@@ -337,6 +338,9 @@ export function OrdersBoard({
         <span className="text-[12px] text-[#9A9890]">
           建立採購單、供應商確認、追蹤到貨進度
         </span>
+        <div className="ml-auto">
+          <PdcCountdown />
+        </div>
       </header>
 
       {/* KPI Row — 5 cards */}
@@ -435,6 +439,15 @@ export function OrdersBoard({
             >
               重置
             </button>
+            <Link
+              href="/parts/purchase/orders/new?urgent=1"
+              className={`h-[30px] px-3 rounded text-[12.5px] font-medium inline-flex items-center bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] ${
+                canEdit ? "" : "opacity-60 pointer-events-none"
+              }`}
+              title="緊急採購：PDC 截單前一鍵建緊急單"
+            >
+              ⚡ 緊急送單
+            </Link>
             <Link
               href="/parts/purchase/orders/new"
               className={`h-[30px] px-3 rounded text-[12.5px] font-medium inline-flex items-center ${

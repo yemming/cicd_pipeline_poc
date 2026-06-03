@@ -57,6 +57,8 @@ export type PricingPolicy = {
   status: PricingStatus;
   effectiveDate: string | null;
   auditLog: PricingAuditEntry[];
+  /** G4：核准生效後要同步定價的下游 service_packages.code 清單。 */
+  targetPackageCodes: string[];
   sortOrder: number | null;
 };
 
@@ -97,6 +99,7 @@ type RawConfig = {
   status?: PricingStatus;
   effective_date?: string;
   audit_log?: PricingAuditEntry[];
+  target_package_codes?: string[] | null;
 };
 
 /** business_rules row → PricingPolicy（攤平 config + 算衍生欄）。 */
@@ -123,6 +126,7 @@ function rowToPolicy(row: { id: string; config: RawConfig | null; sort_order: nu
     status: c.status ?? "draft",
     effectiveDate: c.effective_date ?? null,
     auditLog: c.audit_log ?? [],
+    targetPackageCodes: (c.target_package_codes ?? []).filter(Boolean),
     sortOrder: row.sort_order,
   };
 }
@@ -151,6 +155,30 @@ export async function getPricingPolicy(brandId: string, id: string): Promise<Pri
     .maybeSingle();
   if (!data) return null;
   return rowToPolicy(data as { id: string; config: RawConfig | null; sort_order: number | null });
+}
+
+/** 政策摘要（07B 徽章用：把套餐的 pricing_policy_id 解成可讀名稱/狀態）。 */
+export type PricingPolicySummary = { id: string; name: string; status: PricingStatus };
+
+/**
+ * 撈某 brand 全部定價政策的 id → { name, status } map（07B 服務套餐徽章解析用）。
+ * 只取輕量欄位，不算衍生欄。
+ */
+export async function getPricingPolicyNameMap(
+  brandId: string,
+): Promise<Record<string, PricingPolicySummary>> {
+  const client = await createClient();
+  const { data } = await client
+    .from("business_rules")
+    .select("id, config")
+    .eq("brand_id", brandId)
+    .eq("rule_kind", "pricing_policy");
+  const map: Record<string, PricingPolicySummary> = {};
+  for (const row of (data ?? []) as Array<{ id: string; config: RawConfig | null }>) {
+    const c = row.config ?? {};
+    map[row.id] = { id: row.id, name: c.name ?? "(未命名)", status: c.status ?? "draft" };
+  }
+  return map;
 }
 
 /** 撈門店成交偏差（pricing_deviation 單列 config.rows[]）。 */

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { createPurchaseOrder } from "@/domain/orders";
 
@@ -35,9 +35,11 @@ export function NewPOForm({
   items: ItemPick[];
 }) {
   const router = useRouter();
+  // WP-H：從 10B 告警 / 採購頁「緊急送單」帶 ?urgent=1 進來 → 預設緊急採購
+  const isUrgent = useSearchParams().get("urgent") === "1";
   const [vendorId, setVendorId] = useState(suppliers[0]?.id ?? "");
   const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? "");
-  const [purchaseType, setPurchaseType] = useState("planned");
+  const [purchaseType, setPurchaseType] = useState(isUrgent ? "emergency" : "planned");
   const [etaDate, setEtaDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([
@@ -84,6 +86,11 @@ export function NewPOForm({
 
   return (
     <main className={`px-6 py-5 space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
+      {isUrgent && (
+        <div className="rounded-lg px-4 py-2.5 text-[12.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000]">
+          ⚡ <b>緊急送單</b>：已預設為「緊急採購」。請於 PDC 截單前送出（DUCATI 17:00 / 台灣代理 15:00），逾時將產生加急費用或延至隔日到貨。
+        </div>
+      )}
       {/* 1. Breadcrumb + CRUD pill bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2 text-[12px] text-[#9A9890]">

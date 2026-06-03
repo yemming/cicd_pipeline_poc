@@ -9,6 +9,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { listVehiclePendingItems } from "./service-quotes";
 
 import type {
   CheckRow,
@@ -248,4 +249,129 @@ export async function listAppointmentCandidates(): Promise<AppointmentCandidate[
     scheduled_at: a.scheduled_at,
     status: a.status,
   }));
+}
+
+// ───────────────────────────────────────────────────────────
+// 包D：接待預檢「車牌查詢」— 輸入車牌帶出車主 / 車型 / 待處理項 / 特殊標籤
+//  - found=false → UI 引導去建檔
+//  - pending_items：上次拒絕的追加項（vehicle_pending_items）下次帶出提醒
+//  - special_tags：客戶 metadata.tags + customer_type(VIP/黑名單) + 車輛 metadata.special_tags
+// ───────────────────────────────────────────────────────────
+export type PlateLookupResult = {
+  found: boolean;
+  vehicle: {
+    id: string;
+    license_plate: string | null;
+    model_name: string | null;
+    current_mileage: number | null;
+    warranty_until: string | null;
+  } | null;
+  customer: { id: string; name: string | null; phone: string | null } | null;
+  pending_items: { item_desc: string; reason: string | null; created_at: string }[];
+  special_tags: string[];
+};
+
+function deriveSpecialTags(
+  customerType: string | null,
+  custMeta: Record<string, unknown>,
+  vehMeta: Record<string, unknown>,
+): string[] {
+  const tags = new Set<string>();
+  // 客戶分級：VIP / 黑名單 視為特殊
+  if (customerType && /vip|黑名單|blacklist|重點|重要/i.test(customerType)) {
+    tags.add(customerType);
+  }
+  const collect = (v: unknown) => {
+    if (Array.isArray(v)) v.forEach((x) => typeof x === "string" && tags.add(x));
+    else if (typeof v === "string" && v.trim()) tags.add(v.trim());
+  };
+  collect(custMeta.tags);
+  collect(custMeta.special_tags);
+  collect((custMeta as { flags?: unknown }).flags);
+  collect(vehMeta.special_tags);
+  collect(vehMeta.tags);
+  if (vehMeta.is_special === true) tags.add("特殊車輛");
+  return Array.from(tags);
+}
+
+export async function lookupVehicleByPlate(
+  plate: string,
+): Promise<PlateLookupResult> {
+  const empty: PlateLookupResult = {
+    found: false,
+    vehicle: null,
+    customer: null,
+    pending_items: [],
+    special_tags: [],
+  };
+  const trimmed = plate.trim();
+  if (!trimmed) return empty;
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data: veh } = await supabase
+    .from("customer_vehicles")
+    .select(
+      "id, license_plate, current_mileage, warranty_until, customer_id, metadata, vehicle_models(display_name, model_name)",
+    )
+    .eq("brand_id", brand)
+    .ilike("license_plate", trimmed)
+    .limit(1)
+    .maybeSingle();
+  if (!veh) return empty;
+
+  const v = veh as {
+    id: string;
+    license_plate: string | null;
+    current_mileage: number | null;
+    warranty_until: string | null;
+    customer_id: string | null;
+    metadata: Record<string, unknown> | null;
+    vehicle_models: { display_name?: string; model_name?: string } | { display_name?: string; model_name?: string }[] | null;
+  };
+  const m = Array.isArray(v.vehicle_models) ? v.vehicle_models[0] : v.vehicle_models;
+
+  let customer: PlateLookupResult["customer"] = null;
+  let customerType: string | null = null;
+  let custMeta: Record<string, unknown> = {};
+  if (v.customer_id) {
+    const { data: c } = await supabase
+      .from("customers")
+      .select("id, name, phone, customer_type, metadata")
+      .eq("id", v.customer_id)
+      .maybeSingle();
+    if (c) {
+      const cc = c as {
+        id: string;
+        name: string | null;
+        phone: string | null;
+        customer_type: string | null;
+        metadata: Record<string, unknown> | null;
+      };
+      customer = { id: cc.id, name: cc.name, phone: cc.phone };
+      customerType = cc.customer_type;
+      custMeta = cc.metadata ?? {};
+    }
+  }
+
+  const pending = await listVehiclePendingItems(brand, v.id);
+
+  return {
+    found: true,
+    vehicle: {
+      id: v.id,
+      license_plate: v.license_plate,
+      model_name: m?.display_name ?? m?.model_name ?? null,
+      current_mileage: v.current_mileage,
+      warranty_until: v.warranty_until,
+    },
+    customer,
+    pending_items: pending.map((p) => ({
+      item_desc: p.itemDesc,
+      reason: p.reason,
+      created_at: p.createdAt,
+    })),
+    special_tags: deriveSpecialTags(customerType, custMeta, v.metadata ?? {}),
+  };
 }

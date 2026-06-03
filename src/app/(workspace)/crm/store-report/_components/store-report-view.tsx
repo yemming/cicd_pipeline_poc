@@ -65,7 +65,7 @@ export function StoreReportView({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const { kpi, npsByKind, npsBenchmark, npsTrend, topTags, saStaffRanking, alerts, overdueTrend, dimensionInsights, pushOpenRate } = data;
+  const { kpi, npsByKind, npsBenchmark, npsTrend, topTags, saStaffRanking, alerts, overdueTrend, dimensionInsights, pushOpenRate, testDriveConversion, salesStaffRanking } = data;
 
   const salesNps = npsByKind.find((n) => n.kind === "sales");
   const saNps = npsByKind.find((n) => n.kind === "aftersales");
@@ -86,7 +86,7 @@ export function StoreReportView({
     );
   };
 
-  // 客戶標籤拆分（demo：前 5 個放 RS 側、後 5 個放 SA 側；real-data 不一定有 group 欄）
+  // 客戶標籤拆分：前 5 個放 RS 側、後 5 個放 SA 側（標籤無部門 group 欄，依高頻順序均分顯示）
   const tagsForSales = useMemo(() => topTags.slice(0, 5), [topTags]);
   const tagsForSa = useMemo(() => topTags.slice(5, 10).length > 0 ? topTags.slice(5, 10) : topTags.slice(0, 5), [topTags]);
 
@@ -172,7 +172,7 @@ export function StoreReportView({
 
       {/* SA 真實數據說明 */}
       <div className="bg-[#0C5A46] text-[#A8DFC9] px-4 py-2 rounded text-[11.5px] flex items-center gap-2">
-        ✅ <b>v2 升版說明：</b>售後（SA）側數據已從 CRM01B–06B 各模組同步真實數據，不再是靜態示範值。
+        ✅ <b>v2 升版說明：</b>售後（SA）與銷售（RS）側數據皆已從各業務模組同步真實數據（nps_responses / work_orders / sales_orders / sales_test_drives），不再是靜態示範值。
       </div>
 
       {/* 期間切換 */}
@@ -197,8 +197,8 @@ export function StoreReportView({
           <span className="px-2 py-0.5 text-[10.5px] rounded font-semibold bg-[#E1F5EE] text-[#0F6E56] border border-[#5DCAA5]">
             SA 真實數據
           </span>
-          <span className="px-2 py-0.5 text-[10.5px] rounded font-semibold bg-[#FDF3E3] text-[#D4820A] border border-[#F0C97E]">
-            RS 參考數據
+          <span className="px-2 py-0.5 text-[10.5px] rounded font-semibold bg-[#E1F5EE] text-[#0F6E56] border border-[#5DCAA5]">
+            RS 真實數據
           </span>
         </span>
       </div>
@@ -252,7 +252,7 @@ export function StoreReportView({
           <NpsBox
             tone="sales"
             label="銷售 NPS（RS）"
-            tag={{ text: "參考值", tone: "static" }}
+            tag={{ text: "真實數據", tone: "live" }}
             value={salesNps?.npsScore ?? 0}
             delta={salesNpsDelta}
             deltaLabel={`vs 上月 · ${salesNps?.total ?? 0} 筆回答`}
@@ -345,26 +345,62 @@ export function StoreReportView({
         badge="RS 主管操作範圍"
         readonly
         headerStyle="sales"
-        rightTag={{ text: "參考數據（demo lead 估算）", tone: "static" }}
+        rightTag={{ text: "✅ 真實數據（sales_orders）", tone: "live" }}
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-3">
-          <Kpi accent="sales" label="新車成交" value={`${kpi.newCarCount} 台`} sub={`目標 10 台 | 達成 ${Math.round((kpi.newCarCount / 10) * 100)}%`} />
-          <Kpi accent="sales" label="試駕轉化率" value="62%" sub="試駕 → 開立報價單（demo）" />
+          <Kpi accent="sales" label="新車成交" value={`${salesStaffRanking.reduce((s, r) => s + r.newCarCount, 0)} 台`} sub={`期間 sales_orders 新車合約`} />
+          <Kpi
+            accent="sales"
+            label="試駕轉化率"
+            value={testDriveConversion.rate !== null ? `${testDriveConversion.rate}%` : "—"}
+            sub={
+              testDriveConversion.completed > 0
+                ? `完成試駕 ${testDriveConversion.completed} → 成交 ${testDriveConversion.converted}`
+                : "期間內無完成試駕（資料待累積）"
+            }
+          />
           <Kpi accent="sales" label="D+3 回訪完成率" value={`${data.salesLeadKpi.active > 0 ? Math.round((data.salesLeadKpi.active / (data.salesLeadKpi.active + data.salesLeadKpi.dormant)) * 100) : 0}%`} sub={`${data.salesLeadKpi.active}/${data.salesLeadKpi.active + data.salesLeadKpi.dormant} 件`} />
           <Kpi accent="sales" label="休眠潛客（RS）" value={fmtCount(data.salesLeadKpi.dormant)} sub={`戰敗 ${data.salesLeadKpi.lost} 件 + 待喚回 ${data.salesLeadKpi.reviveCandidates}`} valueColor="#D4820A" />
         </div>
 
-        <SectionTitle>RS 人員業績排行（demo · 設計稿示意）</SectionTitle>
+        <SectionTitle>
+          RS 人員業績排行（本期）
+          <span className="text-[10px] font-normal tracking-normal normal-case text-[#0F6E56] ml-2">
+            ✅ 真實數據來源：sales_orders（依 rs_name 聚合）
+          </span>
+        </SectionTitle>
         <StaffTable
-          headers={["排名", "銷售顧問", "新車成交", "中古成交", "試駕次數", "NPS 均分", "D+3 完成率", "本月達成進度"]}
-          rows={[
-            { rank: 1, cells: ["陳志明", "4 台", "2 台", "12 次", "8.9", "92%", { progress: 80, label: "80%", color: "#1A3A5C" }] },
-            { rank: 2, cells: ["林雅婷 RS", "3 台", "1 台", "9 次", "8.6", "88%", { progress: 65, label: "65%", color: "#1A3A5C" }] },
-            { rank: 3, cells: ["王建宏", "1 台", "0 台", "5 次", "7.4", "72%", { progress: 28, label: "28%", color: "#CC0000" }] },
-          ]}
+          headers={["排名", "銷售顧問", "新車成交", "中古成交", "試駕次數", "成交合計", "相對第一名"]}
+          rows={
+            salesStaffRanking.length > 0
+              ? salesStaffRanking.map((s) => ({
+                  rank: s.rank,
+                  cells: [
+                    s.name,
+                    `${s.newCarCount} 台`,
+                    `${s.usedCarCount} 台`,
+                    s.testDriveCount > 0 ? `${s.testDriveCount} 次` : "—",
+                    `${s.totalDeals} 台`,
+                    {
+                      progress: s.topShareRate,
+                      label: `${s.topShareRate}%`,
+                      color: "#1A3A5C",
+                    },
+                  ],
+                }))
+              : [{ rank: 1, cells: ["（期間內無成交資料）", "—", "—", "—", "—", "—"] }]
+          }
         />
+        <div className="text-[10.5px] text-[#9A9890] mt-1.5 leading-relaxed">
+          ※ 「相對第一名」為本期成交台數相對排行第一名的占比（排行視覺化用）；系統尚無個別 RS 銷售目標欄位，故不顯示個人達成率。試駕次數依「試駕客戶後續成交對應的 RS」歸戶，故部分顯示「—」屬正常（試駕未留銷售顧問或尚未成交）。</div>
 
-        <Alert level="amber" title="店長注意" body="王建宏本月目標達成率僅 28%，試駕次數偏低（5 次），建議與 RS 主管討論輔導方向，並檢視其潛客名單中是否有可啟動的機會。" />
+        {salesStaffRanking.length > 0 && salesStaffRanking[salesStaffRanking.length - 1].totalDeals * 2 < salesStaffRanking[0].totalDeals && (
+          <Alert
+            level="amber"
+            title="店長注意"
+            body={`本期成交台數最低的 RS「${salesStaffRanking[salesStaffRanking.length - 1].name}」僅 ${salesStaffRanking[salesStaffRanking.length - 1].totalDeals} 台，相對第一名「${salesStaffRanking[0].name}」（${salesStaffRanking[0].totalDeals} 台）落差較大，建議與 RS 主管討論輔導方向、檢視其潛客名單中可啟動的機會。`}
+          />
+        )}
       </DeptSection>
 
       {/* ═══ 售後部門 SA ═══ */}

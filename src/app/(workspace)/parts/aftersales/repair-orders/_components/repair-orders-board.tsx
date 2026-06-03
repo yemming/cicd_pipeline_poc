@@ -12,6 +12,8 @@ import {
   PREFIX_P1_DEFS,
   PREFIX_P2_DEFS,
   RO_STATUS_OPTIONS,
+  RO_PRIORITY_SORT,
+  priorityDef,
 } from "@/domain/repair-orders.constants";
 import type {
   RepairOrderListFilters,
@@ -260,6 +262,23 @@ export function RepairOrdersBoard({
         exportValue: (r) =>
           r.estimated_subtotal != null ? String(r.estimated_subtotal) : "",
         sortValue: (r) => Number(r.estimated_subtotal ?? 0),
+      },
+      {
+        id: "priority",
+        header: "優先級",
+        width: 86,
+        cell: (r) => {
+          const d = priorityDef(r.priority);
+          return (
+            <span
+              className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium ${d.chip}`}
+            >
+              {d.emoji} {d.label}
+            </span>
+          );
+        },
+        exportValue: (r) => priorityDef(r.priority).label,
+        sortValue: (r) => RO_PRIORITY_SORT[r.priority ?? "normal"] ?? 1,
       },
       {
         id: "status",

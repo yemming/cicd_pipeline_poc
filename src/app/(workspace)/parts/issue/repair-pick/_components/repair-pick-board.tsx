@@ -4,11 +4,20 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import type { StockIssueListRow } from "@/domain/issues";
+import type { StockIssueListRow, PendingPartsWorkorder } from "@/domain/issues";
 import { voidIssue } from "@/domain/issues";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
 type Banner = { ok: boolean; msg: string } | null;
+
+const PRIORITY_CHIP: Record<
+  PendingPartsWorkorder["priority"],
+  { label: string; chip: string }
+> = {
+  urgent: { label: "緊急", chip: "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]" },
+  normal: { label: "一般", chip: "bg-[#FDF3E3] text-[#854F0B] border border-[#F0D9A8]" },
+  flexible: { label: "可彈性", chip: "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]" },
+};
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
   draft:     { label: "草稿",   chip: "bg-[#F2F2F2] text-[#6B6A68]" },
@@ -35,6 +44,7 @@ export function RepairPickBoard({
   rows,
   canEdit,
   warehouses,
+  pendingWorkorders,
   initialStatus,
   initialQ,
   initialWarehouse,
@@ -42,6 +52,7 @@ export function RepairPickBoard({
   rows: StockIssueListRow[];
   canEdit: boolean;
   warehouses: Array<{ id: string; code: string | null; name: string }>;
+  pendingWorkorders: PendingPartsWorkorder[];
   initialStatus: string;
   initialQ: string;
   initialWarehouse: string;
@@ -54,10 +65,45 @@ export function RepairPickBoard({
   const [banner, setBanner] = useState<Banner>(null);
   const [voidModal, setVoidModal] = useState<{ id: string; gi_no: string } | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [scanInput, setScanInput] = useState("");
 
   function flash(b: Banner) {
     setBanner(b);
     if (b?.ok) setTimeout(() => setBanner(null), 2200);
+  }
+
+  function gotoPick(roId: string) {
+    startTransition(() =>
+      router.push(`/parts/issue/repair-pick/new?ro=${encodeURIComponent(roId)}`),
+    );
+  }
+
+  function refreshBanner() {
+    startTransition(() => router.refresh());
+  }
+
+  // 掃描槍 = 鍵盤輸入，Enter 觸發；比對待備料工單的 RO 工單號（容大小寫/前後空白）
+  function handleScan() {
+    const term = scanInput.trim().toLowerCase();
+    if (!term) return;
+    const hit = pendingWorkorders.find(
+      (w) => (w.ro_no ?? "").toLowerCase() === term,
+    );
+    if (hit) {
+      setScanInput("");
+      gotoPick(hit.id);
+      return;
+    }
+    // 容許部分比對（掃描器有時帶 prefix/suffix）
+    const partial = pendingWorkorders.find((w) =>
+      (w.ro_no ?? "").toLowerCase().includes(term),
+    );
+    if (partial) {
+      setScanInput("");
+      gotoPick(partial.id);
+      return;
+    }
+    flash({ ok: false, msg: `查無待備料工單「${scanInput.trim()}」` });
   }
 
   function applyFilter() {
@@ -226,6 +272,123 @@ export function RepairPickBoard({
           依 RO 工單查詢 · 倉管執行正式出庫 · 出庫後自動觸發庫存告警檢查
         </span>
       </header>
+
+      {/* 待備料工單橫幅 */}
+      {pendingWorkorders.length > 0 ? (
+        <section className="bg-white border border-[#F0D9A8] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#FDF3E3] flex items-center gap-2 flex-wrap">
+            <span className="material-symbols-outlined text-[18px] text-[#854F0B]">
+              inventory_2
+            </span>
+            <span className="text-[13px] font-semibold text-[#854F0B]">
+              共 {pendingWorkorders.length} 張工單需備料
+            </span>
+            {pendingWorkorders.some((w) => w.is_urgent) ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]">
+                {pendingWorkorders.filter((w) => w.is_urgent).length} 張緊急
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={refreshBanner}
+              disabled={isPending}
+              className="ml-auto h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] inline-flex items-center gap-1 disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[14px]">refresh</span>
+              {isPending ? "重新整理中⋯" : "重新整理"}
+            </button>
+          </header>
+
+          <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+            {pendingWorkorders.map((w) => {
+              const pr = PRIORITY_CHIP[w.priority];
+              return (
+                <div
+                  key={w.id}
+                  className={`border rounded-lg px-3 py-2.5 flex flex-col gap-1.5 ${
+                    w.is_urgent
+                      ? "border-[#F5AEAD] bg-[#FDECEA]/30"
+                      : "border-[#EEECE6] bg-[#F8F7F4]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono font-semibold text-[12.5px] text-[#1A3A5C]">
+                      {w.ro_no}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${pr.chip}`}
+                    >
+                      {pr.label}
+                    </span>
+                  </div>
+                  <div className="text-[12px] text-[#2C2C2A]">
+                    {w.customer_name ?? "—"}
+                    <span className="text-[#9A9890]">
+                      {" "}
+                      · {w.vehicle_model_name ?? "未知車款"}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-[#9A9890] flex items-center gap-2 flex-wrap">
+                    {w.license_plate ? (
+                      <span className="font-mono text-[#5A5955]">{w.license_plate}</span>
+                    ) : null}
+                    <span>
+                      料件 {w.parts_line_count} 項 / {w.parts_qty_total} 件
+                    </span>
+                  </div>
+                  {w.parts_summary ? (
+                    <div className="text-[11px] text-[#5A5955] truncate" title={w.parts_summary}>
+                      {w.parts_summary}
+                    </div>
+                  ) : null}
+                  <div className="mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => gotoPick(w.id)}
+                      disabled={isPending || !canEdit}
+                      className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50 inline-flex items-center gap-1"
+                    >
+                      備料 →
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 工單號掃描帶入 */}
+          <div className="px-4 py-2.5 border-t border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2 flex-wrap">
+            <span className="material-symbols-outlined text-[16px] text-[#9A9890]">
+              barcode_scanner
+            </span>
+            <input
+              type="text"
+              value={scanInput}
+              onChange={(e) => setScanInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleScan();
+                }
+              }}
+              disabled={isPending}
+              placeholder="輸入或掃描工單號…（Enter 帶入備料）"
+              className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none w-[280px] disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={handleScan}
+              disabled={isPending || !scanInput.trim()}
+              className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60"
+            >
+              {isPending ? "帶入中⋯" : "帶入"}
+            </button>
+            <span className="text-[11px] text-[#9A9890]">
+              掃描槍以鍵盤輸入工單號，Enter 即自動跳至備料頁
+            </span>
+          </div>
+        </section>
+      ) : null}
 
       {/* v2 RO 串接說明 banner */}
       <section className="bg-[#EAF4FB] border border-[#85B7EB] rounded-lg px-4 py-2.5 text-[12px] text-[#185FA5] leading-relaxed">

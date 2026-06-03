@@ -25,6 +25,7 @@ import {
   type PricingPolicyInput,
 } from "@/lib/group/pricing-policy-actions";
 import type { PricingPolicy, PricingKind, PricingStatus } from "@/domain/group-pricing";
+import type { ServicePackage } from "@/domain/service-packages";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit" | "create";
@@ -45,9 +46,11 @@ const fmtPct = (rate: number | null | undefined, d = 1): string =>
 export type PricingDetailViewProps = {
   policy: PricingPolicy | null;
   initialMode: Mode;
+  /** G4：本 brand 全部服務套餐（含停用），給「下游服務套餐」多選用。 */
+  servicePackages: ServicePackage[];
 };
 
-export function PricingDetailView({ policy, initialMode }: PricingDetailViewProps) {
+export function PricingDetailView({ policy, initialMode, servicePackages }: PricingDetailViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<Mode>(initialMode);
@@ -63,6 +66,7 @@ export function PricingDetailView({ policy, initialMode }: PricingDetailViewProp
   const [discMin, setDiscMin] = useState<string>(policy?.discMin != null ? String(policy.discMin) : "");
   const [discMax, setDiscMax] = useState<string>(policy?.discMax != null ? String(policy.discMax) : "");
   const [effDate, setEffDate] = useState(policy?.effectiveDate ?? "2026-06-01");
+  const [targetCodes, setTargetCodes] = useState<string[]>(policy?.targetPackageCodes ?? []);
 
   const msrpN = msrp ? Number(msrp) : null;
   const costN = cost ? Number(cost) : null;
@@ -83,6 +87,7 @@ export function PricingDetailView({ policy, initialMode }: PricingDetailViewProp
       setDiscMin(policy.discMin != null ? String(policy.discMin) : "");
       setDiscMax(policy.discMax != null ? String(policy.discMax) : "");
       setEffDate(policy.effectiveDate ?? "2026-06-01");
+      setTargetCodes(policy.targetPackageCodes ?? []);
     }
     setMode("edit");
   };
@@ -102,6 +107,7 @@ export function PricingDetailView({ policy, initialMode }: PricingDetailViewProp
     disc_min: minN,
     disc_max: maxN,
     effective_date: effDate || null,
+    target_package_codes: targetCodes,
   });
 
   const submitEdit = () => {
@@ -145,9 +151,12 @@ export function PricingDetailView({ policy, initialMode }: PricingDetailViewProp
             ? await approvePricingPolicyAction(policy.id)
             : await rejectPricingPolicyAction(policy.id);
       if (res.ok) {
+        const synced = res.data.syncedCount ?? 0;
+        const approveMsg =
+          synced > 0 ? `✓ 已核准生效，已同步 ${synced} 個服務套餐定價` : "✓ 已核准生效";
         showBanner({
           ok: true,
-          msg: action === "review" ? "✓ 已送審" : action === "approve" ? "✓ 已核准生效" : "✓ 已退回草稿",
+          msg: action === "review" ? "✓ 已送審" : action === "approve" ? approveMsg : "✓ 已退回草稿",
         });
         router.refresh();
       } else {
@@ -429,6 +438,58 @@ export function PricingDetailView({ policy, initialMode }: PricingDetailViewProp
           </div>
         </div>
       </SectionCard>
+
+      <SectionCard title="▼ 下游服務套餐（核准後同步定價）">
+        <div className="text-[11px] text-[#9A9890] mb-2">
+          勾選的服務套餐將在本政策<b>核准生效</b>時，把建議售價同步成上方 MSRP（04B 快速報價 / 07B
+          套餐費率即時反映）。未勾選則不影響任何套餐。
+        </div>
+        {servicePackages.length === 0 ? (
+          <div className="text-[12px] text-[#9A9890] border border-dashed border-[#D5D3CB] rounded px-3 py-3 text-center">
+            本品牌尚無服務套餐可綁定
+          </div>
+        ) : (
+          <div className="bg-white border border-[#EEECE6] rounded-lg divide-y divide-[#F4F3F0]">
+            {servicePackages.map((p) => {
+              const checked = targetCodes.includes(p.code);
+              return (
+                <label
+                  key={p.id}
+                  className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-[#FAFAF8]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) =>
+                      setTargetCodes((prev) =>
+                        e.target.checked ? [...prev, p.code] : prev.filter((c) => c !== p.code),
+                      )
+                    }
+                    className="w-3.5 h-3.5 accent-[#1A3A5C]"
+                  />
+                  <span className="font-mono text-[11.5px] text-[#1A3A5C] font-semibold min-w-[110px]">
+                    {p.code}
+                  </span>
+                  <span className="text-[12.5px] text-[#2C2C2A] flex-1 min-w-0 truncate">{p.name}</span>
+                  <span className="text-[11.5px] text-[#9A9890] font-mono whitespace-nowrap">
+                    現價 {fmtInt(p.listPrice)}
+                  </span>
+                  {!p.isActive && (
+                    <span className="text-[10.5px] px-1.5 py-0.5 rounded-md bg-[#F2F2F2] text-[#6B6A68] whitespace-nowrap">
+                      停用
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        )}
+        {targetCodes.length > 0 && (
+          <div className="text-[11px] text-[#0F6E56] mt-2">
+            ✅ 已選 {targetCodes.length} 個套餐，核准生效時將同步定價。
+          </div>
+        )}
+      </SectionCard>
     </>
   );
 
@@ -540,6 +601,36 @@ export function PricingDetailView({ policy, initialMode }: PricingDetailViewProp
               <Kv label="生效日期" value={policy.effectiveDate ?? "—"} small />
               <Kv label="審核狀態" value={STATUS_META[policy.status].label} small />
             </div>
+          </SectionCard>
+
+          <SectionCard title="▼ 下游服務套餐（核准後同步定價）">
+            {policy.targetPackageCodes.length === 0 ? (
+              <div className="text-[12px] text-[#9A9890] py-1">
+                未綁定下游套餐（核准生效不會同步任何套餐定價）
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <div className="text-[11px] text-[#9A9890]">
+                  {policy.status === "active"
+                    ? "已核准生效，下列套餐定價已同步本政策 MSRP："
+                    : "核准生效後將同步下列套餐定價為本政策 MSRP："}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {policy.targetPackageCodes.map((code) => {
+                    const pkg = servicePackages.find((p) => p.code === code);
+                    return (
+                      <span
+                        key={code}
+                        className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5]"
+                      >
+                        <span className="font-mono font-semibold">{code}</span>
+                        {pkg && <span className="text-[#5A7FA5]">{pkg.name}</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard title="▼ 異動稽核 Audit Log">

@@ -1,0 +1,868 @@
+<!DOC
+
+  <!-- ══ 新增：後端串接說明 ══ -->
+  <div style="background:#FDF3E3;border:1px solid #F0C97E;border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:#854F0B;">
+    ⚠️ <b>重要串接說明：</b>定價設定核准後將影響所有門店的04B快速報價查詢顯示價格，必須確保原子性操作。
+    草稿儲存：<code>POST /api/pricing</code>　｜　送審核准：<code>PATCH /api/pricing/{id}/status</code>
+    （status=approved後自動同步至07B_服務套餐與費率設定及04B_快速報價查詢）　｜
+    稽核日誌：<code>GET /api/pricing/audit-logs</code>
+  </div>
+TYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRP14 定價折扣設定 — DealerOS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  :root {
+    --navy:#1A3A5C; --navy-bg:#EAF4FB; --navy-bd:#85B7EB;
+    --teal:#0F6E56; --teal-bg:#E1F5EE; --teal-bd:#5DCAA5;
+    --red:#C8001A;  --red-bg:#FDECEA;  --red-bd:#F5AEAD;
+    --amber:#854F0B; --amber-bg:#FDF3E3; --amber-bd:#F0C97E; --amber-bright:#F5B942;
+    --purple:#534AB7; --purple-bg:#EEEDFE; --purple-bd:#AFA9EC;
+    --header:#0D2438; --bg:#F8F7F4; --white:#FFFFFF;
+    --text:#1A1A1A; --text-sub:#5A5A5A; --border:#E0DDD6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'PingFang TC','Noto Sans TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+  /* TOPBAR */
+  .topbar{background:var(--header);height:52px;display:flex;align-items:center;padding:0 24px;gap:16px;position:sticky;top:0;z-index:300;border-bottom:2px solid var(--amber);}
+  .topbar-brand{color:var(--amber-bright);font-size:15px;font-weight:700;letter-spacing:.05em;}
+  .topbar-sep{color:#3A5A7A;}
+  .topbar-title{color:#C8D8E8;font-size:13px;}
+  .topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+  .topbar-badge{background:rgba(133,79,11,.25);color:var(--amber-bright);font-size:11px;padding:2px 10px;border-radius:10px;border:1px solid rgba(240,201,126,.3);}
+
+  /* PAGE HEADER */
+  .page-header{background:linear-gradient(135deg,#3A1F02 0%,#5C2E05 40%,#854F0B 100%);padding:28px 32px 24px;position:relative;overflow:hidden;}
+  .page-header::before{content:'';position:absolute;right:-40px;top:-40px;width:260px;height:260px;background:radial-gradient(circle,rgba(240,201,126,.12) 0%,transparent 70%);border-radius:50%;}
+  .ph-breadcrumb{font-size:11px;color:rgba(240,201,126,.6);margin-bottom:8px;letter-spacing:.08em;}
+  .ph-title{font-size:22px;font-weight:700;color:#FFF;display:flex;align-items:center;gap:10px;position:relative;z-index:1;}
+  .ph-title-icon{width:32px;height:32px;background:rgba(240,201,126,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .ph-subtitle{margin-top:6px;font-size:13px;color:rgba(240,201,126,.75);position:relative;z-index:1;}
+  .ph-controls{position:absolute;right:32px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:10px;z-index:2;}
+  .ph-select{background:rgba(255,255,255,.1);border:1px solid rgba(240,201,126,.35);color:#FFF;padding:6px 28px 6px 10px;border-radius:6px;font-size:12px;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23F0C97E'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
+  .ph-select option{background:#3A1F02;color:#FFF;}
+  .ph-btn{background:var(--amber);color:#FFF;border:none;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600;}
+  .ph-btn:hover{background:#9D5E0D;}
+  .ph-btn-new{background:var(--amber-bright);color:#3A1F02;border:none;padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:700;}
+  .ph-btn-new:hover{background:#E8A73A;}
+
+  /* MAIN */
+  .main{padding:24px 32px 48px;}
+
+  /* SECTION TITLE */
+  .section-title{font-size:13px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+  .section-title::after{content:'';flex:1;height:1px;background:var(--amber-bd);}
+
+  /* ALERT */
+  .alert-banner{background:var(--red-bg);border:1px solid var(--red-bd);border-left:4px solid var(--red);border-radius:8px;padding:10px 16px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-size:13px;color:#8B0012;}
+  .alert-items{display:flex;gap:20px;flex-wrap:wrap;}
+  .alert-item{display:flex;align-items:center;gap:6px;}
+  .alert-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;}
+
+  /* KPI */
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+  .kpi-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden;transition:box-shadow .2s;}
+  .kpi-card:hover{box-shadow:0 4px 16px rgba(133,79,11,.12);}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--amber);}
+  .kpi-card.warn::before{background:var(--red);}
+  .kpi-card.good::before{background:var(--teal);}
+  .kpi-card.info::before{background:var(--navy);}
+  .kpi-label{font-size:11px;color:var(--text-sub);margin-bottom:8px;}
+  .kpi-value{font-size:24px;font-weight:700;color:var(--text);line-height:1;margin-bottom:6px;}
+  .kpi-value span{font-size:13px;font-weight:400;color:var(--text-sub);}
+  .kpi-sub{font-size:11px;color:var(--text-sub);margin-top:4px;}
+
+  /* CATEGORY TABS */
+  .cat-tabs{display:flex;gap:8px;margin-bottom:20px;}
+  .cat-tab{padding:8px 18px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);color:var(--text-sub);background:var(--white);transition:all .15s;}
+  .cat-tab:hover{border-color:var(--amber-bd);color:var(--amber);}
+  .cat-tab.active{background:var(--amber);color:#FFF;border-color:var(--amber);}
+
+  /* CARD */
+  .card{background:var(--white);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:24px;}
+  .card-header{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .card-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;}
+  .card-title .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);}
+  .card-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);}
+  .card-tag.green{background:var(--teal-bg);color:var(--teal);border-color:var(--teal-bd);}
+  .card-tag.red{background:var(--red-bg);color:var(--red);border-color:var(--red-bd);}
+  .card-tag.navy{background:var(--navy-bg);color:var(--navy);border-color:var(--navy-bd);}
+  .card-body{padding:18px;}
+
+  /* DATA TABLE */
+  .data-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .data-table th{padding:9px 12px;text-align:left;font-size:11px;color:var(--text-sub);font-weight:600;border-bottom:1px solid var(--border);background:#FAFAF8;white-space:nowrap;}
+  .data-table td{padding:10px 12px;border-bottom:1px solid #F0EDE8;vertical-align:middle;}
+  .data-table tr:last-child td{border-bottom:none;}
+  .data-table tr:hover td{background:var(--amber-bg);}
+  .data-table tfoot td{font-weight:700;background:#FAFAF8;border-top:2px solid var(--border);}
+
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;}
+  .badge-ok{background:var(--teal-bg);color:var(--teal);}
+  .badge-warn{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);}
+  .badge-danger{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd);}
+  .badge-navy{background:var(--navy-bg);color:var(--navy);border:1px solid var(--navy-bd);}
+  .badge-draft{background:#F5F5F5;color:#888;border:1px solid #DDD;}
+
+  /* DEVIATION BAR */
+  .dev-bar-wrap{display:flex;align-items:center;gap:8px;}
+  .dev-bar-track{width:80px;height:6px;background:#F0EDE8;border-radius:4px;overflow:visible;position:relative;}
+  .dev-bar-center{position:absolute;left:50%;top:-1px;width:1px;height:8px;background:var(--border);}
+  .dev-bar-fill{position:absolute;height:100%;border-radius:4px;top:0;}
+  .dev-val{font-size:12px;font-weight:600;white-space:nowrap;}
+  .dev-val.pos{color:var(--teal);}
+  .dev-val.neg{color:var(--red);}
+  .dev-val.neu{color:var(--text-sub);}
+
+  /* RANGE DISPLAY */
+  .range-display{display:flex;align-items:center;gap:5px;font-size:12px;}
+  .range-box{background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:4px;padding:2px 7px;font-weight:700;color:var(--amber);font-size:11px;}
+
+  /* PRICE EDIT INLINE */
+  .price-input{border:1px solid var(--amber-bd);border-radius:4px;padding:3px 8px;font-size:12px;width:100px;font-family:inherit;background:var(--amber-bg);color:var(--amber);font-weight:700;}
+  .price-input:focus{outline:none;border-color:var(--amber-bright);box-shadow:0 0 0 2px rgba(245,185,66,.2);}
+
+  /* ACTION BTNS */
+  .btn-edit{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;}
+  .btn-edit:hover{background:var(--amber);color:#FFF;}
+  .btn-log{background:var(--navy-bg);color:var(--navy);border:1px solid var(--navy-bd);padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;}
+  .btn-log:hover{background:var(--navy);color:#FFF;}
+
+  /* AUDIT LOG */
+  .audit-log{display:flex;flex-direction:column;gap:0;}
+  .log-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #F5F5F5;}
+  .log-item:last-child{border-bottom:none;}
+  .log-dot{width:10px;height:10px;border-radius:50%;background:var(--amber);margin-top:3px;flex-shrink:0;}
+  .log-content{flex:1;}
+  .log-title{font-size:12px;font-weight:700;}
+  .log-meta{font-size:11px;color:var(--text-sub);margin-top:2px;}
+  .log-change{font-size:11px;margin-top:3px;color:var(--text);}
+  .log-change .old{color:var(--red);text-decoration:line-through;margin-right:4px;}
+  .log-change .new{color:var(--teal);font-weight:600;}
+
+  /* TWO COL */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;}
+
+  /* ── SIDE PANEL ── */
+  .panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;opacity:0;pointer-events:none;transition:opacity .25s;}
+  .panel-overlay.open{opacity:1;pointer-events:all;}
+  .side-panel{position:fixed;top:0;right:0;width:560px;height:100vh;background:var(--white);z-index:401;transform:translateX(100%);transition:transform .3s ease;overflow-y:auto;display:flex;flex-direction:column;}
+  .side-panel.open{transform:translateX(0);}
+  .panel-header{background:var(--header);padding:18px 24px;display:flex;align-items:center;gap:12px;flex-shrink:0;border-bottom:2px solid var(--amber);}
+  .panel-title{color:#FFF;font-size:16px;font-weight:700;flex:1;}
+  .panel-close{background:none;border:none;color:#8AAABB;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;}
+  .panel-close:hover{color:#FFF;}
+  .panel-body{padding:24px;flex:1;}
+  .panel-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;background:#FAFAF8;}
+
+  /* FORM */
+  .form-section{margin-bottom:22px;}
+  .form-section-title{font-size:12px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--amber-bd);}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px;}
+  .form-row.full{grid-template-columns:1fr;}
+  .form-row.three{grid-template-columns:1fr 1fr 1fr;}
+  .form-group{display:flex;flex-direction:column;gap:5px;}
+  .form-label{font-size:11px;font-weight:600;color:var(--text-sub);}
+  .form-input,.form-select{border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;background:var(--white);color:var(--text);transition:border-color .15s;}
+  .form-input:focus,.form-select:focus{outline:none;border-color:var(--amber-bright);box-shadow:0 0 0 3px rgba(245,185,66,.15);}
+  .form-hint{font-size:11px;color:var(--text-sub);margin-top:2px;}
+  .form-hint.warn{color:var(--red);}
+
+  /* DISCOUNT INPUTS */
+  .discount-inputs{display:flex;align-items:center;gap:8px;}
+  .discount-inputs .form-input{width:90px;text-align:center;font-weight:700;}
+  .disc-sep{font-size:13px;color:var(--text-sub);}
+  .validate-msg{font-size:11px;margin-top:4px;}
+  .validate-msg.error{color:var(--red);}
+  .validate-msg.ok{color:var(--teal);}
+
+  /* STATUS */
+  .status-bar{display:flex;align-items:center;gap:10px;background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:10px 14px;margin-bottom:20px;}
+  .status-val{font-size:13px;font-weight:700;}
+  .status-actions{margin-left:auto;display:flex;gap:6px;}
+  .btn-status{padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;font-weight:600;border:1px solid;}
+  .btn-approve{background:var(--teal-bg);color:var(--teal);border-color:var(--teal-bd);}
+  .btn-approve:hover{background:var(--teal);color:#FFF;}
+  .btn-reject{background:var(--red-bg);color:var(--red);border-color:var(--red-bd);}
+  .btn-reject:hover{background:var(--red);color:#FFF;}
+
+  /* FOOTER BTNS */
+  .btn-save{background:var(--amber);color:#FFF;border:none;padding:8px 20px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600;}
+  .btn-save:hover{background:#9D5E0D;}
+  .btn-submit{background:var(--navy);color:#FFF;border:none;padding:8px 20px;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600;}
+  .btn-submit:hover{background:#0D2A48;}
+  .btn-cancel{background:none;border:1px solid var(--border);color:var(--text-sub);padding:8px 16px;border-radius:6px;font-size:13px;cursor:pointer;}
+  .btn-cancel:hover{background:var(--border);}
+
+  /* DEVIATION CHART */
+  #chart-deviation{width:100%;}
+
+  /* FOOTER */
+  .page-footer{background:var(--header);padding:12px 32px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#5A7A9A;}
+  .footer-brand{color:var(--amber-bright);font-weight:700;}
+
+  /* ANIMATE */
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .fade-up{animation:fadeUp .4s ease both;}
+  .d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}.d4{animation-delay:.2s}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <span class="topbar-brand">DealerOS</span>
+  <span class="topbar-sep">›</span>
+  <span class="topbar-title">集團管理層</span>
+  <span class="topbar-sep">›</span>
+  <span class="topbar-title">定價折扣設定</span>
+  <div class="topbar-right">
+    <span class="topbar-badge">GRP14</span>
+    <span style="color:#5A7A9A;font-size:12px;">Indian Motorcycle Taiwan ／ 全部店</span>
+  </div>
+</div>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+  <div class="ph-breadcrumb">集團管理 › 定價折扣</div>
+  <div class="ph-title">
+    <div class="ph-title-icon">💲</div>
+    定價折扣設定
+  </div>
+  <div class="ph-subtitle">長期定價基準 × 折扣授權上下限 × 門店成交偏差監看 × 異動稽核</div>
+  <div class="ph-controls">
+    <select class="ph-select" id="sel-store">
+      <option value="all">全部門店</option>
+      <option value="tp">台北旗艦店</option>
+      <option value="tc">台中中港店</option>
+      <option value="kh">高雄博愛店</option>
+      <option value="ty">桃園中壢店</option>
+    </select>
+    <button class="ph-btn-new" onclick="openPanel('new')">＋ 新增定價項目</button>
+    <button class="ph-btn">↓ 匯出</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ALERT -->
+  <div class="alert-banner fade-up">
+    <span style="font-size:16px;">⚠️</span>
+    <strong style="margin-right:8px;">定價異常</strong>
+    <div class="alert-items">
+      <div class="alert-item"><div class="alert-dot"></div>高雄博愛店：Scout Bobber 成交均價低於定價下限（偏差 -4.8%）</div>
+      <div class="alert-item"><div class="alert-dot"></div>2 項定價送審待核准（待通路管理主管確認）</div>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="section-title">💲 定價管理概況</div>
+  <div class="kpi-grid">
+    <div class="kpi-card info fade-up d1">
+      <div class="kpi-label">📋 現行定價品項</div>
+      <div class="kpi-value">47<span> 項</span></div>
+      <div class="kpi-sub">整車 8 ｜ 零件 24 ｜ 精品 15</div>
+    </div>
+    <div class="kpi-card good fade-up d2">
+      <div class="kpi-label">✅ 建議售價達成率</div>
+      <div class="kpi-value">91.2<span>%</span></div>
+      <div class="kpi-sub">門店成交均價符合範圍佔比</div>
+    </div>
+    <div class="kpi-card warn fade-up d3">
+      <div class="kpi-label">🚨 偏差警示門店</div>
+      <div class="kpi-value">1<span> 間</span></div>
+      <div class="kpi-sub">高雄博愛店 Scout Bobber</div>
+    </div>
+    <div class="kpi-card fade-up d4">
+      <div class="kpi-label">⏳ 待審定價項目</div>
+      <div class="kpi-value">2<span> 項</span></div>
+      <div class="kpi-sub">最近異動：2026-05-25</div>
+    </div>
+  </div>
+
+  <!-- CATEGORY TABS -->
+  <div class="cat-tabs" id="cat-tabs">
+    <div class="cat-tab active" onclick="filterCat('all',this)">全部品項</div>
+    <div class="cat-tab" onclick="filterCat('bike',this)">🏍 整車</div>
+    <div class="cat-tab" onclick="filterCat('parts',this)">🔧 零件</div>
+    <div class="cat-tab" onclick="filterCat('acc',this)">✨ 精品</div>
+    <div class="cat-tab" onclick="filterCat('pending',this)">⏳ 待審核</div>
+  </div>
+
+  <!-- 整車定價表 -->
+  <div class="section-title" id="bike-section-title">🏍 整車建議定價</div>
+  <div class="card" id="bike-section">
+    <div class="card-header">
+      <div class="card-title"><div class="dot"></div>各車型建議售價 × 折扣授權範圍</div>
+      <div style="display:flex;gap:8px;">
+        <div class="card-tag">長期生效</div>
+        <div class="card-tag navy">集團統一設定</div>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table" id="bike-table">
+        <thead>
+          <tr>
+            <th>車型</th>
+            <th>車系</th>
+            <th>建議售價（NT$）</th>
+            <th>成本（NT$）</th>
+            <th>標準毛利率</th>
+            <th>折扣授權範圍</th>
+            <th>生效日</th>
+            <th>狀態</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="bike-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 零件精品定價表 -->
+  <div class="section-title" id="parts-section-title">🔧 零件 × 精品定價基準</div>
+  <div class="card" id="parts-section">
+    <div class="card-header">
+      <div class="card-title"><div class="dot"></div>品類定價基準 × 折扣上下限</div>
+      <div style="display:flex;gap:8px;">
+        <div class="card-tag">品類基準</div>
+        <div class="card-tag navy">門店可在授權範圍內調整</div>
+      </div>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table" id="parts-table">
+        <thead>
+          <tr>
+            <th>品號 / 品名</th>
+            <th>類別</th>
+            <th>建議售價（NT$）</th>
+            <th>折扣授權範圍</th>
+            <th>最低售價（NT$）</th>
+            <th>生效日</th>
+            <th>狀態</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="parts-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 門店成交偏差監看 -->
+  <div class="section-title">📊 門店實際成交 vs 建議售價偏差</div>
+  <div class="two-col">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><div class="dot"></div>各門店成交均價偏差率</div>
+        <div class="card-tag">本季平均</div>
+      </div>
+      <div class="card-body">
+        <div id="chart-deviation" style="height:240px;"></div>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:8px;">正值=高於建議售價，負值=低於建議售價。超出授權範圍將標紅警示。</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><div class="dot"></div>偏差明細</div>
+        <div class="card-tag red">越界 1 筆</div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr><th>門店</th><th>品項</th><th>建議售價</th><th>成交均價</th><th>偏差</th><th>狀態</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>台北旗艦</td><td>FTR 1200 S</td>
+              <td>NT$689,000</td><td>NT$696,800</td>
+              <td class="dev-val pos">+1.1%</td>
+              <td><span class="badge badge-ok">正常</span></td>
+            </tr>
+            <tr>
+              <td>台中中港</td><td>Scout Bobber</td>
+              <td>NT$548,000</td><td>NT$552,400</td>
+              <td class="dev-val pos">+0.8%</td>
+              <td><span class="badge badge-ok">正常</span></td>
+            </tr>
+            <tr style="background:#FFF8F8;">
+              <td><strong>高雄博愛</strong></td><td>Scout Bobber</td>
+              <td>NT$548,000</td><td><strong style="color:var(--red);">NT$521,600</strong></td>
+              <td class="dev-val neg">-4.8% ⚠️</td>
+              <td><span class="badge badge-danger">越界</span></td>
+            </tr>
+            <tr>
+              <td>桃園中壢</td><td>Chief 110th</td>
+              <td>NT$728,000</td><td>NT$731,200</td>
+              <td class="dev-val pos">+0.4%</td>
+              <td><span class="badge badge-ok">正常</span></td>
+            </tr>
+            <tr>
+              <td>台北旗艦</td><td>排氣管（定制）</td>
+              <td>NT$7,000</td><td>NT$6,860</td>
+              <td class="dev-val neg">-2.0%</td>
+              <td><span class="badge badge-ok">正常</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 定價異動稽核 log -->
+  <div class="section-title">📋 定價異動稽核紀錄</div>
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="dot"></div>近期定價異動 Audit Log</div>
+      <div style="display:flex;gap:8px;">
+        <div class="card-tag">近 30 天</div>
+        <button class="ph-btn" style="font-size:11px;padding:4px 10px;">完整紀錄</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="audit-log">
+        <div class="log-item">
+          <div class="log-dot" style="background:var(--amber);"></div>
+          <div class="log-content">
+            <div class="log-title">FTR 1200 S — 建議售價調整</div>
+            <div class="log-meta">通路管理經理 陳小明　2026-05-25 10:14　｜　狀態：✅ 已核准</div>
+            <div class="log-change"><span class="old">NT$679,000</span>→<span class="new">NT$689,000</span>　折扣範圍：<span class="old">92～98折</span>→<span class="new">93～98折</span></div>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="log-dot" style="background:var(--amber-bright);"></div>
+          <div class="log-content">
+            <div class="log-title">Scout Bobber — 折扣下限調整（待審）</div>
+            <div class="log-meta">通路管理經理 陳小明　2026-05-26 14:32　｜　狀態：⏳ 審核中</div>
+            <div class="log-change"><span class="old">折扣下限 90折</span>→<span class="new">折扣下限 88折</span></div>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="log-dot" style="background:var(--navy);"></div>
+          <div class="log-content">
+            <div class="log-title">精品排氣管（定制款）— 建議售價新增</div>
+            <div class="log-meta">通路管理經理 李大華　2026-05-20 09:05　｜　狀態：✅ 已核准</div>
+            <div class="log-change"><span class="new">NT$7,000（新增品項，折扣範圍 85～98折）</span></div>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="log-dot" style="background:var(--teal);"></div>
+          <div class="log-content">
+            <div class="log-title">原廠機油濾心 — 建議售價微調（待審）</div>
+            <div class="log-meta">通路管理經理 陳小明　2026-05-27 16:48　｜　狀態：⏳ 審核中</div>
+            <div class="log-change"><span class="old">NT$180</span>→<span class="new">NT$200</span></div>
+          </div>
+        </div>
+        <div class="log-item">
+          <div class="log-dot" style="background:var(--border);"></div>
+          <div class="log-content">
+            <div class="log-title">Chief 110th Anniversary — 建議售價調整</div>
+            <div class="log-meta">通路管理經理 李大華　2026-05-10 11:20　｜　狀態：✅ 已核准</div>
+            <div class="log-change"><span class="old">NT$718,000</span>→<span class="new">NT$728,000</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- FOOTER -->
+<div class="page-footer">
+  <span><span class="footer-brand">DealerOS</span> — 定價折扣設定 GRP14</span>
+  <span>資料截止：2026-05-28　｜　更新週期：即時</span>
+  <span>Indian Motorcycle Taiwan</span>
+</div>
+
+<!-- ════ SIDE PANEL ════ -->
+<div class="panel-overlay" id="panel-overlay" onclick="closePanel()"></div>
+<div class="side-panel" id="side-panel">
+  <div class="panel-header">
+    <div class="panel-title" id="panel-title">新增定價項目</div>
+    <button class="panel-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="panel-body">
+
+    <!-- 狀態列 -->
+    <div class="status-bar">
+      <div>
+        <div style="font-size:11px;color:var(--text-sub);">目前狀態</div>
+        <div class="status-val" id="panel-status-val">📝 草稿</div>
+      </div>
+      <div class="status-actions">
+        <button class="btn-status btn-approve" id="btn-submit-review" onclick="changeStatus('review')">送審</button>
+        <button class="btn-status btn-approve" id="btn-approve" style="display:none;" onclick="changeStatus('approved')">核准生效</button>
+        <button class="btn-status btn-reject"  id="btn-reject"  style="display:none;" onclick="changeStatus('draft')">退回修改</button>
+      </div>
+    </div>
+
+    <!-- 基本資料 -->
+    <div class="form-section">
+      <div class="form-section-title">品項資料</div>
+      <div class="form-row full">
+        <div class="form-group">
+          <label class="form-label">品項名稱 *</label>
+          <input class="form-input" type="text" placeholder="例：FTR 1200 S / 原廠機油濾心" id="item-name">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">品項類別</label>
+          <select class="form-select" id="item-cat">
+            <option value="bike">🏍 整車</option>
+            <option value="parts">🔧 零件</option>
+            <option value="acc">✨ 精品</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">車系 / 品號</label>
+          <input class="form-input" type="text" placeholder="例：FTR / IM-OIL-FLT-009" id="item-sku">
+        </div>
+      </div>
+    </div>
+
+    <!-- 定價設定 -->
+    <div class="form-section">
+      <div class="form-section-title">定價設定</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">建議售價（NT$）*</label>
+          <input class="form-input" type="number" placeholder="例：689000" id="price-msrp" oninput="calcMargin()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">成本（NT$）</label>
+          <input class="form-input" type="number" placeholder="例：480000" id="price-cost" oninput="calcMargin()">
+        </div>
+      </div>
+      <div class="form-row full" style="margin-bottom:8px;">
+        <div class="form-group">
+          <label class="form-label">標準毛利率（自動計算）</label>
+          <div style="padding:8px 10px;background:#FAFAF8;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:700;" id="margin-display">— 請輸入售價與成本</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 折扣授權範圍 -->
+    <div class="form-section">
+      <div class="form-section-title">折扣授權範圍（手動填寫）</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">折扣下限（門店不得低於）*</label>
+          <div class="discount-inputs">
+            <input class="form-input" type="number" min="50" max="100" step="1" placeholder="例：93" id="disc-min" oninput="validateDiscount()">
+            <span class="disc-sep">折</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">折扣上限（定價基準）*</label>
+          <div class="discount-inputs">
+            <input class="form-input" type="number" min="50" max="100" step="1" placeholder="例：100" id="disc-max" oninput="validateDiscount()">
+            <span class="disc-sep">折</span>
+          </div>
+        </div>
+      </div>
+      <div class="validate-msg" id="disc-validate-msg"></div>
+      <div class="form-hint" style="margin-top:6px;">⚠️ 門店實際成交均價低於下限時，系統自動標示越界警示供集團監看。下限不得高於上限。</div>
+    </div>
+
+    <!-- 適用門店 -->
+    <div class="form-section">
+      <div class="form-section-title">適用範圍</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">生效日期</label>
+          <input class="form-input" type="date" id="eff-date" value="2026-06-01">
+        </div>
+        <div class="form-group">
+          <label class="form-label">適用範圍</label>
+          <select class="form-select" id="scope">
+            <option>全部門店</option>
+            <option>台北旗艦店</option>
+            <option>台中中港店</option>
+            <option>高雄博愛店</option>
+            <option>桃園中壢店</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 備註 -->
+    <div class="form-section">
+      <div class="form-section-title">備註說明</div>
+      <div class="form-row full">
+        <div class="form-group">
+          <label class="form-label">異動原因 / 備註</label>
+          <textarea class="form-input" rows="3" placeholder="例：因原廠調漲成本 3.2%，建議售價同步調整…" id="item-note" style="resize:vertical;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- 異動預覽 -->
+    <div class="form-section" id="change-preview-section" style="display:none;">
+      <div class="form-section-title">異動預覽</div>
+      <div id="change-preview" style="background:#FAFAF8;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13px;line-height:2;"></div>
+    </div>
+
+  </div>
+  <div class="panel-footer">
+    <button class="btn-cancel" onclick="closePanel()">取消</button>
+    <button class="btn-save" onclick="saveDraft()">儲存草稿</button>
+    <button class="btn-submit" onclick="submitReview()">送出審核 →</button>
+  </div>
+</div>
+
+<!-- ════ JS ════ -->
+<script>
+// ── 整車定價資料 ──
+const BIKE_PRICES = [
+  { name:'FTR 1200 S',        series:'FTR',        msrp:689000, cost:480000, discMin:93, discMax:100, effDate:'2026-05-25', status:'active' },
+  { name:'FTR 1200 Rally',    series:'FTR',        msrp:729000, cost:510000, discMin:93, discMax:100, effDate:'2026-05-25', status:'active' },
+  { name:'Scout Bobber',      series:'Scout',      msrp:548000, cost:385000, discMin:88, discMax:100, effDate:'2026-05-26', status:'review' },
+  { name:'Scout Bobber Twenty',series:'Scout',     msrp:578000, cost:405000, discMin:90, discMax:100, effDate:'2026-04-01', status:'active' },
+  { name:'Chief 110th Anniversary',series:'Chief', msrp:728000, cost:510000, discMin:93, discMax:100, effDate:'2026-05-10', status:'active' },
+  { name:'Challenger Dark Horse',series:'Challenger',msrp:798000,cost:558000, discMin:94, discMax:100, effDate:'2026-03-01', status:'active' },
+  { name:'Super Chief Limited', series:'Chief',    msrp:858000, cost:600000, discMin:95, discMax:100, effDate:'2026-03-01', status:'active' },
+  { name:'Pursuit Dark Horse', series:'Pursuit',   msrp:868000, cost:605000, discMin:95, discMax:100, effDate:'2026-03-01', status:'active' },
+];
+
+// ── 零件精品定價資料 ──
+const PARTS_PRICES = [
+  { id:'IM-OIL-FLT-009', name:'原廠機油濾心',     cat:'零件', msrp:200,   discMin:90, discMax:100, effDate:'2026-05-27', status:'review'  },
+  { id:'IM-FTR-BRK-005', name:'FTR 前煞車皮',     cat:'零件', msrp:2100,  discMin:88, discMax:100, effDate:'2026-04-01', status:'active'  },
+  { id:'IM-SCT-AF-012',  name:'Scout 空氣濾心',   cat:'零件', msrp:600,   discMin:88, discMax:100, effDate:'2026-04-01', status:'active'  },
+  { id:'IM-TIRE-FTR-F',  name:'FTR 前輪胎 120/70',cat:'零件', msrp:4500,  discMin:92, discMax:100, effDate:'2026-03-01', status:'active'  },
+  { id:'IM-EXH-CUSTOM',  name:'定制排氣管',        cat:'精品', msrp:7000,  discMin:85, discMax:100, effDate:'2026-05-20', status:'active'  },
+  { id:'IM-SEAT-CUSTOM', name:'客製坐墊',          cat:'精品', msrp:5000,  discMin:85, discMax:100, effDate:'2026-04-01', status:'active'  },
+  { id:'IM-WIND-001',    name:'風鏡（通用款）',    cat:'精品', msrp:3500,  discMin:85, discMax:100, effDate:'2026-04-01', status:'active'  },
+  { id:'IM-LUG-48L',     name:'行李箱 48L',        cat:'精品', msrp:9000,  discMin:88, discMax:100, effDate:'2026-03-01', status:'active'  },
+];
+
+const STATUS_META = {
+  active: { label:'生效中', badge:'badge-ok'   },
+  review: { label:'審核中', badge:'badge-warn' },
+  draft:  { label:'草稿',   badge:'badge-draft'},
+};
+
+let currentCat = 'all';
+
+function filterCat(cat, el) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderTables();
+}
+
+function calcMargin() {
+  const msrp = parseFloat(document.getElementById('price-msrp').value);
+  const cost  = parseFloat(document.getElementById('price-cost').value);
+  const el = document.getElementById('margin-display');
+  if (!isNaN(msrp) && !isNaN(cost) && msrp > 0) {
+    const margin = ((msrp - cost) / msrp * 100).toFixed(1);
+    el.textContent = `${margin}%`;
+    el.style.color = margin >= 30 ? 'var(--teal)' : margin >= 20 ? 'var(--amber)' : 'var(--red)';
+  } else {
+    el.textContent = '— 請輸入售價與成本';
+    el.style.color = 'var(--text-sub)';
+  }
+}
+
+function validateDiscount() {
+  const minV = parseFloat(document.getElementById('disc-min').value);
+  const maxV = parseFloat(document.getElementById('disc-max').value);
+  const msg  = document.getElementById('disc-validate-msg');
+  if (!isNaN(minV) && !isNaN(maxV)) {
+    if (minV > maxV) {
+      msg.textContent = '❌ 折扣下限不得高於上限，請重新填寫';
+      msg.className = 'validate-msg error';
+    } else {
+      msg.textContent = `✅ 授權範圍：${minV}折 ～ ${maxV}折`;
+      msg.className = 'validate-msg ok';
+    }
+  }
+}
+
+function renderTables() {
+  // 整車
+  const showBike = currentCat === 'all' || currentCat === 'bike' || currentCat === 'pending';
+  document.getElementById('bike-section').style.display = showBike ? '' : 'none';
+  document.getElementById('bike-section-title').style.display = showBike ? '' : 'none';
+
+  let bikeData = BIKE_PRICES;
+  if (currentCat === 'pending') bikeData = BIKE_PRICES.filter(d => d.status === 'review');
+
+  document.getElementById('bike-tbody').innerHTML = bikeData.map(d => {
+    const margin = ((d.msrp - d.cost) / d.msrp * 100).toFixed(1);
+    const marginColor = margin >= 30 ? 'var(--teal)' : 'var(--amber)';
+    const m = STATUS_META[d.status];
+    const minPrice = Math.round(d.msrp * d.discMin / 100);
+    return `<tr>
+      <td><strong>${d.name}</strong></td>
+      <td><span class="badge badge-navy">${d.series}</span></td>
+      <td style="font-weight:700;">NT$${d.msrp.toLocaleString()}</td>
+      <td style="color:var(--text-sub);">NT$${d.cost.toLocaleString()}</td>
+      <td style="color:${marginColor};font-weight:600;">${margin}%</td>
+      <td>
+        <div class="range-display">
+          <span class="range-box">${d.discMin}折</span>
+          <span style="color:var(--text-sub);font-size:11px;">～</span>
+          <span class="range-box">${d.discMax}折</span>
+          <span style="font-size:11px;color:var(--text-sub);">（最低 NT$${minPrice.toLocaleString()}）</span>
+        </div>
+      </td>
+      <td style="color:var(--text-sub);font-size:11px;">${d.effDate}</td>
+      <td><span class="badge ${m.badge}">${m.label}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="btn-edit" onclick="openPanel('edit','bike','${d.name}')">編輯</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // 零件精品
+  const showParts = currentCat === 'all' || currentCat === 'parts' || currentCat === 'acc' || currentCat === 'pending';
+  document.getElementById('parts-section').style.display = showParts ? '' : 'none';
+  document.getElementById('parts-section-title').style.display = showParts ? '' : 'none';
+
+  let partsData = PARTS_PRICES;
+  if (currentCat === 'parts')   partsData = PARTS_PRICES.filter(d => d.cat === '零件');
+  if (currentCat === 'acc')     partsData = PARTS_PRICES.filter(d => d.cat === '精品');
+  if (currentCat === 'pending') partsData = PARTS_PRICES.filter(d => d.status === 'review');
+
+  document.getElementById('parts-tbody').innerHTML = partsData.map(d => {
+    const minPrice = Math.round(d.msrp * d.discMin / 100);
+    const m = STATUS_META[d.status];
+    const catColor = d.cat === '精品' ? 'badge-ok' : 'badge-navy';
+    return `<tr>
+      <td><span style="font-family:monospace;font-size:11px;color:var(--text-sub);">${d.id}</span><br><strong>${d.name}</strong></td>
+      <td><span class="badge ${catColor}">${d.cat}</span></td>
+      <td style="font-weight:700;">NT$${d.msrp.toLocaleString()}</td>
+      <td>
+        <div class="range-display">
+          <span class="range-box">${d.discMin}折</span>
+          <span style="color:var(--text-sub);font-size:11px;">～</span>
+          <span class="range-box">${d.discMax}折</span>
+        </div>
+      </td>
+      <td style="color:var(--red);font-weight:600;">NT$${minPrice.toLocaleString()}</td>
+      <td style="color:var(--text-sub);font-size:11px;">${d.effDate}</td>
+      <td><span class="badge ${m.badge}">${m.label}</span></td>
+      <td>
+        <button class="btn-edit" onclick="openPanel('edit','parts','${d.id}')">編輯</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+renderTables();
+
+// ── PANEL ──
+function openPanel(mode, type, id) {
+  document.getElementById('panel-overlay').classList.add('open');
+  document.getElementById('side-panel').classList.add('open');
+  if (mode === 'new') {
+    document.getElementById('panel-title').textContent = '新增定價項目';
+    document.getElementById('panel-status-val').textContent = '📝 草稿';
+    document.getElementById('btn-approve').style.display = 'none';
+    document.getElementById('btn-reject').style.display = 'none';
+  } else {
+    let item;
+    if (type === 'bike') item = BIKE_PRICES.find(d => d.name === id);
+    else item = PARTS_PRICES.find(d => d.id === id);
+    if (!item) return;
+    document.getElementById('panel-title').textContent = '編輯定價：' + (item.name || id);
+    document.getElementById('item-name').value = item.name || '';
+    document.getElementById('price-msrp').value = item.msrp || '';
+    document.getElementById('price-cost').value = item.cost || '';
+    document.getElementById('disc-min').value = item.discMin;
+    document.getElementById('disc-max').value = item.discMax;
+    document.getElementById('eff-date').value = item.effDate;
+    calcMargin();
+    validateDiscount();
+    const statusLabels = { active:'✅ 生效中', review:'⏳ 審核中', draft:'📝 草稿' };
+    document.getElementById('panel-status-val').textContent = statusLabels[item.status] || '📝 草稿';
+    document.getElementById('btn-approve').style.display = item.status === 'review' ? '' : 'none';
+    document.getElementById('btn-reject').style.display  = item.status === 'review' ? '' : 'none';
+  }
+}
+
+function closePanel() {
+  document.getElementById('panel-overlay').classList.remove('open');
+  document.getElementById('side-panel').classList.remove('open');
+}
+
+function changeStatus(s) {
+  const labels = { review:'⏳ 送出審核', approved:'✅ 已核准生效', draft:'📝 退回草稿' };
+  document.getElementById('panel-status-val').textContent = labels[s] || s;
+  if (s === 'review')   { document.getElementById('btn-approve').style.display=''; document.getElementById('btn-reject').style.display=''; }
+  if (s === 'approved') { document.getElementById('btn-approve').style.display='none'; document.getElementById('btn-reject').style.display='none'; }
+  if (s === 'draft')    { document.getElementById('btn-approve').style.display='none'; document.getElementById('btn-reject').style.display='none'; }
+}
+
+function saveDraft()     { showToast('✅ 定價草稿已儲存\n（後端串接點：POST /api/pricing，status=draft）'); }
+function submitReview()  { changeStatus('review'); showToast('📤 定價調整已送審\n（後端串接點：PATCH /api/pricing/{id}/status，status=review）\n系統已通知通路管理主管核准'); }
+
+// ── D3 偏差圖 ──
+(function drawDeviation() {
+  const el = document.getElementById('chart-deviation');
+  const W = el.clientWidth || 400, H = 240;
+  const margin = { top:16, right:70, bottom:20, left:90 };
+  const w = W - margin.left - margin.right;
+  const h = H - margin.top - margin.bottom;
+
+  const data = [
+    { store:'台北旗艦', dev:1.1, status:'ok'   },
+    { store:'台中中港', dev:0.8, status:'ok'   },
+    { store:'高雄博愛', dev:-4.8, status:'bad' },
+    { store:'桃園中壢', dev:0.4, status:'ok'   },
+  ];
+
+  const svg = d3.select(el).append('svg').attr('width',W).attr('height',H);
+  const g = svg.append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+
+  const y = d3.scaleBand().domain(data.map(d=>d.store)).range([0,h]).padding(0.4);
+  const x = d3.scaleLinear().domain([-7,4]).range([0,w]);
+
+  // 警示區（低於下限）
+  g.append('rect')
+    .attr('x', x(-7)).attr('y', 0)
+    .attr('width', x(-3) - x(-7)).attr('height', h)
+    .attr('fill', 'rgba(200,0,26,.06)');
+
+  // 零線
+  const zeroX = x(0);
+  g.append('line').attr('x1',zeroX).attr('x2',zeroX).attr('y1',0).attr('y2',h)
+    .attr('stroke','var(--border)').attr('stroke-width',1.5);
+  g.append('text').attr('x',zeroX).attr('y',-4).attr('text-anchor','middle').attr('font-size',10).attr('fill','var(--text-sub)').text('0%');
+
+  // 下限線
+  const limitX = x(-3);
+  g.append('line').attr('x1',limitX).attr('x2',limitX).attr('y1',0).attr('y2',h)
+    .attr('stroke','var(--red)').attr('stroke-width',1.5).attr('stroke-dasharray','4,3');
+  g.append('text').attr('x',limitX).attr('y',-4).attr('text-anchor','middle').attr('font-size',10).attr('fill','var(--red)').text('警戒');
+
+  // Bars
+  g.selectAll('.bar').data(data).enter().append('rect')
+    .attr('y', d=>y(d.store))
+    .attr('x', d=>d.dev >= 0 ? zeroX : x(d.dev))
+    .attr('height', y.bandwidth())
+    .attr('width', 0)
+    .attr('rx', 3)
+    .attr('fill', d=>d.status==='bad'?'var(--red)':'var(--teal)')
+    .transition().duration(700).delay((_,i)=>i*100)
+    .attr('width', d=>Math.abs(x(d.dev)-zeroX));
+
+  // Labels
+  g.selectAll('.lbl').data(data).enter().append('text')
+    .attr('y', d=>y(d.store)+y.bandwidth()/2+4)
+    .attr('x', d=>d.dev>=0 ? x(d.dev)+6 : x(d.dev)-6)
+    .attr('text-anchor', d=>d.dev>=0?'start':'end')
+    .attr('font-size',12).attr('font-weight',700)
+    .attr('fill', d=>d.status==='bad'?'var(--red)':'var(--teal)')
+    .text(d=>(d.dev>0?'+':'')+d.dev+'%');
+
+  g.append('g').call(d3.axisLeft(y).tickSize(0)).select('.domain').remove();
+  g.selectAll('.tick text').attr('font-size',11).attr('fill','var(--text-sub)');
+})();
+</script>
+</body>
+</html>

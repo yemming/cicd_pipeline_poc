@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { SignatureCanvas } from "@/components/signature-canvas";
 import {
   DISCOUNT_OPTIONS,
   INVOICE_KINDS,
@@ -30,6 +31,7 @@ import {
   deleteAction,
   markReceiptPrintedAction,
   refreshFeeSummaryAction,
+  setPickupEntrustmentAction,
   signAction,
 } from "@/lib/aftersales/ro-checkout-actions";
 
@@ -82,6 +84,35 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
   const payment = data.payment ?? {};
   const invoice = data.invoice ?? {};
 
+  // 包F：委託取車授權（metadata.entrustment）
+  const entrustment =
+    ((data.metadata ?? {}) as { entrustment?: { is_entrusted?: boolean; agent_name?: string; relation?: string | null; id_note?: string | null } }).entrustment ?? null;
+  const [entrustForm, setEntrustForm] = useState({
+    is_entrusted: entrustment?.is_entrusted ?? false,
+    agent_name: entrustment?.agent_name ?? "",
+    relation: entrustment?.relation ?? "",
+    id_note: entrustment?.id_note ?? "",
+  });
+  function saveEntrustment() {
+    startTransition(async () => {
+      const res = await setPickupEntrustmentAction(data.id, {
+        is_entrusted: entrustForm.is_entrusted,
+        agent_name: entrustForm.agent_name,
+        relation: entrustForm.relation,
+        id_note: entrustForm.id_note,
+      });
+      if (res.ok) {
+        showBanner({
+          ok: true,
+          msg: entrustForm.is_entrusted ? "✓ 已記錄委託取車授權" : "✓ 已設為車主本人取車",
+        });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
   function showBanner(b: NonNullable<Banner>) {
     setBanner(b);
     if (b.ok) setTimeout(() => setBanner(null), 2200);
@@ -123,15 +154,20 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
     });
   }
 
-  function doSign() {
+  function doSign(dataUrl: string) {
     if (!data.ro.customer_name) {
       showBanner({ ok: false, msg: "工單沒有掛車主，無法簽名" });
+      return;
+    }
+    if (!dataUrl) {
+      showBanner({ ok: false, msg: "請先完成手寫簽名" });
       return;
     }
     startTransition(async () => {
       const res = await signAction(data.id, {
         signature_text: data.ro.customer_name ?? "車主簽名",
         customer_name: data.ro.customer_name ?? undefined,
+        screenshot_url: dataUrl,
       });
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 已完成電子簽名" });
@@ -338,6 +374,9 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
           onRefresh={refresh}
           onChangeDiscount={changeDiscount}
           onConfirm={confirmFees}
+          entrustForm={entrustForm}
+          setEntrustForm={setEntrustForm}
+          onSaveEntrustment={saveEntrustment}
         />
       ) : null}
 
@@ -347,6 +386,7 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
           customerName={data.ro.customer_name}
           signedAt={sig.signed_at ?? null}
           signatureText={sig.signature_text ?? null}
+          signatureImg={sig.screenshot_url ?? null}
           fenced={fenced}
           isPending={isPending}
           onSign={doSign}
@@ -446,6 +486,13 @@ function SectionCard({ title, sub, children }: { title: string; sub?: string; ch
 }
 
 /* ─────────────────────── Step 1 ─────────────────────── */
+type EntrustForm = {
+  is_entrusted: boolean;
+  agent_name: string;
+  relation: string;
+  id_note: string;
+};
+
 function Step1({
   summary,
   lines,
@@ -454,6 +501,9 @@ function Step1({
   onRefresh,
   onChangeDiscount,
   onConfirm,
+  entrustForm,
+  setEntrustForm,
+  onSaveEntrustment,
 }: {
   summary: FeeSummary;
   lines: FeeLine[];
@@ -462,6 +512,9 @@ function Step1({
   onRefresh: () => void;
   onChangeDiscount: (pct: number) => void;
   onConfirm: () => void;
+  entrustForm: EntrustForm;
+  setEntrustForm: (f: EntrustForm) => void;
+  onSaveEntrustment: () => void;
 }) {
   const total = summary.total ?? 0;
   const payable = summary.payable ?? total;
@@ -575,6 +628,65 @@ function Step1({
         </span>
       </div>
 
+      {/* 包F：委託取車授權（Step1B）*/}
+      <div className="mt-3 pt-3 border-t border-[#EEECE6]">
+        <label className="flex items-center gap-2 text-[12.5px] text-[#2C2C2A] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={entrustForm.is_entrusted}
+            disabled={fenced || isPending}
+            onChange={(e) =>
+              setEntrustForm({ ...entrustForm, is_entrusted: e.target.checked })
+            }
+            className="w-4 h-4 accent-[#1A3A5C]"
+          />
+          <b>委託取車</b>：本次由<b>非車主本人</b>代為取車（需登記受託人）
+        </label>
+        {entrustForm.is_entrusted && (
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 bg-[#FDF3E3] border border-[#F0C97E] rounded p-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#854F0B]">受託人姓名 *</label>
+              <input
+                value={entrustForm.agent_name}
+                disabled={fenced || isPending}
+                onChange={(e) => setEntrustForm({ ...entrustForm, agent_name: e.target.value })}
+                placeholder="代取人姓名"
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#854F0B]">與車主關係</label>
+              <input
+                value={entrustForm.relation}
+                disabled={fenced || isPending}
+                onChange={(e) => setEntrustForm({ ...entrustForm, relation: e.target.value })}
+                placeholder="例：配偶 / 同事 / 車行"
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#854F0B]">證件 / 授權備註</label>
+              <input
+                value={entrustForm.id_note}
+                disabled={fenced || isPending}
+                onChange={(e) => setEntrustForm({ ...entrustForm, id_note: e.target.value })}
+                placeholder="例：已核對身分證 / 車主電話授權"
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+              />
+            </div>
+          </div>
+        )}
+        <div className="mt-2 flex justify-end">
+          <button
+            onClick={onSaveEntrustment}
+            disabled={fenced || isPending || (entrustForm.is_entrusted && !entrustForm.agent_name.trim())}
+            className="h-[28px] px-3 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+          >
+            {isPending ? "儲存中⋯" : "儲存取車方式"}
+          </button>
+        </div>
+      </div>
+
       <div className="mt-3 pt-3 border-t border-[#EEECE6] flex items-center gap-2">
         <span className="flex-1 text-[12.5px] text-[#0F6E56]">
           ✅ 確認費用明細已與車主當面核對，車主無異議後即可進入車主二簽
@@ -597,6 +709,7 @@ function Step2({
   customerName,
   signedAt,
   signatureText,
+  signatureImg,
   fenced,
   isPending,
   onSign,
@@ -606,9 +719,10 @@ function Step2({
   customerName: string | null;
   signedAt: string | null;
   signatureText: string | null;
+  signatureImg: string | null;
   fenced: boolean;
   isPending: boolean;
-  onSign: () => void;
+  onSign: (dataUrl: string) => void;
   onClear: () => void;
 }) {
   const signed = !!signedAt;
@@ -632,24 +746,30 @@ function Step2({
       </div>
       {signed ? (
         <div className="border-2 border-[#1D9E75] bg-[#E1F5EE] rounded-lg p-4 flex flex-col items-center gap-1.5">
-          <div className="text-[26px] text-[#1A3A5C]" style={{ fontFamily: "cursive" }}>
-            {signatureText ?? customerName ?? "—"}
-          </div>
+          {signatureImg ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={signatureImg}
+              alt="車主簽名"
+              className="w-full max-w-[420px] h-40 object-contain bg-white border border-[#1D9E75] rounded"
+            />
+          ) : (
+            <div className="text-[26px] text-[#1A3A5C]" style={{ fontFamily: "cursive" }}>
+              {signatureText ?? customerName ?? "—"}
+            </div>
+          )}
           <div className="text-[11px] text-[#0F6E56]">
             ✅ {fmtDateTime(signedAt)} · 電子簽名完成（防竄改）
           </div>
         </div>
+      ) : fenced ? (
+        <div className="w-full border-2 border-dashed border-[#D5D3CB] rounded-lg p-6 text-center text-[12px] text-[#9A9890]">
+          此單已鎖定，無法簽名
+        </div>
       ) : (
-        <button
-          onClick={onSign}
-          disabled={fenced || isPending}
-          className="w-full border-2 border-dashed border-[#D5D3CB] rounded-lg p-6 text-center hover:border-[#1A3A5C] hover:bg-[#F8F7F4] disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <div className="text-[18px]">✍️</div>
-          <div className="text-[12px] text-[#9A9890] mt-1">
-            {isPending ? "簽名中⋯" : "點擊此處進行電子簽名"}
-          </div>
-        </button>
+        <div className={isPending ? "pointer-events-none opacity-60" : ""}>
+          <SignatureCanvas onSigned={onSign} />
+        </div>
       )}
       <div className="text-[11px] text-[#9A9890] mt-2">
         * 電子簽名具有法律效力，簽名後系統自動記錄時間戳，不可修改

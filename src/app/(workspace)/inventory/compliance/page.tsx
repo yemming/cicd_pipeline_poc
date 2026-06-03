@@ -1,14 +1,11 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+import { PlaceholderPage } from "@/components/placeholder-page";
 
-export default async function Page() {
-  const html = await loadStitchBody("fe943528afb949e0b7c2fe717a94c305");
+export default function Page() {
   return (
-    <StitchInline
-      html={html}
+    <PlaceholderPage
       title="合規稽核"
-      sprint="S10-5"
-      screenId="fe943528afb949e0b7c2fe717a94c305"
+      icon="verified_user"
+      description="經銷商合規稽核規劃中，尚未串接真實資料。完成後可在此追蹤原廠合規要求與稽核結果。"
       breadcrumb={[{ label: "經銷商管理", href: "/inventory/vehicles" }, { label: "合規稽核" }]}
     />
   );

@@ -363,6 +363,7 @@ export async function signAction(
   payload: {
     sa_text?: string;
     customer_text?: string;
+    sa_screenshot_url?: string | null;
     customer_screenshot_url?: string | null;
   },
 ): Promise<ActionResult<{ id: string }>> {
@@ -375,8 +376,18 @@ export async function signAction(
   const meta = (ctx.row.metadata ?? {}) as PreInspectionMetadata;
   const now = new Date().toISOString();
   const sig_sa: Signature = payload.sa_text
-    ? { text: payload.sa_text, signed_at: now }
-    : meta.sig_sa ?? { text: null, signed_at: null };
+    ? {
+        text: payload.sa_text,
+        signed_at: now,
+        screenshot_url: payload.sa_screenshot_url ?? null,
+      }
+    : payload.sa_screenshot_url
+      ? {
+          text: meta.sig_sa?.text ?? null,
+          signed_at: meta.sig_sa?.signed_at ?? now,
+          screenshot_url: payload.sa_screenshot_url,
+        }
+      : meta.sig_sa ?? { text: null, signed_at: null };
   const sig_customer: Signature = payload.customer_text
     ? {
         text: payload.customer_text,

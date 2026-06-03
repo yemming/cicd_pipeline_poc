@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { getPricingPolicy } from "@/domain/group-pricing";
+import { listServicePackages } from "@/domain/service-packages";
 
 import { PricingDetailView } from "./_components/pricing-detail-view";
 
@@ -29,7 +30,12 @@ export default async function PricingDetailPage({
   }
 
   const { brand_id } = await getActiveScope();
-  const policy = await getPricingPolicy(brand_id, id);
+  const [policy, servicePackages] = await Promise.all([
+    getPricingPolicy(brand_id, id),
+    listServicePackages(brand_id, { includeInactive: true }),
+  ]);
 
-  return <PricingDetailView policy={policy} initialMode="view" />;
+  return (
+    <PricingDetailView policy={policy} initialMode="view" servicePackages={servicePackages} />
+  );
 }

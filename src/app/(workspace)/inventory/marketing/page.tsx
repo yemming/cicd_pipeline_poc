@@ -1,14 +1,11 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+import { PlaceholderPage } from "@/components/placeholder-page";
 
-export default async function Page() {
-  const html = await loadStitchBody("49b04c83bfe34273b9769ec9321d6c30");
+export default function Page() {
   return (
-    <StitchInline
-      html={html}
+    <PlaceholderPage
       title="行銷活動"
-      sprint="S9-1"
-      screenId="49b04c83bfe34273b9769ec9321d6c30"
+      icon="campaign"
+      description="行銷活動管理規劃中，尚未串接真實資料。完成後可在此規劃與追蹤檔期活動成效。"
       breadcrumb={[{ label: "經銷商管理", href: "/inventory/vehicles" }, { label: "行銷活動" }]}
     />
   );

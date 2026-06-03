@@ -73,9 +73,10 @@ export type FeeSummary = {
 /* ──────────────── Step 2: 簽名 ──────────────── */
 
 export type CustomerSignature = {
-  signature_text?: string;    // 簽名文字（demo 用）
+  signature_text?: string;    // 簽名文字（demo 用 / 當事人姓名存證）
   signed_at?: string;         // ISO
   customer_name?: string;
+  screenshot_url?: string | null; // 包C：真手寫簽名圖（dataURL）
 };
 
 /* ──────────────── Step 3: 收款 + 發票 ──────────────── */

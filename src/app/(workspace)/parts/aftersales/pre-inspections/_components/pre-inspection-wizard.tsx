@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { EntityImageGallery } from "@/components/image-upload/entity-image-gallery";
+import { SignatureCanvas } from "@/components/signature-canvas";
 import {
   DECISION_LABEL,
   MODE_CHIP,
@@ -128,8 +129,16 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
     mileage_in: data.mileage_in?.toString() ?? "",
   });
 
-  const [saSig, setSaSig] = useState<string>(data.metadata?.sig_sa?.text ?? "");
-  const [custSig, setCustSig] = useState<string>(data.metadata?.sig_customer?.text ?? "");
+  // 包C：手寫簽名後 text 自動帶當事人姓名（保留舊文字存證欄；只讀）
+  const [saSig] = useState<string>(data.metadata?.sig_sa?.text ?? "");
+  const [custSig] = useState<string>(data.metadata?.sig_customer?.text ?? "");
+  // 包C：真 canvas 簽名圖（dataURL）— 取代舊文字 input
+  const [saSigImg, setSaSigImg] = useState<string | null>(
+    data.metadata?.sig_sa?.screenshot_url ?? null,
+  );
+  const [custSigImg, setCustSigImg] = useState<string | null>(
+    data.metadata?.sig_customer?.screenshot_url ?? null,
+  );
 
   function showBanner(b: NonNullable<Banner>) {
     setBanner(b);
@@ -228,14 +237,19 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
   // Step 5 — sign / transfer
   function handleSign() {
     if (locked) return;
-    if (!saSig.trim() && !custSig.trim()) {
-      showBanner({ ok: false, msg: "請至少填寫一個簽名" });
+    if (!saSigImg && !custSigImg) {
+      showBanner({ ok: false, msg: "請至少完成一個手寫簽名" });
       return;
     }
     startTransition(async () => {
       const res = await signAction(data.id, {
-        sa_text: saSig.trim() || undefined,
-        customer_text: custSig.trim() || undefined,
+        // 手寫簽名後，text 自動帶當事人姓名（供 both 完成判斷 + 文字存證）
+        sa_text: saSigImg ? saSig.trim() || data.sa_name || "SA" : undefined,
+        customer_text: custSigImg
+          ? custSig.trim() || data.customer_name || "車主"
+          : undefined,
+        sa_screenshot_url: saSigImg ?? undefined,
+        customer_screenshot_url: custSigImg ?? undefined,
       });
       if (res.ok) refreshAndToast("✓ 簽名已儲存");
       else showBanner({ ok: false, msg: res.error });
@@ -466,10 +480,10 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems }: Props) {
         )}
         {step === 4 && (
           <Step5Sign
-            saSig={saSig}
-            setSaSig={setSaSig}
-            custSig={custSig}
-            setCustSig={setCustSig}
+            saSigImg={saSigImg}
+            setSaSigImg={setSaSigImg}
+            custSigImg={custSigImg}
+            setCustSigImg={setCustSigImg}
             data={data}
             quote={quote}
             locked={locked}
@@ -1254,20 +1268,20 @@ function Step4Quote({
 /* ───────────────────────────── Step 5 ───────────────────────────── */
 
 function Step5Sign({
-  saSig,
-  setSaSig,
-  custSig,
-  setCustSig,
+  saSigImg,
+  setSaSigImg,
+  custSigImg,
+  setCustSigImg,
   data,
   quote,
   locked,
   isPending,
   handleSign,
 }: {
-  saSig: string;
-  setSaSig: (v: string) => void;
-  custSig: string;
-  setCustSig: (v: string) => void;
+  saSigImg: string | null;
+  setSaSigImg: (v: string | null) => void;
+  custSigImg: string | null;
+  setCustSigImg: (v: string | null) => void;
   data: PreInspectionListRow;
   quote: { labor: number; parts: number; tax: number; total: number; agreedLu: number };
   locked: boolean;
@@ -1283,63 +1297,115 @@ function Step5Sign({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <section className="border border-[#EEECE6] rounded-lg overflow-hidden">
-          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-            <h2 className="text-[13px] font-semibold text-[#2C2C2A]">SA 確認簽名</h2>
-          </header>
-          <div className="px-4 py-3 space-y-2">
-            <div className="text-[11px] text-[#9A9890]">本次預檢由本人執行並彙整報價</div>
-            <input
-              value={saSig}
-              onChange={(e) => setSaSig(e.target.value)}
-              disabled={locked}
-              placeholder="請輸入 SA 姓名作為電子簽名"
-              className="w-full h-[40px] border-2 border-dashed border-[#D5D3CB] rounded px-3 text-[14px] focus:border-[#0F6E56] outline-none bg-[#F5F5F4]"
-            />
-            <div className="flex justify-between text-[11px] text-[#9A9890]">
-              <span>SA：{data.sa_name ?? "—"}</span>
-              <span>{data.metadata?.sig_sa?.signed_at ? fmtDateTime(data.metadata.sig_sa.signed_at) : "—"}</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="border border-[#EEECE6] rounded-lg overflow-hidden">
-          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#CC0000] text-white">
-            <h2 className="text-[13px] font-semibold">車主確認簽名（第一次）</h2>
-          </header>
-          <div className="px-4 py-3 space-y-2">
-            <div className="text-[11px] text-[#9A9890]">
-              本人確認車況交接無誤，授權本店依確認項目執行維修
-            </div>
-            <input
-              value={custSig}
-              onChange={(e) => setCustSig(e.target.value)}
-              disabled={locked}
-              placeholder="請輸入車主姓名作為電子簽名"
-              className="w-full h-[40px] border-2 border-dashed border-[#D5D3CB] rounded px-3 text-[14px] focus:border-[#CC0000] outline-none bg-[#F5F5F4]"
-            />
-            <div className="flex justify-between text-[11px] text-[#9A9890]">
-              <span>車主：{data.customer_name ?? "—"}</span>
-              <span>
-                {data.metadata?.sig_customer?.signed_at
-                  ? fmtDateTime(data.metadata.sig_customer.signed_at)
-                  : "—"}
-              </span>
-            </div>
-          </div>
-        </section>
+        <SigPanel
+          headerCls="bg-[#F8F7F4]"
+          headerTextCls="text-[#2C2C2A]"
+          title="SA 確認簽名"
+          hint="本次預檢由本人執行並彙整報價"
+          who={`SA：${data.sa_name ?? "—"}`}
+          signedAt={data.metadata?.sig_sa?.signed_at ?? null}
+          img={saSigImg}
+          locked={locked}
+          onSigned={(url) => setSaSigImg(url)}
+          onReSign={() => setSaSigImg(null)}
+        />
+        <SigPanel
+          headerCls="bg-[#CC0000]"
+          headerTextCls="text-white"
+          title="車主確認簽名（第一次）"
+          hint="本人確認車況交接無誤，授權本店依確認項目執行維修"
+          who={`車主：${data.customer_name ?? "—"}`}
+          signedAt={data.metadata?.sig_customer?.signed_at ?? null}
+          img={custSigImg}
+          locked={locked}
+          onSigned={(url) => setCustSigImg(url)}
+          onReSign={() => setCustSigImg(null)}
+        />
       </div>
 
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={handleSign}
-          disabled={locked || isPending}
-          className="h-[36px] px-5 rounded text-[13px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
-        >
-          {isPending ? "儲存中⋯" : "儲存簽名"}
-        </button>
-      </div>
+      {locked && (
+        <div className="px-3 py-2 bg-[#EAF3DE] border border-[#C5DC9F] rounded text-[12px] text-[#3B6D11]">
+          🔒 已完成簽名並鎖定，車況 / 報價不可再修改（如需更動請作廢重開）。
+        </div>
+      )}
+
+      {!locked && (
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={handleSign}
+            disabled={isPending || (!saSigImg && !custSigImg)}
+            className="h-[36px] px-5 rounded text-[13px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+          >
+            {isPending ? "儲存中⋯" : "儲存簽名"}
+          </button>
+        </div>
+      )}
     </div>
+  );
+}
+
+/** 單一簽名面板：未簽 → 顯示 canvas；已簽 / 鎖定 → 顯示簽名圖預覽 + 重簽 */
+function SigPanel({
+  headerCls,
+  headerTextCls,
+  title,
+  hint,
+  who,
+  signedAt,
+  img,
+  locked,
+  onSigned,
+  onReSign,
+}: {
+  headerCls: string;
+  headerTextCls: string;
+  title: string;
+  hint: string;
+  who: string;
+  signedAt: string | null;
+  img: string | null;
+  locked: boolean;
+  onSigned: (dataUrl: string) => void;
+  onReSign: () => void;
+}) {
+  return (
+    <section className="border border-[#EEECE6] rounded-lg overflow-hidden">
+      <header className={`px-4 py-2.5 border-b border-[#EEECE6] ${headerCls}`}>
+        <h2 className={`text-[13px] font-semibold ${headerTextCls}`}>{title}</h2>
+      </header>
+      <div className="px-4 py-3 space-y-2">
+        <div className="text-[11px] text-[#9A9890]">{hint}</div>
+        {img ? (
+          <div className="space-y-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={img}
+              alt="簽名"
+              className="w-full h-40 object-contain bg-[#F5F5F4] border border-[#E8E7E4] rounded"
+            />
+            {!locked && (
+              <button
+                type="button"
+                onClick={onReSign}
+                className="text-[11px] text-[#185FA5] hover:underline"
+              >
+                重新簽名
+              </button>
+            )}
+          </div>
+        ) : locked ? (
+          <div className="h-40 flex items-center justify-center bg-[#F5F5F4] border border-dashed border-[#D5D3CB] rounded text-[12px] text-[#9A9890]">
+            未簽名
+          </div>
+        ) : (
+          <SignatureCanvas onSigned={onSigned} />
+        )}
+        <div className="flex justify-between text-[11px] text-[#9A9890]">
+          <span>{who}</span>
+          <span>{signedAt ? fmtDateTime(signedAt) : "—"}</span>
+        </div>
+      </div>
+    </section>
   );
 }
 

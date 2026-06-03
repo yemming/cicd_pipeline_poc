@@ -112,6 +112,8 @@ export const PERMISSIONS = {
   AFTERSALES_DISCOUNT_EDIT: "service.aftersales_discount.edit",
   AFTERSALES_PERMISSION_VIEW: "service.aftersales_permission.view",
   AFTERSALES_PERMISSION_EDIT: "service.aftersales_permission.edit",
+  SERVICE_PACKAGE_VIEW: "service.service_package.view",
+  SERVICE_PACKAGE_EDIT: "service.service_package.edit",
 
   // ─── 電子發票 ───────────────────────────────────
   EINVOICE_VIEW: "einvoice.view",

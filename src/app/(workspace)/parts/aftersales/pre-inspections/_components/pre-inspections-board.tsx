@@ -21,7 +21,9 @@ import {
 import type {
   PreInspectionListRow,
   AppointmentCandidate,
+  PlateLookupResult,
 } from "@/domain/pre-inspections";
+import { lookupVehicleByPlate } from "@/domain/pre-inspections";
 import {
   createBlankAction,
   createFromAppointmentAction,
@@ -80,6 +82,32 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
     mileage_in: "" as string,
     sa_name: "",
   });
+  // 包D：車牌查詢結果（帶出車主/車型 + pending + 特殊標籤）
+  const [plateLookup, setPlateLookup] = useState<PlateLookupResult | null>(null);
+  const [plateLooking, setPlateLooking] = useState(false);
+  async function doPlateLookup() {
+    const plate = blankForm.vehicle_license_plate.trim();
+    if (!plate) {
+      showBanner({ ok: false, msg: "請先輸入車牌" });
+      return;
+    }
+    setPlateLooking(true);
+    const res = await lookupVehicleByPlate(plate);
+    setPlateLookup(res);
+    setPlateLooking(false);
+    if (res.found) {
+      // 帶出車主 / 車型 / 里程（不覆蓋使用者已手填的欄）
+      setBlankForm((f) => ({
+        ...f,
+        customer_name: f.customer_name || res.customer?.name || "",
+        customer_phone: f.customer_phone || res.customer?.phone || "",
+        vehicle_model_name: f.vehicle_model_name || res.vehicle?.model_name || "",
+        mileage_in:
+          f.mileage_in || (res.vehicle?.current_mileage != null ? String(res.vehicle.current_mileage) : ""),
+      }));
+    }
+  }
+
   const [statusLocal, setStatusLocal] = useState<Filter["status"]>(filter.status);
   const [modeLocal, setModeLocal] = useState<Filter["mode"]>(filter.mode);
   const [qLocal, setQLocal] = useState(filter.q);
@@ -547,11 +575,31 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
                   value={blankForm.customer_phone}
                   onChange={(v) => setBlankForm({ ...blankForm, customer_phone: v })}
                 />
-                <Field
-                  label="車牌號碼"
-                  value={blankForm.vehicle_license_plate}
-                  onChange={(v) => setBlankForm({ ...blankForm, vehicle_license_plate: v })}
-                />
+                <div className="flex flex-col gap-1">
+                  <label className="text-[11px] text-[#9A9890]">車牌號碼（可查詢帶入）</label>
+                  <div className="flex gap-1.5">
+                    <input
+                      value={blankForm.vehicle_license_plate}
+                      onChange={(e) => {
+                        setBlankForm({ ...blankForm, vehicle_license_plate: e.target.value });
+                        setPlateLookup(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") doPlateLookup();
+                      }}
+                      placeholder="ABC-1234"
+                      className="h-[30px] flex-1 border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={doPlateLookup}
+                      disabled={plateLooking}
+                      className="h-[30px] px-3 rounded text-[12px] bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60 shrink-0"
+                    >
+                      {plateLooking ? "查詢中⋯" : "🔍 查詢"}
+                    </button>
+                  </div>
+                </div>
                 <Field
                   label="車型"
                   value={blankForm.vehicle_model_name}
@@ -568,6 +616,59 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
                   value={blankForm.sa_name}
                   onChange={(v) => setBlankForm({ ...blankForm, sa_name: v })}
                 />
+              </div>
+            )}
+
+            {/* 包D：車牌查詢結果 — 帶入 / 查無建檔引導 / 特殊標籤紅框 / 待處理項 */}
+            {createMode === "blank" && plateLookup && (
+              <div className="mt-1 space-y-2">
+                {plateLookup.found ? (
+                  <>
+                    <div className="px-3 py-2 rounded bg-[#EAF3DE] border border-[#C5DC9F] text-[12px] text-[#3B6D11]">
+                      ✓ 找到車籍：{plateLookup.customer?.name ?? "—"} ·{" "}
+                      {plateLookup.vehicle?.model_name ?? "—"}
+                      {plateLookup.vehicle?.warranty_until
+                        ? ` · 保固至 ${plateLookup.vehicle.warranty_until}`
+                        : ""}
+                      ，已自動帶入車主 / 車型 / 里程。
+                    </div>
+                    {plateLookup.special_tags.length > 0 && (
+                      <div className="px-3 py-2 rounded bg-[#FDECEA] border-[1.5px] border-[#F5AEAD] text-[12px] text-[#CC0000]">
+                        <b>⚠️ 特殊標籤：</b>
+                        <span className="inline-flex flex-wrap gap-1 ml-1 align-middle">
+                          {plateLookup.special_tags.map((t) => (
+                            <span
+                              key={t}
+                              className="inline-flex px-1.5 py-0.5 rounded-md bg-white border border-[#F5AEAD] text-[11px]"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    )}
+                    {plateLookup.pending_items.length > 0 && (
+                      <div className="px-3 py-2 rounded bg-[#FDF3E3] border border-[#F0C97E] text-[12px] text-[#854F0B]">
+                        <b>📌 上次未處理的追加項（{plateLookup.pending_items.length}）：</b>
+                        <ul className="mt-1 space-y-0.5">
+                          {plateLookup.pending_items.map((p, i) => (
+                            <li key={i}>
+                              · {p.item_desc}
+                              {p.reason ? `（拒因：${p.reason}）` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="text-[11px] text-[#9A9890] mt-1">
+                          建議本次預檢主動向車主提醒這些項目。
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="px-3 py-2 rounded bg-[#EAF4FB] border border-[#A9CCE8] text-[12px] text-[#185FA5]">
+                    查無此車牌 — 將以<b>新客 / 新車</b>建檔。請確認車主姓名 / 電話 / 車型後建立預檢，系統會一併開立車籍。
+                  </div>
+                )}
               </div>
             )}
 

@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { ScanInput } from "./scan-input";
 import type { CountOpsRow, CountSessionLine } from "@/domain/count";
 import {
   startCountSessionAction,
@@ -755,6 +763,72 @@ function LineEditModal({
   onClose: () => void;
   pending: boolean;
 }) {
+  // 掃描 vs 手動 切換
+  const [scanMode, setScanMode] = useState(false);
+  // 累計掃描成功次數
+  const [scanCount, setScanCount] = useState(0);
+  // 掃描即時回饋（命中料號 / 查無）
+  const [scanMsg, setScanMsg] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+  // 最近命中的 line，視覺高亮一下
+  const [hitLineId, setHitLineId] = useState<string | null>(null);
+  const hitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 掃描碼 → line：以 item_code 比對（line 無 barcode 欄；見 schema CountSessionLine）。
+  // 同時建大寫索引，掃進來的碼大小寫不敏感。
+  const codeIndex = useMemo(() => {
+    const m = new Map<string, CountSessionLine>();
+    for (const l of lines) {
+      if (l.item_code) m.set(l.item_code.trim().toUpperCase(), l);
+    }
+    return m;
+  }, [lines]);
+
+  // 用 ref 拿最新 draft，避免 onScan 因 draft 變動而重建（重建會重啟相機）
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  const handleScan = useCallback(
+    (raw: string) => {
+      const code = raw.trim().toUpperCase();
+      const hit = codeIndex.get(code);
+      if (!hit) {
+        setScanMsg({ ok: false, text: `查無此料號：${raw}` });
+        return;
+      }
+      const cur = draftRef.current;
+      // 命中 +1（沒填過就以系統數為基準 +1）
+      const base =
+        cur[hit.id] != null && cur[hit.id] !== ""
+          ? Number(cur[hit.id])
+          : hit.qty_system;
+      const next = (Number.isFinite(base) ? base : hit.qty_system) + 1;
+      setDraft({ ...cur, [hit.id]: String(next) });
+      setScanCount((c) => c + 1);
+      setScanMsg({
+        ok: true,
+        text: `✓ ${hit.item_code} ${hit.item_name ?? ""} → 實盤 ${next}`,
+      });
+      setHitLineId(hit.id);
+      if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
+      hitTimerRef.current = setTimeout(() => setHitLineId(null), 1500);
+    },
+    [codeIndex, setDraft],
+  );
+
+  const closeScan = useCallback(() => setScanMode(false), []);
+
+  // unmount 時清掉高亮 timer，避免 setState on unmounted
+  useEffect(() => {
+    return () => {
+      if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
+    };
+  }, []);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
@@ -764,10 +838,42 @@ function LineEditModal({
         className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-3 border-b border-[#EEECE6] flex items-center">
+        <div className="px-5 py-3 border-b border-[#EEECE6] flex items-center gap-2">
           <h2 className="text-[14px] font-semibold text-[#2C2C2A]">
             填實盤數 ・ <span className="font-mono">{ctNo}</span>
           </h2>
+          {/* 掃描 / 手動 切換 */}
+          <div className="ml-3 inline-flex rounded-md border border-[#D5D3CB] overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setScanMode(false)}
+              disabled={pending}
+              className={`h-[26px] px-2.5 text-[11.5px] inline-flex items-center gap-1 disabled:opacity-50 ${
+                !scanMode
+                  ? "bg-[#1A3A5C] text-white"
+                  : "bg-white text-[#5A5955] hover:bg-[#F8F7F4]"
+              }`}
+            >
+              ⌨️ 手動
+            </button>
+            <button
+              type="button"
+              onClick={() => setScanMode(true)}
+              disabled={pending}
+              className={`h-[26px] px-2.5 text-[11.5px] inline-flex items-center gap-1 border-l border-[#D5D3CB] disabled:opacity-50 ${
+                scanMode
+                  ? "bg-[#0F6E56] text-white"
+                  : "bg-white text-[#5A5955] hover:bg-[#F8F7F4]"
+              }`}
+            >
+              📷 掃描盤點
+            </button>
+          </div>
+          {scanMode && (
+            <span className="text-[11px] text-[#9A9890]">
+              累計掃描 <b className="text-[#2C2C2A]">{scanCount}</b> 次
+            </span>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -777,10 +883,28 @@ function LineEditModal({
             ×
           </button>
         </div>
+        {/* 掃描區（掃描模式時顯示在表格上方） */}
+        {scanMode && (
+          <div className="px-5 pt-4">
+            <ScanInput onScan={handleScan} onClose={closeScan} />
+            {scanMsg && (
+              <div
+                className={`mt-2 rounded px-3 py-2 text-[12px] border ${
+                  scanMsg.ok
+                    ? "bg-[#EAF3DE] text-[#3B6D11] border-[#C5DC9F]"
+                    : "bg-[#FDECEA] text-[#CC0000] border-[#F5AEAD]"
+                }`}
+              >
+                {scanMsg.text}
+              </div>
+            )}
+          </div>
+        )}
         <div className="px-5 py-4">
           <p className="text-[12px] text-[#9A9890] mb-2">
-            預設帶入系統數量；若實盤不同就改寫。提交後算 variance + 進
-            pending_approval。
+            {scanMode
+              ? "比對碼用「料號 item_code」（line 無條碼欄）；掃到命中的料號實盤數自動 +1，下方表格仍可手改。"
+              : "預設帶入系統數量；若實盤不同就改寫。提交後算 variance + 進 pending_approval。"}
           </p>
           <table className="w-full text-[12.5px]">
             <thead className="bg-[#F8F7F4] text-[#9A9890]">
@@ -805,7 +929,12 @@ function LineEditModal({
                 const final = v === "" ? l.qty_system : Number(v);
                 const variance = final - l.qty_system;
                 return (
-                  <tr key={l.id} className="border-t border-[#EEECE6]">
+                  <tr
+                    key={l.id}
+                    className={`border-t border-[#EEECE6] transition-colors ${
+                      hitLineId === l.id ? "bg-[#EAF3DE]" : ""
+                    }`}
+                  >
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-[12px] text-[#1A3A5C] font-semibold">

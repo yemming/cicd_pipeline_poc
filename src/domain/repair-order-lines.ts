@@ -497,3 +497,57 @@ export async function listRecentRosForPicker(
     customer_name: r.customer_id ? custMap.get(r.customer_id) ?? null : null,
   }));
 }
+
+// ───────────────────────────────────────────────────────────
+// 包D：缺料時查「跨店（跨倉）庫存」— 給維修明細頁的「查跨店庫存」鈕
+// 同 brand 各倉的該料 on_hand，依數量遞減排序，供 SA 決定要不要調撥。
+// ───────────────────────────────────────────────────────────
+export type CrossStoreStockRow = {
+  warehouse_id: string;
+  warehouse_name: string;
+  warehouse_code: string | null;
+  org_id: string | null;
+  qty: number;
+};
+
+export async function getCrossWarehouseStock(
+  itemId: string,
+): Promise<CrossStoreStockRow[]> {
+  if (!itemId) return [];
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data: stocks } = await supabase
+    .from("stock_items")
+    .select("warehouse_id, qty")
+    .eq("brand_id", brand)
+    .eq("item_id", itemId);
+
+  const map = new Map<string, number>();
+  for (const s of (stocks ?? []) as { warehouse_id: string | null; qty: number | null }[]) {
+    if (!s.warehouse_id) continue;
+    map.set(s.warehouse_id, (map.get(s.warehouse_id) ?? 0) + Number(s.qty ?? 0));
+  }
+  if (map.size === 0) return [];
+
+  const ids = Array.from(map.keys());
+  const { data: whs } = await supabase
+    .from("warehouses")
+    .select("id, name, code, org_id")
+    .in("id", ids);
+  const whMap = new Map(
+    ((whs ?? []) as { id: string; name: string; code: string | null; org_id: string | null }[]).map(
+      (w) => [w.id, w],
+    ),
+  );
+
+  return ids
+    .map((id) => ({
+      warehouse_id: id,
+      warehouse_name: whMap.get(id)?.name ?? "（未知倉）",
+      warehouse_code: whMap.get(id)?.code ?? null,
+      org_id: whMap.get(id)?.org_id ?? null,
+      qty: map.get(id) ?? 0,
+    }))
+    .sort((a, b) => b.qty - a.qty);
+}

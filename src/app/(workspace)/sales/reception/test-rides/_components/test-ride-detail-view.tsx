@@ -120,7 +120,13 @@ export function TestRideDetailView({
         notes: completeForm.notes || null,
       });
       if (res.ok) {
-        showBanner({ ok: true, msg: "✓ 試駕已完成，已回寫至手卡" });
+        // 名實相符：有連結手卡才宣告「已回寫手卡」，否則只說試駕完成
+        showBanner({
+          ok: true,
+          msg: res.data.handcard_id
+            ? "✓ 試駕已完成，已回寫至手卡"
+            : "✓ 試駕已完成（未連結手卡，無回寫）",
+        });
         setMode("view");
         setGoldenModalOpen(true);
         router.refresh();

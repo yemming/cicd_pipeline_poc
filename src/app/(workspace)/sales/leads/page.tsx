@@ -1,15 +1,6 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+import { redirect } from "next/navigation";
 
-export default async function Page() {
-  const html = await loadStitchBody("7fc8a244a33941aba5db6e8e9bfc6f11");
-  return (
-    <StitchInline
-      html={html}
-      title="線索管理"
-      sprint="S3-1"
-      screenId="7fc8a244a33941aba5db6e8e9bfc6f11"
-      breadcrumb={[{ label: "銷售管理", href: "/sales/showroom" }, { label: "線索管理" }]}
-    />
-  );
+// 舊 Stitch demo 頁 → 導向真實 CRM 線索（休眠/潛客）管理
+export default function Page(): never {
+  redirect("/crm/sales/dormant-leads");
 }

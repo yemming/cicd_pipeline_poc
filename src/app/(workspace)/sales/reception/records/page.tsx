@@ -1,16 +1,6 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+import { redirect } from "next/navigation";
 
-export default async function Page() {
-  const html = await loadStitchBody("f822233c2bba46cc922f40a25c68f4c1");
-  return (
-    <StitchInline
-      html={html}
-      title="接待記錄"
-      sprint="S2-2"
-      device="tablet"
-      screenId="f822233c2bba46cc922f40a25c68f4c1"
-      breadcrumb={[{ label: "銷售管理", href: "/sales/showroom" }, { label: "接待記錄" }]}
-    />
-  );
+// 舊 Stitch demo 頁 → 導向真實接待手卡列表
+export default function Page(): never {
+  redirect("/sales/reception/handcard");
 }

@@ -15,11 +15,18 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { createFollowUpTask } from "@/domain/sales-call-tasks";
+
+// 包F：下次保養提醒參數（Ducati 定保 demo：里程 +6000km / 時間 +6 個月，提前 5 個月建 CRM 回訪）
+const NEXT_SERVICE_INTERVAL_KM = 6000;
+const NEXT_SERVICE_INTERVAL_MONTHS = 6;
+const NEXT_SERVICE_REMINDER_DAYS = 150;
 
 import {
   applyDiscount,
@@ -197,7 +204,11 @@ export async function confirmFeesAction(id: string): Promise<ActionResult<{ id: 
 
 export async function signAction(
   id: string,
-  payload: { signature_text: string; customer_name?: string },
+  payload: {
+    signature_text: string;
+    customer_name?: string;
+    screenshot_url?: string | null;
+  },
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CLOSE);
   const ctx = await loadById(id);
@@ -209,6 +220,7 @@ export async function signAction(
     signature_text: payload.signature_text,
     customer_name: payload.customer_name,
     signed_at: new Date().toISOString(),
+    screenshot_url: payload.screenshot_url ?? null,
   };
   const supabase = await createClient();
   const { error } = await supabase
@@ -312,9 +324,115 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
     .update({ status: "已結案", closed_at: now })
     .eq("id", ctx.row.repair_order_id)
     .eq("brand_id", ctx.brand);
+
+  // ── 包F：結案 → 寫下次保養提醒到人車檔 + 建 CRM 回訪（非阻塞、吞錯不影響關單）──
+  const repairOrderId = ctx.row.repair_order_id as string;
+  const brand = ctx.brand;
+  after(async () => {
+    try {
+      const sb = await createClient();
+      const { data: ro } = await sb
+        .from("repair_orders")
+        .select("vehicle_id, customer_id, ro_code, mileage_in")
+        .eq("id", repairOrderId)
+        .eq("brand_id", brand)
+        .maybeSingle();
+      if (!ro?.vehicle_id) return;
+
+      // 取車輛現里程（優先 RO 進廠里程，否則車檔現里程）
+      const { data: veh } = await sb
+        .from("customer_vehicles")
+        .select("current_mileage")
+        .eq("id", ro.vehicle_id)
+        .maybeSingle();
+      const baseMileage =
+        Number(ro.mileage_in ?? 0) || Number(veh?.current_mileage ?? 0) || 0;
+      const nextMileage = baseMileage > 0 ? baseMileage + NEXT_SERVICE_INTERVAL_KM : null;
+
+      const due = new Date();
+      due.setMonth(due.getMonth() + NEXT_SERVICE_INTERVAL_MONTHS);
+      const nextDate = due.toISOString().slice(0, 10);
+
+      await sb
+        .from("customer_vehicles")
+        .update({
+          next_service_mileage: nextMileage,
+          next_service_date: nextDate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", ro.vehicle_id);
+
+      // CRM 回訪任務：提前 5 個月提醒客戶回廠保養（dedupe by source_ro）
+      if (ro.customer_id) {
+        await createFollowUpTask({
+          customer_id: ro.customer_id,
+          kind: "aftersales",
+          call_type: "maintenance_reminder",
+          days_from_now: NEXT_SERVICE_REMINDER_DAYS,
+          notes: `下次保養提醒：工單 ${ro.ro_code} 結案，建議里程 ${
+            nextMileage ?? "—"
+          } km / ${nextDate} 前回廠保養`,
+          metadata: {
+            source: "ro_checkout_complete",
+            source_ro: repairOrderId,
+            ro_code: ro.ro_code,
+            next_service_mileage: nextMileage,
+            next_service_date: nextDate,
+            vehicle_id: ro.vehicle_id,
+          },
+          dedupeMetaKey: "source_ro",
+        });
+      }
+    } catch (e) {
+      console.error("[包F 下次保養提醒] 寫入失敗（不影響關單）", e);
+    }
+  });
+
   revalidatePath(`${PAGE}/${id}`);
   revalidatePath(PAGE);
   revalidatePath("/parts/aftersales/repair-orders");
+  return { ok: true, data: { id } };
+}
+
+/**
+ * 包F：委託取車授權（Step1B）—— 記錄非車主本人代取的受託人資訊到 metadata.entrustment。
+ * is_entrusted=false 表示車主本人取車（清除委託資料）。
+ */
+export async function setPickupEntrustmentAction(
+  id: string,
+  input: {
+    is_entrusted: boolean;
+    agent_name?: string | null;
+    relation?: string | null;
+    id_note?: string | null;
+  },
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (input.is_entrusted && !input.agent_name?.trim()) {
+    return { ok: false, error: "請填寫受託人姓名" };
+  }
+  const supabase = await createClient();
+  const meta = (ctx.row.metadata ?? {}) as Record<string, unknown>;
+  const next = {
+    ...meta,
+    entrustment: input.is_entrusted
+      ? {
+          is_entrusted: true,
+          agent_name: input.agent_name!.trim(),
+          relation: input.relation?.trim() || null,
+          id_note: input.id_note?.trim() || null,
+          authorized_at: new Date().toISOString(),
+        }
+      : { is_entrusted: false },
+  };
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({ metadata: next, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
   return { ok: true, data: { id } };
 }
 

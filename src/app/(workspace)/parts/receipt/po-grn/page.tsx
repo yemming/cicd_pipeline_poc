@@ -5,6 +5,12 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getPoGrnPageBundle } from "@/domain/receipts";
 import { RECEIPTS_PAGE_SIZE_DEFAULT } from "@/domain/receipts.constants";
+import {
+  getDiscrepancyEntryData,
+  listRecentDiscrepancies,
+  type DiscrepancyEntryData,
+  type ReceivingDiscrepancyRow,
+} from "@/domain/receiving-discrepancies";
 
 import { ReceiptsBoard } from "./_components/receipts-board";
 
@@ -80,6 +86,18 @@ export default async function ReceiptsPage({
     ? bundle.rows.filter((r) => r.warehouse_id === warehouseId)
     : bundle.rows;
 
+  // 驗收差異三入口：候選料號/供應商 + 最近差異記錄（失敗不擋整頁，給空殼）
+  let discrepancyEntry: DiscrepancyEntryData = { items: [], suppliers: [] };
+  let recentDiscrepancies: ReceivingDiscrepancyRow[] = [];
+  try {
+    [discrepancyEntry, recentDiscrepancies] = await Promise.all([
+      getDiscrepancyEntryData(),
+      listRecentDiscrepancies({ limit: 20 }),
+    ]);
+  } catch {
+    // 候選/列表撈不到不影響入庫主畫面
+  }
+
   return (
     <ReceiptsBoard
       rows={filteredRows}
@@ -88,6 +106,9 @@ export default async function ReceiptsPage({
       warehouses={bundle.warehouses}
       canEdit={bundle.canEdit}
       loadError={loadError}
+      discrepancyItems={discrepancyEntry.items}
+      discrepancySuppliers={discrepancyEntry.suppliers}
+      recentDiscrepancies={recentDiscrepancies}
       filter={{
         status,
         warehouse_id: warehouseId,

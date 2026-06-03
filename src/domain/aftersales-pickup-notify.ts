@@ -16,6 +16,11 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { notifications } from "@/lib/notifications";
+import {
+  type NodeKind,
+  type NotifyPolicy,
+  nodeKindDef,
+} from "./aftersales-pickup-notify.constants";
 
 const RULE_KIND = "aftersales_pickup_notify_template";
 const REVALIDATE_PATH = "/parts/aftersales/settings/pickup-notify";
@@ -225,6 +230,10 @@ export type PickupNotificationSchedule = {
   quiet_hours_end: string | null;
   is_active: boolean;
   created_at: string;
+  // 包F：5 節點 + 三態政策 + 強制旗標
+  node_kind: NodeKind | null;
+  policy: NotifyPolicy;
+  forced: boolean;
   // 從 join 帶出來的範本資訊（給列表顯示用）
   template_name?: string | null;
   template_channel?: NotifChannel | null;
@@ -253,7 +262,7 @@ export async function listPickupSchedules(): Promise<PickupNotificationSchedule[
   const { data, error } = await supabase
     .from("pickup_notification_schedules")
     .select(
-      "id, brand_id, template_id, trigger_event, offset_minutes, target_role, quiet_hours_start, quiet_hours_end, is_active, created_at, template:pickup_notification_templates(name, channel)",
+      "id, brand_id, template_id, trigger_event, offset_minutes, target_role, quiet_hours_start, quiet_hours_end, is_active, created_at, node_kind, policy, forced, template:pickup_notification_templates(name, channel)",
     )
     .eq("brand_id", scope.brand_id)
     .order("created_at", { ascending: true });
@@ -271,6 +280,9 @@ export async function listPickupSchedules(): Promise<PickupNotificationSchedule[
       quiet_hours_end: (r.quiet_hours_end ?? null) as string | null,
       is_active: r.is_active as boolean,
       created_at: r.created_at as string,
+      node_kind: (r.node_kind ?? null) as NodeKind | null,
+      policy: (r.policy ?? "sa_decide") as NotifyPolicy,
+      forced: r.forced === true,
       template_name: tpl?.name ?? null,
       template_channel: tpl?.channel ?? null,
     };
@@ -403,12 +415,18 @@ export type UpsertScheduleInput = {
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
   is_active: boolean;
+  node_kind?: NodeKind | null;
+  policy?: NotifyPolicy;
 };
 
 export async function upsertSchedule(input: UpsertScheduleInput): Promise<Result<{ id: string }>> {
   if (!input.template_id) return { ok: false, error: "請選擇要使用的範本" };
   const supabase = await createClient();
   const scope = await getActiveScope();
+  // 節點 2（安全相關追加）強制發送：policy 鎖 mandatory + forced=true
+  const def = nodeKindDef(input.node_kind ?? null);
+  const forced = def?.forced ?? false;
+  const policy: NotifyPolicy = forced ? "mandatory" : input.policy ?? "sa_decide";
   const row = {
     brand_id: scope.brand_id,
     template_id: input.template_id,
@@ -418,6 +436,9 @@ export async function upsertSchedule(input: UpsertScheduleInput): Promise<Result
     quiet_hours_start: input.quiet_hours_start,
     quiet_hours_end: input.quiet_hours_end,
     is_active: input.is_active,
+    node_kind: input.node_kind ?? null,
+    policy,
+    forced,
   };
   if (input.id) {
     const { error } = await supabase

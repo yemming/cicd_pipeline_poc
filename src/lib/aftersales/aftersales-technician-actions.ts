@@ -227,6 +227,80 @@ export async function setTechnicianStatusAction(
   return { ok: true, data: { id } };
 }
 
+/**
+ * 包E：技師缺席重排 —— 把缺席技師當前在修的工單移交另一技師（或留空），來源技師標下班(off)。
+ *  - toTechnicianId=null：僅把來源標缺席、清當前工單（工單回未指派狀態）
+ *  - 否則：當前工單(current_ro_code/item/bay)轉給目標技師（目標 → working、jobs_total+1）
+ */
+export async function reassignTechnicianCurrentJobAction(
+  fromTechnicianId: string,
+  toTechnicianId: string | null,
+): Promise<ActionResult<{ moved: boolean }>> {
+  await requirePermission(PERMISSIONS.RO_DISPATCH);
+  if (!fromTechnicianId) return { ok: false, error: "缺少來源技師" };
+  if (toTechnicianId && toTechnicianId === fromTechnicianId)
+    return { ok: false, error: "來源與目標技師相同" };
+
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+
+  const { data: from, error: fromErr } = await supabase
+    .from("aftersales_technicians")
+    .select("id, current_ro_code, current_item, current_bay_code")
+    .eq("id", fromTechnicianId)
+    .maybeSingle();
+  if (fromErr) return { ok: false, error: fromErr.message };
+  if (!from) return { ok: false, error: "找不到來源技師" };
+
+  const job = {
+    current_ro_code: (from as { current_ro_code: string | null }).current_ro_code,
+    current_item: (from as { current_item: string | null }).current_item,
+    current_bay_code: (from as { current_bay_code: string | null }).current_bay_code,
+  };
+  const hasJob = !!job.current_ro_code;
+
+  if (toTechnicianId && hasJob) {
+    const { data: to, error: toErr } = await supabase
+      .from("aftersales_technicians")
+      .select("id, is_active, jobs_total")
+      .eq("id", toTechnicianId)
+      .maybeSingle();
+    if (toErr) return { ok: false, error: toErr.message };
+    if (!to || !(to as { is_active: boolean }).is_active)
+      return { ok: false, error: "目標技師不存在或未啟用" };
+    const { error: assignErr } = await supabase
+      .from("aftersales_technicians")
+      .update({
+        status: "working",
+        current_ro_code: job.current_ro_code,
+        current_item: job.current_item,
+        current_bay_code: job.current_bay_code,
+        started_at: now,
+        jobs_total: ((to as { jobs_total: number }).jobs_total ?? 0) + 1,
+        updated_at: now,
+      })
+      .eq("id", toTechnicianId);
+    if (assignErr) return { ok: false, error: `轉派失敗：${assignErr.message}` };
+  }
+
+  // 來源技師標缺席（下班）+ 清當前工單
+  const { error: offErr } = await supabase
+    .from("aftersales_technicians")
+    .update({
+      status: "off",
+      current_ro_code: null,
+      current_item: null,
+      current_bay_code: null,
+      started_at: null,
+      updated_at: now,
+    })
+    .eq("id", fromTechnicianId);
+  if (offErr) return { ok: false, error: offErr.message };
+
+  revalidatePath(PAGE);
+  return { ok: true, data: { moved: !!(toTechnicianId && hasJob) } };
+}
+
 /* ──────── Active toggle / Delete ──────── */
 
 export async function setTechnicianActiveAction(

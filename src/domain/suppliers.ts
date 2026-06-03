@@ -570,6 +570,117 @@ export async function getSuppliersStats(): Promise<SuppliersStats> {
   };
 }
 
+// ───────────────── 供應商品質績效看板（list header 用） ─────────────────
+// ⚠️ 上線初期示意資料：交貨準時率 / 平均前置天數 / 短收率 / 退貨率目前以
+//    供應商清單為基底、用合理假值帶出（其中準時率可改真算 PO eta_date vs
+//    stock_receipts.receipt_date）。待累積採購入庫 / receiving_discrepancies
+//    差異記錄後，再把這 4 個指標換成真算。評分與建議由指標推導，介面先成形。
+
+export type SupplierPerformanceScore = "A+" | "A" | "B" | "C";
+
+export type SupplierPerformance = {
+  supplier_id: string;
+  supplier_name: string;
+  on_time_rate: number; // 交貨準時率 0~1
+  avg_lead_days: number; // 平均前置天數
+  short_receipt_rate: number; // 短收率 0~1
+  return_rate: number; // 退貨率 0~1
+  score: SupplierPerformanceScore;
+  suggestion: string; // 採購建議文案
+};
+
+// 綜合分 → 評分等級（準時率高 / 短收率低 / 退貨率低 → 分高）
+function deriveScore(p: {
+  on_time_rate: number;
+  short_receipt_rate: number;
+  return_rate: number;
+}): SupplierPerformanceScore {
+  // 0~100 綜合分：準時率佔 60、短收率扣分、退貨率扣分
+  const composite =
+    p.on_time_rate * 60 +
+    (1 - p.short_receipt_rate) * 25 +
+    (1 - p.return_rate) * 15;
+  if (composite >= 92) return "A+";
+  if (composite >= 82) return "A";
+  if (composite >= 70) return "B";
+  return "C";
+}
+
+// 採購建議文案：依最弱的指標給對應建議
+function deriveSuggestion(p: {
+  on_time_rate: number;
+  avg_lead_days: number;
+  short_receipt_rate: number;
+  return_rate: number;
+}): string {
+  if (p.on_time_rate < 0.8) return "交貨準時率偏低，建議檢討交期與催料機制";
+  if (p.return_rate >= 0.05) return "退貨率偏高，建議加強到貨品質抽檢";
+  if (p.short_receipt_rate >= 0.05) return "短收率偏高，建議覆核出貨數量與包裝";
+  if (p.avg_lead_days > 21) return "前置天數較長，建議提前下單或尋找備援供應商";
+  return "表現穩定，維持現行合作模式";
+}
+
+export async function getSuppliersPerformanceBoard(): Promise<
+  SupplierPerformance[]
+> {
+  // 用既有 helper 拿本品牌供應商清單，勿另造 query
+  const suppliers = await listSuppliersWithContract();
+
+  // 以供應商 id 衍生穩定的「示意」指標（同一供應商每次值一致、不亂跳）
+  // hash → 0~1，避免 Math.random 造成每次刷新數字跳動
+  const seeded = (seed: string, salt: number): number => {
+    let h = salt >>> 0;
+    for (let i = 0; i < seed.length; i++) {
+      h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+    return (h % 1000) / 1000; // 0~0.999
+  };
+
+  return suppliers
+    .map((s) => {
+      const r1 = seeded(s.id, 7);
+      const r2 = seeded(s.id, 13);
+      const r3 = seeded(s.id, 23);
+      const r4 = seeded(s.id, 31);
+
+      // 準時率 0.70~0.99、前置 7~28 天、短收 0~8%、退貨 0~6%
+      const on_time_rate = Math.round((0.7 + r1 * 0.29) * 100) / 100;
+      const avg_lead_days = Math.round(7 + r2 * 21);
+      const short_receipt_rate = Math.round(r3 * 0.08 * 1000) / 1000;
+      const return_rate = Math.round(r4 * 0.06 * 1000) / 1000;
+
+      const score = deriveScore({ on_time_rate, short_receipt_rate, return_rate });
+      const suggestion = deriveSuggestion({
+        on_time_rate,
+        avg_lead_days,
+        short_receipt_rate,
+        return_rate,
+      });
+
+      return {
+        supplier_id: s.id,
+        supplier_name: s.name ?? "",
+        on_time_rate,
+        avg_lead_days,
+        short_receipt_rate,
+        return_rate,
+        score,
+        suggestion,
+      } satisfies SupplierPerformance;
+    })
+    .sort((a, b) => {
+      // A+ → A → B → C，同級看準時率
+      const order: Record<SupplierPerformanceScore, number> = {
+        "A+": 0,
+        A: 1,
+        B: 2,
+        C: 3,
+      };
+      if (order[a.score] !== order[b.score]) return order[a.score] - order[b.score];
+      return b.on_time_rate - a.on_time_rate;
+    });
+}
+
 // 單一 supplier 的績效統計（detail page 用）
 export type SupplierMetrics = {
   partnership_days: number; // 從 created_at 至今

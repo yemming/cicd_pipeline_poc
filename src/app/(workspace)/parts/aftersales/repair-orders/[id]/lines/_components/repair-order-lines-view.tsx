@@ -14,14 +14,34 @@ import {
   updatePartLineAction,
   updateRoDiscountAction,
 } from "@/lib/aftersales/repair-order-line-actions";
-import type {
-  RepairOrderLineWithStock,
-  RepairOrderLinesPageData,
+import {
+  getCrossWarehouseStock,
+  type CrossStoreStockRow,
+  type RepairOrderLineWithStock,
+  type RepairOrderLinesPageData,
 } from "@/domain/repair-order-lines";
 
 function fmtNT(n: number | null | undefined): string {
   if (n == null) return "—";
   return `NT$${Math.round(Number(n)).toLocaleString()}`;
+}
+
+/**
+ * 包D 庫存三色：🟢充足（on_hand≥需求）/ 🟠不足（0<on_hand<需求）/ 🔴缺料（on_hand≤0）。
+ * on_hand 為 null（工項或未連動料號）→ 灰色「—」。
+ */
+function stockTone(
+  onHand: number | null | undefined,
+  qty: number | null | undefined,
+): { cls: string; icon: string; label: string; isShort: boolean } {
+  if (onHand == null)
+    return { cls: "bg-[#F2F2F2] text-[#6B6A68]", icon: "", label: "—", isShort: false };
+  const need = Number(qty ?? 0);
+  if (onHand <= 0)
+    return { cls: "bg-[#FDECEA] text-[#CC0000]", icon: "🔴", label: "缺料", isShort: true };
+  if (onHand < need)
+    return { cls: "bg-[#FDF3E3] text-[#854F0B]", icon: "🟠", label: "不足", isShort: true };
+  return { cls: "bg-[#EAF3DE] text-[#3B6D11]", icon: "🟢", label: "充足", isShort: false };
 }
 
 function statusBadge(status: string): string {
@@ -127,6 +147,31 @@ export function RepairOrderLinesView({
 
   // part add form
   const [newPart, setNewPart] = useState({ item_id: "", qty: "1", unit_price: "" });
+  // 包D：料號 / 品名搜尋（過濾零件下拉）
+  const [partQuery, setPartQuery] = useState("");
+  const filteredItemOptions = useMemo(() => {
+    const q = partQuery.trim().toLowerCase();
+    if (!q) return itemOptions;
+    return itemOptions.filter(
+      (it) =>
+        it.code.toLowerCase().includes(q) || it.name.toLowerCase().includes(q),
+    );
+  }, [itemOptions, partQuery]);
+
+  // 包D：跨店（跨倉）庫存查詢 modal
+  const [crossStore, setCrossStore] = useState<{
+    line: RepairOrderLineWithStock;
+    rows: CrossStoreStockRow[] | null;
+  } | null>(null);
+  const [crossLoading, setCrossLoading] = useState(false);
+  async function openCrossStore(line: RepairOrderLineWithStock) {
+    setCrossStore({ line, rows: null });
+    setCrossLoading(true);
+    const rows = line.item_id ? await getCrossWarehouseStock(line.item_id) : [];
+    setCrossStore((c) => (c && c.line.id === line.id ? { ...c, rows } : c));
+    setCrossLoading(false);
+  }
+
   function pickItemForNewPart(item_id: string) {
     const it = itemOptions.find((i) => i.id === item_id);
     setNewPart({
@@ -456,14 +501,25 @@ export function RepairOrderLinesView({
             {canEdit && (
               <div className="border-t border-dashed border-[#D5D3CB] px-3 py-3 bg-[#F8F7F4] grid grid-cols-12 gap-2 items-end">
                 <div className="col-span-6 flex flex-col gap-1">
-                  <label className="text-[11px] text-[#9A9890]">選擇零件 *</label>
+                  <label className="text-[11px] text-[#9A9890]">選擇零件 *（可輸入料號 / 品名搜尋）</label>
+                  <input
+                    className={inputCls}
+                    value={partQuery}
+                    onChange={(e) => setPartQuery(e.target.value)}
+                    placeholder="🔍 搜尋料號或品名⋯"
+                  />
                   <select
                     className={inputCls}
                     value={newPart.item_id}
                     onChange={(e) => pickItemForNewPart(e.target.value)}
+                    size={partQuery.trim() ? 5 : undefined}
                   >
-                    <option value="">— 請選擇 —</option>
-                    {itemOptions.map((it) => (
+                    <option value="">
+                      {filteredItemOptions.length === 0
+                        ? "— 查無符合料號 —"
+                        : "— 請選擇 —"}
+                    </option>
+                    {filteredItemOptions.map((it) => (
                       <option key={it.id} value={it.id}>
                         {it.code} · {it.name}
                         {it.suggested_price != null
@@ -579,22 +635,39 @@ export function RepairOrderLinesView({
           <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
             <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
               <span className="text-[13px] font-semibold text-[#2C2C2A]">⚡ 庫存提示</span>
+              <span className="text-[11px] text-[#9A9890] ml-2">🟢充足 / 🟠不足 / 🔴缺料</span>
             </header>
             <div className="px-4 py-3 space-y-2 text-[12px]">
               {partLines.length === 0 && (
                 <div className="text-[#9A9890]">無零件</div>
               )}
               {partLines.length > 0 && stockHints.length === 0 && (
-                <div className="text-[#3B6D11]">✓ 全部零件庫存充足</div>
+                <div className="text-[#3B6D11]">🟢 全部零件庫存充足</div>
               )}
-              {stockHints.map((p) => (
-                <div
-                  key={p.id}
-                  className="text-[#854F0B] bg-[#FDF3E3] border border-[#F0C97E] rounded px-2 py-1.5"
-                >
-                  ⚠️ {p.part_name}：需求 {p.qty} · 庫存 {p.stock_on_hand}
-                </div>
-              ))}
+              {stockHints.map((p) => {
+                const tone = stockTone(p.stock_on_hand, p.qty);
+                return (
+                  <div
+                    key={p.id}
+                    className={`rounded px-2 py-1.5 ${tone.cls} border ${tone.label === "缺料" ? "border-[#F5AEAD]" : "border-[#F0C97E]"}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span>
+                        {tone.icon} {p.part_name}：需求 {p.qty} · 庫存 {p.stock_on_hand}
+                      </span>
+                      {canEdit && p.item_id && (
+                        <button
+                          type="button"
+                          onClick={() => openCrossStore(p)}
+                          className="shrink-0 h-[22px] px-2 rounded bg-white/70 border border-current text-[10.5px] hover:bg-white"
+                        >
+                          查跨店庫存
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
               {partLines
                 .filter(
                   (p) =>
@@ -605,7 +678,7 @@ export function RepairOrderLinesView({
                 .slice(0, 5)
                 .map((p) => (
                   <div key={p.id} className="text-[#9A9890]">
-                    · {p.part_name}（庫存 {p.stock_on_hand}）
+                    🟢 {p.part_name}（庫存 {p.stock_on_hand}）
                   </div>
                 ))}
             </div>
@@ -622,6 +695,73 @@ export function RepairOrderLinesView({
           }`}
         >
           {banner.msg}
+        </div>
+      )}
+
+      {/* 包D：跨店（跨倉）庫存 modal */}
+      {crossStore && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setCrossStore(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[460px] max-w-[92vw] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#F8F7F4]">
+              <div className="text-[13px] font-semibold text-[#2C2C2A]">
+                跨店庫存 — {crossStore.line.part_name}
+              </div>
+              <div className="text-[11px] text-[#9A9890] font-mono mt-0.5">
+                {crossStore.line.part_code} · 本單需求 {crossStore.line.qty}
+              </div>
+            </header>
+            <div className="px-4 py-3 max-h-[50vh] overflow-y-auto">
+              {crossLoading ? (
+                <div className="text-[12.5px] text-[#9A9890] py-6 text-center">查詢中⋯</div>
+              ) : !crossStore.rows || crossStore.rows.length === 0 ? (
+                <div className="text-[12.5px] text-[#CC0000] py-6 text-center">
+                  全品牌各倉皆無此料庫存，建議改採購 / 調貨。
+                </div>
+              ) : (
+                <table className="w-full text-[12.5px]">
+                  <thead>
+                    <tr className="text-[11px] text-[#9A9890] border-b border-[#EEECE6]">
+                      <th className="text-left py-1.5">倉庫</th>
+                      <th className="text-right py-1.5">可用庫存</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {crossStore.rows.map((w) => (
+                      <tr key={w.warehouse_id} className="border-b border-[#F2F2F2] last:border-0">
+                        <td className="py-1.5">
+                          <span className="font-mono text-[11px] text-[#5A5955]">
+                            {w.warehouse_code ?? "—"}
+                          </span>{" "}
+                          {w.warehouse_name}
+                        </td>
+                        <td className="py-1.5 text-right font-mono font-semibold text-[#1A3A5C]">
+                          {w.qty}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <div className="mt-3 text-[11px] text-[#9A9890]">
+                如需從他倉調貨，請至「庫存調撥」開立調撥單（POC：此處先供查詢）。
+              </div>
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setCrossStore(null)}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                關閉
+              </button>
+            </footer>
+          </div>
         </div>
       )}
     </main>
@@ -856,8 +996,7 @@ function PartRow({
     });
   }
 
-  const stockLow =
-    line.stock_on_hand != null && line.qty != null && Number(line.stock_on_hand) < Number(line.qty);
+  const tone = stockTone(line.stock_on_hand, line.qty);
 
   const lc = lifecycleOf(line);
   const chip = lifecycleChip(lc);
@@ -897,13 +1036,10 @@ function PartRow({
         </td>
         <td className="px-3 py-2 text-center">
           <span
-            className={`inline-flex px-1.5 py-0.5 rounded-md text-[11px] ${
-              stockLow
-                ? "bg-[#FDF3E3] text-[#854F0B]"
-                : "bg-[#EAF3DE] text-[#3B6D11]"
-            }`}
+            className={`inline-flex px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${tone.cls}`}
+            title={`${tone.label}：庫存 ${line.stock_on_hand ?? "—"} / 需求 ${line.qty ?? "—"}`}
           >
-            {stockLow ? "⚠️" : "✓"} {line.stock_on_hand ?? "—"}
+            {tone.icon} {line.stock_on_hand ?? "—"}
           </span>
         </td>
         <td className="px-3 py-2 text-right">

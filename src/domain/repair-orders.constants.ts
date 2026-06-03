@@ -96,3 +96,35 @@ export const RO_STATUS_OPTIONS = [
 ] as const;
 
 export type RoStatus = (typeof RO_STATUS_OPTIONS)[number];
+
+/**
+ * 工單優先級（G-1 DDL `repair_orders.priority`，CHECK = urgent|normal|flexible）
+ * 派工依此排序：緊急置頂。chip 走色票表（紅=緊急 / 琥珀=一般 / 綠=彈性）。
+ */
+export type RoPriority = "urgent" | "normal" | "flexible";
+
+export const RO_PRIORITY_DEFS: {
+  code: RoPriority;
+  label: string;
+  emoji: string;
+  desc: string;
+  /** list chip / detail badge 用 */
+  chip: string;
+  /** confirm-view 選擇器選中態邊框/底色 */
+  selected: string;
+}[] = [
+  { code: "urgent", label: "緊急", emoji: "🔴", desc: "客戶在店等 / 趕交車 · 派工置頂", chip: "bg-[#FDECEA] text-[#CC0000]", selected: "border-[#CC0000] bg-[#FDECEA]" },
+  { code: "normal", label: "一般", emoji: "🟡", desc: "正常排程 · 依進廠順序", chip: "bg-[#FDF3E3] text-[#854F0B]", selected: "border-[#854F0B] bg-[#FDF3E3]" },
+  { code: "flexible", label: "彈性", emoji: "🟢", desc: "可彈性安排 · 量大時讓位", chip: "bg-[#EAF3DE] text-[#3B6D11]", selected: "border-[#3B6D11] bg-[#EAF3DE]" },
+];
+
+/** 排序權重：緊急(0) → 一般(1) → 彈性(2)；未知值墊底 */
+export const RO_PRIORITY_SORT: Record<string, number> = {
+  urgent: 0,
+  normal: 1,
+  flexible: 2,
+};
+
+export function priorityDef(code: string | null | undefined) {
+  return RO_PRIORITY_DEFS.find((d) => d.code === code) ?? RO_PRIORITY_DEFS[1];
+}

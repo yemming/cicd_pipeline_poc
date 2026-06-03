@@ -19,6 +19,7 @@ import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { createFollowUpTask } from "@/domain/sales-call-tasks";
+import { notifications } from "@/lib/notifications";
 
 import {
   PREFIX_COMBO_RULES,
@@ -46,6 +47,12 @@ export type ConfirmRepairOrderInput = {
   subsidiary_id?: string | null;
   warranty_status_snapshot?: Record<string, unknown> | null;
   notes?: string | null;
+  /** 優先級 G-1：urgent | normal | flexible（預設 normal）*/
+  priority?: "urgent" | "normal" | "flexible" | null;
+  /** 返工：原始工單 id（標記返工時帶入，寫入 metadata.rework_of）*/
+  rework_of?: string | null;
+  /** 保固過期但仍開 WC 單時的主管授權（寫入 metadata.warranty_auth）*/
+  warranty_auth?: { authorized_by: string; reason?: string | null } | null;
 };
 
 function todayIsoDate(): string {
@@ -168,6 +175,19 @@ export async function confirmRepairOrderAction(
       metadata.supervisor_approval = { required: true, approved_at: null, approver_id: null };
     }
     if (input.notes?.trim()) metadata.notes = input.notes.trim();
+    // 返工：記原始工單 id，供 detail / 報表追溯（P2 已由前端切 FR）
+    if (input.rework_of) {
+      metadata.rework_of = input.rework_of;
+      metadata.is_rework = true;
+    }
+    // 保固過期主管授權：開 WC 單但保固已失效時，記授權人與理由
+    if (input.warranty_auth?.authorized_by?.trim()) {
+      metadata.warranty_auth = {
+        authorized_by: input.warranty_auth.authorized_by.trim(),
+        reason: input.warranty_auth.reason?.trim() || null,
+        authorized_at: new Date().toISOString(),
+      };
+    }
 
     const { data, error } = await supabase
       .from("repair_orders")
@@ -186,6 +206,7 @@ export async function confirmRepairOrderAction(
         store_id: input.store_id || null,
         subsidiary_id: input.subsidiary_id || null,
         status: "進行中",
+        priority: input.priority ?? "normal",
         opened_at: new Date().toISOString(),
         fee_allocation: feeAllocation,
         estimated_subtotal: input.estimated_subtotal ?? null,
@@ -402,4 +423,126 @@ export async function setLeadTechnicianAction(
     ok: true,
     data: { id: roId, technician_id: technicianId, status: nextStatus },
   };
+}
+
+/**
+ * 包E：技師缺席批次重排 —— 把某技師名下所有「進行中」工單一次轉給另一技師（或退回未指派），
+ * 並把來源技師標記為缺席（status='off'、清掉 current_ro_code）。
+ *  - toTechnicianId = null：批次退回未指派（等候重新派工）
+ *  - 只搬 OPEN 狀態工單（已關單 / 已取消不動）
+ */
+export async function reassignTechnicianRosAction(
+  fromTechnicianId: string,
+  toTechnicianId: string | null,
+): Promise<ActionResult<{ reassigned: number }>> {
+  await requirePermission(PERMISSIONS.RO_DISPATCH);
+  if (!fromTechnicianId) return { ok: false, error: "缺少來源技師" };
+  if (toTechnicianId && toTechnicianId === fromTechnicianId)
+    return { ok: false, error: "來源與目標技師相同" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 驗目標技師同 brand + 啟用中
+  if (toTechnicianId) {
+    const { data: tech, error: techErr } = await supabase
+      .from("aftersales_technicians")
+      .select("id, brand_id, is_active")
+      .eq("id", toTechnicianId)
+      .maybeSingle();
+    if (techErr) return { ok: false, error: `目標技師驗證失敗：${techErr.message}` };
+    if (!tech || tech.brand_id !== brand)
+      return { ok: false, error: "目標技師不存在或不屬於當前 brand" };
+    if (!tech.is_active) return { ok: false, error: "目標技師非啟用中" };
+  }
+
+  const OPEN_RO_STATUSES = ["進行中", "維修中", "待結帳"];
+  const { data: ros, error: roErr } = await supabase
+    .from("repair_orders")
+    .select("id")
+    .eq("brand_id", brand)
+    .eq("lead_technician_id", fromTechnicianId)
+    .in("status", OPEN_RO_STATUSES);
+  if (roErr) return { ok: false, error: `查詢工單失敗：${roErr.message}` };
+
+  const ids = (ros ?? []).map((r) => (r as { id: string }).id);
+  const nowIso = new Date().toISOString();
+
+  if (ids.length > 0) {
+    const { error: updErr } = await supabase
+      .from("repair_orders")
+      .update({ lead_technician_id: toTechnicianId, updated_at: nowIso })
+      .in("id", ids)
+      .eq("brand_id", brand);
+    if (updErr) return { ok: false, error: `批次重排失敗：${updErr.message}` };
+  }
+
+  // 來源技師標記缺席（下班）+ 清當前工單
+  await supabase
+    .from("aftersales_technicians")
+    .update({ status: "off", current_ro_code: null, updated_at: nowIso })
+    .eq("id", fromTechnicianId)
+    .eq("brand_id", brand);
+
+  revalidatePath("/service/workshop");
+  revalidatePath("/parts/aftersales/management/dispatch");
+  revalidatePath(PAGE_PATH);
+  return { ok: true, data: { reassigned: ids.length } };
+}
+
+/**
+ * 進度通知車主 — SA 在工單詳情時程上手動點「通知車主」。
+ * 借用既有 work_order.status_changed 通道推 LINE（POC：推到開發/服務群組；
+ * 未來接客戶 LINE 綁定後改 target）。每次點擊即時推、不自動觸發。
+ */
+export async function notifyRepairOrderProgressAction(
+  roId: string,
+  stage: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!roId) return { ok: false, error: "缺少工單 id" };
+  if (!stage?.trim()) return { ok: false, error: "缺少進度階段" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data: ro, error } = await supabase
+    .from("repair_orders")
+    .select("id, ro_code, status, customer_id")
+    .eq("id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (error) return { ok: false, error: `載入工單失敗：${error.message}` };
+  if (!ro) return { ok: false, error: "找不到工單" };
+
+  // 車主姓名（純顯示，沒掛客戶就用「車主」）
+  let customerName = "車主";
+  if (ro.customer_id) {
+    const { data: cust } = await supabase
+      .from("customers")
+      .select("name")
+      .eq("id", ro.customer_id)
+      .maybeSingle();
+    if (cust?.name) customerName = cust.name;
+  }
+
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  after(async () => {
+    try {
+      await notifications.dispatch({
+        code: "work_order.status_changed",
+        payload: {
+          orderNo: ro.ro_code,
+          from: "進度通知",
+          to: `${stage}（致 ${customerName}）`,
+          actor: "服務顧問 SA",
+          actionUrl: `${appUrl}${PAGE_PATH}/${roId}`,
+        },
+      });
+    } catch (e) {
+      console.error("[RO 進度通知] 推播失敗（不影響）", e);
+    }
+  });
+
+  return { ok: true, data: { id: roId } };
 }

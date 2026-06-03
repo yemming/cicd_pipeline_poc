@@ -391,10 +391,12 @@ export async function completeTestDrive(
   const supabase = await createClient();
   const scope = await getActiveScope();
 
-  // 讀現有 metadata 合併
+  // 讀現有 metadata 合併（順帶撈 handcard 回寫所需的車款/排程/車型名）
   const { data: existing, error: rErr } = await supabase
     .from("sales_test_drives")
-    .select("id, handcard_id, metadata")
+    .select(
+      "id, handcard_id, scheduled_at, completed_at, metadata, vehicle_model:vehicle_models!sales_test_drives_vehicle_model_id_fkey ( model_name )",
+    )
     .eq("id", id)
     .eq("brand_id", scope.brand_id)
     .maybeSingle();
@@ -415,11 +417,13 @@ export async function completeTestDrive(
     route_taken: payload.route_taken ?? null,
   };
 
+  const completedAt = new Date().toISOString();
+
   const { error } = await supabase
     .from("sales_test_drives")
     .update({
       status: "completed",
-      completed_at: new Date().toISOString(),
+      completed_at: completedAt,
       notes: payload.notes ?? null,
       metadata: meta,
     })
@@ -427,9 +431,77 @@ export async function completeTestDrive(
     .eq("brand_id", scope.brand_id);
   if (error) return { ok: false, error: error.message };
 
+  // RS02-04：若此試駕已連結接待手卡，回寫試駕結果到手卡
+  //   - trial_status → 'done-today'（本次已試駕）
+  //   - metadata.test_drive 區塊記錄車款/完成時間/評分/反應摘要（read-merge-write）
+  // 失敗只記 log、不阻斷「試駕完成」主流程（手卡回寫是附帶副作用，不該擋住主動作）。
+  const handcardId = existing.handcard_id ?? null;
+  if (handcardId) {
+    try {
+      const modelName =
+        existing.vehicle_model &&
+        typeof existing.vehicle_model === "object" &&
+        "model_name" in existing.vehicle_model
+          ? ((existing.vehicle_model as { model_name: string | null })
+              .model_name ?? null)
+          : null;
+
+      const { data: hc, error: hcReadErr } = await supabase
+        .from("sales_handcards")
+        .select("id, metadata")
+        .eq("id", handcardId)
+        .eq("brand_id", scope.brand_id)
+        .maybeSingle();
+
+      if (hcReadErr) {
+        console.error(
+          "[completeTestDrive] 讀取手卡失敗（試駕已完成、未回寫）",
+          hcReadErr.message,
+        );
+      } else if (hc) {
+        const prevHcMeta =
+          hc.metadata && typeof hc.metadata === "object"
+            ? (hc.metadata as Record<string, unknown>)
+            : {};
+
+        const hcMeta: Record<string, unknown> = {
+          ...prevHcMeta,
+          test_drive: {
+            test_drive_id: id,
+            model_name: modelName,
+            scheduled_at: existing.scheduled_at ?? null,
+            completed_at: completedAt,
+            rating: payload.rating ?? null,
+            feedback: payload.feedback ?? null,
+            written_back_at: completedAt,
+          },
+        };
+
+        const { error: hcUpdErr } = await supabase
+          .from("sales_handcards")
+          .update({
+            trial_status: "done-today",
+            metadata: hcMeta,
+            updated_at: completedAt,
+          })
+          .eq("id", handcardId)
+          .eq("brand_id", scope.brand_id);
+
+        if (hcUpdErr) {
+          console.error(
+            "[completeTestDrive] 回寫手卡失敗（試駕已完成）",
+            hcUpdErr.message,
+          );
+        }
+      }
+    } catch (e) {
+      console.error("[completeTestDrive] 回寫手卡發生例外（試駕已完成）", e);
+    }
+  }
+
   return {
     ok: true,
-    data: { id, handcard_id: existing.handcard_id ?? null },
+    data: { id, handcard_id: handcardId },
   };
 }
 

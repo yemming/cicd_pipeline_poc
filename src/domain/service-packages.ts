@@ -106,18 +106,61 @@ export async function listServicePackages(
   return rows;
 }
 
-/** 撈某 brand 的工時費率表（07B/04B 工資計算用）。 */
-export async function listLaborRates(brandId: string): Promise<LaborRate[]> {
+/** 撈某 brand 的工時費率表（07B/04B 工資計算用）。預設只回啟用；07B 後台傳 includeInactive 看全部。 */
+export async function listLaborRates(
+  brandId: string,
+  opts: { includeInactive?: boolean } = {},
+): Promise<LaborRate[]> {
   const client = await createClient();
-  const { data } = await client
+  let q = client
     .from("labor_rates")
     .select("id, brand_id, biz_type, rate_per_lu, is_active")
     .eq("brand_id", brandId)
-    .eq("is_active", true)
     .order("biz_type", { ascending: true });
+  if (!opts.includeInactive) q = q.eq("is_active", true);
+  const { data } = await q;
   return ((data ?? []) as Array<{ id: string; brand_id: string; biz_type: string; rate_per_lu: number; is_active: boolean }>).map(
     (r) => ({ id: r.id, brandId: r.brand_id, bizType: r.biz_type, ratePerLu: Number(r.rate_per_lu), isActive: r.is_active }),
   );
+}
+
+/** 單筆服務套餐（07B detail / 編輯帶值用）。 */
+export async function getServicePackageById(id: string): Promise<ServicePackage | null> {
+  const client = await createClient();
+  const { data } = await client
+    .from("service_packages")
+    .select("id, brand_id, code, name, pkg_type, mileage_interval, items, list_price, valid_from, valid_to, is_active, pricing_policy_id")
+    .eq("id", id)
+    .maybeSingle();
+  return data ? rowToPackage(data as SpRow) : null;
+}
+
+export type ServicePackageAuditEntry = {
+  id: string;
+  at: string;
+  action: "add" | "modify" | "deactivate" | "reactivate";
+  entity: "package" | "labor_rate";
+  entityName: string;
+  before: unknown;
+  after: unknown;
+  by: string | null;
+};
+
+/**
+ * 07B 費率/套餐變更稽核日誌。比照 group-pricing，存 business_rules
+ * rule_kind='service_package_audit'（免新表），config.entries[] 追加式。
+ */
+export async function listServicePackageAudit(brandId: string): Promise<ServicePackageAuditEntry[]> {
+  const client = await createClient();
+  const { data } = await client
+    .from("business_rules")
+    .select("config")
+    .eq("brand_id", brandId)
+    .eq("rule_kind", "service_package_audit")
+    .maybeSingle();
+  const entries = ((data?.config as { entries?: ServicePackageAuditEntry[] } | null)?.entries ?? []) as ServicePackageAuditEntry[];
+  // 新到舊
+  return [...entries].sort((a, b) => (a.at < b.at ? 1 : -1));
 }
 
 /** 確定性今日（Asia/Taipei），不依環境 locale。 */

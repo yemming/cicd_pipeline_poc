@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setLeadTechnician } from "@/domain/repair-orders";
 import type { RepairOrderListRow, WorkshopTechnicianRow } from "@/domain/repair-orders";
+import { priorityDef } from "@/domain/repair-orders.constants";
+import { reassignTechnicianRosAction } from "@/lib/aftersales/repair-order-actions";
 
 type Props = {
   activeRos: RepairOrderListRow[];
@@ -16,6 +18,10 @@ export function WorkshopBoard({ activeRos, technicians }: Props) {
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
+  // 包E：技師缺席批次重排 modal
+  const [reassign, setReassign] = useState<{ tech: WorkshopTechnicianRow } | null>(null);
+  const [reassignTarget, setReassignTarget] = useState<string>("");
+
   function assign(roId: string, technicianId: string | null) {
     setPendingId(roId);
     startTransition(async () => {
@@ -25,6 +31,26 @@ export function WorkshopBoard({ activeRos, technicians }: Props) {
         setBanner({ ok: true, msg: "✓ 已指派" });
         router.refresh();
         setTimeout(() => setBanner(null), 2200);
+      } else {
+        setBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  function doReassign() {
+    if (!reassign) return;
+    const fromId = reassign.tech.id;
+    startTransition(async () => {
+      const res = await reassignTechnicianRosAction(fromId, reassignTarget || null);
+      if (res.ok) {
+        setBanner({
+          ok: true,
+          msg: `✓ 已將 ${res.data.reassigned} 張工單重排，${reassign.tech.name} 標記缺席`,
+        });
+        setReassign(null);
+        setReassignTarget("");
+        router.refresh();
+        setTimeout(() => setBanner(null), 2600);
       } else {
         setBanner({ ok: false, msg: res.error });
       }
@@ -61,6 +87,14 @@ export function WorkshopBoard({ activeRos, technicians }: Props) {
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-[12.5px] font-semibold text-[#1A3A5C]">{ro.ro_code}</span>
                       <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#EBF3FF] text-[#1A3A5C]">{ro.status}</span>
+                      {(() => {
+                        const d = priorityDef(ro.priority);
+                        return (
+                          <span className={`text-[11px] px-1.5 py-0.5 rounded-md whitespace-nowrap font-medium ${d.chip}`}>
+                            {d.emoji} {d.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div className="text-[12px] text-[#5A5955] mt-0.5 truncate">
                       {ro.customer_name ?? "—"} ・ {ro.vehicle_license_plate ?? "—"} ・ {ro.vehicle_model_name ?? "—"}
@@ -121,7 +155,7 @@ export function WorkshopBoard({ activeRos, technicians }: Props) {
                       {t.is_active ? t.status : "停用"}
                     </div>
                   </div>
-                  <div className="shrink-0">
+                  <div className="shrink-0 flex flex-col items-end gap-1">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ${
                         t.assigned_ro_count >= 5
@@ -133,6 +167,19 @@ export function WorkshopBoard({ activeRos, technicians }: Props) {
                     >
                       {t.assigned_ro_count} 張
                     </span>
+                    {t.assigned_ro_count > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReassign({ tech: t });
+                          setReassignTarget("");
+                        }}
+                        className="h-[22px] px-2 rounded text-[10.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                        title="技師缺席 → 把名下工單批次重排給其他技師"
+                      >
+                        缺席重排
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -140,6 +187,66 @@ export function WorkshopBoard({ activeRos, technicians }: Props) {
           </div>
         </section>
       </div>
+
+      {/* 包E：缺席批次重排 modal */}
+      {reassign && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => !isPending && setReassign(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[440px] max-w-[92vw] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#F8F7F4]">
+              <div className="text-[13px] font-semibold text-[#2C2C2A]">技師缺席批次重排</div>
+            </header>
+            <div className="px-4 py-4 space-y-3 text-[12.5px] text-[#2C2C2A]">
+              <p>
+                將 <b>{reassign.tech.name}</b>（{reassign.tech.code}）名下{" "}
+                <b className="text-[#CC0000]">{reassign.tech.assigned_ro_count}</b>{" "}
+                張進行中工單一次重排，並把該技師標記為<b>缺席（下班）</b>。
+              </p>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#9A9890]">重新指派給</label>
+                <select
+                  className="h-[32px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] bg-white"
+                  value={reassignTarget}
+                  onChange={(e) => setReassignTarget(e.target.value)}
+                  disabled={isPending}
+                >
+                  <option value="">— 退回未指派（等候重新派工）—</option>
+                  {technicians
+                    .filter((t) => t.is_active && t.id !== reassign.tech.id)
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.code} {t.name}（目前 {t.assigned_ro_count} 張）
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReassign(null)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={doReassign}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60"
+              >
+                {isPending ? "重排中⋯" : "確認重排"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
 
       {banner && (
         <div

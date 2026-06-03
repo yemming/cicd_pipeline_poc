@@ -9,8 +9,10 @@ import {
   PREFIX_P1_DEFS,
   PREFIX_P2_DEFS,
   PREFIX_COMBO_RULES,
+  RO_PRIORITY_DEFS,
   type PrefixP1,
   type PrefixP2,
+  type RoPriority,
 } from "@/domain/repair-orders.constants";
 import type { RoDraft } from "@/domain/repair-orders";
 import { confirmRepairOrderAction } from "@/lib/aftersales/repair-order-actions";
@@ -34,6 +36,10 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
   // 拍板紀錄 §11 Q4 option A：PI 勾「疑似保固 / 公報召回」→ 預設 P1=WC（保固索賠）
   const [p1, setP1] = useState<PrefixP1>(draft.has_warranty_concern ? "WC" : "MN");
   const [p2, setP2] = useState<PrefixP2>(draft.has_warranty_concern ? "WR" : "CP");
+  const [priority, setPriority] = useState<RoPriority>("normal");
+  const [markRework, setMarkRework] = useState(false);
+  const [warrantyAuthName, setWarrantyAuthName] = useState("");
+  const [warrantyAuthReason, setWarrantyAuthReason] = useState("");
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -48,7 +54,30 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
     } else if (p2 === "IN") {
       setP2(draft.has_warranty_concern ? "WR" : "CP");
     }
+    // WC / PD 不適用返工免費（WC-FR 邏輯衝突、PD 走內部結算）→ 清掉返工標記
+    if (code === "WC" || code === "PD") setMarkRework(false);
   }
+
+  // 返工偵測：同車近 30 天「同 P1」歷史工單（排當前若已存在）
+  const sameTypeRecent = useMemo(
+    () => draft.recent_repairs.filter((r) => r.prefix_p1 === p1),
+    [draft.recent_repairs, p1],
+  );
+  // 返工免費僅適用客付/費用型（MN/RP/AC/OT），WC/PD 不提供
+  const reworkEligible = p1 !== "WC" && p1 !== "PD" && sameTypeRecent.length > 0;
+  const reworkOriginal = sameTypeRecent[0] ?? null;
+
+  function toggleRework(checked: boolean) {
+    setMarkRework(checked);
+    // 標記返工 → P2 自動切「免費施工 FR」（本店吸收返工成本）
+    if (checked) setP2("FR");
+    else setP2(draft.has_warranty_concern ? "WR" : "CP");
+  }
+
+  // 保固過期阻擋：開 WC（保固索賠）但保固快照已失效 → 需主管授權才放行
+  const warrantyOverdue = !draft.warranty.is_valid;
+  const needWarrantyAuth = p1 === "WC" && warrantyOverdue;
+  const warrantyBlocked = needWarrantyAuth && !warrantyAuthName.trim();
 
   // 選 P2：PD 模式下鎖定、不允許手動改
   function selectP2(code: PrefixP2) {
@@ -75,7 +104,7 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
   }
 
   function confirm() {
-    if (isPending || isInvalid) return;
+    if (isPending || isInvalid || warrantyBlocked) return;
     startTransition(async () => {
       const res = await confirmRepairOrderAction({
         appointment_id: draft.appointment_id,
@@ -84,12 +113,20 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
         vehicle_id: draft.vehicle?.id ?? null,
         prefix_p1: p1,
         prefix_p2: p2,
+        priority,
         mileage_in: draft.vehicle?.current_mileage ?? null,
         estimated_subtotal: draft.estimated_subtotal,
         estimated_labor_units: draft.estimated_labor_units,
         store_id: draft.store_id,
         subsidiary_id: draft.subsidiary_id,
         warranty_status_snapshot: draft.warranty as unknown as Record<string, unknown>,
+        rework_of: markRework && reworkOriginal ? reworkOriginal.id : null,
+        warranty_auth: needWarrantyAuth
+          ? {
+              authorized_by: warrantyAuthName.trim(),
+              reason: warrantyAuthReason.trim() || null,
+            }
+          : null,
       });
       if (res.ok) {
         showBanner({ ok: true, msg: `✓ 工單 ${res.data.ro_code} 已開立` });
@@ -351,6 +388,61 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
             </div>
           </div>
 
+          {/* 優先級選擇器（派工依此置頂）*/}
+          <div>
+            <div className="text-[12px] text-[#5A5955] mb-2">維修優先級</div>
+            <div className="flex flex-wrap gap-2">
+              {RO_PRIORITY_DEFS.map((d) => {
+                const selected = priority === d.code;
+                return (
+                  <button
+                    key={d.code}
+                    type="button"
+                    onClick={() => setPriority(d.code)}
+                    disabled={isPending}
+                    className={`flex-1 min-w-[150px] text-left px-3 py-2.5 rounded-lg border-[1.5px] transition-colors ${
+                      selected ? d.selected : "border-[#D5D3CB] bg-white hover:border-[#9A9890]"
+                    }`}
+                  >
+                    <div className="text-[14px] font-bold text-[#2C2C2A]">
+                      {d.emoji} {d.label}
+                    </div>
+                    <div className="text-[11px] text-[#9A9890] mt-0.5">{d.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 返工偵測橫幅：同車 30 天內有同類工單 → 可標記返工（P2 自動改免費 FR）*/}
+          {reworkEligible && (
+            <div className="rounded-lg px-4 py-3 bg-[#FDF3E3] border-[1.5px] border-[#F0C97E]">
+              <div className="text-[12.5px] font-bold text-[#854F0B] mb-1">
+                ⚠️ 偵測到返工可能：此車近 30 天內有 {sameTypeRecent.length} 張同類（{p1}）工單
+              </div>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {sameTypeRecent.slice(0, 4).map((r) => (
+                  <span
+                    key={r.id}
+                    className="bg-white border border-[#F0C97E] rounded px-2 py-0.5 text-[11px] font-mono text-[#854F0B]"
+                  >
+                    {r.ro_code} · {r.issue_date} · {r.status}
+                  </span>
+                ))}
+              </div>
+              <label className="flex items-center gap-2 text-[12.5px] text-[#854F0B] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={markRework}
+                  disabled={isPending}
+                  onChange={(e) => toggleRework(e.target.checked)}
+                  className="w-4 h-4 accent-[#854F0B]"
+                />
+                標記為返工 → 付款性質自動改「免費施工 FR」（本店吸收返工成本{reworkOriginal ? `，關聯原單 ${reworkOriginal.ro_code}` : ""}）
+              </label>
+            </div>
+          )}
+
           {/* 組合結果 */}
           <div
             className={`rounded-lg px-4 py-3 text-[13px] font-medium border-[1.5px] ${
@@ -371,11 +463,47 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
             )}
           </div>
 
+          {/* 保固過期阻擋：選 WC 但保固已失效 → 紅警示 + 主管授權才放行 */}
+          {needWarrantyAuth && (
+            <div className="rounded-lg px-4 py-3 bg-[#FDECEA] border-[1.5px] border-[#F5AEAD]">
+              <div className="text-[12.5px] font-bold text-[#CC0000] mb-1">
+                ⛔ 保固已過期 / 無效，無法直接開立保固索賠（WC）工單
+              </div>
+              <div className="text-[12px] text-[#CC0000] leading-relaxed mb-2">
+                此車保固快照為「{draft.warranty.is_valid ? "有效" : "已過期 / 無"}」
+                {draft.warranty.expires_at ? `（到期 ${draft.warranty.expires_at}）` : ""}。
+                若仍要以保固索賠處理（例如原廠特案、延長保固），須<b>主管授權</b>後放行。
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[11px] text-[#CC0000] font-medium">授權主管姓名 *</label>
+                  <input
+                    value={warrantyAuthName}
+                    disabled={isPending}
+                    onChange={(e) => setWarrantyAuthName(e.target.value)}
+                    placeholder="例：王店長"
+                    className="h-[30px] border border-[#F5AEAD] rounded px-2 text-[12.5px] bg-white focus:border-[#CC0000] focus:outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[11px] text-[#CC0000] font-medium">授權理由（選填）</label>
+                  <input
+                    value={warrantyAuthReason}
+                    disabled={isPending}
+                    onChange={(e) => setWarrantyAuthReason(e.target.value)}
+                    placeholder="例：原廠特案延長保固 / 公報召回"
+                    className="h-[30px] border border-[#F5AEAD] rounded px-2 text-[12.5px] bg-white focus:border-[#CC0000] focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Confirm — PD 模式下按鈕轉綠（整車成本內部結算） */}
           <button
             type="button"
             onClick={confirm}
-            disabled={isInvalid || isPending}
+            disabled={isInvalid || isPending || warrantyBlocked}
             className={`w-full h-[52px] rounded-lg text-white text-[15px] font-semibold disabled:bg-[#D5D3CB] disabled:text-[#9A9890] disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${
               isPDI ? "bg-[#0F6E56] hover:bg-[#085041]" : "bg-[#1A3A5C] hover:bg-[#0F2A45]"
             }`}
@@ -384,7 +512,9 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
               ? "建立中⋯"
               : isInvalid
                 ? "請先選擇正確組合"
-                : `確認開立工單 ${previewCode} →`}
+                : warrantyBlocked
+                  ? "需主管授權才能開立（請填授權主管）"
+                  : `確認開立工單 ${previewCode} →`}
           </button>
           <div className="text-center text-[11px] text-[#9A9890]">
             {isPDI

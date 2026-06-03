@@ -36,6 +36,8 @@ export type PricingPolicyInput = {
   disc_min: number | null;
   disc_max: number | null;
   effective_date?: string | null;
+  /** G4：核准生效後要同步定價的下游 service_packages.code 清單。 */
+  target_package_codes?: string[] | null;
 };
 
 type StoredConfig = {
@@ -120,6 +122,7 @@ export async function createPricingPolicyAction(
     disc_max: input.disc_max,
     status: "draft",
     effective_date: input.effective_date || null,
+    target_package_codes: (input.target_package_codes ?? []).filter(Boolean),
     audit_log: [
       { by: gate.actorName, at: nowStamp(), field: "建立", old: "", new: `${input.name.trim()}（草稿）` },
     ],
@@ -165,6 +168,12 @@ export async function updatePricingPolicyAction(
   diff("折扣下限", prev.disc_min, patch.disc_min);
   diff("折扣上限", prev.disc_max, patch.disc_max);
   diff("生效日", prev.effective_date, patch.effective_date);
+  const nextCodes = (patch.target_package_codes ?? []).filter(Boolean);
+  diff(
+    "下游套餐",
+    (prev.target_package_codes ?? []).join("、") || "（無）",
+    nextCodes.join("、") || "（無）",
+  );
 
   const config: StoredConfig = {
     ...prev,
@@ -176,6 +185,7 @@ export async function updatePricingPolicyAction(
     disc_min: patch.disc_min,
     disc_max: patch.disc_max,
     effective_date: patch.effective_date || null,
+    target_package_codes: nextCodes,
     audit_log: audits,
   };
 
@@ -197,7 +207,7 @@ async function transitionStatus(
   to: PricingStatus,
   expectFrom: PricingStatus[],
   fieldLabel: string,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; syncedCount: number }>> {
   const gate = await requireAdmin();
   if (!gate.ok) return gate;
   if (!id) return { ok: false, error: "缺少 id" };
@@ -222,41 +232,54 @@ async function transitionStatus(
   if (error) return { ok: false, error: `${fieldLabel}失敗：${error.message}` };
   // G4：定價核准（→active）→ 同步 msrp 進對應 service_packages.list_price，04B 報價即時生效。
   // POC 階段非原子（business_rules 已 commit）；同步失敗只記 log 不擋核准，TODO 改 RPC transaction。
+  let syncedCount = 0;
   if (to === "active") {
-    await syncApprovedPricingToPackages(svc, gate.brandId, id, config);
+    syncedCount = await syncApprovedPricingToPackages(svc, gate.brandId, id, config);
   }
   revalidatePath(PAGE_PATH);
-  return { ok: true, data: { id } };
+  return { ok: true, data: { id, syncedCount } };
 }
 
-/** 把已核准定價的 msrp 寫進 config.target_package_codes[] 指定的 service_packages.list_price。 */
+/**
+ * 把已核准定價的 msrp 寫進 config.target_package_codes[] 指定的 service_packages.list_price。
+ * 回傳實際更新的套餐筆數（用 .select('id') 拿 count）；同步失敗回 0 不擋核准。
+ */
 async function syncApprovedPricingToPackages(
   svc: ReturnType<typeof createServiceClient>,
   brandId: string,
   policyId: string,
   config: StoredConfig,
-): Promise<void> {
+): Promise<number> {
   const codes = (config.target_package_codes ?? []).filter(Boolean);
-  if (codes.length === 0 || config.msrp == null) return;
-  const { error } = await svc
+  if (codes.length === 0 || config.msrp == null) return 0;
+  const { data, error } = await svc
     .from("service_packages")
     .update({ list_price: config.msrp, pricing_policy_id: policyId, updated_at: new Date().toISOString() })
     .eq("brand_id", brandId)
-    .in("code", codes);
+    .in("code", codes)
+    .select("id");
   if (error) {
     console.error("[pricing-sync] 同步 service_packages 失敗:", error.message, { policyId, codes });
+    return 0;
   }
+  return (data ?? []).length;
 }
 
-export async function submitPricingForReviewAction(id: string): Promise<ActionResult<{ id: string }>> {
+export async function submitPricingForReviewAction(
+  id: string,
+): Promise<ActionResult<{ id: string; syncedCount: number }>> {
   return transitionStatus(id, "review", ["draft"], "送審");
 }
 
-export async function approvePricingPolicyAction(id: string): Promise<ActionResult<{ id: string }>> {
+export async function approvePricingPolicyAction(
+  id: string,
+): Promise<ActionResult<{ id: string; syncedCount: number }>> {
   return transitionStatus(id, "active", ["review"], "核准");
 }
 
-export async function rejectPricingPolicyAction(id: string): Promise<ActionResult<{ id: string }>> {
+export async function rejectPricingPolicyAction(
+  id: string,
+): Promise<ActionResult<{ id: string; syncedCount: number }>> {
   return transitionStatus(id, "draft", ["review"], "退回");
 }
 

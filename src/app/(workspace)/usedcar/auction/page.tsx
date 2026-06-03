@@ -1,14 +1,11 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+import { PlaceholderPage } from "@/components/placeholder-page";
 
-export default async function Page() {
-  const html = await loadStitchBody("cc722dbd9b5c4af29b5fe7e516db70fd");
+export default function Page() {
   return (
-    <StitchInline
-      html={html}
+    <PlaceholderPage
       title="拍賣管理"
-      sprint="S5-3"
-      screenId="cc722dbd9b5c4af29b5fe7e516db70fd"
+      icon="gavel"
+      description="中古車拍賣管理規劃中，尚未串接真實資料。完成後可在此將收購車輛上架拍賣並追蹤競標結果。"
       breadcrumb={[{ label: "中古車輛", href: "/usedcar/evaluations" }, { label: "拍賣管理" }]}
     />
   );

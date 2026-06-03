@@ -9,8 +9,9 @@ import { EntityImageGallery } from "@/components/image-upload/entity-image-galle
 import {
   cancelRepairOrderAction,
   updateRepairOrderStatusAction,
+  notifyRepairOrderProgressAction,
 } from "@/lib/aftersales/repair-order-actions";
-import { RO_STATUS_OPTIONS } from "@/domain/repair-orders.constants";
+import { RO_STATUS_OPTIONS, priorityDef } from "@/domain/repair-orders.constants";
 import type { RepairOrderListRow } from "@/domain/repair-orders";
 
 // 純算數格式化 Asia/Taipei wall-clock（避開 toLocaleString 在 Node ICU / browser ICU
@@ -139,6 +140,25 @@ export function RepairOrderDetailView({
   const warranty = (ro.warranty_status_snapshot ?? {}) as Record<string, unknown>;
   const warrantyValid = warranty.is_valid === true;
 
+  const pdef = priorityDef(ro.priority);
+  const isRework = meta.is_rework === true;
+  const reworkOf = typeof meta.rework_of === "string" ? (meta.rework_of as string) : null;
+  const warrantyAuth = meta.warranty_auth as
+    | { authorized_by?: string; reason?: string | null; authorized_at?: string }
+    | undefined;
+
+  function notifyStage(stage: string) {
+    if (!canEdit || isPending) return;
+    startTransition(async () => {
+      const res = await notifyRepairOrderProgressAction(ro.id, stage);
+      showBanner(
+        res.ok
+          ? { ok: true, msg: `✓ 已推播「${stage}」進度給車主` }
+          : { ok: false, msg: res.error },
+      );
+    });
+  }
+
   return (
     <main className="px-6 py-5 space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
@@ -206,6 +226,27 @@ export function RepairOrderDetailView({
                 <span className="inline-flex px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#EBF3FF] text-[#1A3A5C]">
                   {ro.prefix_p1}-{ro.prefix_p2}
                 </span>
+                <span
+                  className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium ${pdef.chip}`}
+                >
+                  {pdef.emoji} {pdef.label}
+                </span>
+                {isRework && (
+                  <span
+                    className="inline-flex px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]"
+                    title={reworkOf ? `關聯原單 ${reworkOf.slice(0, 8)}…` : undefined}
+                  >
+                    返工
+                  </span>
+                )}
+                {warrantyAuth?.authorized_by && (
+                  <span
+                    className="inline-flex px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDECEA] text-[#CC0000]"
+                    title={`主管授權：${warrantyAuth.authorized_by}${warrantyAuth.reason ? ` · ${warrantyAuth.reason}` : ""}`}
+                  >
+                    保固特案授權
+                  </span>
+                )}
                 {accountingCategory && (
                   <span className="inline-flex px-1.5 py-0.5 rounded-md text-[11px] bg-[#F0EFFE] text-[#534AB7]">
                     {accountingCategory}
@@ -406,31 +447,42 @@ export function RepairOrderDetailView({
           </section>
 
           <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 狀態時程</span>
+              {canEdit && (
+                <span className="text-[10px] text-[#9A9890]">點各階段「📲 通知車主」即時推播</span>
+              )}
             </header>
             <div className="px-4 py-3">
               <ol className="relative border-l-2 border-[#EEECE6] ml-2 space-y-3">
                 <TimelineStep
                   done={!!ro.opened_at}
-                  label="開單"
+                  label="已開單受理"
                   time={ro.opened_at ? fmtTaipeiDateTime(ro.opened_at) : null}
+                  onNotify={canEdit ? () => notifyStage("已開單受理") : undefined}
+                  notifying={isPending}
                 />
                 <TimelineStep
                   done={ro.status === "維修中" || ro.status === "待結帳" || ro.status === "已關單"}
-                  label="維修中"
+                  label="進廠維修中"
                   time={null}
+                  onNotify={canEdit ? () => notifyStage("進廠維修中") : undefined}
+                  notifying={isPending}
                 />
                 <TimelineStep
                   done={ro.status === "待結帳" || ro.status === "已關單"}
-                  label="待結帳"
+                  label="維修完成・待結帳"
                   time={null}
+                  onNotify={canEdit ? () => notifyStage("維修完成・可結帳取車") : undefined}
+                  notifying={isPending}
                 />
                 <TimelineStep
                   done={ro.status === "已關單"}
-                  label="關單"
+                  label="完工關單"
                   time={ro.closed_at ? fmtTaipeiDateTime(ro.closed_at) : null}
                   cancelled={ro.status === "已取消"}
+                  onNotify={canEdit ? () => notifyStage("完工・感謝您的惠顧") : undefined}
+                  notifying={isPending}
                 />
               </ol>
             </div>
@@ -547,11 +599,15 @@ function TimelineStep({
   label,
   time,
   cancelled,
+  onNotify,
+  notifying,
 }: {
   done: boolean;
   label: string;
   time: string | null;
   cancelled?: boolean;
+  onNotify?: () => void;
+  notifying?: boolean;
 }) {
   const dotCls = cancelled
     ? "bg-[#F2F2F2] border-[#9A9890]"
@@ -568,7 +624,20 @@ function TimelineStep({
       <span
         className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full border-2 ${dotCls}`}
       />
-      <div className={`text-[12.5px] ${labelCls}`}>{label}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className={`text-[12.5px] ${labelCls}`}>{label}</div>
+        {onNotify && !cancelled && (
+          <button
+            type="button"
+            onClick={onNotify}
+            disabled={notifying}
+            className="shrink-0 h-[22px] px-2 rounded-full text-[10.5px] bg-white border border-[#D5D3CB] text-[#185FA5] hover:border-[#185FA5] disabled:opacity-50"
+            title="即時推播此階段進度給車主（LINE）"
+          >
+            📲 通知車主
+          </button>
+        )}
+      </div>
       {time && <div className="text-[11px] text-[#9A9890] font-mono">{time}</div>}
     </li>
   );

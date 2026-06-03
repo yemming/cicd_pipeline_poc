@@ -12,6 +12,15 @@ import type {
   StockReceiptListRow,
   WarehouseOption,
 } from "@/domain/receipts";
+import {
+  batchImportDeliveryNote,
+  recordDamageRejection,
+  recordShortage,
+  type BatchImportSummary,
+  type ItemOption,
+  type ReceivingDiscrepancyRow,
+  type SupplierOption,
+} from "@/domain/receiving-discrepancies";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -56,6 +65,9 @@ export function ReceiptsBoard({
   loadError,
   filter,
   pagination,
+  discrepancyItems,
+  discrepancySuppliers,
+  recentDiscrepancies,
 }: {
   rows: StockReceiptListRow[];
   total: number;
@@ -71,10 +83,121 @@ export function ReceiptsBoard({
     date_to: string;
   };
   pagination: { page: number; pageSize: number; totalCount: number };
+  discrepancyItems: ItemOption[];
+  discrepancySuppliers: SupplierOption[];
+  recentDiscrepancies: ReceivingDiscrepancyRow[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
+
+  // ── 驗收差異三入口 modal 狀態 ────────────────────────────────
+  const [shortOpen, setShortOpen] = useState(false);
+  const [shortItemId, setShortItemId] = useState("");
+  const [shortQty, setShortQty] = useState("");
+  const [shortSupplierId, setShortSupplierId] = useState("");
+  const [shortReason, setShortReason] = useState("");
+
+  const [damageOpen, setDamageOpen] = useState(false);
+  const [damageItemId, setDamageItemId] = useState("");
+  const [damageQty, setDamageQty] = useState("");
+  const [damageSupplierId, setDamageSupplierId] = useState("");
+  const [damageReason, setDamageReason] = useState("");
+  const [damagePhotos, setDamagePhotos] = useState(""); // 一行一個 URL
+
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchText, setBatchText] = useState("");
+  const [batchSummary, setBatchSummary] = useState<BatchImportSummary | null>(null);
+
+  function resetShort() {
+    setShortItemId("");
+    setShortQty("");
+    setShortSupplierId("");
+    setShortReason("");
+  }
+  function resetDamage() {
+    setDamageItemId("");
+    setDamageQty("");
+    setDamageSupplierId("");
+    setDamageReason("");
+    setDamagePhotos("");
+  }
+
+  function confirmShort() {
+    const qty = Number(shortQty);
+    if (!shortItemId) return showBanner(false, "請選擇料號");
+    if (!Number.isFinite(qty) || qty <= 0) return showBanner(false, "差異數量須 > 0");
+    startTransition(async () => {
+      const res = await recordShortage({
+        item_id: shortItemId,
+        qty_diff: qty,
+        supplier_id: shortSupplierId || null,
+        reason: shortReason || null,
+      });
+      if (res.ok) {
+        showBanner(true, "✓ 已登錄數量短收");
+        setShortOpen(false);
+        resetShort();
+        router.refresh();
+      } else {
+        showBanner(false, `登錄失敗：${res.error}`);
+      }
+    });
+  }
+
+  function confirmDamage() {
+    const qty = Number(damageQty);
+    if (!damageItemId) return showBanner(false, "請選擇料號");
+    if (!Number.isFinite(qty) || qty <= 0) return showBanner(false, "差異數量須 > 0");
+    const photos = damagePhotos
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    startTransition(async () => {
+      const res = await recordDamageRejection({
+        item_id: damageItemId,
+        qty_diff: qty,
+        supplier_id: damageSupplierId || null,
+        reason: damageReason || null,
+        photo_urls: photos,
+      });
+      if (res.ok) {
+        showBanner(true, "✓ 已登錄損壞拒收");
+        setDamageOpen(false);
+        resetDamage();
+        router.refresh();
+      } else {
+        showBanner(false, `登錄失敗：${res.error}`);
+      }
+    });
+  }
+
+  function confirmBatch() {
+    // 解析 TSV：每行「料號<TAB>到貨數」（也容忍逗號分隔）
+    const parsed = batchText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const parts = line.split(/\t|,/).map((p) => p.trim());
+        return { code: parts[0] ?? "", qty: Number(parts[1] ?? "") };
+      })
+      .filter((r) => r.code);
+    if (parsed.length === 0) return showBanner(false, "請貼上資料（料號 TAB 到貨數，每行一筆）");
+    startTransition(async () => {
+      const res = await batchImportDeliveryNote(parsed);
+      if (res.ok) {
+        setBatchSummary(res.data);
+        showBanner(
+          true,
+          `✓ 比對 ${res.data.comparedN} 筆、差異 ${res.data.diffN} 筆已登錄`,
+        );
+        router.refresh();
+      } else {
+        showBanner(false, `批次匯入失敗：${res.error}`);
+      }
+    });
+  }
 
   const [q, setQ] = useState(filter.q);
   const [status, setStatus] = useState(filter.status);
@@ -318,6 +441,90 @@ export function ReceiptsBoard({
           PO 收貨・庫存自動寫入・支援結款／退回／作廢
         </span>
       </header>
+
+      {/* 1b. 驗收差異三入口 */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[12px] text-[#9A9890] mr-1">驗收差異登錄：</span>
+          <button
+            type="button"
+            onClick={() => setShortOpen(true)}
+            disabled={!canEdit}
+            className="h-[30px] px-3 rounded text-[12.5px] font-medium inline-flex items-center gap-1 bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            title="登錄數量短收（供應商績效資料源）"
+          >
+            📉 數量短收
+          </button>
+          <button
+            type="button"
+            onClick={() => setDamageOpen(true)}
+            disabled={!canEdit}
+            className="h-[30px] px-3 rounded text-[12.5px] font-medium inline-flex items-center gap-1 bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+            title="登錄損壞拒收（可附照片）"
+          >
+            🔴 損壞拒收
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setBatchSummary(null);
+              setBatchText("");
+              setBatchOpen(true);
+            }}
+            disabled={!canEdit}
+            className="h-[30px] px-3 rounded text-[12.5px] font-medium inline-flex items-center gap-1 bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            title="批次貼上送貨單比對開放中 PO"
+          >
+            📋 批次匯入
+          </button>
+          {!canEdit ? (
+            <span className="text-[11px] text-[#9A9890]">（無編輯權限，僅檢視）</span>
+          ) : null}
+        </div>
+
+        {/* 最近差異記錄 */}
+        {recentDiscrepancies.length > 0 ? (
+          <div className="mt-3 border-t border-[#EEECE6] pt-2.5">
+            <div className="text-[11px] text-[#9A9890] font-medium mb-1.5">
+              最近差異記錄（{recentDiscrepancies.length}）
+            </div>
+            <div className="flex flex-col gap-1 max-h-[180px] overflow-y-auto">
+              {recentDiscrepancies.map((d) => (
+                <div
+                  key={d.id}
+                  className="flex items-center gap-2 text-[12px] py-0.5"
+                >
+                  <span
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${
+                      d.kind === "damage"
+                        ? "bg-[#FDECEA] text-[#CC0000]"
+                        : "bg-[#FDF3E3] text-[#854F0B]"
+                    }`}
+                  >
+                    {d.kind === "damage" ? "損壞拒收" : "數量短收"}
+                  </span>
+                  <span className="font-mono text-[#1A3A5C]">{d.item_code ?? "—"}</span>
+                  <span className="text-[#2C2C2A] truncate max-w-[200px]">
+                    {d.item_name ?? "—"}
+                  </span>
+                  <span className="text-[#5A5955]">差異 {d.qty_diff}</span>
+                  {d.supplier_name ? (
+                    <span className="text-[#9A9890]">· {d.supplier_name}</span>
+                  ) : null}
+                  {d.photo_urls.length > 0 ? (
+                    <span className="text-[#9A9890]">· 📷 {d.photo_urls.length}</span>
+                  ) : null}
+                  {d.reason ? (
+                    <span className="text-[#9A9890] truncate max-w-[240px]">
+                      · {d.reason}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       {/* 2. Banner */}
       {banner ? (
@@ -660,6 +867,288 @@ export function ReceiptsBoard({
                 className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#FDF3E3] border border-[#F5C97A] text-[#854F0B] hover:bg-[#fbe9c5] disabled:opacity-60"
               >
                 {isPending ? "退貨中⋯" : "確認退回"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 📉 數量短收 modal */}
+      {shortOpen ? (
+        <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg shadow-xl w-[480px] max-w-full">
+            <header className="px-5 py-3 border-b border-[#EEECE6]">
+              <h3 className="text-[14px] font-semibold text-[#2C2C2A]">📉 數量短收登錄</h3>
+            </header>
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>料號 *</label>
+                <select
+                  className={`${inputClass} w-full`}
+                  value={shortItemId}
+                  onChange={(e) => setShortItemId(e.target.value)}
+                  autoFocus
+                >
+                  <option value="">請選擇料號</option>
+                  {discrepancyItems.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.code} · {i.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>差異數量 *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className={`${inputClass} w-full`}
+                    placeholder="短收件數"
+                    value={shortQty}
+                    onChange={(e) => setShortQty(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>供應商（選填）</label>
+                  <select
+                    className={`${inputClass} w-full`}
+                    value={shortSupplierId}
+                    onChange={(e) => setShortSupplierId(e.target.value)}
+                  >
+                    <option value="">未指定</option>
+                    {discrepancySuppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>說明（選填）</label>
+                <textarea
+                  className="w-full border border-[#D5D3CB] rounded p-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                  rows={2}
+                  placeholder="例如：供應商少送 3 件、缺貨待補⋯"
+                  value={shortReason}
+                  onChange={(e) => setShortReason(e.target.value)}
+                />
+              </div>
+            </div>
+            <footer className="px-5 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShortOpen(false);
+                  resetShort();
+                }}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmShort}
+                disabled={isPending || !shortItemId || !shortQty}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
+              >
+                {isPending ? "登錄中⋯" : "確認登錄"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 🔴 損壞拒收 modal */}
+      {damageOpen ? (
+        <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg shadow-xl w-[520px] max-w-full">
+            <header className="px-5 py-3 border-b border-[#EEECE6]">
+              <h3 className="text-[14px] font-semibold text-[#2C2C2A]">🔴 損壞拒收登錄</h3>
+            </header>
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>料號 *</label>
+                <select
+                  className={`${inputClass} w-full`}
+                  value={damageItemId}
+                  onChange={(e) => setDamageItemId(e.target.value)}
+                  autoFocus
+                >
+                  <option value="">請選擇料號</option>
+                  {discrepancyItems.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.code} · {i.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>拒收數量 *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className={`${inputClass} w-full`}
+                    placeholder="損壞件數"
+                    value={damageQty}
+                    onChange={(e) => setDamageQty(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>供應商（選填）</label>
+                  <select
+                    className={`${inputClass} w-full`}
+                    value={damageSupplierId}
+                    onChange={(e) => setDamageSupplierId(e.target.value)}
+                  >
+                    <option value="">未指定</option>
+                    {discrepancySuppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>說明（選填）</label>
+                <textarea
+                  className="w-full border border-[#D5D3CB] rounded p-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                  rows={2}
+                  placeholder="例如：外箱壓損、零件刮傷無法上架⋯"
+                  value={damageReason}
+                  onChange={(e) => setDamageReason(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>照片連結（選填，一行一個 URL）</label>
+                <textarea
+                  className="w-full border border-[#D5D3CB] rounded p-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none font-mono"
+                  rows={2}
+                  placeholder={"https://.../damage-1.jpg\nhttps://.../damage-2.jpg"}
+                  value={damagePhotos}
+                  onChange={(e) => setDamagePhotos(e.target.value)}
+                />
+                <span className="text-[11px] text-[#9A9890]">
+                  POC：先以 URL 形式存入 photo_urls；之後可接專案既有 EntityImageUploader（需先建記錄再上傳）。
+                </span>
+              </div>
+            </div>
+            <footer className="px-5 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDamageOpen(false);
+                  resetDamage();
+                }}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmDamage}
+                disabled={isPending || !damageItemId || !damageQty}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#CC0000] text-white hover:bg-[#A30000] disabled:opacity-60"
+              >
+                {isPending ? "登錄中⋯" : "確認拒收"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 📋 批次匯入 modal */}
+      {batchOpen ? (
+        <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-lg shadow-xl w-[560px] max-w-full">
+            <header className="px-5 py-3 border-b border-[#EEECE6]">
+              <h3 className="text-[14px] font-semibold text-[#2C2C2A]">📋 批次匯入送貨單比對</h3>
+            </header>
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-[12.5px] text-[#5A5955] leading-relaxed">
+                貼上送貨單明細（每行一筆，<b>料號</b>
+                <span className="font-mono">{"<TAB>"}</span>
+                <b>到貨數</b>，也接受逗號分隔）。系統會對開放中（approved /
+                partial_received）的 PO line 比對，<b>到貨少於開放應收</b>者寫入「數量短收」差異。
+              </p>
+              <textarea
+                className="w-full border border-[#D5D3CB] rounded p-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none font-mono"
+                rows={6}
+                placeholder={"ITEM-001\t10\nITEM-002\t5\nITEM-003,8"}
+                value={batchText}
+                onChange={(e) => setBatchText(e.target.value)}
+                autoFocus
+              />
+              {batchSummary ? (
+                <div className="border border-[#EEECE6] rounded-lg p-3 space-y-2 bg-[#F8F7F4]">
+                  <div className="text-[12.5px] text-[#2C2C2A]">
+                    比對 <b>{batchSummary.comparedN}</b> 筆 · 差異已登錄{" "}
+                    <b className="text-[#CC0000]">{batchSummary.diffN}</b> 筆 · 未對到{" "}
+                    <b>{batchSummary.unmatchedCodes.length}</b> 筆
+                  </div>
+                  {batchSummary.unmatchedCodes.length > 0 ? (
+                    <div className="text-[11.5px] text-[#9A9890]">
+                      未對到開放 PO：
+                      <span className="font-mono">
+                        {batchSummary.unmatchedCodes.join(", ")}
+                      </span>
+                    </div>
+                  ) : null}
+                  {batchSummary.details.length > 0 ? (
+                    <div className="max-h-[160px] overflow-y-auto">
+                      <table className="w-full text-[11.5px]">
+                        <thead>
+                          <tr className="text-[#9A9890] text-left">
+                            <th className="py-1 pr-2 font-medium">料號</th>
+                            <th className="py-1 pr-2 font-medium text-right">開放應收</th>
+                            <th className="py-1 pr-2 font-medium text-right">到貨</th>
+                            <th className="py-1 font-medium text-right">短收</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {batchSummary.details.map((d) => (
+                            <tr key={d.code} className="border-t border-[#EEECE6]">
+                              <td className="py-1 pr-2 font-mono text-[#1A3A5C]">{d.code}</td>
+                              <td className="py-1 pr-2 text-right font-mono">{d.ordered_open}</td>
+                              <td className="py-1 pr-2 text-right font-mono">{d.arrived}</td>
+                              <td
+                                className={`py-1 text-right font-mono ${
+                                  d.qty_diff > 0 ? "text-[#CC0000] font-semibold" : "text-[#9A9890]"
+                                }`}
+                              >
+                                {d.qty_diff > 0 ? d.qty_diff : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <footer className="px-5 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBatchOpen(false);
+                  setBatchText("");
+                  setBatchSummary(null);
+                }}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                關閉
+              </button>
+              <button
+                type="button"
+                onClick={confirmBatch}
+                disabled={isPending || !batchText.trim()}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60"
+              >
+                {isPending ? "比對中⋯" : "開始比對"}
               </button>
             </footer>
           </div>

@@ -1,14 +1,11 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+import { PlaceholderPage } from "@/components/placeholder-page";
 
-export default async function Page() {
-  const html = await loadStitchBody("763556ef5dd64192936e49a6c305e3ce");
+export default function Page() {
   return (
-    <StitchInline
-      html={html}
+    <PlaceholderPage
       title="配額批售"
-      sprint="S10-2"
-      screenId="763556ef5dd64192936e49a6c305e3ce"
+      icon="inventory"
+      description="配額批售管理規劃中，尚未串接真實資料。完成後可在此管理原廠配額與大宗批售訂單。"
       breadcrumb={[{ label: "整車庫存", href: "/inventory/vehicles" }, { label: "配額批售" }]}
     />
   );

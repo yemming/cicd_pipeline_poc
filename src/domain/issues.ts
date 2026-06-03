@@ -585,6 +585,188 @@ export async function getRepairPickFormData(): Promise<RepairPickFormData> {
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// 待備料工單橫幅（list 頁用）
+//
+// reuse getRepairPickFormData 的「待領料工單」邏輯：work_orders 在
+// draft/dispatched/in_progress/qc 且綁定 parts 料件、且尚未領料完成
+// （stock_issues.ro_id 已 completed 的排除）。額外 join customer_vehicles
+// → vehicle_models 拿車款/車牌；priority 讀 work_orders.metadata.priority
+// （work_orders 無 priority 欄位）fallback 'normal'。
+// ─────────────────────────────────────────────────────────────
+
+export type PendingPartsWorkorder = {
+  id: string;
+  ro_no: string;
+  status: string;
+  priority: "urgent" | "normal" | "flexible";
+  is_urgent: boolean;
+  customer_name: string | null;
+  vehicle_model_name: string | null;
+  license_plate: string | null;
+  parts_line_count: number;
+  parts_qty_total: number;
+  parts_summary: string | null;
+};
+
+function normalizePriority(raw: unknown): "urgent" | "normal" | "flexible" {
+  return raw === "urgent" || raw === "flexible" ? raw : "normal";
+}
+
+export async function listPendingPartsWorkorders(): Promise<PendingPartsWorkorder[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 1) 候選工單 + 已領料工單（同 getRepairPickFormData 邏輯）
+  const [woRes, issuedRes] = await Promise.all([
+    supabase
+      .from("work_orders")
+      .select("id, ro_no, status, customer_id, vehicle_id, metadata")
+      .eq("brand_id", scope.brand_id)
+      .in("status", ["draft", "dispatched", "in_progress", "qc"])
+      .order("opened_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("stock_issues")
+      .select("ro_id")
+      .eq("brand_id", scope.brand_id)
+      .eq("type", "ro_picking")
+      .eq("status", "completed"),
+  ]);
+
+  const wos = woRes.data ?? [];
+  const woIds = wos.map((w) => w.id);
+  if (woIds.length === 0) return [];
+
+  const pickedWoIds = new Set(
+    (issuedRes.data ?? []).map((r) => r.ro_id).filter((x): x is string => !!x),
+  );
+
+  const cIds = Array.from(
+    new Set(wos.map((w) => w.customer_id).filter((x): x is string => !!x)),
+  );
+  const vIds = Array.from(
+    new Set(wos.map((w) => w.vehicle_id).filter((x): x is string => !!x)),
+  );
+
+  // 2) parts lines（含品名摘要）+ 車主 + 車輛
+  const [woItemsRes, cRes, vRes] = await Promise.all([
+    supabase
+      .from("work_order_items")
+      .select("work_order_id, qty, item_id, description")
+      .in("work_order_id", woIds)
+      .eq("kind", "parts")
+      .not("item_id", "is", null),
+    cIds.length
+      ? supabase.from("customers").select("id, name").in("id", cIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    vIds.length
+      ? supabase
+          .from("customer_vehicles")
+          .select("id, license_plate, model_id")
+          .in("id", vIds)
+      : Promise.resolve({ data: [], error: null } as const),
+  ]);
+
+  // 3a) parts 料件名（items；description 為 null 時 fallback 用）
+  const itemIds = Array.from(
+    new Set(
+      (woItemsRes.data ?? [])
+        .map((it) => it.item_id)
+        .filter((x): x is string => !!x),
+    ),
+  );
+  const itemRes = itemIds.length
+    ? await supabase.from("items").select("id, name").in("id", itemIds)
+    : ({ data: [], error: null } as const);
+  const itemNameMap = new Map(
+    (itemRes.data ?? []).map((it) => [it.id, it.name] as const),
+  );
+
+  // 3) 車款名（vehicle_models）
+  const modelIds = Array.from(
+    new Set(
+      (vRes.data ?? [])
+        .map((v) => v.model_id)
+        .filter((x): x is string => !!x),
+    ),
+  );
+  const mRes = modelIds.length
+    ? await supabase
+        .from("vehicle_models")
+        .select("id, display_name, model_name")
+        .in("id", modelIds)
+    : ({ data: [], error: null } as const);
+
+  // 聚合 parts：項數 / 總數 / 品名摘要
+  const partsAgg = new Map<
+    string,
+    { qty: number; count: number; names: string[] }
+  >();
+  for (const it of woItemsRes.data ?? []) {
+    const cur =
+      partsAgg.get(it.work_order_id) ?? { qty: 0, count: 0, names: [] };
+    cur.qty += Number(it.qty ?? 0);
+    cur.count += 1;
+    const nm =
+      (it.item_id ? itemNameMap.get(it.item_id) : null) ?? it.description;
+    if (nm) cur.names.push(nm);
+    partsAgg.set(it.work_order_id, cur);
+  }
+
+  const cMap = new Map((cRes.data ?? []).map((c) => [c.id, c.name] as const));
+  const mMap = new Map(
+    (mRes.data ?? []).map(
+      (m) => [m.id, m.display_name ?? m.model_name ?? null] as const,
+    ),
+  );
+  const vMap = new Map(
+    (vRes.data ?? []).map(
+      (v) =>
+        [
+          v.id,
+          {
+            license_plate: v.license_plate ?? null,
+            model_name: v.model_id ? mMap.get(v.model_id) ?? null : null,
+          },
+        ] as const,
+    ),
+  );
+
+  return wos
+    .map((w): PendingPartsWorkorder | null => {
+      const agg = partsAgg.get(w.id);
+      if (!agg || agg.count === 0) return null; // 沒綁料件不列
+      if (pickedWoIds.has(w.id)) return null; // 已領料完成不列
+
+      const veh = w.vehicle_id ? vMap.get(w.vehicle_id) : undefined;
+      const meta = (w.metadata ?? {}) as Record<string, unknown>;
+      const priority = normalizePriority(meta.priority);
+      const summary =
+        agg.names.length > 0
+          ? agg.names.slice(0, 3).join("、") +
+            (agg.names.length > 3 ? ` …等 ${agg.names.length} 項` : "")
+          : null;
+
+      return {
+        id: w.id,
+        ro_no: w.ro_no,
+        status: w.status,
+        priority,
+        is_urgent: priority === "urgent",
+        customer_name: w.customer_id ? cMap.get(w.customer_id) ?? null : null,
+        vehicle_model_name: veh?.model_name ?? null,
+        license_plate: veh?.license_plate ?? null,
+        parts_line_count: agg.count,
+        parts_qty_total: agg.qty,
+        parts_summary: summary,
+      };
+    })
+    .filter((x): x is PendingPartsWorkorder => x !== null)
+    // 緊急優先排前
+    .sort((a, b) => (a.is_urgent === b.is_urgent ? 0 : a.is_urgent ? -1 : 1));
+}
+
 export type RepairPickPreviewLine = {
   line_no: number;
   item_id: string;

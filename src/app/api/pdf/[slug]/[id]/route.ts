@@ -26,6 +26,7 @@ const ALLOWED_SLUGS = new Set([
   "import-po",
   "landed-cost-statement",
   "vehicle-cost-card",
+  "group-quarterly-report",
 ]);
 
 export async function GET(

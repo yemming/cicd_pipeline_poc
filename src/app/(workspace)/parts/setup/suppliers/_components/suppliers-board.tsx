@@ -13,6 +13,8 @@ import {
   type SupplierWithActivity,
   type ContractStatus,
   type SuppliersStats,
+  type SupplierPerformance,
+  type SupplierPerformanceScore,
 } from "@/domain/suppliers";
 
 const TYPE_LABEL: Record<string, { label: string; chip: string }> = {
@@ -27,6 +29,18 @@ const CONTRACT_LABEL: Record<ContractStatus, { label: string; chip: string }> = 
   expired: { label: "已到期", chip: "bg-[#FDECEA] text-[#CC0000]" },
   none: { label: "未簽約", chip: "bg-[#F2F2F2] text-[#6B6A68]" },
 };
+
+// 綜合評分 chip：A+/A 綠、B 琥珀、C 紅（依 design pattern token）
+const SCORE_CHIP: Record<SupplierPerformanceScore, string> = {
+  "A+": "bg-[#EAF3DE] text-[#3B6D11]",
+  A: "bg-[#EAF3DE] text-[#3B6D11]",
+  B: "bg-[#FDF3E3] text-[#854F0B]",
+  C: "bg-[#FDECEA] text-[#CC0000]",
+};
+
+function formatPct(n: number): string {
+  return `${Math.round(n * 100)}%`;
+}
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -57,6 +71,7 @@ export function SuppliersBoard({
   rows,
   canEdit,
   stats,
+  performance,
   initialType,
   initialContractStatus,
   initialQ,
@@ -64,6 +79,7 @@ export function SuppliersBoard({
   rows: SupplierWithActivity[];
   canEdit: boolean;
   stats: SuppliersStats;
+  performance: SupplierPerformance[];
   initialType: string;
   initialContractStatus: string;
   initialQ: string;
@@ -387,6 +403,104 @@ export function SuppliersBoard({
           管理零件供應商基本資料、聯絡方式與供應能力
         </span>
       </header>
+
+      {/* 供應商績效看板（品質六指標 — 示意資料） */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2 flex-wrap">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">
+            ▼ 供應商績效看板
+          </span>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
+            示意資料
+          </span>
+          <span className="text-[11px] text-[#9A9890]">
+            交貨準時率 / 前置天數 / 短收率 / 退貨率 — 待累積入庫差異記錄後自動計算
+          </span>
+        </header>
+        {performance.length === 0 ? (
+          <div className="px-4 py-6 text-center text-[12px] text-[#9A9890]">
+            尚無供應商資料
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-[#EEECE6] bg-white">
+                  <th className="text-left px-4 py-2 text-[11px] text-[#9A9890] font-medium">
+                    供應商
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] text-[#9A9890] font-medium whitespace-nowrap">
+                    交貨準時率
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] text-[#9A9890] font-medium whitespace-nowrap">
+                    平均前置天數
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] text-[#9A9890] font-medium whitespace-nowrap">
+                    短收率
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] text-[#9A9890] font-medium whitespace-nowrap">
+                    退貨率
+                  </th>
+                  <th className="text-center px-3 py-2 text-[11px] text-[#9A9890] font-medium whitespace-nowrap">
+                    綜合評分
+                  </th>
+                  <th className="text-left px-4 py-2 text-[11px] text-[#9A9890] font-medium">
+                    採購建議
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {performance.map((p) => (
+                  <tr
+                    key={p.supplier_id}
+                    className="border-b border-[#F2F1ED] last:border-b-0 hover:bg-[#F8F7F4]"
+                  >
+                    <td className="px-4 py-2 text-[12px] text-[#2C2C2A]">
+                      {p.supplier_name}
+                    </td>
+                    <td
+                      className={`text-right px-3 py-2 text-[12px] font-mono ${
+                        p.on_time_rate < 0.8 ? "text-[#CC0000]" : "text-[#2C2C2A]"
+                      }`}
+                    >
+                      {formatPct(p.on_time_rate)}
+                    </td>
+                    <td className="text-right px-3 py-2 text-[12px] font-mono text-[#2C2C2A]">
+                      {p.avg_lead_days} 天
+                    </td>
+                    <td
+                      className={`text-right px-3 py-2 text-[12px] font-mono ${
+                        p.short_receipt_rate >= 0.05
+                          ? "text-[#854F0B]"
+                          : "text-[#2C2C2A]"
+                      }`}
+                    >
+                      {formatPct(p.short_receipt_rate)}
+                    </td>
+                    <td
+                      className={`text-right px-3 py-2 text-[12px] font-mono ${
+                        p.return_rate >= 0.05 ? "text-[#CC0000]" : "text-[#2C2C2A]"
+                      }`}
+                    >
+                      {formatPct(p.return_rate)}
+                    </td>
+                    <td className="text-center px-3 py-2">
+                      <span
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-semibold whitespace-nowrap ${SCORE_CHIP[p.score]}`}
+                      >
+                        {p.score}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-[12px] text-[#5A5955]">
+                      {p.suggestion}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {/* Filter Bar */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">

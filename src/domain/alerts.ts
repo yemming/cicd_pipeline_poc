@@ -275,6 +275,9 @@ export type ThresholdPatch = {
   max_stock?: number | null;
   abc_class?: "A" | "B" | "C" | null;
   alert_priority?: "low" | "medium" | "high" | "critical";
+  // 變動中的單頁顯示用參數（如再訂購點計算輔助器的 avg_daily_consumption /
+  // lead_time_days）—— 走 jsonb metadata 免 DDL。會 merge 進現有 metadata。
+  metadata?: Record<string, unknown>;
 };
 
 export async function updateThresholdAction(
@@ -315,12 +318,26 @@ export async function updateThresholdAction(
   if (patch.abc_class !== undefined) updates.abc_class = patch.abc_class;
   if (patch.alert_priority !== undefined) updates.alert_priority = patch.alert_priority;
 
-  if (Object.keys(updates).length === 0) {
+  if (Object.keys(updates).length === 0 && patch.metadata === undefined) {
     return { ok: true, data: { id } };
   }
 
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
+
+  // metadata 走 merge：先讀現況再 spread，避免覆蓋掉其他 key
+  if (patch.metadata !== undefined) {
+    const { data: cur, error: curErr } = await supabase
+      .from("stock_thresholds")
+      .select("metadata")
+      .eq("id", id)
+      .eq("brand_id", brand)
+      .maybeSingle();
+    if (curErr) return { ok: false, error: `讀取現況失敗：${curErr.message}` };
+    const existing = (cur?.metadata ?? {}) as Record<string, unknown>;
+    updates.metadata = { ...existing, ...patch.metadata };
+  }
+
   const { error } = await supabase
     .from("stock_thresholds")
     .update(updates)

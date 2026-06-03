@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import {
   getSuppliersPageData,
+  getSuppliersPerformanceBoard,
   type ContractStatus,
 } from "@/domain/suppliers";
 
@@ -38,13 +39,17 @@ export default async function SuppliersPage({
     contract_status: (sp.contract_status as ContractStatus | "all" | undefined) ?? "all",
     q: sp.q || undefined,
   };
-  const { rows, canEdit, stats } = await getSuppliersPageData(filter);
+  const [{ rows, canEdit, stats }, performance] = await Promise.all([
+    getSuppliersPageData(filter),
+    getSuppliersPerformanceBoard(),
+  ]);
 
   return (
     <SuppliersBoard
       rows={rows}
       canEdit={canEdit}
       stats={stats}
+      performance={performance}
       initialType={sp.type ?? ""}
       initialContractStatus={sp.contract_status ?? "all"}
       initialQ={sp.q ?? ""}

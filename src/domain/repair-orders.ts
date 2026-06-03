@@ -16,6 +16,7 @@ import {
   PREFIX_P1_DEFS,
   PREFIX_P2_DEFS,
   RO_STATUS_OPTIONS,
+  RO_PRIORITY_SORT,
   type PrefixP1,
   type PrefixP2,
 } from "./repair-orders.constants";
@@ -36,6 +37,8 @@ export type RepairOrderRow = {
   sa_id: string | null;
   lead_technician_id: string | null;
   status: string;
+  /** 優先級 G-1：urgent | normal | flexible（派工置頂依此）*/
+  priority: string | null;
   opened_at: string | null;
   closed_at: string | null;
   estimated_subtotal: number | null;
@@ -101,7 +104,46 @@ export type RoDraft = {
   estimated_subtotal: number;
   estimated_labor_units: number;
   preview_items: { label: string; lu: number; amount: number }[];
+  /** 同車近 30 天的歷史工單（返工偵測用）—— confirm-view 依當前 P1 過濾出同類 */
+  recent_repairs: RecentRepairRow[];
 };
+
+/** 返工偵測：同 vehicle_id 近 N 天的工單摘要 */
+export type RecentRepairRow = {
+  id: string;
+  ro_code: string;
+  issue_date: string;
+  prefix_p1: string;
+  prefix_p2: string;
+  status: string;
+};
+
+/**
+ * 偵測同車近 withinDays 天內的工單（返工 RP-FR 判斷依據）。
+ * confirm-view 拿到後再依「當前選的 P1」過濾出同類，避免換 P1 要重打 API。
+ * 排除已取消單。
+ */
+export async function detectRecentRepairs(
+  vehicleId: string,
+  withinDays = 30,
+): Promise<RecentRepairRow[]> {
+  if (!vehicleId) return [];
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const since = new Date(Date.now() - withinDays * 86400000)
+    .toISOString()
+    .slice(0, 10);
+  const { data } = await supabase
+    .from("repair_orders")
+    .select("id, ro_code, issue_date, prefix_p1, prefix_p2, status")
+    .eq("brand_id", brand)
+    .eq("vehicle_id", vehicleId)
+    .neq("status", "已取消")
+    .gte("issue_date", since)
+    .order("issue_date", { ascending: false })
+    .limit(20);
+  return (data ?? []) as RecentRepairRow[];
+}
 
 function todayIsoDate(): string {
   const d = new Date();
@@ -349,6 +391,11 @@ export async function getRoDraftFromAppointment(
     (piRow?.metadata as { purposes?: number[] } | null)?.purposes ?? [];
   const hasWarrantyConcern = piPurposes.includes(5) || piPurposes.includes(6);
 
+  // 返工偵測：同車近 30 天工單（confirm-view 依當前 P1 過濾出同類）
+  const recentRepairs = vehRaw?.id
+    ? await detectRecentRepairs(vehRaw.id, 30)
+    : [];
+
   return {
     source: piRow ? "pre_inspection" : "appointment",
     source_id: appointmentId,
@@ -377,6 +424,7 @@ export async function getRoDraftFromAppointment(
     estimated_subtotal: estTotal,
     estimated_labor_units: lu,
     preview_items: previewItems,
+    recent_repairs: recentRepairs,
   };
 }
 
@@ -591,6 +639,43 @@ export async function getRoSearchPageData(
   return { rows, totalCount: rows.length, saOptions, kpi };
 }
 
+// ----- 包B：派工看板「緊急工單置頂」面板資料 -----
+
+export type UrgentRoRow = {
+  id: string;
+  ro_code: string;
+  status: string;
+  customer_name: string | null;
+  vehicle_license_plate: string | null;
+  vehicle_model_name: string | null;
+  lead_technician_name: string | null;
+};
+
+/** 同 brand 內「緊急(urgent)」且未結束的工單，給派工看板置頂顯示 */
+export async function listUrgentOpenRos(limit = 10): Promise<UrgentRoRow[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data } = await supabase
+    .from("repair_orders")
+    .select("*")
+    .eq("brand_id", brand)
+    .eq("priority", "urgent")
+    .in("status", ["進行中", "維修中", "待結帳"])
+    .order("issue_date", { ascending: true })
+    .limit(limit);
+  const rows = (data ?? []) as unknown as RepairOrderRow[];
+  const joined = await joinRepairOrderRows(rows, brand);
+  return joined.map((r) => ({
+    id: r.id,
+    ro_code: r.ro_code,
+    status: r.status,
+    customer_name: r.customer_name,
+    vehicle_license_plate: r.vehicle_license_plate,
+    vehicle_model_name: r.vehicle_model_name,
+    lead_technician_name: r.lead_technician_name,
+  }));
+}
+
 // ----- /service/workshop · 真派工看板 P1-#11 -----
 
 export type WorkshopTechnicianRow = {
@@ -635,6 +720,13 @@ export async function getWorkshopBoardData(): Promise<WorkshopBoardData> {
 
   const roRows = (roRes.data ?? []) as unknown as RepairOrderRow[];
   const joined = await joinRepairOrderRows(roRows, brand);
+
+  // 派工置頂：依優先級排序（緊急 → 一般 → 彈性），同級維持原本日期序
+  joined.sort(
+    (a, b) =>
+      (RO_PRIORITY_SORT[a.priority ?? "normal"] ?? 1) -
+      (RO_PRIORITY_SORT[b.priority ?? "normal"] ?? 1),
+  );
 
   // 計算每位技師被指派多少張 active RO（依 lead_technician_id）
   const techCountMap = new Map<string, number>();

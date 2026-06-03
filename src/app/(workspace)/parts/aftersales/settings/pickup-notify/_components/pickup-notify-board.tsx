@@ -23,6 +23,13 @@ import {
   type TriggerEvent,
   type TargetRole,
 } from "@/domain/aftersales-pickup-notify";
+import {
+  type NodeKind,
+  type NotifyPolicy,
+  NODE_KIND_DEFS,
+  POLICY_LABEL,
+  nodeKindDef,
+} from "@/domain/aftersales-pickup-notify.constants";
 
 type Banner = { ok: boolean; msg: string } | null;
 type TabKey = "templates" | "schedules";
@@ -1027,6 +1034,8 @@ type SaveSchedulePayload = {
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
   is_active: boolean;
+  node_kind: NodeKind | null;
+  policy: NotifyPolicy;
 };
 
 function ScheduleModal({
@@ -1049,6 +1058,11 @@ function ScheduleModal({
     initial?.trigger_event ?? "ro_completed",
   );
   const [offsetMinutes, setOffsetMinutes] = useState<number>(initial?.offset_minutes ?? 0);
+  const [nodeKind, setNodeKind] = useState<NodeKind | "">(initial?.node_kind ?? "");
+  const [policy, setPolicy] = useState<NotifyPolicy>(initial?.policy ?? "sa_decide");
+  // 節點 2（安全相關追加）強制發送：policy 鎖 mandatory
+  const nodeForced = nodeKindDef(nodeKind || null)?.forced ?? false;
+  const effectivePolicy: NotifyPolicy = nodeForced ? "mandatory" : policy;
   const [targetRole, setTargetRole] = useState<TargetRole | "">(
     initial?.target_role ?? "customer",
   );
@@ -1069,6 +1083,8 @@ function ScheduleModal({
       quiet_hours_start: useQuietHours ? `${quietStart}:00` : null,
       quiet_hours_end: useQuietHours ? `${quietEnd}:00` : null,
       is_active: isActive,
+      node_kind: (nodeKind || null) as NodeKind | null,
+      policy: effectivePolicy,
     });
   }
 
@@ -1114,6 +1130,49 @@ function ScheduleModal({
               disabled={pending}
               className="h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
             />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="維修流程節點">
+            <select
+              value={nodeKind}
+              onChange={(e) => {
+                const nk = e.target.value as NodeKind | "";
+                setNodeKind(nk);
+                // 切到強制節點 → policy 鎖 mandatory；切離 → 還原 sa_decide
+                if (nodeKindDef(nk || null)?.forced) setPolicy("mandatory");
+              }}
+              disabled={pending}
+              className="h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+            >
+              <option value="">（不綁定流程節點）</option>
+              {NODE_KIND_DEFS.map((d) => (
+                <option key={d.code} value={d.code}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+            {nodeKind && (
+              <p className="text-[11px] text-[#9A9890] mt-1">{nodeKindDef(nodeKind)?.desc}</p>
+            )}
+          </Field>
+          <Field label="發送政策（三態）">
+            <select
+              value={effectivePolicy}
+              onChange={(e) => setPolicy(e.target.value as NotifyPolicy)}
+              disabled={pending || nodeForced}
+              className="h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none disabled:bg-[#F2F2F2]"
+            >
+              <option value="sa_decide">{POLICY_LABEL.sa_decide}</option>
+              <option value="mandatory">{POLICY_LABEL.mandatory}</option>
+              <option value="off">{POLICY_LABEL.off}</option>
+            </select>
+            {nodeForced && (
+              <p className="text-[11px] text-[#CC0000] mt-1">
+                ⚠️ 安全相關追加為強制發送，不可關閉。
+              </p>
+            )}
           </Field>
         </div>
 

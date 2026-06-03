@@ -1,14 +1,11 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+import { PlaceholderPage } from "@/components/placeholder-page";
 
-export default async function Page() {
-  const html = await loadStitchBody("8cf3cbe6d4ef429ca1a3d88958fd5924");
+export default function Page() {
   return (
-    <StitchInline
-      html={html}
+    <PlaceholderPage
       title="我的簽核"
-      sprint="S1-5"
-      screenId="8cf3cbe6d4ef429ca1a3d88958fd5924"
+      icon="approval"
+      description="簽核中心規劃中。待簽核工作流（折扣 / 退款 / 調車 / 退貨閾值審核）尚未串接真實資料，完成後此處會列出待你處理的簽核事項。"
       breadcrumb={[{ label: "簽核管理", href: "/admin/approvals" }, { label: "我的簽核" }]}
     />
   );

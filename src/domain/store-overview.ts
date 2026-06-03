@@ -110,6 +110,25 @@ export type PushOpenRateKpi = {
   total_read: number;
 };
 
+/** CRM07：試駕轉化率（完成試駕 → 後續成交 sales_order 的比例） */
+export type TestDriveConversionKpi = {
+  completed: number;   // 期間內完成試駕數
+  converted: number;   // 其中後續有成交（依 lead_id / customer_id 連結）
+  rate: number | null; // % — completed=0 時為 null（顯示「—」）
+};
+
+/** CRM07：RS 人員業績排行（真實資料：sales_orders.rs_name 聚合） */
+export type SalesStaffRanking = {
+  rank: number;
+  name: string;          // rs_name
+  newCarCount: number;   // contract_type='new'
+  usedCarCount: number;  // contract_type='used'
+  totalDeals: number;
+  testDriveCount: number; // 名下試駕次數（依試駕客戶對到的 order.rs_name 歸戶；多為 0=資料稀疏）
+  /** 相對第一名的成交占比（%）— 無真實個人目標，僅作排行視覺化，非「達成率」 */
+  topShareRate: number;
+};
+
 export type StoreOverviewData = {
   kpi: StoreKpi;
   npsByKind: NpsByKind[];
@@ -126,6 +145,10 @@ export type StoreOverviewData = {
   dimensionInsights: DimensionInsight[];
   /** CRM07：推播通知開啟率（aftersales kind） */
   pushOpenRate: PushOpenRateKpi;
+  /** CRM07：試駕轉化率（完成試駕 → 成交） */
+  testDriveConversion: TestDriveConversionKpi;
+  /** CRM07：RS 人員業績排行（sales_orders.rs_name 真實聚合） */
+  salesStaffRanking: SalesStaffRanking[];
 };
 
 type NpsRawRow = {
@@ -216,6 +239,8 @@ export async function getStoreOverview(
     custTagsRes,
     vehRes,
     pushRes,
+    ordersRes,
+    testDrivesRes,
   ] = await Promise.all([
     supabase
       .from("nps_responses")
@@ -262,6 +287,15 @@ export async function getStoreOverview(
       .eq("kind", "aftersales")
       .eq("status", "completed")
       .gte("sent_at", cutoffIso),
+    supabase
+      .from("sales_orders")
+      .select("id, rs_name, contract_type, status, customer_id, lead_id, created_at")
+      .eq("brand_id", brand)
+      .gte("created_at", cutoffIso),
+    supabase
+      .from("sales_test_drives")
+      .select("id, customer_id, lead_id, status, completed_at, sales_consultant_id")
+      .eq("brand_id", brand),
   ]);
 
   if (npsRes.error) throw npsRes.error;
@@ -272,6 +306,8 @@ export async function getStoreOverview(
   if (custTagsRes.error) throw custTagsRes.error;
   if (vehRes.error) throw vehRes.error;
   if (pushRes.error) throw pushRes.error;
+  if (ordersRes.error) throw ordersRes.error;
+  if (testDrivesRes.error) throw testDrivesRes.error;
 
   const npsRows = (npsRes.data ?? []) as NpsRawRow[];
   const leads = leadsRes.data ?? [];
@@ -281,6 +317,8 @@ export async function getStoreOverview(
   const tags = custTagsRes.data ?? [];
   const vehicles = vehRes.data ?? [];
   const pushDeliveries = pushRes.data ?? [];
+  const salesOrders = ordersRes.data ?? [];
+  const testDrives = testDrivesRes.data ?? [];
 
   // ─── KPI 計算 ───
   const salesNpsRows = npsRows.filter((r) => r.kind === "sales");
@@ -615,6 +653,96 @@ export async function getStoreOverview(
     total_read: totalRead,
   };
 
+  // ── CRM07：試駕轉化率（完成試駕 → 後續成交）───────────────────────
+  // 真實計算：期間內 status='completed' 的試駕，其 lead_id / customer_id
+  // 是否出現在有效（非 cancelled/draft）sales_orders。orders 已限期間內撈。
+  const VALID_ORDER_STATUSES = (s: string | null) =>
+    s != null && s !== "cancelled" && s !== "draft";
+  const orderLeadIds = new Set(
+    salesOrders
+      .filter((o) => VALID_ORDER_STATUSES(o.status as string | null) && o.lead_id)
+      .map((o) => o.lead_id as string),
+  );
+  const orderCustomerIds = new Set(
+    salesOrders
+      .filter((o) => VALID_ORDER_STATUSES(o.status as string | null) && o.customer_id)
+      .map((o) => o.customer_id as string),
+  );
+  const completedTestDrives = testDrives.filter(
+    (t) => t.status === "completed",
+  );
+  const convertedTestDrives = completedTestDrives.filter((t) => {
+    const lid = t.lead_id as string | null;
+    const cid = t.customer_id as string | null;
+    return (lid && orderLeadIds.has(lid)) || (cid && orderCustomerIds.has(cid));
+  });
+  const testDriveConversion: TestDriveConversionKpi = {
+    completed: completedTestDrives.length,
+    converted: convertedTestDrives.length,
+    rate:
+      completedTestDrives.length > 0
+        ? Math.round(
+            (convertedTestDrives.length / completedTestDrives.length) * 100,
+          )
+        : null,
+  };
+
+  // ── CRM07：RS 人員業績排行（sales_orders.rs_name 真實聚合）──────────
+  // 每位 RS 在期間內的成交台數（新車 / 中古）+ 名下試駕次數。
+  // 試駕歸戶：把試駕客戶對到的（最早一張）order.rs_name 當作該試駕的 RS。
+  // 無真實個人銷售目標欄位 → 不造「達成率」假數字，改用「相對第一名占比」做排行視覺化。
+  const customerToOrderRs = new Map<string, string>();
+  for (const o of [...salesOrders].sort(
+    (a, b) =>
+      new Date(a.created_at as string).getTime() -
+      new Date(b.created_at as string).getTime(),
+  )) {
+    const cid = o.customer_id as string | null;
+    const rs = o.rs_name as string | null;
+    if (cid && rs && !customerToOrderRs.has(cid)) {
+      customerToOrderRs.set(cid, rs);
+    }
+  }
+  const testDriveCountByRs = new Map<string, number>();
+  for (const t of testDrives) {
+    const cid = t.customer_id as string | null;
+    const rs = cid ? customerToOrderRs.get(cid) : undefined;
+    if (rs) testDriveCountByRs.set(rs, (testDriveCountByRs.get(rs) ?? 0) + 1);
+  }
+  const rsAgg = new Map<
+    string,
+    { newCarCount: number; usedCarCount: number; totalDeals: number }
+  >();
+  for (const o of salesOrders) {
+    const rs = o.rs_name as string | null;
+    if (!rs || !VALID_ORDER_STATUSES(o.status as string | null)) continue;
+    const cur = rsAgg.get(rs) ?? {
+      newCarCount: 0,
+      usedCarCount: 0,
+      totalDeals: 0,
+    };
+    if (o.contract_type === "new") cur.newCarCount += 1;
+    else if (o.contract_type === "used") cur.usedCarCount += 1;
+    cur.totalDeals += 1;
+    rsAgg.set(rs, cur);
+  }
+  const rsSorted = [...rsAgg.entries()].sort(
+    (a, b) =>
+      b[1].totalDeals - a[1].totalDeals || b[1].newCarCount - a[1].newCarCount,
+  );
+  const topDeals = rsSorted.length > 0 ? rsSorted[0][1].totalDeals : 0;
+  const salesStaffRanking: SalesStaffRanking[] = rsSorted
+    .slice(0, 5)
+    .map(([name, v], idx) => ({
+      rank: idx + 1,
+      name,
+      newCarCount: v.newCarCount,
+      usedCarCount: v.usedCarCount,
+      totalDeals: v.totalDeals,
+      testDriveCount: testDriveCountByRs.get(name) ?? 0,
+      topShareRate: topDeals > 0 ? Math.round((v.totalDeals / topDeals) * 100) : 0,
+    }));
+
   // ── 動態化預警文案：批評者 alert 接客戶名（demo：取最近 1 件） ──
   if (combinedNps.detractor > 0) {
     const recentDetractor = npsRows.find((r) => r.score <= 6);
@@ -652,5 +780,7 @@ export async function getStoreOverview(
     overdueTrend,
     dimensionInsights,
     pushOpenRate,
+    testDriveConversion,
+    salesStaffRanking,
   };
 }

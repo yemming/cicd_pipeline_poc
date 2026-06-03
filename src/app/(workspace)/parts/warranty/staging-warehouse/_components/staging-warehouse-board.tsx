@@ -10,10 +10,19 @@ import {
 } from "@/components/visualization";
 import { BarChart } from "@/components/charts/BarChart";
 import { setWarrantyStaging } from "@/lib/parts-warranty/staging-warehouse-actions";
+import {
+  upsertStagingBin,
+  setBinActive,
+  confirmRoInbound,
+} from "@/domain/parts-warranty-staging";
 import type {
   StagingOccupancy,
   TreeNodeData,
   WarehouseListRow,
+  StagingZoneRow,
+  StagingBinRow,
+  PendingRoInboundRow,
+  BizTypeTag,
 } from "@/domain/parts-warranty-staging";
 
 type Banner = { ok: boolean; msg: string } | null;
@@ -27,6 +36,27 @@ type ConfirmState =
       storedCount: number;
     };
 
+type BinModalState =
+  | null
+  | { mode: "create" }
+  | { mode: "edit"; binId: string };
+
+type BinFormState = {
+  id?: string;
+  zoneId: string;
+  code: string;
+  name: string;
+  capacity: string; // input 字串，submit 時轉 number
+};
+
+const EMPTY_BIN_FORM: BinFormState = {
+  id: undefined,
+  zoneId: "",
+  code: "",
+  name: "",
+  capacity: "",
+};
+
 export function StagingWarehouseBoard({
   tree,
   warehouses,
@@ -34,7 +64,11 @@ export function StagingWarehouseBoard({
   selectedWarehouse,
   occupancy,
   totals,
+  zones,
+  bins,
+  pendingInbound,
   canEdit,
+  canManageInbound,
 }: {
   tree: TreeNodeData[];
   warehouses: WarehouseListRow[];
@@ -42,12 +76,24 @@ export function StagingWarehouseBoard({
   selectedWarehouse: WarehouseListRow | null;
   occupancy: StagingOccupancy | null;
   totals: { stagingCount: number; storedTotal: number };
+  zones: StagingZoneRow[];
+  bins: StagingBinRow[];
+  pendingInbound: PendingRoInboundRow[];
   canEdit: boolean;
+  canManageInbound: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
   const [confirm, setConfirm] = useState<ConfirmState>(null);
+
+  // 儲位設定 modal state
+  const [binModal, setBinModal] = useState<BinModalState>(null);
+  const [binForm, setBinForm] = useState<BinFormState>(EMPTY_BIN_FORM);
+  // RO 入庫面板：每列選中的 bin
+  const [inboundBinSel, setInboundBinSel] = useState<Record<string, string>>(
+    {},
+  );
 
   const showBanner = (b: Banner) => {
     setBanner(b);
@@ -101,6 +147,109 @@ export function StagingWarehouseBoard({
       } else {
         showBanner({ ok: false, msg: res.error });
         setConfirm(null);
+      }
+    });
+  };
+
+  // ── 儲位設定 ──────────────────────────────────────────────────────────────
+  const openCreateBin = () => {
+    if (!selectedWarehouse) return;
+    setBinForm({
+      id: undefined,
+      zoneId: zones[0]?.id ?? "",
+      code: "",
+      name: "",
+      capacity: "",
+    });
+    setBinModal({ mode: "create" });
+  };
+
+  const openEditBin = (b: StagingBinRow) => {
+    setBinForm({
+      id: b.id,
+      zoneId: b.zoneId,
+      code: b.code,
+      name: b.name ?? "",
+      capacity: b.capacity == null ? "" : String(b.capacity),
+    });
+    setBinModal({ mode: "edit", binId: b.id });
+  };
+
+  const submitBin = () => {
+    if (!selectedWarehouse) return;
+    const code = binForm.code.trim();
+    if (!code) {
+      showBanner({ ok: false, msg: "儲位代碼不可為空" });
+      return;
+    }
+    if (!binForm.zoneId) {
+      showBanner({ ok: false, msg: "請選擇所屬分區" });
+      return;
+    }
+    const capNum =
+      binForm.capacity.trim() === "" ? null : Number(binForm.capacity);
+    if (capNum != null && (Number.isNaN(capNum) || capNum < 0)) {
+      showBanner({ ok: false, msg: "容量需為 0 以上的數字" });
+      return;
+    }
+    startTransition(async () => {
+      const res = await upsertStagingBin({
+        id: binForm.id,
+        warehouseId: selectedWarehouse.id,
+        zoneId: binForm.zoneId,
+        code,
+        name: binForm.name.trim() || null,
+        capacity: capNum,
+      });
+      if (res.ok) {
+        showBanner({
+          ok: true,
+          msg: binForm.id ? "✓ 已更新儲位" : "✓ 已新增儲位",
+        });
+        setBinModal(null);
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  const toggleBinActive = (b: StagingBinRow) => {
+    startTransition(async () => {
+      const res = await setBinActive(b.id, !b.isActive);
+      if (res.ok) {
+        showBanner({
+          ok: true,
+          msg: b.isActive ? "✓ 已停用儲位" : "✓ 已啟用儲位",
+        });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  // ── RO 觸發舊件入庫 ──────────────────────────────────────────────────────
+  const activeBins = bins.filter((b) => b.isActive);
+
+  const runInbound = (itemId: string) => {
+    const binId = inboundBinSel[itemId];
+    if (!binId) {
+      showBanner({ ok: false, msg: "請先選擇要入庫的儲位" });
+      return;
+    }
+    startTransition(async () => {
+      const res = await confirmRoInbound({ usedPartItemId: itemId, binId });
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已確認入庫，索賠推進至「待申報」" });
+        setInboundBinSel((prev) => {
+          const next = { ...prev };
+          delete next[itemId];
+          return next;
+        });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
       }
     });
   };
@@ -338,6 +487,253 @@ export function StagingWarehouseBoard({
                 </div>
               )}
 
+              {/* 儲位層級設定（僅 staging 倉顯示） */}
+              {selectedWarehouse.is_warranty_staging ? (
+                <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                  <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+                    <h3 className="text-[13px] font-semibold text-[#2C2C2A]">
+                      🗄 儲位設定
+                    </h3>
+                    <span className="text-[11px] text-[#9A9890]">
+                      分區（zone）＋ 儲位（bin）；分區業務類型 WC 保固件 / AC 事故件依分區管控等級
+                    </span>
+                    <button
+                      type="button"
+                      disabled={!canEdit || isPending || zones.length === 0}
+                      onClick={openCreateBin}
+                      className="ml-auto h-[26px] px-2.5 rounded text-[11.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                      title={
+                        zones.length === 0
+                          ? "此倉尚無分區（zone），請先到倉庫架構建立分區"
+                          : "新增儲位"
+                      }
+                    >
+                      ＋ 新增儲位
+                    </button>
+                  </header>
+                  <div className="overflow-x-auto">
+                    {bins.length === 0 ? (
+                      <div className="px-4 py-6 text-[12px] text-[#9A9890]">
+                        {zones.length === 0
+                          ? "此倉尚無分區（zone）。請先到「倉庫架構」建立分區，再回此頁新增儲位。"
+                          : "此倉尚無儲位。點右上「＋ 新增儲位」建立第一個儲位。"}
+                      </div>
+                    ) : (
+                      <table className="w-full text-[12px]">
+                        <thead>
+                          <tr className="text-[11px] text-[#9A9890] border-b border-[#EEECE6] bg-white">
+                            <th className="text-left font-medium px-4 py-2">
+                              儲位代碼
+                            </th>
+                            <th className="text-left font-medium px-3 py-2">
+                              名稱
+                            </th>
+                            <th className="text-left font-medium px-3 py-2">
+                              分區
+                            </th>
+                            <th className="text-left font-medium px-3 py-2">
+                              業務類型
+                            </th>
+                            <th className="text-right font-medium px-3 py-2">
+                              容量
+                            </th>
+                            <th className="text-right font-medium px-3 py-2">
+                              即時件數
+                            </th>
+                            <th className="text-left font-medium px-3 py-2">
+                              狀態
+                            </th>
+                            <th className="text-right font-medium px-4 py-2">
+                              操作
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#EEECE6]">
+                          {bins.map((b) => (
+                            <tr key={b.id} className="hover:bg-[#F8F7F4]">
+                              <td className="px-4 py-2 font-mono font-semibold text-[#1A3A5C] whitespace-nowrap">
+                                {b.code}
+                              </td>
+                              <td className="px-3 py-2 text-[#2C2C2A]">
+                                {b.name ?? "—"}
+                              </td>
+                              <td className="px-3 py-2 text-[#5A5955] whitespace-nowrap">
+                                <span className="font-mono">{b.zoneCode}</span>{" "}
+                                {b.zoneName}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                <BizChip biz={b.bizType} />
+                              </td>
+                              <td className="px-3 py-2 text-right text-[#5A5955]">
+                                {b.capacity ?? "—"}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <span
+                                  className={`font-semibold ${
+                                    b.storedCount > 0
+                                      ? "text-[#854F0B]"
+                                      : "text-[#9A9890]"
+                                  }`}
+                                >
+                                  {b.storedCount}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${
+                                    b.isActive
+                                      ? "bg-[#EAF3DE] text-[#3B6D11]"
+                                      : "bg-[#F2F2F2] text-[#6B6A68]"
+                                  }`}
+                                >
+                                  {b.isActive ? "啟用" : "停用"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-right whitespace-nowrap">
+                                <div className="inline-flex gap-1.5">
+                                  <button
+                                    type="button"
+                                    disabled={!canEdit || isPending}
+                                    onClick={() => openEditBin(b)}
+                                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                                  >
+                                    編輯
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={!canEdit || isPending}
+                                    onClick={() => toggleBinActive(b)}
+                                    className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                                  >
+                                    {b.isActive ? "停用" : "啟用"}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </section>
+              ) : null}
+
+              {/* RO 觸發舊件入庫面板 */}
+              {selectedWarehouse.is_warranty_staging ? (
+                <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                  <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+                    <h3 className="text-[13px] font-semibold text-[#2C2C2A]">
+                      📥 RO 觸發舊件入庫
+                    </h3>
+                    <span className="text-[11px] text-[#9A9890]">
+                      待入庫池：拆下的保固舊件（status=等待核准）→ 選儲位 → 確認入庫推進至「待申報」
+                    </span>
+                    <span className="ml-auto text-[11px] text-[#9A9890]">
+                      共{" "}
+                      <b className="text-[#2C2C2A]">{pendingInbound.length}</b>{" "}
+                      件待入庫
+                    </span>
+                  </header>
+                  {pendingInbound.length === 0 ? (
+                    <div className="px-4 py-6 text-[12px] text-[#9A9890]">
+                      目前沒有待入庫的舊件（沒有 status=等待核准 的保固舊件）。
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[12px]">
+                        <thead>
+                          <tr className="text-[11px] text-[#9A9890] border-b border-[#EEECE6] bg-white">
+                            <th className="text-left font-medium px-4 py-2">
+                              工單號 RO
+                            </th>
+                            <th className="text-left font-medium px-3 py-2">
+                              舊件
+                            </th>
+                            <th className="text-left font-medium px-3 py-2">
+                              損傷
+                            </th>
+                            <th className="text-left font-medium px-3 py-2">
+                              拆件日期
+                            </th>
+                            <th className="text-left font-medium px-3 py-2">
+                              選擇儲位
+                            </th>
+                            <th className="text-right font-medium px-4 py-2">
+                              操作
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#EEECE6]">
+                          {pendingInbound.map((p) => (
+                            <tr key={p.id} className="hover:bg-[#F8F7F4]">
+                              <td className="px-4 py-2 font-mono text-[#1A3A5C] whitespace-nowrap">
+                                {p.roNo ?? "—"}
+                              </td>
+                              <td className="px-3 py-2 text-[#2C2C2A]">
+                                <div className="font-medium">{p.itemName}</div>
+                                <div className="text-[11px] text-[#9A9890] font-mono">
+                                  {p.itemCode ?? p.barcode}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-[#5A5955] whitespace-nowrap">
+                                {p.damageLabel ?? p.damageLevel}
+                              </td>
+                              <td className="px-3 py-2 text-[#5A5955] whitespace-nowrap">
+                                {p.inboundDate ?? "—"}
+                              </td>
+                              <td className="px-3 py-2">
+                                <select
+                                  disabled={
+                                    !canManageInbound ||
+                                    isPending ||
+                                    activeBins.length === 0
+                                  }
+                                  value={inboundBinSel[p.id] ?? ""}
+                                  onChange={(e) =>
+                                    setInboundBinSel((prev) => ({
+                                      ...prev,
+                                      [p.id]: e.target.value,
+                                    }))
+                                  }
+                                  className="h-[30px] min-w-[180px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-50"
+                                >
+                                  <option value="">
+                                    {activeBins.length === 0
+                                      ? "（此倉尚無啟用儲位）"
+                                      : "請選擇儲位…"}
+                                  </option>
+                                  {activeBins.map((b) => (
+                                    <option key={b.id} value={b.id}>
+                                      {b.code}
+                                      {b.name ? ` · ${b.name}` : ""}（
+                                      {b.bizType.code}/{b.zoneCode}）
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-4 py-2 text-right whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  disabled={
+                                    !canManageInbound ||
+                                    isPending ||
+                                    !inboundBinSel[p.id]
+                                  }
+                                  onClick={() => runInbound(p.id)}
+                                  className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+                                >
+                                  {isPending ? "入庫中⋯" : "確認入庫"}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              ) : null}
+
               {/* 目前所有 staging 倉 quick list */}
               <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
                 <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center">
@@ -457,7 +853,137 @@ export function StagingWarehouseBoard({
           </div>
         </div>
       ) : null}
+
+      {/* 儲位 新增 / 編輯 Modal */}
+      {binModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => !isPending && setBinModal(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-3 border-b border-[#EEECE6]">
+              <h2 className="text-[14px] font-semibold text-[#2C2C2A]">
+                {binModal.mode === "create" ? "新增儲位" : "編輯儲位"}
+              </h2>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  所屬分區（zone）<span className="text-[#CC0000]">*</span>
+                </label>
+                <select
+                  disabled={isPending}
+                  value={binForm.zoneId}
+                  onChange={(e) =>
+                    setBinForm((f) => ({ ...f, zoneId: e.target.value }))
+                  }
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-60"
+                >
+                  <option value="">請選擇分區…</option>
+                  {zones.map((z) => (
+                    <option key={z.id} value={z.id}>
+                      {z.code} {z.name}（{z.bizType.code} {z.bizType.label}）
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  儲位代碼<span className="text-[#CC0000]">*</span>
+                </label>
+                <input
+                  disabled={isPending}
+                  value={binForm.code}
+                  onChange={(e) =>
+                    setBinForm((f) => ({ ...f, code: e.target.value }))
+                  }
+                  placeholder="WC-A01"
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-60"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  名稱
+                </label>
+                <input
+                  disabled={isPending}
+                  value={binForm.name}
+                  onChange={(e) =>
+                    setBinForm((f) => ({ ...f, name: e.target.value }))
+                  }
+                  placeholder="保固暫存位 1"
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-60"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  容量（件）
+                </label>
+                <input
+                  disabled={isPending}
+                  type="number"
+                  min={0}
+                  value={binForm.capacity}
+                  onChange={(e) =>
+                    setBinForm((f) => ({ ...f, capacity: e.target.value }))
+                  }
+                  placeholder="50"
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-60"
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBinModal(null)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={submitBin}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
+              >
+                {isPending
+                  ? binForm.id
+                    ? "儲存中⋯"
+                    : "建立中⋯"
+                  : binForm.id
+                    ? "儲存變更"
+                    : "建立"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
+  );
+}
+
+// ── BizChip：分區業務類型角標（WC 保固件 / AC 事故件） ──────────────────────
+function BizChip({ biz }: { biz: BizTypeTag }) {
+  const cls =
+    biz.control_level === "warranty"
+      ? "bg-[#FDF3E3] text-[#854F0B]" // WC 保固件 amber
+      : biz.control_level === "high_value"
+        ? "bg-[#FDECEA] text-[#CC0000]" // AC 事故件 red
+        : biz.control_level === "hazardous"
+          ? "bg-[#FDECEA] text-[#CC0000]"
+          : biz.control_level === "consignment"
+            ? "bg-[#EAF4FB] text-[#185FA5]"
+            : "bg-[#F2F2F2] text-[#6B6A68]";
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${cls}`}
+    >
+      {biz.code} {biz.label}
+    </span>
   );
 }
 

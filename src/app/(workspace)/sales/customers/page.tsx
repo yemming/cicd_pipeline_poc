@@ -1,15 +1,6 @@
-import { StitchInline } from "@/components/stitch-inline";
-import { loadStitchBody } from "@/lib/load-stitch-body";
+import { redirect } from "next/navigation";
 
-export default async function Page() {
-  const html = await loadStitchBody("a7b0843a2c094c38908fc9e60e89d7f2");
-  return (
-    <StitchInline
-      html={html}
-      title="客戶中心"
-      sprint="S2-7"
-      screenId="a7b0843a2c094c38908fc9e60e89d7f2"
-      breadcrumb={[{ label: "銷售管理", href: "/sales/showroom" }, { label: "客戶中心" }]}
-    />
-  );
+// 舊 Stitch demo 頁 → 導向真實 CRM 銷售客戶主檔
+export default function Page(): never {
+  redirect("/crm/sales/customer-base");
 }

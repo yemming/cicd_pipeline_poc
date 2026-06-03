@@ -69,6 +69,50 @@ export function ThresholdsBoard({
     [rows, selectedId],
   );
 
+  // ── 再訂購點計算輔助器 state ───────────────────────────────────────────
+  const [calcAvgDaily, setCalcAvgDaily] = useState("");
+  const [calcLeadTime, setCalcLeadTime] = useState("");
+  const [calcSafety, setCalcSafety] = useState("");
+  const [calcTargetId, setCalcTargetId] = useState("");
+  const [applying, setApplying] = useState(false);
+
+  // 即時計算：再訂購點 = 日均消耗 × 前置天數 + 安全庫存
+  const calcResult = useMemo(() => {
+    const avg = Number(calcAvgDaily);
+    const lead = Number(calcLeadTime);
+    const safety = Number(calcSafety);
+    const allValid =
+      calcAvgDaily.trim() !== "" &&
+      calcLeadTime.trim() !== "" &&
+      calcSafety.trim() !== "" &&
+      [avg, lead, safety].every((n) => !Number.isNaN(n) && n >= 0);
+    if (!allValid) return null;
+    return Math.round(avg * lead + safety);
+  }, [calcAvgDaily, calcLeadTime, calcSafety]);
+
+  function applyCalcToRow() {
+    if (!canEdit || calcResult == null || !calcTargetId) return;
+    setApplying(true);
+    startTransition(async () => {
+      // reuse updateThresholdAction；reorder_point 為計算值，
+      // 計算參數存 metadata（avg_daily_consumption / lead_time_days），免 DDL
+      const res = await updateThresholdAction(calcTargetId, {
+        reorder_point: calcResult,
+        metadata: {
+          avg_daily_consumption: Number(calcAvgDaily),
+          lead_time_days: Number(calcLeadTime),
+        },
+      });
+      setApplying(false);
+      if (res.ok) {
+        showBanner({ ok: true, msg: `✓ 已套用再訂購點 = ${calcResult}` });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
   function buildHref(extra: Record<string, string | undefined>) {
     const params = new URLSearchParams();
     const merged: Record<string, string | undefined> = {
@@ -426,6 +470,120 @@ export function ThresholdsBoard({
           設定每個料號的安全庫存、再訂購點、最大水位；點擊料號開啟 90 天水位曲線
         </span>
       </header>
+
+      {/* 再訂購點計算輔助器 */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 再訂購點計算輔助器</span>
+        </header>
+        <div className="px-4 py-4 space-y-3">
+          <div className="flex gap-3 items-end flex-wrap">
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>日均消耗量（個/天）</label>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={calcAvgDaily}
+                onChange={(e) => setCalcAvgDaily(e.target.value)}
+                placeholder="例：2.5"
+                className={`${inputClass} w-[140px]`}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>供應商前置天數</label>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={calcLeadTime}
+                onChange={(e) => setCalcLeadTime(e.target.value)}
+                placeholder="例：7"
+                className={`${inputClass} w-[140px]`}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>安全庫存量</label>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={calcSafety}
+                onChange={(e) => setCalcSafety(e.target.value)}
+                placeholder="例：5"
+                className={`${inputClass} w-[140px]`}
+              />
+            </div>
+
+            {/* 即時計算結果 */}
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>再訂購點（即時計算）</label>
+              <div className="h-[30px] inline-flex items-center px-3 rounded bg-[#EBF3FF] border border-[#C6DBF5] text-[#1A3A5C] font-mono font-semibold text-[14px] min-w-[100px]">
+                {calcResult == null ? "—" : calcResult}
+              </div>
+            </div>
+          </div>
+
+          <div className="text-[11px] text-[#9A9890]">
+            公式：<b className="text-[#5A5955]">再訂購點 = 日均消耗 × 前置天數 + 安全庫存</b>
+            <span className="ml-2">（結果四捨五入為整數）</span>
+          </div>
+
+          {/* 套用至選定料號 */}
+          <div className="flex gap-3 items-end flex-wrap pt-2 border-t border-[#EEECE6]">
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>套用至料號</label>
+              <select
+                value={calcTargetId}
+                onChange={(e) => setCalcTargetId(e.target.value)}
+                disabled={!canEdit || applying}
+                className={`${inputClass} w-[280px] disabled:opacity-60`}
+              >
+                <option value="">選擇目前列表中的料號…</option>
+                {rows.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {(r.item_code ?? r.item_id) +
+                      (r.item_name ? ` ・ ${r.item_name}` : "") +
+                      (r.warehouse_name ? ` @ ${r.warehouse_name}` : "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={applyCalcToRow}
+              disabled={!canEdit || applying || calcResult == null || !calcTargetId}
+              className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+              title={canEdit ? "" : "沒有編輯權限"}
+            >
+              {applying ? "套用中⋯" : "套用至選定料號"}
+            </button>
+            <span className="text-[11px] text-[#854F0B] bg-[#FDF3E3] px-2 py-1 rounded">
+              💡 PDC 前置天數小提示：DUCATI 原廠前置天數 = 1
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 可用庫存公式說明（靜態） */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 可用庫存公式說明</span>
+        </header>
+        <div className="px-4 py-4 space-y-2">
+          <div className="text-[12.5px] text-[#2C2C2A] font-mono leading-relaxed">
+            可用庫存 = 帳面庫存 − RO 工單預留 − 調撥在途出 + 採購在途入
+          </div>
+          <ul className="text-[12px] text-[#5A5955] space-y-1 list-disc pl-5">
+            <li>帳面庫存：倉庫實際數量（qty_available 不扣保留前的基底）</li>
+            <li>RO 工單預留：維修工單已掛、尚未領料的數量（qty_reserved）</li>
+            <li>調撥在途出 / 採購在途入：移動中的庫存（qty_in_transit）</li>
+          </ul>
+          <div className="text-[11px] text-[#185FA5] bg-[#EAF4FB] px-2.5 py-1.5 rounded inline-block">
+            ℹ️ SA 在 04B 快速報價看到的是<b>可用庫存</b>，非帳面庫存。
+          </div>
+        </div>
+      </section>
 
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex gap-2 items-end flex-wrap">
@@ -846,9 +1004,12 @@ function PanelNumberField({
 }) {
   const [local, setLocal] = useState(value == null ? "" : String(value));
 
-  useEffect(() => {
+  // prop value 變動時同步 local（render 期間調整，取代 effect、避免 cascading render）
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setLocal(value == null ? "" : String(value));
-  }, [value]);
+  }
 
   const dirty = local !== (value == null ? "" : String(value));
 

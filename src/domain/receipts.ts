@@ -16,6 +16,8 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
 import { postCostEvent } from "@/domain/costing";
+import { releaseWaitingForItem } from "@/domain/parts-waiting";
+import { notifications } from "@/lib/notifications";
 import { RECEIPTS_PAGE_SIZE_DEFAULT } from "@/domain/receipts.constants";
 
 import type { Database } from "@/lib/database.types";
@@ -655,10 +657,51 @@ export async function receiveStock(
     });
   }
 
+  // 11. 包D WP-I：採購入庫 → 解待料 + 通知 SA（補鏈條斷點，非阻塞、吞錯不影響收貨）
+  //   既有 #5 releaseWaitingForItem 原本只有調撥入庫(transfers)呼叫；採購到貨這條主路徑沒接。
+  {
+    const arrivedItems = Array.from(
+      new Set(grLinesWithAmount.map((l) => l.item_id).filter((x): x is string => !!x)),
+    );
+    const whId = po.warehouse_id;
+    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    if (arrivedItems.length > 0 && whId) {
+      after(async () => {
+        const resolvedRos = new Set<string>();
+        for (const itemId of arrivedItems) {
+          try {
+            const r = await releaseWaitingForItem({ item_id: itemId, warehouse_id: whId });
+            if (r.ok) r.resolved_ros.forEach((ro) => resolvedRos.add(ro));
+          } catch (e) {
+            console.error("[WP-I 採購入庫解待料] 失敗（不影響收貨）", { itemId, error: e });
+          }
+        }
+        if (resolvedRos.size > 0) {
+          try {
+            await notifications.dispatch({
+              code: "work_order.status_changed",
+              payload: {
+                orderNo: `${resolvedRos.size} 張待料工單`,
+                from: "待料中",
+                to: "零件已到貨・可施工",
+                actor: `庫房收貨 ${gr_no}`,
+                actionUrl: `${appUrl}/parts/alerts/work-order-loop`,
+              },
+            });
+          } catch (e) {
+            console.error("[WP-I 解待料通知 SA] 推播失敗（不影響收貨）", e);
+          }
+        }
+      });
+    }
+  }
+
   revalidatePath("/parts/purchase/orders");
   revalidatePath("/parts/receipt/po-grn");
   revalidatePath("/parts/operations/balance");
   revalidatePath("/parts/operations/receipts-history");
+  revalidatePath("/parts/alerts/work-order-loop");
+  revalidatePath("/parts/issue/repair-pick");
   return { ok: true, data: { receipt_id: gr.id, gr_no } };
 }
 

@@ -51,8 +51,10 @@ import {
   deleteTechnicianAction,
   createTechnicianFromEmployeeAction,
   bindTechnicianUserAction,
+  reassignTechnicianCurrentJobAction,
 } from "@/lib/aftersales/aftersales-technician-actions";
 import type { TechnicianCandidateEmployee } from "@/domain/aftersales-staff";
+import type { UrgentRoRow } from "@/domain/repair-orders";
 import { KpiCard } from "@/components/visualization";
 import { BarChart, GaugeChart } from "@/components/charts";
 
@@ -62,6 +64,7 @@ type Props = {
   totals: DispatchTotals;
   canEdit: boolean;
   employeeCandidates: TechnicianCandidateEmployee[];
+  urgentRos: UrgentRoRow[];
 };
 
 type Banner = { ok: boolean; msg: string } | null;
@@ -71,6 +74,7 @@ type ModalMode =
   | { kind: "create" }
   | { kind: "edit"; tech: AftersalesTechnicianRow }
   | { kind: "dispatch"; tech: AftersalesTechnicianRow }
+  | { kind: "reassign"; tech: AftersalesTechnicianRow }
   | { kind: "delete"; tech: AftersalesTechnicianRow };
 
 const inputClass =
@@ -84,6 +88,7 @@ export function DispatchDashboard({
   totals,
   canEdit,
   employeeCandidates,
+  urgentRos,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -143,6 +148,39 @@ export function DispatchDashboard({
           技師即時狀態、NADA 三指標、手動派工
         </span>
       </header>
+
+      {/* 包B：緊急工單置頂 — 派工看板優先顯示 priority=urgent 的未結工單 */}
+      {urgentRos.length > 0 && (
+        <section className="bg-[#FDECEA] border-[1.5px] border-[#F5AEAD] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#F5AEAD] flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-[#CC0000]">
+              🔴 緊急工單置頂（{urgentRos.length}）
+            </span>
+            <span className="text-[11px] text-[#9A5A57]">需優先派工 / 今日完成</span>
+          </header>
+          <div className="divide-y divide-[#F5C9C7]">
+            {urgentRos.map((ro) => (
+              <a
+                key={ro.id}
+                href={`/parts/aftersales/repair-orders/${ro.id}`}
+                className="flex items-center gap-3 px-4 py-2 hover:bg-[#fbdcd9] text-[12.5px]"
+              >
+                <span className="font-mono font-semibold text-[#CC0000]">{ro.ro_code}</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-white text-[#CC0000] text-[11px] border border-[#F5AEAD]">
+                  {ro.status}
+                </span>
+                <span className="text-[#5A5955] truncate">
+                  {ro.customer_name ?? "—"} · {ro.vehicle_license_plate ?? "—"}
+                  {ro.vehicle_model_name ? ` · ${ro.vehicle_model_name}` : ""}
+                </span>
+                <span className="ml-auto text-[11px] text-[#9A9890]">
+                  {ro.lead_technician_name ? `技師：${ro.lead_technician_name}` : "未指派"}
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── 視覺概覽（A 級華麗版）────────────────── */}
       <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -361,6 +399,7 @@ export function DispatchDashboard({
                 });
               }}
               onDelete={() => setModal({ kind: "delete", tech: t })}
+              onReassign={() => setModal({ kind: "reassign", tech: t })}
             />
           ))
         )}
@@ -566,6 +605,24 @@ export function DispatchDashboard({
         />
       ) : null}
 
+      {modal.kind === "reassign" ? (
+        <ReassignModal
+          tech={modal.tech}
+          technicians={technicians}
+          isPending={isPending}
+          onCancel={() => setModal({ kind: "closed" })}
+          onSubmit={(toId) => {
+            startTransition(async () => {
+              const res = await reassignTechnicianCurrentJobAction(modal.tech.id, toId);
+              handleResult(
+                res,
+                toId ? `已重排 ${modal.tech.name} 的工單並標記缺席` : `${modal.tech.name} 已標記缺席`,
+              );
+            });
+          }}
+        />
+      ) : null}
+
       {modal.kind === "delete" ? (
         <ConfirmModal
           title="刪除技師"
@@ -641,6 +698,7 @@ function TechCard({
   onEdit,
   onToggleActive,
   onDelete,
+  onReassign,
 }: {
   tech: AftersalesTechnicianRow;
   canEdit: boolean;
@@ -650,6 +708,7 @@ function TechCard({
   onEdit: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
+  onReassign: () => void;
 }) {
   const accent = TECH_STATUS_ACCENT[tech.status];
   const eff = computeEfficiency(tech.sold_minutes, tech.actual_minutes);
@@ -780,6 +839,15 @@ function TechCard({
               onClick={() => onSetStatus("break")}
             >
               休息
+            </button>
+          ) : null}
+          {tech.status !== "off" ? (
+            <button
+              className="h-[26px] px-2 rounded text-[11.5px] bg-white border border-[#F0C97E] text-[#854F0B] hover:bg-[#FDF3E3]"
+              onClick={onReassign}
+              title="技師缺席 → 重排當前工單給其他技師並標下班"
+            >
+              缺席重排
             </button>
           ) : null}
           <button
@@ -1023,6 +1091,66 @@ function TechFormModal({
             MVP：先貼 UUID。未來會加 email 搜尋。一個帳號只能綁一位技師。
           </span>
         </Field>
+      </div>
+    </ModalShell>
+  );
+}
+
+function ReassignModal({
+  tech,
+  technicians,
+  isPending,
+  onCancel,
+  onSubmit,
+}: {
+  tech: AftersalesTechnicianRow;
+  technicians: AftersalesTechnicianRow[];
+  isPending: boolean;
+  onCancel: () => void;
+  onSubmit: (toTechnicianId: string | null) => void;
+}) {
+  const [target, setTarget] = useState<string>("");
+  const candidates = technicians.filter(
+    (t) => t.id !== tech.id && t.is_active && (t.status === "idle" || t.status === "break"),
+  );
+  const hasJob = !!tech.current_ro_code;
+  return (
+    <ModalShell
+      title={`技師缺席重排 — ${tech.name}`}
+      onCancel={onCancel}
+      onConfirm={() => onSubmit(target || null)}
+      confirmText="確認重排"
+      isPending={isPending}
+    >
+      <div className="space-y-3 text-[12.5px] text-[#2C2C2A]">
+        <p>
+          將 <b>{tech.name}</b> 標記為<b>缺席（下班）</b>
+          {hasJob ? (
+            <>
+              ，並把其當前工單{" "}
+              <span className="font-mono text-[#1A3A5C]">{tech.current_ro_code}</span>
+              {tech.current_item ? `（${tech.current_item}）` : ""} 轉派給：
+            </>
+          ) : (
+            "（目前無進行中工單，僅標記缺席）。"
+          )}
+        </p>
+        {hasJob && (
+          <Field label="轉派給（限待命 / 休息技師）">
+            <select
+              className={inputClass}
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+            >
+              <option value="">— 不指定，工單留待重新派工 —</option>
+              {candidates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.code} {t.name}（{TECH_STATUS_LABEL[t.status]}）
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
       </div>
     </ModalShell>
   );
