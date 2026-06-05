@@ -102,3 +102,6 @@ AGENTS.md
 
 # /spike dev artifacts (HTTPS self-signed cert，含 private key)
 /.spike/
+
+# one-off nav verify (含測試帳密，勿入庫)
+scripts/_nav-verify-indian.mjs
