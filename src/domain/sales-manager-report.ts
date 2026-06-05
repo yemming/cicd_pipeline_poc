@@ -13,6 +13,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   LAYER1_KPIS_FALLBACK,
@@ -113,17 +114,20 @@ export async function getSalesManagerReportData(options: SalesManagerReportOptio
 
   try {
     const supabase = await createClient();
+    // sales_metrics_monthly 是 mview、無 RLS（直打 API 會跨 brand 外洩）→ DB 端已 REVOKE anon/authenticated SELECT，
+    // 改用 service client 讀，靠下方 .eq("brand_id") 做品牌隔離。其餘 RLS 表仍走 JWT supabase。
+    const svc = createServiceClient();
     const { brand_id } = await getActiveScope();
     const prevKey = period === "month" ? prevMonthKey(periodKey) : periodKey;
 
     // 撈 mview 當期 + 上期、funnel 當期、targets 當期、model dict、近 5 個月趨勢
     const [currRes, prevRes, funnelRes, targetRes, modelRes, trendRes] = await Promise.all([
-      supabase
+      svc
         .from("sales_metrics_monthly")
         .select("rs_name, vehicle_model_id, orders_count, orders_amount, deliveries_count, deliveries_amount")
         .eq("brand_id", brand_id)
         .eq("period_key", periodKey),
-      supabase
+      svc
         .from("sales_metrics_monthly")
         .select("rs_name, vehicle_model_id, orders_count, orders_amount, deliveries_count, deliveries_amount")
         .eq("brand_id", brand_id)
@@ -147,7 +151,7 @@ export async function getSalesManagerReportData(options: SalesManagerReportOptio
         .select("id, display_name, series")
         .eq("brand_id", brand_id),
       // 月度趨勢：近 5 個月（包含當月）
-      supabase
+      svc
         .from("sales_metrics_monthly")
         .select("period_key, deliveries_count")
         .eq("brand_id", brand_id)
