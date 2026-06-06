@@ -105,3 +105,5 @@ AGENTS.md
 
 # one-off nav verify (含測試帳密，勿入庫)
 scripts/_nav-verify-indian.mjs
+scripts/verify-c25-push-line.mjs
+scripts/verify-c25-retest-line.mjs
