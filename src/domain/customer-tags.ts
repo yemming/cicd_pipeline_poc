@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { getCurrentUserDepartment } from "@/lib/rbac/department";
 
 import {
   PERSONAL_TAG_LIMIT,
@@ -37,6 +38,8 @@ export type OfficialTag = {
   emoji: string | null;
   description: string | null;
   is_active: boolean;
+  /** C-27 主管鎖定：true 時非主管不可修改 / 刪除此官方標籤 */
+  is_locked: boolean;
   sort_order: number;
   /** 與 customer_tags.usage_count 對映；assignments 表落地前由人工 / batch update 維護 */
   usage_count: number;
@@ -122,6 +125,7 @@ type RawOfficialTagRow = {
   emoji: string | null;
   description: string | null;
   is_active: boolean;
+  is_locked: boolean | null;
   sort_order: number;
   usage_count: number | null;
   tag_kind: string | null;
@@ -144,6 +148,7 @@ function rowToOfficialTag(r: RawOfficialTagRow): OfficialTag {
     emoji: r.emoji,
     description: r.description,
     is_active: r.is_active,
+    is_locked: Boolean(r.is_locked),
     sort_order: r.sort_order,
     usage_count: r.usage_count ?? 0,
     tag_kind: (isValidKind(r.tag_kind) ? r.tag_kind : "official") as TagKind,
@@ -169,7 +174,7 @@ export async function listOfficialTags(): Promise<OfficialTag[]> {
   const { data, error } = await supabase
     .from("customer_tags")
     .select(
-      "id, brand_id, code, label, color, emoji, description, is_active, sort_order, usage_count, tag_kind, metadata",
+      "id, brand_id, code, label, color, emoji, description, is_active, is_locked, sort_order, usage_count, tag_kind, metadata",
     )
     .eq("brand_id", scope.brand_id)
     .eq("is_active", true)
@@ -455,7 +460,7 @@ export async function listAllOfficialTags(): Promise<OfficialTag[]> {
   const { data, error } = await supabase
     .from("customer_tags")
     .select(
-      "id, brand_id, code, label, color, emoji, description, is_active, sort_order, usage_count, tag_kind, metadata",
+      "id, brand_id, code, label, color, emoji, description, is_active, is_locked, sort_order, usage_count, tag_kind, metadata",
     )
     .eq("brand_id", scope.brand_id)
     .order("tag_kind", { ascending: true })
@@ -465,6 +470,57 @@ export async function listAllOfficialTags(): Promise<OfficialTag[]> {
   return ((data ?? []) as unknown as RawOfficialTagRow[]).map(rowToOfficialTag);
 }
 
+
+// ── C-27 主管鎖定 ──────────────────────────────────────────────────────────
+
+/** 是否有權鎖定 / 解鎖、或修改被鎖官方標籤（部門主管 or 跨部門 admin） */
+async function canManageOfficialTagLocks(): Promise<boolean> {
+  const dept = await getCurrentUserDepartment();
+  return dept.is_dept_manager || dept.is_cross_admin;
+}
+
+/** 給 UI：目前使用者是否可管理鎖定（顯示鎖 / 解鎖鈕、可編輯被鎖標籤） */
+export async function getCanManageOfficialTagLocks(): Promise<boolean> {
+  return canManageOfficialTagLocks();
+}
+
+/** 被鎖且非主管 → 拒絕。供 update / setActive / delete 共用守門。 */
+async function assertOfficialTagMutable(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+  id: string,
+): Promise<Result<true>> {
+  const { data } = await supabase
+    .from("customer_tags")
+    .select("is_locked")
+    .eq("id", id)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (data?.is_locked && !(await canManageOfficialTagLocks())) {
+    return { ok: false, error: "此標籤已由主管鎖定，僅主管可修改 / 刪除" };
+  }
+  return { ok: true, data: true };
+}
+
+/** 主管鎖定 / 解鎖官方標籤字典條目 */
+export async function setOfficialTagLocked(
+  id: string,
+  locked: boolean,
+): Promise<Result<{ id: string }>> {
+  if (!(await canManageOfficialTagLocks())) {
+    return { ok: false, error: "只有主管可以鎖定 / 解鎖官方標籤" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { error } = await supabase
+    .from("customer_tags")
+    .update({ is_locked: locked, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: mapDbError(error, "鎖定狀態切換失敗") };
+  revalidateAll();
+  return { ok: true, data: { id } };
+}
 
 export async function createOfficialTag(
   input: OfficialTagInput,
@@ -541,6 +597,10 @@ export async function updateOfficialTag(
   const supabase = await createClient();
   const scope = await getActiveScope();
 
+  // C-27：被鎖標籤僅主管可改
+  const lockGuard = await assertOfficialTagMutable(supabase, scope.brand_id, id);
+  if (!lockGuard.ok) return lockGuard;
+
   // 更新 rule（merge into metadata.rule）— 走第二次 update 走 jsonb_set
   if (patch.rule !== undefined) {
     const { data: existing, error: readErr } = await supabase
@@ -573,6 +633,9 @@ export async function setOfficialTagActive(
 ): Promise<Result<{ id: string }>> {
   const supabase = await createClient();
   const scope = await getActiveScope();
+  // C-27：被鎖標籤僅主管可改啟用狀態
+  const lockGuard = await assertOfficialTagMutable(supabase, scope.brand_id, id);
+  if (!lockGuard.ok) return lockGuard;
   const { error } = await supabase
     .from("customer_tags")
     .update({ is_active: active, updated_at: new Date().toISOString() })
@@ -587,6 +650,9 @@ export async function deleteOfficialTag(id: string): Promise<Result<{ id: string
   // 硬刪：HTML 設計稿就是直接 splice。已使用客戶不影響（assignments 表尚未建）。
   const supabase = await createClient();
   const scope = await getActiveScope();
+  // C-27：被鎖標籤僅主管可刪
+  const lockGuard = await assertOfficialTagMutable(supabase, scope.brand_id, id);
+  if (!lockGuard.ok) return lockGuard;
   const { error } = await supabase
     .from("customer_tags")
     .delete()

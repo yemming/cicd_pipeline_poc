@@ -9,6 +9,7 @@ import {
   createOfficialTag,
   deleteOfficialTag,
   setOfficialTagActive,
+  setOfficialTagLocked,
   updateOfficialTag,
   type OfficialTag,
 } from "@/domain/customer-tags";
@@ -45,10 +46,13 @@ export function CustomerTagsBoard({
   tags,
   kpi,
   canEdit,
+  canManageLocks,
 }: {
   tags: OfficialTag[];
   kpi: TagPageKpi;
   canEdit: boolean;
+  /** C-27：是否為主管（可鎖定 / 解鎖、可修改被鎖標籤） */
+  canManageLocks: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -123,6 +127,10 @@ export function CustomerTagsBoard({
 
   function handleDelete(tag: OfficialTag) {
     if (!canEdit) return;
+    if (tag.is_locked && !canManageLocks) {
+      showBanner({ ok: false, msg: "此標籤已由主管鎖定，無法刪除" });
+      return;
+    }
     const msg = tag.tag_kind === "system_auto"
       ? `確認刪除系統自動標籤「${tag.label}」？\n\n刪除後該規則停止自動貼標。已貼上此標籤的客戶不受影響。`
       : `確認刪除官方標籤「${tag.label}」？\n\n已使用此標籤的客戶不受影響，但未來 SA 無法再選用。`;
@@ -152,7 +160,28 @@ export function CustomerTagsBoard({
     });
   }
 
+  function handleToggleLock(tag: OfficialTag) {
+    if (!canManageLocks) return;
+    startTransition(async () => {
+      const res = await setOfficialTagLocked(tag.id, !tag.is_locked);
+      if (res.ok) {
+        showBanner({
+          ok: true,
+          msg: tag.is_locked ? `已解鎖「${tag.label}」` : `🔒 已鎖定「${tag.label}」`,
+        });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
   function startEdit(tag: OfficialTag) {
+    // C-27：被鎖標籤僅主管可編輯
+    if (tag.is_locked && !canManageLocks) {
+      showBanner({ ok: false, msg: "此標籤已由主管鎖定，無法編輯" });
+      return;
+    }
     setEditingId(tag.id);
     setEditLabel(tag.label);
     setEditColor(tag.color);
@@ -384,10 +413,12 @@ export function CustomerTagsBoard({
                               tag={tag}
                               tone={tone}
                               canEdit={canEdit}
+                              canManageLocks={canManageLocks}
                               isPending={isPending}
                               onEdit={() => startEdit(tag)}
                               onToggle={() => handleToggleActive(tag)}
                               onDelete={() => handleDelete(tag)}
+                              onToggleLock={() => handleToggleLock(tag)}
                             />
                           ),
                         )}
@@ -569,21 +600,27 @@ function TagCardItem({
   tag,
   tone,
   canEdit,
+  canManageLocks,
   isPending,
   onEdit,
   onToggle,
   onDelete,
+  onToggleLock,
 }: {
   tag: OfficialTag;
   tone: { bg: string; bd: string; fg: string };
   canEdit: boolean;
+  canManageLocks: boolean;
   isPending: boolean;
   onEdit: () => void;
   onToggle: () => void;
   onDelete: () => void;
+  onToggleLock: () => void;
 }) {
   const sparkTone = COLOR_TO_TONE[tag.color];
   const isSystem = tag.tag_kind === "system_auto";
+  // C-27：被鎖且非主管 → 編輯 / 刪除不可用
+  const lockedForMe = tag.is_locked && !canManageLocks;
   return (
     <div
       className={`flex items-center gap-3 px-3 py-2 rounded-md border ${
@@ -602,6 +639,14 @@ function TagCardItem({
           {isSystem && (
             <span className="text-[10px] px-1 py-0.5 rounded bg-white/70 text-[#854F0B] border border-[#F0C97E]">
               ⚙️ 自動
+            </span>
+          )}
+          {tag.is_locked && (
+            <span
+              className="text-[10px] px-1 py-0.5 rounded bg-white/70 text-[#5A5955] border border-[#D5D3CB]"
+              title="主管已鎖定：非主管不可修改 / 刪除"
+            >
+              🔒 鎖定
             </span>
           )}
           {!tag.is_active && (
@@ -636,37 +681,52 @@ function TagCardItem({
         </div>
       </div>
 
-      {canEdit && (
+      {(canEdit || canManageLocks) && (
         <div
           className="flex items-center gap-0.5 shrink-0 pl-2 ml-1 border-l border-[#D5D3CB]/40"
         >
-          <button
-            type="button"
-            title="編輯"
-            onClick={onEdit}
-            disabled={isPending || isSystem}
-            className="h-[24px] w-[24px] rounded text-[11px] bg-white/60 hover:bg-white border border-transparent hover:border-[#D5D3CB] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            ✎
-          </button>
-          <button
-            type="button"
-            title={tag.is_active ? "停用" : "啟用"}
-            onClick={onToggle}
-            disabled={isPending}
-            className="h-[24px] w-[24px] rounded text-[11px] bg-white/60 hover:bg-white border border-transparent hover:border-[#D5D3CB] disabled:opacity-40"
-          >
-            {tag.is_active ? "⏸" : "▶"}
-          </button>
-          <button
-            type="button"
-            title="刪除"
-            onClick={onDelete}
-            disabled={isPending}
-            className="h-[24px] w-[24px] rounded text-[12px] bg-white/60 hover:bg-[#FDECEA] border border-transparent hover:border-[#F5AEAD] hover:text-[#CC0000] disabled:opacity-40"
-          >
-            ×
-          </button>
+          {canManageLocks && (
+            <button
+              type="button"
+              title={tag.is_locked ? "解鎖（允許 SA 修改）" : "鎖定（禁止非主管修改）"}
+              onClick={onToggleLock}
+              disabled={isPending}
+              className="h-[24px] w-[24px] rounded text-[11px] bg-white/60 hover:bg-white border border-transparent hover:border-[#D5D3CB] disabled:opacity-40"
+            >
+              {tag.is_locked ? "🔓" : "🔒"}
+            </button>
+          )}
+          {canEdit && (
+            <>
+              <button
+                type="button"
+                title={lockedForMe ? "主管已鎖定，不可編輯" : "編輯"}
+                onClick={onEdit}
+                disabled={isPending || isSystem || lockedForMe}
+                className="h-[24px] w-[24px] rounded text-[11px] bg-white/60 hover:bg-white border border-transparent hover:border-[#D5D3CB] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ✎
+              </button>
+              <button
+                type="button"
+                title={tag.is_active ? "停用" : "啟用"}
+                onClick={onToggle}
+                disabled={isPending || lockedForMe}
+                className="h-[24px] w-[24px] rounded text-[11px] bg-white/60 hover:bg-white border border-transparent hover:border-[#D5D3CB] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {tag.is_active ? "⏸" : "▶"}
+              </button>
+              <button
+                type="button"
+                title={lockedForMe ? "主管已鎖定，不可刪除" : "刪除"}
+                onClick={onDelete}
+                disabled={isPending || lockedForMe}
+                className="h-[24px] w-[24px] rounded text-[12px] bg-white/60 hover:bg-[#FDECEA] border border-transparent hover:border-[#F5AEAD] hover:text-[#CC0000] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ×
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

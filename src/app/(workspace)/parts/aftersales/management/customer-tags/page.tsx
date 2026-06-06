@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { listAllOfficialTags } from "@/domain/customer-tags";
+import { listAllOfficialTags, getCanManageOfficialTagLocks } from "@/domain/customer-tags";
 import { computeTagKpi } from "@/domain/customer-tags.constants";
 
 import { CustomerTagsBoard } from "./_components/customer-tags-board";
@@ -23,8 +23,18 @@ export default async function AftersalesCustomerTagsPage() {
   }
 
   const canEdit = await hasPermission(PERMISSIONS.AFTERSALES_PERMISSION_EDIT);
-  const tags = await listAllOfficialTags();
+  const [tags, canManageLocks] = await Promise.all([
+    listAllOfficialTags(),
+    getCanManageOfficialTagLocks(),
+  ]);
   const kpi = computeTagKpi(tags);
 
-  return <CustomerTagsBoard tags={tags} kpi={kpi} canEdit={canEdit} />;
+  return (
+    <CustomerTagsBoard
+      tags={tags}
+      kpi={kpi}
+      canEdit={canEdit}
+      canManageLocks={canManageLocks}
+    />
+  );
 }
