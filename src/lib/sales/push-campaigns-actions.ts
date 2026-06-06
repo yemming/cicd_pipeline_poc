@@ -5,8 +5,10 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { notifications } from "@/lib/notifications";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
@@ -129,6 +131,78 @@ export async function cancelCampaignAction(
     return { ok: false, error: "只允許取消 草稿 / 已排程 任務" };
   }
   revalidateAll(data.kind as PushKind);
+  return { ok: true, data: { id } };
+}
+
+/**
+ * 發送推播任務 — 把 draft/scheduled 任務標為已完成，並經 Notification Hub 推一張摘要卡到 LINE。
+ *
+ * Phase 1（C-25）：示範鏈路。客戶端 LINE 綁定（customers 無 LINE userId）屬另案，
+ * 故本輪推「推播摘要」到既有通知群組，證明「CRM 按發送 → Hub → 真 LINE」整條打通；
+ * sent_count 暫記為 audience_count（代表本任務鎖定的受眾規模）。
+ */
+export async function sendCampaignAction(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
+  const brand = (await getActiveScope()).brand_id;
+  const supabase = await createClient();
+
+  const { data: campaign, error: loadErr } = await supabase
+    .from("push_campaigns")
+    .select(
+      "id, kind, name, channel, message_body, target_habc, audience_count, status",
+    )
+    .eq("brand_id", brand)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (loadErr || !campaign) return { ok: false, error: "找不到任務" };
+  if (campaign.status !== "draft" && campaign.status !== "scheduled") {
+    return { ok: false, error: "只允許發送 草稿 / 已排程 任務" };
+  }
+
+  const { data, error } = await supabase
+    .from("push_campaigns")
+    .update({
+      status: "completed",
+      sent_count: campaign.audience_count ?? 0,
+      sent_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("brand_id", brand)
+    .eq("id", id)
+    .in("status", ["draft", "scheduled"])
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    return { ok: false, error: mapDbError(error ?? { message: "未知錯誤" }) };
+  }
+
+  // 非阻塞推 LINE（不擋使用者；失敗不影響任務已標完成）
+  const preview = trim(campaign.message_body).slice(0, 60);
+  const kind = campaign.kind as PushKind;
+  after(async () => {
+    await notifications.dispatch({
+      code: "crm_push.sent",
+      dealerId: brand,
+      payload: {
+        kind,
+        campaignName: trim(campaign.name),
+        channel: campaign.channel,
+        audienceCount: campaign.audience_count ?? 0,
+        targetHabc: (campaign.target_habc ?? []).join("、"),
+        messagePreview: preview,
+        brand,
+        url: `https://dealeros.zeabur.app/crm/${
+          kind === "aftersales" ? "aftersales" : "sales"
+        }/push-notifications`,
+      },
+    });
+  });
+
+  revalidateAll(kind);
   return { ok: true, data: { id } };
 }
 

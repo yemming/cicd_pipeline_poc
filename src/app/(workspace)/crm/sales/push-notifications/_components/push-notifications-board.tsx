@@ -40,6 +40,7 @@ import {
   cancelCampaignAction,
   createCampaignAction,
   deleteCampaignAction,
+  sendCampaignAction,
   previewAudienceAction,
 } from "@/lib/sales/push-campaigns-actions";
 import { toggleAutomationRuleAction } from "@/lib/sales/push-automation-actions";
@@ -395,6 +396,16 @@ export function PushNotificationsBoard({
             campaigns={campaigns}
             isPending={isPending}
             canEdit={canEdit}
+            onSend={(id) => {
+              if (!confirm("確定發送此推播任務？發送後將推 LINE 通知並標記為已完成。")) return;
+              startTransition(async () => {
+                const res = await sendCampaignAction(id);
+                if (res.ok) {
+                  showBanner({ ok: true, msg: "✓ 已發送（推播摘要已推送 LINE）" });
+                  router.refresh();
+                } else showBanner({ ok: false, msg: res.error });
+              });
+            }}
             onCancel={(id) => {
               if (!confirm("確定取消此任務？")) return;
               startTransition(async () => {
@@ -1315,12 +1326,14 @@ function LogTab({
   campaigns,
   isPending,
   canEdit,
+  onSend,
   onCancel,
   onDelete,
 }: {
   campaigns: CampaignRow[];
   isPending: boolean;
   canEdit: boolean;
+  onSend: (id: string) => void;
   onCancel: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
@@ -1486,11 +1499,20 @@ function LogTab({
         exportFileName="push-campaigns"
         emptyMessage="尚無推播任務"
         disabled={isPending}
-        rowActionsWidth={canEdit ? 150 : undefined}
+        rowActionsWidth={canEdit ? 210 : undefined}
         rowActions={
           canEdit
             ? (r) => (
                 <div className="flex items-center gap-1">
+                  {(r.status === "draft" || r.status === "scheduled") && (
+                    <button
+                      onClick={() => onSend(r.id)}
+                      disabled={isPending}
+                      className="h-[26px] px-2.5 rounded text-[11px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                    >
+                      {isPending ? "發送中⋯" : "📣 發送"}
+                    </button>
+                  )}
                   {(r.status === "draft" || r.status === "scheduled") && (
                     <button
                       onClick={() => onCancel(r.id)}
