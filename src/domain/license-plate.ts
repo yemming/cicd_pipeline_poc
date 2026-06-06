@@ -14,6 +14,7 @@ import {
   recognizeLicensePlate,
   normalizePlate,
 } from '@/lib/ai/license-plate';
+import { getDesmoStatus, type DesmoStatus } from '@/domain/desmo.constants';
 
 const BUCKET = 'license-plates';
 const SIGNED_URL_TTL = 60 * 60 * 24 * 7;
@@ -30,6 +31,10 @@ export type MatchedVehicleInfo = {
   current_mileage: number | null;
   last_service_date: string | null;
   next_service_due_date: string | null;
+  /** C-26 Desmo 汽門保養到期 */
+  desmo_service_due_date: string | null;
+  desmo_service_due_mileage: number | null;
+  desmo_status: DesmoStatus | null;
   warranty_until: string | null;
   insurance_until: string | null;
   customer_name: string;
@@ -119,7 +124,7 @@ export async function scanLicensePlate(
     const { data: candidates } = await supabase
       .from('customer_vehicles')
       .select(
-        'id, customer_id, license_plate, vin, manufactured_year, current_mileage, last_service_date, next_service_due_date, warranty_until, insurance_until, model_id, customers!inner(name, phone, email)',
+        'id, customer_id, license_plate, vin, manufactured_year, current_mileage, last_service_date, next_service_due_date, desmo_service_due_date, desmo_service_due_mileage, warranty_until, insurance_until, model_id, customers!inner(name, phone, email)',
       )
       .eq('brand_id', brandId)
       .not('license_plate', 'is', null);
@@ -133,6 +138,8 @@ export async function scanLicensePlate(
       current_mileage: number | null;
       last_service_date: string | null;
       next_service_due_date: string | null;
+      desmo_service_due_date: string | null;
+      desmo_service_due_mileage: number | null;
       warranty_until: string | null;
       insurance_until: string | null;
       model_id: string | null;
@@ -157,6 +164,7 @@ export async function scanLicensePlate(
           modelMap[m.id as string] = m.display_name as string;
       }
 
+      const todayStr = new Date().toISOString().slice(0, 10);
       const enriched: MatchedVehicleInfo[] = await Promise.all(
         matches.map(async (m) => {
           const { data: ros } = await supabase
@@ -175,6 +183,20 @@ export async function scanLicensePlate(
             current_mileage: m.current_mileage,
             last_service_date: m.last_service_date,
             next_service_due_date: m.next_service_due_date,
+            desmo_service_due_date: m.desmo_service_due_date,
+            desmo_service_due_mileage:
+              m.desmo_service_due_mileage != null
+                ? Number(m.desmo_service_due_mileage)
+                : null,
+            desmo_status: getDesmoStatus({
+              dueDate: m.desmo_service_due_date,
+              dueMileage:
+                m.desmo_service_due_mileage != null
+                  ? Number(m.desmo_service_due_mileage)
+                  : null,
+              currentMileage: m.current_mileage,
+              todayStr,
+            }),
             warranty_until: m.warranty_until,
             insurance_until: m.insurance_until,
             customer_name: m.customers.name,
@@ -270,7 +292,7 @@ export async function loadScanResult(
     const { data: v } = await supabase
       .from('customer_vehicles')
       .select(
-        'id, customer_id, license_plate, vin, manufactured_year, current_mileage, last_service_date, next_service_due_date, warranty_until, insurance_until, model_id, customers!inner(name, phone, email)',
+        'id, customer_id, license_plate, vin, manufactured_year, current_mileage, last_service_date, next_service_due_date, desmo_service_due_date, desmo_service_due_mileage, warranty_until, insurance_until, model_id, customers!inner(name, phone, email)',
       )
       .eq('id', row.matched_vehicle_id as string)
       .maybeSingle();
@@ -284,6 +306,8 @@ export async function loadScanResult(
       current_mileage: number | null;
       last_service_date: string | null;
       next_service_due_date: string | null;
+      desmo_service_due_date: string | null;
+      desmo_service_due_mileage: number | null;
       warranty_until: string | null;
       insurance_until: string | null;
       model_id: string | null;
@@ -318,6 +342,20 @@ export async function loadScanResult(
         current_mileage: candidate.current_mileage,
         last_service_date: candidate.last_service_date,
         next_service_due_date: candidate.next_service_due_date,
+        desmo_service_due_date: candidate.desmo_service_due_date,
+        desmo_service_due_mileage:
+          candidate.desmo_service_due_mileage != null
+            ? Number(candidate.desmo_service_due_mileage)
+            : null,
+        desmo_status: getDesmoStatus({
+          dueDate: candidate.desmo_service_due_date,
+          dueMileage:
+            candidate.desmo_service_due_mileage != null
+              ? Number(candidate.desmo_service_due_mileage)
+              : null,
+          currentMileage: candidate.current_mileage,
+          todayStr: new Date().toISOString().slice(0, 10),
+        }),
         warranty_until: candidate.warranty_until,
         insurance_until: candidate.insurance_until,
         customer_name: candidate.customers.name,

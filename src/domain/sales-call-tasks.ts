@@ -803,6 +803,7 @@ export async function getAftersalesCallTaskInsights(): Promise<AftersalesCallTas
   }
   const callTypeLabels: Record<string, string> = {
     aftersales_d3: "D+3 滿意",
+    aftersales_d7: "D+7 確認",
     maintenance_reminder: "保養提醒",
     warranty_reminder: "保固提醒",
     desmo_reminder: "Desmo",

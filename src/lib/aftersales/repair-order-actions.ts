@@ -267,9 +267,11 @@ export async function updateRepairOrderStatusAction(
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
 
-  // ── 跨模組 hook #7：工單關閉 → 建立 NPS 滿意度回訪任務 ──
-  // 非阻塞、try/catch 吞錯；helper 以 metadata.source_ro 防同單重複觸發。
-  // 範圍（Ming 拍板）：只做「關單 → 建 NPS 回訪 call_task」，不碰 work_orders 進廠數對齊。
+  // ── 跨模組 hook #7（C-22）：工單關閉 → 建立 D+3 / D+7 售後電訪任務 ──
+  // 非阻塞、try/catch 吞錯；helper 以 (customer + call_type + metadata.source_ro) 防同單重複觸發。
+  // 範圍（Ming 拍板 / v3.0 §九 C-22）：關單 → 連建兩筆 call_task：
+  //   D+3 售後滿意度（aftersales_d3）、D+7 售後深度確認（aftersales_d7）。不碰 work_orders 進廠數對齊。
+  // dedupeKey=source_ro：兩筆 call_type 不同 → 互不相撞、同單重觸發各自冪等。
   if (status === "已關單") {
     after(async () => {
       try {
@@ -280,27 +282,41 @@ export async function updateRepairOrderStatusAction(
           .eq("id", id)
           .eq("brand_id", brand)
           .maybeSingle();
-        if (!ro?.customer_id) return; // 沒掛客戶的工單不建 NPS
+        if (!ro?.customer_id) return; // 沒掛客戶的工單不建電訪
 
-        const res = await createFollowUpTask({
-          customer_id: ro.customer_id,
-          kind: "aftersales",
-          call_type: "nps_interview",
-          days_from_now: 1, // 關單後隔天回訪
-          notes: `系統自動建立：工單 ${ro.ro_code} 關單後 NPS 滿意度回訪`,
-          metadata: {
-            source: "repair_order_close_hook",
-            source_ro: id,
-            ro_code: ro.ro_code,
-            vehicle_id: ro.vehicle_id ?? null,
-          },
-          dedupeMetaKey: "source_ro",
-        });
-        if (!res.ok) {
-          console.error("[hook#7 關單→NPS] 建立失敗（不影響關單）", res.error);
+        const baseMeta = {
+          source: "repair_order_close_hook",
+          source_ro: id,
+          ro_code: ro.ro_code,
+          vehicle_id: ro.vehicle_id ?? null,
+        };
+        const followUps: Array<{
+          call_type: "aftersales_d3" | "aftersales_d7";
+          days: number;
+          label: string;
+        }> = [
+          { call_type: "aftersales_d3", days: 3, label: "D+3 售後滿意度回訪" },
+          { call_type: "aftersales_d7", days: 7, label: "D+7 售後深度確認" },
+        ];
+        for (const fu of followUps) {
+          const res = await createFollowUpTask({
+            customer_id: ro.customer_id,
+            kind: "aftersales",
+            call_type: fu.call_type,
+            days_from_now: fu.days,
+            notes: `系統自動建立：工單 ${ro.ro_code} 關單後 ${fu.label}`,
+            metadata: baseMeta,
+            dedupeMetaKey: "source_ro",
+          });
+          if (!res.ok) {
+            console.error(
+              `[hook#7 關單→${fu.call_type}] 建立失敗（不影響關單）`,
+              res.error,
+            );
+          }
         }
       } catch (e) {
-        console.error("[hook#7 關單→NPS] 副作用例外（不影響關單）", e);
+        console.error("[hook#7 關單→D+3/D+7] 副作用例外（不影響關單）", e);
       }
     });
   }

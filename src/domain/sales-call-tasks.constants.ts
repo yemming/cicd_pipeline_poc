@@ -70,6 +70,7 @@ export type SalesCallType =
 
 export type AftersalesCallType =
   | "aftersales_d3"
+  | "aftersales_d7"
   | "maintenance_reminder"
   | "warranty_reminder"
   | "desmo_reminder"
@@ -86,6 +87,7 @@ export const SALES_CALL_TYPES: SalesCallType[] = [
 
 export const AFTERSALES_CALL_TYPES: AftersalesCallType[] = [
   "aftersales_d3",
+  "aftersales_d7",
   "maintenance_reminder",
   "warranty_reminder",
   "desmo_reminder",
@@ -98,6 +100,7 @@ export const CALL_TYPE_LABEL: Record<CallTaskType, string> = {
   event_invite: "活動邀約",
   custom: "自訂跟進",
   aftersales_d3: "D+3 售後滿意度",
+  aftersales_d7: "D+7 售後深度確認",
   maintenance_reminder: "保養回廠提醒",
   warranty_reminder: "保固到期提醒",
   desmo_reminder: "Desmo 到期提醒",
@@ -110,6 +113,7 @@ export const CALL_TYPE_SHORT_LABEL: Record<CallTaskType, string> = {
   event_invite: "邀約",
   custom: "自訂",
   aftersales_d3: "售後 D+3",
+  aftersales_d7: "售後 D+7",
   maintenance_reminder: "保養",
   warranty_reminder: "保固",
   desmo_reminder: "Desmo",
@@ -130,6 +134,7 @@ export const CALL_TYPE_COLOR: Record<CallTaskType, CallTypeColor> = {
   event_invite: "blue",
   custom: "purple",
   aftersales_d3: "teal",
+  aftersales_d7: "navy",
   maintenance_reminder: "amber",
   warranty_reminder: "blue",
   desmo_reminder: "red",
@@ -170,6 +175,12 @@ export const CALL_SCRIPT_TEMPLATES: Record<
     text:
       "您好,我是 INDIAN 售後服務的 SA,三天前您在我們這邊進廠保養,想跟您確認車況有沒有什麼異常,並了解您對這次服務的滿意度。",
     hints: ["確認車況", "詢問 NPS", "提醒下次保養", "感謝光臨"],
+  },
+  aftersales_d7: {
+    tag: "話術提示 — D+7 售後深度確認",
+    text:
+      "您好,我是 INDIAN 售後服務的 SA,距離上次進廠保養已經一週,想再次跟您確認車況一切正常、沒有遺留的小問題,也聽聽您對整體服務還有沒有想反映的地方。",
+    hints: ["確認車況穩定", "蒐集深度回饋", "處理遺留問題", "預告下次保養"],
   },
   maintenance_reminder: {
     tag: "話術提示 — 保養提醒",

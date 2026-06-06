@@ -247,6 +247,107 @@ export async function getHandcardById(id: string): Promise<HandcardRow | null> {
   return data as HandcardRow;
 }
 
+// ── 客戶建檔（C-21：手卡→查無客戶→自動建檔）─────────────────────────────────
+function normalizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const cleaned = phone.replace(/[\s\-()]/g, '').trim();
+  return cleaned || null;
+}
+
+/** 沿用 master-data/customer-actions 的 C##### 流水碼慣例 */
+async function genCustomerCode(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from('customers')
+    .select('code')
+    .eq('brand_id', brandId)
+    .ilike('code', 'C%')
+    .order('code', { ascending: false })
+    .limit(50);
+  let max = 0;
+  for (const row of data ?? []) {
+    const m = /^C(\d+)$/.exec(row.code ?? '');
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+  }
+  return `C${String(max + 1).padStart(5, '0')}`;
+}
+
+/**
+ * C-21：依手卡客戶資訊 find-or-create 客戶主檔，回傳 customer_id。
+ *  - 先用 phone（同 brand）找；找不到再用完整 name 找（無 phone 時的 fallback）
+ *  - 都找不到 → INSERT 新客戶（external_source='sales_handcard'）
+ * 連結客戶屬「加值」副作用，永遠不擋手卡建立：任何錯誤吞掉回 null。
+ */
+async function findOrCreateCustomerForHandcard(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  scope: Awaited<ReturnType<typeof getActiveScope>>,
+  input: HandcardInput,
+  userId: string,
+): Promise<string | null> {
+  try {
+    const brand = scope.brand_id;
+    const name = input.customer_name?.trim() || null;
+    const phone = normalizePhone(input.customer_phone);
+    if (!name && !phone) return null;
+
+    // 1) phone 優先
+    if (phone) {
+      const { data } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('brand_id', brand)
+        .eq('phone', phone)
+        .limit(1)
+        .maybeSingle();
+      if (data?.id) return data.id;
+    }
+    // 2) name fallback（僅在沒帶 phone 時，避免同名誤併）
+    if (!phone && name) {
+      const { data } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('brand_id', brand)
+        .eq('name', name)
+        .limit(1)
+        .maybeSingle();
+      if (data?.id) return data.id;
+    }
+    // 3) 查無 → 自動建檔
+    if (!name) return null; // 沒名字不建（customers.name NOT NULL）
+    const code = await genCustomerCode(supabase, brand);
+    const { data: created, error } = await supabase
+      .from('customers')
+      .insert({
+        brand_id: brand,
+        subsidiary_id: scope.subsidiary_id,
+        code,
+        name,
+        type: 'individual',
+        phone,
+        email: input.customer_email?.trim() || null,
+        is_active: true,
+        external_source: 'sales_handcard',
+        source_module: 'sales_handcard',
+        created_by: userId,
+      })
+      .select('id')
+      .single();
+    if (error) {
+      console.error('[C-21 手卡建客] 自動建檔失敗（不影響手卡）', error.message);
+      return null;
+    }
+    return created.id;
+  } catch (e) {
+    console.error('[C-21 手卡建客] 例外（不影響手卡）', e);
+    return null;
+  }
+}
+
 // ── 新增 ──────────────────────────────────────────────────────────────────
 export async function createHandcard(
   input: HandcardInput,
@@ -254,6 +355,11 @@ export async function createHandcard(
 ): Promise<HandcardRow> {
   const supabase = await createClient();
   const scope = await getActiveScope();
+
+  // C-21：手卡建立時連動客戶主檔（查無則自動建檔），回填 customer_id。
+  const customerId =
+    input.customer_id ??
+    (await findOrCreateCustomerForHandcard(supabase, scope, input, userId));
 
   const { data, error } = await supabase
     .from('sales_handcards')
@@ -263,6 +369,7 @@ export async function createHandcard(
       updated_by: userId,
       status: 'open',
       ...input,
+      customer_id: customerId,
     })
     .select('*')
     .single();

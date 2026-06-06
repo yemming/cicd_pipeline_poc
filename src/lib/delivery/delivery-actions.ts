@@ -1,11 +1,14 @@
 'use server';
 
+import { after } from 'next/server';
+
 import {
   createDelivery,
   updateDelivery,
   updateDeliveryStep,
   setDeliveryStatus,
   deleteDelivery,
+  syncDeliveryToCustomerBase,
   type DeliveryInput,
   type DeliveryStepPayload,
 } from '@/lib/deliveries';
@@ -112,6 +115,16 @@ export async function completeDeliveryAction(
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const row = await updateDeliveryStep(deliveryId, 'ceremony', payload, 'delivered');
+
+    // C-23：交車完成 → 非阻塞同步售後客戶檔 / 人車檔（失敗只記 log、不影響交車）
+    after(async () => {
+      try {
+        await syncDeliveryToCustomerBase(row);
+      } catch (e) {
+        console.error('[C-23 交車→售後客戶檔] 副作用例外（不影響交車）', e);
+      }
+    });
+
     return { ok: true, data: { id: row.id } };
   } catch (e) {
     const msg = msgOf(e);

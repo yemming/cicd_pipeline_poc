@@ -264,3 +264,192 @@ export async function deleteDelivery(id: string): Promise<void> {
   const { error } = await supabase.from('deliveries').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ─────────────────────────────────────────────────────────────
+// C-23：交車完成 → 建立 / 更新售後客戶檔 + 人車檔
+//
+// 交車是「售後客戶」的誕生點：把交車單上的車主 + 車輛資料落地成 customers /
+// customer_vehicles，售後模組（保養提醒、維修履歷、CRM 360）才有對象。
+// 屬加值副作用，永遠不擋交車流程：以 after() 包、任何錯誤吞掉只記 log。
+// ─────────────────────────────────────────────────────────────
+
+function normalizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const cleaned = phone.replace(/[\s\-()]/g, '').trim();
+  return cleaned || null;
+}
+
+async function genCustomerCode(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from('customers')
+    .select('code')
+    .eq('brand_id', brandId)
+    .ilike('code', 'C%')
+    .order('code', { ascending: false })
+    .limit(50);
+  let max = 0;
+  for (const row of data ?? []) {
+    const m = /^C(\d+)$/.exec((row as { code: string | null }).code ?? '');
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+  }
+  return `C${String(max + 1).padStart(5, '0')}`;
+}
+
+/**
+ * 交車完成後同步售後客戶檔 / 人車檔。回傳實際使用的 customer_id / vehicle_id
+ * （新建或既有），並回填到 deliveries。失敗回 null 欄位、絕不 throw。
+ */
+export async function syncDeliveryToCustomerBase(
+  row: DeliveryRow,
+): Promise<{ customer_id: string | null; customer_vehicle_id: string | null }> {
+  const supabase = await createClient();
+  const brand = row.brand_id;
+  const result: { customer_id: string | null; customer_vehicle_id: string | null } = {
+    customer_id: row.customer_id ?? null,
+    customer_vehicle_id: row.customer_vehicle_id ?? null,
+  };
+
+  try {
+    // ── 1) 客戶：已連結就用；否則 phone→name find-or-create ──
+    let customerId = row.customer_id ?? null;
+    const name = row.customer_name?.trim() || null;
+    const phone = normalizePhone(row.customer_phone);
+
+    if (!customerId && (name || phone)) {
+      if (phone) {
+        const { data } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('brand_id', brand)
+          .eq('phone', phone)
+          .limit(1)
+          .maybeSingle();
+        if (data?.id) customerId = data.id;
+      }
+      if (!customerId && !phone && name) {
+        const { data } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('brand_id', brand)
+          .eq('name', name)
+          .limit(1)
+          .maybeSingle();
+        if (data?.id) customerId = data.id;
+      }
+      if (!customerId && name) {
+        const code = await genCustomerCode(supabase, brand);
+        const { data: created, error } = await supabase
+          .from('customers')
+          .insert({
+            brand_id: brand,
+            subsidiary_id: row.subsidiary_id,
+            code,
+            name,
+            type: 'individual',
+            phone,
+            email: row.customer_email?.trim() || null,
+            address: row.customer_address?.trim() || null,
+            birthday: row.customer_birthday || null,
+            is_active: true,
+            external_source: 'delivery',
+            source_module: 'delivery',
+            created_by: row.created_by,
+          })
+          .select('id')
+          .single();
+        if (error) {
+          console.error('[C-23 交車建客] 失敗（不影響交車）', error.message);
+        } else {
+          customerId = created.id;
+        }
+      }
+    }
+    result.customer_id = customerId;
+    if (!customerId) return result; // 沒客戶就不建車（customer_vehicles.customer_id NOT NULL）
+
+    // ── 2) 人車檔：已連結就更新里程；否則 VIN→車牌 find-or-create ──
+    let vehicleId = row.customer_vehicle_id ?? null;
+    const vin = row.vin?.trim() || null;
+    const plate = row.plate_no?.trim() || null;
+
+    if (!vehicleId && vin) {
+      const { data } = await supabase
+        .from('customer_vehicles')
+        .select('id')
+        .eq('brand_id', brand)
+        .eq('vin', vin)
+        .limit(1)
+        .maybeSingle();
+      if (data?.id) vehicleId = data.id;
+    }
+    if (!vehicleId && !vin && plate) {
+      const { data } = await supabase
+        .from('customer_vehicles')
+        .select('id')
+        .eq('brand_id', brand)
+        .eq('license_plate', plate)
+        .limit(1)
+        .maybeSingle();
+      if (data?.id) vehicleId = data.id;
+    }
+
+    if (vehicleId) {
+      // 既有車：確保歸戶正確 + 補車牌 / 顏色
+      const patch: Record<string, unknown> = {
+        customer_id: customerId,
+        updated_at: new Date().toISOString(),
+      };
+      if (plate) patch.license_plate = plate;
+      if (row.vehicle_color) patch.color = row.vehicle_color;
+      if (row.vehicle_model_id) patch.model_id = row.vehicle_model_id;
+      await supabase.from('customer_vehicles').update(patch).eq('id', vehicleId).eq('brand_id', brand);
+    } else {
+      const { data: createdVeh, error: vehErr } = await supabase
+        .from('customer_vehicles')
+        .insert({
+          brand_id: brand,
+          subsidiary_id: row.subsidiary_id,
+          customer_id: customerId,
+          model_id: row.vehicle_model_id,
+          vin,
+          license_plate: plate,
+          color: row.vehicle_color,
+          acquired_from: 'new',
+          is_active: true,
+          external_source: 'delivery',
+        })
+        .select('id')
+        .single();
+      if (vehErr) {
+        console.error('[C-23 交車建車] 失敗（不影響交車）', vehErr.message);
+      } else {
+        vehicleId = createdVeh.id;
+      }
+    }
+    result.customer_vehicle_id = vehicleId;
+
+    // ── 3) 回填 deliveries（新建客戶 / 車輛時）──
+    if (
+      (customerId && customerId !== row.customer_id) ||
+      (vehicleId && vehicleId !== row.customer_vehicle_id)
+    ) {
+      await supabase
+        .from('deliveries')
+        .update({
+          customer_id: customerId,
+          customer_vehicle_id: vehicleId,
+        })
+        .eq('id', row.id);
+    }
+  } catch (e) {
+    console.error('[C-23 交車→售後客戶檔] 例外（不影響交車）', e);
+  }
+
+  return result;
+}

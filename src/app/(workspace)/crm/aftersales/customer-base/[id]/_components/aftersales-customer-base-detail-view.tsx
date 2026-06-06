@@ -111,6 +111,7 @@ const CALL_TYPE_LABEL: Record<string, string> = {
   warranty_reminder: "保固提醒",
   desmo_reminder: "Desmo 服務",
   aftersales_d3: "D+3 售後回訪",
+  aftersales_d7: "D+7 售後確認",
   d3_followup: "D+3 回訪",
   d7_followup: "D+7 回訪",
   nps_interview: "NPS 調查",

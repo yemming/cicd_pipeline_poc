@@ -13,6 +13,7 @@ import {
   type ScanLicensePlateResult,
   type LicensePlateScanListItem,
 } from "@/domain/license-plate";
+import { DESMO_STATUS_BADGE, DESMO_STATUS_LABEL } from "@/domain/desmo.constants";
 
 type Phase = "idle" | "captured" | "uploading" | "result" | "error";
 
@@ -446,6 +447,30 @@ function MatchedCustomerCard({
             <span className="text-[#9A9890]">下次保養</span>
             <span className="text-[#854F0B] font-medium">
               {matched.next_service_due_date}
+            </span>
+          </div>
+        )}
+        {matched.desmo_status && (
+          <div className="flex justify-between items-center">
+            <span className="text-[#9A9890]">Desmo 汽門保養</span>
+            <span className="flex items-center gap-1.5">
+              {matched.desmo_service_due_date && (
+                <span className="text-[#5A5955]">{matched.desmo_service_due_date}</span>
+              )}
+              {matched.desmo_service_due_mileage != null && (
+                <span className="font-mono text-[11px] text-[#9A9890]">
+                  / {matched.desmo_service_due_mileage} km
+                </span>
+              )}
+              <span
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium"
+                style={{
+                  backgroundColor: DESMO_STATUS_BADGE[matched.desmo_status].bg,
+                  color: DESMO_STATUS_BADGE[matched.desmo_status].fg,
+                }}
+              >
+                {DESMO_STATUS_LABEL[matched.desmo_status]}
+              </span>
             </span>
           </div>
         )}
