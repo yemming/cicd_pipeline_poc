@@ -107,3 +107,4 @@ AGENTS.md
 scripts/_nav-verify-indian.mjs
 scripts/verify-c25-push-line.mjs
 scripts/verify-c25-retest-line.mjs
+scripts/_*.mjs

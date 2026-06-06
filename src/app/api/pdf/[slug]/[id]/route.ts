@@ -29,6 +29,25 @@ const ALLOWED_SLUGS = new Set([
   "group-quarterly-report",
 ]);
 
+/**
+ * 解析「外部可達」的 app origin，給 server-side chromium goto 自己的 print route 用。
+ * 優先序：APP_URL（明確設定）→ x-forwarded-*（reverse proxy 帶的真實外部 host/proto）
+ * → nextUrl.origin（本機 dev，無 proxy）。
+ */
+function resolveAppOrigin(request: NextRequest): string {
+  const explicit = process.env.APP_URL?.trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+
+  const fwdHost = request.headers.get("x-forwarded-host");
+  const host = fwdHost ?? request.headers.get("host");
+  if (host && !host.startsWith("localhost")) {
+    const proto = request.headers.get("x-forwarded-proto") ?? "https";
+    return `${proto}://${host}`;
+  }
+
+  return request.nextUrl.origin;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string; id: string }> },
@@ -46,7 +65,12 @@ export async function GET(
   }
 
   const cookieHeader = request.headers.get("cookie") ?? "";
-  const origin = request.nextUrl.origin;
+  // ⚠️ 不能用 request.nextUrl.origin —— Zeabur 反代後內部 Next 收到的是
+  // https://localhost:8080（proxy 把外部 host/proto 換掉），chromium 去 goto 會撞
+  // ERR_SSL_PROTOCOL_ERROR（內部 8080 不講 TLS）。
+  // 正解：優先吃明確的 APP_URL（全站既有慣例），其次用 proxy 真正帶過來的
+  // x-forwarded-* 重建外部 origin，最後才 fallback 到 nextUrl.origin（本機 dev 用）。
+  const origin = resolveAppOrigin(request);
   const url = `${origin}/print/${slug}/${id}`;
 
   try {
