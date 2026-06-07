@@ -5,14 +5,8 @@ export const TD_LICENSE_OPTIONS = [
   { value: "none", label: "❌ 無駕照（不可試駕）" },
 ] as const;
 
-export const TD_BIKE_MODELS = [
-  "Panigale V4 S（仿賽）",
-  "Streetfighter V4（裸把）",
-  "Monster SP（街車）",
-  "Multistrada V4 S（旅行）",
-  "DesertX Rally（越野）",
-  "Hypermotard 698 RVE（超摩）",
-] as const;
+// B-05：試駕車款已改為 DB-backed（依 active brand 撈 vehicle_models），不再寫死 Ducati 車型。
+// 車款下拉的資料來源見 getTestDriveLookups()，wizard/page.tsx 撈好傳進 TestRidesForm。
 
 export const TD_ROUTES = [
   "市區短程（約 15 分）",
@@ -112,14 +106,7 @@ export const TD_INTENT_CHANGE = [
   "改變車款興趣",
 ];
 
-export const TD_RECOMMEND_ADJUST = [
-  "維持原車款",
-  "改推 Streetfighter V4（降低坐姿）",
-  "改推 Monster SP（更友善）",
-  "改推 Multistrada V4 S（旅行舒適）",
-  "改推 DesertX Rally（冒險性格）",
-  "改推 Hypermotard 698 RVE",
-];
+// B-05：「試駕後推薦車款調整」改吃 DB-backed 車款（維持原車款 + models），不再寫死 Ducati 車型。
 
 export const TD_SKIP_REASONS = [
   "— 請選擇跳過原因 —",

@@ -20,6 +20,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { createFollowUpTask } from "@/domain/sales-call-tasks";
 import { notifications } from "@/lib/notifications";
+import { pickForRepairOrderAddon } from "@/domain/issues";
 
 import {
   PREFIX_COMBO_RULES,
@@ -317,6 +318,124 @@ export async function updateRepairOrderStatusAction(
         }
       } catch (e) {
         console.error("[hook#7 關單→D+3/D+7] 副作用例外（不影響關單）", e);
+      }
+    });
+  }
+
+  // ── 跨模組 hook #8（C-28）：RO 關單 → addon 預留實體出庫 ──
+  // 非阻塞、try/catch 吞錯；出庫失敗不影響關單本體。
+  // 語意：撈該 RO 所有 active addon 預留 → 按 warehouse 分組 → 各建一張領料單
+  //   → persistPick 扣 stock_items lots（FIFO）+ 認列 COGS_ON_ISSUE → reservation 翻 consumed。
+  // 冪等：以 source_doc_type='repair_order' + source_doc_id=ro_id 在 stock_issues 查重，
+  //   同 RO 已有 completed 領料單則跳過、不重複出庫。
+  // consume 走直接 DB update（不走 domain/inventory-reservations.consume()），
+  //   避免其 hasPermission(ISSUE_CREATE) 在 after() context 依關單者角色靜默失敗、
+  //   導致「stock 已扣但 reservation 仍 active」的不一致。
+  if (status === "已關單") {
+    after(async () => {
+      try {
+        const sb = await createClient();
+        const brandForHook = (await getActiveScope()).brand_id;
+
+        // 冪等 check：同 RO 已出庫過則跳過
+        const { data: existingIssue } = await sb
+          .from("stock_issues")
+          .select("id")
+          .eq("brand_id", brandForHook)
+          .eq("source_doc_type", "repair_order")
+          .eq("source_doc_id", id)
+          .eq("status", "completed")
+          .limit(1)
+          .maybeSingle();
+        if (existingIssue?.id) {
+          console.log(
+            `[hook#8 C-28] RO ${id} 已有 addon 出庫紀錄（${existingIssue.id}），跳過`,
+          );
+          return;
+        }
+
+        const { data: roRow } = await sb
+          .from("repair_orders")
+          .select("ro_code, customer_id")
+          .eq("id", id)
+          .eq("brand_id", brandForHook)
+          .maybeSingle();
+        if (!roRow) return;
+
+        const { data: reservations, error: rsvErr } = await sb
+          .from("inventory_reservations")
+          .select("id, item_id, warehouse_id, reserved_qty")
+          .eq("brand_id", brandForHook)
+          .eq("ro_id", id)
+          .eq("source_type", "repair_order_addon")
+          .eq("status", "active");
+        if (rsvErr) {
+          console.error("[hook#8 C-28] 撈 reservations 失敗（不影響關單）", rsvErr);
+          return;
+        }
+        if (!reservations || reservations.length === 0) return;
+
+        // 按 warehouse_id 分組（多倉各建一張 GI 單）
+        const byWarehouse = new Map<
+          string,
+          Array<{ item_id: string; qty_needed: number; reservation_id: string }>
+        >();
+        for (const r of reservations) {
+          const wId = r.warehouse_id as string;
+          if (!byWarehouse.has(wId)) byWarehouse.set(wId, []);
+          byWarehouse.get(wId)!.push({
+            item_id: r.item_id as string,
+            qty_needed: Number(r.reserved_qty),
+            reservation_id: r.id as string,
+          });
+        }
+
+        for (const [warehouseId, lines] of byWarehouse) {
+          const issueRes = await pickForRepairOrderAddon({
+            warehouse_id: warehouseId,
+            ro_id: id,
+            ro_code: roRow.ro_code as string,
+            customer_id: (roRow.customer_id as string | null) ?? null,
+            lines,
+          });
+          if (!issueRes.ok) {
+            console.error(
+              `[hook#8 C-28] RO ${roRow.ro_code} 倉 ${warehouseId} 出庫失敗（不影響關單）`,
+              issueRes.error,
+            );
+            // 出庫失敗：reservation 維持 active 供人工補處理；繼續下一個倉
+            continue;
+          }
+          console.log(
+            `[hook#8 C-28] RO ${roRow.ro_code} 出庫成功`,
+            issueRes.data.gi_no,
+          );
+
+          // 出庫成功 → 把該倉 reservation 翻 consumed（直接 DB update，附 optimistic lock）
+          const nowIso = new Date().toISOString();
+          for (const line of lines) {
+            const { error: consumeErr } = await sb
+              .from("inventory_reservations")
+              .update({
+                status: "consumed",
+                consumed_qty: line.qty_needed,
+                released_at: nowIso,
+                release_reason: "issued",
+                updated_at: nowIso,
+              })
+              .eq("id", line.reservation_id)
+              .eq("brand_id", brandForHook)
+              .eq("status", "active");
+            if (consumeErr) {
+              console.error(
+                `[hook#8 C-28] consume reservation ${line.reservation_id} 失敗`,
+                consumeErr,
+              );
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[hook#8 C-28] addon 出庫副作用例外（不影響關單）", e);
       }
     });
   }

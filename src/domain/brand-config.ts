@@ -78,6 +78,51 @@ function rowToConfig(r: BrandConfigRow): BrandConfig {
  * 取某品牌的設定（typed）。查無 → 回 fallback（standard、無 Desmo），不 throw，
  * 讓新品牌在還沒 seed brand_config 前頁面仍能正常顯示（只是看不到品牌專屬功能）。
  */
+/** 保固頁顯示用內容（品牌中性化）——避免把 DUCATI 專屬條款露給其他品牌。 */
+export type WarrantyTerm = { label: string; value: string; sub: string };
+export type WarrantyContent = {
+  title: string;
+  terms: WarrantyTerm[];
+  exclusions: string[];
+};
+
+/**
+ * 解析某品牌的保固條款顯示內容。
+ *   - brand_config.metadata.warranty 有設定 → 用該品牌專屬內容（ducati 走這條，內容與舊版完全一致）。
+ *   - 沒設定 → 用品牌中性 fallback（依 brandName / hasDesmo 動態組，絕不露 DUCATI / 碩文 / Desmo 字樣）。
+ * 這樣 indian 等未 seed warranty metadata 的品牌一律拿到中性版，徹底解決 B-13 / C-30 寫死 Ducati 的破口。
+ */
+export function resolveWarrantyContent(config: BrandConfig): WarrantyContent {
+  const meta = config.metadata?.warranty as Partial<WarrantyContent> | undefined;
+  if (meta && Array.isArray(meta.terms) && meta.terms.length > 0) {
+    return {
+      title: meta.title ?? `${config.brandName ?? "原廠"} 保固條款 Warranty Terms`,
+      terms: meta.terms,
+      exclusions: Array.isArray(meta.exclusions) ? meta.exclusions : [],
+    };
+  }
+
+  // ── 中性 fallback（無品牌專屬 metadata 時）──
+  const brandName = config.brandName ?? "原廠";
+  const terms: WarrantyTerm[] = [
+    { label: "整車保固", value: "2 年不限里程", sub: "自保固啟動日起" },
+    { label: "零件保固（原廠非消耗品）", value: "24 個月", sub: "授權經銷商購買安裝起算" },
+  ];
+  if (config.hasDesmo) {
+    terms.push({ label: "Desmo 服務（≥500cc）", value: "24 個月 或 40,000 km", sub: "以先到為準" });
+  }
+  const exclusions = [
+    "用於任何運動競賽的機車",
+    "用於租賃服務的機車",
+    `正常使用自然耗損零件（輪胎、傳動零件、${config.hasDesmo ? "正時皮帶、" : ""}煞車、離合器等）`,
+    "因氧化、環境因素、非正常使用、未定期保養所導致的故障與瑕疵",
+    "在非原廠官方授權經銷商進行的維修保養",
+    "使用未經原廠核准之零件或改裝部品",
+    "未遵守車主手冊使用建議，或未參加召回活動",
+  ];
+  return { title: `${brandName} 保固條款 Warranty Terms`, terms, exclusions };
+}
+
 export const getBrandConfig = cache(async (brandId: string): Promise<BrandConfig> => {
   const client = await createClient();
   const { data } = await client

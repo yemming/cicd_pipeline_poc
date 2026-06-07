@@ -1,3 +1,5 @@
+import { hasPermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getSalesManagerFunnelData } from "@/domain/sales-manager-funnel";
 import SalesManagerFunnelBoard from "../manager/funnel/_components/sales-manager-funnel-board";
 
@@ -16,6 +18,21 @@ export const metadata = {
  * 資料層走 @/domain/sales-manager-funnel，未來接 sales_funnel_metrics view 時兩個 route 一起升級。
  */
 export default async function SalesFunnelPage() {
+  // ─── 權限 gate ───────────────────────────────────────────
+  if (!(await hasPermission(PERMISSIONS.SALES_ORDER_VIEW))) {
+    return (
+      <main className="px-6 py-10 text-center">
+        <div className="inline-block bg-white border border-[#F5AEAD] rounded-lg px-6 py-5">
+          <div className="text-[40px] mb-2">🔒</div>
+          <div className="text-[14px] font-semibold text-[#C8001A] mb-1">權限不足</div>
+          <div className="text-[12px] text-[#5A5955]">
+            您沒有檢視銷售漏斗的權限（需要 sales.order.view）。請聯繫系統管理員。
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const data = await getSalesManagerFunnelData();
   return (
     <>

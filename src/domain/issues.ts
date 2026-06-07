@@ -1522,3 +1522,67 @@ export async function createInternalSale(
 
   return persistRes;
 }
+
+// ─────────────────────────────────────────────────────────────
+// RO Addon 出庫（C-28）
+//
+// 專供 repair-order-actions hook#8（RO 關單）使用：一次消化該 RO 某一個倉的
+// 所有 active addon 預留 → 走 persistPick 真扣 stock_items lots（FIFO）+ 認列 COGS。
+// 每個 warehouse group 各建一張 stock_issue（source_doc_type='repair_order'）。
+// 呼叫端負責冪等 check 與把 reservation 翻 consumed。
+// stock_issues.ro_id 語意是 work_orders.id，C-28 刻意留 null，改用 source_doc_* 標記出處。
+// ─────────────────────────────────────────────────────────────
+
+export type AddonIssueLine = {
+  item_id: string;
+  qty_needed: number;
+  reservation_id: string;
+};
+
+export async function pickForRepairOrderAddon(input: {
+  warehouse_id: string;
+  ro_id: string;
+  ro_code: string;
+  customer_id: string | null;
+  lines: AddonIssueLine[];
+}): Promise<Result<{ id: string; gi_no: string }>> {
+  if (!(await hasPermission(PERMISSIONS.ISSUE_CREATE))) {
+    return { ok: false, error: "沒有建立領料單的權限" };
+  }
+  if (!input.warehouse_id) return { ok: false, error: "缺出庫倉" };
+  if (!input.lines?.length) return { ok: false, error: "沒有需出庫的 addon 零件" };
+
+  const previewRes = await previewRepairPick({
+    mode: "adhoc",
+    warehouse_id: input.warehouse_id,
+    lines: input.lines.map((l) => ({ item_id: l.item_id, qty_needed: l.qty_needed })),
+  });
+  if (!previewRes.ok) return previewRes;
+  if (!previewRes.data.can_post) {
+    return {
+      ok: false,
+      error: `RO ${input.ro_code} addon 出庫庫存不足（倉 ${input.warehouse_id}）`,
+    };
+  }
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return persistPick({
+    supabase,
+    brandId: scope.brand_id,
+    userId: user?.id ?? null,
+    type: "ro_picking",
+    warehouseId: input.warehouse_id,
+    customerId: input.customer_id,
+    roId: null, // stock_issues.ro_id 語意是 work_orders.id，C-28 刻意留 null
+    sourceDocType: "repair_order", // C-28 出庫的來源標記
+    sourceDocId: input.ro_id, // repair_orders.id
+    notes: `RO ${input.ro_code} 增項零件關單出庫（C-28）`,
+    preview: previewRes.data,
+    postCogs: true,
+  });
+}

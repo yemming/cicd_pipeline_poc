@@ -5,32 +5,34 @@ import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { WARRANTY_CHECKLIST_ITEMS } from "@/components/delivery/delivery-constants";
 import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
 import type { DeliveryRow } from "@/lib/deliveries";
+import type { WarrantyContent, WarrantySystem } from "@/domain/brand-config";
 
 type SigRole = "technician" | "rs" | "customer";
-
-const EXCLUSIONS = [
-  "用於任何運動競賽的機車",
-  "用於租賃服務的機車",
-  "正常使用自然耗損零件（輪胎、傳動零件、正時皮帶、煞車、離合器等）",
-  "因氧化、環境因素、非正常使用、未定期保養所導致的故障與瑕疵",
-  "在非 DUCATI 官方授權經銷商進行的維修保養",
-  "使用未經 DUCATI 原廠核准之零件或改裝部品",
-  "未遵守車主手冊使用建議，或未參加召回活動",
-];
-
-const WARRANTY_TERMS = [
-  { label: "整車保固（台灣碩文版）", value: "2 年不限里程", sub: "自保固啟動日起" },
-  { label: "零件保固（原廠非消耗品）", value: "24 個月", sub: "授權經銷商購買安裝起算" },
-  { label: "一般保固（≥500cc 公路）", value: "24 個月不限里程", sub: "公路車適用" },
-  { label: "Desmo 服務（≥500cc）", value: "24 個月 或 40,000 km", sub: "以先到為準" },
-];
 
 /** ISO → YYYY-MM-DD（手動格式，避免 toLocaleDateString 的 SSR/client hydration mismatch） */
 function fmtDate(iso: string | null): string {
   return iso ? iso.slice(0, 10) : "";
 }
 
-export function WarrantySignView({ delivery }: { delivery: DeliveryRow }) {
+/** 在 base 日期（YYYY-MM-DD）上加 days 天，回 YYYY-MM-DD（UTC 計算，避免時區飄移）。 */
+function addDays(base: string, days: number): string {
+  const d = new Date(`${base}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function WarrantySignView({
+  delivery,
+  warranty,
+  warrantyRegDays,
+  warrantySystem,
+}: {
+  delivery: DeliveryRow;
+  warranty: WarrantyContent;
+  warrantyRegDays: number | null;
+  warrantySystem: WarrantySystem;
+}) {
   const [plateNo, setPlateNo] = useState(delivery.plate_no ?? "");
   const [plateDate, setPlateDate] = useState(delivery.plate_date ?? "");
   const [warrantyReceiveDate, setWarrantyReceiveDate] = useState(
@@ -114,7 +116,7 @@ export function WarrantySignView({ delivery }: { delivery: DeliveryRow }) {
               保固條款登記表
             </div>
             <div className="text-[11px] text-[#9A9890] mt-px">
-              DUCATI Warranty Terms — 交車登記表 · 交車時由銷售人員口語宣讀並解說條款
+              {warranty.title} · 交車時由銷售人員口語宣讀並解說條款
             </div>
           </div>
         </header>
@@ -166,7 +168,7 @@ export function WarrantySignView({ delivery }: { delivery: DeliveryRow }) {
 
           <SectionTitle>三、保固期限</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {WARRANTY_TERMS.map((t) => (
+            {warranty.terms.map((t) => (
               <div
                 key={t.label}
                 className="bg-[#EAF4FB] border border-[#85B7EB] rounded-md px-3 py-2"
@@ -182,9 +184,25 @@ export function WarrantySignView({ delivery }: { delivery: DeliveryRow }) {
             ))}
           </div>
 
+          {warrantyRegDays != null && warrantyRegDays > 0 && (
+            <div
+              className="flex items-start gap-2 px-3 py-2 rounded-md bg-[#FDF3E3] border border-[#F0D9A8] text-[12px] text-[#854F0B] leading-relaxed"
+              data-testid="warranty-reg-reminder"
+            >
+              <span className="text-[14px] shrink-0">⏰</span>
+              <span>
+                <b>保固登記提醒</b>：請於交車後 <b>{warrantyRegDays}</b> 天內
+                {warrantyStartDate
+                  ? `（最遲 ${addDays(warrantyStartDate, warrantyRegDays)} 前）`
+                  : ""}
+                完成{warrantySystem ? `${warrantySystem} ` : ""}保固登記，逾期恐影響保固權益。
+              </span>
+            </div>
+          )}
+
           <SectionTitle>保固不適用情況</SectionTitle>
           <div className="flex flex-col gap-1">
-            {EXCLUSIONS.map((e) => (
+            {warranty.exclusions.map((e) => (
               <div
                 key={e}
                 className="flex gap-2 text-[11.5px] text-[#5A5955] px-2 py-1.5 rounded bg-[#FAFAF8] border border-[#EEECE6] leading-relaxed"

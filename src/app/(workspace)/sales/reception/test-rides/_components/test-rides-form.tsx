@@ -6,7 +6,6 @@ import { useSetPageHeader } from "@/components/page-header-context";
 import { createTestDriveAction } from "@/lib/sales/test-drives-actions";
 import {
   SAFETY_CATEGORY_TITLES,
-  TD_BIKE_MODELS,
   TD_ERGONOMICS,
   TD_ESCORT_MODES,
   TD_HANDLING_FEEL,
@@ -16,7 +15,6 @@ import {
   TD_OVERALL_FEEDBACK,
   TD_POWER_FEEL,
   TD_PURPOSES,
-  TD_RECOMMEND_ADJUST,
   TD_ROUTES,
   TD_SAFETY_ITEMS,
   TD_SKIP_REASONS,
@@ -28,7 +26,10 @@ type StepIdx = 1 | 2 | 3 | 4;
 type SafetyState = "ok" | "ng" | null;
 type OverallTone = "ok" | "amber" | "red" | null;
 
-export default function TestRidesForm() {
+/** 車款選項（依 active brand 撈 vehicle_models，B-05 品牌中性化） */
+type ModelOption = { id: string; name: string };
+
+export default function TestRidesForm({ models }: { models: ModelOption[] }) {
   useSetPageHeader({
     title: "試乘試駕",
     breadcrumb: [
@@ -51,7 +52,8 @@ export default function TestRidesForm() {
   const [licenseNo, setLicenseNo] = useState("");
   const [tdDate, setTdDate] = useState("2026-05-14");
   const [tdTime, setTdTime] = useState("14:30");
-  const [tdModel, setTdModel] = useState<string>(TD_BIKE_MODELS[0]);
+  const [tdModelId, setTdModelId] = useState<string | null>(models[0]?.id ?? null);
+  const [tdModel, setTdModel] = useState<string>(models[0]?.name ?? "");
   const [plateNo, setPlateNo] = useState("");
   const [route, setRoute] = useState<string>(TD_ROUTES[0]);
   const [purpose, setPurpose] = useState<string>(TD_PURPOSES[0]);
@@ -87,7 +89,7 @@ export default function TestRidesForm() {
   const [handlingFeel, setHandlingFeel] = useState<string>(TD_HANDLING_FEEL[0]);
   const [ergo, setErgo] = useState<string>(TD_ERGONOMICS[0]);
   const [intentChange, setIntentChange] = useState<string>(TD_INTENT_CHANGE[0]);
-  const [recommendAdjust, setRecommendAdjust] = useState<string>(TD_RECOMMEND_ADJUST[0]);
+  const [recommendAdjust, setRecommendAdjust] = useState<string>("維持原車款");
   const [rsNote, setRsNote] = useState("");
   const [showSkipReason, setShowSkipReason] = useState(false);
   const [skipReason, setSkipReason] = useState<string>(TD_SKIP_REASONS[0]);
@@ -170,7 +172,7 @@ export default function TestRidesForm() {
     startSavingTransition(async () => {
       const r = await createTestDriveAction({
         customer_id: customerId,
-        vehicle_model_id: null, // TD_BIKE_MODELS 是寫死字串、車款 name 塞 metadata；未來換 DB-backed dropdown 再 lookup
+        vehicle_model_id: tdModelId, // B-05：改用 DB-backed 車款，記錄真實 vehicle_model FK
         scheduled_at: buildScheduledAtIso(),
         status: stopped ? "completed" : "scheduled",
         notes: rsNote.trim() || null,
@@ -418,10 +420,21 @@ export default function TestRidesForm() {
             <Divider />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2.5">
               <Field label="試駕車款" required>
-                <select className={fsClass} value={tdModel} onChange={(e) => setTdModel(e.target.value)}>
-                  {TD_BIKE_MODELS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
+                <select
+                  className={fsClass}
+                  value={tdModelId ?? ""}
+                  onChange={(e) => {
+                    const m = models.find((x) => x.id === e.target.value);
+                    setTdModelId(m?.id ?? null);
+                    setTdModel(m?.name ?? "");
+                  }}
+                >
+                  {models.length === 0 && (
+                    <option value="">（尚未建立車型，請至車型主檔新增）</option>
+                  )}
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
                     </option>
                   ))}
                 </select>
@@ -781,9 +794,10 @@ export default function TestRidesForm() {
               </Field>
               <Field label="建議追加推薦">
                 <select className={fsClass} value={recommendAdjust} onChange={(e) => setRecommendAdjust(e.target.value)}>
-                  {TD_RECOMMEND_ADJUST.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
+                  <option value="維持原車款">維持原車款</option>
+                  {models.map((m) => (
+                    <option key={m.id} value={`改推 ${m.name}`}>
+                      {`改推 ${m.name}`}
                     </option>
                   ))}
                 </select>
