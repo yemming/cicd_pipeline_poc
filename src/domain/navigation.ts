@@ -134,7 +134,7 @@ export async function downloadNavHtml(storagePath: string): Promise<string | nul
       return null;
     }
     try {
-      return await fs.readFile(path.join(process.cwd(), rel), "utf8");
+      return await fs.readFile(path.join(/* turbopackIgnore: true */ process.cwd(), rel), "utf8");
     } catch (e) {
       console.warn("[nav/n] file: fs-read 失敗", rel, (e as Error).message);
       return null;
