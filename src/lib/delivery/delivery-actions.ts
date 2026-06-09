@@ -9,6 +9,7 @@ import {
   setDeliveryStatus,
   deleteDelivery,
   syncDeliveryToCustomerBase,
+  scheduleWarrantyReminderTask,
   type DeliveryInput,
   type DeliveryStepPayload,
 } from '@/lib/deliveries';
@@ -122,6 +123,15 @@ export async function completeDeliveryAction(
         await syncDeliveryToCustomerBase(row);
       } catch (e) {
         console.error('[C-23 交車→售後客戶檔] 副作用例外（不影響交車）', e);
+      }
+    });
+
+    // 保固登記提醒：交車後 D+{warrantyRegDays} 天建 call_task（brand_config 設定值）
+    after(async () => {
+      try {
+        await scheduleWarrantyReminderTask(row);
+      } catch (e) {
+        console.error('[warranty_reg_reminder] 副作用例外（不影響交車）', e);
       }
     });
 

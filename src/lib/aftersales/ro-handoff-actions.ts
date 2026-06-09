@@ -153,6 +153,18 @@ export async function transferToROAction(
         .eq("id", pi.id)
         .eq("brand_id", brand);
 
+      // 3b. 橋接 work_orders.repair_order_id（C-28 FK bridge）
+      // 若 PI 帶有 appointment_id，透過共用的 appointment_id 找到對應的 work_order 並回填。
+      // 找不到也沒關係（work_order 可能尚未建立或走不同路徑），不影響 RO 串接主流程。
+      if (pi.appointment_id) {
+        await supabase
+          .from("work_orders")
+          .update({ repair_order_id: roIns.id as string })
+          .eq("brand_id", brand)
+          .eq("appointment_id", pi.appointment_id)
+          .is("repair_order_id", null);
+      }
+
       // 4. 上游 appointment 推 維修中
       if (pi.appointment_id) {
         await supabase

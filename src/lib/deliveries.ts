@@ -6,6 +6,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { DeliveryStatus, DeliveryStepName } from './deliveries.constants';
+import { getBrandConfig } from '@/domain/brand-config';
 
 export type DeliveryRow = {
   id: string;
@@ -452,4 +453,39 @@ export async function syncDeliveryToCustomerBase(
   }
 
   return result;
+}
+
+/**
+ * 交車完成後建立保固登記提醒任務（call_tasks）。
+ * 預設值10天，待海德生確認Indian台灣保固登記規定後可修改brand_config
+ */
+export async function scheduleWarrantyReminderTask(row: DeliveryRow): Promise<void> {
+  if (!row.customer_id) return;
+  if (!row.warranty_start_date) return;
+
+  const brandConfig = await getBrandConfig(row.brand_id);
+  const days = brandConfig.warrantyRegDays;
+  if (!days || days <= 0) return;
+
+  const base = new Date(`${row.warranty_start_date}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + days);
+  const scheduledAt = base.toISOString();
+
+  const supabase = await createClient();
+  const { error } = await supabase.from('call_tasks').insert({
+    brand_id: row.brand_id,
+    kind: 'aftersales',
+    customer_id: row.customer_id,
+    call_type: 'warranty_reminder',
+    scheduled_at: scheduledAt,
+    status: 'pending',
+    metadata: {
+      source: 'warranty_reg_reminder',
+      delivery_id: row.id,
+      warranty_reg_days: days,
+    },
+  });
+  if (error) {
+    console.error('[warranty_reg_reminder] 建立提醒失敗', error.message);
+  }
 }
