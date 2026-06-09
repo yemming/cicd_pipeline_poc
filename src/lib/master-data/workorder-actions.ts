@@ -33,6 +33,7 @@ export type WorkOrderInput = {
   customer_id: string;
   vehicle_id: string;
   appointment_id?: string | null;
+  repair_order_id?: string | null;
   status?: Status | null;
   advisor_id?: string | null;
   lead_technician_id?: string | null;
@@ -131,6 +132,7 @@ function buildPayload(input: WorkOrderInput) {
     customer_id: (input.customer_id ?? "").trim(),
     vehicle_id: (input.vehicle_id ?? "").trim(),
     appointment_id: trim(input.appointment_id ?? null),
+    repair_order_id: trim(input.repair_order_id ?? null),
     status: pickStatus(input.status),
     advisor_id: trim(input.advisor_id ?? null),
     lead_technician_id: trim(input.lead_technician_id ?? null),

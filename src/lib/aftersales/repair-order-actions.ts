@@ -227,6 +227,15 @@ export async function confirmRepairOrderAction(
           .eq("id", input.appointment_id)
           .eq("brand_id", brand)
           .in("status", ["待到廠", "已到廠", "等待中"]);
+
+        // 3b. 橋接 work_orders.repair_order_id（C-28 FK bridge，第二條路徑）
+        // 透過共用 appointment_id 找到對應 work_order 並回填；找不到不影響主流程
+        await supabase
+          .from("work_orders")
+          .update({ repair_order_id: data.id as string })
+          .eq("brand_id", brand)
+          .eq("appointment_id", input.appointment_id)
+          .is("repair_order_id", null);
       }
 
       // 4. 副作用 placeholder：notifications.dispatch（POC 階段先不真推、留 hook）

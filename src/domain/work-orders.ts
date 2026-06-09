@@ -52,6 +52,38 @@ export async function listWorkOrderItems(workOrderId: string): Promise<WorkOrder
   return data ?? [];
 }
 
+export type WorkOrderWithRO = {
+  id: string;
+  ro_no: string | null;
+  repair_order_id: string | null;
+  repair_order: { id: string; ro_code: string } | null;
+};
+
+export async function getWorkOrderWithRepairOrder(
+  workOrderId: string,
+): Promise<WorkOrderWithRO | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("work_orders")
+    .select("id, ro_no, repair_order_id, repair_orders(id, ro_code)")
+    .eq("id", workOrderId)
+    .eq("brand_id", (await getActiveScope()).brand_id)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as unknown as {
+    id: string;
+    ro_no: string | null;
+    repair_order_id: string | null;
+    repair_orders: { id: string; ro_code: string } | null;
+  };
+  return {
+    id: row.id,
+    ro_no: row.ro_no,
+    repair_order_id: row.repair_order_id,
+    repair_order: row.repair_orders ?? null,
+  };
+}
+
 export async function listIssuesForWorkOrder(
   roId: string,
 ): Promise<WorkOrderIssueSummary[]> {

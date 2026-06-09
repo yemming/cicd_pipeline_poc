@@ -7,6 +7,7 @@ export type WorkOrderFieldKey =
   | "customer_id"
   | "vehicle_id"
   | "appointment_id"
+  | "repair_order_id"
   | "status"
   | "advisor_id"
   | "lead_technician_id"
