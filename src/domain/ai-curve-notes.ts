@@ -16,6 +16,8 @@ import 'server-only';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getActiveScope } from '@/lib/scope/active-scope';
+import { hasPermission, requirePermission } from '@/lib/rbac/policies';
+import { PERMISSIONS } from '@/lib/rbac/permissions';
 import { ingestRecordInternal, removeFromRag } from '@/domain/rag-ingest';
 import {
   transcribeAndExtract,
@@ -87,6 +89,8 @@ export type AiCurveNoteListItem = {
 export async function recordAiCurveNote(
   formData: FormData,
 ): Promise<Result<AiCurveNoteResult>> {
+  // 跟手卡模組同一套權限；錄音會燒 Gemini 額度 + 寫客戶資料
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const audio = formData.get('audio');
   const durationRaw = formData.get('duration_seconds');
 
@@ -203,6 +207,7 @@ export async function saveReviewedAiCurveNote(
   noteId: string,
   values: ReviewedHandcardValues,
 ): Promise<Result<{ id: string; reviewedAt: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const supabase = await createClient();
   const { brand_id: brandId } = await getActiveScope();
 
@@ -232,6 +237,7 @@ export async function saveReviewedAiCurveNote(
 export async function deleteAiCurveNote(
   noteId: string,
 ): Promise<Result<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const supabase = await createClient();
   const { brand_id: brandId } = await getActiveScope();
 
@@ -269,6 +275,8 @@ export async function deleteAiCurveNote(
 export async function listRecentAiCurveNotes(
   limit = 5,
 ): Promise<AiCurveNoteListItem[]> {
+  // 內容含客戶逐字稿與聯絡資訊 — 比照手卡頁，無 CUSTOMER_VIEW 回空列表
+  if (!(await hasPermission(PERMISSIONS.CUSTOMER_VIEW))) return [];
   const supabase = await createClient();
   const { brand_id: brandId } = await getActiveScope();
 

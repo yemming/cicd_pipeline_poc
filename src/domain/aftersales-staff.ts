@@ -15,6 +15,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { requirePermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 import {
   AFTERSALES_STAFF_PAGE_SIZE_DEFAULT,
@@ -557,6 +559,8 @@ export async function updateEmployeeRoles(
   employee_id: string,
   role_codes: string[],
 ): Promise<{ ok: boolean; error?: string }> {
+  // action 包裝層已有同樣守門，但 "use server" export 可被直打，這裡必須再守一次
+  await requirePermission(PERMISSIONS.EMPLOYEE_EDIT);
   if (!employee_id) return { ok: false, error: "缺員工 id" };
   const supabase = await createClient();
 

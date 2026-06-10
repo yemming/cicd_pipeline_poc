@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryTradeInfo } from "@/lib/pos/ecpay-aio";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ tradeNo: string }> },
 ) {
+  // 由登入的 POS 員工 polling（payment-wizard）；底下走 service client 繞 RLS，未登入擋掉
+  const { userId } = await getCurrentUserAndAdmin();
+  if (!userId) {
+    return NextResponse.json({ error: "未登入" }, { status: 401 });
+  }
+
   const { tradeNo } = await params;
 
   // 先查 DB（有 callback 時比 ECPay poll 更快更新）

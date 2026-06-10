@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildAioParams, buildCheckoutUrl } from "@/lib/pos/ecpay-aio";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentBrand } from "@/lib/brands/current";
+import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
 function genTradeNo(): string {
@@ -18,6 +19,13 @@ type CreateBody = {
 };
 
 export async function POST(req: NextRequest) {
+  // 此 endpoint 由登入的 POS 員工觸發（payment-wizard 同源 fetch）；
+  // 底下用 service client 繞 RLS 寫單，未登入一律擋掉
+  const { userId } = await getCurrentUserAndAdmin();
+  if (!userId) {
+    return NextResponse.json({ error: "未登入" }, { status: 401 });
+  }
+
   const body = (await req.json()) as CreateBody;
 
   if (!body.totalAmount || body.totalAmount <= 0) {

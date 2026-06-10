@@ -15,6 +15,8 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { requirePermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { notifications } from "@/lib/notifications";
 import {
   type NodeKind,
@@ -126,6 +128,8 @@ export type PickupNotifyInput = {
 export async function updatePickupNotifySettings(
   input: PickupNotifyInput,
 ): Promise<Result<{ id: string }>> {
+  // 守門與頁面 canEdit 同一個 code（"use server" export 可被直打，不能只靠 UI 藏按鈕）
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const lineT = (input.line_template ?? "").trim();
   const smsT = (input.sms_template ?? "").trim();
   if (!lineT) return { ok: false, error: "LINE 通知範本不可空白" };
@@ -300,6 +304,7 @@ export type UpsertTemplateInput = {
 };
 
 export async function upsertTemplate(input: UpsertTemplateInput): Promise<Result<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const name = (input.name ?? "").trim();
   const body = (input.body_template ?? "").trim();
   if (!name) return { ok: false, error: "範本名稱不可空白" };
@@ -339,6 +344,7 @@ export async function upsertTemplate(input: UpsertTemplateInput): Promise<Result
 }
 
 export async function setTemplateActive(id: string, active: boolean): Promise<Result<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const supabase = await createClient();
   const { error } = await supabase
     .from("pickup_notification_templates")
@@ -350,6 +356,7 @@ export async function setTemplateActive(id: string, active: boolean): Promise<Re
 }
 
 export async function deleteTemplate(id: string): Promise<Result<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const supabase = await createClient();
   const { error } = await supabase.from("pickup_notification_templates").delete().eq("id", id);
   if (error) return { ok: false, error: mapDbError(error, "刪除失敗") };
@@ -381,6 +388,8 @@ export async function dispatchTestNotification(
   id: string,
   vars: Record<string, string>,
 ): Promise<Result<{ deliveredTo: string }>> {
+  // 會真的派發 LINE / SMS 測試訊息，必須守門
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const preview = await previewWithVariables(id, vars);
   if (!preview.ok) return preview;
   const supabase = await createClient();
@@ -420,6 +429,7 @@ export type UpsertScheduleInput = {
 };
 
 export async function upsertSchedule(input: UpsertScheduleInput): Promise<Result<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   if (!input.template_id) return { ok: false, error: "請選擇要使用的範本" };
   const supabase = await createClient();
   const scope = await getActiveScope();
@@ -460,6 +470,7 @@ export async function upsertSchedule(input: UpsertScheduleInput): Promise<Result
 }
 
 export async function setScheduleActive(id: string, active: boolean): Promise<Result<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const supabase = await createClient();
   const { error } = await supabase
     .from("pickup_notification_schedules")
@@ -471,6 +482,7 @@ export async function setScheduleActive(id: string, active: boolean): Promise<Re
 }
 
 export async function deleteSchedule(id: string): Promise<Result<{ id: string }>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const supabase = await createClient();
   const { error } = await supabase.from("pickup_notification_schedules").delete().eq("id", id);
   if (error) return { ok: false, error: mapDbError(error, "刪除失敗") };

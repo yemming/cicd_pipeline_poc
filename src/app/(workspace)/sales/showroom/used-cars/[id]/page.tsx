@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getUsedCarById } from "@/domain/used-car-inventory";
+import { getCurrentBrandId, getUsedCarById } from "@/domain/used-car-inventory";
 import UsedCarDetailView from "./_components/used-car-detail-view";
 
 export const metadata = {
@@ -12,9 +12,7 @@ export default async function UsedCarDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const brandId = "indian"; // TODO: 從 session 取得
-
-  const car = await getUsedCarById(id);
+  const [brandId, car] = await Promise.all([getCurrentBrandId(), getUsedCarById(id)]);
   if (!car) notFound();
 
   return <UsedCarDetailView car={car} brandId={brandId} initialMode="view" />;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createShipment } from "@/lib/pos/ecpay-logistics";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 function genLogisticsTradeNo(): string {
   const d    = new Date();
   const ymd  = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
@@ -10,6 +11,12 @@ function genLogisticsTradeNo(): string {
 }
 
 export async function POST(req: NextRequest) {
+  // 由登入的 POS 員工觸發建立物流單；底下走 service client 繞 RLS，未登入擋掉
+  const { userId } = await getCurrentUserAndAdmin();
+  if (!userId) {
+    return NextResponse.json({ error: "未登入" }, { status: 401 });
+  }
+
   const body = await req.json();
   const {
     transactionId,
