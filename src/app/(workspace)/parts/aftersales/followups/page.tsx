@@ -12,6 +12,10 @@ import {
   type CaseStatus,
   type CasesListFilter,
 } from "@/domain/followup-cases";
+import {
+  addonRejectionStats,
+  saAddonConversion,
+} from "@/domain/repair-order-addons";
 
 import { FollowupsBoard } from "./_components/followups-board";
 
@@ -64,12 +68,15 @@ export default async function FollowupsPage({
     q: sp.q || null,
   };
 
-  const [{ rows, summary }, saNames, ranks, sas] = await Promise.all([
-    listCases(filter),
-    listSaNames(),
-    topLostItems(),
-    saPerformance(),
-  ]);
+  const [{ rows, summary }, saNames, ranks, sas, rejectionStats, saConversion] =
+    await Promise.all([
+      listCases(filter),
+      listSaNames(),
+      topLostItems(),
+      saPerformance(),
+      addonRejectionStats(),
+      saAddonConversion(),
+    ]);
 
   return (
     <FollowupsBoard
@@ -80,6 +87,8 @@ export default async function FollowupsPage({
       saNames={saNames}
       ranks={ranks}
       saPerformance={sas}
+      rejectionStats={rejectionStats}
+      saConversion={saConversion}
     />
   );
 }

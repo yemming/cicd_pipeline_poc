@@ -103,9 +103,11 @@ function buildModuleDef(
       const childPages: ModulePage[] = [];
       for (const gc of grandchildren) {
         if (gc.level === 3) {
-          // sections 模式不寫 section 字串（樹狀結構自身已有 section title）
-          // 舊模式 fallback：把 level=2 name 當 section 字串塞進 page
-          const sectionName = useSections ? undefined : child.name;
+          // sections 模式：把 leaf 自己的 section_group 當「分類註記」(── xxx ──) 帶進
+          //   page.section，由 SectionedTree 在同一 parent group 內、leaf 之間插入灰色小標
+          //   （目錄結構規範 v3.0 §二：分類註記不是節點、是視覺分組標題）。
+          // 舊模式 fallback：把 level=2 name 當 section 字串塞進 page。
+          const sectionName = useSections ? (gc.section_group ?? undefined) : child.name;
           const p = rowToPage(gc, sectionName);
           pages.push(p);
           childPages.push(p);

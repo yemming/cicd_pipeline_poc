@@ -67,12 +67,25 @@ function formatCurrency(v: number): string {
   return `NT$${v.toLocaleString()}`;
 }
 
+/** 台北今日 YYYY-MM-DD（client 端） */
+function taipeiToday(): string {
+  const tz = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+  return `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-${String(tz.getDate()).padStart(2, "0")}`;
+}
+
+/** Walk-in（臨時進廠）判定：無預約來源、且非 PD 內部整備 */
+function isWalkInRo(r: RepairOrderListRow): boolean {
+  return !r.appointment_id && r.prefix_p1 !== "PD";
+}
+
 export function RoSearchBoard({
   data,
   filters,
+  myEmployeeId,
 }: {
   data: RoSearchPageData;
   filters: RepairOrderListFilters;
+  myEmployeeId: string | null;
 }) {
   useSetPageHeader({
     title: "工單查詢",
@@ -120,6 +133,32 @@ export function RoSearchBoard({
     });
   }
 
+  // B-21：今日工單監控快篩 — 直接組 URL，避免月份 fallback 蓋掉日期區間
+  const isQuickActive = (kind: "mine" | "inprogress" | "today"): boolean => {
+    const today = filters.date_from && filters.date_from === filters.date_to;
+    if (kind === "mine") return Boolean(today && filters.sa_id && filters.sa_id !== "all");
+    if (kind === "today") return Boolean(today && (!filters.sa_id || filters.sa_id === "all"));
+    if (kind === "inprogress") return filters.status === "進行中" && !today;
+    return false;
+  };
+  function applyQuick(kind: "mine" | "inprogress" | "today") {
+    const params = new URLSearchParams();
+    const today = taipeiToday();
+    if (kind === "mine" && myEmployeeId) {
+      params.set("date_from", today);
+      params.set("date_to", today);
+      params.set("sa_id", myEmployeeId);
+    } else if (kind === "today") {
+      params.set("date_from", today);
+      params.set("date_to", today);
+    } else if (kind === "inprogress") {
+      params.set("status", "進行中");
+    }
+    startTransition(() => {
+      router.push(`/parts/aftersales/ro-search?${params.toString()}`);
+    });
+  }
+
   const columns: DataGridColumn<RepairOrderListRow>[] = useMemo(
     () => [
       {
@@ -161,8 +200,17 @@ export function RoSearchBoard({
                   ownerName ?? <span className="text-[#9A9890]">—</span>
                 )}
               </span>
-              <span className="text-[11px] text-[#9A9890]">
+              <span className="text-[11px] text-[#9A9890] inline-flex items-center gap-1">
                 {r.vehicle_model_name ?? r.vehicle_license_plate ?? "—"}
+                {isWalkInRo(r) && (
+                  <span
+                    data-testid="walkin-badge"
+                    className="inline-flex px-1 py-0.5 rounded text-[10px] font-medium bg-[#FDF3E3] text-[#854F0B] whitespace-nowrap"
+                    title="臨時進廠（無預約）"
+                  >
+                    🚶 臨時
+                  </span>
+                )}
               </span>
             </div>
           );
@@ -355,6 +403,49 @@ export function RoSearchBoard({
           <div className="mt-0.5 text-[11px] text-[#9A9890]">{monthLabel}</div>
         </div>
       </section>
+
+      {/* B-21：今日工單快速篩選 */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          data-testid="my-today-btn"
+          onClick={() => applyQuick("mine")}
+          disabled={isPending || !myEmployeeId}
+          title={myEmployeeId ? "今日由我負責的工單" : "你的帳號尚未對應到員工，無法用「我的」篩選"}
+          className={`h-[30px] px-3.5 rounded-full text-[12.5px] font-medium border transition-colors disabled:opacity-50 ${
+            isQuickActive("mine")
+              ? "bg-[#1A3A5C] text-white border-[#1A3A5C]"
+              : "bg-white border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          }`}
+        >
+          📋 今日我的工單
+        </button>
+        <button
+          type="button"
+          onClick={() => applyQuick("inprogress")}
+          disabled={isPending}
+          className={`h-[30px] px-3.5 rounded-full text-[12.5px] font-medium border transition-colors disabled:opacity-50 ${
+            isQuickActive("inprogress")
+              ? "bg-[#185FA5] text-white border-[#185FA5]"
+              : "bg-white border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          }`}
+        >
+          🔴 進行中
+        </button>
+        <button
+          type="button"
+          onClick={() => applyQuick("today")}
+          disabled={isPending}
+          className={`h-[30px] px-3.5 rounded-full text-[12.5px] font-medium border transition-colors disabled:opacity-50 ${
+            isQuickActive("today")
+              ? "bg-[#854F0B] text-white border-[#854F0B]"
+              : "bg-white border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          }`}
+        >
+          🕐 今日全部
+        </button>
+        <span className="text-[11px] text-[#9A9890] ml-1">含臨時進廠 Walk-in 工單</span>
+      </div>
 
       {/* Filter bar */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">

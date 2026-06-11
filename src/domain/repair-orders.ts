@@ -546,6 +546,23 @@ export async function listRoSearchSaOptions(): Promise<RoSearchSaOption[]> {
   }));
 }
 
+/**
+ * B-21：把目前登入者解析成 employees.id（= 工單的 sa_id 口徑），
+ * 給「今日我的工單」快篩用。找不到對應員工回 null。
+ */
+export async function getEmployeeIdByUser(userId: string): Promise<string | null> {
+  if (!userId) return null;
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data } = await supabase
+    .from("employees")
+    .select("id")
+    .eq("brand_id", brand)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
 /** 取得售後工單查詢頁的 KPI 摘要（依 business_month / filters 範圍計算） */
 export async function getRoSearchKpi(filters: RepairOrderListFilters): Promise<RoSearchKpi> {
   const supabase = await createClient();
@@ -623,11 +640,14 @@ export async function getRoSearchKpi(filters: RepairOrderListFilters): Promise<R
 export async function getRoSearchPageData(
   filters: RepairOrderListFilters,
 ): Promise<RoSearchPageData> {
+  // B-21：指定日期區間（如「今日」快篩）時，以日期區間為準、不再套當月 fallback
+  const hasDayRange = Boolean(filters.date_from || filters.date_to);
   // 查詢頁預設帶台北當月，避免空狀態
   const effectiveFilters: RepairOrderListFilters = {
     ...filters,
-    business_month:
-      filters.business_month && /^\d{4}-\d{2}$/.test(filters.business_month)
+    business_month: hasDayRange
+      ? undefined
+      : filters.business_month && /^\d{4}-\d{2}$/.test(filters.business_month)
         ? filters.business_month
         : todayIsoDate().slice(0, 7),
   };
@@ -661,6 +681,34 @@ export async function listUrgentOpenRos(limit = 10): Promise<UrgentRoRow[]> {
     .eq("brand_id", brand)
     .eq("priority", "urgent")
     .in("status", ["進行中", "維修中", "待結帳"])
+    .order("issue_date", { ascending: true })
+    .limit(limit);
+  const rows = (data ?? []) as unknown as RepairOrderRow[];
+  const joined = await joinRepairOrderRows(rows, brand);
+  return joined.map((r) => ({
+    id: r.id,
+    ro_code: r.ro_code,
+    status: r.status,
+    customer_name: r.customer_name,
+    vehicle_license_plate: r.vehicle_license_plate,
+    vehicle_model_name: r.vehicle_model_name,
+    lead_technician_name: r.lead_technician_name,
+  }));
+}
+
+/**
+ * B-19：待派工工單 — 工單確認後 status='進行中'（尚未派給技師，派工後才轉 '維修中'）。
+ * 派工看板用此清單顯示「⚠️ 有 N 張新工單待派工」通知橫幅。
+ */
+export async function listPendingDispatchRos(limit = 20): Promise<UrgentRoRow[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data } = await supabase
+    .from("repair_orders")
+    .select("*")
+    .eq("brand_id", brand)
+    .eq("status", "進行中")
+    .order("priority", { ascending: true }) // urgent 排前
     .order("issue_date", { ascending: true })
     .limit(limit);
   const rows = (data ?? []) as unknown as RepairOrderRow[];

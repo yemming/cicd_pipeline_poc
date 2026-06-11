@@ -177,11 +177,28 @@ export async function cancelAddonAction(id: string): Promise<ActionResult<{ id: 
   return { ok: true, data: { id } };
 }
 
+export type RejectionReason =
+  | "price"
+  | "time"
+  | "unnecessary"
+  | "consider"
+  | "other";
+
 export type DecideInput = {
   customer_decision: CustomerDecision;
   confirm_method?: ConfirmMethod | null;
   decision_note?: string | null;
+  /** B-23：拒絕時的結構化原因（五選一），存 metadata.rejection_reason */
+  rejection_reason?: RejectionReason | null;
 };
+
+const REJECTION_REASONS: ReadonlyArray<RejectionReason> = [
+  "price",
+  "time",
+  "unnecessary",
+  "consider",
+  "other",
+];
 
 /**
  * decideAddon — 三向分支
@@ -201,6 +218,13 @@ export async function decideAddonAction(
   if (!id) return { ok: false, error: "缺少 ID" };
   if (!["agreed", "deferred", "rejected"].includes(decision.customer_decision))
     return { ok: false, error: "決策值不合法" };
+  // B-23：拒絕必須帶結構化原因（漏斗分析的關鍵數據）
+  if (decision.customer_decision === "rejected") {
+    if (!decision.rejection_reason)
+      return { ok: false, error: "請選擇拒絕原因" };
+    if (!REJECTION_REASONS.includes(decision.rejection_reason))
+      return { ok: false, error: "拒絕原因不合法" };
+  }
 
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
@@ -315,6 +339,10 @@ export async function decideAddonAction(
     decision.customer_decision !== "agreed" && addon.safety_level !== "normal";
   const newMeta: Record<string, unknown> = { ...meta };
   if (requiresFollowup) newMeta.requires_followup = true;
+  // B-23：把結構化拒絕原因落地 metadata，供 B-24 圓餅圖 / SA 轉化率聚合
+  if (decision.customer_decision === "rejected" && decision.rejection_reason) {
+    newMeta.rejection_reason = decision.rejection_reason;
+  }
 
   const update: Record<string, unknown> = {
     customer_decision: decision.customer_decision,

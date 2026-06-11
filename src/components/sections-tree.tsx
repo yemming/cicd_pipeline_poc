@@ -181,19 +181,40 @@ function ParentGroupItem({
           open ? "max-h-[1200px]" : "max-h-0"
         }`}
       >
-        {parent.children.map((c) => (
-          <NestedChild
-            key={c.href}
-            page={c}
-            // 子頁 active 判定走 strict equality;activePageHref 在 PagesPanel
-            // 那層已經挑好「most specific match」(最長 href 優先),這裡若再做
-            // startsWith 會把 /pos 的「快速收銀」在 /pos/settings 時也誤判 active。
-            isActive={activePageHref === c.href}
-          />
-        ))}
+        {renderChildrenWithSubLabels(parent.children, activePageHref)}
       </div>
     </div>
   );
+}
+
+/**
+ * 在同一 parent group 內、依 leaf 的 page.section（分類註記）插入灰色小標。
+ * 規範 v3.0 §二：「── xxx ──」是純視覺分組、不可點選；section 相同時只在第一筆上方顯示一次。
+ */
+function renderChildrenWithSubLabels(
+  children: ModulePage[],
+  activePageHref: string | null,
+) {
+  let lastSection: string | undefined;
+  return children.map((c) => {
+    const showSub = !!c.section && c.section !== lastSection;
+    lastSection = c.section;
+    return (
+      <div key={c.href}>
+        {showSub && (
+          <div
+            className="ml-7 mr-2 mt-2 mb-0.5 px-2.5 text-[10px] tracking-[0.06em] italic select-none"
+            style={{ color: "var(--sidebar-text-muted)", opacity: 0.75, pointerEvents: "none" }}
+          >
+            ── {c.section} ──
+          </div>
+        )}
+        {/* 子頁 active 判定走 strict equality；activePageHref 在 PagesPanel 那層已挑好
+            「most specific match」(最長 href 優先)，這裡再做 startsWith 會誤判同前綴頁。 */}
+        <NestedChild page={c} isActive={activePageHref === c.href} />
+      </div>
+    );
+  });
 }
 
 function NestedChild({ page, isActive }: { page: ModulePage; isActive: boolean }) {

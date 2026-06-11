@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { DonutChart } from "@/components/charts";
 import {
   type CaseSafetyLevel,
   type CaseStatus,
@@ -15,6 +16,11 @@ import {
   type RankRow,
   type SaPerformanceRow,
 } from "@/domain/followup-cases";
+import {
+  saConversionColor,
+  type AddonRejectionStatRow,
+  type SaAddonConversionRow,
+} from "@/domain/repair-order-addons.constants";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -70,6 +76,8 @@ export function FollowupsBoard({
   saNames,
   ranks,
   saPerformance,
+  rejectionStats,
+  saConversion,
 }: {
   rows: FollowupCaseWithRo[];
   summary: CasesSummary;
@@ -78,6 +86,8 @@ export function FollowupsBoard({
   saNames: string[];
   ranks: RankRow[];
   saPerformance: SaPerformanceRow[];
+  rejectionStats: AddonRejectionStatRow[];
+  saConversion: SaAddonConversionRow[];
 }) {
   useSetPageHeader({
     title: "增項閉環管理",
@@ -92,6 +102,19 @@ export function FollowupsBoard({
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
   const [tab, setTab] = useState<"pending" | "timeline" | "stats">("pending");
+
+  // B-24：拒絕原因圓餅圖資料（只取有件數的扇形）
+  const rejectionTotalCount = useMemo(
+    () => rejectionStats.reduce((s, r) => s + r.count, 0),
+    [rejectionStats],
+  );
+  const rejectionPie = useMemo(
+    () =>
+      rejectionStats
+        .filter((r) => r.count > 0)
+        .map((r) => ({ name: r.label, value: r.count, color: r.color })),
+    [rejectionStats],
+  );
 
   // filter local state
   const [statusLocal, setStatusLocal] = useState<NonNullable<CasesListFilter["status"]>>(
@@ -553,6 +576,112 @@ export function FollowupsBoard({
                     </div>
                   );
                 })}
+              </div>
+            </section>
+          </div>
+
+          {/* B-24：增項拒絕原因分布 + SA 個人增項轉化率 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* 拒絕原因分布圓餅圖 */}
+            <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+              <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                <span className="text-[13px] font-semibold text-[#2C2C2A]">本月增項拒絕原因分布</span>
+              </header>
+              <div className="px-4 py-3">
+                {rejectionTotalCount === 0 ? (
+                  <div className="text-[12px] text-[#9A9890] py-8 text-center">
+                    尚無拒絕原因資料（拒絕增項時選擇原因後即會統計）
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center gap-4"
+                    data-testid="rejection-pie-chart"
+                  >
+                    <div className="w-[160px] shrink-0">
+                      <DonutChart
+                        data={rejectionPie}
+                        size="sm"
+                        centerLabel={`${rejectionTotalCount}`}
+                        centerCaption="拒絕件數"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      {rejectionStats
+                        .filter((r) => r.count > 0)
+                        .map((r) => {
+                          const pct = Math.round((r.count / rejectionTotalCount) * 100);
+                          return (
+                            <div
+                              key={r.reason}
+                              data-testid="pie-slice"
+                              className="flex items-center gap-2 text-[12px]"
+                            >
+                              <span
+                                className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
+                                style={{ backgroundColor: r.color }}
+                              />
+                              <span className="flex-1 text-[#5A5955] truncate">{r.label}</span>
+                              <span className="font-semibold text-[#2C2C2A]">{pct}%</span>
+                              <span className="text-[#9A9890] min-w-[80px] text-right">
+                                {r.count} 件 · {fmtMoney(r.amount)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* SA 個人增項轉化率 */}
+            <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+              <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+                <span className="text-[13px] font-semibold text-[#2C2C2A]">SA 個人增項轉化率</span>
+                <span className="text-[10.5px] text-[#9A9890]">健康線 ≥35%🟢 / 20–34%🟡 / &lt;20%🔴</span>
+              </header>
+              <div className="px-4 py-3" data-testid="sa-conversion-table">
+                {saConversion.length === 0 ? (
+                  <div className="text-[12px] text-[#9A9890] py-8 text-center">尚無增項決策資料</div>
+                ) : (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#EEECE6] text-[11px] text-[#9A9890]">
+                        <th className="text-left py-1.5 font-medium">SA</th>
+                        <th className="text-right py-1.5 font-medium">提案</th>
+                        <th className="text-right py-1.5 font-medium">接受</th>
+                        <th className="text-right py-1.5 font-medium">接受率</th>
+                        <th className="text-left py-1.5 font-medium pl-3">主要拒絕原因</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {saConversion.map((s) => (
+                        <tr
+                          key={s.sa_name}
+                          data-testid={s.rate < 20 ? "sa-row-low" : "sa-row"}
+                          className={`border-b border-[#F2F2F2] last:border-b-0 ${
+                            s.rate < 20 ? "red bg-[#FDECEA]/40" : ""
+                          }`}
+                        >
+                          <td className="py-2 text-[12.5px] font-medium">{s.sa_name}</td>
+                          <td className="py-2 text-[12px] text-[#5A5955] text-right">{s.total}</td>
+                          <td className="py-2 text-[12px] text-[#5A5955] text-right">{s.accepted}</td>
+                          <td className="py-2 text-right">
+                            <span
+                              className="text-[15px] font-bold"
+                              style={{ color: saConversionColor(s.rate) }}
+                            >
+                              {s.rate}%
+                            </span>
+                          </td>
+                          <td className="py-2 text-[11.5px] text-[#9A9890] pl-3">
+                            {s.top_reason ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </section>
           </div>

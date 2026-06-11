@@ -4,6 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import {
+  getEmployeeIdByUser,
   getRoSearchPageData,
   type RepairOrderListFilters,
 } from "@/domain/repair-orders";
@@ -33,13 +34,22 @@ export default async function RoSearchPage({
     prefix_p1: sp.prefix_p1 || "all",
     sa_id: sp.sa_id || "all",
     q: sp.q || "",
+    date_from: sp.date_from || undefined,
+    date_to: sp.date_to || undefined,
     business_month: sp.business_month || undefined,
   };
+  const hasDayRange = Boolean(filters.date_from || filters.date_to);
 
-  const data = await getRoSearchPageData(filters);
-  // effective month（query helper 已套 fallback，這邊取回實際值同步給 client）
-  const effectiveMonth =
-    filters.business_month && /^\d{4}-\d{2}$/.test(filters.business_month)
+  const [data, myEmployeeId] = await Promise.all([
+    getRoSearchPageData(filters),
+    getEmployeeIdByUser(userId),
+  ]);
+
+  // effective month（query helper 已套 fallback，這邊取回實際值同步給 client）；
+  // 指定日期區間時不回填月份，避免快篩被當月覆蓋。
+  const effectiveMonth = hasDayRange
+    ? undefined
+    : filters.business_month && /^\d{4}-\d{2}$/.test(filters.business_month)
       ? filters.business_month
       : (() => {
           const d = new Date();
@@ -51,6 +61,7 @@ export default async function RoSearchPage({
     <RoSearchBoard
       data={data}
       filters={{ ...filters, business_month: effectiveMonth }}
+      myEmployeeId={myEmployeeId}
     />
   );
 }

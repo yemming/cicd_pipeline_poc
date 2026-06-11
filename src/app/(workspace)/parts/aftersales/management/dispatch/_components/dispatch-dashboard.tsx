@@ -65,6 +65,7 @@ type Props = {
   canEdit: boolean;
   employeeCandidates: TechnicianCandidateEmployee[];
   urgentRos: UrgentRoRow[];
+  pendingDispatchRos: UrgentRoRow[];
 };
 
 type Banner = { ok: boolean; msg: string } | null;
@@ -89,6 +90,7 @@ export function DispatchDashboard({
   canEdit,
   employeeCandidates,
   urgentRos,
+  pendingDispatchRos,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -101,6 +103,12 @@ export function DispatchDashboard({
     const id = setInterval(() => setNowTick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // B-19：每 30 秒重抓，新工單確認後派工看板自動收到「待派工」通知
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 30000);
+    return () => clearInterval(id);
+  }, [router]);
 
   useEffect(() => {
     if (!banner?.ok) return;
@@ -148,6 +156,40 @@ export function DispatchDashboard({
           技師即時狀態、NADA 三指標、手動派工
         </span>
       </header>
+
+      {/* B-19：待派工通知橫幅 — 工單確認後（status=進行中、尚未派給技師）即時提醒主管 */}
+      {pendingDispatchRos.length > 0 && (
+        <section
+          data-testid="pending-dispatch-banner"
+          className="bg-[#FDF3E3] border-[1.5px] border-[#F0C97E] rounded-lg overflow-hidden"
+        >
+          <header className="px-4 py-2.5 border-b border-[#F0C97E] flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-[#854F0B]">
+              ⚠️ 有 {pendingDispatchRos.length} 張新工單待派工
+            </span>
+            <span className="text-[11px] text-[#9A7B3A]">請於下方技師卡點「派工」指派技師與工位</span>
+          </header>
+          <div className="divide-y divide-[#F0DBAE]">
+            {pendingDispatchRos.map((ro) => (
+              <a
+                key={ro.id}
+                href={`/parts/aftersales/repair-orders/${ro.id}`}
+                className="flex items-center gap-3 px-4 py-2 hover:bg-[#fbeccd] text-[12.5px]"
+              >
+                <span className="font-mono font-semibold text-[#854F0B]">{ro.ro_code}</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-white text-[#854F0B] text-[11px] border border-[#F0C97E]">
+                  {ro.status}
+                </span>
+                <span className="text-[#5A5955] truncate">
+                  {ro.customer_name ?? "—"} · {ro.vehicle_license_plate ?? "—"}
+                  {ro.vehicle_model_name ? ` · ${ro.vehicle_model_name}` : ""}
+                </span>
+                <span className="ml-auto text-[11px] text-[#9A9890]">尚未派工</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 包B：緊急工單置頂 — 派工看板優先顯示 priority=urgent 的未結工單 */}
       {urgentRos.length > 0 && (

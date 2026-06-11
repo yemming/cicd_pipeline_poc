@@ -522,9 +522,9 @@ function RatesTab({
   return (
     <>
       <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded-lg px-4 py-2.5 text-[12px] text-[#854F0B]">
-        ⚠️ 費率變更將即時影響 04B 快速報價查詢的報價計算，所有修改都會寫入「稽核日誌」。
+        ⚠️ 費率變更將即時影響 04B 快速報價查詢的計算結果，所有修改均記錄於稽核日誌。
         <span className="ml-1">
-          目前品牌：<b>{brand}</b>（labor_rates 雙品牌各一套，本頁只管當前 scope brand）。
+          目前品牌：<b>{brand}</b>。
         </span>
       </div>
 

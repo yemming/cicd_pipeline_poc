@@ -21,10 +21,12 @@ import {
   CONFIRM_LABEL,
   DECISION_CHIP,
   DECISION_LABEL,
+  REJECTION_REASON_OPTIONS,
   SAFETY_CHIP,
   SAFETY_LABEL,
   TYPE_LABEL,
   type CustomerDecision,
+  type RejectionReason,
   type RepairOrderAddonWithRo,
 } from "@/domain/repair-order-addons.constants";
 import {
@@ -396,6 +398,10 @@ function DecideModal({
     target.confirm_method ?? "phone",
   );
   const [note, setNote] = useState("");
+  const [rejectionReason, setRejectionReason] = useState<RejectionReason | null>(null);
+
+  // B-23：拒絕時必須先選結構化原因才能送出
+  const blockedByReason = decision === "rejected" && !rejectionReason;
 
   const submit = () => {
     startTransition(async () => {
@@ -403,6 +409,7 @@ function DecideModal({
         customer_decision: decision,
         confirm_method: confirmMethod,
         decision_note: note,
+        rejection_reason: decision === "rejected" ? rejectionReason : null,
       });
       const msg =
         decision === "agreed"
@@ -462,6 +469,36 @@ function DecideModal({
           </div>
         </div>
 
+        {/* B-23：拒絕原因採集（固定標籤五選一，必填） */}
+        {decision === "rejected" && (
+          <div className="mb-3" data-testid="rejection-modal">
+            <label className="text-[11px] text-[#9A9890] font-medium block mb-1.5">
+              拒絕原因 <span className="text-[#CC0000]">*</span>
+            </label>
+            <div className="grid grid-cols-1 gap-1.5">
+              {REJECTION_REASON_OPTIONS.map((opt) => {
+                const active = rejectionReason === opt.code;
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    data-testid={`reason-${opt.code}`}
+                    onClick={() => setRejectionReason(opt.code)}
+                    disabled={pending}
+                    className={`text-left h-[32px] px-3 rounded border text-[12.5px] transition-colors ${
+                      active
+                        ? "bg-[#FDECEA] border-[#CC0000] text-[#CC0000] font-medium"
+                        : "bg-white border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1">
             <label className="text-[11px] text-[#9A9890] font-medium">確認方式</label>
@@ -477,12 +514,16 @@ function DecideModal({
             </select>
           </div>
           <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-            <label className="text-[11px] text-[#9A9890] font-medium">決策備註</label>
+            <label className="text-[11px] text-[#9A9890] font-medium">
+              {decision === "rejected" ? "補充說明（選填）" : "決策備註"}
+            </label>
             <input
               className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none disabled:bg-[#F8F7F4]"
               value={note}
+              maxLength={50}
+              data-testid="rejection-note"
               onChange={(e) => setNote(e.target.value)}
-              placeholder="例：車主表示下次再處理"
+              placeholder="例：車主表示下次再處理（最多 50 字）"
               disabled={pending}
             />
           </div>
@@ -511,7 +552,8 @@ function DecideModal({
           <button
             type="button"
             onClick={submit}
-            disabled={pending}
+            disabled={pending || blockedByReason}
+            data-testid="confirm-reject-btn"
             className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
           >
             {pending ? "送出中⋯" : "送出決策"}

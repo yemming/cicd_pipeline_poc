@@ -17,6 +17,18 @@ export type CustomerDecision =
   | "rejected"
   | "cancelled";
 
+/**
+ * 拒絕原因（B-23）— 結構化固定標籤，存 metadata.rejection_reason。
+ * 業界依據：CDK Global《Service Revenue Optimization 2025》— 結構化採集是診斷
+ * SA 說服能力缺口的唯一可靠方法。自由文字補充沿用既有 decision_note。
+ */
+export type RejectionReason =
+  | "price"
+  | "time"
+  | "unnecessary"
+  | "consider"
+  | "other";
+
 export type RepairOrderAddonRow = {
   id: string;
   brand_id: string;
@@ -77,6 +89,30 @@ export type RoOptionForAddons = {
   customer_name: string | null;
 };
 
+// ── B-24：增項拒絕原因統計 + SA 轉化率
+export type AddonRejectionStatRow = {
+  reason: RejectionReason | "unknown";
+  label: string;
+  color: string;
+  count: number;
+  amount: number;
+};
+
+export type SaAddonConversionRow = {
+  sa_name: string;
+  total: number; // 已決策件數（agreed + deferred + rejected）
+  accepted: number; // agreed
+  rate: number; // accepted / total（%）
+  top_reason: string | null; // 最高頻拒絕原因 label
+};
+
+/** SA 增項接受率健康線（CDK Global 2025）：≥35%🟢 / 20-34%🟡 / <20%🔴 */
+export function saConversionColor(rate: number): string {
+  if (rate >= 35) return "#0F6E56";
+  if (rate >= 20) return "#854F0B";
+  return "#CC0000";
+}
+
 // ── Labels（中文）
 export const DECISION_LABEL: Record<CustomerDecision, string> = {
   pending: "待確認",
@@ -85,6 +121,36 @@ export const DECISION_LABEL: Record<CustomerDecision, string> = {
   rejected: "拒絕",
   cancelled: "已取消",
 };
+
+// ── 拒絕原因（B-23 / B-24）— 五選一固定標籤
+export const REJECTION_REASON_LABEL: Record<RejectionReason, string> = {
+  price: "💰 價格超出預算",
+  time: "⏰ 今天時間不夠，下次再說",
+  unnecessary: "❓ 不認為有必要做",
+  consider: "🤔 需要回去考慮",
+  other: "📝 其他",
+};
+
+/** 圓餅圖配色（B-24）— 以系統 amber 系為主，與失銷紅做出區隔 */
+export const REJECTION_REASON_COLOR: Record<RejectionReason, string> = {
+  price: "#CC0000",
+  time: "#854F0B",
+  unnecessary: "#6B7A8F",
+  consider: "#B0AEA6",
+  other: "#9A9890",
+};
+
+/** Modal radio 用的有序清單 */
+export const REJECTION_REASON_OPTIONS: ReadonlyArray<{
+  code: RejectionReason;
+  label: string;
+}> = [
+  { code: "price", label: REJECTION_REASON_LABEL.price },
+  { code: "time", label: REJECTION_REASON_LABEL.time },
+  { code: "unnecessary", label: REJECTION_REASON_LABEL.unnecessary },
+  { code: "consider", label: REJECTION_REASON_LABEL.consider },
+  { code: "other", label: REJECTION_REASON_LABEL.other },
+];
 
 export const SAFETY_LABEL: Record<SafetyLevel, string> = {
   normal: "一般建議",
