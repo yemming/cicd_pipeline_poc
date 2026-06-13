@@ -1189,6 +1189,7 @@ export type RoEventAction =
   | "discount_applied"       // ro-checkout applyDiscountAction
   | "checkout_completed"     // ro-checkout completeAction（關單）
   | "addon_decision"         // repair-order-addon-actions decideAddonAction
+  | "addon_cancelled"        // repair-order-addon-actions cancelAddonAction（RP3 退料）
   | "contact_attempt";       // 聯繫嘗試記錄（B5-02）
 
 export type RoEvent = {

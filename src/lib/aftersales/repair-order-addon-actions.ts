@@ -155,28 +155,209 @@ export async function updateAddonAction(
   return { ok: true, data: { id } };
 }
 
-export async function cancelAddonAction(id: string): Promise<ActionResult<{ id: string }>> {
+/**
+ * RP3 退料模式：
+ *  - full_return    : 完整退料（庫存預留釋放 + 已出庫 stock_items 退回 + RO lines 費用移除）
+ *  - damage_writeoff: 損耗核銷（庫存不退、費用保留、記錄至 metadata 供稽核）
+ *  - mid_install    : 安裝中（暫時先記錄狀態、不動庫存、不移除費用，後續人工處理）
+ *
+ * pending 狀態的 addon 仍可用 cancelMode=full_return（等同原先無庫存的取消）。
+ * agreed 狀態才需要三選一；pending 強制走 full_return（不需要展示 modal）。
+ */
+export type AddonCancelMode = "full_return" | "damage_writeoff" | "mid_install";
+
+export type CancelAddonInput = {
+  /** 退料模式：agreed 追加必填；pending 追加省略時預設 full_return */
+  cancel_mode?: AddonCancelMode;
+  /** 損耗核銷或安裝中的原因描述（供稽核）；damage_writeoff 必填 */
+  cancel_reason?: string | null;
+  /** 損耗核銷：主管授權人 ID（記錄稽核，POC 階段選填）*/
+  supervisor_id?: string | null;
+};
+
+export async function cancelAddonAction(
+  id: string,
+  input: CancelAddonInput = {},
+): Promise<ActionResult<{ id: string; removed_line_ids: string[]; reservation_released: boolean }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   if (!id) return { ok: false, error: "缺少 ID" };
+
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
-  const { data: cur } = await supabase
+  const now = new Date().toISOString();
+
+  // ── 1. 載入 addon ──
+  const { data: cur, error: loadErr } = await supabase
     .from("repair_order_addons")
-    .select("id, customer_decision")
+    .select("id, ro_id, name, addon_type, customer_decision, reserved_at, estimated_fee, metadata")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
-  if (!cur) return { ok: false, error: "找不到追加項目" };
-  if (cur.customer_decision !== "pending")
-    return { ok: false, error: "已決策的追加項目無法取消" };
-  const { error } = await supabase
+  if (loadErr || !cur) return { ok: false, error: "找不到追加項目" };
+  if (cur.customer_decision === "cancelled")
+    return { ok: false, error: "追加項目已取消，無需重複操作" };
+  if (!["pending", "agreed"].includes(cur.customer_decision))
+    return { ok: false, error: `當前決策狀態「${cur.customer_decision}」不支援取消退料` };
+
+  // ── 2. 決定 cancelMode ──
+  const cancelMode: AddonCancelMode =
+    cur.customer_decision === "pending"
+      ? "full_return" // pending → 無庫存問題，直接完整退料
+      : (input.cancel_mode ?? "full_return");
+
+  // damage_writeoff 必須填原因
+  if (cancelMode === "damage_writeoff" && !input.cancel_reason?.trim()) {
+    return { ok: false, error: "損耗核銷必須填寫原因" };
+  }
+
+  const removed_line_ids: string[] = [];
+  let reservation_released = false;
+
+  // ── 3. full_return：釋放預留 + 退回已出庫 stock_items + 移除 RO lines ──
+  if (cancelMode === "full_return") {
+    // 3a. 釋放 inventory_reservations（active 狀態的）
+    const { data: activeReservations } = await supabase
+      .from("inventory_reservations")
+      .select("id, status")
+      .eq("brand_id", brand)
+      .eq("source_type", "repair_order_addon")
+      .eq("source_id", id)
+      .eq("status", "active");
+
+    for (const res of activeReservations ?? []) {
+      const { error: relErr } = await supabase
+        .from("inventory_reservations")
+        .update({
+          status: "cancelled",
+          released_at: now,
+          release_reason: "cancelled_by_user",
+          updated_at: now,
+        })
+        .eq("id", res.id)
+        .eq("brand_id", brand)
+        .eq("status", "active");
+      if (relErr) {
+        console.error("[cancelAddon] release reservation error", relErr);
+        // 非致命：記錄但繼續（預留已被消耗或已釋放時可能失敗）
+      } else {
+        reservation_released = true;
+      }
+    }
+
+    // 3b. 退回已出庫的 stock_items（source_type='addon_issue', source_addon_id=id）
+    //     這些是因 addon agreed 後領料流程實際出庫產生的 issued stock_items
+    //     TODO promote to typed table when stock_items.source_addon_id column added (needs DDL)
+    const { data: issuedItems } = await supabase
+      .from("stock_items")
+      .select("id, status, item_id, warehouse_id, qty, unit_cost, bin_id")
+      .eq("brand_id", brand)
+      .eq("status", "issued")
+      .filter("metadata->>source_addon_id", "eq", id);
+
+    for (const si of issuedItems ?? []) {
+      // 將 issued 的 stock_item 狀態改回 available（退回倉庫）
+      const { error: restoreErr } = await supabase
+        .from("stock_items")
+        .update({
+          status: "available",
+          // TODO promote: 清除 source_addon_id 與 issued_at 等出庫記錄（metadata 操作）
+          metadata: {
+            ...(typeof si === "object" && si !== null ? {} : {}),
+            source_addon_id: id,
+            returned_from_cancel: true,
+            returned_at: now,
+          },
+          updated_at: now,
+        })
+        .eq("id", si.id)
+        .eq("brand_id", brand);
+      if (restoreErr) {
+        console.error("[cancelAddon] restore stock_item error", restoreErr);
+        // 非致命，繼續（有可能料已被二次移動）
+      }
+    }
+
+    // 3c. 移除 repair_order_lines（source='addon', source_ref_id=addon.id）
+    const { data: linesToRemove, error: linesFetchErr } = await supabase
+      .from("repair_order_lines")
+      .select("id")
+      .eq("brand_id", brand)
+      .eq("source", "addon")
+      .eq("source_ref_id", id);
+
+    if (!linesFetchErr && linesToRemove && linesToRemove.length > 0) {
+      const lineIds = linesToRemove.map((l) => l.id);
+      const { error: delErr } = await supabase
+        .from("repair_order_lines")
+        .delete()
+        .in("id", lineIds)
+        .eq("brand_id", brand);
+      if (delErr) {
+        console.error("[cancelAddon] delete ro_lines error", delErr);
+        return { ok: false, error: `移除工單費用明細失敗：${delErr.message}` };
+      }
+      removed_line_ids.push(...lineIds);
+    }
+  }
+
+  // ── 4. 更新 addon envelope ──
+  const prevMeta = ((cur.metadata ?? {}) as Record<string, unknown>);
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const cancelRecord: Record<string, unknown> = {
+    cancel_mode: cancelMode,
+    cancelled_at: now,
+    cancelled_by: user?.id ?? null,
+    cancel_reason: input.cancel_reason?.trim() || null,
+    supervisor_id: input.supervisor_id ?? null,
+    removed_line_count: removed_line_ids.length,
+    reservation_released,
+  };
+
+  const newMeta: Record<string, unknown> = {
+    ...prevMeta,
+    cancel_record: cancelRecord, // RP3 損耗核銷稽核記錄
+    // TODO promote cancel_record to typed table repair_order_addon_cancellations (needs DDL)
+  };
+
+  const { error: updateErr } = await supabase
     .from("repair_order_addons")
-    .update({ customer_decision: "cancelled", updated_at: new Date().toISOString() })
+    .update({
+      customer_decision: "cancelled",
+      updated_at: now,
+      metadata: newMeta,
+    })
     .eq("id", id)
     .eq("brand_id", brand);
-  if (error) return { ok: false, error: error.message };
+  if (updateErr) return { ok: false, error: updateErr.message };
+
+  // ── 5. RP4 事件時間軸（非阻塞）──
+  {
+    const roId = cur.ro_id as string;
+    const actorId = user?.id ?? null;
+    after(async () => {
+      await appendRepairOrderEvent(
+        roId,
+        {
+          action: "addon_cancelled",
+          payload: {
+            addon_id: id,
+            addon_name: cur.name,
+            cancel_mode: cancelMode,
+            cancel_reason: input.cancel_reason?.trim() || null,
+            removed_line_count: removed_line_ids.length,
+            reservation_released,
+            estimated_fee: cur.estimated_fee,
+          },
+        },
+        actorId,
+      );
+    });
+  }
+
   revalidatePath(PAGE);
-  return { ok: true, data: { id } };
+  revalidatePath(`/parts/aftersales/repair-orders/${cur.ro_id}/lines`);
+  return { ok: true, data: { id, removed_line_ids, reservation_released } };
 }
 
 export type RejectionReason =
