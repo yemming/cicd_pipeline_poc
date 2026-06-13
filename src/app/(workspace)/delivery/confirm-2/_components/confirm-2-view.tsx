@@ -87,7 +87,7 @@ export function Confirm2View({
               客戶交車確認表（36 項）
             </div>
             <div className="text-[11px] text-[#9A9890] mt-px">
-              DUCATI Check List — BIKE DELIVERY TO CUSTOMER · 逐項點交完成後請客戶簽名
+              Bike Delivery Check List — 交車點交確認 · 逐項點交完成後請客戶簽名
             </div>
           </div>
           <span

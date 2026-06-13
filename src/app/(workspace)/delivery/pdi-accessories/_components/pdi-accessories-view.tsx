@@ -61,7 +61,7 @@ export function PdiAccessoriesView({ delivery }: { delivery: DeliveryRow }) {
           </span>
           <div>
             <div className="text-[13px] font-semibold text-[#2C2C2A]">
-              Ducati Performance 配件安裝清單
+              原廠 Performance 配件安裝清單
             </div>
             <div className="text-[11px] text-[#9A9890] mt-px">
               依客戶訂單安裝 · 安裝完成後請逐項勾選確認操作正常
