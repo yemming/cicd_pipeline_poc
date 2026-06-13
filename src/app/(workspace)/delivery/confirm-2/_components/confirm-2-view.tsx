@@ -3,9 +3,7 @@
 import { useState } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import {
-  DELIVERY_ITEMS,
   DELIVERY_ITEM_CAT_NAME,
-  DELIVERY_ITEM_ROWS,
   type DeliveryItemCat,
 } from "@/components/delivery/delivery-constants";
 import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
@@ -18,10 +16,20 @@ const CAT_PILL: Record<DeliveryItemCat, string> = {
   d: "bg-[#534AB7]",
 };
 
-export function Confirm2View({ delivery }: { delivery: DeliveryRow }) {
-  const total = DELIVERY_ITEMS.length;
-  const allIdx = DELIVERY_ITEMS.map((_, i) => i);
-  const rows = DELIVERY_ITEM_ROWS;
+export function Confirm2View({
+  delivery,
+  rows,
+}: {
+  delivery: DeliveryRow;
+  /** 依品牌中性化後的交車確認表 rows（ducati 保留原廠術語、其他品牌中性版） */
+  rows: {
+    item: { t: string; c: DeliveryItemCat };
+    i: number;
+    showDivider: boolean;
+  }[];
+}) {
+  const total = rows.length;
+  const allIdx = rows.map((_, i) => i);
 
   const [checked, setChecked] = useState<number[]>(
     delivery.delivery_checklist ?? [],

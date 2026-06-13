@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
-import { PDI_ITEMS } from "@/components/delivery/delivery-constants";
 import {
   loadDeliveryPdiStatusAction,
   updateDeliveryStepAction,
@@ -22,7 +21,14 @@ const NT = (n: number | null) =>
  * 依該交車單關聯車輛（VIN join new_car_inventory → pdi_workorder repair_orders）的
  * PDI 狀態顯示三態卡：ok 綠 / pending 黃 / blocked 紅。非 ok 時鎖住下一步。
  */
-export function PdiView({ delivery }: { delivery: DeliveryRow }) {
+export function PdiView({
+  delivery,
+  pdiItems,
+}: {
+  delivery: DeliveryRow;
+  /** 依品牌中性化後的 PDI 整備項目（ducati 保留原廠術語、其他品牌中性版） */
+  pdiItems: string[];
+}) {
   const deliveryId = delivery.id;
 
   const [pdi, setPdi] = useState<DeliveryPdiStatus | null>(null);
@@ -55,7 +61,7 @@ export function PdiView({ delivery }: { delivery: DeliveryRow }) {
       "pdi",
       {
         // 確認 PDI 已完成；副本 29 項全數視為通過
-        pdi_checklist: PDI_ITEMS.map((_, i) => i),
+        pdi_checklist: pdiItems.map((_, i) => i),
         pdi_work_order_no: pdi?.workOrderNo ?? undefined,
       },
       "pdi_complete",
@@ -189,13 +195,13 @@ export function PdiView({ delivery }: { delivery: DeliveryRow }) {
             data-testid="pdi-copy-count"
           >
             {effectiveState === "ok"
-              ? `${PDI_ITEMS.length} / ${PDI_ITEMS.length}`
-              : `0 / ${PDI_ITEMS.length}`}
+              ? `${pdiItems.length} / ${pdiItems.length}`
+              : `0 / ${pdiItems.length}`}
           </span>
         </header>
         <div className="px-4 py-3">
           <div className="flex flex-col gap-1" data-testid="pdi-checklist">
-            {PDI_ITEMS.map((t, i) => {
+            {pdiItems.map((t, i) => {
               const done = effectiveState === "ok";
               return (
                 <div

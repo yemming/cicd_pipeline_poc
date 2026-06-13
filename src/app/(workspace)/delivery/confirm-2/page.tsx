@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getDeliveryById } from "@/lib/deliveries";
+import { resolveDeliveryItemRows } from "@/components/delivery/delivery-constants";
 import { Confirm2View } from "./_components/confirm-2-view";
 
 export const dynamic = "force-dynamic";
@@ -19,5 +20,10 @@ export default async function Page({
       </main>
     );
   }
-  return <Confirm2View delivery={delivery} />;
+  return (
+    <Confirm2View
+      delivery={delivery}
+      rows={resolveDeliveryItemRows(delivery.brand_id)}
+    />
+  );
 }

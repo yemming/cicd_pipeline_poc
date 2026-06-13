@@ -130,6 +130,47 @@ export const DELIVERY_ITEMS: { t: string; c: DeliveryItemCat }[] = [
   { t: "交付車輛領牌文件、車主手冊、隨車配件箱及正確填寫保固書", c: "d" },
 ];
 
+/**
+ * 品牌中性化（B-13 延伸）：PDI / 交車確認表原文含碩文 DUCATI 原廠專屬系統術語
+ * （NDCS / DDS 2.0 / Ducati Performance / DQS / MyDucati / Ducati Connect / Ducati 官網）。
+ * 碩文 DUCATI（brand_id='ducati'）保留自家術語；其他品牌（如海德生 Indian）走中性版，
+ * 不露出 DUCATI 專屬系統名。對應 domain/brand-config 的 resolveWarrantyContent 模式。
+ */
+const PDI_ITEMS_NEUTRAL: Record<string, string> = {
+  "透過 NDCS 檢查是否有技術公報或召回需要執行":
+    "透過原廠診斷系統檢查是否有技術公報或召回需要執行",
+  "透過 DDS 2.0 檢查 ECU 是否有故障碼與軟體升級（Global Scan）":
+    "透過原廠診斷工具檢查 ECU 是否有故障碼與軟體升級",
+  "根據客戶訂單安裝 Ducati Performance 配件並確認操作正常":
+    "根據客戶訂單安裝原廠 Performance 配件並確認操作正常",
+};
+
+/** 取某品牌的 PDI 整備項目（ducati 保留原廠術語、其他品牌中性化）。 */
+export function resolvePdiItems(brandId: string): string[] {
+  if (brandId === "ducati") return PDI_ITEMS;
+  return PDI_ITEMS.map((t) => PDI_ITEMS_NEUTRAL[t] ?? t);
+}
+
+const DELIVERY_ITEMS_NEUTRAL: Record<string, string> = {
+  "Ducati 進退快排系統（DQS）說明": "進退快排系統（如配備）說明",
+  "Ducati Connect、Sygic GPS、XLink 應用程式說明": "原廠車聯網 App（導航 / 互聯）說明",
+  "下載並講解 MyDucati 應用程式（車庫/定期維護/新消息）":
+    "下載並講解原廠車主 App（車庫/定期維護/新消息）",
+  "摩托車定期保養計劃說明（里程保養/時間保養，登錄 Ducati 官網）":
+    "摩托車定期保養計劃說明（里程保養/時間保養，登錄原廠官網）",
+};
+
+/** 取某品牌的客戶交車確認表 36 項（ducati 保留原廠術語、其他品牌中性化）。 */
+export function resolveDeliveryItems(
+  brandId: string,
+): { t: string; c: DeliveryItemCat }[] {
+  if (brandId === "ducati") return DELIVERY_ITEMS;
+  return DELIVERY_ITEMS.map((item) => ({
+    ...item,
+    t: DELIVERY_ITEMS_NEUTRAL[item.t] ?? item.t,
+  }));
+}
+
 export const DELIVERY_ITEM_CAT_NAME: Record<DeliveryItemCat, string> = {
   a: "A. 經銷商交車準備",
   b: "B. 向客戶說明一般事項",
@@ -149,7 +190,24 @@ export const DELIVERY_ITEM_ROWS: {
     i === 0 || DELIVERY_ITEMS[i - 1].c !== item.c,
 }));
 
-// 配件安裝（demo data，Ducati Performance）
+/**
+ * 取某品牌的交車確認表 rows（含 divider 旗標）。
+ * 文字經 resolveDeliveryItems 品牌中性化，渲染端（confirm-2-view）直接吃這份。
+ */
+export function resolveDeliveryItemRows(brandId: string): {
+  item: { t: string; c: DeliveryItemCat };
+  i: number;
+  showDivider: boolean;
+}[] {
+  const items = resolveDeliveryItems(brandId);
+  return items.map((item, i) => ({
+    item,
+    i,
+    showDivider: i === 0 || items[i - 1].c !== item.c,
+  }));
+}
+
+// 配件安裝（demo data，原廠 Performance 配件）
 export const PDI_ACCESSORIES = [
   {
     key: "acc-1",

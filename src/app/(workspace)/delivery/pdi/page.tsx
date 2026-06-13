@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getDeliveryById } from "@/lib/deliveries";
+import { resolvePdiItems } from "@/components/delivery/delivery-constants";
 import { PdiView } from "./_components/pdi-view";
 
 export const dynamic = "force-dynamic";
@@ -19,5 +20,5 @@ export default async function Page({
       </main>
     );
   }
-  return <PdiView delivery={delivery} />;
+  return <PdiView delivery={delivery} pdiItems={resolvePdiItems(delivery.brand_id)} />;
 }
