@@ -18,6 +18,8 @@ import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
+// RP8 站內通知
+import { createInappNotification } from "@/domain/user-notifications";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -678,6 +680,52 @@ export async function decideAddonAction(
         },
         addonActorId,
       );
+    });
+  }
+
+  // ── RP8 站內通知：追加項目拒絕 → 通知對應 SA（非阻塞）──
+  // 情境：客戶拒絕追加 → SA 收到通知、可確認並決定後續處理。
+  if (decision.customer_decision === "rejected") {
+    const addonRoId = addon.ro_id as string;
+    const brand = (await getActiveScope()).brand_id;
+    after(async () => {
+      try {
+        const sb = await createClient();
+        // 取工單的 SA（=sa_id 對應的 user_id）
+        const { data: ro } = await sb
+          .from("repair_orders")
+          .select("ro_code, sa_id")
+          .eq("id", addonRoId)
+          .eq("brand_id", brand)
+          .maybeSingle();
+        if (!ro?.sa_id) return;
+
+        // 找 SA 的 auth user_id（employees.user_id）
+        const { data: emp } = await sb
+          .from("employees")
+          .select("user_id")
+          .eq("id", ro.sa_id)
+          .maybeSingle();
+        if (!emp?.user_id) return;
+
+        await createInappNotification({
+          recipient_user_id: emp.user_id as string,
+          event_code: "aftersales.addon.rejected",
+          payload: {
+            title: `客戶拒絕追加項目`,
+            body: `工單 ${ro.ro_code ?? ""} 的追加「${String(addon.name)}」已被拒絕。${
+              decision.rejection_reason ? `原因：${decision.rejection_reason}。` : ""
+            }已寫入人車待處理清單。`,
+            href: `/parts/aftersales/repair-orders/${addonRoId}/lines`,
+            priority: "orange",
+            source_ro_id: addonRoId,
+            source_ro_code: ro.ro_code ?? undefined,
+          },
+          brand_id: brand,
+        });
+      } catch (e) {
+        console.error("[RP8 addon rejected 通知] 副作用例外（不影響）", e);
+      }
     });
   }
 

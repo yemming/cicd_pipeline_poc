@@ -49,6 +49,8 @@ import {
   requestApproval,
   hasApprovedApproval,
 } from "@/domain/aftersales-approvals";
+// RP8 站內通知
+import { createInappNotification } from "@/domain/user-notifications";
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -762,6 +764,51 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
       }
     } catch (e) {
       console.error("[hook#8 C-28] addon 出庫副作用例外（不影響關單）", e);
+    }
+  });
+
+  // ── RP8 站內通知：關單 → 通知執行關單的 SA ──
+  // 通知「本人」（關單的操作者）工單已完成關單，確認路徑。
+  // 注意：ctx.row.repair_order_id 已在上方取出為 repairOrderId。
+  after(async () => {
+    try {
+      const sb = await createClient();
+      const {
+        data: { user: closingUser },
+      } = await sb.auth.getUser();
+      if (!closingUser?.id) return;
+
+      const { data: ro } = await sb
+        .from("repair_orders")
+        .select("ro_code, customer_id")
+        .eq("id", repairOrderId)
+        .maybeSingle();
+
+      let customerName = "";
+      if (ro?.customer_id) {
+        const { data: cust } = await sb
+          .from("customers")
+          .select("name")
+          .eq("id", ro.customer_id)
+          .maybeSingle();
+        customerName = cust?.name ? `（${cust.name}）` : "";
+      }
+
+      await createInappNotification({
+        recipient_user_id: closingUser.id,
+        event_code: "aftersales.ro.closed",
+        payload: {
+          title: `工單關單完成 ${ro?.ro_code ?? ""}`,
+          body: `${ro?.ro_code ?? ""}${customerName} 已完成結帳關單，D+3 電訪任務已建立。`,
+          href: `/parts/aftersales/repair-orders/${repairOrderId}`,
+          priority: "grey", // 關單是好消息、灰色資訊級
+          source_ro_id: repairOrderId,
+          source_ro_code: ro?.ro_code ?? undefined,
+        },
+        brand_id: brand,
+      });
+    } catch (e) {
+      console.error("[RP8 關單通知] 副作用例外（不影響關單）", e);
     }
   });
 

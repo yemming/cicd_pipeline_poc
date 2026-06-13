@@ -29,6 +29,8 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { getCurrentUserDepartment } from "@/lib/rbac/department";
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
 import { notifications } from "@/lib/notifications";
+// RP8 站內通知
+import { createInappNotifications } from "@/domain/user-notifications";
 
 // 型別 / 常數從 .constants.ts 引入（不能直接放在 "use server" 檔，否則 const export 違規）
 export type {
@@ -230,7 +232,7 @@ export async function requestApproval(
     );
   });
 
-  // Notification Hub → 推播主管
+  // Notification Hub → 推播主管（對外 LINE）
   const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/parts/aftersales/approvals/${input.ro_id}?approval=${approvalId}`;
   after(async () => {
     try {
@@ -252,6 +254,51 @@ export async function requestApproval(
       });
     } catch (e) {
       console.error("[RP5 requestApproval] 通知推播失敗（不影響申請）", e);
+    }
+  });
+
+  // RP8 站內通知：授權申請 → 通知主管 + 自己（SA）
+  after(async () => {
+    try {
+      const sb = await createClient();
+
+      // 找主管（is_dept_manager=true, dept_code=SVC）的 user_id
+      const { data: managers } = await sb
+        .from("employees")
+        .select("user_id")
+        .eq("brand_id", scope.brand_id)
+        .eq("is_dept_manager", true)
+        .eq("is_active", true)
+        .not("user_id", "is", null)
+        .limit(5);
+
+      const recipientIds = (managers ?? [])
+        .map((m) => (m as { user_id: string | null }).user_id)
+        .filter(Boolean) as string[];
+
+      // 也通知 SA 自己（確認申請已送出）
+      if (actorId && !recipientIds.includes(actorId)) {
+        recipientIds.push(actorId);
+      }
+
+      const scenarioLabel = SCENARIO_LABEL[input.scenario] ?? input.scenario;
+      await createInappNotifications(
+        recipientIds.map((userId) => ({
+          recipient_user_id: userId,
+          event_code: "aftersales.approval.requested",
+          payload: {
+            title: `授權申請：${scenarioLabel}`,
+            body: `工單 ${ro.ro_code ?? ""} ${customerName ? `（${customerName}）` : ""} — ${requesterName ?? "SA"} 申請${scenarioLabel}，請儘速審核。`,
+            href: actionUrl,
+            priority: "red" as const,
+            source_ro_id: input.ro_id,
+            source_ro_code: ro.ro_code ?? undefined,
+          },
+          brand_id: scope.brand_id,
+        })),
+      );
+    } catch (e) {
+      console.error("[RP8 requestApproval 站內通知] 副作用例外（不影響申請）", e);
     }
   });
 
@@ -377,7 +424,7 @@ export async function decideApproval(
     customerName = cust?.name ?? null;
   }
 
-  // Notification Hub → 推播 SA（申請人）
+  // Notification Hub → 推播 SA（申請人，對外 LINE）
   const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/parts/aftersales/approvals/${input.ro_id}?approval=${input.approval_id}`;
   after(async () => {
     try {
@@ -400,6 +447,32 @@ export async function decideApproval(
       });
     } catch (e) {
       console.error("[RP5 decideApproval] 通知推播失敗（不影響決定）", e);
+    }
+  });
+
+  // RP8 站內通知：授權結果 → 通知 SA（申請人）
+  after(async () => {
+    try {
+      if (!record.requester_id) return;
+      const scenarioLabel = SCENARIO_LABEL[record.scenario] ?? record.scenario;
+      const decisionLabel = input.decision === "approved" ? "✅ 核准" : "❌ 拒絕";
+      await createInappNotifications([
+        {
+          recipient_user_id: record.requester_id,
+          event_code: "aftersales.approval.resolved",
+          payload: {
+            title: `授權結果：${scenarioLabel} ${decisionLabel}`,
+            body: `工單 ${ro?.ro_code ?? ""} ${customerName ? `（${customerName}）` : ""} — ${decisionLabel}。${input.reason.trim()}`,
+            href: actionUrl,
+            priority: input.decision === "approved" ? ("orange" as const) : ("red" as const),
+            source_ro_id: input.ro_id,
+            source_ro_code: ro?.ro_code ?? undefined,
+          },
+          brand_id: scope.brand_id,
+        },
+      ]);
+    } catch (e) {
+      console.error("[RP8 decideApproval 站內通知] 副作用例外（不影響決定）", e);
     }
   });
 
