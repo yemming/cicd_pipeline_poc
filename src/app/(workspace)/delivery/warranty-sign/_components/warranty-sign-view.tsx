@@ -5,7 +5,7 @@ import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { WARRANTY_CHECKLIST_ITEMS } from "@/components/delivery/delivery-constants";
 import { updateDeliveryStepAction } from "@/lib/delivery/delivery-actions";
 import type { DeliveryRow } from "@/lib/deliveries";
-import type { WarrantyContent, WarrantySystem } from "@/domain/brand-config";
+import type { WarrantyContent } from "@/domain/brand-config";
 
 type SigRole = "technician" | "rs" | "customer";
 
@@ -26,12 +26,13 @@ export function WarrantySignView({
   delivery,
   warranty,
   warrantyRegDays,
-  warrantySystem,
+  warrantyRegBrand,
 }: {
   delivery: DeliveryRow;
   warranty: WarrantyContent;
   warrantyRegDays: number | null;
-  warrantySystem: WarrantySystem;
+  /** 保固登記對象品牌名（如 Indian Motorcycle / DUCATI），用於提醒文案，避免露出母廠系統碼（Polaris/YouTech）。 */
+  warrantyRegBrand: string | null;
 }) {
   const [plateNo, setPlateNo] = useState(delivery.plate_no ?? "");
   const [plateDate, setPlateDate] = useState(delivery.plate_date ?? "");
@@ -195,7 +196,7 @@ export function WarrantySignView({
                 {warrantyStartDate
                   ? `（最遲 ${addDays(warrantyStartDate, warrantyRegDays)} 前）`
                   : ""}
-                完成{warrantySystem ? `${warrantySystem} ` : ""}保固登記，逾期恐影響保固權益。
+                完成{warrantyRegBrand ? `${warrantyRegBrand} ` : ""}保固登記，逾期恐影響保固權益。
               </span>
             </div>
           )}

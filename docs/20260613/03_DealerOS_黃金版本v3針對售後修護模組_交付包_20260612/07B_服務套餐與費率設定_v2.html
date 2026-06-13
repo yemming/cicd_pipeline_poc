@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07B 服務套餐與費率設定 — DealerOS 售後修護</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1A3A5C;--navy-bg:#EAF4FB;--navy-bd:#85B7EB;
+  --teal:#0F6E56;--teal-bg:#E1F5EE;--teal-bd:#5DCAA5;
+  --red:#C8001A;--red-bg:#FDECEA;--red-bd:#F5AEAD;
+  --amber:#854F0B;--amber-bg:#FDF3E3;--amber-bd:#F0C97E;
+  --purple:#534AB7;--purple-bg:#EEEDFE;--purple-bd:#AFA9EC;
+  --gray:#9A9890;--light:#F4F3F0;--bg:#F8F7F4;
+  --white:#FFFFFF;--text:#2C2C2A;--border:#EEECE6;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
+
+.hdr{background:var(--navy);color:#fff;padding:11px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.hdr-left{display:flex;align-items:center;gap:10px;}
+.hdr-back{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;}
+.hdr-back:hover{background:rgba(255,255,255,.2);}
+.hdr-title{font-size:15px;font-weight:700;}
+.hdr-sub{font-size:11px;opacity:.7;margin-top:1px;}
+.role-badge{background:rgba(255,200,0,.2);border:1px solid rgba(255,200,0,.35);color:#FFD966;padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:600;}
+
+.tab-bar{background:#fff;border-bottom:2px solid var(--border);display:flex;padding:0 20px;position:sticky;top:52px;z-index:90;}
+.tab-btn{padding:12px 18px;font-size:13px;font-weight:500;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;}
+.tab-btn.active{color:var(--navy);font-weight:700;border-bottom-color:var(--red);}
+.tab-pane{display:none;padding:16px 20px;}
+.tab-pane.active{display:block;}
+
+.panel{background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.panel-hdr{padding:11px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:#FAFAF8;}
+.ph-left{display:flex;align-items:center;gap:8px;}
+.picon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.pi-n{background:var(--navy-bg);}
+.pi-t{background:var(--teal-bg);}
+.pi-a{background:var(--amber-bg);}
+.pi-p{background:var(--purple-bg);}
+.pt{font-size:13px;font-weight:600;}
+.ps{font-size:11px;color:var(--gray);}
+.panel-body{padding:14px 16px;}
+
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap;}
+.b-navy{background:var(--navy-bg);color:var(--navy);border:1px solid var(--navy-bd);}
+.b-teal{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-bd);}
+.b-red{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd);}
+.b-amber{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd);}
+.b-purple{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-bd);}
+.b-gray{background:var(--light);color:#666;border:1px solid var(--border);}
+.b-green{background:#E1F5EE;color:#0F6E56;border:1px solid #5DCAA5;}
+
+.btn{padding:8px 16px;border-radius:7px;font-family:'Noto Sans TC',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:#fff;}
+.btn-primary:hover{background:#12294A;}
+.btn-teal{background:var(--teal);border-color:var(--teal);color:#fff;}
+.btn-red{background:var(--red);border-color:var(--red);color:#fff;}
+.btn-ghost{background:#fff;border-color:var(--border);color:var(--text);}
+.btn-ghost:hover{background:var(--light);}
+.btn-amber{background:var(--amber);border-color:var(--amber);color:#fff;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+
+.form-label{font-size:11.5px;font-weight:600;color:#555;margin-bottom:4px;}
+.form-req{color:var(--red);}
+.form-input{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:var(--text);outline:none;}
+.form-input:focus{border-color:var(--navy);}
+.form-select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border);font-family:'Noto Sans TC',sans-serif;font-size:12.5px;color:var(--text);outline:none;background:#fff;}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
+.form-group{margin-bottom:12px;}
+
+/* 套餐列表 */
+.pkg-list-item{border:1px solid var(--border);border-radius:9px;padding:13px 15px;margin-bottom:10px;background:#FAFAF8;transition:all .15s;}
+.pkg-list-item:hover{border-color:var(--navy-bd);background:var(--navy-bg);}
+.pkg-list-item.inactive{opacity:.55;background:#F4F3F0;}
+.pli-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
+.pli-name{font-size:14px;font-weight:700;}
+.pli-sub{font-size:11.5px;color:var(--gray);margin-top:2px;}
+.pli-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;}
+.pli-price{font-size:20px;font-weight:700;color:var(--navy);font-family:'DM Mono',monospace;}
+.pli-actions{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+
+/* 工項清單行 */
+.item-row{display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #F4F3F0;}
+.item-row:last-child{border-bottom:none;}
+.item-row-hdr{font-size:10.5px;font-weight:700;color:var(--gray);letter-spacing:.4px;text-transform:uppercase;padding:6px 0;border-bottom:2px solid var(--border);}
+
+/* 費率表格 */
+.rate-table{width:100%;border-collapse:collapse;margin-bottom:14px;}
+.rate-table th{font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--gray);padding:8px 12px;border-bottom:2px solid var(--border);text-align:left;background:#FAFAF8;}
+.rate-table td{padding:10px 12px;border-bottom:1px solid #F4F3F0;font-size:12.5px;vertical-align:middle;}
+.rate-table tr:hover td{background:#FAFAF8;}
+.rate-editable{background:var(--navy-bg);border:1px solid var(--navy-bd);border-radius:5px;padding:5px 8px;font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--navy);width:90px;text-align:right;outline:none;}
+
+/* 稽核日誌 */
+.audit-row{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #F4F3F0;}
+.audit-dot{width:8px;height:8px;border-radius:50%;background:var(--gray);margin-top:4px;flex-shrink:0;}
+.audit-dot.mod{background:var(--amber);}
+.audit-dot.add{background:var(--teal);}
+.audit-dot.del{background:var(--red);}
+.audit-time{font-size:10.5px;color:var(--gray);font-family:'DM Mono',monospace;white-space:nowrap;min-width:105px;}
+.audit-desc{font-size:12px;}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;width:680px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+.modal-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-title{font-size:15px;font-weight:700;}
+.modal-close{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.modal-body{padding:18px 20px;}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:#fff;}
+.section-title{font-size:11.5px;font-weight:700;color:var(--gray);letter-spacing:.5px;text-transform:uppercase;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:11px 18px;border-radius:8px;font-size:12.5px;z-index:999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:320px;line-height:1.5;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.kpi-card{background:#fff;border:1px solid var(--border);border-radius:9px;padding:12px 14px;}
+.kpi-label{font-size:11px;color:var(--gray);margin-bottom:4px;}
+.kpi-val{font-size:22px;font-weight:700;color:var(--navy);font-family:'DM Mono',monospace;}
+.kpi-sub{font-size:10.5px;color:var(--gray);margin-top:2px;}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <div class="hdr-left">
+    <button class="hdr-back" onclick="go('07_售後管理模組_v2.html')">← 車間管理</button>
+    <div>
+      <div class="hdr-title">07B 服務套餐與費率設定</div>
+      <div class="hdr-sub">套餐主檔 · 工時費率表 · 費率稽核日誌</div>
+    </div>
+  </div>
+  <span class="role-badge">👔 售後主管專用</span>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab(0,this)">📦 Tab A　服務套餐主檔</button>
+  <button class="tab-btn" onclick="switchTab(1,this)">⏱ Tab B　標準工時費率表</button>
+  <button class="tab-btn" onclick="switchTab(2,this)">📋 Tab C　費率變更稽核日誌</button>
+</div>
+
+<!-- ══ Tab A：服務套餐主檔 ══ -->
+<div class="tab-pane active" id="pane-0">
+
+  <!-- KPI -->
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-label">套餐總數</div><div class="kpi-val">8</div><div class="kpi-sub">啟用中6 · 停用2</div></div>
+    <div class="kpi-card"><div class="kpi-label">原廠標準套餐</div><div class="kpi-val">3</div><div class="kpi-sub">6000 / 10000 / 20000km</div></div>
+    <div class="kpi-card"><div class="kpi-label">門店自訂套餐</div><div class="kpi-val">3</div><div class="kpi-sub">夏季健檢 / 環島前安檢 / 冬季</div></div>
+    <div class="kpi-card"><div class="kpi-label">限時促銷套餐</div><div class="kpi-val">2</div><div class="kpi-sub">1個到期，1個進行中</div></div>
+  </div>
+
+  <!-- 操作列 -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-ghost btn-sm" onclick="filterPkg('all',this)" id="f-all" style="border-color:var(--navy);color:var(--navy);">全部</button>
+      <button class="btn btn-ghost btn-sm" onclick="filterPkg('oem',this)" id="f-oem">原廠標準</button>
+      <button class="btn btn-ghost btn-sm" onclick="filterPkg('custom',this)" id="f-custom">門店自訂</button>
+      <button class="btn btn-ghost btn-sm" onclick="filterPkg('promo',this)" id="f-promo">限時促銷</button>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openAddPkg()">＋ 新增套餐</button>
+  </div>
+
+  <!-- 套餐清單 -->
+  <div id="pkg-list">
+
+    <!-- 原廠套餐 1 -->
+    <div class="pkg-list-item" data-type="oem">
+      <div class="pli-top">
+        <div>
+          <div class="pli-name">6000km 定期保養套餐</div>
+          <div class="pli-sub">機油更換 · 機油濾芯 · 基本安全檢查</div>
+        </div>
+        <span class="badge b-green">● 啟用中</span>
+      </div>
+      <div class="pli-badges">
+        <span class="badge b-navy">原廠標準</span>
+        <span class="badge b-gray">適用：Scout Bobber / Chief / FTR 1200</span>
+        <span class="badge b-gray">里程區間：4,000–7,000 km</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="pli-price">NT$ 3,800<span style="font-size:12px;font-weight:400;"> 含稅</span></div>
+        <div style="font-size:11.5px;color:var(--gray);">工時：1.5 LU　｜　零件：3項　｜　在04B顯示：✅</div>
+      </div>
+      <div class="pli-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditPkg('6000km定期保養套餐')">✏️ 編輯</button>
+        <button class="btn btn-ghost btn-sm" onclick="previewPkg('6000km定期保養套餐')">👁 預覽</button>
+        <button class="btn btn-sm" style="background:var(--red-bg);border-color:var(--red-bd);color:var(--red);" onclick="togglePkg(this,'停用')">⊘ 停用</button>
+      </div>
+    </div>
+
+    <!-- 原廠套餐 2（選中） -->
+    <div class="pkg-list-item" data-type="oem" style="border-color:var(--navy);background:var(--navy-bg);">
+      <div class="pli-top">
+        <div>
+          <div class="pli-name">10000km 定期保養套餐</div>
+          <div class="pli-sub">機油+機油濾芯+空氣濾芯+火星塞+煞車液+全車安全檢查</div>
+        </div>
+        <span class="badge b-green">● 啟用中</span>
+      </div>
+      <div class="pli-badges">
+        <span class="badge b-navy">原廠標準</span>
+        <span class="badge b-gray">適用：Scout / Chief Dark Horse / Roadmaster</span>
+        <span class="badge b-gray">里程區間：8,000–12,000 km</span>
+        <span class="badge b-gray">含全車安全檢查</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="pli-price">NT$ 6,800<span style="font-size:12px;font-weight:400;"> 含稅</span></div>
+        <div style="font-size:11.5px;color:var(--gray);">工時：2.0 LU　｜　零件：5項　｜　在04B顯示：✅</div>
+      </div>
+      <div class="pli-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditPkg('10000km定期保養套餐')">✏️ 編輯</button>
+        <button class="btn btn-ghost btn-sm" onclick="previewPkg('10000km定期保養套餐')">👁 預覽</button>
+        <button class="btn btn-sm" style="background:var(--red-bg);border-color:var(--red-bd);color:var(--red);" onclick="togglePkg(this,'停用')">⊘ 停用</button>
+      </div>
+    </div>
+
+    <!-- 原廠套餐 3 -->
+    <div class="pkg-list-item" data-type="oem">
+      <div class="pli-top">
+        <div>
+          <div class="pli-name">20000km 大保養套餐</div>
+          <div class="pli-sub">完整保養+冷卻液更換+傳動鏈條/皮帶+全車安全檢查</div>
+        </div>
+        <span class="badge b-green">● 啟用中</span>
+      </div>
+      <div class="pli-badges">
+        <span class="badge b-navy">原廠標準</span>
+        <span class="badge b-gray">適用：全車型</span>
+        <span class="badge b-gray">里程區間：18,000–22,000 km</span>
+        <span class="badge b-gray">含傳動系統檢修</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="pli-price">NT$ 14,500<span style="font-size:12px;font-weight:400;"> 含稅</span></div>
+        <div style="font-size:11.5px;color:var(--gray);">工時：6.5 LU　｜　零件：12項　｜　在04B顯示：✅</div>
+      </div>
+      <div class="pli-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditPkg('20000km大保養套餐')">✏️ 編輯</button>
+        <button class="btn btn-ghost btn-sm" onclick="previewPkg('20000km大保養套餐')">👁 預覽</button>
+        <button class="btn btn-sm" style="background:var(--red-bg);border-color:var(--red-bd);color:var(--red);" onclick="togglePkg(this,'停用')">⊘ 停用</button>
+      </div>
+    </div>
+
+    <!-- 門店自訂套餐 -->
+    <div class="pkg-list-item" data-type="custom">
+      <div class="pli-top">
+        <div>
+          <div class="pli-name">夏季全車健檢套餐</div>
+          <div class="pli-sub">保養+煞車系統+冷卻液+鏈條調整+輪胎氣壓與磨耗檢查</div>
+        </div>
+        <span class="badge b-green">● 啟用中</span>
+      </div>
+      <div class="pli-badges">
+        <span class="badge b-teal">門店自訂</span>
+        <span class="badge b-gray">適用：全車型</span>
+        <span class="badge b-amber">有效期：2026-05-01 ~ 2026-08-31</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="pli-price">NT$ 8,500<span style="font-size:12px;font-weight:400;"> 含稅</span></div>
+        <div style="font-size:11.5px;color:var(--gray);">工時：3.0 LU　｜　零件：8項　｜　在04B顯示：✅　｜　省NT$1,200</div>
+      </div>
+      <div class="pli-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditPkg('夏季全車健檢套餐')">✏️ 編輯</button>
+        <button class="btn btn-ghost btn-sm" onclick="previewPkg('夏季全車健檢套餐')">👁 預覽</button>
+        <button class="btn btn-sm" style="background:var(--red-bg);border-color:var(--red-bd);color:var(--red);" onclick="togglePkg(this,'停用')">⊘ 停用</button>
+      </div>
+    </div>
+
+    <!-- 促銷套餐（停用） -->
+    <div class="pkg-list-item inactive" data-type="promo">
+      <div class="pli-top">
+        <div>
+          <div class="pli-name">春季換購保固套餐</div>
+          <div class="pli-sub">煞車片+煞車油+機油更換優惠組合</div>
+        </div>
+        <span class="badge b-red">● 已停用</span>
+      </div>
+      <div class="pli-badges">
+        <span class="badge b-amber">限時促銷</span>
+        <span class="badge b-gray">有效期：已過期（2026-04-30）</span>
+        <span class="badge b-gray">在04B顯示：❌（已停用）</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="pli-price" style="color:var(--gray);">NT$ 4,200</div>
+      </div>
+      <div class="pli-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditPkg('春季換購保固套餐')">✏️ 查看</button>
+        <button class="btn btn-sm" style="background:var(--teal-bg);border-color:var(--teal-bd);color:var(--teal);" onclick="togglePkg(this,'啟用')">▶ 重新啟用</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ Tab B：標準工時費率表 ══ -->
+<div class="tab-pane" id="pane-1">
+
+  <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:11px 15px;margin-bottom:16px;font-size:12px;color:var(--amber);">
+    ⚠️ <b>費率變更將即時影響 04B_快速報價查詢 的報價計算。</b>所有費率修改均記錄於「Tab C 費率變更稽核日誌」，請謹慎操作。DealerOS 採全球統一標準工時（LU），工時費率（NT$/LU）由門店設定。
+  </div>
+
+  <!-- DealerOS 費率 -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="ph-left">
+        <div class="picon pi-n">🔴</div>
+        <div><div class="pt">DealerOS 工時費率設定</div><div class="ps">標準工時（LU）由原廠定義 · 費率（NT$/LU）由門店設定</div></div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveRates('DealerOS')">💾 儲存費率</button>
+    </div>
+    <div class="panel-body">
+      <table class="rate-table">
+        <thead><tr><th>業務類型</th><th>說明</th><th>費率（NT$/LU）</th><th>上次修改</th><th>修改人</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge b-navy">MN 定期保養</span></td>
+            <td>原廠排定的里程保養</td>
+            <td><input type="number" class="rate-editable" value="1400" onchange="markDirty(this)"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray);">2026-03-01</td>
+            <td style="font-size:12px;">陳志偉 主管</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-amber">RP 一般維修</span></td>
+            <td>機械故障、零件更換等維修</td>
+            <td><input type="number" class="rate-editable" value="1400" onchange="markDirty(this)"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray);">2026-03-01</td>
+            <td style="font-size:12px;">陳志偉 主管</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-teal">WC 保固維修</span></td>
+            <td>保固範圍內，費用由原廠承擔</td>
+            <td><input type="number" class="rate-editable" value="0" onchange="markDirty(this)" style="background:var(--teal-bg);border-color:var(--teal-bd);color:var(--teal);"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray);">—</td>
+            <td style="font-size:12px;color:var(--gray);">系統預設</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-red">AC 事故維修</span></td>
+            <td>事故損傷診斷與修復</td>
+            <td><input type="number" class="rate-editable" value="1600" onchange="markDirty(this)" style="background:var(--red-bg);border-color:var(--red-bd);color:var(--red);"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray);">2026-01-15</td>
+            <td style="font-size:12px;">陳志偉 主管</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-purple">PD 整備</span></td>
+            <td>新車PDI / 中古車整備</td>
+            <td><input type="number" class="rate-editable" value="0" onchange="markDirty(this)" style="background:var(--purple-bg);border-color:var(--purple-bd);color:var(--purple);"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray);">—</td>
+            <td style="font-size:12px;color:var(--gray);">系統預設（內部成本）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Indian Motorcycle 費率 -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="ph-left">
+        <div class="picon pi-a">🏍️</div>
+        <div><div class="pt">Indian Motorcycle 工時費率設定</div><div class="ps">工時（LU）與費率均可自訂（非原廠統一標準）</div></div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveRates('Indian')">💾 儲存費率</button>
+    </div>
+    <div class="panel-body">
+      <table class="rate-table">
+        <thead><tr><th>業務類型</th><th>說明</th><th>費率（NT$/LU）</th><th>上次修改</th><th>修改人</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge b-navy">MN 定期保養</span></td>
+            <td>依Indian原廠建議里程保養</td>
+            <td><input type="number" class="rate-editable" value="1200" onchange="markDirty(this)"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray);">2026-02-10</td>
+            <td style="font-size:12px;">陳志偉 主管</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-amber">RP 一般維修</span></td>
+            <td>機械維修、零件更換</td>
+            <td><input type="number" class="rate-editable" value="1200" onchange="markDirty(this)"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray);">2026-02-10</td>
+            <td style="font-size:12px;">陳志偉 主管</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-teal">WC 保固維修</span></td>
+            <td>Indian原廠保固範圍</td>
+            <td><input type="number" class="rate-editable" value="0" style="background:var(--teal-bg);border-color:var(--teal-bd);color:var(--teal);" onchange="markDirty(this)"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray);">—</td>
+            <td style="font-size:12px;color:var(--gray);">系統預設</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-red">AC 事故維修</span></td>
+            <td>事故損傷診斷與修復</td>
+            <td><input type="number" class="rate-editable" value="1400" style="background:var(--red-bg);border-color:var(--red-bd);color:var(--red);" onchange="markDirty(this)"></td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray);">2026-02-10</td>
+            <td style="font-size:12px;">陳志偉 主管</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Tab C：費率變更稽核日誌 ══ -->
+<div class="tab-pane" id="pane-2">
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="ph-left">
+        <div class="picon pi-a">📋</div>
+        <div><div class="pt">費率變更稽核日誌</div><div class="ps">所有套餐新增/修改/停用及工時費率變更均自動記錄</div></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="showToast('匯出稽核日誌 CSV')">📥 匯出</button>
+    </div>
+    <div class="panel-body">
+      <div class="audit-row">
+        <div class="audit-dot mod"></div>
+        <div class="audit-time">2026-05-15 09:23</div>
+        <div class="audit-desc"><b>修改費率</b> ｜ DealerOS MN定期保養工時費率：NT$1,200 → NT$1,400 ｜ 操作人：陳志偉 售後主管</div>
+      </div>
+      <div class="audit-row">
+        <div class="audit-dot add"></div>
+        <div class="audit-time">2026-05-01 14:05</div>
+        <div class="audit-desc"><b>新增套餐</b> ｜ 夏季全車健檢套餐（限時促銷）有效期至2026-08-31 ｜ 操作人：陳志偉 售後主管</div>
+      </div>
+      <div class="audit-row">
+        <div class="audit-dot del"></div>
+        <div class="audit-time">2026-04-30 18:00</div>
+        <div class="audit-desc"><b>自動停用</b> ｜ 春季換購保固套餐（限時促銷）－有效期到期，系統自動停用，04B查詢頁已移除 ｜ 系統自動</div>
+      </div>
+      <div class="audit-row">
+        <div class="audit-dot mod"></div>
+        <div class="audit-time">2026-03-01 10:45</div>
+        <div class="audit-desc"><b>修改套餐</b> ｜ 10000km定期保養套餐－新增「全車安全檢查」工項，售價調整：NT$6,500 → NT$6,800 ｜ 操作人：陳志偉 售後主管</div>
+      </div>
+      <div class="audit-row">
+        <div class="audit-dot mod"></div>
+        <div class="audit-time">2026-03-01 10:30</div>
+        <div class="audit-desc"><b>修改費率</b> ｜ DealerOS 全業務類型工時費率：NT$1,200 → NT$1,400 ｜ 操作人：陳志偉 售後主管</div>
+      </div>
+      <div class="audit-row">
+        <div class="audit-dot add"></div>
+        <div class="audit-time">2026-02-10 09:15</div>
+        <div class="audit-desc"><b>新增費率</b> ｜ Indian Motorcycle 全業務類型工時費率初始設定 ｜ 操作人：陳志偉 售後主管</div>
+      </div>
+      <div class="audit-row">
+        <div class="audit-dot add"></div>
+        <div class="audit-time">2026-01-20 11:30</div>
+        <div class="audit-desc"><b>新增套餐</b> ｜ 6000km / 10000km / 20000km 原廠標準保養套餐（系統初始化）｜ 操作人：系統管理員</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 新增/編輯套餐 Modal ══ -->
+<div class="modal-overlay" id="modal-pkg">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title" id="modal-pkg-title">新增服務套餐</div>
+      <button class="modal-close" onclick="closeModal('modal-pkg')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="section-title">基本資訊</div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <div class="form-label">套餐名稱 <span class="form-req">*</span></div>
+          <input type="text" class="form-input" placeholder="例：10000km 定期保養套餐">
+        </div>
+        <div class="form-group">
+          <div class="form-label">套餐類型 <span class="form-req">*</span></div>
+          <select class="form-select" id="pkg-type-sel" onchange="togglePromoDate()">
+            <option value="oem">原廠標準套餐</option>
+            <option value="custom">門店自訂套餐</option>
+            <option value="promo">限時促銷套餐</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <div class="form-label">適用車型 <span class="form-req">*</span></div>
+          <select class="form-select">
+            <option>全車型適用</option>
+            <option>Indian Scout Bobber</option>
+            <option>Indian Scout Sixty</option>
+            <option>Indian FTR 1200</option>
+            <option>Indian Chief Dark Horse</option>
+            <option>Indian Chieftain Limited</option>
+            <option>Indian Roadmaster</option>
+            <option>Indian Springfield</option>
+            <option>Indian Pursuit</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">適用里程區間</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="number" class="form-input" placeholder="起（km）" style="width:50%;">
+            <span style="color:var(--gray);">~</span>
+            <input type="number" class="form-input" placeholder="止（km）" style="width:50%;">
+          </div>
+        </div>
+      </div>
+      <div class="form-group" id="promo-date-row" style="display:none;">
+        <div class="form-label">促銷有效期 <span class="form-req">*</span></div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="date" class="form-input" style="width:48%;">
+          <span style="color:var(--gray);">至</span>
+          <input type="date" class="form-input" style="width:48%;">
+        </div>
+        <div style="font-size:11px;color:var(--amber);margin-top:4px;">⚠️ 超過有效期後系統自動停用，04B查詢頁不再顯示此套餐</div>
+      </div>
+
+      <div class="section-title">工項清單</div>
+      <div class="item-row item-row-hdr">
+        <div>工項名稱</div><div>業務類型</div><div>標準工時（LU）</div><div>工資費（自動計算）</div><div></div>
+      </div>
+      <div id="labor-items">
+        <div class="item-row">
+          <input type="text" class="form-input" value="機油更換" style="font-size:12px;">
+          <select class="form-select" style="font-size:12px;padding:5px 8px;"><option>MN</option><option>RP</option><option>WC</option><option>AC</option></select>
+          <input type="number" class="form-input" value="1.0" style="font-size:12px;" oninput="calcRow(this)">
+          <div style="font-family:'DM Mono',monospace;font-size:12.5px;font-weight:600;color:var(--navy);">NT$1,400</div>
+          <button class="btn btn-ghost btn-sm" style="padding:3px 7px;" onclick="removeRow(this)">✕</button>
+        </div>
+        <div class="item-row">
+          <input type="text" class="form-input" value="空氣濾芯更換" style="font-size:12px;">
+          <select class="form-select" style="font-size:12px;padding:5px 8px;"><option>MN</option><option>RP</option><option>WC</option><option>AC</option></select>
+          <input type="number" class="form-input" value="0.5" style="font-size:12px;" oninput="calcRow(this)">
+          <div style="font-family:'DM Mono',monospace;font-size:12.5px;font-weight:600;color:var(--navy);">NT$700</div>
+          <button class="btn btn-ghost btn-sm" style="padding:3px 7px;" onclick="removeRow(this)">✕</button>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="addLaborRow()">＋ 新增工項</button>
+
+      <div class="section-title">零件清單</div>
+      <div style="font-size:11.5px;color:var(--gray);margin-bottom:8px;">加入套餐的零件費用將計入套餐報價，SA在04B可查看庫存狀態</div>
+      <div id="parts-items">
+        <div class="item-row">
+          <input type="text" class="form-input" value="機油 Indian Scout 專用" style="font-size:12px;">
+          <input type="text" class="form-input" placeholder="料號" value="OIL-SCT-3L" style="font-size:11.5px;font-family:'DM Mono',monospace;">
+          <input type="number" class="form-input" value="1" placeholder="數量">
+          <input type="number" class="form-input" value="1800" placeholder="單價 NT$" oninput="calcPartRow(this)">
+          <button class="btn btn-ghost btn-sm" style="padding:3px 7px;" onclick="removeRow(this)">✕</button>
+        </div>
+        <div class="item-row">
+          <input type="text" class="form-input" value="機油濾芯" style="font-size:12px;">
+          <input type="text" class="form-input" placeholder="料號" value="FLT-OIL-PV2" style="font-size:11.5px;font-family:'DM Mono',monospace;">
+          <input type="number" class="form-input" value="1" placeholder="數量">
+          <input type="number" class="form-input" value="380" placeholder="單價 NT$" oninput="calcPartRow(this)">
+          <button class="btn btn-ghost btn-sm" style="padding:3px 7px;" onclick="removeRow(this)">✕</button>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="addPartRow()">＋ 新增零件</button>
+
+      <div class="section-title">套餐定價</div>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <div class="form-label">工資費小計</div>
+          <input type="text" class="form-input" value="NT$2,100" readonly style="background:var(--light);font-family:'DM Mono',monospace;font-weight:600;">
+        </div>
+        <div class="form-group">
+          <div class="form-label">零件費小計</div>
+          <input type="text" class="form-input" value="NT$4,750" readonly style="background:var(--light);font-family:'DM Mono',monospace;font-weight:600;">
+        </div>
+        <div class="form-group">
+          <div class="form-label">套餐建議售價 <span class="form-req">*</span></div>
+          <input type="number" class="form-input" value="6800" placeholder="NT$" style="font-family:'DM Mono',monospace;font-weight:600;">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--gray);">💡 建議售價可依門店策略調整（高於或低於工資+零件合計均可），04B_快速報價查詢將顯示此售價。</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-pkg')">取消</button>
+      <button class="btn btn-primary" onclick="savePkg()">💾 儲存套餐</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function go(url){ window.location.href=url; }
+function switchTab(i,el){
+  document.querySelectorAll('.tab-btn').forEach(function(b,idx){ b.classList.toggle('active',idx===i); });
+  document.querySelectorAll('.tab-pane').forEach(function(p,idx){ p.classList.toggle('active',idx===i); });
+}
+function openAddPkg(){
+  document.getElementById('modal-pkg-title').textContent='新增服務套餐';
+  document.getElementById('modal-pkg').classList.add('show');
+}
+function openEditPkg(name){
+  document.getElementById('modal-pkg-title').textContent='編輯套餐：'+name;
+  document.getElementById('modal-pkg').classList.add('show');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function previewPkg(name){ showToast('預覽套餐「'+name+'」在 04B 快速報價查詢的顯示效果'); }
+function togglePkg(btn,action){
+  var item=btn.closest('.pkg-list-item');
+  if(action==='停用'){
+    item.classList.add('inactive');
+    showToast('已停用套餐，04B 查詢頁即時移除此套餐（後端串接點：PATCH /api/service-packages/{id}/status）');
+    btn.textContent='▶ 重新啟用'; btn.onclick=function(){ togglePkg(btn,'啟用'); };
+    btn.style.background='var(--teal-bg)'; btn.style.borderColor='var(--teal-bd)'; btn.style.color='var(--teal)';
+    item.querySelector('.badge.b-green').textContent='● 已停用';
+    item.querySelector('.badge.b-green').className='badge b-red';
+  } else {
+    item.classList.remove('inactive');
+    showToast('已重新啟用套餐，04B 查詢頁即時顯示此套餐');
+    btn.textContent='⊘ 停用'; btn.onclick=function(){ togglePkg(btn,'停用'); };
+    btn.style.background='var(--red-bg)'; btn.style.borderColor='var(--red-bd)'; btn.style.color='var(--red)';
+    item.querySelector('.badge.b-red').textContent='● 啟用中';
+    item.querySelector('.badge.b-red').className='badge b-green';
+  }
+}
+function filterPkg(type,el){
+  document.querySelectorAll('[id^=f-]').forEach(function(b){ b.style.borderColor=''; b.style.color=''; });
+  el.style.borderColor='var(--navy)'; el.style.color='var(--navy)';
+  document.querySelectorAll('.pkg-list-item').forEach(function(item){
+    item.style.display=(type==='all'||item.dataset.type===type)?'':'none';
+  });
+}
+function togglePromoDate(){
+  var t=document.getElementById('pkg-type-sel').value;
+  document.getElementById('promo-date-row').style.display=(t==='promo'||t==='custom')?'block':'none';
+}
+function addLaborRow(){
+  var c=document.getElementById('labor-items');
+  var d=document.createElement('div'); d.className='item-row';
+  d.innerHTML='<input type="text" class="form-input" placeholder="工項名稱" style="font-size:12px;">'
+    +'<select class="form-select" style="font-size:12px;padding:5px 8px;"><option>MN</option><option>RP</option><option>WC</option><option>AC</option></select>'
+    +'<input type="number" class="form-input" placeholder="工時 LU" style="font-size:12px;" oninput="calcRow(this)">'
+    +'<div style="font-family:DM Mono,monospace;font-size:12.5px;font-weight:600;color:var(--navy);">NT$—</div>'
+    +'<button class="btn btn-ghost btn-sm" style="padding:3px 7px;" onclick="removeRow(this)">✕</button>';
+  c.appendChild(d);
+}
+function addPartRow(){
+  var c=document.getElementById('parts-items');
+  var d=document.createElement('div'); d.className='item-row';
+  d.innerHTML='<input type="text" class="form-input" placeholder="零件名稱" style="font-size:12px;">'
+    +'<input type="text" class="form-input" placeholder="料號" style="font-size:11.5px;font-family:DM Mono,monospace;">'
+    +'<input type="number" class="form-input" value="1" placeholder="數量">'
+    +'<input type="number" class="form-input" placeholder="單價 NT$" oninput="calcPartRow(this)">'
+    +'<button class="btn btn-ghost btn-sm" style="padding:3px 7px;" onclick="removeRow(this)">✕</button>';
+  c.appendChild(d);
+}
+function removeRow(btn){ btn.closest('.item-row').remove(); }
+function calcRow(inp){
+  var lu=parseFloat(inp.value)||0;
+  var val=lu*1400;
+  inp.closest('.item-row').querySelector('div').textContent='NT$'+val.toLocaleString();
+}
+function calcPartRow(inp){ /* 更新零件費小計 */ }
+function markDirty(inp){ inp.style.background='#FFFBEA'; inp.style.borderColor='var(--amber)'; }
+function saveRates(brand){
+  showToast('✅ '+brand+'工時費率已儲存，04B_快速報價查詢即時套用新費率（後端串接點：PUT /api/labor-rates）');
+  document.querySelectorAll('.rate-editable').forEach(function(inp){
+    inp.style.background=''; inp.style.borderColor='';
+  });
+}
+function savePkg(){
+  closeModal('modal-pkg');
+  showToast('✅ 套餐已儲存，04B_快速報價查詢即時顯示（後端串接點：POST /api/service-packages）');
+}
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t);
+  t._t=setTimeout(function(){ t.classList.remove('show'); },2800);
+}
+</script>
+
+  <div style="margin-top:10px;display:flex;justify-content:flex-end">
+    <button onclick="saveRates()" style="height:36px;padding:0 20px;background:#1A3A5C;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:sans-serif">💾 儲存費率</button>
+  </div>
+
+<script>
+var isDirty=false;
+function markDirty(el){
+  isDirty=true;
+  el.style.background='#FDF3E3';
+  el.style.borderColor='#BA7517';
+  var banner=document.getElementById('dirty-banner');
+  if(banner) banner.style.display='flex';
+}
+function saveRates(){
+  isDirty=false;
+  document.querySelectorAll('.rate-editable').forEach(function(el){
+    el.style.background='#fff';
+    el.style.borderColor='#D1D0CE';
+  });
+  var banner=document.getElementById('dirty-banner');
+  if(banner) banner.style.display='none';
+  showToast('✅ 費率已儲存！
+// API：PUT /api/labor-rates
+{ brand_id:"indian", rates:{ MN, RP, WC, AC, PD } }
+
+稽核日誌已記錄本次費率變更');
+}
+window.addEventListener('beforeunload',function(e){if(isDirty){e.preventDefault();e.returnValue='';}});
+</script>
+</body>
+</html>

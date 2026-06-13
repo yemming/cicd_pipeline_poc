@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>DealerOS 售後 — 技師工作台</title>
+<style>
+:root{
+  --red:#CC0000;--dark:#1A1A1A;--navy:#1A3A5C;--white:#FFFFFF;
+  --g50:#F5F5F4;--g100:#E8E7E4;--g200:#D1D0CE;--g400:#999;--g500:#6B6A68;--g700:#3A3A38;
+  --green:#0F6E56;--green-bg:#E1F5EE;--green-bd:#1D9E75;
+  --amber:#854F0B;--amber-bg:#FAEEDA;--amber-bd:#BA7517;
+  --red-bg:#FCEBEB;--red-bd:#F09595;
+  --blue:#185FA5;--blue-bg:#E6F1FB;--blue-bd:#4A90D9;
+  --forest:#2C4A1A;
+  --font:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;--r:10px;--r-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#1A1A1A;font-family:var(--font);font-size:14px;color:var(--dark)}
+.app{display:flex;flex-direction:column;min-height:100vh;max-width:1024px;margin:0 auto;background:#1C2A1C;box-shadow:0 0 40px rgba(0,0,0,.5)}
+
+/* Header - 深綠色（技師主題）*/
+.hdr{background:var(--forest);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.1)}
+.hdr-logo{font-size:17px;font-weight:700;letter-spacing:2px}
+.hdr-title{font-size:13px;opacity:.9}
+.hdr-meta{font-size:11px;opacity:.85;text-align:right;line-height:1.8}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ADE80;animation:pulse 1.5s infinite;margin-right:4px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Status bar */
+.status-bar{background:#1A3A12;padding:8px 20px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+.status-item{display:flex;flex-direction:column;align-items:center}
+.status-item label{font-size:10px;color:rgba(255,255,255,.45);font-weight:500;margin-bottom:1px}
+.status-item span{font-size:13px;font-weight:700;color:#7FFFD4}
+.status-item span.warn{color:#FFD580}
+.status-item span.red{color:#F9A8A8}
+.status-sep{width:1px;height:30px;background:rgba(255,255,255,.12)}
+
+/* Main nav */
+.main-nav{display:flex;background:#162A16;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}
+.mnav-btn{padding:10px 20px;font-size:12.5px;font-weight:600;cursor:pointer;color:rgba(255,255,255,.45);border-bottom:3px solid transparent;border:none;background:transparent;font-family:var(--font);transition:all .15s}
+.mnav-btn.active{color:#fff;border-bottom:3px solid #4ADE80}
+.mnav-btn:hover{color:rgba(255,255,255,.8)}
+
+/* Content */
+.content{flex:1;overflow-y:auto;padding:12px;background:#EDECEB}
+.panel{display:none}.panel.active{display:block}
+
+/* Cards */
+.card{background:var(--white);border:.5px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.card-hdr{padding:9px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.card-hdr.forest{background:var(--forest);color:#fff}
+.card-hdr.dark{background:var(--dark);color:#fff}
+.card-hdr.navy{background:var(--navy);color:#fff}
+.card-hdr.green{background:var(--green);color:#fff}
+.card-hdr.amber{background:var(--amber);color:#fff}
+.card-hdr.red{background:var(--red);color:#fff}
+.card-body{padding:12px 14px}
+
+/* Work order card */
+.wo-card{background:var(--white);border:.5px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:10px;border-left:4px solid var(--forest)}
+.wo-card.urgent{border-left-color:var(--red)}
+.wo-card.in-progress{border-left-color:var(--amber)}
+.wo-card.done{border-left-color:var(--green);opacity:.8}
+.wo-hdr{padding:10px 14px;background:var(--g50);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.wo-ro{font-size:14px;font-weight:700;font-family:monospace;color:var(--navy)}
+.wo-body{padding:10px 14px}
+.wo-info{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px}
+.wi-item label{font-size:10.5px;color:var(--g400);display:block;margin-bottom:2px}
+.wi-item span{font-size:12.5px;font-weight:500}
+
+/* Check rows */
+.chk-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:.5px solid var(--g100)}
+.chk-row:last-child{border-bottom:none}
+.chk-label{flex:1;font-size:12px}
+.cbtn{min-width:46px;height:30px;padding:0 10px;border-radius:var(--r-sm);border:.5px solid var(--g200);font-size:11px;cursor:pointer;background:#fff;color:var(--g500)}
+.cbtn.ok{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.cbtn.fail{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.cbtn.na{background:var(--g50);color:var(--g400)}
+
+/* Timer */
+.timer-display{font-size:36px;font-weight:800;font-family:monospace;letter-spacing:2px;color:var(--forest);text-align:center;padding:12px 0}
+.timer-display.running{color:var(--amber)}
+.timer-display.overtime{color:var(--red);animation:blink-text 1.5s infinite}
+@keyframes blink-text{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Addon */
+.addon-card{border:.5px solid var(--g100);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:6px;background:var(--g50)}
+.addon-card.safety1{background:var(--red-bg);border-color:var(--red-bd)}
+.addon-card.safety2{background:var(--amber-bg);border-color:var(--amber-bd)}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500}
+.b-green{background:var(--green-bg);color:var(--green);border:.5px solid var(--green-bd)}
+.b-amber{background:var(--amber-bg);color:var(--amber)}
+.b-red{background:var(--red-bg);color:var(--red)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}
+.b-gray{background:var(--g100);color:var(--g500)}
+.b-forest{background:#E4F0E4;color:var(--forest)}
+
+/* Buttons */
+.btn{height:36px;padding:0 16px;border-radius:var(--r-sm);font-size:12.5px;font-weight:500;cursor:pointer;border:none;font-family:var(--font);transition:all .15s}
+.btn:active{transform:scale(.97)}
+.btn-forest{background:var(--forest);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-amber{background:var(--amber);color:#fff}
+.btn-outline{background:transparent;border:.5px solid var(--g200);color:var(--dark)}
+.btn-sm{height:28px;padding:0 10px;font-size:11px}
+
+/* Field */
+.field{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.field label{font-size:11px;color:var(--g500);font-weight:500}
+.field input,.field select,.field textarea{border:.5px solid var(--g200);border-radius:var(--r-sm);font-size:12px;color:var(--dark);background:var(--g50);font-family:var(--font)}
+.field input,.field select{height:34px;padding:0 10px}
+.field textarea{padding:7px 10px;resize:none}
+
+/* Section title */
+.sec-title{font-size:11.5px;font-weight:600;color:var(--g500);margin:10px 0 6px;padding-bottom:4px;border-bottom:.5px solid var(--g100)}
+
+/* Stats row */
+.stats-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.stat-chip{flex:1;min-width:80px;padding:10px 12px;border-radius:var(--r-sm);text-align:center;background:var(--white);border:.5px solid var(--g100)}
+.stat-n{font-size:20px;font-weight:700;margin:4px 0}
+.stat-l{font-size:10.5px;color:var(--g400)}
+
+/* Toast */
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#2C4A1A;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Header -->
+  <div class="hdr">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="hdr-logo">DealerOS</div>
+      <div>
+        <div class="hdr-title">🔧 技師工作台 Technician Workstation</div>
+        <div style="font-size:11px;opacity:.65;margin-top:1px">技師視角專屬｜台中旗艦店</div>
+      </div>
+    </div>
+    <div class="hdr-meta">
+      <span><span class="live-dot"></span>陳建明（資深技師）</span><br>
+      <span id="clock" style="font-family:monospace">09:20:00</span>　2026/06/12
+    </div>
+  </div>
+
+  <!-- 狀態列 -->
+  <div class="status-bar">
+    <div class="status-item"><label>今日工單</label><span id="stat-total">3</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item"><label>進行中</label><span class="warn" id="stat-active">1</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item"><label>已完成</label><span id="stat-done">1</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item"><label>待接單</label><span id="stat-pending">1</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item"><label>今日工時</label><span id="stat-hours">3.5 LU</span></div>
+    <div class="status-sep"></div>
+    <div class="status-item"><label>效率</label><span class="warn" id="stat-eff">112%</span></div>
+    <div style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.4)">
+      每30秒自動更新 · // GET /api/tech/workorders?tech_id=current_user
+    </div>
+  </div>
+
+  <!-- 主選單 -->
+  <div class="main-nav">
+    <button class="mnav-btn active" onclick="switchPanel('today')">📋 今日工單</button>
+    <button class="mnav-btn" onclick="switchPanel('active')">🔧 施工中</button>
+    <button class="mnav-btn" onclick="switchPanel('addon')">➕ 追加標記</button>
+    <button class="mnav-btn" onclick="switchPanel('hours')">⏱ 工時記錄</button>
+    <button class="mnav-btn" onclick="switchPanel('history')">📁 歷史記錄</button>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ 今日工單 ══ -->
+    <div class="panel active" id="panel-today">
+
+      <!-- 進行中工單（置頂）-->
+      <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12.5px;color:var(--amber);font-weight:500">
+        🔧 目前施工中：RO-MN-CP-260612-001（林志遠 / Scout Bobber）
+        <button onclick="switchPanel('active')" style="margin-left:10px;padding:3px 10px;background:var(--amber);color:#fff;border:none;border-radius:5px;font-size:11.5px;cursor:pointer;font-family:sans-serif">查看施工詳情 →</button>
+      </div>
+
+      <!-- 工單 1：施工中 -->
+      <div class="wo-card in-progress">
+        <div class="wo-hdr">
+          <span class="wo-ro">RO-MN-CP-260612-001</span>
+          <span class="badge b-amber">🔧 施工中</span>
+          <span style="font-size:11px;color:var(--g400);margin-left:auto">開始：10:15 · 預估 2.0 LU</span>
+        </div>
+        <div class="wo-body">
+          <div class="wo-info">
+            <div class="wi-item"><label>車主</label><span>林志遠</span></div>
+            <div class="wi-item"><label>車型</label><span>Scout Bobber</span></div>
+            <div class="wi-item"><label>車牌</label><span style="font-family:monospace">MMQ-2258</span></div>
+            <div class="wi-item"><label>業務類型</label><span>MN 定期保養</span></div>
+            <div class="wi-item"><label>工位</label><span>A3</span></div>
+            <div class="wi-item"><label>指派主管</label><span>王大明</span></div>
+          </div>
+          <div style="font-size:12px;color:var(--dark);margin-bottom:8px">
+            <strong>維修項目：</strong>10,000km 定期保養（機油更換 + 機油濾芯 + 鏈條張力調整）
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-forest btn-sm" onclick="switchPanel('active')">進入施工模式</button>
+            <button class="btn btn-outline btn-sm" onclick="switchPanel('addon')">標記追加項目</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 工單 2：待接單 -->
+      <div class="wo-card">
+        <div class="wo-hdr">
+          <span class="wo-ro">RO-RP-CP-260612-002</span>
+          <span class="badge b-gray">⏳ 待接單</span>
+          <span style="font-size:11px;color:var(--g400);margin-left:auto">預估 1.5 LU · 派工：09:45</span>
+        </div>
+        <div class="wo-body">
+          <div class="wo-info">
+            <div class="wi-item"><label>車主</label><span>吳志豪</span></div>
+            <div class="wi-item"><label>車型</label><span>Chief Dark Horse</span></div>
+            <div class="wi-item"><label>業務類型</label><span>RP 故障維修</span></div>
+          </div>
+          <div style="font-size:12px;margin-bottom:8px">引擎頓挫感診斷 + 節氣門清洗</div>
+          <button class="btn btn-green btn-sm" onclick="acceptWork('RO-RP-CP-260612-002')">✅ 接單開工</button>
+        </div>
+      </div>
+
+      <!-- 工單 3：已完成 -->
+      <div class="wo-card done">
+        <div class="wo-hdr">
+          <span class="wo-ro">RO-MN-CP-260612-000</span>
+          <span class="badge b-green">✅ 已完成</span>
+          <span style="font-size:11px;color:var(--g400);margin-left:auto">工時 1.5 LU · 完成：08:55</span>
+        </div>
+        <div class="wo-body">
+          <div class="wo-info">
+            <div class="wi-item"><label>車主</label><span>張偉成</span></div>
+            <div class="wi-item"><label>車型</label><span>Indian FTR 1200</span></div>
+            <div class="wi-item"><label>業務類型</label><span>MN 保養</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 施工中（詳細施工模式）══ -->
+    <div class="panel" id="panel-active">
+
+      <!-- 工單資訊 -->
+      <div style="background:var(--forest);border-radius:8px;padding:12px 16px;margin-bottom:10px;color:#fff">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:16px;font-weight:700;font-family:monospace">RO-MN-CP-260612-001</div>
+            <div style="font-size:12px;opacity:.75;margin-top:2px">林志遠 · Scout Bobber（MMQ-2258）· MN 定期保養 · 工位 A3</div>
+          </div>
+          <div class="timer-display running" id="work-timer" style="font-size:28px;padding:0">01:05:32</div>
+        </div>
+      </div>
+
+      <!-- 施工清單 -->
+      <div class="card">
+        <div class="card-hdr forest">施工清單　逐項完成後勾選 <span id="chk-progress" style="font-size:11px;font-weight:400;opacity:.8">0 / 8 項</span></div>
+        <div class="card-body" id="work-checklist"></div>
+      </div>
+
+      <!-- 深入檢查結果 -->
+      <div class="card">
+        <div class="card-hdr dark">深入檢查記錄　技師視角</div>
+        <div class="card-body">
+          <div class="sec-title">請對每項診斷結果標記</div>
+          <div id="tech-diag-list"></div>
+          <div style="margin-top:10px">
+            <div class="sec-title">發現其他問題（會觸發追加項目）</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
+              <div class="field" style="margin:0"><label>問題描述</label><input id="new-issue" placeholder="例：後避震器油封滲油"></div>
+              <div class="field" style="margin:0"><label>安全等級</label>
+                <select id="new-safety">
+                  <option value="3">🟢 一般建議</option>
+                  <option value="2">🟡 安全相關（強烈建議）</option>
+                  <option value="1">🔴 安全警示（立即必修）</option>
+                </select>
+              </div>
+              <button class="btn btn-amber" style="height:34px" onclick="addIssue()">＋ 加入追加</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 施工備註 -->
+      <div class="card">
+        <div class="card-hdr dark">施工備註（交付給SA和複檢員）</div>
+        <div class="card-body">
+          <div class="field">
+            <label>技師施工備註（SA和複檢員可見）</label>
+            <textarea style="height:70px" placeholder="例：機油濾心較難拆，有輕微漏油，已清潔。鏈條磨耗偏快，建議3個月後檢查...">鏈條張力調整完畢。檢查發現後輪胎磨耗偏快（2.3mm），已告知SA列入待處理清單。</textarea>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <button class="btn btn-green" onclick="completeWork()">✅ 完成施工，通知SA複檢</button>
+            <button class="btn btn-outline btn-sm" onclick="showToast('已暫停計時\n// PATCH /api/workorders/{id}/timer { action:\"pause\" }')">暫停計時</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 追加標記 ══ -->
+    <div class="panel" id="panel-addon">
+      <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12.5px;color:#412402">
+        ⚠️ <strong>追加標記流程：</strong>技師發現額外問題 → 在此標記 → SA聯繫車主確認 → 車主同意後才能執行
+      </div>
+
+      <div class="card">
+        <div class="card-hdr amber">新增追加項目　關聯工單 RO-MN-CP-260612-001</div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>項目名稱 <span style="color:var(--red)">*</span></label><input id="a-name" placeholder="例：後避震器油封更換"></div>
+            <div class="field"><label>零件+工類型</label>
+              <select id="a-type"><option>零件+工</option><option>純工項</option><option>純零件</option></select>
+            </div>
+            <div class="field"><label>安全等級 <span style="color:var(--red)">*</span></label>
+              <select id="a-safety">
+                <option value="3">🟢 一般建議</option>
+                <option value="2">🟡 安全相關（強烈建議）</option>
+                <option value="1">🔴 安全警示（立即必修）</option>
+              </select>
+            </div>
+            <div class="field"><label>估計費用（NT$）</label><input id="a-fee" type="number" placeholder="0" min="0"></div>
+            <div class="field"><label>確認方式建議</label>
+              <select id="a-confirm"><option>電話口頭確認</option><option>現場本人確認</option><option>Line 文字確認</option></select>
+            </div>
+            <div class="field" style="grid-column:span 2"><label>技師說明（給SA和車主看的說明）</label>
+              <textarea id="a-note" style="height:52px" placeholder="簡短說明問題原因和建議處理方式..."></textarea>
+            </div>
+          </div>
+          <button class="btn btn-amber" onclick="submitAddon()">📤 送出追加項目（通知SA聯繫車主）</button>
+        </div>
+      </div>
+
+      <!-- 本工單已送出的追加項目 -->
+      <div class="card">
+        <div class="card-hdr dark">本工單已送出的追加項目</div>
+        <div class="card-body" id="addon-list"></div>
+      </div>
+    </div>
+
+    <!-- ══ 工時記錄 ══ -->
+    <div class="panel" id="panel-hours">
+
+      <!-- 今日工時統計 -->
+      <div class="stats-row">
+        <div class="stat-chip"><div class="stat-n" style="color:var(--forest)">3.5</div><div class="stat-l">今日實際工時（LU）</div></div>
+        <div class="stat-chip"><div class="stat-n" style="color:var(--navy)">3.0</div><div class="stat-l">標準工時（LU）</div></div>
+        <div class="stat-chip"><div class="stat-n" style="color:var(--amber)">116%</div><div class="stat-l">工時效率</div></div>
+        <div class="stat-chip"><div class="stat-n" style="color:var(--green)">3</div><div class="stat-l">完成工單數</div></div>
+      </div>
+
+      <!-- 工時明細 -->
+      <div class="card">
+        <div class="card-hdr forest">今日工時明細</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <thead><tr style="background:var(--dark);color:#fff">
+              <th style="padding:7px 12px;text-align:left">工單號</th>
+              <th style="padding:7px 12px">業務類型</th>
+              <th style="padding:7px 12px;text-align:center">開始</th>
+              <th style="padding:7px 12px;text-align:center">結束</th>
+              <th style="padding:7px 12px;text-align:center">標準LU</th>
+              <th style="padding:7px 12px;text-align:center">實際LU</th>
+              <th style="padding:7px 12px;text-align:center">效率</th>
+            </tr></thead>
+            <tbody>
+              <tr style="border-bottom:.5px solid var(--g100)">
+                <td style="padding:8px 12px;font-family:monospace;font-size:11px">RO-MN-CP-260612-000</td>
+                <td style="padding:8px 12px;text-align:center"><span class="badge b-navy" style="font-size:10px">MN</span></td>
+                <td style="padding:8px 12px;text-align:center;font-family:monospace">07:30</td>
+                <td style="padding:8px 12px;text-align:center;font-family:monospace">08:55</td>
+                <td style="padding:8px 12px;text-align:center">1.5</td>
+                <td style="padding:8px 12px;text-align:center;font-weight:600">1.5</td>
+                <td style="padding:8px 12px;text-align:center"><span class="badge b-green">100%</span></td>
+              </tr>
+              <tr style="border-bottom:.5px solid var(--g100);background:var(--amber-bg)">
+                <td style="padding:8px 12px;font-family:monospace;font-size:11px">RO-MN-CP-260612-001</td>
+                <td style="padding:8px 12px;text-align:center"><span class="badge b-navy" style="font-size:10px">MN</span></td>
+                <td style="padding:8px 12px;text-align:center;font-family:monospace">10:15</td>
+                <td style="padding:8px 12px;text-align:center;color:var(--amber)">施工中...</td>
+                <td style="padding:8px 12px;text-align:center">2.0</td>
+                <td style="padding:8px 12px;text-align:center;color:var(--amber)">1:05:32</td>
+                <td style="padding:8px 12px;text-align:center"><span class="badge b-amber">進行中</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 工時說明 -->
+      <div style="background:var(--blue-bg);border:.5px solid var(--blue-bd);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--blue)">
+        ℹ️ 工時計時在「接單開工」時自動開始，「完成施工」時自動停止。<br>
+        // 後端串接點：PATCH /api/workorders/{id}/time-log { action:"start"|"stop" }
+      </div>
+    </div>
+
+    <!-- ══ 歷史記錄 ══ -->
+    <div class="panel" id="panel-history">
+      <div class="card">
+        <div class="card-hdr forest">近期完成工單（過去30天）</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:var(--dark);color:#fff">
+              <th style="padding:7px 12px;text-align:left">工單號</th>
+              <th style="padding:7px 12px">日期</th>
+              <th style="padding:7px 12px">車型</th>
+              <th style="padding:7px 12px;text-align:center">工時LU</th>
+              <th style="padding:7px 12px;text-align:center">複檢結果</th>
+            </tr></thead>
+            <tbody id="history-list"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+<div id="_sys_toast_"></div>
+
+<script>
+// 工單施工清單
+var workItems = [
+  {id:'w1',label:'洩放舊機油（確認顏色/量）',done:false},
+  {id:'w2',label:'更換機油濾芯（OEM原廠）',done:false},
+  {id:'w3',label:'注入新機油至規定量（依廠家標準）',done:false},
+  {id:'w4',label:'啟動引擎確認無漏油',done:false},
+  {id:'w5',label:'鏈條張力測量並調整',done:false},
+  {id:'w6',label:'各部位螺絲扭力確認',done:false},
+  {id:'w7',label:'故障碼掃描（OEM原廠診斷系統）',done:false},
+  {id:'w8',label:'施工後目視最終確認',done:false},
+];
+
+// 技師診斷清單
+var diagItems = [
+  {id:'d1',label:'油液狀況評估',result:'none'},
+  {id:'d2',label:'煞車系統目視檢查',result:'none'},
+  {id:'d3',label:'輪胎磨耗評估',result:'none'},
+  {id:'d4',label:'懸吊系統目視',result:'none'},
+];
+
+// 追加項目假資料
+var addons = [
+  {name:'後輪胎更換建議',safety:2,fee:5800,status:'SA聯繫中',time:'10:58'},
+];
+
+// 歷史記錄假資料
+var historyData = [
+  {ro:'RO-MN-CP-260610-008',date:'2026/06/10',model:'Scout Bobber',lu:2.0,qc:'✅通過'},
+  {ro:'RO-RP-CP-260608-004',date:'2026/06/08',model:'Indian FTR 1200',lu:3.5,qc:'✅通過'},
+  {ro:'RO-WC-WR-260605-002',date:'2026/06/05',model:'Chief Dark Horse',lu:1.5,qc:'✅通過'},
+];
+
+function renderChecklist(){
+  var done=workItems.filter(function(w){return w.done;}).length;
+  document.getElementById('chk-progress').textContent=done+' / '+workItems.length+' 項';
+  document.getElementById('work-checklist').innerHTML=workItems.map(function(w,i){
+    return '<div class="chk-row'+(w.done?' checked':'')+'" style="'+(w.done?'background:var(--green-bg);':'')+'">'
+      +'<div style="width:22px;height:22px;border-radius:50%;border:2px solid '+(w.done?'var(--green-bd)':'var(--g200)')+';display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;background:'+(w.done?'var(--green-bd)':'#fff')+';color:'+(w.done?'#fff':'var(--g400)')+'" onclick="toggleWork('+i+')">'+(w.done?'✓':'')+'</div>'
+      +'<span class="chk-label" style="'+(w.done?'text-decoration:line-through;color:var(--g400)':'')+'">'+(i+1)+'. '+w.label+'</span>'
+      +'<button class="cbtn'+(w.done?' ok':'')+' btn-sm" onclick="toggleWork('+i+')">'+(w.done?'✅ 完成':'標記完成')+'</button>'
+      +'</div>';
+  }).join('');
+}
+function toggleWork(i){workItems[i].done=!workItems[i].done;renderChecklist();}
+
+function renderDiag(){
+  document.getElementById('tech-diag-list').innerHTML=diagItems.map(function(d,i){
+    return '<div class="chk-row"><span class="chk-label">'+d.label+'</span><div style="display:flex;gap:4px">'
+      +'<button class="cbtn'+(d.result==='ok'?' ok':'')+'" onclick="setDiag('+i+',\'ok\')">正常</button>'
+      +'<button class="cbtn'+(d.result==='warn'?' warn':'')+'" style="'+(d.result==='warn'?'background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)':'')+'" onclick="setDiag('+i+',\'warn\')">需關注</button>'
+      +'<button class="cbtn'+(d.result==='bad'?' fail':'')+'" onclick="setDiag('+i+',\'bad\')">異常</button>'
+      +'</div></div>';
+  }).join('');
+}
+function setDiag(i,v){diagItems[i].result=v;renderDiag();}
+
+function renderAddons(){
+  var safeCls={1:'safety1',2:'safety2',3:''};
+  var safLabel={1:'🔴 安全警示',2:'🟡 安全相關',3:'🟢 一般建議'};
+  document.getElementById('addon-list').innerHTML=addons.length?addons.map(function(a){
+    return '<div class="addon-card '+safeCls[a.safety]+'">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'
+      +'<div><div style="font-size:13px;font-weight:600;margin-bottom:3px">'+a.name+'</div>'
+      +'<div style="display:flex;gap:6px"><span class="badge b-'+(a.safety===1?'red':a.safety===2?'amber':'green')+'">'+safLabel[a.safety]+'</span></div>'
+      +'<div style="font-size:11px;color:var(--g400);margin-top:3px">送出時間：'+a.time+'</div></div>'
+      +'<div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--navy)">NT$'+a.fee.toLocaleString()+'</div>'
+      +'<span class="badge b-amber" style="margin-top:4px">'+a.status+'</span></div>'
+      +'</div></div>';
+  }).join(''):'<div style="text-align:center;padding:14px;color:var(--g400);font-size:12px">本工單尚無追加項目</div>';
+}
+
+function renderHistory(){
+  document.getElementById('history-list').innerHTML=historyData.map(function(h){
+    return '<tr style="border-bottom:.5px solid var(--g100)">'
+      +'<td style="padding:8px 12px;font-family:monospace;font-size:11px">'+h.ro+'</td>'
+      +'<td style="padding:8px 12px;text-align:center">'+h.date+'</td>'
+      +'<td style="padding:8px 12px">'+h.model+'</td>'
+      +'<td style="padding:8px 12px;text-align:center;font-weight:600">'+h.lu+'</td>'
+      +'<td style="padding:8px 12px;text-align:center"><span class="badge b-green" style="font-size:10.5px">'+h.qc+'</span></td>'
+      +'</tr>';
+  }).join('');
+}
+
+function acceptWork(ro){
+  showToast('✅ 接單成功！工單 '+ro+' 開始計時\n// API：PATCH /api/workorders/'+ro+'/status\n{ "status":"in_progress", "technician_id":"tech_chen", "start_time":"now" }');
+  switchPanel('active');
+}
+
+function addIssue(){
+  var label=document.getElementById('new-issue').value.trim();
+  var safety=parseInt(document.getElementById('new-safety').value);
+  if(!label){showToast('請填寫問題描述');return;}
+  addons.push({name:label,safety:safety,fee:0,status:'待SA聯繫',time:new Date().toTimeString().slice(0,5)});
+  document.getElementById('new-issue').value='';
+  renderAddons();
+  showToast('✅ 已標記追加項目，SA 將收到通知\n// API：POST /api/repair-order-addons\n{ "wo_id":"RO-MN-CP-260612-001", "name":"'+label+'", "safety":'+safety+' }');
+  switchPanel('addon');
+}
+
+function submitAddon(){
+  var name=document.getElementById('a-name').value.trim();
+  var safety=parseInt(document.getElementById('a-safety').value);
+  var fee=parseInt(document.getElementById('a-fee').value)||0;
+  var note=document.getElementById('a-note').value.trim();
+  if(!name){showToast('請填寫項目名稱');return;}
+  addons.push({name:name,safety:safety,fee:fee,status:'SA聯繫中',time:new Date().toTimeString().slice(0,5)});
+  document.getElementById('a-name').value='';document.getElementById('a-fee').value='';document.getElementById('a-note').value='';
+  renderAddons();
+  showToast('📤 追加項目已送出！SA 已收到通知，正在聯繫車主\n\n// API：POST /api/repair-order-addons\n{ "name":"'+name+'", "safety_level":'+safety+', "estimated_fee":'+fee+', "tech_note":"'+note+'" }\n\n車主決定後狀態將更新。');
+}
+
+function completeWork(){
+  var done=workItems.filter(function(w){return w.done;}).length;
+  if(done<workItems.length){
+    if(!confirm('施工清單還有 '+(workItems.length-done)+' 項未完成，確定要提交完成嗎？'))return;
+  }
+  showToast('✅ 已提交施工完成！\n// API：PATCH /api/workorders/RO-MN-CP-260612-001/status\n{ "status":"qc_pending" }\n\n→ 通知複檢員（陳建明不可自複檢，將通知其他資深技師或售後主管）\n→ SA 已收到「施工完成，等待複檢」通知（T07）');
+}
+
+// 主選單切換
+function switchPanel(name){
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.mnav-btn').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('panel-'+name).classList.add('active');
+  var panels=['today','active','addon','hours','history'];
+  var idx=panels.indexOf(name);
+  document.querySelectorAll('.mnav-btn')[idx].classList.add('active');
+}
+
+// 時鐘
+function updateClock(){
+  var now=new Date();
+  document.getElementById('clock').textContent=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
+}
+setInterval(updateClock,1000);
+
+// Toast
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||3500);}
+
+// Init
+renderChecklist();
+renderDiag();
+renderAddons();
+renderHistory();
+</script>
+</body>
+</html>

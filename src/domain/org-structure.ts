@@ -122,6 +122,7 @@ export async function getOrgStructure(): Promise<OrgStructureData> {
     { data: roles },
     { data: profiles },
     { data: navNodes },
+    { data: brandCfgs },
   ] = await Promise.all([
     sb.from("groups").select("id, name, short_name, tenant_uuid").order("name"),
     sb
@@ -153,7 +154,14 @@ export async function getOrgStructure(): Promise<OrgStructureData> {
     sb
       .from("nav_nodes")
       .select("id, name, level, parent_id, brand_id, href, permission, is_admin_only, is_active"),
+    sb.from("brand_config").select("brand_id, metadata"),
   ]);
+
+  // per-brand 組織模式（問題二）：org_mode=3 收合「區域」層、=4 保留。查無 → 預設四層。
+  const orgModeByBrand = new Map<string, 3 | 4>();
+  for (const bc of (brandCfgs ?? []) as Array<{ brand_id: string; metadata: Record<string, unknown> | null }>) {
+    orgModeByBrand.set(bc.brand_id, Number(bc.metadata?.org_mode) === 3 ? 3 : 4);
+  }
 
   const groupList = groups ?? [];
   const subList = subs ?? [];
@@ -278,10 +286,20 @@ export async function getOrgStructure(): Promise<OrgStructureData> {
 
   const buildSubNode = (s: (typeof subList)[number]): OrgTreeNode => {
     const brandIds = brandsForSub.get(s.id) ?? [];
-    // region 節點 = 此法人底下 parent_id=null 的 organizations
-    const regions = (orgsForSub.get(s.id) ?? [])
-      .filter((o) => !o.parent_id)
-      .map(buildRegionNode);
+    // 此法人的組織模式 = 其品牌的 org_mode（多品牌取最小 = 任一品牌要三層就收合）；無品牌 → 四層
+    const subOrgMode: 3 | 4 = brandIds.length
+      ? (Math.min(...brandIds.map((b) => orgModeByBrand.get(b) ?? 4)) as 3 | 4)
+      : 4;
+    // 此法人底下 parent_id=null 的 organizations（region 層；三層模式下不存在區域概念）
+    const topOrgs = (orgsForSub.get(s.id) ?? []).filter((o) => !o.parent_id);
+    // 四層（org_mode=4）：保留區域節點；三層（org_mode=3）：收合區域，門店上提直掛法人
+    const orgChildren: OrgTreeNode[] =
+      subOrgMode === 3
+        ? topOrgs.flatMap((o) => {
+            const kids = childOrgs.get(o.id) ?? [];
+            return kids.length ? kids.map(buildStoreNode) : [buildStoreNode(o)];
+          })
+        : topOrgs.map(buildRegionNode);
     const deptNodes = (deptsForSub.get(s.id) ?? []).map(buildDeptNode);
     // 人員指派：把此法人各 brand chip 的 brand-scoped 指派彙整
     const assignments: AssignmentRow[] = [];
@@ -307,7 +325,7 @@ export async function getOrgStructure(): Promise<OrgStructureData> {
         { label: "狀態", value: s.is_active === false ? "停用" : "啟用" },
       ],
       assignments,
-      children: [...regions, ...deptNodes],
+      children: [...orgChildren, ...deptNodes],
     };
   };
 

@@ -33,8 +33,18 @@ export type BrandConfig = {
   oilIntervalKm: number | null;
   warrantyRegDays: number | null;
   serviceTemplate: ServiceTemplate;
+  /**
+   * 組織模式（per-brand，B 海德生回覆問題二）：3=三層（集團→法人→門店）/ 4=四層（集團→法人→區域→門店）。
+   * 落點 metadata.org_mode（jsonb，可隨時 promote 成 typed column）。查無 → 預設 4（支援最大層級）。
+   */
+  orgMode: 3 | 4;
   metadata: Record<string, unknown>;
 };
+
+/** 從 brand_config.metadata.org_mode 解析組織模式，非 3 一律視為 4（最大層級安全預設）。 */
+export function resolveOrgMode(metadata: Record<string, unknown> | null | undefined): 3 | 4 {
+  return Number(metadata?.org_mode) === 3 ? 3 : 4;
+}
 
 type BrandConfigRow = {
   brand_id: string;
@@ -57,6 +67,7 @@ function fallbackConfig(brandId: string): BrandConfig {
     oilIntervalKm: null,
     warrantyRegDays: null,
     serviceTemplate: "standard",
+    orgMode: 4,
     metadata: {},
   };
 }
@@ -70,6 +81,7 @@ function rowToConfig(r: BrandConfigRow): BrandConfig {
     oilIntervalKm: r.oil_interval_km,
     warrantyRegDays: r.warranty_reg_days,
     serviceTemplate: (r.service_template as ServiceTemplate) ?? "standard",
+    orgMode: resolveOrgMode(r.metadata),
     metadata: r.metadata ?? {},
   };
 }

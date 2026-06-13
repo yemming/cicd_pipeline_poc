@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
+import { getActiveScope } from "@/lib/scope/active-scope";
 import { getOrgStructure } from "@/domain/org-structure";
 import { getOrgSettings } from "@/domain/org-settings";
 
@@ -31,6 +32,10 @@ export default async function OrgStructurePage() {
     );
   }
 
-  const [data, orgSettings] = await Promise.all([getOrgStructure(), getOrgSettings()]);
+  const scope = await getActiveScope();
+  const [data, orgSettings] = await Promise.all([
+    getOrgStructure(),
+    getOrgSettings(scope.brand_id),
+  ]);
   return <OrgStructureBoard data={data} orgSettings={orgSettings} />;
 }

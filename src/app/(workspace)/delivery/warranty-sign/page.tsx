@@ -29,7 +29,7 @@ export default async function Page({
       delivery={delivery}
       warranty={warranty}
       warrantyRegDays={brandConfig.warrantyRegDays}
-      warrantySystem={brandConfig.warrantySystem}
+      warrantyRegBrand={brandConfig.brandName}
     />
   );
 }

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DealerOS 售後 — 售後稽核日誌</title>
+<style>
+:root{--red:#CC0000;--dark:#1A1A1A;--navy:#1A3A5C;--white:#FFFFFF;--g50:#F5F5F4;--g100:#E8E7E4;--g200:#D1D0CE;--g400:#999;--g500:#6B6A68;--g700:#3A3A38;--green:#0F6E56;--green-bg:#E1F5EE;--green-bd:#1D9E75;--amber:#854F0B;--amber-bg:#FAEEDA;--amber-bd:#BA7517;--red-bg:#FCEBEB;--blue:#185FA5;--blue-bg:#E6F1FB;--blue-bd:#4A90D9;--font:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;--r:10px;}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#EDECEB;font-family:var(--font);font-size:14px;color:var(--dark)}
+.app{max-width:1200px;margin:0 auto;background:var(--white);min-height:100vh;box-shadow:0 0 30px rgba(0,0,0,.12)}
+header{background:var(--navy);height:48px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.content{padding:20px}
+.card{background:var(--white);border:1px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
+.card-hdr{padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.card-hdr.navy{background:var(--navy);color:#fff}
+.card-hdr.dark{background:var(--dark);color:#fff}
+.card-hdr.amber{background:var(--amber);color:#fff}
+.card-body{padding:14px 16px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--g500);background:var(--g50);border-bottom:1px solid var(--g100);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--g100)}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover td{background:var(--g50)}
+tbody td{padding:9px 12px;vertical-align:middle}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;white-space:nowrap}
+.b-green{background:var(--green-bg);color:var(--green)}.b-amber{background:var(--amber-bg);color:var(--amber)}.b-red{background:var(--red-bg);color:var(--red)}.b-blue{background:var(--blue-bg);color:var(--blue)}.b-gray{background:var(--g100);color:var(--g500)}
+.qbar{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;padding:12px 16px;background:var(--g50);border-bottom:1px solid var(--g100)}
+.qf{display:flex;flex-direction:column;gap:3px}
+.qf label{font-size:11px;color:var(--g400);font-weight:500}
+.qf select,.qf input{height:30px;border:1px solid var(--g200);border-radius:5px;padding:0 9px;font-size:12px;font-family:var(--font);background:var(--white);outline:none}
+.btn{height:30px;padding:0 14px;border-radius:6px;font-size:12px;cursor:pointer;font-family:var(--font);font-weight:500;border:none}
+.btn-n{background:var(--navy);color:#fff}
+.tl-item{display:flex;gap:12px;padding:10px 0;border-bottom:.5px solid var(--g100)}
+.tl-item:last-child{border-bottom:none}
+.tl-dot{width:10px;height:10px;border-radius:50%;margin-top:3px;flex-shrink:0}
+.tl-content{flex:1}
+.tl-action{font-size:12px;font-weight:500;margin-bottom:2px}
+.tl-meta{font-size:11px;color:var(--g400)}
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span style="font-size:17px;font-weight:700;letter-spacing:2px;color:#fff">DealerOS</span>
+    <span style="width:1px;height:20px;background:rgba(255,255,255,.2)"></span>
+    <span style="font-size:13px;color:rgba(255,255,255,.6)">售後工單模組 <b style="color:#fff;font-weight:500">售後稽核日誌</b></span>
+    <span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,.55)">售後主管：王大明　台中旗艦店</span>
+  </header>
+
+  <div class="content">
+    <!-- 說明橫幅 -->
+    <div style="background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--blue)">
+      📋 <strong>層級二：工單事件時間軸</strong>（業務層稽核記錄）｜ 售後主管/店長可見 ｜ 保存7年 ｜ 只能新增，不可修改或刪除
+      <div style="font-size:11px;margin-top:3px;color:#0D3166">// 後端串接點：GET /api/audit-logs?scope=aftersales&store_id={store_id}</div>
+    </div>
+
+    <!-- 篩選列 -->
+    <div class="card">
+      <div class="qbar">
+        <div class="qf"><label>工單號</label><input type="text" placeholder="RO-MN-CP-..." style="min-width:160px"></div>
+        <div class="qf"><label>事件類型</label>
+          <select>
+            <option>全部</option>
+            <option>狀態變更</option>
+            <option>客戶簽名</option>
+            <option>主管授權</option>
+            <option>損傷異議</option>
+            <option>費用變更</option>
+            <option>退料核銷</option>
+            <option>聯繫記錄</option>
+          </select>
+        </div>
+        <div class="qf"><label>日期範圍</label><input type="date" value="2026-06-01"></div>
+        <div class="qf"><label>　</label><input type="date" value="2026-06-12"></div>
+        <div class="qf"><label>　</label><button class="btn btn-n" onclick="loadLogs()">查詢</button></div>
+        <div style="margin-left:auto;font-size:11px;color:var(--g400)">共 <strong id="log-count">24</strong> 筆記錄</div>
+      </div>
+    </div>
+
+    <!-- 工單事件時間軸 -->
+    <div class="card">
+      <div class="card-hdr dark">工單事件時間軸（只能新增，不可修改或刪除）</div>
+      <div class="card-body" id="timeline-body">
+        <!-- 動態產生 -->
+      </div>
+    </div>
+
+    <!-- 主管授權統計（每月自動生成）-->
+    <div class="card">
+      <div class="card-hdr amber">本月主管授權統計（自動生成）</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>授權類型</th><th>申請人</th><th>工單</th><th>授權時間</th><th>授權結果</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td>保固期限通融</td><td>陳怡君（SA）</td><td style="font-family:monospace;font-size:11px">WC-WR-260610-002</td><td>2026/06/10 11:23</td><td><span class="badge b-green">✅ 批准</span></td><td style="font-size:11px;color:var(--g500)">車主反映保固期前已發現問題，主管確認屬實</td></tr>
+            <tr><td>費用鎖定後修改</td><td>陳怡君（SA）</td><td style="font-family:monospace;font-size:11px">MN-CP-260608-005</td><td>2026/06/08 14:45</td><td><span class="badge b-green">✅ 批准</span></td><td style="font-size:11px;color:var(--g500)">漏計一項零件費，客戶同意重新簽名確認</td></tr>
+            <tr><td>工單中途取消</td><td>陳怡君（SA）</td><td style="font-family:monospace;font-size:11px">RP-CP-260605-003</td><td>2026/06/05 16:10</td><td><span class="badge b-red">❌ 拒絕</span></td><td style="font-size:11px;color:var(--g500)">零件已安裝，無法取消，請客戶協商</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 損耗核銷報表 -->
+    <div class="card">
+      <div class="card-hdr navy">本週損耗核銷記錄</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>工單號</th><th>料號</th><th>零件名稱</th><th>數量</th><th>SA確認</th><th>主管授權</th><th>核銷原因</th><th>時間</th></tr></thead>
+          <tbody>
+            <tr>
+              <td style="font-family:monospace;font-size:11px">RP-CP-260610-004</td>
+              <td style="font-family:monospace;font-size:11px">IM-BRK-002</td>
+              <td>前煞車皮</td>
+              <td style="text-align:center">1</td>
+              <td>陳怡君</td>
+              <td>王大明</td>
+              <td style="font-size:11px;color:var(--g500)">已安裝，客戶臨時取消</td>
+              <td style="font-family:monospace;font-size:11px">2026/06/10 13:22</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="_sys_toast_"></div>
+
+<script>
+var logs = [
+  {dot:'navy', action:'工單 RO-MN-CP-260612-001 已開立，狀態設為「待派工」', meta:'2026/06/12 09:28 · SA：陳怡君 · 系統自動', detail:'inspection_id: PI-20260612-001'},
+  {dot:'green', action:'車主第一次簽名完成（車況交接確認）', meta:'2026/06/12 09:25 · SA：陳怡君', detail:'簽名儲存於 Supabase Storage'},
+  {dot:'amber', action:'工單狀態變更為「施工中」，已派工至技師陳建明（工位 A3）', meta:'2026/06/12 10:15 · 主管：王大明', detail:'PATCH /api/workorders/status { status:"in_progress", technician:"陳建明", bay:"A3" }'},
+  {dot:'red', action:'損傷異議記錄：客戶表示左整流罩刮傷非進廠前已存在', meta:'2026/06/12 09:30 · SA：陳怡君 · 不可修改', detail:'異議類型：損傷非進廠前已存在。主管已收到通知（T10）。'},
+  {dot:'amber', action:'技師發現追加項目：後避震器油封更換（安全相關）', meta:'2026/06/12 10:45 · 技師：陳建明', detail:'費用：NT$3,200 · 安全等級：🟡 安全相關'},
+  {dot:'green', action:'客戶電話聯繫記錄：LINE通知已發送，車主同意追加後避震器油封', meta:'2026/06/12 11:02 · SA：陳怡君', detail:'聯繫方式：LINE · 結果：同意'},
+  {dot:'navy', action:'竣工複檢通過，複檢員：陳建明（資深技師）簽核', meta:'2026/06/12 14:32 · 複檢員：陳建明', detail:'複檢次數：第1次 · 7/7項通過'},
+  {dot:'green', action:'工單關閉，連鎖動作執行完畢（人車檔案更新、D+3電訪任務建立）', meta:'2026/06/12 15:47 · SA：陳怡君', detail:'實收金額：NT$12,430 · 信用卡'},
+];
+var dotColors = {navy:'#1A3A5C',green:'#0F6E56',amber:'#854F0B',red:'#CC0000',gray:'#999'};
+
+function renderLogs(){
+  var body = document.getElementById('timeline-body');
+  body.innerHTML = logs.map(function(l){
+    return '<div class="tl-item">'
+      +'<div class="tl-dot" style="background:'+dotColors[l.dot]+'"></div>'
+      +'<div class="tl-content">'
+      +'<div class="tl-action">'+l.action+'</div>'
+      +'<div class="tl-meta">'+l.meta+'</div>'
+      +(l.detail?'<div style="font-size:11px;color:var(--g500);background:var(--g50);border-radius:4px;padding:3px 8px;margin-top:4px">'+l.detail+'</div>':'')
+      +'</div></div>';
+  }).join('');
+  document.getElementById('log-count').textContent = logs.length;
+}
+function loadLogs(){ renderLogs(); showToast('已重新載入稽核日誌\n// API：GET /api/audit-logs?scope=aftersales&store_id=TC001&date_from=2026-06-01&date_to=2026-06-12'); }
+
+renderLogs();
+
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||3200);}
+</script>
+</body>
+</html>

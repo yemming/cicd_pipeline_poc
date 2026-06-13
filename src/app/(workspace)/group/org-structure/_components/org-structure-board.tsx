@@ -79,7 +79,7 @@ export function OrgStructureBoard({
     const prev = orgMode;
     setOrgMode(next); // 樂觀
     startSave(async () => {
-      const res = await setOrgModeAction(orgSettings.groupId, next);
+      const res = await setOrgModeAction(orgSettings.brandId, next);
       if (res.ok) {
         setModeBanner({ ok: true, msg: `✓ 已切換為 ${next} 層組織模式` });
         setTimeout(() => setModeBanner(null), 2200);
@@ -128,7 +128,7 @@ export function OrgStructureBoard({
 
         {/* org_mode 選擇器 */}
         <div className="mt-3 flex items-center gap-3 flex-wrap border-t border-[#F5AEAD]/60 pt-3">
-          <span className="text-[12px] text-[#5A5955] font-medium">組織模式</span>
+          <span className="text-[12px] text-[#5A5955] font-medium">組織模式（此品牌）</span>
           {([3, 4] as const).map((m) => (
             <button
               key={m}
@@ -145,9 +145,9 @@ export function OrgStructureBoard({
             </button>
           ))}
           {savingMode && <span className="text-[12px] text-[#9A9890]">切換中⋯</span>}
-          {!orgSettings && <span className="text-[12px] text-[#9A9890]">（system_settings 尚未初始化）</span>}
+          {!orgSettings && <span className="text-[12px] text-[#9A9890]">（brand_config 尚未初始化）</span>}
           <span className="text-[11.5px] text-[#9A9890] ml-auto">
-            目前：{orgMode} 層 · {orgSettings?.groupName ?? "—"}
+            目前品牌：<b className="text-[#5A5955]">{orgSettings?.brandName ?? "—"}</b> · {orgMode} 層
           </span>
         </div>
       </section>

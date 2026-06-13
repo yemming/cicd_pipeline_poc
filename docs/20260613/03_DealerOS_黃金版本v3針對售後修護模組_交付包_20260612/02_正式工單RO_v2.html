@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DealerOS 售後 — 正式工單 RO 確認</title>
+<style>:root{--red:#CC0000;--dark:#1A1A1A;--navy:#1A3A5C;--white:#FFFFFF;--g50:#F5F5F4;--g100:#E8E7E4;--g200:#D1D0CE;--g400:#999;--g500:#6B6A68;--g700:#3A3A38;--green:#0F6E56;--green-bg:#E1F5EE;--green-bd:#1D9E75;--amber:#854F0B;--amber-bg:#FAEEDA;--amber-bd:#BA7517;--red-bg:#FCEBEB;--red-bd:#F09595;--blue:#185FA5;--blue-bg:#E6F1FB;--blue-bd:#4A90D9;--purple:#534AB7;--purple-bg:#EEEDFE;--purple-bd:#AFA9EC;--font:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;--r:10px;--r-sm:6px;}*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#EDECEB;font-family:var(--font);font-size:14px;color:var(--dark)}
+
+/* Header */
+.hdr{background:var(--navy);height:48px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.2);}
+.hdr-brand{font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;}
+.hdr-sep{width:1px;height:20px;background:rgba(255,255,255,0.2);display:inline-block;}
+.hdr-title{font-size:13px;color:rgba(255,255,255,0.6);}
+.hdr-title b{color:#fff;font-weight:500;}
+.hdr-meta{margin-left:auto;font-size:12px;color:rgba(255,255,255,0.55);}
+.hdr-store{font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.15);}
+
+/* Nav shortcuts */
+.nav-shortcuts{position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;}
+.nav-btn{padding:5px 14px;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;}
+.nav-prev{background:#1A3A5C;color:#fff;}
+.nav-next{background:#C8001A;color:#fff;}
+
+/* Main wrap */
+.main{max-width:860px;margin:0 auto;padding:20px;}
+
+/* Banners */
+.banner{border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.7;}
+.banner-warn{background:var(--red-bg);border:1.5px solid var(--red-bd);color:var(--red);display:none;}
+.banner-rework{background:var(--amber-bg);border:1.5px solid var(--amber-bd);color:#412402;display:none;}
+.banner-multi-ro{background:var(--purple-bg);border:1.5px solid var(--purple-bd);color:#26215C;display:none;}
+.banner-warranty-ok{background:var(--green-bg);border:1.5px solid var(--green-bd);color:var(--green);display:none;}
+.banner-warranty-err{background:var(--red-bg);border:1.5px solid var(--red-bd);color:#7A1A1A;display:none;}
+.banner-title{font-size:13px;font-weight:700;margin-bottom:4px;}
+.banner-btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+
+/* RO Card */
+.ro-card{background:var(--white);border:1px solid var(--g100);border-radius:12px;overflow:hidden;margin-bottom:14px;}
+.ro-card-hdr{background:var(--navy);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+.ro-id{font-size:22px;font-weight:700;letter-spacing:1px;font-family:monospace;}
+.ro-meta{font-size:12px;opacity:.65;margin-top:2px;}
+.ro-body{padding:18px 20px;}
+
+/* Section label */
+.sec-lbl{font-size:11px;color:var(--g400);font-weight:500;letter-spacing:.3px;margin-bottom:8px;}
+
+/* Info grid */
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+.info-item{background:var(--g50);border-radius:8px;padding:10px 12px;}
+.info-lbl{font-size:10.5px;color:var(--g400);font-weight:500;margin-bottom:3px;}
+.info-val{font-size:13px;font-weight:600;color:var(--dark);}
+.info-val.mono{font-family:monospace;}
+
+/* Warranty status */
+.warranty-status{border-radius:6px;padding:7px 12px;font-size:12px;margin-bottom:16px;}
+.ws-ok{background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green);}
+.ws-err{background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);}
+
+/* Items preview */
+.items-preview{background:var(--g50);border-radius:8px;padding:12px 14px;margin-bottom:16px;}
+.items-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--g100);font-size:12.5px;}
+.items-row:last-child{border-bottom:none;}
+.items-total{display:flex;justify-content:space-between;align-items:center;padding:8px 0 0;font-size:14px;font-weight:700;color:var(--navy);border-top:2px solid var(--navy);margin-top:4px;}
+
+/* Prefix boxes */
+.prefix-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;}
+.prefix-box{background:var(--white);border:1.5px solid var(--g200);border-radius:8px;padding:12px 14px;flex:1;min-width:140px;cursor:pointer;transition:all .15s;}
+.prefix-box:hover{border-color:var(--navy);}
+.prefix-box.selected{border-color:var(--navy);background:#EBF3FF;}
+.prefix-box input[type=radio]{display:none;}
+.prefix-code{font-size:20px;font-weight:700;font-family:monospace;color:var(--navy);margin-bottom:4px;}
+.prefix-name{font-size:12.5px;font-weight:600;color:var(--dark);}
+.prefix-desc{font-size:11px;color:var(--g400);margin-top:2px;}
+
+/* Combo result */
+.combo-result{padding:10px 14px;border-radius:8px;border:1.5px solid var(--g200);margin-bottom:16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;}
+.combo-ok{background:var(--green-bg);border-color:var(--green-bd);color:var(--green);}
+.combo-err{background:var(--red-bg);border-color:var(--red-bd);color:var(--red);}
+
+/* Priority */
+.priority-row{display:flex;gap:8px;margin-bottom:14px;}
+
+/* ── 完整狀態機進度條 ── */
+.status-section{background:var(--g50);border:1px solid var(--g100);border-radius:10px;padding:14px 16px;margin-bottom:14px;}
+.status-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px;}
+.status-label{font-size:12.5px;font-weight:600;}
+.status-current{color:var(--navy);}
+.status-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.sbtn{padding:4px 10px;border-radius:5px;border:1px solid var(--g200);font-size:11.5px;background:#fff;cursor:pointer;font-family:sans-serif;}
+.sbtn-amber{border-color:var(--amber-bd);background:var(--amber-bg);color:var(--amber);}
+.sbtn-red{border-color:var(--red-bd);background:var(--red-bg);color:var(--red);}
+.sbtn-blue{border-color:var(--blue-bd);background:var(--blue-bg);color:var(--blue);}
+.sbtn-green{border-color:var(--green-bd);background:var(--green-bg);color:var(--green);}
+
+/* 主線步驟 */
+.prog-track{display:flex;align-items:center;overflow-x:auto;padding-bottom:6px;gap:0;}
+.prog-step{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;}
+.step-dot{width:28px;height:28px;border-radius:50%;background:var(--g200);color:var(--g500);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--g200);}
+.step-dot.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.step-dot.done{background:var(--green);color:#fff;border-color:var(--green);}
+.step-dot.special{background:var(--purple);color:#fff;border-color:var(--purple);}
+.step-label{font-size:10px;color:var(--g500);white-space:nowrap;}
+.step-line{flex:1;height:2px;background:var(--g200);min-width:14px;}
+.step-line.done{background:var(--green);}
+
+/* 特殊出口狀態列 */
+.special-exits{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.exit-badge{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;display:flex;align-items:center;gap:5px;cursor:default;}
+.exit-cancel{background:var(--red-bg);border:1px solid var(--red-bd);color:var(--red);}
+.exit-warranty{background:var(--amber-bg);border:1px solid var(--amber-bd);color:var(--amber);}
+.exit-rework{background:#EEEDFE;border:1px solid var(--purple-bd);color:var(--purple);}
+
+/* 通知提醒區 */
+.notify-box{margin-top:10px;background:#fff;border:1px solid var(--g100);border-radius:7px;padding:9px 13px;font-size:12px;display:none;}
+.notify-btns{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;}
+.nbtn-line{padding:4px 12px;border-radius:5px;background:#06C755;color:#fff;border:none;font-size:11.5px;cursor:pointer;font-family:sans-serif;}
+.nbtn-sms{padding:4px 12px;border-radius:5px;background:var(--navy);color:#fff;border:none;font-size:11.5px;cursor:pointer;font-family:sans-serif;}
+.nbtn-call{padding:4px 12px;border-radius:5px;background:var(--g50);color:var(--dark);border:1px solid var(--g200);font-size:11.5px;cursor:pointer;font-family:sans-serif;}
+.nbtn-skip{padding:4px 12px;border-radius:5px;background:var(--g50);color:var(--g500);border:1px solid var(--g200);font-size:11.5px;cursor:pointer;font-family:sans-serif;}
+
+/* 確認按鈕 */
+.confirm-btn{width:100%;height:52px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.confirm-btn:hover{background:#0F2A45;}
+.confirm-btn:disabled{background:var(--g200);color:var(--g400);cursor:not-allowed;}
+.confirm-hint{text-align:center;margin-top:8px;font-size:11px;color:var(--g400);}
+
+/* ── 工單事件時間軸 ── */
+.timeline-section{background:var(--white);border:1px solid var(--g100);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+.timeline-hdr{background:var(--dark);color:#fff;padding:10px 16px;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between;}
+.timeline-hdr-note{font-size:10.5px;color:rgba(255,255,255,0.5);font-weight:400;}
+.timeline-body{padding:12px 16px;max-height:280px;overflow-y:auto;}
+.tl-item{display:flex;gap:12px;padding:8px 0;border-bottom:0.5px solid var(--g100);}
+.tl-item:last-child{border-bottom:none;}
+.tl-dot-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+.tl-dot{width:10px;height:10px;border-radius:50%;margin-top:3px;}
+.tl-dot-navy{background:var(--navy);}
+.tl-dot-green{background:var(--green);}
+.tl-dot-amber{background:var(--amber);}
+.tl-dot-red{background:var(--red);}
+.tl-dot-purple{background:var(--purple);}
+.tl-dot-gray{background:var(--g400);}
+.tl-line{width:1px;flex:1;background:var(--g200);margin-top:4px;}
+.tl-content{flex:1;}
+.tl-action{font-size:12px;font-weight:500;color:var(--dark);margin-bottom:2px;}
+.tl-meta{font-size:11px;color:var(--g400);}
+.tl-detail{font-size:11px;color:var(--g500);margin-top:3px;background:var(--g50);border-radius:4px;padding:4px 8px;}
+
+/* 時間軸新增欄 */
+.tl-add-row{display:flex;gap:8px;align-items:center;padding:10px 16px;border-top:1px solid var(--g100);background:var(--g50);}
+.tl-add-input{flex:1;height:34px;padding:0 10px;border:1px solid var(--g200);border-radius:5px;font-size:12px;font-family:var(--font);background:#fff;}
+.tl-add-btn{height:34px;padding:0 14px;background:var(--navy);color:#fff;border:none;border-radius:5px;font-size:12px;cursor:pointer;font-family:var(--font);white-space:nowrap;}
+
+/* ── 中途取消 Modal ── */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:200;display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-card{background:#fff;border-radius:16px;padding:28px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:6px;color:var(--red);}
+.modal-sub{font-size:13px;color:var(--g500);margin-bottom:20px;line-height:1.6;}
+.modal-field{margin-bottom:12px;}
+.modal-field label{font-size:12px;font-weight:500;color:var(--g700);display:block;margin-bottom:5px;}
+.modal-field textarea{width:100%;padding:8px 10px;border:1px solid var(--g200);border-radius:6px;font-size:12px;font-family:var(--font);resize:none;height:80px;}
+.modal-field select{width:100%;height:36px;padding:0 10px;border:1px solid var(--g200);border-radius:6px;font-size:12px;font-family:var(--font);background:#fff;}
+.modal-warning{background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:6px;padding:9px 12px;font-size:12px;color:#412402;margin-bottom:16px;line-height:1.6;}
+.modal-btns{display:flex;gap:8px;}
+.mbtn-cancel{flex:1;height:42px;background:var(--g50);color:var(--dark);border:1px solid var(--g200);border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font);}
+.mbtn-submit{flex:2;height:42px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.mbtn-submit:disabled{background:var(--g200);color:var(--g400);cursor:not-allowed;}
+
+/* 分隔線 */
+.divider{height:0.5px;background:var(--g100);margin:16px 0;}
+
+/* Toast */
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+</head>
+<body>
+
+<!-- Nav shortcuts -->
+<div class="nav-shortcuts">
+  <button class="nav-btn nav-prev" onclick="go('01_預約管理看板.html')">← 預約看板</button>
+  <button class="nav-btn nav-next" onclick="go('03_維修項目零件明細.html')">維修明細 →</button>
+</div>
+
+<!-- Header -->
+<header class="hdr">
+  <span class="hdr-brand">DealerOS</span>
+  <span class="hdr-sep"></span>
+  <span class="hdr-title">售後工單模組 <b>正式工單（RO）開立確認</b></span>
+  <span class="hdr-meta">SA：陳怡君　2026/06/12　<span class="hdr-store">台中旗艦店</span></span>
+</header>
+
+<div class="main">
+
+  <!-- ★ 來自預檢單資料預填橫幅（後端串接點：GET /api/pre-inspections/{pi_id}）-->
+  <div style="background:var(--blue-bg);border:1.5px solid var(--blue-bd);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--blue);display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+    <div style="flex:1;">
+      <div style="font-weight:600;margin-bottom:4px;">📋 來自預檢單 PI-20260508-001 的自動帶入資料</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;">
+        <span>車主：<b>林志遠</b></span>
+        <span>車型：<b>Scout Bobber</b></span>
+        <span>車牌：<b>MMQ-2258</b></span>
+        <span>進廠：<b>2026/06/12</b></span>
+      </div>
+      <div style="font-size:11.5px;margin-top:4px;color:#0D3166;">環檢摘要：① 左側整流罩輕微刮痕（進廠前已存在）　② 後輪胎磨耗警示</div>
+    </div>
+    <div style="font-size:11px;color:var(--g400);white-space:nowrap;align-self:center;">SA確認無誤後繼續</div>
+  </div>
+
+  <!-- ① WC+FR 邏輯衝突警告 -->
+  <div class="banner banner-warn" id="combo-warn">
+    ⚠️ WC（保固索賠）不可搭配 FR（免費施工），此組合邏輯衝突，請重新選擇付款性質。
+  </div>
+
+  <!-- ② 同車多工單提示（B3-01）-->
+  <div class="banner banner-multi-ro" id="multi-ro-banner">
+    <div class="banner-title">🔄 此車輛目前有其他進行中工單</div>
+    <div>車牌 MMQ-2258 目前有 <b>1張</b> 其他進行中工單（RO-MN-CP-260506-011，狀態：待結帳）。<br>
+    請確認是否需要合併結帳，或分開處理。如需合併請通知主管。</div>
+    <div class="banner-btns">
+      <button onclick="document.getElementById('multi-ro-banner').style.display='none'" style="padding:4px 12px;border-radius:5px;background:var(--purple);color:#fff;border:none;font-size:12px;cursor:pointer;font-family:sans-serif;">知道了，繼續開立</button>
+    </div>
+  </div>
+
+  <!-- ③ 返工偵測橫幅（M-04/B18-01）-->
+  <div class="banner banner-rework" id="rework-banner">
+    <div class="banner-title">⚠️ 可能為返工工單</div>
+    <div>此車輛（MMQ-2258）於 <b>18天前</b>（RO-RP-CP-260420-007）進行過相同業務類型（RP機修），可能屬於返工。</div>
+    <div class="banner-btns">
+      <button onclick="confirmRework()" style="padding:5px 14px;border-radius:6px;background:var(--amber);color:#fff;border:none;font-size:12px;cursor:pointer;font-family:sans-serif;">確認為返工（RP-FR，費用門店承擔）</button>
+      <button onclick="dismissRework()" style="padding:5px 14px;border-radius:6px;background:#fff;color:var(--amber);border:1px solid var(--amber-bd);font-size:12px;cursor:pointer;font-family:sans-serif;">非返工，繼續原工單</button>
+    </div>
+  </div>
+
+  <!-- ④ 保固驗證 OK -->
+  <div class="banner banner-warranty-ok" id="warranty-banner">
+    <div style="font-size:12.5px;font-weight:600;">🛡 保固驗證通過：此車輛目前在保固期內（至 2028/03/15）</div>
+    <div style="font-size:12px;margin-top:2px;">WC工單費用將計入廠商應收帳款，不向客戶收費。</div>
+  </div>
+
+  <!-- ⑤ 保固驗證失敗 -->
+  <div class="banner banner-warranty-err" id="warranty-expired-banner">
+    <div class="banner-title">❌ 保固驗證失敗：此車輛保固已於 2025/09/30 到期</div>
+    <div>選擇WC業務類型需主管授權，請說明理由後送審。</div>
+    <div class="banner-btns">
+      <input type="text" id="warranty-reason" placeholder="說明保固過期仍需WC的理由..." style="flex:1;padding:6px 10px;border:1px solid var(--red-bd);border-radius:5px;font-size:12px;background:#fff;min-width:200px;">
+      <button onclick="requestWarrantyAuth()" style="padding:5px 14px;border-radius:6px;background:var(--red);color:#fff;border:none;font-size:12px;cursor:pointer;font-family:sans-serif;">送主管審核</button>
+    </div>
+  </div>
+
+  <!-- ═══ RO 工單確認卡 ═══ -->
+  <div class="ro-card">
+    <div class="ro-card-hdr">
+      <div>
+        <div class="ro-id" id="ro-id-display">MN-CP-260508-001</div>
+        <div class="ro-meta">正式維修工單（RO）· 2026/06/12 09:42 · SA：陳怡君</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;opacity:.65;margin-bottom:4px;">由預檢單自動帶入</div>
+        <div style="font-size:12px;background:rgba(255,255,255,0.15);padding:2px 10px;border-radius:5px;">PI-20260508-001</div>
+      </div>
+    </div>
+    <div class="ro-body">
+
+      <!-- 車主車輛資料 -->
+      <div class="sec-lbl">▌ 車主與車輛資料（由預檢單自動帶入，唯讀）</div>
+      <div class="info-grid">
+        <div class="info-item"><div class="info-lbl">車主姓名</div><div class="info-val">林志遠</div></div>
+        <div class="info-item"><div class="info-lbl">聯絡電話</div><div class="info-val mono">0912-345-678</div></div>
+        <div class="info-item"><div class="info-lbl">進廠日期</div><div class="info-val">2026/06/12</div></div>
+        <div class="info-item"><div class="info-lbl">車型</div><div class="info-val">Scout Bobber</div></div>
+        <div class="info-item"><div class="info-lbl">車牌號碼</div><div class="info-val mono">MMQ-2258</div></div>
+        <div class="info-item"><div class="info-lbl">進廠里程</div><div class="info-val">6,820 km</div></div>
+      </div>
+      <div class="warranty-status ws-ok">🛡 保固狀態：<b>有效</b> · 到期：2028/03/15 · 里程：無限制（NORM）</div>
+
+      <!-- 維修項目摘要 -->
+      <div class="sec-lbl">▌ 本次維修項目（由預檢單帶入，共 3 項）</div>
+      <div class="items-preview">
+        <div class="items-row"><span>① 10,000km 定期保養</span><span style="font-family:monospace;font-size:12px;">2.5 LU · NT$4,800</span></div>
+        <div class="items-row"><span>② 前煞車皮（左右）更換</span><span style="font-family:monospace;font-size:12px;">0.5 LU · NT$1,500</span></div>
+        <div class="items-row"><span>③ 鏈條張力調整</span><span style="font-family:monospace;font-size:12px;">0.5 LU · NT$500</span></div>
+        <div class="items-total"><span>預估合計（含稅）</span><span>NT$7,140</span></div>
+      </div>
+
+      <!-- 業務類型 -->
+      <div class="sec-lbl" style="margin-top:16px;">▌ SA 選擇工單類型（必填）</div>
+      <div style="font-size:12px;color:var(--g500);margin-bottom:8px;">業務類型</div>
+      <div class="prefix-row" id="p1-row">
+        <label class="prefix-box selected" onclick="selP1('MN',this)"><input type="radio" name="p1" value="MN" checked><div class="prefix-code">MN</div><div class="prefix-name">定期保養</div><div class="prefix-desc">Maintenance · 客付收入</div></label>
+        <label class="prefix-box" onclick="selP1('RP',this)"><input type="radio" name="p1" value="RP"><div class="prefix-code">RP</div><div class="prefix-name">機修</div><div class="prefix-desc">Repair · 客付收入</div></label>
+        <label class="prefix-box" onclick="selP1('WC',this)"><input type="radio" name="p1" value="WC"><div class="prefix-code">WC</div><div class="prefix-name">保固索賠</div><div class="prefix-desc">Warranty · 廠商轉收入</div></label>
+        <label class="prefix-box" onclick="selP1('AC',this)"><input type="radio" name="p1" value="AC"><div class="prefix-code">AC</div><div class="prefix-name">事故</div><div class="prefix-desc">Accident · 保險付款</div></label>
+        <label class="prefix-box" onclick="selP1('PD',this)"><input type="radio" name="p1" value="PD"><div class="prefix-code" style="color:var(--purple);">PD</div><div class="prefix-name">PDI整備</div><div class="prefix-desc">Pre-Delivery · 內部成本</div></label>
+        <label class="prefix-box" onclick="selP1('OT',this)"><input type="radio" name="p1" value="OT"><div class="prefix-code">OT</div><div class="prefix-name">其他業務</div><div class="prefix-desc">Others · 客付收入</div></label>
+      </div>
+
+      <div style="font-size:12px;color:var(--g500);margin:10px 0 8px;">付款性質</div>
+      <div class="prefix-row" id="p2-row">
+        <label class="prefix-box selected" onclick="selP2('CP',this)"><input type="radio" name="p2" value="CP" checked><div class="prefix-code">CP</div><div class="prefix-name">客付</div><div class="prefix-desc">Customer Pay · 自費</div></label>
+        <label class="prefix-box" onclick="selP2('WR',this)"><input type="radio" name="p2" value="WR"><div class="prefix-code">WR</div><div class="prefix-name">保固</div><div class="prefix-desc">Warranty · 廠商負擔</div></label>
+        <label class="prefix-box" onclick="selP2('IN',this)"><input type="radio" name="p2" value="IN"><div class="prefix-code" style="color:var(--purple);">IN</div><div class="prefix-name">內部結算</div><div class="prefix-desc">Internal · 整車成本</div></label>
+        <label class="prefix-box" onclick="selP2('FR',this)"><input type="radio" name="p2" value="FR"><div class="prefix-code">FR</div><div class="prefix-name">免費施工</div><div class="prefix-desc">Free of Charge · 本店吸收</div></label>
+      </div>
+
+      <!-- 組合結果 -->
+      <div class="combo-result combo-ok" id="combo-result">✅ MN-CP 定保客付 · 一般應收帳款 · 合法組合</div>
+
+      <!-- 優先級 -->
+      <div class="sec-lbl">▌ 工單優先級（必填）</div>
+      <div class="priority-row" id="priority-row">
+        <div class="prefix-box" id="pri-urgent" onclick="selPriority('urgent',this)" style="flex:1;cursor:pointer;border-color:#C8001A;background:#FDECEA;">
+          <div style="font-size:18px;margin-bottom:2px;">🔴</div>
+          <div style="font-size:12.5px;font-weight:700;color:#C8001A;">緊急</div>
+          <div style="font-size:10.5px;color:#999;">今日必須完成</div>
+        </div>
+        <div class="prefix-box selected" id="pri-normal" onclick="selPriority('normal',this)" style="flex:1;cursor:pointer;border-color:var(--amber-bd);background:var(--amber-bg);">
+          <div style="font-size:18px;margin-bottom:2px;">🟡</div>
+          <div style="font-size:12.5px;font-weight:700;">一般</div>
+          <div style="font-size:10.5px;color:#999;">依排程進行</div>
+        </div>
+        <div class="prefix-box" id="pri-flex" onclick="selPriority('flex',this)" style="flex:1;cursor:pointer;">
+          <div style="font-size:18px;margin-bottom:2px;">🟢</div>
+          <div style="font-size:12.5px;font-weight:700;">彈性</div>
+          <div style="font-size:10.5px;color:#999;">無時間壓力</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ═══ 完整狀態機進度條 ═══ -->
+      <div class="sec-lbl">▌ 工單進度狀態</div>
+      <div class="status-section">
+        <div class="status-top">
+          <div class="status-label">目前狀態：<span class="status-current" id="current-status-label">待派工</span></div>
+          <div class="status-btns">
+            <button class="sbtn" onclick="setStatus('dispatched')">派工中</button>
+            <button class="sbtn" onclick="setStatus('working')">施工中</button>
+            <button class="sbtn sbtn-amber" onclick="setStatus('pending_confirm')">等待客戶授權</button>
+            <button class="sbtn sbtn-amber" onclick="setStatus('pending_parts')">待料</button>
+            <button class="sbtn sbtn-red" onclick="setStatus('parts_returned')">待料-車輛已還</button>
+            <button class="sbtn sbtn-red" onclick="setStatus('rework')">退回重工</button>
+            <button class="sbtn sbtn-blue" onclick="setStatus('qc')">待複檢</button>
+            <button class="sbtn sbtn-green" onclick="setStatus('ready')">待結帳</button>
+          </div>
+        </div>
+
+        <!-- 主線進度步驟 -->
+        <div class="prog-track" id="prog-track">
+          <div class="prog-step" id="step-1"><div class="step-dot active" id="dot-1">1</div><div class="step-label">待派工</div></div>
+          <div class="step-line" id="line-1"></div>
+          <div class="prog-step" id="step-2"><div class="step-dot" id="dot-2">2</div><div class="step-label">施工中</div></div>
+          <div class="step-line" id="line-2"></div>
+          <div class="prog-step" id="step-3"><div class="step-dot" id="dot-3">3</div><div class="step-label">等待授權</div></div>
+          <div class="step-line" id="line-3"></div>
+          <div class="prog-step" id="step-4"><div class="step-dot" id="dot-4">4</div><div class="step-label">待複檢</div></div>
+          <div class="step-line" id="line-4"></div>
+          <div class="prog-step" id="step-5"><div class="step-dot" id="dot-5">5</div><div class="step-label">待結帳</div></div>
+          <div class="step-line" id="line-5"></div>
+          <div class="prog-step" id="step-6"><div class="step-dot" id="dot-6">6</div><div class="step-label">已關閉</div></div>
+        </div>
+
+        <!-- 特殊出口狀態列 -->
+        <div class="special-exits" id="special-exits">
+          <div class="exit-badge exit-cancel" id="exit-cancel-badge" style="display:none;">🚫 已關閉-中途取消</div>
+          <div class="exit-badge exit-warranty" id="exit-warranty-badge" style="display:none;">⏳ 已關閉-保固待確認</div>
+          <div class="exit-badge exit-rework" id="exit-rework-badge" style="display:none;">🔄 退回重工中</div>
+          <div class="exit-badge exit-rework" id="exit-parts-badge" style="display:none;">📦 待料-車輛已還</div>
+          <div style="font-size:11px;color:var(--g400);padding:4px 0;">特殊出口狀態顯示於此</div>
+        </div>
+
+        <!-- 通知提醒區 -->
+        <div class="notify-box" id="notify-hint">
+          <span id="notify-text"></span>
+          <div class="notify-btns">
+            <button class="nbtn-line" onclick="notifyCustomer('LINE')">📱 發 LINE</button>
+            <button class="nbtn-sms" onclick="notifyCustomer('SMS')">💬 發簡訊</button>
+            <button class="nbtn-call" onclick="notifyCustomer('CALL')">📞 電話聯絡</button>
+            <button class="nbtn-skip" onclick="skipNotify()">暫不通知</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ 中途取消申請入口（B17-01）═══ -->
+      <div style="margin-bottom:14px;border:1px solid var(--red-bd);border-radius:8px;overflow:hidden;">
+        <div style="background:var(--red-bg);padding:9px 14px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:12px;font-weight:600;color:var(--red);">⚠️ 特殊操作：中途取消工單</div>
+          <button onclick="openCancelModal()" style="padding:4px 12px;border-radius:5px;background:var(--red);color:#fff;border:none;font-size:12px;cursor:pointer;font-family:sans-serif;">申請中途取消</button>
+        </div>
+        <div style="padding:8px 14px;font-size:11.5px;color:var(--g500);background:#fff;">
+          中途取消需主管授權，取消後必須進行零件退料確認及費用結算。此操作不可逆，已關閉工單無法重新開啟。
+        </div>
+      </div>
+
+      <!-- 確認按鈕 -->
+      <button class="confirm-btn" id="confirm-btn" onclick="confirmRO()">確認開立工單 MN-CP-260508-001 →</button>
+      <div class="confirm-hint">確認後系統將呼叫 POST /api/workorders，工單狀態設為「待派工」，技師可開始接收派工通知</div>
+
+    </div><!-- /ro-body -->
+  </div><!-- /ro-card -->
+
+  <!-- ═══ 工單事件時間軸（根本問題4：法律憑證）═══ -->
+  <div class="timeline-section">
+    <div class="timeline-hdr">
+      工單事件時間軸
+      <span class="timeline-hdr-note">只能新增，不可修改或刪除 · 伺服器時間 · 保存7年</span>
+    </div>
+    <div class="timeline-body" id="timeline-body">
+      <!-- 靜態範例事件 -->
+      <div class="tl-item">
+        <div class="tl-dot-wrap"><div class="tl-dot tl-dot-navy"></div><div class="tl-line"></div></div>
+        <div class="tl-content">
+          <div class="tl-action">工單由預檢單 PI-20260508-001 自動建立</div>
+          <div class="tl-meta">2026/06/12 09:42 · SA：陳怡君 · 系統自動</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot-wrap"><div class="tl-dot tl-dot-green"></div><div class="tl-line"></div></div>
+        <div class="tl-content">
+          <div class="tl-action">車主預檢確認簽名完成</div>
+          <div class="tl-meta">2026/06/12 09:40 · SA：陳怡君</div>
+          <div class="tl-detail">預檢損傷記錄已鎖定，客戶簽名儲存於 Storage：signatures/PI-20260508-001-customer.jpg</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot-wrap"><div class="tl-dot tl-dot-gray"></div></div>
+        <div class="tl-content">
+          <div class="tl-action">保固狀態驗證通過</div>
+          <div class="tl-meta">2026/06/12 09:41 · 系統自動</div>
+          <div class="tl-detail">保固到期：2028/03/15，目前有效</div>
+        </div>
+      </div>
+    </div>
+    <!-- 手動新增事件 -->
+    <div class="tl-add-row">
+      <input type="text" class="tl-add-input" id="tl-add-input" placeholder="輸入備註或說明（例：已電話通知車主預計2小時完工）">
+      <button class="tl-add-btn" onclick="addTimelineEvent()">新增記錄</button>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ═══ 中途取消 Modal ═══ -->
+<div class="modal-overlay" id="cancel-modal">
+  <div class="modal-card">
+    <div class="modal-title">🚫 申請中途取消工單</div>
+    <div class="modal-sub">此操作需要主管授權。送出申請後，主管將收到系統通知，30分鐘內未處理將自動升級至店長。</div>
+
+    <div class="modal-warning">
+      ⚠️ <b>取消前必須確認：</b><br>
+      · 已發料的零件是否完好？（完好→退回庫存，已損耗→核銷）<br>
+      · 是否有已施工的工時？（需計算工本費向客戶收取）<br>
+      · 取消結帳單將在主管授權後由系統自動產生
+    </div>
+
+    <div class="modal-field">
+      <label>取消原因（必填）</label>
+      <select id="cancel-reason-type">
+        <option value="">請選擇原因</option>
+        <option value="customer_changed_mind">客戶臨時改變主意</option>
+        <option value="parts_unavailable">零件長期缺貨，客戶不願等待</option>
+        <option value="cost_too_high">費用超出客戶預期</option>
+        <option value="vehicle_issue">車輛問題無法繼續施工</option>
+        <option value="other">其他原因</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>詳細說明（必填）</label>
+      <textarea id="cancel-reason-detail" placeholder="請說明取消的具體情況，此說明將記入工單稽核日誌..."></textarea>
+    </div>
+    <div class="modal-field">
+      <label>客戶是否在場（必填）</label>
+      <select id="cancel-customer-present">
+        <option value="">請選擇</option>
+        <option value="yes">是，客戶本人在場</option>
+        <option value="phone">否，電話聯繫確認</option>
+        <option value="no_contact">無法聯繫</option>
+      </select>
+    </div>
+
+    <div class="modal-btns">
+      <button class="mbtn-cancel" onclick="closeCancelModal()">取消</button>
+      <button class="mbtn-submit" id="cancel-submit-btn" onclick="submitCancelRequest()">送主管審核</button>
+    </div>
+  </div>
+</div>
+
+<div id="_sys_toast_"></div>
+
+<script>
+var p1 = 'MN', p2 = 'CP';
+var currentPriority = 'normal';
+
+var combos = {
+  'MN-CP':'✅ MN-CP 定保客付 · 一般應收帳款 · 合法組合',
+  'MN-FR':'✅ MN-FR 定保免費（返工/公關）· 費用認列',
+  'RP-CP':'✅ RP-CP 機修客付 · 一般應收帳款 · 合法組合',
+  'RP-FR':'✅ RP-FR 機修免費（返工賠償）· 費用認列',
+  'WC-WR':'✅ WC-WR 保固索賠（廠商付）· 廠商應收帳款',
+  'WC-CP':'✅ WC-CP 保固轉客付（超出範圍部分）',
+  'WC-FR':'❌ WC-FR 邏輯衝突！保固索賠不可免費施工，請重新選擇',
+  'AC-CP':'✅ AC-CP 事故客付 · 一般應收帳款',
+  'AC-FR':'✅ AC-FR 事故免費（特殊公關）· 費用認列',
+  'OT-CP':'✅ OT-CP 其他業務客付 · 一般應收帳款',
+  'OT-FR':'✅ OT-FR 其他業務免費 · 費用認列',
+  'PD-CP':'❌ PD整備不可使用客付（CP），費用應計入整車成本',
+  'PD-IN':'✅ PD-IN PDI整備 · 費用計入整車成本 · 內部結算',
+  'PD-WR':'❌ PD整備不可使用保固（WR），請使用IN',
+  'PD-FR':'❌ PD整備不可使用免費施工，請使用IN',
+};
+
+function selP1(v, el) {
+  p1 = v;
+  document.querySelectorAll('#p1-row .prefix-box').forEach(function(b){ b.classList.remove('selected'); });
+  el.classList.add('selected');
+  updateCombo();
+}
+function selP2(v, el) {
+  p2 = v;
+  document.querySelectorAll('#p2-row .prefix-box').forEach(function(b){ b.classList.remove('selected'); });
+  el.classList.add('selected');
+  updateCombo();
+}
+
+function updateCombo() {
+  // PD自動鎖定IN
+  if (p1 === 'PD') {
+    p2 = 'IN';
+    document.querySelectorAll('#p2-row .prefix-box').forEach(function(b){ b.classList.remove('selected'); });
+    var inEl = document.querySelector('#p2-row .prefix-box:nth-child(3)');
+    if (inEl) inEl.classList.add('selected');
+  }
+  // WC觸發保固驗證
+  document.getElementById('warranty-banner').style.display = (p1 === 'WC') ? 'block' : 'none';
+  document.getElementById('warranty-expired-banner').style.display = 'none';
+  // RP觸發返工偵測+同車多工單提示
+  document.getElementById('rework-banner').style.display = (p1 === 'RP') ? 'block' : 'none';
+  document.getElementById('multi-ro-banner').style.display = (p1 === 'RP') ? 'block' : 'none';
+
+  var key = p1 + '-' + p2;
+  var res = document.getElementById('combo-result');
+  var btn = document.getElementById('confirm-btn');
+  var warn = document.getElementById('combo-warn');
+  var txt = combos[key] || '⚠️ 此組合需主管確認';
+  var isErr = txt.startsWith('❌');
+  res.textContent = txt;
+  res.className = 'combo-result ' + (isErr ? 'combo-err' : 'combo-ok');
+  btn.disabled = isErr;
+  btn.textContent = isErr ? '請先選擇正確組合' : '確認開立工單 ' + p1 + '-' + p2 + '-260508-003 →';
+  warn.style.display = isErr ? 'block' : 'none';
+  document.getElementById('ro-id-display').textContent = p1 + '-' + p2 + '-260508-003';
+}
+
+function confirmRO() {
+  if (p1 === 'WC' && p2 === 'FR') return;
+  var roId = p1 + '-' + p2 + '-260508-003';
+  // 模擬API呼叫（後端串接點）
+  showToast('🔄 正在建立工單...\n→ POST /api/workorders\n→ inspection_id: PI-20260508-001\n→ 返工偵測：GET /api/vehicles/MMQ-2258/recent-workorders');
+  setTimeout(function() {
+    // 工單建立成功後的狀態
+    addTimelineEvent_auto('工單 ' + roId + ' 已正式開立，狀態設為「待派工」', 'navy');
+    document.getElementById('current-status-label').textContent = '待派工';
+    document.getElementById('dot-1').className = 'step-dot active';
+    showToast('✅ 工單 ' + roId + ' 已建立！\n\n狀態：待派工\n技師將收到派工通知\nAPI：POST /api/workorders → 201 Created');
+  }, 1200);
+}
+
+// 優先級
+function selPriority(p, el) {
+  currentPriority = p;
+  document.querySelectorAll('#priority-row .prefix-box').forEach(function(b) {
+    b.classList.remove('selected');
+    b.style.borderColor = '';
+    b.style.background = '';
+  });
+  el.classList.add('selected');
+  if (p === 'urgent') { el.style.borderColor = '#C8001A'; el.style.background = '#FDECEA'; }
+  else if (p === 'normal') { el.style.borderColor = 'var(--amber-bd)'; el.style.background = 'var(--amber-bg)'; }
+  else { el.style.borderColor = 'var(--green-bd)'; el.style.background = 'var(--green-bg)'; }
+}
+
+// ── 完整狀態機 ──
+var statusLabels = {
+  'dispatched':'施工中',
+  'working':'施工中',
+  'pending_confirm':'等待客戶授權',
+  'pending_parts':'待料',
+  'parts_returned':'待料-車輛已還',
+  'rework':'退回重工',
+  'qc':'待複檢',
+  'ready':'待結帳',
+  'closed':'已關閉-完成',
+  'cancelled':'已關閉-中途取消',
+  'warranty_pending':'已關閉-保固待確認'
+};
+var notifyMsgs = {
+  'dispatched':'工單已開始施工，可通知車主預計完工時間',
+  'pending_confirm':'技師發現追加項目，需車主授權確認',
+  'pending_parts':'工單轉為待料狀態，建議告知車主等待時間',
+  'parts_returned':'零件入庫完成，請通知車主回廠繼續施工',
+  'qc':'維修已完成，進入竣工複檢',
+  'ready':'工單已完成，車主可前來結帳取車'
+};
+var stepMap = {
+  'dispatched':2,'working':2,'pending_confirm':3,'pending_parts':2,
+  'parts_returned':2,'rework':2,'qc':4,'ready':5,'closed':6
+};
+
+function setStatus(s) {
+  var lbl = statusLabels[s] || s;
+  document.getElementById('current-status-label').textContent = lbl;
+
+  // 更新進度步驟圖
+  var curStep = stepMap[s] || 1;
+  for (var i = 1; i <= 6; i++) {
+    var dot = document.getElementById('dot-' + i);
+    var line = document.getElementById('line-' + i);
+    if (dot) {
+      if (i < curStep) { dot.className = 'step-dot done'; }
+      else if (i === curStep) { dot.className = 'step-dot active'; }
+      else { dot.className = 'step-dot'; }
+    }
+    if (line) { line.className = 'step-line' + (i < curStep ? ' done' : ''); }
+  }
+
+  // 特殊出口顯示
+  document.getElementById('exit-rework-badge').style.display = (s === 'rework') ? 'flex' : 'none';
+  document.getElementById('exit-parts-badge').style.display = (s === 'parts_returned') ? 'flex' : 'none';
+
+  // 通知提醒
+  var hint = document.getElementById('notify-hint');
+  var msg = notifyMsgs[s];
+  if (msg) {
+    document.getElementById('notify-text').textContent = '💡 建議通知車主：' + msg;
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+
+  // 自動記錄時間軸
+  addTimelineEvent_auto('工單狀態變更為「' + lbl + '」', s === 'rework' ? 'red' : s === 'pending_parts' ? 'amber' : 'navy');
+  showToast('工單狀態已更新：' + lbl + '\nAPI：PATCH /api/workorders/{id}/status\nbody: { "status": "' + s + '" }');
+}
+
+function notifyCustomer(method) {
+  var msgs = {
+    'LINE':'LINE通知已記錄，Phase 1由SA手動發送，Phase 2串接LINE Messaging API',
+    'SMS':'簡訊聯繫記錄已建立',
+    'CALL':'電話聯繫記錄已建立'
+  };
+  addTimelineEvent_auto('客戶聯繫記錄：' + method + ' · ' + (msgs[method] || ''), 'green');
+  showToast('📱 ' + (msgs[method] || '') + '\n（聯繫記錄已存入工單事件時間軸）');
+}
+function skipNotify() {
+  document.getElementById('notify-hint').style.display = 'none';
+  showToast('已跳過通知，可隨時點選狀態重新提醒');
+}
+
+// 返工
+function confirmRework() {
+  p2 = 'FR';
+  document.getElementById('rework-banner').style.display = 'none';
+  document.querySelectorAll('#p2-row .prefix-box').forEach(function(b){ b.classList.remove('selected'); });
+  var frEl = document.querySelector('#p2-row .prefix-box:nth-child(4)');
+  if (frEl) { frEl.classList.add('selected'); frEl.style.borderColor='var(--red)'; frEl.style.background='var(--red-bg)'; }
+  addTimelineEvent_auto('確認為返工工單，付款性質自動改為FR（本店承擔）', 'amber');
+  showToast('已確認為返工工單：付款性質自動改為FR\n費用不向客戶收費\nAPI：PATCH /api/workorders/{id}/type { "p2": "FR", "is_rework": true }');
+  updateCombo();
+}
+function dismissRework() {
+  document.getElementById('rework-banner').style.display = 'none';
+  showToast('已確認非返工，繼續原工單類型');
+}
+function requestWarrantyAuth() {
+  var reason = document.getElementById('warranty-reason').value;
+  if (!reason.trim()) { showToast('請先填寫說明理由'); return; }
+  addTimelineEvent_auto('保固期限授權申請：已送主管審核，原因：' + reason, 'red');
+  showToast('已送主管審核\nAPI：POST /api/workorders/warranty-auth-request\nbody: { "reason": "' + reason + '" }');
+}
+
+// ── 工單事件時間軸 ──
+var tlColors = { 'navy':'tl-dot-navy', 'green':'tl-dot-green', 'amber':'tl-dot-amber', 'red':'tl-dot-red', 'gray':'tl-dot-gray' };
+function addTimelineEvent_auto(action, color) {
+  var body = document.getElementById('timeline-body');
+  var now = new Date();
+  var ts = now.getFullYear() + '/' + String(now.getMonth()+1).padStart(2,'0') + '/' + String(now.getDate()).padStart(2,'0')
+    + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  var item = document.createElement('div');
+  item.className = 'tl-item';
+  item.innerHTML = '<div class="tl-dot-wrap"><div class="tl-dot ' + (tlColors[color||'navy']) + '"></div></div>'
+    + '<div class="tl-content"><div class="tl-action">' + action + '</div>'
+    + '<div class="tl-meta">' + ts + ' · SA：陳怡君</div></div>';
+  body.insertBefore(item, body.firstChild);
+}
+function addTimelineEvent() {
+  var input = document.getElementById('tl-add-input');
+  var val = input.value.trim();
+  if (!val) { showToast('請輸入備註內容'); return; }
+  addTimelineEvent_auto('【手動備註】' + val, 'gray');
+  input.value = '';
+  showToast('備註已記錄\nAPI：POST /api/workorders/{id}/events\nbody: { "type": "manual_note", "content": "' + val + '" }');
+}
+
+// ── 中途取消 Modal ──
+function openCancelModal() {
+  document.getElementById('cancel-modal').classList.add('open');
+}
+function closeCancelModal() {
+  document.getElementById('cancel-modal').classList.remove('open');
+}
+function submitCancelRequest() {
+  var type = document.getElementById('cancel-reason-type').value;
+  var detail = document.getElementById('cancel-reason-detail').value.trim();
+  var present = document.getElementById('cancel-customer-present').value;
+  if (!type || !detail || !present) {
+    showToast('請填寫所有必填欄位');
+    return;
+  }
+  closeCancelModal();
+  addTimelineEvent_auto('中途取消申請已送主管審核，原因：' + type + '，' + detail, 'red');
+  showToast('⏳ 取消申請已送出，等待主管授權\nAPI：POST /api/workorders/{id}/cancel-request\nbody: { "reason_type": "' + type + '", "detail": "' + detail + '", "customer_present": "' + present + '" }\n\n30分鐘內未處理將自動升級至店長');
+}
+
+// Utilities
+function showToast(msg, dur) {
+  var t = document.getElementById('_sys_toast_');
+  if (!t) return;
+  t.textContent = msg;
+  t.style.transform = 'translateY(0)';
+  t.style.opacity = '1';
+  clearTimeout(t._tid);
+  t._tid = setTimeout(function(){ t.style.transform = 'translateY(80px)'; t.style.opacity = '0'; }, dur || 3200);
+}
+function go(url) { window.location.href = url; }
+</script>
+</body>
+</html>
