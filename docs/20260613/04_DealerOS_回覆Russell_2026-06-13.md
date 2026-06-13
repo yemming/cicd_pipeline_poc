@@ -2,7 +2,8 @@
 
 **日期：2026-06-13　｜　Partner & AI Agent → Russell Hung**
 **對應：`01_DealerOS_回覆Partner_2026-06-11.md`**
-**修補 commit：`8758bde`（已部署至正式站 https://dealeros.zeabur.app/）**
+**修補 commit：`8758bde` + `8d236a3`（已部署至正式站 https://dealeros.zeabur.app/）**
+**所有截圖均對部署後的正式站、以 Indian / DUCATI 帳號實拍，並以 DOM 可見性程式複驗殘留歸零**
 
 ---
 
@@ -24,15 +25,20 @@
    - 原本印 `完成{warrantySystem}保固登記` → 對 Indian 會印「完成 **Polaris** 保固登記」（Polaris 是母廠系統碼，海德生員工不認得）
    - 改為讀 `brandName`（`warrantyRegBrand`）→ 現在印「**完成 Indian Motorcycle 保固登記**」，正中你的規格要求
 2. **清除假資料**：Indian 有一筆交車單 `王大明 / Monster SP`（保固頁就是讀這筆才露出你截到的假資料）→ 已中性化為 `陳其邁 / Indian Scout Bobber`
+3. **殼層補刀**（`8d236a3`）：第一輪截圖後我們用 DOM 可見性程式複驗，又揪出兩處非品牌驅動的硬編碼殘留 → 已清：
+   - 交車流程步驟標題 `delivery-frame.tsx:60`：「DUCATI Warranty Terms — 交車登記表」→「保固條款 — 交車登記表」
+   - 確認事項清單 `delivery-constants.ts`：「已說明 www.ducati.com…」→「已說明原廠官方網站…」
 
 **截圖（Indian 帳號 · 正式站）**：`russell-evidence/P1_保固簽署頁_indian.png`
-- ✅ 標題不含「DUCATI」（顯示「Indian Motorcycle 保固條款」）
+- ✅ 標題顯示「**Indian Motorcycle 保固條款**」，不含「DUCATI」
 - ✅ 內文不含「Desmo 服務」「非 DUCATI 官方授權」
-- ✅ 顯示「交車後 10 天內完成 Indian Motorcycle 保固登記」提醒（`warranty_reg_days=10`）
+- ✅ 顯示「請於交車後 10 天內完成 **Indian Motorcycle** 保固登記」提醒（`warranty_reg_days=10`）
 - ✅ 無「王大明 / Monster SP」假資料
-- 程式驗證：DUCATI/Desmo/王大明/Monster 全文命中 = **[EV_P1_DUCATI]**；Indian Motorcycle 命中 = **[EV_P1_INDIAN]**
+- **DOM 可見性程式複驗：DUCATI/Desmo/王大明/Monster 可見文字節點 = 0**
 
-**改動行**：`warranty-sign-view.tsx:29,35,199`、`warranty-sign/page.tsx:31`
+**改動行**：`warranty-sign-view.tsx:29,35,199`、`warranty-sign/page.tsx:31`、`delivery-frame.tsx:58-60`、`delivery-constants.ts:199`
+
+> 誠實補充：交車流程更深層的 PDI / 36 項點交 checklist（DQS、MyDucati、Ducati Connect 等 DUCATI 工程專屬系統）仍含 DUCATI demo 內容；這些不在保固頁（RS05）上、屬另一輪 brand-aware 重構範圍，已列入後續。本題要求的保固簽署頁已徹底中性化。
 
 ---
 
@@ -79,7 +85,7 @@
 ### ① 試駕車款下拉（截圖 `P3a_試駕車款下拉_indian.png`）
 
 試乘表單（`test-rides-form.tsx:29,422-440`）已改吃 `vehicle_models`（依 active brand 過濾）。Indian 的 `vehicle_models` 只有 Chief / FTR / Scout，**DB 層就不存在 Ducati 車款**。
-- 程式抓取下拉實際選項 = **[EV_P3a_OPTIONS]**
+- 程式抓取下拉實際選項 = **`Chief Vintage` / `FTR Sport` / `Scout Bobber`**（全 Indian，無 Panigale/Monster）
 
 ### ② 庫存品項清單（截圖 `P3b_庫存品項_indian.png`）
 
@@ -93,12 +99,13 @@
 | E2E-SVC-021 | Desmo 汽門間隙校正 | 氣門間隙校正 |
 | OEM-ENG-003 | Desmodromic 進氣搖臂 | 進氣搖臂 |
 
-- 程式驗證：Indian 品項全文 Ducati/Panigale/Monster/Desmo 命中 = **[EV_P3b]**（目標 0）
+> 第一輪只清了 `name` 欄，DOM 複驗又抓到 `name_en` / `spec_description` 仍殘（Ducati Helmet Replica / Ducati 紅塗裝 / Monster 系列通用 / desmo 系統 / Panigale 適用），`8d236a3` 已連同清除。
+- **DOM 可見性程式複驗：Indian 品項清單 Ducati/Panigale/Monster/Desmo 可見文字 = 0**
 
 ### ③ 07B 工時費率表 Tab B（截圖 `P3c_工時費率表_indian.png`）
 
-費率表元件（`service-packages-board.tsx:518`）對 `has_desmo=false`（Indian）的品牌**會濾掉 Desmo Service 列**。Indian 帳號的 Tab B 不顯示任何 Desmo 字樣。
-- 程式驗證：Desmo 命中 = **[EV_P3c]**（目標 0）
+費率表元件（`service-packages-board.tsx:518`）對 `has_desmo=false`（Indian）的品牌**會濾掉 Desmo Service 列**。Indian 帳號的「工時費率表」Tab 只有 5 列：MN 定保 / RP 一般維修 / WC 保固維修 / AC 事故維修 / PD 整備，**無 Desmo 列**。
+- **DOM 可見性程式複驗：工時費率表 Desmo 可見文字 = 0**
 
 ---
 
@@ -106,7 +113,7 @@
 
 **三點全部確認 OK：**
 
-1. **DUCATI 帳號看到的是 DUCATI 資料**：ducati brand 有自有業務資料（30 客戶 / 15 車款 / 30 品項），RLS 按品牌隔離。截圖 `P4b_ducati業務資料_車型.png` 顯示車型主檔為 Panigale / Monster / Streetfighter 等 DUCATI 車款（命中 = **[EV_P4b]**），非 Indian 資料。
+1. **DUCATI 帳號看到的是 DUCATI 資料**：ducati brand 有自有業務資料（30 客戶 / 15 車款 / 30 品項），RLS 按品牌隔離。截圖 `P4b_ducati業務資料_車型.png` 顯示車型主檔為 Panigale / Monster / Streetfighter 等 DUCATI 車款（程式命中 24 處，**這是正確的——DUCATI 帳號本就該看到自己的車款**），非 Indian 資料。
 2. **nav_nodes 正確顯示 DUCATI 功能**：ducati 有 298 個 nav 節點 / 19 個一級模組（**非空**）。截圖 `P4a_ducati首頁目錄.png`。
 3. **RLS 對 DUCATI 生效**：6/4 RLS hardening 已對全 205 張表套 `user_has_brand(brand_id)` 政策（advisor 14→0），品牌隔離對 ducati 與 indian 對稱生效。
 
@@ -139,10 +146,10 @@
 
 ## 附：本次所有改動
 
-- **commit**：`8758bde`（tsc + eslint 全綠，已部署正式站）
-- **程式碼**：保固頁 ×2、org 架構 ×6（brand-config / org-settings / org-structure / action / page / board）
-- **資料庫**（已套正式站 Supabase）：brand_config.metadata.org_mode（indian=3/ducati=4）、5 品項改名、6 交車單中性化
+- **commit**：`8758bde`（org 架構 + 首輪中性化）+ `8d236a3`（殼層補刀）；皆 tsc + eslint 全綠、已部署正式站
+- **程式碼**：保固頁 ×2、org 架構 ×6（brand-config / org-settings / org-structure / action / page / board）、交車殼層 ×2（delivery-frame / delivery-constants）
+- **資料庫**（已套正式站 Supabase）：brand_config.metadata.org_mode（indian=3/ducati=4）、items 全文字欄中性化（name / name_en / spec_description）、6 交車單中性化
 - **HTML 黃金版**：5 支主檔 + 11 支附件入庫版控
-- **截圖證據**：`docs/20260613/russell-evidence/`（P1 / P2a / P2b / P3a / P3b / P3c / P4a / P4b）
+- **截圖證據**：`docs/20260613/russell-evidence/`（P1 / P2a / P2b / P3a / P3b / P3c / P4a / P4b，皆 DOM 可見性複驗殘留歸零）
 
 *Partner & AI Agent ｜ 2026-06-13*
