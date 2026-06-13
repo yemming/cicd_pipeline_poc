@@ -40,6 +40,7 @@ import {
   type InvoiceKind,
 } from "@/domain/ro-checkouts.constants";
 import { loadFeeSourceForRo } from "@/domain/ro-checkouts";
+import { pickForRepairOrderAddon } from "@/domain/issues";
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -319,15 +320,20 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
     .update({ status: "completed", closed_at: now, updated_at: now })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  // ── 關單分歧修復（P1）：統一使用「已關單」，與 updateRepairOrderStatusAction 的 hook 觸發條件對齊。
+  // 原本寫「已結案」導致 D+3/D+7 電訪任務、addon 預留實體出庫 hook 都掛在「已關單」分支但結帳路徑
+  // 永遠觸發不到，現在改成「已關單」確保兩條路徑的連鎖效果一致。──
   await supabase
     .from("repair_orders")
-    .update({ status: "已結案", closed_at: now })
+    .update({ status: "已關單", closed_at: now })
     .eq("id", ctx.row.repair_order_id)
     .eq("brand_id", ctx.brand);
 
-  // ── 包F：結案 → 寫下次保養提醒到人車檔 + 建 CRM 回訪（非阻塞、吞錯不影響關單）──
   const repairOrderId = ctx.row.repair_order_id as string;
   const brand = ctx.brand;
+
+  // ── 包F：結案 → 寫下次保養提醒到人車檔 + 建 CRM 回訪（非阻塞、吞錯不影響關單）──
   after(async () => {
     try {
       const sb = await createClient();
@@ -385,6 +391,166 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
       }
     } catch (e) {
       console.error("[包F 下次保養提醒] 寫入失敗（不影響關單）", e);
+    }
+  });
+
+  // ── hook#7（C-22 同步）：結帳關單 → 建 D+3 / D+7 售後電訪任務（非阻塞）──
+  // 鏡像 repair-order-actions.ts updateRepairOrderStatusAction 的「已關單」分支，
+  // 讓結帳路徑與手動切狀態路徑的連鎖效果一致。
+  // dedupeKey=source_ro：同 RO 重觸發冪等，不重複建任務。
+  after(async () => {
+    try {
+      const sb = await createClient();
+      const { data: ro } = await sb
+        .from("repair_orders")
+        .select("customer_id, vehicle_id, ro_code")
+        .eq("id", repairOrderId)
+        .eq("brand_id", brand)
+        .maybeSingle();
+      if (!ro?.customer_id) return; // 沒掛客戶的工單不建電訪
+
+      const baseMeta = {
+        source: "repair_order_close_hook",
+        source_ro: repairOrderId,
+        ro_code: ro.ro_code,
+        vehicle_id: ro.vehicle_id ?? null,
+      };
+      const followUps: Array<{
+        call_type: "aftersales_d3" | "aftersales_d7";
+        days: number;
+        label: string;
+      }> = [
+        { call_type: "aftersales_d3", days: 3, label: "D+3 售後滿意度回訪" },
+        { call_type: "aftersales_d7", days: 7, label: "D+7 售後深度確認" },
+      ];
+      for (const fu of followUps) {
+        const res = await createFollowUpTask({
+          customer_id: ro.customer_id,
+          kind: "aftersales",
+          call_type: fu.call_type,
+          days_from_now: fu.days,
+          notes: `系統自動建立：工單 ${ro.ro_code} 關單後 ${fu.label}`,
+          metadata: baseMeta,
+          dedupeMetaKey: "source_ro",
+        });
+        if (!res.ok) {
+          console.error(
+            `[hook#7 結帳關單→${fu.call_type}] 建立失敗（不影響關單）`,
+            res.error,
+          );
+        }
+      }
+    } catch (e) {
+      console.error("[hook#7 結帳關單→D+3/D+7] 副作用例外（不影響關單）", e);
+    }
+  });
+
+  // ── hook#8（C-28 同步）：結帳關單 → addon 預留實體出庫（非阻塞）──
+  // 鏡像 repair-order-actions.ts 的 hook#8，讓結帳路徑與手動切狀態路徑都能真實觸發出庫。
+  // 冪等：以 source_doc_type='repair_order' + source_doc_id=ro_id 在 stock_issues 查重，
+  //   同 RO 已有 completed 領料單則跳過、不重複出庫。
+  after(async () => {
+    try {
+      const sb = await createClient();
+
+      // 冪等 check：同 RO 已出庫過則跳過
+      const { data: existingIssue } = await sb
+        .from("stock_issues")
+        .select("id")
+        .eq("brand_id", brand)
+        .eq("source_doc_type", "repair_order")
+        .eq("source_doc_id", repairOrderId)
+        .eq("status", "completed")
+        .limit(1)
+        .maybeSingle();
+      if (existingIssue?.id) {
+        console.log(
+          `[hook#8 C-28] RO ${repairOrderId} 已有 addon 出庫紀錄（${existingIssue.id}），跳過`,
+        );
+        return;
+      }
+
+      const { data: roRow } = await sb
+        .from("repair_orders")
+        .select("ro_code, customer_id")
+        .eq("id", repairOrderId)
+        .eq("brand_id", brand)
+        .maybeSingle();
+      if (!roRow) return;
+
+      const { data: reservations, error: rsvErr } = await sb
+        .from("inventory_reservations")
+        .select("id, item_id, warehouse_id, reserved_qty")
+        .eq("brand_id", brand)
+        .eq("ro_id", repairOrderId)
+        .eq("source_type", "repair_order_addon")
+        .eq("status", "active");
+      if (rsvErr) {
+        console.error("[hook#8 C-28] 撈 reservations 失敗（不影響關單）", rsvErr);
+        return;
+      }
+      if (!reservations || reservations.length === 0) return;
+
+      // 按 warehouse_id 分組（多倉各建一張 GI 單）
+      const byWarehouse = new Map<
+        string,
+        Array<{ item_id: string; qty_needed: number; reservation_id: string }>
+      >();
+      for (const r of reservations) {
+        const wId = r.warehouse_id as string;
+        if (!byWarehouse.has(wId)) byWarehouse.set(wId, []);
+        byWarehouse.get(wId)!.push({
+          item_id: r.item_id as string,
+          qty_needed: Number(r.reserved_qty),
+          reservation_id: r.id as string,
+        });
+      }
+
+      for (const [warehouseId, lines] of byWarehouse) {
+        const issueRes = await pickForRepairOrderAddon({
+          warehouse_id: warehouseId,
+          ro_id: repairOrderId,
+          ro_code: roRow.ro_code as string,
+          customer_id: (roRow.customer_id as string | null) ?? null,
+          lines,
+        });
+        if (!issueRes.ok) {
+          console.error(
+            `[hook#8 C-28] RO ${roRow.ro_code} 倉 ${warehouseId} 出庫失敗（不影響關單）`,
+            issueRes.error,
+          );
+          continue;
+        }
+        console.log(
+          `[hook#8 C-28] RO ${roRow.ro_code} 出庫成功`,
+          issueRes.data.gi_no,
+        );
+
+        // 出庫成功 → 把該倉 reservation 翻 consumed
+        const nowIso = new Date().toISOString();
+        for (const line of lines) {
+          const { error: consumeErr } = await sb
+            .from("inventory_reservations")
+            .update({
+              status: "consumed",
+              consumed_qty: line.qty_needed,
+              released_at: nowIso,
+              release_reason: "issued",
+              updated_at: nowIso,
+            })
+            .eq("id", line.reservation_id)
+            .eq("brand_id", brand)
+            .eq("status", "active");
+          if (consumeErr) {
+            console.error(
+              `[hook#8 C-28] consume reservation ${line.reservation_id} 失敗`,
+              consumeErr,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[hook#8 C-28] addon 出庫副作用例外（不影響關單）", e);
     }
   });
 
