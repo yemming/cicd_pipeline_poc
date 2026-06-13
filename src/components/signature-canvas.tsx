@@ -2,6 +2,20 @@
 
 import { useRef, useState } from "react";
 
+/**
+ * RP2 規格：
+ *   - Canvas 尺寸 500×200px（規格定案值）
+ *   - 筆跡顏色 #1A3A5C（品牌深藍）
+ *   - 輸出：JPEG 70%、最長邊 ≤ 1200px（事實上 canvas 500×200 遠低於此，但若未來改大仍自動壓縮）
+ *   - 資料庫只存 Storage URL，base64 只在前端記憶體暫存到 server action 上傳
+ */
+
+const CANVAS_W = 500;
+const CANVAS_H = 200;
+const MAX_LONG_EDGE = 1200;
+const JPEG_QUALITY = 0.7;
+const STROKE_COLOR = "#1A3A5C";
+
 export function SignatureCanvas({ onSigned }: { onSigned: (dataUrl: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
@@ -13,7 +27,7 @@ export function SignatureCanvas({ onSigned }: { onSigned: (dataUrl: string) => v
     if (!cv) return null;
     const ctx = cv.getContext("2d");
     if (!ctx) return null;
-    ctx.strokeStyle = "#1a1a1a";
+    ctx.strokeStyle = STROKE_COLOR;
     ctx.lineWidth = 2.2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -74,9 +88,37 @@ export function SignatureCanvas({ onSigned }: { onSigned: (dataUrl: string) => v
     setHasStrokes(false);
   }
 
+  /** RP2：輸出 JPEG 70%、最長邊 ≤ 1200px */
   function confirmSig() {
-    if (!canvasRef.current || !hasStrokes) return;
-    onSigned(canvasRef.current.toDataURL("image/png"));
+    const cv = canvasRef.current;
+    if (!cv || !hasStrokes) return;
+
+    // 判斷是否需要縮放（規格 500×200 遠低於 1200，但保留安全壓縮路徑）
+    const w = cv.width;
+    const h = cv.height;
+    const longestEdge = Math.max(w, h);
+    if (longestEdge > MAX_LONG_EDGE) {
+      // 縮放到 maxLongEdge
+      const scale = MAX_LONG_EDGE / longestEdge;
+      const offCanvas = document.createElement("canvas");
+      offCanvas.width = Math.round(w * scale);
+      offCanvas.height = Math.round(h * scale);
+      const octx = offCanvas.getContext("2d")!;
+      octx.fillStyle = "#ffffff";
+      octx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+      octx.drawImage(cv, 0, 0, offCanvas.width, offCanvas.height);
+      onSigned(offCanvas.toDataURL("image/jpeg", JPEG_QUALITY));
+    } else {
+      // 直接在 offscreen canvas 上加白底再轉 JPEG（透明背景轉 JPEG 會變黑）
+      const offCanvas = document.createElement("canvas");
+      offCanvas.width = w;
+      offCanvas.height = h;
+      const octx = offCanvas.getContext("2d")!;
+      octx.fillStyle = "#ffffff";
+      octx.fillRect(0, 0, w, h);
+      octx.drawImage(cv, 0, 0);
+      onSigned(offCanvas.toDataURL("image/jpeg", JPEG_QUALITY));
+    }
   }
 
   return (
@@ -85,9 +127,9 @@ export function SignatureCanvas({ onSigned }: { onSigned: (dataUrl: string) => v
         <div className="absolute bottom-8 left-6 right-6 border-b border-neutral-300/60 pointer-events-none" />
         <canvas
           ref={canvasRef}
-          width={640}
-          height={240}
-          className="w-full h-60 cursor-crosshair block"
+          width={CANVAS_W}
+          height={CANVAS_H}
+          className="w-full h-[160px] cursor-crosshair block"
           onMouseDown={startDraw}
           onMouseMove={moveDraw}
           onMouseUp={endDraw}

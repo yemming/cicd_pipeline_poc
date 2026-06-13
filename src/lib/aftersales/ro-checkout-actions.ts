@@ -22,6 +22,9 @@ import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { createFollowUpTask } from "@/domain/sales-call-tasks";
+// RP2：簽名上傳 Storage + 主管解鎖
+import { uploadSignatureDataUrl, isStorageUrl } from "@/lib/aftersales/signature-upload";
+import { getCurrentUserDepartment } from "@/lib/rbac/department";
 
 // 包F：下次保養提醒參數（Ducati 定保 demo：里程 +6000km / 時間 +6 個月，提前 5 個月建 CRM 回訪）
 const NEXT_SERVICE_INTERVAL_KM = 6000;
@@ -235,6 +238,7 @@ export async function signAction(
   payload: {
     signature_text: string;
     customer_name?: string;
+    /** RP2：前端傳 JPEG base64 dataURL；server 端上傳 Storage 回 URL */
     screenshot_url?: string | null;
   },
 ): Promise<ActionResult<{ id: string }>> {
@@ -244,18 +248,38 @@ export async function signAction(
   if (!ctx.row.fees_confirmed_at) {
     return { ok: false, error: "請先在 step1 確認費用明細" };
   }
+
+  // RP2：若是 dataURL（base64），上傳 Storage；已是 URL 則直接用
+  let screenshotUrl: string | null = null;
+  if (payload.screenshot_url) {
+    if (isStorageUrl(payload.screenshot_url)) {
+      screenshotUrl = payload.screenshot_url;
+    } else {
+      screenshotUrl = await uploadSignatureDataUrl(
+        payload.screenshot_url,
+        ctx.brand,
+        "ro-checkout",
+        id,
+        "customer",
+      );
+    }
+  }
+
   const sig: CustomerSignature = {
     signature_text: payload.signature_text,
     customer_name: payload.customer_name,
     signed_at: new Date().toISOString(),
-    screenshot_url: payload.screenshot_url ?? null,
+    screenshot_url: screenshotUrl,
   };
   const supabase = await createClient();
+  // RP2 鎖定：簽名後費用明細設 signed_locked=true（metadata），UI 讀此欄位決定唯讀
+  const prevMeta = (ctx.row.metadata ?? {}) as Record<string, unknown>;
   const { error } = await supabase
     .from("ro_checkouts")
     .update({
       customer_signature: sig,
       status: "signed",
+      metadata: { ...prevMeta, sig_locked: true },
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -265,21 +289,78 @@ export async function signAction(
   return { ok: true, data: { id } };
 }
 
-export async function clearSignAction(id: string): Promise<ActionResult<{ id: string }>> {
+/**
+ * RP2 主管解鎖：clearSignAction 需要：
+ * 1. 主管權限（is_dept_manager / is_cross_admin）或 RO_APPROVE
+ * 2. 必填原因（reason）
+ * 3. 寫入 repair_order_events 記錄（稽核）
+ * 4. 解鎖後前端強制重新簽名
+ */
+export async function clearSignAction(
+  id: string,
+  payload: { reason: string },
+): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CLOSE);
   const ctx = await loadById(id);
   if (!ctx.ok) return ctx;
   if (ctx.row.status !== "signed") return { ok: false, error: "已收款後不可清除簽名" };
+
+  // RP2：主管解鎖 gate
+  const dept = await getCurrentUserDepartment();
+  const isSupervisor = dept.is_dept_manager || dept.is_cross_admin;
+  if (!isSupervisor) {
+    return { ok: false, error: "清除簽名需要主管授權（售後主管、店長或管理員）" };
+  }
+  if (!payload.reason?.trim()) {
+    return { ok: false, error: "請填寫解鎖原因（稽核記錄）" };
+  }
+
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const actorId = user?.id ?? null;
+
+  const prevMeta = (ctx.row.metadata ?? {}) as Record<string, unknown>;
   const { error } = await supabase
     .from("ro_checkouts")
     .update({
       customer_signature: {},
       status: "in_progress",
+      metadata: {
+        ...prevMeta,
+        sig_locked: false,
+        sig_unlock_history: [
+          ...((prevMeta.sig_unlock_history as unknown[]) ?? []),
+          {
+            unlocked_at: new Date().toISOString(),
+            unlocked_by: actorId,
+            reason: payload.reason.trim(),
+          },
+        ],
+      },
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  // RP2 + RP4：稽核事件（非阻塞）
+  const roId = ctx.row.repair_order_id as string;
+  after(async () => {
+    await appendRepairOrderEvent(
+      roId,
+      {
+        action: "checkout_sig_cleared",
+        payload: {
+          checkout_id: id,
+          reason: payload.reason.trim(),
+          cleared_by: actorId,
+        },
+      },
+      actorId,
+    );
+  });
+
   revalidatePath(`${PAGE}/${id}`);
   return { ok: true, data: { id } };
 }
@@ -677,4 +758,62 @@ export async function deleteAction(id: string): Promise<ActionResult<{ id: strin
   if (error) return { ok: false, error: error.message };
   revalidatePath(PAGE);
   return { ok: true, data: { id } };
+}
+
+/**
+ * RP2 ④ 追加項目授權客戶簽名（最小可用）。
+ * 適用情境：SA 電話或當面取得客戶口頭授權，此處記錄電子簽名存 Storage。
+ * 資料存 metadata.addon_auth_sig。
+ * TODO promote to typed column/table (needs DDL)
+ */
+export async function saveAddonAuthSignatureAction(
+  id: string,
+  payload: {
+    screenshot_url: string;        // JPEG base64 dataURL
+    customer_name?: string | null;
+    addon_items_snapshot?: string; // 被授權的追加項目簡述
+  },
+): Promise<ActionResult<{ id: string; storage_url: string }>> {
+  await requirePermission(PERMISSIONS.RO_CLOSE);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+  if (!payload.screenshot_url?.trim()) {
+    return { ok: false, error: "請先完成追加授權簽名" };
+  }
+
+  // 上傳 Storage
+  let storageUrl: string | null = null;
+  if (isStorageUrl(payload.screenshot_url)) {
+    storageUrl = payload.screenshot_url;
+  } else {
+    storageUrl = await uploadSignatureDataUrl(
+      payload.screenshot_url,
+      ctx.brand,
+      "ro-checkout",
+      id,
+      "addon-auth",
+    );
+  }
+  if (!storageUrl) {
+    return { ok: false, error: "簽名圖片上傳失敗，請重試" };
+  }
+
+  const supabase = await createClient();
+  const prevMeta = (ctx.row.metadata ?? {}) as Record<string, unknown>;
+  const addonAuthSig = {
+    screenshot_url: storageUrl,
+    customer_name: payload.customer_name ?? null,
+    signed_at: new Date().toISOString(),
+    addon_items_snapshot: payload.addon_items_snapshot ?? null,
+  };
+  const { error } = await supabase
+    .from("ro_checkouts")
+    .update({
+      metadata: { ...prevMeta, addon_auth_sig: addonAuthSig },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`${PAGE}/${id}`);
+  return { ok: true, data: { id, storage_url: storageUrl } };
 }

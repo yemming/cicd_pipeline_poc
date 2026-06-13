@@ -1188,6 +1188,7 @@ export type RoEventAction =
   | "final_inspection_rejected" // final-inspection rejectAction
   | "discount_applied"       // ro-checkout applyDiscountAction
   | "checkout_completed"     // ro-checkout completeAction（關單）
+  | "checkout_sig_cleared"   // RP2：主管解鎖清除簽名（ro-checkout clearSignAction）
   | "addon_decision"         // repair-order-addon-actions decideAddonAction
   | "addon_cancelled"        // repair-order-addon-actions cancelAddonAction（RP3 退料）
   | "contact_attempt";       // 聯繫嘗試記錄（B5-02）

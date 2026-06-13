@@ -32,6 +32,8 @@ export type PreInspectionMetadata = {
   sa_items?: SaQuoteItem[];
   sig_sa?: Signature;
   sig_customer?: Signature;
+  /** RP2：雙簽後設 true，觸發環檢/基本資料唯讀 */
+  sig_locked?: boolean;
   warranty_snapshot?: {
     valid?: boolean;
     started_at?: string;
