@@ -24,6 +24,7 @@ import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { registerOldPartFromInspection } from "@/domain/warranty";
+import { appendRepairOrderEvent } from "@/domain/repair-orders";
 
 import {
   buildInitialLineResults,
@@ -299,6 +300,30 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
     .eq("id", ctx.row.repair_order_id)
     .eq("brand_id", ctx.brand);
 
+  // ── RP4 事件時間軸：記錄複檢通過（非阻塞） ──
+  {
+    const {
+      data: { user: _fiUser },
+    } = await supabase.auth.getUser();
+    const fiActorId = _fiUser?.id ?? null;
+    const fiRoId = ctx.row.repair_order_id as string;
+    after(async () => {
+      await appendRepairOrderEvent(
+        fiRoId,
+        {
+          action: "final_inspection_passed",
+          payload: {
+            inspection_id: id,
+            inspection_no: ctx.row.inspection_no,
+            inspector_id: ctx.row.inspector_id ?? null,
+            inspector_name: ctx.row.inspector_name ?? null,
+          },
+        },
+        fiActorId,
+      );
+    });
+  }
+
   // ── 跨模組 hook #6：複檢通過 → 保固單的換下舊件自動登錄 ──
   // 僅保固單（RO prefix_p1='WC'）觸發；撈該 RO 換下的保固零件逐筆 registerOldPart。
   // 非阻塞、try/catch 吞錯；helper 自帶 (ro_id,item_id) 防重。
@@ -376,6 +401,31 @@ export async function rejectAction(
     .update({ status: "維修中" })
     .eq("id", ctx.row.repair_order_id)
     .eq("brand_id", ctx.brand);
+
+  // ── RP4 事件時間軸：記錄複檢退回（非阻塞） ──
+  {
+    const {
+      data: { user: _rejectUser },
+    } = await supabase.auth.getUser();
+    const rejectActorId = _rejectUser?.id ?? null;
+    const rejectRoId = ctx.row.repair_order_id as string;
+    const rejectReason = reason ?? ctx.row.issue_note ?? "退回技師重修";
+    after(async () => {
+      await appendRepairOrderEvent(
+        rejectRoId,
+        {
+          action: "final_inspection_rejected",
+          payload: {
+            inspection_id: id,
+            inspection_no: ctx.row.inspection_no,
+            reason: rejectReason,
+          },
+        },
+        rejectActorId,
+      );
+    });
+  }
+
   revalidatePath(`${PAGE}/${id}`);
   revalidatePath(PAGE);
   return { ok: true, data: { id } };

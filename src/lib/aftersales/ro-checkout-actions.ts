@@ -41,6 +41,7 @@ import {
 } from "@/domain/ro-checkouts.constants";
 import { loadFeeSourceForRo } from "@/domain/ro-checkouts";
 import { pickForRepairOrderAddon } from "@/domain/issues";
+import { appendRepairOrderEvent } from "@/domain/repair-orders";
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -175,6 +176,32 @@ export async function applyDiscountAction(
     .update({ fee_summary: next, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  // ── RP4 事件時間軸：記錄折扣變更（非阻塞） ──
+  {
+    const {
+      data: { user: _discountUser },
+    } = await supabase.auth.getUser();
+    const discountActorId = _discountUser?.id ?? null;
+    const roIdForDiscount = ctx.row.repair_order_id as string;
+    const prevPct = (summary as FeeSummary).discount_pct ?? 0;
+    after(async () => {
+      await appendRepairOrderEvent(
+        roIdForDiscount,
+        {
+          action: "discount_applied",
+          payload: {
+            checkout_id: id,
+            discount_pct_before: prevPct,
+            discount_pct_after: pct,
+            payable: next.payable ?? null,
+          },
+        },
+        discountActorId,
+      );
+    });
+  }
+
   revalidatePath(`${PAGE}/${id}`);
   return { ok: true, data: { id } };
 }
@@ -332,6 +359,30 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
 
   const repairOrderId = ctx.row.repair_order_id as string;
   const brand = ctx.brand;
+
+  // ── RP4 事件時間軸：記錄結帳完成關單（非阻塞） ──
+  {
+    const {
+      data: { user: _completeUser },
+    } = await supabase.auth.getUser();
+    const completeActorId = _completeUser?.id ?? null;
+    const feeSummary = (ctx.row.fee_summary ?? {}) as FeeSummary;
+    after(async () => {
+      await appendRepairOrderEvent(
+        repairOrderId,
+        {
+          action: "checkout_completed",
+          payload: {
+            checkout_id: id,
+            payable: feeSummary.payable ?? null,
+            discount_pct: feeSummary.discount_pct ?? 0,
+            closed_at: now,
+          },
+        },
+        completeActorId,
+      );
+    });
+  }
 
   // ── 包F：結案 → 寫下次保養提醒到人車檔 + 建 CRM 回訪（非阻塞、吞錯不影響關單）──
   after(async () => {

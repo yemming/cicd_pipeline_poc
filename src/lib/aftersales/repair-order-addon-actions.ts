@@ -11,11 +11,13 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { appendRepairOrderEvent } from "@/domain/repair-orders";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -364,6 +366,33 @@ export async function decideAddonAction(
   if (upErr) {
     console.error("[addon-actions] decideAddon update envelope error", upErr);
     return { ok: false, error: upErr.message };
+  }
+
+  // ── RP4 事件時間軸：記錄追加決策（非阻塞） ──
+  {
+    const {
+      data: { user: _addonUser },
+    } = await supabase.auth.getUser();
+    const addonActorId = _addonUser?.id ?? null;
+    const addonRoId = addon.ro_id as string;
+    after(async () => {
+      await appendRepairOrderEvent(
+        addonRoId,
+        {
+          action: "addon_decision",
+          payload: {
+            addon_id: id,
+            addon_name: addon.name,
+            customer_decision: decision.customer_decision,
+            estimated_fee: addon.estimated_fee,
+            safety_level: addon.safety_level,
+            confirm_method: decision.confirm_method ?? null,
+            rejection_reason: decision.rejection_reason ?? null,
+          },
+        },
+        addonActorId,
+      );
+    });
   }
 
   revalidatePath(PAGE);

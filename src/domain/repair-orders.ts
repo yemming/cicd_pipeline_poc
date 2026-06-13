@@ -1162,3 +1162,115 @@ export async function getRepairOrderForPrint(
     amountTotal: total,
   };
 }
+
+// ─────────────────────────────────────────────────────────────
+// RP4 層二：工單事件時間軸（append-only）
+//
+// 所有關鍵動作呼叫 appendRepairOrderEvent 把事件 append 到
+// repair_orders.metadata.events[]（server UTC，不可改刪語意）。
+//
+// 欄位定義：
+//   action      — 事件種類（見 RoEventAction）
+//   actor_id    — auth.uid()，server context 取
+//   at          — new Date().toISOString()（server UTC，防偽造）
+//   payload     — 事件特定資料（可選）
+//
+// TODO promote: Phase 2 DDL 新增 repair_order_events 表，
+//   讓事件持久化到獨立 table 而非 jsonb（方便跨 RO 查詢、7年保存）。
+//   目前 jsonb 方案足以 demo，且無需 DDL。
+// ─────────────────────────────────────────────────────────────
+
+export type RoEventAction =
+  | "ro_created"             // confirmRepairOrderAction
+  | "dispatched"             // setLeadTechnicianAction（指派技師）
+  | "status_changed"         // updateRepairOrderStatusAction
+  | "final_inspection_passed"  // final-inspection completeAction
+  | "final_inspection_rejected" // final-inspection rejectAction
+  | "discount_applied"       // ro-checkout applyDiscountAction
+  | "checkout_completed"     // ro-checkout completeAction（關單）
+  | "addon_decision"         // repair-order-addon-actions decideAddonAction
+  | "contact_attempt";       // 聯繫嘗試記錄（B5-02）
+
+export type RoEvent = {
+  /** 事件種類 */
+  action: RoEventAction;
+  /** 操作人 user id（auth.uid()）；server UTC，防偽造 */
+  actor_id: string | null;
+  /** 事件發生時間（server UTC ISO 8601） */
+  at: string;
+  /** 事件特定資料（依 action 而異） */
+  payload?: Record<string, unknown>;
+};
+
+/**
+ * appendRepairOrderEvent — RP4 層二：append 一筆事件到 repair_orders.metadata.events[]
+ *
+ * - append-only 語意：只 push 不刪改，DB 層無 trigger（POC 階段依靠程式紀律）
+ * - server-side UTC 時間戳（`at` = new Date().toISOString()）防客端偽造
+ * - actor_id 由 supabase.auth.getUser() 取，非 client 傳入
+ * - 失敗靜默記 console.error，不影響主流程（副作用語意）
+ *
+ * 呼叫方式（在 "use server" 環境）：
+ *   await appendRepairOrderEvent(roId, { action: "status_changed", payload: { from, to } });
+ *
+ * @param roId     repair_orders.id
+ * @param event    RoEvent（不含 actor_id / at，由此函式填入）
+ * @param actorId  可選；caller 已取得的 actor_id（避免二次 auth.getUser() 呼叫）
+ */
+export async function appendRepairOrderEvent(
+  roId: string,
+  event: Omit<RoEvent, "actor_id" | "at">,
+  actorId?: string | null,
+): Promise<void> {
+  if (!roId) return;
+  try {
+    const supabase = await createClient();
+
+    // 取 actor_id（如果 caller 已有就直接用）
+    let resolvedActorId = actorId ?? null;
+    if (resolvedActorId === undefined) {
+      const { data: { user } } = await supabase.auth.getUser();
+      resolvedActorId = user?.id ?? null;
+    }
+
+    // 撈現有 metadata.events
+    const { data: existing, error: fetchErr } = await supabase
+      .from("repair_orders")
+      .select("metadata")
+      .eq("id", roId)
+      .maybeSingle();
+    if (fetchErr) {
+      console.error("[appendRepairOrderEvent] fetch metadata 失敗", fetchErr.message);
+      return;
+    }
+
+    const meta = ((existing?.metadata ?? {}) as Record<string, unknown>);
+    const prevEvents = Array.isArray(meta.events)
+      ? (meta.events as unknown[])
+      : [];
+
+    const newEvent: RoEvent = {
+      action: event.action,
+      actor_id: resolvedActorId,
+      at: new Date().toISOString(), // server UTC，不信任 client 傳入時間
+      ...(event.payload ? { payload: event.payload } : {}),
+    };
+
+    const { error: updErr } = await supabase
+      .from("repair_orders")
+      .update({
+        metadata: {
+          ...meta,
+          events: [...prevEvents, newEvent],
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", roId);
+
+    if (updErr) {
+      console.error("[appendRepairOrderEvent] update 失敗", updErr.message);
+    }
+  } catch (e) {
+    console.error("[appendRepairOrderEvent] 例外（不影響主流程）", e);
+  }
+}

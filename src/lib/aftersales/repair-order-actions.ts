@@ -28,6 +28,7 @@ import {
   type PrefixP1,
   type PrefixP2,
 } from "@/domain/repair-orders.constants";
+import { appendRepairOrderEvent } from "@/domain/repair-orders";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -161,6 +162,12 @@ export async function confirmRepairOrderAction(
     }
   }
 
+  // 取 actor_id（事件時間軸用，beforehand 避免在 loop 內重複取）
+  const {
+    data: { user: _authUserForConfirm },
+  } = await supabase.auth.getUser();
+  const authUserIdForEvent = _authUserForConfirm?.id ?? null;
+
   // 2. 簡單 retry on unique violation（POC 階段：上限 5 次）
   let lastErr: string | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -239,7 +246,28 @@ export async function confirmRepairOrderAction(
           .is("repair_order_id", null);
       }
 
-      // 4. 副作用 placeholder：notifications.dispatch（POC 階段先不真推、留 hook）
+      // 4. RP4 事件時間軸：記錄工單建立事件（append-only，非阻塞）
+      // actor_id 從 data 插入時的 auth context 取；after() 確保非阻塞
+      after(async () => {
+        const actorId = authUserIdForEvent ?? null;
+        await appendRepairOrderEvent(
+          data.id as string,
+          {
+            action: "ro_created",
+            payload: {
+              ro_code: data.ro_code as string,
+              prefix_p1: input.prefix_p1,
+              prefix_p2: input.prefix_p2,
+              priority: input.priority ?? "normal",
+              source: input.pre_inspection_id ? "pre_inspection" : "appointment",
+              appointment_id: input.appointment_id ?? null,
+            },
+          },
+          actorId,
+        );
+      });
+
+      // 5. 副作用 placeholder：notifications.dispatch（POC 階段先不真推、留 hook）
       // TODO: after(() => notifications.dispatch({ code: 'aftersales.repair_order.created', payload: { ro_code, ...} }))
 
       revalidatePath(PAGE_PATH);
@@ -356,6 +384,22 @@ export async function updateRepairOrderStatusAction(
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
+
+  // ── RP4 事件時間軸：記錄狀態變更（非阻塞，副作用） ──
+  after(async () => {
+    await appendRepairOrderEvent(
+      id,
+      {
+        action: "status_changed",
+        payload: {
+          from: currentStatus,
+          to: status,
+          reason: reason?.trim() || null,
+        },
+      },
+      actorId,
+    );
+  });
 
   // ── 跨模組 hook #7（C-22）：工單關閉 → 建立 D+3 / D+7 售後電訪任務 ──
   // 非阻塞、try/catch 吞錯；helper 以 (customer + call_type + metadata.source_ro) 防同單重複觸發。
@@ -639,6 +683,27 @@ export async function setLeadTechnicianAction(
     .eq("id", roId)
     .eq("brand_id", brand);
   if (updErr) return { ok: false, error: `派工失敗：${updErr.message}` };
+
+  // ── RP4 事件時間軸：記錄派工事件（非阻塞） ──
+  {
+    const {
+      data: { user: _dispatchUser },
+    } = await supabase.auth.getUser();
+    const dispatchActorId = _dispatchUser?.id ?? null;
+    after(async () => {
+      await appendRepairOrderEvent(
+        roId,
+        {
+          action: "dispatched",
+          payload: {
+            technician_id: technicianId,
+            status_after: nextStatus,
+          },
+        },
+        dispatchActorId,
+      );
+    });
+  }
 
   revalidatePath("/service/workshop");
   revalidatePath(PAGE_PATH);

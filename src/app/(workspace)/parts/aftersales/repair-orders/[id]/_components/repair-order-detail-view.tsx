@@ -12,7 +12,7 @@ import {
   notifyRepairOrderProgressAction,
 } from "@/lib/aftersales/repair-order-actions";
 import { RO_STATUS_OPTIONS, priorityDef } from "@/domain/repair-orders.constants";
-import type { RepairOrderListRow } from "@/domain/repair-orders";
+import type { RepairOrderListRow, RoEvent } from "@/domain/repair-orders";
 
 // 純算數格式化 Asia/Taipei wall-clock（避開 toLocaleString 在 Node ICU / browser ICU
 // 對 dayPeriod / narrow nbsp 不一致造成的 SSR / CSR hydration mismatch）
@@ -38,6 +38,58 @@ function statusBadge(status: string): string {
       return "bg-[#F2F2F2] text-[#6B6A68]";
     default:
       return "bg-[#F2F2F2] text-[#6B6A68]";
+  }
+}
+
+// RP4 層二：事件標籤翻譯與顏色
+function roEventLabel(e: RoEvent): string {
+  switch (e.action) {
+    case "ro_created":             return "工單建立";
+    case "dispatched":             return "技師派工";
+    case "status_changed": {
+      const p = (e.payload ?? {}) as { from?: string; to?: string };
+      return p.from && p.to ? `狀態轉換：${p.from} → ${p.to}` : "狀態變更";
+    }
+    case "final_inspection_passed":   return "複檢通過 → 待結帳";
+    case "final_inspection_rejected": return "複檢退回重工";
+    case "discount_applied": {
+      const p = (e.payload ?? {}) as { discount_pct_before?: number; discount_pct_after?: number; payable?: number };
+      const from = p.discount_pct_before ?? 0;
+      const to = p.discount_pct_after ?? 0;
+      return `折扣調整：${from}% → ${to}%${p.payable != null ? `（應收 NT$${Number(p.payable).toLocaleString()}）` : ""}`;
+    }
+    case "checkout_completed":     return "結帳關單";
+    case "addon_decision": {
+      const p = (e.payload ?? {}) as { addon_name?: string; customer_decision?: string; estimated_fee?: number };
+      const dec = p.customer_decision === "agreed" ? "同意" : p.customer_decision === "rejected" ? "拒絕" : p.customer_decision === "deferred" ? "暫緩" : p.customer_decision ?? "—";
+      return `追加項目決策：${p.addon_name ?? "—"} → ${dec}${p.estimated_fee != null ? `（NT$${Number(p.estimated_fee).toLocaleString()}）` : ""}`;
+    }
+    case "contact_attempt":        return "聯繫嘗試";
+    default:                       return String((e as { action?: string }).action ?? "未知事件");
+  }
+}
+
+function roEventDotColor(e: RoEvent): string {
+  switch (e.action) {
+    case "ro_created":               return "bg-[#185FA5] border-[#185FA5]";
+    case "dispatched":               return "bg-[#854F0B] border-[#854F0B]";
+    case "status_changed": {
+      const p = (e.payload ?? {}) as { to?: string };
+      if (p.to === "已關單") return "bg-[#3B6D11] border-[#3B6D11]";
+      if (p.to?.includes("取消") || p.to?.includes("退回")) return "bg-[#CC0000] border-[#CC0000]";
+      return "bg-[#854F0B] border-[#854F0B]";
+    }
+    case "final_inspection_passed":  return "bg-[#3B6D11] border-[#3B6D11]";
+    case "final_inspection_rejected":return "bg-[#CC0000] border-[#CC0000]";
+    case "discount_applied":         return "bg-[#854F0B] border-[#854F0B]";
+    case "checkout_completed":       return "bg-[#3B6D11] border-[#3B6D11]";
+    case "addon_decision": {
+      const p = (e.payload ?? {}) as { customer_decision?: string };
+      if (p.customer_decision === "agreed") return "bg-[#3B6D11] border-[#3B6D11]";
+      if (p.customer_decision === "rejected") return "bg-[#CC0000] border-[#CC0000]";
+      return "bg-[#854F0B] border-[#854F0B]";
+    }
+    default:                         return "bg-[#D5D3CB] border-[#9A9890]";
   }
 }
 
@@ -143,6 +195,11 @@ export function RepairOrderDetailView({
   const pdef = priorityDef(ro.priority);
   const isRework = meta.is_rework === true;
   const reworkOf = typeof meta.rework_of === "string" ? (meta.rework_of as string) : null;
+
+  // RP4 層二：從 metadata.events 讀取事件時間軸（已按 server UTC at 順序 append）
+  const roEvents: RoEvent[] = Array.isArray(meta.events)
+    ? (meta.events as RoEvent[])
+    : [];
   const warrantyAuth = meta.warranty_auth as
     | { authorized_by?: string; reason?: string | null; authorized_at?: string }
     | undefined;
@@ -448,7 +505,7 @@ export function RepairOrderDetailView({
 
           <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
             <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 狀態時程</span>
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 狀態摘要</span>
               {canEdit && (
                 <span className="text-[10px] text-[#9A9890]">點各階段「📲 通知車主」即時推播</span>
               )}
@@ -485,6 +542,57 @@ export function RepairOrderDetailView({
                   notifying={isPending}
                 />
               </ol>
+            </div>
+          </section>
+
+          {/* RP4 層二：工單事件時間軸（append-only 稽核紀錄）*/}
+          <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 事件時間軸（稽核紀錄）</span>
+              <span className="text-[10px] text-[#9A9890]">
+                {roEvents.length} 筆 · append-only
+                {/* TODO promote to repair_order_events table (needs DDL) */}
+              </span>
+            </header>
+            <div className="px-4 py-3">
+              {roEvents.length === 0 ? (
+                <p className="text-[12px] text-[#9A9890]">尚無事件記錄（新動作執行後自動追加）</p>
+              ) : (
+                <ol className="relative border-l-2 border-[#EEECE6] ml-2 space-y-3">
+                  {roEvents.map((ev, idx) => (
+                    <li key={idx} className="ml-3 pl-3 relative">
+                      <span
+                        className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full border-2 ${roEventDotColor(ev)}`}
+                      />
+                      <div className="text-[12.5px] text-[#2C2C2A] font-medium leading-snug">
+                        {roEventLabel(ev)}
+                      </div>
+                      <div className="text-[11px] text-[#9A9890] font-mono">
+                        {fmtTaipeiDateTime(ev.at)}
+                        {ev.actor_id && (
+                          <span className="ml-2 text-[#D5D3CB]">uid:{ev.actor_id.slice(0, 8)}…</span>
+                        )}
+                      </div>
+                      {/* 拒絕原因、退回原因等次要資訊 */}
+                      {ev.action === "addon_decision" && (ev.payload as { rejection_reason?: string })?.rejection_reason && (
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">
+                          拒絕原因：{(ev.payload as { rejection_reason?: string }).rejection_reason}
+                        </div>
+                      )}
+                      {ev.action === "final_inspection_rejected" && (ev.payload as { reason?: string })?.reason && (
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">
+                          退回原因：{(ev.payload as { reason?: string }).reason}
+                        </div>
+                      )}
+                      {ev.action === "status_changed" && (ev.payload as { reason?: string })?.reason && (
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">
+                          原因：{(ev.payload as { reason?: string }).reason}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
             </div>
           </section>
 
