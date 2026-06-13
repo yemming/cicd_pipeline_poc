@@ -112,6 +112,10 @@ export const PERMISSIONS = {
   AFTERSALES_DISCOUNT_EDIT: "service.aftersales_discount.edit",
   AFTERSALES_PERMISSION_VIEW: "service.aftersales_permission.view",
   AFTERSALES_PERMISSION_EDIT: "service.aftersales_permission.edit",
+  // ─── RP5 主管授權工作流 ─────────────────────────
+  AFTERSALES_APPROVAL_VIEW: "service.aftersales_approval.view",
+  AFTERSALES_APPROVAL_REQUEST: "service.aftersales_approval.request",
+  AFTERSALES_APPROVAL_DECIDE: "service.aftersales_approval.decide",
   SERVICE_PACKAGE_VIEW: "service.service_package.view",
   SERVICE_PACKAGE_EDIT: "service.service_package.edit",
 

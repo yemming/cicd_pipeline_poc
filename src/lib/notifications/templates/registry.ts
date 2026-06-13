@@ -19,6 +19,8 @@ import { surveyDispatchedLine, surveyDispatchedGoogleChat } from "./survey-dispa
 import { vehicleArrivalConfirmedLine, vehicleArrivalConfirmedGoogleChat } from "./vehicle-arrival-confirmed";
 import { deployReleasedLine, deployReleasedGoogleChat } from "./deploy-released";
 import { crmPushSentLine, crmPushSentGoogleChat } from "./crm-push-sent";
+import { aftersalesApprovalRequestedLine, aftersalesApprovalRequestedGoogleChat } from "./aftersales-approval-requested";
+import { aftersalesApprovalResolvedLine, aftersalesApprovalResolvedGoogleChat } from "./aftersales-approval-resolved";
 
 // Code-registered 預設模板集合（本 repo 內建、版本隨 git 追蹤）
 const CODE_TEMPLATES: TemplateDefinition[] = [
@@ -42,6 +44,11 @@ const CODE_TEMPLATES: TemplateDefinition[] = [
   deployReleasedGoogleChat,
   crmPushSentLine,
   crmPushSentGoogleChat,
+  // RP5 主管授權工作流
+  aftersalesApprovalRequestedLine,
+  aftersalesApprovalRequestedGoogleChat,
+  aftersalesApprovalResolvedLine,
+  aftersalesApprovalResolvedGoogleChat,
 ];
 
 /** 以 `eventCode:channelCode` / `code` 建兩個索引 */

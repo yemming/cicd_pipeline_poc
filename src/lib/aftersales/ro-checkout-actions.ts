@@ -45,6 +45,10 @@ import {
 import { loadFeeSourceForRo } from "@/domain/ro-checkouts";
 import { pickForRepairOrderAddon } from "@/domain/issues";
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
+import {
+  requestApproval,
+  hasApprovedApproval,
+} from "@/domain/aftersales-approvals";
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -163,17 +167,92 @@ export async function refreshFeeSummaryAction(id: string): Promise<ActionResult<
   return { ok: true, data: { id } };
 }
 
+/**
+ * RP5 折扣上限查詢 — 查此 brand 的 discount_authority 規則，
+ * 回傳 SA 角色的 max_overall_pct（若無設定回 null = 不限）。
+ * 目前以最保守的有設定值為 SA 上限（POC 階段）。
+ */
+async function getSaDiscountLimit(brand: string): Promise<number | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("business_rules")
+    .select("config")
+    .eq("brand_id", brand)
+    .eq("rule_kind", "discount_authority")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+  if (!data || data.length === 0) return null;
+
+  // 取所有設有 max_overall_pct 的規則中最嚴格者（最低值）作為 SA 上限
+  const limits = (data as Array<{ config: Record<string, unknown> }>)
+    .map((r) => {
+      const cfg = r.config as { max_overall_pct?: number | null; role_label?: string };
+      return cfg.max_overall_pct;
+    })
+    .filter((v): v is number => typeof v === "number" && v >= 0);
+  if (limits.length === 0) return null;
+  // 找最小值（最嚴格的 SA 上限）
+  return Math.min(...limits);
+}
+
 export async function applyDiscountAction(
   id: string,
   pct: number,
-): Promise<ActionResult<{ id: string }>> {
+  /** RP5: 申請說明（呼叫方可選填，超限送審時帶入 requestApproval.notes） */
+  approvalNotes?: string | null,
+): Promise<ActionResult<{ id: string; approval_required?: boolean; approval_id?: string }>> {
   await requirePermission(PERMISSIONS.RO_CLOSE);
   const ctx = await loadById(id);
   if (!ctx.ok) return ctx;
   if (ctx.row.status !== "in_progress") return { ok: false, error: "已二簽後不可改折扣" };
-  const summary = (ctx.row.fee_summary ?? {}) as FeeSummary;
-  const next = applyDiscount(summary, pct);
+
   const supabase = await createClient();
+  const brand = ctx.brand;
+  const roId = ctx.row.repair_order_id as string;
+  const summary = (ctx.row.fee_summary ?? {}) as FeeSummary;
+
+  // ── RP5 折扣授權檢查 ──
+  // pct > 0 時查 SA 折扣上限；若超限且無已批准的授權，改走送審流程
+  if (pct > 0) {
+    const saLimit = await getSaDiscountLimit(brand);
+    if (saLimit !== null && pct > saLimit) {
+      // 檢查是否已有核准的 discount_exceed 授權
+      const alreadyApproved = await hasApprovedApproval(roId, "discount_exceed");
+      if (!alreadyApproved) {
+        // 送審：requestApproval（若已有 pending 會回 error 提示不重複送）
+        const approvalRes = await requestApproval({
+          ro_id: roId,
+          scenario: "discount_exceed",
+          notes: approvalNotes?.trim() || `SA 申請 ${pct}% 折扣，超出授權上限 ${saLimit}%`,
+          context: {
+            requested_pct: pct,
+            sa_limit_pct: saLimit,
+            checkout_id: id,
+          },
+        });
+        if (!approvalRes.ok) {
+          // 若已有 pending，給友善提示
+          return {
+            ok: false,
+            error: approvalRes.error,
+          };
+        }
+        // 送審成功 → 回 approval_required，UI 顯示「已送主管審批」
+        return {
+          ok: true,
+          data: {
+            id,
+            approval_required: true,
+            approval_id: approvalRes.data.approval_id,
+          },
+        };
+      }
+      // 已有核准 → 記錄在 payload（稽核可見）
+    }
+  }
+
+  // ── 正常套用折扣 ──
+  const next = applyDiscount(summary, pct);
   const { error } = await supabase
     .from("ro_checkouts")
     .update({ fee_summary: next, updated_at: new Date().toISOString() })
@@ -186,11 +265,10 @@ export async function applyDiscountAction(
       data: { user: _discountUser },
     } = await supabase.auth.getUser();
     const discountActorId = _discountUser?.id ?? null;
-    const roIdForDiscount = ctx.row.repair_order_id as string;
     const prevPct = (summary as FeeSummary).discount_pct ?? 0;
     after(async () => {
       await appendRepairOrderEvent(
-        roIdForDiscount,
+        roId,
         {
           action: "discount_applied",
           payload: {
@@ -198,6 +276,7 @@ export async function applyDiscountAction(
             discount_pct_before: prevPct,
             discount_pct_after: pct,
             payable: next.payable ?? null,
+            approved: pct > 0 ? await hasApprovedApproval(roId, "discount_exceed") : false,
           },
         },
         discountActorId,
