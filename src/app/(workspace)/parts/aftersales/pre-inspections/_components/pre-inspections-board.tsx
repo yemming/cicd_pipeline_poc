@@ -628,7 +628,7 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
                       ✓ 找到車籍：{plateLookup.customer?.name ?? "—"} ·{" "}
                       {plateLookup.vehicle?.model_name ?? "—"}
                       {plateLookup.vehicle?.warranty_until
-                        ? ` · 保固至 ${plateLookup.vehicle.warranty_until}`
+                        ? ` · 保固至 ${plateLookup.vehicle.warranty_until}${plateLookup.vehicle.warranty_computed ? "（系統推算）" : ""}`
                         : ""}
                       ，已自動帶入車主 / 車型 / 里程。
                     </div>
@@ -649,14 +649,29 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
                     )}
                     {plateLookup.pending_items.length > 0 && (
                       <div className="px-3 py-2 rounded bg-[#FDF3E3] border border-[#F0C97E] text-[12px] text-[#854F0B]">
-                        <b>📌 上次未處理的追加項（{plateLookup.pending_items.length}）：</b>
+                        <b>📌 待處理項目（{plateLookup.pending_items.length}）：</b>
                         <ul className="mt-1 space-y-0.5">
-                          {plateLookup.pending_items.map((p, i) => (
-                            <li key={i}>
-                              · {p.item_desc}
-                              {p.reason ? `（拒因：${p.reason}）` : ""}
-                            </li>
-                          ))}
+                          {plateLookup.pending_items.map((p, i) => {
+                            const safetyChip =
+                              p.safety_level === "緊急"
+                                ? <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-[#FDECEA] text-[#CC0000]">緊急</span>
+                                : p.safety_level === "警示"
+                                ? <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-[#FDF3E3] text-[#854F0B]">警示</span>
+                                : null;
+                            return (
+                              <li key={i} className="flex items-start gap-1">
+                                <span>·</span>
+                                <span>
+                                  {p.item_desc}
+                                  {safetyChip}
+                                  {p.reject_count > 1 && (
+                                    <span className="ml-1 text-[10px] text-[#9A9890]">（第{p.reject_count}次拒絕）</span>
+                                  )}
+                                  {p.reason ? <span className="text-[#9A9890]">（{p.reason}）</span> : ""}
+                                </span>
+                              </li>
+                            );
+                          })}
                         </ul>
                         <div className="text-[11px] text-[#9A9890] mt-1">
                           建議本次預檢主動向車主提醒這些項目。

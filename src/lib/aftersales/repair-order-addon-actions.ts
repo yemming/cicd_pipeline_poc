@@ -384,14 +384,40 @@ const REJECTION_REASONS: ReadonlyArray<RejectionReason> = [
 ];
 
 /**
+ * RP7 待處理項目安全等級升級規則：
+ *  normal → safety_related → safety_critical
+ * 二次拒絕同項目（item_desc 相同）自動升一級
+ */
+const SAFETY_LEVEL_UPGRADE: Record<string, string> = {
+  normal: "safety_related",
+  safety_related: "safety_critical",
+  safety_critical: "safety_critical", // 已最高不再升
+};
+
+/**
+ * RP7 工具：把 addon safety_level（"normal" | "safety_related" | "safety_critical"）
+ * 對映到 vehicle_pending_items.metadata.safety_level（"建議" | "警示" | "緊急"）
+ */
+function addonSafetyToDisplayLevel(safetyLevel: string): string {
+  switch (safetyLevel) {
+    case "safety_critical":
+      return "緊急";
+    case "safety_related":
+      return "警示";
+    default:
+      return "建議";
+  }
+}
+
+/**
  * decideAddon — 三向分支
  *  - agreed   → INSERT repair_order_lines (source='addon', source_ref_id=addon.id)
  *               依 addon_type 拆 1 或 2 條 line
  *               metadata.reserved_at 標記庫存預留時點（庫存實扣交給領料模組）
- *  - deferred → 純更新 envelope；safety!=normal 標 metadata.requires_followup=true
- *  - rejected → 純更新 envelope；safety!=normal 標 metadata.requires_followup=true
+ *  - deferred → 更新 envelope；RP7：寫入 vehicle_pending_items（含 safety_level）
+ *  - rejected → 更新 envelope；RP7：寫入 vehicle_pending_items（含 safety_level + reject_count，二次拒絕升級）
  *
- * 不寫 followup_cases（05 提案落地後再串）。
+ * RP7：不再只標 metadata.requires_followup=true，改真寫 vehicle_pending_items。
  */
 export async function decideAddonAction(
   id: string,
@@ -518,14 +544,93 @@ export async function decideAddonAction(
   }
 
   // 更新 envelope
-  const requiresFollowup =
-    decision.customer_decision !== "agreed" && addon.safety_level !== "normal";
+  const requiresFollowup = decision.customer_decision !== "agreed";
   const newMeta: Record<string, unknown> = { ...meta };
   if (requiresFollowup) newMeta.requires_followup = true;
   // B-23：把結構化拒絕原因落地 metadata，供 B-24 圓餅圖 / SA 轉化率聚合
   if (decision.customer_decision === "rejected" && decision.rejection_reason) {
     newMeta.rejection_reason = decision.rejection_reason;
   }
+
+  // ── RP7：拒絕/暫緩 → 真寫 vehicle_pending_items（含 safety_level + reject_count）──
+  // 須從 RO 找到 vehicle_id，無則跳過（Walk-in 未建車輛主檔時）
+  if (decision.customer_decision !== "agreed") {
+    try {
+      const { data: roRow } = await supabase
+        .from("repair_orders")
+        .select("vehicle_id")
+        .eq("id", addon.ro_id as string)
+        .eq("brand_id", brand)
+        .maybeSingle();
+
+      const vehicleId = (roRow as { vehicle_id?: string | null } | null)?.vehicle_id ?? null;
+
+      if (vehicleId) {
+        const displayLevel = addonSafetyToDisplayLevel(addon.safety_level as string ?? "normal");
+
+        // 找同車同 item_desc 上次的 pending item（計算 reject_count + 升級）
+        const { data: existing } = await supabase
+          .from("vehicle_pending_items")
+          .select("id, status, metadata")
+          .eq("brand_id", brand)
+          .eq("vehicle_id", vehicleId)
+          .eq("item_desc", addon.name)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const existingMeta = existing?.metadata as Record<string, unknown> | null;
+        const prevRejectCount = typeof existingMeta?.reject_count === "number"
+          ? existingMeta.reject_count
+          : 0;
+        const newRejectCount = prevRejectCount + 1;
+
+        // 二次拒絕同項目 → 安全等級自動升一級
+        const baseLevel = (existingMeta?.safety_level as string) ?? displayLevel;
+        const escalatedLevel = newRejectCount >= 2
+          ? SAFETY_LEVEL_UPGRADE[baseLevel] ?? baseLevel
+          : baseLevel;
+
+        const pendingMeta: Record<string, unknown> = {
+          safety_level: escalatedLevel,
+          reject_count: newRejectCount,
+          decision: decision.customer_decision,
+          estimated_fee: addon.estimated_fee,
+          addon_type: addon.addon_type,
+          source_addon_id: id,
+          source_ro_id: addon.ro_id,
+        };
+
+        if (existing?.id) {
+          // 已有 pending item → 更新 reject_count + 可能的升級 safety_level
+          await supabase
+            .from("vehicle_pending_items")
+            .update({
+              metadata: pendingMeta,
+              reason: decision.decision_note?.trim() || null,
+              updated_at: now,
+            } as Record<string, unknown>)
+            .eq("id", existing.id)
+            .eq("brand_id", brand);
+        } else {
+          // 新建 pending item
+          await supabase.from("vehicle_pending_items").insert({
+            brand_id: brand,
+            vehicle_id: vehicleId,
+            item_desc: addon.name as string,
+            reason: decision.decision_note?.trim() || null,
+            status: "pending",
+            metadata: pendingMeta,
+          });
+        }
+      }
+    } catch (e) {
+      // RP7 寫入失敗不阻塞主流程（addon decision 已完成）
+      console.error("[RP7 decideAddon] vehicle_pending_items upsert 失敗（非致命）", e);
+    }
+  }
+  // TODO promote: vehicle_pending_items.metadata → typed columns safety_level/reject_count (needs DDL)
 
   const update: Record<string, unknown> = {
     customer_decision: decision.customer_decision,

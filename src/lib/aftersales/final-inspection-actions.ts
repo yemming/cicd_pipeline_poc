@@ -201,7 +201,7 @@ export async function updateCleaningAction(
 
 export async function signAction(
   id: string,
-  payload: { signature_text: string; inspector_name?: string; inspector_role?: string; signoff_note?: string },
+  payload: { signature_text: string; inspector_name?: string; inspector_role?: string; signoff_note?: string; inspector_id?: string | null },
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   const ctx = await loadById(id);
@@ -210,12 +210,34 @@ export async function signAction(
   if (!isLineResultsAllPassed(lineResults)) {
     return { ok: false, error: "尚有維修項目未通過複檢，無法簽核" };
   }
+
+  // ── M-09：複檢人員不得為施工 lead tech（後端驗證）──
+  // 若有帶 inspector_id（從 aftersales_technicians），比對 RO.lead_technician_id
+  if (payload.inspector_id) {
+    const supabase = await createClient();
+    const brand = (await getActiveScope()).brand_id;
+    const { data: ro } = await supabase
+      .from("repair_orders")
+      .select("lead_technician_id")
+      .eq("id", ctx.row.repair_order_id as string)
+      .eq("brand_id", brand)
+      .maybeSingle();
+    const leadTechId = (ro as { lead_technician_id?: string | null } | null)?.lead_technician_id;
+    if (leadTechId && leadTechId === payload.inspector_id) {
+      return {
+        ok: false,
+        error: "M-09 違規：施工技師本人不得自行複檢，請指派其他技師執行竣工複檢",
+      };
+    }
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("final_inspections")
     .update({
       signed_at: new Date().toISOString(),
       signature_text: payload.signature_text,
+      inspector_id: payload.inspector_id ?? ctx.row.inspector_id,
       inspector_name: payload.inspector_name ?? ctx.row.inspector_name,
       inspector_role: payload.inspector_role ?? ctx.row.inspector_role,
       signoff_note: payload.signoff_note ?? null,
