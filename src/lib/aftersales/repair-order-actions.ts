@@ -24,6 +24,7 @@ import { pickForRepairOrderAddon } from "@/domain/issues";
 
 import {
   PREFIX_COMBO_RULES,
+  validateRoStatusTransition,
   type PrefixP1,
   type PrefixP2,
 } from "@/domain/repair-orders.constants";
@@ -258,16 +259,95 @@ export async function confirmRepairOrderAction(
   return { ok: false, error: `建立失敗：${lastErr ?? "unknown"}` };
 }
 
+/**
+ * updateRepairOrderStatusAction — 狀態機轉換入口（RP1 地基）
+ *
+ * 護欄層：
+ *   1. 驗轉換合法（validateRoStatusTransition 白名單）
+ *   2. 終態不可逆 guard（"已關單"/"已取消"/"已關閉-*" 進來擋住）
+ *   3. 每次轉換 append 一筆 status_history 到 metadata.status_history
+ *      格式：{ from, to, actor_id, at: server_utc, reason }
+ *
+ * 正常關單（"已關單"）不走此 action，走 ro-checkout-actions.ts completeCheckout。
+ * 建單（"進行中"）不走此 action，走 confirmRepairOrderAction。
+ *
+ * @param reason   可選；記錄狀態轉換原因（中途取消/退回重工 必填理由 TODO RP5）
+ */
 export async function updateRepairOrderStatusAction(
   id: string,
   status: string,
+  reason?: string,
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   if (!id) return { ok: false, error: "缺少 id" };
 
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
-  const upd: Record<string, unknown> = { status };
+
+  // ── RP1 護欄①：先撈現在的 status + metadata ──
+  const { data: existing, error: fetchErr } = await supabase
+    .from("repair_orders")
+    .select("status, metadata")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (fetchErr) return { ok: false, error: `載入工單失敗：${fetchErr.message}` };
+  if (!existing) return { ok: false, error: "找不到工單" };
+
+  const currentStatus = (existing.status as string) ?? "";
+  const currentMeta = ((existing.metadata ?? {}) as Record<string, unknown>);
+
+  // ── RP1 護欄②：轉換合法性驗證 ──
+  const verdict = validateRoStatusTransition(currentStatus, status);
+  if (verdict === "same") {
+    // 無需轉換，直接回 ok（冪等）
+    return { ok: true, data: { id } };
+  }
+  if (verdict === "terminal") {
+    return {
+      ok: false,
+      error: `工單已處於終態「${currentStatus}」，無法再修改狀態。`,
+    };
+  }
+  if (verdict === "not_allowed") {
+    return {
+      ok: false,
+      error: `不允許的狀態轉換：${currentStatus} → ${status}。請確認業務流程。`,
+    };
+  }
+  // verdict === "ok"，繼續
+
+  // ── RP1 護欄③：組 status_history 追加記錄 ──
+  // actor_id 從 supabase auth.uid() 取（server action context 有 session）
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+  const actorId = authUser?.id ?? null;
+
+  const historyEntry: Record<string, unknown> = {
+    from: currentStatus,
+    to: status,
+    actor_id: actorId,
+    at: new Date().toISOString(), // server UTC，防偽造
+    reason: reason?.trim() || null,
+  };
+
+  // 現有的 status_history（若無則初始化為空陣列）
+  const prevHistory = Array.isArray(currentMeta.status_history)
+    ? (currentMeta.status_history as unknown[])
+    : [];
+  const nextMeta: Record<string, unknown> = {
+    ...currentMeta,
+    status_history: [...prevHistory, historyEntry],
+  };
+
+  // ── 組更新物件 ──
+  const upd: Record<string, unknown> = {
+    status,
+    metadata: nextMeta,
+    updated_at: new Date().toISOString(),
+  };
+  // 終態關單時間戳：正常關單由 checkout action 填；此處處理其他終態
   if (status === "已關單") upd.closed_at = new Date().toISOString();
 
   const { error } = await supabase
