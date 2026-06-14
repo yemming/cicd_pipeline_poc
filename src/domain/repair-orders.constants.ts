@@ -87,15 +87,158 @@ export function buildRoCode(
   return `${p1}-${p2}-${yymmdd}-${String(sequence_no).padStart(3, "0")}`;
 }
 
+/**
+ * 完整工單狀態清單（RP1 定案）
+ *
+ * 以下為 Russell 6/12 v1 規格定義的完整狀態機。
+ * 原有 5 個狀態保持不變，新增 6 個：
+ *   - 等待客戶授權  (B5-03)
+ *   - 待料          (B9-01)
+ *   - 待料-車輛已還  (B9-02)
+ *   - 退回重工       (B11-01)
+ *   - 已關閉-中途取消 (B17-01)
+ *   - 已關閉-保固待確認 (B16-01)
+ *
+ * 語意對齊說明（terminal state 統一為「已關閉」系列，不動現有流程）：
+ *   - 已關單  → 原有終態（正常完工結帳關閉）保持不動
+ *   - 已取消  → 原有終態（管理員/SA 主動取消）保持不動
+ *   - 已關閉-中途取消 → 新增終態（需主管授權，含部分結帳）
+ *   - 已關閉-保固待確認 → 新增終態（完修待原廠確認費用，可視需要 re-open）
+ *
+ * TODO promote: 若 DB 加 enum/check constraint，把此清單同步到 DDL
+ */
 export const RO_STATUS_OPTIONS = [
-  "進行中",
-  "維修中",
-  "待結帳",
-  "已關單",
-  "已取消",
+  // ── 開放（可繼續轉換）──────────────────────────────
+  "進行中",            // 工單建立後初始狀態（待派工）
+  "維修中",            // 已指派主責技師，施工進行中
+  "等待客戶授權",      // 技師追加 → SA 聯繫客戶中，等待同意或拒絕  (B5-03)
+  "待料",              // 零件未到，工單暫停；車輛仍在廠  (B9-01)
+  "待料-車輛已還",     // 等零件但客戶要求先取車，工單保持開啟  (B9-02)
+  "退回重工",          // 複檢不通過，退回技師重新施工  (B11-01)
+  "待結帳",            // 施工完畢，等待結帳收款
+  // ── 終態（已關閉，不可逆）────────────────────────
+  "已關單",            // 正常完工且結帳完成
+  "已關閉-中途取消",   // 中途取消（需主管授權，含部分結帳）  (B17-01)
+  "已關閉-保固待確認", // 完修待原廠確認費用  (B16-01)
+  "已取消",            // 管理員 / SA 主動取消（不含部分結帳）
 ] as const;
 
 export type RoStatus = (typeof RO_STATUS_OPTIONS)[number];
+
+/**
+ * 終態狀態集合（進入後不可再次呼叫 updateRepairOrderStatusAction 修改）
+ *
+ * 終態轉換只能由專用動作觸發（如 ro-checkout-actions.ts 的 completeCheckout），
+ * 不走 updateRepairOrderStatusAction 通用入口。
+ */
+export const RO_TERMINAL_STATUSES: ReadonlySet<string> = new Set<string>([
+  "已關單",
+  "已關閉-中途取消",
+  "已關閉-保固待確認",
+  "已取消",
+]);
+
+/**
+ * 合法狀態轉換白名單（from → allowed_to[]）
+ *
+ * 設計原則：
+ * 1. 只列出「可以走 updateRepairOrderStatusAction 通用入口」的轉換。
+ *    終態 → 任何狀態：不在此表中（終態 guard 優先，在 action 層擋住）。
+ * 2. 建立工單（"進行中"）只能由 confirmRepairOrderAction 觸發，不在此表。
+ * 3. 正常關單（"已關單"）只能由 ro-checkout-actions.ts completeCheckout 觸發，不在此表；
+ *    避免直接呼叫 updateRepairOrderStatusAction 繞過結帳驗證。
+ * 4. 中途取消（"已關閉-中途取消"）未來需主管授權，此處先允許、前端層做 guard，
+ *    後端層 action 先 permit（RP5 主管授權工作流是下一波）。
+ *
+ * TODO RP5: 加主管授權前置 guard 到「已關閉-中途取消」和「等待客戶授權」轉換
+ */
+export const RO_STATUS_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
+  // 進行中（建單初始）→ 指派技師後進維修中（通常由 setLeadTechnicianAction 觸發）；
+  //                     也可直接轉「等待客戶授權」（追加 SA 未指派技師前聯繫）
+  //                     或直接取消（管理員取消，由 cancelRepairOrderAction 處理，不在此）
+  "進行中": [
+    "維修中",
+    "等待客戶授權",
+    "待料",
+  ],
+
+  // 維修中 → 追加授權 / 缺料 / 完工待複檢（複檢直接切待結帳，"退回重工"由複檢不通過觸發）
+  "維修中": [
+    "等待客戶授權",
+    "待料",
+    "待料-車輛已還",
+    "待結帳",
+    "退回重工",           // 複檢不通過直接退回（進場二次複檢仍在「維修中」語意下）
+    "已關閉-中途取消",    // 中途取消（RP5 補主管授權前置後加 guard）
+  ],
+
+  // 等待客戶授權 → 客戶同意回施工中 / 拒絕且繼續施工 / 取消施工
+  "等待客戶授權": [
+    "維修中",             // 客戶同意追加，繼續施工
+    "待料",               // 同意追加但零件未到
+    "待結帳",             // 不追加，繼續原本項目完工
+    "已關閉-中途取消",    // 客戶拒絕且不繼續施工（中途取消）
+  ],
+
+  // 待料 → 零件到貨回施工中 / 客戶要先取車
+  "待料": [
+    "維修中",             // 零件到貨，繼續施工
+    "待料-車輛已還",      // 零件未到，客戶要先取車
+    "已關閉-中途取消",    // 客戶放棄等零件，中途取消
+  ],
+
+  // 待料-車輛已還 → 零件到貨+客戶回廠
+  "待料-車輛已還": [
+    "維修中",             // 零件到貨且客戶回廠，繼續施工
+    "已關閉-中途取消",    // 客戶決定放棄
+  ],
+
+  // 退回重工 → 重新施工
+  "退回重工": [
+    "維修中",             // 技師重工完畢，重新進入施工中
+  ],
+
+  // 待結帳 → 正常關閉由 checkout action 處理（不在此白名單）；
+  //          但可能由 SA 確認「保固待確認」或「中途取消」
+  "待結帳": [
+    "已關閉-保固待確認",  // 完修但原廠費用未回覆  (B16-01)
+    "已關閉-中途取消",    // 結帳流程中客戶取消（極少見但允許）
+    // "已關單" 不在此表：只能由 ro-checkout-actions.ts completeCheckout 觸發
+  ],
+
+  // 已關閉-保固待確認 → 等原廠確認後可正式關單（實務上需人工改）
+  // 若要允許此轉換，可在此加；目前 gap audit 未要求，先保守不開放
+  // "已關閉-保固待確認": ["已關單"],
+} as const;
+
+/**
+ * 純函式：驗證狀態轉換是否合法
+ *
+ * @returns
+ *   "ok"             — 合法轉換
+ *   "terminal"       — from 是終態，不可再轉
+ *   "same"           — from === to，無需轉換
+ *   "not_allowed"    — 不在白名單中
+ */
+export function validateRoStatusTransition(
+  from: string,
+  to: string,
+): "ok" | "terminal" | "same" | "not_allowed" {
+  if (from === to) return "same";
+  if (RO_TERMINAL_STATUSES.has(from)) return "terminal";
+  const allowed = RO_STATUS_TRANSITIONS[from] ?? [];
+  if ((allowed as readonly string[]).includes(to)) return "ok";
+  return "not_allowed";
+}
+
+/**
+ * 純函式：取得當前狀態可以轉到哪些狀態
+ * 終態或未知狀態回空陣列。
+ */
+export function getAllowedNextStatuses(from: string): readonly string[] {
+  if (RO_TERMINAL_STATUSES.has(from)) return [];
+  return RO_STATUS_TRANSITIONS[from] ?? [];
+}
 
 /**
  * 工單優先級（G-1 DDL `repair_orders.priority`，CHECK = urgent|normal|flexible）

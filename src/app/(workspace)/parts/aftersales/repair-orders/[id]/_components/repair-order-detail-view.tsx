@@ -10,9 +10,12 @@ import {
   cancelRepairOrderAction,
   updateRepairOrderStatusAction,
   notifyRepairOrderProgressAction,
+  recordContactAttemptAction,
+  type ContactAttemptInput,
 } from "@/lib/aftersales/repair-order-actions";
+import { requestCancelOrderApprovalAction } from "@/lib/aftersales/approval-request-actions";
 import { RO_STATUS_OPTIONS, priorityDef } from "@/domain/repair-orders.constants";
-import type { RepairOrderListRow } from "@/domain/repair-orders";
+import type { RepairOrderListRow, RoEvent } from "@/domain/repair-orders";
 
 // 純算數格式化 Asia/Taipei wall-clock（避開 toLocaleString 在 Node ICU / browser ICU
 // 對 dayPeriod / narrow nbsp 不一致造成的 SSR / CSR hydration mismatch）
@@ -41,6 +44,62 @@ function statusBadge(status: string): string {
   }
 }
 
+// RP4 層二：事件標籤翻譯與顏色
+function roEventLabel(e: RoEvent): string {
+  switch (e.action) {
+    case "ro_created":             return "工單建立";
+    case "dispatched":             return "技師派工";
+    case "status_changed": {
+      const p = (e.payload ?? {}) as { from?: string; to?: string };
+      return p.from && p.to ? `狀態轉換：${p.from} → ${p.to}` : "狀態變更";
+    }
+    case "final_inspection_passed":   return "複檢通過 → 待結帳";
+    case "final_inspection_rejected": return "複檢退回重工";
+    case "discount_applied": {
+      const p = (e.payload ?? {}) as { discount_pct_before?: number; discount_pct_after?: number; payable?: number };
+      const from = p.discount_pct_before ?? 0;
+      const to = p.discount_pct_after ?? 0;
+      return `折扣調整：${from}% → ${to}%${p.payable != null ? `（應收 NT$${Number(p.payable).toLocaleString()}）` : ""}`;
+    }
+    case "checkout_completed":     return "結帳關單";
+    case "addon_decision": {
+      const p = (e.payload ?? {}) as { addon_name?: string; customer_decision?: string; estimated_fee?: number };
+      const dec = p.customer_decision === "agreed" ? "同意" : p.customer_decision === "rejected" ? "拒絕" : p.customer_decision === "deferred" ? "暫緩" : p.customer_decision ?? "—";
+      return `追加項目決策：${p.addon_name ?? "—"} → ${dec}${p.estimated_fee != null ? `（NT$${Number(p.estimated_fee).toLocaleString()}）` : ""}`;
+    }
+    case "contact_attempt": {
+      const p = (e.payload ?? {}) as { method?: string; result?: string };
+      const parts = [p.method, p.result].filter(Boolean).join(" / ");
+      return `聯繫嘗試${parts ? `：${parts}` : ""}`;
+    }
+    default:                       return String((e as { action?: string }).action ?? "未知事件");
+  }
+}
+
+function roEventDotColor(e: RoEvent): string {
+  switch (e.action) {
+    case "ro_created":               return "bg-[#185FA5] border-[#185FA5]";
+    case "dispatched":               return "bg-[#854F0B] border-[#854F0B]";
+    case "status_changed": {
+      const p = (e.payload ?? {}) as { to?: string };
+      if (p.to === "已關單") return "bg-[#3B6D11] border-[#3B6D11]";
+      if (p.to?.includes("取消") || p.to?.includes("退回")) return "bg-[#CC0000] border-[#CC0000]";
+      return "bg-[#854F0B] border-[#854F0B]";
+    }
+    case "final_inspection_passed":  return "bg-[#3B6D11] border-[#3B6D11]";
+    case "final_inspection_rejected":return "bg-[#CC0000] border-[#CC0000]";
+    case "discount_applied":         return "bg-[#854F0B] border-[#854F0B]";
+    case "checkout_completed":       return "bg-[#3B6D11] border-[#3B6D11]";
+    case "addon_decision": {
+      const p = (e.payload ?? {}) as { customer_decision?: string };
+      if (p.customer_decision === "agreed") return "bg-[#3B6D11] border-[#3B6D11]";
+      if (p.customer_decision === "rejected") return "bg-[#CC0000] border-[#CC0000]";
+      return "bg-[#854F0B] border-[#854F0B]";
+    }
+    default:                         return "bg-[#D5D3CB] border-[#9A9890]";
+  }
+}
+
 function Kv({
   label,
   value,
@@ -65,9 +124,12 @@ function Kv({
 export function RepairOrderDetailView({
   ro,
   canEdit,
+  roEvents: roEventsProp = [],
 }: {
   ro: RepairOrderListRow;
   canEdit: boolean;
+  /** P1 升表：由 server 傳入，merge 新表+舊 metadata（向後相容） */
+  roEvents?: RoEvent[];
 }) {
   useSetPageHeader({
     title: ro.ro_code,
@@ -83,6 +145,14 @@ export function RepairOrderDetailView({
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   /** 狀態切換確認 modal — 為 null 時關閉 */
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  /** RP5 中途取消授權 modal */
+  const [cancelApprovalModal, setCancelApprovalModal] = useState(false);
+  const [cancelApprovalNotes, setCancelApprovalNotes] = useState("");
+  /** B5-02 聯繫嘗試記錄 modal */
+  const [contactModal, setContactModal] = useState(false);
+  const [contactMethod, setContactMethod] = useState<ContactAttemptInput["contact_method"]>("電話");
+  const [contactResult, setContactResult] = useState<ContactAttemptInput["contact_result"]>("接通");
+  const [contactNotes, setContactNotes] = useState("");
 
   function showBanner(b: { ok: boolean; msg: string }) {
     setBanner(b);
@@ -126,6 +196,44 @@ export function RepairOrderDetailView({
     });
   }
 
+  /** RP5 中途取消授權：送出申請後工單不立即取消，等主管核准 */
+  function doCancelApprovalRequest() {
+    if (!cancelApprovalNotes.trim()) {
+      showBanner({ ok: false, msg: "請填寫中途取消原因（稽核必填）" });
+      return;
+    }
+    setCancelApprovalModal(false);
+    startTransition(async () => {
+      const res = await requestCancelOrderApprovalAction(ro.id, cancelApprovalNotes.trim());
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 中途取消申請已送主管審批，工單暫不取消" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  /** B5-02 聯繫嘗試：送出記錄 */
+  function doRecordContact() {
+    setContactModal(false);
+    startTransition(async () => {
+      const res = await recordContactAttemptAction({
+        ro_id: ro.id,
+        contact_method: contactMethod,
+        contact_result: contactResult,
+        notes: contactNotes || null,
+      });
+      if (res.ok) {
+        showBanner({ ok: true, msg: `✓ 已記錄聯繫嘗試（${contactMethod} / ${contactResult}）` });
+        setContactNotes("");
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
   const meta = (ro.metadata ?? {}) as Record<string, unknown>;
   const accountingCategory =
     typeof meta.accounting_category_resolved === "string"
@@ -143,6 +251,9 @@ export function RepairOrderDetailView({
   const pdef = priorityDef(ro.priority);
   const isRework = meta.is_rework === true;
   const reworkOf = typeof meta.rework_of === "string" ? (meta.rework_of as string) : null;
+
+  // RP4 層二（P1 升表）：直接使用 server 傳入的 roEvents（merge 新表+舊 metadata）
+  const roEvents: RoEvent[] = roEventsProp;
   const warrantyAuth = meta.warranty_auth as
     | { authorized_by?: string; reason?: string | null; authorized_at?: string }
     | undefined;
@@ -193,15 +304,47 @@ export function RepairOrderDetailView({
           >
             🖨️ 列印 / PDF
           </button>
-          {canEdit && ro.status !== "已取消" && ro.status !== "已關單" && (
-            <button
-              type="button"
-              onClick={doCancel}
-              disabled={isPending}
-              className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"
-            >
-              取消工單
-            </button>
+          {/* B5-02：聯繫嘗試記錄（任何狀態都可記錄，無論 canEdit） */}
+          <button
+            type="button"
+            onClick={() => {
+              setContactMethod("電話");
+              setContactResult("接通");
+              setContactNotes("");
+              setContactModal(true);
+            }}
+            disabled={isPending}
+            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#EAF4FB] border border-[#A9CCE8] text-[#185FA5] hover:bg-[#d4eaf8] shadow-sm disabled:opacity-50"
+            title="記錄與車主的聯繫嘗試（B5-02）"
+          >
+            📞 記錄聯繫
+          </button>
+          {canEdit && !["已取消", "已關單", "已關閉-中途取消", "已關閉-保固待確認"].includes(ro.status) && (
+            <>
+              {/* RP5：中途取消需主管授權，開 modal 送審 */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCancelApprovalNotes("");
+                  setCancelApprovalModal(true);
+                }}
+                disabled={isPending}
+                className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] hover:bg-[#fce9c5] shadow-sm disabled:opacity-50"
+                title="中途取消需主管授權，送出申請後等候核准"
+              >
+                中途取消（申請授權）
+              </button>
+              {/* 管理員直接取消（快速通道，不需授權） */}
+              <button
+                type="button"
+                onClick={doCancel}
+                disabled={isPending}
+                className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"
+                title="管理員直接取消（不需授權，走 cancelRepairOrderAction）"
+              >
+                直接取消
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -448,7 +591,7 @@ export function RepairOrderDetailView({
 
           <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
             <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
-              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 狀態時程</span>
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 狀態摘要</span>
               {canEdit && (
                 <span className="text-[10px] text-[#9A9890]">點各階段「📲 通知車主」即時推播</span>
               )}
@@ -485,6 +628,61 @@ export function RepairOrderDetailView({
                   notifying={isPending}
                 />
               </ol>
+            </div>
+          </section>
+
+          {/* RP4 層二：工單事件時間軸（append-only 稽核紀錄）*/}
+          <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+            <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 事件時間軸（稽核紀錄）</span>
+              <span className="text-[10px] text-[#9A9890]">
+                {roEvents.length} 筆 · append-only（repair_order_events）
+              </span>
+            </header>
+            <div className="px-4 py-3">
+              {roEvents.length === 0 ? (
+                <p className="text-[12px] text-[#9A9890]">尚無事件記錄（新動作執行後自動追加）</p>
+              ) : (
+                <ol className="relative border-l-2 border-[#EEECE6] ml-2 space-y-3">
+                  {roEvents.map((ev, idx) => (
+                    <li key={idx} className="ml-3 pl-3 relative">
+                      <span
+                        className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full border-2 ${roEventDotColor(ev)}`}
+                      />
+                      <div className="text-[12.5px] text-[#2C2C2A] font-medium leading-snug">
+                        {roEventLabel(ev)}
+                      </div>
+                      <div className="text-[11px] text-[#9A9890] font-mono">
+                        {fmtTaipeiDateTime(ev.at)}
+                        {ev.actor_id && (
+                          <span className="ml-2 text-[#D5D3CB]">uid:{ev.actor_id.slice(0, 8)}…</span>
+                        )}
+                      </div>
+                      {/* 拒絕原因、退回原因等次要資訊 */}
+                      {ev.action === "addon_decision" && (ev.payload as { rejection_reason?: string })?.rejection_reason && (
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">
+                          拒絕原因：{(ev.payload as { rejection_reason?: string }).rejection_reason}
+                        </div>
+                      )}
+                      {ev.action === "final_inspection_rejected" && (ev.payload as { reason?: string })?.reason && (
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">
+                          退回原因：{(ev.payload as { reason?: string }).reason}
+                        </div>
+                      )}
+                      {ev.action === "status_changed" && (ev.payload as { reason?: string })?.reason && (
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">
+                          原因：{(ev.payload as { reason?: string }).reason}
+                        </div>
+                      )}
+                      {ev.action === "contact_attempt" && (ev.payload as { notes?: string })?.notes && (
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">
+                          備註：{(ev.payload as { notes?: string }).notes}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
             </div>
           </section>
 
@@ -585,6 +783,143 @@ export function RepairOrderDetailView({
                 className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60"
               >
                 {isPending ? "切換中⋯" : "確認切換"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* RP5 中途取消授權 Modal */}
+      {cancelApprovalModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => !isPending && setCancelApprovalModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[480px] max-w-[90vw] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#FDF3E3] flex items-center gap-2">
+              <span className="text-[16px]">⚠️</span>
+              <div className="text-[13px] font-semibold text-[#854F0B]">
+                申請中途取消授權（RP5）
+              </div>
+              <span className="ml-auto text-[10px] text-[#854F0B] font-mono">{ro.ro_code}</span>
+            </header>
+            <div className="px-4 py-4 space-y-3">
+              <p className="text-[12.5px] text-[#5A5955]">
+                中途取消工單需主管授權。送出申請後，工單狀態保持不變，主管核准後才可執行取消。
+              </p>
+              <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded px-3 py-2 text-[12px] text-[#854F0B]">
+                ⚠️ 核准後請在「狀態快切」選「已關閉-中途取消」完成最終取消。
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  取消原因（稽核必填）
+                </label>
+                <textarea
+                  value={cancelApprovalNotes}
+                  onChange={(e) => setCancelApprovalNotes(e.target.value)}
+                  rows={3}
+                  placeholder="例：客戶因個人因素要求中止維修，車輛已取回，費用已協商…"
+                  className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none"
+                />
+              </div>
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCancelApprovalModal(false)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={doCancelApprovalRequest}
+                disabled={isPending || !cancelApprovalNotes.trim()}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
+              >
+                {isPending ? "送出中⋯" : "送出申請"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+      {/* B5-02 聯繫嘗試記錄 Modal */}
+      {contactModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => !isPending && setContactModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[440px] max-w-[90vw] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#EAF4FB] flex items-center gap-2">
+              <span className="text-[16px]">📞</span>
+              <div className="text-[13px] font-semibold text-[#185FA5]">記錄聯繫嘗試（B5-02）</div>
+              <span className="ml-auto text-[10px] text-[#185FA5] font-mono">{ro.ro_code}</span>
+            </header>
+            <div className="px-4 py-4 space-y-3">
+              <p className="text-[12.5px] text-[#5A5955]">
+                記錄 SA 與車主的聯繫嘗試，僅追加稽核記錄，不改變工單狀態。
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-[#9A9890] font-medium">聯繫方式</label>
+                  <select
+                    value={contactMethod}
+                    onChange={(e) => setContactMethod(e.target.value as ContactAttemptInput["contact_method"])}
+                    className="w-full h-[32px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                  >
+                    <option value="電話">電話</option>
+                    <option value="LINE">LINE</option>
+                    <option value="簡訊">簡訊</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] text-[#9A9890] font-medium">聯繫結果</label>
+                  <select
+                    value={contactResult}
+                    onChange={(e) => setContactResult(e.target.value as ContactAttemptInput["contact_result"])}
+                    className="w-full h-[32px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                  >
+                    <option value="接通">接通</option>
+                    <option value="未接">未接</option>
+                    <option value="留言">留言</option>
+                    <option value="回覆">回覆</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">備註（選填）</label>
+                <textarea
+                  value={contactNotes}
+                  onChange={(e) => setContactNotes(e.target.value)}
+                  rows={2}
+                  placeholder="例：已告知待料，預計明後天取車…"
+                  className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none resize-none"
+                />
+              </div>
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setContactModal(false)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={doRecordContact}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#185FA5] text-white hover:bg-[#0d4a8b] disabled:opacity-50"
+              >
+                {isPending ? "記錄中⋯" : "確認記錄"}
               </button>
             </footer>
           </div>

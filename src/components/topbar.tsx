@@ -11,6 +11,8 @@ import { useProfile, getInitials } from "@/lib/use-profile";
 import { brands as brandConfigs } from "@/lib/brands/registry";
 import { useActiveBrand } from "@/lib/scope/scope-context";
 import { ScopeSwitcher } from "./scope-switcher";
+import { NotificationBell } from "./notification-bell";
+import { TodoBadge } from "./todo-badge";
 
 interface TopbarProps {
   onOpenSearch: () => void;
@@ -144,9 +146,11 @@ export function Topbar({ onOpenSearch }: TopbarProps) {
             <span className="material-symbols-outlined text-[20px] md:text-[22px]">search</span>
           </button>
         )}
+        {/* RP8 今日待辦清單：每 60s 輪詢，依角色過濾（主管/SA/技師/倉管） */}
+        <TodoBadge />
+        {/* RP8 站內通知中心鈴鐺：每 30s 輪詢站內通知、顯示未讀 badge + 下拉清單 */}
+        <NotificationBell />
         <QuickAddFeedbackButton />
-        {/* 鈴鐺通知功能尚未實作（過去是 dumb decorative button） → 改為「新增意見單」快捷入口
-            點擊：導 /feedback/tickets/new?url=<當前頁網址>，自動帶來源 URL 進表單 */}
         <Link
           href="/me/profile"
           title={profile?.name ? `${profile.name} — 個人設定` : "個人設定"}

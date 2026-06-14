@@ -24,6 +24,11 @@ import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { registerOldPartFromInspection } from "@/domain/warranty";
+import { appendRepairOrderEvent } from "@/domain/repair-orders";
+// RP5：複檢退回超 2 次自動送審
+import { requestApproval } from "@/domain/aftersales-approvals";
+// RP8 T07：複檢退回→技師+SA 站內通知
+import { createInappNotifications } from "@/domain/user-notifications";
 
 import {
   buildInitialLineResults,
@@ -200,7 +205,7 @@ export async function updateCleaningAction(
 
 export async function signAction(
   id: string,
-  payload: { signature_text: string; inspector_name?: string; inspector_role?: string; signoff_note?: string },
+  payload: { signature_text: string; inspector_name?: string; inspector_role?: string; signoff_note?: string; inspector_id?: string | null },
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   const ctx = await loadById(id);
@@ -209,12 +214,34 @@ export async function signAction(
   if (!isLineResultsAllPassed(lineResults)) {
     return { ok: false, error: "尚有維修項目未通過複檢，無法簽核" };
   }
+
+  // ── M-09：複檢人員不得為施工 lead tech（後端驗證）──
+  // 若有帶 inspector_id（從 aftersales_technicians），比對 RO.lead_technician_id
+  if (payload.inspector_id) {
+    const supabase = await createClient();
+    const brand = (await getActiveScope()).brand_id;
+    const { data: ro } = await supabase
+      .from("repair_orders")
+      .select("lead_technician_id")
+      .eq("id", ctx.row.repair_order_id as string)
+      .eq("brand_id", brand)
+      .maybeSingle();
+    const leadTechId = (ro as { lead_technician_id?: string | null } | null)?.lead_technician_id;
+    if (leadTechId && leadTechId === payload.inspector_id) {
+      return {
+        ok: false,
+        error: "M-09 違規：施工技師本人不得自行複檢，請指派其他技師執行竣工複檢",
+      };
+    }
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("final_inspections")
     .update({
       signed_at: new Date().toISOString(),
       signature_text: payload.signature_text,
+      inspector_id: payload.inspector_id ?? ctx.row.inspector_id,
       inspector_name: payload.inspector_name ?? ctx.row.inspector_name,
       inspector_role: payload.inspector_role ?? ctx.row.inspector_role,
       signoff_note: payload.signoff_note ?? null,
@@ -299,6 +326,30 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
     .eq("id", ctx.row.repair_order_id)
     .eq("brand_id", ctx.brand);
 
+  // ── RP4 事件時間軸：記錄複檢通過（非阻塞） ──
+  {
+    const {
+      data: { user: _fiUser },
+    } = await supabase.auth.getUser();
+    const fiActorId = _fiUser?.id ?? null;
+    const fiRoId = ctx.row.repair_order_id as string;
+    after(async () => {
+      await appendRepairOrderEvent(
+        fiRoId,
+        {
+          action: "final_inspection_passed",
+          payload: {
+            inspection_id: id,
+            inspection_no: ctx.row.inspection_no,
+            inspector_id: ctx.row.inspector_id ?? null,
+            inspector_name: ctx.row.inspector_name ?? null,
+          },
+        },
+        fiActorId,
+      );
+    });
+  }
+
   // ── 跨模組 hook #6：複檢通過 → 保固單的換下舊件自動登錄 ──
   // 僅保固單（RO prefix_p1='WC'）觸發；撈該 RO 換下的保固零件逐筆 registerOldPart。
   // 非阻塞、try/catch 吞錯；helper 自帶 (ro_id,item_id) 防重。
@@ -370,14 +421,147 @@ export async function rejectAction(
     .update({ status: "rejected", issue_note: reason ?? ctx.row.issue_note ?? "退回技師重修" })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
-  // RO 退回維修中
-  await supabase
-    .from("repair_orders")
-    .update({ status: "維修中" })
-    .eq("id", ctx.row.repair_order_id)
-    .eq("brand_id", ctx.brand);
+
+  const roId = ctx.row.repair_order_id as string;
+
+  // ── RP5：複檢退回超 2 次 → 累積 rework_count，>2 自動送審 ──
+  // 先讀 RO metadata，取 rework_count，累積 +1 後寫回；
+  // rework_count > 2（即已第 3 次或更多次退回）觸發 reinspect_exceed 授權申請。
+  let newReworkCount = 1;
+  {
+    const { data: roRow } = await supabase
+      .from("repair_orders")
+      .select("metadata")
+      .eq("id", roId)
+      .eq("brand_id", ctx.brand)
+      .maybeSingle();
+    const roPrevMeta = ((roRow?.metadata ?? {}) as Record<string, unknown>);
+    const prevCount = typeof roPrevMeta.rework_count === "number" ? roPrevMeta.rework_count : 0;
+    newReworkCount = prevCount + 1;
+
+    // 寫回 rework_count 到 RO metadata
+    await supabase
+      .from("repair_orders")
+      .update({
+        status: "維修中",
+        metadata: { ...roPrevMeta, rework_count: newReworkCount },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", roId)
+      .eq("brand_id", ctx.brand);
+  }
+
+  // ── RP5：rework_count > 2 → 自動送審（非阻塞）──
+  if (newReworkCount > 2) {
+    after(async () => {
+      try {
+        const approvalRes = await requestApproval({
+          ro_id: roId,
+          scenario: "reinspect_exceed",
+          notes: `複檢退回第 ${newReworkCount} 次（超過 2 次門檻），系統自動觸發主管授權申請。退回原因：${reason ?? "未填寫"}`,
+          context: {
+            rework_count: newReworkCount,
+            inspection_id: id,
+            inspection_no: ctx.row.inspection_no,
+            reject_reason: reason ?? ctx.row.issue_note ?? "退回技師重修",
+          },
+        });
+        if (!approvalRes.ok) {
+          // 若已有 pending（相同工單同情境），忽略重複送審
+          console.log("[RP5 reinspect_exceed] 自動送審結果:", approvalRes.error);
+        }
+      } catch (e) {
+        console.error("[RP5 reinspect_exceed] 自動送審副作用例外（不影響退回）", e);
+      }
+    });
+  }
+
+  // ── RP4 事件時間軸：記錄複檢退回（非阻塞） ──
+  {
+    const {
+      data: { user: _rejectUser },
+    } = await supabase.auth.getUser();
+    const rejectActorId = _rejectUser?.id ?? null;
+    const rejectReason = reason ?? ctx.row.issue_note ?? "退回技師重修";
+    after(async () => {
+      await appendRepairOrderEvent(
+        roId,
+        {
+          action: "final_inspection_rejected",
+          payload: {
+            inspection_id: id,
+            inspection_no: ctx.row.inspection_no,
+            reason: rejectReason,
+            rework_count: newReworkCount,
+          },
+        },
+        rejectActorId,
+      );
+    });
+  }
+
+  // ── RP8 T07：複檢退回 → 技師（lead tech）+ SA 各收一則站內通知 ──
+  // 非阻塞，失敗不影響主流程。
+  // 收件人：① RO.lead_technician_id → employees.user_id（施工技師）
+  //          ② RO.sa_id → employees.user_id（服務顧問）
+  after(async () => {
+    try {
+      const sb = await createClient();
+      const { data: ro } = await sb
+        .from("repair_orders")
+        .select("ro_code, sa_id, lead_technician_id")
+        .eq("id", roId)
+        .eq("brand_id", ctx.brand)
+        .maybeSingle();
+      if (!ro) return;
+
+      const rejectReason = reason ?? ctx.row.issue_note ?? "退回技師重修";
+      const inspNo = ctx.row.inspection_no as string | null;
+      const notifTitle = `複檢退回重工 — ${ro.ro_code ?? ""}`;
+      const notifBody = `複檢單 ${inspNo ?? ""} 退回（第 ${newReworkCount} 次）。原因：${rejectReason}`;
+      const notifHref = `/parts/aftersales/repair-orders/${roId}`;
+
+      // 收集收件人 user_id（去重）
+      const empIds = [ro.sa_id, ro.lead_technician_id].filter(
+        (v): v is string => Boolean(v),
+      );
+      if (empIds.length === 0) return;
+
+      const { data: emps } = await sb
+        .from("employees")
+        .select("id, user_id")
+        .in("id", empIds)
+        .not("user_id", "is", null);
+      if (!emps || emps.length === 0) return;
+
+      // 去重（同一人可能既是 SA 又是 lead tech，避免重複送）
+      const uniqueUserIds = [
+        ...new Set((emps as Array<{ id: string; user_id: string | null }>)
+          .map((e) => e.user_id)
+          .filter((v): v is string => Boolean(v))),
+      ];
+
+      await createInappNotifications(
+        uniqueUserIds.map((uid) => ({
+          recipient_user_id: uid,
+          event_code: "aftersales.final_inspection.rejected",
+          title: notifTitle,
+          body: notifBody,
+          href: notifHref,
+          priority: "red" as const,
+          source_ro_id: roId,
+          source_ro_code: ro.ro_code ?? undefined,
+          brand_id: ctx.brand,
+        })),
+      );
+    } catch (e) {
+      console.error("[RP8 T07 複檢退回通知] 副作用例外（不影響退回）", e);
+    }
+  });
+
   revalidatePath(`${PAGE}/${id}`);
   revalidatePath(PAGE);
+  revalidatePath("/parts/aftersales/repair-orders");
   return { ok: true, data: { id } };
 }
 

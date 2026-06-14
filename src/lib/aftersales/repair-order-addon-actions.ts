@@ -11,11 +11,15 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { appendRepairOrderEvent } from "@/domain/repair-orders";
+// RP8 站內通知
+import { createInappNotification } from "@/domain/user-notifications";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -153,28 +157,209 @@ export async function updateAddonAction(
   return { ok: true, data: { id } };
 }
 
-export async function cancelAddonAction(id: string): Promise<ActionResult<{ id: string }>> {
+/**
+ * RP3 退料模式：
+ *  - full_return    : 完整退料（庫存預留釋放 + 已出庫 stock_items 退回 + RO lines 費用移除）
+ *  - damage_writeoff: 損耗核銷（庫存不退、費用保留、記錄至 metadata 供稽核）
+ *  - mid_install    : 安裝中（暫時先記錄狀態、不動庫存、不移除費用，後續人工處理）
+ *
+ * pending 狀態的 addon 仍可用 cancelMode=full_return（等同原先無庫存的取消）。
+ * agreed 狀態才需要三選一；pending 強制走 full_return（不需要展示 modal）。
+ */
+export type AddonCancelMode = "full_return" | "damage_writeoff" | "mid_install";
+
+export type CancelAddonInput = {
+  /** 退料模式：agreed 追加必填；pending 追加省略時預設 full_return */
+  cancel_mode?: AddonCancelMode;
+  /** 損耗核銷或安裝中的原因描述（供稽核）；damage_writeoff 必填 */
+  cancel_reason?: string | null;
+  /** 損耗核銷：主管授權人 ID（記錄稽核，POC 階段選填）*/
+  supervisor_id?: string | null;
+};
+
+export async function cancelAddonAction(
+  id: string,
+  input: CancelAddonInput = {},
+): Promise<ActionResult<{ id: string; removed_line_ids: string[]; reservation_released: boolean }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   if (!id) return { ok: false, error: "缺少 ID" };
+
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
-  const { data: cur } = await supabase
+  const now = new Date().toISOString();
+
+  // ── 1. 載入 addon ──
+  const { data: cur, error: loadErr } = await supabase
     .from("repair_order_addons")
-    .select("id, customer_decision")
+    .select("id, ro_id, name, addon_type, customer_decision, reserved_at, estimated_fee, metadata")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
-  if (!cur) return { ok: false, error: "找不到追加項目" };
-  if (cur.customer_decision !== "pending")
-    return { ok: false, error: "已決策的追加項目無法取消" };
-  const { error } = await supabase
+  if (loadErr || !cur) return { ok: false, error: "找不到追加項目" };
+  if (cur.customer_decision === "cancelled")
+    return { ok: false, error: "追加項目已取消，無需重複操作" };
+  if (!["pending", "agreed"].includes(cur.customer_decision))
+    return { ok: false, error: `當前決策狀態「${cur.customer_decision}」不支援取消退料` };
+
+  // ── 2. 決定 cancelMode ──
+  const cancelMode: AddonCancelMode =
+    cur.customer_decision === "pending"
+      ? "full_return" // pending → 無庫存問題，直接完整退料
+      : (input.cancel_mode ?? "full_return");
+
+  // damage_writeoff 必須填原因
+  if (cancelMode === "damage_writeoff" && !input.cancel_reason?.trim()) {
+    return { ok: false, error: "損耗核銷必須填寫原因" };
+  }
+
+  const removed_line_ids: string[] = [];
+  let reservation_released = false;
+
+  // ── 3. full_return：釋放預留 + 退回已出庫 stock_items + 移除 RO lines ──
+  if (cancelMode === "full_return") {
+    // 3a. 釋放 inventory_reservations（active 狀態的）
+    const { data: activeReservations } = await supabase
+      .from("inventory_reservations")
+      .select("id, status")
+      .eq("brand_id", brand)
+      .eq("source_type", "repair_order_addon")
+      .eq("source_id", id)
+      .eq("status", "active");
+
+    for (const res of activeReservations ?? []) {
+      const { error: relErr } = await supabase
+        .from("inventory_reservations")
+        .update({
+          status: "cancelled",
+          released_at: now,
+          release_reason: "cancelled_by_user",
+          updated_at: now,
+        })
+        .eq("id", res.id)
+        .eq("brand_id", brand)
+        .eq("status", "active");
+      if (relErr) {
+        console.error("[cancelAddon] release reservation error", relErr);
+        // 非致命：記錄但繼續（預留已被消耗或已釋放時可能失敗）
+      } else {
+        reservation_released = true;
+      }
+    }
+
+    // 3b. 退回已出庫的 stock_items（source_type='addon_issue', source_addon_id=id）
+    //     這些是因 addon agreed 後領料流程實際出庫產生的 issued stock_items
+    //     TODO promote to typed table when stock_items.source_addon_id column added (needs DDL)
+    const { data: issuedItems } = await supabase
+      .from("stock_items")
+      .select("id, status, item_id, warehouse_id, qty, unit_cost, bin_id")
+      .eq("brand_id", brand)
+      .eq("status", "issued")
+      .filter("metadata->>source_addon_id", "eq", id);
+
+    for (const si of issuedItems ?? []) {
+      // 將 issued 的 stock_item 狀態改回 available（退回倉庫）
+      const { error: restoreErr } = await supabase
+        .from("stock_items")
+        .update({
+          status: "available",
+          // TODO promote: 清除 source_addon_id 與 issued_at 等出庫記錄（metadata 操作）
+          metadata: {
+            ...(typeof si === "object" && si !== null ? {} : {}),
+            source_addon_id: id,
+            returned_from_cancel: true,
+            returned_at: now,
+          },
+          updated_at: now,
+        })
+        .eq("id", si.id)
+        .eq("brand_id", brand);
+      if (restoreErr) {
+        console.error("[cancelAddon] restore stock_item error", restoreErr);
+        // 非致命，繼續（有可能料已被二次移動）
+      }
+    }
+
+    // 3c. 移除 repair_order_lines（source='addon', source_ref_id=addon.id）
+    const { data: linesToRemove, error: linesFetchErr } = await supabase
+      .from("repair_order_lines")
+      .select("id")
+      .eq("brand_id", brand)
+      .eq("source", "addon")
+      .eq("source_ref_id", id);
+
+    if (!linesFetchErr && linesToRemove && linesToRemove.length > 0) {
+      const lineIds = linesToRemove.map((l) => l.id);
+      const { error: delErr } = await supabase
+        .from("repair_order_lines")
+        .delete()
+        .in("id", lineIds)
+        .eq("brand_id", brand);
+      if (delErr) {
+        console.error("[cancelAddon] delete ro_lines error", delErr);
+        return { ok: false, error: `移除工單費用明細失敗：${delErr.message}` };
+      }
+      removed_line_ids.push(...lineIds);
+    }
+  }
+
+  // ── 4. 更新 addon envelope ──
+  const prevMeta = ((cur.metadata ?? {}) as Record<string, unknown>);
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const cancelRecord: Record<string, unknown> = {
+    cancel_mode: cancelMode,
+    cancelled_at: now,
+    cancelled_by: user?.id ?? null,
+    cancel_reason: input.cancel_reason?.trim() || null,
+    supervisor_id: input.supervisor_id ?? null,
+    removed_line_count: removed_line_ids.length,
+    reservation_released,
+  };
+
+  const newMeta: Record<string, unknown> = {
+    ...prevMeta,
+    cancel_record: cancelRecord, // RP3 損耗核銷稽核記錄
+    // TODO promote cancel_record to typed table repair_order_addon_cancellations (needs DDL)
+  };
+
+  const { error: updateErr } = await supabase
     .from("repair_order_addons")
-    .update({ customer_decision: "cancelled", updated_at: new Date().toISOString() })
+    .update({
+      customer_decision: "cancelled",
+      updated_at: now,
+      metadata: newMeta,
+    })
     .eq("id", id)
     .eq("brand_id", brand);
-  if (error) return { ok: false, error: error.message };
+  if (updateErr) return { ok: false, error: updateErr.message };
+
+  // ── 5. RP4 事件時間軸（非阻塞）──
+  {
+    const roId = cur.ro_id as string;
+    const actorId = user?.id ?? null;
+    after(async () => {
+      await appendRepairOrderEvent(
+        roId,
+        {
+          action: "addon_cancelled",
+          payload: {
+            addon_id: id,
+            addon_name: cur.name,
+            cancel_mode: cancelMode,
+            cancel_reason: input.cancel_reason?.trim() || null,
+            removed_line_count: removed_line_ids.length,
+            reservation_released,
+            estimated_fee: cur.estimated_fee,
+          },
+        },
+        actorId,
+      );
+    });
+  }
+
   revalidatePath(PAGE);
-  return { ok: true, data: { id } };
+  revalidatePath(`/parts/aftersales/repair-orders/${cur.ro_id}/lines`);
+  return { ok: true, data: { id, removed_line_ids, reservation_released } };
 }
 
 export type RejectionReason =
@@ -201,14 +386,40 @@ const REJECTION_REASONS: ReadonlyArray<RejectionReason> = [
 ];
 
 /**
+ * RP7 待處理項目安全等級升級規則：
+ *  normal → safety_related → safety_critical
+ * 二次拒絕同項目（item_desc 相同）自動升一級
+ */
+const SAFETY_LEVEL_UPGRADE: Record<string, string> = {
+  normal: "safety_related",
+  safety_related: "safety_critical",
+  safety_critical: "safety_critical", // 已最高不再升
+};
+
+/**
+ * RP7 工具：把 addon safety_level（"normal" | "safety_related" | "safety_critical"）
+ * 對映到 vehicle_pending_items.metadata.safety_level（"建議" | "警示" | "緊急"）
+ */
+function addonSafetyToDisplayLevel(safetyLevel: string): string {
+  switch (safetyLevel) {
+    case "safety_critical":
+      return "緊急";
+    case "safety_related":
+      return "警示";
+    default:
+      return "建議";
+  }
+}
+
+/**
  * decideAddon — 三向分支
  *  - agreed   → INSERT repair_order_lines (source='addon', source_ref_id=addon.id)
  *               依 addon_type 拆 1 或 2 條 line
  *               metadata.reserved_at 標記庫存預留時點（庫存實扣交給領料模組）
- *  - deferred → 純更新 envelope；safety!=normal 標 metadata.requires_followup=true
- *  - rejected → 純更新 envelope；safety!=normal 標 metadata.requires_followup=true
+ *  - deferred → 更新 envelope；RP7：寫入 vehicle_pending_items（含 safety_level）
+ *  - rejected → 更新 envelope；RP7：寫入 vehicle_pending_items（含 safety_level + reject_count，二次拒絕升級）
  *
- * 不寫 followup_cases（05 提案落地後再串）。
+ * RP7：不再只標 metadata.requires_followup=true，改真寫 vehicle_pending_items。
  */
 export async function decideAddonAction(
   id: string,
@@ -335,14 +546,93 @@ export async function decideAddonAction(
   }
 
   // 更新 envelope
-  const requiresFollowup =
-    decision.customer_decision !== "agreed" && addon.safety_level !== "normal";
+  const requiresFollowup = decision.customer_decision !== "agreed";
   const newMeta: Record<string, unknown> = { ...meta };
   if (requiresFollowup) newMeta.requires_followup = true;
   // B-23：把結構化拒絕原因落地 metadata，供 B-24 圓餅圖 / SA 轉化率聚合
   if (decision.customer_decision === "rejected" && decision.rejection_reason) {
     newMeta.rejection_reason = decision.rejection_reason;
   }
+
+  // ── RP7：拒絕/暫緩 → 真寫 vehicle_pending_items（含 safety_level + reject_count）──
+  // 須從 RO 找到 vehicle_id，無則跳過（Walk-in 未建車輛主檔時）
+  if (decision.customer_decision !== "agreed") {
+    try {
+      const { data: roRow } = await supabase
+        .from("repair_orders")
+        .select("vehicle_id")
+        .eq("id", addon.ro_id as string)
+        .eq("brand_id", brand)
+        .maybeSingle();
+
+      const vehicleId = (roRow as { vehicle_id?: string | null } | null)?.vehicle_id ?? null;
+
+      if (vehicleId) {
+        const displayLevel = addonSafetyToDisplayLevel(addon.safety_level as string ?? "normal");
+
+        // 找同車同 item_desc 上次的 pending item（計算 reject_count + 升級）
+        const { data: existing } = await supabase
+          .from("vehicle_pending_items")
+          .select("id, status, metadata")
+          .eq("brand_id", brand)
+          .eq("vehicle_id", vehicleId)
+          .eq("item_desc", addon.name)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const existingMeta = existing?.metadata as Record<string, unknown> | null;
+        const prevRejectCount = typeof existingMeta?.reject_count === "number"
+          ? existingMeta.reject_count
+          : 0;
+        const newRejectCount = prevRejectCount + 1;
+
+        // 二次拒絕同項目 → 安全等級自動升一級
+        const baseLevel = (existingMeta?.safety_level as string) ?? displayLevel;
+        const escalatedLevel = newRejectCount >= 2
+          ? SAFETY_LEVEL_UPGRADE[baseLevel] ?? baseLevel
+          : baseLevel;
+
+        const pendingMeta: Record<string, unknown> = {
+          safety_level: escalatedLevel,
+          reject_count: newRejectCount,
+          decision: decision.customer_decision,
+          estimated_fee: addon.estimated_fee,
+          addon_type: addon.addon_type,
+          source_addon_id: id,
+          source_ro_id: addon.ro_id,
+        };
+
+        if (existing?.id) {
+          // 已有 pending item → 更新 reject_count + 可能的升級 safety_level
+          await supabase
+            .from("vehicle_pending_items")
+            .update({
+              metadata: pendingMeta,
+              reason: decision.decision_note?.trim() || null,
+              updated_at: now,
+            } as Record<string, unknown>)
+            .eq("id", existing.id)
+            .eq("brand_id", brand);
+        } else {
+          // 新建 pending item
+          await supabase.from("vehicle_pending_items").insert({
+            brand_id: brand,
+            vehicle_id: vehicleId,
+            item_desc: addon.name as string,
+            reason: decision.decision_note?.trim() || null,
+            status: "pending",
+            metadata: pendingMeta,
+          });
+        }
+      }
+    } catch (e) {
+      // RP7 寫入失敗不阻塞主流程（addon decision 已完成）
+      console.error("[RP7 decideAddon] vehicle_pending_items upsert 失敗（非致命）", e);
+    }
+  }
+  // TODO promote: vehicle_pending_items.metadata → typed columns safety_level/reject_count (needs DDL)
 
   const update: Record<string, unknown> = {
     customer_decision: decision.customer_decision,
@@ -364,6 +654,77 @@ export async function decideAddonAction(
   if (upErr) {
     console.error("[addon-actions] decideAddon update envelope error", upErr);
     return { ok: false, error: upErr.message };
+  }
+
+  // ── RP4 事件時間軸：記錄追加決策（非阻塞） ──
+  {
+    const {
+      data: { user: _addonUser },
+    } = await supabase.auth.getUser();
+    const addonActorId = _addonUser?.id ?? null;
+    const addonRoId = addon.ro_id as string;
+    after(async () => {
+      await appendRepairOrderEvent(
+        addonRoId,
+        {
+          action: "addon_decision",
+          payload: {
+            addon_id: id,
+            addon_name: addon.name,
+            customer_decision: decision.customer_decision,
+            estimated_fee: addon.estimated_fee,
+            safety_level: addon.safety_level,
+            confirm_method: decision.confirm_method ?? null,
+            rejection_reason: decision.rejection_reason ?? null,
+          },
+        },
+        addonActorId,
+      );
+    });
+  }
+
+  // ── RP8 站內通知：追加項目拒絕 → 通知對應 SA（非阻塞）──
+  // 情境：客戶拒絕追加 → SA 收到通知、可確認並決定後續處理。
+  if (decision.customer_decision === "rejected") {
+    const addonRoId = addon.ro_id as string;
+    const brand = (await getActiveScope()).brand_id;
+    after(async () => {
+      try {
+        const sb = await createClient();
+        // 取工單的 SA（=sa_id 對應的 user_id）
+        const { data: ro } = await sb
+          .from("repair_orders")
+          .select("ro_code, sa_id")
+          .eq("id", addonRoId)
+          .eq("brand_id", brand)
+          .maybeSingle();
+        if (!ro?.sa_id) return;
+
+        // 找 SA 的 auth user_id（employees.user_id）
+        const { data: emp } = await sb
+          .from("employees")
+          .select("user_id")
+          .eq("id", ro.sa_id)
+          .maybeSingle();
+        if (!emp?.user_id) return;
+
+        await createInappNotification({
+          recipient_user_id: emp.user_id as string,
+          event_code: "aftersales.addon.rejected",
+          title: `客戶拒絕追加項目`,
+          body: `工單 ${ro.ro_code ?? ""} 的追加「${String(addon.name)}」已被拒絕。${
+            decision.rejection_reason ? `原因：${decision.rejection_reason}。` : ""
+          }已寫入人車待處理清單。`,
+          href: `/parts/aftersales/repair-orders/${addonRoId}/lines`,
+          priority: "orange",
+          source_ro_id: addonRoId,
+          source_ro_code: ro.ro_code ?? undefined,
+          brand_id: brand,
+        });
+      } catch (e) {
+        console.error("[RP8 addon rejected 通知] 副作用例外（不影響）", e);
+      }
+    });
   }
 
   revalidatePath(PAGE);

@@ -21,6 +21,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+// RP2：簽名上傳 Storage
+import { uploadSignatureDataUrl, isStorageUrl } from "@/lib/aftersales/signature-upload";
 
 import {
   computeQuote,
@@ -363,6 +365,7 @@ export async function signAction(
   payload: {
     sa_text?: string;
     customer_text?: string;
+    /** RP2：前端傳 JPEG base64 dataURL 或已上傳的 Storage URL */
     sa_screenshot_url?: string | null;
     customer_screenshot_url?: string | null;
   },
@@ -375,38 +378,76 @@ export async function signAction(
   }
   const meta = (ctx.row.metadata ?? {}) as PreInspectionMetadata;
   const now = new Date().toISOString();
+
+  // RP2：若是 dataURL（base64），上傳 Storage 取得公開 URL；若已是 URL 則直接用
+  let saImgUrl: string | null = meta.sig_sa?.screenshot_url ?? null;
+  if (payload.sa_screenshot_url) {
+    if (isStorageUrl(payload.sa_screenshot_url)) {
+      saImgUrl = payload.sa_screenshot_url;
+    } else {
+      saImgUrl = await uploadSignatureDataUrl(
+        payload.sa_screenshot_url,
+        ctx.brand,
+        "pre-inspection",
+        id,
+        "sa",
+      ) ?? meta.sig_sa?.screenshot_url ?? null;
+    }
+  }
+  let custImgUrl: string | null = meta.sig_customer?.screenshot_url ?? null;
+  if (payload.customer_screenshot_url) {
+    if (isStorageUrl(payload.customer_screenshot_url)) {
+      custImgUrl = payload.customer_screenshot_url;
+    } else {
+      custImgUrl = await uploadSignatureDataUrl(
+        payload.customer_screenshot_url,
+        ctx.brand,
+        "pre-inspection",
+        id,
+        "customer",
+      ) ?? meta.sig_customer?.screenshot_url ?? null;
+    }
+  }
+
   const sig_sa: Signature = payload.sa_text
     ? {
         text: payload.sa_text,
         signed_at: now,
-        screenshot_url: payload.sa_screenshot_url ?? null,
+        screenshot_url: saImgUrl,
       }
-    : payload.sa_screenshot_url
+    : saImgUrl
       ? {
           text: meta.sig_sa?.text ?? null,
           signed_at: meta.sig_sa?.signed_at ?? now,
-          screenshot_url: payload.sa_screenshot_url,
+          screenshot_url: saImgUrl,
         }
-      : meta.sig_sa ?? { text: null, signed_at: null };
+      : (meta.sig_sa ?? { text: null, signed_at: null });
   const sig_customer: Signature = payload.customer_text
     ? {
         text: payload.customer_text,
         signed_at: now,
-        screenshot_url: payload.customer_screenshot_url ?? null,
+        screenshot_url: custImgUrl,
       }
-    : payload.customer_screenshot_url
+    : custImgUrl
       ? {
           text: meta.sig_customer?.text ?? null,
           signed_at: meta.sig_customer?.signed_at ?? now,
-          screenshot_url: payload.customer_screenshot_url,
+          screenshot_url: custImgUrl,
         }
-      : meta.sig_customer ?? { text: null, signed_at: null };
+      : (meta.sig_customer ?? { text: null, signed_at: null });
   const supabase = await createClient();
   const both = !!(sig_sa.text && sig_customer.text);
   const { error } = await supabase
     .from("pre_inspections")
     .update({
-      metadata: { ...meta, sig_sa, sig_customer },
+      metadata: {
+        ...meta,
+        sig_sa,
+        sig_customer,
+        // RP2 鎖定標記：雙簽後把環檢 / 基本資料欄位設唯讀，
+        // UI 讀 metadata.sig_locked = true 時禁止修改
+        sig_locked: both || (meta.sig_locked ?? false),
+      },
       signed_at: both ? now : ctx.row.signed_at,
       status: both ? "signed" : ctx.row.status === "in_progress" ? "quoting" : ctx.row.status,
     })

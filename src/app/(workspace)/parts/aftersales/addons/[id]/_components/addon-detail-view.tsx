@@ -32,6 +32,7 @@ import {
 import {
   cancelAddonAction,
   decideAddonAction,
+  type AddonCancelMode,
   type ConfirmMethod,
 } from "@/lib/aftersales/repair-order-addon-actions";
 
@@ -80,23 +81,31 @@ export function AddonDetailView({
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
   const [showDecide, setShowDecide] = useState(false);
+  // RP3：agreed addon 取消時顯示三選一確認框
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   const showBanner = (b: Banner) => {
     setBanner(b);
     if (b?.ok) setTimeout(() => setBanner(null), 2200);
   };
 
-  const handleCancel = () => {
-    if (!confirm("確認取消此追加項目？只有待確認的可取消。")) return;
-    startTransition(async () => {
-      const r = await cancelAddonAction(addon.id);
-      if (r.ok) {
-        showBanner({ ok: true, msg: "✓ 已取消" });
-        router.refresh();
-      } else {
-        showBanner({ ok: false, msg: r.error });
-      }
-    });
+  const handleCancelClick = () => {
+    if (addon.customer_decision === "agreed") {
+      // agreed addon → 需要選退料模式，彈 RP3 確認框
+      setShowCancelModal(true);
+    } else {
+      // pending addon → 無庫存問題，直接取消
+      if (!confirm("確認取消此追加項目？只有待確認的可取消。")) return;
+      startTransition(async () => {
+        const r = await cancelAddonAction(addon.id, { cancel_mode: "full_return" });
+        if (r.ok) {
+          showBanner({ ok: true, msg: "✓ 已取消" });
+          router.refresh();
+        } else {
+          showBanner({ ok: false, msg: r.error });
+        }
+      });
+    }
   };
 
   const meta = (addon.metadata ?? {}) as Record<string, unknown>;
@@ -140,13 +149,25 @@ export function AddonDetailView({
               </button>
               <button
                 type="button"
-                onClick={handleCancel}
+                onClick={handleCancelClick}
                 disabled={isPending}
                 className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"
               >
                 取消此項
               </button>
             </>
+          )}
+          {/* RP3：agreed 狀態也可取消（需選退料模式） */}
+          {canEdit && addon.customer_decision === "agreed" && (
+            <button
+              type="button"
+              onClick={handleCancelClick}
+              disabled={isPending}
+              data-testid="cancel-agreed-btn"
+              className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"
+            >
+              取消（退料）
+            </button>
           )}
         </div>
       </div>
@@ -341,6 +362,36 @@ export function AddonDetailView({
           )}
         </div>
       </section>
+
+      {/* RP3 取消退料確認框（agreed addon 用） */}
+      {showCancelModal && (
+        <CancelAddonModal
+          addon={addon}
+          isPending={isPending}
+          onClose={() => setShowCancelModal(false)}
+          onConfirm={(mode, reason) => {
+            setShowCancelModal(false);
+            startTransition(async () => {
+              const r = await cancelAddonAction(addon.id, {
+                cancel_mode: mode,
+                cancel_reason: reason,
+              });
+              if (r.ok) {
+                const modeLabel =
+                  mode === "full_return"
+                    ? "完整退料完成"
+                    : mode === "damage_writeoff"
+                      ? "損耗核銷記錄已建立"
+                      : "安裝中狀態已記錄";
+                showBanner({ ok: true, msg: `✓ ${modeLabel}` });
+                router.refresh();
+              } else {
+                showBanner({ ok: false, msg: r.error });
+              }
+            });
+          }}
+        />
+      )}
 
       {/* Decide Modal */}
       {showDecide && (
@@ -557,6 +608,187 @@ function DecideModal({
             className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
           >
             {pending ? "送出中⋯" : "送出決策"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * RP3 取消追加項目 — 三選一退料確認框（agreed addon 專用）
+ *
+ *  - 完整退料：釋放庫存預留 + 退回已出庫庫存 + 從 RO 費用移除
+ *  - 損耗核銷：零件已開封/安裝一半不可重售，費用保留，記稽核
+ *  - 安裝中  ：零件已安裝無法取出，記錄狀態，後續人工處理
+ */
+function CancelAddonModal({
+  addon,
+  isPending,
+  onClose,
+  onConfirm,
+}: {
+  addon: RepairOrderAddonWithRo;
+  isPending: boolean;
+  onClose: () => void;
+  onConfirm: (mode: AddonCancelMode, reason: string) => void;
+}) {
+  const [mode, setMode] = useState<AddonCancelMode>("full_return");
+  const [reason, setReason] = useState("");
+
+  const blockedByReason = mode === "damage_writeoff" && !reason.trim();
+
+  const MODES: Array<{
+    id: AddonCancelMode;
+    label: string;
+    desc: string;
+    feeEffect: string;
+    stockEffect: string;
+  }> = [
+    {
+      id: "full_return",
+      label: "完整退料",
+      desc: "零件完好未安裝，可退回倉位重售",
+      feeEffect: "費用從工單移除",
+      stockEffect: "庫存預留釋放 + 已出庫料退回",
+    },
+    {
+      id: "damage_writeoff",
+      label: "損耗核銷",
+      desc: "零件已開封/安裝一半，無法重售",
+      feeEffect: "費用保留（向客戶收損耗費）",
+      stockEffect: "庫存不退，轉損耗核銷記錄",
+    },
+    {
+      id: "mid_install",
+      label: "安裝中（暫記）",
+      desc: "零件已安裝完成，人工後續確認",
+      feeEffect: "費用暫保留，後續人工調整",
+      stockEffect: "庫存維持現狀，記錄安裝狀態",
+    },
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center px-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-[600px] p-5"
+        onClick={(e) => e.stopPropagation()}
+        data-testid="cancel-addon-modal"
+      >
+        <h2 className="text-[14px] font-semibold text-[#2C2C2A] mb-1">
+          取消追加項目 — 零件狀態確認
+        </h2>
+        <p className="text-[11.5px] text-[#9A9890] mb-4">
+          <span className="font-medium text-[#CC0000]">{addon.name}</span>
+          {" "}｜ 估價 NT$ {Number(addon.estimated_fee).toLocaleString()}
+          {" "}｜ 工單 {addon.ro?.ro_code ?? "—"}
+        </p>
+
+        {/* 三選一 */}
+        <div className="mb-4 space-y-2">
+          <label className="text-[11px] text-[#9A9890] font-medium block">零件當前狀態</label>
+          {MODES.map((m) => {
+            const active = mode === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                data-testid={`cancel-mode-${m.id}`}
+                onClick={() => setMode(m.id)}
+                disabled={isPending}
+                className={`w-full text-left rounded border px-3 py-2.5 transition-colors ${
+                  active
+                    ? "border-[#CC0000] bg-[#FDECEA]"
+                    : "border-[#D5D3CB] bg-white hover:border-[#9A9890]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 ${
+                      active ? "border-[#CC0000] bg-[#CC0000]" : "border-[#D5D3CB]"
+                    }`}
+                  />
+                  <span className={`text-[13px] font-medium ${active ? "text-[#CC0000]" : "text-[#2C2C2A]"}`}>
+                    {m.label}
+                  </span>
+                </div>
+                <p className="text-[11.5px] text-[#5A5955] mt-1 ml-5">{m.desc}</p>
+                <div className="flex gap-4 mt-1.5 ml-5">
+                  <span className="text-[10.5px] text-[#854F0B] bg-[#FDF3E3] px-1.5 py-0.5 rounded">
+                    💰 {m.feeEffect}
+                  </span>
+                  <span className="text-[10.5px] text-[#185FA5] bg-[#EAF4FB] px-1.5 py-0.5 rounded">
+                    📦 {m.stockEffect}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 原因說明（損耗核銷必填，其他選填） */}
+        <div className="mb-4">
+          <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+            原因說明
+            {mode === "damage_writeoff" && (
+              <span className="text-[#CC0000] ml-0.5">*（損耗核銷必填）</span>
+            )}
+          </label>
+          <input
+            type="text"
+            data-testid="cancel-reason-input"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={100}
+            disabled={isPending}
+            placeholder={
+              mode === "damage_writeoff"
+                ? "例：油封安裝後無法復原，零件損耗（最多 100 字）"
+                : mode === "mid_install"
+                  ? "例：已安裝完成，客戶決定取消工單（選填）"
+                  : "例：客戶取消，零件原封未動（選填）"
+            }
+            className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none disabled:bg-[#F8F7F4]"
+          />
+        </div>
+
+        {/* 說明橫幅 */}
+        {mode === "full_return" && (
+          <p className="mb-3 text-[11.5px] text-[#3B6D11] bg-[#EAF3DE] border border-[#C5DC9F] rounded px-2.5 py-1.5">
+            系統將釋放庫存預留，並從工單費用中移除此項目的費用明細。
+          </p>
+        )}
+        {mode === "damage_writeoff" && (
+          <p className="mb-3 text-[11.5px] text-[#CC0000] bg-[#FDECEA] border border-[#F5AEAD] rounded px-2.5 py-1.5">
+            損耗核銷：費用仍保留在工單，結帳時需向客戶說明損耗費用。記錄將存入稽核日誌供主管每週查閱。
+          </p>
+        )}
+        {mode === "mid_install" && (
+          <p className="mb-3 text-[11.5px] text-[#854F0B] bg-[#FDF3E3] border border-[#F0D9B0] rounded px-2.5 py-1.5">
+            安裝中記錄：狀態暫記，費用與庫存維持現狀，後續由主管確認如何處理。
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="h-[30px] px-3 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            data-testid="confirm-cancel-btn"
+            onClick={() => onConfirm(mode, reason)}
+            disabled={isPending || blockedByReason}
+            className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#CC0000] text-white hover:bg-[#aa0000] disabled:opacity-50"
+          >
+            {isPending ? "處理中⋯" : "確認取消"}
           </button>
         </div>
       </div>

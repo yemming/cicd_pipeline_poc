@@ -112,6 +112,10 @@ export const PERMISSIONS = {
   AFTERSALES_DISCOUNT_EDIT: "service.aftersales_discount.edit",
   AFTERSALES_PERMISSION_VIEW: "service.aftersales_permission.view",
   AFTERSALES_PERMISSION_EDIT: "service.aftersales_permission.edit",
+  // ─── RP5 主管授權工作流 ─────────────────────────
+  AFTERSALES_APPROVAL_VIEW: "service.aftersales_approval.view",
+  AFTERSALES_APPROVAL_REQUEST: "service.aftersales_approval.request",
+  AFTERSALES_APPROVAL_DECIDE: "service.aftersales_approval.decide",
   SERVICE_PACKAGE_VIEW: "service.service_package.view",
   SERVICE_PACKAGE_EDIT: "service.service_package.edit",
 
@@ -137,6 +141,11 @@ export const PERMISSIONS = {
 
   // ─── 中古車評估鑑價 ─────────────────────────────
   USED_CAR_EVALUATION_APPROVE: "usedcar.evaluation.approve",
+
+  // ─── 稽核日誌 ──────────────────────────────────
+  AUDIT_AFTERSALES_VIEW: "audit.aftersales.view",   // 售後稽核（售後主管 / 店長）
+  AUDIT_INVENTORY_VIEW: "audit.inventory.view",     // 庫存稽核（倉管主管 / Admin）
+  AUDIT_GROUP_VIEW: "audit.group.view",             // 集團稽核（集團管理員）
 
   // ─── Admin ─────────────────────────────────────
   ADMIN_NAV: "admin.nav.edit",

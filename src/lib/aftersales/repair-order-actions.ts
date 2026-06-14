@@ -21,12 +21,20 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import { createFollowUpTask } from "@/domain/sales-call-tasks";
 import { notifications } from "@/lib/notifications";
 import { pickForRepairOrderAddon } from "@/domain/issues";
+// RP4 Layer1 稽核日誌
+import { writeAuditLog } from "@/domain/audit-logs";
 
 import {
   PREFIX_COMBO_RULES,
+  validateRoStatusTransition,
   type PrefixP1,
   type PrefixP2,
 } from "@/domain/repair-orders.constants";
+import { appendRepairOrderEvent } from "@/domain/repair-orders";
+// RP5：中途取消前置授權 guard
+import { hasApprovedApproval } from "@/domain/aftersales-approvals";
+// RP8 T03：工單進待料 → 倉管站內通知
+import { createInappNotifications } from "@/domain/user-notifications";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -160,6 +168,12 @@ export async function confirmRepairOrderAction(
     }
   }
 
+  // 取 actor_id（事件時間軸用，beforehand 避免在 loop 內重複取）
+  const {
+    data: { user: _authUserForConfirm },
+  } = await supabase.auth.getUser();
+  const authUserIdForEvent = _authUserForConfirm?.id ?? null;
+
   // 2. 簡單 retry on unique violation（POC 階段：上限 5 次）
   let lastErr: string | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -238,7 +252,28 @@ export async function confirmRepairOrderAction(
           .is("repair_order_id", null);
       }
 
-      // 4. 副作用 placeholder：notifications.dispatch（POC 階段先不真推、留 hook）
+      // 4. RP4 事件時間軸：記錄工單建立事件（append-only，非阻塞）
+      // actor_id 從 data 插入時的 auth context 取；after() 確保非阻塞
+      after(async () => {
+        const actorId = authUserIdForEvent ?? null;
+        await appendRepairOrderEvent(
+          data.id as string,
+          {
+            action: "ro_created",
+            payload: {
+              ro_code: data.ro_code as string,
+              prefix_p1: input.prefix_p1,
+              prefix_p2: input.prefix_p2,
+              priority: input.priority ?? "normal",
+              source: input.pre_inspection_id ? "pre_inspection" : "appointment",
+              appointment_id: input.appointment_id ?? null,
+            },
+          },
+          actorId,
+        );
+      });
+
+      // 5. 副作用 placeholder：notifications.dispatch（POC 階段先不真推、留 hook）
       // TODO: after(() => notifications.dispatch({ code: 'aftersales.repair_order.created', payload: { ro_code, ...} }))
 
       revalidatePath(PAGE_PATH);
@@ -258,17 +293,113 @@ export async function confirmRepairOrderAction(
   return { ok: false, error: `建立失敗：${lastErr ?? "unknown"}` };
 }
 
+/**
+ * updateRepairOrderStatusAction — 狀態機轉換入口（RP1 地基）
+ *
+ * 護欄層：
+ *   1. 驗轉換合法（validateRoStatusTransition 白名單）
+ *   2. 終態不可逆 guard（"已關單"/"已取消"/"已關閉-*" 進來擋住）
+ *   3. 每次轉換 append 一筆 status_history 到 metadata.status_history
+ *      格式：{ from, to, actor_id, at: server_utc, reason }
+ *
+ * 正常關單（"已關單"）不走此 action，走 ro-checkout-actions.ts completeCheckout。
+ * 建單（"進行中"）不走此 action，走 confirmRepairOrderAction。
+ *
+ * @param reason   可選；記錄狀態轉換原因（中途取消/退回重工 必填理由 TODO RP5）
+ */
 export async function updateRepairOrderStatusAction(
   id: string,
   status: string,
+  reason?: string,
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   if (!id) return { ok: false, error: "缺少 id" };
 
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
-  const upd: Record<string, unknown> = { status };
-  if (status === "已關單") upd.closed_at = new Date().toISOString();
+
+  // ── RP1 護欄①：先撈現在的 status + metadata ──
+  const { data: existing, error: fetchErr } = await supabase
+    .from("repair_orders")
+    .select("status, metadata")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (fetchErr) return { ok: false, error: `載入工單失敗：${fetchErr.message}` };
+  if (!existing) return { ok: false, error: "找不到工單" };
+
+  const currentStatus = (existing.status as string) ?? "";
+  const currentMeta = ((existing.metadata ?? {}) as Record<string, unknown>);
+
+  // ── RP1 護欄②：轉換合法性驗證 ──
+  const verdict = validateRoStatusTransition(currentStatus, status);
+  if (verdict === "same") {
+    // 無需轉換，直接回 ok（冪等）
+    return { ok: true, data: { id } };
+  }
+  if (verdict === "terminal") {
+    return {
+      ok: false,
+      error: `工單已處於終態「${currentStatus}」，無法再修改狀態。`,
+    };
+  }
+  if (verdict === "not_allowed") {
+    return {
+      ok: false,
+      error: `不允許的狀態轉換：${currentStatus} → ${status}。請確認業務流程。`,
+    };
+  }
+  // verdict === "ok"，繼續
+
+  // ── RP5 護欄：中途取消需已獲主管授權 ──
+  // 只擋「已關閉-中途取消」這個目標狀態。
+  // 若該 RO 已有 approved 的 cancel_order 授權記錄才放行；否則要求先送審。
+  if (status === "已關閉-中途取消") {
+    const hasAuth = await hasApprovedApproval(id, "cancel_order");
+    if (!hasAuth) {
+      return {
+        ok: false,
+        error: "中途取消需要主管授權，請先透過「申請中途取消授權」送出申請並等候核准後再執行。",
+      };
+    }
+  }
+
+  // ── RP1 護欄③：actor_id 取得 + INSERT status_history 真表 ──
+  // actor_id 從 supabase auth.uid() 取（server action context 有 session）
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+  const actorId = authUser?.id ?? null;
+  const changedAt = new Date().toISOString(); // server UTC，防偽造
+
+  // 先 INSERT 到 repair_order_status_history 真表（append-only）
+  // RLS policy：user_has_brand INSERT 允許，一般 server client 即可
+  {
+    const { error: histInsertErr } = await supabase
+      .from("repair_order_status_history")
+      .insert({
+        ro_id: id,
+        brand_id: brand,
+        from_status: currentStatus || null,
+        to_status: status,
+        actor_id: actorId,
+        reason: reason?.trim() || null,
+        changed_at: changedAt,
+      });
+    if (histInsertErr) {
+      // 非阻塞：status_history 寫入失敗不阻止主流程（稽核副作用）
+      console.error("[updateRepairOrderStatus] status_history INSERT 失敗", histInsertErr.message);
+    }
+  }
+
+  // ── 組更新物件（不再把 status_history 塞進 metadata）──
+  const upd: Record<string, unknown> = {
+    status,
+    metadata: currentMeta, // metadata 不再新增 status_history key
+    updated_at: changedAt,
+  };
+  // 終態關單時間戳：正常關單由 checkout action 填；此處處理其他終態
+  if (status === "已關單") upd.closed_at = changedAt;
 
   const { error } = await supabase
     .from("repair_orders")
@@ -276,6 +407,88 @@ export async function updateRepairOrderStatusAction(
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
+
+  // ── RP4 事件時間軸 + 稽核日誌：記錄狀態變更（非阻塞，副作用） ──
+  after(async () => {
+    await appendRepairOrderEvent(
+      id,
+      {
+        action: "status_changed",
+        payload: {
+          from: currentStatus,
+          to: status,
+          reason: reason?.trim() || null,
+        },
+      },
+      actorId,
+    );
+    // RP4 Layer1：寫稽核日誌（RO 狀態變更）
+    await writeAuditLog({
+      table_name: "repair_orders",
+      record_id: id,
+      action: "status_changed",
+      actor_id: actorId,
+      brand_id: brand,
+      before: { status: currentStatus },
+      after: { status, reason: reason?.trim() || null },
+    });
+  });
+
+  // ── RP8 T03：工單進待料 → 通知倉管（warehouse role）備料 ──
+  // 非阻塞，失敗只 log，不回滾主流程。
+  // 收件人：同 brand 中 role_codes 含 'warehouse' 且有綁 user_id 的員工。
+  // TODO T02：等待客戶授權 > 2hr → 需 cron（目前無 DDL/排程）；
+  //   骨架在 /api/cron/aftersales-approval-escalate/route.ts，
+  //   日後把「auth_status=pending AND updated_at < now()-2h」的 RO 撈出來推通知即可。
+  if (status === "待料" || status === "待料-車輛已還") {
+    after(async () => {
+      try {
+        const sb = await createClient();
+        const { data: ro } = await sb
+          .from("repair_orders")
+          .select("ro_code")
+          .eq("id", id)
+          .eq("brand_id", brand)
+          .maybeSingle();
+        if (!ro) return;
+
+        // 找 brand 內所有含 warehouse 角色、且已綁 user_id 的員工
+        const { data: warehouseEmps } = await sb
+          .from("employees")
+          .select("user_id")
+          .eq("brand_id", brand)
+          .eq("is_active", true)
+          .contains("role_codes", ["warehouse"])
+          .not("user_id", "is", null);
+        if (!warehouseEmps || warehouseEmps.length === 0) return;
+
+        const recipientIds = [
+          ...new Set(
+            (warehouseEmps as Array<{ user_id: string | null }>)
+              .map((e) => e.user_id)
+              .filter((v): v is string => Boolean(v)),
+          ),
+        ];
+        if (recipientIds.length === 0) return;
+
+        await createInappNotifications(
+          recipientIds.map((uid) => ({
+            recipient_user_id: uid,
+            event_code: "aftersales.ro.parts_waiting",
+            title: `工單進入待料 — ${ro.ro_code ?? ""}`,
+            body: `工單 ${ro.ro_code ?? ""} 已轉為「${status}」，請查看並備料。`,
+            href: `/parts/aftersales/repair-orders/${id}`,
+            priority: "orange" as const,
+            source_ro_id: id,
+            source_ro_code: ro.ro_code ?? undefined,
+            brand_id: brand,
+          })),
+        );
+      } catch (e) {
+        console.error("[RP8 T03 待料通知] 副作用例外（不影響）", e);
+      }
+    });
+  }
 
   // ── 跨模組 hook #7（C-22）：工單關閉 → 建立 D+3 / D+7 售後電訪任務 ──
   // 非阻塞、try/catch 吞錯；helper 以 (customer + call_type + metadata.source_ro) 防同單重複觸發。
@@ -560,6 +773,27 @@ export async function setLeadTechnicianAction(
     .eq("brand_id", brand);
   if (updErr) return { ok: false, error: `派工失敗：${updErr.message}` };
 
+  // ── RP4 事件時間軸：記錄派工事件（非阻塞） ──
+  {
+    const {
+      data: { user: _dispatchUser },
+    } = await supabase.auth.getUser();
+    const dispatchActorId = _dispatchUser?.id ?? null;
+    after(async () => {
+      await appendRepairOrderEvent(
+        roId,
+        {
+          action: "dispatched",
+          payload: {
+            technician_id: technicianId,
+            status_after: nextStatus,
+          },
+        },
+        dispatchActorId,
+      );
+    });
+  }
+
   revalidatePath("/service/workshop");
   revalidatePath(PAGE_PATH);
   revalidatePath(`${PAGE_PATH}/${roId}`);
@@ -689,4 +923,53 @@ export async function notifyRepairOrderProgressAction(
   });
 
   return { ok: true, data: { id: roId } };
+}
+
+/**
+ * B5-02 聯繫嘗試記錄（RP4 事件時間軸 contact_attempt）
+ *
+ * SA 記錄「電話/LINE/簡訊」聯繫嘗試與結果，append 到工單 metadata.events。
+ * 不改工單狀態，純稽核記錄。
+ */
+export type ContactAttemptInput = {
+  ro_id: string;
+  /** 聯繫方式：電話 / LINE / 簡訊 */
+  contact_method: "電話" | "LINE" | "簡訊";
+  /** 聯繫結果：接通 / 未接 / 留言 / 回覆 */
+  contact_result: "接通" | "未接" | "留言" | "回覆";
+  notes?: string | null;
+};
+
+export async function recordContactAttemptAction(
+  input: ContactAttemptInput,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!input.ro_id) return { ok: false, error: "缺少工單 ID" };
+  if (!input.contact_method) return { ok: false, error: "請選擇聯繫方式" };
+  if (!input.contact_result) return { ok: false, error: "請選擇聯繫結果" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 確認 RO 存在且屬於當前 brand
+  const { data: ro } = await supabase
+    .from("repair_orders")
+    .select("id")
+    .eq("id", input.ro_id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!ro) return { ok: false, error: "找不到工單" };
+
+  // append-only：寫 contact_attempt 事件到 metadata.events
+  await appendRepairOrderEvent(input.ro_id, {
+    action: "contact_attempt",
+    payload: {
+      method: input.contact_method,
+      result: input.contact_result,
+      notes: input.notes?.trim() || null,
+    },
+  });
+
+  revalidatePath(`${PAGE_PATH}/${input.ro_id}`);
+  return { ok: true, data: { id: input.ro_id } };
 }

@@ -36,9 +36,13 @@ import {
 
 type Banner = { ok: boolean; msg: string } | null;
 
+type TechnicianOption = { id: string; name: string; code: string };
+
 type Props = {
   data: FinalInspectionListRow;
   canEdit: boolean;
+  /** M-09：技師清單供複檢 step4 選人 + 後端驗證（inspector 不得為施工 lead tech） */
+  technicians?: TechnicianOption[];
 };
 
 function pad(n: number) {
@@ -50,7 +54,7 @@ function fmtDateTime(iso: string | null): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function FinalInspectionWizard({ data, canEdit }: Props) {
+export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props) {
   useSetPageHeader({
     title: "竣工複檢",
     breadcrumb: [
@@ -100,6 +104,8 @@ export function FinalInspectionWizard({ data, canEdit }: Props) {
   const [signName, setSignName] = useState<string>(data.inspector_name ?? "");
   const [signRole, setSignRole] = useState<string>(data.inspector_role ?? "資深技師");
   const [signoffNote, setSignoffNote] = useState<string>(data.signoff_note ?? "");
+  /** M-09：複檢技師 ID（對照 lead_technician_id 後端驗） */
+  const [inspectorId, setInspectorId] = useState<string>(data.inspector_id ?? "");
 
   // step5
   const [nsKm, setNsKm] = useState<string>(data.next_service?.km != null ? String(data.next_service.km) : "");
@@ -193,6 +199,8 @@ export function FinalInspectionWizard({ data, canEdit }: Props) {
         inspector_name: signName.trim(),
         inspector_role: signRole || null || undefined,
         signoff_note: signoffNote || undefined,
+        // M-09：傳技師 ID 供後端驗「不得自簽自檢」
+        inspector_id: inspectorId || null,
       });
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 簽核完成" });
@@ -481,6 +489,11 @@ export function FinalInspectionWizard({ data, canEdit }: Props) {
           onClear={clearSign}
           isPending={isPending}
           readonly={readonly}
+          // M-09：技師選人（inspector_id）+ lead_tech 阻止自簽
+          technicians={technicians}
+          inspectorId={inspectorId}
+          setInspectorId={setInspectorId}
+          leadTechnicianId={data.lead_technician_id}
         />
       ) : null}
 
@@ -945,6 +958,10 @@ function Step4({
   onClear,
   isPending,
   readonly,
+  technicians,
+  inspectorId,
+  setInspectorId,
+  leadTechnicianId,
 }: {
   allPassed: boolean;
   isSigned: boolean;
@@ -960,7 +977,14 @@ function Step4({
   onClear: () => void;
   isPending: boolean;
   readonly: boolean;
+  technicians: TechnicianOption[];
+  inspectorId: string;
+  setInspectorId: (v: string) => void;
+  leadTechnicianId: string | null;
 }) {
+  /** M-09 前端即時警示：選到施工 lead tech 就顯示紅框（後端也擋） */
+  const m09Violated = !!inspectorId && !!leadTechnicianId && inspectorId === leadTechnicianId;
+
   return (
     <div className={`space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
       {!allPassed && !isSigned ? (
@@ -968,23 +992,64 @@ function Step4({
           ⚠️ 尚有維修項目未通過複檢，無法進行簽核。請回到 step 1 完成所有項目。
         </div>
       ) : null}
-      {allPassed ? (
+      {allPassed && !m09Violated ? (
         <div className="bg-[#EAF3DE] border border-[#C5DC9F] rounded-lg px-4 py-3 text-[12px] text-[#3B6D11]">
           ✅ 所有維修項目已通過複檢，可進行電子簽名簽核。
         </div>
       ) : null}
+      {m09Violated && (
+        <div className="bg-[#FDECEA] border border-[#F5AEAD] rounded-lg px-4 py-3 text-[12px] text-[#CC0000]">
+          ⛔ M-09 違規：施工技師本人不得自行複檢，請選擇其他技師執行竣工複檢。
+        </div>
+      )}
 
       <SectionCard title="複檢人員資訊">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="複檢人員姓名">
-            <input
-              value={signName}
-              onChange={(e) => setSignName(e.target.value)}
-              disabled={readonly || isSigned}
-              placeholder="輸入複檢人員姓名"
-              className="h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:bg-[#F8F7F4]"
-            />
-          </Field>
+          {technicians.length > 0 ? (
+            <Field label="選擇複檢技師（M-09）">
+              <select
+                value={inspectorId}
+                onChange={(e) => {
+                  const tid = e.target.value;
+                  setInspectorId(tid);
+                  const found = technicians.find((t) => t.id === tid);
+                  if (found) setSignName(found.name);
+                }}
+                disabled={readonly || isSigned}
+                className={`h-[30px] w-full border rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:bg-[#F8F7F4] ${
+                  m09Violated ? "border-[#CC0000] bg-[#FDECEA]" : "border-[#D5D3CB]"
+                }`}
+              >
+                <option value="">-- 選擇複檢技師 --</option>
+                {technicians.map((t) => (
+                  <option key={t.id} value={t.id} disabled={t.id === leadTechnicianId}>
+                    {t.name}（{t.code}）{t.id === leadTechnicianId ? " ⛔施工主技師" : ""}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : (
+            <Field label="複檢人員姓名">
+              <input
+                value={signName}
+                onChange={(e) => setSignName(e.target.value)}
+                disabled={readonly || isSigned}
+                placeholder="輸入複檢人員姓名"
+                className="h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:bg-[#F8F7F4]"
+              />
+            </Field>
+          )}
+          {technicians.length > 0 && (
+            <Field label="複檢人員姓名（自動帶入）">
+              <input
+                value={signName}
+                onChange={(e) => setSignName(e.target.value)}
+                disabled={readonly || isSigned}
+                placeholder="選擇技師後自動填入"
+                className="h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:bg-[#F8F7F4]"
+              />
+            </Field>
+          )}
           <Field label="職級">
             <select
               value={signRole}

@@ -4,6 +4,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getFinalInspectionById } from "@/domain/final-inspections";
+import { listActiveTechnicians } from "@/domain/aftersales-technicians";
 
 import { FinalInspectionWizard } from "../_components/final-inspection-wizard";
 
@@ -25,7 +26,10 @@ export default async function FinalInspectionDetailPage({
   }
   const canEdit = await hasPermission(PERMISSIONS.RO_CREATE);
   const { id } = await params;
-  const data = await getFinalInspectionById(id);
+  const [data, technicians] = await Promise.all([
+    getFinalInspectionById(id),
+    listActiveTechnicians().catch(() => []),
+  ]);
   if (!data) return notFound();
-  return <FinalInspectionWizard data={data} canEdit={canEdit} />;
+  return <FinalInspectionWizard data={data} canEdit={canEdit} technicians={technicians} />;
 }

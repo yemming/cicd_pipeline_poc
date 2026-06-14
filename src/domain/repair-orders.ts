@@ -1162,3 +1162,167 @@ export async function getRepairOrderForPrint(
     amountTotal: total,
   };
 }
+
+// ─────────────────────────────────────────────────────────────
+// RP4 層二：工單事件時間軸（append-only）
+//
+// 所有關鍵動作呼叫 appendRepairOrderEvent 把事件 INSERT 到
+// repair_order_events 表（server UTC，不可改刪語意）。
+//
+// 欄位對映（真表）：
+//   action      — 事件種類（見 RoEventAction）
+//   actor_id    — auth.uid()，server context 取
+//   occurred_at — new Date().toISOString()（server UTC，防偽造）
+//   payload     — 事件特定資料（jsonb）
+//
+// 向後相容：listRepairOrderEvents 優先讀新表，merge 舊 metadata.events[]
+// ─────────────────────────────────────────────────────────────
+
+export type RoEventAction =
+  | "ro_created"             // confirmRepairOrderAction
+  | "dispatched"             // setLeadTechnicianAction（指派技師）
+  | "status_changed"         // updateRepairOrderStatusAction
+  | "final_inspection_passed"  // final-inspection completeAction
+  | "final_inspection_rejected" // final-inspection rejectAction
+  | "discount_applied"       // ro-checkout applyDiscountAction
+  | "checkout_completed"     // ro-checkout completeAction（關單）
+  | "checkout_sig_cleared"   // RP2：主管解鎖清除簽名（ro-checkout clearSignAction）
+  | "addon_decision"         // repair-order-addon-actions decideAddonAction
+  | "addon_cancelled"        // repair-order-addon-actions cancelAddonAction（RP3 退料）
+  | "contact_attempt"        // 聯繫嘗試記錄（B5-02）
+  | "approval_requested"     // RP5：主管授權申請送出（discount / warranty 情境）
+  | "approval_approved"      // RP5：主管核准
+  | "approval_rejected";     // RP5：主管拒絕
+
+export type RoEvent = {
+  /** 事件種類 */
+  action: RoEventAction;
+  /** 操作人 user id（auth.uid()）；server UTC，防偽造 */
+  actor_id: string | null;
+  /** 事件發生時間（server UTC ISO 8601） */
+  at: string;
+  /** 事件特定資料（依 action 而異） */
+  payload?: Record<string, unknown>;
+};
+
+/**
+ * appendRepairOrderEvent — RP4 層二：INSERT 一筆事件到 repair_order_events 表
+ *
+ * - append-only 語意：INSERT only，不更新不刪除
+ * - server-side UTC 時間戳（`occurred_at` = new Date().toISOString()）防客端偽造
+ * - actor_id 由 supabase.auth.getUser() 取，非 client 傳入
+ * - 失敗靜默記 console.error，不影響主流程（副作用語意）
+ * - RLS policy：user_has_brand → 同 brand 使用者可 INSERT（一般 server client 即可）
+ *
+ * 呼叫方式（在 "use server" 環境）：
+ *   await appendRepairOrderEvent(roId, { action: "status_changed", payload: { from, to } });
+ *
+ * @param roId     repair_orders.id
+ * @param event    RoEvent（不含 actor_id / at，由此函式填入）
+ * @param actorId  可選；caller 已取得的 actor_id（避免二次 auth.getUser() 呼叫）
+ */
+export async function appendRepairOrderEvent(
+  roId: string,
+  event: Omit<RoEvent, "actor_id" | "at">,
+  actorId?: string | null,
+): Promise<void> {
+  if (!roId) return;
+  try {
+    const supabase = await createClient();
+    const brand = (await getActiveScope()).brand_id;
+
+    // 取 actor_id（如果 caller 已有就直接用）
+    let resolvedActorId: string | null = actorId !== undefined ? (actorId ?? null) : null;
+    if (actorId === undefined) {
+      const { data: { user } } = await supabase.auth.getUser();
+      resolvedActorId = user?.id ?? null;
+    }
+
+    const occurredAt = new Date().toISOString(); // server UTC，不信任 client 傳入時間
+
+    const { error: insertErr } = await supabase
+      .from("repair_order_events")
+      .insert({
+        ro_id: roId,
+        brand_id: brand,
+        action: event.action,
+        actor_id: resolvedActorId,
+        payload: (event.payload ?? {}) as Record<string, unknown>,
+        occurred_at: occurredAt,
+      });
+
+    if (insertErr) {
+      console.error("[appendRepairOrderEvent] INSERT 失敗", insertErr.message);
+    }
+  } catch (e) {
+    console.error("[appendRepairOrderEvent] 例外（不影響主流程）", e);
+  }
+}
+
+/**
+ * listRepairOrderEvents — 讀取工單事件時間軸（新表 + 舊 metadata merge）
+ *
+ * 優先讀 repair_order_events 表；同時 merge 舊 repair_orders.metadata.events[]（向後相容）。
+ * 結果依 at 升序排列（最舊在前，便於時間軸渲染）。
+ *
+ * @param roId  repair_orders.id
+ * @returns     RoEvent[]（含 at / actor_id / action / payload）
+ */
+export async function listRepairOrderEvents(roId: string): Promise<RoEvent[]> {
+  if (!roId) return [];
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 1. 從新表讀取（append-only 真表）
+  const { data: newRows, error: newErr } = await supabase
+    .from("repair_order_events")
+    .select("action, actor_id, occurred_at, payload")
+    .eq("ro_id", roId)
+    .eq("brand_id", brand)
+    .order("occurred_at", { ascending: true });
+
+  if (newErr) {
+    console.error("[listRepairOrderEvents] 讀取 repair_order_events 失敗", newErr.message);
+  }
+
+  const fromTable: RoEvent[] = ((newRows ?? []) as {
+    action: string;
+    actor_id: string | null;
+    occurred_at: string;
+    payload: Record<string, unknown> | null;
+  }[]).map((r) => ({
+    action: r.action as RoEvent["action"],
+    actor_id: r.actor_id,
+    at: r.occurred_at,
+    payload: (r.payload ?? undefined) as Record<string, unknown> | undefined,
+  }));
+
+  // 2. 從舊 metadata.events[] 讀取（向後相容，避免弄丟歷史）
+  const { data: roRow } = await supabase
+    .from("repair_orders")
+    .select("metadata")
+    .eq("id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+
+  const meta = ((roRow?.metadata ?? {}) as Record<string, unknown>);
+  const legacyEvents: RoEvent[] = Array.isArray(meta.events)
+    ? (meta.events as RoEvent[])
+    : [];
+
+  if (legacyEvents.length === 0) {
+    return fromTable;
+  }
+
+  // Merge：以 (action + at/occurred_at) 去重（新表有了就不顯示 legacy 同筆）
+  const tableKeys = new Set(fromTable.map((e) => `${e.action}|${e.at}`));
+  const uniqueLegacy = legacyEvents.filter(
+    (e) => !tableKeys.has(`${e.action}|${e.at}`),
+  );
+
+  // 合併後依 at 升序
+  const merged = [...fromTable, ...uniqueLegacy].sort(
+    (a, b) => a.at.localeCompare(b.at),
+  );
+  return merged;
+}

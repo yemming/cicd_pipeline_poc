@@ -93,8 +93,10 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
   const [step, setStep] = useState(0);
+  // RP2：簽名後把環檢/基本資料設唯讀（sig_locked 由 signAction 設定）
+  const sigLocked = !!(data.metadata as { sig_locked?: boolean })?.sig_locked;
   const locked =
-    !canEdit || data.status === "transferred" || data.status === "cancelled";
+    !canEdit || data.status === "transferred" || data.status === "cancelled" || sigLocked;
 
   const currentMode: PreInspectionMode = data.mode ?? "full";
   // simple mode 只顯示「環車檢查」「確認簽名」兩步；full mode 顯示全部 5 步

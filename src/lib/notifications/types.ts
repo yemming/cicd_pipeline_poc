@@ -26,7 +26,12 @@ export type EventCode =
   | "deploy.released"
   // C-25：CRM 推播任務發送（CRM06A/06B）→ 經 Notification Hub 推 LINE
   //   payload: kind / campaignName / channel / audienceCount / targetHabc / messagePreview / brand / url
-  | "crm_push.sent";
+  | "crm_push.sent"
+  // RP5 主管授權工作流 — 申請通知主管 / 結果通知 SA
+  //   requested payload: approvalId / scenario / roCode / customerName / saName / notes / actionUrl
+  //   resolved payload: approvalId / scenario / roCode / customerName / decision / reason / actionUrl
+  | "aftersales_approval.requested"
+  | "aftersales_approval.resolved";
 
 export interface NotificationEvent<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   code: EventCode;

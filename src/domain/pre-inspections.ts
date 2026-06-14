@@ -32,6 +32,8 @@ export type PreInspectionMetadata = {
   sa_items?: SaQuoteItem[];
   sig_sa?: Signature;
   sig_customer?: Signature;
+  /** RP2：雙簽後設 true，觸發環檢/基本資料唯讀 */
+  sig_locked?: boolean;
   warranty_snapshot?: {
     valid?: boolean;
     started_at?: string;
@@ -264,10 +266,22 @@ export type PlateLookupResult = {
     license_plate: string | null;
     model_name: string | null;
     current_mileage: number | null;
+    /** RP7 B4-01：保固到期日 — 優先用 customer_vehicles.warranty_until（交車日+保固月推算），
+     *  若無則嘗試從 metadata.warranty_started_at + warranty_months 計算，仍無才為 null */
     warranty_until: string | null;
+    /** RP7：保固到期是否由系統自動推算（true = 可舉證；false/null = 人工字串或未設） */
+    warranty_computed: boolean;
   } | null;
   customer: { id: string; name: string | null; phone: string | null } | null;
-  pending_items: { item_desc: string; reason: string | null; created_at: string }[];
+  /** RP7 擴充：含 safety_level / reject_count */
+  pending_items: {
+    id: string;
+    item_desc: string;
+    reason: string | null;
+    created_at: string;
+    safety_level: string;
+    reject_count: number;
+  }[];
   special_tags: string[];
 };
 
@@ -292,6 +306,23 @@ function deriveSpecialTags(
   collect(vehMeta.tags);
   if (vehMeta.is_special === true) tags.add("特殊車輛");
   return Array.from(tags);
+}
+
+/** RP7 B4-01：從 metadata 計算保固到期（metadata.warranty_started_at + warranty_months）
+ *  — 當 customer_vehicles.warranty_until 為 null 時的 fallback。
+ *  warranty_started_at 由 startVehicleWarranty (sales-orders.ts hook#3) 寫入。
+ */
+function computeWarrantyUntilFromMeta(meta: Record<string, unknown> | null): string | null {
+  if (!meta) return null;
+  const started = meta.warranty_started_at;
+  const months = meta.warranty_months;
+  if (typeof started !== "string" || !started) return null;
+  const m = typeof months === "number" ? months : 24;
+  const [y, mo, d] = started.split("-").map((v) => parseInt(v, 10));
+  if (!y || !mo) return null;
+  const base = new Date(Date.UTC(y, mo - 1, d || 1));
+  base.setUTCMonth(base.getUTCMonth() + m);
+  return base.toISOString().slice(0, 10);
 }
 
 export async function lookupVehicleByPlate(
@@ -332,6 +363,15 @@ export async function lookupVehicleByPlate(
   };
   const m = Array.isArray(v.vehicle_models) ? v.vehicle_models[0] : v.vehicle_models;
 
+  // RP7 B4-01：保固到期推算
+  // 優先用 typed 欄位 warranty_until（startVehicleWarranty 交車時自動寫入）；
+  // 若為 null 則 fallback 到 metadata.warranty_started_at + warranty_months
+  const warrantyFromTyped = v.warranty_until;
+  const warrantyFromMeta = computeWarrantyUntilFromMeta(v.metadata);
+  const finalWarrantyUntil = warrantyFromTyped ?? warrantyFromMeta;
+  // warranty_computed=true 表示系統自動推算（非人工字串），可舉證
+  const warrantyComputed = warrantyFromTyped != null || warrantyFromMeta != null;
+
   let customer: PlateLookupResult["customer"] = null;
   let customerType: string | null = null;
   let custMeta: Record<string, unknown> = {};
@@ -364,13 +404,17 @@ export async function lookupVehicleByPlate(
       license_plate: v.license_plate,
       model_name: m?.display_name ?? m?.model_name ?? null,
       current_mileage: v.current_mileage,
-      warranty_until: v.warranty_until,
+      warranty_until: finalWarrantyUntil,
+      warranty_computed: warrantyComputed,
     },
     customer,
     pending_items: pending.map((p) => ({
+      id: p.id,
       item_desc: p.itemDesc,
       reason: p.reason,
       created_at: p.createdAt,
+      safety_level: p.safetyLevel,
+      reject_count: p.rejectCount,
     })),
     special_tags: deriveSpecialTags(customerType, custMeta, v.metadata ?? {}),
   };

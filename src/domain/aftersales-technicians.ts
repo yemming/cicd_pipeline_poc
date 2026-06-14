@@ -385,3 +385,22 @@ export async function listTechnicianBindingCandidates(): Promise<
     bound_technician_id: r.id as string,
   }));
 }
+
+/**
+ * M-09 複檢人員驗證用：撈 active 技師清單（id + 顯示名稱），供複檢 step4 下拉選人。
+ * 輕量查詢（不 JOIN employees），顯示名稱優先用 name（技師自設）。
+ */
+export async function listActiveTechnicians(): Promise<
+  Array<{ id: string; name: string; code: string }>
+> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("aftersales_technicians")
+    .select("id, name, code")
+    .eq("brand_id", scope.brand_id)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Array<{ id: string; name: string; code: string }>;
+}

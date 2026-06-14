@@ -31,9 +31,12 @@ import {
   deleteAction,
   markReceiptPrintedAction,
   refreshFeeSummaryAction,
+  saveAddonAuthSignatureAction,
   setPickupEntrustmentAction,
   signAction,
 } from "@/lib/aftersales/ro-checkout-actions";
+// RP5 費用鎖定後修改申請
+import { requestFeeUnlockApprovalAction } from "@/lib/aftersales/approval-request-actions";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -83,6 +86,32 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
   const sig = data.customer_signature ?? {};
   const payment = data.payment ?? {};
   const invoice = data.invoice ?? {};
+
+  // RP2 ④：追加授權簽名（metadata.addon_auth_sig）
+  const existingAddonAuthSig = ((data.metadata ?? {}) as {
+    addon_auth_sig?: { screenshot_url?: string; signed_at?: string; customer_name?: string };
+  }).addon_auth_sig ?? null;
+  const [addonAuthSigImg, setAddonAuthSigImg] = useState<string | null>(
+    existingAddonAuthSig?.screenshot_url ?? null,
+  );
+
+  function saveAddonAuthSig(dataUrl: string) {
+    const addonLines = (summary.lines ?? []).filter((l) => l.is_addon).map((l) => l.label).join("、");
+    startTransition(async () => {
+      const res = await saveAddonAuthSignatureAction(data.id, {
+        screenshot_url: dataUrl,
+        customer_name: data.ro.customer_name ?? undefined,
+        addon_items_snapshot: addonLines || undefined,
+      });
+      if (res.ok) {
+        setAddonAuthSigImg(res.data.storage_url);
+        showBanner({ ok: true, msg: "✓ 追加授權簽名已儲存" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
 
   // 包F：委託取車授權（metadata.entrustment）
   const entrustment =
@@ -179,13 +208,50 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
     });
   }
 
-  function clearSig() {
-    if (!confirm("確認要清除簽名重新簽嗎？")) return;
+  // RP2：主管解鎖 Modal 狀態
+  const [clearReasonModalOpen, setClearReasonModalOpen] = useState(false);
+  const [clearReason, setClearReason] = useState("");
+
+  // RP5 費用鎖定後修改申請 Modal
+  const sigLocked = !!((data.metadata ?? {}) as { sig_locked?: boolean }).sig_locked;
+  const [feeUnlockModalOpen, setFeeUnlockModalOpen] = useState(false);
+  const [feeUnlockNotes, setFeeUnlockNotes] = useState("");
+
+  function openClearSigModal() {
+    setClearReason("");
+    setClearReasonModalOpen(true);
+  }
+
+  function doConfirmClearSig() {
+    if (!clearReason.trim()) return;
+    setClearReasonModalOpen(false);
     startTransition(async () => {
-      const res = await clearSignAction(data.id);
+      const res = await clearSignAction(data.id, { reason: clearReason.trim() });
       if (res.ok) {
-        showBanner({ ok: true, msg: "✓ 已清除簽名" });
+        showBanner({ ok: true, msg: "✓ 主管解鎖完成，請重新簽名" });
         setStep(2);
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  /** RP5 費用鎖定後修改：送出 fee_unlock 授權申請 */
+  function doFeeUnlockRequest() {
+    if (!feeUnlockNotes.trim()) {
+      showBanner({ ok: false, msg: "請填寫修改原因（稽核必填）" });
+      return;
+    }
+    setFeeUnlockModalOpen(false);
+    startTransition(async () => {
+      const res = await requestFeeUnlockApprovalAction(
+        data.repair_order_id,
+        data.id,
+        feeUnlockNotes.trim(),
+      );
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 費用修改申請已送主管審批，主管核准後再使用「主管解鎖」" });
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -365,6 +431,27 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
       </nav>
 
       {/* Step content */}
+      {/* RP5 費用鎖定後修改提示：已簽名（sigLocked）且結帳未完成時，顯示申請解鎖入口 */}
+      {sigLocked && data.status !== "completed" && canEdit ? (
+        <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded-lg px-4 py-3 flex items-center gap-3 flex-wrap">
+          <span className="text-[12.5px] text-[#854F0B] font-medium">🔒 費用已簽名鎖定</span>
+          <span className="text-[12px] text-[#854F0B]">
+            若需修改費用明細，請先申請主管授權，核准後由主管執行「主管解鎖」。
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFeeUnlockNotes("");
+              setFeeUnlockModalOpen(true);
+            }}
+            disabled={isPending}
+            className="ml-auto h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
+          >
+            申請費用修改授權
+          </button>
+        </div>
+      ) : null}
+
       {step === 1 ? (
         <Step1
           summary={summary}
@@ -377,6 +464,10 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
           entrustForm={entrustForm}
           setEntrustForm={setEntrustForm}
           onSaveEntrustment={saveEntrustment}
+          addonAuthSigImg={addonAuthSigImg}
+          addonAuthSigAt={existingAddonAuthSig?.signed_at ?? null}
+          onAddonAuthSign={saveAddonAuthSig}
+          onAddonAuthReSign={() => setAddonAuthSigImg(null)}
         />
       ) : null}
 
@@ -390,7 +481,7 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
           fenced={fenced}
           isPending={isPending}
           onSign={doSign}
-          onClear={clearSig}
+          onClear={openClearSigModal}
         />
       ) : null}
 
@@ -449,6 +540,98 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
         </button>
       </footer>
 
+      {/* RP2 主管解鎖 Modal */}
+      {clearReasonModalOpen ? (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="text-[20px]">🔓</span>
+              <div>
+                <h3 className="text-[15px] font-semibold text-[#2C2C2A]">主管授權解鎖簽名</h3>
+                <p className="text-[12px] text-[#5A5955] mt-0.5">
+                  清除簽名需主管授權（售後主管 / 店長）。解鎖後客戶必須重新簽名。
+                </p>
+              </div>
+            </div>
+            <div className="bg-[#FDECEA] border border-[#F5AEAD] rounded px-3 py-2 text-[12px] text-[#CC0000]">
+              ⚠️ 此動作將寫入稽核日誌，請確認您有足夠授權。
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-[#9A9890] font-medium">解鎖原因（必填）</label>
+              <textarea
+                value={clearReason}
+                onChange={(e) => setClearReason(e.target.value)}
+                rows={3}
+                placeholder="例：客戶要求更改付款方式後重新確認費用"
+                className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setClearReasonModalOpen(false)}
+                disabled={isPending}
+                className="h-[34px] px-4 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={doConfirmClearSig}
+                disabled={isPending || !clearReason.trim()}
+                className="h-[34px] px-4 rounded text-[12.5px] font-medium bg-[#CC0000] text-white hover:bg-[#a50000] disabled:opacity-50"
+              >
+                {isPending ? "處理中⋯" : "確認解鎖（主管授權）"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* RP5 費用鎖定後修改申請 Modal */}
+      {feeUnlockModalOpen ? (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="text-[20px]">📝</span>
+              <div>
+                <h3 className="text-[15px] font-semibold text-[#2C2C2A]">申請費用修改授權（RP5）</h3>
+                <p className="text-[12px] text-[#5A5955] mt-0.5">
+                  費用已簽名鎖定，需主管授權方可修改。核准後由主管點「主管解鎖」，再重新確認費用並補簽。
+                </p>
+              </div>
+            </div>
+            <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded px-3 py-2 text-[12px] text-[#854F0B]">
+              ⚠️ 此申請將寫入稽核紀錄，且通知主管審批。
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-[#9A9890] font-medium">修改原因（稽核必填）</label>
+              <textarea
+                value={feeUnlockNotes}
+                onChange={(e) => setFeeUnlockNotes(e.target.value)}
+                rows={3}
+                placeholder="例：車主發現有項目遺漏，需加入維修明細後重新確認"
+                className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setFeeUnlockModalOpen(false)}
+                disabled={isPending}
+                className="h-[34px] px-4 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={doFeeUnlockRequest}
+                disabled={isPending || !feeUnlockNotes.trim()}
+                className="h-[34px] px-4 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
+              >
+                {isPending ? "送出中⋯" : "送出申請"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {banner ? (
         <div
           className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
@@ -504,6 +687,10 @@ function Step1({
   entrustForm,
   setEntrustForm,
   onSaveEntrustment,
+  addonAuthSigImg,
+  addonAuthSigAt,
+  onAddonAuthSign,
+  onAddonAuthReSign,
 }: {
   summary: FeeSummary;
   lines: FeeLine[];
@@ -515,6 +702,11 @@ function Step1({
   entrustForm: EntrustForm;
   setEntrustForm: (f: EntrustForm) => void;
   onSaveEntrustment: () => void;
+  // RP2 ④ 追加授權簽名
+  addonAuthSigImg: string | null;
+  addonAuthSigAt: string | null;
+  onAddonAuthSign: (dataUrl: string) => void;
+  onAddonAuthReSign: () => void;
 }) {
   const total = summary.total ?? 0;
   const payable = summary.payable ?? total;
@@ -687,6 +879,50 @@ function Step1({
         </div>
       </div>
 
+      {/* RP2 ④：追加項目授權客戶簽名 — 有追加項目時才顯示 */}
+      {lines.some((l) => l.is_addon) && (
+        <div className="mt-3 pt-3 border-t border-[#EEECE6] space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[12.5px] font-semibold text-[#854F0B]">
+              ④ 追加項目客戶授權簽名
+            </span>
+            <span className="text-[11.5px] text-[#9A9890]">（費用含追加項目，需客戶另行簽名授權）</span>
+            {addonAuthSigAt && (
+              <span className="ml-auto text-[11px] text-[#0F6E56] whitespace-nowrap">
+                ✅ {fmtDateTime(addonAuthSigAt)}
+              </span>
+            )}
+          </div>
+          {addonAuthSigImg ? (
+            <div className="border border-[#1D9E75] rounded bg-[#E1F5EE] p-3 flex flex-col items-center gap-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={addonAuthSigImg}
+                alt="追加授權簽名"
+                className="w-full max-w-[360px] h-[100px] object-contain bg-white border border-[#1D9E75] rounded"
+              />
+              {!fenced && (
+                <button
+                  type="button"
+                  onClick={onAddonAuthReSign}
+                  className="text-[11px] text-[#185FA5] hover:underline"
+                >
+                  重新簽名
+                </button>
+              )}
+            </div>
+          ) : fenced ? (
+            <div className="border border-dashed border-[#D5D3CB] rounded p-3 text-center text-[12px] text-[#9A9890]">
+              未簽追加授權
+            </div>
+          ) : (
+            <div className={isPending ? "pointer-events-none opacity-60" : ""}>
+              <SignatureCanvas onSigned={onAddonAuthSign} />
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-3 pt-3 border-t border-[#EEECE6] flex items-center gap-2">
         <span className="flex-1 text-[12.5px] text-[#0F6E56]">
           ✅ 確認費用明細已與車主當面核對，車主無異議後即可進入車主二簽
@@ -776,13 +1012,14 @@ function Step2({
       </div>
 
       {signed && !fenced ? (
-        <div className="mt-3 pt-3 border-t border-[#EEECE6] flex justify-end">
+        <div className="mt-3 pt-3 border-t border-[#EEECE6] flex items-center gap-2 justify-end">
+          <span className="text-[11px] text-[#854F0B]">⚠️ 清除簽名需主管授權，並記錄稽核日誌</span>
           <button
             onClick={onClear}
             disabled={isPending}
-            className="h-[28px] px-3 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            className="h-[28px] px-3 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
           >
-            清除簽名重新簽
+            主管解鎖清除簽名
           </button>
         </div>
       ) : null}
