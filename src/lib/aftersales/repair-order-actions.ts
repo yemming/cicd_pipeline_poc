@@ -29,6 +29,8 @@ import {
   type PrefixP2,
 } from "@/domain/repair-orders.constants";
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
+// RP5：中途取消前置授權 guard
+import { hasApprovedApproval } from "@/domain/aftersales-approvals";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -344,6 +346,19 @@ export async function updateRepairOrderStatusAction(
     };
   }
   // verdict === "ok"，繼續
+
+  // ── RP5 護欄：中途取消需已獲主管授權 ──
+  // 只擋「已關閉-中途取消」這個目標狀態。
+  // 若該 RO 已有 approved 的 cancel_order 授權記錄才放行；否則要求先送審。
+  if (status === "已關閉-中途取消") {
+    const hasAuth = await hasApprovedApproval(id, "cancel_order");
+    if (!hasAuth) {
+      return {
+        ok: false,
+        error: "中途取消需要主管授權，請先透過「申請中途取消授權」送出申請並等候核准後再執行。",
+      };
+    }
+  }
 
   // ── RP1 護欄③：組 status_history 追加記錄 ──
   // actor_id 從 supabase auth.uid() 取（server action context 有 session）

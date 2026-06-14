@@ -40,3 +40,6 @@ export async function requestWarrantyGraceAction(
   }
   return res;
 }
+
+// requestCancelOrderApprovalAction 和 requestFeeUnlockApprovalAction
+// 已移至 @/lib/aftersales/approval-request-actions（跨路由 client 可 import 的 server action）

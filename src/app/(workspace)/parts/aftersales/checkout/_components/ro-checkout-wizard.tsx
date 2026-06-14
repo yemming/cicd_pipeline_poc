@@ -35,6 +35,8 @@ import {
   setPickupEntrustmentAction,
   signAction,
 } from "@/lib/aftersales/ro-checkout-actions";
+// RP5 費用鎖定後修改申請
+import { requestFeeUnlockApprovalAction } from "@/lib/aftersales/approval-request-actions";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -210,6 +212,11 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
   const [clearReasonModalOpen, setClearReasonModalOpen] = useState(false);
   const [clearReason, setClearReason] = useState("");
 
+  // RP5 費用鎖定後修改申請 Modal
+  const sigLocked = !!((data.metadata ?? {}) as { sig_locked?: boolean }).sig_locked;
+  const [feeUnlockModalOpen, setFeeUnlockModalOpen] = useState(false);
+  const [feeUnlockNotes, setFeeUnlockNotes] = useState("");
+
   function openClearSigModal() {
     setClearReason("");
     setClearReasonModalOpen(true);
@@ -223,6 +230,28 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 主管解鎖完成，請重新簽名" });
         setStep(2);
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  /** RP5 費用鎖定後修改：送出 fee_unlock 授權申請 */
+  function doFeeUnlockRequest() {
+    if (!feeUnlockNotes.trim()) {
+      showBanner({ ok: false, msg: "請填寫修改原因（稽核必填）" });
+      return;
+    }
+    setFeeUnlockModalOpen(false);
+    startTransition(async () => {
+      const res = await requestFeeUnlockApprovalAction(
+        data.repair_order_id,
+        data.id,
+        feeUnlockNotes.trim(),
+      );
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 費用修改申請已送主管審批，主管核准後再使用「主管解鎖」" });
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -402,6 +431,27 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
       </nav>
 
       {/* Step content */}
+      {/* RP5 費用鎖定後修改提示：已簽名（sigLocked）且結帳未完成時，顯示申請解鎖入口 */}
+      {sigLocked && data.status !== "completed" && canEdit ? (
+        <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded-lg px-4 py-3 flex items-center gap-3 flex-wrap">
+          <span className="text-[12.5px] text-[#854F0B] font-medium">🔒 費用已簽名鎖定</span>
+          <span className="text-[12px] text-[#854F0B]">
+            若需修改費用明細，請先申請主管授權，核准後由主管執行「主管解鎖」。
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFeeUnlockNotes("");
+              setFeeUnlockModalOpen(true);
+            }}
+            disabled={isPending}
+            className="ml-auto h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
+          >
+            申請費用修改授權
+          </button>
+        </div>
+      ) : null}
+
       {step === 1 ? (
         <Step1
           summary={summary}
@@ -530,6 +580,52 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
                 className="h-[34px] px-4 rounded text-[12.5px] font-medium bg-[#CC0000] text-white hover:bg-[#a50000] disabled:opacity-50"
               >
                 {isPending ? "處理中⋯" : "確認解鎖（主管授權）"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* RP5 費用鎖定後修改申請 Modal */}
+      {feeUnlockModalOpen ? (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="text-[20px]">📝</span>
+              <div>
+                <h3 className="text-[15px] font-semibold text-[#2C2C2A]">申請費用修改授權（RP5）</h3>
+                <p className="text-[12px] text-[#5A5955] mt-0.5">
+                  費用已簽名鎖定，需主管授權方可修改。核准後由主管點「主管解鎖」，再重新確認費用並補簽。
+                </p>
+              </div>
+            </div>
+            <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded px-3 py-2 text-[12px] text-[#854F0B]">
+              ⚠️ 此申請將寫入稽核紀錄，且通知主管審批。
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-[#9A9890] font-medium">修改原因（稽核必填）</label>
+              <textarea
+                value={feeUnlockNotes}
+                onChange={(e) => setFeeUnlockNotes(e.target.value)}
+                rows={3}
+                placeholder="例：車主發現有項目遺漏，需加入維修明細後重新確認"
+                className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setFeeUnlockModalOpen(false)}
+                disabled={isPending}
+                className="h-[34px] px-4 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={doFeeUnlockRequest}
+                disabled={isPending || !feeUnlockNotes.trim()}
+                className="h-[34px] px-4 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
+              >
+                {isPending ? "送出中⋯" : "送出申請"}
               </button>
             </div>
           </div>

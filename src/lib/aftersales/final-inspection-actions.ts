@@ -25,6 +25,8 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { registerOldPartFromInspection } from "@/domain/warranty";
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
+// RP5：複檢退回超 2 次自動送審
+import { requestApproval } from "@/domain/aftersales-approvals";
 
 import {
   buildInitialLineResults,
@@ -417,12 +419,60 @@ export async function rejectAction(
     .update({ status: "rejected", issue_note: reason ?? ctx.row.issue_note ?? "退回技師重修" })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
-  // RO 退回維修中
-  await supabase
-    .from("repair_orders")
-    .update({ status: "維修中" })
-    .eq("id", ctx.row.repair_order_id)
-    .eq("brand_id", ctx.brand);
+
+  const roId = ctx.row.repair_order_id as string;
+
+  // ── RP5：複檢退回超 2 次 → 累積 rework_count，>2 自動送審 ──
+  // 先讀 RO metadata，取 rework_count，累積 +1 後寫回；
+  // rework_count > 2（即已第 3 次或更多次退回）觸發 reinspect_exceed 授權申請。
+  let newReworkCount = 1;
+  {
+    const { data: roRow } = await supabase
+      .from("repair_orders")
+      .select("metadata")
+      .eq("id", roId)
+      .eq("brand_id", ctx.brand)
+      .maybeSingle();
+    const roPrevMeta = ((roRow?.metadata ?? {}) as Record<string, unknown>);
+    const prevCount = typeof roPrevMeta.rework_count === "number" ? roPrevMeta.rework_count : 0;
+    newReworkCount = prevCount + 1;
+
+    // 寫回 rework_count 到 RO metadata
+    await supabase
+      .from("repair_orders")
+      .update({
+        status: "維修中",
+        metadata: { ...roPrevMeta, rework_count: newReworkCount },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", roId)
+      .eq("brand_id", ctx.brand);
+  }
+
+  // ── RP5：rework_count > 2 → 自動送審（非阻塞）──
+  if (newReworkCount > 2) {
+    after(async () => {
+      try {
+        const approvalRes = await requestApproval({
+          ro_id: roId,
+          scenario: "reinspect_exceed",
+          notes: `複檢退回第 ${newReworkCount} 次（超過 2 次門檻），系統自動觸發主管授權申請。退回原因：${reason ?? "未填寫"}`,
+          context: {
+            rework_count: newReworkCount,
+            inspection_id: id,
+            inspection_no: ctx.row.inspection_no,
+            reject_reason: reason ?? ctx.row.issue_note ?? "退回技師重修",
+          },
+        });
+        if (!approvalRes.ok) {
+          // 若已有 pending（相同工單同情境），忽略重複送審
+          console.log("[RP5 reinspect_exceed] 自動送審結果:", approvalRes.error);
+        }
+      } catch (e) {
+        console.error("[RP5 reinspect_exceed] 自動送審副作用例外（不影響退回）", e);
+      }
+    });
+  }
 
   // ── RP4 事件時間軸：記錄複檢退回（非阻塞） ──
   {
@@ -430,17 +480,17 @@ export async function rejectAction(
       data: { user: _rejectUser },
     } = await supabase.auth.getUser();
     const rejectActorId = _rejectUser?.id ?? null;
-    const rejectRoId = ctx.row.repair_order_id as string;
     const rejectReason = reason ?? ctx.row.issue_note ?? "退回技師重修";
     after(async () => {
       await appendRepairOrderEvent(
-        rejectRoId,
+        roId,
         {
           action: "final_inspection_rejected",
           payload: {
             inspection_id: id,
             inspection_no: ctx.row.inspection_no,
             reason: rejectReason,
+            rework_count: newReworkCount,
           },
         },
         rejectActorId,
@@ -450,6 +500,7 @@ export async function rejectAction(
 
   revalidatePath(`${PAGE}/${id}`);
   revalidatePath(PAGE);
+  revalidatePath("/parts/aftersales/repair-orders");
   return { ok: true, data: { id } };
 }
 
