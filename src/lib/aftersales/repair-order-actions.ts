@@ -31,6 +31,8 @@ import {
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
 // RP5：中途取消前置授權 guard
 import { hasApprovedApproval } from "@/domain/aftersales-approvals";
+// RP8 T03：工單進待料 → 倉管站內通知
+import { createInappNotifications } from "@/domain/user-notifications";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -415,6 +417,64 @@ export async function updateRepairOrderStatusAction(
       actorId,
     );
   });
+
+  // ── RP8 T03：工單進待料 → 通知倉管（warehouse role）備料 ──
+  // 非阻塞，失敗只 log，不回滾主流程。
+  // 收件人：同 brand 中 role_codes 含 'warehouse' 且有綁 user_id 的員工。
+  // TODO T02：等待客戶授權 > 2hr → 需 cron（目前無 DDL/排程）；
+  //   骨架在 /api/cron/aftersales-approval-escalate/route.ts，
+  //   日後把「auth_status=pending AND updated_at < now()-2h」的 RO 撈出來推通知即可。
+  if (status === "待料" || status === "待料-車輛已還") {
+    after(async () => {
+      try {
+        const sb = await createClient();
+        const { data: ro } = await sb
+          .from("repair_orders")
+          .select("ro_code")
+          .eq("id", id)
+          .eq("brand_id", brand)
+          .maybeSingle();
+        if (!ro) return;
+
+        // 找 brand 內所有含 warehouse 角色、且已綁 user_id 的員工
+        const { data: warehouseEmps } = await sb
+          .from("employees")
+          .select("user_id")
+          .eq("brand_id", brand)
+          .eq("is_active", true)
+          .contains("role_codes", ["warehouse"])
+          .not("user_id", "is", null);
+        if (!warehouseEmps || warehouseEmps.length === 0) return;
+
+        const recipientIds = [
+          ...new Set(
+            (warehouseEmps as Array<{ user_id: string | null }>)
+              .map((e) => e.user_id)
+              .filter((v): v is string => Boolean(v)),
+          ),
+        ];
+        if (recipientIds.length === 0) return;
+
+        await createInappNotifications(
+          recipientIds.map((uid) => ({
+            recipient_user_id: uid,
+            event_code: "aftersales.ro.parts_waiting",
+            payload: {
+              title: `工單進入待料 — ${ro.ro_code ?? ""}`,
+              body: `工單 ${ro.ro_code ?? ""} 已轉為「${status}」，請查看並備料。`,
+              href: `/parts/aftersales/repair-orders/${id}`,
+              priority: "orange" as const,
+              source_ro_id: id,
+              source_ro_code: ro.ro_code ?? undefined,
+            },
+            brand_id: brand,
+          })),
+        );
+      } catch (e) {
+        console.error("[RP8 T03 待料通知] 副作用例外（不影響）", e);
+      }
+    });
+  }
 
   // ── 跨模組 hook #7（C-22）：工單關閉 → 建立 D+3 / D+7 售後電訪任務 ──
   // 非阻塞、try/catch 吞錯；helper 以 (customer + call_type + metadata.source_ro) 防同單重複觸發。

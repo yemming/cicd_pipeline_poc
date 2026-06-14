@@ -27,6 +27,8 @@ import { registerOldPartFromInspection } from "@/domain/warranty";
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
 // RP5：複檢退回超 2 次自動送審
 import { requestApproval } from "@/domain/aftersales-approvals";
+// RP8 T07：複檢退回→技師+SA 站內通知
+import { createInappNotifications } from "@/domain/user-notifications";
 
 import {
   buildInitialLineResults,
@@ -497,6 +499,67 @@ export async function rejectAction(
       );
     });
   }
+
+  // ── RP8 T07：複檢退回 → 技師（lead tech）+ SA 各收一則站內通知 ──
+  // 非阻塞，失敗不影響主流程。
+  // 收件人：① RO.lead_technician_id → employees.user_id（施工技師）
+  //          ② RO.sa_id → employees.user_id（服務顧問）
+  after(async () => {
+    try {
+      const sb = await createClient();
+      const { data: ro } = await sb
+        .from("repair_orders")
+        .select("ro_code, sa_id, lead_technician_id")
+        .eq("id", roId)
+        .eq("brand_id", ctx.brand)
+        .maybeSingle();
+      if (!ro) return;
+
+      const rejectReason = reason ?? ctx.row.issue_note ?? "退回技師重修";
+      const inspNo = ctx.row.inspection_no as string | null;
+      const notifTitle = `複檢退回重工 — ${ro.ro_code ?? ""}`;
+      const notifBody = `複檢單 ${inspNo ?? ""} 退回（第 ${newReworkCount} 次）。原因：${rejectReason}`;
+      const notifHref = `/parts/aftersales/repair-orders/${roId}`;
+
+      // 收集收件人 user_id（去重）
+      const empIds = [ro.sa_id, ro.lead_technician_id].filter(
+        (v): v is string => Boolean(v),
+      );
+      if (empIds.length === 0) return;
+
+      const { data: emps } = await sb
+        .from("employees")
+        .select("id, user_id")
+        .in("id", empIds)
+        .not("user_id", "is", null);
+      if (!emps || emps.length === 0) return;
+
+      // 去重（同一人可能既是 SA 又是 lead tech，避免重複送）
+      const uniqueUserIds = [
+        ...new Set((emps as Array<{ id: string; user_id: string | null }>)
+          .map((e) => e.user_id)
+          .filter((v): v is string => Boolean(v))),
+      ];
+
+      await createInappNotifications(
+        uniqueUserIds.map((uid) => ({
+          recipient_user_id: uid,
+          event_code: "aftersales.final_inspection.rejected",
+          payload: {
+            title: notifTitle,
+            body: notifBody,
+            href: notifHref,
+            priority: "red" as const,
+            source_ro_id: roId,
+            source_ro_code: ro.ro_code ?? undefined,
+          },
+          brand_id: ctx.brand,
+        })),
+      );
+    } catch (e) {
+      console.error("[RP8 T07 複檢退回通知] 副作用例外（不影響退回）", e);
+    }
+  });
 
   revalidatePath(`${PAGE}/${id}`);
   revalidatePath(PAGE);
