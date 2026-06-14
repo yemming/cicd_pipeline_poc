@@ -142,6 +142,11 @@ export const PERMISSIONS = {
   // ─── 中古車評估鑑價 ─────────────────────────────
   USED_CAR_EVALUATION_APPROVE: "usedcar.evaluation.approve",
 
+  // ─── 稽核日誌 ──────────────────────────────────
+  AUDIT_AFTERSALES_VIEW: "audit.aftersales.view",   // 售後稽核（售後主管 / 店長）
+  AUDIT_INVENTORY_VIEW: "audit.inventory.view",     // 庫存稽核（倉管主管 / Admin）
+  AUDIT_GROUP_VIEW: "audit.group.view",             // 集團稽核（集團管理員）
+
   // ─── Admin ─────────────────────────────────────
   ADMIN_NAV: "admin.nav.edit",
   ADMIN_APPEARANCE: "admin.appearance.edit",

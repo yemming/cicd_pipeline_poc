@@ -49,6 +49,8 @@ import {
   requestApproval,
   hasApprovedApproval,
 } from "@/domain/aftersales-approvals";
+// RP4 Layer1 稽核日誌
+import { writeAuditLog } from "@/domain/audit-logs";
 // RP8 站內通知
 import { createInappNotification } from "@/domain/user-notifications";
 
@@ -261,7 +263,7 @@ export async function applyDiscountAction(
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
 
-  // ── RP4 事件時間軸：記錄折扣變更（非阻塞） ──
+  // ── RP4 事件時間軸 + 稽核日誌：記錄折扣變更（非阻塞） ──
   {
     const {
       data: { user: _discountUser },
@@ -269,6 +271,7 @@ export async function applyDiscountAction(
     const discountActorId = _discountUser?.id ?? null;
     const prevPct = (summary as FeeSummary).discount_pct ?? 0;
     after(async () => {
+      const approved = pct > 0 ? await hasApprovedApproval(roId, "discount_exceed") : false;
       await appendRepairOrderEvent(
         roId,
         {
@@ -278,11 +281,21 @@ export async function applyDiscountAction(
             discount_pct_before: prevPct,
             discount_pct_after: pct,
             payable: next.payable ?? null,
-            approved: pct > 0 ? await hasApprovedApproval(roId, "discount_exceed") : false,
+            approved,
           },
         },
         discountActorId,
       );
+      // RP4 Layer1：寫稽核日誌
+      await writeAuditLog({
+        table_name: "ro_checkouts",
+        record_id: id,
+        action: "discount_applied",
+        actor_id: discountActorId,
+        brand_id: brand,
+        before: { discount_pct: prevPct },
+        after: { discount_pct: pct, payable: next.payable ?? null, approved },
+      });
     });
   }
 
@@ -440,6 +453,16 @@ export async function clearSignAction(
       },
       actorId,
     );
+    // RP4 Layer1：寫稽核日誌（主管解鎖簽名）
+    await writeAuditLog({
+      table_name: "ro_checkouts",
+      record_id: id,
+      action: "checkout_sig_cleared",
+      actor_id: actorId,
+      brand_id: ctx.brand,
+      before: { status: "signed" },
+      after: { status: "in_progress", reason: payload.reason.trim() },
+    });
   });
 
   revalidatePath(`${PAGE}/${id}`);

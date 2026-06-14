@@ -21,6 +21,8 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import { createFollowUpTask } from "@/domain/sales-call-tasks";
 import { notifications } from "@/lib/notifications";
 import { pickForRepairOrderAddon } from "@/domain/issues";
+// RP4 Layer1 稽核日誌
+import { writeAuditLog } from "@/domain/audit-logs";
 
 import {
   PREFIX_COMBO_RULES,
@@ -406,7 +408,7 @@ export async function updateRepairOrderStatusAction(
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
 
-  // ── RP4 事件時間軸：記錄狀態變更（非阻塞，副作用） ──
+  // ── RP4 事件時間軸 + 稽核日誌：記錄狀態變更（非阻塞，副作用） ──
   after(async () => {
     await appendRepairOrderEvent(
       id,
@@ -420,6 +422,16 @@ export async function updateRepairOrderStatusAction(
       },
       actorId,
     );
+    // RP4 Layer1：寫稽核日誌（RO 狀態變更）
+    await writeAuditLog({
+      table_name: "repair_orders",
+      record_id: id,
+      action: "status_changed",
+      actor_id: actorId,
+      brand_id: brand,
+      before: { status: currentStatus },
+      after: { status, reason: reason?.trim() || null },
+    });
   });
 
   // ── RP8 T03：工單進待料 → 通知倉管（warehouse role）備料 ──

@@ -29,6 +29,8 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { getCurrentUserDepartment } from "@/lib/rbac/department";
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
 import { notifications } from "@/lib/notifications";
+// RP4 Layer1 稽核日誌
+import { writeAuditLog } from "@/domain/audit-logs";
 // RP8 站內通知
 import { createInappNotifications } from "@/domain/user-notifications";
 
@@ -386,7 +388,7 @@ export async function decideApproval(
   ];
   await saveApprovals(input.ro_id, meta, newApprovals);
 
-  // RP4 事件時間軸
+  // RP4 事件時間軸 + 稽核日誌
   const eventAction = input.decision === "approved" ? "approval_approved" : "approval_rejected";
   after(async () => {
     await appendRepairOrderEvent(
@@ -402,6 +404,22 @@ export async function decideApproval(
       },
       actorId,
     );
+    // RP4 Layer1：寫稽核日誌（主管核准 / 拒絕）
+    await writeAuditLog({
+      table_name: "repair_orders",
+      record_id: input.ro_id,
+      action: eventAction,
+      actor_id: actorId,
+      brand_id: scope.brand_id,
+      before: { approval_id: input.approval_id, approval_status: "pending", scenario: record.scenario },
+      after: {
+        approval_id: input.approval_id,
+        approval_status: input.decision,
+        scenario: record.scenario,
+        reason: input.reason.trim(),
+        decider_name: deciderName,
+      },
+    });
   });
 
   // 取工單 + 客戶資訊（通知 SA 用）
