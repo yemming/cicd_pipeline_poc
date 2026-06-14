@@ -235,7 +235,7 @@ export async function requestApproval(
   });
 
   // Notification Hub → 推播主管（對外 LINE）
-  const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/parts/aftersales/approvals/${input.ro_id}?approval=${approvalId}`;
+  const actionUrl = `${(process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "")}/parts/aftersales/approvals/${input.ro_id}?approval=${approvalId}`;
   after(async () => {
     try {
       await notifications.dispatch({
@@ -441,7 +441,7 @@ export async function decideApproval(
   }
 
   // Notification Hub → 推播 SA（申請人，對外 LINE）
-  const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/parts/aftersales/approvals/${input.ro_id}?approval=${input.approval_id}`;
+  const actionUrl = `${(process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "")}/parts/aftersales/approvals/${input.ro_id}?approval=${input.approval_id}`;
   after(async () => {
     try {
       await notifications.dispatch({
