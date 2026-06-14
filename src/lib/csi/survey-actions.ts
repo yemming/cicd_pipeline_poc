@@ -100,7 +100,7 @@ export async function dispatchSurveyAction(
   const insertedRows = inserted ?? [];
 
   // 非阻塞推 LINE 通知
-  const appUrl = process.env.APP_URL ?? "http://localhost:3001";
+  const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
   after(async () => {
     for (const row of insertedRows) {
       try {

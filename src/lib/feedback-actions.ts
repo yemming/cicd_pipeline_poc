@@ -153,7 +153,7 @@ export async function createTicket(input: CreateTicketInput): Promise<CreateTick
   const createdByDisplay = profile?.name?.trim() || email || userId;
 
   // Notification Hub 埋點：客戶提新許願單時推 IM 通知（非阻塞、不影響 response）
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
   after(async () => {
     try {
       await notifications.dispatch({

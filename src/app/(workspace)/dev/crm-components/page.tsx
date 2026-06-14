@@ -234,7 +234,7 @@ export default function CrmComponentsSandboxPage() {
             ]}
             quickTools={[
               { key: "call", label: "電訪工作台", href: "/crm/aftersales/call-tasks", icon: "phone_in_talk" },
-              { key: "ro", label: "售後工單系統", href: "/aftersales/repair-orders", icon: "build" },
+              { key: "ro", label: "售後工單系統", href: "/parts/aftersales/repair-orders", icon: "build" },
               { key: "nps", label: "NPS 滿意度", href: "/crm/aftersales/nps", icon: "sentiment_satisfied" },
             ]}
           />

@@ -183,6 +183,7 @@ export async function sendCampaignAction(
   // 非阻塞推 LINE（不擋使用者；失敗不影響任務已標完成）
   const preview = trim(campaign.message_body).slice(0, 60);
   const kind = campaign.kind as PushKind;
+  const _campaignAppUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
   after(async () => {
     await notifications.dispatch({
       code: "crm_push.sent",
@@ -195,9 +196,7 @@ export async function sendCampaignAction(
         targetHabc: (campaign.target_habc ?? []).join("、"),
         messagePreview: preview,
         brand,
-        url: `https://dealeros.zeabur.app/crm/${
-          kind === "aftersales" ? "aftersales" : "sales"
-        }/push-notifications`,
+        url: `${_campaignAppUrl}/crm/${kind === "aftersales" ? "aftersales" : "sales"}/push-notifications`,
       },
     });
   });

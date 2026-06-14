@@ -597,12 +597,14 @@ export function RepairOrderDetailView({
           </Link>
 
           {/* 主管授權（RP5）— 僅在有授權申請時顯示 */}
-          <Link
-            href={`/parts/aftersales/approvals/${ro.id}`}
-            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] hover:bg-[#fce9c5] shadow-sm"
-          >
-            📋 主管授權記錄 →
-          </Link>
+          {supervisorApproval?.required === true && (
+            <Link
+              href={`/parts/aftersales/approvals/${ro.id}`}
+              className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] hover:bg-[#fce9c5] shadow-sm"
+            >
+              📋 主管授權記錄 →
+            </Link>
+          )}
         </div>
       </section>
         </div>

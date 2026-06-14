@@ -664,7 +664,7 @@ export async function receiveStock(
       new Set(grLinesWithAmount.map((l) => l.item_id).filter((x): x is string => !!x)),
     );
     const whId = po.warehouse_id;
-    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
     if (arrivedItems.length > 0 && whId) {
       after(async () => {
         const resolvedRos = new Set<string>();

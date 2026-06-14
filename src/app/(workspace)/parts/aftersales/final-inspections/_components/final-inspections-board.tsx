@@ -17,7 +17,7 @@ import type {
   FinalInspectionListRow,
   RoCandidate,
 } from "@/domain/final-inspections";
-import { createFromRoAction } from "@/lib/aftersales/final-inspection-actions";
+import { createFromRoAction, deleteAction } from "@/lib/aftersales/final-inspection-actions";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -56,6 +56,7 @@ export function FinalInspectionsBoard({ rows, candidates, filter, canEdit }: Pro
   const [selectedRoId, setSelectedRoId] = useState<string>(candidates[0]?.id ?? "");
   const [statusLocal, setStatusLocal] = useState<Filter["status"]>(filter.status);
   const [qLocal, setQLocal] = useState(filter.q);
+  const [deleteConfirm, setDeleteConfirm] = useState<FinalInspectionListRow | null>(null);
 
   // KPI 聚合（已被 server 過濾過 brand）
   const kpis = useMemo(() => {
@@ -110,6 +111,20 @@ export function FinalInspectionsBoard({ rows, candidates, filter, canEdit }: Pro
         router.push(`/parts/aftersales/final-inspections/${res.data.id}`);
       } else {
         showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  function handleDelete(row: FinalInspectionListRow) {
+    startTransition(async () => {
+      const res = await deleteAction(row.id);
+      if (res.ok) {
+        showBanner({ ok: true, msg: `✓ 已刪除複檢單 ${row.inspection_no}` });
+        setDeleteConfirm(null);
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+        setDeleteConfirm(null);
       }
     });
   }
@@ -353,6 +368,18 @@ export function FinalInspectionsBoard({ rows, candidates, filter, canEdit }: Pro
         exportFileName="final-inspections"
         emptyMessage="尚無竣工複檢資料"
         disabled={isPending}
+        rowActionsWidth={120}
+        rowActions={(r) =>
+          canEdit && (r.status === "in_progress" || r.status === "rejected") ? (
+            <button
+              onClick={() => setDeleteConfirm(r)}
+              disabled={isPending}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+            >
+              刪除
+            </button>
+          ) : null
+        }
       />
 
       {createOpen ? (
@@ -405,6 +432,41 @@ export function FinalInspectionsBoard({ rows, candidates, filter, canEdit }: Pro
                 className="h-[32px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
               >
                 {isPending ? "建立中⋯" : "建立並開啟"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteConfirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
+          <div className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-full max-w-[400px]">
+            <header className="px-4 py-3 border-b border-[#EEECE6]">
+              <h2 className="text-[14px] font-semibold text-[#CC0000]">確認刪除複檢單</h2>
+            </header>
+            <div className="p-4 text-[12.5px] text-[#5A5955] space-y-2">
+              <p>
+                確定要刪除複檢單{" "}
+                <span className="font-mono font-semibold text-[#2C2C2A]">
+                  {deleteConfirm.inspection_no}
+                </span>{" "}
+                嗎？此操作不可復原。
+              </p>
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={isPending}
+                className="h-[32px] px-3 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                disabled={isPending}
+                className="h-[32px] px-3.5 rounded text-[12.5px] font-medium bg-[#CC0000] text-white hover:bg-[#aa0000] disabled:opacity-60"
+              >
+                {isPending ? "刪除中⋯" : "確認刪除"}
               </button>
             </footer>
           </div>

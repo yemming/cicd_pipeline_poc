@@ -30,6 +30,7 @@ import {
 } from "@/lib/aftersales/pre-inspection-actions";
 import {
   addVehiclePendingItemAction,
+  resolveVehiclePendingItemAction,
   type AddVehiclePendingItemInput,
 } from "@/lib/aftersales/vehicle-pending-actions";
 
@@ -740,7 +741,7 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
                     {plateLookup.pending_items.length > 0 && (
                       <div className="px-3 py-2 rounded bg-[#FDF3E3] border border-[#F0C97E] text-[12px] text-[#854F0B]">
                         <b>📌 待處理項目（{plateLookup.pending_items.length}）：</b>
-                        <ul className="mt-1 space-y-0.5">
+                        <ul className="mt-1 space-y-1">
                           {plateLookup.pending_items.map((p, i) => {
                             const safetyChip =
                               p.safety_level === "緊急"
@@ -749,9 +750,9 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
                                 ? <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-[#FDF3E3] text-[#854F0B]">警示</span>
                                 : null;
                             return (
-                              <li key={i} className="flex items-start gap-1">
+                              <li key={i} className="flex items-start gap-1.5">
                                 <span>·</span>
-                                <span>
+                                <span className="flex-1">
                                   {p.item_desc}
                                   {safetyChip}
                                   {p.reject_count > 1 && (
@@ -759,6 +760,31 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
                                   )}
                                   {p.reason ? <span className="text-[#9A9890]">（{p.reason}）</span> : ""}
                                 </span>
+                                {canEdit && (
+                                  <button
+                                    type="button"
+                                    disabled={isPending}
+                                    onClick={() => {
+                                      startTransition(async () => {
+                                        const res = await resolveVehiclePendingItemAction(p.id);
+                                        if (res.ok) {
+                                          showBanner({ ok: true, msg: `✓ 已標記「${p.item_desc}」已解決` });
+                                          // 刷新車牌查詢結果
+                                          setPlateLookup((prev) =>
+                                            prev
+                                              ? { ...prev, pending_items: prev.pending_items.filter((x) => x.id !== p.id) }
+                                              : prev
+                                          );
+                                        } else {
+                                          showBanner({ ok: false, msg: res.error });
+                                        }
+                                      });
+                                    }}
+                                    className="shrink-0 h-[22px] px-2 rounded text-[10px] bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] hover:bg-[#d6ecca] disabled:opacity-50 whitespace-nowrap"
+                                  >
+                                    {isPending ? "⋯" : "標記已解決"}
+                                  </button>
+                                )}
                               </li>
                             );
                           })}
