@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * RP8 站內通知中心 — 鈴鐺元件
+ * RP8 站內通知中心 — 鈴鐺元件（Realtime 升級版）
  *
  * 特性：
- *   - 每 30s 輪詢 GET /api/inapp-notifications（Realtime 待 Phase 2 補）
+ *   - Supabase Realtime postgres_changes 訂閱 user_notifications（即時）
+ *   - 30s 輪詢 fallback（Realtime 斷線時確保最終一致）
  *   - 紅色 badge 顯示未讀數（> 9 顯示 9+）
  *   - 點鈴鐺 → 彈出下拉清單，顯示最近 50 筆（未讀置頂）
  *   - 點單筆 → markRead + 若有 href 跳轉
@@ -17,11 +18,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState, startTransition } from "react";
-// useRef 僅用於 close-on-outside-click
 import Link from "next/link";
 import { type InappNotification } from "@/domain/user-notifications.constants";
+import { subscribeUserNotifications } from "@/domain/user-notifications.realtime";
 
-const POLL_INTERVAL_MS = 30_000; // 30 秒
+const POLL_INTERVAL_MS = 30_000; // 30 秒 fallback 輪詢
 
 /** 格式化相對時間（最多顯示到幾天前）*/
 function relativeTime(isoStr: string): string {
@@ -40,44 +41,70 @@ const PRIORITY_DOT: Record<string, string> = {
   grey: "bg-[#6B6A68]",
 };
 
+/** 判斷是否未讀 */
+const isUnread = (n: InappNotification) => n.read_at === null;
+
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<InappNotification[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const unreadCount = notifications.filter((n) => n.status === "sent").length;
+  const unreadCount = notifications.filter(isUnread).length;
 
-  // ── 輪詢 ──────────────────────────────────────────────────
+  // ── 從 API 拉取通知清單 ────────────────────────────────────
+  const fetchNotifications = useCallback(() => {
+    startTransition(() => {
+      fetch("/api/inapp-notifications", {
+        cache: "no-store",
+        credentials: "same-origin",
+      })
+        .then((res) => res.json() as Promise<{ ok: boolean; data: InappNotification[] }>)
+        .then((json) => {
+          if (json.ok) {
+            setNotifications(json.data);
+          }
+        })
+        .catch(() => {
+          // 靜默失敗，等下次輪詢或 Realtime 觸發再試
+        });
+    });
+  }, []);
+
+  // ── Supabase Realtime 訂閱 + 30s 輪詢 fallback ───────────
   useEffect(() => {
     let cancelled = false;
+    let realtimeCleanup: (() => void) | null = null;
 
-    const run = () => {
-      // 用 startTransition 把 fetch → setState 包成非阻塞更新
-      startTransition(() => {
-        fetch("/api/inapp-notifications", {
-          cache: "no-store",
-          credentials: "same-origin",
-        })
-          .then((res) => res.json() as Promise<{ ok: boolean; data: InappNotification[] }>)
-          .then((json) => {
-            if (!cancelled && json.ok) {
-              setNotifications(json.data);
-            }
-          })
-          .catch(() => {
-            // 靜默失敗，下次輪詢再試
+    // 初次載入
+    fetchNotifications();
+
+    // 30s 輪詢 fallback（Realtime 斷線時確保最終一致）
+    const timer = setInterval(() => {
+      if (!cancelled) fetchNotifications();
+    }, POLL_INTERVAL_MS);
+
+    // 取得 user_id 後啟動 Realtime 訂閱
+    // 透過 API 取 user_id 避免 component 直接 import @/lib/supabase
+    fetch("/api/inapp-notifications", { credentials: "same-origin", cache: "no-store" })
+      .then((res) => res.json() as Promise<{ ok: boolean; data: InappNotification[]; user_id?: string }>)
+      .then((json) => {
+        if (!cancelled && json.user_id) {
+          realtimeCleanup = subscribeUserNotifications(json.user_id, () => {
+            if (!cancelled) fetchNotifications();
           });
+        }
+      })
+      .catch(() => {
+        // 靜默：Realtime 降級為純輪詢
       });
-    };
 
-    run(); // 初次執行
-    const timer = setInterval(run, POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
+      if (realtimeCleanup) realtimeCleanup();
     };
-  }, []);
+  }, [fetchNotifications]);
 
   // ── 點外部關閉 dropdown ────────────────────────────────────
   useEffect(() => {
@@ -97,9 +124,10 @@ export function NotificationBell() {
   // ── 標記單筆已讀 ──────────────────────────────────────────
   const handleRead = useCallback(
     async (id: string) => {
-      // 樂觀更新
+      // 樂觀更新：把 read_at 設為現在
+      const now = new Date().toISOString();
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, status: "acknowledged" } : n)),
+        prev.map((n) => (n.id === id ? { ...n, read_at: now } : n)),
       );
       await fetch("/api/inapp-notifications/read", {
         method: "POST",
@@ -114,8 +142,9 @@ export function NotificationBell() {
   // ── 全部已讀 ──────────────────────────────────────────────
   const handleMarkAllRead = useCallback(async () => {
     setLoading(true);
+    const now = new Date().toISOString();
     setNotifications((prev) =>
-      prev.map((n) => ({ ...n, status: "acknowledged" as const })),
+      prev.map((n) => ({ ...n, read_at: n.read_at ?? now })),
     );
     await fetch("/api/inapp-notifications/read", {
       method: "POST",
@@ -128,7 +157,9 @@ export function NotificationBell() {
 
   // ── 排序：未讀置頂，同狀態按時間倒序 ──────────────────────
   const sorted = [...notifications].sort((a, b) => {
-    if (a.status !== b.status) return a.status === "sent" ? -1 : 1;
+    const aUnread = isUnread(a);
+    const bUnread = isUnread(b);
+    if (aUnread !== bUnread) return aUnread ? -1 : 1;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
@@ -210,7 +241,7 @@ export function NotificationBell() {
 
           {/* Footer hint */}
           <div className="px-3 py-2 border-t border-[#EEECE6] bg-[#F8F7F4] text-[10px] text-[#9A9890] text-center">
-            每 30 秒自動更新 · Realtime 待 Phase 2 補
+            即時通知 · 30 秒輪詢備援
           </div>
         </div>
       )}
@@ -229,19 +260,19 @@ function NotificationItem({
   onRead: (id: string) => void;
   onClose: () => void;
 }) {
-  const isUnread = n.status === "sent";
+  const unread = isUnread(n);
   const dotClass =
-    PRIORITY_DOT[n.payload.priority] ?? PRIORITY_DOT.orange;
+    PRIORITY_DOT[n.priority] ?? PRIORITY_DOT.orange;
 
   const handleClick = async () => {
-    if (isUnread) await onRead(n.id);
-    if (n.payload.href) onClose();
+    if (unread) await onRead(n.id);
+    if (n.href) onClose();
   };
 
   const Inner = (
     <div
       className={`px-3 py-2.5 flex gap-2.5 items-start cursor-pointer transition-colors
-        ${isUnread ? "bg-white hover:bg-[#F8F7F4]" : "bg-[#F8F7F4] hover:bg-[#F2F2F2] opacity-70"}`}
+        ${unread ? "bg-white hover:bg-[#F8F7F4]" : "bg-[#F8F7F4] hover:bg-[#F2F2F2] opacity-70"}`}
       onClick={handleClick}
     >
       {/* 優先級色點 */}
@@ -251,19 +282,21 @@ function NotificationItem({
       <div className="flex-1 min-w-0">
         <p
           className={`text-[12px] leading-snug ${
-            isUnread ? "font-semibold text-[#2C2C2A]" : "text-[#5A5955]"
+            unread ? "font-semibold text-[#2C2C2A]" : "text-[#5A5955]"
           }`}
         >
-          {n.payload.title}
+          {n.title}
         </p>
-        <p className="text-[11px] text-[#5A5955] mt-0.5 leading-snug line-clamp-2">
-          {n.payload.body}
-        </p>
+        {n.body && (
+          <p className="text-[11px] text-[#5A5955] mt-0.5 leading-snug line-clamp-2">
+            {n.body}
+          </p>
+        )}
         <p className="text-[10px] text-[#9A9890] mt-1">
           {relativeTime(n.created_at)}
         </p>
       </div>
-      {isUnread && (
+      {unread && (
         <div className="shrink-0 mt-1">
           <span className="block w-1.5 h-1.5 rounded-full bg-[#1A3A5C]" />
         </div>
@@ -271,10 +304,10 @@ function NotificationItem({
     </div>
   );
 
-  if (n.payload.href) {
+  if (n.href) {
     return (
       <li>
-        <Link href={n.payload.href} onClick={handleClick} className="block">
+        <Link href={n.href} onClick={handleClick} className="block">
           {Inner}
         </Link>
       </li>

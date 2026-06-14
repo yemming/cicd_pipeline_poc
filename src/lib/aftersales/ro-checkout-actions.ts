@@ -797,14 +797,12 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
       await createInappNotification({
         recipient_user_id: closingUser.id,
         event_code: "aftersales.ro.closed",
-        payload: {
-          title: `工單關單完成 ${ro?.ro_code ?? ""}`,
-          body: `${ro?.ro_code ?? ""}${customerName} 已完成結帳關單，D+3 電訪任務已建立。`,
-          href: `/parts/aftersales/repair-orders/${repairOrderId}`,
-          priority: "grey", // 關單是好消息、灰色資訊級
-          source_ro_id: repairOrderId,
-          source_ro_code: ro?.ro_code ?? undefined,
-        },
+        title: `工單關單完成 ${ro?.ro_code ?? ""}`,
+        body: `${ro?.ro_code ?? ""}${customerName} 已完成結帳關單，D+3 電訪任務已建立。`,
+        href: `/parts/aftersales/repair-orders/${repairOrderId}`,
+        priority: "grey", // 關單是好消息、灰色資訊級
+        source_ro_id: repairOrderId,
+        source_ro_code: ro?.ro_code ?? undefined,
         brand_id: brand,
       });
     } catch (e) {

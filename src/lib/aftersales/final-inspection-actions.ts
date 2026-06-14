@@ -545,14 +545,12 @@ export async function rejectAction(
         uniqueUserIds.map((uid) => ({
           recipient_user_id: uid,
           event_code: "aftersales.final_inspection.rejected",
-          payload: {
-            title: notifTitle,
-            body: notifBody,
-            href: notifHref,
-            priority: "red" as const,
-            source_ro_id: roId,
-            source_ro_code: ro.ro_code ?? undefined,
-          },
+          title: notifTitle,
+          body: notifBody,
+          href: notifHref,
+          priority: "red" as const,
+          source_ro_id: roId,
+          source_ro_code: ro.ro_code ?? undefined,
           brand_id: ctx.brand,
         })),
       );

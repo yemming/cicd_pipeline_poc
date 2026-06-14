@@ -286,14 +286,12 @@ export async function requestApproval(
         recipientIds.map((userId) => ({
           recipient_user_id: userId,
           event_code: "aftersales.approval.requested",
-          payload: {
-            title: `授權申請：${scenarioLabel}`,
-            body: `工單 ${ro.ro_code ?? ""} ${customerName ? `（${customerName}）` : ""} — ${requesterName ?? "SA"} 申請${scenarioLabel}，請儘速審核。`,
-            href: actionUrl,
-            priority: "red" as const,
-            source_ro_id: input.ro_id,
-            source_ro_code: ro.ro_code ?? undefined,
-          },
+          title: `授權申請：${scenarioLabel}`,
+          body: `工單 ${ro.ro_code ?? ""} ${customerName ? `（${customerName}）` : ""} — ${requesterName ?? "SA"} 申請${scenarioLabel}，請儘速審核。`,
+          href: actionUrl,
+          priority: "red" as const,
+          source_ro_id: input.ro_id,
+          source_ro_code: ro.ro_code ?? undefined,
           brand_id: scope.brand_id,
         })),
       );
@@ -460,14 +458,12 @@ export async function decideApproval(
         {
           recipient_user_id: record.requester_id,
           event_code: "aftersales.approval.resolved",
-          payload: {
-            title: `授權結果：${scenarioLabel} ${decisionLabel}`,
-            body: `工單 ${ro?.ro_code ?? ""} ${customerName ? `（${customerName}）` : ""} — ${decisionLabel}。${input.reason.trim()}`,
-            href: actionUrl,
-            priority: input.decision === "approved" ? ("orange" as const) : ("red" as const),
-            source_ro_id: input.ro_id,
-            source_ro_code: ro?.ro_code ?? undefined,
-          },
+          title: `授權結果：${scenarioLabel} ${decisionLabel}`,
+          body: `工單 ${ro?.ro_code ?? ""} ${customerName ? `（${customerName}）` : ""} — ${decisionLabel}。${input.reason.trim()}`,
+          href: actionUrl,
+          priority: input.decision === "approved" ? ("orange" as const) : ("red" as const),
+          source_ro_id: input.ro_id,
+          source_ro_code: ro?.ro_code ?? undefined,
           brand_id: scope.brand_id,
         },
       ]);

@@ -1,38 +1,37 @@
 "use server";
 
 /**
- * Domain Helper — RP8 站內通知中心（async functions only）
+ * Domain Helper — RP8 站內通知中心
  *
- * 策略：借用既有 `notification_deliveries` 表，以 channel_code='inapp' + target_ref=user_id
- * 存放站內通知。無需 DDL，與對外 LINE/GoogleChat 管道共用同一張表的讀寫能力。
+ * 升級自 notification_deliveries(channel=inapp) → user_notifications 真表。
  *
- * 欄位對映：
- *   channel_code = 'inapp'
- *   target_ref   = auth.uid()（收件人）
+ * 欄位對映（user_notifications）：
+ *   user_id      = 收件人 auth.uid()
+ *   brand_id     = 當前品牌
+ *   title        = 通知標題
+ *   body         = 通知內文
+ *   priority     = 'red' | 'orange' | 'grey'（default 'orange'）
  *   event_code   = 業務事件 code
- *   event_payload = InappPayload（見 user-notifications.constants.ts）
- *   status       = 'sent'（新通知）| 'acknowledged'（已讀）
- *   brand_id     = 當前 brand
+ *   ref          = jsonb { href?, source_ro_id?, source_ro_code?, extra? }
+ *   read_at      = null（未讀）| timestamptz（已讀）
+ *   created_at   = 建立時間（server default）
  *
- * TODO promote: Phase 2 新增 user_notifications 獨立表（需 DDL），
- *   提供 realtime subscription、7 年保存、跨 brand 彙整。
- *   目前 30s 輪詢足以 demo，Realtime 待補。
+ * 寫入政策：系統替任意使用者寫 → 用 createServiceClient（bypass RLS）。
+ * 讀取政策：使用者只讀自己 → 用 createClient（RLS: user_id = auth.uid()）。
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getActiveScope } from "@/lib/scope/active-scope";
 
 import {
-  INAPP_CHANNEL,
-  type InappPayload,
+  type InappPriority,
   type InappNotification,
+  type CreateInappNotificationInput,
 } from "./user-notifications.constants";
 
-// Note: constants & types are in user-notifications.constants.ts (not re-exported here
-// because "use server" files can only export async functions)
-
 // ─────────────────────────────────────────────────────────────
-// READ
+// READ（一般 server client — RLS 保護）
 // ─────────────────────────────────────────────────────────────
 
 /**
@@ -46,10 +45,9 @@ export async function listMyNotifications(): Promise<InappNotification[]> {
   if (!user?.id) return [];
 
   const { data, error } = await supabase
-    .from("notification_deliveries")
-    .select("id, event_code, event_payload, status, created_at")
-    .eq("channel_code", INAPP_CHANNEL)
-    .eq("target_ref", user.id)
+    .from("user_notifications")
+    .select("id, event_code, title, body, priority, ref, read_at, created_at")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -58,39 +56,10 @@ export async function listMyNotifications(): Promise<InappNotification[]> {
     return [];
   }
 
-  return (data ?? []).map((row) => {
-    const rawPayload = (row.event_payload ?? {}) as Record<string, unknown>;
-    const payload: InappPayload = {
-      title: String(rawPayload.title ?? "通知"),
-      body: String(rawPayload.body ?? ""),
-      href: typeof rawPayload.href === "string" ? rawPayload.href : undefined,
-      priority: (rawPayload.priority as "red" | "orange" | "grey" | undefined) ?? "orange",
-      source_ro_id:
-        typeof rawPayload.source_ro_id === "string"
-          ? rawPayload.source_ro_id
-          : undefined,
-      source_ro_code:
-        typeof rawPayload.source_ro_code === "string"
-          ? rawPayload.source_ro_code
-          : undefined,
-      extra:
-        typeof rawPayload.extra === "object" && rawPayload.extra !== null
-          ? (rawPayload.extra as Record<string, unknown>)
-          : undefined,
-    };
-    return {
-      id: row.id as string,
-      event_code: row.event_code as string,
-      payload,
-      status: (row.status === "acknowledged" ? "acknowledged" : "sent") as
-        | "sent"
-        | "acknowledged",
-      created_at: row.created_at as string,
-    };
-  });
+  return (data ?? []).map(rowToNotification);
 }
 
-/** 未讀數（快取用） */
+/** 未讀數 */
 export async function countUnreadNotifications(): Promise<number> {
   const supabase = await createClient();
   const {
@@ -99,18 +68,17 @@ export async function countUnreadNotifications(): Promise<number> {
   if (!user?.id) return 0;
 
   const { count, error } = await supabase
-    .from("notification_deliveries")
+    .from("user_notifications")
     .select("id", { count: "exact", head: true })
-    .eq("channel_code", INAPP_CHANNEL)
-    .eq("target_ref", user.id)
-    .eq("status", "sent");
+    .eq("user_id", user.id)
+    .is("read_at", null);
 
   if (error) return 0;
   return count ?? 0;
 }
 
 // ─────────────────────────────────────────────────────────────
-// WRITE — 標記已讀
+// WRITE — 標記已讀（一般 server client — RLS 保護）
 // ─────────────────────────────────────────────────────────────
 
 /** 標記一筆通知為已讀 */
@@ -123,14 +91,10 @@ export async function markRead(notificationId: string): Promise<void> {
   if (!user?.id) return;
 
   const { error } = await supabase
-    .from("notification_deliveries")
-    .update({
-      status: "acknowledged",
-      updated_at: new Date().toISOString(),
-    })
+    .from("user_notifications")
+    .update({ read_at: new Date().toISOString() })
     .eq("id", notificationId)
-    .eq("channel_code", INAPP_CHANNEL)
-    .eq("target_ref", user.id);
+    .eq("user_id", user.id);
 
   if (error) {
     console.error("[markRead]", error.message);
@@ -146,14 +110,10 @@ export async function markAllRead(): Promise<void> {
   if (!user?.id) return;
 
   const { error } = await supabase
-    .from("notification_deliveries")
-    .update({
-      status: "acknowledged",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("channel_code", INAPP_CHANNEL)
-    .eq("target_ref", user.id)
-    .eq("status", "sent");
+    .from("user_notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+    .is("read_at", null);
 
   if (error) {
     console.error("[markAllRead]", error.message);
@@ -161,20 +121,11 @@ export async function markAllRead(): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// WRITE — 建立站內通知（server action 內呼叫）
+// WRITE — 建立站內通知（service client — bypass RLS，系統替別人寫）
 // ─────────────────────────────────────────────────────────────
 
-export type CreateInappNotificationInput = {
-  /** 收件人 user_id（auth.uid）*/
-  recipient_user_id: string;
-  /** 業務事件 code */
-  event_code: string;
-  payload: InappPayload;
-  brand_id?: string;
-};
-
 /**
- * 建立一筆站內通知並寫入 notification_deliveries。
+ * 建立一筆站內通知並寫入 user_notifications。
  * 失敗靜默 console.error，不阻斷主流程。
  */
 export async function createInappNotification(
@@ -182,7 +133,8 @@ export async function createInappNotification(
 ): Promise<void> {
   if (!input.recipient_user_id) return;
   try {
-    const supabase = await createClient();
+    const sb = createServiceClient();
+
     let brandId = input.brand_id;
     if (!brandId) {
       try {
@@ -192,20 +144,21 @@ export async function createInappNotification(
       }
     }
 
-    const now = new Date().toISOString();
-    const { error } = await supabase.from("notification_deliveries").insert({
-      channel_code: INAPP_CHANNEL,
-      target_ref: input.recipient_user_id,
-      event_code: input.event_code,
-      event_payload: input.payload as unknown as Record<string, unknown>,
-      status: "sent",
-      attempts: 1,
-      sent_at: now,
-      rendered_body: null,
-      subscription_id: null,
-      template_code: null,
+    // 把舊 payload 的各欄打包成 ref jsonb
+    const ref: Record<string, unknown> = {};
+    if (input.href) ref.href = input.href;
+    if (input.source_ro_id) ref.source_ro_id = input.source_ro_id;
+    if (input.source_ro_code) ref.source_ro_code = input.source_ro_code;
+    if (input.extra) ref.extra = input.extra;
+
+    const { error } = await sb.from("user_notifications").insert({
+      user_id: input.recipient_user_id,
       brand_id: brandId,
-      last_error: null,
+      title: input.title,
+      body: input.body,
+      priority: input.priority,
+      event_code: input.event_code,
+      ref,
     });
 
     if (error) {
@@ -224,4 +177,45 @@ export async function createInappNotifications(
 ): Promise<void> {
   if (inputs.length === 0) return;
   await Promise.allSettled(inputs.map((i) => createInappNotification(i)));
+}
+
+// ─────────────────────────────────────────────────────────────
+// 私有：DB row → InappNotification
+// ─────────────────────────────────────────────────────────────
+
+function rowToNotification(row: {
+  id: string;
+  event_code: string | null;
+  title: string;
+  body: string | null;
+  priority: string;
+  ref: unknown;
+  read_at: string | null;
+  created_at: string;
+}): InappNotification {
+  const ref = (typeof row.ref === "object" && row.ref !== null
+    ? row.ref
+    : {}) as Record<string, unknown>;
+
+  const priority: InappPriority =
+    row.priority === "red" || row.priority === "orange" || row.priority === "grey"
+      ? (row.priority as InappPriority)
+      : "orange";
+
+  return {
+    id: row.id,
+    event_code: row.event_code,
+    title: row.title,
+    body: row.body,
+    priority,
+    href: typeof ref.href === "string" ? ref.href : undefined,
+    source_ro_id: typeof ref.source_ro_id === "string" ? ref.source_ro_id : undefined,
+    source_ro_code: typeof ref.source_ro_code === "string" ? ref.source_ro_code : undefined,
+    extra:
+      typeof ref.extra === "object" && ref.extra !== null
+        ? (ref.extra as Record<string, unknown>)
+        : undefined,
+    read_at: row.read_at,
+    created_at: row.created_at,
+  };
 }

@@ -463,14 +463,12 @@ export async function updateRepairOrderStatusAction(
           recipientIds.map((uid) => ({
             recipient_user_id: uid,
             event_code: "aftersales.ro.parts_waiting",
-            payload: {
-              title: `工單進入待料 — ${ro.ro_code ?? ""}`,
-              body: `工單 ${ro.ro_code ?? ""} 已轉為「${status}」，請查看並備料。`,
-              href: `/parts/aftersales/repair-orders/${id}`,
-              priority: "orange" as const,
-              source_ro_id: id,
-              source_ro_code: ro.ro_code ?? undefined,
-            },
+            title: `工單進入待料 — ${ro.ro_code ?? ""}`,
+            body: `工單 ${ro.ro_code ?? ""} 已轉為「${status}」，請查看並備料。`,
+            href: `/parts/aftersales/repair-orders/${id}`,
+            priority: "orange" as const,
+            source_ro_id: id,
+            source_ro_code: ro.ro_code ?? undefined,
             brand_id: brand,
           })),
         );

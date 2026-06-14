@@ -711,16 +711,14 @@ export async function decideAddonAction(
         await createInappNotification({
           recipient_user_id: emp.user_id as string,
           event_code: "aftersales.addon.rejected",
-          payload: {
-            title: `客戶拒絕追加項目`,
-            body: `工單 ${ro.ro_code ?? ""} 的追加「${String(addon.name)}」已被拒絕。${
-              decision.rejection_reason ? `原因：${decision.rejection_reason}。` : ""
-            }已寫入人車待處理清單。`,
-            href: `/parts/aftersales/repair-orders/${addonRoId}/lines`,
-            priority: "orange",
-            source_ro_id: addonRoId,
-            source_ro_code: ro.ro_code ?? undefined,
-          },
+          title: `客戶拒絕追加項目`,
+          body: `工單 ${ro.ro_code ?? ""} 的追加「${String(addon.name)}」已被拒絕。${
+            decision.rejection_reason ? `原因：${decision.rejection_reason}。` : ""
+          }已寫入人車待處理清單。`,
+          href: `/parts/aftersales/repair-orders/${addonRoId}/lines`,
+          priority: "orange",
+          source_ro_id: addonRoId,
+          source_ro_code: ro.ro_code ?? undefined,
           brand_id: brand,
         });
       } catch (e) {
