@@ -88,7 +88,7 @@ const TEST_PAYLOAD = {
   customerName: "驗證客戶",
   saName: "驗證SA",
   notes: "這是 B2 seed 驗證腳本自動發送的測試訊息，可忽略。",
-  actionUrl: "https://dealeros.zeabur.app/aftersales/management/approvals",
+  actionUrl: "https://dealeros.zeabur.app/parts/aftersales/repair-orders",
 };
 
 // 直接 render LINE flex 訊息（對齊 aftersales-approval-requested.line.default 模板）

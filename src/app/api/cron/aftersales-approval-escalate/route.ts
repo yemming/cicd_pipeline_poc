@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
   try {
     const nowMs = Date.now();
     const thresholdMs = escalateAfterMinutes * 60 * 1000;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
 
     // ── 1. 掃描有 pending approvals 的 RO（近 7 天；有 approvals 的比較少，避免全表掃） ──
     const sevenDaysAgo = new Date(nowMs - 7 * 24 * 60 * 60 * 1000).toISOString();
