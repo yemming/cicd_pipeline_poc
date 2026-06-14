@@ -10,6 +10,8 @@ import {
   cancelRepairOrderAction,
   updateRepairOrderStatusAction,
   notifyRepairOrderProgressAction,
+  recordContactAttemptAction,
+  type ContactAttemptInput,
 } from "@/lib/aftersales/repair-order-actions";
 import { requestCancelOrderApprovalAction } from "@/lib/aftersales/approval-request-actions";
 import { RO_STATUS_OPTIONS, priorityDef } from "@/domain/repair-orders.constants";
@@ -65,7 +67,11 @@ function roEventLabel(e: RoEvent): string {
       const dec = p.customer_decision === "agreed" ? "同意" : p.customer_decision === "rejected" ? "拒絕" : p.customer_decision === "deferred" ? "暫緩" : p.customer_decision ?? "—";
       return `追加項目決策：${p.addon_name ?? "—"} → ${dec}${p.estimated_fee != null ? `（NT$${Number(p.estimated_fee).toLocaleString()}）` : ""}`;
     }
-    case "contact_attempt":        return "聯繫嘗試";
+    case "contact_attempt": {
+      const p = (e.payload ?? {}) as { method?: string; result?: string };
+      const parts = [p.method, p.result].filter(Boolean).join(" / ");
+      return `聯繫嘗試${parts ? `：${parts}` : ""}`;
+    }
     default:                       return String((e as { action?: string }).action ?? "未知事件");
   }
 }
@@ -139,6 +145,11 @@ export function RepairOrderDetailView({
   /** RP5 中途取消授權 modal */
   const [cancelApprovalModal, setCancelApprovalModal] = useState(false);
   const [cancelApprovalNotes, setCancelApprovalNotes] = useState("");
+  /** B5-02 聯繫嘗試記錄 modal */
+  const [contactModal, setContactModal] = useState(false);
+  const [contactMethod, setContactMethod] = useState<ContactAttemptInput["contact_method"]>("電話");
+  const [contactResult, setContactResult] = useState<ContactAttemptInput["contact_result"]>("接通");
+  const [contactNotes, setContactNotes] = useState("");
 
   function showBanner(b: { ok: boolean; msg: string }) {
     setBanner(b);
@@ -193,6 +204,26 @@ export function RepairOrderDetailView({
       const res = await requestCancelOrderApprovalAction(ro.id, cancelApprovalNotes.trim());
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 中途取消申請已送主管審批，工單暫不取消" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  /** B5-02 聯繫嘗試：送出記錄 */
+  function doRecordContact() {
+    setContactModal(false);
+    startTransition(async () => {
+      const res = await recordContactAttemptAction({
+        ro_id: ro.id,
+        contact_method: contactMethod,
+        contact_result: contactResult,
+        notes: contactNotes || null,
+      });
+      if (res.ok) {
+        showBanner({ ok: true, msg: `✓ 已記錄聯繫嘗試（${contactMethod} / ${contactResult}）` });
+        setContactNotes("");
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -271,6 +302,21 @@ export function RepairOrderDetailView({
             className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
           >
             🖨️ 列印 / PDF
+          </button>
+          {/* B5-02：聯繫嘗試記錄（任何狀態都可記錄，無論 canEdit） */}
+          <button
+            type="button"
+            onClick={() => {
+              setContactMethod("電話");
+              setContactResult("接通");
+              setContactNotes("");
+              setContactModal(true);
+            }}
+            disabled={isPending}
+            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#EAF4FB] border border-[#A9CCE8] text-[#185FA5] hover:bg-[#d4eaf8] shadow-sm disabled:opacity-50"
+            title="記錄與車主的聯繫嘗試（B5-02）"
+          >
+            📞 記錄聯繫
           </button>
           {canEdit && !["已取消", "已關單", "已關閉-中途取消", "已關閉-保固待確認"].includes(ro.status) && (
             <>
@@ -628,6 +674,11 @@ export function RepairOrderDetailView({
                           原因：{(ev.payload as { reason?: string }).reason}
                         </div>
                       )}
+                      {ev.action === "contact_attempt" && (ev.payload as { notes?: string })?.notes && (
+                        <div className="text-[11px] text-[#9A9890] mt-0.5">
+                          備註：{(ev.payload as { notes?: string }).notes}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ol>
@@ -791,6 +842,84 @@ export function RepairOrderDetailView({
                 className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
               >
                 {isPending ? "送出中⋯" : "送出申請"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+      {/* B5-02 聯繫嘗試記錄 Modal */}
+      {contactModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => !isPending && setContactModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[440px] max-w-[90vw] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#EAF4FB] flex items-center gap-2">
+              <span className="text-[16px]">📞</span>
+              <div className="text-[13px] font-semibold text-[#185FA5]">記錄聯繫嘗試（B5-02）</div>
+              <span className="ml-auto text-[10px] text-[#185FA5] font-mono">{ro.ro_code}</span>
+            </header>
+            <div className="px-4 py-4 space-y-3">
+              <p className="text-[12.5px] text-[#5A5955]">
+                記錄 SA 與車主的聯繫嘗試，僅追加稽核記錄，不改變工單狀態。
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-[#9A9890] font-medium">聯繫方式</label>
+                  <select
+                    value={contactMethod}
+                    onChange={(e) => setContactMethod(e.target.value as ContactAttemptInput["contact_method"])}
+                    className="w-full h-[32px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                  >
+                    <option value="電話">電話</option>
+                    <option value="LINE">LINE</option>
+                    <option value="簡訊">簡訊</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] text-[#9A9890] font-medium">聯繫結果</label>
+                  <select
+                    value={contactResult}
+                    onChange={(e) => setContactResult(e.target.value as ContactAttemptInput["contact_result"])}
+                    className="w-full h-[32px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                  >
+                    <option value="接通">接通</option>
+                    <option value="未接">未接</option>
+                    <option value="留言">留言</option>
+                    <option value="回覆">回覆</option>
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">備註（選填）</label>
+                <textarea
+                  value={contactNotes}
+                  onChange={(e) => setContactNotes(e.target.value)}
+                  rows={2}
+                  placeholder="例：已告知待料，預計明後天取車…"
+                  className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none resize-none"
+                />
+              </div>
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setContactModal(false)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={doRecordContact}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#185FA5] text-white hover:bg-[#0d4a8b] disabled:opacity-50"
+              >
+                {isPending ? "記錄中⋯" : "確認記錄"}
               </button>
             </footer>
           </div>

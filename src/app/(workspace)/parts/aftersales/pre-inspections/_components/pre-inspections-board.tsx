@@ -28,6 +28,10 @@ import {
   createBlankAction,
   createFromAppointmentAction,
 } from "@/lib/aftersales/pre-inspection-actions";
+import {
+  addVehiclePendingItemAction,
+  type AddVehiclePendingItemInput,
+} from "@/lib/aftersales/vehicle-pending-actions";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Filter = {
@@ -106,6 +110,74 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
           f.mileage_in || (res.vehicle?.current_mileage != null ? String(res.vehicle.current_mileage) : ""),
       }));
     }
+  }
+
+  // ─── RP7③ SA 手動新增待處理項 modal state ───
+  const [pendingItemOpen, setPendingItemOpen] = useState(false);
+  const [piVehiclePlate, setPiVehiclePlate] = useState("");
+  const [piVehicleId, setPiVehicleId] = useState<string | null>(null);
+  const [piVehicleLabel, setPiVehicleLabel] = useState<string | null>(null);
+  const [piLooking, setPiLooking] = useState(false);
+  const [piLookupMsg, setPiLookupMsg] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [piItemDesc, setPiItemDesc] = useState("");
+  const [piSafetyLevel, setPiSafetyLevel] = useState<AddVehiclePendingItemInput["safety_level"]>("建議");
+  const [piReason, setPiReason] = useState("");
+
+  async function doPiVehicleLookup() {
+    const plate = piVehiclePlate.trim();
+    if (!plate) {
+      setPiLookupMsg({ ok: false, msg: "請輸入車牌" });
+      return;
+    }
+    setPiLooking(true);
+    setPiLookupMsg(null);
+    setPiVehicleId(null);
+    setPiVehicleLabel(null);
+    const res = await lookupVehicleByPlate(plate);
+    setPiLooking(false);
+    if (res.found && res.vehicle) {
+      setPiVehicleId(res.vehicle.id);
+      const label = [res.customer?.name, res.vehicle.model_name, res.vehicle.license_plate]
+        .filter(Boolean)
+        .join(" · ");
+      setPiVehicleLabel(label);
+      setPiLookupMsg({ ok: true, msg: `✓ 找到車籍：${label}` });
+    } else {
+      setPiLookupMsg({ ok: false, msg: "查無此車牌，請確認後再試" });
+    }
+  }
+
+  function handleAddPendingItem() {
+    if (!piVehicleId) {
+      showBanner({ ok: false, msg: "請先查詢並確認車籍" });
+      return;
+    }
+    if (!piItemDesc.trim()) {
+      showBanner({ ok: false, msg: "請填寫待處理項目說明" });
+      return;
+    }
+    startTransition(async () => {
+      const res = await addVehiclePendingItemAction({
+        vehicle_id: piVehicleId!,
+        item_desc: piItemDesc.trim(),
+        safety_level: piSafetyLevel,
+        reason: piReason.trim() || null,
+      });
+      if (res.ok) {
+        showBanner({ ok: true, msg: `✓ 已新增待處理項目（${piSafetyLevel}）` });
+        setPendingItemOpen(false);
+        // 重置表單
+        setPiVehiclePlate("");
+        setPiVehicleId(null);
+        setPiVehicleLabel(null);
+        setPiLookupMsg(null);
+        setPiItemDesc("");
+        setPiSafetyLevel("建議");
+        setPiReason("");
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
   }
 
   const [statusLocal, setStatusLocal] = useState<Filter["status"]>(filter.status);
@@ -463,6 +535,24 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
                 ＋ 新增預檢
               </button>
             )}
+            {canEdit && (
+              <button
+                onClick={() => {
+                  setPiVehiclePlate("");
+                  setPiVehicleId(null);
+                  setPiVehicleLabel(null);
+                  setPiLookupMsg(null);
+                  setPiItemDesc("");
+                  setPiSafetyLevel("建議");
+                  setPiReason("");
+                  setPendingItemOpen(true);
+                }}
+                disabled={isPending}
+                className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] hover:bg-[#fce9c5] disabled:opacity-50"
+              >
+                📌 新增待處理項
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -701,6 +791,122 @@ export function PreInspectionsBoard({ rows, candidates, filter, canEdit }: Props
                 className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
               >
                 {isPending ? "建立中⋯" : "建立並開啟"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RP7③ SA 手動新增待處理項 Modal */}
+      {pendingItemOpen && canEdit && (
+        <div
+          className="fixed inset-0 bg-black/30 flex items-center justify-center z-40"
+          onClick={() => !isPending && setPendingItemOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg p-5 w-[500px] max-w-[92vw] shadow-xl space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-[14px] font-semibold text-[#2C2C2A]">
+              📌 SA 手動新增待處理項目（RP7③）
+            </h2>
+            <p className="text-[12px] text-[#9A9890]">
+              電話諮詢或未進廠時，SA 可手動為車輛登記待處理項，下次進廠預檢自動帶出提醒。
+            </p>
+
+            {/* 車牌查詢 */}
+            <div className="space-y-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">車牌號碼（查詢車籍）</label>
+              <div className="flex gap-1.5">
+                <input
+                  value={piVehiclePlate}
+                  onChange={(e) => {
+                    setPiVehiclePlate(e.target.value);
+                    setPiVehicleId(null);
+                    setPiVehicleLabel(null);
+                    setPiLookupMsg(null);
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") doPiVehicleLookup(); }}
+                  placeholder="ABC-1234"
+                  className="h-[30px] flex-1 border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={doPiVehicleLookup}
+                  disabled={piLooking}
+                  className="h-[30px] px-3 rounded text-[12px] bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60 shrink-0"
+                >
+                  {piLooking ? "查詢中⋯" : "🔍 查詢"}
+                </button>
+              </div>
+              {piLookupMsg && (
+                <div className={`mt-1 px-3 py-1.5 rounded text-[12px] ${
+                  piLookupMsg.ok
+                    ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+                    : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+                }`}>
+                  {piLookupMsg.msg}
+                </div>
+              )}
+            </div>
+
+            {/* 項目說明 */}
+            <div className="space-y-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">待處理項目說明 <span className="text-[#CC0000]">*</span></label>
+              <input
+                value={piItemDesc}
+                onChange={(e) => setPiItemDesc(e.target.value)}
+                placeholder="例：前煞車皮磨損需更換、輪胎氣壓異常…"
+                className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+              />
+            </div>
+
+            {/* 安全等級 + 原因（同列） */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">安全等級</label>
+                <select
+                  value={piSafetyLevel}
+                  onChange={(e) => setPiSafetyLevel(e.target.value as AddVehiclePendingItemInput["safety_level"])}
+                  className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                >
+                  <option value="建議">建議（一般維護提醒）</option>
+                  <option value="警示">警示（影響使用安全）</option>
+                  <option value="緊急">緊急（立即有危險）</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">原因 / 備註（選填）</label>
+                <input
+                  value={piReason}
+                  onChange={(e) => setPiReason(e.target.value)}
+                  placeholder="例：客戶電話反映、目視發現…"
+                  className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none"
+                />
+              </div>
+            </div>
+
+            {/* 目前車籍確認欄 */}
+            {piVehicleLabel && (
+              <div className="px-3 py-2 rounded bg-[#EAF4FB] border border-[#A9CCE8] text-[12px] text-[#185FA5]">
+                <span className="font-medium">對象車輛：</span>{piVehicleLabel}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={() => setPendingItemOpen(false)}
+                disabled={isPending}
+                className="h-[30px] px-3 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleAddPendingItem}
+                disabled={isPending || !piVehicleId || !piItemDesc.trim()}
+                className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
+              >
+                {isPending ? "新增中⋯" : "新增待處理項"}
               </button>
             </div>
           </div>

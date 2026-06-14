@@ -850,3 +850,52 @@ export async function notifyRepairOrderProgressAction(
 
   return { ok: true, data: { id: roId } };
 }
+
+/**
+ * B5-02 聯繫嘗試記錄（RP4 事件時間軸 contact_attempt）
+ *
+ * SA 記錄「電話/LINE/簡訊」聯繫嘗試與結果，append 到工單 metadata.events。
+ * 不改工單狀態，純稽核記錄。
+ */
+export type ContactAttemptInput = {
+  ro_id: string;
+  /** 聯繫方式：電話 / LINE / 簡訊 */
+  contact_method: "電話" | "LINE" | "簡訊";
+  /** 聯繫結果：接通 / 未接 / 留言 / 回覆 */
+  contact_result: "接通" | "未接" | "留言" | "回覆";
+  notes?: string | null;
+};
+
+export async function recordContactAttemptAction(
+  input: ContactAttemptInput,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!input.ro_id) return { ok: false, error: "缺少工單 ID" };
+  if (!input.contact_method) return { ok: false, error: "請選擇聯繫方式" };
+  if (!input.contact_result) return { ok: false, error: "請選擇聯繫結果" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 確認 RO 存在且屬於當前 brand
+  const { data: ro } = await supabase
+    .from("repair_orders")
+    .select("id")
+    .eq("id", input.ro_id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!ro) return { ok: false, error: "找不到工單" };
+
+  // append-only：寫 contact_attempt 事件到 metadata.events
+  await appendRepairOrderEvent(input.ro_id, {
+    action: "contact_attempt",
+    payload: {
+      method: input.contact_method,
+      result: input.contact_result,
+      notes: input.notes?.trim() || null,
+    },
+  });
+
+  revalidatePath(`${PAGE_PATH}/${input.ro_id}`);
+  return { ok: true, data: { id: input.ro_id } };
+}
