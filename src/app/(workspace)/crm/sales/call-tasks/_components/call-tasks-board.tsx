@@ -344,7 +344,7 @@ export function CallTasksBoard({
         ]
       : [
           { key: "customers", label: "客戶基盤", href: "/crm/aftersales/customer-base", icon: "groups" },
-          { key: "ro", label: "建立工單", href: "/aftersales/repair-orders/new", icon: "build" },
+          { key: "ro", label: "建立工單", href: "/parts/aftersales/repair-orders/new", icon: "build" },
           { key: "nps", label: "NPS 看板", href: "/crm/aftersales/nps", icon: "sentiment_satisfied" },
         ];
 

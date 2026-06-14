@@ -297,6 +297,7 @@ export async function confirmArrivalAction(
 
   // 5) 副作用：非阻塞推通知（失敗吞錯，不影響主流程）
   const poId = input.po_id;
+  const _appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
   after(async () => {
     try {
       await notifications.dispatch({
@@ -307,7 +308,7 @@ export async function confirmArrivalAction(
           confirmedCount: String(confirmedVehicles),
           damagedCount: String(damagedCount),
           pdiCount: String(pdiRoCodes.length),
-          actionUrl: `${PAGE_PATH}/${arrivalId}`,
+          actionUrl: `${_appUrl}${PAGE_PATH}/${arrivalId}`,
         },
       });
     } catch (e) {

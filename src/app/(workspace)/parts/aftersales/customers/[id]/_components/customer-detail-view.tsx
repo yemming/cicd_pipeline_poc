@@ -300,7 +300,7 @@ export function CustomerDetailView({
             修改（主檔）
           </Link>
           <Link
-            href={`/parts/aftersales/reception?customer=${customer.id}`}
+            href={`/parts/aftersales/repair-orders/new?customer=${customer.id}`}
             className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm"
           >
             開新工單

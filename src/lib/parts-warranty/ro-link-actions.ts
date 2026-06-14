@@ -218,7 +218,7 @@ export async function sendUrgentReminder(
     return { ok: false, error: "僅送件審核中 / 等撥款的單需要催促" };
   }
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
   const claimNo = existing.data.claim_no;
   const itemLabel = existing.data.item_label;
   const roNo = existing.data.ro_no;
