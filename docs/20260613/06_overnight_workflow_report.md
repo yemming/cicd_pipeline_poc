@@ -537,3 +537,89 @@ tsc 0 errors，eslint 0 errors，domain audit @/lib/supabase 0 新增違規，Re
 | B-07 認證 PDF 實測 | B-07 | 需一張真實 warranty certificate 上傳 Storage 並連結 vehicle；程式路徑已備，缺實測資料 |
 | RP8 Realtime 精細化 | RP8 2% | `user_notifications` Realtime 已升（Wave R3-P2），todo-badge 60s 輪詢仍可換 Realtime；選配，UX 體感差距 |
 | P6.3 SA 帳號被主管解鎖擋住 Playwright 確認 | RP2 8% | clearSignAction 守門 is_dept_manager||is_cross_admin 已 code review 確認，缺 SA 角色嘗試解鎖被拒的端對端截圖 |
+
+---
+
+## Round 5（deferred：PDF 憑證 + notification 訂閱）
+
+**執行時段**：2026-06-14（Round 4 完成後，收尾批次）
+**分支**：`main`
+**波次數**：2（D1 RP4 Layer 3 PDF 憑證持久化 / D2 RP5/RP7 notification 訂閱設定）
+**新增 commits**：本輪為 deferred 環境配置補充，實作層均已在 Round 3–4 完成
+
+> **注意**：本 Round 兩個波次均屬「程式已備，等環境/配置落地」的收尾任務，與前四輪的程式 end-to-end 補齊性質不同。
+
+---
+
+### Wave D1：RP4 Layer 3 — PDF 憑證持久化
+**狀態**：⏸ deferred（等 DDL）
+
+**做了什麼**：本波次為 **DDL 前置依賴**，程式骨架已備（`/api/pdf` route、`@sparticuz/chromium` PDF 生成路徑），尚需：
+1. Supabase 建立 Storage bucket `ro-pdf-archives`（private，非 public）
+2. 執行 DDL 建立 `repair_order_pdfs` 關聯表（`id`, `repair_order_id`, `pdf_type`, `storage_path`, `generated_at`, `generated_by`）
+3. DDL 落地後，`/api/pdf/repair-order/[id]` 在回傳 PDF blob 前額外呼叫 `savePdfRecord()`（INSERT `repair_order_pdfs`）並上傳 Storage
+
+**當前狀態**：`/api/pdf` 路由存在且可生成 PDF，但不持久化（每次 on-demand 重生成）。Layer 3 的 5% RP4 覆蓋率缺口即此。
+
+**等待事項**：Ming 執行 Storage bucket + DDL CREATE TABLE → 告知完成後主 Agent 接線 `savePdfRecord()` + INSERT。
+
+**驗證計畫**（DDL 落地後）：
+- 打 `/api/pdf/repair-order/{id}` → 確認 `repair_order_pdfs` 有新 row
+- Storage `ro-pdf-archives/{id}.pdf` 可從 service client 下載
+- 第二次打同一 URL → Storage 直接取（不重新 render）
+
+---
+
+### Wave D2：RP5 / RP7 notification 訂閱設定
+**狀態**：⏸ deferred（等後台手動操作）
+
+**做了什麼**：本波次為**後台營運配置**，通知 dispatch 程式路徑均已在 Round 2 Wave 7 落地並驗證（`notifications.dispatch` 呼叫路徑 14 個觸發點，tsc 0 errors）。目前靜默（dispatch 執行但無訂閱 → `notification_deliveries` 不寫入）的事件：
+
+| EventCode | 觸發情境 | 推送目標 |
+|-----------|---------|---------|
+| `aftersales_approval.requested` | SA 申請折扣超限 / 費用鎖定 / 中途取消授權 | 售後主管（LINE + Google Chat） |
+| `aftersales_approval.resolved` | 主管核准或拒絕授權 | 申請 SA（LINE） |
+| `aftersales_approval.escalated` | 30 分鐘未審批自動升級（cron） | 售後主管 + 後備主管 |
+
+**等待事項**：在 `/admin/notifications/subscriptions` 手動新增上述三個 EventCode 的訂閱（indian branch + ducati branch 各自建立），並確認對應 notification target（LINE 群組 / 個人帳號）已在 `/admin/notifications/targets` 設定。
+
+**驗證計畫**（訂閱設定後）：
+- 在測試 RO 觸發 `applyDiscountAction`（超限）→ 確認 `notification_deliveries` 有新 row，`status=sent`
+- 確認 LINE 群組收到 Flex Message 含「申請授權」資訊
+- `notification_deliveries.status=failed` 時查 `last_error` 診斷（常見：LINE channel token 過期、target_ref 格式錯誤）
+
+---
+
+### Round 5 Cron 啟用（由主 Agent 另外處理）
+
+> ⚠️ **cron 啟用由主 Agent 另外處理，本 Round 不含此項。**
+
+以下 cron 設定已在 Wave 7（Round 2）骨架完整實作，但需 Zeabur 平台配置才能啟動：
+
+| 設定項 | 動作 | 骨架位置 |
+|--------|------|---------|
+| `CRON_TOKEN` 環境變數 | Zeabur → Environment Variables → 新增隨機值 | `/api/cron/aftersales-approval-escalate/route.ts` 的 `timingSafeEqual` 守門 |
+| Zeabur 排程（每 30 分鐘） | Zeabur → Scheduled Tasks → `0,30 * * * *` → `POST /api/cron/aftersales-approval-escalate` Bearer `{CRON_TOKEN}` | 同上，dry_run=false 才真正升級 |
+
+主 Agent 確認 Zeabur 設定後，可用以下指令驗證骨架正常：
+
+```bash
+# 不帶 token → 應回 503
+curl -s -o /dev/null -w "%{http_code}" https://dealeros.zeabur.app/api/cron/aftersales-approval-escalate
+
+# 帶正確 token + dry_run → 應回 200 含 escalated_count
+curl -s -H "Authorization: Bearer {CRON_TOKEN}" \
+  "https://dealeros.zeabur.app/api/cron/aftersales-approval-escalate?dry_run=true"
+```
+
+---
+
+### Round 5 總結
+
+| 波次 | 狀態 | 阻塞原因 | 程式已備 |
+|------|------|---------|---------|
+| D1 PDF 憑證持久化 | ⏸ deferred | Storage bucket + DDL CREATE TABLE 需 Ming 執行 | ✅ `/api/pdf` route + chromium 生成路徑完整 |
+| D2 notification 訂閱 | ⏸ deferred | `/admin/notifications/subscriptions` 後台手動操作 | ✅ dispatch 路徑 14 個觸發點，tsc 0 errors |
+| Cron 啟用 | 🔀 另行處理 | Zeabur 環境變數 + 排程設定（主 Agent 處理） | ✅ Wave 7 骨架完整，`CRON_TOKEN` 守門已實作 |
+
+**Round 5 完成後 Russell 45 必修覆蓋率**：預計從 ~95%（Round 4）升至 **~98%**（D1 PDF 持久化 RP4 +3%；D2 notification 訂閱屬營運配置，已在覆蓋率計算中視為程式完成）。

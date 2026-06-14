@@ -29,6 +29,7 @@ import {
   confirmFeesAction,
   confirmPaymentAction,
   deleteAction,
+  getCloseoutPdfUrlAction,
   markReceiptPrintedAction,
   refreshFeeSummaryAction,
   saveAddonAuthSignatureAction,
@@ -334,6 +335,23 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
     });
   }
 
+  // RP4 Layer3：結帳憑證 PDF 下載連結
+  const initPdfUrl = ((data.metadata ?? {}) as Record<string, unknown>).closeout_pdf_url as string | null ?? null;
+  const [closeoutPdfUrl, setCloseoutPdfUrl] = useState<string | null>(initPdfUrl);
+  const [pdfFetching, setPdfFetching] = useState(false);
+
+  function fetchPdfUrl() {
+    if (pdfFetching) return;
+    setPdfFetching(true);
+    startTransition(async () => {
+      const res = await getCloseoutPdfUrlAction(data.id);
+      if (res.ok && res.data.url) {
+        setCloseoutPdfUrl(res.data.url);
+      }
+      setPdfFetching(false);
+    });
+  }
+
   const lines = summary.lines ?? [];
   const fenced = !canEdit || data.status === "completed";
 
@@ -536,6 +554,9 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
           fenced={fenced}
           onComplete={complete}
           onPrint={printReceipt}
+          closeoutPdfUrl={closeoutPdfUrl}
+          pdfFetching={pdfFetching}
+          onFetchPdfUrl={fetchPdfUrl}
         />
       ) : null}
 
@@ -1196,6 +1217,9 @@ function Step4({
   fenced,
   onComplete,
   onPrint,
+  closeoutPdfUrl,
+  pdfFetching,
+  onFetchPdfUrl,
 }: {
   checkoutNo: string;
   status: RoCheckoutStatus;
@@ -1209,6 +1233,10 @@ function Step4({
   fenced: boolean;
   onComplete: () => void;
   onPrint: () => void;
+  /** RP4 Layer3：結帳憑證 PDF 下載 URL（signed URL）*/
+  closeoutPdfUrl: string | null;
+  pdfFetching: boolean;
+  onFetchPdfUrl: () => void;
 }) {
   const isClosed = status === "completed";
   return (
@@ -1269,6 +1297,29 @@ function Step4({
               >
                 {receiptPrintedAt ? `已列印 · ${fmtDateTime(receiptPrintedAt)}` : "列印收據"}
               </button>
+              {/* RP4 Layer3：結帳憑證 PDF 下載（有 URL 就直接開、沒有就觸發取 URL） */}
+              {closeoutPdfUrl ? (
+                <a
+                  href={closeoutPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-[36px] px-4 rounded text-[12.5px] inline-flex items-center gap-1.5 bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] hover:bg-[#d6edbd]"
+                  download
+                >
+                  <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+                  下載結帳憑證 PDF
+                </a>
+              ) : (
+                <button
+                  onClick={onFetchPdfUrl}
+                  disabled={pdfFetching}
+                  className="h-[36px] px-4 rounded text-[12.5px] inline-flex items-center gap-1.5 bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                  title="取得結帳憑證 PDF 連結"
+                >
+                  <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+                  {pdfFetching ? "取得中⋯" : "結帳憑證 PDF"}
+                </button>
+              )}
               <Link
                 href="/parts/aftersales/checkout"
                 className="h-[36px] px-4 rounded text-[12.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"

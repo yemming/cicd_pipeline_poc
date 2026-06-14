@@ -53,6 +53,8 @@ import {
 import { writeAuditLog } from "@/domain/audit-logs";
 // RP8 站內通知
 import { createInappNotification } from "@/domain/user-notifications";
+// RP4 Layer3：關單時持久化結帳憑證 PDF
+import { persistRepairOrderPdf } from "@/domain/ro-documents";
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -833,6 +835,34 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
     }
   });
 
+  // ── RP4 Layer3：關單 → 非阻塞持久化結帳憑證 PDF 到 Storage ──
+  // 用 after() 確保不阻擋主流程；失敗只 log，不影響關單結果。
+  // APP_URL 優先（Zeabur 明確設定）；本機 dev 預設 localhost:3100（本輪 dev port）。
+  // render.ts 在 mac 本機可能因 @sparticuz/chromium 缺 linux binary 而失敗，
+  // persistRepairOrderPdf 內部已 try/catch 吞錯。
+  {
+    const appOriginForPdf =
+      process.env.APP_URL?.trim().replace(/\/+$/, "") ?? "http://localhost:3100";
+    after(async () => {
+      try {
+        const result = await persistRepairOrderPdf({
+          roId: repairOrderId,
+          checkoutId: id,
+          brand,
+          appOrigin: appOriginForPdf,
+          // cookieHeader 留空 → persistRepairOrderPdf 內部自動從 next/headers 讀取
+        });
+        if (result) {
+          console.log(`[RP4 Layer3] RO ${repairOrderId} closeout PDF 持久化成功`);
+        } else {
+          console.warn(`[RP4 Layer3] RO ${repairOrderId} closeout PDF 持久化失敗（不影響關單）`);
+        }
+      } catch (e) {
+        console.error("[RP4 Layer3] persistRepairOrderPdf 例外（不影響關單）", e);
+      }
+    });
+  }
+
   revalidatePath(`${PAGE}/${id}`);
   revalidatePath(PAGE);
   revalidatePath("/parts/aftersales/repair-orders");
@@ -893,6 +923,32 @@ export async function markReceiptPrintedAction(id: string): Promise<ActionResult
   if (error) return { ok: false, error: error.message };
   revalidatePath(`${PAGE}/${id}`);
   return { ok: true, data: { id } };
+}
+
+/**
+ * RP4 Layer3：取結帳憑證 PDF 下載 URL（signed URL，有效 60 分鐘）。
+ * 若尚未生成 → 回 null；UI 只顯示「有 URL 才顯示連結」。
+ */
+export async function getCloseoutPdfUrlAction(
+  id: string,
+): Promise<ActionResult<{ url: string } | { url: null }>> {
+  await requirePermission(PERMISSIONS.RO_VIEW);
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+
+  const meta = (ctx.row.metadata ?? {}) as Record<string, unknown>;
+  const storagePath = typeof meta.closeout_pdf_storage_path === "string"
+    ? meta.closeout_pdf_storage_path
+    : null;
+
+  if (!storagePath) {
+    return { ok: true, data: { url: null } };
+  }
+
+  // 動態 import 避免循環依賴（domain 不互引）
+  const { getCloseoutPdfSignedUrl } = await import("@/domain/ro-documents");
+  const signedUrl = await getCloseoutPdfSignedUrl(storagePath);
+  return { ok: true, data: { url: signedUrl ?? null } };
 }
 
 export async function deleteAction(id: string): Promise<ActionResult<{ id: string }>> {
