@@ -48,6 +48,8 @@ export type RoCheckoutListRow = RoCheckoutRow & {
 export type RoCheckoutFilters = {
   status?: RoCheckoutStatus | "all";
   q?: string;
+  /** 從工單詳情頁跳入時，只顯示該工單的結帳記錄 */
+  roId?: string | null;
 };
 
 /* ──────────────── helpers (file-private) ──────────────── */
@@ -229,6 +231,9 @@ export async function listRoCheckouts(
   }
   if (filters.q && filters.q.trim()) {
     query = query.ilike("checkout_no", `%${filters.q.trim()}%`);
+  }
+  if (filters.roId) {
+    query = query.eq("repair_order_id", filters.roId);
   }
 
   const { data, error } = await query;

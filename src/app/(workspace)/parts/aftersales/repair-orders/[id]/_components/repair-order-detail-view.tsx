@@ -542,37 +542,67 @@ export function RepairOrderDetailView({
         </div>
       </section>
 
-      {/* 子模組入口 */}
+      {/* 子模組入口 — 04~08 全部串接 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 子模組</span>
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 子模組流程</span>
         </header>
         <div className="px-4 py-3 flex flex-wrap gap-2">
+          {/* 03 維修項目 / PDI / 整備 */}
           {ro.prefix_p1 === "PD" && ro.related_used_car_id ? (
             <Link
               href={`/parts/aftersales/workorders/recon/${ro.id}`}
               className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm"
             >
-              🔧 中古車整備工單執行（24 項）→
+              🔧 整備工單（24 項）→
             </Link>
           ) : ro.prefix_p1 === "PD" ? (
             <Link
               href={`/parts/aftersales/workorders/pdi/${ro.id}`}
               className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#0F6E56] text-white hover:bg-[#0a5742] shadow-sm"
             >
-              🔧 PDI 整備工單執行（30 項）→
+              🔧 PDI 整備（30 項）→
             </Link>
           ) : (
             <Link
               href={`/parts/aftersales/repair-orders/${ro.id}/lines`}
               className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#1A3A5C] text-white hover:bg-[#0F2A45] shadow-sm"
             >
-              🔧 維修項目／零件明細 →
+              🔧 03 維修項目明細 →
             </Link>
           )}
-          <span className="text-[11px] text-[#9A9890] inline-flex items-center">
-            04 追加項目・05 增項閉環・06 竣工複檢・08 結帳收款 待落地
-          </span>
+
+          {/* 04 追加項目（filtered by ro_id） */}
+          <Link
+            href={`/parts/aftersales/addons?ro_id=${ro.id}`}
+            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
+          >
+            ➕ 04 追加項目 →
+          </Link>
+
+          {/* 06 竣工複檢 */}
+          <Link
+            href={`/parts/aftersales/final-inspections?ro_id=${ro.id}`}
+            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
+          >
+            🔍 06 竣工複檢 →
+          </Link>
+
+          {/* 08 結帳收款 */}
+          <Link
+            href={`/parts/aftersales/checkout?ro_id=${ro.id}`}
+            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
+          >
+            💳 08 結帳收款 →
+          </Link>
+
+          {/* 主管授權（RP5）— 僅在有授權申請時顯示 */}
+          <Link
+            href={`/parts/aftersales/approvals/${ro.id}`}
+            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] hover:bg-[#fce9c5] shadow-sm"
+          >
+            📋 主管授權記錄 →
+          </Link>
         </div>
       </section>
         </div>

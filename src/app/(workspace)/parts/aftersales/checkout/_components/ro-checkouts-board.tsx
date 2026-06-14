@@ -21,7 +21,7 @@ import type {
 import { createFromRoAction } from "@/lib/aftersales/ro-checkout-actions";
 
 type Banner = { ok: boolean; msg: string } | null;
-type Filter = { status: RoCheckoutStatus | "all"; q: string };
+type Filter = { status: RoCheckoutStatus | "all"; q: string; roId?: string | null };
 
 type Props = {
   rows: RoCheckoutListRow[];
@@ -216,6 +216,13 @@ export function RoCheckoutsBoard({ rows, candidates, filter, canEdit, kpis }: Pr
           竣工複檢通過後的 4 步驟結帳：費用確認 → 車主第二次簽名 → 收款方式・發票 → RO 關單
         </span>
       </header>
+      {/* 從工單詳情頁跳入時顯示篩選說明 */}
+      {filter.roId && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-[#EAF4FB] border border-[#A9CCE8] rounded-lg text-[12px] text-[#185FA5]">
+          <span>🔍 已篩選：僅顯示工單 <code className="font-mono">{filter.roId.slice(0,8)}…</code> 的結帳記錄（共 {rows.length} 筆）</span>
+          <Link href="/parts/aftersales/checkout" className="ml-auto text-[#185FA5] underline hover:no-underline whitespace-nowrap">清除篩選</Link>
+        </div>
+      )}
 
       <section
         className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"

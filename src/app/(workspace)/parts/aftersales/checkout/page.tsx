@@ -43,9 +43,10 @@ export default async function RoCheckoutsPage({
     ? sp.status
     : "all") as RoCheckoutStatus | "all";
   const q = sp.q ?? "";
+  const roId = sp.ro_id ?? null;
 
   const [rows, candidates, kpis] = await Promise.all([
-    listRoCheckouts({ status, q }),
+    listRoCheckouts({ status, q, roId }),
     listRoCandidatesForCheckout(),
     getCheckoutKpis(),
   ]);
@@ -54,7 +55,7 @@ export default async function RoCheckoutsPage({
     <RoCheckoutsBoard
       rows={rows}
       candidates={candidates}
-      filter={{ status, q }}
+      filter={{ status, q, roId }}
       canEdit={canEdit}
       kpis={kpis}
     />

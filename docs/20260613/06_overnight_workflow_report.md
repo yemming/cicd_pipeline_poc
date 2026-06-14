@@ -437,3 +437,103 @@ tsc 0 errors，eslint 0 errors，domain audit @/lib/supabase 0 新增違規，Re
 | T02 cron 啟用 | Zeabur 設定 | 設 CRON_TOKEN 環境變數 + Zeabur 排程 | RP5 Cron |
 | B-07 認證 PDF 實測 | 環境資料 + 測試 | 需上傳真實 warranty certificate 到 Storage | B-07 |
 | 三稽核頁 Playwright e2e | 測試補充 | 需有 AUDIT_AFTERSALES_VIEW persona 的 storageState | RP4 |
+
+---
+
+## Round 4（程式 end-to-end 補齊，跳過 cron/PDF/notification）
+
+**執行時段**：2026-06-14 日間（Round 3 完成後）
+**分支**：`main`（三個 commit 直接落在 main）
+**波次數**：3（F1 稽核權限 seed + F2 三條守門驗收 + F3 全流程 e2e 串接）
+**新增 commits**：`e76743f` / `a2e88b2` / `99af18b`
+
+---
+
+### Wave F1：AUDIT_* 權限 seed + 四個 action 補 writeAuditLog hook
+**狀態**：✅ done | **commit**：`e76743f`
+
+**做了什麼**：
+1. **DB seed 補漏**：用 node + service role 把 Round3-P3 新增的三條 AUDIT_* permission code（`audit.aftersales.view` / `audit.inventory.view` / `audit.group.view`）INSERT 進 `permissions` 表，並補 `role_permissions` 6 筆（aftersales_lead+manager→aftersales；stock_lead+warehouse→inventory；owner+manager→group）。修復了「permissions.ts 有 code ≠ DB 已 seed」的已知坑（memory `perms-defined-but-not-seeded`），補 seed 後 aftersales_lead persona 才能真正進稽核頁，而非只有 admin 帳號。
+2. **audit hook 補齊**：四個 action 的 `after()` 非阻塞稽核寫入接線完成 — `confirmRepairOrderAction`（`ro_created`）、`cancelAddonAction`（`addon_cancelled`）、`final-inspection completeAction`（`final_inspection_passed`）、`final-inspection rejectAction`（`final_inspection_rejected`）。加上 Round3-P3 已有的 4 個 hook（updateRepairOrderStatus / applyDiscount / clearSign / decideApproval），共 8 個關鍵動作全部接上 audit_logs。
+
+**驗證**：`scripts/test-f1-audit-seed-verify.mjs` **14/14 PASS**：DB seed 9 checks（permissions 3 筆 + role_permissions 6 筆均存在）✅、audit_logs 可讀寫 2 checks ✅、admin 能進 `/parts/aftersales/audit-log`（Playwright 302→200）✅、technician 角色無 `audit.aftersales.view` permission（DB 直查確認）✅。tsc 0 errors，eslint 0 errors 0 warnings，domain audit 0 新增違規。
+
+**相關檔案**：`scripts/test-f1-audit-seed-verify.mjs`, `src/lib/aftersales/final-inspection-actions.ts`, `src/lib/aftersales/repair-order-actions.ts`, `src/lib/aftersales/repair-order-addon-actions.ts`
+
+---
+
+### Wave F2：三條守門升真 UI 端對端驗收
+**狀態**：✅ done | **commit**：`a2e88b2`
+
+**做了什麼**：三條先前「以 code review 確認守門邏輯」的路徑升級為 Playwright 真 UI 端對端驗收：
+
+1. **M-09 同人複檢禁止**：前端 final-inspection wizard 的施工主技師下拉選項，若與登入技師相同則 `disabled` + 顯示 `⛔` 視覺提示；後端 `signAction` 同步有同人守門。
+2. **P6 主管解鎖簽名**：admin 執行 `clearSignAction` 寫入 `sig_unlock_history`（append 到 metadata）+ 同步寫 `audit_logs`（`checkout_sig_cleared`），完整稽核軌跡。
+3. **P7 折扣超限送審**：`changeDiscount()` 補 `approval_required` 分支——當折扣率超過 SA 授權上限（種子規則 5%），UI 顯示橘色「送審中」chip + 鎖 selector 不可繼續調整；`repair_orders.metadata.approvals[]` 寫入 `pending discount_exceed` 紀錄。補了 15% 折扣選項讓測試情境可觸達（SA 上限 5%）。
+
+**驗證**：`scripts/test-f2-guards.mjs` **3/3 ✅**（M-09 / P6 / P7 各一條 Playwright 端對端 PASS）。tsc 0 errors，eslint 0 errors。
+
+**相關檔案**：`scripts/test-f2-guards.mjs`, `src/app/(workspace)/parts/aftersales/checkout/_components/ro-checkout-wizard.tsx`, `src/domain/ro-checkouts.constants.ts`
+
+---
+
+### Wave F3：全流程 e2e — 子模組導覽串接 + ro_id 過濾補洞
+**狀態**：✅ done | **commit**：`99af18b`
+
+**做了什麼**：補齊 UI 頁面層的兩類缺口：
+
+1. **RO 詳情頁子模組流程串接**：移除原本的「待落地」placeholder 假連結，補上 4 個帶 `ro_id` 參數的真實連結 — 追加項目（`/parts/aftersales/addons?ro_id=…`）、竣工複檢（`/parts/aftersales/final-inspections?ro_id=…`）、結帳收款（`/parts/aftersales/checkout?ro_id=…`）、主管授權記錄（`/parts/aftersales/approvals/[roId]`）。從 RO 詳情頁一鍵跳子模組，不再需要手動過濾。
+2. **竣工複檢 / 結帳收款的 ro_id 過濾支援**：`domain/final-inspections.ts` 與 `domain/ro-checkouts.ts` 各加 `roId` 過濾參數；`page.tsx` 讀 `searchParams.ro_id`；board 顯示上下文篩選 banner（「已依工單 {code} 過濾」）+ 「清除篩選」link。
+
+**驗證**：`scripts/test-f3-e2e-main-flow.mjs` **48/48 PASS**（主線框架 8 checks + 追加/複檢/結帳/派工/授權/稽核各子路徑 + 5 岔路情境 + DB 直查）。tsc 0 errors，eslint 0 errors，domain audit 0 violations。
+
+**相關檔案**：`scripts/test-f3-e2e-main-flow.mjs`, `src/app/(workspace)/parts/aftersales/repair-orders/[id]/_components/repair-order-detail-view.tsx`, `src/app/(workspace)/parts/aftersales/checkout/page.tsx`, `src/app/(workspace)/parts/aftersales/checkout/_components/ro-checkouts-board.tsx`, `src/app/(workspace)/parts/aftersales/final-inspections/page.tsx`, `src/app/(workspace)/parts/aftersales/final-inspections/_components/final-inspections-board.tsx`, `src/domain/final-inspections.ts`, `src/domain/ro-checkouts.ts`
+
+---
+
+## Round 4 總結
+
+### 更新後 Russell 45 必修「程式部分」覆蓋率估計
+
+| RP 項目 | Round3 後 | Round4 後 | 說明 |
+|---------|-----------|-----------|------|
+| RP1 工單狀態機 | 95% | **97%** | F3 全流程串接確認狀態機在真 UI 路徑下無斷點 |
+| RP2 電子簽名 | 82% | **92%** | F2 P6 主管解鎖 clearSignAction 真 UI 端對端驗收完成；sig_unlock_history + audit_logs 雙軌 |
+| RP3 退料反向 | 100% | **100%** | 維持完整 |
+| RP4 稽核事件軸 | 88% | **97%** | F1 補 4 個 action hook（共 8 個）+ DB seed 落地；audit_logs 稽核頁 persona 可進；剩 Layer 3 PDF 持久化 |
+| RP5 主管授權 | 95% | **98%** | F2 P7 折扣超限送審真 UI 驗收；cron 骨架已備，CRON_TOKEN 設定後可開 |
+| RP6 關單路徑統一 | 100% | **100%** | 維持 |
+| RP7 人車檔案同步 | 88% | **90%** | F3 串接確認 UI 路徑完整；DDL ALTER TABLE 仍缺 |
+| RP8 站內通知中心 | 98% | **98%** | 維持；Realtime 已升級 |
+
+**整體 Russell 45 必修覆蓋率（程式部分）**：
+
+| 時間點 | 估計覆蓋率 |
+|--------|-----------|
+| Round1 前 | ~20% |
+| Round1 後 | ~68% |
+| Round2 後 | ~85% |
+| Round3 後 | ~91% |
+| **Round4 後** | **~95%** |
+
+---
+
+### 明確排除項目（不算覆蓋率缺口）
+
+以下三類項目被**明確排除**在本輪程式 end-to-end 補齊範圍外，不計入覆蓋率缺口：
+
+| 排除類型 | 具體項目 | 排除理由 |
+|----------|----------|----------|
+| **Cron 排程** | T02「等待客戶授權 >2hr」升級排程；RP5 30min 升級骨架啟用 | 骨架程式碼已完整實作，需 Zeabur 環境變數 `CRON_TOKEN` + 排程設定，屬**環境配置**非程式缺口 |
+| **PDF 憑證持久化** | RP4 Layer 3：`ro-pdf-archives` Storage bucket + `repair_order_pdfs` 關聯表 | 需 DDL CREATE TABLE + Storage bucket 建立，屬**環境/DDL**任務非程式缺口 |
+| **Notification 訂閱設定** | RP5 / RP7 等通知推 LINE 需在 `/admin/notifications/subscriptions` 手動新增訂閱 | 屬**營運配置**（管理後台操作），程式 dispatch 路徑已全部接線並驗證 |
+
+### 真正還剩什麼（非排除項的程式缺口）
+
+| 項目 | 影響 RP | 說明 |
+|------|---------|------|
+| `vehicle_pending_items` DDL 補欄位 | RP7 100% | `metadata jsonb` 和 `updated_at timestamptz` ALTER TABLE；現在靠 `as Record<string,unknown>` 型別暫繞，需 Ming 決定時機 ALTER |
+| RP4 Layer 3 PDF 持久化程式接線 | RP4 3% | DDL 落地後才能接線（`/api/pdf` 存 S3 + `repair_order_pdfs` INSERT）；DDL 先行 |
+| B-07 認證 PDF 實測 | B-07 | 需一張真實 warranty certificate 上傳 Storage 並連結 vehicle；程式路徑已備，缺實測資料 |
+| RP8 Realtime 精細化 | RP8 2% | `user_notifications` Realtime 已升（Wave R3-P2），todo-badge 60s 輪詢仍可換 Realtime；選配，UX 體感差距 |
+| P6.3 SA 帳號被主管解鎖擋住 Playwright 確認 | RP2 8% | clearSignAction 守門 is_dept_manager||is_cross_admin 已 code review 確認，缺 SA 角色嘗試解鎖被拒的端對端截圖 |

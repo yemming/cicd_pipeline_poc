@@ -42,9 +42,10 @@ export default async function FinalInspectionsPage({
     ? sp.status
     : "all") as FinalInspectionStatus | "all";
   const q = sp.q ?? "";
+  const roId = sp.ro_id ?? null;
 
   const [rows, candidates] = await Promise.all([
-    listFinalInspections({ status, q }),
+    listFinalInspections({ status, q, roId }),
     listRoCandidatesForInspection(),
   ]);
 
@@ -52,7 +53,7 @@ export default async function FinalInspectionsPage({
     <FinalInspectionsBoard
       rows={rows}
       candidates={candidates}
-      filter={{ status, q }}
+      filter={{ status, q, roId }}
       canEdit={canEdit}
     />
   );

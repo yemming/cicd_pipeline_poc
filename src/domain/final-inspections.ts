@@ -60,6 +60,8 @@ export type FinalInspectionListRow = FinalInspectionRow & {
 export type FinalInspectionFilters = {
   status?: FinalInspectionStatus | "all";
   q?: string;
+  /** 從工單詳情頁跳入時，只顯示該工單的複檢記錄 */
+  roId?: string | null;
 };
 
 export async function listFinalInspections(
@@ -80,6 +82,9 @@ export async function listFinalInspections(
   }
   if (filters.q && filters.q.trim()) {
     query = query.ilike("inspection_no", `%${filters.q.trim()}%`);
+  }
+  if (filters.roId) {
+    query = query.eq("repair_order_id", filters.roId);
   }
 
   const { data, error } = await query;

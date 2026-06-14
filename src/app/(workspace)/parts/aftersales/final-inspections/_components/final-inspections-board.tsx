@@ -21,7 +21,7 @@ import { createFromRoAction } from "@/lib/aftersales/final-inspection-actions";
 
 type Banner = { ok: boolean; msg: string } | null;
 
-type Filter = { status: FinalInspectionStatus | "all"; q: string };
+type Filter = { status: FinalInspectionStatus | "all"; q: string; roId?: string | null };
 
 type Props = {
   rows: FinalInspectionListRow[];
@@ -238,6 +238,13 @@ export function FinalInspectionsBoard({ rows, candidates, filter, canEdit }: Pro
           維修完成後逐項複檢、試車、清潔、簽核、通知取車的 5 步驟單據
         </span>
       </header>
+      {/* 從工單詳情頁跳入時顯示篩選說明 */}
+      {filter.roId && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-[#EAF4FB] border border-[#A9CCE8] rounded-lg text-[12px] text-[#185FA5]">
+          <span>🔍 已篩選：僅顯示工單 <code className="font-mono">{filter.roId.slice(0,8)}…</code> 的複檢記錄（共 {rows.length} 筆）</span>
+          <Link href="/parts/aftersales/final-inspections" className="ml-auto text-[#185FA5] underline hover:no-underline whitespace-nowrap">清除篩選</Link>
+        </div>
+      )}
 
       {/* KPI 列 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">

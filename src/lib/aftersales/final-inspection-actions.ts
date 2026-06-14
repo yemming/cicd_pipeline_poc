@@ -25,6 +25,8 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { registerOldPartFromInspection } from "@/domain/warranty";
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
+// RP4 Layer1 稽核日誌
+import { writeAuditLog } from "@/domain/audit-logs";
 // RP5：複檢退回超 2 次自動送審
 import { requestApproval } from "@/domain/aftersales-approvals";
 // RP8 T07：複檢退回→技師+SA 站內通知
@@ -348,6 +350,24 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
         fiActorId,
       );
     });
+
+    // ── RP4 Layer1 稽核日誌：複檢通過（非阻塞）──
+    after(async () => {
+      await writeAuditLog({
+        table_name: "final_inspections",
+        record_id: id,
+        action: "final_inspection_passed",
+        actor_id: fiActorId,
+        brand_id: ctx.brand,
+        before: { status: ctx.row.status },
+        after: {
+          status: "completed",
+          ro_id: fiRoId,
+          inspection_no: ctx.row.inspection_no,
+          inspector_name: ctx.row.inspector_name ?? null,
+        },
+      });
+    });
   }
 
   // ── 跨模組 hook #6：複檢通過 → 保固單的換下舊件自動登錄 ──
@@ -558,6 +578,32 @@ export async function rejectAction(
       console.error("[RP8 T07 複檢退回通知] 副作用例外（不影響退回）", e);
     }
   });
+
+  // ── RP4 Layer1 稽核日誌：複檢退回（非阻塞）──
+  {
+    const {
+      data: { user: _auditUser },
+    } = await supabase.auth.getUser();
+    const auditActorId = _auditUser?.id ?? null;
+    const rejectReasonLog = reason ?? ctx.row.issue_note ?? "退回技師重修";
+    after(async () => {
+      await writeAuditLog({
+        table_name: "final_inspections",
+        record_id: id,
+        action: "final_inspection_rejected",
+        actor_id: auditActorId,
+        brand_id: ctx.brand,
+        before: { status: ctx.row.status },
+        after: {
+          status: "rejected",
+          ro_id: roId,
+          inspection_no: ctx.row.inspection_no,
+          reason: rejectReasonLog,
+          rework_count: newReworkCount,
+        },
+      });
+    });
+  }
 
   revalidatePath(`${PAGE}/${id}`);
   revalidatePath(PAGE);
