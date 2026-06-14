@@ -159,11 +159,28 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
     });
   }
 
+  // P7：折扣超限送審的「待審狀態」本地端暫存（pending 期間 selector 鎖定、顯示橘色提示）
+  const [discountApprovalPending, setDiscountApprovalPending] = useState(false);
+  const [discountPendingPct, setDiscountPendingPct] = useState<number | null>(null);
+
   function changeDiscount(pct: number) {
     startTransition(async () => {
       const res = await applyDiscountAction(data.id, pct);
       if (res.ok) {
-        router.refresh();
+        // P7：後端回 approval_required = true → 超限送審，折扣尚未套用
+        if (res.data.approval_required) {
+          setDiscountApprovalPending(true);
+          setDiscountPendingPct(pct);
+          showBanner({
+            ok: true,
+            msg: `折扣 ${pct}% 超出授權上限，已送主管審批（申請單末 6 碼：${res.data.approval_id?.slice(-6) ?? "—"}）。主管核准後折扣自動生效。`,
+          });
+        } else {
+          // 正常折扣套用
+          setDiscountApprovalPending(false);
+          setDiscountPendingPct(null);
+          router.refresh();
+        }
       } else {
         showBanner({ ok: false, msg: res.error });
       }
@@ -468,6 +485,9 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
           addonAuthSigAt={existingAddonAuthSig?.signed_at ?? null}
           onAddonAuthSign={saveAddonAuthSig}
           onAddonAuthReSign={() => setAddonAuthSigImg(null)}
+          // P7：折扣超限送審狀態
+          discountApprovalPending={discountApprovalPending}
+          discountPendingPct={discountPendingPct}
         />
       ) : null}
 
@@ -691,6 +711,8 @@ function Step1({
   addonAuthSigAt,
   onAddonAuthSign,
   onAddonAuthReSign,
+  discountApprovalPending,
+  discountPendingPct,
 }: {
   summary: FeeSummary;
   lines: FeeLine[];
@@ -707,6 +729,9 @@ function Step1({
   addonAuthSigAt: string | null;
   onAddonAuthSign: (dataUrl: string) => void;
   onAddonAuthReSign: () => void;
+  // P7：折扣超限送審狀態
+  discountApprovalPending?: boolean;
+  discountPendingPct?: number | null;
 }) {
   const total = summary.total ?? 0;
   const payable = summary.payable ?? total;
@@ -793,13 +818,25 @@ function Step1({
         </table>
       </div>
 
+      {/* P7：折扣超限送審中提示 */}
+      {discountApprovalPending && (
+        <div className="mt-3 pt-3 border-t border-[#EEECE6] bg-[#FDF3E3] border border-[#F0C97E] rounded-md px-3 py-2 flex items-center gap-2 text-[12.5px] text-[#854F0B]">
+          <span className="material-symbols-outlined text-[16px]">pending</span>
+          <span>
+            折扣 <b>{discountPendingPct}%</b> 超出授權上限，已送主管審批中。主管核准後折扣才會生效，目前費用以<b>未折扣</b>顯示。
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[#EEECE6] flex-wrap">
         <span className="text-[12.5px] text-[#5A5955]">折扣優惠</span>
         <select
           value={pct}
           onChange={(e) => onChangeDiscount(Number(e.target.value))}
-          disabled={fenced || isPending}
-          className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-50"
+          disabled={fenced || isPending || discountApprovalPending}
+          className={`h-[30px] border rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-50 ${
+            discountApprovalPending ? "border-[#F0C97E] bg-[#FDF3E3] text-[#854F0B]" : "border-[#D5D3CB]"
+          }`}
         >
           {DISCOUNT_OPTIONS.map((o) => (
             <option key={o.pct} value={o.pct}>
@@ -807,6 +844,11 @@ function Step1({
             </option>
           ))}
         </select>
+        {discountApprovalPending && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E]">
+            ⏳ 送審中
+          </span>
+        )}
         <button
           onClick={onRefresh}
           disabled={fenced || isPending}

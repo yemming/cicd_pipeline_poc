@@ -54,6 +54,7 @@ export const DISCOUNT_OPTIONS = [
   { pct: 0, label: "無折扣" },
   { pct: 5, label: "VIP 九五折" },
   { pct: 10, label: "主管授權九折" },
+  { pct: 15, label: "特別折扣 85 折（需主管送審）" },
 ] as const;
 
 export type FeeSummary = {
