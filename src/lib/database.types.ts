@@ -814,6 +814,42 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after: Json | null
+          before: Json | null
+          brand_id: string | null
+          created_at: string
+          id: number
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          brand_id?: string | null
+          created_at?: string
+          id?: never
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          brand_id?: string | null
+          created_at?: string
+          id?: never
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       brand_appearance: {
         Row: {
           brand_id: string
@@ -9950,6 +9986,44 @@ export type Database = {
           },
         ]
       }
+      repair_order_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          brand_id: string
+          id: string
+          occurred_at: string
+          payload: Json
+          ro_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          brand_id: string
+          id?: string
+          occurred_at?: string
+          payload?: Json
+          ro_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          brand_id?: string
+          id?: string
+          occurred_at?: string
+          payload?: Json
+          ro_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_order_events_ro_id_fkey"
+            columns: ["ro_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       repair_order_lines: {
         Row: {
           amount: number
@@ -10047,6 +10121,47 @@ export type Database = {
           {
             foreignKeyName: "repair_order_lines_repair_order_id_fkey"
             columns: ["repair_order_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repair_order_status_history: {
+        Row: {
+          actor_id: string | null
+          brand_id: string
+          changed_at: string
+          from_status: string | null
+          id: string
+          reason: string | null
+          ro_id: string
+          to_status: string
+        }
+        Insert: {
+          actor_id?: string | null
+          brand_id: string
+          changed_at?: string
+          from_status?: string | null
+          id?: string
+          reason?: string | null
+          ro_id: string
+          to_status: string
+        }
+        Update: {
+          actor_id?: string | null
+          brand_id?: string
+          changed_at?: string
+          from_status?: string | null
+          id?: string
+          reason?: string | null
+          ro_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repair_order_status_history_ro_id_fkey"
+            columns: ["ro_id"]
             isOneToOne: false
             referencedRelation: "repair_orders"
             referencedColumns: ["id"]
@@ -13802,6 +13917,45 @@ export type Database = {
           },
         ]
       }
+      user_notifications: {
+        Row: {
+          body: string | null
+          brand_id: string | null
+          created_at: string
+          event_code: string | null
+          id: string
+          priority: string
+          read_at: string | null
+          ref: Json
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          brand_id?: string | null
+          created_at?: string
+          event_code?: string | null
+          id?: string
+          priority?: string
+          read_at?: string | null
+          ref?: Json
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          brand_id?: string | null
+          created_at?: string
+          event_code?: string | null
+          id?: string
+          priority?: string
+          read_at?: string | null
+          ref?: Json
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_reminder_subscriptions: {
         Row: {
           brand_id: string
@@ -14025,10 +14179,12 @@ export type Database = {
           created_at: string
           id: string
           item_desc: string
+          metadata: Json
           reason: string | null
           resolved_at: string | null
           source_quote_id: string | null
           status: string
+          updated_at: string
           vehicle_id: string
         }
         Insert: {
@@ -14036,10 +14192,12 @@ export type Database = {
           created_at?: string
           id?: string
           item_desc: string
+          metadata?: Json
           reason?: string | null
           resolved_at?: string | null
           source_quote_id?: string | null
           status?: string
+          updated_at?: string
           vehicle_id: string
         }
         Update: {
@@ -14047,10 +14205,12 @@ export type Database = {
           created_at?: string
           id?: string
           item_desc?: string
+          metadata?: Json
           reason?: string | null
           resolved_at?: string | null
           source_quote_id?: string | null
           status?: string
+          updated_at?: string
           vehicle_id?: string
         }
         Relationships: []
