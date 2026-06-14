@@ -1166,18 +1166,16 @@ export async function getRepairOrderForPrint(
 // ─────────────────────────────────────────────────────────────
 // RP4 層二：工單事件時間軸（append-only）
 //
-// 所有關鍵動作呼叫 appendRepairOrderEvent 把事件 append 到
-// repair_orders.metadata.events[]（server UTC，不可改刪語意）。
+// 所有關鍵動作呼叫 appendRepairOrderEvent 把事件 INSERT 到
+// repair_order_events 表（server UTC，不可改刪語意）。
 //
-// 欄位定義：
+// 欄位對映（真表）：
 //   action      — 事件種類（見 RoEventAction）
 //   actor_id    — auth.uid()，server context 取
-//   at          — new Date().toISOString()（server UTC，防偽造）
-//   payload     — 事件特定資料（可選）
+//   occurred_at — new Date().toISOString()（server UTC，防偽造）
+//   payload     — 事件特定資料（jsonb）
 //
-// TODO promote: Phase 2 DDL 新增 repair_order_events 表，
-//   讓事件持久化到獨立 table 而非 jsonb（方便跨 RO 查詢、7年保存）。
-//   目前 jsonb 方案足以 demo，且無需 DDL。
+// 向後相容：listRepairOrderEvents 優先讀新表，merge 舊 metadata.events[]
 // ─────────────────────────────────────────────────────────────
 
 export type RoEventAction =
@@ -1208,12 +1206,13 @@ export type RoEvent = {
 };
 
 /**
- * appendRepairOrderEvent — RP4 層二：append 一筆事件到 repair_orders.metadata.events[]
+ * appendRepairOrderEvent — RP4 層二：INSERT 一筆事件到 repair_order_events 表
  *
- * - append-only 語意：只 push 不刪改，DB 層無 trigger（POC 階段依靠程式紀律）
- * - server-side UTC 時間戳（`at` = new Date().toISOString()）防客端偽造
+ * - append-only 語意：INSERT only，不更新不刪除
+ * - server-side UTC 時間戳（`occurred_at` = new Date().toISOString()）防客端偽造
  * - actor_id 由 supabase.auth.getUser() 取，非 client 傳入
  * - 失敗靜默記 console.error，不影響主流程（副作用語意）
+ * - RLS policy：user_has_brand → 同 brand 使用者可 INSERT（一般 server client 即可）
  *
  * 呼叫方式（在 "use server" 環境）：
  *   await appendRepairOrderEvent(roId, { action: "status_changed", payload: { from, to } });
@@ -1230,52 +1229,100 @@ export async function appendRepairOrderEvent(
   if (!roId) return;
   try {
     const supabase = await createClient();
+    const brand = (await getActiveScope()).brand_id;
 
     // 取 actor_id（如果 caller 已有就直接用）
-    let resolvedActorId = actorId ?? null;
-    if (resolvedActorId === undefined) {
+    let resolvedActorId: string | null = actorId !== undefined ? (actorId ?? null) : null;
+    if (actorId === undefined) {
       const { data: { user } } = await supabase.auth.getUser();
       resolvedActorId = user?.id ?? null;
     }
 
-    // 撈現有 metadata.events
-    const { data: existing, error: fetchErr } = await supabase
-      .from("repair_orders")
-      .select("metadata")
-      .eq("id", roId)
-      .maybeSingle();
-    if (fetchErr) {
-      console.error("[appendRepairOrderEvent] fetch metadata 失敗", fetchErr.message);
-      return;
-    }
+    const occurredAt = new Date().toISOString(); // server UTC，不信任 client 傳入時間
 
-    const meta = ((existing?.metadata ?? {}) as Record<string, unknown>);
-    const prevEvents = Array.isArray(meta.events)
-      ? (meta.events as unknown[])
-      : [];
+    const { error: insertErr } = await supabase
+      .from("repair_order_events")
+      .insert({
+        ro_id: roId,
+        brand_id: brand,
+        action: event.action,
+        actor_id: resolvedActorId,
+        payload: (event.payload ?? {}) as Record<string, unknown>,
+        occurred_at: occurredAt,
+      });
 
-    const newEvent: RoEvent = {
-      action: event.action,
-      actor_id: resolvedActorId,
-      at: new Date().toISOString(), // server UTC，不信任 client 傳入時間
-      ...(event.payload ? { payload: event.payload } : {}),
-    };
-
-    const { error: updErr } = await supabase
-      .from("repair_orders")
-      .update({
-        metadata: {
-          ...meta,
-          events: [...prevEvents, newEvent],
-        },
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", roId);
-
-    if (updErr) {
-      console.error("[appendRepairOrderEvent] update 失敗", updErr.message);
+    if (insertErr) {
+      console.error("[appendRepairOrderEvent] INSERT 失敗", insertErr.message);
     }
   } catch (e) {
     console.error("[appendRepairOrderEvent] 例外（不影響主流程）", e);
   }
+}
+
+/**
+ * listRepairOrderEvents — 讀取工單事件時間軸（新表 + 舊 metadata merge）
+ *
+ * 優先讀 repair_order_events 表；同時 merge 舊 repair_orders.metadata.events[]（向後相容）。
+ * 結果依 at 升序排列（最舊在前，便於時間軸渲染）。
+ *
+ * @param roId  repair_orders.id
+ * @returns     RoEvent[]（含 at / actor_id / action / payload）
+ */
+export async function listRepairOrderEvents(roId: string): Promise<RoEvent[]> {
+  if (!roId) return [];
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 1. 從新表讀取（append-only 真表）
+  const { data: newRows, error: newErr } = await supabase
+    .from("repair_order_events")
+    .select("action, actor_id, occurred_at, payload")
+    .eq("ro_id", roId)
+    .eq("brand_id", brand)
+    .order("occurred_at", { ascending: true });
+
+  if (newErr) {
+    console.error("[listRepairOrderEvents] 讀取 repair_order_events 失敗", newErr.message);
+  }
+
+  const fromTable: RoEvent[] = ((newRows ?? []) as {
+    action: string;
+    actor_id: string | null;
+    occurred_at: string;
+    payload: Record<string, unknown> | null;
+  }[]).map((r) => ({
+    action: r.action as RoEvent["action"],
+    actor_id: r.actor_id,
+    at: r.occurred_at,
+    payload: (r.payload ?? undefined) as Record<string, unknown> | undefined,
+  }));
+
+  // 2. 從舊 metadata.events[] 讀取（向後相容，避免弄丟歷史）
+  const { data: roRow } = await supabase
+    .from("repair_orders")
+    .select("metadata")
+    .eq("id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+
+  const meta = ((roRow?.metadata ?? {}) as Record<string, unknown>);
+  const legacyEvents: RoEvent[] = Array.isArray(meta.events)
+    ? (meta.events as RoEvent[])
+    : [];
+
+  if (legacyEvents.length === 0) {
+    return fromTable;
+  }
+
+  // Merge：以 (action + at/occurred_at) 去重（新表有了就不顯示 legacy 同筆）
+  const tableKeys = new Set(fromTable.map((e) => `${e.action}|${e.at}`));
+  const uniqueLegacy = legacyEvents.filter(
+    (e) => !tableKeys.has(`${e.action}|${e.at}`),
+  );
+
+  // 合併後依 at 升序
+  const merged = [...fromTable, ...uniqueLegacy].sort(
+    (a, b) => a.at.localeCompare(b.at),
+  );
+  return merged;
 }

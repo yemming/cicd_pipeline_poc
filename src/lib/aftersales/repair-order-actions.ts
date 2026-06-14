@@ -362,38 +362,42 @@ export async function updateRepairOrderStatusAction(
     }
   }
 
-  // ── RP1 護欄③：組 status_history 追加記錄 ──
+  // ── RP1 護欄③：actor_id 取得 + INSERT status_history 真表 ──
   // actor_id 從 supabase auth.uid() 取（server action context 有 session）
   const {
     data: { user: authUser },
   } = await supabase.auth.getUser();
   const actorId = authUser?.id ?? null;
+  const changedAt = new Date().toISOString(); // server UTC，防偽造
 
-  const historyEntry: Record<string, unknown> = {
-    from: currentStatus,
-    to: status,
-    actor_id: actorId,
-    at: new Date().toISOString(), // server UTC，防偽造
-    reason: reason?.trim() || null,
-  };
+  // 先 INSERT 到 repair_order_status_history 真表（append-only）
+  // RLS policy：user_has_brand INSERT 允許，一般 server client 即可
+  {
+    const { error: histInsertErr } = await supabase
+      .from("repair_order_status_history")
+      .insert({
+        ro_id: id,
+        brand_id: brand,
+        from_status: currentStatus || null,
+        to_status: status,
+        actor_id: actorId,
+        reason: reason?.trim() || null,
+        changed_at: changedAt,
+      });
+    if (histInsertErr) {
+      // 非阻塞：status_history 寫入失敗不阻止主流程（稽核副作用）
+      console.error("[updateRepairOrderStatus] status_history INSERT 失敗", histInsertErr.message);
+    }
+  }
 
-  // 現有的 status_history（若無則初始化為空陣列）
-  const prevHistory = Array.isArray(currentMeta.status_history)
-    ? (currentMeta.status_history as unknown[])
-    : [];
-  const nextMeta: Record<string, unknown> = {
-    ...currentMeta,
-    status_history: [...prevHistory, historyEntry],
-  };
-
-  // ── 組更新物件 ──
+  // ── 組更新物件（不再把 status_history 塞進 metadata）──
   const upd: Record<string, unknown> = {
     status,
-    metadata: nextMeta,
-    updated_at: new Date().toISOString(),
+    metadata: currentMeta, // metadata 不再新增 status_history key
+    updated_at: changedAt,
   };
   // 終態關單時間戳：正常關單由 checkout action 填；此處處理其他終態
-  if (status === "已關單") upd.closed_at = new Date().toISOString();
+  if (status === "已關單") upd.closed_at = changedAt;
 
   const { error } = await supabase
     .from("repair_orders")

@@ -124,9 +124,12 @@ function Kv({
 export function RepairOrderDetailView({
   ro,
   canEdit,
+  roEvents: roEventsProp = [],
 }: {
   ro: RepairOrderListRow;
   canEdit: boolean;
+  /** P1 升表：由 server 傳入，merge 新表+舊 metadata（向後相容） */
+  roEvents?: RoEvent[];
 }) {
   useSetPageHeader({
     title: ro.ro_code,
@@ -249,10 +252,8 @@ export function RepairOrderDetailView({
   const isRework = meta.is_rework === true;
   const reworkOf = typeof meta.rework_of === "string" ? (meta.rework_of as string) : null;
 
-  // RP4 層二：從 metadata.events 讀取事件時間軸（已按 server UTC at 順序 append）
-  const roEvents: RoEvent[] = Array.isArray(meta.events)
-    ? (meta.events as RoEvent[])
-    : [];
+  // RP4 層二（P1 升表）：直接使用 server 傳入的 roEvents（merge 新表+舊 metadata）
+  const roEvents: RoEvent[] = roEventsProp;
   const warrantyAuth = meta.warranty_auth as
     | { authorized_by?: string; reason?: string | null; authorized_at?: string }
     | undefined;
@@ -635,8 +636,7 @@ export function RepairOrderDetailView({
             <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 事件時間軸（稽核紀錄）</span>
               <span className="text-[10px] text-[#9A9890]">
-                {roEvents.length} 筆 · append-only
-                {/* TODO promote to repair_order_events table (needs DDL) */}
+                {roEvents.length} 筆 · append-only（repair_order_events）
               </span>
             </header>
             <div className="px-4 py-3">
