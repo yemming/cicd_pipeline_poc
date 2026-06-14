@@ -320,3 +320,120 @@ tsc 0 errors，eslint 0 errors，domain audit @/lib/supabase 0 新增違規，Re
 | **CRON_TOKEN 環境變數** | Zeabur 設定 | /api/cron/aftersales-approval-escalate 已實作 timingSafeEqual 守門，但 CRON_TOKEN 未設 → 全部回 503。需在 Zeabur 環境變數設值後骨架才能啟用 | RP5 Cron |
 | **RP8 Supabase Realtime** | 架構升級 | 取代 todo-badge 60s 輪詢 + notification-bell 30s 輪詢；需評估 Supabase Realtime subscription 費用與連線數限制；若採獨立 user_notifications 表還需 DDL | RP8 Phase 2 |
 | **B-07 認證 PDF 實測** | 環境資料 + 測試 | 需有一張真實「認證 PDF」檔案（warranty certificate）上傳到 Storage、連結到 vehicle；目前 DB 有骨架但無實測資料 | B-07 |
+
+---
+
+## Round 3（DDL 落地後 jsonb→typed 升表）
+
+**執行時段**：2026-06-14
+**分支**：`aftersales-hardening-20260614`（尚未 push）
+**波次數**：3（P1 events+status_history 升表 / P2 RP8 user_notifications 真表+Realtime / P3 RP4 audit_logs+三稽核頁）
+**新增 commits**：`9cf8f30` / `c7bb96a` / `d3d36fa`
+
+---
+
+### Wave R3-P1：repair_order_events + repair_order_status_history jsonb→typed 升表
+**狀態**：✅ done | **commit**：`9cf8f30` `feat(aftersales/p1): jsonb→typed 升表 — repair_order_events + repair_order_status_history`
+
+**做了什麼**：
+- `appendRepairOrderEvent` 改為 INSERT `repair_order_events` 真表（原本 append 到 `repair_orders.metadata.events[]` jsonb）
+- `updateRepairOrderStatusAction` 改為 INSERT `repair_order_status_history` 真表（原本 append 到 `repair_orders.metadata.status_history[]` jsonb）
+- 新增 `listRepairOrderEvents()` 函式：優先讀新表，並 merge 舊 `metadata.events[]` 向後相容（存量資料不丟失）
+- RO 詳情頁改由 server 傳入 `roEvents` prop，不再由 client 端解析 metadata
+
+**怎麼驗**：tsc 0 errors / eslint 0 errors / domain import 天條 0 violations / Playwright RO 詳情頁通過（repair_order_events 標記可見）/ Supabase 雙表 INSERT+SELECT 均通過
+
+**還缺什麼**：P2 audit_logs（寫入需 service client，需 RLS bypass）/ P3 user_notifications 升表（已有 notification_deliveries 作 jsonb 替代，升表規格待確認）
+
+---
+
+### Wave R3-P2：RP8 user_notifications 真表 + Supabase Realtime 升級
+**狀態**：✅ done | **commit**：`c7bb96a` `feat(aftersales/rp8-p2): user_notifications 真表 + Supabase Realtime 升級`
+
+**做了什麼**：完成 RP8 從 `notification_deliveries`（channel=inapp）升級為 `user_notifications` 真表，並加入 Supabase Realtime 取代純 30s 輪詢。
+
+**關鍵架構決策**：
+- 寫入用 `createServiceClient`（bypass RLS，系統替任意使用者寫）
+- 讀取 / markRead 用一般 server client（RLS: `user_id = auth.uid()`）
+- Realtime 訂閱包裝在 `domain/user-notifications.realtime.ts`，讓 `notification-bell` 不直接 import `@/lib/supabase`（天條合規）
+- `InappNotification` 型別：`read_at: string | null` 取代舊 `status: sent|acknowledged`
+- payload 欄位展平（去掉 `{ payload: { ... } }` 包裝層）；`ref jsonb` 存 href / source_ro_id / source_ro_code / extra
+
+**5 個 caller 同步更新**（T03 待料 / P1 關單 / T07 複檢退回 / P5 addon 拒絕 / P7 授權申請+授權結果）
+
+**怎麼驗**：E2E Playwright 全通過（headless, localhost:3100, indian brand）— service client 寫 user_notifications → GET `/api/inapp-notifications` 回傳未讀（read_at=null）→ 通知 visible in dropdown → POST /read markRead → DB read_at 設定 → API 確認已讀 → cleanup 清除測試 row。tsc 0 errors · eslint 0 errors · `npm run build` 綠燈。
+
+**還缺什麼**：P3 RP8 後段（如有）：audit_logs 寫入整合、其他模組觸發點擴充。本波次 5 個核心觸發點（P1 / P5 / P7 / T03 / T07）已全部升級。
+
+---
+
+### Wave R3-P3：RP4 audit_logs 通用稽核日誌 + 三稽核頁落地
+**狀態**：✅ done | **commit**：`d3d36fa` `feat(audit): RP4 Layer1 通用稽核日誌落地 + 三稽核日誌頁`
+
+**做了什麼**：
+
+① **domain helper**（`src/domain/audit-logs.ts`）：
+   - `writeAuditLog()` — 用 `createServiceClient` bypass RLS 寫入 `audit_logs`
+   - `listAftersalesAudit()` / `listInventoryAudit()` / `listGroupAudit()` — 三層讀取函式，各有 RBAC 守門
+   - 售後版混合 `audit_logs`（aftersales 表限定）＋ `repair_order_events` 兩表合併顯示
+   - `AUDIT_LOG_PAGE_SIZE` 拆到 `audit-logs.constants.ts`，繞過 `"use server"` 不能 export const 的限制
+
+② **4 個關鍵 mutation 接上 `after()` 非阻塞寫稽核**：
+   - `updateRepairOrderStatusAction` → `status_changed`（before/after: status）
+   - `applyDiscountAction` → `discount_applied`（before/after: discount_pct）
+   - `clearSignAction` → `checkout_sig_cleared`（before: signed → after: in_progress + reason）
+   - `decideApproval` → `approval_approved / approval_rejected`（before/after: approval record）
+
+③ **`permissions.ts`** 新增三條 AUDIT_* permission code：`AUDIT_AFTERSALES_VIEW` / `AUDIT_INVENTORY_VIEW` / `AUDIT_GROUP_VIEW`
+
+④ **三個唯讀 React DataGrid 頁**（照 list view 規格，有 filter bar + 分頁 + Excel 匯出）：
+   - `/parts/aftersales/audit-log` — 售後稽核，混合顯示
+   - `/admin/audit/inventory` — 庫存稽核
+   - `/admin/audit/group` — 集團稽核（跨 brand 過濾）
+
+⑤ **nav_nodes**：6 筆（indian + ducati × 3 頁），`page_kind=react_route`
+
+**怎麼驗**：tsc 0 errors、eslint 0 errors（所有 13 個變更檔案）。三頁 HTTP 307 編譯正常（unauthenticated redirect to /login）。Supabase `audit_logs` 表直接 INSERT/DELETE 測試成功（service client 寫入正常，RLS SELECT admin-only 正確）。nav_nodes 6 筆 INSERT 驗證回傳確認。
+
+**還缺什麼**：
+1. 把 `AUDIT_AFTERSALES_VIEW` / `AUDIT_INVENTORY_VIEW` / `AUDIT_GROUP_VIEW` 權限 seed 進 DB（permissions + role_permissions 表），否則只有 admin 能進（目前因 POC 走 admin 帳號可看到）
+2. 後續補 RO addon 取消退料（cancelAddonAction）、RO 開單（confirmRepairOrderAction）的 audit hook
+3. E2E Playwright 完整閉環驗（需 storageState 有 `AUDIT_AFTERSALES_VIEW` 的 persona）
+
+---
+
+## Round 3 總結
+
+### 更新後 Russell 45 必修覆蓋率估計
+
+| RP 項目 | Round2 後 | Round3 後 | 說明 |
+|---------|-----------|-----------|------|
+| RP1 工單狀態機 | 90% | **95%** | status_history 升真表，歷史紀錄可跨 RO 查詢；終態可逆邊界案例仍待 |
+| RP2 電子簽名 | 82% | **82%** | Round3 未新增變動 |
+| RP3 退料反向 | 100% | **100%** | 維持完整 |
+| RP4 稽核事件軸 | 68% | **88%** | Layer 1 audit_logs 落地 + 三稽核頁；Layer 3（PDF 憑證持久化）仍待 DDL |
+| RP5 主管授權 | 95% | **95%** | 維持；audit hook 已接（discount_applied / approval_*） |
+| RP6 關單路徑統一 | 100% | **100%** | 維持 |
+| RP7 人車檔案同步 | 88% | **88%** | Round3 未新增變動；DDL 欄位仍缺 |
+| RP8 站內通知中心 | 90% | **98%** | user_notifications 真表上線 + Supabase Realtime 取代 30s 輪詢；audit_logs 整合仍缺部分觸發點 |
+
+**整體 Russell 45 必修覆蓋率**：
+
+| 時間點 | 估計覆蓋率 |
+|--------|-----------|
+| Round1 前（overnight 前） | ~20% |
+| Round1 後（8 波次完成） | ~68% |
+| Round2 後（驗證 + 非 DDL 擴充） | ~85% |
+| **Round3 後（DDL 落地後 jsonb→typed 升表）** | **~91%** |
+
+### 仍待項目（Round3 結束後）
+
+| 項目 | 類型 | 說明 | 影響 RP |
+|------|------|------|---------|
+| AUDIT_* 權限 seed 進 DB | DB seed | permissions + role_permissions 三條新 code；目前只有 admin 能進稽核頁 | RP4 |
+| audit hook 補點 | code | cancelAddonAction / confirmRepairOrderAction 缺 writeAuditLog after() | RP4 |
+| RP4 Layer 3 PDF 憑證持久化 | DDL + Storage | `ro-pdf-archives` bucket + `repair_order_pdfs` 關聯表 | RP4 |
+| vehicle_pending_items 補欄位 | DDL ALTER TABLE | `metadata jsonb` 和 `updated_at timestamptz` | RP7 |
+| T02 cron 啟用 | Zeabur 設定 | 設 CRON_TOKEN 環境變數 + Zeabur 排程 | RP5 Cron |
+| B-07 認證 PDF 實測 | 環境資料 + 測試 | 需上傳真實 warranty certificate 到 Storage | B-07 |
+| 三稽核頁 Playwright e2e | 測試補充 | 需有 AUDIT_AFTERSALES_VIEW persona 的 storageState | RP4 |
