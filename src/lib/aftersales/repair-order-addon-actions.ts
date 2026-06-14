@@ -18,6 +18,8 @@ import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { appendRepairOrderEvent } from "@/domain/repair-orders";
+// RP4 Layer1 稽核日誌
+import { writeAuditLog } from "@/domain/audit-logs";
 // RP8 站內通知
 import { createInappNotification } from "@/domain/user-notifications";
 
@@ -354,6 +356,33 @@ export async function cancelAddonAction(
         },
         actorId,
       );
+    });
+  }
+
+  // ── 6. RP4 Layer1 稽核日誌（非阻塞）──
+  {
+    const actorId = user?.id ?? null;
+    const addonBrandId = (cur as Record<string, unknown>).brand_id as string | null ?? brand;
+    after(async () => {
+      await writeAuditLog({
+        table_name: "repair_order_addons",
+        record_id: id,
+        action: "addon_cancelled",
+        actor_id: actorId,
+        brand_id: addonBrandId,
+        before: {
+          customer_decision: cur.customer_decision,
+          estimated_fee: cur.estimated_fee,
+          addon_name: cur.name,
+        },
+        after: {
+          customer_decision: "cancelled",
+          cancel_mode: cancelMode,
+          cancel_reason: input.cancel_reason?.trim() || null,
+          removed_line_count: removed_line_ids.length,
+          reservation_released,
+        },
+      });
     });
   }
 

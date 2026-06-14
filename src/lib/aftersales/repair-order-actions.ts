@@ -273,7 +273,31 @@ export async function confirmRepairOrderAction(
         );
       });
 
-      // 5. 副作用 placeholder：notifications.dispatch（POC 階段先不真推、留 hook）
+      // 5. RP4 Layer1 稽核日誌：記錄工單開單動作（非阻塞）
+      {
+        const roId = data.id as string;
+        const roCode = data.ro_code as string;
+        const actorId = authUserIdForEvent;
+        after(async () => {
+          await writeAuditLog({
+            table_name: "repair_orders",
+            record_id: roId,
+            action: "ro_created",
+            actor_id: actorId,
+            brand_id: brand,
+            before: null,
+            after: {
+              ro_code: roCode,
+              status: "進行中",
+              prefix_p1: input.prefix_p1,
+              prefix_p2: input.prefix_p2,
+              fee_allocation: feeAllocation,
+            },
+          });
+        });
+      }
+
+      // 6. 副作用 placeholder：notifications.dispatch（POC 階段先不真推、留 hook）
       // TODO: after(() => notifications.dispatch({ code: 'aftersales.repair_order.created', payload: { ro_code, ...} }))
 
       revalidatePath(PAGE_PATH);
