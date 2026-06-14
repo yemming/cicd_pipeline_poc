@@ -1,0 +1,38 @@
+# 售後修護排程 — 每 10 分鐘打 cron 端點
+#
+# 啟用方式（一次性）：到 GitHub repo → Settings → Secrets and variables → Actions →
+#   新增 secret `CRON_TOKEN`，值 = Zeabur DealerOS-Production 環境變數裡的 CRON_TOKEN。
+# 排程在 default branch(main) 才生效。GitHub 排程可能延遲數分鐘，對 30 分升級門檻無影響。
+#
+# 端點（皆需 Bearer CRON_TOKEN，未設或不符 → 503/401，無副作用）：
+#   - aftersales-approval-escalate：掃 pending>30min 的主管授權 → 升級店長
+#   - aftersales-dormancy：售後休眠客戶每日重算
+name: aftersales-cron
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # 每 10 分鐘（UTC）
+  workflow_dispatch: {} # 允許手動觸發測試
+
+permissions:
+  contents: read
+
+jobs:
+  approval-escalate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 主管授權 30 分升級
+        run: |
+          curl -fsS -X POST "https://dealeros.zeabur.app/api/cron/aftersales-approval-escalate" \
+            -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || echo "escalate endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"
+  dormancy-recalc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 售後休眠客戶重算
+        run: |
+          curl -fsS -X POST "https://dealeros.zeabur.app/api/cron/aftersales-dormancy" \
+            -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || echo "dormancy endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"
