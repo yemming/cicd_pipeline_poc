@@ -1,19 +1,10 @@
 import Link from "next/link";
-import type { FeedbackTicket } from "@/lib/feedback";
-
-function formatRelative(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diff = Math.max(0, now - then);
-  const mins = Math.round(diff / 60000);
-  if (mins < 1) return "剛剛";
-  if (mins < 60) return `${mins} 分鐘前`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} 小時前`;
-  const days = Math.round(hours / 24);
-  if (days < 30) return `${days} 天前`;
-  return new Date(iso).toLocaleDateString("zh-TW");
-}
+import {
+  type FeedbackTicket,
+  getTicketAcceptance,
+  getTicketEvidence,
+  TICKET_E2E_TONE,
+} from "@/lib/feedback";
 
 /** Extract first path segment as a module chip label */
 function urlChip(url: string | null): string | null {
@@ -49,6 +40,9 @@ function getInitials(name: string | null | undefined): string {
 
 export function TicketCard({ ticket, authorName }: { ticket: FeedbackTicket; authorName?: string }) {
   const chip = urlChip(ticket.url);
+  const acCount = getTicketAcceptance(ticket.metadata).length;
+  const e2eStatus = getTicketEvidence(ticket.metadata)?.e2e?.status ?? "none";
+  const e2eTone = TICKET_E2E_TONE[e2eStatus];
 
   return (
     <Link
@@ -60,14 +54,25 @@ export function TicketCard({ ticket, authorName }: { ticket: FeedbackTicket; aut
         {ticket.title}
       </p>
 
-      {/* Label chip (URL segment) */}
-      {chip && (
-        <div className="mb-2.5">
+      {/* Label chips: URL segment + 驗收條數 + E2E 狀態 */}
+      <div className="mb-2.5 flex items-center gap-1.5 flex-wrap">
+        {chip && (
           <span className={`inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ${chipClass(chip)}`}>
             {chip}
           </span>
-        </div>
-      )}
+        )}
+        {acCount > 0 && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#EAF4FB] text-[#185FA5]">
+            <span className="material-symbols-outlined text-[12px]">checklist</span>
+            {acCount}
+          </span>
+        )}
+        {e2eStatus !== "none" && (
+          <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${e2eTone.bg} ${e2eTone.text}`}>
+            E2E {e2eTone.label}
+          </span>
+        )}
+      </div>
 
       {/* Footer: ticket ID + avatar */}
       <div className="flex items-center justify-between gap-2">

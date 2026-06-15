@@ -23,7 +23,19 @@ export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
   const [description, setDescription] = useState<string>("");
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // ③ 驗收條件（given-when-then）— 一條 = 一個可 E2E 的原子斷言
+  const [acceptance, setAcceptance] = useState<{ given: string; when: string; then: string }[]>([]);
   const excalidrawApiRef = useRef<ExcalidrawImperativeAPI | null>(null);
+
+  function addCriterion() {
+    setAcceptance((prev) => [...prev, { given: "", when: "", then: "" }]);
+  }
+  function updateCriterion(idx: number, key: "given" | "when" | "then", value: string) {
+    setAcceptance((prev) => prev.map((c, i) => (i === idx ? { ...c, [key]: value } : c)));
+  }
+  function removeCriterion(idx: number) {
+    setAcceptance((prev) => prev.filter((_, i) => i !== idx));
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,12 +65,20 @@ export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
       }
     }
 
+    // ③ 驗收：清掉三欄全空的列
+    const cleanAcceptance = acceptance
+      .map((c) => ({ id: "", given: c.given.trim(), when: c.when.trim(), then: c.then.trim() }))
+      .filter((c) => c.given || c.when || c.then);
+
     startTransition(async () => {
       const res = await createTicket({
         url: url.trim() || null,
         description: desc,
         snapshot,
         files,
+        // ② 範圍：直接用 url 當 route（一張單一條 route）
+        scope: url.trim() ? { route: url.trim() } : null,
+        acceptance: cleanAcceptance,
       });
       if (res.ok) {
         router.push(`/feedback/tickets/${res.ticketId}`);
@@ -109,6 +129,68 @@ export function TicketForm({ defaultUrl }: { defaultUrl?: string }) {
             <p className="mt-1.5 text-[12px] text-[#6B778C]">
               第一行會自動成為單據標題；右側（窄螢幕在下方）可以直接畫圖補充
             </p>
+          </div>
+
+          {/* 4. 驗收條件（given-when-then）— 一條 = 一個可自動 E2E 的原子斷言 */}
+          <div className="px-4 md:px-6 py-4 border-t border-[#F4F5F7]">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-[12px] font-bold text-[#172B4D] uppercase tracking-wide">
+                驗收條件（選填，建議填）
+              </label>
+              <button
+                type="button"
+                onClick={addCriterion}
+                disabled={pending}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[12px] font-semibold text-[#0052CC] hover:bg-[#DEEBFF] disabled:opacity-50 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                新增條件
+              </button>
+            </div>
+
+            {acceptance.length === 0 ? (
+              <p className="text-[12px] text-[#6B778C] leading-relaxed bg-[#F4F5F7] rounded px-3 py-2">
+                寫「做完長怎樣」就能自動測。每條一個動作：<b>給定</b>(情境) →
+                <b> 當</b>(操作) → <b>則</b>(看得到的結果)。例：給定「打開此頁」→當「頁面載入」→則「圖表顯示為圓餅圖」。
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {acceptance.map((c, idx) => (
+                  <div key={idx} className="flex gap-2 items-start bg-[#F4F5F7] rounded px-2.5 py-2">
+                    <span className="text-[11px] font-bold text-[#6B778C] font-mono pt-2 shrink-0 w-7">
+                      AC{idx + 1}
+                    </span>
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      {(["given", "when", "then"] as const).map((k) => (
+                        <div key={k} className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-[#6B778C] w-9 shrink-0 text-right">
+                            {k === "given" ? "給定" : k === "when" ? "當" : "則"}
+                          </span>
+                          <input
+                            value={c[k]}
+                            onChange={(e) => updateCriterion(idx, k, e.target.value)}
+                            disabled={pending}
+                            placeholder={
+                              k === "given" ? "什麼情境（如：打開此頁、登入後）" : k === "when" ? "做了什麼（如：點儲存、頁面載入）" : "看得到的結果（如：狀態變已儲存）"
+                            }
+                            className="w-full px-2.5 py-1.5 bg-white border border-[#DFE1E6] rounded focus:border-[#C9A84C] focus:shadow-[0_0_0_2px_rgba(201,168,76,0.2)] outline-none text-[12.5px] text-[#172B4D] placeholder:text-[#8993A4] transition-all disabled:opacity-60"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeCriterion(idx)}
+                      disabled={pending}
+                      className="text-[#6B778C] hover:text-[#BF2600] disabled:opacity-50 pt-1.5 shrink-0"
+                      title="刪除此條"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">close</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

@@ -9,6 +9,9 @@ import { notifications } from "@/lib/notifications";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   type FeedbackStatus,
+  type TicketScope,
+  type AcceptanceCriterion,
+  type TicketMetadata,
   FEEDBACK_STATUS_ORDER,
   isAdminOnlyTransition,
   FEEDBACK_ATTACHMENT_BUCKET,
@@ -36,6 +39,8 @@ export type CreateTicketInput = {
   description: string;
   snapshot: unknown | null;      // Excalidraw scene { elements, appState, files }；不傳就不建 canvas row
   files?: File[] | null;          // ticket-level 附件（非畫布內圖）；上傳到 feedback-attachments bucket、metadata.attachments 存清單
+  scope?: TicketScope | null;     // ② 範圍（改哪條 route）；寫入 metadata.scope
+  acceptance?: AcceptanceCriterion[] | null; // ③ 驗收 given-when-then；寫入 metadata.acceptance
 };
 
 export type CreateTicketResult =
@@ -77,11 +82,31 @@ export async function createTicket(input: CreateTicketInput): Promise<CreateTick
   const { userId, email } = await getCurrentUserAndAdmin();
   if (!userId) return { ok: false, error: "請先登入" };
 
+  // ② 範圍 + ③ 驗收 → 整理成 metadata（容錯：空欄位不寫，保持 metadata 乾淨）
+  const scope: TicketScope | null =
+    input.scope && input.scope.route?.trim()
+      ? { route: input.scope.route.trim(), area: input.scope.area?.trim() || null }
+      : null;
+  const acceptance: AcceptanceCriterion[] = (input.acceptance ?? [])
+    .map((c, i) => ({
+      id: c.id?.trim() || `AC${i + 1}`,
+      given: (c.given ?? "").trim(),
+      when: (c.when ?? "").trim(),
+      then: (c.then ?? "").trim(),
+    }))
+    .filter((c) => c.given || c.when || c.then);
+
+  const baseMeta: TicketMetadata = {};
+  if (scope) baseMeta.scope = scope;
+  if (acceptance.length > 0) baseMeta.acceptance = acceptance;
+  // ④ 證據起手式：尚未實作 → e2e 狀態 none，讓看板/詳情頁有東西可顯示
+  baseMeta.evidence = { sha: null, e2e: { status: "none" }, updated_at: new Date().toISOString() };
+
   const supabase = await createClient();
   const brandId = (await getActiveScope()).brand_id;
   const { data, error } = await supabase
     .from("feedback_tickets")
-    .insert({ title, url, description, created_by: userId, status: "draft", brand_id: brandId })
+    .insert({ title, url, description, created_by: userId, status: "draft", brand_id: brandId, metadata: baseMeta as Json })
     .select("id")
     .single();
 
@@ -129,9 +154,10 @@ export async function createTicket(input: CreateTicketInput): Promise<CreateTick
       });
     }
     if (uploaded.length > 0) {
+      // 合併進既有 metadata（scope/acceptance/evidence），不可覆蓋
       const { error: metaErr } = await supabase
         .from("feedback_tickets")
-        .update({ metadata: { attachments: uploaded } })
+        .update({ metadata: { ...baseMeta, attachments: uploaded } as Json })
         .eq("id", ticketId);
       if (metaErr) {
         console.error("[feedback] metadata.attachments 寫入失敗", metaErr);
@@ -197,6 +223,105 @@ export async function updateTicketStatus(ticketId: string, next: FeedbackStatus)
 
   revalidatePath("/feedback/tickets");
   revalidatePath(`/feedback/tickets/${ticketId}`);
+}
+
+// ── DevOps 規格層：編輯範圍 / 驗收（②③）+ 回填證據（④） ──────────────
+
+export type ActionResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
+/**
+ * 重編許願單的規格層 — 設定/更新 ② 範圍 + ③ 驗收。
+ * 任何登入者都能編自己單據的規格（draft 階段是協作的）；merge 進既有 metadata。
+ */
+export async function updateTicketSpec(
+  ticketId: string,
+  input: { scope?: TicketScope | null; acceptance?: AcceptanceCriterion[] | null },
+): Promise<ActionResult<{ id: string }>> {
+  const { userId } = await getCurrentUserAndAdmin();
+  if (!userId) return { ok: false, error: "請先登入" };
+
+  const scope: TicketScope | null =
+    input.scope && input.scope.route?.trim()
+      ? { route: input.scope.route.trim(), area: input.scope.area?.trim() || null }
+      : null;
+  const acceptance: AcceptanceCriterion[] = (input.acceptance ?? [])
+    .map((c, i) => ({
+      id: c.id?.trim() || `AC${i + 1}`,
+      given: (c.given ?? "").trim(),
+      when: (c.when ?? "").trim(),
+      then: (c.then ?? "").trim(),
+    }))
+    .filter((c) => c.given || c.when || c.then);
+
+  const supabase = await createClient();
+  const { data: cur, error: readErr } = await supabase
+    .from("feedback_tickets")
+    .select("metadata")
+    .eq("id", ticketId)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: `讀取失敗：${readErr.message}` };
+  if (!cur) return { ok: false, error: "單據不存在" };
+
+  const meta = { ...((cur.metadata ?? {}) as TicketMetadata) };
+  meta.scope = scope;
+  meta.acceptance = acceptance;
+
+  const { error } = await supabase
+    .from("feedback_tickets")
+    .update({ metadata: meta as Json })
+    .eq("id", ticketId);
+  if (error) return { ok: false, error: `儲存失敗：${error.message}` };
+
+  revalidatePath(`/feedback/tickets/${ticketId}`);
+  revalidatePath("/feedback/tickets");
+  return { ok: true, data: { id: ticketId } };
+}
+
+/**
+ * 回填 ④ 證據 — E2E 跑完寫回 commit SHA + 測試結果。
+ * 給 pipeline / E2E harness 用（admin-gated；harness 走帶 token 的 API → 此 action）。
+ */
+export async function recordTicketEvidence(
+  ticketId: string,
+  evidence: {
+    sha?: string | null;
+    e2e?: { status: "none" | "pending" | "pass" | "fail"; passed?: number; failed?: number; report?: string | null };
+  },
+): Promise<ActionResult<{ id: string }>> {
+  const { userId, isAdmin } = await getCurrentUserAndAdmin();
+  if (!userId) return { ok: false, error: "請先登入" };
+  if (!isAdmin) return { ok: false, error: "只有管理者可以回填證據" };
+
+  const supabase = await createClient();
+  const { data: cur, error: readErr } = await supabase
+    .from("feedback_tickets")
+    .select("metadata")
+    .eq("id", ticketId)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: `讀取失敗：${readErr.message}` };
+  if (!cur) return { ok: false, error: "單據不存在" };
+
+  const meta = { ...((cur.metadata ?? {}) as TicketMetadata) };
+  const nowIso = new Date().toISOString();
+  meta.evidence = {
+    sha: evidence.sha ?? meta.evidence?.sha ?? null,
+    e2e: evidence.e2e
+      ? { ...evidence.e2e, ran_at: nowIso }
+      : meta.evidence?.e2e ?? { status: "none" },
+    updated_at: nowIso,
+  };
+
+  const { error } = await supabase
+    .from("feedback_tickets")
+    .update({ metadata: meta as Json })
+    .eq("id", ticketId);
+  if (error) return { ok: false, error: `回填失敗：${error.message}` };
+
+  revalidatePath(`/feedback/tickets/${ticketId}`);
+  revalidatePath("/feedback/tickets");
+  return { ok: true, data: { id: ticketId } };
 }
 
 // ── Archive / Unarchive / Delete（皆 admin-only） ──────────────────
