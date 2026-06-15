@@ -138,13 +138,18 @@ export async function createFromAppointmentAction(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // 讀售後預約看板的活表 appointments（180 筆），非 master-data 殘表 service_appointments（3 筆）。
+  // appointments 無 advisor_id / mileage 欄 → SA 與里程改從 metadata 取（walk-in 多半未帶，留 PI 內補填）。
   const { data: appt, error: aErr } = await supabase
-    .from("service_appointments")
-    .select("id, brand_id, appt_no, customer_id, vehicle_id, mileage_at_appointment, advisor_id")
+    .from("appointments")
+    .select("id, brand_id, customer_id, vehicle_id, status, metadata")
     .eq("id", appointment_id)
     .eq("brand_id", brand)
     .maybeSingle();
   if (aErr || !appt) return { ok: false, error: "找不到預約" };
+  const apptMeta = (appt.metadata ?? {}) as Record<string, unknown>;
+  const advisorId = typeof apptMeta.advisor_id === "string" ? apptMeta.advisor_id : null;
+  const apptMileage = typeof apptMeta.mileage_in === "number" ? apptMeta.mileage_in : null;
 
   const { data: existed } = await supabase
     .from("pre_inspections")
@@ -184,11 +189,11 @@ export async function createFromAppointmentAction(
     }
   }
   let sa_name: string | null = null;
-  if (appt.advisor_id) {
+  if (advisorId) {
     const { data: e } = await supabase
       .from("employees")
       .select("name")
-      .eq("id", appt.advisor_id)
+      .eq("id", advisorId)
       .maybeSingle();
     sa_name = e?.name ?? null;
   }
@@ -211,8 +216,8 @@ export async function createFromAppointmentAction(
       customer_phone,
       vehicle_license_plate,
       vehicle_model_name,
-      mileage_in: appt.mileage_at_appointment ?? null,
-      sa_id: appt.advisor_id ?? null,
+      mileage_in: apptMileage,
+      sa_id: advisorId,
       sa_name,
       metadata: {
         checks: [],

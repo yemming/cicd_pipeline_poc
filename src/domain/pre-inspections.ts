@@ -173,12 +173,14 @@ export async function listAppointmentCandidates(): Promise<AppointmentCandidate[
     ((existed ?? []) as { appointment_id: string }[]).map((r) => r.appointment_id),
   );
 
+  // 讀售後預約看板活表 appointments（非 master-data 殘表 service_appointments）。
+  // 候選 = 已到店 / 待到店且尚未轉預檢（exclude set 排掉已有 PI 的）。
   const { data, error } = await supabase
-    .from("service_appointments")
-    .select("id, appt_no, customer_id, vehicle_id, scheduled_at, status")
+    .from("appointments")
+    .select("id, customer_id, vehicle_id, appointment_date, appointment_time, status")
     .eq("brand_id", brand)
-    .in("status", ["confirmed", "checked_in", "in_progress"])
-    .order("scheduled_at", { ascending: false })
+    .in("status", ["待到廠", "已到廠"])
+    .order("appointment_date", { ascending: false })
     .limit(50);
   if (error) throw error;
   const apps = (data ?? []).filter((a) => !exclude.has(a.id));
@@ -243,12 +245,13 @@ export async function listAppointmentCandidates(): Promise<AppointmentCandidate[
 
   return apps.map((a) => ({
     id: a.id,
-    appt_no: a.appt_no,
+    // appointments 無 appt_no → 用日期當人讀參考
+    appt_no: a.appointment_date ?? a.id.slice(0, 8),
     customer_name: a.customer_id ? custMap.get(a.customer_id)?.name ?? null : null,
     customer_phone: a.customer_id ? custMap.get(a.customer_id)?.phone ?? null : null,
     vehicle_license_plate: a.vehicle_id ? vehMap.get(a.vehicle_id)?.license_plate ?? null : null,
     vehicle_model_name: a.vehicle_id ? vehMap.get(a.vehicle_id)?.model ?? null : null,
-    scheduled_at: a.scheduled_at,
+    scheduled_at: `${a.appointment_date ?? ""}${a.appointment_time ? " " + a.appointment_time : ""}`,
     status: a.status,
   }));
 }
