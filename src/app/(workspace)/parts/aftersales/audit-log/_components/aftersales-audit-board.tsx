@@ -91,11 +91,23 @@ function renderJsonDiff(
     ...Object.keys(before ?? {}),
     ...Object.keys(after ?? {}),
   ]);
+  // 物件 / 陣列要序列化，否則 template literal 會印成 [object Object]
+  const fmt = (v: unknown): string => {
+    if (v === null || v === undefined) return "—";
+    if (typeof v === "object") {
+      try {
+        return JSON.stringify(v);
+      } catch {
+        return String(v);
+      }
+    }
+    return String(v);
+  };
   for (const k of allKeys) {
     const bv = before?.[k];
     const av = after?.[k];
-    if (bv !== av) {
-      parts.push(`${k}: ${bv ?? "—"} → ${av ?? "—"}`);
+    if (fmt(bv) !== fmt(av)) {
+      parts.push(`${k}: ${fmt(bv)} → ${fmt(av)}`);
     }
   }
   return parts.join(" | ") || "—";

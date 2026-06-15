@@ -64,8 +64,15 @@ function formatDatetime(iso: string): string {
 
 function renderJsonSummary(obj: Record<string, unknown> | null): string {
   if (!obj) return "—";
+  // 物件 / 陣列序列化，避免 String() 印出 [object Object]
+  const fmt = (v: unknown): string =>
+    v === null || v === undefined
+      ? "—"
+      : typeof v === "object"
+        ? (() => { try { return JSON.stringify(v); } catch { return String(v); } })()
+        : String(v);
   const entries = Object.entries(obj).slice(0, 3);
-  return entries.map(([k, v]) => `${k}: ${String(v ?? "—")}`).join(" | ") || "—";
+  return entries.map(([k, v]) => `${k}: ${fmt(v)}`).join(" | ") || "—";
 }
 
 /** 時間軸單筆元件 */
