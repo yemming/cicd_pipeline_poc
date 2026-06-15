@@ -30,6 +30,18 @@ export const STATUS_CHIP: Record<FinalInspectionStatus, string> = {
 
 export type CheckState = "none" | "ok" | "fail";
 
+/** Step1 系統類別分組（引擎系統 / 煞車系統 / 電氣系統 / 一般保養 / 其他） */
+export type ServiceCategory = "引擎系統" | "煞車系統" | "電氣系統" | "一般保養" | "其他";
+
+/** Step1 系統類別對應的色彩 token */
+export const SERVICE_CATEGORY_COLOR: Record<ServiceCategory, { header: string; badge: string }> = {
+  引擎系統: { header: "bg-[#FDF3E3] text-[#854F0B]", badge: "bg-[#FDF3E3] text-[#854F0B] border-[#F5D28B]" },
+  煞車系統: { header: "bg-[#FDECEA] text-[#CC0000]", badge: "bg-[#FDECEA] text-[#CC0000] border-[#F5AEAD]" },
+  電氣系統: { header: "bg-[#EEF4FB] text-[#185FA5]", badge: "bg-[#EEF4FB] text-[#185FA5] border-[#B8D4EE]" },
+  一般保養: { header: "bg-[#EAF3DE] text-[#3B6D11]", badge: "bg-[#EAF3DE] text-[#3B6D11] border-[#C5DC9F]" },
+  其他: { header: "bg-[#F2F2F2] text-[#5A5955]", badge: "bg-[#F2F2F2] text-[#5A5955] border-[#EEECE6]" },
+};
+
 export type LineResult = {
   line_id: string;
   line_no: number;
@@ -37,6 +49,8 @@ export type LineResult = {
   label: string;
   remark?: string | null;
   state: CheckState;
+  /** 系統類別分組（Step1 依此 groupBy 顯示色彩群組，存於 repair_order_lines.metadata.service_category） */
+  service_category?: ServiceCategory | null;
 };
 
 export type TestDriveItem = { id: string; label: string; state: CheckState };
@@ -115,6 +129,7 @@ export function buildInitialLineResults(
     labor_name?: string | null;
     part_name?: string | null;
     labor_note?: string | null;
+    metadata?: Record<string, unknown> | null;
   }>,
 ): LineResult[] {
   return lines.map((l) => ({
@@ -124,6 +139,7 @@ export function buildInitialLineResults(
     label: l.labor_name || l.part_name || `項目 #${l.line_no}`,
     remark: l.labor_note ?? null,
     state: "none",
+    service_category: (l.metadata?.service_category as ServiceCategory | undefined) ?? null,
   }));
 }
 

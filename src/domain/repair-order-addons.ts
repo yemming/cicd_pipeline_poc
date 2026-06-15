@@ -21,9 +21,11 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import {
   REJECTION_REASON_COLOR,
   REJECTION_REASON_LABEL,
+  type AddonCostSummary,
   type AddonRejectionStatRow,
   type AddonsListFilter,
   type AddonsSummary,
+  type CustomerDecision,
   type RejectionReason,
   type RepairOrderAddonRow,
   type RepairOrderAddonWithRo,
@@ -309,6 +311,62 @@ export async function saAddonConversion(): Promise<SaAddonConversionRow[]> {
       };
     })
     .sort((a, b) => b.total - a.total);
+}
+
+/**
+ * 費用變動摘要 — 依工單 ID 彙整追加項目費用 vs 原始工單金額
+ *
+ * 設計稿對應：#cost-change 區塊（原始工單金額 + 追加小計 + 預估總金額）
+ * 呼叫點：
+ *  - addons-board.tsx toolbar（指定工單 filter 選中後顯示）
+ *  - addon-detail-view.tsx 費用小結區塊
+ */
+export async function getAddonCostSummaryByRo(roId: string): Promise<AddonCostSummary> {
+  const supabase = await createClient();
+
+  // 撈工單原始估價
+  const { data: ro } = await supabase
+    .from("repair_orders")
+    .select("estimated_total")
+    .eq("id", roId)
+    .maybeSingle();
+
+  const roEstimated = ro?.estimated_total != null ? Number(ro.estimated_total) : null;
+
+  // 撈所有追加項目費用
+  const { data: addons } = await supabase
+    .from("repair_order_addons")
+    .select("estimated_fee, customer_decision")
+    .eq("ro_id", roId);
+
+  const counts: AddonCostSummary["counts"] = {
+    pending: 0,
+    agreed: 0,
+    deferred: 0,
+    rejected: 0,
+    cancelled: 0,
+  };
+  let addonSubtotal = 0;
+  let agreedSubtotal = 0;
+
+  for (const a of addons ?? []) {
+    const fee = Number(a.estimated_fee ?? 0);
+    const decision = a.customer_decision as CustomerDecision;
+    addonSubtotal += fee;
+    if (decision === "agreed") agreedSubtotal += fee;
+    if (decision in counts) counts[decision] += 1;
+  }
+
+  const projectedTotal =
+    roEstimated != null ? roEstimated + addonSubtotal : null;
+
+  return {
+    ro_estimated_total: roEstimated,
+    addon_subtotal: addonSubtotal,
+    agreed_subtotal: agreedSubtotal,
+    projected_total: projectedTotal,
+    counts,
+  };
 }
 
 export async function listRoOptionsForAddons(): Promise<RoOptionForAddons[]> {

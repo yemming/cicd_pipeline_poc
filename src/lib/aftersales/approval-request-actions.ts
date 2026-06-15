@@ -18,6 +18,18 @@ import { requestApproval } from "@/domain/aftersales-approvals";
 type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
 /**
+ * 中途取消申請的結構化欄位（對齊 HTML 設計稿 Modal 三欄位）
+ */
+export type CancelOrderInput = {
+  /** 取消原因類型（5 選一） */
+  reason_type: string;
+  /** 詳細說明（稽核必填，原 notes 欄位） */
+  detail: string;
+  /** 客戶是否在場（3 選一） */
+  customer_present: string;
+};
+
+/**
  * requestCancelOrderApprovalAction — SA 申請工單中途取消（情境 cancel_order）。
  *
  * 觸發後：
@@ -30,14 +42,25 @@ type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: str
  */
 export async function requestCancelOrderApprovalAction(
   roId: string,
-  notes: string,
+  input: CancelOrderInput,
 ): Promise<ActionResult<{ approval_id: string }>> {
-  if (!notes.trim()) return { ok: false, error: "請填寫取消原因" };
+  if (!input.detail.trim()) return { ok: false, error: "請填寫取消原因說明（稽核必填）" };
+  if (!input.reason_type) return { ok: false, error: "請選擇取消原因類型" };
+  if (!input.customer_present) return { ok: false, error: "請選擇客戶是否在場" };
+
+  // 組合 notes：結構化資訊 + 詳細說明
+  const notes = `[${input.reason_type}] ${input.detail.trim()}`;
+
   const res = await requestApproval({
     ro_id: roId,
     scenario: "cancel_order",
-    notes: notes.trim(),
-    context: { initiated_via: "repair_order_detail" },
+    notes,
+    context: {
+      initiated_via: "repair_order_detail",
+      reason_type: input.reason_type,
+      detail: input.detail.trim(),
+      customer_present: input.customer_present,
+    },
   });
   if (res.ok) {
     revalidatePath(`/parts/aftersales/repair-orders/${roId}`);

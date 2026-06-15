@@ -5,6 +5,13 @@
  * 卡片式看板（proposal §2.1，刻意偏離 DataGrid / list+detail，理由見 proposal）。
  * 每個寫入動作走 server action（@/lib/aftersales/tech-workstation-actions），
  * pending 鎖 UI + 進行式文案 + 樂觀更新（CLAUDE.md §UX 互動規範）。
+ *
+ * 缺口修補（2026-06-15）：
+ *   - 效率% KPI 欄位（todayWorkedMinutes / soldMinutes × 100）
+ *   - 進行中工單置頂 amber 橫幅（pending Tab 用）
+ *   - 深入檢查記錄診斷區塊（kind='inspection'，三段按鈕：正常/需關注/異常）
+ *   - 施工備註文字欄（tech_note，SA / 複檢員可見）
+ *   - ⏱ 工時記錄 Tab（今日工時統計 + 明細表格）
  */
 
 import { useMemo, useState, useTransition, useEffect, useRef } from "react";
@@ -18,6 +25,9 @@ import {
   startLaborTimerAction,
   pauseLaborTimerAction,
   reassignOrderAction,
+  setDiagResultAction,
+  saveTechNoteAction,
+  type DiagResult,
 } from "@/lib/aftersales/tech-workstation-actions";
 import type {
   AssignedOrderCard,
@@ -27,9 +37,10 @@ import type {
   AddonInput,
   AddonItemOption,
   AddonWarehouseOption,
+  TimeSessionRow,
 } from "@/domain/tech-workstation";
 
-type TabKey = "pending" | "in_progress" | "done_today";
+type TabKey = "pending" | "in_progress" | "done_today" | "hours";
 
 type Perms = {
   canAccept: boolean;
@@ -62,6 +73,22 @@ function safetyLabel(level: string): string {
   return "一般";
 }
 
+/** 診斷結果標籤 */
+function diagLabel(result: DiagResult | null): string {
+  if (result === "normal") return "正常";
+  if (result === "attention") return "需關注";
+  if (result === "abnormal") return "異常";
+  return "未標記";
+}
+
+/** 診斷結果色彩 */
+function diagChipClass(result: DiagResult | null): string {
+  if (result === "normal") return "bg-[#EAF3DE] text-[#3B6D11]";
+  if (result === "attention") return "bg-[#FDF3E3] text-[#854F0B]";
+  if (result === "abnormal") return "bg-[#FDECEA] text-[#CC0000]";
+  return "bg-[#F2F2F2] text-[#6B6A68]";
+}
+
 /** 讀現在時間（module-level，避免在 component render 路徑被 react-hooks/purity 誤判） */
 function nowMs(): number {
   return Date.now();
@@ -80,6 +107,15 @@ function fmtHMS(totalSeconds: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
+/** 格式化分鐘為 HH:MM 字串 */
+function fmtMinutes(minutes: number | null): string {
+  if (minutes == null) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}m`;
+  return `${h}h ${m}m`;
+}
+
 export function TechWorkstationBoard({
   technician,
   initialOrders,
@@ -88,6 +124,7 @@ export function TechWorkstationBoard({
   itemOptions,
   warehouseOptions,
   perms,
+  todaySessions,
   fallbackNotice = null,
 }: {
   technician: TechnicianRow;
@@ -97,6 +134,8 @@ export function TechWorkstationBoard({
   itemOptions: AddonItemOption[];
   warehouseOptions: AddonWarehouseOption[];
   perms: Perms;
+  /** ⏱ 工時記錄 Tab 的今日明細（server 端撈好傳進來） */
+  todaySessions: TimeSessionRow[];
   /** 非本人（fallback）檢視模式：帶技師名 → 顯示唯讀 debug 橫幅；null = 正常本人模式 */
   fallbackNotice?: { techName: string } | null;
 }) {
@@ -108,6 +147,17 @@ export function TechWorkstationBoard({
   const [isPending, startTransition] = useTransition();
   const [addonForRo, setAddonForRo] = useState<string | null>(null);
 
+  // 計算效率%
+  const efficiencyPct = kpi.soldMinutes > 0
+    ? Math.round((kpi.todayWorkedMinutes / kpi.soldMinutes) * 100)
+    : null;
+
+  // 進行中工單數（用於 pending Tab 置頂 amber 橫幅）
+  const inProgressOrders = useMemo(
+    () => orders.filter((o) => o.status === STATUS_IN_REPAIR),
+    [orders],
+  );
+
   useSetPageHeader({
     title: "技師工作台",
     breadcrumb: [{ label: "技師工作台" }],
@@ -116,6 +166,7 @@ export function TechWorkstationBoard({
       { label: `待我接單 (${kpi.pendingCount})`, active: tab === "pending", onClick: () => setTab("pending") },
       { label: `進行中 (${kpi.inProgressCount})`, active: tab === "in_progress", onClick: () => setTab("in_progress") },
       { label: `今日完成 (${kpi.doneToday})`, active: tab === "done_today", onClick: () => setTab("done_today") },
+      { label: "⏱ 工時記錄", active: tab === "hours", onClick: () => setTab("hours") },
     ],
   });
 
@@ -174,6 +225,25 @@ export function TechWorkstationBoard({
     });
   }
 
+  function handleSetDiag(roId: string, lineId: string, result: DiagResult) {
+    const ro = orders.find((o) => o.id === roId);
+    if (!ro) return;
+    // 樂觀更新診斷結果
+    patchOrder(roId, {
+      workItems: ro.workItems.map((w) => (w.id === lineId ? { ...w, diag_result: result } : w)),
+    });
+    startTransition(async () => {
+      const res = await setDiagResultAction(lineId, result);
+      if (!res.ok) {
+        // rollback
+        patchOrder(roId, {
+          workItems: ro.workItems.map((w) => (w.id === lineId ? { ...w, diag_result: ro.workItems.find((x) => x.id === lineId)?.diag_result ?? null } : w)),
+        });
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
   function handleComplete(roId: string) {
     const ro = orders.find((o) => o.id === roId);
     const laborItems = ro?.workItems.filter((w) => w.kind === "labor") ?? [];
@@ -189,7 +259,7 @@ export function TechWorkstationBoard({
       if (res.ok) {
         patchOrder(roId, { status: STATUS_AWAITING, timer: { isRunning: false, accumulatedSeconds: ro?.timer.accumulatedSeconds ?? 0, activeSessionId: null, activeStartedAt: null } });
         setTab("done_today");
-        showBanner({ ok: true, msg: "✓ 已標記完成，工單進入待結帳" });
+        showBanner({ ok: true, msg: "✓ 已標記完成，工單進入待結帳，SA / 複檢員已收到通知" });
       } else {
         showBanner({ ok: false, msg: res.error });
       }
@@ -281,8 +351,8 @@ export function TechWorkstationBoard({
         showBanner({
           ok: true,
           msg: res.data.reserved
-            ? "✓ 已追加並預留零件，待 SA 與客戶確認"
-            : "✓ 已追加，待 SA 與客戶確認",
+            ? "✓ 已追加並預留零件，SA 已收到通知，待與客戶確認"
+            : "✓ 已追加，SA 已收到通知，待與客戶確認",
         });
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -325,39 +395,80 @@ export function TechWorkstationBoard({
           <Kpi label="進行中" value={kpi.inProgressCount} />
           <Kpi label="今日完成" value={kpi.doneToday} />
           <Kpi label="今日工時" value={`${kpi.todayWorkedMinutes} 分`} />
+          {/* 效率% KPI — 需要有賣出工時才顯示 */}
+          {efficiencyPct != null && (
+            <Kpi
+              label="效率%"
+              value={`${efficiencyPct}%`}
+              highlight={efficiencyPct >= 100 ? "green" : efficiencyPct >= 80 ? undefined : "amber"}
+            />
+          )}
         </div>
       </header>
 
-      {/* 卡片清單 */}
-      <section className={isPending ? "pointer-events-none opacity-60 space-y-3" : "space-y-3"}>
-        {visibleOrders.length === 0 ? (
-          <div className="bg-white border border-[#EEECE6] rounded-lg px-6 py-10 text-center text-[12.5px] text-[#9A9890]">
-            {tab === "pending"
-              ? "目前沒有待您接單的工單"
-              : tab === "in_progress"
-                ? "目前沒有進行中的工單"
-                : "今日尚無完成的工單"}
-          </div>
-        ) : (
-          visibleOrders.map((ro) => (
-            <OrderCard
-              key={ro.id}
-              ro={ro}
-              tab={tab}
-              perms={perms}
-              otherTechnicians={otherTechnicians}
-              busy={isPending}
-              onAccept={() => handleAccept(ro.id)}
-              onToggleItem={(lineId, done) => handleToggleItem(ro.id, lineId, done)}
-              onComplete={() => handleComplete(ro.id)}
-              onStartTimer={() => handleStartTimer(ro.id)}
-              onPauseTimer={() => handlePauseTimer(ro.id)}
-              onReassign={(toTechId) => handleReassign(ro.id, toTechId)}
-              onOpenAddon={() => setAddonForRo(ro.id)}
-            />
-          ))
-        )}
-      </section>
+      {/* pending Tab：進行中工單置頂 amber 橫幅 */}
+      {tab === "pending" && inProgressOrders.length > 0 && (
+        <div
+          className="bg-[#FDF3E3] border border-[#F5D9A8] rounded-lg px-4 py-2.5 flex items-center gap-2 cursor-pointer hover:bg-[#fcecd3]"
+          onClick={() => setTab("in_progress")}
+        >
+          <span className="material-symbols-outlined text-[#854F0B] text-[18px] leading-none">
+            construction
+          </span>
+          <p className="text-[12px] text-[#854F0B] flex-1">
+            <b>目前有 {inProgressOrders.length} 張工單施工中</b>
+            {inProgressOrders[0] ? `（${inProgressOrders[0].ro_code}${inProgressOrders.length > 1 ? " 等" : ""}）` : ""}
+            ，點此查看施工詳情 →
+          </p>
+        </div>
+      )}
+
+      {/* ⏱ 工時記錄 Tab */}
+      {tab === "hours" ? (
+        <HoursPanel kpi={kpi} efficiencyPct={efficiencyPct} sessions={todaySessions} />
+      ) : (
+        /* 卡片清單 */
+        <section className={isPending ? "pointer-events-none opacity-60 space-y-3" : "space-y-3"}>
+          {visibleOrders.length === 0 ? (
+            <div className="bg-white border border-[#EEECE6] rounded-lg px-6 py-10 text-center text-[12.5px] text-[#9A9890]">
+              {tab === "pending"
+                ? "目前沒有待您接單的工單"
+                : tab === "in_progress"
+                  ? "目前沒有進行中的工單"
+                  : "今日尚無完成的工單"}
+            </div>
+          ) : (
+            visibleOrders.map((ro) => (
+              <OrderCard
+                key={ro.id}
+                ro={ro}
+                tab={tab}
+                perms={perms}
+                otherTechnicians={otherTechnicians}
+                busy={isPending}
+                onAccept={() => handleAccept(ro.id)}
+                onToggleItem={(lineId, done) => handleToggleItem(ro.id, lineId, done)}
+                onSetDiag={(lineId, result) => handleSetDiag(ro.id, lineId, result)}
+                onComplete={() => handleComplete(ro.id)}
+                onStartTimer={() => handleStartTimer(ro.id)}
+                onPauseTimer={() => handlePauseTimer(ro.id)}
+                onReassign={(toTechId) => handleReassign(ro.id, toTechId)}
+                onOpenAddon={() => setAddonForRo(ro.id)}
+                onSaveTechNote={(note) =>
+                  startTransition(async () => {
+                    const res = await saveTechNoteAction(ro.id, note);
+                    if (res.ok) {
+                      showBanner({ ok: true, msg: "✓ 施工備註已儲存" });
+                    } else {
+                      showBanner({ ok: false, msg: res.error });
+                    }
+                  })
+                }
+              />
+            ))
+          )}
+        </section>
+      )}
 
       {/* 追加項目 modal */}
       {addonForRo && (
@@ -386,11 +497,152 @@ export function TechWorkstationBoard({
   );
 }
 
-function Kpi({ label, value }: { label: string; value: number | string }) {
+function Kpi({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number | string;
+  highlight?: "green" | "amber";
+}) {
+  const numColor =
+    highlight === "green"
+      ? "text-[#3B6D11]"
+      : highlight === "amber"
+        ? "text-[#854F0B]"
+        : "text-[#1A3A5C]";
   return (
     <div className="bg-white border border-[#EEECE6] rounded-lg px-3 py-1.5 min-w-[78px]">
       <div className="text-[11px] text-[#9A9890]">{label}</div>
-      <div className="text-[15px] font-semibold text-[#1A3A5C] leading-tight">{value}</div>
+      <div className={`text-[15px] font-semibold leading-tight ${numColor}`}>{value}</div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// ⏱ 工時記錄 Panel
+// ─────────────────────────────────────────────────────────────
+
+function HoursPanel({
+  kpi,
+  efficiencyPct,
+  sessions,
+}: {
+  kpi: TechWorkstationKpi;
+  efficiencyPct: number | null;
+  sessions: TimeSessionRow[];
+}) {
+  return (
+    <div className="space-y-3">
+      {/* 今日工時統計 stat chips */}
+      <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-4">
+        <div className="text-[13px] font-semibold text-[#2C2C2A] mb-3">今日工時統計</div>
+        <div className="flex flex-wrap gap-3">
+          <StatChip label="今日實際工時" value={fmtMinutes(kpi.todayWorkedMinutes)} />
+          <StatChip label="賣出工時（標準）" value={fmtMinutes(kpi.soldMinutes)} />
+          <StatChip
+            label="效率%"
+            value={efficiencyPct != null ? `${efficiencyPct}%` : "—"}
+            color={
+              efficiencyPct == null
+                ? undefined
+                : efficiencyPct >= 100
+                  ? "green"
+                  : efficiencyPct >= 80
+                    ? undefined
+                    : "amber"
+            }
+          />
+          <StatChip label="完成工單數" value={String(kpi.doneToday)} />
+        </div>
+      </div>
+
+      {/* 工時明細表格 */}
+      <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">工時明細</span>
+        </div>
+        {sessions.length === 0 ? (
+          <div className="px-4 py-8 text-center text-[12.5px] text-[#9A9890]">今日尚無工時記錄</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[#EEECE6]">
+                  {["工單號", "業務類型", "開始時間", "結束時間", "標準 LU", "實際工時", "效率%"].map((h) => (
+                    <th key={h} className="px-3 py-2 text-left text-[11px] text-[#9A9890] font-medium whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F2F2F2]">
+                {sessions.map((s) => (
+                  <tr key={s.id} className="hover:bg-[#F8F7F4]">
+                    <td className="px-3 py-2 font-mono text-[12px] text-[#1A3A5C]">{s.ro_code}</td>
+                    <td className="px-3 py-2 text-[12px] text-[#5A5955]">{s.service_type ?? "—"}</td>
+                    <td className="px-3 py-2 text-[12px] text-[#5A5955] whitespace-nowrap">
+                      {s.started_at ? new Date(s.started_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false }) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-[12px] text-[#5A5955] whitespace-nowrap">
+                      {s.ended_at
+                        ? new Date(s.ended_at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false })
+                        : <span className="px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5]">進行中</span>}
+                    </td>
+                    <td className="px-3 py-2 text-[12px] text-[#5A5955] text-right">
+                      {s.standard_lu != null ? `${s.standard_lu} LU` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-[12px] text-[#2C2C2A] text-right whitespace-nowrap">
+                      {fmtMinutes(s.actual_minutes)}
+                    </td>
+                    <td className="px-3 py-2 text-[12px] text-right">
+                      {s.efficiency_pct != null ? (
+                        <span
+                          className={`px-1.5 py-0.5 rounded-md text-[11px] ${
+                            s.efficiency_pct >= 100
+                              ? "bg-[#EAF3DE] text-[#3B6D11]"
+                              : s.efficiency_pct >= 80
+                                ? "bg-[#EAF4FB] text-[#185FA5]"
+                                : "bg-[#FDF3E3] text-[#854F0B]"
+                          }`}
+                        >
+                          {s.efficiency_pct}%
+                        </span>
+                      ) : (
+                        <span className="text-[#9A9890]">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatChip({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: "green" | "amber";
+}) {
+  const numColor =
+    color === "green"
+      ? "text-[#3B6D11]"
+      : color === "amber"
+        ? "text-[#854F0B]"
+        : "text-[#2C2C2A]";
+  return (
+    <div className="bg-[#F8F7F4] border border-[#EEECE6] rounded-lg px-4 py-3 min-w-[120px]">
+      <div className="text-[11px] text-[#9A9890]">{label}</div>
+      <div className={`text-[18px] font-semibold leading-tight mt-0.5 ${numColor}`}>{value}</div>
     </div>
   );
 }
@@ -407,11 +659,13 @@ function OrderCard({
   busy,
   onAccept,
   onToggleItem,
+  onSetDiag,
   onComplete,
   onStartTimer,
   onPauseTimer,
   onReassign,
   onOpenAddon,
+  onSaveTechNote,
 }: {
   ro: AssignedOrderCard;
   tab: TabKey;
@@ -420,18 +674,35 @@ function OrderCard({
   busy: boolean;
   onAccept: () => void;
   onToggleItem: (lineId: string, done: boolean) => void;
+  onSetDiag: (lineId: string, result: DiagResult) => void;
   onComplete: () => void;
   onStartTimer: () => void;
   onPauseTimer: () => void;
   onReassign: (toTechId: string) => void;
   onOpenAddon: () => void;
+  onSaveTechNote: (note: string) => void;
 }) {
   const liveSeconds = useLiveTimer(ro.timer.isRunning, ro.timer.activeStartedAt, ro.timer.accumulatedSeconds);
   const laborItems = ro.workItems.filter((w) => w.kind === "labor");
-  const partItems = ro.workItems.filter((w) => w.kind !== "labor");
+  const partItems = ro.workItems.filter((w) => w.kind !== "labor" && w.kind !== "inspection");
+  const inspectionItems = ro.workItems.filter((w) => w.kind === "inspection");
 
   const isPendingTab = tab === "pending";
   const isInProgress = ro.status === STATUS_IN_REPAIR;
+
+  // 施工備註 state（展開 / 收合）
+  const [showTechNote, setShowTechNote] = useState(false);
+  const [techNote, setTechNote] = useState(
+    (ro as unknown as { metadata?: { tech_note?: string } }).metadata?.tech_note ?? "",
+  );
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  function handleSaveNote() {
+    setNoteSaving(true);
+    onSaveTechNote(techNote);
+    // 儲存完畢的回饋由 banner 處理，這裡只 reset 儲存中狀態
+    window.setTimeout(() => setNoteSaving(false), 1500);
+  }
 
   return (
     <article className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
@@ -535,6 +806,49 @@ function OrderCard({
           </div>
         )}
 
+        {/* 深入檢查記錄（kind='inspection'） */}
+        {inspectionItems.length > 0 && (
+          <div className="border border-[#EEECE6] rounded-lg overflow-hidden">
+            <div className="px-3 py-1.5 bg-[#F8F7F4] text-[11px] font-semibold text-[#5A5955]">
+              深入檢查記錄（{inspectionItems.filter((w) => w.diag_result != null).length}/{inspectionItems.length} 已標記）
+            </div>
+            <ul className="divide-y divide-[#F2F2F2]">
+              {inspectionItems.map((w) => (
+                <li key={w.id} className="px-3 py-2 flex items-center gap-2 flex-wrap text-[12.5px]">
+                  <span className="text-[#2C2C2A] flex-1 min-w-[120px]">{w.name}</span>
+                  {/* 目前結果 chip */}
+                  <span className={`px-1.5 py-0.5 rounded-md text-[11px] ${diagChipClass(w.diag_result)}`}>
+                    {diagLabel(w.diag_result)}
+                  </span>
+                  {/* 三顆診斷按鈕（施工中且有執行權限才可點） */}
+                  {isInProgress && perms.canExecute && (
+                    <div className="flex items-center gap-1">
+                      {(["normal", "attention", "abnormal"] as DiagResult[]).map((r) => (
+                        <button
+                          key={r}
+                          disabled={busy}
+                          onClick={() => onSetDiag(w.id, r)}
+                          className={`h-[24px] px-2 rounded text-[11px] border transition-colors disabled:opacity-50 ${
+                            w.diag_result === r
+                              ? r === "normal"
+                                ? "bg-[#EAF3DE] text-[#3B6D11] border-[#C5DC9F] font-semibold"
+                                : r === "attention"
+                                  ? "bg-[#FDF3E3] text-[#854F0B] border-[#F5D9A8] font-semibold"
+                                  : "bg-[#FDECEA] text-[#CC0000] border-[#F5AEAD] font-semibold"
+                              : "bg-white text-[#5A5955] border-[#D5D3CB] hover:border-[#9A9890]"
+                          }`}
+                        >
+                          {diagLabel(r)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* 零件（唯讀，發料軌追蹤） */}
         {partItems.length > 0 && (
           <div className="border border-[#EEECE6] rounded-lg overflow-hidden">
@@ -577,6 +891,51 @@ function OrderCard({
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* 施工備註（施工中可編輯；done 時唯讀顯示） */}
+        {(isInProgress || tab === "done_today") && (
+          <div className="border border-[#EEECE6] rounded-lg overflow-hidden">
+            <div className="px-3 py-1.5 bg-[#F8F7F4] flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-[#5A5955] flex-1">
+                施工備註
+                <span className="ml-1 text-[10px] text-[#9A9890] font-normal">（SA / 複檢員可見）</span>
+              </span>
+              {isInProgress && (
+                <button
+                  onClick={() => setShowTechNote((v) => !v)}
+                  className="text-[11px] text-[#185FA5] hover:underline"
+                >
+                  {showTechNote ? "收合" : "展開"}
+                </button>
+              )}
+            </div>
+            {/* done_today 直接顯示備註內容（唯讀） */}
+            {tab === "done_today" && techNote && (
+              <div className="px-3 py-2 text-[12.5px] text-[#5A5955] whitespace-pre-wrap">{techNote}</div>
+            )}
+            {/* 施工中：展開後顯示 textarea */}
+            {isInProgress && showTechNote && (
+              <div className="px-3 py-3 space-y-2">
+                <textarea
+                  className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] disabled:opacity-60 min-h-[80px] resize-none"
+                  value={techNote}
+                  disabled={busy || noteSaving}
+                  onChange={(e) => setTechNote(e.target.value)}
+                  placeholder="施工說明、發現問題、特殊情況等（SA 和複檢員可見）"
+                />
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleSaveNote}
+                    disabled={busy || noteSaving}
+                    className="h-[28px] px-3.5 rounded text-[12px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60"
+                  >
+                    {noteSaving ? "儲存中⋯" : "儲存備註"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

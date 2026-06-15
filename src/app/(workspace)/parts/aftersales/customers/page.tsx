@@ -3,8 +3,12 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getAftersalesCustomerBaseListPageDataWithKpi } from "@/domain/aftersales-customer-base";
+import {
+  getAftersalesCustomerBaseListPageDataWithKpi,
+  getActiveVehicleModels,
+} from "@/domain/aftersales-customer-base";
 import type { AftersalesCustomerBaseFilters } from "@/domain/aftersales-customer-base.constants";
+import type { ModelRef } from "@/domain/aftersales-customer-base";
 
 import { CustomersBoard } from "./_components/customers-board";
 
@@ -32,7 +36,13 @@ export default async function CustomersPage({
     service_status: sp.service_status ?? "all",
     type: sp.type ?? "all",
     q: sp.q ?? "",
+    model_id: sp.model_id ?? "all",
   };
+
+  // 撈車型清單供篩選下拉用（透過 domain helper，不直連 Supabase）
+  const models: ModelRef[] = await getActiveVehicleModels();
+
+  const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
 
   const { rows, totalCount, kpi } =
     await getAftersalesCustomerBaseListPageDataWithKpi(filters);
@@ -43,6 +53,8 @@ export default async function CustomersPage({
       totalCount={totalCount}
       filters={filters}
       kpi={kpi}
+      models={models}
+      canEdit={canEdit}
     />
   );
 }

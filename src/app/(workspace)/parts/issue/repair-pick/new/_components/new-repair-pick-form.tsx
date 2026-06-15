@@ -12,6 +12,7 @@ import {
   previewRepairPick,
   pickForWorkOrder,
   pickAdHoc,
+  createReplenishmentRequest,
 } from "@/domain/issues";
 
 type Mode = "ro" | "adhoc";
@@ -35,7 +36,13 @@ function newLine(): AdHocLine {
   return { id: `l${lineSeq}`, item_id: "", qty: "1", notes: "" };
 }
 
-export function NewRepairPickForm({ data }: { data: RepairPickFormData }) {
+export function NewRepairPickForm({
+  data,
+  warrantyItemIds = new Set<string>(),
+}: {
+  data: RepairPickFormData;
+  warrantyItemIds?: Set<string>;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
@@ -45,6 +52,9 @@ export function NewRepairPickForm({ data }: { data: RepairPickFormData }) {
 
   // RO mode state
   const [selectedWoId, setSelectedWoId] = useState<string>("");
+
+  // 當前 RO 的 warranty item ids（由 props 帶入，單一 RO 內固定）
+  const [activeWarrantyIds] = useState<Set<string>>(warrantyItemIds);
 
   // ad-hoc state
   const [adhocCustomerId] = useState<string>("");
@@ -127,6 +137,34 @@ export function NewRepairPickForm({ data }: { data: RepairPickFormData }) {
         router.refresh();
       } else {
         flash({ ok: false, msg: `過帳失敗：${res.error}` });
+      }
+    });
+  }
+
+  function handleCreateReplenishment() {
+    if (!preview) return;
+    const shortageLines = preview.lines
+      .filter((l) => l.shortage > 0)
+      .map((l) => ({
+        item_id: l.item_id,
+        item_code: l.item_code,
+        item_name: l.item_name,
+        qty_shortage: l.shortage,
+      }));
+    if (shortageLines.length === 0) return;
+
+    const selectedWo = data.workOrders.find((w) => w.id === selectedWoId);
+    startTransition(async () => {
+      const res = await createReplenishmentRequest({
+        work_order_id: selectedWoId || null,
+        ro_no: selectedWo?.ro_no ?? null,
+        warehouse_id: warehouseId,
+        shortage_lines: shortageLines,
+      });
+      if (res.ok) {
+        flash({ ok: true, msg: `✓ 已建立補貨需求單 ${res.data.req_no}` });
+      } else {
+        flash({ ok: false, msg: `建立補貨需求失敗：${res.error}` });
       }
     });
   }
@@ -264,6 +302,9 @@ export function NewRepairPickForm({ data }: { data: RepairPickFormData }) {
           isPending={isPending}
           onBack={backToStepA}
           onSubmit={submitPost}
+          onCreateReplenishment={handleCreateReplenishment}
+          warrantyItemIds={activeWarrantyIds}
+          selectedWoId={selectedWoId}
         />
       ) : null}
 
@@ -579,6 +620,9 @@ function PreviewPanel({
   isPending,
   onBack,
   onSubmit,
+  onCreateReplenishment,
+  warrantyItemIds,
+  selectedWoId,
 }: {
   preview: RepairPickPreview;
   itemIndex: Map<string, RepairPickFormData["items"][number]>;
@@ -586,7 +630,18 @@ function PreviewPanel({
   isPending: boolean;
   onBack: () => void;
   onSubmit: () => void;
+  onCreateReplenishment: () => void;
+  warrantyItemIds: Set<string>;
+  selectedWoId: string;
 }) {
+  // 缺料明細
+  const shortageLines = preview.lines.filter((l) => l.shortage > 0);
+  const hasShortage = shortageLines.length > 0;
+
+  // 保固件明細（料件在保固 id 清單中）
+  const warrantyLines = preview.lines.filter((l) => warrantyItemIds.has(l.item_id));
+  const hasWarranty = warrantyLines.length > 0;
+
   return (
     <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
       <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-3">
@@ -603,6 +658,81 @@ function PreviewPanel({
           </span>
         )}
       </header>
+
+      {/* 缺料警示區塊 */}
+      {hasShortage && (
+        <div className="px-4 py-3 border-b border-[#F5AEAD] bg-[#FDECEA]/30">
+          <div className="flex items-start gap-2 mb-2">
+            <span className="text-[#CC0000] text-[16px]">⚠</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12.5px] font-semibold text-[#CC0000]">
+                缺料警示 — {shortageLines.length} 項料件庫存不足
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {shortageLines.map((l) => (
+                  <li key={l.item_id} className="text-[11.5px] text-[#CC0000] font-mono">
+                    {l.item_code ?? "—"} {l.item_name}：缺 {l.shortage} 件
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {/* 補貨需求按鈕 */}
+            <button
+              type="button"
+              onClick={onCreateReplenishment}
+              disabled={isPending}
+              className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#CC0000] text-white hover:bg-[#A30000] disabled:opacity-50 inline-flex items-center gap-1"
+            >
+              {isPending ? "建立中⋯" : "📦 建立補貨需求單"}
+            </button>
+            {/* 通知售後 SA 啟動增項閉環 */}
+            {selectedWoId && (
+              <a
+                href={`/service/workorders/${selectedWoId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#FDF3E3] border border-[#F0D9A8] text-[#854F0B] hover:bg-[#fde9b8] inline-flex items-center gap-1"
+              >
+                🔔 通知售後 SA 啟動增項閉環 →
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 保固件寄存提示 */}
+      {hasWarranty && (
+        <div className="px-4 py-2.5 border-b border-[#85B7EB] bg-[#EAF4FB]/40">
+          <div className="flex items-start gap-2">
+            <span className="text-[#185FA5] text-[15px]">🔒</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-semibold text-[#185FA5]">
+                保固件提示 — {warrantyLines.length} 項保固料件
+              </p>
+              <p className="text-[11.5px] text-[#0C3E70] mt-0.5">
+                出庫後請將舊件送入保固暫存倉並登記索賠單號。
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {warrantyLines.map((l) => (
+                  <span key={l.item_id} className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5] border border-[#85B7EB] font-mono">
+                    {l.item_code ?? l.item_name}
+                  </span>
+                ))}
+                <a
+                  href={selectedWoId ? `/service/warranty/claims/new?ro=${selectedWoId}` : "/service/warranty/claims/new"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-white border border-[#85B7EB] text-[#185FA5] hover:bg-[#EAF4FB]"
+                >
+                  前往保固索賠 →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-[12px]">
@@ -622,6 +752,7 @@ function PreviewPanel({
               const item = itemIndex.get(l.item_id);
               const code = l.item_code ?? item?.code ?? "—";
               const isShort = l.shortage > 0;
+              const isWarranty = warrantyItemIds.has(l.item_id);
               return (
                 <tr
                   key={l.line_no}
@@ -629,7 +760,14 @@ function PreviewPanel({
                 >
                   <td className="px-2 py-2 font-mono text-[#9A9890]">{l.line_no}</td>
                   <td className="px-2 py-2 font-mono font-semibold text-[#1A3A5C]">{code}</td>
-                  <td className="px-2 py-2">{l.item_name}</td>
+                  <td className="px-2 py-2">
+                    <span>{l.item_name}</span>
+                    {isWarranty && (
+                      <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded text-[10px] bg-[#EAF4FB] text-[#185FA5] border border-[#85B7EB]">
+                        保固件
+                      </span>
+                    )}
+                  </td>
                   <td className="px-2 py-2 text-right font-mono">{l.qty_needed}</td>
                   <td className="px-2 py-2 text-right font-mono">{l.qty_available}</td>
                   <td

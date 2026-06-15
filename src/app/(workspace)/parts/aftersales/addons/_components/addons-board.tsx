@@ -51,6 +51,7 @@ import {
   type AddonInput,
   type ConfirmMethod,
 } from "@/lib/aftersales/repair-order-addon-actions";
+import type { AddonCostSummary } from "@/domain/repair-order-addons.constants";
 
 type Banner = { ok: boolean; msg: string } | null;
 type ViewMode = "list" | "kanban" | "followup";
@@ -78,12 +79,15 @@ export function AddonsBoard({
   filter,
   canEdit,
   roOptions,
+  costSummary,
 }: {
   rows: RepairOrderAddonWithRo[];
   summary: AddonsSummary;
   filter: AddonsListFilter;
   canEdit: boolean;
   roOptions: RoOptionForAddons[];
+  /** 費用摘要 — 有 roId filter 時由 page.tsx 傳入；無 filter 時為 null */
+  costSummary: AddonCostSummary | null;
 }) {
   useSetPageHeader({
     title: "追加項目記錄",
@@ -416,6 +420,23 @@ export function AddonsBoard({
         <span className="text-[12px] text-[#9A9890]">{sprintCaption}</span>
       </header>
 
+      {/* Info Banner — 說明系統行為：同意→預留庫存 / 拒絕→增項閉環 */}
+      <div className="flex items-center gap-3 bg-[#EAF4FB] border border-[#B8D9EF] rounded-lg px-4 py-2.5">
+        <span className="material-symbols-outlined text-[18px] text-[#185FA5] flex-shrink-0">info</span>
+        <p className="text-[12px] text-[#185FA5] flex-1">
+          <span className="font-medium">同意</span>：自動預留庫存 + 寫入工單明細
+          <span className="mx-2 text-[#9A9890]">｜</span>
+          <span className="font-medium">拒絕/暫緩 + 安全等級</span>：進入增項閉環追蹤
+        </p>
+        <Link
+          href="/parts/issue/repair-pick"
+          className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#185FA5] text-white hover:bg-[#1252A0] whitespace-nowrap inline-flex items-center gap-1 flex-shrink-0"
+        >
+          <span className="material-symbols-outlined text-[14px]">exit_to_app</span>
+          → 維修領料
+        </Link>
+      </div>
+
       {/* KPI Row — 4 顆標準 KpiCard with tone */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <KpiCard
@@ -607,6 +628,52 @@ export function AddonsBoard({
         </div>
       </section>
 
+      {/* 費用變動摘要 — 指定工單 filter 選中後顯示 */}
+      {costSummary && roIdLocal && (
+        <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
+          <div className="flex items-center gap-1 mb-2">
+            <span className="material-symbols-outlined text-[16px] text-[#185FA5]">calculate</span>
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">費用變動摘要</span>
+            <span className="text-[11px] text-[#9A9890] ml-1">（依本工單所有追加項目彙整）</span>
+          </div>
+          <div className="flex items-center gap-4 flex-wrap">
+            <CostSummaryItem
+              label="原始工單金額"
+              value={
+                costSummary.ro_estimated_total != null
+                  ? `NT$ ${costSummary.ro_estimated_total.toLocaleString()}`
+                  : "—"
+              }
+              color="#5A5955"
+            />
+            <span className="text-[16px] text-[#9A9890] font-light">＋</span>
+            <CostSummaryItem
+              label={`追加小計（共 ${costSummary.counts.pending + costSummary.counts.agreed + costSummary.counts.deferred + costSummary.counts.rejected} 項）`}
+              value={`NT$ ${costSummary.addon_subtotal.toLocaleString()}`}
+              color="#854F0B"
+            />
+            <span className="text-[16px] text-[#9A9890] font-light">=</span>
+            <CostSummaryItem
+              label="預估總金額（若全部同意）"
+              value={
+                costSummary.projected_total != null
+                  ? `NT$ ${costSummary.projected_total.toLocaleString()}`
+                  : "—"
+              }
+              color="#0F6E56"
+              highlight
+            />
+            <span className="ml-auto text-[11px] text-[#9A9890]">
+              已同意：
+              <span className="font-semibold text-[#3B6D11]">
+                NT$ {costSummary.agreed_subtotal.toLocaleString()}
+              </span>
+              　待確認：{costSummary.counts.pending} 件
+            </span>
+          </div>
+        </section>
+      )}
+
       {/* Toolbar + 視圖切換 */}
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">
@@ -635,7 +702,7 @@ export function AddonsBoard({
           exportFileName="repair-order-addons"
           emptyMessage="目前沒有符合條件的追加項目"
           disabled={isPending}
-          rowActionsWidth={canEdit ? 290 : 130}
+          rowActionsWidth={canEdit ? 330 : 170}
           rowActions={(r) => (
             <>
               <Link
@@ -650,6 +717,16 @@ export function AddonsBoard({
               >
                 查工單
               </Link>
+              {/* 📦 備料快捷鈕 — agreed 後顯示，連到維修領料新建頁帶 ro_id 參數 */}
+              {r.customer_decision === "agreed" && (
+                <Link
+                  href={`/parts/issue/repair-pick/new?ro_id=${r.ro_id}&addon_id=${r.id}`}
+                  className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center gap-1 bg-[#EAF4FB] border border-[#B8D9EF] text-[#185FA5] hover:bg-[#d4eaf8]"
+                  title="前往維修領料備料頁"
+                >
+                  📦 備料
+                </Link>
+              )}
               {canEdit && r.customer_decision === "pending" && (
                 <>
                   <button
@@ -772,6 +849,14 @@ export function AddonsBoard({
             showBanner(b);
             setDecideTarget(null);
             router.refresh();
+            // 拒絕後自動切換到「待追蹤閉環」viewMode，引導 SA 處理閉環
+            if (b.ok && decision === "rejected") {
+              showBanner({
+                ok: true,
+                msg: "✓ 已標記為拒絕，已建立增項追蹤 → 自動切換至「待追蹤閉環」",
+              });
+              setTimeout(() => setViewMode("followup"), 800);
+            }
           }}
         />
       )}
@@ -1216,3 +1301,28 @@ function Field({
 
 const inputClass =
   "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none disabled:bg-[#F8F7F4]";
+
+/** 費用摘要顯示格 */
+function CostSummaryItem({
+  label,
+  value,
+  color,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10.5px] text-[#9A9890]">{label}</span>
+      <span
+        className={`font-mono font-semibold ${highlight ? "text-[16px]" : "text-[14px]"}`}
+        style={{ color }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}

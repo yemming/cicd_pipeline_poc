@@ -26,7 +26,10 @@ import {
   startLaborTimer,
   pauseLaborTimer,
   reassignOrder,
+  setDiagResult,
+  saveTechNote,
   type AddonInput,
+  type DiagResult,
 } from "@/domain/tech-workstation";
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
@@ -100,3 +103,31 @@ export async function reassignOrderAction(
   if (res.ok) revalidatePath(TECH_PATH);
   return res;
 }
+
+/**
+ * 診斷項目結果設定（正常 / 需關注 / 異常）。
+ * 結果寫入 repair_order_lines.metadata.diag_result。
+ */
+export async function setDiagResultAction(
+  lineId: string,
+  result: DiagResult,
+): Promise<ActionResult<{ id: string; diag_result: DiagResult }>> {
+  await requirePermission(PERMISSIONS.RO_EXECUTE);
+  const res = await setDiagResult(lineId, result);
+  if (res.ok) revalidatePath(TECH_PATH);
+  return res;
+}
+
+/** 儲存施工備註（SA / 複檢員可見）。 */
+export async function saveTechNoteAction(
+  roId: string,
+  note: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_EXECUTE);
+  const res = await saveTechNote(roId, note);
+  if (res.ok) revalidatePath(TECH_PATH);
+  return res;
+}
+
+// 重新 export DiagResult 型別供 board 使用
+export type { DiagResult };

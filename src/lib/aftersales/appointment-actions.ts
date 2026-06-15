@@ -219,3 +219,85 @@ export async function deleteAppointmentAction(
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
 }
+
+/**
+ * Walk-in 車牌查詢（server action 包裝，讓 client component 可呼叫）。
+ * 回傳 found / vehicle / customer；查無時 found=false。
+ */
+export type WalkInLookupResult = {
+  found: boolean;
+  vehicle_id: string | null;
+  customer_id: string | null;
+  vehicle_model_name: string | null;
+  customer_name: string | null;
+};
+
+export async function lookupVehicleForWalkInAction(
+  plate: string,
+): Promise<ActionResult<WalkInLookupResult>> {
+  // 無需 APPOINTMENT_EDIT 權限——只是查詢
+  await requirePermission(PERMISSIONS.APPOINTMENT_VIEW);
+  if (!plate.trim()) return { ok: false, error: "請輸入車牌" };
+
+  const { lookupVehicleByPlateForAppointment } = await import("@/domain/appointments");
+  const result = await lookupVehicleByPlateForAppointment(plate.trim());
+
+  return {
+    ok: true,
+    data: {
+      found: result.found,
+      vehicle_id: result.vehicle?.id ?? null,
+      customer_id: result.customer?.id ?? null,
+      vehicle_model_name: result.vehicle?.model_name ?? null,
+      customer_name: result.customer?.name ?? null,
+    },
+  };
+}
+
+/**
+ * Walk-in 臨時插單：建立一筆當日、來源為「Walk-in」的預約，
+ * 狀態直接設為「已到廠」（已在廠內）。
+ * 成功後前端 router.push 到預檢單新建頁帶 appointment_id。
+ */
+export async function createWalkInAppointmentAction(input: {
+  plate: string;
+  customer_id?: string | null;
+  vehicle_id?: string | null;
+  service_type?: string;
+}): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.APPOINTMENT_EDIT);
+  if (!input.plate.trim()) return { ok: false, error: "車牌不可為空" };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const brand = scope.brand_id;
+
+  // 取台北當日日期
+  const d = new Date();
+  const tz = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+  const today = `${tz.getFullYear()}-${String(tz.getMonth() + 1).padStart(2, "0")}-${String(tz.getDate()).padStart(2, "0")}`;
+  // 當下時間（HH:MM:00）
+  const nowTime = `${String(tz.getHours()).padStart(2, "0")}:${String(tz.getMinutes()).padStart(2, "0")}:00`;
+
+  const { data, error } = await supabase
+    .from("appointments")
+    .insert({
+      brand_id: brand,
+      subsidiary_id: scope.subsidiary_id,
+      appointment_date: today,
+      appointment_time: nowTime,
+      customer_id: input.customer_id ?? null,
+      vehicle_id: input.vehicle_id ?? null,
+      service_type: input.service_type ?? "OT",
+      status: "已到廠",
+      notes: `Walk-in 臨時插單 — 車牌：${input.plate.trim()}`,
+      arrived_at: new Date().toISOString(),
+      metadata: { source: "walk-in", plate_hint: input.plate.trim() },
+    })
+    .select("id")
+    .single();
+
+  if (error) return { ok: false, error: `建立失敗：${error.message}` };
+  revalidatePath(PAGE_PATH);
+  return { ok: true, data: { id: data.id as string } };
+}

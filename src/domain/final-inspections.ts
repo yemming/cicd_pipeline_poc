@@ -55,6 +55,10 @@ export type FinalInspectionListRow = FinalInspectionRow & {
   passed_lines: number;
   /** M-09：RO 施工主技師 ID，用於後端複檢人員驗證（inspector_id 不得等於此值） */
   lead_technician_id: string | null;
+  /** 預估總費用（來自 repair_orders.estimated_total），Step1 摘要列 + Step5 通知預覽用 */
+  estimated_total: number | null;
+  /** 退回重修次數（來自 repair_orders.metadata.rework_count），Step4 badge 用 */
+  qc_attempt_count: number;
 };
 
 export type FinalInspectionFilters = {
@@ -236,7 +240,7 @@ async function joinList(
   const roIds = Array.from(new Set(rows.map((r) => r.repair_order_id)));
   const { data: roData } = await supabase
     .from("repair_orders")
-    .select("id, ro_code, status, customer_id, vehicle_id, mileage_in, lead_technician_id")
+    .select("id, ro_code, status, customer_id, vehicle_id, mileage_in, lead_technician_id, estimated_total, metadata")
     .in("id", roIds)
     .eq("brand_id", brand_id);
   const roMap = new Map(
@@ -248,6 +252,8 @@ async function joinList(
       vehicle_id: string | null;
       mileage_in: number | null;
       lead_technician_id: string | null;
+      estimated_total: number | null;
+      metadata: Record<string, unknown> | null;
     }>).map((r) => [r.id, r]),
   );
   const customerIds = Array.from(
@@ -308,6 +314,8 @@ async function joinList(
       total_lines: lineResults.length,
       passed_lines: passed,
       lead_technician_id: ro?.lead_technician_id ?? null,
+      estimated_total: ro?.estimated_total ?? null,
+      qc_attempt_count: typeof ro?.metadata?.rework_count === "number" ? ro.metadata.rework_count : 0,
     };
   });
 }

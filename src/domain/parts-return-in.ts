@@ -422,10 +422,25 @@ export async function getIssueForReturn(issueId: string): Promise<IssueWithLines
 // Create — 從 stock_issue 拉退料明細建退入單
 // ─────────────────────────────────────────────────────────────
 
+// 退料類型（設計稿三選一 UI 對應值）
+export type ReturnType = "complete" | "writeoff" | "cancel_order";
+
 export type CreateReturnInInput = {
   issue_id: string;
   receipt_date?: string;
   return_reason: string;
+  /**
+   * 退料類型：
+   *  - complete    = 完整退料（零件完好可重新入庫）
+   *  - writeoff    = 損耗核銷（已開封/安裝一半，需主管授權）
+   *  - cancel_order = 工單取消退料（整張工單中途取消）
+   * 不傳時 fallback 到 'complete'
+   */
+  return_type?: ReturnType;
+  /** 損耗核銷時的核銷原因（writeoff 時必填）*/
+  writeoff_reason?: string;
+  /** 損耗核銷主管授權人 id（writeoff 時必填）*/
+  approver_id?: string | null;
   notes?: string;
   lines: Array<{ line_id: string; qty_returned: number }>;
 };
@@ -505,7 +520,32 @@ export async function createReturnInReceipt(
 
   // 4. Insert stock_receipts（type='ro_return'）
   const reason = input.return_reason.trim();
+  const returnType = input.return_type ?? "complete";
+
+  // 損耗核銷（writeoff）驗證：需要核銷原因
+  if (returnType === "writeoff" && !input.writeoff_reason?.trim()) {
+    return { ok: false, error: "損耗核銷需填寫核銷原因" };
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
+
+  // 損耗核銷：status='draft' 等待主管授權；其餘直接 completed
+  const receiptStatus = returnType === "writeoff" ? "draft" : "completed";
+  const postedAt = returnType === "writeoff" ? null : new Date().toISOString();
+
+  const metadataPayload: Record<string, unknown> = {
+    return_reason: reason,
+    return_type: returnType,
+  };
+  if (returnType === "writeoff") {
+    metadataPayload.writeoff_reason = input.writeoff_reason?.trim() ?? "";
+    metadataPayload.approver_id = input.approver_id ?? null;
+    metadataPayload.approved_at = null; // 等主管批
+  }
+  if (returnType === "cancel_order") {
+    metadataPayload.cancel_order_note = "工單中途取消，零件整批退回";
+  }
+
   const { data: gr, error: grErr } = await supabase
     .from("stock_receipts")
     .insert({
@@ -518,11 +558,11 @@ export async function createReturnInReceipt(
       amount_total: Math.round(totalAmount * 100) / 100,
       source_doc_id: issue.id,
       source_doc_type: "stock_issue",
-      status: "completed",
-      posted_at: new Date().toISOString(),
+      status: receiptStatus,
+      posted_at: postedAt,
       posted_by: user?.id ?? null,
       notes: input.notes?.trim() || `領料 ${issue.gi_no} 部分退入庫`,
-      metadata: { return_reason: reason },
+      metadata: metadataPayload,
     })
     .select("id")
     .single();
@@ -555,28 +595,32 @@ export async function createReturnInReceipt(
   }
 
   // 6. Insert stock_items（status='available' 回庫）
-  const stockRows = grLines.map((gl, idx) => {
-    const il = ilMap.get(linesIn[idx].line_id)!;
-    return {
-      brand_id: scope.brand_id,
-      item_id: gl.item_id,
-      warehouse_id: issue.warehouse_id,
-      bin_id: gl.bin_id,
-      qty: gl.qty_received,
-      unit_cost: gl.unit_cost,
-      status: "available",
-      source_receipt_line_id: gl.id,
-      serial_no: il.serial_no,
-      batch_no: il.batch_no,
-      notes: `領料 ${issue.gi_no} 退入庫（${gr_no}）`,
-    };
-  });
-  const { error: siErr } = await supabase.from("stock_items").insert(stockRows);
-  if (siErr) {
-    // 入庫失敗、回滾 receipts + lines
-    await supabase.from("stock_receipt_lines").delete().eq("gr_id", gr.id);
-    await supabase.from("stock_receipts").delete().eq("id", gr.id);
-    return { ok: false, error: `庫存還原失敗：${siErr.message}` };
+  // 損耗核銷（writeoff）不回庫、等主管授權後再由另一個 action 處理；
+  // 完整退料 / 工單取消退料 直接回庫。
+  if (returnType !== "writeoff") {
+    const stockRows = grLines.map((gl, idx) => {
+      const il = ilMap.get(linesIn[idx].line_id)!;
+      return {
+        brand_id: scope.brand_id,
+        item_id: gl.item_id,
+        warehouse_id: issue.warehouse_id,
+        bin_id: gl.bin_id,
+        qty: gl.qty_received,
+        unit_cost: gl.unit_cost,
+        status: "available",
+        source_receipt_line_id: gl.id,
+        serial_no: il.serial_no,
+        batch_no: il.batch_no,
+        notes: `領料 ${issue.gi_no} 退入庫（${gr_no}）`,
+      };
+    });
+    const { error: siErr } = await supabase.from("stock_items").insert(stockRows);
+    if (siErr) {
+      // 入庫失敗、回滾 receipts + lines
+      await supabase.from("stock_receipt_lines").delete().eq("gr_id", gr.id);
+      await supabase.from("stock_receipts").delete().eq("id", gr.id);
+      return { ok: false, error: `庫存還原失敗：${siErr.message}` };
+    }
   }
 
   revalidatePath("/parts/receipt/return-in");

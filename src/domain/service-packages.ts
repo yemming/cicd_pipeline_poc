@@ -14,6 +14,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export type ServicePackageItem = {
   kind: "labor" | "part";
+  /** 業務類型（MN/RP/WC/AC/PD/Desmo），工項才有意義；用於工資費即時試算 */
+  bizType?: string;
   sku?: string;
   name: string;
   qty?: number;
@@ -27,12 +29,21 @@ export type ServicePackage = {
   code: string;
   name: string;
   pkgType: "standard" | "store_custom" | "promo";
+  /** @deprecated 單點里程，保留向下相容；新欄位改用 mileageFrom/mileageTo */
   mileageInterval: number | null;
+  /** 適用里程起（km） */
+  mileageFrom: number | null;
+  /** 適用里程迄（km） */
+  mileageTo: number | null;
+  /** 適用車型清單（空陣列 = 全車型） */
+  applicableModels: string[];
   items: ServicePackageItem[];
   listPrice: number | null;
   validFrom: string | null;
   validTo: string | null;
   isActive: boolean;
+  /** 是否在 04B 快速報價查詢中顯示；停用或過期時自動設 false */
+  showInQuickquote: boolean;
   pricingPolicyId: string | null;
 };
 
@@ -42,6 +53,10 @@ export type LaborRate = {
   bizType: string; // MN|RP|WC|AC|PD|Desmo
   ratePerLu: number;
   isActive: boolean;
+  /** 上次修改時間（Asia/Taipei ISO） */
+  updatedAt: string | null;
+  /** 上次修改人（email） */
+  updatedBy: string | null;
 };
 
 type SpRow = {
@@ -51,11 +66,15 @@ type SpRow = {
   name: string;
   pkg_type: string;
   mileage_interval: number | null;
+  mileage_from: number | null;
+  mileage_to: number | null;
+  applicable_models: string[] | null;
   items: ServicePackageItem[] | null;
   list_price: number | null;
   valid_from: string | null;
   valid_to: string | null;
   is_active: boolean;
+  show_in_quickquote: boolean;
   pricing_policy_id: string | null;
 };
 
@@ -67,11 +86,15 @@ function rowToPackage(r: SpRow): ServicePackage {
     name: r.name,
     pkgType: (r.pkg_type as ServicePackage["pkgType"]) ?? "standard",
     mileageInterval: r.mileage_interval,
+    mileageFrom: r.mileage_from,
+    mileageTo: r.mileage_to,
+    applicableModels: r.applicable_models ?? [],
     items: r.items ?? [],
     listPrice: r.list_price,
     validFrom: r.valid_from,
     validTo: r.valid_to,
     isActive: r.is_active,
+    showInQuickquote: r.show_in_quickquote ?? true,
     pricingPolicyId: r.pricing_policy_id,
   };
 }
@@ -87,7 +110,7 @@ export async function listServicePackages(
   const client = await createClient();
   let q = client
     .from("service_packages")
-    .select("id, brand_id, code, name, pkg_type, mileage_interval, items, list_price, valid_from, valid_to, is_active, pricing_policy_id")
+    .select("id, brand_id, code, name, pkg_type, mileage_interval, mileage_from, mileage_to, applicable_models, items, list_price, valid_from, valid_to, is_active, show_in_quickquote, pricing_policy_id")
     .eq("brand_id", brandId)
     .order("mileage_interval", { ascending: true, nullsFirst: false });
   if (!opts.includeInactive) q = q.eq("is_active", true);
@@ -114,14 +137,28 @@ export async function listLaborRates(
   const client = await createClient();
   let q = client
     .from("labor_rates")
-    .select("id, brand_id, biz_type, rate_per_lu, is_active")
+    .select("id, brand_id, biz_type, rate_per_lu, is_active, updated_at, updated_by")
     .eq("brand_id", brandId)
     .order("biz_type", { ascending: true });
   if (!opts.includeInactive) q = q.eq("is_active", true);
   const { data } = await q;
-  return ((data ?? []) as Array<{ id: string; brand_id: string; biz_type: string; rate_per_lu: number; is_active: boolean }>).map(
-    (r) => ({ id: r.id, brandId: r.brand_id, bizType: r.biz_type, ratePerLu: Number(r.rate_per_lu), isActive: r.is_active }),
-  );
+  return ((data ?? []) as Array<{
+    id: string;
+    brand_id: string;
+    biz_type: string;
+    rate_per_lu: number;
+    is_active: boolean;
+    updated_at: string | null;
+    updated_by: string | null;
+  }>).map((r) => ({
+    id: r.id,
+    brandId: r.brand_id,
+    bizType: r.biz_type,
+    ratePerLu: Number(r.rate_per_lu),
+    isActive: r.is_active,
+    updatedAt: r.updated_at ?? null,
+    updatedBy: r.updated_by ?? null,
+  }));
 }
 
 /** 單筆服務套餐（07B detail / 編輯帶值用）。 */
@@ -129,7 +166,7 @@ export async function getServicePackageById(id: string): Promise<ServicePackage 
   const client = await createClient();
   const { data } = await client
     .from("service_packages")
-    .select("id, brand_id, code, name, pkg_type, mileage_interval, items, list_price, valid_from, valid_to, is_active, pricing_policy_id")
+    .select("id, brand_id, code, name, pkg_type, mileage_interval, mileage_from, mileage_to, applicable_models, items, list_price, valid_from, valid_to, is_active, show_in_quickquote, pricing_policy_id")
     .eq("id", id)
     .maybeSingle();
   return data ? rowToPackage(data as SpRow) : null;

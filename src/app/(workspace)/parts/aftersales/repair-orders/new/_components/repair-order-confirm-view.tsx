@@ -161,6 +161,37 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
         </div>
       </div>
 
+      {/* B3-01：同車多工單提示橫幅（後端已擋，前端預警讓 SA 提早知道） */}
+      {draft.concurrent_ro_code && (
+        <div className="rounded-lg px-4 py-3 text-[12.5px] bg-[#F0EFFE] border border-[#C5C0F0] text-[#534AB7]">
+          <span className="font-semibold">⚠️ 此車輛目前有其他進行中工單（</span>
+          <span className="font-mono font-bold">{draft.concurrent_ro_code}</span>
+          <span className="font-semibold">），送出後系統將阻擋重複開單。</span>
+          <span className="ml-1 text-[12px]">請先確認該工單狀態，或洽主管確認是否允許同車多工單。</span>
+        </div>
+      )}
+
+      {/* 預檢損傷摘要橫幅（由 PI 環檢自動帶入，SA 確認後繼續） */}
+      {draft.inspection_damage_summary !== null && (
+        <div className="rounded-lg px-4 py-3 text-[12.5px] bg-[#EAF4FB] border border-[#A9CCE8] text-[#185FA5]">
+          <div className="font-semibold mb-1">
+            📋 來自預檢單的自動帶入資料 — 環境檢查摘要
+          </div>
+          {draft.inspection_damage_summary.length > 0 ? (
+            <ul className="list-none space-y-0.5 mt-1">
+              {draft.inspection_damage_summary.map((item, i) => (
+                <li key={i} className="flex items-start gap-1.5">
+                  <span className="mt-0.5 text-[#185FA5]">①</span>
+                  <span className="text-[12px]">{item}（進廠前已存在）</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[12px] text-[#185FA5]">已附環檢單，環檢無損傷記錄，SA 確認無誤後繼續開立工單。</p>
+          )}
+        </div>
+      )}
+
       {/* PI 勾「疑似保固 / 公報召回」→ amber 提示（Q4 option A） */}
       {draft.has_warranty_concern && (
         <div className="rounded-lg px-4 py-2.5 text-[12.5px] bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B]">

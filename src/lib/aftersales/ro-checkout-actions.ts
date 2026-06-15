@@ -26,7 +26,8 @@ import { createFollowUpTask } from "@/domain/sales-call-tasks";
 import { uploadSignatureDataUrl, isStorageUrl } from "@/lib/aftersales/signature-upload";
 import { getCurrentUserDepartment } from "@/lib/rbac/department";
 
-// 包F：下次保養提醒參數（Ducati 定保 demo：里程 +6000km / 時間 +6 個月，提前 5 個月建 CRM 回訪）
+// 包F：下次保養提醒參數（里程 +6000km / 時間 +6 個月，提前 5 個月建 CRM 回訪）
+// TODO: 從 brand_config 或 business_rules 表動態讀取（不同品牌/業務類型的保養里程週期不同）
 const NEXT_SERVICE_INTERVAL_KM = 6000;
 const NEXT_SERVICE_INTERVAL_MONTHS = 6;
 const NEXT_SERVICE_REMINDER_DAYS = 150;
@@ -872,6 +873,8 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
 /**
  * 包F：委託取車授權（Step1B）—— 記錄非車主本人代取的受託人資訊到 metadata.entrustment。
  * is_entrusted=false 表示車主本人取車（清除委託資料）。
+ * auth_method: 授權方式（'phone'現場電話 / 'line_screenshot' LINE截圖 / 'presystem' 系統預登記）
+ * agent_sig_url: 受託人電子簽名 JPEG base64 dataURL（server 端上傳 Storage）
  */
 export async function setPickupEntrustmentAction(
   id: string,
@@ -880,6 +883,8 @@ export async function setPickupEntrustmentAction(
     agent_name?: string | null;
     relation?: string | null;
     id_note?: string | null;
+    auth_method?: "phone" | "line_screenshot" | "presystem" | null;
+    agent_sig_url?: string | null;
   },
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CLOSE);
@@ -888,6 +893,23 @@ export async function setPickupEntrustmentAction(
   if (input.is_entrusted && !input.agent_name?.trim()) {
     return { ok: false, error: "請填寫受託人姓名" };
   }
+
+  // 若帶了受託人簽名 dataURL，上傳 Storage
+  let agentSigStorageUrl: string | null = null;
+  if (input.is_entrusted && input.agent_sig_url) {
+    if (isStorageUrl(input.agent_sig_url)) {
+      agentSigStorageUrl = input.agent_sig_url;
+    } else {
+      agentSigStorageUrl = await uploadSignatureDataUrl(
+        input.agent_sig_url,
+        ctx.brand,
+        "ro-checkout",
+        id,
+        "agent-sig",
+      );
+    }
+  }
+
   const supabase = await createClient();
   const meta = (ctx.row.metadata ?? {}) as Record<string, unknown>;
   const next = {
@@ -898,6 +920,8 @@ export async function setPickupEntrustmentAction(
           agent_name: input.agent_name!.trim(),
           relation: input.relation?.trim() || null,
           id_note: input.id_note?.trim() || null,
+          auth_method: input.auth_method ?? null,
+          agent_sig_url: agentSigStorageUrl,
           authorized_at: new Date().toISOString(),
         }
       : { is_entrusted: false },

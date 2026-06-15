@@ -322,8 +322,12 @@ export type RoCheckoutDetail = RoCheckoutRow & {
     vehicle_license_plate: string | null;
     vehicle_model_name: string | null;
     sa_name: string | null;
+    customer_id: string | null;
   };
   final_inspection_status: string | null;
+  /** 包F 關單後寫入車檔的下次保養推算值（用於 Step4 確認 UI） */
+  next_service_mileage: number | null;
+  next_service_date: string | null;
 };
 
 export async function getRoCheckoutById(id: string): Promise<RoCheckoutDetail | null> {
@@ -343,7 +347,7 @@ export async function getRoCheckoutById(id: string): Promise<RoCheckoutDetail | 
 
   const { data: ro } = await supabase
     .from("repair_orders")
-    .select("ro_code, status, sa_id")
+    .select("ro_code, status, sa_id, customer_id, vehicle_id, mileage_in")
     .eq("id", row.repair_order_id)
     .maybeSingle();
   let saName: string | null = null;
@@ -364,6 +368,19 @@ export async function getRoCheckoutById(id: string): Promise<RoCheckoutDetail | 
     .eq("repair_order_id", row.repair_order_id)
     .maybeSingle();
 
+  // 撈車檔的下次保養推算值（關單後包F 會寫入；Status4 UI 顯示用）
+  let nextServiceMileage: number | null = null;
+  let nextServiceDate: string | null = null;
+  if (ro?.vehicle_id) {
+    const { data: veh } = await supabase
+      .from("customer_vehicles")
+      .select("next_service_mileage, next_service_date")
+      .eq("id", ro.vehicle_id)
+      .maybeSingle();
+    nextServiceMileage = (veh as { next_service_mileage?: number | null } | null)?.next_service_mileage ?? null;
+    nextServiceDate = (veh as { next_service_date?: string | null } | null)?.next_service_date ?? null;
+  }
+
   return {
     ...row,
     ro: {
@@ -374,8 +391,11 @@ export async function getRoCheckoutById(id: string): Promise<RoCheckoutDetail | 
       vehicle_license_plate: m?.vehicle_license_plate ?? null,
       vehicle_model_name: m?.vehicle_model_name ?? null,
       sa_name: saName,
+      customer_id: ro?.customer_id ?? null,
     },
     final_inspection_status: (fi as { status?: string } | null)?.status ?? null,
+    next_service_mileage: nextServiceMileage,
+    next_service_date: nextServiceDate,
   };
 }
 

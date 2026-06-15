@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { useSetPageHeader } from "@/components/page-header-context";
@@ -18,8 +18,12 @@ import type {
   AftersalesPickupNotifyTemplate,
   AftersalesCustomerLifetime,
   AftersalesNpsSummary,
+  AftersalesCustomerPendingItem,
+  AftersalesCustomerComplaintRow,
   ModelRef,
 } from "@/domain/aftersales-customer-base";
+import { addVehiclePendingItemAction, resolveVehiclePendingItemAction } from "@/lib/aftersales/vehicle-pending-actions";
+import { createComplaintAction } from "@/lib/aftersales/complaint-actions";
 import { QuickAppointmentButton } from "./quick-appointment-button";
 
 type TabKey = "vehicles" | "history" | "followups" | "pickup";
@@ -169,6 +173,8 @@ export function CustomerDetailView({
   models,
   lifetime,
   npsSummary,
+  pendingItems,
+  complaints,
   canEdit,
   canEditAppointment,
   hasDesmo,
@@ -184,6 +190,10 @@ export function CustomerDetailView({
   models: ModelRef[];
   lifetime: AftersalesCustomerLifetime;
   npsSummary: AftersalesNpsSummary;
+  /** 待處理項目（四來源） */
+  pendingItems: AftersalesCustomerPendingItem[];
+  /** 投訴歷史 */
+  complaints: AftersalesCustomerComplaintRow[];
   canEdit: boolean;
   canEditAppointment: boolean;
   /** brand_config.has_desmo：傳給 QuickAppointmentButton 篩服務類型選單。 */
@@ -246,7 +256,7 @@ export function CustomerDetailView({
       summary:
         (r.vehicle_id && vehicleById.get(r.vehicle_id)?.license_plate) ||
         "—",
-      raw: r,
+      sa_name: r.sa_name ?? null,
     }));
     const wos = workOrders.map((w) => ({
       kind: "wo" as const,
@@ -259,7 +269,7 @@ export function CustomerDetailView({
       amount: w.total_amount,
       is_vehicle_cost: false,
       summary: w.work_summary ?? w.customer_complaint ?? "—",
-      raw: w,
+      sa_name: w.sa_name ?? null,
     }));
     return [...ros, ...wos].sort((a, b) => (a.date < b.date ? 1 : -1));
   }, [repairOrders, workOrders, vehicleById]);
@@ -403,6 +413,16 @@ export function CustomerDetailView({
                   +{officialTags.length - 12}
                 </span>
               )}
+              {/* 管理標籤按鈕：跳到後台標籤字典設定（架構上客戶標籤為品牌共用字典，SA 視角為參考） */}
+              {canEdit && (
+                <Link
+                  href="/admin/master-data/customer-tags"
+                  className="ml-auto h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                  title="管理客戶標籤字典"
+                >
+                  管理
+                </Link>
+              )}
             </div>
           </div>
 
@@ -424,7 +444,8 @@ export function CustomerDetailView({
         </div>
       </header>
 
-      {/* 2.5 KpiCard 列 — CLV / 上次進廠 / 平均客單 / NPS */}
+      {/* 2.5 主體：左欄（KPI + 基本資料 + Tabs）+ 右欄（待處理項目 / 投訴歷史 / 到期提醒） */}
+      {/* KpiCard 列 — CLV / 上次進廠 / 平均客單 / NPS */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard
           label="累計回廠"
@@ -502,6 +523,24 @@ export function CustomerDetailView({
         />
       </section>
 
+      {/* 右欄三張卡片：待處理項目 / 投訴歷史 / 到期提醒 */}
+      <div className="space-y-3">
+        <PendingItemsSection
+          items={pendingItems}
+          vehicles={vehicles}
+          customerId={customer.id}
+          canEdit={canEdit}
+        />
+        <ComplaintHistorySection
+          complaints={complaints}
+          customerId={customer.id}
+          vehicles={vehicles}
+          repairOrders={repairOrders}
+          canEdit={canEdit}
+        />
+        <ExpiryReminderSection vehicles={vehicles} modelById={new Map(models.map((m) => [m.id, m.display_name]))} />
+      </div>
+
       {/* 3. 區段卡片 — 基本資料 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
@@ -545,6 +584,17 @@ export function CustomerDetailView({
                 : customer.source_module === "aftersales"
                   ? "SA 接待"
                   : (customer.source_module ?? "—")
+            }
+          />
+          {/* Line ID（存於 metadata.line_id） */}
+          <Kv
+            label="Line ID"
+            value={
+              customer.line_id ? (
+                <span className="font-mono">{customer.line_id}</span>
+              ) : (
+                <span className="text-[#9A9890]">—</span>
+              )
             }
           />
           <Kv label="備註" value={customer.notes ?? "—"} small />
@@ -714,6 +764,8 @@ type HistoryRow = {
   amount: number | null;
   is_vehicle_cost: boolean;
   summary: string;
+  /** 接待 SA 姓名 */
+  sa_name: string | null;
 };
 
 function HistoryTab({
@@ -798,9 +850,10 @@ function HistoryTab({
                 <th className="px-3 py-2 text-left font-medium">結單日</th>
                 <th className="px-3 py-2 text-right font-medium">進廠里程</th>
                 <th className="px-3 py-2 text-left font-medium">維修摘要</th>
+                <th className="px-3 py-2 text-left font-medium">SA</th>
                 <th className="px-3 py-2 text-right font-medium">金額</th>
                 <th className="px-3 py-2 text-left font-medium">狀態</th>
-                <th className="px-3 py-2 text-left font-medium">來源</th>
+                <th className="px-3 py-2 text-left font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -833,8 +886,11 @@ function HistoryTab({
                   <td className="px-3 py-2 font-mono text-right">
                     {fmtMileage(r.mileage_in)}
                   </td>
-                  <td className="px-3 py-2 text-[#5A5955] max-w-[260px] truncate">
+                  <td className="px-3 py-2 text-[#5A5955] max-w-[200px] truncate">
                     {r.summary}
+                  </td>
+                  <td className="px-3 py-2 text-[11.5px] text-[#5A5955]">
+                    {r.sa_name ?? <span className="text-[#9A9890]">—</span>}
                   </td>
                   <td className="px-3 py-2 font-mono text-right">
                     {r.is_vehicle_cost ? (
@@ -859,8 +915,18 @@ function HistoryTab({
                       {r.status}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-[11px] text-[#9A9890]">
-                    {r.kind === "ro" ? "repair_orders" : "work_orders"}
+                  <td className="px-3 py-2">
+                    {/* 查看工單詳情連結 */}
+                    <Link
+                      href={
+                        r.kind === "ro"
+                          ? `/parts/aftersales/repair-orders/${r.id}`
+                          : `/service/workorders/${r.id}`
+                      }
+                      className="h-[24px] px-2 rounded text-[11px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] whitespace-nowrap"
+                    >
+                      查看
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -1108,6 +1174,570 @@ function ChannelChip({ label, on }: { label: string; on: boolean }) {
     >
       {label} {on ? "✓" : "—"}
     </span>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 待處理項目卡（右欄第2張卡）— 四來源：追加拒絕/暫緩/Quick Quote拒絕/SA手動
+// ──────────────────────────────────────────────────────────────────────────
+function PendingItemsSection({
+  items,
+  vehicles,
+  canEdit,
+}: {
+  items: AftersalesCustomerPendingItem[];
+  vehicles: AftersalesCustomerVehicle[];
+  customerId: string;
+  canEdit: boolean;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addVehicleId, setAddVehicleId] = useState(vehicles[0]?.id ?? "");
+  const [addDesc, setAddDesc] = useState("");
+  const [addLevel, setAddLevel] = useState<"緊急" | "警示" | "建議">("建議");
+  const [resolving, setResolving] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  function safetyLevelChip(level: "緊急" | "警示" | "建議"): string {
+    if (level === "緊急") return "bg-[#FDECEA] text-[#CC0000]";
+    if (level === "警示") return "bg-[#FDF3E3] text-[#854F0B]";
+    return "bg-[#EAF4FB] text-[#185FA5]";
+  }
+
+  function sourceLabel(src: string): string {
+    if (src === "sa_manual") return "SA 手動";
+    if (src === "quick_quote_rejected") return "快速報價拒絕";
+    if (src === "addon_deferred") return "追加暫緩";
+    if (src === "addon_rejected") return "追加拒絕";
+    return "追加決策";
+  }
+
+  async function handleResolve(itemId: string) {
+    setResolving(itemId);
+    startTransition(async () => {
+      const res = await resolveVehiclePendingItemAction(itemId);
+      setResolving(null);
+      if (res.ok) {
+        setBanner({ ok: true, msg: "✓ 已標記為本次處理" });
+        setTimeout(() => setBanner(null), 2200);
+        // 觸發頁面重刷（Next.js router.refresh 由父層接管，此處只更新提示）
+        window.location.reload();
+      } else {
+        setBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  async function handleAddSubmit() {
+    if (!addDesc.trim()) return;
+    startTransition(async () => {
+      const res = await addVehiclePendingItemAction({
+        vehicle_id: addVehicleId,
+        item_desc: addDesc.trim(),
+        safety_level: addLevel,
+      });
+      if (res.ok) {
+        setShowAddModal(false);
+        setAddDesc("");
+        setAddLevel("建議");
+        setBanner({ ok: true, msg: "✓ 已新增待處理項目" });
+        setTimeout(() => setBanner(null), 2200);
+        window.location.reload();
+      } else {
+        setBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  return (
+    <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center">
+        <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+          ⑷ 待處理項目
+          {items.length > 0 && (
+            <span className="ml-1.5 text-[10.5px] font-normal text-[#9A9890]">
+              ({items.length})
+            </span>
+          )}
+        </h2>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="ml-auto h-[26px] px-2.5 rounded text-[11.5px] bg-[#0F6E56] text-white hover:bg-[#0a5742] inline-flex items-center"
+          >
+            ＋ 手動新增
+          </button>
+        )}
+      </header>
+
+      {banner && (
+        <div
+          className={`mx-4 mt-2 px-3 py-1.5 rounded text-[12px] ${
+            banner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          }`}
+        >
+          {banner.msg}
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <div className="px-4 py-4 text-[12px] text-[#9A9890]">
+          目前沒有待處理項目
+        </div>
+      ) : (
+        <ul className="divide-y divide-[#EEECE6]">
+          {items.map((item) => {
+            const vehiclePlate = vehicles.find((v) => v.id === item.vehicle_id)?.license_plate ?? "—";
+            return (
+              <li key={item.id} className="px-4 py-2.5 flex items-start gap-2.5">
+                <span
+                  className={`mt-0.5 shrink-0 inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-semibold ${safetyLevelChip(item.safety_level)}`}
+                >
+                  {item.safety_level}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] text-[#2C2C2A] font-medium leading-snug">
+                    {item.item_desc}
+                  </div>
+                  {item.reason && (
+                    <div className="text-[11px] text-[#9A9890] mt-0.5">{item.reason}</div>
+                  )}
+                  <div className="flex gap-1.5 mt-0.5 flex-wrap text-[10.5px] text-[#9A9890]">
+                    <span className="font-mono">{vehiclePlate}</span>
+                    <span>·</span>
+                    <span>{sourceLabel(item.source)}</span>
+                    {item.reject_count > 0 && (
+                      <>
+                        <span>·</span>
+                        <span className="text-[#854F0B]">已拒絕 {item.reject_count} 次</span>
+                      </>
+                    )}
+                    <span>·</span>
+                    <span>{fmtDate(item.created_at)}</span>
+                  </div>
+                </div>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => handleResolve(item.id)}
+                    disabled={isPending && resolving === item.id}
+                    className="shrink-0 h-[26px] px-2.5 rounded text-[11px] bg-[#EBF3FF] border border-[#B8D4F0] text-[#1A3A5C] hover:bg-[#D6E8F9] disabled:opacity-60 whitespace-nowrap"
+                  >
+                    {isPending && resolving === item.id ? "處理中⋯" : "本次處理"}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* 手動新增 Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5 space-y-3">
+            <h3 className="text-[15px] font-semibold text-[#2C2C2A]">手動新增待處理項目</h3>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">車輛</label>
+              <select
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                value={addVehicleId}
+                onChange={(e) => setAddVehicleId(e.target.value)}
+              >
+                {vehicles.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.license_plate ?? v.vin ?? v.id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">項目說明 *</label>
+              <textarea
+                className="border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] focus:outline-none min-h-[72px] resize-none"
+                value={addDesc}
+                onChange={(e) => setAddDesc(e.target.value)}
+                placeholder="例：前煞車來令片磨耗過度，建議下次進廠更換"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">安全等級</label>
+              <select
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                value={addLevel}
+                onChange={(e) => setAddLevel(e.target.value as "緊急" | "警示" | "建議")}
+              >
+                <option value="建議">建議</option>
+                <option value="警示">警示</option>
+                <option value="緊急">緊急</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => { setShowAddModal(false); setAddDesc(""); }}
+                className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleAddSubmit}
+                disabled={isPending || !addDesc.trim()}
+                className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+              >
+                {isPending ? "新增中⋯" : "新增"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 投訴歷史卡（右欄第3張卡）
+// ──────────────────────────────────────────────────────────────────────────
+function ComplaintHistorySection({
+  complaints,
+  customerId,
+  repairOrders,
+  canEdit,
+}: {
+  complaints: AftersalesCustomerComplaintRow[];
+  customerId: string;
+  vehicles: AftersalesCustomerVehicle[];
+  repairOrders: AftersalesRepairOrderRow[];
+  canEdit: boolean;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [showModal, setShowModal] = useState(false);
+  const [cType, setCType] = useState("service");
+  const [cDesc, setCDesc] = useState("");
+  const [cRoId, setCRoId] = useState("");
+  const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  function complaintTypeLabel(t: string | null): string {
+    if (t === "service") return "服務態度";
+    if (t === "quality") return "維修品質";
+    if (t === "pricing") return "費用爭議";
+    return "其他";
+  }
+
+  function complaintStatusChip(s: string): string {
+    if (s === "open" || s === "in_progress") return "bg-[#EAF4FB] text-[#185FA5]";
+    if (s === "resolved" || s === "closed") return "bg-[#EAF3DE] text-[#3B6D11]";
+    return "bg-[#F2F2F2] text-[#6B6A68]";
+  }
+
+  async function handleSubmit() {
+    if (!cDesc.trim()) return;
+    startTransition(async () => {
+      const res = await createComplaintAction({
+        customer_id: customerId,
+        repair_order_id: cRoId || null,
+        complaint_type: cType,
+        description: cDesc.trim(),
+      });
+      if (res.ok) {
+        setShowModal(false);
+        setCDesc("");
+        setCRoId("");
+        setBanner({ ok: true, msg: "✓ 已新增投訴記錄" });
+        setTimeout(() => setBanner(null), 2200);
+        window.location.reload();
+      } else {
+        setBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  return (
+    <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center">
+        <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+          📢 投訴歷史
+          {complaints.length > 0 && (
+            <span className="ml-1.5 text-[10.5px] font-normal text-[#9A9890]">
+              ({complaints.length})
+            </span>
+          )}
+        </h2>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            className="ml-auto h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] inline-flex items-center"
+          >
+            ＋ 新增取車後投訴記錄
+          </button>
+        )}
+      </header>
+
+      {banner && (
+        <div
+          className={`mx-4 mt-2 px-3 py-1.5 rounded text-[12px] ${
+            banner.ok
+              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
+              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+          }`}
+        >
+          {banner.msg}
+        </div>
+      )}
+
+      {complaints.length === 0 ? (
+        <div className="px-4 py-4 text-[12px] text-[#9A9890]">
+          尚無投訴記錄
+        </div>
+      ) : (
+        <table className="w-full text-[12px]">
+          <thead className="bg-[#F8F7F4] text-[11px] text-[#9A9890]">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium">日期</th>
+              <th className="px-3 py-2 text-left font-medium">工單號</th>
+              <th className="px-3 py-2 text-left font-medium">類型</th>
+              <th className="px-3 py-2 text-left font-medium">處理結果</th>
+              <th className="px-3 py-2 text-left font-medium">狀態</th>
+            </tr>
+          </thead>
+          <tbody>
+            {complaints.map((c) => (
+              <tr key={c.id} className="border-t border-[#EEECE6] hover:bg-[#F8F7F4]">
+                <td className="px-3 py-2 font-mono text-[11.5px]">{fmtDate(c.created_at)}</td>
+                <td className="px-3 py-2 font-mono text-[11.5px] text-[#1A3A5C]">
+                  {c.ro_code ?? <span className="text-[#9A9890]">—</span>}
+                </td>
+                <td className="px-3 py-2">
+                  <span className="inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-[#FDF3E3] text-[#854F0B]">
+                    {complaintTypeLabel(c.complaint_type)}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-[#5A5955] max-w-[200px] truncate">
+                  {c.result ?? c.description ?? "—"}
+                </td>
+                <td className="px-3 py-2">
+                  <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-medium ${complaintStatusChip(c.status)}`}>
+                    {c.status === "open" ? "待處理" : c.status === "resolved" || c.status === "closed" ? "已結案" : c.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* 新增取車後投訴記錄 Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5 space-y-3">
+            <h3 className="text-[15px] font-semibold text-[#2C2C2A]">新增取車後投訴記錄</h3>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">投訴類型</label>
+              <select
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                value={cType}
+                onChange={(e) => setCType(e.target.value)}
+              >
+                <option value="service">服務態度</option>
+                <option value="quality">維修品質</option>
+                <option value="pricing">費用爭議</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+            {repairOrders.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">關聯工單（選填）</label>
+                <select
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                  value={cRoId}
+                  onChange={(e) => setCRoId(e.target.value)}
+                >
+                  <option value="">— 不關聯工單 —</option>
+                  {repairOrders.slice(0, 20).map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.ro_code} ({fmtDate(r.issue_date)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">投訴描述 *</label>
+              <textarea
+                className="border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] focus:outline-none min-h-[80px] resize-none"
+                value={cDesc}
+                onChange={(e) => setCDesc(e.target.value)}
+                placeholder="請描述投訴內容及客戶反應⋯"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => { setShowModal(false); setCDesc(""); setCRoId(""); }}
+                className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isPending || !cDesc.trim()}
+                className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+              >
+                {isPending ? "儲存中⋯" : "建立投訴記錄"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// 到期提醒卡（右欄第4張卡）— 保固/下次保養/大保養/強制險，顏色分級
+// ──────────────────────────────────────────────────────────────────────────
+function ExpiryReminderSection({
+  vehicles,
+  modelById,
+}: {
+  vehicles: AftersalesCustomerVehicle[];
+  modelById: Map<string, string>;
+}) {
+  // 用 lazy state 取單次「現在」時間戳，避免 render 期間呼叫 impure Date.now（react-hooks/purity）
+  const [now] = useState(() => Date.now());
+
+  /** 計算剩餘天數（負值為已過期） */
+  function daysLeft(d: string | null): number | null {
+    if (!d) return null;
+    return Math.round((new Date(d).getTime() - now) / 86400000);
+  }
+
+  /** 依剩餘天數決定顏色 */
+  function expiryColor(days: number | null): string {
+    if (days === null) return "text-[#9A9890]";
+    if (days < 0) return "text-[#CC0000] font-semibold";
+    if (days <= 30) return "text-[#CC0000]";
+    if (days <= 90) return "text-[#854F0B]";
+    return "text-[#3B6D11]";
+  }
+
+  function expiryBadge(days: number | null): string {
+    if (days === null) return "—";
+    if (days < 0) return `已過期 ${Math.abs(days)} 天`;
+    if (days === 0) return "今日到期";
+    return `剩 ${days} 天`;
+  }
+
+  type ReminderEntry = {
+    key: string;
+    vehiclePlate: string;
+    modelName: string | null;
+    label: string;
+    expiresAt: string | null;
+    days: number | null;
+  };
+
+  const entries: ReminderEntry[] = [];
+  for (const v of vehicles) {
+    const plate = v.license_plate ?? "—";
+    const modelName = v.model_id ? (modelById.get(v.model_id) ?? null) : null;
+    if (v.warranty_until) {
+      entries.push({
+        key: `${v.id}-warranty`,
+        vehiclePlate: plate,
+        modelName,
+        label: "保固到期",
+        expiresAt: v.warranty_until,
+        days: daysLeft(v.warranty_until),
+      });
+    }
+    if (v.next_service_due_date) {
+      entries.push({
+        key: `${v.id}-service`,
+        vehiclePlate: plate,
+        modelName,
+        label: "下次保養",
+        expiresAt: v.next_service_due_date,
+        days: daysLeft(v.next_service_due_date),
+      });
+    }
+    // 強制險（insurance_until 存於 vehicle metadata 或擴充欄位）
+    const insurance = (v as unknown as { insurance_until?: string | null }).insurance_until ?? null;
+    if (insurance) {
+      entries.push({
+        key: `${v.id}-insurance`,
+        vehiclePlate: plate,
+        modelName,
+        label: "強制險到期",
+        expiresAt: insurance,
+        days: daysLeft(insurance),
+      });
+    }
+    // 大保養（desmo_service_due_date）
+    const desmo = (v as unknown as { desmo_service_due_date?: string | null }).desmo_service_due_date ?? null;
+    if (desmo) {
+      entries.push({
+        key: `${v.id}-desmo`,
+        vehiclePlate: plate,
+        modelName,
+        label: "大保養到期",
+        expiresAt: desmo,
+        days: daysLeft(desmo),
+      });
+    }
+  }
+
+  // 依剩餘天數升冪排（最緊迫在前；過期的已是負值，也在前）
+  entries.sort((a, b) => {
+    if (a.days === null && b.days === null) return 0;
+    if (a.days === null) return 1;
+    if (b.days === null) return -1;
+    return a.days - b.days;
+  });
+
+  return (
+    <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+        <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+          🔔 到期提醒
+        </h2>
+      </header>
+      {entries.length === 0 ? (
+        <div className="px-4 py-4 text-[12px] text-[#9A9890]">
+          尚無保固 / 保養到期資料（請確認車輛資料有填寫相關日期）
+        </div>
+      ) : (
+        <ul className="divide-y divide-[#EEECE6]">
+          {entries.map((e) => (
+            <li key={e.key} className="px-4 py-2.5 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-[12px] text-[#2C2C2A] font-medium">
+                  {e.label}
+                </div>
+                <div className="text-[11px] text-[#9A9890] font-mono">
+                  {e.vehiclePlate}
+                  {e.modelName ? ` · ${e.modelName}` : ""}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-mono text-[12px] text-[#5A5955]">
+                  {e.expiresAt ? fmtDate(e.expiresAt) : "—"}
+                </div>
+                <div className={`text-[11px] font-mono ${expiryColor(e.days)}`}>
+                  {expiryBadge(e.days)}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

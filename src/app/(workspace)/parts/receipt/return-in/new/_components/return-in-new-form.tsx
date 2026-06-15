@@ -8,6 +8,7 @@ import {
   createReturnInReceipt,
   type IssueCandidate,
   type IssueWithLines,
+  type ReturnType,
 } from "@/domain/parts-return-in";
 import { RETURN_REASONS, fmtDate } from "@/domain/parts-return-in.constants";
 
@@ -15,6 +16,45 @@ type Banner = { ok: boolean; msg: string } | null;
 
 const inputClass =
   "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none";
+
+/** 退料類型設定 */
+const RETURN_TYPE_OPTIONS: Array<{
+  value: ReturnType;
+  label: string;
+  caption: string;
+  border: string;
+  bg: string;
+  textColor: string;
+  badgeClass: string;
+}> = [
+  {
+    value: "complete",
+    label: "完整退料",
+    caption: "零件完好可重新入庫，最常見的退料情境",
+    border: "border-[#C5DC9F]",
+    bg: "bg-[#EAF3DE]",
+    textColor: "text-[#3B6D11]",
+    badgeClass: "bg-[#EAF3DE] text-[#3B6D11] border-[#C5DC9F]",
+  },
+  {
+    value: "writeoff",
+    label: "損耗核銷",
+    caption: "零件已開封/安裝一半無法入庫，需主管授權核銷",
+    border: "border-[#F5AEAD]",
+    bg: "bg-[#FDECEA]",
+    textColor: "text-[#CC0000]",
+    badgeClass: "bg-[#FDECEA] text-[#CC0000] border-[#F5AEAD]",
+  },
+  {
+    value: "cancel_order",
+    label: "工單取消退料",
+    caption: "整張工單中途取消，所有已領料件全數退回",
+    border: "border-[#F0D9A8]",
+    bg: "bg-[#FDF3E3]",
+    textColor: "text-[#854F0B]",
+    badgeClass: "bg-[#FDF3E3] text-[#854F0B] border-[#F0D9A8]",
+  },
+];
 
 export function ReturnInNewForm({
   issues,
@@ -36,6 +76,11 @@ export function ReturnInNewForm({
   const [qtyMap, setQtyMap] = useState<Record<string, number>>(() =>
     Object.fromEntries((initialPick?.lines ?? []).map((l) => [l.id, 0])),
   );
+
+  // 退料類型相關 state
+  const [returnType, setReturnType] = useState<ReturnType>("complete");
+  const [writeoffReason, setWriteoffReason] = useState("");
+  const [approverId, setApproverId] = useState("");
 
   function selectIssue(issueId: string) {
     if (!issueId) {
@@ -59,12 +104,20 @@ export function ReturnInNewForm({
       setBanner({ ok: false, msg: "至少要輸入一筆退入數量" });
       return;
     }
+    // 損耗核銷需填寫核銷原因
+    if (returnType === "writeoff" && !writeoffReason.trim()) {
+      setBanner({ ok: false, msg: "損耗核銷需填寫核銷原因" });
+      return;
+    }
     setBanner(null);
     startTransition(async () => {
       const res = await createReturnInReceipt({
         issue_id: pick.issue.id,
         receipt_date: receiptDate,
         return_reason: reason,
+        return_type: returnType,
+        writeoff_reason: returnType === "writeoff" ? writeoffReason.trim() : undefined,
+        approver_id: returnType === "writeoff" && approverId.trim() ? approverId.trim() : undefined,
         notes: notes.trim() || undefined,
         lines,
       });
@@ -293,12 +346,100 @@ export function ReturnInNewForm({
         </section>
       )}
 
-      {/* Step 3：退料原因 + 備註 */}
+      {/* Step 3：退料類型選擇（三選一）*/}
       {pick && (
         <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
           <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
             <span className="text-[13px] font-semibold text-[#2C2C2A]">
-              ▼ 步驟 3：退料原因與備註
+              ▼ 步驟 3：選擇退料類型
+            </span>
+          </header>
+          <div className="px-4 py-4 space-y-3">
+            {/* 三張卡片選擇 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {RETURN_TYPE_OPTIONS.map((opt) => {
+                const selected = returnType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setReturnType(opt.value)}
+                    className={`text-left rounded-lg border-2 px-4 py-3 transition-colors ${
+                      selected
+                        ? `${opt.border} ${opt.bg}`
+                        : "border-[#EEECE6] bg-white hover:border-[#D5D3CB]"
+                    }`}
+                  >
+                    <div className={`text-[13px] font-semibold mb-0.5 ${selected ? opt.textColor : "text-[#2C2C2A]"}`}>
+                      {selected ? "✓ " : ""}{opt.label}
+                    </div>
+                    <div className="text-[11px] text-[#9A9890] leading-relaxed">
+                      {opt.caption}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 損耗核銷額外欄位 */}
+            {returnType === "writeoff" && (
+              <div className="border border-[#F5AEAD] bg-[#FDECEA]/30 rounded-lg px-4 py-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <span className="text-[#CC0000] text-[16px] font-bold">⚠</span>
+                  <div className="text-[12px] text-[#CC0000] leading-relaxed">
+                    <p className="font-semibold">損耗核銷規則（每筆必須記錄）</p>
+                    <p className="mt-0.5">需記錄工單號、料號數量、原因、SA 確認人、主管授權人。主管每週查損耗核銷報表。</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-[11px] text-[#9A9890] font-medium mb-1">
+                      核銷原因 <span className="text-[#CC0000]">*</span>
+                    </div>
+                    <textarea
+                      value={writeoffReason}
+                      onChange={(e) => setWriteoffReason(e.target.value)}
+                      rows={2}
+                      placeholder="例如：機油更換時過多流出、安裝失誤料件損壞⋯"
+                      className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-[#9A9890] font-medium mb-1">
+                      主管授權人員工編號（選填）
+                    </div>
+                    <input
+                      type="text"
+                      value={approverId}
+                      onChange={(e) => setApproverId(e.target.value)}
+                      placeholder="輸入授權主管的 ID 或工號"
+                      className={inputClass + " w-full"}
+                    />
+                    <div className="text-[11px] text-[#9A9890] mt-1">
+                      核銷金額 ≥ NT$5,000 需主管授權方可送出
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 工單取消退料提示 */}
+            {returnType === "cancel_order" && (
+              <div className="border border-[#F0D9A8] bg-[#FDF3E3]/50 rounded-lg px-4 py-2.5 text-[12px] text-[#854F0B]">
+                <span className="font-semibold">工單取消退料：</span>
+                請確認該工單已正式取消（可在維修工單頁確認），所有零件退回後庫存立即還原。
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Step 4：退料原因 + 備註 */}
+      {pick && (
+        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">
+              ▼ 步驟 4：退料原因與備註
             </span>
           </header>
           <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">

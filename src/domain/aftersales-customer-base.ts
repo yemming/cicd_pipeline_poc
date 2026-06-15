@@ -49,6 +49,8 @@ export type AftersalesCustomerBaseRow = {
   // 售後脈絡：
   primary_license_plate: string | null;
   primary_mileage: number | null;
+  /** 主車輛的 model_id（列表頁車型篩選用） */
+  primary_model_id: string | null;
   vehicle_count: number;
   visit_count: number;
   last_visit_at: string | null;
@@ -138,7 +140,7 @@ export async function getAftersalesCustomerBaseListPageData(
     supabase
       .from("customer_vehicles")
       .select(
-        "id, customer_id, license_plate, current_mileage, last_service_date, next_service_due_date, is_active, created_at",
+        "id, customer_id, license_plate, current_mileage, last_service_date, next_service_due_date, is_active, created_at, model_id",
       )
       .eq("brand_id", brand)
       .in("customer_id", ids)
@@ -155,7 +157,7 @@ export async function getAftersalesCustomerBaseListPageData(
   // 第一台車（最新 created_at）+ vehicle_count + min(next_service_due_date)
   const firstVehicleByCustomer = new Map<
     string,
-    { license_plate: string | null; mileage: number | null }
+    { license_plate: string | null; mileage: number | null; model_id: string | null }
   >();
   const vehicleCount = new Map<string, number>();
   const minNextDueByCustomer = new Map<string, string>();
@@ -165,6 +167,7 @@ export async function getAftersalesCustomerBaseListPageData(
     license_plate: string | null;
     current_mileage: number | string | null;
     next_service_due_date: string | null;
+    model_id: string | null;
   }>) {
     vehicleCount.set(v.customer_id, (vehicleCount.get(v.customer_id) ?? 0) + 1);
     if (!firstVehicleByCustomer.has(v.customer_id)) {
@@ -176,6 +179,7 @@ export async function getAftersalesCustomerBaseListPageData(
             : typeof v.current_mileage === "string"
               ? Number(v.current_mileage)
               : v.current_mileage,
+        model_id: v.model_id,
       });
     }
     if (v.next_service_due_date) {
@@ -217,6 +221,7 @@ export async function getAftersalesCustomerBaseListPageData(
       avatar_url: (c as { avatar_url?: string | null }).avatar_url ?? null,
       primary_license_plate: primary?.license_plate ?? null,
       primary_mileage: primary?.mileage ?? null,
+      primary_model_id: primary?.model_id ?? null,
       vehicle_count: vehicleCount.get(c.id) ?? 0,
       visit_count: visitCount.get(c.id) ?? 0,
       last_visit_at: lastVisitAt,
@@ -234,7 +239,12 @@ export async function getAftersalesCustomerBaseListPageData(
   ) {
     rows = rows.filter((r) => r.service_status === filters.service_status);
   }
-  // licen_plate 搜尋：再 filter 一次（避免改 OR 的複雜度）
+  // 車型篩選（按主車輛 model_id）
+  const modelFilter = (filters as AftersalesCustomerBaseFilters & { model_id?: string }).model_id;
+  if (modelFilter && modelFilter !== "all") {
+    rows = rows.filter((r) => r.primary_model_id === modelFilter);
+  }
+  // license_plate 搜尋：再 filter 一次（避免改 OR 的複雜度）
   if (filters.q.trim()) {
     const t = filters.q.trim().toUpperCase();
     // 已經有原欄位 OR；這裡把 license_plate 也納入比對
@@ -316,6 +326,8 @@ export type AftersalesCustomerDetail = {
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
+  /** LINE ID（存於 metadata.line_id） */
+  line_id: string | null;
 };
 
 export type AftersalesCustomerVehicle = {
@@ -344,6 +356,8 @@ export type AftersalesWorkOrderRow = {
   customer_complaint: string | null;
   work_summary: string | null;
   total_amount: number | null;
+  /** 接待 SA 姓名（join employees via assigned_sa_user_id） */
+  sa_name: string | null;
 };
 
 export type AftersalesAppointmentRow = {
@@ -388,6 +402,8 @@ export type AftersalesRepairOrderRow = {
   lines_total: number | null;
   /** 費用歸屬：customer（客付）/ vehicle_cost（整車成本，PD 工單）/ vendor / internal … */
   fee_allocation: string | null;
+  /** 接待 SA 姓名（join employees via assigned_sa_user_id） */
+  sa_name: string | null;
 };
 
 export type AftersalesFollowupCaseRow = {
@@ -425,6 +441,30 @@ export type AftersalesPickupNotifyTemplate = {
   updated_at: string | null;
 };
 
+/** 待處理項目（vehicle_pending_items 精簡版，僅含 UI 需要的欄位） */
+export type AftersalesCustomerPendingItem = {
+  id: string;
+  vehicle_id: string;
+  item_desc: string;
+  safety_level: "緊急" | "警示" | "建議";
+  source: string;
+  reject_count: number;
+  reason: string | null;
+  created_at: string;
+};
+
+/** 投訴記錄（complaints 精簡版） */
+export type AftersalesCustomerComplaintRow = {
+  id: string;
+  complaint_type: string | null;
+  description: string | null;
+  status: string;
+  result: string | null;
+  repair_order_id: string | null;
+  ro_code: string | null;
+  created_at: string;
+};
+
 export type AftersalesCustomerFullBundle = AftersalesCustomerDetailBundle & {
   repairOrders: AftersalesRepairOrderRow[];
   followups: AftersalesFollowupCaseRow[];
@@ -434,6 +474,10 @@ export type AftersalesCustomerFullBundle = AftersalesCustomerDetailBundle & {
   lifetime: AftersalesCustomerLifetime;
   /** 人車檔案 A 級新增：NPS 摘要（推薦者 / 中立 / 批評）— 不一定有資料 */
   npsSummary: AftersalesNpsSummary;
+  /** 待處理項目（四來源：追加拒絕/暫緩/Quick Quote拒絕/SA手動） */
+  pendingItems: AftersalesCustomerPendingItem[];
+  /** 投訴歷史記錄 */
+  complaints: AftersalesCustomerComplaintRow[];
 };
 
 /**
@@ -450,11 +494,11 @@ export async function getCustomerById(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
-  const [roRes, tagsRes, fcRes, pickupRes] = await Promise.all([
+  const [roRes, tagsRes, fcRes, pickupRes, complaintsRes] = await Promise.all([
     supabase
       .from("repair_orders")
       .select(
-        "id, ro_code, status, issue_date, opened_at, closed_at, mileage_in, vehicle_id, estimated_subtotal, lines_total, fee_allocation",
+        "id, ro_code, status, issue_date, opened_at, closed_at, mileage_in, vehicle_id, estimated_subtotal, lines_total, fee_allocation, assigned_sa_user_id",
       )
       .eq("brand_id", brand)
       .eq("customer_id", id)
@@ -478,10 +522,84 @@ export async function getCustomerById(
       .eq("brand_id", brand)
       .eq("rule_kind", "aftersales_pickup_notify_template")
       .maybeSingle(),
+    // 投訴歷史
+    supabase
+      .from("complaints")
+      .select("id, complaint_type, description, status, result, repair_order_id, created_at")
+      .eq("brand_id", brand)
+      .eq("customer_id", id)
+      .order("created_at", { ascending: false })
+      .limit(30),
   ]);
 
-  const repairOrders = (roRes.data ?? []) as AftersalesRepairOrderRow[];
+  // 撈 SA 姓名（從 repair_orders.assigned_sa_user_id join employees）
+  const roRawData = (roRes.data ?? []) as Array<{
+    id: string;
+    ro_code: string;
+    status: string;
+    issue_date: string;
+    opened_at: string | null;
+    closed_at: string | null;
+    mileage_in: number | null;
+    vehicle_id: string | null;
+    estimated_subtotal: number | null;
+    lines_total: number | null;
+    fee_allocation: string | null;
+    assigned_sa_user_id: string | null;
+  }>;
+  const saUserIds = Array.from(
+    new Set(roRawData.map((r) => r.assigned_sa_user_id).filter((x): x is string => Boolean(x))),
+  );
+  const saNameMap = new Map<string, string>();
+  if (saUserIds.length > 0) {
+    const { data: empData } = await supabase
+      .from("employees")
+      .select("user_id, name")
+      .in("user_id", saUserIds);
+    for (const e of (empData ?? []) as Array<{ user_id: string; name: string }>) {
+      saNameMap.set(e.user_id, e.name);
+    }
+  }
+
+  const repairOrders: AftersalesRepairOrderRow[] = roRawData.map((r) => ({
+    id: r.id,
+    ro_code: r.ro_code,
+    status: r.status,
+    issue_date: r.issue_date,
+    opened_at: r.opened_at,
+    closed_at: r.closed_at,
+    mileage_in: r.mileage_in,
+    vehicle_id: r.vehicle_id,
+    estimated_subtotal: r.estimated_subtotal,
+    lines_total: r.lines_total,
+    fee_allocation: r.fee_allocation,
+    sa_name: r.assigned_sa_user_id ? (saNameMap.get(r.assigned_sa_user_id) ?? null) : null,
+  }));
+
   const officialTags = (tagsRes.data ?? []) as AftersalesOfficialTagRow[];
+
+  // 投訴歷史 — 補 ro_code（若有關聯 RO）
+  const complaintsRaw = (complaintsRes.data ?? []) as Array<{
+    id: string;
+    complaint_type: string | null;
+    description: string | null;
+    status: string;
+    result: string | null;
+    repair_order_id: string | null;
+    created_at: string;
+  }>;
+  // 用已撈的 repairOrders 建 ro_code map，避免額外 round-trip
+  const roCodeMapForComplaints = new Map(repairOrders.map((r) => [r.id, r.ro_code]));
+  const complaints: AftersalesCustomerComplaintRow[] = complaintsRaw.map((c) => ({
+    id: c.id,
+    complaint_type: c.complaint_type,
+    description: c.description,
+    status: c.status,
+    result: c.result,
+    repair_order_id: c.repair_order_id,
+    ro_code: c.repair_order_id ? (roCodeMapForComplaints.get(c.repair_order_id) ?? null) : null,
+    created_at: c.created_at,
+  }));
 
   // 透過 RO ids 反查 followup_cases
   const roIds = ((fcRes.data ?? []) as Array<{ id: string }>).map((r) => r.id);
@@ -497,6 +615,46 @@ export async function getCustomerById(
       .order("created_at", { ascending: false })
       .limit(30);
     followups = (fcData ?? []) as AftersalesFollowupCaseRow[];
+  }
+
+  // 撈待處理項目：從該客戶名下所有車輛取 vehicle_pending_items（status=pending）
+  const vehicleIds = base.vehicles.map((v) => v.id);
+  let pendingItems: AftersalesCustomerPendingItem[] = [];
+  if (vehicleIds.length > 0) {
+    const { data: piData } = await supabase
+      .from("vehicle_pending_items")
+      .select("id, vehicle_id, item_desc, status, reason, created_at, metadata")
+      .eq("brand_id", brand)
+      .in("vehicle_id", vehicleIds)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    pendingItems = ((piData ?? []) as Array<{
+      id: string;
+      vehicle_id: string;
+      item_desc: string;
+      status: string;
+      reason: string | null;
+      created_at: string;
+      metadata: unknown;
+    }>).map((p) => {
+      const meta = (p.metadata && typeof p.metadata === "object" && !Array.isArray(p.metadata))
+        ? p.metadata as Record<string, unknown>
+        : {};
+      const rawLevel = typeof meta.safety_level === "string" ? meta.safety_level : "";
+      const safetyLevel: "緊急" | "警示" | "建議" =
+        rawLevel === "緊急" || rawLevel === "警示" ? rawLevel : "建議";
+      return {
+        id: p.id,
+        vehicle_id: p.vehicle_id,
+        item_desc: p.item_desc,
+        safety_level: safetyLevel,
+        source: typeof meta.source === "string" ? meta.source : "addon_decision",
+        reject_count: typeof meta.reject_count === "number" ? meta.reject_count : 0,
+        reason: p.reason,
+        created_at: p.created_at,
+      };
+    });
   }
 
   // pickup notify template
@@ -583,6 +741,8 @@ export async function getCustomerById(
     pickupNotify,
     lifetime,
     npsSummary,
+    pendingItems,
+    complaints,
   };
 }
 
@@ -806,7 +966,7 @@ export async function getAftersalesCustomerDetail(
   const { data: customer, error: cErr } = await supabase
     .from("customers")
     .select(
-      "id, code, name, type, tax_id, national_id, phone, email, address, birthday, source_module, notes, is_active, avatar_url, created_at, updated_at",
+      "id, code, name, type, tax_id, national_id, phone, email, address, birthday, source_module, notes, is_active, avatar_url, created_at, updated_at, metadata",
     )
     .eq("id", id)
     .eq("brand_id", brand)
@@ -825,7 +985,7 @@ export async function getAftersalesCustomerDetail(
     supabase
       .from("work_orders")
       .select(
-        "id, ro_no, status, opened_at, closed_at, mileage_in, customer_complaint, work_summary, total_amount",
+        "id, ro_no, status, opened_at, closed_at, mileage_in, customer_complaint, work_summary, total_amount, assigned_sa_user_id",
       )
       .eq("brand_id", brand)
       .eq("customer_id", id)
@@ -841,8 +1001,46 @@ export async function getAftersalesCustomerDetail(
   ]);
 
   const vehicles = (vehiclesRes.data ?? []) as AftersalesCustomerVehicle[];
-  const workOrders = (woRes.data ?? []) as AftersalesWorkOrderRow[];
   const appointments = (apptRes.data ?? []) as AftersalesAppointmentRow[];
+
+  // work_orders 補 SA 姓名
+  const woRawData = (woRes.data ?? []) as Array<{
+    id: string;
+    ro_no: string;
+    status: string;
+    opened_at: string | null;
+    closed_at: string | null;
+    mileage_in: number | null;
+    customer_complaint: string | null;
+    work_summary: string | null;
+    total_amount: number | null;
+    assigned_sa_user_id: string | null;
+  }>;
+  const woSaUserIds = Array.from(
+    new Set(woRawData.map((w) => w.assigned_sa_user_id).filter((x): x is string => Boolean(x))),
+  );
+  const woSaNameMap = new Map<string, string>();
+  if (woSaUserIds.length > 0) {
+    const { data: empData } = await supabase
+      .from("employees")
+      .select("user_id, name")
+      .in("user_id", woSaUserIds);
+    for (const e of (empData ?? []) as Array<{ user_id: string; name: string }>) {
+      woSaNameMap.set(e.user_id, e.name);
+    }
+  }
+  const workOrders: AftersalesWorkOrderRow[] = woRawData.map((w) => ({
+    id: w.id,
+    ro_no: w.ro_no,
+    status: w.status,
+    opened_at: w.opened_at,
+    closed_at: w.closed_at,
+    mileage_in: w.mileage_in,
+    customer_complaint: w.customer_complaint,
+    work_summary: w.work_summary,
+    total_amount: w.total_amount,
+    sa_name: w.assigned_sa_user_id ? (woSaNameMap.get(w.assigned_sa_user_id) ?? null) : null,
+  }));
 
   let models: ModelRef[] = [];
   const modelIds = Array.from(
@@ -856,8 +1054,21 @@ export async function getAftersalesCustomerDetail(
     models = (mData ?? []) as ModelRef[];
   }
 
+  // 解析 line_id（存於 metadata.line_id）
+  const custMeta = (customer as unknown as { metadata?: unknown }).metadata;
+  const lineId: string | null =
+    custMeta && typeof custMeta === "object" && !Array.isArray(custMeta) &&
+    typeof (custMeta as Record<string, unknown>).line_id === "string"
+      ? ((custMeta as Record<string, unknown>).line_id as string)
+      : null;
+
+  const customerWithLineId: AftersalesCustomerDetail = {
+    ...(customer as unknown as Omit<AftersalesCustomerDetail, "line_id">),
+    line_id: lineId,
+  };
+
   return {
-    customer: customer as unknown as AftersalesCustomerDetail,
+    customer: customerWithLineId,
     vehicles,
     workOrders,
     appointments,
@@ -1318,3 +1529,19 @@ export async function listAftersalesCustomersForCrmBoard(
 }
 
 void SIXTY_DAYS_WARRANTY_MS; // 保留 const for future use（warranty banner 60d 規則）
+
+/**
+ * 撈當前品牌所有啟用中的車型（供列表頁篩選下拉使用）。
+ * 集中在 domain helper，保持 UI 零直連 Supabase 的天條。
+ */
+export async function getActiveVehicleModels(): Promise<ModelRef[]> {
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const { data } = await supabase
+    .from("vehicle_models")
+    .select("id, display_name")
+    .eq("brand_id", brand)
+    .eq("is_active", true)
+    .order("display_name", { ascending: true });
+  return (data ?? []) as ModelRef[];
+}

@@ -55,6 +55,15 @@ export function TransferDemoView() {
 
   return (
     <main className="px-6 py-5 space-y-3">
+      {/* 醒目 DEMO 橫幅（admin 才看得到此頁，SA 已被擋在 server component） */}
+      <div className="bg-[#CC0000] text-white px-4 py-2.5 rounded-lg flex items-center gap-3">
+        <span className="text-[13px] font-bold tracking-wider">⚠ DEMO 頁面</span>
+        <span className="text-[12px] opacity-90">
+          此頁含 mock 假資料，僅限系統管理員（admin）存取・SA 帳號已被擋在入口外。
+          正式轉 RO 流程請在預檢單詳情頁 Tab 5 操作。
+        </span>
+      </div>
+
       {/* Page header */}
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">預檢單 → RO 串接 Demo</h1>

@@ -3,7 +3,12 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { listAftersalesAudit } from "@/domain/audit-logs";
+import { getActiveScope } from "@/lib/scope/active-scope";
+import {
+  listAftersalesAudit,
+  listMonthlyApprovals,
+  listWeeklyWriteoffs,
+} from "@/domain/audit-logs";
 import { AUDIT_LOG_PAGE_SIZE } from "@/domain/audit-logs.constants";
 
 import { AftersalesAuditBoard } from "./_components/aftersales-audit-board";
@@ -31,20 +36,29 @@ export default async function AftersalesAuditLogPage({
   const filters = {
     action: sp.action || "all",
     table_name: sp.table_name || "all",
+    record_id: sp.record_id || "",
     date_from: sp.date_from || "",
     date_to: sp.date_to || "",
   };
 
-  const { rows, totalCount } = await listAftersalesAudit(
-    {
-      action: filters.action !== "all" ? filters.action : undefined,
-      table_name: filters.table_name !== "all" ? filters.table_name : undefined,
-      date_from: filters.date_from || undefined,
-      date_to: filters.date_to || undefined,
-    },
-    page,
-    AUDIT_LOG_PAGE_SIZE,
-  );
+  const scope = await getActiveScope();
+  const brandId = scope.brand_id;
+
+  const [{ rows, totalCount }, monthlyApprovals, weeklyWriteoffs] = await Promise.all([
+    listAftersalesAudit(
+      {
+        action: filters.action !== "all" ? filters.action : undefined,
+        table_name: filters.table_name !== "all" ? filters.table_name : undefined,
+        record_id: filters.record_id || undefined,
+        date_from: filters.date_from || undefined,
+        date_to: filters.date_to || undefined,
+      },
+      page,
+      AUDIT_LOG_PAGE_SIZE,
+    ),
+    listMonthlyApprovals(brandId),
+    listWeeklyWriteoffs(brandId),
+  ]);
 
   return (
     <AftersalesAuditBoard
@@ -53,6 +67,8 @@ export default async function AftersalesAuditLogPage({
       page={page}
       pageSize={AUDIT_LOG_PAGE_SIZE}
       filters={filters}
+      monthlyApprovals={monthlyApprovals}
+      weeklyWriteoffs={weeklyWriteoffs}
     />
   );
 }

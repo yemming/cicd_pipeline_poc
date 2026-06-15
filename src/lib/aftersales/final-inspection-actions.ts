@@ -100,7 +100,7 @@ export async function createFromRoAction(
 
   const { data: lines, error: lineErr } = await supabase
     .from("repair_order_lines")
-    .select("id, line_no, kind, labor_name, part_name, labor_note")
+    .select("id, line_no, kind, labor_name, part_name, labor_note, metadata")
     .eq("repair_order_id", ro_id)
     .order("line_no", { ascending: true });
   if (lineErr) return { ok: false, error: "撈取維修項目失敗" };
@@ -113,6 +113,7 @@ export async function createFromRoAction(
       labor_name: string | null;
       part_name: string | null;
       labor_note: string | null;
+      metadata: Record<string, unknown> | null;
     }>,
   );
 

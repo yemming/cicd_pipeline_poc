@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { exportToXlsx } from "@/components/data-grid/excel-io";
 import {
   PREFIX_P1_DEFS,
   RO_STATUS_OPTIONS,
@@ -99,6 +100,7 @@ export function RoSearchBoard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [isExporting, setIsExporting] = useState(false);
 
   const [statusVal, setStatusVal] = useState(filters.status ?? "all");
   const [p1Val, setP1Val] = useState(filters.prefix_p1 ?? "all");
@@ -131,6 +133,38 @@ export function RoSearchBoard({
     startTransition(() => {
       router.push("/parts/aftersales/ro-search");
     });
+  }
+
+  /** 匯出當前篩選後的工單清單為 Excel（呼叫與 DataGrid 內部相同的 exportToXlsx） */
+  async function handleFilterBarExport() {
+    if (data.rows.length === 0 || isExporting) return;
+    setIsExporting(true);
+    try {
+      await exportToXlsx({
+        fileName: "ro-search.xlsx",
+        sheetName: "工單查詢",
+        columns: [
+          { id: "ro_code",     header: "工單號",     getValue: (r: RepairOrderListRow) => r.ro_code },
+          { id: "customer",    header: "車主",        getValue: (r: RepairOrderListRow) => {
+            const internal = isVehicleCostRo(r);
+            const meta = (r.metadata ?? {}) as { internal_owner_label?: string };
+            const name = internal
+              ? `[內部] ${meta.internal_owner_label ?? r.customer_name ?? "—"}`
+              : (r.customer_name ?? "—");
+            return name;
+          }},
+          { id: "vehicle",     header: "車型 / 車牌", getValue: (r: RepairOrderListRow) => r.vehicle_model_name ?? r.vehicle_license_plate ?? "" },
+          { id: "prefix",      header: "業務類型",   getValue: (r: RepairOrderListRow) => `${r.prefix_p1}-${r.prefix_p2}` },
+          { id: "issue_date",  header: "進廠日",     getValue: (r: RepairOrderListRow) => r.issue_date },
+          { id: "sa",          header: "SA",         getValue: (r: RepairOrderListRow) => r.sa_name ?? "" },
+          { id: "amount",      header: "金額",       getValue: (r: RepairOrderListRow) => r.estimated_subtotal != null ? Number(r.estimated_subtotal) : "" },
+          { id: "status",      header: "狀態",       getValue: (r: RepairOrderListRow) => r.status },
+        ],
+        data: data.rows,
+      });
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   // B-21：今日工單監控快篩 — 直接組 URL，避免月份 fallback 蓋掉日期區間
@@ -187,7 +221,7 @@ export function RoSearchBoard({
           // 退回既有 customer_name，再退回「—」。前綴固定打 [內部] 標示為內部結算。
           const meta = (r.metadata ?? {}) as { internal_owner_label?: string };
           const ownerName = internal
-            ? meta.internal_owner_label ?? r.customer_name ?? "海德生"
+            ? meta.internal_owner_label ?? r.customer_name ?? "—"
             : r.customer_name;
           return (
             <div className="flex flex-col leading-tight">
@@ -219,7 +253,7 @@ export function RoSearchBoard({
           const internal = isVehicleCostRo(r);
           const meta = (r.metadata ?? {}) as { internal_owner_label?: string };
           const ownerName = internal
-            ? `[內部] ${meta.internal_owner_label ?? r.customer_name ?? "海德生"}`
+            ? `[內部] ${meta.internal_owner_label ?? r.customer_name ?? "—"}`
             : r.customer_name;
           return [ownerName, r.vehicle_model_name ?? r.vehicle_license_plate]
             .filter(Boolean)
@@ -532,6 +566,17 @@ export function RoSearchBoard({
               className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
             >
               重置
+            </button>
+            {/* filter bar 顯式匯出按鈕：呼叫與 DataGrid 內部相同的 exportToXlsx 邏輯 */}
+            <button
+              type="button"
+              onClick={() => void handleFilterBarExport()}
+              disabled={isExporting || data.rows.length === 0}
+              className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50 inline-flex items-center gap-1"
+              title="把目前篩選後的工單清單匯出成 Excel"
+            >
+              <span aria-hidden>⬇</span>
+              {isExporting ? "匯出中⋯" : "匯出 Excel"}
             </button>
           </div>
         </div>

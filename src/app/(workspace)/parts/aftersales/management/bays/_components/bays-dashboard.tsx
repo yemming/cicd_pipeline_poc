@@ -28,7 +28,7 @@ import {
   createBayAction,
   updateBayAction,
   assignBayAction,
-  completeBayAction,
+  completeBayAndAdvanceRoAction,
   setBayActiveAction,
   deleteBayAction,
   setShopDailyHoursAction,
@@ -57,6 +57,7 @@ type ModalMode =
   | { kind: "create" }
   | { kind: "edit"; bay: ServiceBayRow }
   | { kind: "assign"; bay: ServiceBayRow }
+  | { kind: "clock"; bay: ServiceBayRow }
   | { kind: "delete"; bay: ServiceBayRow };
 
 const inputClass =
@@ -134,6 +135,16 @@ export function BaysDashboard({
         <span className="text-[12px] text-[#9A9890]">
           {captionOverride ?? "車間工位即時狀態、計時、使用率"}
         </span>
+        <div className="ml-auto">
+          {/* 匯出今日報表（Excel） */}
+          <button
+            className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            onClick={() => exportBaysReport(efficiency.rows)}
+            title="匯出今日工位看板資料為 Excel"
+          >
+            ⬇ 匯出今日報表
+          </button>
+        </div>
       </header>
 
       {/* ── 視覺概覽（A 級華麗版）────────────────── */}
@@ -288,12 +299,7 @@ export function BaysDashboard({
               canEdit={canEdit}
               onEdit={() => setModal({ kind: "edit", bay: b })}
               onAssign={() => setModal({ kind: "assign", bay: b })}
-              onComplete={() => {
-                startTransition(async () => {
-                  const res = await completeBayAction(b.id);
-                  handleResult(res, `${b.name} 已完工`);
-                });
-              }}
+              onComplete={() => setModal({ kind: "clock", bay: b })}
               onToggleActive={() => {
                 startTransition(async () => {
                   const res = await setBayActiveAction(b.id, !b.is_active);
@@ -431,6 +437,30 @@ export function BaysDashboard({
             startTransition(async () => {
               const res = await assignBayAction(modal.bay.id, input);
               handleResult(res, `已派工到 ${modal.bay.name}`);
+            });
+          }}
+        />
+      ) : null}
+
+      {modal.kind === "clock" ? (
+        <ClockModal
+          bay={modal.bay}
+          efficiencyRows={efficiency.rows}
+          isPending={isPending}
+          onCancel={() => setModal({ kind: "closed" })}
+          onComplete={() => {
+            startTransition(async () => {
+              const res = await completeBayAndAdvanceRoAction(modal.bay.id);
+              if (res.ok) {
+                const msg = res.data.roAdvanced
+                  ? `${modal.bay.name} 完工交棒　工單已推進至待複檢`
+                  : `${modal.bay.name} 完工交棒`;
+                setBanner({ ok: true, msg: `✓ ${msg}` });
+                setModal({ kind: "closed" });
+                router.refresh();
+              } else {
+                setBanner({ ok: false, msg: res.error ?? "操作失敗" });
+              }
             });
           }}
         />
@@ -850,7 +880,7 @@ function AssignModal({
             className={inputClass}
             value={tech}
             onChange={(e) => setTech(e.target.value)}
-            placeholder="陳建明"
+            placeholder="請輸入技師姓名"
           />
         </Field>
       </div>
@@ -957,4 +987,203 @@ function Field({
       {children}
     </div>
   );
+}
+
+/* ──────────────── ClockModal（打卡完工全螢幕 modal）──────────────── */
+
+/**
+ * ClockModal
+ *
+ * 設計稿：07_售後管理模組_v3.html → clock-overlay
+ * 顯示工位名、技師、RO 編號、施工項目、今日完成件數、已用時、
+ * 以及大字 HH:MM:SS setInterval 即時計時。
+ * 底部「完工交棒」呼叫 completeBayAndAdvanceRoAction 推進 RO 狀態。
+ */
+function ClockModal({
+  bay,
+  efficiencyRows,
+  isPending,
+  onCancel,
+  onComplete,
+}: {
+  bay: ServiceBayRow;
+  efficiencyRows: BayEfficiencyRow[];
+  isPending: boolean;
+  onCancel: () => void;
+  onComplete: () => void;
+}) {
+  // 每秒更新 elapsed 顯示（lazy initializer 避免 render 期間呼叫 impure Date.now）
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const startedMs = bay.started_at ? new Date(bay.started_at).getTime() : null;
+  const elapsedSec = startedMs ? Math.max(0, Math.floor((nowMs - startedMs) / 1000)) : 0;
+
+  // HH:MM:SS 格式化
+  const hh = String(Math.floor(elapsedSec / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, "0");
+  const ss = String(elapsedSec % 60).padStart(2, "0");
+  const clockStr = `${hh}:${mm}:${ss}`;
+
+  // 是否逾時
+  const elapsedMin = Math.floor(elapsedSec / 60);
+  const isUrgent = elapsedMin >= URGENT_THRESHOLD_MINUTES;
+
+  // 今日完成件數（從效率統計取）
+  const effRow = efficiencyRows.find((r) => r.bay_id === bay.id);
+  const doneToday = effRow?.done_today ?? bay.done_today ?? 0;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-[480px] mx-4 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 頂部彩條 */}
+        <div
+          className="h-2"
+          style={{ background: isUrgent ? "#CC0000" : "#854F0B" }}
+        />
+
+        <div className="p-6 space-y-4">
+          {/* 工位標題 */}
+          <div className="text-center">
+            <div className="text-[11px] text-[#9A9890] tracking-wider uppercase mb-1">
+              打卡完工
+            </div>
+            <h2 className="text-[20px] font-bold text-[#2C2C2A]">{bay.name}</h2>
+          </div>
+
+          {/* 大字計時器 */}
+          <div className="text-center py-4">
+            <div
+              className="text-[56px] font-extrabold tabular-nums leading-none"
+              style={{ color: isUrgent ? "#CC0000" : "#854F0B" }}
+            >
+              {clockStr}
+            </div>
+            <div className="text-[12px] text-[#9A9890] mt-1">
+              {isUrgent ? "⚠️ 已逾時" : "施工計時"}
+            </div>
+          </div>
+
+          {/* 工位資訊 KV */}
+          <div className="bg-[#F8F7F4] rounded-lg p-4 space-y-2.5">
+            <ClockKv label="技師" value={bay.current_tech_name ?? "—"} />
+            <ClockKv label="RO 編號" value={bay.current_ro_code ?? "—"} mono />
+            <ClockKv label="施工項目" value={bay.current_item ?? "—"} />
+            <ClockKv label="今日完成件數" value={`${doneToday} 件`} />
+          </div>
+
+          {/* 防竄改時間戳提示 */}
+          <p className="text-[11px] text-center text-[#9A9890]">
+            完工後伺服器將記錄防竄改時間戳（UTC）
+          </p>
+
+          {/* 操作按鈕 */}
+          <div className="flex gap-2">
+            <button
+              className="flex-1 h-[40px] rounded-lg text-[13px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              onClick={onCancel}
+              disabled={isPending}
+            >
+              關閉
+            </button>
+            <button
+              className="flex-[2] h-[40px] rounded-lg text-[13px] font-semibold bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+              onClick={onComplete}
+              disabled={isPending}
+            >
+              {isPending ? "處理中…" : "✅ 完工交棒"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** ClockModal 用的 KV 列 */
+function ClockKv({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[11px] text-[#9A9890] shrink-0">{label}</span>
+      <span
+        className={`text-[12.5px] text-[#2C2C2A] text-right truncate ${mono ? "font-mono font-semibold" : ""}`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/* ──────────────── 匯出今日報表（Excel）────────────────────────────── */
+
+/**
+ * exportBaysReport — 客戶端匯出今日工位看板資料為 xlsx
+ *
+ * 使用原生 CSV→Blob 方式（無須引入外部 xlsx 套件，CLAUDE.md POC 階段輕量原則）。
+ */
+function exportBaysReport(rows: BayEfficiencyRow[]): void {
+  const today = new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
+  const dateTag = new Date()
+    .toLocaleDateString("zh-TW", {
+      timeZone: "Asia/Taipei",
+      year: "2-digit",
+      month: "2-digit",
+      day: "2-digit",
+    })
+    .replace(/\//g, "");
+
+  const headers = ["工位代碼", "工位名稱", "性質", "用途", "完成工單", "已用工時(h)", "可用工時(h)", "使用率%", "周轉率", "狀態"];
+
+  const csvRows: string[][] = rows.map((r) => [
+    r.code,
+    r.name,
+    r.bay_type ?? "",
+    r.purpose ?? "",
+    String(r.done_today),
+    (r.used_minutes / 60).toFixed(1),
+    r.available_minutes > 0 ? (r.available_minutes / 60).toFixed(1) : "0",
+    `${r.usage_pct}%`,
+    String(r.turnover),
+    BAY_STATUS_LABEL[r.status] ?? r.status,
+  ]);
+
+  const bom = "﻿"; // UTF-8 BOM，讓 Excel 正確顯示中文
+  const csvContent =
+    bom +
+    [
+      [`工位看板今日報表 ${today}`],
+      headers,
+      ...csvRows,
+    ]
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(","),
+      )
+      .join("\r\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `bays-report-${dateTag}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

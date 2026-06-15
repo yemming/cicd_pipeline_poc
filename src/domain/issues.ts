@@ -146,6 +146,8 @@ export type StockIssueDetailLine = {
   serial_no: string | null;
   batch_no: string | null;
   notes: string | null;
+  /** 是否為保固件（來自 work_order_items.is_warranty）；無 RO 工單時恆為 false */
+  is_warranty: boolean;
 };
 
 export type StockIssueDetail = StockIssueRow & {
@@ -201,12 +203,21 @@ export async function getIssueById(id: string): Promise<StockIssueDetail | null>
   const itemIds = Array.from(new Set((rawLines ?? []).map((l) => l.item_id)));
   const binIds = Array.from(new Set((rawLines ?? []).map((l) => l.bin_id).filter((x): x is string => !!x)));
 
-  const [itemsRes, binsRes] = await Promise.all([
+  const [itemsRes, binsRes, warrantyRes] = await Promise.all([
     itemIds.length
       ? supabase.from("items").select("id, code, name").in("id", itemIds)
       : Promise.resolve({ data: [], error: null } as const),
     binIds.length
       ? supabase.from("warehouse_bins").select("id, code, name").in("id", binIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    // 查 RO 工單的保固料件清單（有 ro_id 才查）
+    row.ro_id
+      ? supabase
+          .from("work_order_items")
+          .select("item_id")
+          .eq("work_order_id", row.ro_id)
+          .eq("is_warranty", true)
+          .eq("kind", "parts")
       : Promise.resolve({ data: [], error: null } as const),
   ]);
 
@@ -215,6 +226,10 @@ export async function getIssueById(id: string): Promise<StockIssueDetail | null>
   );
   const binMap = new Map(
     (binsRes.data ?? []).map((b) => [b.id, b.code ?? b.name] as const),
+  );
+  // 保固料件 item_id 集合（用於逐行標記）
+  const warrantyItemIds = new Set(
+    (warrantyRes.data ?? []).map((w) => w.item_id),
   );
 
   const lines: StockIssueDetailLine[] = (rawLines ?? []).map((l) => ({
@@ -233,6 +248,7 @@ export async function getIssueById(id: string): Promise<StockIssueDetail | null>
     serial_no: l.serial_no,
     batch_no: l.batch_no,
     notes: l.notes,
+    is_warranty: warrantyItemIds.has(l.item_id),
   }));
 
   return {
@@ -1521,6 +1537,126 @@ export async function createInternalSale(
   }
 
   return persistRes;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 補貨需求（缺料時建單通知採購）
+//
+// 缺料過帳後，倉管可針對不足的料件建立「緊急補貨需求」，
+// 需求資訊寫入 stock_issues.metadata.replenishment_requests。
+// 回傳格式：REQ-{yyyymmdd}-{NNN}
+// ─────────────────────────────────────────────────────────────
+
+export type ReplenishmentRequestInput = {
+  /** 觸發缺料的領料單 id（optional）*/
+  issue_id?: string | null;
+  /** 觸發缺料的工單 id（optional）*/
+  work_order_id?: string | null;
+  /** 工單 RO 號，for 顯示 */
+  ro_no?: string | null;
+  /** 倉庫 id */
+  warehouse_id: string;
+  /** 缺料明細 */
+  shortage_lines: Array<{
+    item_id: string;
+    item_code: string | null;
+    item_name: string;
+    qty_shortage: number;
+  }>;
+};
+
+export async function createReplenishmentRequest(
+  input: ReplenishmentRequestInput,
+): Promise<Result<{ req_no: string }>> {
+  if (!(await hasPermission(PERMISSIONS.ISSUE_CREATE))) {
+    return { ok: false, error: "沒有建立補貨需求的權限" };
+  }
+  if (!input.shortage_lines?.length) {
+    return { ok: false, error: "缺料明細不可為空" };
+  }
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // 產需求單號 REQ-{yyyymmdd}-{NNN}（利用 stock_issues metadata 計數）
+  const today = new Date();
+  const dateStr =
+    today.getFullYear().toString() +
+    String(today.getMonth() + 1).padStart(2, "0") +
+    String(today.getDate()).padStart(2, "0");
+
+  // 用 DB function 不存在、改用 client-side 計數（POC 階段，低並發可接受）
+  const { count: reqCount } = await supabase
+    .from("stock_issues")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", scope.brand_id)
+    .contains("metadata", { replenishment_request: true });
+
+  const seq = (reqCount ?? 0) + 1;
+  const req_no = `REQ-${dateStr}-${String(seq).padStart(3, "0")}`;
+
+  const reqPayload = {
+    replenishment_request: true,
+    req_no,
+    issue_id: input.issue_id ?? null,
+    work_order_id: input.work_order_id ?? null,
+    ro_no: input.ro_no ?? null,
+    warehouse_id: input.warehouse_id,
+    created_by: user?.id ?? null,
+    created_at: today.toISOString(),
+    shortage_lines: input.shortage_lines,
+    status: "pending",
+  };
+
+  // 把補貨需求存到一筆 stock_issues 代理紀錄（metadata only，type='replenishment_request'）
+  // 這樣不影響現有流程，採購部門查詢時可 filter type='replenishment_request'
+  const gi_no = req_no; // 用 req_no 作為 gi_no
+
+  const { error: insertErr } = await supabase
+    .from("stock_issues")
+    .insert({
+      brand_id: scope.brand_id,
+      gi_no,
+      type: "replenishment_request",
+      status: "draft",
+      warehouse_id: input.warehouse_id,
+      ro_id: input.work_order_id ?? null,
+      issue_date: today.toISOString().slice(0, 10),
+      qty_issued_total: input.shortage_lines.reduce((s, l) => s + l.qty_shortage, 0),
+      amount_total: 0,
+      notes: `缺料補貨需求｜工單：${input.ro_no ?? "—"}｜${input.shortage_lines.map((l) => `${l.item_code ?? l.item_name} ×${l.qty_shortage}`).join("、")}`,
+      posted_at: null,
+      posted_by: user?.id ?? null,
+      metadata: reqPayload,
+    });
+
+  if (insertErr) {
+    return { ok: false, error: `建立補貨需求失敗：${insertErr.message}` };
+  }
+
+  revalidatePath("/parts/issue/repair-pick");
+  return { ok: true, data: { req_no } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 取得工單的保固件清單（供 PreviewPanel / detail view 使用）
+//
+// 查 work_order_items.is_warranty=true 的料件，回傳 item_id 清單。
+// ─────────────────────────────────────────────────────────────
+
+export async function getWarrantyItemIdsByWorkOrder(
+  work_order_id: string,
+): Promise<Set<string>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("work_order_items")
+    .select("item_id")
+    .eq("work_order_id", work_order_id)
+    .eq("is_warranty", true)
+    .eq("kind", "parts")
+    .not("item_id", "is", null);
+  return new Set((data ?? []).map((r) => r.item_id as string));
 }
 
 // ─────────────────────────────────────────────────────────────

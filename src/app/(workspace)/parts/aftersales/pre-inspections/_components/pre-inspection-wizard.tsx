@@ -7,6 +7,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useSetPageHeader } from "@/components/page-header-context";
 import { EntityImageGallery } from "@/components/image-upload/entity-image-gallery";
 import { SignatureCanvas } from "@/components/signature-canvas";
+import { DamageDisputeSection } from "@/components/aftersales-kit/damage-dispute-section";
+import { PendingItemsSidebar } from "@/components/aftersales-kit/pending-items-sidebar";
 import {
   DECISION_LABEL,
   MODE_CHIP,
@@ -27,6 +29,7 @@ import {
   computeQuote,
   type AskAnswer,
   type CheckRow,
+  type DotMark,
   type PreInspectionMode,
   type SaQuoteItem,
   type TechCategory,
@@ -34,8 +37,11 @@ import {
   type TechRow,
   type TechSafety,
 } from "@/domain/pre-inspections.constants";
+import { DamageMapSvg } from "./damage-map-svg";
 import type { PreInspectionListRow } from "@/domain/pre-inspections";
 import type { EnvCheckItem } from "@/domain/env-check-items";
+import type { VehiclePendingItem } from "@/domain/service-quotes";
+import type { DamageDispute } from "@/domain/damage-disputes";
 import {
   cancelAction,
   deleteAction,
@@ -63,6 +69,10 @@ type Props = {
    * PURPOSES 仍維持原 index（DB 存的是整數 index），只是不渲染該選項。
    */
   hasDesmo: boolean;
+  /** 此車的待處理項目（緊急橫幅 + 常駐側欄） */
+  pendingItems: VehiclePendingItem[];
+  /** 已寫入 DB 的損傷異議記錄（不可逆） */
+  existingDisputes: DamageDispute[];
 };
 
 function pad(n: number) {
@@ -74,7 +84,7 @@ function fmtDateTime(iso: string | null): string {
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: Props) {
+export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo, pendingItems, existingDisputes }: Props) {
   // 把 setting page 維護的環檢項目轉成 wizard 用的 CheckRow 預設值（state=-1=未檢）
   const defaultChecks: CheckRow[] = useMemo(
     () => envCheckItems.map((it) => ({ label: it.label, state: -1 })),
@@ -128,14 +138,21 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
   const [techRows, setTechRows] = useState<TechRow[]>(data.metadata?.tech_rows ?? []);
   const [saItems, setSaItems] = useState<SaQuoteItem[]>(data.metadata?.sa_items ?? []);
 
-  // basic info
+  // 機車損傷標記 dot_marks（Tab 1 互動式 SVG 標傷）
+  const [dotMarks, setDotMarks] = useState<DotMark[]>(data.metadata?.dot_marks ?? []);
+
+  // basic info（含 VIN）
   const [basic, setBasic] = useState({
     customer_name: data.customer_name ?? "",
     customer_phone: data.customer_phone ?? "",
     vehicle_license_plate: data.vehicle_license_plate ?? "",
     vehicle_model_name: data.vehicle_model_name ?? "",
     mileage_in: data.mileage_in?.toString() ?? "",
+    vehicle_vin: (data.metadata as { vehicle_vin?: string })?.vehicle_vin ?? "",
   });
+
+  // SA / 技師視角切換（client-only，不儲存 DB）
+  const [currentRole, setCurrentRole] = useState<"sa" | "tech">("sa");
 
   // 包C：手寫簽名後 text 自動帶當事人姓名（保留舊文字存證欄；只讀）
   const [saSig] = useState<string>(data.metadata?.sig_sa?.text ?? "");
@@ -175,16 +192,16 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
     router.refresh();
   }
 
-  // Step 1 — checks save
+  // Step 1 — checks save（含 dot_marks 損傷標記一起送出）
   function saveChecks() {
     if (locked) return;
     startTransition(async () => {
-      const res = await updateChecksAction(data.id, checks, saRemark);
+      const res = await updateChecksAction(data.id, checks, saRemark, dotMarks);
       if (res.ok) refreshAndToast("✓ 環檢已儲存");
       else showBanner({ ok: false, msg: res.error });
     });
   }
-  // Step 1 — basic info save
+  // Step 1 — basic info save（含 VIN）
   function saveBasic() {
     if (locked) return;
     startTransition(async () => {
@@ -194,6 +211,7 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
         vehicle_license_plate: basic.vehicle_license_plate,
         vehicle_model_name: basic.vehicle_model_name,
         mileage_in: basic.mileage_in ? Number(basic.mileage_in) : null,
+        vehicle_vin: basic.vehicle_vin || null,
       });
       if (res.ok) refreshAndToast("✓ 基本資料已儲存");
       else showBanner({ ok: false, msg: res.error });
@@ -305,6 +323,12 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
   const damageCount = checks.filter((c) => c.state === 2).length;
   const warnCount = checks.filter((c) => c.state === 1).length;
 
+  // 緊急待處理項目（紅底橫幅用）
+  const urgentItems = pendingItems.filter((p) => p.safetyLevel === "緊急");
+
+  // 進廠來源 badge（依 appointment_id 判斷）
+  const isWalkIn = !data.appointment_id;
+
   return (
     <main className="px-6 py-5 space-y-3">
       {/* Breadcrumb + CRUD pill */}
@@ -326,6 +350,16 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
           >
             {MODE_LABEL[currentMode]}
           </span>
+          {/* 進廠來源 badge（Walk-in / 預約） */}
+          {isWalkIn ? (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap bg-[#FDF3E3] text-[#854F0B]">
+              Walk-in 臨時進廠
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap bg-[#EAF4FB] text-[#185FA5]">
+              預約進廠
+            </span>
+          )}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <Link
@@ -372,13 +406,31 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
         </div>
       </div>
 
-      {/* Mode switcher */}
+      {/* 緊急待處理警示橫幅（有 safety_level='緊急' 的項目才顯示） */}
+      {urgentItems.length > 0 && (
+        <div className="bg-[#CC0000] text-white px-4 py-2.5 rounded-lg flex items-start gap-3">
+          <span className="text-[14px] font-bold shrink-0">🚨 緊急</span>
+          <div className="flex-1">
+            <div className="text-[12.5px] font-semibold">此車有 {urgentItems.length} 項緊急待處理問題（來自前次工單）</div>
+            <ul className="mt-1 space-y-0.5">
+              {urgentItems.map((p) => (
+                <li key={p.id} className="text-[12px] opacity-90">
+                  • {p.itemDesc}
+                  {p.reason ? `（${p.reason}）` : ""}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Mode switcher + SA/Tech 視角切換 */}
       <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 flex items-center gap-3 flex-wrap">
         <div>
           <div className="text-[11px] text-[#9A9890] font-medium mb-0.5">預檢模式</div>
           <div className="text-[11.5px] text-[#5A5955]">{MODE_DESC[currentMode]}</div>
         </div>
-        <div className="ml-auto inline-flex border border-[#EEECE6] rounded overflow-hidden text-[12px]">
+        <div className="inline-flex border border-[#EEECE6] rounded overflow-hidden text-[12px]">
           {PRE_INSPECTION_MODE.map((m) => (
             <button
               key={m}
@@ -394,6 +446,26 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
               {MODE_LABEL[m]}
             </button>
           ))}
+        </div>
+        {/* SA / 技師視角切換（不儲存 DB，純 client-side UX 分工） */}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-[11px] text-[#9A9890]">切換視角：</span>
+          <div className="inline-flex border border-[#EEECE6] rounded overflow-hidden text-[12px]">
+            {(["sa", "tech"] as const).map((role) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => setCurrentRole(role)}
+                className={`h-[30px] px-3 transition-colors ${
+                  currentRole === role
+                    ? "bg-[#185FA5] text-white font-medium"
+                    : "bg-white text-[#5A5955] hover:bg-[#F8F7F4]"
+                }`}
+              >
+                {role === "sa" ? "SA 視角" : "技師視角"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -429,112 +501,133 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
         </div>
       </div>
 
-      {/* Step content */}
-      <div className="bg-white border border-[#EEECE6] rounded-lg p-4 space-y-4">
-        {step === 0 && (
-          <Step1Circle
-            piId={data.id}
-            photos={data.photos ?? []}
-            canEdit={canEdit}
-            basic={basic}
-            setBasic={setBasic}
-            checks={checks}
-            setChecks={setChecks}
-            saRemark={saRemark}
-            setSaRemark={setSaRemark}
-            warranty={data.metadata?.warranty_snapshot ?? null}
-            doneChecks={doneChecks}
-            damageCount={damageCount}
-            warnCount={warnCount}
+      {/* 主區域：左主欄 + 右側常駐側欄 */}
+      <div className="flex gap-3 items-start">
+        {/* 主內容欄 */}
+        <div className="flex-1 min-w-0 space-y-3">
+          {/* Step content */}
+          <div className="bg-white border border-[#EEECE6] rounded-lg p-4 space-y-4">
+            {step === 0 && (
+              <Step1Circle
+                piId={data.id}
+                vehicleId={data.vehicle_id}
+                photos={data.photos ?? []}
+                canEdit={canEdit}
+                basic={basic}
+                setBasic={setBasic}
+                checks={checks}
+                setChecks={setChecks}
+                saRemark={saRemark}
+                setSaRemark={setSaRemark}
+                dotMarks={dotMarks}
+                setDotMarks={setDotMarks}
+                warranty={data.metadata?.warranty_snapshot ?? null}
+                doneChecks={doneChecks}
+                damageCount={damageCount}
+                warnCount={warnCount}
+                locked={locked || currentRole === "tech"}
+                isPending={isPending}
+                saveBasic={saveBasic}
+                saveChecks={saveChecks}
+                existingDisputes={existingDisputes}
+              />
+            )}
+            {step === 1 && (
+              <Step2Purpose
+                purposes={purposes}
+                setPurposes={setPurposes}
+                customerWords={customerWords}
+                setCustomerWords={setCustomerWords}
+                asks={asks}
+                setAsks={setAsks}
+                locked={locked || currentRole === "tech"}
+                isPending={isPending}
+                savePurposes={savePurposes}
+                saveAsks={saveAsks}
+                hasDesmo={hasDesmo}
+              />
+            )}
+            {step === 2 && (
+              <Step3Tech
+                techRows={techRows}
+                setTechRows={setTechRows}
+                locked={locked}
+                currentRole={currentRole}
+                isPending={isPending}
+                saveTech={saveTech}
+              />
+            )}
+            {step === 3 && (
+              <Step4Quote
+                saItems={saItems}
+                setSaItems={setSaItems}
+                techRows={techRows}
+                quote={quote}
+                locked={locked || currentRole === "tech"}
+                isPending={isPending}
+                saveSaItems={saveSaItems}
+              />
+            )}
+            {step === 4 && (
+              <Step5Sign
+                piId={data.id}
+                saSigImg={saSigImg}
+                setSaSigImg={setSaSigImg}
+                custSigImg={custSigImg}
+                setCustSigImg={setCustSigImg}
+                data={data}
+                quote={quote}
+                locked={locked || currentRole === "tech"}
+                isPending={isPending}
+                handleSign={handleSign}
+              />
+            )}
+          </div>
+
+          {/* Footer nav — simple mode 跳過中間 step */}
+          {(() => {
+            const cursor = visibleStepIndices.indexOf(step);
+            const prevStep = cursor > 0 ? visibleStepIndices[cursor - 1] : null;
+            const nextStep =
+              cursor >= 0 && cursor < visibleStepIndices.length - 1
+                ? visibleStepIndices[cursor + 1]
+                : null;
+            return (
+              <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 flex items-center gap-2">
+                <button
+                  onClick={() => prevStep !== null && setStep(prevStep)}
+                  disabled={prevStep === null}
+                  className="h-[30px] px-3 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-40"
+                >
+                  ← 上一步
+                </button>
+                <div className="ml-auto text-[12px] text-[#9A9890]">
+                  第 {cursor + 1} 步 / {visibleStepIndices.length}
+                  {WIZARD_STEPS[step]?.label ?? ""}
+                </div>
+                <button
+                  onClick={() => nextStep !== null && setStep(nextStep)}
+                  disabled={nextStep === null}
+                  className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-40"
+                >
+                  {nextStep !== null
+                    ? `下一步：${WIZARD_STEPS[nextStep].label} →`
+                    : "已到最後一步"}
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* 右側常駐側欄（待處理項目） */}
+        {data.vehicle_id && (
+          <PendingItemsSidebar
+            vehicleId={data.vehicle_id}
+            pendingItems={pendingItems}
             locked={locked}
-            isPending={isPending}
-            saveBasic={saveBasic}
-            saveChecks={saveChecks}
-          />
-        )}
-        {step === 1 && (
-          <Step2Purpose
-            purposes={purposes}
-            setPurposes={setPurposes}
-            customerWords={customerWords}
-            setCustomerWords={setCustomerWords}
-            asks={asks}
-            setAsks={setAsks}
-            locked={locked}
-            isPending={isPending}
-            savePurposes={savePurposes}
-            saveAsks={saveAsks}
-            hasDesmo={hasDesmo}
-          />
-        )}
-        {step === 2 && (
-          <Step3Tech
-            techRows={techRows}
-            setTechRows={setTechRows}
-            locked={locked}
-            isPending={isPending}
-            saveTech={saveTech}
-          />
-        )}
-        {step === 3 && (
-          <Step4Quote
-            saItems={saItems}
-            setSaItems={setSaItems}
-            techRows={techRows}
-            quote={quote}
-            locked={locked}
-            isPending={isPending}
-            saveSaItems={saveSaItems}
-          />
-        )}
-        {step === 4 && (
-          <Step5Sign
-            saSigImg={saSigImg}
-            setSaSigImg={setSaSigImg}
-            custSigImg={custSigImg}
-            setCustSigImg={setCustSigImg}
-            data={data}
-            quote={quote}
-            locked={locked}
-            isPending={isPending}
-            handleSign={handleSign}
           />
         )}
       </div>
-
-      {/* Footer nav — simple mode 跳過中間 step */}
-      {(() => {
-        const cursor = visibleStepIndices.indexOf(step);
-        const prevStep = cursor > 0 ? visibleStepIndices[cursor - 1] : null;
-        const nextStep =
-          cursor >= 0 && cursor < visibleStepIndices.length - 1
-            ? visibleStepIndices[cursor + 1]
-            : null;
-        return (
-          <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 flex items-center gap-2">
-            <button
-              onClick={() => prevStep !== null && setStep(prevStep)}
-              disabled={prevStep === null}
-              className="h-[30px] px-3 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-40"
-            >
-              ← 上一步
-            </button>
-            <div className="ml-auto text-[12px] text-[#9A9890]">
-              第 {cursor + 1} 步 / {visibleStepIndices.length}
-              {WIZARD_STEPS[step]?.label ?? ""}
-            </div>
-            <button
-              onClick={() => nextStep !== null && setStep(nextStep)}
-              disabled={nextStep === null}
-              className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-40"
-            >
-              {nextStep !== null
-                ? `下一步：${WIZARD_STEPS[nextStep].label} →`
-                : "已到最後一步"}
-            </button>
-          </div>
-        );
-      })()}
 
       {banner && (
         <div
@@ -555,6 +648,7 @@ export function PreInspectionWizard({ data, canEdit, envCheckItems, hasDesmo }: 
 
 function Step1Circle({
   piId,
+  vehicleId,
   photos,
   canEdit,
   basic,
@@ -563,6 +657,8 @@ function Step1Circle({
   setChecks,
   saRemark,
   setSaRemark,
+  dotMarks,
+  setDotMarks,
   warranty,
   doneChecks,
   damageCount,
@@ -571,8 +667,10 @@ function Step1Circle({
   isPending,
   saveBasic,
   saveChecks,
+  existingDisputes,
 }: {
   piId: string;
+  vehicleId: string | null;
   photos: string[];
   canEdit: boolean;
   basic: {
@@ -581,12 +679,16 @@ function Step1Circle({
     vehicle_license_plate: string;
     vehicle_model_name: string;
     mileage_in: string;
+    vehicle_vin: string;
   };
   setBasic: React.Dispatch<React.SetStateAction<Step1Basic>>;
   checks: CheckRow[];
   setChecks: React.Dispatch<React.SetStateAction<CheckRow[]>>;
   saRemark: string;
   setSaRemark: (v: string) => void;
+  /** 機車損傷 dot 標記（存入 metadata.dot_marks） */
+  dotMarks: DotMark[];
+  setDotMarks: (marks: DotMark[]) => void;
   warranty: { valid?: boolean; started_at?: string; expires_at?: string; mileage?: string } | null;
   doneChecks: number;
   damageCount: number;
@@ -595,6 +697,7 @@ function Step1Circle({
   isPending: boolean;
   saveBasic: () => void;
   saveChecks: () => void;
+  existingDisputes: DamageDispute[];
 }) {
   return (
     <div
@@ -617,6 +720,8 @@ function Step1Circle({
           <Inp label="進廠里程 (km)" type="number" value={basic.mileage_in} onChange={(v) => setBasic({ ...basic, mileage_in: v })} disabled={locked} />
           <Inp label="車型" value={basic.vehicle_model_name} onChange={(v) => setBasic({ ...basic, vehicle_model_name: v })} disabled={locked} />
           <Inp label="車牌號碼" value={basic.vehicle_license_plate} onChange={(v) => setBasic({ ...basic, vehicle_license_plate: v })} disabled={locked} />
+          {/* VIN 車身號碼（Tab 1 新增欄位） */}
+          <Inp label="車身號碼 VIN" value={basic.vehicle_vin} onChange={(v) => setBasic({ ...basic, vehicle_vin: v })} disabled={locked} />
         </div>
         {warranty && (
           <div className="mx-4 mb-4 px-3 py-2 bg-[#E1F5EE] border border-[#1D9E75] rounded text-[11.5px] text-[#0F6E56] flex flex-wrap gap-4">
@@ -691,6 +796,45 @@ function Step1Circle({
         </div>
       </section>
 
+      {/* 機車損傷標記 SVG（互動式點位，存入 metadata.dot_marks） */}
+      <section className="border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+          <div>
+            <h2 className="text-[13px] font-semibold text-[#2C2C2A]">▼ 機車損傷位置標記</h2>
+            <span className="text-[11.5px] text-[#9A9890] ml-0 font-normal">
+              點擊側面圖各點位標記損傷狀態（與環檢一起儲存）
+            </span>
+          </div>
+          {/* 已標記 dot 數量計 */}
+          {dotMarks.filter((d) => d.state !== "empty").length > 0 && (
+            <div className="flex items-center gap-1.5 text-[11.5px]">
+              {dotMarks.filter((d) => d.state === "bad").length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md bg-[#FDECEA] text-[#CC0000] text-[11px]">
+                  損傷 {dotMarks.filter((d) => d.state === "bad").length}
+                </span>
+              )}
+              {dotMarks.filter((d) => d.state === "warn").length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md bg-[#FDF3E3] text-[#854F0B] text-[11px]">
+                  注意 {dotMarks.filter((d) => d.state === "warn").length}
+                </span>
+              )}
+              {dotMarks.filter((d) => d.state === "ok").length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11] text-[11px]">
+                  正常 {dotMarks.filter((d) => d.state === "ok").length}
+                </span>
+              )}
+            </div>
+          )}
+        </header>
+        <div className="px-4 py-3">
+          <DamageMapSvg
+            dotMarks={dotMarks}
+            setDotMarks={setDotMarks}
+            disabled={locked || isPending}
+          />
+        </div>
+      </section>
+
       {/* 環車照片區 — 最多 20 張 */}
       <section className="border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
@@ -715,6 +859,15 @@ function Step1Circle({
           />
         </div>
       </section>
+
+      {/* 損傷紀錄與客戶異議記錄（B2-01）— 只在有損傷項時顯示 */}
+      <DamageDisputeSection
+        piId={piId}
+        vehicleId={vehicleId}
+        checks={checks}
+        existingDisputes={existingDisputes}
+        locked={locked}
+      />
     </div>
   );
 }
@@ -725,6 +878,7 @@ type Step1Basic = {
   vehicle_license_plate: string;
   vehicle_model_name: string;
   mileage_in: string;
+  vehicle_vin: string;
 };
 
 /* ───────────────────────────── Step 2 ───────────────────────────── */
@@ -877,12 +1031,15 @@ function Step3Tech({
   techRows,
   setTechRows,
   locked,
+  currentRole,
   isPending,
   saveTech,
 }: {
   techRows: TechRow[];
   setTechRows: React.Dispatch<React.SetStateAction<TechRow[]>>;
   locked: boolean;
+  /** SA / 技師視角：sa 視角下顯示等待提示卡，tech 視角下可填寫 */
+  currentRole: "sa" | "tech";
   isPending: boolean;
   saveTech: () => void;
 }) {
@@ -917,6 +1074,44 @@ function Step3Tech({
   function removeRow(i: number) {
     if (locked) return;
     setTechRows((prev) => prev.filter((_, idx) => idx !== i));
+  }
+
+  // 計算 defer/reject 項目（增項閉環 D+3/D+10 提醒用）
+  const deferOrReject = techRows.filter(
+    (r) => r.state === "defer" || r.state === "reject",
+  );
+  const hasCritical = deferOrReject.some((r) => r.safety === 1);
+
+  // SA 視角下：顯示等待技師提示卡，不顯示技師填寫表單
+  if (currentRole === "sa") {
+    return (
+      <div className="space-y-4">
+        <div className="px-4 py-8 border border-[#EEECE6] rounded-lg bg-[#F8F7F4] text-center space-y-2">
+          <div className="text-[28px]">⏳</div>
+          <div className="text-[14px] font-semibold text-[#2C2C2A]">等待技師深入檢查中</div>
+          <div className="text-[12.5px] text-[#5A5955]">
+            請切換至「技師視角」讓技師填寫診斷結果，或等技師完成後再回來查看。
+          </div>
+          <div className="text-[11.5px] text-[#9A9890]">
+            已有 {techRows.length} 項技師檢查紀錄
+            {techRows.length > 0 && `（${deferOrReject.length} 項暫緩/拒絕）`}
+          </div>
+        </div>
+
+        {/* 即使 SA 視角也顯示閉環提醒（讓 SA 知道有待追蹤項） */}
+        {deferOrReject.length > 0 && (
+          <div className={`px-4 py-3 border rounded text-[12px] ${hasCritical ? "bg-[#FDECEA] border-[#F5AEAD] text-[#CC0000]" : "bg-[#FAEEDA] border-[#BA7517] text-[#412402]"}`}>
+            <div className="font-semibold mb-1">
+              🔁 增項閉環追蹤提醒（{deferOrReject.length} 項暫緩 / 拒絕）
+            </div>
+            {hasCritical && (
+              <div className="font-bold mb-1">⚠️ 含安全等級「立即必修」項目，需主管介入確認！</div>
+            )}
+            <div>D+3：回訪車主說明追蹤進度；D+10：確認是否預約回廠處理。</div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -1067,6 +1262,22 @@ function Step3Tech({
           )}
         </div>
       </section>
+
+      {/* 增項閉環 D+3/D+10 提醒（技師視角下，有 defer/reject 才顯示） */}
+      {deferOrReject.length > 0 && (
+        <div className={`px-4 py-3 border rounded text-[12px] ${hasCritical ? "bg-[#FDECEA] border-[#F5AEAD] text-[#CC0000]" : "bg-[#FAEEDA] border-[#BA7517] text-[#412402]"}`}>
+          <div className="font-semibold mb-1">
+            🔁 增項閉環追蹤提醒（{deferOrReject.filter(r => r.state === "defer").length} 暫緩・{deferOrReject.filter(r => r.state === "reject").length} 拒絕）
+          </div>
+          {hasCritical && (
+            <div className="font-bold mb-1">⚠️ 含「立即必修」安全等級項目，需主管確認介入！</div>
+          )}
+          <div>D+3：回訪車主說明追蹤進度；D+10：確認是否安排回廠處理。</div>
+          <div className="mt-1 text-[11px] opacity-80">
+            儲存後這些項目將自動寫入此車的「待處理清單」，下次進廠時 SA 側欄會顯示提醒。
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1275,6 +1486,26 @@ function Step4Quote({
       <div className="text-[11px] text-[#9A9890]">
         LU × 6 分鐘 × NT$1,650/小時 = 工時費。車主口頭確認後進入簽名頁。
       </div>
+
+      {/* 增項閉環 D+3/D+10 提醒（Step 4 也顯示，讓 SA 報價時知道有待追蹤） */}
+      {(() => {
+        const deferReject = techRows.filter(
+          (r) => r.state === "defer" || r.state === "reject",
+        );
+        if (deferReject.length === 0) return null;
+        const critical = deferReject.some((r) => r.safety === 1);
+        return (
+          <div className={`px-4 py-3 border rounded text-[12px] ${critical ? "bg-[#FDECEA] border-[#F5AEAD] text-[#CC0000]" : "bg-[#FAEEDA] border-[#BA7517] text-[#412402]"}`}>
+            <div className="font-semibold mb-1">
+              🔁 增項閉環追蹤提醒（{deferReject.length} 項車主暫緩/拒絕）
+            </div>
+            {critical && (
+              <div className="font-bold mb-1">⚠️ 含「立即必修」安全等級，需主管審核！</div>
+            )}
+            <div>D+3 / D+10 回訪追蹤；拒絕項目已自動加入此車的待處理清單。</div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -1282,6 +1513,7 @@ function Step4Quote({
 /* ───────────────────────────── Step 5 ───────────────────────────── */
 
 function Step5Sign({
+  piId,
   saSigImg,
   setSaSigImg,
   custSigImg,
@@ -1292,6 +1524,7 @@ function Step5Sign({
   isPending,
   handleSign,
 }: {
+  piId: string;
   saSigImg: string | null;
   setSaSigImg: (v: string | null) => void;
   custSigImg: string | null;
@@ -1302,6 +1535,11 @@ function Step5Sign({
   isPending: boolean;
   handleSign: () => void;
 }) {
+  // 客戶不在場時的 Line/SMS 截圖授權（存 metadata.sig_customer.absent_auth_url）
+  const absentAuthUrl =
+    (data.metadata as { sig_customer?: { absent_auth_url?: string } })?.sig_customer
+      ?.absent_auth_url ?? null;
+
   return (
     <div
       className={`space-y-4 ${isPending ? "pointer-events-none opacity-60" : ""}`}
@@ -1336,6 +1574,48 @@ function Step5Sign({
           onReSign={() => setCustSigImg(null)}
         />
       </div>
+
+      {/* 客戶不在場授權截圖上傳（當車主不在場時替代簽名） */}
+      {!locked && (
+        <section className="border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+              客戶不在場授權（選填）
+            </h2>
+          </header>
+          <div className="px-4 py-3 space-y-2">
+            <div className="text-[12px] text-[#5A5955]">
+              若車主不在場，請上傳 Line／簡訊截圖（標示「待補簽」），作為暫時授權憑證。
+            </div>
+            {absentAuthUrl ? (
+              <div className="space-y-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={absentAuthUrl}
+                  alt="客戶不在場授權截圖"
+                  className="w-full max-h-48 object-contain bg-[#F5F5F4] border border-[#E8E7E4] rounded"
+                />
+                <div className="text-[11px] text-[#3B6D11]">✓ 已上傳授權截圖（待補簽）</div>
+              </div>
+            ) : (
+              <EntityImageGallery
+                entity="pre-inspection"
+                entityId={piId}
+                images={[]}
+                alt="客戶不在場授權截圖"
+                canEdit={true}
+                width={320}
+                height={200}
+                maxImages={1}
+                emptyHint="上傳 Line / 簡訊截圖（不在場授權憑證）"
+              />
+            )}
+            <div className="text-[11px] text-[#9A9890]">
+              上傳截圖後仍需客戶事後補簽正式簽名，本欄僅為暫時授權存證。
+            </div>
+          </div>
+        </section>
+      )}
 
       {locked && (
         <div className="px-3 py-2 bg-[#EAF3DE] border border-[#C5DC9F] rounded text-[12px] text-[#3B6D11]">

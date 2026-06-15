@@ -31,7 +31,16 @@ export type EventCode =
   //   requested payload: approvalId / scenario / roCode / customerName / saName / notes / actionUrl
   //   resolved payload: approvalId / scenario / roCode / customerName / decision / reason / actionUrl
   | "aftersales_approval.requested"
-  | "aftersales_approval.resolved";
+  | "aftersales_approval.resolved"
+  // 05_增項閉環：SA 發 LINE 提醒給車主
+  //   payload: caseId / caseNo / title / customerName / saName / body / brand
+  | "followup.line_reminder"
+  // Tech 工作台 T07：施工完成，通知 SA / 複檢員進入竣工複檢
+  //   payload: ro_id / ro_code / technician_name / brand_id
+  | "repair_order.completed"
+  // Tech 工作台：技師提交追加項目，通知 SA 有待確認追加
+  //   payload: ro_id / ro_code / addon_id / addon_name / brand_id
+  | "repair_order_addon.proposed";
 
 export interface NotificationEvent<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   code: EventCode;

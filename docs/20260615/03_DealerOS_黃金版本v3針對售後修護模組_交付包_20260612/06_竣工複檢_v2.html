@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>DealerOS 竣工複檢畫面</title>
+<style>
+:root{
+  --red:#CC0000;--dark:#1A1A1A;--white:#FFFFFF;
+  --g50:#F5F5F4;--g100:#E8E7E4;--g200:#D1D0CE;--g400:#999;--g500:#6B6A68;--g700:#3A3A38;
+  --green:#0F6E56;--green-bg:#E1F5EE;--green-bd:#1D9E75;
+  --amber:#854F0B;--amber-bg:#FAEEDA;--amber-bd:#BA7517;
+  --red-bg:#FCEBEB;--blue:#185FA5;--blue-bg:#E6F1FB;--blue-bd:#4A90D9;
+  --navy:#1A3A5C;
+  --font:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  --r:10px;--r-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#EDECEB;font-family:var(--font);font-size:14px;color:var(--dark)}
+.app{display:flex;flex-direction:column;height:100vh;max-width:1024px;margin:0 auto;background:var(--white);box-shadow:0 0 30px rgba(0,0,0,0.12)}
+
+/* Header */
+.hdr{background:var(--navy);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.hdr-logo{font-size:17px;font-weight:700;letter-spacing:2px;margin-right:12px}
+.hdr-title{font-size:13px;opacity:0.9}
+.hdr-sub{font-size:11px;opacity:0.65;margin-top:1px}
+.hdr-meta{text-align:right;font-size:11px;opacity:0.85;line-height:1.7}
+.status-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.2);margin-left:8px}
+
+/* Progress steps */
+.steps{display:flex;background:var(--g50);border-bottom:1px solid var(--g100);flex-shrink:0;padding:10px 14px;gap:0;align-items:center}
+.step{display:flex;align-items:center;gap:6px;flex:1}
+.step-circle{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;border:2px solid var(--g200);color:var(--g400);background:var(--white)}
+.step-circle.done{background:var(--green-bd);border-color:var(--green-bd);color:#fff}
+.step-circle.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.step-label{font-size:11px;color:var(--g500);white-space:nowrap}
+.step-label.active{color:var(--navy);font-weight:600}
+.step-label.done{color:var(--green)}
+.step-connector{flex:1;height:1px;background:var(--g200);margin:0 4px;max-width:30px}
+.step-connector.done{background:var(--green-bd)}
+
+/* Content */
+.content{flex:1;overflow-y:auto;padding:12px;background:var(--g50)}
+
+/* Cards */
+.card{background:var(--white);border:0.5px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.card-hdr{padding:9px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.card-hdr.navy{background:var(--navy);color:#fff}
+.card-hdr.dark{background:var(--dark);color:#fff}
+.card-hdr.green{background:var(--green);color:#fff}
+.card-hdr.red{background:var(--red);color:#fff}
+.card-hdr.amber{background:var(--amber);color:#fff}
+.card-body{padding:12px 14px}
+
+/* Grid */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* Check items */
+.chk-section{margin-bottom:12px}
+.chk-sec-title{font-size:11px;font-weight:700;color:#fff;padding:4px 10px;border-radius:4px;margin-bottom:6px;display:inline-block}
+.chk-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:0.5px solid var(--g100);border-radius:var(--r-sm);margin-bottom:4px;background:var(--white);transition:background 0.15s}
+.chk-row.checked{background:var(--green-bg);border-color:var(--green-bd)}
+.chk-row.failed{background:var(--red-bg);border-color:var(--red)}
+.chk-icon{width:28px;height:28px;border-radius:50%;border:2px solid var(--g200);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;flex-shrink:0;transition:all 0.15s;background:var(--white)}
+.chk-icon.ok{background:var(--green-bd);border-color:var(--green-bd);color:#fff}
+.chk-icon.fail{background:var(--red);border-color:var(--red);color:#fff}
+.chk-label{flex:1;font-size:12px}
+.chk-note{font-size:11px;color:var(--g500)}
+.chk-btns{display:flex;gap:4px;flex-shrink:0}
+.ck{height:30px;padding:0 12px;border-radius:var(--r-sm);border:0.5px solid var(--g200);font-size:11px;cursor:pointer;background:var(--white);color:var(--g500);font-weight:500;transition:all 0.12s}
+.ck:active{transform:scale(0.96)}
+.ck.ok{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.ck.fail{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+
+/* Fields */
+.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.field{display:flex;flex-direction:column;gap:3px}
+.field.w2{grid-column:span 2}
+.field.full{grid-column:1/-1}
+.field label{font-size:11px;color:var(--g500);font-weight:500}
+.field input,.field select{height:36px;padding:0 10px;border:0.5px solid var(--g200);border-radius:var(--r-sm);font-size:12px;color:var(--dark);background:var(--g50);width:100%}
+.field input:focus{outline:none;border-color:var(--navy);background:#fff}
+.field textarea{padding:8px 10px;border:0.5px solid var(--g200);border-radius:var(--r-sm);font-size:12px;color:var(--dark);background:var(--g50);resize:none;width:100%}
+
+/* 電子簽名區 */
+.sig-wrap{border:0.5px solid var(--g200);border-radius:8px;overflow:hidden}
+.sig-info{background:var(--blue-bg);padding:10px 14px;border-bottom:0.5px solid var(--blue-bd)}
+.sig-info-row{display:flex;gap:20px;flex-wrap:wrap}
+.sig-info-item{display:flex;flex-direction:column;gap:2px}
+.sig-info-item label{font-size:10px;color:var(--blue);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.sig-info-item span{font-size:13px;font-weight:600;color:var(--navy)}
+.sig-info-item .auto-tag{font-size:9px;background:var(--navy);color:#fff;padding:1px 5px;border-radius:3px;display:inline-block;margin-top:1px}
+.sig-canvas-wrap{padding:12px 14px;background:var(--white)}
+.sig-canvas{border:1.5px dashed var(--g200);border-radius:8px;height:80px;display:flex;align-items:center;justify-content:center;color:var(--g400);font-size:12px;cursor:pointer;background:var(--g50);transition:all 0.15s;position:relative}
+.sig-canvas:hover{border-color:var(--navy);background:#fff}
+.sig-canvas.signed{border-style:solid;border-color:var(--navy);background:#fff}
+.sig-timestamp{font-size:11px;color:var(--g500);margin-top:6px;display:flex;justify-content:space-between}
+.sig-auth-fail{background:var(--red-bg);border:0.5px solid #F09595;border-radius:8px;padding:12px 14px;text-align:center}
+.sig-auth-fail p{font-size:13px;color:var(--red);font-weight:600;margin-bottom:4px}
+.sig-auth-fail span{font-size:11px;color:var(--g500)}
+
+/* 取車通知區 */
+.notify-wrap{background:var(--green-bg);border:1px solid var(--green-bd);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.notify-title{font-size:14px;font-weight:700;color:var(--green);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.notify-sub{font-size:12px;color:var(--g700);margin-bottom:12px;line-height:1.6}
+.notify-preview{background:var(--white);border-radius:8px;padding:10px 14px;margin-bottom:12px;border:0.5px solid var(--green-bd)}
+.notify-preview-label{font-size:10px;color:var(--g500);font-weight:600;margin-bottom:4px}
+.notify-preview-msg{font-size:12px;line-height:1.6;color:var(--dark)}
+.notify-btns{display:flex;gap:8px;flex-wrap:wrap}
+.notify-method{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:0.5px solid var(--green-bd);background:var(--white);cursor:pointer;font-size:12px;font-weight:500;color:var(--green);transition:all 0.15s}
+.notify-method:hover{background:var(--green);color:#fff}
+.notify-method.sent{background:var(--green);color:#fff}
+.notify-method:active{transform:scale(0.97)}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-ok{background:var(--green-bg);color:var(--green);border:0.5px solid var(--green-bd)}
+.badge-warn{background:var(--amber-bg);color:var(--amber)}
+.badge-bad{background:var(--red-bg);color:var(--red)}
+.badge-blue{background:var(--blue-bg);color:var(--blue)}
+.badge-navy{background:#E8EEF5;color:var(--navy)}
+
+/* Progress bar */
+.prog-wrap{padding:7px 14px;background:#fff;border-top:0.5px solid var(--g100);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.prog-bar{flex:1;height:3px;background:var(--g200);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--navy);border-radius:2px;transition:width 0.35s}
+.prog-text{font-size:11px;color:var(--g500);white-space:nowrap}
+
+/* Footer */
+.footer{padding:10px 14px;background:#fff;border-top:0.5px solid var(--g100);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.btn{height:40px;padding:0 20px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s}
+.btn:active{transform:scale(0.97)}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-outline{background:transparent;border:0.5px solid var(--g200);color:var(--dark)}
+.btn-group{display:flex;gap:8px;align-items:center}
+
+.hint{font-size:11px;color:var(--g500)}
+.divider{height:0.5px;background:var(--g100);margin:12px 0}
+.sec-title{font-size:12px;font-weight:600;color:var(--g500);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+
+/* Summary bar */
+.summary-bar{display:flex;gap:16px;padding:8px 12px;background:var(--navy);border-radius:8px;margin-bottom:10px;flex-wrap:wrap}
+.summary-item{display:flex;flex-direction:column;align-items:center}
+.summary-item label{font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:1px}
+.summary-item span{font-size:14px;font-weight:700;color:#fff}
+</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;"><button onclick="go('05_增項閉環_完整子模組.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">← 增項閉環</button><button onclick="go('08_結帳收款.html')" style="padding:5px 14px;background:#C8001A;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">結帳收款 →</button></div>
+<div class="app">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="hdr-logo">DealerOS</div>
+      <div>
+        <div class="hdr-title">竣工複檢<span class="status-badge" id="hdr-status">進行中</span></div>
+        <div class="hdr-sub">RO-MN-CP-260612-001　｜　林志遠　Scout Bobber　MMQ-2258</div>
+      </div>
+    </div>
+    <div class="hdr-meta">
+      <span>複檢員：陳建明</span>
+      <span>2026/06/12　14:15</span>
+    </div>
+  </div>
+
+  <!-- Progress steps -->
+  <div class="steps">
+    <div class="step">
+      <div class="step-circle active" id="s1">1</div>
+      <span class="step-label active">維修項目複檢</span>
+    </div>
+    <div class="step-connector" id="sc1"></div>
+    <div class="step">
+      <div class="step-circle" id="s2">2</div>
+      <span class="step-label">試車記錄</span>
+    </div>
+    <div class="step-connector" id="sc2"></div>
+    <div class="step">
+      <div class="step-circle" id="s3">3</div>
+      <span class="step-label">清潔確認</span>
+    </div>
+    <div class="step-connector" id="sc3"></div>
+    <div class="step">
+      <div class="step-circle" id="s4">4</div>
+      <span class="step-label">複檢簽核</span>
+    </div>
+    <div class="step-connector" id="sc4"></div>
+    <div class="step">
+      <div class="step-circle" id="s5">5</div>
+      <span class="step-label">通知取車</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══ 步驟1：維修項目複檢 ══ -->
+    <div id="panel1">
+
+      <!-- RO 工單摘要 -->
+      <div class="summary-bar">
+        <div class="summary-item"><label>RO 編號</label><span>RO-MN-CP-260612-001</span></div>
+        <div class="summary-item"><label>進廠里程</label><span>3,250 km</span></div>
+        <div class="summary-item"><label>維修項目</label><span id="total-items">7 項</span></div>
+        <div class="summary-item"><label>已複檢</label><span id="checked-count" style="color:#7FFFD4">0 / 7</span></div>
+        <div class="summary-item"><label>預估費用</label><span>NT$12,430</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr navy">逐項複檢　對照 RO 工單確認完成狀況</div>
+        <div class="card-body">
+
+          <!-- 引擎系統 -->
+          <div class="chk-section">
+            <span class="chk-sec-title" style="background:#854F0B">引擎系統</span>
+            <div id="chk-engine"></div>
+          </div>
+
+          <!-- 煞車系統 -->
+          <div class="chk-section">
+            <span class="chk-sec-title" style="background:#CC0000">煞車系統</span>
+            <div id="chk-brake"></div>
+          </div>
+
+          <!-- 電氣系統 -->
+          <div class="chk-section">
+            <span class="chk-sec-title" style="background:#534AB7">電氣系統</span>
+            <div id="chk-elec"></div>
+          </div>
+
+          <!-- 一般保養 -->
+          <div class="chk-section">
+            <span class="chk-sec-title" style="background:#2C2C2C">一般保養</span>
+            <div id="chk-general"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 複檢問題記錄 -->
+      <div class="card" id="issue-card" style="display:none">
+        <div class="card-hdr red">⚠️ 複檢發現問題　需處理後再次確認</div>
+        <div class="card-body">
+          <div class="field">
+            <label>問題描述</label>
+            <textarea id="issue-note" style="height:60px" placeholder="描述複檢發現的問題，需重新交付技師處理..."></textarea>
+          </div>
+          <div class="field" style="margin-bottom:8px">
+            <label>退回重工原因（必填）</label>
+            <textarea id="rework-reason" style="height:50px" placeholder="說明具體問題，技師收到通知時會看到此說明..."></textarea>
+          </div>
+          <div style="font-size:11px;color:var(--g500);margin-bottom:8px">
+            退回後：① 工單狀態→「退回重工」② 施工技師收到系統通知 ③ 本次複檢記錄於稽核日誌（複檢次數+1）
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-red" style="height:34px;font-size:12px" onclick="submitRework()">退回技師重修</button>
+            <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="document.getElementById('issue-card').style.display='none'">取消</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══ 步驟2：試車記錄 ══ -->
+    <div id="panel2" style="display:none">
+      <div class="card">
+        <div class="card-hdr navy">試車記錄</div>
+        <div class="card-body">
+          <div class="fields" style="margin-bottom:10px">
+            <div class="field"><label>試車前里程 (km)</label><input value="3,250" readonly style="background:#EEF6FF;color:var(--navy)"/></div>
+            <div class="field"><label>試車後里程 (km)</label><input id="km-after" placeholder="輸入試車後里程"/></div>
+            <div class="field"><label>試車距離 (km)</label><input id="km-diff" placeholder="自動計算" readonly style="background:#EEF6FF"/></div>
+            <div class="field"><label>試車時間</label><input type="time" value="14:10"/></div>
+            <div class="field"><label>試車路線</label><input placeholder="例：廠區周邊"/></div>
+            <div class="field"><label>試車技師</label><input value="陳建明"/></div>
+          </div>
+          <div class="divider"></div>
+          <div class="sec-title">試車確認項目</div>
+          <div id="chk-test-drive"></div>
+          <div class="field" style="margin-top:10px">
+            <label>試車備註</label>
+            <textarea style="height:56px" placeholder="試車狀況說明..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 步驟3：清潔確認 ══ -->
+    <div id="panel3" style="display:none">
+      <div class="card">
+        <div class="card-hdr navy">交車前清潔確認</div>
+        <div class="card-body">
+          <div id="chk-clean"></div>
+          <div class="divider"></div>
+          <div class="field">
+            <label>客戶個人物品確認</label>
+            <textarea style="height:44px" placeholder="記錄歸還的個人物品（如安全帽、手套等）..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 步驟4：複檢簽核 ══ -->
+    <div id="panel4" style="display:none">
+
+      <!-- 授權驗證 -->
+      <!-- ★ 施工技師不得自複檢規則（M-09）-->
+      <div style="background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#412402">
+        ⚠️ <strong>複檢規則：</strong>本工單施工技師（張建國）不得執行本張工單的竣工複檢。複檢人員必須是<strong>未參與本工單施工</strong>的資深技師或售後主管。
+        <div style="margin-top:4px;font-size:11px;color:var(--g500)">// 後端驗證：PATCH /api/workorders/{id}/qc-sign 若 inspector_id === technician_id → 拒絕，回傳 403</div>
+      </div>
+
+      <!-- ★ 複檢次數記錄（B11-02）-->
+      <div id="qc-count-bar" style="background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:8px;padding:8px 14px;margin-bottom:10px;font-size:12px;color:var(--blue);display:flex;align-items:center;justify-content:space-between">
+        <span>本工單複檢次數：<strong id="qc-count">第 1 次</strong></span>
+        <span style="font-size:11px;color:var(--g400)">複檢次數記錄於稽核日誌（用於品質分析）</span>
+      </div>
+
+      <div id="auth-ok-block">
+        <div style="background:var(--green-bg);border:0.5px solid var(--green-bd);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:var(--green);display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">✅</span>
+          <span><strong>授權驗證通過：</strong>您的職級（資深技師）已獲授權執行竣工複檢簽核。複檢人員與施工技師不同，符合規定。</span>
+        </div>
+
+        <div class="card">
+          <div class="card-hdr navy">竣工複檢簽核　電子簽名</div>
+          <div class="card-body">
+
+            <!-- 複檢摘要 -->
+            <div style="background:var(--g50);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.8">
+              <div style="display:flex;gap:20px;flex-wrap:wrap">
+                <span>✅ 維修項目複檢：<strong style="color:var(--green)" id="sig-items-ok">7 / 7 項通過</strong></span>
+                <span>✅ 試車記錄：<strong style="color:var(--green)">完成</strong></span>
+                <span>✅ 清潔確認：<strong style="color:var(--green)">完成</strong></span>
+              </div>
+            </div>
+
+            <!-- 電子簽名 + 職級自動帶出 -->
+            <div class="sig-wrap">
+              <div class="sig-info">
+                <div class="sig-info-row">
+                  <div class="sig-info-item">
+                    <label>複檢人員</label>
+                    <span>陳建明</span>
+                    <span class="auto-tag">系統帶出</span>
+                  </div>
+                  <div class="sig-info-item">
+                    <label>職級</label>
+                    <span>資深技師</span>
+                    <span class="auto-tag">人員名冊</span>
+                  </div>
+                  <div class="sig-info-item">
+                    <label>簽核授權</label>
+                    <span style="color:var(--green)">✅ 竣工複檢</span>
+                    <span class="auto-tag">已授權</span>
+                  </div>
+                  <div class="sig-info-item">
+                    <label>RO 工單</label>
+                    <span>RO-MN-CP-260612-001</span>
+                    <span class="auto-tag">自動帶入</span>
+                  </div>
+                </div>
+              </div>
+              <div class="sig-canvas-wrap">
+                <div class="hint" style="margin-bottom:6px">請在下方區域完成電子簽名，確認本工單維修品質符合標準</div>
+                <div class="sig-canvas" id="sig-canvas" onclick="doSign()">
+                  請在此處簽名
+                </div>
+                <div class="sig-timestamp" id="sig-timestamp" style="display:none">
+                  <span id="sig-name-display"></span>
+                  <span id="sig-time-display"></span>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                  <button class="btn btn-outline" style="height:32px;font-size:11px" onclick="clearSign()">清除重簽</button>
+                  <span class="hint" style="line-height:32px">依業界電子簽名規範，數位簽名具法律效力且防竄改</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 複檢結論 -->
+            <div class="field" style="margin-top:12px">
+              <label>複檢結論備註（選填）</label>
+              <textarea style="height:50px" placeholder="例：本工單所有維修項目均已完成，品質符合 OEM 原廠標準，建議車主定期回廠保養..."></textarea>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- 無授權時顯示 -->
+      <div id="auth-fail-block" style="display:none">
+        <div class="card">
+          <div class="card-hdr red">⚠️ 授權不足</div>
+          <div class="card-body">
+            <div class="sig-auth-fail">
+              <p>您的職級（技師）未獲授權執行竣工複檢簽核</p>
+              <span>請通知以下人員進行複檢：</span>
+              <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap">
+                <span class="badge badge-navy" style="font-size:12px;padding:4px 12px">售後主管：王大明</span>
+                <span class="badge badge-navy" style="font-size:12px;padding:4px 12px">資深技師：陳建明</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ 步驟5：通知取車 ══ -->
+    <div id="panel5" style="display:none">
+
+      <!-- 複檢完成確認 -->
+      <div style="background:var(--green-bg);border:0.5px solid var(--green-bd);border-radius:8px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:24px">✅</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--green)">竣工複檢完成</div>
+          <div style="font-size:11px;color:var(--g500);margin-top:2px">複檢員：陳建明（資深技師）｜ 簽核時間：2026/06/12 14:32 ｜ RO-MN-CP-260612-001</div>
+        </div>
+      </div>
+
+      <!-- 取車通知 -->
+      <div class="notify-wrap">
+        <div class="notify-title">
+          <span>📱</span> 通知車主取車
+        </div>
+        <div class="notify-sub">
+          竣工複檢已完成，<strong>請 SA 確認車主方便時間及費用無誤後，手動發送取車通知。</strong><br>
+          系統已備妥通知內容，請選擇發送方式。
+        </div>
+
+        <!-- 通知預覽 -->
+        <div class="notify-preview">
+          <div class="notify-preview-label">通知內容預覽</div>
+          <div class="notify-preview-msg">
+            【DealerOS 台中旗艦店】<br>
+            親愛的 林志遠 車主您好，<br>
+            您的愛車 Scout Bobber（MMQ-2258）已完成維修，隨時可來店取車。<br>
+            📋 維修項目：定期保養、年度保養檢查、引擎機油更換<br>
+            💰 應付費用：NT$12,430（含稅）<br>
+            🕐 服務時間：週一至週六 09:00-18:00<br>
+            ☎️ 如有疑問請電洽：02-XXXX-XXXX
+          </div>
+        </div>
+
+        <!-- 手動發送按鈕 -->
+        <div class="notify-btns">
+          <button class="notify-method" id="btn-line" onclick="sendNotify('line')">
+            <span style="font-size:18px">💬</span> Line 發送
+          </button>
+          <button class="notify-method" id="btn-sms" onclick="sendNotify('sms')">
+            <span style="font-size:18px">📱</span> 簡訊發送
+          </button>
+          <button class="notify-method" id="btn-call" onclick="sendNotify('call')">
+            <span style="font-size:18px">📞</span> 電話通知
+          </button>
+        </div>
+
+        <div id="notify-result" style="margin-top:10px;display:none">
+          <div style="background:var(--white);border:0.5px solid var(--green-bd);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--green)">
+            ✅ <span id="notify-result-text"></span> ｜ 通知時間：<span id="notify-time"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 溫馨提示設定 -->
+      <div class="card">
+        <div class="card-hdr dark">下次保養溫馨提示（交車時告知車主）</div>
+        <div class="card-body">
+          <div class="fields">
+            <div class="field"><label>下次保養里程 (km)</label><input value="4,250"/></div>
+            <div class="field"><label>預計保養日期</label><input type="date" value="2026-10-28"/></div>
+            <div class="field"><label>建議保養項目</label><input value="機油/濾芯更換"/></div>
+          </div>
+          <div class="field" style="margin-top:8px">
+            <label>SA 交車說明備註</label>
+            <textarea style="height:44px" placeholder="交車時需特別向車主說明的事項...">已告知車主後輪胎胎紋剩餘2.1mm，建議3個月內回廠更換，已建立追蹤提醒。</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- 完成按鈕 -->
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn btn-green" style="height:44px;font-size:14px;padding:0 28px" onclick="completeRO()">
+          ✓ 完成交車流程　關閉 RO
+        </button>
+      </div>
+
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- Progress bar -->
+  <div class="prog-wrap">
+    <div class="prog-bar"><div class="prog-fill" id="prog" style="width:20%"></div></div>
+    <div class="prog-text" id="prog-text">步驟 1 / 5　維修項目複檢</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="btn-group">
+      <button class="btn btn-outline" id="btn-prev" style="display:none" onclick="prevStep()">← 上一步</button>
+    </div>
+    <div class="btn-group">
+      <span style="font-size:11px;color:var(--g500)" id="foot-status">複檢進度：0 / 7 項</span>
+      <button class="btn btn-navy" id="btn-next" onclick="nextStep()">下一步：試車記錄 →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var curStep = 1;
+var STEPS = ['','維修項目複檢','試車記錄','清潔確認','複檢簽核','通知取車'];
+var PROG = [0,20,40,60,80,100];
+var isSigned = false;
+var notifySent = {};
+
+// ─── 資料 ───
+var roItems = {
+  engine:[
+    {id:'e1',label:'引擎機油更換（OEM原廠機油）',note:'規格符合原廠要求',state:'none'},
+    {id:'e2',label:'機油濾清器更換',note:'',state:'none'},
+    {id:'e3',label:'故障碼清除確認（OEM原廠診斷系統）',note:'P0300 清除，重新掃描無誤',state:'none'},
+  ],
+  brake:[
+    {id:'b1',label:'前煞車來令片目視複檢',note:'更換後厚度 8mm，正常',state:'none'},
+    {id:'b2',label:'煞車油液位確認',note:'',state:'none'},
+  ],
+  elec:[
+    {id:'el1',label:'電瓶電壓測試（更換後）',note:'更換後電壓 12.8V，正常',state:'none'},
+    {id:'el2',label:'電子系統功能確認',note:'儀表板、燈光、ABS 均正常',state:'none'},
+  ],
+  general:[
+    {id:'g1',label:'年度保養檢查項目逐一確認',note:'已依 OEM 原廠標準執行',state:'none'},
+    {id:'g2',label:'各部位螺絲扭力確認',note:'',state:'none'},
+    {id:'g3',label:'鏈條潤滑及張力確認',note:'',state:'none'},
+  ],
+};
+
+var testItems = [
+  {id:'t1',label:'引擎啟動順暢，無異音',state:'none'},
+  {id:'t2',label:'各檔位變速正常',state:'none'},
+  {id:'t3',label:'前/後煞車效能正常',state:'none'},
+  {id:'t4',label:'儀表板警示燈無異常',state:'none'},
+  {id:'t5',label:'電子輔助系統（ABS/TC）功能正常',state:'none'},
+];
+
+var cleanItems = [
+  {id:'c1',label:'車身清潔（擦拭/無殘留油漬）',state:'none'},
+  {id:'c2',label:'座墊及把手保持清潔',state:'none'},
+  {id:'c3',label:'輪圈及煞車部位清潔',state:'none'},
+  {id:'c4',label:'客戶個人物品已歸還',state:'none'},
+  {id:'c5',label:'RO 工單副本已備妥交客戶',state:'none'},
+];
+
+function getTotalItems(){
+  var t=0;
+  Object.values(roItems).forEach(function(arr){t+=arr.length;});
+  return t;
+}
+function getCheckedCount(){
+  var t=0;
+  Object.values(roItems).forEach(function(arr){
+    arr.forEach(function(i){if(i.state==='ok')t++;});
+  });
+  return t;
+}
+
+// ─── 渲染維修複檢項目 ───
+function renderChkGroup(items, containerId){
+  var el = document.getElementById(containerId);
+  el.innerHTML = items.map(function(item){
+    return '<div class="chk-row '+(item.state==='ok'?'checked':item.state==='fail'?'failed':'')+'" id="row-'+item.id+'">'
+      +'<div class="chk-icon '+(item.state==='ok'?'ok':item.state==='fail'?'fail':'')+'" id="icon-'+item.id+'">'+
+        (item.state==='ok'?'✓':item.state==='fail'?'✕':'')
+      +'</div>'
+      +'<div style="flex:1"><div class="chk-label">'+item.label+'</div>'
+      +(item.note?'<div class="chk-note">'+item.note+'</div>':'')
+      +'</div>'
+      +'<div class="chk-btns">'
+      +'<button class="ck'+(item.state==='ok'?' ok':'')+'" onclick="setItem(\''+item.id+'\',\'ok\')">✓ 通過</button>'
+      +'<button class="ck'+(item.state==='fail'?' fail':'')+'" onclick="setItem(\''+item.id+'\',\'fail\')">✕ 異常</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function setItem(id, state){
+  // 找到項目
+  var found = null;
+  Object.values(roItems).forEach(function(arr){
+    arr.forEach(function(i){if(i.id===id)found=i;});
+  });
+  if(!found) return;
+  found.state = state;
+
+  // 重新渲染
+  renderChkGroup(roItems.engine,'chk-engine');
+  renderChkGroup(roItems.brake,'chk-brake');
+  renderChkGroup(roItems.elec,'chk-elec');
+  renderChkGroup(roItems.general,'chk-general');
+
+  var checked = getCheckedCount();
+  var total = getTotalItems();
+  document.getElementById('checked-count').textContent = checked+' / '+total;
+  document.getElementById('foot-status').textContent = '複檢進度：'+checked+' / '+total+' 項';
+
+  // 若有異常顯示問題記錄卡
+  var hasFail = Object.values(roItems).some(function(arr){return arr.some(function(i){return i.state==='fail';});});
+  document.getElementById('issue-card').style.display = hasFail?'':'none';
+
+  // 更新簽核摘要
+  document.getElementById('sig-items-ok').textContent = checked+' / '+total+' 項通過';
+}
+
+// ─── 渲染試車項目 ───
+function renderTestDrive(){
+  document.getElementById('chk-test-drive').innerHTML = testItems.map(function(item){
+    return '<div class="chk-row '+(item.state==='ok'?'checked':item.state==='fail'?'failed':'')+'">'
+      +'<div class="chk-icon '+(item.state==='ok'?'ok':item.state==='fail'?'fail':'')+'">'
+      +(item.state==='ok'?'✓':item.state==='fail'?'✕':'')+'</div>'
+      +'<div class="chk-label" style="flex:1">'+item.label+'</div>'
+      +'<div class="chk-btns">'
+      +'<button class="ck'+(item.state==='ok'?' ok':'')+'" onclick="setTest(\''+item.id+'\',\'ok\')">✓ 正常</button>'
+      +'<button class="ck'+(item.state==='fail'?' fail':'')+'" onclick="setTest(\''+item.id+'\',\'fail\')">✕ 異常</button>'
+      +'</div></div>';
+  }).join('');
+
+  // 里程計算
+  var after = document.getElementById('km-after');
+  if(after) after.addEventListener('input', function(){
+    var before=3250;
+    var a=parseInt(this.value.replace(/,/g,''))||0;
+    document.getElementById('km-diff').value=a>before?(a-before)+' km':'';
+  });
+}
+
+function setTest(id,state){
+  testItems.forEach(function(i){if(i.id===id)i.state=state;});
+  renderTestDrive();
+}
+
+// ─── 渲染清潔確認 ───
+function renderClean(){
+  document.getElementById('chk-clean').innerHTML = cleanItems.map(function(item){
+    return '<div class="chk-row '+(item.state==='ok'?'checked':item.state==='fail'?'failed':'')+'">'
+      +'<div class="chk-icon '+(item.state==='ok'?'ok':item.state==='fail'?'fail':'')+'">'
+      +(item.state==='ok'?'✓':item.state==='fail'?'✕':'')+'</div>'
+      +'<div class="chk-label" style="flex:1">'+item.label+'</div>'
+      +'<div class="chk-btns">'
+      +'<button class="ck'+(item.state==='ok'?' ok':'')+'" onclick="setClean(\''+item.id+'\',\'ok\')">✓ 完成</button>'
+      +'<button class="ck'+(item.state==='fail'?' fail':'')+'" onclick="setClean(\''+item.id+'\',\'fail\')">✕ 待處理</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function setClean(id,state){
+  cleanItems.forEach(function(i){if(i.id===id)i.state=state;});
+  renderClean();
+}
+
+// ─── 電子簽名 ───
+function doSign(){
+  if(isSigned) return;
+  var canvas = document.getElementById('sig-canvas');
+  var now = new Date();
+  var timeStr = now.getFullYear()+'/'+(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0')
+    +' '+now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
+
+  canvas.innerHTML='<span style="font-size:26px;font-family:cursive;color:var(--navy)">陳建明</span>';
+  canvas.classList.add('signed');
+  isSigned = true;
+
+  document.getElementById('sig-timestamp').style.display='flex';
+  document.getElementById('sig-name-display').textContent='複檢員：陳建明（資深技師）';
+  document.getElementById('sig-time-display').textContent='簽核時間：'+timeStr+' ｜ 防竄改時間戳已記錄';
+
+  // 更新 header status
+  document.getElementById('hdr-status').textContent='複檢簽核完成';
+  document.getElementById('hdr-status').style.background='rgba(31,158,117,0.3)';
+}
+
+function clearSign(){
+  isSigned = false;
+  var canvas = document.getElementById('sig-canvas');
+  canvas.innerHTML='請在此處簽名';
+  canvas.classList.remove('signed');
+  document.getElementById('sig-timestamp').style.display='none';
+}
+
+// ─── 取車通知 ───
+function sendNotify(method){
+  var labels={line:'Line 訊息已發送',sms:'簡訊已發送',call:'電話通知已記錄'};
+  var btn = document.getElementById('btn-'+method);
+  btn.classList.add('sent');
+  notifySent[method]=true;
+
+  var now=new Date();
+  var t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+  document.getElementById('notify-result').style.display='';
+  document.getElementById('notify-result-text').textContent=labels[method];
+  document.getElementById('notify-time').textContent='2026/06/12 '+t;
+}
+
+// ─── 步驟切換 ───
+function goStep(n){
+  for(var i=1;i<=5;i++){
+    var p=document.getElementById('panel'+i);
+    if(p) p.style.display=i===n?'':'none';
+    var sc=document.getElementById('s'+i);
+    if(sc){
+      sc.className='step-circle'+(i<n?' done':i===n?' active':'');
+      sc.textContent=i<n?'✓':i;
+    }
+    var slabel=sc?sc.nextElementSibling:null;
+    if(slabel){
+      slabel.className='step-label'+(i<n?' done':i===n?' active':'');
+    }
+    var conn=document.getElementById('sc'+i);
+    if(conn) conn.className='step-connector'+(i<n?' done':'');
+  }
+  document.getElementById('prog').style.width=PROG[n]+'%';
+  document.getElementById('prog-text').textContent='步驟 '+n+' / 5　'+STEPS[n];
+  document.getElementById('btn-prev').style.display=n>1?'':'none';
+  var nb=document.getElementById('btn-next');
+  if(n===4){
+    nb.textContent=isSigned?'下一步：通知取車 →':'請完成簽名後繼續';
+  } else if(n===5){
+    nb.style.display='none';
+  } else {
+    nb.style.display='';
+    nb.textContent='下一步：'+STEPS[n+1]+' →';
+  }
+
+  // 步驟特殊處理
+  if(n===2) renderTestDrive();
+  if(n===3) renderClean();
+
+  // Footer 狀態
+  var fs=document.getElementById('foot-status');
+  if(n===1){var ck=getCheckedCount(),tot=getTotalItems();fs.textContent='複檢進度：'+ck+' / '+tot+' 項';}
+  else if(n===4){fs.textContent=isSigned?'✅ 已完成電子簽名':'⚠️ 請完成電子簽名';}
+  else if(n===5){fs.textContent='✅ 竣工複檢全部完成';}
+  else fs.textContent='';
+
+  curStep=n;
+}
+function nextStep(){
+  if(curStep===4&&!isSigned){showToast('⚠️ 請先完成電子簽名，方可進入下一步。');return;}
+  if(curStep<5) goStep(curStep+1);
+}
+function prevStep(){if(curStep>1) goStep(curStep-1);}
+
+function completeRO(){
+  if(!Object.values(notifySent).length){
+    if(!confirm('尚未發送取車通知，確定要關閉 RO 嗎？'))return;
+  }
+  showToast('✅ RO-MN-CP-260612-001 已完成關閉！\n車輛等待車主取車，所有記錄已存入系統。');
+}
+
+
+function submitRework(){
+  var reason = document.getElementById('rework-reason').value.trim();
+  if(!reason){ showToast('請填寫退回重工原因'); return; }
+  var qcCount = parseInt(document.getElementById('qc-count').textContent.replace(/\D/g,''))||1;
+  // 複檢次數超過2次需主管授權
+  if(qcCount >= 2){
+    showToast('⚠️ 本工單已是第 '+qcCount+' 次複檢不通過
+依規定需主管授權後方可繼續
+// API：POST /api/workorders/{id}/supervisor-auth-request
+{ reason:"複檢退回超過2次" }');
+    return;
+  }
+  document.getElementById('qc-count').textContent = '第 '+(qcCount+1)+' 次';
+  document.getElementById('issue-card').style.display='none';
+  document.getElementById('hdr-status').textContent='退回重工';
+  document.getElementById('hdr-status').style.background='rgba(204,0,0,0.3)';
+  showToast('已退回技師重修
+// API：PATCH /api/workorders/RO-MN-CP-260612-001/status
+{ "status":"rework", "rework_reason":"'+reason+'", "qc_inspector":"陳建明" }
+
+→ 施工技師張建國已收到系統通知（T07）');
+}
+
+// ─── Init ───
+renderChkGroup(roItems.engine,'chk-engine');
+renderChkGroup(roItems.brake,'chk-brake');
+renderChkGroup(roItems.elec,'chk-elec');
+renderChkGroup(roItems.general,'chk-general');
+
+var total=getTotalItems();
+document.getElementById('total-items').textContent=total+' 項';
+document.getElementById('checked-count').textContent='0 / '+total;
+document.getElementById('foot-status').textContent='複檢進度：0 / '+total+' 項';
+</script>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

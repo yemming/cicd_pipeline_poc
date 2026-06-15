@@ -249,3 +249,88 @@ export async function setShopDailyHoursAction(
 export async function checkBaysEditPermission(): Promise<boolean> {
   return await hasPermission(PERMISSIONS.RO_DISPATCH);
 }
+
+/**
+ * completeBayAndAdvanceRoAction
+ *
+ * 工位完工閉環：
+ *   1. 工位 status → 'free'，累加 done_today / used_minutes（同 completeBayAction）
+ *   2. 用 current_ro_code 查詢對應 repair_order.id
+ *   3. 若 RO 目前 status = '維修中'，推進至「待結帳」（等待竣工複檢語意）
+ *
+ * 對應設計稿：07_售後管理模組_v3.html clockDone()
+ */
+export async function completeBayAndAdvanceRoAction(
+  bayId: string,
+): Promise<ActionResult<{ id: string; roAdvanced: boolean; completedAt: string }>> {
+  await requirePermission(PERMISSIONS.RO_DISPATCH);
+  const supabase = await createClient();
+
+  // ── 1. 讀工位現況 ──
+  const { data: bay } = await supabase
+    .from("service_bays")
+    .select("started_at, used_minutes, done_today, current_ro_code")
+    .eq("id", bayId)
+    .maybeSingle();
+  if (!bay) return { ok: false, error: "找不到該工位" };
+
+  const elapsed = bay.started_at
+    ? Math.max(0, Math.floor((Date.now() - new Date(bay.started_at).getTime()) / 60000))
+    : 0;
+
+  // ── 2. 工位完工（status → free，清空欄位） ──
+  const completedAt = new Date().toISOString();
+  const { error: bayErr } = await supabase
+    .from("service_bays")
+    .update({
+      status: "free",
+      current_ro_code: null,
+      current_item: null,
+      current_tech_name: null,
+      current_tech_color: null,
+      started_at: null,
+      done_today: (bay.done_today ?? 0) + 1,
+      used_minutes: (bay.used_minutes ?? 0) + elapsed,
+      updated_at: completedAt,
+    })
+    .eq("id", bayId);
+  if (bayErr) return { ok: false, error: bayErr.message };
+
+  // ── 3. 嘗試推進 RO 狀態（非阻塞，失敗不 rollback 工位完工）──
+  let roAdvanced = false;
+  const roCode = (bay.current_ro_code ?? "").trim();
+  if (roCode) {
+    const scope = await getActiveScope();
+    const { data: ro } = await supabase
+      .from("repair_orders")
+      .select("id, status")
+      .eq("brand_id", scope.brand_id)
+      .eq("ro_code", roCode)
+      .maybeSingle();
+
+    // 只有「維修中」才推進（防止雙重觸發）
+    if (ro && ro.status === "維修中") {
+      const { error: roErr } = await supabase
+        .from("repair_orders")
+        .update({ status: "待結帳", updated_at: completedAt })
+        .eq("id", ro.id);
+
+      if (!roErr) {
+        // 附加狀態歷程紀錄（非阻塞，失敗不影響主流程）
+        await supabase.from("repair_order_status_history").insert({
+          ro_id: ro.id,
+          brand_id: scope.brand_id,
+          from_status: "維修中",
+          to_status: "待結帳",
+          actor_id: null,
+          reason: `工位 ${roCode} 完工交棒（自動推進）`,
+          changed_at: completedAt,
+        });
+        roAdvanced = true;
+      }
+    }
+  }
+
+  revalidatePath(PAGE);
+  return { ok: true, data: { id: bayId, roAdvanced, completedAt } };
+}

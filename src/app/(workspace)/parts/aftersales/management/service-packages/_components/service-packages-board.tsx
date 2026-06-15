@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import type {
@@ -23,6 +24,8 @@ import {
 type Banner = { ok: boolean; msg: string } | null;
 type FormMode = { kind: "closed" } | { kind: "create" } | { kind: "edit"; id: string };
 type TabKey = "packages" | "rates" | "audit";
+/** 套餐預覽 Modal */
+type PreviewPkg = ServicePackage | null;
 
 /* 6 種業務類型（Tab B 工時費率） */
 const BIZ_TYPES: Array<{ code: string; label: string; desc: string }> = [
@@ -63,6 +66,20 @@ function fmtMileage(n: number | null): string {
   return `${n.toLocaleString("en-US")} km`;
 }
 
+/** 里程區間顯示：有起迄顯示「from ~ to」，否則 fallback 到舊 mileageInterval */
+function fmtMileageRange(
+  from: number | null,
+  to: number | null,
+  interval: number | null,
+): string {
+  if (from != null || to != null) {
+    const f = from != null ? `${from.toLocaleString("en-US")}` : "…";
+    const t = to != null ? `${to.toLocaleString("en-US")}` : "…";
+    return `${f} ~ ${t} km`;
+  }
+  return fmtMileage(interval);
+}
+
 function fmtValidity(from: string | null, to: string | null): string {
   if (!from && !to) return "—";
   return `${from ?? "…"} ~ ${to ?? "…"}`;
@@ -82,10 +99,14 @@ const blankInput = (): ServicePackageInput => ({
   name: "",
   pkgType: "standard",
   mileageInterval: null,
+  mileageFrom: null,
+  mileageTo: null,
+  applicableModels: [],
   items: [],
   listPrice: null,
   validFrom: null,
   validTo: null,
+  showInQuickquote: true,
 });
 
 const fromPackage = (p: ServicePackage): ServicePackageInput => ({
@@ -93,10 +114,14 @@ const fromPackage = (p: ServicePackage): ServicePackageInput => ({
   name: p.name,
   pkgType: p.pkgType,
   mileageInterval: p.mileageInterval,
+  mileageFrom: p.mileageFrom,
+  mileageTo: p.mileageTo,
+  applicableModels: p.applicableModels ?? [],
   items: p.items.map((it) => ({ ...it })),
   listPrice: p.listPrice,
   validFrom: p.validFrom,
   validTo: p.validTo,
+  showInQuickquote: p.showInQuickquote,
 });
 
 export function ServicePackagesBoard({
@@ -125,6 +150,7 @@ export function ServicePackagesBoard({
 
   const [formMode, setFormMode] = useState<FormMode>({ kind: "closed" });
   const [formDraft, setFormDraft] = useState<ServicePackageInput>(blankInput());
+  const [previewPkg, setPreviewPkg] = useState<PreviewPkg>(null);
 
   const showBanner = (b: Banner) => {
     setBanner(b);
@@ -194,12 +220,19 @@ export function ServicePackagesBoard({
   const inputClass =
     "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5]";
 
+  /** KPI 統計（前端計算，useMemo 避免每次 render 重算） */
   const stats = useMemo(() => {
     const active = packages.filter((p) => p.isActive).length;
+    const byType = {
+      standard: packages.filter((p) => p.pkgType === "standard").length,
+      store_custom: packages.filter((p) => p.pkgType === "store_custom").length,
+      promo: packages.filter((p) => p.pkgType === "promo").length,
+    };
     return {
       total: packages.length,
       active,
       inactive: packages.length - active,
+      byType,
     };
   }, [packages]);
 
@@ -259,13 +292,50 @@ export function ServicePackagesBoard({
     {
       id: "mileageInterval",
       header: "適用里程",
-      width: 110,
+      width: 150,
       align: "right",
       cell: (r) => (
-        <span className="font-mono text-[12px] text-[#2C2C2A]">{fmtMileage(r.mileageInterval)}</span>
+        <span className="font-mono text-[12px] text-[#2C2C2A]">
+          {fmtMileageRange(r.mileageFrom, r.mileageTo, r.mileageInterval)}
+        </span>
       ),
-      exportValue: (r) => r.mileageInterval ?? null,
-      sortValue: (r) => r.mileageInterval ?? null,
+      exportValue: (r) => fmtMileageRange(r.mileageFrom, r.mileageTo, r.mileageInterval),
+      sortValue: (r) => r.mileageFrom ?? r.mileageInterval ?? null,
+    },
+    {
+      id: "applicableModels",
+      header: "適用車型",
+      width: 150,
+      sortable: false,
+      cell: (r) => {
+        if (!r.applicableModels || r.applicableModels.length === 0)
+          return <span className="text-[12px] text-[#9A9890]">全車型</span>;
+        return (
+          <span className="text-[12px] text-[#2C2C2A]">{r.applicableModels.join("、")}</span>
+        );
+      },
+      exportValue: (r) =>
+        r.applicableModels && r.applicableModels.length > 0
+          ? r.applicableModels.join("、")
+          : "全車型",
+    },
+    {
+      id: "showInQuickquote",
+      header: "在04B顯示",
+      width: 90,
+      cell: (r) => (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap ${
+            r.showInQuickquote
+              ? "bg-[#EAF3DE] text-[#3B6D11]"
+              : "bg-[#F2F2F2] text-[#6B6A68]"
+          }`}
+        >
+          {r.showInQuickquote ? "✅ 顯示" : "❌ 隱藏"}
+        </span>
+      ),
+      exportValue: (r) => (r.showInQuickquote ? "顯示" : "隱藏"),
+      sortValue: (r) => r.showInQuickquote,
     },
     {
       id: "listPrice",
@@ -351,6 +421,7 @@ export function ServicePackagesBoard({
             onEdit={openEdit}
             onToggle={toggleActive}
             onDelete={deletePkg}
+            onPreview={setPreviewPkg}
           />
         )}
         {tab === "rates" && (
@@ -381,6 +452,11 @@ export function ServicePackagesBoard({
         </div>
       ) : null}
 
+      {/* 套餐預覽 Modal */}
+      {previewPkg ? (
+        <PackagePreviewModal pkg={previewPkg} onClose={() => setPreviewPkg(null)} />
+      ) : null}
+
       {/* Create / Edit Modal */}
       {formMode.kind !== "closed" ? (
         <PackageFormModal
@@ -393,11 +469,15 @@ export function ServicePackagesBoard({
           canEdit={canEdit}
           inputClass={inputClass}
           lockedClass={lockedClass}
+          laborRates={laborRates}
         />
       ) : null}
     </main>
   );
 }
+
+/** 套餐類型篩選 pill state 選項 */
+type PkgTypeFilter = "all" | "standard" | "store_custom" | "promo";
 
 /* ════════════════ Tab A：服務套餐主檔 ════════════════ */
 
@@ -411,27 +491,90 @@ function PackagesTab({
   onEdit,
   onToggle,
   onDelete,
+  onPreview,
 }: {
   packages: ServicePackage[];
   columns: DataGridColumn<ServicePackage>[];
-  stats: { total: number; active: number; inactive: number };
+  stats: { total: number; active: number; inactive: number; byType: Record<string, number> };
   canEdit: boolean;
   isPending: boolean;
   onCreate: () => void;
   onEdit: (p: ServicePackage) => void;
   onToggle: (p: ServicePackage) => void;
   onDelete: (p: ServicePackage) => void;
+  onPreview: (p: ServicePackage) => void;
 }) {
+  const [typeFilter, setTypeFilter] = useState<PkgTypeFilter>("all");
+
+  const filtered = useMemo(
+    () =>
+      typeFilter === "all"
+        ? packages
+        : packages.filter((p) => p.pkgType === typeFilter),
+    [packages, typeFilter],
+  );
+
+  const pillClass = (key: PkgTypeFilter) =>
+    typeFilter === key
+      ? "h-[30px] px-3 rounded-full text-[12px] font-medium bg-[#1A3A5C] text-white"
+      : "h-[30px] px-3 rounded-full text-[12px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]";
+
   return (
     <>
-      {/* Filter / action bar */}
+      {/* KPI 統計卡：4 格 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <KpiCard
+          label="套餐總數"
+          value={stats.total}
+          sub={`啟用 ${stats.active} · 停用 ${stats.inactive}`}
+          color="#1A3A5C"
+        />
+        <KpiCard
+          label="原廠標準"
+          value={stats.byType.standard ?? 0}
+          sub="PKG Type: standard"
+          color="#185FA5"
+        />
+        <KpiCard
+          label="門店自訂"
+          value={stats.byType.store_custom ?? 0}
+          sub="PKG Type: store_custom"
+          color="#0F6E56"
+        />
+        <KpiCard
+          label="限時促銷"
+          value={stats.byType.promo ?? 0}
+          sub="PKG Type: promo"
+          color="#854F0B"
+        />
+      </div>
+
+      {/* 類型篩選 pill + 新增按鈕 */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[12px] text-[#9A9890]">
-            共 <b className="text-[#2C2C2A]">{stats.total}</b> 個套餐（啟用{" "}
-            <b className="text-[#3B6D11]">{stats.active}</b> · 停用{" "}
-            <b className="text-[#6B6A68]">{stats.inactive}</b>）
+          {/* 類型篩選 pill 按鈕組 */}
+          <div className="flex gap-1.5 flex-wrap">
+            <button type="button" onClick={() => setTypeFilter("all")} className={pillClass("all")}>
+              全部
+            </button>
+            <button type="button" onClick={() => setTypeFilter("standard")} className={pillClass("standard")}>
+              原廠標準
+            </button>
+            <button type="button" onClick={() => setTypeFilter("store_custom")} className={pillClass("store_custom")}>
+              門店自訂
+            </button>
+            <button type="button" onClick={() => setTypeFilter("promo")} className={pillClass("promo")}>
+              限時促銷
+            </button>
+          </div>
+
+          <span className="text-[12px] text-[#9A9890] ml-2">
+            共 <b className="text-[#2C2C2A]">{filtered.length}</b> 個套餐
+            {typeFilter !== "all" && (
+              <span>（啟用 <b className="text-[#3B6D11]">{filtered.filter((p) => p.isActive).length}</b> · 停用 <b className="text-[#6B6A68]">{filtered.filter((p) => !p.isActive).length}</b>）</span>
+            )}
           </span>
+
           <div className="flex gap-2 ml-auto">
             <button
               type="button"
@@ -447,15 +590,24 @@ function PackagesTab({
 
       <DataGrid
         columns={columns}
-        data={packages}
+        data={filtered}
         rowKey={(r) => r.id}
         persistKey="aftersales/service-packages"
         exportFileName="service-packages"
         disabled={isPending}
         emptyMessage="尚無服務套餐，點「＋ 新增套餐」建立"
-        rowActionsWidth={210}
+        rowActionsWidth={270}
         rowActions={(r) => (
           <>
+            {/* 預覽按鈕：顯示套餐在 04B 快速報價的效果 */}
+            <button
+              type="button"
+              onClick={() => onPreview(r)}
+              className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#EAF4FB] border border-[#185FA5] text-[#185FA5] hover:bg-[#d5eaf8]"
+              title="預覽套餐在 04B 快速報價查詢的顯示效果"
+            >
+              👁 預覽
+            </button>
             <button
               type="button"
               disabled={!canEdit}
@@ -484,6 +636,17 @@ function PackagesTab({
         )}
       />
     </>
+  );
+}
+
+/** KPI 統計小卡片 */
+function KpiCard({ label, value, sub, color }: { label: string; value: number; sub: string; color: string }) {
+  return (
+    <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
+      <div className="text-[11px] text-[#9A9890] font-medium mb-1">{label}</div>
+      <div className="text-[22px] font-bold" style={{ color }}>{value}</div>
+      <div className="text-[11px] text-[#9A9890] mt-0.5">{sub}</div>
+    </div>
   );
 }
 
@@ -538,6 +701,7 @@ function RatesTab({
               <th className="text-left px-4 py-2 text-[11px] text-[#9A9890] font-medium w-[160px]">業務類型</th>
               <th className="text-left px-4 py-2 text-[11px] text-[#9A9890] font-medium">說明</th>
               <th className="text-right px-4 py-2 text-[11px] text-[#9A9890] font-medium w-[180px]">費率（NT$/LU）</th>
+              <th className="text-right px-4 py-2 text-[11px] text-[#9A9890] font-medium w-[200px]">上次修改</th>
             </tr>
           </thead>
           <tbody>
@@ -589,6 +753,12 @@ function RateRow({
   const [err, setErr] = useState<string | null>(null);
 
   const display = current ? fmtNT(current.ratePerLu) : "— 未設定";
+
+  /** 上次修改欄位顯示（日期 + 修改人） */
+  const lastModified = current?.updatedAt
+    ? fmtTaipei(current.updatedAt)
+    : null;
+  const lastModifiedBy = current?.updatedBy ?? null;
 
   const start = () => {
     if (!canEdit) return;
@@ -683,11 +853,56 @@ function RateRow({
           </button>
         )}
       </td>
+      {/* 上次修改日期 + 修改人欄 */}
+      <td className="px-4 py-2.5 text-right">
+        {lastModified ? (
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-[11px] font-mono text-[#5A5955]">{lastModified}</span>
+            {lastModifiedBy && (
+              <span className="text-[11px] text-[#9A9890]">{lastModifiedBy}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-[11px] text-[#9A9890]">—</span>
+        )}
+      </td>
     </tr>
   );
 }
 
 /* ════════════════ Tab C：稽核日誌 ════════════════ */
+
+/** 匯出稽核日誌為 CSV Blob 下載（前端純計算，無需後端） */
+function exportAuditCsv(audit: ServicePackageAuditEntry[]): void {
+  const header = ["時間", "動作", "實體類型", "實體名稱", "操作人"];
+  const rows = audit.map((e) => [
+    fmtTaipei(e.at),
+    (() => {
+      switch (e.action) {
+        case "add": return "新增";
+        case "modify": return "修改";
+        case "deactivate": return "停用";
+        case "reactivate": return "啟用";
+        default: return e.action;
+      }
+    })(),
+    e.entity === "labor_rate" ? "工時費率" : "套餐",
+    e.entityName,
+    e.by ?? "",
+  ]);
+  const csv = [header, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","),
+    )
+    .join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `service-package-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 function AuditTab({ audit }: { audit: ServicePackageAuditEntry[] }) {
   const dotClass = (action: ServicePackageAuditEntry["action"]) => {
@@ -723,8 +938,17 @@ function AuditTab({ audit }: { audit: ServicePackageAuditEntry[] }) {
 
   return (
     <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center">
         <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 費率／套餐變更稽核日誌</span>
+        <button
+          type="button"
+          onClick={() => exportAuditCsv(audit)}
+          disabled={audit.length === 0}
+          className="ml-auto h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+          title="匯出稽核日誌 CSV"
+        >
+          📥 匯出 CSV
+        </button>
       </header>
       <div className="px-4 py-3">
         {audit.length === 0 ? (
@@ -756,6 +980,17 @@ function AuditTab({ audit }: { audit: ServicePackageAuditEntry[] }) {
 
 /* ════════════════ 新增 / 編輯套餐 Modal ════════════════ */
 
+/** 業務類型選項（工項 bizType select 用，只需主要 4 種 + PD + Desmo） */
+const LABOR_BIZ_TYPES_FOR_ITEM = [
+  { code: "", label: "— 選擇業務類型 —" },
+  { code: "MN", label: "MN 定期保養" },
+  { code: "RP", label: "RP 一般維修" },
+  { code: "WC", label: "WC 保固維修" },
+  { code: "AC", label: "AC 事故維修" },
+  { code: "PD", label: "PD 整備" },
+  { code: "Desmo", label: "Desmo Service" },
+];
+
 function PackageFormModal({
   mode,
   draft,
@@ -766,6 +1001,7 @@ function PackageFormModal({
   canEdit,
   inputClass,
   lockedClass,
+  laborRates,
 }: {
   mode: "create" | "edit";
   draft: ServicePackageInput;
@@ -776,8 +1012,39 @@ function PackageFormModal({
   canEdit: boolean;
   inputClass: string;
   lockedClass: string;
+  laborRates: LaborRate[];
 }) {
-  const items = draft.items ?? [];
+  // 用 useMemo 穩定 items 參考，避免每次 render 都讓下方 useMemo deps 變動（exhaustive-deps）
+  const items = useMemo(() => draft.items ?? [], [draft.items]);
+
+  /** 費率查詢 map（bizType → ratePerLu），工資費即時試算用 */
+  const rateMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of laborRates) m.set(r.bizType, r.ratePerLu);
+    return m;
+  }, [laborRates]);
+
+  /** 工資費小計 = Σ (labor items).lu × rateMap[bizType] */
+  const laborSubtotal = useMemo(() => {
+    return items
+      .filter((it) => it.kind === "labor")
+      .reduce((sum, it) => {
+        const lu = it.lu ?? 0;
+        const rate = it.bizType ? (rateMap.get(it.bizType) ?? 0) : 0;
+        return sum + lu * rate;
+      }, 0);
+  }, [items, rateMap]);
+
+  /** 零件費小計 = Σ (part items).qty × price */
+  const partSubtotal = useMemo(() => {
+    return items
+      .filter((it) => it.kind === "part")
+      .reduce((sum, it) => {
+        const qty = it.qty ?? 1;
+        const price = it.price ?? 0;
+        return sum + qty * price;
+      }, 0);
+  }, [items]);
 
   const updateItem = (idx: number, patch: Partial<ServicePackageItem>) => {
     const next = items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
@@ -792,6 +1059,20 @@ function PackageFormModal({
   const removeItem = (idx: number) => {
     setDraft({ ...draft, items: items.filter((_, i) => i !== idx) });
   };
+
+  /** 適用車型：逗號分隔字串輸入，split 後存陣列 */
+  const modelsStr = (draft.applicableModels ?? []).join("、");
+  const handleModelsChange = (val: string) => {
+    // 支援中文頓號、英文逗號、換行分隔
+    const arr = val
+      .split(/[、,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setDraft({ ...draft, applicableModels: arr });
+  };
+
+  /** 限時促銷/自訂套餐才顯示有效期欄位 */
+  const showValidity = draft.pkgType === "promo" || draft.pkgType === "store_custom";
 
   return (
     <Modal title={mode === "edit" ? "編輯服務套餐" : "新增服務套餐"} onClose={onClose}>
@@ -826,15 +1107,42 @@ function PackageFormModal({
               <option value="promo">限時促銷套餐</option>
             </select>
           </Field>
-          <Field label="適用里程 (km)">
+
+          {/* 在 04B 顯示 toggle */}
+          <Field label="在 04B 快速報價顯示">
+            <label className="inline-flex items-center gap-2 h-[30px] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={draft.showInQuickquote ?? true}
+                onChange={(e) => setDraft({ ...draft, showInQuickquote: e.target.checked })}
+                className="w-4 h-4 accent-[#0F6E56]"
+              />
+              <span className="text-[12px] text-[#2C2C2A]">
+                {draft.showInQuickquote ? "✅ 顯示" : "❌ 隱藏"}
+              </span>
+            </label>
+          </Field>
+
+          {/* 里程區間：起 ~ 止雙輸入框 */}
+          <Field label="適用里程起 (km)">
             <input
               type="number"
-              value={draft.mileageInterval ?? ""}
-              onChange={(e) => setDraft({ ...draft, mileageInterval: e.target.value ? Number(e.target.value) : null })}
+              value={draft.mileageFrom ?? ""}
+              onChange={(e) => setDraft({ ...draft, mileageFrom: e.target.value ? Number(e.target.value) : null })}
               className={inputClass}
-              placeholder="例：10000"
+              placeholder="例：8000"
             />
           </Field>
+          <Field label="適用里程迄 (km)">
+            <input
+              type="number"
+              value={draft.mileageTo ?? ""}
+              onChange={(e) => setDraft({ ...draft, mileageTo: e.target.value ? Number(e.target.value) : null })}
+              className={inputClass}
+              placeholder="例：12000"
+            />
+          </Field>
+
           <Field label="建議售價 (NT$)">
             <input
               type="number"
@@ -844,23 +1152,63 @@ function PackageFormModal({
               placeholder="例：6800"
             />
           </Field>
-          <Field label="有效起日">
-            <input
-              type="date"
-              value={draft.validFrom ?? ""}
-              onChange={(e) => setDraft({ ...draft, validFrom: e.target.value || null })}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="有效迄日">
-            <input
-              type="date"
-              value={draft.validTo ?? ""}
-              onChange={(e) => setDraft({ ...draft, validTo: e.target.value || null })}
-              className={inputClass}
-            />
-          </Field>
+
+          {/* 有效期：只在 promo / store_custom 顯示 */}
+          {showValidity ? (
+            <>
+              <Field label="有效起日">
+                <input
+                  type="date"
+                  value={draft.validFrom ?? ""}
+                  onChange={(e) => setDraft({ ...draft, validFrom: e.target.value || null })}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="有效迄日">
+                <input
+                  type="date"
+                  value={draft.validTo ?? ""}
+                  onChange={(e) => setDraft({ ...draft, validTo: e.target.value || null })}
+                  className={inputClass}
+                />
+              </Field>
+            </>
+          ) : null}
         </div>
+
+        {/* 適用車型（逗號/頓號分隔的多值輸入） */}
+        <Field label="適用車型（空白 = 全車型；多個用頓號或逗號分隔）" full>
+          <input
+            value={modelsStr}
+            onChange={(e) => handleModelsChange(e.target.value)}
+            className={inputClass}
+            placeholder="例：Indian Scout Bobber、FTR 1200（空白表示適用全車型）"
+          />
+          {(draft.applicableModels ?? []).length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(draft.applicableModels ?? []).map((m, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] bg-[#EBF3FF] text-[#1A3A5C]"
+                >
+                  {m}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        applicableModels: (draft.applicableModels ?? []).filter((_, j) => j !== i),
+                      })
+                    }
+                    className="text-[10px] text-[#9A9890] hover:text-[#CC0000]"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </Field>
 
         {/* 工項 / 零件清單 */}
         <div>
@@ -891,15 +1239,17 @@ function PackageFormModal({
             </div>
           ) : (
             <div className="space-y-1.5">
-              <div className="grid grid-cols-[70px_1fr_70px_90px_28px] gap-2 px-1 text-[10.5px] text-[#9A9890] font-medium">
+              {/* 欄標題：類別 | 業務類型 | 名稱 | 數量/LU | 單價/工資 | X */}
+              <div className="grid grid-cols-[60px_110px_1fr_60px_80px_28px] gap-2 px-1 text-[10.5px] text-[#9A9890] font-medium">
                 <div>類別</div>
+                <div>業務類型</div>
                 <div>名稱</div>
                 <div>數量/LU</div>
                 <div className="text-right">單價/工資</div>
                 <div></div>
               </div>
               {items.map((it, idx) => (
-                <div key={idx} className="grid grid-cols-[70px_1fr_70px_90px_28px] gap-2 items-center">
+                <div key={idx} className="grid grid-cols-[60px_110px_1fr_60px_80px_28px] gap-2 items-center">
                   <select
                     value={it.kind}
                     onChange={(e) => updateItem(idx, { kind: e.target.value as ServicePackageItem["kind"] })}
@@ -907,6 +1257,19 @@ function PackageFormModal({
                   >
                     <option value="labor">工項</option>
                     <option value="part">零件</option>
+                  </select>
+                  {/* 業務類型 select（工項才有意義，零件 disabled） */}
+                  <select
+                    value={it.bizType ?? ""}
+                    disabled={it.kind === "part"}
+                    onChange={(e) => updateItem(idx, { bizType: e.target.value || undefined })}
+                    className={`h-[28px] border border-[#D5D3CB] rounded px-1.5 text-[11.5px] bg-white outline-none focus:border-[#185FA5] ${
+                      it.kind === "part" ? "opacity-40 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {LABOR_BIZ_TYPES_FOR_ITEM.map((bt) => (
+                      <option key={bt.code} value={bt.code}>{bt.label}</option>
+                    ))}
                   </select>
                   <input
                     value={it.name}
@@ -943,6 +1306,37 @@ function PackageFormModal({
               ))}
             </div>
           )}
+
+          {/* 工資費 / 零件費小計即時試算（唯讀顯示） */}
+          {items.length > 0 && (
+            <div className="mt-3 bg-[#F8F7F4] border border-[#EEECE6] rounded-lg px-4 py-3">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <div className="text-[11px] text-[#9A9890] mb-1">工資費小計</div>
+                  <div className="text-[14px] font-semibold text-[#1A3A5C] font-mono">
+                    {fmtNT(laborSubtotal)}
+                  </div>
+                  <div className="text-[10.5px] text-[#9A9890] mt-0.5">依 LU × 費率計算</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-[#9A9890] mb-1">零件費小計</div>
+                  <div className="text-[14px] font-semibold text-[#1A3A5C] font-mono">
+                    {fmtNT(partSubtotal)}
+                  </div>
+                  <div className="text-[10.5px] text-[#9A9890] mt-0.5">依 數量 × 單價計算</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-[#9A9890] mb-1">套餐建議售價（可自訂）</div>
+                  <div className="text-[14px] font-semibold text-[#0F6E56] font-mono">
+                    {fmtNT(draft.listPrice ?? laborSubtotal + partSubtotal)}
+                  </div>
+                  <div className="text-[10.5px] text-[#9A9890] mt-0.5">
+                    {draft.listPrice != null ? "已自訂" : `預估 ${fmtNT(laborSubtotal + partSubtotal)}`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -957,6 +1351,112 @@ function PackageFormModal({
           className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#0F6E56] text-white disabled:opacity-60"
         >
           {isPending ? (mode === "edit" ? "儲存中…" : "建立中…") : mode === "edit" ? "儲存變更" : "建立"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ════════════════ 套餐預覽 Modal ════════════════ */
+
+/** PackagePreviewModal：顯示套餐在 04B 快速報價查詢的呈現效果 */
+function PackagePreviewModal({ pkg, onClose }: { pkg: ServicePackage; onClose: () => void }) {
+  return (
+    <Modal title={`預覽：${pkg.code} ${pkg.name}`} onClose={onClose}>
+      <div className="space-y-3">
+        {/* 說明橫幅 */}
+        <div className="bg-[#EAF4FB] border border-[#185FA5] rounded-lg px-3 py-2 text-[12px] text-[#185FA5]">
+          以下為此套餐在 04B 快速報價查詢的顯示效果預覽。
+          {!pkg.showInQuickquote && (
+            <span className="ml-1 text-[#CC0000]">⚠️ 此套餐目前設定為「隱藏」，04B 不會顯示。</span>
+          )}
+        </div>
+
+        {/* 套餐資訊卡 */}
+        <div className="bg-white border border-[#EEECE6] rounded-lg p-4 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-[12px] text-[#9A9890]">{pkg.code}</span>
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${pkgTypeChipClass(pkg.pkgType)}`}>
+              {PKG_TYPE_LABEL[pkg.pkgType]}
+            </span>
+            {pkg.showInQuickquote
+              ? <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11]">✅ 在04B顯示</span>
+              : <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#F2F2F2] text-[#6B6A68]">❌ 不在04B顯示</span>
+            }
+          </div>
+          <h3 className="text-[15px] font-semibold text-[#2C2C2A]">{pkg.name}</h3>
+
+          <div className="grid grid-cols-2 gap-2 text-[12px]">
+            <div>
+              <span className="text-[11px] text-[#9A9890]">適用里程：</span>
+              <span className="text-[#2C2C2A]">{fmtMileageRange(pkg.mileageFrom, pkg.mileageTo, pkg.mileageInterval)}</span>
+            </div>
+            <div>
+              <span className="text-[11px] text-[#9A9890]">適用車型：</span>
+              <span className="text-[#2C2C2A]">
+                {pkg.applicableModels && pkg.applicableModels.length > 0
+                  ? pkg.applicableModels.join("、")
+                  : "全車型"}
+              </span>
+            </div>
+            {(pkg.validFrom || pkg.validTo) && (
+              <div className="col-span-2">
+                <span className="text-[11px] text-[#9A9890]">有效期：</span>
+                <span className="text-[#2C2C2A]">{fmtValidity(pkg.validFrom, pkg.validTo)}</span>
+              </div>
+            )}
+          </div>
+
+          {pkg.items.length > 0 && (
+            <div className="mt-2">
+              <div className="text-[11px] text-[#9A9890] font-medium mb-1">包含工項 / 零件：</div>
+              <ul className="space-y-0.5">
+                {pkg.items.map((it, i) => (
+                  <li key={i} className="flex items-center gap-2 text-[12px]">
+                    <span className={`inline-flex items-center px-1 py-0.5 rounded text-[10.5px] ${it.kind === "labor" ? "bg-[#EBF3FF] text-[#1A3A5C]" : "bg-[#EAF3DE] text-[#3B6D11]"}`}>
+                      {it.kind === "labor" ? "工項" : "零件"}
+                    </span>
+                    <span className="text-[#2C2C2A]">{it.name}</span>
+                    {it.kind === "labor" && it.lu != null && (
+                      <span className="text-[#9A9890] font-mono">{it.lu} LU</span>
+                    )}
+                    {it.kind === "part" && it.qty != null && (
+                      <span className="text-[#9A9890] font-mono">×{it.qty}</span>
+                    )}
+                    {it.price != null && (
+                      <span className="text-[#9A9890] font-mono ml-auto">{fmtNT(it.price)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-[#EEECE6] flex items-center justify-end gap-4">
+            <span className="text-[11px] text-[#9A9890]">套餐建議售價</span>
+            <span className="text-[18px] font-bold text-[#0F6E56] font-mono">{fmtNT(pkg.listPrice)}</span>
+          </div>
+        </div>
+
+        {/* 前往 04B 連結 */}
+        <div className="text-center">
+          <Link
+            href="/parts/aftersales/addons"
+            className="text-[12px] text-[#185FA5] hover:underline"
+            onClick={onClose}
+          >
+            前往 04B 快速報價查詢頁 →
+          </Link>
+        </div>
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-[30px] px-4 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+        >
+          關閉預覽
         </button>
       </div>
     </Modal>

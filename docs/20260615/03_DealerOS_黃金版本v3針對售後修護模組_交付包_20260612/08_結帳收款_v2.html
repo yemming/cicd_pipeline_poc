@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DealerOS 售後 — 結帳收款</title>
+<style>:root{--red:#CC0000;--dark:#1A1A1A;--navy:#1A3A5C;--white:#FFFFFF;--g50:#F5F5F4;--g100:#E8E7E4;--g200:#D1D0CE;--g400:#999;--g500:#6B6A68;--g700:#3A3A38;--green:#0F6E56;--green-bg:#E1F5EE;--green-bd:#1D9E75;--amber:#854F0B;--amber-bg:#FAEEDA;--amber-bd:#BA7517;--red-bg:#FCEBEB;--blue:#185FA5;--blue-bg:#E6F1FB;--blue-bd:#4A90D9;--purple:#534AB7;--font:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;--r:10px;--r-sm:6px;}*{box-sizing:border-box;margin:0;padding:0}html,body{height:100%;background:#EDECEB;font-family:var(--font);font-size:14px;color:var(--dark)}.app{display:flex;flex-direction:column;height:100vh;max-width:1024px;margin:0 auto;background:var(--white);box-shadow:0 0 30px rgba(0,0,0,0.12)}.screen{display:none;flex-direction:column;height:100vh;max-width:1024px;margin:0 auto;background:var(--white);box-shadow:0 0 30px rgba(0,0,0,0.12)}.screen.active{display:flex}/* Header */ .hdr{color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}.hdr.pi{background:var(--red)}.hdr.ro{background:var(--navy)}.hdr.tech-ro{background:#2C4A1A}.hdr-logo{font-size:17px;font-weight:700;letter-spacing:2px;margin-right:12px}.hdr-title{font-size:13px;opacity:0.9}.hdr-sub{font-size:11px;opacity:0.65;margin-top:1px}.hdr-meta{text-align:right;font-size:11px;opacity:0.85;line-height:1.7}.hdr-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:rgba(255,255,255,0.2);margin-left:6px}/* Tabs */ .tabs{display:flex;background:var(--g50);border-bottom:1px solid var(--g100);flex-shrink:0;overflow-x:auto}.tabs::-webkit-scrollbar{display:none}.tab{padding:10px 14px;font-size:12px;font-weight:500;cursor:pointer;border-bottom:3px solid transparent;color:var(--g500);white-space:nowrap;user-select:none;display:flex;align-items:center;gap:5px}.tab.active{color:var(--red);border-bottom-color:var(--red);background:var(--white)}.tab.active.ro{color:var(--navy);border-bottom-color:var(--navy)}.tab.active.tech{color:#2C4A1A;border-bottom-color:#2C4A1A}.tab.done{color:var(--green)}.tab-num{width:20px;height:20px;border-radius:4px;background:var(--g200);color:var(--g700);font-size:10px;text-align:center;line-height:20px;flex-shrink:0;font-weight:700}.tab.active .tab-num{background:var(--red);color:#fff}.tab.active.ro .tab-num{background:var(--navy);color:#fff}.tab.active.tech .tab-num{background:#2C4A1A;color:#fff}.tab.done .tab-num{background:var(--green);color:#fff}.tab.readonly{opacity:0.55}.tab.readonly .tab-num{background:var(--g400)}/* Content */ .content{flex:1;overflow-y:auto;padding:12px;background:var(--g50)}.panel{display:none}.panel.active{display:block}/* Cards */ .card{background:var(--white);border:0.5px solid var(--g100);border-radius:var(--r);overflow:hidden;margin-bottom:10px}.card-hdr{padding:9px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:space-between}.card-hdr.red{background:var(--red);color:#fff}.card-hdr.dark{background:var(--dark);color:#fff}.card-hdr.blue{background:var(--blue);color:#fff}.card-hdr.navy{background:var(--navy);color:#fff}.card-hdr.green{background:var(--green);color:#fff}.card-hdr.amber{background:var(--amber);color:#fff}.card-hdr.forest{background:#2C4A1A;color:#fff}.card-body{padding:12px 14px}/* Grid */ .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.field{display:flex;flex-direction:column;gap:3px}.field label{font-size:11px;color:var(--g500);font-weight:500}.field input,.field select{height:36px;padding:0 10px;border:0.5px solid var(--g200);border-radius:var(--r-sm);font-size:12px;color:var(--dark);background:var(--g50);width:100%}.field input.auto{background:#EEF6FF;border-color:#AAC9F0;color:var(--blue)}.field input:focus{outline:none;border-color:var(--navy);background:#fff}.field textarea{padding:8px 10px;border:0.5px solid var(--g200);border-radius:var(--r-sm);font-size:12px;color:var(--dark);background:var(--g50);resize:none;width:100%}.field textarea.auto{background:#EEF6FF;border-color:#AAC9F0;color:var(--navy)}.auto-tag{display:inline-block;font-size:9px;padding:1px 5px;background:#AAC9F0;color:var(--navy);border-radius:3px;margin-left:4px;font-weight:600}/* Dots / Moto */ .moto-wrap{position:relative;background:var(--g50);border-radius:8px;overflow:hidden;margin-bottom:8px;border:0.5px solid var(--g100)}.moto-lbl{font-size:11px;color:var(--g500);margin-bottom:4px;font-weight:500}.dot{position:absolute;width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,0.85);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;transform:translate(-50%,-50%);z-index:10}.dot.ok{background:var(--green-bd)}.dot.warn{background:var(--amber-bd)}.dot.bad{background:var(--red);animation:blink 1.8s infinite}.dot.empty{background:rgba(120,120,120,0.35)}@keyframes blink{0%,100%{box-shadow:0 0 0 0 rgba(204,0,0,0.45)}60%{box-shadow:0 0 0 7px rgba(204,0,0,0)}}.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--g500)}.leg-dot{width:10px;height:10px;border-radius:50%}/* Check */ .chk-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--g100)}.chk-row:last-child{border-bottom:none}.chk-label{flex:1;font-size:12px}.chk-btns{display:flex;gap:4px}.cbtn{min-width:46px;height:32px;padding:0 10px;border-radius:var(--r-sm);border:0.5px solid var(--g200);font-size:11px;cursor:pointer;background:#fff;color:var(--g500);font-weight:500}.cbtn.ok{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}.cbtn.warn{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}.cbtn.bad{background:var(--red-bg);color:var(--red);border-color:var(--red)}/* Purpose */ .purpose-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.pchk{padding:10px 8px;border:0.5px solid var(--g200);border-radius:var(--r-sm);cursor:pointer;font-size:12px;text-align:center;background:#fff;user-select:none;line-height:1.5}.pchk.sel{border-color:var(--blue);background:var(--blue-bg);color:var(--blue);font-weight:500}.pchk.sel-warn{border-color:var(--amber-bd);background:var(--amber-bg);color:var(--amber);font-weight:500}/* Ask */ .ask-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--g100)}.ask-row:last-child{border-bottom:none}.ask-q{flex:1;font-size:12px}.ask-btns{display:flex;gap:4px}.abtn{height:30px;padding:0 12px;border-radius:var(--r-sm);border:0.5px solid var(--g200);font-size:11px;cursor:pointer;background:#fff;color:var(--g500)}.abtn.yes{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}.abtn.no{background:var(--red-bg);color:var(--red);border-color:var(--red)}.abtn.na{background:var(--g50);color:var(--g500)}/* Tech rows */ .tech-sec-hdr{padding:6px 10px;font-size:11px;font-weight:700;color:#fff;border-radius:var(--r-sm);margin-bottom:4px;margin-top:10px}.cat-engine{background:#854F0B}.cat-brake{background:#CC0000}.cat-tire{background:#185FA5}.cat-elec{background:#534AB7}.cat-chassis{background:#2C2C2C}.tech-row{display:flex;align-items:flex-start;gap:8px;padding:8px;border:0.5px solid var(--g100);border-radius:var(--r-sm);margin-bottom:4px;background:#fff}.tech-left{flex:1}.tech-title{font-size:12px;font-weight:500;margin-bottom:2px}.tech-diag{font-size:11px;color:var(--g500)}.tech-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}.saf-badge{font-size:10px;padding:2px 7px;border-radius:3px;font-weight:600}.saf-1{background:var(--red-bg);color:var(--red)}.saf-2{background:var(--amber-bg);color:var(--amber)}.saf-3{background:var(--green-bg);color:var(--green)}.dec-btns{display:flex;gap:3px}.dbtn{height:26px;padding:0 9px;border-radius:4px;border:0.5px solid var(--g200);font-size:10px;cursor:pointer;background:#fff;color:var(--g500)}.dbtn.agree{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}.dbtn.defer{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}.dbtn.reject{background:var(--red-bg);color:var(--red);border-color:var(--red)}/* Quote */ .qsec-title{font-size:12px;font-weight:600;color:var(--g500);margin-bottom:6px;padding-bottom:4px;border-bottom:0.5px solid var(--g100);display:flex;align-items:center;gap:6px;flex-wrap:wrap}.q-hdr{display:grid;gap:5px;padding:6px 8px;background:var(--dark);border-radius:var(--r-sm) var(--r-sm) 0 0;font-size:11px;font-weight:600;color:#fff}.q-hdr-sa{grid-template-columns:1fr 50px 75px 75px 75px 60px}.q-hdr-tech{grid-template-columns:1fr 50px 75px 75px 80px}.q-row{display:grid;gap:5px;padding:7px 8px;font-size:12px;border-bottom:0.5px solid var(--g100);align-items:center}.q-row-sa{grid-template-columns:1fr 50px 75px 75px 75px 60px}.q-row-tech{grid-template-columns:1fr 50px 75px 75px 80px}.q-row:nth-child(odd){background:var(--g50)}.q-row.tech-agreed{background:var(--green-bg)}.q-row.tech-defer{background:var(--amber-bg)}.q-row.tech-reject{opacity:0.45;text-decoration:line-through}.q-row.deleted{background:#FFF0F0;opacity:0.7;text-decoration:line-through}.qc{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.qc.r{text-align:right}.qc.c{text-align:center}.add-row{display:flex;gap:6px;margin-top:8px;padding:8px;border:1px dashed var(--g200);border-radius:6px;background:#fff;align-items:center;flex-wrap:wrap}.add-row input{flex:1;min-width:80px;height:32px;padding:0 8px;border:0.5px solid var(--g200);border-radius:4px;font-size:12px;background:var(--g50)}.add-row input.sm{flex:none;width:60px}.add-row button{height:32px;padding:0 12px;border:none;border-radius:4px;background:var(--blue);color:#fff;font-size:12px;cursor:pointer}/* Total */ .total-bar{background:var(--dark);border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:10px}.t-items{display:flex;gap:20px;flex-wrap:wrap}.t-item label{font-size:10px;color:rgba(255,255,255,0.6);display:block;margin-bottom:2px}.t-item span{font-size:13px;font-weight:600;color:#fff}.t-main label{font-size:11px;color:rgba(255,255,255,0.7);display:block;text-align:right}.t-main span{font-size:22px;font-weight:700;color:#FF6B6B}/* Deleted items */ .deleted-section{background:var(--red-bg);border:0.5px solid #F09595;border-radius:8px;padding:10px 14px;margin-top:8px}.deleted-item{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:0.5px solid #F09595}.deleted-item:last-child{border-bottom:none}.deleted-item-name{flex:1;font-size:12px;text-decoration:line-through;color:var(--g500)}.deleted-reason{font-size:11px;color:var(--red);margin-top:2px}.reason-input{width:100%;height:30px;padding:0 8px;border:0.5px solid #F09595;border-radius:4px;font-size:11px;background:#fff;color:var(--dark);margin-top:4px}/* Sig */ .sig-box{border:1.5px dashed var(--g200);border-radius:8px;height:78px;display:flex;align-items:center;justify-content:center;color:var(--g400);font-size:12px;cursor:pointer;background:var(--g50);margin-top:8px}.sig-box.signed{background:#fff;border-style:solid;border-color:var(--green-bd)}.sig-box.signed-navy{background:#fff;border-style:solid;border-color:var(--navy)}/* Loop hint */ .loop-hint{background:var(--red-bg);border:0.5px solid #F09595;border-radius:6px;padding:9px 12px;font-size:11px;color:var(--red);line-height:1.7;margin-top:8px}/* Transfer overlay */ .transfer-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:100;display:none;align-items:center;justify-content:center}.transfer-overlay.open{display:flex}.transfer-card{background:#fff;border-radius:16px;padding:28px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3)}.transfer-title{font-size:18px;font-weight:700;margin-bottom:8px}.transfer-sub{font-size:13px;color:var(--g500);margin-bottom:20px;line-height:1.6}.transfer-items{background:var(--g50);border-radius:8px;padding:12px;margin-bottom:20px}.transfer-item{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:0.5px solid var(--g100)}.transfer-item:last-child{border-bottom:none;font-weight:600;padding-top:8px}.transfer-item span:first-child{color:var(--g500)}.transfer-btns{display:flex;gap:8px}/* RO table */ .ro-tbl{width:100%;border-collapse:collapse;font-size:12px}.ro-tbl th{background:var(--dark);color:#fff;padding:6px 8px;text-align:left;font-size:11px;white-space:nowrap}.ro-tbl td{padding:7px 8px;border-bottom:0.5px solid var(--g100);vertical-align:middle;white-space:nowrap}.ro-tbl tr:nth-child(even) td{background:var(--g50)}.ro-tbl tr.auto-row td{background:#EEF6FF}.ro-tbl tr.tech-row td{background:var(--green-bg)}.ro-tbl tfoot td{background:var(--dark);color:#fff;padding:8px;font-weight:600}.ro-status{background:var(--blue-bg);border:0.5px solid #AAC9F0;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:var(--blue);display:flex;align-items:center;gap:8px}.readonly-bar{background:var(--amber-bg);border:0.5px solid var(--amber-bd);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:#412402;display:flex;align-items:center;gap:8px}/* 領料單 */ .parts-issue-row{display:grid;grid-template-columns:60px 1fr 80px 60px 80px 80px 80px;gap:6px;padding:7px 8px;border-bottom:0.5px solid var(--g100);align-items:center;font-size:12px}.parts-issue-row.hdr{background:var(--dark);color:#fff;font-size:11px;font-weight:600;border-radius:var(--r-sm) var(--r-sm) 0 0;border-bottom:none}.parts-issue-row:nth-child(even){background:var(--g50)}.parts-status-badge{font-size:10px;padding:2px 6px;border-radius:3px;font-weight:500;text-align:center}.ps-pending{background:var(--amber-bg);color:var(--amber)}.ps-issued{background:var(--green-bg);color:var(--green)}.ps-missing{background:var(--red-bg);color:var(--red)}/* Sig dual */ .sig-dual{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.sig-block{border:0.5px solid var(--g100);border-radius:8px;padding:12px;background:var(--white)}.sig-block-title{font-size:11px;font-weight:600;color:var(--g500);margin-bottom:6px}/* Progress & footer */ .prog-wrap{padding:7px 14px;background:#fff;border-top:0.5px solid var(--g100);display:flex;align-items:center;gap:10px;flex-shrink:0}.prog-bar{flex:1;height:3px;background:var(--g200);border-radius:2px;overflow:hidden}.prog-fill{height:100%;border-radius:2px;transition:width 0.35s}.prog-fill.pi{background:var(--red)}.prog-fill.ro{background:var(--navy)}.prog-fill.tech{background:#2C4A1A}.prog-text{font-size:11px;color:var(--g500);white-space:nowrap}.footer{padding:10px 14px;background:#fff;border-top:0.5px solid var(--g100);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}.btn{height:40px;padding:0 20px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s}.btn:active{transform:scale(0.97)}.btn-red{background:var(--red);color:#fff}.btn-navy{background:var(--navy);color:#fff}.btn-green{background:var(--green);color:#fff}.btn-forest{background:#2C4A1A;color:#fff}.btn-outline{background:transparent;border:0.5px solid var(--g200);color:var(--dark)}.btn-group{display:flex;gap:8px;align-items:center}.btn-ghost{background:rgba(255,255,255,0.15);color:#fff;border:0.5px solid rgba(255,255,255,0.3);height:32px;padding:0 12px;border-radius:6px;font-size:12px;cursor:pointer}.hint{font-size:11px;color:var(--g500)}.divider{height:0.5px;background:var(--g100);margin:12px 0}.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;color:#fff;margin-right:4px}.tag-sa{background:var(--blue)}.tag-tech{background:var(--amber)}.tag-auto{background:var(--navy)}.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:500}.badge-ok{background:var(--green-bg);color:var(--green)}.badge-warn{background:var(--amber-bg);color:var(--amber)}.badge-bad{background:var(--red-bg);color:var(--red)}.badge-gray{background:var(--g100);color:var(--g500)}.alert{border-radius:8px;padding:10px 14px;font-size:12px;line-height:1.7;margin-bottom:10px}.alert.amber{background:var(--amber-bg);border:0.5px solid var(--amber-bd);color:#412402}.alert.blue{background:var(--blue-bg);border:0.5px solid var(--blue-bd);color:#0D3166}.alert.red{background:var(--red-bg);border:0.5px solid #F09595;color:#7A1A1A}.alert.green{background:var(--green-bg);border:0.5px solid var(--green-bd);color:var(--green)}/* View switcher */ .view-switcher{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--dark);border-bottom:0.5px solid rgba(255,255,255,0.1);flex-shrink:0}.view-switcher span{font-size:11px;color:rgba(255,255,255,0.5)}.view-btn{padding:5px 14px;border-radius:20px;border:0.5px solid rgba(255,255,255,0.3);font-size:11px;font-weight:500;cursor:pointer;color:rgba(255,255,255,0.6);background:transparent;transition:all 0.15s}.view-btn.active-sa{background:var(--navy);color:#fff;border-color:var(--navy)}.view-btn.active-tech{background:#2C4A1A;color:#fff;border-color:#2C4A1A}.ctag-wrap{margin-top:14px;border:1px solid #C4BEF0;border-radius:8px;overflow:hidden;background:#fff;width:100%;}.ctag-bar{padding:8px 14px;background:#F0EFFE;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}.ctag-bar-left{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#26215C;flex:1;min-width:0;}.ctag-bar-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}.ctag-toggle-btn{font-size:11px;padding:2px 9px;border-radius:5px;background:#534AB7;color:#fff;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;}.ctag-role-badge{font-size:10px;padding:1px 7px;border-radius:5px;background:#E8E4FB;color:#534AB7;font-weight:500;}.ctag-summary{display:flex;flex-wrap:wrap;gap:4px;align-items:center;flex:1;min-width:0;overflow:hidden;}.ctag-body{padding:12px 14px;border-top:1px solid #E0D9F7;}.ctag-legend{display:flex;gap:10px;flex-wrap:wrap;padding:6px 10px;background:#FAF9F7;border-radius:6px;border:1px solid #EEECE6;margin-bottom:10px;font-size:10.5px;color:#888;}.ctag-legend span{display:flex;align-items:center;gap:3px;}.ctag-sw{width:9px;height:9px;border-radius:2px;display:inline-block;}.ctag-section-lbl{font-size:10.5px;color:#999;font-weight:500;letter-spacing:.3px;margin-bottom:6px;margin-top:8px;}.ctag-section-lbl:first-child{margin-top:0;}.ctag-row{display:flex;flex-wrap:wrap;gap:5px;min-height:26px;}.ctag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px 3px 8px;border-radius:16px;font-size:11.5px;font-weight:500;white-space:nowrap;}.ctag-red{background:#FDECEA;border:1px solid #F5AEAD;color:#7A1010;}.ctag-yellow{background:#FDF3E3;border:1px solid #F0C97E;color:#6B3A00;}.ctag-green{background:#E5F5EE;border:1px solid #80CCA8;color:#084D30;}.ctag-blue{background:#EAF4FB;border:1px solid #85B7EB;color:#0C3E70;}.ctag-src{font-size:10px;opacity:.6;}.ctag-lock{font-size:10px;opacity:.45;}.ctag-del{background:none;border:none;cursor:pointer;font-size:12px;color:#aaa;padding:0 0 0 2px;line-height:1;}.ctag-del:hover{color:#CC0000;}.preset-row{display:flex;flex-wrap:wrap;gap:5px;}.preset-tag{border-radius:14px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:inherit;transition:opacity .1s;}.preset-tag:hover{opacity:.7;}.preset-red{background:#FDECEA;color:#7A1010;border:1px solid #F5AEAD;}.preset-yellow{background:#FDF3E3;color:#6B3A00;border:1px solid #F0C97E;}.preset-green{background:#E5F5EE;color:#084D30;border:1px solid #80CCA8;}.preset-blue{background:#EAF4FB;color:#0C3E70;border:1px solid #85B7EB;}.ctag-add-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px;}.ctag-add-row select,.ctag-add-row input{height:30px;border:1px solid #D1D0CE;border-radius:5px;padding:0 8px;font-size:12px;font-family:inherit;background:#fff;}.ctag-add-row input{flex:1;min-width:130px;}.ctag-add-btn{height:30px;padding:0 13px;background:#534AB7;color:#fff;border:none;border-radius:5px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;}.ctag-hint{font-size:10.5px;color:#aaa;margin-top:4px;}.step-nav{display:flex;gap:0;margin-bottom:20px;}.snav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;position:relative;}.snav-item:not(:last-child)::after{content:'';position:absolute;top:16px;left:60%;right:-40%;height:2px;background:#EEECE6;z-index:0;}.snav-item.done:not(:last-child)::after{background:var(--green);}.snav-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;z-index:1;transition:all .2s;}.snav-dot.done{background:var(--green);color:#fff;}.snav-dot.active{background:var(--navy);color:#fff;box-shadow:0 0 0 3px rgba(26,58,92,.2);}.snav-dot.future{background:#F1EFE8;color:#9A9890;border:1.5px solid #D5D3CB;}.snav-label{font-size:10.5px;color:#9A9890;text-align:center;line-height:1.3;}.snav-item.active .snav-label{color:var(--navy);font-weight:600;}.snav-item.done .snav-label{color:var(--green);}.step-panel{display:none;}.step-panel.active{display:block;}.ro-banner{background:var(--navy);border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}.ro-id{font-size:19px;font-weight:700;font-family:monospace;color:#fff;letter-spacing:1px;}.ro-meta{font-size:11.5px;color:rgba(255,255,255,.6);margin-top:2px;}.card{background:#fff;border:1px solid #EEECE6;border-radius:10px;margin-bottom:14px;overflow:hidden;}.card-hdr{padding:11px 16px;border-bottom:1px solid #EEECE6;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;}.card-body{padding:14px 16px;}.fee-table{width:100%;border-collapse:collapse;}.fee-table th{padding:7px 10px;text-align:left;font-size:11px;font-weight:600;color:#6B6A68;background:#F8F7F4;border-bottom:1px solid #EEECE6;}.fee-table td{padding:8px 10px;font-size:12.5px;border-bottom:1px solid #F8F7F4;}.fee-table tfoot td{font-weight:700;border-top:2px solid var(--navy);padding:9px 10px;}.fee-total{font-size:18px;font-weight:700;color:var(--navy);}.sig-area{border:2px dashed #D5D3CB;border-radius:10px;min-height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;gap:6px;}.sig-area:hover{border-color:var(--navy);background:#F8F7F4;}.sig-area.signed{border:2px solid #1D9E75;background:#E1F5EE;cursor:default;}.sig-hint{font-size:12px;color:#9A9890;}.sig-name{font-size:28px;font-family:cursive;color:var(--navy);}.sig-time{font-size:11px;color:#0F6E56;}.pay-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}.pay-opt{flex:1;min-width:100px;padding:12px 10px;border-radius:8px;border:1.5px solid #D5D3CB;background:#fff;cursor:pointer;transition:all .15s;text-align:center;}.pay-opt:hover{border-color:var(--navy);}.pay-opt.sel{border-color:var(--navy);background:#EBF3FF;}.pay-icon{font-size:22px;margin-bottom:4px;}.pay-name{font-size:12px;font-weight:600;color:#2C2C2A;}.inv-row{display:flex;gap:8px;margin-bottom:12px;}.inv-opt{flex:1;padding:10px;border-radius:8px;border:1.5px solid #D5D3CB;background:#fff;cursor:pointer;transition:all .15s;text-align:center;font-size:12.5px;font-weight:500;}.inv-opt:hover{border-color:var(--navy);}.inv-opt.sel{border-color:var(--navy);background:#EBF3FF;color:var(--navy);}.confirm-btn{width:100%;height:50px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;}.btn-green{background:var(--green);color:#fff;}.btn-green:hover{background:#085041;}.btn-navy{background:var(--navy);color:#fff;}.btn-navy:hover{background:#0F2A45;}.btn-ghost{background:#fff;color:#6B6A68;border:1.5px solid #D5D3CB;}.btn-disabled{background:#F1EFE8;color:#9A9890;cursor:not-allowed;}.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}.info-box{background:#F8F7F4;border-radius:8px;padding:9px 12px;}.info-lbl{font-size:10.5px;color:#9A9890;font-weight:500;margin-bottom:3px;}.info-val{font-size:13px;font-weight:600;}.success-screen{text-align:center;padding:30px 20px;}.success-icon{font-size:56px;margin-bottom:12px;}.success-title{font-size:20px;font-weight:700;color:var(--green);margin-bottom:6px;}.success-sub{font-size:13px;color:#6B6A68;margin-bottom:20px;line-height:1.7;}.success-ro{font-size:16px;font-family:monospace;font-weight:700;color:var(--navy);background:#EBF3FF;padding:8px 20px;border-radius:8px;display:inline-block;margin-bottom:20px;}.next-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}</style>
+</head>
+<body>
+<div style="position:fixed;top:10px;left:10px;z-index:8888;display:flex;gap:8px;"><button onclick="go('06_竣工複檢_v1.html')" style="padding:5px 14px;background:#1A3A5C;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:sans-serif;">← 竣工複檢</button></div>
+<header style="background:var(--navy);height:48px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2);">
+<span style="font-size:17px;font-weight:700;letter-spacing:2px;color:#fff;">DealerOS</span>
+<span style="width:1px;height:20px;background:rgba(255,255,255,.2);display:inline-block;"></span>
+<span style="font-size:13px;color:rgba(255,255,255,.6);">售後工單模組 <b style="color:#fff;font-weight:500;">結帳收款</b></span>
+<span style="margin-left:auto;font-size:12px;color:rgba(255,255,255,.55);">SA：陳怡君　2026/06/12　<span style="font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.15);">台中旗艦店</span></span>
+</header>
+<div style="max-width:780px;margin:0 auto;padding:20px;">
+
+<!-- RO 工單標頭 -->
+<div class="ro-banner">
+  <div>
+    <div class="ro-id">MN-CP-260612-001</div>
+    <div class="ro-meta">林志遠 · Scout Bobber · MMQ-2258 · 竣工複檢 ✅ 通過 14:32 · 陳建明 資深技師</div>
+  </div>
+  <span style="background:rgba(255,255,255,.15);color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:500;">結帳中</span>
+</div>
+
+<!-- 步驟導覽 -->
+<div class="step-nav">
+  <div class="snav-item active" id="snav1" onclick="goStep(1)">
+    <div class="snav-dot active" id="dot1">1</div>
+    <div class="snav-label">費用確認</div>
+  </div>
+  <div class="snav-item future" id="snav2" onclick="goStep(2)">
+    <div class="snav-dot future" id="dot2">2</div>
+    <div class="snav-label">車主<br>第二次簽名</div>
+  </div>
+  <div class="snav-item future" id="snav3" onclick="goStep(3)">
+    <div class="snav-dot future" id="dot3">3</div>
+    <div class="snav-label">收款方式<br>發票</div>
+  </div>
+  <div class="snav-item future" id="snav4" onclick="goStep(4)">
+    <div class="snav-dot future" id="dot4">4</div>
+    <div class="snav-label">RO關單</div>
+  </div>
+</div>
+
+<!-- Step 1: 費用確認 -->
+<div class="step-panel active" id="sp1">
+  <div class="card">
+    <div class="card-hdr">💰 費用明細確認<span style="font-size:11.5px;font-weight:400;color:#9A9890;">由工單自動帶入，SA 與車主一起核對</span></div>
+    <!-- ★ 費用自動帶入說明（M-10）// 後端串接點：GET /api/workorders/{id}/billing -->
+    <div class="card-body">
+      <table class="fee-table">
+        <thead><tr><th>#</th><th>項目</th><th style="text-align:center;">工時</th><th style="text-align:right;">零件費</th><th style="text-align:right;">工時費</th><th style="text-align:right;">小計</th></tr></thead>
+        <tbody>
+          <tr><td style="color:#9A9890;">1</td><td>10,000km 定期保養</td><td style="text-align:center;font-family:monospace;font-size:12px;">2.5 LU</td><td style="text-align:right;">NT$2,820</td><td style="text-align:right;">NT$2,500</td><td style="text-align:right;font-weight:600;">NT$5,320</td></tr>
+          <tr><td style="color:#9A9890;">2</td><td>前煞車皮（左右）更換</td><td style="text-align:center;font-family:monospace;font-size:12px;">0.5 LU</td><td style="text-align:right;">NT$1,400</td><td style="text-align:right;">NT$600</td><td style="text-align:right;font-weight:600;">NT$2,000</td></tr>
+          <tr><td style="color:#9A9890;">3</td><td>鏈條張力調整</td><td style="text-align:center;font-family:monospace;font-size:12px;">0.5 LU</td><td style="text-align:right;">NT$0</td><td style="text-align:right;">NT$500</td><td style="text-align:right;font-weight:600;">NT$500</td></tr>
+          <tr style="background:#FDF3E3;"><td style="color:#854F0B;">+</td><td style="color:#854F0B;font-weight:500;">追加：空氣濾芯更換（車主當場同意）</td><td style="text-align:center;font-family:monospace;font-size:12px;color:#854F0B;">0.3 LU</td><td style="text-align:right;color:#854F0B;">NT$580</td><td style="text-align:right;color:#854F0B;">NT$300</td><td style="text-align:right;font-weight:600;color:#854F0B;">NT$880</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td colspan="5" style="text-align:right;color:#6B6A68;font-weight:400;font-size:12px;padding:6px 10px;">小計</td><td style="text-align:right;font-size:13px;padding:6px 10px;">NT$8,700</td></tr>
+          <tr><td colspan="5" style="text-align:right;color:#6B6A68;font-weight:400;font-size:12px;padding:4px 10px;">稅（5%）</td><td style="text-align:right;font-size:12px;color:#6B6A68;padding:4px 10px;">NT$435</td></tr>
+          <tr><td colspan="5" style="text-align:right;color:var(--navy);padding:9px 10px;">應付總計</td><td style="text-align:right;padding:9px 10px;"><span class="fee-total" id="final-amt">NT$9,135</span></td></tr>
+        </tfoot>
+      </table>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid #EEECE6;">
+        <span style="font-size:12.5px;color:#6B6A68;">折扣優惠</span>
+        <select id="disc" onchange="calcDiscount(this.value)" style="height:30px;border:1px solid #D5D3CB;border-radius:6px;padding:0 9px;font-size:12.5px;font-family:'Noto Sans TC',sans-serif;">
+          <option value="0">無折扣</option>
+          <option value="5">VIP 九五折（-NT$457）</option>
+          <option value="10">主管授權九折（-NT$914）</option>
+        </select>
+        <span style="margin-left:auto;font-size:13px;color:#6B6A68;">折後應付：<b id="disc-amt" style="color:var(--navy);font-size:16px;">NT$9,135</b></span>
+      </div>
+    </div>
+  </div>
+  <div style="background:#EAF3DE;border:1px solid #B5D4B0;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#0F6E56;">
+    ✅ 費用明細已與車主當面核對，車主無異議
+  </div>
+  <button class="confirm-btn btn-navy" onclick="goStep(2)">確認費用，進行車主第二次簽名 →</button>
+</div>
+
+<!-- Step 1B: 取車人確認（新增）-->
+<div id="step-delegate" style="display:none;max-width:620px;margin:0 auto 0;padding:0 16px;">
+  <div style="background:#fff;border:1px solid #EEECE6;border-radius:10px;overflow:hidden;margin-bottom:14px;">
+    <div style="background:#1A3A5C;color:#fff;padding:11px 16px;font-size:13px;font-weight:600;">👤 取車人確認</div>
+    <div style="padding:14px 16px;">
+      <div style="display:flex;gap:10px;margin-bottom:14px;">
+        <div id="pickup-self" onclick="selPickup('self')" style="flex:1;border:2px solid #1A3A5C;border-radius:8px;padding:11px 13px;cursor:pointer;background:#EAF4FB;text-align:center;">
+          <div style="font-size:18px;margin-bottom:4px;">🙋</div>
+          <div style="font-size:13px;font-weight:700;color:#1A3A5C;">本人取車</div>
+          <div style="font-size:11px;color:#666;margin-top:2px;">車主本人前來</div>
+        </div>
+        <div id="pickup-delegate" onclick="selPickup('delegate')" style="flex:1;border:2px solid #EEECE6;border-radius:8px;padding:11px 13px;cursor:pointer;background:#FAFAF8;text-align:center;">
+          <div style="font-size:18px;margin-bottom:4px;">👥</div>
+          <div style="font-size:13px;font-weight:700;color:#2C2C2A;">委託取車</div>
+          <div style="font-size:11px;color:#666;margin-top:2px;">非車主本人</div>
+        </div>
+      </div>
+      <div id="delegate-form" style="display:none;background:#FDF3E3;border:1px solid #F0C97E;border-radius:8px;padding:13px 14px;">
+        <div style="font-size:12px;font-weight:700;color:#854F0B;margin-bottom:10px;">⚠️ 委託取車需填寫授權資料</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:11.5px;font-weight:600;color:#555;margin-bottom:4px;">取車人姓名 <span style="color:#C8001A;">*</span></div>
+            <input type="text" placeholder="請填寫取車人全名" style="width:100%;padding:7px 10px;border:1px solid #F0C97E;border-radius:6px;font-size:12.5px;background:#fff;">
+          </div>
+          <div>
+            <div style="font-size:11.5px;font-weight:600;color:#555;margin-bottom:4px;">身份證後4碼或手機末4碼 <span style="color:#C8001A;">*</span></div>
+            <input type="text" placeholder="例：1234" maxlength="4" style="width:100%;padding:7px 10px;border:1px solid #F0C97E;border-radius:6px;font-size:12.5px;background:#fff;font-family:monospace;">
+          </div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="font-size:11.5px;font-weight:600;color:#555;margin-bottom:6px;">車主授權方式 <span style="color:#C8001A;">*</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;"><input type="radio" name="auth-method" value="phone"> 現場電話向車主確認</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;"><input type="radio" name="auth-method" value="line"> LINE截圖授權</label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;"><input type="radio" name="auth-method" value="presystem"> 車主提前系統登記</label>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11.5px;font-weight:600;color:#555;margin-bottom:4px;">委託人電子簽名（代車主）<span style="color:#C8001A;">*</span></div>
+          <canvas id="delegate-sig-canvas" width="500" height="80" style="border:1.5px dashed #F0C97E;border-radius:6px;width:100%;height:80px;background:#fff;cursor:crosshair;display:block;"></canvas>
+          <div style="display:flex;gap:6px;margin-top:5px;">
+            <button onclick="clearDelegateSig()" style="padding:4px 12px;border-radius:5px;background:#fff;border:1px solid #F0C97E;color:#854F0B;font-size:11.5px;cursor:pointer;font-family:sans-serif;">清除重簽</button>
+            <span id="delegate-sig-status" style="font-size:11px;color:#999;padding-top:4px;"></span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+        <button onclick="goStepAfterDelegate()" style="padding:9px 22px;border-radius:8px;background:#1A3A5C;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:sans-serif;">確認取車人 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Step 2: 車主第二次簽名 -->
+<div class="step-panel" id="sp2">
+  <div class="card">
+    <div class="card-hdr">✍️ 車主第二次確認簽名<span style="font-size:11px;font-weight:400;color:#9A9890;">維修授權最終確認 + 費用同意</span></div>
+    <div class="card-body">
+      <div style="background:#F8F7F4;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;line-height:2;">
+        本人確認以下事項：<br>
+        ① 已閱讀並同意本次維修項目及費用明細<br>
+        ② 授權 DealerOS 台中旗艦店執行上述所有維修項目<br>
+        ③ 確認車輛維修完畢，零件及工時費用合計 <b id="sig-amt" style="color:var(--navy);">NT$9,135</b><br>
+        ④ 車輛狀況與進廠時已確認差異無爭議
+      </div>
+      <div style="margin-bottom:6px;font-size:11.5px;color:#6B6A68;font-weight:500;">車主簽名欄（請點擊下方區域進行電子簽名）</div>
+      <div class="sig-area" id="sig-box" onclick="doSign()">
+        <div id="sig-inner">
+          <span style="font-size:18px;">✍️</span>
+          <canvas id="customer-sig-canvas" width="500" height="100" style="border:1.5px dashed #EEECE6;border-radius:8px;width:100%;height:100px;background:#fff;cursor:crosshair;display:block;"></canvas>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button onclick="clearCustomerSig()" style="padding:4px 12px;border-radius:5px;background:#fff;border:1px solid #EEECE6;font-size:11.5px;cursor:pointer;font-family:sans-serif;">清除重簽</button>
+            <span id="customer-sig-status" style="font-size:11px;color:#999;padding-top:4px;">請在上方區域簽名</span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#9A9890;">* 電子簽名具有法律效力，簽名後系統自動記錄時間戳，不可修改</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="confirm-btn btn-ghost" style="flex:0 0 auto;width:auto;padding:0 20px;" onclick="goStep(1)">← 返回</button>
+    <button class="confirm-btn btn-navy" id="sig-next-btn" onclick="goStep(3)" disabled style="flex:1;background:#F1EFE8;color:#9A9890;cursor:not-allowed;" id="sig-next">已簽名，進入收款 →</button>
+  </div>
+</div>
+
+<!-- Step 3: 收款與發票 -->
+<div class="step-panel" id="sp3">
+  <div class="card">
+    <div class="card-hdr">💳 收款方式</div>
+    <div class="card-body">
+      <div class="pay-row" id="pay-row">
+        <div class="pay-opt sel" onclick="selPay(this)"><div class="pay-icon">💳</div><div class="pay-name">信用卡</div></div>
+        <div class="pay-opt" onclick="selPay(this)"><div class="pay-icon">💵</div><div class="pay-name">現金</div></div>
+        <div class="pay-opt" onclick="selPay(this)"><div class="pay-icon">📱</div><div class="pay-name">行動支付</div></div>
+        <div class="pay-opt" onclick="selPay(this)"><div class="pay-icon">🏦</div><div class="pay-name">銀行轉帳</div></div>
+      </div>
+      <div style="background:#EAF4FB;border-radius:8px;padding:10px 14px;font-size:13px;color:var(--navy);display:flex;justify-content:space-between;align-items:center;">
+        <span>應收金額</span>
+        <span style="font-size:18px;font-weight:700;" id="pay-amt">NT$9,135</span>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hdr">🧾 發票開立方式</div>
+    <div class="card-body">
+      <div class="inv-row" id="inv-row">
+        <div class="inv-opt sel" onclick="selInv(this)">電子發票（雲端）</div>
+        <div class="inv-opt" onclick="selInv(this)">載具歸戶</div>
+        <div class="inv-opt" onclick="selInv(this)">統一編號（公司戶）</div>
+        <div class="inv-opt" onclick="selInv(this)">捐贈發票</div>
+      </div>
+      <div id="inv-extra" style="display:none;margin-top:8px;">
+        <input type="text" id="inv-no" placeholder="請輸入統一編號" style="width:100%;height:32px;border:1px solid #D5D3CB;border-radius:6px;padding:0 10px;font-size:13px;font-family:'Noto Sans TC',sans-serif;">
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="confirm-btn btn-ghost" style="flex:0 0 auto;width:auto;padding:0 20px;" onclick="goStep(2)">← 返回</button>
+    <button class="confirm-btn btn-green" onclick="goStep(4)" style="flex:1;">確認收款，關閉工單 →</button>
+  </div>
+</div>
+
+<!-- Step 4: RO 關單 -->
+<div class="step-panel" id="sp4">
+  <div class="success-screen">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">工單結案完成！</div>
+    <div class="success-ro">MN-CP-260612-001</div>
+    <div class="success-sub">
+      車主：林志遠 · Scout Bobber · MMQ-2258<br>
+      結帳時間：2026/06/12 15:47<br>
+      實收金額：<b style="color:var(--navy);">NT$9,135</b>（信用卡）<br>
+      電子發票已開立，RO 存檔 36 個月
+
+    <!-- ══ 新增：下次保養提醒設定 ══ -->
+    <div id="next-service-block" style="background:#E1F5EE;border:1.5px solid #5DCAA5;border-radius:10px;padding:14px 16px;margin-top:14px;">
+      <div style="font-size:13px;font-weight:700;color:#0F6E56;margin-bottom:10px;">🗓 下次保養提醒設定</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <div>
+          <div style="font-size:11.5px;font-weight:600;color:#0A5240;margin-bottom:4px;">本次業務類型</div>
+          <div style="font-size:13px;font-weight:700;color:#0F6E56;">MN 定期保養（10000km）</div>
+        </div>
+        <div>
+          <div style="font-size:11.5px;font-weight:600;color:#0A5240;margin-bottom:4px;">本次完工里程</div>
+          <div style="font-size:13px;font-weight:700;color:#0F6E56;">12,850 km</div>
+        </div>
+        <div>
+          <div style="font-size:11.5px;font-weight:600;color:#0A5240;margin-bottom:4px;">建議下次回廠里程</div>
+          <div style="font-size:13px;font-weight:700;color:#0F6E56;">🔧 18,850 km（+6,000km）</div>
+        </div>
+        <div>
+          <div style="font-size:11.5px;font-weight:600;color:#0A5240;margin-bottom:4px;">預估回廠日期</div>
+          <div style="font-size:13px;font-weight:700;color:#0F6E56;">📅 約 2027年3月（依年均里程推算）</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="saveNextService()" style="padding:8px 18px;border-radius:7px;background:#0F6E56;color:#fff;border:none;font-size:12.5px;font-weight:600;cursor:pointer;font-family:sans-serif;">✅ 寫入人車檔案 + 同步 CRM 提醒</button>
+        <button onclick="skipNextService()" style="padding:8px 18px;border-radius:7px;background:#fff;color:#0F6E56;border:1px solid #5DCAA5;font-size:12.5px;cursor:pointer;font-family:sans-serif;">稍後再設定</button>
+      </div>
+      <div style="font-size:11px;color:#0A5240;margin-top:8px;opacity:.8;">📌 寫入後將出現於 CRM01B 保養到期快篩清單，屆時系統提醒 SA 主動聯繫車主。</div>
+    </div>
+    </div>
+    
+  <!-- ★ 取車後投訴記錄入口（B19-01）-->
+  <div style="margin:14px auto;max-width:400px;border:1px solid #F09595;border-radius:8px;padding:10px 14px;background:var(--red-bg);font-size:12px;color:var(--red)">
+    📋 車主取車後如有任何投訴，請在此記錄：<br>
+    <button onclick="showToast('開啟投訴記錄
+// API：POST /api/complaints
+{ workorder_id:"MN-CP-260612-001", type:"post_delivery" }')" style="margin-top:6px;padding:4px 12px;border-radius:5px;background:var(--red);color:#fff;border:none;font-size:11.5px;cursor:pointer;font-family:sans-serif">新增取車後投訴記錄</button>
+    <span style="font-size:11px;color:var(--g500);margin-left:8px">可在工單關閉後補記，自動關聯原工單</span>
+  </div>
+
+<div class="next-btns">
+      <button class="confirm-btn btn-navy" onclick="showToast('列印工單收據
+// 同步觸發工單關閉連鎖動作（已在完成收款時執行）')" style="width:auto;padding:0 20px;">列印收據</button>
+      <button class="confirm-btn btn-ghost" onclick="showToast("返回預約管理看板")" style="width:auto;padding:0 20px;">← 返回看板</button>
+      <button class="confirm-btn" style="width:auto;padding:0 20px;background:#E1F5EE;color:#0F6E56;border:1px solid #5DCAA5;" onclick="showToast("新增預約或回廠提醒")">下次預約提醒</button>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+var step=1;
+var signed=false;
+var baseAmt=9135;
+
+function goStep(n){
+  if(n===2&&step<2&&!document.getElementById('sp1'))return;
+  if(n===3&&!custSigned){
+    showToast('⚠️ 請先完成車主第二次簽名，方可進行收款');
+    return;
+  }
+  step=n;
+  for(var i=1;i<=4;i++){
+    var sp=document.getElementById('sp'+i);
+    var dot=document.getElementById('dot'+i);
+    var snav=document.getElementById('snav'+i);
+    sp.classList.toggle('active',i===n);
+    dot.className='snav-dot '+(i<n?'done':i===n?'active':'future');
+    snav.className='snav-item '+(i<n?'done':i===n?'active':'future');
+  }
+}
+
+function calcDiscount(pct){
+  var d=parseInt(pct)||0;
+  var amt=Math.round(baseAmt*(1-d/100));
+  document.getElementById('final-amt').textContent='NT$'+amt.toLocaleString();
+  document.getElementById('disc-amt').textContent='NT$'+amt.toLocaleString();
+  document.getElementById('sig-amt').textContent='NT$'+amt.toLocaleString();
+  document.getElementById('pay-amt').textContent='NT$'+amt.toLocaleString();
+  baseAmt=amt;
+}
+
+function doSign(){
+  var box=document.getElementById('sig-box');
+  var inner=document.getElementById('sig-inner');
+  var now=new Date().toLocaleString("zh-TW");
+  box.classList.add('signed');
+  inner.innerHTML='<div class="sig-name">林志遠</div><div class="sig-time">✅ '+now+' · 電子簽名完成（防竄改）</div>';
+  signed=true;
+  var btn=document.getElementById('sig-next-btn');
+  btn.disabled=false;
+  btn.className='confirm-btn btn-green';
+  btn.textContent='✅ 已簽名，進入收款 →';
+  btn.onclick=function(){goStep(3);};
+}
+
+function selPay(el){
+  document.querySelectorAll('.pay-opt').forEach(function(e){e.classList.remove('sel');});
+  el.classList.add('sel');
+}
+
+function selInv(el){
+  document.querySelectorAll('.inv-opt').forEach(function(e){e.classList.remove('sel');});
+  el.classList.add('sel');
+  var extra=document.getElementById('inv-extra');
+  extra.style.display=el.textContent.includes('統一')?'block':'none';
+}
+</script>
+
+<style>
+#_sys_toast_{position:fixed;bottom:24px;right:24px;background:#1A3A5C;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .25s;pointer-events:none;max-width:340px;line-height:1.6;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+</style>
+<div id="_sys_toast_"></div>
+<script>
+function showToast(msg,dur){var t=document.getElementById('_sys_toast_');if(!t)return;t.textContent=msg;t.style.transform='translateY(0)';t.style.opacity='1';clearTimeout(t._tid);t._tid=setTimeout(function(){t.style.transform='translateY(80px)';t.style.opacity='0';},dur||2800);}
+
+
+function lockFeeAfterSign(){
+  // 費用鎖定：簽名後折扣選單、金額欄位全部唯讀
+  var disc = document.getElementById('disc');
+  if(disc){ disc.disabled = true; disc.style.background='#F5F5F4'; disc.style.color='#999'; }
+  // 簽名按鈕更新
+  var btn = document.getElementById('sig-next-btn');
+  if(btn){ btn.disabled=false; btn.className='confirm-btn btn-green'; btn.textContent='✅ 已簽名，進入收款 →'; btn.onclick=function(){goStep(3);}; }
+  signed = true;
+  // 取車後投訴記錄入口（B19-01）預留
+  showToast('✅ 車主第二次簽名完成！
+費用明細已鎖定（不可修改）
+// API：POST /api/workorders/{id}/sign-checkout
+{ type:"customer_second", locked_amount:'+baseAmt+' }');
+}
+
+function completeCheckout(){
+  showToast('🔄 結帳完成，觸發工單關閉連鎖動作...
+// API：POST /api/workorders/MN-CP-260612-001/close
+
+① 工單狀態→已關閉-完成
+② 人車檔案更新
+③ CRM更新（最後回廠日）
+④ D+3電訪任務建立
+⑤ 下次保養提醒寫入人車檔案');
+}
+
+// 取車人選擇
+var pickupMode='self';
+function selPickup(mode){
+  pickupMode=mode;
+  var selfBox=document.getElementById('pickup-self');
+  var delBox=document.getElementById('pickup-delegate');
+  var delForm=document.getElementById('delegate-form');
+  if(mode==='self'){
+    selfBox.style.borderColor='#1A3A5C'; selfBox.style.background='#EAF4FB';
+    delBox.style.borderColor='#EEECE6'; delBox.style.background='#FAFAF8';
+    delForm.style.display='none';
+  } else {
+    delBox.style.borderColor='#854F0B'; delBox.style.background='#FDF3E3';
+    selfBox.style.borderColor='#EEECE6'; selfBox.style.background='#FAFAF8';
+    delForm.style.display='block';
+    initDelegateSig();
+  }
+}
+// 委託簽名canvas
+var delegateDrawing=false, delegateCtx=null;
+function initDelegateSig(){
+  var canvas=document.getElementById('delegate-sig-canvas');
+  if(!canvas||delegateCtx) return;
+  delegateCtx=canvas.getContext('2d');
+  delegateCtx.strokeStyle='#1A3A5C'; delegateCtx.lineWidth=2; delegateCtx.lineCap='round';
+  canvas.addEventListener('mousedown',function(e){ delegateDrawing=true; delegateCtx.beginPath(); delegateCtx.moveTo(e.offsetX,e.offsetY); });
+  canvas.addEventListener('mousemove',function(e){ if(!delegateDrawing) return; delegateCtx.lineTo(e.offsetX,e.offsetY); delegateCtx.stroke(); document.getElementById('delegate-sig-status').textContent='簽名中...'; });
+  canvas.addEventListener('mouseup',function(){ delegateDrawing=false; document.getElementById('delegate-sig-status').textContent='✅ 簽名完成'; });
+  canvas.addEventListener('touchstart',function(e){ e.preventDefault(); var t=e.touches[0]; var r=canvas.getBoundingClientRect(); delegateDrawing=true; delegateCtx.beginPath(); delegateCtx.moveTo(t.clientX-r.left,t.clientY-r.top); });
+  canvas.addEventListener('touchmove',function(e){ e.preventDefault(); if(!delegateDrawing) return; var t=e.touches[0]; var r=canvas.getBoundingClientRect(); delegateCtx.lineTo(t.clientX-r.left,t.clientY-r.top); delegateCtx.stroke(); });
+  canvas.addEventListener('touchend',function(){ delegateDrawing=false; document.getElementById('delegate-sig-status').textContent='✅ 簽名完成'; });
+}
+function clearDelegateSig(){ if(delegateCtx){ var c=document.getElementById('delegate-sig-canvas'); delegateCtx.clearRect(0,0,c.width,c.height); document.getElementById('delegate-sig-status').textContent=''; } }
+// 客戶簽名canvas
+var custDrawing=false, custCtx=null, custSigned=false;
+function initCustomerSig(){
+  var canvas=document.getElementById('customer-sig-canvas');
+  if(!canvas||custCtx) return;
+  custCtx=canvas.getContext('2d');
+  custCtx.strokeStyle='#1A3A5C'; custCtx.lineWidth=2; custCtx.lineCap='round';
+  canvas.addEventListener('mousedown',function(e){ custDrawing=true; custCtx.beginPath(); custCtx.moveTo(e.offsetX,e.offsetY); });
+  canvas.addEventListener('mousemove',function(e){ if(!custDrawing) return; custCtx.lineTo(e.offsetX,e.offsetY); custCtx.stroke(); });
+  canvas.addEventListener('mouseup',function(){ custDrawing=false; custSigned=true; lockFeeAfterSign(); document.getElementById('customer-sig-status').textContent='✅ 車主第二次簽名完成，費用明細已鎖定不可修改'; });
+  canvas.addEventListener('touchstart',function(e){ e.preventDefault(); var t=e.touches[0]; var r=canvas.getBoundingClientRect(); custDrawing=true; custCtx.beginPath(); custCtx.moveTo(t.clientX-r.left,t.clientY-r.top); });
+  canvas.addEventListener('touchmove',function(e){ e.preventDefault(); if(!custDrawing) return; var t=e.touches[0]; var r=canvas.getBoundingClientRect(); custCtx.lineTo(t.clientX-r.left,t.clientY-r.top); custCtx.stroke(); });
+  canvas.addEventListener('touchend',function(){ custDrawing=false; custSigned=true; lockFeeAfterSign(); document.getElementById('customer-sig-status').textContent='✅ 車主第二次簽名完成，費用明細已鎖定不可修改'; });
+}
+function clearCustomerSig(){ if(custCtx){ var c=document.getElementById('customer-sig-canvas'); custCtx.clearRect(0,0,c.width,c.height); custSigned=false; document.getElementById('customer-sig-status').textContent='請在上方區域簽名'; } }
+function goStepAfterDelegate(){ goStep(2); setTimeout(initCustomerSig,100); }
+// 下次保養提醒
+function saveNextService(){ showToast('✅ 下次保養提醒已寫入人車檔案並同步至CRM01B（後端串接點：POST /api/vehicles/{id}/next-service-reminder）'); document.getElementById('next-service-block').style.background='#E1F5EE'; }
+function skipNextService(){ showToast('已跳過，可在09_人車檔案中手動設定'); document.getElementById('next-service-block').style.display='none'; }
+function go(url){window.location.href=url;}
+</script>
+</body>
+</html>

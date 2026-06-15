@@ -16,7 +16,7 @@ import {
   addNoteAction,
   closeLostAction,
   logSaContactAction,
-  markCustomerAgreedAction,
+  markCustomerAgreedWithAppointmentAction,
   markLongTermAction,
   markSupervisorIntervenedAction,
   sendLineReminderAction,
@@ -382,21 +382,18 @@ export function FollowupCaseDetail({
         />
       )}
       {activeModal === "agreed" && (
-        <BodyModal
-          title="✅ 車主同意 → 建立預約"
-          placeholder="預約日期、車主備註..."
-          submitLabel="標記為已閉環"
-          submitColor="green"
+        <AgreedModal
           isPending={isPending}
           onClose={() => setActiveModal(null)}
-          onSubmit={(body) =>
+          onSubmit={(appointmentDate, body) =>
             handleAction(
               () =>
-                markCustomerAgreedAction(caseRow.id, {
+                markCustomerAgreedWithAppointmentAction(caseRow.id, {
+                  appointment_date: appointmentDate,
                   body,
                   recovered_amount: Number(caseRow.estimated_fee),
                 }),
-              "✓ 案件已閉環",
+              "✓ 案件已閉環，已建立預約",
             )
           }
         />
@@ -580,6 +577,82 @@ function BodyModal({
           className={`h-[30px] px-3.5 rounded text-[12.5px] font-medium disabled:opacity-60 ${colors[submitColor]}`}
         >
           {isPending ? "儲存中⋯" : submitLabel}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * 車主同意 Modal — 含預約日期 DateInput（必填）+ 備註文字。
+ * submit 順序：先建預約 → 再閉環案件。
+ */
+function AgreedModal({
+  isPending,
+  onClose,
+  onSubmit,
+}: {
+  isPending: boolean;
+  onClose: () => void;
+  onSubmit: (appointmentDate: string, body: string) => void;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [appointmentDate, setAppointmentDate] = useState(today);
+  const [body, setBody] = useState("");
+
+  const handleSubmit = () => {
+    if (!appointmentDate) return; // 防呆：DateInput 有 required 但雙重確保
+    onSubmit(appointmentDate, body);
+  };
+
+  return (
+    <Modal title="✅ 車主同意 → 建立預約回廠" onClose={onClose}>
+      <div className="space-y-3">
+        {/* 預約日期（必填） */}
+        <div>
+          <label className="text-[11px] text-[#9A9890] font-medium">
+            預約回廠日期 <span className="text-[#CC0000]">*</span>
+          </label>
+          <input
+            type="date"
+            value={appointmentDate}
+            onChange={(e) => setAppointmentDate(e.target.value)}
+            min={today}
+            required
+            disabled={isPending}
+            className="w-full h-[32px] mt-1 border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-60"
+          />
+          <div className="text-[11px] text-[#9A9890] mt-0.5">
+            預設時段 09:00，SA 可至預約看板調整
+          </div>
+        </div>
+        {/* 備註（選填） */}
+        <div>
+          <label className="text-[11px] text-[#9A9890] font-medium">車主備註（選填）</label>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            disabled={isPending}
+            rows={3}
+            placeholder="特殊需求、提前準備事項..."
+            className="w-full mt-1 border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] disabled:opacity-60 resize-none"
+          />
+        </div>
+      </div>
+      <div className="flex gap-2 justify-end mt-4">
+        <button
+          onClick={onClose}
+          disabled={isPending}
+          className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
+        >
+          取消
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={isPending || !appointmentDate}
+          className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
+        >
+          {isPending ? "建立中⋯" : "確認閉環 + 建立預約"}
         </button>
       </div>
     </Modal>

@@ -116,13 +116,27 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
 
   // 包F：委託取車授權（metadata.entrustment）
   const entrustment =
-    ((data.metadata ?? {}) as { entrustment?: { is_entrusted?: boolean; agent_name?: string; relation?: string | null; id_note?: string | null } }).entrustment ?? null;
+    ((data.metadata ?? {}) as {
+      entrustment?: {
+        is_entrusted?: boolean;
+        agent_name?: string;
+        relation?: string | null;
+        id_note?: string | null;
+        auth_method?: "phone" | "line_screenshot" | "presystem" | null;
+        agent_sig_url?: string | null;
+      };
+    }).entrustment ?? null;
   const [entrustForm, setEntrustForm] = useState({
     is_entrusted: entrustment?.is_entrusted ?? false,
     agent_name: entrustment?.agent_name ?? "",
     relation: entrustment?.relation ?? "",
     id_note: entrustment?.id_note ?? "",
+    auth_method: entrustment?.auth_method ?? ("phone" as "phone" | "line_screenshot" | "presystem"),
   });
+  // 受託人電子簽名（委託取車用）
+  const [agentSigImg, setAgentSigImg] = useState<string | null>(
+    entrustment?.agent_sig_url ?? null,
+  );
   function saveEntrustment() {
     startTransition(async () => {
       const res = await setPickupEntrustmentAction(data.id, {
@@ -130,6 +144,8 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
         agent_name: entrustForm.agent_name,
         relation: entrustForm.relation,
         id_note: entrustForm.id_note,
+        auth_method: entrustForm.is_entrusted ? entrustForm.auth_method : null,
+        agent_sig_url: entrustForm.is_entrusted ? agentSigImg : null,
       });
       if (res.ok) {
         showBanner({
@@ -499,6 +515,9 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
           entrustForm={entrustForm}
           setEntrustForm={setEntrustForm}
           onSaveEntrustment={saveEntrustment}
+          agentSigImg={agentSigImg}
+          onAgentSign={(dataUrl) => setAgentSigImg(dataUrl)}
+          onAgentReSign={() => setAgentSigImg(null)}
           addonAuthSigImg={addonAuthSigImg}
           addonAuthSigAt={existingAddonAuthSig?.signed_at ?? null}
           onAddonAuthSign={saveAddonAuthSig}
@@ -557,6 +576,10 @@ export function RoCheckoutWizard({ data, canEdit }: Props) {
           closeoutPdfUrl={closeoutPdfUrl}
           pdfFetching={pdfFetching}
           onFetchPdfUrl={fetchPdfUrl}
+          nextServiceMileage={data.next_service_mileage ?? null}
+          nextServiceDate={data.next_service_date ?? null}
+          customerId={data.ro.customer_id ?? null}
+          repairOrderId={data.repair_order_id}
         />
       ) : null}
 
@@ -715,7 +738,15 @@ type EntrustForm = {
   agent_name: string;
   relation: string;
   id_note: string;
+  auth_method: "phone" | "line_screenshot" | "presystem";
 };
+
+/** 車主授權方式選項 */
+const AUTH_METHOD_OPTIONS: { value: "phone" | "line_screenshot" | "presystem"; label: string; desc: string }[] = [
+  { value: "phone", label: "現場電話向車主確認", desc: "SA 當面致電車主，口頭授權代取" },
+  { value: "line_screenshot", label: "LINE 截圖授權", desc: "車主傳 LINE 訊息授權，SA 留存截圖" },
+  { value: "presystem", label: "車主提前系統登記", desc: "車主已在系統登記指定代取人" },
+];
 
 function Step1({
   summary,
@@ -728,6 +759,9 @@ function Step1({
   entrustForm,
   setEntrustForm,
   onSaveEntrustment,
+  agentSigImg,
+  onAgentSign,
+  onAgentReSign,
   addonAuthSigImg,
   addonAuthSigAt,
   onAddonAuthSign,
@@ -745,6 +779,10 @@ function Step1({
   entrustForm: EntrustForm;
   setEntrustForm: (f: EntrustForm) => void;
   onSaveEntrustment: () => void;
+  // Step1B 委託取車：受託人電子簽名
+  agentSigImg: string | null;
+  onAgentSign: (dataUrl: string) => void;
+  onAgentReSign: () => void;
   // RP2 ④ 追加授權簽名
   addonAuthSigImg: string | null;
   addonAuthSigAt: string | null;
@@ -898,36 +936,103 @@ function Step1({
           <b>委託取車</b>：本次由<b>非車主本人</b>代為取車（需登記受託人）
         </label>
         {entrustForm.is_entrusted && (
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 bg-[#FDF3E3] border border-[#F0C97E] rounded p-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-[#854F0B]">受託人姓名 *</label>
-              <input
-                value={entrustForm.agent_name}
-                disabled={fenced || isPending}
-                onChange={(e) => setEntrustForm({ ...entrustForm, agent_name: e.target.value })}
-                placeholder="代取人姓名"
-                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
-              />
+          <div className="mt-2 bg-[#FDF3E3] border border-[#F0C97E] rounded p-3 space-y-3">
+            {/* 授權方式 radio — 三選一（現場電話/LINE截圖/系統預登記） */}
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-medium text-[#854F0B]">車主授權方式 *</div>
+              <div className="flex flex-col gap-1.5">
+                {AUTH_METHOD_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={`flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 transition ${
+                      entrustForm.auth_method === opt.value
+                        ? "bg-[#FEF9EC] border border-[#F0C97E]"
+                        : "hover:bg-[#FEF9EC]/50"
+                    } ${fenced || isPending ? "opacity-60 pointer-events-none" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="entrustment_auth_method"
+                      value={opt.value}
+                      checked={entrustForm.auth_method === opt.value}
+                      disabled={fenced || isPending}
+                      onChange={() => setEntrustForm({ ...entrustForm, auth_method: opt.value })}
+                      className="mt-0.5 accent-[#854F0B]"
+                    />
+                    <div>
+                      <span className="text-[12.5px] font-medium text-[#854F0B]">{opt.label}</span>
+                      <span className="text-[11px] text-[#9A9890] ml-1.5">{opt.desc}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-[#854F0B]">與車主關係</label>
-              <input
-                value={entrustForm.relation}
-                disabled={fenced || isPending}
-                onChange={(e) => setEntrustForm({ ...entrustForm, relation: e.target.value })}
-                placeholder="例：配偶 / 同事 / 車行"
-                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
-              />
+
+            {/* 受託人基本資料 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#854F0B]">受託人姓名 *</label>
+                <input
+                  value={entrustForm.agent_name}
+                  disabled={fenced || isPending}
+                  onChange={(e) => setEntrustForm({ ...entrustForm, agent_name: e.target.value })}
+                  placeholder="代取人姓名"
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#854F0B]">與車主關係</label>
+                <input
+                  value={entrustForm.relation}
+                  disabled={fenced || isPending}
+                  onChange={(e) => setEntrustForm({ ...entrustForm, relation: e.target.value })}
+                  placeholder="例：配偶 / 同事 / 車行"
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#854F0B]">證件 / 授權備註</label>
+                <input
+                  value={entrustForm.id_note}
+                  disabled={fenced || isPending}
+                  onChange={(e) => setEntrustForm({ ...entrustForm, id_note: e.target.value })}
+                  placeholder="例：已核對身分證 / 車主電話授權"
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
+                />
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] text-[#854F0B]">證件 / 授權備註</label>
-              <input
-                value={entrustForm.id_note}
-                disabled={fenced || isPending}
-                onChange={(e) => setEntrustForm({ ...entrustForm, id_note: e.target.value })}
-                placeholder="例：已核對身分證 / 車主電話授權"
-                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white"
-              />
+
+            {/* 受託人電子簽名欄（代替車主現場確認） */}
+            <div className="space-y-1.5">
+              <div className="text-[11px] font-medium text-[#854F0B]">受託人電子簽名（代取人親簽）</div>
+              {agentSigImg ? (
+                <div className="border border-[#F0C97E] rounded bg-white p-2 flex flex-col items-center gap-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={agentSigImg}
+                    alt="受託人簽名"
+                    className="w-full max-w-[360px] h-[90px] object-contain bg-white border border-[#F0C97E] rounded"
+                  />
+                  {!fenced && (
+                    <button
+                      type="button"
+                      onClick={onAgentReSign}
+                      disabled={isPending}
+                      className="text-[11px] text-[#185FA5] hover:underline disabled:opacity-50"
+                    >
+                      清除重簽
+                    </button>
+                  )}
+                </div>
+              ) : fenced ? (
+                <div className="border border-dashed border-[#D5D3CB] rounded p-2 text-center text-[12px] text-[#9A9890]">
+                  未簽受託人授權
+                </div>
+              ) : (
+                <div className={isPending ? "pointer-events-none opacity-60" : ""}>
+                  <SignatureCanvas onSigned={onAgentSign} />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1220,6 +1325,10 @@ function Step4({
   closeoutPdfUrl,
   pdfFetching,
   onFetchPdfUrl,
+  nextServiceMileage,
+  nextServiceDate,
+  customerId,
+  repairOrderId,
 }: {
   checkoutNo: string;
   status: RoCheckoutStatus;
@@ -1237,99 +1346,160 @@ function Step4({
   closeoutPdfUrl: string | null;
   pdfFetching: boolean;
   onFetchPdfUrl: () => void;
+  /** 包F：下次保養推算值（關單後由 customer_vehicles 讀取） */
+  nextServiceMileage: number | null;
+  nextServiceDate: string | null;
+  /** B19-01：投訴記錄入口用 */
+  customerId: string | null;
+  repairOrderId: string;
 }) {
   const isClosed = status === "completed";
   return (
-    <SectionCard title={isClosed ? "🎉 工單結案完成" : "🎯 RO 關單"}>
-      <div className="text-center py-4">
-        <div className="text-[40px]">{isClosed ? "🎉" : "🎯"}</div>
-        <div className={`text-[18px] font-bold mt-2 ${isClosed ? "text-[#0F6E56]" : "text-[#1A3A5C]"}`}>
-          {isClosed ? "工單結案完成！" : "準備關閉工單"}
-        </div>
-        <div className="font-mono text-[16px] font-bold text-[#1A3A5C] bg-[#EBF3FF] inline-block px-4 py-1.5 rounded mt-3">
-          {checkoutNo}
-        </div>
-        <div className="text-[12.5px] text-[#5A5955] leading-7 mt-3">
-          結帳金額：
-          <b className="text-[#1A3A5C] font-mono">{fmtMoney(payable)}</b>
-          {paymentMethod ? `（${PAYMENT_METHOD_LABEL[paymentMethod]}）` : ""}
-          <br />
-          發票：
-          {invoiceNo ? (
-            <>
-              <b className="font-mono">{invoiceNo}</b>
-              {invoiceKind ? `（${INVOICE_KIND_LABEL[invoiceKind]}）` : ""}
-            </>
-          ) : (
-            "—"
-          )}
-          {closedAt ? (
-            <>
-              <br />
-              結案時間：{fmtDateTime(closedAt)}
-            </>
-          ) : null}
-          {isClosed ? (
-            <>
-              <br />
-              <span className="text-[#0F6E56]">
-                電子發票已開立，RO 存檔 36 個月
-              </span>
-            </>
-          ) : null}
-        </div>
+    <div className="space-y-3">
+      <SectionCard title={isClosed ? "🎉 工單結案完成" : "🎯 RO 關單"}>
+        <div className="text-center py-4">
+          <div className="text-[40px]">{isClosed ? "🎉" : "🎯"}</div>
+          <div className={`text-[18px] font-bold mt-2 ${isClosed ? "text-[#0F6E56]" : "text-[#1A3A5C]"}`}>
+            {isClosed ? "工單結案完成！" : "準備關閉工單"}
+          </div>
+          <div className="font-mono text-[16px] font-bold text-[#1A3A5C] bg-[#EBF3FF] inline-block px-4 py-1.5 rounded mt-3">
+            {checkoutNo}
+          </div>
+          <div className="text-[12.5px] text-[#5A5955] leading-7 mt-3">
+            結帳金額：
+            <b className="text-[#1A3A5C] font-mono">{fmtMoney(payable)}</b>
+            {paymentMethod ? `（${PAYMENT_METHOD_LABEL[paymentMethod]}）` : ""}
+            <br />
+            發票：
+            {invoiceNo ? (
+              <>
+                <b className="font-mono">{invoiceNo}</b>
+                {invoiceKind ? `（${INVOICE_KIND_LABEL[invoiceKind]}）` : ""}
+              </>
+            ) : (
+              "—"
+            )}
+            {closedAt ? (
+              <>
+                <br />
+                結案時間：{fmtDateTime(closedAt)}
+              </>
+            ) : null}
+            {isClosed ? (
+              <>
+                <br />
+                <span className="text-[#0F6E56]">
+                  電子發票已開立，RO 存檔 36 個月
+                </span>
+              </>
+            ) : null}
+          </div>
 
-        <div className="flex justify-center gap-2 mt-4 flex-wrap">
-          {!isClosed ? (
-            <button
-              onClick={onComplete}
-              disabled={fenced || isPending || status !== "paid"}
-              className="h-[40px] px-5 rounded text-[13px] font-semibold bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-40"
-            >
-              {isPending ? "關單中⋯" : "確認關單，標記 RO 已結案"}
-            </button>
-          ) : (
-            <>
+          <div className="flex justify-center gap-2 mt-4 flex-wrap">
+            {!isClosed ? (
               <button
-                onClick={onPrint}
-                disabled={isPending}
-                className="h-[36px] px-4 rounded text-[12.5px] font-semibold bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+                onClick={onComplete}
+                disabled={fenced || isPending || status !== "paid"}
+                className="h-[40px] px-5 rounded text-[13px] font-semibold bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-40"
               >
-                {receiptPrintedAt ? `已列印 · ${fmtDateTime(receiptPrintedAt)}` : "列印收據"}
+                {isPending ? "關單中⋯" : "確認關單，標記 RO 已結案"}
               </button>
-              {/* RP4 Layer3：結帳憑證 PDF 下載（有 URL 就直接開、沒有就觸發取 URL） */}
-              {closeoutPdfUrl ? (
-                <a
-                  href={closeoutPdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="h-[36px] px-4 rounded text-[12.5px] inline-flex items-center gap-1.5 bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] hover:bg-[#d6edbd]"
-                  download
-                >
-                  <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
-                  下載結帳憑證 PDF
-                </a>
-              ) : (
+            ) : (
+              <>
                 <button
-                  onClick={onFetchPdfUrl}
-                  disabled={pdfFetching}
-                  className="h-[36px] px-4 rounded text-[12.5px] inline-flex items-center gap-1.5 bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
-                  title="取得結帳憑證 PDF 連結"
+                  onClick={onPrint}
+                  disabled={isPending}
+                  className="h-[36px] px-4 rounded text-[12.5px] font-semibold bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
-                  {pdfFetching ? "取得中⋯" : "結帳憑證 PDF"}
+                  {receiptPrintedAt ? `已列印 · ${fmtDateTime(receiptPrintedAt)}` : "列印收據"}
                 </button>
-              )}
-              <Link
-                href="/parts/aftersales/checkout"
-                className="h-[36px] px-4 rounded text-[12.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-              >
-                ← 返回列表
-              </Link>
-            </>
-          )}
+                {/* RP4 Layer3：結帳憑證 PDF 下載（有 URL 就直接開、沒有就觸發取 URL） */}
+                {closeoutPdfUrl ? (
+                  <a
+                    href={closeoutPdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-[36px] px-4 rounded text-[12.5px] inline-flex items-center gap-1.5 bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] hover:bg-[#d6edbd]"
+                    download
+                  >
+                    <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+                    下載結帳憑證 PDF
+                  </a>
+                ) : (
+                  <button
+                    onClick={onFetchPdfUrl}
+                    disabled={pdfFetching}
+                    className="h-[36px] px-4 rounded text-[12.5px] inline-flex items-center gap-1.5 bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                    title="取得結帳憑證 PDF 連結"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+                    {pdfFetching ? "取得中⋯" : "結帳憑證 PDF"}
+                  </button>
+                )}
+                <Link
+                  href="/parts/aftersales/checkout"
+                  className="h-[36px] px-4 rounded text-[12.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                >
+                  ← 返回列表
+                </Link>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </SectionCard>
+      </SectionCard>
+
+      {/* 下次保養提醒設定 UI（關單後顯示）— B19 Step4 規格 */}
+      {isClosed && (nextServiceMileage != null || nextServiceDate != null) && (
+        <SectionCard title="🔔 下次保養提醒">
+          <div className="bg-[#EAF3DE] border border-[#C5DC9F] rounded p-3 space-y-2.5">
+            <div className="text-[12.5px] font-semibold text-[#3B6D11]">
+              系統已自動推算下次回廠資訊（已寫入人車檔案）
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-[12.5px]">
+              {nextServiceMileage != null && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-[#5A5955] w-[100px] shrink-0">建議下次里程</span>
+                  <span className="font-mono font-semibold text-[#1A3A5C]">
+                    {nextServiceMileage.toLocaleString("en-US")} km
+                  </span>
+                </div>
+              )}
+              {nextServiceDate && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-[#5A5955] w-[100px] shrink-0">預估回廠日期</span>
+                  <span className="font-semibold text-[#1A3A5C]">{nextServiceDate}</span>
+                </div>
+              )}
+            </div>
+            <div className="text-[11.5px] text-[#5A5955]">
+              ✅ 已同步寫入人車檔案，CRM D+{150} 天回訪任務已建立
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* B19-01：取車後投訴記錄入口（關單後才顯示）*/}
+      {isClosed && (
+        <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3 flex items-center gap-3 flex-wrap">
+          <div className="flex-1 min-w-0">
+            <div className="text-[12.5px] font-semibold text-[#2C2C2A]">取車後問題回報</div>
+            <div className="text-[11.5px] text-[#9A9890]">
+              工單關閉後如發現問題或客戶提出投訴，可至人車檔案補記
+            </div>
+          </div>
+          <Link
+            href={
+              customerId
+                ? `/parts/aftersales/customers/${customerId}#complaints`
+                : `/parts/aftersales/customers?ro=${repairOrderId}`
+            }
+            className="h-[34px] px-4 rounded text-[12.5px] font-medium inline-flex items-center gap-1.5 bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] whitespace-nowrap"
+          >
+            <span className="material-symbols-outlined text-[14px]">report_problem</span>
+            新增取車後投訴記錄
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }

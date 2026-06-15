@@ -14,6 +14,7 @@ import {
   listOtherTechnicians,
   listItemOptionsForAddon,
   listWarehouseOptionsForAddon,
+  listMyTodayTimeSessions,
 } from "@/domain/tech-workstation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -56,6 +57,7 @@ export default async function TechWorkstationPage() {
     otherTechs,
     itemOptions,
     warehouseOptions,
+    todaySessions,
     canAccept,
     canExecute,
     canPropose,
@@ -66,6 +68,7 @@ export default async function TechWorkstationPage() {
     listOtherTechnicians(technician.id),
     listItemOptionsForAddon(),
     listWarehouseOptionsForAddon(),
+    listMyTodayTimeSessions(technician.id),
     hasPermission(PERMISSIONS.RO_ACCEPT),
     hasPermission(PERMISSIONS.RO_EXECUTE),
     hasPermission(PERMISSIONS.ADDON_PROPOSE),
@@ -80,6 +83,7 @@ export default async function TechWorkstationPage() {
       otherTechnicians={otherTechs}
       itemOptions={itemOptions}
       warehouseOptions={warehouseOptions}
+      todaySessions={todaySessions}
       // fallback（非本人）模式：全關寫入權限 → 看得到、改不了，避免誤動別人的單
       perms={{
         canAccept: isFallback ? false : canAccept,

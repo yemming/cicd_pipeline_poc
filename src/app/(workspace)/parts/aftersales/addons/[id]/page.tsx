@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getAddonById, listLinesFromAddon } from "@/domain/repair-order-addons";
+import { getAddonById, listLinesFromAddon, getAddonCostSummaryByRo } from "@/domain/repair-order-addons";
 
 import { AddonDetailView } from "./_components/addon-detail-view";
 
@@ -26,11 +26,13 @@ export default async function AddonDetailPage({
   const canEdit = await hasPermission(PERMISSIONS.RO_CREATE);
   const { id } = await params;
 
-  const [addon, lines] = await Promise.all([
-    getAddonById(id),
-    listLinesFromAddon(id),
-  ]);
+  const addon = await getAddonById(id);
   if (!addon) notFound();
 
-  return <AddonDetailView addon={addon} lines={lines} canEdit={canEdit} />;
+  const [lines, costSummary] = await Promise.all([
+    listLinesFromAddon(id),
+    getAddonCostSummaryByRo(addon.ro_id),
+  ]);
+
+  return <AddonDetailView addon={addon} lines={lines} canEdit={canEdit} costSummary={costSummary} />;
 }

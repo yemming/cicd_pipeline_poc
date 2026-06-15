@@ -75,6 +75,7 @@ type ModalMode =
   | { kind: "create" }
   | { kind: "edit"; tech: AftersalesTechnicianRow }
   | { kind: "dispatch"; tech: AftersalesTechnicianRow }
+  | { kind: "dispatchPanel" }
   | { kind: "reassign"; tech: AftersalesTechnicianRow }
   | { kind: "delete"; tech: AftersalesTechnicianRow };
 
@@ -155,6 +156,16 @@ export function DispatchDashboard({
         <span className="text-[12px] text-[#9A9890]">
           技師即時狀態、NADA 三指標、手動派工
         </span>
+        <div className="ml-auto">
+          {/* 匯出今日報表（Excel） */}
+          <button
+            className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            onClick={() => exportDispatchReport(technicians)}
+            title="匯出今日派工看板資料為 Excel"
+          >
+            ⬇ 匯出今日報表
+          </button>
+        </div>
       </header>
 
       {/* B-19：待派工通知橫幅 — 工單確認後（status=進行中、尚未派給技師）即時提醒主管 */}
@@ -389,6 +400,14 @@ export function DispatchDashboard({
           <span className="text-[11px] text-[#9A9890]">
             共 {kpis.total_active} 位在職技師
           </span>
+          {/* 全域手動派工面板入口（設計稿 KPI Bar 右側的「派工 →」按鈕） */}
+          <button
+            className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+            disabled={!canEdit || isPending}
+            onClick={() => setModal({ kind: "dispatchPanel" })}
+          >
+            派工 →
+          </button>
           <button
             className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
             disabled={!canEdit || isPending}
@@ -642,6 +661,22 @@ export function DispatchDashboard({
             startTransition(async () => {
               const res = await dispatchToTechnicianAction(modal.tech.id, input);
               handleResult(res, `已派工給 ${modal.tech.name}`);
+            });
+          }}
+        />
+      ) : null}
+
+      {modal.kind === "dispatchPanel" ? (
+        <DispatchPanelModal
+          pendingRos={pendingDispatchRos}
+          technicians={technicians}
+          isPending={isPending}
+          onCancel={() => setModal({ kind: "closed" })}
+          onSubmit={(techId, input) => {
+            startTransition(async () => {
+              const tech = technicians.find((t) => t.id === techId);
+              const res = await dispatchToTechnicianAction(techId, input);
+              handleResult(res, `已派工給 ${tech?.name ?? techId}`);
             });
           }}
         />
@@ -1081,7 +1116,7 @@ function TechFormModal({
             value={name}
             disabled={mode === "create"}
             onChange={(e) => setName(e.target.value)}
-            placeholder="陳建明"
+            placeholder="技師姓名"
           />
         </Field>
         <Field label="職級">
@@ -1360,4 +1395,223 @@ function Field({
       {children}
     </div>
   );
+}
+
+/* ──────────────── DispatchPanelModal（全域手動派工面板）──────────────── */
+
+/**
+ * DispatchPanelModal
+ *
+ * 設計稿：07_售後管理模組_v3.html → KPI Bar 右側「派工 →」按鈕 + confirmDispatch panel
+ * 兩步驟：① 從待派工 RO 清單選 RO　② 從閒置技師清單選技師　③ 確認派工
+ */
+function DispatchPanelModal({
+  pendingRos,
+  technicians,
+  isPending,
+  onCancel,
+  onSubmit,
+}: {
+  pendingRos: UrgentRoRow[];
+  technicians: AftersalesTechnicianRow[];
+  isPending: boolean;
+  onCancel: () => void;
+  onSubmit: (
+    techId: string,
+    input: { ro_code: string; item: string; bay_code?: string | null },
+  ) => void;
+}) {
+  const [selectedRo, setSelectedRo] = useState<UrgentRoRow | null>(null);
+  const [techId, setTechId] = useState("");
+  const [item, setItem] = useState("");
+  const [bayCode, setBayCode] = useState("");
+
+  // 當選了 RO 時，預帶 RO 編號給 item（可手動覆蓋）
+  function handleSelectRo(roId: string) {
+    const ro = pendingRos.find((r) => r.id === roId) ?? null;
+    setSelectedRo(ro);
+    if (!item && ro) setItem(`維修 ${ro.vehicle_model_name ?? ""}`);
+  }
+
+  // 可接派工的技師（待命或休息）
+  const idleTechs = technicians.filter(
+    (t) => t.is_active && (t.status === "idle" || t.status === "break"),
+  );
+
+  const canSubmit = selectedRo && techId && item.trim();
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-6"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-[560px] p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-[14px] font-semibold text-[#2C2C2A] mb-4">全域手動派工</h2>
+
+        <div className={`space-y-3 ${isPending ? lockedClass : ""}`}>
+          {/* ① 選 RO */}
+          <Field label="① 選擇工單（限待派工 RO）">
+            {pendingRos.length === 0 ? (
+              <div className="text-[12px] text-[#9A9890] py-2">
+                目前沒有待派工工單
+              </div>
+            ) : (
+              <select
+                className={inputClass}
+                value={selectedRo?.id ?? ""}
+                onChange={(e) => handleSelectRo(e.target.value)}
+              >
+                <option value="">— 請選工單 —</option>
+                {pendingRos.map((ro) => (
+                  <option key={ro.id} value={ro.id}>
+                    {ro.ro_code}
+                    {ro.customer_name ? ` · ${ro.customer_name}` : ""}
+                    {ro.vehicle_license_plate ? ` · ${ro.vehicle_license_plate}` : ""}
+                    {ro.vehicle_model_name ? ` · ${ro.vehicle_model_name}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+
+          {/* ② 選技師 */}
+          <Field label="② 選擇技師（限待命 / 休息）">
+            {idleTechs.length === 0 ? (
+              <div className="text-[12px] text-[#9A9890] py-2">
+                目前沒有可接派工的技師
+              </div>
+            ) : (
+              <select
+                className={inputClass}
+                value={techId}
+                onChange={(e) => setTechId(e.target.value)}
+              >
+                <option value="">— 請選技師 —</option>
+                {idleTechs.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.code} ｜ {t.name}（{TECH_STATUS_LABEL[t.status]}）
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+
+          {/* 施工項目 */}
+          <Field label="施工項目摘要 *">
+            <input
+              className={inputClass}
+              value={item}
+              onChange={(e) => setItem(e.target.value)}
+              placeholder="例：定期保養（機油+濾芯）"
+            />
+          </Field>
+
+          {/* 工位代碼（選填） */}
+          <Field label="工位代碼（選填）">
+            <input
+              className={inputClass}
+              value={bayCode}
+              onChange={(e) => setBayCode(e.target.value)}
+              placeholder="B1"
+            />
+          </Field>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            className="h-[30px] px-3 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            onClick={onCancel}
+            disabled={isPending}
+          >
+            取消
+          </button>
+          <button
+            className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+            disabled={!canSubmit || isPending}
+            onClick={() => {
+              if (!selectedRo || !techId) return;
+              onSubmit(techId, {
+                ro_code: selectedRo.ro_code,
+                item: item.trim(),
+                bay_code: bayCode.trim() || null,
+              });
+            }}
+          >
+            {isPending ? "派工中…" : "確認派工"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────── 匯出今日報表（Excel / CSV）──────────────── */
+
+/**
+ * exportDispatchReport — 匯出今日技師人效報表為 CSV
+ */
+function exportDispatchReport(
+  technicians: AftersalesTechnicianRow[],
+): void {
+  const today = new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
+  const dateTag = new Date()
+    .toLocaleDateString("zh-TW", {
+      timeZone: "Asia/Taipei",
+      year: "2-digit",
+      month: "2-digit",
+      day: "2-digit",
+    })
+    .replace(/\//g, "");
+
+  const headers = [
+    "技師代碼", "技師姓名", "職級", "狀態",
+    "工單(件)", "完成(件)", "銷售工時(h)", "實際工時(h)", "可用工時(h)",
+    "效率%", "生產力%", "利用率%",
+  ];
+
+  const csvRows = technicians.map((t) => {
+    const eff = computeEfficiency(t.sold_minutes, t.actual_minutes);
+    const prod = computeProductivity(t.sold_minutes, t.available_minutes);
+    const util = computeUtilization(t.actual_minutes, t.available_minutes);
+    return [
+      t.code,
+      t.name,
+      t.grade ?? "",
+      TECH_STATUS_LABEL[t.status] ?? t.status,
+      String(t.jobs_total),
+      String(t.jobs_done),
+      (t.sold_minutes / 60).toFixed(1),
+      (t.actual_minutes / 60).toFixed(1),
+      (t.available_minutes / 60).toFixed(1),
+      `${eff}%`,
+      `${prod}%`,
+      `${util}%`,
+    ];
+  });
+
+  const bom = "﻿";
+  const csvContent =
+    bom +
+    [
+      [`派工看板今日人效報表 ${today}`],
+      headers,
+      ...csvRows,
+    ]
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+          .join(","),
+      )
+      .join("\r\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `dispatch-report-${dateTag}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

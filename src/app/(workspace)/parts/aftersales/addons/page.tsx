@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { listAddons, listRoOptionsForAddons } from "@/domain/repair-order-addons";
+import { listAddons, listRoOptionsForAddons, getAddonCostSummaryByRo } from "@/domain/repair-order-addons";
 import type {
   AddonsListFilter,
   CustomerDecision,
@@ -60,9 +60,11 @@ export default async function AddonsPage({
     q: sp.q || null,
   };
 
-  const [{ rows, summary }, roOptions] = await Promise.all([
+  // 費用摘要只在選定工單時才撈（避免全廠模式下無意義的聚合）
+  const [{ rows, summary }, roOptions, costSummary] = await Promise.all([
     listAddons(filter),
     listRoOptionsForAddons(),
+    filter.roId ? getAddonCostSummaryByRo(filter.roId) : Promise.resolve(null),
   ]);
 
   return (
@@ -72,6 +74,7 @@ export default async function AddonsPage({
       filter={filter}
       canEdit={canEdit}
       roOptions={roOptions}
+      costSummary={costSummary}
     />
   );
 }

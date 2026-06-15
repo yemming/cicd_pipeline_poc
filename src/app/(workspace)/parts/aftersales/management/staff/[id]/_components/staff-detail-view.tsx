@@ -468,7 +468,7 @@ export function StaffDetailView({
                     setFormDraft({ ...formDraft, name: e.target.value })
                   }
                   className={inputCls}
-                  placeholder="例：陳建明"
+                  placeholder="例：技師姓名"
                 />
               ) : (
                 <strong>{staff?.name ?? "—"}</strong>

@@ -997,3 +997,42 @@ export async function recordContactAttemptAction(
   revalidatePath(`${PAGE_PATH}/${input.ro_id}`);
   return { ok: true, data: { id: input.ro_id } };
 }
+
+/**
+ * SA 手動備註 — 在工單事件時間軸底部追加 manual_note 事件。
+ *
+ * 設計：
+ *   - append-only：寫入 repair_order_events（action='manual_note'），不修改工單本體
+ *   - pending 時 UI 需 disabled + 文字換「記錄中⋯」（由 detail-view 自行處理）
+ *   - 不限工單狀態，SA 隨時可加備註
+ */
+export async function addRepairOrderManualNoteAction(
+  roId: string,
+  content: string,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!roId) return { ok: false, error: "缺少工單 ID" };
+  const trimmed = content.trim();
+  if (!trimmed) return { ok: false, error: "備註內容不可為空" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 確認 RO 存在且屬於當前 brand
+  const { data: ro } = await supabase
+    .from("repair_orders")
+    .select("id")
+    .eq("id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!ro) return { ok: false, error: "找不到工單" };
+
+  // append-only：寫 manual_note 事件到 repair_order_events 表
+  await appendRepairOrderEvent(roId, {
+    action: "manual_note",
+    payload: { content: trimmed },
+  });
+
+  revalidatePath(`${PAGE_PATH}/${roId}`);
+  return { ok: true, data: { id: roId } };
+}

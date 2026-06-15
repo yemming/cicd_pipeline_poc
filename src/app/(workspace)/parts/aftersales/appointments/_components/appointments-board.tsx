@@ -37,6 +37,8 @@ import {
 import {
   setAppointmentStatusAction,
   deleteAppointmentAction,
+  lookupVehicleForWalkInAction,
+  createWalkInAppointmentAction,
 } from "@/lib/aftersales/appointment-actions";
 import type {
   AppointmentListRow,
@@ -46,6 +48,14 @@ import type {
 
 type Banner = { ok: boolean; msg: string } | null;
 type ViewMode = "list" | "kanban" | "schedule";
+
+/** Walk-in 橫幅的互動狀態 */
+type WalkInState =
+  | { phase: "idle" }
+  | { phase: "searching" }
+  | { phase: "found"; vehicle_id: string; customer_id: string | null; vehicle_model_name: string | null; customer_name: string | null }
+  | { phase: "not_found" }
+  | { phase: "creating" };
 
 export type AppointmentsBoardPageHeader = {
   title: string;
@@ -81,6 +91,10 @@ export function AppointmentsBoard({
   const [draftFilters, setDraftFilters] = useState<AppointmentListFilters>(filters);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
 
+  // Walk-in 臨時插單狀態
+  const [walkInPlate, setWalkInPlate] = useState("");
+  const [walkInState, setWalkInState] = useState<WalkInState>({ phase: "idle" });
+
   // 樂觀更新 status — 拖曳 Kanban / 快速切狀態用
   const [optimisticRows, applyOptimistic] = useOptimistic(
     data.rows,
@@ -91,6 +105,57 @@ export function AppointmentsBoard({
   const showBanner = (b: Banner) => {
     setBanner(b);
     if (b?.ok) setTimeout(() => setBanner(null), 2200);
+  };
+
+  /** Walk-in：以車牌查詢，結果帶入後續操作 */
+  const handleWalkInLookup = () => {
+    const plate = walkInPlate.trim();
+    if (!plate) return;
+    setWalkInState({ phase: "searching" });
+    startTransition(async () => {
+      const res = await lookupVehicleForWalkInAction(plate);
+      if (!res.ok) {
+        showBanner({ ok: false, msg: res.error });
+        setWalkInState({ phase: "idle" });
+        return;
+      }
+      if (res.data.found && res.data.vehicle_id) {
+        setWalkInState({
+          phase: "found",
+          vehicle_id: res.data.vehicle_id,
+          customer_id: res.data.customer_id,
+          vehicle_model_name: res.data.vehicle_model_name,
+          customer_name: res.data.customer_name,
+        });
+      } else {
+        setWalkInState({ phase: "not_found" });
+      }
+    });
+  };
+
+  /** Walk-in：建立臨時進廠預約後導向預檢單新建頁 */
+  const handleWalkInCreate = (
+    vehicleId: string | null,
+    customerId: string | null,
+  ) => {
+    setWalkInState({ phase: "creating" });
+    startTransition(async () => {
+      const res = await createWalkInAppointmentAction({
+        plate: walkInPlate.trim(),
+        vehicle_id: vehicleId,
+        customer_id: customerId,
+        service_type: "OT",
+      });
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 臨時進廠已建立，跳轉到預檢單" });
+        router.push(
+          `/parts/aftersales/pre-inspections/new?appointment_id=${res.data.id}`,
+        );
+      } else {
+        showBanner({ ok: false, msg: res.error });
+        setWalkInState({ phase: "idle" });
+      }
+    });
   };
 
   const applyFilters = (next: AppointmentListFilters) => {
@@ -309,6 +374,113 @@ export function AppointmentsBoard({
         )}
         <span className="text-[12px] text-[#9A9890]">{sprintCaption}</span>
       </header>
+
+      {/* Walk-in 臨時插單橫幅（B1-01：設計稿 amber 插單入口） */}
+      {canEdit && (
+        <section className="bg-[#FDF3E3] border border-[#E8C97A] rounded-lg px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-[#854F0B] text-[18px]">directions_walk</span>
+            <span className="text-[13px] font-semibold text-[#854F0B]">Walk-in 臨時插單</span>
+            <span className="text-[11px] text-[#854F0B] opacity-80">— 輸入車牌立即查詢客戶/車輛，建立臨時進廠並啟動預檢</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="text"
+              placeholder="車牌號碼（如：ABC-1234）"
+              value={walkInPlate}
+              onChange={(e) => {
+                setWalkInPlate(e.target.value.toUpperCase());
+                // 重新輸入時清除查詢結果
+                if (walkInState.phase !== "idle") setWalkInState({ phase: "idle" });
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleWalkInLookup(); }}
+              disabled={isPending}
+              className="h-[30px] border border-[#E8C97A] rounded px-2 text-[12.5px] bg-white focus:border-[#854F0B] focus:outline-none w-[180px] disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={handleWalkInLookup}
+              disabled={isPending || !walkInPlate.trim() || walkInState.phase === "searching"}
+              className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
+            >
+              {walkInState.phase === "searching" ? "查詢中⋯" : "查詢車牌"}
+            </button>
+
+            {/* 查到車輛：顯示資料並提供「建立臨時進廠」按鈕 */}
+            {walkInState.phase === "found" && (() => {
+              const s = walkInState;
+              return (
+                <>
+                  <span className="text-[12px] text-[#2C2C2A]">
+                    找到：
+                    <b>{s.customer_name ?? "（未知車主）"}</b>
+                    {s.vehicle_model_name ? `・${s.vehicle_model_name}` : ""}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleWalkInCreate(s.vehicle_id, s.customer_id)}
+                    disabled={isPending}
+                    className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                  >
+                    {isPending ? "建立中⋯" : "建立臨時進廠"}
+                  </button>
+                </>
+              );
+            })()}
+
+            {/* 查無車輛：引導建立人車檔案 */}
+            {walkInState.phase === "not_found" && (
+              <>
+                <span className="text-[12px] text-[#CC0000]">查無車牌「{walkInPlate}」，請先建立人車檔案</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push(
+                      `/parts/aftersales/customers/new?plate=${encodeURIComponent(walkInPlate)}`,
+                    )
+                  }
+                  className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                >
+                  ＋ 建立人車檔案
+                </button>
+                {/* 仍可直接插單（不綁車輛） */}
+                <button
+                  type="button"
+                  onClick={() => handleWalkInCreate(null, null)}
+                  disabled={isPending}
+                  className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                >
+                  {isPending ? "建立中⋯" : "直接插單"}
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* 當日即時狀態 KPI 列（B1-02：設計稿「今日即時狀態分布」） */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {(
+          [
+            { label: "待到廠", value: data.todayStatusKpis.pending_arrival, color: "#6B6A68", bg: "#F2F2F2" },
+            { label: "維修中", value: data.todayStatusKpis.in_repair, color: "#185FA5", bg: "#EAF4FB" },
+            { label: "已完成", value: data.todayStatusKpis.completed, color: "#3B6D11", bg: "#EAF3DE" },
+            { label: "取車中", value: data.todayStatusKpis.pending_pickup, color: "#854F0B", bg: "#FDF3E3" },
+          ] as const
+        ).map(({ label, value, color, bg }) => (
+          <div
+            key={label}
+            className="rounded-lg border border-[#EEECE6] px-4 py-2.5 flex items-center gap-3"
+            style={{ background: bg }}
+          >
+            <span className="text-[22px] font-bold" style={{ color }}>{value}</span>
+            <div className="flex flex-col">
+              <span className="text-[11px] font-medium" style={{ color }}>{label}</span>
+              <span className="text-[10px] text-[#9A9890]">當日即時</span>
+            </div>
+          </div>
+        ))}
+      </section>
 
       {/* KPI Row — 4 顆標準 KpiCard with tone + delta */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -595,7 +767,7 @@ export function AppointmentsBoard({
           exportFileName="appointments"
           emptyMessage="當天沒有預約資料"
           disabled={isPending}
-          rowActionsWidth={canEdit ? 280 : 110}
+          rowActionsWidth={canEdit ? 340 : 150}
           rowActions={(r) => (
             <div className="flex gap-1.5">
               {canEdit && r.status === "待到廠" && (
@@ -607,6 +779,18 @@ export function AppointmentsBoard({
                   到廠
                 </button>
               )}
+              {/* 預檢按鈕：導向預檢單新建頁並帶入 appointment_id（設計稿 B1-03） */}
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(
+                    `/parts/aftersales/pre-inspections/new?appointment_id=${r.id}`,
+                  )
+                }
+                className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+              >
+                預檢
+              </button>
               <Link
                 href={`${basePath}/${r.id}`}
                 className="h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"

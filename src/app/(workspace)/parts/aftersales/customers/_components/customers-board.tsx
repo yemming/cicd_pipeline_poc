@@ -14,7 +14,7 @@ import {
   type AftersalesCustomerBaseKpi,
   type AftersalesServiceStatus,
 } from "@/domain/aftersales-customer-base.constants";
-import type { AftersalesCustomerBaseRow } from "@/domain/aftersales-customer-base";
+import type { AftersalesCustomerBaseRow, ModelRef } from "@/domain/aftersales-customer-base";
 
 const labelClass = "text-[11px] text-[#9A9890] font-medium";
 const inputClass =
@@ -58,11 +58,17 @@ export function CustomersBoard({
   totalCount,
   filters,
   kpi,
+  models,
+  canEdit,
 }: {
   rows: AftersalesCustomerBaseRow[];
   totalCount: number;
   filters: AftersalesCustomerBaseFilters;
   kpi: AftersalesCustomerBaseKpi;
+  /** 車型清單（車型篩選下拉用） */
+  models: ModelRef[];
+  /** 是否有新增客戶權限 */
+  canEdit: boolean;
 }) {
   useSetPageHeader({
     title: "人車檔案",
@@ -80,6 +86,7 @@ export function CustomersBoard({
   const [statusVal, setStatusVal] = useState(filters.service_status ?? "all");
   const [typeVal, setTypeVal] = useState(filters.type ?? "all");
   const [qVal, setQVal] = useState(filters.q ?? "");
+  const [modelVal, setModelVal] = useState(filters.model_id ?? "all");
 
   function applyFilters() {
     const params = new URLSearchParams(searchParams.toString());
@@ -90,6 +97,7 @@ export function CustomersBoard({
     set("service_status", statusVal);
     set("type", typeVal);
     set("q", qVal);
+    set("model_id", modelVal);
     startTransition(() => {
       router.push(`/parts/aftersales/customers?${params.toString()}`);
     });
@@ -99,6 +107,7 @@ export function CustomersBoard({
     setStatusVal("all");
     setTypeVal("all");
     setQVal("");
+    setModelVal("all");
     startTransition(() => {
       router.push("/parts/aftersales/customers");
     });
@@ -386,6 +395,24 @@ export function CustomersBoard({
               <option value="unknown">尚未進廠</option>
             </select>
           </div>
+          {/* 車型篩選（依主車輛 model_id） */}
+          {models.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>車型</label>
+              <select
+                className={inputClass}
+                value={modelVal}
+                onChange={(e) => setModelVal(e.target.value)}
+              >
+                <option value="all">全部車型</option>
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.display_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex gap-2 ml-auto">
             <button
               type="button"
@@ -403,6 +430,14 @@ export function CustomersBoard({
             >
               重置
             </button>
+            {canEdit && (
+              <Link
+                href="/admin/master-data/customers/new?ref=aftersales"
+                className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] inline-flex items-center disabled:opacity-50"
+              >
+                ＋ 新增客戶
+              </Link>
+            )}
           </div>
         </div>
       </section>

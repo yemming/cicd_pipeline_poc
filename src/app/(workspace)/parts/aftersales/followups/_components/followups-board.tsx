@@ -22,7 +22,6 @@ import {
   type SaAddonConversionRow,
 } from "@/domain/repair-order-addons.constants";
 
-type Banner = { ok: boolean; msg: string } | null;
 
 const statusLabel: Record<CaseStatus, string> = {
   tracking: "追蹤中",
@@ -100,7 +99,6 @@ export function FollowupsBoard({
 
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [banner, setBanner] = useState<Banner>(null);
   const [tab, setTab] = useState<"pending" | "timeline" | "stats">("pending");
 
   // B-24：拒絕原因圓餅圖資料（只取有件數的扇形）
@@ -125,11 +123,6 @@ export function FollowupsBoard({
   );
   const [saLocal, setSaLocal] = useState(filter.saName ?? "");
   const [qLocal, setQLocal] = useState(filter.q ?? "");
-
-  const showBanner = (b: Banner) => {
-    setBanner(b);
-    if (b?.ok) setTimeout(() => setBanner(null), 2200);
-  };
 
   const submitFilter = () => {
     const sp = new URLSearchParams();
@@ -299,6 +292,31 @@ export function FollowupsBoard({
           客戶暫緩 / 拒絕的增項追蹤閉環，支援安全等級主管介入與長期追蹤
         </span>
       </header>
+
+      {/* 跨模組串接橫幅：快速跳轉相關作業頁面 */}
+      <div className="bg-[#EAF4FB] border border-[#C8DFFB] rounded-lg px-4 py-2.5 flex items-center gap-3 flex-wrap">
+        <span className="text-[12px] font-semibold text-[#185FA5] shrink-0">跨模組快捷</span>
+        <div className="flex gap-2 flex-wrap">
+          <Link
+            href="/parts/issue/repair-pick"
+            className="h-[26px] px-3 rounded text-[11.5px] inline-flex items-center gap-1 bg-white border border-[#C8DFFB] text-[#185FA5] hover:border-[#185FA5] font-medium"
+          >
+            → 維修領料出庫
+          </Link>
+          <Link
+            href="/parts/inventory"
+            className="h-[26px] px-3 rounded text-[11.5px] inline-flex items-center gap-1 bg-white border border-[#C8DFFB] text-[#185FA5] hover:border-[#185FA5] font-medium"
+          >
+            → 庫存查詢
+          </Link>
+          <Link
+            href="/parts/alerts/work-order-loop"
+            className="h-[26px] px-3 rounded text-[11.5px] inline-flex items-center gap-1 bg-white border border-[#C8DFFB] text-[#185FA5] hover:border-[#185FA5] font-medium"
+          >
+            → 缺料告警
+          </Link>
+        </div>
+      </div>
 
       {/* 安全等級警示橫幅 */}
       {summary.pendingSafety > 0 && (
@@ -685,19 +703,6 @@ export function FollowupsBoard({
               </div>
             </section>
           </div>
-        </div>
-      )}
-
-      {/* Banner */}
-      {banner && (
-        <div
-          className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
-            banner.ok
-              ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
-              : "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
-          }`}
-        >
-          {banner.msg}
         </div>
       )}
 

@@ -12,6 +12,8 @@ export type AftersalesCustomerBaseFilters = {
   type: string;
   /** code / name / phone / tax_id / license_plate */
   q: string;
+  /** 車型篩選：all | <model_id>（依主車輛 model_id） */
+  model_id?: string;
 };
 
 /**

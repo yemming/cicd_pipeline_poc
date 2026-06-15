@@ -11,6 +11,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { getBrandConfig } from "@/domain/brand-config";
 
 import {
   PREFIX_P1_DEFS,
@@ -106,6 +107,10 @@ export type RoDraft = {
   preview_items: { label: string; lu: number; amount: number }[];
   /** 同車近 30 天的歷史工單（返工偵測用）—— confirm-view 依當前 P1 過濾出同類 */
   recent_repairs: RecentRepairRow[];
+  /** 預檢損傷摘要（由 pre_inspections 撈出，confirm 頁頂部藍色橫幅顯示）；null 代表無預檢或無損傷 */
+  inspection_damage_summary: string[] | null;
+  /** 同車已有進行中工單的工單號（前端提示橫幅用）；null 代表無衝突 */
+  concurrent_ro_code: string | null;
 };
 
 /** 返工偵測：同 vehicle_id 近 N 天的工單摘要 */
@@ -396,6 +401,46 @@ export async function getRoDraftFromAppointment(
     ? await detectRecentRepairs(vehRaw.id, 30)
     : [];
 
+  // 同車多工單偵測：查同車是否已有進行中工單（B3-01 前端預警）
+  let concurrentRoCode: string | null = null;
+  if (vehRaw?.id) {
+    const OPEN_RO_STATUSES = ["進行中", "維修中", "待結帳"];
+    const { data: openRo } = await supabase
+      .from("repair_orders")
+      .select("ro_code")
+      .eq("brand_id", brand)
+      .eq("vehicle_id", vehRaw.id)
+      .in("status", OPEN_RO_STATUSES)
+      .limit(1)
+      .maybeSingle();
+    concurrentRoCode = (openRo as { ro_code: string } | null)?.ro_code ?? null;
+  }
+
+  // 預檢損傷摘要：從 pre_inspections.metadata.damage_items 或 checks（state===2）撈
+  let inspectionDamageSummary: string[] | null = null;
+  if (piRow) {
+    const piMeta = (piRow?.metadata ?? {}) as Record<string, unknown>;
+    // 嘗試從 damage_items（明確損傷列表）取
+    const dmgItems = piMeta.damage_items as Array<{ label?: string; note?: string }> | null;
+    if (Array.isArray(dmgItems) && dmgItems.length > 0) {
+      inspectionDamageSummary = dmgItems
+        .filter((d) => d.label || d.note)
+        .map((d) => [d.label, d.note].filter(Boolean).join("："));
+    }
+    // fallback：從 checks（state 2 = 需注意）取
+    if (!inspectionDamageSummary || inspectionDamageSummary.length === 0) {
+      const checks = piMeta.checks as Array<{ label?: string; state?: number }> | null;
+      if (Array.isArray(checks)) {
+        const damaged = checks.filter((c) => c.state === 2 && c.label);
+        if (damaged.length > 0) {
+          inspectionDamageSummary = damaged.map((c) => c.label!);
+        }
+      }
+    }
+    // 有預檢單但無損傷記錄 → 仍回空陣列以觸發「已附環檢單」提示
+    if (!inspectionDamageSummary) inspectionDamageSummary = [];
+  }
+
   return {
     source: piRow ? "pre_inspection" : "appointment",
     source_id: appointmentId,
@@ -425,6 +470,8 @@ export async function getRoDraftFromAppointment(
     estimated_labor_units: lu,
     preview_items: previewItems,
     recent_repairs: recentRepairs,
+    inspection_damage_summary: inspectionDamageSummary,
+    concurrent_ro_code: concurrentRoCode,
   };
 }
 
@@ -966,10 +1013,9 @@ export async function getRepairOrderForPrint(
         ? (meta.memo as string)
         : null;
 
-  const brandDisplayName: Record<string, string> = {
-    ducati: "Ducati Taiwan",
-    indian: "Indian Motorcycle Taiwan",
-  };
+  // 品牌顯示名稱：從 brand_config 讀取（避免寫死，品牌改名不用改 code）
+  const brandConfig = await getBrandConfig(brand);
+  const brandDisplayName = brandConfig.brandName ?? brand;
 
   const [subsRes, custRes, vehRes, saRes, techRes, linesRes, storeRes] = await Promise.all([
     scope.subsidiary_id
@@ -1116,7 +1162,7 @@ export async function getRepairOrderForPrint(
     },
     brand: {
       key: brand,
-      displayName: brandDisplayName[brand] ?? brand,
+      displayName: brandDisplayName,
     },
     customer: {
       name: cust?.name ?? null,
@@ -1192,7 +1238,8 @@ export type RoEventAction =
   | "contact_attempt"        // 聯繫嘗試記錄（B5-02）
   | "approval_requested"     // RP5：主管授權申請送出（discount / warranty 情境）
   | "approval_approved"      // RP5：主管核准
-  | "approval_rejected";     // RP5：主管拒絕
+  | "approval_rejected"      // RP5：主管拒絕
+  | "manual_note";           // SA 手動備註（addRepairOrderManualNoteAction）
 
 export type RoEvent = {
   /** 事件種類 */

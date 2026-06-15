@@ -50,6 +50,8 @@ export default async function CustomerDetailPage({
       models={bundle.models}
       lifetime={bundle.lifetime}
       npsSummary={bundle.npsSummary}
+      pendingItems={bundle.pendingItems}
+      complaints={bundle.complaints}
       canEdit={canEdit}
       canEditAppointment={canEditAppointment}
       hasDesmo={brandConfig.hasDesmo}

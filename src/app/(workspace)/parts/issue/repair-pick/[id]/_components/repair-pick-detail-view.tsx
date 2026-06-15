@@ -325,6 +325,7 @@ export function RepairPickDetailView({
         setEditLineNotes={setEditLineNotes}
         totalQty={totalQty}
         totalAmount={totalAmount}
+        roId={issue.ro_id ?? null}
       />
 
       {/* Banner */}
@@ -403,6 +404,7 @@ function Tabs({
   setEditLineNotes,
   totalQty,
   totalAmount,
+  roId,
 }: {
   lines: StockIssueDetailLine[];
   mode: Mode;
@@ -410,8 +412,10 @@ function Tabs({
   setEditLineNotes: (next: Record<string, string>) => void;
   totalQty: number;
   totalAmount: number;
+  roId: string | null;
 }) {
   const [tab, setTab] = useState<"lines" | "audit">("lines");
+  const warrantyCount = lines.filter((l) => l.is_warranty).length;
 
   return (
     <>
@@ -420,13 +424,18 @@ function Tabs({
           <button
             type="button"
             onClick={() => setTab("lines")}
-            className={`px-4 h-[40px] text-[12.5px] whitespace-nowrap border-r border-[#EEECE6] ${
+            className={`px-4 h-[40px] text-[12.5px] whitespace-nowrap border-r border-[#EEECE6] inline-flex items-center gap-1.5 ${
               tab === "lines"
                 ? "bg-white text-[#1A3A5C] font-semibold border-b-2 border-b-[#1A3A5C] -mb-px"
                 : "text-[#5A5955] hover:bg-[#F8F7F4]"
             }`}
           >
             出庫明細（{lines.length}）
+            {warrantyCount > 0 && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-[#EAF4FB] text-[#185FA5]">
+                {warrantyCount} 保固
+              </span>
+            )}
           </button>
           <button
             type="button"
@@ -450,6 +459,7 @@ function Tabs({
             setEditLineNotes={setEditLineNotes}
             totalQty={totalQty}
             totalAmount={totalAmount}
+            roId={roId}
           />
         ) : (
           <div className="text-[12px] text-[#9A9890] py-8 text-center">
@@ -468,6 +478,7 @@ function LinesTable({
   setEditLineNotes,
   totalQty,
   totalAmount,
+  roId,
 }: {
   lines: StockIssueDetailLine[];
   mode: Mode;
@@ -475,74 +486,126 @@ function LinesTable({
   setEditLineNotes: (next: Record<string, string>) => void;
   totalQty: number;
   totalAmount: number;
+  roId: string | null;
 }) {
   if (lines.length === 0) {
     return <div className="text-[12px] text-[#9A9890] py-8 text-center">無明細</div>;
   }
 
+  const warrantyLines = lines.filter((l) => l.is_warranty);
+  const hasWarranty = warrantyLines.length > 0;
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-[12px] border-collapse">
-        <thead>
-          <tr className="border-b border-[#EEECE6] bg-[#F8F7F4]">
-            <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[50px]">行號</th>
-            <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[120px]">品項代碼</th>
-            <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium">品項名稱</th>
-            <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[100px]">倉位</th>
-            <th className="text-right px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[80px]">出庫數</th>
-            <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[60px]">單位</th>
-            <th className="text-right px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[100px]">單價</th>
-            <th className="text-right px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[120px]">金額</th>
-            <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium">備註</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((l) => (
-            <tr key={l.id} className="border-b border-[#EEECE6] hover:bg-[#F8F7F4]/60">
-              <td className="px-2 py-2 font-mono text-[#9A9890]">{l.line_no}</td>
-              <td className="px-2 py-2 font-mono font-semibold text-[#1A3A5C]">{l.item_code ?? "—"}</td>
-              <td className="px-2 py-2">{l.item_name ?? "—"}</td>
-              <td className="px-2 py-2 font-mono text-[#5A5955]">{l.bin_label ?? "—"}</td>
-              <td className="px-2 py-2 text-right font-mono">{l.qty_issued}</td>
-              <td className="px-2 py-2 text-[#5A5955]">{l.uom}</td>
-              <td className="px-2 py-2 text-right font-mono">
-                {l.unit_cost === null ? "—" : Number(l.unit_cost).toLocaleString("en-US")}
-              </td>
-              <td className="px-2 py-2 text-right font-mono">
-                {l.line_amount === null ? "—" : Number(l.line_amount).toLocaleString("en-US")}
-              </td>
-              <td className="px-2 py-2">
-                {mode === "edit" ? (
-                  <input
-                    type="text"
-                    value={editLineNotes[l.id] ?? ""}
-                    onChange={(e) =>
-                      setEditLineNotes({ ...editLineNotes, [l.id]: e.target.value })
-                    }
-                    className="w-full h-[26px] border border-[#D5D3CB] rounded px-2 text-[11.5px] focus:border-[#185FA5] outline-none"
-                    placeholder="—"
-                  />
-                ) : (
-                  <span className="text-[#5A5955]">{l.notes ?? "—"}</span>
-                )}
-              </td>
+    <div className="space-y-3">
+      {/* 保固件寄存提示 */}
+      {hasWarranty && (
+        <div className="bg-[#EAF4FB] border border-[#85B7EB] rounded-lg px-4 py-2.5 flex items-start gap-3">
+          <span className="material-symbols-outlined text-[18px] text-[#185FA5] shrink-0 mt-0.5">
+            verified_user
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12.5px] font-semibold text-[#185FA5]">
+              {warrantyLines.length} 件保固料件已出庫 — 舊件請寄存保固區
+            </p>
+            <p className="text-[11.5px] text-[#0C3E70] mt-0.5 leading-relaxed">
+              保固件換下的舊件須放回指定保固倉位（不可混入一般報廢），等候品牌商核銷或退貨；
+              更換紀錄請到售後保固索賠登錄。
+            </p>
+            <div className="mt-1.5">
+              {roId ? (
+                <Link
+                  href={`/service/warranty/claims/new?ro=${roId}`}
+                  className="inline-flex items-center gap-1 text-[11.5px] font-medium text-[#185FA5] hover:underline"
+                >
+                  前往保固索賠登錄 →
+                </Link>
+              ) : (
+                <span className="text-[11.5px] text-[#5A5955]">
+                  （此領料單無綁定 RO 工單，請手動前往保固索賠頁）
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12px] border-collapse">
+          <thead>
+            <tr className="border-b border-[#EEECE6] bg-[#F8F7F4]">
+              <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[50px]">行號</th>
+              <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[120px]">品項代碼</th>
+              <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium">品項名稱</th>
+              <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[100px]">倉位</th>
+              <th className="text-right px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[80px]">出庫數</th>
+              <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[60px]">單位</th>
+              <th className="text-right px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[100px]">單價</th>
+              <th className="text-right px-2 py-2 text-[11px] text-[#9A9890] font-medium w-[120px]">金額</th>
+              <th className="text-left px-2 py-2 text-[11px] text-[#9A9890] font-medium">備註</th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t-2 border-[#1A3A5C] bg-[#F8F7F4]">
-            <td colSpan={4} className="px-2 py-2 text-[11px] text-[#9A9890]">合計</td>
-            <td className="px-2 py-2 text-right font-mono font-semibold text-[#2C2C2A]">
-              {totalQty}
-            </td>
-            <td colSpan={2}></td>
-            <td className="px-2 py-2 text-right font-mono font-semibold text-[#2C2C2A]">
-              NT$ {totalAmount.toLocaleString("en-US")}
-            </td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
+          </thead>
+          <tbody>
+            {lines.map((l) => (
+              <tr
+                key={l.id}
+                className={`border-b border-[#EEECE6] hover:bg-[#F8F7F4]/60 ${
+                  l.is_warranty ? "bg-[#EAF4FB]/20" : ""
+                }`}
+              >
+                <td className="px-2 py-2 font-mono text-[#9A9890]">{l.line_no}</td>
+                <td className="px-2 py-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-semibold text-[#1A3A5C]">{l.item_code ?? "—"}</span>
+                    {l.is_warranty && (
+                      <span className="inline-flex items-center px-1 py-0.5 rounded text-[10px] bg-[#EAF4FB] text-[#185FA5] whitespace-nowrap border border-[#85B7EB]">
+                        保固件
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-2 py-2">{l.item_name ?? "—"}</td>
+                <td className="px-2 py-2 font-mono text-[#5A5955]">{l.bin_label ?? "—"}</td>
+                <td className="px-2 py-2 text-right font-mono">{l.qty_issued}</td>
+                <td className="px-2 py-2 text-[#5A5955]">{l.uom}</td>
+                <td className="px-2 py-2 text-right font-mono">
+                  {l.unit_cost === null ? "—" : Number(l.unit_cost).toLocaleString("en-US")}
+                </td>
+                <td className="px-2 py-2 text-right font-mono">
+                  {l.line_amount === null ? "—" : Number(l.line_amount).toLocaleString("en-US")}
+                </td>
+                <td className="px-2 py-2">
+                  {mode === "edit" ? (
+                    <input
+                      type="text"
+                      value={editLineNotes[l.id] ?? ""}
+                      onChange={(e) =>
+                        setEditLineNotes({ ...editLineNotes, [l.id]: e.target.value })
+                      }
+                      className="w-full h-[26px] border border-[#D5D3CB] rounded px-2 text-[11.5px] focus:border-[#185FA5] outline-none"
+                      placeholder="—"
+                    />
+                  ) : (
+                    <span className="text-[#5A5955]">{l.notes ?? "—"}</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-[#1A3A5C] bg-[#F8F7F4]">
+              <td colSpan={4} className="px-2 py-2 text-[11px] text-[#9A9890]">合計</td>
+              <td className="px-2 py-2 text-right font-mono font-semibold text-[#2C2C2A]">
+                {totalQty}
+              </td>
+              <td colSpan={2}></td>
+              <td className="px-2 py-2 text-right font-mono font-semibold text-[#2C2C2A]">
+                NT$ {totalAmount.toLocaleString("en-US")}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }

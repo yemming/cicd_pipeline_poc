@@ -9,6 +9,7 @@ import { EntityImageGallery } from "@/components/image-upload/entity-image-galle
 import {
   DEFAULT_CLEANING_ITEMS,
   DEFAULT_TEST_DRIVE_ITEMS,
+  SERVICE_CATEGORY_COLOR,
   STATUS_CHIP,
   STATUS_LABEL,
   STEP_LABELS,
@@ -18,6 +19,7 @@ import {
   type CleaningItem,
   type LineResult,
   type NotifyMethod,
+  type ServiceCategory,
   type TestDriveItem,
 } from "@/domain/final-inspections.constants";
 import { NOTIFY_METHOD_LABEL } from "@/domain/final-inspections.constants";
@@ -37,6 +39,9 @@ import {
 type Banner = { ok: boolean; msg: string } | null;
 
 type TechnicianOption = { id: string; name: string; code: string };
+
+/** Step4 可授權複檢的職級清單 */
+const AUTHORIZED_INSPECTOR_ROLES = ["資深技師", "售後主管", "技師長"] as const;
 
 type Props = {
   data: FinalInspectionListRow;
@@ -72,6 +77,8 @@ export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props
   // step1
   const [lineResults, setLineResults] = useState<LineResult[]>(data.line_results);
   const [issueNote, setIssueNote] = useState<string>(data.issue_note ?? "");
+  /** 退回重工原因（必填，退回前必須填寫，獨立欄位，移除 prompt() fallback） */
+  const [reworkReason, setReworkReason] = useState<string>("");
 
   // step2
   const initTestDriveItems: TestDriveItem[] =
@@ -122,6 +129,11 @@ export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props
   const isCompleted = data.status === "completed";
   const isRejected = data.status === "rejected";
   const readonly = !canEdit || isCompleted;
+  /** 退回重修次數（來自 RO metadata.rework_count） */
+  const qcAttemptCount = data.qc_attempt_count ?? 0;
+  /** Step4 職級授權檢查：inspector_role 不在授權清單時阻擋簽名 */
+  const isRoleAuthorized =
+    !signRole || (AUTHORIZED_INSPECTOR_ROLES as readonly string[]).includes(signRole);
 
   function showBanner(b: NonNullable<Banner>) {
     setBanner(b);
@@ -193,6 +205,11 @@ export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props
       showBanner({ ok: false, msg: "尚有維修項目未通過複檢，無法簽核" });
       return;
     }
+    // 前端授權不足阻擋（後端 signAction 亦需同步驗，目前 signAction 僅驗 M-09）
+    if (!isRoleAuthorized) {
+      showBanner({ ok: false, msg: `職級「${signRole}」不具備複檢簽核授權，請聯絡資深技師 / 售後主管 / 技師長` });
+      return;
+    }
     startTransition(async () => {
       const res = await signAction(data.id, {
         signature_text: signName.trim(),
@@ -225,11 +242,17 @@ export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props
   }
 
   function reject() {
-    const reason = issueNote.trim() || prompt("退回原因（選填）") || undefined;
+    // 退回重工原因為必填（設計稿：退回原因必填才能送出）
+    const reason = reworkReason.trim() || issueNote.trim();
+    if (!reason) {
+      showBanner({ ok: false, msg: "請填寫退回重工原因（必填）" });
+      return;
+    }
     startTransition(async () => {
-      const res = await rejectAction(data.id, reason ?? undefined);
+      const res = await rejectAction(data.id, reason);
       if (res.ok) {
         showBanner({ ok: true, msg: "已退回技師重修，工單狀態 → 維修中" });
+        setReworkReason(""); // 送出後清空退回原因欄
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -268,6 +291,13 @@ export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props
   }
 
   function complete() {
+    // 若尚未發送任何取車通知，以 confirm 提示確認（設計稿：completeRO 前驗證 notifySent）
+    if (data.notifications.length === 0) {
+      const confirmed = window.confirm(
+        "尚未發送任何取車通知，確定要關閉 RO？\n\n建議先在 Step 5 通知車主後再完成交車。",
+      );
+      if (!confirmed) return;
+    }
     startTransition(async () => {
       const res = await completeAction(data.id);
       if (res.ok) {
@@ -383,6 +413,14 @@ export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props
               <span className="text-[10px] opacity-70">通知次數</span>
               <span className="text-[14px] font-bold">{data.notifications.length}</span>
             </div>
+            {data.estimated_total != null ? (
+              <div className="flex flex-col items-center min-w-[90px]">
+                <span className="text-[10px] opacity-70">預估費用</span>
+                <span className="text-[13px] font-bold text-[#7FFFD4]">
+                  NT${data.estimated_total.toLocaleString()}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       </header>
@@ -432,7 +470,10 @@ export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props
           setLineState={setLineState}
           issueNote={issueNote}
           setIssueNote={setIssueNote}
+          reworkReason={reworkReason}
+          setReworkReason={setReworkReason}
           onSave={saveStep1}
+          onReject={reject}
           isPending={isPending}
           readonly={readonly}
         />
@@ -494,6 +535,9 @@ export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props
           inspectorId={inspectorId}
           setInspectorId={setInspectorId}
           leadTechnicianId={data.lead_technician_id}
+          // 複檢次數 badge + 授權不足阻擋
+          qcAttemptCount={qcAttemptCount}
+          isRoleAuthorized={isRoleAuthorized}
         />
       ) : null}
 
@@ -518,6 +562,9 @@ export function FinalInspectionWizard({ data, canEdit, technicians = [] }: Props
           onComplete={complete}
           isPending={isPending}
           readonly={readonly}
+          // 通知預覽補費用 + 維修摘要
+          estimatedTotal={data.estimated_total}
+          lineResultsSummary={lineResults.slice(0, 3).map((l) => l.label).join("、")}
         />
       ) : null}
 
@@ -675,7 +722,10 @@ function Step1({
   setLineState,
   issueNote,
   setIssueNote,
+  reworkReason,
+  setReworkReason,
   onSave,
+  onReject,
   isPending,
   readonly,
 }: {
@@ -683,61 +733,152 @@ function Step1({
   setLineState: (i: number, s: CheckState) => void;
   issueNote: string;
   setIssueNote: (v: string) => void;
+  reworkReason: string;
+  setReworkReason: (v: string) => void;
   onSave: () => void;
+  onReject: () => void;
   isPending: boolean;
   readonly: boolean;
 }) {
-  const labors = lineResults
-    .map((r, i) => ({ r, i }))
-    .filter(({ r }) => r.kind !== "part");
-  const parts = lineResults.map((r, i) => ({ r, i })).filter(({ r }) => r.kind === "part");
   const anyFail = lineResults.some((l) => l.state === "fail");
 
-  return (
-    <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
-      <SectionCard title="工資項目逐項複檢">
-        {labors.length === 0 ? (
-          <p className="text-[12px] text-[#9A9890]">此工單無工資項目</p>
-        ) : (
-          labors.map(({ r, i }) => (
-            <CheckRow
-              key={r.line_id}
-              label={`#${r.line_no}　${r.label}`}
-              remark={r.remark}
-              state={r.state}
-              onChange={(s) => setLineState(i, s)}
-              readonly={readonly}
-            />
-          ))
-        )}
-      </SectionCard>
-      <SectionCard title="零件項目逐項複檢">
-        {parts.length === 0 ? (
-          <p className="text-[12px] text-[#9A9890]">此工單無零件項目</p>
-        ) : (
-          parts.map(({ r, i }) => (
-            <CheckRow
-              key={r.line_id}
-              label={`#${r.line_no}　${r.label}`}
-              remark={r.remark}
-              state={r.state}
-              onChange={(s) => setLineState(i, s)}
-              readonly={readonly}
-            />
-          ))
-        )}
-      </SectionCard>
+  // 依系統類別分組（service_category 存在時以類別分組，否則 fallback 到 labor/part 兩欄）
+  const hasCategoryData = lineResults.some((l) => l.service_category);
 
-      <div className="md:col-span-2">
-        <SectionCard title={anyFail ? "⚠️ 複檢發現問題　退回原因 / 處置備註" : "備註 / 異常記錄（選填）"}>
-          <textarea
-            value={issueNote}
-            onChange={(e) => setIssueNote(e.target.value)}
-            disabled={readonly}
-            placeholder="描述複檢發現的問題，作為退回技師重修時的根據..."
-            className="w-full min-h-[80px] border border-[#D5D3CB] rounded p-2 text-[12.5px] focus:border-[#185FA5] disabled:bg-[#F8F7F4]"
-          />
+  // 收集全部出現過的類別（保持設計稿順序）
+  const CATEGORY_ORDER: ServiceCategory[] = ["引擎系統", "煞車系統", "電氣系統", "一般保養", "其他"];
+  const categoryGroups: Map<ServiceCategory | "_labor" | "_part", { r: LineResult; i: number }[]> = new Map();
+
+  if (hasCategoryData) {
+    // 依 service_category 分組
+    lineResults.forEach((r, i) => {
+      const cat: ServiceCategory = r.service_category ?? "其他";
+      if (!categoryGroups.has(cat)) categoryGroups.set(cat, []);
+      categoryGroups.get(cat)!.push({ r, i });
+    });
+  } else {
+    // fallback：labor / part 兩群
+    lineResults.forEach((r, i) => {
+      const key = r.kind === "part" ? "_part" : "_labor";
+      if (!categoryGroups.has(key)) categoryGroups.set(key, []);
+      categoryGroups.get(key)!.push({ r, i });
+    });
+  }
+
+  return (
+    <div className={`space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
+      {/* 系統類別分組或 labor/part 兩欄 */}
+      {hasCategoryData ? (
+        // 依系統類別逐區顯示，帶色彩 section header
+        <div className="space-y-3">
+          {CATEGORY_ORDER.filter((cat) => categoryGroups.has(cat)).map((cat) => {
+            const color = SERVICE_CATEGORY_COLOR[cat];
+            const items = categoryGroups.get(cat) ?? [];
+            return (
+              <section key={cat} className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                <header className={`px-4 py-2 border-b border-[#EEECE6] flex items-center gap-2 ${color.header}`}>
+                  <span className="text-[13px] font-semibold">{cat}</span>
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] border ${color.badge}`}>
+                    {items.length} 項
+                  </span>
+                </header>
+                <div className="px-4 py-3 space-y-2">
+                  {items.map(({ r, i }) => (
+                    <CheckRow
+                      key={r.line_id}
+                      label={`#${r.line_no}　${r.label}`}
+                      remark={r.remark}
+                      state={r.state}
+                      onChange={(s) => setLineState(i, s)}
+                      readonly={readonly}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        // fallback：labor / part 兩欄並列
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <SectionCard title="工資項目逐項複檢">
+            {(categoryGroups.get("_labor") ?? []).length === 0 ? (
+              <p className="text-[12px] text-[#9A9890]">此工單無工資項目</p>
+            ) : (
+              (categoryGroups.get("_labor") ?? []).map(({ r, i }) => (
+                <CheckRow
+                  key={r.line_id}
+                  label={`#${r.line_no}　${r.label}`}
+                  remark={r.remark}
+                  state={r.state}
+                  onChange={(s) => setLineState(i, s)}
+                  readonly={readonly}
+                />
+              ))
+            )}
+          </SectionCard>
+          <SectionCard title="零件項目逐項複檢">
+            {(categoryGroups.get("_part") ?? []).length === 0 ? (
+              <p className="text-[12px] text-[#9A9890]">此工單無零件項目</p>
+            ) : (
+              (categoryGroups.get("_part") ?? []).map(({ r, i }) => (
+                <CheckRow
+                  key={r.line_id}
+                  label={`#${r.line_no}　${r.label}`}
+                  remark={r.remark}
+                  state={r.state}
+                  onChange={(s) => setLineState(i, s)}
+                  readonly={readonly}
+                />
+              ))
+            )}
+          </SectionCard>
+        </div>
+      )}
+
+      {/* 問題記錄卡（anyFail 時才顯示退回重工原因必填欄位） */}
+      <SectionCard title={anyFail ? "⚠️ 複檢發現問題" : "備註 / 異常記錄（選填）"}>
+        <div className="space-y-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">問題描述（複檢備註）</label>
+            <textarea
+              value={issueNote}
+              onChange={(e) => setIssueNote(e.target.value)}
+              disabled={readonly}
+              placeholder="描述複檢發現的問題，作為退回技師重修時的根據..."
+              className="w-full min-h-[60px] border border-[#D5D3CB] rounded p-2 text-[12.5px] focus:border-[#185FA5] disabled:bg-[#F8F7F4]"
+            />
+          </div>
+          {anyFail && !readonly ? (
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-medium text-[#CC0000]">
+                退回重工原因 <span className="text-[#CC0000]">*必填</span>
+              </label>
+              <textarea
+                value={reworkReason}
+                onChange={(e) => setReworkReason(e.target.value)}
+                disabled={readonly}
+                placeholder="請詳細說明退回重工原因（必填，送出退回前需填寫）..."
+                className={`w-full min-h-[70px] border rounded p-2 text-[12.5px] focus:border-[#CC0000] disabled:bg-[#F8F7F4] ${
+                  reworkReason.trim() ? "border-[#D5D3CB]" : "border-[#F5AEAD] bg-[#FDECEA]"
+                }`}
+              />
+              {!reworkReason.trim() ? (
+                <p className="text-[11px] text-[#CC0000]">⚠️ 退回重工前請填寫原因</p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex justify-end gap-2 pt-1">
+            {anyFail && !readonly ? (
+              <button
+                type="button"
+                onClick={onReject}
+                disabled={isPending || !reworkReason.trim()}
+                className="h-[32px] px-3.5 rounded text-[12.5px] font-medium bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+              >
+                {isPending ? "處理中⋯" : "退回技師重修"}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onSave}
@@ -747,8 +888,8 @@ function Step1({
               {isPending ? "儲存中⋯" : "✓ 儲存複檢結果"}
             </button>
           </div>
-        </SectionCard>
-      </div>
+        </div>
+      </SectionCard>
     </div>
   );
 }
@@ -962,6 +1103,8 @@ function Step4({
   inspectorId,
   setInspectorId,
   leadTechnicianId,
+  qcAttemptCount,
+  isRoleAuthorized,
 }: {
   allPassed: boolean;
   isSigned: boolean;
@@ -981,18 +1124,45 @@ function Step4({
   inspectorId: string;
   setInspectorId: (v: string) => void;
   leadTechnicianId: string | null;
+  /** 退回重修次數（≥2 次時顯示主管授權警告） */
+  qcAttemptCount: number;
+  /** 職級授權檢查（false 時阻擋簽名，顯示 auth-fail 區塊） */
+  isRoleAuthorized: boolean;
 }) {
   /** M-09 前端即時警示：選到施工 lead tech 就顯示紅框（後端也擋） */
   const m09Violated = !!inspectorId && !!leadTechnicianId && inspectorId === leadTechnicianId;
+  /** 授權不足：職級不在允許清單（前端即時阻擋，後端 signAction 也驗） */
+  const authFailed = !isRoleAuthorized && !isSigned;
 
   return (
     <div className={`space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
+      {/* 複檢次數 badge（設計稿：藍色 banner，≥2 次顯示 amber 警告要求主管授權） */}
+      {qcAttemptCount > 0 ? (
+        <div className={`border rounded-lg px-4 py-3 text-[12px] ${
+          qcAttemptCount >= 2
+            ? "bg-[#FDF3E3] border-[#F5D28B] text-[#854F0B]"
+            : "bg-[#EAF4FB] border-[#B8D4EE] text-[#185FA5]"
+        }`}>
+          {qcAttemptCount >= 2 ? (
+            <>
+              ⚠️ 本工單複檢次數：<b>第 {qcAttemptCount + 1} 次</b>（已退回 {qcAttemptCount} 次）。
+              依規定複檢退回超過 2 次需主管授權，請確認授權後再行簽核。複檢次數記錄於稽核日誌（用於品質分析）。
+            </>
+          ) : (
+            <>
+              ℹ️ 本工單複檢次數：<b>第 {qcAttemptCount + 1} 次</b>（已退回 {qcAttemptCount} 次）。
+              複檢次數記錄於稽核日誌（用於品質分析）。
+            </>
+          )}
+        </div>
+      ) : null}
+
       {!allPassed && !isSigned ? (
         <div className="bg-[#FDECEA] border border-[#F5AEAD] rounded-lg px-4 py-3 text-[12px] text-[#CC0000]">
           ⚠️ 尚有維修項目未通過複檢，無法進行簽核。請回到 step 1 完成所有項目。
         </div>
       ) : null}
-      {allPassed && !m09Violated ? (
+      {allPassed && !m09Violated && !authFailed ? (
         <div className="bg-[#EAF3DE] border border-[#C5DC9F] rounded-lg px-4 py-3 text-[12px] text-[#3B6D11]">
           ✅ 所有維修項目已通過複檢，可進行電子簽名簽核。
         </div>
@@ -1002,6 +1172,20 @@ function Step4({
           ⛔ M-09 違規：施工技師本人不得自行複檢，請選擇其他技師執行竣工複檢。
         </div>
       )}
+
+      {/* 授權不足阻擋區塊（設計稿：auth-fail-block，職級不足時禁止簽名） */}
+      {authFailed ? (
+        <div className="bg-[#FDECEA] border-2 border-[#CC0000] rounded-lg px-4 py-5 text-center space-y-2">
+          <div className="text-[16px] font-semibold text-[#CC0000]">⛔ 授權不足，無法執行複檢簽核</div>
+          <div className="text-[12px] text-[#CC0000]">
+            目前職級「{signRole || "未選擇"}」不具備執行竣工複檢的授權。
+          </div>
+          <div className="text-[12px] text-[#5A5955]">
+            具授權職級：資深技師 / 售後主管 / 技師長。
+            <br />請聯絡具授權職級的人員執行複檢簽核，或更改職級後重試。
+          </div>
+        </div>
+      ) : null}
 
       <SectionCard title="複檢人員資訊">
         <div className="grid grid-cols-2 gap-3">
@@ -1085,17 +1269,24 @@ function Step4({
               清除重簽
             </button>
           </div>
+        ) : authFailed ? (
+          // 授權不足時完全禁止簽名區（auth-fail 已在上方顯示說明區塊）
+          <div className="border-2 border-dashed border-[#F5AEAD] rounded-lg h-[100px] flex items-center justify-center bg-[#FDECEA]">
+            <span className="text-[12.5px] text-[#CC0000]">
+              ⛔ 授權不足，無法簽名（請聯絡具授權職級人員）
+            </span>
+          </div>
         ) : (
           <div
             className={`border-2 border-dashed rounded-lg h-[100px] flex items-center justify-center cursor-pointer transition-colors ${
-              allPassed
+              allPassed && !m09Violated
                 ? "border-[#1A3A5C] bg-[#F8F7F4] hover:bg-white text-[#1A3A5C]"
                 : "border-[#D5D3CB] bg-[#F8F7F4] text-[#9A9890]"
             }`}
-            onClick={() => allPassed && !readonly && onSign()}
+            onClick={() => allPassed && !readonly && !m09Violated && onSign()}
           >
             <span className="text-[12.5px]">
-              {allPassed ? "請點此完成電子簽名" : "（未通過全部複檢項目，無法簽名）"}
+              {allPassed && !m09Violated ? "請點此完成電子簽名" : "（未通過全部複檢項目，無法簽名）"}
             </span>
           </div>
         )}
@@ -1105,7 +1296,7 @@ function Step4({
             value={signoffNote}
             onChange={(e) => setSignoffNote(e.target.value)}
             disabled={readonly || isSigned}
-            placeholder="例：本工單所有維修項目均已完成，品質符合 Ducati 原廠標準..."
+            placeholder="例：本工單所有維修項目均已完成，品質符合原廠標準..."
             className="w-full min-h-[60px] border border-[#D5D3CB] rounded p-2 text-[12.5px] focus:border-[#185FA5] disabled:bg-[#F8F7F4]"
           />
         </Field>
@@ -1137,6 +1328,8 @@ function Step5({
   onComplete,
   isPending,
   readonly,
+  estimatedTotal,
+  lineResultsSummary,
 }: {
   customerName: string | null;
   vehicleModel: string | null;
@@ -1157,6 +1350,10 @@ function Step5({
   onComplete: () => void;
   isPending: boolean;
   readonly: boolean;
+  /** 預估總費用（來自 repair_orders.estimated_total） */
+  estimatedTotal: number | null;
+  /** 維修項目摘要（前 3 項 label，逗號分隔） */
+  lineResultsSummary: string;
 }) {
   return (
     <div className={`space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
@@ -1173,6 +1370,18 @@ function Step5({
           <br />
           您的愛車 <b>{vehicleModel ?? "—"}</b>（
           <span className="font-mono">{vehiclePlate ?? "—"}</span>）已完成維修，隨時可來店取車。
+          {lineResultsSummary ? (
+            <>
+              <br />
+              📋 維修項目：{lineResultsSummary}{lineResultsSummary.includes("、") ? "⋯等" : ""}
+            </>
+          ) : null}
+          {estimatedTotal != null ? (
+            <>
+              <br />
+              💰 應付費用：<b>NT${estimatedTotal.toLocaleString()}</b>（含稅，請以結帳時金額為準）
+            </>
+          ) : null}
           <br />
           🕐 服務時間：週一至週六 09:00-18:00
         </div>

@@ -104,7 +104,7 @@ export default function AftersalesHomeView({
           <div className="bg-[#FDECEA] border border-[#F5AEAD] text-[#7A1010] rounded-lg px-4 py-2.5 text-[12px] flex items-center gap-2">
             <span className="material-symbols-outlined text-[16px]">warning</span>
             <span className="flex-1">
-              無法載入售後 KPI 數據（連線 / 權限問題）— 上方數字暫顯示 "—"，下方分區入口仍可使用。
+              無法載入售後 KPI 數據（連線 / 權限問題）— 上方數字暫顯示「—」，下方分區入口仍可使用。
             </span>
           </div>
         </section>

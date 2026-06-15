@@ -77,11 +77,20 @@ export type ServicePackageInput = {
   code: string;
   name: string;
   pkgType: "standard" | "store_custom" | "promo";
+  /** @deprecated 向下相容；新欄位改用 mileageFrom/mileageTo */
   mileageInterval?: number | null;
+  /** 適用里程起（km） */
+  mileageFrom?: number | null;
+  /** 適用里程迄（km） */
+  mileageTo?: number | null;
+  /** 適用車型清單（空陣列 = 全車型） */
+  applicableModels?: string[];
   items?: ServicePackageItem[];
   listPrice?: number | null;
   validFrom?: string | null;
   validTo?: string | null;
+  /** 是否在 04B 快速報價查詢中顯示 */
+  showInQuickquote?: boolean;
 };
 
 export async function createServicePackageAction(
@@ -103,11 +112,16 @@ export async function createServicePackageAction(
       name,
       pkg_type: input.pkgType ?? "standard",
       mileage_interval: input.mileageInterval ?? null,
+      mileage_from: input.mileageFrom ?? null,
+      mileage_to: input.mileageTo ?? null,
+      applicable_models: input.applicableModels ?? [],
       items: input.items ?? [],
       list_price: input.listPrice ?? null,
       valid_from: input.validFrom ?? null,
       valid_to: input.validTo ?? null,
       is_active: true,
+      // 新套餐預設在 04B 顯示
+      show_in_quickquote: input.showInQuickquote ?? true,
     })
     .select("id")
     .single();
@@ -136,7 +150,7 @@ export async function updateServicePackageAction(
 
   const { data: before } = await supabase
     .from("service_packages")
-    .select("code, name, pkg_type, mileage_interval, list_price, valid_from, valid_to, items")
+    .select("code, name, pkg_type, mileage_interval, mileage_from, mileage_to, applicable_models, list_price, valid_from, valid_to, items, show_in_quickquote")
     .eq("id", id)
     .maybeSingle();
   if (!before) return { ok: false, error: "找不到該套餐" };
@@ -145,10 +159,14 @@ export async function updateServicePackageAction(
   if (patch.name !== undefined) next.name = patch.name.trim();
   if (patch.pkgType !== undefined) next.pkg_type = patch.pkgType;
   if (patch.mileageInterval !== undefined) next.mileage_interval = patch.mileageInterval;
+  if (patch.mileageFrom !== undefined) next.mileage_from = patch.mileageFrom;
+  if (patch.mileageTo !== undefined) next.mileage_to = patch.mileageTo;
+  if (patch.applicableModels !== undefined) next.applicable_models = patch.applicableModels;
   if (patch.items !== undefined) next.items = patch.items;
   if (patch.listPrice !== undefined) next.list_price = patch.listPrice;
   if (patch.validFrom !== undefined) next.valid_from = patch.validFrom;
   if (patch.validTo !== undefined) next.valid_to = patch.validTo;
+  if (patch.showInQuickquote !== undefined) next.show_in_quickquote = patch.showInQuickquote;
 
   const { error } = await supabase.from("service_packages").update(next).eq("id", id);
   if (error) return { ok: false, error: error.message };
@@ -177,7 +195,12 @@ export async function setServicePackageActiveAction(
     .maybeSingle();
   const { error } = await supabase
     .from("service_packages")
-    .update({ is_active: active, updated_at: new Date().toISOString() })
+    .update({
+      is_active: active,
+      updated_at: new Date().toISOString(),
+      // 停用時同步移除 04B 顯示旗標；啟用時不自動恢復（讓 SA 手動確認要不要再上架）
+      ...(active ? {} : { show_in_quickquote: false }),
+    })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   await appendAudit(scope.brand_id, {
@@ -215,6 +238,9 @@ export async function upsertLaborRateAction(
 
   const scope = await getActiveScope();
   const supabase = await createClient();
+  const { data: me } = await supabase.auth.getUser();
+  const updatedBy = me.user?.email ?? me.user?.id ?? null;
+
   const { data: before } = await supabase
     .from("labor_rates")
     .select("id, rate_per_lu")
@@ -231,6 +257,8 @@ export async function upsertLaborRateAction(
         rate_per_lu: ratePerLu,
         is_active: true,
         updated_at: new Date().toISOString(),
+        // 記錄修改人（email），Tab B 顯示用
+        updated_by: updatedBy,
       },
       { onConflict: "brand_id,biz_type" },
     );

@@ -27,6 +27,7 @@ import { uploadSignatureDataUrl, isStorageUrl } from "@/lib/aftersales/signature
 import {
   computeQuote,
   type CheckRow,
+  type DotMark,
   type PreInspectionMode,
   type SaQuoteItem,
   type Signature,
@@ -264,11 +265,15 @@ export async function updateChecksAction(
   id: string,
   checks: CheckRow[],
   sa_remark?: string,
+  /** 機車損傷 dot 標記（空陣列表示清除全部） */
+  dot_marks?: DotMark[],
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
   return patchMetadata(id, {
     checks,
     sa_remark: sa_remark ?? undefined,
+    // dot_marks 只在有傳值時更新（undefined 不覆蓋既有）
+    ...(dot_marks !== undefined ? { dot_marks } : {}),
   });
 }
 
@@ -296,7 +301,65 @@ export async function updateTechRowsAction(
   tech_rows: TechRow[],
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
-  return patchMetadata(id, { tech_rows });
+
+  // 先取得 pre_inspection 取 vehicle_id，供 defer/reject 副作用使用
+  const ctx = await loadById(id);
+  if (!ctx.ok) return ctx;
+
+  const result = await patchMetadata(id, { tech_rows });
+  if (!result.ok) return result;
+
+  // 副作用：技師 defer/reject 項目自動寫入 vehicle_pending_items
+  // 只處理有設 defer / reject 決定的項目（state !== 'none' && state !== 'agree'）
+  const vehicleId = ctx.row.vehicle_id;
+  const brand = ctx.brand;
+  const deferReject = tech_rows.filter(
+    (r) => r.state === "defer" || r.state === "reject",
+  );
+
+  if (vehicleId && deferReject.length > 0) {
+    const supabase = await createClient();
+
+    // 先撈此車現有的 pending items，避免重複 insert（同 title 且 status=pending）
+    const { data: existing } = await supabase
+      .from("vehicle_pending_items")
+      .select("id, item_desc, metadata")
+      .eq("brand_id", brand)
+      .eq("vehicle_id", vehicleId)
+      .eq("status", "pending");
+
+    const existingDescs = new Set(
+      ((existing ?? []) as { item_desc: string }[]).map((e) => e.item_desc),
+    );
+
+    const toInsert = deferReject
+      .filter((r) => !existingDescs.has(r.title))
+      .map((r) => {
+        // safety 1 → 緊急, 2 → 警示, 3 → 建議
+        const safetyLevel =
+          r.safety === 1 ? "緊急" : r.safety === 2 ? "警示" : "建議";
+        return {
+          brand_id: brand,
+          vehicle_id: vehicleId,
+          item_desc: r.title,
+          reason: r.diag || null,
+          status: "pending",
+          metadata: {
+            safety_level: safetyLevel,
+            source: "tech_check",
+            pre_inspection_id: id,
+            tech_decision: r.state,
+            reject_count: r.state === "reject" ? 1 : 0,
+          },
+        };
+      });
+
+    if (toInsert.length > 0) {
+      await supabase.from("vehicle_pending_items").insert(toInsert);
+    }
+  }
+
+  return result;
 }
 
 export async function updateSaItemsAction(
@@ -336,6 +399,8 @@ export async function updateBasicInfoAction(
     vehicle_license_plate?: string;
     vehicle_model_name?: string;
     mileage_in?: number | null;
+    /** VIN 車身號碼（存入 metadata.vehicle_vin） */
+    vehicle_vin?: string | null;
   },
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_CREATE);
@@ -345,15 +410,30 @@ export async function updateBasicInfoAction(
     return { ok: false, error: `狀態為「${ctx.row.status}」，無法修改` };
   }
   const supabase = await createClient();
+
+  // VIN 存進 metadata（customer_vehicles 表才是 canonical 來源，
+  // 這裡只做預檢單快照用途）
+  const metaPatch: Record<string, unknown> = {};
+  if (patch.vehicle_vin !== undefined) {
+    metaPatch.vehicle_vin = patch.vehicle_vin?.trim() || null;
+  }
+  const updatePayload: Record<string, unknown> = {
+    customer_name: patch.customer_name ?? ctx.row.customer_name,
+    customer_phone: patch.customer_phone ?? ctx.row.customer_phone,
+    vehicle_license_plate: patch.vehicle_license_plate ?? ctx.row.vehicle_license_plate,
+    vehicle_model_name: patch.vehicle_model_name ?? ctx.row.vehicle_model_name,
+    mileage_in: patch.mileage_in ?? ctx.row.mileage_in,
+  };
+  if (Object.keys(metaPatch).length > 0) {
+    updatePayload.metadata = {
+      ...(ctx.row.metadata ?? {}),
+      ...metaPatch,
+    };
+  }
+
   const { error } = await supabase
     .from("pre_inspections")
-    .update({
-      customer_name: patch.customer_name ?? ctx.row.customer_name,
-      customer_phone: patch.customer_phone ?? ctx.row.customer_phone,
-      vehicle_license_plate: patch.vehicle_license_plate ?? ctx.row.vehicle_license_plate,
-      vehicle_model_name: patch.vehicle_model_name ?? ctx.row.vehicle_model_name,
-      mileage_in: patch.mileage_in ?? ctx.row.mileage_in,
-    })
+    .update(updatePayload)
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath(`${PAGE}/${id}`);

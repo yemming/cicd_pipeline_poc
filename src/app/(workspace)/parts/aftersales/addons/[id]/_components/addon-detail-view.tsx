@@ -25,6 +25,7 @@ import {
   SAFETY_CHIP,
   SAFETY_LABEL,
   TYPE_LABEL,
+  type AddonCostSummary,
   type CustomerDecision,
   type RejectionReason,
   type RepairOrderAddonWithRo,
@@ -62,10 +63,13 @@ export function AddonDetailView({
   addon,
   lines,
   canEdit,
+  costSummary,
 }: {
   addon: RepairOrderAddonWithRo;
   lines: Line[];
   canEdit: boolean;
+  /** 本工單費用彙整（getAddonCostSummaryByRo 回傳） */
+  costSummary: AddonCostSummary;
 }) {
   useSetPageHeader({
     title: `追加項目 #${addon.addon_no} — ${addon.name}`,
@@ -300,6 +304,71 @@ export function AddonDetailView({
             value={requiresFollowup ? "是" : "否"}
             small
           />
+        </div>
+      </section>
+
+      {/* ▼ 費用變動摘要（本工單視角） */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 費用變動摘要</span>
+          <span className="text-[11px] text-[#9A9890]">
+            本工單共 {costSummary.counts.pending + costSummary.counts.agreed + costSummary.counts.deferred + costSummary.counts.rejected} 項追加
+          </span>
+        </header>
+        <div className="px-4 py-4">
+          {/* 費用三欄橫排 */}
+          <div className="flex items-center gap-4 flex-wrap mb-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10.5px] text-[#9A9890]">原始工單金額</span>
+              <span className="font-mono font-semibold text-[14px] text-[#5A5955]">
+                {costSummary.ro_estimated_total != null
+                  ? `NT$ ${costSummary.ro_estimated_total.toLocaleString()}`
+                  : "—（未設定）"}
+              </span>
+            </div>
+            <span className="text-[16px] text-[#9A9890] font-light">＋</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10.5px] text-[#9A9890]">追加項目小計（全部）</span>
+              <span className="font-mono font-semibold text-[14px] text-[#854F0B]">
+                NT$ {costSummary.addon_subtotal.toLocaleString()}
+              </span>
+            </div>
+            <span className="text-[16px] text-[#9A9890] font-light">=</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10.5px] text-[#9A9890]">預估總金額（若全部同意）</span>
+              <span className="font-mono font-semibold text-[16px] text-[#0F6E56]">
+                {costSummary.projected_total != null
+                  ? `NT$ ${costSummary.projected_total.toLocaleString()}`
+                  : "—"}
+              </span>
+            </div>
+          </div>
+          {/* 決策件數小計列 */}
+          <div className="flex items-center gap-3 flex-wrap text-[11.5px]">
+            <span className="text-[#9A9890]">本工單追加件數：</span>
+            <span className="px-1.5 py-0.5 rounded-md bg-[#FDF3E3] text-[#854F0B]">
+              待確認 {costSummary.counts.pending}
+            </span>
+            <span className="px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11]">
+              同意 {costSummary.counts.agreed}（NT$ {costSummary.agreed_subtotal.toLocaleString()}）
+            </span>
+            <span className="px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5]">
+              暫緩 {costSummary.counts.deferred}
+            </span>
+            <span className="px-1.5 py-0.5 rounded-md bg-[#FDECEA] text-[#CC0000]">
+              拒絕 {costSummary.counts.rejected}
+            </span>
+            {/* agreed 狀態顯示前往維修領料的快捷鈕 */}
+            {addon.customer_decision === "agreed" && (
+              <Link
+                href={`/parts/issue/repair-pick/new?ro_id=${addon.ro_id}&addon_id=${addon.id}`}
+                className="ml-auto h-[26px] px-3 rounded text-[11.5px] font-medium inline-flex items-center gap-1 bg-[#EAF4FB] border border-[#B8D9EF] text-[#185FA5] hover:bg-[#d4eaf8]"
+              >
+                <span className="material-symbols-outlined text-[14px]">inventory</span>
+                📦 前往維修領料備料
+              </Link>
+            )}
+          </div>
         </div>
       </section>
 

@@ -18,12 +18,14 @@ import type {
   AppointmentListFilters,
   DailyKpis,
   AppointmentStats,
+  TodayStatusKpis,
   HeatmapCell,
   ScheduleSlot,
   TechnicianLoad,
   AppointmentLookups,
   AppointmentsListPageData,
 } from "./appointments.constants";
+import type { PlateLookupResult } from "./pre-inspections";
 
 // ── Re-export types from .constants.ts（server-side caller 仍可 import from "@/domain/appointments"）──
 export type {
@@ -32,6 +34,7 @@ export type {
   AppointmentListFilters,
   DailyKpis,
   AppointmentStats,
+  TodayStatusKpis,
   HeatmapCell,
   ScheduleItem,
   ScheduleSlot,
@@ -423,6 +426,32 @@ export async function getAppointmentHeatmap(days = 60): Promise<HeatmapCell[]> {
   return cells;
 }
 
+/**
+ * Walk-in 插單：以車牌查詢客戶/車輛資料。
+ * 包裝 pre-inspections 的 lookupVehicleByPlate，讓 appointments board 不需直接 import
+ * pre-inspections domain（跨模組依賴集中在這裡管理）。
+ */
+export async function lookupVehicleByPlateForAppointment(
+  plate: string,
+): Promise<PlateLookupResult> {
+  // 動態 import 避免 circular（pre-inspections 不依賴 appointments）
+  const { lookupVehicleByPlate } = await import("./pre-inspections");
+  return lookupVehicleByPlate(plate);
+}
+
+/**
+ * 計算當日即時狀態 KPI（設計稿 B1-02）。
+ * 從既有 rows 直接算，不額外打 DB。
+ */
+function computeTodayStatusKpis(rows: AppointmentRow[]): TodayStatusKpis {
+  return {
+    pending_arrival: rows.filter((r) => r.status === "待到廠").length,
+    in_repair: rows.filter((r) => r.status === "維修中").length,
+    completed: rows.filter((r) => r.status === "已完成").length,
+    pending_pickup: rows.filter((r) => r.status === "待取車").length,
+  };
+}
+
 export async function getAppointmentsListPageData(
   filters: AppointmentListFilters,
 ): Promise<AppointmentsListPageData> {
@@ -433,12 +462,14 @@ export async function getAppointmentsListPageData(
     getAppointmentHeatmap(),
   ]);
   const kpis = computeKpis(rows);
+  const todayStatusKpis = computeTodayStatusKpis(rows);
   const schedule = computeSchedule(rows);
   const techLoad = computeTechLoad(rows, lookups.technicians);
   return {
     rows,
     totalCount: rows.length,
     kpis,
+    todayStatusKpis,
     stats,
     heatmap,
     schedule,

@@ -89,6 +89,29 @@ export type RoOptionForAddons = {
   customer_name: string | null;
 };
 
+/**
+ * 費用變動摘要（依工單彙整）
+ * 對應 getAddonCostSummaryByRo(roId)
+ */
+export type AddonCostSummary = {
+  /** 工單原始估價（repair_orders.estimated_total，可能為 null） */
+  ro_estimated_total: number | null;
+  /** 追加項目小計（全部 estimated_fee 加總，不限決策狀態） */
+  addon_subtotal: number;
+  /** 同意金額（customer_decision = 'agreed' 的加總） */
+  agreed_subtotal: number;
+  /** 預估總金額（若全部同意時；= ro_estimated_total + addon_subtotal） */
+  projected_total: number | null;
+  /** 各決策狀態件數 */
+  counts: {
+    pending: number;
+    agreed: number;
+    deferred: number;
+    rejected: number;
+    cancelled: number;
+  };
+};
+
 // ── B-24：增項拒絕原因統計 + SA 轉化率
 export type AddonRejectionStatRow = {
   reason: RejectionReason | "unknown";

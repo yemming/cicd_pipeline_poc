@@ -11,9 +11,13 @@ import {
   updateRepairOrderStatusAction,
   notifyRepairOrderProgressAction,
   recordContactAttemptAction,
+  addRepairOrderManualNoteAction,
   type ContactAttemptInput,
 } from "@/lib/aftersales/repair-order-actions";
-import { requestCancelOrderApprovalAction } from "@/lib/aftersales/approval-request-actions";
+import {
+  requestCancelOrderApprovalAction,
+  type CancelOrderInput,
+} from "@/lib/aftersales/approval-request-actions";
 import { RO_STATUS_OPTIONS, priorityDef } from "@/domain/repair-orders.constants";
 import type { RepairOrderListRow, RoEvent } from "@/domain/repair-orders";
 
@@ -72,6 +76,7 @@ function roEventLabel(e: RoEvent): string {
       const parts = [p.method, p.result].filter(Boolean).join(" / ");
       return `聯繫嘗試${parts ? `：${parts}` : ""}`;
     }
+    case "manual_note":            return "SA 手動備註";
     default:                       return String((e as { action?: string }).action ?? "未知事件");
   }
 }
@@ -96,7 +101,8 @@ function roEventDotColor(e: RoEvent): string {
       if (p.customer_decision === "rejected") return "bg-[#CC0000] border-[#CC0000]";
       return "bg-[#854F0B] border-[#854F0B]";
     }
-    default:                         return "bg-[#D5D3CB] border-[#9A9890]";
+    case "manual_note":               return "bg-[#9A9890] border-[#6B6A68]";
+    default:                          return "bg-[#D5D3CB] border-[#9A9890]";
   }
 }
 
@@ -147,12 +153,19 @@ export function RepairOrderDetailView({
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   /** RP5 中途取消授權 modal */
   const [cancelApprovalModal, setCancelApprovalModal] = useState(false);
-  const [cancelApprovalNotes, setCancelApprovalNotes] = useState("");
+  const [cancelReasonType, setCancelReasonType] = useState("");
+  const [cancelDetail, setCancelDetail] = useState("");
+  const [cancelCustomerPresent, setCancelCustomerPresent] = useState("");
+  /** 直接取消 Modal（取代 window.confirm + window.prompt） */
+  const [directCancelModal, setDirectCancelModal] = useState(false);
+  const [directCancelReason, setDirectCancelReason] = useState("");
   /** B5-02 聯繫嘗試記錄 modal */
   const [contactModal, setContactModal] = useState(false);
   const [contactMethod, setContactMethod] = useState<ContactAttemptInput["contact_method"]>("電話");
   const [contactResult, setContactResult] = useState<ContactAttemptInput["contact_result"]>("接通");
   const [contactNotes, setContactNotes] = useState("");
+  /** SA 手動備註輸入列（時間軸底部） */
+  const [manualNote, setManualNote] = useState("");
 
   function showBanner(b: { ok: boolean; msg: string }) {
     setBanner(b);
@@ -181,12 +194,17 @@ export function RepairOrderDetailView({
     });
   }
 
-  function doCancel() {
+  /** 直接取消：開 Modal 收原因（取代 window.confirm + window.prompt） */
+  function openDirectCancelModal() {
     if (!canEdit || isPending) return;
-    if (!confirm(`確認取消工單 ${ro.ro_code}？`)) return;
-    const reason = prompt("取消原因（可留白）") ?? "";
+    setDirectCancelReason("");
+    setDirectCancelModal(true);
+  }
+
+  function doDirectCancel() {
+    setDirectCancelModal(false);
     startTransition(async () => {
-      const res = await cancelRepairOrderAction(ro.id, reason);
+      const res = await cancelRepairOrderAction(ro.id, directCancelReason.trim() || undefined);
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 工單已取消" });
         router.refresh();
@@ -198,15 +216,44 @@ export function RepairOrderDetailView({
 
   /** RP5 中途取消授權：送出申請後工單不立即取消，等主管核准 */
   function doCancelApprovalRequest() {
-    if (!cancelApprovalNotes.trim()) {
-      showBanner({ ok: false, msg: "請填寫中途取消原因（稽核必填）" });
+    if (!cancelDetail.trim()) {
+      showBanner({ ok: false, msg: "請填寫取消原因說明（稽核必填）" });
       return;
     }
+    if (!cancelReasonType) {
+      showBanner({ ok: false, msg: "請選擇取消原因類型" });
+      return;
+    }
+    if (!cancelCustomerPresent) {
+      showBanner({ ok: false, msg: "請選擇客戶是否在場" });
+      return;
+    }
+    const input: CancelOrderInput = {
+      reason_type: cancelReasonType,
+      detail: cancelDetail.trim(),
+      customer_present: cancelCustomerPresent,
+    };
     setCancelApprovalModal(false);
     startTransition(async () => {
-      const res = await requestCancelOrderApprovalAction(ro.id, cancelApprovalNotes.trim());
+      const res = await requestCancelOrderApprovalAction(ro.id, input);
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 中途取消申請已送主管審批，工單暫不取消" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  /** SA 手動備註：追加一筆 manual_note 到事件時間軸 */
+  function doAddManualNote() {
+    const trimmed = manualNote.trim();
+    if (!trimmed || isPending) return;
+    startTransition(async () => {
+      const res = await addRepairOrderManualNoteAction(ro.id, trimmed);
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 備註已記錄到時間軸" });
+        setManualNote("");
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -325,7 +372,9 @@ export function RepairOrderDetailView({
               <button
                 type="button"
                 onClick={() => {
-                  setCancelApprovalNotes("");
+                  setCancelReasonType("");
+                  setCancelDetail("");
+                  setCancelCustomerPresent("");
                   setCancelApprovalModal(true);
                 }}
                 disabled={isPending}
@@ -334,13 +383,13 @@ export function RepairOrderDetailView({
               >
                 中途取消（申請授權）
               </button>
-              {/* 管理員直接取消（快速通道，不需授權） */}
+              {/* 管理員直接取消（快速通道，不需授權，走正式 Modal 收原因） */}
               <button
                 type="button"
-                onClick={doCancel}
+                onClick={openDirectCancelModal}
                 disabled={isPending}
                 className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"
-                title="管理員直接取消（不需授權，走 cancelRepairOrderAction）"
+                title="直接取消工單（不需授權，需填寫取消原因）"
               >
                 直接取消
               </button>
@@ -711,10 +760,38 @@ export function RepairOrderDetailView({
                           備註：{(ev.payload as { notes?: string }).notes}
                         </div>
                       )}
+                      {/* manual_note：顯示備註內容 */}
+                      {ev.action === "manual_note" && (ev.payload as { content?: string })?.content && (
+                        <div className="text-[12px] text-[#2C2C2A] mt-0.5 bg-[#F8F7F4] border border-[#EEECE6] rounded px-2 py-1">
+                          {(ev.payload as { content?: string }).content}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ol>
               )}
+              {/* SA 手動備註輸入列（時間軸底部，任何狀態均可新增） */}
+              <div className="mt-3 pt-3 border-t border-[#EEECE6] flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="block text-[11px] text-[#9A9890] mb-1">新增 SA 備註</label>
+                  <textarea
+                    value={manualNote}
+                    onChange={(e) => setManualNote(e.target.value)}
+                    disabled={isPending}
+                    rows={2}
+                    placeholder="輸入備註內容，按「新增備註」追加到時間軸…"
+                    className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none disabled:opacity-60 resize-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={doAddManualNote}
+                  disabled={isPending || !manualNote.trim()}
+                  className="h-[30px] px-3 rounded text-[12px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50 whitespace-nowrap"
+                >
+                  {isPending ? "記錄中⋯" : "新增備註"}
+                </button>
+              </div>
             </div>
           </section>
 
@@ -828,7 +905,7 @@ export function RepairOrderDetailView({
           onClick={() => !isPending && setCancelApprovalModal(false)}
         >
           <div
-            className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[480px] max-w-[90vw] overflow-hidden"
+            className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[520px] max-w-[90vw] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#FDF3E3] flex items-center gap-2">
@@ -845,17 +922,55 @@ export function RepairOrderDetailView({
               <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded px-3 py-2 text-[12px] text-[#854F0B]">
                 ⚠️ 核准後請在「狀態快切」選「已關閉-中途取消」完成最終取消。
               </div>
-              <div className="space-y-1.5">
+              {/* 取消原因類型（dropdown，5 選項） */}
+              <div className="space-y-1">
                 <label className="text-[11px] text-[#9A9890] font-medium">
-                  取消原因（稽核必填）
+                  取消原因類型 *
+                </label>
+                <select
+                  value={cancelReasonType}
+                  onChange={(e) => setCancelReasonType(e.target.value)}
+                  disabled={isPending}
+                  className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white disabled:opacity-60"
+                >
+                  <option value="">— 請選擇 —</option>
+                  <option value="客戶臨時改變主意">客戶臨時改變主意</option>
+                  <option value="零件長期缺貨">零件長期缺貨</option>
+                  <option value="費用超出客戶預期">費用超出客戶預期</option>
+                  <option value="車輛問題">車輛問題</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              {/* 詳細說明（稽核必填） */}
+              <div className="space-y-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  詳細說明（稽核必填）
                 </label>
                 <textarea
-                  value={cancelApprovalNotes}
-                  onChange={(e) => setCancelApprovalNotes(e.target.value)}
+                  value={cancelDetail}
+                  onChange={(e) => setCancelDetail(e.target.value)}
+                  disabled={isPending}
                   rows={3}
                   placeholder="例：客戶因個人因素要求中止維修，車輛已取回，費用已協商…"
-                  className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none"
+                  className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none disabled:opacity-60"
                 />
+              </div>
+              {/* 客戶是否在場（dropdown，3 選項） */}
+              <div className="space-y-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  客戶是否在場 *
+                </label>
+                <select
+                  value={cancelCustomerPresent}
+                  onChange={(e) => setCancelCustomerPresent(e.target.value)}
+                  disabled={isPending}
+                  className="w-full h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] outline-none bg-white disabled:opacity-60"
+                >
+                  <option value="">— 請選擇 —</option>
+                  <option value="是本人在場">是本人在場</option>
+                  <option value="電話聯繫">電話聯繫</option>
+                  <option value="無法聯繫">無法聯繫</option>
+                </select>
               </div>
             </div>
             <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex justify-end gap-2">
@@ -865,12 +980,12 @@ export function RepairOrderDetailView({
                 disabled={isPending}
                 className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
               >
-                取消
+                關閉
               </button>
               <button
                 type="button"
                 onClick={doCancelApprovalRequest}
-                disabled={isPending || !cancelApprovalNotes.trim()}
+                disabled={isPending || !cancelDetail.trim() || !cancelReasonType || !cancelCustomerPresent}
                 className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
               >
                 {isPending ? "送出中⋯" : "送出申請"}
@@ -879,6 +994,66 @@ export function RepairOrderDetailView({
           </div>
         </div>
       )}
+      {/* 直接取消 Modal（取代 window.confirm + window.prompt） */}
+      {directCancelModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => !isPending && setDirectCancelModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[440px] max-w-[90vw] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#FDECEA] flex items-center gap-2">
+              <span className="text-[16px]">🗑️</span>
+              <div className="text-[13px] font-semibold text-[#CC0000]">
+                直接取消工單
+              </div>
+              <span className="ml-auto text-[10px] text-[#CC0000] font-mono">{ro.ro_code}</span>
+            </header>
+            <div className="px-4 py-4 space-y-3">
+              <p className="text-[12.5px] text-[#5A5955]">
+                此操作<b>不需主管授權</b>，工單取消後將無法恢復。請確認後繼續。
+              </p>
+              <div className="bg-[#FDECEA] border border-[#F5AEAD] rounded px-3 py-2 text-[12px] text-[#CC0000]">
+                ⚠️ 取消後工單狀態設為「已取消」，所有進行中的維修項目也將停止。
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  取消原因（選填，建議填寫以便日後稽核）
+                </label>
+                <textarea
+                  value={directCancelReason}
+                  onChange={(e) => setDirectCancelReason(e.target.value)}
+                  disabled={isPending}
+                  rows={3}
+                  placeholder="例：客戶取回車輛，不繼續維修…"
+                  className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#CC0000] outline-none disabled:opacity-60"
+                />
+              </div>
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDirectCancelModal(false)}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                關閉
+              </button>
+              <button
+                type="button"
+                onClick={doDirectCancel}
+                disabled={isPending}
+                className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#CC0000] text-white hover:bg-[#aa0000] disabled:opacity-50"
+              >
+                {isPending ? "取消中⋯" : "確認取消工單"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
       {/* B5-02 聯繫嘗試記錄 Modal */}
       {contactModal && (
         <div

@@ -26,6 +26,7 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { reserve, getAvailableQty } from "@/domain/inventory-reservations";
 import { markWaitingParts } from "@/domain/parts-waiting";
+import { notifications } from "@/lib/notifications";
 
 // ─────────────────────────────────────────────────────────────
 // 共用型別
@@ -63,8 +64,8 @@ export type TechnicianRow = {
 export type WorkItemRow = {
   id: string;
   line_no: number;
-  kind: "labor" | "part" | string;
-  /** labor → labor_name；part → part_name */
+  kind: "labor" | "part" | "inspection" | string;
+  /** labor → labor_name；part → part_name；inspection → labor_name（診斷項名稱） */
   name: string;
   labor_units: number | null;
   qty: number | null;
@@ -72,6 +73,8 @@ export type WorkItemRow = {
   amount: number;
   done: boolean;
   done_at: string | null;
+  /** 診斷結果（kind='inspection' 的行才有意義，存於 metadata.diag_result） */
+  diag_result: "normal" | "attention" | "abnormal" | null;
 };
 
 export type TimerState = {
@@ -122,6 +125,25 @@ export type TechWorkstationKpi = {
   inProgressCount: number;
   doneToday: number;
   todayWorkedMinutes: number;
+  /** 今日賣出工時（分鐘）= Σ(labor_units × MINUTES_PER_LU)，用於算效率% */
+  soldMinutes: number;
+};
+
+/** 工時明細（⏱ Tab 用） */
+export type TimeSessionRow = {
+  id: string;
+  ro_id: string;
+  ro_code: string;
+  /** 業務類型（repair_order.type 或 metadata.repair_type） */
+  service_type: string | null;
+  started_at: string;
+  ended_at: string | null;
+  /** 實際分鐘（null = active session 仍在進行） */
+  actual_minutes: number | null;
+  /** 標準 LU（本 RO labor lines 加總） */
+  standard_lu: number | null;
+  /** 效率%：actual_minutes / (standard_lu × 60) × 100，null = 無賣出工時 */
+  efficiency_pct: number | null;
 };
 
 export type OtherTechnicianOption = {
@@ -321,7 +343,7 @@ export async function listMyAssignedOrders(
     supabase
       .from("repair_order_lines")
       .select(
-        "id, repair_order_id, line_no, kind, labor_name, labor_units, part_name, qty, unit_price, amount, done, done_at",
+        "id, repair_order_id, line_no, kind, labor_name, labor_units, part_name, qty, unit_price, amount, done, done_at, metadata",
       )
       .in("repair_order_id", roIds)
       .order("line_no", { ascending: true }),
@@ -371,21 +393,29 @@ export async function listMyAssignedOrders(
     amount: number;
     done: boolean;
     done_at: string | null;
+    metadata: Record<string, unknown> | null;
   };
   const linesByRo = new Map<string, WorkItemRow[]>();
   for (const l of (linesRes.data ?? []) as unknown as LineRaw[]) {
     const arr = linesByRo.get(l.repair_order_id) ?? [];
+    // inspection 行用 labor_name 作為診斷項名稱
+    const name =
+      l.kind === "labor" || l.kind === "inspection"
+        ? l.labor_name ?? "—"
+        : l.part_name ?? "—";
+    const diagResult = (l.metadata as { diag_result?: "normal" | "attention" | "abnormal" } | null)?.diag_result ?? null;
     arr.push({
       id: l.id,
       line_no: l.line_no,
       kind: l.kind,
-      name: (l.kind === "labor" ? l.labor_name : l.part_name) ?? "—",
+      name,
       labor_units: l.labor_units == null ? null : Number(l.labor_units),
       qty: l.qty == null ? null : Number(l.qty),
       unit_price: Number(l.unit_price),
       amount: Number(l.amount),
       done: l.done === true,
       done_at: l.done_at,
+      diag_result: diagResult,
     });
     linesByRo.set(l.repair_order_id, arr);
   }
@@ -487,13 +517,13 @@ function computeTimerState(
 
 export async function getMyWorkstationKpi(techId: string): Promise<TechWorkstationKpi> {
   if (!techId) {
-    return { pendingCount: 0, inProgressCount: 0, doneToday: 0, todayWorkedMinutes: 0 };
+    return { pendingCount: 0, inProgressCount: 0, doneToday: 0, todayWorkedMinutes: 0, soldMinutes: 0 };
   }
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
   const todayStart = startOfTaipeiTodayIso();
 
-  const [pendingRes, inProgRes, doneRes, sessRes] = await Promise.all([
+  const [pendingRes, inProgRes, doneRes, sessRes, doneOrdersRes] = await Promise.all([
     supabase
       .from("repair_orders")
       .select("id", { count: "exact", head: true })
@@ -519,6 +549,14 @@ export async function getMyWorkstationKpi(techId: string): Promise<TechWorkstati
       .eq("brand_id", brand)
       .eq("technician_id", techId)
       .gte("started_at", todayStart),
+    // 今日完成工單的 id 清單，用來算賣出工時
+    supabase
+      .from("repair_orders")
+      .select("id")
+      .eq("brand_id", brand)
+      .eq("lead_technician_id", techId)
+      .in("status", [RO_STATUS.AWAITING_CHECKOUT, RO_STATUS.CLOSED])
+      .gte("closed_at", todayStart),
   ]);
 
   let workedSeconds = 0;
@@ -533,11 +571,29 @@ export async function getMyWorkstationKpi(techId: string): Promise<TechWorkstati
       workedSeconds += Math.max(0, Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000));
   }
 
+  // 計算今日賣出工時：今日完成工單的 labor_units 加總 × MINUTES_PER_LU
+  let soldMinutes = 0;
+  const doneRoIds = ((doneOrdersRes.data ?? []) as { id: string }[]).map((r) => r.id);
+  if (doneRoIds.length > 0) {
+    const { data: luRows } = await supabase
+      .from("repair_order_lines")
+      .select("labor_units")
+      .in("repair_order_id", doneRoIds)
+      .eq("kind", "labor");
+    soldMinutes = Math.round(
+      ((luRows ?? []) as { labor_units: number | null }[]).reduce(
+        (s, r) => s + Number(r.labor_units ?? 0) * MINUTES_PER_LU,
+        0,
+      ),
+    );
+  }
+
   return {
     pendingCount: pendingRes.count ?? 0,
     inProgressCount: inProgRes.count ?? 0,
     doneToday: doneRes.count ?? 0,
     todayWorkedMinutes: Math.round(workedSeconds / 60),
+    soldMinutes,
   };
 }
 
@@ -707,7 +763,7 @@ export async function markOrderComplete(roId: string): Promise<WriteResult<{ id:
 
   const { data: ro, error: roErr } = await supabase
     .from("repair_orders")
-    .select("id, status, lead_technician_id, metadata")
+    .select("id, ro_code, status, lead_technician_id, metadata")
     .eq("id", roId)
     .eq("brand_id", brand)
     .maybeSingle();
@@ -745,6 +801,29 @@ export async function markOrderComplete(roId: string): Promise<WriteResult<{ id:
   if (techId) {
     await writebackTechnicianPerformance(brand, roId, techId);
   }
+
+  // 4) T07：施工完成 → 非同步通知 SA / 複檢員（after() 不阻塞主流程）
+  const roCode = ro.ro_code as string ?? roId;
+  const techName = techId
+    ? await (async () => {
+        const { data } = await supabase
+          .from("aftersales_technicians")
+          .select("name")
+          .eq("id", techId)
+          .maybeSingle();
+        return (data as { name?: string } | null)?.name ?? "技師";
+      })()
+    : "技師";
+  after(async () => {
+    try {
+      await notifications.dispatch({
+        code: "repair_order.completed",
+        payload: { ro_id: roId, ro_code: roCode, technician_name: techName, brand_id: brand },
+      });
+    } catch (e) {
+      console.error("[T07] 施工完成通知失敗（不影響主流程）", e);
+    }
+  });
 
   return { ok: true, data: { id: roId } };
 }
@@ -916,6 +995,18 @@ export async function addAddon(
     }
   }
 
+  // 追加項目送出 → 非同步通知 SA 有待確認的追加項目
+  after(async () => {
+    try {
+      await notifications.dispatch({
+        code: "repair_order_addon.proposed",
+        payload: { ro_id: roId, ro_code: undefined, addon_id: row.id, addon_name: payload.name.trim(), brand_id: brand },
+      });
+    } catch (e) {
+      console.error("[addon notify] 追加通知失敗（不影響本次追加）", e);
+    }
+  });
+
   return { ok: true, data: { id: row.id, reserved } };
 }
 
@@ -1026,6 +1117,106 @@ export async function pauseLaborTimer(roId: string): Promise<WriteResult<{ id: s
   return { ok: true, data: { id: row.id } };
 }
 
+/**
+ * ⏱ 工時記錄 Tab：今日工時明細（依 RO 分組）。
+ * 撈台北今日技師的所有 labor_time_sessions，
+ * 並 join repair_orders 取 ro_code / service_type + 計算實際分鐘 / 標準 LU / 效率%。
+ */
+export async function listMyTodayTimeSessions(techId: string): Promise<TimeSessionRow[]> {
+  if (!techId) return [];
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const todayStart = startOfTaipeiTodayIso();
+
+  // 撈今日所有 session
+  const { data: sessData, error: sessErr } = await supabase
+    .from("labor_time_sessions")
+    .select("id, repair_order_id, started_at, ended_at, status, duration_seconds")
+    .eq("brand_id", brand)
+    .eq("technician_id", techId)
+    .gte("started_at", todayStart)
+    .order("started_at", { ascending: false });
+  if (sessErr) throw sessErr;
+  if (!sessData || sessData.length === 0) return [];
+
+  type SessRaw = {
+    id: string;
+    repair_order_id: string;
+    started_at: string;
+    ended_at: string | null;
+    status: string;
+    duration_seconds: number | null;
+  };
+  const sessions = sessData as unknown as SessRaw[];
+  const roIds = Array.from(new Set(sessions.map((s) => s.repair_order_id)));
+
+  // 取 RO 基本資料
+  const { data: roData } = await supabase
+    .from("repair_orders")
+    .select("id, ro_code, metadata")
+    .in("id", roIds)
+    .eq("brand_id", brand);
+  const roMap = new Map(
+    ((roData ?? []) as { id: string; ro_code: string; metadata: Record<string, unknown> | null }[]).map(
+      (r) => [r.id, { ro_code: r.ro_code, service_type: (r.metadata as { repair_type?: string } | null)?.repair_type ?? null }],
+    ),
+  );
+
+  // 取 labor_units（依 RO group）
+  const { data: luData } = await supabase
+    .from("repair_order_lines")
+    .select("repair_order_id, labor_units")
+    .in("repair_order_id", roIds)
+    .eq("kind", "labor");
+  const luByRo = new Map<string, number>();
+  for (const l of (luData ?? []) as { repair_order_id: string; labor_units: number | null }[]) {
+    luByRo.set(l.repair_order_id, (luByRo.get(l.repair_order_id) ?? 0) + Number(l.labor_units ?? 0));
+  }
+
+  // 依 RO 合併 session（一張 RO 可能有多個 session，取第一筆 session 的起訖、累加秒數）
+  const roSessMap = new Map<string, SessRaw[]>();
+  for (const s of sessions) {
+    const arr = roSessMap.get(s.repair_order_id) ?? [];
+    arr.push(s);
+    roSessMap.set(s.repair_order_id, arr);
+  }
+
+  const rows: TimeSessionRow[] = [];
+  for (const roId of roIds) {
+    const sesses = roSessMap.get(roId) ?? [];
+    const ro = roMap.get(roId);
+    let totalSeconds = 0;
+    let hasActive = false;
+    for (const s of sesses) {
+      if (s.ended_at) {
+        totalSeconds += Number(s.duration_seconds ?? 0);
+      } else if (s.status === "active") {
+        totalSeconds += Math.max(0, Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000));
+        hasActive = true;
+      }
+    }
+    const actualMinutes = Math.round(totalSeconds / 60);
+    const standardLu = luByRo.get(roId) ?? null;
+    const standardMinutes = standardLu != null ? standardLu * MINUTES_PER_LU : null;
+    const efficiencyPct =
+      standardMinutes && standardMinutes > 0 && !hasActive
+        ? Math.round((actualMinutes / standardMinutes) * 100)
+        : null;
+    rows.push({
+      id: sesses[0]?.id ?? roId,
+      ro_id: roId,
+      ro_code: ro?.ro_code ?? roId,
+      service_type: ro?.service_type ?? null,
+      started_at: sesses[sesses.length - 1]?.started_at ?? "",
+      ended_at: hasActive ? null : sesses[0]?.ended_at ?? null,
+      actual_minutes: actualMinutes,
+      standard_lu: standardLu,
+      efficiency_pct: efficiencyPct,
+    });
+  }
+  return rows;
+}
+
 /** 取得某 RO 當前 timer 狀態（單卡刷新用） */
 export async function getTimerState(roId: string): Promise<TimerState> {
   if (!roId) return { isRunning: false, accumulatedSeconds: 0, activeSessionId: null, activeStartedAt: null };
@@ -1097,4 +1288,88 @@ export async function reassignOrder(
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `轉派失敗：${error.message}` };
   return { ok: true, data: { id: roId, technician_id: toTechId } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 寫：診斷記錄 + 施工備註
+// ─────────────────────────────────────────────────────────────
+
+export type DiagResult = "normal" | "attention" | "abnormal";
+
+/**
+ * 設定診斷項目結果（正常 / 需關注 / 異常）。
+ * 結果寫入 repair_order_lines.metadata.diag_result（kind='inspection' 的行）。
+ * lineId 是 repair_order_lines.id，result 是三選一。
+ */
+export async function setDiagResult(
+  lineId: string,
+  result: DiagResult,
+): Promise<WriteResult<{ id: string; diag_result: DiagResult }>> {
+  if (!lineId) return { ok: false, error: "缺少工項 id" };
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 驗 line 屬於同 brand 的 RO
+  const { data: line, error: lineErr } = await supabase
+    .from("repair_order_lines")
+    .select("id, repair_order_id, metadata")
+    .eq("id", lineId)
+    .maybeSingle();
+  if (lineErr) return { ok: false, error: `工項載入失敗：${lineErr.message}` };
+  if (!line) return { ok: false, error: "找不到工項" };
+
+  const { data: ro } = await supabase
+    .from("repair_orders")
+    .select("id")
+    .eq("id", (line as { repair_order_id: string }).repair_order_id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!ro) return { ok: false, error: "工項所屬工單不在當前品牌範圍" };
+
+  const meta = (((line as { metadata?: Record<string, unknown> }).metadata) ?? {}) as Record<string, unknown>;
+  meta.diag_result = result;
+  meta.diag_at = new Date().toISOString();
+  meta.diag_by = (await currentUserId()) ?? null;
+
+  const { error } = await supabase
+    .from("repair_order_lines")
+    .update({ metadata: meta, updated_at: new Date().toISOString() })
+    .eq("id", lineId);
+  if (error) return { ok: false, error: `診斷記錄失敗：${error.message}` };
+  return { ok: true, data: { id: lineId, diag_result: result } };
+}
+
+/**
+ * 儲存施工備註：寫入 repair_orders.metadata.tech_note。
+ * SA / 複檢員可見（本欄在複檢頁面也會顯示）。
+ */
+export async function saveTechNote(
+  roId: string,
+  note: string,
+): Promise<WriteResult<{ id: string }>> {
+  if (!roId) return { ok: false, error: "缺少工單 id" };
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  const { data: ro, error: roErr } = await supabase
+    .from("repair_orders")
+    .select("id, metadata")
+    .eq("id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (roErr) return { ok: false, error: `工單載入失敗：${roErr.message}` };
+  if (!ro) return { ok: false, error: "找不到工單" };
+
+  const meta = ((ro.metadata ?? {}) as Record<string, unknown>) || {};
+  meta.tech_note = note.trim();
+  meta.tech_note_at = new Date().toISOString();
+  meta.tech_note_by = (await currentUserId()) ?? null;
+
+  const { error } = await supabase
+    .from("repair_orders")
+    .update({ metadata: meta, updated_at: new Date().toISOString() })
+    .eq("id", roId)
+    .eq("brand_id", brand);
+  if (error) return { ok: false, error: `儲存施工備註失敗：${error.message}` };
+  return { ok: true, data: { id: roId } };
 }

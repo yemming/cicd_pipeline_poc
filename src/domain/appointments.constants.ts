@@ -103,11 +103,24 @@ export type AppointmentLookups = {
   technicians: { id: string; name: string }[];
 };
 
+/** 當日即時狀態統計（設計稿 B1-02 KPI 列） */
+export type TodayStatusKpis = {
+  /** 待到廠：尚未入廠的預約數 */
+  pending_arrival: number;
+  /** 維修中：正在施工的預約數 */
+  in_repair: number;
+  /** 已完成：完工但尚未取車的預約數 */
+  completed: number;
+  /** 取車中：狀態為「待取車」的預約數 */
+  pending_pickup: number;
+};
+
 export type AppointmentsListPageData = {
   rows: AppointmentListRow[];
   totalCount: number;
   kpis: DailyKpis;
   stats: AppointmentStats;
+  todayStatusKpis: TodayStatusKpis;
   heatmap: HeatmapCell[];
   schedule: ScheduleSlot[];
   techLoad: TechnicianLoad[];
