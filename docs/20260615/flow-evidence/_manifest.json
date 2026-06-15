@@ -1,0 +1,172 @@
+[
+  {
+    "scenario": "M1",
+    "name": "M1_01_appointments_initial",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_02_appointments_walkin-input",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_03_appointments_walkin-lookup",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_04_pre-inspection_wizard",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_06_pre-inspection_dispute-area",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_11_repair-order_detail",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_23_addons_list",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_33_checkout_board",
+    "ok": true
+  },
+  {
+    "scenario": "M2",
+    "name": "M2_01_pre-inspection_from-appointment",
+    "ok": true
+  },
+  {
+    "scenario": "M2",
+    "name": "M2_02_pre-inspection_signed",
+    "ok": true
+  },
+  {
+    "scenario": "M3",
+    "name": "M3_01_ro-new_initial",
+    "ok": true
+  },
+  {
+    "scenario": "M3",
+    "name": "M3_02_ro-new_wc",
+    "ok": true
+  },
+  {
+    "scenario": "B1",
+    "name": "B1_01_walkin_not-found",
+    "ok": true
+  },
+  {
+    "scenario": "B2",
+    "name": "B2_01_dispute_form-open",
+    "ok": true
+  },
+  {
+    "scenario": "B3",
+    "name": "B3_01_ro-new_concurrent-check",
+    "ok": true
+  },
+  {
+    "scenario": "B4",
+    "name": "B4_01_addons_decide-modal",
+    "ok": true
+  },
+  {
+    "scenario": "B4",
+    "name": "B4_02_customer_pending-items",
+    "ok": true
+  },
+  {
+    "scenario": "B7",
+    "name": "B7_01_checkout_wizard",
+    "ok": true
+  },
+  {
+    "scenario": "B7",
+    "name": "B7_02_checkout_entrust",
+    "ok": true
+  },
+  {
+    "scenario": "B8",
+    "name": "B8_01_ro-search_initial",
+    "ok": true
+  },
+  {
+    "scenario": "B8",
+    "name": "B8_02_ro-search_my-today",
+    "ok": true
+  },
+  {
+    "scenario": "B9",
+    "name": "B9_01_customer_three-cards",
+    "ok": true
+  },
+  {
+    "scenario": "B9",
+    "name": "B9_02_customer_complaint-modal",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_14_mgmt-bays",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_15_dispatch-panel",
+    "ok": true
+  },
+  {
+    "scenario": "B5",
+    "name": "B5_01_final-inspection_wizard",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_27_final-inspection",
+    "ok": true
+  },
+  {
+    "scenario": "B10",
+    "name": "B10_01_audit-log_timeline",
+    "ok": true
+  },
+  {
+    "scenario": "B10",
+    "name": "B10_02_audit-log_table-view",
+    "ok": true
+  },
+  {
+    "scenario": "B11",
+    "name": "B11_01_packages_show-flag",
+    "ok": true
+  },
+  {
+    "scenario": "M1",
+    "name": "M1_17_tech_workstation",
+    "ok": true
+  },
+  {
+    "scenario": "B6",
+    "name": "B6_01_final-inspection_tech-view",
+    "ok": true
+  },
+  {
+    "scenario": "B10",
+    "name": "B10_05_audit-inventory_timeline",
+    "ok": true
+  },
+  {
+    "scenario": "B10",
+    "name": "B10_06_audit-group_timeline",
+    "ok": true
+  }
+]
