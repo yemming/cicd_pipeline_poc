@@ -584,7 +584,9 @@ export async function transferToRoAction(id: string): Promise<ActionResult<{ id:
       vehicle_id: ctx.row.vehicle_id,
       mileage_in: ctx.row.mileage_in,
       sa_id: ctx.row.sa_id,
-      status: "未開始",
+      // RO 狀態機初始為「進行中」（repair_orders_status_check 只允許 進行中/維修中/待結帳/已關單/已取消；
+      // 原寫死「未開始」不在允許集合 → insert 撞 check constraint）
+      status: "進行中",
       estimated_subtotal: ctx.row.estimated_subtotal,
       estimated_labor_units: ctx.row.estimated_labor_units,
       metadata: { from_pre_inspection: id },
