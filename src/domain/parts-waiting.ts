@@ -39,6 +39,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { getReservedQty } from "@/domain/inventory-reservations";
+import { createInappNotification } from "@/domain/user-notifications";
 
 // ─────────────────────────────────────────────────────────────
 // 型別
@@ -317,7 +318,7 @@ export async function releaseWaitingForItem(input: {
   for (const roId of candidateRoIds) {
     const { data: ro } = await supabase
       .from("repair_orders")
-      .select("id, metadata")
+      .select("id, ro_code, metadata, sa_id")
       .eq("id", roId)
       .eq("brand_id", brandId)
       .maybeSingle();
@@ -342,6 +343,25 @@ export async function releaseWaitingForItem(input: {
       }
       delete waiting.items[item_id];
       resolvedRos.push(roId);
+
+      // 定向通知該工單的 SA：零件到貨、可繼續施工（非阻斷）
+      const saUserId = (ro as { sa_id?: string | null }).sa_id ?? null;
+      const roCode = (ro as { ro_code?: string | null }).ro_code ?? roId;
+      if (saUserId) {
+        try {
+          await createInappNotification({
+            recipient_user_id: saUserId,
+            brand_id: brandId,
+            title: "零件已到貨・可繼續施工",
+            body: `工單 ${roCode} 等待的零件「${wItem.item_name ?? item_id}」已到貨補足，待料解除，請安排繼續施工。`,
+            priority: "orange",
+            event_code: "parts.arrived_for_ro",
+            href: `/service/workorders/${roId}`,
+          });
+        } catch (e) {
+          console.error("[releaseWaitingForItem] SA 到貨通知例外（不影響主流程）", e);
+        }
+      }
     } else {
       // 部分到貨：更新數量、保留 flag
       wItem.reserved = reservedNow;

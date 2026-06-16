@@ -7,6 +7,9 @@
 
 export const APPROVAL_THRESHOLD = 5000;
 
+/** 大額報廢 / 損耗：需店長（store_manager）層級審批 */
+export const SENIOR_APPROVAL_THRESHOLD = 20000;
+
 export const LOSS_OVERFLOW_REASONS = [
   "damage",
   "lost",

@@ -10,9 +10,12 @@ import {
   deleteItemAction,
   setItemActiveAction,
   updateItemAction,
+  upsertPriceBookAction,
   type ItemInput,
+  type PriceBookRow,
 } from "@/lib/parts-setup/item-actions";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { parseXlsx } from "@/components/data-grid/excel-io";
 
 
 export type ItemRow = {
@@ -194,6 +197,16 @@ export function ItemsBoard({
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
 
+  // Price Book import
+  const [showPriceBook, setShowPriceBook] = useState(false);
+  const [priceBookFile, setPriceBookFile] = useState<File | null>(null);
+  const [priceBookResult, setPriceBookResult] = useState<{
+    created: number;
+    updated: number;
+    errors: string[];
+  } | null>(null);
+  const [priceBookErrorsExpanded, setPriceBookErrorsExpanded] = useState(false);
+
   // Filters (local until 查詢)
   const [fCategory, setFCategory] = useState(filters.category);
   const [fControl, setFControl] = useState(filters.control);
@@ -364,6 +377,45 @@ export function ItemsBoard({
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  const runPriceBookImport = () => {
+    if (!priceBookFile) return;
+    startTransition(async () => {
+      try {
+        const rawRows = await parseXlsx({
+          file: priceBookFile,
+          columns: [
+            { id: "code", header: "料號" },
+            { id: "name", header: "英文名稱" },
+            { id: "name_zh", header: "中文名稱" },
+            { id: "applicable_models", header: "適用車型" },
+            { id: "suggested_price", header: "原廠價格" },
+            { id: "category", header: "零件類別" },
+          ],
+        });
+        if (!rawRows.length) {
+          showBanner({ ok: false, msg: "解析失敗：請確認 Excel 格式正確且包含必填欄位（料號、英文名稱、原廠價格）" });
+          return;
+        }
+        const priceBookRows: PriceBookRow[] = rawRows.map((r) => ({
+          code: String(r.code ?? "").trim(),
+          name: String(r.name ?? r.name_zh ?? "").trim(),
+          suggested_price: r.suggested_price != null && r.suggested_price !== "" ? Number(r.suggested_price) : null,
+          category: r.category != null ? String(r.category).trim() : undefined,
+        }));
+        const res = await upsertPriceBookAction(priceBookRows);
+        if (res.ok) {
+          setPriceBookResult(res.data);
+          setPriceBookErrorsExpanded(false);
+          router.refresh();
+        } else {
+          showBanner({ ok: false, msg: res.error });
+        }
+      } catch (e) {
+        showBanner({ ok: false, msg: `讀取 Excel 失敗：${e instanceof Error ? e.message : "未知錯誤"}` });
       }
     });
   };
@@ -606,6 +658,14 @@ export function ItemsBoard({
           <button type="button" disabled={!canEdit} onClick={() => setShowImport(true)} className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50">
             批次匯入
           </button>
+          <button
+            type="button"
+            disabled={!canEdit}
+            onClick={() => { setShowPriceBook(true); setPriceBookFile(null); setPriceBookResult(null); setPriceBookErrorsExpanded(false); }}
+            className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+          >
+            ⬆ 原廠Price Book匯入
+          </button>
         </div>
       </div>
 
@@ -762,6 +822,104 @@ export function ItemsBoard({
                   ? "儲存變更"
                   : "建立"}
             </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {/* Price Book Import Modal */}
+      {showPriceBook ? (
+        <Modal
+          title="原廠 Price Book 匯入"
+          onClose={() => { setShowPriceBook(false); setPriceBookFile(null); setPriceBookResult(null); }}
+        >
+          <div className={`space-y-3 ${lockedClass}`}>
+            <p className="text-[12px] text-[#5A5955] leading-relaxed">
+              選取原廠 Excel Price Book 檔案（.xlsx / .xls）。系統會自動比對料號：
+              <b className="text-[#2C2C2A]">已存在</b>的料號更新名稱與定價，
+              <b className="text-[#2C2C2A]">新料號</b>則自動建立。
+              追蹤設定（序列號 / 批號）與庫存資料不會被覆蓋。
+            </p>
+            <p className="text-[11.5px] text-[#9A9890] leading-relaxed">
+              支援欄位（以第一列 header 識別）：
+              <span className="font-mono text-[#185FA5]">料號</span>（必填）、
+              <span className="font-mono text-[#185FA5]">英文名稱</span>（必填）、
+              <span className="font-mono">中文名稱</span>、
+              <span className="font-mono">原廠價格</span>、
+              <span className="font-mono">零件類別</span>、
+              <span className="font-mono">適用車型</span>（僅保存供參考）。
+            </p>
+            <div className="border border-dashed border-[#D5D3CB] rounded-lg p-4 bg-[#F8F7F4] flex flex-col items-center gap-2">
+              <label className="cursor-pointer flex flex-col items-center gap-1.5">
+                <span className="text-[13px] text-[#5A5955]">
+                  {priceBookFile ? priceBookFile.name : "點擊選取 Excel 檔案"}
+                </span>
+                <span className="text-[11.5px] text-[#9A9890]">支援 .xlsx / .xls</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setPriceBookFile(f);
+                    setPriceBookResult(null);
+                  }}
+                />
+                <span className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] inline-flex items-center">
+                  選取檔案
+                </span>
+              </label>
+            </div>
+            {priceBookResult ? (
+              <div className="rounded-lg border border-[#EEECE6] overflow-hidden text-[12.5px]">
+                <div className="px-4 py-3 bg-[#EAF3DE] text-[#3B6D11] font-medium flex items-center gap-2">
+                  <span>✓ 匯入完成</span>
+                  <span className="ml-auto text-[12px] font-normal">
+                    新增 <b>{priceBookResult.created}</b> 筆 / 更新 <b>{priceBookResult.updated}</b> 筆
+                    {priceBookResult.errors.length > 0 && (
+                      <span className="text-[#854F0B]"> / 錯誤 <b>{priceBookResult.errors.length}</b> 筆</span>
+                    )}
+                  </span>
+                </div>
+                {priceBookResult.errors.length > 0 ? (
+                  <div className="border-t border-[#EEECE6]">
+                    <button
+                      type="button"
+                      onClick={() => setPriceBookErrorsExpanded((v) => !v)}
+                      className="w-full px-4 py-2 text-left text-[12px] text-[#854F0B] bg-[#FDF3E3] hover:bg-[#f9e9cc] flex items-center justify-between"
+                    >
+                      <span>查看錯誤清單（{priceBookResult.errors.length} 筆）</span>
+                      <span>{priceBookErrorsExpanded ? "▲" : "▼"}</span>
+                    </button>
+                    {priceBookErrorsExpanded ? (
+                      <ul className="px-4 py-2 space-y-1 max-h-[160px] overflow-y-auto">
+                        {priceBookResult.errors.map((e, i) => (
+                          <li key={i} className="text-[11.5px] text-[#CC0000] font-mono">{e}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => { setShowPriceBook(false); setPriceBookFile(null); setPriceBookResult(null); }}
+              className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955]"
+            >
+              {priceBookResult ? "關閉" : "取消"}
+            </button>
+            {!priceBookResult ? (
+              <button
+                type="button"
+                onClick={runPriceBookImport}
+                disabled={isPending || !priceBookFile}
+                className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#1A3A5C] text-white disabled:opacity-60"
+              >
+                {isPending ? "匯入中…" : "開始匯入"}
+              </button>
+            ) : null}
           </div>
         </Modal>
       ) : null}

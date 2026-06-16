@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { receiveStock } from "@/domain/receipts";
+import { recordWrongItemRejection } from "@/domain/receiving-discrepancies";
 
 type Line = {
   id: string;
@@ -23,6 +24,8 @@ type ReceiveLine = {
   bin_id: string;
   serial_no: string;
   batch_no: string;
+  // 「料號送錯」選填欄位：實際到貨料號（與 PO 訂購料號不同時填）
+  actual_item_code: string;
 };
 
 export function ReceiveForm({
@@ -49,6 +52,7 @@ export function ReceiveForm({
       bin_id: bins[0]?.id ?? "",
       serial_no: "",
       batch_no: "",
+      actual_item_code: "",
     })),
   );
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -84,6 +88,27 @@ export function ReceiveForm({
         setBanner({ ok: false, msg: result.error });
         return;
       }
+
+      // 「料號送錯」備註記錄（不阻斷主流程，吞錯）
+      const grId = result.data.receipt_id;
+      for (const rl of toSubmit) {
+        const actualCode = rl.actual_item_code.trim();
+        if (actualCode && actualCode !== rl.line.item_code) {
+          try {
+            await recordWrongItemRejection({
+              item_id: rl.line.item_id,
+              qty_diff: rl.qty_to_receive,
+              actual_item_code: actualCode,
+              po_id: po.id,
+              po_line_id: rl.po_line_id,
+              gr_id: grId,
+            });
+          } catch {
+            // 靜默：備註失敗不影響收貨結果
+          }
+        }
+      }
+
       setBanner({ ok: true, msg: `✓ 已建立 ${result.data.gr_no}` });
       setTimeout(() => router.push("/parts/receipt/po-grn"), 700);
     });
@@ -179,7 +204,7 @@ export function ReceiveForm({
                       className={inputClass + " text-right font-mono"}
                     />
                   </div>
-                  <div className="col-span-4">
+                  <div className="col-span-3">
                     <label className={labelClass}>庫位</label>
                     <select
                       value={rl.bin_id}
@@ -195,7 +220,7 @@ export function ReceiveForm({
                       ))}
                     </select>
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <label className={labelClass}>序列號（選填）</label>
                     <input
                       type="text"
@@ -204,13 +229,31 @@ export function ReceiveForm({
                       className={inputClass + " font-mono"}
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <label className={labelClass}>批號（選填）</label>
                     <input
                       type="text"
                       value={rl.batch_no}
                       onChange={(e) => updateLine(idx, { batch_no: e.target.value })}
                       className={inputClass + " font-mono"}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <label className={labelClass}>
+                      實到料號（選填，料號送錯時填）
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={line.item_code}
+                      value={rl.actual_item_code}
+                      onChange={(e) => updateLine(idx, { actual_item_code: e.target.value })}
+                      className={
+                        inputClass +
+                        " font-mono" +
+                        (rl.actual_item_code.trim() && rl.actual_item_code.trim() !== line.item_code
+                          ? " border-[#854F0B] bg-[#FDF3E3]"
+                          : "")
+                      }
                     />
                   </div>
                 </div>

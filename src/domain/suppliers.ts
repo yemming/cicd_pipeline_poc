@@ -256,6 +256,8 @@ export type SupplierWriteInput = {
   gl_payable_coa_id?: string | null;
   default_expense_coa_id?: string | null;
   supply_categories?: string | null;
+  /** OEM 逃生艙：任意 key-value 合併進 metadata jsonb，與 supply_categories 共存不互蓋 */
+  extra_metadata?: Record<string, unknown>;
 };
 
 function buildSupplierWritePatch(
@@ -291,13 +293,19 @@ function buildSupplierWritePatch(
   if (input.default_expense_coa_id !== undefined)
     upd.default_expense_coa_id = nullableUuid(input.default_expense_coa_id);
 
-  if (input.supply_categories !== undefined) {
+  if (input.supply_categories !== undefined || input.extra_metadata !== undefined) {
     const merged: Record<string, unknown> = { ...existingMetadata };
-    const v = trim(input.supply_categories);
-    if (v.length === 0) {
-      delete merged.supply_categories;
-    } else {
-      merged.supply_categories = v;
+    if (input.supply_categories !== undefined) {
+      const v = trim(input.supply_categories);
+      if (v.length === 0) {
+        delete merged.supply_categories;
+      } else {
+        merged.supply_categories = v;
+      }
+    }
+    if (input.extra_metadata !== undefined) {
+      // Shallow-merge extra_metadata：只覆蓋明確帶入的 key，不刪 existingMetadata 其他 key
+      Object.assign(merged, input.extra_metadata);
     }
     upd.metadata = merged;
   }
@@ -346,7 +354,7 @@ export async function updateSupplier(
   const scope = await getActiveScope();
 
   let existingMetadata: Record<string, unknown> = {};
-  if (patch.supply_categories !== undefined) {
+  if (patch.supply_categories !== undefined || patch.extra_metadata !== undefined) {
     const { data: existing } = await supabase
       .from("suppliers")
       .select("metadata")

@@ -34,6 +34,7 @@ export const COUNT_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "monthly", label: "月度例盤" },
   { value: "sample", label: "抽盤" },
   { value: "dynamic", label: "動態盤" },
+  { value: "unannounced", label: "突擊盤點" },
 ];
 
 export const COUNT_PLAN_TYPE_CHIP: Record<
@@ -55,7 +56,14 @@ export const COUNT_PLAN_TYPE_OPTIONS: Array<{ value: string; label: string }> = 
   { value: "abc_a", label: "ABC-A 類" },
   { value: "abc_b", label: "ABC-B 類" },
   { value: "abc_c", label: "ABC-C 類" },
+  { value: "unannounced", label: "突擊盤點" },
 ];
+
+/**
+ * 盤差金額高價值閾值（新台幣）。
+ * 單筆或總差異絕對值 ≥ 此值 → 自動升級通知店長。
+ */
+export const HIGH_VALUE_VARIANCE_THRESHOLD = 5000;
 
 export const ABC_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "", label: "（無）" },

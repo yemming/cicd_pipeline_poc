@@ -16,6 +16,66 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { notifications } from "@/lib/notifications";
 
+// ────────────────────────────────────────────────────────────────────────────
+// warranty_claim_receivables 同步輔助（非阻斷，失敗只 console.error）
+// ────────────────────────────────────────────────────────────────────────────
+type ReceivableClaimStatus = "pending" | "submitted" | "approved" | "rejected" | "paid";
+
+/** upsert / update warranty_claim_receivables，不 throw（cron 安全） */
+async function syncReceivable(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  claimId: string,
+  patch: {
+    claim_status: ReceivableClaimStatus;
+    brand_id?: string;
+    workorder_id?: string | null;
+    claim_amount?: number;
+    submitted_at?: string;
+    paid_at?: string;
+    store_id?: string | null;
+  },
+): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    if (patch.claim_status === "submitted") {
+      // upsert（idempotent，conflict on claim_id）
+      const { error } = await sb
+        .from("warranty_claim_receivables")
+        .upsert(
+          {
+            claim_id: claimId,
+            brand_id: patch.brand_id,
+            workorder_id: patch.workorder_id ?? null,
+            claim_amount: patch.claim_amount ?? 0,
+            claim_status: "submitted",
+            submitted_at: patch.submitted_at ?? new Date().toISOString(),
+            store_id: patch.store_id ?? null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "claim_id" },
+        );
+      if (error) throw error;
+    } else {
+      const updatePayload: Record<string, unknown> = {
+        claim_status: patch.claim_status,
+        updated_at: new Date().toISOString(),
+      };
+      if (typeof patch.claim_amount === "number") updatePayload.claim_amount = patch.claim_amount;
+      if (patch.paid_at) updatePayload.paid_at = patch.paid_at;
+
+      const { error } = await sb
+        .from("warranty_claim_receivables")
+        .update(updatePayload)
+        .eq("claim_id", claimId)
+        .eq("brand_id", patch.brand_id);
+      if (error) throw error;
+    }
+  } catch (e) {
+    console.error("[parts-warranty] warranty_claim_receivables 同步失敗（不影響主流程）", claimId, e);
+  }
+}
+
 const RO_LINK_PATH = "/parts/warranty/ro-link";
 
 export type ActionResult<T = unknown> =
@@ -37,7 +97,7 @@ export async function submitClaim(
 
   const existing = await supabase
     .from("parts_warranty_claims")
-    .select("status")
+    .select("status, ro_id, apply_amount, brand_id")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
@@ -47,16 +107,29 @@ export async function submitClaim(
     return { ok: false, error: "此單已超過送件狀態" };
   }
 
+  const submittedAt = new Date().toISOString();
   const { error } = await supabase
     .from("parts_warranty_claims")
     .update({
       status: "submitted",
       status_label: "送件審核",
-      submitted_at: new Date().toISOString(),
+      submitted_at: submittedAt,
     })
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `送件失敗：${error.message}` };
+
+  // 同步應收款（upsert idempotent，非阻斷）
+  const scope = await getActiveScope();
+  await syncReceivable(supabase, id, {
+    claim_status: "submitted",
+    brand_id: brand,
+    workorder_id: existing.data.ro_id ?? null,
+    claim_amount: Number(existing.data.apply_amount),
+    submitted_at: submittedAt,
+    store_id: scope.store_id ?? null,
+  });
+
   revalidatePath(RO_LINK_PATH);
   return { ok: true, data: { id } };
 }
@@ -100,6 +173,16 @@ export async function markApproved(
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `核准失敗：${error.message}` };
+
+  // 同步應收款（非阻斷）
+  await syncReceivable(supabase, id, {
+    claim_status: "approved",
+    brand_id: brand,
+    ...(typeof approvedAmount === "number" && approvedAmount >= 0
+      ? { claim_amount: approvedAmount }
+      : {}),
+  });
+
   revalidatePath(RO_LINK_PATH);
   return { ok: true, data: { id } };
 }
@@ -147,6 +230,14 @@ export async function markReimbursed(
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `撥款標記失敗：${error.message}` };
 
+  // 同步應收款（非阻斷）
+  await syncReceivable(supabase, id, {
+    claim_status: "paid",
+    brand_id: brand,
+    claim_amount: finalAmount,
+    paid_at: now.toISOString(),
+  });
+
   revalidatePath(RO_LINK_PATH);
   revalidatePath("/parts/warranty/cost-recovery");
   return { ok: true, data: { id } };
@@ -187,6 +278,13 @@ export async function markRejected(
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `駁回失敗：${error.message}` };
+
+  // 同步應收款（非阻斷）
+  await syncReceivable(supabase, id, {
+    claim_status: "rejected",
+    brand_id: brand,
+  });
+
   revalidatePath(RO_LINK_PATH);
   return { ok: true, data: { id } };
 }

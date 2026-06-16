@@ -15,18 +15,19 @@
 // requirePermission 沿用入庫頁的 RECEIPT_CREATE（寫入）/ RECEIPT_VIEW（讀）。
 // ─────────────────────────────────────────────────────────────
 
+import { after } from "next/server";
+
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
-// import { after } from "next/server";          // 損壞拒收通知供應商時用（POC：先 TODO）
-// import { notifications } from "@/lib/notifications";
+import { createInappNotification } from "@/domain/user-notifications";
 
 export type Result<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-export type DiscrepancyKind = "short" | "damage";
+export type DiscrepancyKind = "short" | "damage" | "wrong_item";
 
 export type ReceivingDiscrepancyInput = {
   item_id: string;
@@ -38,6 +39,8 @@ export type ReceivingDiscrepancyInput = {
   gr_id?: string | null;
   photo_urls?: string[];
   metadata?: Record<string, unknown>;
+  // 「料號送錯」用：實際到貨料號（與 PO 訂購料號不同）
+  actual_item_code?: string;
 };
 
 export type ReceivingDiscrepancyRow = {
@@ -182,22 +185,80 @@ export async function recordShortage(
 
 // ─────────────────────────────────────────────────────────────
 // 損壞拒收 → kind='damage'（含 photo_urls）
-// after() 借既有通知通道推供應商 → POC 先寫表，通知留 TODO（不亂接新事件）
+// after() 發站內通知給操作者（採購/倉管），非阻塞
 // ─────────────────────────────────────────────────────────────
 export async function recordDamageRejection(
   input: ReceivingDiscrepancyInput,
 ): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
   const res = await insertDiscrepancy("damage", input);
   if (!res.ok) return res;
 
-  // TODO(POC 後續)：用 after() + notifications.dispatch 借既有 LINE 通道推供應商
-  //   提醒「損壞拒收」事件。本輪只先把差異寫進 receiving_discrepancies，
-  //   不擅自新增 notification 事件 code / template（避免污染通知系統）。
-  // after(async () => {
-  //   await notifications.dispatch({ code: "receiving.damage_rejected", payload: { ... } });
-  // });
+  // 取得操作者 uid，發站內通知（非阻塞）
+  const { data: { user: actor } } = await supabase.auth.getUser();
+  const actorId = actor?.id ?? null;
+  const brand = (await getActiveScope()).brand_id;
+
+  if (actorId) {
+    after(async () => {
+      try {
+        // 查料號顯示名稱（給通知 body 用）
+        const { data: itemRow } = await supabase
+          .from("items")
+          .select("code, name")
+          .eq("id", input.item_id)
+          .maybeSingle();
+        const itemLabel = itemRow
+          ? `${itemRow.code ?? ""} ${itemRow.name ?? ""}`.trim()
+          : input.item_id;
+        await createInappNotification({
+          recipient_user_id: actorId,
+          event_code: "receiving.damage_rejected",
+          title: "損壞拒收登錄成功",
+          body: `料號 ${itemLabel} 損壞拒收 ${input.qty_diff} 件已記錄，請通知供應商安排補貨或退款。`,
+          priority: "orange",
+          href: "/parts/receipt/po-grn",
+          brand_id: brand,
+        });
+      } catch (e) {
+        console.error("[receiving.damage_rejected] 站內通知失敗（不影響主流程）", e);
+      }
+    });
+  }
 
   return res;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 料號送錯 → kind='wrong_item'
+// 記錄實際到貨料號與 PO 訂購料號的差異（不阻斷正常收貨，備註性質）
+// ─────────────────────────────────────────────────────────────
+export async function recordWrongItemRejection(
+  input: ReceivingDiscrepancyInput,
+): Promise<Result<{ id: string }>> {
+  if (!input.actual_item_code?.trim()) {
+    return { ok: false, error: "請填寫實際到貨料號" };
+  }
+  // 查 PO 訂購料號（給 metadata 記錄對比）
+  const supabase = await createClient();
+  const { data: orderedItem } = await supabase
+    .from("items")
+    .select("code, name")
+    .eq("id", input.item_id)
+    .maybeSingle();
+  const orderedCode = orderedItem?.code ?? input.item_id;
+
+  const mergedInput: ReceivingDiscrepancyInput = {
+    ...input,
+    reason: input.reason?.trim() || `訂購料號 ${orderedCode}，實到料號 ${input.actual_item_code.trim()}`,
+    metadata: {
+      ...(input.metadata ?? {}),
+      ordered_item_code: orderedCode,
+      actual_item_code: input.actual_item_code.trim(),
+    },
+  };
+
+  return insertDiscrepancy("wrong_item", mergedInput);
 }
 
 // ─────────────────────────────────────────────────────────────

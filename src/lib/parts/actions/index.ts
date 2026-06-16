@@ -16,6 +16,7 @@ import type { ItemInsert } from "../types";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
+import { HIGH_VALUE_VARIANCE_THRESHOLD } from "@/domain/count.constants";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -254,6 +255,62 @@ export async function issueForRepair(
       await supabase.from("stock_items").update(update).eq("id", pick.stock_id);
     }
   }
+
+  // 消耗預留（inventory_reservations active → consumed）— 非阻塞、不影響主流程。
+  const roIdForConsume = wo.id;
+  after(async () => {
+    try {
+      // 彙整本次各 item 已領總量
+      const issuedByItem = new Map<string, number>();
+      for (const alloc of allocations) {
+        issuedByItem.set(alloc.item_id, (issuedByItem.get(alloc.item_id) ?? 0) + alloc.qty_needed);
+      }
+      const nowIso = new Date().toISOString();
+      for (const [itemId, qtyIssued] of issuedByItem) {
+        const { data: reservations, error: resErr } = await supabase
+          .from("inventory_reservations")
+          .select("id, reserved_qty, consumed_qty")
+          .eq("brand_id", brandId)
+          .eq("item_id", itemId)
+          .eq("ro_id", roIdForConsume)
+          .eq("status", "active")
+          .order("reserved_at", { ascending: true });
+        if (resErr) {
+          console.error("[issueForRepair consume reservation] 查預留失敗", { gi_no, item_id: itemId, error: resErr.message });
+          continue;
+        }
+        let remaining = qtyIssued;
+        for (const res of reservations ?? []) {
+          if (remaining <= 0) break;
+          const resQty = Number(res.reserved_qty);
+          const alreadyConsumed = Number(res.consumed_qty ?? 0);
+          const available = resQty - alreadyConsumed;
+          if (available <= 0) continue;
+          const toConsume = Math.min(available, remaining);
+          const newConsumed = alreadyConsumed + toConsume;
+          const newStatus = newConsumed >= resQty ? "consumed" : "active";
+          const { error: updErr } = await supabase
+            .from("inventory_reservations")
+            .update({
+              consumed_qty: newConsumed,
+              status: newStatus,
+              ...(newStatus === "consumed"
+                ? { released_at: nowIso, release_reason: "issued", updated_at: nowIso }
+                : { updated_at: nowIso }),
+            })
+            .eq("id", res.id)
+            .eq("brand_id", brandId)
+            .eq("status", "active");
+          if (updErr) {
+            console.error("[issueForRepair consume reservation] 更新失敗", { gi_no, reservation_id: res.id, error: updErr.message });
+          }
+          remaining -= toConsume;
+        }
+      }
+    } catch (e) {
+      console.error("[issueForRepair consume reservation] 例外（不影響主流程）", e);
+    }
+  });
 
   revalidatePath("/parts/issue/repair-pick");
   revalidatePath("/parts/operations/balance");
@@ -747,8 +804,10 @@ export async function returnIssueLines(
 export type CreateCountPlanInput = {
   plan_name: string;
   warehouse_id: string;
-  plan_type?: "cycle" | "full" | "spot" | "abc_a" | "abc_b" | "abc_c";
+  plan_type?: "cycle" | "full" | "spot" | "abc_a" | "abc_b" | "abc_c" | "unannounced";
   abc_filter?: "A" | "B" | "C" | "all";
+  /** 突擊盤點計畫：不設 next_run_at（隱藏排程避免預告） */
+  is_unannounced?: boolean;
   notes?: string;
 };
 
@@ -761,14 +820,18 @@ export async function createCountPlanAction(
   const supabase = await createClient();
   const brandId = (await getActiveScope()).brand_id;
 
+  const isUnannounced = input.is_unannounced === true;
+
   const { data, error } = await supabase
     .from("inventory_count_plans")
     .insert({
       brand_id: brandId,
       plan_name: input.plan_name.trim(),
       warehouse_id: input.warehouse_id,
-      plan_type: input.plan_type ?? "cycle",
+      plan_type: isUnannounced ? "unannounced" : (input.plan_type ?? "cycle"),
       abc_filter: input.abc_filter ?? null,
+      // 突擊盤點不寫 next_run_at（避免排程時間外洩讓員工預知）
+      next_run_at: isUnannounced ? null : undefined,
       notes: input.notes ?? null,
     })
     .select("id")
@@ -786,6 +849,8 @@ export type StartCountSessionInput = {
   abc_class_filter?: "A" | "B" | "C";
   count_type?: string;
   freeze_warehouse?: boolean;
+  /** 突擊盤點：不公告、先盤後凍、不寫 next_run_at */
+  is_unannounced?: boolean;
   notes?: string;
 };
 
@@ -850,6 +915,10 @@ export async function startCountSessionAction(
   }
   const ct_no = `CT${dateStr}-${String(seq).padStart(3, "0")}`;
 
+  // 突擊盤點：先盤後凍（freeze_warehouse=false）、不寫 next_run_at（避免預告時間）
+  const isUnannounced = input.is_unannounced === true;
+  const effectiveFreezeWarehouse = isUnannounced ? false : (input.freeze_warehouse ?? false);
+
   // 3. INSERT inventory_counts
   const { data: ct, error: ctErr } = await supabase
     .from("inventory_counts")
@@ -860,8 +929,9 @@ export async function startCountSessionAction(
       warehouse_id: input.warehouse_id,
       count_date: input.count_date ?? today.toISOString().slice(0, 10),
       status: "counting",
-      count_type: input.count_type ?? "manual",
-      freeze_warehouse: input.freeze_warehouse ?? false,
+      count_type: isUnannounced ? "unannounced" : (input.count_type ?? "manual"),
+      freeze_warehouse: effectiveFreezeWarehouse,
+      is_unannounced: isUnannounced,
       notes: input.notes ?? null,
       total_lines: snapshotLines.length,
     })
@@ -967,6 +1037,73 @@ export async function submitCountSessionAction(
       notes: input.notes ?? null,
     })
     .eq("id", input.ct_id);
+
+  // 高價值盤差升級店長通知 — 非阻塞。
+  const finalVarianceAmount = Math.round(totalVarianceAmount * 100) / 100;
+  const finalVarianceLines = varianceLines;
+  const ctNoForNotify = ct.ct_no;
+  if (Math.abs(finalVarianceAmount) >= HIGH_VALUE_VARIANCE_THRESHOLD) {
+    after(async () => {
+      try {
+        const sb = (await import("@/lib/supabase/service")).createServiceClient();
+        // 找店長：先找 is_cross_admin，fallback 找 is_dept_manager
+        const { data: crossAdmins } = await sb
+          .from("employees")
+          .select("user_id")
+          .eq("brand_id", brandId)
+          .eq("is_cross_admin", true)
+          .eq("is_active", true)
+          .not("user_id", "is", null)
+          .limit(3);
+        let managerIds: string[] = (crossAdmins ?? [])
+          .map((e: { user_id: string | null }) => e.user_id)
+          .filter((id: string | null): id is string => !!id);
+        if (managerIds.length === 0) {
+          const { data: deptManagers } = await sb
+            .from("employees")
+            .select("user_id")
+            .eq("brand_id", brandId)
+            .eq("is_dept_manager", true)
+            .eq("is_active", true)
+            .not("user_id", "is", null)
+            .limit(3);
+          managerIds = (deptManagers ?? [])
+            .map((e: { user_id: string | null }) => e.user_id)
+            .filter((id: string | null): id is string => !!id);
+        }
+        const { createInappNotifications } = await import("@/domain/user-notifications");
+        if (managerIds.length > 0) {
+          await createInappNotifications(
+            managerIds.map((uid) => ({
+              recipient_user_id: uid,
+              brand_id: brandId,
+              title: "盤差金額超標・需覆核",
+              body: `盤點單 ${ctNoForNotify} 盤差金額 NT$ ${Math.round(Math.abs(finalVarianceAmount)).toLocaleString("zh-TW")}（${finalVarianceLines} 筆差異行），已超過高價值閾值，請盡速審批。`,
+              priority: "red" as const,
+              event_code: "stocktake.high_variance",
+              href: `/parts/count/adjustments`,
+            })),
+          );
+        } else {
+          // 找不到店長：發給當前操作者並標 TODO
+          const { data: { user: currentUser } } = await (await import("@/lib/supabase/server")).createClient().then((c) => c.auth.getUser());
+          if (currentUser?.id) {
+            await createInappNotifications([{
+              recipient_user_id: currentUser.id,
+              brand_id: brandId,
+              title: "盤差金額超標・需覆核（TODO: 找不到店長）",
+              body: `盤點單 ${ctNoForNotify} 盤差金額 NT$ ${Math.round(Math.abs(finalVarianceAmount)).toLocaleString("zh-TW")}（${finalVarianceLines} 筆差異行）。系統找不到 is_cross_admin / is_dept_manager 員工，請手動通知主管。`,
+              priority: "red" as const,
+              event_code: "stocktake.high_variance",
+              href: `/parts/count/adjustments`,
+            }]);
+          }
+        }
+      } catch (e) {
+        console.error("[submitCountSession] 高價值盤差通知例外（不影響主流程）", e);
+      }
+    });
+  }
 
   revalidatePath("/parts/count/sessions");
   revalidatePath("/parts/count/adjustments");
