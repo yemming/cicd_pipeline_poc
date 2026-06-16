@@ -27,7 +27,6 @@ import {
   reassignOrderAction,
   setDiagResultAction,
   saveTechNoteAction,
-  type DiagResult,
 } from "@/lib/aftersales/tech-workstation-actions";
 import type {
   AssignedOrderCard,
@@ -38,6 +37,7 @@ import type {
   AddonItemOption,
   AddonWarehouseOption,
   TimeSessionRow,
+  DiagResult,
 } from "@/domain/tech-workstation";
 
 type TabKey = "pending" | "in_progress" | "done_today" | "hours";

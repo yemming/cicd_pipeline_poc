@@ -146,6 +146,3 @@ export async function saveTechNoteAction(
   if (res.ok) revalidatePath(TECH_PATH);
   return res;
 }
-
-// 重新 export DiagResult 型別供 board 使用
-export type { DiagResult };
