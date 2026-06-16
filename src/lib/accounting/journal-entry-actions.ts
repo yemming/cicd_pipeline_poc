@@ -42,6 +42,7 @@ export type EntryHeaderInput = {
   entry_no?: string | null;
   entry_date: string;
   description?: string | null;
+  subsidiary_id?: string | null;
 };
 
 export async function createDraftEntryAction(
@@ -337,6 +338,167 @@ export async function removeLineAction(
 
   revalidateAll(line.entry_id);
   return { ok: true, data: { id: lineId, entry_id: line.entry_id } };
+}
+
+// ============================================================
+// NetSuite 式單頁存檔：表頭 + 全部分錄行一次寫入（create or replace）
+// ============================================================
+
+export type DraftLineInput = {
+  coa_id: string;
+  debit: number;
+  credit: number;
+  dimensions: Record<string, string | number>;
+  description?: string | null;
+};
+
+export type SaveEntryInput = {
+  id?: string | null; // 有 → 更新草稿；無 → 建立
+  entry_no?: string | null;
+  entry_date: string;
+  description?: string | null;
+  subsidiary_id?: string | null;
+  lines: DraftLineInput[];
+};
+
+/**
+ * 一次存整張傳票（表頭 + 全部行）。草稿狀態下整批取代行（先刪後插）。
+ * 不過帳；過帳仍走 postEntryAction（觸發 DB validator）。
+ */
+export async function saveDraftEntryAction(
+  input: SaveEntryInput,
+): Promise<JournalActionResult<{ id: string; entry_no: string }>> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  if (!input.entry_date) return { ok: false, error: "傳票日期必填" };
+
+  // 過濾掉完全空白的行（沒科目也沒金額），其餘逐行驗證
+  const rawLines = input.lines ?? [];
+  const lines: DraftLineInput[] = [];
+  for (let i = 0; i < rawLines.length; i++) {
+    const l = rawLines[i];
+    const debit = Number(l.debit) || 0;
+    const credit = Number(l.credit) || 0;
+    const blank = !l.coa_id && debit === 0 && credit === 0;
+    if (blank) continue;
+    if (!l.coa_id) return { ok: false, error: `第 ${i + 1} 行未選科目` };
+    if (debit < 0 || credit < 0) return { ok: false, error: `第 ${i + 1} 行金額不可為負` };
+    if (!(debit > 0 && credit === 0) && !(credit > 0 && debit === 0))
+      return { ok: false, error: `第 ${i + 1} 行只能填借或貸其中之一` };
+    lines.push({
+      coa_id: l.coa_id,
+      debit,
+      credit,
+      dimensions: sanitizeDimensions(l.dimensions),
+      description: l.description?.trim() || null,
+    });
+  }
+
+  const sb = createServiceClient();
+
+  // 確認所有科目可入帳 + 啟用（draft 階段就先擋，避免存了過帳才爆）
+  if (lines.length > 0) {
+    const coaIds = Array.from(new Set(lines.map((l) => l.coa_id)));
+    const { data: coas, error: coaErr } = await sb
+      .from("chart_of_accounts")
+      .select("id, is_postable, is_active, name_zh_tw")
+      .in("id", coaIds);
+    if (coaErr) return { ok: false, error: coaErr.message };
+    const byId = new Map((coas ?? []).map((c) => [c.id, c]));
+    for (const id of coaIds) {
+      const c = byId.get(id);
+      if (!c) return { ok: false, error: "有分錄行使用了不存在的科目" };
+      if (!c.is_postable)
+        return { ok: false, error: `「${c.name_zh_tw}」不可入帳（僅 L5 可入帳）` };
+      if (!c.is_active)
+        return { ok: false, error: `「${c.name_zh_tw}」已停用，不可入帳` };
+    }
+  }
+
+  let entryId = input.id ?? null;
+  let entryNo = (input.entry_no ?? "").trim();
+
+  if (entryId) {
+    // —— 更新既有草稿 ——
+    const { data: row, error: getErr } = await sb
+      .from("journal_entries")
+      .select("status, entry_no")
+      .eq("id", entryId)
+      .single();
+    if (getErr || !row) return { ok: false, error: getErr?.message ?? "找不到分錄" };
+    if (row.status !== "draft")
+      return { ok: false, error: `${row.status} 狀態的分錄不可編輯（請改用反向沖銷）` };
+
+    const headerPatch: Record<string, unknown> = {
+      entry_date: input.entry_date,
+      description: input.description?.trim() || null,
+      subsidiary_id: input.subsidiary_id || null,
+    };
+    if (entryNo) headerPatch.entry_no = entryNo;
+    const { error: updErr } = await sb
+      .from("journal_entries")
+      .update(headerPatch)
+      .eq("id", entryId);
+    if (updErr) {
+      if (updErr.code === "23505") return { ok: false, error: "傳票編號重複" };
+      return { ok: false, error: updErr.message };
+    }
+    entryNo = entryNo || (row.entry_no as string);
+
+    // 整批取代行
+    const { error: delErr } = await sb
+      .from("journal_entry_lines")
+      .delete()
+      .eq("entry_id", entryId);
+    if (delErr) return { ok: false, error: `清除舊行失敗：${delErr.message}` };
+  } else {
+    // —— 建立新草稿 ——
+    entryNo = entryNo || generateEntryNo();
+    const tenant = await getDefaultTenantUuid();
+    const { data, error } = await sb
+      .from("journal_entries")
+      .insert({
+        tenant_id: tenant,
+        entry_no: entryNo,
+        entry_date: input.entry_date,
+        description: input.description?.trim() || null,
+        subsidiary_id: input.subsidiary_id || null,
+        status: "draft",
+        created_by: auth.userId,
+      })
+      .select("id, entry_no")
+      .single();
+    if (error) {
+      if (error.code === "23505")
+        return { ok: false, error: `傳票編號「${entryNo}」已存在` };
+      return { ok: false, error: error.message };
+    }
+    entryId = data.id;
+    entryNo = data.entry_no;
+  }
+
+  // 寫入行（line_no 重新編 1..n）
+  if (lines.length > 0) {
+    const rows = lines.map((l, idx) => ({
+      entry_id: entryId,
+      line_no: idx + 1,
+      coa_id: l.coa_id,
+      debit: l.debit,
+      credit: l.credit,
+      dimensions: l.dimensions,
+      description: l.description ?? null,
+    }));
+    const { error: insErr } = await sb.from("journal_entry_lines").insert(rows);
+    if (insErr) {
+      // 新建情境：行寫失敗就回滾表頭，避免留下無行孤兒草稿
+      if (!input.id && entryId) await sb.from("journal_entries").delete().eq("id", entryId);
+      return { ok: false, error: `寫入分錄行失敗：${insErr.message}` };
+    }
+  }
+
+  revalidateAll(entryId ?? undefined);
+  return { ok: true, data: { id: entryId as string, entry_no: entryNo } };
 }
 
 // ============================================================

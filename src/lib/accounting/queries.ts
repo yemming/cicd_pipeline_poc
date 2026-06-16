@@ -276,6 +276,7 @@ export type JournalEntryRow = {
   entry_date: string;
   description: string | null;
   status: EntryStatus;
+  subsidiary_id: string | null;
   posted_at: string | null;
   posted_by: string | null;
   reversed_by_entry_id: string | null;
@@ -321,7 +322,7 @@ export async function listJournalEntries(
   let q = sb
     .from("journal_entries")
     .select(
-      "id, tenant_id, entry_no, entry_date, description, status, posted_at, posted_by, reversed_by_entry_id, netsuite_journal_id, netsuite_synced_at, created_at, updated_at, created_by",
+      "id, tenant_id, entry_no, entry_date, description, status, subsidiary_id, posted_at, posted_by, reversed_by_entry_id, netsuite_journal_id, netsuite_synced_at, created_at, updated_at, created_by",
     )
     .eq("tenant_id", tenant);
 
@@ -378,7 +379,7 @@ export async function getJournalEntryById(id: string): Promise<{
   const { data: entry, error: entryErr } = await sb
     .from("journal_entries")
     .select(
-      "id, tenant_id, entry_no, entry_date, description, status, posted_at, posted_by, reversed_by_entry_id, netsuite_journal_id, netsuite_synced_at, created_at, updated_at, created_by",
+      "id, tenant_id, entry_no, entry_date, description, status, subsidiary_id, posted_at, posted_by, reversed_by_entry_id, netsuite_journal_id, netsuite_synced_at, created_at, updated_at, created_by",
     )
     .eq("id", id)
     .eq("tenant_id", tenant)

@@ -95,7 +95,7 @@ export function CoaDetailView({ coa, parents, initialMode }: CoaDetailViewProps)
   const [cCode, setCCode] = useState("");
   const [cNameZh, setCNameZh] = useState("");
   const [cNameEn, setCNameEn] = useState("");
-  const [cNormBal, setCNormBal] = useState<"D" | "C" | "">("");
+  // normal_balance 一律沿用 parent（借/貸不再讓 user 在 UI 設定，僅供報表用）
   const [cDealer, setCDealer] = useState<string>("");
   const [cReqDim, setCReqDim] = useState("SUBSIDIARY, STORE");
   const [cDesc, setCDesc] = useState("");
@@ -177,7 +177,7 @@ export function CoaDetailView({ coa, parents, initialMode }: CoaDetailViewProps)
       account_code: cCode.trim(),
       name_zh_tw: cNameZh.trim(),
       name_en: cNameEn.trim() || null,
-      normal_balance: cNormBal || undefined,
+      normal_balance: undefined, // 沿用 parent
       dealer_category: (cDealer || undefined) as CoaCreateInput["dealer_category"],
       required_dimensions: dims,
       description: cDesc.trim() || null,
@@ -463,8 +463,7 @@ export function CoaDetailView({ coa, parents, initialMode }: CoaDetailViewProps)
                     <span>{selectedParent.name_zh_tw}</span>
                     <span className="text-[11px] text-[#5A5955]">
                       ({L1_LABEL[selectedParent.l1_category]} ·{" "}
-                      {DEALER_LABEL[selectedParent.dealer_category]} · 借/貸{" "}
-                      {selectedParent.normal_balance})
+                      {DEALER_LABEL[selectedParent.dealer_category]})
                     </span>
                     <button
                       type="button"
@@ -537,20 +536,6 @@ export function CoaDetailView({ coa, parents, initialMode }: CoaDetailViewProps)
                   value={cNameEn}
                   onChange={(e) => setCNameEn(e.target.value)}
                 />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className={labelClass}>借/貸（沿用 parent）</label>
-                <select
-                  className={inputClass}
-                  value={cNormBal}
-                  onChange={(e) =>
-                    setCNormBal(e.target.value as "D" | "C" | "")
-                  }
-                >
-                  <option value="">沿用 parent</option>
-                  <option value="D">借 (Debit)</option>
-                  <option value="C">貸 (Credit)</option>
-                </select>
               </div>
               <div className="flex flex-col gap-1">
                 <label className={labelClass}>業態（沿用 parent）</label>
@@ -651,7 +636,6 @@ export function CoaDetailView({ coa, parents, initialMode }: CoaDetailViewProps)
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
               <Kv label="大類 (L1)" value={`${L1_LABEL[coa.l1_category] ?? coa.l1_category} (${coa.l1_category})`} />
               <Kv label="業態" value={`${DEALER_LABEL[coa.dealer_category] ?? coa.dealer_category} (${coa.dealer_category})`} />
-              <Kv label="借/貸" value={`${coa.normal_balance === "D" ? "借" : "貸"} (${coa.normal_balance})`} />
               <Kv label="稅務處理" value={`${TAX_LABEL[coa.tax_treatment] ?? coa.tax_treatment} (${coa.tax_treatment})`} />
               <Kv label="鎖定" value={coa.is_locked ? "是 (L1-L3 結構鎖定)" : "否"} small />
               <Kv label="系統預設" value={coa.is_system_default ? "是" : "否"} small />

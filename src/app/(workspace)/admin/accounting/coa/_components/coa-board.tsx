@@ -268,18 +268,6 @@ export function CoaBoard({
       sortValue: (r) => r.moea_code ?? "",
     },
     {
-      id: "normal_balance",
-      header: "借/貸",
-      width: 60,
-      cell: (r) => (
-        <span className="text-[12px]">
-          {r.normal_balance === "D" ? "借" : "貸"}
-        </span>
-      ),
-      exportValue: (r) => (r.normal_balance === "D" ? "借" : "貸"),
-      sortValue: (r) => r.normal_balance,
-    },
-    {
       id: "is_postable",
       header: "入帳",
       width: 90,
