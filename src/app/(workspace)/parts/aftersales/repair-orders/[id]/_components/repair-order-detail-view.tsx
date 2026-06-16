@@ -31,6 +31,16 @@ function fmtTaipeiDateTime(iso: string): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
+// TL 工單截止時間：只取 HH:MM（Asia/Taipei）
+function fmtTaipeiHHMM(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  const d = new Date(t + 8 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+
 function statusBadge(status: string): string {
   switch (status) {
     case "進行中":
@@ -292,6 +302,13 @@ export function RepairOrderDetailView({
     | { required: boolean; approved_at?: string | null; approver_id?: string | null }
     | undefined;
 
+  // TL 借用測試工單：due_by badge
+  const tlConfig = meta.tl_config as
+    | { due_by?: string | null; loan_purpose?: string }
+    | undefined;
+  const isTlOrder = ro.prefix_p1 === "TL";
+  const tlDueTime = tlConfig?.due_by ? fmtTaipeiHHMM(tlConfig.due_by) : "";
+
   const warranty = (ro.warranty_status_snapshot ?? {}) as Record<string, unknown>;
   const warrantyValid = warranty.is_valid === true;
 
@@ -386,12 +403,13 @@ export function RepairOrderDetailView({
               {/* 管理員直接取消（快速通道，不需授權，走正式 Modal 收原因） */}
               <button
                 type="button"
+                data-testid="cancel-ro-btn"
                 onClick={openDirectCancelModal}
                 disabled={isPending}
                 className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"
                 title="直接取消工單（不需授權，需填寫取消原因）"
               >
-                直接取消
+                取消工單
               </button>
             </>
           )}
@@ -410,14 +428,34 @@ export function RepairOrderDetailView({
                 {ro.ro_code}
               </h1>
               <div className="flex items-center gap-1.5 mt-1 flex-wrap text-[12px]">
-                <span
-                  className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium ${statusBadge(ro.status)}`}
-                >
-                  {ro.status}
-                </span>
+                {/* 已取消 badge：帶 testid 供自動化測試斷言 */}
+                {ro.status === "已取消" ? (
+                  <span
+                    data-testid="ro-cancelled-badge"
+                    className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium ${statusBadge(ro.status)}`}
+                  >
+                    {ro.status}
+                  </span>
+                ) : (
+                  <span
+                    className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium ${statusBadge(ro.status)}`}
+                  >
+                    {ro.status}
+                  </span>
+                )}
                 <span className="inline-flex px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#EBF3FF] text-[#1A3A5C]">
                   {ro.prefix_p1}-{ro.prefix_p2}
                 </span>
+                {/* TL 借用測試工單截止時間 badge */}
+                {isTlOrder && tlDueTime && (
+                  <span
+                    data-testid="tl-due-by-badge"
+                    className="inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]"
+                    title={`借用截止：${tlDueTime} Asia/Taipei`}
+                  >
+                    今日 {tlDueTime} 截止
+                  </span>
+                )}
                 <span
                   className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium ${pdef.chip}`}
                 >
@@ -652,6 +690,17 @@ export function RepairOrderDetailView({
               className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] hover:bg-[#fce9c5] shadow-sm"
             >
               📋 主管授權記錄 →
+            </Link>
+          )}
+
+          {/* TL 借用測試工單專屬：借用結案入口（不走竣工複檢→結帳流程） */}
+          {isTlOrder && ro.status !== "已關單" && ro.status !== "已取消" && (
+            <Link
+              href={`/parts/aftersales/repair-orders/${ro.id}/tl-close`}
+              className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#1A3A5C] text-white hover:bg-[#0F2A45] shadow-sm font-medium"
+              title="借用測試工單專屬結案流程（SA+技師雙簽，零件逐行處置）"
+            >
+              🔑 借用結案 →
             </Link>
           )}
         </div>
@@ -997,6 +1046,7 @@ export function RepairOrderDetailView({
       {/* 直接取消 Modal（取代 window.confirm + window.prompt） */}
       {directCancelModal && (
         <div
+          data-testid="cancel-ro-modal"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={() => !isPending && setDirectCancelModal(false)}
         >
@@ -1007,7 +1057,7 @@ export function RepairOrderDetailView({
             <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#FDECEA] flex items-center gap-2">
               <span className="text-[16px]">🗑️</span>
               <div className="text-[13px] font-semibold text-[#CC0000]">
-                直接取消工單
+                取消工單
               </div>
               <span className="ml-auto text-[10px] text-[#CC0000] font-mono">{ro.ro_code}</span>
             </header>
@@ -1023,6 +1073,7 @@ export function RepairOrderDetailView({
                   取消原因（選填，建議填寫以便日後稽核）
                 </label>
                 <textarea
+                  data-testid="cancel-reason-input"
                   value={directCancelReason}
                   onChange={(e) => setDirectCancelReason(e.target.value)}
                   disabled={isPending}
@@ -1043,6 +1094,7 @@ export function RepairOrderDetailView({
               </button>
               <button
                 type="button"
+                data-testid="confirm-cancel-btn"
                 onClick={doDirectCancel}
                 disabled={isPending}
                 className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#CC0000] text-white hover:bg-[#aa0000] disabled:opacity-50"

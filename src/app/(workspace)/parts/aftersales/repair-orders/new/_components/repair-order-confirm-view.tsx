@@ -16,6 +16,7 @@ import {
 } from "@/domain/repair-orders.constants";
 import type { RoDraft } from "@/domain/repair-orders";
 import { confirmRepairOrderAction } from "@/lib/aftersales/repair-order-actions";
+import { SignatureCanvas } from "@/components/signature-canvas";
 
 function comboLookup(p1: PrefixP1, p2: PrefixP2) {
   return PREFIX_COMBO_RULES.find((r) => r.p1 === p1 && r.p2 === p2);
@@ -53,6 +54,11 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
     new_biz_type: string;
   } | null>(null);
   const [concurrentAuthCode, setConcurrentAuthCode] = useState("");
+  // TL 借用測試工單：借出目的 + SA/技師雙簽 + 開立結果
+  const [tlLoanPurpose, setTlLoanPurpose] = useState("");
+  const [tlSaSig, setTlSaSig] = useState<string | null>(null);
+  const [tlTechSig, setTlTechSig] = useState<string | null>(null);
+  const [tlCreated, setTlCreated] = useState<{ id: string; ro_code: string } | null>(null);
 
   function clearConcurrent() {
     setConcurrentWarn(null);
@@ -61,12 +67,14 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
 
   // PD（PDI整備）模式：選 PD 時 P2 自動鎖 IN（內部結算），費用計入整車成本、車主應付 NT$0
   const isPDI = p1 === "PD";
+  // TL（借用測試）模式：P2 鎖 IN，走雙簽特殊表單、結案走 tl-close
+  const isTL = p1 === "TL";
 
   // 選 P1：PD → 強制 P2=IN；離開 PD（原本是 IN）→ 還原成 CP（或保固預設 WR）
   function selectP1(code: PrefixP1) {
     clearConcurrent();
     setP1(code);
-    if (code === "PD") {
+    if (code === "PD" || code === "TL") {
       setP2("IN");
     } else if (p2 === "IN") {
       setP2(draft.has_warranty_concern ? "WR" : "CP");
@@ -122,7 +130,18 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
   }
 
   function confirm(opts?: { ack?: boolean; supervisorAuth?: string }) {
-    if (isPending || isInvalid || warrantyBlocked) return;
+    if (isPending || (!isTL && (isInvalid || warrantyBlocked))) return;
+    // TL：前端先驗借出目的 + 雙簽
+    if (isTL) {
+      if (!tlLoanPurpose.trim()) {
+        showBanner({ ok: false, msg: "請填寫借出目的" });
+        return;
+      }
+      if (!tlSaSig || !tlTechSig) {
+        showBanner({ ok: false, msg: "SA 與技師需各自完成電子簽名" });
+        return;
+      }
+    }
     startTransition(async () => {
       const res = await confirmRepairOrderAction({
         appointment_id: draft.appointment_id,
@@ -150,9 +169,24 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
         concurrent_supervisor_auth: opts?.supervisorAuth?.trim()
           ? { authorized_by: opts.supervisorAuth.trim() }
           : null,
+        tl_config: isTL
+          ? {
+              loan_purpose: tlLoanPurpose.trim(),
+              related_ro_id: null,
+              related_customer_id: draft.customer?.id ?? null,
+              sa_signature_url: tlSaSig ?? "",
+              tech_signature_url: tlTechSig ?? "",
+            }
+          : null,
       });
       if (res.ok) {
         clearConcurrent();
+        // TL：不導頁，留在本頁顯示開立成功 badge + 工單號（供後續領料/結案）
+        if (isTL) {
+          setTlCreated({ id: res.data.id, ro_code: res.data.ro_code });
+          showBanner({ ok: true, msg: `✓ 借用測試工單 ${res.data.ro_code} 已開立` });
+          return;
+        }
         showBanner({ ok: true, msg: `✓ 工單 ${res.data.ro_code} 已開立` });
         router.push(`/parts/aftersales/repair-orders/${res.data.id}`);
         return;
@@ -375,6 +409,7 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
                   <button
                     key={d.code}
                     type="button"
+                    data-testid={`prefix-${d.code}`}
                     onClick={() => selectP1(d.code)}
                     disabled={isPending}
                     className={`flex-1 min-w-[150px] text-left px-3 py-2.5 rounded-lg border-[1.5px] transition-colors ${
@@ -389,6 +424,94 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
               })}
             </div>
           </div>
+
+          {/* TL 借用測試工單表單（選 TL 時顯示）— SA+技師雙簽、當天結案 */}
+          {isTL && (
+            <div
+              data-testid="tl-form"
+              className="rounded-lg px-4 py-4 bg-[#F0EFFE] border-[1.5px] border-[#C5C0F0] space-y-3"
+            >
+              <div className="text-[13px] font-bold text-[#534AB7]">
+                📋 借用測試工單（TL）— 臨時借出診斷／測試
+              </div>
+              <div className="rounded bg-white/70 border border-[#C5C0F0] px-3 py-2 text-[12px] text-[#534AB7] leading-relaxed">
+                ⚠️ TL 工單規則：必須當天下班前完成結案；所有借出料件須有明確處置（轉工單／退料／向車主收費／門店吸收）；SA 與技師須各自電子簽名確認。
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[12px] text-[#5A5955] font-medium">借出目的（必填）</label>
+                <input
+                  data-testid="tl-loan-purpose"
+                  value={tlLoanPurpose}
+                  disabled={isPending || !!tlCreated}
+                  onChange={(e) => setTlLoanPurpose(e.target.value)}
+                  placeholder="例：測試煞車感應器型號是否相容"
+                  className="h-[34px] border border-[#C5C0F0] rounded px-2 text-[12.5px] bg-white focus:border-[#534AB7] focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[12px] text-[#5A5955] font-medium">
+                    SA 確認簽名 {tlSaSig && <span className="text-[#3B6D11]">✓ 已簽</span>}
+                  </label>
+                  <div data-testid="tl-sa-signature-canvas">
+                    <SignatureCanvas onSigned={(d) => setTlSaSig(d)} />
+                  </div>
+                  <span className="text-[11px] text-[#9A9890]">
+                    「我確認此借料測試有必要性，並負責追蹤結案」
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[12px] text-[#5A5955] font-medium">
+                    技師 確認簽名 {tlTechSig && <span className="text-[#3B6D11]">✓ 已簽</span>}
+                  </label>
+                  <div data-testid="tl-tech-signature-canvas">
+                    <SignatureCanvas onSigned={(d) => setTlTechSig(d)} />
+                  </div>
+                  <span className="text-[11px] text-[#9A9890]">
+                    「我確認借出料件由我負責保管，當天下班前歸還或處置」
+                  </span>
+                </div>
+              </div>
+
+              {tlCreated ? (
+                <div
+                  data-testid="tl-ro-created-badge"
+                  className="rounded-lg px-4 py-3 bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] text-[12.5px]"
+                >
+                  ✓ 借用測試工單已開立：
+                  <b data-testid="tl-ro-number" className="font-mono ml-1">
+                    {tlCreated.ro_code}
+                  </b>
+                  <div className="mt-2 flex gap-2">
+                    <Link
+                      href={`/parts/issue/repair-pick/new`}
+                      className="h-[30px] px-3 inline-flex items-center rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                    >
+                      前往領料 →
+                    </Link>
+                    <Link
+                      href={`/parts/aftersales/repair-orders/${tlCreated.id}/tl-close`}
+                      className="h-[30px] px-3 inline-flex items-center rounded-full text-[12px] bg-[#534AB7] text-white hover:bg-[#433a9c]"
+                    >
+                      借用結案 →
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="create-tl-ro-btn"
+                  onClick={() => confirm()}
+                  disabled={isPending || !tlLoanPurpose.trim() || !tlSaSig || !tlTechSig}
+                  className="w-full h-[46px] rounded-lg text-white text-[14px] font-semibold bg-[#534AB7] hover:bg-[#433a9c] disabled:bg-[#D5D3CB] disabled:text-[#9A9890] disabled:cursor-not-allowed"
+                >
+                  {isPending ? "建立中⋯" : "兩人均已簽名 → 開立 TL 借用測試工單"}
+                </button>
+              )}
+            </div>
+          )}
 
           {/* PD 費用說明卡（選 PD 時顯示）— 整車成本 / 車主應付 NT$0 */}
           {isPDI && (
@@ -419,6 +542,7 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
             </div>
           )}
 
+          {!isTL && (<>
           <div>
             <div className="text-[12px] text-[#5A5955] mb-2">
               {isPDI ? "付款性質 (P2)（PDI 模式：自動鎖定為內部結算）" : "付款性質 (P2)"}
@@ -574,6 +698,7 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
               </div>
             </div>
           )}
+          </>)}
 
           {/* 修補一：不同業務類型同車並存 → amber 提醒，SA 確認後可並存 */}
           {concurrentWarn && (
@@ -642,7 +767,8 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
             </div>
           )}
 
-          {/* Confirm — PD 模式下按鈕轉綠（整車成本內部結算） */}
+          {/* Confirm — PD 模式下按鈕轉綠（整車成本內部結算）；TL 走上方雙簽表單的開立按鈕 */}
+          {!isTL && (<>
           <button
             type="button"
             onClick={() => confirm()}
@@ -664,6 +790,7 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
               ? "確認後 PDI 工單狀態設為「進行中」、技師可開始作業；完工後費用自動計入整車成本（車主應付 NT$0）"
               : "確認後工單狀態設為「進行中」、預約狀態同步切「維修中」、技師可開始作業並打卡"}
           </div>
+          </>)}
         </div>
       </section>
 

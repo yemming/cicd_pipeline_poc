@@ -35,6 +35,9 @@ import { appendRepairOrderEvent } from "@/domain/repair-orders";
 import { hasApprovedApproval } from "@/domain/aftersales-approvals";
 // RP8 T03：工單進待料 → 倉管站內通知
 import { createInappNotifications } from "@/domain/user-notifications";
+// 退料閉環：取消工單 / TL 結案 → 建退料待確認
+import { createReturnRequestsBatch } from "@/domain/parts-return-requests";
+import { getTodayClosingTime } from "@/domain/aftersales-settings";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -125,6 +128,14 @@ export type ConfirmRepairOrderInput = {
   concurrent_ack?: boolean | null;
   /** 修補一：相同業務類型同車重複開單時的主管授權（寫入 metadata.concurrent_same_type_auth）*/
   concurrent_supervisor_auth?: { authorized_by: string; note?: string | null } | null;
+  /** TL 借用測試工單專屬設定（prefix_p1='TL' 時必填，SA+技師雙簽）*/
+  tl_config?: {
+    loan_purpose: string;
+    related_ro_id?: string | null;
+    related_customer_id?: string | null;
+    sa_signature_url: string;
+    tech_signature_url: string;
+  } | null;
 };
 
 function todayIsoDate(): string {
@@ -175,6 +186,28 @@ export async function confirmRepairOrderAction(
   const verdict = rule?.verdict ?? "needs_supervisor";
   const accounting = rule?.accounting ?? null;
 
+  // TL 借用測試工單：必須 SA+技師雙簽 + 借出目的；due_by = 當天下班
+  let tlConfigMeta: Record<string, unknown> | null = null;
+  if (input.prefix_p1 === "TL") {
+    const tl = input.tl_config;
+    if (!tl?.loan_purpose?.trim())
+      return { ok: false, error: "借用測試工單必須填寫借出目的" };
+    if (!tl.sa_signature_url?.trim() || !tl.tech_signature_url?.trim())
+      return { ok: false, error: "借用測試工單需 SA 與技師各自電子簽名確認" };
+    const nowIso = new Date().toISOString();
+    tlConfigMeta = {
+      loan_purpose: tl.loan_purpose.trim(),
+      related_ro_id: tl.related_ro_id ?? null,
+      related_customer_id: tl.related_customer_id ?? null,
+      sa_signature_url: tl.sa_signature_url.trim(),
+      sa_signed_at: nowIso,
+      tech_signature_url: tl.tech_signature_url.trim(),
+      tech_signed_at: nowIso,
+      due_by: await getTodayClosingTime(),
+      closed_summary: null,
+    };
+  }
+
   // 費用歸屬：依會計類別推導（PD-IN → VEHICLE_COST → 'vehicle_cost'，費用計入整車成本、車主應付 NT$0）
   // WC-WR 等廠商索賠 → 'warranty_vendor'；其餘客付/費用認列 → 'customer'
   const feeAllocation: "customer" | "vehicle_cost" | "warranty_vendor" =
@@ -212,8 +245,33 @@ export async function confirmRepairOrderAction(
       ro_code: string;
       prefix_p1: string;
     }>;
+    // TL 借用測試工單一車多工單規則（Russell 6/16）：
+    //   - 新單是 TL：與其他類型並存 → 允許（TL 就是為了「測試後決定要不要正式做」）；
+    //                同車已有 TL → 告警（warn，不常見但需防範），SA 確認後可並存
+    //   - 新單非 TL：現有的 TL 工單不計入衝突（TL 不觸發 same/diff 告警）
+    const TL = "TL";
+    if (input.prefix_p1 === TL) {
+      const existingTL = open.filter((r) => r.prefix_p1 === TL);
+      if (existingTL.length > 0 && !input.concurrent_ack) {
+        return {
+          ok: false,
+          error: `此車輛已有一張借用測試工單（${existingTL[0].ro_code}），同一台車不應同時有兩張借料工單，請確認後再繼續。`,
+          concurrent: {
+            kind: "warn",
+            new_biz_type: TL,
+            existing: existingTL.map((r) => ({
+              ro_code: r.ro_code,
+              biz_type: r.prefix_p1,
+            })),
+          },
+        };
+      }
+      // 與其他類型並存或已確認 → 放行（往下走 insert，不進入 same/diff 檢查）
+    } else {
     const sameType = open.filter((r) => r.prefix_p1 === input.prefix_p1);
-    const diffType = open.filter((r) => r.prefix_p1 !== input.prefix_p1);
+    const diffType = open.filter(
+      (r) => r.prefix_p1 !== input.prefix_p1 && r.prefix_p1 !== TL,
+    );
 
     if (sameType.length > 0) {
       // 相同業務類型 → 需主管授權；無授權則擋下 + 通知售後主管（站內通知，非阻塞）
@@ -260,6 +318,7 @@ export async function confirmRepairOrderAction(
         };
       }
       // SA 已確認 → 放行（兩張工單各自獨立、各自結帳、各自統計）
+    }
     }
   }
 
@@ -330,6 +389,10 @@ export async function confirmRepairOrderAction(
       metadata.concurrent_diff_type_ack = {
         acknowledged_at: new Date().toISOString(),
       };
+    }
+    // TL 借用測試工單設定（雙簽 + 借出目的 + due_by）
+    if (tlConfigMeta) {
+      metadata.tl_config = tlConfigMeta;
     }
 
     const { data, error } = await supabase
@@ -839,6 +902,46 @@ export async function cancelRepairOrderAction(
   if (reason?.trim()) meta.cancel_reason = reason.trim();
   meta.canceled_at = new Date().toISOString();
 
+  // ── 退料閉環：整張工單取消 → 已領出零件批次建退料待確認（不立即回補）──
+  //   以 repair_order_lines(kind='part') 為退料來源；庫存待倉管 return-in Tab B 確認。
+  const { data: partLineRows } = await supabase
+    .from("repair_order_lines")
+    .select("id, kind, part_name, qty, item_id, part_code, unit_price")
+    .eq("brand_id", brand)
+    .eq("repair_order_id", id)
+    .eq("kind", "part");
+  const partLines = ((partLineRows ?? []) as Array<{
+    id: string;
+    part_name: string | null;
+    qty: number | null;
+    item_id: string | null;
+    part_code: string | null;
+    unit_price: number | null;
+  }>).filter((l) => Number(l.qty ?? 0) > 0);
+
+  if (partLines.length > 0) {
+    const dueBy = await getTodayClosingTime();
+    const {
+      data: { user: cancelUser },
+    } = await supabase.auth.getUser();
+    await createReturnRequestsBatch(
+      partLines.map((l) => ({
+        source_type: "ro_cancel" as const,
+        source_ro_id: id,
+        source_line_id: l.id,
+        item_id: l.item_id,
+        part_name: l.part_name || "未知零件",
+        part_code: l.part_code,
+        qty_requested: Number(l.qty ?? 0),
+        return_reason: `工單取消：${reason?.trim() || "未說明"}`,
+        requested_by: cancelUser?.id ?? null,
+        unit_cost: Number(l.unit_price ?? 0),
+      })),
+      { brand, due_by: dueBy },
+    );
+    meta.cancel_return_requested_count = partLines.length;
+  }
+
   const { error } = await supabase
     .from("repair_orders")
     .update({ status: "已取消", metadata: meta })
@@ -848,7 +951,226 @@ export async function cancelRepairOrderAction(
 
   revalidatePath(PAGE_PATH);
   revalidatePath(`${PAGE_PATH}/${id}`);
+  revalidatePath("/parts/receipt/return-in");
   return { ok: true, data: { id } };
+}
+
+/**
+ * TL 借用測試工單結案（逐行處置）。
+ * TL 工單不走「竣工複檢→結帳」，有自己的結案入口 /parts/aftersales/repair-orders/[id]/tl-close。
+ *
+ * 每個明細行四選一：
+ *  - transfer_to_ro     轉入正式工單（line.repair_order_id 改到目標 RO）
+ *  - return_to_stock    退料歸還（建 parts_return_requests，source_type='tl_return'）
+ *  - charge_customer    向車主收費（必須補車主簽名）
+ *  - absorb_internally  門店吸收（記 FR，不向車主收費）
+ */
+export type TlLineDecision =
+  | "transfer_to_ro"
+  | "return_to_stock"
+  | "charge_customer"
+  | "absorb_internally";
+
+export type TlLineDisposition = {
+  lineId: string;
+  decision: TlLineDecision;
+  /** transfer_to_ro：目標工單號（ro_code）或工單 id */
+  targetRoId?: string | null;
+  /** charge_customer：車主簽名（dataUrl / storage url） */
+  customerSignatureUrl?: string | null;
+};
+
+export async function closeTlWorkOrderAction(
+  roId: string,
+  lineDispositions: TlLineDisposition[],
+): Promise<ActionResult<{ id: string; summary: Record<string, string[]> }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!roId) return { ok: false, error: "缺少工單 ID" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const now = new Date().toISOString();
+
+  const { data: ro, error: roErr } = await supabase
+    .from("repair_orders")
+    .select("id, ro_code, prefix_p1, status, metadata")
+    .eq("id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (roErr || !ro) return { ok: false, error: "找不到工單或無權存取" };
+  if (ro.prefix_p1 !== "TL")
+    return { ok: false, error: "只有借用測試工單（TL）可走此結案流程" };
+  if (ro.status === "已關單" || ro.status === "已取消")
+    return { ok: false, error: "工單已結案，無需重複操作" };
+
+  // charge_customer 必須有車主簽名（前置驗證，任何一行缺簽名都擋）
+  const chargeMissingSig = lineDispositions.find(
+    (d) => d.decision === "charge_customer" && !d.customerSignatureUrl?.trim(),
+  );
+  if (chargeMissingSig) {
+    return { ok: false, error: "向車主收費必須補充車主簽名" };
+  }
+
+  const lineIds = lineDispositions.map((d) => d.lineId);
+  const { data: lineRows } = await supabase
+    .from("repair_order_lines")
+    .select("id, kind, part_name, labor_name, qty, item_id, part_code, unit_price, metadata")
+    .in("id", lineIds)
+    .eq("brand_id", brand);
+  const lineMap = new Map(
+    ((lineRows ?? []) as Array<Record<string, unknown>>).map((l) => [l.id as string, l]),
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const actorId = user?.id ?? null;
+
+  const summary: Record<string, string[]> = {
+    transferred_lines: [],
+    returned_lines: [],
+    charged_lines: [],
+    absorbed_lines: [],
+  };
+
+  // 退料行收集，最後一次批次建退料待確認
+  const returnRows: Parameters<typeof createReturnRequestsBatch>[0] = [];
+
+  for (const d of lineDispositions) {
+    const line = lineMap.get(d.lineId);
+    if (!line) continue;
+    const lineMeta = ((line.metadata ?? {}) as Record<string, unknown>) || {};
+
+    if (d.decision === "transfer_to_ro") {
+      // 解析目標工單（接受 ro_code 或 id）
+      let targetId: string | null = null;
+      const raw = d.targetRoId?.trim();
+      if (raw) {
+        const { data: target } = await supabase
+          .from("repair_orders")
+          .select("id")
+          .eq("brand_id", brand)
+          .or(`ro_code.eq.${raw},id.eq.${raw}`)
+          .maybeSingle();
+        targetId = (target as { id: string } | null)?.id ?? null;
+      }
+      if (!targetId) {
+        return { ok: false, error: `找不到目標工單「${raw ?? ""}」，無法轉入` };
+      }
+      await supabase
+        .from("repair_order_lines")
+        .update({
+          repair_order_id: targetId,
+          metadata: {
+            ...lineMeta,
+            tl_disposition: {
+              decision: "transfer_to_ro",
+              target_ro_id: targetId,
+              decided_at: now,
+              decided_by: actorId,
+            },
+          },
+        })
+        .eq("id", d.lineId)
+        .eq("brand_id", brand);
+      summary.transferred_lines.push(d.lineId);
+    } else if (d.decision === "return_to_stock") {
+      if (line.kind === "part" && Number(line.qty ?? 0) > 0) {
+        returnRows.push({
+          source_type: "tl_return",
+          source_ro_id: roId,
+          source_line_id: d.lineId,
+          item_id: (line.item_id as string) ?? null,
+          part_name: (line.part_name as string) || "借出零件",
+          part_code: (line.part_code as string) ?? null,
+          qty_requested: Number(line.qty ?? 0),
+          return_reason: `TL 借用測試工單 ${ro.ro_code} 歸還`,
+          requested_by: actorId,
+          unit_cost: Number(line.unit_price ?? 0),
+        });
+      }
+      await supabase
+        .from("repair_order_lines")
+        .update({
+          metadata: {
+            ...lineMeta,
+            tl_disposition: { decision: "return_to_stock", decided_at: now, decided_by: actorId },
+          },
+        })
+        .eq("id", d.lineId)
+        .eq("brand_id", brand);
+      summary.returned_lines.push(d.lineId);
+    } else if (d.decision === "charge_customer") {
+      await supabase
+        .from("repair_order_lines")
+        .update({
+          metadata: {
+            ...lineMeta,
+            tl_disposition: {
+              decision: "charge_customer",
+              customer_signature_url: d.customerSignatureUrl?.trim() ?? null,
+              decided_at: now,
+              decided_by: actorId,
+            },
+          },
+        })
+        .eq("id", d.lineId)
+        .eq("brand_id", brand);
+      summary.charged_lines.push(d.lineId);
+    } else if (d.decision === "absorb_internally") {
+      await supabase
+        .from("repair_order_lines")
+        .update({
+          is_warranty: false,
+          metadata: {
+            ...lineMeta,
+            tl_disposition: { decision: "absorb_internally", decided_at: now, decided_by: actorId },
+            fee_absorbed: true,
+          },
+        })
+        .eq("id", d.lineId)
+        .eq("brand_id", brand);
+      summary.absorbed_lines.push(d.lineId);
+    }
+  }
+
+  // 退料行批次建退料待確認
+  if (returnRows.length > 0) {
+    const dueBy = await getTodayClosingTime();
+    await createReturnRequestsBatch(returnRows, { brand, due_by: dueBy });
+  }
+
+  // 更新工單 metadata.tl_config.closed_summary + 關單
+  const meta = ((ro.metadata ?? {}) as Record<string, unknown>) || {};
+  const tlConfig = ((meta.tl_config ?? {}) as Record<string, unknown>) || {};
+  meta.tl_config = {
+    ...tlConfig,
+    closed_summary: summary,
+    closed_at: now,
+    closed_by: actorId,
+  };
+  const { error: closeErr } = await supabase
+    .from("repair_orders")
+    .update({ status: "已關單", closed_at: now, metadata: meta })
+    .eq("id", roId)
+    .eq("brand_id", brand);
+  if (closeErr) return { ok: false, error: `結案失敗：${closeErr.message}` };
+
+  after(async () => {
+    await writeAuditLog({
+      table_name: "repair_orders",
+      record_id: roId,
+      action: "TL_RO_CLOSED",
+      actor_id: actorId,
+      brand_id: brand,
+      after: { ro_code: ro.ro_code, summary },
+    });
+  });
+
+  revalidatePath(PAGE_PATH);
+  revalidatePath(`${PAGE_PATH}/${roId}`);
+  revalidatePath("/parts/receipt/return-in");
+  return { ok: true, data: { id: roId, summary } };
 }
 
 export async function deleteRepairOrderAction(
