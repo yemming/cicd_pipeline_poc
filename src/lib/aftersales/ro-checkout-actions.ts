@@ -56,6 +56,8 @@ import { writeAuditLog } from "@/domain/audit-logs";
 import { createInappNotification } from "@/domain/user-notifications";
 // RP4 Layer3：關單時持久化結帳憑證 PDF
 import { persistRepairOrderPdf } from "@/domain/ro-documents";
+// 修補四：售後收款落地（前台→中台數據通路）
+import { recordAftersalesPayment } from "@/domain/aftersales-payments";
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -530,6 +532,57 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
   if (ctx.row.status !== "paid") return { ok: false, error: "請先完成收款再關單" };
   const supabase = await createClient();
   const now = new Date().toISOString();
+  const repairOrderId = ctx.row.repair_order_id as string;
+  const brand = ctx.brand;
+
+  // 關單操作者（aftersales_payments.created_by / 稽核共用）
+  const {
+    data: { user: closingUser },
+  } = await supabase.auth.getUser();
+  const closingUserId = closingUser?.id ?? null;
+
+  // 撈工單核心欄位（收款落帳 + D+3 電訪共用，一次撈齊避免 N 次往返）
+  const { data: roCore } = await supabase
+    .from("repair_orders")
+    .select("ro_code, prefix_p1, store_id, customer_id, vehicle_id")
+    .eq("id", repairOrderId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!roCore) return { ok: false, error: "找不到對應工單，無法關單" };
+
+  // ── 修補四：售後收款落地 aftersales_payments（同步、關鍵步驟）──
+  // 前台結帳金額 → 中台財會數據通路。收款記錄寫入失敗 → 關單失敗（不可靜默）。
+  // 冪等：同一 checkout 重跑會 skip，不重複落帳。先寫收款再標完成，失敗時不留半套狀態。
+  {
+    const fee = (ctx.row.fee_summary ?? {}) as FeeSummary;
+    const pay = (ctx.row.payment ?? {}) as Payment;
+    const inv = (ctx.row.invoice ?? {}) as Invoice;
+    const payRes = await recordAftersalesPayment({
+      ro_id: repairOrderId,
+      ro_number: (roCore.ro_code as string) ?? "",
+      prefix_p1: (roCore.prefix_p1 as string) ?? "",
+      checkout_id: id,
+      subtotal_labor: fee.labor_amount ?? null,
+      subtotal_parts: fee.parts_amount ?? null,
+      subtotal_misc: null,
+      discount_amount: fee.discount_amount ?? 0,
+      total_amount: fee.payable ?? pay.amount ?? 0,
+      payment_method: pay.method ?? "unknown",
+      payment_reference: null,
+      external_invoice_no: inv.invoice_no ?? null,
+      store_id: (roCore.store_id as string | null) ?? null,
+      brand_id: brand,
+      created_by: closingUserId,
+    });
+    if (!payRes.ok) {
+      return {
+        ok: false,
+        error: `收款記錄寫入失敗，請聯繫系統管理員：${payRes.error}`,
+      };
+    }
+  }
+
+  // 標記結帳單完成
   const { error } = await supabase
     .from("ro_checkouts")
     .update({ status: "completed", closed_at: now, updated_at: now })
@@ -542,11 +595,92 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
   await supabase
     .from("repair_orders")
     .update({ status: "已關單", closed_at: now })
-    .eq("id", ctx.row.repair_order_id)
-    .eq("brand_id", ctx.brand);
+    .eq("id", repairOrderId)
+    .eq("brand_id", brand);
 
-  const repairOrderId = ctx.row.repair_order_id as string;
-  const brand = ctx.brand;
+  // ── 修補二：D+3 / D+7 售後電訪任務（方案A 同步建立 + 稽核日誌）──
+  // Russell 指令：原本掛在 after() 非阻塞、try/catch 靜默吞錯 → 實測關單 2 次 call_tasks 0 筆。
+  // 改為同步建立：確保在關單流程中就確認；任務建立失敗寫 audit_logs 讓主管知道，但不讓關單失敗。
+  // 冪等：createFollowUpTask 以 (customer + call_type + metadata.source_ro) 防同單重複建。
+  try {
+    if (!roCore.customer_id) {
+      // Walk-in 未建客檔 → 無回訪對象。不靜默：寫稽核留痕。
+      await writeAuditLog({
+        table_name: "repair_orders",
+        record_id: repairOrderId,
+        action: "D3_TASK_SKIPPED_NO_CUSTOMER",
+        actor_id: closingUserId,
+        brand_id: brand,
+        before: null,
+        after: {
+          ro_code: roCore.ro_code,
+          reason: "工單未掛客戶（Walk-in 未建客檔），無回訪對象",
+        },
+      });
+    } else {
+      const baseMeta = {
+        source: "ro_checkout_complete",
+        source_ro: repairOrderId,
+        ro_code: roCore.ro_code,
+        vehicle_id: roCore.vehicle_id ?? null,
+      };
+      const followUps: Array<{
+        call_type: "aftersales_d3" | "aftersales_d7";
+        days: number;
+        label: string;
+      }> = [
+        { call_type: "aftersales_d3", days: 3, label: "D+3 售後滿意度回訪" },
+        { call_type: "aftersales_d7", days: 7, label: "D+7 售後深度確認" },
+      ];
+      const created: string[] = [];
+      const failed: Array<{ call_type: string; error: string }> = [];
+      for (const fu of followUps) {
+        try {
+          const res = await createFollowUpTask({
+            customer_id: roCore.customer_id as string,
+            kind: "aftersales",
+            call_type: fu.call_type,
+            days_from_now: fu.days,
+            notes: `系統自動建立：工單 ${roCore.ro_code} 關單後 ${fu.label}`,
+            metadata: baseMeta,
+            dedupeMetaKey: "source_ro",
+          });
+          if (res.ok) created.push(fu.call_type);
+          else failed.push({ call_type: fu.call_type, error: res.error });
+        } catch (e) {
+          failed.push({
+            call_type: fu.call_type,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+      await writeAuditLog({
+        table_name: "repair_orders",
+        record_id: repairOrderId,
+        action: failed.length > 0 ? "D3_TASK_CREATE_FAILED" : "D3_TASK_CREATED",
+        actor_id: closingUserId,
+        brand_id: brand,
+        before: null,
+        after: { ro_code: roCore.ro_code, created, failed },
+      });
+    }
+  } catch (e) {
+    // 任務建立整段例外 → 不讓關單失敗，但記錄錯誤讓主管知道
+    console.error("[修補二 D+3/D+7] 同步建立例外（不影響關單）", e);
+    try {
+      await writeAuditLog({
+        table_name: "repair_orders",
+        record_id: repairOrderId,
+        action: "D3_TASK_CREATE_FAILED",
+        actor_id: closingUserId,
+        brand_id: brand,
+        before: null,
+        after: { error: e instanceof Error ? e.message : String(e) },
+      });
+    } catch {
+      /* 稽核也失敗就放棄 */
+    }
+  }
 
   // ── RP4 事件時間軸：記錄結帳完成關單（非阻塞） ──
   {
@@ -633,56 +767,8 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
     }
   });
 
-  // ── hook#7（C-22 同步）：結帳關單 → 建 D+3 / D+7 售後電訪任務（非阻塞）──
-  // 鏡像 repair-order-actions.ts updateRepairOrderStatusAction 的「已關單」分支，
-  // 讓結帳路徑與手動切狀態路徑的連鎖效果一致。
-  // dedupeKey=source_ro：同 RO 重觸發冪等，不重複建任務。
-  after(async () => {
-    try {
-      const sb = await createClient();
-      const { data: ro } = await sb
-        .from("repair_orders")
-        .select("customer_id, vehicle_id, ro_code")
-        .eq("id", repairOrderId)
-        .eq("brand_id", brand)
-        .maybeSingle();
-      if (!ro?.customer_id) return; // 沒掛客戶的工單不建電訪
-
-      const baseMeta = {
-        source: "repair_order_close_hook",
-        source_ro: repairOrderId,
-        ro_code: ro.ro_code,
-        vehicle_id: ro.vehicle_id ?? null,
-      };
-      const followUps: Array<{
-        call_type: "aftersales_d3" | "aftersales_d7";
-        days: number;
-        label: string;
-      }> = [
-        { call_type: "aftersales_d3", days: 3, label: "D+3 售後滿意度回訪" },
-        { call_type: "aftersales_d7", days: 7, label: "D+7 售後深度確認" },
-      ];
-      for (const fu of followUps) {
-        const res = await createFollowUpTask({
-          customer_id: ro.customer_id,
-          kind: "aftersales",
-          call_type: fu.call_type,
-          days_from_now: fu.days,
-          notes: `系統自動建立：工單 ${ro.ro_code} 關單後 ${fu.label}`,
-          metadata: baseMeta,
-          dedupeMetaKey: "source_ro",
-        });
-        if (!res.ok) {
-          console.error(
-            `[hook#7 結帳關單→${fu.call_type}] 建立失敗（不影響關單）`,
-            res.error,
-          );
-        }
-      }
-    } catch (e) {
-      console.error("[hook#7 結帳關單→D+3/D+7] 副作用例外（不影響關單）", e);
-    }
-  });
+  // （修補二）D+3 / D+7 售後電訪任務已改為上方「同步建立」，
+  // 原本的 after() 非阻塞 hook（會靜默吞錯導致 0 筆）已移除。
 
   // ── hook#8（C-28 同步）：結帳關單 → addon 預留實體出庫（非阻塞）──
   // 鏡像 repair-order-actions.ts 的 hook#8，讓結帳路徑與手動切狀態路徑都能真實觸發出庫。

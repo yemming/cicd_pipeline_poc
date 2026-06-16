@@ -384,6 +384,27 @@ export function RoSearchBoard({
     [],
   );
 
+  // 修補三：篩選結果統計摘要（依目前篩選後的結果集計算）
+  // 主管做 MN/RP 分開統計時，選某業務類型後即時看到「幾張、合計多少、平均工時」。
+  const summary = useMemo(() => {
+    const rows = data.rows;
+    const total = rows.reduce((s, r) => s + Number(r.estimated_subtotal ?? 0), 0);
+    const luRows = rows.filter((r) => r.estimated_labor_units != null);
+    const avgLu =
+      luRows.length > 0
+        ? luRows.reduce((s, r) => s + Number(r.estimated_labor_units ?? 0), 0) / luRows.length
+        : 0;
+    return { count: data.totalCount, total, avgLu };
+  }, [data.rows, data.totalCount]);
+
+  // 目前業務類型篩選的人話標籤（摘要用）
+  const p1Label =
+    p1Val === "all"
+      ? "全部業務類型"
+      : (PREFIX_P1_DEFS.find((d) => d.code === p1Val)?.name
+          ? `${p1Val} ${PREFIX_P1_DEFS.find((d) => d.code === p1Val)!.name}`
+          : p1Val);
+
   const kpi = data.kpi;
   const deltaSign = kpi.monthRoCountDeltaVsLast >= 0 ? "▲" : "▼";
   const deltaAbs = Math.abs(kpi.monthRoCountDeltaVsLast);
@@ -586,6 +607,29 @@ export function RoSearchBoard({
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-[#9A9890]">
           工單列表 · 共 <b className="text-[#2C2C2A]">{data.totalCount}</b> 筆
+        </span>
+      </div>
+
+      {/* 修補三：篩選結果統計摘要（MN/RP 分開統計的核心讀數）*/}
+      <div
+        data-testid="ro-filter-summary"
+        className="flex items-center flex-wrap gap-x-5 gap-y-1 bg-[#F8F7F4] border border-[#EEECE6] rounded-lg px-4 py-2.5 text-[12.5px]"
+      >
+        <span className="text-[#5A5955]">
+          篩選結果（
+          <b className="text-[#185FA5]">{p1Label}</b>
+          ）：
+        </span>
+        <span className="text-[#2C2C2A]">
+          共 <b className="text-[#1A3A5C]">{summary.count}</b> 張工單
+        </span>
+        <span className="text-[#2C2C2A]">
+          合計{" "}
+          <b className="text-[#0F6E56] font-mono">{formatCurrency(summary.total)}</b>
+        </span>
+        <span className="text-[#2C2C2A]">
+          平均工時{" "}
+          <b className="text-[#854F0B] font-mono">{summary.avgLu.toFixed(1)}</b> LU
         </span>
       </div>
 

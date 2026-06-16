@@ -40,7 +40,66 @@ export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
+/**
+ * 修補一：一車多工單衝突結果（前端據此渲染 amber 提醒 / red 告警）。
+ *  - warn  ：不同業務類型（例 MN+RP）→ amber 提醒，SA 確認後可並存
+ *  - block ：相同業務類型（例 MN+MN）→ red 告警 + 通知主管，需主管授權碼
+ */
+export type ConcurrentConflict =
+  | {
+      kind: "warn";
+      new_biz_type: string;
+      existing: Array<{ ro_code: string; biz_type: string }>;
+    }
+  | {
+      kind: "block";
+      new_biz_type: string;
+      existing_ro: string;
+      existing_type: string;
+    };
+
+export type ConfirmRoResult =
+  | { ok: true; data: { id: string; ro_code: string } }
+  | { ok: false; error: string; concurrent?: ConcurrentConflict };
+
 const PAGE_PATH = "/parts/aftersales/repair-orders";
+
+/**
+ * 修補一：相同業務類型重複開單 → 通知售後主管（站內通知）。
+ * 收件人：同 brand 中 role_codes 含主管角色且已綁 user_id 的員工。
+ */
+async function notifyAftersalesLeadConcurrent(
+  brand: string,
+  title: string,
+  body: string,
+): Promise<void> {
+  const sb = await createClient();
+  const { data: leads } = await sb
+    .from("employees")
+    .select("user_id")
+    .eq("brand_id", brand)
+    .eq("is_active", true)
+    .overlaps("role_codes", ["aftersales_lead", "workshop_manager", "manager", "owner"])
+    .not("user_id", "is", null);
+  const ids = [
+    ...new Set(
+      ((leads ?? []) as Array<{ user_id: string | null }>)
+        .map((e) => e.user_id)
+        .filter((v): v is string => Boolean(v)),
+    ),
+  ];
+  if (ids.length === 0) return;
+  await createInappNotifications(
+    ids.map((uid) => ({
+      recipient_user_id: uid,
+      event_code: "aftersales.ro.concurrent_same_type",
+      title,
+      body,
+      priority: "red" as const,
+      brand_id: brand,
+    })),
+  );
+}
 
 export type ConfirmRepairOrderInput = {
   appointment_id?: string | null;
@@ -62,6 +121,10 @@ export type ConfirmRepairOrderInput = {
   rework_of?: string | null;
   /** 保固過期但仍開 WC 單時的主管授權（寫入 metadata.warranty_auth）*/
   warranty_auth?: { authorized_by: string; reason?: string | null } | null;
+  /** 修補一：不同業務類型同車並存時，SA 已確認車主同意支付獨立費用 */
+  concurrent_ack?: boolean | null;
+  /** 修補一：相同業務類型同車重複開單時的主管授權（寫入 metadata.concurrent_same_type_auth）*/
+  concurrent_supervisor_auth?: { authorized_by: string; note?: string | null } | null;
 };
 
 function todayIsoDate(): string {
@@ -99,7 +162,7 @@ async function nextSequenceNo(
 
 export async function confirmRepairOrderAction(
   input: ConfirmRepairOrderInput,
-): Promise<ActionResult<{ id: string; ro_code: string }>> {
+): Promise<ConfirmRoResult> {
   await requirePermission(PERMISSIONS.RO_CREATE);
 
   // 1. 驗組合
@@ -130,22 +193,73 @@ export async function confirmRepairOrderAction(
   // OPEN_RO_STATUSES：尚未結束的工單狀態（已關單 / 已取消 不算佔用）
   const OPEN_RO_STATUSES = ["進行中", "維修中", "待結帳"];
 
-  // (a) 同車已有進行中工單 → 擋（一台車同時間只該有一張 open RO）
-  if (input.vehicle_id) {
-    const { data: openRo, error: openErr } = await supabase
+  // (a) 同車已有進行中工單 → 依「業務類型（prefix_p1）」分流（修補一：一車多工單重構）
+  //   - 不同業務類型（例 MN+RP）：amber 提醒，SA 確認車主同意支付獨立費用後可並存
+  //   - 相同業務類型（例 MN+MN）：red 告警 + 通知售後主管，需主管授權碼才放行
+  //   - 返工免費（rework_of / 付款性質 FR）：不受此限，沿用既有返工授權流程（維持不變）
+  const isReworkFree = Boolean(input.rework_of) || input.prefix_p2 === "FR";
+  if (input.vehicle_id && !isReworkFree) {
+    const { data: openRos, error: openErr } = await supabase
       .from("repair_orders")
-      .select("id, ro_code")
+      .select("id, ro_code, prefix_p1")
       .eq("brand_id", brand)
       .eq("vehicle_id", input.vehicle_id)
-      .in("status", OPEN_RO_STATUSES)
-      .limit(1)
-      .maybeSingle();
+      .in("status", OPEN_RO_STATUSES);
     if (openErr) return { ok: false, error: `防重檢查失敗：${openErr.message}` };
-    if (openRo) {
-      return {
-        ok: false,
-        error: `此車已有進行中的工單（${openRo.ro_code}），請先結清再建立新單。`,
-      };
+
+    const open = (openRos ?? []) as Array<{
+      id: string;
+      ro_code: string;
+      prefix_p1: string;
+    }>;
+    const sameType = open.filter((r) => r.prefix_p1 === input.prefix_p1);
+    const diffType = open.filter((r) => r.prefix_p1 !== input.prefix_p1);
+
+    if (sameType.length > 0) {
+      // 相同業務類型 → 需主管授權；無授權則擋下 + 通知售後主管（站內通知，非阻塞）
+      const authBy = input.concurrent_supervisor_auth?.authorized_by?.trim();
+      if (!authBy) {
+        const existing = sameType[0];
+        after(async () => {
+          try {
+            await notifyAftersalesLeadConcurrent(
+              brand,
+              `⚠️ 異常警示：車輛重複開立 ${input.prefix_p1} 工單`,
+              `此車已有一張 ${existing.prefix_p1} 工單（${existing.ro_code}），SA 嘗試再開立同類型 ${input.prefix_p1} 工單，可能是操作疏失，系統已攔截、待主管授權。`,
+            );
+          } catch (e) {
+            console.error("[修補一] 同類型重複開單通知售後主管失敗（不影響）", e);
+          }
+        });
+        return {
+          ok: false,
+          error: `異常警示：此車輛今日已有一張 ${existing.prefix_p1} 工單（${existing.ro_code}），重複開立同類型工單可能是操作疏失，已通知售後主管。需主管授權後方可繼續。`,
+          concurrent: {
+            kind: "block",
+            new_biz_type: input.prefix_p1,
+            existing_ro: existing.ro_code,
+            existing_type: existing.prefix_p1,
+          },
+        };
+      }
+      // 有主管授權 → 記入 metadata（下方 insert loop 帶入）、放行
+    } else if (diffType.length > 0) {
+      // 不同業務類型 → SA 須確認車主同意支付獨立費用後才放行
+      if (!input.concurrent_ack) {
+        return {
+          ok: false,
+          error: "此車輛已有進行中工單，請確認車主同意支付兩筆獨立費用後再繼續。",
+          concurrent: {
+            kind: "warn",
+            new_biz_type: input.prefix_p1,
+            existing: diffType.map((r) => ({
+              ro_code: r.ro_code,
+              biz_type: r.prefix_p1,
+            })),
+          },
+        };
+      }
+      // SA 已確認 → 放行（兩張工單各自獨立、各自結帳、各自統計）
     }
   }
 
@@ -201,6 +315,20 @@ export async function confirmRepairOrderAction(
         authorized_by: input.warranty_auth.authorized_by.trim(),
         reason: input.warranty_auth.reason?.trim() || null,
         authorized_at: new Date().toISOString(),
+      };
+    }
+    // 修補一：相同業務類型同車重複開單的主管授權（稽核可見）
+    if (input.concurrent_supervisor_auth?.authorized_by?.trim()) {
+      metadata.concurrent_same_type_auth = {
+        authorized_by: input.concurrent_supervisor_auth.authorized_by.trim(),
+        note: input.concurrent_supervisor_auth.note?.trim() || null,
+        authorized_at: new Date().toISOString(),
+      };
+    }
+    // 修補一：不同業務類型同車並存，SA 已確認車主同意（稽核可見）
+    if (input.concurrent_ack) {
+      metadata.concurrent_diff_type_ack = {
+        acknowledged_at: new Date().toISOString(),
       };
     }
 

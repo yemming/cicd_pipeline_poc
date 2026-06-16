@@ -42,12 +42,29 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
   const [warrantyAuthReason, setWarrantyAuthReason] = useState("");
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+  // 修補一：同車多工單分流 UI 狀態
+  const [concurrentWarn, setConcurrentWarn] = useState<{
+    existing: Array<{ ro_code: string; biz_type: string }>;
+    new_biz_type: string;
+  } | null>(null);
+  const [concurrentBlock, setConcurrentBlock] = useState<{
+    existing_ro: string;
+    existing_type: string;
+    new_biz_type: string;
+  } | null>(null);
+  const [concurrentAuthCode, setConcurrentAuthCode] = useState("");
+
+  function clearConcurrent() {
+    setConcurrentWarn(null);
+    setConcurrentBlock(null);
+  }
 
   // PD（PDI整備）模式：選 PD 時 P2 自動鎖 IN（內部結算），費用計入整車成本、車主應付 NT$0
   const isPDI = p1 === "PD";
 
   // 選 P1：PD → 強制 P2=IN；離開 PD（原本是 IN）→ 還原成 CP（或保固預設 WR）
   function selectP1(code: PrefixP1) {
+    clearConcurrent();
     setP1(code);
     if (code === "PD") {
       setP2("IN");
@@ -82,6 +99,7 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
   // 選 P2：PD 模式下鎖定、不允許手動改
   function selectP2(code: PrefixP2) {
     if (isPDI) return;
+    clearConcurrent();
     setP2(code);
   }
 
@@ -103,7 +121,7 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
     if (b.ok) setTimeout(() => setBanner(null), 2200);
   }
 
-  function confirm() {
+  function confirm(opts?: { ack?: boolean; supervisorAuth?: string }) {
     if (isPending || isInvalid || warrantyBlocked) return;
     startTransition(async () => {
       const res = await confirmRepairOrderAction({
@@ -127,13 +145,37 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
               reason: warrantyAuthReason.trim() || null,
             }
           : null,
+        // 修補一：同車多工單分流參數
+        concurrent_ack: opts?.ack ?? false,
+        concurrent_supervisor_auth: opts?.supervisorAuth?.trim()
+          ? { authorized_by: opts.supervisorAuth.trim() }
+          : null,
       });
       if (res.ok) {
+        clearConcurrent();
         showBanner({ ok: true, msg: `✓ 工單 ${res.data.ro_code} 已開立` });
         router.push(`/parts/aftersales/repair-orders/${res.data.id}`);
-      } else {
-        showBanner({ ok: false, msg: res.error });
+        return;
       }
+      // 修補一：同車多工單 — 不同類型 amber 提醒 / 相同類型 red 告警
+      if (res.concurrent?.kind === "warn") {
+        setConcurrentBlock(null);
+        setConcurrentWarn({
+          existing: res.concurrent.existing,
+          new_biz_type: res.concurrent.new_biz_type,
+        });
+        return;
+      }
+      if (res.concurrent?.kind === "block") {
+        setConcurrentWarn(null);
+        setConcurrentBlock({
+          existing_ro: res.concurrent.existing_ro,
+          existing_type: res.concurrent.existing_type,
+          new_biz_type: res.concurrent.new_biz_type,
+        });
+        return;
+      }
+      showBanner({ ok: false, msg: res.error });
     });
   }
 
@@ -161,13 +203,16 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
         </div>
       </div>
 
-      {/* B3-01：同車多工單提示橫幅（後端已擋，前端預警讓 SA 提早知道） */}
+      {/* B3-01：同車多工單提示橫幅（修補一後：依業務類型分流，前端預警讓 SA 提早知道） */}
       {draft.concurrent_ro_code && (
         <div className="rounded-lg px-4 py-3 text-[12.5px] bg-[#F0EFFE] border border-[#C5C0F0] text-[#534AB7]">
           <span className="font-semibold">⚠️ 此車輛目前有其他進行中工單（</span>
           <span className="font-mono font-bold">{draft.concurrent_ro_code}</span>
-          <span className="font-semibold">），送出後系統將阻擋重複開單。</span>
-          <span className="ml-1 text-[12px]">請先確認該工單狀態，或洽主管確認是否允許同車多工單。</span>
+          <span className="font-semibold">）。</span>
+          <span className="ml-1 text-[12px]">
+            送出時系統會依業務類型判斷：<b>不同類型</b>（如定保＋維修）需您確認車主同意後可並存；
+            <b>相同類型</b>則需主管授權。
+          </span>
         </div>
       )}
 
@@ -530,10 +575,77 @@ export function RepairOrderConfirmView({ draft }: { draft: RoDraft }) {
             </div>
           )}
 
+          {/* 修補一：不同業務類型同車並存 → amber 提醒，SA 確認後可並存 */}
+          {concurrentWarn && (
+            <div
+              data-testid="concurrent-warn"
+              className="rounded-lg px-4 py-3 bg-[#FDF3E3] border-[1.5px] border-[#F0C97E]"
+            >
+              <p className="text-[12.5px] font-bold text-[#854F0B] mb-1">
+                ⚠️ 此車輛今日已有進行中工單：
+                {concurrentWarn.existing
+                  .map((r) => `${r.biz_type} ${r.ro_code}`)
+                  .join("、")}
+              </p>
+              <p className="text-[12px] text-[#854F0B] leading-relaxed mb-2">
+                您正在開立的是 <b className="font-mono">{concurrentWarn.new_biz_type}</b> 工單。
+                這是與既有工單不同的業務類型，兩張工單將各自獨立、各自結帳、各自統計。
+                請確認車主已知悉並同意支付兩筆獨立費用。
+              </p>
+              <button
+                type="button"
+                onClick={() => confirm({ ack: true })}
+                disabled={isPending}
+                className="h-[34px] px-4 rounded-lg text-[12.5px] font-semibold bg-[#854F0B] text-white hover:bg-[#6d4109] disabled:opacity-60"
+              >
+                {isPending ? "建立中⋯" : "確認，繼續開立"}
+              </button>
+            </div>
+          )}
+
+          {/* 修補一：相同業務類型同車重複開單 → red 告警，需主管授權碼 */}
+          {concurrentBlock && (
+            <div
+              data-testid="concurrent-block"
+              className="rounded-lg px-4 py-3 bg-[#FDECEA] border-[1.5px] border-[#F5AEAD]"
+            >
+              <p className="text-[12.5px] font-bold text-[#CC0000] mb-1">
+                🚨 異常警示：此車輛今日已有一張 {concurrentBlock.existing_type} 工單（
+                {concurrentBlock.existing_ro}）
+              </p>
+              <p className="text-[12px] text-[#CC0000] leading-relaxed mb-2">
+                重複開立同類型（{concurrentBlock.new_biz_type}）工單可能是操作疏失，
+                已通知售後主管。需主管授權後方可繼續。
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                <div className="flex flex-col gap-1 flex-1">
+                  <label className="text-[11px] text-[#CC0000] font-medium">
+                    主管授權碼 / 授權主管姓名 *
+                  </label>
+                  <input
+                    value={concurrentAuthCode}
+                    disabled={isPending}
+                    onChange={(e) => setConcurrentAuthCode(e.target.value)}
+                    placeholder="例：王店長 / 授權碼"
+                    className="h-[34px] border border-[#F5AEAD] rounded px-2 text-[12.5px] bg-white focus:border-[#CC0000] focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => confirm({ supervisorAuth: concurrentAuthCode })}
+                  disabled={isPending || !concurrentAuthCode.trim()}
+                  className="h-[34px] px-4 rounded-lg text-[12.5px] font-semibold bg-[#CC0000] text-white hover:bg-[#a30000] disabled:opacity-50"
+                >
+                  {isPending ? "授權中⋯" : "送出主管授權"}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Confirm — PD 模式下按鈕轉綠（整車成本內部結算） */}
           <button
             type="button"
-            onClick={confirm}
+            onClick={() => confirm()}
             disabled={isInvalid || isPending || warrantyBlocked}
             className={`w-full h-[52px] rounded-lg text-white text-[15px] font-semibold disabled:bg-[#D5D3CB] disabled:text-[#9A9890] disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 ${
               isPDI ? "bg-[#0F6E56] hover:bg-[#085041]" : "bg-[#1A3A5C] hover:bg-[#0F2A45]"

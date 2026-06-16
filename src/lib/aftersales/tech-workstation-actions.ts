@@ -68,10 +68,28 @@ export async function addAddonAction(
   roId: string,
   payload: AddonInput,
 ): Promise<ActionResult<{ id: string; reserved: boolean }>> {
-  await requirePermission(PERMISSIONS.ADDON_PROPOSE);
-  const res = await addAddon(roId, payload);
-  if (res.ok) revalidatePath(TECH_PATH);
-  return res;
+  // 修補五：技師送追加項目曾回 500（addon 未寫入）。根因多為 requirePermission 在
+  // 角色未綁 service.addon.propose 時 throw、或 addAddon 內部例外，導致 server action 拋出變 500。
+  // 全段包 try/catch：權限不足 / 任何例外都轉成友善 ok:false（前端 banner），不再 raw 500；
+  // 並記詳細錯誤（含 payload）方便 debug。
+  try {
+    await requirePermission(PERMISSIONS.ADDON_PROPOSE);
+    const res = await addAddon(roId, payload);
+    if (res.ok) revalidatePath(TECH_PATH);
+    return res;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[tech addAddonAction] 追加項目失敗", {
+      message,
+      roId,
+      payload,
+    });
+    // 權限類錯誤給人話提示；其餘回原始訊息
+    if (message.includes("權限不足")) {
+      return { ok: false, error: "您的帳號沒有「追加項目提報」權限，請聯繫主管開通（service.addon.propose）。" };
+    }
+    return { ok: false, error: `追加項目失敗：${message}` };
+  }
 }
 
 export async function startLaborTimerAction(
