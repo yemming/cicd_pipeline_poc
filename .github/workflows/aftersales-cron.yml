@@ -36,3 +36,12 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{}' || echo "dormancy endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"
+  return-requests-overdue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 退料待確認逾期 + TL 工單未結案提醒
+        run: |
+          curl -fsS -X POST "https://dealeros.zeabur.app/api/cron/return-requests-overdue" \
+            -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || echo "return-requests-overdue endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"

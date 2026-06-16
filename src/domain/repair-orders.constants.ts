@@ -10,7 +10,7 @@
  * rule_kind='ro_prefix_combo' 覆蓋）。
  */
 
-export type PrefixP1 = "MN" | "RP" | "WC" | "AC" | "OT" | "PD";
+export type PrefixP1 = "MN" | "RP" | "WC" | "AC" | "OT" | "PD" | "TL";
 export type PrefixP2 = "CP" | "WR" | "FR" | "IN";
 export type ComboVerdict = "valid" | "invalid" | "needs_supervisor";
 export type AccountingCategory = "AR_CUSTOMER" | "AR_VENDOR" | "EXPENSE" | "MIXED" | "VEHICLE_COST";
@@ -26,6 +26,7 @@ export const PREFIX_P1_DEFS: {
   { code: "AC", name: "事故", desc: "Accident · 保險付款" },
   { code: "OT", name: "其他業務", desc: "Others · 客付收入" },
   { code: "PD", name: "PDI整備", desc: "Pre-Delivery Inspection · 內部結算" },
+  { code: "TL", name: "借用測試", desc: "Test & Loan · 臨時借出診斷/測試，當天必須結案" },
 ];
 
 export const PREFIX_P2_DEFS: {
@@ -58,9 +59,14 @@ export const PREFIX_COMBO_RULES: {
   { p1: "OT", p2: "CP", verdict: "valid", accounting: "AR_CUSTOMER", description: "✅ OT-CP 其他業務客付 · 一般應收帳款" },
   { p1: "OT", p2: "FR", verdict: "valid", accounting: "EXPENSE", description: "✅ OT-FR 其他業務免費 · 費用認列" },
   { p1: "PD", p2: "IN", verdict: "valid", accounting: "VEHICLE_COST", description: "✅ PD-IN PDI整備 · 整車成本轉入（內部結算，車主應付 NT$0）" },
+  // TL 借用測試：唯一合法組合 TL-IN（內部借出，費用依結案逐行處置決定）
+  { p1: "TL", p2: "IN", verdict: "valid", accounting: "EXPENSE", description: "✅ TL-IN 借用測試 · 內部借出，費用依結案處置決定（轉工單/退料/向車主收費/門店吸收）" },
   // 以下未列在 HTML 11 種白名單中 → fallback 為 needs_supervisor（POC 階段不擋、加 metadata 標記）
   // RP-WR / AC-WR / OT-WR / MN-WR
 ];
+
+/** 借用測試工單前綴（一車多工單規則：TL+任意=允許、TL+TL=告警；結案走 tl-close 不走結帳）*/
+export const TL_PREFIX: PrefixP1 = "TL";
 
 /** 純函式：驗證 P1×P2 組合 */
 export function validatePrefixCombo(p1: PrefixP1, p2: PrefixP2): ComboVerdict {

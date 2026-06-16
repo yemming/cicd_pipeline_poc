@@ -22,6 +22,9 @@ import { appendRepairOrderEvent } from "@/domain/repair-orders";
 import { writeAuditLog } from "@/domain/audit-logs";
 // RP8 站內通知
 import { createInappNotification } from "@/domain/user-notifications";
+// 退料閉環：取消追加 → 建退料待確認（不立即回補庫存）
+import { createReturnRequestsBatch } from "@/domain/parts-return-requests";
+import { getTodayClosingTime } from "@/domain/aftersales-settings";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -248,49 +251,59 @@ export async function cancelAddonAction(
       }
     }
 
-    // 3b. 退回已出庫的 stock_items（source_type='addon_issue', source_addon_id=id）
-    //     這些是因 addon agreed 後領料流程實際出庫產生的 issued stock_items
-    //     TODO promote to typed table when stock_items.source_addon_id column added (needs DDL)
-    const { data: issuedItems } = await supabase
-      .from("stock_items")
-      .select("id, status, item_id, warehouse_id, qty, unit_cost, bin_id")
-      .eq("brand_id", brand)
-      .eq("status", "issued")
-      .filter("metadata->>source_addon_id", "eq", id);
-
-    for (const si of issuedItems ?? []) {
-      // 將 issued 的 stock_item 狀態改回 available（退回倉庫）
-      const { error: restoreErr } = await supabase
-        .from("stock_items")
-        .update({
-          status: "available",
-          // TODO promote: 清除 source_addon_id 與 issued_at 等出庫記錄（metadata 操作）
-          metadata: {
-            ...(typeof si === "object" && si !== null ? {} : {}),
-            source_addon_id: id,
-            returned_from_cancel: true,
-            returned_at: now,
-          },
-          updated_at: now,
-        })
-        .eq("id", si.id)
-        .eq("brand_id", brand);
-      if (restoreErr) {
-        console.error("[cancelAddon] restore stock_item error", restoreErr);
-        // 非致命，繼續（有可能料已被二次移動）
-      }
-    }
-
-    // 3c. 移除 repair_order_lines（source='addon', source_ref_id=addon.id）
-    const { data: linesToRemove, error: linesFetchErr } = await supabase
+    // 3b. 退料閉環（取代「翻舊 issued stock_item 改回 available」）：
+    //     從 repair_order_lines(kind='part') 推導已領出的零件，建立退料待確認記錄。
+    //     庫存「不立即回補」——倉管在 return-in Tab B 實物核對後確認才回補。
+    //     （delta：出庫 persistPick 未寫 stock_items.metadata.source_addon_id，無法可靠
+    //       回溯具體 lot，故改以工單零件明細為退料來源，確認時 insert available 回補。）
+    const { data: addonLines, error: linesFetchErr } = await supabase
       .from("repair_order_lines")
-      .select("id")
+      .select("id, kind, part_name, qty, item_id, part_code, unit_price")
       .eq("brand_id", brand)
       .eq("source", "addon")
       .eq("source_ref_id", id);
 
-    if (!linesFetchErr && linesToRemove && linesToRemove.length > 0) {
-      const lineIds = linesToRemove.map((l) => l.id);
+    if (linesFetchErr) {
+      console.error("[cancelAddon] fetch ro_lines error", linesFetchErr);
+      return { ok: false, error: `讀取工單明細失敗：${linesFetchErr.message}` };
+    }
+
+    const lines = (addonLines ?? []) as Array<{
+      id: string;
+      kind: string;
+      part_name: string | null;
+      qty: number | null;
+      item_id: string | null;
+      part_code: string | null;
+      unit_price: number | null;
+    }>;
+
+    // 僅零件需要退料；工時行直接隨費用移除
+    const partLines = lines.filter((l) => l.kind === "part" && Number(l.qty ?? 0) > 0);
+    if (partLines.length > 0) {
+      const dueBy = await getTodayClosingTime();
+      const { data: { user: reqUser } } = await supabase.auth.getUser();
+      await createReturnRequestsBatch(
+        partLines.map((l) => ({
+          source_type: "addon_cancel" as const,
+          source_ro_id: cur.ro_id as string,
+          source_addon_id: id,
+          source_line_id: l.id,
+          item_id: l.item_id,
+          part_name: l.part_name || (cur.name as string),
+          part_code: l.part_code,
+          qty_requested: Number(l.qty ?? 0),
+          return_reason: `追加項目「${cur.name}」取消退料`,
+          requested_by: reqUser?.id ?? null,
+          unit_cost: Number(l.unit_price ?? 0),
+        })),
+        { brand, due_by: dueBy },
+      );
+    }
+
+    // 3c. 移除 repair_order_lines（費用立即從工單移除，庫存與費用分開處理）
+    if (lines.length > 0) {
+      const lineIds = lines.map((l) => l.id);
       const { error: delErr } = await supabase
         .from("repair_order_lines")
         .delete()
@@ -389,6 +402,111 @@ export async function cancelAddonAction(
   revalidatePath(PAGE);
   revalidatePath(`/parts/aftersales/repair-orders/${cur.ro_id}/lines`);
   return { ok: true, data: { id, removed_line_ids, reservation_released } };
+}
+
+/**
+ * 退料閉環 — 追加項目「部分取消（逐行）」。
+ *
+ * SA 勾選 agreed 追加項目下的特定明細行取消，其餘明細保持施工。
+ *  - 零件行（kind='part'）→ 建立退料待確認記錄（庫存不立即回補）
+ *  - 工時行（kind='labor'）→ 直接移除費用
+ *  - 取消的明細行從 repair_order_lines 刪除（費用移除）；未勾選的不動。
+ *
+ * 操作對象是 repair_order_lines（明細行層），與整筆 cancelAddonAction 互補。
+ */
+export async function partialCancelAddonLineAction(
+  lineIds: string[],
+  reasons: Record<string, string> = {},
+): Promise<ActionResult<{ created_rts_ids: string[]; removed_line_ids: string[] }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!lineIds || lineIds.length === 0)
+    return { ok: false, error: "請至少勾選一筆明細行取消" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const now = new Date().toISOString();
+
+  const { data: lineRows, error: loadErr } = await supabase
+    .from("repair_order_lines")
+    .select("id, repair_order_id, kind, part_name, labor_name, qty, item_id, part_code, unit_price, source, source_ref_id")
+    .in("id", lineIds)
+    .eq("brand_id", brand);
+  if (loadErr) return { ok: false, error: `讀取明細行失敗：${loadErr.message}` };
+  const lines = (lineRows ?? []) as Array<{
+    id: string;
+    repair_order_id: string;
+    kind: string;
+    part_name: string | null;
+    labor_name: string | null;
+    qty: number | null;
+    item_id: string | null;
+    part_code: string | null;
+    unit_price: number | null;
+    source: string | null;
+    source_ref_id: string | null;
+  }>;
+  if (lines.length === 0) return { ok: false, error: "找不到指定的明細行" };
+
+  const roId = lines[0].repair_order_id;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // 零件行 → 建退料待確認
+  const partLines = lines.filter((l) => l.kind === "part" && Number(l.qty ?? 0) > 0);
+  let created_rts_ids: string[] = [];
+  if (partLines.length > 0) {
+    const dueBy = await getTodayClosingTime();
+    const { ids } = await createReturnRequestsBatch(
+      partLines.map((l) => ({
+        source_type: "addon_partial" as const,
+        source_ro_id: l.repair_order_id,
+        source_addon_id: l.source_ref_id,
+        source_line_id: l.id,
+        item_id: l.item_id,
+        part_name: l.part_name || "未命名零件",
+        part_code: l.part_code,
+        qty_requested: Number(l.qty ?? 0),
+        return_reason: reasons[l.id]?.trim() || "追加項目部分取消退料",
+        requested_by: user?.id ?? null,
+        unit_cost: Number(l.unit_price ?? 0),
+      })),
+      { brand, due_by: dueBy },
+    );
+    created_rts_ids = ids;
+  }
+
+  // 移除被取消的明細行（費用移除）
+  const { error: delErr } = await supabase
+    .from("repair_order_lines")
+    .delete()
+    .in("id", lines.map((l) => l.id))
+    .eq("brand_id", brand);
+  if (delErr) return { ok: false, error: `移除明細行失敗：${delErr.message}` };
+
+  // 稽核日誌（非阻塞）
+  {
+    const actorId = user?.id ?? null;
+    after(async () => {
+      await writeAuditLog({
+        table_name: "repair_order_lines",
+        record_id: roId,
+        action: "addon_line_partial_cancelled",
+        actor_id: actorId,
+        brand_id: brand,
+        after: {
+          cancelled_line_ids: lines.map((l) => l.id),
+          created_rts_count: created_rts_ids.length,
+          cancelled_at: now,
+        },
+      });
+    });
+  }
+
+  revalidatePath(PAGE);
+  revalidatePath(`/parts/aftersales/repair-orders/${roId}/addons`);
+  revalidatePath(`/parts/aftersales/repair-orders/${roId}/lines`);
+  return { ok: true, data: { created_rts_ids, removed_line_ids: lines.map((l) => l.id) } };
 }
 
 export type RejectionReason =

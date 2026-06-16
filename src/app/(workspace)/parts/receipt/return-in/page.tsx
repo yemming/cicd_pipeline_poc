@@ -4,8 +4,13 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getReturnInPageBundle, type ReturnInFilter } from "@/domain/parts-return-in";
+import {
+  listReturnRequests,
+  getReturnRequestsSummary,
+  type ReturnRequestFilter,
+} from "@/domain/parts-return-requests";
 
-import { ReturnInBoard } from "./_components/return-in-board";
+import { ReturnInTabs } from "./_components/return-in-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +37,7 @@ export default async function ReturnInPage({
     return v ?? "";
   };
 
+  // Tab A 篩選參數
   const status = pick("status");
   const warehouse_id = pick("warehouse_id");
   const reason = pick("reason");
@@ -39,18 +45,29 @@ export default async function ReturnInPage({
   const date_from = pick("date_from");
   const date_to = pick("date_to");
 
-  const filter: ReturnInFilter = {};
-  if (status) filter.status = status;
-  if (warehouse_id) filter.warehouse_id = warehouse_id;
-  if (reason) filter.reason = reason;
-  if (q) filter.q = q;
-  if (date_from) filter.date_from = date_from;
-  if (date_to) filter.date_to = date_to;
+  const filterA: ReturnInFilter = {};
+  if (status) filterA.status = status;
+  if (warehouse_id) filterA.warehouse_id = warehouse_id;
+  if (reason) filterA.reason = reason;
+  if (q) filterA.q = q;
+  if (date_from) filterA.date_from = date_from;
+  if (date_to) filterA.date_to = date_to;
 
+  // Tab B 篩選參數（source_type / status 獨立於 Tab A，用 rr_ 前綴避免 key 衝突）
+  const rr_source_type = pick("rr_source_type");
+  const rr_status = pick("rr_status");
+  const rr_source_ro_id = pick("rr_source_ro_id");
+
+  const filterB: ReturnRequestFilter = {};
+  if (rr_source_type) filterB.source_type = rr_source_type as ReturnRequestFilter["source_type"];
+  if (rr_status) filterB.status = rr_status as ReturnRequestFilter["status"];
+  if (rr_source_ro_id) filterB.source_ro_id = rr_source_ro_id;
+
+  // 平行撈兩個 Tab 的資料
   let bundle;
   let loadError: string | null = null;
   try {
-    bundle = await getReturnInPageBundle(filter);
+    bundle = await getReturnInPageBundle(filterA);
   } catch (err) {
     loadError = err instanceof Error ? err.message : String(err);
     bundle = {
@@ -72,8 +89,19 @@ export default async function ReturnInPage({
     };
   }
 
+  // Tab B：退料待確認（pending/overdue），不要 confirmed（UI 再過濾，但 server 先全撈讓 KPI 準確）
+  const [returnRequests, returnSummary] = await Promise.all([
+    listReturnRequests(filterB).catch(() => []),
+    getReturnRequestsSummary().catch(() => ({
+      pending: 0,
+      overdue: 0,
+      confirmed_today: 0,
+    })),
+  ]);
+
   return (
-    <ReturnInBoard
+    <ReturnInTabs
+      // Tab A
       rows={bundle.rows}
       total={bundle.totalCount}
       kpis={bundle.kpis}
@@ -89,6 +117,9 @@ export default async function ReturnInPage({
         date_to,
       }}
       loadError={loadError}
+      // Tab B
+      returnRequests={returnRequests}
+      returnSummary={returnSummary}
     />
   );
 }

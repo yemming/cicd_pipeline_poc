@@ -266,6 +266,12 @@ export function RepairOrderLinesView({
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <Link
+            href={`/parts/aftersales/repair-orders/${ro.id}/addons`}
+            className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm"
+          >
+            取消追加項目
+          </Link>
+          <Link
             href="/parts/aftersales/repair-orders"
             className="h-[30px] px-4 rounded-full text-[12px] inline-flex items-center bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm"
           >
