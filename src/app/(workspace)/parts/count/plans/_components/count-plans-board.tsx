@@ -29,6 +29,7 @@ type FormDraft = {
   schedule_cron: string;
   next_run_at: string;
   notes: string;
+  is_unannounced: boolean;
 };
 
 const emptyDraft = (firstWh: string): FormDraft => ({
@@ -39,6 +40,7 @@ const emptyDraft = (firstWh: string): FormDraft => ({
   schedule_cron: "",
   next_run_at: "",
   notes: "",
+  is_unannounced: false,
 });
 
 function fmtDate(d: string | null): string {
@@ -144,6 +146,7 @@ export function CountPlansBoard({
       schedule_cron: r.schedule_cron ?? "",
       next_run_at: r.next_run_at ? r.next_run_at.slice(0, 10) : "",
       notes: r.notes ?? "",
+      is_unannounced: r.plan_type === "unannounced",
     });
     setFormError(null);
     setModalOpen(true);
@@ -162,10 +165,12 @@ export function CountPlansBoard({
             | "spot"
             | "abc_a"
             | "abc_b"
-            | "abc_c") ?? "cycle",
+            | "abc_c"
+            | "unannounced") ?? "cycle",
           abc_filter:
             (formDraft.abc_filter as "A" | "B" | "C" | "all") || undefined,
           notes: formDraft.notes || undefined,
+          is_unannounced: formDraft.is_unannounced || undefined,
         });
         if (res.ok) {
           // 追加 schedule_cron / next_run_at（createCountPlanAction 不支援，建立後 update 補）
@@ -591,10 +596,15 @@ export function CountPlansBoard({
             </Field>
             <Field label="類型">
               <select
-                value={formDraft.plan_type}
-                onChange={(e) =>
-                  setFormDraft({ ...formDraft, plan_type: e.target.value })
-                }
+                value={formDraft.is_unannounced ? "unannounced" : formDraft.plan_type}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "unannounced") {
+                    setFormDraft({ ...formDraft, plan_type: "unannounced", is_unannounced: true, schedule_cron: "", next_run_at: "" });
+                  } else {
+                    setFormDraft({ ...formDraft, plan_type: v, is_unannounced: false });
+                  }
+                }}
                 disabled={formPending}
                 className={inputClass}
               >
@@ -604,6 +614,35 @@ export function CountPlansBoard({
                   </option>
                 ))}
               </select>
+            </Field>
+            <Field label="" full>
+              <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={formDraft.is_unannounced}
+                  disabled={formPending}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormDraft({
+                      ...formDraft,
+                      is_unannounced: checked,
+                      plan_type: checked ? "unannounced" : "cycle",
+                      // 突擊盤點不預排時間，清空排程欄位
+                      schedule_cron: checked ? "" : formDraft.schedule_cron,
+                      next_run_at: checked ? "" : formDraft.next_run_at,
+                    });
+                  }}
+                  className="mt-0.5 w-[14px] h-[14px] accent-[#1A3A5C]"
+                />
+                <span className="text-[12.5px] text-[#2C2C2A] leading-snug">
+                  突擊盤點（不預先通知、不預先凍倉、先盤後凍）
+                  {formDraft.is_unannounced && (
+                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B] whitespace-nowrap">
+                      排程欄位將忽略
+                    </span>
+                  )}
+                </span>
+              </label>
             </Field>
             <Field label="ABC 範圍">
               <select
@@ -627,9 +666,9 @@ export function CountPlansBoard({
                 onChange={(e) =>
                   setFormDraft({ ...formDraft, schedule_cron: e.target.value })
                 }
-                disabled={formPending}
-                placeholder="例：0 9 1 * *（每月 1 號 9:00）"
-                className={`${inputClass} font-mono`}
+                disabled={formPending || formDraft.is_unannounced}
+                placeholder={formDraft.is_unannounced ? "突擊盤點不適用" : "例：0 9 1 * *（每月 1 號 9:00）"}
+                className={`${inputClass} font-mono ${formDraft.is_unannounced ? "bg-[#F8F7F4] text-[#9A9890] cursor-not-allowed" : ""}`}
               />
             </Field>
             <Field label="下次執行日">
@@ -639,8 +678,8 @@ export function CountPlansBoard({
                 onChange={(e) =>
                   setFormDraft({ ...formDraft, next_run_at: e.target.value })
                 }
-                disabled={formPending}
-                className={inputClass}
+                disabled={formPending || formDraft.is_unannounced}
+                className={`${inputClass} ${formDraft.is_unannounced ? "bg-[#F8F7F4] text-[#9A9890] cursor-not-allowed" : ""}`}
               />
             </Field>
             <Field label="備註" full>

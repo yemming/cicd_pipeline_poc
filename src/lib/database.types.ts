@@ -197,6 +197,93 @@ export type Database = {
         }
         Relationships: []
       }
+      aftersales_payments: {
+        Row: {
+          brand_id: string
+          checkout_id: string | null
+          created_at: string | null
+          created_by: string | null
+          discount_amount: number | null
+          external_invoice_no: string | null
+          gl_posted: boolean | null
+          gl_posted_at: string | null
+          id: string
+          metadata: Json | null
+          paid_at: string
+          payment_method: string
+          payment_reference: string | null
+          prefix_p1: string
+          ro_id: string
+          ro_number: string
+          store_id: string | null
+          subtotal_labor: number | null
+          subtotal_misc: number | null
+          subtotal_parts: number | null
+          total_amount: number
+        }
+        Insert: {
+          brand_id: string
+          checkout_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          discount_amount?: number | null
+          external_invoice_no?: string | null
+          gl_posted?: boolean | null
+          gl_posted_at?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string
+          payment_method: string
+          payment_reference?: string | null
+          prefix_p1: string
+          ro_id: string
+          ro_number: string
+          store_id?: string | null
+          subtotal_labor?: number | null
+          subtotal_misc?: number | null
+          subtotal_parts?: number | null
+          total_amount: number
+        }
+        Update: {
+          brand_id?: string
+          checkout_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          discount_amount?: number | null
+          external_invoice_no?: string | null
+          gl_posted?: boolean | null
+          gl_posted_at?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string
+          payment_method?: string
+          payment_reference?: string | null
+          prefix_p1?: string
+          ro_id?: string
+          ro_number?: string
+          store_id?: string | null
+          subtotal_labor?: number | null
+          subtotal_misc?: number | null
+          subtotal_parts?: number | null
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aftersales_payments_checkout_id_fkey"
+            columns: ["checkout_id"]
+            isOneToOne: false
+            referencedRelation: "ro_checkouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aftersales_payments_ro_id_fkey"
+            columns: ["ro_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aftersales_technicians: {
         Row: {
           actual_minutes: number
@@ -1611,6 +1698,63 @@ export type Database = {
         }
         Relationships: []
       }
+      complaints: {
+        Row: {
+          brand_id: string
+          complaint_type: string
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          customer_id: string | null
+          description: string | null
+          handled_by: string | null
+          handled_by_name: string | null
+          id: string
+          metadata: Json
+          repair_order_id: string | null
+          result: string | null
+          status: string
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          brand_id: string
+          complaint_type?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customer_id?: string | null
+          description?: string | null
+          handled_by?: string | null
+          handled_by_name?: string | null
+          id?: string
+          metadata?: Json
+          repair_order_id?: string | null
+          result?: string | null
+          status?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          brand_id?: string
+          complaint_type?: string
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          customer_id?: string | null
+          description?: string | null
+          handled_by?: string | null
+          handled_by_name?: string | null
+          id?: string
+          metadata?: Json
+          repair_order_id?: string | null
+          result?: string | null
+          status?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: []
+      }
       consignment_stocks: {
         Row: {
           bin_id: string | null
@@ -2353,6 +2497,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      damage_disputes: {
+        Row: {
+          author_id: string | null
+          author_name: string | null
+          brand_id: string
+          created_at: string
+          customer_words: string | null
+          damage_label: string | null
+          dispute_type: string
+          id: string
+          metadata: Json
+          pre_inspection_id: string | null
+          repair_order_id: string | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          author_name?: string | null
+          brand_id: string
+          created_at?: string
+          customer_words?: string | null
+          damage_label?: string | null
+          dispute_type: string
+          id?: string
+          metadata?: Json
+          pre_inspection_id?: string | null
+          repair_order_id?: string | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string | null
+          brand_id?: string
+          created_at?: string
+          customer_words?: string | null
+          damage_label?: string | null
+          dispute_type?: string
+          id?: string
+          metadata?: Json
+          pre_inspection_id?: string | null
+          repair_order_id?: string | null
+          vehicle_id?: string | null
+        }
+        Relationships: []
       }
       deliveries: {
         Row: {
@@ -3148,6 +3337,8 @@ export type Database = {
           hire_date: string | null
           id: string
           is_active: boolean
+          is_cross_admin: boolean
+          is_dept_manager: boolean
           leave_date: string | null
           metadata: Json | null
           name: string
@@ -3176,6 +3367,8 @@ export type Database = {
           hire_date?: string | null
           id?: string
           is_active?: boolean
+          is_cross_admin?: boolean
+          is_dept_manager?: boolean
           leave_date?: string | null
           metadata?: Json | null
           name: string
@@ -3204,6 +3397,8 @@ export type Database = {
           hire_date?: string | null
           id?: string
           is_active?: boolean
+          is_cross_admin?: boolean
+          is_dept_manager?: boolean
           leave_date?: string | null
           metadata?: Json | null
           name?: string
@@ -5078,6 +5273,7 @@ export type Database = {
           first_counter_id: string | null
           freeze_warehouse: boolean
           id: string
+          is_unannounced: boolean
           metadata: Json | null
           notes: string | null
           plan_id: string | null
@@ -5101,6 +5297,7 @@ export type Database = {
           first_counter_id?: string | null
           freeze_warehouse?: boolean
           id?: string
+          is_unannounced?: boolean
           metadata?: Json | null
           notes?: string | null
           plan_id?: string | null
@@ -5124,6 +5321,7 @@ export type Database = {
           first_counter_id?: string | null
           freeze_warehouse?: boolean
           id?: string
+          is_unannounced?: boolean
           metadata?: Json | null
           notes?: string | null
           plan_id?: string | null
@@ -5148,6 +5346,83 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_purchases: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          item_id: string | null
+          metadata: Json
+          purchase_order_id: string | null
+          qty: number
+          receipt_id: string | null
+          received_at: string | null
+          store_id: string | null
+          total_cost: number | null
+          unit_cost: number
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string | null
+          metadata?: Json
+          purchase_order_id?: string | null
+          qty: number
+          receipt_id?: string | null
+          received_at?: string | null
+          store_id?: string | null
+          total_cost?: number | null
+          unit_cost?: number
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          item_id?: string | null
+          metadata?: Json
+          purchase_order_id?: string | null
+          qty?: number
+          receipt_id?: string | null
+          received_at?: string | null
+          store_id?: string | null
+          total_cost?: number | null
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_purchases_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_purchases_purchase_order_id_fkey"
+            columns: ["purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_purchases_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "stock_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_purchases_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -5240,6 +5515,91 @@ export type Database = {
             columns: ["warehouse_id"]
             isOneToOne: false
             referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_writeoffs: {
+        Row: {
+          approval_tier: string | null
+          approved_at: string | null
+          approved_by: string | null
+          brand_id: string
+          created_at: string
+          id: string
+          item_id: string | null
+          metadata: Json
+          qty: number
+          requested_at: string | null
+          requested_by: string | null
+          source: string
+          status: string
+          store_id: string | null
+          total_loss: number | null
+          unit_cost: number | null
+          workorder_id: string | null
+          writeoff_reason: string
+        }
+        Insert: {
+          approval_tier?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          brand_id: string
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          metadata?: Json
+          qty: number
+          requested_at?: string | null
+          requested_by?: string | null
+          source?: string
+          status?: string
+          store_id?: string | null
+          total_loss?: number | null
+          unit_cost?: number | null
+          workorder_id?: string | null
+          writeoff_reason: string
+        }
+        Update: {
+          approval_tier?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          brand_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          metadata?: Json
+          qty?: number
+          requested_at?: string | null
+          requested_by?: string | null
+          source?: string
+          status?: string
+          store_id?: string | null
+          total_loss?: number | null
+          unit_cost?: number | null
+          workorder_id?: string | null
+          writeoff_reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_writeoffs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_writeoffs_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_writeoffs_workorder_id_fkey"
+            columns: ["workorder_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -8857,7 +9217,7 @@ export type Database = {
             foreignKeyName: "pre_inspections_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: false
-            referencedRelation: "service_appointments"
+            referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
           {
@@ -11583,6 +11943,7 @@ export type Database = {
       }
       service_packages: {
         Row: {
+          applicable_models: string[] | null
           brand_id: string
           code: string
           created_at: string
@@ -11591,15 +11952,19 @@ export type Database = {
           items: Json
           list_price: number | null
           metadata: Json
+          mileage_from: number | null
           mileage_interval: number | null
+          mileage_to: number | null
           name: string
           pkg_type: string
           pricing_policy_id: string | null
+          show_in_quickquote: boolean
           updated_at: string
           valid_from: string | null
           valid_to: string | null
         }
         Insert: {
+          applicable_models?: string[] | null
           brand_id: string
           code: string
           created_at?: string
@@ -11608,15 +11973,19 @@ export type Database = {
           items?: Json
           list_price?: number | null
           metadata?: Json
+          mileage_from?: number | null
           mileage_interval?: number | null
+          mileage_to?: number | null
           name: string
           pkg_type?: string
           pricing_policy_id?: string | null
+          show_in_quickquote?: boolean
           updated_at?: string
           valid_from?: string | null
           valid_to?: string | null
         }
         Update: {
+          applicable_models?: string[] | null
           brand_id?: string
           code?: string
           created_at?: string
@@ -11625,10 +11994,13 @@ export type Database = {
           items?: Json
           list_price?: number | null
           metadata?: Json
+          mileage_from?: number | null
           mileage_interval?: number | null
+          mileage_to?: number | null
           name?: string
           pkg_type?: string
           pricing_policy_id?: string | null
+          show_in_quickquote?: boolean
           updated_at?: string
           valid_from?: string | null
           valid_to?: string | null
@@ -14991,6 +15363,76 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warranty_claim_receivables: {
+        Row: {
+          brand_id: string
+          claim_amount: number
+          claim_id: string | null
+          claim_status: string
+          created_at: string
+          id: string
+          metadata: Json
+          oem_reference_no: string | null
+          paid_at: string | null
+          store_id: string | null
+          submitted_at: string | null
+          updated_at: string
+          workorder_id: string | null
+        }
+        Insert: {
+          brand_id: string
+          claim_amount?: number
+          claim_id?: string | null
+          claim_status?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          oem_reference_no?: string | null
+          paid_at?: string | null
+          store_id?: string | null
+          submitted_at?: string | null
+          updated_at?: string
+          workorder_id?: string | null
+        }
+        Update: {
+          brand_id?: string
+          claim_amount?: number
+          claim_id?: string | null
+          claim_status?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          oem_reference_no?: string | null
+          paid_at?: string | null
+          store_id?: string | null
+          submitted_at?: string | null
+          updated_at?: string
+          workorder_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warranty_claim_receivables_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "parts_warranty_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claim_receivables_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claim_receivables_workorder_id_fkey"
+            columns: ["workorder_id"]
+            isOneToOne: false
+            referencedRelation: "repair_orders"
             referencedColumns: ["id"]
           },
         ]
