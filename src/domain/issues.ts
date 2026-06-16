@@ -1218,6 +1218,65 @@ async function persistPick(args: {
     }
   }
 
+  // 消耗預留（inventory_reservations active → consumed）— 非阻塞、不影響主流程。
+  // 只在有 roId 時執行，依工單 + item_id 比對，將本次已領數量翻 consumed。
+  if (roId) {
+    after(async () => {
+      try {
+        // 彙整本次各 item 已領總量
+        const issuedByItem = new Map<string, number>();
+        for (const l of preview.lines) {
+          issuedByItem.set(l.item_id, (issuedByItem.get(l.item_id) ?? 0) + l.qty_needed);
+        }
+        const nowIso = new Date().toISOString();
+        for (const [itemId, qtyIssued] of issuedByItem) {
+          // 找對應工單的 active 預留（item + ro_id 精確比對）
+          const { data: reservations, error: resErr } = await supabase
+            .from("inventory_reservations")
+            .select("id, reserved_qty, consumed_qty")
+            .eq("brand_id", brandId)
+            .eq("item_id", itemId)
+            .eq("ro_id", roId)
+            .eq("status", "active")
+            .order("reserved_at", { ascending: true });
+          if (resErr) {
+            console.error("[consume reservation] 查預留失敗", { gi_no, item_id: itemId, error: resErr.message });
+            continue;
+          }
+          let remaining = qtyIssued;
+          for (const res of reservations ?? []) {
+            if (remaining <= 0) break;
+            const resQty = Number(res.reserved_qty);
+            const alreadyConsumed = Number(res.consumed_qty ?? 0);
+            const available = resQty - alreadyConsumed;
+            if (available <= 0) continue;
+            const toConsume = Math.min(available, remaining);
+            const newConsumed = alreadyConsumed + toConsume;
+            const newStatus = newConsumed >= resQty ? "consumed" : "active";
+            const { error: updErr } = await supabase
+              .from("inventory_reservations")
+              .update({
+                consumed_qty: newConsumed,
+                status: newStatus,
+                ...(newStatus === "consumed"
+                  ? { released_at: nowIso, release_reason: "issued", updated_at: nowIso }
+                  : { updated_at: nowIso }),
+              })
+              .eq("id", res.id)
+              .eq("brand_id", brandId)
+              .eq("status", "active");
+            if (updErr) {
+              console.error("[consume reservation] 更新失敗", { gi_no, reservation_id: res.id, error: updErr.message });
+            }
+            remaining -= toConsume;
+          }
+        }
+      } catch (e) {
+        console.error("[consume reservation] 例外（不影響主流程）", e);
+      }
+    });
+  }
+
   // 認列銷貨成本（COGS_ON_ISSUE）— 非阻塞、autoPost。
   // cost_amount = 實際消耗層成本（Σ qty×unit_cost），與存貨減少完全 tie-out。
   // 依 item 聚合，一張 entry/item（沿用 PARTS_PURCHASE 的聚合慣例）。

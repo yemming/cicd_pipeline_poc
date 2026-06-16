@@ -657,6 +657,55 @@ export async function receiveStock(
     });
   }
 
+  // 10b. 入庫成本寫進 inventory_purchases（非阻塞、吞錯不影響收貨）
+  {
+    const grId = gr.id;
+    const brandId = scope.brand_id;
+    const poId = po.id;
+    const linesForCost = grLinesWithAmount;
+    after(async () => {
+      try {
+        // store_id：從 warehouse → org_id（仿 payReceipt line 1117–1124）
+        let storeId: string | null = null;
+        if (po.warehouse_id) {
+          const { data: wh } = await supabase
+            .from("warehouses")
+            .select("org_id")
+            .eq("id", po.warehouse_id)
+            .maybeSingle();
+          storeId = wh?.org_id ?? null;
+        }
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const createdBy = authUser?.id ?? null;
+
+        const rows = linesForCost.map((line) => ({
+          brand_id: brandId,
+          purchase_order_id: poId,
+          receipt_id: grId,
+          item_id: line.item_id,
+          qty: line.qty_received,
+          unit_cost: line.unit_cost,
+          // total_cost 是 generated column，不傳
+          received_at: new Date().toISOString(),
+          store_id: storeId,
+          created_by: createdBy,
+          metadata: {},
+        }));
+        const { error: ipErr } = await supabase
+          .from("inventory_purchases")
+          .insert(rows);
+        if (ipErr) {
+          console.error("[inventory_purchases] 入庫成本寫入失敗（不影響收貨）", {
+            gr_no,
+            error: ipErr.message,
+          });
+        }
+      } catch (e) {
+        console.error("[inventory_purchases] 入庫成本寫入例外（不影響收貨）", { gr_no, error: e });
+      }
+    });
+  }
+
   // 11. 包D WP-I：採購入庫 → 解待料 + 通知 SA（補鏈條斷點，非阻塞、吞錯不影響收貨）
   //   既有 #5 releaseWaitingForItem 原本只有調撥入庫(transfers)呼叫；採購到貨這條主路徑沒接。
   {

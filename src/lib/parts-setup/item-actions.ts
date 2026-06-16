@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
@@ -7,6 +8,8 @@ import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { findItemBySku } from "@/domain/items";
+import { writeAuditLog } from "@/domain/audit-logs";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -197,4 +200,85 @@ export async function setItemActiveAction(
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
   revalidatePath(PAGE_PATH);
   return { ok: true, data: { id } };
+}
+
+export type PriceBookRow = {
+  code: string;
+  name: string;
+  suggested_price: number | null;
+  standard_cost?: number | null;
+  category?: string;
+  default_supplier_id?: string | null;
+};
+
+export async function upsertPriceBookAction(
+  rows: PriceBookRow[],
+): Promise<ActionResult<{ created: number; updated: number; errors: string[] }>> {
+  await requirePermission(PERMISSIONS.ITEM_EDIT);
+  if (!rows.length) return { ok: false, error: "未提供任何資料" };
+
+  let created = 0;
+  let updated = 0;
+  const errors: string[] = [];
+
+  for (const row of rows) {
+    const code = row.code?.trim();
+    const name = row.name?.trim();
+    if (!code) {
+      errors.push(`跳過：料號為空`);
+      continue;
+    }
+    if (!name) {
+      errors.push(`跳過：${code} 名稱為空`);
+      continue;
+    }
+
+    try {
+      const existing = await findItemBySku(code);
+      if (existing) {
+        // 更新：只改定價相關欄位，不碰 serial/batch/is_active
+        const res = await updateItemAction(existing.id, {
+          name,
+          suggested_price: row.suggested_price ?? null,
+          standard_cost: row.standard_cost ?? null,
+        });
+        if (res.ok) {
+          updated++;
+        } else {
+          errors.push(`${code}: ${res.error}`);
+        }
+      } else {
+        // 新增
+        const res = await createItemAction({
+          code,
+          name,
+          suggested_price: row.suggested_price ?? null,
+          standard_cost: row.standard_cost ?? null,
+          category: row.category?.trim() || undefined,
+          default_supplier_id: row.default_supplier_id || null,
+        });
+        if (res.ok) {
+          created++;
+        } else {
+          errors.push(`${code}: ${res.error}`);
+        }
+      }
+    } catch (e) {
+      errors.push(`${code}: ${e instanceof Error ? e.message : "未知錯誤"}`);
+    }
+  }
+
+  revalidatePath(PAGE_PATH);
+
+  const scope = await getActiveScope();
+  after(async () => {
+    await writeAuditLog({
+      table_name: "items",
+      action: "PRICE_BOOK_IMPORTED",
+      brand_id: scope.brand_id,
+      after: { created, updated, count: rows.length },
+    });
+  });
+
+  return { ok: true, data: { created, updated, errors: errors.slice(0, 20) } };
 }
