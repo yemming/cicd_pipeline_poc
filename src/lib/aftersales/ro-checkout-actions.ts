@@ -644,6 +644,8 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
             notes: `系統自動建立：工單 ${roCore.ro_code} 關單後 ${fu.label}`,
             metadata: baseMeta,
             dedupeMetaKey: "source_ro",
+            // call_tasks SELECT RLS 需 created_by=auth.uid()，否則 INSERT...RETURNING 撈不到 row
+            created_by: closingUserId,
           });
           if (res.ok) created.push(fu.call_type);
           else failed.push({ call_type: fu.call_type, error: res.error });

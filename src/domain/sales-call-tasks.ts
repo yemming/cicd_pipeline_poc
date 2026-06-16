@@ -953,6 +953,12 @@ export type CreateFollowUpTaskInput = {
   days_from_now?: number;
   assignee_id?: string | null;
   notes?: string | null;
+  /**
+   * 建立者 user_id。call_tasks SELECT RLS 要求 created_by=auth.uid()（或 overseer/assignee）
+   * 才看得到 row；INSERT...RETURNING 的 .select() 會被此政策過濾。系統 hook 建立時務必帶入
+   * 當前操作者 id，否則 RETURNING 撈不到 row、回報成 RLS 失敗。
+   */
+  created_by?: string | null;
   /** 額外塞進 call_tasks.metadata（如 { source_ro, source_order } 供冪等查重） */
   metadata?: Record<string, unknown>;
   /**
@@ -1018,6 +1024,7 @@ export async function createFollowUpTask(
       scheduled_at: scheduledAt,
       assignee_id: input.assignee_id ?? null,
       notes: input.notes ?? null,
+      created_by: input.created_by ?? null,
       metadata: (input.metadata ?? {}) as Record<string, unknown>,
     })
     .select("id")
