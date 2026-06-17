@@ -36,5 +36,14 @@ export default async function NewReturnInPage({
     issueId ? getIssueForReturn(issueId) : Promise.resolve(null),
   ]);
 
-  return <ReturnInNewForm issues={issues} initialPick={picked} />;
+  // key 綁 issue_id：選不同領料單時 router.push 只換 query string（soft nav），
+  // 同一個 client 元件實例不會 remount → useState(initialPick) 卡在初始 null。
+  // 用 key 強制 remount，讓 pick / qtyMap 依新的 initialPick 重新初始化。
+  return (
+    <ReturnInNewForm
+      key={issueId ?? "none"}
+      issues={issues}
+      initialPick={picked}
+    />
+  );
 }
