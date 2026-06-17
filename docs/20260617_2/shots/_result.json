@@ -1,0 +1,15 @@
+{
+  "result": {
+    "partA": {
+      "listBadgeCount": 3,
+      "listBadgeTexts": [
+        "借料未還 1 項（最久 0 天）",
+        "借料未還 1 項（最久 0 天）",
+        "借料未還 1 項（最久 0 天）"
+      ],
+      "dispatchBadgeCount": 1
+    },
+    "partB": {}
+  },
+  "errors": []
+}

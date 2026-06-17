@@ -1,0 +1,14 @@
+{
+  "result": {
+    "pickedOption": "E2E-P-001 · 傳動系統 零件 #001 (A類) (建議 NT$33660)",
+    "lineAdded": true,
+    "seenInPick": true,
+    "hasShortageBadge": true,
+    "shortageNamedPart": true,
+    "inStockPartPresent": true,
+    "postBtnExists": true,
+    "postBtnDisabled": true,
+    "stillOnPreview": true
+  },
+  "errors": []
+}
