@@ -279,109 +279,65 @@ const NONE_LOAN: TlLoanStatus = {
   parts: [],
 };
 
-export async function getTlOutstandingLoanStatus(roId: string): Promise<TlLoanStatus> {
-  if (!roId) return NONE_LOAN;
-  const supabase = await createClient();
-  const brand = (await getActiveScope()).brand_id;
-
-  // 1) TL 工單 + 橋接 work_order
-  const { data: ro } = await supabase
-    .from("repair_orders")
-    .select("id, prefix_p1")
-    .eq("id", roId)
-    .eq("brand_id", brand)
-    .maybeSingle();
-  if (!ro || ro.prefix_p1 !== "TL") return NONE_LOAN;
-
-  const { data: wo } = await supabase
-    .from("work_orders")
-    .select("id")
-    .eq("brand_id", brand)
-    .eq("repair_order_id", roId)
-    .maybeSingle();
-  if (!wo) return NONE_LOAN;
-  const woId = (wo as { id: string }).id;
-
-  // 2) 已完成領料（出庫）的 stock_issues（id + posted_at）
-  const { data: issues } = await supabase
-    .from("stock_issues")
-    .select("id, posted_at")
-    .eq("brand_id", brand)
-    .eq("ro_id", woId)
-    .eq("type", "ro_picking")
-    .eq("status", "completed");
-  const issueRows = (issues ?? []).filter((r) => !!r.posted_at);
+// ─────────────────────────────────────────────────────────────
+// 借料未還核心計算（pure）— 細節頁與列表頁共用「唯一一份」邏輯。
+// 逐件 outstanding = 已出庫(issued) − 已確認回庫(confirmed) − 已處置(resolved)；
+// pending/overdue 退料在途「不扣」（B-01：人還沒看見實物回庫前不能當已還）。
+// 天數從各件最早出庫日起算，tier 取「最久未還件」決定。
+// ─────────────────────────────────────────────────────────────
+function computeTlLoanStatus(input: {
+  issueRows: { id: string; posted_at: string }[];
+  giLines: { gi_id: string; item_id: string; qty_issued: number | null }[];
+  returns: { item_id: string | null; qty_confirmed: number | null; status: string }[];
+  roLines: { item_id: string; qty: number | null; metadata: unknown }[];
+  nameMap: Map<string, string>;
+  now: number;
+}): TlLoanStatus {
+  const { issueRows, giLines, returns, roLines, nameMap, now } = input;
   if (issueRows.length === 0) return NONE_LOAN; // 還沒出庫 → 沒有「借料未還」
-  const giIds = issueRows.map((r) => r.id as string);
-  const postedByGi = new Map(issueRows.map((r) => [r.id as string, r.posted_at as string]));
+  const postedByGi = new Map(issueRows.map((r) => [r.id, r.posted_at]));
 
-  // 3) 出庫明細逐件：累計 issued qty + 取該件最早出庫日
-  const { data: giLines } = await supabase
-    .from("stock_issue_lines")
-    .select("gi_id, item_id, qty_issued")
-    .eq("brand_id", brand)
-    .in("gi_id", giIds)
-    .not("item_id", "is", null);
+  // 出庫明細逐件：累計 issued qty + 取該件最早出庫日
   const issuedByItem = new Map<string, { qty: number; earliest: string }>();
-  for (const l of giLines ?? []) {
-    const itemId = l.item_id as string;
-    const posted = postedByGi.get(l.gi_id as string) ?? new Date().toISOString();
-    const cur = issuedByItem.get(itemId);
+  for (const l of giLines) {
+    if (!l.item_id) continue;
+    const posted = postedByGi.get(l.gi_id);
+    if (posted === undefined) continue; // 該 gi 不屬於本工單已完成出庫
+    const cur = issuedByItem.get(l.item_id);
     if (cur) {
       cur.qty += Number(l.qty_issued ?? 0);
       if (posted < cur.earliest) cur.earliest = posted;
     } else {
-      issuedByItem.set(itemId, { qty: Number(l.qty_issued ?? 0), earliest: posted });
+      issuedByItem.set(l.item_id, { qty: Number(l.qty_issued ?? 0), earliest: posted });
     }
   }
   if (issuedByItem.size === 0) return NONE_LOAN;
 
-  // 4) 已確認回庫量（confirmed）逐件；以及 pending/overdue 在途筆數
-  const { data: returns } = await supabase
-    .from("parts_return_requests")
-    .select("item_id, qty_confirmed, status")
-    .eq("brand_id", brand)
-    .eq("source_ro_id", roId);
+  // 已確認回庫量（confirmed）逐件；以及 pending/overdue 在途筆數
   const confirmedByItem = new Map<string, number>();
   let inTransit = 0;
-  for (const r of returns ?? []) {
+  for (const r of returns) {
     if (r.status === "confirmed") {
-      const k = (r.item_id as string) ?? "";
+      const k = r.item_id ?? "";
       confirmedByItem.set(k, (confirmedByItem.get(k) ?? 0) + Number(r.qty_confirmed ?? 0));
     } else if (r.status === "pending" || r.status === "overdue") {
       inTransit += 1;
     }
   }
 
-  // 5) tl-close 已處置量（charge_customer / absorb_internally / transfer_to_ro）逐件
-  //    這些零件不會回到本次借料、已被消化，不算未還。
-  const { data: roLines } = await supabase
-    .from("repair_order_lines")
-    .select("item_id, qty, metadata")
-    .eq("repair_order_id", roId)
-    .eq("brand_id", brand)
-    .eq("kind", "part")
-    .not("item_id", "is", null);
+  // tl-close 已處置量（charge_customer / absorb_internally / transfer_to_ro）逐件
   const resolvedByItem = new Map<string, number>();
   const RESOLVED = new Set(["charge_customer", "absorb_internally", "transfer_to_ro"]);
-  for (const l of roLines ?? []) {
+  for (const l of roLines) {
+    if (!l.item_id) continue;
     const meta = (l.metadata ?? {}) as { tl_disposition?: { decision?: string } };
     const decision = meta.tl_disposition?.decision;
     if (decision && RESOLVED.has(decision)) {
-      const k = l.item_id as string;
-      resolvedByItem.set(k, (resolvedByItem.get(k) ?? 0) + Number(l.qty ?? 0));
+      resolvedByItem.set(l.item_id, (resolvedByItem.get(l.item_id) ?? 0) + Number(l.qty ?? 0));
     }
   }
 
-  // 6) 逐件算 outstanding = issued − confirmed − resolved（pending 不扣）
-  const itemIds = Array.from(issuedByItem.keys());
-  const { data: items } = await supabase
-    .from("items")
-    .select("id, name")
-    .in("id", itemIds);
-  const nameMap = new Map((items ?? []).map((i) => [i.id as string, i.name as string]));
-
-  const now = Date.now();
+  // 逐件算 outstanding = issued − confirmed − resolved（pending 不扣）
   const parts: TlLoanPart[] = [];
   for (const [itemId, info] of issuedByItem) {
     const outstandingQty =
@@ -415,4 +371,171 @@ export async function getTlOutstandingLoanStatus(roId: string): Promise<TlLoanSt
     in_transit_count: inTransit,
     parts,
   };
+}
+
+/**
+ * 借料未還狀態 — 批次版（列表層級用，避免 N+1）。
+ * 給一批 repair_orders.id，回 Map<roId, TlLoanStatus>；非 TL / 未出庫的 ro 不放進 map。
+ * 與單筆 getTlOutstandingLoanStatus 共用同一份 computeTlLoanStatus，邏輯保證一致。
+ * 固定 4 個 round-trip，與工單數無關。
+ */
+export async function getTlOutstandingLoanStatusBatch(
+  roIds: string[],
+): Promise<Map<string, TlLoanStatus>> {
+  const result = new Map<string, TlLoanStatus>();
+  const uniqueRoIds = Array.from(new Set(roIds.filter(Boolean)));
+  if (uniqueRoIds.length === 0) return result;
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 1) 篩出 TL 工單 + 對應橋接 work_order
+  const [roRes, woRes] = await Promise.all([
+    supabase.from("repair_orders").select("id, prefix_p1").eq("brand_id", brand).in("id", uniqueRoIds),
+    supabase
+      .from("work_orders")
+      .select("id, repair_order_id")
+      .eq("brand_id", brand)
+      .in("repair_order_id", uniqueRoIds),
+  ]);
+  const tlRoIds = new Set(
+    ((roRes.data ?? []) as { id: string; prefix_p1: string }[])
+      .filter((r) => r.prefix_p1 === "TL")
+      .map((r) => r.id),
+  );
+  if (tlRoIds.size === 0) return result;
+
+  const roByWo = new Map<string, string>(); // woId -> roId
+  for (const w of (woRes.data ?? []) as { id: string; repair_order_id: string }[]) {
+    if (tlRoIds.has(w.repair_order_id)) roByWo.set(w.id, w.repair_order_id);
+  }
+  const woIds = Array.from(roByWo.keys());
+  const activeRoIds = Array.from(new Set(roByWo.values()));
+  if (woIds.length === 0) return result;
+
+  // 2) 已完成出庫 + 退料 + RO part lines（皆只需 roIds / woIds）
+  const [issuesRes, returnsRes, roLinesRes] = await Promise.all([
+    supabase
+      .from("stock_issues")
+      .select("id, ro_id, posted_at")
+      .eq("brand_id", brand)
+      .in("ro_id", woIds)
+      .eq("type", "ro_picking")
+      .eq("status", "completed"),
+    supabase
+      .from("parts_return_requests")
+      .select("item_id, qty_confirmed, status, source_ro_id")
+      .eq("brand_id", brand)
+      .in("source_ro_id", activeRoIds),
+    supabase
+      .from("repair_order_lines")
+      .select("item_id, qty, metadata, repair_order_id")
+      .eq("brand_id", brand)
+      .eq("kind", "part")
+      .in("repair_order_id", activeRoIds)
+      .not("item_id", "is", null),
+  ]);
+
+  // 已完成出庫依 roId 分組（並建 gi → roId）
+  const issuesByRo = new Map<string, { id: string; posted_at: string }[]>();
+  const giToRo = new Map<string, string>();
+  for (const i of (issuesRes.data ?? []) as { id: string; ro_id: string; posted_at: string | null }[]) {
+    if (!i.posted_at) continue;
+    const roId = roByWo.get(i.ro_id);
+    if (!roId) continue;
+    giToRo.set(i.id, roId);
+    const arr = issuesByRo.get(roId) ?? [];
+    arr.push({ id: i.id, posted_at: i.posted_at });
+    issuesByRo.set(roId, arr);
+  }
+  const allGiIds = Array.from(giToRo.keys());
+
+  // 3) 出庫明細依 roId 分組
+  const giLinesByRo = new Map<
+    string,
+    { gi_id: string; item_id: string; qty_issued: number | null }[]
+  >();
+  const allItemIds = new Set<string>();
+  if (allGiIds.length > 0) {
+    const { data: giLines } = await supabase
+      .from("stock_issue_lines")
+      .select("gi_id, item_id, qty_issued")
+      .eq("brand_id", brand)
+      .in("gi_id", allGiIds)
+      .not("item_id", "is", null);
+    for (const l of (giLines ?? []) as {
+      gi_id: string;
+      item_id: string;
+      qty_issued: number | null;
+    }[]) {
+      const roId = giToRo.get(l.gi_id);
+      if (!roId || !l.item_id) continue;
+      const arr = giLinesByRo.get(roId) ?? [];
+      arr.push({ gi_id: l.gi_id, item_id: l.item_id, qty_issued: l.qty_issued });
+      giLinesByRo.set(roId, arr);
+      allItemIds.add(l.item_id);
+    }
+  }
+
+  // 4) 品名
+  const nameMap = new Map<string, string>();
+  if (allItemIds.size > 0) {
+    const { data: items } = await supabase
+      .from("items")
+      .select("id, name")
+      .in("id", Array.from(allItemIds));
+    for (const it of (items ?? []) as { id: string; name: string }[]) nameMap.set(it.id, it.name);
+  }
+
+  // 退料 / RO part lines 依 roId 分組
+  const returnsByRo = new Map<
+    string,
+    { item_id: string | null; qty_confirmed: number | null; status: string }[]
+  >();
+  for (const r of (returnsRes.data ?? []) as {
+    item_id: string | null;
+    qty_confirmed: number | null;
+    status: string;
+    source_ro_id: string;
+  }[]) {
+    const arr = returnsByRo.get(r.source_ro_id) ?? [];
+    arr.push({ item_id: r.item_id, qty_confirmed: r.qty_confirmed, status: r.status });
+    returnsByRo.set(r.source_ro_id, arr);
+  }
+  const roLinesByRo = new Map<string, { item_id: string; qty: number | null; metadata: unknown }[]>();
+  for (const l of (roLinesRes.data ?? []) as {
+    item_id: string;
+    qty: number | null;
+    metadata: unknown;
+    repair_order_id: string;
+  }[]) {
+    const arr = roLinesByRo.get(l.repair_order_id) ?? [];
+    arr.push({ item_id: l.item_id, qty: l.qty, metadata: l.metadata });
+    roLinesByRo.set(l.repair_order_id, arr);
+  }
+
+  const now = Date.now();
+  for (const roId of activeRoIds) {
+    const issueRows = issuesByRo.get(roId) ?? [];
+    if (issueRows.length === 0) continue; // 未出庫 → 視為無借料未還，不放進 map
+    result.set(
+      roId,
+      computeTlLoanStatus({
+        issueRows,
+        giLines: giLinesByRo.get(roId) ?? [],
+        returns: returnsByRo.get(roId) ?? [],
+        roLines: roLinesByRo.get(roId) ?? [],
+        nameMap,
+        now,
+      }),
+    );
+  }
+  return result;
+}
+
+/** 借料未還狀態 — 單筆（細節頁用）。委派批次版，保證與列表層級邏輯完全一致。 */
+export async function getTlOutstandingLoanStatus(roId: string): Promise<TlLoanStatus> {
+  if (!roId) return NONE_LOAN;
+  const m = await getTlOutstandingLoanStatusBatch([roId]);
+  return m.get(roId) ?? NONE_LOAN;
 }

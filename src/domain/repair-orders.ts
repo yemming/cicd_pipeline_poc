@@ -12,6 +12,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { getBrandConfig } from "@/domain/brand-config";
+import { getTlOutstandingLoanStatusBatch, type TlLoanStatus } from "@/domain/work-orders";
 
 import {
   PREFIX_P1_DEFS,
@@ -67,6 +68,8 @@ export type RepairOrderListRow = RepairOrderRow & {
   sa_name: string | null;
   lead_technician_name: string | null;
   lead_technician_code: string | null;
+  /** 借料未還（僅 TL 工單；非 TL 或未出庫為 null）— Russell 6/17 列表層級稽核可見性 */
+  tl_loan_status: TlLoanStatus | null;
 };
 
 export type RepairOrderListFilters = {
@@ -269,6 +272,17 @@ async function joinRepairOrderRows(
       { name: t.name, code: t.code },
     ]),
   );
+  // 借料未還（TL 工單）批次掛載 — 列表層級稽核可見性（Russell 6/17）。
+  // 只對 TL 工單批次查，避免 N+1；查失敗不可拖垮整張清單（降級為 null）。
+  const tlRoIds = rows.filter((r) => r.prefix_p1 === "TL").map((r) => r.id);
+  let loanMap = new Map<string, TlLoanStatus>();
+  if (tlRoIds.length > 0) {
+    try {
+      loanMap = await getTlOutstandingLoanStatusBatch(tlRoIds);
+    } catch {
+      loanMap = new Map();
+    }
+  }
   return rows.map((r) => ({
     ...r,
     customer_name: r.customer_id ? custMap.get(r.customer_id)?.name ?? null : null,
@@ -284,6 +298,7 @@ async function joinRepairOrderRows(
     lead_technician_code: r.lead_technician_id
       ? techMap.get(r.lead_technician_id)?.code ?? null
       : null,
+    tl_loan_status: r.prefix_p1 === "TL" ? loanMap.get(r.id) ?? null : null,
   }));
 }
 
@@ -716,6 +731,8 @@ export type UrgentRoRow = {
   vehicle_license_plate: string | null;
   vehicle_model_name: string | null;
   lead_technician_name: string | null;
+  /** 借料未還（僅 TL 工單；非 TL 或未出庫為 null）— 派工看板列表層級稽核可見性 */
+  tl_loan_status: TlLoanStatus | null;
 };
 
 /** 同 brand 內「緊急(urgent)」且未結束的工單，給派工看板置頂顯示 */
@@ -740,6 +757,7 @@ export async function listUrgentOpenRos(limit = 10): Promise<UrgentRoRow[]> {
     vehicle_license_plate: r.vehicle_license_plate,
     vehicle_model_name: r.vehicle_model_name,
     lead_technician_name: r.lead_technician_name,
+    tl_loan_status: r.tl_loan_status,
   }));
 }
 
@@ -768,6 +786,7 @@ export async function listPendingDispatchRos(limit = 20): Promise<UrgentRoRow[]>
     vehicle_license_plate: r.vehicle_license_plate,
     vehicle_model_name: r.vehicle_model_name,
     lead_technician_name: r.lead_technician_name,
+    tl_loan_status: r.tl_loan_status,
   }));
 }
 

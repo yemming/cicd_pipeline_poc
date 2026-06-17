@@ -55,6 +55,7 @@ import {
 } from "@/lib/aftersales/aftersales-technician-actions";
 import type { TechnicianCandidateEmployee } from "@/domain/aftersales-staff";
 import type { UrgentRoRow } from "@/domain/repair-orders";
+import { TlLoanChip } from "@/components/aftersales/tl-loan-chip";
 import { KpiCard } from "@/components/visualization";
 import { BarChart, GaugeChart } from "@/components/charts";
 
@@ -195,6 +196,7 @@ export function DispatchDashboard({
                   {ro.customer_name ?? "—"} · {ro.vehicle_license_plate ?? "—"}
                   {ro.vehicle_model_name ? ` · ${ro.vehicle_model_name}` : ""}
                 </span>
+                <TlLoanChip status={ro.tl_loan_status} />
                 <span className="ml-auto text-[11px] text-[#9A9890]">尚未派工</span>
               </a>
             ))}
@@ -226,6 +228,7 @@ export function DispatchDashboard({
                   {ro.customer_name ?? "—"} · {ro.vehicle_license_plate ?? "—"}
                   {ro.vehicle_model_name ? ` · ${ro.vehicle_model_name}` : ""}
                 </span>
+                <TlLoanChip status={ro.tl_loan_status} />
                 <span className="ml-auto text-[11px] text-[#9A9890]">
                   {ro.lead_technician_name ? `技師：${ro.lead_technician_name}` : "未指派"}
                 </span>

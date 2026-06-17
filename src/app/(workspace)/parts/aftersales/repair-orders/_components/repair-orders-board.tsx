@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
+import { TlLoanChip } from "@/components/aftersales/tl-loan-chip";
 import { KpiCard } from "@/components/visualization";
 import { DonutChart } from "@/components/charts";
 import {
@@ -293,6 +294,17 @@ export function RepairOrdersBoard({
         ),
         exportValue: (r) => r.status,
         sortValue: (r) => r.status,
+      },
+      {
+        id: "tl_loan",
+        header: "借料未還",
+        width: 160,
+        cell: (r) => <TlLoanChip status={r.tl_loan_status} />,
+        exportValue: (r) =>
+          r.tl_loan_status?.outstanding
+            ? `借料未還 ${r.tl_loan_status.unreturned_item_count} 項/最久 ${r.tl_loan_status.max_days} 天`
+            : "",
+        sortValue: (r) => (r.tl_loan_status?.outstanding ? r.tl_loan_status.max_days : -1),
       },
       {
         id: "photos",
