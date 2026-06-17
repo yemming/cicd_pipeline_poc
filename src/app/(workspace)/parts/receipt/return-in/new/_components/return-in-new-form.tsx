@@ -251,7 +251,7 @@ export function ReturnInNewForm({
         <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
           <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
             <span className="text-[13px] font-semibold text-[#2C2C2A]">
-              ▼ 步驟 2：填寫退入數量（≤ 領料數）
+              ▼ 步驟 2：填寫退入數量（≤ 可退數）
             </span>
           </header>
           <div className="overflow-x-auto">
@@ -272,6 +272,9 @@ export function ReturnInNewForm({
                   </th>
                   <th className="text-right px-3 py-2 text-[11px] text-[#9A9890] font-medium w-[90px]">
                     領料數
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] text-[#9A9890] font-medium w-[90px]">
+                    已退 / 可退
                   </th>
                   <th className="text-right px-3 py-2 text-[11px] text-[#9A9890] font-medium w-[100px]">
                     退入數
@@ -296,26 +299,38 @@ export function ReturnInNewForm({
                       </td>
                       <td className="px-3 py-2">{l.item_name ?? "—"}</td>
                       <td className="px-3 py-2 font-mono text-[#5A5955]">{l.bin_label ?? "—"}</td>
-                      <td className="px-3 py-2 text-right font-mono">{l.qty_issued}</td>
+                      <td className="px-3 py-2 text-right font-mono text-[11.5px]">
+                        <span className={l.already_returned > 0 ? "text-[#854F0B]" : "text-[#9A9890]"}>
+                          {l.already_returned}
+                        </span>
+                        <span className="text-[#9A9890]"> / </span>
+                        <span className={l.qty_returnable <= 0 ? "text-[#CC0000]" : "text-[#3B6D11]"}>
+                          {l.qty_returnable}
+                        </span>
+                      </td>
                       <td className="px-3 py-2 text-right">
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          max={l.qty_issued}
-                          value={v === 0 ? "" : v}
-                          onChange={(e) =>
-                            setQtyMap((p) => ({
-                              ...p,
-                              [l.id]:
-                                e.target.value === ""
-                                  ? 0
-                                  : Math.min(l.qty_issued, Math.max(0, Number(e.target.value))),
-                            }))
-                          }
-                          disabled={pending}
-                          className="w-20 h-[26px] px-2 border border-[#D5D3CB] rounded text-[12px] text-right focus:border-[#185FA5] focus:outline-none"
-                        />
+                        {l.qty_returnable <= 0 ? (
+                          <span className="text-[11px] text-[#CC0000]">已退完</span>
+                        ) : (
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            max={l.qty_returnable}
+                            value={v === 0 ? "" : v}
+                            onChange={(e) =>
+                              setQtyMap((p) => ({
+                                ...p,
+                                [l.id]:
+                                  e.target.value === ""
+                                    ? 0
+                                    : Math.min(l.qty_returnable, Math.max(0, Number(e.target.value))),
+                              }))
+                            }
+                            disabled={pending}
+                            className="w-20 h-[26px] px-2 border border-[#D5D3CB] rounded text-[12px] text-right focus:border-[#185FA5] focus:outline-none"
+                          />
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-[#5A5955]">
                         {l.unit_cost.toLocaleString("en-US")}
@@ -329,7 +344,7 @@ export function ReturnInNewForm({
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-[#1A3A5C] bg-[#F8F7F4]">
-                  <td colSpan={5} className="px-3 py-2 text-[11px] text-[#9A9890]">
+                  <td colSpan={6} className="px-3 py-2 text-[11px] text-[#9A9890]">
                     合計
                   </td>
                   <td className="px-3 py-2 text-right font-mono font-semibold text-[#2C2C2A]">

@@ -343,6 +343,10 @@ export type IssueLineCandidate = {
   bin_id: string | null;
   bin_label: string | null;
   qty_issued: number;
+  /** 本領料單此明細「未作廢退入單」已退入累計數 */
+  already_returned: number;
+  /** 尚可退入數 = qty_issued - already_returned（≥ 0）*/
+  qty_returnable: number;
   unit_cost: number;
   uom: string;
   serial_no: string | null;
@@ -353,6 +357,40 @@ export type IssueWithLines = {
   issue: IssueCandidate;
   lines: IssueLineCandidate[];
 };
+
+/**
+ * 累計某張領料單「未作廢」退入單各明細的已退數（key = stock_issue_lines.id）。
+ * 用於建單防超退 + 前端顯示「已退 / 可退」。作廢單已沖回庫存，故排除。
+ */
+async function sumReturnedByIssueLine(
+  brandId: string,
+  issueId: string,
+): Promise<Map<string, number>> {
+  const supabase = await createClient();
+  const map = new Map<string, number>();
+  const { data: priorReceipts } = await supabase
+    .from("stock_receipts")
+    .select("id")
+    .eq("brand_id", brandId)
+    .eq("source_doc_id", issueId)
+    .eq("type", "ro_return")
+    .neq("status", "cancelled");
+  const grIds = (priorReceipts ?? []).map((r) => r.id);
+  if (grIds.length === 0) return map;
+  const { data: priorLines } = await supabase
+    .from("stock_receipt_lines")
+    .select("source_line_id, qty_received")
+    .in("gr_id", grIds)
+    .eq("source_line_type", "gi_line");
+  for (const pl of priorLines ?? []) {
+    if (!pl.source_line_id) continue;
+    map.set(
+      pl.source_line_id,
+      (map.get(pl.source_line_id) ?? 0) + Number(pl.qty_received ?? 0),
+    );
+  }
+  return map;
+}
 
 export async function getIssueForReturn(issueId: string): Promise<IssueWithLines | null> {
   const supabase = await createClient();
@@ -376,6 +414,9 @@ export async function getIssueForReturn(issueId: string): Promise<IssueWithLines
     .eq("gi_id", issueId)
     .order("line_no", { ascending: true });
   const lines = rawLines ?? [];
+
+  // 各明細已退累計（排除作廢退入單），算出尚可退入數供前端顯示與 max 限制
+  const returnedByLine = await sumReturnedByIssueLine(scope.brand_id, issueId);
 
   const itemIds = Array.from(new Set(lines.map((l) => l.item_id)));
   const binIds = Array.from(new Set(lines.map((l) => l.bin_id).filter((x): x is string => !!x)));
@@ -410,6 +451,11 @@ export async function getIssueForReturn(issueId: string): Promise<IssueWithLines
       bin_id: l.bin_id,
       bin_label: l.bin_id ? binMap.get(l.bin_id) ?? null : null,
       qty_issued: Number(l.qty_issued ?? 0),
+      already_returned: returnedByLine.get(l.id) ?? 0,
+      qty_returnable: Math.max(
+        0,
+        Math.round((Number(l.qty_issued ?? 0) - (returnedByLine.get(l.id) ?? 0)) * 100) / 100,
+      ),
       unit_cost: Number(l.unit_cost ?? 0),
       uom: l.uom,
       serial_no: l.serial_no,
@@ -482,11 +528,23 @@ export async function createReturnInReceipt(
     return { ok: false, error: `撈領料明細失敗：${linesErr?.message ?? ""}` };
   }
   const ilMap = new Map(issueLines.map((l) => [l.id, l]));
+
+  // 防超退：累計本領料單先前「未作廢」退入單的已退數（按 source_line_id 分組），
+  // 擋「已退 + 本次 > 領料數」——否則同一張領料單可重複開退入單把庫存灌水。
+  // 作廢單（status='cancelled'）已把 stock_items 沖回，故排除、可重退。
+  const priorByLine = await sumReturnedByIssueLine(scope.brand_id, issue.id);
+
   for (const l of linesIn) {
     const il = ilMap.get(l.line_id);
     if (!il) return { ok: false, error: `領料明細 ${l.line_id.slice(0, 8)} 不存在` };
-    if (l.qty_returned > Number(il.qty_issued)) {
-      return { ok: false, error: `退入數 ${l.qty_returned} 超過領料數 ${il.qty_issued}` };
+    const issuedQty = Number(il.qty_issued);
+    const alreadyReturned = priorByLine.get(l.line_id) ?? 0;
+    if (alreadyReturned + l.qty_returned > issuedQty) {
+      const remain = Math.max(0, Math.round((issuedQty - alreadyReturned) * 100) / 100);
+      return {
+        ok: false,
+        error: `退入數超出可退量（領料 ${issuedQty}、已退 ${alreadyReturned}、本次最多可退 ${remain}）`,
+      };
     }
   }
 
