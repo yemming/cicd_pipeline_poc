@@ -18,8 +18,15 @@ import {
   requestCancelOrderApprovalAction,
   type CancelOrderInput,
 } from "@/lib/aftersales/approval-request-actions";
-import { RO_STATUS_OPTIONS, priorityDef } from "@/domain/repair-orders.constants";
+import {
+  RO_STATUS_OPTIONS,
+  priorityDef,
+  loanOutstandingTier,
+  loanOutstandingLabel,
+  LOAN_OUTSTANDING_CHIP,
+} from "@/domain/repair-orders.constants";
 import type { RepairOrderListRow, RoEvent } from "@/domain/repair-orders";
+import type { TlLoanStatus } from "@/domain/work-orders";
 
 // 純算數格式化 Asia/Taipei wall-clock（避開 toLocaleString 在 Node ICU / browser ICU
 // 對 dayPeriod / narrow nbsp 不一致造成的 SSR / CSR hydration mismatch）
@@ -141,11 +148,14 @@ export function RepairOrderDetailView({
   ro,
   canEdit,
   roEvents: roEventsProp = [],
+  tlLoanStatus = null,
 }: {
   ro: RepairOrderListRow;
   canEdit: boolean;
   /** P1 升表：由 server 傳入，merge 新表+舊 metadata（向後相容） */
   roEvents?: RoEvent[];
+  /** 借料未還狀態（僅 TL 工單由 server 傳入） */
+  tlLoanStatus?: TlLoanStatus | null;
 }) {
   useSetPageHeader({
     title: ro.ro_code,
@@ -454,6 +464,16 @@ export function RepairOrderDetailView({
                     title={`借用截止：${tlDueTime} Asia/Taipei`}
                   >
                     今日 {tlDueTime} 截止
+                  </span>
+                )}
+                {/* 借料未還 badge（零件已出庫、尚未歸還回庫；帶時間分級警示） */}
+                {isTlOrder && tlLoanStatus?.outstanding && (
+                  <span
+                    data-testid="tl-loan-outstanding-badge"
+                    className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium ${LOAN_OUTSTANDING_CHIP[loanOutstandingTier(tlLoanStatus.days_outstanding)]}`}
+                    title={`零件已出庫尚未歸還回庫${tlLoanStatus.issued_at ? `；出庫於 ${fmtTaipeiDateTime(tlLoanStatus.issued_at)}` : ""}${tlLoanStatus.pending_returns > 0 ? `；尚有 ${tlLoanStatus.pending_returns} 筆退料待倉管確認` : ""}`}
+                  >
+                    {loanOutstandingLabel(tlLoanStatus.days_outstanding)}
                   </span>
                 )}
                 <span

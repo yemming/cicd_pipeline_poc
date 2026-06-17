@@ -5,6 +5,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getRepairOrderById, listRepairOrderEvents } from "@/domain/repair-orders";
+import { getTlOutstandingLoanStatus } from "@/domain/work-orders";
 
 import { RepairOrderDetailView } from "./_components/repair-order-detail-view";
 
@@ -34,5 +35,15 @@ export default async function RepairOrderDetailPage({
     listRepairOrderEvents(id),
   ]);
   if (!ro) notFound();
-  return <RepairOrderDetailView ro={ro} canEdit={canEdit} roEvents={roEvents} />;
+  // 借料未還狀態（僅 TL 工單需要；非 TL 不打多餘 query）
+  const tlLoanStatus =
+    ro.prefix_p1 === "TL" ? await getTlOutstandingLoanStatus(ro.id) : null;
+  return (
+    <RepairOrderDetailView
+      ro={ro}
+      canEdit={canEdit}
+      roEvents={roEvents}
+      tlLoanStatus={tlLoanStatus}
+    />
+  );
 }

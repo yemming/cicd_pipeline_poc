@@ -277,3 +277,42 @@ export const RO_PRIORITY_SORT: Record<string, number> = {
 export function priorityDef(code: string | null | undefined) {
   return RO_PRIORITY_DEFS.find((d) => d.code === code) ?? RO_PRIORITY_DEFS[1];
 }
+
+// ─────────────────────────────────────────────────────────────
+// 借料未還（TL 借用測試工單零件已出庫、尚未歸還回庫）可視狀態分級
+//
+// 設計哲學（Russell 6/17 要求二）：系統不只忠實記錄狀態，要主動把風險翻譯成
+// 警語，讓對的人（倉管 / 主管）在對的時間看到。「借料未還」這個命名天然帶催促
+// 語氣——「還沒還，是不是該問一下？」，不是中性的「退料在途」。
+//
+// 時間分級（門檻沿用現有 UI 色階規範；Russell 指定 3天內正常 / 超過7天警示，
+// 中段 4–7 天補一階 amber「注意」做漸進升級，可由 Russell 收斂回兩階）：
+//   ≤ 3 天   → info（資訊藍）  純資訊提示
+//   4 – 7 天 → attention（amber）開始注意
+//   > 7 天   → warning（危險紅）主管關注
+// ─────────────────────────────────────────────────────────────
+
+export type LoanOutstandingTier = "info" | "attention" | "warning";
+
+/** 門檻常數（單位：天）。可由業務調整。 */
+export const LOAN_OUTSTANDING_INFO_MAX = 3; // ≤ 3 天 = info
+export const LOAN_OUTSTANDING_WARNING_MIN = 7; // > 7 天 = warning
+
+export function loanOutstandingTier(days: number): LoanOutstandingTier {
+  if (days > LOAN_OUTSTANDING_WARNING_MIN) return "warning";
+  if (days > LOAN_OUTSTANDING_INFO_MAX) return "attention";
+  return "info";
+}
+
+/** chip 樣式（detail badge / list chip 共用，套 CLAUDE.md 色票） */
+export const LOAN_OUTSTANDING_CHIP: Record<LoanOutstandingTier, string> = {
+  info: "bg-[#EAF4FB] text-[#185FA5] border border-[#BBD9F2]",
+  attention: "bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E]",
+  warning: "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]",
+};
+
+/** chip 文字：借料未還 N 天（>7 天加 ⚠ 提醒主管） */
+export function loanOutstandingLabel(days: number): string {
+  const tier = loanOutstandingTier(days);
+  return `借料未還 ${days} 天${tier === "warning" ? " ⚠" : ""}`;
+}

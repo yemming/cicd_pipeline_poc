@@ -225,3 +225,94 @@ export async function syncTlWorkOrderBridge(roId: string): Promise<TlBridgeResul
     parts_line_count: partLines.length,
   };
 }
+
+// ─────────────────────────────────────────────────────────────
+// 借料未還狀態（Russell 6/17 要求二）
+//
+// 一張 TL 工單「借料未還」= 零件已透過倉管 repair-pick 出庫（橋接 work_order
+// 有 completed 的 ro_picking stock_issues），且尚未全部歸還回庫
+// （TL 尚未結案，或仍有 pending/overdue 的退料待確認）。
+//
+// 天數從「出庫日（最早一筆 stock_issues.posted_at）」起算 —— 那是零件實際離開
+// 庫房的時間，才是真正的「借了幾天」。due_by（當天下班）另用於 tl-due-by-badge，
+// 兩者語意不同。
+// ─────────────────────────────────────────────────────────────
+
+export type TlLoanStatus = {
+  outstanding: boolean; // 是否「借料未還」
+  issued: boolean; // 是否已出庫
+  issued_at: string | null; // 最早出庫時間（ISO）
+  days_outstanding: number; // 已借天數（從出庫日算）
+  pending_returns: number; // 尚待倉管確認的退料筆數
+};
+
+export async function getTlOutstandingLoanStatus(roId: string): Promise<TlLoanStatus> {
+  const none: TlLoanStatus = {
+    outstanding: false,
+    issued: false,
+    issued_at: null,
+    days_outstanding: 0,
+    pending_returns: 0,
+  };
+  if (!roId) return none;
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+
+  // 1) TL 工單 + 橋接 work_order
+  const { data: ro } = await supabase
+    .from("repair_orders")
+    .select("id, prefix_p1, status")
+    .eq("id", roId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!ro || ro.prefix_p1 !== "TL") return none;
+
+  const { data: wo } = await supabase
+    .from("work_orders")
+    .select("id")
+    .eq("brand_id", brand)
+    .eq("repair_order_id", roId)
+    .maybeSingle();
+  if (!wo) return none;
+
+  // 2) 該橋接 work_order 的已完成領料（出庫）
+  const { data: issues } = await supabase
+    .from("stock_issues")
+    .select("posted_at")
+    .eq("brand_id", brand)
+    .eq("ro_id", (wo as { id: string }).id)
+    .eq("type", "ro_picking")
+    .eq("status", "completed")
+    .order("posted_at", { ascending: true });
+  const issuedRows = (issues ?? []).filter((r) => !!r.posted_at);
+  if (issuedRows.length === 0) return none; // 還沒出庫 → 沒有「借料未還」
+
+  const issuedAt = issuedRows[0].posted_at as string;
+
+  // 3) 退料待確認筆數（pending / overdue）
+  const { count: pendingCount } = await supabase
+    .from("parts_return_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", brand)
+    .eq("source_ro_id", roId)
+    .in("status", ["pending", "overdue"]);
+  const pendingReturns = pendingCount ?? 0;
+
+  // 4) 是否仍未還：TL 未結案 → 一定未還；已結案但仍有 pending 退料 → 仍未還
+  const isClosed = ro.status === "已關單" || ro.status === "已取消";
+  const outstanding = !isClosed || pendingReturns > 0;
+
+  const days = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(issuedAt).getTime()) / 86400000),
+  );
+
+  return {
+    outstanding,
+    issued: true,
+    issued_at: issuedAt,
+    days_outstanding: days,
+    pending_returns: pendingReturns,
+  };
+}
