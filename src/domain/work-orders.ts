@@ -16,6 +16,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { loanOutstandingTier, type LoanOutstandingTier } from "@/domain/repair-orders.constants";
 import type { Warehouse, WorkOrderItem } from "@/lib/parts/types";
 
 export type WorkOrderIssueSummary = {
@@ -227,46 +228,70 @@ export async function syncTlWorkOrderBridge(roId: string): Promise<TlBridgeResul
 }
 
 // ─────────────────────────────────────────────────────────────
-// 借料未還狀態（Russell 6/17 要求二）
+// 借料未還狀態（Russell 6/17 要求二 + 裁示三：逐件感知，畫面不得含糊）
 //
-// 一張 TL 工單「借料未還」= 零件已透過倉管 repair-pick 出庫（橋接 work_order
-// 有 completed 的 ro_picking stock_issues），且尚未全部歸還回庫
-// （TL 尚未結案，或仍有 pending/overdue 的退料待確認）。
+// 「未還」逐件量化，避免兩個邊界情境誤導倉管（B-01：顯示不能把警示蓋掉）：
+//   未還量(item) = 已出庫量 − 已確認回庫量(confirmed) − 已處置量(charge/absorb/transfer)
+//   - 已出庫：橋接 work_order 的 completed ro_picking stock_issue_lines 之 qty_issued。
+//   - 已確認回庫：parts_return_requests(source_ro_id=TL, status='confirmed') 之 qty_confirmed。
+//   - 已處置：tl-close 對該 part line 選 charge_customer / absorb_internally / transfer_to_ro
+//     （這些零件「不會回到本次借料」，已被會計/轉單消化，不算未還）。
+//   - pending/overdue 退料「不」扣（B-01：倉管實體點收前，零件還在外面）。
 //
-// 天數從「出庫日（最早一筆 stock_issues.posted_at）」起算 —— 那是零件實際離開
-// 庫房的時間，才是真正的「借了幾天」。due_by（當天下班）另用於 tl-due-by-badge，
-// 兩者語意不同。
+// 邊界一（分批出庫）：現行為「原子出庫」（一張 work_order 只能領一次），同張 TL 的
+//   零件共用同一出庫日，天數不會把不同出庫日混算。但仍逐件記各自 posted_at + 天數，
+//   tier 取「最久未還件」決定（最保守、對的人看到最該擔心的那一筆）。
+// 邊界二（部分歸還）：借多還少時，已 confirmed 的件 outstanding 歸零、退出未還清單；
+//   只要還有任一件 outstanding>0，chip 持續顯示「借料未還」、天數不因有退料動作而降，
+//   絕不會誤顯示「沒事」。
+//
+// 天數從各件「出庫日（該件最早 stock_issues.posted_at）」起算。
 // ─────────────────────────────────────────────────────────────
 
+export type TlLoanPart = {
+  item_id: string;
+  item_name: string;
+  outstanding_qty: number; // 仍在外面（未還）的數量
+  issued_at: string; // 該件出庫時間（ISO）
+  days: number; // 該件已借天數
+  tier: LoanOutstandingTier;
+};
+
 export type TlLoanStatus = {
-  outstanding: boolean; // 是否「借料未還」
+  outstanding: boolean; // 是否「借料未還」（有任一件未還）
   issued: boolean; // 是否已出庫
-  issued_at: string | null; // 最早出庫時間（ISO）
-  days_outstanding: number; // 已借天數（從出庫日算）
-  pending_returns: number; // 尚待倉管確認的退料筆數
+  unreturned_item_count: number; // 未還的品項數
+  unreturned_qty_total: number; // 未還的總件數
+  max_days: number; // 最久未還件的天數
+  worst_tier: LoanOutstandingTier; // 由最久未還件決定（chip 顏色）
+  in_transit_count: number; // 申請退料中、待倉管點收（pending/overdue）筆數
+  parts: TlLoanPart[]; // 未還明細（逐件，給畫面攤開不含糊）
+};
+
+const NONE_LOAN: TlLoanStatus = {
+  outstanding: false,
+  issued: false,
+  unreturned_item_count: 0,
+  unreturned_qty_total: 0,
+  max_days: 0,
+  worst_tier: "info",
+  in_transit_count: 0,
+  parts: [],
 };
 
 export async function getTlOutstandingLoanStatus(roId: string): Promise<TlLoanStatus> {
-  const none: TlLoanStatus = {
-    outstanding: false,
-    issued: false,
-    issued_at: null,
-    days_outstanding: 0,
-    pending_returns: 0,
-  };
-  if (!roId) return none;
-
+  if (!roId) return NONE_LOAN;
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
   // 1) TL 工單 + 橋接 work_order
   const { data: ro } = await supabase
     .from("repair_orders")
-    .select("id, prefix_p1, status")
+    .select("id, prefix_p1")
     .eq("id", roId)
     .eq("brand_id", brand)
     .maybeSingle();
-  if (!ro || ro.prefix_p1 !== "TL") return none;
+  if (!ro || ro.prefix_p1 !== "TL") return NONE_LOAN;
 
   const { data: wo } = await supabase
     .from("work_orders")
@@ -274,45 +299,120 @@ export async function getTlOutstandingLoanStatus(roId: string): Promise<TlLoanSt
     .eq("brand_id", brand)
     .eq("repair_order_id", roId)
     .maybeSingle();
-  if (!wo) return none;
+  if (!wo) return NONE_LOAN;
+  const woId = (wo as { id: string }).id;
 
-  // 2) 該橋接 work_order 的已完成領料（出庫）
+  // 2) 已完成領料（出庫）的 stock_issues（id + posted_at）
   const { data: issues } = await supabase
     .from("stock_issues")
-    .select("posted_at")
+    .select("id, posted_at")
     .eq("brand_id", brand)
-    .eq("ro_id", (wo as { id: string }).id)
+    .eq("ro_id", woId)
     .eq("type", "ro_picking")
-    .eq("status", "completed")
-    .order("posted_at", { ascending: true });
-  const issuedRows = (issues ?? []).filter((r) => !!r.posted_at);
-  if (issuedRows.length === 0) return none; // 還沒出庫 → 沒有「借料未還」
+    .eq("status", "completed");
+  const issueRows = (issues ?? []).filter((r) => !!r.posted_at);
+  if (issueRows.length === 0) return NONE_LOAN; // 還沒出庫 → 沒有「借料未還」
+  const giIds = issueRows.map((r) => r.id as string);
+  const postedByGi = new Map(issueRows.map((r) => [r.id as string, r.posted_at as string]));
 
-  const issuedAt = issuedRows[0].posted_at as string;
-
-  // 3) 退料待確認筆數（pending / overdue）
-  const { count: pendingCount } = await supabase
-    .from("parts_return_requests")
-    .select("id", { count: "exact", head: true })
+  // 3) 出庫明細逐件：累計 issued qty + 取該件最早出庫日
+  const { data: giLines } = await supabase
+    .from("stock_issue_lines")
+    .select("gi_id, item_id, qty_issued")
     .eq("brand_id", brand)
-    .eq("source_ro_id", roId)
-    .in("status", ["pending", "overdue"]);
-  const pendingReturns = pendingCount ?? 0;
+    .in("gi_id", giIds)
+    .not("item_id", "is", null);
+  const issuedByItem = new Map<string, { qty: number; earliest: string }>();
+  for (const l of giLines ?? []) {
+    const itemId = l.item_id as string;
+    const posted = postedByGi.get(l.gi_id as string) ?? new Date().toISOString();
+    const cur = issuedByItem.get(itemId);
+    if (cur) {
+      cur.qty += Number(l.qty_issued ?? 0);
+      if (posted < cur.earliest) cur.earliest = posted;
+    } else {
+      issuedByItem.set(itemId, { qty: Number(l.qty_issued ?? 0), earliest: posted });
+    }
+  }
+  if (issuedByItem.size === 0) return NONE_LOAN;
 
-  // 4) 是否仍未還：TL 未結案 → 一定未還；已結案但仍有 pending 退料 → 仍未還
-  const isClosed = ro.status === "已關單" || ro.status === "已取消";
-  const outstanding = !isClosed || pendingReturns > 0;
+  // 4) 已確認回庫量（confirmed）逐件；以及 pending/overdue 在途筆數
+  const { data: returns } = await supabase
+    .from("parts_return_requests")
+    .select("item_id, qty_confirmed, status")
+    .eq("brand_id", brand)
+    .eq("source_ro_id", roId);
+  const confirmedByItem = new Map<string, number>();
+  let inTransit = 0;
+  for (const r of returns ?? []) {
+    if (r.status === "confirmed") {
+      const k = (r.item_id as string) ?? "";
+      confirmedByItem.set(k, (confirmedByItem.get(k) ?? 0) + Number(r.qty_confirmed ?? 0));
+    } else if (r.status === "pending" || r.status === "overdue") {
+      inTransit += 1;
+    }
+  }
 
-  const days = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(issuedAt).getTime()) / 86400000),
-  );
+  // 5) tl-close 已處置量（charge_customer / absorb_internally / transfer_to_ro）逐件
+  //    這些零件不會回到本次借料、已被消化，不算未還。
+  const { data: roLines } = await supabase
+    .from("repair_order_lines")
+    .select("item_id, qty, metadata")
+    .eq("repair_order_id", roId)
+    .eq("brand_id", brand)
+    .eq("kind", "part")
+    .not("item_id", "is", null);
+  const resolvedByItem = new Map<string, number>();
+  const RESOLVED = new Set(["charge_customer", "absorb_internally", "transfer_to_ro"]);
+  for (const l of roLines ?? []) {
+    const meta = (l.metadata ?? {}) as { tl_disposition?: { decision?: string } };
+    const decision = meta.tl_disposition?.decision;
+    if (decision && RESOLVED.has(decision)) {
+      const k = l.item_id as string;
+      resolvedByItem.set(k, (resolvedByItem.get(k) ?? 0) + Number(l.qty ?? 0));
+    }
+  }
 
+  // 6) 逐件算 outstanding = issued − confirmed − resolved（pending 不扣）
+  const itemIds = Array.from(issuedByItem.keys());
+  const { data: items } = await supabase
+    .from("items")
+    .select("id, name")
+    .in("id", itemIds);
+  const nameMap = new Map((items ?? []).map((i) => [i.id as string, i.name as string]));
+
+  const now = Date.now();
+  const parts: TlLoanPart[] = [];
+  for (const [itemId, info] of issuedByItem) {
+    const outstandingQty =
+      info.qty - (confirmedByItem.get(itemId) ?? 0) - (resolvedByItem.get(itemId) ?? 0);
+    if (outstandingQty <= 0) continue; // 已全數回庫/處置 → 不算未還
+    const days = Math.max(0, Math.floor((now - new Date(info.earliest).getTime()) / 86400000));
+    parts.push({
+      item_id: itemId,
+      item_name: nameMap.get(itemId) ?? "（借出零件）",
+      outstanding_qty: Math.round(outstandingQty * 100) / 100,
+      issued_at: info.earliest,
+      days,
+      tier: loanOutstandingTier(days),
+    });
+  }
+
+  if (parts.length === 0) {
+    // 全數已還/已處置；但若仍有 pending 在途，視為未還（B-01）
+    return { ...NONE_LOAN, issued: true, in_transit_count: inTransit, outstanding: inTransit > 0 };
+  }
+
+  parts.sort((a, b) => b.days - a.days); // 最久的排前
+  const maxDays = parts[0].days;
   return {
-    outstanding,
+    outstanding: true,
     issued: true,
-    issued_at: issuedAt,
-    days_outstanding: days,
-    pending_returns: pendingReturns,
+    unreturned_item_count: parts.length,
+    unreturned_qty_total: Math.round(parts.reduce((s, p) => s + p.outstanding_qty, 0) * 100) / 100,
+    max_days: maxDays,
+    worst_tier: loanOutstandingTier(maxDays),
+    in_transit_count: inTransit,
+    parts,
   };
 }

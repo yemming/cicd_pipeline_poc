@@ -21,8 +21,6 @@ import {
 import {
   RO_STATUS_OPTIONS,
   priorityDef,
-  loanOutstandingTier,
-  loanOutstandingLabel,
   LOAN_OUTSTANDING_CHIP,
 } from "@/domain/repair-orders.constants";
 import type { RepairOrderListRow, RoEvent } from "@/domain/repair-orders";
@@ -466,14 +464,14 @@ export function RepairOrderDetailView({
                     今日 {tlDueTime} 截止
                   </span>
                 )}
-                {/* 借料未還 badge（零件已出庫、尚未歸還回庫；帶時間分級警示） */}
+                {/* 借料未還 badge（逐件感知：未還項數 + 最久天數；顏色由最久件分級） */}
                 {isTlOrder && tlLoanStatus?.outstanding && (
                   <span
                     data-testid="tl-loan-outstanding-badge"
-                    className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium ${LOAN_OUTSTANDING_CHIP[loanOutstandingTier(tlLoanStatus.days_outstanding)]}`}
-                    title={`零件已出庫尚未歸還回庫${tlLoanStatus.issued_at ? `；出庫於 ${fmtTaipeiDateTime(tlLoanStatus.issued_at)}` : ""}${tlLoanStatus.pending_returns > 0 ? `；尚有 ${tlLoanStatus.pending_returns} 筆退料待倉管確認` : ""}`}
+                    className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded-md text-[11px] font-medium ${LOAN_OUTSTANDING_CHIP[tlLoanStatus.worst_tier]}`}
+                    title={`仍有 ${tlLoanStatus.unreturned_item_count} 項（共 ${tlLoanStatus.unreturned_qty_total} 件）零件已出庫尚未歸還回庫；最久 ${tlLoanStatus.max_days} 天${tlLoanStatus.in_transit_count > 0 ? `；另有 ${tlLoanStatus.in_transit_count} 筆退料待倉管點收` : ""}`}
                   >
-                    {loanOutstandingLabel(tlLoanStatus.days_outstanding)}
+                    {`借料未還 ${tlLoanStatus.unreturned_item_count} 項（最久 ${tlLoanStatus.max_days} 天）${tlLoanStatus.worst_tier === "warning" ? " ⚠" : ""}`}
                   </span>
                 )}
                 <span
@@ -508,6 +506,44 @@ export function RepairOrderDetailView({
                   </span>
                 )}
               </div>
+              {/* 借料未還逐件明細：倉管/主管一眼看懂「哪些零件還在外面、各借了幾天」，
+                  不只給一個籠統數字（Russell 裁示三：畫面清晰、不產生模糊感） */}
+              {isTlOrder && tlLoanStatus?.outstanding && tlLoanStatus.parts.length > 0 && (
+                <div
+                  data-testid="tl-loan-outstanding-detail"
+                  className="mt-2 rounded-md border border-[#EEECE6] bg-[#F8F7F4] px-3 py-2"
+                >
+                  <div className="text-[11px] font-medium text-[#5A5955] mb-1">
+                    借料未還明細（共 {tlLoanStatus.unreturned_item_count} 項 ／{" "}
+                    {tlLoanStatus.unreturned_qty_total} 件）
+                    {tlLoanStatus.in_transit_count > 0 && (
+                      <span className="text-[#854F0B]">
+                        　·　另有 {tlLoanStatus.in_transit_count} 筆退料待倉管點收
+                      </span>
+                    )}
+                  </div>
+                  <ul className="space-y-0.5">
+                    {tlLoanStatus.parts.map((p) => (
+                      <li
+                        key={p.item_id}
+                        className="flex items-center gap-2 text-[11.5px] text-[#2C2C2A]"
+                      >
+                        <span
+                          className={`inline-flex whitespace-nowrap px-1.5 py-0.5 rounded text-[11px] font-medium ${LOAN_OUTSTANDING_CHIP[p.tier]}`}
+                        >
+                          已借 {p.days} 天
+                        </span>
+                        <span className="truncate">
+                          {p.item_name} ×{p.outstanding_qty}
+                        </span>
+                        <span className="text-[#9A9890]">
+                          （出庫 {fmtTaipeiDateTime(p.issued_at)}）
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
             {canEdit && ro.status !== "已取消" && (
               <div className="flex flex-wrap gap-1.5">
