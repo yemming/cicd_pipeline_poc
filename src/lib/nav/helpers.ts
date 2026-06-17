@@ -17,42 +17,74 @@ export function getModuleByKey(modules: ModuleDef[], key: string): ModuleDef | u
   return modules.find((m) => m.key === key);
 }
 
-export function resolveModuleFromPathname(
+/**
+ * 回傳所有「最長 href 前綴平手」匹配當前 pathname 的 module 候選（去重）。
+ *
+ * 為什麼要回多個：同一個頁面可能被多個 module 以別名方式宣告（例如「料件主檔」
+ * /parts/setup/items 同時掛在「進銷存」和「會計/List 主檔」兩個 module 下）。
+ * 純 pathname 解析無法區分「使用者從哪個入口進來」，所以這裡把平手候選全給出去，
+ * 由上層（NavProvider）用 client-side stickiness 決定留在哪個 module。
+ *
+ * 候選排序：canonical（key === pathname 第一段）優先，當作冷啟動 / 無 sticky 時的預設。
+ */
+export function resolveModuleCandidates(
   modules: ModuleDef[],
   pathname: string,
-): ModuleDef | null {
-  if (!pathname) return null;
+): ModuleDef[] {
+  if (!pathname) return [];
 
-  // 1. 先看哪個模組裡有 page 的 href 對到當前 pathname（最精準）
-  //    這條 path 涵蓋 admin 自建的目錄結構，不再受 URL segment 跟 module_key 必須一致的限制
-  let bestMatch: { module: ModuleDef; matchLength: number } | null = null;
+  // 1. 哪些 module 裡有 page 的 href 對到當前 pathname（取最長前綴平手的那一群）
+  let bestLen = -1;
+  const byPage: ModuleDef[] = [];
   for (const m of modules) {
+    let mLen = -1;
     for (const p of m.pages) {
       if (!p.href) continue;
       const exact = p.href === pathname;
       const isParent = pathname.startsWith(p.href + "/");
-      if (exact || isParent) {
-        const len = p.href.length;
-        if (!bestMatch || len > bestMatch.matchLength) {
-          bestMatch = { module: m, matchLength: len };
-        }
-      }
+      if (exact || isParent) mLen = Math.max(mLen, p.href.length);
+    }
+    if (mLen < 0) continue;
+    if (mLen > bestLen) {
+      bestLen = mLen;
+      byPage.length = 0;
+      byPage.push(m);
+    } else if (mLen === bestLen) {
+      byPage.push(m);
     }
   }
-  if (bestMatch) return bestMatch.module;
+  if (byPage.length > 0) return canonicalFirst(byPage, pathname);
 
-  // 2. 看 module.home 是否符合（例如用戶剛點 module icon 還沒走進任何 page）
-  for (const m of modules) {
-    if (m.home && (m.home === pathname || pathname.startsWith(m.home + "/"))) {
-      return m;
-    }
-  }
+  // 2. module.home 符合（用戶剛點 module icon、還沒走進任何 page）
+  const byHome = modules.filter(
+    (m) => m.home && (m.home === pathname || pathname.startsWith(m.home + "/")),
+  );
+  if (byHome.length > 0) return canonicalFirst(byHome, pathname);
 
   // 3. Legacy fallback：URL segment 對 module_key（給寫死路由的舊頁面用）
   const seg = pathname.split("/")[1];
-  if (!seg) return null;
+  if (!seg) return [];
   const key = SEGMENT_MODULE_OVERRIDES[seg] ?? seg;
-  return modules.find((m) => m.key === key) ?? null;
+  const m = modules.find((mm) => mm.key === key);
+  return m ? [m] : [];
+}
+
+/** canonical（key === pathname 第一段）排到最前，作為無 sticky 時的預設選擇 */
+function canonicalFirst(cands: ModuleDef[], pathname: string): ModuleDef[] {
+  if (cands.length <= 1) return cands;
+  const seg = pathname.split("/")[1];
+  const key = seg ? (SEGMENT_MODULE_OVERRIDES[seg] ?? seg) : null;
+  if (!key) return cands;
+  const idx = cands.findIndex((m) => m.key === key);
+  if (idx <= 0) return cands;
+  return [cands[idx], ...cands.slice(0, idx), ...cands.slice(idx + 1)];
+}
+
+export function resolveModuleFromPathname(
+  modules: ModuleDef[],
+  pathname: string,
+): ModuleDef | null {
+  return resolveModuleCandidates(modules, pathname)[0] ?? null;
 }
 
 export function findPageByHref(

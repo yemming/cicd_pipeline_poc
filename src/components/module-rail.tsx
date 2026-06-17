@@ -193,12 +193,9 @@ function MatIcon({ name, color }: { name: string; color?: string }) {
 }
 
 export function ModuleRail() {
-  const pathname  = usePathname();
   const { toggle, fullHidden, setFullHidden } = useSidebar();
-  const { modules, resolveModuleFromPathname } = useNav();
-
-  // resolveModuleFromPathname handles URL-segment overrides (e.g. /feedback → settings)
-  const activeModule = resolveModuleFromPathname(pathname);
+  const { modules, activeModule } = useNav();
+  // activeModule 由 NavProvider 統一計算（含別名頁 stickiness、URL-segment overrides）
   // 用 id（uuid，DB-driven 唯一）優先；舊 hardcoded 才 fallback 到 key
   const activeIdent = activeModule ? (activeModule.id ?? activeModule.key) : null;
 

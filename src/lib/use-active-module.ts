@@ -1,11 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import type { ModuleDef } from "./modules";
 import { useNav } from "@/components/nav-provider";
 
 export function useActiveModule(): ModuleDef | null {
-  const pathname = usePathname();
-  const { resolveModuleFromPathname } = useNav();
-  return resolveModuleFromPathname(pathname);
+  // 直接讀 NavProvider 算好的 sticky activeModule（含別名頁歸屬處理），
+  // 不再自己用 pathname 解析，避免別名頁 sidebar 跳到別的 module。
+  return useNav().activeModule;
 }
