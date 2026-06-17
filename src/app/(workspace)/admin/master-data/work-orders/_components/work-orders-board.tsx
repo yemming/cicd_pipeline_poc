@@ -120,8 +120,9 @@ export function WorkOrdersBoard({
       id: "customer",
       header: "車主",
       width: 120,
-      cell: (w) => customerById.get(w.customer_id)?.name ?? "—",
-      exportValue: (w) => customerById.get(w.customer_id)?.name ?? "",
+      cell: (w) => (w.customer_id ? customerById.get(w.customer_id)?.name ?? "—" : "—"),
+      exportValue: (w) =>
+        w.customer_id ? customerById.get(w.customer_id)?.name ?? "" : "",
     },
     {
       id: "vehicle",

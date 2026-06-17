@@ -21,6 +21,8 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import { createFollowUpTask } from "@/domain/sales-call-tasks";
 import { notifications } from "@/lib/notifications";
 import { pickForRepairOrderAddon } from "@/domain/issues";
+// TL 借用測試工單 → work_orders 橋接（走正式 repair-pick 倉管領料）
+import { syncTlWorkOrderBridge } from "@/domain/work-orders";
 // RP4 Layer1 稽核日誌
 import { writeAuditLog } from "@/domain/audit-logs";
 
@@ -441,6 +443,22 @@ export async function confirmRepairOrderAction(
           .eq("brand_id", brand)
           .eq("appointment_id", input.appointment_id)
           .is("repair_order_id", null);
+      }
+
+      // 3c. TL 借用測試工單橋接（Russell 6/17 補充要求項目一）
+      // TL 借料必須走正式 /parts/issue/repair-pick 倉管領料流程：建一筆橋接
+      // work_orders 讓 TL 進倉管待領料清單。建單當下通常尚無借料明細
+      // （閘門頁先建單、明細後加），故此處先建工單殼；之後 SA 在明細頁加 /
+      // 改 / 刪借料行時，repair-order-line-actions 會再呼叫 syncTlWorkOrderBridge
+      // 同步 work_order_items。失敗不阻斷建單（記 log）。
+      if (input.prefix_p1 === "TL") {
+        const bridge = await syncTlWorkOrderBridge(data.id as string);
+        if (!bridge.ok) {
+          console.error("[TL bridge] 建立橋接工單失敗（不影響建單）", {
+            ro_code: data.ro_code,
+            error: bridge.error,
+          });
+        }
       }
 
       // 4. RP4 事件時間軸：記錄工單建立事件（append-only，非阻塞）

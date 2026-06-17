@@ -1,0 +1,25 @@
+-- ============================================================================
+-- Migration: tl_bridge_work_orders_customer_id_nullable
+-- Applied:   2026-06-17 (cloud schema_migrations version 20260617033103)
+-- Round:     退料閉環 + TL 工單 — 補充要求（Russell 6/17）
+-- ----------------------------------------------------------------------------
+-- 背景：
+--   依 Russell 6/17 補充要求項目一，TL 借用測試工單的領料必須走正式
+--   /parts/issue/repair-pick 倉管發料流程（倉管參與發料確認），而非在
+--   tl-close 自行逐行處置。repair-pick 以 work_orders + work_order_items 驅動，
+--   因此 TL repair_order 需橋接出一筆 work_orders。
+--
+--   TL 是「內部借用測試」工單，沒有對應客戶（customer_id 為 NULL），但
+--   work_orders.customer_id 原為 NOT NULL，使橋接工單無法建立。
+--
+-- 變更：放寬 work_orders.customer_id 的 NOT NULL。
+--
+-- 安全性評估（2026-06-17 落地前已驗）：
+--   - RLS：work_orders 4 條 core5 policy 皆不參照 customer_id。
+--   - Trigger：sync_gsi_work_order() 以 concat_ws 容錯 NULL customer_id，不會 raise。
+--   - 既有資料：套用時 63/63 筆 work_orders 皆有 customer_id，放寬不影響既有列。
+--   - 讀取面：listPendingPartsWorkorders / getRepairPickFormData 早已以
+--     `customer_id ? ... : null` 容錯，無需改動。
+-- ============================================================================
+
+ALTER TABLE public.work_orders ALTER COLUMN customer_id DROP NOT NULL;

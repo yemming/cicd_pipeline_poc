@@ -1,41 +1,50 @@
-# supabase/migrations baseline
+# supabase/migrations — DB 變更版本控制規範
 
-## 現況（2026-05-10）
+命名沿用 Supabase CLI 慣例：`<version>_<name>.sql`，`version` 為 `YYYYMMDDHHMMSS`（UTC），
+與 cloud `supabase_migrations.schema_migrations` 的 version 對齊。正式站為 Supabase Cloud
+`bykvtcptbirpxyqkfwfl`。
 
-Supabase Cloud 上累積 **76 個 migration**，全部透過 supabase MCP `apply_migration` 直接打 Cloud（沒走 file → push 流程）。
+## 規範（MANDATORY，2026-06-17 起重申）
 
-完整 history 用：
+> **所有涉及流程控制、行為稽核、資料結構的 DB 變更，一律要有 migration 檔進版控。**
+
+- DDL（CREATE / ALTER / DROP — TABLE・COLUMN・CONSTRAINT・POLICY・FUNCTION・TRIGGER…）
+  落地時，**同一輪 commit 內**必須補上對應 `.sql` 檔。
+- 套用方式：透過 Supabase MCP `apply_migration`（會同步寫入 cloud `schema_migrations`）
+  或 `supabase db push`；兩者皆會留 version 記錄。
+- 檔案內容必須與正式站實際套用的 SQL 一致，可核對：
+  ```sql
+  SELECT array_to_string(statements, E'\n')
+  FROM supabase_migrations.schema_migrations WHERE version = '<v>';
+  ```
+- **禁止**：直接在正式站改 schema 卻不補 migration 檔（無法回溯、稽核、重現）。
+  > 2026-06-17 Russell 補充要求項目二即針對此：`repair_orders_prefix_p1_check` 的
+  > TL 白名單變更原直接套正式站、未進 codebase，現已補檔
+  > （`20260616141106_add_tl_to_repair_orders_prefix_p1.sql`）。
+
+## 歷史 migration 來源（單一事實來源）
+
+本專案早期（~2026-04 ～ 2026-06）部分 schema 以 MCP `apply_migration` 直接套用到 cloud，
+**完整 version 記錄保存在 cloud `schema_migrations` 表**；本目錄收錄逐輪補上的檔案，
+歷史落差可隨時用官方路徑補齊：
+
 ```bash
-supabase migration list
-# 或 SQL：SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version;
-```
-
-## 本目錄收錄哪些檔案
-
-- 只收 **2026-05-10 session** 動的 5 個 migration（cleanup Indian dummy / vehicle rename / GL column 重接 / required_dimensions backfill）
-- 之前 71 個 migration 留在 cloud `supabase_migrations.schema_migrations` 表
-
-## 建立完整 baseline 的建議
-
-下次有空時，在本地 run：
-```bash
-# 1. 確保 supabase CLI 已 link 到 project
 supabase link --project-ref bykvtcptbirpxyqkfwfl
-
-# 2. 一次拉所有 cloud migration 到 local
-supabase db pull
-
-# 這會把 71 個 historical migration 寫成 supabase/migrations/ 下的 timestamp_*.sql 檔
-# 之後 schema 改動就可走 file → supabase db push 流程
+supabase db pull        # 把 cloud 全量 migration 歷史寫成本地 timestamp_*.sql
 ```
 
-## 為什麼不直接把 76 個全 dump 進來
+完整清單（任何時候）：
 
-- supabase MCP `execute_sql` 一次只能 query 部分 row（result token 限制）
-- 自動分批 dump 容易跟 supabase CLI 自己 pull 出來的 timestamp/檔名格式不一致 → 之後 push 時會踩 migration ordering bug
-- 用 `supabase db pull` 是 supabase 官方支援的 baseline 路徑，最安全
+```sql
+SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version;
+```
 
-## 注意事項
+## 2026-06-16 ～ 06-17 退料閉環 + TL 工單 這一輪的 migration
 
-- 所有 schema 變動目前仍走 supabase MCP `apply_migration` 直接 cloud（`docs/proposals/dimension-integration-research-2026-05-10.md` §7 Phase 2 待規劃）
-- 完成 `supabase db pull` 後可考慮切換 file-based 流程
+| 檔案 | 說明 |
+|------|------|
+| `20260616120000_aftersales_payments.sql` | 售後收款表 |
+| `20260616123000_employees_manager_flags.sql` | employees 主管 / 跨部門旗標 |
+| `20260616132008_create_parts_return_requests.sql` | 退料閉環核心表（售後 / TL 退料待倉管確認） |
+| `20260616141106_add_tl_to_repair_orders_prefix_p1.sql` | repair_orders prefix 白名單加入 `TL`（6/17 補檔） |
+| `20260617033103_tl_bridge_work_orders_customer_id_nullable.sql` | 放寬 work_orders.customer_id NOT NULL（TL 橋接 repair-pick 領料需求） |
