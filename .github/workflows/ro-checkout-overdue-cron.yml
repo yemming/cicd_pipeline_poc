@@ -1,0 +1,28 @@
+# 付費 RO 待結帳逾期升級通知 — 每日固定一次（Russell 6/18 確認三）
+#
+# 從 aftersales-cron.yml 搬出來獨立排程：這類事項不需 10 分鐘級即時性，
+# 每日掃一次即可，避免不必要的伺服器負擔與店長通知疲乏。
+# 門檻維持 7 天（route 內 RO_CHECKOUT_OVERDUE_DAYS=7，可由 body.overdue_days 覆寫）。
+#
+# 排程：每日 UTC 01:00 = 台北 09:00（上班開工時段）。
+# 啟用：repo Secrets 需有 CRON_TOKEN（= Zeabur 環境變數）。排程僅在 default branch(main) 生效。
+name: ro-checkout-overdue-cron
+
+on:
+  schedule:
+    - cron: "0 1 * * *" # 每日 UTC 01:00（台北 09:00）
+  workflow_dispatch: {} # 允許手動觸發測試
+
+permissions:
+  contents: read
+
+jobs:
+  ro-checkout-overdue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 付費 RO 待結帳逾期升級通知（每日一次）
+        run: |
+          curl -fsS -X POST "https://dealeros.zeabur.app/api/cron/ro-checkout-overdue" \
+            -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || echo "ro-checkout-overdue endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"

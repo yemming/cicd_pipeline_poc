@@ -1809,11 +1809,15 @@ export async function createInternalSale(
 }
 
 // ─────────────────────────────────────────────────────────────
-// 補貨需求（缺料時建單通知採購）
+// 補貨需求（缺料時建單，原生進採購請購清單）
 //
-// 缺料過帳後，倉管可針對不足的料件建立「緊急補貨需求」，
-// 需求資訊寫入 stock_issues.metadata.replenishment_requests。
-// 回傳格式：REQ-{yyyymmdd}-{NNN}
+// Russell 6/18 確認四：補貨需求單必須出現在採購端「平常工作就會主動打開查看」
+// 的清單裡。purchase_requisitions 的 source 約束本就含 'ro_shortage'（系統原生
+// 設計「RO 缺料 → 請購」），因此改建一筆真正的 purchase_requisitions（source=
+// 'ro_shortage'、status='submitted'、priority='urgent'）+ 逐缺料行 lines，
+// 直接出現在 /parts/purchase/requisitions 採購日常清單，不需任何額外搜尋。
+// （舊版存 stock_issues type='replenishment_request' 代理單、採購端從未顯示、形同孤兒，已棄用。）
+// 回傳：req_no（REQ-{year}-{NNNN}）
 // ─────────────────────────────────────────────────────────────
 
 export type ReplenishmentRequestInput = {
@@ -1848,62 +1852,65 @@ export async function createReplenishmentRequest(
   const scope = await getActiveScope();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 產需求單號 REQ-{yyyymmdd}-{NNN}（利用 stock_issues metadata 計數）
-  const today = new Date();
-  const dateStr =
-    today.getFullYear().toString() +
-    String(today.getMonth() + 1).padStart(2, "0") +
-    String(today.getDate()).padStart(2, "0");
-
-  // 用 DB function 不存在、改用 client-side 計數（POC 階段，低並發可接受）
-  const { count: reqCount } = await supabase
-    .from("stock_issues")
-    .select("id", { count: "exact", head: true })
+  // 產採購請購單號 REQ-{year}-{NNNN}（對齊 purchase_requisitions 既有規則）
+  const year = new Date().getFullYear();
+  const prefix = `REQ-${year}-`;
+  const { data: recent } = await supabase
+    .from("purchase_requisitions")
+    .select("req_no")
     .eq("brand_id", scope.brand_id)
-    .contains("metadata", { replenishment_request: true });
+    .ilike("req_no", `${prefix}%`)
+    .order("req_no", { ascending: false })
+    .limit(50);
+  let max = 0;
+  for (const row of recent ?? []) {
+    const m = new RegExp(`^${prefix}(\\d+)$`).exec(row.req_no as string);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+  }
+  const req_no = `${prefix}${String(max + 1).padStart(4, "0")}`;
 
-  const seq = (reqCount ?? 0) + 1;
-  const req_no = `REQ-${dateStr}-${String(seq).padStart(3, "0")}`;
+  const shortageSummary = input.shortage_lines
+    .map((l) => `${l.item_code ?? l.item_name} ×${l.qty_shortage}`)
+    .join("、");
 
-  const reqPayload = {
-    replenishment_request: true,
-    req_no,
-    issue_id: input.issue_id ?? null,
-    work_order_id: input.work_order_id ?? null,
-    ro_no: input.ro_no ?? null,
-    warehouse_id: input.warehouse_id,
-    created_by: user?.id ?? null,
-    created_at: today.toISOString(),
-    shortage_lines: input.shortage_lines,
-    status: "pending",
-  };
-
-  // 把補貨需求存到一筆 stock_issues 代理紀錄（metadata only，type='replenishment_request'）
-  // 這樣不影響現有流程，採購部門查詢時可 filter type='replenishment_request'
-  const gi_no = req_no; // 用 req_no 作為 gi_no
-
-  const { error: insertErr } = await supabase
-    .from("stock_issues")
+  // 主檔：source='ro_shortage'（系統原生「RO 缺料→請購」）、submitted（直接進採購待辦）、urgent
+  const { data: req, error: reqErr } = await supabase
+    .from("purchase_requisitions")
     .insert({
       brand_id: scope.brand_id,
-      gi_no,
-      type: "replenishment_request",
-      status: "draft",
-      warehouse_id: input.warehouse_id,
-      ro_id: input.work_order_id ?? null,
-      issue_date: today.toISOString().slice(0, 10),
-      qty_issued_total: input.shortage_lines.reduce((s, l) => s + l.qty_shortage, 0),
-      amount_total: 0,
-      notes: `缺料補貨需求｜工單：${input.ro_no ?? "—"}｜${input.shortage_lines.map((l) => `${l.item_code ?? l.item_name} ×${l.qty_shortage}`).join("、")}`,
-      posted_at: null,
-      posted_by: user?.id ?? null,
-      metadata: reqPayload,
-    });
-
-  if (insertErr) {
-    return { ok: false, error: `建立補貨需求失敗：${insertErr.message}` };
+      req_no,
+      source: "ro_shortage",
+      status: "submitted",
+      priority: "urgent",
+      notes: `部分出庫缺料自動請購｜工單：${input.ro_no ?? "—"}｜${shortageSummary}`,
+      created_by: user?.id ?? null,
+    })
+    .select("id, req_no")
+    .single();
+  if (reqErr || !req) {
+    return { ok: false, error: `建立補貨請購失敗：${reqErr?.message ?? "unknown"}` };
   }
 
+  // 明細：逐缺料件一行
+  const lineRows = input.shortage_lines.map((l, i) => ({
+    brand_id: scope.brand_id,
+    req_id: req.id,
+    line_no: i + 1,
+    item_id: l.item_id,
+    qty_required: l.qty_shortage,
+  }));
+  const { error: lineErr } = await supabase
+    .from("purchase_requisition_lines")
+    .insert(lineRows);
+  if (lineErr) {
+    await supabase.from("purchase_requisitions").delete().eq("id", req.id);
+    return { ok: false, error: `補貨請購明細建立失敗：${lineErr.message}` };
+  }
+
+  revalidatePath("/parts/purchase/requisitions");
   revalidatePath("/parts/issue/repair-pick");
   return { ok: true, data: { req_no } };
 }

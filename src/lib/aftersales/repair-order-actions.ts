@@ -895,6 +895,124 @@ export async function updateRepairOrderStatusAction(
     });
   }
 
+  // ── hook 保固理賠：RO 進入「已關閉-保固待確認」終態 → 自動建 warranty_claims 追蹤記錄 ──
+  // Russell 6/18（Option A）：資源已移動但與原廠的最終歸屬未定，系統須持續顯示待結算警示，
+  // 不依賴 SA 手動另開。逐行記帳（part/labor 各一行、含 source_line_id 回溯），總額由 lines 加總。
+  // 冪等：同一 RO 已有 claim 就跳過。非阻塞（after），失敗不影響關單。
+  if (status === "已關閉-保固待確認") {
+    after(async () => {
+      try {
+        const sb = await createClient();
+        const brandWc = (await getActiveScope()).brand_id;
+
+        const { data: existingClaim } = await sb
+          .from("warranty_claims")
+          .select("id")
+          .eq("ro_id", id)
+          .eq("brand_id", brandWc)
+          .maybeSingle();
+        if (existingClaim) {
+          console.log(`[hook 保固理賠] RO ${id} 已有 warranty_claims，跳過`);
+          return;
+        }
+
+        const { data: wLines } = await sb
+          .from("repair_order_lines")
+          .select(
+            "id, line_no, kind, item_id, part_code, part_name, qty, unit_price, amount, labor_name, labor_units",
+          )
+          .eq("repair_order_id", id)
+          .eq("brand_id", brandWc)
+          .eq("is_warranty", true)
+          .order("line_no");
+        if (!wLines || wLines.length === 0) {
+          console.log(`[hook 保固理賠] RO ${id} 無保固明細行，不建 claim`);
+          return;
+        }
+
+        const { data: roRow } = await sb
+          .from("repair_orders")
+          .select("ro_code, customer_id, subsidiary_id, metadata")
+          .eq("id", id)
+          .eq("brand_id", brandWc)
+          .maybeSingle();
+        const vin =
+          ((roRow?.metadata ?? {}) as Record<string, unknown>).vin as string | undefined ?? null;
+
+        let partsCost = 0;
+        let laborCost = 0;
+        let applied = 0;
+        const lineDrafts = wLines.map((l, i) => {
+          const amount = Number(l.amount ?? 0);
+          const isPart = l.kind === "part";
+          if (isPart) partsCost += amount;
+          else laborCost += amount;
+          applied += amount;
+          return {
+            line_no: l.line_no ?? i + 1,
+            item_id: isPart ? l.item_id : null,
+            qty: Number(l.qty ?? l.labor_units ?? 1),
+            parts_cost: isPart ? amount : 0,
+            labor_cost: isPart ? 0 : amount,
+            applied_amount: amount,
+            source_line_type: isPart ? "part" : "labor",
+            source_line_id: l.id,
+            line_status: "pending",
+            notes: isPart ? (l.part_name ?? l.part_code ?? null) : (l.labor_name ?? null),
+          };
+        });
+
+        const d = new Date();
+        const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+        const clNo = `WC-${ymd}-${String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0")}`;
+
+        const { data: cl, error: clErr } = await sb
+          .from("warranty_claims")
+          .insert({
+            brand_id: brandWc,
+            subsidiary_id: roRow?.subsidiary_id ?? null,
+            cl_no: clNo,
+            claim_type: "oem_warranty",
+            claim_date: d.toISOString().slice(0, 10),
+            // 註：warranty_claims.ro_id FK 目前指向 work_orders（legacy），
+            // 售後 repair_orders 連結改存 metadata.repair_order_id（FK retarget 屬 RO 概念對齊、另案）。
+            ro_id: null,
+            vin,
+            customer_id: roRow?.customer_id ?? null,
+            status: "submitted", // RO 完修 → 已送原廠待審；待結算清單據此顯示
+            submitted_at: d.toISOString(),
+            applied_amount: applied,
+            parts_cost: partsCost,
+            labor_cost: laborCost,
+            notes: `RO ${roRow?.ro_code ?? id} 關閉-保固待確認自動建立`,
+            metadata: {
+              source: "ro_terminal_auto",
+              repair_order_id: id,
+              ro_code: roRow?.ro_code ?? null,
+            },
+          })
+          .select("id")
+          .single();
+        if (clErr || !cl) {
+          console.error(`[hook 保固理賠] 建 warranty_claims 失敗（不影響關單）`, clErr);
+          return;
+        }
+
+        const lineRows = lineDrafts.map((l) => ({ brand_id: brandWc, cl_id: cl.id, ...l }));
+        const { error: lineErr } = await sb.from("warranty_claim_lines").insert(lineRows);
+        if (lineErr) {
+          console.error(`[hook 保固理賠] 建 warranty_claim_lines 失敗`, lineErr);
+        } else {
+          console.log(
+            `[hook 保固理賠] RO ${roRow?.ro_code ?? id} 自動建 ${clNo}（${lineRows.length} 行、applied=${applied}）`,
+          );
+        }
+      } catch (e) {
+        console.error("[hook 保固理賠] 例外（不影響關單）", e);
+      }
+    });
+  }
+
   revalidatePath(PAGE_PATH);
   revalidatePath(`${PAGE_PATH}/${id}`);
   return { ok: true, data: { id } };
