@@ -1,24 +1,19 @@
 /**
  * 保固索賠逾期掃描排程
  *
- * 功能：掃描 parts_warranty_claims.status='submitted' 且已逾 SLA（sla_days，預設 21 天）的索賠單，
- *       在對應的 warranty_claim_receivables 標記逾期天數，並發送站內告警通知（work_order.status_changed 通道）。
+ * 功能：掃描 warranty_claims.status IN ('submitted','under_review') 且已逾 SLA（預設 21 天）的索賠單，
+ *       在對應的 warranty_claims.metadata 標記逾期天數，並發送站內告警通知（work_order.status_changed 通道）。
+ *
+ * 2026-06-18 Russell 裁示：
+ *   - 底層改掃 warranty_claims（單一事實表）
+ *   - 逾期標記改寫 warranty_claims.metadata.overdue（不再寫 warranty_claim_receivables）
+ *   - sla_days：warranty_claims 無此欄，一律用常數預設 21
  *
  * 認證：Bearer CRON_TOKEN（timingSafeEqual 防 timing attack）
  *       未設 CRON_TOKEN → 回 503；token 錯誤 → 401
  *
  * body（皆可選）：{ dry_run?: boolean, brand_id?: string }
  * 回傳：{ ok, dry_run, brand_id, flagged, skipped }
- *
- * 啟用條件：
- *   1. 環境變數：CRON_TOKEN 設定
- *   2. Zeabur cron job：每日一次 POST /api/cron/inventory-warranty-overdue
- *      Headers: Authorization: Bearer <CRON_TOKEN>
- *              Content-Type: application/json
- *
- * 不衝突說明：
- *   - 現有「應用層逾期 filter」（`sendUrgentReminder`）是手動觸發，本 cron 是自動背景掃描，互不干擾。
- *   - 本 cron 不修改 parts_warranty_claims.status；只寫 warranty_claim_receivables.metadata 逾期標記。
  */
 
 import crypto from "crypto";
@@ -92,12 +87,14 @@ export async function POST(req: NextRequest) {
       "https://dealeros.zeabur.app"
     ).replace(/\/+$/, "");
 
-    // ── 1. 撈所有 submitted 索賠單 ──
+    const SLA_DAYS = 21; // warranty_claims 無 sla_days 欄，固定常數
+
+    // ── 1. 撈 warranty_claims：status IN (submitted, under_review) ──
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let claimQuery = (sb as any)
-      .from("parts_warranty_claims")
-      .select("id, brand_id, claim_no, item_label, ro_id, apply_amount, submitted_at, sla_days")
-      .eq("status", "submitted")
+      .from("warranty_claims")
+      .select("id, brand_id, cl_no, ro_id, applied_amount, submitted_at, metadata")
+      .in("status", ["submitted", "under_review"])
       .not("submitted_at", "is", null);
 
     if (brandId) {
@@ -117,9 +114,7 @@ export async function POST(req: NextRequest) {
 
     for (const claim of claims ?? []) {
       const submittedAt = claim.submitted_at as string;
-      const slaDays = typeof claim.sla_days === "number" ? claim.sla_days : 21;
-      const deadlineMs =
-        new Date(submittedAt).getTime() + slaDays * 86400000;
+      const deadlineMs = new Date(submittedAt).getTime() + SLA_DAYS * 86400000;
       const isOverdue = nowMs > deadlineMs;
 
       if (!isOverdue) {
@@ -128,38 +123,28 @@ export async function POST(req: NextRequest) {
       }
 
       const overdueDays = Math.floor((nowMs - deadlineMs) / 86400000);
+      const claimNo = claim.cl_no as string;
+      const meta = (claim.metadata as Record<string, unknown> | null) ?? {};
+      const itemLabel = (meta.item_label as string | null) ?? "—";
 
       console.log(
-        `[warranty-overdue] ${dryRun ? "[dry_run] " : ""}逾期索賠 ${claim.claim_no as string} brand=${claim.brand_id as string} 逾 ${overdueDays} 天`,
+        `[warranty-overdue] ${dryRun ? "[dry_run] " : ""}逾期索賠 ${claimNo} brand=${claim.brand_id as string} 逾 ${overdueDays} 天`,
       );
 
       if (!dryRun) {
-        // ── 2. 標記 warranty_claim_receivables.metadata.overdue ──
-        // 先取現有 metadata，避免蓋掉其他 key
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: receivable } = await (sb as any)
-          .from("warranty_claim_receivables")
-          .select("metadata")
-          .eq("claim_id", claim.id as string)
-          .eq("brand_id", claim.brand_id as string)
-          .maybeSingle();
-
-        const existingMeta =
-          (receivable?.metadata as Record<string, unknown> | null) ?? {};
-
+        // ── 2. 標記 warranty_claims.metadata.overdue（不再寫 warranty_claim_receivables）──
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await (sb as any)
-          .from("warranty_claim_receivables")
+          .from("warranty_claims")
           .update({
             metadata: {
-              ...existingMeta,
+              ...meta,
               overdue: true,
               overdue_days: overdueDays,
               overdue_flagged_at: new Date().toISOString(),
             },
-            updated_at: new Date().toISOString(),
           })
-          .eq("claim_id", claim.id as string)
+          .eq("id", claim.id as string)
           .eq("brand_id", claim.brand_id as string);
 
         // ── 3. 發站內告警通知（借用 work_order.status_changed 通道）──
@@ -168,11 +153,11 @@ export async function POST(req: NextRequest) {
             code: "work_order.status_changed",
             payload: {
               workOrderId: claim.id as string,
-              workOrderNo: claim.claim_no as string,
+              workOrderNo: claimNo,
               previousStatus: "submitted",
               nextStatus: "overdue",
-              subject: `⚠️ 保固索賠逾期｜${claim.claim_no as string}`,
-              description: `項目：${claim.item_label as string}｜已過 SLA ${overdueDays} 天`,
+              subject: `⚠️ 保固索賠逾期｜${claimNo}`,
+              description: `項目：${itemLabel}｜已過 SLA ${overdueDays} 天`,
               actionUrl: `${appUrl}/parts/warranty/ro-link?focus=${claim.id as string}`,
               brandId: claim.brand_id as string,
               overdue_days: overdueDays,
@@ -180,7 +165,7 @@ export async function POST(req: NextRequest) {
           });
         } catch (notifyErr) {
           console.error(
-            `[warranty-overdue] 索賠 ${claim.claim_no as string} 通知失敗（不影響標記）`,
+            `[warranty-overdue] 索賠 ${claimNo} 通知失敗（不影響標記）`,
             notifyErr,
           );
         }

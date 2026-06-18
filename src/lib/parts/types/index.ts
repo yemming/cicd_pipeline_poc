@@ -68,6 +68,7 @@ export type ServiceAppointmentUpdate = Update<"service_appointments">;
 export type WorkOrder = Row<"work_orders">;
 export type WorkOrderInsert = Insert<"work_orders">;
 export type WorkOrderUpdate = Update<"work_orders">;
+export type RepairOrder = Row<"repair_orders">;
 export type WorkOrderItem = Row<"work_order_items">;
 export type WorkOrderItemInsert = Insert<"work_order_items">;
 export type InspectionRecord = Row<"inspection_records">;

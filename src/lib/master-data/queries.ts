@@ -26,6 +26,7 @@ import type {
   InspectionFinding,
   InspectionRecord,
   Item,
+  RepairOrder,
   WarrantyClaim,
   WarrantyClaimLine,
   VehicleModel,
@@ -734,6 +735,32 @@ export async function getInspectionRecordById(
     .maybeSingle();
   if (error) throw new Error(`getInspectionRecordById: ${error.message}`);
   return data;
+}
+
+// ──────────────────────────────────────────────────────────
+// Repair Orders（for warranty RO picker — 用 repair_orders，非 work_orders）
+// ──────────────────────────────────────────────────────────
+
+export type ListRepairOrdersOpts = {
+  status?: string;
+  limit?: number;
+};
+
+/** 給保固索賠 RO 下拉選項用；只回 id / ro_code / status，不做 pagination */
+export async function listRepairOrdersForWarranty(
+  opts?: ListRepairOrdersOpts,
+): Promise<Pick<RepairOrder, "id" | "ro_code" | "status" | "lines_total">[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("repair_orders")
+    .select("id, ro_code, status, lines_total")
+    .eq("brand_id", (await getActiveScope()).brand_id)
+    .order("created_at", { ascending: false });
+  if (opts?.status) q = q.eq("status", opts.status);
+  q = q.limit(opts?.limit ?? 500);
+  const { data, error } = await q;
+  if (error) throw new Error(`listRepairOrdersForWarranty: ${error.message}`);
+  return data ?? [];
 }
 
 // ──────────────────────────────────────────────────────────

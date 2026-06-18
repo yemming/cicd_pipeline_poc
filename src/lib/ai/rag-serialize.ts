@@ -1109,31 +1109,45 @@ export async function serializeWarrantyClaim(
 }
 
 // ─── parts_warranty_claim ─────────────────────────────────────
+// 2026-06-18 Russell 裁示：改讀 warranty_claims（單一事實表）
+// 欄位映射：claim_no←cl_no, apply_amount←applied_amount,
+//           expected_pay_date←forecast_receipt_date, reimbursed_at←received_at
+// sla_days：warranty_claims 無此欄，固定 21
 
 export async function serializePartsWarrantyClaim(
   supabase: SupabaseClient,
   id: string,
 ): Promise<SerializedChunk | null> {
   const { data: p } = await supabase
-    .from('parts_warranty_claims')
+    .from('warranty_claims')
     .select(
-      'claim_no, ro_no, item_label, hours_label, warranty_type, apply_amount, approved_amount, status, status_label, expected_pay_date, submitted_at, approved_at, reimbursed_at, sla_days, notes',
+      'cl_no, ro_id, applied_amount, approved_amount, status, forecast_receipt_date, submitted_at, approved_at, received_at, oem_reference_no, notes, metadata, repair_orders:ro_id(ro_code)',
     )
     .eq('id', id)
     .maybeSingle();
   if (!p) return null;
+
+  const meta = (p.metadata as Record<string, unknown> | null) ?? {};
+  const roCode =
+    (p as unknown as { repair_orders?: { ro_code?: string } | null }).repair_orders?.ro_code ?? null;
+  const roNo = roCode ?? (meta.orig_ro_no as string | null) ?? null;
+  const itemLabel = (meta.item_label as string | null) ?? null;
+  const hoursLabel = (meta.hours_label as string | null) ?? null;
+  const warrantyType = (meta.warranty_type as string | null) ?? null;
+  const statusLabel = (meta.status_label as string | null) ?? null;
+
   const bits: string[] = [];
-  bits.push(`零件保固索賠 ${p.claim_no ?? '—'}（類別 ${p.warranty_type ?? '—'}・狀態 ${p.status_label ?? p.status ?? '—'}）`);
-  if (p.ro_no) bits.push(`對應工單 ${p.ro_no}`);
-  if (p.item_label) bits.push(`零件 ${p.item_label}`);
-  if (p.hours_label) bits.push(`工時 ${p.hours_label}`);
-  bits.push(`金額：申請 NT$${p.apply_amount ?? 0}${p.approved_amount != null ? ` / 核准 NT$${p.approved_amount}` : ''}`);
-  if (p.expected_pay_date) bits.push(`預計撥款 ${p.expected_pay_date}`);
-  if (p.sla_days) bits.push(`SLA ${p.sla_days} 天`);
+  bits.push(`零件保固索賠 ${p.cl_no ?? '—'}（類別 ${warrantyType ?? '—'}・狀態 ${statusLabel ?? p.status ?? '—'}）`);
+  if (roNo) bits.push(`對應工單 ${roNo}`);
+  if (itemLabel) bits.push(`零件 ${itemLabel}`);
+  if (hoursLabel) bits.push(`工時 ${hoursLabel}`);
+  bits.push(`金額：申請 NT$${p.applied_amount ?? 0}${p.approved_amount != null ? ` / 核准 NT$${p.approved_amount}` : ''}`);
+  if (p.forecast_receipt_date) bits.push(`預計撥款 ${p.forecast_receipt_date}`);
+  bits.push(`SLA 21 天`); // warranty_claims 無 sla_days 欄，固定常數
   if (p.notes?.trim()) bits.push(`備註：${p.notes.trim()}`);
   return {
     content: bits.join('｜'),
-    metadata: { claim_no: p.claim_no, status: p.status, ro_no: p.ro_no },
+    metadata: { claim_no: p.cl_no, status: p.status, ro_no: roNo },
   };
 }
 

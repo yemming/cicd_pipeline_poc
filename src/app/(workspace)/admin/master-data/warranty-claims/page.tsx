@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 
 import {
   listCustomers,
+  listRepairOrdersForWarranty,
   listWarrantyClaims,
-  listWorkOrders,
   WARRANTY_CLAIMS_PAGE_SIZE_DEFAULT,
 } from "@/lib/master-data/queries";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -34,10 +34,10 @@ export default async function WarrantyClaimsAdminPage({
   const pageSize = WARRANTY_CLAIMS_PAGE_SIZE_DEFAULT;
 
   const canEdit = await hasPermission(PERMISSIONS.WARRANTY_SUBMIT);
-  const [claimsResult, customers, workOrders] = await Promise.all([
+  const [claimsResult, customers, repairOrders] = await Promise.all([
     listWarrantyClaims({ page, pageSize }),
     listCustomers({ activeOnly: false, limit: 1000 }),
-    listWorkOrders({ limit: 500 }),
+    listRepairOrdersForWarranty({ limit: 500 }),
   ]);
 
   return (
@@ -48,7 +48,7 @@ export default async function WarrantyClaimsAdminPage({
       pageSize={pageSize}
       canEdit={canEdit}
       customers={customers.map((c) => ({ id: c.id, name: c.name }))}
-      workOrders={workOrders.map((w) => ({ id: w.id, ro_no: w.ro_no }))}
+      repairOrders={repairOrders.map((r) => ({ id: r.id, ro_code: r.ro_code }))}
     />
   );
 }

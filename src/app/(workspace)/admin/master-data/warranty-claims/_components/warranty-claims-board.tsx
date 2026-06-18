@@ -43,7 +43,7 @@ const NT = (n: number | null | undefined) =>
   n != null ? `NT$ ${Math.round(Number(n)).toLocaleString()}` : "—";
 
 type CustomerLite = { id: string; name: string };
-type WorkOrderLite = { id: string; ro_no: string };
+type RepairOrderLite = { id: string; ro_code: string };
 
 export function WarrantyClaimsBoard({
   rows,
@@ -52,7 +52,7 @@ export function WarrantyClaimsBoard({
   pageSize,
   canEdit,
   customers,
-  workOrders,
+  repairOrders,
 }: {
   rows: WarrantyClaim[];
   totalCount: number;
@@ -60,14 +60,14 @@ export function WarrantyClaimsBoard({
   pageSize: number;
   canEdit: boolean;
   customers: CustomerLite[];
-  workOrders: WorkOrderLite[];
+  repairOrders: RepairOrderLite[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
-  const woById = new Map(workOrders.map((w) => [w.id, w]));
+  const roById = new Map(repairOrders.map((r) => [r.id, r]));
 
   const showBanner = (b: Banner) => {
     setBanner(b);
@@ -135,12 +135,12 @@ export function WarrantyClaimsBoard({
       cell: (c) =>
         c.ro_id ? (
           <span className="font-mono text-[12px]">
-            {woById.get(c.ro_id)?.ro_no ?? "(已刪除)"}
+            {roById.get(c.ro_id)?.ro_code ?? "(已刪除)"}
           </span>
         ) : (
           <span className="text-[#6B778C]">—</span>
         ),
-      exportValue: (c) => (c.ro_id ? woById.get(c.ro_id)?.ro_no ?? "" : ""),
+      exportValue: (c) => (c.ro_id ? roById.get(c.ro_id)?.ro_code ?? "" : ""),
     },
     {
       id: "customer",

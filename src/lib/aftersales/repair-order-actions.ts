@@ -974,9 +974,8 @@ export async function updateRepairOrderStatusAction(
             cl_no: clNo,
             claim_type: "oem_warranty",
             claim_date: d.toISOString().slice(0, 10),
-            // 註：warranty_claims.ro_id FK 目前指向 work_orders（legacy），
-            // 售後 repair_orders 連結改存 metadata.repair_order_id（FK retarget 屬 RO 概念對齊、另案）。
-            ro_id: null,
+            // warranty_claims.ro_id FK 已對齊 repair_orders（Option A 完整退役）。
+            ro_id: id,
             vin,
             customer_id: roRow?.customer_id ?? null,
             status: "submitted", // RO 完修 → 已送原廠待審；待結算清單據此顯示

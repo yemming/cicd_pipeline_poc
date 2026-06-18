@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import {
   listCustomers,
   listItems,
+  listRepairOrdersForWarranty,
   listVehicleModels,
-  listWorkOrders,
 } from "@/lib/master-data/queries";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
@@ -25,10 +25,10 @@ export default async function NewWarrantyClaimPage() {
     );
   }
 
-  const [customers, models, workOrders, items] = await Promise.all([
+  const [customers, models, repairOrders, items] = await Promise.all([
     listCustomers({ limit: 500 }),
     listVehicleModels(),
-    listWorkOrders({ limit: 500 }),
+    listRepairOrdersForWarranty({ limit: 500 }),
     listItems({ limit: 500 }),
   ]);
 
@@ -38,7 +38,7 @@ export default async function NewWarrantyClaimPage() {
       lines={[]}
       customers={customers}
       models={models}
-      workOrders={workOrders}
+      repairOrders={repairOrders}
       items={items}
       canEdit
       initialMode="create"

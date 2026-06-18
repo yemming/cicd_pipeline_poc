@@ -41,7 +41,8 @@ const SERIALIZE_BY_TYPE: Record<string, { table: string; serialize: SerializeFn 
   sales_quote: { table: 'sales_quotes', serialize: S.serializeSalesQuote },
   delivery: { table: 'deliveries', serialize: S.serializeDelivery },
   warranty_claim: { table: 'warranty_claims', serialize: S.serializeWarrantyClaim },
-  parts_warranty_claim: { table: 'parts_warranty_claims', serialize: S.serializePartsWarrantyClaim },
+  // 2026-06-18 Russell 裁示：parts_warranty_claim 改從 warranty_claims 序列化（原 parts_warranty_claims 已退役）
+  parts_warranty_claim: { table: 'warranty_claims', serialize: S.serializePartsWarrantyClaim },
   insurance_policy: { table: 'insurance_policies', serialize: S.serializeInsurancePolicy },
   item: { table: 'items', serialize: S.serializeItem },
 };

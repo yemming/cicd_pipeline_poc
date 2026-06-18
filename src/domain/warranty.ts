@@ -1088,6 +1088,7 @@ export async function getCostRecoveryPageData(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // ⚠️ 2026-06-18 改讀 warranty_claims（單一事實表）
   const [cfgRes, clRes] = await Promise.all([
     supabase
       .from("parts_warranty_cost_recovery_config")
@@ -1097,23 +1098,61 @@ export async function getCostRecoveryPageData(
       .eq("brand_id", brand)
       .maybeSingle(),
     supabase
-      .from("parts_warranty_claims")
+      .from("warranty_claims")
       .select(
-        "id, claim_no, ro_no, item_label, hours_label, warranty_type, apply_amount, approved_amount, status, status_label, expected_pay_date, sort_order",
+        "id, cl_no, ro_id, applied_amount, approved_amount, status, forecast_receipt_date, metadata, created_at, repair_orders:ro_id(ro_code), warranty_claim_lines(notes)",
       )
       .eq("brand_id", brand)
-      .order("sort_order"),
+      .order("created_at", { ascending: false }),
   ]);
   if (cfgRes.error) throw new Error(`config: ${cfgRes.error.message}`);
   if (clRes.error) throw new Error(`claims: ${clRes.error.message}`);
 
-  const allClaims: ClaimRow[] = ((clRes.data ?? []) as ClaimRow[]).map(
-    (c) => ({
-      ...c,
-      apply_amount: Number(c.apply_amount),
-      approved_amount: Number(c.approved_amount),
-    }),
-  );
+  // 把 warranty_claims rows 映射成 ClaimRow（保留型別不動）
+  const allClaims: ClaimRow[] = ((clRes.data ?? []) as unknown as Array<{
+    id: string;
+    cl_no: string;
+    ro_id: string | null;
+    applied_amount: number | string;
+    approved_amount: number | string | null;
+    status: string;
+    forecast_receipt_date: string | null;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
+    repair_orders?: { ro_code: string | null } | null;
+    warranty_claim_lines?: Array<{ notes: string | null }> | null;
+  }>).map((c) => {
+    const meta = c.metadata ?? {};
+    // item_label：metadata.item_label → claim_lines notes
+    const metaItemLabel = meta.item_label as string | null ?? null;
+    const linesLabel = c.warranty_claim_lines?.length
+      ? c.warranty_claim_lines.map((l) => l.notes).filter(Boolean).join("、") || null
+      : null;
+    const itemLabel = metaItemLabel || linesLabel || "—";
+
+    // normalize status → 5 態（對應 cost-recovery 原本用 parts_warranty_claims 的舊 status 值）
+    const rawStatus = c.status;
+    let mappedStatus = rawStatus;
+    if (rawStatus === "under_review") mappedStatus = "reviewing"; // cost-recovery 舊邏輯用 reviewing
+    if (rawStatus === "partial_approved") mappedStatus = "approved";
+    if (rawStatus === "received") mappedStatus = "paid";          // normalize：paid 舊值
+    if (rawStatus === "cancelled") mappedStatus = "rejected";
+
+    return {
+      id: c.id,
+      claim_no: c.cl_no,                                       // claim_no → cl_no
+      ro_no: (meta.orig_ro_no as string | null) ?? c.repair_orders?.ro_code ?? null,
+      item_label: itemLabel,
+      hours_label: meta.hours_label as string | null ?? null,
+      warranty_type: meta.warranty_type as string | null ?? null,
+      apply_amount: Number(c.applied_amount),                   // apply_amount → applied_amount
+      approved_amount: Number(c.approved_amount ?? 0),
+      status: mappedStatus,
+      status_label: meta.status_label as string | null ?? null,
+      expected_pay_date: c.forecast_receipt_date,               // expected_pay_date → forecast_receipt_date
+      sort_order: 0,                                            // warranty_claims 無 sort_order，填 0
+    };
+  });
 
   // Stats 用 full set（不被 filter 影響）
   const stats: CostRecoveryStats = {
@@ -1137,10 +1176,13 @@ export async function getCostRecoveryPageData(
         stats.paid_count++;
         break;
       case "reviewing":
+      case "submitted":     // warranty_claims 的 submitted 對應 cost-recovery 的 reviewing
+      case "under_review":
         stats.reviewing_amount += c.apply_amount;
         stats.reviewing_count++;
         break;
       case "rejected":
+      case "cancelled":
         stats.rejected_amount += c.apply_amount;
         stats.rejected_count++;
         break;
@@ -1243,26 +1285,34 @@ export async function markClaimPaid(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // ⚠️ 2026-06-18 改讀寫 warranty_claims
   const existing = await supabase
-    .from("parts_warranty_claims")
-    .select("status, expected_pay_date")
+    .from("warranty_claims")
+    .select("status, forecast_receipt_date, metadata")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
   if (existing.error) return { ok: false, error: existing.error.message };
   if (!existing.data) return { ok: false, error: "找不到此索賠單" };
-  if (existing.data.status === "paid")
+  if (existing.data.status === "received" || existing.data.status === "paid")
     return { ok: false, error: "此單已標記為已收款" };
-  if (existing.data.status !== "approved")
+  if (!["approved", "partial_approved"].includes(existing.data.status))
     return { ok: false, error: "僅核准的索賠單可標記收款" };
 
   const today = new Date().toISOString().slice(0, 10);
+  const newMeta = {
+    ...(existing.data.metadata as Record<string, unknown> ?? {}),
+    status_label: "已收款",
+  };
+
+  // status → 'received'；forecast_receipt_date 對應 expected_pay_date
   const { error } = await supabase
-    .from("parts_warranty_claims")
+    .from("warranty_claims")
     .update({
-      status: "paid",
-      status_label: "已收款",
-      expected_pay_date: existing.data.expected_pay_date ?? today,
+      status: "received",
+      received_at: new Date().toISOString(),
+      forecast_receipt_date: existing.data.forecast_receipt_date ?? today,
+      metadata: newMeta,
     })
     .eq("id", id)
     .eq("brand_id", brand);

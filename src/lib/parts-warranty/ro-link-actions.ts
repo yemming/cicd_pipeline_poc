@@ -5,6 +5,13 @@
  *
  * 配對 helper：`@/domain/parts-warranty`
  * 對外型別：`ActionResult<T>` — 不 redirect，由 client 自控導航。
+ *
+ * ⚠️ 2026-06-18 Russell 裁示：
+ *   - 底層改讀寫 warranty_claims（單一事實表）
+ *   - 移除對 warranty_claim_receivables 的 syncReceivable 同步
+ *     （應收 / AR 凍結，交未來會計系統；事實層不再寫 AR）
+ *   - 狀態流：submit→status='submitted'；approve→'approved'；
+ *             reimburse→'received'；reject→'rejected'
  */
 
 import { after } from "next/server";
@@ -16,66 +23,6 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { notifications } from "@/lib/notifications";
 
-// ────────────────────────────────────────────────────────────────────────────
-// warranty_claim_receivables 同步輔助（非阻斷，失敗只 console.error）
-// ────────────────────────────────────────────────────────────────────────────
-type ReceivableClaimStatus = "pending" | "submitted" | "approved" | "rejected" | "paid";
-
-/** upsert / update warranty_claim_receivables，不 throw（cron 安全） */
-async function syncReceivable(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  claimId: string,
-  patch: {
-    claim_status: ReceivableClaimStatus;
-    brand_id?: string;
-    workorder_id?: string | null;
-    claim_amount?: number;
-    submitted_at?: string;
-    paid_at?: string;
-    store_id?: string | null;
-  },
-): Promise<void> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    if (patch.claim_status === "submitted") {
-      // upsert（idempotent，conflict on claim_id）
-      const { error } = await sb
-        .from("warranty_claim_receivables")
-        .upsert(
-          {
-            claim_id: claimId,
-            brand_id: patch.brand_id,
-            workorder_id: patch.workorder_id ?? null,
-            claim_amount: patch.claim_amount ?? 0,
-            claim_status: "submitted",
-            submitted_at: patch.submitted_at ?? new Date().toISOString(),
-            store_id: patch.store_id ?? null,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "claim_id" },
-        );
-      if (error) throw error;
-    } else {
-      const updatePayload: Record<string, unknown> = {
-        claim_status: patch.claim_status,
-        updated_at: new Date().toISOString(),
-      };
-      if (typeof patch.claim_amount === "number") updatePayload.claim_amount = patch.claim_amount;
-      if (patch.paid_at) updatePayload.paid_at = patch.paid_at;
-
-      const { error } = await sb
-        .from("warranty_claim_receivables")
-        .update(updatePayload)
-        .eq("claim_id", claimId)
-        .eq("brand_id", patch.brand_id);
-      if (error) throw error;
-    }
-  } catch (e) {
-    console.error("[parts-warranty] warranty_claim_receivables 同步失敗（不影響主流程）", claimId, e);
-  }
-}
-
 const RO_LINK_PATH = "/parts/warranty/ro-link";
 
 export type ActionResult<T = unknown> =
@@ -84,9 +31,6 @@ export type ActionResult<T = unknown> =
 
 /**
  * draft → submitted（送件原廠審核）
- *
- * 規格 normalize 後是 "submitted"，DB 寫的也是 "submitted"；cost-recovery 用的
- * "reviewing" 是 alias，listWarrantyClaims 會 normalize 回 submitted。
  */
 export async function submitClaim(
   id: string,
@@ -95,40 +39,41 @@ export async function submitClaim(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // 改讀 warranty_claims
   const existing = await supabase
-    .from("parts_warranty_claims")
-    .select("status, ro_id, apply_amount, brand_id")
+    .from("warranty_claims")
+    .select("status, ro_id, applied_amount, brand_id")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
   if (existing.error) return { ok: false, error: existing.error.message };
   if (!existing.data) return { ok: false, error: "找不到此索賠單" };
-  if (!["draft", "reviewing", "submitted"].includes(existing.data.status)) {
+  // 相容舊值 reviewing / under_review；也允許 draft
+  if (!["draft", "reviewing", "submitted", "under_review"].includes(existing.data.status)) {
     return { ok: false, error: "此單已超過送件狀態" };
   }
 
   const submittedAt = new Date().toISOString();
+  // warranty_claims 無 status_label 欄位，寫 metadata 保留顯示資訊
+  const { data: cur } = await supabase
+    .from("warranty_claims")
+    .select("metadata")
+    .eq("id", id)
+    .maybeSingle();
+  const newMeta = { ...(cur?.metadata as Record<string, unknown> ?? {}), status_label: "送件審核" };
+
   const { error } = await supabase
-    .from("parts_warranty_claims")
+    .from("warranty_claims")
     .update({
       status: "submitted",
-      status_label: "送件審核",
       submitted_at: submittedAt,
+      metadata: newMeta,
     })
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `送件失敗：${error.message}` };
 
-  // 同步應收款（upsert idempotent，非阻斷）
-  const scope = await getActiveScope();
-  await syncReceivable(supabase, id, {
-    claim_status: "submitted",
-    brand_id: brand,
-    workorder_id: existing.data.ro_id ?? null,
-    claim_amount: Number(existing.data.apply_amount),
-    submitted_at: submittedAt,
-    store_id: scope.store_id ?? null,
-  });
+  // ⚠️ syncReceivable 已移除（Russell 裁示：AR 凍結）
 
   revalidatePath(RO_LINK_PATH);
   return { ok: true, data: { id } };
@@ -145,50 +90,51 @@ export async function markApproved(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // 改讀 warranty_claims（applied_amount 取代 apply_amount）
   const existing = await supabase
-    .from("parts_warranty_claims")
-    .select("status, apply_amount")
+    .from("warranty_claims")
+    .select("status, applied_amount, metadata")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
   if (existing.error) return { ok: false, error: existing.error.message };
   if (!existing.data) return { ok: false, error: "找不到此索賠單" };
-  if (!["submitted", "reviewing"].includes(existing.data.status)) {
+  // 相容舊值 reviewing / under_review
+  if (!["submitted", "reviewing", "under_review"].includes(existing.data.status)) {
     return { ok: false, error: "僅送件審核中的索賠單可標記核准" };
   }
 
   const amt =
     typeof approvedAmount === "number" && approvedAmount >= 0
       ? approvedAmount
-      : Number(existing.data.apply_amount);
+      : Number(existing.data.applied_amount);
 
+  const newMeta = {
+    ...(existing.data.metadata as Record<string, unknown> ?? {}),
+    status_label: "已核准等撥款",
+  };
+
+  // warranty_claims 無 status_label 欄，改存 metadata
   const { error } = await supabase
-    .from("parts_warranty_claims")
+    .from("warranty_claims")
     .update({
       status: "approved",
-      status_label: "已核准等撥款",
       approved_at: new Date().toISOString(),
       approved_amount: amt,
+      metadata: newMeta,
     })
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `核准失敗：${error.message}` };
 
-  // 同步應收款（非阻斷）
-  await syncReceivable(supabase, id, {
-    claim_status: "approved",
-    brand_id: brand,
-    ...(typeof approvedAmount === "number" && approvedAmount >= 0
-      ? { claim_amount: approvedAmount }
-      : {}),
-  });
+  // ⚠️ syncReceivable 已移除（Russell 裁示：AR 凍結）
 
   revalidatePath(RO_LINK_PATH);
   return { ok: true, data: { id } };
 }
 
 /**
- * approved → reimbursed（撥款入帳）
+ * approved → received（撥款入帳；warranty_claims 狀態 = 'received'）
  */
 export async function markReimbursed(
   id: string,
@@ -198,45 +144,46 @@ export async function markReimbursed(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // 改讀 warranty_claims
   const existing = await supabase
-    .from("parts_warranty_claims")
-    .select("status, approved_amount")
+    .from("warranty_claims")
+    .select("status, approved_amount, metadata")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
   if (existing.error) return { ok: false, error: existing.error.message };
   if (!existing.data) return { ok: false, error: "找不到此索賠單" };
-  if (existing.data.status !== "approved") {
+  // 相容 partial_approved（normalize 後也是 approved）
+  if (!["approved", "partial_approved"].includes(existing.data.status)) {
     return { ok: false, error: "僅已核准的索賠單可標記撥款" };
   }
 
-  // 沿用 cost-recovery 命名：DB 內寫 paid，helper 對外 normalize 成 reimbursed
   const now = new Date();
   const finalAmount =
     typeof amount === "number" && amount >= 0
       ? amount
-      : Number(existing.data.approved_amount);
+      : Number(existing.data.approved_amount ?? 0);
 
+  const newMeta = {
+    ...(existing.data.metadata as Record<string, unknown> ?? {}),
+    status_label: "已撥款",
+  };
+
+  // warranty_claims：reimbursed_at → received_at；status → 'received'
   const { error } = await supabase
-    .from("parts_warranty_claims")
+    .from("warranty_claims")
     .update({
-      status: "paid",
-      status_label: "已撥款",
-      reimbursed_at: now.toISOString(),
+      status: "received",
+      received_at: now.toISOString(),                         // reimbursed_at → received_at
       approved_amount: finalAmount,
-      expected_pay_date: now.toISOString().slice(0, 10),
+      forecast_receipt_date: now.toISOString().slice(0, 10), // expected_pay_date → forecast_receipt_date
+      metadata: newMeta,
     })
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `撥款標記失敗：${error.message}` };
 
-  // 同步應收款（非阻斷）
-  await syncReceivable(supabase, id, {
-    claim_status: "paid",
-    brand_id: brand,
-    claim_amount: finalAmount,
-    paid_at: now.toISOString(),
-  });
+  // ⚠️ syncReceivable 已移除（Russell 裁示：AR 凍結）
 
   revalidatePath(RO_LINK_PATH);
   revalidatePath("/parts/warranty/cost-recovery");
@@ -244,7 +191,7 @@ export async function markReimbursed(
 }
 
 /**
- * submitted → rejected（原廠駁回）
+ * submitted → rejected（原廠駁回；warranty_claims 狀態 = 'rejected'）
  */
 export async function markRejected(
   id: string,
@@ -256,34 +203,37 @@ export async function markRejected(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // 改讀 warranty_claims
   const existing = await supabase
-    .from("parts_warranty_claims")
-    .select("status, notes")
+    .from("warranty_claims")
+    .select("status, notes, metadata")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
   if (existing.error) return { ok: false, error: existing.error.message };
   if (!existing.data) return { ok: false, error: "找不到此索賠單" };
-  if (!["submitted", "reviewing", "approved"].includes(existing.data.status)) {
+  // 相容 under_review / partial_approved
+  if (!["submitted", "reviewing", "under_review", "approved", "partial_approved"].includes(existing.data.status)) {
     return { ok: false, error: "此單目前不可駁回" };
   }
 
+  const newMeta = {
+    ...(existing.data.metadata as Record<string, unknown> ?? {}),
+    status_label: "原廠駁回",
+  };
+
   const { error } = await supabase
-    .from("parts_warranty_claims")
+    .from("warranty_claims")
     .update({
       status: "rejected",
-      status_label: "原廠駁回",
       notes: reason.trim(),
+      metadata: newMeta,
     })
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: `駁回失敗：${error.message}` };
 
-  // 同步應收款（非阻斷）
-  await syncReceivable(supabase, id, {
-    claim_status: "rejected",
-    brand_id: brand,
-  });
+  // ⚠️ syncReceivable 已移除（Russell 裁示：AR 凍結）
 
   revalidatePath(RO_LINK_PATH);
   return { ok: true, data: { id } };
@@ -302,32 +252,36 @@ export async function sendUrgentReminder(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // 改讀 warranty_claims；sla_days 用常數 21
   const existing = await supabase
-    .from("parts_warranty_claims")
+    .from("warranty_claims")
     .select(
-      "id, claim_no, ro_no, item_label, status, submitted_at, sla_days, apply_amount",
+      "id, cl_no, ro_id, status, submitted_at, applied_amount, metadata",
     )
     .eq("id", claimId)
     .eq("brand_id", brand)
     .maybeSingle();
   if (existing.error) return { ok: false, error: existing.error.message };
   if (!existing.data) return { ok: false, error: "找不到此索賠單" };
-  if (!["submitted", "reviewing", "approved"].includes(existing.data.status)) {
+  // 相容 under_review / partial_approved
+  if (!["submitted", "reviewing", "under_review", "approved", "partial_approved"].includes(existing.data.status)) {
     return { ok: false, error: "僅送件審核中 / 等撥款的單需要催促" };
   }
 
   const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
-  const claimNo = existing.data.claim_no;
-  const itemLabel = existing.data.item_label;
-  const roNo = existing.data.ro_no;
+  const claimNo = existing.data.cl_no;
+  // item_label 從 metadata 讀
+  const meta = existing.data.metadata as Record<string, unknown> | null ?? {};
+  const itemLabel = (meta.item_label as string | null) ?? "—";
+  // ro_no 顯示：metadata.orig_ro_no 或空
+  const roNo = (meta.orig_ro_no as string | null) ?? null;
   const submittedAt = existing.data.submitted_at;
+  const SLA_DAYS = 21; // warranty_claims 無 sla_days 欄
 
   let daysOverdue = 0;
   if (submittedAt) {
     const sub = new Date(submittedAt);
-    const deadline = new Date(
-      sub.getTime() + (existing.data.sla_days ?? 21) * 86400000,
-    );
+    const deadline = new Date(sub.getTime() + SLA_DAYS * 86400000);
     daysOverdue = Math.max(
       0,
       Math.floor((Date.now() - deadline.getTime()) / 86400000),

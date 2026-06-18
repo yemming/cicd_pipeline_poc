@@ -6,12 +6,15 @@
  * 對應路徑：`/parts/warranty/ro-link`
  * 對應規格：M04L-10、`docs/DUCATI_v2_output/04_庫存管理/08_保固索賠/11_保固索賠_RO工單串接.html`
  *
- * 與 cost-recovery 共用底層 `parts_warranty_claims` 表，但這支 helper 聚焦
- * 「狀態流 + SLA + RO link」視角：
- *   1. status 統一 normalize 成 5 段：draft / submitted / approved / rejected / reimbursed
- *      （DB 內舊值 reviewing 視為 submitted、paid 視為 reimbursed，以維持 cost-recovery 相容）
- *   2. overdue 在應用層計算：submitted_at + sla_days < now() 且 status 仍卡在 submitted。
- *   3. SLA 倒數天數即時算出，不存欄位、不過時。
+ * ⚠️ 2026-06-18 Russell 裁示：單一事實表遷移至 warranty_claims
+ *   - 底層改讀 warranty_claims（25 筆舊資料已遷入，metadata.migrated_from='parts_warranty_claims'）
+ *   - 對外回傳型別 WarrantyClaimRow 維持不變（UI 不動）
+ *   - status 8 態（draft/submitted/under_review/approved/partial_approved/rejected/received/cancelled）
+ *     統一 normalize 成 UI 5 態，新增：under_review→submitted、partial_approved→approved、
+ *     received→reimbursed、cancelled→rejected
+ *   - ro_no（顯示用）：ro_id join repair_orders.ro_code；無 ro_id 則 fallback metadata.orig_ro_no
+ *   - item_label / hours_label：從 metadata 讀；無則從 warranty_claim_lines.notes 串
+ *   - sla_days：warranty_claims 無此欄，統一用常數預設 21
  *
  * UI 一律透過此 helper 取資料，禁止 page / component import @/lib/supabase/*。
  */
@@ -19,29 +22,27 @@
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
 
-// 註：parts_warranty_claims 表近期加了 submitted_at / approved_at / reimbursed_at
-// / sla_days / ro_id / notes 6 個欄位，database.types.ts 尚未 regenerate。
-// 為避免動 generated types（會牽動全 repo），本檔本地宣告 RawClaim 形狀。
+const SLA_DAYS_DEFAULT = 21;
+
+// ─── warranty_claims 欄位形狀（本地宣告，避免動 generated types）──────────
 type RawClaim = {
   id: string;
   brand_id: string;
-  claim_no: string;
-  ro_no: string | null;
+  cl_no: string;
   ro_id: string | null;
-  item_label: string;
-  hours_label: string | null;
-  warranty_type: string | null;
-  apply_amount: number | string;
-  approved_amount: number | string;
+  applied_amount: number | string;
+  approved_amount: number | string | null;
   status: string;
-  status_label: string | null;
   submitted_at: string | null;
   approved_at: string | null;
-  reimbursed_at: string | null;
-  sla_days: number | null;
-  expected_pay_date: string | null;
+  received_at: string | null;
+  forecast_receipt_date: string | null;
+  oem_reference_no: string | null;
   notes: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
+  repair_orders?: { ro_code: string | null } | null;
+  warranty_claim_lines?: Array<{ notes: string | null }> | null;
 };
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -116,14 +117,18 @@ function normalizeStatus(raw: string): WarrantyClaimStatus {
     case "draft":
       return "draft";
     case "submitted":
-    case "reviewing":
+    case "reviewing":       // 舊值相容
+    case "under_review":    // warranty_claims 新態
       return "submitted";
     case "approved":
+    case "partial_approved": // warranty_claims 新態
       return "approved";
     case "rejected":
+    case "cancelled":       // warranty_claims 新態
       return "rejected";
     case "reimbursed":
-    case "paid":
+    case "paid":            // 舊值相容
+    case "received":        // warranty_claims 新態
       return "reimbursed";
     default:
       return "submitted";
@@ -135,11 +140,9 @@ function diffDays(from: Date, to: Date): number {
   return Math.floor(ms / (1000 * 60 * 60 * 24));
 }
 
-function decorateClaim(
-  row: RawClaim & { repair_orders?: { ro_code: string | null } | null },
-): WarrantyClaimRow {
+function decorateClaim(row: RawClaim): WarrantyClaimRow {
   const status = normalizeStatus(row.status);
-  const slaDays = row.sla_days ?? 21;
+  const slaDays = SLA_DAYS_DEFAULT; // warranty_claims 無 sla_days 欄，固定 21
   let slaRemaining: number | null = null;
   let overdue = false;
   if (status === "submitted" && row.submitted_at) {
@@ -150,28 +153,67 @@ function decorateClaim(
     slaRemaining = diffDays(new Date(), deadline);
     overdue = slaRemaining < 0;
   }
+
+  // ro_no（顯示用）：join 取 ro_code；fallback metadata.orig_ro_no
+  const roCode = row.repair_orders?.ro_code ?? null;
+  const roNoFallback =
+    row.metadata && typeof row.metadata === "object"
+      ? (row.metadata as Record<string, unknown>).orig_ro_no as string | null ?? null
+      : null;
+
+  // item_label：metadata.item_label；沒有就從 claim_lines notes 串
+  const metaItemLabel =
+    row.metadata && typeof row.metadata === "object"
+      ? (row.metadata as Record<string, unknown>).item_label as string | null ?? null
+      : null;
+  const linesLabel = row.warranty_claim_lines?.length
+    ? row.warranty_claim_lines
+        .map((l) => l.notes)
+        .filter(Boolean)
+        .join("、") || null
+    : null;
+  const itemLabel = metaItemLabel || linesLabel || "—";
+
+  // hours_label：metadata.hours_label
+  const hoursLabel =
+    row.metadata && typeof row.metadata === "object"
+      ? (row.metadata as Record<string, unknown>).hours_label as string | null ?? null
+      : null;
+
+  // warranty_type：metadata.warranty_type（遷移時沿用舊欄）
+  const warrantyType =
+    row.metadata && typeof row.metadata === "object"
+      ? (row.metadata as Record<string, unknown>).warranty_type as string | null ?? null
+      : null;
+
+  // status_label：metadata.status_label（遷移時保留）
+  const statusLabel =
+    row.metadata && typeof row.metadata === "object"
+      ? (row.metadata as Record<string, unknown>).status_label as string | null ?? null
+      : null;
+
   return {
     id: row.id,
     brand_id: row.brand_id,
-    claim_no: row.claim_no,
-    ro_no: row.ro_no,
+    claim_no: row.cl_no,                   // claim_no → cl_no
+    ro_no: roNoFallback,                    // 顯示用舊 ro_no；新資料靠 ro_code
     ro_id: row.ro_id,
-    ro_code: row.repair_orders?.ro_code ?? null,
-    item_label: row.item_label,
-    hours_label: row.hours_label,
-    warranty_type: row.warranty_type,
-    apply_amount: Number(row.apply_amount),
-    approved_amount: Number(row.approved_amount),
+    ro_code: roCode,
+    item_label: itemLabel,
+    hours_label: hoursLabel,
+    warranty_type: warrantyType,
+    apply_amount: Number(row.applied_amount),   // apply_amount → applied_amount
+    approved_amount: Number(row.approved_amount ?? 0),
     status,
     raw_status: row.status,
-    status_label: row.status_label,
+    status_label: statusLabel,
     submitted_at: row.submitted_at,
     approved_at: row.approved_at,
-    reimbursed_at: row.reimbursed_at,
+    reimbursed_at: row.received_at,             // reimbursed_at → received_at
     sla_days: slaDays,
     sla_remaining_days: slaRemaining,
     overdue,
-    expected_pay_date: row.expected_pay_date,
+    expected_pay_date: row.forecast_receipt_date ?? null, // expected_pay_date → forecast_receipt_date
     notes: row.notes,
     created_at: row.created_at,
   };
@@ -187,10 +229,11 @@ export async function listWarrantyClaims(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // 改讀 warranty_claims；join repair_orders 取 ro_code；join claim_lines 取 notes
   const { data, error } = await supabase
-    .from("parts_warranty_claims")
+    .from("warranty_claims")
     .select(
-      "id, brand_id, claim_no, ro_no, ro_id, item_label, hours_label, warranty_type, apply_amount, approved_amount, status, status_label, submitted_at, approved_at, reimbursed_at, sla_days, expected_pay_date, notes, created_at, repair_orders:ro_id(ro_code)",
+      "id, brand_id, cl_no, ro_id, applied_amount, approved_amount, status, submitted_at, approved_at, received_at, forecast_receipt_date, oem_reference_no, notes, metadata, created_at, repair_orders:ro_id(ro_code), warranty_claim_lines(notes)",
     )
     .eq("brand_id", brand)
     .order("submitted_at", { ascending: false, nullsFirst: false })
@@ -199,9 +242,7 @@ export async function listWarrantyClaims(
   if (error) throw new Error(`listWarrantyClaims: ${error.message}`);
 
   let rows: WarrantyClaimRow[] = (
-    (data ?? []) as unknown as Array<
-      RawClaim & { repair_orders: { ro_code: string | null } | null }
-    >
+    (data ?? []) as unknown as RawClaim[]
   ).map(decorateClaim);
 
   // Application-level filter（資料量小，POC 階段 OK）
@@ -290,10 +331,11 @@ export async function getRoLinkStatus(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // 改讀 warranty_claims
   const { data, error } = await supabase
-    .from("parts_warranty_claims")
+    .from("warranty_claims")
     .select(
-      "id, brand_id, claim_no, ro_no, ro_id, item_label, hours_label, warranty_type, apply_amount, approved_amount, status, status_label, submitted_at, approved_at, reimbursed_at, sla_days, expected_pay_date, notes, created_at, repair_orders:ro_id(ro_code)",
+      "id, brand_id, cl_no, ro_id, applied_amount, approved_amount, status, submitted_at, approved_at, received_at, forecast_receipt_date, oem_reference_no, notes, metadata, created_at, repair_orders:ro_id(ro_code), warranty_claim_lines(notes)",
     )
     .eq("brand_id", brand)
     .eq("id", claimId)
@@ -301,9 +343,5 @@ export async function getRoLinkStatus(
 
   if (error) throw new Error(`getRoLinkStatus: ${error.message}`);
   if (!data) return null;
-  return decorateClaim(
-    data as unknown as RawClaim & {
-      repair_orders: { ro_code: string | null } | null;
-    },
-  );
+  return decorateClaim(data as unknown as RawClaim);
 }

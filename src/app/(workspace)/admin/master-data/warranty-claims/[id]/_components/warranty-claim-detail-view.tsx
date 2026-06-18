@@ -11,8 +11,9 @@ import type {
   VehicleModel,
   WarrantyClaim,
   WarrantyClaimLine,
-  WorkOrder,
 } from "@/lib/parts/types";
+
+type RepairOrderLite = { id: string; ro_code: string; lines_total: number | null };
 
 import { WarrantyForm } from "../../_components/warranty-form";
 
@@ -81,7 +82,7 @@ export function WarrantyClaimDetailView({
   lines,
   customers,
   models,
-  workOrders,
+  repairOrders,
   items,
   canEdit,
   initialMode = "view",
@@ -90,7 +91,7 @@ export function WarrantyClaimDetailView({
   lines: WarrantyClaimLine[];
   customers: Customer[];
   models: VehicleModel[];
-  workOrders: WorkOrder[];
+  repairOrders: RepairOrderLite[];
   items: Item[];
   canEdit: boolean;
   initialMode?: "view" | "create";
@@ -104,7 +105,7 @@ export function WarrantyClaimDetailView({
 
   const customerById = new Map(customers.map((c) => [c.id, c]));
   const modelById = new Map(models.map((m) => [m.id, m]));
-  const workOrderById = new Map(workOrders.map((w) => [w.id, w]));
+  const repairOrderById = new Map(repairOrders.map((r) => [r.id, r]));
   const itemById = new Map(items.map((i) => [i.id, i]));
 
   const showBanner = (b: Banner) => {
@@ -159,7 +160,7 @@ export function WarrantyClaimDetailView({
   const modelName = claim?.vehicle_model_id
     ? modelById.get(claim.vehicle_model_id)?.display_name ?? "—"
     : "—";
-  const roNo = claim?.ro_id ? workOrderById.get(claim.ro_id)?.ro_no ?? "—" : "—";
+  const roNo = claim?.ro_id ? repairOrderById.get(claim.ro_id)?.ro_code ?? "—" : "—";
 
   return (
     <main className="px-6 py-5 space-y-3">
@@ -261,7 +262,7 @@ export function WarrantyClaimDetailView({
             initialLines={lines}
             customers={customers}
             models={models}
-            workOrders={workOrders}
+            repairOrders={repairOrders}
             items={items}
           />
         </section>
@@ -274,7 +275,7 @@ export function WarrantyClaimDetailView({
             mode="create"
             customers={customers}
             models={models}
-            workOrders={workOrders}
+            repairOrders={repairOrders}
             items={items}
           />
         </section>

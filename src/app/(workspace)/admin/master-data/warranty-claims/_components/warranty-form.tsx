@@ -24,8 +24,9 @@ import type {
   VehicleModel,
   WarrantyClaim,
   WarrantyClaimLine,
-  WorkOrder,
 } from "@/lib/parts/types";
+
+type RepairOrderLite = { id: string; ro_code: string; lines_total: number | null };
 
 const CLAIM_TYPE_OPTIONS = [
   { value: "oem_warranty", label: "OEM 原廠保固" },
@@ -66,7 +67,7 @@ export function WarrantyForm({
   initialLines,
   customers,
   models,
-  workOrders,
+  repairOrders,
   items,
 }: {
   mode: "create" | "edit";
@@ -74,7 +75,7 @@ export function WarrantyForm({
   initialLines?: WarrantyClaimLine[];
   customers: Customer[];
   models: VehicleModel[];
-  workOrders: WorkOrder[];
+  repairOrders: RepairOrderLite[];
   items: Item[];
 }) {
   const router = useRouter();
@@ -276,15 +277,15 @@ export function WarrantyForm({
           <div className="grid grid-cols-2 gap-4">
             <Combobox
               name="ro_id"
-              label="關聯工單"
+              label="關聯維修工單（RO）"
               placeholder="搜尋 RO 編號…"
               defaultValue={claim?.ro_id ?? ""}
-              options={workOrders.map((w) => ({
-                value: w.id,
-                label: w.ro_no,
-                hint: `總額 NT$ ${Math.round(Number(w.total_amount ?? 0)).toLocaleString()}`,
+              options={repairOrders.map((r) => ({
+                value: r.id,
+                label: r.ro_code,
+                hint: `總額 NT$ ${Math.round(Number(r.lines_total ?? 0)).toLocaleString()}`,
               }))}
-              hint="與某張工單對應；可空白"
+              hint="與某張維修工單對應；可空白"
               error={fe.ro_id}
             />
             <Combobox
