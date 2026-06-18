@@ -497,7 +497,10 @@ export type RepairPickWorkOrderCandidate = {
   customer_name: string | null;
   parts_qty_total: number;
   parts_line_count: number;
+  /** 已「足額」領料（所有料件已領數 ≥ 需求數）→ 不再出現在待領清單 */
   already_picked: boolean;
+  /** 已領過但尚未足額（部分出庫後待補貨）→ 仍可再領剩餘 */
+  partially_picked: boolean;
 };
 
 export type RepairPickItemPick = {
@@ -513,11 +516,70 @@ export type RepairPickFormData = {
   items: RepairPickItemPick[];
 };
 
+// ─────────────────────────────────────────────────────────────
+// 部分出庫支援：逐 WO 逐 item「已領總量」（completed ro_picking 領料單明細加總）
+// 用途：①待領清單判定「足額領料」而非「有領過就排除」②預覽時只算剩餘待領
+// ─────────────────────────────────────────────────────────────
+async function getIssuedQtyByWoItem(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  brandId: string,
+  woIds: string[],
+): Promise<Map<string, Map<string, number>>> {
+  const result = new Map<string, Map<string, number>>();
+  if (woIds.length === 0) return result;
+
+  const { data: issues } = await supabase
+    .from("stock_issues")
+    .select("id, ro_id")
+    .eq("brand_id", brandId)
+    .eq("type", "ro_picking")
+    .eq("status", "completed")
+    .in("ro_id", woIds);
+
+  const issueToWo = new Map<string, string>();
+  const issueIds: string[] = [];
+  for (const r of issues ?? []) {
+    if (r.ro_id) {
+      issueToWo.set(r.id, r.ro_id);
+      issueIds.push(r.id);
+    }
+  }
+  if (issueIds.length === 0) return result;
+
+  const { data: lines } = await supabase
+    .from("stock_issue_lines")
+    .select("gi_id, item_id, qty_issued")
+    .in("gi_id", issueIds);
+
+  for (const l of lines ?? []) {
+    const wo = issueToWo.get(l.gi_id as string);
+    if (!wo || !l.item_id) continue;
+    const m = result.get(wo) ?? new Map<string, number>();
+    m.set(l.item_id, (m.get(l.item_id) ?? 0) + Number(l.qty_issued ?? 0));
+    result.set(wo, m);
+  }
+  return result;
+}
+
+/** 該工單所有 parts 料件是否皆已足額領出（需求數 > 0 的每一項，已領 ≥ 需求）。 */
+function isWoFullyPicked(
+  needByItem: Map<string, number>,
+  issuedByItem: Map<string, number> | undefined,
+): boolean {
+  let hasNeed = false;
+  for (const [item, need] of needByItem) {
+    if (need <= 0) continue;
+    hasNeed = true;
+    if ((issuedByItem?.get(item) ?? 0) < need) return false;
+  }
+  return hasNeed;
+}
+
 export async function getRepairPickFormData(): Promise<RepairPickFormData> {
   const supabase = await createClient();
   const scope = await getActiveScope();
 
-  const [whRes, woRes, itemRes, issuedRes] = await Promise.all([
+  const [whRes, woRes, itemRes] = await Promise.all([
     supabase
       .from("warehouses")
       .select("id, code, name")
@@ -538,12 +600,6 @@ export async function getRepairPickFormData(): Promise<RepairPickFormData> {
       .eq("is_active", true)
       .order("code")
       .limit(500),
-    supabase
-      .from("stock_issues")
-      .select("ro_id")
-      .eq("brand_id", scope.brand_id)
-      .eq("type", "ro_picking")
-      .eq("status", "completed"),
   ]);
 
   const woIds = (woRes.data ?? []).map((w) => w.id);
@@ -566,22 +622,30 @@ export async function getRepairPickFormData(): Promise<RepairPickFormData> {
   ]);
 
   const partsAgg = new Map<string, { qty: number; count: number }>();
+  const needByWo = new Map<string, Map<string, number>>();
   for (const it of woItemsRes.data ?? []) {
     const cur = partsAgg.get(it.work_order_id) ?? { qty: 0, count: 0 };
     cur.qty += Number(it.qty ?? 0);
     cur.count += 1;
     partsAgg.set(it.work_order_id, cur);
+    if (it.item_id) {
+      const nm = needByWo.get(it.work_order_id) ?? new Map<string, number>();
+      nm.set(it.item_id, (nm.get(it.item_id) ?? 0) + Number(it.qty ?? 0));
+      needByWo.set(it.work_order_id, nm);
+    }
   }
 
   const cMap = new Map((cRes.data ?? []).map((c) => [c.id, c.name] as const));
 
-  const pickedWoIds = new Set(
-    (issuedRes.data ?? []).map((r) => r.ro_id).filter((x): x is string => !!x),
-  );
+  // 已領量（逐 WO 逐 item）→ 足額才排除，部分出庫的工單保留可繼續領剩餘
+  const issuedByWo = await getIssuedQtyByWoItem(supabase, scope.brand_id, woIds);
 
   const workOrders: RepairPickWorkOrderCandidate[] = (woRes.data ?? [])
     .map((w) => {
       const agg = partsAgg.get(w.id) ?? { qty: 0, count: 0 };
+      const need = needByWo.get(w.id) ?? new Map<string, number>();
+      const issued = issuedByWo.get(w.id);
+      const fully = isWoFullyPicked(need, issued);
       return {
         id: w.id,
         ro_no: w.ro_no,
@@ -589,7 +653,8 @@ export async function getRepairPickFormData(): Promise<RepairPickFormData> {
         customer_name: w.customer_id ? cMap.get(w.customer_id) ?? null : null,
         parts_qty_total: agg.qty,
         parts_line_count: agg.count,
-        already_picked: pickedWoIds.has(w.id),
+        already_picked: fully,
+        partially_picked: (issued?.size ?? 0) > 0 && !fully,
       };
     })
     .filter((c) => c.parts_line_count > 0);
@@ -633,30 +698,21 @@ export async function listPendingPartsWorkorders(): Promise<PendingPartsWorkorde
   const supabase = await createClient();
   const scope = await getActiveScope();
 
-  // 1) 候選工單 + 已領料工單（同 getRepairPickFormData 邏輯）
-  const [woRes, issuedRes] = await Promise.all([
-    supabase
-      .from("work_orders")
-      .select("id, ro_no, status, customer_id, vehicle_id, metadata")
-      .eq("brand_id", scope.brand_id)
-      .in("status", ["draft", "dispatched", "in_progress", "qc"])
-      .order("opened_at", { ascending: false })
-      .limit(100),
-    supabase
-      .from("stock_issues")
-      .select("ro_id")
-      .eq("brand_id", scope.brand_id)
-      .eq("type", "ro_picking")
-      .eq("status", "completed"),
-  ]);
+  // 1) 候選工單（同 getRepairPickFormData 邏輯）
+  const woRes = await supabase
+    .from("work_orders")
+    .select("id, ro_no, status, customer_id, vehicle_id, metadata")
+    .eq("brand_id", scope.brand_id)
+    .in("status", ["draft", "dispatched", "in_progress", "qc"])
+    .order("opened_at", { ascending: false })
+    .limit(100);
 
   const wos = woRes.data ?? [];
   const woIds = wos.map((w) => w.id);
   if (woIds.length === 0) return [];
 
-  const pickedWoIds = new Set(
-    (issuedRes.data ?? []).map((r) => r.ro_id).filter((x): x is string => !!x),
-  );
+  // 已領量（逐 WO 逐 item）→ 足額才排除（部分出庫待補貨的工單仍要出現在備料橫幅）
+  const issuedByWo = await getIssuedQtyByWoItem(supabase, scope.brand_id, woIds);
 
   const cIds = Array.from(
     new Set(wos.map((w) => w.customer_id).filter((x): x is string => !!x)),
@@ -719,6 +775,7 @@ export async function listPendingPartsWorkorders(): Promise<PendingPartsWorkorde
     string,
     { qty: number; count: number; names: string[] }
   >();
+  const needByWo = new Map<string, Map<string, number>>();
   for (const it of woItemsRes.data ?? []) {
     const cur =
       partsAgg.get(it.work_order_id) ?? { qty: 0, count: 0, names: [] };
@@ -728,6 +785,11 @@ export async function listPendingPartsWorkorders(): Promise<PendingPartsWorkorde
       (it.item_id ? itemNameMap.get(it.item_id) : null) ?? it.description;
     if (nm) cur.names.push(nm);
     partsAgg.set(it.work_order_id, cur);
+    if (it.item_id) {
+      const m = needByWo.get(it.work_order_id) ?? new Map<string, number>();
+      m.set(it.item_id, (m.get(it.item_id) ?? 0) + Number(it.qty ?? 0));
+      needByWo.set(it.work_order_id, m);
+    }
   }
 
   const cMap = new Map((cRes.data ?? []).map((c) => [c.id, c.name] as const));
@@ -753,7 +815,8 @@ export async function listPendingPartsWorkorders(): Promise<PendingPartsWorkorde
     .map((w): PendingPartsWorkorder | null => {
       const agg = partsAgg.get(w.id);
       if (!agg || agg.count === 0) return null; // 沒綁料件不列
-      if (pickedWoIds.has(w.id)) return null; // 已領料完成不列
+      if (isWoFullyPicked(needByWo.get(w.id) ?? new Map(), issuedByWo.get(w.id)))
+        return null; // 已足額領料不列（部分出庫待補貨者保留）
 
       const veh = w.vehicle_id ? vMap.get(w.vehicle_id) : undefined;
       const meta = (w.metadata ?? {}) as Record<string, unknown>;
@@ -856,13 +919,31 @@ export async function previewRepairPick(
       return { ok: false, error: "此工單沒有料件項目（kind='parts' 且綁定 item_id）" };
     }
 
-    needs = woItems
-      .map((it) => ({
-        item_id: it.item_id as string,
-        qty_needed: Number(it.qty ?? 0),
-        description: it.description ?? "",
-      }))
-      .filter((n) => n.qty_needed > 0);
+    // 依 item 加總需求（同一料件多行合併，避免 FIFO 重複配置）
+    const needByItem = new Map<string, { qty: number; description: string }>();
+    for (const it of woItems) {
+      const id = it.item_id as string;
+      const cur = needByItem.get(id) ?? { qty: 0, description: it.description ?? "" };
+      cur.qty += Number(it.qty ?? 0);
+      if (!cur.description && it.description) cur.description = it.description;
+      needByItem.set(id, cur);
+    }
+
+    // 部分出庫：扣掉「先前已領數量」，只預覽剩餘待領（補貨到貨後再領剩餘）
+    const issuedMap =
+      (await getIssuedQtyByWoItem(supabase, scope.brand_id, [wo.id])).get(wo.id) ??
+      new Map<string, number>();
+
+    needs = [];
+    for (const [item_id, v] of needByItem) {
+      const remaining = v.qty - (issuedMap.get(item_id) ?? 0);
+      if (remaining > 0) {
+        needs.push({ item_id, qty_needed: remaining, description: v.description });
+      }
+    }
+    if (needs.length === 0) {
+      return { ok: false, error: "此工單料件皆已足額領出，無待領項目。" };
+    }
   } else {
     if (!input.lines?.length) return { ok: false, error: "請至少加一筆料件" };
     for (const l of input.lines) {
@@ -1003,6 +1084,18 @@ async function nextGiNo(supabase: Awaited<ReturnType<typeof createClient>>): Pro
   return `ISS${dateStr}-${String(seq).padStart(3, "0")}`;
 }
 
+/** 領料/出庫過帳結果。部分出庫時帶 partial=true + 自動產生的補貨需求單號。 */
+export type PickResult = {
+  id: string;
+  gi_no: string;
+  /** 是否為部分出庫（有缺貨行轉補貨）*/
+  partial?: boolean;
+  /** 自動建立的補貨需求單號（部分出庫時）*/
+  req_no?: string;
+  /** 缺貨（轉補貨）的料件項數 */
+  shortage_count?: number;
+};
+
 export type CreateRepairPickInput = {
   work_order_id: string;
   warehouse_id: string;
@@ -1011,7 +1104,7 @@ export type CreateRepairPickInput = {
 
 export async function pickForWorkOrder(
   input: CreateRepairPickInput,
-): Promise<Result<{ id: string; gi_no: string }>> {
+): Promise<Result<PickResult>> {
   if (!(await hasPermission(PERMISSIONS.ISSUE_CREATE))) {
     return { ok: false, error: "沒有建立領料單的權限" };
   }
@@ -1024,8 +1117,14 @@ export async function pickForWorkOrder(
     warehouse_id: input.warehouse_id,
   });
   if (!previewRes.ok) return previewRes;
-  if (!previewRes.data.can_post) {
-    return { ok: false, error: "庫存不足，無法過帳（請看預覽紅色提示）" };
+  // 部分出庫（Russell 6/17 裁示一）：不再要求全部到齊才能過帳。
+  // 只要有任一品項有可用庫存（qty_total > 0）即放行，缺貨品項自動轉補貨。
+  // 完全無庫存可出時才擋下，引導改建補貨需求單。
+  if (previewRes.data.qty_total <= 0) {
+    return {
+      ok: false,
+      error: "所選料件目前完全無可用庫存，無法出庫；請改用『建立補貨需求單』登記待補。",
+    };
   }
 
   const supabase = await createClient();
@@ -1053,6 +1152,8 @@ export async function pickForWorkOrder(
     notes: input.notes ?? `RO ${wo.ro_no} 一鍵領料`,
     preview: previewRes.data,
     postCogs: true,
+    autoBackorder: true,
+    roNo: wo.ro_no,
   });
 }
 
@@ -1065,7 +1166,7 @@ export type CreateAdHocPickInput = {
 
 export async function pickAdHoc(
   input: CreateAdHocPickInput,
-): Promise<Result<{ id: string; gi_no: string }>> {
+): Promise<Result<PickResult>> {
   if (!(await hasPermission(PERMISSIONS.ISSUE_CREATE))) {
     return { ok: false, error: "沒有建立領料單的權限" };
   }
@@ -1079,8 +1180,12 @@ export async function pickAdHoc(
     lines: input.lines.map((l) => ({ item_id: l.item_id, qty_needed: l.qty_needed })),
   });
   if (!previewRes.ok) return previewRes;
-  if (!previewRes.data.can_post) {
-    return { ok: false, error: "庫存不足，無法過帳（請看預覽紅色提示）" };
+  // 部分出庫：有可用庫存即放行，缺貨自動轉補貨；完全無庫存才擋。
+  if (previewRes.data.qty_total <= 0) {
+    return {
+      ok: false,
+      error: "所選料件目前完全無可用庫存，無法出庫；請改用『建立補貨需求單』登記待補。",
+    };
   }
 
   const supabase = await createClient();
@@ -1101,6 +1206,8 @@ export async function pickAdHoc(
     preview: previewRes.data,
     lineNotes: input.lines.map((l, i) => ({ line_no: i + 1, notes: l.line_notes ?? null })),
     postCogs: true,
+    autoBackorder: true,
+    roNo: null,
   });
 }
 
@@ -1123,10 +1230,18 @@ async function persistPick(args: {
    * 是否認列銷貨成本（COGS_ON_ISSUE：Dr 銷貨成本 / Cr 存貨）。
    * RO 領料 / ad-hoc 出庫 = true（這些原本完全沒記 COGS，是 GL 缺口）。
    * 內售出貨 = false（createInternalSale 自己走 PARTS_RETAIL_SALE 已含 COGS，勿重複）。
+   * COGS 只認列「實際出庫」的 picks 成本（部分出庫時待補貨品項不會被預先認列）。
    */
   postCogs?: boolean;
-}): Promise<Result<{ id: string; gi_no: string }>> {
-  const { supabase, brandId, userId, type, warehouseId, customerId, roId, sourceDocType, sourceDocId, notes, preview, lineNotes, linePrices, postCogs } = args;
+  /**
+   * 部分出庫（Russell 6/17 裁示一）：缺貨品項自動建補貨需求單 + 回寫工單關聯。
+   * RO 領料 / ad-hoc = true；內售 / RO addon = false（沿用原嚴格流程）。
+   */
+  autoBackorder?: boolean;
+  /** 工單 RO 號，for 補貨需求單顯示（autoBackorder 時用）*/
+  roNo?: string | null;
+}): Promise<Result<PickResult>> {
+  const { supabase, brandId, userId, type, warehouseId, customerId, roId, sourceDocType, sourceDocId, notes, preview, lineNotes, linePrices, postCogs, autoBackorder, roNo } = args;
 
   const gi_no = await nextGiNo(supabase);
   const now = new Date();
@@ -1308,10 +1423,105 @@ async function persistPick(args: {
     }
   }
 
+  // ── 部分出庫：缺貨品項自動轉「待補貨」+ 回寫工單關聯（Russell 6/17 裁示一）──
+  // 缺貨件不消失、不變孤兒：① 自動建補貨需求單（連結本領料單 + 工單）
+  // ② 領料單 metadata 標記部分出庫 ③ 回寫 work_order_items metadata（待補貨 + 補貨單號）
+  let backorderReqNo: string | null = null;
+  const shortageLines = preview.lines
+    .filter((l) => l.shortage > 0)
+    .map((l) => ({
+      item_id: l.item_id,
+      item_code: l.item_code,
+      item_name: l.item_name,
+      qty_shortage: l.shortage,
+    }));
+
+  if (autoBackorder && shortageLines.length > 0) {
+    // ① 自動建補貨需求單
+    const repRes = await createReplenishmentRequest({
+      issue_id: issue.id,
+      work_order_id: roId,
+      ro_no: roNo ?? null,
+      warehouse_id: warehouseId,
+      shortage_lines: shortageLines,
+    });
+    if (repRes.ok) {
+      backorderReqNo = repRes.data.req_no;
+    } else {
+      console.error("[partial-pick] 自動建補貨需求失敗（不影響已出庫部分）", {
+        gi_no,
+        error: repRes.error,
+      });
+    }
+
+    // ② 領料單 metadata 標記部分出庫（領料單詳情可顯示）
+    const { error: metaErr } = await supabase
+      .from("stock_issues")
+      .update({
+        metadata: {
+          partial_pick: true,
+          backorder_req_no: backorderReqNo,
+          shortage_lines: shortageLines,
+        },
+      })
+      .eq("id", issue.id);
+    if (metaErr) {
+      console.error("[partial-pick] 標記領料單 metadata 失敗", { gi_no, error: metaErr.message });
+    }
+
+    // ③ 回寫工單料件關聯（非阻塞）— 缺貨件在原工單上保留可追蹤關聯
+    if (roId) {
+      const reqNo = backorderReqNo;
+      const issueId = issue.id;
+      const stampIso = now.toISOString();
+      after(async () => {
+        try {
+          for (const sl of shortageLines) {
+            const { data: woiRows } = await supabase
+              .from("work_order_items")
+              .select("id, metadata")
+              .eq("work_order_id", roId)
+              .eq("item_id", sl.item_id)
+              .eq("kind", "parts");
+            for (const row of woiRows ?? []) {
+              const meta = (row.metadata ?? {}) as Record<string, unknown>;
+              await supabase
+                .from("work_order_items")
+                .update({
+                  metadata: {
+                    ...meta,
+                    backorder: {
+                      status: "待補貨",
+                      req_no: reqNo,
+                      issue_id: issueId,
+                      qty_shortage: sl.qty_shortage,
+                      created_at: stampIso,
+                    },
+                  },
+                })
+                .eq("id", row.id);
+            }
+          }
+        } catch (e) {
+          console.error("[partial-pick] 回寫工單關聯失敗（不影響主流程）", e);
+        }
+      });
+    }
+  }
+
   revalidatePath("/parts/issue/repair-pick");
   revalidatePath("/parts/operations/balance");
   if (sourceDocId) revalidatePath(`/admin/master-data/work-orders/${sourceDocId}`);
-  return { ok: true, data: { id: issue.id, gi_no } };
+  return {
+    ok: true,
+    data: {
+      id: issue.id,
+      gi_no,
+      partial: shortageLines.length > 0,
+      req_no: backorderReqNo ?? undefined,
+      shortage_count: shortageLines.length,
+    },
+  };
 }
 
 export type UpdateIssueInput = {

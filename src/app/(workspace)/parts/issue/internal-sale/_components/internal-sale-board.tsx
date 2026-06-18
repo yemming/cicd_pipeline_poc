@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { voidIssue } from "@/domain/issues";
 import {
+  markInternalSaleReceived,
   setDeliveryStatus,
   type InternalSaleIssueKpis,
   type InternalSaleIssueRow,
@@ -15,6 +16,7 @@ import {
 import {
   DELIVERY_STATUS_OPTIONS,
   ISSUE_STATUS_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
   deliveryStatusChipClass,
   deliveryStatusLabel,
   fmtDate,
@@ -23,6 +25,8 @@ import {
   fmtMoneyShort,
   issueStatusChipClass,
   issueStatusLabel,
+  paymentStatusChipClass,
+  paymentStatusLabel,
 } from "@/domain/internal-sale-issues.constants";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import { KpiCard } from "@/components/visualization/KpiCard";
@@ -51,6 +55,7 @@ export function InternalSaleBoard({
   filter: {
     status: string;
     delivery_status: string;
+    payment_status: string;
     warehouse_id: string;
     destination_store_id: string;
     q: string;
@@ -67,6 +72,7 @@ export function InternalSaleBoard({
   // filter form state
   const [status, setStatus] = useState(filter.status);
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState(filter.delivery_status);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState(filter.payment_status);
   const [warehouseId, setWarehouseId] = useState(filter.warehouse_id);
   const [destinationStoreId, setDestinationStoreId] = useState(filter.destination_store_id);
   const [q, setQ] = useState(filter.q);
@@ -88,6 +94,9 @@ export function InternalSaleBoard({
     if (deliveryStatusFilter && deliveryStatusFilter !== "all") {
       params.set("delivery_status", deliveryStatusFilter);
     }
+    if (paymentStatusFilter && paymentStatusFilter !== "all") {
+      params.set("payment_status", paymentStatusFilter);
+    }
     if (warehouseId) params.set("warehouse_id", warehouseId);
     if (destinationStoreId) params.set("destination_store_id", destinationStoreId);
     if (q.trim()) params.set("q", q.trim());
@@ -102,6 +111,7 @@ export function InternalSaleBoard({
   function resetFilter() {
     setStatus("all");
     setDeliveryStatusFilter("all");
+    setPaymentStatusFilter("all");
     setWarehouseId("");
     setDestinationStoreId("");
     setQ("");
@@ -138,6 +148,18 @@ export function InternalSaleBoard({
         router.refresh();
       } else {
         flash({ ok: false, msg: `更新失敗：${res.error}` });
+      }
+    });
+  }
+
+  function quickMarkReceived(id: string, gi_no: string) {
+    startTransition(async () => {
+      const res = await markInternalSaleReceived(id);
+      if (res.ok) {
+        flash({ ok: true, msg: `✓ ${gi_no} 已標記為已收款` });
+        router.refresh();
+      } else {
+        flash({ ok: false, msg: `標記收款失敗：${res.error}` });
       }
     });
   }
@@ -265,6 +287,29 @@ export function InternalSaleBoard({
         sortValue: (r) => r.amount_total,
       },
       {
+        id: "payment_status",
+        header: "收款狀態",
+        width: 120,
+        hideable: false,
+        cell: (r) =>
+          r.payment_status ? (
+            <span
+              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap ${paymentStatusChipClass(r.payment_status)}`}
+              title={
+                r.expected_payment_date
+                  ? `預期收款日：${r.expected_payment_date}`
+                  : undefined
+              }
+            >
+              {paymentStatusLabel(r.payment_status)}
+            </span>
+          ) : (
+            <span className="text-[#9A9890] text-[11px]">不適用</span>
+          ),
+        exportValue: (r) => (r.payment_status ? paymentStatusLabel(r.payment_status) : ""),
+        sortValue: (r) => r.payment_status ?? "",
+      },
+      {
         id: "status",
         header: "單據狀態",
         width: 100,
@@ -315,7 +360,7 @@ export function InternalSaleBoard({
         </div>
       )}
 
-      {/* 2. KPI cards（M04U-20 規格：今日出庫筆數 / 查收中 / 已送達 / 結算金額） */}
+      {/* 2. KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
         <KpiCard
           label="今日出庫"
@@ -342,6 +387,30 @@ export function InternalSaleBoard({
           layout="vertical"
         />
       </div>
+
+      {/* 應收帳款 KPI（Russell 6/17 裁示：已出貨未收款可視化） */}
+      {(kpis.unpaidCount > 0 || kpis.overdueUnpaidCount > 0) && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+          <KpiCard
+            label="未收款筆數"
+            value={kpis.unpaidCount}
+            tone="amber"
+            layout="vertical"
+          />
+          <KpiCard
+            label="未收款金額"
+            value={fmtMoneyShort(kpis.unpaidAmount)}
+            tone="amber"
+            layout="vertical"
+          />
+          <KpiCard
+            label="逾期未收款"
+            value={kpis.overdueUnpaidCount}
+            tone="red"
+            layout="vertical"
+          />
+        </div>
+      )}
 
       {/* 3. Filter Bar */}
       <section className="bg-white border border-[#EEECE6] rounded-lg px-4 py-3">
@@ -380,6 +449,20 @@ export function InternalSaleBoard({
               onChange={(e) => setDeliveryStatusFilter(e.target.value)}
             >
               {DELIVERY_STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>收款狀態</label>
+            <select
+              className={inputClass}
+              value={paymentStatusFilter}
+              onChange={(e) => setPaymentStatusFilter(e.target.value)}
+            >
+              {PAYMENT_STATUS_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
@@ -487,7 +570,7 @@ export function InternalSaleBoard({
         exportFileName="internal-sale-issues"
         emptyMessage="尚無符合條件的內售出庫單"
         disabled={pending}
-        rowActionsWidth={canEdit ? 260 : 110}
+        rowActionsWidth={canEdit ? 330 : 110}
         rowActions={(r) => (
           <div className="flex gap-1">
             <Link
@@ -505,6 +588,18 @@ export function InternalSaleBoard({
                 ✓ 標記送達
               </button>
             )}
+            {canEdit &&
+              r.status !== "cancelled" &&
+              (r.payment_status === "unpaid" || r.payment_status === "overdue") && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => quickMarkReceived(r.id, r.gi_no)}
+                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] hover:bg-[#d5ecbf] disabled:opacity-50"
+                >
+                  {pending ? "儲存中⋯" : "$ 已收款"}
+                </button>
+              )}
             {canEdit && r.status === "completed" && (
               <button
                 type="button"

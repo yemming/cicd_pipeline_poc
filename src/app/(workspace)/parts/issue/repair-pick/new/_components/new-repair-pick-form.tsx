@@ -113,7 +113,8 @@ export function NewRepairPickForm({
   }
 
   function submitPost() {
-    if (!preview || !preview.can_post) return;
+    // 部分出庫：只要有可出庫存（qty_total > 0）就能過帳；完全無庫存才擋。
+    if (!preview || preview.qty_total <= 0) return;
     startTransition(async () => {
       const res =
         mode === "ro"
@@ -132,7 +133,10 @@ export function NewRepairPickForm({
               })),
             });
       if (res.ok) {
-        flash({ ok: true, msg: `✓ 已過帳 ${res.data.gi_no}` });
+        const msg = res.data.partial
+          ? `✓ 已部分出庫 ${res.data.gi_no}；缺貨 ${res.data.shortage_count ?? ""} 項已轉補貨需求${res.data.req_no ? ` ${res.data.req_no}` : ""}`
+          : `✓ 已過帳 ${res.data.gi_no}`;
+        flash({ ok: true, msg });
         router.push(`/parts/issue/repair-pick/${res.data.id}`);
         router.refresh();
       } else {
@@ -402,6 +406,11 @@ function RoChooser({
                     </td>
                     <td className="px-4 py-2 font-mono font-semibold text-[#1A3A5C]">
                       {w.ro_no}
+                      {w.partially_picked ? (
+                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-sans font-medium bg-[#FDF3E3] text-[#854F0B] align-middle">
+                          部分已領·待補貨
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-2">{w.customer_name ?? "—"}</td>
                     <td className="px-4 py-2">
@@ -637,6 +646,9 @@ function PreviewPanel({
   // 缺料明細
   const shortageLines = preview.lines.filter((l) => l.shortage > 0);
   const hasShortage = shortageLines.length > 0;
+  // 部分出庫狀態：完全無庫存可出 / 可部分出庫 / 全可過帳
+  const nothingToIssue = preview.qty_total <= 0;
+  const partial = hasShortage && !nothingToIssue;
 
   // 保固件明細（料件在保固 id 清單中）
   const warrantyLines = preview.lines.filter((l) => warrantyItemIds.has(l.item_id));
@@ -652,9 +664,13 @@ function PreviewPanel({
           <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11]">
             可過帳
           </span>
-        ) : (
+        ) : nothingToIssue ? (
           <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDECEA] text-[#CC0000]">
-            庫存不足
+            無庫存可出
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
+            可部分出庫
           </span>
         )}
       </header>
@@ -675,6 +691,11 @@ function PreviewPanel({
                   </li>
                 ))}
               </ul>
+              <p className="mt-1.5 text-[11px] text-[#854F0B]">
+                {nothingToIssue
+                  ? "目前完全無可用庫存，無法出庫；請用下方「建立補貨需求單」登記待補。"
+                  : "可先就足額品項過帳出庫，缺貨品項按「部分出庫並過帳」時會自動轉補貨需求並回寫工單；若只想登記補貨、暫不出庫，可單獨點下方按鈕。"}
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
@@ -821,10 +842,17 @@ function PreviewPanel({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={!preview.can_post || isPending}
+          disabled={nothingToIssue || isPending}
+          title={nothingToIssue ? "目前完全無可用庫存，請改建補貨需求單" : undefined}
           className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
         >
-          {isPending ? "過帳中⋯" : "一鍵領料並過帳"}
+          {isPending
+            ? partial
+              ? "部分出庫中⋯"
+              : "過帳中⋯"
+            : partial
+              ? "部分出庫並過帳（缺貨轉補貨）"
+              : "一鍵領料並過帳"}
         </button>
       </footer>
     </section>

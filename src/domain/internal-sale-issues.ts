@@ -24,6 +24,10 @@ import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import {
+  resolvePaymentStatus,
+  type PaymentStatus,
+} from "@/domain/internal-sale-issues.constants";
 
 export type Result<T = unknown> =
   | { ok: true; data: T }
@@ -58,6 +62,10 @@ export type InternalSaleIssueRow = {
   posted_at: string | null;
   voided_at: string | null;
   void_reason: string | null;
+  /** 應收帳款狀態（computed from metadata，null = 不適用/作廢/零元） */
+  payment_status: PaymentStatus | null;
+  /** metadata.expected_payment_date（YYYY-MM-DD），供 UI tooltip 顯示 */
+  expected_payment_date: string | null;
 };
 
 export type InternalSaleIssueLine = {
@@ -104,11 +112,18 @@ export type InternalSaleIssueKpis = {
   inTransitCount: number;
   deliveredCount: number;
   totalAmount: number;
+  /** 已出貨未收款筆數（status != cancelled, amount > 0, payment_received != true） */
+  unpaidCount: number;
+  /** 已出貨未收款金額合計 */
+  unpaidAmount: number;
+  /** 逾期未收款筆數（expected_payment_date < today） */
+  overdueUnpaidCount: number;
 };
 
 export type InternalSaleIssueFilter = {
   status?: string;
   delivery_status?: string;
+  payment_status?: string;
   warehouse_id?: string;
   destination_store_id?: string;
   q?: string;
@@ -137,7 +152,7 @@ export async function getInternalSaleIssuesPageData(
   const brandId = scope.brand_id;
 
   const baseCols =
-    "id, gi_no, brand_id, type, status, warehouse_id, customer_id, destination_store_id, issue_date, qty_issued_total, amount_total, notes, delivery_status, delivery_eta_at, delivery_address, recipient_name, recipient_phone, posted_at, voided_at, void_reason";
+    "id, gi_no, brand_id, type, status, warehouse_id, customer_id, destination_store_id, issue_date, qty_issued_total, amount_total, notes, delivery_status, delivery_eta_at, delivery_address, recipient_name, recipient_phone, posted_at, voided_at, void_reason, metadata";
 
   let q = supabase
     .from("stock_issues")
@@ -152,6 +167,7 @@ export async function getInternalSaleIssuesPageData(
   if (filter.delivery_status && filter.delivery_status !== "all") {
     q = q.eq("delivery_status", filter.delivery_status);
   }
+  // payment_status filter 在 client-side 做（metadata jsonb 不適合 server-side 篩選）
   if (filter.warehouse_id) q = q.eq("warehouse_id", filter.warehouse_id);
   if (filter.destination_store_id) {
     q = q.eq("destination_store_id", filter.destination_store_id);
@@ -187,6 +203,9 @@ export async function getInternalSaleIssuesPageData(
         inTransitCount: 0,
         deliveredCount: 0,
         totalAmount: 0,
+        unpaidCount: 0,
+        unpaidAmount: 0,
+        overdueUnpaidCount: 0,
       },
       warehouses: (whRes.data ?? []) as WarehouseOption[],
       destinationStores: (storeRes.data ?? []) as StoreOption[],
@@ -226,39 +245,69 @@ export async function getInternalSaleIssuesPageData(
     (dsJoin.data ?? []).map((s) => [s.id, { code: s.code, name: s.name }] as const),
   );
 
-  const rows: InternalSaleIssueRow[] = rawRows.map((r) => ({
-    id: r.id,
-    gi_no: r.gi_no,
-    brand_id: r.brand_id,
-    type: r.type,
-    status: r.status,
-    warehouse_id: r.warehouse_id,
-    warehouse_code: r.warehouse_id ? whMap.get(r.warehouse_id)?.code ?? null : null,
-    warehouse_name: r.warehouse_id ? whMap.get(r.warehouse_id)?.name ?? null : null,
-    customer_id: r.customer_id,
-    customer_name: r.customer_id ? cMap.get(r.customer_id) ?? null : null,
-    destination_store_id: r.destination_store_id,
-    destination_store_code: r.destination_store_id
-      ? dsMap.get(r.destination_store_id)?.code ?? null
-      : null,
-    destination_store_name: r.destination_store_id
-      ? dsMap.get(r.destination_store_id)?.name ?? null
-      : null,
-    issue_date: r.issue_date,
-    qty_issued_total: Number(r.qty_issued_total ?? 0),
-    amount_total: Number(r.amount_total ?? 0),
-    notes: r.notes,
-    delivery_status: r.delivery_status,
-    delivery_eta_at: r.delivery_eta_at,
-    delivery_address: r.delivery_address,
-    recipient_name: r.recipient_name,
-    recipient_phone: r.recipient_phone,
-    posted_at: r.posted_at,
-    voided_at: r.voided_at,
-    void_reason: r.void_reason,
-  }));
-
   const today = new Date().toISOString().slice(0, 10);
+
+  const rows: InternalSaleIssueRow[] = rawRows.map((r) => {
+    const meta = (r.metadata ?? {}) as Record<string, unknown>;
+    const amountTotal = Number(r.amount_total ?? 0);
+    const paymentStatus = resolvePaymentStatus(
+      r.status,
+      amountTotal,
+      r.issue_date,
+      meta,
+      today,
+    );
+    const expectedPaymentDate =
+      typeof meta.expected_payment_date === "string" && meta.expected_payment_date.length === 10
+        ? meta.expected_payment_date
+        : null;
+
+    return {
+      id: r.id,
+      gi_no: r.gi_no,
+      brand_id: r.brand_id,
+      type: r.type,
+      status: r.status,
+      warehouse_id: r.warehouse_id,
+      warehouse_code: r.warehouse_id ? whMap.get(r.warehouse_id)?.code ?? null : null,
+      warehouse_name: r.warehouse_id ? whMap.get(r.warehouse_id)?.name ?? null : null,
+      customer_id: r.customer_id,
+      customer_name: r.customer_id ? cMap.get(r.customer_id) ?? null : null,
+      destination_store_id: r.destination_store_id,
+      destination_store_code: r.destination_store_id
+        ? dsMap.get(r.destination_store_id)?.code ?? null
+        : null,
+      destination_store_name: r.destination_store_id
+        ? dsMap.get(r.destination_store_id)?.name ?? null
+        : null,
+      issue_date: r.issue_date,
+      qty_issued_total: Number(r.qty_issued_total ?? 0),
+      amount_total: amountTotal,
+      notes: r.notes,
+      delivery_status: r.delivery_status,
+      delivery_eta_at: r.delivery_eta_at,
+      delivery_address: r.delivery_address,
+      recipient_name: r.recipient_name,
+      recipient_phone: r.recipient_phone,
+      posted_at: r.posted_at,
+      voided_at: r.voided_at,
+      void_reason: r.void_reason,
+      payment_status: paymentStatus,
+      expected_payment_date: expectedPaymentDate,
+    };
+  });
+
+  // payment_status filter（client-side，metadata 不適合 DB-level filter）
+  const paymentStatusFilter = filter.payment_status && filter.payment_status !== "all"
+    ? filter.payment_status
+    : null;
+  const filteredRows = paymentStatusFilter
+    ? rows.filter((r) => r.payment_status === paymentStatusFilter)
+    : rows;
+
+  const unpaidRows = rows.filter(
+    (r) => r.payment_status === "unpaid" || r.payment_status === "overdue",
+  );
   const kpis: InternalSaleIssueKpis = {
     totalCount: rows.length,
     todayCount: rows.filter((r) => r.issue_date === today).length,
@@ -271,11 +320,14 @@ export async function getInternalSaleIssuesPageData(
     totalAmount: rows
       .filter((r) => r.status === "completed")
       .reduce((s, r) => s + r.amount_total, 0),
+    unpaidCount: unpaidRows.length,
+    unpaidAmount: unpaidRows.reduce((s, r) => s + r.amount_total, 0),
+    overdueUnpaidCount: rows.filter((r) => r.payment_status === "overdue").length,
   };
 
   return {
-    rows,
-    total: rows.length,
+    rows: filteredRows,
+    total: filteredRows.length,
     kpis,
     warehouses: (whRes.data ?? []) as WarehouseOption[],
     destinationStores: (storeRes.data ?? []) as StoreOption[],
@@ -385,6 +437,22 @@ export async function getInternalSaleIssueById(
     notes: l.notes,
   }));
 
+  const detailMeta = (row.metadata ?? {}) as Record<string, unknown>;
+  const detailAmountTotal = Number(row.amount_total ?? 0);
+  const detailToday = new Date().toISOString().slice(0, 10);
+  const detailPaymentStatus = resolvePaymentStatus(
+    row.status,
+    detailAmountTotal,
+    row.issue_date,
+    detailMeta,
+    detailToday,
+  );
+  const detailExpectedPaymentDate =
+    typeof detailMeta.expected_payment_date === "string" &&
+    detailMeta.expected_payment_date.length === 10
+      ? detailMeta.expected_payment_date
+      : null;
+
   return {
     id: row.id,
     gi_no: row.gi_no,
@@ -402,7 +470,7 @@ export async function getInternalSaleIssueById(
     destination_store_name: dsRes.data?.name ?? null,
     issue_date: row.issue_date,
     qty_issued_total: Number(row.qty_issued_total ?? 0),
-    amount_total: Number(row.amount_total ?? 0),
+    amount_total: detailAmountTotal,
     notes: row.notes,
     delivery_status: row.delivery_status,
     delivery_eta_at: row.delivery_eta_at,
@@ -412,6 +480,8 @@ export async function getInternalSaleIssueById(
     posted_at: row.posted_at,
     voided_at: row.voided_at,
     void_reason: row.void_reason,
+    payment_status: detailPaymentStatus,
+    expected_payment_date: detailExpectedPaymentDate,
     posted_by_name: postedByRes.data?.display_name ?? null,
     voided_by_name: voidedByRes.data?.display_name ?? null,
     gl_posted: !!row.gl_posted,
@@ -502,6 +572,59 @@ export async function setDeliveryStatus(
   next: "pending" | "in_transit" | "delivered" | "cancelled",
 ): Promise<Result<{ id: string }>> {
   return updateInternalSaleDelivery(id, { delivery_status: next });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 應收帳款 — 標記已收款（最小化 visibility-first 功能）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 標記一筆內售出庫為「已收款」。
+ *
+ * 寫法：把 metadata.payment_received = true + metadata.paid_at 合併進 metadata，
+ * 保留既有其他 metadata 欄位（不整包覆蓋）。
+ * 不做完整收款對帳，只是 visibility-first 的「已收款」標記。
+ */
+export async function markInternalSaleReceived(
+  id: string,
+): Promise<Result<{ id: string }>> {
+  if (!(await hasPermission(PERMISSIONS.ISSUE_CREATE))) {
+    return { ok: false, error: "沒有修改內售出庫單的權限" };
+  }
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  // 先撈既有 metadata，才能做合併（不整包覆蓋）
+  const { data: current, error: curErr } = await supabase
+    .from("stock_issues")
+    .select("status, metadata")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .eq("type", "internal_sale")
+    .maybeSingle();
+  if (curErr) return { ok: false, error: curErr.message };
+  if (!current) return { ok: false, error: "找不到內售出庫單" };
+  if (current.status === "cancelled") {
+    return { ok: false, error: "已作廢的出庫單不可標記收款" };
+  }
+
+  const existingMeta = (current.metadata ?? {}) as Record<string, unknown>;
+  const updatedMeta: Record<string, unknown> = {
+    ...existingMeta,
+    payment_received: true,
+    paid_at: new Date().toISOString(),
+  };
+
+  const { error: upErr } = await supabase
+    .from("stock_issues")
+    .update({ metadata: updatedMeta })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+  if (upErr) return { ok: false, error: upErr.message };
+
+  revalidatePath("/parts/issue/internal-sale");
+  revalidatePath(`/parts/issue/internal-sale/${id}`);
+  return { ok: true, data: { id } };
 }
 
 /**

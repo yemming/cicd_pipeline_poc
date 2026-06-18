@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 type SearchParams = {
   status?: string;
   delivery_status?: string;
+  payment_status?: string;
   warehouse_id?: string;
   destination_store_id?: string;
   q?: string;
@@ -39,6 +40,7 @@ export default async function InternalSaleIssuePage({
   const filter = {
     status: sp.status ?? "all",
     delivery_status: sp.delivery_status ?? "all",
+    payment_status: sp.payment_status ?? "all",
     warehouse_id: sp.warehouse_id ?? "",
     destination_store_id: sp.destination_store_id ?? "",
     q: sp.q ?? "",
@@ -49,6 +51,7 @@ export default async function InternalSaleIssuePage({
   const page = await getInternalSaleIssuesPageData({
     status: filter.status,
     delivery_status: filter.delivery_status,
+    payment_status: filter.payment_status,
     warehouse_id: filter.warehouse_id || undefined,
     destination_store_id: filter.destination_store_id || undefined,
     q: filter.q || undefined,

@@ -7,6 +7,8 @@
 # 端點（皆需 Bearer CRON_TOKEN，未設或不符 → 503/401，無副作用）：
 #   - aftersales-approval-escalate：掃 pending>30min 的主管授權 → 升級店長
 #   - aftersales-dormancy：售後休眠客戶每日重算
+#   - return-requests-overdue：退料待確認逾期 + TL 工單未結案提醒
+#   - ro-checkout-overdue：付費 RO 待結帳超過 7 天升級通知店長（Russell 6/17）
 name: aftersales-cron
 
 on:
@@ -45,3 +47,12 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{}' || echo "return-requests-overdue endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"
+  ro-checkout-overdue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 付費 RO 待結帳逾期升級通知（Russell 6/17）
+        run: |
+          curl -fsS -X POST "https://dealeros.zeabur.app/api/cron/ro-checkout-overdue" \
+            -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || echo "ro-checkout-overdue endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"

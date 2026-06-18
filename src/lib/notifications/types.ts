@@ -40,7 +40,10 @@ export type EventCode =
   | "repair_order.completed"
   // Tech 工作台：技師提交追加項目，通知 SA 有待確認追加
   //   payload: ro_id / ro_code / addon_id / addon_name / brand_id
-  | "repair_order_addon.proposed";
+  | "repair_order_addon.proposed"
+  // Russell 6/17 裁示：付費 RO 待結帳超過 N 天升級通知給店長（SA 疏忽備援）
+  //   payload: checkoutNo / roCode / customerName / overdueDays / payable / actionUrl / brandId
+  | "ro_checkout.unpaid_overdue";
 
 export interface NotificationEvent<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   code: EventCode;
