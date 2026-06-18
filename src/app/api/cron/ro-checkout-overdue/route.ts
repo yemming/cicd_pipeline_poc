@@ -188,11 +188,10 @@ export async function POST(req: NextRequest) {
       const payable =
         typeof feeSummary.payable === "number" ? feeSummary.payable : null;
 
-      // 結帳頁 URL：指向 RO 詳情頁的結帳 tab（目前用 ro_id 路由）
-      const actionUrl =
-        co.repair_order_id
-          ? `${appUrl}/parts/aftersales/workorders/${co.repair_order_id as string}?tab=checkout`
-          : `${appUrl}/parts/aftersales/workorders`;
+      // 結帳頁 URL：直接指向該結帳單的結帳 wizard（/parts/aftersales/checkout/[id]，
+      // id = ro_checkouts.id，由 getRoCheckoutById 解析）。
+      // 註：舊版誤指 /parts/aftersales/workorders/{ro_id}?tab=checkout 是 placeholder 路由。
+      const actionUrl = `${appUrl}/parts/aftersales/checkout/${co.id as string}`;
 
       if (!dryRun) {
         // ── 4. 推播通知 ──
