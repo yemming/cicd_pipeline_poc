@@ -852,7 +852,10 @@ export type RepairPickPreviewLine = {
   item_code: string | null;
   item_name: string;
   qty_needed: number;
+  /** 淨可用量（on_hand available − 其他工單的 active 預留）。本工單自己的預留不扣（出庫時會 consume）。 */
   qty_available: number;
+  /** 被「其他工單」active 預留卡住的數量（場景一：防止多工單搶同一料）。> 0 時 UI 顯示「已被其他工單預留」。 */
+  reserved_by_others: number;
   shortage: number;
   unit_cost_estimate: number;
   picks: Array<{
@@ -967,6 +970,28 @@ export async function previewRepairPick(
     (itemRows ?? []).map((it) => [it.id, { code: it.code, name: it.name }] as const),
   );
 
+  // 場景一：可用量必須扣掉「其他工單」的 active 預留（防多工單搶同一料）。
+  // 一次撈齊這批 item 在該倉的 active 預留，排除「本工單自己」的預留（自己的出庫時會 consume，不該擋自己）。
+  // adhoc（無 workOrderId）→ 全部 active 預留都算「別人的」，一律扣。
+  const reservedByOthersMap = new Map<string, number>();
+  {
+    const { data: resvRows, error: resvErr } = await supabase
+      .from("inventory_reservations")
+      .select("item_id, reserved_qty, consumed_qty, ro_id")
+      .eq("brand_id", scope.brand_id)
+      .eq("warehouse_id", input.warehouse_id)
+      .in("item_id", itemIds)
+      .eq("status", "active");
+    if (resvErr) return { ok: false, error: resvErr.message };
+    for (const r of resvRows ?? []) {
+      if (workOrderId && r.ro_id === workOrderId) continue; // 自己的預留不擋自己
+      const rem = Number(r.reserved_qty) - Number(r.consumed_qty ?? 0);
+      if (rem > 0) {
+        reservedByOthersMap.set(r.item_id, (reservedByOthersMap.get(r.item_id) ?? 0) + rem);
+      }
+    }
+  }
+
   // 對每個 need 跑 FIFO 配置
   const previewLines: RepairPickPreviewLine[] = [];
   let qty_total = 0;
@@ -986,14 +1011,21 @@ export async function previewRepairPick(
       .order("created_at", { ascending: true });
     if (stockErr) return { ok: false, error: stockErr.message };
 
+    // 原始在庫可用量（純加總，未扣預留）
+    let rawAvailable = 0;
+    for (const s of stocks ?? []) rawAvailable += Number(s.qty);
+    // 場景一：淨可用量 = 原始可用 − 其他工單的 active 預留；本次可配置量以此為上限
+    const reservedByOthers = reservedByOthersMap.get(n.item_id) ?? 0;
+    const qty_available = Math.max(0, rawAvailable - reservedByOthers);
+
     let remaining = n.qty_needed;
+    let budget = qty_available; // 不可領超過淨可用量（被別單預留的部分要留給對方）
     const picks: RepairPickPreviewLine["picks"] = [];
-    let qty_available = 0;
     let unit_cost_estimate = 0;
     for (const s of stocks ?? []) {
-      qty_available += Number(s.qty);
-      if (remaining <= 0) continue;
-      const take = Math.min(Number(s.qty), remaining);
+      if (remaining <= 0 || budget <= 0) break;
+      const take = Math.min(Number(s.qty), remaining, budget);
+      if (take <= 0) continue;
       const uc = Number(s.unit_cost ?? 0);
       picks.push({
         stock_id: s.id,
@@ -1005,10 +1037,11 @@ export async function previewRepairPick(
         batch_no: s.batch_no,
       });
       remaining -= take;
+      budget -= take;
       unit_cost_estimate = uc;
     }
 
-    const shortage = Math.max(0, n.qty_needed - (n.qty_needed - remaining));
+    const shortage = Math.max(0, remaining); // 含「被別單預留卡住」而領不到的部分
     if (shortage > 0) can_post = false;
 
     qty_total += n.qty_needed - remaining;
@@ -1021,6 +1054,7 @@ export async function previewRepairPick(
       item_name: itemMap.get(n.item_id)?.name ?? n.description ?? "(unknown)",
       qty_needed: n.qty_needed,
       qty_available,
+      reserved_by_others: reservedByOthers,
       shortage,
       unit_cost_estimate,
       picks,
@@ -1330,6 +1364,53 @@ async function persistPick(args: {
       };
       if (newQty <= 0) update.status = "issued";
       await supabase.from("stock_items").update(update).eq("id", p.stock_id);
+    }
+  }
+
+  // 場景二：回寫工單零件費用（同步、即時可見）。
+  // 此前 work_orders.parts_amount 從來沒被任何流程更新 → 工單看不到實際出庫成本。
+  // 做法：彙總該工單所有「未作廢」領料單的 amount_total = 實際零件費用，回寫 parts_amount，
+  //       並重算 total_amount = parts + labor + external − discount。
+  // 失敗只記 log 不中斷（庫存已扣、領料單已建，硬擋反而造成不一致；沿用 partial-pick 容錯慣例）。
+  if (sourceDocType === "work_order" && roId) {
+    const { data: woIssues, error: woIssuesErr } = await supabase
+      .from("stock_issues")
+      .select("amount_total")
+      .eq("brand_id", brandId)
+      .eq("source_doc_type", "work_order")
+      .eq("source_doc_id", roId)
+      .neq("status", "cancelled");
+    if (woIssuesErr) {
+      console.error("[scene2] 彙總工單領料金額失敗", { gi_no, ro_id: roId, error: woIssuesErr.message });
+    } else {
+      const partsAmount =
+        Math.round((woIssues ?? []).reduce((s, r) => s + Number(r.amount_total ?? 0), 0) * 100) / 100;
+      const { data: woAmt } = await supabase
+        .from("work_orders")
+        .select("labor_amount, external_amount, discount_amount")
+        .eq("id", roId)
+        .eq("brand_id", brandId)
+        .maybeSingle();
+      const labor = Number(woAmt?.labor_amount ?? 0);
+      const external = Number(woAmt?.external_amount ?? 0);
+      const discount = Number(woAmt?.discount_amount ?? 0);
+      const totalAmount = Math.round((partsAmount + labor + external - discount) * 100) / 100;
+      const { error: woUpdErr } = await supabase
+        .from("work_orders")
+        .update({
+          parts_amount: partsAmount,
+          total_amount: totalAmount,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", roId)
+        .eq("brand_id", brandId);
+      if (woUpdErr) {
+        console.error("[scene2] 回寫工單零件費用失敗（不影響已出庫）", {
+          gi_no,
+          ro_id: roId,
+          error: woUpdErr.message,
+        });
+      }
     }
   }
 

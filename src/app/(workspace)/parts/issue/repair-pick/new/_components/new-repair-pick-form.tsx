@@ -790,7 +790,17 @@ function PreviewPanel({
                     )}
                   </td>
                   <td className="px-2 py-2 text-right font-mono">{l.qty_needed}</td>
-                  <td className="px-2 py-2 text-right font-mono">{l.qty_available}</td>
+                  <td className="px-2 py-2 text-right font-mono">
+                    {l.qty_available}
+                    {l.reserved_by_others > 0 && (
+                      <div
+                        className="mt-0.5 text-[10px] text-[#854F0B] whitespace-nowrap"
+                        title="此料件有數量已被其他工單預留，不可重複領出"
+                      >
+                        🔒 已被其他工單預留 {l.reserved_by_others}
+                      </div>
+                    )}
+                  </td>
                   <td
                     className={`px-2 py-2 text-right font-mono ${
                       isShort ? "text-[#CC0000] font-semibold" : "text-[#9A9890]"
