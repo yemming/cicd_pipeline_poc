@@ -897,6 +897,8 @@ export async function previewRepairPick(
   // 統一收成 { item_id, qty_needed }[] 餵 FIFO 配置
   let needs: Array<{ item_id: string; qty_needed: number; description: string }>;
   let workOrderId: string | null = null;
+  // 預留的 ro_id 對映 repair_orders（非 work_orders）→ 排除「本工單自己的預留」要用 repair_order_id 比對
+  let repairOrderId: string | null = null;
 
   if (input.mode === "ro") {
     if (!input.work_order_id) return { ok: false, error: "缺 work_order_id" };
@@ -904,11 +906,12 @@ export async function previewRepairPick(
 
     const { data: wo, error: woErr } = await supabase
       .from("work_orders")
-      .select("id, ro_no, status")
+      .select("id, ro_no, status, repair_order_id")
       .eq("id", input.work_order_id)
       .eq("brand_id", scope.brand_id)
       .maybeSingle();
     if (woErr) return { ok: false, error: woErr.message };
+    repairOrderId = (wo as { repair_order_id?: string | null } | null)?.repair_order_id ?? null;
     if (!wo) return { ok: false, error: "找不到工單" };
 
     const { data: woItems, error: woItemsErr } = await supabase
@@ -984,7 +987,8 @@ export async function previewRepairPick(
       .eq("status", "active");
     if (resvErr) return { ok: false, error: resvErr.message };
     for (const r of resvRows ?? []) {
-      if (workOrderId && r.ro_id === workOrderId) continue; // 自己的預留不擋自己
+      // 自己的預留不擋自己：reservations.ro_id 對映 repair_orders，用本工單的 repair_order_id 比對
+      if (repairOrderId && r.ro_id === repairOrderId) continue;
       const rem = Number(r.reserved_qty) - Number(r.consumed_qty ?? 0);
       if (rem > 0) {
         reservedByOthersMap.set(r.item_id, (reservedByOthersMap.get(r.item_id) ?? 0) + rem);
@@ -1167,7 +1171,7 @@ export async function pickForWorkOrder(
 
   const { data: wo } = await supabase
     .from("work_orders")
-    .select("id, ro_no, customer_id")
+    .select("id, ro_no, customer_id, repair_order_id")
     .eq("id", input.work_order_id)
     .eq("brand_id", scope.brand_id)
     .maybeSingle();
@@ -1188,6 +1192,7 @@ export async function pickForWorkOrder(
     postCogs: true,
     autoBackorder: true,
     roNo: wo.ro_no,
+    repairOrderId: (wo as { repair_order_id?: string | null }).repair_order_id ?? null,
   });
 }
 
@@ -1274,8 +1279,10 @@ async function persistPick(args: {
   autoBackorder?: boolean;
   /** 工單 RO 號，for 補貨需求單顯示（autoBackorder 時用）*/
   roNo?: string | null;
+  /** 對映的 repair_order_id（inventory_reservations.ro_id 指向 repair_orders，consume 預留要用這個比對）*/
+  repairOrderId?: string | null;
 }): Promise<Result<PickResult>> {
-  const { supabase, brandId, userId, type, warehouseId, customerId, roId, sourceDocType, sourceDocId, notes, preview, lineNotes, linePrices, postCogs, autoBackorder, roNo } = args;
+  const { supabase, brandId, userId, type, warehouseId, customerId, roId, sourceDocType, sourceDocId, notes, preview, lineNotes, linePrices, postCogs, autoBackorder, roNo, repairOrderId } = args;
 
   const gi_no = await nextGiNo(supabase);
   const now = new Date();
@@ -1415,8 +1422,10 @@ async function persistPick(args: {
   }
 
   // 消耗預留（inventory_reservations active → consumed）— 非阻塞、不影響主流程。
-  // 只在有 roId 時執行，依工單 + item_id 比對，將本次已領數量翻 consumed。
-  if (roId) {
+  // 依 repair_order_id + item_id 比對（reservations.ro_id 對映 repair_orders，非 work_orders）。
+  // 此前用 work_order.id 比對 ro_id → id 空間不符、永遠 match 不到、預留從不被 consume（pre-existing bug）。
+  if (repairOrderId) {
+    const consumeRoId = repairOrderId;
     after(async () => {
       try {
         // 彙整本次各 item 已領總量
@@ -1432,7 +1441,7 @@ async function persistPick(args: {
             .select("id, reserved_qty, consumed_qty")
             .eq("brand_id", brandId)
             .eq("item_id", itemId)
-            .eq("ro_id", roId)
+            .eq("ro_id", consumeRoId)
             .eq("status", "active")
             .order("reserved_at", { ascending: true });
           if (resErr) {
