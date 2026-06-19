@@ -20,7 +20,10 @@ type Mode = "view" | "edit";
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
   draft:            { label: "草稿",     chip: "bg-[#F2F2F2] text-[#6B6A68]" },
+  submitted:        { label: "已送出",   chip: "bg-[#FDF3E3] text-[#854F0B]" },
   approved:         { label: "已核准",   chip: "bg-[#EAF4FB] text-[#185FA5]" },
+  partial:          { label: "部分入庫", chip: "bg-[#FDF3E3] text-[#854F0B]" },
+  closed:           { label: "已結案",   chip: "bg-[#EAF3DE] text-[#3B6D11]" },
   partial_received: { label: "部分入庫", chip: "bg-[#FDF3E3] text-[#854F0B]" },
   received:         { label: "已入庫",   chip: "bg-[#EAF3DE] text-[#3B6D11]" },
   cancelled:        { label: "已取消",   chip: "bg-[#FDECEA] text-[#CC0000]" },
@@ -75,7 +78,7 @@ export function PurchaseOrderDetailView({
   const statusDef = STATUS_LABEL[order.status ?? ""] ?? STATUS_LABEL.draft;
   const isDraft = order.status === "draft";
   const isApproved = order.status === "approved";
-  const canModify = isDraft || isApproved || order.status === "partial_received";
+  const canModify = isDraft || isApproved || order.status === "partial";
   const canApprove = isDraft;
   const canCancel = isDraft || isApproved;
   const progressPct = order.receipt_progress_pct ?? 0;

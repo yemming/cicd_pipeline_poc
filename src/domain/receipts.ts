@@ -455,8 +455,8 @@ export async function receiveStock(
     .eq("id", input.po_id)
     .single();
   if (poErr || !po) return { ok: false, error: `找不到 PO:${poErr?.message ?? "no row"}` };
-  if (!["approved", "partial_received"].includes(po.status)) {
-    return { ok: false, error: `PO 狀態 ${po.status} 不可收貨(需 approved 或 partial_received)` };
+  if (!["approved", "partial"].includes(po.status)) {
+    return { ok: false, error: `PO 狀態 ${po.status} 不可收貨(需 approved 或 partial)` };
   }
 
   // 2. 產 GR 號 GR + yyyymmdd-NNN
@@ -587,16 +587,22 @@ export async function receiveStock(
   const totalOrdered = (allPoLines ?? []).reduce((s, l) => s + l.qty_ordered, 0);
   const totalReceived = (allPoLines ?? []).reduce((s, l) => s + (l.qty_received ?? 0), 0);
   const progressPct = totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0;
-  const newStatus = progressPct >= 100 ? "received" : "partial_received";
-  await supabase
+  // ⚠️ DB CHECK purchase_orders_status_check 只允許 draft/submitted/approved/partial/closed/cancelled
+  //    舊 code 寫 "partial_received"/"received" 會撞 23514 且 update 無 error 檢查 → 靜默吞掉，
+  //    導致收貨明細進帳但 PO 表頭 status/qty_received_total/receipt_progress_pct 全沒更新（部分到貨永遠出不來）。
+  const newStatus = progressPct >= 100 ? "closed" : "partial";
+  const { error: poUpdErr } = await supabase
     .from("purchase_orders")
     .update({
       qty_received_total: totalReceived,
       receipt_progress_pct: progressPct,
       status: newStatus,
-      ...(newStatus === "received" ? { closed_at: new Date().toISOString() } : {}),
+      ...(newStatus === "closed" ? { closed_at: new Date().toISOString() } : {}),
     })
     .eq("id", po.id);
+  if (poUpdErr) {
+    return { ok: false, error: `更新 PO 進度失敗(GR ${gr_no} 已建立):${poUpdErr.message}` };
+  }
 
   void inputLineByPoLineId; // 防 unused warning
 
@@ -1073,14 +1079,14 @@ export async function voidReceipt(
       0,
     );
     const pct = totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0;
-    const newStatus = pct >= 100 ? "received" : pct > 0 ? "partial_received" : "approved";
+    const newStatus = pct >= 100 ? "closed" : pct > 0 ? "partial" : "approved";
     await supabase
       .from("purchase_orders")
       .update({
         qty_received_total: totalReceived,
         receipt_progress_pct: pct,
         status: newStatus,
-        ...(newStatus !== "received" ? { closed_at: null } : {}),
+        ...(newStatus !== "closed" ? { closed_at: null } : {}),
       })
       .eq("id", gr.source_doc_id);
   }
@@ -1642,7 +1648,7 @@ export async function getPoGrnNewPageData(poId?: string): Promise<PoGrnNewPageDa
         "id, po_no, status, vendor_id, warehouse_id, qty_ordered_total, qty_received_total, suppliers ( name ), warehouses ( name )",
       )
       .eq("brand_id", brand)
-      .in("status", ["approved", "partial_received"])
+      .in("status", ["approved", "partial"])
       .order("po_date", { ascending: false })
       .limit(50);
     if (error) throw new Error(`po candidates: ${error.message}`);

@@ -694,7 +694,7 @@ export async function updatePurchaseOrder(
     .maybeSingle();
   if (curErr) return { ok: false, error: curErr.message };
   if (!current) return { ok: false, error: "找不到採購單" };
-  if (current.status === "cancelled" || current.status === "received") {
+  if (["cancelled", "closed", "received"].includes(current.status)) {
     return { ok: false, error: `狀態 ${current.status} 不可修改` };
   }
 

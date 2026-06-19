@@ -166,11 +166,14 @@ export type StockItemStatus =
 
 export type PurchaseOrderStatus =
   | "draft"
+  | "submitted"
   | "pending"
   | "approved"
+  | "partial"
+  | "closed"
+  // legacy 別名（DB CHECK 不接受，僅為相容舊 code/型別，不應再寫入）
   | "partial_received"
   | "received"
-  | "closed"
   | "cancelled";
 
 export type ReceiptKind =

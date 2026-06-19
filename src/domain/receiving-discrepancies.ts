@@ -319,7 +319,7 @@ export async function batchImportDeliveryNote(
       )
       .eq("brand_id", brand)
       .in("item_id", matchedItemIds)
-      .in("purchase_orders.status", ["approved", "partial_received"]);
+      .in("purchase_orders.status", ["approved", "partial"]);
     if (lineErr) return { ok: false, error: `po lines: ${lineErr.message}` };
     openLines = ((lineRows ?? []) as unknown as Array<{
       id: string;

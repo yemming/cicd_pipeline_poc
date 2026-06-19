@@ -80,7 +80,7 @@ export function PORowActions({
     );
   }
 
-  if (status === "approved" || status === "partial_received") {
+  if (status === "approved" || status === "partial") {
     return (
       <a
         href={`/parts/receipt/po-grn/new?po=${poId}`}

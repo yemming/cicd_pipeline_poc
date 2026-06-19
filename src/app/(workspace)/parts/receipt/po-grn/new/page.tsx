@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
   approved: { label: "已核准", chip: "bg-[#EAF3DE] text-[#3B6D11]" },
+  partial: { label: "部分到貨", chip: "bg-[#EAF4FB] text-[#185FA5]" },
+  closed: { label: "已結案", chip: "bg-[#F2F2F2] text-[#6B6A68]" },
   partial_received: { label: "部分到貨", chip: "bg-[#EAF4FB] text-[#185FA5]" },
 };
 

@@ -13,7 +13,10 @@ import {
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
+  submitted: "已送出",
   approved: "已核准",
+  partial: "部分入庫",
+  closed: "已結案",
   partial_received: "部分入庫",
   received: "已入庫",
   cancelled: "已取消",
