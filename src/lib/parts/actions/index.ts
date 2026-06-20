@@ -78,7 +78,7 @@ export async function issueForRepair(
   // 1. 撈 work order
   const { data: wo, error: woErr } = await supabase
     .from("work_orders")
-    .select("id, ro_no, brand_id, customer_id, status")
+    .select("id, ro_no, brand_id, customer_id, status, repair_order_id")
     .eq("id", input.work_order_id)
     .eq("brand_id", brandId)
     .maybeSingle();
@@ -257,8 +257,14 @@ export async function issueForRepair(
   }
 
   // 消耗預留（inventory_reservations active → consumed）— 非阻塞、不影響主流程。
-  const roIdForConsume = wo.id;
+  // ⚠️ inventory_reservations.ro_id 的語意是 repair_orders.id（不是 work_orders.id）。
+  //    預留由售後 RO（tech 工作台 / addon）建立、鍵在 repair_orders；此處的 work_order
+  //    透過 repair_order_id 連結到那張 RO。先前誤用 wo.id 比對 → id 空間不符、永遠
+  //    match 不到、預留從不被消耗（與場景一 issues.ts 同一個病）。改用 repair_order_id；
+  //    無 repair_order_id（純倉管工單、TL 以外）則無對應預留可消耗，直接略過。
+  const roIdForConsume = wo.repair_order_id;
   after(async () => {
+    if (!roIdForConsume) return;
     try {
       // 彙整本次各 item 已領總量
       const issuedByItem = new Map<string, number>();

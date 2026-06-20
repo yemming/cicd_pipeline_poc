@@ -85,8 +85,11 @@ export async function getWorkOrderWithRepairOrder(
   };
 }
 
+// ⚠️ 參數是 work_orders.id（不是 repair_orders.id）。stock_issues.ro_id 的
+//    FK 指向 work_orders，故此處用 work_orders.id 比對正確。命名刻意用
+//    workOrderId 避免與 inventory_reservations.ro_id（= repair_orders.id）混淆。
 export async function listIssuesForWorkOrder(
-  roId: string,
+  workOrderId: string,
 ): Promise<WorkOrderIssueSummary[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -95,7 +98,7 @@ export async function listIssuesForWorkOrder(
       "id, gi_no, status, qty_issued_total, amount_total, warehouse_id, issue_date",
     )
     .eq("brand_id", (await getActiveScope()).brand_id)
-    .eq("ro_id", roId)
+    .eq("ro_id", workOrderId)
     .order("created_at", { ascending: false });
   if (error) throw new Error(`listIssuesForWorkOrder: ${error.message}`);
   return (data ?? []) as WorkOrderIssueSummary[];

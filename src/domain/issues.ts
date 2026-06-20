@@ -70,8 +70,17 @@ export async function listIssues(filter: {
   const wIds = Array.from(new Set(rs.map((r) => r.warehouse_id).filter((x): x is string => !!x)));
   const cIds = Array.from(new Set(rs.map((r) => r.customer_id).filter((x): x is string => !!x)));
   const woIds = Array.from(new Set(rs.map((r) => r.ro_id).filter((x): x is string => !!x)));
+  // C-28 加購領料：ro_id 刻意留 null、出處記在 source_doc_id（repair_orders.id）。
+  // 這類單沒有 work_orders 可解單號，改從 repair_orders.ro_code 取。
+  const roIds = Array.from(
+    new Set(
+      rs
+        .filter((r) => !r.ro_id && r.source_doc_type === "repair_order" && r.source_doc_id)
+        .map((r) => r.source_doc_id as string),
+    ),
+  );
 
-  const [wRes, cRes, woRes] = await Promise.all([
+  const [wRes, cRes, woRes, roRes] = await Promise.all([
     wIds.length > 0
       ? supabase.from("warehouses").select("id, name").in("id", wIds)
       : Promise.resolve({ data: [], error: null } as const),
@@ -81,17 +90,25 @@ export async function listIssues(filter: {
     woIds.length > 0
       ? supabase.from("work_orders").select("id, ro_no").in("id", woIds)
       : Promise.resolve({ data: [], error: null } as const),
+    roIds.length > 0
+      ? supabase.from("repair_orders").select("id, ro_code").in("id", roIds)
+      : Promise.resolve({ data: [], error: null } as const),
   ]);
 
   const wMap = new Map((wRes.data ?? []).map((w) => [w.id, w.name] as const));
   const cMap = new Map((cRes.data ?? []).map((c) => [c.id, c.name] as const));
   const woMap = new Map((woRes.data ?? []).map((w) => [w.id, w.ro_no] as const));
+  const roMap = new Map((roRes.data ?? []).map((r) => [r.id, r.ro_code] as const));
 
   return rs.map((r) => ({
     ...r,
     warehouse_name: r.warehouse_id ? wMap.get(r.warehouse_id) ?? null : null,
     customer_name: r.customer_id ? cMap.get(r.customer_id) ?? null : null,
-    ro_no: r.ro_id ? woMap.get(r.ro_id) ?? null : null,
+    ro_no: r.ro_id
+      ? woMap.get(r.ro_id) ?? null
+      : r.source_doc_type === "repair_order" && r.source_doc_id
+        ? roMap.get(r.source_doc_id) ?? null
+        : null,
   }));
 }
 
@@ -182,7 +199,14 @@ export async function getIssueById(id: string): Promise<StockIssueDetail | null>
       : Promise.resolve({ data: null, error: null } as const),
     row.ro_id
       ? supabase.from("work_orders").select("ro_no").eq("id", row.ro_id).maybeSingle()
-      : Promise.resolve({ data: null, error: null } as const),
+      : row.source_doc_type === "repair_order" && row.source_doc_id
+        ? // C-28 加購領料：ro_id 為 null，單號改從 repair_orders.ro_code 取
+          supabase
+            .from("repair_orders")
+            .select("ro_no:ro_code")
+            .eq("id", row.source_doc_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null } as const),
     row.posted_by
       ? supabase.from("profiles").select("display_name").eq("id", row.posted_by).maybeSingle()
       : Promise.resolve({ data: null, error: null } as const),

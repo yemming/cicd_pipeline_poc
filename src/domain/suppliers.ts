@@ -29,6 +29,8 @@ export type SupplierWithContract = SupplierRow & {
   latest_contract_to: string | null;
   contract_status: ContractStatus;
   supply_categories: string;
+  /** 原廠經銷商代碼（原廠/品牌方核發給此經銷商的代碼）— 存於 metadata.oem_dealer_code */
+  oem_dealer_code: string;
 };
 
 export type SupplierListFilter = {
@@ -112,11 +114,14 @@ export async function listSuppliersWithContract(
     const meta = (s.metadata ?? {}) as Record<string, unknown>;
     const supply_categories =
       typeof meta.supply_categories === "string" ? meta.supply_categories : "";
+    const oem_dealer_code =
+      typeof meta.oem_dealer_code === "string" ? meta.oem_dealer_code : "";
     return {
       ...s,
       latest_contract_to,
       contract_status,
       supply_categories,
+      oem_dealer_code,
     };
   });
 
@@ -256,6 +261,8 @@ export type SupplierWriteInput = {
   gl_payable_coa_id?: string | null;
   default_expense_coa_id?: string | null;
   supply_categories?: string | null;
+  /** 原廠經銷商代碼 — 存於 metadata.oem_dealer_code（場景八；依專案慣例先走 metadata） */
+  oem_dealer_code?: string | null;
   /** OEM 逃生艙：任意 key-value 合併進 metadata jsonb，與 supply_categories 共存不互蓋 */
   extra_metadata?: Record<string, unknown>;
 };
@@ -293,7 +300,11 @@ function buildSupplierWritePatch(
   if (input.default_expense_coa_id !== undefined)
     upd.default_expense_coa_id = nullableUuid(input.default_expense_coa_id);
 
-  if (input.supply_categories !== undefined || input.extra_metadata !== undefined) {
+  if (
+    input.supply_categories !== undefined ||
+    input.oem_dealer_code !== undefined ||
+    input.extra_metadata !== undefined
+  ) {
     const merged: Record<string, unknown> = { ...existingMetadata };
     if (input.supply_categories !== undefined) {
       const v = trim(input.supply_categories);
@@ -301,6 +312,14 @@ function buildSupplierWritePatch(
         delete merged.supply_categories;
       } else {
         merged.supply_categories = v;
+      }
+    }
+    if (input.oem_dealer_code !== undefined) {
+      const v = trim(input.oem_dealer_code);
+      if (v.length === 0) {
+        delete merged.oem_dealer_code;
+      } else {
+        merged.oem_dealer_code = v;
       }
     }
     if (input.extra_metadata !== undefined) {
@@ -354,7 +373,11 @@ export async function updateSupplier(
   const scope = await getActiveScope();
 
   let existingMetadata: Record<string, unknown> = {};
-  if (patch.supply_categories !== undefined || patch.extra_metadata !== undefined) {
+  if (
+    patch.supply_categories !== undefined ||
+    patch.oem_dealer_code !== undefined ||
+    patch.extra_metadata !== undefined
+  ) {
     const { data: existing } = await supabase
       .from("suppliers")
       .select("metadata")

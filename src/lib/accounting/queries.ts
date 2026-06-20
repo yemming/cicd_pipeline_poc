@@ -496,7 +496,7 @@ export async function listDimensionLookups(): Promise<DimensionLookupMap> {
     sb.from("suppliers").select("id, brand_id, code, name").order("brand_id").order("name"),
     sb.from("items").select("id, brand_id, code, name").order("brand_id").order("code"),
     sb.from("warehouses").select("id, brand_id, code, name").order("brand_id").order("name"),
-    sb.from("work_orders").select("id, brand_id, wo_no").order("created_at", { ascending: false }).limit(200),
+    sb.from("work_orders").select("id, brand_id, ro_no").order("created_at", { ascending: false }).limit(200),
     sb.from("vehicle_models").select("id, brand_id, model_name").order("brand_id").order("model_name"),
     sb.from("service_appointments").select("id, brand_id, appt_no").order("created_at", { ascending: false }).limit(200),
     sb.from("customer_vehicles").select("id, brand_id, vin").order("brand_id"),
@@ -565,7 +565,7 @@ export async function listDimensionLookups(): Promise<DimensionLookupMap> {
 
   map.RO = (workOrders.data ?? []).map((r) => ({
     value: r.id,
-    label: `[${r.brand_id}] ${r.wo_no ?? r.id.slice(0, 8)}`,
+    label: `[${r.brand_id}] ${r.ro_no ?? r.id.slice(0, 8)}`,
   }));
 
   map.MODEL = (vehicleModels.data ?? []).map((r) => ({

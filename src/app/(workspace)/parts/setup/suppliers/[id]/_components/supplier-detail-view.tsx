@@ -109,6 +109,7 @@ function emptyInput(): SupplierWriteInput {
     gl_payable_coa_id: null,
     default_expense_coa_id: null,
     supply_categories: "",
+    oem_dealer_code: "",
   };
 }
 
@@ -116,6 +117,8 @@ function rowToInput(row: SupplierRow): SupplierWriteInput {
   const meta = (row.metadata ?? {}) as Record<string, unknown>;
   const supply_categories =
     typeof meta.supply_categories === "string" ? meta.supply_categories : "";
+  const oem_dealer_code =
+    typeof meta.oem_dealer_code === "string" ? meta.oem_dealer_code : "";
   return {
     code: row.code ?? "",
     name: row.name ?? "",
@@ -137,6 +140,7 @@ function rowToInput(row: SupplierRow): SupplierWriteInput {
     gl_payable_coa_id: row.gl_payable_coa_id ?? null,
     default_expense_coa_id: row.default_expense_coa_id ?? null,
     supply_categories,
+    oem_dealer_code,
   };
 }
 
@@ -597,6 +601,25 @@ export function SupplierDetailView({
               />
             ) : (
               <span className="font-mono">{supplier?.tax_id ?? "—"}</span>
+            )}
+          </Kv>
+          <Kv label="原廠經銷商代碼">
+            {isEditing ? (
+              <input
+                value={form.oem_dealer_code ?? ""}
+                onChange={(e) => patch("oem_dealer_code", e.target.value)}
+                placeholder="原廠核發，如 TW-XXXX-001"
+                className={`${inputClass} font-mono`}
+              />
+            ) : (
+              <span className="font-mono">
+                {(() => {
+                  const meta = (supplier?.metadata ?? {}) as Record<string, unknown>;
+                  return typeof meta.oem_dealer_code === "string" && meta.oem_dealer_code
+                    ? meta.oem_dealer_code
+                    : "—";
+                })()}
+              </span>
             )}
           </Kv>
           <Kv label="狀態">
