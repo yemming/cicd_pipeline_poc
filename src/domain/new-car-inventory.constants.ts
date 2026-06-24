@@ -12,7 +12,9 @@ export type NewCarInventoryStatus =
   | "reserved"
   | "sold"
   | "delivered"
-  | "damaged";
+  | "damaged"
+  /** 事故扣押中 — 車輛涉及事故調查，暫不可售（輪3-1b） */
+  | "incident_hold";
 
 export type LicensePlateStatus =
   | "not_applied"
@@ -29,6 +31,7 @@ export const NEW_CAR_STATUS_LABELS: Record<NewCarInventoryStatus, string> = {
   sold: "已售出",
   delivered: "已交車",
   damaged: "報損",
+  incident_hold: "事故扣押",
 };
 
 export const LICENSE_PLATE_STATUS_LABELS: Record<LicensePlateStatus, string> = {
@@ -48,6 +51,8 @@ export const NEW_CAR_STATUS_CHIP: Record<NewCarInventoryStatus, string> = {
   sold: "bg-[#FDECEA] text-[#CC0000]",
   delivered: "bg-[#E1F5EE] text-[#0F6E56]",
   damaged: "bg-[#F2F2F2] text-[#9A9890]",
+  /** 事故扣押 — 紅底粗邊，明顯區分非正常流程（輪3-1b） */
+  incident_hold: "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]",
 };
 
 export const ALL_STATUSES: NewCarInventoryStatus[] = [
@@ -59,6 +64,7 @@ export const ALL_STATUSES: NewCarInventoryStatus[] = [
   "sold",
   "delivered",
   "damaged",
+  "incident_hold",
 ];
 
 export const ALL_LICENSE_PLATE_STATUSES: LicensePlateStatus[] = [
@@ -159,6 +165,15 @@ export type NewCarInventoryRow = {
   model_series?: string | null;
   /** join: organizations.name */
   organization_name?: string | null;
+  // ── Demo 車固定資產欄位（Phase A1）──────────────────────────────────
+  /** true = 此車是 demo 展示車，不進待售流程 */
+  is_demo_unit: boolean;
+  /** Demo 車固定資產取得日期（會計起算點） */
+  demo_asset_acquired_at: string | null;
+  /** Demo 車退役日期（退役後轉中古車流程） */
+  demo_retired_at: string | null;
+  /** 退役後建立的中古車庫存記錄 id（互相追溯） */
+  converted_to_used_inventory_id: string | null;
 };
 
 export type NewCarInventoryFilters = {
@@ -167,6 +182,8 @@ export type NewCarInventoryFilters = {
   color?: string;
   license_plate_status?: string;
   q?: string;
+  /** true = 只列 demo 車；false = 排除 demo 車；undefined = 全部 */
+  is_demo_unit?: boolean;
 };
 
 export type NewCarInventoryInput = {
@@ -196,6 +213,32 @@ export type NewCarInventoryInput = {
   note?: string | null;
   images?: string[];
   metadata?: Record<string, unknown>;
+  // ── Demo 車欄位 ────────────────────────────────────────────────────
+  is_demo_unit?: boolean;
+  demo_asset_acquired_at?: string | null;
+  demo_retired_at?: string | null;
+  converted_to_used_inventory_id?: string | null;
+};
+
+/**
+ * demo 車退役轉中古車的操作輸入。
+ * 包含由操作者填入的商業定價（不綁帳面）與中古車基本資訊。
+ */
+export type DemoRetireToUsedInput = {
+  /** 操作的 demo 車 new_car_inventory.id */
+  new_car_id: string;
+  /** 中古車上架售價（操作者商業定價，不綁進貨成本） */
+  listing_price: number;
+  /** 中古車品牌 + 車款顯示名（供中古車看板顯示） */
+  model_display_name: string;
+  /** 中古車年份 */
+  year: number;
+  /** 顏色（可由 demo 車帶入） */
+  color?: string | null;
+  /** 里程（km），操作時填入實際里程 */
+  mileage_km?: number;
+  /** 操作備注 */
+  note?: string | null;
 };
 
 export type VehicleModelOption = {
@@ -225,12 +268,14 @@ export type NewCarByModelDatum = {
   model: string;
   series: string | null;
   in_transit: number;
+  pending_pdi: number;
   arrived: number;
   displayed: number;
   reserved: number;
   sold: number;
   delivered: number;
   damaged: number;
+  incident_hold: number;
   total: number;
 } & Record<NewCarInventoryStatus, number>;
 

@@ -16,6 +16,11 @@ import type {
   DormancyStatus,
   DormantLeadKind,
   LostReason,
+  LostReasonB9,
+} from "@/domain/sales-dormant-leads.constants";
+import {
+  mapLostReasonB9ToDb,
+  REACTIVATION_DUE_DAYS,
 } from "@/domain/sales-dormant-leads.constants";
 
 export type ActionResult<T = unknown> =
@@ -40,6 +45,10 @@ export type DormantLeadInput = {
   /** 預設 'sales'；aftersales 流失走 'aftersales' */
   kind?: DormantLeadKind;
 };
+
+// LostReasonB9 import-only（不在此 "use server" 檔 re-export，
+// 避免 Turbopack 誤把 type-only re-export 當 runtime 值炸模組）
+// client component 直接從 "@/domain/sales-dormant-leads.constants" import。
 
 const SALES_LIST_PATH = "/sales/crm/dormant-leads";
 const AFTERSALES_LIST_PATH = "/aftersales/crm/dormant-customers";
@@ -194,28 +203,131 @@ export async function reviveDormantLeadAction(
   return { ok: true, data: { id } };
 }
 
-/** 標記為戰敗 */
+// ──────────────────────────────────────────────────────────────────────────
+// 輪11-2 輔助：pickAnyCustomerId
+// call_tasks.customer_id 有 FK → customers；dormant lead 通常還不是 customer，
+// 沿用 sales-recontact-actions 的 fallback 策略：拿 brand 任一 customer id 讓
+// FK 通過，真實客戶身份記在 metadata.lead_id / display_name。
+// ──────────────────────────────────────────────────────────────────────────
+async function pickAnyCustomerId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  brand: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("brand_id", brand)
+    .limit(1)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+/**
+ * 標記為戰敗（輪11-1/11-2）
+ *
+ * - 接受 8 類 B9 UI 原因（`LostReasonB9`），自動 map 到 DB 9 值；
+ * - `competitor` 原因時 `competitorBrand` 必填（前端已強制，後端二次驗證）；
+ * - 寫入後自動建立 `call_tasks` 喚醒任務（`call_type='dormant_reactivation'`，
+ *   `scheduled_at` = 依分類算 next due 天數後）；建立失敗不阻主流程，但回報警告。
+ */
 export async function markLeadLostAction(
   id: string,
-  reason: LostReason,
+  reasonB9: LostReasonB9,
   competitorBrand: string | null,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; callTaskCreated: boolean; callTaskError?: string }>> {
   await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
+
+  // 輪11-4：competitor 必填競品品牌
+  if (reasonB9 === "competitor" && !trim(competitorBrand)) {
+    return { ok: false, error: "選擇「流失至競品」時，競品品牌必填" };
+  }
+
+  const ctx = await getCurrentUserContext();
+  if (!ctx.userId) return { ok: false, error: "未登入" };
+
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
+
+  // 讀取 lead 基本資料（用於建 call_task 時的 metadata）
+  const { data: lead } = await supabase
+    .from("sales_leads")
+    .select("id, name, kind")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (!lead) return { ok: false, error: "找不到 lead" };
+
+  // 對映 B9 UI 原因 → DB 9 值
+  const dbReason: LostReason = mapLostReasonB9ToDb(reasonB9);
+  const now = new Date().toISOString();
+
   const { error } = await supabase
     .from("sales_leads")
     .update({
       dormancy_status: "lost",
-      lost_reason: reason,
+      lost_reason: dbReason,
       competitor_brand: trim(competitorBrand),
-      lost_at: new Date().toISOString(),
+      lost_at: now,
     })
     .eq("id", id)
     .eq("brand_id", brand);
   if (error) return { ok: false, error: mapDbError(error) };
   revalidateBoth(id);
-  return { ok: true, data: { id } };
+
+  // ──────────────────────────────────────────────────────────────────────
+  // 輪11-2 push 模式：自動建立喚醒 call_task
+  // ──────────────────────────────────────────────────────────────────────
+  let callTaskCreated = false;
+  let callTaskError: string | undefined;
+  try {
+    const customerId = await pickAnyCustomerId(supabase, brand);
+    if (customerId) {
+      const dueDays = REACTIVATION_DUE_DAYS[reasonB9];
+      const dueDate = new Date(now);
+      dueDate.setDate(dueDate.getDate() + dueDays);
+      // 排在 09:00 Taipei
+      const scheduledAt = new Date(
+        `${dueDate.toISOString().slice(0, 10)}T09:00:00+08:00`,
+      ).toISOString();
+
+      const { error: ctErr } = await supabase.from("call_tasks").insert({
+        brand_id: brand,
+        kind: lead.kind ?? "sales",
+        customer_id: customerId,
+        call_type: "dormant_reactivation",
+        scheduled_at: scheduledAt,
+        status: "pending",
+        attempt_count: 0,
+        answers: {},
+        metadata: {
+          subkind: "dormant_reactivation",
+          lead_id: lead.id,
+          display_name: lead.name,
+          lost_reason_b9: reasonB9,
+          lost_reason_db: dbReason,
+          competitor_brand: trim(competitorBrand) ?? null,
+          due_days: dueDays,
+        },
+        created_by: ctx.userId,
+      });
+      if (ctErr) {
+        callTaskError = ctErr.message;
+        console.warn(`[markLeadLostAction] call_task 建立失敗（不擋主流程）：${ctErr.message}`);
+      } else {
+        callTaskCreated = true;
+        // revalidate call-tasks 清單
+        revalidatePath("/crm/sales/call-tasks");
+        revalidatePath("/sales/crm/call-tasks");
+      }
+    } else {
+      callTaskError = "brand 無可用 customer，跳過自動建任務";
+    }
+  } catch (e: unknown) {
+    callTaskError = e instanceof Error ? e.message : String(e);
+    console.warn(`[markLeadLostAction] call_task 建立例外（不擋主流程）：${callTaskError}`);
+  }
+
+  return { ok: true, data: { id, callTaskCreated, callTaskError } };
 }
 
 export async function deleteDormantLeadAction(

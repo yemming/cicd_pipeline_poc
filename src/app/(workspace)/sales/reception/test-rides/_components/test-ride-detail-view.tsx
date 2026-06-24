@@ -26,6 +26,7 @@ import {
 } from "@/lib/sales/test-drives-actions";
 
 import { TestRideConsentModal } from "./test-ride-consent-modal";
+import { TestRideIncidentModal } from "./test-ride-incident-modal";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit" | "complete";
@@ -56,6 +57,8 @@ export function TestRideDetailView({
   );
   const [goldenModalOpen, setGoldenModalOpen] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
+  // 新增②：事故登記 modal
+  const [incidentOpen, setIncidentOpen] = useState(false);
 
   // ── edit form state ──
   const [editForm, setEditForm] = useState({
@@ -244,6 +247,17 @@ export function TestRideDetailView({
                   >
                     刪除
                   </button>
+                  {/* 新增②：試駕期間才顯示「登記事故」 */}
+                  {(row.status === "in_progress" || row.status === "scheduled") && (
+                    <button
+                      type="button"
+                      onClick={() => setIncidentOpen(true)}
+                      disabled={isPending}
+                      className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#CC0000] text-white hover:bg-[#A80000] shadow-sm disabled:opacity-50"
+                    >
+                      🚨 登記事故
+                    </button>
+                  )}
                 </>
               )}
             </>
@@ -491,6 +505,20 @@ export function TestRideDetailView({
               <Kv label="預約時間" value={fmtTime(row.scheduled_at)} />
               <Kv label="完成時間" value={fmtTime(row.completed_at)} />
               <Kv label="連結手卡" value={row.handcard_id ? row.handcard_id.slice(0, 8) : "—"} mono />
+              {/* 新增①：保險驗核狀態（typed column） */}
+              <Kv
+                label="機車保險驗核"
+                value={
+                  row.insurance_verified == null
+                    ? <span className="text-[#9A9890]">—</span>
+                    : row.insurance_verified
+                    ? <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11]">✓ 已驗核</span>
+                    : <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDECEA] text-[#CC0000]">✗ 未驗核</span>
+                }
+              />
+              {row.insurance_note && (
+                <Kv label="保險備注" value={row.insurance_note} small />
+              )}
             </div>
           </section>
 
@@ -561,6 +589,31 @@ export function TestRideDetailView({
               </div>
             </section>
           )}
+
+          {/* A-5：安全清單 NG 明細 */}
+          {row.safety_check_ng_items && row.safety_check_ng_items.length > 0 && (
+            <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+              <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                <span className="text-[13px] font-semibold text-[#CC0000]">
+                  ▼ 安全清單 NG 項目（{row.safety_check_ng_items.length} 項）
+                </span>
+              </header>
+              <div className="px-4 py-3 space-y-2">
+                {row.safety_check_ng_items.map((ng) => (
+                  <div
+                    key={ng.item_id}
+                    className="flex items-start gap-2 px-2.5 py-2 bg-[#FDECEA] border border-[#F5AEAD] rounded"
+                  >
+                    <span className="text-[#CC0000] font-bold text-[11px] shrink-0 mt-0.5">NG</span>
+                    <div>
+                      <div className="text-[12px] font-medium text-[#2C2C2A]">{ng.item_label}</div>
+                      <div className="text-[11.5px] text-[#5A5955] mt-0.5">原因：{ng.ng_note}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
 
@@ -573,6 +626,25 @@ export function TestRideDetailView({
           onSuccess={() => {
             setConsentOpen(false);
             showBanner({ ok: true, msg: "✓ 已簽署並開始試駕" });
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* 新增②：試乘事故登記 modal。A1：vehicleInventoryId 從 metadata.demo_vehicle_inventory_id 自動帶入 */}
+      {incidentOpen && (
+        <TestRideIncidentModal
+          testDriveId={row.id}
+          vehicleInventoryId={
+            ((row.metadata as Record<string, unknown>)?.demo_vehicle_inventory_id as string | null) ?? null
+          }
+          onClose={() => setIncidentOpen(false)}
+          onSuccess={(incidentId) => {
+            setIncidentOpen(false);
+            showBanner({
+              ok: true,
+              msg: `✓ 事故已登記（${incidentId.slice(0, 8)}），店長已收到通知`,
+            });
             router.refresh();
           }}
         />

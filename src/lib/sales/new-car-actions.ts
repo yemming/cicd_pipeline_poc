@@ -5,9 +5,14 @@ import {
   updateNewCar,
   deleteNewCar,
   setNewCarStatus,
+  markAsDemoUnit,
+  retireDemoToUsed,
   type NewCarInventoryInput,
+  type DemoRetireToUsedInput,
 } from "@/domain/new-car-inventory";
 import type { NewCarInventoryStatus } from "@/domain/new-car-inventory.constants";
+import { requirePermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
 
 // ── Result 型別 ────────────────────────────────────────────────────────
 
@@ -71,6 +76,42 @@ export async function deleteNewCarAction(
   try {
     await deleteNewCar(id);
     return { ok: true, data: { id } };
+  } catch (err) {
+    return { ok: false, error: mapDbError(err) };
+  }
+}
+
+// ── Demo 車管理 Actions（A1）─────────────────────────────────────────
+
+/**
+ * 標記或取消 demo 車。
+ * 需要 SALES_CAR_DEMO_EDIT 權限（店長 / 主管）。
+ */
+export async function markAsDemoUnitAction(
+  id: string,
+  is_demo: boolean,
+  acquired_at?: string | null,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    await requirePermission(PERMISSIONS.SALES_CAR_DEMO_EDIT);
+    await markAsDemoUnit(id, is_demo, acquired_at);
+    return { ok: true, data: { id } };
+  } catch (err) {
+    return { ok: false, error: mapDbError(err) };
+  }
+}
+
+/**
+ * demo 車退役轉中古車（一次性不可逆）。
+ * 需要 SALES_CAR_DEMO_RETIRE 權限（店長 / 主管限定）。
+ */
+export async function retireDemoToUsedAction(
+  input: DemoRetireToUsedInput,
+): Promise<ActionResult<{ usedCarId: string }>> {
+  try {
+    await requirePermission(PERMISSIONS.SALES_CAR_DEMO_RETIRE);
+    const result = await retireDemoToUsed(input);
+    return { ok: true, data: result };
   } catch (err) {
     return { ok: false, error: mapDbError(err) };
   }

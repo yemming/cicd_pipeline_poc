@@ -41,16 +41,19 @@ import { DonutChart } from "@/components/charts/DonutChart";
 import {
   DORMANCY_STATUS_BADGE,
   DORMANCY_STATUS_LABEL,
+  LOST_REASON_B9_LABEL,
   LOST_REASON_BAR_COLOR,
   LOST_REASON_TAG_BADGE,
   competitorInsight,
   dormancyBucket,
   dormancyCopy,
   lostReasonLabel,
+  mapDbToLostReasonB9,
   wakeupPlanStages,
   type DormancyStatus,
   type DormantLeadKind,
   type LostReason,
+  type LostReasonB9,
 } from "@/domain/sales-dormant-leads.constants";
 import type {
   DormantLeadRow,
@@ -105,7 +108,13 @@ export function DormantLeadsBoard({
 
   const [fStatus, setFStatus] = useState(filters.status);
   const [fHabc, setFHabc] = useState(filters.habc);
-  const [fReason, setFReason] = useState(filters.reason);
+  // 輪11-1：sales 版 reason filter state 用 B9 key；初始時把 URL DB 值反查到 B9
+  const [fReason, setFReason] = useState<string>(() => {
+    if (!isAfter && filters.reason && filters.reason !== "all") {
+      return mapDbToLostReasonB9(filters.reason as LostReason);
+    }
+    return filters.reason;
+  });
   const [fQ, setFQ] = useState(filters.q);
 
   // 手動新增再接觸 form
@@ -133,10 +142,12 @@ export function DormantLeadsBoard({
   };
 
   const submitFilters = () => {
+    // DB 自 2026-06-23 起直接存 8 類值，reason filter key 即 DB 值（identity，不再轉換）
+    const reasonParam = fReason !== "all" ? fReason : "";
     const target = buildHref({
       status: fStatus !== "all" ? fStatus : "",
       habc: fHabc !== "all" ? fHabc : "",
-      reason: fReason !== "all" ? fReason : "",
+      reason: reasonParam,
       q: fQ.trim(),
     });
     startTransition(() => router.push(target));
@@ -661,19 +672,26 @@ export function DormantLeadsBoard({
               </div>
               <div className="flex flex-col gap-1">
                 <label className={labelClass}>
-                  {isAfter ? "流失原因" : "戰敗原因"}
+                  {isAfter ? "流失原因" : "戰敗原因（8 類）"}
                 </label>
                 <select
                   value={fReason}
                   onChange={(e) => setFReason(e.target.value)}
-                  className={`${inputClass} w-[160px]`}
+                  className={`${inputClass} w-[170px]`}
                 >
                   <option value="all">全部原因</option>
-                  {(Object.keys(reasonMap) as LostReason[]).map((k) => (
-                    <option key={k} value={k}>
-                      {reasonMap[k]}
-                    </option>
-                  ))}
+                  {isAfter
+                    ? (Object.keys(reasonMap) as LostReason[]).map((k) => (
+                        <option key={k} value={k}>
+                          {reasonMap[k]}
+                        </option>
+                      ))
+                    : (Object.keys(LOST_REASON_B9_LABEL) as LostReasonB9[]).map((k) => (
+                        // 篩選時 value 用 B9 key，query 端做對映（或在 URL param 層對映）
+                        <option key={k} value={k}>
+                          {LOST_REASON_B9_LABEL[k]}
+                        </option>
+                      ))}
                 </select>
               </div>
               <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
@@ -729,9 +747,20 @@ export function DormantLeadsBoard({
               </b>{" "}
               筆）
             </span>
-            <span className="ml-auto inline-flex items-center px-2 py-0.5 text-[11px] rounded-md bg-[#FDECEA] text-[#C8001A] font-medium">
+            <span className="inline-flex items-center px-2 py-0.5 text-[11px] rounded-md bg-[#FDECEA] text-[#C8001A] font-medium">
               90 天+ 紅色邊框優先聯繫
             </span>
+            {/* 輪11-3 pull 模式：批次建推播活動（CRM06A 橋接） */}
+            {canEdit && rows.length > 0 ? (
+              <Link
+                href={`${isAfter ? "/crm/aftersales/push-notifications" : "/crm/sales/push-notifications"}?tab=new&from=dormant&lead_ids=${rows.map((r) => r.id).slice(0, 100).join(",")}`}
+                className="ml-auto h-[26px] inline-flex items-center gap-1 px-2.5 rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+                title={`以目前 ${rows.length} 筆${isAfter ? "休眠客戶" : "休眠 lead"}建立推播活動`}
+              >
+                <span className="material-symbols-outlined text-[13px]">campaign</span>
+                批次推播活動（{rows.length} 筆）
+              </Link>
+            ) : null}
           </div>
 
           {/* Table — 90 天+ 用 outline color 標示 */}

@@ -33,6 +33,7 @@ import {
   deleteEvaluationAction,
   loadEvaluationForViewAction,
   confirmTradeInAcquisitionAction,
+  uploadLoanClearanceDocAction,
 } from "@/lib/used-car/evaluation-actions";
 import type { UsedCarEvaluationWithCustomer } from "@/domain/used-car-evaluations";
 
@@ -329,6 +330,10 @@ export default function UsedCarEvaluationPage() {
   const [inspect, setInspect] = useState(INSPECT_OPTIONS[0]);
   const [tax, setTax] = useState(TAX_OPTIONS[0]);
   const [insuranceRemain, setInsuranceRemain] = useState("");
+  // 輪7-4：貸款清償證明文件
+  const [loanClearanceDocUrl, setLoanClearanceDocUrl] = useState<string | null>(null);
+  const [loanDocUploading, setLoanDocUploading] = useState(false);
+  const [loanDocError, setLoanDocError] = useState<string | null>(null);
 
   // TAB 1 外觀損傷點
   const [sideDots, setSideDots] = useState<Record<string, DotState>>(() => {
@@ -467,6 +472,8 @@ export default function UsedCarEvaluationPage() {
       if (typeof eq.licenseExpire === "string") setLicenseExpire(eq.licenseExpire);
       if (typeof eq.insuranceExpire === "string") setInsuranceExpire(eq.insuranceExpire);
       if (typeof eq.quickNote === "string") setQuickNote(eq.quickNote);
+      // 輪7-4：貸款清償證明文件
+      if (row.loan_clearance_doc_url) setLoanClearanceDocUrl(row.loan_clearance_doc_url);
       setPrefillLoading(false);
     })();
     return () => {
@@ -1390,6 +1397,87 @@ export default function UsedCarEvaluationPage() {
                       ))}
                     </select>
                   </Field>
+
+                  {/* 輪7-4：貸款清償證明文件上傳（有貸款設定才顯示） */}
+                  {(lien.includes("有設定") || loanClearanceDocUrl) && (
+                    <div className="md:col-span-2">
+                      <div className="text-[11px] text-[#9A9890] font-medium mb-1">
+                        貸款清償證明文件
+                        {lien.includes("有設定，尚未清償") && (
+                          <span className="ml-1.5 text-[#CC0000]">⚠️ 有設定未清償</span>
+                        )}
+                      </div>
+                      {loanClearanceDocUrl ? (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#EAF3DE] text-[#3B6D11] text-[11.5px]">
+                            ✓ 已上傳
+                          </span>
+                          <a
+                            href={loanClearanceDocUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#185FA5] text-[11.5px] hover:underline truncate max-w-[200px]"
+                          >
+                            查看文件
+                          </a>
+                          <button
+                            type="button"
+                            className="text-[11px] text-[#9A9890] hover:text-[#CC0000] underline"
+                            onClick={() => setLoanClearanceDocUrl(null)}
+                          >
+                            重新上傳
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <label className={`cursor-pointer inline-flex items-center gap-1.5 h-[30px] px-3 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] ${loanDocUploading ? "opacity-60 pointer-events-none" : ""}`}>
+                            {loanDocUploading ? "上傳中⋯" : "📎 選擇文件"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={loanDocUploading || !evaluationId}
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file || !evaluationId) return;
+                                setLoanDocUploading(true);
+                                setLoanDocError(null);
+                                try {
+                                  const reader = new FileReader();
+                                  reader.onload = async (evt) => {
+                                    const dataUrl = evt.target?.result as string;
+                                    if (!dataUrl) {
+                                      setLoanDocError("無法讀取文件");
+                                      setLoanDocUploading(false);
+                                      return;
+                                    }
+                                    const res = await uploadLoanClearanceDocAction(evaluationId, dataUrl);
+                                    if (res.ok) {
+                                      setLoanClearanceDocUrl(res.data.url);
+                                    } else {
+                                      setLoanDocError(res.error);
+                                    }
+                                    setLoanDocUploading(false);
+                                  };
+                                  reader.readAsDataURL(file);
+                                } catch {
+                                  setLoanDocError("上傳失敗，請稍後再試");
+                                  setLoanDocUploading(false);
+                                }
+                              }}
+                            />
+                          </label>
+                          {!evaluationId && (
+                            <span className="text-[11px] text-[#9A9890]">請先儲存評估單才能上傳文件</span>
+                          )}
+                          {loanDocError && (
+                            <span className="text-[11px] text-[#CC0000]">{loanDocError}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <Field label="出廠年份 / 驗車狀態">
                     <select
                       className={inputCls}

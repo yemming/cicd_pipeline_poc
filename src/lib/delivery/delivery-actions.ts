@@ -22,6 +22,15 @@ import type {
   DeliveryTimelineEvent,
   DeliveryPdiStatus,
 } from '@/domain/sales-delivery.constants';
+import {
+  checkAndNotifyDisputeFrozen,
+  markSalesOrderDelivered,
+  markInventorySold,
+  scheduleD3FollowupTask,
+  resolveDeliveryVehicleKind,
+  getUsedCarDeliveryPrereq,
+} from '@/domain/deliveries';
+import type { UsedCarDeliveryPrereq } from '@/domain/deliveries.constants';
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -102,7 +111,17 @@ export async function setDeliveryStatusAction(
   }
 }
 
-/** 最後一步——完成交車，status → 'delivered' */
+/**
+ * 最後一步——完成交車，status → 'delivered'
+ *
+ * 連鎖動作（after() 非阻塞，失敗不影響交車本體）：
+ *   [輪6-4] 前置：檢查 dispute_frozen — true 時跳過所有自動化並通知主管
+ *   [C-23]  售後客戶檔 / 人車檔同步
+ *   [輪6-3] ① sales_orders.status → 'delivered'
+ *   [輪6-3] ② new_car_inventory / used_car_inventory.status → 'sold'（依 contract_type 分流）
+ *   [輪6-3] ③ call_tasks D+3（kind='sales', call_type='d3_followup'）
+ *   [輪6-3] ④ call_tasks D+10 warranty_reminder（④ 限新車，中古車不建）
+ */
 export async function completeDeliveryAction(
   deliveryId: string,
   payload: Pick<DeliveryStepPayload,
@@ -126,12 +145,31 @@ export async function completeDeliveryAction(
       }
     });
 
-    // 保固登記提醒：交車後 D+{warrantyRegDays} 天建 call_task（brand_config 設定值）
+    // 輪6-4 + 輪6-3：連鎖自動化動作（dispute_frozen 檢查 → 各動作）
     after(async () => {
       try {
-        await scheduleWarrantyReminderTask(row);
+        // [輪6-4] dispute_frozen 檢查 — 凍結時通知主管並跳過
+        const isFrozen = await checkAndNotifyDisputeFrozen(row);
+        if (isFrozen) return;
+
+        // 判斷車輛類型（new / used），用來分流庫存更新與 warranty_reminder
+        const vehicleKind = await resolveDeliveryVehicleKind(row);
+
+        // [輪6-3①] 銷售訂單 → delivered
+        await markSalesOrderDelivered(row);
+
+        // [輪6-3②] 庫存 → sold（新車：new_car_inventory；中古車：used_car_inventory）
+        await markInventorySold(row, vehicleKind);
+
+        // [輪6-3③] D+3 電訪任務
+        await scheduleD3FollowupTask(row);
+
+        // [輪6-3④] 保固登記提醒：僅限新車（中古車不建 warranty_registration_reminder）
+        if (vehicleKind !== 'used') {
+          await scheduleWarrantyReminderTask(row);
+        }
       } catch (e) {
-        console.error('[warranty_reg_reminder] 副作用例外（不影響交車）', e);
+        console.error('[delivery chain] 連鎖動作例外（不影響交車本體）', e);
       }
     });
 
@@ -191,5 +229,22 @@ export async function loadDeliveryPdiStatusAction(
   } catch (e) {
     const msg = msgOf(e);
     return { ok: false, error: `載入 PDI 狀態失敗：${msg}` };
+  }
+}
+
+/**
+ * [輪6-2] 中古車交車前置條件確認——
+ * 查 used_car_inventory.metadata.condition_report.customer_acknowledged_at。
+ * 中古車交車 wizard 的 STEP 2（PDI 換成「車況報告確認」）呼叫此 action。
+ */
+export async function loadUsedCarDeliveryPrereqAction(
+  id: string,
+): Promise<ActionResult<UsedCarDeliveryPrereq>> {
+  try {
+    const prereq = await getUsedCarDeliveryPrereq(id);
+    return { ok: true, data: prereq };
+  } catch (e) {
+    const msg = msgOf(e);
+    return { ok: false, error: `載入中古車前置條件失敗：${msg}` };
   }
 }

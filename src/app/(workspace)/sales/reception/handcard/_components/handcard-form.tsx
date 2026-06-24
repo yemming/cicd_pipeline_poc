@@ -1,5 +1,20 @@
 "use client";
 
+/**
+ * @deprecated 輪1-1
+ *
+ * 這個元件是 RS01 手卡的「初版 CRM-sync only」表單，handleSubmit 只做
+ * upsertCustomer360（寫 customer.metadata），**沒有**寫入 sales_handcards 表。
+ *
+ * 已被 handcard-detail-view wizard 取代：
+ *   - 新建：/sales/reception/handcard/new  → HandcardDetailView (create mode)
+ *   - 舊卡：/sales/reception/handcard/[id] → HandcardDetailView (view/edit mode)
+ *
+ * 此元件目前掛在 `/sales/reception/handcard` 頁（handcard board 的次要入口），
+ * 已不是主流程。**不要在新功能中 import 此元件**。
+ * 若 UX 需要保留此頁面，應改成直接導向 `/sales/reception/handcard/new`。
+ */
+
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";

@@ -8,14 +8,38 @@
 
 import { Suspense } from "react";
 import { getSalesOrderFormData } from "@/domain/sales-orders";
+import { getBrandConfig } from "@/domain/brand-config";
+import { getActiveScope } from "@/lib/scope/active-scope";
+import { getActiveLegalText } from "@/domain/legal-texts";
 import OrderWizard from "./_components/order-wizard";
 
 export default async function NewOrderPage() {
-  const formData = await getSalesOrderFormData();
+  const scope = await getActiveScope();
+  const [formData, brandCfg, newTermsRow, usedTermsRow] = await Promise.all([
+    getSalesOrderFormData(),
+    getBrandConfig(scope.brand_id),
+    getActiveLegalText("contract_terms_new"),
+    getActiveLegalText("contract_terms_used"),
+  ]);
+
+  // 把 {brand}/{dealer} 佔位置換成實際品牌名 / 經銷商名（禁止寫死，一律走 brand_config）
+  const brandName = brandCfg.brandName ?? scope.brand_id;
+  const dealerName = brandCfg.dealerName ?? brandName;
+  function applyBrandPlaceholder(text: string | null): string | null {
+    return text
+      ? text.replace(/\{brand\}/g, brandName).replace(/\{dealer\}/g, dealerName)
+      : null;
+  }
 
   return (
     <Suspense fallback={null}>
-      <OrderWizard customers={formData.customers} vehicleModels={formData.vehicleModels} />
+      <OrderWizard
+        customers={formData.customers}
+        vehicleModels={formData.vehicleModels}
+        brandName={brandName}
+        contractTermsNew={applyBrandPlaceholder(newTermsRow?.content ?? null)}
+        contractTermsUsed={applyBrandPlaceholder(usedTermsRow?.content ?? null)}
+      />
     </Suspense>
   );
 }

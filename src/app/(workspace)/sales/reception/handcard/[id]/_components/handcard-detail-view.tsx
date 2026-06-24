@@ -23,13 +23,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, useTransition } from 'react';
+import React, { useMemo, useState, useTransition } from 'react';
 
 import {
   createHandcardAction,
   updateHandcardAction,
   deleteHandcardAction,
   convertHandcardToLeadAction,
+  lookupCustomersByPhoneAction,
 } from '@/lib/sales/handcard-actions';
 import {
   HANDCARD_STATUS_LABEL,
@@ -37,17 +38,20 @@ import {
   LEAD_GRADE_BADGE,
   IDENTITY_LABEL,
   RECEPTION_PERIOD_LABEL,
+  DEFEAT_CATEGORY_LABEL,
   type HandcardStatus,
   type HandcardLeadGrade,
   type HandcardPurchaseTiming,
   type HandcardTrialStatus,
   type HandcardReceptionPeriod,
+  type HandcardDefeatCategory,
 } from '@/domain/sales-handcards.constants';
 import type {
   HandcardRow,
   HandcardInput,
   RevisitCandidate,
   OwnerCandidate,
+  LeadSourceOption,
 } from '@/domain/sales-handcards';
 import { IdentitySelector } from '@/components/sales/identity-selector';
 import { HandcardChipPool } from '@/components/sales/handcard-chip-pool';
@@ -138,16 +142,7 @@ function extractTags(metadata: Metadata | null | undefined): string[] {
 }
 
 // ── Constants from boss template ──────────────────────────────────────────
-const ARRIVAL_SOURCES = [
-  '展廳到訪',
-  '車展活動',
-  'FB / IG 廣告',
-  '老車主轉介',
-  'DSPOT 預約',
-  'DRE 學院',
-  '騎士節',
-  'Track Day',
-];
+// ARRIVAL_SOURCES 已移除（輪1-2：改從 DB sales_dictionary 讀 lead_source，見 Step1Form props）
 
 const AGE_GROUPS: { value: string; label: string }[] = [
   { value: '<25', label: '25 歲以下' },
@@ -237,6 +232,7 @@ export function HandcardDetailView({
   vehicleModels,
   revisitCandidates,
   ownerCandidates,
+  leadSources,
   initialMode = 'view',
 }: {
   handcard: HandcardRow | null;
@@ -244,6 +240,7 @@ export function HandcardDetailView({
   vehicleModels: VehicleModelOption[];
   revisitCandidates: RevisitCandidate[];
   ownerCandidates: OwnerCandidate[];
+  leadSources: LeadSourceOption[];
   initialMode?: Mode;
 }) {
   const router = useRouter();
@@ -381,6 +378,14 @@ export function HandcardDetailView({
         notes: form.notes?.trim() || null,
         status: form.status ?? 'open',
         metadata: { ...meta, tags },
+        // 輪1-5：戰敗分類
+        defeat_category: form.defeat_category ?? null,
+        // A-10：缺貨候補（backorder_model 舊文字欄停止從 UI 寫入）
+        backorder_model: null,
+        backorder_color: form.backorder_color?.trim() || null,
+        backorder_registered_at: form.backorder_registered_at ?? null,
+        // 域C：候補車型 UUID FK
+        backorder_vehicle_model_id: form.backorder_vehicle_model_id ?? null,
       };
 
       if (!input.customer_name) {
@@ -675,7 +680,14 @@ export function HandcardDetailView({
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <StepHeader n={1} title="基本接待資訊" />
         <div className="px-4 py-4">
-          <Step1Form form={form} meta={meta} setForm={setForm} setMetaKey={setMetaKey} editable={editable} />
+          <Step1Form
+            form={form}
+            meta={meta}
+            setForm={setForm}
+            setMetaKey={setMetaKey}
+            editable={editable}
+            leadSources={leadSources}
+          />
         </div>
       </section>
 
@@ -881,7 +893,7 @@ export function HandcardDetailView({
               </select>
             </Field>
             {meta.visit_result === '未成交' && (
-              <Field label="未成交原因" editable={editable}>
+              <Field label="未成交原因（備忘）" editable={editable}>
                 <select
                   className={inputClass}
                   value={String(meta.visit_result_reason ?? '')}
@@ -897,7 +909,49 @@ export function HandcardDetailView({
                 </select>
               </Field>
             )}
+
+            {/* 輪1-5：戰敗分類（typed column）——「本次接待結果」= 未成交時才顯示 */}
+            {(meta.visit_result === '未成交' || form.defeat_category) && (
+              <Field label="戰敗分類（必填）" editable={editable}>
+                <select
+                  className={`${inputClass} ${editable && !form.defeat_category ? 'border-[#CC0000] focus:border-[#CC0000]' : ''}`}
+                  value={form.defeat_category ?? ''}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      defeat_category: (e.target.value as HandcardDefeatCategory) || null,
+                    }))
+                  }
+                  disabled={!editable}
+                >
+                  <option value="">— 請選擇戰敗原因 —</option>
+                  {(Object.keys(DEFEAT_CATEGORY_LABEL) as HandcardDefeatCategory[]).map((k) => (
+                    <option key={k} value={k}>
+                      {DEFEAT_CATEGORY_LABEL[k]}
+                    </option>
+                  ))}
+                </select>
+                {editable && form.defeat_category === 'competitor' && (
+                  <div className="mt-1.5 text-[11px] text-[#854F0B] bg-[#FDF3E3] border border-[#E5C57B] rounded px-2 py-1">
+                    選擇競品 — 請在上方「競品 1」欄位填入競品品牌／車款
+                  </div>
+                )}
+              </Field>
+            )}
           </div>
+        </div>
+      </section>
+
+      {/* ─── A-10：缺貨候補登記 ─── */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <StepHeader n={9} title="缺貨候補登記" hint="到港比對通知由庫存模組處理" />
+        <div className="px-4 py-4">
+          <BackorderSection
+            form={form}
+            setForm={setForm}
+            editable={editable}
+            vehicleModels={vehicleModels}
+          />
         </div>
       </section>
 
@@ -1121,6 +1175,14 @@ function seedForm(handcard: HandcardRow | null): Partial<HandcardInput> {
     quoted_amount: handcard?.quoted_amount ?? null,
     notes: handcard?.notes ?? null,
     status: handcard?.status ?? 'open',
+    // 輪1-5：戰敗分類
+    defeat_category: handcard?.defeat_category ?? null,
+    // A-10：缺貨候補
+    backorder_model: handcard?.backorder_model ?? null,   // 舊文字欄（唯讀保留）
+    backorder_color: handcard?.backorder_color ?? null,
+    backorder_registered_at: handcard?.backorder_registered_at ?? null,
+    // 域C：候補車型 UUID FK
+    backorder_vehicle_model_id: handcard?.backorder_vehicle_model_id ?? null,
   };
 }
 
@@ -1289,13 +1351,34 @@ function Step1Form({
   setForm,
   setMetaKey,
   editable,
+  leadSources,
 }: {
   form: Partial<HandcardInput>;
   meta: Metadata;
   setForm: React.Dispatch<React.SetStateAction<Partial<HandcardInput>>>;
   setMetaKey: (key: string, value: unknown) => void;
   editable: boolean;
+  leadSources: LeadSourceOption[];
 }) {
+  // 輪1-3：手機查重狀態
+  const [phoneHits, setPhoneHits] = React.useState<Array<{ id: string; code: string; name: string; phone: string }>>([]);
+  const [phoneChecking, setPhoneChecking] = React.useState(false);
+
+  async function handlePhoneBlur() {
+    const phone = form.customer_phone?.trim();
+    if (!editable || !phone) {
+      setPhoneHits([]);
+      return;
+    }
+    setPhoneChecking(true);
+    try {
+      const res = await lookupCustomersByPhoneAction(phone);
+      setPhoneHits(res.ok ? res.data : []);
+    } finally {
+      setPhoneChecking(false);
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <Field label="客戶姓名 *" editable={editable}>
@@ -1308,13 +1391,51 @@ function Step1Form({
         />
       </Field>
       <Field label="聯絡電話" editable={editable}>
-        <input
-          className={inputClass}
-          placeholder="09xx-xxxxxx"
-          value={form.customer_phone ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, customer_phone: e.target.value || null }))}
-          disabled={!editable}
-        />
+        <div className="space-y-1">
+          <input
+            className={inputClass}
+            placeholder="09xx-xxxxxx"
+            value={form.customer_phone ?? ''}
+            onChange={(e) => {
+              setForm((f) => ({ ...f, customer_phone: e.target.value || null }));
+              // 電話改了就清掉舊的查重結果
+              setPhoneHits([]);
+            }}
+            onBlur={handlePhoneBlur}
+            disabled={!editable}
+          />
+          {/* 輪1-3：查重提示 */}
+          {phoneChecking && (
+            <div className="text-[11px] text-[#9A9890] px-1">查詢中⋯</div>
+          )}
+          {!phoneChecking && phoneHits.length > 0 && (
+            <div className="rounded-md border border-[#E5C57B] bg-[#FDF3E3] px-2 py-1.5 space-y-1">
+              <div className="text-[11px] font-semibold text-[#854F0B]">
+                已有客戶（同手機號）：
+              </div>
+              {phoneHits.map((h) => (
+                <div key={h.id} className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] text-[#1A3A5C]">{h.code}</span>
+                  <span className="text-[12px] font-medium text-[#2C2C2A]">{h.name}</span>
+                  <button
+                    type="button"
+                    className="ml-auto h-[22px] px-2 rounded text-[11px] bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        customer_name: h.name,
+                        customer_phone: h.phone,
+                        customer_id: h.id,
+                      }))
+                    }
+                  >
+                    帶入
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Field>
       <Field label="Email" editable={editable}>
         <input
@@ -1378,6 +1499,7 @@ function Step1Form({
           />
         </div>
       </Field>
+      {/* 輪1-2：來源管道從 DB sales_dictionary 讀，hardcoded ARRIVAL_SOURCES 退場 */}
       <Field label="來店管道" editable={editable}>
         <select
           className={inputClass}
@@ -1386,9 +1508,9 @@ function Step1Form({
           disabled={!editable}
         >
           <option value="">— 選擇 —</option>
-          {ARRIVAL_SOURCES.map((s) => (
-            <option key={s} value={s}>
-              {s}
+          {leadSources.map((s) => (
+            <option key={s.code} value={s.label}>
+              {s.label}
             </option>
           ))}
         </select>
@@ -1704,5 +1826,143 @@ function JumpButton({
     <Link href={href} className="block">
       {body}
     </Link>
+  );
+}
+
+// ── 域C + A-10：缺貨候補登記區塊 ─────────────────────────────────────────
+// 車型改為從 vehicleModels 下拉選 UUID，精確比對（取代舊自由文字 backorder_model）
+
+function BackorderSection({
+  form,
+  setForm,
+  editable,
+  vehicleModels,
+}: {
+  form: Partial<HandcardInput>;
+  setForm: React.Dispatch<React.SetStateAction<Partial<HandcardInput>>>;
+  editable: boolean;
+  vehicleModels: VehicleModelOption[];
+}) {
+  const hasBackorder = !!(form.backorder_vehicle_model_id || form.backorder_color || form.backorder_registered_at);
+
+  // 找出已選車型的 display_name（用於唯讀顯示）
+  const selectedModelName = vehicleModels.find(
+    (m) => m.id === form.backorder_vehicle_model_id,
+  )?.display_name ?? null;
+
+  if (!editable && !hasBackorder) {
+    return (
+      <p className="text-[12px] text-[#9A9890]">此手卡未登記缺貨候補。</p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[12px] text-[#5A5955] leading-relaxed bg-[#F8F7F4] border border-[#EEECE6] rounded-md px-3 py-2">
+        <b className="text-[#2C2C2A]">說明：</b>
+        客戶有意購買但目前缺貨，登記後庫存模組新車到港時將<b>精確比對</b>車型（UUID），符合時自動通知 RS 跟進。
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* 域C：車型改為下拉選 UUID，不再允許自由輸入 */}
+        <Field label="意向候補車型 *" editable={editable}>
+          {editable ? (
+            <select
+              className={inputClass}
+              value={form.backorder_vehicle_model_id ?? ''}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  backorder_vehicle_model_id: e.target.value || null,
+                }))
+              }
+            >
+              <option value="">— 請選擇車型 —</option>
+              {vehicleModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.display_name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-[12.5px] text-[#2C2C2A]">
+              {selectedModelName ?? <span className="text-[#9A9890]">—</span>}
+            </span>
+          )}
+        </Field>
+        <Field label="意向顏色 / 規格" editable={editable}>
+          <input
+            className={inputClass}
+            placeholder="例：Ducati Red"
+            value={form.backorder_color ?? ''}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, backorder_color: e.target.value || null }))
+            }
+            disabled={!editable}
+          />
+        </Field>
+        <Field label="登記時間" editable={editable}>
+          {editable ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="datetime-local"
+                className={inputClass}
+                value={
+                  form.backorder_registered_at
+                    ? form.backorder_registered_at.slice(0, 16)
+                    : ''
+                }
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    backorder_registered_at: e.target.value
+                      ? new Date(e.target.value).toISOString()
+                      : null,
+                  }))
+                }
+              />
+              {!form.backorder_registered_at && (
+                <button
+                  type="button"
+                  className="h-[30px] px-2 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#185FA5] whitespace-nowrap"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      backorder_registered_at: new Date().toISOString(),
+                    }))
+                  }
+                >
+                  現在
+                </button>
+              )}
+            </div>
+          ) : (
+            <span className="text-[12.5px] text-[#2C2C2A]">
+              {form.backorder_registered_at
+                ? new Date(form.backorder_registered_at).toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '—'}
+            </span>
+          )}
+        </Field>
+      </div>
+
+      {hasBackorder && (
+        <div className="flex items-center gap-2 rounded-md border border-[#9DC4E4] bg-[#EAF4FB] px-3 py-2">
+          <span className="text-[13px]">📬</span>
+          <span className="text-[12px] text-[#0C3E70]">
+            已登記候補
+            {selectedModelName ? `：${selectedModelName}` : ''}
+            {form.backorder_color ? ` · ${form.backorder_color}` : ''}
+            。新車到港時庫存模組將精確比對並通知 RS。
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

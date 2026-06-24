@@ -23,7 +23,7 @@ import type {
   ModelRef,
 } from "@/domain/aftersales-customer-base";
 import { addVehiclePendingItemAction, resolveVehiclePendingItemAction } from "@/lib/aftersales/vehicle-pending-actions";
-import { createComplaintAction } from "@/lib/aftersales/complaint-actions";
+import { createComplaintAction, searchSalesOrdersAction } from "@/lib/aftersales/complaint-actions";
 import { QuickAppointmentButton } from "./quick-appointment-button";
 
 type TabKey = "vehicles" | "history" | "followups" | "pickup";
@@ -1419,7 +1419,43 @@ function ComplaintHistorySection({
   const [cType, setCType] = useState("service");
   const [cDesc, setCDesc] = useState("");
   const [cRoId, setCRoId] = useState("");
+  /** F-3：關聯銷售訂單搜尋 */
+  const [soKeyword, setSoKeyword] = useState("");
+  const [soSearchResults, setSoSearchResults] = useState<Array<{
+    id: string;
+    order_no: string;
+    customer_name: string | null;
+    vehicle_model_name: string | null;
+    status: string;
+  }>>([]);
+  const [soSearching, setSoSearching] = useState(false);
+  const [selectedSoId, setSelectedSoId] = useState("");
+  const [selectedSoNo, setSelectedSoNo] = useState("");
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  async function handleSoSearch() {
+    if (!soKeyword.trim()) return;
+    setSoSearching(true);
+    startTransition(async () => {
+      const results = await searchSalesOrdersAction(soKeyword.trim());
+      setSoSearchResults(results);
+      setSoSearching(false);
+    });
+  }
+
+  function handleSoSelect(id: string, orderNo: string) {
+    setSelectedSoId(id);
+    setSelectedSoNo(orderNo);
+    setSoKeyword("");
+    setSoSearchResults([]);
+  }
+
+  function handleSoClear() {
+    setSelectedSoId("");
+    setSelectedSoNo("");
+    setSoKeyword("");
+    setSoSearchResults([]);
+  }
 
   function complaintTypeLabel(t: string | null): string {
     if (t === "service") return "服務態度";
@@ -1440,6 +1476,7 @@ function ComplaintHistorySection({
       const res = await createComplaintAction({
         customer_id: customerId,
         repair_order_id: cRoId || null,
+        related_sales_order_id: selectedSoId || null,
         complaint_type: cType,
         description: cDesc.trim(),
       });
@@ -1447,6 +1484,7 @@ function ComplaintHistorySection({
         setShowModal(false);
         setCDesc("");
         setCRoId("");
+        handleSoClear();
         setBanner({ ok: true, msg: "✓ 已新增投訴記錄" });
         setTimeout(() => setBanner(null), 2200);
         window.location.reload();
@@ -1500,6 +1538,7 @@ function ComplaintHistorySection({
             <tr>
               <th className="px-3 py-2 text-left font-medium">日期</th>
               <th className="px-3 py-2 text-left font-medium">工單號</th>
+              <th className="px-3 py-2 text-left font-medium">關聯訂單</th>
               <th className="px-3 py-2 text-left font-medium">類型</th>
               <th className="px-3 py-2 text-left font-medium">處理結果</th>
               <th className="px-3 py-2 text-left font-medium">狀態</th>
@@ -1511,6 +1550,19 @@ function ComplaintHistorySection({
                 <td className="px-3 py-2 font-mono text-[11.5px]">{fmtDate(c.created_at)}</td>
                 <td className="px-3 py-2 font-mono text-[11.5px] text-[#1A3A5C]">
                   {c.ro_code ?? <span className="text-[#9A9890]">—</span>}
+                </td>
+                <td className="px-3 py-2 font-mono text-[11.5px]">
+                  {c.related_sales_order_id ? (
+                    <Link
+                      href={`/sales/orders/${c.related_sales_order_id}`}
+                      className="text-[#185FA5] hover:underline whitespace-nowrap"
+                      title="查看關聯銷售訂單"
+                    >
+                      {c.sales_order_no ?? c.related_sales_order_id.slice(0, 8)}
+                    </Link>
+                  ) : (
+                    <span className="text-[#9A9890]">—</span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <span className="inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-[#FDF3E3] text-[#854F0B]">
@@ -1566,6 +1618,75 @@ function ComplaintHistorySection({
                 </select>
               </div>
             )}
+            {/* F-3：關聯銷售訂單搜尋與選擇 */}
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">關聯銷售訂單（選填）</label>
+              {selectedSoId ? (
+                <div className="flex items-center gap-2 h-[30px] px-2 border border-[#D5D3CB] rounded bg-[#EAF4FB]">
+                  <span className="flex-1 text-[12.5px] font-mono text-[#1A3A5C] truncate">
+                    {selectedSoNo}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSoClear}
+                    className="shrink-0 text-[11px] text-[#9A9890] hover:text-[#CC0000]"
+                    title="移除關聯訂單"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    className="flex-1 h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                    placeholder="輸入訂單號、客戶名或車型搜尋"
+                    value={soKeyword}
+                    onChange={(e) => { setSoKeyword(e.target.value); setSoSearchResults([]); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSoSearch(); } }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSoSearch}
+                    disabled={soSearching || !soKeyword.trim()}
+                    className="h-[30px] px-3 rounded text-[12px] bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {soSearching ? "搜尋中⋯" : "搜尋"}
+                  </button>
+                </div>
+              )}
+              {soSearchResults.length > 0 && !selectedSoId && (
+                <ul className="border border-[#D5D3CB] rounded bg-white max-h-[140px] overflow-y-auto text-[12px] divide-y divide-[#EEECE6]">
+                  {soSearchResults.map((so) => (
+                    <li key={so.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleSoSelect(so.id, so.order_no)}
+                        className="w-full text-left px-3 py-1.5 hover:bg-[#F8F7F4] flex items-center gap-2"
+                      >
+                        <span className="font-mono font-semibold text-[#1A3A5C]">{so.order_no}</span>
+                        {so.customer_name && (
+                          <span className="text-[#5A5955] truncate">{so.customer_name}</span>
+                        )}
+                        {so.vehicle_model_name && (
+                          <span className="text-[#9A9890] truncate">{so.vehicle_model_name}</span>
+                        )}
+                        <span className={`ml-auto shrink-0 inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-medium ${
+                          so.status === "fulfilled" ? "bg-[#EAF3DE] text-[#3B6D11]" :
+                          so.status === "cancelled" ? "bg-[#FDECEA] text-[#CC0000]" :
+                          "bg-[#EAF4FB] text-[#185FA5]"
+                        }`}>
+                          {so.status}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {soSearchResults.length === 0 && soKeyword && !soSearching && (
+                <div className="text-[11px] text-[#9A9890]">找不到符合的訂單</div>
+              )}
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-[11px] text-[#9A9890] font-medium">投訴描述 *</label>
               <textarea
@@ -1578,7 +1699,7 @@ function ComplaintHistorySection({
             <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => { setShowModal(false); setCDesc(""); setCRoId(""); }}
+                onClick={() => { setShowModal(false); setCDesc(""); setCRoId(""); handleSoClear(); }}
                 className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
               >
                 取消

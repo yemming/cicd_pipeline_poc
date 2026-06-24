@@ -22,6 +22,11 @@ import { crmPushSentLine, crmPushSentGoogleChat } from "./crm-push-sent";
 import { aftersalesApprovalRequestedLine, aftersalesApprovalRequestedGoogleChat } from "./aftersales-approval-requested";
 import { aftersalesApprovalResolvedLine, aftersalesApprovalResolvedGoogleChat } from "./aftersales-approval-resolved";
 import { roCheckoutOverdueLine, roCheckoutOverdueGoogleChat } from "./ro-checkout-overdue";
+import { testRideIncidentReportedLine, testRideIncidentReportedGoogleChat } from "./test-ride-incident-reported";
+import { salesDiscountRequestedLine, salesDiscountRequestedGoogleChat } from "./sales-discount-requested";
+import { salesDiscountEscalatedLine, salesDiscountEscalatedGoogleChat } from "./sales-discount-escalated";
+import { salesDiscountDecidedLine, salesDiscountDecidedGoogleChat } from "./sales-discount-decided";
+import { financingPendingTimeoutLine, financingPendingTimeoutGoogleChat } from "./financing-pending-timeout";
 
 // Code-registered 預設模板集合（本 repo 內建、版本隨 git 追蹤）
 const CODE_TEMPLATES: TemplateDefinition[] = [
@@ -53,6 +58,19 @@ const CODE_TEMPLATES: TemplateDefinition[] = [
   // Russell 6/17：付費 RO 待結帳逾期升級
   roCheckoutOverdueLine,
   roCheckoutOverdueGoogleChat,
+  // 新增②：試乘事故登記
+  testRideIncidentReportedLine,
+  testRideIncidentReportedGoogleChat,
+  // RS_M5 折扣審核佇列
+  salesDiscountRequestedLine,
+  salesDiscountRequestedGoogleChat,
+  salesDiscountEscalatedLine,
+  salesDiscountEscalatedGoogleChat,
+  salesDiscountDecidedLine,
+  salesDiscountDecidedGoogleChat,
+  // RS 貸款申請逾時追蹤
+  financingPendingTimeoutLine,
+  financingPendingTimeoutGoogleChat,
 ];
 
 /** 以 `eventCode:channelCode` / `code` 建兩個索引 */

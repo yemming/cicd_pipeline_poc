@@ -78,6 +78,12 @@ export type UsedCarFilter = {
   search?: string;
   /** 來源類型（acquisition_source）：trade_in / direct_buy / auction / other */
   source?: string;
+  /**
+   * 是否排除「不可展示」狀態（輪3-2b）。
+   * 預設 true（展廳看板只顯示可售狀態），傳 false 可顯示全部（管理視角）。
+   * 不可展示狀態：evaluation / pending_recon / withdrawn / inactive
+   */
+  excludeNonShowroom?: boolean;
 };
 
 // 主查詢 select：含 join repair_orders 撈整備工單號（待整備車輛顯示用）
@@ -97,9 +103,17 @@ function flattenReconCode(
   } as UsedCarInventoryRow;
 }
 
+/**
+ * 展廳看板不可展示的狀態（輪3-2b）。
+ * evaluation=鑑價中、pending_recon=待整備、withdrawn=已下架、inactive=停用
+ */
+const NON_SHOWROOM_STATUSES: string[] = ["evaluation", "pending_recon", "withdrawn", "inactive"];
+
 // ── 主查詢：撈指定 brand 的庫存列表 ──
 export async function listUsedCars(filter: UsedCarFilter): Promise<UsedCarInventoryData> {
   const supabase = await createClient();
+  // 輪3-2b：展廳看板預設排除不可展示狀態，傳 excludeNonShowroom=false 可看全部（管理視角）
+  const excludeNonShowroom = filter.excludeNonShowroom !== false;
 
   let q = supabase
     .from("used_car_inventory")
@@ -109,6 +123,9 @@ export async function listUsedCars(filter: UsedCarFilter): Promise<UsedCarInvent
 
   if (filter.status) {
     q = q.eq("status", filter.status);
+  } else if (excludeNonShowroom) {
+    // 沒有指定 status 且預設排除不可展示狀態
+    q = q.not("status", "in", `(${NON_SHOWROOM_STATUSES.join(",")})`);
   }
   if (filter.conditionGrade) {
     q = q.eq("condition_grade", filter.conditionGrade);

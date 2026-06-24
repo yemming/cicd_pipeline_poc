@@ -372,6 +372,102 @@ export async function listInTransitCarsByPO(poId: string): Promise<InTransitCar[
   }));
 }
 
+// ── 域C + A-10 到港端：候補手卡精確比對 + call_tasks 建立 ─────────────────
+
+/**
+ * 到港確認後，找出符合此批新車的 open 候補手卡，對每張手卡建立一筆 call_task
+ * 通知業務員（assignee）跟進。
+ *
+ * 域C 精確比對規則：
+ *   主要：backorder_vehicle_model_id = vehicle.vehicle_model_id（UUID 完全相等）
+ *   顏色：backorder_color = vehicle.color（精確，均有時才比）
+ *
+ * 舊 backorder_model 自由文字比對已全面移除。只有已設 backorder_vehicle_model_id
+ * 的候補手卡才會被比對命中。
+ *
+ * 失敗時靜默 log（不影響到港主流程）。
+ */
+export async function matchBackordersAndCreateCallTasks(params: {
+  brandId: string;
+  arrivalId: string;
+  vehicles: Array<{
+    new_car_id: string;
+    vehicleModelId: string | null;    // 域C：改傳 vehicle_model_id（UUID）
+    modelDisplayName: string | null;  // 僅用於 notes 說明文字
+    color: string | null;
+  }>;
+  createdBy: string | null;
+}): Promise<{ matched: number; created: number }> {
+  const supabase = await createClient();
+  let totalMatched = 0;
+  let totalCreated = 0;
+
+  for (const v of params.vehicles) {
+    // 必須有 vehicle_model_id 才能精確比對
+    if (!v.vehicleModelId) continue;
+
+    // 精確比對：backorder_vehicle_model_id = vehicle.vehicleModelId
+    let q = supabase
+      .from("sales_handcards")
+      .select("id, assigned_rs_user_id, customer_id, backorder_color")
+      .eq("brand_id", params.brandId)
+      .eq("status", "open")
+      .eq("backorder_vehicle_model_id", v.vehicleModelId);
+
+    // 顏色若兩側都有值則精確比對
+    if (v.color) {
+      q = q.eq("backorder_color", v.color);
+    }
+
+    const { data: handcards, error: hcErr } = await q;
+    if (hcErr) {
+      console.error("[域C/A-10] 搜尋候補手卡失敗", hcErr.message);
+      continue;
+    }
+    if (!handcards || handcards.length === 0) continue;
+    totalMatched += handcards.length;
+
+    type HandcardRow = {
+      id: string;
+      assigned_rs_user_id: string | null;
+      customer_id: string | null;
+      backorder_color: string | null;
+    };
+
+    for (const hc of handcards as HandcardRow[]) {
+      // call_type='custom' + metadata.backorder_matched=true（明確標示候補到貨任務）
+      const { error: ctErr } = await supabase
+        .from("call_tasks")
+        .insert({
+          brand_id: params.brandId,
+          kind: "sales",
+          call_type: "custom",
+          assignee_id: hc.assigned_rs_user_id ?? null,
+          customer_id: hc.customer_id ?? null,
+          status: "pending",
+          notes: `[候補到貨] 到港車輛符合候補登記：車型 ${v.modelDisplayName ?? v.vehicleModelId}，顏色：${hc.backorder_color ?? "—"}。請主動聯繫客戶確認購車意願。`,
+          metadata: {
+            backorder_matched: true,
+            trigger: "vehicle_arrival",
+            arrival_id: params.arrivalId,
+            new_car_id: v.new_car_id,
+            handcard_id: hc.id,
+            vehicle_model_id: v.vehicleModelId,
+          },
+          scheduled_at: new Date().toISOString(),
+          created_by: params.createdBy,
+        });
+      if (ctErr) {
+        console.error("[域C/A-10] 建立 call_task 失敗", ctErr.message, { handcard_id: hc.id });
+      } else {
+        totalCreated++;
+      }
+    }
+  }
+
+  return { matched: totalMatched, created: totalCreated };
+}
+
 // ── 編號產生器：ARR-YYYYMMDD-NNN（query 當日最大序號 +1）──────────────
 
 export async function nextArrivalNo(brandId: string): Promise<string> {

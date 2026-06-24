@@ -6,6 +6,11 @@
  * 保留原 mock UI 的合約書 UX（新車 + 中古車），
  * 改為透過 createSalesOrderAction 寫入 DB。
  * 成功後 router.push 到 /sales/orders/[id]。
+ *
+ * Stage 2：
+ *  - 合約條款改為 RS04 業界版（審閱期至少 3 日、瑕疵不得排除、8 項不得記載）
+ *  - 三方簽名改 canvas 真簽名（buyer/seller/witness）
+ *  - 品牌名走 brandName prop 不寫死
  */
 
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -13,13 +18,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { useSetPageHeader } from "@/components/page-header-context";
-import { createSalesOrderAction } from "@/lib/sales/order-actions";
+import { createSalesOrderAction, saveSignaturesAction } from "@/lib/sales/order-actions";
 import {
   USED_CERT_LEVELS,
   TRANSFER_OPTIONS,
   type PaymentMethod,
 } from "@/domain/sales-orders.constants";
 import type { CustomerPickRow, VehicleModelPickRow } from "@/domain/sales-orders.constants";
+import { SignatureCanvas } from "@/components/signature-canvas";
 
 // ─────────────────────────────────────────────────────────────
 // Constants
@@ -61,16 +67,31 @@ const PAYMENT_OPTIONS: { id: PaymentMethod; icon: string; name: string }[] = [
 type Props = {
   customers: CustomerPickRow[];
   vehicleModels: VehicleModelPickRow[];
+  /** 品牌顯示名稱（不寫死 DUCATI）。例：「Ducati」「Indian Motorcycle」 */
+  brandName?: string;
+  /** 從 legal_text_templates(contract_terms_new) 讀取的新車合約條款（{brand} 已替換）。
+   *  null 時顯示 hardcode fallback。 */
+  contractTermsNew?: string | null;
+  /** 從 legal_text_templates(contract_terms_used) 讀取的中古車合約條款（{brand} 已替換）。
+   *  null 時顯示 hardcode fallback。 */
+  contractTermsUsed?: string | null;
 };
 
 // ─────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────
 
-export default function OrderWizard({ customers, vehicleModels }: Props) {
+export default function OrderWizard({ customers, vehicleModels, brandName = "經銷商", contractTermsNew, contractTermsUsed }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+
+  // ── 簽名 dataURL state（建立後回填到 DB；建立前只在記憶體）──
+  const [sigBuyer, setSigBuyer] = useState<string | null>(null);
+  const [sigSeller, setSigSeller] = useState<string | null>(null);
+  const [sigWitness, setSigWitness] = useState<string | null>(null);
+  // 哪個簽名 panel 正在開啟
+  const [activeSigPanel, setActiveSigPanel] = useState<"buyer" | "seller" | "witness" | null>(null);
 
   useSetPageHeader({
     breadcrumb: [
@@ -138,18 +159,16 @@ export default function OrderWizard({ customers, vehicleModels }: Props) {
   const selectedVehicleModel = vehicleModels.find(
     (v) => v.id === selectedVehicleModelId,
   );
-  const [newColor, setNewColor] = useState("Ducati Red");
+  const [newColor, setNewColor] = useState("");
   const [newVin, setNewVin] = useState("");
   const [newEngine, setNewEngine] = useState("");
   const [paymentId, setPaymentId] = useState<PaymentMethod>("cash");
   const [deposit, setDeposit] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("2026-05-17");
-  const [specialNote, setSpecialNote] = useState(
-    "贈品：原廠安全帽 AGV K6。選配：DP 排氣管，交車前安裝完成。春季折扣 NT$20,000 已含入。",
-  );
+  const [specialNote, setSpecialNote] = useState("");
 
   // ── Used car state
-  const [usedBrand, setUsedBrand] = useState("DUCATI Panigale V2");
+  const [usedBrand, setUsedBrand] = useState("");
   const [usedYear, setUsedYear] = useState("2022");
   const [usedPlate, setUsedPlate] = useState("");
   const [usedCc, setUsedCc] = useState("955");
@@ -234,6 +253,14 @@ export default function OrderWizard({ customers, vehicleModels }: Props) {
 
       const res = await createSalesOrderAction(input);
       if (res.ok) {
+        // 若有簽名，回填到剛建的訂單（non-blocking on error）
+        if (sigBuyer || sigSeller || sigWitness) {
+          await saveSignaturesAction(res.data.id, {
+            signature_buyer: sigBuyer ?? null,
+            signature_seller: sigSeller ?? null,
+            signature_witness: sigWitness ?? null,
+          }).catch((e) => console.error("[order-wizard] 簽名回填失敗", e));
+        }
         // Clear snapshot after successful order creation
         if (typeof window !== "undefined") {
           try {
@@ -391,7 +418,7 @@ export default function OrderWizard({ customers, vehicleModels }: Props) {
               <SectionCard
                 icon="📋"
                 iconBg="bg-[#EAF4FB]"
-                title="DUCATI 新車訂購合約書"
+                title={`${brandName} 新車訂購合約書`}
                 subtitle={`合約編號：建立後確定`}
                 trailing={
                   <button
@@ -545,14 +572,30 @@ export default function OrderWizard({ customers, vehicleModels }: Props) {
                     onChange={(e) => setSpecialNote(e.target.value)}
                   />
                 </Field>
-                <div className="bg-[#F8F7F4] rounded-md px-3 py-2.5 text-[11.5px] text-[#4A4A48] leading-relaxed">
-                  1. 買受人無故取消訂單，訂金恕不退還。 2.
-                  賣方無法如期交車，應通知並協商或退還訂金。 3.
-                  交車後應依原廠規定完成保固登記及定期保養。 4.
-                  本合約一式兩份，雙方各執一份。
-                </div>
+                {/* RS04 合規條款 — 從 legal_text_templates(contract_terms_new) 讀取 */}
+                <ContractTermsNew text={contractTermsNew ?? null} />
 
-                <SignGrid roles={["買受人簽名", "銷售顧問（RS）", "經銷商授權代表"]} rsName={rsName} />
+                <Divider />
+                <SecTitle>五、當事人簽名</SecTitle>
+                <div className="bg-[#EAF4FB] border border-[#85B7EB] rounded-md px-3 py-2 text-[11.5px] text-[#0C3E70] mb-2">
+                  ⚖️ 簽署前請確認：本合約享有至少 3 日審閱期。簽名後即視為雙方同意合約內容。
+                </div>
+                <TripleSignSection
+                  roles={["買受人簽名", "銷售顧問（RS）簽名", "見證人 / 授權代表簽名"]}
+                  signatures={[sigBuyer, sigSeller, sigWitness]}
+                  onSign={(roleIdx, dataUrl) => {
+                    if (roleIdx === 0) setSigBuyer(dataUrl);
+                    else if (roleIdx === 1) setSigSeller(dataUrl);
+                    else setSigWitness(dataUrl);
+                  }}
+                  onClear={(roleIdx) => {
+                    if (roleIdx === 0) setSigBuyer(null);
+                    else if (roleIdx === 1) setSigSeller(null);
+                    else setSigWitness(null);
+                  }}
+                  activePanel={activeSigPanel}
+                  setActivePanel={setActiveSigPanel}
+                />
               </SectionCard>
 
               <div className="flex justify-end gap-2 flex-wrap">
@@ -760,22 +803,37 @@ export default function OrderWizard({ customers, vehicleModels }: Props) {
                 </Grid>
 
                 <Divider />
-                <SecTitle>四、車輛現況與買受人切結</SecTitle>
-                <Field label="">
+                <SecTitle>四、車輛現況說明</SecTitle>
+                <Field label="車況備注（業務人員填寫；買受人請確認後簽名）">
                   <textarea
                     className={`${inputCls} h-[72px] resize-none`}
                     value={usedConditionNote}
                     onChange={(e) => setUsedConditionNote(e.target.value)}
                   />
                 </Field>
-                <div className="bg-[#FDECEA] border border-[#F5AEAD] rounded-md px-3 py-2.5 text-[11.5px] text-[#4A4A48] leading-relaxed">
-                  <b className="text-[#7A1010]">買受人切結聲明：</b>
-                  本人已親自驗車，充分了解車輛現況及已知瑕疵，同意以「現況」購買本車，不得事後以車況為由要求退換車或減價。
-                </div>
+                {/* RS04 合規條款 — 從 legal_text_templates(contract_terms_used) 讀取 */}
+                <ContractTermsUsed text={contractTermsUsed ?? null} />
 
-                <SignGrid
-                  roles={["賣方（甲方）簽章", "買受人（乙方）簽名", "見證人/銷售顧問"]}
-                  rsName={rsName}
+                <Divider />
+                <SecTitle>五、當事人簽名</SecTitle>
+                <div className="bg-[#EAF4FB] border border-[#85B7EB] rounded-md px-3 py-2 text-[11.5px] text-[#0C3E70] mb-2">
+                  ⚖️ 簽署前請確認：本合約享有至少 2 日審閱期。技師車況評估欄由本店技師填寫，客戶確認無誤後簽名。簽名後即視為雙方同意合約內容。
+                </div>
+                <TripleSignSection
+                  roles={["賣方（甲方）授權代表簽章", "買受人（乙方）簽名", "見證人 / 銷售顧問簽名"]}
+                  signatures={[sigSeller, sigBuyer, sigWitness]}
+                  onSign={(roleIdx, dataUrl) => {
+                    if (roleIdx === 0) setSigSeller(dataUrl);
+                    else if (roleIdx === 1) setSigBuyer(dataUrl);
+                    else setSigWitness(dataUrl);
+                  }}
+                  onClear={(roleIdx) => {
+                    if (roleIdx === 0) setSigSeller(null);
+                    else if (roleIdx === 1) setSigBuyer(null);
+                    else setSigWitness(null);
+                  }}
+                  activePanel={activeSigPanel}
+                  setActivePanel={setActiveSigPanel}
                 />
               </SectionCard>
 
@@ -811,48 +869,140 @@ export default function OrderWizard({ customers, vehicleModels }: Props) {
 // Helper components
 // ─────────────────────────────────────────────────────────────
 
-function SignGrid({
+/**
+ * TripleSignSection — 三方簽名區（buyer/seller/witness）。
+ * 每個簽名格：未簽→「請簽名」按鈕打開 canvas；已簽→顯示縮圖 + 清除按鈕。
+ * activePanel 控制同一時間只開一個 canvas（避免多開佔版面）。
+ */
+function TripleSignSection({
   roles,
-  rsName,
+  signatures,
+  onSign,
+  onClear,
+  activePanel,
+  setActivePanel,
 }: {
   roles: [string, string, string];
-  rsName: string;
+  signatures: [string | null, string | null, string | null];
+  onSign: (roleIdx: 0 | 1 | 2, dataUrl: string) => void;
+  onClear: (roleIdx: 0 | 1 | 2) => void;
+  activePanel: "buyer" | "seller" | "witness" | null;
+  setActivePanel: (p: "buyer" | "seller" | "witness" | null) => void;
 }) {
-  const today = useMemo(() => {
-    const d = new Date();
-    return `${d.getFullYear()} 年 ${pad2(d.getMonth() + 1)} 月 ${pad2(d.getDate())} 日`;
-  }, []);
+  const panelIds = ["buyer", "seller", "witness"] as const;
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-      {roles.map((r, idx) => (
-        <div
-          key={r}
-          className="border-[1.5px] border-dashed border-[#D5D3CB] rounded-md px-3.5 py-3.5 bg-[#FAFAF8] text-center"
-        >
-          <div className="text-[11px] text-[#9A9890] mb-5">{r}</div>
-          <div className="border-t border-[#D5D3CB] pt-1.5 text-[11px] text-[#9A9890]">
-            {idx === 1 && r.includes("銷售顧問") ? (
-              <>
-                {rsName}
-                <br />
-                {today}
-              </>
-            ) : idx === 2 ? (
-              <>
-                {r.includes("見證") ? rsName : "＿＿＿＿＿＿"}
-                <br />
-                {r.includes("見證") ? today : "展示中心"}
-              </>
-            ) : (
-              <>
-                簽名：＿＿＿＿＿＿
-                <br />
-                日期：______
-              </>
-            )}
+      {roles.map((role, idx) => {
+        const panelId = panelIds[idx];
+        const sig = signatures[idx];
+        const isOpen = activePanel === panelId;
+        return (
+          <div
+            key={role}
+            className="border border-[#D5D3CB] rounded-lg bg-[#FAFAF8] overflow-hidden"
+          >
+            <div className="px-3 py-2 border-b border-[#EEECE6] bg-[#F4F3F0] flex items-center justify-between">
+              <span className="text-[11.5px] font-semibold text-[#2C2C2A]">{role}</span>
+              {sig && (
+                <button
+                  type="button"
+                  onClick={() => { onClear(idx as 0 | 1 | 2); setActivePanel(null); }}
+                  className="text-[10.5px] text-[#CC0000] hover:underline"
+                >
+                  清除
+                </button>
+              )}
+            </div>
+            <div className="px-3 py-3">
+              {sig ? (
+                // 已簽名：顯示縮圖
+                <div className="flex flex-col items-center gap-1.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sig}
+                    alt={`${role}簽名`}
+                    className="w-full max-h-[80px] object-contain border border-[#EEECE6] rounded bg-white"
+                  />
+                  <span className="text-[10.5px] text-[#3B6D11] font-medium">✓ 已簽名</span>
+                </div>
+              ) : isOpen ? (
+                // 開啟 canvas
+                <div>
+                  <SignatureCanvas
+                    onSigned={(dataUrl) => {
+                      onSign(idx as 0 | 1 | 2, dataUrl);
+                      setActivePanel(null);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setActivePanel(null)}
+                    className="mt-1.5 text-[11px] text-[#9A9890] hover:text-[#5A5955]"
+                  >
+                    取消
+                  </button>
+                </div>
+              ) : (
+                // 未簽名
+                <button
+                  type="button"
+                  onClick={() => setActivePanel(panelId)}
+                  className="w-full h-[72px] border-2 border-dashed border-[#D5D3CB] rounded text-[12px] text-[#9A9890] hover:border-[#185FA5] hover:text-[#185FA5] transition-colors"
+                >
+                  ✏️ 點此簽名
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * ContractTermsNew — 新車訂購合約條款。
+ * text 有值時顯示 DB 範本內容（已替換 {brand} 佔位）；null 時顯示 hardcode fallback（向下相容）。
+ */
+function ContractTermsNew({ text }: { text: string | null }) {
+  if (text) {
+    return (
+      <div className="bg-[#F8F7F4] border border-[#EEECE6] rounded-md px-3.5 py-3 text-[11.5px] text-[#4A4A48] leading-relaxed">
+        <div className="text-[11px] font-bold text-[#2C2C2A] mb-2 uppercase tracking-wide">合約重要條款</div>
+        <pre className="whitespace-pre-wrap font-sans">{text}</pre>
+      </div>
+    );
+  }
+  // Fallback：brand 尚無 contract_terms_new 範本時，不顯示任何替代合約文字
+  // （避免出現未經授權的精簡版/錯誤品牌條款 — Russell RS04 退回意見的核心風險）。
+  return (
+    <div className="bg-[#FDECEA] border border-[#F5AEAD] rounded-md px-3.5 py-3 text-[11.5px] text-[#CC0000] leading-relaxed">
+      <div className="text-[11px] font-bold mb-1">⚠ 新車合約條款範本未設定</div>
+      本品牌尚未設定「新車訂購合約條款（contract_terms_new）」範本，無法顯示合約內容。
+      請至「管理 ＞ 法律文字範本」設定後再行簽署，切勿以口頭或自訂文字成交。
+    </div>
+  );
+}
+
+/**
+ * ContractTermsUsed — 中古車買賣合約條款。
+ * text 有值時顯示 DB 範本內容；null 時顯示 hardcode fallback。
+ */
+function ContractTermsUsed({ text }: { text: string | null }) {
+  if (text) {
+    return (
+      <div className="bg-[#F8F7F4] border border-[#EEECE6] rounded-md px-3.5 py-3 text-[11.5px] text-[#4A4A48] leading-relaxed">
+        <div className="text-[11px] font-bold text-[#2C2C2A] mb-2 uppercase tracking-wide">合約重要條款</div>
+        <pre className="whitespace-pre-wrap font-sans">{text}</pre>
+      </div>
+    );
+  }
+  // Fallback：brand 尚無 contract_terms_used 範本時，不顯示任何替代合約文字。
+  return (
+    <div className="bg-[#FDECEA] border border-[#F5AEAD] rounded-md px-3.5 py-3 text-[11.5px] text-[#CC0000] leading-relaxed">
+      <div className="text-[11px] font-bold mb-1">⚠ 中古車合約條款範本未設定</div>
+      本品牌尚未設定「中古機車買賣合約條款（contract_terms_used）」範本，無法顯示合約內容。
+      請至「管理 ＞ 法律文字範本」設定後再行簽署，切勿以口頭或自訂文字成交。
     </div>
   );
 }

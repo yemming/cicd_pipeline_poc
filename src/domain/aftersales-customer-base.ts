@@ -462,6 +462,10 @@ export type AftersalesCustomerComplaintRow = {
   result: string | null;
   repair_order_id: string | null;
   ro_code: string | null;
+  /** F-3：關聯銷售訂單 ID */
+  related_sales_order_id: string | null;
+  /** join：關聯銷售訂單單號（若有關聯） */
+  sales_order_no: string | null;
   created_at: string;
 };
 
@@ -522,10 +526,10 @@ export async function getCustomerById(
       .eq("brand_id", brand)
       .eq("rule_kind", "aftersales_pickup_notify_template")
       .maybeSingle(),
-    // 投訴歷史
+    // 投訴歷史（含 F-3 關聯銷售訂單）
     supabase
       .from("complaints")
-      .select("id, complaint_type, description, status, result, repair_order_id, created_at")
+      .select("id, complaint_type, description, status, result, repair_order_id, related_sales_order_id, created_at")
       .eq("brand_id", brand)
       .eq("customer_id", id)
       .order("created_at", { ascending: false })
@@ -578,7 +582,7 @@ export async function getCustomerById(
 
   const officialTags = (tagsRes.data ?? []) as AftersalesOfficialTagRow[];
 
-  // 投訴歷史 — 補 ro_code（若有關聯 RO）
+  // 投訴歷史 — 補 ro_code（若有關聯 RO）+ sales_order_no（F-3 關聯銷售訂單）
   const complaintsRaw = (complaintsRes.data ?? []) as Array<{
     id: string;
     complaint_type: string | null;
@@ -586,10 +590,28 @@ export async function getCustomerById(
     status: string;
     result: string | null;
     repair_order_id: string | null;
+    related_sales_order_id: string | null;
     created_at: string;
   }>;
   // 用已撈的 repairOrders 建 ro_code map，避免額外 round-trip
   const roCodeMapForComplaints = new Map(repairOrders.map((r) => [r.id, r.ro_code]));
+
+  // 補撈關聯銷售訂單單號（一次撈，避免 N+1）
+  const soIdsForComplaints = Array.from(
+    new Set(complaintsRaw.map((c) => c.related_sales_order_id).filter((x): x is string => Boolean(x))),
+  );
+  const soNoMapForComplaints = new Map<string, string>();
+  if (soIdsForComplaints.length > 0) {
+    const { data: soData } = await supabase
+      .from("sales_orders")
+      .select("id, order_no")
+      .in("id", soIdsForComplaints)
+      .eq("brand_id", brand);
+    for (const so of (soData ?? []) as Array<{ id: string; order_no: string }>) {
+      soNoMapForComplaints.set(so.id, so.order_no);
+    }
+  }
+
   const complaints: AftersalesCustomerComplaintRow[] = complaintsRaw.map((c) => ({
     id: c.id,
     complaint_type: c.complaint_type,
@@ -598,6 +620,8 @@ export async function getCustomerById(
     result: c.result,
     repair_order_id: c.repair_order_id,
     ro_code: c.repair_order_id ? (roCodeMapForComplaints.get(c.repair_order_id) ?? null) : null,
+    related_sales_order_id: c.related_sales_order_id,
+    sales_order_no: c.related_sales_order_id ? (soNoMapForComplaints.get(c.related_sales_order_id) ?? null) : null,
     created_at: c.created_at,
   }));
 

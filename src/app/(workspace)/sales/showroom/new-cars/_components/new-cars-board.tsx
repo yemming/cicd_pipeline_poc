@@ -215,6 +215,11 @@ export default function NewCarsBoard({
             model_display_name: vehicleModels.find((m) => m.id === fModelId)?.display_name ?? null,
             model_series: vehicleModels.find((m) => m.id === fModelId)?.series ?? null,
             organization_name: organizations.find((o) => o.id === fOrgId)?.name ?? null,
+            // A1 demo fields（新建時預設非 demo）
+            is_demo_unit: false,
+            demo_asset_acquired_at: null,
+            demo_retired_at: null,
+            converted_to_used_inventory_id: null,
           },
           ...prev,
         ]);

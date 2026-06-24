@@ -81,7 +81,7 @@ export async function reactivateAftersalesCustomerAction(
       attempt_count: 0,
       answers: {},
       notes: input.notes?.trim() || "休眠喚醒電訪（M02-6 系統建立）",
-      call_type: "outbound",
+      call_type: "dormant_reactivation",
       metadata: { source: "aftersales_dormant_reactivate" },
       created_by: ctx.userId,
     })

@@ -8,7 +8,8 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { NewCarInventoryStatus, LicensePlateStatus, NewCarInventoryRow, NewCarInventoryInput, NewCarInventoryFilters, VehicleModelOption, OrganizationOption, NewCarKpiSummary, NewCarByModelDatum, NewCarSlowMover } from "./new-car-inventory.constants";
+import { getActiveScope } from "@/lib/scope/active-scope";
+import type { NewCarInventoryStatus, NewCarInventoryRow, NewCarInventoryInput, NewCarInventoryFilters, VehicleModelOption, OrganizationOption, NewCarKpiSummary, NewCarByModelDatum, NewCarSlowMover, DemoRetireToUsedInput } from "./new-car-inventory.constants";
 
 // ── Re-export types from .constants.ts（server-side caller 仍可 import from "@/domain/new-car-inventory"）──
 export type {
@@ -20,6 +21,7 @@ export type {
   NewCarKpiSummary,
   NewCarByModelDatum,
   NewCarSlowMover,
+  DemoRetireToUsedInput,
 } from "./new-car-inventory.constants";
 
 // ── 查詢 ──────────────────────────────────────────────────────────────
@@ -36,6 +38,7 @@ const SELECT_FIELDS = `
   arrival_date, displayed_date, reserved_date, sold_date, delivered_date,
   license_plate_status, license_plate_no,
   linked_sales_order_id, note, images, metadata,
+  is_demo_unit, demo_asset_acquired_at, demo_retired_at, converted_to_used_inventory_id,
   created_at, updated_at, created_by, updated_by,
   vehicle_models(display_name, series),
   organizations(name)
@@ -52,6 +55,11 @@ function mapRow(r: Record<string, unknown>): NewCarInventoryRow {
     model_display_name: vm?.display_name ?? null,
     model_series: vm?.series ?? null,
     organization_name: org?.name ?? null,
+    // Demo 車欄位（DB DEFAULT false，確保前端讀到 boolean）
+    is_demo_unit: (r.is_demo_unit as boolean) ?? false,
+    demo_asset_acquired_at: (r.demo_asset_acquired_at as string | null) ?? null,
+    demo_retired_at: (r.demo_retired_at as string | null) ?? null,
+    converted_to_used_inventory_id: (r.converted_to_used_inventory_id as string | null) ?? null,
   };
 }
 
@@ -65,6 +73,9 @@ export async function listNewCars(
   if (filters.license_plate_status) q = q.eq("license_plate_status", filters.license_plate_status);
   if (filters.color) q = q.eq("color", filters.color);
   if (filters.q) q = q.or(`vin.ilike.%${filters.q}%,color.ilike.%${filters.q}%,engine_no.ilike.%${filters.q}%`);
+  // Demo 車 filter：true=只列 demo；false=排除 demo；undefined=全部
+  if (filters.is_demo_unit === true) q = q.eq("is_demo_unit", true);
+  if (filters.is_demo_unit === false) q = q.eq("is_demo_unit", false);
 
   const { data, error } = await q;
   if (error) throw error;
@@ -143,6 +154,7 @@ export async function setNewCarStatus(
     sold: "sold_date",
     delivered: "delivered_date",
     damaged: null,
+    incident_hold: null,
   };
   const field = dateField[status];
   const patch: Record<string, unknown> = { status };
@@ -248,6 +260,7 @@ export async function getNewCarInventoryByModel(): Promise<NewCarByModelDatum[]>
         sold: 0,
         delivered: 0,
         damaged: 0,
+        incident_hold: 0,
         total: 0,
       });
     }
@@ -301,4 +314,162 @@ export async function getNewCarSlowMovers(days = 90): Promise<NewCarSlowMover[]>
     })
     .filter((r) => r.days_in_stock > days)
     .sort((a, b) => b.days_in_stock - a.days_in_stock);
+}
+
+// ── Demo 車管理（A1）─────────────────────────────────────────────────
+
+/**
+ * 列出所有 demo 車（is_demo_unit=true），供試乘選車使用。
+ * 回傳 id + status + vin + model_display_name + color；
+ * 排除 incident_hold（事故中，不可被試乘）。
+ */
+export type DemoVehicleOption = {
+  id: string;
+  vin: string | null;
+  model_display_name: string | null;
+  color: string | null;
+  status: NewCarInventoryStatus;
+  demo_asset_acquired_at: string | null;
+};
+
+export async function listDemoVehicles(): Promise<DemoVehicleOption[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("new_car_inventory")
+    .select("id, vin, color, status, demo_asset_acquired_at, vehicle_models(display_name)")
+    .eq("brand_id", scope.brand_id)
+    .eq("is_demo_unit", true)
+    .neq("status", "incident_hold")  // 事故扣押中：不可被試乘
+    .neq("status", "sold")
+    .neq("status", "delivered")
+    .order("demo_asset_acquired_at", { ascending: false });
+  if (error) throw error;
+  type Joined = {
+    id: string;
+    vin: string | null;
+    color: string | null;
+    status: string;
+    demo_asset_acquired_at: string | null;
+    vehicle_models: { display_name?: string } | null;
+  };
+  return ((data ?? []) as unknown as Joined[]).map((r) => ({
+    id: r.id,
+    vin: r.vin,
+    model_display_name: r.vehicle_models?.display_name ?? null,
+    color: r.color,
+    status: r.status as NewCarInventoryStatus,
+    demo_asset_acquired_at: r.demo_asset_acquired_at,
+  }));
+}
+
+/**
+ * 標記或取消 demo 車。
+ * is_demo=true 時同時設 demo_asset_acquired_at（若尚未設定）。
+ * is_demo=false 時清空 demo_asset_acquired_at（但 demo_retired_at 保留）。
+ */
+export async function markAsDemoUnit(
+  id: string,
+  is_demo: boolean,
+  acquired_at?: string | null,
+): Promise<void> {
+  const supabase = await createClient();
+  const patch: Record<string, unknown> = { is_demo_unit: is_demo };
+  if (is_demo) {
+    patch.demo_asset_acquired_at = acquired_at ?? new Date().toISOString().slice(0, 10);
+  } else {
+    patch.demo_asset_acquired_at = null;
+  }
+  const { error } = await supabase
+    .from("new_car_inventory")
+    .update(patch)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * demo 車退役轉中古車（一次性不可逆）。
+ *
+ * 流程：
+ *  1. 確認目標車是 is_demo_unit=true 且尚未退役（demo_retired_at IS NULL）
+ *  2. 建立 used_car_inventory 記錄（status = 'pending_inspection' 觸發車況書流程，不是 available）
+ *  3. 回寫 new_car_inventory：demo_retired_at=today, converted_to_used_inventory_id=新 used id,
+ *     status='delivered'（退出庫存流程）
+ *
+ * 注意：
+ *  - 不觸發 used_car_evaluations（鑑價）
+ *  - 上架售價由操作者輸入（商業定價，不綁帳面 cost_price）
+ *  - 車況書 condition_report 由技師填（pending_inspection 狀態觸發）
+ */
+export async function retireDemoToUsed(
+  input: DemoRetireToUsedInput,
+): Promise<{ usedCarId: string }> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // 1. 確認 demo 車存在且未退役
+  const { data: car, error: fetchErr } = await supabase
+    .from("new_car_inventory")
+    .select("id, is_demo_unit, demo_retired_at, vehicle_model_id, vin, brand_id, color, list_price, cost_price, organization_id")
+    .eq("id", input.new_car_id)
+    .eq("brand_id", scope.brand_id)
+    .single();
+  if (fetchErr || !car) throw new Error("找不到該新車記錄");
+  if (!car.is_demo_unit) throw new Error("此車不是 demo 車，無法執行退役操作");
+  if (car.demo_retired_at) throw new Error("此 demo 車已退役，不可重複操作");
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // 2. 建立 used_car_inventory 記錄（pending_inspection = 待車況書）
+  const { data: usedCar, error: usedErr } = await supabase
+    .from("used_car_inventory")
+    .insert({
+      brand_id: scope.brand_id,
+      organization_id: car.organization_id ?? null,
+      vehicle_model_id: car.vehicle_model_id ?? null,
+      model_display_name: input.model_display_name,
+      year: input.year,
+      color: input.color ?? (car.color as string | null) ?? null,
+      vin: car.vin ?? null,
+      mileage_km: input.mileage_km ?? 0,
+      acquisition_price: (car.cost_price as number | null) ?? null,
+      listing_price: input.listing_price,
+      cost: (car.cost_price as number | null) ?? null,
+      acquisition_source: "other",   // demo 退役特殊來源
+      acquisition_date: today,
+      listed_date: null,             // 尚未上架，車況書完成後再設
+      status: "pending_inspection",  // 觸發車況書流程（不是 available）
+      note: input.note ?? `由 demo 車 ${car.vin ?? car.id} 退役轉入`,
+      // 反向追溯 typed column（Russell 裁示一：可互相追溯查詢）；metadata 同步保留向下相容
+      converted_from_demo_id: input.new_car_id,
+      metadata: {
+        converted_from_demo_id: input.new_car_id,
+        converted_at: today,
+        converted_by: user?.id ?? null,
+      },
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (usedErr || !usedCar) throw new Error(`建立中古車記錄失敗：${usedErr?.message}`);
+
+  // 3. 回寫 new_car_inventory：退役日期 + 追溯 id + status → delivered（退出庫存）
+  const { error: updateErr } = await supabase
+    .from("new_car_inventory")
+    .update({
+      demo_retired_at: today,
+      converted_to_used_inventory_id: (usedCar as { id: string }).id,
+      status: "delivered",  // 退出新車庫存流程（不是 sold，但也不再待售）
+    })
+    .eq("id", input.new_car_id);
+  if (updateErr) {
+    // rollback：刪掉剛建的 used_car 記錄（最佳努力）
+    await supabase.from("used_car_inventory").delete().eq("id", (usedCar as { id: string }).id);
+    throw new Error(`回寫 demo 車退役狀態失敗：${updateErr.message}`);
+  }
+
+  return { usedCarId: (usedCar as { id: string }).id };
 }

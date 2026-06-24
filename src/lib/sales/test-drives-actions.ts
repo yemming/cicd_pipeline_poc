@@ -15,12 +15,14 @@ import {
   completeTestDrive,
   startTestDriveWithSignature,
   linkToHandcard,
+  saveSafetyCheckNgItems,
 } from "@/domain/sales-test-drives";
 import type {
   CreateTestDriveInput,
   UpdateTestDriveInput,
   CompleteTestDriveInput,
   StartWithSignatureInput,
+  SafetyNgItem,
   Result,
 } from "@/domain/sales-test-drives.constants";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -109,6 +111,18 @@ export async function startTestDriveWithSignatureAction(
     revalidatePath(LIST_PATH);
     revalidatePath(`${LIST_PATH}/${id}`);
   }
+  return res;
+}
+
+// A-5：儲存安全清單 NG 明細
+export async function saveSafetyCheckNgItemsAction(
+  id: string,
+  ngItems: SafetyNgItem[],
+): Promise<Result<{ id: string }>> {
+  const g = await gate();
+  if (!g.ok) return g;
+  const res = await saveSafetyCheckNgItems(id, ngItems);
+  if (res.ok) revalidatePath(`${LIST_PATH}/${id}`);
   return res;
 }
 

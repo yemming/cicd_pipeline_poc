@@ -11,6 +11,10 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import {
+  uploadSignatureDataUrl,
+  isStorageUrl,
+} from "@/lib/aftersales/signature-upload";
 
 // 純展示型常數 / type 從 client-safe 的 .constants 重新導出
 import {
@@ -30,6 +34,7 @@ import type {
   TestDriveLookups,
   StartWithSignatureInput,
   TestDriveSignature,
+  SafetyNgItem,
 } from "./sales-test-drives.constants";
 
 export {
@@ -49,6 +54,7 @@ export type {
   TestDriveLookups,
   StartWithSignatureInput,
   TestDriveSignature,
+  SafetyNgItem,
 };
 
 export async function getTestDriveLookups(): Promise<TestDriveLookups> {
@@ -110,6 +116,11 @@ type RawListRow = {
   status: string;
   notes: string | null;
   metadata: unknown;
+  // 新增①：typed columns
+  insurance_verified: boolean | null;
+  insurance_note: string | null;
+  // A-5
+  safety_check_ng_items: unknown;
   created_at: string;
   updated_at: string;
   customer: { name: string | null } | null;
@@ -134,6 +145,11 @@ function shapeRow(r: RawListRow): TestDriveRow {
       r.metadata && typeof r.metadata === "object"
         ? (r.metadata as Record<string, unknown>)
         : {},
+    insurance_verified: r.insurance_verified ?? null,
+    insurance_note: r.insurance_note ?? null,
+    safety_check_ng_items: Array.isArray(r.safety_check_ng_items)
+      ? (r.safety_check_ng_items as SafetyNgItem[])
+      : null,
     created_at: r.created_at,
     updated_at: r.updated_at,
     customer_name: r.customer?.name ?? null,
@@ -143,7 +159,7 @@ function shapeRow(r: RawListRow): TestDriveRow {
 }
 
 const SELECT_FIELDS =
-  "id, brand_id, customer_id, vehicle_model_id, lead_id, handcard_id, sales_consultant_id, scheduled_at, completed_at, status, notes, metadata, created_at, updated_at, customer:customers!sales_test_drives_customer_id_fkey ( name ), vehicle_model:vehicle_models!sales_test_drives_vehicle_model_id_fkey ( model_name ), consultant:employees!sales_test_drives_sales_consultant_id_fkey ( name )";
+  "id, brand_id, customer_id, vehicle_model_id, lead_id, handcard_id, sales_consultant_id, scheduled_at, completed_at, status, notes, metadata, insurance_verified, insurance_note, safety_check_ng_items, created_at, updated_at, customer:customers!sales_test_drives_customer_id_fkey ( name ), vehicle_model:vehicle_models!sales_test_drives_vehicle_model_id_fkey ( model_name ), consultant:employees!sales_test_drives_sales_consultant_id_fkey ( name )";
 
 export async function listTestDrives(
   filter: ListTestDrivesFilter = {},
@@ -507,15 +523,24 @@ export async function completeTestDrive(
 
 // ─────────────────────────────────────────────────────────────
 // Start with signature（出車前簽試乘同意條款 → 寫 metadata.signature + 切 in_progress）
-// 不污染 completeTestDrive；沿用 read-merge-write metadata 寫法。
+// 輪2-1：簽名圖上傳 Storage，metadata 只存公開 URL（不存 base64）。
+// 新增①：保險證明驗核（insurance_verified / insurance_note typed columns）。
 // ─────────────────────────────────────────────────────────────
 
 export async function startTestDriveWithSignature(
   id: string,
   sig: StartWithSignatureInput,
 ): Promise<Result<{ id: string }>> {
-  if (!sig.dataUrl || !sig.dataUrl.startsWith("data:image/")) {
+  if (!sig.dataUrl) {
     return { ok: false, error: "缺少有效的簽名圖" };
+  }
+  // dataUrl 可能是 data:image/... 或已上傳的 https://... URL（重送場景）
+  if (!sig.dataUrl.startsWith("data:image/") && !isStorageUrl(sig.dataUrl)) {
+    return { ok: false, error: "缺少有效的簽名圖（非圖片格式）" };
+  }
+  // 新增①：後端擋關——保險證明未勾選不得出車
+  if (!sig.insuranceVerified) {
+    return { ok: false, error: "請確認已驗看機車保險證明" };
   }
 
   const supabase = await createClient();
@@ -534,13 +559,32 @@ export async function startTestDriveWithSignature(
     return { ok: false, error: "只有「已排程」的試駕可以簽名出車" };
   }
 
+  // 輪2-1：dataUrl 可能是已上傳過的 URL（重送場景）直接沿用，否則上傳到 Storage
+  let signatureUrl: string;
+  if (isStorageUrl(sig.dataUrl)) {
+    signatureUrl = sig.dataUrl;
+  } else {
+    const uploaded = await uploadSignatureDataUrl(
+      sig.dataUrl,
+      scope.brand_id,
+      "test-drive-consent",
+      id,
+      "customer",
+    );
+    if (!uploaded) {
+      // 上傳失敗：拒絕出車（簽名是法律依據，不可無照出車）
+      return { ok: false, error: "簽名圖上傳失敗，請重試" };
+    }
+    signatureUrl = uploaded;
+  }
+
   const prevMeta =
     existing.metadata && typeof existing.metadata === "object"
       ? (existing.metadata as Record<string, unknown>)
       : {};
 
   const signature: TestDriveSignature = {
-    data_url: sig.dataUrl,
+    data_url: signatureUrl, // Storage URL，不存 base64
     signed_at: new Date().toISOString(),
     consent_version: sig.consentVersion ?? "test-drive-v1",
     ...(sig.signerName ? { signer_name: sig.signerName } : {}),
@@ -552,13 +596,41 @@ export async function startTestDriveWithSignature(
     signature,
   };
 
+  // 新增①：insurance_verified / insurance_note 存 typed columns
   const { error } = await supabase
     .from("sales_test_drives")
-    .update({ status: "in_progress", metadata: meta })
+    .update({
+      status: "in_progress",
+      metadata: meta,
+      insurance_verified: true,
+      insurance_note: sig.insuranceNote ?? null,
+    })
     .eq("id", id)
     .eq("brand_id", scope.brand_id);
   if (error) return { ok: false, error: error.message };
 
+  return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// A-5：儲存安全清單 NG 明細（safety_check_ng_items typed column）
+// 在「開始試駕計時」前呼叫（wizard step 2 → step 3 的邊界）。
+// ─────────────────────────────────────────────────────────────
+
+export async function saveSafetyCheckNgItems(
+  id: string,
+  ngItems: SafetyNgItem[],
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { error } = await supabase
+    .from("sales_test_drives")
+    .update({ safety_check_ng_items: ngItems })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: error.message };
   return { ok: true, data: { id } };
 }
 

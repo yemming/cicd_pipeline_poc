@@ -15,12 +15,16 @@ import {
 import {
   DORMANCY_STATUS_BADGE,
   DORMANCY_STATUS_LABEL,
+  LOST_REASON_B9_LABEL,
   dormancyBucket,
   dormancyCopy,
   lostReasonLabel,
+  mapDbToLostReasonB9,
+  mapLostReasonB9ToDb,
   type DormancyStatus,
   type DormantLeadKind,
   type LostReason,
+  type LostReasonB9,
 } from "@/domain/sales-dormant-leads.constants";
 import type { DormantLeadRow } from "@/domain/sales-dormant-leads";
 
@@ -217,17 +221,31 @@ export function DormantLeadDetailView({
 
   const handleMarkLost = () => {
     if (!lead) return;
-    const reason = (form.lost_reason ?? "other") as LostReason;
+    // 輪11-1：UI 使用 B9 8 類原因，讀取 form 中的 lost_reason（DB 9 值）並反查到 B9
+    const dbReason = (form.lost_reason ?? "other") as LostReason;
+    const b9Reason: LostReasonB9 = mapDbToLostReasonB9(dbReason);
+    // 輪11-4 前端必填：competitor 原因時競品品牌必填
+    if (b9Reason === "competitor" && !form.competitor_brand?.trim()) {
+      showBanner({ ok: false, msg: "選擇「流失至競品」時，競品品牌必填" });
+      return;
+    }
     startTransition(async () => {
       const res = await markLeadLostAction(
         lead.id,
-        reason,
+        b9Reason,
         form.competitor_brand ?? null,
       );
       if (res.ok) {
+        const callTaskMsg = res.data.callTaskCreated
+          ? `（已自動建立喚醒電訪任務）`
+          : res.data.callTaskError
+            ? `（自動建任務失敗：${res.data.callTaskError}）`
+            : "";
         showBanner({
           ok: true,
-          msg: isAfter ? "✓ 已標記為流失" : "✓ 已標記為戰敗",
+          msg: isAfter
+            ? `✓ 已標記為流失 ${callTaskMsg}`
+            : `✓ 已標記為戰敗 ${callTaskMsg}`,
         });
         router.refresh();
       } else {
@@ -579,27 +597,59 @@ export function DormantLeadDetailView({
               ))}
             </select>
           </Field>
-          <Field label={isAfter ? "流失原因" : "戰敗原因"}>
-            <select
-              value={form.lost_reason ?? ""}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  lost_reason: (e.target.value || null) as LostReason | null,
-                })
-              }
-              disabled={readOnly}
-              className={`${inputClass} w-full`}
-            >
-              <option value="">—</option>
-              {(Object.keys(reasonMap) as LostReason[]).map((k) => (
-                <option key={k} value={k}>
-                  {reasonMap[k]}
-                </option>
-              ))}
-            </select>
+          {/* 輪11-1：sales 版用 B9 8 類；aftersales 版沿用原 9 值（reasonMap） */}
+          <Field label={isAfter ? "流失原因" : "戰敗原因（8 類）"}>
+            {isAfter ? (
+              <select
+                value={form.lost_reason ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    lost_reason: (e.target.value || null) as LostReason | null,
+                  })
+                }
+                disabled={readOnly}
+                className={`${inputClass} w-full`}
+              >
+                <option value="">—</option>
+                {(Object.keys(reasonMap) as LostReason[]).map((k) => (
+                  <option key={k} value={k}>
+                    {reasonMap[k]}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              // Sales 版：用 8 類 B9 UI，onChange 反查並存 DB 9 值
+              <select
+                value={form.lost_reason ? mapDbToLostReasonB9(form.lost_reason) : ""}
+                onChange={(e) => {
+                  const b9 = e.target.value as LostReasonB9 | "";
+                  if (!b9) {
+                    setForm({ ...form, lost_reason: null });
+                  } else {
+                    setForm({ ...form, lost_reason: mapLostReasonB9ToDb(b9) });
+                  }
+                }}
+                disabled={readOnly}
+                className={`${inputClass} w-full`}
+              >
+                <option value="">—</option>
+                {(Object.keys(LOST_REASON_B9_LABEL) as LostReasonB9[]).map((k) => (
+                  <option key={k} value={k}>
+                    {LOST_REASON_B9_LABEL[k]}
+                  </option>
+                ))}
+              </select>
+            )}
           </Field>
-          <Field label={copy.competitorLabel}>
+          {/* 輪11-4：competitor 必填競品品牌（前端強制） */}
+          <Field
+            label={copy.competitorLabel}
+            required={
+              !isAfter &&
+              form.lost_reason === "competitor"
+            }
+          >
             <input
               type="text"
               value={form.competitor_brand ?? ""}
@@ -608,8 +658,15 @@ export function DormantLeadDetailView({
               }
               disabled={readOnly}
               placeholder={copy.competitorPlaceholder}
-              className={`${inputClass} w-full`}
+              className={`${inputClass} w-full ${
+                !isAfter && form.lost_reason === "competitor" && !readOnly
+                  ? "border-[#CC0000]"
+                  : ""
+              }`}
             />
+            {!readOnly && !isAfter && form.lost_reason === "competitor" && !form.competitor_brand?.trim() ? (
+              <span className="text-[11px] text-[#CC0000]">競品品牌必填（流失至競品原因）</span>
+            ) : null}
           </Field>
           <Field label={copy.lostDateLabel}>
             <input

@@ -112,8 +112,29 @@ export function UsedCarEvaluationPrintable({
             },
             { label: "建立日期", value: fmtDate(data.created_at) },
             { label: "單據狀態", value: STATUS_LABELS[data.status] },
+            ...(data.expires_at
+              ? [{ label: "鑑價有效期限", value: fmtDate(data.expires_at) }]
+              : []),
           ]}
         />
+        {/* 輪7-2：有效期聲明（只在已核准時顯示） */}
+        {data.status === "approved" && (
+          <div
+            style={{
+              margin: "8pt 0",
+              padding: "6pt 10pt",
+              border: "1pt solid #D5D3CB",
+              borderRadius: "4pt",
+              background: "#F8F7F4",
+              fontSize: "9pt",
+              color: "#5A5955",
+              lineHeight: "1.5",
+            }}
+          >
+            ⚠️ 本估價自核准日起 <strong>30 日內</strong>有效，逾期須重新鑑價。
+            {data.expires_at && ` 本單有效期限至 ${fmtDate(data.expires_at)}。`}
+          </div>
+        )}
 
         {/* 車輛資訊 */}
         <PrintMetaGrid

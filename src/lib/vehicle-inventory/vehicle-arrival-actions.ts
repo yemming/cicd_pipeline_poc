@@ -26,6 +26,7 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import {
   nextArrivalNo,
   listInTransitCarsByPO,
+  matchBackordersAndCreateCallTasks,
   type InTransitCar,
 } from "@/domain/vehicle-arrivals";
 import { buildRoCode } from "@/domain/repair-orders.constants";
@@ -278,6 +279,45 @@ export async function confirmArrivalAction(
     pdiRoCodes.push(roCode);
     seq += 1;
   }
+
+  // A-10) 到港端：候補手卡比對 + call_tasks 建立（非阻塞，失敗不影響主流程）
+  // 撈已確認車輛的 model_display_name（join vehicle_models），用於模糊比對手卡 backorder_model
+  after(async () => {
+    try {
+      const okCarIds = okCars.map((v) => v.new_car_id);
+      if (okCarIds.length === 0) return;
+
+      const { data: carRows } = await supabase
+        .from("new_car_inventory")
+        .select("id, vehicle_model_id, color, vehicle_models(display_name)")
+        .in("id", okCarIds);
+
+      type CarRowFull = {
+        id: string;
+        vehicle_model_id: string | null;
+        color: string | null;
+        vehicle_models: { display_name?: string } | null;
+      };
+      const enrichedCars = ((carRows ?? []) as unknown as CarRowFull[]).map((c) => ({
+        new_car_id: c.id,
+        vehicleModelId: c.vehicle_model_id ?? null,  // 域C：傳 UUID 供精確比對
+        modelDisplayName: c.vehicle_models?.display_name ?? null,
+        color: c.color,
+      }));
+
+      const { matched, created } = await matchBackordersAndCreateCallTasks({
+        brandId: brand,
+        arrivalId,
+        vehicles: enrichedCars,
+        createdBy: userId ?? null,
+      });
+      if (matched > 0) {
+        console.info(`[A-10] 到港比對：${matched} 筆候補手卡命中，建立 ${created} 筆 call_task`);
+      }
+    } catch (e) {
+      console.error("[A-10] 候補手卡比對例外（不影響到港確認）", e);
+    }
+  });
 
   // 4) 採購單若還沒標到港，順手切 in_transit / arrived（此單尚有在途車就 in_transit，否則 arrived）
   {

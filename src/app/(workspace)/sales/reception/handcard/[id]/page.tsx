@@ -12,6 +12,7 @@ import {
   getHandcardById,
   listRevisitCandidates,
   listOwnerCandidates,
+  listLeadSourceOptions,
 } from '@/domain/sales-handcards';
 import { getVehicleModelOptions } from '@/domain/new-car-inventory';
 import { HandcardDetailView } from './_components/handcard-detail-view';
@@ -50,12 +51,14 @@ export default async function HandcardDetailPage({
   const { id } = await params;
   const sp = (await searchParams) ?? {};
 
-  const [handcard, vehicleModels, revisitCandidates, ownerCandidates] = await Promise.all([
-    getHandcardById(id),
-    getVehicleModelOptions(),
-    listRevisitCandidates({ excludeId: id, limit: 100 }),
-    listOwnerCandidates({ limit: 100 }),
-  ]);
+  const [handcard, vehicleModels, revisitCandidates, ownerCandidates, leadSources] =
+    await Promise.all([
+      getHandcardById(id),
+      getVehicleModelOptions(),
+      listRevisitCandidates({ excludeId: id, limit: 100 }),
+      listOwnerCandidates({ limit: 100 }),
+      listLeadSourceOptions(),
+    ]);
 
   if (!handcard) notFound();
 
@@ -68,6 +71,7 @@ export default async function HandcardDetailPage({
       vehicleModels={vehicleModels.map((m) => ({ id: m.id, display_name: m.display_name }))}
       revisitCandidates={revisitCandidates}
       ownerCandidates={ownerCandidates}
+      leadSources={leadSources}
       initialMode={initialMode}
     />
   );

@@ -5,6 +5,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getSalesOrderById } from "@/domain/sales-orders";
+import { getPaymentsByOrderId } from "@/domain/sales-payments";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import OrderDetailView from "./_components/order-detail-view";
@@ -16,18 +17,41 @@ type Props = {
 export default async function OrderDetailPage({ params }: Props) {
   const { id } = await params;
 
-  const [order, canEdit] = await Promise.all([
+  const [order, canEdit, canForfeit, canReplace, canApprove, canReassign] = await Promise.all([
     getSalesOrderById(id),
     hasPermission(PERMISSIONS.SALES_ORDER_EDIT),
+    hasPermission(PERMISSIONS.SALES_ORDER_FORFEIT),
+    hasPermission(PERMISSIONS.SALES_ORDER_REPLACE),
+    hasPermission(PERMISSIONS.SALES_ORDER_APPROVE),
+    hasPermission(PERMISSIONS.SALES_ORDER_REASSIGN),
   ]);
 
   if (!order) {
     notFound();
   }
 
+  // canUnlock = 主管才可解鎖（有 FORFEIT 或 APPROVE 權限）
+  const canUnlock = canForfeit || canApprove;
+
+  // 撈收款記錄（非阻塞；空陣列時 UI 顯示「尚無記錄」）
+  let payments: Awaited<ReturnType<typeof getPaymentsByOrderId>> = [];
+  try {
+    payments = await getPaymentsByOrderId(id);
+  } catch {
+    // 非致命：payments 撈失敗不影響詳情頁
+  }
+
   return (
     <Suspense fallback={null}>
-      <OrderDetailView order={order} canEdit={canEdit} />
+      <OrderDetailView
+        order={order}
+        canEdit={canEdit}
+        canForfeit={canForfeit}
+        canReplace={canReplace}
+        canUnlock={canUnlock}
+        canReassign={canReassign}
+        payments={payments}
+      />
     </Suspense>
   );
 }

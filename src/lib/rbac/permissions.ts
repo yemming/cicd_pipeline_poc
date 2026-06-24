@@ -131,6 +131,12 @@ export const PERMISSIONS = {
   SALES_ORDER_EDIT: "sales.order.edit",
   SALES_ORDER_CANCEL: "sales.order.cancel",
   SALES_ORDER_APPROVE: "sales.order.approve",
+  /** 期後沒收裁量（cancel_forfeit_rate > 0%）— 主管限定 */
+  SALES_ORDER_FORFEIT: "sales.order.forfeit",
+  /** RS04⑦ 換車申請 */
+  SALES_ORDER_REPLACE: "sales.order.replace",
+  /** A-9 主管批次轉移業務員 */
+  SALES_ORDER_REASSIGN: "sales.order.reassign",
 
   // ─── 銷售・保險招攬 ─────────────────────────────
   SALES_INSURANCE_VIEW: "sales.insurance.view",
@@ -142,6 +148,12 @@ export const PERMISSIONS = {
   // ─── 中古車評估鑑價 ─────────────────────────────
   USED_CAR_EVALUATION_APPROVE: "usedcar.evaluation.approve",
 
+  // ─── 新車 Demo 車管理 ────────────────────────────
+  /** 標記 / 取消 demo 車、設定取得日期（店長 / 主管限定） */
+  SALES_CAR_DEMO_EDIT: "sales.car_demo.edit",
+  /** demo 車退役轉中古車（一次性不可逆，店長 / 主管限定） */
+  SALES_CAR_DEMO_RETIRE: "sales.car_demo.retire",
+
   // ─── 稽核日誌 ──────────────────────────────────
   AUDIT_AFTERSALES_VIEW: "audit.aftersales.view",   // 售後稽核（售後主管 / 店長）
   AUDIT_INVENTORY_VIEW: "audit.inventory.view",     // 庫存稽核（倉管主管 / Admin）
@@ -152,6 +164,10 @@ export const PERMISSIONS = {
   ADMIN_APPEARANCE: "admin.appearance.edit",
   ADMIN_NOTIFICATION: "admin.notification.manage",
   ADMIN_USER: "admin.user.manage",
+
+  // ─── 法律合約文字範本 ───────────────────────────
+  LEGAL_TEXT_VIEW: "admin.legal_text.view",
+  LEGAL_TEXT_EDIT: "admin.legal_text.edit",
 } as const;
 
 export type PermissionCode = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

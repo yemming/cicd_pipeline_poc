@@ -10,6 +10,7 @@ import {
   updateUsedCarAction,
   deleteUsedCarAction,
   setUsedCarStatusAction,
+  saveConditionReportAction,
 } from "@/lib/sales/used-car-actions";
 import type { UsedCarInventoryRow } from "@/domain/used-car-inventory.constants";
 import { calcDaysInStock, statusLabel } from "@/domain/used-car-inventory.constants";
@@ -18,9 +19,11 @@ import {
   USED_CAR_STATUS_OPTIONS,
   USED_CAR_ACQUISITION_SOURCE_LABELS,
   USED_CAR_DB_STATUS_LABELS,
+  EMPTY_CONDITION_REPORT,
   type UsedCarDbStatus,
   type UsedCarConditionGrade,
   type UsedCarAcquisitionSource,
+  type ConditionReport,
 } from "@/domain/used-car-inventory.constants";
 
 // ── Design tokens ─────────────────────────────────────────────────────
@@ -97,18 +100,32 @@ type Props = {
   brandId: string;
   initialMode?: "view" | "edit" | "create";
   canEdit?: boolean;
+  /** 從 legal_text_templates 讀取的車況揭露免責說明（condition_report_disclaimer）。
+   *  null 代表該 brand 尚無設定，顯示通用 fallback。 */
+  disclaimerText?: string | null;
 };
 
 type FormMode = "view" | "edit" | "create";
 type Banner = { ok: boolean; msg: string } | null;
+type ActiveTab = "business" | "condition_report";
 
 // ─────────────────────────────────────────────────────────────────────
-export default function UsedCarDetailView({ car, brandId, initialMode = "view", canEdit = true }: Props) {
+export default function UsedCarDetailView({ car, brandId, initialMode = "view", canEdit = true, disclaimerText }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<FormMode>(initialMode);
   const [banner, setBanner] = useState<Banner>(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
+
+  // 輪9 車況說明書 tab state
+  const [activeTab, setActiveTab] = useState<ActiveTab>("business");
+  const existingReport = (car?.metadata?.condition_report as Partial<ConditionReport>) ?? {};
+  const [condReport, setCondReport] = useState<ConditionReport>({
+    ...EMPTY_CONDITION_REPORT,
+    ...existingReport,
+  });
+  const [condSigDataUrl, setCondSigDataUrl] = useState<string | null>(null);
+  const [condSaving, setCondSaving] = useState(false);
 
   // 表單 state
   const [form, setForm] = useState({
@@ -282,6 +299,33 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
         showBanner(false, res.error);
       }
     });
+  }
+
+  // ── 輪9 車況說明書儲存 ──
+  async function handleSaveConditionReport() {
+    if (!car) return;
+    setCondSaving(true);
+    try {
+      const res = await saveConditionReportAction({
+        used_car_id: car.id,
+        modification: condReport.modification,
+        odometer_reliable: condReport.odometer_reliable,
+        inspection_summary: condReport.inspection_summary,
+        additional_notes: condReport.additional_notes,
+        source_pdi_id: condReport.source_pdi_id,
+        customer_signature: condSigDataUrl ?? condReport.customer_signature_url,
+        brand_id: brandId,
+      });
+      if (res.ok) {
+        showBanner(true, "✓ 車況說明書已儲存");
+        setCondSigDataUrl(null);
+        router.refresh();
+      } else {
+        showBanner(false, res.error);
+      }
+    } finally {
+      setCondSaving(false);
+    }
   }
 
   const daysInStock = car
@@ -697,79 +741,277 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
         </div>
       )}
 
-      {/* ── 業務資訊 Tab（view/edit 模式才顯示）── */}
+      {/* ── Tabs（view/edit 模式才顯示）── */}
       {!isCreating && (
         <>
           <div className="bg-white border border-[#EEECE6] rounded-t-lg overflow-x-auto">
             <div className="flex border-b border-[#EEECE6]">
-              <button className="px-4 h-[40px] text-[12.5px] whitespace-nowrap border-r border-[#EEECE6] bg-white text-[#1A3A5C] font-semibold border-b-2 border-b-[#1A3A5C] -mb-px">
+              <button
+                onClick={() => setActiveTab("business")}
+                className={
+                  "px-4 h-[40px] text-[12.5px] whitespace-nowrap border-r border-[#EEECE6] " +
+                  (activeTab === "business"
+                    ? "bg-white text-[#1A3A5C] font-semibold border-b-2 border-b-[#1A3A5C] -mb-px"
+                    : "text-[#5A5955] hover:bg-[#F8F7F4]")
+                }
+              >
                 業務資訊
+              </button>
+              <button
+                onClick={() => setActiveTab("condition_report")}
+                className={
+                  "px-4 h-[40px] text-[12.5px] whitespace-nowrap border-r border-[#EEECE6] " +
+                  (activeTab === "condition_report"
+                    ? "bg-white text-[#1A3A5C] font-semibold border-b-2 border-b-[#1A3A5C] -mb-px"
+                    : "text-[#5A5955] hover:bg-[#F8F7F4]")
+                }
+              >
+                車況說明書
+                {condReport.customer_acknowledged_at && (
+                  <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-[#EAF3DE] text-[#3B6D11]">
+                    已簽署
+                  </span>
+                )}
               </button>
             </div>
           </div>
-          <div className="bg-white border border-[#EEECE6] border-t-0 rounded-b-lg p-4 space-y-3">
-            {isViewing ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-                  <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-                    <h2 className="text-[13px] font-semibold text-[#2C2C2A]">動保 / 年審</h2>
-                  </header>
-                  <div className="px-4 py-3 grid grid-cols-2 gap-3">
-                    <Kv label="動保塗銷" value={
-                      car?.lien_cleared === true ? (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11]">已清償</span>
-                      ) : car?.lien_cleared === false ? (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#FDECEA] text-[#CC0000]">未清償</span>
-                      ) : "—"
-                    } />
-                    <Kv label="年審到期日" value={car?.inspection_due_date} mono />
+
+          {/* 業務資訊 tab 內容 */}
+          {activeTab === "business" && (
+            <div className="bg-white border border-[#EEECE6] border-t-0 rounded-b-lg p-4 space-y-3">
+              {isViewing ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                    <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                      <h2 className="text-[13px] font-semibold text-[#2C2C2A]">動保 / 年審</h2>
+                    </header>
+                    <div className="px-4 py-3 grid grid-cols-2 gap-3">
+                      <Kv label="動保塗銷" value={
+                        car?.lien_cleared === true ? (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11]">已清償</span>
+                        ) : car?.lien_cleared === false ? (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#FDECEA] text-[#CC0000]">未清償</span>
+                        ) : "—"
+                      } />
+                      <Kv label="年審到期日" value={car?.inspection_due_date} mono />
+                    </div>
+                  </section>
+                  <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                    <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                      <h2 className="text-[13px] font-semibold text-[#2C2C2A]">衍生業務推薦</h2>
+                    </header>
+                    <div className="px-4 py-3">
+                      {car?.recommended_services && car.recommended_services.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {car.recommended_services.map((t) => (
+                            <span key={t} className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5]">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[12px] text-[#9A9890]">尚無推薦</span>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
+                  <div className="flex flex-col gap-1">
+                    <label className={labelClass}>動保塗銷</label>
+                    <select
+                      className={inputClass}
+                      value={form.lien_cleared}
+                      onChange={(e) => setForm({ ...form, lien_cleared: e.target.value })}
+                    >
+                      <option value="">— 未知 —</option>
+                      <option value="true">已清償</option>
+                      <option value="false">未清償</option>
+                    </select>
                   </div>
-                </section>
-                <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-                  <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
-                    <h2 className="text-[13px] font-semibold text-[#2C2C2A]">衍生業務推薦</h2>
-                  </header>
-                  <div className="px-4 py-3">
-                    {car?.recommended_services && car.recommended_services.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {car.recommended_services.map((t) => (
-                          <span key={t} className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#EAF4FB] text-[#185FA5]">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
+                  <div className="flex flex-col gap-1">
+                    <label className={labelClass}>年審到期日</label>
+                    <input
+                      type="date"
+                      className={inputClass}
+                      value={form.inspection_due_date}
+                      onChange={(e) => setForm({ ...form, inspection_due_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 輪9 車況說明書 tab 內容 */}
+          {activeTab === "condition_report" && (
+            <div className="bg-white border border-[#EEECE6] border-t-0 rounded-b-lg p-4 space-y-4">
+              {/* 技師欄位（唯讀，前端顯示但不可編輯）*/}
+              <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+                  <h2 className="text-[13px] font-semibold text-[#2C2C2A]">技師評估（唯讀）</h2>
+                  <span className="text-[10.5px] px-1.5 py-0.5 rounded bg-[#FDF3E3] text-[#854F0B]">
+                    技師填寫，業務員不可更改
+                  </span>
+                </header>
+                <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Kv label="事故歷史" value={
+                    condReport.accident_history === true ? (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#FDECEA] text-[#CC0000]">有事故記錄</span>
+                    ) : condReport.accident_history === false ? (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11]">無事故記錄</span>
                     ) : (
-                      <span className="text-[12px] text-[#9A9890]">尚無推薦</span>
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#F2F2F2] text-[#6B6A68]">尚未評估</span>
+                    )
+                  } />
+                  <Kv label="泡水記錄" value={
+                    condReport.flood_damage === true ? (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#FDECEA] text-[#CC0000]">有泡水記錄</span>
+                    ) : condReport.flood_damage === false ? (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11]">無泡水記錄</span>
+                    ) : (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#F2F2F2] text-[#6B6A68]">尚未評估</span>
+                    )
+                  } />
+                </div>
+              </section>
+
+              {/* 業務員可編輯欄位 */}
+              <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                  <h2 className="text-[13px] font-semibold text-[#2C2C2A]">車況說明</h2>
+                </header>
+                <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+                  <div className="flex flex-col gap-1">
+                    <label className={labelClass}>改裝 / 改色</label>
+                    <input
+                      className={inputClass}
+                      value={condReport.modification ?? ""}
+                      onChange={(e) => setCondReport({ ...condReport, modification: e.target.value || null })}
+                      placeholder="例：原廠排氣管、貼膜"
+                      disabled={condSaving}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className={labelClass}>里程可信度</label>
+                    <select
+                      className={inputClass}
+                      value={condReport.odometer_reliable === null ? "" : String(condReport.odometer_reliable)}
+                      onChange={(e) => setCondReport({
+                        ...condReport,
+                        odometer_reliable: e.target.value === "" ? null : e.target.value === "true",
+                      })}
+                      disabled={condSaving}
+                    >
+                      <option value="">— 未評估 —</option>
+                      <option value="true">可信</option>
+                      <option value="false">存疑</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1 md:col-span-2">
+                    <label className={labelClass}>整體車況摘要</label>
+                    <textarea
+                      className="border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none w-full resize-none"
+                      rows={3}
+                      value={condReport.inspection_summary ?? ""}
+                      onChange={(e) => setCondReport({ ...condReport, inspection_summary: e.target.value || null })}
+                      placeholder="整體車況描述（例：外觀良好，引擎聲音正常…）"
+                      disabled={condSaving}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 md:col-span-2">
+                    <label className={labelClass}>附加說明</label>
+                    <textarea
+                      className="border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none w-full resize-none"
+                      rows={2}
+                      value={condReport.additional_notes ?? ""}
+                      onChange={(e) => setCondReport({ ...condReport, additional_notes: e.target.value || null })}
+                      placeholder="其他注意事項…"
+                      disabled={condSaving}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* 客戶確認 / 簽名 */}
+              <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                  <h2 className="text-[13px] font-semibold text-[#2C2C2A]">客戶確認簽名</h2>
+                </header>
+                <div className="px-4 py-3 space-y-3">
+                  {/* 法律效果提示文字 — 從 legal_text_templates(condition_report_disclaimer) 讀取 */}
+                  <div className="bg-[#FDF3E3] border border-[#F0C97E] rounded-lg px-3 py-2.5 text-[12px] text-[#854F0B] leading-relaxed whitespace-pre-wrap">
+                    <b>客戶簽署前請詳閱：</b>
+                    <br />
+                    {disclaimerText ?? "本說明書所載車輛狀況（含事故歷史、泡水記錄、里程可信度）係依現狀告知。簽署即表示您已知情，依法不得再以此為由要求退車 / 減價。"}
+                  </div>
+
+                  {condReport.customer_acknowledged_at ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-[#EAF3DE] text-[#3B6D11]">
+                        已簽署
+                      </span>
+                      <span className="text-[12px] text-[#9A9890]">
+                        {new Date(condReport.customer_acknowledged_at).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })}
+                      </span>
+                      {condReport.customer_signature_url && (
+                        <a
+                          href={condReport.customer_signature_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11.5px] text-[#185FA5] underline"
+                        >
+                          檢視簽名
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-[12px] text-[#9A9890]">尚未取得客戶簽名</div>
+                  )}
+
+                  {/* 簽名上傳（dataUrl 由外部 signature canvas 帶入，這裡做 file input 備案）*/}
+                  <div className="flex flex-col gap-1">
+                    <label className={labelClass}>上傳簽名圖檔（JPEG / PNG）</label>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      className="text-[12px] text-[#5A5955]"
+                      disabled={condSaving}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          setCondSigDataUrl(ev.target?.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    {condSigDataUrl && (
+                      <div className="mt-1">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={condSigDataUrl} alt="簽名預覽" className="h-[80px] border border-[#D5D3CB] rounded object-contain bg-white" />
+                      </div>
                     )}
                   </div>
-                </section>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
-                <div className="flex flex-col gap-1">
-                  <label className={labelClass}>動保塗銷</label>
-                  <select
-                    className={inputClass}
-                    value={form.lien_cleared}
-                    onChange={(e) => setForm({ ...form, lien_cleared: e.target.value })}
-                  >
-                    <option value="">— 未知 —</option>
-                    <option value="true">已清償</option>
-                    <option value="false">未清償</option>
-                  </select>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className={labelClass}>年審到期日</label>
-                  <input
-                    type="date"
-                    className={inputClass}
-                    value={form.inspection_due_date}
-                    onChange={(e) => setForm({ ...form, inspection_due_date: e.target.value })}
-                  />
-                </div>
+              </section>
+
+              {/* 儲存按鈕 */}
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={handleSaveConditionReport}
+                  disabled={condSaving || !car}
+                  className={
+                    "h-[32px] px-5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50 " +
+                    (condSaving ? "pointer-events-none" : "")
+                  }
+                >
+                  {condSaving ? "儲存中⋯" : "儲存車況說明書"}
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </>
       )}
 

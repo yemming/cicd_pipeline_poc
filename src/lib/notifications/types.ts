@@ -43,7 +43,20 @@ export type EventCode =
   | "repair_order_addon.proposed"
   // Russell 6/17 裁示：付費 RO 待結帳超過 N 天升級通知給店長（SA 疏忽備援）
   //   payload: checkoutNo / roCode / customerName / overdueDays / payable / actionUrl / brandId
-  | "ro_checkout.unpaid_overdue";
+  | "ro_checkout.unpaid_overdue"
+  // 新增②：試乘事故登記 — 通知店長立即處理、車輛凍結為 incident_hold
+  //   payload: testDriveId / vehicleModel / customerName / description / location / reportedAt / actionUrl / brandId
+  | "test_ride_incident.reported"
+  // RS_M5 折扣審核佇列 — 業務員送審通知主管；逾時升級代理審核人；主管決定後通知業務員
+  //   requested payload: approvalId / quoteId / discountPct / discountAmount / inStoreWaiting / vehicleModelName / notes / actionUrl
+  //   escalated payload: approvalId / quoteId / discountPct / discountAmount / vehicleModelName / overdueMinutes / escalatedToName / actionUrl
+  //   decided   payload: approvalId / decision / reason / actionUrl / vehicleModelName
+  | "sales_discount.requested"
+  | "sales_discount.escalated"
+  | "sales_discount.decided"
+  // RS 貸款申請逾時追蹤 — financing_status='pending_approval' 超過 7 天，通知業務員追蹤
+  //   payload: orderId / orderNo / customerName / rsName / daysOverdue / vehicleModelName / actionUrl / brandId
+  | "financing.pending_timeout";
 
 export interface NotificationEvent<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   code: EventCode;

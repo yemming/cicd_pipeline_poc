@@ -12,6 +12,13 @@ type Props = {
   statusLabels: Record<EvaluationStatus, string>;
 };
 
+/** 判斷 approved 的評估單是否已超過 30 天有效期。 */
+function isExpiredRow(r: UsedCarEvaluationWithCustomer): boolean {
+  if (r.status !== "approved") return false;
+  if (!r.expires_at) return false;
+  return new Date(r.expires_at) < new Date();
+}
+
 const STATUS_BADGE: Record<EvaluationStatus, string> = {
   draft: "bg-[#F2F2F2] text-[#6B6A68]",
   submitted: "bg-[#FDF3E3] text-[#854F0B]",
@@ -109,15 +116,41 @@ export function EvaluationsBoard({ rows, statusLabels }: Props) {
     {
       id: "status",
       header: "狀態",
-      width: 90,
-      cell: (r) => (
-        <span
-          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${STATUS_BADGE[r.status]}`}
-        >
-          {statusLabels[r.status]}
-        </span>
-      ),
-      exportValue: (r) => statusLabels[r.status],
+      width: 120,
+      cell: (r) => {
+        const expired = isExpiredRow(r);
+        return (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span
+              className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${STATUS_BADGE[r.status]}`}
+            >
+              {statusLabels[r.status]}
+            </span>
+            {expired && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap bg-[#FDECEA] text-[#CC0000]">
+                已逾期
+              </span>
+            )}
+          </div>
+        );
+      },
+      exportValue: (r) => `${statusLabels[r.status]}${isExpiredRow(r) ? " (已逾期)" : ""}`,
+    },
+    {
+      id: "expires_at",
+      header: "有效期限",
+      width: 110,
+      defaultHidden: false,
+      cell: (r) => {
+        if (r.status !== "approved" || !r.expires_at) return "—";
+        const expired = isExpiredRow(r);
+        return (
+          <span className={expired ? "text-[#CC0000] font-semibold" : "text-[#5A5955]"}>
+            {r.expires_at.slice(0, 10)}
+          </span>
+        );
+      },
+      exportValue: (r) => r.expires_at?.slice(0, 10) ?? "",
     },
     {
       id: "created_at",

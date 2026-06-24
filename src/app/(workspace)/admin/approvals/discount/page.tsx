@@ -1,12 +1,49 @@
-import { PlaceholderPage } from "@/components/placeholder-page";
+import { hasPermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
+import {
+  listDiscountApprovals,
+  getDiscountApprovalQueueKpis,
+} from "@/domain/discount-approvals";
+import { DiscountApprovalsBoard } from "./_components/discount-approvals-board";
 
-export default function Page() {
+/**
+ * /admin/approvals/discount — 折扣審核佇列（RS_M5）
+ *
+ * Server component：撈待審核列表 + KPIs 傳給 client board。
+ */
+export default async function DiscountApprovalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const canApprove = await hasPermission(PERMISSIONS.SALES_ORDER_APPROVE);
+
+  const filterStatus = (sp.status as string) ?? "";
+  const filterInStoreOnly = sp.in_store_only === "1";
+  const page = Math.max(1, parseInt((sp.page as string) ?? "1", 10));
+  const pageSize = 50;
+
+  const [listRes, kpis] = await Promise.all([
+    listDiscountApprovals({
+      status: filterStatus || undefined,
+      in_store_waiting: filterInStoreOnly ? true : undefined,
+      page,
+      pageSize,
+    }),
+    getDiscountApprovalQueueKpis(),
+  ]);
+
   return (
-    <PlaceholderPage
-      title="折扣簽核"
-      icon="percent"
-      description="折扣簽核規劃中，尚未串接真實資料。完成後超過閾值的折扣會自動進入此處待主管審核。"
-      breadcrumb={[{ label: "簽核管理", href: "/admin/approvals" }, { label: "折扣簽核" }]}
+    <DiscountApprovalsBoard
+      rows={listRes.rows}
+      totalCount={listRes.totalCount}
+      page={page}
+      pageSize={pageSize}
+      kpis={kpis}
+      filterStatus={filterStatus}
+      filterInStoreOnly={filterInStoreOnly}
+      canApprove={canApprove}
     />
   );
 }

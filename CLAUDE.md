@@ -14,11 +14,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **驗證一律走 Deploy-then-Test**（`.claude/skills/spec-to-feature/references/orchestration.md` §3）：push → Zeabur 自動部署 → 打**部署後 URL** 跑 Playwright，**不在開發機起常駐 `next dev`**（會跟 Chromium 搶記憶體當機）。
 
-**Zeabur 上版成功後必發 LINE 通知（MANDATORY）**：每次 push 觸發部署、**確認 Zeabur 部署成功（RUNNING）後**，一律跑 `node scripts/notify-deploy.mjs` 把本輪更新摘要推到開發群組 LINE（老闆與開發團隊即時知道已上版、這版有什麼）。
-
-- script 會自輪詢 `zeabur deployment list --json` 等到 HEAD `commitSHA` RUNNING **才發**（不是部署中就發）→ 自動用 `git log 上一部署sha..HEAD --pretty=%s` 組摘要 → POST `/api/deploy/released`（`DEPLOY_NOTIFY_TOKEN` 守門）→ Notification Hub 推 LINE 🚀 已上版卡。
-- 摘要**必含本輪 git commit**（commit message 寫清楚即上版說明）；多輪/跨日彙整時可改用 curated 主題重點（python 打同一 endpoint，帶自訂 `summary`）。
-- LINE 走 app 內建 Notification Hub → Messaging API **直推**（群 `C4d5c083...`，**非 Zapier**）；事件 `deploy.released`、模板 `src/lib/notifications/templates/deploy-released.ts`。詳見 memory `reference_twenty_third_round` / `feedback_deploy_notify_include_commits`。
+**⏸️ 上版 LINE 通知已暫停（2026-06-23，省 LINE 額度）**：LINE 免費額度每月僅 200 則，每天 push 會把額度燒光，故**暫時關閉上版通知**。實作上是把 Notification Hub 裡 `deploy.released` 的 LINE 訂閱設 `is_active=false`（subscription id `46060e2c-4446-41b3-9229-5a4342906b79`），**只關上版這一個事件的 LINE，其他 LINE 通知（許願單建立等）照常**。
+- **現在 push 完不必再跑 `node scripts/notify-deploy.mjs`**（跑了也不會推 LINE，dispatch 命中 0 個 active 訂閱）。
+- 要恢復：把該 subscription `is_active` 設回 `true` 即可（機制、script、模板、token 全保留未動，隨時可開回）。
+- 機制備忘（恢復時參考）：script 輪詢 `zeabur deployment list --json` 等 HEAD RUNNING → POST `/api/deploy/released`（`DEPLOY_NOTIFY_TOKEN` 守門）→ Hub 推 LINE 🚀 已上版卡；事件 `deploy.released`、模板 `src/lib/notifications/templates/deploy-released.ts`。詳見 memory `reference_twenty_third_round` / `feedback_deploy_notify_include_commits`。
 
 **E2E 測試帳號（admin，可程式登入）**：
 
@@ -169,6 +168,34 @@ export default function WorkorderPage() {
 - ✅ **畫面主體內容**：照 design pattern + 設計稿做
 - ❌ **Sidebar / Topbar / Rail**：不照抄 Stitch，改用共用 shell
 - ✅ **新模組 / 新頁面**：只改 `src/lib/modules.ts` + 對應 `page.tsx`
+
+### 一頁多目錄（別名頁 / 重複利用入口）規範（MANDATORY）
+
+> **情境**：同一個功能頁面要在不同 module / 目錄底下都有入口（例：「料件主檔」既屬進銷存，也要出現在「會計 / List 主檔」下叫「料號商品」）。
+
+**鐵則：重複利用同一頁，不要複製頁面、不要新 route、不要做成會跳目錄的捷徑。**
+
+**怎麼做（只做這一件事）**：在 `nav_nodes` 加一個入口 node，`page_kind='react_route'`、`href` 直接指向那頁的 **canonical URL**（既有的那一個，例 `/parts/setup/items`）。雙 brand 各一筆。**不寫任何新 code、不開 catch-all、不複製元件**。
+
+**為什麼點了 sidebar 不會跳到別的 module**：active module 解析已內建 **client-side stickiness**——
+
+- `src/lib/nav/helpers.ts` 的 `resolveModuleCandidates()` 對「同一個 href 被多個 module 宣告」回**所有平手候選**（canonical 優先當冷啟動預設），不再硬擇一。
+- `src/components/nav-provider.tsx` 的 `NavProvider` 記住「進入別名頁前所在的 module」，平手時**留在那個 module**。語意 = 「從哪個入口點進別名頁，sidebar 就留在那個入口的路徑下」。
+- 元件一律透過 `useActiveModule()`（`src/lib/use-active-module.ts`）或 `useNav().activeModule` 讀 active module，**不要自己用 `usePathname()` + `resolveModuleFromPathname()` 重算**（那會破壞 stickiness、別名頁又會跳走）。
+
+**成立的前提 / 邊界**：
+
+- 別名入口和 canonical 入口指向**同一個 URL**——所以網址只有一份、頁面只有一份、list/detail 都走 canonical path。stickiness 只改 sidebar 的視覺歸屬，不改網址。
+- 因此**頁面元件內 hardcode 的路徑（如 `items-board.tsx` 裡的 `/parts/setup/items` 篩選/分頁/detail link）維持 canonical 即可，不必參數化**。
+- 直接貼網址冷啟動進別名頁 → 歸 canonical module（沒有來源 context 可循，合理）。
+- 非別名頁（單一候選）行為完全不變。
+
+**禁止**：
+
+- ❌ 為了「在另一個目錄出現」複製一份 `page.tsx` / `_components`
+- ❌ 開新 route（`/n/{id}` catch-all、`/accounting/items` 之類）render 同內容
+- ❌ 把別名做成 `redirect()` 到 canonical（會跳目錄、sidebar 也跟著跳）
+- ❌ 在元件內自己 `resolveModuleFromPathname(usePathname())` 重算 active module
 
 ---
 

@@ -138,6 +138,14 @@ function Modal({
 
 // ── 主元件 ──────────────────────────────────────────────────────────
 
+/**
+ * viewMode:
+ *   - 'dealer'（預設）：展廳接待視角，掛 /sales/showroom/new-cars
+ *   - 'rs'：銷售接待（Showroom Staff）視角，掛 /sales/showroom/stock（輪3-1a）
+ *     RS 視角：隱藏新增/編輯/刪除 CRUD 按鈕（純查詢），page header 加「RS 視角」chip
+ */
+export type NewCarInventoryViewMode = "dealer" | "rs";
+
 export default function NewCarInventoryBoard({
   initialRows,
   vehicleModels,
@@ -147,6 +155,7 @@ export default function NewCarInventoryBoard({
   byModel,
   slowMovers,
   canViewCost,
+  viewMode = "dealer",
 }: {
   initialRows: NewCarInventoryRow[];
   vehicleModels: VehicleModelOption[];
@@ -157,10 +166,16 @@ export default function NewCarInventoryBoard({
   slowMovers: NewCarSlowMover[];
   /** 主管才看得到整車成本 / 毛利（permission: sales.cost.view） */
   canViewCost: boolean;
+  /** 視角切換（輪3-1a）：dealer=展廳, rs=銷售接待（純查詢，不顯示 CRUD） */
+  viewMode?: NewCarInventoryViewMode;
 }) {
+  const isRs = viewMode === "rs";
+
   useSetPageHeader({
-    title: "新車庫存",
-    breadcrumb: [{ label: "展廳接待" }, { label: "新車庫存" }],
+    title: isRs ? "新車庫存看板（RS 視角）" : "新車庫存",
+    breadcrumb: isRs
+      ? [{ label: "銷售接待" }, { label: "展廳接待" }, { label: "新車庫存（RS 視角）" }]
+      : [{ label: "展廳接待" }, { label: "新車庫存" }],
   });
 
   const router = useRouter();
@@ -178,6 +193,8 @@ export default function NewCarInventoryBoard({
   const [filterColor, setFilterColor] = useState("");
   const [filterLpStatus, setFilterLpStatus] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
+  // A1：demo 車 filter（"" = 全部 / "demo" = 只看 demo / "non_demo" = 排除 demo）
+  const [filterDemoMode, setFilterDemoMode] = useState<"" | "demo" | "non_demo">("");
 
   // form state
   const [fVin, setFVin] = useState("");
@@ -219,6 +236,9 @@ export default function NewCarInventoryBoard({
       if (filterSeries && r.model_series !== filterSeries) return false;
       if (filterColor && r.color !== filterColor) return false;
       if (filterLpStatus && r.license_plate_status !== filterLpStatus) return false;
+      // A1：demo 車 filter
+      if (filterDemoMode === "demo" && !r.is_demo_unit) return false;
+      if (filterDemoMode === "non_demo" && r.is_demo_unit) return false;
       if (q) {
         const hay =
           (r.model_display_name ?? "") +
@@ -230,7 +250,7 @@ export default function NewCarInventoryBoard({
       }
       return true;
     });
-  }, [rows, filterStatus, filterSeries, filterColor, filterLpStatus, filterQuery]);
+  }, [rows, filterStatus, filterSeries, filterColor, filterLpStatus, filterQuery, filterDemoMode]);
 
   // ── 開 form ──
   function openCreate() {
@@ -323,6 +343,11 @@ export default function NewCarInventoryBoard({
             model_display_name: vehicleModels.find((m) => m.id === fModelId)?.display_name ?? null,
             model_series: vehicleModels.find((m) => m.id === fModelId)?.series ?? null,
             organization_name: organizations.find((o) => o.id === fOrgId)?.name ?? null,
+            // A1 demo fields（新建時預設非 demo）
+            is_demo_unit: false,
+            demo_asset_acquired_at: null,
+            demo_retired_at: null,
+            converted_to_used_inventory_id: null,
           },
           ...prev,
         ]);
@@ -484,6 +509,20 @@ export default function NewCarInventoryBoard({
       sortValue: (r) => r.status,
     },
     {
+      id: "demo_unit",
+      header: "展示車",
+      width: 80,
+      defaultHidden: false,
+      sortable: false,
+      cell: (r) =>
+        r.is_demo_unit ? (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#EAF4FB] text-[#185FA5] whitespace-nowrap">
+            Demo
+          </span>
+        ) : null,
+      exportValue: (r) => (r.is_demo_unit ? "Demo" : ""),
+    },
+    {
       id: "color",
       header: "顏色",
       width: 100,
@@ -634,12 +673,24 @@ export default function NewCarInventoryBoard({
     >
       {/* Page Header */}
       <header className="flex items-center gap-2.5 flex-wrap">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">新車庫存</h1>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">
+          {isRs ? "新車庫存看板（RS 視角）" : "新車庫存"}
+        </h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
-          展廳接待 / RS03A
+          {isRs ? "銷售接待 / RS03A" : "展廳接待 / RS03A"}
         </span>
+        {isRs && (
+          <span
+            className="px-2 py-0.5 text-[11px] rounded-full bg-[#E1F5EE] text-[#0F6E56] font-medium"
+            data-testid="rs-perspective-chip"
+          >
+            RS 視角
+          </span>
+        )}
         <span className="text-[12px] text-[#9A9890]">
-          展廳現場現貨管理 — 卡片 / 列表雙模式、狀態追蹤、領牌、報價接續
+          {isRs
+            ? "本店可推薦庫存 — 現車、保留、訂車中與本月已售，銷售接待第一現場使用"
+            : "展廳現場現貨管理 — 卡片 / 列表雙模式、狀態追蹤、領牌、報價接續"}
         </span>
       </header>
 
@@ -818,23 +869,38 @@ export default function NewCarInventoryBoard({
               className="h-[30px] w-[180px] px-2 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] outline-none"
             />
           </div>
+          {/* A1：demo 車 filter 切換 */}
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>展示車</label>
+            <select
+              value={filterDemoMode}
+              onChange={(e) => setFilterDemoMode(e.target.value as "" | "demo" | "non_demo")}
+              className="h-[30px] px-2 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] outline-none"
+            >
+              <option value="">全部</option>
+              <option value="demo">僅 Demo 車</option>
+              <option value="non_demo">排除 Demo 車</option>
+            </select>
+          </div>
           <div className="flex gap-2 ml-auto items-end">
             <button
               onClick={() => {
                 setFilterStatus(""); setFilterSeries(""); setFilterColor("");
-                setFilterLpStatus(""); setFilterQuery("");
+                setFilterLpStatus(""); setFilterQuery(""); setFilterDemoMode("");
               }}
               className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
             >
               重置
             </button>
-            <button
-              onClick={openCreate}
-              className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
-              disabled={isSubmitting}
-            >
-              ＋ 新增車輛
-            </button>
+            {!isRs && (
+              <button
+                onClick={openCreate}
+                className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                disabled={isSubmitting}
+              >
+                ＋ 新增車輛
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -852,17 +918,17 @@ export default function NewCarInventoryBoard({
 
       {/* Card / List */}
       {displayMode === "card" ? (
-        <CardGrid rows={filtered} onEdit={openEdit} canViewCost={canViewCost} />
+        <CardGrid rows={filtered} onEdit={isRs ? undefined : openEdit} canViewCost={canViewCost} />
       ) : (
         <DataGrid
           columns={columns}
           data={filtered}
           rowKey={(r) => r.id}
-          persistKey="sales/showroom/new-cars"
+          persistKey={isRs ? "sales/showroom/stock-rs" : "sales/showroom/new-cars"}
           exportFileName="new-car-inventory"
           emptyMessage="沒有符合條件的庫存"
           disabled={isSubmitting}
-          rowActionsWidth={300}
+          rowActionsWidth={isRs ? 140 : 300}
           rowActions={(r) => {
             const canQuote = r.status === "displayed" || r.status === "reserved";
             return (
@@ -890,20 +956,24 @@ export default function NewCarInventoryBoard({
                     {r.status === "pending_pdi" ? "PDI 中" : "不可售"}
                   </span>
                 )}
-                <button
-                  onClick={() => openEdit(r)}
-                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
-                  disabled={isSubmitting}
-                >
-                  編輯
-                </button>
-                <button
-                  onClick={() => handleDelete(r)}
-                  className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
-                  disabled={isSubmitting}
-                >
-                  刪除
-                </button>
+                {!isRs && (
+                  <>
+                    <button
+                      onClick={() => openEdit(r)}
+                      className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                      disabled={isSubmitting}
+                    >
+                      編輯
+                    </button>
+                    <button
+                      onClick={() => handleDelete(r)}
+                      className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9]"
+                      disabled={isSubmitting}
+                    >
+                      刪除
+                    </button>
+                  </>
+                )}
               </>
             );
           }}
@@ -1047,7 +1117,8 @@ function CardGrid({
   canViewCost,
 }: {
   rows: NewCarInventoryRow[];
-  onEdit: (row: NewCarInventoryRow) => void;
+  /** RS 視角傳 undefined 時隱藏編輯按鈕（輪3-1a）*/
+  onEdit?: (row: NewCarInventoryRow) => void;
   canViewCost: boolean;
 }) {
   if (rows.length === 0) {
@@ -1141,8 +1212,14 @@ function CardGrid({
               >
                 {r.model_display_name ?? "（未指定車款）"}
               </Link>
-              <div className="text-[11px] text-[#9A9890] mb-2">
-                {r.year ?? "—"} 年 · {r.color ?? "—"}
+              <div className="text-[11px] text-[#9A9890] mb-2 flex items-center gap-1.5 flex-wrap">
+                <span>{r.year ?? "—"} 年 · {r.color ?? "—"}</span>
+                {/* A1：demo 車 chip */}
+                {r.is_demo_unit && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-[#EAF4FB] text-[#185FA5] whitespace-nowrap">
+                    Demo 展示車
+                  </span>
+                )}
               </div>
               {/* PDI 狀態提示列 */}
               {isPdi ? (
@@ -1220,13 +1297,15 @@ function CardGrid({
                 <div className="text-[10.5px] text-[#854F0B] mb-2">📌 {r.note}</div>
               )}
               <div className="flex gap-1.5">
-                <button
-                  onClick={() => onEdit(r)}
-                  className="flex-1 h-[28px] rounded text-[11.5px] font-semibold bg-white border border-[#D5D3CB] text-[#4A4A48] hover:bg-[#F4F3F0]"
-                  data-testid={`btn-edit-${r.id}`}
-                >
-                  {isPdi ? "PDI 工單" : "評估 / 編輯"}
-                </button>
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(r)}
+                    className="flex-1 h-[28px] rounded text-[11.5px] font-semibold bg-white border border-[#D5D3CB] text-[#4A4A48] hover:bg-[#F4F3F0]"
+                    data-testid={`btn-edit-${r.id}`}
+                  >
+                    {isPdi ? "PDI 工單" : "評估 / 編輯"}
+                  </button>
+                )}
                 {canQuote ? (
                   <Link
                     href={`/sales/showroom/new-cars/${r.id}`}

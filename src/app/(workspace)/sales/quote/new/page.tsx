@@ -1,5 +1,6 @@
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { listVehicleModels } from "@/domain/vehicle-models";
 
 import { QuotationDetailView } from "../[id]/_components/quotation-detail-view";
 
@@ -8,6 +9,7 @@ import { QuotationDetailView } from "../[id]/_components/quotation-detail-view";
  *
  * Reuse 同一個 QuotationDetailView，傳 quote={null} + initialMode="create"。
  * 建立成功後 client 端 router.push 到 /sales/quote/{newId} 切回 view mode。
+ * 輪5-1：傳入 vehicleModels 讓車款 select 能帶 msrp → vehicle_amount。
  */
 export default async function NewQuotationPage() {
   const canEdit = await hasPermission(PERMISSIONS.SALES_ORDER_EDIT);
@@ -21,5 +23,21 @@ export default async function NewQuotationPage() {
     );
   }
 
-  return <QuotationDetailView quote={null} initialMode="create" canEdit />;
+  const vehicleModelsRes = await listVehicleModels({ status: "active" }, { pageSize: 200 });
+
+  return (
+    <QuotationDetailView
+      quote={null}
+      initialMode="create"
+      canEdit
+      vehicleModels={vehicleModelsRes.rows.map((m) => ({
+        id: m.id,
+        display_name: m.display_name,
+        model_name: m.model_name,
+        series: m.series,
+        msrp: m.msrp,
+      }))}
+      pendingApproval={null}
+    />
+  );
 }

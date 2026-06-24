@@ -18,16 +18,97 @@ export type DormancyStatus =
   | "revived"
   | "converted";
 
+// DB lost_reason 自 2026-06-23 起改存「8 類」值（Russell 正式裁示完成 9→8 遷移，
+// sales_leads_lost_reason_check 約束已改為 8 類）。LostReason 即 8 類，與 LostReasonB9 同集合。
 export type LostReason =
   | "price"
+  | "stock_shortage"
   | "competitor"
-  | "no_response"
-  | "wrong_target"
-  | "financial"
-  | "postponed"
+  | "timing"
   | "family_objection"
-  | "model_preference_changed"
+  | "model_change"
+  | "no_need"
   | "other";
+
+// ──────────────────────────────────────────────────────────────────────────
+// 戰敗原因 8 類（Russell 2026-06-23 正式裁示）。DB 已遷移為直接存 8 類值，
+// 映射函式保留為「identity + 舊 9 值相容 fallback」，以防殘留舊值（歷史資料 /
+// 外部寫入）仍能正確歸位。舊 9 值 → 8 類 對照（裁示表）：
+//   competitor→competitor · price→price · family_objection→family_objection
+//   model_preference_changed→model_change · postponed→timing
+//   financial→price（財務負擔歸價格類）· wrong_target→other · no_response→other
+// ──────────────────────────────────────────────────────────────────────────
+
+export type LostReasonB9 =
+  | "price"
+  | "stock_shortage"
+  | "competitor"
+  | "timing"
+  | "family_objection"
+  | "model_change"
+  | "no_need"
+  | "other";
+
+export const LOST_REASON_B9_LABEL: Record<LostReasonB9, string> = {
+  price: "價格",
+  stock_shortage: "庫存不足 / 缺車",
+  competitor: "流失至競品",
+  timing: "購車時機未到",
+  family_objection: "家人反對",
+  model_change: "喜好改變（轉車型）",
+  no_need: "不需要 / 已有車",
+  other: "其他",
+};
+
+/** 8 類 UI → DB（遷移後 DB 直接存 8 類，identity）。 */
+export function mapLostReasonB9ToDb(b9: LostReasonB9): LostReason {
+  return b9;
+}
+
+const VALID_B9: readonly LostReasonB9[] = [
+  "price", "stock_shortage", "competitor", "timing",
+  "family_objection", "model_change", "no_need", "other",
+];
+
+/** 舊 9 值 → 8 類（Russell 2026-06-23 裁示表），用於相容殘留舊值。 */
+const LEGACY_LOST_REASON_TO_B9: Record<string, LostReasonB9> = {
+  no_response: "other",
+  wrong_target: "other",
+  financial: "price",
+  postponed: "timing",
+  model_preference_changed: "model_change",
+};
+
+/** DB → B9 UI。遷移後多為 identity；舊 9 值依裁示表相容對映，未知值 fallback other。 */
+export function mapDbToLostReasonB9(db: string): LostReasonB9 {
+  if (db in LEGACY_LOST_REASON_TO_B9) return LEGACY_LOST_REASON_TO_B9[db];
+  return (VALID_B9 as readonly string[]).includes(db) ? (db as LostReasonB9) : "other";
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// B9 輪11-2：戰敗後自動建立喚醒 call_task 的 next_due_days 規則
+//
+// 依 8 類分類計算「幾天後」再接觸：
+//   price            → 90 天（促銷活動等觸發點）
+//   competitor       → 180 天（等對手服務出問題）
+//   timing           → 30 天（等客戶時機成熟）
+//   no_need          → 365 天（長期存檔，季度店長評估）
+//   stock_shortage   → 90 天（暫定，待 Russell 裁示）
+//   family_objection → 90 天（暫定，待 Russell 裁示）
+//   model_change     → 90 天（暫定，待 Russell 裁示）
+//   other            → 90 天（預設）
+// ──────────────────────────────────────────────────────────────────────────
+
+export const REACTIVATION_DUE_DAYS: Record<LostReasonB9, number> = {
+  price: 90,
+  competitor: 180,
+  timing: 30,
+  no_need: 365,
+  stock_shortage: 90,   // ⚠ 暫定 — 待 Russell 裁示
+  family_objection: 90, // ⚠ 暫定 — 待 Russell 裁示
+  model_change: 90,     // ⚠ 暫定 — 待 Russell 裁示
+  other: 90,
+};
 
 export type LeadSource =
   | "test_drive"
@@ -59,26 +140,24 @@ export const DORMANCY_STATUS_BADGE: Record<
 
 export const LOST_REASON_LABEL: Record<LostReason, string> = {
   price: "價格",
+  stock_shortage: "庫存不足 / 缺車",
   competitor: "流失至競品",
-  no_response: "失聯／無回應",
-  wrong_target: "TA 不符",
-  financial: "貸款／財務",
-  postponed: "購車計畫延後",
+  timing: "購車時機未到",
   family_objection: "家人反對",
-  model_preference_changed: "喜好改變（轉車型）",
+  model_change: "喜好改變（轉車型）",
+  no_need: "無購買需求 / 已有車",
   other: "其他",
 };
 
-/** 售後脈絡下的流失原因 label（共用同一組 enum，僅換顯示用字串） */
+/** 售後脈絡下的流失原因 label（共用同一組 8 類 enum，僅換顯示用字串） */
 export const AFTERSALES_LOST_REASON_LABEL: Record<LostReason, string> = {
   price: "工資 / 料件價格",
+  stock_shortage: "缺料 / 無法保養",
   competitor: "流失至他廠（自家或外廠）",
-  no_response: "失聯 / 無回應",
-  wrong_target: "地點不便 / 搬家",
-  financial: "車輛閒置 / 暫停保養",
-  postponed: "保養計畫延後",
-  family_objection: "車輛轉手",
-  model_preference_changed: "換車（不再保養此車）",
+  timing: "保養計畫延後",
+  family_objection: "車輛轉手 / 他人使用",
+  model_change: "換車（不再保養此車）",
+  no_need: "車輛閒置 / 停用",
   other: "其他",
 };
 
@@ -158,13 +237,12 @@ export function dormancyBucket(days: number | null): {
 /** 戰敗原因 / 流失原因 chip 色（CRM04A / CRM04B 6 色對齊 spec） */
 export const LOST_REASON_BAR_COLOR: Record<LostReason, string> = {
   price: "#C8001A", // 紅
-  postponed: "#D4820A", // 橘
+  stock_shortage: "#0F6E56", // 綠
   competitor: "#185FA5", // 藍
+  timing: "#D4820A", // 橘
   family_objection: "#7A6500", // 橄欖
-  model_preference_changed: "#888888", // 灰
-  no_response: "#534AB7", // 紫
-  wrong_target: "#0F6E56", // 綠
-  financial: "#534AB7", // 紫
+  model_change: "#888888", // 灰
+  no_need: "#534AB7", // 紫
   other: "#AAAAAA", // 淺灰
 };
 
@@ -173,14 +251,13 @@ export const LOST_REASON_TAG_BADGE: Record<
   LostReason,
   { bg: string; fg: string }
 > = {
-  postponed: { bg: "#FDF3E3", fg: "#854F0B" }, // 逾期保養 / 延後
-  no_response: { bg: "#FDECEA", fg: "#C8001A" }, // 失聯 / 多次未接通
-  wrong_target: { bg: "#E1F5EE", fg: "#0F6E56" }, // 保固到期 / 地點不便
-  competitor: { bg: "#185FA5", fg: "#FFFFFF" }, // 流失至競品
-  family_objection: { bg: "#EAF4FB", fg: "#185FA5" }, // 家人反對 / Desmo
-  model_preference_changed: { bg: "#F1EFE8", fg: "#5A5955" }, // 喜好改變
   price: { bg: "#FDECEA", fg: "#C8001A" }, // 價格
-  financial: { bg: "#EEEDFE", fg: "#534AB7" }, // 財務 / 車輛閒置
+  stock_shortage: { bg: "#E1F5EE", fg: "#0F6E56" }, // 缺車 / 缺料
+  competitor: { bg: "#185FA5", fg: "#FFFFFF" }, // 流失至競品
+  timing: { bg: "#FDF3E3", fg: "#854F0B" }, // 時機未到 / 延後
+  family_objection: { bg: "#EAF4FB", fg: "#185FA5" }, // 家人反對
+  model_change: { bg: "#F1EFE8", fg: "#5A5955" }, // 喜好改變 / 換車
+  no_need: { bg: "#EEEDFE", fg: "#534AB7" }, // 無需求 / 閒置
   other: { bg: "#EEEDFE", fg: "#534AB7" }, // 其他
 };
 

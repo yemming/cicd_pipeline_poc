@@ -28,6 +28,11 @@ export type ServiceTemplate = "desmo" | "standard";
 export type BrandConfig = {
   brandId: string;
   brandName: string | null;
+  /**
+   * 經銷商/法人名稱（RS04 合約乙方）。落點 metadata.dealer_name（jsonb，可隨時 promote）。
+   * 查無 → fallback 用 brandName（避免合約乙方欄空白）。合約 {dealer} 佔位由此帶入。
+   */
+  dealerName: string | null;
   hasDesmo: boolean;
   warrantySystem: WarrantySystem;
   oilIntervalKm: number | null;
@@ -62,6 +67,7 @@ function fallbackConfig(brandId: string): BrandConfig {
   return {
     brandId,
     brandName: null,
+    dealerName: null,
     hasDesmo: false,
     warrantySystem: null,
     oilIntervalKm: null,
@@ -73,9 +79,11 @@ function fallbackConfig(brandId: string): BrandConfig {
 }
 
 function rowToConfig(r: BrandConfigRow): BrandConfig {
+  const dealerNameMeta = (r.metadata?.dealer_name as string | undefined)?.trim();
   return {
     brandId: r.brand_id,
     brandName: r.brand_name,
+    dealerName: dealerNameMeta || r.brand_name,
     hasDesmo: r.has_desmo ?? false,
     warrantySystem: (r.warranty_system as WarrantySystem) ?? null,
     oilIntervalKm: r.oil_interval_km,

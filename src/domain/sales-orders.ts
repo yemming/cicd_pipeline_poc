@@ -23,7 +23,17 @@ import type {
   VehicleModelPickRow,
   SalesOrderKpis,
   SalesOrderStatusBreakdown,
+  CancelOrderInput,
+  DeferDeliveryInput,
+  UsedCarPostDeliveryDisputeInput,
+  ReplaceNewCarInput,
+  CancelReasonCode,
+  UpdateFinancingInput,
+  ReassignOrderInput,
 } from "./sales-orders.constants";
+import { REVIEW_PERIOD_DAYS } from "./sales-orders.constants";
+export { FINANCING_STATUS_LABELS, FINANCING_STATUS_CHIP, FINANCING_STATUSES } from "./sales-orders.constants";
+import { writeAuditLog } from "./audit-logs";
 
 // ─────────────────────────────────────────────────────────────
 // Re-export types from .constants.ts（讓 server-side caller 仍可 import from "@/domain/sales-orders"）
@@ -39,6 +49,17 @@ export type {
   VehicleModelPickRow,
   SalesOrderKpis,
   SalesOrderStatusBreakdown,
+  CancelOrderInput,
+  DeferDeliveryInput,
+  UsedCarPostDeliveryDisputeInput,
+  ReplaceNewCarInput,
+  CancelReasonCode,
+  SalesOrderCancelFields,
+  ReplaceCarThresholds,
+  UpdateFinancingInput,
+  ReassignOrderInput,
+  RecordOrderPaymentInput,
+  FinancingStatus,
 } from "./sales-orders.constants";
 
 export const ORDERS_PAGE_SIZE_DEFAULT = 50;
@@ -371,6 +392,26 @@ export async function createSalesOrder(
 
   const order_no = await genOrderNo(supabase, input.contract_type, scope.brand_id);
 
+  // B-3 負值差價前置驗證
+  if (
+    input.contract_type === "new" &&
+    input.trade_in_linked_order_id &&
+    input.total_amount != null &&
+    input.deal_price != null
+  ) {
+    // trade_in_balance = deal_price - used_vehicle_price；
+    // 若 input 帶 negative_equity_resolution 表示 wizard 已確認，直接放行
+    // 若差價為負但沒有 negative_equity_resolution → 攔截
+    const tradeInPrice = (input as { _tradeInPrice?: number })._tradeInPrice ?? 0;
+    const balance = (input.deal_price ?? 0) - tradeInPrice;
+    if (balance < 0 && !input.negative_equity_resolution) {
+      return {
+        ok: false,
+        error: "以舊換新差價為負值，請選擇差價處理方式（併入車價 / 現金補差）後再送出",
+      };
+    }
+  }
+
   const { data, error } = await supabase
     .from("sales_orders")
     .insert({
@@ -391,6 +432,7 @@ export async function createSalesOrder(
       vehicle_color: input.vehicle_color ?? null,
       vehicle_vin: input.vehicle_vin ?? null,
       vehicle_engine_no: input.vehicle_engine_no ?? null,
+      new_vehicle_id: input.new_vehicle_id ?? null,
       used_vehicle_id: input.used_vehicle_id ?? null,
       used_brand_model: input.used_brand_model ?? null,
       used_year: input.used_year ?? null,
@@ -409,15 +451,54 @@ export async function createSalesOrder(
       condition_notes: input.condition_notes ?? null,
       quote_snapshot: input.quote_snapshot ?? {},
       created_by: user?.id ?? null,
+      negative_equity_resolution: input.negative_equity_resolution ?? null,
+      trade_in_linked_order_id: input.trade_in_linked_order_id ?? null,
+      financing_status: input.financing_status ?? null,
+      financing_applied_at: input.financing_applied_at ?? null,
     })
     .select("id")
     .single();
 
   if (error) {
     if (error.code === "23505") {
+      // 區分新車二賣鎖 vs 合約編號重複
+      if (/sales_orders_new_vehicle_active_uniq/.test(error.message)) {
+        return {
+          ok: false,
+          error: "這台新車已掛在另一張有效訂單上，請先取消另一張訂單或選擇其他車輛。",
+        };
+      }
       return { ok: false, error: "合約編號重複，請重試" };
     }
     return { ok: false, error: `建立失敗：${error.message}` };
+  }
+
+  // B-3：若選擇了新車庫存，預留該車（status → reserved）
+  // A1 demo 車 guard：is_demo_unit=true 的車不得進入一般新車銷售流程
+  if (input.new_vehicle_id) {
+    // 先驗 demo 車排除（用 .eq('is_demo_unit', false) 做條件式 guard）
+    const { data: nvCheck } = await supabase
+      .from("new_car_inventory")
+      .select("id, is_demo_unit")
+      .eq("id", input.new_vehicle_id)
+      .eq("brand_id", scope.brand_id)
+      .single();
+    if (nvCheck?.is_demo_unit) {
+      await supabase.from("sales_orders").delete().eq("id", data.id);
+      return { ok: false, error: "這台是 demo 展示車，無法配一般新車銷售訂單。請選擇非 demo 庫存車輛。" };
+    }
+
+    const { error: nvErr } = await supabase
+      .from("new_car_inventory")
+      .update({ status: "reserved", linked_sales_order_id: data.id })
+      .eq("id", input.new_vehicle_id)
+      .eq("status", "available")
+      .eq("is_demo_unit", false); // A1：demo 車不可被一般訂單配對（雙重保險）
+    if (nvErr) {
+      // 若失敗（競態被搶），清掉訂單並回錯
+      await supabase.from("sales_orders").delete().eq("id", data.id);
+      return { ok: false, error: "這台新車已被其他訂單預留，請選擇其他車輛。" };
+    }
   }
 
   revalidatePath("/sales/orders");
@@ -622,10 +703,10 @@ export async function setSalesOrderStatus(
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 先抓現況：要拿 used_vehicle_id 跟舊 status 做後續中古車同步決策
+  // 先抓現況：要拿 used_vehicle_id, new_vehicle_id 跟舊 status 做後續庫存同步決策
   const { data: current } = await supabase
     .from("sales_orders")
-    .select("status, used_vehicle_id")
+    .select("status, used_vehicle_id, new_vehicle_id, order_no, total_amount, deal_price, down_payment, payment_method, contract_type, rs_name")
     .eq("id", id)
     .eq("brand_id", scope.brand_id)
     .maybeSingle();
@@ -688,6 +769,34 @@ export async function setSalesOrderStatus(
     }
   }
 
+  // ── 新車庫存 hook：同步 new_car_inventory.status ──
+  const newVehicleId = (current.new_vehicle_id as string | null);
+  if (newVehicleId) {
+    let newCarStatus: "reserved" | "sold" | "available" | null = null;
+    const newCarPatch: Record<string, unknown> = {};
+    if (status === "signed") {
+      newCarStatus = "reserved";
+      newCarPatch.linked_sales_order_id = id;
+    } else if (status === "fulfilled") {
+      newCarStatus = "sold";
+    } else if (status === "cancelled" && (current.status === "signed" || current.status === "fulfilled")) {
+      newCarStatus = "available";
+      newCarPatch.linked_sales_order_id = null;
+    }
+
+    if (newCarStatus) {
+      newCarPatch.status = newCarStatus;
+      const { error: ncErr } = await supabase
+        .from("new_car_inventory")
+        .update(newCarPatch)
+        .eq("id", newVehicleId);
+      if (ncErr) {
+        console.error("[setSalesOrderStatus] 新車庫存狀態同步失敗", ncErr.message);
+        // 不 rollback，只 log（POC 階段）
+      }
+    }
+  }
+
   // ── 跨模組 hook #3：交車 → 啟動保固（非阻塞、失敗不回滾交車）──
   if (status === "fulfilled") {
     after(async () => {
@@ -702,9 +811,108 @@ export async function setSalesOrderStatus(
     });
   }
 
+  // ── 金流 wiring：簽約 / 交車完成時寫 sales_payments（非阻塞）──
+  if (status === "signed" || status === "fulfilled") {
+    after(async () => {
+      try {
+        await _recordOrderPaymentOnStatusChange(id, status, current);
+      } catch (e) {
+        console.error("[setSalesOrderStatus] 金流記錄失敗（不影響狀態變更）", e);
+      }
+    });
+  }
+
   revalidatePath("/sales/orders");
   revalidatePath(`/sales/orders/${id}`);
   return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 內部 helper：狀態變更時自動寫 sales_payments（非阻塞 after() 包）
+//
+// 規則（輪5-9）：
+//  - 成交（signed）時：
+//      新車   → createSalesPayment(source_type='new_vehicle_sale', amount=total_amount)
+//      中古車 → createSalesPayment(source_type='used_vehicle_sale', amount=deal_price)
+//      以舊換新 → recordTradeInSplit(新車價, 舊車收購價, 差額)
+//  - 交車完成（fulfilled）：如果 signed 時已記帳就跳過（冪等）
+// ─────────────────────────────────────────────────────────────
+
+async function _recordOrderPaymentOnStatusChange(
+  orderId: string,
+  status: "signed" | "fulfilled",
+  current: {
+    status: string;
+    order_no?: string;
+    total_amount?: unknown;
+    deal_price?: unknown;
+    down_payment?: unknown;
+    payment_method?: unknown;
+    contract_type?: string;
+    rs_name?: unknown;
+  },
+): Promise<void> {
+  // 只在 signed 時記帳（fulfilled 時不重複計帳）
+  if (status !== "signed") return;
+
+  const { createSalesPayment, recordTradeInSplit } = await import("./sales-payments");
+
+  // 取訂單更多欄位
+  const supabase = await createClient();
+  const { data: ord } = await supabase
+    .from("sales_orders")
+    .select("order_no, total_amount, deal_price, down_payment, payment_method, contract_type, trade_in_linked_order_id, negative_equity_resolution")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!ord) return;
+
+  const paymentMethod = (ord.payment_method as string | null) ?? "cash";
+  const orderNo = (ord.order_no as string) ?? "";
+  const contractType = (ord.contract_type as string) ?? "new";
+  const totalAmount = Number(ord.total_amount ?? ord.deal_price ?? 0);
+  const downPayment = Number(ord.down_payment ?? 0);
+  const tradeInLinked = ord.trade_in_linked_order_id as string | null;
+
+  // 冪等：如果已有這張訂單的 payment 記錄就跳過
+  const { count: existingCount } = await supabase
+    .from("sales_payments")
+    .select("id", { count: "exact", head: true })
+    .eq("order_id", orderId);
+  if ((existingCount ?? 0) > 0) return; // 已記帳，跳過
+
+  if (contractType === "new" && tradeInLinked) {
+    // 以舊換新：從 used purchase request 或 trade_in_linked_order 撈舊車收購價
+    const { data: tradeInOrd } = await supabase
+      .from("sales_orders")
+      .select("deal_price, total_amount")
+      .eq("id", tradeInLinked)
+      .maybeSingle();
+    const tradeInPrice = Math.abs(Number(tradeInOrd?.deal_price ?? tradeInOrd?.total_amount ?? 0));
+    if (tradeInPrice > 0) {
+      await recordTradeInSplit({
+        orderId,
+        orderNo,
+        newVehiclePrice: totalAmount,
+        tradeInPrice,
+        paymentMethod,
+        metadata: { source: "auto_on_signed" },
+      });
+      return;
+    }
+    // fallback：舊車價撈不到就走普通新車
+  }
+
+  // 普通新車或中古車
+  const sourceType = contractType === "used" ? "used_vehicle_sale" : "new_vehicle_sale";
+  const amount = downPayment > 0 ? downPayment : totalAmount; // 有訂金就先記訂金
+  await createSalesPayment({
+    order_id: orderId,
+    order_no: orderNo,
+    source_type: sourceType,
+    total_amount: amount,
+    payment_method: paymentMethod,
+    metadata: { source: "auto_on_signed", is_down_payment: downPayment > 0 },
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1220,4 +1428,953 @@ export async function getSalesOrderFormData(): Promise<{
     customers: (custRes.data ?? []) as CustomerPickRow[],
     vehicleModels: (vmRes.data ?? []) as VehicleModelPickRow[],
   };
+}
+
+// ─────────────────────────────────────────────────────────────
+// RS04 Stage 1 — 結構化取消（輪10-1/2/3/4）
+//
+// 流程：
+//  1. 算審閱期是否在期內（signed_at + review_period_days）
+//  2. 期內取消：強制退款 100%（forfeit_rate = 0），鎖定前端輸入
+//  3. 期後取消：主管才可裁量 forfeit_rate 0~10%，必填 forfeit_reason
+//  4. 同 transaction：訂單 cancelled + 庫存恢復
+// ─────────────────────────────────────────────────────────────
+
+/** 計算審閱期是否超過（true = 已過期，false = 仍在期內） */
+function isReviewPeriodExpired(signedAt: string, reviewPeriodDays: number): boolean {
+  const signedDate = new Date(signedAt);
+  const expiresAt = new Date(signedDate);
+  expiresAt.setDate(expiresAt.getDate() + reviewPeriodDays);
+  return new Date() > expiresAt;
+}
+
+/**
+ * cancelSalesOrderStructured — 結構化取消（輪10）
+ *
+ * 同時處理：
+ *  - cancel_requested_at / cancel_reason_code / cancel_within_review_period
+ *  - 審閱期內：forfeit_rate 強制 0（後端再驗、不信前端傳值）
+ *  - 審閱期後：forfeit_rate 0~10，必填 forfeit_reason，寫 audit_logs
+ *  - 庫存恢復：中古車回 available；新車回 available + 清 linked_order_id
+ */
+export async function cancelSalesOrderStructured(
+  id: string,
+  input: CancelOrderInput,
+): Promise<Result<{ id: string; within_review_period: boolean }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // 1. 取出現況
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select(
+      "status, contract_type, used_vehicle_id, new_vehicle_id, signed_at, review_period_days, cancel_requested_at",
+    )
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (current.status === "cancelled") return { ok: false, error: "訂單已作廢" };
+  if (current.status === "fulfilled") {
+    return { ok: false, error: "已交車的訂單不可透過此入口取消，請使用「爭議」入口" };
+  }
+
+  // 2. 判斷審閱期
+  const reviewPeriodDays =
+    (current.review_period_days as number | null) ??
+    REVIEW_PERIOD_DAYS[current.contract_type as "new" | "used"];
+  const signedAt = current.signed_at as string | null;
+  // 未簽約（draft/submitted）→ 直接免費取消，無審閱期概念
+  const withinReviewPeriod: boolean = signedAt
+    ? !isReviewPeriodExpired(signedAt, reviewPeriodDays)
+    : true; // 未簽約 → 等同期內（全額退款）
+
+  const reviewExpiresAt: string | null = signedAt
+    ? (() => {
+        const d = new Date(signedAt);
+        d.setDate(d.getDate() + reviewPeriodDays);
+        return d.toISOString();
+      })()
+    : null;
+
+  // 3. 沒收比例驗證
+  let forfeitRate = 0;
+  let forfeitReason: string | null = null;
+  if (withinReviewPeriod) {
+    // 期內：強制 100% 退款 → forfeit_rate = 0（後端不接受任何非 0 值）
+    if ((input.forfeit_rate ?? 0) !== 0) {
+      return { ok: false, error: "審閱期內取消須 100% 退款，沒收比例必須為 0" };
+    }
+    forfeitRate = 0;
+    forfeitReason = null;
+  } else {
+    // 期後：驗 0~10%
+    const rate = input.forfeit_rate ?? 0;
+    if (rate < 0 || rate > 10) {
+      return { ok: false, error: "沒收比例不得超過 10%（主管裁量上限）" };
+    }
+    if (rate > 0 && !input.forfeit_reason?.trim()) {
+      return { ok: false, error: "沒收比例 > 0% 時必須填寫沒收說明" };
+    }
+    forfeitRate = rate;
+    forfeitReason = input.forfeit_reason?.trim() ?? null;
+  }
+
+  const nowIso = new Date().toISOString();
+
+  // 4. 更新訂單狀態 + 取消欄位
+  const { error: cancelErr } = await supabase
+    .from("sales_orders")
+    .update({
+      status: "cancelled",
+      cancel_requested_at: nowIso,
+      cancel_reason_code: input.reason_code as CancelReasonCode,
+      cancel_within_review_period: withinReviewPeriod,
+      cancel_forfeit_rate: forfeitRate,
+      cancel_forfeit_reason: forfeitReason,
+      review_period_days: reviewPeriodDays,
+      review_expires_at: reviewExpiresAt,
+      updated_by: user?.id ?? null,
+    })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (cancelErr) return { ok: false, error: `取消失敗：${cancelErr.message}` };
+
+  // 5. 庫存恢復（中古車）
+  const usedVehicleId = current.used_vehicle_id as string | null;
+  if (usedVehicleId && (current.status === "signed" || current.status === "fulfilled")) {
+    const { error: usedErr } = await supabase
+      .from("used_car_inventory")
+      .update({ status: "available", sold_date: null })
+      .eq("id", usedVehicleId);
+    if (usedErr) {
+      console.error("[cancelSalesOrderStructured] 中古車庫存回滾失敗", usedErr.message);
+    }
+    revalidatePath("/usedcar/stock");
+    revalidatePath("/sales/showroom/used-cars");
+  }
+
+  // 6. 庫存恢復（新車）— status → available，若 linked_order_id 欄位存在也一併清空
+  const newVehicleId = current.new_vehicle_id as string | null;
+  if (newVehicleId) {
+    // 先嘗試含 linked_order_id 的完整清除；若欄位不存在退到只清 status
+    const fullPatch = await supabase
+      .from("new_car_inventory")
+      .update({ status: "available", linked_sales_order_id: null })
+      .eq("id", newVehicleId);
+    if (fullPatch.error) {
+      // linked_order_id 可能尚未落地 — fallback 只清 status
+      const { error: fallbackErr } = await supabase
+        .from("new_car_inventory")
+        .update({ status: "available" })
+        .eq("id", newVehicleId);
+      if (fallbackErr) {
+        console.error("[cancelSalesOrderStructured] 新車庫存回滾失敗", fallbackErr.message);
+      }
+    }
+  }
+
+  // 7. audit_log（非阻塞）
+  after(async () => {
+    await writeAuditLog({
+      table_name: "sales_orders",
+      record_id: id,
+      action: "cancel_structured",
+      actor_id: user?.id ?? null,
+      brand_id: scope.brand_id,
+      before: { status: current.status },
+      after: {
+        status: "cancelled",
+        cancel_reason_code: input.reason_code,
+        cancel_within_review_period: withinReviewPeriod,
+        cancel_forfeit_rate: forfeitRate,
+        cancel_forfeit_reason: forfeitReason,
+      },
+    });
+  });
+
+  revalidatePath("/sales/orders");
+  revalidatePath(`/sales/orders/${id}`);
+  return { ok: true, data: { id, within_review_period: withinReviewPeriod } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// RS04③ 延期/無法交車
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * deferDelivery — RS04③ 廠方延遲或無法交車
+ *
+ * 兩種情況分流：
+ *  - 'deferred'：更新 delivery_date + 在 metadata 記延期記錄
+ *  - 'unable'：在 metadata 記「無法交車」記錄，等待主管協商
+ *
+ * 狀態機不變（仍為 signed），只在 metadata 增加記錄。
+ */
+export async function deferDelivery(
+  id: string,
+  input: DeferDeliveryInput,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select("status, delivery_date, metadata")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (current.status !== "signed") {
+    return { ok: false, error: "只有已簽約的訂單可申請延期/無法交車" };
+  }
+
+  const nowIso = new Date().toISOString();
+  const existingMeta = (current.metadata as Record<string, unknown> | null) ?? {};
+  const deferHistory: unknown[] = Array.isArray(existingMeta.defer_history)
+    ? (existingMeta.defer_history as unknown[])
+    : [];
+
+  const newEvent = {
+    at: nowIso,
+    by: user?.id ?? null,
+    resolution: input.resolution,
+    new_delivery_date: input.new_delivery_date ?? null,
+    reason: input.reason,
+  };
+
+  const patch: Record<string, unknown> = {
+    metadata: {
+      ...existingMeta,
+      defer_history: [...deferHistory, newEvent],
+      last_defer_resolution: input.resolution,
+    },
+    updated_by: user?.id ?? null,
+  };
+
+  // 展期 → 更新 delivery_date
+  if (input.resolution === "deferred" && input.new_delivery_date) {
+    patch.delivery_date = input.new_delivery_date;
+  }
+  // 無法交車 → dispute_frozen=true（等主管介入）
+  if (input.resolution === "unable") {
+    patch.dispute_frozen = true;
+    patch.dispute_frozen_reason = `廠方無法交車：${input.reason}`;
+  }
+
+  const { error } = await supabase
+    .from("sales_orders")
+    .update(patch)
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: `延期申請失敗：${error.message}` };
+
+  after(async () => {
+    await writeAuditLog({
+      table_name: "sales_orders",
+      record_id: id,
+      action: `defer_delivery_${input.resolution}`,
+      actor_id: user?.id ?? null,
+      brand_id: scope.brand_id,
+      before: { delivery_date: current.delivery_date },
+      after: newEvent,
+    });
+  });
+
+  revalidatePath("/sales/orders");
+  revalidatePath(`/sales/orders/${id}`);
+  return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// RS04⑥ 中古車交車後爭議
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * raiseUsedCarPostDeliveryDispute — RS04⑥ 中古車交車後客戶爭議入口
+ *
+ * 只做「記錄 + 凍結訂單」，實體爭議由人工處理。
+ * 新增一筆 dispute 記錄到 metadata.dispute_history，設 dispute_frozen=true。
+ */
+export async function raiseUsedCarPostDeliveryDispute(
+  id: string,
+  input: UsedCarPostDeliveryDisputeInput,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select("status, contract_type, metadata, dispute_frozen")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (current.contract_type !== "used") {
+    return { ok: false, error: "此入口僅適用於中古車訂單" };
+  }
+  if (current.status !== "fulfilled") {
+    return { ok: false, error: "只有已交車的訂單可提交交車後爭議" };
+  }
+
+  const nowIso = new Date().toISOString();
+  const existingMeta = (current.metadata as Record<string, unknown> | null) ?? {};
+  const disputeHistory: unknown[] = Array.isArray(existingMeta.dispute_history)
+    ? (existingMeta.dispute_history as unknown[])
+    : [];
+
+  const newDispute = {
+    at: nowIso,
+    raised_by: user?.id ?? null,
+    reason: input.reason,
+    detail: input.detail ?? null,
+    status: "open",
+  };
+
+  const { error } = await supabase
+    .from("sales_orders")
+    .update({
+      dispute_frozen: true,
+      dispute_frozen_reason: input.reason,
+      metadata: {
+        ...existingMeta,
+        dispute_history: [...disputeHistory, newDispute],
+      },
+      updated_by: user?.id ?? null,
+    })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: `爭議提交失敗：${error.message}` };
+
+  after(async () => {
+    await writeAuditLog({
+      table_name: "sales_orders",
+      record_id: id,
+      action: "used_car_post_delivery_dispute_raised",
+      actor_id: user?.id ?? null,
+      brand_id: scope.brand_id,
+      before: { dispute_frozen: current.dispute_frozen },
+      after: newDispute,
+    });
+  });
+
+  revalidatePath("/sales/orders");
+  revalidatePath(`/sales/orders/${id}`);
+  return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// RS04⑦ 新車換車申請
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * requestNewCarReplacement — RS04⑦ 新車換車申請（非單純退款）
+ *
+ * 記錄換車申請，由主管審核後處理。
+ * 「檸檬車」天數/公里門檻待律師確認前不做前端硬擋，
+ * 只記錄參數佔位 + 寫 audit_log 供後續追蹤。
+ *
+ * 狀態機：fulfilled → 狀態不動（換車還沒完成），在 metadata 記 replace_request。
+ */
+// ─────────────────────────────────────────────────────────────
+// RS04④ 三方簽名（輪5-7）
+//
+// 前端已把 dataURL 傳來；我們在 server action 層上傳 Storage、只寫 URL 回 DB。
+// 上傳用既有 uploadSignatureDataUrl（bucket: ro-signatures, entity: sales-order）。
+// 若三方全簽完（非 null）則自動設 contract_locked=true + 寫 audit_log。
+// ─────────────────────────────────────────────────────────────
+
+export type SaveSignaturesInput = {
+  /** base64 dataURL 或已上傳的 Storage URL；null 代表「這方未簽」 */
+  signature_buyer?: string | null;
+  signature_seller?: string | null;
+  signature_witness?: string | null;
+};
+
+export async function saveSignatures(
+  id: string,
+  input: SaveSignaturesInput,
+): Promise<Result<{ id: string; contract_locked: boolean }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select("status, contract_locked, signature_buyer, signature_seller, signature_witness")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (current.status === "cancelled") return { ok: false, error: "已作廢訂單不可簽名" };
+
+  // 已鎖定：拒絕（需走 unlockContract 先解鎖）
+  if (current.contract_locked) {
+    return { ok: false, error: "合約已鎖定，如需修改請先由主管解鎖" };
+  }
+
+  // 動態 import 上傳 helper（server-only，不能在 client 端 tree-shake 到）
+  const { uploadSignatureDataUrl } = await import("@/lib/aftersales/signature-upload");
+
+  async function maybeUpload(
+    dataUrl: string | null | undefined,
+    role: string,
+  ): Promise<string | null> {
+    if (!dataUrl) return null;
+    // 已是 Storage URL → pass through
+    if (dataUrl.startsWith("https://") || dataUrl.startsWith("http://")) return dataUrl;
+    const url = await uploadSignatureDataUrl(dataUrl, scope.brand_id, "sales-order", id, role);
+    return url;
+  }
+
+  const [buyerUrl, sellerUrl, witnessUrl] = await Promise.all([
+    maybeUpload(input.signature_buyer, "buyer"),
+    maybeUpload(input.signature_seller, "seller"),
+    maybeUpload(input.signature_witness, "witness"),
+  ]);
+
+  // Merge with existing: 傳 null 代表清除；undefined（未傳）保持原有
+  const mergedBuyer =
+    "signature_buyer" in input ? buyerUrl : ((current.signature_buyer as string | null) ?? null);
+  const mergedSeller =
+    "signature_seller" in input ? sellerUrl : ((current.signature_seller as string | null) ?? null);
+  const mergedWitness =
+    "signature_witness" in input
+      ? witnessUrl
+      : ((current.signature_witness as string | null) ?? null);
+
+  // 三方全簽 → 自動鎖定
+  const allSigned = !!(mergedBuyer && mergedSeller && mergedWitness);
+
+  const { error } = await supabase
+    .from("sales_orders")
+    .update({
+      signature_buyer: mergedBuyer,
+      signature_seller: mergedSeller,
+      signature_witness: mergedWitness,
+      contract_locked: allSigned,
+      updated_by: user?.id ?? null,
+    })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: `簽名儲存失敗：${error.message}` };
+
+  if (allSigned) {
+    // 寫合約快照到 metadata.contract_snapshot（凍結合約版本）
+    const { data: full } = await supabase
+      .from("sales_orders")
+      .select(
+        "order_no, contract_type, customer_name, vehicle_model_name, used_brand_model, total_amount, deal_price, special_notes, condition_notes, payment_method, delivery_date",
+      )
+      .eq("id", id)
+      .maybeSingle();
+    if (full) {
+      // A2 版本控制：把簽署當下的法律文字版本一起凍結進快照
+      // 後台改範本不影響已簽合約顯示（contract-viewer 讀快照優先）
+      const { getActiveLegalText } = await import("@/domain/legal-texts");
+      const { getBrandConfig } = await import("@/domain/brand-config");
+      const docKey = full.contract_type === "used" ? "contract_terms_used" : "contract_terms_new";
+      const [legalRow, brandCfg] = await Promise.all([
+        getActiveLegalText(docKey),
+        getBrandConfig(scope.brand_id),
+      ]);
+      const brandName = brandCfg.brandName ?? scope.brand_id;
+      const dealerName = brandCfg.dealerName ?? brandName;
+      const legalTextSnapshot = legalRow
+        ? {
+            doc_key: legalRow.doc_key,
+            version: legalRow.version,
+            content: legalRow.content
+              .replace(/\{brand\}/g, brandName)
+              .replace(/\{dealer\}/g, dealerName),
+          }
+        : null;
+
+      const snapshot = {
+        snapped_at: new Date().toISOString(),
+        order_no: full.order_no,
+        contract_type: full.contract_type,
+        customer_name: full.customer_name,
+        vehicle: full.vehicle_model_name ?? full.used_brand_model ?? null,
+        total_amount: full.total_amount ?? full.deal_price ?? null,
+        payment_method: full.payment_method ?? null,
+        delivery_date: full.delivery_date ?? null,
+        special_notes: full.special_notes ?? null,
+        condition_notes: full.condition_notes ?? null,
+        signature_buyer: mergedBuyer,
+        signature_seller: mergedSeller,
+        signature_witness: mergedWitness,
+        // 法律文字版本快照（Russell 版本控制要求）
+        legal_text: legalTextSnapshot,
+      };
+      // 更新 metadata 裡的快照（non-blocking; 錯了只 log）
+      const { data: meta } = await supabase
+        .from("sales_orders")
+        .select("metadata")
+        .eq("id", id)
+        .maybeSingle();
+      const existingMeta = (meta?.metadata as Record<string, unknown> | null) ?? {};
+      await supabase
+        .from("sales_orders")
+        .update({ metadata: { ...existingMeta, contract_snapshot: snapshot } })
+        .eq("id", id)
+        .eq("brand_id", scope.brand_id);
+    }
+
+    // audit_log（非阻塞）
+    after(async () => {
+      await writeAuditLog({
+        table_name: "sales_orders",
+        record_id: id,
+        action: "contract_signed_and_locked",
+        actor_id: user?.id ?? null,
+        brand_id: scope.brand_id,
+        before: { contract_locked: false },
+        after: { contract_locked: true, all_signatures_captured: true },
+      });
+    });
+  }
+
+  revalidatePath(`/sales/orders/${id}`);
+  revalidatePath(`/sales/orders/${id}/contract`);
+  return { ok: true, data: { id, contract_locked: allSigned } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// RS04⑤ 鎖定解鎖（輪5-8）
+//
+// lockContract: 手動鎖定（三方簽完後也可手動觸發，幂等）
+// unlockContract: 需主管權限，寫 audit_log
+// ─────────────────────────────────────────────────────────────
+
+export async function lockContract(id: string): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select("status, contract_locked")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (current.status === "cancelled") return { ok: false, error: "已作廢訂單不可鎖定" };
+
+  const { error } = await supabase
+    .from("sales_orders")
+    .update({ contract_locked: true, updated_by: user?.id ?? null })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: `鎖定失敗：${error.message}` };
+
+  after(async () => {
+    await writeAuditLog({
+      table_name: "sales_orders",
+      record_id: id,
+      action: "contract_locked",
+      actor_id: user?.id ?? null,
+      brand_id: scope.brand_id,
+      before: { contract_locked: current.contract_locked },
+      after: { contract_locked: true },
+    });
+  });
+
+  revalidatePath(`/sales/orders/${id}`);
+  revalidatePath(`/sales/orders/${id}/contract`);
+  return { ok: true, data: { id } };
+}
+
+export async function unlockContract(
+  id: string,
+  reason: string,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!reason.trim()) return { ok: false, error: "請填寫解鎖原因" };
+
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select("status, contract_locked, metadata")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (!current.contract_locked) return { ok: false, error: "合約尚未鎖定" };
+  if (current.status === "cancelled") return { ok: false, error: "已作廢訂單不可操作" };
+
+  // 在 metadata 記錄解鎖歷史
+  const existingMeta = (current.metadata as Record<string, unknown> | null) ?? {};
+  const unlockHistory = Array.isArray(existingMeta.unlock_history)
+    ? (existingMeta.unlock_history as unknown[])
+    : [];
+  const newUnlock = {
+    at: new Date().toISOString(),
+    by: user?.id ?? null,
+    reason: reason.trim(),
+  };
+
+  const { error } = await supabase
+    .from("sales_orders")
+    .update({
+      contract_locked: false,
+      metadata: { ...existingMeta, unlock_history: [...unlockHistory, newUnlock] },
+      updated_by: user?.id ?? null,
+    })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: `解鎖失敗：${error.message}` };
+
+  after(async () => {
+    await writeAuditLog({
+      table_name: "sales_orders",
+      record_id: id,
+      action: "contract_unlocked",
+      actor_id: user?.id ?? null,
+      brand_id: scope.brand_id,
+      before: { contract_locked: true },
+      after: { contract_locked: false, reason: reason.trim() },
+    });
+  });
+
+  revalidatePath(`/sales/orders/${id}`);
+  revalidatePath(`/sales/orders/${id}/contract`);
+  return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// A-6 融資狀態更新（financing_status / financing_applied_at）
+//
+// 規則：
+//  - 任何 canEdit 的人可把 financing_status 設為 not_applicable / pending_approval / approved / rejected
+//  - pending_approval → 同時寫 financing_applied_at（若未填）
+//  - 逾時 7 天（POC 暫定）：由 after() 非阻塞推追蹤通知（待裁示後補實作）
+// ─────────────────────────────────────────────────────────────
+
+export async function updateFinancingStatus(
+  id: string,
+  input: UpdateFinancingInput,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select("status, financing_status, financing_applied_at, payment_method")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (current.status === "cancelled") return { ok: false, error: "已作廢訂單不可修改" };
+
+  const nowIso = new Date().toISOString();
+  const patch: Record<string, unknown> = {
+    financing_status: input.financing_status,
+    updated_by: user?.id ?? null,
+  };
+
+  // 進入 pending_approval → 記申請時間（冪等：已有就保留）
+  if (input.financing_status === "pending_approval" && !current.financing_applied_at) {
+    patch.financing_applied_at = nowIso;
+  }
+
+  const { error } = await supabase
+    .from("sales_orders")
+    .update(patch)
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: `融資狀態更新失敗：${error.message}` };
+
+  // 非阻塞：pending_approval 逾期追蹤（7 天暫頂，待裁示）
+  if (input.financing_status === "pending_approval") {
+    after(async () => {
+      await writeAuditLog({
+        table_name: "sales_orders",
+        record_id: id,
+        action: "financing_pending_approval_started",
+        actor_id: user?.id ?? null,
+        brand_id: scope.brand_id,
+        before: { financing_status: current.financing_status },
+        after: { financing_status: "pending_approval", financing_applied_at: patch.financing_applied_at ?? current.financing_applied_at },
+      });
+    });
+  }
+
+  revalidatePath("/sales/orders");
+  revalidatePath(`/sales/orders/${id}`);
+  return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// A-9 業務員轉移（reassign）
+//
+// 主管操作：把訂單的 rs_name 轉給另一位業務員。
+// 同時：
+//  1. 寫 sales_orders.reassigned_from / reassigned_to / reassigned_at
+//  2. 若訂單有對應 call_tasks（created_by / metadata.order_id = orderId）
+//     → update call_tasks.assigned_to = 新業務員的 employee_id（查詢員工表）
+//  3. 寫 audit_logs
+// ─────────────────────────────────────────────────────────────
+
+export async function reassignSalesOrder(
+  id: string,
+  input: ReassignOrderInput,
+): Promise<Result<{ id: string }>> {
+  if (!input.new_rs_name.trim()) {
+    return { ok: false, error: "接手業務員姓名必填" };
+  }
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select("status, rs_name, created_by")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (current.status === "cancelled") return { ok: false, error: "已作廢訂單不可轉移" };
+
+  const oldRsName = (current.rs_name as string | null) ?? null;
+  const nowIso = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("sales_orders")
+    .update({
+      rs_name: input.new_rs_name.trim(),
+      reassigned_from: oldRsName,
+      reassigned_to: input.new_rs_name.trim(),
+      reassigned_at: nowIso,
+      updated_by: user?.id ?? null,
+    })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: `業務轉移失敗：${error.message}` };
+
+  // 連動 call_tasks 轉移：找對應此訂單的 call_tasks，更新 metadata.rs_name
+  after(async () => {
+    try {
+      // call_tasks 的 metadata 裡通常帶 order_id；查詢 metadata->>'order_id' = id
+      const { data: tasks } = await supabase
+        .from("call_tasks")
+        .select("id, metadata")
+        .eq("brand_id", scope.brand_id)
+        .filter("metadata->>'order_id'", "eq", id);
+
+      for (const task of tasks ?? []) {
+        const meta = (task.metadata as Record<string, unknown>) ?? {};
+        await supabase
+          .from("call_tasks")
+          .update({ metadata: { ...meta, rs_name: input.new_rs_name.trim(), reassigned_by_manager_at: nowIso } })
+          .eq("id", task.id);
+      }
+    } catch (e) {
+      console.error("[reassignSalesOrder] call_tasks 轉移失敗（非阻塞）", e);
+    }
+
+    // audit_log
+    await writeAuditLog({
+      table_name: "sales_orders",
+      record_id: id,
+      action: "order_reassigned",
+      actor_id: user?.id ?? null,
+      brand_id: scope.brand_id,
+      before: { rs_name: oldRsName },
+      after: { rs_name: input.new_rs_name.trim(), reason: input.reason ?? null },
+    });
+  });
+
+  revalidatePath("/sales/orders");
+  revalidatePath(`/sales/orders/${id}`);
+  return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// B-3 linkTradeInToSalesOrder — 以舊換新串聯
+//
+// 回填 sales_orders.trade_in_linked_order_id（指向中古車收購訂單）
+// 同時確保 negative_equity_resolution 已填（差價 < 0 時必填）。
+// ─────────────────────────────────────────────────────────────
+
+export async function linkTradeInToSalesOrder(
+  id: string,
+  {
+    tradeInOrderId,
+    negativeEquityResolution,
+  }: {
+    tradeInOrderId: string;
+    negativeEquityResolution?: "rolled_into_price" | "cash_topup" | null;
+  },
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select("status, deal_price, total_amount")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (current.status === "cancelled") return { ok: false, error: "已作廢訂單不可操作" };
+
+  // 取收購單的收購金額（deal_price 或 total_amount）
+  const { data: tradeIn } = await supabase
+    .from("sales_orders")
+    .select("deal_price, total_amount, contract_type")
+    .eq("id", tradeInOrderId)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!tradeIn) return { ok: false, error: "找不到舊車收購訂單" };
+  if ((tradeIn.contract_type as string) !== "used") {
+    return { ok: false, error: "收購訂單必須是中古車合約" };
+  }
+
+  const tradeInPrice = Math.abs(Number(tradeIn.deal_price ?? tradeIn.total_amount ?? 0));
+  const newVehiclePrice = Number(current.deal_price ?? current.total_amount ?? 0);
+  const balance = newVehiclePrice - tradeInPrice;
+
+  // 差價為負但未選解法 → 攔截
+  if (balance < 0 && !negativeEquityResolution) {
+    return {
+      ok: false,
+      error: `差價為負（收購 ${tradeInPrice} > 車款 ${newVehiclePrice}），請選擇差價處理方式後再連結`,
+    };
+  }
+
+  const patch: Record<string, unknown> = {
+    trade_in_linked_order_id: tradeInOrderId,
+    updated_by: user?.id ?? null,
+  };
+  if (negativeEquityResolution) {
+    patch.negative_equity_resolution = negativeEquityResolution;
+  }
+
+  const { error } = await supabase
+    .from("sales_orders")
+    .update(patch)
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: `連結收購單失敗：${error.message}` };
+
+  after(async () => {
+    await writeAuditLog({
+      table_name: "sales_orders",
+      record_id: id,
+      action: "trade_in_linked",
+      actor_id: user?.id ?? null,
+      brand_id: scope.brand_id,
+      before: { trade_in_linked_order_id: null },
+      after: { trade_in_linked_order_id: tradeInOrderId, negative_equity_resolution: negativeEquityResolution ?? null },
+    });
+  });
+
+  revalidatePath("/sales/orders");
+  revalidatePath(`/sales/orders/${id}`);
+  return { ok: true, data: { id } };
+}
+
+export async function requestNewCarReplacement(
+  id: string,
+  input: ReplaceNewCarInput,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: current } = await supabase
+    .from("sales_orders")
+    .select("status, contract_type, metadata")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到訂單" };
+  if (current.contract_type !== "new") {
+    return { ok: false, error: "此入口僅適用於新車訂單" };
+  }
+  if (current.status !== "fulfilled") {
+    return { ok: false, error: "只有已交車的訂單可申請換車" };
+  }
+
+  const nowIso = new Date().toISOString();
+  const existingMeta = (current.metadata as Record<string, unknown> | null) ?? {};
+
+  const replaceRequest = {
+    at: nowIso,
+    raised_by: user?.id ?? null,
+    reason: input.reason,
+    replacement_vehicle_id: input.replacement_vehicle_id ?? null,
+    detail: input.detail ?? null,
+    status: "pending",
+    // 檸檬車門檻佔位（待律師確認後從 business_rules 讀）
+    thresholds_applied: null,
+  };
+
+  const { error } = await supabase
+    .from("sales_orders")
+    .update({
+      metadata: {
+        ...existingMeta,
+        replace_request: replaceRequest,
+      },
+      updated_by: user?.id ?? null,
+    })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (error) return { ok: false, error: `換車申請失敗：${error.message}` };
+
+  after(async () => {
+    await writeAuditLog({
+      table_name: "sales_orders",
+      record_id: id,
+      action: "new_car_replace_requested",
+      actor_id: user?.id ?? null,
+      brand_id: scope.brand_id,
+      before: null,
+      after: replaceRequest,
+    });
+  });
+
+  revalidatePath("/sales/orders");
+  revalidatePath(`/sales/orders/${id}`);
+  return { ok: true, data: { id } };
 }

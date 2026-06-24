@@ -44,6 +44,11 @@ export type TestDriveRow = {
   status: TestDriveStatus;
   notes: string | null;
   metadata: Record<string, unknown>;
+  // 新增①：typed columns
+  insurance_verified: boolean | null;
+  insurance_note: string | null;
+  // A-5：typed column
+  safety_check_ng_items: SafetyNgItem[] | null;
   created_at: string;
   updated_at: string;
   // joined
@@ -93,10 +98,11 @@ export type UpdateTestDriveInput = Partial<CreateTestDriveInput> & {
   completed_at?: string | null;
 };
 
-// ── 試乘同意電子簽名（G3）──
-// 存於 sales_test_drives.metadata.signature（inline base64 dataURL，零 migration）
+// ── 試乘同意電子簽名（G3、輪2-1）──
+// 簽名圖上傳到 Storage，metadata.signature 只存 URL（不存 base64）
 export type TestDriveSignature = {
-  data_url: string; // data:image/png;base64,...
+  /** Storage 公開 URL（輪2-1 後）；舊資料可能殘有 data:image/... base64 */
+  data_url: string;
   signed_at: string; // UTC ISO（顯示時轉 Asia/Taipei）
   consent_version?: string; // 同意條款版本（條款改版可辨識）
   signer_name?: string; // 冗餘存簽署人名，免 join 即可顯示
@@ -106,6 +112,17 @@ export type StartWithSignatureInput = {
   dataUrl: string;
   signerName?: string;
   consentVersion?: string;
+  /** 新增①：保險證明已驗（前後端雙重擋） */
+  insuranceVerified?: boolean;
+  /** 新增①：保險備注（有疑問時填寫原因） */
+  insuranceNote?: string;
+};
+
+// ── 安全清單 NG 項目（A-5）──
+export type SafetyNgItem = {
+  item_id: string;
+  item_label: string;
+  ng_note: string; // NG 必填原因
 };
 
 // 目前同意條款版本（條文改版時 bump）

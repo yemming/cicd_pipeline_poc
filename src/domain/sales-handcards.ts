@@ -16,6 +16,7 @@ import type {
   HandcardPurchaseTiming,
   HandcardTrialStatus,
   HandcardReceptionPeriod,
+  HandcardDefeatCategory,
 } from '@/domain/sales-handcards.constants';
 
 export type {
@@ -25,6 +26,7 @@ export type {
   HandcardPurchaseTiming,
   HandcardTrialStatus,
   HandcardReceptionPeriod,
+  HandcardDefeatCategory,
 } from '@/domain/sales-handcards.constants';
 
 // ── Row 型別 ──────────────────────────────────────────────────────────────
@@ -57,6 +59,14 @@ export type HandcardRow = {
   created_at: string;
   updated_at: string;
   created_by: string | null;
+  // 輪1-5：戰敗分類（typed column）
+  defeat_category: HandcardDefeatCategory | null;
+  // A-10：缺貨候補登記（typed columns）
+  backorder_model: string | null;       // 舊自由文字欄位（保留 DB 欄但 UI 停止寫入）
+  backorder_color: string | null;
+  backorder_registered_at: string | null;
+  // 域C：候補車型改用 UUID FK 精確比對
+  backorder_vehicle_model_id: string | null;
 };
 
 // ── Filter 型別 ───────────────────────────────────────────────────────────
@@ -92,7 +102,89 @@ export type HandcardInput = {
   status?: HandcardStatus;
   organization_id?: string | null;
   metadata?: Record<string, unknown>;
+  // 輪1-5：戰敗分類
+  defeat_category?: HandcardDefeatCategory | null;
+  // A-10：缺貨候補登記
+  backorder_model?: string | null;           // 舊自由文字（保留欄位，UI 已停止寫入）
+  backorder_color?: string | null;
+  backorder_registered_at?: string | null;
+  // 域C：候補車型 UUID FK（新，取代 backorder_model 自由文字）
+  backorder_vehicle_model_id?: string | null;
 };
+
+// ── 輪1-2：來源管道選項型別 ────────────────────────────────────────────────
+export type LeadSourceOption = {
+  code: string;
+  label: string;
+};
+
+// ── 輪1-3：手機查重結果型別 ────────────────────────────────────────────────
+export type CustomerPhoneHit = {
+  id: string;
+  code: string;
+  name: string;
+  phone: string;
+};
+
+// ── 輪1-2：從 sales_dictionary 讀來源管道清單 ──────────────────────────────
+/**
+ * 回傳目前 brand 下的啟用線索來源清單，依 sort_order 排序。
+ * UI 若無 DB 資料則 fallback 到 hardcoded 預設清單。
+ */
+export async function listLeadSourceOptions(): Promise<LeadSourceOption[]> {
+  const supabase = await createClient();
+  const { brand_id: brandId } = await getActiveScope();
+
+  const { data } = await supabase
+    .from('sales_dictionary')
+    .select('code, label')
+    .eq('brand_id', brandId)
+    .eq('kind', 'lead_source')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+
+  if (!data || data.length === 0) {
+    // fallback 靜態清單（管理員尚未設定時仍可用）
+    return [
+      { code: 'showroom_visit', label: '展廳到訪' },
+      { code: 'motor_show', label: '車展活動' },
+      { code: 'social_media', label: 'FB／IG 社群' },
+      { code: 'referral', label: '老車主轉介紹' },
+      { code: 'dspot_app', label: 'DSPOT App' },
+      { code: 'dre_event', label: '活動現場（DRE）' },
+      { code: 'other', label: '其他' },
+    ];
+  }
+
+  return data as LeadSourceOption[];
+}
+
+// ── 輪1-3：依手機號查詢既有客戶（phone onBlur 查重用）─────────────────────
+/**
+ * 依手機號（清洗後完整比對）查詢同 brand 客戶，上限 5 筆。
+ * 空白或清洗後空字串直接回空陣列，不打 DB。
+ */
+export async function lookupCustomersByPhone(
+  rawPhone: string,
+): Promise<CustomerPhoneHit[]> {
+  if (!rawPhone?.trim()) return [];
+
+  const cleaned = rawPhone.replace(/[\s\-()]/g, '').trim();
+  if (!cleaned) return [];
+
+  const supabase = await createClient();
+  const { brand_id: brandId } = await getActiveScope();
+
+  const { data } = await supabase
+    .from('customers')
+    .select('id, code, name, phone')
+    .eq('brand_id', brandId)
+    .eq('phone', cleaned)
+    .eq('is_active', true)
+    .limit(5);
+
+  return (data ?? []) as CustomerPhoneHit[];
+}
 
 // ── 列表查詢 ──────────────────────────────────────────────────────────────
 export async function listHandcards(

@@ -163,12 +163,23 @@ export type UsedPurchaseInput = {
   suggested_price?: number | null;
   actual_price?: number | null;
   decision?: UsedPurchaseDecision | null;
+  /** true = 自家品牌（觸發 PD-UC 整備工單）；false = 非自家品牌（批售）。 */
+  is_own_brand?: boolean | null;
+  /** is_own_brand=false 時批售給的外部買家姓名。 */
+  external_buyer_name?: string | null;
+  /** is_own_brand=false 時批售給的外部買家電話。 */
+  external_buyer_phone?: string | null;
+  /** is_own_brand=false 時批售成交金額（正值）。 */
+  wholesale_price?: number | null;
+  /** is_own_brand=false 時批售成交日期（YYYY-MM-DD）。 */
+  wholesale_date?: string | null;
   metadata?: Record<string, unknown> | null;
   created_by?: string | null;
   // 車輛顯示名（非 DB column，會塞進 metadata.vehicle_model_name 給觸發函式用）
   vehicle_model_name?: string | null;
 };
 
+// vehicle_model_name 不是 DB column（寫進 metadata.vehicle_model_name）
 const META_ONLY_KEYS = new Set(["vehicle_model_name"]);
 
 /** 把 input 拆成 typed columns + 合併 metadata。 */
@@ -318,6 +329,56 @@ export type AcquireUsedCarResult = {
   recon_workorder_id: string;
   ro_code: string;
 };
+
+/**
+ * 批售給外部買家結果型別（is_own_brand=false 路徑）。
+ * 不建中古車主檔 / 不觸發整備工單；只記批售資訊到申請單 + 回傳。
+ */
+export type WholesaleExternalResult = {
+  request_id: string;
+  application_no: string;
+  /** sales_payments 新建的付款記錄 id（若 wholesale_price > 0 才有） */
+  payment_id?: string;
+};
+
+/**
+ * B-3：以舊換新時，將收購申請單與新車訂單互相串聯。
+ *
+ * 收購申請單側：在 used_purchase_requests.metadata.trade_in_linked_sales_order_id 寫入新車訂單 id。
+ * 新車訂單側的 sales_orders.trade_in_linked_order_id 由訂單域（sales-orders domain）負責回填；
+ * 本函式只做收購單側，並回傳 linked order id 讓 caller 得知需要通知訂單側寫回（標 needs_attention）。
+ *
+ * 使用規則：
+ *   - 在收購決策確認（confirmDirectBuyAction）之後呼叫（此時已有申請單 id）
+ *   - 若 salesOrderId 為 null / undefined，等同 unlink（移除連結）
+ *
+ * @param purchaseRequestId  - 收購申請單 id
+ * @param salesOrderId       - 關聯的新車訂單 id（以舊換新的那張新車單）
+ */
+export async function linkTradeInToSalesOrder(
+  purchaseRequestId: string,
+  salesOrderId: string | null,
+): Promise<void> {
+  const supabase = await createClient();
+  // 合併既有 metadata（不整碗覆蓋）
+  const { data: existing } = await supabase
+    .from("used_purchase_requests")
+    .select("metadata")
+    .eq("id", purchaseRequestId)
+    .single();
+  const prevMeta = ((existing?.metadata ?? {}) as Record<string, unknown>) || {};
+  const newMeta: Record<string, unknown> = {
+    ...prevMeta,
+    trade_in_linked_sales_order_id: salesOrderId,
+  };
+  const { error } = await supabase
+    .from("used_purchase_requests")
+    .update({ metadata: newMeta, updated_at: new Date().toISOString() })
+    .eq("id", purchaseRequestId);
+  if (error) {
+    throw new Error(`linkTradeInToSalesOrder: ${error.message}`);
+  }
+}
 
 /**
  * ⭐ 確認收購 → 建中古車主檔 + 觸發 PD-UC 整備工單。T10 / T12 共用。

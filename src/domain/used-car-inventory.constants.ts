@@ -115,6 +115,50 @@ export const USED_CAR_STATUS_OPTIONS: { value: UsedCarDbStatus | ""; label: stri
 ];
 
 // ─────────────────────────────────────────────────────────────
+// 輪9 車況說明書（condition_report）結構
+// 存在 used_car_inventory.metadata.condition_report（jsonb）
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 車況說明書 — 技師填寫欄位（accident_history / flood_damage 唯讀，業務員不可改）。
+ * 業務員欄位：odometer_reliable / inspection_summary / additional_notes。
+ * 客戶確認：customer_acknowledged_at / customer_signature_url（走 Storage）。
+ */
+export type ConditionReport = {
+  /** 事故歷史（技師填，唯讀）— true=有事故記錄 */
+  accident_history: boolean | null;
+  /** 泡水記錄（技師填，唯讀）— true=有泡水記錄 */
+  flood_damage: boolean | null;
+  /** 改裝改色（業務員）*/
+  modification: string | null;
+  /** 里程可信度（業務員）— true=可信、false=存疑 */
+  odometer_reliable: boolean | null;
+  /** 整體車況摘要（業務員）*/
+  inspection_summary: string | null;
+  /** 附加說明（業務員）*/
+  additional_notes: string | null;
+  /** 客戶簽名確認時間（ISO） */
+  customer_acknowledged_at: string | null;
+  /** 客戶簽名圖片 URL（存 Storage，非 base64）*/
+  customer_signature_url: string | null;
+  /** 來源 PDI 工單 id（可選）*/
+  source_pdi_id: string | null;
+};
+
+/** 空白車況說明書（create 時初始化） */
+export const EMPTY_CONDITION_REPORT: ConditionReport = {
+  accident_history: null,
+  flood_damage: null,
+  modification: null,
+  odometer_reliable: null,
+  inspection_summary: null,
+  additional_notes: null,
+  customer_acknowledged_at: null,
+  customer_signature_url: null,
+  source_pdi_id: null,
+};
+
+// ─────────────────────────────────────────────────────────────
 // Row type（client-safe — 純資料結構，無 supabase 呼叫）
 // ─────────────────────────────────────────────────────────────
 

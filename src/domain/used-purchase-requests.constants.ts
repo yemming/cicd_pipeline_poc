@@ -37,6 +37,16 @@ export type UsedPurchaseRequestRow = {
   used_car_id: string | null;
   recon_workorder_id: string | null;
   images: unknown;
+  /** true = 自家品牌（觸發 PD-UC 整備工單）；false = 非自家品牌（記批售資訊）。B1 新增欄。 */
+  is_own_brand: boolean | null;
+  /** is_own_brand=false 時記錄批售給的外部買家姓名。 */
+  external_buyer_name: string | null;
+  /** is_own_brand=false 時記錄批售給的外部買家電話。 */
+  external_buyer_phone: string | null;
+  /** is_own_brand=false 時批售成交金額。 */
+  wholesale_price: number | null;
+  /** is_own_brand=false 時批售成交日期（YYYY-MM-DD）。 */
+  wholesale_date: string | null;
   metadata: Record<string, unknown>;
   created_at: string | null;
   updated_at: string | null;

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
-import { createTestDriveAction } from "@/lib/sales/test-drives-actions";
+import { createTestDriveAction, saveSafetyCheckNgItemsAction } from "@/lib/sales/test-drives-actions";
+import type { SafetyNgItem } from "@/domain/sales-test-drives.constants";
 import {
   SAFETY_CATEGORY_TITLES,
   TD_ERGONOMICS,
@@ -29,7 +30,23 @@ type OverallTone = "ok" | "amber" | "red" | null;
 /** 車款選項（依 active brand 撈 vehicle_models，B-05 品牌中性化） */
 type ModelOption = { id: string; name: string };
 
-export default function TestRidesForm({ models }: { models: ModelOption[] }) {
+/** Demo 車實體選項（A1：試乘要選實體 demo 車而非車型） */
+type DemoVehicleOption = {
+  id: string;
+  vin: string | null;
+  model_display_name: string | null;
+  color: string | null;
+  status: string;
+  demo_asset_acquired_at: string | null;
+};
+
+export default function TestRidesForm({
+  models,
+  demoVehicles = [],
+}: {
+  models: ModelOption[];
+  demoVehicles?: DemoVehicleOption[];
+}) {
   useSetPageHeader({
     title: "試乘試駕",
     breadcrumb: [
@@ -54,6 +71,10 @@ export default function TestRidesForm({ models }: { models: ModelOption[] }) {
   const [tdTime, setTdTime] = useState("14:30");
   const [tdModelId, setTdModelId] = useState<string | null>(models[0]?.id ?? null);
   const [tdModel, setTdModel] = useState<string>(models[0]?.name ?? "");
+  // A1：選取實體 demo 車庫存 id（優先以此為主，vehicle_model_id 從 demo 車推導）
+  const [tdDemoVehicleId, setTdDemoVehicleId] = useState<string | null>(
+    demoVehicles[0]?.id ?? null
+  );
   const [plateNo, setPlateNo] = useState("");
   const [route, setRoute] = useState<string>(TD_ROUTES[0]);
   const [purpose, setPurpose] = useState<string>(TD_PURPOSES[0]);
@@ -61,11 +82,25 @@ export default function TestRidesForm({ models }: { models: ModelOption[] }) {
 
   // STEP 2 安全清單
   const [safety, setSafety] = useState<Record<string, SafetyState>>({});
+  // A-5：NG 項目的原因備注
+  const [ngNotes, setNgNotes] = useState<Record<string, string>>({});
   const safetyDoneCount = useMemo(
     () => Object.values(safety).filter((v) => v !== null && v !== undefined).length,
     [safety],
   );
   const safetyPct = Math.round((safetyDoneCount / TD_SAFETY_ITEMS.length) * 100);
+
+  // A-5：全部 14 項都完成了嗎？（done = ok 或 ng + 填了原因）
+  const safetyAllDone = useMemo(() => {
+    if (safetyDoneCount < TD_SAFETY_ITEMS.length) return false;
+    // 所有 NG 項都必須填原因
+    for (const item of TD_SAFETY_ITEMS) {
+      if (safety[item.id] === "ng" && !(ngNotes[item.id] ?? "").trim()) {
+        return false;
+      }
+    }
+    return true;
+  }, [safety, ngNotes, safetyDoneCount]);
 
   // STEP 3 計時
   const [running, setRunning] = useState(false);
@@ -115,6 +150,14 @@ export default function TestRidesForm({ models }: { models: ModelOption[] }) {
     return new Date(`${safeDate}T${safeTime}:00+08:00`).toISOString();
   }
 
+  function buildSafetyNgItems(): SafetyNgItem[] {
+    return TD_SAFETY_ITEMS.filter((it) => safety[it.id] === "ng").map((it) => ({
+      item_id: it.id,
+      item_label: it.label,
+      ng_note: (ngNotes[it.id] ?? "").trim(),
+    }));
+  }
+
   function buildMetadata(): Record<string, unknown> {
     return {
       // 試駕快照（不放 typed core 的 wizard state 全進這）
@@ -150,6 +193,8 @@ export default function TestRidesForm({ models }: { models: ModelOption[] }) {
       intent_change: intentChange,
       recommend_adjust: recommendAdjust,
       skip_reason: showSkipReason ? skipReason : null,
+      // A1：實體 demo 車 inventory id（試乘選車）
+      demo_vehicle_inventory_id: tdDemoVehicleId ?? null,
     };
   }
 
@@ -181,6 +226,14 @@ export default function TestRidesForm({ models }: { models: ModelOption[] }) {
       if (!r.ok) {
         showToast(`❌ 儲存失敗：${r.error}`);
         return;
+      }
+      // A-5：回寫 safety_check_ng_items（非阻斷；有 NG 項才傳）
+      const ngItems = buildSafetyNgItems();
+      if (ngItems.length > 0) {
+        const ngRes = await saveSafetyCheckNgItemsAction(r.data.id, ngItems);
+        if (!ngRes.ok) {
+          console.warn("[test-ride-form] saveSafetyCheckNgItems 失敗（試駕已建立）", ngRes.error);
+        }
       }
       setSavedRecordId(r.data.id);
       showToast("✓ 試駕記錄已儲存");
@@ -419,25 +472,57 @@ export default function TestRidesForm({ models }: { models: ModelOption[] }) {
             </div>
             <Divider />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2.5">
-              <Field label="試駕車款" required>
-                <select
-                  className={fsClass}
-                  value={tdModelId ?? ""}
-                  onChange={(e) => {
-                    const m = models.find((x) => x.id === e.target.value);
-                    setTdModelId(m?.id ?? null);
-                    setTdModel(m?.name ?? "");
-                  }}
-                >
-                  {models.length === 0 && (
-                    <option value="">（尚未建立車型，請至車型主檔新增）</option>
-                  )}
-                  {models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+              {/* A1：試乘車輛選擇 — 優先使用實體 demo 車庫存記錄 */}
+              <Field label="試駕車輛（Demo 車）" required>
+                {demoVehicles.length === 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="text-[11.5px] text-[#CC0000] bg-[#FDECEA] border border-[#F5AEAD] rounded px-2.5 py-1.5">
+                      ⚠️ 目前沒有可用的 demo 展示車。請先在「新車庫存」將車輛標記為 demo 車，再安排試駕。
+                    </div>
+                    {/* fallback：若無 demo 車，仍可手動選車款 */}
+                    <select
+                      className={fsClass}
+                      value={tdModelId ?? ""}
+                      onChange={(e) => {
+                        const m = models.find((x) => x.id === e.target.value);
+                        setTdModelId(m?.id ?? null);
+                        setTdModel(m?.name ?? "");
+                        setTdDemoVehicleId(null);
+                      }}
+                    >
+                      <option value="">— 選車款（暫無 demo 車，僅記錄用）—</option>
+                      {models.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <select
+                    className={fsClass}
+                    value={tdDemoVehicleId ?? ""}
+                    onChange={(e) => {
+                      const dv = demoVehicles.find((x) => x.id === e.target.value);
+                      setTdDemoVehicleId(dv?.id ?? null);
+                      // 同步更新車型顯示名（試駕記錄 metadata 用）
+                      setTdModel(dv?.model_display_name ?? "");
+                      // 車型 id：不依賴 demo 車直接提供，用 model_display_name 做顯示即可
+                      setTdModelId(null);
+                    }}
+                  >
+                    <option value="">— 選擇 demo 展示車 —</option>
+                    {demoVehicles.map((dv) => (
+                      <option key={dv.id} value={dv.id}>
+                        {[
+                          dv.model_display_name ?? "—",
+                          dv.color ? `（${dv.color}）` : "",
+                          dv.vin ? `VIN: ${dv.vin.slice(-6)}` : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </Field>
               <Field label="車牌號碼">
                 <input
@@ -518,6 +603,14 @@ export default function TestRidesForm({ models }: { models: ModelOption[] }) {
                 {safetyPct}%
               </span>
             </div>
+            {/* A-5：提示未完成時不可進入計時 */}
+            {!safetyAllDone && safetyDoneCount > 0 && (
+              <div className="mb-2 rounded-md bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] text-[11.5px] px-3 py-2">
+                {safetyDoneCount < TD_SAFETY_ITEMS.length
+                  ? `尚有 ${TD_SAFETY_ITEMS.length - safetyDoneCount} 項未確認，全部完成後才可開始計時`
+                  : "有 NG 項目尚未填寫原因，請說明後方可開始計時"}
+              </div>
+            )}
             {(["customer", "vehicle", "briefing"] as SafetyCategory[]).map((cat) => (
               <div key={cat}>
                 <div className="text-[11px] font-bold text-[#9A9890] tracking-wider uppercase px-2.5 py-1.5 bg-[#F4F3F0] rounded mt-1.5">
@@ -526,43 +619,75 @@ export default function TestRidesForm({ models }: { models: ModelOption[] }) {
                 <div className="flex flex-col gap-1 mt-1.5">
                   {TD_SAFETY_ITEMS.filter((i) => i.category === cat).map((it) => {
                     const st = safety[it.id];
+                    const isNg = st === "ng";
+                    const ngNote = ngNotes[it.id] ?? "";
+                    const ngMissing = isNg && !ngNote.trim();
                     const wrapCls =
                       st === "ok"
                         ? "bg-[#E1F5EE] border-[#5DCAA5]"
-                        : st === "ng"
-                        ? "bg-[#FDECEA] border-[#F5AEAD]"
+                        : isNg
+                        ? ngMissing
+                          ? "bg-[#FDECEA] border-[#CC0000]" // NG 但未填原因 → 更深紅邊框
+                          : "bg-[#FDECEA] border-[#F5AEAD]"
                         : "bg-white border-[#EEECE6] hover:border-[#85B7EB] hover:bg-[#F0F7FF]";
                     return (
-                      <div key={it.id} className={`flex items-start gap-2 px-2.5 py-1.5 border rounded transition ${wrapCls}`}>
-                        <div className="flex gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => setSafetyState(it.id, "ok")}
-                            className={`w-[22px] h-[22px] rounded text-[10px] font-bold border ${
-                              st === "ok"
-                                ? "bg-[#0F6E56] border-[#0F6E56] text-white"
-                                : "bg-white border-[#D5D3CB] hover:border-[#1A3A5C]"
-                            }`}
-                            data-test-id={`${it.id}-ok`}
-                            aria-label={`${it.label} OK`}
-                          >
-                            ✓
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSafetyState(it.id, "ng")}
-                            className={`w-[22px] h-[22px] rounded text-[10px] font-bold border ${
-                              st === "ng"
-                                ? "bg-[#C8001A] border-[#C8001A] text-white"
-                                : "bg-white border-[#D5D3CB] hover:border-[#1A3A5C]"
-                            }`}
-                            data-test-id={`${it.id}-ng`}
-                            aria-label={`${it.label} NG`}
-                          >
-                            ✗
-                          </button>
+                      <div key={it.id} className={`px-2.5 py-1.5 border rounded transition ${wrapCls}`}>
+                        <div className="flex items-start gap-2">
+                          <div className="flex gap-1 shrink-0 mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setSafetyState(it.id, "ok")}
+                              className={`w-[22px] h-[22px] rounded text-[10px] font-bold border ${
+                                st === "ok"
+                                  ? "bg-[#0F6E56] border-[#0F6E56] text-white"
+                                  : "bg-white border-[#D5D3CB] hover:border-[#1A3A5C]"
+                              }`}
+                              data-test-id={`${it.id}-ok`}
+                              aria-label={`${it.label} OK`}
+                            >
+                              ✓
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSafetyState(it.id, "ng")}
+                              className={`w-[22px] h-[22px] rounded text-[10px] font-bold border ${
+                                isNg
+                                  ? "bg-[#C8001A] border-[#C8001A] text-white"
+                                  : "bg-white border-[#D5D3CB] hover:border-[#1A3A5C]"
+                              }`}
+                              data-test-id={`${it.id}-ng`}
+                              aria-label={`${it.label} NG`}
+                            >
+                              ✗
+                            </button>
+                          </div>
+                          <div className="text-[12.5px] flex-1 leading-relaxed pt-0.5 text-[#2C2C2A]">
+                            {it.label}
+                            {isNg && (
+                              <span className="ml-1.5 text-[11px] text-[#CC0000] font-medium">NG</span>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-[12.5px] flex-1 leading-relaxed pt-0.5 text-[#2C2C2A]">{it.label}</div>
+                        {/* A-5：NG 時展開原因輸入框（必填） */}
+                        {isNg && (
+                          <div className="mt-1.5 pl-[50px]">
+                            <textarea
+                              rows={2}
+                              className={`w-full border rounded px-2 py-1 text-[11.5px] resize-none outline-none focus:border-[#185FA5] ${
+                                ngMissing ? "border-[#CC0000] bg-[#FEF5F5]" : "border-[#D5D3CB] bg-white"
+                              }`}
+                              placeholder="請說明 NG 原因（必填）*"
+                              value={ngNote}
+                              onChange={(e) =>
+                                setNgNotes((prev) => ({ ...prev, [it.id]: e.target.value }))
+                              }
+                              data-test-id={`${it.id}-ng-note`}
+                            />
+                            {ngMissing && (
+                              <span className="text-[11px] text-[#CC0000]">NG 項目必須填寫原因</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -577,8 +702,13 @@ export default function TestRidesForm({ models }: { models: ModelOption[] }) {
             <Btn variant="ghost" size="sm" onClick={checkAll} testId="td-check-all">
               ✅ 全部 OK（測試）
             </Btn>
-            <Btn variant="primary" onClick={() => goStep(3)}>
-              開始試駕計時 →
+            {/* A-5：未完成全部清單（含 NG 原因）→ disabled */}
+            <Btn
+              variant="primary"
+              onClick={() => safetyAllDone && goStep(3)}
+              disabled={!safetyAllDone}
+            >
+              {safetyAllDone ? "開始試駕計時 →" : `清單未完成（${safetyDoneCount}/${TD_SAFETY_ITEMS.length}）`}
             </Btn>
           </Footer>
         </div>

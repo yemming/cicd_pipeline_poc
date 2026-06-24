@@ -9,6 +9,8 @@ import {
   deleteNewCarAction,
   setNewCarStatusAction,
   createNewCarAction,
+  markAsDemoUnitAction,
+  retireDemoToUsedAction,
 } from "@/lib/sales/new-car-actions";
 import {
   NEW_CAR_STATUS_LABELS,
@@ -58,6 +60,8 @@ export default function NewCarDetailView({
   organizations,
   brandId,
   canEdit,
+  canDemoEdit = false,
+  canDemoRetire = false,
   initialMode = "view",
 }: {
   car: NewCarInventoryRow | null;
@@ -65,12 +69,24 @@ export default function NewCarDetailView({
   organizations: OrganizationOption[];
   brandId: string;
   canEdit: boolean;
+  /** 是否有 SALES_CAR_DEMO_EDIT 權限（標記 demo）*/
+  canDemoEdit?: boolean;
+  /** 是否有 SALES_CAR_DEMO_RETIRE 權限（退役轉中古車）*/
+  canDemoRetire?: boolean;
   initialMode?: ViewMode;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<ViewMode>(initialMode);
   const [banner, setBanner] = useState<Banner>(null);
+
+  // ── Demo 車管理 state ─────────────────────────────────────────────────
+  const [retireModalOpen, setRetireModalOpen] = useState(false);
+  const [retireListingPrice, setRetireListingPrice] = useState("");
+  const [retireMileage, setRetireMileage] = useState("");
+  const [retireNote, setRetireNote] = useState("");
+  const [demoAcquiredAt, setDemoAcquiredAt] = useState(car?.demo_asset_acquired_at ?? "");
+  const [isRetirePending, startRetireTransition] = useTransition();
   const [creating, setCreating] = useState(initialMode === "create");
 
   // 編輯用 form state（從 car 初始化）
@@ -174,6 +190,49 @@ export default function NewCarDetailView({
       const res = await setNewCarStatusAction(car.id, status);
       if (res.ok) {
         setBanner({ ok: true, msg: `✓ 狀態已更新為「${NEW_CAR_STATUS_LABELS[status]}」` });
+        router.refresh();
+      } else {
+        setBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  // ── Demo 車管理 handlers ──────────────────────────────────────────────
+
+  function handleToggleDemo(is_demo: boolean) {
+    if (!car) return;
+    startTransition(async () => {
+      const res = await markAsDemoUnitAction(car.id, is_demo, is_demo ? (demoAcquiredAt || null) : null);
+      if (res.ok) {
+        setBanner({ ok: true, msg: is_demo ? "✓ 已標記為 demo 展示車" : "✓ 已取消 demo 標記" });
+        router.refresh();
+      } else {
+        setBanner({ ok: false, msg: res.error });
+      }
+    });
+  }
+
+  function handleRetireToUsed() {
+    if (!car) return;
+    const price = parseFloat(retireListingPrice);
+    if (!price || price <= 0) {
+      setBanner({ ok: false, msg: "請填入有效的上架售價" });
+      return;
+    }
+    const mileage = parseInt(retireMileage || "0", 10);
+    startRetireTransition(async () => {
+      const res = await retireDemoToUsedAction({
+        new_car_id: car.id,
+        listing_price: price,
+        model_display_name: car.model_display_name ?? "（未知車款）",
+        year: car.year ?? new Date().getFullYear(),
+        color: car.color,
+        mileage_km: mileage,
+        note: retireNote.trim() || null,
+      });
+      if (res.ok) {
+        setRetireModalOpen(false);
+        setBanner({ ok: true, msg: `✓ 已退役轉中古車（中古車 id: ${res.data.usedCarId.slice(0, 8)}…），可至中古車庫存查看` });
         router.refresh();
       } else {
         setBanner({ ok: false, msg: res.error });
@@ -501,10 +560,201 @@ export default function NewCarDetailView({
         </section>
       )}
 
+      {/* 6. Demo 車固定資產管理（A1）— view mode 且有 demo 管理權限才顯示 */}
+      {!isCreate && car && (canDemoEdit || canDemoRetire || car.is_demo_unit) && (
+        <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+          <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ Demo 展示車管理</span>
+            {car.is_demo_unit && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5] font-medium">
+                Demo 展示車
+              </span>
+            )}
+            {car.demo_retired_at && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#F2F2F2] text-[#6B6A68] font-medium">
+                已退役
+              </span>
+            )}
+          </header>
+          <div className="px-4 py-4 space-y-4">
+            {/* KV 顯示（view mode）*/}
+            {isView && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3">
+                <Kv label="Demo 車狀態" value={
+                  car.is_demo_unit
+                    ? <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5] font-medium">是 Demo 展示車</span>
+                    : <span className="text-[12.5px] text-[#9A9890]">非 demo 車</span>
+                } />
+                <Kv label="固定資產取得日" value={car.demo_asset_acquired_at} />
+                <Kv label="退役日" value={car.demo_retired_at ?? "—"} />
+                {car.converted_to_used_inventory_id && (
+                  <div className="col-span-full">
+                    <span className="text-[11px] text-[#9A9890]">轉入中古車記錄</span>
+                    <div className="mt-0.5 font-mono text-[12px] text-[#185FA5]">
+                      {car.converted_to_used_inventory_id}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Demo 標記操作（需 canDemoEdit，且車輛未退役）*/}
+            {isView && canDemoEdit && !car.demo_retired_at && (
+              <div className="border border-[#EEECE6] rounded-lg p-3 bg-[#F8F7F4] space-y-3">
+                <div className="text-[12px] font-semibold text-[#5A5955]">標記 / 取消 demo 車</div>
+                <div className="flex flex-col gap-1">
+                  <label className={`text-[11px] text-[#9A9890] font-medium`}>固定資產取得日期</label>
+                  <input
+                    type="date"
+                    value={demoAcquiredAt}
+                    onChange={(e) => setDemoAcquiredAt(e.target.value)}
+                    className="w-[180px] h-[30px] px-2 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] focus:outline-none disabled:opacity-60"
+                    disabled={isPending}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {!car.is_demo_unit ? (
+                    <button
+                      onClick={() => handleToggleDemo(true)}
+                      disabled={isPending}
+                      className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+                    >
+                      {isPending ? "處理中⋯" : "標記為 Demo 車"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleToggleDemo(false)}
+                      disabled={isPending}
+                      className="h-[30px] px-4 rounded text-[12.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+                    >
+                      {isPending ? "處理中⋯" : "取消 Demo 標記"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 退役轉中古車入口（需 canDemoRetire，且是 demo 車，且尚未退役）*/}
+            {isView && canDemoRetire && car.is_demo_unit && !car.demo_retired_at && (
+              <div className="border border-[#F0C97E] rounded-lg p-3 bg-[#FDF3E3]">
+                <div className="text-[12px] font-semibold text-[#854F0B] mb-1.5">退役轉中古車</div>
+                <div className="text-[11.5px] text-[#854F0B] mb-3 leading-relaxed">
+                  將此 demo 車退出新車庫存流程，建立中古車庫存記錄並觸發車況說明書填寫。此操作一次性不可逆。
+                </div>
+                <button
+                  onClick={() => setRetireModalOpen(true)}
+                  disabled={isPending}
+                  className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6B3A00] disabled:opacity-50"
+                >
+                  退役轉中古車…
+                </button>
+              </div>
+            )}
+
+            {/* 已退役提示 */}
+            {car.demo_retired_at && (
+              <div className="text-[12px] text-[#6B6A68] bg-[#F2F2F2] rounded-lg px-3 py-2.5">
+                此 demo 車已於 {car.demo_retired_at} 退役，已轉入中古車庫存。
+                {car.converted_to_used_inventory_id && (
+                  <> 中古車記錄：<span className="font-mono text-[#185FA5]">{car.converted_to_used_inventory_id.slice(0, 8)}…</span></>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Create hint */}
       {isCreate && (
         <div className="bg-white border border-[#EEECE6] rounded-lg px-4 py-4 text-[12.5px] text-[#5A5955]">
           建立後將跳轉到該車輛的詳情頁，可進一步維護價格、領牌狀態等資訊。
+        </div>
+      )}
+
+      {/* 退役轉中古車 Modal（A1）*/}
+      {retireModalOpen && car && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+          onClick={() => !isRetirePending && setRetireModalOpen(false)}
+        >
+          <div
+            className={`bg-white rounded-lg shadow-xl w-[500px] max-w-[94vw] max-h-[90vh] overflow-y-auto ${isRetirePending ? "pointer-events-none opacity-60" : ""}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="px-5 py-3 border-b border-[#EEECE6]">
+              <h2 className="text-[15px] font-semibold text-[#854F0B]">退役轉中古車</h2>
+              <p className="text-[11.5px] text-[#9A9890] mt-0.5">
+                {car.model_display_name ?? "此 demo 車"} — 一次性不可逆操作
+              </p>
+            </header>
+            <div className="px-5 py-4 space-y-3.5">
+              <div className="rounded-md bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] text-[11.5px] px-3 py-2.5 leading-relaxed">
+                <b>退役後：</b>建立中古車記錄（狀態：待車況書）、回寫退役日、互相追溯。<br />
+                <b>不觸發：</b>鑑價流程（used_car_evaluations）。<br />
+                <b>上架售價：</b>由您填入商業定價，不綁帳面成本。
+              </div>
+              <div>
+                <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+                  中古車上架售價（NT$）<span className="text-[#CC0000]">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={retireListingPrice}
+                  onChange={(e) => setRetireListingPrice(e.target.value)}
+                  className="w-full h-[30px] px-2 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                  placeholder="如：488000"
+                  disabled={isRetirePending}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+                  當前里程（km）
+                </label>
+                <input
+                  type="number"
+                  value={retireMileage}
+                  onChange={(e) => setRetireMileage(e.target.value)}
+                  className="w-full h-[30px] px-2 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                  placeholder="如：3500"
+                  disabled={isRetirePending}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[#9A9890] font-medium block mb-1">
+                  備注（選填）
+                </label>
+                <textarea
+                  rows={2}
+                  value={retireNote}
+                  onChange={(e) => setRetireNote(e.target.value)}
+                  className="w-full px-2 py-1.5 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] focus:outline-none resize-none"
+                  placeholder="例：展示期間共 XXX 次試乘，車況良好"
+                  disabled={isRetirePending}
+                />
+              </div>
+            </div>
+            <footer className="px-5 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRetireModalOpen(false)}
+                disabled={isRetirePending}
+                className="h-[32px] px-4 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleRetireToUsed}
+                disabled={isRetirePending || !retireListingPrice}
+                className="h-[32px] px-4 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6B3A00] disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                {isRetirePending && (
+                  <span className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                )}
+                {isRetirePending ? "退役中⋯" : "確認退役轉中古車"}
+              </button>
+            </footer>
+          </div>
         </div>
       )}
 

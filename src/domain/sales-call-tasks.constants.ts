@@ -66,7 +66,8 @@ export type SalesCallType =
   | "d3_followup"
   | "d7_followup"
   | "event_invite"
-  | "custom";
+  | "custom"
+  | "dormant_reactivation";
 
 export type AftersalesCallType =
   | "aftersales_d3"
@@ -83,6 +84,7 @@ export const SALES_CALL_TYPES: SalesCallType[] = [
   "d7_followup",
   "event_invite",
   "custom",
+  "dormant_reactivation",
 ];
 
 export const AFTERSALES_CALL_TYPES: AftersalesCallType[] = [
@@ -99,6 +101,7 @@ export const CALL_TYPE_LABEL: Record<CallTaskType, string> = {
   d7_followup: "D+7 深度確認",
   event_invite: "活動邀約",
   custom: "自訂跟進",
+  dormant_reactivation: "休眠喚醒",
   aftersales_d3: "D+3 售後滿意度",
   aftersales_d7: "D+7 售後深度確認",
   maintenance_reminder: "保養回廠提醒",
@@ -112,6 +115,7 @@ export const CALL_TYPE_SHORT_LABEL: Record<CallTaskType, string> = {
   d7_followup: "D+7",
   event_invite: "邀約",
   custom: "自訂",
+  dormant_reactivation: "喚醒",
   aftersales_d3: "售後 D+3",
   aftersales_d7: "售後 D+7",
   maintenance_reminder: "保養",
@@ -133,6 +137,7 @@ export const CALL_TYPE_COLOR: Record<CallTaskType, CallTypeColor> = {
   d7_followup: "amber",
   event_invite: "blue",
   custom: "purple",
+  dormant_reactivation: "teal",
   aftersales_d3: "teal",
   aftersales_d7: "navy",
   maintenance_reminder: "amber",
@@ -169,6 +174,12 @@ export const CALL_SCRIPT_TEMPLATES: Record<
     text:
       "您好,延續上次討論,我幫您查了您詢問的細節,想跟您回報並確認您的下一步安排⋯",
     hints: ["回應客戶主動詢問", "確認下一步", "預約看車或試乘"],
+  },
+  dormant_reactivation: {
+    tag: "話術提示 — 休眠喚醒",
+    text:
+      "您好,我是先前接待過您的業務,距離上次接觸已有一段時間,最近有新車型/活動方案想與您分享,不曉得您現在的購車考量有沒有什麼變化?",
+    hints: ["重新確認需求", "介紹新車型/方案", "邀約再次到店", "更新客戶狀態"],
   },
   aftersales_d3: {
     tag: "話術提示 — D+3 售後滿意度",

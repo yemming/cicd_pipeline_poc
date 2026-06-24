@@ -13,6 +13,7 @@ import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { getCurrentUserContext } from "@/lib/rbac/policies";
+import { searchSalesOrdersForComplaint } from "@/domain/complaints";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -24,6 +25,8 @@ export type CreateComplaintInput = {
   vehicle_id?: string | null;
   /** 關聯工單（選填，取車後投訴建議填入原 RO） */
   repair_order_id?: string | null;
+  /** F-3：關聯銷售訂單（選填，銷售後投訴建議填入原銷售訂單） */
+  related_sales_order_id?: string | null;
   /** 投訴類型：service（服務態度）/ quality（維修品質）/ pricing（費用爭議）/ other（其他） */
   complaint_type: string;
   description: string;
@@ -51,6 +54,7 @@ export async function createComplaintAction(
       customer_id: input.customer_id,
       vehicle_id: input.vehicle_id ?? null,
       repair_order_id: input.repair_order_id ?? null,
+      related_sales_order_id: input.related_sales_order_id ?? null,
       complaint_type: input.complaint_type.trim(),
       description: input.description.trim(),
       status: "open",
@@ -66,4 +70,19 @@ export async function createComplaintAction(
 
   revalidatePath(`/parts/aftersales/customers/${input.customer_id}`);
   return { ok: true, data: { id: data.id } };
+}
+
+/**
+ * F-3：依關鍵字搜尋銷售訂單（供新增投訴時選擇關聯銷售訂單）。
+ * 回傳陣列：{ id, order_no, customer_name, vehicle_model_name, status }
+ */
+export async function searchSalesOrdersAction(keyword: string): Promise<Array<{
+  id: string;
+  order_no: string;
+  customer_name: string | null;
+  vehicle_model_name: string | null;
+  status: string;
+}>> {
+  await requirePermission(PERMISSIONS.CUSTOMER_VIEW);
+  return searchSalesOrdersForComplaint(keyword);
 }

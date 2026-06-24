@@ -127,6 +127,12 @@ export default function UsedPurchaseWizard({
 
   // STEP 4
   const [decisionNote, setDecisionNote] = useState("");
+  // 輪7-6：is_own_brand（預設 true = 自家品牌，觸發整備工單）
+  const [isOwnBrand, setIsOwnBrand] = useState(true);
+  const [externalBuyerName, setExternalBuyerName] = useState("");
+  const [externalBuyerPhone, setExternalBuyerPhone] = useState("");
+  const [wholesalePrice, setWholesalePrice] = useState("");
+  const [wholesaleDate, setWholesaleDate] = useState(new Date().toISOString().slice(0, 10));
 
   const [toast, setToast] = useState<string | null>(null);
   const showToast = (m: string) => {
@@ -171,6 +177,12 @@ export default function UsedPurchaseWizard({
     accident_note: accidentNote,
     market_source_note: marketSourceNote,
     note: decisionNote,
+    // 輪7-6
+    is_own_brand: isOwnBrand,
+    external_buyer_name: isOwnBrand ? null : externalBuyerName || null,
+    external_buyer_phone: isOwnBrand ? null : externalBuyerPhone || null,
+    wholesale_price: isOwnBrand ? null : (wholesalePrice ? n(wholesalePrice) || null : null),
+    wholesale_date: isOwnBrand ? null : wholesaleDate || null,
   });
 
   const guard = (): string | null => {
@@ -178,6 +190,8 @@ export default function UsedPurchaseWizard({
     if (!vin.trim() && !modelName.trim())
       return "請至少填寫 VIN 或車型其中一項（STEP 2）";
     if (!calc.actual) return "請填寫實際收購報價（STEP 3）";
+    // 輪7-6：非自家品牌時批售金額必填
+    if (!isOwnBrand && !(n(wholesalePrice) > 0)) return "批售給外部買家時請填寫批售金額（STEP 4）";
     return null;
   };
 
@@ -223,39 +237,52 @@ export default function UsedPurchaseWizard({
   // ── 成功卡 ──
   if (done) {
     const condTitle = done.decision === "conditional";
+    const isOwnBrandDone = done.used_car_id !== ""; // 非自家品牌時 used_car_id 為空
     return (
       <div className="max-w-[900px] mx-auto px-6 py-8">
-        <div className="rounded-xl bg-gradient-to-br from-[#0F6E56] to-[#185FA5] text-white p-7 shadow-lg">
+        <div className={`rounded-xl text-white p-7 shadow-lg bg-gradient-to-br ${isOwnBrandDone ? "from-[#0F6E56] to-[#185FA5]" : "from-[#854F0B] to-[#CC7A00]"}`}>
           <div className="text-[20px] font-bold mb-1">
-            {condTitle
-              ? "⚠️ 條件收購確認！整備工單已建立"
-              : "🎉 收購確認完成！整備工單已建立"}
+            {isOwnBrandDone
+              ? (condTitle ? "⚠️ 條件收購確認！整備工單已建立" : "🎉 收購確認完成！整備工單已建立")
+              : "📦 批售完成！批售記錄已寫入金流帳冊"}
           </div>
           <div className="text-[13px] opacity-90 mb-4">
-            中古車車輛主檔已建立，整備工單已觸發，費用計入整車成本
+            {isOwnBrandDone
+              ? "中古車車輛主檔已建立，整備工單已觸發，費用計入整車成本"
+              : "非自家品牌車輛已批售給外部買家，付款記錄已寫入 sales_payments"}
           </div>
           <div className="flex flex-wrap gap-2 mb-5">
             <span className="px-3 py-1.5 rounded-md bg-white/15 border border-white/25 text-[12.5px]">
               申請單號：<b>{done.application_no}</b>
             </span>
+            {isOwnBrandDone && done.ro_code && (
+              <span className="px-3 py-1.5 rounded-md bg-white/15 border border-white/25 text-[12.5px]">
+                整備工單：<b className="font-mono">{done.ro_code}</b>
+              </span>
+            )}
             <span className="px-3 py-1.5 rounded-md bg-white/15 border border-white/25 text-[12.5px]">
-              整備工單：<b className="font-mono">{done.ro_code}</b>
+              來源類型：<b>{isOwnBrandDone ? "DIRECT_BUY（自家品牌）" : "WHOLESALE_EXTERNAL（批售）"}</b>
             </span>
-            <span className="px-3 py-1.5 rounded-md bg-white/15 border border-white/25 text-[12.5px]">
-              來源類型：<b>DIRECT_BUY</b>
-            </span>
-            <span className="px-3 py-1.5 rounded-md bg-white/15 border border-white/25 text-[12.5px]">
-              車輛狀態：<b>待整備</b>
-            </span>
+            {isOwnBrandDone && (
+              <span className="px-3 py-1.5 rounded-md bg-white/15 border border-white/25 text-[12.5px]">
+                車輛狀態：<b>待整備</b>
+              </span>
+            )}
           </div>
           <div className="rounded-md bg-white/10 p-3 text-[12px] leading-relaxed mb-5">
             <b>✅ 系統已自動執行：</b>
-            <br />1 · 建立中古車車輛主檔（acquisition_source = direct_buy，狀態「待整備」）
-            <br />2 · 自動建立整備工單 <b className="font-mono">{done.ro_code}</b>
-            （PD-UC，費用計入整車成本）
-            {condTitle && (
+            {isOwnBrandDone ? (
               <>
-                <br />3 · 標記「整備後需重新鑑價」才可上架銷售
+                <br />1 · 建立中古車車輛主檔（acquisition_source = direct_buy，狀態「待整備」）
+                <br />2 · 自動建立整備工單 <b className="font-mono">{done.ro_code}</b>（PD-UC，費用計入整車成本）
+                {condTitle && (
+                  <><br />3 · 標記「整備後需重新鑑價」才可上架銷售</>
+                )}
+              </>
+            ) : (
+              <>
+                <br />1 · 記錄批售給外部買家的收款資訊（sales_payments，source_type = wholesale_to_external）
+                <br />2 · 未觸發整備工單（非自家品牌不入庫整備）
               </>
             )}
           </div>
@@ -270,18 +297,22 @@ export default function UsedPurchaseWizard({
             >
               ← 回收購申請列表
             </Link>
-            <Link
-              href="/usedcar/stock"
-              className="px-4 py-2 rounded-md bg-white/15 border border-white/30 text-[12.5px] font-semibold"
-            >
-              🏍️ 查看中古車庫存
-            </Link>
-            <Link
-              href="/parts/aftersales/repair-orders"
-              className="px-4 py-2 rounded-md bg-white/15 border border-white/30 text-[12.5px] font-semibold"
-            >
-              🔧 查看整備工單
-            </Link>
+            {isOwnBrandDone && (
+              <>
+                <Link
+                  href="/usedcar/stock"
+                  className="px-4 py-2 rounded-md bg-white/15 border border-white/30 text-[12.5px] font-semibold"
+                >
+                  🏍️ 查看中古車庫存
+                </Link>
+                <Link
+                  href="/parts/aftersales/repair-orders"
+                  className="px-4 py-2 rounded-md bg-white/15 border border-white/30 text-[12.5px] font-semibold"
+                >
+                  🔧 查看整備工單
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -655,7 +686,7 @@ export default function UsedPurchaseWizard({
 
       {/* STEP 4 */}
       {step === 4 && (
-        <Panel icon="✅" title="收購決策確認" sub="確認後系統自動建立車輛主檔並觸發整備工單（PD-UC）">
+        <Panel icon="✅" title="收購決策確認" sub="確認後依品牌屬性自動建立車輛主檔並觸發整備工單（自家品牌）或記批售資訊（外部品牌）">
           {/* 申請摘要 */}
           <div className="rounded-lg bg-[#F8F7F4] p-3 grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 text-[12px]">
             <SummaryKv label="申請單號" value={applicationNo} mono />
@@ -669,12 +700,85 @@ export default function UsedPurchaseWizard({
             <SummaryKv label="賣方" value={sellerName || "—"} />
           </div>
 
-          <div className="rounded-md bg-[#EAF4FB] border border-[#85B7EB] p-3 text-[12px] text-[#185FA5] mb-3 leading-relaxed">
-            <b>✅ 確認收購</b> → 建立中古車車輛主檔（acquisition_source =
-            direct_buy）+ 自動觸發整備工單（PD-UC，費用計入整車成本）。
-            <br />
-            <b>⚠️ 條件收購</b> → 同上，並標記「整備後需重新鑑價」才可上架。
+          {/* 輪7-6：是否自家品牌 toggle */}
+          <SecTitle>品牌屬性 <span className="text-[#CC0000]">*</span></SecTitle>
+          <div className="flex gap-3 mb-3">
+            <button
+              type="button"
+              onClick={() => setIsOwnBrand(true)}
+              className={`flex-1 rounded-lg border-2 px-3 py-2.5 text-left text-[12.5px] transition-colors ${
+                isOwnBrand
+                  ? "border-[#0F6E56] bg-[#E8F5F0]"
+                  : "border-[#D5D3CB] bg-white hover:border-[#85B7EB]"
+              }`}
+            >
+              <div className="font-semibold text-[#2C2C2A]">🏍️ 自家品牌</div>
+              <div className="text-[11px] text-[#9A9890] mt-0.5">觸發 PD-UC 整備工單，建立中古車主檔</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsOwnBrand(false)}
+              className={`flex-1 rounded-lg border-2 px-3 py-2.5 text-left text-[12.5px] transition-colors ${
+                !isOwnBrand
+                  ? "border-[#854F0B] bg-[#FDF3E3]"
+                  : "border-[#D5D3CB] bg-white hover:border-[#85B7EB]"
+              }`}
+            >
+              <div className="font-semibold text-[#2C2C2A]">📦 非自家品牌（批售）</div>
+              <div className="text-[11px] text-[#9A9890] mt-0.5">不建整備工單，記錄外部買家批售資訊</div>
+            </button>
           </div>
+
+          {/* 非自家品牌時顯示批售資訊欄位 */}
+          {!isOwnBrand && (
+            <div className="rounded-lg border border-[#F0C97E] bg-[#FDF3E3] p-3 mb-3">
+              <div className="text-[12px] font-semibold text-[#854F0B] mb-2">批售資訊</div>
+              <Grid cols={3}>
+                <Field label="外部買家姓名 / 公司">
+                  <input
+                    className={inputCls}
+                    placeholder="例：明達車業"
+                    value={externalBuyerName}
+                    onChange={(e) => setExternalBuyerName(e.target.value)}
+                  />
+                </Field>
+                <Field label="聯絡電話">
+                  <input
+                    className={`${inputCls} font-mono`}
+                    placeholder="0912-345-678"
+                    value={externalBuyerPhone}
+                    onChange={(e) => setExternalBuyerPhone(e.target.value)}
+                  />
+                </Field>
+                <Field label="批售金額" required>
+                  <input
+                    className={`${inputCls} font-mono`}
+                    type="number"
+                    placeholder="0"
+                    value={wholesalePrice}
+                    onChange={(e) => setWholesalePrice(e.target.value)}
+                  />
+                </Field>
+                <Field label="批售日期">
+                  <input
+                    className={`${inputCls} font-mono`}
+                    type="date"
+                    value={wholesaleDate}
+                    onChange={(e) => setWholesaleDate(e.target.value)}
+                  />
+                </Field>
+              </Grid>
+            </div>
+          )}
+
+          {isOwnBrand && (
+            <div className="rounded-md bg-[#EAF4FB] border border-[#85B7EB] p-3 text-[12px] text-[#185FA5] mb-3 leading-relaxed">
+              <b>✅ 確認收購</b> → 建立中古車車輛主檔（acquisition_source =
+              direct_buy）+ 自動觸發整備工單（PD-UC，費用計入整車成本）。
+              <br />
+              <b>⚠️ 條件收購</b> → 同上，並標記「整備後需重新鑑價」才可上架。
+            </div>
+          )}
 
           <div className="mb-3">
             <div className="text-[11px] text-[#9A9890] font-medium mb-1">決策說明 / 備注</div>
@@ -698,14 +802,16 @@ export default function UsedPurchaseWizard({
             >
               {isPending ? "處理中⋯" : "❌ 不收購"}
             </button>
-            <button
-              type="button"
-              onClick={() => handleConfirm("conditional")}
-              disabled={isPending || !canEdit}
-              className={`${btnAmber} disabled:opacity-60`}
-            >
-              {isPending ? "建立中⋯" : "⚠️ 條件收購"}
-            </button>
+            {isOwnBrand && (
+              <button
+                type="button"
+                onClick={() => handleConfirm("conditional")}
+                disabled={isPending || !canEdit}
+                className={`${btnAmber} disabled:opacity-60`}
+              >
+                {isPending ? "建立中⋯" : "⚠️ 條件收購"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => handleConfirm("approved")}
@@ -713,7 +819,7 @@ export default function UsedPurchaseWizard({
               className={`${btnTeal} disabled:opacity-60`}
               style={{ fontSize: 13, padding: "0 22px" }}
             >
-              {isPending ? "建立中⋯" : "✅ 確認收購"}
+              {isPending ? "建立中⋯" : isOwnBrand ? "✅ 確認收購" : "✅ 確認批售"}
             </button>
           </div>
         </Panel>

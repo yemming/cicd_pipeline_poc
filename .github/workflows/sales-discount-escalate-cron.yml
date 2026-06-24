@@ -1,0 +1,30 @@
+# 銷售折扣審核逾時升級排程 — 每 5 分鐘打 cron 端點
+#
+# 啟用方式（一次性）：到 GitHub repo → Settings → Secrets and variables → Actions →
+#   secret `CRON_TOKEN`（與 aftersales-cron 共用同一個），值 = Zeabur DealerOS-Production 的 CRON_TOKEN。
+# 排程在 default branch(main) 才生效。
+#
+# 端點（需 Bearer CRON_TOKEN，未設或不符 → 401，無副作用）：
+#   - sales-discount-escalate：掃 discount_approval_requests pending 且 deadline_at 逾時 →
+#       有代理審核人則升級 + 通知，否則僅通知主管群（sales_discount.escalated）。
+# 為什麼 5 分鐘：在店等候門檻 10 分、非即時 30 分，5 分鐘排程確保在店案件有餘裕及時升級。
+name: sales-discount-escalate-cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # 每 5 分鐘（UTC）
+  workflow_dispatch: {} # 允許手動觸發測試
+
+permissions:
+  contents: read
+
+jobs:
+  discount-escalate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 折扣審核逾時升級（在店10分/非即時30分）
+        run: |
+          curl -fsS -X POST "https://dealeros.zeabur.app/api/cron/sales-discount-escalate" \
+            -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || echo "sales-discount-escalate endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"

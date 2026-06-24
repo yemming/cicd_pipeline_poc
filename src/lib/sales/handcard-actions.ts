@@ -14,12 +14,17 @@ import {
   updateHandcard,
   deleteHandcard,
   convertHandcardToLead,
+  lookupCustomersByPhone,
   type HandcardInput,
+  type CustomerPhoneHit,
 } from '@/domain/sales-handcards';
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+// CustomerPhoneHit 型別給 client 使用：直接從 @/domain/sales-handcards 引入，不在此 re-export
+// （"use server" 檔 re-export type 在 Turbopack 會炸，見 memory use-server-type-reexport-crashes-module）
 
 const LIST_PATH = '/sales/reception/handcard';
 
@@ -52,6 +57,14 @@ export async function createHandcardAction(
       competitor_brand: trim(input.competitor_brand),
       competitor_model: trim(input.competitor_model),
       quote_remark: trim(input.quote_remark),
+      // 輪1-5：defeat_category — null 表示未戰敗，有值才寫
+      defeat_category: input.defeat_category ?? null,
+      // A-10：缺貨候補（backorder_model 舊自由文字保留欄但 UI 已停止寫入）
+      backorder_model: trim(input.backorder_model),
+      backorder_color: trim(input.backorder_color),
+      backorder_registered_at: input.backorder_registered_at ?? null,
+      // 域C：候補車型 UUID FK（精確比對用）
+      backorder_vehicle_model_id: input.backorder_vehicle_model_id ?? null,
     };
 
     if (!cleaned.customer_name) {
@@ -127,6 +140,25 @@ export async function deleteHandcardAction(
     return { ok: true, data: { id } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : '刪除失敗' };
+  }
+}
+
+// ── 輪1-3：手機查重 action ────────────────────────────────────────────────
+/**
+ * phone onBlur 呼叫此 action 查同 brand 客戶；
+ * 找到回 hits 供 UI 顯示「已有客戶：XXX」提示。
+ */
+export async function lookupCustomersByPhoneAction(
+  phone: string,
+): Promise<ActionResult<CustomerPhoneHit[]>> {
+  try {
+    const { userId } = await getCurrentUserAndAdmin();
+    if (!userId) return { ok: false, error: '請先登入' };
+
+    const hits = await lookupCustomersByPhone(phone);
+    return { ok: true, data: hits };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : '查詢失敗' };
   }
 }
 

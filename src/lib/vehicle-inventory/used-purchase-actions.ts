@@ -31,9 +31,11 @@ import {
   deleteUsedPurchaseRequest,
   getUsedPurchaseRequestById,
   triggerUsedCarAcquisition,
+  linkTradeInToSalesOrder,
   type UsedPurchaseInput,
   type UsedPurchaseSourceType,
 } from "@/domain/used-purchase-requests";
+import { recordWholesaleToExternal } from "@/domain/sales-payments";
 import type { UsedCarConditionGrade } from "@/domain/used-car-inventory.constants";
 
 export type ActionResult<T = unknown> =
@@ -66,6 +68,16 @@ export type UsedPurchaseFormInput = {
   accident_note?: string | null;
   market_source_note?: string | null;
   note?: string | null;
+  /** 輪7-6：是否自家品牌。true = 觸發 PD-UC 整備工單；false = 批售給外部買家。 */
+  is_own_brand?: boolean | null;
+  /** is_own_brand=false 時的批售買家姓名。 */
+  external_buyer_name?: string | null;
+  /** is_own_brand=false 時的批售買家電話。 */
+  external_buyer_phone?: string | null;
+  /** is_own_brand=false 時的批售成交金額（正值）。 */
+  wholesale_price?: number | null;
+  /** is_own_brand=false 時的批售成交日期（YYYY-MM-DD）。 */
+  wholesale_date?: string | null;
 };
 
 /** 把 form input normalize 成 domain UsedPurchaseInput（剔除非法 enum）。 */
@@ -103,6 +115,12 @@ function normalizeInput(
     recon_estimate: form.recon_estimate ?? null,
     suggested_price: form.suggested_price ?? null,
     actual_price: form.actual_price ?? null,
+    // 輪7-6 新欄位
+    is_own_brand: form.is_own_brand ?? null,
+    external_buyer_name: form.external_buyer_name?.trim() || null,
+    external_buyer_phone: form.external_buyer_phone?.trim() || null,
+    wholesale_price: form.wholesale_price ?? null,
+    wholesale_date: form.wholesale_date?.trim() || null,
     created_by: createdBy,
     vehicle_model_name: form.vehicle_model_name?.trim() || null,
     metadata: {
@@ -243,8 +261,57 @@ export async function confirmDirectBuyAction(
     }
     if (!applicationNo) applicationNo = req.application_no;
 
-    // ── 3. 呼叫共用觸發函式（direct_buy）──
     const meta = (req.metadata ?? {}) as Record<string, unknown>;
+
+    // ── 輪7-6：is_own_brand 判斷 ──
+    // 若申請單標記 is_own_brand=false，改走批售外部買家路徑（不觸發 PD-UC 整備工單）
+    const isOwnBrand = req.is_own_brand !== false; // null / true → 視為自家品牌（維持原有行為）
+
+    if (!isOwnBrand) {
+      // 非自家品牌路徑：記批售資訊 + 呼叫 recordWholesaleToExternal
+      if (!(req.wholesale_price && req.wholesale_price > 0)) {
+        return { ok: false, error: "批售給外部買家時必須填寫批售金額（wholesale_price > 0）" };
+      }
+
+      // 回寫申請單 decision
+      await updateUsedPurchaseRequest(requestId, {
+        decision: input.decision === "conditional" ? "conditional" : "approved",
+      });
+
+      // 記批售付款記錄到 sales_payments
+      const wholesaleResult = await recordWholesaleToExternal({
+        order_no: applicationNo,
+        total_amount: req.wholesale_price,
+        payment_method: "bank_transfer", // 批售預設轉帳
+        paid_at: req.wholesale_date
+          ? new Date(req.wholesale_date).toISOString()
+          : new Date().toISOString(),
+        metadata: {
+          source_kind: "used_purchase_request",
+          source_id: requestId,
+          external_buyer_name: req.external_buyer_name ?? null,
+          external_buyer_phone: req.external_buyer_phone ?? null,
+        },
+      });
+
+      revalidatePath(PAGE_PATH);
+      revalidatePath(`${PAGE_PATH}/${requestId}`);
+
+      return {
+        ok: true,
+        data: {
+          request_id: requestId,
+          application_no: applicationNo,
+          used_car_id: "",  // 非自家品牌不建中古車主檔
+          recon_workorder_id: "",
+          ro_code: "",
+          is_own_brand: false,
+          wholesale_payment_id: wholesaleResult.ok ? wholesaleResult.data.id : null,
+        } as unknown as ConfirmDirectBuyResult,
+      };
+    }
+
+    // ── 3. 自家品牌路徑：呼叫共用觸發函式（direct_buy）──
     const modelName =
       (typeof meta.vehicle_model_name === "string" && meta.vehicle_model_name) ||
       (typeof meta.brand_name === "string" && meta.brand_name) ||
@@ -342,5 +409,34 @@ export async function rejectUsedPurchaseAction(
     return { ok: true, data: { request_id: requestId, application_no: applicationNo } };
   } catch (e) {
     return { ok: false, error: `操作失敗：${(e as Error).message}` };
+  }
+}
+
+/**
+ * B-3：以舊換新串聯 — 收購申請單側。
+ *
+ * 將收購申請單（used_purchase_requests）記錄關聯的新車訂單 id，
+ * 存於 metadata.trade_in_linked_sales_order_id。
+ *
+ * ⚠️ 新車訂單側（sales_orders.trade_in_linked_order_id）由訂單域負責回填；
+ *    本 action 只做收購單側，caller 需自行通知訂單域補 link（見 needs_attention）。
+ *
+ * @param purchaseRequestId  - 收購申請單 id
+ * @param salesOrderId       - 關聯的新車訂單 id（null = unlink）
+ */
+export async function linkTradeInToSalesOrderAction(
+  purchaseRequestId: string,
+  salesOrderId: string | null,
+): Promise<ActionResult<{ purchaseRequestId: string }>> {
+  await requirePermission(PERMISSIONS.SALES_ORDER_EDIT);
+  if (!purchaseRequestId) return { ok: false, error: "缺少收購申請單 id" };
+
+  try {
+    await linkTradeInToSalesOrder(purchaseRequestId, salesOrderId);
+    revalidatePath(PAGE_PATH);
+    revalidatePath(`${PAGE_PATH}/${purchaseRequestId}`);
+    return { ok: true, data: { purchaseRequestId } };
+  } catch (e) {
+    return { ok: false, error: `串聯失敗：${(e as Error).message}` };
   }
 }

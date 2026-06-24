@@ -19,9 +19,12 @@ import {
   deleteEvaluation,
   fetchEvaluationById,
   genEvalNo,
+  isEvaluationExpired,
+  updateEvaluationLoanClearanceDoc,
 } from "@/domain/used-car-evaluations";
 import { triggerUsedCarAcquisition } from "@/domain/used-purchase-requests";
 import { createClient } from "@/lib/supabase/server";
+import { uploadSignatureDataUrl } from "@/lib/aftersales/signature-upload";
 import type { UsedCarConditionGrade } from "@/domain/used-car-inventory.constants";
 import type {
   CreateEvaluationInput,
@@ -255,6 +258,13 @@ export async function confirmTradeInAcquisitionAction(
           error: "此評估單已確認收購（中古車主檔已建立），請勿重複觸發。",
         };
       }
+      // 輪7-2：過期鑑價（expires_at < now）→ 擋，要求重新鑑價
+      if (isEvaluationExpired(row)) {
+        return {
+          ok: false,
+          error: `此鑑價單已逾有效期（30 天）。請重新送鑑，取得新的核准估價後再執行收購。`,
+        };
+      }
     } else {
       const { data: pb } = await supabase
         .from("profile_brands")
@@ -335,6 +345,65 @@ export async function confirmTradeInAcquisitionAction(
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "確認收購失敗";
+    return { ok: false, error: msg };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 輪7-4 — 貸款清償證明文件上傳
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * 上傳貸款清償證明圖片到 Storage，並將公開 URL 寫入評估單 loan_clearance_doc_url。
+ *
+ * 前端傳入 base64 dataURL（JPEG 或 PNG），server action 負責：
+ *   1. 呼叫 uploadSignatureDataUrl（借用 ro-signatures bucket，entity='loan-clearance'）
+ *   2. 將回傳的 URL 寫進 used_car_evaluations.loan_clearance_doc_url
+ *   3. DB 只存 URL，不存 base64（與簽名上傳規範一致）
+ */
+export async function uploadLoanClearanceDocAction(
+  evaluationId: string,
+  dataUrl: string,
+): Promise<ActionResult<{ url: string }>> {
+  if (!evaluationId) return { ok: false, error: "缺少評估單 id" };
+  if (!dataUrl?.startsWith("data:")) {
+    // 若已是 URL（代表已上傳過），直接更新記錄即可
+    if (dataUrl?.startsWith("http")) {
+      try {
+        await updateEvaluationLoanClearanceDoc(evaluationId, dataUrl);
+        return { ok: true, data: { url: dataUrl } };
+      } catch (e) {
+        return { ok: false, error: `更新失敗：${(e as Error).message}` };
+      }
+    }
+    return { ok: false, error: "請提供有效的圖片 dataURL 或 Storage URL" };
+  }
+
+  try {
+    const ctx = await getCurrentUserAndAdmin();
+    if (!ctx.userId) return { ok: false, error: "請先登入" };
+
+    // 取得評估單 brand（用於 Storage 路徑前綴）
+    const row = await fetchEvaluationById(evaluationId);
+    if (!row) return { ok: false, error: "找不到評估單" };
+
+    const url = await uploadSignatureDataUrl(
+      dataUrl,
+      row.brand_id,
+      "loan-clearance",
+      evaluationId,
+      "doc",
+    );
+    if (!url) {
+      return { ok: false, error: "圖片上傳失敗，請稍後再試" };
+    }
+
+    await updateEvaluationLoanClearanceDoc(evaluationId, url);
+    revalidatePath(`/usedcar/evaluations/${evaluationId}`);
+    revalidatePath("/usedcar/evaluations");
+    return { ok: true, data: { url } };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "上傳失敗";
     return { ok: false, error: msg };
   }
 }

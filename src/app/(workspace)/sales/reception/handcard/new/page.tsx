@@ -11,6 +11,7 @@ import { PERMISSIONS } from '@/lib/rbac/permissions';
 import {
   listRevisitCandidates,
   listOwnerCandidates,
+  listLeadSourceOptions,
 } from '@/domain/sales-handcards';
 import { getVehicleModelOptions } from '@/domain/new-car-inventory';
 import { HandcardDetailView } from '../[id]/_components/handcard-detail-view';
@@ -30,10 +31,11 @@ export default async function HandcardNewPage() {
     );
   }
 
-  const [vehicleModels, revisitCandidates, ownerCandidates] = await Promise.all([
+  const [vehicleModels, revisitCandidates, ownerCandidates, leadSources] = await Promise.all([
     getVehicleModelOptions(),
     listRevisitCandidates({ limit: 100 }),
     listOwnerCandidates({ limit: 100 }),
+    listLeadSourceOptions(),
   ]);
 
   return (
@@ -43,6 +45,7 @@ export default async function HandcardNewPage() {
       vehicleModels={vehicleModels.map((m) => ({ id: m.id, display_name: m.display_name }))}
       revisitCandidates={revisitCandidates}
       ownerCandidates={ownerCandidates}
+      leadSources={leadSources}
       initialMode="create"
     />
   );

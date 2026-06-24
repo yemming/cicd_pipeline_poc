@@ -1,0 +1,30 @@
+# 分期核貸逾時追蹤排程 — 每日台北 09:00 打 cron 端點
+#
+# 啟用方式（一次性）：到 GitHub repo → Settings → Secrets and variables → Actions →
+#   secret `CRON_TOKEN`（與 aftersales-cron 共用），值 = Zeabur DealerOS-Production 的 CRON_TOKEN。
+# 排程在 default branch(main) 才生效。
+#
+# 端點（需 Bearer CRON_TOKEN，未設或不符 → 401，無副作用）：
+#   - financing-pending-timeout：掃 sales_orders financing_status='pending_approval'
+#       且 financing_applied_at 超過 7 天 → 通知負責業務員主動追蹤（每日提醒一次，防重）。
+# 為什麼每日：核貸逾時以「天」為單位，每日提醒一次即可，直到狀態改變。
+name: financing-pending-timeout-cron
+
+on:
+  schedule:
+    - cron: "0 1 * * *" # 每日 UTC 01:00 = 台北 09:00
+  workflow_dispatch: {} # 允許手動觸發測試
+
+permissions:
+  contents: read
+
+jobs:
+  financing-timeout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 分期核貸 pending 超過 7 天提醒
+        run: |
+          curl -fsS -X POST "https://dealeros.zeabur.app/api/cron/financing-pending-timeout" \
+            -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || echo "financing-pending-timeout endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"

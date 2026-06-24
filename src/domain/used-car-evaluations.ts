@@ -57,6 +57,10 @@ export type UsedCarEvaluationRow = {
   rejected_at: string | null;
   rejected_by: string | null;
   rejection_reason: string | null;
+  /** 有效期限：核准日 + 30 天（B1 schema 已含此欄）。過期後收購/換車流程應拒用。 */
+  expires_at: string | null;
+  /** 貸款清償證明文件 URL（Storage public URL，不存 base64）。 */
+  loan_clearance_doc_url: string | null;
   equipment_jsonb: Record<string, unknown>;
   pricing_jsonb: Record<string, unknown>;
   metadata: Record<string, unknown>;
@@ -282,13 +286,19 @@ export async function approveEvaluation(
 ): Promise<{ id: string; inventory_id?: string }> {
   const supabase = await createClient();
 
+  // 核准時間（起算點）
+  const approvedAt = new Date().toISOString();
+  // 有效期限 = 核准日 + 30 天（輪7-2：起算點為 approved_at）
+  const expiresAt = new Date(new Date(approvedAt).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
   // (1) 改 status submitted → approved，撈回完整 row 以組庫存 input
   const { data, error } = await supabase
     .from("used_car_evaluations")
     .update({
       status: "approved",
-      approved_at: new Date().toISOString(),
+      approved_at: approvedAt,
       approved_by: approverId,
+      expires_at: expiresAt,
     })
     .eq("id", id)
     .eq("status", "submitted")
@@ -383,6 +393,38 @@ export async function deleteEvaluation(id: string): Promise<void> {
   if (error) throw new Error(`deleteEvaluation: ${error.message}`);
 }
 
+/**
+ * 判斷已核准的評估單是否已過期（expires_at < now）。
+ * 輪7-2：收購/換車流程呼叫此函式擋住過期鑑價。
+ *
+ * @param ev  - 評估單 row（需含 status / expires_at）
+ * @returns   - true = 已過期（應拒絕收購/換車）；false = 有效
+ */
+export function isEvaluationExpired(ev: Pick<UsedCarEvaluationRow, "status" | "expires_at">): boolean {
+  if (ev.status !== "approved") return false; // 非 approved 狀態不判到期
+  if (!ev.expires_at) return false;           // 未設有效期（舊資料）視為未過期
+  return new Date(ev.expires_at) < new Date();
+}
+
+/**
+ * 更新鑑價單的貸款清償證明文件 URL（輪7-4）。
+ * Storage 上傳由 caller（server action）完成後，只傳 URL 給此函式寫進 DB。
+ */
+export async function updateEvaluationLoanClearanceDoc(
+  id: string,
+  url: string
+): Promise<{ id: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("used_car_evaluations")
+    .update({ loan_clearance_doc_url: url })
+    .eq("id", id)
+    .select("id")
+    .single();
+  if (error) throw new Error(`updateEvaluationLoanClearanceDoc: ${error.message}`);
+  return data as { id: string };
+}
+
 // ── 列印用：join brand / subsidiary / customer / appraiser，回完整 print payload ──
 export type UsedCarEvaluationForPrint = {
   id: string;
@@ -416,6 +458,8 @@ export type UsedCarEvaluationForPrint = {
   conclusion: string | null;
   estimated_value: number | null;
   pricing_jsonb: Record<string, unknown>;
+  /** 有效期限（核准日 + 30 天）。null = 舊資料未設。 */
+  expires_at: string | null;
 };
 
 const BRAND_DISPLAY_NAME: Record<string, string> = {
@@ -499,6 +543,7 @@ export async function getEvaluationForPrint(
     conclusion: evalRow.conclusion,
     estimated_value: evalRow.estimated_value,
     pricing_jsonb: evalRow.pricing_jsonb,
+    expires_at: evalRow.expires_at ?? null,
   };
 }
 

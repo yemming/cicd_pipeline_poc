@@ -12,6 +12,28 @@ export type HandcardPurchaseTiming = 'now' | '3m' | '6m' | 'explore';
 export type HandcardTrialStatus = 'none' | 'done-today' | 'done-before' | 'refused';
 export type HandcardReceptionPeriod = 'morning' | 'afternoon' | 'evening' | 'full_day';
 
+// 輪1-5：戰敗分類（8 類，對齊 DB CHECK constraint）
+export type HandcardDefeatCategory =
+  | 'price'
+  | 'stock_shortage'
+  | 'competitor'
+  | 'timing'
+  | 'family_objection'
+  | 'model_change'
+  | 'no_need'
+  | 'other';
+
+export const DEFEAT_CATEGORY_LABEL: Record<HandcardDefeatCategory, string> = {
+  price:            '價格因素',
+  stock_shortage:   '缺貨等車',
+  competitor:       '選擇競品',
+  timing:           '時機未到',
+  family_objection: '家人反對',
+  model_change:     '等新款車型',
+  no_need:          '暫無需求',
+  other:            '其他',
+};
+
 // ── 狀態 ──────────────────────────────────────────────────────────────────
 export const HANDCARD_STATUS_LABEL: Record<HandcardStatus, string> = {
   open: '接待中',

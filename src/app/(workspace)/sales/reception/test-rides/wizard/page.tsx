@@ -9,6 +9,7 @@
  */
 import TestRidesForm from "../_components/test-rides-form";
 import { getTestDriveLookups } from "@/domain/sales-test-drives";
+import { listDemoVehicles } from "@/domain/new-car-inventory";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,9 @@ export const metadata = {
 };
 
 export default async function TestRidesWizardPage() {
-  const { models } = await getTestDriveLookups();
-  return <TestRidesForm models={models} />;
+  const [{ models }, demoVehicles] = await Promise.all([
+    getTestDriveLookups(),
+    listDemoVehicles(),
+  ]);
+  return <TestRidesForm models={models} demoVehicles={demoVehicles} />;
 }
