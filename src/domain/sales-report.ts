@@ -513,6 +513,7 @@ export async function getReportFilterOptions(): Promise<{
       .eq("brand_id", brand_id)
       .eq("kind", "sales") // 裁示五：銷售報表來源下拉只取 sales，不混售後流失來源
       .not("source", "is", null)
+      .not("metadata->>is_test_fixture", "eq", "true") // 裁示四：排除測試夾具
       .limit(2000),
   ]);
 

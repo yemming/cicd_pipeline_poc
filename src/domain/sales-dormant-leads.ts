@@ -22,6 +22,7 @@ import type {
   DormantLeadKind,
   LostReason,
 } from "@/domain/sales-dormant-leads.constants";
+import type { AftersalesLostReason } from "@/domain/crm-aftersales-dormant.constants";
 
 export type DormantLeadRow = {
   id: string;
@@ -37,12 +38,17 @@ export type DormantLeadRow = {
   rs_name: string | null;
   last_visit_at: string | null;
   dormancy_status: DormancyStatus;
+  /** 銷售(kind='sales') 的戰敗原因（8 類）*/
   lost_reason: LostReason | null;
+  /** 售後(kind='aftersales') 的流失原因（6 類）*/
+  aftersales_lost_reason: AftersalesLostReason | null;
   competitor_brand: string | null;
   lost_at: string | null;
   revive_attempt_count: number;
   last_revive_at: string | null;
   next_revive_at: string | null;
+  /** 轉換成保有客戶（non-null 表示已轉換） */
+  converted_customer_id: string | null;
   assignee_id: string | null;
   note: string | null;
   metadata: Record<string, unknown>;
@@ -66,10 +72,11 @@ export type DormantLeadStats = {
   totalDormantOrLost: number;
   dormantCount: number;
   lostCount: number;
+  /** 裁示二：改為「本月轉換為保有客戶數」(converted_customer_id IS NOT NULL) */
   revivedThisMonth: number;
-  topLostReason: { reason: LostReason | null; count: number };
+  topLostReason: { reason: string | null; count: number };
   topCompetitor: { brand: string | null; count: number };
-  reasonBreakdown: Array<{ reason: LostReason; count: number; pct: number }>;
+  reasonBreakdown: Array<{ reason: string; count: number; pct: number }>;
   competitorBreakdown: Array<{ brand: string; count: number; pct: number }>;
   /** 休眠分桶（CRM04A v2 Tab 1 4 顆 KPI） */
   bucket30_60: number;
@@ -95,11 +102,13 @@ type RawRow = {
   last_visit_at: string | null;
   dormancy_status: string;
   lost_reason: string | null;
+  aftersales_lost_reason: string | null;
   competitor_brand: string | null;
   lost_at: string | null;
   revive_attempt_count: number | null;
   last_revive_at: string | null;
   next_revive_at: string | null;
+  converted_customer_id: string | null;
   assignee_id: string | null;
   note: string | null;
   metadata: unknown;
@@ -132,11 +141,13 @@ function shapeRow(r: RawRow): DormantLeadRow {
     last_visit_at: r.last_visit_at,
     dormancy_status: r.dormancy_status as DormancyStatus,
     lost_reason: (r.lost_reason as LostReason | null) ?? null,
+    aftersales_lost_reason: (r.aftersales_lost_reason as AftersalesLostReason | null) ?? null,
     competitor_brand: r.competitor_brand,
     lost_at: r.lost_at,
     revive_attempt_count: r.revive_attempt_count ?? 0,
     last_revive_at: r.last_revive_at,
     next_revive_at: r.next_revive_at,
+    converted_customer_id: r.converted_customer_id ?? null,
     assignee_id: r.assignee_id,
     note: r.note,
     metadata:
@@ -150,7 +161,7 @@ function shapeRow(r: RawRow): DormantLeadRow {
 }
 
 const SELECT_FIELDS =
-  "id, brand_id, kind, code, name, phone, email, habc, intent_model, source, rs_name, last_visit_at, dormancy_status, lost_reason, competitor_brand, lost_at, revive_attempt_count, last_revive_at, next_revive_at, assignee_id, note, metadata, created_at, updated_at";
+  "id, brand_id, kind, code, name, phone, email, habc, intent_model, source, rs_name, last_visit_at, dormancy_status, lost_reason, aftersales_lost_reason, competitor_brand, lost_at, revive_attempt_count, last_revive_at, next_revive_at, converted_customer_id, assignee_id, note, metadata, created_at, updated_at";
 
 export async function getDormantLeads(
   filters: DormantLeadFilters,
@@ -164,11 +175,19 @@ export async function getDormantLeads(
     .select(SELECT_FIELDS)
     .eq("brand_id", brand)
     .eq("kind", kind)
-    .in("dormancy_status", ["dormant", "lost", "revived"]);
+    // 裁示二：revived 移出戰敗/休眠名單
+    .in("dormancy_status", ["dormant", "lost"]);
 
   if (filters.status !== "all") q = q.eq("dormancy_status", filters.status);
   if (filters.habc !== "all") q = q.eq("habc", filters.habc);
-  if (filters.reason !== "all") q = q.eq("lost_reason", filters.reason);
+  // 裁示三：reason filter 依 kind 對不同欄位
+  if (filters.reason !== "all") {
+    if (kind === "aftersales") {
+      q = q.eq("aftersales_lost_reason", filters.reason);
+    } else {
+      q = q.eq("lost_reason", filters.reason);
+    }
+  }
   if (filters.q.trim()) {
     const t = filters.q.trim().replace(/[%,]/g, "");
     q = q.or(`name.ilike.%${t}%,code.ilike.%${t}%,phone.ilike.%${t}%`);
@@ -188,27 +207,33 @@ export async function getDormantLeadStats(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
-  const { data, error } = await supabase
+  const statsQ = supabase
     .from("sales_leads")
     .select(
-      "dormancy_status, lost_reason, competitor_brand, last_revive_at, lost_at, last_visit_at",
+      "dormancy_status, lost_reason, aftersales_lost_reason, competitor_brand, converted_customer_id, lost_at, last_visit_at, created_at",
     )
     .eq("brand_id", brand)
     .eq("kind", kind)
-    .in("dormancy_status", ["dormant", "lost", "revived"]);
+    .in("dormancy_status", ["dormant", "lost", "revived"])
+    // 裁示四：統計排除測試夾具
+    .not("metadata->>is_test_fixture", "eq", "true");
+  const { data, error } = await statsQ;
   if (error) throw new Error(`dormant-leads stats: ${error.message}`);
 
   const rows = (data ?? []) as Array<{
     dormancy_status: string;
     lost_reason: string | null;
+    aftersales_lost_reason: string | null;
     competitor_brand: string | null;
-    last_revive_at: string | null;
+    converted_customer_id: string | null;
     lost_at: string | null;
     last_visit_at: string | null;
+    created_at: string;
   }>;
 
   let dormantCount = 0;
   let lostCount = 0;
+  // 裁示二：本月轉換數（converted_customer_id IS NOT NULL + created_at 在本月內）
   let revivedThisMonth = 0;
   let bucket30_60 = 0;
   let bucket60_90 = 0;
@@ -245,15 +270,19 @@ export async function getDormantLeadStats(
         if (t >= quarterStart) lostThisQuarter += 1;
       }
     }
-    if (
-      r.dormancy_status === "revived" &&
-      r.last_revive_at &&
-      new Date(r.last_revive_at).getTime() >= monthStart
-    ) {
-      revivedThisMonth += 1;
+    // 裁示二：本月轉換 = converted_customer_id 有值
+    if (r.converted_customer_id) {
+      // 用 created_at 近似「本月建立轉換的」（或用 lost_at 的月份，視業務需求）
+      // 這裡以 lost_at 月份計（流失/轉換通常在同月）
+      const convertedAt = r.lost_at ?? r.created_at;
+      if (convertedAt && new Date(convertedAt).getTime() >= monthStart) {
+        revivedThisMonth += 1;
+      }
     }
-    if (r.lost_reason)
-      reasonMap.set(r.lost_reason, (reasonMap.get(r.lost_reason) ?? 0) + 1);
+    // 裁示三：依 kind 取正確的 reason 欄位
+    const reasonVal = kind === "aftersales" ? r.aftersales_lost_reason : r.lost_reason;
+    if (reasonVal)
+      reasonMap.set(reasonVal, (reasonMap.get(reasonVal) ?? 0) + 1);
     if (r.competitor_brand)
       compMap.set(
         r.competitor_brand,
@@ -269,7 +298,7 @@ export async function getDormantLeadStats(
 
   const reasonBreakdown = Array.from(reasonMap.entries())
     .map(([reason, count]) => ({
-      reason: reason as LostReason,
+      reason,
       count,
       pct: reasonTotal === 0 ? 0 : Math.round((count / reasonTotal) * 100),
     }))
@@ -289,7 +318,7 @@ export async function getDormantLeadStats(
     lostCount,
     revivedThisMonth,
     topLostReason: {
-      reason: (reasonBreakdown[0]?.reason as LostReason | null) ?? null,
+      reason: reasonBreakdown[0]?.reason ?? null,
       count: reasonBreakdown[0]?.count ?? 0,
     },
     topCompetitor: {

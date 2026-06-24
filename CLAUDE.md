@@ -14,6 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **驗證一律走 Deploy-then-Test**（`.claude/skills/spec-to-feature/references/orchestration.md` §3）：push → Zeabur 自動部署 → 打**部署後 URL** 跑 Playwright，**不在開發機起常駐 `next dev`**（會跟 Chromium 搶記憶體當機）。
 
+**⚖️ 法律/合規類修正 = hotfix，不納入大批次（2026-06-23，Russell 正式裁示）**：凡涉及合約文字、消保法不得記載、法律揭露義務等合規類修正，**一律定性為 hotfix 立即單獨部署**，不可被「全部做完才一次部署」的大批次卡住、不受其他功能進度牽連。遇到合規類問題主動標記「不可納入批次、需即時部署」並提醒 Ming。（緣由：RS04 合約違法條款因卡在大批次+簽核 gate 拖了數天才修，Russell 要求正式記錄此規則避免重演。）
+
 **⏸️ 上版 LINE 通知已暫停（2026-06-23，省 LINE 額度）**：LINE 免費額度每月僅 200 則，每天 push 會把額度燒光，故**暫時關閉上版通知**。實作上是把 Notification Hub 裡 `deploy.released` 的 LINE 訂閱設 `is_active=false`（subscription id `46060e2c-4446-41b3-9229-5a4342906b79`），**只關上版這一個事件的 LINE，其他 LINE 通知（許願單建立等）照常**。
 - **現在 push 完不必再跑 `node scripts/notify-deploy.mjs`**（跑了也不會推 LINE，dispatch 命中 0 個 active 訂閱）。
 - 要恢復：把該 subscription `is_active` 設回 `true` 即可（機制、script、模板、token 全保留未動，隨時可開回）。

@@ -254,7 +254,8 @@ export async function getStoreOverview(
         "id, is_active, dormancy_status, lost_at, last_visit_at, next_revive_at, converted_customer_id, created_at",
       )
       .eq("brand_id", brand)
-      .eq("kind", "sales"), // 裁示五：銷售線索 KPI 只算 sales，不混售後流失(aftersales)
+      .eq("kind", "sales") // 裁示五：銷售線索 KPI 只算 sales，不混售後流失(aftersales)
+      .not("metadata->>is_test_fixture", "eq", "true"), // 裁示四：排除測試夾具
     supabase
       .from("call_tasks")
       .select("id, kind, status, call_result, customer_id, created_at, last_attempt_at")

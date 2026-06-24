@@ -26,6 +26,10 @@ import {
   type LostReason,
   type LostReasonB9,
 } from "@/domain/sales-dormant-leads.constants";
+import {
+  LOST_REASON_LABEL as AFTERSALES_LOST_REASON_LABEL,
+  type AftersalesLostReason,
+} from "@/domain/crm-aftersales-dormant.constants";
 import type { DormantLeadRow } from "@/domain/sales-dormant-leads";
 
 type Banner = { ok: boolean; msg: string } | null;
@@ -79,7 +83,12 @@ function fromDateInput(s: string | null | undefined): string | null {
   return d.toISOString();
 }
 
-const blankInput = (kind: DormantLeadKind): DormantLeadInput => ({
+// 本元件用的 local form shape（含 aftersales_lost_reason，比 action input 多一欄）
+type LocalFormState = DormantLeadInput & {
+  aftersales_lost_reason: AftersalesLostReason | null;
+};
+
+const blankInput = (kind: DormantLeadKind): LocalFormState => ({
   name: "",
   phone: null,
   email: null,
@@ -89,6 +98,7 @@ const blankInput = (kind: DormantLeadKind): DormantLeadInput => ({
   rs_name: null,
   dormancy_status: "dormant",
   lost_reason: null,
+  aftersales_lost_reason: null,
   competitor_brand: null,
   lost_at: null,
   last_visit_at: null,
@@ -97,7 +107,7 @@ const blankInput = (kind: DormantLeadKind): DormantLeadInput => ({
   kind,
 });
 
-const fromLead = (l: DormantLeadRow): DormantLeadInput => ({
+const fromLead = (l: DormantLeadRow): LocalFormState => ({
   name: l.name,
   phone: l.phone,
   email: l.email,
@@ -107,6 +117,7 @@ const fromLead = (l: DormantLeadRow): DormantLeadInput => ({
   rs_name: l.rs_name,
   dormancy_status: l.dormancy_status,
   lost_reason: l.lost_reason,
+  aftersales_lost_reason: l.aftersales_lost_reason,
   competitor_brand: l.competitor_brand,
   lost_at: l.lost_at,
   last_visit_at: l.last_visit_at,
@@ -140,7 +151,7 @@ export function DormantLeadDetailView({
   const [mode, setMode] = useState<Mode>(initialMode);
   const [tab, setTab] = useState<TabKey>("history");
 
-  const [form, setForm] = useState<DormantLeadInput>(() =>
+  const [form, setForm] = useState<LocalFormState>(() =>
     lead ? fromLead(lead) : blankInput(kind),
   );
 
@@ -221,7 +232,30 @@ export function DormantLeadDetailView({
 
   const handleMarkLost = () => {
     if (!lead) return;
-    // 輪11-1：UI 使用 B9 8 類原因，讀取 form 中的 lost_reason（DB 9 值）並反查到 B9
+    if (isAfter) {
+      // 裁示三：售後流失 → 讀 aftersales_lost_reason，直接傳給 action
+      const aftersalesReason: AftersalesLostReason = form.aftersales_lost_reason ?? "other";
+      startTransition(async () => {
+        const res = await markLeadLostAction(
+          lead.id,
+          aftersalesReason,
+          null, // aftersales 不用競品品牌
+        );
+        if (res.ok) {
+          const callTaskMsg = res.data.callTaskCreated
+            ? `（已自動建立喚醒電訪任務）`
+            : res.data.callTaskError
+              ? `（自動建任務失敗：${res.data.callTaskError}）`
+              : "";
+          showBanner({ ok: true, msg: `✓ 已標記為流失 ${callTaskMsg}` });
+          router.refresh();
+        } else {
+          showBanner({ ok: false, msg: res.error });
+        }
+      });
+      return;
+    }
+    // 銷售戰敗 → 輪11-1：UI 使用 B9 8 類原因，讀取 form 中的 lost_reason（DB 值）並反查到 B9
     const dbReason = (form.lost_reason ?? "other") as LostReason;
     const b9Reason: LostReasonB9 = mapDbToLostReasonB9(dbReason);
     // 輪11-4 前端必填：competitor 原因時競品品牌必填
@@ -410,7 +444,12 @@ export function DormantLeadDetailView({
                         HABC {lead.habc}
                       </span>
                     ) : null}
-                    {lead.lost_reason ? (
+                    {/* 裁示三：依 kind 顯示對應的流失/戰敗原因 */}
+                    {isAfter && lead.aftersales_lost_reason ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#FDECEA] text-[#CC0000]">
+                        {AFTERSALES_LOST_REASON_LABEL[lead.aftersales_lost_reason]}
+                      </span>
+                    ) : !isAfter && lead.lost_reason ? (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#FDECEA] text-[#CC0000]">
                         {reasonMap[lead.lost_reason]}
                       </span>
@@ -597,24 +636,24 @@ export function DormantLeadDetailView({
               ))}
             </select>
           </Field>
-          {/* 輪11-1：sales 版用 B9 8 類；aftersales 版沿用原 9 值（reasonMap） */}
-          <Field label={isAfter ? "流失原因" : "戰敗原因（8 類）"}>
+          {/* 裁示三：aftersales 用 AftersalesLostReason 6 類讀寫 aftersales_lost_reason；sales 用 B9 8 類讀寫 lost_reason */}
+          <Field label={isAfter ? "流失原因（6 類）" : "戰敗原因（8 類）"}>
             {isAfter ? (
               <select
-                value={form.lost_reason ?? ""}
+                value={form.aftersales_lost_reason ?? ""}
                 onChange={(e) =>
                   setForm({
                     ...form,
-                    lost_reason: (e.target.value || null) as LostReason | null,
+                    aftersales_lost_reason: (e.target.value || null) as AftersalesLostReason | null,
                   })
                 }
                 disabled={readOnly}
                 className={`${inputClass} w-full`}
               >
                 <option value="">—</option>
-                {(Object.keys(reasonMap) as LostReason[]).map((k) => (
+                {(Object.keys(AFTERSALES_LOST_REASON_LABEL) as AftersalesLostReason[]).map((k) => (
                   <option key={k} value={k}>
-                    {reasonMap[k]}
+                    {AFTERSALES_LOST_REASON_LABEL[k]}
                   </option>
                 ))}
               </select>
@@ -748,7 +787,9 @@ export function DormantLeadDetailView({
                           {fmtDate(lead.lost_at)}
                         </span>
                         {isAfter ? "判定流失" : "標記為戰敗"}（
-                        {lead.lost_reason ? reasonMap[lead.lost_reason] : "—"}
+                        {isAfter
+                          ? (lead.aftersales_lost_reason ? AFTERSALES_LOST_REASON_LABEL[lead.aftersales_lost_reason] : "—")
+                          : (lead.lost_reason ? reasonMap[lead.lost_reason] : "—")}
                         {lead.competitor_brand ? `・${lead.competitor_brand}` : ""})
                       </li>
                     ) : null}

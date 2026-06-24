@@ -55,6 +55,10 @@ import {
   type LostReason,
   type LostReasonB9,
 } from "@/domain/sales-dormant-leads.constants";
+import {
+  LOST_REASON_LABEL as AFTERSALES_LOST_REASON_LABEL,
+  type AftersalesLostReason,
+} from "@/domain/crm-aftersales-dormant.constants";
 import type {
   DormantLeadRow,
   DormantLeadFilters,
@@ -348,6 +352,16 @@ export function DormantLeadsBoard({
         header: isAfter ? "流失原因" : "戰敗原因",
         width: 140,
         cell: (r) => {
+          if (isAfter) {
+            // 裁示三：售後用 aftersales_lost_reason 欄 + 6 類 label
+            const reason = r.aftersales_lost_reason as AftersalesLostReason | null;
+            if (!reason) return <span className="text-[#9A9890] text-[12px]">—</span>;
+            return (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium whitespace-nowrap bg-[#FDECEA] text-[#CC0000]">
+                {AFTERSALES_LOST_REASON_LABEL[reason]}
+              </span>
+            );
+          }
           if (!r.lost_reason)
             return <span className="text-[#9A9890] text-[12px]">—</span>;
           const c = LOST_REASON_TAG_BADGE[r.lost_reason];
@@ -360,8 +374,14 @@ export function DormantLeadsBoard({
             </span>
           );
         },
-        exportValue: (r) => (r.lost_reason ? reasonMap[r.lost_reason] : ""),
-        sortValue: (r) => r.lost_reason ?? "",
+        exportValue: (r) => {
+          if (isAfter) {
+            const reason = r.aftersales_lost_reason as AftersalesLostReason | null;
+            return reason ? AFTERSALES_LOST_REASON_LABEL[reason] : "";
+          }
+          return r.lost_reason ? reasonMap[r.lost_reason] : "";
+        },
+        sortValue: (r) => (isAfter ? (r.aftersales_lost_reason ?? "") : (r.lost_reason ?? "")),
       },
       {
         id: "competitor",
@@ -446,17 +466,26 @@ export function DormantLeadsBoard({
     [rows],
   );
 
+  // 通用 label resolver：依 kind 決定用哪個 label map，避免型別錯誤
+  const resolveReasonLabel = (reason: string): string => {
+    if (isAfter) {
+      return (AFTERSALES_LOST_REASON_LABEL as Record<string, string>)[reason] ?? reason;
+    }
+    return (reasonMap as Record<string, string>)[reason] ?? reason;
+  };
+
   // Recharts data
   const reasonChartData = useMemo(
     () =>
       stats.reasonBreakdown.map((r) => ({
         key: r.reason,
-        label: reasonMap[r.reason],
+        label: resolveReasonLabel(r.reason),
         count: r.count,
         pct: r.pct,
-        fill: LOST_REASON_BAR_COLOR[r.reason] ?? "#888",
+        fill: (LOST_REASON_BAR_COLOR as Record<string, string>)[r.reason] ?? "#888",
       })),
-    [stats.reasonBreakdown, reasonMap],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stats.reasonBreakdown, reasonMap, isAfter],
   );
 
   const competitorChartData = useMemo(
@@ -527,7 +556,7 @@ export function DormantLeadsBoard({
     {
       label: isAfter ? "主要流失原因" : "最高戰敗原因",
       value: stats.topLostReason.reason
-        ? reasonMap[stats.topLostReason.reason]
+        ? resolveReasonLabel(stats.topLostReason.reason)
         : "—",
       tone: "amber",
       sub: stats.topLostReason.count ? `${stats.topLostReason.count} 件` : "",
@@ -549,11 +578,12 @@ export function DormantLeadsBoard({
   // DonutChart 用：戰敗原因 top 5（spec A 級要求）
   const reasonDonutData = useMemo(() => {
     return stats.reasonBreakdown.slice(0, 5).map((r) => ({
-      name: reasonMap[r.reason],
+      name: resolveReasonLabel(r.reason),
       value: r.count,
-      color: LOST_REASON_BAR_COLOR[r.reason] ?? "#888",
+      color: (LOST_REASON_BAR_COLOR as Record<string, string>)[r.reason] ?? "#888",
     }));
-  }, [stats.reasonBreakdown, reasonMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.reasonBreakdown, reasonMap, isAfter]);
 
   const reasonDonutTotal = reasonDonutData.reduce((a, b) => a + b.value, 0);
 
@@ -1121,9 +1151,9 @@ export function DormantLeadsBoard({
               ) : (
                 <div className="flex flex-col gap-1.5 px-2">
                   {tab2Rows.slice(0, 20).map((r) => {
-                    const reasonColor = r.lost_reason
-                      ? LOST_REASON_TAG_BADGE[r.lost_reason]
-                      : null;
+                    // 裁示三：依 kind 決定顯示哪個 reason 欄
+                    const aftersalesReason = isAfter ? (r.aftersales_lost_reason as AftersalesLostReason | null) : null;
+                    const salesReasonColor = !isAfter && r.lost_reason ? LOST_REASON_TAG_BADGE[r.lost_reason] : null;
                     return (
                       <div
                         key={r.id}
@@ -1141,12 +1171,16 @@ export function DormantLeadsBoard({
                           {fmtDate(r.lost_at)}
                         </div>
                         <div>
-                          {reasonColor ? (
+                          {isAfter && aftersalesReason ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#FDECEA] text-[#CC0000]">
+                              {AFTERSALES_LOST_REASON_LABEL[aftersalesReason]}
+                            </span>
+                          ) : salesReasonColor ? (
                             <span
                               className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium"
                               style={{
-                                backgroundColor: reasonColor.bg,
-                                color: reasonColor.fg,
+                                backgroundColor: salesReasonColor.bg,
+                                color: salesReasonColor.fg,
                               }}
                             >
                               {reasonMap[r.lost_reason!]}
