@@ -511,6 +511,7 @@ export async function getReportFilterOptions(): Promise<{
       .from("sales_leads")
       .select("source")
       .eq("brand_id", brand_id)
+      .eq("kind", "sales") // 裁示五：銷售報表來源下拉只取 sales，不混售後流失來源
       .not("source", "is", null)
       .limit(2000),
   ]);

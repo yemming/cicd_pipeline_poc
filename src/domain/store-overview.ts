@@ -253,7 +253,8 @@ export async function getStoreOverview(
       .select(
         "id, is_active, dormancy_status, lost_at, last_visit_at, next_revive_at, converted_customer_id, created_at",
       )
-      .eq("brand_id", brand),
+      .eq("brand_id", brand)
+      .eq("kind", "sales"), // 裁示五：銷售線索 KPI 只算 sales，不混售後流失(aftersales)
     supabase
       .from("call_tasks")
       .select("id, kind, status, call_result, customer_id, created_at, last_attempt_at")
