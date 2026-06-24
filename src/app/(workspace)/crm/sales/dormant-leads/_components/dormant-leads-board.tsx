@@ -110,6 +110,11 @@ export function DormantLeadsBoard({
   const [banner, setBanner] = useState<Banner>(null);
   const [tab, setTab] = useState<TabKey>("dormant");
 
+  // 只依賴 prop kind，必須在下方 useState initializer 引用 isAfter 之前宣告（避免 TDZ）
+  const copy = dormancyCopy(kind);
+  const reasonMap = lostReasonLabel(kind);
+  const isAfter = kind === "aftersales";
+
   const [fStatus, setFStatus] = useState(filters.status);
   const [fHabc, setFHabc] = useState(filters.habc);
   // 輪11-1：sales 版 reason filter state 用 B9 key；初始時把 URL DB 值反查到 B9
@@ -129,10 +134,6 @@ export function DormantLeadsBoard({
   );
   const [recRs, setRecRs] = useState<string>("");
   const [recNotes, setRecNotes] = useState<string>("");
-
-  const copy = dormancyCopy(kind);
-  const reasonMap = lostReasonLabel(kind);
-  const isAfter = kind === "aftersales";
 
   const showBanner = (b: Banner) => {
     setBanner(b);
