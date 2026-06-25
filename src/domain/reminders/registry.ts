@@ -82,18 +82,18 @@ export const reminderQueryRegistry: Record<string, ReminderQueryFn> = {
       return { count, error };
     }),
 
-  // 「待報價」proxy：sales_leads 沒有 status 欄位，用「銷售類 + 啟用中 + 有意向(H/A/B) +
+  // 「待報價」proxy：sales_dormant_leads 沒有 status 欄位，用「啟用中 + 有意向(H/A/B) +
   // 尚未轉成客戶 + 未流失 + dormancy_status='active'」當待報價語意。
-  // 未來若 sales_leads 加 status='quote_pending' 欄位再收斂條件。
+  // 未來若 sales_dormant_leads 加 status='quote_pending' 欄位再收斂條件。
   quote_pending_leads: async ({ brandId }) =>
     safeCount("quote_pending_leads", async () => {
       const supabase = await createClient();
       const { count, error } = await supabase
-        .from("sales_leads")
+        .from("sales_dormant_leads")
         .select("id", { count: "exact", head: true })
         .eq("brand_id", brandId)
         .eq("is_active", true)
-        .eq("kind", "sales")
+        // 已是 sales 專表，不再需要 .eq("kind", "sales")
         .eq("dormancy_status", "active")
         .in("habc", ["H", "A", "B"])
         .is("converted_customer_id", null)

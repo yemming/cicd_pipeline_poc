@@ -113,9 +113,10 @@ async function genLeadCode(
   const m = String(today.getMonth() + 1).padStart(2, "0");
   const d = String(today.getDate()).padStart(2, "0");
   const prefix = `${kind === "aftersales" ? "AL" : "L"}${y}${m}${d}`;
+  const table = kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
   const supabase = await createClient();
   const { count } = await supabase
-    .from("sales_leads")
+    .from(table)
     .select("id", { count: "exact", head: true })
     .eq("brand_id", brand)
     .like("code", `${prefix}%`);
@@ -134,13 +135,13 @@ export async function createDormantLeadAction(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
   const kind: DormantLeadKind = input.kind ?? "sales";
+  const table = kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
   const code = await genLeadCode(brand, kind);
 
   const { data, error } = await supabase
-    .from("sales_leads")
+    .from(table)
     .insert({
       brand_id: brand,
-      kind,
       code,
       ...payloadFromInput(input),
       created_by: ctx.userId,
@@ -162,8 +163,10 @@ export async function updateDormantLeadAction(
 
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
+  const kind: DormantLeadKind = input.kind ?? "sales";
+  const table = kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
   const { error } = await supabase
-    .from("sales_leads")
+    .from(table)
     .update(payloadFromInput(input))
     .eq("id", id)
     .eq("brand_id", brand);
@@ -175,12 +178,14 @@ export async function updateDormantLeadAction(
 /** 喚醒一次（按鈕用）— revive_attempt_count +1、last_revive_at = now、status → revived（如果先前是 lost / dormant） */
 export async function reviveDormantLeadAction(
   id: string,
+  kind: DormantLeadKind = "sales",
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
+  const table = kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
   const { data: row } = await supabase
-    .from("sales_leads")
+    .from(table)
     .select("revive_attempt_count, dormancy_status")
     .eq("id", id)
     .eq("brand_id", brand)
@@ -191,7 +196,7 @@ export async function reviveDormantLeadAction(
       ? row.dormancy_status
       : "revived";
   const { error } = await supabase
-    .from("sales_leads")
+    .from(table)
     .update({
       revive_attempt_count: (row.revive_attempt_count ?? 0) + 1,
       last_revive_at: new Date().toISOString(),
@@ -236,6 +241,7 @@ export async function markLeadLostAction(
   id: string,
   reasonRaw: LostReasonB9 | AftersalesLostReason | string,
   competitorBrand: string | null,
+  kind: DormantLeadKind = "sales",
 ): Promise<ActionResult<{ id: string; callTaskCreated: boolean; callTaskError?: string }>> {
   await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
 
@@ -244,17 +250,18 @@ export async function markLeadLostAction(
 
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
+  const table = kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
 
-  // 讀取 lead kind，以決定分流邏輯
+  // 讀取 lead name（不再依賴 sales_leads.kind 欄位，kind 由 caller 傳入）
   const { data: lead } = await supabase
-    .from("sales_leads")
-    .select("id, name, kind")
+    .from(table)
+    .select("id, name")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
   if (!lead) return { ok: false, error: "找不到 lead" };
 
-  const leadKind: DormantLeadKind = lead.kind === "aftersales" ? "aftersales" : "sales";
+  const leadKind: DormantLeadKind = kind;
   const now = new Date().toISOString();
 
   let updatePayload: Record<string, unknown>;
@@ -284,7 +291,7 @@ export async function markLeadLostAction(
   }
 
   const { error } = await supabase
-    .from("sales_leads")
+    .from(table)
     .update(updatePayload)
     .eq("id", id)
     .eq("brand_id", brand);
@@ -357,12 +364,14 @@ export async function markLeadLostAction(
 
 export async function deleteDormantLeadAction(
   id: string,
+  kind: DormantLeadKind = "sales",
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.CUSTOMER_EDIT);
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
+  const table = kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
   const { error } = await supabase
-    .from("sales_leads")
+    .from(table)
     .delete()
     .eq("id", id)
     .eq("brand_id", brand);

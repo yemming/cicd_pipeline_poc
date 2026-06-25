@@ -375,7 +375,7 @@ async function createLeadForCustomer(
   const d = String(today.getDate()).padStart(2, '0');
   const prefix = `L${y}${m}${d}`;
   const { count } = await supabase
-    .from('sales_leads')
+    .from('sales_dormant_leads')
     .select('id', { count: 'exact', head: true })
     .eq('brand_id', brandId)
     .like('code', `${prefix}%`);
@@ -390,7 +390,7 @@ async function createLeadForCustomer(
   ].filter(Boolean);
 
   const { data, error } = await supabase
-    .from('sales_leads')
+    .from('sales_dormant_leads')
     .insert({
       brand_id: brandId,
       code,
@@ -399,7 +399,7 @@ async function createLeadForCustomer(
       email: values.email.trim() || null,
       habc: 'B', // 預設 B 級（業務後續可在 lead 詳情頁調）
       source: 'showroom', // 展廳接待名片場景
-      kind: 'sales',
+      // kind 欄已移除（sales_dormant_leads 是 sales 專表）
       converted_customer_id: customerId,
       note: noteLines.length > 0 ? noteLines.join('\n') : null,
       is_active: true,

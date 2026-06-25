@@ -245,7 +245,7 @@ export async function getSalesEfficiencyScatter(
 
   // 即時：leads（接待量）依 rs_name 計數
   const { data: leadRows } = await client
-    .from("sales_leads")
+    .from("sales_dormant_leads")
     .select("rs_name")
     .eq("brand_id", brandId)
     .gte("created_at", since);

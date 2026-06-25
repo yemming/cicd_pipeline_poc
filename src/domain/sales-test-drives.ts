@@ -83,7 +83,7 @@ export async function getTestDriveLookups(): Promise<TestDriveLookups> {
       .order("name")
       .limit(500),
     supabase
-      .from("sales_leads")
+      .from("sales_dormant_leads")
       .select("id")
       .eq("brand_id", scope.brand_id)
       .limit(500),

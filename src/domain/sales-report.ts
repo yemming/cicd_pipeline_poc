@@ -334,7 +334,7 @@ export async function getSalesByLeadSource(
   const sourceByLead = new Map<string, string>();
   if (leadIds.length > 0) {
     const { data: leads } = await supabase
-      .from("sales_leads")
+      .from("sales_dormant_leads")
       .select("id, source")
       .in("id", leadIds);
     for (const l of (leads ?? []) as { id: string; source: string | null }[]) {
@@ -390,7 +390,7 @@ export async function getSalesTrend(
     const leadIds = Array.from(new Set(rows.map((r) => r.lead_id).filter((x): x is string => !!x)));
     if (leadIds.length > 0) {
       const { data: leads } = await supabase
-        .from("sales_leads")
+        .from("sales_dormant_leads")
         .select("id, source")
         .in("id", leadIds);
       const okIds = new Set(
@@ -461,7 +461,7 @@ export async function getOrderDetails(
   const sourceByLead = new Map<string, string>();
   if (leadIds.length > 0) {
     const { data: leads } = await supabase
-      .from("sales_leads")
+      .from("sales_dormant_leads")
       .select("id, source")
       .in("id", leadIds);
     for (const l of (leads ?? []) as { id: string; source: string | null }[]) {
@@ -508,10 +508,10 @@ export async function getReportFilterOptions(): Promise<{
       .eq("brand_id", brand_id)
       .order("display_name", { ascending: true }),
     supabase
-      .from("sales_leads")
+      .from("sales_dormant_leads")
       .select("source")
       .eq("brand_id", brand_id)
-      .eq("kind", "sales") // 裁示五：銷售報表來源下拉只取 sales，不混售後流失來源
+      // 裁示五：銷售報表來源下拉只取 sales_dormant_leads（sales 專表，不混售後流失來源）
       .not("source", "is", null)
       .not("metadata->>is_test_fixture", "eq", "true") // 裁示四：排除測試夾具
       .limit(2000),

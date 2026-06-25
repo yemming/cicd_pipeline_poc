@@ -210,7 +210,7 @@ export async function getManagerHubData(): Promise<ManagerHubData> {
     try {
       const periodFirstDay = `${periodKey}-01`;
       const { data: leadRows, error: leadErr } = await supabase
-        .from("sales_leads")
+        .from("sales_dormant_leads")
         .select("rs_name, created_at")
         .eq("brand_id", brandId)
         .gte("created_at", periodFirstDay);

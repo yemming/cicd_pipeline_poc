@@ -205,7 +205,7 @@ export function DormantLeadDetailView({
     )
       return;
     startTransition(async () => {
-      const res = await deleteDormantLeadAction(lead.id);
+      const res = await deleteDormantLeadAction(lead.id, kind);
       if (res.ok) {
         router.push(basePath);
       } else {
@@ -217,7 +217,7 @@ export function DormantLeadDetailView({
   const handleRevive = () => {
     if (!lead) return;
     startTransition(async () => {
-      const res = await reviveDormantLeadAction(lead.id);
+      const res = await reviveDormantLeadAction(lead.id, kind);
       if (res.ok) {
         showBanner({
           ok: true,
@@ -240,6 +240,7 @@ export function DormantLeadDetailView({
           lead.id,
           aftersalesReason,
           null, // aftersales 不用競品品牌
+          kind,
         );
         if (res.ok) {
           const callTaskMsg = res.data.callTaskCreated
@@ -268,6 +269,7 @@ export function DormantLeadDetailView({
         lead.id,
         b9Reason,
         form.competitor_brand ?? null,
+        kind,
       );
       if (res.ok) {
         const callTaskMsg = res.data.callTaskCreated

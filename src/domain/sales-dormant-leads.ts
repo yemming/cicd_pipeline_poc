@@ -90,7 +90,6 @@ export type DormantLeadStats = {
 type RawRow = {
   id: string;
   brand_id: string;
-  kind: string;
   code: string;
   name: string;
   phone: string | null;
@@ -101,8 +100,10 @@ type RawRow = {
   rs_name: string | null;
   last_visit_at: string | null;
   dormancy_status: string;
-  lost_reason: string | null;
-  aftersales_lost_reason: string | null;
+  /** sales_dormant_leads 有此欄；aftersales_dormant_leads 無（回 undefined→null） */
+  lost_reason?: string | null;
+  /** aftersales_dormant_leads 有此欄；sales_dormant_leads 無（回 undefined→null） */
+  aftersales_lost_reason?: string | null;
   competitor_brand: string | null;
   lost_at: string | null;
   revive_attempt_count: number | null;
@@ -124,12 +125,12 @@ function daysSince(iso: string | null): number | null {
   return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
 }
 
-function shapeRow(r: RawRow): DormantLeadRow {
+function shapeRow(r: RawRow, kind: DormantLeadKind): DormantLeadRow {
   const anchor = r.lost_at ?? r.last_revive_at ?? r.last_visit_at;
   return {
     id: r.id,
     brand_id: r.brand_id,
-    kind: (r.kind === "aftersales" ? "aftersales" : "sales") as DormantLeadKind,
+    kind,
     code: r.code,
     name: r.name,
     phone: r.phone,
@@ -160,21 +161,18 @@ function shapeRow(r: RawRow): DormantLeadRow {
   };
 }
 
-const SELECT_FIELDS =
-  "id, brand_id, kind, code, name, phone, email, habc, intent_model, source, rs_name, last_visit_at, dormancy_status, lost_reason, aftersales_lost_reason, competitor_brand, lost_at, revive_attempt_count, last_revive_at, next_revive_at, converted_customer_id, assignee_id, note, metadata, created_at, updated_at";
-
 export async function getDormantLeads(
   filters: DormantLeadFilters,
 ): Promise<DormantLeadRow[]> {
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
   const kind: DormantLeadKind = filters.kind ?? "sales";
+  const table = kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
 
   let q = supabase
-    .from("sales_leads")
-    .select(SELECT_FIELDS)
+    .from(table)
+    .select("*")
     .eq("brand_id", brand)
-    .eq("kind", kind)
     // 裁示二：revived 移出戰敗/休眠名單
     .in("dormancy_status", ["dormant", "lost"]);
 
@@ -198,7 +196,7 @@ export async function getDormantLeads(
     .order("last_visit_at", { ascending: false, nullsFirst: false })
     .limit(500);
   if (error) throw new Error(`dormant-leads list: ${error.message}`);
-  return ((data ?? []) as unknown as RawRow[]).map(shapeRow);
+  return ((data ?? []) as unknown as RawRow[]).map((r) => shapeRow(r, kind));
 }
 
 export async function getDormantLeadStats(
@@ -206,24 +204,22 @@ export async function getDormantLeadStats(
 ): Promise<DormantLeadStats> {
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
+  const table = kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
 
   const statsQ = supabase
-    .from("sales_leads")
-    .select(
-      "dormancy_status, lost_reason, aftersales_lost_reason, competitor_brand, converted_customer_id, lost_at, last_visit_at, created_at",
-    )
+    .from(table)
+    .select("*")
     .eq("brand_id", brand)
-    .eq("kind", kind)
     .in("dormancy_status", ["dormant", "lost", "revived"])
     // 裁示四：統計排除測試夾具
     .not("metadata->>is_test_fixture", "eq", "true");
   const { data, error } = await statsQ;
   if (error) throw new Error(`dormant-leads stats: ${error.message}`);
 
-  const rows = (data ?? []) as Array<{
+  const rows = (data ?? []) as unknown as Array<{
     dormancy_status: string;
-    lost_reason: string | null;
-    aftersales_lost_reason: string | null;
+    lost_reason?: string | null;
+    aftersales_lost_reason?: string | null;
     competitor_brand: string | null;
     converted_customer_id: string | null;
     lost_at: string | null;
@@ -335,17 +331,48 @@ export async function getDormantLeadStats(
   };
 }
 
+/**
+ * 依 id 查單筆休眠客戶。
+ *
+ * - kind 明確傳入時直查對應表。
+ * - kind 未傳（或 undefined）時 fallback：先查 sales_dormant_leads，查無再查 aftersales_dormant_leads。
+ *   兩表 id 空間不重疊（拆表時已保留原 UUID），所以不會撞。
+ */
 export async function getDormantLeadById(
   id: string,
+  kind?: DormantLeadKind,
 ): Promise<DormantLeadRow | null> {
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
-  const { data, error } = await supabase
-    .from("sales_leads")
-    .select(SELECT_FIELDS)
+
+  if (kind) {
+    const table = kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .eq("id", id)
+      .eq("brand_id", brand)
+      .maybeSingle();
+    if (error || !data) return null;
+    return shapeRow(data as unknown as RawRow, kind);
+  }
+
+  // fallback：kind 未知，先找 sales，再找 aftersales
+  const { data: salesData } = await supabase
+    .from("sales_dormant_leads")
+    .select("*")
     .eq("id", id)
     .eq("brand_id", brand)
     .maybeSingle();
-  if (error || !data) return null;
-  return shapeRow(data as unknown as RawRow);
+  if (salesData) return shapeRow(salesData as unknown as RawRow, "sales");
+
+  const { data: aftersalesData } = await supabase
+    .from("aftersales_dormant_leads")
+    .select("*")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (aftersalesData) return shapeRow(aftersalesData as unknown as RawRow, "aftersales");
+
+  return null;
 }

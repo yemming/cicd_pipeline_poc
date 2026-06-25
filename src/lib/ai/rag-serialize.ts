@@ -586,34 +586,59 @@ export async function serializeSalesLead(
   supabase: SupabaseClient,
   id: string,
 ): Promise<SerializedChunk | null> {
-  const { data: l } = await supabase
-    .from('sales_leads')
+  // 先查 sales_dormant_leads；查無再查 aftersales_dormant_leads（兩表 id 不重疊）
+  let l: Record<string, unknown> | null = null;
+  let leadKind: 'sales' | 'aftersales' = 'sales';
+
+  const { data: salesRow } = await supabase
+    .from('sales_dormant_leads')
     .select(
-      'code, name, phone, email, habc, intent_model, source, rs_name, follow_date, last_visit_at, note, kind, dormancy_status, lost_reason, competitor_brand, converted_customer_id',
+      'code, name, phone, email, habc, intent_model, source, rs_name, follow_date, last_visit_at, note, dormancy_status, lost_reason, competitor_brand, converted_customer_id',
     )
     .eq('id', id)
     .maybeSingle();
+  if (salesRow) {
+    l = salesRow as Record<string, unknown>;
+    leadKind = 'sales';
+  } else {
+    const { data: aftersalesRow } = await supabase
+      .from('aftersales_dormant_leads')
+      .select(
+        'code, name, phone, email, habc, intent_model, source, rs_name, follow_date, last_visit_at, note, dormancy_status, aftersales_lost_reason, competitor_brand, converted_customer_id',
+      )
+      .eq('id', id)
+      .maybeSingle();
+    if (aftersalesRow) {
+      l = aftersalesRow as Record<string, unknown>;
+      leadKind = 'aftersales';
+    }
+  }
   if (!l) return null;
+
   const bits: string[] = [];
-  bits.push(`銷售線索 ${l.code ?? '—'}：${l.name ?? '—'}${l.phone ? `（${l.phone}）` : ''}`);
-  if (l.habc) bits.push(`等級 ${l.habc}`);
-  if (l.intent_model) bits.push(`意向 ${l.intent_model}`);
-  if (l.source) bits.push(`來源 ${l.source}`);
-  if (l.rs_name) bits.push(`業務 ${l.rs_name}`);
-  if (l.last_visit_at) bits.push(`上次來訪 ${l.last_visit_at}`);
-  if (l.follow_date) bits.push(`追蹤日 ${l.follow_date}`);
-  if (l.dormancy_status && l.dormancy_status !== 'active') bits.push(`狀態 ${l.dormancy_status}`);
-  if (l.competitor_brand) bits.push(`競品 ${l.competitor_brand}`);
-  if (l.lost_reason) bits.push(`流失原因 ${l.lost_reason}`);
+  bits.push(`銷售線索 ${(l.code as string) ?? '—'}：${(l.name as string) ?? '—'}${l.phone ? `（${l.phone as string}）` : ''}`);
+  if (l.habc) bits.push(`等級 ${l.habc as string}`);
+  if (l.intent_model) bits.push(`意向 ${l.intent_model as string}`);
+  if (l.source) bits.push(`來源 ${l.source as string}`);
+  if (l.rs_name) bits.push(`業務 ${l.rs_name as string}`);
+  if (l.last_visit_at) bits.push(`上次來訪 ${l.last_visit_at as string}`);
+  if ((l.follow_date as string | null | undefined)) bits.push(`追蹤日 ${l.follow_date as string}`);
+  if (l.dormancy_status && l.dormancy_status !== 'active') bits.push(`狀態 ${l.dormancy_status as string}`);
+  if (l.competitor_brand) bits.push(`競品 ${l.competitor_brand as string}`);
+  // 依表不同取對應的流失原因欄位
+  const lostReason = leadKind === 'aftersales'
+    ? (l.aftersales_lost_reason as string | null | undefined)
+    : (l.lost_reason as string | null | undefined);
+  if (lostReason) bits.push(`流失原因 ${lostReason}`);
   if (l.converted_customer_id) bits.push(`已轉客戶`);
-  if (l.note?.trim()) bits.push(`備註：${l.note.trim()}`);
+  if ((l.note as string | null | undefined)?.trim()) bits.push(`備註：${(l.note as string).trim()}`);
   return {
     content: bits.join('｜'),
     metadata: {
       code: l.code,
       customer_id: l.converted_customer_id,
       habc: l.habc,
-      kind: l.kind,
+      kind: leadKind,
     },
   };
 }

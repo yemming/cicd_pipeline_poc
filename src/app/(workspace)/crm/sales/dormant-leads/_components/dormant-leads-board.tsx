@@ -168,7 +168,7 @@ export function DormantLeadsBoard({
 
   const reviveOne = (r: DormantLeadRow) => {
     startTransition(async () => {
-      const res = await reviveDormantLeadAction(r.id);
+      const res = await reviveDormantLeadAction(r.id, kind);
       if (res.ok) {
         showBanner({
           ok: true,
@@ -191,7 +191,7 @@ export function DormantLeadsBoard({
     )
       return;
     startTransition(async () => {
-      const res = await deleteDormantLeadAction(r.id);
+      const res = await deleteDormantLeadAction(r.id, kind);
       if (res.ok) {
         showBanner({ ok: true, msg: "✓ 已刪除" });
         router.refresh();

@@ -25,7 +25,7 @@ export default async function Page({
   }
   const canEdit = await hasPermission(PERMISSIONS.CUSTOMER_EDIT);
   const { id } = await params;
-  const lead = await getDormantLeadById(id);
+  const lead = await getDormantLeadById(id, "sales");
   if (!lead) notFound();
   return (
     <DormantLeadDetailView

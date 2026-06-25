@@ -29,7 +29,7 @@ const SERIALIZE_BY_TYPE: Record<string, { table: string; serialize: SerializeFn 
   business_card: { table: 'business_card_scans', serialize: S.serializeBusinessCardScan },
   einvoice: { table: 'einvoices', serialize: S.serializeEinvoice },
   sales_order: { table: 'sales_orders', serialize: S.serializeSalesOrder },
-  sales_lead: { table: 'sales_leads', serialize: S.serializeSalesLead },
+  sales_lead: { table: 'sales_dormant_leads', serialize: S.serializeSalesLead },
   sales_handcard: { table: 'sales_handcards', serialize: S.serializeSalesHandcard },
   appointment: { table: 'appointments', serialize: S.serializeAppointment },
   work_order: { table: 'work_orders', serialize: S.serializeWorkOrder },

@@ -163,7 +163,7 @@ async function fetchMonthlyMetricsByRsName(brand: string): Promise<
   const { from, to } = currentMonthRange();
   // 一次撈本月該 brand 全部 leads，再 in-memory aggregate（量小、簡單）
   const { data, error } = await supabase
-    .from("sales_leads")
+    .from("sales_dormant_leads")
     .select("rs_name, converted_customer_id, created_at")
     .eq("brand_id", brand)
     .gte("created_at", from)

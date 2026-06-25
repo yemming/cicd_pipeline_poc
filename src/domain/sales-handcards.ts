@@ -523,9 +523,9 @@ export async function convertHandcardToLead(
 
   if (hcErr || !hc) throw hcErr ?? new Error('手卡不存在');
 
-  // 2. 建 lead
+  // 2. 建 lead（手卡升格 → 銷售端，寫 sales_dormant_leads）
   const { data: lead, error: leadErr } = await supabase
-    .from('sales_leads')
+    .from('sales_dormant_leads')
     .insert({
       brand_id: scope.brand_id,
       name: hc.customer_name,
