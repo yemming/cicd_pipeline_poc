@@ -33,6 +33,7 @@ type CampaignDbRow = {
   message_body: string;
   buttons: unknown;
   target_habc: string[] | null;
+  target_lead_ids: string[] | null;
   extra_conditions: unknown;
   audience_count: number;
   scheduled_at: string | null;
@@ -60,6 +61,7 @@ function mapCampaign(r: CampaignDbRow): CampaignRow {
       ? (r.buttons as Array<{ label: string; url: string }>)
       : [],
     target_habc: Array.isArray(r.target_habc) ? r.target_habc : [],
+    target_lead_ids: Array.isArray(r.target_lead_ids) ? r.target_lead_ids : null,
     extra_conditions: (r.extra_conditions as CampaignExtraConditions) ?? {},
     audience_count: Number(r.audience_count ?? 0),
     scheduled_at: r.scheduled_at,
@@ -80,7 +82,7 @@ export async function listPushCampaigns(kind: PushKind): Promise<CampaignRow[]> 
     .from("push_campaigns")
     .select(
       `id, brand_id, kind, name, template_id, channel, message_body, buttons,
-       target_habc, extra_conditions, audience_count, scheduled_at, status,
+       target_habc, target_lead_ids, extra_conditions, audience_count, scheduled_at, status,
        sent_count, read_count, click_count, convert_count, created_at, sent_at,
        push_message_templates ( name )`,
     )
@@ -185,14 +187,23 @@ export async function getPushBoardKpi(kind: PushKind): Promise<PushBoardKpi> {
 
 /**
  * 客群試算：給 Step 2 顯示「符合 N 位客戶」
- * v1 簡化：估算（HABC 假定總客戶 200 平均分布 + extra condition scaling）
- * 真正用 customers 表的客群查詢屆時再接，先給數字穩定的近似值好 demo。
+ *
+ * pull 模式（target_lead_ids 有值）：直接回傳 lead ids 清單的數量，
+ *   確認這些 lead 都還在 sales_dormant_leads 表即可。
+ *
+ * push 模式（原本）：v1 簡化估算（HABC 假定總客戶 200 平均分布 + extra condition scaling）。
  */
 export async function previewCampaignAudience(input: {
   kind: PushKind;
   target_habc: string[];
   extra_conditions: CampaignExtraConditions;
+  target_lead_ids?: string[] | null;
 }): Promise<number> {
+  // pull 模式：直接用指定名單數量
+  if (input.target_lead_ids && input.target_lead_ids.length > 0) {
+    return input.target_lead_ids.length;
+  }
+
   const brand = (await getActiveScope()).brand_id;
   const supabase = await createClient();
 

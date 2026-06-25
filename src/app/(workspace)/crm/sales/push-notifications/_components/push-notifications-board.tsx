@@ -180,6 +180,12 @@ export function PushNotificationsBoard({
     });
   };
 
+  // pull 模式：從 URL query param `lead_ids` 讀取指定名單
+  const initialLeadIds = useMemo(() => {
+    const raw = searchParams.get("lead_ids") ?? "";
+    return raw ? raw.split(",").filter(Boolean) : [];
+  }, [searchParams]);
+
   // ── Step 1/2/3 表單 state ─────────────────────────────
   const [step, setStep] = useState<number>(initialStep);
   const [selectedTplId, setSelectedTplId] = useState<string | null>(null);
@@ -188,7 +194,15 @@ export function PushNotificationsBoard({
     first_purchase: "all",
     gender: "all",
   });
-  const [audienceCount, setAudienceCount] = useState<number>(0);
+  // pull 模式：指定的 lead id 清單（來自 URL 或使用者清空）
+  const [targetLeadIds, setTargetLeadIds] = useState<string[]>(initialLeadIds);
+  // HABC 模式的試算人數（effect 更新）；pull 模式直接用 targetLeadIds.length
+  const [habcAudienceCount, setHabcAudienceCount] = useState<number>(0);
+  // 最終受眾數：pull 模式直接算清單長度，不走 effect
+  const audienceCount = useMemo(
+    () => (targetLeadIds.length > 0 ? targetLeadIds.length : habcAudienceCount),
+    [targetLeadIds, habcAudienceCount],
+  );
   const [campaignName, setCampaignName] = useState<string>("");
   const [scheduleMode, setScheduleMode] = useState<"now" | "schedule">("schedule");
   const [scheduleAt, setScheduleAt] = useState<string>(() =>
@@ -208,12 +222,14 @@ export function PushNotificationsBoard({
     router.replace(`?${sp.toString()}`);
   };
 
-  // Debounce 試算客群 — 把 reset 邏輯也用 setTimeout 包，避免 sync setState in effect body
+  // Debounce 試算客群（HABC 模式）— pull 模式由 audienceCount useMemo 直接算，不進此 effect
   useEffect(() => {
     if (tab !== "new" || step !== 2) return;
+    // pull 模式跳過 server action（audienceCount 由 useMemo 直接算 targetLeadIds.length）
+    if (targetLeadIds.length > 0) return;
     const timer = setTimeout(async () => {
       if (selectedHabc.length === 0) {
-        setAudienceCount(0);
+        setHabcAudienceCount(0);
         return;
       }
       const res = await previewAudienceAction({
@@ -221,17 +237,18 @@ export function PushNotificationsBoard({
         target_habc: selectedHabc,
         extra_conditions: extraConditions,
       });
-      if (res.ok) setAudienceCount(res.data.count);
+      if (res.ok) setHabcAudienceCount(res.data.count);
     }, 300);
     return () => clearTimeout(timer);
-  }, [tab, step, selectedHabc, extraConditions, kind]);
+  }, [tab, step, selectedHabc, extraConditions, kind, targetLeadIds]);
 
   const submitCampaign = () => {
     if (!selectedTpl) {
       showBanner({ ok: false, msg: "請先選擇範本" });
       return;
     }
-    if (selectedHabc.length === 0) {
+    const isPullMode = targetLeadIds.length > 0;
+    if (!isPullMode && selectedHabc.length === 0) {
       showBanner({ ok: false, msg: "請選擇至少一個 HABC 客群" });
       return;
     }
@@ -248,6 +265,7 @@ export function PushNotificationsBoard({
         message_body: selectedTpl.body,
         buttons: selectedTpl.buttons,
         target_habc: selectedHabc,
+        target_lead_ids: isPullMode ? targetLeadIds : null,
         extra_conditions: extraConditions,
         scheduled_at: scheduleMode === "now" ? null : new Date(scheduleAt).toISOString(),
       });
@@ -256,6 +274,8 @@ export function PushNotificationsBoard({
         // reset
         setSelectedTplId(null);
         setSelectedHabc([]);
+        setTargetLeadIds([]);
+        setHabcAudienceCount(0);
         setCampaignName("");
         setExtraConditions({ first_purchase: "all", gender: "all" });
         setStepAndUrl(1);
@@ -376,6 +396,8 @@ export function PushNotificationsBoard({
             setSelectedTplId={setSelectedTplId}
             selectedHabc={selectedHabc}
             setSelectedHabc={setSelectedHabc}
+            targetLeadIds={targetLeadIds}
+            setTargetLeadIds={setTargetLeadIds}
             extraConditions={extraConditions}
             setExtraConditions={setExtraConditions}
             audienceCount={audienceCount}
@@ -837,6 +859,9 @@ function NewCampaignTab(props: {
   setSelectedTplId: (id: string | null) => void;
   selectedHabc: HabcLevel[];
   setSelectedHabc: (h: HabcLevel[]) => void;
+  /** pull 模式：人工指定的 lead id 清單 */
+  targetLeadIds: string[];
+  setTargetLeadIds: (ids: string[]) => void;
   extraConditions: CampaignExtraConditions;
   setExtraConditions: (c: CampaignExtraConditions) => void;
   audienceCount: number;
@@ -859,6 +884,8 @@ function NewCampaignTab(props: {
     setSelectedTplId,
     selectedHabc,
     setSelectedHabc,
+    targetLeadIds,
+    setTargetLeadIds,
     extraConditions,
     setExtraConditions,
     audienceCount,
@@ -871,6 +898,8 @@ function NewCampaignTab(props: {
     isPending,
     onSubmit,
   } = props;
+
+  const isPullMode = targetLeadIds.length > 0;
 
   return (
     <div className="space-y-3">
@@ -981,9 +1010,33 @@ function NewCampaignTab(props: {
       {step === 2 && (
         <div className="space-y-3">
           <div className="text-[13px] font-semibold text-[#2C2C2A]">Step 2　鎖定推播客群</div>
-          {/* HABC */}
-          <div className="space-y-1.5">
-            <div className={labelClass}>HABC 分級（多選）</div>
+
+          {/* pull 模式提示卡 */}
+          {isPullMode ? (
+            <div className="bg-[#EAF3DE] border border-[#C5DC9F] rounded-lg px-4 py-3 flex items-center gap-3">
+              <span className="text-[22px]">🎯</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-semibold text-[#3B6D11]">
+                  指定名單模式（Pull）
+                </div>
+                <div className="text-[11.5px] text-[#3B6D11] mt-0.5">
+                  已從戰敗看板帶入 <b>{targetLeadIds.length} 筆</b> 指定 lead，HABC 篩選將略過。
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTargetLeadIds([])}
+                className="h-[26px] px-2.5 rounded text-[11px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shrink-0"
+                title="清除指定名單，改用 HABC 條件篩選"
+              >
+                ✕ 清除名單
+              </button>
+            </div>
+          ) : null}
+
+          {/* HABC（pull 模式時變灰） */}
+          <div className={`space-y-1.5 ${isPullMode ? "opacity-40 pointer-events-none" : ""}`}>
+            <div className={labelClass}>HABC 分級（多選）{isPullMode ? "（指定名單模式下略過）" : ""}</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {HABC_LEVELS.map((h) => {
                 const sel = selectedHabc.includes(h);
@@ -1019,9 +1072,9 @@ function NewCampaignTab(props: {
             </div>
           </div>
 
-          {/* 附加條件 */}
-          <div className="space-y-2 pt-2 border-t border-[#EEECE6]">
-            <div className={labelClass}>附加條件（可選）</div>
+          {/* 附加條件（pull 模式時灰掉） */}
+          <div className={`space-y-2 pt-2 border-t border-[#EEECE6] ${isPullMode ? "opacity-40 pointer-events-none" : ""}`}>
+            <div className={labelClass}>附加條件（可選）{isPullMode ? "（指定名單模式下略過）" : ""}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
               <KvField label="是否首購">
                 <select
@@ -1154,23 +1207,34 @@ function NewCampaignTab(props: {
                 </div>
               </KvField>
               <KvField label="目標客群">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {selectedHabc.map((h) => (
-                    <span
-                      key={h}
-                      className="px-1.5 py-0.5 rounded text-[11px] font-bold"
-                      style={{
-                        backgroundColor: HABC_BADGE[h].bg,
-                        color: HABC_BADGE[h].fg,
-                      }}
-                    >
-                      {h}
+                {isPullMode ? (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11.5px] font-medium bg-[#EAF3DE] text-[#3B6D11]">
+                      🎯 指定名單（Pull 模式）
                     </span>
-                  ))}
-                  <span className="text-[11.5px] text-[#5A5955]">
-                    （約 {audienceCount} 位）
-                  </span>
-                </div>
+                    <span className="text-[12px] text-[#5A5955]">
+                      {targetLeadIds.length} 筆 lead
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {selectedHabc.map((h) => (
+                      <span
+                        key={h}
+                        className="px-1.5 py-0.5 rounded text-[11px] font-bold"
+                        style={{
+                          backgroundColor: HABC_BADGE[h].bg,
+                          color: HABC_BADGE[h].fg,
+                        }}
+                      >
+                        {h}
+                      </span>
+                    ))}
+                    <span className="text-[11.5px] text-[#5A5955]">
+                      （約 {audienceCount} 位）
+                    </span>
+                  </div>
+                )}
               </KvField>
               <KvField label="發送時間">
                 <div className="flex items-center gap-2">

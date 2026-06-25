@@ -67,6 +67,8 @@ export type CampaignRow = {
   message_body: string;
   buttons: Array<{ label: string; url: string }>;
   target_habc: string[];
+  /** pull 模式：人工指定的 lead id 清單（覆蓋 HABC 條件篩選） */
+  target_lead_ids: string[] | null;
   extra_conditions: CampaignExtraConditions;
   audience_count: number;
   scheduled_at: string | null;

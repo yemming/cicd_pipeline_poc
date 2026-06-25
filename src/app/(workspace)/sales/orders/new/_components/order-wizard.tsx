@@ -18,7 +18,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { useSetPageHeader } from "@/components/page-header-context";
-import { createSalesOrderAction, saveSignaturesAction } from "@/lib/sales/order-actions";
+import { createSalesOrderAction, saveSignaturesAction, linkTradeInAction } from "@/lib/sales/order-actions";
 import {
   USED_CERT_LEVELS,
   TRANSFER_OPTIONS,
@@ -31,7 +31,7 @@ import { SignatureCanvas } from "@/components/signature-canvas";
 // Constants
 // ─────────────────────────────────────────────────────────────
 
-type ContractKind = "new" | "used";
+type ContractKind = "new" | "used" | "trade_in";
 
 type QuoteSnapshot = {
   quoteNo: string;
@@ -103,11 +103,16 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
 
   // ── Kind from URL
   const typeParam = searchParams.get("type");
-  const initialKind: ContractKind = typeParam === "used" ? "used" : "new";
+  const initialKind: ContractKind =
+    typeParam === "used" ? "used" : typeParam === "trade_in" ? "trade_in" : "new";
   const [kind, setKind] = useState<ContractKind>(initialKind);
+
+  // ── trade_in 模式的步驟：1 = 新車合約，2 = 中古車合約
+  const [tradeInStep, setTradeInStep] = useState<1 | 2>(1);
 
   const switchKind = (next: ContractKind) => {
     setKind(next);
+    setTradeInStep(1); // 切 kind 時重置步驟
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("type", next);
@@ -185,16 +190,122 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
   );
 
   // ── Contract number preview
+  // tradeInStep 在這裡已宣告完畢，可安全引用
   const contractNo = useMemo(() => {
     const d = new Date();
     const yyyymmdd = `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`;
-    const prefix = kind === "new" ? "PO" : "UA";
+    let prefix: string;
+    if (kind === "trade_in") {
+      prefix = tradeInStep === 1 ? "PO" : "UA";
+    } else {
+      prefix = kind === "new" ? "PO" : "UA";
+    }
     return `${prefix}-${yyyymmdd}-XXX`;
-  }, [kind]);
+  }, [kind, tradeInStep]);
 
   // ── Submit
   function handleConfirm() {
     startTransition(async () => {
+      // ── trade_in 模式：同時建立新車 + 中古車訂單，再互串 ──
+      if (kind === "trade_in") {
+        const newInput = {
+          contract_type: "new" as const,
+          customer_id: selectedCustomerId || null,
+          customer_name: customerName || null,
+          customer_phone: buyerPhone || null,
+          customer_email: buyerEmail || null,
+          customer_address: buyerAddress || null,
+          buyer_national_id: buyerId || null,
+          rs_name: rsName || null,
+          vehicle_model_id: selectedVehicleModelId || null,
+          vehicle_model_name:
+            selectedVehicleModel?.display_name ?? snapshot?.model ?? null,
+          vehicle_color: newColor || null,
+          vehicle_vin: newVin || null,
+          vehicle_engine_no: newEngine || null,
+          payment_method: paymentId,
+          down_payment: deposit ? parseFloat(deposit.replace(/,/g, "")) : null,
+          delivery_date: deliveryDate || null,
+          special_notes: specialNote || null,
+          quote_snapshot: snapshot
+            ? (snapshot as unknown as Record<string, unknown>)
+            : null,
+        };
+        const usedInput = {
+          contract_type: "used" as const,
+          customer_id: selectedCustomerId || null,
+          customer_name: customerName || null,
+          customer_phone: buyerPhone || null,
+          customer_email: buyerEmail || null,
+          customer_address: buyerAddress || null,
+          buyer_national_id: buyerId || null,
+          rs_name: rsName || null,
+          used_brand_model: usedBrand || null,
+          used_year: usedYear || null,
+          used_plate: usedPlate || null,
+          used_cc: usedCc || null,
+          used_mileage: usedMileage || null,
+          used_cert_level: usedCertLevel || null,
+          deal_price: usedDealPrice
+            ? parseFloat(usedDealPrice.replace(/,/g, ""))
+            : null,
+          down_payment: usedDeposit
+            ? parseFloat(usedDeposit.replace(/,/g, ""))
+            : null,
+          final_payment_date: usedFinalDate || null,
+          transfer_by: usedTransferBy || null,
+          condition_notes: usedConditionNote || null,
+          quote_snapshot: snapshot
+            ? (snapshot as unknown as Record<string, unknown>)
+            : null,
+        };
+
+        showToast("⏳ 建立新車合約中…");
+        const newRes = await createSalesOrderAction(newInput);
+        if (!newRes.ok) {
+          showToast(`❌ 新車合約建立失敗：${newRes.error}`);
+          return;
+        }
+
+        showToast("⏳ 建立中古車合約中…");
+        const usedRes = await createSalesOrderAction(usedInput);
+        if (!usedRes.ok) {
+          showToast(`❌ 中古車合約建立失敗（新車合約 ${newRes.data.order_no} 已建立）：${usedRes.error}`);
+          return;
+        }
+
+        // 互串：新車訂單 → 指向中古車訂單
+        showToast("⏳ 串聯以舊換新關係中…");
+        const linkRes = await linkTradeInAction(newRes.data.id, usedRes.data.id);
+        if (!linkRes.ok) {
+          showToast(
+            `⚠️ 兩筆合約已建立（新車 ${newRes.data.order_no}、中古車 ${usedRes.data.order_no}），但自動串聯失敗：${linkRes.error}，請至訂單詳情手動串聯。`,
+          );
+          // 仍導航到新車訂單詳情，讓業務員手動串
+          setTimeout(() => router.push(`/sales/orders/${newRes.data.id}`), 2200);
+          return;
+        }
+
+        // 簽名回填到新車訂單（以舊換新的主簽名頁）
+        if (sigBuyer || sigSeller || sigWitness) {
+          await saveSignaturesAction(newRes.data.id, {
+            signature_buyer: sigBuyer ?? null,
+            signature_seller: sigSeller ?? null,
+            signature_witness: sigWitness ?? null,
+          }).catch((e) => console.error("[order-wizard] trade_in 簽名回填失敗", e));
+        }
+
+        if (typeof window !== "undefined") {
+          try { window.localStorage.removeItem(SNAPSHOT_KEY); } catch { /* swallow */ }
+        }
+        showToast(
+          `✅ 以舊換新已建立：新車 ${newRes.data.order_no} + 中古車 ${usedRes.data.order_no}，已自動串聯！即將跳轉…`,
+        );
+        setTimeout(() => router.push(`/sales/orders/${newRes.data.id}`), 1800);
+        return;
+      }
+
+      // ── 單一合約（new / used）原有流程 ──
       const input =
         kind === "new"
           ? {
@@ -390,6 +501,7 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
               [
                 { v: "new" as const, icon: "📋", label: "新車訂購合約書" },
                 { v: "used" as const, icon: "📜", label: "中古車買賣切結合約書" },
+                { v: "trade_in" as const, icon: "🔄", label: "以舊換新（雙合約）" },
               ]
             ).map((o, idx) => {
               const active = kind === o.v;
@@ -399,7 +511,7 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                   type="button"
                   onClick={() => switchKind(o.v)}
                   className={`flex-1 px-3 py-2.5 text-[12.5px] transition-colors ${
-                    idx === 0 ? "border-r border-[#EEECE6]" : ""
+                    idx < 2 ? "border-r border-[#EEECE6]" : ""
                   } ${
                     active
                       ? "bg-[#1A3A5C] text-white font-bold"
@@ -850,6 +962,456 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                   {isPending ? "建立中⋯" : "✅ 合約確認，安排過戶與交車 →"}
                 </button>
               </div>
+            </section>
+          )}
+
+          {/* ── Trade-In (以舊換新) Mode ── */}
+          {kind === "trade_in" && (
+            <section className="space-y-3">
+              {/* 進度條：Step 1 新車 / Step 2 中古車 */}
+              <div className="flex bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setTradeInStep(1)}
+                  className={`flex-1 px-3 py-2.5 text-[12.5px] border-r border-[#EEECE6] transition-colors ${
+                    tradeInStep === 1
+                      ? "bg-[#1A3A5C] text-white font-bold"
+                      : "text-[#7A7A78] hover:bg-[#F4F3F0]"
+                  }`}
+                >
+                  📋 第 1 步：新車訂購合約
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTradeInStep(2)}
+                  className={`flex-1 px-3 py-2.5 text-[12.5px] transition-colors ${
+                    tradeInStep === 2
+                      ? "bg-[#1A3A5C] text-white font-bold"
+                      : "text-[#7A7A78] hover:bg-[#F4F3F0]"
+                  }`}
+                >
+                  📜 第 2 步：舊車收購合約
+                </button>
+              </div>
+
+              {/* 說明橫幅 */}
+              <div className="bg-[#EAF4FB] border border-[#85B7EB] rounded-md px-3.5 py-2.5 text-[11.5px] text-[#0C3E70] leading-relaxed">
+                <div className="text-[12px] font-bold text-[#0C3E70] mb-1">
+                  🔄 以舊換新流程說明
+                </div>
+                填寫新車合約（第 1 步）後切到舊車收購合約（第 2 步），最後按「確認建立雙合約」一次建立兩筆訂單並自動串聯。
+                新車合約的詳情頁將顯示關聯的舊車收購單。
+              </div>
+
+              {/* Step 1：新車合約 */}
+              {tradeInStep === 1 && (
+                <>
+                  <SectionCard
+                    icon="📋"
+                    iconBg="bg-[#EAF4FB]"
+                    title={`${brandName} 新車訂購合約書（以舊換新）`}
+                    subtitle="以舊換新 Step 1 / 2 — 新車資訊"
+                    trailing={
+                      <button
+                        type="button"
+                        onClick={() => showToast("📄 合約書已匯出 PDF")}
+                        className={btnGhostSm}
+                      >
+                        📄 匯出 PDF
+                      </button>
+                    }
+                  >
+                    <SecTitle>一、買受人資料</SecTitle>
+                    <Grid cols={2}>
+                      <Field label="姓名">
+                        <input
+                          type="text"
+                          className={`${inputCls} bg-[#F4F3F0]`}
+                          value={customerName}
+                          readOnly
+                        />
+                      </Field>
+                      <Field label="身分證字號">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="A123456789"
+                          value={buyerId}
+                          onChange={(e) => setBuyerId(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="聯絡電話">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          value={buyerPhone}
+                          onChange={(e) => setBuyerPhoneOverride(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="電子郵件">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          value={buyerEmail}
+                          onChange={(e) => setBuyerEmailOverride(e.target.value)}
+                        />
+                      </Field>
+                    </Grid>
+                    <Field label="戶籍地址">
+                      <input
+                        type="text"
+                        className={inputCls}
+                        placeholder="縣市、區、路號"
+                        value={buyerAddress}
+                        onChange={(e) => setBuyerAddress(e.target.value)}
+                      />
+                    </Field>
+
+                    <Divider />
+                    <SecTitle>二、車輛資料</SecTitle>
+                    <Grid cols={2}>
+                      <Field label="車款型號">
+                        <select
+                          className={inputCls}
+                          value={selectedVehicleModelId}
+                          onChange={(e) => setSelectedVehicleModelId(e.target.value)}
+                        >
+                          <option value="">— 選擇車款 —</option>
+                          {vehicleModels.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.display_name}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="車身顏色">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          value={newColor}
+                          onChange={(e) => setNewColor(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="車身號碼（VIN）">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="配車後填入"
+                          value={newVin}
+                          onChange={(e) => setNewVin(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="引擎號碼">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="配車後填入"
+                          value={newEngine}
+                          onChange={(e) => setNewEngine(e.target.value)}
+                        />
+                      </Field>
+                    </Grid>
+
+                    <Divider />
+                    <SecTitle>三、付款方式</SecTitle>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                      {PAYMENT_OPTIONS.map((p) => {
+                        const sel = paymentId === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setPaymentId(p.id)}
+                            className={`rounded-lg border-[1.5px] px-3 py-2.5 text-center transition-colors ${
+                              sel
+                                ? "bg-[#EAF4FB] border-[#185FA5]"
+                                : "bg-[#FAFAF8] border-[#EEECE6] hover:border-[#B4B2A9]"
+                            }`}
+                          >
+                            <div className="text-[20px] mb-1">{p.icon}</div>
+                            <div className="text-[12px] font-semibold">{p.name}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <Grid cols={2}>
+                      <Field label="訂金金額">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="NT$ 50,000"
+                          value={deposit}
+                          onChange={(e) => setDeposit(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="預計交車日期">
+                        <input
+                          type="date"
+                          className={inputCls}
+                          value={deliveryDate}
+                          onChange={(e) => setDeliveryDate(e.target.value)}
+                        />
+                      </Field>
+                    </Grid>
+
+                    <Divider />
+                    <SecTitle>四、特殊約定</SecTitle>
+                    <Field label="">
+                      <textarea
+                        className={`${inputCls} h-[72px] resize-none`}
+                        value={specialNote}
+                        onChange={(e) => setSpecialNote(e.target.value)}
+                      />
+                    </Field>
+                    <ContractTermsNew text={contractTermsNew ?? null} />
+
+                    <Divider />
+                    <SecTitle>五、當事人簽名</SecTitle>
+                    <div className="bg-[#EAF4FB] border border-[#85B7EB] rounded-md px-3 py-2 text-[11.5px] text-[#0C3E70] mb-2">
+                      ⚖️ 簽署前請確認：本合約享有至少 3 日審閱期。簽名後即視為雙方同意合約內容。
+                    </div>
+                    <TripleSignSection
+                      roles={["買受人簽名", "銷售顧問（RS）簽名", "見證人 / 授權代表簽名"]}
+                      signatures={[sigBuyer, sigSeller, sigWitness]}
+                      onSign={(roleIdx, dataUrl) => {
+                        if (roleIdx === 0) setSigBuyer(dataUrl);
+                        else if (roleIdx === 1) setSigSeller(dataUrl);
+                        else setSigWitness(dataUrl);
+                      }}
+                      onClear={(roleIdx) => {
+                        if (roleIdx === 0) setSigBuyer(null);
+                        else if (roleIdx === 1) setSigSeller(null);
+                        else setSigWitness(null);
+                      }}
+                      activePanel={activeSigPanel}
+                      setActivePanel={setActiveSigPanel}
+                    />
+                  </SectionCard>
+
+                  <div className="flex justify-end gap-2 flex-wrap">
+                    <Link href="/sales/orders" className={btnGhost}>
+                      ← 返回訂單列表
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setTradeInStep(2)}
+                      className={btnTeal}
+                    >
+                      下一步：填寫舊車收購合約 →
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Step 2：舊車收購合約 */}
+              {tradeInStep === 2 && (
+                <>
+                  <div className="bg-[#FFF8E1] border-[1.5px] border-[#F0C97E] rounded-md px-3.5 py-3 text-[11.5px] text-[#5A4500] leading-relaxed">
+                    <div className="text-[12px] font-bold text-[#7A3A00] mb-1">
+                      ⚠️ 舊車收購告知
+                    </div>
+                    此為以舊換新流程的第 2 步：填寫舊車資料及收購金額。完成後按「確認建立雙合約」即自動建立兩筆訂單並串聯。
+                  </div>
+
+                  <SectionCard
+                    icon="📜"
+                    iconBg="bg-[#FDF3E3]"
+                    title="舊車收購切結合約書（以舊換新）"
+                    subtitle="以舊換新 Step 2 / 2 — 舊車資訊"
+                    trailing={
+                      <button
+                        type="button"
+                        onClick={() => showToast("📄 合約書已匯出 PDF")}
+                        className={btnGhostSm}
+                      >
+                        📄 匯出 PDF
+                      </button>
+                    }
+                  >
+                    <SecTitle>一、買賣雙方</SecTitle>
+                    <Grid cols={2}>
+                      <Field label="賣方（甲方）">
+                        <input
+                          type="text"
+                          className={`${inputCls} bg-[#F4F3F0]`}
+                          value="展示中心"
+                          readOnly
+                        />
+                      </Field>
+                      <Field label="買受人（乙方）">
+                        <input
+                          type="text"
+                          className={`${inputCls} bg-[#F4F3F0]`}
+                          value={customerName}
+                          readOnly
+                        />
+                      </Field>
+                      <Field label="乙方身分證字號">
+                        <input
+                          type="text"
+                          className={`${inputCls} bg-[#F4F3F0]`}
+                          value={buyerId}
+                          readOnly
+                        />
+                      </Field>
+                      <Field label="乙方聯絡電話">
+                        <input
+                          type="text"
+                          className={`${inputCls} bg-[#F4F3F0]`}
+                          value={buyerPhone}
+                          readOnly
+                        />
+                      </Field>
+                    </Grid>
+
+                    <Divider />
+                    <SecTitle>二、舊車資料（必填完整）</SecTitle>
+                    <Grid cols={2}>
+                      <Field label="廠牌/車款">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          value={usedBrand}
+                          onChange={(e) => setUsedBrand(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="出廠年份">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          value={usedYear}
+                          onChange={(e) => setUsedYear(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="車牌號碼">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="LGX-8096"
+                          value={usedPlate}
+                          onChange={(e) => setUsedPlate(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="排氣量（cc）">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          value={usedCc}
+                          onChange={(e) => setUsedCc(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="車身號碼（VIN）">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="17碼 VIN"
+                          value={usedVin}
+                          onChange={(e) => setUsedVin(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="引擎號碼">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="引擎號碼"
+                          value={usedEngine}
+                          onChange={(e) => setUsedEngine(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="行駛里程（km）">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          value={usedMileage}
+                          onChange={(e) => setUsedMileage(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="認證等級">
+                        <select
+                          className={inputCls}
+                          value={usedCertLevel}
+                          onChange={(e) => setUsedCertLevel(e.target.value)}
+                        >
+                          {USED_CERT_LEVELS.map((c) => (
+                            <option key={c}>{c}</option>
+                          ))}
+                        </select>
+                      </Field>
+                    </Grid>
+
+                    <Divider />
+                    <SecTitle>三、收購金額與過戶</SecTitle>
+                    <Grid cols={2}>
+                      <Field label="收購金額（NT$）">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="NT$ ___,000"
+                          value={usedDealPrice}
+                          onChange={(e) => setUsedDealPrice(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="訂金金額">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="NT$ ___,000"
+                          value={usedDeposit}
+                          onChange={(e) => setUsedDeposit(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="尾款交付日期">
+                        <input
+                          type="date"
+                          className={inputCls}
+                          value={usedFinalDate}
+                          onChange={(e) => setUsedFinalDate(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="過戶辦理">
+                        <select
+                          className={inputCls}
+                          value={usedTransferBy}
+                          onChange={(e) => setUsedTransferBy(e.target.value)}
+                        >
+                          {TRANSFER_OPTIONS.map((o) => (
+                            <option key={o}>{o}</option>
+                          ))}
+                        </select>
+                      </Field>
+                    </Grid>
+
+                    <Divider />
+                    <SecTitle>四、車輛現況說明</SecTitle>
+                    <Field label="車況備注（業務人員填寫；買受人請確認後簽名）">
+                      <textarea
+                        className={`${inputCls} h-[72px] resize-none`}
+                        value={usedConditionNote}
+                        onChange={(e) => setUsedConditionNote(e.target.value)}
+                      />
+                    </Field>
+                    <ContractTermsUsed text={contractTermsUsed ?? null} />
+                  </SectionCard>
+
+                  <div className="flex justify-end gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setTradeInStep(1)}
+                      className={btnGhost}
+                    >
+                      ← 返回新車合約
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirm}
+                      disabled={isPending}
+                      className={`${btnTeal} disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {isPending ? "建立中⋯" : "✅ 確認建立雙合約，自動串聯 →"}
+                    </button>
+                  </div>
+                </>
+              )}
             </section>
           )}
         </div>

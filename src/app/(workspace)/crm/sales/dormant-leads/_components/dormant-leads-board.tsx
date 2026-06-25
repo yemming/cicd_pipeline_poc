@@ -109,6 +109,8 @@ export function DormantLeadsBoard({
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
   const [tab, setTab] = useState<TabKey>("dormant");
+  // pull 模式：勾選的 lead id 集合（放在最上方、避免 TDZ）
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // 只依賴 prop kind，必須在下方 useState initializer 引用 isAfter 之前宣告（避免 TDZ）
   const copy = dormancyCopy(kind);
@@ -289,8 +291,45 @@ export function DormantLeadsBoard({
     "h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5]";
   const labelClass = "text-[11px] text-[#9A9890] font-medium";
 
+  // 全選/取消全選（針對目前頁面的 rows）
+  const allSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        rows.forEach((r) => next.delete(r.id));
+      } else {
+        rows.forEach((r) => next.add(r.id));
+      }
+      return next;
+    });
+  };
   const columns: DataGridColumn<DormantLeadRow>[] = useMemo(
     () => [
+      {
+        id: "select",
+        header: "勾選",
+        width: 44,
+        hideable: false,
+        sortable: false,
+        cell: (r) => (
+          <input
+            type="checkbox"
+            checked={selectedIds.has(r.id)}
+            onChange={() =>
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(r.id)) next.delete(r.id);
+                else next.add(r.id);
+                return next;
+              })
+            }
+            onClick={(e) => e.stopPropagation()}
+            className="w-[14px] h-[14px] accent-[#1A3A5C] cursor-pointer"
+            aria-label={`選取 ${r.name}`}
+          />
+        ),
+      },
       {
         id: "lead",
         header: isAfter ? "客戶 / 車輛" : "Lead",
@@ -452,7 +491,8 @@ export function DormantLeadsBoard({
         sortValue: (r) => r.lost_at ?? "",
       },
     ],
-    [basePath, isAfter, reasonMap],
+    // setSelectedIds 是穩定引用（React useState），selectedIds 用來 derive checked 狀態
+    [basePath, isAfter, reasonMap, selectedIds],
   );
 
   // Tab 1 顯示用：tab=dormant 時只看 dormant，tab=lost 時只看 lost（但 Tab 2 KPI 走 stats 全集）
@@ -766,7 +806,18 @@ export function DormantLeadsBoard({
             </div>
           </section>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 全選 checkbox */}
+            <label className="flex items-center gap-1.5 text-[12px] text-[#5A5955] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleSelectAll}
+                className="w-[14px] h-[14px] accent-[#1A3A5C]"
+                aria-label="全選本頁"
+              />
+              全選本頁
+            </label>
             <span className="text-[12px] text-[#9A9890]">
               共{" "}
               <b className="text-[#2C2C2A]">
@@ -781,17 +832,30 @@ export function DormantLeadsBoard({
             <span className="inline-flex items-center px-2 py-0.5 text-[11px] rounded-md bg-[#FDECEA] text-[#C8001A] font-medium">
               90 天+ 紅色邊框優先聯繫
             </span>
-            {/* 輪11-3 pull 模式：批次建推播活動（CRM06A 橋接） */}
-            {canEdit && rows.length > 0 ? (
-              <Link
-                href={`${isAfter ? "/crm/aftersales/push-notifications" : "/crm/sales/push-notifications"}?tab=new&from=dormant&lead_ids=${rows.map((r) => r.id).slice(0, 100).join(",")}`}
-                className="ml-auto h-[26px] inline-flex items-center gap-1 px-2.5 rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
-                title={`以目前 ${rows.length} 筆${isAfter ? "休眠客戶" : "休眠 lead"}建立推播活動`}
-              >
-                <span className="material-symbols-outlined text-[13px]">campaign</span>
-                批次推播活動（{rows.length} 筆）
-              </Link>
-            ) : null}
+            <div className="ml-auto flex items-center gap-1.5">
+              {/* pull 模式：以勾選名單建立推播 */}
+              {canEdit && selectedIds.size > 0 ? (
+                <Link
+                  href={`${isAfter ? "/crm/aftersales/push-notifications" : "/crm/sales/push-notifications"}?tab=new&lead_ids=${Array.from(selectedIds).join(",")}`}
+                  className="h-[26px] inline-flex items-center gap-1 px-2.5 rounded text-[11.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742]"
+                  title={`以勾選的 ${selectedIds.size} 筆 ${isAfter ? "客戶" : "lead"} 建立推播活動`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">campaign</span>
+                  建立推播任務（已選 {selectedIds.size} 筆）
+                </Link>
+              ) : null}
+              {/* 舊版：全量批次（無勾選時顯示） */}
+              {canEdit && rows.length > 0 && selectedIds.size === 0 ? (
+                <Link
+                  href={`${isAfter ? "/crm/aftersales/push-notifications" : "/crm/sales/push-notifications"}?tab=new&lead_ids=${rows.map((r) => r.id).slice(0, 100).join(",")}`}
+                  className="h-[26px] inline-flex items-center gap-1 px-2.5 rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+                  title={`以目前 ${rows.length} 筆${isAfter ? "休眠客戶" : "休眠 lead"}建立推播活動`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">campaign</span>
+                  批次推播（{rows.length} 筆）
+                </Link>
+              ) : null}
+            </div>
           </div>
 
           {/* Table — 90 天+ 用 outline color 標示 */}

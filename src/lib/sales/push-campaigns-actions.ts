@@ -34,6 +34,8 @@ export type CampaignInput = {
   message_body: string;
   buttons?: Array<{ label: string; url: string }>;
   target_habc: string[];
+  /** pull 模式：人工指定的 lead id 清單（覆蓋 HABC 條件篩選） */
+  target_lead_ids?: string[] | null;
   extra_conditions: CampaignExtraConditions;
   scheduled_at?: string | null; // ISO；null = 立即
   audience_count?: number;
@@ -52,7 +54,9 @@ function trim(v: string | null | undefined): string {
 function validate(input: CampaignInput): string | null {
   if (!trim(input.name)) return "任務名稱必填";
   if (!trim(input.message_body)) return "訊息內容必填";
-  if (!input.target_habc || input.target_habc.length === 0)
+  // pull 模式（target_lead_ids 有值）不需要 HABC；push 模式才強制選 HABC
+  const isPullMode = input.target_lead_ids && input.target_lead_ids.length > 0;
+  if (!isPullMode && (!input.target_habc || input.target_habc.length === 0))
     return "至少選一個 HABC 客群";
   return null;
 }
@@ -82,6 +86,7 @@ export async function createCampaignAction(
     kind: input.kind,
     target_habc: input.target_habc,
     extra_conditions: input.extra_conditions,
+    target_lead_ids: input.target_lead_ids,
   });
 
   const status: CampaignStatus = input.scheduled_at ? "scheduled" : "draft";
@@ -97,6 +102,7 @@ export async function createCampaignAction(
       message_body: trim(input.message_body),
       buttons: input.buttons ?? [],
       target_habc: input.target_habc,
+      target_lead_ids: input.target_lead_ids ?? null,
       extra_conditions: input.extra_conditions ?? {},
       audience_count: audience,
       scheduled_at: input.scheduled_at ?? null,
@@ -239,6 +245,7 @@ export async function previewAudienceAction(input: {
   kind: PushKind;
   target_habc: string[];
   extra_conditions: CampaignExtraConditions;
+  target_lead_ids?: string[] | null;
 }): Promise<ActionResult<{ count: number }>> {
   await requirePermission(PERMISSIONS.CUSTOMER_VIEW);
   const count = await previewCampaignAudience(input);
