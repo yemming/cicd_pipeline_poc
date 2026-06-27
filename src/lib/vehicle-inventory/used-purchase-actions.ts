@@ -218,12 +218,54 @@ export type ConfirmDirectBuyResult = {
 };
 
 /**
+ * E-3-b（Russell 2026-06-23 裁示採用）：以舊換新/收購完成時，若賣方(車主)電話對應到
+ * 休眠/戰敗的銷售 lead，自動沿用既有 revived 機制設為 revived，並取消其
+ * `dormant_reactivation` 喚醒任務，避免「客戶已回來交易、業務員卻還收到要打給他的過期任務」。
+ *
+ * 邊界處理（依 Russell 要求說明）：
+ *  - 同一電話比對到「多筆」休眠 lead（同人留過多次資料）→ 全部一起處理（皆設 revived + 取消任務）。
+ *  - 「完全比對不到」任何 lead（或賣方無電話）→ 靜默略過，不報錯、不影響收購本身成功。
+ */
+async function reactivateSellerDormantLeads(
+  brand: string,
+  phone: string | null,
+): Promise<void> {
+  const p = (phone ?? "").trim();
+  if (!p) return; // 賣方無電話 → 略過
+  const { createClient } = await import("@/lib/supabase/server");
+  const supabase = await createClient();
+  const { data: leads } = await supabase
+    .from("sales_dormant_leads")
+    .select("id")
+    .eq("brand_id", brand)
+    .eq("phone", p)
+    .in("dormancy_status", ["dormant", "lost"]);
+  if (!leads || leads.length === 0) return; // 比對不到 → 靜默略過
+  const now = new Date().toISOString();
+  for (const lead of leads as { id: string }[]) {
+    await supabase
+      .from("sales_dormant_leads")
+      .update({ dormancy_status: "revived", last_revive_at: now, updated_at: now })
+      .eq("id", lead.id)
+      .eq("brand_id", brand);
+    await supabase
+      .from("call_tasks")
+      .update({ status: "cancelled", updated_at: now })
+      .eq("brand_id", brand)
+      .eq("call_type", "dormant_reactivation")
+      .eq("status", "pending")
+      .eq("metadata->>lead_id", lead.id);
+  }
+}
+
+/**
  * ★ 確認直購收購：
  *  1. 若還沒建單 → 先建一筆 draft
  *  2. 防重：已決策過（decision 非 null / 已有 used_car_id）的直接擋
  *  3. 呼叫共用觸發函式 triggerUsedCarAcquisition（acquisition_source='direct_buy'）
  *  4. 回寫 used_purchase_requests.decision / used_car_id / recon_workorder_id
- *  5. 回傳中古車主檔 id + 整備工單號
+ *  5. E-3-b：賣方若為休眠 lead → 設 revived + 取消喚醒任務
+ *  6. 回傳中古車主檔 id + 整備工單號
  */
 export async function confirmDirectBuyAction(
   input: ConfirmDirectBuyInput,
@@ -294,6 +336,9 @@ export async function confirmDirectBuyAction(
         },
       });
 
+      // E-3-b：賣方若為休眠/戰敗 lead → revived + 取消喚醒任務
+      await reactivateSellerDormantLeads(brand, req.seller_phone);
+
       revalidatePath(PAGE_PATH);
       revalidatePath(`${PAGE_PATH}/${requestId}`);
 
@@ -354,6 +399,9 @@ export async function confirmDirectBuyAction(
       })
       .eq("id", requestId)
       .eq("brand_id", brand);
+
+    // E-3-b：賣方若為休眠/戰敗 lead → revived + 取消喚醒任務
+    await reactivateSellerDormantLeads(brand, req.seller_phone);
 
     revalidatePath(PAGE_PATH);
     revalidatePath(`${PAGE_PATH}/${requestId}`);
