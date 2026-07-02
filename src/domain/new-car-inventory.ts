@@ -67,7 +67,12 @@ export async function listNewCars(
   filters: NewCarInventoryFilters = {}
 ): Promise<NewCarInventoryRow[]> {
   const supabase = await createClient();
-  let q = supabase.from("new_car_inventory").select(SELECT_FIELDS).order("created_at", { ascending: false });
+  const scope = await getActiveScope();
+  let q = supabase
+    .from("new_car_inventory")
+    .select(SELECT_FIELDS)
+    .eq("brand_id", scope.brand_id)
+    .order("created_at", { ascending: false });
 
   if (filters.status) q = q.eq("status", filters.status);
   if (filters.license_plate_status) q = q.eq("license_plate_status", filters.license_plate_status);
@@ -93,10 +98,12 @@ export async function listNewCars(
 
 export async function getNewCarById(id: string): Promise<NewCarInventoryRow | null> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("new_car_inventory")
     .select(SELECT_FIELDS)
     .eq("id", id)
+    .eq("brand_id", scope.brand_id)
     .single();
   if (error) {
     if (error.code === "PGRST116") return null;
@@ -124,19 +131,23 @@ export async function updateNewCar(
   patch: Partial<NewCarInventoryInput>
 ): Promise<void> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { error } = await supabase
     .from("new_car_inventory")
     .update(patch)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
   if (error) throw error;
 }
 
 export async function deleteNewCar(id: string): Promise<void> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { error } = await supabase
     .from("new_car_inventory")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
   if (error) throw error;
 }
 
@@ -169,7 +180,12 @@ export async function setNewCarStatus(
   const patch: Record<string, unknown> = { status };
   if (field) patch[field] = new Date().toISOString().slice(0, 10);
 
-  let query = supabase.from("new_car_inventory").update(patch).eq("id", id);
+  const scope = await getActiveScope();
+  let query = supabase
+    .from("new_car_inventory")
+    .update(patch)
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
   if (expectedCurrentStatus) query = query.eq("status", expectedCurrentStatus);
   const { data, error } = await query.select("id");
   if (error) throw error;
@@ -182,9 +198,11 @@ export async function setNewCarStatus(
 
 export async function getVehicleModelOptions(): Promise<VehicleModelOption[]> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("vehicle_models")
     .select("id, display_name, series, msrp")
+    .eq("brand_id", scope.brand_id)
     .eq("is_active", true)
     .order("series")
     .order("display_name");
@@ -194,9 +212,11 @@ export async function getVehicleModelOptions(): Promise<VehicleModelOption[]> {
 
 export async function getOrganizationOptions(): Promise<OrganizationOption[]> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("organizations")
     .select("id, name")
+    .eq("brand_id", scope.brand_id)
     .eq("level", 2)
     .order("name");
   if (error) throw error;
@@ -221,9 +241,11 @@ export async function getCurrentBrandId(): Promise<string> {
 
 export async function getNewCarKpiSummary(): Promise<NewCarKpiSummary> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("new_car_inventory")
-    .select("status, sold_date");
+    .select("status, sold_date")
+    .eq("brand_id", scope.brand_id);
   if (error) throw error;
 
   const rows = (data ?? []) as { status: string; sold_date: string | null }[];
@@ -248,9 +270,11 @@ export async function getNewCarKpiSummary(): Promise<NewCarKpiSummary> {
  */
 export async function getNewCarInventoryByModel(): Promise<NewCarByModelDatum[]> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("new_car_inventory")
-    .select("status, vehicle_models(display_name, series)");
+    .select("status, vehicle_models(display_name, series)")
+    .eq("brand_id", scope.brand_id);
   if (error) throw error;
 
   type Joined = { status: string; vehicle_models: { display_name?: string; series?: string } | null };
@@ -289,9 +313,11 @@ export async function getNewCarInventoryByModel(): Promise<NewCarByModelDatum[]>
  */
 export async function getNewCarSlowMovers(days = 90): Promise<NewCarSlowMover[]> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("new_car_inventory")
     .select("id, vin, color, status, arrival_date, list_price, vehicle_models(display_name)")
+    .eq("brand_id", scope.brand_id)
     .in("status", ["arrived", "displayed", "reserved"])
     .not("arrival_date", "is", null);
   if (error) throw error;
