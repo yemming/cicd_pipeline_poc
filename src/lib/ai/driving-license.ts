@@ -11,7 +11,7 @@ const MODEL = "gemini-2.5-flash";
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const INLINE_LIMIT_BYTES = 15 * 1024 * 1024;
 
-const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的試駕登記助理。
+const SYSTEM_PROMPT = `你是機車經銷商的試駕登記助理。
 業務（RS）會給你一張客戶的台灣駕照照片、你的工作是從駕照影像抽出登記試駕所需的資訊。
 
 【極重要的反幻覺規則 — 違反就是嚴重錯誤】

@@ -9,7 +9,7 @@ const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const INLINE_LIMIT_BYTES = 15 * 1024 * 1024;
 
-const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的車牌辨識助理。
+const SYSTEM_PROMPT = `你是機車經銷商的車牌辨識助理。
 業務 / 技師會給你一張機車進站的照片、你的工作是 OCR 出車牌號碼。
 
 【極重要的反幻覺規則 — 違反就是嚴重錯誤】

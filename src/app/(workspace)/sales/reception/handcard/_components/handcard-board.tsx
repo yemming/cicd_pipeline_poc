@@ -52,6 +52,7 @@ type FormState = {
   customer_name: string;
   customer_phone: string;
   customer_email: string;
+  line_user_id: string;
   customer_identity: HandcardIdentity | '';
   assigned_rs_name: string;
   lead_grade: HandcardLeadGrade | '';
@@ -72,6 +73,7 @@ const emptyForm: FormState = {
   customer_name: '',
   customer_phone: '',
   customer_email: '',
+  line_user_id: '',
   customer_identity: '',
   assigned_rs_name: '',
   lead_grade: '',
@@ -186,6 +188,7 @@ export function HandcardBoard({
       customer_name: row.customer_name,
       customer_phone: row.customer_phone ?? '',
       customer_email: row.customer_email ?? '',
+      line_user_id: row.line_user_id ?? '',
       customer_identity: (row.customer_identity ?? '') as HandcardIdentity | '',
       assigned_rs_name: row.assigned_rs_name ?? '',
       lead_grade: (row.lead_grade ?? '') as HandcardLeadGrade | '',
@@ -214,6 +217,7 @@ export function HandcardBoard({
         customer_name: form.customer_name,
         customer_phone: form.customer_phone || null,
         customer_email: form.customer_email || null,
+        line_user_id: form.line_user_id || null,
         customer_identity: (form.customer_identity as HandcardIdentity) || null,
         assigned_rs_name: form.assigned_rs_name || null,
         lead_grade: (form.lead_grade as HandcardLeadGrade) || null,
@@ -693,6 +697,20 @@ export function HandcardBoard({
                       onChange={(e) => setForm((f) => ({ ...f, customer_email: e.target.value }))}
                     />
                   </div>
+                  <div className="flex flex-col gap-1">
+                    <label className={labelClass}>LINE ID</label>
+                    <input
+                      className={inputClass}
+                      placeholder="LINE 使用者 ID"
+                      value={form.line_user_id}
+                      onChange={(e) => setForm((f) => ({ ...f, line_user_id: e.target.value }))}
+                    />
+                  </div>
+                  {!form.customer_phone.trim() && !form.customer_email.trim() && !form.line_user_id.trim() && (
+                    <div className="col-span-2 px-3 py-2 rounded bg-[#FDF3E3] text-[#854F0B] text-[11.5px]">
+                      ⚠️ 手機 / Email / LINE 三管道全空——建立後將標記為「無效接待」
+                    </div>
+                  )}
                   <div className="flex flex-col gap-1">
                     <label className={labelClass}>客戶身份</label>
                     <select

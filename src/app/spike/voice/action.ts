@@ -10,7 +10,7 @@
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的接待手卡助理。
+const SYSTEM_PROMPT = `你是機車經銷商的接待手卡助理。
 業務（RS）會給你一段現場接待客戶的錄音、你的工作是轉錄與抽欄位。
 
 【極重要的反幻覺規則 — 違反就是嚴重錯誤】

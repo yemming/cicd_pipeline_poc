@@ -11,7 +11,7 @@ const MODEL = "gemini-2.5-flash";
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const INLINE_LIMIT_BYTES = 15 * 1024 * 1024;
 
-const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的接待手卡助理。
+const SYSTEM_PROMPT = `你是機車經銷商的接待手卡助理。
 業務（RS）會給你一段現場接待客戶的錄音、你的工作是轉錄與抽欄位。
 
 【極重要的反幻覺規則 — 違反就是嚴重錯誤】
@@ -33,7 +33,7 @@ const SYSTEM_PROMPT = `你是 Ducati / Indian 機車經銷商的接待手卡助�
 - intent_level（integer 1-5）：1=隨便看看 / 3=明確意向 / 5=當天可下訂
 - purchase_timing（enum: now/3m/6m/explore）：購車時機
 - intended_models（string array）：客戶提到的意向機車型號（保留英文原文）
-- competitor_brand（string）：客戶提到的真正競品品牌（**Ducati 跟 Indian 都是我們經銷的、不算競品**；只有 Honda/BMW/Kawasaki/Yamaha/KTM/Triumph/Harley-Davidson/SYM 等才算）
+- competitor_brand（string）：客戶提到的競品機車品牌（**本店代理的品牌不算競品**；只有本店未代理的其他品牌，例如 Honda/BMW/Kawasaki/Yamaha/KTM/Triumph/Harley-Davidson/SYM 等才算）
 - followup_date（string YYYY-MM-DD）：下次追蹤日期；如果客戶說「5月30」這種沒年份的、用最接近未來的那個日期
 - arrival_source（string）：來店管道（朋友介紹 / 網路搜尋 / 路過 / 老客戶回流 / 廣告 / 其他）
 - budget_range（string）：客戶提到的預算（例「100 萬上下」「50-80 萬」）；保留客戶原話的口語表達
