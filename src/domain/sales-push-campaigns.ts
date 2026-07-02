@@ -199,9 +199,19 @@ export async function previewCampaignAudience(input: {
   extra_conditions: CampaignExtraConditions;
   target_lead_ids?: string[] | null;
 }): Promise<number> {
-  // pull 模式：直接用指定名單數量
+  // pull 模式：查 DB 確認 has_valid_contact=true（排除無聯絡方式的無效接待）
   if (input.target_lead_ids && input.target_lead_ids.length > 0) {
-    return input.target_lead_ids.length;
+    const brand = (await getActiveScope()).brand_id;
+    const supabase = await createClient();
+    const table =
+      input.kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
+    const { count } = await supabase
+      .from(table)
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brand)
+      .in("id", input.target_lead_ids)
+      .eq("has_valid_contact", true);
+    return count ?? 0;
   }
 
   const brand = (await getActiveScope()).brand_id;

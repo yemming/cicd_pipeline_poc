@@ -419,11 +419,20 @@ export function PushNotificationsBoard({
             isPending={isPending}
             canEdit={canEdit}
             onSend={(id) => {
-              if (!confirm("確定發送此推播任務？發送後將推 LINE 通知並標記為已完成。")) return;
+              if (!confirm("確定發送此推播任務？發送後將依聯絡管道分流推播並標記為已完成。")) return;
               startTransition(async () => {
                 const res = await sendCampaignAction(id);
                 if (res.ok) {
-                  showBanner({ ok: true, msg: "✓ 已發送（推播摘要已推送 LINE）" });
+                  const { lineSent, lineFailed, emailPending, phoneOnly, excludedInvalid } =
+                    res.data;
+                  const parts: string[] = [];
+                  if (lineSent > 0) parts.push(`LINE 推播 ${lineSent} 筆`);
+                  if (lineFailed > 0) parts.push(`LINE 失敗 ${lineFailed} 筆`);
+                  if (emailPending > 0) parts.push(`待 Email 通道 ${emailPending} 筆`);
+                  if (phoneOnly > 0) parts.push(`只能電訪 ${phoneOnly} 筆`);
+                  if (excludedInvalid > 0) parts.push(`排除無效接待 ${excludedInvalid} 筆`);
+                  const detail = parts.length > 0 ? `（${parts.join("、")}）` : "";
+                  showBanner({ ok: true, msg: `✓ 已發送${detail}` });
                   router.refresh();
                 } else showBanner({ ok: false, msg: res.error });
               });

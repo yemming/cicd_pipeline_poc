@@ -32,6 +32,10 @@ export type DormantLeadRow = {
   name: string;
   phone: string | null;
   email: string | null;
+  /** LINE ID（多管道聯絡方式之一） */
+  line_user_id: string | null;
+  /** DB generated column：phone / email / line_user_id 任一非空則 true（唯讀） */
+  has_valid_contact: boolean;
   habc: string | null;
   intent_model: string | null;
   source: string | null;
@@ -94,6 +98,8 @@ type RawRow = {
   name: string;
   phone: string | null;
   email: string | null;
+  line_user_id?: string | null;
+  has_valid_contact?: boolean | null;
   habc: string | null;
   intent_model: string | null;
   source: string | null;
@@ -135,6 +141,8 @@ function shapeRow(r: RawRow, kind: DormantLeadKind): DormantLeadRow {
     name: r.name,
     phone: r.phone,
     email: r.email,
+    line_user_id: r.line_user_id ?? null,
+    has_valid_contact: r.has_valid_contact ?? false,
     habc: r.habc,
     intent_model: r.intent_model,
     source: r.source,

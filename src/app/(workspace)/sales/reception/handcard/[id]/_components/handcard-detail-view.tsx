@@ -389,6 +389,8 @@ export function HandcardDetailView({
         backorder_registered_at: form.backorder_registered_at ?? null,
         // 域C：候補車型 UUID FK
         backorder_vehicle_model_id: form.backorder_vehicle_model_id ?? null,
+        // LINE：多管道聯絡方式
+        line_user_id: form.line_user_id?.trim() || null,
       };
 
       if (!input.customer_name) {
@@ -1186,6 +1188,8 @@ function seedForm(handcard: HandcardRow | null): Partial<HandcardInput> {
     backorder_registered_at: handcard?.backorder_registered_at ?? null,
     // 域C：候補車型 UUID FK
     backorder_vehicle_model_id: handcard?.backorder_vehicle_model_id ?? null,
+    // LINE：多管道聯絡方式
+    line_user_id: handcard?.line_user_id ?? null,
   };
 }
 
@@ -1451,6 +1455,22 @@ function Step1Form({
           disabled={!editable}
         />
       </Field>
+      <Field label="LINE ID" editable={editable}>
+        <input
+          type="text"
+          className={inputClass}
+          placeholder="LINE userId 或顯示名稱"
+          value={form.line_user_id ?? ''}
+          onChange={(e) => setForm((f) => ({ ...f, line_user_id: e.target.value || null }))}
+          disabled={!editable}
+        />
+      </Field>
+      {/* 至少一個聯絡方式警示（前端即時判斷，不依賴 DB has_valid_contact） */}
+      {editable && !form.customer_phone?.trim() && !form.customer_email?.trim() && !form.line_user_id?.trim() && (
+        <div className="md:col-span-2 rounded-md px-3 py-2 bg-[#FDF3E3] text-[#854F0B] border border-[#F0C97E] text-[11.5px] leading-relaxed">
+          ⚠️ 未填任何聯絡方式（手機／Email／LINE 至少一項），此手卡將被標為「無有效接待」、不會被休眠喚醒任務納入
+        </div>
+      )}
       <Field label="年齡層" editable={editable}>
         <select
           className={inputClass}

@@ -67,6 +67,10 @@ export type HandcardRow = {
   backorder_registered_at: string | null;
   // 域C：候補車型改用 UUID FK 精確比對
   backorder_vehicle_model_id: string | null;
+  // LINE：多管道聯絡方式（LINE / 手機 / email 任一非空即有效）
+  line_user_id: string | null;
+  /** DB generated column：customer_phone / customer_email / line_user_id 任一非空則 true（唯讀，不可寫入） */
+  has_valid_contact: boolean;
 };
 
 // ── Filter 型別 ───────────────────────────────────────────────────────────
@@ -110,6 +114,8 @@ export type HandcardInput = {
   backorder_registered_at?: string | null;
   // 域C：候補車型 UUID FK（新，取代 backorder_model 自由文字）
   backorder_vehicle_model_id?: string | null;
+  // LINE：多管道聯絡方式
+  line_user_id?: string | null;
 };
 
 // ── 輪1-2：來源管道選項型別 ────────────────────────────────────────────────
@@ -531,6 +537,8 @@ export async function convertHandcardToLead(
       name: hc.customer_name,
       phone: hc.customer_phone,
       email: hc.customer_email,
+      // LINE：繼承手卡的 line_user_id，讓休眠喚醒任務可以用 LINE 聯絡
+      line_user_id: hc.line_user_id ?? null,
       habc: hc.lead_grade,
       intent_model: (hc.intended_models ?? []).join('、') || null,
       rs_name: hc.assigned_rs_name,

@@ -65,6 +65,8 @@ export async function createHandcardAction(
       backorder_registered_at: input.backorder_registered_at ?? null,
       // 域C：候補車型 UUID FK（精確比對用）
       backorder_vehicle_model_id: input.backorder_vehicle_model_id ?? null,
+      // LINE：多管道聯絡方式（trim 後空字串視為 null）
+      line_user_id: trim(input.line_user_id),
     };
 
     if (!cleaned.customer_name) {
