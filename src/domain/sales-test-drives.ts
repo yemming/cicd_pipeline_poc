@@ -426,6 +426,9 @@ export async function completeTestDrive(
 
   const meta: Record<string, unknown> = {
     ...prevMeta,
+    // wizard 完整評估快照先 merge（保留 prevMeta 的 signature / started_at，
+    // buildMetadata() 不含這兩鍵故不會覆蓋），標準欄位再壓上。
+    ...(payload.extraMetadata ?? {}),
     rating: payload.rating ?? null,
     feedback: payload.feedback ?? null,
     mileage_before: payload.mileage_before ?? null,

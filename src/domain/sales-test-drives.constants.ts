@@ -81,6 +81,12 @@ export type CompleteTestDriveInput = {
   mileage_after?: number | null;
   route_taken?: string | null;
   notes?: string | null;
+  /**
+   * wizard 完整評估快照（buildMetadata() 產出：overall_tone / power_feel …）。
+   * 於 completeTestDrive 內以 read-merge-write 併入 metadata，排在 prevMeta 之後、
+   * 標準欄位之前 —— 保留 signature / started_at 不被覆蓋。RS02 wizard 5 步流程用。
+   */
+  extraMetadata?: Record<string, unknown>;
 };
 
 export type CreateTestDriveInput = {

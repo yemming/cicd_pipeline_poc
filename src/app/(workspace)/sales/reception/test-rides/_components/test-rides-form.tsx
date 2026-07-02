@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
-import { createTestDriveAction, saveSafetyCheckNgItemsAction } from "@/lib/sales/test-drives-actions";
-import type { SafetyNgItem } from "@/domain/sales-test-drives.constants";
+import { createTestDriveAction, saveSafetyCheckNgItemsAction, startTestDriveWithSignatureAction, completeTestDriveAction } from "@/lib/sales/test-drives-actions";
+import { type SafetyNgItem, TEST_DRIVE_CONSENT_VERSION } from "@/domain/sales-test-drives.constants";
+import { SignatureCanvas } from "@/components/signature-canvas";
 import {
   SAFETY_CATEGORY_TITLES,
   TD_ERGONOMICS,
@@ -23,7 +24,7 @@ import {
   type SafetyCategory,
 } from "./test-rides.constants";
 
-type StepIdx = 1 | 2 | 3 | 4;
+type StepIdx = 1 | 2 | 3 | 4 | 5;
 type SafetyState = "ok" | "ng" | null;
 type OverallTone = "ok" | "amber" | "red" | null;
 
@@ -118,7 +119,14 @@ export default function TestRidesForm({
   const [escort, setEscort] = useState<string>(TD_ESCORT_MODES[0]);
   const [roadNote, setRoadNote] = useState("");
 
-  // STEP 4 評估
+  // STEP 3 簽名同意
+  const [insuranceVerified, setInsuranceVerified] = useState(false);
+  const [insuranceNote, setInsuranceNote] = useState("");
+  const [signedDataUrl, setSignedDataUrl] = useState<string | null>(null);
+  const [signError, setSignError] = useState<string | null>(null);
+  const [isSigning, startSigningTransition] = useTransition();
+
+  // STEP 4（原第 3）評估
   const [overall, setOverall] = useState<OverallTone>(null);
   const [powerFeel, setPowerFeel] = useState<string>(TD_POWER_FEEL[0]);
   const [handlingFeel, setHandlingFeel] = useState<string>(TD_HANDLING_FEEL[0]);
@@ -241,6 +249,32 @@ export default function TestRidesForm({
     });
   }
 
+  // Step 5 評估完成：記錄已在簽名步（Step 2→3）建立並簽名出車（in_progress）。
+  // 這裡用 completeTestDrive 把 wizard 完整評估（buildMetadata）以 read-merge-write
+  // 併入 metadata（保留簽名 / started_at）、切 completed、回寫手卡。
+  // ⚠️ 不能複用 handleSaveTestDrive 的去重分支——那條也被 Step 2→3 呼叫，
+  //    誤走 complete 會在「還沒進簽名步」就把記錄切 completed。
+  function handleCompleteTestDrive(afterDone?: (recordId: string) => void): void {
+    if (!savedRecordId) {
+      // 防禦：正常流程一定先經 Step 3 建過記錄；真的沒有就退回原 insert 流程。
+      handleSaveTestDrive(afterDone);
+      return;
+    }
+    const recordId = savedRecordId;
+    startSavingTransition(async () => {
+      const r = await completeTestDriveAction(recordId, {
+        notes: rsNote.trim() || null,
+        extraMetadata: buildMetadata(),
+      });
+      if (!r.ok) {
+        showToast(`❌ 儲存失敗：${r.error}`);
+        return;
+      }
+      showToast("✓ 試駕評估已儲存");
+      afterDone?.(recordId);
+    });
+  }
+
   // 駕照 OCR 跨 tab prefill：點按鈕 → 開新 tab 帶 token → 對方建客戶後寫 localStorage → 這邊接收
   function openDriverLicenseOcr() {
     if (typeof window === "undefined") return;
@@ -348,7 +382,7 @@ export default function TestRidesForm({
       <header className="flex items-center gap-2.5">
         <h1 className="text-[16px] font-semibold text-[#2C2C2A]">試乘試駕</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">RS02</span>
-        <span className="text-[12px] text-[#9A9890]">登記 → 安全確認 → 計時 → 結果評估＋黃金時刻</span>
+        <span className="text-[12px] text-[#9A9890]">登記 → 安全確認 → 簽名同意 → 計時 → 結果評估＋黃金時刻</span>
       </header>
 
       {/* Step Bar */}
@@ -702,21 +736,156 @@ export default function TestRidesForm({
             <Btn variant="ghost" size="sm" onClick={checkAll} testId="td-check-all">
               ✅ 全部 OK（測試）
             </Btn>
-            {/* A-5：未完成全部清單（含 NG 原因）→ disabled */}
+            {/* A-5：未完成全部清單（含 NG 原因）→ disabled；完成後先存記錄再進簽名步 */}
             <Btn
               variant="primary"
-              onClick={() => safetyAllDone && goStep(3)}
-              disabled={!safetyAllDone}
+              onClick={() => safetyAllDone && handleSaveTestDrive(() => goStep(3))}
+              disabled={!safetyAllDone || isSaving}
             >
-              {safetyAllDone ? "開始試駕計時 →" : `清單未完成（${safetyDoneCount}/${TD_SAFETY_ITEMS.length}）`}
+              {!safetyAllDone
+                ? `清單未完成（${safetyDoneCount}/${TD_SAFETY_ITEMS.length}）`
+                : isSaving
+                ? "儲存中⋯"
+                : "客戶簽名同意 →"}
             </Btn>
           </Footer>
         </div>
       )}
 
-      {/* STEP 3 */}
+      {/* STEP 3 — 簽名同意（新增） */}
       {step === 3 && (
-        <div className="space-y-3" data-test-pane="3">
+        <div
+          className={`space-y-3 ${isSigning ? "pointer-events-none opacity-60" : ""}`}
+          data-test-pane="3"
+        >
+          <Panel
+            icon="✍️"
+            iconBg="bg-[#FDF3E3]"
+            title="客戶簽名同意"
+            sub="出車前：客戶確認保險、閱讀條款並手寫簽名，簽名後開始試駕"
+          >
+            {/* 保險證明確認區塊 */}
+            <div className="rounded-lg border border-[#F0C97E] bg-[#FDF3E3] px-4 py-3">
+              <div className="flex items-start gap-3">
+                <input
+                  id="wiz-insurance-verified-check"
+                  type="checkbox"
+                  className="mt-0.5 w-4 h-4 accent-[#1A3A5C] cursor-pointer shrink-0"
+                  checked={insuranceVerified}
+                  onChange={(e) => setInsuranceVerified(e.target.checked)}
+                  disabled={isSigning}
+                />
+                <label
+                  htmlFor="wiz-insurance-verified-check"
+                  className="text-[12.5px] font-semibold text-[#854F0B] cursor-pointer leading-relaxed"
+                >
+                  ✓ 已確認客戶提供有效的機車強制責任保險證明
+                  <span className="text-[#CC0000] ml-1">*</span>
+                </label>
+              </div>
+              {!insuranceVerified && (
+                <p className="mt-1.5 text-[11px] text-[#854F0B] pl-7">
+                  保險證明未確認，無法開始試駕
+                </p>
+              )}
+              <div className="mt-2.5 pl-7">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  保險備注（選填）
+                </label>
+                <input
+                  type="text"
+                  className="mt-0.5 w-full h-[28px] border border-[#D5D3CB] rounded px-2 text-[12px] bg-white focus:border-[#185FA5] outline-none"
+                  placeholder="例：與駕照同人、本日有效至 2026/12/31"
+                  value={insuranceNote}
+                  onChange={(e) => setInsuranceNote(e.target.value)}
+                  disabled={isSigning}
+                />
+              </div>
+            </div>
+
+            {/* 免責條款條文 */}
+            <div className="mt-3 rounded-lg border border-[#EEECE6] bg-[#F8F7F4] px-4 py-3 text-[12px] text-[#5A5955] leading-relaxed max-h-[180px] overflow-y-auto">
+              <p className="font-medium text-[#2C2C2A] mb-1.5">試乘同意暨免責聲明</p>
+              <ol className="list-decimal pl-4 space-y-1">
+                <li>本人已持有合法有效之機車駕駛執照，並於試乘前確認車輛狀況正常。</li>
+                <li>試乘期間本人將遵守道路交通法規、配戴安全帽，並對自身行車安全負責。</li>
+                <li>試乘期間因本人之故意或過失所致之事故、罰單、車輛損害，由本人負擔賠償責任。</li>
+                <li>本人同意經銷商基於試乘服務目的，蒐集、處理及利用本人之個人資料。</li>
+                <li>本人已充分了解並同意上述條款，自願簽名出車試乘。</li>
+              </ol>
+            </div>
+
+            {/* 簽名板 */}
+            <div className="mt-3">
+              <div className="text-[11px] text-[#9A9890] font-medium mb-1.5">
+                客戶簽名 <span className="text-[#CC0000]">*</span>
+              </div>
+              {signedDataUrl ? (
+                <div className="space-y-2">
+                  <div className="border-2 border-[#0F6E56] rounded-xl overflow-hidden bg-white">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={signedDataUrl}
+                      alt="客戶簽名"
+                      className="w-full h-40 object-contain bg-neutral-50"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSignedDataUrl(null)}
+                    disabled={isSigning}
+                    className="text-[11.5px] text-[#185FA5] hover:underline disabled:opacity-40"
+                  >
+                    ↺ 重新簽名
+                  </button>
+                </div>
+              ) : (
+                <SignatureCanvas onSigned={(dataUrl) => setSignedDataUrl(dataUrl)} />
+              )}
+            </div>
+
+            {signError && (
+              <div className="mt-3 rounded-md bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] text-[12px] px-3 py-2">
+                {signError}
+              </div>
+            )}
+          </Panel>
+          <Footer>
+            <Btn variant="ghost" onClick={() => goStep(2)}>
+              ← 返回
+            </Btn>
+            <Btn
+              variant="primary"
+              onClick={() => {
+                if (!(insuranceVerified && !!signedDataUrl && !!savedRecordId)) return;
+                setSignError(null);
+                startSigningTransition(async () => {
+                  const res = await startTestDriveWithSignatureAction(savedRecordId!, {
+                    dataUrl: signedDataUrl!,
+                    signerName: customerName || undefined,
+                    consentVersion: TEST_DRIVE_CONSENT_VERSION,
+                    insuranceVerified: true,
+                    insuranceNote: insuranceNote.trim() || undefined,
+                  });
+                  if (res.ok) {
+                    showToast("✓ 已簽名，開始試駕");
+                    goStep(4);
+                  } else {
+                    setSignError(res.error);
+                  }
+                });
+              }}
+              disabled={!(insuranceVerified && !!signedDataUrl && !!savedRecordId) || isSigning}
+            >
+              {isSigning ? "儲存中⋯" : "確認簽名並開始試駕 →"}
+            </Btn>
+          </Footer>
+        </div>
+      )}
+
+      {/* STEP 4（原第 3） — 試駕計時 */}
+      {step === 4 && (
+        <div className="space-y-3" data-test-pane="4">
           <Panel
             icon="⏱️"
             iconBg="bg-[#E1F5EE]"
@@ -792,19 +961,19 @@ export default function TestRidesForm({
             </div>
           </Panel>
           <Footer>
-            <Btn variant="ghost" onClick={() => goStep(2)}>
+            <Btn variant="ghost" onClick={() => goStep(3)}>
               ← 返回
             </Btn>
-            <Btn variant="primary" onClick={() => goStep(4)}>
+            <Btn variant="primary" onClick={() => goStep(5)}>
               試駕結束 → 結果評估
             </Btn>
           </Footer>
         </div>
       )}
 
-      {/* STEP 4 */}
-      {step === 4 && (
-        <div className="space-y-3" data-test-pane="4">
+      {/* STEP 5（原第 4） — 結束評估 · 黃金時刻 */}
+      {step === 5 && (
+        <div className="space-y-3" data-test-pane="5">
           {/* 黃金時刻 */}
           <div className="rounded-xl p-6 text-white text-center bg-gradient-to-br from-[#7A1010] to-[#C8001A]">
             <div className="text-[20px] font-bold mb-1.5">⚡ 黃金時刻</div>
@@ -949,7 +1118,7 @@ export default function TestRidesForm({
           <Footer>
             <Btn
               variant="ghost"
-              onClick={() => handleSaveTestDrive()}
+              onClick={() => handleCompleteTestDrive()}
               disabled={isSaving}
             >
               {isSaving
@@ -961,7 +1130,7 @@ export default function TestRidesForm({
             <Btn
               variant="teal"
               onClick={() =>
-                handleSaveTestDrive(() => {
+                handleCompleteTestDrive(() => {
                   setTimeout(
                     () => router.push("/sales/reception/test-rides"),
                     700,
@@ -975,7 +1144,7 @@ export default function TestRidesForm({
             <Btn
               variant="red"
               onClick={() =>
-                handleSaveTestDrive(() => {
+                handleCompleteTestDrive(() => {
                   setTimeout(() => router.push("/sales/quote/new"), 700);
                 })
               }

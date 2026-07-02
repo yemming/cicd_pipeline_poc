@@ -121,6 +121,7 @@ export const TD_SKIP_REASONS = [
 export const TD_STEPS = [
   { idx: 1, label: "試駕登記" },
   { idx: 2, label: "安全確認清單" },
-  { idx: 3, label: "試駕計時" },
-  { idx: 4, label: "結束評估 · 黃金時刻" },
+  { idx: 3, label: "簽名同意" },
+  { idx: 4, label: "試駕計時" },
+  { idx: 5, label: "結束評估 · 黃金時刻" },
 ] as const;
