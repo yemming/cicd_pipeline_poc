@@ -36,6 +36,8 @@ import {
   type PromoStatus,
 } from "@/domain/group-analytics-labels";
 import type { PromoCampaign } from "@/domain/group-promotions";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import type { BrandKey } from "@/lib/brands/types";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit" | "create";
@@ -114,6 +116,7 @@ export type PromotionDetailViewProps = {
 
 export function PromotionDetailView({ campaign, initialMode, canEdit, brandId }: PromotionDetailViewProps) {
   const router = useRouter();
+  const brandDisplayName = brandConfigs[brandId as BrandKey]?.displayName ?? brandId;
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [banner, setBanner] = useState<Banner>(null);
@@ -671,7 +674,7 @@ export function PromotionDetailView({ campaign, initialMode, canEdit, brandId }:
               >
                 <div className="absolute top-3 right-3 text-[20px] opacity-60">🏍</div>
                 <div className="text-[10px] tracking-[0.2em] uppercase mb-2" style={{ color: tpl.sub }}>
-                  INDIAN MOTORCYCLE TAIWAN
+                  {brandDisplayName}
                 </div>
                 <div className="text-[19px] font-bold leading-snug mb-1">{form.poster_title || form.name || "活動名稱"}</div>
                 <div className="text-[34px] font-bold leading-none my-1.5">{form.poster_discount || "限時優惠"}</div>

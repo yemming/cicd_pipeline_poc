@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { getAftersalesModuleProgress } from "@/domain/navigation";
+import { getActiveScope } from "@/lib/scope/active-scope";
+import { getBrandConfig } from "@/domain/brand-config";
 
 /**
  * <AftersalesFlowDiagram> — 售後修護模組導覽 / 流程關係圖共用 server component
@@ -185,13 +187,18 @@ export default async function AftersalesFlowDiagram({
   backHref,
   backLabel = "← 模組總覽",
 }: AftersalesFlowDiagramProps = {}) {
-  const progress = await getAftersalesModuleProgress();
+  const [progress, scope] = await Promise.all([
+    getAftersalesModuleProgress(),
+    getActiveScope(),
+  ]);
+  const cfg = await getBrandConfig(scope.brand_id);
+  const brandName = cfg.brandName ?? scope.brand_id;
 
   return (
     <main className="px-6 py-5 space-y-3" data-testid="aftersales-flow-diagram">
       {/* ── 1. Hero header ───────────────────────────────────────── */}
       <header className="bg-[#1A3A5C] text-white rounded-lg px-5 py-3 flex items-center gap-4 shadow">
-        <div className="text-[17px] font-bold tracking-[2px]">DUCATI</div>
+        <div className="text-[17px] font-bold tracking-[2px]">{brandName}</div>
         <div className="w-px h-5 bg-white/20" />
         <div className="text-[13px] text-white/60">
           售後工單模組 <b className="text-white font-medium">功能流程關係圖</b>

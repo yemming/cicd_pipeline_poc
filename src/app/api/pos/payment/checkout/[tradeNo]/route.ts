@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getBrandConfig } from "@/domain/brand-config";
 
 const ECPAY_CHECKOUT =
   process.env.ECPAY_ENV === "prod"
@@ -15,7 +16,7 @@ export async function GET(
   const db = createServiceClient();
   const { data } = await db
     .from("pos_payment_orders")
-    .select("form_params, status, expires_at")
+    .select("form_params, status, expires_at, brand_id")
     .eq("merchant_trade_no", tradeNo)
     .single();
 
@@ -34,6 +35,10 @@ export async function GET(
     return new NextResponse("訂單已過期", { status: 410 });
   }
 
+  // 動態取品牌名稱
+  const cfg = await getBrandConfig(data.brand_id);
+  const brandName = cfg.brandName ?? data.brand_id;
+
   // 產生自動送出的 form → ECPay AIO
   const formParams = data.form_params as Record<string, string>;
   const inputs = Object.entries(formParams)
@@ -45,7 +50,7 @@ export async function GET(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Ducati Taipei 付款中...</title>
+  <title>${brandName} 付款中...</title>
   <style>
     body { margin: 0; display: flex; align-items: center; justify-content: center;
            height: 100vh; font-family: sans-serif; background: #f8f8f8; }
@@ -60,7 +65,7 @@ export async function GET(
 </head>
 <body>
   <div class="card">
-    <div class="logo">DUCATI</div>
+    <div class="logo">${brandName}</div>
     <p class="msg">正在導向付款頁面…</p>
     <div class="spin"></div>
     <form id="f" action="${ECPAY_CHECKOUT}" method="POST">

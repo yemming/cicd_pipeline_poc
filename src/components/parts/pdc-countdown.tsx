@@ -18,6 +18,9 @@
  */
 
 import { useEffect, useState } from "react";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import type { BrandKey } from "@/lib/brands/types";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 type Cutoff = {
   key: string;
@@ -72,6 +75,15 @@ function fmtCountdown(sec: number): string {
 }
 
 export function PdcCountdown({ className }: { className?: string }) {
+  // 動態品牌名稱（依當前 scope，避免 Indian 員工看到 DUCATI 字樣）
+  const activeBrand = useActiveBrand();
+  const brandDisplayName = brandConfigs[activeBrand as BrandKey]?.displayName ?? activeBrand;
+
+  // 以動態品牌名取代 top-level CUTOFFS 的 "ducati" label（key 保留原值作資料結構 id）
+  const cutoffs: Cutoff[] = CUTOFFS.map((c) =>
+    c.key === "ducati" ? { ...c, label: `${brandDisplayName} 原廠` } : c,
+  );
+
   // null = 尚未 mount（SSR / 首次 render）→ 顯示靜態 placeholder 避免 hydration mismatch。
   // 不在 effect body 直接 setState（會觸發 cascading render）；改由 rAF / interval 兩個外部 callback 驅動。
   const [now, setNow] = useState<{ hour: number; minute: number; second: number } | null>(null);
@@ -94,7 +106,7 @@ export function PdcCountdown({ className }: { className?: string }) {
       <span className="material-symbols-outlined text-[16px] text-[#9A9890]">schedule</span>
       <span className="text-[11px] text-[#9A9890] font-medium whitespace-nowrap">供應商截單</span>
       <div className="flex items-center gap-3">
-        {CUTOFFS.map((c) => {
+        {cutoffs.map((c) => {
           const computed = now ? computeFor(c, now) : null;
           let valueNode: React.ReactNode;
           let valueClass = "text-[#2C2C2A]";

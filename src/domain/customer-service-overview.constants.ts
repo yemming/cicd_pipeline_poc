@@ -81,7 +81,7 @@ export type CsOverviewKpi = {
 
 // ── Hero ────────────────────────────────────────────────
 export const CS_OVERVIEW_HERO: CsOverviewHero = {
-  title: "DUCATI CRM 客服管理模組",
+  title: "CRM 客服管理模組",  // 品牌名由 board 動態注入，勿在此硬編碼
   description:
     "覆蓋銷售（RS）× 售後（SA）兩條線的客戶關係管理：電訪問卷設計、電訪任務工作台、休眠流失激活、NPS 滿意度看板、推播通知、店長跨部門綜合報表。RS05 交車後自動觸發 SA 側 CRM01B 建檔,形成完整客戶生命週期閉環。",
   stats: [

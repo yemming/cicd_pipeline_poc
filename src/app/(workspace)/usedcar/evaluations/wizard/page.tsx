@@ -36,6 +36,8 @@ import {
   uploadLoanClearanceDocAction,
 } from "@/lib/used-car/evaluation-actions";
 import type { UsedCarEvaluationWithCustomer } from "@/domain/used-car-evaluations";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 // ============================================================
 // 常數
@@ -283,6 +285,7 @@ function fmt(v: number) {
 export default function UsedCarEvaluationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const brandName = brandConfigs[useActiveBrand()].displayName;
 
   useSetPageHeader({
     breadcrumb: [
@@ -304,7 +307,7 @@ export default function UsedCarEvaluationPage() {
     }
     return "";
   });
-  const [brand, setBrand] = useState("DUCATI");
+  const [brand, setBrand] = useState(brandName);
   const [model, setModel] = useState("Panigale V2（2021）");
   const [year, setYear] = useState("2021");
   const [vin, setVin] = useState("");

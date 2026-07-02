@@ -22,6 +22,8 @@ import {
   rejectUsedPurchaseAction,
   type UsedPurchaseFormInput,
 } from "@/lib/vehicle-inventory/used-purchase-actions";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 const BASE = "/sales/inventory/used-purchase";
 
@@ -80,6 +82,7 @@ export default function UsedPurchaseWizard({
   canEdit: boolean;
 }) {
   const router = useRouter();
+  const activeBrandDisplayName = brandConfigs[useActiveBrand()].displayName;
   useSetPageHeader({
     breadcrumb: [
       { label: "中古車收購申請", href: BASE },
@@ -98,7 +101,7 @@ export default function UsedPurchaseWizard({
 
   // STEP 2
   const [vin, setVin] = useState("");
-  const [brandName, setBrandName] = useState("Indian Motorcycle");
+  const [brandName, setBrandName] = useState(activeBrandDisplayName);
   const [modelName, setModelName] = useState("");
   const [year, setYear] = useState("");
   const [color, setColor] = useState("");

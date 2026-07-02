@@ -6,6 +6,7 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getBrandConfig } from "@/domain/brand-config";
 
 export type PrintBrandInfo = { key: string; displayName: string };
 export type PrintBuyerInfo = {
@@ -15,23 +16,17 @@ export type PrintBuyerInfo = {
   phone?: string | null;
 };
 
-// brand registry 是 client-side 靜態資料、不能 server import；兩個品牌直接對映
-const BRAND_DISPLAY_NAME: Record<string, string> = {
-  ducati: "Ducati Taiwan",
-  indian: "Indian Motorcycle Taiwan",
-};
-
-export function brandDisplayName(brandId: string): string {
-  return BRAND_DISPLAY_NAME[brandId] ?? brandId;
-}
-
 /** 撈買方法人抬頭（subsidiaries），給 PrintShell 的 letterhead 用 */
 export async function getPrintBrandBuyer(
   brandId: string,
   subsidiaryId: string | null,
 ): Promise<{ brand: PrintBrandInfo; buyer: PrintBuyerInfo }> {
-  const supabase = await createClient();
-  let buyer: PrintBuyerInfo = { legalName: brandDisplayName(brandId) };
+  const [supabase, cfg] = await Promise.all([
+    createClient(),
+    getBrandConfig(brandId),
+  ]);
+  const displayName = cfg.brandName ?? brandId;
+  let buyer: PrintBuyerInfo = { legalName: displayName };
   if (subsidiaryId) {
     const { data } = await supabase
       .from("subsidiaries")
@@ -40,7 +35,7 @@ export async function getPrintBrandBuyer(
       .maybeSingle();
     if (data) {
       buyer = {
-        legalName: data.legal_name ?? brandDisplayName(brandId),
+        legalName: data.legal_name ?? displayName,
         taxId: data.tax_id ?? null,
         address: data.address ?? null,
         phone: data.phone ?? null,
@@ -48,7 +43,7 @@ export async function getPrintBrandBuyer(
     }
   }
   return {
-    brand: { key: brandId, displayName: brandDisplayName(brandId) },
+    brand: { key: brandId, displayName },
     buyer,
   };
 }

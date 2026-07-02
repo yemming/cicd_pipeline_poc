@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { getBrandConfig } from "@/domain/brand-config";
 import { releaseWaitingForItem } from "@/domain/parts-waiting";
 
 import type { Database } from "@/lib/database.types";
@@ -2011,11 +2012,8 @@ export async function getTransferForPrint(
 
   const supabase = await createClient();
   const scope = await getActiveScope();
-
-  const brandDisplayName: Record<string, string> = {
-    ducati: "Ducati Taiwan",
-    indian: "Indian Motorcycle Taiwan",
-  };
+  const brandCfg = await getBrandConfig(scope.brand_id);
+  const brandName = brandCfg.brandName ?? scope.brand_id;
 
   // 補撈：subsidiary（letterhead） + 兩倉完整資訊（含 org 名）+ items 規格
   const [subsRes, srcWhRes, tgtWhRes] = await Promise.all([
@@ -2089,7 +2087,7 @@ export async function getTransferForPrint(
     },
     brand: {
       key: scope.brand_id,
-      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+      displayName: brandName,
     },
     fromWarehouse: {
       code: srcWhRes.data?.code ?? null,

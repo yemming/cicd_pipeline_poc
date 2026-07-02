@@ -11,6 +11,8 @@ import type {
   CsModuleFileVersionTone,
 } from "@/domain/customer-service-overview.constants";
 import type { CustomerServiceOverviewData } from "@/domain/customer-service-overview";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 // 模組卡片 accent 色票
 const CARD_ACCENT: Record<CsModuleAccent, { bg: string; border: string }> = {
@@ -79,6 +81,8 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 export default function CsOverviewBoard({ data }: { data: CustomerServiceOverviewData }) {
+  const brandName = brandConfigs[useActiveBrand()].displayName;
+
   useSetPageHeader({
     title: "客服功能導覽",
     breadcrumb: [{ label: "客服管理" }, { label: "客服功能導覽" }],
@@ -112,7 +116,7 @@ export default function CsOverviewBoard({ data }: { data: CustomerServiceOvervie
         style={{ background: "linear-gradient(135deg,#0D2B47 0%,#1A3A5C 45%,#8B0010 100%)" }}
       >
         <div className="relative z-10 max-w-[640px]">
-          <h1 className="text-[20px] font-bold mb-1.5 tracking-wide">🎧 {data.hero.title}</h1>
+          <h1 className="text-[20px] font-bold mb-1.5 tracking-wide">🎧 {brandName} {data.hero.title}</h1>
           <p className="text-[12.5px] leading-[1.75] opacity-80">{data.hero.description}</p>
         </div>
         <div className="flex gap-2.5 flex-wrap relative z-10">

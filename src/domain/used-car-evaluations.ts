@@ -14,6 +14,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { createUsedCar } from "@/domain/used-car-inventory";
+import { getBrandConfig } from "@/domain/brand-config";
 import type { CreateUsedCarInput } from "@/domain/used-car-inventory";
 
 // 純常數抽到 .constants（無 server 相依），client component 可直接 import 那支；
@@ -462,11 +463,6 @@ export type UsedCarEvaluationForPrint = {
   expires_at: string | null;
 };
 
-const BRAND_DISPLAY_NAME: Record<string, string> = {
-  ducati: "Ducati 杜卡迪",
-  indian: "Indian Motorcycle 印地安",
-};
-
 export async function getEvaluationForPrint(
   id: string,
 ): Promise<UsedCarEvaluationForPrint | null> {
@@ -508,6 +504,8 @@ export async function getEvaluationForPrint(
     subsidiaryRes = (data as unknown as SubsidiaryLetterhead) ?? null;
   }
 
+  const brandCfg = await getBrandConfig(evalRow.brand_id);
+
   return {
     id: evalRow.id,
     eval_no: evalRow.eval_no,
@@ -515,7 +513,7 @@ export async function getEvaluationForPrint(
     status: evalRow.status,
     brand: {
       key: evalRow.brand_id,
-      displayName: BRAND_DISPLAY_NAME[evalRow.brand_id] ?? evalRow.brand_id,
+      displayName: brandCfg.brandName ?? evalRow.brand_id,
     },
     seller: {
       legalName: subsidiaryRes?.legal_name ?? "—",

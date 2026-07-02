@@ -17,12 +17,14 @@ import {
   PERF_YEAR_TOTALS,
   QUOTE_STATES,
   RS_LIST,
-  SCRIPTS,
+  buildScripts,
   type InsCase,
   type InsType,
   type InsUrgency,
   type LostReasonOption,
 } from "./insurance.constants";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 type TabKey = "renew" | "new" | "perf";
 type UrgencyFilter = "all" | InsUrgency;
@@ -94,6 +96,11 @@ export default function InsuranceBoard({ lostReasons = [] }: Props = {}) {
       { label: "保險業務" },
     ],
   });
+
+  // Pattern B：client 端動態品牌名，避免話術寫死品牌
+  const activeBrand = useActiveBrand();
+  const brandName = brandConfigs[activeBrand]?.displayName ?? activeBrand;
+  const scripts = buildScripts(brandName);
 
   const [cases, setCases] = useState<InsCase[]>(() =>
     [...INS_CASES_SEED, ...DONE_CASES_SEED].map((c) => ({ ...c })),
@@ -488,7 +495,7 @@ export default function InsuranceBoard({ lostReasons = [] }: Props = {}) {
                           <div className="bg-[#1A3A5C] rounded-lg p-3 mb-3 text-white">
                             <div className="text-[9.5px] font-bold tracking-wide uppercase opacity-60 mb-1.5 flex items-center gap-2 flex-wrap">
                               話術模板（主管設定 · RS 唯讀）
-                              {SCRIPTS.map((s, i) => (
+                              {scripts.map((s, i) => (
                                 <button
                                   key={s.tag}
                                   onClick={() => setScriptIdx((p) => ({ ...p, [c.id]: i }))}
@@ -501,7 +508,7 @@ export default function InsuranceBoard({ lostReasons = [] }: Props = {}) {
                                 </button>
                               ))}
                             </div>
-                            <div className="text-[12.5px] leading-[1.8] opacity-90">{SCRIPTS[sIdx].text}</div>
+                            <div className="text-[12.5px] leading-[1.8] opacity-90">{scripts[sIdx].text}</div>
                           </div>
 
                           {/* history */}

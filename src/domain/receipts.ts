@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { getBrandConfig } from "@/domain/brand-config";
 import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
 import { postCostEvent } from "@/domain/costing";
 import { releaseWaitingForItem } from "@/domain/parts-waiting";
@@ -1447,11 +1448,8 @@ export async function getReceiptForPrint(
 
   const supabase = await createClient();
   const scope = await getActiveScope();
-
-  const brandDisplayName: Record<string, string> = {
-    ducati: "Ducati Taiwan",
-    indian: "Indian Motorcycle Taiwan",
-  };
+  const brandCfg = await getBrandConfig(scope.brand_id);
+  const brandName = brandCfg.brandName ?? scope.brand_id;
 
   // 撈 source po_lines 的 qty_ordered（給「應收」欄）— 只有 source_doc_type=purchase_order 才撈
   const lineIds = detail.lines.map((l) => l.id);
@@ -1550,7 +1548,7 @@ export async function getReceiptForPrint(
     },
     brand: {
       key: scope.brand_id,
-      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+      displayName: brandName,
     },
     vendor: {
       code: supRes.data?.code ?? null,

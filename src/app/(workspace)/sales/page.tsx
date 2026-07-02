@@ -5,6 +5,8 @@ import {
   ModuleHomeGallery,
   type ModuleHomeGalleryProps,
 } from "@/components/module-home-gallery";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 /**
  * /sales — 銷售接待模組首頁（v2 圖卡導覽）
@@ -18,7 +20,7 @@ import {
  */
 
 const HERO: ModuleHomeGalleryProps["hero"] = {
-  title: "🏍️ DUCATI 銷售接待模組",
+  title: "",  // 由 SalesHomePage() 依品牌動態覆蓋，勿在此硬編碼
   description:
     "完整覆蓋銷售（RS）與售後（SA）雙側流程：接待建檔 → 試駕 → 庫存 → 鑑價 → 報價訂單 → 交車 → 售後保養 → CRM 追蹤 → 店長報表。RS05 交車後自動觸發 SA 側 CRM01B 建檔,形成完整客戶生命週期閉環。",
   stats: [
@@ -374,10 +376,13 @@ const PANELS: ModuleHomeGalleryProps["panels"] = [
 ];
 
 export default function SalesHomePage() {
+  const brandName = brandConfigs[useActiveBrand()].displayName;
+  const hero = { ...HERO, title: `🏍️ ${brandName} 銷售接待模組` };
+
   useSetPageHeader({
     title: "銷售接待",
     breadcrumb: [{ label: "銷售接待" }],
   });
 
-  return <ModuleHomeGallery hero={HERO} kpis={KPIS} panels={PANELS} />;
+  return <ModuleHomeGallery hero={hero} kpis={KPIS} panels={PANELS} />;
 }

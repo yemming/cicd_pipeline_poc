@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { getBrandConfig } from "@/domain/brand-config";
 
 import type { Database } from "@/lib/database.types";
 
@@ -543,13 +544,10 @@ export async function getPurchaseOrderForPrint(
 
   const supabase = await createClient();
   const scope = await getActiveScope();
+  const brandCfg = await getBrandConfig(scope.brand_id);
+  const brandName = brandCfg.brandName ?? scope.brand_id;
 
   // 補撈：subsidiary 法人資訊 + supplier 完整聯絡資訊 + warehouse 地址
-  // brand registry 是 client-side 靜態資料、不能 server import；改用 hard-coded 對映（兩個品牌而已）
-  const brandDisplayName: Record<string, string> = {
-    ducati: "Ducati Taiwan",
-    indian: "Indian Motorcycle Taiwan",
-  };
 
   const [subsRes, supRes, whRes] = await Promise.all([
     supabase
@@ -584,7 +582,7 @@ export async function getPurchaseOrderForPrint(
     },
     brand: {
       key: scope.brand_id,
-      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+      displayName: brandName,
     },
     vendor: {
       code: supRes.data?.code ?? detail.vendor_code,

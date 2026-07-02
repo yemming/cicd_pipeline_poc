@@ -76,7 +76,7 @@ export type SalesOverviewKpi = {
 
 // ── Hero ────────────────────────────────────────────────
 export const SALES_OVERVIEW_HERO: SalesOverviewHero = {
-  title: "DUCATI 全系統模組導覽（RS + SA + CRM）",
+  title: "全系統模組導覽（RS + SA + CRM）",  // 品牌名由 board 動態注入，勿在此硬編碼
   description:
     "完整覆蓋銷售（RS）與售後（SA）雙側流程：接待建檔 → 試駕 → 庫存 → 交車 → 售後保養 → CRM 追蹤 → 店長報表。RS05 交車後自動觸發 SA 側 CRM01B 建檔，形成完整客戶生命週期閉環。",
   stats: [

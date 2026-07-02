@@ -19,6 +19,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { getBrandConfig } from "@/domain/brand-config";
 
 import type {
   CreateSalesQuoteInput,
@@ -548,12 +549,8 @@ export async function getSalesQuoteForPrint(
 
   const supabase = await createClient();
   const scope = await getActiveScope();
-
-  // brand registry 是 client-side 靜態資料、不能 server import；改 hard-coded（兩個品牌）
-  const brandDisplayName: Record<string, string> = {
-    ducati: "Ducati Taiwan",
-    indian: "Indian Motorcycle Taiwan",
-  };
+  const brandCfg = await getBrandConfig(scope.brand_id);
+  const brandName = brandCfg.brandName ?? scope.brand_id;
 
   const [subsRes, custRes, modelRes] = await Promise.all([
     supabase
@@ -593,7 +590,7 @@ export async function getSalesQuoteForPrint(
     },
     brand: {
       key: scope.brand_id,
-      displayName: brandDisplayName[scope.brand_id] ?? scope.brand_id,
+      displayName: brandName,
     },
     customer: {
       code: custRes.data?.code ?? null,

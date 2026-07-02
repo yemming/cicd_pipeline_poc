@@ -118,6 +118,6 @@ export type HandcardIdentity = "new" | "revisit" | "owner" | "switcher";
 export const IDENTITY_LABELS: Record<HandcardIdentity, string> = {
   new: "首次來訪",
   revisit: "潛客再訪",
-  owner: "DUCATI 老車主",
+  owner: "本品牌老車主",
   switcher: "他牌換購",
 };

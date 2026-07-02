@@ -27,6 +27,8 @@ import {
   type HandcardIdentity,
 } from "@/domain/handcard-suggestions";
 import { useHandcard } from "@/lib/handcard-store";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 const STAFF_LIST = ["陳建志", "林佳蓉", "王俊傑", "黃雅婷", "劉明宏", "張惠如"];
 
@@ -43,17 +45,6 @@ const BIKES = [
   "Hypermotard",
 ];
 
-const IDENTITY_CARDS: Array<{
-  key: HandcardIdentity;
-  icon: string;
-  hint: string;
-}> = [
-  { key: "new", icon: "🆕", hint: "從未到訪，無歷史記錄" },
-  { key: "revisit", icon: "🔄", hint: "曾建檔，自動帶出上次資訊" },
-  { key: "owner", icon: "🏍️", hint: "現有 DUCATI 車主回廠或洽換新車" },
-  { key: "switcher", icon: "🔀", hint: "其他品牌車主考慮換購" },
-];
-
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -66,7 +57,19 @@ function toTimeStr(d: Date) {
 
 export default function CounterPage() {
   const router = useRouter();
+  const brandName = brandConfigs[useActiveBrand()].displayName;
   const { state, patch, hydrated } = useHandcard();
+
+  const IDENTITY_CARDS: Array<{
+    key: HandcardIdentity;
+    icon: string;
+    hint: string;
+  }> = [
+    { key: "new", icon: "🆕", hint: "從未到訪，無歷史記錄" },
+    { key: "revisit", icon: "🔄", hint: "曾建檔，自動帶出上次資訊" },
+    { key: "owner", icon: "🏍️", hint: `現有 ${brandName} 車主回廠或洽換新車` },
+    { key: "switcher", icon: "🔀", hint: "其他品牌車主考慮換購" },
+  ];
 
   useSetPageHeader({
     breadcrumb: [
@@ -221,7 +224,7 @@ export default function CounterPage() {
               className="bg-[#EAF4FB] border border-[#B6D7EB] rounded-lg px-4 py-3 text-[12.5px] text-[#185FA5]"
               data-testid="handcard-owner-block"
             >
-              <div className="font-semibold mb-1">🏍️ DUCATI 老車主車輛資料 — 自動帶出</div>
+              <div className="font-semibold mb-1">🏍️ {brandName} 老車主車輛資料 — 自動帶出</div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-[11.5px]">
                 <div><b>VIN：</b>ZDM****19</div>
                 <div><b>車型：</b>Monster 821</div>

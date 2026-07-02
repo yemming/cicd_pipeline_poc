@@ -5,6 +5,8 @@ import {
   ModuleHomeGallery,
   type ModuleHomeGalleryProps,
 } from "@/components/module-home-gallery";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 /**
  * /parts — 庫存管理模組首頁（v2 圖卡導覽）
@@ -19,7 +21,7 @@ import {
  */
 
 const HERO: ModuleHomeGalleryProps["hero"] = {
-  title: "🏍️ DUCATI 庫存管理模組",
+  title: "",  // 由 PartsHomePage() 依品牌動態覆蓋，勿在此硬編碼
   description:
     "涵蓋採購、入庫、出庫、庫存作業、盤點、預警告警、保固索賠、分析報表全流程。RO 工單串接領料、原廠 DMS 到貨匯入、調撥在途追蹤、三層告警階層升階,構成完整零件生命週期閉環。",
   stats: [
@@ -588,10 +590,13 @@ const PANELS: ModuleHomeGalleryProps["panels"] = [
 ];
 
 export default function PartsHomePage() {
+  const brandName = brandConfigs[useActiveBrand()].displayName;
+  const hero = { ...HERO, title: `🏍️ ${brandName} 庫存管理模組` };
+
   useSetPageHeader({
     title: "庫存管理",
     breadcrumb: [{ label: "庫存管理" }],
   });
 
-  return <ModuleHomeGallery hero={HERO} kpis={KPIS} panels={PANELS} />;
+  return <ModuleHomeGallery hero={hero} kpis={KPIS} panels={PANELS} />;
 }

@@ -5,6 +5,8 @@ import {
   ModuleHomeGallery,
   type ModuleHomeGalleryProps,
 } from "@/components/module-home-gallery";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 /**
  * /crm — 客服管理模組首頁（v2 圖卡導覽）
@@ -16,7 +18,7 @@ import {
  */
 
 const HERO: ModuleHomeGalleryProps["hero"] = {
-  title: "🎧 DUCATI CRM 客服管理模組",
+  title: "",  // 由 CrmHomePage() 依品牌動態覆蓋，勿在此硬編碼
   description:
     "覆蓋銷售（RS）× 售後（SA）兩條線的客戶關係管理：電訪問卷設計、電訪任務工作台、休眠流失激活、NPS 滿意度看板、推播通知、店長跨部門綜合報表。RS05 交車後自動觸發 SA 側 CRM01B 建檔,形成完整客戶生命週期閉環。",
   stats: [
@@ -229,10 +231,13 @@ const PANELS: ModuleHomeGalleryProps["panels"] = [
 ];
 
 export default function CrmHomePage() {
+  const brandName = brandConfigs[useActiveBrand()].displayName;
+  const hero = { ...HERO, title: `🎧 ${brandName} CRM 客服管理模組` };
+
   useSetPageHeader({
     title: "CRM 客服管理",
     breadcrumb: [{ label: "客服管理" }],
   });
 
-  return <ModuleHomeGallery hero={HERO} kpis={KPIS} panels={PANELS} />;
+  return <ModuleHomeGallery hero={hero} kpis={KPIS} panels={PANELS} />;
 }

@@ -146,15 +146,20 @@ export const CALL_TYPE_COLOR: Record<CallTaskType, CallTypeColor> = {
   nps_interview: "purple",
 };
 
-/** 預設話術範本（Phase 1 寫死前端常數，未來搬到 survey_templates） */
-export const CALL_SCRIPT_TEMPLATES: Record<
+/** 預設話術範本（Phase 1 寫死前端常數，未來搬到 survey_templates）
+ *
+ * 改用 function 注入 brandName，避免品牌文字硬編碼
+ * （呼叫端：client component 用 Pattern B 取 brandName 後呼叫此函式）
+ */
+export function buildCallScriptTemplates(brandName: string): Record<
   CallTaskType,
   { tag: string; text: string; hints: string[] }
-> = {
+> {
+  return {
   d3_followup: {
     tag: "話術提示 — D+3 追蹤",
     text:
-      "您好，我是 INDIAN 台北展示中心的業務，三天前看到您留下車輛資訊，特別來電關心您現在的考慮進度，有沒有什麼問題我可以協助釐清？",
+      `您好，我是 ${brandName} 台北展示中心的業務，三天前看到您留下車輛資訊，特別來電關心您現在的考慮進度，有沒有什麼問題我可以協助釐清？`,
     hints: ["確認分期方案", "詢問決策進度", "提供補充資料", "邀約再次到店"],
   },
   d7_followup: {
@@ -184,13 +189,13 @@ export const CALL_SCRIPT_TEMPLATES: Record<
   aftersales_d3: {
     tag: "話術提示 — D+3 售後滿意度",
     text:
-      "您好,我是 INDIAN 售後服務的 SA,三天前您在我們這邊進廠保養,想跟您確認車況有沒有什麼異常,並了解您對這次服務的滿意度。",
+      `您好,我是 ${brandName} 售後服務的 SA,三天前您在我們這邊進廠保養,想跟您確認車況有沒有什麼異常,並了解您對這次服務的滿意度。`,
     hints: ["確認車況", "詢問 NPS", "提醒下次保養", "感謝光臨"],
   },
   aftersales_d7: {
     tag: "話術提示 — D+7 售後深度確認",
     text:
-      "您好,我是 INDIAN 售後服務的 SA,距離上次進廠保養已經一週,想再次跟您確認車況一切正常、沒有遺留的小問題,也聽聽您對整體服務還有沒有想反映的地方。",
+      `您好,我是 ${brandName} 售後服務的 SA,距離上次進廠保養已經一週,想再次跟您確認車況一切正常、沒有遺留的小問題,也聽聽您對整體服務還有沒有想反映的地方。`,
     hints: ["確認車況穩定", "蒐集深度回饋", "處理遺留問題", "預告下次保養"],
   },
   maintenance_reminder: {
@@ -217,7 +222,8 @@ export const CALL_SCRIPT_TEMPLATES: Record<
       "您好,感謝您是我們的 VIP 客戶,想邀請您撥 5 分鐘做一份服務滿意度深度訪談,協助我們持續改善,作為感謝會贈送原廠精品⋯",
     hints: ["強調 VIP 身份", "說明訪談時長", "解釋資料用途", "贈品說明"],
   },
-};
+  };
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 // Row / KPI / Filter types — client-safe，給 board 元件用

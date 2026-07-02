@@ -52,11 +52,13 @@ export const INS_PARAMS = {
   targetRev: 20000,
 };
 
-export const SCRIPTS: { tag: string; title: string; text: string }[] = [
+/** 話術模板改用 function 注入 brandName，避免品牌文字硬編碼 */
+export function buildScripts(brandName: string): { tag: string; title: string; text: string }[] {
+  return [
   {
     tag: "A",
     title: "開場白（調研破冰）",
-    text: "○○先生／小姐您好，我是 DUCATI 台北展示中心的○○，現在方便占您一分鐘時間嗎？我們發現您的愛車保險即將到期，想確認您是否已經安排續保了呢？",
+    text: `○○先生／小姐您好，我是 ${brandName} 台北展示中心的○○，現在方便占您一分鐘時間嗎？我們發現您的愛車保險即將到期，想確認您是否已經安排續保了呢？`,
   },
   {
     tag: "B",
@@ -73,7 +75,8 @@ export const SCRIPTS: { tag: string; title: string; text: string }[] = [
     title: "感謝致意 → 預約明年",
     text: "非常感謝您今天接受訪問！遺憾這次未能及時服務，明年同一時間我再聯繫您安排續保，這樣可以嗎？有任何需要歡迎隨時 LINE 我。",
   },
-];
+  ];
+}
 
 export const CALL_RESULTS = [
   "電訪成功",

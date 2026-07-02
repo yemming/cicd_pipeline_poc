@@ -13,6 +13,8 @@ import type {
   VehicleModelOption,
   WarehouseOption,
 } from "@/domain/vehicle-purchase-orders";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 type DraftItem = {
   key: string;
@@ -52,11 +54,12 @@ export default function VehiclePOWizard({
 }) {
   const BASE = basePath;
   const router = useRouter();
+  const brandName = brandConfigs[useActiveBrand()].displayName;
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
 
   // 單頭
-  const [supplierName, setSupplierName] = useState("Indian Motorcycle Taiwan");
+  const [supplierName, setSupplierName] = useState(brandName);
   // 採購日期預設今天（Asia/Taipei）；用 lazy initializer 一次算好，避免在 render 期間呼叫 Date.now
   const [orderDate, setOrderDate] = useState(() =>
     new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10),

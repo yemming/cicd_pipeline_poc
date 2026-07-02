@@ -20,7 +20,7 @@ import {
 import {
   AFTERSALES_CALL_TYPES,
   CALL_RESULT_OPTIONS,
-  CALL_SCRIPT_TEMPLATES,
+  buildCallScriptTemplates,
   CALL_TASK_RANGE_OPTIONS,
   CALL_TYPE_COLOR,
   CALL_TYPE_LABEL,
@@ -35,6 +35,8 @@ import {
   type CallTaskType,
   type SurveyKind,
 } from "@/domain/sales-call-tasks.constants";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 import type { CallTaskCardChipColor } from "@/components/crm";
 
 type Banner = { ok: boolean; msg: string } | null;
@@ -157,6 +159,11 @@ export function CallTasksBoard({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editMap, setEditMap] = useState<Record<string, EditState>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+
+  // Pattern B：client 端動態品牌名，避免話術寫死品牌
+  const activeBrand = useActiveBrand();
+  const brandName = brandConfigs[activeBrand]?.displayName ?? activeBrand;
+  const callScriptTemplates = buildCallScriptTemplates(brandName);
 
   const today = todayIso();
 
@@ -641,7 +648,7 @@ export function CallTasksBoard({
             const expanded = expandedId === row.id;
             const edit = getEdit(row);
             const ct = (row.call_type ?? "custom") as CallTaskType;
-            const script = CALL_SCRIPT_TEMPLATES[ct];
+            const script = callScriptTemplates[ct];
             const history = buildHistory(historyMap[row.customer_id] ?? []);
             const cardStatus =
               row.derived_status === "today" ? "pending" : row.derived_status === "skipped" ? "done" : row.derived_status;

@@ -10,6 +10,8 @@ import type {
   SalesModuleFileVersionTone,
 } from "@/domain/sales-overview.constants";
 import type { SalesOverviewData } from "@/domain/sales-overview";
+import { brands as brandConfigs } from "@/lib/brands/registry";
+import { useActiveBrand } from "@/lib/scope/scope-context";
 
 // 模組卡片 accent 色票
 const CARD_ACCENT: Record<SalesModuleAccent, { bg: string; border: string }> = {
@@ -60,6 +62,8 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 export default function SalesOverviewBoard({ data }: { data: SalesOverviewData }) {
+  const brandName = brandConfigs[useActiveBrand()].displayName;
+
   useSetPageHeader({
     title: "銷售模組導覽",
     breadcrumb: [{ label: "銷售接待" }, { label: "銷售模組導覽" }],
@@ -85,7 +89,7 @@ export default function SalesOverviewBoard({ data }: { data: SalesOverviewData }
         style={{ background: "linear-gradient(135deg,#0D2B47 0%,#1A3A5C 45%,#8B0010 100%)" }}
       >
         <div className="relative z-10 max-w-[640px]">
-          <h1 className="text-[20px] font-bold mb-1.5 tracking-wide">🏍️ {data.hero.title}</h1>
+          <h1 className="text-[20px] font-bold mb-1.5 tracking-wide">🏍️ {brandName} {data.hero.title}</h1>
           <p className="text-[12.5px] leading-[1.75] opacity-80">{data.hero.description}</p>
         </div>
         <div className="flex gap-2.5 flex-wrap relative z-10">

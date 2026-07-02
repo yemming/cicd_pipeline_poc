@@ -59,6 +59,8 @@ import { HandcardStepBar, type WizardStep } from '@/components/sales/handcard-st
 import { HandcardPickerModal } from '@/components/sales/handcard-picker-modal';
 import { recommendHabc } from '@/domain/handcard-tag-dictionary';
 import { Timeline, type TimelineEvent } from '@/components/visualization/Timeline';
+import { brands as brandConfigs } from '@/lib/brands/registry';
+import { useActiveBrand } from '@/lib/scope/scope-context';
 
 type Mode = 'view' | 'edit' | 'create';
 type Banner = { ok: boolean; msg: string } | null;
@@ -244,6 +246,7 @@ export function HandcardDetailView({
   initialMode?: Mode;
 }) {
   const router = useRouter();
+  const brandName = brandConfigs[useActiveBrand()].displayName;
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [banner, setBanner] = useState<Banner>(null);
@@ -1094,7 +1097,7 @@ export function HandcardDetailView({
 
       <HandcardPickerModal<OwnerCandidate>
         open={openPicker === 'owner'}
-        title="選擇 DUCATI / Indian 老車主"
+        title={`選擇 ${brandName} 老車主`}
         description="挑選現有客戶，系統會帶出基本資料與主要車輛"
         rows={ownerCandidates}
         rowKey={(o) => o.id}
@@ -1242,6 +1245,7 @@ function OwnerVehicleBlock({
   candidates: OwnerCandidate[];
   onOpenPicker?: () => void;
 }) {
+  const brandName = brandConfigs[useActiveBrand()].displayName;
   const customerId = extractMeta<string>(meta, 'owner_customer_id');
   const owner = customerId ? candidates.find((c) => c.id === customerId) : null;
   const v = owner?.primary_vehicle ?? null;
@@ -1249,7 +1253,7 @@ function OwnerVehicleBlock({
   return (
     <div className="bg-[#FDF3E3] border border-[#E5C57B] rounded-lg p-3">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[13px] font-semibold text-[#854F0B]">🏍️ DUCATI / Indian 老車主資料</span>
+        <span className="text-[13px] font-semibold text-[#854F0B]">🏍️ {brandName} 老車主資料</span>
         {onOpenPicker && (
           <button
             type="button"
