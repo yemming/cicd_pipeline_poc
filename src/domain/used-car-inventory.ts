@@ -246,12 +246,38 @@ export async function updateUsedCar(
 }
 
 // ── 狀態切換 ──
+
+/** 整備/評估未完成時，禁止直接切成可售狀態——必須走 approveReconAction 核准完工 */
+export class ReconNotApprovedError extends Error {
+  constructor() {
+    super("此車輛尚在整備 / 評估中，需完成核准完工流程才能轉為可售狀態");
+    this.name = "ReconNotApprovedError";
+  }
+}
+
+const RECON_GATED_TARGET_STATUSES: UsedCarDbStatus[] = ["available", "reserved", "sold"];
+const RECON_BLOCKED_SOURCE_STATUSES: UsedCarDbStatus[] = ["pending_recon", "evaluation"];
+
 export async function setUsedCarStatus(
   id: string,
   status: UsedCarDbStatus,
   soldDate?: string
 ): Promise<{ id: string }> {
   const supabase = await createClient();
+
+  if (RECON_GATED_TARGET_STATUSES.includes(status)) {
+    const { data: current, error: fetchErr } = await supabase
+      .from("used_car_inventory")
+      .select("status")
+      .eq("id", id)
+      .single();
+    if (fetchErr) throw new Error(`setUsedCarStatus: ${fetchErr.message}`);
+    const currentStatus = (current as { status: UsedCarDbStatus }).status;
+    if (RECON_BLOCKED_SOURCE_STATUSES.includes(currentStatus)) {
+      throw new ReconNotApprovedError();
+    }
+  }
+
   const patch: Record<string, unknown> = { status };
   if (status === "sold" && soldDate) patch.sold_date = soldDate;
   const { data, error } = await supabase

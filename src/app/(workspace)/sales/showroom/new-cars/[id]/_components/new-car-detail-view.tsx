@@ -187,12 +187,13 @@ export default function NewCarDetailView({
   function handleSetStatus(status: NewCarInventoryStatus) {
     if (!car) return;
     startTransition(async () => {
-      const res = await setNewCarStatusAction(car.id, status);
+      const res = await setNewCarStatusAction(car.id, status, car.status);
       if (res.ok) {
         setBanner({ ok: true, msg: `✓ 狀態已更新為「${NEW_CAR_STATUS_LABELS[status]}」` });
         router.refresh();
       } else {
         setBanner({ ok: false, msg: res.error });
+        if (res.error.includes("已被其他人異動")) router.refresh();
       }
     });
   }

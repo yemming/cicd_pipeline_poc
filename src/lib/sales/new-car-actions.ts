@@ -7,6 +7,7 @@ import {
   setNewCarStatus,
   markAsDemoUnit,
   retireDemoToUsed,
+  StaleNewCarStatusError,
   type NewCarInventoryInput,
   type DemoRetireToUsedInput,
 } from "@/domain/new-car-inventory";
@@ -60,12 +61,16 @@ export async function updateNewCarAction(
 
 export async function setNewCarStatusAction(
   id: string,
-  status: NewCarInventoryStatus
+  status: NewCarInventoryStatus,
+  expectedCurrentStatus?: NewCarInventoryStatus
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await setNewCarStatus(id, status);
+    await setNewCarStatus(id, status, expectedCurrentStatus);
     return { ok: true, data: { id } };
   } catch (err) {
+    if (err instanceof StaleNewCarStatusError) {
+      return { ok: false, error: err.message };
+    }
     return { ok: false, error: mapDbError(err) };
   }
 }

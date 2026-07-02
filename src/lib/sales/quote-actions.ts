@@ -32,6 +32,7 @@ import {
   checkDiscountAuthority,
   createDiscountApproval,
   getPendingApprovalForQuote,
+  getBlockingApprovalForQuote,
 } from "@/domain/discount-approvals";
 
 export type ActionResult<T = unknown> =
@@ -213,15 +214,27 @@ export async function setSalesQuoteStatusAction(
   const canEdit = await hasPermission(PERMISSIONS.SALES_ORDER_EDIT);
   if (!canEdit) return { ok: false, error: "沒有更新報價單狀態的權限" };
 
-  // ③ 轉訂單（won）防護：有未核准的折扣申請不得轉訂單
+  // ③ 轉訂單（won）防護：有未核准（含遭駁回）的折扣申請不得轉訂單
+  // rejected 也要擋：駁回的超權限折扣從未被核准，放行等於繞過授權控管，
+  // 業務員須先修正折扣金額（重新送審並取得核准）才能轉成交
   if (status === "won") {
-    const pending = await getPendingApprovalForQuote(id);
-    if (pending) {
+    const blocking = await getBlockingApprovalForQuote(id);
+    if (blocking) {
+      const statusLabel =
+        blocking.status === "escalated"
+          ? "已升級代理審核"
+          : blocking.status === "rejected"
+            ? "已遭駁回"
+            : "待審核";
+      const hint =
+        blocking.status === "rejected"
+          ? "請修正折扣金額後重新送審，取得核准後再轉成交。"
+          : "請等候主管審批後再轉成交。";
       return {
         ok: false,
-        error: `此報價單有折扣審核申請尚未決定（狀態：${pending.status === "escalated" ? "已升級代理審核" : "待審核"}）。請等候主管審批後再轉成交。`,
+        error: `此報價單的折扣審核申請${statusLabel}。${hint}`,
         discountBlocked: true,
-        approvalId: pending.id,
+        approvalId: blocking.id,
       };
     }
   }

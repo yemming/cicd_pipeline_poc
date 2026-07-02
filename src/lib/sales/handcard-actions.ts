@@ -15,8 +15,10 @@ import {
   deleteHandcard,
   convertHandcardToLead,
   lookupCustomersByPhone,
+  checkOpenHandcardDuplicateByPhone,
   type HandcardInput,
   type CustomerPhoneHit,
+  type HandcardPhoneDuplicateHit,
 } from '@/domain/sales-handcards';
 
 export type ActionResult<T = unknown> =
@@ -158,6 +160,26 @@ export async function lookupCustomersByPhoneAction(
     if (!userId) return { ok: false, error: '請先登入' };
 
     const hits = await lookupCustomersByPhone(phone);
+    return { ok: true, data: hits };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : '查詢失敗' };
+  }
+}
+
+// ── Russell 最在意：手卡建立時的手機查重（軟擋）─────────────────────────────
+/**
+ * 查同 brand 是否已有「接待中」的手卡用同支手機號（排除自己）。
+ * 有結果時 UI 應顯示警示，要求業務員二次確認後才可送出。
+ */
+export async function checkHandcardPhoneDuplicateAction(
+  phone: string,
+  excludeId?: string,
+): Promise<ActionResult<HandcardPhoneDuplicateHit[]>> {
+  try {
+    const { userId } = await getCurrentUserAndAdmin();
+    if (!userId) return { ok: false, error: '請先登入' };
+
+    const hits = await checkOpenHandcardDuplicateByPhone(phone, excludeId);
     return { ok: true, data: hits };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : '查詢失敗' };

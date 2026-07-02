@@ -126,6 +126,8 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
   });
   const [condSigDataUrl, setCondSigDataUrl] = useState<string | null>(null);
   const [condSaving, setCondSaving] = useState(false);
+  // 已簽名鎖定：客戶簽過名後，業務員欄位鎖住，除非正在上傳新簽名（重新請客戶簽名以解鎖編輯）
+  const condLocked = !!condReport.customer_acknowledged_at && !condSigDataUrl;
 
   // 表單 state
   const [form, setForm] = useState({
@@ -878,8 +880,13 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
 
               {/* 業務員可編輯欄位 */}
               <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
-                <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+                <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2">
                   <h2 className="text-[13px] font-semibold text-[#2C2C2A]">車況說明</h2>
+                  {condLocked && (
+                    <span className="text-[10.5px] px-1.5 py-0.5 rounded bg-[#FDF3E3] text-[#854F0B]">
+                      已簽名鎖定，如需修改請先上傳新簽名
+                    </span>
+                  )}
                 </header>
                 <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
                   <div className="flex flex-col gap-1">
@@ -889,7 +896,7 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
                       value={condReport.modification ?? ""}
                       onChange={(e) => setCondReport({ ...condReport, modification: e.target.value || null })}
                       placeholder="例：原廠排氣管、貼膜"
-                      disabled={condSaving}
+                      disabled={condSaving || condLocked}
                     />
                   </div>
                   <div className="flex flex-col gap-1">
@@ -901,7 +908,7 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
                         ...condReport,
                         odometer_reliable: e.target.value === "" ? null : e.target.value === "true",
                       })}
-                      disabled={condSaving}
+                      disabled={condSaving || condLocked}
                     >
                       <option value="">— 未評估 —</option>
                       <option value="true">可信</option>
@@ -916,7 +923,7 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
                       value={condReport.inspection_summary ?? ""}
                       onChange={(e) => setCondReport({ ...condReport, inspection_summary: e.target.value || null })}
                       placeholder="整體車況描述（例：外觀良好，引擎聲音正常…）"
-                      disabled={condSaving}
+                      disabled={condSaving || condLocked}
                     />
                   </div>
                   <div className="flex flex-col gap-1 md:col-span-2">
@@ -927,7 +934,7 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
                       value={condReport.additional_notes ?? ""}
                       onChange={(e) => setCondReport({ ...condReport, additional_notes: e.target.value || null })}
                       placeholder="其他注意事項…"
-                      disabled={condSaving}
+                      disabled={condSaving || condLocked}
                     />
                   </div>
                 </div>
@@ -967,6 +974,12 @@ export default function UsedCarDetailView({ car, brandId, initialMode = "view", 
                     </div>
                   ) : (
                     <div className="text-[12px] text-[#9A9890]">尚未取得客戶簽名</div>
+                  )}
+
+                  {condLocked && (
+                    <div className="text-[11.5px] text-[#854F0B]">
+                      車況內容已隨簽名鎖定，如需修改請在下方重新上傳客戶簽名，儲存後將以新內容與新簽名時間取代原簽署紀錄。
+                    </div>
                   )}
 
                   {/* 簽名上傳（dataUrl 由外部 signature canvas 帶入，這裡做 file input 備案）*/}

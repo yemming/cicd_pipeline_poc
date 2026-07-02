@@ -205,12 +205,17 @@ export async function previewCampaignAudience(input: {
     const supabase = await createClient();
     const table =
       input.kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from(table)
       .select("id", { count: "exact", head: true })
       .eq("brand_id", brand)
       .in("id", input.target_lead_ids)
       .eq("has_valid_contact", true);
+    if (error) {
+      // 查詢失敗時記 log 但不 throw（呼叫端多半是 form submit 流程，未包 try/catch）
+      console.error(`[previewCampaignAudience] 查詢 ${table} 失敗，audience 以 0 回傳`, error.message);
+      return 0;
+    }
     return count ?? 0;
   }
 

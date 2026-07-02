@@ -224,6 +224,28 @@ export default function UsedPurchaseDetailView({
         <Kv label="收購決策" value={request.decision ? DECISION_LABELS[request.decision] : "待決策"} />
       </Section>
 
+      {/* 車輛流向：自家品牌 vs 批售外部（B1） */}
+      <Section title="▼ 車輛流向">
+        <Kv
+          label="流向"
+          value={
+            request.is_own_brand === false
+              ? "批售外部買家"
+              : request.is_own_brand === true
+                ? "自家品牌（整備上架）"
+                : "—"
+          }
+        />
+        {request.is_own_brand === false && (
+          <>
+            <Kv label="外部買家姓名" value={request.external_buyer_name ?? "—"} />
+            <Kv label="外部買家電話" value={request.external_buyer_phone ?? "—"} mono />
+            <Kv label="批售成交金額" value={fmtNT(request.wholesale_price)} mono />
+            <Kv label="批售成交日期" value={request.wholesale_date ?? "—"} mono />
+          </>
+        )}
+      </Section>
+
       {/* 尚未決策 → 提供收購 / 不收購 */}
       {!decided && canEdit && (
         <section className="bg-white border border-[#EEECE6] rounded-lg p-4">

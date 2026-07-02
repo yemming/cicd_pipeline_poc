@@ -204,11 +204,15 @@ export async function sendCampaignAction(
       kind === "aftersales" ? "aftersales_dormant_leads" : "sales_dormant_leads";
     const leadIds = campaign.target_lead_ids as string[];
 
-    const { data: leads } = await supabase
+    const { data: leads, error: leadsErr } = await supabase
       .from(table)
       .select("id, name, phone, email, line_user_id, has_valid_contact")
       .eq("brand_id", brand)
       .in("id", leadIds);
+
+    if (leadsErr) {
+      return { ok: false, error: `載入名單失敗：${leadsErr.message}` };
+    }
 
     const allLeads = (leads ?? []) as Array<{
       id: string;

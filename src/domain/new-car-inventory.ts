@@ -140,9 +140,18 @@ export async function deleteNewCar(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/** 兩業務員幾乎同時對同一台車按狀態按鈕時，用 CAS 擋下後到者，避免 lost update */
+export class StaleNewCarStatusError extends Error {
+  constructor() {
+    super("此車輛狀態已被其他人異動，請重新整理後再試");
+    this.name = "StaleNewCarStatusError";
+  }
+}
+
 export async function setNewCarStatus(
   id: string,
-  status: NewCarInventoryStatus
+  status: NewCarInventoryStatus,
+  expectedCurrentStatus?: NewCarInventoryStatus
 ): Promise<void> {
   const supabase = await createClient();
   const dateField: Record<NewCarInventoryStatus, string | null> = {
@@ -160,11 +169,13 @@ export async function setNewCarStatus(
   const patch: Record<string, unknown> = { status };
   if (field) patch[field] = new Date().toISOString().slice(0, 10);
 
-  const { error } = await supabase
-    .from("new_car_inventory")
-    .update(patch)
-    .eq("id", id);
+  let query = supabase.from("new_car_inventory").update(patch).eq("id", id);
+  if (expectedCurrentStatus) query = query.eq("status", expectedCurrentStatus);
+  const { data, error } = await query.select("id");
   if (error) throw error;
+  if (expectedCurrentStatus && (data ?? []).length === 0) {
+    throw new StaleNewCarStatusError();
+  }
 }
 
 // ── Lookup helpers（供 page.tsx 使用，避免 UI 直連 supabase）─────────

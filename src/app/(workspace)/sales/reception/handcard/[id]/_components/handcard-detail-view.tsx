@@ -31,6 +31,7 @@ import {
   deleteHandcardAction,
   convertHandcardToLeadAction,
   lookupCustomersByPhoneAction,
+  checkHandcardPhoneDuplicateAction,
 } from '@/lib/sales/handcard-actions';
 import {
   HANDCARD_STATUS_LABEL,
@@ -263,6 +264,9 @@ export function HandcardDetailView({
   // tags (subset of meta.tags but tracked separately for chip pool)
   const [tags, setTags] = useState<string[]>(extractTags(handcard?.metadata));
 
+  // Russell 最在意：手機查重 — 已跳過一次警示（同支電話再送出直接建立，不重複擋）
+  const [dupWarningPhone, setDupWarningPhone] = useState<string | null>(null);
+
   const isCreating = mode === 'create';
   const isEditing = mode === 'edit';
   const editable = isCreating || isEditing;
@@ -400,6 +404,22 @@ export function HandcardDetailView({
       if (!input.customer_identity) {
         showBanner({ ok: false, msg: '請先選擇來客身份' });
         return;
+      }
+
+      // Russell 最在意：建卡前查同支電話是否已有「接待中」的手卡，軟擋 + 要求二次確認
+      if (isCreating && input.customer_phone && dupWarningPhone !== input.customer_phone) {
+        const dupRes = await checkHandcardPhoneDuplicateAction(input.customer_phone);
+        if (dupRes.ok && dupRes.data.length > 0) {
+          const list = dupRes.data
+            .map((h) => `${h.customer_name}（RS：${h.assigned_rs_name ?? '未指派'}，來店日：${h.reception_date}）`)
+            .join('、');
+          showBanner({
+            ok: false,
+            msg: `⚠️ 這支電話已有接待中的手卡：${list}。若確認非重複建卡，請再按一次「建立」`,
+          });
+          setDupWarningPhone(input.customer_phone);
+          return;
+        }
       }
 
       const res = isCreating

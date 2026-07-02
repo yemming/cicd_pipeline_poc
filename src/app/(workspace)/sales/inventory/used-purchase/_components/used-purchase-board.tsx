@@ -173,6 +173,30 @@ export default function UsedPurchaseBoard({
       sortValue: (r) => r.decision ?? "",
     },
     {
+      id: "flow",
+      header: "流向",
+      width: 140,
+      cell: (r) =>
+        r.is_own_brand === false ? (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#FDF3E3] text-[#854F0B] whitespace-nowrap">
+            批售外部{r.external_buyer_name ? ` · ${r.external_buyer_name}` : ""}
+          </span>
+        ) : r.is_own_brand === true ? (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#EEF4FB] text-[#185FA5] whitespace-nowrap">
+            自家品牌
+          </span>
+        ) : (
+          <span className="text-[12px] text-[#9A9890]">—</span>
+        ),
+      exportValue: (r) =>
+        r.is_own_brand === false
+          ? `批售外部${r.external_buyer_name ? ` · ${r.external_buyer_name}` : ""}`
+          : r.is_own_brand === true
+            ? "自家品牌"
+            : "",
+      sortValue: (r) => (r.is_own_brand === false ? 0 : r.is_own_brand === true ? 1 : 2),
+    },
+    {
       id: "used_car_id",
       header: "中古車主檔",
       width: 110,

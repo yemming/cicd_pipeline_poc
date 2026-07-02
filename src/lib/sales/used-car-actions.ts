@@ -130,6 +130,23 @@ export async function saveConditionReportAction(
     const existingMeta = (existing?.metadata as Record<string, unknown>) ?? {};
     const existingReport = (existingMeta.condition_report as Partial<ConditionReport>) ?? {};
 
+    // 1.5) 已簽名鎖定：客戶簽過名後，業務員欄位不得再改，除非同時重新請客戶簽名
+    //      （避免簽名與其擔保的內容脫鉤，維持法律效力）
+    if (existingReport.customer_acknowledged_at && !input.customer_signature) {
+      const editableFields: (keyof SaveConditionReportInput)[] = [
+        "modification",
+        "odometer_reliable",
+        "inspection_summary",
+        "additional_notes",
+      ];
+      const attemptedChange = editableFields.some(
+        (f) => input[f] !== undefined && input[f] !== (existingReport[f as keyof ConditionReport] ?? null)
+      );
+      if (attemptedChange) {
+        return { ok: false, error: "客戶已簽名確認車況說明書，如需修改內容請重新請客戶簽名" };
+      }
+    }
+
     // 2) 客戶簽名處理（dataUrl → Storage → URL）
     let signatureUrl = existingReport.customer_signature_url ?? null;
     let acknowledgedAt = existingReport.customer_acknowledged_at ?? null;

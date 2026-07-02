@@ -124,6 +124,14 @@ export type LeadSourceOption = {
   label: string;
 };
 
+// ── Russell 最在意：手卡建立時的手機查重（軟擋，非硬唯一約束）────────────────
+export type HandcardPhoneDuplicateHit = {
+  id: string;
+  customer_name: string;
+  assigned_rs_name: string | null;
+  reception_date: string;
+};
+
 // ── 輪1-3：手機查重結果型別 ────────────────────────────────────────────────
 export type CustomerPhoneHit = {
   id: string;
@@ -190,6 +198,38 @@ export async function lookupCustomersByPhone(
     .limit(5);
 
   return (data ?? []) as CustomerPhoneHit[];
+}
+
+/**
+ * Russell 最在意的手機查重：查同 brand 是否已有「接待中（open）」的手卡用同支手機號。
+ * 只擋 open 狀態（已轉 Lead / 已結案 / 未到訪的舊手卡不算重複，避免誤擋回頭客）。
+ * 純查詢，不拋錯，呼叫端決定要不要要求二次確認。
+ */
+export async function checkOpenHandcardDuplicateByPhone(
+  rawPhone: string,
+  excludeId?: string,
+): Promise<HandcardPhoneDuplicateHit[]> {
+  const phone = normalizePhone(rawPhone);
+  if (!phone) return [];
+
+  const supabase = await createClient();
+  const { brand_id: brandId } = await getActiveScope();
+
+  let q = supabase
+    .from('sales_handcards')
+    .select('id, customer_name, assigned_rs_name, reception_date')
+    .eq('brand_id', brandId)
+    .eq('customer_phone', phone)
+    .eq('status', 'open')
+    .limit(5);
+  if (excludeId) q = q.neq('id', excludeId);
+
+  const { data, error } = await q;
+  if (error) {
+    console.error('[手卡查重] 查詢失敗（不擋建立）', error.message);
+    return [];
+  }
+  return (data ?? []) as HandcardPhoneDuplicateHit[];
 }
 
 // ── 列表查詢 ──────────────────────────────────────────────────────────────

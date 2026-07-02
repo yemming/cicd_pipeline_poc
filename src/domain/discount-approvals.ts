@@ -300,6 +300,40 @@ export async function getPendingApprovalForQuote(
 }
 
 // ─────────────────────────────────────────────────────────────
+// 查某張報價單「會擋轉成交」的最新申請（pending/escalated/rejected）
+//
+// 跟 getPendingApprovalForQuote 的差異：多納入 rejected —
+// 主管駁回的超權限折扣從未被核准，若放行轉成交等於繞過折扣授權控管。
+// 只給「轉成交」防護用；「避免重複送審」仍應用 getPendingApprovalForQuote
+// （rejected 之後業務員要能修正折扣後送出新申請，不該被舊的 rejected 卡住）。
+// ─────────────────────────────────────────────────────────────
+
+export async function getBlockingApprovalForQuote(
+  quoteId: string,
+): Promise<DiscountApprovalRow | null> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data, error } = await supabase
+    .from("discount_approval_requests")
+    .select("*")
+    .eq("brand_id", scope.brand_id)
+    .eq("quote_id", quoteId)
+    .in("status", ["pending", "escalated", "rejected"])
+    .order("requested_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const row = data as DiscountApprovalRow;
+  return {
+    ...row,
+    discount_pct: row.discount_pct ? Number(row.discount_pct) : null,
+    discount_amount: row.discount_amount ? Number(row.discount_amount) : null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 // Create（業務員送審）
 // ─────────────────────────────────────────────────────────────
 
