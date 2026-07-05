@@ -7,11 +7,12 @@ import {
   setNewCarStatus,
   markAsDemoUnit,
   retireDemoToUsed,
+  listSellableNewCarUnits,
   StaleNewCarStatusError,
   type NewCarInventoryInput,
   type DemoRetireToUsedInput,
 } from "@/domain/new-car-inventory";
-import type { NewCarInventoryStatus } from "@/domain/new-car-inventory.constants";
+import type { NewCarInventoryStatus, VehicleUnitOption } from "@/domain/new-car-inventory.constants";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 
@@ -81,6 +82,21 @@ export async function deleteNewCarAction(
   try {
     await deleteNewCar(id);
     return { ok: true, data: { id } };
+  } catch (err) {
+    return { ok: false, error: mapDbError(err) };
+  }
+}
+
+/**
+ * 訂單建立 wizard 用：列出某車款目前可售（displayed、非 demo）的具體單位（VIN）。
+ * RS04：讓業務員選到真實庫存單位，createSalesOrder() 才鎖得到真正的車。
+ */
+export async function listSellableNewCarUnitsAction(
+  vehicleModelId: string
+): Promise<ActionResult<VehicleUnitOption[]>> {
+  try {
+    const rows = await listSellableNewCarUnits(vehicleModelId);
+    return { ok: true, data: rows };
   } catch (err) {
     return { ok: false, error: mapDbError(err) };
   }

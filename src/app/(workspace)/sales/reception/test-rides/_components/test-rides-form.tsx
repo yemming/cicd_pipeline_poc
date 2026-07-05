@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSetPageHeader } from "@/components/page-header-context";
-import { createTestDriveAction, saveSafetyCheckNgItemsAction, startTestDriveWithSignatureAction, completeTestDriveAction } from "@/lib/sales/test-drives-actions";
+import { createTestDriveAction, saveSafetyCheckNgItemsAction, startTestDriveWithSignatureAction, completeTestDriveAction, overrideSafetyCheckNgAction } from "@/lib/sales/test-drives-actions";
 import { type SafetyNgItem, TEST_DRIVE_CONSENT_VERSION } from "@/domain/sales-test-drives.constants";
 import { SignatureCanvas } from "@/components/signature-canvas";
+import { TestRideSafetyOverrideModal } from "./test-ride-safety-override-modal";
 import {
   SAFETY_CATEGORY_TITLES,
   TD_ERGONOMICS,
@@ -102,6 +103,25 @@ export default function TestRidesForm({
     }
     return true;
   }, [safety, ngNotes, safetyDoneCount]);
+
+  // RS04 裁示：清單填完不等於可以放行——任一項目 NG 就是「需要主管判斷」的
+  // 阻斷點，不能靠 RS 自己填段文字帶過。
+  const safetyHasBlockingNg = useMemo(
+    () => TD_SAFETY_ITEMS.some((it) => safety[it.id] === "ng"),
+    [safety],
+  );
+  // 主管放行 modal + 結果
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overrideError, setOverrideError] = useState<string | null>(null);
+  const [overrideInfo, setOverrideInfo] = useState<{
+    by: string | null;
+    at: string;
+    reason: string;
+  } | null>(null);
+  const [isOverriding, startOverrideTransition] = useTransition();
+  // 清單填完 + （沒有 NG 或已被主管放行）→ 才可進入客戶簽名步驟
+  const canProceedToSign = safetyAllDone && (!safetyHasBlockingNg || !!overrideInfo);
 
   // STEP 3 計時
   const [running, setRunning] = useState(false);
@@ -206,6 +226,39 @@ export default function TestRidesForm({
     };
   }
 
+  // 建立試駕記錄（若已建過直接沿用）+ 回寫 NG 明細。抽成獨立 async helper，
+  // 因為「客戶簽名同意」與「申請主管放行」都需要先確保記錄存在（後者的
+  // overrideSafetyCheckNgAction 要對已存在的 row 寫入）。呼叫端自行決定要不要
+  // 包進 useTransition。
+  async function persistTestDriveRecord(): Promise<
+    { ok: true; id: string } | { ok: false; error: string }
+  > {
+    if (savedRecordId) return { ok: true, id: savedRecordId };
+    if (!customerName.trim()) return { ok: false, error: "客戶姓名必填" };
+    if (license === "none") {
+      return { ok: false, error: "客戶無大型重機駕照，不可建立試駕記錄" };
+    }
+    const r = await createTestDriveAction({
+      customer_id: customerId,
+      vehicle_model_id: tdModelId, // B-05：改用 DB-backed 車款，記錄真實 vehicle_model FK
+      scheduled_at: buildScheduledAtIso(),
+      status: stopped ? "completed" : "scheduled",
+      notes: rsNote.trim() || null,
+      metadata: buildMetadata(),
+    });
+    if (!r.ok) return { ok: false, error: r.error };
+    // A-5：回寫 safety_check_ng_items（非阻斷；有 NG 項才傳）
+    const ngItems = buildSafetyNgItems();
+    if (ngItems.length > 0) {
+      const ngRes = await saveSafetyCheckNgItemsAction(r.data.id, ngItems);
+      if (!ngRes.ok) {
+        console.warn("[test-ride-form] saveSafetyCheckNgItems 失敗（試駕已建立）", ngRes.error);
+      }
+    }
+    setSavedRecordId(r.data.id);
+    return { ok: true, id: r.data.id };
+  }
+
   function handleSaveTestDrive(
     afterSaved?: (recordId: string) => void,
   ): void {
@@ -223,29 +276,43 @@ export default function TestRidesForm({
       return;
     }
     startSavingTransition(async () => {
-      const r = await createTestDriveAction({
-        customer_id: customerId,
-        vehicle_model_id: tdModelId, // B-05：改用 DB-backed 車款，記錄真實 vehicle_model FK
-        scheduled_at: buildScheduledAtIso(),
-        status: stopped ? "completed" : "scheduled",
-        notes: rsNote.trim() || null,
-        metadata: buildMetadata(),
-      });
+      const r = await persistTestDriveRecord();
       if (!r.ok) {
         showToast(`❌ 儲存失敗：${r.error}`);
         return;
       }
-      // A-5：回寫 safety_check_ng_items（非阻斷；有 NG 項才傳）
-      const ngItems = buildSafetyNgItems();
-      if (ngItems.length > 0) {
-        const ngRes = await saveSafetyCheckNgItemsAction(r.data.id, ngItems);
-        if (!ngRes.ok) {
-          console.warn("[test-ride-form] saveSafetyCheckNgItems 失敗（試駕已建立）", ngRes.error);
-        }
-      }
-      setSavedRecordId(r.data.id);
       showToast("✓ 試駕記錄已儲存");
-      afterSaved?.(r.data.id);
+      afterSaved?.(r.id);
+    });
+  }
+
+  // RS04 裁示：主管放行 NG 項目。先確保記錄存在，再打 overrideSafetyCheckNgAction
+  // （domain 層驗證操作者是否為主管；不是主管會回錯誤，這裡把訊息顯示給使用者）。
+  function submitOverride(): void {
+    const reason = overrideReason.trim();
+    if (!reason) {
+      setOverrideError("請填寫放行原因");
+      return;
+    }
+    setOverrideError(null);
+    startOverrideTransition(async () => {
+      const rec = await persistTestDriveRecord();
+      if (!rec.ok) {
+        setOverrideError(rec.error);
+        return;
+      }
+      const res = await overrideSafetyCheckNgAction(rec.id, { reason });
+      if (res.ok) {
+        setOverrideInfo({
+          by: res.data.safety_override_by_name,
+          at: res.data.safety_override_at ?? new Date().toISOString(),
+          reason: res.data.safety_override_reason ?? reason,
+        });
+        setOverrideModalOpen(false);
+        showToast("✓ 主管已放行，可繼續進行客戶簽名");
+      } else {
+        setOverrideError(res.error);
+      }
     });
   }
 
@@ -645,6 +712,32 @@ export default function TestRidesForm({
                   : "有 NG 項目尚未填寫原因，請說明後方可開始計時"}
               </div>
             )}
+            {/* RS04 裁示：清單已填完但有 NG → 需主管放行才可進 Step3 */}
+            {safetyAllDone && safetyHasBlockingNg && !overrideInfo && (
+              <div
+                className="mb-2 rounded-md bg-[#FDF3E3] border border-[#F0C97E] text-[#854F0B] text-[11.5px] px-3 py-2 flex items-center justify-between gap-2 flex-wrap"
+                data-test-id="td-ng-needs-override"
+              >
+                <span>⚠️ 有 NG 項目，需主管放行後方可進入客戶簽名步驟</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOverrideError(null);
+                    setOverrideModalOpen(true);
+                  }}
+                  className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] shrink-0"
+                  data-test-id="td-request-override"
+                >
+                  申請主管放行
+                </button>
+              </div>
+            )}
+            {/* RS04 裁示：已放行 → 顯示放行資訊 */}
+            {overrideInfo && (
+              <div className="mb-2 rounded-md bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] text-[11.5px] px-3 py-2">
+                ✓ 已由主管放行{overrideInfo.by ? `（${overrideInfo.by}）` : ""}：{overrideInfo.reason}
+              </div>
+            )}
             {(["customer", "vehicle", "briefing"] as SafetyCategory[]).map((cat) => (
               <div key={cat}>
                 <div className="text-[11px] font-bold text-[#9A9890] tracking-wider uppercase px-2.5 py-1.5 bg-[#F4F3F0] rounded mt-1.5">
@@ -736,20 +829,40 @@ export default function TestRidesForm({
             <Btn variant="ghost" size="sm" onClick={checkAll} testId="td-check-all">
               ✅ 全部 OK（測試）
             </Btn>
-            {/* A-5：未完成全部清單（含 NG 原因）→ disabled；完成後先存記錄再進簽名步 */}
+            {/* A-5：未完成全部清單（含 NG 原因）→ disabled；RS04：有 NG 且未放行也擋
+                完成後先存記錄再進簽名步 */}
             <Btn
               variant="primary"
-              onClick={() => safetyAllDone && handleSaveTestDrive(() => goStep(3))}
-              disabled={!safetyAllDone || isSaving}
+              onClick={() => canProceedToSign && handleSaveTestDrive(() => goStep(3))}
+              disabled={!canProceedToSign || isSaving}
             >
               {!safetyAllDone
                 ? `清單未完成（${safetyDoneCount}/${TD_SAFETY_ITEMS.length}）`
+                : safetyHasBlockingNg && !overrideInfo
+                ? "需主管放行"
                 : isSaving
                 ? "儲存中⋯"
                 : "客戶簽名同意 →"}
             </Btn>
           </Footer>
         </div>
+      )}
+
+      {/* RS04 裁示：主管放行 NG 項目 modal */}
+      {overrideModalOpen && (
+        <TestRideSafetyOverrideModal
+          ngItems={buildSafetyNgItems()}
+          reason={overrideReason}
+          onReasonChange={setOverrideReason}
+          onSubmit={submitOverride}
+          onClose={() => {
+            if (isOverriding) return;
+            setOverrideModalOpen(false);
+            setOverrideError(null);
+          }}
+          isPending={isOverriding}
+          error={overrideError}
+        />
       )}
 
       {/* STEP 3 — 簽名同意（新增） */}

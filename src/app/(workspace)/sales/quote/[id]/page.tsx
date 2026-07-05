@@ -4,16 +4,15 @@ import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getSalesQuoteById } from "@/domain/sales-quote";
 import { listVehicleModels } from "@/domain/vehicle-models";
-import { getPendingApprovalForQuote } from "@/domain/discount-approvals";
 
 import { QuotationDetailView } from "./_components/quotation-detail-view";
 
 /**
  * 賞車報價單 Detail Page — view / edit mode
  *
+ * RS04：報價階段不涉及折扣，本頁不再傳入任何折扣審核狀態。
  * 新增傳入：
  *   vehicleModels — 新車選款下拉清單（輪5-1：帶 msrp）
- *   pendingApproval — 此報價單是否有進行中的折扣審核（輪5-2 擋成交 / 輪5-5 倒數提示）
  */
 export default async function QuotationDetailPage({
   params,
@@ -40,11 +39,7 @@ export default async function QuotationDetailPage({
 
   if (!quote) notFound();
 
-  // 輪5-1 / 5-2 / 5-5 所需的額外資料（parallel）
-  const [vehicleModelsRes, pendingApproval] = await Promise.all([
-    listVehicleModels({ status: "active" }, { pageSize: 200 }),
-    getPendingApprovalForQuote(id),
-  ]);
+  const vehicleModelsRes = await listVehicleModels({ status: "active" }, { pageSize: 200 });
 
   return (
     <QuotationDetailView
@@ -58,7 +53,6 @@ export default async function QuotationDetailPage({
         series: m.series,
         msrp: m.msrp,
       }))}
-      pendingApproval={pendingApproval}
     />
   );
 }

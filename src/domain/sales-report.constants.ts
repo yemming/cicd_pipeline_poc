@@ -104,3 +104,25 @@ export const ORDER_STATUS_CHIP: Record<OrderDetailRow["status"], { label: string
 
 /** 預設月度目標：當沒設 kpi_targets.target_value 時的 fallback（元） */
 export const DEFAULT_MONTHLY_TARGET = 15_000_000;
+
+/**
+ * 折扣統計（RS04 折扣管控架構 §折扣統計報表）。
+ *
+ * situationACount / situationBCount：本期成交（signed+fulfilled）訂單中，
+ *   有沒有走過「情況B」送審（discount_approval_requests 有對應 order_id）。
+ * 其餘 xxxCount：本期送審件（discount_approval_requests.requested_at 落在區間）
+ *   依 status 的分布（不受 SA / 車型篩選，因該表無此二欄位，是店級總覽數字）。
+ */
+export interface DiscountStatsSummary {
+  situationACount: number;
+  situationBCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  counterOfferedCount: number;
+  expiredCount: number;
+  pendingCount: number;
+  /** 本期送審件的平均折扣% */
+  avgDiscountPct: number;
+  /** 本期送審件的折扣總金額（元） */
+  totalDiscountAmount: number;
+}

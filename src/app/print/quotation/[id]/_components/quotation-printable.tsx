@@ -143,18 +143,11 @@ export function QuotationPrintable({
           />
         ) : null}
 
-        {/* 金額總計 — 車輛 / 加值附加 / 折扣 → 未稅 / 稅 / 含稅 */}
+        {/* 金額總計 — 車輛 / 加值附加 → 未稅 / 稅 / 含稅（RS04：報價階段不涉及折扣） */}
         <PrintTotals
           items={[
             { label: "車輛金額", value: fmtMoney(data.vehicleAmount) },
             { label: "加值附加", value: fmtMoney(data.addonAmount) },
-            {
-              label: "折扣",
-              value:
-                data.discountAmount > 0
-                  ? `- ${fmtMoney(data.discountAmount)}`
-                  : fmtMoney(0),
-            },
             { label: "未稅小計", value: fmtMoney(data.amountPretax) },
             { label: "營業稅（5%）", value: fmtMoney(data.amountTax) },
           ]}

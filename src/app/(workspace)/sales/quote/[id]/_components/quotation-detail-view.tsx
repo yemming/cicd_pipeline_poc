@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { useState, useTransition, useMemo, useEffect, useRef } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -20,22 +20,16 @@ import {
   deleteSalesQuoteAction,
 } from "@/lib/sales/quote-actions";
 import {
-  createDiscountApprovalAction,
-  decideDiscountApprovalAction,
-} from "@/lib/sales/discount-approval-actions";
-import {
   QUOTE_STATUS_LABELS,
   QUOTE_STATUS_CHIP,
   VEHICLE_KIND_LABELS,
   type SalesQuoteDetail,
-  type QuoteStatus,
   type QuoteLine,
   type QuoteLineCategory,
   type VehicleKind,
   type CreateSalesQuoteInput,
   type UpdateSalesQuoteInput,
 } from "@/domain/sales-quote.constants";
-import type { DiscountApprovalRow } from "@/domain/discount-approvals.constants";
 
 type Mode = "view" | "edit" | "create";
 type Banner = { ok: boolean; msg: string } | null;
@@ -109,8 +103,6 @@ export type QuotationDetailViewProps = {
   canEdit: boolean;
   /** 輪5-1：新車車款選單（帶 msrp，用於自動帶入 vehicle_amount） */
   vehicleModels?: VehicleModelOption[];
-  /** 輪5-2 / 輪5-5：此報價單目前 pending/escalated 的折扣審核（null = 無） */
-  pendingApproval?: DiscountApprovalRow | null;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -122,45 +114,12 @@ export function QuotationDetailView({
   initialMode,
   canEdit,
   vehicleModels = [],
-  pendingApproval: initialPendingApproval = null,
 }: QuotationDetailViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [banner, setBanner] = useState<Banner>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("lines");
-
-  // 輪5-2 / 5-5：折扣審核狀態（初始值來自 server，操作後樂觀更新）
-  const [pendingApproval, setPendingApproval] = useState<DiscountApprovalRow | null>(
-    initialPendingApproval,
-  );
-  // 輪5-5：倒數計時（ms 剩餘）
-  const [approvalCountdownMs, setApprovalCountdownMs] = useState<number | null>(null);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // 輪5-5：倒數 ticker
-  useEffect(() => {
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    if (
-      pendingApproval &&
-      (pendingApproval.status === "pending" || pendingApproval.status === "escalated") &&
-      pendingApproval.deadline_at
-    ) {
-      const tick = () => {
-        const rem = new Date(pendingApproval.deadline_at!).getTime() - Date.now();
-        setApprovalCountdownMs(rem > 0 ? rem : 0);
-      };
-      tick();
-      countdownRef.current = setInterval(tick, 1000);
-    } else {
-      // 無待審核申請時清掉倒數（同步重置 state，此處為刻意行為）
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setApprovalCountdownMs(null);
-    }
-    return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-  }, [pendingApproval]);
 
   // 編輯 / 建立用的可變欄位 state
   const fromQuote = (q: SalesQuoteDetail | null): Draft => ({
@@ -173,7 +132,6 @@ export function QuotationDetailView({
     used_brand_model: q?.used_brand_model ?? "",
     vehicle_amount: q?.vehicle_amount ?? 0,
     addon_amount: q?.addon_amount ?? 0,
-    discount_amount: q?.discount_amount ?? 0,
     total_amount: q?.total_amount ?? 0,
     expires_at: q?.expires_at ?? "",
     estimated_delivery_date: q?.estimated_delivery_date ?? "",
@@ -185,21 +143,16 @@ export function QuotationDetailView({
   const lockedClass = isPending ? "pointer-events-none opacity-60" : "";
   const inputClass =
     "h-[28px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white outline-none focus:border-[#185FA5] w-full";
-  const taClass =
-    "border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none w-full";
 
   const showBanner = (b: Banner) => {
     setBanner(b);
     if (b?.ok) setTimeout(() => setBanner(null), 2200);
   };
 
-  // 自動計算 total = vehicle + addon - discount
+  // RS04：報價單不涉及折扣，total = vehicle + addon
   const computedTotal = useMemo(
-    () =>
-      Number(draft.vehicle_amount ?? 0) +
-      Number(draft.addon_amount ?? 0) -
-      Number(draft.discount_amount ?? 0),
-    [draft.vehicle_amount, draft.addon_amount, draft.discount_amount],
+    () => Number(draft.vehicle_amount ?? 0) + Number(draft.addon_amount ?? 0),
+    [draft.vehicle_amount, draft.addon_amount],
   );
 
   // ── Actions ─────────────────────────────────────────────────
@@ -225,7 +178,6 @@ export function QuotationDetailView({
       used_brand_model: "",
       vehicle_amount: 0,
       addon_amount: 0,
-      discount_amount: 0,
       total_amount: 0,
       expires_at: "",
       estimated_delivery_date: "",
@@ -243,14 +195,6 @@ export function QuotationDetailView({
     }
   };
 
-  // 輪5-2：折扣% 計算（discount_amount / vehicle_amount × 100）
-  const discountPct = useMemo(() => {
-    const va = Number(draft.vehicle_amount);
-    const da = Number(draft.discount_amount);
-    if (va <= 0 || da <= 0) return 0;
-    return Math.round((da / va) * 10000) / 100; // 保留兩位小數
-  }, [draft.vehicle_amount, draft.discount_amount]);
-
   const submitEdit = () => {
     if (!quote) return;
     const patch: UpdateSalesQuoteInput = {
@@ -263,7 +207,6 @@ export function QuotationDetailView({
       used_brand_model: draft.used_brand_model.trim() || null,
       vehicle_amount: Number(draft.vehicle_amount) || 0,
       addon_amount: Number(draft.addon_amount) || 0,
-      discount_amount: Number(draft.discount_amount) || 0,
       total_amount: computedTotal,
       expires_at: draft.expires_at || null,
       estimated_delivery_date: draft.estimated_delivery_date || null,
@@ -296,7 +239,6 @@ export function QuotationDetailView({
       used_brand_model: draft.used_brand_model.trim() || null,
       vehicle_amount: Number(draft.vehicle_amount) || 0,
       addon_amount: Number(draft.addon_amount) || 0,
-      discount_amount: Number(draft.discount_amount) || 0,
       total_amount: computedTotal,
       expires_at: draft.expires_at || null,
       estimated_delivery_date: draft.estimated_delivery_date || null,
@@ -313,51 +255,6 @@ export function QuotationDetailView({
       }
     });
   };
-
-  // 輪5-2：業務員送審折扣申請（從 detail view 叫起）
-  const [approvalModal, setApprovalModal] = useState<{
-    inStoreWaiting: boolean;
-    notes: string;
-  } | null>(null);
-
-  const handleRequestApproval = (inStoreWaiting: boolean) => {
-    if (!quote) return;
-    setApprovalModal({ inStoreWaiting, notes: "" });
-  };
-
-  const submitApprovalRequest = () => {
-    if (!quote || !approvalModal) return;
-    const vehicleAmt = Number(quote.vehicle_amount);
-    const discountAmt = Number(quote.discount_amount);
-    startTransition(async () => {
-      const res = await createDiscountApprovalAction({
-        quote_id: quote.id,
-        discount_pct: discountPctFromQuote,
-        discount_amount: discountAmt,
-        in_store_waiting: approvalModal.inStoreWaiting,
-        notes: approvalModal.notes.trim() || null,
-        vehicle_amount: vehicleAmt,
-        vehicle_model_name: quote.vehicle_model_name,
-      });
-      setApprovalModal(null);
-      if (res.ok) {
-        showBanner({ ok: true, msg: "✓ 已送審折扣申請，等待主管核准" });
-        router.refresh();
-      } else {
-        showBanner({ ok: false, msg: res.error });
-      }
-    });
-  };
-
-  // 輪5-2 / 5-5：view 模式下 quote 的折扣%
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const discountPctFromQuote = useMemo(() => {
-    if (!quote) return 0;
-    const va = Number(quote.vehicle_amount);
-    const da = Number(quote.discount_amount);
-    if (va <= 0 || da <= 0) return 0;
-    return Math.round((da / va) * 10000) / 100;
-  }, [quote]);
 
   const removeQuote = () => {
     if (!quote) return;
@@ -406,25 +303,6 @@ export function QuotationDetailView({
   const isClosed = quote
     ? quote.status === "won" || quote.status === "lost"
     : false;
-
-  // 輪5-2：此報價是否有「未批准」的折扣審核擋住成交
-  // 條件：quote.discount_amount > 0 且 pendingApproval 存在且狀態非 approved
-  const hasBlockingApproval = Boolean(
-    pendingApproval &&
-      pendingApproval.status !== "approved" &&
-      pendingApproval.status !== "rejected" &&
-      pendingApproval.status !== "expired",
-  );
-
-  // 輪5-5：倒數格式化
-  function fmtCountdown(ms: number | null): string {
-    if (ms === null) return "";
-    if (ms <= 0) return "已逾時";
-    const totalSec = Math.floor(ms / 1000);
-    const min = Math.floor(totalSec / 60);
-    const sec = totalSec % 60;
-    return `${min}:${String(sec).padStart(2, "0")}`;
-  }
 
   // ── Render helpers ──────────────────────────────────────────
 
@@ -551,11 +429,11 @@ export function QuotationDetailView({
               >
                 刪除
               </button>
-              {/* 輪5-2：成交按鈕 — 有 blocking approval 就 disabled + tooltip */}
+              {/* RS04：成交按鈕僅標記報價結案，實際成交金額 / 折扣審核在建立銷售訂單時處理 */}
               {(quote.status === "open" || quote.status === "sent") && (
                 <button
                   type="button"
-                  disabled={!canEdit || hasBlockingApproval || isPending}
+                  disabled={!canEdit || isPending}
                   onClick={() => {
                     if (!confirm(`確定 ${quote.quote_no} 成交？`)) return;
                     startTransition(async () => {
@@ -568,11 +446,7 @@ export function QuotationDetailView({
                       }
                     });
                   }}
-                  title={
-                    hasBlockingApproval
-                      ? "折扣審核未核准，無法成交"
-                      : "標記此報價為成交"
-                  }
+                  title="標記此報價為成交"
                   className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] hover:bg-[#d9f0c8] shadow-sm disabled:opacity-50"
                 >
                   {isPending ? "處理中⋯" : "成交"}
@@ -604,119 +478,6 @@ export function QuotationDetailView({
           {banner.msg}
         </div>
       ) : null}
-
-      {/* 輪5-5：折扣審核狀態橫幅（業務員視角） */}
-      {mode === "view" && pendingApproval && (
-        <div
-          className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border text-[12.5px] ${
-            pendingApproval.status === "approved"
-              ? "bg-[#EAF3DE] border-[#C5DC9F] text-[#3B6D11]"
-              : pendingApproval.status === "rejected"
-                ? "bg-[#FDECEA] border-[#F5AEAD] text-[#CC0000]"
-                : pendingApproval.status === "expired"
-                  ? "bg-[#F2F2F2] border-[#D5D3CB] text-[#6B6A68]"
-                  : "bg-[#FDF3E3] border-[#E6C97A] text-[#854F0B]"
-          }`}
-        >
-          <span className="material-symbols-outlined text-[18px]">
-            {pendingApproval.status === "approved"
-              ? "check_circle"
-              : pendingApproval.status === "rejected"
-                ? "cancel"
-                : pendingApproval.status === "expired"
-                  ? "timer_off"
-                  : "pending"}
-          </span>
-          <div className="flex-1 min-w-0">
-            <span className="font-semibold">
-              {pendingApproval.status === "approved"
-                ? "折扣審核已核准"
-                : pendingApproval.status === "rejected"
-                  ? "折扣審核已駁回"
-                  : pendingApproval.status === "expired"
-                    ? "折扣審核已逾時"
-                    : pendingApproval.status === "escalated"
-                      ? "折扣審核已升級（代理審核中）"
-                      : "折扣審核待主管確認"}
-            </span>
-            {pendingApproval.status === "rejected" && pendingApproval.decision_reason && (
-              <span className="ml-2 text-[11.5px] opacity-80">
-                原因：{pendingApproval.decision_reason}
-              </span>
-            )}
-            {pendingApproval.discount_pct != null && (
-              <span className="ml-2 text-[11.5px] opacity-70">
-                （申請折扣 {pendingApproval.discount_pct}%）
-              </span>
-            )}
-            {pendingApproval.in_store_waiting && (
-              <span className="ml-2 px-1.5 py-0.5 rounded bg-[#CC0000] text-white text-[10px] font-semibold">
-                客戶在場
-              </span>
-            )}
-          </div>
-          {/* 倒數計時（pending / escalated 且有 deadline） */}
-          {(pendingApproval.status === "pending" ||
-            pendingApproval.status === "escalated") &&
-            approvalCountdownMs !== null && (
-              <div className="shrink-0 flex items-center gap-1 font-mono text-[12px]">
-                <span className="material-symbols-outlined text-[14px]">timer</span>
-                <span
-                  className={
-                    approvalCountdownMs <= 0
-                      ? "text-[#CC0000] font-semibold"
-                      : approvalCountdownMs < 120000
-                        ? "text-[#CC0000]"
-                        : ""
-                  }
-                >
-                  {fmtCountdown(approvalCountdownMs)}
-                </span>
-                <span className="text-[11px] opacity-70">
-                  {pendingApproval.status === "escalated" ? "（代理審核）" : "剩餘"}
-                </span>
-              </div>
-            )}
-          {/* 主管核准後：成交按鈕在這 */}
-          {pendingApproval.status === "approved" && quote && (
-            <span className="shrink-0 text-[11px] font-medium bg-[#0F6E56] text-white px-3 py-1 rounded-full">
-              ✓ 可進行成交
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* 輪5-2：有折扣但無審核 → 提示業務員需要送審 */}
-      {mode === "view" &&
-        quote &&
-        !isClosed &&
-        Number(quote.discount_amount) > 0 &&
-        !pendingApproval && (
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border bg-[#EAF4FB] border-[#B3D4EF] text-[#185FA5] text-[12.5px]">
-            <span className="material-symbols-outlined text-[18px]">info</span>
-            <span className="flex-1">
-              此報價有折扣（{discountPctFromQuote}%），若超過授權上限，在「成交」前需先送審主管核准。
-            </span>
-            {canEdit && (
-              <div className="shrink-0 flex gap-2">
-                <button
-                  onClick={() => handleRequestApproval(true)}
-                  disabled={isPending}
-                  className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#CC0000] text-white hover:bg-[#aa0000] disabled:opacity-50"
-                >
-                  客戶在場送審
-                </button>
-                <button
-                  onClick={() => handleRequestApproval(false)}
-                  disabled={isPending}
-                  className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
-                >
-                  一般送審
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
       {/* Title card */}
       <header className="bg-white border border-[#EEECE6] rounded-lg p-4">
@@ -1072,30 +833,6 @@ export function QuotationDetailView({
             }
           />
           <Kv
-            label="折扣金額"
-            value={
-              showInputs ? (
-                <input
-                  type="number"
-                  value={draft.discount_amount}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      discount_amount: Number(e.target.value) || 0,
-                    })
-                  }
-                  className={inputClass}
-                />
-              ) : (
-                <span className="font-mono text-[#CC0000]">
-                  {quote?.discount_amount
-                    ? `- ${fmtNT(quote.discount_amount)}`
-                    : "—"}
-                </span>
-              )
-            }
-          />
-          <Kv
             label="總計（含稅）"
             value={
               showInputs ? (
@@ -1139,77 +876,6 @@ export function QuotationDetailView({
           ) : null}
         </div>
       </section>
-
-      {/* 輪5-2：折扣送審 Modal */}
-      {approvalModal && quote && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
-            <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#F8F7F4]">
-              <h3 className="text-[14px] font-semibold text-[#2C2C2A]">送審折扣申請</h3>
-            </header>
-            <div className="px-4 py-4 space-y-3">
-              <div className="text-[12.5px] text-[#5A5955] space-y-1">
-                <div>
-                  報價單：<span className="font-mono font-semibold text-[#2C2C2A]">{quote.quote_no}</span>
-                </div>
-                <div>
-                  折扣金額：<span className="font-mono text-[#CC0000]">- {fmtNT(quote.discount_amount)}</span>
-                  {discountPctFromQuote > 0 && (
-                    <span className="ml-1 text-[11.5px] text-[#9A9890]">
-                      （折扣率 {discountPctFromQuote}%）
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span>客戶是否在場：</span>
-                  <label className="flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={approvalModal.inStoreWaiting}
-                      onChange={() => setApprovalModal({ ...approvalModal, inStoreWaiting: true })}
-                    />
-                    <span className="text-[#CC0000] font-medium">是（10 分鐘回應）</span>
-                  </label>
-                  <label className="flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={!approvalModal.inStoreWaiting}
-                      onChange={() => setApprovalModal({ ...approvalModal, inStoreWaiting: false })}
-                    />
-                    <span>否（30 分鐘回應）</span>
-                  </label>
-                </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-[#9A9890] font-medium">申請說明（選填）</label>
-                <textarea
-                  rows={3}
-                  value={approvalModal.notes}
-                  onChange={(e) => setApprovalModal({ ...approvalModal, notes: e.target.value })}
-                  placeholder="說明折扣原因或客戶狀況…"
-                  className="border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none w-full resize-none"
-                />
-              </div>
-            </div>
-            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
-              <button
-                onClick={() => setApprovalModal(null)}
-                disabled={isPending}
-                className="h-[30px] px-4 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
-              >
-                取消
-              </button>
-              <button
-                onClick={submitApprovalRequest}
-                disabled={isPending}
-                className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-60"
-              >
-                {isPending ? "送審中⋯" : "確認送審"}
-              </button>
-            </footer>
-          </div>
-        </div>
-      )}
 
       {/* create mode 提示 — tabs 隱藏 */}
       {mode === "create" ? (
@@ -1302,24 +968,6 @@ export function QuotationDetailView({
                       />
                       <p className="text-[11px] text-[#9A9890] pt-1">
                         加值附加 = 保險、牌照、額外配件等項目的合計，於上方「報價金額」區編輯。
-                      </p>
-                    </div>,
-                  )}
-                  {sectionCard(
-                    "折扣",
-                    <div className="space-y-2 text-[12.5px]">
-                      <Kv
-                        label="折扣金額"
-                        value={
-                          <span className="font-mono text-[#CC0000]">
-                            {quote.discount_amount
-                              ? `- ${fmtNT(quote.discount_amount)}`
-                              : "—"}
-                          </span>
-                        }
-                      />
-                      <p className="text-[11px] text-[#9A9890] pt-1">
-                        折扣為對單價的整體優惠，已從總計中扣除。
                       </p>
                     </div>,
                   )}
@@ -1498,7 +1146,6 @@ type Draft = {
   used_brand_model: string;
   vehicle_amount: number;
   addon_amount: number;
-  discount_amount: number;
   total_amount: number;
   expires_at: string;
   estimated_delivery_date: string;

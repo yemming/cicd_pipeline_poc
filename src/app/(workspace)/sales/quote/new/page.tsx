@@ -37,7 +37,6 @@ export default async function NewQuotationPage() {
         series: m.series,
         msrp: m.msrp,
       }))}
-      pendingApproval={null}
     />
   );
 }

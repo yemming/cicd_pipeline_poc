@@ -15,6 +15,8 @@ import {
   uploadSignatureDataUrl,
   isStorageUrl,
 } from "@/lib/aftersales/signature-upload";
+import { getCurrentUserDepartment } from "@/lib/rbac/department";
+import { writeAuditLog } from "@/domain/audit-logs";
 
 // 純展示型常數 / type 從 client-safe 的 .constants 重新導出
 import {
@@ -35,6 +37,8 @@ import type {
   StartWithSignatureInput,
   TestDriveSignature,
   SafetyNgItem,
+  SafetyOverrideInput,
+  SafetyOverrideResult,
 } from "./sales-test-drives.constants";
 
 export {
@@ -55,6 +59,8 @@ export type {
   StartWithSignatureInput,
   TestDriveSignature,
   SafetyNgItem,
+  SafetyOverrideInput,
+  SafetyOverrideResult,
 };
 
 export async function getTestDriveLookups(): Promise<TestDriveLookups> {
@@ -121,6 +127,10 @@ type RawListRow = {
   insurance_note: string | null;
   // A-5
   safety_check_ng_items: unknown;
+  // RS04 裁示：主管放行
+  safety_override_by: string | null;
+  safety_override_at: string | null;
+  safety_override_reason: string | null;
   created_at: string;
   updated_at: string;
   customer: { name: string | null } | null;
@@ -150,6 +160,12 @@ function shapeRow(r: RawListRow): TestDriveRow {
     safety_check_ng_items: Array.isArray(r.safety_check_ng_items)
       ? (r.safety_check_ng_items as SafetyNgItem[])
       : null,
+    safety_override_by: r.safety_override_by ?? null,
+    safety_override_at: r.safety_override_at ?? null,
+    safety_override_reason: r.safety_override_reason ?? null,
+    // shapeRow 不撈 profiles join（無 FK、避免 N+1）；detail 頁需要顯示名時由
+    // getTestDriveById 額外補查一次並覆寫這個欄位。
+    safety_override_by_name: null,
     created_at: r.created_at,
     updated_at: r.updated_at,
     customer_name: r.customer?.name ?? null,
@@ -159,7 +175,7 @@ function shapeRow(r: RawListRow): TestDriveRow {
 }
 
 const SELECT_FIELDS =
-  "id, brand_id, customer_id, vehicle_model_id, lead_id, handcard_id, sales_consultant_id, scheduled_at, completed_at, status, notes, metadata, insurance_verified, insurance_note, safety_check_ng_items, created_at, updated_at, customer:customers!sales_test_drives_customer_id_fkey ( name ), vehicle_model:vehicle_models!sales_test_drives_vehicle_model_id_fkey ( model_name ), consultant:employees!sales_test_drives_sales_consultant_id_fkey ( name )";
+  "id, brand_id, customer_id, vehicle_model_id, lead_id, handcard_id, sales_consultant_id, scheduled_at, completed_at, status, notes, metadata, insurance_verified, insurance_note, safety_check_ng_items, safety_override_by, safety_override_at, safety_override_reason, created_at, updated_at, customer:customers!sales_test_drives_customer_id_fkey ( name ), vehicle_model:vehicle_models!sales_test_drives_vehicle_model_id_fkey ( model_name ), consultant:employees!sales_test_drives_sales_consultant_id_fkey ( name )";
 
 export async function listTestDrives(
   filter: ListTestDrivesFilter = {},
@@ -295,7 +311,22 @@ export async function getTestDriveById(
   if (error) throw error;
   if (!data) return null;
 
-  return shapeRow(data as unknown as RawListRow);
+  const row = shapeRow(data as unknown as RawListRow);
+
+  // 詳情頁需要顯示「主管已放行」的姓名；safety_override_by 沒有 FK（跟既有
+  // created_by 一致），單筆補查 profiles，量級小不走批次。
+  if (row.safety_override_by) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("name")
+      .eq("id", row.safety_override_by)
+      .maybeSingle();
+    row.safety_override_by_name =
+      (profile as { name?: string | null } | null)?.name ??
+      row.safety_override_by.slice(0, 8);
+  }
+
+  return row;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -635,6 +666,92 @@ export async function saveSafetyCheckNgItems(
 
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: { id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// RS04 裁示：安全清單 NG 項目主管放行
+//
+// 背景：NG 項目原本只要 RS 填一段文字原因就能直接放行進 Step3 簽名，完全沒有
+// 主管把關。正確設計：NG 出現時不是流程卡死，而是需要有授權的人（部門主管 /
+// cross-admin）做判斷後才能繼續。此函式即該「判斷」動作的落地：
+//   1. 驗證操作者是主管（is_dept_manager || is_cross_admin），否則直接擋
+//   2. 寫入 safety_override_by / _at / _reason
+//   3. 寫 audit_logs（action: safety_ng_override）留稽核軌跡
+// ─────────────────────────────────────────────────────────────
+
+export async function overrideSafetyCheckNg(
+  testDriveId: string,
+  input: SafetyOverrideInput,
+): Promise<Result<SafetyOverrideResult>> {
+  const reason = (input.reason ?? "").trim();
+  if (!reason) return { ok: false, error: "請填寫放行原因" };
+
+  // 天條：任何人都不能自己 override 自己的 NG——只有主管 / cross-admin 可以
+  const dept = await getCurrentUserDepartment();
+  if (!(dept.is_dept_manager || dept.is_cross_admin)) {
+    return { ok: false, error: "只有主管可以放行NG項目" };
+  }
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "請先登入" };
+
+  const { data: existing, error: rErr } = await supabase
+    .from("sales_test_drives")
+    .select("id, safety_check_ng_items")
+    .eq("id", testDriveId)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (rErr) return { ok: false, error: rErr.message };
+  if (!existing) return { ok: false, error: "找不到試駕記錄" };
+
+  const overrideAt = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("sales_test_drives")
+    .update({
+      safety_override_by: user.id,
+      safety_override_at: overrideAt,
+      safety_override_reason: reason,
+    })
+    .eq("id", testDriveId)
+    .eq("brand_id", scope.brand_id);
+  if (error) return { ok: false, error: error.message };
+
+  await writeAuditLog({
+    table_name: "sales_test_drives",
+    record_id: testDriveId,
+    action: "safety_ng_override",
+    actor_id: user.id,
+    brand_id: scope.brand_id,
+    before: {
+      safety_check_ng_items: existing.safety_check_ng_items ?? null,
+    },
+    after: { override_reason: reason, overridden_by: user.id },
+  });
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name")
+    .eq("id", user.id)
+    .maybeSingle();
+  const overrideByName =
+    (profile as { name?: string | null } | null)?.name ??
+    user.id.slice(0, 8);
+
+  return {
+    ok: true,
+    data: {
+      id: testDriveId,
+      safety_override_by: user.id,
+      safety_override_by_name: overrideByName,
+      safety_override_at: overrideAt,
+      safety_override_reason: reason,
+    },
+  };
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -19,12 +19,14 @@ import Link from "next/link";
 
 import { useSetPageHeader } from "@/components/page-header-context";
 import { createSalesOrderAction, saveSignaturesAction, linkTradeInAction } from "@/lib/sales/order-actions";
+import { listSellableNewCarUnitsAction } from "@/lib/sales/new-car-actions";
 import {
   USED_CERT_LEVELS,
   TRANSFER_OPTIONS,
   type PaymentMethod,
 } from "@/domain/sales-orders.constants";
 import type { CustomerPickRow, VehicleModelPickRow } from "@/domain/sales-orders.constants";
+import type { VehicleUnitOption } from "@/domain/new-car-inventory.constants";
 import { SignatureCanvas } from "@/components/signature-canvas";
 
 // ─────────────────────────────────────────────────────────────
@@ -172,6 +174,50 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
   const [deliveryDate, setDeliveryDate] = useState("2026-05-17");
   const [specialNote, setSpecialNote] = useState("");
 
+  // ── 新車：可售車輛單位（VIN）選擇 + 折扣管控（RS04）──
+  const [vehicleUnits, setVehicleUnits] = useState<VehicleUnitOption[]>([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+  const [selectedVehicleUnitId, setSelectedVehicleUnitId] = useState("");
+  const [listPrice, setListPrice] = useState("");
+  const [dealPrice, setDealPrice] = useState("");
+  const [inStoreWaiting, setInStoreWaiting] = useState(true);
+
+  // 車款切換 → 重置已選車輛單位 + 重新撈該車款目前可售（displayed）的具體單位
+  function handleVehicleModelChange(modelId: string) {
+    setSelectedVehicleModelId(modelId);
+    setSelectedVehicleUnitId("");
+    setNewVin("");
+    setNewColor("");
+    setListPrice("");
+    if (!modelId) {
+      setVehicleUnits([]);
+      return;
+    }
+    setLoadingUnits(true);
+    listSellableNewCarUnitsAction(modelId)
+      .then((res) => setVehicleUnits(res.ok ? res.data : []))
+      .finally(() => setLoadingUnits(false));
+  }
+
+  // 選定具體車輛單位 → 帶出 VIN / 顏色 / 建議售價
+  function handleVehicleUnitChange(unitId: string) {
+    setSelectedVehicleUnitId(unitId);
+    const unit = vehicleUnits.find((u) => u.id === unitId);
+    setNewVin(unit?.vin ?? "");
+    setNewColor(unit?.color ?? "");
+    setListPrice(unit?.list_price != null ? String(unit.list_price) : "");
+  }
+
+  // 折扣即時預覽（RS04：quotation 階段不顯示折扣，這裡是訂單建立階段第一次計算）
+  const discountPreview = useMemo(() => {
+    const lp = parseFloat(listPrice.replace(/,/g, ""));
+    const dp = parseFloat(dealPrice.replace(/,/g, ""));
+    if (!Number.isFinite(lp) || lp <= 0 || !Number.isFinite(dp)) return null;
+    const amount = Math.max(0, lp - dp);
+    const pct = (amount / lp) * 100;
+    return { amount, pct };
+  }, [listPrice, dealPrice]);
+
   // ── Used car state
   const [usedBrand, setUsedBrand] = useState("");
   const [usedYear, setUsedYear] = useState("2022");
@@ -223,6 +269,10 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
           vehicle_color: newColor || null,
           vehicle_vin: newVin || null,
           vehicle_engine_no: newEngine || null,
+          new_vehicle_id: selectedVehicleUnitId || null,
+          list_price: listPrice ? parseFloat(listPrice.replace(/,/g, "")) : null,
+          total_amount: dealPrice ? parseFloat(dealPrice.replace(/,/g, "")) : null,
+          in_store_waiting: inStoreWaiting,
           payment_method: paymentId,
           down_payment: deposit ? parseFloat(deposit.replace(/,/g, "")) : null,
           delivery_date: deliveryDate || null,
@@ -299,7 +349,9 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
           try { window.localStorage.removeItem(SNAPSHOT_KEY); } catch { /* swallow */ }
         }
         showToast(
-          `✅ 以舊換新已建立：新車 ${newRes.data.order_no} + 中古車 ${usedRes.data.order_no}，已自動串聯！即將跳轉…`,
+          newRes.data.needs_approval
+            ? `⏳ 新車 ${newRes.data.order_no} 折扣超出授權，已送店長審核（車輛暫凍結）；中古車 ${usedRes.data.order_no} 已建立，即將跳轉…`
+            : `✅ 以舊換新已建立：新車 ${newRes.data.order_no} + 中古車 ${usedRes.data.order_no}，已自動串聯！即將跳轉…`,
         );
         setTimeout(() => router.push(`/sales/orders/${newRes.data.id}`), 1800);
         return;
@@ -325,6 +377,10 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
               vehicle_color: newColor || null,
               vehicle_vin: newVin || null,
               vehicle_engine_no: newEngine || null,
+              new_vehicle_id: selectedVehicleUnitId || null,
+              list_price: listPrice ? parseFloat(listPrice.replace(/,/g, "")) : null,
+              total_amount: dealPrice ? parseFloat(dealPrice.replace(/,/g, "")) : null,
+              in_store_waiting: inStoreWaiting,
               payment_method: paymentId,
               down_payment: deposit ? parseFloat(deposit.replace(/,/g, "")) : null,
               delivery_date: deliveryDate || null,
@@ -380,7 +436,11 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
             /* swallow */
           }
         }
-        showToast(`✅ 合約 ${res.data.order_no} 已建立！即將跳轉…`);
+        showToast(
+          res.data.needs_approval
+            ? `⏳ 合約 ${res.data.order_no} 折扣超出業務員授權，已送店長審核（車輛暫凍結，待審核通過後才會保留）！即將跳轉…`
+            : `✅ 合約 ${res.data.order_no} 已建立！即將跳轉…`,
+        );
         setTimeout(() => router.push(`/sales/orders/${res.data.id}`), 1200);
       } else {
         showToast(`❌ 建立失敗：${res.error}`);
@@ -595,7 +655,7 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                     <select
                       className={inputCls}
                       value={selectedVehicleModelId}
-                      onChange={(e) => setSelectedVehicleModelId(e.target.value)}
+                      onChange={(e) => handleVehicleModelChange(e.target.value)}
                     >
                       <option value="">— 選擇車款 —</option>
                       {vehicleModels.map((v) => (
@@ -608,19 +668,35 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                   <Field label="車身顏色">
                     <input
                       type="text"
-                      className={inputCls}
+                      className={`${inputCls} bg-[#F4F3F0]`}
+                      placeholder="選擇車輛單位後自動帶入"
                       value={newColor}
-                      onChange={(e) => setNewColor(e.target.value)}
+                      readOnly
                     />
                   </Field>
-                  <Field label="車身號碼（VIN）">
-                    <input
-                      type="text"
+                  <Field label="車身號碼（VIN）· 挑選可售車輛">
+                    <select
                       className={inputCls}
-                      placeholder="配車後填入"
-                      value={newVin}
-                      onChange={(e) => setNewVin(e.target.value)}
-                    />
+                      value={selectedVehicleUnitId}
+                      onChange={(e) => handleVehicleUnitChange(e.target.value)}
+                      disabled={!selectedVehicleModelId || loadingUnits}
+                    >
+                      <option value="">
+                        {loadingUnits
+                          ? "查詢可售車輛中…"
+                          : !selectedVehicleModelId
+                            ? "請先選擇車款"
+                            : vehicleUnits.length
+                              ? "— 選擇車輛單位 —"
+                              : "此車款目前無可售現車"}
+                      </option>
+                      {vehicleUnits.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.vin ?? "(無 VIN)"} · {u.color ?? "—"} · NT${" "}
+                          {u.list_price?.toLocaleString() ?? "-"}
+                        </option>
+                      ))}
+                    </select>
                   </Field>
                   <Field label="引擎號碼">
                     <input
@@ -634,7 +710,53 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                 </Grid>
 
                 <Divider />
-                <SecTitle>三、付款方式</SecTitle>
+                <SecTitle>三、成交價格與折扣（RS04）</SecTitle>
+                <div className="bg-[#FFF8E1] border border-[#F0C97E] rounded-md px-3 py-2 text-[11.5px] text-[#5A4500] mb-2">
+                  ⚖️ 這是本次交易第一次輸入實際成交金額。系統會依折扣幅度自動判斷授權層級：業務員授權內直接成立；超出授權將送店長審核並暫時凍結車輛。
+                </div>
+                <Grid cols={2}>
+                  <Field label="建議售價（NT$）">
+                    <input
+                      type="text"
+                      className={inputCls}
+                      placeholder="選擇車輛單位後自動帶入，可調整"
+                      value={listPrice}
+                      onChange={(e) => setListPrice(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="成交價格（NT$）">
+                    <input
+                      type="text"
+                      className={inputCls}
+                      placeholder="輸入實際成交金額"
+                      value={dealPrice}
+                      onChange={(e) => setDealPrice(e.target.value)}
+                    />
+                  </Field>
+                </Grid>
+                {discountPreview && (
+                  <div
+                    className={`rounded-md px-3 py-2 text-[12px] mb-2 ${
+                      discountPreview.pct > 0
+                        ? "bg-[#EAF4FB] text-[#185FA5]"
+                        : "bg-[#F2F2F2] text-[#6B6A68]"
+                    }`}
+                  >
+                    折扣預覽：NT$ {discountPreview.amount.toLocaleString()}（
+                    {discountPreview.pct.toFixed(1)}%）
+                  </div>
+                )}
+                <label className="flex items-center gap-2 text-[12px] text-[#5A5955] mb-1">
+                  <input
+                    type="checkbox"
+                    checked={inStoreWaiting}
+                    onChange={(e) => setInStoreWaiting(e.target.checked)}
+                  />
+                  客戶在場等候審核結果（影響審核逾時：在場 10 分鐘 / 不在場 30 分鐘自動升級）
+                </label>
+
+                <Divider />
+                <SecTitle>四、付款方式</SecTitle>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                   {PAYMENT_OPTIONS.map((p) => {
                     const sel = paymentId === p.id;
@@ -676,7 +798,7 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                 </Grid>
 
                 <Divider />
-                <SecTitle>四、特殊約定</SecTitle>
+                <SecTitle>五、特殊約定</SecTitle>
                 <Field label="">
                   <textarea
                     className={`${inputCls} h-[72px] resize-none`}
@@ -688,7 +810,7 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                 <ContractTermsNew text={contractTermsNew ?? null} />
 
                 <Divider />
-                <SecTitle>五、當事人簽名</SecTitle>
+                <SecTitle>六、當事人簽名</SecTitle>
                 <div className="bg-[#EAF4FB] border border-[#85B7EB] rounded-md px-3 py-2 text-[11.5px] text-[#0C3E70] mb-2">
                   ⚖️ 簽署前請確認：本合約享有至少 3 日審閱期。簽名後即視為雙方同意合約內容。
                 </div>
@@ -1074,7 +1196,7 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                         <select
                           className={inputCls}
                           value={selectedVehicleModelId}
-                          onChange={(e) => setSelectedVehicleModelId(e.target.value)}
+                          onChange={(e) => handleVehicleModelChange(e.target.value)}
                         >
                           <option value="">— 選擇車款 —</option>
                           {vehicleModels.map((v) => (
@@ -1087,19 +1209,35 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                       <Field label="車身顏色">
                         <input
                           type="text"
-                          className={inputCls}
+                          className={`${inputCls} bg-[#F4F3F0]`}
+                          placeholder="選擇車輛單位後自動帶入"
                           value={newColor}
-                          onChange={(e) => setNewColor(e.target.value)}
+                          readOnly
                         />
                       </Field>
-                      <Field label="車身號碼（VIN）">
-                        <input
-                          type="text"
+                      <Field label="車身號碼（VIN）· 挑選可售車輛">
+                        <select
                           className={inputCls}
-                          placeholder="配車後填入"
-                          value={newVin}
-                          onChange={(e) => setNewVin(e.target.value)}
-                        />
+                          value={selectedVehicleUnitId}
+                          onChange={(e) => handleVehicleUnitChange(e.target.value)}
+                          disabled={!selectedVehicleModelId || loadingUnits}
+                        >
+                          <option value="">
+                            {loadingUnits
+                              ? "查詢可售車輛中…"
+                              : !selectedVehicleModelId
+                                ? "請先選擇車款"
+                                : vehicleUnits.length
+                                  ? "— 選擇車輛單位 —"
+                                  : "此車款目前無可售現車"}
+                          </option>
+                          {vehicleUnits.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.vin ?? "(無 VIN)"} · {u.color ?? "—"} · NT${" "}
+                              {u.list_price?.toLocaleString() ?? "-"}
+                            </option>
+                          ))}
+                        </select>
                       </Field>
                       <Field label="引擎號碼">
                         <input
@@ -1113,7 +1251,53 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                     </Grid>
 
                     <Divider />
-                    <SecTitle>三、付款方式</SecTitle>
+                    <SecTitle>三、成交價格與折扣（RS04）</SecTitle>
+                    <div className="bg-[#FFF8E1] border border-[#F0C97E] rounded-md px-3 py-2 text-[11.5px] text-[#5A4500] mb-2">
+                      ⚖️ 這是本次交易第一次輸入實際成交金額。系統會依折扣幅度自動判斷授權層級：業務員授權內直接成立；超出授權將送店長審核並暫時凍結車輛。
+                    </div>
+                    <Grid cols={2}>
+                      <Field label="建議售價（NT$）">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="選擇車輛單位後自動帶入，可調整"
+                          value={listPrice}
+                          onChange={(e) => setListPrice(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="成交價格（NT$）">
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="輸入實際成交金額"
+                          value={dealPrice}
+                          onChange={(e) => setDealPrice(e.target.value)}
+                        />
+                      </Field>
+                    </Grid>
+                    {discountPreview && (
+                      <div
+                        className={`rounded-md px-3 py-2 text-[12px] mb-2 ${
+                          discountPreview.pct > 0
+                            ? "bg-[#EAF4FB] text-[#185FA5]"
+                            : "bg-[#F2F2F2] text-[#6B6A68]"
+                        }`}
+                      >
+                        折扣預覽：NT$ {discountPreview.amount.toLocaleString()}（
+                        {discountPreview.pct.toFixed(1)}%）
+                      </div>
+                    )}
+                    <label className="flex items-center gap-2 text-[12px] text-[#5A5955] mb-1">
+                      <input
+                        type="checkbox"
+                        checked={inStoreWaiting}
+                        onChange={(e) => setInStoreWaiting(e.target.checked)}
+                      />
+                      客戶在場等候審核結果（影響審核逾時：在場 10 分鐘 / 不在場 30 分鐘自動升級）
+                    </label>
+
+                    <Divider />
+                    <SecTitle>四、付款方式</SecTitle>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
                       {PAYMENT_OPTIONS.map((p) => {
                         const sel = paymentId === p.id;
@@ -1155,7 +1339,7 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                     </Grid>
 
                     <Divider />
-                    <SecTitle>四、特殊約定</SecTitle>
+                    <SecTitle>五、特殊約定</SecTitle>
                     <Field label="">
                       <textarea
                         className={`${inputCls} h-[72px] resize-none`}
@@ -1166,7 +1350,7 @@ export default function OrderWizard({ customers, vehicleModels, brandName = "經
                     <ContractTermsNew text={contractTermsNew ?? null} />
 
                     <Divider />
-                    <SecTitle>五、當事人簽名</SecTitle>
+                    <SecTitle>六、當事人簽名</SecTitle>
                     <div className="bg-[#EAF4FB] border border-[#85B7EB] rounded-md px-3 py-2 text-[11.5px] text-[#0C3E70] mb-2">
                       ⚖️ 簽署前請確認：本合約享有至少 3 日審閱期。簽名後即視為雙方同意合約內容。
                     </div>

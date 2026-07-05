@@ -23,7 +23,6 @@ import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import { useSetPageHeader } from "@/components/page-header-context";
 import {
   decideDiscountApprovalAction,
-  escalateDiscountApprovalAction,
 } from "@/lib/sales/discount-approval-actions";
 import {
   DISCOUNT_APPROVAL_STATUS_LABELS,
@@ -146,10 +145,15 @@ export function DiscountApprovalsBoard({
   const [localStatus, setLocalStatus] = useState(filterStatus);
   const [localInStore, setLocalInStore] = useState(filterInStoreOnly);
 
-  // 核准 / 駁回 Modal
+  // 核准 / 駁回 / 反價 Modal
   const [approveModal, setApproveModal] = useState<DiscountApprovalRow | null>(null);
   const [rejectModal, setRejectModal] = useState<{
     row: DiscountApprovalRow;
+    reason: string;
+  } | null>(null);
+  const [counterModal, setCounterModal] = useState<{
+    row: DiscountApprovalRow;
+    amount: string;
     reason: string;
   } | null>(null);
 
@@ -210,6 +214,47 @@ export function DiscountApprovalsBoard({
       });
       if (res.ok) {
         showBanner({ ok: true, msg: `已駁回 ${row.quote_no ?? row.id.slice(0, 8)}` });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  // 反價金額 → 原始成交金額（用來換算反價%）
+  function resolveOriginalAmount(row: DiscountApprovalRow): number | null {
+    if (row.vehicle_amount != null) return row.vehicle_amount;
+    if (row.discount_amount != null && row.discount_pct) {
+      return row.discount_amount / (row.discount_pct / 100);
+    }
+    return null;
+  }
+
+  // 反價
+  const doCounterOffer = () => {
+    if (!counterModal) return;
+    const { row, amount, reason } = counterModal;
+    const amt = parseFloat(amount.replace(/,/g, ""));
+    if (!Number.isFinite(amt) || amt <= 0) {
+      showBanner({ ok: false, msg: "請輸入有效的反價金額" });
+      return;
+    }
+    const original = resolveOriginalAmount(row);
+    if (!original) {
+      showBanner({ ok: false, msg: "缺少原始成交金額，無法換算反價折扣%" });
+      return;
+    }
+    const pct = Math.round(((original - amt) / original) * 10000) / 100;
+    setCounterModal(null);
+    startTransition(async () => {
+      const res = await decideDiscountApprovalAction(row.id, {
+        decision: "counter_offer",
+        counter_offer_amount: amt,
+        counter_offer_pct: pct,
+        reason: reason.trim() || null,
+      });
+      if (res.ok) {
+        showBanner({ ok: true, msg: `已送出反價 ${row.quote_no ?? row.id.slice(0, 8)}，待業務員回覆` });
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -500,7 +545,7 @@ export function DiscountApprovalsBoard({
         exportFileName="discount-approvals"
         emptyMessage="目前沒有待審核的折扣申請"
         disabled={isPending}
-        rowActionsWidth={160}
+        rowActionsWidth={230}
         pagination={{
           page,
           pageSize,
@@ -517,6 +562,22 @@ export function DiscountApprovalsBoard({
                 className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] hover:bg-[#d9f0c8] disabled:opacity-50"
               >
                 核准
+              </button>
+              <button
+                onClick={() =>
+                  setCounterModal({
+                    row: r,
+                    amount:
+                      resolveOriginalAmount(r) != null
+                        ? String(Math.round((resolveOriginalAmount(r) as number) - (r.discount_amount ?? 0) / 2))
+                        : "",
+                    reason: "",
+                  })
+                }
+                disabled={isPending}
+                className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDF3E3] border border-[#E6C97A] text-[#854F0B] hover:bg-[#f9ecd0] disabled:opacity-50"
+              >
+                反價
               </button>
               <button
                 onClick={() => setRejectModal({ row: r, reason: "" })}
@@ -620,6 +681,74 @@ export function DiscountApprovalsBoard({
                 className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-60"
               >
                 {isPending ? "處理中⋯" : "確認駁回"}
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
+      {/* 反價 Modal（店長填可接受成交金額，送回業務員） */}
+      {counterModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 overflow-hidden">
+            <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#F8F7F4]">
+              <h3 className="text-[14px] font-semibold text-[#854F0B]">反價 — 提出可接受成交金額</h3>
+            </header>
+            <div className="px-4 py-4 space-y-3">
+              <div className="text-[12.5px] text-[#5A5955]">
+                報價單：
+                <span className="font-mono font-semibold text-[#2C2C2A] ml-1">
+                  {counterModal.row.quote_no ?? "—"}
+                </span>
+              </div>
+              <div className="text-[12px] text-[#9A9890]">
+                業務員原申請：
+                <span className="font-mono text-[#CC0000] ml-1">
+                  {counterModal.row.discount_pct != null ? `${counterModal.row.discount_pct}%` : "—"}
+                  {counterModal.row.discount_amount != null
+                    ? `（- ${fmtNT(counterModal.row.discount_amount)}）`
+                    : ""}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">可接受成交金額（NT$）</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={counterModal.amount}
+                  onChange={(e) => setCounterModal({ ...counterModal, amount: e.target.value })}
+                  placeholder="輸入反價金額"
+                  className="h-[32px] px-2 rounded border border-[#D5D3CB] text-[12.5px] focus:border-[#185FA5] outline-none"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">說明（選填）</label>
+                <textarea
+                  rows={2}
+                  value={counterModal.reason}
+                  onChange={(e) => setCounterModal({ ...counterModal, reason: e.target.value })}
+                  placeholder="將回傳給業務員…"
+                  className="border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] outline-none resize-none"
+                />
+              </div>
+              <div className="text-[11px] text-[#9A9890]">
+                ⚠ 業務員需於 24 小時內回報客戶是否接受，逾時系統將自動取消訂單並釋放車輛。
+              </div>
+            </div>
+            <footer className="px-4 py-3 border-t border-[#EEECE6] flex justify-end gap-2">
+              <button
+                onClick={() => setCounterModal(null)}
+                disabled={isPending}
+                className="h-[30px] px-4 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-60"
+              >
+                取消
+              </button>
+              <button
+                onClick={doCounterOffer}
+                disabled={isPending}
+                className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6d4009] disabled:opacity-60"
+              >
+                {isPending ? "處理中⋯" : "送出反價"}
               </button>
             </footer>
           </div>

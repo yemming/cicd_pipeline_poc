@@ -16,6 +16,7 @@ import {
   startTestDriveWithSignature,
   linkToHandcard,
   saveSafetyCheckNgItems,
+  overrideSafetyCheckNg,
 } from "@/domain/sales-test-drives";
 import type {
   CreateTestDriveInput,
@@ -23,6 +24,8 @@ import type {
   CompleteTestDriveInput,
   StartWithSignatureInput,
   SafetyNgItem,
+  SafetyOverrideInput,
+  SafetyOverrideResult,
   Result,
 } from "@/domain/sales-test-drives.constants";
 import { hasPermission } from "@/lib/rbac/policies";
@@ -123,6 +126,23 @@ export async function saveSafetyCheckNgItemsAction(
   if (!g.ok) return g;
   const res = await saveSafetyCheckNgItems(id, ngItems);
   if (res.ok) revalidatePath(`${LIST_PATH}/${id}`);
+  return res;
+}
+
+// RS04 裁示：主管放行安全清單 NG 項目（domain 層已驗證 is_dept_manager /
+// is_cross_admin，這裡的 gate() 只是額外一層「有編輯試駕權限」防呆，
+// 真正擋 NG override 的是 domain helper 內的部門判斷）
+export async function overrideSafetyCheckNgAction(
+  id: string,
+  input: SafetyOverrideInput,
+): Promise<Result<SafetyOverrideResult>> {
+  const g = await gate();
+  if (!g.ok) return g;
+  const res = await overrideSafetyCheckNg(id, input);
+  if (res.ok) {
+    revalidatePath(LIST_PATH);
+    revalidatePath(`${LIST_PATH}/${id}`);
+  }
   return res;
 }
 

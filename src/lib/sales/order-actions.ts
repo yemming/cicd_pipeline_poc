@@ -48,7 +48,7 @@ export type ActionResult<T = unknown> =
 
 export async function createSalesOrderAction(
   input: CreateSalesOrderInput,
-): Promise<ActionResult<{ id: string; order_no: string }>> {
+): Promise<ActionResult<{ id: string; order_no: string; needs_approval: boolean }>> {
   const canEdit = await hasPermission(PERMISSIONS.SALES_ORDER_EDIT);
   if (!canEdit) return { ok: false, error: "沒有建立訂單的權限" };
 

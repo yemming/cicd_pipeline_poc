@@ -28,6 +28,7 @@ import type {
   DailyTrendPoint,
   OrderDetailRow,
   SalesReportFilters,
+  DiscountStatsSummary,
 } from "./sales-report.constants";
 import { DEFAULT_MONTHLY_TARGET } from "./sales-report.constants";
 
@@ -531,9 +532,79 @@ export async function getReportFilterOptions(): Promise<{
   return { sas, models, sources };
 }
 
+/**
+ * 折扣統計（RS04 折扣管控架構 §折扣統計報表）。
+ *
+ * 情況A/B 分布：本期成交（signed+fulfilled）訂單中，有沒有對應一筆
+ *   discount_approval_requests（有 = 情況B 送審過，沒有 = 情況A 業務員授權內直接放行）。
+ * 其餘分布：本期送審件（requested_at 落區間）依 status 統計，
+ *   不套 SA / 車型篩選（該表無此二欄位，是店級總覽數字）。
+ */
+export async function getDiscountStats(
+  filters: SalesReportFilters = {},
+): Promise<DiscountStatsSummary> {
+  const period: ReportPeriod = filters.period ?? "month";
+  const range = periodRange(period);
+  const { brand_id } = await getActiveScope();
+  const supabase = await createClient();
+
+  const [{ current }, reqRes] = await Promise.all([
+    fetchOrdersInRange(brand_id, range, filters),
+    supabase
+      .from("discount_approval_requests")
+      .select("id, order_id, status, discount_pct, discount_amount")
+      .eq("brand_id", brand_id)
+      .gte("requested_at", range.start)
+      .lt("requested_at", range.end),
+  ]);
+
+  if (reqRes.error) throw reqRes.error;
+
+  const requests = (reqRes.data ?? []) as Array<{
+    id: string;
+    order_id: string | null;
+    status: string;
+    discount_pct: number | null;
+    discount_amount: number | null;
+  }>;
+
+  const countBy = (s: string) => requests.filter((r) => r.status === s).length;
+  const approvedCount = countBy("approved");
+  const rejectedCount = countBy("rejected");
+  const counterOfferedCount = countBy("counter_offered");
+  const expiredCount = countBy("expired");
+  const pendingCount = countBy("pending") + countBy("escalated");
+  const situationBCount = requests.length;
+
+  const withPct = requests.filter((r) => r.discount_pct != null);
+  const avgDiscountPct =
+    withPct.length > 0
+      ? Math.round((withPct.reduce((s, r) => s + Number(r.discount_pct), 0) / withPct.length) * 10) / 10
+      : 0;
+  const totalDiscountAmount = requests.reduce((s, r) => s + Number(r.discount_amount ?? 0), 0);
+
+  const approvalOrderIds = new Set(
+    requests.map((r) => r.order_id).filter((x): x is string => !!x),
+  );
+  const situationBSignedCount = current.filter((o) => approvalOrderIds.has(o.id)).length;
+  const situationACount = current.length - situationBSignedCount;
+
+  return {
+    situationACount,
+    situationBCount,
+    approvedCount,
+    rejectedCount,
+    counterOfferedCount,
+    expiredCount,
+    pendingCount,
+    avgDiscountPct,
+    totalDiscountAmount,
+  };
+}
+
 /** 主入口：一次撈完全部、給 page.tsx 用 */
 export async function getSalesReportBundle(filters: SalesReportFilters = {}) {
-  const [kpis, ranking, models, sources, trend, orders, options] = await Promise.all([
+  const [kpis, ranking, models, sources, trend, orders, options, discountStats] = await Promise.all([
     getSalesReportKpis(filters),
     getSalesByConsultantRanking(filters),
     getSalesByModel(filters),
@@ -541,6 +612,7 @@ export async function getSalesReportBundle(filters: SalesReportFilters = {}) {
     getSalesTrend(30, { saName: filters.saName, modelId: filters.modelId, source: filters.source }),
     getOrderDetails(filters, 200),
     getReportFilterOptions(),
+    getDiscountStats(filters),
   ]);
   return {
     kpis: kpis.data,
@@ -551,6 +623,7 @@ export async function getSalesReportBundle(filters: SalesReportFilters = {}) {
     trend,
     orders,
     options,
+    discountStats,
   };
 }
 

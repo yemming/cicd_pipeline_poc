@@ -49,6 +49,12 @@ export type TestDriveRow = {
   insurance_note: string | null;
   // A-5：typed column
   safety_check_ng_items: SafetyNgItem[] | null;
+  // RS04 裁示：安全清單 NG 項目主管放行（前後端雙重擋，非文字原因可自行放行）
+  safety_override_by: string | null;
+  safety_override_at: string | null;
+  safety_override_reason: string | null;
+  /** joined：safety_override_by 對應的顯示名稱（profiles.display_name/name） */
+  safety_override_by_name: string | null;
   created_at: string;
   updated_at: string;
   // joined
@@ -129,6 +135,20 @@ export type SafetyNgItem = {
   item_id: string;
   item_label: string;
   ng_note: string; // NG 必填原因
+};
+
+// ── 安全清單 NG 項目主管放行（RS04 裁示：NG 需主管授權才可繼續，不是 RS 自行文字放行）──
+export type SafetyOverrideInput = {
+  /** 放行原因（例：輕微刮傷，不影響行車安全，客戶已知情） */
+  reason: string;
+};
+
+export type SafetyOverrideResult = {
+  id: string;
+  safety_override_by: string | null;
+  safety_override_by_name: string | null;
+  safety_override_at: string | null;
+  safety_override_reason: string | null;
 };
 
 // 目前同意條款版本（條文改版時 bump）

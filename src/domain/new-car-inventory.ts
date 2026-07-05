@@ -9,7 +9,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
-import type { NewCarInventoryStatus, NewCarInventoryRow, NewCarInventoryInput, NewCarInventoryFilters, VehicleModelOption, OrganizationOption, NewCarKpiSummary, NewCarByModelDatum, NewCarSlowMover, DemoRetireToUsedInput } from "./new-car-inventory.constants";
+import type { NewCarInventoryStatus, NewCarInventoryRow, NewCarInventoryInput, NewCarInventoryFilters, VehicleModelOption, OrganizationOption, NewCarKpiSummary, NewCarByModelDatum, NewCarSlowMover, DemoRetireToUsedInput, VehicleUnitOption } from "./new-car-inventory.constants";
 
 // ── Re-export types from .constants.ts（server-side caller 仍可 import from "@/domain/new-car-inventory"）──
 export type {
@@ -22,6 +22,7 @@ export type {
   NewCarByModelDatum,
   NewCarSlowMover,
   DemoRetireToUsedInput,
+  VehicleUnitOption,
 } from "./new-car-inventory.constants";
 
 // ── 查詢 ──────────────────────────────────────────────────────────────
@@ -77,6 +78,7 @@ export async function listNewCars(
   if (filters.status) q = q.eq("status", filters.status);
   if (filters.license_plate_status) q = q.eq("license_plate_status", filters.license_plate_status);
   if (filters.color) q = q.eq("color", filters.color);
+  if (filters.vehicle_model_id) q = q.eq("vehicle_model_id", filters.vehicle_model_id);
   if (filters.q) q = q.or(`vin.ilike.%${filters.q}%,color.ilike.%${filters.q}%,engine_no.ilike.%${filters.q}%`);
   // Demo 車 filter：true=只列 demo；false=排除 demo；undefined=全部
   if (filters.is_demo_unit === true) q = q.eq("is_demo_unit", true);
@@ -111,6 +113,27 @@ export async function getNewCarById(id: string): Promise<NewCarInventoryRow | nu
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return mapRow(data as any);
+}
+
+/**
+ * 訂單建立 wizard 用：列出某車款目前「可售」（displayed）且非 demo 車的具體單位（VIN）。
+ * RS04：createSalesOrder() 靠 new_vehicle_id 才能真正鎖車，本函式讓 UI 有得選。
+ */
+export async function listSellableNewCarUnits(
+  vehicleModelId: string
+): Promise<VehicleUnitOption[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data, error } = await supabase
+    .from("new_car_inventory")
+    .select("id, vin, color, list_price, license_plate_status")
+    .eq("brand_id", scope.brand_id)
+    .eq("vehicle_model_id", vehicleModelId)
+    .eq("status", "displayed")
+    .eq("is_demo_unit", false)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as VehicleUnitOption[];
 }
 
 export async function createNewCar(
@@ -175,6 +198,7 @@ export async function setNewCarStatus(
     delivered: "delivered_date",
     damaged: null,
     incident_hold: null,
+    frozen: null,
   };
   const field = dateField[status];
   const patch: Record<string, unknown> = { status };
@@ -296,6 +320,7 @@ export async function getNewCarInventoryByModel(): Promise<NewCarByModelDatum[]>
         delivered: 0,
         damaged: 0,
         incident_hold: 0,
+        frozen: 0,
         total: 0,
       });
     }
@@ -411,6 +436,7 @@ export async function markAsDemoUnit(
   acquired_at?: string | null,
 ): Promise<void> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const patch: Record<string, unknown> = { is_demo_unit: is_demo };
   if (is_demo) {
     patch.demo_asset_acquired_at = acquired_at ?? new Date().toISOString().slice(0, 10);
@@ -420,7 +446,8 @@ export async function markAsDemoUnit(
   const { error } = await supabase
     .from("new_car_inventory")
     .update(patch)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
   if (error) throw error;
 }
 
@@ -501,7 +528,8 @@ export async function retireDemoToUsed(
       converted_to_used_inventory_id: (usedCar as { id: string }).id,
       status: "delivered",  // 退出新車庫存流程（不是 sold，但也不再待售）
     })
-    .eq("id", input.new_car_id);
+    .eq("id", input.new_car_id)
+    .eq("brand_id", scope.brand_id);
   if (updateErr) {
     // rollback：刪掉剛建的 used_car 記錄（最佳努力）
     await supabase.from("used_car_inventory").delete().eq("id", (usedCar as { id: string }).id);

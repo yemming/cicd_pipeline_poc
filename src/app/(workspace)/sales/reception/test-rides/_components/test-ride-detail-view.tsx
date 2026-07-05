@@ -611,6 +611,21 @@ export function TestRideDetailView({
                     </div>
                   </div>
                 ))}
+                {/* RS04 裁示：NG 項目經主管放行才可能進到 Step3 簽名，這裡顯示放行紀錄 */}
+                {row.safety_override_at && (
+                  <div className="flex items-start gap-2 px-2.5 py-2 bg-[#EAF3DE] border border-[#C5DC9F] rounded">
+                    <span className="text-[#3B6D11] font-bold text-[11px] shrink-0 mt-0.5">✓</span>
+                    <div>
+                      <div className="text-[12px] font-medium text-[#3B6D11]">
+                        主管已放行
+                        {row.safety_override_by_name ? `（${row.safety_override_by_name}，${fmtTime(row.safety_override_at)}）` : `（${fmtTime(row.safety_override_at)}）`}
+                      </div>
+                      <div className="text-[11.5px] text-[#5A5955] mt-0.5">
+                        原因：{row.safety_override_reason}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
           )}

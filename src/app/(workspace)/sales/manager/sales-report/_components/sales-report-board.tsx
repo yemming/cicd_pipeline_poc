@@ -33,6 +33,7 @@ import {
   type LeadSourceRow,
   type DailyTrendPoint,
   type OrderDetailRow,
+  type DiscountStatsSummary,
 } from "@/domain/sales-report.constants";
 
 // ─── 格式化工具 ───────────────────────────────────────────────
@@ -72,6 +73,7 @@ export interface SalesReportBoardProps {
     source: string | null;
   };
   periodKey: string;
+  discountStats: DiscountStatsSummary;
 }
 
 export default function SalesReportBoard({
@@ -84,6 +86,7 @@ export default function SalesReportBoard({
   options,
   filters,
   periodKey,
+  discountStats,
 }: SalesReportBoardProps) {
   useSetPageHeader({
     title: "業績報表",
@@ -383,6 +386,66 @@ export default function SalesReportBoard({
           icon={<span>🎯</span>}
         />
       </div>
+
+      {/* ── Layer 1.5：折扣統計（RS04 折扣管控架構）── */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 折扣統計</span>
+          <span className="text-[11px] text-[#9A9890]">
+            情況A：業務員授權內直接放行・情況B：超授權送店長審核
+          </span>
+        </header>
+        <div className="p-4 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <KpiCard
+              label="情況A・授權內直接放行"
+              value={`${discountStats.situationACount} 筆`}
+              tone="green"
+              layout="vertical"
+              icon={<span>✅</span>}
+            />
+            <KpiCard
+              label="情況B・送店長審核"
+              value={`${discountStats.situationBCount} 筆`}
+              tone="amber"
+              layout="vertical"
+              icon={<span>📋</span>}
+            />
+            <KpiCard
+              label="送審案平均折扣"
+              value={`${discountStats.avgDiscountPct}%`}
+              tone="purple"
+              layout="vertical"
+              icon={<span>📉</span>}
+            />
+            <KpiCard
+              label="送審案折扣總額"
+              value={fmtMoney(discountStats.totalDiscountAmount)}
+              tone="blue"
+              layout="vertical"
+              icon={<span>💸</span>}
+            />
+          </div>
+
+          <div className="flex gap-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-[#FDF3E3] text-[#854F0B]">
+              待審核 {discountStats.pendingCount}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11]">
+              已核准 {discountStats.approvedCount}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-[#FDECEA] text-[#CC0000]">
+              已駁回 {discountStats.rejectedCount}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-[#EEEDFE] text-[#534AB7]">
+              反價中 {discountStats.counterOfferedCount}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-[#F2F2F2] text-[#6B6A68]">
+              已逾時取消 {discountStats.expiredCount}
+            </span>
+          </div>
+        </div>
+      </section>
 
       {/* ── Layer 2：兩欄 ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

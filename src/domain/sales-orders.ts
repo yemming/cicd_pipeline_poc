@@ -35,6 +35,7 @@ import type {
 import { REVIEW_PERIOD_DAYS } from "./sales-orders.constants";
 export { FINANCING_STATUS_LABELS, FINANCING_STATUS_CHIP, FINANCING_STATUSES } from "./sales-orders.constants";
 import { writeAuditLog } from "./audit-logs";
+import { checkSalesDiscountAuthority, createDiscountApproval } from "./discount-approvals";
 
 // ─────────────────────────────────────────────────────────────
 // Re-export types from .constants.ts（讓 server-side caller 仍可 import from "@/domain/sales-orders"）
@@ -233,6 +234,9 @@ export async function getSalesOrderById(
     total_amount: data.total_amount != null ? Number(data.total_amount) : null,
     deal_price: data.deal_price != null ? Number(data.deal_price) : null,
     down_payment: data.down_payment != null ? Number(data.down_payment) : null,
+    list_price: data.list_price != null ? Number(data.list_price) : null,
+    discount_pct: data.discount_pct != null ? Number(data.discount_pct) : null,
+    discount_amount: data.discount_amount != null ? Number(data.discount_amount) : null,
     quote_snapshot: (data.quote_snapshot as Record<string, unknown>) ?? null,
     metadata: (data.metadata as Record<string, unknown>) ?? {},
     customer_code: null,
@@ -380,7 +384,7 @@ async function genOrderNo(
 
 export async function createSalesOrder(
   input: CreateSalesOrderInput,
-): Promise<Result<{ id: string; order_no: string }>> {
+): Promise<Result<{ id: string; order_no: string; needs_approval: boolean }>> {
   if (!input.contract_type) {
     return { ok: false, error: "合約類型必填" };
   }
@@ -413,13 +417,39 @@ export async function createSalesOrder(
     }
   }
 
+  // RS04（2026-07-03 Russell 裁示）：折扣審核唯一觸發點 — 不論業務員從報價單轉單
+  // 或直接建訂單，一律在這裡（createSalesOrder）判斷折扣授權，沒有繞過的路徑。
+  // 折扣% = (list_price - 成交價) / list_price；沒帶 list_price 視為無折扣（situation A）。
+  const listPrice = input.list_price ?? null;
+  const dealPrice = input.deal_price ?? input.total_amount ?? null;
+  let discountAmount = 0;
+  let discountPct = 0;
+  if (listPrice != null && listPrice > 0 && dealPrice != null) {
+    discountAmount = Math.max(0, listPrice - dealPrice);
+    discountPct = (discountAmount / listPrice) * 100;
+  }
+
+  const authority = await checkSalesDiscountAuthority(discountPct);
+
+  if (authority.situation === "exceeds_top") {
+    return {
+      ok: false,
+      error: `折扣 ${discountPct.toFixed(1)}% 超過店長授權上限（${authority.top_max_pct}%），請重新協商折扣後再送出。`,
+    };
+  }
+
+  const needsApproval = authority.situation === "B";
+
   const { data, error } = await supabase
     .from("sales_orders")
     .insert({
       brand_id: scope.brand_id,
       order_no,
       contract_type: input.contract_type,
-      status: "draft",
+      status: needsApproval ? "pending_discount_approval" : "draft",
+      list_price: listPrice,
+      discount_pct: discountAmount > 0 ? discountPct : null,
+      discount_amount: discountAmount > 0 ? discountAmount : null,
       customer_id: input.customer_id ?? null,
       customer_name: input.customer_name ?? null,
       customer_phone: input.customer_phone ?? null,
@@ -474,7 +504,8 @@ export async function createSalesOrder(
     return { ok: false, error: `建立失敗：${error.message}` };
   }
 
-  // B-3：若選擇了新車庫存，預留該車（status → reserved）
+  // B-3：若選擇了新車庫存，預留該車
+  // 情況A（無需送審）→ status: reserved；情況B（需送審）→ status: frozen（其他業務員不可再配對）
   // A1 demo 車 guard：is_demo_unit=true 的車不得進入一般新車銷售流程
   if (input.new_vehicle_id) {
     // 先驗 demo 車排除（用 .eq('is_demo_unit', false) 做條件式 guard）
@@ -489,21 +520,54 @@ export async function createSalesOrder(
       return { ok: false, error: "這台是 demo 展示車，無法配一般新車銷售訂單。請選擇非 demo 庫存車輛。" };
     }
 
-    const { error: nvErr } = await supabase
+    // 車輛可售狀態只有 "displayed"（現車可售）；舊版誤寫 "available"（不存在的值）
+    // 導致 .update() 永遠 0 rows 命中卻不回 error，預留形同虛設 — 這裡改用 .select() 判斷實際命中數。
+    const targetStatus = needsApproval ? "frozen" : "reserved";
+    const { data: nvUpdated, error: nvErr } = await supabase
       .from("new_car_inventory")
-      .update({ status: "reserved", linked_sales_order_id: data.id })
+      .update({
+        status: targetStatus,
+        linked_sales_order_id: data.id,
+        ...(targetStatus === "reserved" ? { reserved_date: new Date().toISOString() } : {}),
+      })
       .eq("id", input.new_vehicle_id)
-      .eq("status", "available")
-      .eq("is_demo_unit", false); // A1：demo 車不可被一般訂單配對（雙重保險）
-    if (nvErr) {
-      // 若失敗（競態被搶），清掉訂單並回錯
+      .eq("status", "displayed")
+      .eq("is_demo_unit", false) // A1：demo 車不可被一般訂單配對（雙重保險）
+      .select("id");
+    if (nvErr || !nvUpdated || nvUpdated.length === 0) {
+      // 若失敗（競態被搶、或該車已非可售狀態），清掉訂單並回錯
       await supabase.from("sales_orders").delete().eq("id", data.id);
       return { ok: false, error: "這台新車已被其他訂單預留，請選擇其他車輛。" };
     }
   }
 
+  // 情況B：超過業務員授權、在店長授權內 → 建立折扣審核申請，通知店長
+  if (needsApproval) {
+    const approvalRes = await createDiscountApproval({
+      order_id: data.id,
+      discount_pct: discountPct,
+      discount_amount: discountAmount,
+      in_store_waiting: input.in_store_waiting ?? true,
+      vehicle_amount: dealPrice ?? undefined,
+      vehicle_model_name: input.vehicle_model_name ?? undefined,
+      notes: input.special_notes ?? undefined,
+    });
+    if (!approvalRes.ok) {
+      // 送審失敗 → 訂單與車輛都要復原，不留半成品狀態
+      await supabase.from("sales_orders").delete().eq("id", data.id);
+      if (input.new_vehicle_id) {
+        await supabase
+          .from("new_car_inventory")
+          .update({ status: "displayed", linked_sales_order_id: null })
+          .eq("id", input.new_vehicle_id)
+          .eq("status", "frozen");
+      }
+      return { ok: false, error: `建立訂單失敗：${approvalRes.error}` };
+    }
+  }
+
   revalidatePath("/sales/orders");
-  return { ok: true, data: { id: data.id, order_no } };
+  return { ok: true, data: { id: data.id, order_no, needs_approval: needsApproval } };
 }
 
 // ─────────────────────────────────────────────────────────────

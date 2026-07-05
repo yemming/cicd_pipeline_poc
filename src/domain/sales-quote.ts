@@ -520,11 +520,10 @@ export type SalesQuoteForPrint = {
     isGift: boolean;
   }>;
 
-  // 金額
+  // 金額（RS04：報價階段不涉及折扣）
   vehicleAmount: number;
   addonAmount: number;
-  discountAmount: number;
-  /** 稅前小計 = vehicle + addon - discount（= total / 1.05 之四捨五入近似） */
+  /** 稅前小計 = vehicle + addon（= total / 1.05 之四捨五入近似） */
   amountPretax: number;
   amountTax: number;
   amountTotal: number;
@@ -632,7 +631,6 @@ export async function getSalesQuoteForPrint(
     })),
     vehicleAmount: Number(detail.vehicle_amount ?? 0),
     addonAmount: Number(detail.addon_amount ?? 0),
-    discountAmount: Number(detail.discount_amount ?? 0),
     amountPretax: pretax,
     amountTax: tax,
     amountTotal: total,

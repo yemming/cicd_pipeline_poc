@@ -14,7 +14,9 @@ export type NewCarInventoryStatus =
   | "delivered"
   | "damaged"
   /** 事故扣押中 — 車輛涉及事故調查，暫不可售（輪3-1b） */
-  | "incident_hold";
+  | "incident_hold"
+  /** 折扣送審凍結中 — 訂單超業務員授權、待店長審核，其他業務員不可配對（RS04 折扣管控） */
+  | "frozen";
 
 export type LicensePlateStatus =
   | "not_applied"
@@ -32,6 +34,7 @@ export const NEW_CAR_STATUS_LABELS: Record<NewCarInventoryStatus, string> = {
   delivered: "已交車",
   damaged: "報損",
   incident_hold: "事故扣押",
+  frozen: "凍結",
 };
 
 export const LICENSE_PLATE_STATUS_LABELS: Record<LicensePlateStatus, string> = {
@@ -53,6 +56,8 @@ export const NEW_CAR_STATUS_CHIP: Record<NewCarInventoryStatus, string> = {
   damaged: "bg-[#F2F2F2] text-[#9A9890]",
   /** 事故扣押 — 紅底粗邊，明顯區分非正常流程（輪3-1b） */
   incident_hold: "bg-[#FDECEA] text-[#CC0000] border border-[#F5AEAD]",
+  /** 折扣送審凍結 — 紫底，跟 reserved(已保留) 明顯區分（RS04） */
+  frozen: "bg-[#EEEDFE] text-[#534AB7] border border-[#D6D3F7]",
 };
 
 export const ALL_STATUSES: NewCarInventoryStatus[] = [
@@ -65,6 +70,7 @@ export const ALL_STATUSES: NewCarInventoryStatus[] = [
   "delivered",
   "damaged",
   "incident_hold",
+  "frozen",
 ];
 
 export const ALL_LICENSE_PLATE_STATUSES: LicensePlateStatus[] = [
@@ -184,6 +190,16 @@ export type NewCarInventoryFilters = {
   q?: string;
   /** true = 只列 demo 車；false = 排除 demo 車；undefined = 全部 */
   is_demo_unit?: boolean;
+  vehicle_model_id?: string;
+};
+
+/** 訂單建立時挑選具體車輛單位（VIN）用的精簡型別 */
+export type VehicleUnitOption = {
+  id: string;
+  vin: string | null;
+  color: string | null;
+  list_price: number | null;
+  license_plate_status: LicensePlateStatus;
 };
 
 export type NewCarInventoryInput = {

@@ -19,12 +19,21 @@ import {
   createDiscountApproval,
   decideDiscountApproval,
   escalateDiscountApproval,
+  acceptCounterOffer,
+  rejectCounterOffer,
+  cancelPendingDiscountOrder,
   getDiscountApprovalById,
+  getPendingApprovalForOrder,
   upsertBackupApprover,
   removeBackupApprover,
+  getDiscountAuthoritySettings,
+  updateDiscountAuthoritySettings,
   type CreateDiscountApprovalInput,
   type DecideDiscountApprovalInput,
   type UpsertBackupApproverInput,
+  type DiscountApprovalRow,
+  type DiscountAuthoritySettings,
+  type UpdateDiscountAuthoritySettingsInput,
 } from "@/domain/discount-approvals";
 
 export type ActionResult<T = unknown> =
@@ -183,4 +192,114 @@ export async function removeBackupApproverAction(
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.SALES_ORDER_APPROVE);
   return removeBackupApprover(id);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 查詢：訂單目前待處理的折扣審核（RS 訂單詳情頁用）
+// ─────────────────────────────────────────────────────────────
+
+export async function getPendingApprovalForOrderAction(
+  orderId: string,
+): Promise<ActionResult<DiscountApprovalRow | null>> {
+  const canView = await hasPermission(PERMISSIONS.SALES_ORDER_EDIT);
+  if (!canView) return { ok: false, error: "沒有檢視訂單的權限" };
+
+  const row = await getPendingApprovalForOrder(orderId);
+  return { ok: true, data: row };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 業務員：回應主管反價（情況 B 的分支）
+// ─────────────────────────────────────────────────────────────
+
+export async function acceptCounterOfferAction(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  const canEdit = await hasPermission(PERMISSIONS.SALES_ORDER_EDIT);
+  if (!canEdit) return { ok: false, error: "沒有回應反價的權限" };
+
+  const res = await acceptCounterOffer(id);
+  if (!res.ok) return res;
+
+  after(async () => {
+    try {
+      await notifications.dispatch({
+        code: "sales_discount.decided",
+        payload: {
+          approvalId: id,
+          decision: "✓ 客戶接受反價，訂單成交",
+          reason: "—",
+          actionUrl: `/admin/approvals/discount`,
+          vehicleModelName: "—",
+        },
+      });
+    } catch {
+      // 通知失敗不影響主流程
+    }
+  });
+
+  return res;
+}
+
+export async function rejectCounterOfferAction(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  const canEdit = await hasPermission(PERMISSIONS.SALES_ORDER_EDIT);
+  if (!canEdit) return { ok: false, error: "沒有回應反價的權限" };
+
+  const res = await rejectCounterOffer(id);
+  if (!res.ok) return res;
+
+  after(async () => {
+    try {
+      await notifications.dispatch({
+        code: "sales_discount.decided",
+        payload: {
+          approvalId: id,
+          decision: "✗ 客戶不接受反價，訂單取消",
+          reason: "—",
+          actionUrl: `/admin/approvals/discount`,
+          vehicleModelName: "—",
+        },
+      });
+    } catch {
+      // 通知失敗不影響主流程
+    }
+  });
+
+  return res;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 業務員：情況 C — 主動取消送審中的訂單
+// ─────────────────────────────────────────────────────────────
+
+export async function cancelPendingDiscountOrderAction(
+  orderId: string,
+  reason: string,
+): Promise<ActionResult<{ id: string }>> {
+  const canEdit = await hasPermission(PERMISSIONS.SALES_ORDER_EDIT);
+  if (!canEdit) return { ok: false, error: "沒有取消訂單的權限" };
+  if (!reason.trim()) return { ok: false, error: "請填寫取消原因" };
+
+  return cancelPendingDiscountOrder(orderId, reason.trim());
+}
+
+// ─────────────────────────────────────────────────────────────
+// 折扣門檻設定（RS_M3，只有店長/主管可見可改）
+// ─────────────────────────────────────────────────────────────
+
+export async function getDiscountAuthoritySettingsAction(): Promise<
+  ActionResult<DiscountAuthoritySettings>
+> {
+  await requirePermission(PERMISSIONS.SALES_ORDER_APPROVE);
+  const data = await getDiscountAuthoritySettings();
+  return { ok: true, data };
+}
+
+export async function updateDiscountAuthoritySettingsAction(
+  input: UpdateDiscountAuthoritySettingsInput,
+): Promise<ActionResult<{ id: string }>> {
+  await requirePermission(PERMISSIONS.SALES_ORDER_APPROVE);
+  return updateDiscountAuthoritySettings(input);
 }

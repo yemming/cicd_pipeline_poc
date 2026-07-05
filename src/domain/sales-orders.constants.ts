@@ -17,7 +17,7 @@ export type SalesOrderRow = {
   brand_id: string;
   order_no: string;
   contract_type: "new" | "used";
-  status: "draft" | "submitted" | "signed" | "cancelled" | "fulfilled";
+  status: "draft" | "submitted" | "signed" | "cancelled" | "fulfilled" | "pending_discount_approval";
   customer_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
@@ -89,6 +89,10 @@ export type SalesOrderDetail = SalesOrderRow & {
   insurance_policy_no: string | null;
   insurance_until: string | null;
   contract_locked: boolean | null;
+  // RS04 折扣管控（2026-07-03 Russell 裁示）
+  list_price: number | null;
+  discount_pct: number | null;
+  discount_amount: number | null;
 };
 
 export type CreateSalesOrderInput = {
@@ -125,6 +129,11 @@ export type CreateSalesOrderInput = {
   delivery_date?: string | null;
   final_payment_date?: string | null;
   transfer_by?: string | null;
+  // RS04 折扣管控 — 定價（list_price）與成交價（deal_price/total_amount）的差 = 折扣
+  /** 建議售價（車輛未折扣前的定價）。有值才會觸發折扣授權判斷 */
+  list_price?: number | null;
+  /** 送審時客戶是否在場（決定審核逾時 10 分鐘 vs 30 分鐘），預設 true */
+  in_store_waiting?: boolean | null;
   // 其他
   special_notes?: string | null;
   condition_notes?: string | null;
@@ -178,7 +187,14 @@ export const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
   used: "中古車買賣合約",
 };
 
-export const ORDER_STATUSES = ["draft", "submitted", "signed", "cancelled", "fulfilled"] as const;
+export const ORDER_STATUSES = [
+  "draft",
+  "submitted",
+  "signed",
+  "cancelled",
+  "fulfilled",
+  "pending_discount_approval",
+] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -187,6 +203,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   signed: "已簽約",
   cancelled: "已作廢",
   fulfilled: "已交車",
+  pending_discount_approval: "待折扣審核",
 };
 
 export const ORDER_STATUS_CHIP: Record<
@@ -198,6 +215,7 @@ export const ORDER_STATUS_CHIP: Record<
   signed: { bg: "bg-[#EAF4FB]", text: "text-[#185FA5]" },
   cancelled: { bg: "bg-[#FDECEA]", text: "text-[#CC0000]" },
   fulfilled: { bg: "bg-[#EAF3DE]", text: "text-[#3B6D11]" },
+  pending_discount_approval: { bg: "bg-[#EEEDFE]", text: "text-[#534AB7]" },
 };
 
 export const PAYMENT_METHODS = ["cash", "card", "loan", "installment"] as const;

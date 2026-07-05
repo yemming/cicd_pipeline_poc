@@ -27,6 +27,12 @@ import {
   updateFinancingStatusAction,
   reassignSalesOrderAction,
 } from "@/lib/sales/order-actions";
+import {
+  acceptCounterOfferAction,
+  rejectCounterOfferAction,
+  cancelPendingDiscountOrderAction,
+} from "@/lib/sales/discount-approval-actions";
+import type { DiscountApprovalRow } from "@/domain/discount-approvals.constants";
 import { SignatureCanvas } from "@/components/signature-canvas";
 import {
   CONTRACT_TYPE_LABELS,
@@ -69,6 +75,8 @@ type Props = {
   canReassign?: boolean;
   /** 此訂單的收款記錄（由 page.tsx 撈好傳入，避免 client 直連 supabase） */
   payments?: SalesPaymentRow[];
+  /** RS04：目前待處理的折扣審核申請（pending/escalated/counter_offered），由 page.tsx 撈好傳入 */
+  discountApproval?: DiscountApprovalRow | null;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -161,6 +169,7 @@ export default function OrderDetailView({
   canUnlock = false,
   canReassign = false,
   payments = [],
+  discountApproval = null,
 }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("view");
@@ -218,6 +227,12 @@ export default function OrderDetailView({
   const [replaceReason, setReplaceReason] = useState<string>("");
   const [replaceDetail, setReplaceDetail] = useState<string>("");
   const [isReplacing, startReplaceTransition] = useTransition();
+
+  // ── RS04 折扣審核：業務員回應反價 / 情況C自行取消 ─────────────
+  const [isRespondingCounter, startCounterTransition] = useTransition();
+  const [showCancelPendingModal, setShowCancelPendingModal] = useState(false);
+  const [cancelPendingReason, setCancelPendingReason] = useState<string>("");
+  const [isCancellingPending, startCancelPendingTransition] = useTransition();
 
   // Edit form state (initialized from order)
   const [editVehicleColor, setEditVehicleColor] = useState(order.vehicle_color ?? "");
@@ -605,6 +620,52 @@ export default function OrderDetailView({
     });
   }
 
+  // ── RS04 折扣審核：業務員回應反價 / 情況C自行取消 ─────────────
+
+  function handleAcceptCounterOffer() {
+    if (!discountApproval) return;
+    startCounterTransition(async () => {
+      const res = await acceptCounterOfferAction(discountApproval.id);
+      if (res.ok) {
+        showBanner(true, "✓ 客戶接受反價，訂單已回到草稿，請繼續完成簽約流程");
+        router.refresh();
+      } else {
+        showBanner(false, `✗ ${res.error}`);
+      }
+    });
+  }
+
+  function handleRejectCounterOffer() {
+    if (!discountApproval) return;
+    startCounterTransition(async () => {
+      const res = await rejectCounterOfferAction(discountApproval.id);
+      if (res.ok) {
+        showBanner(true, "已回報客戶不接受反價，訂單已取消、車輛已釋出可售");
+        router.refresh();
+      } else {
+        showBanner(false, `✗ ${res.error}`);
+      }
+    });
+  }
+
+  function handleCancelPendingSubmit() {
+    if (!cancelPendingReason.trim()) {
+      showBanner(false, "請填寫取消原因");
+      return;
+    }
+    setShowCancelPendingModal(false);
+    startCancelPendingTransition(async () => {
+      const res = await cancelPendingDiscountOrderAction(order.id, cancelPendingReason.trim());
+      if (res.ok) {
+        setCancelPendingReason("");
+        showBanner(true, "已取消送審訂單，車輛已釋出可售");
+        router.refresh();
+      } else {
+        showBanner(false, `✗ ${res.error}`);
+      }
+    });
+  }
+
   // ─────────────────────────────────────────────────────────────
   // Render helpers
   // ─────────────────────────────────────────────────────────────
@@ -874,6 +935,94 @@ export default function OrderDetailView({
           </div>
         </div>
       </header>
+
+      {/* ── RS04：折扣審核狀態（情況 B 送審中 / 反價待回覆 / 情況 C 自行取消）── */}
+      {order.status === "pending_discount_approval" && discountApproval && (
+        <section
+          className={`rounded-lg border p-4 space-y-3 ${
+            discountApproval.status === "counter_offered"
+              ? "bg-[#FDF3E3] border-[#E6C97A]"
+              : "bg-[#EEEDFE] border-[#C9C5F0]"
+          }`}
+        >
+          {discountApproval.status === "counter_offered" ? (
+            <>
+              <div className="text-[13px] font-semibold text-[#854F0B]">
+                💬 店長已反價，待您向客戶確認後回報
+              </div>
+              <div className="text-[12.5px] text-[#5A5955] space-y-1">
+                <div>
+                  店長可接受金額：
+                  <span className="font-mono font-semibold text-[#2C2C2A] ml-1">
+                    {fmtNT(discountApproval.counter_offer_amount)}
+                    {discountApproval.counter_offer_pct != null
+                      ? `（折扣 ${discountApproval.counter_offer_pct}%）`
+                      : ""}
+                  </span>
+                </div>
+                {discountApproval.decision_reason && (
+                  <div>店長說明：{discountApproval.decision_reason}</div>
+                )}
+                {discountApproval.counter_offer_deadline_at && (
+                  <div className="text-[11px] text-[#9A9890]">
+                    ⏰ 請於 {fmtDateTime(discountApproval.counter_offer_deadline_at)} 前回報，逾時系統將自動取消訂單、釋放車輛
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleAcceptCounterOffer}
+                  disabled={isRespondingCounter}
+                  className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
+                >
+                  {isRespondingCounter ? "處理中⋯" : "✅ 客戶接受"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRejectCounterOffer}
+                  disabled={isRespondingCounter}
+                  className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-60"
+                >
+                  {isRespondingCounter ? "處理中⋯" : "❌ 客戶不接受"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-[13px] font-semibold text-[#534AB7]">
+                ⏳ 折扣超出授權，等候店長審核（車輛已暫時凍結，其他業務員無法配對）
+              </div>
+              <div className="text-[12.5px] text-[#5A5955] space-y-1">
+                <div>
+                  申請折扣：
+                  <span className="font-mono text-[#CC0000] ml-1">
+                    {discountApproval.discount_pct != null
+                      ? `${discountApproval.discount_pct}%`
+                      : "—"}
+                    {discountApproval.discount_amount != null
+                      ? `（- ${fmtNT(discountApproval.discount_amount)}）`
+                      : ""}
+                  </span>
+                </div>
+                {discountApproval.deadline_at && (
+                  <div className="text-[11px] text-[#9A9890]">
+                    ⏰ 逾時 {fmtDateTime(discountApproval.deadline_at)} 將自動升級給代理審核人
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCancelPendingModal(true)}
+                disabled={isCancellingPending}
+                className="h-[26px] px-3 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                撤回申請（客戶臨時考慮 / 情況C）
+              </button>
+            </>
+          )}
+        </section>
+      )}
 
       {/* ── Tab navigation ── */}
       <div className="bg-white border border-[#EEECE6] rounded-t-lg overflow-x-auto">
@@ -1957,6 +2106,44 @@ export default function OrderDetailView({
                 className="h-[32px] px-4 rounded text-[12.5px] font-medium bg-[#854F0B] text-white hover:bg-[#6b3f08] disabled:opacity-50"
               >
                 {isReassigning ? "轉移中⋯" : "確認轉移"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RS04 情況C：撤回送審中的折扣訂單 */}
+      {showCancelPendingModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4" style={{ pointerEvents: "auto" }}>
+            <div className="text-[15px] font-semibold text-[#2C2C2A]">撤回折扣送審申請</div>
+            <div className="text-[12px] text-[#9A9890]">
+              客戶臨時考慮或取消交易時使用。訂單將立即作廢、車輛立即恢復可售，此操作記錄稽核日誌。
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">取消原因 *</label>
+              <textarea
+                className={`${inputCls} h-[70px] resize-none`}
+                value={cancelPendingReason}
+                onChange={(e) => setCancelPendingReason(e.target.value)}
+                disabled={isCancellingPending}
+                placeholder="例：客戶說要再考慮一下、客戶臨時反悔⋯"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                onClick={() => setShowCancelPendingModal(false)}
+                disabled={isCancellingPending}
+                className="h-[32px] px-4 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+              >
+                返回
+              </button>
+              <button
+                onClick={handleCancelPendingSubmit}
+                disabled={isCancellingPending}
+                className="h-[32px] px-4 rounded text-[12.5px] font-medium bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
+              >
+                {isCancellingPending ? "取消中⋯" : "確認撤回"}
               </button>
             </div>
           </div>

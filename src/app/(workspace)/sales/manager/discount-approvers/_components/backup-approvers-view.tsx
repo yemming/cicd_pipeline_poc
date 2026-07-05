@@ -16,8 +16,10 @@ import { useSetPageHeader } from "@/components/page-header-context";
 import {
   upsertBackupApproverAction,
   removeBackupApproverAction,
+  updateDiscountAuthoritySettingsAction,
 } from "@/lib/sales/discount-approval-actions";
 import type { DiscountApprovalBackupRow } from "@/domain/discount-approvals.constants";
+import type { DiscountAuthoritySettings } from "@/domain/discount-approvals";
 
 type Banner = { ok: boolean; msg: string } | null;
 
@@ -32,6 +34,7 @@ export type BackupApproversViewProps = {
   backups: DiscountApprovalBackupRow[];
   employees: EmployeeOption[];
   canEdit: boolean;
+  discountSettings: DiscountAuthoritySettings;
 };
 
 const inputCls =
@@ -41,11 +44,12 @@ export function BackupApproversView({
   backups,
   employees,
   canEdit,
+  discountSettings,
 }: BackupApproversViewProps) {
   useSetPageHeader({
     breadcrumb: [
       { label: "主管工作台", href: "/sales/manager" },
-      { label: "代理審核人設定" },
+      { label: "折扣設定" },
     ],
     hideSearch: true,
   });
@@ -53,6 +57,45 @@ export function BackupApproversView({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
+
+  // 折扣門檻設定 state
+  const [isSavingThresholds, startThresholdTransition] = useTransition();
+  const [thresholds, setThresholds] = useState({
+    sales_consultant_max_pct: String(discountSettings.sales_consultant_max_pct ?? ""),
+    rs_manager_max_pct: String(discountSettings.rs_manager_max_pct ?? ""),
+    counter_offer_timeout_hours: String(discountSettings.counter_offer_timeout_hours),
+  });
+
+  const handleSaveThresholds = () => {
+    const scPct = Number(thresholds.sales_consultant_max_pct);
+    const rmPct = Number(thresholds.rs_manager_max_pct);
+    const hours = Number(thresholds.counter_offer_timeout_hours);
+    if (!thresholds.sales_consultant_max_pct.trim() || Number.isNaN(scPct)) {
+      showBanner({ ok: false, msg: "請輸入有效的業務員折扣授權上限" });
+      return;
+    }
+    if (!thresholds.rs_manager_max_pct.trim() || Number.isNaN(rmPct)) {
+      showBanner({ ok: false, msg: "請輸入有效的店長折扣授權上限" });
+      return;
+    }
+    if (!thresholds.counter_offer_timeout_hours.trim() || Number.isNaN(hours)) {
+      showBanner({ ok: false, msg: "請輸入有效的反價等待逾時小時數" });
+      return;
+    }
+    startThresholdTransition(async () => {
+      const res = await updateDiscountAuthoritySettingsAction({
+        sales_consultant_max_pct: scPct,
+        rs_manager_max_pct: rmPct,
+        counter_offer_timeout_hours: hours,
+      });
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已儲存折扣門檻設定" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
 
   // 新增表單 state
   const [form, setForm] = useState<{ manager_id: string; backup_approver_id: string }>({
@@ -111,13 +154,18 @@ export function BackupApproversView({
     <div className={`px-6 py-5 space-y-3 ${lockedClass}`}>
       {/* Page Header */}
       <header className="flex items-center gap-2.5">
-        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">代理審核人設定</h1>
+        <h1 className="text-[16px] font-semibold text-[#2C2C2A]">折扣設定</h1>
         <span className="px-2 py-0.5 text-[11px] rounded-full bg-[#EAF4FB] text-[#185FA5] font-medium">
           RS_M3
         </span>
         <span className="text-[12px] text-[#9A9890]">
-          折扣審核逾時後，自動升級給代理審核人處理
+          折扣授權門檻 · 審核逾時規則 · 代理審核人
         </span>
+        {!canEdit && (
+          <span className="ml-auto px-2 py-0.5 text-[11px] rounded-md bg-[#F2F2F2] text-[#6B6A68]">
+            唯讀視角
+          </span>
+        )}
       </header>
 
       {/* Banner */}
@@ -132,6 +180,108 @@ export function BackupApproversView({
           {banner.msg}
         </div>
       )}
+
+      {/* 折扣門檻設定（RS04 第五件） */}
+      <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+        <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
+          <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 折扣門檻設定</span>
+        </header>
+        <div className="px-4 py-4 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">業務員折扣授權上限 %</label>
+              {canEdit ? (
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  className={inputCls}
+                  value={thresholds.sales_consultant_max_pct}
+                  disabled={isSavingThresholds}
+                  onChange={(e) =>
+                    setThresholds({ ...thresholds, sales_consultant_max_pct: e.target.value })
+                  }
+                  placeholder="例：3"
+                />
+              ) : (
+                <div className="h-[30px] flex items-center text-[12.5px] text-[#2C2C2A]">
+                  {discountSettings.sales_consultant_max_pct ?? "—"}%
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">店長折扣授權上限 %</label>
+              {canEdit ? (
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  className={inputCls}
+                  value={thresholds.rs_manager_max_pct}
+                  disabled={isSavingThresholds}
+                  onChange={(e) =>
+                    setThresholds({ ...thresholds, rs_manager_max_pct: e.target.value })
+                  }
+                  placeholder="例：10"
+                />
+              ) : (
+                <div className="h-[30px] flex items-center text-[12.5px] text-[#2C2C2A]">
+                  {discountSettings.rs_manager_max_pct ?? "—"}%
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">反價等待逾時 小時</label>
+              {canEdit ? (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className={inputCls}
+                  value={thresholds.counter_offer_timeout_hours}
+                  disabled={isSavingThresholds}
+                  onChange={(e) =>
+                    setThresholds({ ...thresholds, counter_offer_timeout_hours: e.target.value })
+                  }
+                  placeholder="例：24"
+                />
+              ) : (
+                <div className="h-[30px] flex items-center text-[12.5px] text-[#2C2C2A]">
+                  {discountSettings.counter_offer_timeout_hours} 小時
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 border-t border-[#F8F7F4]">
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">
+                折扣審核逾時（在場）— 沿用現有機制
+              </label>
+              <div className="h-[30px] flex items-center text-[12.5px] text-[#5A5955]">
+                {discountSettings.in_store_timeout_minutes} 分鐘
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">
+                折扣審核逾時（不在場）— 沿用現有機制
+              </label>
+              <div className="h-[30px] flex items-center text-[12.5px] text-[#5A5955]">
+                {discountSettings.normal_timeout_minutes} 分鐘
+              </div>
+            </div>
+          </div>
+
+          {canEdit && (
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={handleSaveThresholds}
+                disabled={isSavingThresholds}
+                className="h-[30px] px-4 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
+              >
+                {isSavingThresholds ? "儲存中⋯" : "儲存門檻設定"}
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* 說明區 */}
       <section className="bg-[#EAF4FB] border border-[#B3D4EF] rounded-lg px-4 py-3 text-[12.5px] text-[#185FA5]">

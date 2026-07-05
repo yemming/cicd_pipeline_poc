@@ -88,6 +88,7 @@ export default async function SalesReportPage({
       options={bundle.options}
       filters={{ period, saName, modelId, source }}
       periodKey={bundle.periodKey}
+      discountStats={bundle.discountStats}
     />
   );
 }

@@ -375,7 +375,7 @@ export async function listInTransitCarsByPO(poId: string): Promise<InTransitCar[
 // ── 域C + A-10 到港端：候補手卡精確比對 + call_tasks 建立 ─────────────────
 
 /**
- * 到港確認後，找出符合此批新車的 open 候補手卡，對每張手卡建立一筆 call_task
+ * 到港確認後，找出符合此批新車的候補手卡，對每張手卡建立一筆 call_task
  * 通知業務員（assignee）跟進。
  *
  * 域C 精確比對規則：
@@ -384,6 +384,17 @@ export async function listInTransitCarsByPO(poId: string): Promise<InTransitCar[
  *
  * 舊 backorder_model 自由文字比對已全面移除。只有已設 backorder_vehicle_model_id
  * 的候補手卡才會被比對命中。
+ *
+ * status 篩選（2026-07-03 修正，Russell 裁示）：不要求 status='open'。
+ * 「登記候補」發生當下手卡幾乎必然同時被結案（closed）或轉 Lead
+ * （converted_to_lead，由 convertHandcardToLead() 強制寫死），且沒有任何
+ * 程式碼路徑會把 status 改回 open —— 候補欄位在 closed/converted_to_lead
+ * 之後依然完整保留在該筆 row 上、配對依然有效。只排除 no_show（客戶根本
+ * 沒到場，不會走到候補登記那步，屬真正作廢狀態）。
+ *
+ * 防重複：拿掉 status='open' 篩選後，同一張手卡可能因多次到港確認被重複
+ * 比對到，insert 前先查 call_tasks 是否已存在同 handcard_id + vehicle_model_id
+ * 的 backorder_matched 任務，存在則跳過。
  *
  * 失敗時靜默 log（不影響到港主流程）。
  */
@@ -411,7 +422,7 @@ export async function matchBackordersAndCreateCallTasks(params: {
       .from("sales_handcards")
       .select("id, assigned_rs_user_id, customer_id, backorder_color")
       .eq("brand_id", params.brandId)
-      .eq("status", "open")
+      .neq("status", "no_show")
       .eq("backorder_vehicle_model_id", v.vehicleModelId);
 
     // 顏色若兩側都有值則精確比對
@@ -435,6 +446,22 @@ export async function matchBackordersAndCreateCallTasks(params: {
     };
 
     for (const hc of handcards as HandcardRow[]) {
+      // 防重複：同一張手卡 + 同車型的候補到貨任務已存在就跳過（拿掉 status='open'
+      // 篩選後，同張手卡可能被多次到港確認重複比對到）
+      const { data: existing, error: dupErr } = await supabase
+        .from("call_tasks")
+        .select("id")
+        .eq("metadata->>handcard_id", hc.id)
+        .eq("metadata->>vehicle_model_id", v.vehicleModelId)
+        .eq("metadata->>backorder_matched", "true")
+        .limit(1)
+        .maybeSingle();
+      if (dupErr) {
+        console.error("[域C/A-10] 查重候補 call_task 失敗", dupErr.message, { handcard_id: hc.id });
+        continue;
+      }
+      if (existing) continue;
+
       // call_type='custom' + metadata.backorder_matched=true（明確標示候補到貨任務）
       const { error: ctErr } = await supabase
         .from("call_tasks")
