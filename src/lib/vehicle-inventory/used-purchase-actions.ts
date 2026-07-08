@@ -35,7 +35,7 @@ import {
   type UsedPurchaseInput,
   type UsedPurchaseSourceType,
 } from "@/domain/used-purchase-requests";
-import { recordWholesaleToExternal } from "@/domain/sales-payments";
+import { recordWholesaleToExternal, recordPurePurchase } from "@/domain/sales-payments";
 import type { UsedCarConditionGrade } from "@/domain/used-car-inventory.constants";
 
 export type ActionResult<T = unknown> =
@@ -399,6 +399,22 @@ export async function confirmDirectBuyAction(
       })
       .eq("id", requestId)
       .eq("brand_id", brand);
+
+    // 純收購金流記錄——與批售(wholesale_to_external)/以車換車(trade_in_acquisition)分開記
+    // 只有能確認實際收購金額時才記；沒填金額（估價未定）就不硬塞一筆錯誤金流
+    const purchaseAmount = req.actual_price ?? req.suggested_price ?? null;
+    if (purchaseAmount && purchaseAmount > 0) {
+      await recordPurePurchase({
+        order_no: applicationNo,
+        purchase_amount: purchaseAmount,
+        payment_method: "bank_transfer", // 直購預設轉帳，申請單目前無獨立付款方式欄位
+        metadata: {
+          source_kind: "used_purchase_request",
+          source_id: requestId,
+          seller_name: req.seller_name ?? null,
+        },
+      });
+    }
 
     // E-3-b：賣方若為休眠/戰敗 lead → revived + 取消喚醒任務
     await reactivateSellerDormantLeads(brand, req.seller_phone);

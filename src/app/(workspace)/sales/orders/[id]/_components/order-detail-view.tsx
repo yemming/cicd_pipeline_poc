@@ -692,6 +692,10 @@ export default function OrderDetailView({
 
   const reviewExpiry = computeReviewExpiry();
 
+  // F3：爭議凍結中——取消/轉移/換車/延期/融資/交車完成等異動一律鎖住，僅留「檢視」與「提交爭議」入口本身
+  const frozen = Boolean(order.dispute_frozen);
+  const frozenTitle = "此訂單爭議凍結中，需先由主管處理爭議後才能操作";
+
   // ─────────────────────────────────────────────────────────────
   // Render
   // ─────────────────────────────────────────────────────────────
@@ -784,7 +788,8 @@ export default function OrderDetailView({
               {canEdit && order.status === "signed" && (
                 <button
                   onClick={() => handleSetStatus("fulfilled")}
-                  disabled={isPending}
+                  disabled={isPending || frozen}
+                  title={frozen ? frozenTitle : undefined}
                   className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#EAF3DE] border border-[#C5DC9F] text-[#3B6D11] hover:bg-[#d9f0c8] shadow-sm disabled:opacity-50"
                 >
                   交車完成
@@ -795,7 +800,8 @@ export default function OrderDetailView({
                 (order.status === "draft" || order.status === "submitted" || order.status === "signed") && (
                   <button
                     onClick={handleOpenCancelModal}
-                    disabled={isPending || isCancelling}
+                    disabled={isPending || isCancelling || frozen}
+                    title={frozen ? frozenTitle : undefined}
                     className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm disabled:opacity-50"
                   >
                     {isCancelling ? "取消中⋯" : "取消合約"}
@@ -805,20 +811,20 @@ export default function OrderDetailView({
               {canEdit && order.status === "signed" && (
                 <button
                   onClick={handleOpenDeferModal}
-                  disabled={isPending || isDeferring}
+                  disabled={isPending || isDeferring || frozen}
                   className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm disabled:opacity-50"
-                  title="RS04③ 廠方延遲或無法交車"
+                  title={frozen ? frozenTitle : "RS04③ 廠方延遲或無法交車"}
                 >
                   延期交車
                 </button>
               )}
-              {/* RS04⑥ 中古車交車後爭議 */}
+              {/* RS04⑥ 中古車交車後爭議——已凍結中不可再重複提交 */}
               {canEdit && order.status === "fulfilled" && order.contract_type === "used" && (
                 <button
                   onClick={handleOpenDisputeModal}
-                  disabled={isPending || isRaisingDispute}
+                  disabled={isPending || isRaisingDispute || frozen}
                   className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] shadow-sm disabled:opacity-50"
-                  title="RS04⑥ 中古車交車後爭議"
+                  title={frozen ? "此訂單已在爭議凍結中" : "RS04⑥ 中古車交車後爭議"}
                 >
                   提交爭議
                 </button>
@@ -827,9 +833,9 @@ export default function OrderDetailView({
               {canReplace && order.status === "fulfilled" && order.contract_type === "new" && (
                 <button
                   onClick={handleOpenReplaceModal}
-                  disabled={isPending || isReplacing}
+                  disabled={isPending || isReplacing || frozen}
                   className="h-[30px] px-4 rounded-full text-[12px] bg-[#FDF3E3] border border-[#E5C880] text-[#854F0B] hover:bg-[#faebc9] shadow-sm disabled:opacity-50"
-                  title="RS04⑦ 新車換車申請（檸檬車）"
+                  title={frozen ? frozenTitle : "RS04⑦ 新車換車申請（檸檬車）"}
                 >
                   申請換車
                 </button>
@@ -838,9 +844,9 @@ export default function OrderDetailView({
               {canReassign && order.status !== "cancelled" && (
                 <button
                   onClick={handleOpenReassignModal}
-                  disabled={isPending || isReassigning}
+                  disabled={isPending || isReassigning || frozen}
                   className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm disabled:opacity-50"
-                  title="A-9 主管批次轉移業務員"
+                  title={frozen ? frozenTitle : "A-9 主管批次轉移業務員"}
                 >
                   轉移業務
                 </button>
@@ -849,9 +855,9 @@ export default function OrderDetailView({
               {canEdit && order.contract_type === "new" && order.status !== "cancelled" && (
                 <button
                   onClick={handleOpenFinancingModal}
-                  disabled={isPending || isUpdatingFinancing}
+                  disabled={isPending || isUpdatingFinancing || frozen}
                   className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] shadow-sm disabled:opacity-50"
-                  title="A-6 融資狀態"
+                  title={frozen ? frozenTitle : "A-6 融資狀態"}
                 >
                   融資狀態
                 </button>

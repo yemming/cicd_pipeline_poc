@@ -1558,7 +1558,7 @@ export async function cancelSalesOrderStructured(
   const { data: current } = await supabase
     .from("sales_orders")
     .select(
-      "status, contract_type, used_vehicle_id, new_vehicle_id, signed_at, review_period_days, cancel_requested_at",
+      "status, contract_type, used_vehicle_id, new_vehicle_id, signed_at, review_period_days, cancel_requested_at, dispute_frozen",
     )
     .eq("id", id)
     .eq("brand_id", scope.brand_id)
@@ -1567,6 +1567,9 @@ export async function cancelSalesOrderStructured(
   if (current.status === "cancelled") return { ok: false, error: "訂單已作廢" };
   if (current.status === "fulfilled") {
     return { ok: false, error: "已交車的訂單不可透過此入口取消，請使用「爭議」入口" };
+  }
+  if (current.dispute_frozen) {
+    return { ok: false, error: "此訂單爭議凍結中，需先由主管處理爭議後才能取消" };
   }
 
   // 2. 判斷審閱期
@@ -1743,7 +1746,7 @@ export async function deferDelivery(
 
   const { data: current } = await supabase
     .from("sales_orders")
-    .select("status, delivery_date, metadata")
+    .select("status, delivery_date, metadata, new_vehicle_id, used_vehicle_id")
     .eq("id", id)
     .eq("brand_id", scope.brand_id)
     .maybeSingle();
@@ -1793,6 +1796,23 @@ export async function deferDelivery(
 
   if (error) return { ok: false, error: `延期申請失敗：${error.message}` };
 
+  // 無法交車 → 車輛層同步凍結（F3：爭議期間車輛不可被其他動作異動）
+  if (input.resolution === "unable") {
+    const vehicleReason = `廠方無法交車：${input.reason}`;
+    if (current.new_vehicle_id) {
+      await supabase
+        .from("new_car_inventory")
+        .update({ dispute_frozen: true, dispute_frozen_reason: vehicleReason })
+        .eq("id", current.new_vehicle_id);
+    }
+    if (current.used_vehicle_id) {
+      await supabase
+        .from("used_car_inventory")
+        .update({ dispute_frozen: true, dispute_frozen_reason: vehicleReason })
+        .eq("id", current.used_vehicle_id);
+    }
+  }
+
   after(async () => {
     await writeAuditLog({
       table_name: "sales_orders",
@@ -1832,7 +1852,7 @@ export async function raiseUsedCarPostDeliveryDispute(
 
   const { data: current } = await supabase
     .from("sales_orders")
-    .select("status, contract_type, metadata, dispute_frozen")
+    .select("status, contract_type, metadata, dispute_frozen, used_vehicle_id")
     .eq("id", id)
     .eq("brand_id", scope.brand_id)
     .maybeSingle();
@@ -1873,6 +1893,14 @@ export async function raiseUsedCarPostDeliveryDispute(
     .eq("brand_id", scope.brand_id);
 
   if (error) return { ok: false, error: `爭議提交失敗：${error.message}` };
+
+  // 車輛層同步凍結（F3：交車後爭議期間，車輛不可再被其他銷售/整備動作異動）
+  if (current.used_vehicle_id) {
+    await supabase
+      .from("used_car_inventory")
+      .update({ dispute_frozen: true, dispute_frozen_reason: input.reason })
+      .eq("id", current.used_vehicle_id);
+  }
 
   after(async () => {
     await writeAuditLog({
@@ -2275,12 +2303,15 @@ export async function reassignSalesOrder(
 
   const { data: current } = await supabase
     .from("sales_orders")
-    .select("status, rs_name, created_by")
+    .select("status, rs_name, created_by, dispute_frozen")
     .eq("id", id)
     .eq("brand_id", scope.brand_id)
     .maybeSingle();
   if (!current) return { ok: false, error: "找不到訂單" };
   if (current.status === "cancelled") return { ok: false, error: "已作廢訂單不可轉移" };
+  if (current.dispute_frozen) {
+    return { ok: false, error: "此訂單爭議凍結中，需先由主管處理爭議後才能轉移業務員" };
+  }
 
   const oldRsName = (current.rs_name as string | null) ?? null;
   const newRsName = input.new_rs_name.trim();
@@ -2455,7 +2486,7 @@ export async function requestNewCarReplacement(
 
   const { data: current } = await supabase
     .from("sales_orders")
-    .select("status, contract_type, metadata")
+    .select("status, contract_type, metadata, dispute_frozen")
     .eq("id", id)
     .eq("brand_id", scope.brand_id)
     .maybeSingle();
@@ -2465,6 +2496,9 @@ export async function requestNewCarReplacement(
   }
   if (current.status !== "fulfilled") {
     return { ok: false, error: "只有已交車的訂單可申請換車" };
+  }
+  if (current.dispute_frozen) {
+    return { ok: false, error: "此訂單爭議凍結中，需先由主管處理爭議後才能申請換車" };
   }
 
   const nowIso = new Date().toISOString();
