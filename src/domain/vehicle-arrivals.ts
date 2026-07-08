@@ -11,6 +11,7 @@
 
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveScope } from "@/lib/scope/active-scope";
 
 // ── 型別 ──────────────────────────────────────────────────────────────
 
@@ -84,22 +85,9 @@ export const ARRIVAL_PAGE_SIZE_DEFAULT = 50;
 
 // ── helper ────────────────────────────────────────────────────────────
 
-async function getBrandId(): Promise<string> {
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-  if (!userId) return "indian";
-  const { data } = await supabase
-    .from("profile_brands")
-    .select("brand_id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-  return data?.brand_id ?? "indian";
-}
-
 export async function getArrivalBrandId(): Promise<string> {
-  return getBrandId();
+  const scope = await getActiveScope();
+  return scope.brand_id;
 }
 
 const HEAD_FIELDS = `

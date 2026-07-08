@@ -36,6 +36,7 @@ import { REVIEW_PERIOD_DAYS } from "./sales-orders.constants";
 export { FINANCING_STATUS_LABELS, FINANCING_STATUS_CHIP, FINANCING_STATUSES } from "./sales-orders.constants";
 import { writeAuditLog } from "./audit-logs";
 import { checkSalesDiscountAuthority, createDiscountApproval } from "./discount-approvals";
+import { notifications } from "@/lib/notifications";
 
 // ─────────────────────────────────────────────────────────────
 // Re-export types from .constants.ts（讓 server-side caller 仍可 import from "@/domain/sales-orders"）
@@ -837,7 +838,7 @@ export async function setSalesOrderStatus(
   // ── 新車庫存 hook：同步 new_car_inventory.status ──
   const newVehicleId = (current.new_vehicle_id as string | null);
   if (newVehicleId) {
-    let newCarStatus: "reserved" | "sold" | "available" | null = null;
+    let newCarStatus: "reserved" | "sold" | "displayed" | null = null;
     const newCarPatch: Record<string, unknown> = {};
     if (status === "signed") {
       newCarStatus = "reserved";
@@ -845,7 +846,7 @@ export async function setSalesOrderStatus(
     } else if (status === "fulfilled") {
       newCarStatus = "sold";
     } else if (status === "cancelled" && (current.status === "signed" || current.status === "fulfilled")) {
-      newCarStatus = "available";
+      newCarStatus = "displayed";
       newCarPatch.linked_sales_order_id = null;
     }
 
@@ -857,7 +858,32 @@ export async function setSalesOrderStatus(
         .eq("id", newVehicleId);
       if (ncErr) {
         console.error("[setSalesOrderStatus] 新車庫存狀態同步失敗", ncErr.message);
-        // 不 rollback，只 log（POC 階段）
+        // 不 rollback，只 log（POC 階段）— 但需記 audit_logs + 通知主管人工釋放
+        const vehicleId = newVehicleId;
+        const errMsg = ncErr.message;
+        after(async () => {
+          await writeAuditLog({
+            table_name: "new_car_inventory",
+            record_id: vehicleId,
+            action: "release_after_status_change_failed",
+            actor_id: user?.id ?? null,
+            brand_id: scope.brand_id,
+            before: null,
+            after: { error: errMsg, order_id: id, target_status: newCarStatus },
+          });
+          await notifications.dispatch({
+            code: "inventory.release_failed",
+            payload: {
+              orderId: id,
+              orderNo: current.order_no ?? id,
+              vehicleType: "new_car",
+              vehicleId,
+              errorMessage: errMsg,
+              actionUrl: `https://dealeros.zeabur.app/sales/orders/${id}`,
+              brandId: scope.brand_id,
+            },
+          });
+        });
       }
     }
   }
@@ -1619,23 +1645,52 @@ export async function cancelSalesOrderStructured(
     revalidatePath("/sales/showroom/used-cars");
   }
 
-  // 6. 庫存恢復（新車）— status → available，若 linked_order_id 欄位存在也一併清空
+  // 6. 庫存恢復（新車）— status → displayed（enum 合法值，非 available），若 linked_order_id 欄位存在也一併清空
   const newVehicleId = current.new_vehicle_id as string | null;
   if (newVehicleId) {
     // 先嘗試含 linked_order_id 的完整清除；若欄位不存在退到只清 status
     const fullPatch = await supabase
       .from("new_car_inventory")
-      .update({ status: "available", linked_sales_order_id: null })
+      .update({ status: "displayed", linked_sales_order_id: null })
       .eq("id", newVehicleId);
+    let releaseError: string | null = null;
     if (fullPatch.error) {
       // linked_order_id 可能尚未落地 — fallback 只清 status
       const { error: fallbackErr } = await supabase
         .from("new_car_inventory")
-        .update({ status: "available" })
+        .update({ status: "displayed" })
         .eq("id", newVehicleId);
       if (fallbackErr) {
+        releaseError = fallbackErr.message;
         console.error("[cancelSalesOrderStructured] 新車庫存回滾失敗", fallbackErr.message);
       }
+    }
+    if (releaseError) {
+      const vehicleId = newVehicleId;
+      const errMsg = releaseError;
+      after(async () => {
+        await writeAuditLog({
+          table_name: "new_car_inventory",
+          record_id: vehicleId,
+          action: "release_after_cancel_failed",
+          actor_id: user?.id ?? null,
+          brand_id: scope.brand_id,
+          before: null,
+          after: { error: errMsg, order_id: id },
+        });
+        await notifications.dispatch({
+          code: "inventory.release_failed",
+          payload: {
+            orderId: id,
+            orderNo: id,
+            vehicleType: "new_car",
+            vehicleId,
+            errorMessage: errMsg,
+            actionUrl: `https://dealeros.zeabur.app/sales/orders/${id}`,
+            brandId: scope.brand_id,
+          },
+        });
+      });
     }
   }
 
@@ -2228,14 +2283,28 @@ export async function reassignSalesOrder(
   if (current.status === "cancelled") return { ok: false, error: "已作廢訂單不可轉移" };
 
   const oldRsName = (current.rs_name as string | null) ?? null;
+  const newRsName = input.new_rs_name.trim();
   const nowIso = new Date().toISOString();
+
+  // reassigned_from / reassigned_to 是 uuid 欄位（存 employee id），rs_name 只是姓名字串
+  // → 依姓名查 employees 解析 id；查無比對（重名/離職已刪）就留空，不擋轉移本身
+  const namesToResolve = Array.from(new Set([oldRsName, newRsName].filter((n): n is string => !!n)));
+  const { data: empMatches } = namesToResolve.length
+    ? await supabase
+        .from("employees")
+        .select("id, name")
+        .eq("brand_id", scope.brand_id)
+        .in("name", namesToResolve)
+    : { data: [] as Array<{ id: string; name: string }> };
+  const idByName = new Map((empMatches ?? []).map((e) => [e.name, e.id]));
+  const newRsEmployeeId = idByName.get(newRsName) ?? null;
 
   const { error } = await supabase
     .from("sales_orders")
     .update({
-      rs_name: input.new_rs_name.trim(),
-      reassigned_from: oldRsName,
-      reassigned_to: input.new_rs_name.trim(),
+      rs_name: newRsName,
+      reassigned_from: oldRsName ? idByName.get(oldRsName) ?? null : null,
+      reassigned_to: newRsEmployeeId,
       reassigned_at: nowIso,
       updated_by: user?.id ?? null,
     })
@@ -2244,7 +2313,7 @@ export async function reassignSalesOrder(
 
   if (error) return { ok: false, error: `業務轉移失敗：${error.message}` };
 
-  // 連動 call_tasks 轉移：找對應此訂單的 call_tasks，更新 metadata.rs_name
+  // 連動 call_tasks 轉移：找對應此訂單的 call_tasks，更新 assignee_id（若能解析新業務員 id）+ metadata.rs_name
   after(async () => {
     try {
       // call_tasks 的 metadata 裡通常帶 order_id；查詢 metadata->>'order_id' = id
@@ -2258,7 +2327,10 @@ export async function reassignSalesOrder(
         const meta = (task.metadata as Record<string, unknown>) ?? {};
         await supabase
           .from("call_tasks")
-          .update({ metadata: { ...meta, rs_name: input.new_rs_name.trim(), reassigned_by_manager_at: nowIso } })
+          .update({
+            ...(newRsEmployeeId ? { assignee_id: newRsEmployeeId } : {}),
+            metadata: { ...meta, rs_name: newRsName, reassigned_by_manager_at: nowIso },
+          })
           .eq("id", task.id);
       }
     } catch (e) {
@@ -2273,7 +2345,7 @@ export async function reassignSalesOrder(
       actor_id: user?.id ?? null,
       brand_id: scope.brand_id,
       before: { rs_name: oldRsName },
-      after: { rs_name: input.new_rs_name.trim(), reason: input.reason ?? null },
+      after: { rs_name: newRsName, reason: input.reason ?? null },
     });
   });
 

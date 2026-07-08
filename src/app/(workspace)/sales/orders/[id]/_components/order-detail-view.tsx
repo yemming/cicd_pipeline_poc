@@ -26,6 +26,7 @@ import {
   unlockContractAction,
   updateFinancingStatusAction,
   reassignSalesOrderAction,
+  confirmSettlementAction,
 } from "@/lib/sales/order-actions";
 import {
   acceptCounterOfferAction,
@@ -201,6 +202,10 @@ export default function OrderDetailView({
   const [reassignReason, setReassignReason] = useState("");
   const [isReassigning, startReassignTransition] = useTransition();
 
+  // ── A-8 訂金確認到帳 ──────────────────────────────────────
+  const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
+  const [isConfirmingSettlement, startConfirmSettlementTransition] = useTransition();
+
   // ── RS04 Modal 狀態 ──────────────────────────────────────────
   // 取消 Modal
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -325,6 +330,21 @@ export default function OrderDetailView({
       } else {
         showBanner(false, `✗ ${res.error}`);
       }
+    });
+  }
+
+  function handleConfirmSettlement(paymentId: string) {
+    if (!confirm("確認此筆款項已到帳？此操作將轉為「已結算」狀態。")) return;
+    setConfirmingPaymentId(paymentId);
+    startConfirmSettlementTransition(async () => {
+      const res = await confirmSettlementAction(paymentId);
+      if (res.ok) {
+        showBanner(true, "✓ 已確認到帳");
+        router.refresh();
+      } else {
+        showBanner(false, `✗ ${res.error}`);
+      }
+      setConfirmingPaymentId(null);
     });
   }
 
@@ -1066,12 +1086,15 @@ export default function OrderDetailView({
                       <th className="text-[11px] text-[#9A9890] pb-2 pr-4 font-medium">付款方式</th>
                       <th className="text-[11px] text-[#9A9890] pb-2 pr-4 font-medium">付款狀態</th>
                       <th className="text-[11px] text-[#9A9890] pb-2 pr-4 font-medium">結算狀態</th>
-                      <th className="text-[11px] text-[#9A9890] pb-2 font-medium">付款時間</th>
+                      <th className="text-[11px] text-[#9A9890] pb-2 pr-4 font-medium">付款時間</th>
+                      <th className="text-[11px] text-[#9A9890] pb-2 font-medium">操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payments.map((p) => {
                       const isNeg = p.total_amount < 0;
+                      const isPendingSettlement = p.settlement_status !== "settled";
+                      const isConfirmingThisRow = isConfirmingSettlement && confirmingPaymentId === p.id;
                       return (
                         <tr key={p.id} className="border-b border-[#EEECE6] last:border-b-0">
                           <td className="py-2 pr-4 text-[12px] text-[#2C2C2A]">
@@ -1099,7 +1122,19 @@ export default function OrderDetailView({
                               {p.settlement_status === "settled" ? "已結算" : "待結算"}
                             </span>
                           </td>
-                          <td className="py-2 text-[#9A9890] font-mono">{fmtDateTime(p.paid_at ?? null)}</td>
+                          <td className="py-2 pr-4 text-[#9A9890] font-mono">{fmtDateTime(p.paid_at ?? null)}</td>
+                          <td className="py-2">
+                            {canEdit && isPendingSettlement && (
+                              <button
+                                type="button"
+                                onClick={() => handleConfirmSettlement(p.id)}
+                                disabled={isConfirmingSettlement}
+                                className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {isConfirmingThisRow ? "確認中⋯" : "確認到帳"}
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}

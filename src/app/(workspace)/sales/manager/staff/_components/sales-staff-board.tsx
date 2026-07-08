@@ -7,7 +7,10 @@ import { useSetPageHeader } from "@/components/page-header-context";
 import {
   updateResponsibleModelsAction,
   setSalesStaffActiveAction,
+  previewStaffTransfer,
+  transferDepartingStaffAction,
   type SalesStaffRow,
+  type StaffTransferPreview,
 } from "@/domain/sales-staff";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 
@@ -29,6 +32,7 @@ export function SalesStaffBoard({
   availableSeries,
   filters,
   canEdit,
+  canReassign = false,
 }: {
   rows: SalesStaffRow[];
   totalCount: number;
@@ -37,6 +41,7 @@ export function SalesStaffBoard({
   availableSeries: string[];
   filters: Filters;
   canEdit: boolean;
+  canReassign?: boolean;
 }) {
   useSetPageHeader({
     title: "RS 人員管理",
@@ -57,6 +62,9 @@ export function SalesStaffBoard({
 
   // Modal — 編輯負責車系
   const [editingRow, setEditingRow] = useState<SalesStaffRow | null>(null);
+
+  // Modal — A-9 離職批次轉移
+  const [transferringRow, setTransferringRow] = useState<SalesStaffRow | null>(null);
 
   useEffect(() => {
     if (banner?.ok) {
@@ -344,7 +352,7 @@ export function SalesStaffBoard({
             : "目前沒有業務部員工。請至「組織管理 → 用戶管理」新增 RS 帳號並指派到業務部。"
         }
         disabled={isPending}
-        rowActionsWidth={210}
+        rowActionsWidth={290}
         rowActions={(r) => (
           <>
             <button
@@ -363,6 +371,17 @@ export function SalesStaffBoard({
             >
               {r.is_active ? "停用" : "啟用"}
             </button>
+            {canReassign && (
+              <button
+                type="button"
+                onClick={() => setTransferringRow(r)}
+                disabled={isPending}
+                className="h-[26px] px-2.5 rounded text-[11.5px] bg-[#FDF3E3] border border-[#F3D9A6] text-[#854F0B] hover:bg-[#fbe9cf] disabled:opacity-50 whitespace-nowrap"
+                title="A-9 離職批次轉移：把此人名下所有未結案訂單/任務/手卡一次轉給接手業務員"
+              >
+                離職轉移
+              </button>
+            )}
           </>
         )}
         pagination={{ page, pageSize, totalCount, onPageChange: goToPage }}
@@ -375,6 +394,20 @@ export function SalesStaffBoard({
           onClose={() => setEditingRow(null)}
           onSaved={(msg) => {
             setEditingRow(null);
+            showBanner({ ok: true, msg });
+            router.refresh();
+          }}
+          onError={(msg) => showBanner({ ok: false, msg })}
+        />
+      ) : null}
+
+      {transferringRow ? (
+        <StaffTransferModal
+          row={transferringRow}
+          candidates={rows.filter((r) => r.id !== transferringRow.id && r.is_active)}
+          onClose={() => setTransferringRow(null)}
+          onSaved={(msg) => {
+            setTransferringRow(null);
             showBanner({ ok: true, msg });
             router.refresh();
           }}
@@ -534,6 +567,172 @@ function ResponsibleModelsModal({
             className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] disabled:opacity-50"
           >
             {isPending ? "儲存中⋯" : "儲存"}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────── A-9 離職批次轉移 Modal ──────────────────────
+
+function StaffTransferModal({
+  row,
+  candidates,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  row: SalesStaffRow;
+  candidates: SalesStaffRow[];
+  onClose: () => void;
+  onSaved: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [toId, setToId] = useState("");
+  const [reason, setReason] = useState("");
+  const [preview, setPreview] = useState<StaffTransferPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isPreviewing, startPreviewTransition] = useTransition();
+  const [isConfirming, startConfirmTransition] = useTransition();
+
+  const isPending = isPreviewing || isConfirming;
+
+  const loadPreview = (employeeId: string) => {
+    setToId(employeeId);
+    setPreview(null);
+    setPreviewError(null);
+    if (!employeeId) return;
+    startPreviewTransition(async () => {
+      const res = await previewStaffTransfer(row.id, employeeId);
+      if (res.ok) {
+        setPreview(res.data);
+      } else {
+        setPreviewError(res.error);
+      }
+    });
+  };
+
+  const confirm = () => {
+    if (!toId || !preview || isPending) return;
+    startConfirmTransition(async () => {
+      const res = await transferDepartingStaffAction(row.id, toId, reason.trim() || undefined);
+      if (res.ok) {
+        onSaved(
+          `✓ 已將「${row.name}」名下 ${res.data.orders} 筆訂單、${res.data.call_tasks} 筆任務、${res.data.handcards} 筆手卡轉移給「${preview.to_name}」`,
+        );
+      } else {
+        onError(res.error);
+      }
+    });
+  };
+
+  const totalItems = preview
+    ? preview.open_orders + preview.open_call_tasks + preview.open_handcards
+    : 0;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center px-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-[480px] max-w-full max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="px-4 py-3 border-b border-[#EEECE6] flex items-center justify-between">
+          <div>
+            <div className="text-[13px] font-semibold text-[#2C2C2A]">離職批次轉移</div>
+            <div className="text-[11px] text-[#9A9890] mt-0.5">
+              離職人員：{row.name}（{row.emp_code}）
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded hover:bg-[#F8F7F4] text-[#5A5955] text-[16px]"
+          >
+            ×
+          </button>
+        </header>
+        <div className={"px-4 py-3 overflow-y-auto space-y-3 " + (isConfirming ? "opacity-60 pointer-events-none" : "")}>
+          <div className="rounded-lg border border-[#F3D9A6] bg-[#FDF3E3] px-3 py-2 text-[11.5px] leading-[1.6] text-[#854F0B]">
+            將把「{row.name}」名下所有<b>未結案訂單</b>、<b>未完成通話任務</b>、<b>未結案手卡</b>一次全部轉給接手業務員，並寫入異動紀錄。
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">接手業務員</label>
+            <select
+              value={toId}
+              onChange={(e) => loadPreview(e.target.value)}
+              className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] bg-white focus:border-[#185FA5] outline-none"
+            >
+              <option value="">請選擇⋯</option>
+              {candidates.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}（{c.emp_code}）
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {isPreviewing ? (
+            <div className="text-[12px] text-[#9A9890] py-1">查詢中⋯</div>
+          ) : previewError ? (
+            <div className="text-[12px] text-[#CC0000] py-1">{previewError}</div>
+          ) : preview ? (
+            <div className="rounded-lg border border-[#EEECE6] overflow-hidden">
+              <div className="px-3 py-2 bg-[#F8F7F4] text-[11.5px] font-semibold text-[#2C2C2A]">
+                轉移預覽：{preview.from_name} → {preview.to_name}
+              </div>
+              <div className="px-3 py-2 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-[18px] font-semibold text-[#1A3A5C]">{preview.open_orders}</div>
+                  <div className="text-[11px] text-[#9A9890]">未結案訂單</div>
+                </div>
+                <div>
+                  <div className="text-[18px] font-semibold text-[#1A3A5C]">{preview.open_call_tasks}</div>
+                  <div className="text-[11px] text-[#9A9890]">未完成任務</div>
+                </div>
+                <div>
+                  <div className="text-[18px] font-semibold text-[#1A3A5C]">{preview.open_handcards}</div>
+                  <div className="text-[11px] text-[#9A9890]">未結案手卡</div>
+                </div>
+              </div>
+              {totalItems === 0 ? (
+                <div className="px-3 pb-2 text-[11.5px] text-[#9A9890]">
+                  此人名下目前沒有未結案項目，仍可執行以留下轉移紀錄。
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] text-[#9A9890] font-medium">原因（選填）</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={2}
+              placeholder="例如：離職交接、調部門⋯"
+              className="border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] bg-white focus:border-[#185FA5] outline-none resize-none"
+            />
+          </div>
+        </div>
+        <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-2 justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isConfirming}
+            className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={confirm}
+            disabled={!toId || !preview || isPending}
+            className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#CC0000] text-white hover:bg-[#a80000] disabled:opacity-50"
+          >
+            {isConfirming ? "轉移中⋯" : "確認轉移"}
           </button>
         </footer>
       </div>

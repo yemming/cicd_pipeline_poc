@@ -59,10 +59,11 @@ export default async function SalesManagerStaffPage({
   const page = Math.max(1, Number(sp.page ?? "1") || 1);
   const pageSize = SALES_STAFF_PAGE_SIZE_DEFAULT;
 
-  const [{ rows, totalCount }, availableSeries, canEdit] = await Promise.all([
+  const [{ rows, totalCount }, availableSeries, canEdit, canReassign] = await Promise.all([
     listSalesStaff(filters, { page, pageSize }),
     listAvailableSeries(),
     hasPermission(PERMISSIONS.EMPLOYEE_EDIT),
+    hasPermission(PERMISSIONS.SALES_ORDER_REASSIGN),
   ]);
 
   return (
@@ -74,6 +75,7 @@ export default async function SalesManagerStaffPage({
       availableSeries={availableSeries}
       filters={filters}
       canEdit={canEdit}
+      canReassign={canReassign}
     />
   );
 }

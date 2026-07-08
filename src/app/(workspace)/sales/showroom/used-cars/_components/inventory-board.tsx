@@ -31,6 +31,7 @@ import {
   setUsedCarStatusAction,
   deleteUsedCarAction,
 } from "@/lib/sales/used-car-actions";
+import { subscribeUsedCarInventoryChanges } from "@/domain/used-car-inventory.realtime";
 import type {
   UsedCarInventoryRow,
   UsedCarDbStatus,
@@ -172,6 +173,16 @@ export default function UsedCarInventoryBoard({
       return () => clearTimeout(t);
     }
   }, [banner]);
+
+  // ── RS03B ↔ PD 整備工單即時串接：技師關單 → 這裡免手動刷新 ──
+  useEffect(() => {
+    const cleanup = subscribeUsedCarInventoryChanges(() => router.refresh());
+    const poll = setInterval(() => router.refresh(), 30_000);
+    return () => {
+      cleanup();
+      clearInterval(poll);
+    };
+  }, [router]);
 
   function showBanner(ok: boolean, msg: string) {
     setBanner({ ok, msg });

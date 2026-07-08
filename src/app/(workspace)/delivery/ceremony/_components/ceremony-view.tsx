@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { DELIVERY_DOCS } from "@/components/delivery/delivery-constants";
-import { completeDeliveryAction } from "@/lib/delivery/delivery-actions";
+import { completeDeliveryAction, loadUsedCarDeliveryPrereqAction } from "@/lib/delivery/delivery-actions";
 import type { DeliveryRow } from "@/lib/deliveries";
+import type { UsedCarDeliveryPrereq } from "@/domain/deliveries.constants";
 
 /** ISO → 「YYYY-MM-DD HH:mm (台北)」手動 +8，避免 toLocaleString 的 hydration mismatch */
 function fmtTaipei(iso: string | null): string {
@@ -19,8 +20,22 @@ export function CeremonyView({ delivery }: { delivery: DeliveryRow }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+  const [prereq, setPrereq] = useState<UsedCarDeliveryPrereq | null>(null);
 
   const delivered = delivery.status === "delivered";
+
+  // 中古車交車獨立前置條件（消保法）：買方需先簽署車況說明書，未簽署前交車按鈕鎖死
+  useEffect(() => {
+    let cancelled = false;
+    loadUsedCarDeliveryPrereqAction(delivery.id).then((res) => {
+      if (!cancelled && res.ok) setPrereq(res.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [delivery.id]);
+
+  const blockedByConditionReport = Boolean(prereq?.hasLinkedCar && !prereq.canProceed);
 
   function handleConfirm() {
     setErr(null);
@@ -65,12 +80,32 @@ export function CeremonyView({ delivery }: { delivery: DeliveryRow }) {
           <br />
           5 · 交車確認表存檔（存留 4 年）
         </div>
+        {blockedByConditionReport && !delivered && (
+          <div
+            className="bg-[#FDECEA] border border-white/40 text-white rounded-lg px-4 py-2.5 mb-3.5 text-[12px] text-left leading-relaxed"
+            data-testid="ceremony-condition-report-blocked"
+          >
+            ⚠️ 買方尚未簽署「車況說明書」，依消保法規定不得交車。請先至中古車詳情頁「車況說明書」分頁完成簽署。
+            {prereq?.carId && (
+              <>
+                {" "}
+                <Link
+                  href={`/sales/showroom/used-cars/${prereq.carId}`}
+                  className="underline font-semibold"
+                >
+                  前往簽署 →
+                </Link>
+              </>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap justify-center gap-2">
           <button
             type="button"
-            disabled={delivered || isPending}
+            disabled={delivered || isPending || blockedByConditionReport}
             data-testid="ceremony-confirm-btn"
             onClick={handleConfirm}
+            title={blockedByConditionReport ? "尚未簽署車況說明書，無法交車" : undefined}
             className="px-5 py-2 rounded text-[12.5px] font-semibold bg-white text-[#085041] hover:bg-[#E1F5EE] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPending ? "儲存中⋯" : delivered ? "✅ 已完成交車" : "✅ 確認完成交車"}

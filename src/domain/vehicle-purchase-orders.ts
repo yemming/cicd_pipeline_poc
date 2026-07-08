@@ -11,6 +11,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getPrintBrandBuyer, type PrintBrandInfo, type PrintBuyerInfo } from "@/lib/pdf/print-context";
+import { getActiveScope } from "@/lib/scope/active-scope";
 
 // ── 型別 ──────────────────────────────────────────────────────────────
 
@@ -97,20 +98,6 @@ export type WarehouseOption = { id: string; name: string; code: string | null };
 export const VEHICLE_PO_PAGE_SIZE_DEFAULT = 50;
 
 // ── helper ────────────────────────────────────────────────────────────
-
-async function getBrandId(): Promise<string> {
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-  if (!userId) return "indian";
-  const { data } = await supabase
-    .from("profile_brands")
-    .select("brand_id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-  return data?.brand_id ?? "indian";
-}
 
 const HEAD_FIELDS = `
   id, brand_id, subsidiary_id, po_no, supplier_name, order_date, expected_arrival,
@@ -406,7 +393,8 @@ export async function listVehicleWarehouses(): Promise<WarehouseOption[]> {
 }
 
 export async function getVehiclePOBrandId(): Promise<string> {
-  return getBrandId();
+  const scope = await getActiveScope();
+  return scope.brand_id;
 }
 
 // ── 編號產生器：VPO-YYYYMM-NNN（query 當月最大序號 +1）──────────────────

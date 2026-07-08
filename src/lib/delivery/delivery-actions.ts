@@ -134,6 +134,13 @@ export async function completeDeliveryAction(
   >,
 ): Promise<ActionResult<{ id: string }>> {
   try {
+    // 中古車交車獨立前置條件（消保法）：買方需先簽署車況說明書，否則不得交車
+    // 伺服器端強制檢查——即使前端按鈕被繞過（改網址直接打此 action）也擋得住
+    const prereq = await getUsedCarDeliveryPrereq(deliveryId);
+    if (prereq.hasLinkedCar && !prereq.canProceed) {
+      return { ok: false, error: '尚未完成車況說明書簽署，無法交車（消保法規定買方需先確認車況）' };
+    }
+
     const row = await updateDeliveryStep(deliveryId, 'ceremony', payload, 'delivered');
 
     // C-23：交車完成 → 非阻塞同步售後客戶檔 / 人車檔（失敗只記 log、不影響交車）

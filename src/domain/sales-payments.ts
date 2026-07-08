@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { writeAuditLog } from "./audit-logs";
 import type {
   Result,
   SalesPaymentRow,
@@ -413,4 +414,61 @@ export async function recordPurePurchase(
 
   revalidatePath("/sales/orders");
   return { ok: true, data: { id: data.id } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// A-8：財務確認到帳 — pending_settlement → settled
+// ─────────────────────────────────────────────────────────────
+
+export async function confirmSettlement(
+  id: string,
+  note?: string,
+): Promise<Result<{ id: string }>> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: current } = await supabase
+    .from("sales_payments")
+    .select("id, settlement_status, order_no, metadata")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (!current) return { ok: false, error: "找不到收款記錄" };
+  if (current.settlement_status === "settled") {
+    return { ok: false, error: "此筆已是已到帳狀態" };
+  }
+
+  const nowIso = new Date().toISOString();
+  const prevMetadata = (current.metadata ?? {}) as Record<string, unknown>;
+  const { error: updateErr } = await supabase
+    .from("sales_payments")
+    .update({
+      settlement_status: "settled",
+      metadata: {
+        ...prevMetadata,
+        settlement_confirmed_at: nowIso,
+        settlement_confirmed_by: user?.id ?? null,
+        settlement_confirm_note: note?.trim() || null,
+      },
+    })
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id);
+
+  if (updateErr) return { ok: false, error: `確認到帳失敗：${updateErr.message}` };
+
+  await writeAuditLog({
+    table_name: "sales_payments",
+    record_id: id,
+    action: "confirm_settlement",
+    actor_id: user?.id ?? null,
+    brand_id: scope.brand_id,
+    before: { settlement_status: current.settlement_status },
+    after: { settlement_status: "settled", note: note?.trim() || null },
+  });
+
+  revalidatePath("/sales/orders");
+  return { ok: true, data: { id } };
 }

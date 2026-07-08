@@ -56,7 +56,10 @@ export type EventCode =
   | "sales_discount.decided"
   // RS 貸款申請逾時追蹤 — financing_status='pending_approval' 超過 7 天，通知業務員追蹤
   //   payload: orderId / orderNo / customerName / rsName / daysOverdue / vehicleModelName / actionUrl / brandId
-  | "financing.pending_timeout";
+  | "financing.pending_timeout"
+  // RS 最終收攏項目1：取消訂單後車輛庫存回滾失敗（DB constraint 靜默擋掉），通知主管人工處理
+  //   payload: orderId / orderNo / vehicleType / vehicleId / errorMessage / actionUrl / brandId
+  | "inventory.release_failed";
 
 export interface NotificationEvent<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   code: EventCode;

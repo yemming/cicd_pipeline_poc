@@ -37,6 +37,7 @@ import {
   type UpdateFinancingInput,
   type ReassignOrderInput,
 } from "@/domain/sales-orders";
+import { confirmSettlement } from "@/domain/sales-payments";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -286,6 +287,20 @@ export async function reassignSalesOrderAction(
   if (!input.new_rs_name.trim()) return { ok: false, error: "請填寫接手業務員姓名" };
 
   return reassignSalesOrder(orderId, input);
+}
+
+// ─────────────────────────────────────────────────────────────
+// A-8 訂金已收未到帳 → 確認到帳
+// ─────────────────────────────────────────────────────────────
+
+export async function confirmSettlementAction(
+  paymentId: string,
+  note?: string,
+): Promise<ActionResult<{ id: string }>> {
+  const canEdit = await hasPermission(PERMISSIONS.SALES_ORDER_EDIT);
+  if (!canEdit) return { ok: false, error: "沒有確認到帳的權限" };
+
+  return confirmSettlement(paymentId, note);
 }
 
 // ─────────────────────────────────────────────────────────────

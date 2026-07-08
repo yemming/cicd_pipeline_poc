@@ -14,8 +14,13 @@
  *  - UI 永遠走本 helper，不直連 supabase
  */
 
+import { revalidatePath } from "next/cache";
+
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { hasPermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { writeAuditLog } from "./audit-logs";
 
 import {
   SALES_DEPT_CODES,
@@ -315,4 +320,181 @@ export async function setSalesStaffActiveAction(
     .eq("brand_id", brand);
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: { id: employeeId } };
+}
+
+/* ────────────── A-9 業務員離職批次轉移 ────────────── */
+
+export type StaffTransferPreview = {
+  from_name: string;
+  to_name: string;
+  open_orders: number;
+  open_call_tasks: number;
+  open_handcards: number;
+};
+
+async function resolveTransferNames(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  brand: string,
+  fromEmployeeId: string,
+  toEmployeeId: string,
+): Promise<{ fromName: string; toName: string } | null> {
+  const { data: emps } = await supabase
+    .from("employees")
+    .select("id, name")
+    .in("id", [fromEmployeeId, toEmployeeId])
+    .eq("brand_id", brand);
+  const fromName = (emps ?? []).find((e) => e.id === fromEmployeeId)?.name as string | undefined;
+  const toName = (emps ?? []).find((e) => e.id === toEmployeeId)?.name as string | undefined;
+  if (!fromName || !toName) return null;
+  return { fromName, toName };
+}
+
+/** 預覽：離職業務員名下待轉移的訂單/任務/手卡各幾筆（批次轉移前先給主管看數量） */
+export async function previewStaffTransfer(
+  fromEmployeeId: string,
+  toEmployeeId: string,
+): Promise<ActionResult<StaffTransferPreview>> {
+  if (!fromEmployeeId || !toEmployeeId) return { ok: false, error: "請選擇離職與接手人員" };
+  if (fromEmployeeId === toEmployeeId) return { ok: false, error: "離職與接手人員不可相同" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const names = await resolveTransferNames(supabase, brand, fromEmployeeId, toEmployeeId);
+  if (!names) return { ok: false, error: "找不到員工資料" };
+
+  const [orderCount, taskCount, hcCount] = await Promise.all([
+    supabase
+      .from("sales_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brand)
+      .eq("rs_name", names.fromName)
+      .not("status", "in", "(cancelled,fulfilled)")
+      .then((r) => r.count ?? 0),
+    supabase
+      .from("call_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brand)
+      .eq("assignee_id", fromEmployeeId)
+      .in("status", ["pending", "in_progress"])
+      .then((r) => r.count ?? 0),
+    supabase
+      .from("sales_handcards")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", brand)
+      .eq("assigned_rs_user_id", fromEmployeeId)
+      .eq("status", "open")
+      .then((r) => r.count ?? 0),
+  ]);
+
+  return {
+    ok: true,
+    data: {
+      from_name: names.fromName,
+      to_name: names.toName,
+      open_orders: orderCount,
+      open_call_tasks: taskCount,
+      open_handcards: hcCount,
+    },
+  };
+}
+
+/**
+ * 批次轉移：主管將離職業務員名下所有「未結案」訂單 + 未完成通話任務 + 未結案手卡
+ * 一次全部轉給接手業務員。寫 audit_logs（含受影響的 record id 清單）。
+ */
+export async function transferDepartingStaffAction(
+  fromEmployeeId: string,
+  toEmployeeId: string,
+  reason?: string,
+): Promise<ActionResult<{ orders: number; call_tasks: number; handcards: number }>> {
+  const canReassign = await hasPermission(PERMISSIONS.SALES_ORDER_REASSIGN);
+  if (!canReassign) return { ok: false, error: "業務轉移需要主管權限" };
+
+  if (!fromEmployeeId || !toEmployeeId) return { ok: false, error: "請選擇離職與接手人員" };
+  if (fromEmployeeId === toEmployeeId) return { ok: false, error: "離職與接手人員不可相同" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const names = await resolveTransferNames(supabase, brand, fromEmployeeId, toEmployeeId);
+  if (!names) return { ok: false, error: "找不到員工資料" };
+  const { fromName, toName } = names;
+  const nowIso = new Date().toISOString();
+
+  // 1) sales_orders：未結案（非作廢/非交車完成）依 rs_name 轉移
+  const { data: orderRows, error: orderErr } = await supabase
+    .from("sales_orders")
+    .update({
+      rs_name: toName,
+      reassigned_from: fromEmployeeId,
+      reassigned_to: toEmployeeId,
+      reassigned_at: nowIso,
+      updated_by: user?.id ?? null,
+    })
+    .eq("brand_id", brand)
+    .eq("rs_name", fromName)
+    .not("status", "in", "(cancelled,fulfilled)")
+    .select("id");
+  if (orderErr) return { ok: false, error: `訂單轉移失敗：${orderErr.message}` };
+
+  // 2) call_tasks：未完成的通話任務依 assignee_id 轉移
+  const { data: taskRows, error: taskErr } = await supabase
+    .from("call_tasks")
+    .update({ assignee_id: toEmployeeId })
+    .eq("brand_id", brand)
+    .eq("assignee_id", fromEmployeeId)
+    .in("status", ["pending", "in_progress"])
+    .select("id, metadata");
+  if (taskErr) return { ok: false, error: `任務轉移失敗：${taskErr.message}` };
+
+  // metadata.rs_name 同步顯示（非阻塞、量小直接 await 即可）
+  for (const t of taskRows ?? []) {
+    const meta = (t.metadata as Record<string, unknown>) ?? {};
+    await supabase
+      .from("call_tasks")
+      .update({ metadata: { ...meta, rs_name: toName, reassigned_by_manager_at: nowIso } })
+      .eq("id", t.id);
+  }
+
+  // 3) sales_handcards：open 狀態依 assigned_rs_user_id 轉移
+  const { data: hcRows, error: hcErr } = await supabase
+    .from("sales_handcards")
+    .update({ assigned_rs_name: toName, assigned_rs_user_id: toEmployeeId })
+    .eq("brand_id", brand)
+    .eq("assigned_rs_user_id", fromEmployeeId)
+    .eq("status", "open")
+    .select("id");
+  if (hcErr) return { ok: false, error: `手卡轉移失敗：${hcErr.message}` };
+
+  const orderIds = (orderRows ?? []).map((r) => r.id as string);
+  const taskIds = (taskRows ?? []).map((r) => r.id as string);
+  const hcIds = (hcRows ?? []).map((r) => r.id as string);
+
+  await writeAuditLog({
+    table_name: "employees",
+    record_id: fromEmployeeId,
+    action: "staff_departure_batch_transfer",
+    actor_id: user?.id ?? null,
+    brand_id: brand,
+    before: { from_employee_id: fromEmployeeId, from_name: fromName },
+    after: {
+      to_employee_id: toEmployeeId,
+      to_name: toName,
+      reason: reason?.trim() || null,
+      order_ids: orderIds,
+      call_task_ids: taskIds,
+      handcard_ids: hcIds,
+    },
+  });
+
+  revalidatePath("/sales/orders");
+  revalidatePath("/sales/manager/staff");
+
+  return {
+    ok: true,
+    data: { orders: orderIds.length, call_tasks: taskIds.length, handcards: hcIds.length },
+  };
 }

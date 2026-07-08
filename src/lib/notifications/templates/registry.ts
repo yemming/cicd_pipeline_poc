@@ -27,6 +27,7 @@ import { salesDiscountRequestedLine, salesDiscountRequestedGoogleChat } from "./
 import { salesDiscountEscalatedLine, salesDiscountEscalatedGoogleChat } from "./sales-discount-escalated";
 import { salesDiscountDecidedLine, salesDiscountDecidedGoogleChat } from "./sales-discount-decided";
 import { financingPendingTimeoutLine, financingPendingTimeoutGoogleChat } from "./financing-pending-timeout";
+import { inventoryReleaseFailedLine, inventoryReleaseFailedGoogleChat } from "./inventory-release-failed";
 
 // Code-registered 預設模板集合（本 repo 內建、版本隨 git 追蹤）
 const CODE_TEMPLATES: TemplateDefinition[] = [
@@ -71,6 +72,9 @@ const CODE_TEMPLATES: TemplateDefinition[] = [
   // RS 貸款申請逾時追蹤
   financingPendingTimeoutLine,
   financingPendingTimeoutGoogleChat,
+  // RS 最終收攏項目1：庫存回滾失敗通知主管
+  inventoryReleaseFailedLine,
+  inventoryReleaseFailedGoogleChat,
 ];
 
 /** 以 `eventCode:channelCode` / `code` 建兩個索引 */
