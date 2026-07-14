@@ -7,6 +7,7 @@
 import { createClient } from '@/lib/supabase/server';
 import type { DeliveryStatus, DeliveryStepName } from './deliveries.constants';
 import { getBrandConfig } from '@/domain/brand-config';
+import { getActiveScope } from '@/lib/scope/active-scope';
 
 export type DeliveryRow = {
   id: string;
@@ -140,6 +141,7 @@ export async function listDeliveries(
   options: { page?: number; pageSize?: number } = {},
 ): Promise<{ rows: DeliveryRow[]; totalCount: number }> {
   const supabase = await createClient();
+  const scope = await getActiveScope();
   const page = Math.max(1, options.page ?? 1);
   const pageSize = Math.max(1, options.pageSize ?? PAGE_SIZE);
   const from = (page - 1) * pageSize;
@@ -148,6 +150,7 @@ export async function listDeliveries(
   let q = supabase
     .from('deliveries')
     .select('*', { count: 'exact' })
+    .eq('brand_id', scope.brand_id)
     .order('scheduled_delivery_date', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false });
 

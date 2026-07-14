@@ -746,7 +746,7 @@ export default function OrderDetailView({
               >
                 ＋ 新增合約
               </Link>
-              {canEdit && order.status !== "cancelled" && order.status !== "fulfilled" && (
+              {canEdit && order.status !== "cancelled" && order.status !== "fulfilled" && order.status !== "signed" && (
                 <button
                   onClick={() => setMode("edit")}
                   className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45] shadow-sm"
@@ -913,6 +913,15 @@ export default function OrderDetailView({
                 >
                   {ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status}
                 </span>
+                {reviewExpiry.expiresAt && order.status !== "cancelled" && order.status !== "fulfilled" && (
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium ${
+                    reviewExpiry.withinPeriod
+                      ? "bg-[#EAF3DE] text-[#3B6D11]"
+                      : "bg-[#FDF3E3] text-[#854F0B]"
+                  }`}>
+                    審閱期至 {reviewExpiry.expiresAt}{reviewExpiry.withinPeriod ? "" : "（已過）"}
+                  </span>
+                )}
               </div>
             </div>
             {/* Action pills */}
