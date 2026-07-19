@@ -14,6 +14,7 @@ import "server-only";
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { DeliveryRow } from "@/lib/deliveries";
 import type { DeliveryStatus } from "@/lib/deliveries.constants";
 import {
@@ -256,7 +257,9 @@ const CAR_PDI_DONE_STATUSES = new Set(["displayed", "reserved", "sold", "deliver
 export async function getDeliveryPdiStatus(
   deliveryId: string,
 ): Promise<DeliveryPdiStatus> {
+  // 步驟 1 用 user client（驗交車單存取權），步驟 2-4 用 service client（PDI 是客觀事實，不受 brand scope RLS 影響）
   const supabase = await createClient();
+  const svc = createServiceClient();
 
   const empty: DeliveryPdiStatus = {
     state: "blocked",
@@ -273,17 +276,21 @@ export async function getDeliveryPdiStatus(
     pdiPartsCost: null,
   };
 
-  // 1) 撈交車單 VIN + brand
+  // 1) 撈交車單 VIN + brand（用 user client 確認使用者有存取權）
   const { data: dlv, error: dlvErr } = await supabase
     .from("deliveries")
     .select("vin, brand_id")
     .eq("id", deliveryId)
     .maybeSingle();
-  if (dlvErr) throw dlvErr;
+  if (dlvErr) {
+    console.error("[PDI] step1 deliveries error:", dlvErr.message);
+    throw dlvErr;
+  }
+  console.log("[PDI] step1 dlv:", dlv);
   if (!dlv?.vin) return empty; // 沒 VIN 無從對車 → blocked（找不到關聯車輛）
 
-  // 2) VIN + brand join 庫存車
-  const { data: car, error: carErr } = await supabase
+  // 2) VIN + brand join 庫存車（用 service client 繞過 brand scope RLS）
+  const { data: car, error: carErr } = await svc
     .from("new_car_inventory")
     .select(
       "id, status, pdi_workorder_id, pdi_labor_cost, pdi_parts_cost",
@@ -291,7 +298,11 @@ export async function getDeliveryPdiStatus(
     .eq("brand_id", dlv.brand_id)
     .eq("vin", dlv.vin)
     .maybeSingle();
-  if (carErr) throw carErr;
+  if (carErr) {
+    console.error("[PDI] step2 new_car_inventory error:", carErr.message);
+    throw carErr;
+  }
+  console.log("[PDI] step2 car:", car);
   if (!car) return empty; // VIN 對不到庫存車（例如 demo 交車單未串庫存）→ blocked
 
   const result: DeliveryPdiStatus = {
@@ -303,21 +314,25 @@ export async function getDeliveryPdiStatus(
     pdiPartsCost: car.pdi_parts_cost ?? null,
   };
 
-  // 3) 撈 PDI 工單
+  // 3) 撈 PDI 工單（用 service client）
   if (car.pdi_workorder_id) {
-    const { data: ro, error: roErr } = await supabase
+    const { data: ro, error: roErr } = await svc
       .from("repair_orders")
       .select("ro_code, status, closed_at, lead_technician_id")
       .eq("id", car.pdi_workorder_id)
       .maybeSingle();
-    if (roErr) throw roErr;
+    if (roErr) {
+      console.error("[PDI] step3 repair_orders error:", roErr.message);
+      throw roErr;
+    }
+    console.log("[PDI] step3 ro:", ro);
     if (ro) {
       result.workOrderNo = ro.ro_code;
       result.workOrderStatus = ro.status;
       result.workOrderClosed = ro.status === RO_CLOSED_STATUS;
       result.completedDate = ro.closed_at ? ro.closed_at.slice(0, 10) : null;
       if (ro.lead_technician_id) {
-        const { data: emp } = await supabase
+        const { data: emp } = await svc
           .from("employees")
           .select("name")
           .eq("id", ro.lead_technician_id)
@@ -329,6 +344,7 @@ export async function getDeliveryPdiStatus(
 
   // 4) 推導三態
   const carDone = CAR_PDI_DONE_STATUSES.has(car.status);
+  console.log("[PDI] step4 carDone:", carDone, "workOrderClosed:", result.workOrderClosed, "pdi_workorder_id:", car.pdi_workorder_id);
   if (carDone && result.workOrderClosed) {
     // 正常完成：車可售 + 工單關單
     result.state = "ok";
@@ -345,6 +361,7 @@ export async function getDeliveryPdiStatus(
     result.state = "blocked";
   }
 
+  console.log("[PDI] result:", result.state, "canProceed:", result.canProceed, "hasLinkedCar:", result.hasLinkedCar);
   return result;
 }
 

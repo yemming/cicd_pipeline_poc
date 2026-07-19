@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DeliveryFrame } from "@/components/delivery/delivery-frame";
 import { DELIVERY_DOCS } from "@/components/delivery/delivery-constants";
-import { completeDeliveryAction, loadUsedCarDeliveryPrereqAction } from "@/lib/delivery/delivery-actions";
+import { completeDeliveryAction, loadUsedCarDeliveryPrereqAction, loadDeliveryPdiStatusAction } from "@/lib/delivery/delivery-actions";
 import type { DeliveryRow } from "@/lib/deliveries";
 import type { UsedCarDeliveryPrereq } from "@/domain/deliveries.constants";
+import type { DeliveryPdiStatus } from "@/domain/sales-delivery.constants";
 
 /** ISO → 「YYYY-MM-DD HH:mm (台北)」手動 +8，避免 toLocaleString 的 hydration mismatch */
 function fmtTaipei(iso: string | null): string {
@@ -21,8 +22,20 @@ export function CeremonyView({ delivery }: { delivery: DeliveryRow }) {
   const [isPending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [prereq, setPrereq] = useState<UsedCarDeliveryPrereq | null>(null);
+  const [pdiStatus, setPdiStatus] = useState<DeliveryPdiStatus | null>(null);
 
   const delivered = delivery.status === "delivered";
+
+  // [B2] 新車 PDI 前置條件：技師尚未關單前，交車按鈕鎖死並顯示紅色警告
+  useEffect(() => {
+    let cancelled = false;
+    loadDeliveryPdiStatusAction(delivery.id).then((res) => {
+      if (!cancelled && res.ok) setPdiStatus(res.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [delivery.id]);
 
   // 中古車交車獨立前置條件（消保法）：買方需先簽署車況說明書，未簽署前交車按鈕鎖死
   useEffect(() => {
@@ -35,6 +48,8 @@ export function CeremonyView({ delivery }: { delivery: DeliveryRow }) {
     };
   }, [delivery.id]);
 
+  // hasLinkedCar=true 代表是新車；新車 PDI 未完成（canProceed=false）時鎖定
+  const blockedByPdi = Boolean(pdiStatus?.hasLinkedCar && !pdiStatus.canProceed);
   const blockedByConditionReport = Boolean(prereq?.hasLinkedCar && !prereq.canProceed);
 
   function handleConfirm() {
@@ -80,6 +95,17 @@ export function CeremonyView({ delivery }: { delivery: DeliveryRow }) {
           <br />
           5 · 交車確認表存檔（存留 4 年）
         </div>
+        {blockedByPdi && !delivered && (
+          <div
+            className="bg-[#CC0000] border border-white/40 text-white rounded-lg px-4 py-2.5 mb-3.5 text-[12px] text-left leading-relaxed"
+            data-testid="ceremony-pdi-blocked"
+          >
+            ⛔ PDI整備尚未完成，無法進行交車。請先確認技師完成PDI整備後再操作。
+            {pdiStatus?.workOrderNo && (
+              <span className="ml-1 opacity-80">（工單：{pdiStatus.workOrderNo}）</span>
+            )}
+          </div>
+        )}
         {blockedByConditionReport && !delivered && (
           <div
             className="bg-[#FDECEA] border border-white/40 text-white rounded-lg px-4 py-2.5 mb-3.5 text-[12px] text-left leading-relaxed"
@@ -102,10 +128,16 @@ export function CeremonyView({ delivery }: { delivery: DeliveryRow }) {
         <div className="flex flex-wrap justify-center gap-2">
           <button
             type="button"
-            disabled={delivered || isPending || blockedByConditionReport}
+            disabled={delivered || isPending || blockedByPdi || blockedByConditionReport}
             data-testid="ceremony-confirm-btn"
             onClick={handleConfirm}
-            title={blockedByConditionReport ? "尚未簽署車況說明書，無法交車" : undefined}
+            title={
+              blockedByPdi
+                ? "PDI整備尚未完成，無法交車"
+                : blockedByConditionReport
+                ? "尚未簽署車況說明書，無法交車"
+                : undefined
+            }
             className="px-5 py-2 rounded text-[12.5px] font-semibold bg-white text-[#085041] hover:bg-[#E1F5EE] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPending ? "儲存中⋯" : delivered ? "✅ 已完成交車" : "✅ 確認完成交車"}

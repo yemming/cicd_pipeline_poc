@@ -114,6 +114,10 @@ export async function setDeliveryStatusAction(
 /**
  * 最後一步——完成交車，status → 'delivered'
  *
+ * 前置驗證（任一失敗即拒絕，與前端 UI 順序無關）：
+ *   [B2]    PDI 整備完成驗證（新車限定）— 工單未關單則拒絕
+ *   [輪6-2] 中古車消保法車況說明書簽署驗證
+ *
  * 連鎖動作（after() 非阻塞，失敗不影響交車本體）：
  *   [輪6-4] 前置：檢查 dispute_frozen — true 時跳過所有自動化並通知主管
  *   [C-23]  售後客戶檔 / 人車檔同步
@@ -134,6 +138,18 @@ export async function completeDeliveryAction(
   >,
 ): Promise<ActionResult<{ id: string }>> {
   try {
+    // [B2] PDI 整備完成前置驗證（新車限定）
+    // hasLinkedCar=true 代表在 new_car_inventory 找到車（即新車）；
+    // 中古車查不到新車庫存（hasLinkedCar=false），故不受此擋關影響。
+    // 即使前端按鈕被繞過（直接呼叫此 action），後端也會擋住。
+    const pdiStatus = await _getDeliveryPdiStatus(deliveryId);
+    if (pdiStatus.hasLinkedCar && !pdiStatus.canProceed) {
+      return {
+        ok: false,
+        error: 'PDI整備尚未完成，無法進行交車。請先確認技師完成PDI整備後再操作。',
+      };
+    }
+
     // 中古車交車獨立前置條件（消保法）：買方需先簽署車況說明書，否則不得交車
     // 伺服器端強制檢查——即使前端按鈕被繞過（改網址直接打此 action）也擋得住
     const prereq = await getUsedCarDeliveryPrereq(deliveryId);
