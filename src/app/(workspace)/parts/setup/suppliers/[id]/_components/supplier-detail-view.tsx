@@ -622,6 +622,26 @@ export function SupplierDetailView({
               </span>
             )}
           </Kv>
+          <Kv label="原廠 Portal 網址">
+            <span className="font-mono text-[11.5px] break-all">
+              {(() => {
+                const meta = (supplier?.metadata ?? {}) as Record<string, unknown>;
+                return typeof meta.oem_portal_url === "string" && meta.oem_portal_url
+                  ? meta.oem_portal_url
+                  : "—";
+              })()}
+            </span>
+          </Kv>
+          <Kv label="原廠 API Endpoint">
+            <span className="font-mono text-[11.5px] break-all">
+              {(() => {
+                const meta = (supplier?.metadata ?? {}) as Record<string, unknown>;
+                return typeof meta.oem_api_endpoint === "string" && meta.oem_api_endpoint
+                  ? meta.oem_api_endpoint
+                  : "—";
+              })()}
+            </span>
+          </Kv>
           <Kv label="狀態">
             {isEditing && !isCreating ? (
               <select

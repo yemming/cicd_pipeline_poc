@@ -27,6 +27,8 @@ import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { reserve, getAvailableQty } from "@/domain/inventory-reservations";
 import { markWaitingParts } from "@/domain/parts-waiting";
 import { notifications } from "@/lib/notifications";
+import { createReturnRequestsBatch } from "@/domain/parts-return-requests";
+import { getTodayClosingTime } from "@/domain/aftersales-settings";
 
 // ─────────────────────────────────────────────────────────────
 // 共用型別
@@ -1008,6 +1010,61 @@ export async function addAddon(
   });
 
   return { ok: true, data: { id: row.id, reserved } };
+}
+
+/**
+ * 技師領料後說用不到，主動發起退料（退料閉環場景三 tech_unused）。
+ * 技師端唯一的退料發起入口 — 建 parts_return_requests(pending)，庫存不立即回補，
+ * 等倉管在 /parts/receipt/return-in 確認收到才回補（與 addon_cancel / ro_cancel 同一套閉環）。
+ */
+export async function submitTechUnusedReturn(
+  lineId: string,
+  qty: number,
+  reason?: string,
+): Promise<WriteResult<{ ids: string[] }>> {
+  if (!lineId) return { ok: false, error: "缺少零件明細 id" };
+  if (!(qty > 0)) return { ok: false, error: "退料數量須大於 0" };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const brand = scope.brand_id;
+
+  const { data: line, error } = await supabase
+    .from("repair_order_lines")
+    .select("id, repair_order_id, item_id, part_code, part_name, qty, kind")
+    .eq("id", lineId)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (error || !line) return { ok: false, error: "找不到該零件明細" };
+  if (line.kind !== "part") return { ok: false, error: "只有零件項目可以退料" };
+  if (qty > Number(line.qty ?? 0)) return { ok: false, error: "退料數量不可超過已領數量" };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const dueBy = await getTodayClosingTime();
+
+  const { ids } = await createReturnRequestsBatch(
+    [
+      {
+        source_type: "tech_unused",
+        source_ro_id: line.repair_order_id,
+        source_line_id: line.id,
+        item_id: line.item_id,
+        part_name: line.part_name ?? "",
+        part_code: line.part_code ?? null,
+        qty_requested: qty,
+        return_reason: reason?.trim() || "技師領料後確認用不到，主動退回",
+        requested_by: user?.id ?? null,
+        store_id: scope.store_id,
+        unit_cost: 0,
+      },
+    ],
+    { brand, due_by: dueBy },
+  );
+
+  return { ok: true, data: { ids } };
 }
 
 /**

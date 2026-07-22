@@ -28,6 +28,7 @@ import {
   reassignOrder,
   setDiagResult,
   saveTechNote,
+  submitTechUnusedReturn,
   type AddonInput,
   type DiagResult,
 } from "@/domain/tech-workstation";
@@ -60,6 +61,18 @@ export async function markOrderCompleteAction(
 ): Promise<ActionResult<{ id: string }>> {
   await requirePermission(PERMISSIONS.RO_EXECUTE);
   const res = await markOrderComplete(roId);
+  if (res.ok) revalidatePath(TECH_PATH);
+  return res;
+}
+
+/** 退料閉環場景三：技師領料後說用不到，主動退回（建 parts_return_requests，待倉管確認）。*/
+export async function submitTechUnusedReturnAction(
+  lineId: string,
+  qty: number,
+  reason?: string,
+): Promise<ActionResult<{ ids: string[] }>> {
+  await requirePermission(PERMISSIONS.RO_EXECUTE);
+  const res = await submitTechUnusedReturn(lineId, qty, reason);
   if (res.ok) revalidatePath(TECH_PATH);
   return res;
 }

@@ -27,6 +27,7 @@ import {
   reassignOrderAction,
   setDiagResultAction,
   saveTechNoteAction,
+  submitTechUnusedReturnAction,
 } from "@/lib/aftersales/tech-workstation-actions";
 import type {
   AssignedOrderCard,
@@ -464,6 +465,19 @@ export function TechWorkstationBoard({
                     }
                   })
                 }
+                onTechUnusedReturn={(lineId, qty, reason) =>
+                  new Promise((resolve) => {
+                    startTransition(async () => {
+                      const res = await submitTechUnusedReturnAction(lineId, qty, reason);
+                      if (res.ok) {
+                        showBanner({ ok: true, msg: "✓ 已送出退料申請，待倉管確認後庫存回補" });
+                      } else {
+                        showBanner({ ok: false, msg: res.error });
+                      }
+                      resolve(res.ok);
+                    });
+                  })
+                }
               />
             ))
           )}
@@ -666,6 +680,7 @@ function OrderCard({
   onReassign,
   onOpenAddon,
   onSaveTechNote,
+  onTechUnusedReturn,
 }: {
   ro: AssignedOrderCard;
   tab: TabKey;
@@ -681,6 +696,7 @@ function OrderCard({
   onReassign: (toTechId: string) => void;
   onOpenAddon: () => void;
   onSaveTechNote: (note: string) => void;
+  onTechUnusedReturn: (lineId: string, qty: number, reason: string) => Promise<boolean>;
 }) {
   const liveSeconds = useLiveTimer(ro.timer.isRunning, ro.timer.activeStartedAt, ro.timer.accumulatedSeconds);
   const laborItems = ro.workItems.filter((w) => w.kind === "labor");
@@ -696,6 +712,30 @@ function OrderCard({
     (ro as unknown as { metadata?: { tech_note?: string } }).metadata?.tech_note ?? "",
   );
   const [noteSaving, setNoteSaving] = useState(false);
+
+  // 退料閉環場景三：技師領料後說用不到，主動退回
+  const [returnOpenLineId, setReturnOpenLineId] = useState<string | null>(null);
+  const [returnQty, setReturnQty] = useState("");
+  const [returnReason, setReturnReason] = useState("");
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [returnedLineIds, setReturnedLineIds] = useState<Set<string>>(new Set());
+
+  function openReturnForm(lineId: string, maxQty: number) {
+    setReturnOpenLineId(lineId);
+    setReturnQty(String(maxQty));
+    setReturnReason("");
+  }
+  async function handleSubmitReturn(lineId: string) {
+    const qty = Number(returnQty);
+    if (!(qty > 0)) return;
+    setReturnSubmitting(true);
+    const ok = await onTechUnusedReturn(lineId, qty, returnReason);
+    setReturnSubmitting(false);
+    if (ok) {
+      setReturnedLineIds((prev) => new Set(prev).add(lineId));
+      setReturnOpenLineId(null);
+    }
+  }
 
   function handleSaveNote() {
     setNoteSaving(true);
@@ -849,7 +889,7 @@ function OrderCard({
           </div>
         )}
 
-        {/* 零件（唯讀，發料軌追蹤） */}
+        {/* 零件（發料軌追蹤 + 領料後用不到可主動退料） */}
         {partItems.length > 0 && (
           <div className="border border-[#EEECE6] rounded-lg overflow-hidden">
             <div className="px-3 py-1.5 bg-[#F8F7F4] text-[11px] font-semibold text-[#5A5955]">
@@ -857,9 +897,66 @@ function OrderCard({
             </div>
             <ul className="divide-y divide-[#F2F2F2]">
               {partItems.map((w) => (
-                <li key={w.id} className="px-3 py-2 flex items-center gap-2.5 text-[12.5px]">
-                  <span className="text-[#2C2C2A]">{w.name}</span>
-                  {w.qty != null && <span className="text-[11px] text-[#9A9890]">× {w.qty}</span>}
+                <li key={w.id} className="px-3 py-2 text-[12.5px]">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[#2C2C2A] flex-1">{w.name}</span>
+                    {w.qty != null && <span className="text-[11px] text-[#9A9890]">× {w.qty}</span>}
+                    {returnedLineIds.has(w.id) ? (
+                      <span className="px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5]">
+                        已送出退料
+                      </span>
+                    ) : isInProgress && w.qty != null && w.qty > 0 ? (
+                      <button
+                        onClick={() =>
+                          returnOpenLineId === w.id
+                            ? setReturnOpenLineId(null)
+                            : openReturnForm(w.id, w.qty as number)
+                        }
+                        className="h-[24px] px-2 rounded text-[11px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                      >
+                        用不到，退料
+                      </button>
+                    ) : null}
+                  </div>
+                  {returnOpenLineId === w.id && (
+                    <div className="mt-2 p-2.5 bg-[#F8F7F4] border border-[#EEECE6] rounded-lg space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-[11px] text-[#9A9890] font-medium">退料數量</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={w.qty ?? undefined}
+                          value={returnQty}
+                          disabled={returnSubmitting}
+                          onChange={(e) => setReturnQty(e.target.value)}
+                          className="w-[70px] h-[26px] border border-[#D5D3CB] rounded px-2 text-[11.5px] focus:border-[#185FA5] disabled:opacity-60"
+                        />
+                      </div>
+                      <textarea
+                        value={returnReason}
+                        disabled={returnSubmitting}
+                        onChange={(e) => setReturnReason(e.target.value)}
+                        placeholder="退料原因（選填，例如：診斷後確認不需要更換）"
+                        className="w-full border border-[#D5D3CB] rounded px-2 py-1.5 text-[11.5px] focus:border-[#185FA5] disabled:opacity-60 min-h-[50px] resize-none"
+                      />
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => setReturnOpenLineId(null)}
+                          disabled={returnSubmitting}
+                          className="h-[24px] px-2.5 rounded text-[11px] bg-white border border-[#D5D3CB] text-[#5A5955] disabled:opacity-60"
+                        >
+                          取消
+                        </button>
+                        <button
+                          onClick={() => handleSubmitReturn(w.id)}
+                          disabled={returnSubmitting || !(Number(returnQty) > 0)}
+                          className="h-[24px] px-2.5 rounded text-[11px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+                        >
+                          {returnSubmitting ? "送出中⋯" : "確認退料"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

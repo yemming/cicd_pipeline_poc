@@ -1,0 +1,28 @@
+# 保固索賠應收款 90 天逾期未撥款通知 — 每日固定一次
+#
+# Russell 7/21 補驗指令第五部分⑨：warranty_claim_receivables.submitted_at 超過 90 天
+# 且 claim_status='submitted'（原廠一直沒核復撥款）→ 通知採購人員追蹤。
+# 90 天等級不需要高頻掃描，跟 ro-checkout-overdue-cron 一樣每日一次即可。
+#
+# 排程：每日 UTC 01:30 = 台北 09:30（上班開工時段，錯開其他每日 cron 避免同時打）。
+# 啟用：repo Secrets 需有 CRON_TOKEN（= Zeabur 環境變數）。排程僅在 default branch(main) 生效。
+name: warranty-claim-90day-cron
+
+on:
+  schedule:
+    - cron: "30 1 * * *" # 每日 UTC 01:30（台北 09:30）
+  workflow_dispatch: {} # 允許手動觸發測試
+
+permissions:
+  contents: read
+
+jobs:
+  warranty-claim-90day-overdue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 保固索賠 90 天逾期未撥款通知（每日一次）
+        run: |
+          curl -fsS -X POST "https://dealeros.zeabur.app/api/cron/warranty-claim-90day-overdue" \
+            -H "Authorization: Bearer ${{ secrets.CRON_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}' || echo "warranty-claim-90day-overdue endpoint 回非 2xx（CRON_TOKEN 未設時為預期）"

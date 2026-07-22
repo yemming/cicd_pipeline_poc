@@ -708,20 +708,20 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
     });
   }
 
-  // ── 包F：結案 → 寫下次保養提醒到人車檔 + 建 CRM 回訪（非阻塞、吞錯不影響關單）──
-  after(async () => {
-    try {
-      const sb = await createClient();
-      const { data: ro } = await sb
-        .from("repair_orders")
-        .select("vehicle_id, customer_id, ro_code, mileage_in")
-        .eq("id", repairOrderId)
-        .eq("brand_id", brand)
-        .maybeSingle();
-      if (!ro?.vehicle_id) return;
-
+  // ── 包F + 修補⑤（Russell 7/21 問題四）：人車檔案同步更新（改同步執行，不再用 after()）──
+  // 原本 next_service_mileage/next_service_date（下次保養提醒）用 after() 非阻塞寫入，
+  // 但 Russell 指出「最後進廠日/里程」這類服務歷史欄位完全沒寫，只更新了提醒用欄位（半套）。
+  // 改同步 + try/catch 吞錯不擋關單：確保 Before/After 可截圖驗證、且消除 after() 延遲風險。
+  try {
+    const { data: ro } = await supabase
+      .from("repair_orders")
+      .select("vehicle_id, customer_id, ro_code, mileage_in")
+      .eq("id", repairOrderId)
+      .eq("brand_id", brand)
+      .maybeSingle();
+    if (ro?.vehicle_id) {
       // 取車輛現里程（優先 RO 進廠里程，否則車檔現里程）
-      const { data: veh } = await sb
+      const { data: veh } = await supabase
         .from("customer_vehicles")
         .select("current_mileage")
         .eq("id", ro.vehicle_id)
@@ -733,14 +733,26 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
       const due = new Date();
       due.setMonth(due.getMonth() + NEXT_SERVICE_INTERVAL_MONTHS);
       const nextDate = due.toISOString().slice(0, 10);
+      const todayStr = now.slice(0, 10);
 
-      await sb
+      const vehicleUpdate: Record<string, unknown> = {
+        next_service_mileage: nextMileage,
+        next_service_date: nextDate,
+        // 服務歷史欄位：這次結案「真的發生過保養/維修」的紀錄，跟「下次提醒」是兩件事
+        last_service_date: todayStr,
+        updated_at: new Date().toISOString(),
+      };
+      if (baseMileage > 0) {
+        vehicleUpdate.last_service_mileage = baseMileage;
+        // 里程表只會往前走，車檔目前里程比這次進廠里程舊才更新，避免用舊資料覆蓋新資料
+        if (baseMileage > Number(veh?.current_mileage ?? 0)) {
+          vehicleUpdate.current_mileage = baseMileage;
+        }
+      }
+
+      await supabase
         .from("customer_vehicles")
-        .update({
-          next_service_mileage: nextMileage,
-          next_service_date: nextDate,
-          updated_at: new Date().toISOString(),
-        })
+        .update(vehicleUpdate)
         .eq("id", ro.vehicle_id);
 
       // CRM 回訪任務：提前 5 個月提醒客戶回廠保養（dedupe by source_ro）
@@ -764,10 +776,10 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
           dedupeMetaKey: "source_ro",
         });
       }
-    } catch (e) {
-      console.error("[包F 下次保養提醒] 寫入失敗（不影響關單）", e);
     }
-  });
+  } catch (e) {
+    console.error("[修補⑤ 人車檔案同步更新] 寫入失敗（不影響關單）", e);
+  }
 
   // （修補二）D+3 / D+7 售後電訪任務已改為上方「同步建立」，
   // 原本的 after() 非阻塞 hook（會靜默吞錯導致 0 筆）已移除。
