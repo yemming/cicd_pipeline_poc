@@ -71,6 +71,9 @@ export function PurchaseOrderDetailView({
   const [editNotes, setEditNotes] = useState(order.notes ?? "");
   const [editEta, setEditEta] = useState(order.eta_date ?? "");
   const [editType, setEditType] = useState(order.purchase_type ?? "planned");
+  const [editFollowUpReminder, setEditFollowUpReminder] = useState(
+    order.follow_up_reminder_date ?? "",
+  );
   const [editLineNotes, setEditLineNotes] = useState<Record<string, string>>(
     Object.fromEntries(order.lines.map((l) => [l.id, l.notes ?? ""])),
   );
@@ -94,6 +97,7 @@ export function PurchaseOrderDetailView({
     setEditNotes(order.notes ?? "");
     setEditEta(order.eta_date ?? "");
     setEditType(order.purchase_type ?? "planned");
+    setEditFollowUpReminder(order.follow_up_reminder_date ?? "");
     setEditLineNotes(
       Object.fromEntries(order.lines.map((l) => [l.id, l.notes ?? ""])),
     );
@@ -111,11 +115,13 @@ export function PurchaseOrderDetailView({
       notes: norm(editNotes),
       eta_date: editEta || null,
       purchase_type: editType,
+      follow_up_reminder_date: editFollowUpReminder || null,
     };
     const headerChanged =
       headerPatch.notes !== (order.notes ?? null)
       || headerPatch.eta_date !== (order.eta_date ?? null)
-      || headerPatch.purchase_type !== (order.purchase_type ?? "planned");
+      || headerPatch.purchase_type !== (order.purchase_type ?? "planned")
+      || headerPatch.follow_up_reminder_date !== (order.follow_up_reminder_date ?? null);
 
     const changedLines = order.lines
       .map((l) => ({
@@ -379,6 +385,21 @@ export function PurchaseOrderDetailView({
           <Kv
             label="收貨進度"
             value={<span className="font-mono">{progressPct}% （{order.qty_received_total} / {order.qty_ordered_total}）</span>}
+          />
+          <Kv
+            label="催貨提醒日期"
+            value={
+              mode === "edit" ? (
+                <input
+                  type="date"
+                  value={editFollowUpReminder}
+                  onChange={(e) => setEditFollowUpReminder(e.target.value)}
+                  className={inputClass + " w-full"}
+                />
+              ) : (
+                <span className="font-mono">{fmtDate(order.follow_up_reminder_date)}</span>
+              )
+            }
           />
 
           <Kv label="供應商" value={order.vendor_name ?? "—"} />

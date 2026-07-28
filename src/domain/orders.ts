@@ -370,6 +370,8 @@ export type PurchaseOrderDetail = PurchaseOrderRow & {
   created_by_name: string | null;
   approved_by_name: string | null;
   source_req_no: string | null;
+  /** 催貨提醒日期 — 存於 metadata.follow_up_reminder_date（單頁專用、純顯示，未來若要跑排程告警再 promote 成 typed column） */
+  follow_up_reminder_date: string | null;
   lines: PurchaseOrderDetailLine[];
   receipts: PurchaseOrderReceiptRef[];
 };
@@ -458,6 +460,8 @@ export async function getPurchaseOrderById(
     status: r.status,
   }));
 
+  const poMeta = (po.metadata as Record<string, unknown> | null) ?? {};
+
   return {
     ...po,
     vendor_name: vRes.data?.name ?? null,
@@ -467,6 +471,8 @@ export async function getPurchaseOrderById(
     created_by_name: creatorRes.data?.display_name ?? null,
     approved_by_name: approverRes.data?.display_name ?? null,
     source_req_no: reqRes.data?.req_no ?? null,
+    follow_up_reminder_date:
+      typeof poMeta.follow_up_reminder_date === "string" ? poMeta.follow_up_reminder_date : null,
     lines,
     receipts,
   };
@@ -681,11 +687,13 @@ export type UpdatePurchaseOrderInput = {
   notes?: string | null;
   eta_date?: string | null;
   purchase_type?: string;
+  /** 催貨提醒日期 — 寫進 metadata.follow_up_reminder_date */
+  follow_up_reminder_date?: string | null;
   line_notes?: Array<{ id: string; notes: string | null }>;
 };
 
 /**
- * 更新採購單 — 受限欄位：notes / eta_date / purchase_type / line notes
+ * 更新採購單 — 受限欄位：notes / eta_date / purchase_type / follow_up_reminder_date / line notes
  * received / cancelled 狀態不可改
  */
 export async function updatePurchaseOrder(
@@ -697,7 +705,7 @@ export async function updatePurchaseOrder(
 
   const { data: current, error: curErr } = await supabase
     .from("purchase_orders")
-    .select("status")
+    .select("status, metadata")
     .eq("id", id)
     .eq("brand_id", scope.brand_id)
     .maybeSingle();
@@ -711,6 +719,13 @@ export async function updatePurchaseOrder(
   if (patch.notes !== undefined) headerPatch.notes = patch.notes;
   if (patch.eta_date !== undefined) headerPatch.eta_date = patch.eta_date;
   if (patch.purchase_type !== undefined) headerPatch.purchase_type = patch.purchase_type;
+  if (patch.follow_up_reminder_date !== undefined) {
+    const currentMeta = (current.metadata as Record<string, unknown> | null) ?? {};
+    headerPatch.metadata = {
+      ...currentMeta,
+      follow_up_reminder_date: patch.follow_up_reminder_date,
+    };
+  }
 
   if (Object.keys(headerPatch).length > 0) {
     const { error: upErr } = await supabase
