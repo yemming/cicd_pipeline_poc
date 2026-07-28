@@ -643,6 +643,7 @@ function CustomerSuppliedSection({
                 locked={locked}
                 canSign={canEdit && !locked}
                 signing={signingRole === "sa"}
+                submitting={isPending && signingRole === "sa"}
                 onOpen={() => setSigningRole("sa")}
                 onCancel={() => setSigningRole(null)}
                 onSign={(dataUrl) => submitSignature("sa", dataUrl)}
@@ -655,6 +656,7 @@ function CustomerSuppliedSection({
                 locked={locked}
                 canSign={canEdit && !locked}
                 signing={signingRole === "customer"}
+                submitting={isPending && signingRole === "customer"}
                 onOpen={() => setSigningRole("customer")}
                 onCancel={() => setSigningRole(null)}
                 onSign={(dataUrl) => submitSignature("customer", dataUrl)}
@@ -674,6 +676,7 @@ function WaiverSignaturePad({
   locked,
   canSign,
   signing,
+  submitting,
   onOpen,
   onCancel,
   onSign,
@@ -685,6 +688,8 @@ function WaiverSignaturePad({
   locked: boolean;
   canSign: boolean;
   signing: boolean;
+  /** 這一份簽名已送出、server action 尚未回應（避免 UI 落後時使用者誤以為沒反應而重複點擊） */
+  submitting: boolean;
   onOpen: () => void;
   onCancel: () => void;
   onSign: (dataUrl: string) => void;
@@ -709,13 +714,14 @@ function WaiverSignaturePad({
           />
         ) : signing ? (
           <div className="space-y-2">
-            <SignatureCanvas onSigned={onSign} />
+            <SignatureCanvas onSigned={onSign} submitting={submitting} />
             <button
               type="button"
               onClick={onCancel}
-              className="text-[11px] text-[#9A9890] hover:text-[#5A5955]"
+              disabled={submitting}
+              className="text-[11px] text-[#9A9890] hover:text-[#5A5955] disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              取消簽署
+              {submitting ? "簽署上傳中⋯" : "取消簽署"}
             </button>
           </div>
         ) : (
