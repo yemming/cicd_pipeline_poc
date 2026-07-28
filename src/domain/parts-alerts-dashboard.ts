@@ -150,11 +150,13 @@ export async function getAlertDashboardData(): Promise<AlertDashboardData> {
     listPurchaseOrders(),
   ]);
 
+  // 停用品項（items.is_active=false）沒辦法走標準 PO 流程補貨，
+  // 列進「需要下單」的告警清單只會產生叫不了貨的假告警 → 過濾掉
   const urgent = balanceAgg.rows
-    .filter((r) => r.alert_level === "below_safety")
+    .filter((r) => r.alert_level === "below_safety" && r.item_is_active)
     .map(toAlertBalanceRow);
   const reorder = balanceAgg.rows
-    .filter((r) => r.alert_level === "below_reorder")
+    .filter((r) => r.alert_level === "below_reorder" && r.item_is_active)
     .map(toAlertBalanceRow);
 
   const pendingWos = loopBoard.rows

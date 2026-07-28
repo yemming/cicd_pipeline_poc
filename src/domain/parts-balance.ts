@@ -50,6 +50,9 @@ export type BalanceRow = {
   max_stock: number | null;
   alert_priority: string | null;
   alert_level: AlertLevel;
+  // items.is_active 拼接 — 停用品項無法走標準 PO 流程補貨，
+  // 消費端（如告警儀表板）據此排除「叫不了貨」的假告警
+  item_is_active: boolean;
 };
 
 export type BalanceFilter = {
@@ -130,6 +133,18 @@ export async function getInventoryBalanceWithAlerts(
     tMap.set(`${t.item_id}::${t.warehouse_id ?? ""}`, t);
   }
 
+  // 2b) 撈 items.is_active（同 brand 全集）— 停用品項要標記出來，
+  //     不能靠 v_stock_balances（該 view 沒帶這欄）
+  const { data: itemActiveRows, error: iErr } = await supabase
+    .from("items")
+    .select("id, is_active")
+    .eq("brand_id", scope.brand_id);
+  if (iErr) throw iErr;
+  const activeMap = new Map<string, boolean>();
+  for (const it of itemActiveRows ?? []) {
+    activeMap.set(it.id, it.is_active !== false);
+  }
+
   // 3) 組 row + alert_level
   let rows: BalanceRow[] = list.map((b) => {
     const t = tMap.get(`${b.item_id}::${b.warehouse_id ?? ""}`);
@@ -167,6 +182,7 @@ export async function getInventoryBalanceWithAlerts(
       max_stock,
       alert_priority: t?.alert_priority ?? null,
       alert_level,
+      item_is_active: activeMap.get(b.item_id ?? "") ?? true,
     };
   });
 
