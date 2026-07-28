@@ -18,6 +18,7 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import { getBrandConfig } from "@/domain/brand-config";
 import { releaseWaitingForItem } from "@/domain/parts-waiting";
 import { assertWarehouseNotFrozen } from "@/domain/count";
+import { postCostEvent } from "@/domain/costing";
 
 import type { Database } from "@/lib/database.types";
 
@@ -1066,6 +1067,31 @@ export async function createTransfer(
       };
       if (newQty <= 0) update.status = "issued";
       await supabase.from("stock_items").update(update).eq("id", pick.stock_id);
+
+      // 成本事件（transfer_out）— 源倉出帳。同步呼叫（不用 after()：本專案 Next 16 +
+      // Zeabur 環境已多次證實 after() 不可靠，成本帳這種財務關鍵資料不能賭）。
+      // 失敗不擋出貨主流程（庫存異動已發生），只記 log 供事後排查。
+      const costOutRes = await postCostEvent({
+        subjectType: "part",
+        eventType: "transfer_out",
+        brandId,
+        itemId: pl.item_id,
+        warehouseId: input.source_warehouse_id,
+        qty: pick.qty,
+        unitCostIn: pick.unit_cost,
+        sourceTable: "stock_transfers",
+        sourceId: tr.id,
+        stockItemId: pick.stock_id,
+        notes: `調撥 ${tr_no} 出貨`,
+      });
+      if (!costOutRes.ok) {
+        console.error("[costing] transfer_out 成本事件失敗（不影響出貨流程）", {
+          tr_no,
+          item_id: pl.item_id,
+          stock_id: pick.stock_id,
+          error: costOutRes.error,
+        });
+      }
     }
     const trLine = trLineByLineNo.get(pl.line_no);
     const inTransitRows = pl.picks.map((p) => ({
@@ -1227,7 +1253,7 @@ export async function receiveTransfer(
   const lineIds = trLines.map((l) => l.id);
   const { data: inTransitRows } = await supabase
     .from("stock_items")
-    .select("id, qty")
+    .select("id, qty, item_id, unit_cost")
     .eq("brand_id", brandId)
     .in("source_transfer_line_id", lineIds)
     .eq("status", "in_transit");
@@ -1242,6 +1268,32 @@ export async function receiveTransfer(
         last_movement_at: new Date().toISOString(),
       })
       .eq("id", r.id);
+
+    // 成本事件（transfer_in）— 目標倉入帳。同步呼叫（不用 after()：本專案 Next 16 +
+    // Zeabur 環境已多次證實 after() 不可靠，成本帳這種財務關鍵資料不能賭）。
+    // unit_cost 取該 in_transit stock_item 自己帶的成本（出貨當下已鎖定），
+    // 失敗不擋收貨主流程（庫存異動已發生），只記 log 供事後排查。
+    const costInRes = await postCostEvent({
+      subjectType: "part",
+      eventType: "transfer_in",
+      brandId,
+      itemId: r.item_id,
+      warehouseId: tr.target_warehouse_id,
+      qty: Number(r.qty),
+      unitCostIn: Number(r.unit_cost ?? 0),
+      sourceTable: "stock_transfers",
+      sourceId: tr.id,
+      stockItemId: r.id,
+      notes: `調撥 ${tr.tr_no} 入庫`,
+    });
+    if (!costInRes.ok) {
+      console.error("[costing] transfer_in 成本事件失敗（不影響收貨流程）", {
+        tr_no: tr.tr_no,
+        item_id: r.item_id,
+        stock_item_id: r.id,
+        error: costInRes.error,
+      });
+    }
   }
 
   // 3. 產 GR 號 GR{YYYYMMDD}-{NNN}（type='transfer_in'）
