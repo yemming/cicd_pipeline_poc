@@ -19,6 +19,11 @@ import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
 import { HIGH_VALUE_VARIANCE_THRESHOLD } from "@/domain/count.constants";
 import { createServiceClient } from "@/lib/supabase/service";
 import { createInappNotifications } from "@/domain/user-notifications";
+import { writeAuditLog } from "@/domain/audit-logs";
+import { hasPermission } from "@/lib/rbac/policies";
+import { PERMISSIONS } from "@/lib/rbac/permissions";
+import { listRulesByKind } from "@/domain/rules";
+import type { CountToleranceConfig, CountWorkflowConfig } from "@/domain/rules";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -970,6 +975,30 @@ export async function startCountSessionAction(
     }
   }
 
+  // 稽核日誌（M4/B4 補：整個盤點 domain 過去零 audit_logs 寫入，B4 突擊盤點連
+  // is_unannounced/count_type 都查無任何紀錄）。同步寫入，理由同 approveCountAdjustmentAction
+  // 註解：after() 在本部署環境對非阻塞任務不可靠，稽核屬合規要求不能冒漏寫風險。
+  try {
+    await writeAuditLog({
+      table_name: "inventory_counts",
+      record_id: ct.id,
+      action: "COUNT_SESSION_STARTED",
+      actor_id: starterId,
+      brand_id: brandId,
+      before: null,
+      after: {
+        ct_no,
+        warehouse_id: input.warehouse_id,
+        count_type: isUnannounced ? "unannounced" : (input.count_type ?? "manual"),
+        is_unannounced: isUnannounced,
+        freeze_warehouse: effectiveFreezeWarehouse,
+        total_lines: snapshotLines.length,
+      },
+    });
+  } catch (e) {
+    console.error("[startCountSessionAction] 稽核日誌寫入例外（不影響主流程）", e);
+  }
+
   revalidatePath("/parts/count/sessions");
   return { ok: true, data: { ct_id: ct.id, ct_no, total_lines: snapshotLines.length } };
 }
@@ -1066,6 +1095,27 @@ export async function submitCountSessionAction(
       notes: input.notes ?? null,
     })
     .eq("id", input.ct_id);
+
+  // 稽核日誌（M4 補：submitCountSessionAction 全檔案零 audit_logs 寫入）。同步寫入，
+  // 理由同 startCountSessionAction / approveCountAdjustmentAction 註解。
+  try {
+    await writeAuditLog({
+      table_name: "inventory_counts",
+      record_id: input.ct_id,
+      action: "COUNT_SESSION_SUBMITTED",
+      actor_id: submitActorId,
+      brand_id: brandId,
+      before: { status: statusBeforeSubmit },
+      after: {
+        status: "pending_approval",
+        ct_no: ct.ct_no,
+        variance_lines: varianceLines,
+        variance_amount: Math.round(totalVarianceAmount * 100) / 100,
+      },
+    });
+  } catch (e) {
+    console.error("[submitCountSessionAction] 稽核日誌寫入例外（不影響主流程）", e);
+  }
 
   // 高價值盤差升級店長通知 — 改同步執行（不用 after()）。
   // ⚠️ 這裡原本包在 after() 裡（先懷疑是動態 import 在 Turbopack chunk 切割下失效，
@@ -1164,8 +1214,17 @@ export async function approveCountAdjustmentAction(
 ): Promise<ActionResult<{ ct_id: string; adj_no: string | null; adjusted_lines: number }>> {
   if (!ctId) return { ok: false, error: "缺 ctId" };
 
+  // 核准至少需要基本的盤點調整權限（原本這裡完全沒檢查，任何能打開頁面的人都能核准）
+  if (!(await hasPermission(PERMISSIONS.COUNT_ADJUST))) {
+    return { ok: false, error: "沒有核准盤點調整的權限" };
+  }
+
   const supabase = await createClient();
   const brandId = (await getActiveScope()).brand_id;
+  const {
+    data: { user: approveUser },
+  } = await supabase.auth.getUser();
+  const approverId = approveUser?.id ?? null;
 
   const { data: ct, error: ctErr } = await supabase
     .from("inventory_counts")
@@ -1186,7 +1245,84 @@ export async function approveCountAdjustmentAction(
     .neq("variance", 0);
   if (lineErr) return { ok: false, error: `撈差異明細失敗：${lineErr.message}` };
 
+  // ── 差異審批分級（M4 修補）──────────────────────────────────────────
+  // 原本 /parts/setup/count-rules 設定的 count_tolerance（各 ABC 類容許率）/
+  // count_workflow（overflow・a_class_force 情境）只在設定頁被 CRUD，實際核准動作
+  // 完全沒有讀取 —— 核准鍵不分金額大小，一顆權限打天下。這裡補上：真的去讀設定的
+  // 容許率 + 審核流程規則，判斷本次差異是否落入「超過容許率」或「A 類商品強制審核」
+  // 情境；若是，除了 COUNT_ADJUST 之外還要求核准人是主管（店長／跨店管理員），
+  // 才算真正多一道強制核准關卡（不是只發一則通知就算數）。
+  if (varianceLines && varianceLines.length > 0) {
+    const [toleranceRules, workflowRules] = await Promise.all([
+      listRulesByKind("count_tolerance"),
+      listRulesByKind("count_workflow"),
+    ]);
+    const toleranceCfg = (toleranceRules[0]?.config ?? null) as CountToleranceConfig | null;
+    const overflowRuleActive = workflowRules.some((r) => {
+      const cfg = (r.config ?? {}) as Partial<CountWorkflowConfig>;
+      return cfg.category === "overflow";
+    });
+    const aClassForceRuleActive = workflowRules.some((r) => {
+      const cfg = (r.config ?? {}) as Partial<CountWorkflowConfig>;
+      return cfg.category === "a_class_force";
+    });
+
+    let requiresElevatedApproval = false;
+    let elevatedReason = "";
+
+    if (overflowRuleActive || aClassForceRuleActive) {
+      const itemIds = [...new Set(varianceLines.map((l) => l.item_id))];
+      const { data: abcRows } = await supabase
+        .from("abc_classification_results")
+        .select("item_id, abc_class")
+        .eq("brand_id", brandId)
+        .is("warehouse_id", null)
+        .in("item_id", itemIds);
+      const abcByItem = new Map((abcRows ?? []).map((r) => [r.item_id, r.abc_class]));
+
+      if (overflowRuleActive && toleranceCfg?.abc_tolerance_pcts) {
+        for (const l of varianceLines) {
+          const cls = (abcByItem.get(l.item_id) ?? "C") as "A" | "B" | "C";
+          const tolerancePct = toleranceCfg.abc_tolerance_pcts[cls] ?? 0;
+          const qtySys = Number(l.qty_system);
+          const variancePct =
+            qtySys > 0 ? (Math.abs(Number(l.variance)) / qtySys) * 100 : Number(l.variance) !== 0 ? 100 : 0;
+          if (variancePct > tolerancePct) {
+            requiresElevatedApproval = true;
+            elevatedReason = "差異超過設定的容許率";
+            break;
+          }
+        }
+      }
+      if (!requiresElevatedApproval && aClassForceRuleActive) {
+        if (varianceLines.some((l) => abcByItem.get(l.item_id) === "A")) {
+          requiresElevatedApproval = true;
+          elevatedReason = "涉及 A 類商品差異（強制審核）";
+        }
+      }
+    }
+
+    if (requiresElevatedApproval) {
+      const sb = createServiceClient();
+      const { data: emp } = await sb
+        .from("employees")
+        .select("is_dept_manager, is_cross_admin")
+        .eq("brand_id", brandId)
+        .eq("user_id", approverId ?? "")
+        .eq("is_active", true)
+        .maybeSingle();
+      const isManagerApprover = !!(emp?.is_dept_manager || emp?.is_cross_admin);
+      if (!isManagerApprover) {
+        return {
+          ok: false,
+          error: `此盤點單「${elevatedReason}」（依盤點回傳規則設定），需由主管（店長／跨店管理員）核准，請轉交主管處理`,
+        };
+      }
+    }
+  }
+
   let adjNo: string | null = null;
+  let adjId: string | null = null;
   if (varianceLines && varianceLines.length > 0) {
     // 產 adj_no
     const today = new Date();
@@ -1212,7 +1348,7 @@ export async function approveCountAdjustmentAction(
     const totalAmount = Number(ct.variance_amount);
     const type = totalAmount >= 0 ? "gain" : "loss";
 
-    const { error: adjErr } = await supabase
+    const { data: adjRow, error: adjErr } = await supabase
       .from("inventory_adjustments")
       .insert({
         brand_id: brandId,
@@ -1223,10 +1359,14 @@ export async function approveCountAdjustmentAction(
         reason: `盤點 ${ct.ct_no} 差異報損報溢`,
         total_amount: totalAmount,
         status: "posted",
+        approved_by: approverId,
         approved_at: new Date().toISOString(),
         posted_at: new Date().toISOString(),
-      });
+      })
+      .select("id")
+      .single();
     if (adjErr) return { ok: false, error: `建調整單失敗：${adjErr.message}` };
+    adjId = adjRow?.id ?? null;
 
     // 對每個差異 line 調 stock_items
     for (const l of varianceLines) {
@@ -1278,9 +1418,48 @@ export async function approveCountAdjustmentAction(
     .from("inventory_counts")
     .update({
       status: "completed",
+      approver_id: approverId,
       approved_at: new Date().toISOString(),
     })
     .eq("id", ctId);
+
+  // 稽核日誌（M4-S4 補：核准全流程零 audit_logs 寫入、approved_by/approver_id 永遠 null）
+  // 同步寫入（不用 after()）：本檔案 submitCountSessionAction 已記載 after() 在本部署環境
+  // 對非阻塞任務不可靠，核准稽核屬合規要求（事後要能查到「誰核准了這筆調整」），不能冒漏寫風險。
+  try {
+    await writeAuditLog({
+      table_name: "inventory_counts",
+      record_id: ctId,
+      action: "COUNT_ADJUSTMENT_APPROVED",
+      actor_id: approverId,
+      brand_id: brandId,
+      before: { status: "pending_approval" },
+      after: {
+        status: "completed",
+        adj_no: adjNo,
+        adjusted_lines: varianceLines?.length ?? 0,
+        variance_amount: ct.variance_amount,
+      },
+    });
+    if (adjNo) {
+      await writeAuditLog({
+        table_name: "inventory_adjustments",
+        record_id: adjId ?? adjNo,
+        action: "ADJUSTMENT_POSTED",
+        actor_id: approverId,
+        brand_id: brandId,
+        before: null,
+        after: {
+          ct_id: ctId,
+          ct_no: ct.ct_no,
+          total_amount: ct.variance_amount,
+          approved_by: approverId,
+        },
+      });
+    }
+  } catch (e) {
+    console.error("[approveCountAdjustment] 稽核日誌寫入例外（不影響主流程）", e);
+  }
 
   if (varianceLines && varianceLines.length > 0 && adjNo) {
     const totalAmount = Number(ct.variance_amount);

@@ -8,6 +8,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getActiveScope } from "@/lib/scope/active-scope";
 
 import type {
@@ -72,9 +73,17 @@ async function loadRoMeta(roIds: string[]): Promise<Map<string, RoMeta>> {
     .in("id", roIds);
   const customerIds = Array.from(new Set((ros ?? []).map((r) => r.customer_id).filter(Boolean) as string[]));
   const vehicleIds = Array.from(new Set((ros ?? []).map((r) => r.vehicle_id).filter(Boolean) as string[]));
+  // ⚠️ customers 表是 person-level RLS（core5_customers_person_select：只有
+  // assigned_sa_user_id / assigned_rs_user_id / created_by / overseer 可讀）。
+  // 但這裡的 customerIds 一律衍生自呼叫端已經用 brand-scoped RLS 查過的
+  // repair_orders（換班 / 代班 / 主管代結帳都合法能看到這張 RO），只是要顯示
+  // 車主姓名，不是完整客戶檔案 CRUD——故用 service client 繞過 person RLS，
+  // 避免「登入者非原指派 SA」時 customer_name 被靜默查成 0 筆、誤判成
+  // 「工單沒有掛車主」擋下簽名。
+  const serviceSb = createServiceClient();
   const [custs, vehs] = await Promise.all([
     customerIds.length
-      ? supabase.from("customers").select("id, name").in("id", customerIds)
+      ? serviceSb.from("customers").select("id, name").in("id", customerIds)
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     vehicleIds.length
       ? supabase
