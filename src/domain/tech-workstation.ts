@@ -100,6 +100,8 @@ export type AddonRow = {
   customer_decision: string;
   reserved_at: string | null;
   created_at: string | null;
+  /** B3：客戶自備料標記（true 時本項目不執行庫存出庫） */
+  customer_supplied: boolean;
 };
 
 export type AssignedOrderCard = {
@@ -352,7 +354,7 @@ export async function listMyAssignedOrders(
     supabase
       .from("repair_order_addons")
       .select(
-        "id, ro_id, addon_no, name, addon_type, safety_level, tech_reason, estimated_fee, customer_decision, reserved_at, created_at",
+        "id, ro_id, addon_no, name, addon_type, safety_level, tech_reason, estimated_fee, customer_decision, reserved_at, created_at, metadata",
       )
       .eq("brand_id", brand)
       .in("ro_id", roIds)
@@ -434,6 +436,7 @@ export async function listMyAssignedOrders(
     customer_decision: string;
     reserved_at: string | null;
     created_at: string | null;
+    metadata: Record<string, unknown> | null;
   };
   const addonsByRo = new Map<string, AddonRow[]>();
   for (const a of (addonRes.data ?? []) as unknown as AddonRaw[]) {
@@ -449,6 +452,7 @@ export async function listMyAssignedOrders(
       customer_decision: a.customer_decision,
       reserved_at: a.reserved_at,
       created_at: a.created_at,
+      customer_supplied: Boolean((a.metadata ?? {}).customer_supplied),
     });
     addonsByRo.set(a.ro_id, arr);
   }
@@ -897,12 +901,21 @@ export type AddonInput = {
   estimated_fee?: number;
   /** 接 B3 預留用（追加為零件時帶；不帶就不預留） */
   reserve_item?: { item_id: string; warehouse_id: string; qty: number } | null;
+  /**
+   * B3 客戶自帶零件確認書：true = 客戶自備料，本項目不執行庫存出庫、庫存數字不變。
+   * 即使同時帶了 reserve_item 也會被忽略（見下方 addAddon 內的防呆判斷）。
+   */
+  customer_supplied?: boolean;
 };
 
 /**
  * 追加項目：INSERT repair_order_addons (customer_decision='pending', proposed_by=techId)。
  * addon_no 取同 RO 內 max+1。
  * 成功後若帶 reserve_item → 呼叫 B3 reserve()（source_type='repair_order_addon'，串 hook #4）。
+ *
+ * B3（客戶自帶零件確認書）：customer_supplied=true 時，不論是否帶 reserve_item，一律不建立
+ * 庫存預留（客戶自己帶的料不是門店的庫存），並把標記寫入 metadata.customer_supplied，
+ * 供 SA 之後在追加項目詳情頁簽署雙方責任聲明書（見 repair-order-addon-actions.ts）。
  */
 export async function addAddon(
   roId: string,
@@ -935,6 +948,8 @@ export async function addAddon(
     .maybeSingle();
   const nextNo = Number((maxRow as { addon_no?: number } | null)?.addon_no ?? 0) + 1;
 
+  const customerSupplied = Boolean(payload.customer_supplied);
+
   const { data: row, error } = await supabase
     .from("repair_order_addons")
     .insert({
@@ -949,6 +964,9 @@ export async function addAddon(
       customer_decision: "pending",
       proposed_by: techId,
       proposed_at: new Date().toISOString(),
+      ...(customerSupplied
+        ? { metadata: { customer_supplied: true, customer_supplied_marked_at: new Date().toISOString() } }
+        : {}),
     })
     .select("id")
     .single();
@@ -957,8 +975,9 @@ export async function addAddon(
   // 串 B3 預留（hook #4）：追加為零件且帶了 item → 預留庫存。
   // 缺料判定（CROSS-02）：先算可用量 → 只預留「能滿足的量」、缺口標待料（不讓主流程失敗）。
   // reserve() 內部冪等防重 + 回寫 reserved_at；失敗不回滾 addon（addon 已成立、預留可重試）。
+  // B3：客戶自備料一律不預留（即使前端誤帶了 reserve_item 也在此擋下）。
   let reserved = false;
-  if (payload.reserve_item && payload.reserve_item.item_id && payload.reserve_item.qty > 0) {
+  if (!customerSupplied && payload.reserve_item && payload.reserve_item.item_id && payload.reserve_item.qty > 0) {
     const { item_id, warehouse_id, qty: needed } = payload.reserve_item;
 
     // reserve 前算可用量（reserve 後本次需求會被算進 reserved、可用量會被自己扣掉，故先算）

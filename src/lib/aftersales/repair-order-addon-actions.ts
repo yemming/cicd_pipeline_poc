@@ -25,6 +25,13 @@ import { createInappNotification } from "@/domain/user-notifications";
 // 退料閉環：取消追加 → 建退料待確認（不立即回補庫存）
 import { createReturnRequestsBatch } from "@/domain/parts-return-requests";
 import { getTodayClosingTime } from "@/domain/aftersales-settings";
+// B3：客戶自帶零件確認書 — 簽名圖檔存 Storage（沿用試乘 Wizard / RO 結帳既有的簽名上傳 helper）
+import { uploadSignatureDataUrl } from "@/lib/aftersales/signature-upload";
+import {
+  CUSTOMER_SUPPLIED_SUFFIX,
+  type CustomerSuppliedWaiver,
+  type CustomerSuppliedWaiverRole,
+} from "@/domain/repair-order-addons.constants";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -664,7 +671,14 @@ export async function decideAddonAction(
       .limit(1);
     let nextLineNo = ((maxRow?.[0]?.line_no as number | undefined) ?? 0) + 1;
 
+    // B3：客戶自帶零件確認書 — 若 addon 提報時已標記客戶自備料，寫入 ro_lines 時
+    // 附註品名「（客戶自備）」+ 回填標記/切結書快照，供「維修明細」頁顯示鎖定狀態。
+    // 不建立庫存預留（提報當下已在 addAddon() 擋下），本段純粹是顯示與稽核用途。
+    const customerSupplied = Boolean(meta.customer_supplied);
+    const waiverSnapshot = (meta.customer_supplied_waiver ?? null) as CustomerSuppliedWaiver | null;
+
     for (const l of linesToInsert) {
+      const isCustomerSuppliedPart = customerSupplied && l.kind === "part";
       const { data: inserted, error: insErr } = await supabase
         .from("repair_order_lines")
         .insert({
@@ -674,12 +688,17 @@ export async function decideAddonAction(
           kind: l.kind,
           labor_name: l.labor_name ?? null,
           labor_units: l.labor_units ?? null,
-          part_name: l.part_name ?? null,
+          part_name: isCustomerSuppliedPart && l.part_name
+            ? `${l.part_name}${CUSTOMER_SUPPLIED_SUFFIX}`
+            : l.part_name ?? null,
           qty: l.qty ?? null,
           unit_price: l.unit_price,
           amount: l.amount,
           source: "addon",
           source_ref_id: addon.id,
+          ...(isCustomerSuppliedPart
+            ? { metadata: { customer_supplied: true, customer_supplied_waiver: waiverSnapshot } }
+            : {}),
         })
         .select("id")
         .single();
@@ -877,4 +896,249 @@ export async function decideAddonAction(
   revalidatePath(PAGE);
   revalidatePath(`/parts/aftersales/repair-orders/${addon.ro_id}/lines`);
   return { ok: true, data: { id, created_line_ids } };
+}
+
+// ─────────────────────────────────────────────────────────────
+// B3 — 客戶自帶零件確認書
+//
+//  - setCustomerSuppliedAction     ：補標記／取消標記「客戶自備料」（pending 時提報就可帶標記，
+//                                     這裡是給 SA 事後補標記或取消標記用）
+//  - signCustomerSuppliedWaiverAction：SA / 客戶各自簽署電子責任聲明書；雙方都簽 → 鎖定，
+//                                     鎖定後不可再修改標記或重簽
+//
+// 標記 + 切結書都存 repair_order_addons.metadata（不開新表）；agreed 後衍生的 repair_order_lines
+// 也同步一份快照到 metadata（供「維修明細」頁顯示鎖定狀態，不必反查 addon）。
+// ─────────────────────────────────────────────────────────────
+
+/** 同步「客戶自備料」標記 + 切結書快照到已寫入的 repair_order_lines（agreed 前尚無 lines，迴圈為空、安全） */
+async function syncCustomerSuppliedLines(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  brand: string,
+  addonId: string,
+  value: boolean,
+  waiver: CustomerSuppliedWaiver | null,
+): Promise<void> {
+  const { data: linkedLines } = await supabase
+    .from("repair_order_lines")
+    .select("id, kind, part_name, metadata")
+    .eq("brand_id", brand)
+    .eq("source", "addon")
+    .eq("source_ref_id", addonId);
+
+  for (const line of (linkedLines ?? []) as Array<{
+    id: string;
+    kind: string;
+    part_name: string | null;
+    metadata: Record<string, unknown> | null;
+  }>) {
+    const lineMeta: Record<string, unknown> = { ...(line.metadata ?? {}) };
+    lineMeta.customer_supplied = value;
+    lineMeta.customer_supplied_waiver = waiver;
+
+    let nextName = line.part_name;
+    if (line.kind === "part" && line.part_name) {
+      const base = line.part_name.endsWith(CUSTOMER_SUPPLIED_SUFFIX)
+        ? line.part_name.slice(0, -CUSTOMER_SUPPLIED_SUFFIX.length)
+        : line.part_name;
+      nextName = value ? `${base}${CUSTOMER_SUPPLIED_SUFFIX}` : base;
+    }
+
+    const patch: Record<string, unknown> = { metadata: lineMeta };
+    if (nextName !== line.part_name) patch.part_name = nextName;
+
+    await supabase.from("repair_order_lines").update(patch).eq("id", line.id).eq("brand_id", brand);
+  }
+}
+
+/**
+ * 標記／取消標記「客戶自備料」。
+ *  - 標記時：若先前已建立庫存預留（source_type='repair_order_addon' 且 active），一併釋放
+ *    （客戶自己帶的料不該佔用門店庫存預留額度，符合「不出庫、庫存數字不變」規格）。
+ *  - 已鎖定（雙方切結書都簽了）→ 不可再修改。
+ *  - 已取消的追加項目 → 不可修改。
+ */
+export async function setCustomerSuppliedAction(
+  id: string,
+  value: boolean,
+): Promise<ActionResult<{ id: string; customer_supplied: boolean }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!id) return { ok: false, error: "缺少 ID" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const now = new Date().toISOString();
+
+  const { data: cur, error: loadErr } = await supabase
+    .from("repair_order_addons")
+    .select("id, ro_id, customer_decision, metadata")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (loadErr || !cur) return { ok: false, error: "找不到追加項目" };
+  if (cur.customer_decision === "cancelled")
+    return { ok: false, error: "已取消的追加項目不可修改標記" };
+
+  const meta = ((cur.metadata ?? {}) as Record<string, unknown>) || {};
+  const existingWaiver = (meta.customer_supplied_waiver ?? null) as CustomerSuppliedWaiver | null;
+  if (existingWaiver?.locked) {
+    return { ok: false, error: "切結書已完成雙方簽署並鎖定，不可再修改「客戶自備料」標記" };
+  }
+
+  if (value) {
+    // 釋放先前可能已建立的庫存預留（避免出庫）
+    const { data: activeReservations } = await supabase
+      .from("inventory_reservations")
+      .select("id")
+      .eq("brand_id", brand)
+      .eq("source_type", "repair_order_addon")
+      .eq("source_id", id)
+      .eq("status", "active");
+    for (const r of (activeReservations ?? []) as Array<{ id: string }>) {
+      await supabase
+        .from("inventory_reservations")
+        .update({
+          status: "cancelled",
+          released_at: now,
+          release_reason: "customer_supplied_marked",
+          updated_at: now,
+        })
+        .eq("id", r.id)
+        .eq("brand_id", brand)
+        .eq("status", "active");
+    }
+  }
+
+  const nextWaiver = value ? existingWaiver : null;
+  const newMeta: Record<string, unknown> = {
+    ...meta,
+    customer_supplied: value,
+    customer_supplied_marked_at: value ? now : null,
+    customer_supplied_waiver: nextWaiver,
+  };
+
+  const { error: updErr } = await supabase
+    .from("repair_order_addons")
+    .update({ metadata: newMeta, updated_at: now })
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (updErr) return { ok: false, error: updErr.message };
+
+  await syncCustomerSuppliedLines(supabase, brand, id, value, nextWaiver);
+
+  revalidatePath(PAGE);
+  revalidatePath(`/parts/aftersales/repair-orders/${cur.ro_id}/lines`);
+  return { ok: true, data: { id, customer_supplied: value } };
+}
+
+/**
+ * SA / 客戶各自簽署「客戶自備料」責任聲明書。簽名圖檔壓縮後由前端 canvas 產出 dataURL，
+ * 這裡上傳到 Supabase Storage（沿用 signature-upload.ts，DB 只存 URL 不存 base64）。
+ * 雙方都簽署後鎖定：不可再修改「客戶自備料」標記，也不可重簽。
+ */
+export async function signCustomerSuppliedWaiverAction(
+  id: string,
+  role: CustomerSuppliedWaiverRole,
+  signatureDataUrl: string,
+): Promise<ActionResult<{ id: string; waiver: CustomerSuppliedWaiver }>> {
+  await requirePermission(PERMISSIONS.RO_CREATE);
+  if (!id) return { ok: false, error: "缺少 ID" };
+  if (!signatureDataUrl) return { ok: false, error: "缺少簽名資料" };
+  if (role !== "sa" && role !== "customer") return { ok: false, error: "簽署角色不合法" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const now = new Date().toISOString();
+
+  const { data: cur, error: loadErr } = await supabase
+    .from("repair_order_addons")
+    .select("id, ro_id, customer_decision, metadata")
+    .eq("id", id)
+    .eq("brand_id", brand)
+    .maybeSingle();
+  if (loadErr || !cur) return { ok: false, error: "找不到追加項目" };
+  if (cur.customer_decision === "cancelled")
+    return { ok: false, error: "已取消的追加項目不可簽署切結書" };
+
+  const meta = ((cur.metadata ?? {}) as Record<string, unknown>) || {};
+  if (!meta.customer_supplied) {
+    return { ok: false, error: "此項目尚未標記為「客戶自備料」，請先標記後再簽署切結書" };
+  }
+
+  const existing = (meta.customer_supplied_waiver ?? null) as CustomerSuppliedWaiver | null;
+  if (existing?.locked) {
+    return { ok: false, error: "切結書已完成雙方簽署並鎖定，不可再次簽署" };
+  }
+
+  const url = await uploadSignatureDataUrl(signatureDataUrl, brand, "ro-addon-waiver", id, role);
+  if (!url) return { ok: false, error: "簽名圖檔上傳失敗，請重試" };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const waiver: CustomerSuppliedWaiver = {
+    sa_signature_url: existing?.sa_signature_url ?? null,
+    sa_signed_at: existing?.sa_signed_at ?? null,
+    sa_signed_by: existing?.sa_signed_by ?? null,
+    customer_signature_url: existing?.customer_signature_url ?? null,
+    customer_signed_at: existing?.customer_signed_at ?? null,
+    locked: false,
+    locked_at: null,
+  };
+  if (role === "sa") {
+    waiver.sa_signature_url = url;
+    waiver.sa_signed_at = now;
+    waiver.sa_signed_by = user?.id ?? null;
+  } else {
+    waiver.customer_signature_url = url;
+    waiver.customer_signed_at = now;
+  }
+  if (waiver.sa_signature_url && waiver.customer_signature_url) {
+    waiver.locked = true;
+    waiver.locked_at = now;
+  }
+
+  const newMeta: Record<string, unknown> = { ...meta, customer_supplied_waiver: waiver };
+  const { error: updErr } = await supabase
+    .from("repair_order_addons")
+    .update({ metadata: newMeta, updated_at: now })
+    .eq("id", id)
+    .eq("brand_id", brand);
+  if (updErr) return { ok: false, error: updErr.message };
+
+  await syncCustomerSuppliedLines(supabase, brand, id, true, waiver);
+
+  // 稽核日誌（非阻塞）— 誰簽了、什麼時候、是否已鎖定
+  {
+    const actorId = user?.id ?? null;
+    const roId = cur.ro_id as string;
+    after(async () => {
+      await writeAuditLog({
+        table_name: "repair_order_addons",
+        record_id: id,
+        action: "customer_supplied_waiver_signed",
+        actor_id: actorId,
+        brand_id: brand,
+        after: {
+          role,
+          locked: waiver.locked,
+          signed_at: now,
+        },
+      });
+      if (waiver.locked) {
+        await appendRepairOrderEvent(
+          roId,
+          {
+            action: "customer_supplied_waiver_locked",
+            payload: { addon_id: id },
+          },
+          actorId,
+        );
+      }
+    });
+  }
+
+  revalidatePath(PAGE);
+  revalidatePath(`/parts/aftersales/repair-orders/${cur.ro_id}/lines`);
+  return { ok: true, data: { id, waiver } };
 }

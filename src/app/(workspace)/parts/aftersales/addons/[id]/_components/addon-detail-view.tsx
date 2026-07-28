@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { useSetPageHeader } from "@/components/page-header-context";
+import { SignatureCanvas } from "@/components/signature-canvas";
 import {
   CONFIRM_LABEL,
   DECISION_CHIP,
@@ -25,14 +26,20 @@ import {
   SAFETY_CHIP,
   SAFETY_LABEL,
   TYPE_LABEL,
+  getCustomerSuppliedWaiver,
+  isCustomerSupplied,
   type AddonCostSummary,
   type CustomerDecision,
+  type CustomerSuppliedWaiver,
+  type CustomerSuppliedWaiverRole,
   type RejectionReason,
   type RepairOrderAddonWithRo,
 } from "@/domain/repair-order-addons.constants";
 import {
   cancelAddonAction,
   decideAddonAction,
+  setCustomerSuppliedAction,
+  signCustomerSuppliedWaiverAction,
   type AddonCancelMode,
   type ConfirmMethod,
 } from "@/lib/aftersales/repair-order-addon-actions";
@@ -307,6 +314,18 @@ export function AddonDetailView({
         </div>
       </section>
 
+      {/* ▼ B3 客戶自帶零件確認書（僅含零件的類型才顯示） */}
+      {(addon.addon_type !== "labor" || isCustomerSupplied(addon.metadata)) && (
+        <CustomerSuppliedSection
+          addon={addon}
+          canEdit={canEdit}
+          onChanged={(b) => {
+            showBanner(b);
+            router.refresh();
+          }}
+        />
+      )}
+
       {/* ▼ 費用變動摘要（本工單視角） */}
       <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
         <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
@@ -499,6 +518,221 @@ function Kv({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+/**
+ * B3 — 客戶自帶零件確認書。
+ *  - 未標記：canEdit 且未取消時顯示「標記為客戶自備料」按鈕。
+ *  - 已標記未鎖定：顯示 SA / 客戶雙簽名區塊 + 「取消標記」按鈕。
+ *  - 已鎖定（雙方都簽了）：唯讀顯示兩張簽名圖，不可再修改標記或重簽。
+ */
+function CustomerSuppliedSection({
+  addon,
+  canEdit,
+  onChanged,
+}: {
+  addon: RepairOrderAddonWithRo;
+  canEdit: boolean;
+  onChanged: (b: { ok: boolean; msg: string }) => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [signingRole, setSigningRole] = useState<CustomerSuppliedWaiverRole | null>(null);
+
+  const meta = addon.metadata ?? null;
+  const supplied = isCustomerSupplied(meta);
+  const waiver: CustomerSuppliedWaiver | null = getCustomerSuppliedWaiver(meta);
+  const locked = Boolean(waiver?.locked);
+  const canModify = canEdit && addon.customer_decision !== "cancelled" && !locked;
+
+  function toggle(value: boolean) {
+    startTransition(async () => {
+      const r = await setCustomerSuppliedAction(addon.id, value);
+      if (r.ok) {
+        onChanged({
+          ok: true,
+          msg: value ? "✓ 已標記為客戶自備料，不執行庫存出庫" : "✓ 已取消「客戶自備料」標記",
+        });
+      } else {
+        onChanged({ ok: false, msg: r.error });
+      }
+    });
+  }
+
+  function submitSignature(role: CustomerSuppliedWaiverRole, dataUrl: string) {
+    startTransition(async () => {
+      const r = await signCustomerSuppliedWaiverAction(addon.id, role, dataUrl);
+      if (r.ok) {
+        setSigningRole(null);
+        onChanged({
+          ok: true,
+          msg: r.data.waiver.locked
+            ? "✓ 雙方已完成簽署，切結書已鎖定"
+            : `✓ ${role === "sa" ? "SA" : "客戶"}簽署完成`,
+        });
+      } else {
+        onChanged({ ok: false, msg: r.error });
+      }
+    });
+  }
+
+  return (
+    <section
+      className={`bg-white border rounded-lg overflow-hidden ${
+        supplied ? "border-[#B8D9EF]" : "border-[#EEECE6]"
+      } ${isPending ? "pointer-events-none opacity-60" : ""}`}
+    >
+      <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center justify-between">
+        <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ 客戶自帶零件確認書</span>
+        {supplied && (
+          <span
+            className={`px-1.5 py-0.5 rounded-md text-[11px] ${
+              locked ? "bg-[#EAF3DE] text-[#3B6D11]" : "bg-[#EAF4FB] text-[#185FA5]"
+            }`}
+          >
+            {locked ? "✓ 已鎖定" : "客戶自備料"}
+          </span>
+        )}
+      </header>
+      <div className="px-4 py-4 space-y-3">
+        {!supplied ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[12px] text-[#5A5955]">
+              客戶自己攜帶零件安裝時，標記本項目後系統不執行庫存出庫、庫存數字不變。
+            </p>
+            {canEdit && addon.customer_decision !== "cancelled" && (
+              <button
+                type="button"
+                onClick={() => toggle(true)}
+                disabled={isPending}
+                className="shrink-0 h-[28px] px-3 rounded text-[12px] font-medium bg-[#185FA5] text-white hover:bg-[#1450a0] disabled:opacity-50"
+              >
+                {isPending ? "標記中⋯" : "標記為客戶自備料"}
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11.5px] text-[#185FA5] bg-[#EAF4FB] border border-[#B8D9EF] rounded px-2.5 py-1.5 flex-1">
+                本項目為客戶自備零件，不執行庫存出庫。安裝後若發生問題，門店不負責零件品質保證——請 SA
+                與客戶各自完成下方電子簽名確認。
+              </p>
+              {canModify && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!confirm("取消「客戶自備料」標記？")) return;
+                    toggle(false);
+                  }}
+                  disabled={isPending}
+                  className="shrink-0 h-[28px] px-3 rounded text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                >
+                  取消標記
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <WaiverSignaturePad
+                role="sa"
+                label="SA 簽名"
+                signatureUrl={waiver?.sa_signature_url ?? null}
+                signedAt={waiver?.sa_signed_at ?? null}
+                locked={locked}
+                canSign={canEdit && !locked}
+                signing={signingRole === "sa"}
+                onOpen={() => setSigningRole("sa")}
+                onCancel={() => setSigningRole(null)}
+                onSign={(dataUrl) => submitSignature("sa", dataUrl)}
+              />
+              <WaiverSignaturePad
+                role="customer"
+                label="客戶簽名"
+                signatureUrl={waiver?.customer_signature_url ?? null}
+                signedAt={waiver?.customer_signed_at ?? null}
+                locked={locked}
+                canSign={canEdit && !locked}
+                signing={signingRole === "customer"}
+                onOpen={() => setSigningRole("customer")}
+                onCancel={() => setSigningRole(null)}
+                onSign={(dataUrl) => submitSignature("customer", dataUrl)}
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function WaiverSignaturePad({
+  label,
+  signatureUrl,
+  signedAt,
+  locked,
+  canSign,
+  signing,
+  onOpen,
+  onCancel,
+  onSign,
+}: {
+  role: CustomerSuppliedWaiverRole;
+  label: string;
+  signatureUrl: string | null;
+  signedAt: string | null;
+  locked: boolean;
+  canSign: boolean;
+  signing: boolean;
+  onOpen: () => void;
+  onCancel: () => void;
+  onSign: (dataUrl: string) => void;
+}) {
+  return (
+    <div className="border border-[#EEECE6] rounded-lg overflow-hidden">
+      <div className="px-3 py-1.5 bg-[#F8F7F4] text-[11px] font-semibold text-[#5A5955] flex items-center justify-between">
+        <span>{label}</span>
+        {signatureUrl && (
+          <span className="text-[10.5px] text-[#3B6D11] font-normal">
+            ✓ 已簽署 {fmtTaipei(signedAt)}
+          </span>
+        )}
+      </div>
+      <div className="px-3 py-3">
+        {signatureUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={signatureUrl}
+            alt={`${label}簽名`}
+            className="h-[100px] object-contain border border-dashed border-[#D5D3CB] rounded bg-neutral-50 mx-auto"
+          />
+        ) : signing ? (
+          <div className="space-y-2">
+            <SignatureCanvas onSigned={onSign} />
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-[11px] text-[#9A9890] hover:text-[#5A5955]"
+            >
+              取消簽署
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-2 py-4">
+            <span className="text-[11.5px] text-[#9A9890]">尚未簽署</span>
+            {canSign && !locked && (
+              <button
+                type="button"
+                onClick={onOpen}
+                className="h-[28px] px-3 rounded text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742]"
+              >
+                開始簽署
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

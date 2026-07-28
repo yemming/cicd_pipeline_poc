@@ -1254,6 +1254,7 @@ export type RoEventAction =
   | "checkout_sig_cleared"   // RP2：主管解鎖清除簽名（ro-checkout clearSignAction）
   | "addon_decision"         // repair-order-addon-actions decideAddonAction
   | "addon_cancelled"        // repair-order-addon-actions cancelAddonAction（RP3 退料）
+  | "customer_supplied_waiver_locked" // B3：客戶自備料切結書雙方簽署完成鎖定
   | "contact_attempt"        // 聯繫嘗試記錄（B5-02）
   | "approval_requested"     // RP5：主管授權申請送出（discount / warranty 情境）
   | "approval_approved"      // RP5：主管核准

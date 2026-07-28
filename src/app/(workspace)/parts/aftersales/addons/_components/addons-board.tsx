@@ -36,6 +36,7 @@ import {
   SAFETY_CHIP,
   SAFETY_LABEL,
   TYPE_LABEL,
+  isCustomerSupplied,
   type AddonsListFilter,
   type AddonsSummary,
   type CustomerDecision,
@@ -300,7 +301,17 @@ export function AddonsBoard({
             href={`/parts/aftersales/addons/${r.id}`}
             className="flex flex-col hover:text-[#185FA5]"
           >
-            <span className="text-[#2C2C2A] hover:text-[#185FA5]">{r.name}</span>
+            <span className="text-[#2C2C2A] hover:text-[#185FA5] inline-flex items-center gap-1.5">
+              {r.name}
+              {isCustomerSupplied(r.metadata) && (
+                <span
+                  className="px-1.5 py-0.5 rounded-md text-[10.5px] bg-[#EAF4FB] text-[#185FA5] whitespace-nowrap"
+                  title="客戶自帶零件，不執行庫存出庫"
+                >
+                  客戶自備
+                </span>
+              )}
+            </span>
             {r.tech_reason && (
               <span className="text-[11px] text-[#9A9890] line-clamp-1">{r.tech_reason}</span>
             )}

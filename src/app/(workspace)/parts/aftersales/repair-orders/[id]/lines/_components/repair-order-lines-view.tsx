@@ -77,6 +77,17 @@ function lifecycleOf(line: RepairOrderLineWithStock): PartLifecycle {
     : "new") as PartLifecycle;
 }
 
+// B3：客戶自帶零件確認書 — 標記 / 切結書鎖定狀態（存 metadata，agreed 後由 addon 同步過來）
+function customerSuppliedOf(line: RepairOrderLineWithStock): boolean {
+  const meta = (line.metadata ?? {}) as Record<string, unknown>;
+  return Boolean(meta.customer_supplied);
+}
+function waiverLockedOf(line: RepairOrderLineWithStock): boolean {
+  const meta = (line.metadata ?? {}) as Record<string, unknown>;
+  const waiver = meta.customer_supplied_waiver as { locked?: boolean } | null | undefined;
+  return Boolean(waiver?.locked);
+}
+
 function lifecycleChip(lc: PartLifecycle): { label: string; cls: string } {
   switch (lc) {
     case "installed":
@@ -1006,6 +1017,9 @@ function PartRow({
 
   const lc = lifecycleOf(line);
   const chip = lifecycleChip(lc);
+  // B3：客戶自帶零件確認書
+  const supplied = customerSuppliedOf(line);
+  const waiverLocked = waiverLockedOf(line);
 
   function setLifecycle(next: PartLifecycle) {
     startTransition(async () => {
@@ -1034,6 +1048,18 @@ function PartRow({
           >
             {chip.label}
           </span>
+          {supplied && (
+            <span
+              className="ml-1.5 inline-flex px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#EAF4FB] text-[#185FA5]"
+              title={
+                waiverLocked
+                  ? "客戶自帶零件，不執行庫存出庫；切結書已雙方簽署鎖定，不可再修改"
+                  : "客戶自帶零件，不執行庫存出庫"
+              }
+            >
+              客戶自備{waiverLocked ? " 🔒" : ""}
+            </span>
+          )}
         </td>
         <td className="px-3 py-2 text-right font-mono">{Number(line.qty ?? 0)}</td>
         <td className="px-3 py-2 text-right font-mono">{fmtNT(line.unit_price)}</td>
@@ -1050,7 +1076,12 @@ function PartRow({
         </td>
         <td className="px-3 py-2 text-right">
           <div className="inline-flex gap-1.5 flex-wrap justify-end">
-            {canEdit && (
+            {waiverLocked ? (
+              <span className="text-[11px] text-[#9A9890]" title="切結書已雙方簽署鎖定">
+                🔒 已鎖定
+              </span>
+            ) : (
+              canEdit && (
               <>
                 {lc !== "installed" && (
                   <button
@@ -1113,6 +1144,7 @@ function PartRow({
                   刪除
                 </button>
               </>
+              )
             )}
           </div>
         </td>

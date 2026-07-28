@@ -74,6 +74,28 @@ async function resyncTlBridgeIfNeeded(roId: string, prefix_p1: string | null) {
   }
 }
 
+/**
+ * B3：客戶自帶零件確認書 — 雙方切結書都簽署後鎖定，該行不可再修改/刪除/改 lifecycle。
+ * metadata.customer_supplied_waiver.locked 由 repair-order-addon-actions.ts 的
+ * signCustomerSuppliedWaiverAction 寫入（雙簽完成時）。回傳 null 代表可以繼續操作。
+ */
+async function checkLineNotWaiverLocked(
+  lineId: string,
+): Promise<{ locked: true; error: string } | { locked: false }> {
+  const supabase = await createClient();
+  const { data: line } = await supabase
+    .from("repair_order_lines")
+    .select("metadata")
+    .eq("id", lineId)
+    .maybeSingle();
+  const meta = (line?.metadata ?? {}) as Record<string, unknown>;
+  const waiver = meta.customer_supplied_waiver as { locked?: boolean } | null | undefined;
+  if (waiver?.locked) {
+    return { locked: true, error: "此為客戶自備料項目，切結書已雙方簽署鎖定，不可再修改" };
+  }
+  return { locked: false };
+}
+
 async function recomputeAndWriteRoTotals(roId: string, brand: string) {
   const supabase = await createClient();
   const { data: lines } = await supabase
@@ -260,6 +282,9 @@ export async function updatePartLineAction(
   if (!own.ok) return own;
   if (!lineId) return { ok: false, error: "缺少 line id" };
 
+  const lockCheck = await checkLineNotWaiverLocked(lineId);
+  if (lockCheck.locked) return { ok: false, error: lockCheck.error };
+
   const qty = Number(patch.qty);
   const price = Number(patch.unit_price);
   if (!isFinite(qty) || qty <= 0) return { ok: false, error: "數量需大於 0" };
@@ -290,6 +315,9 @@ export async function deleteLineAction(
   const own = await ensureRoOwned(roId);
   if (!own.ok) return own;
   if (!lineId) return { ok: false, error: "缺少 line id" };
+
+  const lockCheck = await checkLineNotWaiverLocked(lineId);
+  if (lockCheck.locked) return { ok: false, error: lockCheck.error };
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -378,6 +406,10 @@ export async function setLinePartLifecycleAction(
   }
 
   const meta = ((line.metadata ?? {}) as Record<string, unknown>) || {};
+  const existingWaiver = meta.customer_supplied_waiver as { locked?: boolean } | null | undefined;
+  if (existingWaiver?.locked) {
+    return { ok: false, error: "此為客戶自備料項目，切結書已雙方簽署鎖定，不可再修改" };
+  }
   meta.part_lifecycle = lifecycle;
   meta.part_lifecycle_changed_at = new Date().toISOString();
 

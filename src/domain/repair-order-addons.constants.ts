@@ -29,6 +29,40 @@ export type RejectionReason =
   | "consider"
   | "other";
 
+// ── B3：客戶自帶零件確認書（叉路 B1 / 追加項目「客戶自備料」標記）──────
+// 標記存 repair_order_addons.metadata（agreed 後同步快照到衍生的 repair_order_lines.metadata），
+// 不開新表。標記後系統不建立庫存預留（見 domain/tech-workstation.ts addAddon()），
+// 已建立的預留在標記當下釋放（見 lib/aftersales/repair-order-addon-actions.ts）。
+export type CustomerSuppliedWaiverRole = "sa" | "customer";
+
+export type CustomerSuppliedWaiver = {
+  sa_signature_url: string | null;
+  sa_signed_at: string | null;
+  sa_signed_by: string | null;
+  customer_signature_url: string | null;
+  customer_signed_at: string | null;
+  /** 雙方都簽署後鎖定，不可再修改「客戶自備料」標記或重新簽署 */
+  locked: boolean;
+  locked_at: string | null;
+};
+
+/** 零件品名附註後綴 — 對應規格「工單記錄：「{零件名稱}（客戶自備）」」 */
+export const CUSTOMER_SUPPLIED_SUFFIX = "（客戶自備）";
+
+export function isCustomerSupplied(
+  metadata: Record<string, unknown> | null | undefined,
+): boolean {
+  return Boolean(metadata?.customer_supplied);
+}
+
+export function getCustomerSuppliedWaiver(
+  metadata: Record<string, unknown> | null | undefined,
+): CustomerSuppliedWaiver | null {
+  const raw = metadata?.customer_supplied_waiver;
+  if (!raw || typeof raw !== "object") return null;
+  return raw as CustomerSuppliedWaiver;
+}
+
 export type RepairOrderAddonRow = {
   id: string;
   brand_id: string;

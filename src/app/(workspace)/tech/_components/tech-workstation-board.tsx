@@ -345,15 +345,18 @@ export function TechWorkstationBoard({
                 customer_decision: "pending",
                 reserved_at: res.data.reserved ? new Date().toISOString() : null,
                 created_at: new Date().toISOString(),
+                customer_supplied: Boolean(payload.customer_supplied),
               },
             ],
           });
         }
         showBanner({
           ok: true,
-          msg: res.data.reserved
-            ? "✓ 已追加並預留零件，SA 已收到通知，待與客戶確認"
-            : "✓ 已追加，SA 已收到通知，待與客戶確認",
+          msg: payload.customer_supplied
+            ? "✓ 已追加（客戶自備料，不出庫），SA 已收到通知，待與客戶確認"
+            : res.data.reserved
+              ? "✓ 已追加並預留零件，SA 已收到通知，待與客戶確認"
+              : "✓ 已追加，SA 已收到通知，待與客戶確認",
         });
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -985,6 +988,14 @@ function OrderCard({
                       已預留
                     </span>
                   )}
+                  {a.customer_supplied && (
+                    <span
+                      className="px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF4FB] text-[#185FA5]"
+                      title="客戶自帶零件，不執行庫存出庫"
+                    >
+                      客戶自備
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -1144,6 +1155,8 @@ function AddonModal({
   const [itemId, setItemId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [qty, setQty] = useState("1");
+  // B3：客戶自帶零件確認書 — 勾選後不預留庫存、不出庫
+  const [customerSupplied, setCustomerSupplied] = useState(false);
 
   const inputClass =
     "h-[30px] w-full border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] disabled:opacity-60";
@@ -1153,15 +1166,29 @@ function AddonModal({
   const involvesParts = addonType === "parts" || addonType === "labor_and_parts";
   const qtyNum = Number(qty);
   // 有選零件時，倉庫 + 數量必填且 qty > 0；沒選零件（labor-only）→ reserve_item: null
+  // 客戶自備料時完全不需要備件預留欄位，跳過驗證
   const reserveInvalid =
-    involvesParts && itemId !== "" && (warehouseId === "" || !Number.isFinite(qtyNum) || qtyNum <= 0);
+    !customerSupplied &&
+    involvesParts &&
+    itemId !== "" &&
+    (warehouseId === "" || !Number.isFinite(qtyNum) || qtyNum <= 0);
   const canSubmit = !!name.trim() && !reserveInvalid;
+
+  function toggleCustomerSupplied(checked: boolean) {
+    setCustomerSupplied(checked);
+    if (checked) {
+      // 客戶自備料 → 清空備件預留欄位，確保不會誤帶 reserve_item
+      setItemId("");
+      setWarehouseId("");
+      setQty("1");
+    }
+  }
 
   function submit() {
     if (!name.trim()) return;
-    // 只有「含零件」且實際選了零件、倉庫、qty>0 才帶 reserve_item，否則 null（labor-only 合法）
+    // 只有「含零件」且實際選了零件、倉庫、qty>0，且非客戶自備料 才帶 reserve_item
     const reserve_item =
-      involvesParts && itemId && warehouseId && qtyNum > 0
+      !customerSupplied && involvesParts && itemId && warehouseId && qtyNum > 0
         ? { item_id: itemId, warehouse_id: warehouseId, qty: qtyNum }
         : null;
     if (reserveInvalid) return;
@@ -1172,6 +1199,7 @@ function AddonModal({
       tech_reason: reason.trim() || null,
       estimated_fee: fee.trim() ? Number(fee) : 0,
       reserve_item,
+      customer_supplied: customerSupplied,
     });
   }
 
@@ -1221,8 +1249,24 @@ function AddonModal({
               </select>
             </div>
           </div>
-          {/* 備件預留：只在追加含零件時顯示。選了零件才需填倉庫 + 數量、送出帶 reserve_item */}
+          {/* B3：客戶自帶零件確認書 — 只在含零件的類型顯示 */}
           {involvesParts && (
+            <label className="flex items-start gap-2 border border-[#B8D9EF] bg-[#EAF4FB] rounded-lg px-3 py-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={customerSupplied}
+                disabled={busy}
+                onChange={(e) => toggleCustomerSupplied(e.target.checked)}
+              />
+              <span className="text-[12px] text-[#185FA5]">
+                <b>客戶自備料</b>：客戶自己攜帶零件安裝，本項目不從店內庫存出庫、庫存數字不變。
+                同意後 SA 需與客戶各自簽署一份責任聲明書（於「追加項目」詳情頁簽署）。
+              </span>
+            </label>
+          )}
+          {/* 備件預留：只在追加含零件且非客戶自備料時顯示。選了零件才需填倉庫 + 數量、送出帶 reserve_item */}
+          {involvesParts && !customerSupplied && (
             <div className="border border-[#EEECE6] rounded-lg overflow-hidden">
               <div className="px-3 py-1.5 bg-[#F8F7F4] text-[11px] font-semibold text-[#5A5955]">
                 備件預留（選填）
