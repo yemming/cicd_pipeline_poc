@@ -1046,82 +1046,80 @@ export async function submitCountSessionAction(
     })
     .eq("id", input.ct_id);
 
-  // 高價值盤差升級店長通知 — 非阻塞。
+  // 高價值盤差升級店長通知 — 改同步執行（不用 after()）。
+  // ⚠️ 這裡原本包在 after() 裡（先懷疑是動態 import 在 Turbopack chunk 切割下失效，
+  // 改靜態 import 後仍然一樣：user_notifications 表 event_code='stocktake.high_variance'
+  // 部署後實測依舊 0 筆）。同檔案 ro-checkout-actions.ts 的 D+3/D+7 電訪任務、人車檔案同步
+  // 都踩過同一顆雷（"修補二"／"包F"註解：after() 在本專案 Next.js 16 + Zeabur 這組部署環境
+  // 實測不可靠，兩次測試 call_tasks 皆 0 筆），最終都改成同步執行才修好。這裡比照辦理：
+  // 改同步 + try/catch 吞錯，不讓通知失敗擋住盤點提交主流程。
   const finalVarianceAmount = Math.round(totalVarianceAmount * 100) / 100;
   const finalVarianceLines = varianceLines;
   const ctNoForNotify = ct.ct_no;
   if (Math.abs(finalVarianceAmount) >= HIGH_VALUE_VARIANCE_THRESHOLD) {
-    after(async () => {
-      try {
-        // ⚠️ 這裡曾用 `await import(...)` 動態載入 service client / user-notifications，
-        // 在 Turbopack 對 "use server" 檔案的 chunk 切割下，after() callback 內的動態
-        // import 在部署環境（Zeabur）實測會靜默失敗（不拋錯、也不執行 — try/catch 抓不到，
-        // 因為根本沒進到這段程式碼），導致「盤差>5000通知店長」這條規則從未真正發過任何一筆
-        // 通知（驗證：user_notifications 表 event_code='stocktake.high_variance' 歷史 0 筆）。
-        // 改回跟同檔案其他 after() 區塊一致的靜態頂層 import 後修復。
-        const sb = createServiceClient();
-        // 找店長：is_cross_admin ∪ is_dept_manager（合集，不是 fallback）。
-        // 原本是「先找 is_cross_admin，找到就不找 is_dept_manager」的嚴格 fallback —
-        // 但只要品牌內存在任一個 is_cross_admin（例如系統總管理員），真正的「店長」
-        // （is_dept_manager=true）就永遠收不到這條規則要求的通知，跟 Russell 指定
-        // 「差異>5000自動升級通知店長」的字面要求不符（驗證用的 e2e 店長帳號
-        // is_dept_manager=true 但 is_cross_admin=false，用嚴格 fallback 永遠測不到）。
-        // 改成合集：兩種身分都通知，不影響既有的 is_cross_admin 收件人。
-        const { data: crossAdmins } = await sb
-          .from("employees")
-          .select("user_id")
-          .eq("brand_id", brandId)
-          .eq("is_cross_admin", true)
-          .eq("is_active", true)
-          .not("user_id", "is", null)
-          .limit(5);
-        const { data: deptManagers } = await sb
-          .from("employees")
-          .select("user_id")
-          .eq("brand_id", brandId)
-          .eq("is_dept_manager", true)
-          .eq("is_active", true)
-          .not("user_id", "is", null)
-          .limit(5);
-        const managerIds: string[] = [
-          ...new Set(
-            [...(crossAdmins ?? []), ...(deptManagers ?? [])]
-              .map((e: { user_id: string | null }) => e.user_id)
-              .filter((id: string | null): id is string => !!id),
-          ),
-        ];
-        if (managerIds.length > 0) {
-          await createInappNotifications(
-            managerIds.map((uid) => ({
-              recipient_user_id: uid,
-              brand_id: brandId,
-              title: "盤差金額超標・需覆核",
-              body: `盤點單 ${ctNoForNotify} 盤差金額 NT$ ${Math.round(Math.abs(finalVarianceAmount)).toLocaleString("zh-TW")}（${finalVarianceLines} 筆差異行），已超過高價值閾值，請盡速審批。`,
-              priority: "red" as const,
-              event_code: "stocktake.high_variance",
-              href: `/parts/count/adjustments`,
-            })),
-          );
-        } else {
-          // 找不到店長：發給當前操作者並標 TODO
-          const currentUserSb = await createClient();
-          const { data: { user: currentUser } } = await currentUserSb.auth.getUser();
-          if (currentUser?.id) {
-            await createInappNotifications([{
-              recipient_user_id: currentUser.id,
-              brand_id: brandId,
-              title: "盤差金額超標・需覆核（TODO: 找不到店長）",
-              body: `盤點單 ${ctNoForNotify} 盤差金額 NT$ ${Math.round(Math.abs(finalVarianceAmount)).toLocaleString("zh-TW")}（${finalVarianceLines} 筆差異行）。系統找不到 is_cross_admin / is_dept_manager 員工，請手動通知主管。`,
-              priority: "red" as const,
-              event_code: "stocktake.high_variance",
-              href: `/parts/count/adjustments`,
-            }]);
-          }
+    try {
+      const sb = createServiceClient();
+      // 找店長：is_cross_admin ∪ is_dept_manager（合集，不是 fallback）。
+      // 原本是「先找 is_cross_admin，找到就不找 is_dept_manager」的嚴格 fallback —
+      // 但只要品牌內存在任一個 is_cross_admin（例如系統總管理員），真正的「店長」
+      // （is_dept_manager=true）就永遠收不到這條規則要求的通知，跟 Russell 指定
+      // 「差異>5000自動升級通知店長」的字面要求不符（驗證用的 e2e 店長帳號
+      // is_dept_manager=true 但 is_cross_admin=false，用嚴格 fallback 永遠測不到）。
+      // 改成合集：兩種身分都通知，不影響既有的 is_cross_admin 收件人。
+      const { data: crossAdmins } = await sb
+        .from("employees")
+        .select("user_id")
+        .eq("brand_id", brandId)
+        .eq("is_cross_admin", true)
+        .eq("is_active", true)
+        .not("user_id", "is", null)
+        .limit(5);
+      const { data: deptManagers } = await sb
+        .from("employees")
+        .select("user_id")
+        .eq("brand_id", brandId)
+        .eq("is_dept_manager", true)
+        .eq("is_active", true)
+        .not("user_id", "is", null)
+        .limit(5);
+      const managerIds: string[] = [
+        ...new Set(
+          [...(crossAdmins ?? []), ...(deptManagers ?? [])]
+            .map((e: { user_id: string | null }) => e.user_id)
+            .filter((id: string | null): id is string => !!id),
+        ),
+      ];
+      if (managerIds.length > 0) {
+        await createInappNotifications(
+          managerIds.map((uid) => ({
+            recipient_user_id: uid,
+            brand_id: brandId,
+            title: "盤差金額超標・需覆核",
+            body: `盤點單 ${ctNoForNotify} 盤差金額 NT$ ${Math.round(Math.abs(finalVarianceAmount)).toLocaleString("zh-TW")}（${finalVarianceLines} 筆差異行），已超過高價值閾值，請盡速審批。`,
+            priority: "red" as const,
+            event_code: "stocktake.high_variance",
+            href: `/parts/count/adjustments`,
+          })),
+        );
+      } else {
+        // 找不到店長：發給當前操作者並標 TODO
+        const currentUserSb = await createClient();
+        const { data: { user: currentUser } } = await currentUserSb.auth.getUser();
+        if (currentUser?.id) {
+          await createInappNotifications([{
+            recipient_user_id: currentUser.id,
+            brand_id: brandId,
+            title: "盤差金額超標・需覆核（TODO: 找不到店長）",
+            body: `盤點單 ${ctNoForNotify} 盤差金額 NT$ ${Math.round(Math.abs(finalVarianceAmount)).toLocaleString("zh-TW")}（${finalVarianceLines} 筆差異行）。系統找不到 is_cross_admin / is_dept_manager 員工，請手動通知主管。`,
+            priority: "red" as const,
+            event_code: "stocktake.high_variance",
+            href: `/parts/count/adjustments`,
+          }]);
         }
-      } catch (e) {
-        console.error("[submitCountSession] 高價值盤差通知例外（不影響主流程）", e);
       }
-    });
+    } catch (e) {
+      console.error("[submitCountSession] 高價值盤差通知例外（不影響主流程）", e);
+    }
   }
 
   revalidatePath("/parts/count/sessions");
