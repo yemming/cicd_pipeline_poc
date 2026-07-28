@@ -223,16 +223,24 @@ export async function approveInventoryWriteoffAction(
 
   if (error) return { ok: false, error: `審批失敗：${error.message}` };
 
-  after(async () => {
+  // ⚠️ 稽核日誌改同步寫入（不用 after()）。
+  // after() 在本專案 Next.js 16 + Zeabur 部署環境實測不可靠（同一顆雷已在
+  // ro-checkout-actions.ts「修補二」「包F」、parts/actions/index.ts 高價盤差通知
+  // 踩過並改同步解決）——這裡的 after() 區塊部署後實測 audit_logs 從未真正寫入過
+  // 任何一筆 WRITEOFF 相關記錄（全表掃描 SELECT DISTINCT action 25 種既有值裡完全
+  // 沒有任何 writeoff 字串）。比照既有解法改同步執行，try/catch 吞錯不擋審批主流程。
+  try {
     await writeAuditLog({
       table_name: "inventory_writeoffs",
       record_id: id,
       action: "writeoff_approved",
       actor_id: approverId,
       brand_id: brand,
-      after: { status: "approved" },
+      after: { status: "approved", total_loss: cur.total_loss, approval_tier: tier },
     });
-  });
+  } catch (e) {
+    console.error("[approveInventoryWriteoffAction] 稽核日誌寫入失敗（不影響審批主流程）", e);
+  }
 
   revalidatePath("/parts/count/writeoffs");
   return { ok: true, data: { id } };
