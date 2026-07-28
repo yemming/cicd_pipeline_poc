@@ -288,10 +288,17 @@ CREATE POLICY core5_call_tasks_person_delete ON public.call_tasks
 
 
 -- ── 2.5 inventory_reservations — 倉管/庫存主管看本 brand 庫存（無個人 owner 隔離）──
---   隔離欄位：brand_id（租戶）+ 角色 gate（warehouse / stock_lead / overseer 可見）。
---   交接清單：「倉管看庫存」= 角色級，不是個人級。其他角色（業務/技師）預設看不到庫存預留。
+--   隔離欄位：brand_id（租戶）+ 角色 gate（warehouse / stock_lead / overseer / technician 可見）。
+--   交接清單：「倉管看庫存」= 角色級，不是個人級。
 --   ⚠️ inventory_reservations 無 person owner（只有 reserved_by 但語意是「誰預留」非「歸屬」）。
 --      若要做「本店倉才看得到」需 warehouses.org_id ↔ current_user_store_org_ids（見註解）。
+--   ⚠️ 2026-07-28 補：SELECT/INSERT 補上 technician 角色 — B3 追加項目（tech-workstation.ts
+--      addAddon）串接 CROSS-02 時，會員技師本人 session 直接呼叫 domain/inventory-reservations
+--      的 reserve()（INSERT）+ 內部 getReservedQty/getAvailableQty/冪等檢查（SELECT），原本只開
+--      warehouse/stock_lead/overseer 導致技師寫入被 RLS 靜默擋下（reserve() 回 ok:false 但不阻斷
+--      addon 主流程，UI 從「已追加並預留零件」退化成「已追加」，極易被忽略）。CROSS-02 的設計本來就
+--      是「唯一觸發者是技師」，故 technician 角色需要有 INSERT + SELECT（release/consume/cancel
+--      仍是倉管履行動作，UPDATE/DELETE 不開放給 technician）。
 CREATE POLICY core5_inventory_reservations_role_select ON public.inventory_reservations
   AS PERMISSIVE FOR SELECT TO authenticated
   USING (
@@ -299,6 +306,7 @@ CREATE POLICY core5_inventory_reservations_role_select ON public.inventory_reser
       current_user_is_overseer(brand_id)
       OR current_user_has_role('warehouse', brand_id)
       OR current_user_has_role('stock_lead', brand_id)
+      OR current_user_has_role('technician', brand_id)
       -- 可選的門店維度（預設註解掉，需要再開）：
       -- OR warehouse_id IN (
       --   SELECT w.id FROM public.warehouses w
@@ -313,6 +321,7 @@ CREATE POLICY core5_inventory_reservations_role_insert ON public.inventory_reser
       current_user_is_overseer(brand_id)
       OR current_user_has_role('warehouse', brand_id)
       OR current_user_has_role('stock_lead', brand_id)
+      OR current_user_has_role('technician', brand_id)
     )
   );
 CREATE POLICY core5_inventory_reservations_role_update ON public.inventory_reservations
