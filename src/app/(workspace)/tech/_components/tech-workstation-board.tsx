@@ -146,6 +146,9 @@ export function TechWorkstationBoard({
   const [orders, setOrders] = useState<AssignedOrderCard[]>(initialOrders);
   const [banner, setBanner] = useState<Banner>(null);
   const [isPending, startTransition] = useTransition();
+  // 追加項目送出走獨立的 transition：避免跟卡片上其他動作（如「標記完成」）共用同一個
+  // isPending，導致送出追加項目時，同一張卡片上不相關的按鈕文字也被連帶改成處理中狀態。
+  const [isAddonPending, startAddonTransition] = useTransition();
   const [addonForRo, setAddonForRo] = useState<string | null>(null);
 
   // 計算效率%
@@ -324,7 +327,7 @@ export function TechWorkstationBoard({
   }
 
   function handleAddAddon(roId: string, payload: AddonInput) {
-    startTransition(async () => {
+    startAddonTransition(async () => {
       const res = await addAddonAction(roId, payload);
       if (res.ok) {
         setAddonForRo(null);
@@ -490,7 +493,7 @@ export function TechWorkstationBoard({
       {/* 追加項目 modal */}
       {addonForRo && (
         <AddonModal
-          busy={isPending}
+          busy={isAddonPending}
           itemOptions={itemOptions}
           warehouseOptions={warehouseOptions}
           onClose={() => setAddonForRo(null)}
