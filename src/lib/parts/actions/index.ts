@@ -1020,29 +1020,41 @@ export async function submitCountSessionAction(
   if (existErr || !existingLines) return { ok: false, error: `撈盤點明細失敗：${existErr?.message ?? ""}` };
   const lineMap = new Map(existingLines.map((l) => [l.id, l]));
 
+  // 效能：200+ 行 modal 全量送出時，逐行 await 序列寫入會拖成數十秒。
+  // 每行寫入互不相依（各自 .eq("id", ...) 鎖定單一 row），改用 Promise.all 平行送出，
+  // 讓 wall time 從「N 次序列 round-trip」降到「約 1 次 round-trip 的時間」。
   let totalVarianceAmount = 0;
   let varianceLines = 0;
-  for (const l of input.lines) {
-    const existing = lineMap.get(l.line_id);
-    if (!existing) continue;
-    const qtySys = Number(existing.qty_system);
-    const cost = Number(existing.unit_cost ?? 0);
-    const variance = l.qty_final - qtySys;
-    const varianceAmount = Math.round(variance * cost * 100) / 100;
-    if (variance !== 0) {
+  const updateResults = await Promise.all(
+    input.lines.map(async (l) => {
+      const existing = lineMap.get(l.line_id);
+      if (!existing) return null;
+      const qtySys = Number(existing.qty_system);
+      const cost = Number(existing.unit_cost ?? 0);
+      const variance = l.qty_final - qtySys;
+      const varianceAmount = Math.round(variance * cost * 100) / 100;
+      const { error } = await supabase
+        .from("inventory_count_lines")
+        .update({
+          qty_first_count: l.qty_final,
+          qty_final: l.qty_final,
+          variance,
+          variance_amount: varianceAmount,
+          status: variance === 0 ? "reconciled" : "first_done",
+        })
+        .eq("id", l.line_id);
+      if (error) {
+        console.error(`[submitCountSessionAction] line ${l.line_id} 更新失敗`, error);
+      }
+      return { variance, varianceAmount };
+    }),
+  );
+  for (const r of updateResults) {
+    if (!r) continue;
+    if (r.variance !== 0) {
       varianceLines++;
-      totalVarianceAmount += varianceAmount;
+      totalVarianceAmount += r.varianceAmount;
     }
-    await supabase
-      .from("inventory_count_lines")
-      .update({
-        qty_first_count: l.qty_final,
-        qty_final: l.qty_final,
-        variance,
-        variance_amount: varianceAmount,
-        status: variance === 0 ? "reconciled" : "first_done",
-      })
-      .eq("id", l.line_id);
   }
 
   await supabase
