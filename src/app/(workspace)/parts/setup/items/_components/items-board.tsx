@@ -200,6 +200,7 @@ export function ItemsBoard({
   // Price Book import
   const [showPriceBook, setShowPriceBook] = useState(false);
   const [priceBookFile, setPriceBookFile] = useState<File | null>(null);
+  const [priceBookSupplierId, setPriceBookSupplierId] = useState<string>("");
   const [priceBookResult, setPriceBookResult] = useState<{
     created: number;
     updated: number;
@@ -382,7 +383,7 @@ export function ItemsBoard({
   };
 
   const runPriceBookImport = () => {
-    if (!priceBookFile) return;
+    if (!priceBookFile || !priceBookSupplierId) return;
     startTransition(async () => {
       try {
         const rawRows = await parseXlsx({
@@ -400,11 +401,13 @@ export function ItemsBoard({
           showBanner({ ok: false, msg: "解析失敗：請確認 Excel 格式正確且包含必填欄位（料號、英文名稱、原廠價格）" });
           return;
         }
+        // 整批 Price Book 視為同一個原廠供應商來源，逐列標記 default_supplier_id
         const priceBookRows: PriceBookRow[] = rawRows.map((r) => ({
           code: String(r.code ?? "").trim(),
           name: String(r.name ?? r.name_zh ?? "").trim(),
           suggested_price: r.suggested_price != null && r.suggested_price !== "" ? Number(r.suggested_price) : null,
           category: r.category != null ? String(r.category).trim() : undefined,
+          default_supplier_id: priceBookSupplierId,
         }));
         const res = await upsertPriceBookAction(priceBookRows);
         if (res.ok) {
@@ -661,7 +664,7 @@ export function ItemsBoard({
           <button
             type="button"
             disabled={!canEdit}
-            onClick={() => { setShowPriceBook(true); setPriceBookFile(null); setPriceBookResult(null); setPriceBookErrorsExpanded(false); }}
+            onClick={() => { setShowPriceBook(true); setPriceBookFile(null); setPriceBookSupplierId(""); setPriceBookResult(null); setPriceBookErrorsExpanded(false); }}
             className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
           >
             ⬆ 原廠Price Book匯入
@@ -830,7 +833,7 @@ export function ItemsBoard({
       {showPriceBook ? (
         <Modal
           title="原廠 Price Book 匯入"
-          onClose={() => { setShowPriceBook(false); setPriceBookFile(null); setPriceBookResult(null); }}
+          onClose={() => { setShowPriceBook(false); setPriceBookFile(null); setPriceBookSupplierId(""); setPriceBookResult(null); }}
         >
           <div className={`space-y-3 ${lockedClass}`}>
             <p className="text-[12px] text-[#5A5955] leading-relaxed">
@@ -848,6 +851,19 @@ export function ItemsBoard({
               <span className="font-mono">零件類別</span>、
               <span className="font-mono">適用車型</span>（僅保存供參考）。
             </p>
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>本批 Price Book 供應商（必填，整批匯入料號將標記為此原廠供應商）</label>
+              <select
+                value={priceBookSupplierId}
+                onChange={(e) => setPriceBookSupplierId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">請選擇原廠供應商…</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{`${s.code} ${s.name}`}</option>
+                ))}
+              </select>
+            </div>
             <div className="border border-dashed border-[#D5D3CB] rounded-lg p-4 bg-[#F8F7F4] flex flex-col items-center gap-2">
               <label className="cursor-pointer flex flex-col items-center gap-1.5">
                 <span className="text-[13px] text-[#5A5955]">
@@ -905,7 +921,7 @@ export function ItemsBoard({
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => { setShowPriceBook(false); setPriceBookFile(null); setPriceBookResult(null); }}
+              onClick={() => { setShowPriceBook(false); setPriceBookFile(null); setPriceBookSupplierId(""); setPriceBookResult(null); }}
               className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955]"
             >
               {priceBookResult ? "關閉" : "取消"}
@@ -914,7 +930,7 @@ export function ItemsBoard({
               <button
                 type="button"
                 onClick={runPriceBookImport}
-                disabled={isPending || !priceBookFile}
+                disabled={isPending || !priceBookFile || !priceBookSupplierId}
                 className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#1A3A5C] text-white disabled:opacity-60"
               >
                 {isPending ? "匯入中…" : "開始匯入"}

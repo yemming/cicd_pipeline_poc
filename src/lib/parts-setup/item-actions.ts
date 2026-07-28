@@ -237,10 +237,14 @@ export async function upsertPriceBookAction(
       const existing = await findItemBySku(code);
       if (existing) {
         // 更新：只改定價相關欄位，不碰 serial/batch/is_active
+        // default_supplier_id 隨 Price Book 覆蓋（本批次指定的原廠供應商），未指定則保留原值
         const res = await updateItemAction(existing.id, {
           name,
           suggested_price: row.suggested_price ?? null,
           standard_cost: row.standard_cost ?? null,
+          ...(row.default_supplier_id !== undefined
+            ? { default_supplier_id: row.default_supplier_id }
+            : {}),
         });
         if (res.ok) {
           updated++;
@@ -271,10 +275,16 @@ export async function upsertPriceBookAction(
   revalidatePath(PAGE_PATH);
 
   const scope = await getActiveScope();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const actorId = user?.id ?? null;
   after(async () => {
     await writeAuditLog({
       table_name: "items",
       action: "PRICE_BOOK_IMPORTED",
+      actor_id: actorId,
       brand_id: scope.brand_id,
       after: { created, updated, count: rows.length },
     });
