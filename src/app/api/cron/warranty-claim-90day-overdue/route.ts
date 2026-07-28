@@ -1,14 +1,20 @@
 /**
- * Cron — 保固索賠應收款（warranty_claim_receivables）90 天逾期掃描
+ * Cron — 保固索賠應收款 90 天逾期掃描
  *
  * Russell 7/21 補驗指令第五部分⑨：submitted_at 超過 90 天且 claim_status='submitted'
  * （原廠一直沒核復撥款）→ 每日通知採購人員儘速追蹤。
  *
  * 每日由 GitHub Actions curl（Bearer CRON_TOKEN）。
  *
- * 與既有 inventory-warranty-overdue（掃 warranty_claims 表、21 天 SLA）是兩張不同的表、
- * 兩件不同的事：那支管的是「保固維修工單本身多久沒結案」，這支管的是「索賠款項送出後
- * 原廠多久沒撥款」，Russell 這次指名要的是 warranty_claim_receivables + 90 天，不合併。
+ * ⚠️ 2026-07-28 修正：原實作查 `warranty_claim_receivables`，但該表已依 2026-06-18
+ * Russell 裁示（AR 凍結）全面停止寫入 —— 6/18 之後送出的索賠單只會落在 `warranty_claims`，
+ * 這支 cron 因此對所有新資料形同啞巴（只掃得到凍結前留下的舊列）。改讀 `warranty_claims`，
+ * 對齊 `@/domain/warranty-receivables`／`@/lib/parts-warranty/ro-link-actions` 已採用的
+ * 「衍生檢視」模式：status IN ('submitted','under_review') 視為「送件審核中」。
+ *
+ * 與既有 inventory-warranty-overdue（掃 warranty_claims 表、21 天 SLA）是兩件不同的事：
+ * 那支管的是「保固維修工單本身多久沒結案」，這支管的是「索賠款項送出後原廠多久沒撥款」，
+ * Russell 這次指名要的是 90 天口徑，不合併。
  *
  * 通知對象：employees.role_codes 含 parts_manager / parts_specialist（採購/零件專員）；
  * 若品牌內沒人掛這兩個角色且有登入帳號（demo 環境常見），退而通知 manager / owner，
@@ -84,20 +90,28 @@ export async function POST(req: NextRequest) {
   );
   const cutoff = new Date(Date.now() - OVERDUE_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
+  // 改讀 warranty_claims（warranty_claim_receivables 已凍結，不再有新資料）；
+  // status IN ('submitted','under_review') 對應舊表 claim_status='submitted' 的語意
+  // （兩者都是「已送件、等原廠核復撥款」，沿用 @/domain/warranty-receivables 的映射）。
   const { data: rows } = await sb
-    .from("warranty_claim_receivables")
-    .select("id, brand_id, claim_amount, submitted_at, oem_reference_no, claim_id, workorder_id")
-    .eq("claim_status", "submitted")
+    .from("warranty_claims")
+    .select("id, brand_id, applied_amount, approved_amount, submitted_at, oem_reference_no")
+    .in("status", ["submitted", "under_review"])
     .lt("submitted_at", cutoff);
-  const overdue = (rows ?? []) as Array<{
+  const overdue = ((rows ?? []) as Array<{
     id: string;
     brand_id: string;
-    claim_amount: number;
+    applied_amount: number | string | null;
+    approved_amount: number | string | null;
     submitted_at: string;
     oem_reference_no: string | null;
-    claim_id: string | null;
-    workorder_id: string | null;
-  }>;
+  }>).map((r) => ({
+    id: r.id,
+    brand_id: r.brand_id,
+    claim_amount: Number(r.approved_amount ?? r.applied_amount ?? 0),
+    submitted_at: r.submitted_at,
+    oem_reference_no: r.oem_reference_no,
+  }));
 
   const result = { overdue_claims: overdue.length, notified: 0, dry_run: dryRun };
 
