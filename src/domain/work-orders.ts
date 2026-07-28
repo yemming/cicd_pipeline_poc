@@ -105,32 +105,38 @@ export async function listIssuesForWorkOrder(
 }
 
 // ─────────────────────────────────────────────────────────────
-// TL 借用測試工單 → work_orders 橋接（Russell 6/17 補充要求項目一）
+// repair_orders → work_orders 橋接（原為 Russell 6/17 補充要求項目一的 TL
+// 專用橋接，M3 串接三驗收發現一般 SA 開單流程新建的 RP 等工單同樣不會產生
+// work_orders，已將守門條件從「僅 TL」放寬為所有 prefix_p1，理由相同）
 //
-// 為什麼：TL 借料必須走正式 /parts/issue/repair-pick 倉管發料流程
-//   （倉管是零件庫房絕對管理人、任何進出都要經其簽核），不是在 tl-close
-//   自行逐行出料的捷徑。repair-pick 的清單與預覽都以 work_orders +
-//   work_order_items(kind='parts') 驅動，而 TL 是一筆 repair_orders、
-//   原本不會產生 work_orders → 永遠不出現在倉管的領料清單。
+// 為什麼：任何 repair_order 的零件明細都必須走正式 /parts/issue/repair-pick
+//   倉管發料流程（倉管是零件庫房絕對管理人、任何進出都要經其簽核），不能
+//   繞過去自行出料。repair-pick 的清單與預覽都以 work_orders +
+//   work_order_items(kind='parts') 驅動；但 repair_orders 建單當下只有透過
+//   「共用 appointment_id」才可能已存在對應 work_order（見
+//   repair-order-actions.ts 3b），沒有 appointment_id 的（例如臨櫃新開單）
+//   或 appointment 尚未產生 work_order 的，永遠不會出現在倉管的領料清單。
 //
-// 本 helper 把 TL repair_order「橋接」成一筆 work_orders（repair_order_id
-//   回填）+ 依當前 part lines 同步 work_order_items，TL 便自動進倉管的
+// 本 helper 把 repair_order「橋接」成一筆 work_orders（repair_order_id
+//   回填）+ 依當前 part lines 同步 work_order_items，該工單便自動進倉管的
 //   待領料清單，倉管對它正式發料（persistPick 扣庫、記 stock_issues、認 COGS）。
+//   沒有零件明細的工單（例如純工資的定保）會建出 0 筆 parts 的空殼，
+//   listPendingPartsWorkorders 對 parts 行數為 0 的工單本就不列出，故無害。
 //
 // 冪等：依 repair_order_id 找既有橋接工單，沒有才建；work_order_items 全量
-//   重建（只動本橋接工單的 kind='parts' 行），所以 SA 加 / 改 / 刪借料明細
+//   重建（只動本橋接工單的 kind='parts' 行），所以 SA 加 / 改 / 刪零件明細
 //   後重呼叫即同步最新。
 // ─────────────────────────────────────────────────────────────
 
-export type TlBridgeResult =
+export type RoBridgeResult =
   | { ok: true; work_order_id: string; parts_line_count: number }
   | { ok: false; error: string };
 
-export async function syncTlWorkOrderBridge(roId: string): Promise<TlBridgeResult> {
+export async function syncRoWorkOrderBridge(roId: string): Promise<RoBridgeResult> {
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
-  // 1) 驗 RO 為 TL + 同 brand
+  // 1) 驗 RO 存在 + 同 brand
   const { data: ro, error: roErr } = await supabase
     .from("repair_orders")
     .select("id, ro_code, prefix_p1, customer_id, vehicle_id, created_by")
@@ -138,9 +144,8 @@ export async function syncTlWorkOrderBridge(roId: string): Promise<TlBridgeResul
     .eq("brand_id", brand)
     .maybeSingle();
   if (roErr || !ro) return { ok: false, error: "找不到工單或無權存取" };
-  if (ro.prefix_p1 !== "TL") return { ok: false, error: "非 TL 工單，不需橋接" };
   if (!ro.vehicle_id) {
-    return { ok: false, error: "TL 工單需先綁定測試車輛才能送倉管領料" };
+    return { ok: false, error: "工單需先綁定車輛才能送倉管領料" };
   }
 
   // 2) 當前借料明細（kind='part' 且綁 item_id、qty > 0）
@@ -177,12 +182,12 @@ export async function syncTlWorkOrderBridge(roId: string): Promise<TlBridgeResul
         vehicle_id: ro.vehicle_id as string,
         status: "dispatched", // 已派工：待倉管領料
         repair_order_id: roId,
-        external_source: "tl_bridge",
+        external_source: "ro_bridge",
         created_by: user?.id ?? (ro.created_by as string | null) ?? null,
         metadata: {
-          is_tl: true,
-          source: "tl_bridge",
-          tl_ro_code: ro.ro_code,
+          is_tl: ro.prefix_p1 === "TL",
+          source: "ro_bridge",
+          ro_code: ro.ro_code,
         },
       })
       .select("id")

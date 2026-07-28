@@ -21,8 +21,8 @@ import { getActiveScope } from "@/lib/scope/active-scope";
 import { createFollowUpTask } from "@/domain/sales-call-tasks";
 import { notifications } from "@/lib/notifications";
 import { pickForRepairOrderAddon } from "@/domain/issues";
-// TL 借用測試工單 → work_orders 橋接（走正式 repair-pick 倉管領料）
-import { syncTlWorkOrderBridge } from "@/domain/work-orders";
+// repair_order → work_orders 橋接（走正式 repair-pick 倉管領料，所有 prefix_p1 通用）
+import { syncRoWorkOrderBridge } from "@/domain/work-orders";
 // RP4 Layer1 稽核日誌
 import { writeAuditLog } from "@/domain/audit-logs";
 
@@ -435,27 +435,30 @@ export async function confirmRepairOrderAction(
           .eq("brand_id", brand)
           .in("status", ["待到廠", "已到廠", "等待中"]);
 
-        // 3b. 橋接 work_orders.repair_order_id（C-28 FK bridge，第二條路徑）
-        // 透過共用 appointment_id 找到對應 work_order 並回填；找不到不影響主流程
-        await supabase
-          .from("work_orders")
-          .update({ repair_order_id: data.id as string })
-          .eq("brand_id", brand)
-          .eq("appointment_id", input.appointment_id)
-          .is("repair_order_id", null);
+        // ⚠️ 原「3b. 橋接 work_orders.repair_order_id（C-28 FK bridge，第二條路徑）」
+        // 在此移除：該段用 input.appointment_id（FK 指向 appointments）去比對
+        // work_orders.appointment_id（FK 實際指向 service_appointments，另一張表、
+        // 不同 id 空間），比對恆為 no-op，從未真正橋接成功過。正式橋接改走下方
+        // 3c 的 syncRoWorkOrderBridge（以 repair_order_id 為鍵，與 appointment_id
+        // 無關，任何 prefix_p1 皆適用）。
       }
 
-      // 3c. TL 借用測試工單橋接（Russell 6/17 補充要求項目一）
-      // TL 借料必須走正式 /parts/issue/repair-pick 倉管領料流程：建一筆橋接
-      // work_orders 讓 TL 進倉管待領料清單。建單當下通常尚無借料明細
+      // 3c. repair_order → work_orders 橋接（原僅 TL，M3 串接三驗收發現一般
+      // SA 開單流程新建的 RP 等工單同樣不會產生 work_orders、導致
+      // /parts/issue/repair-pick 待領料清單看不到它，已放寬為所有 prefix_p1）
+      // 任何工單的零件明細都必須走正式 /parts/issue/repair-pick 倉管領料流程：
+      // 建一筆橋接 work_orders 讓它進倉管待領料清單。建單當下通常尚無零件明細
       // （閘門頁先建單、明細後加），故此處先建工單殼；之後 SA 在明細頁加 /
-      // 改 / 刪借料行時，repair-order-line-actions 會再呼叫 syncTlWorkOrderBridge
-      // 同步 work_order_items。失敗不阻斷建單（記 log）。
-      if (input.prefix_p1 === "TL") {
-        const bridge = await syncTlWorkOrderBridge(data.id as string);
+      // 改 / 刪零件行時，repair-order-line-actions 會再呼叫 syncRoWorkOrderBridge
+      // 同步 work_order_items。沒有零件明細的工單只是建出 0 筆 parts 的空殼，
+      // 不會出現在倉管待領料清單（見 listPendingPartsWorkorders）。失敗不阻斷
+      // 建單（記 log）。
+      {
+        const bridge = await syncRoWorkOrderBridge(data.id as string);
         if (!bridge.ok) {
-          console.error("[TL bridge] 建立橋接工單失敗（不影響建單）", {
+          console.error("[RO bridge] 建立橋接工單失敗（不影響建單）", {
             ro_code: data.ro_code,
+            prefix_p1: input.prefix_p1,
             error: bridge.error,
           });
         }

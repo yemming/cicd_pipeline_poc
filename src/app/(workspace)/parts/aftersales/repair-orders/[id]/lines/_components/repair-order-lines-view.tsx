@@ -510,6 +510,7 @@ export function RepairOrderLinesView({
                       roId={ro.id}
                       isPending={isPending}
                       startTransition={startTransition}
+                      onViewStock={() => openCrossStore(l)}
                     />
                   ))}
                 </tbody>
@@ -652,7 +653,9 @@ export function RepairOrderLinesView({
           <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
             <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
               <span className="text-[13px] font-semibold text-[#2C2C2A]">⚡ 庫存提示</span>
-              <span className="text-[11px] text-[#9A9890] ml-2">🟢充足 / 🟠不足 / 🔴缺料</span>
+              <span className="text-[11px] text-[#9A9890] ml-2">
+                🟢充足 / 🟠不足 / 🔴缺料（全倉合計，非單一倉庫；點擊零件庫存數字可查各倉分布）
+              </span>
             </header>
             <div className="px-4 py-3 space-y-2 text-[12px]">
               {partLines.length === 0 && (
@@ -980,6 +983,7 @@ function PartRow({
   roId,
   isPending,
   startTransition,
+  onViewStock,
 }: {
   line: RepairOrderLineWithStock;
   canEdit: boolean;
@@ -992,6 +996,7 @@ function PartRow({
   roId: string;
   isPending: boolean;
   startTransition: (cb: () => void) => void;
+  onViewStock: () => void;
 }) {
   const [form, setForm] = useState({
     qty: String(line.qty ?? "1"),
@@ -1067,12 +1072,23 @@ function PartRow({
           {fmtNT(line.amount)}
         </td>
         <td className="px-3 py-2 text-center">
-          <span
-            className={`inline-flex px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${tone.cls}`}
-            title={`${tone.label}：庫存 ${line.stock_on_hand ?? "—"} / 需求 ${line.qty ?? "—"}`}
-          >
-            {tone.icon} {line.stock_on_hand ?? "—"}
-          </span>
+          {line.item_id ? (
+            <button
+              type="button"
+              onClick={onViewStock}
+              className={`inline-flex px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap hover:opacity-80 ${tone.cls}`}
+              title={`${tone.label}：庫存 ${line.stock_on_hand ?? "—"}（全倉合計，非單一倉庫）/ 需求 ${line.qty ?? "—"} · 點擊查看各倉分布`}
+            >
+              {tone.icon} {line.stock_on_hand ?? "—"}
+            </button>
+          ) : (
+            <span
+              className={`inline-flex px-1.5 py-0.5 rounded-md text-[11px] whitespace-nowrap ${tone.cls}`}
+              title={`${tone.label}：庫存 ${line.stock_on_hand ?? "—"} / 需求 ${line.qty ?? "—"}`}
+            >
+              {tone.icon} {line.stock_on_hand ?? "—"}
+            </span>
+          )}
         </td>
         <td className="px-3 py-2 text-right">
           <div className="inline-flex gap-1.5 flex-wrap justify-end">

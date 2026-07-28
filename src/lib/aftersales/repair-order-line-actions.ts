@@ -16,8 +16,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
-// TL 借用測試工單：借料明細變動後同步橋接的 work_order_items（走正式 repair-pick 領料）
-import { syncTlWorkOrderBridge } from "@/domain/work-orders";
+// 零件明細變動後同步橋接的 work_order_items（走正式 repair-pick 領料，所有 prefix_p1 通用）
+import { syncRoWorkOrderBridge } from "@/domain/work-orders";
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -61,13 +61,14 @@ async function ensureRoOwned(
   return { ok: true, brand, prefix_p1: (data.prefix_p1 as string | null) ?? null };
 }
 
-// TL 工單借料明細變動後，同步橋接 work_order 的 work_order_items，
-// 倉管在 /parts/issue/repair-pick 看到最新借料數量。非 TL 不動、失敗不阻斷主流程。
-async function resyncTlBridgeIfNeeded(roId: string, prefix_p1: string | null) {
-  if (prefix_p1 !== "TL") return;
-  const res = await syncTlWorkOrderBridge(roId);
+// 工單零件明細變動後，同步橋接 work_order 的 work_order_items，
+// 倉管在 /parts/issue/repair-pick 看到最新零件數量。原僅 TL 才同步，M3 串接三
+// 驗收發現一般 RP 等工單同樣需要橋接才能被倉管領料，已放寬為所有 prefix_p1。
+// 失敗不阻斷主流程。
+async function resyncRoWorkOrderBridge(roId: string) {
+  const res = await syncRoWorkOrderBridge(roId);
   if (!res.ok) {
-    console.error("[TL bridge] 借料明細變動後同步失敗（不影響主流程）", {
+    console.error("[RO bridge] 零件明細變動後同步失敗（不影響主流程）", {
       ro_id: roId,
       error: res.error,
     });
@@ -227,7 +228,7 @@ export async function addPartLineAction(
   if (error) return { ok: false, error: `新增零件失敗：${error.message}` };
 
   await recomputeAndWriteRoTotals(roId, own.brand);
-  await resyncTlBridgeIfNeeded(roId, own.prefix_p1);
+  await resyncRoWorkOrderBridge(roId);
   revalidatePath(pagePath(roId));
   revalidatePath(roDetailPath(roId));
   return { ok: true, data: { id: data.id as string } };
@@ -301,7 +302,7 @@ export async function updatePartLineAction(
   if (error) return { ok: false, error: `更新失敗：${error.message}` };
 
   await recomputeAndWriteRoTotals(roId, own.brand);
-  await resyncTlBridgeIfNeeded(roId, own.prefix_p1);
+  await resyncRoWorkOrderBridge(roId);
   revalidatePath(pagePath(roId));
   revalidatePath(roDetailPath(roId));
   return { ok: true, data: { id: lineId } };
@@ -328,7 +329,7 @@ export async function deleteLineAction(
   if (error) return { ok: false, error: `刪除失敗：${error.message}` };
 
   await recomputeAndWriteRoTotals(roId, own.brand);
-  await resyncTlBridgeIfNeeded(roId, own.prefix_p1);
+  await resyncRoWorkOrderBridge(roId);
   revalidatePath(pagePath(roId));
   revalidatePath(roDetailPath(roId));
   return { ok: true, data: { id: lineId } };

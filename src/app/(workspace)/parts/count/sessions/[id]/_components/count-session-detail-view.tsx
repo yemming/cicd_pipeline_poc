@@ -108,6 +108,9 @@ export function CountSessionDetailView({
         count_date: draft.count_date || undefined,
         count_type: draft.count_type || undefined,
         freeze_warehouse: draft.freeze_warehouse,
+        // 突擊盤點：count_type 選「unannounced」時務必連動 is_unannounced，
+        // 否則後端只認 is_unannounced 旗標（不會反推 count_type），會漏寫先盤後凍等突擊邏輯。
+        is_unannounced: draft.count_type === "unannounced",
         notes: draft.notes || undefined,
       });
       if (!res.ok) {

@@ -873,6 +873,10 @@ export async function startCountSessionAction(
 
   const supabase = await createClient();
   const brandId = (await getActiveScope()).brand_id;
+  const {
+    data: { user: starterUser },
+  } = await supabase.auth.getUser();
+  const starterId = starterUser?.id ?? null;
 
   // 1. 拍 snapshot：當下倉內 status='available' 的 stock_items
   const { data: stocks, error: stockErr } = await supabase
@@ -991,6 +995,10 @@ export async function submitCountSessionAction(
 
   const supabase = await createClient();
   const brandId = (await getActiveScope()).brand_id;
+  const {
+    data: { user: submitUser },
+  } = await supabase.auth.getUser();
+  const submitActorId = submitUser?.id ?? null;
 
   const { data: ct, error: ctErr } = await supabase
     .from("inventory_counts")
@@ -999,6 +1007,7 @@ export async function submitCountSessionAction(
     .eq("brand_id", brandId)
     .maybeSingle();
   if (ctErr || !ct) return { ok: false, error: `找不到盤點單：${ctErr?.message ?? "no row"}` };
+  const statusBeforeSubmit = ct.status;
   if (!["counting", "first_done", "second_done"].includes(ct.status)) {
     return { ok: false, error: `狀態 ${ct.status} 不可提交（需 counting/first_done/second_done）` };
   }
