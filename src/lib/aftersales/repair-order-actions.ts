@@ -32,7 +32,7 @@ import {
   type PrefixP1,
   type PrefixP2,
 } from "@/domain/repair-orders.constants";
-import { appendRepairOrderEvent } from "@/domain/repair-orders";
+import { appendRepairOrderEvent, getEmployeeIdByUser } from "@/domain/repair-orders";
 // RP5：中途取消前置授權 guard
 import { hasApprovedApproval } from "@/domain/aftersales-approvals";
 // RP8 T03：工單進待料 → 倉管站內通知
@@ -349,6 +349,16 @@ export async function confirmRepairOrderAction(
   } = await supabase.auth.getUser();
   const authUserIdForEvent = _authUserForConfirm?.id ?? null;
 
+  // TL 借用測試工單：把「SA 確認簽名」欄位落到 typed sa_id 欄位（供結構化追溯，不只靠簽名影像佐證）。
+  // 來源：雙簽當下唯一可靠的身分是「正在操作此開單頁面、通過 RO_CREATE 權限檢查的登入者」——
+  // 也就是畫 SA 簽名的那位。技師簽名欄位目前只是畫布截圖（見 SignatureCanvas），流程中沒有技師的
+  // user_id / employee_id 可對應，因此 lead_technician_id 刻意不在此處填入，避免憑空捏造；
+  // 技師身分仍走既有派工流程（setLeadTechnicianAction）另行寫入 lead_technician_id。
+  let tlSaEmployeeId: string | null = null;
+  if (tlConfigMeta && authUserIdForEvent) {
+    tlSaEmployeeId = await getEmployeeIdByUser(authUserIdForEvent);
+  }
+
   // 2. 簡單 retry on unique violation（POC 階段：上限 5 次）
   let lastErr: string | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -413,6 +423,7 @@ export async function confirmRepairOrderAction(
         mileage_in: input.mileage_in ?? null,
         store_id: input.store_id || null,
         subsidiary_id: input.subsidiary_id || null,
+        sa_id: tlSaEmployeeId,
         status: "進行中",
         priority: input.priority ?? "normal",
         opened_at: new Date().toISOString(),
