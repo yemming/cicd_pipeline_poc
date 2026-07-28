@@ -20,6 +20,42 @@ import {
 } from "@/lib/parts/actions";
 
 import type { Database } from "@/lib/database.types";
+import { COUNT_ACTIVE_STATUSES } from "./count.constants";
+
+/**
+ * 盤點凍結倉庫守衛（M4-S1 修補）。
+ *
+ * `inventory_counts.freeze_warehouse=true` 期間鎖該倉「出入庫」（count-session-detail-view.tsx
+ * 秀的「是（盤點期間鎖出入庫）」不是純顯示，是真的規則）。過去這個欄位完全沒被任何出入庫 action
+ * 讀取，出庫/入庫一路暢通——本函式補這一關，給 adjustments.ts / issues.ts / transfers.ts
+ * 在真正寫 stock_items 前呼叫。
+ *
+ * 只擋「凍結中」的盤點：status ∈ COUNT_ACTIVE_STATUSES（counting/first_done/second_done）。
+ * 已完成 / 已取消 / 待審批 / 草稿的盤點單不算數（盤點單一旦 completed/cancelled 就該解凍）。
+ */
+export async function assertWarehouseNotFrozen(
+  warehouseId: string | null | undefined,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!warehouseId) return { ok: true };
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const { data } = await supabase
+    .from("inventory_counts")
+    .select("ct_no")
+    .eq("brand_id", scope.brand_id)
+    .eq("warehouse_id", warehouseId)
+    .eq("freeze_warehouse", true)
+    .in("status", COUNT_ACTIVE_STATUSES)
+    .limit(1)
+    .maybeSingle();
+  if (data) {
+    return {
+      ok: false,
+      error: `此倉庫盤點中已凍結出入庫（盤點單 ${data.ct_no}），請待盤點完成或取消後再操作`,
+    };
+  }
+  return { ok: true };
+}
 
 export async function startCountSessionAction(input: StartCountSessionInput) {
   return _startCountSessionAction(input);

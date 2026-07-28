@@ -17,6 +17,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { getBrandConfig } from "@/domain/brand-config";
 import { releaseWaitingForItem } from "@/domain/parts-waiting";
+import { assertWarehouseNotFrozen } from "@/domain/count";
 
 import type { Database } from "@/lib/database.types";
 
@@ -945,6 +946,9 @@ export async function createTransfer(
     return { ok: false, error: `不支援的 transfer_type: ${transferType}` };
   }
 
+  const frozenCheck = await assertWarehouseNotFrozen(input.source_warehouse_id);
+  if (!frozenCheck.ok) return frozenCheck;
+
   // 預檢
   const previewRes = await previewTransfer({
     source_warehouse_id: input.source_warehouse_id,
@@ -1127,6 +1131,9 @@ export async function cancelTransfer(
     };
   }
 
+  const frozenCheck = await assertWarehouseNotFrozen(tr.source_warehouse_id);
+  if (!frozenCheck.ok) return frozenCheck;
+
   const { data: trLines } = await supabase
     .from("stock_transfer_lines")
     .select("id")
@@ -1206,6 +1213,9 @@ export async function receiveTransfer(
   if (tr.status !== "in_transit") {
     return { ok: false, error: `狀態 ${tr.status} 不可收貨（需 in_transit）` };
   }
+
+  const frozenCheck = await assertWarehouseNotFrozen(tr.target_warehouse_id);
+  if (!frozenCheck.ok) return frozenCheck;
 
   const { data: trLines, error: linesErr } = await supabase
     .from("stock_transfer_lines")

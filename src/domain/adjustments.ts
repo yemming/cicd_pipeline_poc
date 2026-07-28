@@ -13,6 +13,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
+import { assertWarehouseNotFrozen } from "@/domain/count";
 
 import type { Database } from "@/lib/database.types";
 import { EXCEPTIONS_PAGE_SIZE_DEFAULT } from "./adjustments.constants";
@@ -292,6 +293,9 @@ export async function createAdjustment(
     }
   }
 
+  const frozenCheck = await assertWarehouseNotFrozen(input.warehouse_id);
+  if (!frozenCheck.ok) return frozenCheck;
+
   const supabase = await createClient();
   const scope = await getActiveScope();
   const { userId } = await getCurrentUserAndAdmin();
@@ -485,6 +489,9 @@ export async function voidAdjustment(
   const { adj, lines } = detail;
   if (adj.status === "cancelled") return { ok: false, error: "該單已作廢" };
   if (adj.status !== "posted") return { ok: false, error: "只有已過帳的調整單可作廢" };
+
+  const frozenCheck = await assertWarehouseNotFrozen(adj.warehouse_id);
+  if (!frozenCheck.ok) return frozenCheck;
 
   // 反向 stock_items 異動
   for (const l of lines) {
