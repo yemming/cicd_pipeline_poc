@@ -1170,6 +1170,34 @@ export async function approveTransfer(
       };
       if (newQty <= 0) update.status = "issued";
       await supabase.from("stock_items").update(update).eq("id", pick.stock_id);
+
+      // 成本事件（transfer_out）— 源倉出帳。同步呼叫（不用 after()：本專案 Next 16 +
+      // Zeabur 環境已多次證實 after() 不可靠，成本帳這種財務關鍵資料不能賭）。
+      // 失敗不擋出貨主流程（庫存異動已發生），只記 log 供事後排查。
+      // ⚠️ B5 regression 補回：1c6df53 把扣庫存邏輯從 createTransfer() 搬到這裡
+      // （approveTransfer）做審批閘門時，漏搬這段 postCostEvent 呼叫，導致
+      // transfer_out 分錄從此消失、只剩 receiveTransfer() 的 transfer_in。
+      const costOutRes = await postCostEvent({
+        subjectType: "part",
+        eventType: "transfer_out",
+        brandId,
+        itemId: pl.item_id,
+        warehouseId: tr.source_warehouse_id,
+        qty: pick.qty,
+        unitCostIn: pick.unit_cost,
+        sourceTable: "stock_transfers",
+        sourceId: tr.id,
+        stockItemId: pick.stock_id,
+        notes: `調撥 ${tr.tr_no} 出貨`,
+      });
+      if (!costOutRes.ok) {
+        console.error("[costing] transfer_out 成本事件失敗（不影響出貨流程）", {
+          tr_no: tr.tr_no,
+          item_id: pl.item_id,
+          stock_id: pick.stock_id,
+          error: costOutRes.error,
+        });
+      }
     }
 
     // 建目標倉在途
