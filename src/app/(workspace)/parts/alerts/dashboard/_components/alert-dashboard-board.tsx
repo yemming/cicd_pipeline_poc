@@ -36,6 +36,13 @@ const actionBtnClass =
 const actionBtnGhostClass =
   "h-[26px] px-2.5 rounded text-[11.5px] inline-flex items-center gap-1 bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]";
 
+// 帶著目標料號（與必要時的緊急旗標）跳轉到新增採購單頁，讓 NewPOForm 自動預填該料號
+function newPoHref(itemId: string, opts?: { urgent?: boolean }) {
+  const params = new URLSearchParams({ item: itemId });
+  if (opts?.urgent) params.set("urgent", "1");
+  return `${HREF_NEW_PO}?${params.toString()}`;
+}
+
 function numCell(n: number) {
   return <span className="font-mono tabular-nums">{n.toLocaleString("zh-TW")}</span>;
 }
@@ -287,9 +294,9 @@ export function AlertDashboardBoard({ data }: { data: AlertDashboardData }) {
             rowActions={(r) => (
               <>
                 <button
-                  onClick={() => window.open(HREF_NEW_PO, "_blank")}
+                  onClick={() => window.open(newPoHref(r.item_id, { urgent: true }), "_blank")}
                   className={actionBtnClass}
-                  title={`為 ${r.item_code} 建立採購單`}
+                  title={`為 ${r.item_code} 建立緊急採購單`}
                 >
                   <span className="material-symbols-outlined text-[14px]">add_shopping_cart</span>
                   緊急補貨
@@ -315,10 +322,11 @@ export function AlertDashboardBoard({ data }: { data: AlertDashboardData }) {
             exportFileName="alert-reorder"
             emptyMessage="目前沒有低於再訂購點的品項"
             rowActionsWidth={150}
-            rowActions={() => (
+            rowActions={(r) => (
               <button
-                onClick={() => window.open(HREF_NEW_PO, "_blank")}
+                onClick={() => window.open(newPoHref(r.item_id), "_blank")}
                 className={actionBtnClass}
+                title={`為 ${r.item_code} 建立採購單`}
               >
                 <span className="material-symbols-outlined text-[14px]">add_shopping_cart</span>
                 建立採購單

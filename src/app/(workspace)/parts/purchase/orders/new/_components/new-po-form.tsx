@@ -15,11 +15,14 @@ type Line = {
   unit_price: number;
 };
 
+// ⚠️ value 必須跟 DB CHECK constraint purchase_orders_purchase_type_check 完全對齊
+// (standard | urgent | planned | oem_import)，否則送出會撞 23514。
+// 標籤沿用 orders-board.tsx 的 TYPE_LABEL 措辭，讓列表/表單/明細頁顯示一致。
 const PURCHASE_TYPE_LABEL: Record<string, string> = {
-  planned:     "計畫採購",
-  replenish:   "補貨採購",
-  emergency:   "緊急採購",
-  promotional: "促銷採購",
+  planned:    "計畫採購",
+  standard:   "標準採購",
+  urgent:     "緊急採購",
+  oem_import: "原廠匯入",
 };
 
 const inputClass =
@@ -35,15 +38,20 @@ export function NewPOForm({
   items: ItemPick[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   // WP-H：從 10B 告警 / 採購頁「緊急送單」帶 ?urgent=1 進來 → 預設緊急採購
-  const isUrgent = useSearchParams().get("urgent") === "1";
+  const isUrgent = searchParams.get("urgent") === "1";
+  // 從告警儀表板「緊急補貨 / 建立採購單」帶 ?item=<item_id> 進來 → 第一行預填該料號
+  const prefillItemId = searchParams.get("item");
+  const initialItemId =
+    (prefillItemId && items.some((it) => it.id === prefillItemId) ? prefillItemId : items[0]?.id) ?? "";
   const [vendorId, setVendorId] = useState(suppliers[0]?.id ?? "");
   const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id ?? "");
-  const [purchaseType, setPurchaseType] = useState(isUrgent ? "emergency" : "planned");
+  const [purchaseType, setPurchaseType] = useState(isUrgent ? "urgent" : "planned");
   const [etaDate, setEtaDate] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([
-    { item_id: items[0]?.id ?? "", qty_ordered: 1, unit_price: 0 },
+    { item_id: initialItemId, qty_ordered: 1, unit_price: 0 },
   ]);
   const [banner, setBanner] = useState<{ ok: boolean; msg: string } | null>(null);
   const [isPending, startTransition] = useTransition();
