@@ -17,6 +17,8 @@ import type { ItemInsert } from "../types";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
 import { HIGH_VALUE_VARIANCE_THRESHOLD } from "@/domain/count.constants";
+import { createServiceClient } from "@/lib/supabase/service";
+import { createInappNotifications } from "@/domain/user-notifications";
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
   | { ok: false; error: string };
@@ -1051,8 +1053,20 @@ export async function submitCountSessionAction(
   if (Math.abs(finalVarianceAmount) >= HIGH_VALUE_VARIANCE_THRESHOLD) {
     after(async () => {
       try {
-        const sb = (await import("@/lib/supabase/service")).createServiceClient();
-        // 找店長：先找 is_cross_admin，fallback 找 is_dept_manager
+        // ⚠️ 這裡曾用 `await import(...)` 動態載入 service client / user-notifications，
+        // 在 Turbopack 對 "use server" 檔案的 chunk 切割下，after() callback 內的動態
+        // import 在部署環境（Zeabur）實測會靜默失敗（不拋錯、也不執行 — try/catch 抓不到，
+        // 因為根本沒進到這段程式碼），導致「盤差>5000通知店長」這條規則從未真正發過任何一筆
+        // 通知（驗證：user_notifications 表 event_code='stocktake.high_variance' 歷史 0 筆）。
+        // 改回跟同檔案其他 after() 區塊一致的靜態頂層 import 後修復。
+        const sb = createServiceClient();
+        // 找店長：is_cross_admin ∪ is_dept_manager（合集，不是 fallback）。
+        // 原本是「先找 is_cross_admin，找到就不找 is_dept_manager」的嚴格 fallback —
+        // 但只要品牌內存在任一個 is_cross_admin（例如系統總管理員），真正的「店長」
+        // （is_dept_manager=true）就永遠收不到這條規則要求的通知，跟 Russell 指定
+        // 「差異>5000自動升級通知店長」的字面要求不符（驗證用的 e2e 店長帳號
+        // is_dept_manager=true 但 is_cross_admin=false，用嚴格 fallback 永遠測不到）。
+        // 改成合集：兩種身分都通知，不影響既有的 is_cross_admin 收件人。
         const { data: crossAdmins } = await sb
           .from("employees")
           .select("user_id")
@@ -1060,24 +1074,22 @@ export async function submitCountSessionAction(
           .eq("is_cross_admin", true)
           .eq("is_active", true)
           .not("user_id", "is", null)
-          .limit(3);
-        let managerIds: string[] = (crossAdmins ?? [])
-          .map((e: { user_id: string | null }) => e.user_id)
-          .filter((id: string | null): id is string => !!id);
-        if (managerIds.length === 0) {
-          const { data: deptManagers } = await sb
-            .from("employees")
-            .select("user_id")
-            .eq("brand_id", brandId)
-            .eq("is_dept_manager", true)
-            .eq("is_active", true)
-            .not("user_id", "is", null)
-            .limit(3);
-          managerIds = (deptManagers ?? [])
-            .map((e: { user_id: string | null }) => e.user_id)
-            .filter((id: string | null): id is string => !!id);
-        }
-        const { createInappNotifications } = await import("@/domain/user-notifications");
+          .limit(5);
+        const { data: deptManagers } = await sb
+          .from("employees")
+          .select("user_id")
+          .eq("brand_id", brandId)
+          .eq("is_dept_manager", true)
+          .eq("is_active", true)
+          .not("user_id", "is", null)
+          .limit(5);
+        const managerIds: string[] = [
+          ...new Set(
+            [...(crossAdmins ?? []), ...(deptManagers ?? [])]
+              .map((e: { user_id: string | null }) => e.user_id)
+              .filter((id: string | null): id is string => !!id),
+          ),
+        ];
         if (managerIds.length > 0) {
           await createInappNotifications(
             managerIds.map((uid) => ({
@@ -1092,7 +1104,8 @@ export async function submitCountSessionAction(
           );
         } else {
           // 找不到店長：發給當前操作者並標 TODO
-          const { data: { user: currentUser } } = await (await import("@/lib/supabase/server")).createClient().then((c) => c.auth.getUser());
+          const currentUserSb = await createClient();
+          const { data: { user: currentUser } } = await currentUserSb.auth.getUser();
           if (currentUser?.id) {
             await createInappNotifications([{
               recipient_user_id: currentUser.id,

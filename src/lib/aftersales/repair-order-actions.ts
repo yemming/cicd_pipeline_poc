@@ -1178,14 +1178,21 @@ export async function closeTlWorkOrderAction(
 
     if (d.decision === "transfer_to_ro") {
       // 解析目標工單（接受 ro_code 或 id）
+      // ⚠️ 不能用 .or(`ro_code.eq.${raw},id.eq.${raw}`)：id 欄位是 uuid 型別，
+      // 當 raw 是 ro_code（如 "MN-CP-260526-001"，最常見的使用者輸入）而非合法 UUID 時，
+      // PostgREST 會在組 SQL 當下把 raw cast 成 uuid 失敗（22P02 invalid input syntax for
+      // type uuid），導致整條 OR 查詢直接報錯、data 變 null，錯誤還被吞掉（只解構 data）。
+      // 結果：明明 ro_code 對得上，卻永遠回「找不到目標工單」。改成先判斷 raw 是否為合法
+      // UUID 格式，再決定要用 id 精準比對還是 ro_code 比對，兩者互斥、都不會誤觸型別轉換錯誤。
       let targetId: string | null = null;
       const raw = d.targetRoId?.trim();
       if (raw) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
         const { data: target } = await supabase
           .from("repair_orders")
           .select("id")
           .eq("brand_id", brand)
-          .or(`ro_code.eq.${raw},id.eq.${raw}`)
+          .eq(isUuid ? "id" : "ro_code", raw)
           .maybeSingle();
         targetId = (target as { id: string } | null)?.id ?? null;
       }

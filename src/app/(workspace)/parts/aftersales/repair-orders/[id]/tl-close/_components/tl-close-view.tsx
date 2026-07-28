@@ -498,6 +498,7 @@ export function TlCloseView({ ro, partLines, laborLines, canClose }: Props) {
       {/* ── Banner ── */}
       {banner && (
         <div
+          data-testid="tl-close-banner"
           className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
             banner.kind === "success"
               ? "bg-[#EAF3DE] text-[#3B6D11] border border-[#C5DC9F]"
