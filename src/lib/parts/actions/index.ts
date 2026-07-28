@@ -1250,8 +1250,9 @@ export async function approveCountAdjustmentAction(
   // count_workflow（overflow・a_class_force 情境）只在設定頁被 CRUD，實際核准動作
   // 完全沒有讀取 —— 核准鍵不分金額大小，一顆權限打天下。這裡補上：真的去讀設定的
   // 容許率 + 審核流程規則，判斷本次差異是否落入「超過容許率」或「A 類商品強制審核」
-  // 情境；若是，除了 COUNT_ADJUST 之外還要求核准人是主管（店長／跨店管理員），
-  // 才算真正多一道強制核准關卡（不是只發一則通知就算數）。
+  // 情境；若是，除了 COUNT_ADJUST 之外還要求核准人另有 parts.count_rule.edit
+  // （能設定容許率／審核流程規則的主管層級），才算真正多一道強制核准關卡
+  // （不是只發一則通知就算數）。
   if (varianceLines && varianceLines.length > 0) {
     const [toleranceRules, workflowRules] = await Promise.all([
       listRulesByKind("count_tolerance"),
@@ -1303,19 +1304,15 @@ export async function approveCountAdjustmentAction(
     }
 
     if (requiresElevatedApproval) {
-      const sb = createServiceClient();
-      const { data: emp } = await sb
-        .from("employees")
-        .select("is_dept_manager, is_cross_admin")
-        .eq("brand_id", brandId)
-        .eq("user_id", approverId ?? "")
-        .eq("is_active", true)
-        .maybeSingle();
-      const isManagerApprover = !!(emp?.is_dept_manager || emp?.is_cross_admin);
-      if (!isManagerApprover) {
+      // 強制關卡拉高一級：能核准「超過容許率／A類強制」的人，至少要跟能設定
+      // 這兩條規則本身的人同一層級（parts.count_rule.edit ── 目前只有店長／老闆有）。
+      // 不用 employees.is_dept_manager 是因為那顆欄位是別的模組（售後）在用、
+      // 盤點模組的角色種子資料不保證有正確設 is_dept_manager，權限碼才是本專案
+      // 一致的授權判斷依據。
+      if (!(await hasPermission(PERMISSIONS.PARTS_COUNT_RULE_EDIT))) {
         return {
           ok: false,
-          error: `此盤點單「${elevatedReason}」（依盤點回傳規則設定），需由主管（店長／跨店管理員）核准，請轉交主管處理`,
+          error: `此盤點單「${elevatedReason}」（依盤點回傳規則設定），需由主管（可編輯盤點回傳規則者）核准，請轉交主管處理`,
         };
       }
     }

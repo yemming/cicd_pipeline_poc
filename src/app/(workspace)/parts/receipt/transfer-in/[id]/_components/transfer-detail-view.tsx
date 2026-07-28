@@ -13,6 +13,7 @@ import type {
 import { updateTransfer, voidTransfer } from "@/domain/transfers";
 import { Timeline } from "@/components/visualization/Timeline";
 import type { ToneKey } from "@/components/visualization/tone";
+import { ReceiveTransferButton } from "../../_components/receive-transfer-button";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit";
@@ -77,6 +78,8 @@ export function TransferDetailView({
   const statusDef = STATUS_LABEL[transfer.status ?? ""] ?? STATUS_LABEL.draft;
   const isCancelled = transfer.status === "cancelled";
   const canVoid = transfer.status === "received";
+  const canReceive =
+    canEdit && (transfer.status === "in_transit" || transfer.status === "partial");
 
   function showBanner(b: Banner, autoCloseMs?: number) {
     setBanner(b);
@@ -207,6 +210,16 @@ export function TransferDetailView({
               >
                 ＋ 新增調撥
               </Link>
+              {canReceive ? (
+                <ReceiveTransferButton
+                  transferId={transfer.id}
+                  trNo={transfer.tr_no}
+                  onResult={(r) => {
+                    showBanner(r, r.ok ? 2200 : undefined);
+                    if (r.ok) router.refresh();
+                  }}
+                />
+              ) : null}
               <button
                 type="button"
                 onClick={enterEdit}
