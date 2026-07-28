@@ -713,8 +713,12 @@ export async function receiveStock(
     });
   }
 
-  // 11. 包D WP-I：採購入庫 → 解待料 + 通知 SA（補鏈條斷點，非阻塞、吞錯不影響收貨）
+  // 11. 包D WP-I：採購入庫 → 解待料 + 通知 SA（補鏈條斷點、吞錯不影響收貨）
   //   既有 #5 releaseWaitingForItem 原本只有調撥入庫(transfers)呼叫；採購到貨這條主路徑沒接。
+  //   ⚠️ 原本包在 after() 裡非阻塞執行，比照 ro-checkout-actions.ts「修補二」「包F」與
+  //   submitCountSessionAction（commit a9795f9）已踩過且修好的同一顆雷：after() 在本專案
+  //   Next.js 16 + Zeabur 這組部署環境實測不可靠，callback 常常靜默不執行。改同步執行 +
+  //   try/catch 吞錯，不讓解待料 / 通知失敗擋住收貨主流程。
   {
     const arrivedItems = Array.from(
       new Set(grLinesWithAmount.map((l) => l.item_id).filter((x): x is string => !!x)),
@@ -722,33 +726,31 @@ export async function receiveStock(
     const whId = po.warehouse_id;
     const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
     if (arrivedItems.length > 0 && whId) {
-      after(async () => {
-        const resolvedRos = new Set<string>();
-        for (const itemId of arrivedItems) {
-          try {
-            const r = await releaseWaitingForItem({ item_id: itemId, warehouse_id: whId });
-            if (r.ok) r.resolved_ros.forEach((ro) => resolvedRos.add(ro));
-          } catch (e) {
-            console.error("[WP-I 採購入庫解待料] 失敗（不影響收貨）", { itemId, error: e });
-          }
+      const resolvedRos = new Set<string>();
+      for (const itemId of arrivedItems) {
+        try {
+          const r = await releaseWaitingForItem({ item_id: itemId, warehouse_id: whId });
+          if (r.ok) r.resolved_ros.forEach((ro) => resolvedRos.add(ro));
+        } catch (e) {
+          console.error("[WP-I 採購入庫解待料] 失敗（不影響收貨）", { itemId, error: e });
         }
-        if (resolvedRos.size > 0) {
-          try {
-            await notifications.dispatch({
-              code: "work_order.status_changed",
-              payload: {
-                orderNo: `${resolvedRos.size} 張待料工單`,
-                from: "待料中",
-                to: "零件已到貨・可施工",
-                actor: `庫房收貨 ${gr_no}`,
-                actionUrl: `${appUrl}/parts/alerts/work-order-loop`,
-              },
-            });
-          } catch (e) {
-            console.error("[WP-I 解待料通知 SA] 推播失敗（不影響收貨）", e);
-          }
+      }
+      if (resolvedRos.size > 0) {
+        try {
+          await notifications.dispatch({
+            code: "work_order.status_changed",
+            payload: {
+              orderNo: `${resolvedRos.size} 張待料工單`,
+              from: "待料中",
+              to: "零件已到貨・可施工",
+              actor: `庫房收貨 ${gr_no}`,
+              actionUrl: `${appUrl}/parts/alerts/work-order-loop`,
+            },
+          });
+        } catch (e) {
+          console.error("[WP-I 解待料通知 SA] 推播失敗（不影響收貨）", e);
         }
-      });
+      }
     }
   }
 
