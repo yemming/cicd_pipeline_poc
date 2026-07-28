@@ -685,6 +685,10 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
   }
 
   // ── RP4 事件時間軸：記錄結帳完成關單（非阻塞） ──
+  // 補：驗收清單（串接一）預期 audit_logs 有 RO_CLOSED 事件，過去只寫進
+  // repair_order_events(action='checkout_completed')，功能等價但表名/action 名對不上，
+  // 這裡補寫一筆 audit_logs（action='RO_CLOSED'）跟 TL 結案路徑（TL_RO_CLOSED，見
+  // repair-order-actions.ts）的稽核命名對齊，兩條關單路徑都能在 audit_logs 查到關單紀錄。
   {
     const {
       data: { user: _completeUser },
@@ -705,6 +709,20 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
         },
         completeActorId,
       );
+      await writeAuditLog({
+        table_name: "repair_orders",
+        record_id: repairOrderId,
+        action: "RO_CLOSED",
+        actor_id: completeActorId,
+        brand_id: brand,
+        before: null,
+        after: {
+          ro_code: roCore.ro_code,
+          checkout_id: id,
+          payable: feeSummary.payable ?? null,
+          closed_at: now,
+        },
+      });
     });
   }
 
