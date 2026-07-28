@@ -72,6 +72,7 @@ export default async function TransferInPage({
       },
       warehouses: [],
       canEdit: false,
+      canApprove: false,
     };
   }
 
@@ -82,6 +83,7 @@ export default async function TransferInPage({
       kpis={bundle.kpis}
       warehouses={bundle.warehouses}
       canEdit={bundle.canEdit}
+      canApprove={bundle.canApprove}
       loadError={loadError}
       filter={{
         q,

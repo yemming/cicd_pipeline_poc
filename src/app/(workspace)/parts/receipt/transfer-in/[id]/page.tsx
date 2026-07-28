@@ -32,8 +32,9 @@ export default async function TransferDetailPage({
   const transfer = await getTransferById(id);
   if (!transfer) notFound();
 
-  const [canEdit, subInfo, timeline] = await Promise.all([
+  const [canEdit, canApprove, subInfo, timeline] = await Promise.all([
     hasPermission(PERMISSIONS.RECEIPT_CREATE),
+    hasPermission(PERMISSIONS.TRANSFER_APPROVE),
     getTransferSubsidiaryInfo(id),
     getTransferTimeline(id),
   ]);
@@ -42,6 +43,7 @@ export default async function TransferDetailPage({
     <TransferDetailView
       transfer={transfer}
       canEdit={canEdit}
+      canApprove={canApprove}
       subsidiaryInfo={subInfo}
       timeline={timeline}
     />

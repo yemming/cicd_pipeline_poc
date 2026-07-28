@@ -13,10 +13,12 @@ import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import { KpiCard } from "@/components/visualization/KpiCard";
 
 import { ReceiveTransferButton } from "./receive-transfer-button";
+import { ApproveTransferButton } from "./approve-transfer-button";
 
 type Banner = { ok: boolean; msg: string } | null;
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
+  draft: { label: "待核准", chip: "bg-[#FDF3E3] text-[#854F0B]" },
   in_transit: { label: "在途", chip: "bg-[#FDF3E3] text-[#854F0B]" },
   partial: { label: "部分到貨", chip: "bg-[#FDF3E3] text-[#854F0B]" },
   received: { label: "已收貨", chip: "bg-[#EAF3DE] text-[#3B6D11]" },
@@ -26,6 +28,7 @@ const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
 
 const STATUS_OPTIONS = [
   { value: "", label: "全部" },
+  { value: "draft", label: "待核准" },
   { value: "in_transit", label: "在途" },
   { value: "partial", label: "部分到貨" },
   { value: "received", label: "已收貨" },
@@ -65,6 +68,7 @@ export function TransferInBoard({
   kpis,
   warehouses,
   canEdit,
+  canApprove,
   loadError,
   filter,
   pagination,
@@ -74,6 +78,8 @@ export function TransferInBoard({
   kpis: TransferInKpis;
   warehouses: WarehouseOption[];
   canEdit: boolean;
+  /** 是否有核准調撥申請的權限（B 門店主管審批閘門） */
+  canApprove: boolean;
   loadError: string | null;
   filter: {
     q: string;
@@ -507,10 +513,11 @@ export function TransferInBoard({
         exportFileName="transfer-in"
         emptyMessage="沒有符合條件的調撥單"
         disabled={isPending}
-        rowActionsWidth={180}
+        rowActionsWidth={230}
         rowActions={(r) => {
           const canReceive =
             canEdit && (r.status === "in_transit" || r.status === "partial");
+          const canApproveRow = canApprove && r.status === "draft";
           return (
             <div className="flex gap-1">
               <Link
@@ -519,6 +526,13 @@ export function TransferInBoard({
               >
                 檢視
               </Link>
+              {canApproveRow ? (
+                <ApproveTransferButton
+                  transferId={r.id}
+                  trNo={r.tr_no ?? ""}
+                  onResult={flash}
+                />
+              ) : null}
               {canReceive ? (
                 <ReceiveTransferButton
                   transferId={r.id}

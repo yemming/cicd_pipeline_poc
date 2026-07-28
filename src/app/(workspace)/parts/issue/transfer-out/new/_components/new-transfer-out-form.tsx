@@ -121,11 +121,11 @@ export function NewTransferOutForm({ data }: { data: NewTransferFormData }) {
         })),
       });
       if (res.ok) {
-        flash({ ok: true, msg: `✓ 已建單並出貨 ${res.data.tr_no}` });
+        flash({ ok: true, msg: `✓ 已送出調撥申請 ${res.data.tr_no}，待目標倉核准` });
         router.push(`/parts/issue/transfer-out/${res.data.id}`);
         router.refresh();
       } else {
-        flash({ ok: false, msg: `建單失敗：${res.error}` });
+        flash({ ok: false, msg: `送出申請失敗：${res.error}` });
       }
     });
   }
@@ -166,7 +166,7 @@ export function NewTransferOutForm({ data }: { data: NewTransferFormData }) {
             <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
               <h2 className="text-[13px] font-semibold text-[#2C2C2A]">▼ 調撥單內容</h2>
               <p className="text-[11px] text-[#9A9890] mt-0.5">
-                建單即出貨：來源倉依 FIFO 扣帳 → 目標倉建在途 → 等對面 transfer-in 收貨
+                送出後為待核准申請：目標倉主管核准 → 來源倉才依 FIFO 扣帳、建在途 → 等對面 transfer-in 收貨
               </p>
             </header>
             <div className="px-4 py-4 space-y-4">
@@ -397,7 +397,7 @@ export function NewTransferOutForm({ data }: { data: NewTransferFormData }) {
             <span className="text-[13px] font-semibold text-[#2C2C2A]">▼ FIFO 配置預覽</span>
             {preview.can_post ? (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#EAF3DE] text-[#3B6D11]">
-                可出貨
+                可送出申請
               </span>
             ) : (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] bg-[#FDECEA] text-[#CC0000]">
@@ -488,7 +488,7 @@ export function NewTransferOutForm({ data }: { data: NewTransferFormData }) {
               disabled={!preview.can_post || isPending}
               className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-60"
             >
-              {isPending ? "出貨中⋯" : "建單並出貨"}
+              {isPending ? "送出中⋯" : "送出調撥申請"}
             </button>
           </footer>
         </section>

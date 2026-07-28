@@ -14,12 +14,13 @@ import { updateTransfer, voidTransfer } from "@/domain/transfers";
 import { Timeline } from "@/components/visualization/Timeline";
 import type { ToneKey } from "@/components/visualization/tone";
 import { ReceiveTransferButton } from "../../_components/receive-transfer-button";
+import { ApproveTransferButton } from "../../_components/approve-transfer-button";
 
 type Banner = { ok: boolean; msg: string } | null;
 type Mode = "view" | "edit";
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
-  draft:           { label: "草稿",       chip: "bg-[#F2F2F2] text-[#6B6A68]" },
+  draft:           { label: "待核准",     chip: "bg-[#FDF3E3] text-[#854F0B]" },
   confirmed:       { label: "已確認",     chip: "bg-[#EAF4FB] text-[#185FA5]" },
   in_transit:      { label: "在途",       chip: "bg-[#FDF3E3] text-[#854F0B]" },
   partial:         { label: "部分到貨",   chip: "bg-[#FDF3E3] text-[#854F0B]" },
@@ -50,11 +51,14 @@ const inputClass =
 export function TransferDetailView({
   transfer,
   canEdit,
+  canApprove,
   subsidiaryInfo,
   timeline,
 }: {
   transfer: StockTransferDetail;
   canEdit: boolean;
+  /** 是否有核准調撥申請的權限（B 門店主管審批閘門） */
+  canApprove: boolean;
   subsidiaryInfo: TransferSubsidiaryInfo;
   timeline: TransferTimelineEvent[];
 }) {
@@ -80,6 +84,7 @@ export function TransferDetailView({
   const canVoid = transfer.status === "received";
   const canReceive =
     canEdit && (transfer.status === "in_transit" || transfer.status === "partial");
+  const canApproveRow = canApprove && transfer.status === "draft";
 
   function showBanner(b: Banner, autoCloseMs?: number) {
     setBanner(b);
@@ -210,6 +215,16 @@ export function TransferDetailView({
               >
                 ＋ 新增調撥
               </Link>
+              {canApproveRow ? (
+                <ApproveTransferButton
+                  transferId={transfer.id}
+                  trNo={transfer.tr_no}
+                  onResult={(r) => {
+                    showBanner(r, r.ok ? 2200 : undefined);
+                    if (r.ok) router.refresh();
+                  }}
+                />
+              ) : null}
               {canReceive ? (
                 <ReceiveTransferButton
                   transferId={transfer.id}

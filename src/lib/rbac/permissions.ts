@@ -76,6 +76,8 @@ export const PERMISSIONS = {
   ISSUE_CREATE: "parts.issue.create",
   TRANSFER_VIEW: "parts.transfer.view",
   TRANSFER_CREATE: "parts.transfer.create",
+  /** B 門店主管核准調撥申請（pull 模型審批閘門，見 domain/transfers.ts approveTransfer） */
+  TRANSFER_APPROVE: "parts.transfer.approve",
   EXCEPTION_OPS: "parts.exception.ops",
 
   // ─── 盤點 ──────────────────────────────────────

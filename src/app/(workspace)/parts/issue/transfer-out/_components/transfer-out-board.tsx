@@ -16,7 +16,7 @@ import { KpiCard } from "@/components/visualization/KpiCard";
 type Banner = { ok: boolean; msg: string } | null;
 
 const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
-  draft: { label: "草稿", chip: "bg-[#F2F2F2] text-[#6B6A68]" },
+  draft: { label: "待核准", chip: "bg-[#FDF3E3] text-[#854F0B]" },
   in_transit: { label: "在途", chip: "bg-[#FDF3E3] text-[#854F0B]" },
   partial: { label: "部分收貨", chip: "bg-[#FDF3E3] text-[#854F0B]" },
   received: { label: "已收貨", chip: "bg-[#EAF3DE] text-[#3B6D11]" },
@@ -26,6 +26,7 @@ const STATUS_LABEL: Record<string, { label: string; chip: string }> = {
 
 const STATUS_OPTIONS = [
   { value: "", label: "全部" },
+  { value: "draft", label: "待核准" },
   { value: "in_transit", label: "在途" },
   { value: "partial", label: "部分收貨" },
   { value: "received", label: "已收貨" },

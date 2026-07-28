@@ -155,7 +155,7 @@ export async function getTransferInPageData(): Promise<{
   canEdit: boolean;
 }> {
   const [rows, canEdit] = await Promise.all([
-    listTransfers({ status_in: ["in_transit", "partial", "received"] }),
+    listTransfers({ status_in: ["draft", "in_transit", "partial", "received"] }),
     hasPermission(PERMISSIONS.RECEIPT_CREATE),
   ]);
   return { rows, canEdit };
@@ -277,8 +277,8 @@ export async function getTransferInKpis(): Promise<TransferInKpis> {
  *
  * Filters：
  *  - q：tr_no ILIKE
- *  - status：'' | 'in_transit' | 'partial' | 'received' | 'cancelled'（'' 預設取
- *    in_transit + partial + received）
+ *  - status：'' | 'draft' | 'in_transit' | 'partial' | 'received' | 'cancelled'（'' 預設取
+ *    draft + in_transit + partial + received —— 含 draft：目標倉要看得到「等我核准」的申請）
  *  - source_warehouse_id / target_warehouse_id
  *  - date_from / date_to（對 ship_date）
  *
@@ -290,6 +290,8 @@ export type TransferInPageBundle = {
   kpis: TransferInKpis;
   warehouses: WarehouseOption[];
   canEdit: boolean;
+  /** 是否有核准調撥申請的權限（B 門店主管審批閘門，見 approveTransfer） */
+  canApprove: boolean;
 };
 
 export async function getTransferInPageBundle(
@@ -308,9 +310,9 @@ export async function getTransferInPageBundle(
 
   const statusIn = filter.status
     ? undefined
-    : ["in_transit", "partial", "received"];
+    : ["draft", "in_transit", "partial", "received"];
 
-  const [paged, kpis, canEdit, whRes] = await Promise.all([
+  const [paged, kpis, canEdit, canApprove, whRes] = await Promise.all([
     listTransfersPaged(
       {
         q: filter.q,
@@ -325,6 +327,7 @@ export async function getTransferInPageBundle(
     ),
     getTransferInKpis(),
     hasPermission(PERMISSIONS.RECEIPT_CREATE),
+    hasPermission(PERMISSIONS.TRANSFER_APPROVE),
     supabase
       .from("warehouses")
       .select("id, code, name")
@@ -338,6 +341,7 @@ export async function getTransferInPageBundle(
     totalCount: paged.totalCount,
     kpis,
     canEdit,
+    canApprove,
     warehouses: (whRes.data ?? []) as WarehouseOption[],
   };
 }
@@ -659,8 +663,9 @@ export type TransferOutPageBundle = {
  *
  * Filters：
  *  - q：tr_no ILIKE
- *  - status：'' | 'in_transit' | 'partial' | 'received' | 'cancelled'
- *    （'' 預設取 in_transit + partial + received + cancelled，反映出貨方視角的整段生命週期）
+ *  - status：'' | 'draft' | 'in_transit' | 'partial' | 'received' | 'cancelled'
+ *    （'' 預設取 draft + in_transit + partial + received + cancelled，反映出貨方視角的整段生命週期
+ *      —— 含 draft：申請人要看得到自己送出、還在等目標倉核准的單）
  *  - source_warehouse_id / target_warehouse_id
  *  - date_from / date_to（對 ship_date）
  *
@@ -680,10 +685,10 @@ export async function getTransferOutPageBundle(
   const supabase = await createClient();
   const scope = await getActiveScope();
 
-  // 出貨方視角不預設過濾掉 cancelled — 出貨人想看自己取消過的單
+  // 出貨方視角不預設過濾掉 cancelled/draft — 出貨人想看自己送出待核准、或取消過的單
   const statusIn = filter.status
     ? undefined
-    : ["in_transit", "partial", "received", "cancelled"];
+    : ["draft", "in_transit", "partial", "received", "cancelled"];
 
   const [paged, kpis, canEdit, whRes] = await Promise.all([
     listTransfersPaged(
@@ -933,6 +938,13 @@ export type CreateTransferInput = {
   }>;
 };
 
+/**
+ * 建立調撥申請（A 發起）— Pull 模型 Step 1。
+ *
+ * ⚠️ 只登記申請，**不扣源庫存、不建目標倉在途**。狀態落地為 'draft'（待核准），
+ * 實際 FIFO 扣帳與在途庫存建立延到 `approveTransfer()` 核准當下才做 ——
+ * 避免申請人單方面就能動庫存帳（那樣就不是調撥審批，只是換個名字的直接出貨）。
+ */
 export async function createTransfer(
   input: CreateTransferInput,
 ): Promise<Result<{ id: string; tr_no: string }>> {
@@ -947,10 +959,8 @@ export async function createTransfer(
     return { ok: false, error: `不支援的 transfer_type: ${transferType}` };
   }
 
-  const frozenCheck = await assertWarehouseNotFrozen(input.source_warehouse_id);
-  if (!frozenCheck.ok) return frozenCheck;
-
-  // 預檢
+  // 預檢（僅供 UX 參考：申請當下庫存夠不夠。實際扣帳基準以核准當下重新計算為準，
+  // 因為申請到核准之間庫存可能已變動）
   const previewRes = await previewTransfer({
     source_warehouse_id: input.source_warehouse_id,
     target_warehouse_id: input.target_warehouse_id,
@@ -962,9 +972,8 @@ export async function createTransfer(
   });
   if (!previewRes.ok) return previewRes;
   if (!previewRes.data.can_post) {
-    return { ok: false, error: "庫存不足，無法出貨（請看預覽紅色提示）" };
+    return { ok: false, error: "庫存不足，無法送出調撥申請（請看預覽紅色提示）" };
   }
-  const preview = previewRes.data;
 
   const supabase = await createClient();
   const scope = await getActiveScope();
@@ -994,7 +1003,8 @@ export async function createTransfer(
 
   const qtyTotal = input.lines.reduce((s, l) => s + l.qty_requested, 0);
 
-  // Insert stock_transfers
+  // Insert stock_transfers — status='draft'：申請已送出、等待目標倉核准。
+  // 尚未出貨，ship_date / shipped_at / shipped_by 留空，由 approveTransfer() 核准時寫入。
   const { data: tr, error: trErr } = await supabase
     .from("stock_transfers")
     .insert({
@@ -1004,56 +1014,149 @@ export async function createTransfer(
       target_warehouse_id: input.target_warehouse_id,
       transfer_type: transferType,
       reason: input.reason ?? null,
-      status: "in_transit",
-      ship_date: today.toISOString().slice(0, 10),
+      status: "draft",
       expected_arrival_date: input.expected_arrival_date ?? null,
       qty_requested_total: qtyTotal,
-      qty_shipped_total: qtyTotal,
+      qty_shipped_total: 0,
       qty_received_total: 0,
       logistics_provider: input.logistics_provider ?? null,
       logistics_tracking_no: input.logistics_tracking_no ?? null,
       notes: input.notes ?? null,
-      shipped_at: new Date().toISOString(),
-      shipped_by: user?.id ?? null,
+      created_by: user?.id ?? null,
     })
     .select("id")
     .single();
   if (trErr) return { ok: false, error: `建立調撥單失敗：${trErr.message}` };
 
-  // Insert stock_transfer_lines（line_no 對齊 preview）
-  const linesByLineNo = new Map(preview.lines.map((l) => [l.line_no, l]));
-  const inputByLineNo = new Map(input.lines.map((l, i) => [i + 1, l]));
-  const linesToInsert = preview.lines.map((pl) => {
-    const ipt = inputByLineNo.get(pl.line_no);
-    const totalCost = pl.picks.reduce((s, p) => s + p.qty * p.unit_cost, 0);
-    const avgCost = pl.qty_requested > 0 ? totalCost / pl.qty_requested : 0;
-    return {
-      brand_id: brandId,
-      tr_id: tr.id,
-      line_no: pl.line_no,
-      item_id: pl.item_id,
-      source_bin_id: pl.picks[0]?.bin_id ?? null,
-      target_bin_id: ipt?.target_bin_id ?? null,
-      qty_requested: pl.qty_requested,
-      qty_shipped: pl.qty_requested,
-      qty_received: 0,
-      uom: "PCS",
-      unit_cost: avgCost,
-      notes: ipt?.line_notes ?? null,
-    };
-  });
-  const { data: trLines, error: linesErr } = await supabase
+  // Insert stock_transfer_lines — 僅登記申請數量與偏好來源/目標 bin，
+  // 尚未鎖定實際 FIFO pick / 成本（那要等核准當下才算，見 approveTransfer）
+  const linesToInsert = input.lines.map((l, i) => ({
+    brand_id: brandId,
+    tr_id: tr.id,
+    line_no: i + 1,
+    item_id: l.item_id,
+    source_bin_id: l.source_bin_id ?? null,
+    target_bin_id: l.target_bin_id ?? null,
+    qty_requested: l.qty_requested,
+    qty_shipped: 0,
+    qty_received: 0,
+    uom: "PCS",
+    unit_cost: null,
+    notes: l.line_notes ?? null,
+  }));
+  const { error: linesErr } = await supabase
     .from("stock_transfer_lines")
-    .insert(linesToInsert)
-    .select("id, item_id, line_no, target_bin_id");
-  if (linesErr || !trLines) {
+    .insert(linesToInsert);
+  if (linesErr) {
     await supabase.from("stock_transfers").delete().eq("id", tr.id);
-    return { ok: false, error: `建立調撥明細失敗：${linesErr?.message ?? ""}` };
+    return { ok: false, error: `建立調撥明細失敗：${linesErr.message}` };
   }
+
+  revalidatePath("/parts/issue/transfer-out");
+  revalidatePath("/parts/receipt/transfer-in");
+  revalidatePath("/parts/operations/transfers-in-transit");
+  revalidatePath("/parts/operations/balance");
+  return { ok: true, data: { id: tr.id, tr_no } };
+}
+
+/**
+ * 核准 / 退回調撥申請（B 門店主管審批）— Pull 模型 Step 2。
+ *
+ * 僅 status='draft' 的申請可操作：
+ *  - decision='approve'：核准當下才真正動庫存帳 —— 用當下庫存重跑 FIFO
+ *    （申請當下到核准當下庫存可能已變動，不可信任申請當下的舊配置）、扣源
+ *    stock_items、建目標倉 in_transit、回寫明細實際出貨數量/成本/來源
+ *    bin、狀態轉 'in_transit'。
+ *  - decision='reject'：純狀態轉 'cancelled'（草稿階段沒動過庫存，不需沖回）。
+ */
+export async function approveTransfer(
+  id: string,
+  decision: "approve" | "reject",
+  reason?: string,
+): Promise<Result<{ id: string; status: string }>> {
+  if (!(await hasPermission(PERMISSIONS.TRANSFER_APPROVE))) {
+    return { ok: false, error: "沒有核准調撥單的權限" };
+  }
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+
+  const { data: tr, error: trErr } = await supabase
+    .from("stock_transfers")
+    .select("id, tr_no, status, source_warehouse_id, target_warehouse_id")
+    .eq("id", id)
+    .eq("brand_id", scope.brand_id)
+    .maybeSingle();
+  if (trErr) return { ok: false, error: trErr.message };
+  if (!tr) return { ok: false, error: "找不到調撥單" };
+  if (tr.status !== "draft") {
+    return { ok: false, error: `狀態 ${tr.status} 不可核准（僅待核准中的申請可操作）` };
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (decision === "reject") {
+    const trimmed = (reason ?? "").trim();
+    if (!trimmed) return { ok: false, error: "請填寫退回原因" };
+    const { error: updErr } = await supabase
+      .from("stock_transfers")
+      .update({
+        status: "cancelled",
+        voided_at: new Date().toISOString(),
+        voided_by: user?.id ?? null,
+        void_reason: `核准退回：${trimmed}`,
+      })
+      .eq("id", id);
+    if (updErr) return { ok: false, error: `退回失敗：${updErr.message}` };
+
+    revalidatePath("/parts/issue/transfer-out");
+    revalidatePath(`/parts/issue/transfer-out/${id}`);
+    revalidatePath("/parts/receipt/transfer-in");
+    revalidatePath("/parts/operations/transfers-in-transit");
+    revalidatePath("/parts/operations/balance");
+    return { ok: true, data: { id, status: "cancelled" } };
+  }
+
+  // decision === "approve"：核准當下才真正扣源庫存、建目標倉在途
+  const frozenCheck = await assertWarehouseNotFrozen(tr.source_warehouse_id);
+  if (!frozenCheck.ok) return frozenCheck;
+
+  const { data: trLines, error: linesFetchErr } = await supabase
+    .from("stock_transfer_lines")
+    .select("id, line_no, item_id, qty_requested, source_bin_id, target_bin_id")
+    .eq("tr_id", id)
+    .order("line_no", { ascending: true });
+  if (linesFetchErr) return { ok: false, error: linesFetchErr.message };
+  if (!trLines?.length) return { ok: false, error: "調撥單無明細" };
+
+  // 用核准當下的庫存重跑 FIFO 配置（申請當下到核准當下庫存可能已變動）
+  const previewRes = await previewTransfer({
+    source_warehouse_id: tr.source_warehouse_id,
+    target_warehouse_id: tr.target_warehouse_id,
+    lines: trLines.map((l) => ({
+      item_id: l.item_id,
+      qty_requested: Number(l.qty_requested),
+      source_bin_id: l.source_bin_id,
+    })),
+  });
+  if (!previewRes.ok) return previewRes;
+  if (!previewRes.data.can_post) {
+    return { ok: false, error: "核准當下庫存不足，無法出貨（請看預覽紅色提示）" };
+  }
+  const preview = previewRes.data;
+
+  const brandId = scope.brand_id;
+  const today = new Date();
+  const qtyTotal = trLines.reduce((s, l) => s + Number(l.qty_requested), 0);
   const trLineByLineNo = new Map(trLines.map((l) => [l.line_no, l]));
 
-  // 扣源 stock_items + 建目標倉 in_transit
   for (const pl of preview.lines) {
+    const trLine = trLineByLineNo.get(pl.line_no);
+    if (!trLine) continue;
+    const totalCost = pl.picks.reduce((s, p) => s + p.qty * p.unit_cost, 0);
+    const avgCost = pl.qty_requested > 0 ? totalCost / pl.qty_requested : 0;
+
+    // 扣源 stock_items
     for (const pick of pl.picks) {
       const { data: cur } = await supabase
         .from("stock_items")
@@ -1067,60 +1170,59 @@ export async function createTransfer(
       };
       if (newQty <= 0) update.status = "issued";
       await supabase.from("stock_items").update(update).eq("id", pick.stock_id);
-
-      // 成本事件（transfer_out）— 源倉出帳。同步呼叫（不用 after()：本專案 Next 16 +
-      // Zeabur 環境已多次證實 after() 不可靠，成本帳這種財務關鍵資料不能賭）。
-      // 失敗不擋出貨主流程（庫存異動已發生），只記 log 供事後排查。
-      const costOutRes = await postCostEvent({
-        subjectType: "part",
-        eventType: "transfer_out",
-        brandId,
-        itemId: pl.item_id,
-        warehouseId: input.source_warehouse_id,
-        qty: pick.qty,
-        unitCostIn: pick.unit_cost,
-        sourceTable: "stock_transfers",
-        sourceId: tr.id,
-        stockItemId: pick.stock_id,
-        notes: `調撥 ${tr_no} 出貨`,
-      });
-      if (!costOutRes.ok) {
-        console.error("[costing] transfer_out 成本事件失敗（不影響出貨流程）", {
-          tr_no,
-          item_id: pl.item_id,
-          stock_id: pick.stock_id,
-          error: costOutRes.error,
-        });
-      }
     }
-    const trLine = trLineByLineNo.get(pl.line_no);
+
+    // 建目標倉在途
     const inTransitRows = pl.picks.map((p) => ({
       brand_id: brandId,
       item_id: pl.item_id,
-      warehouse_id: input.target_warehouse_id,
-      bin_id: trLine?.target_bin_id ?? null,
+      warehouse_id: tr.target_warehouse_id,
+      bin_id: trLine.target_bin_id ?? null,
       qty: p.qty,
       status: "in_transit",
       unit_cost: p.unit_cost,
       serial_no: p.serial_no,
       batch_no: p.batch_no,
-      source_transfer_line_id: trLine?.id ?? null,
-      notes: `調撥 ${tr_no} 在途`,
+      source_transfer_line_id: trLine.id,
+      notes: `調撥 ${tr.tr_no} 在途`,
     }));
     const { error: itrErr } = await supabase.from("stock_items").insert(inTransitRows);
     if (itrErr) {
       return { ok: false, error: `建在途庫存失敗：${itrErr.message}` };
     }
+
+    // 回寫該明細實際出貨數量 / 成本 / 實際來源 bin
+    const { error: lineUpdErr } = await supabase
+      .from("stock_transfer_lines")
+      .update({
+        qty_shipped: pl.qty_requested,
+        unit_cost: avgCost,
+        source_bin_id: pl.picks[0]?.bin_id ?? null,
+      })
+      .eq("id", trLine.id);
+    if (lineUpdErr) {
+      return { ok: false, error: `更新調撥明細失敗：${lineUpdErr.message}` };
+    }
   }
 
-  // line_notes（avoid unused-var warning by referencing in linesToInsert above）
-  void linesByLineNo;
+  const { error: shipErr } = await supabase
+    .from("stock_transfers")
+    .update({
+      status: "in_transit",
+      ship_date: today.toISOString().slice(0, 10),
+      qty_shipped_total: qtyTotal,
+      shipped_at: new Date().toISOString(),
+      shipped_by: user?.id ?? null,
+    })
+    .eq("id", id);
+  if (shipErr) return { ok: false, error: `核准出貨失敗：${shipErr.message}` };
 
   revalidatePath("/parts/issue/transfer-out");
+  revalidatePath(`/parts/issue/transfer-out/${id}`);
   revalidatePath("/parts/receipt/transfer-in");
   revalidatePath("/parts/operations/transfers-in-transit");
   revalidatePath("/parts/operations/balance");
-  return { ok: true, data: { id: tr.id, tr_no } };
+  return { ok: true, data: { id, status: "in_transit" } };
 }
 
 /**
