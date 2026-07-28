@@ -14,6 +14,10 @@ import {
   pickAdHoc,
   createReplenishmentRequest,
 } from "@/domain/issues";
+import {
+  getCrossWarehouseStock,
+  type CrossStoreStockRow,
+} from "@/domain/repair-order-lines";
 
 type Mode = "ro" | "adhoc";
 
@@ -649,12 +653,29 @@ function PreviewPanel({
   // 部分出庫狀態：完全無庫存可出 / 可部分出庫 / 全可過帳
   const nothingToIssue = preview.qty_total <= 0;
   const partial = hasShortage && !nothingToIssue;
+  // B1：缺料是否含「被其他工單預留卡住」的部分 → 決定「等待釋放」選項是否適用
+  const hasReservedByOthers = shortageLines.some((l) => l.reserved_by_ros.length > 0);
 
   // 保固件明細（料件在保固 id 清單中）
   const warrantyLines = preview.lines.filter((l) => warrantyItemIds.has(l.item_id));
   const hasWarranty = warrantyLines.length > 0;
 
+  // B1：跨店（跨倉）庫存查詢 modal — 缺料時三選項之一「跨店調撥」，就地查詢不必跳去 RO 明細頁
+  const [crossStore, setCrossStore] = useState<{
+    line: RepairPickPreview["lines"][number];
+    rows: CrossStoreStockRow[] | null;
+  } | null>(null);
+  const [crossLoading, setCrossLoading] = useState(false);
+  async function openCrossStore(line: RepairPickPreview["lines"][number]) {
+    setCrossStore({ line, rows: null });
+    setCrossLoading(true);
+    const rows = await getCrossWarehouseStock(line.item_id);
+    setCrossStore((c) => (c && c.line.item_id === line.item_id ? { ...c, rows } : c));
+    setCrossLoading(false);
+  }
+
   return (
+    <>
     <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
       <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center gap-3">
         <span className="text-[13px] font-semibold text-[#2C2C2A]">
@@ -675,7 +696,7 @@ function PreviewPanel({
         )}
       </header>
 
-      {/* 缺料警示區塊 */}
+      {/* 缺料警示區塊 — B1：緊急採購／等待釋放／跨店調撥三種處理選項統一彙整於此，不分散到別頁 */}
       {hasShortage && (
         <div className="px-4 py-3 border-b border-[#F5AEAD] bg-[#FDECEA]/30">
           <div className="flex items-start gap-2 mb-2">
@@ -684,32 +705,87 @@ function PreviewPanel({
               <p className="text-[12.5px] font-semibold text-[#CC0000]">
                 缺料警示 — {shortageLines.length} 項料件庫存不足
               </p>
-              <ul className="mt-1 space-y-0.5">
+              <ul className="mt-1 space-y-1">
                 {shortageLines.map((l) => (
-                  <li key={l.item_id} className="text-[11.5px] text-[#CC0000] font-mono">
-                    {l.item_code ?? "—"} {l.item_name}：缺 {l.shortage} 件
+                  <li key={l.item_id} className="text-[11.5px] text-[#CC0000]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono">
+                        {l.item_code ?? "—"} {l.item_name}：缺 {l.shortage} 件
+                      </span>
+                      {l.reserved_by_ros.length > 0 && (
+                        <span className="text-[#854F0B]">
+                          🔒 已被{" "}
+                          {l.reserved_by_ros.map((r, i) => (
+                            <span key={r.ro_id}>
+                              {i > 0 ? "、" : ""}
+                              <a
+                                href={`/parts/aftersales/repair-orders/${r.ro_id}/lines`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline hover:text-[#0F2A45]"
+                              >
+                                {r.ro_code ?? r.ro_id.slice(0, 8)}
+                              </a>
+                            </span>
+                          ))}{" "}
+                          預留 {l.reserved_by_others} 件
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openCrossStore(l)}
+                        className="h-[20px] px-2 rounded text-[10.5px] font-sans font-medium bg-white border border-[#F5AEAD] text-[#185FA5] hover:bg-[#EAF4FB]"
+                      >
+                        查跨店庫存
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
-              <p className="mt-1.5 text-[11px] text-[#854F0B]">
-                {nothingToIssue
-                  ? "目前完全無可用庫存，無法出庫；請用下方「建立補貨需求單」登記待補。"
-                  : "可先就足額品項過帳出庫，缺貨品項按「部分出庫並過帳」時會自動轉補貨需求並回寫工單；若只想登記補貨、暫不出庫，可單獨點下方按鈕。"}
+            </div>
+          </div>
+
+          {/* 三種處理選項 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+            <div className="rounded border border-[#F5AEAD] bg-white px-2.5 py-2">
+              <p className="text-[11px] font-semibold text-[#854F0B] mb-1.5">① 緊急採購</p>
+              <button
+                type="button"
+                onClick={onCreateReplenishment}
+                disabled={isPending}
+                className="h-[26px] w-full px-3 rounded text-[11.5px] font-medium bg-[#CC0000] text-white hover:bg-[#A30000] disabled:opacity-50 inline-flex items-center justify-center gap-1"
+              >
+                {isPending ? "建立中⋯" : "📦 建立補貨需求單"}
+              </button>
+              <p className="text-[10.5px] text-[#9A9890] mt-1 leading-relaxed">
+                向採購登記缺料需求，走一般補貨流程。
+              </p>
+            </div>
+            <div className="rounded border border-[#F5AEAD] bg-white px-2.5 py-2">
+              <p className="text-[11px] font-semibold text-[#854F0B] mb-1.5">② 等待釋放</p>
+              <p className="text-[11px] text-[#5A5955] leading-relaxed">
+                {hasReservedByOthers
+                  ? "上方已標示被哪些工單預留；待對方領料完成或取消預留後，本單缺額會自動釋放，稍後回來重新查詢即可，不需額外動作。"
+                  : "本次缺料非其他工單預留造成（倉內確實無庫存），此選項不適用，請改用左／右側選項。"}
+              </p>
+            </div>
+            <div className="rounded border border-[#F5AEAD] bg-white px-2.5 py-2">
+              <p className="text-[11px] font-semibold text-[#854F0B] mb-1.5">③ 跨店調撥</p>
+              <p className="text-[11px] text-[#5A5955] leading-relaxed">
+                點上方缺料列的「查跨店庫存」看各倉可用量；確認他倉有貨後，至「庫存調撥」開立調撥單。
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {/* 補貨需求按鈕 */}
-            <button
-              type="button"
-              onClick={onCreateReplenishment}
-              disabled={isPending}
-              className="h-[26px] px-3 rounded text-[11.5px] font-medium bg-[#CC0000] text-white hover:bg-[#A30000] disabled:opacity-50 inline-flex items-center gap-1"
-            >
-              {isPending ? "建立中⋯" : "📦 建立補貨需求單"}
-            </button>
-            {/* 通知售後 SA 啟動增項閉環 */}
-            {selectedWoId && (
+
+          <p className="mt-2 text-[11px] text-[#854F0B]">
+            {nothingToIssue
+              ? "目前完全無可用庫存，無法出庫；請選擇上方任一處理方式。"
+              : "可先就足額品項過帳出庫，缺貨品項按「部分出庫並過帳」時會自動轉補貨需求並回寫工單；若只想登記補貨、暫不出庫，可單獨使用上方①的按鈕。"}
+          </p>
+
+          {/* 通知售後 SA 啟動增項閉環（既有功能，與三選項無關，維持在此） */}
+          {selectedWoId && (
+            <div className="mt-2">
               <a
                 href={`/service/workorders/${selectedWoId}`}
                 target="_blank"
@@ -718,8 +794,8 @@ function PreviewPanel({
               >
                 🔔 通知售後 SA 啟動增項閉環 →
               </a>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -866,5 +942,73 @@ function PreviewPanel({
         </button>
       </footer>
     </section>
+
+    {/* B1：跨店（跨倉）庫存 modal — 就地查詢，不必跳去 RO 明細頁 */}
+    {crossStore && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+        onClick={() => setCrossStore(null)}
+      >
+        <div
+          className="bg-white rounded-lg shadow-xl border border-[#EEECE6] w-[460px] max-w-[92vw] overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <header className="px-4 py-3 border-b border-[#EEECE6] bg-[#F8F7F4]">
+            <div className="text-[13px] font-semibold text-[#2C2C2A]">
+              跨店庫存 — {crossStore.line.item_name}
+            </div>
+            <div className="text-[11px] text-[#9A9890] font-mono mt-0.5">
+              {crossStore.line.item_code ?? "—"} · 本單缺 {crossStore.line.shortage}
+            </div>
+          </header>
+          <div className="px-4 py-3 max-h-[50vh] overflow-y-auto">
+            {crossLoading ? (
+              <div className="text-[12.5px] text-[#9A9890] py-6 text-center">查詢中⋯</div>
+            ) : !crossStore.rows || crossStore.rows.length === 0 ? (
+              <div className="text-[12.5px] text-[#CC0000] py-6 text-center">
+                全品牌各倉皆無此料庫存，建議改採購 / 等待釋放。
+              </div>
+            ) : (
+              <table className="w-full text-[12.5px]">
+                <thead>
+                  <tr className="text-[11px] text-[#9A9890] border-b border-[#EEECE6]">
+                    <th className="text-left py-1.5">倉庫</th>
+                    <th className="text-right py-1.5">可用庫存</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {crossStore.rows.map((w) => (
+                    <tr key={w.warehouse_id} className="border-b border-[#F2F2F2] last:border-0">
+                      <td className="py-1.5">
+                        <span className="font-mono text-[11px] text-[#5A5955]">
+                          {w.warehouse_code ?? "—"}
+                        </span>{" "}
+                        {w.warehouse_name}
+                      </td>
+                      <td className="py-1.5 text-right font-mono font-semibold text-[#1A3A5C]">
+                        {w.qty}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div className="mt-3 text-[11px] text-[#9A9890]">
+              如需從他倉調貨，請至「庫存調撥」開立調撥單（POC：此處先供查詢）。
+            </div>
+          </div>
+          <footer className="px-4 py-3 border-t border-[#EEECE6] bg-[#F8F7F4] flex justify-end">
+            <button
+              type="button"
+              onClick={() => setCrossStore(null)}
+              className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+            >
+              關閉
+            </button>
+          </footer>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

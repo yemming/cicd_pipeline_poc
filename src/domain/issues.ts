@@ -23,6 +23,7 @@ import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
 import { getBrandConfig } from "@/domain/brand-config";
 import { instantiateTransaction, TX_TYPES } from "@/domain/transactions";
+import { assertWarehouseNotFrozen } from "@/domain/count";
 
 import type { Database } from "@/lib/database.types";
 
@@ -878,6 +879,8 @@ export type RepairPickPreviewLine = {
   qty_available: number;
   /** 被「其他工單」active 預留卡住的數量（場景一：防止多工單搶同一料）。> 0 時 UI 顯示「已被其他工單預留」。 */
   reserved_by_others: number;
+  /** B1：reserved_by_others > 0 時，是哪幾張工單持有預留（供「等待釋放」選項顯示，讓 SA 判斷要不要等）。 */
+  reserved_by_ros: Array<{ ro_id: string; ro_code: string | null; qty: number }>;
   shortage: number;
   unit_cost_estimate: number;
   picks: Array<{
@@ -999,6 +1002,8 @@ export async function previewRepairPick(
   // 一次撈齊這批 item 在該倉的 active 預留，排除「本工單自己」的預留（自己的出庫時會 consume，不該擋自己）。
   // adhoc（無 workOrderId）→ 全部 active 預留都算「別人的」，一律扣。
   const reservedByOthersMap = new Map<string, number>();
+  // B1：item_id → 持有預留的工單清單（ro_id/qty），供「等待釋放」選項顯示是哪張工單卡住
+  const reservedByRosMap = new Map<string, Array<{ ro_id: string; qty: number }>>();
   {
     const { data: resvRows, error: resvErr } = await supabase
       .from("inventory_reservations")
@@ -1014,8 +1019,25 @@ export async function previewRepairPick(
       const rem = Number(r.reserved_qty) - Number(r.consumed_qty ?? 0);
       if (rem > 0) {
         reservedByOthersMap.set(r.item_id, (reservedByOthersMap.get(r.item_id) ?? 0) + rem);
+        if (r.ro_id) {
+          const list = reservedByRosMap.get(r.item_id) ?? [];
+          list.push({ ro_id: r.ro_id, qty: rem });
+          reservedByRosMap.set(r.item_id, list);
+        }
       }
     }
+  }
+  // 把持有預留的 ro_id 換成 ro_code（供 UI 顯示可讀單號）
+  const reservingRoIds = Array.from(
+    new Set(Array.from(reservedByRosMap.values()).flatMap((rows) => rows.map((r) => r.ro_id))),
+  );
+  const roCodeMap = new Map<string, string | null>();
+  if (reservingRoIds.length) {
+    const { data: roRows } = await supabase
+      .from("repair_orders")
+      .select("id, ro_code")
+      .in("id", reservingRoIds);
+    for (const r of roRows ?? []) roCodeMap.set(r.id, r.ro_code ?? null);
   }
 
   // 對每個 need 跑 FIFO 配置
@@ -1081,6 +1103,11 @@ export async function previewRepairPick(
       qty_needed: n.qty_needed,
       qty_available,
       reserved_by_others: reservedByOthers,
+      reserved_by_ros: (reservedByRosMap.get(n.item_id) ?? []).map((r) => ({
+        ro_id: r.ro_id,
+        ro_code: roCodeMap.get(r.ro_id) ?? null,
+        qty: r.qty,
+      })),
       shortage,
       unit_cost_estimate,
       picks,
@@ -1305,6 +1332,9 @@ async function persistPick(args: {
   repairOrderId?: string | null;
 }): Promise<Result<PickResult>> {
   const { supabase, brandId, userId, type, warehouseId, customerId, roId, sourceDocType, sourceDocId, notes, preview, lineNotes, linePrices, postCogs, autoBackorder, roNo, repairOrderId } = args;
+
+  const frozenCheck = await assertWarehouseNotFrozen(warehouseId);
+  if (!frozenCheck.ok) return frozenCheck;
 
   const gi_no = await nextGiNo(supabase);
   const now = new Date();
@@ -1712,6 +1742,9 @@ export async function voidIssue(
   if (issue.status !== "completed") {
     return { ok: false, error: `狀態 ${issue.status} 不可作廢（需 completed）` };
   }
+
+  const frozenCheck = await assertWarehouseNotFrozen(issue.warehouse_id);
+  if (!frozenCheck.ok) return frozenCheck;
 
   const { data: lines, error: linesErr } = await supabase
     .from("stock_issue_lines")
