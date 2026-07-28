@@ -193,6 +193,11 @@ export async function createPurchaseOrder(
   }
 
   const supabase = await createClient();
+  // ⚠️ brand_id 天條：purchase_orders/purchase_order_lines 的 brand_id 欄位 DEFAULT 是
+  // 'ducati'（schema 沿革遺留），insert 若不明講 brand_id，RLS brand_scoped_insert
+  // policy（user_has_brand(brand_id)）對非 ducati scope 的 session 一律擋下、
+  // 對 ducati scope 的 session 則會靜默把單造到錯的品牌。此處必須明確帶 scope.brand_id。
+  const scope = await getActiveScope();
 
   // 1. 產 PO 號 PO + yyyymmdd-NNN
   const today = new Date();
@@ -203,6 +208,7 @@ export async function createPurchaseOrder(
   const { data: lastPO } = await supabase
     .from("purchase_orders")
     .select("po_no")
+    .eq("brand_id", scope.brand_id)
     .like("po_no", `PO${dateStr}-%`)
     .order("po_no", { ascending: false })
     .limit(1)
@@ -240,6 +246,7 @@ export async function createPurchaseOrder(
   const { data: po, error: poErr } = await supabase
     .from("purchase_orders")
     .insert({
+      brand_id: scope.brand_id,
       po_no,
       vendor_id: input.vendor_id,
       warehouse_id: input.warehouse_id,
@@ -258,7 +265,11 @@ export async function createPurchaseOrder(
   if (poErr) return { ok: false, error: `建立 PO 失敗:${poErr.message}` };
 
   // 4. Insert lines
-  const linesToInsert = linesWithAmount.map((l) => ({ ...l, po_id: po.id }));
+  const linesToInsert = linesWithAmount.map((l) => ({
+    ...l,
+    po_id: po.id,
+    brand_id: scope.brand_id,
+  }));
   const { error: linesErr } = await supabase
     .from("purchase_order_lines")
     .insert(linesToInsert);
