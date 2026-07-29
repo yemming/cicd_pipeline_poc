@@ -159,8 +159,19 @@ export function buildFeeSummary(
 
   for (const l of lines) {
     if (l.is_warranty) continue;
-    const labor = Number(l.labor_units ?? 0) * laborUnitPrice;
-    const part = Number(l.amount ?? Number(l.qty ?? 0) * Number(l.unit_price ?? 0));
+    // 工資小計：優先用該行實際 amount（= labor_units × 實際 unit_price，寫入時已算好）；
+    // 沒有 amount 才退回 labor_units × 實際 unit_price；兩者都沒有（舊資料缺 unit_price）
+    // 才用 laborUnitPrice 這個保底預設值 —— 絕不能無條件蓋掉 SA/技師實際輸入的單價。
+    const labor =
+      l.kind === "labor"
+        ? Number(l.amount ?? Number(l.labor_units ?? 0) * Number(l.unit_price ?? laborUnitPrice))
+        : 0;
+    // 零件小計：同理只在 kind='part' 才計入；否則 labor 行的 amount 會被這裡的
+    // `l.amount` fallback 誤吃成零件金額，造成 parts_amount 灌水、labor_amount 又用寫死值算錯（同一根因）。
+    const part =
+      l.kind === "part"
+        ? Number(l.amount ?? Number(l.qty ?? 0) * Number(l.unit_price ?? 0))
+        : 0;
     feeLines.push({
       source: "line",
       source_ref_id: l.id,
