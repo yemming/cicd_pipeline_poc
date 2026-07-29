@@ -95,23 +95,31 @@ export async function POST(req: NextRequest) {
   // （兩者都是「已送件、等原廠核復撥款」，沿用 @/domain/warranty-receivables 的映射）。
   const { data: rows } = await sb
     .from("warranty_claims")
-    .select("id, brand_id, applied_amount, approved_amount, submitted_at, oem_reference_no")
+    .select("id, brand_id, cl_no, applied_amount, approved_amount, submitted_at, oem_reference_no")
     .in("status", ["submitted", "under_review"])
     .lt("submitted_at", cutoff);
   const overdue = ((rows ?? []) as Array<{
     id: string;
     brand_id: string;
+    cl_no: string | null;
     applied_amount: number | string | null;
     approved_amount: number | string | null;
     submitted_at: string;
     oem_reference_no: string | null;
-  }>).map((r) => ({
-    id: r.id,
-    brand_id: r.brand_id,
-    claim_amount: Number(r.approved_amount ?? r.applied_amount ?? 0),
-    submitted_at: r.submitted_at,
-    oem_reference_no: r.oem_reference_no,
-  }));
+  }>).map((r) => {
+    // approved_amount 未核准前預設值是 '0.00'（非 null），?? 對它沒有 fallback 效果，
+    // 必須顯式判斷「已核准金額 > 0」才採用，否則一律退回申請金額 applied_amount。
+    const approved = Number(r.approved_amount ?? 0);
+    const applied = Number(r.applied_amount ?? 0);
+    return {
+      id: r.id,
+      brand_id: r.brand_id,
+      cl_no: r.cl_no,
+      claim_amount: approved > 0 ? approved : applied,
+      submitted_at: r.submitted_at,
+      oem_reference_no: r.oem_reference_no,
+    };
+  });
 
   const result = { overdue_claims: overdue.length, notified: 0, dry_run: dryRun };
 
@@ -135,7 +143,7 @@ export async function POST(req: NextRequest) {
             recipient_user_id: uid,
             event_code: "warranty_claim_receivable.overdue_90d",
             title: "⚠️ 保固索賠逾 90 天原廠未撥款",
-            body: `索賠款 NT$${Number(c.claim_amount).toLocaleString()}（${
+            body: `索賠單 ${c.cl_no ?? c.id} NT$${Number(c.claim_amount).toLocaleString()}（${
               c.oem_reference_no ? `原廠案號 ${c.oem_reference_no}` : "無原廠案號"
             }）已送出 ${days} 天，原廠仍未撥款，請追蹤催辦。`,
             priority: "red" as const,
