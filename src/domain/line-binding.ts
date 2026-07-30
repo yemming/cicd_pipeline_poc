@@ -140,7 +140,7 @@ export async function generateMyLineBindCode(): Promise<
     brand_id: emp.brand_id,
     expires_at: expiresAt,
   });
-  if (error) return { ok: false, error: `產生綁定碼失敗：${error.message}` };
+  if (error) return { ok: false, error: `產生綁定碼失敗[v2]：${error.message}` };
   return { ok: true, code, expiresAt };
 }
 
