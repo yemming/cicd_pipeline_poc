@@ -204,5 +204,14 @@ function formatTime(iso: string): string {
   if (diffMin < 60) return `${diffMin} 分前`;
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `${diffH} 小時前`;
-  return d.toLocaleString("zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  // CLAUDE.md 慣例：時間欄位存 UTC、顯示一律轉 Asia/Taipei —— 沒帶 timeZone 會用 runtime
+  // 預設值，Zeabur server（UTC）跟瀏覽器端（多半 Asia/Taipei）算出來的字串不一樣，觸發 React
+  // hydration mismatch（error #418）。
+  return d.toLocaleString("zh-TW", {
+    timeZone: "Asia/Taipei",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
