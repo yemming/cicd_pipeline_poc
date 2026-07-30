@@ -11,11 +11,13 @@ type TabKey = "targets" | "events";
 export function SettingsNotificationsView({
   channels,
   targets,
+  eventTargets,
   candidates,
   subscriptions,
 }: {
   channels: ChannelOpt[];
   targets: TargetRow[];
+  eventTargets: TargetOpt[];
   candidates: CandidateView[];
   subscriptions: SubscriptionRow[];
 }) {
@@ -25,13 +27,6 @@ export function SettingsNotificationsView({
   });
 
   const [tab, setTab] = useState<TabKey>("targets");
-
-  const targetOpts: TargetOpt[] = targets.map((t) => ({
-    id: t.id,
-    display_name: t.display_name,
-    channel_code: t.channel_code,
-    is_active: t.is_active,
-  }));
 
   return (
     <main className="space-y-4 px-6 py-5">
@@ -57,7 +52,7 @@ export function SettingsNotificationsView({
           {tab === "targets" ? (
             <TargetsTab channels={channels} targets={targets} candidates={candidates} />
           ) : (
-            <EventsTab targets={targetOpts} subscriptions={subscriptions} />
+            <EventsTab targets={eventTargets} subscriptions={subscriptions} />
           )}
         </div>
       </div>
