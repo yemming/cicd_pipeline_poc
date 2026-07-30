@@ -20,7 +20,7 @@ export interface TargetOpt {
 export interface SubscriptionRow {
   id: string;
   event_code: string;
-  target_id: string;
+  target_id: string | null;
   is_active: boolean;
 }
 
@@ -103,7 +103,7 @@ function EventRow({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const subscribedTargetIds = new Set(subs.map((s) => s.target_id));
+  const subscribedTargetIds = new Set(subs.map((s) => s.target_id).filter((id): id is string => id !== null));
   const availableTargets = targets.filter((t) => !subscribedTargetIds.has(t.id));
 
   const addSubscription = () => {
@@ -140,7 +140,7 @@ function EventRow({
         )}
 
         {subs.map((s) => (
-          <SubscriptionChip key={s.id} sub={s} target={targetMap.get(s.target_id)} />
+          <SubscriptionChip key={s.id} sub={s} target={s.target_id ? targetMap.get(s.target_id) : undefined} />
         ))}
 
         {adding ? (

@@ -105,9 +105,10 @@ export async function getNotificationSubscriptionsBoardData(): Promise<Subscript
   // scope 品牌的 target，這裡把「訂閱有引用、但不在上面清單裡」的 target 額外補回來，
   // 避免 UI 把它誤判成「已刪除」。
   const knownIds = new Set(targets.map((t) => t.id));
-  const missingIds = Array.from(new Set(subscriptions.map((s) => s.target_id))).filter(
-    (id) => !knownIds.has(id),
-  );
+  const referencedTargetIds = subscriptions
+    .map((s) => s.target_id)
+    .filter((id): id is string => id !== null);
+  const missingIds = Array.from(new Set(referencedTargetIds)).filter((id) => !knownIds.has(id));
   const crossBrandTargets = await listTargetsByIds(supabase, missingIds);
 
   return {

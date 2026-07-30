@@ -172,6 +172,7 @@ export async function POST(req: NextRequest) {
         try {
           await notifications.dispatch({
             code: "sales_discount.escalated",
+            dealerId: row.brand_id as string,
             payload: {
               approvalId: row.id as string,
               quoteId: (row.quote_id as string) ?? "—",

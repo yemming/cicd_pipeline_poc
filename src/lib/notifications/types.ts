@@ -133,7 +133,10 @@ export interface NotificationTargetRow {
 export interface NotificationSubscriptionRow {
   id: string;
   event_code: EventCode;
-  target_id: string;
+  /** null 代表這筆是角色路由（見 target_role），不指向固定的 notification_targets */
+  target_id: string | null;
+  /** 有值時忽略 target_id，改查有此職位代碼（employees.role_codes）的在職員工發個人 LINE */
+  target_role: string | null;
   template_code: string | null;
   filter_rules: Record<string, unknown>;
   is_active: boolean;

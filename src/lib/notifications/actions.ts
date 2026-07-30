@@ -51,6 +51,66 @@ function j<T>(fd: FormData, key: string, fallback: T): T {
 // Subscriptions
 // ──────────────────────────────────────────────────────────
 
+/**
+ * Russell 第二版指令：/settings/notifications Tab 一「事件角色設定」的儲存動作。
+ * 一個事件在一個品牌下最多一筆角色路由（DB 有 partial unique index 把關），
+ * 這裡用 upsert：找得到既有角色列就更新，找不到就新增；targetRole 傳 null
+ * 代表「關閉」，若有既有角色列就直接停用（不刪，保留歷史設定方便之後重開）。
+ */
+export async function upsertEventRoleAction(
+  eventCode: EventCode,
+  targetRole: string | null,
+  isActive: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireNotificationAdmin();
+  const supabase = createServiceClient();
+
+  const { data: existing, error: findErr } = await supabase
+    .from("notification_subscriptions")
+    .select("id")
+    .eq("event_code", eventCode)
+    .not("target_role", "is", null)
+    .maybeSingle();
+  if (findErr) return { ok: false, error: `查詢既有設定失敗：${findErr.message}` };
+
+  if (!targetRole) {
+    // 關閉：既有角色列就停用；沒有就什麼都不用做
+    if (existing) {
+      const { error } = await supabase
+        .from("notification_subscriptions")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("id", existing.id as string);
+      if (error) return { ok: false, error: `停用失敗：${error.message}` };
+    }
+    revalidatePath("/settings/notifications");
+    return { ok: true };
+  }
+
+  if (existing) {
+    try {
+      await repoUpdateSub(supabase, existing.id as string, {
+        target_role: targetRole,
+        is_active: isActive,
+      });
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  } else {
+    try {
+      await repoCreateSub(supabase, {
+        event_code: eventCode,
+        target_role: targetRole,
+        is_active: isActive,
+        filter_rules: {},
+      });
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+  revalidatePath("/settings/notifications");
+  return { ok: true };
+}
+
 export async function createSubscriptionAction(fd: FormData): Promise<{ id: string }> {
   await requireNotificationAdmin();
   const event_code = s(fd, "event_code");

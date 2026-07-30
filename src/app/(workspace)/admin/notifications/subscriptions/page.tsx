@@ -30,14 +30,14 @@ export default async function SubscriptionsPage() {
   const targetMap = new Map(targets.map((t) => [t.id, t]));
 
   const rows: SubscriptionRow[] = subs.map((s) => {
-    const t = targetMap.get(s.target_id);
+    const t = s.target_id ? targetMap.get(s.target_id) : undefined;
     return {
       id: s.id,
       event_code: s.event_code,
       template_code: s.template_code,
       filter_rules: s.filter_rules,
       is_active: s.is_active,
-      target_display_name: t?.display_name ?? "—",
+      target_display_name: t?.display_name ?? (s.target_role ? `角色路由：${s.target_role}` : "—"),
       target_channel_code: t?.channel_code ?? "—",
     };
   });

@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
         try {
           await notifications.dispatch({
             code: "financing.pending_timeout",
+            dealerId: order.brand_id as string,
             payload: {
               orderId: order.id as string,
               orderNo: order.order_no as string,

@@ -176,6 +176,7 @@ export async function POST(req: NextRequest) {
           try {
             await notifications.dispatch({
               code: "aftersales_approval.requested",
+              dealerId: ro.brand_id as string,
               payload: {
                 approvalId: approval.id,
                 scenario: approval.scenario,

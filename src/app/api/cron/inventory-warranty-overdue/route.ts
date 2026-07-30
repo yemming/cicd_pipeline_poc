@@ -151,6 +151,7 @@ export async function POST(req: NextRequest) {
         try {
           await notifications.dispatch({
             code: "work_order.status_changed",
+            dealerId: claim.brand_id as string,
             payload: {
               workOrderId: claim.id as string,
               workOrderNo: claimNo,

@@ -202,6 +202,7 @@ export async function POST(req: NextRequest) {
         try {
           await notifications.dispatch({
             code: "ro_checkout.unpaid_overdue",
+            dealerId: co.brand_id as string,
             payload: {
               checkoutNo: co.checkout_no as string,
               roCode,

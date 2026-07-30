@@ -6,6 +6,7 @@ import { messagingApi } from "@line/bot-sdk";
 import { createServiceClient } from "@/lib/supabase/service";
 import { upsertCandidate } from "@/lib/notifications/repositories/candidate.repo";
 import { getNotificationEnv } from "@/lib/notifications/env";
+import { consumeLineBindCode } from "@/domain/line-binding";
 
 // 每次 webhook 觸發都會自動把看到的 LINE userId/groupId/roomId 寫進
 // notification_target_candidates，admin 在 /admin/notifications/targets
@@ -24,6 +25,7 @@ interface LineEvent {
   source?: LineSource;
   message?: { type: string; text?: string };
   timestamp?: number;
+  replyToken?: string;
 }
 
 interface LineWebhookBody {
@@ -118,6 +120,43 @@ async function fetchDisplayName(
   }
 }
 
+/**
+ * Russell 第二版指令：員工個人 LINE 綁定。員工在 /me/profile 產生一次性
+ * 「BIND-XXXXXXXX」代碼，加 DealerOS Notifier 好友後把代碼傳過來，這裡兌換
+ * 成功後把 lineUserId 寫進該員工 employees.metadata.line_user_id。
+ *
+ * 回傳 true 代表這則訊息已被當成綁定嘗試處理（不管成功或失敗都不用再走候選
+ * 對話記錄那條路——不然會把 BIND-XXXX 這種一次性代碼文字也存進候選清單，沒意義）。
+ */
+async function handleBindMessage(ev: LineEvent): Promise<boolean> {
+  if (ev.type !== "message" || ev.message?.type !== "text") return false;
+  const text = ev.message.text?.trim() ?? "";
+  if (!/^BIND-[A-Z0-9]{8}$/.test(text)) return false;
+
+  const lineUserId = ev.source?.userId;
+  if (!lineUserId) return true; // 認得出是綁定嘗試但抓不到 userId，直接吞掉
+
+  const result = await consumeLineBindCode(text, lineUserId);
+  const cli = lineClient();
+  const replyToken = ev.replyToken;
+  if (!cli || !replyToken) return true;
+
+  const msg = result.ok
+    ? `✅ LINE 通知綁定成功！${result.employeeName} 您好，之後與您職位相關的系統通知會發到這裡。`
+    : result.reason === "expired"
+      ? "⚠️ 這組綁定碼已經過期（10 分鐘內有效），請回 DealerOS 個人設定頁重新產生一組。"
+      : result.reason === "used"
+        ? "⚠️ 這組綁定碼已經用過了，請回 DealerOS 個人設定頁重新產生一組。"
+        : "⚠️ 找不到這組綁定碼，請確認有沒有貼錯，或回 DealerOS 個人設定頁重新產生。";
+
+  try {
+    await cli.replyMessage({ replyToken, messages: [{ type: "text", text: msg }] });
+  } catch (e) {
+    console.warn("[LINE webhook] 綁定結果回覆訊息失敗（不影響綁定本身）", e);
+  }
+  return true;
+}
+
 async function recordCandidate(ev: LineEvent): Promise<void> {
   const ref = extractRef(ev.source);
   if (!ref) return;
@@ -204,7 +243,16 @@ export async function POST(req: NextRequest) {
   console.log("╚══════════════════════════════════════════════════════════════════");
 
   // 並行處理 candidate（任一失敗不擋其他事件）
-  await Promise.allSettled(events.map((ev) => recordCandidate(ev)));
+  await Promise.allSettled(
+    events.map(async (ev) => {
+      const wasBindAttempt = await handleBindMessage(ev).catch((e) => {
+        console.error("[LINE webhook] 綁定訊息處理失敗", e);
+        return true; // 出錯也當作已處理，避免把 BIND-XXXX 誤存進候選對話
+      });
+      if (wasBindAttempt) return;
+      await recordCandidate(ev);
+    }),
+  );
 
   return NextResponse.json({ ok: true });
 }

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -13,6 +13,13 @@ import {
   updateProfileBasicAction,
   uploadAvatarAction,
 } from "@/lib/profile-actions";
+import {
+  generateMyLineBindCode,
+  getMyLineBindStatus,
+  setMyLineNotifyEnabled,
+  unbindMyLine,
+  type LineBindStatus,
+} from "@/domain/line-binding";
 import type { BrandPalette } from "@/lib/brands/brand-palettes";
 import type { SidebarTheme } from "@/lib/brands/sidebar-themes";
 import { BadgeCropperModal } from "@/app/(workspace)/admin/navigation/_components/badge-cropper-modal";
@@ -645,20 +652,232 @@ function SidebarPreview({ theme }: { theme: SidebarTheme | undefined }) {
 // ──────────────────────────────────────────────────────────
 
 function NotificationsTab() {
+  const [status, setStatus] = useState<LineBindStatus | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await getMyLineBindStatus();
+        if (!cancelled) setStatus(s);
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : "載入失敗，請重新整理頁面");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <SectionCard title="LINE 通知綁定">
+        <div className="space-y-2 animate-pulse">
+          <div className="h-4 w-24 bg-[#EEECE6] rounded" />
+          <div className="h-3 w-56 bg-[#EEECE6] rounded" />
+          <div className="h-[30px] w-28 bg-[#EEECE6] rounded" />
+        </div>
+      </SectionCard>
+    );
+  }
+
+  if (loadError || !status) {
+    return (
+      <SectionCard title="LINE 通知綁定">
+        <p className="text-[12.5px] text-[#CC0000]">{loadError ?? "載入失敗，請重新整理頁面"}</p>
+      </SectionCard>
+    );
+  }
+
+  if (!status.employeeId) {
+    return (
+      <SectionCard title="LINE 通知綁定">
+        <p className="text-[12.5px] text-[#5A5955] leading-relaxed">
+          此帳號未對應到任何員工資料，無法綁定 LINE 通知。如果你認為這是設定錯誤，請聯絡系統管理員確認你的帳號是否已建立員工記錄並綁定
+          user_id。
+        </p>
+      </SectionCard>
+    );
+  }
+
+  return status.bound ? <BoundLineSection status={status} /> : <UnboundLineSection />;
+}
+
+function UnboundLineSection() {
+  const [isPending, startTransition] = useTransition();
+  const [result, setResult] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const generate = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await generateMyLineBindCode();
+      if (res.ok) {
+        setResult({ code: res.code, expiresAt: res.expiresAt });
+      } else {
+        setError(res.error);
+      }
+    });
+  };
+
+  const copy = async () => {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(result.code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError("複製失敗，請手動選取代碼");
+    }
+  };
+
+  const lockedClass = isPending ? "pointer-events-none opacity-60" : "";
+
   return (
-    <SectionCard title="通知頻道">
-      <p className="text-[12.5px] text-[#5A5955] leading-relaxed">
-        DealerOS 的通知（許願單、系統事件）走 Notification Hub，目標是 LINE 群組與 Google Chat
-        頻道，<b>不是個人帳號層級的訂閱</b>。要新增 / 修改通知頻道與訂閱規則，請到後台統一管理。
-      </p>
-      <div className="mt-3">
-        <Link
-          href="/admin/notifications"
-          className="h-[30px] inline-flex items-center gap-1.5 px-3.5 rounded text-[12.5px] font-medium bg-[#1A3A5C] text-white hover:bg-[#0F2A45]"
+    <SectionCard title="LINE 通知綁定">
+      <div className={lockedClass}>
+        <div className="mb-3">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#F2F2F2] text-[#6B6A68]">
+            尚未綁定
+          </span>
+        </div>
+
+        {error ? <p className="text-[12.5px] text-[#CC0000] mb-2">{error}</p> : null}
+
+        {!result ? (
+          <button
+            type="button"
+            onClick={generate}
+            disabled={isPending}
+            className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+          >
+            {isPending ? "產生中⋯" : "產生綁定碼"}
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <ol className="text-[12.5px] text-[#5A5955] leading-relaxed list-decimal pl-4 space-y-1.5">
+              <li>
+                加「DealerOS Notifier」LINE 官方帳號為好友（還沒加的話，請洽系統管理員取得加好友方式）
+              </li>
+              <li>
+                把下面這組代碼傳送給它：
+                <div className="mt-1.5 flex items-center gap-2">
+                  <code className="h-[30px] inline-flex items-center px-3 rounded bg-[#F8F7F4] border border-[#D5D3CB] font-mono text-[13px] font-semibold text-[#1A3A5C]">
+                    {result.code}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copy}
+                    className="h-[30px] px-3 rounded text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                  >
+                    {copied ? "已複製" : "複製"}
+                  </button>
+                </div>
+              </li>
+              <li>收到「綁定成功」的回覆訊息後，回來這個頁面重新整理即可看到已綁定狀態</li>
+            </ol>
+            <p className="text-[11px] text-[#9A9890]">
+              這組代碼 10 分鐘內有效（{fmtDateTime(result.expiresAt)} 前），過期請重新產生一組。
+            </p>
+            <button
+              type="button"
+              onClick={generate}
+              disabled={isPending}
+              className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              {isPending ? "產生中⋯" : "重新產生綁定碼"}
+            </button>
+          </div>
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
+function BoundLineSection({ status }: { status: LineBindStatus }) {
+  const [isPending, startTransition] = useTransition();
+  const [notifyEnabled, setNotifyEnabled] = useState(status.notifyEnabled);
+  const [unbound, setUnbound] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleNotify = () => {
+    setError(null);
+    const next = !notifyEnabled;
+    startTransition(async () => {
+      const res = await setMyLineNotifyEnabled(next);
+      if (res.ok) {
+        setNotifyEnabled(next);
+      } else {
+        setError(res.error);
+      }
+    });
+  };
+
+  const doUnbind = () => {
+    if (!window.confirm("確定要解除 LINE 通知綁定？解除後將不再收到個人 LINE 通知。")) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await unbindMyLine();
+      if (res.ok) {
+        setUnbound(true);
+      } else {
+        setError(res.error);
+      }
+    });
+  };
+
+  const lockedClass = isPending ? "pointer-events-none opacity-60" : "";
+
+  if (unbound) {
+    return (
+      <SectionCard title="LINE 通知綁定">
+        <p className="text-[12.5px] text-[#5A5955]">
+          已解除綁定。重新整理頁面可看到最新狀態，或直接點下方「產生綁定碼」重新綁定。
+        </p>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <SectionCard title="LINE 通知綁定">
+      <div className={lockedClass}>
+        <div className="mb-1">
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#EAF3DE] text-[#3B6D11]">
+            <span className="material-symbols-outlined text-[13px] leading-none">check_circle</span>
+            已綁定
+          </span>
+        </div>
+        <div className="text-[11.5px] text-[#9A9890] mb-3">綁定時間：{fmtDateTime(status.boundAt)}</div>
+
+        {error ? <p className="text-[12.5px] text-[#CC0000] mb-2">{error}</p> : null}
+
+        <div className="flex items-center gap-3 mb-3">
+          <label className="flex items-center gap-2 text-[12.5px] text-[#2C2C2A] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={notifyEnabled}
+              disabled={isPending}
+              onChange={toggleNotify}
+              className="w-[16px] h-[16px] accent-[#0F6E56]"
+            />
+            接收通知
+          </label>
+          {isPending ? <span className="text-[11px] text-[#9A9890]">處理中⋯</span> : null}
+        </div>
+
+        <button
+          type="button"
+          onClick={doUnbind}
+          disabled={isPending}
+          className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#FDECEA] border border-[#F5AEAD] text-[#CC0000] hover:bg-[#fbdcd9] disabled:opacity-50"
         >
-          <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-          開啟 Notification Hub 後台
-        </Link>
+          {isPending ? "處理中⋯" : "解除綁定"}
+        </button>
       </div>
     </SectionCard>
   );
