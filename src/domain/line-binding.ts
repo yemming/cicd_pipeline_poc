@@ -109,14 +109,22 @@ export async function getMyLineBindStatus(): Promise<LineBindStatus> {
   };
 }
 
-/** 產生一次性綁定碼（10 分鐘有效）。同員工重複點擊會讓舊碼失效、只留最新一組。 */
+/**
+ * 產生一次性綁定碼（10 分鐘有效）。同員工重複點擊會讓舊碼失效、只留最新一組。
+ *
+ * 這裡改用 service client 寫入：授權已經由 getMyEmployeeRow() 做完（只會拿到
+ * 「這個 employees row 的 user_id 等於目前登入者」那一筆），line_bind_codes
+ * 開了 RLS 但刻意沒有任何 policy（只給 service role 用），一般登入使用者對這張
+ * 表沒有任何權限，用一般 client 寫入必定被 RLS 擋下（"new row violates
+ * row-level security policy"）。employees.metadata 的自助寫入同理。
+ */
 export async function generateMyLineBindCode(): Promise<
   { ok: true; code: string; expiresAt: string } | { ok: false; error: string }
 > {
   const emp = await getMyEmployeeRow();
   if (!emp) return { ok: false, error: "此帳號未對應到任何員工資料，無法綁定 LINE 通知" };
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   // 舊碼（未用完的）先作廢，避免混淆
   await supabase
     .from("line_bind_codes")
@@ -139,7 +147,7 @@ export async function generateMyLineBindCode(): Promise<
 export async function unbindMyLine(): Promise<{ ok: true } | { ok: false; error: string }> {
   const emp = await getMyEmployeeRow();
   if (!emp) return { ok: false, error: "此帳號未對應到任何員工資料" };
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data } = await supabase.from("employees").select("metadata").eq("id", emp.id).maybeSingle();
   const meta = { ...((data?.metadata ?? {}) as Record<string, unknown>) };
   delete meta.line_user_id;
@@ -155,7 +163,7 @@ export async function setMyLineNotifyEnabled(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const emp = await getMyEmployeeRow();
   if (!emp) return { ok: false, error: "此帳號未對應到任何員工資料" };
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data } = await supabase.from("employees").select("metadata").eq("id", emp.id).maybeSingle();
   const meta = { ...((data?.metadata ?? {}) as Record<string, unknown>), line_notify_enabled: enabled };
   const { error } = await supabase.from("employees").update({ metadata: meta }).eq("id", emp.id);
