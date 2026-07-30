@@ -31,6 +31,7 @@ import { writeAuditLog } from "@/domain/audit-logs";
 import { requestApproval } from "@/domain/aftersales-approvals";
 // RP8 T07：複檢退回→技師+SA 站內通知
 import { createInappNotifications } from "@/domain/user-notifications";
+import { notifications } from "@/lib/notifications";
 
 import {
   buildInitialLineResults,
@@ -47,6 +48,8 @@ import {
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; error: string };
 
 const PAGE = "/parts/aftersales/final-inspections";
+// 維修工單詳情頁路徑（跟 repair-order-actions.ts 的 PAGE_PATH 保持一致，通知用）
+const RO_DETAIL_PATH = "/parts/aftersales/repair-orders";
 
 function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n);
@@ -328,6 +331,36 @@ export async function completeAction(id: string): Promise<ActionResult<{ id: str
     .update({ status: "待結帳" })
     .eq("id", ctx.row.repair_order_id)
     .eq("brand_id", ctx.brand);
+
+  // 通知售後主管：複檢完成、RO 已推進到「待結帳」（非阻塞，失敗不影響複檢關閉主流程）
+  {
+    const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
+    const notifyRoId = ctx.row.repair_order_id as string;
+    const notifyBrand = ctx.brand;
+    after(async () => {
+      try {
+        const client = await createClient();
+        const { data: ro } = await client
+          .from("repair_orders")
+          .select("ro_code")
+          .eq("id", notifyRoId)
+          .eq("brand_id", notifyBrand)
+          .maybeSingle();
+        await notifications.dispatch({
+          code: "work_order.status_changed",
+          payload: {
+            orderNo: ro?.ro_code ?? notifyRoId,
+            from: "維修中",
+            to: "待結帳",
+            actor: "複檢完成（自動推進）",
+            actionUrl: `${appUrl}${RO_DETAIL_PATH}/${notifyRoId}`,
+          },
+        });
+      } catch (e) {
+        console.error("[複檢完成通知] 推播失敗（不影響）", e);
+      }
+    });
+  }
 
   // ── RP4 事件時間軸：記錄複檢通過（非阻塞） ──
   {

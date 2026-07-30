@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     let coQuery = sb
       .from("ro_checkouts")
       .select(
-        "id, checkout_no, brand_id, repair_order_id, status, fee_summary, metadata, created_at",
+        "id, checkout_no, brand_id, repair_order_id, status, fee_summary, fees_confirmed_at, metadata, created_at",
       )
       .neq("status", "completed")
       .lt("created_at", cutoffIso);
@@ -185,8 +185,12 @@ export async function POST(req: NextRequest) {
       }
 
       const feeSummary = (co.fee_summary ?? {}) as Record<string, unknown>;
+      // fee_summary.payable 初始化預設值就是 0，不代表已確認；只有 SA 按下確認費用、
+      // fees_confirmed_at 有值時，payable 才是真正結算過的金額，否則一律視為未確認。
       const payable =
-        typeof feeSummary.payable === "number" ? feeSummary.payable : null;
+        co.fees_confirmed_at && typeof feeSummary.payable === "number"
+          ? feeSummary.payable
+          : null;
 
       // 結帳頁 URL：直接指向該結帳單的結帳 wizard（/parts/aftersales/checkout/[id]，
       // id = ro_checkouts.id，由 getRoCheckoutById 解析）。

@@ -15,11 +15,13 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission, hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { notifications } from "@/lib/notifications";
 
 import type { BayStatus, BayType } from "@/domain/service-bays.constants";
 import { setShopDailyHours } from "@/domain/service-bays";
@@ -29,6 +31,8 @@ export type ActionResult<T = unknown> =
   | { ok: false; error: string };
 
 const PAGE = "/parts/aftersales/management/bays";
+// 維修工單詳情頁路徑（跟 repair-order-actions.ts 的 PAGE_PATH 保持一致，通知用）
+const RO_DETAIL_PATH = "/parts/aftersales/repair-orders";
 
 export type CreateBayInput = {
   code: string;
@@ -327,6 +331,26 @@ export async function completeBayAndAdvanceRoAction(
           changed_at: completedAt,
         });
         roAdvanced = true;
+
+        // 通知售後主管：工位完工、RO 已推進到「待結帳」（非阻塞，失敗不影響工位完工主流程）
+        const appUrl = (process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://dealeros.zeabur.app").replace(/\/+$/, "");
+        const notifyRoId = ro.id;
+        after(async () => {
+          try {
+            await notifications.dispatch({
+              code: "work_order.status_changed",
+              payload: {
+                orderNo: roCode,
+                from: "維修中",
+                to: "待結帳",
+                actor: "工位系統（自動推進）",
+                actionUrl: `${appUrl}${RO_DETAIL_PATH}/${notifyRoId}`,
+              },
+            });
+          } catch (e) {
+            console.error("[工位完工通知] 推播失敗（不影響）", e);
+          }
+        });
       }
     }
   }

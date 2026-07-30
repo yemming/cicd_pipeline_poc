@@ -496,6 +496,52 @@ export async function confirmRepairOrderAction(
         );
       });
 
+      // 4b. Russell 2026-07-28 裁示：開單通知只發 WC 保固 / AC 事故工單，避免每天 10-20 張工單洗版
+      if (input.prefix_p1 === "WC" || input.prefix_p1 === "AC") {
+        const roIdForNotify = data.id as string;
+        const roCodeForNotify = data.ro_code as string;
+        const customerIdForNotify = input.customer_id ?? null;
+        const vehicleIdForNotify = input.vehicle_id ?? null;
+        after(async () => {
+          try {
+            let customerName = "（無客戶資料）";
+            if (customerIdForNotify) {
+              const { data: cust } = await supabase
+                .from("customers")
+                .select("name")
+                .eq("id", customerIdForNotify)
+                .maybeSingle();
+              if (cust?.name) customerName = cust.name as string;
+            }
+            let vehicleLabel = "（無車輛資料）";
+            if (vehicleIdForNotify) {
+              const { data: veh } = await supabase
+                .from("customer_vehicles")
+                .select("license_plate")
+                .eq("id", vehicleIdForNotify)
+                .maybeSingle();
+              if (veh?.license_plate) vehicleLabel = veh.license_plate as string;
+            }
+            const appUrl = (
+              process.env.APP_URL ??
+              process.env.NEXT_PUBLIC_APP_URL ??
+              "https://dealeros.zeabur.app"
+            ).replace(/\/+$/, "");
+            await notifications.dispatch({
+              code: "work_order.created",
+              payload: {
+                orderNo: roCodeForNotify,
+                customer: customerName,
+                vehicle: vehicleLabel,
+                actionUrl: `${appUrl}${PAGE_PATH}/${roIdForNotify}`,
+              },
+            });
+          } catch (e) {
+            console.error("[RO 開單通知] work_order.created 推播失敗（不影響建單）", e);
+          }
+        });
+      }
+
       // 5. RP4 Layer1 稽核日誌：記錄工單開單動作（非阻塞）
       {
         const roId = data.id as string;
