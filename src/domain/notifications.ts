@@ -21,7 +21,7 @@ import {
   type ListDeliveriesFilter,
 } from "@/lib/notifications/repositories/delivery.repo";
 import { listAllSubscriptions } from "@/lib/notifications/repositories/subscription.repo";
-import { listTargets } from "@/lib/notifications/repositories/target.repo";
+import { listTargets, listTargetsByIds } from "@/lib/notifications/repositories/target.repo";
 import { listActiveChannels } from "@/lib/notifications/repositories/channel.repo";
 import {
   listPendingCandidates,
@@ -99,9 +99,20 @@ export async function getNotificationSubscriptionsBoardData(): Promise<Subscript
     listAllSubscriptions(supabase),
     listTargets(supabase, { onlyActive: false }),
   ]);
+
+  // 訂閱的 target_id 有時指向別品牌自己的 target（例如借用另一品牌真的有人在看的
+  // 群組當暫代收件人，dispatch 端本來就允許跨品牌引用）。listTargets() 只回目前
+  // scope 品牌的 target，這裡把「訂閱有引用、但不在上面清單裡」的 target 額外補回來，
+  // 避免 UI 把它誤判成「已刪除」。
+  const knownIds = new Set(targets.map((t) => t.id));
+  const missingIds = Array.from(new Set(subscriptions.map((s) => s.target_id))).filter(
+    (id) => !knownIds.has(id),
+  );
+  const crossBrandTargets = await listTargetsByIds(supabase, missingIds);
+
   return {
     subscriptions,
-    targets,
+    targets: [...targets, ...crossBrandTargets],
     codeTemplates: listCodeTemplates(),
   };
 }
