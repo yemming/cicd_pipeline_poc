@@ -228,7 +228,7 @@ export function SaEfficiencyBoard({ staff }: { staff: SAEffStaff[] }) {
               fmtCount,
               fmtMoney,
             )}
-            emptyMessage="尚無單車產值資料（待 demo seed）"
+            emptyMessage="本期無工單資料（repair_orders 即時計算，尚無足夠樣本）"
           />
         </ChartCard>
 
@@ -253,7 +253,7 @@ export function SaEfficiencyBoard({ staff }: { staff: SAEffStaff[] }) {
               fmtCount,
               fmtPct,
             )}
-            emptyMessage="尚無毛利率資料（待 demo seed）"
+            emptyMessage="毛利率現行系統尚未支援計算（缺料工成本拆分，非資料不足）"
           />
         </ChartCard>
 
@@ -278,7 +278,7 @@ export function SaEfficiencyBoard({ staff }: { staff: SAEffStaff[] }) {
               fmtPct,
               fmtMoney,
             )}
-            emptyMessage="尚無增項資料（待 demo seed）"
+            emptyMessage="增項率/金額現行系統尚未支援計算（decided_by_sa_id 全空），非資料不足"
           />
         </ChartCard>
 
@@ -303,14 +303,15 @@ export function SaEfficiencyBoard({ staff }: { staff: SAEffStaff[] }) {
               fmtCount,
               fmtScore,
             )}
-            emptyMessage="尚無 NPS 資料（待 demo seed）"
+            emptyMessage="個人 NPS 現行系統尚未串接問卷回填，非資料不足"
           />
         </ChartCard>
       </div>
 
       <p className="text-[11px] text-[#9A9890] leading-relaxed">
-        資料窗：近 3 個月滾動。即時計算（接車台次／單車產值）；毛利率／增項率／增項金額／個人
-        NPS／返修率等細粒度指標現行交易表尚無，由 KPI 快照（demo seed）補上 — 缺值的點會略過不畫。
+        資料窗：近 3 個月滾動。接車台次／單車產值為即時計算（repair_orders）；毛利率／增項率／
+        增項金額／個人 NPS／返修率等指標現行系統尚未支援計算，一律留空、不用假數字填充（缺值的點
+        會略過不畫）。數據來源：repair_orders｜更新頻率：即時。
       </p>
     </main>
   );

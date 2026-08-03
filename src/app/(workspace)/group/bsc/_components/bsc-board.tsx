@@ -138,27 +138,48 @@ export function BscBoard({
                   <td colSpan={DIMS.length + 3} className="px-4 py-6 text-center text-[12px] text-[#9A9890]">尚無門店計分資料</td>
                 </tr>
               )}
-              {data.stores.map((s) => (
-                <tr key={s.orgId} className="border-t border-[#EEECE6] text-[12.5px] text-[#2C2C2A]">
-                  <td className="px-4 py-2 font-medium whitespace-nowrap">{s.name}</td>
-                  {DIMS.map((d) => (
-                    <td key={d} className="px-3 py-2 text-center">
-                      <span className={`inline-flex items-center justify-center min-w-[34px] px-1.5 py-0.5 rounded-md text-[11px] ${scoreChip(s.dims[d])}`}>
-                        {num(s.dims[d], 0)}
+              {data.stores.map((s) => {
+                const missingLabels = s.missingDims.map((d) => HEALTH_DIM_LABEL[d]);
+                return (
+                  <tr key={s.orgId} className="border-t border-[#EEECE6] text-[12.5px] text-[#2C2C2A]">
+                    <td className="px-4 py-2 font-medium whitespace-nowrap">{s.name}</td>
+                    {DIMS.map((d) => (
+                      <td
+                        key={d}
+                        className="px-3 py-2 text-center"
+                        title={s.dims[d] == null ? `${HEALTH_DIM_LABEL[d]}維度本期無資料` : undefined}
+                      >
+                        <span className={`inline-flex items-center justify-center min-w-[34px] px-1.5 py-0.5 rounded-md text-[11px] ${scoreChip(s.dims[d])}`}>
+                          {num(s.dims[d], 0)}
+                        </span>
+                      </td>
+                    ))}
+                    <td className={`px-4 py-2 text-right font-semibold ${scoreTone(s.total)}`}>
+                      <span className="inline-flex items-center gap-1">
+                        {num(s.total, 0)}
+                        {missingLabels.length > 0 ? (
+                          <span
+                            className="inline-flex h-[14px] w-[14px] items-center justify-center rounded-full bg-[#FDF3E3] text-[9.5px] font-semibold text-[#854F0B] cursor-help"
+                            title={`此分數基於 ${s.validDims} 個維度計算（${missingLabels.join("、")} 資料不足）`}
+                          >
+                            ⓘ
+                          </span>
+                        ) : null}
                       </span>
                     </td>
-                  ))}
-                  <td className={`px-4 py-2 text-right font-semibold ${scoreTone(s.total)}`}>{num(s.total, 0)}</td>
-                  <td className="px-4 py-2 text-right">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${rateChip(s.achievement)}`}>{pct(s.achievement)}</span>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-4 py-2 text-right">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] ${rateChip(s.achievement)}`}>{pct(s.achievement)}</span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
         <div className="px-4 py-2.5 border-t border-[#EEECE6] bg-[#F8F7F4] text-[11px] text-[#9A9890]">
-          分數色票：≥80 綠（健康）· 60–79 橙（觀察）· &lt;60 紅（待強化）。綜合分取門店 health_score，缺則六面向等權平均。
+          分數色票：≥80 綠（健康）· 60–79 橙（觀察）· &lt;60 紅（待強化）。綜合分永遠由六面向現算 —
+          缺失面向不計入計算、其他面向等權重新平均（ⓘ 標示實際採計面向數）。六面向本身本期讀 KPI
+          快照（demo seed，尚未串接即時彙總）。數據來源：kpi_snapshots｜更新頻率：demo seed（非即時）。
         </div>
       </section>
     </main>

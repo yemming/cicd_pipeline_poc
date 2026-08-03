@@ -197,18 +197,34 @@ function SectionCard({
   );
 }
 
-/** 六維水平 bar 一列（每維 scoreColor 上色 + 分數） */
+/** 六維水平 bar 一列（每維 scoreColor 上色 + 分數；缺值用斜紋底避免跟「真的 0 分」混淆） */
 function DimBarRow({ dim, value }: { dim: HealthDim; value: number | null }) {
-  const pct = value == null || Number.isNaN(value) ? 0 : Math.max(0, Math.min(100, value));
+  const missing = value == null || Number.isNaN(value);
+  const pct = missing ? 0 : Math.max(0, Math.min(100, value));
   const color = scoreColor(value);
   return (
-    <div className="flex items-center gap-2 py-1">
+    <div
+      className="flex items-center gap-2 py-1"
+      title={missing ? `${HEALTH_DIM_LABEL[dim]}維度本期無資料，不計入綜合分` : undefined}
+    >
       <span className="w-14 shrink-0 text-[11.5px] text-[#5A5955]">{HEALTH_DIM_LABEL[dim]}</span>
-      <div className="relative h-2.5 flex-1 rounded-full bg-[#EEECE6] overflow-hidden">
-        <div
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ width: `${pct}%`, background: color }}
-        />
+      <div
+        className="relative h-2.5 flex-1 rounded-full overflow-hidden"
+        style={
+          missing
+            ? {
+                background:
+                  "repeating-linear-gradient(135deg,#EEECE6,#EEECE6 4px,#F8F7F4 4px,#F8F7F4 8px)",
+              }
+            : { background: "#EEECE6" }
+        }
+      >
+        {!missing ? (
+          <div
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{ width: `${pct}%`, background: color }}
+          />
+        ) : null}
       </div>
       <span
         className="w-8 shrink-0 text-right text-[11.5px] font-semibold tabular-nums"
@@ -233,14 +249,23 @@ function StoreScoreCard({ s }: { s: StoreHealthScore }) {
 
   const color = scoreColor(s.score);
   const delta = fmtDelta(s.delta);
+  const missingLabels = s.missingDims.map((k) => HEALTH_DIM_LABEL[k]);
 
   return (
     <div className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
       {/* 卡頂：店名 + 綜合分 pill */}
       <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4]">
         <div className="min-w-0">
-          <div className="truncate text-[13px] font-semibold text-[#2C2C2A]">
-            {s.store.short_name ?? s.store.name}
+          <div className="flex items-center gap-1.5 truncate text-[13px] font-semibold text-[#2C2C2A]">
+            <span className="truncate">{s.store.short_name ?? s.store.name}</span>
+            {missingLabels.length > 0 ? (
+              <span
+                className="shrink-0 inline-flex h-[15px] w-[15px] items-center justify-center rounded-full bg-[#FDF3E3] text-[10px] font-semibold text-[#854F0B] cursor-help"
+                title={`此分數基於 ${s.validDims} 個維度計算（${missingLabels.join("、")} 資料不足）`}
+              >
+                ⓘ
+              </span>
+            ) : null}
           </div>
           {delta ? (
             <div className="text-[10.5px]" style={{ color: delta.color }}>
@@ -252,6 +277,12 @@ function StoreScoreCard({ s }: { s: StoreHealthScore }) {
         </div>
         <ScorePill score={s.score} />
       </div>
+
+      {s.validDims > 0 && s.validDims < 3 ? (
+        <div className="px-4 py-1.5 bg-[#FDF3E3] text-[11px] text-[#854F0B] border-b border-[#F0DFC0]">
+          ⚠ 此門店資料不足（僅 {s.validDims} 個維度有值），Health Score 參考性有限
+        </div>
+      ) : null}
 
       {/* 內容：左 bar、右雷達 */}
       <div className="flex items-center gap-3 px-4 py-3">
@@ -274,10 +305,11 @@ function StoreScoreCard({ s }: { s: StoreHealthScore }) {
   );
 }
 
-/** 排行表一格六維小字 */
-function DimMiniCell({ value }: { value: number | null }) {
+/** 排行表一格六維小字（缺值加 title tooltip 註明無資料，不寫死顯示為 0） */
+function DimMiniCell({ dim, value }: { dim: HealthDim; value: number | null }) {
+  const missing = value == null || Number.isNaN(value);
   return (
-    <td className="px-2 py-2 text-center">
+    <td className="px-2 py-2 text-center" title={missing ? `${HEALTH_DIM_LABEL[dim]}維度本期無資料` : undefined}>
       <span
         className="text-[11.5px] font-semibold tabular-nums"
         style={{ color: scoreColor(value) }}
@@ -610,7 +642,7 @@ export function HealthScoreBoard({
                           </div>
                         </td>
                         {HEALTH_DIMS.map((k) => (
-                          <DimMiniCell key={k} value={s.dims[k]} />
+                          <DimMiniCell key={k} dim={k} value={s.dims[k]} />
                         ))}
                         <td className="px-2 py-2 text-center">
                           {delta ? (
@@ -643,9 +675,11 @@ export function HealthScoreBoard({
       )}
 
       <p className="text-[11px] text-[#9A9890] leading-relaxed">
-        資料策略沿用 round-16/17：門店層健康分與六維由 KPI 快照（demo seed）提供，issues 與策略
-        建議由 domain helper 規則生成。本頁為全集團總覽（無門店切換），期間 chip 於 POC 階段共用
-        同一份快照。分級門檻：優秀 ≥90 · 良好 ≥75 · 普通 ≥60 · 警示 ≥45 · 危險 &lt;45。
+        六維分數（銷售/售後/零件/人才/客戶滿意/財務）本期讀 KPI 快照（demo seed，尚未串接即時彙總）；
+        綜合分永遠由六維現算 — 缺失維度不計入計算，其他維度等權重新平均（非固定除以 6），卡片上的
+        ⓘ 圖示標示實際採計的維度數。issues 與策略建議由 domain helper 規則生成。本頁為全集團總覽
+        （無門店切換），期間 chip 於 POC 階段共用同一份快照。分級門檻：優秀 ≥90 · 良好 ≥75 ·
+        普通 ≥60 · 警示 ≥45 · 危險 &lt;45。數據來源：kpi_snapshots｜更新頻率：demo seed（非即時）。
       </p>
     </main>
   );

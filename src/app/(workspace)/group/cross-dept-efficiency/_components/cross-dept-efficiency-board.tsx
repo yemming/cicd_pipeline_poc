@@ -398,7 +398,7 @@ export function CrossDeptEfficiencyBoard({ staff }: { staff: CrossDeptStaff[] })
                 </div>
               </div>
             )}
-            emptyMessage="尚無客戶流失資料（待 demo seed）"
+            emptyMessage="客戶流失/名下客戶數現行系統尚未支援計算（無客戶生命週期歸屬），非資料不足"
           />
         </ChartCard>
 
@@ -435,7 +435,7 @@ export function CrossDeptEfficiencyBoard({ staff }: { staff: CrossDeptStaff[] })
                 </div>
               </div>
             )}
-            emptyMessage="尚無 NPS 資料（待 demo seed）"
+            emptyMessage="個人 NPS 現行系統尚未串接問卷回填，非資料不足"
           />
         </ChartCard>
       </div>
@@ -617,8 +617,9 @@ export function CrossDeptEfficiencyBoard({ staff }: { staff: CrossDeptStaff[] })
 
       <p className="text-[11px] text-[#9A9890] leading-relaxed">
         資料窗：{periodLabel}（POC 期間切換僅切視覺標籤，資料同一份；正式版可改傳 period 給 server 重撈）。
-        即時計算（量／台次）；個人 NPS／名下客戶／流失數等細粒度指標現行交易表尚無，由 KPI 快照（demo
-        seed）補上 — 缺值的點會略過不畫。●＝銷售、◆＝售後。
+        量／台次為即時計算（沿用 GRP07/GRP08 即時聚合）；個人 NPS／名下客戶／流失數等指標現行系統
+        尚未支援計算，一律留空、不用假數字填充（缺值的點會略過不畫）。●＝銷售、◆＝售後。
+        數據來源：sales_dormant_leads / sales_orders / repair_orders｜更新頻率：即時。
       </p>
     </main>
   );

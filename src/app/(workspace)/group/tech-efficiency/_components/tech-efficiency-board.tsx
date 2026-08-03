@@ -259,7 +259,7 @@ export function TechEfficiencyBoard({ staff }: { staff: TechEffStaff[] }) {
             markerShape="diamond"
             tagOf={(s) => s.tag}
             tooltip={makeTooltip("月接單台數", "工時效率", (s) => s.intake_count, (s) => s.labor_efficiency, fmtCount, fmtPct)}
-            emptyMessage="尚無工時效率資料（待 demo seed）"
+            emptyMessage="工時效率現行系統尚未支援計算，非資料不足"
           />
         </ChartCard>
 
@@ -276,7 +276,7 @@ export function TechEfficiencyBoard({ staff }: { staff: TechEffStaff[] }) {
             markerShape="diamond"
             tagOf={(s) => s.tag}
             tooltip={makeTooltip("月接單台數", "返修率", (s) => s.intake_count, (s) => s.rework_rate, fmtCount, fmtPct)}
-            emptyMessage="尚無返修率資料（待 demo seed）"
+            emptyMessage="返修率現行系統尚未支援計算（無返修標記欄位），非資料不足"
           />
         </ChartCard>
 
@@ -293,7 +293,7 @@ export function TechEfficiencyBoard({ staff }: { staff: TechEffStaff[] }) {
             markerShape="diamond"
             tagOf={(s) => s.tag}
             tooltip={makeTooltip("工時效率", "完工準時率", (s) => s.labor_efficiency, (s) => s.on_time_rate, fmtPct, fmtPct)}
-            emptyMessage="尚無準時率資料（待 demo seed）"
+            emptyMessage="完工準時率現行系統尚未支援計算，非資料不足"
           />
         </ChartCard>
 
@@ -310,7 +310,7 @@ export function TechEfficiencyBoard({ staff }: { staff: TechEffStaff[] }) {
             markerShape="diamond"
             tagOf={(s) => s.tag}
             tooltip={makeTooltip("技師年資", "工時效率", (s) => s.tenure_years, (s) => s.labor_efficiency, fmtYear, fmtPct)}
-            emptyMessage="尚無年資資料（待 demo seed）"
+            emptyMessage="技師年資現行系統尚未支援計算，非資料不足"
           />
         </ChartCard>
       </div>
@@ -393,9 +393,10 @@ export function TechEfficiencyBoard({ staff }: { staff: TechEffStaff[] }) {
       </section>
 
       <p className="text-[11px] text-[#9A9890] leading-relaxed">
-        資料窗：近 3 個月滾動。即時計算（月接單台數，repair_orders 依 lead_technician_id 聚合）；
-        工時效率／返修率／完工準時率／年資等指標現行交易表尚無，由 KPI 快照（demo seed）補上 —
-        缺值的點會略過不畫。
+        資料窗：近 3 個月滾動。月接單台數為即時計算（repair_orders 依 lead_technician_id 聚合）；
+        工時效率／返修率／完工準時率／年資等指標現行系統尚未支援計算，一律留空、不用假數字填充
+        （缺值的點會略過不畫）。⚠ 因此「評級」欄目前對所有技師都只會落在中性等級，要等這幾個
+        指標接上真實資料源後才有鑑別力。數據來源：repair_orders｜更新頻率：即時。
       </p>
     </main>
   );

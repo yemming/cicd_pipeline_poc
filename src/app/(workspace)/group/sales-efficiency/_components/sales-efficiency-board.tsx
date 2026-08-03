@@ -217,7 +217,7 @@ export function SalesEfficiencyBoard({ staff }: { staff: SalesEffStaff[] }) {
               fmtPct,
               fmtMoney,
             )}
-            emptyMessage="尚無 GP3 資料（待 demo seed）"
+            emptyMessage="單車 GP3 現行系統尚未支援計算（缺分層毛利拆帳，非資料不足）"
           />
         </ChartCard>
 
@@ -242,7 +242,7 @@ export function SalesEfficiencyBoard({ staff }: { staff: SalesEffStaff[] }) {
               fmtPct,
               fmtMoney,
             )}
-            emptyMessage="尚無衍生毛利資料（待 demo seed）"
+            emptyMessage="衍生毛利現行系統尚未支援計算（缺金融/保險/精品收入拆帳，非資料不足）"
           />
         </ChartCard>
 
@@ -267,14 +267,15 @@ export function SalesEfficiencyBoard({ staff }: { staff: SalesEffStaff[] }) {
               fmtCount,
               fmtScore,
             )}
-            emptyMessage="尚無 NPS 資料（待 demo seed）"
+            emptyMessage="個人 NPS 現行系統尚未串接問卷回填（survey_responses 樣本量過小），非資料不足"
           />
         </ChartCard>
       </div>
 
       <p className="text-[11px] text-[#9A9890] leading-relaxed">
-        資料窗：近 3 個月滾動。即時計算（接待量／成交台次／成交率）；單車 GP3／衍生毛利／個人
-        NPS 等細粒度指標現行交易表尚無，由 KPI 快照（demo seed）補上 — 缺值的點會略過不畫。
+        資料窗：近 3 個月滾動。接待量／成交台次／成交率／單車 GP 為即時計算（sales_dormant_leads
+        + sales_orders）；單車 GP3／衍生毛利／個人 NPS 現行系統尚未支援計算，一律留空、不用
+        假數字填充（缺值的點會略過不畫）。數據來源：sales_dormant_leads / sales_orders｜更新頻率：即時。
       </p>
     </main>
   );

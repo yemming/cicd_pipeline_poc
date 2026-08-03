@@ -61,9 +61,6 @@ export type ScatterOptions = {
   rollingMonths?: number;
 };
 
-/** 來自 kpi_snapshots 的 seed 指標（依 staff_id 取最新 period_month） */
-type SeededMetrics = Record<string, number | null>;
-
 /* ── GRP07 銷售顧問能效 per-staff 形狀 ── */
 export type SalesEffStaff = {
   staff_id: string;
@@ -77,11 +74,11 @@ export type SalesEffStaff = {
   conversion_rate: number | null;
   /** 單車平均 GP（total_amount − standard_cost，即時算；無成本回 null） */
   avg_gp_per_vehicle: number | null;
-  /** 單車 GP3（精算分層毛利，現有 schema 無 → kpi_snapshots seed） */
+  /** 單車 GP3（精算分層毛利，現有 schema 無法算出 → 一律 null） */
   avg_gp3: number | null;
-  /** 單車衍生毛利（金融/保險/精品，現有 schema 無 → seed） */
+  /** 單車衍生毛利（金融/保險/精品，現有 schema 無法算出 → 一律 null） */
   avg_derivative_gp: number | null;
-  /** 個人平均 NPS（nps 名單無法 join → seed） */
+  /** 個人平均 NPS（nps 名單無法 join → 一律 null） */
   avg_nps: number | null;
   tag: EfficiencyTag;
 };
@@ -95,15 +92,15 @@ export type SAEffStaff = {
   intake_count: number;
   /** 單車平均產值（lines_total avg，即時算；無回 null） */
   avg_revenue_per_ro: number | null;
-  /** 毛利率 0..1（精算需料工成本拆分，現有 schema 不足 → seed） */
+  /** 毛利率 0..1（精算需料工成本拆分，現有 schema 不足 → 一律 null） */
   gross_margin_rate: number | null;
-  /** 增項率 0..1（addons 太稀疏且 decided_by_sa_id 全空 → seed） */
+  /** 增項率 0..1（addons 太稀疏且 decided_by_sa_id 全空 → 一律 null） */
   addon_rate: number | null;
-  /** 增項金額（同上 → seed） */
+  /** 增項金額（同上 → 一律 null） */
   addon_amount: number | null;
-  /** 個人平均 NPS（→ seed） */
+  /** 個人平均 NPS（→ 一律 null） */
   avg_nps: number | null;
-  /** 返修率 0..1（現有 schema 無返修標記 → seed；>0.05 觸發告警橫幅） */
+  /** 返修率 0..1（現有 schema 無返修標記 → 一律 null；>0.05 觸發告警橫幅） */
   rework_rate: number | null;
   tag: EfficiencyTag;
 };
@@ -162,47 +159,6 @@ async function resolveDeptNames(
   return map;
 }
 
-/**
- * 撈 kpi_snapshots 的 seed 指標，依 staff_id 取最新 period_month 的每個 metric_key。
- * 回 Map<staff_id, { metric_key: value }>。
- */
-async function loadSeededMetrics(
-  client: Awaited<ReturnType<typeof createClient>>,
-  brandId: string,
-  staffRole: string,
-  staffIds: string[],
-): Promise<Map<string, SeededMetrics>> {
-  const result = new Map<string, SeededMetrics>();
-  if (staffIds.length === 0) return result;
-
-  // 撈該 role 全部 snapshot row（量小，client 端取每 staff×metric 的最新 period）
-  const { data } = await client
-    .from("kpi_snapshots")
-    .select("staff_id, period_month, metric_key, metric_value")
-    .eq("brand_id", brandId)
-    .eq("staff_role", staffRole)
-    .in("staff_id", staffIds)
-    .order("period_month", { ascending: false });
-
-  // 第一次看到 (staff, metric) 即最新（已 desc 排序）
-  const seen = new Set<string>();
-  for (const row of (data ?? []) as Array<{
-    staff_id: string;
-    period_month: string;
-    metric_key: string;
-    metric_value: number | null;
-  }>) {
-    if (!row.staff_id) continue;
-    const dedupKey = `${row.staff_id}::${row.metric_key}`;
-    if (seen.has(dedupKey)) continue;
-    seen.add(dedupKey);
-    const bucket = result.get(row.staff_id) ?? {};
-    bucket[row.metric_key] = row.metric_value;
-    result.set(row.staff_id, bucket);
-  }
-  return result;
-}
-
 /** 簡單門檻診斷分類（caller 可覆寫）。兩軸都偏低=danger、都偏高=star，其餘 watch */
 function classify(loAxis: number | null, hiAxis: number | null): EfficiencyTag {
   if (loAxis === null || hiAxis === null) return "neutral";
@@ -218,7 +174,9 @@ function classify(loAxis: number | null, hiAxis: number | null): EfficiencyTag {
 /**
  * 回傳每位在職銷售顧問一筆，含 S1-S4 散佈圖所需所有軸值。
  * 即時算：reception_count / deal_count / conversion_rate / avg_gp_per_vehicle。
- * seed 補：avg_gp3（gp3）/ avg_derivative_gp（derivative_gp）/ avg_nps（nps）。
+ * avg_gp3 / avg_derivative_gp / avg_nps：現行 schema 無法從真實表算出（無會計科目拆分、
+ * 無 NPS 問卷回填 join），一律 null（2026-07-31 GRP 補齊指令 §缺口一：拔除 seed 假數字
+ * fallback，不能讓看不出真假的展示值冒充真實數字）。
  */
 export async function getSalesEfficiencyScatter(
   brandId: string,
@@ -235,12 +193,6 @@ export async function getSalesEfficiencyScatter(
     client,
     brandId,
     employees.map((e) => e.dept_id ?? ""),
-  );
-  const seeded = await loadSeededMetrics(
-    client,
-    brandId,
-    "salesperson",
-    employees.map((e) => e.id),
   );
 
   // 即時：leads（接待量）依 rs_name 計數
@@ -306,28 +258,22 @@ export async function getSalesEfficiencyScatter(
     const liveDealCount = deal?.count ?? 0;
     const liveConversion = liveReception > 0 ? liveDealCount / liveReception : null;
     const avgGp = deal && deal.gpN > 0 ? deal.gpSum / deal.gpN : null;
-    const seed = seeded.get(e.id) ?? {};
-    // POC「能算就算、算不出 seed」：真實 leads/orders 對得上名字者用即時值；
-    // demo 員工（無即時資料）用 kpi_snapshots seed 撐散佈圖位置。
-    const reception = seed["reception_count"] ?? liveReception;
-    const dealCount = seed["deal_count"] ?? liveDealCount;
-    const conversion = seed["conversion_rate"] ?? liveConversion;
     return {
       staff_id: e.id,
       name: e.name,
       store: e.dept_id ? (deptNames.get(e.dept_id) ?? null) : null,
-      reception_count: reception,
-      deal_count: dealCount,
-      conversion_rate: conversion,
+      reception_count: liveReception,
+      deal_count: liveDealCount,
+      conversion_rate: liveConversion,
       avg_gp_per_vehicle: avgGp,
-      avg_gp3: seed["gp3"] ?? null,
-      avg_derivative_gp: seed["derivative_gp"] ?? null,
-      avg_nps: seed["nps"] ?? null,
+      avg_gp3: null,
+      avg_derivative_gp: null,
+      avg_nps: null,
       // 簡單診斷：成交率 × （GP3 或單車 GP normalize 不易，這裡用成交率 vs 接待量門檻）
       tag: classify(
-        conversion,
+        liveConversion,
         // 高接待量(>10)視為 hi 軸達標，normalize 成 0/1 區間給 classify 用
-        reception > 0 ? Math.min(reception / 10, 1) : null,
+        liveReception > 0 ? Math.min(liveReception / 10, 1) : null,
       ),
     };
   });
@@ -340,8 +286,8 @@ export async function getSalesEfficiencyScatter(
 /**
  * 回傳每位在職 SA 一筆，含 A1-A4 散佈圖所需軸值 + 返修率（告警橫幅用）。
  * 即時算：intake_count / avg_revenue_per_ro。
- * seed 補：gross_margin_rate（gross_margin_rate）/ addon_rate（addon_rate）/
- *          addon_amount（addon_amount）/ avg_nps（nps）/ rework_rate（rework_rate）。
+ * gross_margin_rate / addon_rate / addon_amount / avg_nps / rework_rate：現行 schema
+ * 無法從真實表算出，一律 null（2026-07-31 GRP 補齊指令 §缺口一：拔除 seed 假數字 fallback）。
  */
 export async function getSAEfficiencyScatter(
   brandId: string,
@@ -358,12 +304,6 @@ export async function getSAEfficiencyScatter(
     client,
     brandId,
     employees.map((e) => e.dept_id ?? ""),
-  );
-  const seeded = await loadSeededMetrics(
-    client,
-    brandId,
-    "sa",
-    employees.map((e) => e.id),
   );
 
   // 即時：repair_orders 依 sa_id 聚合（接車台次 + 單車產值 lines_total）
@@ -393,24 +333,19 @@ export async function getSAEfficiencyScatter(
     const ro = roBySa.get(e.id);
     const liveIntake = ro?.count ?? 0;
     const liveAvgRev = ro && ro.revN > 0 ? ro.revSum / ro.revN : null;
-    const seed = seeded.get(e.id) ?? {};
-    const margin = seed["gross_margin_rate"] ?? null;
-    // POC：repair_orders.sa_id 是真 FK，有單者用即時值；demo SA（無單）用 seed 撐位置。
-    const intake = seed["intake_count"] ?? liveIntake;
-    const avgRev = seed["avg_revenue_per_ro"] ?? liveAvgRev;
     return {
       staff_id: e.id,
       name: e.name,
       store: e.dept_id ? (deptNames.get(e.dept_id) ?? null) : null,
-      intake_count: intake,
-      avg_revenue_per_ro: avgRev,
-      gross_margin_rate: margin,
-      addon_rate: seed["addon_rate"] ?? null,
-      addon_amount: seed["addon_amount"] ?? null,
-      avg_nps: seed["nps"] ?? null,
-      rework_rate: seed["rework_rate"] ?? null,
-      // 診斷：接車台次(normalize /20) × 毛利率
-      tag: classify(margin, intake > 0 ? Math.min(intake / 20, 1) : null),
+      intake_count: liveIntake,
+      avg_revenue_per_ro: liveAvgRev,
+      gross_margin_rate: null,
+      addon_rate: null,
+      addon_amount: null,
+      avg_nps: null,
+      rework_rate: null,
+      // 診斷：接車台次(normalize /20) × 毛利率（毛利率現無法算，缺值 classify 回 neutral）
+      tag: classify(null, liveIntake > 0 ? Math.min(liveIntake / 20, 1) : null),
     };
   });
 
@@ -1005,14 +940,8 @@ export async function getCrossDeptScatter(
     getSAEfficiencyScatter(brandId, scatterOpts),
   ]);
 
-  // 撈兩群 staff 的新 metric（cust_total / churn_count）
-  const salesIds = sales.map((s) => s.staff_id);
-  const saIds = sa.map((s) => s.staff_id);
-  const [salesSeed, saSeed] = await Promise.all([
-    loadSeededMetrics(client, brandId, "salesperson", salesIds),
-    loadSeededMetrics(client, brandId, "sa", saIds),
-  ]);
-
+  // cust_total / churn_count / trend：現行 schema 無法從真實表算出（無客戶生命週期
+  // join），一律 null（2026-07-31 GRP 補齊指令 §缺口一：拔除 seed 假數字 fallback）。
   const out: CrossDeptStaff[] = [];
 
   const pushRow = (
@@ -1024,12 +953,7 @@ export async function getCrossDeptScatter(
     },
     dept: "sales" | "service",
     volume: number,
-    seed: SeededMetrics,
   ) => {
-    const custTotal = seed["cust_total"] ?? null;
-    const churnCount = seed["churn_count"] ?? null;
-    const churnRate =
-      custTotal != null && custTotal > 0 && churnCount != null ? churnCount / custTotal : null;
     out.push({
       staff_id: base.staff_id,
       name: base.name,
@@ -1037,11 +961,11 @@ export async function getCrossDeptScatter(
       dept,
       volume,
       nps: base.nps,
-      cust_total: custTotal,
-      churn_count: churnCount,
-      churn_rate: churnRate,
-      trend: trendOf(seed["trend"] ?? null),
-      risk: crossDeptRisk(churnRate, base.nps),
+      cust_total: null,
+      churn_count: null,
+      churn_rate: null,
+      trend: trendOf(null),
+      risk: crossDeptRisk(null, base.nps),
     });
   };
 
@@ -1050,7 +974,6 @@ export async function getCrossDeptScatter(
       { staff_id: s.staff_id, name: s.name, store: s.store, nps: s.avg_nps },
       "sales",
       s.deal_count,
-      salesSeed.get(s.staff_id) ?? {},
     );
   }
   for (const s of sa) {
@@ -1058,7 +981,6 @@ export async function getCrossDeptScatter(
       { staff_id: s.staff_id, name: s.name, store: s.store, nps: s.avg_nps },
       "service",
       s.intake_count,
-      saSeed.get(s.staff_id) ?? {},
     );
   }
 
@@ -1219,7 +1141,7 @@ export type StoreHealthScore = {
   period: string; // YYYY-MM-01（seed 的季首月）
   /** 季別標籤（YYYY Qn） */
   quarter: string;
-  /** 綜合健康分數 0-100（seed health_score；缺則六維等權平均 fallback） */
+  /** 綜合健康分數 0-100（永遠從六維現算：缺失維度不計入、其他維度等權重算） */
   score: number | null;
   /** 上期健康分數（seed health_score_prev；缺回 null） */
   scorePrev: number | null;
@@ -1227,6 +1149,10 @@ export type StoreHealthScore = {
   delta: number | null;
   /** 六維分數（各 0-100；缺回 null） */
   dims: Record<HealthDim, number | null>;
+  /** 綜合分實際採計的維度數（選擇B：缺失不計入，其他等權重算；6=六維全到齊） */
+  validDims: number;
+  /** 缺失的維度（給前端顯示「本門店分數基於 N 個維度計算（XX 資料不足）」用） */
+  missingDims: HealthDim[];
   /** 衍生指標（戰略象限 / KPI 卡用） */
   achievement_rate: number | null; // 目標達成率 0..1
   gross_profit_rate: number | null; // 毛利率 0..1
@@ -1267,13 +1193,29 @@ function quarterLabel(d: string): string {
   return `${y} Q${q}`;
 }
 
-/** 六維等權平均（任一缺值仍以現有維度平均；全缺回 null）。 */
-function sixDimAverage(dims: Record<HealthDim, number | null>): number | null {
-  const vals = HEALTH_DIMS.map((k) => dims[k]).filter(
-    (v): v is number => v != null && !Number.isNaN(v),
+/**
+ * 六維 → 綜合分數 +「有效維度數」+「缺失維度清單」。
+ *
+ * 選擇 B（Russell 2026-07-31 GRP16 補齊指令 §缺口四拍板）：缺失維度不計入計算，
+ * 其他維度等權重新計算——不是「六維固定除以 6」，是「除以實際有值的維度數」。
+ * GRP02（getBscScorecard）與 GRP16（getDealerHealthScores）共用這支函式，
+ * 避免兩處各自維護一份幾乎相同的 fallback 邏輯（2026-07-31 前是兩份獨立實作）。
+ *
+ * ⚠️ 不再讀取獨立 seed 的 `health_score` 欄位當綜合分——那個值是跟六維各自獨立灌的
+ * seed，可能跟六維實際內容不一致（例如 seed 塞了 health_score=82 但某維度剛好是 null）。
+ * 改成永遠從 dims 現算，score 與 dims 才會保證一致。
+ */
+function calculateHealthScore(
+  dims: Record<HealthDim, number | null>,
+): { score: number | null; validDims: number; missingDims: HealthDim[] } {
+  const entries = HEALTH_DIMS.map((k) => [k, dims[k]] as const);
+  const valid = entries.filter(
+    (e): e is [HealthDim, number] => e[1] != null && !Number.isNaN(e[1]),
   );
-  if (vals.length === 0) return null;
-  return vals.reduce((s, v) => s + v, 0) / vals.length;
+  const missingDims = entries.filter(([, v]) => v == null || Number.isNaN(v)).map(([k]) => k);
+  if (valid.length === 0) return { score: null, validDims: 0, missingDims };
+  const score = valid.reduce((s, [, v]) => s + v, 0) / valid.length;
+  return { score, validDims: valid.length, missingDims };
 }
 
 /** 綜合分數 → EfficiencyTag（star/neutral/watch/danger）。 */
@@ -1361,8 +1303,8 @@ function buildHealthStrategy(
  *
  * 【資料合約 — kpi_snapshots（org_id=門店, staff_id=NULL, staff_role=NULL）metric_key】
  *   ── 綜合 / 環比（seed）──
- *   health_score(0-100)              綜合健康分數；缺則 helper 用六維等權平均 fallback
- *   health_score_prev(0-100)         上期綜合健康分數（算 delta 用）
+ *   health_score_prev(0-100)         上期綜合健康分數（算 delta 用，仍讀 seed，無法現算歷史期）
+ *   （health_score 本期值已改為永遠由六維現算，不再讀 seed，見 calculateHealthScore）
  *   ── 六維（seed，各 0-100）──
  *   dim_sales / dim_after / dim_parts / dim_people / dim_csat / dim_finance
  *   ── 衍生指標（seed；戰略象限與 KPI 卡用）──
@@ -1374,7 +1316,7 @@ function buildHealthStrategy(
  *   staff_count                      員工數（同上 → seed）
  *
  * 【helper 規則生成、不讀 seed】：
- *   • score = health_score ?? 六維等權平均（兩者 seed 一致即可，helper 提供 fallback）
+ *   • score/validDims/missingDims = calculateHealthScore(dims)（選擇B：缺失不計入，其他等權重算）
  *   • issues：掃六維，<60 標 bad、60-75 標 warn，附人話（不存 seed）
  *   • strategy：依綜合分數分級 + 最弱維度產一句（不存 seed）
  *   • tag：依綜合分數分級（>=80 star / 65-80 neutral / 50-65 watch / <50 danger）
@@ -1408,8 +1350,7 @@ export async function getDealerHealthScores(
       dim_finance: m(metrics, "dim_finance"),
     };
 
-    const seedScore = m(metrics, "health_score");
-    const score = seedScore ?? sixDimAverage(dims);
+    const { score, validDims, missingDims } = calculateHealthScore(dims);
     const scorePrev = m(metrics, "health_score_prev");
     const delta = score != null && scorePrev != null ? score - scorePrev : null;
 
@@ -1423,6 +1364,8 @@ export async function getDealerHealthScores(
       scorePrev,
       delta,
       dims,
+      validDims,
+      missingDims,
       achievement_rate: m(metrics, "achievement_rate"),
       gross_profit_rate: m(metrics, "gross_profit_rate"),
       store_nps: m(metrics, "store_nps"),
@@ -2443,7 +2386,11 @@ const TAG_GRADE: Record<EfficiencyTag, string> = {
 
 /**
  * GRP15 技師效率散佈圖：回每位在職技師一筆（排除 owner 兼任）。
- * 門店由 seed 的 org_id 解析（→ organizations.name）。無資料安全。
+ * 門店由 seed 的 org_id 解析（→ organizations.name）——技師主檔本身無真實門店分派 FK，
+ * 這裡讀 kpi_snapshots.org_id 是結構性歸屬資訊、不是「假數字」，予以保留。
+ * labor_efficiency / rework_rate / on_time_rate / tenure_years：現行 schema 無法從真實表
+ * 算出，一律 null（2026-07-31 GRP 補齊指令 §缺口一：拔除 seed 假數字 fallback）。
+ * monthly_intake 已有 repair_orders 真實來源，不再讀 seed 兜底。無資料安全。
  */
 export async function getTechEfficiencyScatter(
   brandId: string,
@@ -2518,22 +2465,17 @@ export async function getTechEfficiencyScatter(
 
   return employees.map((e) => {
     const seed = seedByStaff.get(e.id);
-    const metrics = seed?.metrics ?? new Map<string, number | null>();
-    const eff = metrics.get("labor_efficiency") ?? null;
-    const rework = metrics.get("rework_rate") ?? null;
     const liveIntake = roByTech.get(e.id) ?? 0;
-    const seedIntake = metrics.get("monthly_intake");
-    const intake = liveIntake > 0 ? liveIntake : (seedIntake ?? 0);
-    const tag = classifyTech(eff, rework);
+    const tag = classifyTech(null, null);
     return {
       staff_id: e.id,
       name: e.name,
       store: seed?.orgId ? (storeNames.get(seed.orgId) ?? null) : null,
-      intake_count: intake,
-      labor_efficiency: eff,
-      rework_rate: rework,
-      on_time_rate: metrics.get("on_time_rate") ?? null,
-      tenure_years: metrics.get("tenure_years") ?? null,
+      intake_count: liveIntake,
+      labor_efficiency: null,
+      rework_rate: null,
+      on_time_rate: null,
+      tenure_years: null,
       grade: TAG_GRADE[tag],
       tag,
     };
@@ -2887,8 +2829,12 @@ export type BscStoreRow = {
   name: string;
   /** 六大面向分數（各 0~100；缺回 null） */
   dims: Record<HealthDim, number | null>;
-  /** 綜合健康分（health_score，0~100；缺回六維均值 fallback） */
+  /** 綜合健康分（0~100；永遠從六維現算，缺失維度不計入、其他等權重算） */
   total: number | null;
+  /** 綜合分實際採計的維度數 */
+  validDims: number;
+  /** 缺失的維度 */
+  missingDims: HealthDim[];
   /** 銷售達成率（0~1+） */
   achievement: number | null;
 };
@@ -2959,13 +2905,16 @@ export async function getBscScorecard(brandId: string): Promise<BscScorecard> {
       const dims = Object.fromEntries(
         HEALTH_DIMS.map((d) => [d, latestByKey.get(`${id}::${d}`)?.v ?? null]),
       ) as Record<HealthDim, number | null>;
-      // 綜合分優先讀 health_score，缺則六維均值 fallback
-      const total = latestByKey.get(`${id}::health_score`)?.v ?? avg(HEALTH_DIMS.map((d) => dims[d]));
+      // 綜合分：永遠從六維現算（跟 GRP16 getDealerHealthScores 共用同一支 calculateHealthScore，
+      // 不再各自維護一份 fallback，見 2026-07-31 GRP16 補齊指令 §缺口四）
+      const { score: total, validDims, missingDims } = calculateHealthScore(dims);
       return {
         orgId: id,
         name: nameById.get(id) ?? id,
         dims,
         total,
+        validDims,
+        missingDims,
         achievement: latestByKey.get(`${id}::achievement_rate`)?.v ?? null,
       };
     })
