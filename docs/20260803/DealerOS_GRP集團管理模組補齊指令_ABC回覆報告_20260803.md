@@ -2,7 +2,7 @@
 
 **日期**：2026-08-03
 **對應文件**：Russell Hung《DealerOS 集團管理模組（GRP）— 最終補齊指令》，2026-07-31
-**部署 commit**：尚未 push（見文末「待你決定」）
+**部署 commit**：`a5d530c`（`https://dealeros.zeabur.app/`，已上線並用 Playwright 打正式站驗證）
 **回覆原則**：依 `CLAUDE.md` §「需求受理與回應規範」——產出分 A（現在做）/ B（缺口清單）/ C（待客戶確認），不寫「已全數完成」
 
 ---
@@ -89,14 +89,21 @@ dim_sales: m(metrics, "dim_sales"),  // 直接讀 kpi_snapshots.metric_value，m
 
 ---
 
-## 4. Playwright 驗證 — 待你決定是否 push 部署
+## 4. Playwright 正式站驗證結果（commit `a5d530c`，2026-08-03）
 
-`CLAUDE.md` 規定驗證一律走 Deploy-then-Test（push → Zeabur 自動部署 → 打正式站測），不在本機起 dev server。**目前改動都還在本地，還沒 commit/push**——這是刻意先停在這裡：
+Push → Zeabur 自動部署（`BUILDING` → `DEPLOYING` → `RUNNING`，約 8 分鐘）→ 用 `yemming.yu@gmail.com` 登入正式站，切到 Indian Motorcycle 品牌（Ducati 品牌預設 0 門店資料，демо 資料照專案規範放在 Indian 底下）逐頁驗證：
 
-- 這次改動雖然範圍是 7 個既有檔案（非新檔案、非新表），但缺口一那部分會讓 GRP07/08/11/15 好幾個散佈圖軸「看起來變空」（GP3/NPS/毛利率等本來被 seed 撐著的軸，現在誠實地變成 null），這是預期行為但視覺上改動明顯，我不會沒問過你就把它推上正式站
-- 缺口三（下發銷售目標）因為卡在鐵律一沒有動，不影響本次 push 範圍
+| 頁面 | 結果 |
+|---|---|
+| GRP02 BSC 計分卡 | 逐店綜合分與六維手算結果**完全吻合**（例：台北 (90+88+85+90+92+83)/6=88 ✓，其餘 4 店同驗證通過）。頁尾數據來源說明正確渲染 |
+| GRP16 Health Score | 5 店綜合分（88/80/60/60/52）與 GRP02 **逐店一致**，證實兩頁共用同一支 `calculateHealthScore` 生效。Console 無 error/warning |
+| GRP07 銷售顧問能效 | S2/S3/S4（GP3/衍生毛利/NPS）正確顯示新空狀態文案，不再是假數字。**S1（接待量/成交率）也顯示「尚無資料」**——查證後這不是本次改動造成的迴歸：Indian brand 8 位銷售顧問裡只有 1 位（林佳蓉）跟 `sales_dormant_leads`/`sales_orders` 對得上名字，且她的紀錄全部落在 2026-01~05，早已滾出「近 3 個月」（相對 2026-08-03 系統時間）的即時計算窗口。這個問題在改動前就存在，只是被 seed 蓋住看不出來，屬於示範資料本身過期，不在本次修復範圍內 |
+| GRP08 SA 能效診斷 | 4 象限空狀態文案正確、無 crash |
+| GRP11 跨部門能效 | 14 位人員的名下客戶/流失/NPS 全部誠實顯示「—」與「資料不足」，無 crash |
+| GRP15 技師效率 | 9 位技師門店名正確解析（驗證 org_id 保留邏輯有效）；工時效率等 4 指標皆「—」；評級欄如預期全部落在中性 B 級 |
+| GRP19 中古車能效 | 確認未受影響，33 台在庫車輛、真實價格/天數資料正常顯示 |
 
-**要 push 的話跟我說一聲**，我會依序：push → 等 Zeabur 部署完成 → 用 `yemming.yu@gmail.com` 登入正式站，跑過 GRP02/07/08/11/15/16 六頁截圖驗證（六維 ⓘ 提示、缺值視覺區分、頁尾數據來源說明、拔假資料後圖表不 crash）。
+**⚠ GRP16 missingDims/ⓘ 提示 UI 沒有被現有資料觸發**：Indian brand 這批 seed 剛好 5 間門店六維全數到齊，沒有任何門店缺維度，所以無法目視驗證 ⓘ 圖示、斜紋底缺值 bar、`validDims<3` 橘色警示這幾個新增的 UI 分支——但底層計算邏輯（`calculateHealthScore` 對缺失維度的處理）已經用單元邏輯覆核過（缺值 filter 後除以有效個數），且 GRP02/GRP16 兩頁分數完全吻合本身就是很強的正確性訊號。之後如果哪個門店某季度真的缺了維度，這批 UI 才有機會被真實資料觸發，建議留意。
 
 ---
 
@@ -104,6 +111,6 @@ dim_sales: m(metrics, "dim_sales"),  // 直接讀 kpi_snapshots.metric_value，m
 
 - [x] `npx tsc --noEmit`：0 errors
 - [x] `npx eslint`（本次改動的 7 個檔案）：0 errors（2 個既有無關 warning）
-- [ ] 部署 commit：待你同意後補上
-- [ ] 正式站 Playwright 驗證：待部署後執行
+- [x] 部署 commit：`a5d530c`
+- [x] 正式站 Playwright 驗證：已完成，見上表；六頁皆無 crash、無 console error
 - [x] 鐵律遵守確認：集團唯讀監控（缺口三下發功能因衝突未動手實作，未新增任何覆蓋門店按鈕）／org_mode per-brand（本次改動未涉及 org_mode 分支邏輯）／數字只記錄事實，無會計判斷（缺口二未套用文件裡違反鐵律三的建議公式）／工單讀取確認是 `repair_orders`（GRP08/15 皆讀 `repair_orders`，非 `work_orders`）／無重複建表（缺口三評估時發現 `kpi_targets` 已存在，未新建任何表）
