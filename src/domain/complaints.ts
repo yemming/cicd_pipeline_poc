@@ -17,6 +17,7 @@ export type ComplaintRow = {
   related_sales_order_id: string | null;
   complaint_type: string | null;
   description: string | null;
+  severity: "low" | "medium" | "high";
   status: string;
   result: string | null;
   handled_by: string | null;
@@ -48,7 +49,7 @@ export async function listComplaintsByCustomer(
   const { data, error } = await supabase
     .from("complaints")
     .select(
-      "id, customer_id, vehicle_id, repair_order_id, related_sales_order_id, complaint_type, description, status, result, handled_by, created_by, created_at, updated_at",
+      "id, customer_id, vehicle_id, repair_order_id, related_sales_order_id, complaint_type, description, severity, status, result, handled_by, created_by, created_at, updated_at",
     )
     .eq("brand_id", brand)
     .eq("customer_id", customerId)
@@ -68,6 +69,7 @@ export async function listComplaintsByCustomer(
     related_sales_order_id: string | null;
     complaint_type: string | null;
     description: string | null;
+    severity: "low" | "medium" | "high";
     status: string;
     result: string | null;
     handled_by: string | null;

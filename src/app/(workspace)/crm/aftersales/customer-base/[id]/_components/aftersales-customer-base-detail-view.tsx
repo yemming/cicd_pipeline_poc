@@ -11,6 +11,12 @@ import {
   updateAftersalesCustomerAction,
   type AftersalesCustomerInput,
 } from "@/lib/aftersales/customer-base-actions";
+import { createComplaintAction } from "@/lib/aftersales/complaint-actions";
+import {
+  setCustomerContactRestrictionAction,
+  clearCustomerContactRestrictionAction,
+  type ContactRestriction,
+} from "@/lib/aftersales/customer-restriction-actions";
 import { KpiCard, Timeline, type TimelineEvent } from "@/components/visualization";
 import { DonutChart, GaugeChart, SparkLine } from "@/components/charts";
 import type {
@@ -19,6 +25,7 @@ import type {
   AftersalesNpsResponseRow,
   AftersalesNpsSummary,
   AftersalesWarrantyEntry,
+  ComplaintRow,
 } from "@/domain/aftersales-customer-base";
 
 export type DetailCustomer = {
@@ -37,6 +44,7 @@ export type DetailCustomer = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  contact_restriction?: "do_not_contact" | "deceased" | null;
 };
 
 export type VehicleRow = {
@@ -84,7 +92,8 @@ type TabKey =
   | "service_history"
   | "call_history"
   | "warranty"
-  | "nps";
+  | "nps"
+  | "complaints";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "vehicles", label: "名下車輛" },
@@ -92,7 +101,36 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "call_history", label: "電訪紀錄" },
   { key: "warranty", label: "保固訂閱" },
   { key: "nps", label: "NPS 評分" },
+  { key: "complaints", label: "投訴" },
 ];
+
+const COMPLAINT_TYPE_LABEL: Record<string, string> = {
+  service: "服務態度",
+  quality: "維修品質",
+  pricing: "費用爭議",
+  other: "其他",
+};
+const COMPLAINT_SEVERITY_LABEL: Record<string, string> = {
+  low: "低",
+  medium: "中",
+  high: "高",
+};
+function complaintSeverityChip(s: string): string {
+  if (s === "high") return "bg-[#FDECEA] text-[#CC0000]";
+  if (s === "low") return "bg-[#F2F2F2] text-[#6B6A68]";
+  return "bg-[#FDF3E3] text-[#854F0B]";
+}
+function complaintStatusChip(s: string): string {
+  if (s === "open" || s === "in_progress") return "bg-[#EAF4FB] text-[#185FA5]";
+  if (s === "resolved" || s === "closed") return "bg-[#EAF3DE] text-[#3B6D11]";
+  return "bg-[#F2F2F2] text-[#6B6A68]";
+}
+function complaintStatusLabel(s: string): string {
+  if (s === "open") return "待處理";
+  if (s === "in_progress") return "處理中";
+  if (s === "resolved" || s === "closed") return "已結案";
+  return s;
+}
 
 const CALL_STATUS_LABEL: Record<string, string> = {
   pending: "待聯繫",
@@ -225,6 +263,7 @@ export function AftersalesCustomerBaseDetailView({
   warrantySubscriptions = [],
   lifetime = null,
   npsSummary = null,
+  complaints = [],
   canEdit,
   initialMode = "view",
 }: {
@@ -238,6 +277,7 @@ export function AftersalesCustomerBaseDetailView({
   warrantySubscriptions?: AftersalesWarrantyEntry[];
   lifetime?: AftersalesCustomerLifetime | null;
   npsSummary?: AftersalesNpsSummary | null;
+  complaints?: ComplaintRow[];
   canEdit: boolean;
   initialMode?: "view" | "create";
 }) {
@@ -248,6 +288,18 @@ export function AftersalesCustomerBaseDetailView({
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(initialMode === "create");
   const [activeTab, setActiveTab] = useState<TabKey>("vehicles");
+
+  // 缺口 4.3：標記請勿聯繫/已故
+  const [showRestrictionModal, setShowRestrictionModal] = useState(false);
+  const [restrictionChoice, setRestrictionChoice] =
+    useState<ContactRestriction>("do_not_contact");
+
+  // 缺口 3.5：新增投訴
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
+  const [cType, setCType] = useState("service");
+  const [cSeverity, setCSeverity] = useState<"low" | "medium" | "high">("medium");
+  const [cDesc, setCDesc] = useState("");
+  const [cRoId, setCRoId] = useState("");
 
   const [draft, setDraft] = useState<AftersalesCustomerInput>(
     customer ? fromCustomer(customer) : blankInput(),
@@ -346,6 +398,67 @@ export function AftersalesCustomerBaseDetailView({
       const res = await deleteAftersalesCustomerAction(customer.id);
       if (res.ok) {
         router.push("/crm/aftersales/customer-base");
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  const submitRestriction = () => {
+    if (!customer) return;
+    startTransition(async () => {
+      const res = await setCustomerContactRestrictionAction(
+        customer.id,
+        restrictionChoice,
+      );
+      if (res.ok) {
+        setShowRestrictionModal(false);
+        showBanner({
+          ok: true,
+          msg:
+            res.data.cancelled_tasks > 0
+              ? `✓ 已標記，並取消 ${res.data.cancelled_tasks} 筆待處理電訪任務`
+              : "✓ 已標記",
+        });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  const clearRestriction = () => {
+    if (!customer) return;
+    if (!confirm("確定解除此客戶的聯繫限制？解除後系統會恢復自動建立電訪任務。")) return;
+    startTransition(async () => {
+      const res = await clearCustomerContactRestrictionAction(customer.id);
+      if (res.ok) {
+        showBanner({ ok: true, msg: "✓ 已解除限制" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  const submitComplaint = () => {
+    if (!customer || !cDesc.trim()) return;
+    startTransition(async () => {
+      const res = await createComplaintAction({
+        customer_id: customer.id,
+        repair_order_id: cRoId || null,
+        complaint_type: cType,
+        description: cDesc.trim(),
+        severity: cSeverity,
+      });
+      if (res.ok) {
+        setShowComplaintModal(false);
+        setCDesc("");
+        setCRoId("");
+        setCType("service");
+        setCSeverity("medium");
+        showBanner({ ok: true, msg: "✓ 已新增投訴記錄" });
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -540,9 +653,40 @@ export function AftersalesCustomerBaseDetailView({
                     >
                       {customer.is_active ? "往來中" : "停用"}
                     </span>
+                    {customer.contact_restriction ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[11px] font-medium bg-[#FDECEA] text-[#CC0000]">
+                        ⛔{" "}
+                        {customer.contact_restriction === "deceased"
+                          ? "已標記為已故"
+                          : "已標記為請勿聯繫"}
+                      </span>
+                    ) : null}
                   </>
                 ) : null}
               </div>
+              {customer && !creating ? (
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  {customer.contact_restriction ? (
+                    <button
+                      type="button"
+                      disabled={!canEdit || isPending}
+                      onClick={clearRestriction}
+                      className="h-[26px] px-3 rounded-full text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+                    >
+                      解除聯繫限制
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!canEdit || isPending}
+                      onClick={() => setShowRestrictionModal(true)}
+                      className="h-[26px] px-3 rounded-full text-[11.5px] bg-white border border-[#F5AEAD] text-[#CC0000] hover:bg-[#FDECEA] disabled:opacity-50"
+                    >
+                      標記為請勿聯繫 / 已故
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="shrink-0">
@@ -1262,6 +1406,77 @@ export function AftersalesCustomerBaseDetailView({
                 </SectionCard>
               </div>
             ) : null}
+
+            {activeTab === "complaints" ? (
+              <section className="bg-white border border-[#EEECE6] rounded-lg overflow-hidden">
+                <header className="px-4 py-2.5 border-b border-[#EEECE6] bg-[#F8F7F4] flex items-center">
+                  <h2 className="text-[13px] font-semibold text-[#2C2C2A]">
+                    投訴歷史（{complaints.length}）
+                  </h2>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowComplaintModal(true)}
+                      className="ml-auto h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+                    >
+                      ＋ 新增投訴
+                    </button>
+                  ) : null}
+                </header>
+                {complaints.length === 0 ? (
+                  <div className="px-4 py-4 text-[12px] text-[#9A9890]">
+                    尚無投訴記錄
+                  </div>
+                ) : (
+                  <table className="w-full text-[12px]">
+                    <thead className="bg-[#F8F7F4] text-[11px] text-[#9A9890]">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">日期</th>
+                        <th className="px-3 py-2 text-left font-medium">工單號</th>
+                        <th className="px-3 py-2 text-left font-medium">類型</th>
+                        <th className="px-3 py-2 text-left font-medium">嚴重程度</th>
+                        <th className="px-3 py-2 text-left font-medium">描述</th>
+                        <th className="px-3 py-2 text-left font-medium">狀態</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {complaints.map((c) => (
+                        <tr key={c.id} className="border-t border-[#EEECE6] hover:bg-[#F8F7F4]">
+                          <td className="px-3 py-2 font-mono text-[11.5px]">
+                            {fmtDate(c.created_at)}
+                          </td>
+                          <td className="px-3 py-2 font-mono text-[11.5px] text-[#1A3A5C]">
+                            {c.ro_code ?? <span className="text-[#9A9890]">—</span>}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-medium bg-[#EEF4FB] text-[#185FA5]">
+                              {COMPLAINT_TYPE_LABEL[c.complaint_type ?? ""] ?? "其他"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-medium ${complaintSeverityChip(c.severity)}`}
+                            >
+                              {COMPLAINT_SEVERITY_LABEL[c.severity] ?? "中"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-[#5A5955] max-w-[260px] truncate">
+                            {c.result ?? c.description ?? "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`inline-flex px-1.5 py-0.5 rounded-md text-[10.5px] font-medium ${complaintStatusChip(c.status)}`}
+                            >
+                              {complaintStatusLabel(c.status)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </section>
+            ) : null}
           </div>
         </>
       ) : null}
@@ -1298,6 +1513,164 @@ export function AftersalesCustomerBaseDetailView({
             )}
           </div>
         </section>
+      ) : null}
+
+      {/* 標記請勿聯繫 / 已故 Modal（缺口 4.3） */}
+      {showRestrictionModal && customer ? (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-5 space-y-3">
+            <h3 className="text-[15px] font-semibold text-[#2C2C2A]">
+              標記聯繫限制
+            </h3>
+            <p className="text-[12px] text-[#5A5955]">
+              標記後系統將取消此客戶所有待處理的電訪任務，且往後不再自動建立新任務。此動作可隨時解除。
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <label className="flex items-center gap-2 text-[12.5px]">
+                <input
+                  type="radio"
+                  checked={restrictionChoice === "do_not_contact"}
+                  onChange={() => setRestrictionChoice("do_not_contact")}
+                />
+                請勿聯繫（客戶明確表示不要再聯繫）
+              </label>
+              <label className="flex items-center gap-2 text-[12.5px]">
+                <input
+                  type="radio"
+                  checked={restrictionChoice === "deceased"}
+                  onChange={() => setRestrictionChoice("deceased")}
+                />
+                已故
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowRestrictionModal(false)}
+                className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={submitRestriction}
+                disabled={isPending}
+                className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#CC0000] text-white hover:bg-[#a50000] disabled:opacity-50"
+              >
+                {isPending ? "處理中⋯" : "確認標記"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 新增投訴 Modal（缺口 3.5） */}
+      {showComplaintModal && customer ? (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5 space-y-3">
+            <h3 className="text-[15px] font-semibold text-[#2C2C2A]">新增投訴</h3>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">
+                投訴嚴重程度
+              </label>
+              <div className="flex flex-col gap-1">
+                <label className="flex items-center gap-2 text-[12.5px]">
+                  <input
+                    type="radio"
+                    checked={cSeverity === "low"}
+                    onChange={() => setCSeverity("low")}
+                  />
+                  低 — 一般客戶意見（如：等待時間、服務態度）
+                </label>
+                <label className="flex items-center gap-2 text-[12.5px]">
+                  <input
+                    type="radio"
+                    checked={cSeverity === "medium"}
+                    onChange={() => setCSeverity("medium")}
+                  />
+                  中 — 費用或品質問題
+                </label>
+                <label className="flex items-center gap-2 text-[12.5px]">
+                  <input
+                    type="radio"
+                    checked={cSeverity === "high"}
+                    onChange={() => setCSeverity("high")}
+                  />
+                  高 — 人身安全或重大財務損失
+                </label>
+              </div>
+              {cSeverity === "high" ? (
+                <div className="mt-1 px-2.5 py-1.5 rounded bg-[#FDECEA] text-[#CC0000] text-[11.5px]">
+                  ⚠️ 高等級投訴建立後，建議立即口頭通報主管——目前尚未接自動升級通知（見缺口一/三待客戶確認清單）。
+                </div>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">投訴類型</label>
+              <select
+                className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                value={cType}
+                onChange={(e) => setCType(e.target.value)}
+              >
+                <option value="service">服務態度</option>
+                <option value="quality">維修品質</option>
+                <option value="pricing">費用爭議</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+            {workOrders.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-[#9A9890] font-medium">
+                  關聯工單（選填）
+                </label>
+                <select
+                  className="h-[30px] border border-[#D5D3CB] rounded px-2 text-[12.5px] focus:border-[#185FA5] focus:outline-none"
+                  value={cRoId}
+                  onChange={(e) => setCRoId(e.target.value)}
+                >
+                  <option value="">— 不關聯工單 —</option>
+                  {workOrders.slice(0, 20).map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.ro_no}（{fmtDate(w.opened_at)}）
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] text-[#9A9890] font-medium">
+                投訴描述 *
+              </label>
+              <textarea
+                className="border border-[#D5D3CB] rounded px-2 py-1.5 text-[12.5px] focus:border-[#185FA5] focus:outline-none min-h-[80px] resize-none"
+                value={cDesc}
+                onChange={(e) => setCDesc(e.target.value)}
+                placeholder="請描述投訴內容及客戶反應⋯"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowComplaintModal(false);
+                  setCDesc("");
+                  setCRoId("");
+                }}
+                className="h-[30px] px-4 rounded-full text-[12px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={submitComplaint}
+                disabled={isPending || !cDesc.trim()}
+                className="h-[30px] px-4 rounded-full text-[12px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
+              >
+                {isPending ? "儲存中⋯" : "建立投訴記錄"}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </main>
   );

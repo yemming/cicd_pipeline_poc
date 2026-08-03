@@ -28,6 +28,9 @@ import type {
   AftersalesCustomerCrmFilters,
 } from "./aftersales-customer-base.constants";
 import { isVipRow } from "./aftersales-customer-base.constants";
+import { listComplaintsByCustomer, type ComplaintRow } from "./complaints";
+
+export type { ComplaintRow } from "./complaints";
 
 // Re-export 給既有 caller 用（page.tsx 過去從這支 import 這些 type）
 export type {
@@ -328,6 +331,8 @@ export type AftersalesCustomerDetail = {
   updated_at: string;
   /** LINE ID（存於 metadata.line_id） */
   line_id: string | null;
+  /** 請勿聯繫 / 已故標記，非 null 時擋自動電訪任務建立（缺口四） */
+  contact_restriction: "do_not_contact" | "deceased" | null;
 };
 
 export type AftersalesCustomerVehicle = {
@@ -841,6 +846,7 @@ export type AftersalesCustomerProfileBundle = AftersalesCustomerDetailBundle & {
   warrantySubscriptions: AftersalesWarrantyEntry[];
   lifetime: AftersalesCustomerLifetime;
   npsSummary: AftersalesNpsSummary;
+  complaints: ComplaintRow[];
 };
 
 function deriveWarrantyStatus(
@@ -865,7 +871,7 @@ export async function getAftersalesCustomerProfile(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
-  const [npsRes, callRes] = await Promise.all([
+  const [npsRes, callRes, complaints] = await Promise.all([
     supabase
       .from("nps_responses")
       .select("id, score, category, comment, responded_at, kind")
@@ -882,6 +888,7 @@ export async function getAftersalesCustomerProfile(
       .eq("customer_id", id)
       .order("scheduled_at", { ascending: false, nullsFirst: false })
       .limit(30),
+    listComplaintsByCustomer(id),
   ]);
 
   const npsResponses = (npsRes.data ?? []) as AftersalesNpsResponseRow[];
@@ -978,6 +985,7 @@ export async function getAftersalesCustomerProfile(
     warrantySubscriptions,
     lifetime,
     npsSummary,
+    complaints,
   };
 }
 
@@ -990,7 +998,7 @@ export async function getAftersalesCustomerDetail(
   const { data: customer, error: cErr } = await supabase
     .from("customers")
     .select(
-      "id, code, name, type, tax_id, national_id, phone, email, address, birthday, source_module, notes, is_active, avatar_url, created_at, updated_at, metadata",
+      "id, code, name, type, tax_id, national_id, phone, email, address, birthday, source_module, notes, is_active, avatar_url, created_at, updated_at, metadata, contact_restriction",
     )
     .eq("id", id)
     .eq("brand_id", brand)

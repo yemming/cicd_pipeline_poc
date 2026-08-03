@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { DeliveryStatus, DeliveryStepName } from './deliveries.constants';
 import { getBrandConfig } from '@/domain/brand-config';
 import { getActiveScope } from '@/lib/scope/active-scope';
+import { canCreateCallTask } from '@/lib/crm/call-task-guard';
 
 export type DeliveryRow = {
   id: string;
@@ -465,6 +466,10 @@ export async function syncDeliveryToCustomerBase(
 export async function scheduleWarrantyReminderTask(row: DeliveryRow): Promise<void> {
   if (!row.customer_id) return;
   if (!row.warranty_start_date) return;
+
+  // 缺口四：客戶標記請勿聯繫/已故 → 不建任務（guard 內已寫 audit log）
+  const guard = await canCreateCallTask(row.customer_id, row.brand_id);
+  if (!guard.allowed) return;
 
   const brandConfig = await getBrandConfig(row.brand_id);
   const days = brandConfig.warrantyRegDays;

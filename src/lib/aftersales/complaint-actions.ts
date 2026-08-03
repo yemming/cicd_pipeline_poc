@@ -30,6 +30,8 @@ export type CreateComplaintInput = {
   /** 投訴類型：service（服務態度）/ quality（維修品質）/ pricing（費用爭議）/ other（其他） */
   complaint_type: string;
   description: string;
+  /** 嚴重程度：low / medium / high，預設 medium（缺口 3.1） */
+  severity?: "low" | "medium" | "high";
 };
 
 /** 新增取車後投訴記錄（B19-01）*/
@@ -43,6 +45,8 @@ export async function createComplaintAction(
   if (!input.customer_id) return { ok: false, error: "缺少客戶 ID" };
   if (!input.complaint_type?.trim()) return { ok: false, error: "請選擇投訴類型" };
   if (!input.description?.trim()) return { ok: false, error: "請填寫投訴描述" };
+  if (input.severity && !["low", "medium", "high"].includes(input.severity))
+    return { ok: false, error: "嚴重程度不合法" };
 
   const brand = (await getActiveScope()).brand_id;
   const supabase = await createClient();
@@ -57,6 +61,7 @@ export async function createComplaintAction(
       related_sales_order_id: input.related_sales_order_id ?? null,
       complaint_type: input.complaint_type.trim(),
       description: input.description.trim(),
+      severity: input.severity ?? "medium",
       status: "open",
       created_by: ctx.userId,
     })

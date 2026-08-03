@@ -40,6 +40,7 @@ export default async function Page({
       warrantySubscriptions={bundle.warrantySubscriptions}
       lifetime={bundle.lifetime}
       npsSummary={bundle.npsSummary}
+      complaints={bundle.complaints}
       canEdit={canEdit}
       initialMode="view"
     />

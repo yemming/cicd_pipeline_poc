@@ -10,6 +10,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { canCreateCallTask } from "@/lib/crm/call-task-guard";
 import type {
   SurveyKind,
   SurveyQuestion,
@@ -980,6 +981,10 @@ export async function createFollowUpTask(
 
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
+
+  // 缺口四：客戶標記請勿聯繫/已故 → 不建任務，但視為成功（自動任務不該讓上層流程失敗）
+  const guard = await canCreateCallTask(input.customer_id, brand);
+  if (!guard.allowed) return { ok: true, data: { skipped: true } };
 
   // ── 冪等：先查是否已有對應任務 ──
   let dupQuery = supabase

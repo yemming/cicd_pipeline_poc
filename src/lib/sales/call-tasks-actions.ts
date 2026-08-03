@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserContext, requirePermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { canCreateCallTask } from "@/lib/crm/call-task-guard";
 import type {
   CallTaskResult,
   CallTaskStatus,
@@ -119,11 +120,25 @@ export async function createCallTaskAction(
     return { ok: false, error: "任務類型不合法" };
   if (!input.customer_id) return { ok: false, error: "客戶必選" };
 
+  const brand = (await getActiveScope()).brand_id;
+
+  // 缺口四：人工建立時客戶已標記請勿聯繫/已故 → 明確擋下並告知操作者
+  const guard = await canCreateCallTask(input.customer_id, brand);
+  if (!guard.allowed) {
+    return {
+      ok: false,
+      error:
+        guard.reason === "deceased"
+          ? "此客戶已標記為已故，無法建立電訪任務"
+          : "此客戶已標記為請勿聯繫，無法建立電訪任務",
+    };
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("call_tasks")
     .insert({
-      brand_id: (await getActiveScope()).brand_id,
+      brand_id: brand,
       kind: input.kind,
       ...payloadFromInput(input, true),
       created_by: ctx.userId,

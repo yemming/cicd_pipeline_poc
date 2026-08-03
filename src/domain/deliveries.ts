@@ -13,6 +13,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { writeAuditLog } from "@/domain/audit-logs";
 import { notifications } from "@/lib/notifications";
+import { canCreateCallTask } from "@/lib/crm/call-task-guard";
 import type { DeliveryRow } from "@/lib/deliveries";
 import type { DeliveryVehicleKind, UsedCarDeliveryPrereq } from "./deliveries.constants";
 
@@ -256,6 +257,10 @@ export async function scheduleD3FollowupTask(
   delivery: DeliveryRow,
 ): Promise<boolean> {
   if (!delivery.customer_id) return false;
+
+  // 缺口四：客戶標記請勿聯繫/已故 → 不建任務（guard 內已寫 audit log）
+  const guard = await canCreateCallTask(delivery.customer_id, delivery.brand_id);
+  if (!guard.allowed) return false;
 
   const deliveredAt = delivery.delivered_at
     ? new Date(delivery.delivered_at)
