@@ -11,6 +11,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { resolveDealerScope } from "@/lib/scope/dealer-scope";
 import { getBrandConfig } from "@/domain/brand-config";
 import { getTlOutstandingLoanStatusBatch, type TlLoanStatus } from "@/domain/work-orders";
 
@@ -153,6 +154,120 @@ export async function detectRecentRepairs(
   return (data ?? []) as RecentRepairRow[];
 }
 
+// 經銷商層級隔離規則 §4.2：車輛服務履歷跨經銷商可見，但非本經銷商的工單金額遮蔽
+export type MaskedRepairOrderLine = {
+  line_no: number;
+  kind: "labor" | "part";
+  labor_name: string | null;
+  part_name: string | null;
+  qty: number | null;
+  unit_price: number | null;
+  amount: number | null;
+};
+
+export type MaskedRepairOrder = {
+  id: string;
+  ro_code: string;
+  issue_date: string;
+  status: string;
+  store_id: string | null;
+  store_name: string | null;
+  estimated_subtotal: number | null;
+  lines_subtotal: number | null;
+  lines_total: number | null;
+  lines: MaskedRepairOrderLine[];
+  /** true = 非本經銷商的工單，金額欄位已遮蔽（前端顯示「金額資訊不對外顯示」） */
+  amount_masked: boolean;
+};
+
+export async function getVehicleServiceHistory(vehicleId: string): Promise<MaskedRepairOrder[]> {
+  if (!vehicleId) return [];
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const dealerScope = await resolveDealerScope(brand);
+
+  const { data: ros, error } = await supabase
+    .from("repair_orders")
+    .select(
+      "id, ro_code, issue_date, status, store_id, estimated_subtotal, lines_subtotal, lines_total, organizations:store_id(name)",
+    )
+    .eq("brand_id", brand)
+    .eq("vehicle_id", vehicleId)
+    .order("issue_date", { ascending: false });
+  if (error) throw error;
+  if (!ros || ros.length === 0) return [];
+
+  const roIds = ros.map((r) => r.id);
+  const { data: lineRows } = await supabase
+    .from("repair_order_lines")
+    .select("repair_order_id, line_no, kind, labor_name, part_name, qty, unit_price, amount")
+    .in("repair_order_id", roIds)
+    .order("line_no", { ascending: true });
+
+  const linesByRo = new Map<string, MaskedRepairOrderLine[]>();
+  for (const l of (lineRows ?? []) as Array<{
+    repair_order_id: string;
+    line_no: number;
+    kind: "labor" | "part";
+    labor_name: string | null;
+    part_name: string | null;
+    qty: number | null;
+    unit_price: number;
+    amount: number;
+  }>) {
+    const arr = linesByRo.get(l.repair_order_id) ?? [];
+    arr.push({
+      line_no: l.line_no,
+      kind: l.kind,
+      labor_name: l.labor_name,
+      part_name: l.part_name,
+      qty: l.qty,
+      unit_price: l.unit_price,
+      amount: l.amount,
+    });
+    linesByRo.set(l.repair_order_id, arr);
+  }
+
+  // 用 get_descendant_org_ids 一次展開使用者所屬經銷商子樹，逐張工單比對 store_id 是否落在同一經銷商
+  let sameDealerOrgIds: Set<string> | null = null;
+  if (!dealerScope.isGroupLevel && dealerScope.dealerOrgId) {
+    const { data: descendantOrgIds } = await supabase.rpc("get_descendant_org_ids", {
+      root_org_id: dealerScope.dealerOrgId,
+    });
+    sameDealerOrgIds = new Set(
+      (descendantOrgIds ?? []).map((r: { id: string } | string) => (typeof r === "string" ? r : r.id)),
+    );
+  }
+
+  return ros.map((ro) => {
+    const org = Array.isArray(ro.organizations) ? ro.organizations[0] : ro.organizations;
+    const isSameDealer =
+      dealerScope.isGroupLevel ||
+      !sameDealerOrgIds || // 使用者本身不受經銷商邊界限制（direct 直營情境）
+      (ro.store_id != null && sameDealerOrgIds.has(ro.store_id));
+    const lines = linesByRo.get(ro.id) ?? [];
+
+    return {
+      id: ro.id,
+      ro_code: ro.ro_code,
+      issue_date: ro.issue_date,
+      status: ro.status,
+      store_id: ro.store_id,
+      store_name: (org as { name?: string } | null)?.name ?? null,
+      estimated_subtotal: isSameDealer ? ro.estimated_subtotal : null,
+      lines_subtotal: isSameDealer ? ro.lines_subtotal : null,
+      lines_total: isSameDealer ? ro.lines_total : null,
+      lines: lines.map((l) => ({
+        ...l,
+        // 服務內容欄位（labor_name/part_name/qty）一律保留，只有金額欄位依經銷商遮蔽
+        unit_price: isSameDealer ? l.unit_price : null,
+        amount: isSameDealer ? l.amount : null,
+      })),
+      amount_masked: !isSameDealer,
+    };
+  });
+}
+
 function todayIsoDate(): string {
   const d = new Date();
   const tz = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
@@ -175,6 +290,18 @@ export async function listRepairOrders(
     .order("issue_date", { ascending: false })
     .order("sequence_no", { ascending: false })
     .limit(500);
+
+  // 經銷商層級隔離規則 §4.1：工單列表瀏覽依經銷商隔離，代理商/集團層級不受限
+  const dealerScope = await resolveDealerScope(brand);
+  if (!dealerScope.isGroupLevel && dealerScope.dealerOrgId) {
+    const { data: descendantOrgIds } = await supabase.rpc("get_descendant_org_ids", {
+      root_org_id: dealerScope.dealerOrgId,
+    });
+    const orgIds = (descendantOrgIds ?? []).map((r: { id: string } | string) =>
+      typeof r === "string" ? r : r.id,
+    );
+    query = query.in("store_id", orgIds.length > 0 ? orgIds : [dealerScope.dealerOrgId]);
+  }
 
   if (filters.status && filters.status !== "all") query = query.eq("status", filters.status);
   if (filters.prefix_p1 && filters.prefix_p1 !== "all")
