@@ -14,7 +14,9 @@ import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { resolveDealerScope } from "@/lib/scope/dealer-scope";
 import { getBrandConfig } from "@/domain/brand-config";
+import { fulfillAgencyInternalPO } from "@/domain/agency-fulfillment";
 
 import type { Database } from "@/lib/database.types";
 
@@ -51,6 +53,20 @@ export async function listPurchaseOrders(filter: {
     .limit(200);
   if (filter.status) q = q.eq("status", filter.status);
   if (filter.q) q = q.ilike("po_no", `%${filter.q}%`);
+
+  // 經銷商層級隔離規則 §1：非代理商/集團層級只看得到自己經銷商倉別開出的採購單
+  // （也是 §2 驗收標準第4點「A 看不到 C 的任何蹤跡」的實作前提——買斷 PO 掛在代理商自己的倉，
+  //  天然被這層過濾擋在 A 的清單之外，不需要額外的 vendor 黑名單邏輯）
+  const dealerScope = await resolveDealerScope(scope.brand_id);
+  if (!dealerScope.isGroupLevel && dealerScope.dealerOrgId) {
+    const { data: dealerWarehouses } = await supabase
+      .from("warehouses")
+      .select("id")
+      .eq("brand_id", scope.brand_id)
+      .eq("org_id", dealerScope.dealerOrgId);
+    const warehouseIds = (dealerWarehouses ?? []).map((w) => w.id);
+    q = q.in("warehouse_id", warehouseIds);
+  }
 
   const { data: pos, error } = await q;
   if (error) throw error;
@@ -302,6 +318,16 @@ export async function approvePurchaseOrder(
     .eq("id", poId)
     .eq("status", "draft");
   if (error) return { ok: false, error: `審核失敗:${error.message}` };
+
+  // 代理商內部供應履約判斷（Russell 2026-08-11 補充勘誤，取代原 §2）：
+  // vendor 若不是「海德生（集團內部供應）」，fulfillAgencyInternalPO 內部會直接 no-op，
+  // 不影響一般外部供應商（Castrol 等）既有 PO 核准流程。
+  const fulfillRes = await fulfillAgencyInternalPO(poId);
+  if (!fulfillRes.ok) {
+    // 履約判斷失敗不回滾已核准的 PO——PO 本身已合法核准，履約缺口留在 metadata 讓後續人工處理
+    console.error(`[approvePurchaseOrder] fulfillAgencyInternalPO failed for ${poId}: ${fulfillRes.error}`);
+  }
+
   revalidatePath("/parts/purchase/orders");
   revalidatePath("/parts/receipt/po-grn");
   return { ok: true, data: null };
