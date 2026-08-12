@@ -35,6 +35,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { resolveDealerScope } from "@/lib/scope/dealer-scope";
 import {
   HEALTH_DIM_LABEL,
   type HealthDim,
@@ -2931,4 +2932,79 @@ export async function getBscScorecard(brandId: string): Promise<BscScorecard> {
     storeCount: stores.length,
     stores,
   };
+}
+
+/* ────────────── GRP: 經銷商分組比較（Russell 經銷商層級隔離規則 2026-08-09 §5.1） ────────────── */
+
+export type DealerComparisonMetric = "ro_count" | "revenue";
+
+export type DealerComparisonRow = {
+  dealerOrgId: string;
+  dealerName: string;
+  value: number;
+  storeCount: number;
+};
+
+/**
+ * 依經銷商分組的比較報表：工單量 / 營收，彙總範圍 = 該經銷商底下所有門店（子孫節點）加總。
+ * 僅代理商/集團層級可存取——不是金額遮蔽（§4 那條），是整張報表的存取權限（T5 第3題已拍板：
+ * 總代理看得到經銷商營收）。
+ *
+ * BSC 分數欄位留待 GRP-C 公式定案後再補（見 §5.2），先用工單量/營收這兩個已有真實資料來源的指標上線。
+ */
+export async function getDealerComparisonReport(
+  brandId: string,
+  metric: DealerComparisonMetric,
+  period: { from: string; to: string },
+): Promise<DealerComparisonRow[]> {
+  const client = await createClient();
+
+  const dealerScope = await resolveDealerScope(brandId);
+  if (!dealerScope.isGroupLevel) {
+    throw new Error("僅代理商/集團層級可存取經銷商分組比較報表");
+  }
+
+  const { data: dealers } = await client
+    .from("organizations")
+    .select("id, name")
+    .eq("brand_id", brandId)
+    .eq("level", 2)
+    .eq("store_type", "dealer")
+    .eq("is_active", true);
+
+  if (!dealers || dealers.length === 0) return [];
+
+  const { data: ros } = await client
+    .from("repair_orders")
+    .select("store_id, lines_total")
+    .eq("brand_id", brandId)
+    .gte("issue_date", period.from)
+    .lte("issue_date", period.to);
+
+  const roRows = (ros ?? []) as Array<{ store_id: string | null; lines_total: number | null }>;
+
+  const results = await Promise.all(
+    dealers.map(async (dealer) => {
+      const { data: descendantOrgIds } = await client.rpc("get_descendant_org_ids", {
+        root_org_id: dealer.id,
+      });
+      const orgIdSet = new Set(
+        (descendantOrgIds ?? []).map((r: { id: string } | string) => (typeof r === "string" ? r : r.id)),
+      );
+      const dealerRos = roRows.filter((r) => r.store_id != null && orgIdSet.has(r.store_id));
+      const value =
+        metric === "ro_count"
+          ? dealerRos.length
+          : dealerRos.reduce((sum, r) => sum + Number(r.lines_total ?? 0), 0);
+
+      return {
+        dealerOrgId: dealer.id,
+        dealerName: dealer.name,
+        value,
+        storeCount: Math.max(orgIdSet.size - 1, 1), // 扣掉經銷商自己這個節點
+      };
+    }),
+  );
+
+  return results.sort((a, b) => b.value - a.value);
 }
