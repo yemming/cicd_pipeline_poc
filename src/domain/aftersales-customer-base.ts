@@ -17,6 +17,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { resolveDealerScope } from "@/lib/scope/dealer-scope";
 
 import type {
   AftersalesCustomerBaseFilters,
@@ -98,10 +99,26 @@ export async function getAftersalesCustomerBaseListPageData(
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
 
+  // 經銷商層級隔離規則 §3.2：這裡是「列表瀏覽」入口——只能看到 customer_org_access
+  // 裡已經記錄過真實接觸的客戶（不含 direct 直營，因為 direct 沒有獨立經銷商邊界）
+  const dealerScope = await resolveDealerScope(brand);
+  let accessibleCustomerIds: string[] | null = null;
+  if (!dealerScope.isGroupLevel && dealerScope.dealerOrgId) {
+    const { data: accessRows } = await supabase
+      .from("customer_org_access")
+      .select("customer_id")
+      .eq("org_id", dealerScope.dealerOrgId);
+    accessibleCustomerIds = (accessRows ?? []).map((r) => r.customer_id);
+    if (accessibleCustomerIds.length === 0) {
+      return { rows: [], totalCount: 0 };
+    }
+  }
+
   let q = supabase
     .from("customers")
     .select("id, code, name, type, phone, email, is_active, avatar_url, tax_id, national_id, address")
     .eq("brand_id", brand);
+  if (accessibleCustomerIds) q = q.in("id", accessibleCustomerIds);
 
   if (filters.type === "individual" || filters.type === "corporate") {
     q = q.eq("type", filters.type);
@@ -113,13 +130,13 @@ export async function getAftersalesCustomerBaseListPageData(
     );
   }
 
-  const [listRes, totalRes] = await Promise.all([
-    q.order("code").limit(500),
-    supabase
-      .from("customers")
-      .select("id", { count: "exact", head: true })
-      .eq("brand_id", brand),
-  ]);
+  let totalQ = supabase
+    .from("customers")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", brand);
+  if (accessibleCustomerIds) totalQ = totalQ.in("id", accessibleCustomerIds);
+
+  const [listRes, totalRes] = await Promise.all([q.order("code").limit(500), totalQ]);
   if (listRes.error) throw new Error(`aftersales customer-base list: ${listRes.error.message}`);
 
   const customers = (listRes.data ?? []) as Array<{

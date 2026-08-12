@@ -176,3 +176,48 @@ export async function recalcAftersalesDormancy(
     ran_at: ranAt,
   };
 }
+
+/**
+ * 經銷商層級隔離規則 §3.4：按單一經銷商自己的服務記錄判斷休眠，不受其他經銷商服務事件影響。
+ *
+ * 跟上面 `recalcAftersalesDormancy()` 的差異：那支算的是「這位客戶全域最後一次進廠」（單一公司
+ * 多據點適用，如碩文/demo Indian）；這支給有「經銷商彼此獨立競爭」語意的品牌（如海德生）用——
+ * A 店只關心「甲客戶上次在 A 店服務」，不因為甲客戶去 B 店服務過就被誤判成「最近有互動」。
+ *
+ * `orgId` 需為經銷商層（level=2, store_type='dealer'）或其子孫門店；內部用 store_id
+ * 是否落在該經銷商子樹（is_descendant_of）判斷，不是單一門店等值比對。
+ */
+export async function checkDormancyForOrg(
+  customerId: string,
+  dealerOrgId: string,
+): Promise<{ isDormant: boolean; monthsSinceLastVisitAtThisDealer: number | null }> {
+  const db = createServiceClient();
+
+  const { data: ros } = await db
+    .from("repair_orders")
+    .select("closed_at, store_id")
+    .eq("customer_id", customerId)
+    .not("closed_at", "is", null)
+    .order("closed_at", { ascending: false })
+    .limit(50);
+
+  if (!ros || ros.length === 0) {
+    return { isDormant: false, monthsSinceLastVisitAtThisDealer: null }; // 從未服務過，是「尚未建立關係」不是休眠
+  }
+
+  for (const ro of ros as Array<{ closed_at: string; store_id: string | null }>) {
+    if (!ro.store_id) continue;
+    const { data: isUnderDealer } = await db.rpc("is_descendant_of", {
+      org_a: ro.store_id,
+      org_b: dealerOrgId,
+    });
+    if (isUnderDealer) {
+      const months = Math.floor(
+        (Date.now() - new Date(ro.closed_at).getTime()) / (30 * 86_400_000),
+      );
+      return { isDormant: months >= 8, monthsSinceLastVisitAtThisDealer: months }; // 8 個月門檻沿用現行設定
+    }
+  }
+
+  return { isDormant: false, monthsSinceLastVisitAtThisDealer: null }; // 近 50 筆都不在這個經銷商底下服務過
+}

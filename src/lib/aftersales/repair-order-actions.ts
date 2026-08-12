@@ -23,6 +23,7 @@ import { notifications } from "@/lib/notifications";
 import { pickForRepairOrderAddon } from "@/domain/issues";
 // repair_order → work_orders 橋接（走正式 repair-pick 倉管領料，所有 prefix_p1 通用）
 import { syncRoWorkOrderBridge } from "@/domain/work-orders";
+import { recordCustomerOrgContact } from "@/domain/customer-org-access";
 // RP4 Layer1 稽核日誌
 import { writeAuditLog } from "@/domain/audit-logs";
 
@@ -437,6 +438,16 @@ export async function confirmRepairOrderAction(
       .single();
 
     if (!error) {
+      // 經銷商層級隔離規則 §3.3：RO 建立時記錄該經銷商與客戶的接觸（取得後永久保留查詢權）
+      if (data?.id && input.customer_id && input.store_id) {
+        await recordCustomerOrgContact({
+          customerId: input.customer_id,
+          storeOrgId: input.store_id,
+          source: "repair_order",
+          refId: data.id,
+        });
+      }
+
       // 3. 更新上游預約狀態 → 維修中（demo：保留原狀態如果不是「等待中」）
       if (input.appointment_id) {
         await supabase
