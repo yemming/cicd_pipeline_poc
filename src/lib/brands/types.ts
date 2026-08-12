@@ -1,4 +1,9 @@
-export type BrandKey = "ducati" | "indian";
+export type BrandKey =
+  | "ducati"
+  | "indian"
+  | "indian-hds"
+  | "lambretta-hds"
+  | "polaris-hds";
 
 export type BrandConfig = {
   key: BrandKey;
