@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
 import { getActiveScope } from "@/lib/scope/active-scope";
+import { resolveDealerScope } from "@/lib/scope/dealer-scope";
 import { getBrandConfig } from "@/domain/brand-config";
 import { releaseWaitingForItem } from "@/domain/parts-waiting";
 import { assertWarehouseNotFrozen } from "@/domain/count";
@@ -729,18 +730,30 @@ export type NewTransferFormData = {
 
 /**
  * 給 transfers-in-transit filter 下拉用的精簡倉庫清單（不要 items）。
+ *
+ * 經銷商隔離（Russell《DealerOS 經銷商層級隔離規則》2026-08-09 §2.2）：
+ * 非代理商/集團層級的經銷商使用者，只看得到自己經銷商底下的倉別；
+ * store_type='direct'（同公司多據點，如碩文/demo Indian）不受此限制，維持品牌內全域可見。
  */
 export async function listActiveWarehousesForTransfer(): Promise<
   Array<{ id: string; code: string | null; name: string }>
 > {
   const supabase = await createClient();
   const scope = await getActiveScope();
-  const { data, error } = await supabase
+
+  let q = supabase
     .from("warehouses")
-    .select("id, code, name")
+    .select("id, code, name, org_id")
     .eq("brand_id", scope.brand_id)
-    .eq("is_active", true)
-    .order("code");
+    .eq("is_active", true);
+
+  const dealerScope = await resolveDealerScope(scope.brand_id);
+  if (!dealerScope.isGroupLevel && dealerScope.dealerOrgId) {
+    // 倉別的擁有者就是經銷商本身這一層（org_id 直接指到 dealer node），不用展開子孫節點
+    q = q.eq("org_id", dealerScope.dealerOrgId);
+  }
+
+  const { data, error } = await q.order("code");
   if (error) throw error;
   return (data ?? []) as Array<{ id: string; code: string | null; name: string }>;
 }
@@ -748,13 +761,20 @@ export async function listActiveWarehousesForTransfer(): Promise<
 export async function getNewTransferFormData(): Promise<NewTransferFormData> {
   const supabase = await createClient();
   const scope = await getActiveScope();
+
+  let whQuery = supabase
+    .from("warehouses")
+    .select("id, code, name, org_id")
+    .eq("brand_id", scope.brand_id)
+    .eq("is_active", true);
+
+  const dealerScope = await resolveDealerScope(scope.brand_id);
+  if (!dealerScope.isGroupLevel && dealerScope.dealerOrgId) {
+    whQuery = whQuery.eq("org_id", dealerScope.dealerOrgId);
+  }
+
   const [whRes, itemRes] = await Promise.all([
-    supabase
-      .from("warehouses")
-      .select("id, code, name")
-      .eq("brand_id", scope.brand_id)
-      .eq("is_active", true)
-      .order("code"),
+    whQuery.order("code"),
     supabase
       .from("items")
       .select("id, code, name, base_uom")
