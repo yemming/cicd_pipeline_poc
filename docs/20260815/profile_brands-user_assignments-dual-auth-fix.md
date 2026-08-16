@@ -88,18 +88,31 @@
 
 ### 6.2 Playwright 截圖驗收結果
 
-用 `scripts/verify-user-has-brand-fix-20260816.mjs` 對正式站實際登入 4 個帳號，截圖存在 `docs/20260815/screenshots/`：
+用 `scripts/verify-user-has-brand-fix-20260816.mjs` 對正式站 `https://dealeros.zeabur.app/` 實際登入 4 個帳號，截圖如下（原檔在 `docs/20260815/screenshots/`）。test-mj / test-td / Ducati 回歸三項全過，證明本次雙軌授權修復（含 6.1 的遞迴修正）在真實登入流程下是有效的；test-sch 原因見 §6.3。
 
-| 帳號 | 結果 | 截圖 |
-|---|---|---|
-| test-sch@dealeros-internal.test | ❌ 仍 fallback 到 Ducati，但**原因跟本次修復無關** —— 詳見 6.3 | `1-test-sch-home.png` |
-| test-mj@dealeros-internal.test | ✅ 首頁正確顯示「Indian Motorcycle（海德生總代理）」 | `3-test-mj-home.png` |
-| test-mj@dealeros-internal.test | ✅ ScopeSwitcher 選單正確列出 Indian + Lambretta 兩個品牌 | `3b-test-mj-switcher.png` |
-| test-mj@dealeros-internal.test | ✅ 切換到 Lambretta 後首頁正確顯示「Lambretta（海德生總代理）」，sidebar branding 也跟著換 | `4-test-mj-lambretta.png` |
-| test-td@dealeros-internal.test | ✅ 首頁正確顯示「Indian Motorcycle（海德生總代理）」 | `5-test-td-home.png` |
-| yemming.yu@gmail.com（Ducati 回歸測試，`profile_brands` 同時有 indian(admin)+ducati(member) 兩筆） | ✅ 預設落在 Ducati Taipei（admin 帳號、`brands` 表第一筆是 ducati）、切換 Ducati 選項後畫面正常、無任何錯誤，個人化問候「早安，Ming You」正常渲染 | `6-ducati-regression-home.png` |
+**❌ test-sch@dealeros-internal.test — 仍 fallback 到 Ducati（原因跟本次修復無關，見 §6.3）**
 
-test-mj / test-td / Ducati 回歸三項全過，證明本次雙軌授權修復（含 6.1 的遞迴修正）在真實登入流程下是有效的。
+![test-sch 登入首頁，仍顯示 Ducati Taipei Official Dealer](screenshots/1-test-sch-home.png)
+
+**✅ test-mj@dealeros-internal.test — 首頁正確顯示 Indian**
+
+![test-mj 登入首頁，正確顯示 Indian Motorcycle（海德生總代理）](screenshots/3-test-mj-home.png)
+
+**✅ test-mj@dealeros-internal.test — ScopeSwitcher 選單正確列出 Indian + Lambretta 兩個品牌**
+
+![test-mj 品牌切換器展開，列出 Indian Motorcycle 與 Lambretta 兩個選項](screenshots/3b-test-mj-switcher.png)
+
+**✅ test-mj@dealeros-internal.test — 切換到 Lambretta 後首頁正確顯示，sidebar branding 也跟著換**
+
+![test-mj 切換到 Lambretta 後的首頁，品牌與 sidebar 都正確更新為 Lambretta](screenshots/4-test-mj-lambretta.png)
+
+**✅ test-td@dealeros-internal.test — 首頁正確顯示 Indian**
+
+![test-td 登入首頁，正確顯示 Indian Motorcycle（海德生總代理）](screenshots/5-test-td-home.png)
+
+**✅ yemming.yu@gmail.com（Ducati 回歸測試，`profile_brands` 同時有 indian(admin)+ducati(member) 兩筆）— 預設落在 Ducati Taipei，畫面正常、無任何錯誤**
+
+![既有 Ducati 帳號登入首頁，正確顯示 Ducati Taipei，個人化問候「早安，Ming You」正常渲染](screenshots/6-ducati-regression-home.png)
 
 ### 6.3 test-sch 仍看到 Ducati 的原因：跟這次修復無關的資料問題
 
