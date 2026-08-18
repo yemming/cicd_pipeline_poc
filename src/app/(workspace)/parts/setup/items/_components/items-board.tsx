@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import {
   bulkImportItemsAction,
+  bulkUpdateItemPricesAction,
   createItemAction,
   deleteItemAction,
   setItemActiveAction,
@@ -13,6 +14,7 @@ import {
   upsertPriceBookAction,
   type ItemInput,
   type PriceBookRow,
+  type PriceUpdateRow,
 } from "@/lib/parts-setup/item-actions";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import { parseXlsx } from "@/components/data-grid/excel-io";
@@ -123,6 +125,28 @@ function parseTSV(text: string): ItemInput[] {
   return out;
 }
 
+function parsePriceUpdateTSV(text: string): PriceUpdateRow[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const header = lines[0].split(/\t|,/).map((h) => h.trim());
+  const idx = (k: string) => header.findIndex((h) => h === k);
+  const colCode = idx("料號") >= 0 ? idx("料號") : idx("code");
+  const colCost = idx("標準成本") >= 0 ? idx("標準成本") : idx("standard_cost");
+  const colPrice = idx("建議售價") >= 0 ? idx("建議售價") : idx("suggested_price");
+  const out: PriceUpdateRow[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i].split(/\t|,/).map((c) => c.trim());
+    const code = colCode >= 0 ? cells[colCode] : cells[0];
+    if (!code) continue;
+    out.push({
+      code,
+      standard_cost: colCost >= 0 && cells[colCost] ? Number(cells[colCost]) : undefined,
+      suggested_price: colPrice >= 0 && cells[colPrice] ? Number(cells[colPrice]) : undefined,
+    });
+  }
+  return out;
+}
+
 const blankInput = (uom: string): ItemInput => ({
   code: "",
   name: "",
@@ -200,6 +224,8 @@ export function ItemsBoard({
   // Bulk import
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
+  const [showPriceUpdate, setShowPriceUpdate] = useState(false);
+  const [priceUpdateText, setPriceUpdateText] = useState("");
 
   // Price Book import
   const [showPriceBook, setShowPriceBook] = useState(false);
@@ -385,6 +411,33 @@ export function ItemsBoard({
         });
         setImportText("");
         setShowImport(false);
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  const runPriceUpdate = () => {
+    const parsed = parsePriceUpdateTSV(priceUpdateText);
+    if (!parsed.length) {
+      showBanner({
+        ok: false,
+        msg: "解析失敗：請貼上含表頭的 TSV/CSV（料號 必填，標準成本 / 建議售價 至少填一項）",
+      });
+      return;
+    }
+    startTransition(async () => {
+      const res = await bulkUpdateItemPricesAction(parsed);
+      if (res.ok) {
+        showBanner({
+          ok: true,
+          msg: `✓ 更新完成：成功 ${res.data.updated} 筆 / 略過 ${res.data.skipped} 筆${
+            res.data.errors.length ? `（${res.data.errors.slice(0, 3).join("；")}…）` : ""
+          }`,
+        });
+        setPriceUpdateText("");
+        setShowPriceUpdate(false);
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -678,6 +731,14 @@ export function ItemsBoard({
             className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
           >
             ⬆ 原廠Price Book匯入
+          </button>
+          <button
+            type="button"
+            disabled={!canEdit}
+            onClick={() => setShowPriceUpdate(true)}
+            className="h-[26px] px-2.5 rounded text-[11.5px] bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+          >
+            批次更新價格
           </button>
         </div>
       </div>
@@ -994,6 +1055,55 @@ export function ItemsBoard({
               className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#1A3A5C] text-white disabled:opacity-60"
             >
               {isPending ? "匯入中⋯" : "開始匯入"}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {/* Bulk Price Update Modal */}
+      {showPriceUpdate ? (
+        <Modal title="批次更新價格" onClose={() => setShowPriceUpdate(false)}>
+          <div className={`space-y-3 ${lockedClass}`}>
+            <p className="text-[12px] text-[#5A5955] leading-relaxed">
+              貼上 Excel / Google Sheet 內容（Tab 分隔）或 CSV，第一列須為表頭。支援欄位：
+              <span className="font-mono text-[11.5px] text-[#185FA5]">料號</span>、
+              <span className="font-mono text-[11.5px]">標準成本</span>、
+              <span className="font-mono text-[11.5px]">建議售價</span>。
+              只依料號比對<b>既有品項</b>更新成本／售價兩欄，不新增品項、不動其他欄位；料號不存在會略過並記錄。
+            </p>
+            <textarea
+              value={priceUpdateText}
+              onChange={(e) => setPriceUpdateText(e.target.value)}
+              rows={12}
+              className="w-full border border-[#D5D3CB] rounded p-2 font-mono text-[12px] outline-none focus:border-[#185FA5]"
+              placeholder={`料號\t標準成本\t建議售價\nDUC-NEW-001\t105\t190`}
+            />
+            {priceUpdateText.trim() ? (
+              <p className="text-[11.5px] text-[#9A9890]">
+                解析到約{" "}
+                <b className="text-[#2C2C2A]">
+                  {Math.max(priceUpdateText.trim().split("\n").length - 1, 0)}
+                </b>{" "}
+                筆資料（含表頭列）{isPending ? "，更新中，請勿關閉視窗⋯" : ""}
+              </p>
+            ) : null}
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowPriceUpdate(false)}
+              disabled={isPending}
+              className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] disabled:opacity-60"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={runPriceUpdate}
+              disabled={isPending || !priceUpdateText.trim()}
+              className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#1A3A5C] text-white disabled:opacity-60"
+            >
+              {isPending ? "更新中⋯" : "開始更新"}
             </button>
           </div>
         </Modal>

@@ -157,6 +157,75 @@ export async function bulkImportItemsAction(
   return { ok: true, data: { inserted, skipped, errors: errors.slice(0, 20) } };
 }
 
+export type PriceUpdateRow = {
+  code: string;
+  standard_cost?: number | null;
+  suggested_price?: number | null;
+};
+
+/**
+ * 批次更新價格 — 用料號比對既有品項，只更新 standard_cost / suggested_price 兩欄。
+ * 料號不存在則略過並記錄，不負責新增資料（新增走 bulkImportItemsAction）。
+ */
+export async function bulkUpdateItemPricesAction(
+  rows: PriceUpdateRow[],
+): Promise<ActionResult<{ updated: number; skipped: number; errors: string[] }>> {
+  await requirePermission(PERMISSIONS.ITEM_EDIT);
+  if (!rows.length) return { ok: false, error: "未提供任何資料" };
+
+  const supabase = await createClient();
+  const brand = (await getActiveScope()).brand_id;
+  const errors: string[] = [];
+  let updated = 0;
+  let skipped = 0;
+
+  for (const row of rows) {
+    const code = row.code?.trim().toUpperCase();
+    if (!code) {
+      skipped++;
+      errors.push("跳過：料號為空");
+      continue;
+    }
+    const { data: existing, error: findError } = await supabase
+      .from("items")
+      .select("id")
+      .eq("brand_id", brand)
+      .eq("code", code)
+      .maybeSingle();
+    if (findError) {
+      skipped++;
+      errors.push(`${code}: 查詢失敗 ${findError.message}`);
+      continue;
+    }
+    if (!existing) {
+      skipped++;
+      errors.push(`${code}: 料號不存在，略過`);
+      continue;
+    }
+    const upd: Record<string, number | null> = {};
+    if (row.standard_cost !== undefined) upd.standard_cost = row.standard_cost;
+    if (row.suggested_price !== undefined) upd.suggested_price = row.suggested_price;
+    if (Object.keys(upd).length === 0) {
+      skipped++;
+      errors.push(`${code}: 未提供成本或售價，略過`);
+      continue;
+    }
+    const { error: updError } = await supabase
+      .from("items")
+      .update(upd)
+      .eq("id", existing.id);
+    if (updError) {
+      skipped++;
+      errors.push(`${code}: 更新失敗 ${updError.message}`);
+      continue;
+    }
+    updated++;
+  }
+
+  revalidatePath(PAGE_PATH);
+  return { ok: true, data: { updated, skipped, errors: errors.slice(0, 20) } };
+}
+
 export async function deleteItemAction(
   id: string,
 ): Promise<ActionResult<{ id: string }>> {
