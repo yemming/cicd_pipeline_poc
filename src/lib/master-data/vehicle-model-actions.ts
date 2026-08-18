@@ -194,6 +194,65 @@ export async function deleteVehicleModelAction(
 }
 
 // ============================================================
+// 批次匯入（比照 items 的 TSV 貼上 + 陣列批次寫入模式）
+// ============================================================
+
+const BULK_IMPORT_BATCH_SIZE = 500;
+
+export async function bulkImportVehicleModelsAction(
+  rows: VehicleModelInput[],
+): Promise<ActionResult<{ inserted: number; skipped: number; errors: string[] }>> {
+  await requirePermission(PERMISSIONS.VEHICLE_EDIT);
+  if (!rows.length) return { ok: false, error: "未提供任何資料" };
+
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const errors: string[] = [];
+  let inserted = 0;
+  let skipped = 0;
+
+  const valid = rows.filter((r) => {
+    if (r.series?.trim() && r.model_name?.trim() && r.display_name?.trim()) return true;
+    skipped++;
+    errors.push(`跳過：車系/型號/顯示名稱有缺 (${r.model_name || r.series || "?"})`);
+    return false;
+  });
+
+  for (let i = 0; i < valid.length; i += BULK_IMPORT_BATCH_SIZE) {
+    const batch = valid.slice(i, i + BULK_IMPORT_BATCH_SIZE).map((r) => ({
+      brand_id: scope.brand_id,
+      subsidiary_id: scope.subsidiary_id,
+      ...normalisePayload(r),
+      is_active: r.is_active ?? true,
+    }));
+    const { error } = await supabase.from("vehicle_models").insert(batch);
+    if (!error) {
+      inserted += batch.length;
+      continue;
+    }
+    if (error.code === "23505") {
+      for (const row of batch) {
+        const { error: rowError } = await supabase.from("vehicle_models").insert(row);
+        if (rowError) {
+          skipped++;
+          errors.push(
+            `${row.model_name}: ${rowError.code === "23505" ? "已存在（品牌×車系×型號×起始年份重複）" : rowError.message}`,
+          );
+        } else {
+          inserted++;
+        }
+      }
+    } else {
+      skipped += batch.length;
+      errors.push(`批次寫入失敗（第 ${i + 1}–${i + batch.length} 筆）: ${error.message}`);
+    }
+  }
+
+  revalidatePath(PAGE_PATH);
+  return { ok: true, data: { inserted, skipped, errors: errors.slice(0, 20) } };
+}
+
+// ============================================================
 // GL binding（與 items 同模式）
 // ============================================================
 

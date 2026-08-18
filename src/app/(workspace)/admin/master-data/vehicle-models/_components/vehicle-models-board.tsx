@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   deleteVehicleModelAction,
   setVehicleModelActiveAction,
+  bulkImportVehicleModelsAction,
+  type VehicleModelInput,
 } from "@/lib/master-data/vehicle-model-actions";
 import { DataGrid, type DataGridColumn } from "@/components/data-grid";
 import type { VehicleModelRow } from "@/domain/vehicle-models";
@@ -17,6 +19,36 @@ export type VehicleModelFilters = {
 };
 
 type Banner = { ok: boolean; msg: string } | null;
+
+function parseVehicleModelTSV(text: string): VehicleModelInput[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const header = lines[0].split(/\t|,/).map((h) => h.trim());
+  const idx = (k: string) => header.findIndex((h) => h === k);
+  const colSeries = idx("車系") >= 0 ? idx("車系") : idx("series");
+  const colModel = idx("型號") >= 0 ? idx("型號") : idx("model_name");
+  const colDisplay = idx("顯示名稱") >= 0 ? idx("顯示名稱") : idx("display_name");
+  const colYearStart = idx("起始年份") >= 0 ? idx("起始年份") : idx("year_start");
+  const colYearEnd = idx("結束年份") >= 0 ? idx("結束年份") : idx("year_end");
+  const colCc = idx("排量") >= 0 ? idx("排量") : idx("engine_cc");
+  const out: VehicleModelInput[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i].split(/\t|,/).map((c) => c.trim());
+    const series = colSeries >= 0 ? cells[colSeries] : cells[0];
+    const model_name = colModel >= 0 ? cells[colModel] : cells[1];
+    const display_name = colDisplay >= 0 ? cells[colDisplay] : cells[2];
+    if (!series || !model_name || !display_name) continue;
+    out.push({
+      series,
+      model_name,
+      display_name,
+      year_start: colYearStart >= 0 && cells[colYearStart] ? Number(cells[colYearStart]) : null,
+      year_end: colYearEnd >= 0 && cells[colYearEnd] ? Number(cells[colYearEnd]) : null,
+      engine_cc: colCc >= 0 && cells[colCc] ? Number(cells[colCc]) : null,
+    });
+  }
+  return out;
+}
 
 export function VehicleModelsBoard({
   rows,
@@ -38,6 +70,8 @@ export function VehicleModelsBoard({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [banner, setBanner] = useState<Banner>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState("");
 
   const [fSeries, setFSeries] = useState(filters.series);
   const [fStatus, setFStatus] = useState(filters.status);
@@ -78,6 +112,33 @@ export function VehicleModelsBoard({
       const res = await setVehicleModelActiveAction(row.id, !row.is_active);
       if (res.ok) {
         showBanner({ ok: true, msg: row.is_active ? "✓ 已停用" : "✓ 已啟用" });
+        router.refresh();
+      } else {
+        showBanner({ ok: false, msg: res.error });
+      }
+    });
+  };
+
+  const runImport = () => {
+    const parsed = parseVehicleModelTSV(importText);
+    if (!parsed.length) {
+      showBanner({
+        ok: false,
+        msg: "解析失敗：請貼上含表頭的 TSV/CSV（車系 / 型號 / 顯示名稱 必填）",
+      });
+      return;
+    }
+    startTransition(async () => {
+      const res = await bulkImportVehicleModelsAction(parsed);
+      if (res.ok) {
+        showBanner({
+          ok: true,
+          msg: `✓ 匯入完成：成功 ${res.data.inserted} 筆 / 略過 ${res.data.skipped} 筆${
+            res.data.errors.length ? `（${res.data.errors.slice(0, 3).join("；")}…）` : ""
+          }`,
+        });
+        setImportText("");
+        setShowImport(false);
         router.refresh();
       } else {
         showBanner({ ok: false, msg: res.error });
@@ -352,6 +413,14 @@ export function VehicleModelsBoard({
             </button>
             <button
               type="button"
+              onClick={() => setShowImport(true)}
+              disabled={!canEdit || isPending}
+              className="h-[30px] px-3.5 rounded text-[12.5px] font-medium bg-white border border-[#D5D3CB] text-[#5A5955] hover:border-[#9A9890] disabled:opacity-50"
+            >
+              批次匯入
+            </button>
+            <button
+              type="button"
               onClick={() => router.push("/admin/master-data/vehicle-models/new")}
               disabled={!canEdit || isPending}
               className="h-[30px] px-3 rounded text-[12.5px] font-medium bg-[#0F6E56] text-white hover:bg-[#0a5742] disabled:opacity-50"
@@ -408,6 +477,56 @@ export function VehicleModelsBoard({
         pagination={{ page, pageSize, totalCount, onPageChange: goToPage }}
       />
 
+      {showImport ? (
+        <Modal title="批次匯入車型主檔" onClose={() => setShowImport(false)}>
+          <div className={`space-y-3 ${isPending ? "pointer-events-none opacity-60" : ""}`}>
+            <p className="text-[12px] text-[#5A5955] leading-relaxed">
+              貼上 Excel / Google Sheet 內容（Tab 分隔）或 CSV，第一列須為表頭。支援欄位：
+              <span className="font-mono text-[11.5px] text-[#185FA5]">車系</span>、
+              <span className="font-mono text-[11.5px] text-[#185FA5]">型號</span>、
+              <span className="font-mono text-[11.5px] text-[#185FA5]">顯示名稱</span>、
+              <span className="font-mono text-[11.5px]">起始年份</span>、
+              <span className="font-mono text-[11.5px]">結束年份</span>、
+              <span className="font-mono text-[11.5px]">排量</span>。品牌×車系×型號×起始年份重複會自動略過。
+            </p>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              rows={12}
+              className="w-full border border-[#D5D3CB] rounded p-2 font-mono text-[12px] outline-none focus:border-[#185FA5]"
+              placeholder={`車系\t型號\t顯示名稱\t起始年份\t結束年份\t排量\nIndian\tScout Bobber\tIndian Scout Bobber\t2023\t2025\t1133`}
+            />
+            {importText.trim() ? (
+              <p className="text-[11.5px] text-[#9A9890]">
+                解析到約{" "}
+                <b className="text-[#2C2C2A]">
+                  {Math.max(importText.trim().split("\n").length - 1, 0)}
+                </b>{" "}
+                筆資料（含表頭列）{isPending ? "，大量資料寫入中，請勿關閉視窗⋯" : ""}
+              </p>
+            ) : null}
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowImport(false)}
+              disabled={isPending}
+              className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] disabled:opacity-60"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={runImport}
+              disabled={isPending || !importText.trim()}
+              className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#1A3A5C] text-white disabled:opacity-60"
+            >
+              {isPending ? "匯入中⋯" : "開始匯入"}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
       {banner ? (
         <div
           className={`fixed bottom-6 right-6 px-4 py-2 rounded shadow-lg text-[13px] z-50 ${
@@ -420,5 +539,36 @@ export function VehicleModelsBoard({
         </div>
       ) : null}
     </main>
+  );
+}
+
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-3 border-b border-[#EEECE6] flex items-center">
+          <h2 className="text-[14px] font-semibold text-[#2C2C2A]">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto w-7 h-7 rounded hover:bg-[#F8F7F4] text-[#9A9890] text-[18px] leading-none"
+          >
+            ×
+          </button>
+        </div>
+        <div className="px-5 py-4">{children}</div>
+      </div>
+    </div>
   );
 }
