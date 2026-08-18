@@ -978,16 +978,22 @@ export function ItemsBoard({
               className="w-full border border-[#D5D3CB] rounded p-2 font-mono text-[12px] outline-none focus:border-[#185FA5]"
               placeholder={`料號\t名稱\t品類\t管控\t單位\t標準成本\t建議售價\nDUC-NEW-001\t測試件\t耗材\tC\t個\t100\t180`}
             />
+            {importText.trim() ? (
+              <p className="text-[11.5px] text-[#9A9890]">
+                解析到約 <b className="text-[#2C2C2A]">{Math.max(importText.trim().split("\n").length - 1, 0)}</b> 筆資料（含表頭列）
+                {isPending ? "，大量資料寫入中，請勿關閉視窗⋯" : ""}
+              </p>
+            ) : null}
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setShowImport(false)} className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955]">取消</button>
+            <button type="button" onClick={() => setShowImport(false)} disabled={isPending} className="h-[30px] px-3.5 rounded text-[12.5px] bg-white border border-[#D5D3CB] text-[#5A5955] disabled:opacity-60">取消</button>
             <button
               type="button"
               onClick={runImport}
               disabled={isPending || !importText.trim()}
               className="h-[30px] px-3.5 rounded text-[12.5px] bg-[#1A3A5C] text-white disabled:opacity-60"
             >
-              {isPending ? "匯入中…" : "開始匯入"}
+              {isPending ? "匯入中⋯" : "開始匯入"}
             </button>
           </div>
         </Modal>

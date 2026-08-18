@@ -99,6 +99,8 @@ export async function updateItemAction(
   return { ok: true, data: { id } };
 }
 
+const BULK_IMPORT_BATCH_SIZE = 500;
+
 export async function bulkImportItemsAction(
   rows: ItemInput[],
 ): Promise<ActionResult<{ inserted: number; skipped: number; errors: string[] }>> {
@@ -109,13 +111,16 @@ export async function bulkImportItemsAction(
   const errors: string[] = [];
   let inserted = 0;
   let skipped = 0;
-  for (const r of rows) {
-    if (!r.code?.trim() || !r.name?.trim()) {
-      skipped++;
-      errors.push(`跳過：料號或名稱為空 (${r.code || "?"})`);
-      continue;
-    }
-    const { error } = await supabase.from("items").insert({
+
+  const valid = rows.filter((r) => {
+    if (r.code?.trim() && r.name?.trim()) return true;
+    skipped++;
+    errors.push(`跳過：料號或名稱為空 (${r.code || "?"})`);
+    return false;
+  });
+
+  for (let i = 0; i < valid.length; i += BULK_IMPORT_BATCH_SIZE) {
+    const batch = valid.slice(i, i + BULK_IMPORT_BATCH_SIZE).map((r) => ({
       brand_id: brand,
       code: r.code.trim().toUpperCase(),
       name: r.name.trim(),
@@ -126,12 +131,26 @@ export async function bulkImportItemsAction(
       standard_cost: r.standard_cost ?? null,
       suggested_price: r.suggested_price ?? null,
       is_active: r.is_active ?? true,
-    });
-    if (error) {
-      skipped++;
-      errors.push(`${r.code}: ${error.code === "23505" ? "已存在" : error.message}`);
+    }));
+    // 陣列批次 insert；unique violation（code 重複）整批失敗才逐筆重試找出真正衝突的那幾筆
+    const { error } = await supabase.from("items").insert(batch);
+    if (!error) {
+      inserted += batch.length;
+      continue;
+    }
+    if (error.code === "23505") {
+      for (const row of batch) {
+        const { error: rowError } = await supabase.from("items").insert(row);
+        if (rowError) {
+          skipped++;
+          errors.push(`${row.code}: ${rowError.code === "23505" ? "已存在" : rowError.message}`);
+        } else {
+          inserted++;
+        }
+      }
     } else {
-      inserted++;
+      skipped += batch.length;
+      errors.push(`批次寫入失敗（第 ${i + 1}–${i + batch.length} 筆）: ${error.message}`);
     }
   }
   revalidatePath(PAGE_PATH);
