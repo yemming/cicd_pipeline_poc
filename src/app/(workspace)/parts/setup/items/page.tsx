@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUserAndAdmin } from "@/lib/feedback-admin";
 import { hasPermission } from "@/lib/rbac/policies";
 import { PERMISSIONS } from "@/lib/rbac/permissions";
-import { getItemsListPageData, ITEMS_PAGE_SIZE_DEFAULT, type ItemFilters } from "@/domain/items";
+import { getItemsListPageData, type ItemFilters } from "@/domain/items";
+
+const ITEMS_PAGE_SIZE = 50;
 
 import { ItemsBoard } from "./_components/items-board";
 
@@ -36,7 +38,7 @@ export default async function ItemsPage({
   const autoOpenCreate = sp.new === "1";
   const pageRaw = Number(sp.page);
   const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
-  const pageSize = ITEMS_PAGE_SIZE_DEFAULT;
+  const pageSize = ITEMS_PAGE_SIZE;
   const { rows, suppliers, totalCount, categories, uoms, controlLevels } =
     await getItemsListPageData(filters, { page, pageSize });
   return (

@@ -371,7 +371,9 @@ export interface ItemsListPageData {
   controlLevels: Array<{ code: string; label: string; accent: string | null }>;
 }
 
-export const ITEMS_PAGE_SIZE_DEFAULT = 50;
+// 注意：本檔為 "use server" Server Actions 檔，只能 export async function，
+// 不能 export const/interface 以外的 runtime 值（會讓 Turbopack production build 整檔炸掉）。
+const ITEMS_PAGE_SIZE_DEFAULT = 50;
 
 export async function getItemsListPageData(
   filters: ItemFilters,
