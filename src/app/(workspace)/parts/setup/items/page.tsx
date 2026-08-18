@@ -39,7 +39,7 @@ export default async function ItemsPage({
   const pageRaw = Number(sp.page);
   const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
   const pageSize = ITEMS_PAGE_SIZE;
-  const { rows, suppliers, totalCount, categories, uoms, controlLevels } =
+  const { rows, suppliers, totalCount, page: safePage, categories, uoms, controlLevels } =
     await getItemsListPageData(filters, { page, pageSize });
   return (
     <ItemsBoard
@@ -51,7 +51,7 @@ export default async function ItemsPage({
       uoms={uoms}
       controlLevels={controlLevels}
       filters={filters}
-      page={page}
+      page={safePage}
       pageSize={pageSize}
       autoOpenCreate={autoOpenCreate}
     />

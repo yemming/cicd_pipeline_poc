@@ -366,6 +366,7 @@ export interface ItemsListPageData {
   rows: ItemsBoardRow[];
   suppliers: SupplierOption[];
   totalCount: number;
+  page: number;
   categories: string[];
   uoms: string[];
   controlLevels: Array<{ code: string; label: string; accent: string | null }>;
@@ -383,17 +384,30 @@ export async function getItemsListPageData(
   const brand = (await getActiveScope()).brand_id;
   const page = Math.max(1, options.page ?? 1);
   const pageSize = Math.max(1, options.pageSize ?? ITEMS_PAGE_SIZE_DEFAULT);
-  const from = (page - 1) * pageSize;
+
+  const itemsBaseFilters = "id, code, name, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, image_url, is_active";
+
+  let countQ = supabase.from("items").select("id", { count: "exact", head: true }).eq("brand_id", brand);
+  if (filters.category && filters.category !== "all") countQ = countQ.eq("category", filters.category);
+  if (filters.control && filters.control !== "all") countQ = countQ.eq("control_type", filters.control);
+  if (filters.status === "active") countQ = countQ.eq("is_active", true);
+  if (filters.status === "inactive") countQ = countQ.eq("is_active", false);
+  if (filters.q.trim()) {
+    const t = filters.q.trim().replace(/[%,]/g, "");
+    countQ = countQ.or(`code.ilike.%${t}%,name.ilike.%${t}%`);
+  }
+  const countRes = await countQ;
+  if (countRes.error) throw new Error(`items count: ${countRes.error.message}`);
+  const totalCount = countRes.count ?? 0;
+
+  // range() 若 from 超過實際筆數會丟 416 Requested range not satisfiable，
+  // 所以先用 head-count 夾住合法頁碼範圍，避免使用者手動改 URL page 參數或篩選後筆數變少時整頁 500。
+  const maxPage = totalCount > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1;
+  const safePage = Math.min(page, maxPage);
+  const from = (safePage - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let q = supabase
-    .from("items")
-    .select(
-      "id, code, name, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, image_url, is_active",
-      { count: "exact" },
-    )
-    .eq("brand_id", brand);
-
+  let q = supabase.from("items").select(itemsBaseFilters).eq("brand_id", brand);
   if (filters.category && filters.category !== "all") q = q.eq("category", filters.category);
   if (filters.control && filters.control !== "all") q = q.eq("control_type", filters.control);
   if (filters.status === "active") q = q.eq("is_active", true);
@@ -404,7 +418,9 @@ export async function getItemsListPageData(
   }
 
   const [iRes, sRes, dictRows] = await Promise.all([
-    q.order("code").range(from, to),
+    totalCount > 0
+      ? q.order("code").range(from, to)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
     supabase
       .from("suppliers")
       .select("id, code, name")
@@ -447,7 +463,8 @@ export async function getItemsListPageData(
   return {
     rows,
     suppliers: (sRes.data ?? []) as unknown as SupplierOption[],
-    totalCount: iRes.count ?? 0,
+    totalCount,
+    page: safePage,
     categories,
     uoms,
     controlLevels,
