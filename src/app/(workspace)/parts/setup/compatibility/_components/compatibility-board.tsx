@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -12,6 +12,7 @@ import {
   type CompatInput,
 } from "@/lib/parts-setup/compatibility-actions";
 import {
+  searchItemsForCompatibility,
   type CompatWithModel,
   type SeriesOption,
   type ItemOption,
@@ -79,15 +80,27 @@ export function CompatibilityBoard({
     return Array.from(set).sort();
   }, [models]);
 
+  // 備件 picker：輸入關鍵字 debounce 後才打 server-side 查詢，不整表下載
+  const [pickerResults, setPickerResults] = useState<ItemOption[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  useEffect(() => {
+    if (formMode.kind === "closed") return;
+    const t = setTimeout(() => {
+      setPickerLoading(true);
+      searchItemsForCompatibility(itemQuery)
+        .then(setPickerResults)
+        .finally(() => setPickerLoading(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [itemQuery, formMode.kind]);
+
+  const selectedItem = formDraft.item_id ? itemMap.get(formDraft.item_id) : undefined;
   const filteredItems = useMemo(() => {
-    const q = itemQuery.trim().toLowerCase();
-    if (!q) return items.slice(0, 50);
-    return items
-      .filter((i) =>
-        i.code.toLowerCase().includes(q) || i.name.toLowerCase().includes(q),
-      )
-      .slice(0, 50);
-  }, [items, itemQuery]);
+    if (selectedItem && !pickerResults.some((i) => i.id === selectedItem.id)) {
+      return [selectedItem, ...pickerResults];
+    }
+    return pickerResults;
+  }, [pickerResults, selectedItem]);
 
   const modelsForFormSeries = useMemo(
     () => (formSeries ? models.filter((m) => m.series === formSeries) : []),
@@ -409,7 +422,11 @@ export function CompatibilityBoard({
                 size={8}
                 data-testid="form-item-select"
               >
-                {filteredItems.length === 0 ? (
+                {pickerLoading ? (
+                  <option value="" disabled>
+                    搜尋中⋯
+                  </option>
+                ) : filteredItems.length === 0 ? (
                   <option value="" disabled>
                     （無符合條件的備件）
                   </option>

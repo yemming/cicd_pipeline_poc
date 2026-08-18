@@ -371,14 +371,24 @@ export interface ItemsListPageData {
   controlLevels: Array<{ code: string; label: string; accent: string | null }>;
 }
 
-export async function getItemsListPageData(filters: ItemFilters): Promise<ItemsListPageData> {
+export const ITEMS_PAGE_SIZE_DEFAULT = 50;
+
+export async function getItemsListPageData(
+  filters: ItemFilters,
+  options: { page?: number; pageSize?: number } = {},
+): Promise<ItemsListPageData> {
   const supabase = await createClient();
   const brand = (await getActiveScope()).brand_id;
+  const page = Math.max(1, options.page ?? 1);
+  const pageSize = Math.max(1, options.pageSize ?? ITEMS_PAGE_SIZE_DEFAULT);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
   let q = supabase
     .from("items")
     .select(
       "id, code, name, spec_description, category, control_type, base_uom, standard_cost, suggested_price, warranty_months, shelf_life_months, default_supplier_id, serial_tracking_required, batch_tracking_required, image_url, is_active",
+      { count: "exact" },
     )
     .eq("brand_id", brand);
 
@@ -391,27 +401,29 @@ export async function getItemsListPageData(filters: ItemFilters): Promise<ItemsL
     q = q.or(`code.ilike.%${t}%,name.ilike.%${t}%`);
   }
 
-  const [iRes, sRes, compatRes, totalRes, dictRows] = await Promise.all([
-    q.order("code").limit(500),
+  const [iRes, sRes, dictRows] = await Promise.all([
+    q.order("code").range(from, to),
     supabase
       .from("suppliers")
       .select("id, code, name")
       .eq("brand_id", brand)
       .eq("is_active", true)
       .order("code"),
-    supabase
-      .from("item_vehicle_compatibility")
-      .select("item_id")
-      .eq("brand_id", brand),
-    supabase
-      .from("items")
-      .select("id", { count: "exact", head: true })
-      .eq("brand_id", brand),
     listDictionaries(),
   ]);
 
   if (iRes.error) throw new Error(`items: ${iRes.error.message}`);
   if (sRes.error) throw new Error(`suppliers: ${sRes.error.message}`);
+
+  // fit_count 只對「本頁顯示的 item_id」查 compat 表，不整表撈取
+  const pageItemIds = (iRes.data ?? []).map((r) => (r as { id: string }).id);
+  const compatRes = pageItemIds.length
+    ? await supabase
+        .from("item_vehicle_compatibility")
+        .select("item_id")
+        .eq("brand_id", brand)
+        .in("item_id", pageItemIds)
+    : { data: [] as Array<{ item_id: string }>, error: null };
   if (compatRes.error) throw new Error(`compat: ${compatRes.error.message}`);
 
   const fitMap = new Map<string, number>();
@@ -433,7 +445,7 @@ export async function getItemsListPageData(filters: ItemFilters): Promise<ItemsL
   return {
     rows,
     suppliers: (sRes.data ?? []) as unknown as SupplierOption[],
-    totalCount: totalRes.count ?? 0,
+    totalCount: iRes.count ?? 0,
     categories,
     uoms,
     controlLevels,

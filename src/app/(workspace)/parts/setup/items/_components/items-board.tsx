@@ -162,6 +162,8 @@ export function ItemsBoard({
   uoms,
   controlLevels,
   filters,
+  page,
+  pageSize,
   autoOpenCreate = false,
 }: {
   rows: ItemRow[];
@@ -172,6 +174,8 @@ export function ItemsBoard({
   uoms: string[];
   controlLevels: ControlLevelOption[];
   filters: ItemFilters;
+  page: number;
+  pageSize: number;
   autoOpenCreate?: boolean;
 }) {
   const router = useRouter();
@@ -232,16 +236,19 @@ export function ItemsBoard({
   };
 
   // Filter handlers
-  const submitFilters = () => {
+  const buildHref = (overridePage?: number) => {
     const params = new URLSearchParams();
     if (fCategory !== "all") params.set("category", fCategory);
     if (fControl !== "all") params.set("control", fControl);
     if (fStatus !== "all") params.set("status", fStatus);
     if (fQ.trim()) params.set("q", fQ.trim());
+    if (overridePage && overridePage > 1) params.set("page", String(overridePage));
     const qs = params.toString();
-    startTransition(() => {
-      router.push(qs ? `/parts/setup/items?${qs}` : "/parts/setup/items");
-    });
+    return qs ? `/parts/setup/items?${qs}` : "/parts/setup/items";
+  };
+  const submitFilters = () => {
+    // 改 filter 一律重置到第 1 頁（總筆數變了，停在原頁碼可能會是空頁）
+    startTransition(() => router.push(buildHref()));
   };
   const resetFilters = () => {
     setFCategory("all");
@@ -249,6 +256,9 @@ export function ItemsBoard({
     setFStatus("all");
     setFQ("");
     startTransition(() => router.push("/parts/setup/items"));
+  };
+  const goToPage = (next: number) => {
+    startTransition(() => router.push(buildHref(next)));
   };
 
   // CRUD handlers — single submit, branches on mode
@@ -686,6 +696,12 @@ export function ItemsBoard({
             : "尚無料號資料"
         }
         rowActionsWidth={180}
+        pagination={{
+          page,
+          pageSize,
+          totalCount,
+          onPageChange: goToPage,
+        }}
         rowActions={(r) => (
           <>
             <button

@@ -102,15 +102,32 @@ export async function listCompatBySeries(series: string): Promise<CompatWithMode
     .filter((c) => c.series === series);
 }
 
-export async function listItemsForCompatibility(): Promise<ItemOption[]> {
+/** 只撈指定 id 的備件（用來把目前頁面已顯示的 compat rows 解析成 code/name），不整表撈取 */
+export async function listItemsByIds(ids: string[]): Promise<ItemOption[]> {
+  if (!ids.length) return [];
   const supabase = await createClient();
   const scope = await getActiveScope();
   const { data, error } = await supabase
     .from("items")
     .select("id, code, name, image_url")
     .eq("brand_id", scope.brand_id)
-    .eq("is_active", true)
-    .order("code");
+    .in("id", ids);
+  if (error) throw error;
+  return (data ?? []) as ItemOption[];
+}
+
+/** 「新增適配」picker 用：輸入關鍵字才觸發 server-side 查詢，不整表下載後前端篩選 */
+export async function searchItemsForCompatibility(query: string): Promise<ItemOption[]> {
+  const supabase = await createClient();
+  const scope = await getActiveScope();
+  const t = query.trim().replace(/[%,]/g, "");
+  let q = supabase
+    .from("items")
+    .select("id, code, name, image_url")
+    .eq("brand_id", scope.brand_id)
+    .eq("is_active", true);
+  if (t) q = q.or(`code.ilike.%${t}%,name.ilike.%${t}%`);
+  const { data, error } = await q.order("code").limit(50);
   if (error) throw error;
   return (data ?? []) as ItemOption[];
 }
@@ -229,11 +246,11 @@ export async function getCompatibilityPageData(filter: {
 }> {
   const seriesList = await listSeries();
   const activeSeries = filter.series ?? seriesList[0]?.series ?? null;
-  const [rows, canEdit, items, models] = await Promise.all([
+  const [rows, canEdit, models] = await Promise.all([
     activeSeries ? listCompatBySeries(activeSeries) : Promise.resolve([] as CompatWithModel[]),
     hasPermission(PERMISSIONS.ITEM_EDIT),
-    listItemsForCompatibility(),
     listAllModels(),
   ]);
+  const items = await listItemsByIds([...new Set(rows.map((r) => r.item_id))]);
   return { seriesList, activeSeries, rows, canEdit, items, models };
 }
