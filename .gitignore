@@ -108,3 +108,6 @@ scripts/_nav-verify-indian.mjs
 scripts/verify-c25-push-line.mjs
 scripts/verify-c25-retest-line.mjs
 scripts/_*.mjs
+
+# 海德生 ETL 中介輸出（含真實員工 PII + 真實成本/售價，勿入庫；script 本身可以）
+scripts/etl-haidesheng/out/
