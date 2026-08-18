@@ -25,6 +25,7 @@ export default async function Page() {
         brands={options.brands}
         stores={options.stores}
         allRoles={options.roles}
+        users={options.users}
       />
     </main>
   );

@@ -342,11 +342,12 @@ export interface ScopeOptions {
   brands: Array<{ id: string; name: string }>;
   stores: Array<{ id: string; name: string; brand_id: string; group_id: string | null }>;
   roles: Array<{ id: string; name: string; description: string | null }>;
+  users: Array<{ id: string; email: string }>;
 }
 
 export async function loadScopeOptionsForAdmin(): Promise<ScopeOptions> {
   const sb = createServiceClient();
-  const [{ data: groups }, { data: brands }, { data: stores }, { data: roles }] =
+  const [{ data: groups }, { data: brands }, { data: stores }, { data: roles }, { data: usersRes }] =
     await Promise.all([
       sb.from("groups").select("id, name").order("id"),
       sb.from("brands").select("id, name").order("id"),
@@ -357,11 +358,17 @@ export async function loadScopeOptionsForAdmin(): Promise<ScopeOptions> {
         .order("brand_id")
         .order("name"),
       sb.from("roles").select("id, name, description").order("id"),
+      sb.auth.admin.listUsers({ perPage: 200 }),
     ]);
+  const users = (usersRes?.users ?? [])
+    .filter((u) => !!u.email)
+    .map((u) => ({ id: u.id, email: u.email as string }))
+    .sort((a, b) => a.email.localeCompare(b.email));
   return {
     groups: groups ?? [],
     brands: brands ?? [],
     stores: stores ?? [],
     roles: roles ?? [],
+    users,
   };
 }

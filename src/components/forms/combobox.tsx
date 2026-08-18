@@ -27,6 +27,7 @@ export function Combobox({
   error,
   className = "",
   maxResults = 50,
+  onChange,
 }: {
   name: string;
   label?: string;
@@ -39,6 +40,8 @@ export function Combobox({
   error?: string;
   className?: string;
   maxResults?: number;
+  /** 選到 / 清除時額外通知外部 controlled state（不需要走 form submit 讀值時用） */
+  onChange?: (value: string) => void;
 }) {
   const id = useId();
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -118,6 +121,7 @@ export function Combobox({
               setSelected(null);
               setQuery("");
               setOpen(true);
+              onChange?.("");
             }}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6B778C] hover:text-[#172B4D] text-[16px] leading-none"
             aria-label="清除"
@@ -138,6 +142,7 @@ export function Combobox({
                   onClick={() => {
                     setSelected(o);
                     setOpen(false);
+                    onChange?.(o.value);
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-[#F4F5F7] focus:bg-[#F4F5F7] outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >

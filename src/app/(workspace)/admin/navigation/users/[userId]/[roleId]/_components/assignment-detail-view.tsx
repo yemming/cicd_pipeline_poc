@@ -10,11 +10,13 @@ import {
   revokeUserRoleScopeAction,
 } from "@/lib/rbac/admin-actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Combobox } from "@/components/forms/combobox";
 
 type Brand = { id: string; name: string };
 type Group = { id: string; name: string };
 type Store = { id: string; name: string; brand_id: string; group_id: string | null };
 type Role = { id: string; name: string; description: string | null };
+type UserOption = { id: string; email: string };
 
 type ScopeItem = {
   id: string; // user_assignments.id
@@ -35,6 +37,7 @@ export function AssignmentDetailView({
   brands,
   stores,
   allRoles,
+  users = [],
 }: {
   /** "view" = 既有 (user,role)；"create" = /admin/navigation/users/new */
   mode: "view" | "create";
@@ -50,6 +53,8 @@ export function AssignmentDetailView({
   brands: Brand[];
   stores: Store[];
   allRoles: Role[];
+  /** create mode 用：搜尋姓名/Email 選使用者。view mode 不需要傳 */
+  users?: UserOption[];
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"view" | "edit" | "create">(initialMode);
@@ -320,12 +325,13 @@ export function AssignmentDetailView({
 
           {mode === "create" ? (
             <div className="shrink-0 w-[260px] border-2 border-dashed border-[#D5D3CB] rounded-lg bg-[#F8F7F4] p-3 flex flex-col gap-2">
-              <Field label="User ID (UUID)" required>
-                <input
-                  value={formUserId}
-                  onChange={(e) => setFormUserId(e.target.value)}
-                  placeholder="auth.users.id"
-                  className="h-[28px] border border-[#D5D3CB] rounded px-2 text-[11.5px] focus:border-[#185FA5] w-full font-mono"
+              <Field label="使用者" required>
+                <Combobox
+                  name="user_id"
+                  options={users.map((u) => ({ value: u.id, label: u.email }))}
+                  defaultValue={formUserId || undefined}
+                  onChange={(v) => setFormUserId(v)}
+                  placeholder="搜尋姓名或 Email…"
                 />
               </Field>
               <Field label="Role">
