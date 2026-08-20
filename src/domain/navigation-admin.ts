@@ -342,12 +342,12 @@ export interface ScopeOptions {
   brands: Array<{ id: string; name: string }>;
   stores: Array<{ id: string; name: string; brand_id: string; group_id: string | null }>;
   roles: Array<{ id: string; name: string; description: string | null }>;
-  users: Array<{ id: string; email: string }>;
+  users: Array<{ id: string; email: string; name: string | null }>;
 }
 
 export async function loadScopeOptionsForAdmin(): Promise<ScopeOptions> {
   const sb = createServiceClient();
-  const [{ data: groups }, { data: brands }, { data: stores }, { data: roles }, { data: usersRes }] =
+  const [{ data: groups }, { data: brands }, { data: stores }, { data: roles }, { data: usersRes }, { data: employeeRows }] =
     await Promise.all([
       sb.from("groups").select("id, name").order("id"),
       sb.from("brands").select("id, name").order("id"),
@@ -359,10 +359,16 @@ export async function loadScopeOptionsForAdmin(): Promise<ScopeOptions> {
         .order("name"),
       sb.from("roles").select("id, name, description").order("id"),
       sb.auth.admin.listUsers({ perPage: 200 }),
+      sb.from("employees").select("user_id, name").not("user_id", "is", null),
     ]);
+  // 姓名搜尋補洞：join employees.name（比照 employees.email 對應 Auth user 的既有邏輯）
+  const nameByUserId = new Map<string, string>();
+  for (const e of employeeRows ?? []) {
+    if (e.user_id && e.name) nameByUserId.set(e.user_id, e.name);
+  }
   const users = (usersRes?.users ?? [])
     .filter((u) => !!u.email)
-    .map((u) => ({ id: u.id, email: u.email as string }))
+    .map((u) => ({ id: u.id, email: u.email as string, name: nameByUserId.get(u.id) ?? null }))
     .sort((a, b) => a.email.localeCompare(b.email));
   return {
     groups: groups ?? [],

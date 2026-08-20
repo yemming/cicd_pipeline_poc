@@ -16,7 +16,7 @@ type Brand = { id: string; name: string };
 type Group = { id: string; name: string };
 type Store = { id: string; name: string; brand_id: string; group_id: string | null };
 type Role = { id: string; name: string; description: string | null };
-type UserOption = { id: string; email: string };
+type UserOption = { id: string; email: string; name: string | null };
 
 type ScopeItem = {
   id: string; // user_assignments.id
@@ -328,7 +328,10 @@ export function AssignmentDetailView({
               <Field label="使用者" required>
                 <Combobox
                   name="user_id"
-                  options={users.map((u) => ({ value: u.id, label: u.email }))}
+                  options={users.map((u) => ({
+                    value: u.id,
+                    label: u.name ? `${u.name}（${u.email}）` : u.email,
+                  }))}
                   defaultValue={formUserId || undefined}
                   onChange={(v) => setFormUserId(v)}
                   placeholder="搜尋姓名或 Email…"
