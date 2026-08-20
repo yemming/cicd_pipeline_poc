@@ -175,4 +175,88 @@ name，不只海德生 18 人）。是否要 backfill／要 backfill 到什麼�
 
 ---
 
-*DealerOS 開發紀錄　｜　2026-08-20*
+## 九、Rev01 追加（2026-08-20 追加）— 新任務②台北服務廠 + 三項確認事項
+
+> 對應文件：《DealerOS David權限升級 + UI瑕疵修復 Rev01》。原文件任務①（app_admin）③（Ducati橫幅）就是本檔第一、二節已完成的內容，這輪不重做，只重新確認現況仍成立；本輪唯一新落地的是任務②（台北服務廠），另外回覆三項確認事項。
+
+### 9.1 現況重新確認（無新動作）
+
+- `app_admins` 仍有 `david@hdsmoto.com`（SQL 直查確認）。
+- `brand_appearance` 表對 `indian-hds`/`lambretta-hds`/`polaris-hds` 仍然沒有 row——這是**預期狀態**，程式修好後（commit `1f3acaa`）沒 row 就正確 fallback，不需要補資料。
+
+### 9.2 任務②：建立「台北服務廠」門店 + 補 3 人 user_assignments
+
+**做法**：`organizations` 新增一筆（掛 `indian-hds`，parent 是海德生總代理根節點 `HDS`），比照現有服務廠（如 `MJ-JG-SVC`）的 `level=2 / store_type=direct` 慣例；`store_brands` 連結 `indian-hds`。3 人的 `user_assignments` 用 `scope_type='store'` 指到這個新店 id（比 `scope_type='brand'` 更精確，語意上就是「指派到這個門店」，且 `user_has_brand()` 對 `scope_type='store'` 本來就有支援——查 org 表對到品牌）。
+
+```sql
+INSERT INTO organizations (brand_id, group_id, subsidiary_id, parent_id, type, level, store_type, code, name, is_active, external_source)
+VALUES ('indian-hds','default','eff8140d-39d9-4bab-a3bd-50f56a349e9f','264fa269-645d-4947-908c-4c2ddba9a74d','store',2,'direct','TP-SVC','台北服務廠',true,'manual');
+
+INSERT INTO store_brands (store_id, brand_id) SELECT id,'indian-hds' FROM organizations WHERE code='TP-SVC';
+
+INSERT INTO user_assignments (user_id, role_id, scope_type, scope_id, notes)
+SELECT e.user_id,'viewer','store', o.id::text, '台北服務廠 建立後補指派'
+FROM employees e CROSS JOIN (SELECT id FROM organizations WHERE code='TP-SVC') o
+WHERE e.name IN ('黃緯','楊珽勛','徐翊凱') AND e.external_source='haidesheng_etl_20260810';
+```
+
+migration：`create_taipei_service_center_and_assign_3_staff`。**只掛 `indian-hds` 單一品牌**（依原文件「品牌可先掛indian-hds」的預設選項，沒有採用「兩品牌都掛」——避免無謂建立重複 org row；若 David 後續確認這 3 人也要看到 Lambretta/Polaris 資料，之後再補一筆 `store_brands` + 對應 `user_assignments` 即可，成本很低）。
+
+**驗證**（正式站，黃緯帳號 `willy30914@gmail.com` 實際登入，密碼因驗證需要已重設，僅本文告知）：登入後**不需要手動切品牌**，直接落在 Indian 視角（跟 David 的 admin 帳號需要手動切换不同——技術原因是黃緯只有這一個品牌的授權，系統自動選了唯一可用的品牌，不是碰巧）：
+
+![黃緯登入後直接落在 Indian 海德生視角，非 Ducati](screenshots/task2-01-huangwei-dashboard-taipei-svc-scope.png)
+
+（腳本裡的字串比對 `bodyText.includes('DUCATI')` 回傳 `true`，但那是 Next RSC 隱藏 payload 灌水的已知假陽性——見專案記憶「Playwright殘留驗證用DOM可見性」；螢幕截圖本身沒有任何肉眼可見的 Ducati 文字，橫幅正確顯示「INDIAN MOTORCYCLE（海德生總代理）」，以截圖為準。）
+
+驗證腳本：`scripts/etl-haidesheng/verify-taipei-svc-task2.mjs`、`reset-huangwei-password.mjs`。
+
+### 9.3 確認事項回覆（第六節）：登入歡迎詞沒有 David 姓名
+
+跟本檔第三節查明的結論一樣，沒有新發現：不是資料沒填、是 `employees.name`（已填「劉育維」）沒有同步到歡迎詞實際讀取的 `profiles.name`，全站 39 筆 `profiles` 有 29 筆空值，是既有系統性缺口。要不要 backfill、backfill 到什麼範圍，需要 Ming 決定（見第三節兩個方向），這輪沒有新增動作。
+
+### 9.4 確認事項回覆（第七節）：David 能否自行補正兩個資料缺口
+
+**先講重要更正**：原文件問句的前提「David 能不能在 `/parts/setup/items` 找到這批零件（品牌欄位空白的那些）」跟實際情況不符——**這 1,716 筆零件根本沒有被匯入，`items` 表裡不存在任何 `brand_id` 是空值的殘留 row**（`select count(*) from items where brand_id is null or brand_id=''` 結果是 0）。它們是被匯入腳本整批跳過（`import-parts.mjs` 的 `skippedNoBrand` 分支），不是「已經進系統、只是欄位沒填」。
+
+1. **1,716 筆品牌不明零件**：David 找不到，因為它們不在資料庫裡，不是編輯權限問題。額外查證：就算真的匯入了一個佔位品牌，系統目前也**沒有任何 UI 能把既有品項的品牌改到別的品牌**——`updateItemAction`／匯入／批次更新價格全部把 `brand_id` 綁死在「執行當下 session 的 active scope」自動代入，從來沒把 `brand_id` 當成一個可編輯欄位暴露過（單筆編輯、批次匯入、批次改價三支功能都查過原始碼，逐一確認）。可行的自助路徑是：David 拿到每筆零件正確品牌的對照後，**用現有的批次匯入功能，切到正確品牌的視角，重新貼一次那 1,716 筆**（這是「重新匯入」，不是「回頭改欄位」）。
+2. **J200 車型**：分兩段答，一半可行一半不行——
+   - ✅ **新增 J200 車型定義本身可行**：David 可以直接用你們這輪新做的車型批次匯入功能自己建。
+   - ❌ **零件↔車型的 749 筆相容性關聯，目前無法由 David 自助重建**：查了 `/parts/setup/compatibility`（唯一有這個批次建立功能 `bulkApplyCompatibilityAction` 入口的頁面）的程式碼，這個頁面的品項清單來源綁死在「目前這個車系已經有的關聯」（`listCompatBySeries`），J200 是全新車系、目前 0 筆關聯，頁面上不會出現任何品項可勾選——沒有「從全部 9 千多筆品項目錄搜尋/篩選出 749 筆再批次建立」這種入口。這不是這次任務故意留的坑，是既有功能原本就只服務「編輯已存在的矩陣」，不服務「從零批次建立」。要嘛工程師端跑一次比照 G350/X300 的比對腳本（成本很低，30 分鐘內），要嘛把這個 UI 擴充成真正的批次建立工具（另一個任務，估時較高，需要 Ming 決定要不要做）。
+
+### 9.5 確認事項回覆（第八節）：未來人車料資料維護模式
+
+這題本質是流程/資源分配決策，不是我方能代 Ming/Russell 拍板的事，只把現有技術事實攤開：
+- **零件（新增品項/改價）、車型（新增車型）：現在就已經是 David 能自助完成的狀態**——這兩支批次匯入/批次改價功能本輪已經做出來，且不需要工程師介入即可操作（權限上只要有 `ITEM_EDIT`／對應品牌授權即可，David 升 admin 後兩者都有）。
+- **零件-車型相容性關聯（新車型上市後要連結既有零件）：目前仍需要工程師手動介入**，見 9.4 第 2 點——除非另開任務把 §9.4 提到的 UI 擴充掉。
+- **新進員工建帳號：目前沒有自助按鈕**，見本檔第六節已提的短期方案（半天工作量，加一個「建立登入帳號」按鈕+一次性密碼彈窗）；中期等 SMTP 廠商定案再換成邀請信。
+
+三項裡兩項（零件/車型）已經是「David 自助」模式，一項（相容性關聯）跟一項（員工建帳號）還需要工程師端補功能才能做到完全自助。是否要為了讓這兩項也自助化而排這兩個開發任務，等 Ming/Russell 決定。
+
+---
+
+## 十、Rev01 階段性回報
+
+```
+已完成任務編號：①②③（①③為稍早已完成項目，見第一、二節；②為本輪新增）
+對應：
+  任務① david@hdsmoto.com app_admin：已確認仍生效（無新變更）
+  任務② 台北服務廠門店 + 3人指派：migration create_taipei_service_center_and_assign_3_staff
+  任務③ Ducati 橫幅：已確認修復仍生效（無新變更，commit 1f3acaa）
+
+驗收截圖：見 9.2
+
+第六節確認結果：與稍早報告第三節一致，profiles.name 未同步是既有系統性缺口，待 Ming 決定 backfill 方向
+
+第七節確認結果：
+  1,716筆零件——原文件前提有誤，這批資料根本沒進系統（非欄位空白），且 UI 不支援
+  「回頭改既有品項的品牌」，唯一路徑是拿到品牌對照表後重新匯入
+  J200——新增車型定義 David 可自助；749筆相容性關聯目前仍需工程師手動跑腳本，
+  既有 UI 的批次建立功能設計上只服務「編輯已存在矩陣」，沒有「全目錄搜尋批次建立」入口
+
+第八節確認結果：零件/車型新增已是 David 自助模式；相容性關聯建立與員工建帳號兩項
+仍需工程師/另開任務才能自助化，是否排入排程待 Ming/Russell 決定
+```
+
+---
+
+*DealerOS 開發紀錄　｜　2026-08-20（Rev01 追加）*
