@@ -4,7 +4,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { DEFAULT_SIDEBAR_THEME_KEY } from "./sidebar-themes";
 import { DEFAULT_BRAND_PALETTE_KEY, isValidHex } from "./brand-palettes";
 import { DEFAULT_SHELL_LAYOUT_KEY, type ShellLayoutKey } from "./shell-layouts";
-import { getCurrentBrand } from "./current";
+import { brands } from "./registry";
+import type { BrandKey } from "./types";
 
 export type BrandAppearance = {
   brand_id: string;
@@ -36,7 +37,7 @@ export const loadBrandAppearance = cache(async (brandKey: string): Promise<Brand
   if (data) {
     return {
       brand_id: data.brand_id,
-      dashboard_tagline: (data.dashboard_tagline ?? "").trim() || defaultTagline(),
+      dashboard_tagline: (data.dashboard_tagline ?? "").trim() || defaultTagline(brandKey),
       footer_badge_url: data.footer_badge_url ?? null,
       footer_badge_path: data.footer_badge_path ?? null,
       sidebar_theme: data.sidebar_theme || DEFAULT_SIDEBAR_THEME_KEY,
@@ -50,7 +51,7 @@ export const loadBrandAppearance = cache(async (brandKey: string): Promise<Brand
 
   return {
     brand_id: brandKey,
-    dashboard_tagline: defaultTagline(),
+    dashboard_tagline: defaultTagline(brandKey),
     footer_badge_url: null,
     footer_badge_path: null,
     sidebar_theme: DEFAULT_SIDEBAR_THEME_KEY,
@@ -62,8 +63,11 @@ export const loadBrandAppearance = cache(async (brandKey: string): Promise<Brand
   };
 });
 
-function defaultTagline(): string {
-  const brand = getCurrentBrand();
+function defaultTagline(brandKey: string): string {
+  // 用實際傳入的 brandKey（來自 getActiveScope() 當前作用中的品牌）查表產字，
+  // 不能沿用舊的 getCurrentBrand()（讀 env BRAND_KEY，跟當前登入者的品牌完全無關，
+  // 是 8/16、8/20 兩輪「Indian 視角卻顯示 Ducati 橫幅」bug 的根因）。
+  const brand = brands[brandKey as BrandKey] ?? brands.ducati;
   return `${brand.displayName.toUpperCase()} OFFICIAL DEALER`;
 }
 
