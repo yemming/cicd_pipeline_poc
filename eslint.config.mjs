@@ -12,6 +12,17 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Non-app code: one-off scripts, e2e tests, docs/design artifacts.
+    "scripts/**",
+    "tests/**",
+    "docs/**",
+    // Root-level throwaway verify/dump scripts (round*-verify.mjs etc.).
+    // Tooling config files at the root stay linted.
+    "*.mjs",
+    "*.js",
+    "*.cjs",
+    "!eslint.config.mjs",
+    "!postcss.config.mjs",
   ]),
 ]);
 

@@ -53,6 +53,8 @@ export function HistoryItem({
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const horizontalLock = useRef<boolean>(false);
+  // 手指是否正按在卡片上（控制 transition；不能在 render 讀 ref，改用 state）
+  const [isTouching, setIsTouching] = useState(false);
 
   const summary =
     (item.ai_suggestions?.customer_summary?.value as string)?.slice(0, 50) ||
@@ -77,6 +79,7 @@ export function HistoryItem({
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
     horizontalLock.current = false;
+    setIsTouching(true);
   }
 
   function onTouchMove(e: React.TouchEvent) {
@@ -92,6 +95,7 @@ export function HistoryItem({
         // 垂直為主、放棄這次拖
         touchStartX.current = null;
         touchStartY.current = null;
+        setIsTouching(false);
         return;
       } else {
         return;
@@ -119,6 +123,7 @@ export function HistoryItem({
     touchStartX.current = null;
     touchStartY.current = null;
     horizontalLock.current = false;
+    setIsTouching(false);
   }
 
   return (
@@ -153,7 +158,7 @@ export function HistoryItem({
         }}
         style={{
           transform: `translateX(${offsetX}px)`,
-          transition: touchStartX.current === null ? "transform 0.25s ease" : "none",
+          transition: isTouching ? "none" : "transform 0.25s ease",
         }}
         className="relative bg-white border border-[#EEECE6] rounded-lg px-3 py-2.5 active:bg-[#F4F2FA] cursor-pointer touch-pan-y"
       >

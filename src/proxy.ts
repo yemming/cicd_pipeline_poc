@@ -32,7 +32,8 @@ export async function proxy(request: NextRequest) {
   // - /api/csi/respond：對應的 submit API（用 token 寫回 survey_responses）
   // - /api/deploy/released：CI/CD 部署成功通知 endpoint（自己用 DEPLOY_NOTIFY_TOKEN 守門，外部 script 觸發、無 cookie）
   // /api/cron/*：排程任務 endpoint，使用 CRON_TOKEN Bearer 守門，不走 cookie session
-  const publicPaths = ['/login', '/api/auth', '/api/holidays', '/api/weather', '/api/line', '/api/admin/notifications', '/api/deploy', '/stitch', '/parts-stitch', '/csi/surveys/respond', '/api/csi/respond', '/api/cron']
+  // /api/version：回傳部署的 commit SHA / build 時間（無敏感資訊），給 CI/CD 驗證用
+  const publicPaths = ['/login', '/api/auth', '/api/holidays', '/api/weather', '/api/line', '/api/admin/notifications', '/api/deploy', '/stitch', '/parts-stitch', '/csi/surveys/respond', '/api/csi/respond', '/api/cron', '/api/version']
   const isPublic =
     request.nextUrl.pathname === '/' ||
     publicPaths.some(p => request.nextUrl.pathname.startsWith(p))

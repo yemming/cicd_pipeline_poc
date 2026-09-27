@@ -13,11 +13,19 @@ name: CI
 # ── 什麼時候觸發？─────────────────────────────────────────
 # 1. push 到 main：main 被動到時跑一次（通常是 merge 之後）
 # 2. pull_request：任何開到 main 的 PR，一有新 commit 就跑
+# 只改文件（docs/ 或 *.md）不觸發 CI
 on:
   push:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
   pull_request:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
+
+# 同一個 branch / PR 有新 push 時，取消還在跑的舊 run
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ── Job 1：Lint（程式碼風格檢查）─────────────────────────

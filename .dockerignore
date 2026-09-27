@@ -8,3 +8,23 @@ node_modules
 playwright-report
 test-results
 tests/e2e/.auth
+
+# ── 不進 Docker build context（runtime / build 都沒用到）──
+.github
+scripts
+tests
+material
+blob-report
+playwright/.cache
+playwright.config.ts
+# docs/ 大多是規格文件與截圖（~130MB），但 src/domain/navigation.ts 的 downloadNavHtml()
+# 支援 `file:docs/...` 在 runtime 從專案根目錄讀規格 HTML，所以保留 docs 內的 .html。
+docs/**
+!docs/*.html
+!docs/**/*.html
+# 根目錄一次性的 verify / dump 腳本（round*-verify.mjs 等），保留工具用的 config
+*.mjs
+*.js
+*.cjs
+!postcss.config.mjs
+!eslint.config.mjs

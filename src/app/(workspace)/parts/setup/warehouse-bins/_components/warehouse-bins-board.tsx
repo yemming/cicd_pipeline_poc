@@ -71,6 +71,12 @@ function binStatus(bin: BinRow): BinStatus {
 
 type Banner = { ok: boolean; msg: string } | null;
 
+type SkuFetchResult = { key: string; lines: BinSkuLine[] | null; error: string | null };
+
+function skuKey(binId: string, nonce: number): string {
+  return `${binId}#${nonce}`;
+}
+
 type ModalState =
   | { kind: "none" }
   | { kind: "zone-create" }
@@ -114,41 +120,47 @@ export function WarehouseBinsBoard({
   const [modal, setModal] = useState<ModalState>({ kind: "none" });
   const [banner, setBanner] = useState<Banner>(null);
   const [selectedBinId, setSelectedBinId] = useState<string | null>(null);
-  const [skuLines, setSkuLines] = useState<BinSkuLine[] | null>(null);
-  const [skuLoading, setSkuLoading] = useState(false);
-  const [skuError, setSkuError] = useState<string | null>(null);
+  // 同一個 bin 需要重撈 SKU 時 +1（例如編輯庫位後）
+  const [skuReloadNonce, setSkuReloadNonce] = useState(0);
+  // 最近一次撈 SKU 的結果；key 對應 `${binId}#${nonce}`，對不上就視為載入中
+  const [skuFetch, setSkuFetch] = useState<SkuFetchResult | null>(null);
 
-  // 切倉庫時清掉選取
-  useEffect(() => {
+  // 切倉庫時清掉選取（render 期間依 prop 變化調整 state，取代 effect 內 setState）
+  const activeWarehouseId = activeWarehouse?.id ?? null;
+  const [prevWarehouseId, setPrevWarehouseId] = useState(activeWarehouseId);
+  if (prevWarehouseId !== activeWarehouseId) {
+    setPrevWarehouseId(activeWarehouseId);
     setSelectedBinId(null);
-    setSkuLines(null);
-    setSkuError(null);
-  }, [activeWarehouse?.id]);
+  }
 
-  // 點 bin → 撈 SKU 列表
+  // SKU 列表狀態由「目前選取的 bin + nonce」與最近一次撈取結果推導
+  const skuRequestKey = selectedBinId ? skuKey(selectedBinId, skuReloadNonce) : null;
+  const skuResult = skuRequestKey !== null && skuFetch?.key === skuRequestKey ? skuFetch : null;
+  const skuLoading = skuRequestKey !== null && skuResult === null;
+  const skuLines = skuResult?.lines ?? null;
+  const skuError = skuResult?.error ?? null;
+
+  // 點 bin → 撈 SKU 列表（只在非同步 callback 內 setState）
   useEffect(() => {
-    if (!selectedBinId) {
-      setSkuLines(null);
-      setSkuError(null);
-      return;
-    }
+    if (!selectedBinId) return;
+    const key = skuKey(selectedBinId, skuReloadNonce);
     let cancelled = false;
-    setSkuLoading(true);
-    setSkuError(null);
     getBinSkuLines(selectedBinId)
       .then((rows) => {
-        if (!cancelled) setSkuLines(rows);
+        if (!cancelled) setSkuFetch({ key, lines: rows, error: null });
       })
       .catch((e: unknown) => {
-        if (!cancelled) setSkuError(e instanceof Error ? e.message : "撈庫位 SKU 失敗");
-      })
-      .finally(() => {
-        if (!cancelled) setSkuLoading(false);
+        if (!cancelled)
+          setSkuFetch({
+            key,
+            lines: null,
+            error: e instanceof Error ? e.message : "撈庫位 SKU 失敗",
+          });
       });
     return () => {
       cancelled = true;
     };
-  }, [selectedBinId]);
+  }, [selectedBinId, skuReloadNonce]);
 
   // 把所有 bin 攤平方便 lookup（給 detail panel 用）
   const flatBins = zones.flatMap((z) => z.bins);
@@ -743,9 +755,7 @@ export function WarehouseBinsBoard({
               setModal({ kind: "none" });
               if (wasSelected) {
                 // 觸發 useEffect 重新 fetch
-                const cur = selectedBinId;
-                setSelectedBinId(null);
-                setTimeout(() => setSelectedBinId(cur), 0);
+                setSkuReloadNonce((n) => n + 1);
               }
               refresh();
             }

@@ -796,7 +796,7 @@ export function CustomerBaseBoard({
                 {
                   key: "funnel",
                   label: "銷售漏斗看板",
-                  href: "/sales/showroom/orders",
+                  href: "/sales/funnel",
                   icon: "filter_alt",
                 },
                 {

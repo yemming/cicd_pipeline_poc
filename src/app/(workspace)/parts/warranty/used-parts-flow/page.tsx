@@ -5,24 +5,25 @@ import { UsedPartsFlowBoard } from "./_components/used-parts-flow-board";
 
 export const dynamic = "force-dynamic";
 
-export default async function UsedPartsFlowPage() {
+// 資料撈取與 render 分開：try/catch 只包資料撈取，JSX 在 try/catch 之外建立
+// （render 期間的錯誤 try/catch 本來就接不到，交給 error boundary）。
+async function loadPageData() {
   try {
-    const [{ config, items, canEdit }, lifecycle] = await Promise.all([
+    const [flow, lifecycle] = await Promise.all([
       getUsedPartsFlowPageData(),
       getUsedPartsLifecyclePageData(),
     ]);
-    return (
-      <UsedPartsFlowBoard
-        config={config}
-        items={items}
-        rules={lifecycle.rules}
-        flowData={lifecycle.flowData}
-        kpis={lifecycle.kpis}
-        canEdit={canEdit && lifecycle.canEdit}
-      />
-    );
+    return { ok: true as const, flow, lifecycle };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "未知錯誤";
+    return { ok: false as const, msg };
+  }
+}
+
+export default async function UsedPartsFlowPage() {
+  const result = await loadPageData();
+
+  if (!result.ok) {
     return (
       <main className="px-6 py-5">
         <header className="flex items-center gap-2.5 mb-3">
@@ -31,9 +32,24 @@ export default async function UsedPartsFlowPage() {
           </h1>
         </header>
         <div className="px-4 py-3 rounded bg-[#FDECEA] border border-[#F5AEAD] text-[12.5px] text-[#CC0000]">
-          載入失敗：{msg}
+          載入失敗：{result.msg}
         </div>
       </main>
     );
   }
+
+  const {
+    flow: { config, items, canEdit },
+    lifecycle,
+  } = result;
+  return (
+    <UsedPartsFlowBoard
+      config={config}
+      items={items}
+      rules={lifecycle.rules}
+      flowData={lifecycle.flowData}
+      kpis={lifecycle.kpis}
+      canEdit={canEdit && lifecycle.canEdit}
+    />
+  );
 }
