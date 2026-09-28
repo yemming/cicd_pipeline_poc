@@ -28,7 +28,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── Job 1：Lint（程式碼風格檢查）─────────────────────────
+  # ── Job 1：Secret Scanning（防止新 secret 進 repo）────────
+  # 用 gitleaks CLI 只掃本次 push/PR 的 commits（不掃 git 歷史）
+  # 歷史裡有舊 key 沒關係，但新 push 的 commits 必須乾淨
+  secret-scan:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 原始碼
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 拉完整 history，gitleaks 才能用 --log-opts 掃 commit range
+
+      - name: 安裝 Gitleaks CLI
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          tar -xzf gitleaks_8.21.2_linux_x64.tar.gz
+          sudo mv gitleaks /usr/local/bin/
+          gitleaks version
+
+      - name: 掃描本次 commit（PR 用 base..head，push 用 before..after）
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR：掃 base branch 到 PR head 之間的 commits
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            echo "🔍 Scanning PR commits: $BASE..$HEAD"
+            gitleaks detect --log-opts="$BASE..$HEAD" --verbose --no-git
+          else
+            # Push to main：掃這次 push 的 commits（before..after）
+            BEFORE="${{ github.event.before }}"
+            AFTER="${{ github.event.after }}"
+            echo "🔍 Scanning push commits: $BEFORE..$AFTER"
+            # 若 before 是 0000000（新 branch 第一次 push），改掃最近 1 commit
+            if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              gitleaks detect --log-opts="-1" --verbose --no-git
+            else
+              gitleaks detect --log-opts="$BEFORE..$AFTER" --verbose --no-git
+            fi
+          fi
+
+  # ── Job 2：Lint（程式碼風格檢查）─────────────────────────
   lint:
     name: ESLint
     runs-on: ubuntu-latest
@@ -48,8 +88,8 @@ jobs:
       - name: 跑 ESLint
         run: npm run lint
 
-  # ── Job 2：Build（確認 Next.js 能編得出 production bundle）──
-  # 跟 lint 平行跑（不相依，兩台 VM 同時開工，快一倍）
+  # ── Job 3：Build（確認 Next.js 能編得出 production bundle）──
+  # 跟 secret-scan / lint 平行跑（不相依，三台 VM 同時開工）
   build:
     name: Next.js Build
     runs-on: ubuntu-latest

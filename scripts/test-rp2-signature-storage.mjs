@@ -16,10 +16,16 @@ const EMAIL = "yemming.yu@gmail.com";
 const PASS = "yemming.yu@gmail.com";
 const BRAND = "indian";
 
-const supabase = createClient(
-  "https://bykvtcptbirpxyqkfwfl.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5a3Z0Y3B0YmlycHh5cWtmd2ZsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTc5MTYyMSwiZXhwIjoyMDkxMzY3NjIxfQ.QgtpBpj7dLXxV0fn_NetuPlam0iA_Co7apDsPyhnM8k"
-);
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_KEY) {
+  console.error("❌ Missing required env vars: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+  console.error("   Run: node --env-file=.env.local scripts/test-rp2-signature-storage.mjs");
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
 async function waitReady(page) {
   await page.waitForLoadState("networkidle");

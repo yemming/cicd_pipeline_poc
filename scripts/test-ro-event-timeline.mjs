@@ -15,8 +15,15 @@ import { createClient } from "@supabase/supabase-js";
 const BASE = "http://localhost:3100";
 const EMAIL = "yemming.yu@gmail.com";
 const PWD = "yemming.yu@gmail.com";
-const SUPABASE_URL = "https://bykvtcptbirpxyqkfwfl.supabase.co";
-const SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5a3Z0Y3B0YmlycHh5cWtmd2ZsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTc5MTYyMSwiZXhwIjoyMDkxMzY3NjIxfQ.QgtpBpj7dLXxV0fn_NetuPlam0iA_Co7apDsPyhnM8k";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error("❌ Missing required env vars: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+  console.error("   Run: node --env-file=.env.local scripts/test-ro-event-timeline.mjs");
+  process.exit(1);
+}
 
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
