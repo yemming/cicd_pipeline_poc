@@ -1,0 +1,8 @@
+# Gitleaks false positives whitelist
+# Format: <file>:<rule-id>:<line> or fingerprint from gitleaks output
+
+# README.md: dummy hex values (cafebabe/deadbeef are well-known placeholders)
+README.md:sidekiq-secret:42
+
+# round25-verify.mjs: test entity key, not an API secret
+round25-verify.mjs:generic-api-key:97
