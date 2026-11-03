@@ -2,8 +2,8 @@
 # 改用 Dockerfile 的唯一理由：修 B-07 季報 PDF。
 # @sparticuz/chromium 解出 /tmp/chromium 後啟動需要一串系統共享庫（libnss3 等），
 # Zeabur 預設 zbpack 的 Node runtime image 沒有這些庫 → puppeteer.launch 失敗回 500。
-# 單階段下 Zeabur 會自動把 dashboard 的環境變數（含 NEXT_PUBLIC_* 與 server secret）
-# 注入到 build 與 runtime，行為與原 zbpack 一致，故本檔不寫死任何 env。
+# Railway 的 Docker build 必須明確宣告 ARG 才能接收平台變數。
+# 只將前端公開設定提供給 build；server secret 保留在 runtime。
 FROM node:20-bookworm-slim
 
 WORKDIR /app
@@ -24,7 +24,13 @@ RUN npm ci
 # 原始碼 + build
 COPY . .
 ENV NODE_OPTIONS=--max-old-space-size=4096
-RUN npm run build
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_BRAND_KEY
+ARG NEXT_PUBLIC_APP_URL
+RUN test -n "$NEXT_PUBLIC_SUPABASE_URL" \
+    && test -n "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+    && npm run build
 
 ENV NODE_ENV=production
 

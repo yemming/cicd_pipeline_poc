@@ -17,6 +17,7 @@ function resolveCommit(): string {
   const candidates = [
     process.env.APP_COMMIT_SHA,
     process.env.GIT_COMMIT_SHA,
+    process.env.RAILWAY_GIT_COMMIT_SHA,
     process.env.ZEABUR_GIT_COMMIT_SHA,
     process.env.GITHUB_SHA,
     process.env.VERCEL_GIT_COMMIT_SHA,
